@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
@@ -31,6 +32,9 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 	if err != nil {
 		return HarnessTaskResult{}, err
 	}
+	if err := waitForScriptedCartographerScenario(ctx, input); err != nil {
+		return HarnessTaskResult{}, err
+	}
 	ids := scriptedCartographerPatchIDs(input)
 	patches := scriptedCartographerPatches(request, input, ids)
 	output, err := json.Marshal(map[string]any{
@@ -50,6 +54,20 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 			ThreadRef:   request.ThreadRef,
 		},
 	}, nil
+}
+
+func waitForScriptedCartographerScenario(ctx context.Context, input scriptedCartographerInput) error {
+	if scriptedCartographerStringRef(input.SourceRefs, "workflowNodeId") != "phase8_running" {
+		return nil
+	}
+	timer := time.NewTimer(750 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 type scriptedCartographerInput struct {
@@ -211,6 +229,7 @@ func scriptedCartographerPatches(request HarnessTaskRequest, input scriptedCarto
 }
 
 func scriptedCartographerPatch(request HarnessTaskRequest, input scriptedCartographerInput, patchID string, operation string, summary string, payload map[string]any) map[string]any {
+	confidence, reviewRequired := scriptedCartographerPatchReview(input)
 	return map[string]any{
 		"patchId":       patchID,
 		"operation":     operation,
@@ -218,7 +237,7 @@ func scriptedCartographerPatch(request HarnessTaskRequest, input scriptedCartogr
 		"sourceRefs":    input.SourceRefs,
 		"causationId":   "scripted-cartographer-request",
 		"correlationId": "scripted-cartographer-response",
-		"confidence":    0.91,
+		"confidence":    confidence,
 		"publicSummary": summary,
 		"evidenceRefs":  input.EvidenceRefs,
 		"modelInfo": map[string]any{
@@ -226,9 +245,16 @@ func scriptedCartographerPatch(request HarnessTaskRequest, input scriptedCartogr
 			"model":      request.StructuredTask.Model,
 			"responseId": "scripted-cartographer-response",
 		},
-		"reviewRequired": false,
+		"reviewRequired": reviewRequired,
 		"payload":        payload,
 	}
+}
+
+func scriptedCartographerPatchReview(input scriptedCartographerInput) (float64, bool) {
+	if scriptedCartographerStringRef(input.SourceRefs, "workflowNodeId") == "phase8_pending_review" {
+		return 0.61, true
+	}
+	return 0.91, false
 }
 
 func scriptedCartographerEmptyPayload() map[string]any {

@@ -1,7 +1,8 @@
 /* global console */
 
+import { mkdir, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -31,6 +32,8 @@ import { createWorkflowProjectionFixture } from "./workflow-projection-smoke-hel
 import {
   captureWorkflowGraphFitContactSheet,
   dispatchRecordedWorkflowGraphMouseDrag,
+  dispatchRecordedWorkflowGraphMouseClick,
+  dispatchRecordedWorkflowGraphMouseMove,
   dispatchRecordedWorkflowGraphWheel,
   dispatchRecordedWorkflowGraphWheelBurst,
   getWorkflowGraphDebugSnapshot,
@@ -60,7 +63,7 @@ const options = parseGraphRecordingArgs(process.argv.slice(2));
 
 if (options.help) {
   console.log(
-    `Usage: node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --scenario <baseline|active|large|small-trackpad> [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>]`,
+    `Usage: node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --scenario <baseline|active|large|small-trackpad> [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>] [--write-report]`,
   );
   process.exit(0);
 }
@@ -78,8 +81,14 @@ try {
     options.scenario === "large"
       ? await runLargeScenarios()
       : [await runScenario({ artifactDir: artifactRoot, scenario: options.scenario })];
+  const phase8Gate = phase8PerformanceGateReport({ artifactRoot, summaries });
+  await writeJson(join(artifactRoot, "phase8-performance-gate.json"), phase8Gate);
+  if (options.writeReport) {
+    await writePhase8PerformanceReport(phase8Gate);
+  }
   await writeJson(join(artifactRoot, "summary.json"), {
     artifactRoot,
+    phase8Gate: join(artifactRoot, "phase8-performance-gate.json"),
     scenarios: summaries,
     status: "passed",
   });
@@ -177,6 +186,13 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario, syntheticScen
       false,
     );
     assertPhase0DebugSnapshot(final, { nodeCount, scenario });
+    const phase8Gate = assertPhase8PerformanceGuardrails({
+      artifacts,
+      final,
+      initial,
+      scenario,
+      syntheticScene,
+    });
     await assertNoRendererConsoleErrors(artifactDir);
     await captureScreenshot(context.client, join(artifactDir, "final.png"));
     const summary = {
@@ -191,6 +207,7 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario, syntheticScen
       hitTesting,
       initial: summarizeSnapshot(initial),
       nodeCount: final.graph.nodeCount,
+      phase8Gate,
       scenario,
       status: "passed",
       syntheticScene,
@@ -237,11 +254,109 @@ async function prepareScenarioAfterLaunch({ context, fixture, scenario }) {
 }
 
 async function exerciseScenarioPanZoom({ client, inputSamples, scenario, surfaceId }) {
+  await exerciseHoverSelectionAndNodeDrag(client, surfaceId, inputSamples);
   if (scenario === "small-trackpad") {
     await exerciseSmallTrackpadPanZoom(client, surfaceId, inputSamples);
     return;
   }
   await exercisePanZoom(client, surfaceId, inputSamples);
+}
+
+async function exerciseHoverSelectionAndNodeDrag(client, surfaceId, inputSamples) {
+  const snapshot = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  const target = hitTestTargetNode(snapshot);
+  if (!target) {
+    throw new Error(
+      `workflow graph interaction target missing before phase 8 drag: ${JSON.stringify({
+        materializedNodeCount: snapshot.render.materializedNodeCount,
+        nodeCount: snapshot.graph.nodeCount,
+        visibleMaterializedNodeCount: snapshot.render.lastVisibleMaterializedNodeCount,
+      })}`,
+    );
+  }
+  await dispatchRecordedWorkflowGraphMouseMove(
+    client,
+    surfaceId,
+    { x: target.point.x, y: target.point.y },
+    inputSamples,
+  );
+  await delay(32);
+  const dragTarget = nodeDragTargetPoint(target.point, snapshot.canvas);
+  await dispatchRecordedWorkflowGraphMouseDrag(
+    client,
+    surfaceId,
+    {
+      downKind: "node-drag-down",
+      from: target.point,
+      holdMs: 0,
+      moveKind: "node-drag",
+      startKind: "node-drag-hover",
+      steps: 8,
+      to: dragTarget,
+      upKind: "node-drag-up",
+    },
+    inputSamples,
+  );
+  await delay(64);
+  const dragged = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  if (dragged.render.nodeDragUpdateCount <= snapshot.render.nodeDragUpdateCount) {
+    throw new Error(
+      `workflow graph node drag counter did not advance: target=${JSON.stringify(
+        target,
+      )} before=${snapshot.render.nodeDragUpdateCount} after=${dragged.render.nodeDragUpdateCount}`,
+    );
+  }
+  const cleared = await clearWorkflowGraphSelection(client, surfaceId);
+  const selectionTarget = hitTestTargetNode(cleared);
+  if (!selectionTarget) {
+    throw new Error("workflow graph selection target missing after recorded drag cleanup");
+  }
+  await dispatchRecordedWorkflowGraphMouseClick(
+    client,
+    surfaceId,
+    { x: selectionTarget.point.x, y: selectionTarget.point.y },
+    inputSamples,
+  );
+  await delay(64);
+  const selected = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  if (!selected.interaction.selectedNodeIds.includes(selectionTarget.nodeId)) {
+    throw new Error(
+      `workflow graph node selection did not apply after recorded click: target=${JSON.stringify(
+        selectionTarget,
+      )} selected=${JSON.stringify(selected.interaction.selectedNodeIds)}`,
+    );
+  }
+  await clearWorkflowGraphSelection(client, surfaceId);
+}
+
+async function clearWorkflowGraphSelection(client, surfaceId) {
+  await client.driver("dispatchDocumentEscape");
+  const value = await waitForState(
+    client,
+    driverCallExpression("workflowGraphDebugSnapshotReady", { includeVisual: false, surfaceId }),
+    (candidate) =>
+      candidate.ready &&
+      candidate.snapshot.canvas.left >= 0 &&
+      candidate.snapshot.interaction.selectedNodeIds.length === 0,
+    scenarioTimeoutMs,
+  );
+  return value.snapshot;
+}
+
+function nodeDragTargetPoint(point, canvas) {
+  const preferred = { x: point.x - 56, y: point.y - 36 };
+  const clamped = clampCanvasPoint(preferred, canvas, 24);
+  if (pointDistance(point, clamped) >= 24) {
+    return clamped;
+  }
+  return clampCanvasPoint({ x: point.x + 56, y: point.y + 36 }, canvas, 24);
+}
+
+function clampCanvasPoint(point, canvas, margin) {
+  return {
+    x: Math.max(margin, Math.min(canvas.clientWidth - margin, point.x)),
+    y: Math.max(margin, Math.min(canvas.clientHeight - margin, point.y)),
+  };
 }
 
 async function exercisePanZoom(client, surfaceId, inputSamples) {
@@ -315,10 +430,7 @@ async function exercisePanZoom(client, surfaceId, inputSamples) {
 
 async function exerciseSmallTrackpadPanZoom(client, surfaceId, inputSamples) {
   const snapshot = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
-  const center = {
-    x: Math.floor(snapshot.canvas.clientWidth / 2),
-    y: Math.floor(snapshot.canvas.clientHeight / 2),
-  };
+  const center = await visibleWorkflowGraphCanvasPoint(client, surfaceId);
   await dispatchRecordedWorkflowGraphWheelBurst(
     client,
     surfaceId,
@@ -342,6 +454,90 @@ async function exerciseSmallTrackpadPanZoom(client, surfaceId, inputSamples) {
     inputSamples,
   );
   await delay(180);
+  await ensureSmallTrackpadWheelCounters({
+    before: snapshot,
+    center,
+    client,
+    inputSamples,
+    surfaceId,
+  });
+}
+
+async function ensureSmallTrackpadWheelCounters({
+  before,
+  center,
+  client,
+  inputSamples,
+  surfaceId,
+}) {
+  const afterBurst = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  if (wheelPanZoomCountersAdvanced(before, afterBurst)) {
+    return;
+  }
+  await dispatchRecordedWorkflowGraphWheel(
+    client,
+    surfaceId,
+    {
+      deltaX: 160,
+      deltaY: 90,
+      x: center.x,
+      y: center.y,
+    },
+    inputSamples,
+  );
+  await dispatchRecordedWorkflowGraphWheel(
+    client,
+    surfaceId,
+    {
+      deltaY: -180,
+      modifiers: 2,
+      x: center.x,
+      y: center.y,
+    },
+    inputSamples,
+  );
+  await delay(180);
+}
+
+async function visibleWorkflowGraphCanvasPoint(client, surfaceId) {
+  const rect = await client.driver("workflowGraphCanvasRect", { surfaceId });
+  const viewport = await client.evaluate(
+    "({ width: window.innerWidth, height: window.innerHeight })",
+  );
+  return canvasPointForPagePoint(rect, visiblePagePointForRect(rect, viewport));
+}
+
+function visiblePagePointForRect(rect, viewport) {
+  const margin = 24;
+  const left = Math.max(margin, rect.left + margin);
+  const right = Math.min(viewport.width - margin, rect.left + rect.width - margin);
+  const top = Math.max(margin, rect.top + margin);
+  const bottom = Math.min(viewport.height - margin, rect.top + rect.height - margin);
+  if (right < left || bottom < top) {
+    throw new Error(
+      `workflow graph canvas has no visible interaction point: rect=${JSON.stringify(
+        rect,
+      )} viewport=${JSON.stringify(viewport)}`,
+    );
+  }
+  return {
+    x: Math.round((left + right) / 2),
+    y: Math.round((top + bottom) / 2),
+  };
+}
+
+function canvasPointForPagePoint(rect, pagePoint) {
+  return {
+    x: Math.round((pagePoint.x - rect.left) * (rect.clientWidth / rect.width)),
+    y: Math.round((pagePoint.y - rect.top) * (rect.clientHeight / rect.height)),
+  };
+}
+
+function wheelPanZoomCountersAdvanced(before, after) {
+  return (
+    after.render.wheelPanUpdateCount > before.render.wheelPanUpdateCount &&
+    after.render.wheelZoomUpdateCount > before.render.wheelZoomUpdateCount
+  );
 }
 
 function trackpadPanEvents() {
@@ -708,6 +904,7 @@ function assertFiniteRenderCounters(snapshot) {
     "materializedLabelCount",
     "materializedNodeCount",
     "materializedPortCount",
+    "nodeDragUpdateCount",
     "visibleLabelCount",
     "sceneWindowSize",
     "spatialIndexQueryCount",
@@ -734,6 +931,9 @@ function assertPanZoomCounters(snapshot, { scenario }) {
   }
   if (snapshot.render.wheelInputEventCount <= 0 || snapshot.render.wheelInputGestureCount <= 0) {
     throw new Error(`wheel input counters did not advance: ${JSON.stringify(snapshot.render)}`);
+  }
+  if (snapshot.render.nodeDragUpdateCount <= 0) {
+    throw new Error(`node drag counter did not advance: ${JSON.stringify(snapshot.render)}`);
   }
 }
 
@@ -792,6 +992,355 @@ function assertTimingSampleRing(snapshot) {
   }
 }
 
+function assertPhase8PerformanceGuardrails({
+  artifacts,
+  final,
+  initial,
+  scenario,
+  syntheticScene,
+}) {
+  const gate = phase8PerformanceScenarioGate({
+    diagnostics: artifacts.metrics,
+    final,
+    initial,
+    scenario,
+    syntheticScene,
+  });
+  const failures = gate.checks
+    .filter((check) => check.severity === "hard" && check.status !== "pass")
+    .map((check) => `${check.id}: ${check.summary}`);
+  if (failures.length > 0) {
+    throw new Error(`phase 8 performance guardrails failed: ${failures.join("; ")}`);
+  }
+  return gate;
+}
+
+function phase8PerformanceScenarioGate({ diagnostics, final, initial, scenario, syntheticScene }) {
+  const context = phase8PerformanceGateContext({
+    diagnostics,
+    final,
+    initial,
+    scenario,
+  });
+  return {
+    checks: phase8PerformanceChecks(context),
+    inputCountsByKind: context.inputCounts,
+    inputEventCount: context.inputEventCount,
+    renderDeltas: context.renderDeltas,
+    scenario,
+    syntheticScene,
+  };
+}
+
+function phase8PerformanceGateContext({ diagnostics, final, initial, scenario }) {
+  const renderDeltas = phase8InteractionRenderDeltas(diagnostics, initial, final);
+  const inputMetrics = phase8InputMetrics(diagnostics);
+  const labelMetrics = phase8LabelMetrics(final, inputMetrics.panWheelEventCount);
+  const renderMetrics = phase8RenderMetrics(
+    diagnostics,
+    final,
+    renderDeltas,
+    inputMetrics.nodeDragMoveEvents,
+    scenario,
+  );
+  return {
+    diagnostics,
+    final,
+    renderDeltas,
+    scenario,
+    ...inputMetrics,
+    ...labelMetrics,
+    ...renderMetrics,
+  };
+}
+
+function phase8InteractionRenderDeltas(diagnostics, initial, final) {
+  return diagnostics?.interactionRenderDeltas ?? renderCounterDeltas(initial.render, final.render);
+}
+
+function phase8InputMetrics(diagnostics) {
+  const inputCounts = phase8InputCounts(diagnostics);
+  return {
+    inputCounts,
+    inputCountsByKind: inputCounts,
+    inputEventCount: diagnostics?.inputEventCount ?? 0,
+    nodeDragMoveEvents: phase8InputKindCount(inputCounts, "node-drag"),
+    panWheelEventCount: phase8PanWheelEventCount(inputCounts),
+  };
+}
+
+function phase8InputCounts(diagnostics) {
+  return diagnostics?.inputCountsByKind ?? {};
+}
+
+function phase8InputKindCount(inputCounts, kind) {
+  return inputCounts[kind] ?? 0;
+}
+
+function phase8PanWheelEventCount(inputCounts) {
+  return (
+    phase8InputKindCount(inputCounts, "pointer-pan") +
+    phase8InputKindCount(inputCounts, "wheel") +
+    phase8InputKindCount(inputCounts, "wheel-burst")
+  );
+}
+
+function phase8LabelMetrics(final, panWheelEventCount) {
+  const graphNodeCount = Number(final.graph.nodeCount ?? 0);
+  return {
+    fullGraphLabelSyncBudget: phase8FullGraphLabelSyncBudget(graphNodeCount, panWheelEventCount),
+    fullGraphLabelSyncIsMaterial: graphNodeCount >= 100,
+    graphNodeCount,
+    materializedLabelCount: Math.max(1, Number(final.render.materializedLabelCount ?? 0)),
+  };
+}
+
+function phase8FullGraphLabelSyncBudget(graphNodeCount, panWheelEventCount) {
+  return Math.max(1, panWheelEventCount) * Math.max(1, graphNodeCount) * 0.25;
+}
+
+function phase8RenderMetrics(diagnostics, final, renderDeltas, nodeDragMoveEvents, scenario) {
+  return {
+    coalescedStaticGlowBudget: phase8StaticGlowBudget(renderDeltas, nodeDragMoveEvents),
+    displayObjectBudget: phase8DisplayObjectBudget(scenario),
+    labelSyncDelta: Number(renderDeltas.labelSyncCount ?? 0),
+    materializedNodeBudget: phase8MaterializedNodeBudget(final),
+    nodeDragDelta: Number(renderDeltas.nodeDragUpdateCount ?? 0),
+    staticGlowRedrawCount: phase8StaticGlowRedrawCount(diagnostics),
+  };
+}
+
+function phase8StaticGlowBudget(renderDeltas, nodeDragMoveEvents) {
+  return Number(renderDeltas.cameraDependentSyncFrameCount ?? 0) + nodeDragMoveEvents + 6;
+}
+
+function phase8StaticGlowRedrawCount(diagnostics) {
+  return diagnostics?.timingBucketDeltas?.["static-glow-redraw"]?.count ?? 0;
+}
+
+function phase8MaterializedNodeBudget(final) {
+  return Math.max(
+    96,
+    Math.ceil(Number(final.render.lastVisibleMaterializedNodeCount ?? 0) * 3 + 64),
+  );
+}
+
+function phase8DisplayObjectBudget(scenario) {
+  return scenario === "large" ? 2500 : 3000;
+}
+
+function phase8PerformanceChecks(context) {
+  return [
+    phase8NodeDragCheck(context),
+    phase8LabelSyncCheck(context),
+    phase8StaticGlowCheck(context),
+    phase8MaterializedNodeCountCheck(context),
+    phase8DisplayObjectCountCheck(context),
+    phase8FrameBudgetCheck(context),
+    phase8LongTaskCheck(context),
+  ];
+}
+
+function phase8NodeDragCheck({ nodeDragDelta }) {
+  return hardCheck({
+    actual: nodeDragDelta,
+    id: "node-drag-recorded",
+    pass: nodeDragDelta > 0,
+    summary: `nodeDragUpdateCount advanced by ${nodeDragDelta}`,
+  });
+}
+
+function phase8LabelSyncCheck(context) {
+  const check = context.fullGraphLabelSyncIsMaterial ? hardCheck : reportOnlyCheck;
+  return check({
+    actual: context.labelSyncDelta,
+    budget: context.fullGraphLabelSyncBudget,
+    id: "no-full-graph-label-sync-per-pan-wheel-event",
+    pass:
+      context.panWheelEventCount === 0 || context.labelSyncDelta < context.fullGraphLabelSyncBudget,
+    summary: `labelSyncDelta=${context.labelSyncDelta}, panWheelEventCount=${context.panWheelEventCount}, graphNodeCount=${context.graphNodeCount}, materializedLabelCount=${context.materializedLabelCount}`,
+  });
+}
+
+function phase8StaticGlowCheck(context) {
+  return hardCheck({
+    actual: context.staticGlowRedrawCount,
+    budget: context.coalescedStaticGlowBudget,
+    id: "static-glow-not-redrawn-per-pan-wheel-event",
+    pass: context.staticGlowRedrawCount <= context.coalescedStaticGlowBudget,
+    summary: `staticGlowRedrawCount=${context.staticGlowRedrawCount}, cameraDependentSyncFrameDelta=${context.renderDeltas.cameraDependentSyncFrameCount}, nodeDragMoveEvents=${context.nodeDragMoveEvents}`,
+  });
+}
+
+function phase8MaterializedNodeCountCheck({ final, materializedNodeBudget }) {
+  return hardCheck({
+    actual: final.render.materializedNodeCount,
+    budget: materializedNodeBudget,
+    id: "materialized-node-count-scales-with-visible-nodes",
+    pass: Number(final.render.materializedNodeCount ?? 0) <= materializedNodeBudget,
+    summary: `materializedNodeCount=${final.render.materializedNodeCount}, visibleMaterializedNodeCount=${final.render.lastVisibleMaterializedNodeCount}`,
+  });
+}
+
+function phase8DisplayObjectCountCheck({ displayObjectBudget, final }) {
+  return hardCheck({
+    actual: final.render.totalDisplayObjectCount,
+    budget: displayObjectBudget,
+    id: "display-object-count-budget",
+    pass: Number(final.render.totalDisplayObjectCount ?? 0) <= displayObjectBudget,
+    summary: `totalDisplayObjectCount=${final.render.totalDisplayObjectCount}, materializedNodeCount=${final.render.materializedNodeCount}`,
+  });
+}
+
+function phase8FrameBudgetCheck({ final, scenario }) {
+  return reportOnlyCheck({
+    actual: final.render.p95FrameMs,
+    budget: 24,
+    id: "normal-scene-p95-pan-zoom-frame-ms",
+    pass: scenario === "large" || Number(final.render.p95FrameMs ?? 0) <= 24,
+    summary: `p95FrameMs=${final.render.p95FrameMs}; noisy threshold remains report-only`,
+  });
+}
+
+function phase8LongTaskCheck({ diagnostics }) {
+  const maxLongTaskMs = diagnostics?.maxLongTaskMs ?? 0;
+  return reportOnlyCheck({
+    actual: maxLongTaskMs,
+    budget: 100,
+    id: "no-long-task-over-100ms",
+    pass: Number(maxLongTaskMs) <= 100,
+    summary: `maxLongTaskMs=${maxLongTaskMs}; browser long-task observer remains report-only`,
+  });
+}
+
+function hardCheck({ actual, budget = null, id, pass, summary }) {
+  return { actual, budget, id, severity: "hard", status: pass ? "pass" : "fail", summary };
+}
+
+function reportOnlyCheck({ actual, budget, id, pass, summary }) {
+  return {
+    actual,
+    budget,
+    id,
+    severity: "report-only",
+    status: pass ? "pass" : "report",
+    summary,
+  };
+}
+
+function renderCounterDeltas(initialRender, finalRender) {
+  const counters = [
+    "cameraDependentSyncFrameCount",
+    "cameraMovingSyncFrameCount",
+    "cameraSettleLabelSyncCount",
+    "cameraSettleRestoreFrameCount",
+    "cameraSettledSyncFrameCount",
+    "cameraUpdateCount",
+    "frameCount",
+    "labelSyncCount",
+    "nodeDragUpdateCount",
+    "pointerPanUpdateCount",
+    "spatialIndexQueryCount",
+    "wheelInputEventCount",
+    "wheelInputGestureCount",
+    "wheelPanUpdateCount",
+    "wheelZoomUpdateCount",
+  ];
+  return Object.fromEntries(
+    counters.map((counter) => [
+      counter,
+      Number(finalRender[counter] ?? 0) - Number(initialRender[counter] ?? 0),
+    ]),
+  );
+}
+
+function phase8PerformanceGateReport({ artifactRoot, summaries }) {
+  return {
+    artifactRoot,
+    generatedAt: new Date().toISOString(),
+    scenarios: summaries.map((summary) => ({
+      artifactDir: summary.artifactDir,
+      checks: summary.phase8Gate.checks,
+      inputCountsByKind: summary.phase8Gate.inputCountsByKind,
+      inputEventCount: summary.phase8Gate.inputEventCount,
+      nodeCount: summary.nodeCount,
+      render: summary.final.render,
+      scenario: summary.scenario,
+      syntheticScene: summary.syntheticScene,
+    })),
+    status: summaries.every((summary) =>
+      summary.phase8Gate.checks.every(
+        (check) => check.severity !== "hard" || check.status === "pass",
+      ),
+    )
+      ? "passed"
+      : "failed",
+  };
+}
+
+async function writePhase8PerformanceReport(report) {
+  const reportPath = join(
+    repoRoot,
+    "docs",
+    "reports",
+    "performance",
+    "workspace-graph-phase-8-performance-gate.md",
+  );
+  await mkdir(dirname(reportPath), { recursive: true });
+  await writeFile(reportPath, phase8PerformanceReportMarkdown(report));
+}
+
+function phase8PerformanceReportMarkdown(report) {
+  const rows = report.scenarios
+    .map((scenario) => {
+      const hardFailures = scenario.checks.filter(
+        (check) => check.severity === "hard" && check.status !== "pass",
+      ).length;
+      const reportOnlyFindings = scenario.checks.filter(
+        (check) => check.severity === "report-only" && check.status !== "pass",
+      ).length;
+      return `| ${escapeMarkdown(scenario.scenario)} | ${escapeMarkdown(
+        scenario.syntheticScene,
+      )} | ${scenario.nodeCount} | ${formatReportNumber(
+        scenario.render.p95FrameMs,
+      )} | ${scenario.render.totalDisplayObjectCount} | ${hardFailures} | ${reportOnlyFindings} |`;
+    })
+    .join("\n");
+  const checkSections = report.scenarios
+    .map(
+      (scenario) => `## ${scenario.scenario} / ${scenario.syntheticScene}
+
+${scenario.checks
+  .map(
+    (check) =>
+      `- ${check.severity} ${check.id}: ${check.status}; actual=${check.actual}${
+        check.budget === null ? "" : ` budget=${check.budget}`
+      }; ${check.summary}`,
+  )
+  .join("\n")}
+`,
+    )
+    .join("\n");
+  return `# Workspace Graph Phase 8 Performance Gate
+
+Generated at ${report.generatedAt}.
+
+| Scenario | Synthetic scene | Nodes | p95 frame ms | Display objects | Hard failures | Report-only findings |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+${rows}
+
+${checkSections}
+`;
+}
+
+function escapeMarkdown(value) {
+  return String(value).replaceAll("|", "\\|");
+}
+
+function formatReportNumber(value) {
+  return Number.isFinite(value) ? value.toFixed(2) : "";
+}
+
 function summarizeSnapshot(snapshot) {
   return {
     camera: snapshot.camera,
@@ -824,6 +1373,7 @@ function summarizeSnapshot(snapshot) {
       materializedLabelCount: snapshot.render.materializedLabelCount,
       materializedNodeCount: snapshot.render.materializedNodeCount,
       materializedPortCount: snapshot.render.materializedPortCount,
+      nodeDragUpdateCount: snapshot.render.nodeDragUpdateCount,
       p95FrameMs: snapshot.render.p95FrameMs,
       pointerPanUpdateCount: snapshot.render.pointerPanUpdateCount,
       pooledLabelCount: snapshot.render.pooledLabelCount,
@@ -923,6 +1473,7 @@ function spawnForOutput(command, args, { cwd }) {
 function parseGraphRecordingArgs(args) {
   const harnessArgs = [];
   let scenario = "baseline";
+  let writeReport = false;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--scenario") {
@@ -934,10 +1485,15 @@ function parseGraphRecordingArgs(args) {
       index += 1;
       continue;
     }
+    if (arg === "--write-report") {
+      writeReport = true;
+      continue;
+    }
     harnessArgs.push(arg);
   }
   return {
     ...parseElectronHarnessArgs(harnessArgs),
     scenario,
+    writeReport,
   };
 }

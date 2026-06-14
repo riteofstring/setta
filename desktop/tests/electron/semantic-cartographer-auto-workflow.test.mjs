@@ -23,6 +23,10 @@ import {
 } from "./chat-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
+  buildWorkflowSourcePulseWithinOneSecond,
+  runPhase8SemanticLivenessGate,
+} from "./semantic-cartographer-phase8-liveness.mjs";
+import {
   maximizeWorkflowGraphPane,
   openWorkflowGraphPane,
 } from "./workflow-graph-layout-helpers.mjs";
@@ -71,6 +75,7 @@ try {
     : await runLongRunningAutomaticCartographerWorkflow();
   console.log(
     `semantic cartographer automatic workflow passed: ${JSON.stringify({
+      phase8StatusCount: smoke.phase8.statuses.length,
       longRunningExecutionId: longRunning?.executionId ?? "",
       longRunningProcessedWindows: longRunning?.processedWindowCount ?? 0,
       semanticLiveRecordingOnly: options.semanticLiveRecordingOnly,
@@ -149,6 +154,14 @@ async function runAutomaticAgentSmoke() {
     workspaceId,
     seeded.definition.id,
   ]);
+  const prePatchPulse = await buildWorkflowSourcePulseWithinOneSecond({
+    client: context.client,
+    definitionId: seeded.definition.id,
+    executionId: started.id,
+    graphSurfaceId,
+    startedAtMs: Date.now(),
+    workspaceId,
+  });
   const execution = await waitForWorkflowExecution(
     context.client,
     workspaceId,
@@ -166,10 +179,24 @@ async function runAutomaticAgentSmoke() {
   });
   await waitForRenderedSemanticGraphNode(context.client, graphSurfaceId, automatic.nodeId);
   await assertRendererReloadMarker(context.client, rendererMarker);
+  const phase8 = await runPhase8SemanticLivenessGate({
+    automatic: {
+      ...automatic,
+      evidenceAnchorId: seeded.attachment.evidence.id,
+    },
+    client: context.client,
+    definitionId: seeded.definition.id,
+    execution,
+    executionId: started.id,
+    graphSurfaceId,
+    prePatchPulse,
+    recordingDir,
+    workspaceId,
+  });
 
   await captureScreenshot(context.client, join(recordingDir, "automatic-cartographer.png"));
   await assertSemanticCartographerRecordingEvidence(recordingDir);
-  return { automatic, executionId: started.id };
+  return { automatic, executionId: started.id, phase8 };
 }
 
 async function runLongRunningAutomaticCartographerWorkflow() {
@@ -845,12 +872,18 @@ async function assertSemanticCartographerRecordingEvidence(recordingDir) {
     backendPaths: [
       "/workspace-session",
       "/chat/conversations/create",
+      "/chat/messages/page",
+      "/chat/runs/activity",
       "/workflows/definitions/validate",
       "/workflows/definitions/create",
       "/workflows/executions/start",
       "/workflows/executions/read",
       "/semantic-graph/nodes/create",
       "/semantic-graph/attachments/workflow-node",
+      "/semantic-graph/cartographer/settings/read",
+      "/semantic-graph/cartographer/settings/update",
+      "/semantic-graph/cartographer/windows/build",
+      "/semantic-graph/cartographer/windows/process",
       "/semantic-graph/cartographer/processing/state",
       "/semantic-graph/cartographer/runs/list",
       "/semantic-graph/cartographer/windows/list",
@@ -862,12 +895,18 @@ async function assertSemanticCartographerRecordingEvidence(recordingDir) {
     ipcChannels: [
       "workspace:open-local-folder",
       "chat:create-conversation",
+      "chat:message-page",
+      "chat:run-activity",
       "workflow:validate-definition",
       "workflow:create-definition",
       "workflow:start-execution",
       "workflow:read-execution",
       "semantic-graph:create-node",
       "semantic-graph:attach-workflow-node",
+      "semantic-graph:cartographer-settings-read",
+      "semantic-graph:cartographer-settings-update",
+      "semantic-graph:cartographer-window-build",
+      "semantic-graph:cartographer-window-process",
       "semantic-graph:cartographer-processing-state",
       "semantic-graph:cartographer-run-list",
       "semantic-graph:cartographer-window-list",

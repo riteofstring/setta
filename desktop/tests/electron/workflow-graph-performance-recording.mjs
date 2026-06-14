@@ -26,6 +26,7 @@ const renderDeltaCounters = [
   "cameraUpdateCount",
   "frameCount",
   "labelSyncCount",
+  "nodeDragUpdateCount",
   "pointerPanUpdateCount",
   "spatialIndexQueryCount",
   "wheelInputEventCount",
@@ -64,10 +65,87 @@ export async function recordWorkflowGraphPanZoomDiagnostics({
   await writeJson(performancePath, performanceTimeline);
   return {
     inputSamplesPath,
+    metrics: summarizeWorkflowGraphPerformanceDiagnostics({
+      inputSamples,
+      performanceTimeline,
+      snapshots,
+    }),
     performancePath,
     snapshotsPath,
     tracePath: traceResult.path,
   };
+}
+
+export async function dispatchRecordedWorkflowGraphMouseMove(
+  client,
+  surfaceId,
+  { kind = "pointer-hover", modifiers = 0, x, y },
+  samples,
+) {
+  await recordInputSample(
+    client,
+    surfaceId,
+    {
+      canvasPoint: { x, y },
+      kind,
+      modifiers,
+    },
+    async ({ pagePoint }) => {
+      await client.call("Input.dispatchMouseEvent", {
+        button: "none",
+        modifiers,
+        type: "mouseMoved",
+        x: pagePoint.x,
+        y: pagePoint.y,
+      });
+    },
+    samples,
+  );
+}
+
+export async function dispatchRecordedWorkflowGraphMouseClick(
+  client,
+  surfaceId,
+  { kind = "pointer-select", modifiers = 0, x, y },
+  samples,
+) {
+  await recordInputSample(
+    client,
+    surfaceId,
+    {
+      canvasPoint: { x, y },
+      kind,
+      modifiers,
+    },
+    async ({ pagePoint }) => {
+      await client.call("Input.dispatchMouseEvent", {
+        button: "none",
+        modifiers,
+        type: "mouseMoved",
+        x: pagePoint.x,
+        y: pagePoint.y,
+      });
+      await client.call("Input.dispatchMouseEvent", {
+        button: "left",
+        buttons: 1,
+        clickCount: 1,
+        modifiers,
+        type: "mousePressed",
+        x: pagePoint.x,
+        y: pagePoint.y,
+      });
+      await client.call("Input.dispatchMouseEvent", {
+        button: "left",
+        buttons: 0,
+        clickCount: 1,
+        modifiers,
+        type: "mouseReleased",
+        x: pagePoint.x,
+        y: pagePoint.y,
+      });
+    },
+    samples,
+  );
 }
 
 export async function dispatchRecordedWorkflowGraphWheel(
@@ -181,26 +259,34 @@ async function delayAfterRecordedWheelEvent(event) {
 export async function dispatchRecordedWorkflowGraphMouseDrag(
   client,
   surfaceId,
-  { from, modifiers = 0, steps = 12, to },
+  {
+    downKind = "pointer-down",
+    from,
+    holdMs = 16,
+    modifiers = 0,
+    moveKind = "pointer-pan",
+    startKind = "pointer-move",
+    steps = 12,
+    to,
+    upKind = "pointer-up",
+  },
   samples,
 ) {
-  const pageFrom = await pagePointForCanvasPoint(client, surfaceId, from);
-  const pageTo = await pagePointForCanvasPoint(client, surfaceId, to);
   await recordInputSample(
     client,
     surfaceId,
     {
       canvasPoint: from,
-      kind: "pointer-move",
+      kind: startKind,
       modifiers,
     },
-    async () => {
+    async ({ pagePoint }) => {
       await client.call("Input.dispatchMouseEvent", {
         button: "none",
         modifiers,
         type: "mouseMoved",
-        x: pageFrom.x,
-        y: pageFrom.y,
+        x: pagePoint.x,
+        y: pagePoint.y,
       });
     },
     samples,
@@ -210,41 +296,38 @@ export async function dispatchRecordedWorkflowGraphMouseDrag(
     surfaceId,
     {
       canvasPoint: from,
-      kind: "pointer-down",
+      kind: downKind,
       modifiers,
     },
-    async () => {
+    async ({ pagePoint }) => {
       await client.call("Input.dispatchMouseEvent", {
         button: "left",
         buttons: 1,
         clickCount: 1,
         modifiers,
         type: "mousePressed",
-        x: pageFrom.x,
-        y: pageFrom.y,
+        x: pagePoint.x,
+        y: pagePoint.y,
       });
     },
     samples,
   );
+  await delay(holdMs);
   for (let step = 1; step <= steps; step += 1) {
     const progress = step / steps;
     const canvasPoint = {
       x: from.x + (to.x - from.x) * progress,
       y: from.y + (to.y - from.y) * progress,
     };
-    const pagePoint = {
-      x: pageFrom.x + (pageTo.x - pageFrom.x) * progress,
-      y: pageFrom.y + (pageTo.y - pageFrom.y) * progress,
-    };
     await recordInputSample(
       client,
       surfaceId,
       {
         canvasPoint,
-        kind: "pointer-pan",
+        kind: moveKind,
         modifiers,
       },
-      async () => {
+      async ({ pagePoint }) => {
         await client.call("Input.dispatchMouseEvent", {
           button: "left",
           buttons: 1,
@@ -263,18 +346,18 @@ export async function dispatchRecordedWorkflowGraphMouseDrag(
     surfaceId,
     {
       canvasPoint: to,
-      kind: "pointer-up",
+      kind: upKind,
       modifiers,
     },
-    async () => {
+    async ({ pagePoint }) => {
       await client.call("Input.dispatchMouseEvent", {
         button: "left",
         buttons: 0,
         clickCount: 1,
         modifiers,
         type: "mouseReleased",
-        x: pageTo.x,
-        y: pageTo.y,
+        x: pagePoint.x,
+        y: pagePoint.y,
       });
     },
     samples,
@@ -534,6 +617,114 @@ function renderDeltas(before, after) {
 
 function emptyRenderDeltas() {
   return Object.fromEntries(renderDeltaCounters.map((counter) => [counter, 0]));
+}
+
+function summarizeWorkflowGraphPerformanceDiagnostics({
+  inputSamples,
+  performanceTimeline,
+  snapshots,
+}) {
+  const snapshotPair = workflowGraphPerformanceSnapshotPair(snapshots);
+  return {
+    inputCountsByKind: countInputSamplesByKind(inputSamples),
+    inputEventCount: countRecordedInputEvents(inputSamples),
+    interactionRenderDeltas: performanceRenderDeltas(snapshotPair),
+    longTaskCount: performanceTimeline?.longTasks?.length ?? 0,
+    maxEventTimingMs: maxDuration(performanceTimeline?.eventTimings ?? []),
+    maxLongTaskMs: maxDuration(performanceTimeline?.longTasks ?? []),
+    timingBucketDeltas: performanceTimingBucketDeltas(snapshotPair),
+  };
+}
+
+function workflowGraphPerformanceSnapshotPair(snapshots) {
+  return {
+    after: snapshots.at(-1)?.snapshot ?? null,
+    before: snapshots[0]?.snapshot ?? null,
+  };
+}
+
+function performanceRenderDeltas({ after, before }) {
+  if (!before || !after) {
+    return emptyRenderDeltas();
+  }
+  return renderDeltas(before, after);
+}
+
+function performanceTimingBucketDeltas({ after, before }) {
+  if (!before || !after) {
+    return {};
+  }
+  return timingBucketDeltas(before, after);
+}
+
+function countInputSamplesByKind(inputSamples) {
+  const counts = {};
+  for (const sample of inputSamples) {
+    counts[sample.kind] = (counts[sample.kind] ?? 0) + inputSampleEventCount(sample);
+  }
+  return counts;
+}
+
+function countRecordedInputEvents(inputSamples) {
+  return inputSamples.reduce((sum, sample) => sum + inputSampleEventCount(sample), 0);
+}
+
+function inputSampleEventCount(sample) {
+  if (sample.kind === "wheel-burst") {
+    return sample.dispatched?.length ?? 0;
+  }
+  if (sample.kind === "pointer-select") {
+    return 3;
+  }
+  return 1;
+}
+
+function maxDuration(entries) {
+  return entries.reduce((max, entry) => Math.max(max, Number(entry.duration) || 0), 0);
+}
+
+function timingBucketDeltas(before, after) {
+  const buckets = new Set([
+    ...Object.keys(before.render.timingBuckets ?? {}),
+    ...Object.keys(after.render.timingBuckets ?? {}),
+  ]);
+  return Object.fromEntries(
+    [...buckets].map((bucket) => timingBucketDeltaEntry(before, after, bucket)),
+  );
+}
+
+function timingBucketDeltaEntry(before, after, bucket) {
+  return [
+    bucket,
+    timingBucketDeltaMetrics(
+      timingBucketMetrics(before, bucket),
+      timingBucketMetrics(after, bucket),
+    ),
+  ];
+}
+
+function timingBucketMetrics(snapshot, bucket) {
+  const buckets = snapshot.render.timingBuckets;
+  if (!buckets) {
+    return {};
+  }
+  return buckets[bucket] ?? {};
+}
+
+function timingBucketDeltaMetrics(beforeBucket, afterBucket) {
+  return {
+    count: timingBucketNumericDelta(beforeBucket, afterBucket, "count"),
+    totalMs: timingBucketNumericDelta(beforeBucket, afterBucket, "totalMs"),
+    worstMs: timingBucketNumber(afterBucket, "worstMs"),
+  };
+}
+
+function timingBucketNumericDelta(beforeBucket, afterBucket, key) {
+  return timingBucketNumber(afterBucket, key) - timingBucketNumber(beforeBucket, key);
+}
+
+function timingBucketNumber(bucket, key) {
+  return Number(bucket[key] ?? 0);
 }
 
 async function writeContactSheet(path, frames) {
