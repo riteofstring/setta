@@ -18,10 +18,11 @@ func TestCartographerHarnessRoutesStructuredTaskThroughSharedHarness(t *testing.
 	}
 
 	result, err := harness.Run(context.Background(), CartographerHarnessTask{
-		ID:          "cartographer_task_001",
-		Workspace:   cartographerHarnessWorkspace(),
-		InputBundle: cartographerTestInputBundle(),
-		Model:       "gpt-5-codex",
+		ID:              "cartographer_task_001",
+		Workspace:       cartographerHarnessWorkspace(),
+		InputBundle:     cartographerTestInputBundle(),
+		Model:           "gpt-5-codex",
+		ReasoningEffort: chat.ReasoningEffortHigh,
 	})
 	if err != nil {
 		t.Fatalf("run cartographer harness: %v", err)
@@ -42,6 +43,11 @@ func TestCartographerHarnessRoutesStructuredTaskThroughSharedHarness(t *testing.
 	if task.CapabilityPolicy.WorkspaceMutation || task.CapabilityPolicy.Approvals || task.CapabilityPolicy.Streaming {
 		t.Fatalf("cartographer capability policy = %+v, want no mutation, approvals, or streaming", task.CapabilityPolicy)
 	}
+	if task.StructuredTask.Model != "gpt-5-codex" ||
+		task.StructuredTask.ReasoningEffort == nil ||
+		*task.StructuredTask.ReasoningEffort != chat.ReasoningEffortHigh {
+		t.Fatalf("structured task model/reasoning = %+v, want explicit model and high reasoning", task.StructuredTask)
+	}
 }
 
 func TestCartographerHarnessRejectsInvalidEnvelopeShape(t *testing.T) {
@@ -51,9 +57,10 @@ func TestCartographerHarnessRejectsInvalidEnvelopeShape(t *testing.T) {
 	}
 
 	_, err = harness.Run(context.Background(), CartographerHarnessTask{
-		ID:          "cartographer_task_001",
-		Workspace:   cartographerHarnessWorkspace(),
-		InputBundle: cartographerTestInputBundle(),
+		ID:              "cartographer_task_001",
+		Workspace:       cartographerHarnessWorkspace(),
+		InputBundle:     cartographerTestInputBundle(),
+		ReasoningEffort: chat.ReasoningEffortLow,
 	})
 	if err == nil {
 		t.Fatal("cartographer harness accepted invalid envelope, want shape error")

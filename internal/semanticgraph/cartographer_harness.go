@@ -15,11 +15,12 @@ import (
 type CartographerPatchEnvelopeSchema json.RawMessage
 
 type CartographerHarnessTask struct {
-	ID           string
-	Workspace    workspace.WorkspaceSummary
-	InputBundle  CartographerInputBundle
-	OutputSchema CartographerPatchEnvelopeSchema
-	Model        string
+	ID              string
+	Workspace       workspace.WorkspaceSummary
+	InputBundle     CartographerInputBundle
+	OutputSchema    CartographerPatchEnvelopeSchema
+	Model           string
+	ReasoningEffort chat.ReasoningEffort
 }
 
 type CartographerHarnessResult struct {
@@ -65,6 +66,7 @@ func (harness *CartographerHarness) RunRaw(ctx context.Context, task Cartographe
 	if len(outputSchema) == 0 {
 		outputSchema = DefaultCartographerPatchEnvelopeSchema()
 	}
+	reasoningEffort := task.ReasoningEffort
 	result, err := harness.runner.RunTask(ctx, chat.HarnessTaskRequest{
 		Surface:     chat.HarnessSurfaceSemanticCartographer,
 		HarnessKind: harness.harnessKind,
@@ -80,11 +82,12 @@ func (harness *CartographerHarness) RunRaw(ctx context.Context, task Cartographe
 			Streaming:         false,
 		},
 		StructuredTask: &chat.HarnessStructuredTask{
-			ID:        task.ID,
-			Workspace: task.Workspace,
-			Prompt:    ProductionCartographerPrompt(),
-			Input:     inputJSON,
-			Model:     task.Model,
+			ID:              task.ID,
+			Workspace:       task.Workspace,
+			Prompt:          ProductionCartographerPrompt(),
+			Input:           inputJSON,
+			Model:           task.Model,
+			ReasoningEffort: &reasoningEffort,
 		},
 		Metadata: map[string]string{
 			"setta.surface": "semantic_cartographer",
@@ -520,6 +523,9 @@ func validateCartographerHarnessTask(ctx context.Context, task CartographerHarne
 	}
 	if task.InputBundle.WorkspaceID != "" && task.InputBundle.WorkspaceID != task.Workspace.ID {
 		return fmt.Errorf("cartographer input bundle workspaceId = %s, want %s", task.InputBundle.WorkspaceID, task.Workspace.ID)
+	}
+	if !isSemanticCartographerReasoningEffort(task.ReasoningEffort) {
+		return fmt.Errorf("cartographer harness task reasoningEffort is unsupported: %s", task.ReasoningEffort)
 	}
 	if len(task.OutputSchema) > 0 {
 		var schema any

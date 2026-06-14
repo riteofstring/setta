@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"setta/internal/chat"
 	"setta/internal/workspace"
 )
 
@@ -34,22 +35,14 @@ func (service *Service) processCartographerWindow(ctx context.Context, workspace
 		if err != nil {
 			return CartographerWindowProcessResult{}, fmt.Errorf("create cartographer task id: %w", err)
 		}
-		task := CartographerHarnessTask{
-			ID:           taskID,
-			Workspace:    workspaceSummary,
-			InputBundle:  window.InputBundle,
-			OutputSchema: CartographerPatchEnvelopeSchema(run.OutputSchema),
-			Model:        run.EffectiveModel,
+		task, err := cartographerHarnessTaskFromRun(taskID, workspaceSummary, window, run)
+		if err != nil {
+			return CartographerWindowProcessResult{}, err
 		}
 		applicationInput.EffectiveModel = task.Model
+		applicationInput.EffectiveReasoningEffort = string(task.ReasoningEffort)
 		harnessStarted := time.Now()
-		harnessResult, err := service.cartographerHarness.RunRaw(ctx, CartographerHarnessTask{
-			ID:           task.ID,
-			Workspace:    task.Workspace,
-			InputBundle:  task.InputBundle,
-			OutputSchema: task.OutputSchema,
-			Model:        task.Model,
-		})
+		harnessResult, err := service.cartographerHarness.RunRaw(ctx, task)
 		applicationInput.HarnessDurationMS = elapsedMillis(harnessStarted)
 		if err != nil {
 			if ctx.Err() != nil {
@@ -160,8 +153,12 @@ func (service *Service) saveStartedCartographerRun(ctx context.Context, run Cart
 	run.InputBundle = window.InputBundle
 	run.OutputSchema = DefaultCartographerPatchEnvelopeSchema()
 	run.HarnessKind = string(service.cartographerHarnessKind)
-	run.EffectiveModel = ""
-	run.EffectiveReasoningEffort = ""
+	effectiveModel, effectiveReasoningEffort, err := cartographerEffectiveHarnessAudit(run)
+	if err != nil {
+		return CartographerRun{}, err
+	}
+	run.EffectiveModel = effectiveModel
+	run.EffectiveReasoningEffort = string(effectiveReasoningEffort)
 	if run.StartedAt == "" {
 		run.StartedAt = now
 	}
@@ -172,21 +169,22 @@ func (service *Service) saveStartedCartographerRun(ctx context.Context, run Cart
 
 func (service *Service) cartographerApplicationInputForWindow(run CartographerRun, window CartographerWindow) CartographerPatchEnvelopeApplicationInput {
 	return CartographerPatchEnvelopeApplicationInput{
-		WorkspaceID:       run.WorkspaceID,
-		RunID:             run.ID,
-		WindowID:          window.ID,
-		TriggerKind:       run.TriggerKind,
-		TargetEntityID:    run.TargetEntityID,
-		SourceRefs:        run.SourceRefs,
-		InputBundle:       window.InputBundle,
-		HarnessKind:       run.HarnessKind,
-		EffectiveModel:    run.EffectiveModel,
-		ReportedModel:     run.ReportedModel,
-		SourceEpochID:     run.SourceEpochID,
-		SourceKey:         run.SourceKey,
-		Priority:          run.Priority,
-		AttemptCount:      run.AttemptCount,
-		TrajectorySummary: cartographerTrajectorySummaryText(window.InputBundle),
+		WorkspaceID:              run.WorkspaceID,
+		RunID:                    run.ID,
+		WindowID:                 window.ID,
+		TriggerKind:              run.TriggerKind,
+		TargetEntityID:           run.TargetEntityID,
+		SourceRefs:               run.SourceRefs,
+		InputBundle:              window.InputBundle,
+		HarnessKind:              run.HarnessKind,
+		EffectiveModel:           run.EffectiveModel,
+		ReportedModel:            run.ReportedModel,
+		EffectiveReasoningEffort: run.EffectiveReasoningEffort,
+		SourceEpochID:            run.SourceEpochID,
+		SourceKey:                run.SourceKey,
+		Priority:                 run.Priority,
+		AttemptCount:             run.AttemptCount,
+		TrajectorySummary:        cartographerTrajectorySummaryText(window.InputBundle),
 	}
 }
 
@@ -197,6 +195,41 @@ func (service *Service) markCartographerWindowProcessed(ctx context.Context, win
 	window.Status = CartographerWindowProcessed
 	window.UpdatedAt = timestamp(service.now())
 	return service.SaveCartographerWindow(ctx, window)
+}
+
+func cartographerHarnessTaskFromRun(taskID string, workspaceSummary workspace.WorkspaceSummary, window CartographerWindow, run CartographerRun) (CartographerHarnessTask, error) {
+	effectiveModel, effectiveReasoningEffort, err := cartographerEffectiveHarnessAudit(run)
+	if err != nil {
+		return CartographerHarnessTask{}, err
+	}
+	return CartographerHarnessTask{
+		ID:              taskID,
+		Workspace:       workspaceSummary,
+		InputBundle:     window.InputBundle,
+		OutputSchema:    CartographerPatchEnvelopeSchema(run.OutputSchema),
+		Model:           effectiveModel,
+		ReasoningEffort: effectiveReasoningEffort,
+	}, nil
+}
+
+func cartographerEffectiveHarnessAudit(run CartographerRun) (string, chat.ReasoningEffort, error) {
+	if !isSemanticCartographerReasoningEffort(run.RequestedReasoningEffort) {
+		return "", "", fmt.Errorf("cartographer run requestedReasoningEffort is unsupported: %s", run.RequestedReasoningEffort)
+	}
+	switch run.RequestedModelSelection {
+	case SemanticCartographerModelSelectionProviderDefault:
+		if run.RequestedModel != "" {
+			return "", "", fmt.Errorf("cartographer run requestedModel must be empty when requestedModelSelection is %s", SemanticCartographerModelSelectionProviderDefault)
+		}
+		return "", run.RequestedReasoningEffort, nil
+	case SemanticCartographerModelSelectionExplicit:
+		if err := validateExplicitCartographerRequestedModel(run.RequestedModel); err != nil {
+			return "", "", err
+		}
+		return run.RequestedModel, run.RequestedReasoningEffort, nil
+	default:
+		return "", "", fmt.Errorf("cartographer run requestedModelSelection is unsupported: %s", run.RequestedModelSelection)
+	}
 }
 
 func (service *Service) cancelCartographerWindowProcessing(ctx context.Context, run CartographerRun, window CartographerWindow, message string) (CartographerWindowProcessResult, error) {
