@@ -1,7 +1,7 @@
 # Workspace Graph Performance and Semantic Liveness Plan
 
 - **Date:** June 15, 2026
-- **Status:** Phase 7 complete; Phase 8 ready
+- **Status:** Phase 8 complete
 - **Scope:** Diagnose and fix workspace graph pan/zoom/interaction performance, then make the semantic cartographer feel live and useful during real workflow runs.
 - **Related docs:**
   - `docs/plans/living_workspace_neon_redesign_plan.md`
@@ -647,6 +647,39 @@ Minimum pass conditions:
 
 Because this touches workflow, cartographer, event streaming, generated contracts, renderer graph state, and transcript/workflow paths, implementation must use deterministic end-to-end app workflow tests through production Electron/main/preload/renderer/HTTP/store paths. If live Codex/provider behavior is touched, run the live Codex E2E tests when local ChatGPT auth is available; skip narrowly and report the skip when it is not.
 
+### Phase 8 Implementation Review
+
+Phase 8 is implemented. The workflow graph pan/zoom recording now produces a
+Phase 8 performance gate summary for baseline, active, small-trackpad, and
+large synthetic scenarios. The gate hard-fails missing interaction coverage,
+static-glow redraw churn, materialized-node scaling, display-object budgets, and
+renderer console errors. Frame p95 and browser long-task budgets remain
+report-only because local variance is still high; the checked-in report records
+the latest small-trackpad run with hard checks passing and two report-only
+findings: p95 frame time above 24 ms and label-sync churn above the tentative
+budget.
+
+The semantic cartographer automatic workflow now includes a Phase 8 semantic
+liveness gate. It verifies a pre-patch workflow source pulse within one second,
+scripted command/file-change/workflow-result activity, queued/running/proposed/
+applied/noop/failed working-set status coverage, duplicate source-link
+prevention, semantic details-pane provenance, and reload recovery through the
+production Electron/main/preload/renderer/HTTP/store path. The scripted workflow
+harness now emits deterministic command and file-change activity so the gate has
+typed workflow evidence to observe.
+
+Focused verification passed:
+
+- `./scripts/go.sh test ./internal/chat`
+- `pnpm --dir desktop run build`
+- `node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --scenario small-trackpad --skip-build --keep-artifacts --artifact-dir .recordings/phase8-small-trackpad-review`
+- `node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs --semantic-live-recording-only --skip-build --keep-artifacts --artifact-dir .recordings/semantic-live-run-phase8-review`
+
+Local Phase 8 review artifacts:
+
+- `.recordings/phase8-small-trackpad-review/phase8-performance-gate.json`
+- `.recordings/semantic-live-run-phase8-review/automatic-agent/phase8-semantic-liveness-gate.json`
+
 ## Implementation Order
 
 1. Complete: add diagnostic recording and debug timing.
@@ -658,7 +691,7 @@ Because this touches workflow, cartographer, event streaming, generated contract
 7. Complete: add deterministic activity/change pulses.
 8. Complete: fix semantic evidence idempotency and usefulness diagnostics.
 9. Complete: add semantic details/highlight polish.
-10. Next: promote calibrated performance and liveness checks into gates.
+10. Complete: promote calibrated performance and liveness checks into gates.
 
 ## Non-Goals
 
