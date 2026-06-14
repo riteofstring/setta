@@ -323,7 +323,7 @@ async function openPort() {
 }
 
 function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) {
-  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
+  const electron = spawn(electronBin(), electronLaunchArgs(debugPort), {
     cwd: desktopRoot,
     env: {
       ...process.env,
@@ -345,6 +345,14 @@ function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) 
   electron.stdout.on("data", (data) => appendLog(electron.logs, data));
   electron.stderr.on("data", (data) => appendLog(electron.logs, data));
   return electron;
+}
+
+function electronLaunchArgs(debugPort) {
+  return [
+    `--remote-debugging-port=${debugPort}`,
+    ".",
+    ...(process.platform === "darwin" ? ["-ApplePersistenceIgnoreState", "YES"] : []),
+  ];
 }
 
 function isPageNavigationTransient(error) {

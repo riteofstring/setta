@@ -105,6 +105,7 @@ type SemanticGraphService interface {
 	ListActivity(context.Context, string, string, int) (semanticgraph.SemanticActivityList, error)
 	ListActivityPage(context.Context, semanticgraph.SemanticActivityFilter) (semanticgraph.SemanticActivityPage, error)
 	ReadActivitySummary(context.Context, string, int) (semanticgraph.SemanticActivitySummary, error)
+	ReadWorkingSet(context.Context, semanticgraph.SemanticWorkingSetFilter) (semanticgraph.SemanticWorkingSet, error)
 	ReadSteeringState(context.Context, string, string) (semanticgraph.SemanticSteeringState, error)
 	ReadEventHistory(context.Context, string, string, int, int) (semanticgraph.SemanticEventHistory, error)
 	ReadContextPack(context.Context, string, string) (semanticgraph.SemanticContextPackRecord, bool, error)

@@ -69,6 +69,7 @@ import type {
   ReadSemanticNodeDetailRequest,
   ReadSemanticNodeDetailResponse,
   ReadSemanticSteeringStateRequest,
+  ReadSemanticWorkingSetRequest,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
@@ -94,6 +95,7 @@ import type {
   SemanticEventHistory,
   SemanticEvidenceList,
   SemanticGraph,
+  SemanticWorkingSet,
   SemanticLayoutPositionList,
   SemanticMutationResult,
   SemanticNodeOperationRequest,
@@ -223,6 +225,7 @@ export const ipcChannels = {
   semanticGraphRenameNode: "semantic-graph:rename-node",
   semanticGraphSplitNode: "semantic-graph:split-node",
   semanticGraphSteeringRead: "semantic-graph:steering-read",
+  semanticGraphWorkingSetRead: "semantic-graph:working-set-read",
   semanticGraphUpdateEdge: "semantic-graph:update-edge",
   semanticGraphUpdateNode: "semantic-graph:update-node",
   semanticGraphUpdateSteeringDirective: "semantic-graph:update-steering-directive",
@@ -619,6 +622,10 @@ interface IpcContract {
   semanticGraphSteeringRead: {
     args: [request: ReadSemanticSteeringStateRequest];
     result: SemanticSteeringState;
+  };
+  semanticGraphWorkingSetRead: {
+    args: [request: ReadSemanticWorkingSetRequest];
+    result: SemanticWorkingSet;
   };
   semanticGraphUpdateEdge: {
     args: [request: UpdateSemanticEdgeRequest];

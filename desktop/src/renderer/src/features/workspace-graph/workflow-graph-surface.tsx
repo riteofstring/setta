@@ -167,12 +167,14 @@ export function WorkflowGraphSurface({
         ? rendererGraphFromSemanticGraph({
             semanticActivities: semanticGraphState.activitiesByNodeId,
             semanticGraph: semanticGraphState.graph,
+            semanticWorkingSet: semanticGraphState.workingSet,
             workflowGraph,
           })
         : undefined,
     [
       semanticGraphState.activitiesByNodeId,
       semanticGraphState.graph,
+      semanticGraphState.workingSet,
       syntheticGraph,
       workflowGraph,
     ],

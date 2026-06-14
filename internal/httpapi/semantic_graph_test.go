@@ -96,6 +96,7 @@ func TestCartographerReadAndReviewEndpoints(t *testing.T) {
 	seedHTTPCartographerProcessEvidence(t, semanticService, workspaceID)
 
 	built := buildHTTPCartographerWindow(t, handler, workspaceID)
+	assertHTTPSemanticWorkingSetEndpoint(t, handler, workspaceID)
 	assertHTTPCartographerProcessEndpoint(t, handler, workspaceID, built.Window.ID)
 	assertHTTPCartographerProcessingStateEndpoint(t, handler)
 	saveHTTPCartographerCursor(t, semanticService, workspaceID, built.Window.ID)
@@ -701,6 +702,19 @@ func assertSemanticActivityEndpoints(t *testing.T, handler http.Handler, workspa
 	}, http.StatusOK)
 	if len(activitySummary.Targets) != 1 || len(activitySummary.Targets[0].RecentActivity) != 1 {
 		t.Fatalf("activity summary = %+v, want one recent activity", activitySummary)
+	}
+}
+
+func assertHTTPSemanticWorkingSetEndpoint(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
+	workingSet := postJSON[semanticgraph.SemanticWorkingSet](t, handler, "/semantic-graph/working-set/read", ReadSemanticWorkingSetRequest{
+		WorkspaceID: workspaceID,
+		Limit:       20,
+	}, http.StatusOK)
+	if workingSet.WorkspaceID != workspaceID ||
+		len(workingSet.ActiveCartographerRuns) == 0 ||
+		len(workingSet.LiveSourceRefs) == 0 {
+		t.Fatalf("working set = %+v, want active cartographer audit state", workingSet)
 	}
 }
 

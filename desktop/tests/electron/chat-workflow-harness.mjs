@@ -531,7 +531,7 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   for (const name of unsetEnv) {
     delete env[name];
   }
-  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
+  const electron = spawn(electronBin(), electronLaunchArgs(debugPort), {
     cwd: desktopRoot,
     env,
     stdio: ["ignore", "pipe", "pipe"],
@@ -539,6 +539,14 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   electron.logs = [];
   collectProcessOutput(electron);
   return electron;
+}
+
+function electronLaunchArgs(debugPort) {
+  return [
+    `--remote-debugging-port=${debugPort}`,
+    ".",
+    ...(process.platform === "darwin" ? ["-ApplePersistenceIgnoreState", "YES"] : []),
+  ];
 }
 
 export async function createFixture(name) {

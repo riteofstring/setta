@@ -3,6 +3,7 @@ import type {
   SemanticActivitySummary,
   SemanticGraph,
   SemanticGraphChangeEvent,
+  SemanticWorkingSet,
   SemanticLayoutPosition,
 } from "@generated/backend";
 import { useCallback, useEffect, useState } from "react";
@@ -16,22 +17,27 @@ interface SemanticGraphState {
   loading: boolean;
   noWorkspace: boolean;
   ready: boolean;
+  workingSet: SemanticWorkingSet | null;
   workspaceId: string;
 }
 
 export interface SemanticGraphRefreshRequest {
   activity: boolean;
   graph: boolean;
+  workingSet: boolean;
 }
 
 const semanticGraphActivityLimit = 3;
+const semanticWorkingSetLimit = 40;
 const emptyRefreshRequest: SemanticGraphRefreshRequest = {
   activity: false,
   graph: false,
+  workingSet: false,
 };
 const fullRefreshRequest: SemanticGraphRefreshRequest = {
   activity: true,
   graph: true,
+  workingSet: true,
 };
 
 export function useSemanticGraphState() {
@@ -78,6 +84,7 @@ export function useSemanticGraphState() {
                 loading: false,
                 noWorkspace: false,
                 ready: true,
+                workingSet: snapshot.workingSet ?? current.workingSet,
                 workspaceId: selectedWorkspaceId,
               }));
             }
@@ -183,10 +190,13 @@ export function semanticGraphRefreshRequestForChange(
   }
   const graph = event.changedAreas.some((area) => area === "graph" || area === "layout");
   const activity = graph || event.changedAreas.includes("activity");
-  if (!graph && !activity) {
+  const workingSet =
+    graph ||
+    event.changedAreas.some((area) => area === "working_set" || area === "cartographer_audit");
+  if (!graph && !activity && !workingSet) {
     return null;
   }
-  return { activity, graph };
+  return { activity, graph, workingSet };
 }
 
 export function semanticGraphChangeAffectsWorkspaceGraphState(
@@ -201,25 +211,46 @@ async function loadSemanticGraphSnapshot(
   request: SemanticGraphRefreshRequest,
 ) {
   if (request.graph) {
-    const [graph, activitySummary] = await Promise.all([
+    const [graph, activitySummary, workingSet] = await Promise.all([
       window.setta.semanticGraph.read({ workspaceId }),
       window.setta.semanticGraph.readActivitySummary({
         recentLimit: semanticGraphActivityLimit,
+        workspaceId,
+      }),
+      window.setta.semanticGraph.readWorkingSet({
+        chatRunId: "",
+        limit: semanticWorkingSetLimit,
+        workflowExecutionId: "",
         workspaceId,
       }),
     ]);
     return {
       activitiesByNodeId: semanticGraphActivitySummaryMap(activitySummary),
       graph,
+      workingSet,
     };
   }
-  if (request.activity) {
-    const activitySummary = await window.setta.semanticGraph.readActivitySummary({
-      recentLimit: semanticGraphActivityLimit,
-      workspaceId,
-    });
+  const [activitySummary, workingSet] = await Promise.all([
+    request.activity
+      ? window.setta.semanticGraph.readActivitySummary({
+          recentLimit: semanticGraphActivityLimit,
+          workspaceId,
+        })
+      : Promise.resolve(null),
+    request.workingSet
+      ? window.setta.semanticGraph.readWorkingSet({
+          chatRunId: "",
+          limit: semanticWorkingSetLimit,
+          workflowExecutionId: "",
+          workspaceId,
+        })
+      : Promise.resolve(null),
+  ]);
+  if (activitySummary !== null || workingSet !== null) {
     return {
-      activitiesByNodeId: semanticGraphActivitySummaryMap(activitySummary),
+      activitiesByNodeId:
+        activitySummary === null ? undefined : semanticGraphActivitySummaryMap(activitySummary),
+      workingSet: workingSet === null ? undefined : workingSet,
     };
   }
   return {};
@@ -232,11 +263,12 @@ function mergeSemanticGraphRefreshRequests(
   return {
     activity: left.activity || right.activity,
     graph: left.graph || right.graph,
+    workingSet: left.workingSet || right.workingSet,
   };
 }
 
 function semanticGraphRefreshRequestIsEmpty(request: SemanticGraphRefreshRequest) {
-  return !request.activity && !request.graph;
+  return !request.activity && !request.graph && !request.workingSet;
 }
 
 function dedupeSemanticActivity(activity: SemanticActivityInterval[]) {
@@ -260,6 +292,7 @@ function semanticGraphLoadingState(workspaceId: string): SemanticGraphState {
     loading: true,
     noWorkspace: false,
     ready: false,
+    workingSet: null,
     workspaceId,
   };
 }
@@ -272,6 +305,7 @@ function semanticGraphNoWorkspaceState(workspaceId: string): SemanticGraphState 
     loading: false,
     noWorkspace: workspaceId === "",
     ready: true,
+    workingSet: null,
     workspaceId,
   };
 }

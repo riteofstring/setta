@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import type { SemanticActivityInterval, SemanticGraph, SemanticNode } from "@generated/backend";
+import type {
+  SemanticActivityInterval,
+  SemanticGraph,
+  SemanticNode,
+  SemanticWorkingSet,
+} from "@generated/backend";
 import {
   mergeWorkflowAndSemanticGraphs,
   rendererGraphFromSemanticGraph,
@@ -128,6 +133,48 @@ describe("rendererGraphFromSemanticGraph", () => {
     });
   });
 
+  test("projects semantic working-set pulses and pending patch previews", () => {
+    const graph = rendererGraphFromSemanticGraph({
+      semanticActivities: new Map(),
+      semanticGraph: testSemanticGraph(),
+      semanticWorkingSet: testSemanticWorkingSet(),
+      workflowGraph: testWorkflowGraph(),
+    });
+
+    expect(graph.nodes.find((node) => node.id === "semantic:node_constraint")).toMatchObject({
+      activity: { active: true, count: 1, kind: "exploring" },
+      semanticRole: "committed",
+    });
+    expect(
+      graph.nodes.find(
+        (node) =>
+          node.id === "semantic-live-source:semantic-working-set-source:run:cartographer_run_live",
+      ),
+    ).toMatchObject({
+      activity: { active: true, count: 1, kind: "exploring" },
+      height: 18,
+      label: "",
+      semanticRole: "source_pulse",
+      width: 18,
+    });
+    expect(
+      graph.nodes.find(
+        (node) => node.id === "semantic-preview:cartographer_patch_preview:node_preview",
+      ),
+    ).toMatchObject({
+      activity: { active: true, count: 1, kind: "editing" },
+      label: "Preview finding",
+      semanticRole: "preview",
+    });
+    expect(
+      graph.edges.map((edge) => [edge.id, edge.sourceNodeId, edge.targetNodeId]),
+    ).toContainEqual([
+      "semantic-live-source:semantic-working-set-source:patch:cartographer_patch_preview",
+      "workflow_node",
+      "semantic-preview:cartographer_patch_preview:node_preview",
+    ]);
+  });
+
   test("merges workflow and semantic renderer graphs without changing workflow metadata", () => {
     const workflowGraph = testWorkflowGraph();
     const semanticGraph = rendererGraphFromSemanticGraph({
@@ -211,6 +258,154 @@ function testSemanticGraph(): SemanticGraph {
       },
     ],
     workspaceId: "workspace_test",
+  };
+}
+
+function testSemanticWorkingSet(): SemanticWorkingSet {
+  return {
+    activeCartographerRuns: [
+      {
+        changedSemanticEdgeIds: [],
+        changedSemanticNodeIds: [],
+        completedAt: "",
+        createdAt: "2026-06-10T12:00:07Z",
+        createdSemanticEventIds: [],
+        diagnostics: [],
+        id: "cartographer_run_live",
+        inputItemCounts: inputItemCounts(),
+        patchOperationNames: [],
+        publicSummary: "",
+        sourceRefs: sourceRefs(),
+        startedAt: "",
+        status: "running",
+        targetEntityId: "",
+        triggerKind: "workflow_window",
+        updatedAt: "2026-06-10T12:00:07Z",
+        windowId: "",
+      },
+    ],
+    activeCartographerWindows: [],
+    activeRunItemIds: ["run_item_live"],
+    activeWorkflowNodeIds: ["workflow_node"],
+    candidateTargets: [
+      {
+        changedSemanticEdgeIds: [],
+        changedSemanticNodeIds: ["node_constraint"],
+        diagnostics: [],
+        patchIds: [],
+        patchOperationNames: [],
+        publicSummaries: [],
+        runIds: ["cartographer_run_target"],
+        sourceRefs: sourceRefs(),
+        status: "running",
+        targetEntityId: "node_constraint",
+        triggerKind: "workflow_window",
+        updatedAt: "2026-06-10T12:00:08Z",
+        windowIds: [],
+      },
+    ],
+    chatRunId: "",
+    lastUpdatedAt: "2026-06-10T12:00:09Z",
+    liveSourceRefs: [
+      {
+        changedSemanticEdgeIds: [],
+        changedSemanticNodeIds: [],
+        diagnostics: [],
+        id: "semantic-working-set-source:run:cartographer_run_live",
+        patchId: "",
+        patchOperationNames: [],
+        publicSummary: "",
+        runId: "cartographer_run_live",
+        sourceRefs: sourceRefs(),
+        status: "running",
+        targetEntityId: "",
+        triggerKind: "workflow_window",
+        updatedAt: "2026-06-10T12:00:07Z",
+        windowId: "",
+      },
+      {
+        changedSemanticEdgeIds: [],
+        changedSemanticNodeIds: ["node_preview"],
+        diagnostics: [],
+        id: "semantic-working-set-source:patch:cartographer_patch_preview",
+        patchId: "cartographer_patch_preview",
+        patchOperationNames: ["record_finding"],
+        publicSummary: "Preview a finding.",
+        runId: "cartographer_run_live",
+        sourceRefs: sourceRefs(),
+        status: "pending_review",
+        targetEntityId: "node_preview",
+        triggerKind: "workflow_window",
+        updatedAt: "2026-06-10T12:00:09Z",
+        windowId: "",
+      },
+    ],
+    pendingPatchPreviews: [
+      {
+        changedSemanticEdgeIds: [],
+        changedSemanticNodeIds: ["node_preview"],
+        createdAt: "2026-06-10T12:00:09Z",
+        diagnostics: [],
+        id: "semantic-working-set-preview:cartographer_patch_preview",
+        newNodes: [
+          {
+            kind: "finding",
+            label: "Preview finding",
+            scope: "session",
+            semanticNodeId: "node_preview",
+            summary: "Preview summary.",
+          },
+        ],
+        operation: "record_finding",
+        patchId: "cartographer_patch_preview",
+        patchOperationNames: ["record_finding"],
+        publicSummary: "Preview a finding.",
+        runId: "cartographer_run_live",
+        sourceRefs: sourceRefs(),
+        status: "pending_review",
+        targetEntityId: "node_preview",
+        triggerKind: "workflow_window",
+        updatedAt: "2026-06-10T12:00:09Z",
+        windowId: "",
+      },
+    ],
+    recentCartographerRuns: [],
+    recentSemanticChanges: [],
+    workflowExecutionId: "",
+    workspaceId: "workspace_test",
+  };
+}
+
+function sourceRefs() {
+  return {
+    chatConversationId: "",
+    chatMessageId: "",
+    chatRunId: "",
+    runItemId: "run_item_live",
+    workflowDefinitionId: "definition_test",
+    workflowExecutionId: "execution_test",
+    workflowNodeExecutionId: "",
+    workflowNodeId: "workflow_node",
+  };
+}
+
+function inputItemCounts() {
+  return {
+    activity: 0,
+    contextPacks: 0,
+    evidence: 0,
+    existingEdges: 0,
+    existingNodes: 0,
+    fileChanges: 0,
+    newEvents: 0,
+    observations: 0,
+    observedEventRefs: 0,
+    outputSummaries: 0,
+    retrievalResults: 0,
+    steering: 0,
+    testResults: 0,
+    toolCalls: 0,
+    trajectorySummaries: 0,
   };
 }
 

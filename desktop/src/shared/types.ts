@@ -67,6 +67,7 @@ import type {
   ReadSemanticNodeDetailRequest,
   ReadSemanticNodeDetailResponse,
   ReadSemanticSteeringStateRequest,
+  ReadSemanticWorkingSetRequest,
   ReadWorkflowGraphProjectionResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
@@ -92,6 +93,7 @@ import type {
   SemanticEvidenceList,
   SemanticGraph,
   SemanticGraphChangeEvent,
+  SemanticWorkingSet,
   SemanticLayoutPositionList,
   SemanticMutationResult,
   SemanticNodeOperationRequest,
@@ -563,6 +565,7 @@ export interface SettaAPI {
     readSteeringState: (
       request: ReadSemanticSteeringStateRequest,
     ) => Promise<SemanticSteeringState>;
+    readWorkingSet: (request: ReadSemanticWorkingSetRequest) => Promise<SemanticWorkingSet>;
     removeEdge: (request: SemanticEdgeOperationRequest) => Promise<SemanticMutationResult>;
     renameNode: (request: RenameSemanticNodeRequest) => Promise<SemanticMutationResult>;
     splitNode: (request: SplitSemanticNodeRequest) => Promise<SemanticMutationResult>;

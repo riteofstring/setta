@@ -23,7 +23,7 @@ func (service *Service) publishSemanticGraphChangeForEvents(events []SemanticEve
 func (service *Service) publishSemanticGraphChangeForCartographerAudit(workspaceID string, targetEntityIDs []string, runIDs []string, windowIDs []string, patchIDs []string) (SemanticGraphChangeEvent, bool) {
 	return service.publishSemanticGraphChange(semanticGraphChangeDraft{
 		WorkspaceID:           workspaceID,
-		ChangedAreas:          []SemanticGraphChangeArea{SemanticGraphChangeAreaCartographerAudit},
+		ChangedAreas:          []SemanticGraphChangeArea{SemanticGraphChangeAreaCartographerAudit, SemanticGraphChangeAreaWorkingSet},
 		TargetEntityIDs:       targetEntityIDs,
 		CartographerRunIDs:    runIDs,
 		CartographerWindowIDs: windowIDs,
@@ -34,7 +34,7 @@ func (service *Service) publishSemanticGraphChangeForCartographerAudit(workspace
 func cartographerPatchApplicationChangeDraft(workspaceID string, run CartographerRun, patches []CartographerPatchRecord) semanticGraphChangeDraft {
 	draft := semanticGraphChangeDraft{
 		WorkspaceID:           workspaceID,
-		ChangedAreas:          []SemanticGraphChangeArea{SemanticGraphChangeAreaCartographerAudit},
+		ChangedAreas:          []SemanticGraphChangeArea{SemanticGraphChangeAreaCartographerAudit, SemanticGraphChangeAreaWorkingSet},
 		TargetEntityIDs:       []string{run.TargetEntityID},
 		CartographerRunIDs:    []string{run.ID},
 		CartographerWindowIDs: []string{run.WindowID},

@@ -458,6 +458,9 @@ function drawStatusArc(
 }
 
 function semanticNodeBodyContextFor(node) {
+  if (node.semanticRole === "source_pulse") {
+    return semanticSourcePulseBodyContextFor(node);
+  }
   const style = semanticCellRenderStyle(node);
   const geometry = semanticCellGeometry(node);
   const seed = stableUnitHash(node.id);
@@ -500,6 +503,23 @@ function semanticNodeBodyContextFor(node) {
   return context;
 }
 
+function semanticSourcePulseBodyContextFor(node) {
+  const geometry = semanticCellGeometry(node);
+  return new GraphicsContext()
+    .circle(geometry.centerX, geometry.centerY, geometry.radius + 2)
+    .fill({ alpha: 0.2, color: node.color })
+    .circle(geometry.centerX, geometry.centerY, geometry.radius)
+    .fill({ alpha: 0.72, color: node.color })
+    .circle(
+      geometry.centerX - geometry.radius * 0.22,
+      geometry.centerY - geometry.radius * 0.25,
+      Math.max(1.8, geometry.radius * 0.26),
+    )
+    .fill({ alpha: 0.9, color: 0xecfeff })
+    .circle(geometry.centerX, geometry.centerY, geometry.radius + 0.7)
+    .stroke({ alpha: 0.68, color: 0xecfeff, width: 1.2 });
+}
+
 function workflowNodeShadowContextFor(node) {
   const { glass } = workspaceNeonTheme.workflow;
   const inactive = node.status === "not_started";
@@ -520,6 +540,9 @@ function workflowNodeShadowContextFor(node) {
 }
 
 function semanticNodeShadowContextFor(node) {
+  if (node.semanticRole === "source_pulse") {
+    return semanticSourcePulseShadowContextFor(node);
+  }
   const style = semanticCellRenderStyle(node);
   const geometry = semanticCellGeometry(node);
   const seed = stableUnitHash(node.id);
@@ -538,6 +561,15 @@ function semanticNodeShadowContextFor(node) {
     width: style.auraWidth + 2.2,
   });
   return context;
+}
+
+function semanticSourcePulseShadowContextFor(node) {
+  const geometry = semanticCellGeometry(node);
+  return new GraphicsContext()
+    .circle(geometry.centerX, geometry.centerY, geometry.radius + 9)
+    .fill({ alpha: 0.045, color: node.color })
+    .circle(geometry.centerX, geometry.centerY, geometry.radius + 5)
+    .fill({ alpha: 0.085, color: node.color });
 }
 
 function workflowNodeOutlineContextFor(node, state) {
@@ -575,6 +607,17 @@ function semanticCellGeometry(node) {
 
 function semanticCellRenderStyle(node) {
   const { dismissed, promoted, ...base } = workspaceNeonTheme.semantic.cell;
+  if (node.semanticRole === "preview") {
+    return {
+      ...base,
+      auraAlpha: base.auraAlpha * 0.64,
+      cytoplasmAlpha: base.cytoplasmAlpha * 0.58,
+      innerTintAlpha: base.innerTintAlpha * 0.72,
+      membraneAlpha: base.membraneAlpha * 0.72,
+      nucleusAlpha: base.nucleusAlpha * 0.82,
+      organelleAlpha: base.organelleAlpha * 0.7,
+    };
+  }
   if (node.dismissed) {
     return { ...base, ...dismissed };
   }

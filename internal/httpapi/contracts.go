@@ -411,6 +411,13 @@ type ReadSemanticActivitySummaryRequest struct {
 	RecentLimit int    `json:"recentLimit"`
 }
 
+type ReadSemanticWorkingSetRequest struct {
+	WorkspaceID         string `json:"workspaceId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	Limit               int    `json:"limit"`
+}
+
 type ReadSemanticSteeringStateRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	TargetEntityID string `json:"targetEntityId"`

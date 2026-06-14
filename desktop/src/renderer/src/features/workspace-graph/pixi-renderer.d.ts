@@ -27,6 +27,8 @@ export interface WorkflowGraphNode {
   ports?: WorkflowGraphPort[];
   /** Semantic-only renderer flag. */
   promoted?: boolean;
+  /** Semantic-only visual role. Committed cells are durable graph state; the others are live working-set projections. */
+  semanticRole?: "committed" | "preview" | "source_pulse";
   /** Semantic-only lineage id in renderer namespace, or "" when unset. */
   splitFromNodeId?: string;
   /** Semantic-only lineage ids in renderer namespace. */

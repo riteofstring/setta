@@ -132,6 +132,7 @@ const (
 	SemanticGraphChangeAreaContextPacks      SemanticGraphChangeArea = "context_packs"
 	SemanticGraphChangeAreaCartographerAudit SemanticGraphChangeArea = "cartographer_audit"
 	SemanticGraphChangeAreaLayout            SemanticGraphChangeArea = "layout"
+	SemanticGraphChangeAreaWorkingSet        SemanticGraphChangeArea = "working_set"
 )
 
 var (
@@ -261,6 +262,7 @@ var (
 		SemanticGraphChangeAreaContextPacks,
 		SemanticGraphChangeAreaCartographerAudit,
 		SemanticGraphChangeAreaLayout,
+		SemanticGraphChangeAreaWorkingSet,
 	}
 	cartographerRunStatusValues = []CartographerRunStatus{
 		CartographerRunQueued,
@@ -392,6 +394,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SemanticContextPackItemKind", Values: stringValues(semanticContextPackItemKindValues)},
 		{Name: "SemanticContextPackPriority", Values: stringValues(semanticContextPackPriorityValues)},
 		{Name: "SemanticGraphChangeArea", Values: stringValues(semanticGraphChangeAreaValues)},
+		{Name: "SemanticWorkingSetStatus", Values: stringValues(semanticWorkingSetStatusValues)},
 		{Name: "CartographerRunStatus", Values: stringValues(cartographerRunStatusValues)},
 		{Name: "CartographerRunTriggerKind", Values: stringValues(cartographerRunTriggerKindValues)},
 		{Name: "CartographerTaskProfile", Values: stringValues(cartographerTaskProfileValues)},

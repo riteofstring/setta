@@ -273,6 +273,7 @@ const api: SettaAPI = {
     readEventHistory: (request) => invoke("semanticGraphEventHistory", request),
     readNodeDetail: (request) => invoke("semanticGraphNodeDetail", request),
     readSteeringState: (request) => invoke("semanticGraphSteeringRead", request),
+    readWorkingSet: (request) => invoke("semanticGraphWorkingSetRead", request),
     rejectCartographerPatch: (request) => invoke("semanticGraphCartographerPatchReject", request),
     removeEdge: (request) => invoke("semanticGraphRemoveEdge", request),
     renameNode: (request) => invoke("semanticGraphRenameNode", request),

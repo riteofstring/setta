@@ -557,6 +557,7 @@ describe("preload workspace API", () => {
       "readEventHistory",
       "readNodeDetail",
       "readSteeringState",
+      "readWorkingSet",
       "rejectCartographerPatch",
       "removeEdge",
       "renameNode",
@@ -702,6 +703,12 @@ describe("preload workspace API", () => {
     await api.semanticGraph.readActivitySummary({ recentLimit: 3, workspaceId });
     await api.semanticGraph.readContextPack({ packId: "context_pack_api", workspaceId });
     await api.semanticGraph.readSteeringState({ targetEntityId: "node_api", workspaceId });
+    await api.semanticGraph.readWorkingSet({
+      chatRunId: "",
+      limit: 40,
+      workflowExecutionId: "workflow_execution_api",
+      workspaceId,
+    });
     await api.semanticGraph.readEventHistory({
       beforeLogicalClock: 0,
       limit: 20,
@@ -1016,6 +1023,15 @@ describe("preload workspace API", () => {
       [ipcChannels.semanticGraphActivitySummary, { recentLimit: 3, workspaceId }],
       [ipcChannels.semanticGraphContextPackRead, { packId: "context_pack_api", workspaceId }],
       [ipcChannels.semanticGraphSteeringRead, { targetEntityId: "node_api", workspaceId }],
+      [
+        ipcChannels.semanticGraphWorkingSetRead,
+        {
+          chatRunId: "",
+          limit: 40,
+          workflowExecutionId: "workflow_execution_api",
+          workspaceId,
+        },
+      ],
       [
         ipcChannels.semanticGraphEventHistory,
         {

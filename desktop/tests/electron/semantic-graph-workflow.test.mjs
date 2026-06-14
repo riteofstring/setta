@@ -30,6 +30,14 @@ import {
   openSelectedGraphNodeDetailsFromToolbar,
 } from "./semantic-graph-ui-helpers.mjs";
 import {
+  assertCartographerAuditBurst,
+  assertRendererStableForWorkingSetUpdate,
+  assertSemanticWorkingSetAfterAuditBurst,
+  assertSemanticWorkingSetPulseVisible,
+  assertUntargetedLiveCartographerSource,
+  buildUntargetedLiveCartographerSource,
+} from "./semantic-graph-working-set-helpers.mjs";
+import {
   dispatchWorkflowGraphMouseClick,
   dispatchWorkflowGraphMouseDrag,
   maximizeWorkflowGraphPane,
@@ -41,6 +49,7 @@ const options = parseElectronHarnessArgs(process.argv.slice(2));
 const seedConstraintNodeId = "semantic_seed_constraint";
 const seedCartographerPatchId = "semantic_seed_cartographer_patch_pending";
 const seedWorkflowExecutionId = "semantic_seed_workflow_execution";
+const seedWorkflowNodeId = "semantic_seed_workflow_node";
 const seedRendererNodeId = `semantic:${seedConstraintNodeId}`;
 const cartographerAuditBurstSize = 6;
 const semanticNodeDragDelta = { x: 92, y: 44 };
@@ -117,9 +126,49 @@ try {
   await captureScreenshot(context.client, join(artifactDir, "semantic-initial.png"));
 
   const auditBurst = await buildCartographerAuditBurst(context.client, workspaceId);
-  assertCartographerAuditBurst(auditBurst);
-  const afterAuditBurst = await getWorkflowGraphSnapshot(context.client);
-  assertRendererStableWithoutGraphUpdate(initial, afterAuditBurst, "cartographer audit burst");
+  assertCartographerAuditBurst({
+    expectedBuiltCount: cartographerAuditBurstSize,
+    result: auditBurst,
+  });
+  await assertSemanticWorkingSetAfterAuditBurst({
+    auditBurst,
+    client: context.client,
+    seedConstraintNodeId,
+    seedWorkflowExecutionId,
+    workspaceId,
+  });
+  const afterAuditBurst = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) => snapshot.render.graphUpdateCount > initial.render.graphUpdateCount,
+  );
+  assertRendererStableForWorkingSetUpdate({
+    after: afterAuditBurst,
+    assertRendererStable,
+    before: initial,
+    label: "cartographer audit burst",
+  });
+
+  const liveSource = await buildUntargetedLiveCartographerSource({
+    client: context.client,
+    seedWorkflowExecutionId,
+    seedWorkflowNodeId,
+    workspaceId,
+  });
+  assertUntargetedLiveCartographerSource({ result: liveSource, seedWorkflowNodeId });
+  const afterLiveSource = await waitForWorkflowGraphSnapshot(context.client, (snapshot) =>
+    snapshot.graph.nodes.some((node) => node.id === liveSource.pulseNodeId),
+  );
+  assertSemanticWorkingSetPulseVisible({
+    liveSource,
+    seedWorkflowNodeId,
+    snapshot: afterLiveSource,
+  });
+  assertRendererStableForWorkingSetUpdate({
+    after: afterLiveSource,
+    assertRendererStable,
+    before: afterAuditBurst,
+    label: "semantic working-set live source",
+  });
 
   const targetNode = nodeById(afterAuditBurst, seedRendererNodeId);
   await dispatchWorkflowGraphMouseClick(context.client, workflowGraphSurfaceId, {
@@ -237,6 +286,7 @@ try {
     attachment,
     afterDrag,
     afterAuditBurst,
+    afterLiveSource,
     afterGraphMutationBurst,
     afterReload,
     artifactDir,
@@ -244,6 +294,7 @@ try {
     beforeHistoryCount: beforeHistory.events.length,
     editing,
     initial,
+    liveSource,
     persistedPosition,
     processedCartographer,
     status: "passed",
@@ -562,8 +613,7 @@ async function buildCartographerAuditBurst(client, workspaceId) {
     const unsubscribe = window.setta.semanticGraph.onEvent((event) => {
       if (
         event.workspaceId === workspaceId &&
-        event.changedAreas.length === 1 &&
-        event.changedAreas[0] === "cartographer_audit"
+        event.changedAreas.includes("cartographer_audit")
       ) {
         events.push(event);
       }
@@ -1179,42 +1229,6 @@ function assertRendererLifecycleDebug(snapshot, label) {
   if (snapshot.render.canvasCreationCount !== 1) {
     throw new Error(
       `${label} expected one canvas for the mounted renderer: ${JSON.stringify(snapshot.render)}`,
-    );
-  }
-}
-
-function assertCartographerAuditBurst(result) {
-  if (
-    result.builtCount !== cartographerAuditBurstSize ||
-    result.auditEventCount < result.builtCount
-  ) {
-    throw new Error(
-      `cartographer audit burst did not deliver enough events: ${JSON.stringify(result)}`,
-    );
-  }
-  const nonAuditOnly = result.changedAreas.find(
-    (areas) => areas.length !== 1 || areas[0] !== "cartographer_audit",
-  );
-  if (nonAuditOnly) {
-    throw new Error(
-      `cartographer audit burst delivered non-audit areas: ${JSON.stringify(result)}`,
-    );
-  }
-}
-
-function assertRendererStableWithoutGraphUpdate(before, after, label) {
-  assertRendererStable(before, after, label);
-  if (after.render.graphUpdateCount !== before.render.graphUpdateCount) {
-    throw new Error(
-      `${label} triggered a graph update: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
-    );
-  }
-  if (
-    after.graph.nodeCount !== before.graph.nodeCount ||
-    after.graph.edgeCount !== before.graph.edgeCount
-  ) {
-    throw new Error(
-      `${label} changed visible graph topology: before=${JSON.stringify(before.graph)} after=${JSON.stringify(after.graph)}`,
     );
   }
 }

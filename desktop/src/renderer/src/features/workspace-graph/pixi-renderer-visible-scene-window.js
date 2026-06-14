@@ -323,6 +323,7 @@ function nodeContainerRequiresRebuild(previous, next) {
     previous.height !== next.height ||
     previous.layer !== next.layer ||
     previous.promoted !== next.promoted ||
+    previous.semanticRole !== next.semanticRole ||
     previous.width !== next.width ||
     !portsEqual(previous.ports, next.ports)
   );

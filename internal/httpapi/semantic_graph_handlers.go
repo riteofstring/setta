@@ -134,6 +134,28 @@ func (handler handler) readSemanticActivitySummary(response http.ResponseWriter,
 	writeJSON(response, http.StatusOK, summary)
 }
 
+func (handler handler) readSemanticWorkingSet(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ReadSemanticWorkingSetRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	workingSet, err := service.ReadWorkingSet(request.Context(), semanticgraph.SemanticWorkingSetFilter{
+		WorkspaceID:         payload.WorkspaceID,
+		WorkflowExecutionID: payload.WorkflowExecutionID,
+		ChatRunID:           payload.ChatRunID,
+		Limit:               payload.Limit,
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "read_semantic_working_set_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, workingSet)
+}
+
 func (handler handler) readSemanticSteeringState(response http.ResponseWriter, request *http.Request) {
 	service := requireSemanticGraphService(response, handler.semanticGraphService)
 	if service == nil {
