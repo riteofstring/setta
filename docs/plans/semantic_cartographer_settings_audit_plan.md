@@ -922,8 +922,12 @@ Implementation note:
 
 ## Phase 8 - Recording and Debug Integration
 
+Phase 8 is ready to implement now that Phase 7 persists requested input budget,
+serialized input size, and truncation/compaction metadata in the cartographer
+run audit.
+
 Extend recording capture so future reports answer the model/reasoning question
-without manual SQLite queries.
+and final-synthesis budget question without manual SQLite queries.
 
 Record:
 
@@ -931,13 +935,31 @@ Record:
 - Cartographer processing state.
 - Recent run audit list.
 - Recent failed/no-op/applied runs.
-- Run model/reasoning fields.
+- Run model/reasoning fields: requested model selection, requested model,
+  effective model, reported model, requested reasoning, effective reasoning,
+  reported reasoning, and whether reasoning was reported by the provider.
+- Final-synthesis budget fields: `requestedInputBudget`, `inputBundleBytes`,
+  `inputBundleCharacterCount`, `inputItemCounts`, close reason, queue wait,
+  harness duration, validation duration, application duration, and total
+  duration.
+- Input truncation/compaction metadata from `CartographerInputTruncation`:
+  original item counts, included item counts, dropped item counts, folded window
+  count, serialized input bytes, serialized input character count, effective
+  budget characters, Codex structured-task character limit, budget-exceeded
+  flag, truncation reasons, and deterministic summary.
 - Queue wait and harness duration.
-- Input size and close reason.
 - Last failure message and diagnostics.
 
 Renderer graph debug mode should include the same compact cartographer runtime
-summary that the Settings page shows.
+summary that the Settings page shows, plus a final-synthesis budget summary for
+the most recent `workflow_done` runs. The debug/recording view should make it
+obvious whether a run was small enough to start Codex, compacted to fit, or
+failed before harness start with `input_budget_exceeded`.
+
+Recording output should remain structured JSON so future analysis scripts can
+diff before/after runs without scraping display text. Do not add compatibility
+aliases for old recording field names; recordings should follow the current
+generated backend contract.
 
 ## Phase 9 - Verification
 
