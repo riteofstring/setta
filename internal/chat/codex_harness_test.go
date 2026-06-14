@@ -1313,6 +1313,9 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		})
 		return mode == "command-model-set-local" || mode == "command-effort-set-local"
 	case "thread/start", "thread/resume":
+		if mode == "catalog-model-list-no-thread" {
+			panic("model catalog lookup should not start or resume a thread")
+		}
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)
 		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))

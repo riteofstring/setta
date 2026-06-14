@@ -289,6 +289,115 @@ func TestSemanticCartographerSettingsRejectInvalidUpdate(t *testing.T) {
 	}
 }
 
+func TestSemanticCartographerSettingsCatalogValidationUsesModelValue(t *testing.T) {
+	settings := DefaultSemanticCartographerSettings(testTimestamp(1))
+	settings.LiveTaskConfig.ModelSelection = SemanticCartographerModelSelectionExplicit
+	settings.LiveTaskConfig.ModelID = "display-only-option-id"
+	settings.LiveTaskConfig.ReasoningEffort = chat.ReasoningEffortHigh
+
+	catalog := []chat.ChatModelOption{
+		cartographerSettingsCatalogModel("display-only-option-id", "gpt-real", true, chat.ReasoningEffortLow, chat.ReasoningEffortMedium, chat.ReasoningEffortHigh),
+	}
+	err := ValidateSemanticCartographerSettingsAgainstModelCatalog(settings, catalog)
+	if err == nil {
+		t.Fatal("catalog validation succeeded with display-only id, want explicit model lookup by model value")
+	}
+	if !strings.Contains(err.Error(), `explicit model "display-only-option-id" is absent`) {
+		t.Fatalf("catalog validation error = %v, want absent explicit model by model value", err)
+	}
+
+	settings.LiveTaskConfig.ModelID = "gpt-real"
+	if err := ValidateSemanticCartographerSettingsAgainstModelCatalog(settings, catalog); err != nil {
+		t.Fatalf("catalog validation with model value: %v", err)
+	}
+}
+
+func TestSemanticCartographerSettingsCatalogValidationAllowsProviderDefaultWithoutReportedDefault(t *testing.T) {
+	settings := DefaultSemanticCartographerSettings(testTimestamp(1))
+	catalog := []chat.ChatModelOption{
+		cartographerSettingsCatalogModel("explicit-id", "gpt-explicit", false, chat.ReasoningEffortHigh),
+	}
+
+	if err := ValidateSemanticCartographerSettingsAgainstModelCatalog(settings, catalog); err != nil {
+		t.Fatalf("provider default validation without reported default model: %v", err)
+	}
+}
+
+func TestSemanticCartographerSettingsCatalogValidationRejectsUnsupportedSavedOptions(t *testing.T) {
+	tests := []struct {
+		name    string
+		edit    func(*SemanticCartographerSettings)
+		catalog []chat.ChatModelOption
+		want    string
+	}{
+		{
+			name: "missing explicit model",
+			edit: func(settings *SemanticCartographerSettings) {
+				settings.LiveTaskConfig.ModelSelection = SemanticCartographerModelSelectionExplicit
+				settings.LiveTaskConfig.ModelID = "gpt-missing"
+				settings.LiveTaskConfig.ReasoningEffort = chat.ReasoningEffortHigh
+			},
+			catalog: []chat.ChatModelOption{
+				cartographerSettingsCatalogModel("other-id", "gpt-other", true, chat.ReasoningEffortMedium, chat.ReasoningEffortHigh),
+			},
+			want: `explicit model "gpt-missing" is absent`,
+		},
+		{
+			name: "unsupported explicit reasoning",
+			edit: func(settings *SemanticCartographerSettings) {
+				settings.LiveTaskConfig.ModelSelection = SemanticCartographerModelSelectionExplicit
+				settings.LiveTaskConfig.ModelID = "gpt-explicit"
+				settings.LiveTaskConfig.ReasoningEffort = chat.ReasoningEffortHigh
+			},
+			catalog: []chat.ChatModelOption{
+				cartographerSettingsCatalogModel("explicit-id", "gpt-explicit", true, chat.ReasoningEffortLow, chat.ReasoningEffortMedium),
+			},
+			want: `reasoningEffort high is unsupported for explicit model "gpt-explicit"`,
+		},
+		{
+			name: "unsupported provider default reasoning",
+			edit: func(settings *SemanticCartographerSettings) {},
+			catalog: []chat.ChatModelOption{
+				cartographerSettingsCatalogModel("default-id", "gpt-default", true, chat.ReasoningEffortLow),
+			},
+			want: `reasoningEffort medium is unsupported for provider default model "gpt-default"`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			settings := DefaultSemanticCartographerSettings(testTimestamp(1))
+			test.edit(&settings)
+			err := ValidateSemanticCartographerSettingsAgainstModelCatalog(settings, test.catalog)
+			if err == nil {
+				t.Fatal("catalog validation succeeded, want rejection")
+			}
+			if !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("catalog validation error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func cartographerSettingsCatalogModel(id string, model string, isDefault bool, efforts ...chat.ReasoningEffort) chat.ChatModelOption {
+	options := make([]chat.ChatReasoningEffortOption, 0, len(efforts))
+	for _, effort := range efforts {
+		options = append(options, chat.ChatReasoningEffortOption{
+			Effort:      effort,
+			DisplayName: string(effort),
+		})
+	}
+	return chat.ChatModelOption{
+		ID:                        id,
+		Model:                     model,
+		DisplayName:               model,
+		Description:               model,
+		IsDefault:                 isDefault,
+		DefaultReasoningEffort:    efforts[0],
+		SupportedReasoningEfforts: options,
+	}
+}
+
 func TestSemanticCartographerSettingsRejectInvalidPersistedRow(t *testing.T) {
 	appDataDir := t.TempDir()
 	ctx := context.Background()

@@ -151,6 +151,10 @@ func (harness *ScriptedWorkflowHarness) ListCommandCapabilities(_ context.Contex
 	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
 }
 
+func (harness *ScriptedWorkflowHarness) ListModelOptions(_ context.Context, _ HarnessModelCatalogRequest) (HarnessModelCatalogResult, error) {
+	return HarnessModelCatalogResult{Models: fakeModelOptions()}, nil
+}
+
 func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
 	if err := ensureCommandAvailable(request.Command, request.ActiveRun); err != nil {
 		return HarnessCommandResult{}, err

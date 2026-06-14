@@ -242,6 +242,22 @@ func TestServiceStoresTypedCodexModelWithoutParsingSlashCommand(t *testing.T) {
 	}
 }
 
+func TestServiceListsCodexModelOptionsWithoutConversation(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+
+	models, err := service.ListCodexModelOptions("workspace_api")
+	if err != nil {
+		t.Fatalf("list codex model options: %v", err)
+	}
+	if len(models) != 2 || models[0].Model != "scripted-fast" || !models[0].IsDefault {
+		t.Fatalf("models = %+v, want fake catalog models", models)
+	}
+	if len(harness.CommandRequests()) != 0 {
+		t.Fatalf("command requests = %+v, want catalog lookup without command execution", harness.CommandRequests())
+	}
+}
+
 func waitForGoalStatus(t *testing.T, service *Service, workspaceID string, conversationID string, status string) MessagePage {
 	t.Helper()
 

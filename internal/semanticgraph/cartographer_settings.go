@@ -167,6 +167,101 @@ func validateSemanticCartographerTaskConfig(config SemanticCartographerTaskConfi
 	return nil
 }
 
+func ValidateSemanticCartographerSettingsAgainstModelCatalog(settings SemanticCartographerSettings, models []chat.ChatModelOption) error {
+	if err := validateSemanticCartographerSettings(settings); err != nil {
+		return err
+	}
+	catalog, err := semanticCartographerModelCatalogIndex(models)
+	if err != nil {
+		return err
+	}
+	if err := validateSemanticCartographerTaskConfigAgainstModelCatalog(settings.LiveTaskConfig, "semantic cartographer live task config", catalog); err != nil {
+		return err
+	}
+	return validateSemanticCartographerTaskConfigAgainstModelCatalog(settings.FinalSynthesisTaskConfig, "semantic cartographer final synthesis task config", catalog)
+}
+
+type semanticCartographerModelCatalog struct {
+	byModel      map[string]chat.ChatModelOption
+	defaultModel *chat.ChatModelOption
+}
+
+func semanticCartographerModelCatalogIndex(models []chat.ChatModelOption) (semanticCartographerModelCatalog, error) {
+	catalog := semanticCartographerModelCatalog{byModel: map[string]chat.ChatModelOption{}}
+	for index, model := range models {
+		label := fmt.Sprintf("model catalog[%d]", index)
+		if model.Model == "" {
+			return semanticCartographerModelCatalog{}, fmt.Errorf("%s model is required", label)
+		}
+		if _, exists := catalog.byModel[model.Model]; exists {
+			return semanticCartographerModelCatalog{}, fmt.Errorf("model catalog contains duplicate model %q", model.Model)
+		}
+		if err := validateSemanticCartographerCatalogReasoning(model, label); err != nil {
+			return semanticCartographerModelCatalog{}, err
+		}
+		catalog.byModel[model.Model] = model
+		if model.IsDefault {
+			if catalog.defaultModel != nil {
+				return semanticCartographerModelCatalog{}, fmt.Errorf("model catalog contains multiple default models: %q and %q", catalog.defaultModel.Model, model.Model)
+			}
+			defaultModel := model
+			catalog.defaultModel = &defaultModel
+		}
+	}
+	return catalog, nil
+}
+
+func validateSemanticCartographerCatalogReasoning(model chat.ChatModelOption, label string) error {
+	if !isSemanticCartographerReasoningEffort(model.DefaultReasoningEffort) {
+		return fmt.Errorf("%s defaultReasoningEffort is unsupported: %s", label, model.DefaultReasoningEffort)
+	}
+	supported := map[chat.ReasoningEffort]struct{}{}
+	for index, option := range model.SupportedReasoningEfforts {
+		optionLabel := fmt.Sprintf("%s supportedReasoningEfforts[%d]", label, index)
+		if !isSemanticCartographerReasoningEffort(option.Effort) {
+			return fmt.Errorf("%s effort is unsupported: %s", optionLabel, option.Effort)
+		}
+		if _, exists := supported[option.Effort]; exists {
+			return fmt.Errorf("%s contains duplicate effort %s", label, option.Effort)
+		}
+		supported[option.Effort] = struct{}{}
+	}
+	if _, ok := supported[model.DefaultReasoningEffort]; !ok {
+		return fmt.Errorf("%s defaultReasoningEffort %s is not in supportedReasoningEfforts", label, model.DefaultReasoningEffort)
+	}
+	return nil
+}
+
+func validateSemanticCartographerTaskConfigAgainstModelCatalog(config SemanticCartographerTaskConfig, label string, catalog semanticCartographerModelCatalog) error {
+	switch config.ModelSelection {
+	case SemanticCartographerModelSelectionExplicit:
+		model, ok := catalog.byModel[config.ModelID]
+		if !ok {
+			return fmt.Errorf("%s explicit model %q is absent from Codex model catalog", label, config.ModelID)
+		}
+		if !semanticCartographerCatalogModelSupportsReasoning(model, config.ReasoningEffort) {
+			return fmt.Errorf("%s reasoningEffort %s is unsupported for explicit model %q", label, config.ReasoningEffort, config.ModelID)
+		}
+	case SemanticCartographerModelSelectionProviderDefault:
+		if catalog.defaultModel == nil {
+			return nil
+		}
+		if !semanticCartographerCatalogModelSupportsReasoning(*catalog.defaultModel, config.ReasoningEffort) {
+			return fmt.Errorf("%s reasoningEffort %s is unsupported for provider default model %q", label, config.ReasoningEffort, catalog.defaultModel.Model)
+		}
+	}
+	return nil
+}
+
+func semanticCartographerCatalogModelSupportsReasoning(model chat.ChatModelOption, effort chat.ReasoningEffort) bool {
+	for _, option := range model.SupportedReasoningEfforts {
+		if option.Effort == effort {
+			return true
+		}
+	}
+	return false
+}
+
 func validateSemanticCartographerProcessingConfig(config SemanticCartographerProcessingConfig) error {
 	if config.MaxConcurrent <= 0 {
 		return fmt.Errorf("semantic cartographer processing maxConcurrent must be positive: %d", config.MaxConcurrent)
