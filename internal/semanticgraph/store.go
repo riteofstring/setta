@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 10
+	semanticStoreVersion = 11
 	sqliteDriverName     = "sqlite"
 )
 
@@ -136,9 +136,14 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 		return err
 	}
 	if userVersion == 0 {
+		if err := store.createDefaultSemanticCartographerSettings(ctx); err != nil {
+			return err
+		}
 		if _, err := store.db.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", semanticStoreVersion)); err != nil {
 			return store.persistenceError("write semantic graph database schema version", err)
 		}
+	} else if err := store.validateSemanticCartographerSettingsRow(ctx); err != nil {
+		return err
 	}
 	return nil
 }
@@ -371,6 +376,15 @@ CREATE TABLE IF NOT EXISTS semantic_layout_positions (
   pinned INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL,
   PRIMARY KEY(workspace_id, entity_id)
+);
+
+CREATE TABLE IF NOT EXISTS semantic_cartographer_settings (
+  id TEXT PRIMARY KEY CHECK (id = 'global'),
+  schema_version INTEGER NOT NULL,
+  settings_json TEXT NOT NULL,
+  settings_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (

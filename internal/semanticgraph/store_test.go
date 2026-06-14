@@ -664,6 +664,7 @@ func TestStoreOpensCartographerSchemaAndRejectsPreviousSemanticVersion(t *testin
 SELECT COUNT(*)
 FROM sqlite_master
 WHERE type = 'table' AND name IN (
+  'semantic_cartographer_settings',
   'semantic_cartographer_runs',
   'semantic_cartographer_windows',
   'semantic_cartographer_cursors',
@@ -674,8 +675,8 @@ WHERE type = 'table' AND name IN (
 `).Scan(&cartographerTables); err != nil {
 		t.Fatalf("count cartographer tables: %v", err)
 	}
-	if cartographerTables != 6 {
-		t.Fatalf("cartographer table count = %d, want 6", cartographerTables)
+	if cartographerTables != 7 {
+		t.Fatalf("cartographer table count = %d, want 7", cartographerTables)
 	}
 
 	appDataDir := t.TempDir()
@@ -698,9 +699,9 @@ WHERE type = 'table' AND name IN (
 	if !IsCorruptStateError(err) {
 		t.Fatalf("previous-version store error = %T %v, want corrupt state error", err, err)
 	}
-	if !strings.Contains(err.Error(), "unsupported schema version 9") ||
+	if !strings.Contains(err.Error(), "unsupported schema version 10") ||
 		!strings.Contains(err.Error(), "reset the semantic graph store") {
-		t.Fatalf("previous-version store error = %v, want version 9 reset guidance", err)
+		t.Fatalf("previous-version store error = %v, want version 10 reset guidance", err)
 	}
 }
 

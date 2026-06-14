@@ -47,6 +47,10 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 	if workspaceResolver == nil {
 		return nil, errors.New("workspace resolver is required")
 	}
+	settingsRecord, err := store.ReadSemanticCartographerSettings(context.Background())
+	if err != nil {
+		return nil, err
+	}
 	service := &Service{
 		store:                   store,
 		workspaceResolver:       workspaceResolver,
@@ -56,6 +60,7 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 		newID:                   randomID,
 		now:                     time.Now,
 	}
+	service.applySemanticCartographerSettingsDefaults(settingsRecord.Settings)
 	for _, option := range options {
 		option(service)
 	}
@@ -70,6 +75,12 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 		service.semanticGraphChanges = newSemanticGraphChangeHub(streamID, service.now)
 	}
 	return service, nil
+}
+
+func (service *Service) applySemanticCartographerSettingsDefaults(settings SemanticCartographerSettings) {
+	service.cartographerConfig = settings.ObservationConfig.cartographerObservationConfig()
+	service.automaticCartographer.enabled = settings.AutomaticProcessingEnabled
+	service.automaticCartographer.config = settings.ProcessingConfig.automaticCartographerProcessingConfig()
 }
 
 func WithIDGenerator(newID IDGenerator) Option {
