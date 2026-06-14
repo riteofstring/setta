@@ -909,6 +909,46 @@ Acceptance criteria:
 - Recording with payloads enabled remains useful instead of being dominated by
   repeated full working-set responses.
 
+### Phase 6 Implementation Review
+
+Phase 6 is implemented by commit `7bd232a06` (`Implement semantic runtime
+payload budgets`).
+
+Implemented:
+
+- Added Go-owned `SemanticRuntimePayloadBudget` metadata to runtime snapshots
+  and deltas, regenerated TypeScript, and records byte size, max byte size, and
+  truncated string count on hot-path payloads.
+- Added explicit snapshot limits for active cartographer runs/windows, patch
+  previews, preview nodes, semantic changes, aggregate sources, workflow nodes,
+  run items, changed IDs, operation names, created event IDs, public summaries,
+  preview text, model-audit text, and model-audit errors.
+- Split full recent cartographer detail out of the runtime hot path by exposing
+  recent/omitted counts in the runtime snapshot while leaving full run details
+  available through the existing cartographer list/read detail endpoints.
+- Added truncation and budget tests for large runtime snapshots and deltas,
+  including assertions that durable cartographer run detail is not truncated.
+- Added recording payload metrics for semantic runtime snapshots and forwarded
+  deltas, plus a phase 6 payload gate report in the deterministic Electron
+  semantic cartographer workflow.
+- Preserved the renderer runtime-store behavior from Phase 3: runtime deltas
+  coalesce by frame/entity, revision gaps request a snapshot, and visual
+  publishing still waits for camera movement to settle.
+
+Focused verification passed during review:
+
+- `./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi`
+- `pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/features/workspace-graph/semantic-node-details-surface.test.tsx`
+- `pnpm --dir desktop exec eslint src/renderer/src/features/workspace-graph/semantic-runtime-store.ts src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/main/semantic-graph-event-forwarding-stream.ts tests/electron/semantic-cartographer-auto-workflow.test.mjs`
+- `pnpm --dir desktop typecheck`
+- `pnpm --dir desktop build`
+- `node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs --semantic-live-recording-only --skip-build`
+
+Phase 7 is ready. The Phase 6 gates prove the runtime payload contract for the
+focused semantic-live workflow and large backend fixtures; Phase 7 should
+broaden that into the full product acceptance matrix, especially the large
+review, reconnect, and runtime-burst camera workflows.
+
 ## Phase 7 - Verification Matrix And Product Acceptance
 
 Turn this refactor into durable gates.
@@ -987,10 +1027,3 @@ where `Reviewer` is an agent reviewing the codebase:
 - Do not manually edit generated TypeScript outputs.
 - Do not add migrations, legacy readers, transitional adapters, old-field
   aliases, or dual-read/write paths.
-
-### Phase 6 Implementation Review
-
-Phase 6 is implemented in the current worktree. It adds Go-owned
-payload-budget metadata, hot-path limits, omission counts, string caps, and
-byte-budget gates while keeping full cartographer run details on demand through
-list/read endpoints. Phase 7 is ready.
