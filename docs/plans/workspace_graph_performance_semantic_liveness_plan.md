@@ -1,7 +1,7 @@
 # Workspace Graph Performance and Semantic Liveness Plan
 
 - **Date:** June 15, 2026
-- **Status:** Phase 0 complete; Phase 1 ready
+- **Status:** Phase 1 complete; Phase 2 ready
 - **Scope:** Diagnose and fix workspace graph pan/zoom/interaction performance, then make the semantic cartographer feel live and useful during real workflow runs.
 - **Related docs:**
   - `docs/plans/living_workspace_neon_redesign_plan.md`
@@ -180,6 +180,25 @@ Expected outcome:
 - Wheel/pointer event handlers are O(1) or O(log visible).
 - The maximum expensive camera-dependent work rate is the display frame rate, not the input event rate.
 - A performance report shows reduced main-thread time during drag and wheel gestures.
+
+### Phase 1 Implementation Review
+
+Phase 1 is implemented. The renderer now records camera state separately from
+camera-dependent sync, schedules camera-dependent work through the Pixi ticker,
+and exposes debug counters for scheduled sync frames, moving sync frames, hidden
+label moving frames, settle restores, and pending sync state.
+
+The required before/after report is checked in at
+`docs/reports/performance/workspace-graph-semantic-liveness-phase-1-camera-coalescing.md`.
+It uses the Phase 0 baseline as the before state and the deterministic
+`workflow-graph-pan-zoom-*` recordings at
+`.recordings/workspace-graph-phase1-after-20260616-r4` as the after state.
+
+At 5,000 nodes, the moving-frame `commit-camera-change` average dropped from
+73.88 ms to 12.53 ms because moving frames no longer reposition all screen-space
+labels or redraw settled glow fidelity. The settled restore still costs
+68.83 ms on average because it remains whole-graph label work, so Phase 2 is the
+next measured bottleneck.
 
 ## Phase 2 - Visibility-First Labels, Glow, And Filters
 

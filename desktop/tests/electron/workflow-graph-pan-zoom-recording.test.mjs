@@ -455,6 +455,7 @@ function assertPhase0DebugSnapshot(snapshot, expected) {
   assertLargeNodeCount(snapshot, expected);
   assertFiniteRenderCounters(snapshot);
   assertPanZoomCounters(snapshot);
+  assertCameraSyncCounters(snapshot);
   assertRequiredTimingBuckets(snapshot);
   assertDisplayObjectLayerCounts(snapshot);
   assertTimingSampleRing(snapshot);
@@ -474,6 +475,13 @@ function assertFiniteRenderCounters(snapshot) {
     "averageFrameMs",
     "p95FrameMs",
     "worstFrameMs",
+    "cameraDependentSyncFrameCount",
+    "cameraMovingLabelHiddenFrameCount",
+    "cameraMovingSyncFrameCount",
+    "cameraSettleDelayMs",
+    "cameraSettleLabelSyncCount",
+    "cameraSettleRestoreFrameCount",
+    "cameraSettledSyncFrameCount",
     "cameraUpdateCount",
     "labelSyncCount",
     "visibleLabelCount",
@@ -494,6 +502,22 @@ function assertPanZoomCounters(snapshot) {
     snapshot.render.wheelZoomUpdateCount <= 0
   ) {
     throw new Error(`pan/zoom counters did not advance: ${JSON.stringify(snapshot.render)}`);
+  }
+}
+
+function assertCameraSyncCounters(snapshot) {
+  if (
+    snapshot.render.cameraDependentSyncFrameCount <= 0 ||
+    snapshot.render.cameraMovingLabelHiddenFrameCount <= 0 ||
+    snapshot.render.cameraMovingSyncFrameCount <= 0 ||
+    snapshot.render.cameraSettleLabelSyncCount <= 0 ||
+    snapshot.render.cameraSettleRestoreFrameCount <= 0 ||
+    snapshot.render.cameraDependentSyncRequiresMovingFrame ||
+    snapshot.render.cameraDependentSyncScheduled
+  ) {
+    throw new Error(
+      `camera sync counters did not show coalesced movement: ${JSON.stringify(snapshot.render)}`,
+    );
   }
 }
 
@@ -541,6 +565,12 @@ function summarizeSnapshot(snapshot) {
     render: {
       activeEdgeFlowCount: snapshot.render.activeEdgeFlowCount,
       averageFrameMs: snapshot.render.averageFrameMs,
+      cameraDependentSyncFrameCount: snapshot.render.cameraDependentSyncFrameCount,
+      cameraMovingLabelHiddenFrameCount: snapshot.render.cameraMovingLabelHiddenFrameCount,
+      cameraMovingSyncFrameCount: snapshot.render.cameraMovingSyncFrameCount,
+      cameraSettleLabelSyncCount: snapshot.render.cameraSettleLabelSyncCount,
+      cameraSettleRestoreFrameCount: snapshot.render.cameraSettleRestoreFrameCount,
+      cameraSettledSyncFrameCount: snapshot.render.cameraSettledSyncFrameCount,
       cameraUpdateCount: snapshot.render.cameraUpdateCount,
       frameCount: snapshot.render.frameCount,
       p95FrameMs: snapshot.render.p95FrameMs,

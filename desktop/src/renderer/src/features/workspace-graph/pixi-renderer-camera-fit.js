@@ -1,17 +1,19 @@
+/* global performance */
+
 import { cameraState, clamp, hostScreenSize } from "./pixi-renderer-helpers";
 import { rendererNodeLayer } from "./pixi-renderer-layers";
 import { workspaceNeonTheme } from "./workspace-neon-theme";
 
 export function fitViewportToGraph({
-  animationCoordinator,
-  commitCameraChange,
   host,
-  labels,
   maxFitZoom = 1.15,
   maxZoom,
   minZoom,
   nodes,
   paddingScreenPx = 160,
+  recordCameraState,
+  runCameraDependentSyncFrame,
+  scheduleCameraDependentSync,
   viewport,
 }) {
   if (nodes.length === 0) {
@@ -28,9 +30,10 @@ export function fitViewportToGraph({
   );
   viewport.setZoom(clamp(fitZoom, minZoom, maxZoom));
   viewport.moveCenter(bounds.centerX, bounds.centerY);
-  commitCameraChange();
-  labels.syncAllLabels();
-  animationCoordinator.syncActiveSet();
+  if (recordCameraState(cameraState(viewport), { moving: false, now: performance.now() })) {
+    scheduleCameraDependentSync();
+    runCameraDependentSyncFrame(performance.now(), { force: true });
+  }
   return cameraState(viewport);
 }
 

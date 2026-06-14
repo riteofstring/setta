@@ -16,6 +16,12 @@ const traceCategories = [
 ];
 
 const renderDeltaCounters = [
+  "cameraDependentSyncFrameCount",
+  "cameraMovingLabelHiddenFrameCount",
+  "cameraMovingSyncFrameCount",
+  "cameraSettleLabelSyncCount",
+  "cameraSettleRestoreFrameCount",
+  "cameraSettledSyncFrameCount",
   "cameraUpdateCount",
   "frameCount",
   "labelSyncCount",

@@ -773,6 +773,14 @@ async function stopBackend() {
   backend = null;
 }
 
+function destroyRendererWindowsForQuit() {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.destroy();
+    }
+  }
+}
+
 function requestQuit() {
   app.quit();
 }
@@ -805,6 +813,7 @@ app.on("before-quit", (event) => {
   quitting = true;
   void (async () => {
     await recorder?.captureScreenshot(mainWindow, "app-before-quit");
+    destroyRendererWindowsForQuit();
     await stopBackend();
     recorder?.close();
     app.quit();
@@ -812,7 +821,7 @@ app.on("before-quit", (event) => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
+  if (!quitting && process.platform !== "darwin") {
     app.quit();
   }
 });

@@ -46,12 +46,18 @@ export function createWorkflowGraphAnimationCoordinator({
     });
   }
 
-  function syncActiveSet() {
+  function syncActiveSet({ cameraMotion = "settled" } = {}) {
     const visibleNodeIds = spatialQueries.visibleNodeIds();
     const visibleNodes = nodes.filter((node) => visibleNodeIds.has(node.id));
     debugMetrics.measure("animation-active-set-recompute", () => {
       animationState.recompute({ edges, nodes, visibleNodeIds });
     });
+    if (cameraMotion === "moving") {
+      if (animationState.edgeFlows().length === 0) {
+        edgeFlowGraphics.clear();
+      }
+      return;
+    }
     debugMetrics.measure("static-glow-redraw", () => {
       drawWorkspaceGlow(staticGlow, visibleNodes, performance.now(), {
         mode: "static",

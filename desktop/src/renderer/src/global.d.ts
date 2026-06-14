@@ -108,6 +108,16 @@ interface WorkflowGraphDebugSnapshot {
     averageFrameMs: number;
     animationActive: boolean;
     animationEnabled: boolean;
+    cameraDependentSyncFrameCount: number;
+    cameraDependentSyncRequiresMovingFrame: boolean;
+    cameraDependentSyncScheduled: boolean;
+    cameraMoving: boolean;
+    cameraMovingLabelHiddenFrameCount: number;
+    cameraMovingSyncFrameCount: number;
+    cameraSettleDelayMs: number;
+    cameraSettleLabelSyncCount: number;
+    cameraSettleRestoreFrameCount: number;
+    cameraSettledSyncFrameCount: number;
     cameraUpdateCount: number;
     cellAnimCandidateCount: number;
     cellAnimCap: number;

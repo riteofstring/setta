@@ -8,6 +8,7 @@ import {
 import { createWorkflowGraphAnimationCoordinator } from "./pixi-renderer-animation-coordinator";
 import { createWorkflowGraphAnimationState } from "./pixi-renderer-animation";
 import { fitViewportToGraph } from "./pixi-renderer-camera-fit";
+import { createWorkflowGraphCameraSync } from "./pixi-renderer-camera-sync";
 import { createSemanticCellAnimationController } from "./pixi-renderer-cell-animation";
 import { createRendererContainerFactories } from "./pixi-renderer-container-factories";
 import {
@@ -44,7 +45,6 @@ import { createWorkflowGraphSceneGraphUpdater } from "./pixi-renderer-scene-grap
 import { createWorkflowGraphSpatialQueries } from "./pixi-renderer-spatial-queries";
 import {
   cameraState,
-  cameraStatesDiffer,
   clamp,
   commitEdgeConnection,
   configureViewportNavigation,
@@ -246,14 +246,12 @@ export async function createWorkflowGraphRenderer(options) {
   let [draggingNode, drawingEdge, lastNodeClick] = [null, null, null];
   let [drawingMarquee, panningCamera, activeTargetPortKey] = [null, null, null];
   let [destroyed, frameCount, lastFrameAt] = [false, 0, performance.now()];
-  let [cameraUpdateCount, nodeDragUpdateCount, edgeRedrawCount] = [0, 0, 0];
+  let [nodeDragUpdateCount, edgeRedrawCount] = [0, 0];
   let [marqueeUpdateCount, edgeCommitCount, nextEdgeSequence] = [0, 0, 1];
   let [pointerPanUpdateCount, selectionChangeCount, temporaryEdgeUpdateCount] = [0, 0, 0];
   let [wheelPanUpdateCount, wheelZoomUpdateCount, gridDrawCount] = [0, 0, 0];
   let nodeOutlineVisibilityUpdateCount = 0;
-  let lastCameraState = cameraState(viewport);
   let currentWorkflow = graph.workflow ?? null;
-  const canvasCreationCount = 1;
   let rendererDestroyCount = 0;
   const recentFrameMs = [];
   const edgeInteractions = createWorkflowGraphEdgeInteractions({
@@ -287,6 +285,15 @@ export async function createWorkflowGraphRenderer(options) {
     nodes,
     spatialQueries,
     staticGlow,
+  });
+  const cameraSync = createWorkflowGraphCameraSync({
+    animationCoordinator,
+    debugMetrics,
+    handlers,
+    labelLayer,
+    labels,
+    syncFilterAreas,
+    viewport,
   });
   edgeFlowGraphics.blendMode = "add";
   edgeFlowGraphics.eventMode = "none";
@@ -459,9 +466,12 @@ export async function createWorkflowGraphRenderer(options) {
       recentFrameMs.shift();
     }
     const nextCameraState = cameraState(viewport);
-    if (cameraStatesDiffer(nextCameraState, lastCameraState)) {
-      commitCameraChange(nextCameraState);
+    if (cameraSync.hasCameraChanged(nextCameraState)) {
+      if (cameraSync.recordCameraState(nextCameraState, { moving: true, now })) {
+        cameraSync.scheduleCameraDependentSync();
+      }
     }
+    cameraSync.runCameraDependentSyncFrame(now);
     animationCoordinator.tick(now);
   });
   const debugAnimationFrameRenderer = createWorkflowGraphDebugAnimationFrameRenderer({
@@ -500,7 +510,7 @@ export async function createWorkflowGraphRenderer(options) {
       },
       // prettier-ignore
       renderState: () => ({
-        cameraUpdateCount, canvasCreationCount, drawingEdge: Boolean(drawingEdge),
+        canvasCreationCount: 1, drawingEdge: Boolean(drawingEdge),
         drawingMarquee: Boolean(drawingMarquee), edgeCommitCount, edgeRedrawCount,
         edgeSelectionChangeCount: edgeInteractions.selectionChangeCount(), frameCount,
         gridDrawCount, labelSyncCount: labels.syncCount(), marqueeUpdateCount,
@@ -511,7 +521,8 @@ export async function createWorkflowGraphRenderer(options) {
         selectedEdgeIds: edgeInteractions.selectedEdgeIds, selectedNodeIds,
         selectionChangeCount, temporaryEdgeUpdateCount, wheelPanUpdateCount,
         wheelZoomUpdateCount, workflow: currentWorkflow,
-        ...animationState.debugSnapshot(), ...sceneGraph.updateCounts(),
+        ...cameraSync.debugSnapshot(), ...animationState.debugSnapshot(),
+        ...sceneGraph.updateCounts(),
       }),
       requireNodeLabel: labels.requireNodeLabel,
       spatialQueries,
@@ -943,7 +954,9 @@ export async function createWorkflowGraphRenderer(options) {
     }
     const corner = viewport.corner;
     viewport.moveCorner(corner.x + deltaX / viewport.scaled, corner.y + deltaY / viewport.scaled);
-    commitCameraChange();
+    if (cameraSync.recordCameraState(cameraState(viewport), { moving: true })) {
+      cameraSync.scheduleCameraDependentSync();
+    }
   }
   function zoomCameraAtScreen(screen, factor) {
     const nextZoom = clamp(viewport.scaled * factor, limits.minZoom, limits.maxZoom);
@@ -955,33 +968,22 @@ export async function createWorkflowGraphRenderer(options) {
     const screenAfter = viewport.toScreen(worldBefore);
     viewport.x += screen.x - screenAfter.x;
     viewport.y += screen.y - screenAfter.y;
-    commitCameraChange();
+    if (cameraSync.recordCameraState(cameraState(viewport), { moving: true })) {
+      cameraSync.scheduleCameraDependentSync();
+    }
   }
   function fitCameraToGraph({ maxFitZoom = 1.15, paddingScreenPx = 160 } = {}) {
     return fitViewportToGraph({
-      animationCoordinator,
-      commitCameraChange,
       host,
-      labels,
       maxFitZoom,
       maxZoom: limits.maxZoom,
       minZoom: limits.minZoom,
       nodes,
       paddingScreenPx,
+      recordCameraState: cameraSync.recordCameraState,
+      runCameraDependentSyncFrame: cameraSync.runCameraDependentSyncFrame,
+      scheduleCameraDependentSync: cameraSync.scheduleCameraDependentSync,
       viewport,
-    });
-  }
-  function commitCameraChange(nextCameraState = cameraState(viewport)) {
-    debugMetrics.measure("commit-camera-change", () => {
-      if (!cameraStatesDiffer(nextCameraState, lastCameraState)) {
-        return;
-      }
-      cameraUpdateCount += 1;
-      lastCameraState = nextCameraState;
-      handlers.onCameraStateChange(nextCameraState);
-      labels.syncAllLabels();
-      animationCoordinator.syncActiveSet();
-      syncFilterAreas();
     });
   }
   function syncFilterAreas() {
