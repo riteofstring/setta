@@ -380,6 +380,21 @@ Recommended Phase 2 tests:
 - Successful, no-op, rejected, failed, and cancelled terminal paths preserve
   the original `created_at`/`started_at` and record nonnegative durations.
 
+Implementation note:
+
+- Phase 2 was implemented by replacing `semantic_cartographer_runs.model` with
+  the requested/effective/reported model and reasoning audit fields, adding
+  timing/input-size audit, regenerating the existing generated TypeScript
+  `CartographerRun` surface, and bumping the semantic graph store version to
+  `12`.
+- `HarnessStructuredTask` already has an optional `ReasoningEffort` field, and
+  Codex structured turns already add `effort` to `turn/start` when it is set.
+  Phase 3 should use that existing path instead of adding another provider
+  request surface.
+- `HarnessAuditMetadata` has reported-reasoning fields, but Codex structured
+  task audit does not currently populate them. Do not fake reported reasoning
+  from the requested or effective value.
+
 ## Phase 3 - Harness Configuration Path
 
 Extend the cartographer harness task path so settings flow through one typed
@@ -387,25 +402,58 @@ configuration object.
 
 Backend changes:
 
-- Add reasoning effort to `CartographerHarnessTask`.
+- Add reasoning effort to `CartographerHarnessTask` as a typed
+  `chat.ReasoningEffort`.
 - Set `chat.HarnessStructuredTask.ReasoningEffort`.
 - Preserve existing strict JSON output contract and no-tools/no-mutation policy.
-- Resolve live versus final task profile before queuing or starting the run.
+- Use the `CartographerRun` fields created in Phase 2 as the source of truth:
+  `taskProfile`, `requestedModelSelection`, `requestedModel`, and
+  `requestedReasoningEffort`.
 - Use the run's Phase 2 settings hash and requested config snapshot when
   building the harness task. Do not re-read current mutable settings in a way
   that changes the meaning of already queued runs.
+- Set `effective_model` and `effective_reasoning_effort` from the actual
+  structured task request before the harness starts, so failed and cancelled
+  runs still show what Setta attempted to send.
+- Do not bump `semanticStoreVersion` in Phase 3 unless the implementation adds
+  another persistent schema field. The expected implementation uses the Phase 2
+  run audit fields.
 
 Codex structured-task behavior:
 
-- Send `model` only when model selection is `explicit`.
-- Send `effort` whenever a configured reasoning effort is present.
+- Send `model` only when `requested_model_selection` is `explicit`; leave model
+  empty for `provider_default` and audit that the effective model was empty
+  because no model id was sent.
+- Send `effort` from `requested_reasoning_effort` for every cartographer run.
 - Capture the model returned by thread/turn audit.
 - Capture reported reasoning effort only if Codex exposes it in a typed response
   or notification. If not exposed, leave it empty and mark
   `reasoning_effort_reported=false`.
+- If Codex rejects the model/reasoning combination, persist a normal failed run
+  with the requested/effective audit fields and the provider error. Do not
+  silently retry with another model, another reasoning effort, or provider
+  defaults.
 
-This phase must also fix the current timing bug where successful run audit rows
-can end with `started_at == completed_at`.
+Recommended Phase 3 tests:
+
+- `CartographerHarnessTask` forwards reasoning effort to
+  `chat.HarnessStructuredTask`.
+- Explicit model selection sends the requested model and records
+  `effective_model`.
+- Provider-default model selection sends no model id and leaves
+  `effective_model` empty while still sending `effort`.
+- Harness failures preserve requested/effective model and reasoning fields.
+- Reported reasoning remains empty with `reasoning_effort_reported=false` when
+  the provider audit has no typed reasoning signal.
+- A settings change after queueing does not change the model/reasoning sent for
+  an already queued run.
+- Fake Codex structured-task tests assert the `turn/start` params contain the
+  configured `effort` and only contain `model` for explicit model selection.
+- Because this phase touches Codex harness behavior and cartographer execution,
+  run the required deterministic end-to-end app workflow coverage through the
+  production Electron/main/preload/renderer/HTTP/store paths. If local ChatGPT
+  auth is available, also run the live Codex E2E flow; do not use
+  `OPENAI_API_KEY` for that live check.
 
 ## Phase 4 - Model and Reasoning Option Source
 
