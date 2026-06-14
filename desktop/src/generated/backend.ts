@@ -3789,6 +3789,31 @@ export interface CartographerOutputSummary {
   truncated: boolean;
 }
 
+export interface SemanticRetrievalResult {
+  id: string;
+  source: string;
+  recordKind: string;
+  recordId: string;
+  semanticNodeId: string;
+  evidenceAnchorId: string;
+  activityIntervalId: string;
+  steeringDirectiveId: string;
+  contextPackId: string;
+  contextPackItemId: string;
+  itemKind: SemanticContextPackItemKind;
+  sourceKind: string;
+  sourceId: string;
+  uri: string;
+  path: string;
+  sourceRefs: SemanticContextSourceRefs;
+  title: string;
+  summary: string;
+  reasons: string[];
+  score: number;
+  ftsScore: number;
+  updatedAt: string;
+}
+
 export interface CartographerTrajectorySummary {
   id: string;
   workspaceId: string;
@@ -3841,6 +3866,7 @@ export interface CartographerInputBundle {
   activity: SemanticActivityInterval[];
   steering: SemanticSteeringDirective[];
   contextPacks: SemanticContextPackRecord[];
+  retrievalResults: SemanticRetrievalResult[];
   trajectorySummaries: CartographerTrajectorySummary[];
   observedEventRefs: string[];
   tokenBudget: number;
@@ -3860,6 +3886,7 @@ export interface CartographerInputItemCounts {
   activity: number;
   steering: number;
   contextPacks: number;
+  retrievalResults: number;
   trajectorySummaries: number;
   observedEventRefs: number;
 }
@@ -7882,6 +7909,35 @@ export function decodeCartographerOutputSummary(value: unknown): CartographerOut
   };
 }
 
+export function decodeSemanticRetrievalResult(value: unknown): SemanticRetrievalResult {
+  const record = assertRecord(value, "SemanticRetrievalResult");
+  assertKnownFields(record, "SemanticRetrievalResult", ["id", "source", "recordKind", "recordId", "semanticNodeId", "evidenceAnchorId", "activityIntervalId", "steeringDirectiveId", "contextPackId", "contextPackItemId", "itemKind", "sourceKind", "sourceId", "uri", "path", "sourceRefs", "title", "summary", "reasons", "score", "ftsScore", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticRetrievalResult"), "SemanticRetrievalResult.id"),
+    source: decodeString(requireField(record, "source", "SemanticRetrievalResult"), "SemanticRetrievalResult.source"),
+    recordKind: decodeString(requireField(record, "recordKind", "SemanticRetrievalResult"), "SemanticRetrievalResult.recordKind"),
+    recordId: decodeString(requireField(record, "recordId", "SemanticRetrievalResult"), "SemanticRetrievalResult.recordId"),
+    semanticNodeId: decodeString(requireField(record, "semanticNodeId", "SemanticRetrievalResult"), "SemanticRetrievalResult.semanticNodeId"),
+    evidenceAnchorId: decodeString(requireField(record, "evidenceAnchorId", "SemanticRetrievalResult"), "SemanticRetrievalResult.evidenceAnchorId"),
+    activityIntervalId: decodeString(requireField(record, "activityIntervalId", "SemanticRetrievalResult"), "SemanticRetrievalResult.activityIntervalId"),
+    steeringDirectiveId: decodeString(requireField(record, "steeringDirectiveId", "SemanticRetrievalResult"), "SemanticRetrievalResult.steeringDirectiveId"),
+    contextPackId: decodeString(requireField(record, "contextPackId", "SemanticRetrievalResult"), "SemanticRetrievalResult.contextPackId"),
+    contextPackItemId: decodeString(requireField(record, "contextPackItemId", "SemanticRetrievalResult"), "SemanticRetrievalResult.contextPackItemId"),
+    itemKind: decodeSemanticContextPackItemKind(requireField(record, "itemKind", "SemanticRetrievalResult"), "SemanticRetrievalResult.itemKind"),
+    sourceKind: decodeString(requireField(record, "sourceKind", "SemanticRetrievalResult"), "SemanticRetrievalResult.sourceKind"),
+    sourceId: decodeString(requireField(record, "sourceId", "SemanticRetrievalResult"), "SemanticRetrievalResult.sourceId"),
+    uri: decodeString(requireField(record, "uri", "SemanticRetrievalResult"), "SemanticRetrievalResult.uri"),
+    path: decodeString(requireField(record, "path", "SemanticRetrievalResult"), "SemanticRetrievalResult.path"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticRetrievalResult")),
+    title: decodeString(requireField(record, "title", "SemanticRetrievalResult"), "SemanticRetrievalResult.title"),
+    summary: decodeString(requireField(record, "summary", "SemanticRetrievalResult"), "SemanticRetrievalResult.summary"),
+    reasons: decodeArray(requireField(record, "reasons", "SemanticRetrievalResult"), "SemanticRetrievalResult.reasons", (item) => decodeString(item, "SemanticRetrievalResult.reasons item")),
+    score: decodeNumber(requireField(record, "score", "SemanticRetrievalResult"), "SemanticRetrievalResult.score"),
+    ftsScore: decodeNumber(requireField(record, "ftsScore", "SemanticRetrievalResult"), "SemanticRetrievalResult.ftsScore"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticRetrievalResult"), "SemanticRetrievalResult.updatedAt"),
+  };
+}
+
 export function decodeCartographerTrajectorySummary(value: unknown): CartographerTrajectorySummary {
   const record = assertRecord(value, "CartographerTrajectorySummary");
   assertKnownFields(record, "CartographerTrajectorySummary", ["id", "workspaceId", "runId", "windowId", "sourceKind", "sourceId", "summary", "sourceRefs", "itemCount", "createdAt"]);
@@ -7918,7 +7974,7 @@ export function decodeCartographerInputTruncation(value: unknown): CartographerI
 
 export function decodeCartographerInputBundle(value: unknown): CartographerInputBundle {
   const record = assertRecord(value, "CartographerInputBundle");
-  assertKnownFields(record, "CartographerInputBundle", ["workspaceId", "triggerKind", "sourceRefs", "targetEntityId", "runStatus", "terminalReason", "windowId", "windowStartCursor", "windowEndCursor", "newEvents", "observations", "promptSummary", "promptText", "assistantResponseSummary", "assistantText", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "trajectorySummaries", "observedEventRefs", "tokenBudget", "truncation"]);
+  assertKnownFields(record, "CartographerInputBundle", ["workspaceId", "triggerKind", "sourceRefs", "targetEntityId", "runStatus", "terminalReason", "windowId", "windowStartCursor", "windowEndCursor", "newEvents", "observations", "promptSummary", "promptText", "assistantResponseSummary", "assistantText", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "retrievalResults", "trajectorySummaries", "observedEventRefs", "tokenBudget", "truncation"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "CartographerInputBundle"), "CartographerInputBundle.workspaceId"),
     triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "CartographerInputBundle"), "CartographerInputBundle.triggerKind"),
@@ -7945,6 +8001,7 @@ export function decodeCartographerInputBundle(value: unknown): CartographerInput
     activity: decodeArray(requireField(record, "activity", "CartographerInputBundle"), "CartographerInputBundle.activity", (item) => decodeSemanticActivityInterval(item)),
     steering: decodeArray(requireField(record, "steering", "CartographerInputBundle"), "CartographerInputBundle.steering", (item) => decodeSemanticSteeringDirective(item)),
     contextPacks: decodeArray(requireField(record, "contextPacks", "CartographerInputBundle"), "CartographerInputBundle.contextPacks", (item) => decodeSemanticContextPackRecord(item)),
+    retrievalResults: decodeArray(requireField(record, "retrievalResults", "CartographerInputBundle"), "CartographerInputBundle.retrievalResults", (item) => decodeSemanticRetrievalResult(item)),
     trajectorySummaries: decodeArray(requireField(record, "trajectorySummaries", "CartographerInputBundle"), "CartographerInputBundle.trajectorySummaries", (item) => decodeCartographerTrajectorySummary(item)),
     observedEventRefs: decodeArray(requireField(record, "observedEventRefs", "CartographerInputBundle"), "CartographerInputBundle.observedEventRefs", (item) => decodeString(item, "CartographerInputBundle.observedEventRefs item")),
     tokenBudget: decodeInteger(requireField(record, "tokenBudget", "CartographerInputBundle"), "CartographerInputBundle.tokenBudget"),
@@ -7954,7 +8011,7 @@ export function decodeCartographerInputBundle(value: unknown): CartographerInput
 
 export function decodeCartographerInputItemCounts(value: unknown): CartographerInputItemCounts {
   const record = assertRecord(value, "CartographerInputItemCounts");
-  assertKnownFields(record, "CartographerInputItemCounts", ["newEvents", "observations", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "trajectorySummaries", "observedEventRefs"]);
+  assertKnownFields(record, "CartographerInputItemCounts", ["newEvents", "observations", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "retrievalResults", "trajectorySummaries", "observedEventRefs"]);
   return {
     newEvents: decodeInteger(requireField(record, "newEvents", "CartographerInputItemCounts"), "CartographerInputItemCounts.newEvents"),
     observations: decodeInteger(requireField(record, "observations", "CartographerInputItemCounts"), "CartographerInputItemCounts.observations"),
@@ -7968,6 +8025,7 @@ export function decodeCartographerInputItemCounts(value: unknown): CartographerI
     activity: decodeInteger(requireField(record, "activity", "CartographerInputItemCounts"), "CartographerInputItemCounts.activity"),
     steering: decodeInteger(requireField(record, "steering", "CartographerInputItemCounts"), "CartographerInputItemCounts.steering"),
     contextPacks: decodeInteger(requireField(record, "contextPacks", "CartographerInputItemCounts"), "CartographerInputItemCounts.contextPacks"),
+    retrievalResults: decodeInteger(requireField(record, "retrievalResults", "CartographerInputItemCounts"), "CartographerInputItemCounts.retrievalResults"),
     trajectorySummaries: decodeInteger(requireField(record, "trajectorySummaries", "CartographerInputItemCounts"), "CartographerInputItemCounts.trajectorySummaries"),
     observedEventRefs: decodeInteger(requireField(record, "observedEventRefs", "CartographerInputItemCounts"), "CartographerInputItemCounts.observedEventRefs"),
   };

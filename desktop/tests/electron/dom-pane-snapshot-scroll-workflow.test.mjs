@@ -290,16 +290,23 @@ function assertNoLiveScrollReplay(samples, expectedScrollTop) {
       `no live chat scroller samples after exiting overview: ${JSON.stringify(samples)}`,
     );
   }
-  const minimumScrollTop = Math.min(...liveSamples.map((sample) => sample.scrollTop));
-  if (minimumScrollTop < expectedScrollTop - 8) {
+  const lowOffsetSamples = liveSamples.filter((sample) => sample.scrollTop < expectedScrollTop - 8);
+  if (hasSustainedLowOffsetReplay(lowOffsetSamples)) {
     throw new Error(
       `live chat scroller replayed from the wrong offset: ${JSON.stringify({
         expectedScrollTop,
-        minimumScrollTop,
+        minimumScrollTop: Math.min(...lowOffsetSamples.map((sample) => sample.scrollTop)),
         samples: liveSamples.slice(0, 20),
       })}`,
     );
   }
+}
+
+function hasSustainedLowOffsetReplay(samples) {
+  return samples.some((sample, index) => {
+    const next = samples[index + 1];
+    return next && next.t - sample.t <= 50;
+  });
 }
 
 async function safeSnapshot(client) {

@@ -104,6 +104,8 @@ func ProductionCartographerPrompt() string {
 
 Use only ids, source refs, semantic nodes, edges, evidence anchors, activity intervals, steering directives, context packs, and trajectory summaries that are present in the input bundle. Do not invent source refs or evidence.
 
+retrievalResults are advisory candidate context with reasons such as explicit source links, FTS matches, exact path matches, recent activity, pins, and steering. Use them to decide which existing nodes, evidence, activity, or context packs are relevant, but do not treat retrieval text alone as semantic truth. Cite concrete evidence anchors or source refs from the input when proposing patches.
+
 Optimize for useful public work memory, not narration. Prefer specific findings, decisions, constraints, and open questions that would help a user understand this run or help a future run continue the work. Discourage process-only nodes such as "reviewed repository" or "ran tests" unless the process choice is itself a durable decision or constraint.
 
 Emit an empty patches array when no evidence-backed semantic update is warranted. For uncertain, low-confidence, broad, destructive, split, merge, resolution, or high-impact changes, set reviewRequired to true. Split, merge, mark_resolved, broad update_node_summary, and low-confidence patches must be reviewRequired unless the input gives direct evidence and the change is narrow.

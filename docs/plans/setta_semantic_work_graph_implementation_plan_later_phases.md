@@ -4,10 +4,10 @@ This continuation belongs with
 `docs/plans/setta_semantic_work_graph_implementation_plan.md` and keeps the
 main implementation plan below the repository file-length limit.
 
-Phase 8 starts only after Phase 7 retrieval indexes and usefulness-loop evidence
-have landed. The current branch is not ready for Phase 8 while Phase 7 still has
-no FTS store, retrieval service, retrieval-backed context/cartographer
-integration, or trace-corpus quality report.
+Phase 8 starts after Phase 7 retrieval indexes and usefulness-loop evidence have
+landed. Phase 7 now has FTS-backed retrieval, retrieval-backed context and
+cartographer integration, and the evidence report at
+`docs/reports/performance/semantic-cartographer-phase-7-retrieval.md`.
 
 ## Phase 8: Constraint Enforcement Bridge
 

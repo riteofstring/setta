@@ -165,6 +165,7 @@ func cartographerInputItemCounts(bundle CartographerInputBundle) CartographerInp
 		Activity:            len(bundle.Activity),
 		Steering:            len(bundle.Steering),
 		ContextPacks:        len(bundle.ContextPacks),
+		RetrievalResults:    len(bundle.RetrievalResults),
 		TrajectorySummaries: len(bundle.TrajectorySummaries),
 		ObservedEventRefs:   len(bundle.ObservedEventRefs),
 	}

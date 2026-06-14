@@ -519,6 +519,7 @@ func validateCartographerInputItemCounts(counts CartographerInputItemCounts) err
 		{label: "cartographer input item count activity", value: counts.Activity},
 		{label: "cartographer input item count steering", value: counts.Steering},
 		{label: "cartographer input item count contextPacks", value: counts.ContextPacks},
+		{label: "cartographer input item count retrievalResults", value: counts.RetrievalResults},
 		{label: "cartographer input item count trajectorySummaries", value: counts.TrajectorySummaries},
 		{label: "cartographer input item count observedEventRefs", value: counts.ObservedEventRefs},
 	}
@@ -618,6 +619,9 @@ func validateCartographerInputContent(bundle CartographerInputBundle, label stri
 		func() error { return validateCartographerFileChanges(bundle.FileChanges, label) },
 		func() error { return validateCartographerTestResults(bundle.TestResults, label) },
 		func() error { return validateCartographerOutputSummaries(bundle.OutputSummaries, label) },
+		func() error {
+			return validateSemanticRetrievalResults(bundle.RetrievalResults, label+" retrievalResults")
+		},
 		func() error {
 			return validateCartographerEventRefs(bundle.ObservedEventRefs, label+" observed event ref")
 		},

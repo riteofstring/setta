@@ -441,26 +441,33 @@ func (service *Service) observeCartographerEvent(ctx context.Context, observed o
 	if err != nil {
 		return nil, err
 	}
-	advancedCursor, closeReason := service.applyObservedEventToWindow(&window, &run, cursor, observed, opened, now)
+	advancedCursor, closeReason, err := service.applyObservedEventToWindow(ctx, &window, &run, cursor, observed, opened, now)
+	if err != nil {
+		return nil, err
+	}
 	if closeReason != "" {
-		enqueue, err := service.persistClosedObservedWindow(ctx, &window, run, advancedCursor, closeReason, now)
-		if err != nil {
-			return nil, err
-		}
-		if !enqueue {
-			return nil, nil
-		}
-		closed := []CartographerWindow{window}
-		if _, err := service.supersedeObsoleteQueuedCartographerWindows(ctx, window, now); err != nil {
-			return nil, err
-		}
-		if err := service.enqueueClosedCartographerWindows(ctx, closed); err != nil {
-			return nil, err
-		}
-		return closed, nil
+		return service.closeObservedCartographerWindow(ctx, window, run, advancedCursor, closeReason, now)
 	}
 
 	return nil, service.persistOpenObservedWindow(ctx, window, run, advancedCursor)
+}
+
+func (service *Service) closeObservedCartographerWindow(ctx context.Context, window CartographerWindow, run CartographerRun, advancedCursor CartographerCursor, closeReason CartographerWindowCloseReason, now string) ([]CartographerWindow, error) {
+	enqueue, err := service.persistClosedObservedWindow(ctx, &window, run, advancedCursor, closeReason, now)
+	if err != nil {
+		return nil, err
+	}
+	if !enqueue {
+		return nil, nil
+	}
+	closed := []CartographerWindow{window}
+	if _, err := service.supersedeObsoleteQueuedCartographerWindows(ctx, window, now); err != nil {
+		return nil, err
+	}
+	if err := service.enqueueClosedCartographerWindows(ctx, closed); err != nil {
+		return nil, err
+	}
+	return closed, nil
 }
 
 func (service *Service) validateObservedCartographerEventCall(ctx context.Context, observed observedCartographerEvent) error {
@@ -506,7 +513,7 @@ func (service *Service) newCartographerCursor(cursorKey CartographerCursorKey) (
 	}, nil
 }
 
-func (service *Service) applyObservedEventToWindow(window *CartographerWindow, run *CartographerRun, cursor CartographerCursor, observed observedCartographerEvent, opened bool, now string) (CartographerCursor, CartographerWindowCloseReason) {
+func (service *Service) applyObservedEventToWindow(ctx context.Context, window *CartographerWindow, run *CartographerRun, cursor CartographerCursor, observed observedCartographerEvent, opened bool, now string) (CartographerCursor, CartographerWindowCloseReason, error) {
 	if opened {
 		cursor.LastWindowID = ""
 	}
@@ -518,10 +525,13 @@ func (service *Service) applyObservedEventToWindow(window *CartographerWindow, r
 	window.InputBundle.WindowEndCursor = cartographerWindowCursorFromCursor(advancedCursor)
 	closeReason := cartographerCloseReason(window.InputBundle, observed, service.cartographerConfig)
 	markLastCartographerTrajectoryEventBoundary(&window.InputBundle, closeReason)
+	if err := service.expandCartographerInputWithRetrieval(ctx, &window.InputBundle); err != nil {
+		return CartographerCursor{}, "", err
+	}
 	window.InputBundle = applyCartographerInputLimits(window.InputBundle, service.cartographerConfig)
 	run.InputBundle = window.InputBundle
 	run.UpdatedAt = now
-	return advancedCursor, closeReason
+	return advancedCursor, closeReason, nil
 }
 
 func markLastCartographerTrajectoryEventBoundary(bundle *CartographerInputBundle, closeReason CartographerWindowCloseReason) {

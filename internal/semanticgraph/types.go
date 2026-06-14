@@ -575,6 +575,31 @@ type SemanticContextPackRecord struct {
 	CreatedAt            string                     `json:"createdAt"`
 }
 
+type SemanticRetrievalResult struct {
+	ID                  string                      `json:"id"`
+	Source              string                      `json:"source"`
+	RecordKind          string                      `json:"recordKind"`
+	RecordID            string                      `json:"recordId"`
+	SemanticNodeID      string                      `json:"semanticNodeId"`
+	EvidenceAnchorID    string                      `json:"evidenceAnchorId"`
+	ActivityIntervalID  string                      `json:"activityIntervalId"`
+	SteeringDirectiveID string                      `json:"steeringDirectiveId"`
+	ContextPackID       string                      `json:"contextPackId"`
+	ContextPackItemID   string                      `json:"contextPackItemId"`
+	ItemKind            SemanticContextPackItemKind `json:"itemKind"`
+	SourceKind          string                      `json:"sourceKind"`
+	SourceID            string                      `json:"sourceId"`
+	URI                 string                      `json:"uri"`
+	Path                string                      `json:"path"`
+	SourceRefs          SemanticContextSourceRefs   `json:"sourceRefs"`
+	Title               string                      `json:"title"`
+	Summary             string                      `json:"summary"`
+	Reasons             []string                    `json:"reasons"`
+	Score               float64                     `json:"score"`
+	FTSScore            float64                     `json:"ftsScore"`
+	UpdatedAt           string                      `json:"updatedAt"`
+}
+
 type SemanticContextPackReadResponse struct {
 	Pack *SemanticContextPackRecord `json:"pack"`
 }

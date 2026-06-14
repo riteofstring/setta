@@ -69,6 +69,7 @@ func mergeCartographerEpochInputBundle(target *CartographerInputBundle, source C
 	target.Activity = append(target.Activity, source.Activity...)
 	target.Steering = append(target.Steering, source.Steering...)
 	target.ContextPacks = append(target.ContextPacks, source.ContextPacks...)
+	target.RetrievalResults = append(target.RetrievalResults, source.RetrievalResults...)
 	target.TrajectorySummaries = append(target.TrajectorySummaries, source.TrajectorySummaries...)
 	for _, ref := range source.ObservedEventRefs {
 		target.ObservedEventRefs = appendUniqueString(target.ObservedEventRefs, ref)

@@ -6,157 +6,6 @@ import (
 	"fmt"
 )
 
-type nodeCreatedPayload struct {
-	NodeID  string           `json:"nodeId"`
-	Kind    SemanticNodeKind `json:"kind"`
-	Label   string           `json:"label"`
-	Summary string           `json:"summary"`
-}
-
-type nodeUpdatedPayload struct {
-	NodeID  string            `json:"nodeId"`
-	Kind    *SemanticNodeKind `json:"kind"`
-	Summary *string           `json:"summary"`
-}
-
-type nodeRenamedPayload struct {
-	NodeID string `json:"nodeId"`
-	Label  string `json:"label"`
-}
-
-type nodeDismissedPayload struct {
-	NodeID string `json:"nodeId"`
-}
-
-type nodePromotedPayload struct {
-	NodeID string `json:"nodeId"`
-}
-
-type nodeSplitPayload struct {
-	SourceNodeID string               `json:"sourceNodeId"`
-	Nodes        []nodeCreatedPayload `json:"nodes"`
-}
-
-type nodeMergedPayload struct {
-	SourceNodeIDs []string           `json:"sourceNodeIds"`
-	TargetNode    nodeCreatedPayload `json:"targetNode"`
-}
-
-type edgeCreatedPayload struct {
-	EdgeID     string           `json:"edgeId"`
-	Kind       SemanticEdgeKind `json:"kind"`
-	FromNodeID string           `json:"fromNodeId"`
-	ToNodeID   string           `json:"toNodeId"`
-	Label      string           `json:"label"`
-	Summary    string           `json:"summary"`
-}
-
-type edgeUpdatedPayload struct {
-	EdgeID  string            `json:"edgeId"`
-	Kind    *SemanticEdgeKind `json:"kind"`
-	Label   *string           `json:"label"`
-	Summary *string           `json:"summary"`
-}
-
-type edgeRemovedPayload struct {
-	EdgeID string `json:"edgeId"`
-}
-
-type evidenceAttachedPayload struct {
-	AnchorID                string                     `json:"anchorId"`
-	TargetEntityID          string                     `json:"targetEntityId"`
-	SourceKind              SemanticEvidenceSourceKind `json:"sourceKind"`
-	SourceID                string                     `json:"sourceId"`
-	URI                     string                     `json:"uri"`
-	Path                    string                     `json:"path"`
-	RangeStart              int                        `json:"rangeStart"`
-	RangeEnd                int                        `json:"rangeEnd"`
-	Text                    string                     `json:"text"`
-	Summary                 string                     `json:"summary"`
-	ContentHash             string                     `json:"contentHash"`
-	WorkflowDefinitionID    string                     `json:"workflowDefinitionId"`
-	WorkflowExecutionID     string                     `json:"workflowExecutionId"`
-	WorkflowNodeID          string                     `json:"workflowNodeId"`
-	WorkflowNodeExecutionID string                     `json:"workflowNodeExecutionId"`
-	ChatConversationID      string                     `json:"chatConversationId"`
-	ChatRunID               string                     `json:"chatRunId"`
-	ChatMessageID           string                     `json:"chatMessageId"`
-	RunItemID               string                     `json:"runItemId"`
-	ReassignedFromAnchorID  string                     `json:"reassignedFromAnchorId"`
-}
-
-type activityStartedPayload struct {
-	IntervalID               string                     `json:"intervalId"`
-	TargetEntityID           string                     `json:"targetEntityId"`
-	Kind                     SemanticActivityKind       `json:"kind"`
-	Summary                  string                     `json:"summary"`
-	SourceKind               SemanticActivitySourceKind `json:"sourceKind"`
-	SourceID                 string                     `json:"sourceId"`
-	EvidenceAnchorID         string                     `json:"evidenceAnchorId"`
-	WorkflowDefinitionID     string                     `json:"workflowDefinitionId"`
-	WorkflowExecutionID      string                     `json:"workflowExecutionId"`
-	WorkflowNodeID           string                     `json:"workflowNodeId"`
-	WorkflowNodeExecutionID  string                     `json:"workflowNodeExecutionId"`
-	ChatConversationID       string                     `json:"chatConversationId"`
-	ChatRunID                string                     `json:"chatRunId"`
-	ChatMessageID            string                     `json:"chatMessageId"`
-	RunItemID                string                     `json:"runItemId"`
-	ReassignedFromIntervalID string                     `json:"reassignedFromIntervalId"`
-	ActorKind                SemanticActorKind          `json:"actorKind"`
-	ActorID                  string                     `json:"actorId"`
-}
-
-type activityEndedPayload struct {
-	IntervalID string `json:"intervalId"`
-}
-
-type steeringCreatedPayload struct {
-	DirectiveID               string                 `json:"directiveId"`
-	TargetEntityID            string                 `json:"targetEntityId"`
-	Kind                      SemanticSteeringKind   `json:"kind"`
-	Instruction               string                 `json:"instruction"`
-	Status                    SemanticSteeringStatus `json:"status"`
-	Scope                     SemanticSteeringScope  `json:"scope"`
-	WorkflowDefinitionID      string                 `json:"workflowDefinitionId"`
-	WorkflowExecutionID       string                 `json:"workflowExecutionId"`
-	WorkflowNodeID            string                 `json:"workflowNodeId"`
-	WorkflowNodeExecutionID   string                 `json:"workflowNodeExecutionId"`
-	ChatConversationID        string                 `json:"chatConversationId"`
-	ChatRunID                 string                 `json:"chatRunId"`
-	ChatMessageID             string                 `json:"chatMessageId"`
-	RunItemID                 string                 `json:"runItemId"`
-	SupersedesDirectiveID     string                 `json:"supersedesDirectiveId"`
-	ReassignedFromDirectiveID string                 `json:"reassignedFromDirectiveId"`
-}
-
-type steeringUpdatedPayload struct {
-	DirectiveID           string                  `json:"directiveId"`
-	Instruction           *string                 `json:"instruction"`
-	Status                *SemanticSteeringStatus `json:"status"`
-	SupersedesDirectiveID string                  `json:"supersedesDirectiveId"`
-}
-
-type contextPackCreatedPayload struct {
-	PackID               string                     `json:"packId"`
-	TriggerKind          SemanticContextTriggerKind `json:"triggerKind"`
-	TargetEntityID       string                     `json:"targetEntityId"`
-	SourceRefs           SemanticContextSourceRefs  `json:"sourceRefs"`
-	AuthoredPromptHash   string                     `json:"authoredPromptHash"`
-	DeliveredContextHash string                     `json:"deliveredContextHash"`
-	TokenBudget          int                        `json:"tokenBudget"`
-	EstimatedTokens      int                        `json:"estimatedTokens"`
-	ItemCount            int                        `json:"itemCount"`
-	Items                []SemanticContextPackItem  `json:"items"`
-	DeliveredContext     string                     `json:"deliveredContext"`
-}
-
-type constraintCheckRecordedPayload struct {
-	CheckID        string `json:"checkId"`
-	TargetEntityID string `json:"targetEntityId"`
-	Status         string `json:"status"`
-	Message        string `json:"message"`
-}
-
 type semanticProjectionHandler func(context.Context, *sql.Tx, SemanticEvent) error
 
 var semanticProjectionHandlers = map[SemanticEventType]semanticProjectionHandler{
@@ -249,7 +98,10 @@ WHERE workspace_id = ? AND id = ?
 	if err != nil {
 		return fmt.Errorf("rename semantic node: %w", err)
 	}
-	return requireRowsAffected(result, "semantic node", payload.NodeID)
+	if err := requireRowsAffected(result, "semantic node", payload.NodeID); err != nil {
+		return err
+	}
+	return reindexSemanticNodeByID(ctx, tx, event.WorkspaceID, payload.NodeID)
 }
 
 func projectNodeDismissed(ctx context.Context, tx *sql.Tx, event SemanticEvent) error {
@@ -268,7 +120,10 @@ WHERE workspace_id = ? AND id = ?
 	if err != nil {
 		return fmt.Errorf("dismiss semantic node: %w", err)
 	}
-	return requireRowsAffected(result, "semantic node", payload.NodeID)
+	if err := requireRowsAffected(result, "semantic node", payload.NodeID); err != nil {
+		return err
+	}
+	return reindexSemanticNodeByID(ctx, tx, event.WorkspaceID, payload.NodeID)
 }
 
 func projectNodePromoted(ctx context.Context, tx *sql.Tx, event SemanticEvent) error {
@@ -287,7 +142,10 @@ WHERE workspace_id = ? AND id = ?
 	if err != nil {
 		return fmt.Errorf("promote semantic node: %w", err)
 	}
-	return requireRowsAffected(result, "semantic node", payload.NodeID)
+	if err := requireRowsAffected(result, "semantic node", payload.NodeID); err != nil {
+		return err
+	}
+	return reindexSemanticNodeByID(ctx, tx, event.WorkspaceID, payload.NodeID)
 }
 
 func projectNodeSplit(ctx context.Context, tx *sql.Tx, event SemanticEvent) error {
@@ -361,7 +219,7 @@ WHERE workspace_id = ? AND id = ?
 	if err != nil {
 		return fmt.Errorf("update split source node: %w", err)
 	}
-	return nil
+	return upsertSemanticNodeSearchRow(ctx, tx, source)
 }
 
 func insertSplitNodes(ctx context.Context, tx *sql.Tx, event SemanticEvent, payload nodeSplitPayload) error {
@@ -438,6 +296,9 @@ WHERE workspace_id = ? AND id = ?
 			return fmt.Errorf("mark merged source node: %w", err)
 		}
 		if err := requireRowsAffected(result, "semantic node", sourceID); err != nil {
+			return err
+		}
+		if err := reindexSemanticNodeByID(ctx, tx, event.WorkspaceID, sourceID); err != nil {
 			return err
 		}
 	}
@@ -563,7 +424,31 @@ INSERT INTO semantic_evidence_anchors (
 	if err != nil {
 		return fmt.Errorf("attach semantic evidence: %w", err)
 	}
-	return nil
+	return upsertSemanticEvidenceSearchRow(ctx, tx, SemanticEvidenceAnchor{
+		ID:                      payload.AnchorID,
+		WorkspaceID:             event.WorkspaceID,
+		TargetEntityID:          payload.TargetEntityID,
+		SourceKind:              payload.SourceKind,
+		SourceID:                payload.SourceID,
+		URI:                     payload.URI,
+		Path:                    payload.Path,
+		RangeStart:              payload.RangeStart,
+		RangeEnd:                payload.RangeEnd,
+		Text:                    payload.Text,
+		Summary:                 payload.Summary,
+		ContentHash:             payload.ContentHash,
+		WorkflowDefinitionID:    payload.WorkflowDefinitionID,
+		WorkflowExecutionID:     payload.WorkflowExecutionID,
+		WorkflowNodeID:          payload.WorkflowNodeID,
+		WorkflowNodeExecutionID: payload.WorkflowNodeExecutionID,
+		ChatConversationID:      payload.ChatConversationID,
+		ChatRunID:               payload.ChatRunID,
+		ChatMessageID:           payload.ChatMessageID,
+		RunItemID:               payload.RunItemID,
+		ReassignedFromAnchorID:  payload.ReassignedFromAnchorID,
+		CreatedByEventID:        event.EventID,
+		CreatedAt:               event.ObservedAt,
+	})
 }
 
 func projectActivityStarted(ctx context.Context, tx *sql.Tx, event SemanticEvent) error {
@@ -613,7 +498,30 @@ INSERT INTO semantic_activity_intervals (
 	if err != nil {
 		return fmt.Errorf("start semantic activity interval: %w", err)
 	}
-	return nil
+	return upsertSemanticActivitySearchRow(ctx, tx, SemanticActivityInterval{
+		ID:                       payload.IntervalID,
+		WorkspaceID:              event.WorkspaceID,
+		TargetEntityID:           payload.TargetEntityID,
+		Kind:                     payload.Kind,
+		Summary:                  payload.Summary,
+		SourceKind:               payload.SourceKind,
+		SourceID:                 payload.SourceID,
+		EvidenceAnchorID:         payload.EvidenceAnchorID,
+		WorkflowDefinitionID:     payload.WorkflowDefinitionID,
+		WorkflowExecutionID:      payload.WorkflowExecutionID,
+		WorkflowNodeID:           payload.WorkflowNodeID,
+		WorkflowNodeExecutionID:  payload.WorkflowNodeExecutionID,
+		ChatConversationID:       payload.ChatConversationID,
+		ChatRunID:                payload.ChatRunID,
+		ChatMessageID:            payload.ChatMessageID,
+		RunItemID:                payload.RunItemID,
+		ReassignedFromIntervalID: payload.ReassignedFromIntervalID,
+		ActorKind:                payload.ActorKind,
+		ActorID:                  payload.ActorID,
+		StartedByEventID:         event.EventID,
+		StartedAt:                event.ObservedAt,
+		UpdatedAt:                event.ObservedAt,
+	})
 }
 
 func projectActivityEnded(ctx context.Context, tx *sql.Tx, event SemanticEvent) error {
@@ -632,7 +540,17 @@ WHERE workspace_id = ? AND id = ? AND ended_at = '' AND (? = '' OR target_entity
 	if err != nil {
 		return fmt.Errorf("end semantic activity interval: %w", err)
 	}
-	return requireRowsAffected(result, "active semantic activity interval", payload.IntervalID)
+	if err := requireRowsAffected(result, "active semantic activity interval", payload.IntervalID); err != nil {
+		return err
+	}
+	interval, ok, err := loadSemanticActivityIntervalForProjection(ctx, tx, event.WorkspaceID, payload.IntervalID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("semantic activity interval %s does not exist", payload.IntervalID)
+	}
+	return upsertSemanticActivitySearchRow(ctx, tx, interval)
 }
 
 func projectConstraintCheckRecorded(_ context.Context, _ *sql.Tx, event SemanticEvent) error {
@@ -839,7 +757,20 @@ INSERT INTO semantic_nodes_current (
 	if err != nil {
 		return fmt.Errorf("create semantic node: %w", err)
 	}
-	return nil
+	return upsertSemanticNodeSearchRow(ctx, tx, SemanticNode{
+		ID:               payload.NodeID,
+		WorkspaceID:      event.WorkspaceID,
+		Kind:             payload.Kind,
+		Label:            payload.Label,
+		Summary:          payload.Summary,
+		SplitFromNodeID:  splitFromNodeID,
+		SplitIntoNodeIDs: []string{},
+		MergedIntoNodeID: mergedIntoNodeID,
+		CreatedByEventID: event.EventID,
+		UpdatedByEventID: event.EventID,
+		CreatedAt:        event.ObservedAt,
+		UpdatedAt:        event.ObservedAt,
+	})
 }
 
 func insertSemanticEdge(ctx context.Context, tx *sql.Tx, event SemanticEvent, payload edgeCreatedPayload) error {
@@ -901,7 +832,10 @@ WHERE workspace_id = ? AND id = ?
 	if err != nil {
 		return fmt.Errorf("update semantic node: %w", err)
 	}
-	return requireRowsAffected(result, "semantic node", node.ID)
+	if err := requireRowsAffected(result, "semantic node", node.ID); err != nil {
+		return err
+	}
+	return upsertSemanticNodeSearchRow(ctx, tx, node)
 }
 
 func replaceSemanticEdge(ctx context.Context, tx *sql.Tx, edge SemanticEdge) error {

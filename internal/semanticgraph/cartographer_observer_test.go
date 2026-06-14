@@ -285,6 +285,46 @@ func TestCartographerObserverRunItemObservationsCarryTypedFields(t *testing.T) {
 	}
 }
 
+func TestCartographerObserverIncludesRetrievalBackedCandidates(t *testing.T) {
+	service, store := newCartographerObserverTestService(t, CartographerObservationConfig{})
+	ctx := context.Background()
+	appendTestEvent(t, store, EventNodeCreated, "node_retrieved_cartographer", nodeCreatedPayload{
+		NodeID:  "node_retrieved_cartographer",
+		Kind:    NodeKindFinding,
+		Label:   "Cartographer retrieval candidate",
+		Summary: "A prior finding is associated with the changed file path.",
+	})
+	appendTestEvent(t, store, EventEvidenceAttached, "node_retrieved_cartographer", evidenceAttachedPayload{
+		AnchorID:       "evidence_retrieved_cartographer",
+		TargetEntityID: "node_retrieved_cartographer",
+		SourceKind:     EvidenceSourceFileRange,
+		Path:           "internal/semanticgraph/cartographer_observer_input.go",
+		Text:           "Retrieval-backed cartographer inputs include source-linked evidence.",
+		Summary:        "Cartographer retrieval evidence",
+	})
+
+	fileChange := cartographerRunItem("run_item_retrieval_file", chat.RunItemTypeFileChange, chat.RunItemStatusCompleted)
+	fileChange.FilePaths = []string{"internal/semanticgraph/cartographer_observer_input.go"}
+	fileChange.DiffSummary = "Updated cartographer retrieval input handling"
+	windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 1, chat.EventTypeRunItemUpdated, chat.RunItemUpdatedPayload{Item: fileChange}))
+	if err != nil {
+		t.Fatalf("observe retrieval file change: %v", err)
+	}
+	if len(windows) != 1 {
+		t.Fatalf("retrieval file windows = %+v, want one closed window", windows)
+	}
+	input := windows[0].InputBundle
+	if retrievalResultIndex(input.RetrievalResults, semanticSearchRecordEvidence, "evidence_retrieved_cartographer") < 0 {
+		t.Fatalf("retrieval results = %+v, want exact-path evidence result", input.RetrievalResults)
+	}
+	if !semanticNodesContain(input.ExistingNodes, "node_retrieved_cartographer") {
+		t.Fatalf("existing nodes = %+v, want retrieved semantic node", input.ExistingNodes)
+	}
+	if !semanticEvidenceContains(input.Evidence, "evidence_retrieved_cartographer") {
+		t.Fatalf("evidence = %+v, want retrieved evidence anchor", input.Evidence)
+	}
+}
+
 func TestCartographerObserverClosesQuietWindow(t *testing.T) {
 	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{})
 	ctx := context.Background()
@@ -662,6 +702,24 @@ func cartographerInputHasObservation(input CartographerInputBundle, kind Cartogr
 
 func findCartographerObservation(input CartographerInputBundle, kind CartographerObservationKind, runItemID string) (CartographerObservationRecord, bool) {
 	return findCartographerObservationByRefs(input, kind, "", runItemID)
+}
+
+func semanticNodesContain(nodes []SemanticNode, nodeID string) bool {
+	for _, node := range nodes {
+		if node.ID == nodeID {
+			return true
+		}
+	}
+	return false
+}
+
+func semanticEvidenceContains(evidence []SemanticEvidenceAnchor, evidenceID string) bool {
+	for _, anchor := range evidence {
+		if anchor.ID == evidenceID {
+			return true
+		}
+	}
+	return false
 }
 
 func findCartographerObservationByRefs(input CartographerInputBundle, kind CartographerObservationKind, chatMessageID string, runItemID string) (CartographerObservationRecord, bool) {

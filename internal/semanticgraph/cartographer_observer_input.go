@@ -60,10 +60,13 @@ func (service *Service) newCartographerInputBundle(ctx context.Context, request 
 		TrajectorySummaries: priorSummaries,
 		TokenBudget:         service.cartographerConfig.TokenBudget,
 	}
-	normalizeCartographerInputBundle(&bundle)
 	if request.closeReason != "" {
 		bundle.Truncation.Reasons = appendUniqueString(bundle.Truncation.Reasons, string(request.closeReason))
 	}
+	if err := service.expandCartographerInputWithRetrieval(ctx, &bundle); err != nil {
+		return CartographerInputBundle{}, err
+	}
+	normalizeCartographerInputBundle(&bundle)
 	return applyCartographerInputLimits(bundle, service.cartographerConfig), nil
 }
 
@@ -622,6 +625,18 @@ func boundCartographerInputText(bundle CartographerInputBundle, config Cartograp
 		bundle.OutputSummaries[index].Summary = text.text
 		bundle.OutputSummaries[index].Truncated = bundle.OutputSummaries[index].Truncated || text.truncated
 	}
+	if len(bundle.RetrievalResults) > defaultSemanticRetrievalLimit {
+		bundle.RetrievalResults = append([]SemanticRetrievalResult{}, bundle.RetrievalResults[:defaultSemanticRetrievalLimit]...)
+		bundle.Truncation.Summarized = true
+		bundle.Truncation.Reasons = appendUniqueString(bundle.Truncation.Reasons, "retrieval_result_limit")
+	}
+	for index := range bundle.RetrievalResults {
+		bundle.RetrievalResults[index].Title = boundedText(bundle.RetrievalResults[index].Title, cartographerEventSummaryLimit).text
+		bundle.RetrievalResults[index].Summary = boundedText(bundle.RetrievalResults[index].Summary, cartographerEventSummaryLimit).text
+		for reasonIndex := range bundle.RetrievalResults[index].Reasons {
+			bundle.RetrievalResults[index].Reasons[reasonIndex] = boundedText(bundle.RetrievalResults[index].Reasons[reasonIndex], cartographerEventSummaryLimit).text
+		}
+	}
 	return bundle
 }
 
@@ -874,6 +889,12 @@ func cartographerBundleContentBytes(bundle CartographerInputBundle) int {
 	}
 	for _, output := range bundle.OutputSummaries {
 		total += len([]byte(output.Summary))
+	}
+	for _, result := range bundle.RetrievalResults {
+		total += len([]byte(result.Title)) + len([]byte(result.Summary))
+		for _, reason := range result.Reasons {
+			total += len([]byte(reason))
+		}
 	}
 	return total
 }

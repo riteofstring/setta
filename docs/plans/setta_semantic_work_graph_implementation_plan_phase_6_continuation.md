@@ -723,10 +723,11 @@ Verification:
 Goal: improve recall for context packs and cartographer input without changing
 semantic truth.
 
-Current status: not implemented in this branch as of the Phase 7 readiness
-review. No FTS tables, retrieval service, retrieval-backed context/cartographer
-integration, or Phase 7 performance/usefulness evidence are present yet. Treat
-this phase as the prerequisite before Phase 8.
+Current status: implemented. The semantic store now maintains SQLite FTS5 rows
+for bounded semantic records, the retrieval service returns reasoned candidate
+context, context packs and cartographer windows consume retrieval-backed
+candidates, and Phase 7 evidence is recorded in
+`docs/reports/performance/semantic-cartographer-phase-7-retrieval.md`.
 
 Phase 7 starts after Phase 6F. The cartographer patch schema, canonical graph
 tables, context pack contract, and harness abstraction should be treated as

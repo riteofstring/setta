@@ -208,6 +208,7 @@ type CartographerInputBundle struct {
 	Activity                 []SemanticActivityInterval      `json:"activity"`
 	Steering                 []SemanticSteeringDirective     `json:"steering"`
 	ContextPacks             []SemanticContextPackRecord     `json:"contextPacks"`
+	RetrievalResults         []SemanticRetrievalResult       `json:"retrievalResults"`
 	TrajectorySummaries      []CartographerTrajectorySummary `json:"trajectorySummaries"`
 	ObservedEventRefs        []string                        `json:"observedEventRefs"`
 	TokenBudget              int                             `json:"tokenBudget"`
@@ -347,6 +348,7 @@ type CartographerInputItemCounts struct {
 	Activity            int `json:"activity"`
 	Steering            int `json:"steering"`
 	ContextPacks        int `json:"contextPacks"`
+	RetrievalResults    int `json:"retrievalResults"`
 	TrajectorySummaries int `json:"trajectorySummaries"`
 	ObservedEventRefs   int `json:"observedEventRefs"`
 }

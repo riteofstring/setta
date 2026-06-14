@@ -290,6 +290,10 @@ func normalizeCartographerInputBundle(bundle *CartographerInputBundle) {
 	bundle.Activity = nonNilSlice(bundle.Activity)
 	bundle.Steering = nonNilSlice(bundle.Steering)
 	bundle.ContextPacks = nonNilSlice(bundle.ContextPacks)
+	bundle.RetrievalResults = nonNilSlice(bundle.RetrievalResults)
+	for index := range bundle.RetrievalResults {
+		bundle.RetrievalResults[index].Reasons = nonNilSlice(bundle.RetrievalResults[index].Reasons)
+	}
 	bundle.TrajectorySummaries = nonNilSlice(bundle.TrajectorySummaries)
 	bundle.ObservedEventRefs = nonNilSlice(bundle.ObservedEventRefs)
 	bundle.Truncation.Reasons = nonNilSlice(bundle.Truncation.Reasons)

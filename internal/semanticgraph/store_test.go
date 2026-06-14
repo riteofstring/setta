@@ -143,6 +143,148 @@ func TestStoreRebuildsProjectionsFromEventLog(t *testing.T) {
 	}
 }
 
+func TestStoreMaintainsSemanticSearchIndex(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	appendTestEvent(t, store, EventNodeCreated, "node_search", nodeCreatedPayload{
+		NodeID:  "node_search",
+		Kind:    NodeKindDecision,
+		Label:   "Cache invalidation strategy",
+		Summary: "Use semantic graph notifications for renderer invalidation.",
+	})
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "renderer invalidation",
+		Limit:       10,
+	}, semanticSearchRecordNode, "node_search")
+
+	appendTestEvent(t, store, EventNodeUpdated, "node_search", nodeUpdatedPayload{
+		NodeID:  "node_search",
+		Summary: pointerTo("Replay queue lease recovery before broad concurrency changes."),
+	})
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "lease recovery",
+		Limit:       10,
+	}, semanticSearchRecordNode, "node_search")
+
+	appendTestEvent(t, store, EventEvidenceAttached, "node_search", evidenceAttachedPayload{
+		AnchorID:       "evidence_search",
+		TargetEntityID: "node_search",
+		SourceKind:     EvidenceSourceFileRange,
+		Path:           "internal/semanticgraph/store_search.go",
+		Text:           "The search index is rebuilt from canonical semantic graph records.",
+		Summary:        "Search rebuild evidence",
+	})
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		ExactPaths:  []string{"internal/semanticgraph/store_search.go"},
+		Limit:       10,
+	}, semanticSearchRecordEvidence, "evidence_search")
+	appendTestEvent(t, store, EventNodeCreated, "node_competing_search", nodeCreatedPayload{
+		NodeID:  "node_competing_search",
+		Kind:    NodeKindFinding,
+		Label:   "Competing retrieval keyword",
+		Summary: "This node should not outrank an exact path match under a tight limit.",
+	})
+	tightResults, err := store.SearchSemanticText(ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "competing retrieval keyword",
+		ExactPaths:  []string{"internal/semanticgraph/store_search.go"},
+		Limit:       1,
+	})
+	if err != nil {
+		t.Fatalf("search exact path under tight limit: %v", err)
+	}
+	if len(tightResults) != 1 || tightResults[0].RecordKind != semanticSearchRecordEvidence || tightResults[0].RecordID != "evidence_search" || tightResults[0].Source != "exact_path" {
+		t.Fatalf("tight search results = %+v, want exact path evidence first", tightResults)
+	}
+
+	appendTestEvent(t, store, EventActivityStarted, "node_search", activityStartedPayload{
+		IntervalID:     "activity_search",
+		TargetEntityID: "node_search",
+		Kind:           ActivityKindValidating,
+		Summary:        "Validating stable search ordering",
+		SourceKind:     ActivitySourceRunItem,
+		SourceID:       "run_item_search",
+		ChatRunID:      "chat_run_search",
+		ActorKind:      ActorKindAssistant,
+		ActorID:        testActorID,
+	})
+	appendTestEvent(t, store, EventActivityEnded, "node_search", activityEndedPayload{IntervalID: "activity_search"})
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "stable search ordering",
+		Limit:       10,
+	}, semanticSearchRecordActivity, "activity_search")
+
+	appendTestEvent(t, store, EventContextPackCreated, "node_search", contextPackCreatedPayload{
+		PackID:               "pack_search",
+		TriggerKind:          ContextTriggerWorkflowAgentStart,
+		TargetEntityID:       "node_search",
+		AuthoredPromptHash:   "sha256:authored",
+		DeliveredContextHash: "sha256:delivered",
+		TokenBudget:          200,
+		EstimatedTokens:      20,
+		ItemCount:            1,
+		Items: []SemanticContextPackItem{{
+			ItemID:         "pack_search_item_001",
+			Kind:           ContextPackItemDecision,
+			SemanticNodeID: "node_search",
+			Title:          "Cache invalidation strategy",
+			Summary:        "Use semantic graph notifications.",
+			ReasonIncluded: "retrieval should preserve delivery reason",
+			Priority:       ContextPriorityImportant,
+			CreatedAt:      testTimestamp(20),
+			UpdatedAt:      testTimestamp(20),
+		}},
+		DeliveredContext: "Setta semantic context pack pack_search",
+	})
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "delivery reason",
+		Limit:       10,
+	}, semanticSearchRecordContextPackItem, "pack_search_item_001")
+
+	appendTestEvent(t, store, EventNodeDismissed, "node_search", nodeDismissedPayload{NodeID: "node_search"})
+	results, err := store.SearchSemanticText(ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "lease recovery",
+		Limit:       10,
+	})
+	if err != nil {
+		t.Fatalf("search dismissed node: %v", err)
+	}
+	for _, result := range results {
+		if result.RecordKind == semanticSearchRecordNode && result.RecordID == "node_search" {
+			t.Fatalf("search results = %+v, want dismissed node removed from FTS node rows", results)
+		}
+	}
+
+	if _, err := store.db.ExecContext(ctx, "DELETE FROM semantic_search_fts"); err != nil {
+		t.Fatalf("clear search index: %v", err)
+	}
+	empty, err := store.SearchSemanticText(ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "delivery reason",
+		Limit:       10,
+	})
+	if err != nil {
+		t.Fatalf("search cleared index: %v", err)
+	}
+	if len(empty) != 0 {
+		t.Fatalf("cleared search results = %+v, want empty", empty)
+	}
+	if err := store.RebuildSearchIndex(ctx); err != nil {
+		t.Fatalf("rebuild search index: %v", err)
+	}
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "delivery reason",
+		Limit:       10,
+	}, semanticSearchRecordContextPackItem, "pack_search_item_001")
+}
+
 func TestStoreProjectsSplitMergeDismissAndPromoteLineage(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
@@ -931,6 +1073,20 @@ func semanticEdgeByID(t *testing.T, edges []SemanticEdge, id string) SemanticEdg
 	}
 	t.Fatalf("edge %s not found in %+v", id, edges)
 	return SemanticEdge{}
+}
+
+func assertSearchResult(t *testing.T, store *Store, ctx context.Context, request SemanticSearchRequest, recordKind string, recordID string) {
+	t.Helper()
+	results, err := store.SearchSemanticText(ctx, request)
+	if err != nil {
+		t.Fatalf("search semantic text: %v", err)
+	}
+	for _, result := range results {
+		if result.RecordKind == recordKind && result.RecordID == recordID {
+			return
+		}
+	}
+	t.Fatalf("search results = %+v, want %s/%s", results, recordKind, recordID)
 }
 
 func semanticLayoutPositionByEntityID(t *testing.T, positions []SemanticLayoutPosition, entityID string) SemanticLayoutPosition {

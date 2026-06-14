@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 8
+	semanticStoreVersion = 9
 	sqliteDriverName     = "sqlite"
 )
 
@@ -518,6 +518,36 @@ CREATE TABLE IF NOT EXISTS semantic_cartographer_validation_diagnostics (
 
 CREATE INDEX IF NOT EXISTS semantic_cartographer_diagnostics_workspace_patch_idx
   ON semantic_cartographer_validation_diagnostics(workspace_id, patch_id, created_at ASC, id);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS semantic_search_fts USING fts5(
+  workspace_id UNINDEXED,
+  record_kind UNINDEXED,
+  record_id UNINDEXED,
+  semantic_node_id UNINDEXED,
+  evidence_anchor_id UNINDEXED,
+  activity_interval_id UNINDEXED,
+  steering_directive_id UNINDEXED,
+  context_pack_id UNINDEXED,
+  context_pack_item_id UNINDEXED,
+  item_kind UNINDEXED,
+  source_kind UNINDEXED,
+  source_id UNINDEXED,
+  uri UNINDEXED,
+  path UNINDEXED,
+  workflow_definition_id UNINDEXED,
+  workflow_execution_id UNINDEXED,
+  workflow_node_id UNINDEXED,
+  workflow_node_execution_id UNINDEXED,
+  chat_conversation_id UNINDEXED,
+  chat_run_id UNINDEXED,
+  chat_message_id UNINDEXED,
+  run_item_id UNINDEXED,
+  title,
+  summary,
+  body,
+  updated_at UNINDEXED,
+  tokenize = 'unicode61'
+);
 `)
 
 func splitSQLStatements(sqlText string) []string {
