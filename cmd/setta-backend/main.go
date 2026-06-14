@@ -75,15 +75,6 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 		}
 		config.ChatHarness = runtime.ChatHarnessMode(harness)
 	}
-	if disableAutomaticCartographer := getenv("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER"); disableAutomaticCartographer != "" {
-		if getenv("SETTA_E2E") != "1" {
-			return config, fmt.Errorf("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER requires SETTA_E2E=1")
-		}
-		if disableAutomaticCartographer != "1" {
-			return config, fmt.Errorf("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER must be 1")
-		}
-		config.DisableAutomaticCartographerProcessing = true
-	}
 
 	if err := flagSet.Parse(args); err != nil {
 		return config, err

@@ -468,7 +468,6 @@ const defaultSurfaceAdapterFactories = {
       workflowGraphSyntheticGraphFallback: options.workflowGraphSyntheticGraphFallback,
     }),
   "settings-dom": (pane) => createReactDomSurfaceAdapter(pane),
-  "semantic-node-details": (pane) => createReactDomSurfaceAdapter(pane),
   snapshot: (pane) => new SnapshotSurfaceAdapter(pane),
   terminal: (pane) => new TerminalSurfaceAdapter(pane),
   "workflow-node-details": (pane) => createReactDomSurfaceAdapter(pane),

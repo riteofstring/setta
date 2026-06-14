@@ -3,37 +3,12 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type {
   ChatEvent,
-  SemanticCartographerSettingsInput,
   TerminalEvent,
   UpdateAppearanceSettingsRequest,
+  WorkflowEvent,
+  WorkflowGraph,
 } from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
-
-async function exposePreloadAPI({
-  invoke = vi.fn(),
-  on = vi.fn(),
-  removeListener = vi.fn(),
-  send = vi.fn(),
-} = {}) {
-  const exposed: Record<string, unknown> = {};
-  vi.doMock("electron", () => ({
-    contextBridge: {
-      exposeInMainWorld: (name: string, api: unknown) => {
-        exposed[name] = api;
-      },
-    },
-    ipcRenderer: {
-      invoke,
-      on,
-      removeListener,
-      send,
-    },
-  }));
-
-  await import("./index");
-
-  return { api: exposed.setta as SettaAPI, invoke, on, removeListener, send };
-}
 
 describe("preload workspace API", () => {
   beforeEach(() => {
@@ -41,16 +16,28 @@ describe("preload workspace API", () => {
     vi.doUnmock("electron");
     vi.unstubAllEnvs();
     vi.stubEnv("SETTA_E2E", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_ANIMATION", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_REDUCE_MOTION", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "");
   });
 
   test("exposes typed app methods through IPC", async () => {
-    const { api, invoke } = await exposePreloadAPI();
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.app).sort()).toEqual([
       "captureRendererRegion",
       "endWindowDrag",
@@ -66,9 +53,7 @@ describe("preload workspace API", () => {
     ]);
 
     expect(api.app.flags).toEqual({
-      workflowGraphAnimationEnabled: true,
       workflowGraphDebug: false,
-      workflowGraphReduceMotion: false,
       workflowGraphSyntheticGraph: null,
     });
     const dragPoint = { screenX: 200, screenY: 120 };
@@ -94,80 +79,38 @@ describe("preload workspace API", () => {
     ]);
   });
 
-  test("exposes workflow graph visual flags from environment", async () => {
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_ANIMATION", "0");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "1");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_REDUCE_MOTION", "1");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "2");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "500");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "semantic-cells");
-
-    const { api } = await exposePreloadAPI();
-
-    expect(api.app.flags).toEqual({
-      workflowGraphAnimationEnabled: false,
-      workflowGraphDebug: true,
-      workflowGraphReduceMotion: true,
-      workflowGraphSyntheticGraph: {
-        edgesPerNode: 2,
-        nodeCount: 500,
-        scene: "semantic-cells",
-      },
-    });
-  });
-
-  test("accepts visual parity synthetic workflow graph scenes", async () => {
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "1");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "6");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "merged");
-
-    const { api } = await exposePreloadAPI();
-
-    expect(api.app.flags.workflowGraphSyntheticGraph).toEqual({
-      edgesPerNode: 1,
-      nodeCount: 6,
-      scene: "merged",
-    });
-  });
-
-  test("rejects unsupported workflow graph synthetic scenes", async () => {
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "2");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "500");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "unknown");
-
-    await expect(exposePreloadAPI()).rejects.toThrow(
-      "SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE is unsupported: unknown",
-    );
-  });
-
   test("exposes typed workspace methods through IPC", async () => {
-    const { api, invoke } = await exposePreloadAPI();
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.workspace).sort()).toEqual([
       "close",
       "openLocalFolder",
       "openPath",
-      "readUILayout",
       "removeRecent",
       "reorder",
-      "saveUILayout",
       "select",
       "selectedConversations",
       "session",
       "setSelectedConversation",
     ]);
 
-    const layout = {
-      columns: [],
-      focusedPaneId: "workspace_pane_0",
-      panes: [],
-      schemaVersion: 1,
-      workspaceId: "workspace_api",
-    };
     await api.workspace.session();
     await api.workspace.openLocalFolder();
     await api.workspace.openPath("/tmp/recent");
-    await api.workspace.readUILayout("workspace_api");
-    await api.workspace.saveUILayout(layout);
     await api.workspace.select("workspace_api");
     await api.workspace.selectedConversations();
     await api.workspace.setSelectedConversation("workspace_api", "conversation_api");
@@ -179,8 +122,6 @@ describe("preload workspace API", () => {
       [ipcChannels.workspaceSession],
       [ipcChannels.workspaceOpenLocalFolder],
       [ipcChannels.workspaceOpenPath, "/tmp/recent"],
-      [ipcChannels.workspaceReadUILayout, "workspace_api"],
-      [ipcChannels.workspaceSaveUILayout, layout],
       [ipcChannels.workspaceSelect, "workspace_api"],
       [ipcChannels.workspaceSelectedConversations],
       [ipcChannels.workspaceSetSelectedConversation, "workspace_api", "conversation_api"],
@@ -191,7 +132,28 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed workspace native view methods through IPC", async () => {
-    const { api, invoke, on, removeListener, send } = await exposePreloadAPI();
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    const on = vi.fn();
+    const removeListener = vi.fn();
+    const send = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+        on,
+        removeListener,
+        send,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
     await api.app.captureRendererRegion({ height: 40, width: 80, x: 12, y: 24 });
     const batch = {
       focusedSurfaceId: "surface_browser",
@@ -287,7 +249,22 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed appearance methods through IPC", async () => {
-    const { api, invoke } = await exposePreloadAPI();
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.appearance).sort()).toEqual(["presets", "read", "update"]);
     const request = { settings: {} } as unknown as UpdateAppearanceSettingsRequest;
 
@@ -303,7 +280,26 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed chat methods through IPC", async () => {
-    const { api, invoke, on, removeListener } = await exposePreloadAPI();
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    const on = vi.fn();
+    const removeListener = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+        on,
+        removeListener,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.chat).sort()).toEqual([
       "activeRun",
       "cancelRun",
@@ -429,7 +425,26 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed terminal methods through IPC", async () => {
-    const { api, invoke, on, removeListener } = await exposePreloadAPI();
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    const on = vi.fn();
+    const removeListener = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+        on,
+        removeListener,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.terminal).sort()).toEqual([
       "attach",
       "close",
@@ -518,781 +533,142 @@ describe("preload workspace API", () => {
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.terminalEvent, handler);
   });
 
-  test("exposes typed semantic graph methods through IPC", async () => {
-    const { api, invoke } = await exposePreloadAPI();
-    expect(Object.keys(api.semanticGraph).sort()).toEqual([
-      "acceptCartographerPatch",
-      "attachChatMessage",
-      "attachChatRun",
-      "attachFileRange",
-      "attachRunItem",
-      "attachWorkflowExecution",
-      "attachWorkflowNode",
-      "buildCartographerWindow",
-      "createEdge",
-      "createNode",
-      "createSteeringDirective",
-      "dismissNode",
-      "endActivity",
-      "listActivity",
-      "listActivityPage",
-      "listCartographerCursors",
-      "listCartographerModelOptions",
-      "listCartographerPatches",
-      "listCartographerRuns",
-      "listCartographerWindows",
-      "listContextPacks",
-      "listEvidence",
-      "mergeNodes",
+  test("exposes typed workflow methods through IPC", async () => {
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    const on = vi.fn();
+    const removeListener = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+        on,
+        removeListener,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
+    const graph = workflowGraph();
+    expect(Object.keys(api.workflow).sort()).toEqual([
+      "cancelExecution",
+      "createDefinition",
+      "deleteDefinition",
+      "executionEvents",
+      "graphProjection",
+      "listDefinitions",
       "onEvent",
-      "processCartographerWindow",
-      "promoteNode",
-      "read",
-      "readActivitySummary",
-      "readCartographerProcessingState",
-      "readCartographerRun",
-      "readCartographerSettings",
-      "readCartographerSettingsMetadata",
-      "readContextPack",
-      "readEventHistory",
-      "readNodeDetail",
-      "readRuntimeSnapshot",
-      "readSteeringState",
-      "readWorkingSet",
-      "rejectCartographerPatch",
-      "removeEdge",
-      "renameNode",
-      "splitNode",
-      "updateCartographerSettings",
-      "updateEdge",
-      "updateLayoutPositions",
-      "updateNode",
-      "updateSteeringDirective",
+      "readDefinition",
+      "readExecution",
+      "startExecution",
+      "submitApproval",
+      "updateDefinition",
+      "validateDefinition",
     ]);
 
-    const workspaceId = "workspace_api";
-    const cartographerSourceRefs = {
-      chatConversationId: "",
-      chatMessageId: "",
-      chatRunId: "",
-      runItemId: "",
-      workflowDefinitionId: "",
-      workflowExecutionId: "workflow_execution_api",
-      workflowNodeExecutionId: "",
-      workflowNodeId: "",
-    };
-    const cartographerSettingsInput = {
-      automaticProcessingEnabled: true,
-      liveTaskConfig: {
-        modelSelection: "provider_default",
-        modelId: "",
-        reasoningEffort: "low",
-        inputBudget: 6000,
-      },
-      finalSynthesisTaskConfig: {
-        modelSelection: "provider_default",
-        modelId: "",
-        reasoningEffort: "medium",
-        inputBudget: 12000,
-      },
-      processingConfig: {
-        maxConcurrent: 2,
-        perSourceConcurrent: 1,
-        maxQueuedPerSource: 8,
-        leaseDurationSeconds: 600,
-      },
-      observationConfig: {
-        maxWindowEvents: 24,
-        maxWindowContentBytes: 8192,
-        assistantThresholdBytes: 4096,
-        outputThresholdBytes: 4096,
-        priorSummaryLimit: 8,
-        tokenBudget: 6000,
-        quietCloseAfterSeconds: 120,
-      },
-      auditConfig: { captureLevel: "standard" },
-    } satisfies SemanticCartographerSettingsInput;
-    await api.semanticGraph.read({ workspaceId });
-    await api.semanticGraph.readNodeDetail({ nodeId: "node_api", workspaceId });
-    await api.semanticGraph.listEvidence({ targetEntityId: "node_api", workspaceId });
-    await api.semanticGraph.listActivity({ limit: 10, targetEntityId: "node_api", workspaceId });
-    await api.semanticGraph.listActivityPage({
-      actorId: "",
-      actorKind: null,
-      chatConversationId: "",
-      chatMessageId: "",
-      chatRunId: "",
-      limit: 10,
-      offset: 0,
-      sourceId: "",
-      sourceKind: null,
-      targetEntityId: "",
-      workflowExecutionId: "",
-      workflowNodeId: "",
-      workspaceId,
+    await api.workflow.listDefinitions("workspace_api");
+    await api.workflow.createDefinition("workspace_api", "Review", "phase 4", graph);
+    await api.workflow.readDefinition("workspace_api", "workflow_definition_api");
+    await api.workflow.updateDefinition(
+      "workspace_api",
+      "workflow_definition_api",
+      "Review updated",
+      "phase 4 updated",
+      graph,
+    );
+    await api.workflow.deleteDefinition("workspace_api", "workflow_definition_api");
+    await api.workflow.validateDefinition("workspace_api", graph);
+    await api.workflow.startExecution("workspace_api", "workflow_definition_api");
+    await api.workflow.startExecution(
+      "workspace_api",
+      "workflow_definition_api",
+      "workflow_version_api",
+    );
+    await api.workflow.cancelExecution("workspace_api", "workflow_execution_api");
+    await api.workflow.readExecution("workspace_api", "workflow_execution_api");
+    await api.workflow.executionEvents("workspace_api", "workflow_execution_api", 10, 20);
+    await api.workflow.graphProjection("workspace_api");
+    await api.workflow.graphProjection(
+      "workspace_api",
+      "workflow_definition_api",
+      "workflow_version_api",
+      "workflow_execution_api",
+    );
+    await api.workflow.submitApproval({
+      answers: [],
+      approvalId: "approval_api",
+      approved: true,
+      cancelled: false,
+      executionId: "workflow_execution_api",
+      nodeExecutionId: "workflow_node_execution_api",
+      response: "",
+      workspaceId: "workspace_api",
     });
-    await api.semanticGraph.listContextPacks({
-      chatRunId: "",
-      limit: 10,
-      offset: 0,
-      targetEntityId: "node_api",
-      workflowExecutionId: "",
-      workspaceId,
-    });
-    await api.semanticGraph.buildCartographerWindow({
-      runStatus: "",
-      sourceRefs: cartographerSourceRefs,
-      summary: "Manual cartographer window",
-      targetEntityId: "node_api",
-      terminalReason: "",
-      triggerKind: "manual",
-      workspaceId,
-    });
-    await api.semanticGraph.processCartographerWindow({
-      windowId: "cartographer_window_api",
-      workspaceId,
-    });
-    await api.semanticGraph.readCartographerProcessingState({});
-    await api.semanticGraph.readCartographerRun({
-      runId: "cartographer_run_api",
-      workspaceId,
-    });
-    await api.semanticGraph.readCartographerSettings({});
-    await api.semanticGraph.readCartographerSettingsMetadata({});
-    await api.semanticGraph.updateCartographerSettings({
-      settings: cartographerSettingsInput,
-      workspaceId,
-    });
-    await api.semanticGraph.listCartographerModelOptions({ workspaceId });
-    await api.semanticGraph.listCartographerRuns({
-      chatRunId: "",
-      limit: 10,
-      targetEntityId: "node_api",
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.listCartographerWindows({
-      chatRunId: "",
-      limit: 10,
-      runId: "",
-      sourceId: "",
-      sourceKind: "workflow_execution",
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.listCartographerCursors({
-      chatRunId: "",
-      limit: 10,
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.listCartographerPatches({
-      limit: 10,
-      runId: "cartographer_run_api",
-      semanticTargetId: "node_api",
-      status: "pending_review",
-      workspaceId,
-    });
-    await api.semanticGraph.acceptCartographerPatch({
-      patchId: "cartographer_patch_api",
-      workspaceId,
-    });
-    await api.semanticGraph.rejectCartographerPatch({
-      patchId: "cartographer_patch_api",
-      workspaceId,
-    });
-    await api.semanticGraph.readActivitySummary({ recentLimit: 3, workspaceId });
-    await api.semanticGraph.readContextPack({ packId: "context_pack_api", workspaceId });
-    await api.semanticGraph.readSteeringState({ targetEntityId: "node_api", workspaceId });
-    await api.semanticGraph.readRuntimeSnapshot({
-      chatRunId: "",
-      limit: 40,
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.readWorkingSet({
-      chatRunId: "",
-      limit: 40,
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.readEventHistory({
-      beforeLogicalClock: 0,
-      limit: 20,
-      targetEntityId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.updateLayoutPositions({
-      positions: [{ entityId: "node_api", pinned: true, x: 12, y: -8 }],
-      workspaceId,
-    });
-    await api.semanticGraph.attachWorkflowExecution({
-      activityKind: "exploring",
-      actorId: "user_api",
-      actorKind: "user",
-      nodeId: "node_api",
-      summary: "",
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.attachWorkflowNode({
-      activityKind: "debugging",
-      actorId: "user_api",
-      actorKind: "user",
-      nodeId: "node_api",
-      summary: "",
-      workflowDefinitionId: "",
-      workflowExecutionId: "workflow_execution_api",
-      workflowNodeExecutionId: "workflow_node_execution_api",
-      workflowNodeId: "workflow_node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.attachChatRun({
-      activityKind: "exploring",
-      actorId: "user_api",
-      actorKind: "user",
-      chatRunId: "run_api",
-      nodeId: "node_api",
-      summary: "",
-      workspaceId,
-    });
-    await api.semanticGraph.attachChatMessage({
-      activityKind: "exploring",
-      actorId: "user_api",
-      actorKind: "user",
-      chatConversationId: "conversation_api",
-      chatMessageId: "message_api",
-      nodeId: "node_api",
-      summary: "",
-      workspaceId,
-    });
-    await api.semanticGraph.attachRunItem({
-      activityKind: "validating",
-      actorId: "user_api",
-      actorKind: "user",
-      chatRunId: "run_api",
-      nodeId: "node_api",
-      runItemId: "run_item_api",
-      summary: "",
-      workspaceId,
-    });
-    await api.semanticGraph.attachFileRange({
-      activityKind: "editing",
-      actorId: "user_api",
-      actorKind: "user",
-      nodeId: "node_api",
-      path: "docs/plan.md",
-      rangeEnd: 2,
-      rangeStart: 1,
-      summary: "",
-      workspaceId,
-    });
-    await api.semanticGraph.endActivity({
-      activityIntervalId: "activity_api",
-      actorId: "user_api",
-      actorKind: "user",
-      workspaceId,
-    });
-    await api.semanticGraph.renameNode({
-      actorId: "user_api",
-      actorKind: "user",
-      label: "Renamed node",
-      nodeId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.updateNode({
-      actorId: "user_api",
-      actorKind: "user",
-      kind: null,
-      nodeId: "node_api",
-      summary: "Updated summary",
-      workspaceId,
-    });
-    await api.semanticGraph.dismissNode({
-      actorId: "user_api",
-      actorKind: "user",
-      nodeId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.promoteNode({
-      actorId: "user_api",
-      actorKind: "user",
-      nodeId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.splitNode({
-      actorId: "user_api",
-      actorKind: "user",
-      nodes: [{ kind: "finding", label: "Child", nodeId: "node_child", summary: "" }],
-      reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
-      sourceNodeId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.mergeNodes({
-      actorId: "user_api",
-      actorKind: "user",
-      reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
-      sourceNodeIds: ["node_child"],
-      targetNode: { kind: "decision", label: "Merged", nodeId: "node_merged", summary: "" },
-      workspaceId,
-    });
-    await api.semanticGraph.createNode({
-      actorId: "user_api",
-      actorKind: "user",
-      kind: "constraint",
-      label: "Constraint",
-      nodeId: "node_constraint",
-      summary: "",
-      workspaceId,
-    });
-    await api.semanticGraph.createEdge({
-      actorId: "user_api",
-      actorKind: "user",
-      edgeId: "edge_api",
-      fromNodeId: "node_constraint",
-      kind: "constrains",
-      label: "constrains",
-      summary: "",
-      toNodeId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.updateEdge({
-      actorId: "user_api",
-      actorKind: "user",
-      edgeId: "edge_api",
-      kind: null,
-      label: null,
-      summary: "Updated edge",
-      workspaceId,
-    });
-    await api.semanticGraph.removeEdge({
-      actorId: "user_api",
-      actorKind: "user",
-      edgeId: "edge_api",
-      workspaceId,
-    });
-    await api.semanticGraph.createSteeringDirective({
-      actorId: "user_api",
-      actorKind: "user",
-      chatConversationId: "",
-      chatMessageId: "",
-      chatRunId: "",
-      instruction: "Focus here",
-      kind: "focus",
-      runItemId: "",
-      scope: "session",
-      targetEntityId: "node_api",
-      workflowDefinitionId: "",
-      workflowExecutionId: "",
-      workflowNodeExecutionId: "",
-      workflowNodeId: "",
-      workspaceId,
-    });
-    await api.semanticGraph.updateSteeringDirective({
-      actorId: "user_api",
-      actorKind: "user",
-      directiveId: "steering_api",
-      instruction: null,
-      status: "completed",
-      supersedesDirectiveId: "",
-      workspaceId,
-    });
+
+    const event = workflowEvent();
+    const listener = vi.fn();
+    const unsubscribe = api.workflow.onEvent(listener);
+    const handler = on.mock.calls.find((call) => call[0] === ipcEvents.workflowEvent)?.[1];
+    if (typeof handler !== "function") {
+      throw new Error("workflow event handler was not registered");
+    }
+    handler({}, event);
+    unsubscribe();
 
     expectInvokeCalls(invoke, [
-      [ipcChannels.semanticGraphRead, { workspaceId }],
-      [ipcChannels.semanticGraphNodeDetail, { nodeId: "node_api", workspaceId }],
-      [ipcChannels.semanticGraphEvidenceList, { targetEntityId: "node_api", workspaceId }],
+      [ipcChannels.workflowListDefinitions, "workspace_api"],
+      [ipcChannels.workflowCreateDefinition, "workspace_api", "Review", "phase 4", graph],
+      [ipcChannels.workflowReadDefinition, "workspace_api", "workflow_definition_api"],
       [
-        ipcChannels.semanticGraphActivityList,
-        { limit: 10, targetEntityId: "node_api", workspaceId },
+        ipcChannels.workflowUpdateDefinition,
+        "workspace_api",
+        "workflow_definition_api",
+        "Review updated",
+        "phase 4 updated",
+        graph,
+      ],
+      [ipcChannels.workflowDeleteDefinition, "workspace_api", "workflow_definition_api"],
+      [ipcChannels.workflowValidateDefinition, "workspace_api", graph],
+      [ipcChannels.workflowStartExecution, "workspace_api", "workflow_definition_api", ""],
+      [
+        ipcChannels.workflowStartExecution,
+        "workspace_api",
+        "workflow_definition_api",
+        "workflow_version_api",
+      ],
+      [ipcChannels.workflowCancelExecution, "workspace_api", "workflow_execution_api"],
+      [ipcChannels.workflowReadExecution, "workspace_api", "workflow_execution_api"],
+      [ipcChannels.workflowExecutionEvents, "workspace_api", "workflow_execution_api", 10, 20],
+      [ipcChannels.workflowGraphProjection, "workspace_api", "", "", ""],
+      [
+        ipcChannels.workflowGraphProjection,
+        "workspace_api",
+        "workflow_definition_api",
+        "workflow_version_api",
+        "workflow_execution_api",
       ],
       [
-        ipcChannels.semanticGraphActivityPage,
+        ipcChannels.workflowSubmitApproval,
         {
-          actorId: "",
-          actorKind: null,
-          chatConversationId: "",
-          chatMessageId: "",
-          chatRunId: "",
-          limit: 10,
-          offset: 0,
-          sourceId: "",
-          sourceKind: null,
-          targetEntityId: "",
-          workflowExecutionId: "",
-          workflowNodeId: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphContextPackList,
-        {
-          chatRunId: "",
-          limit: 10,
-          offset: 0,
-          targetEntityId: "node_api",
-          workflowExecutionId: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerWindowBuild,
-        {
-          runStatus: "",
-          sourceRefs: cartographerSourceRefs,
-          summary: "Manual cartographer window",
-          targetEntityId: "node_api",
-          terminalReason: "",
-          triggerKind: "manual",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerWindowProcess,
-        {
-          windowId: "cartographer_window_api",
-          workspaceId,
-        },
-      ],
-      [ipcChannels.semanticGraphCartographerProcessingState, {}],
-      [
-        ipcChannels.semanticGraphCartographerRunRead,
-        {
-          runId: "cartographer_run_api",
-          workspaceId,
-        },
-      ],
-      [ipcChannels.semanticGraphCartographerSettingsRead, {}],
-      [ipcChannels.semanticGraphCartographerSettingsMetadata, {}],
-      [
-        ipcChannels.semanticGraphCartographerSettingsUpdate,
-        {
-          settings: cartographerSettingsInput,
-          workspaceId,
-        },
-      ],
-      [ipcChannels.semanticGraphCartographerModelOptionsList, { workspaceId }],
-      [
-        ipcChannels.semanticGraphCartographerRunList,
-        {
-          chatRunId: "",
-          limit: 10,
-          targetEntityId: "node_api",
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerWindowList,
-        {
-          chatRunId: "",
-          limit: 10,
-          runId: "",
-          sourceId: "",
-          sourceKind: "workflow_execution",
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerCursorList,
-        {
-          chatRunId: "",
-          limit: 10,
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerPatchList,
-        {
-          limit: 10,
-          runId: "cartographer_run_api",
-          semanticTargetId: "node_api",
-          status: "pending_review",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerPatchAccept,
-        {
-          patchId: "cartographer_patch_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerPatchReject,
-        {
-          patchId: "cartographer_patch_api",
-          workspaceId,
-        },
-      ],
-      [ipcChannels.semanticGraphActivitySummary, { recentLimit: 3, workspaceId }],
-      [ipcChannels.semanticGraphContextPackRead, { packId: "context_pack_api", workspaceId }],
-      [ipcChannels.semanticGraphSteeringRead, { targetEntityId: "node_api", workspaceId }],
-      [
-        ipcChannels.semanticGraphRuntimeSnapshot,
-        {
-          chatRunId: "",
-          limit: 40,
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphWorkingSetRead,
-        {
-          chatRunId: "",
-          limit: 40,
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphEventHistory,
-        {
-          beforeLogicalClock: 0,
-          limit: 20,
-          targetEntityId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphLayoutUpdate,
-        {
-          positions: [{ entityId: "node_api", pinned: true, x: 12, y: -8 }],
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachWorkflowExecution,
-        {
-          activityKind: "exploring",
-          actorId: "user_api",
-          actorKind: "user",
-          nodeId: "node_api",
-          summary: "",
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachWorkflowNode,
-        {
-          activityKind: "debugging",
-          actorId: "user_api",
-          actorKind: "user",
-          nodeId: "node_api",
-          summary: "",
-          workflowDefinitionId: "",
-          workflowExecutionId: "workflow_execution_api",
-          workflowNodeExecutionId: "workflow_node_execution_api",
-          workflowNodeId: "workflow_node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachChatRun,
-        {
-          activityKind: "exploring",
-          actorId: "user_api",
-          actorKind: "user",
-          chatRunId: "run_api",
-          nodeId: "node_api",
-          summary: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachChatMessage,
-        {
-          activityKind: "exploring",
-          actorId: "user_api",
-          actorKind: "user",
-          chatConversationId: "conversation_api",
-          chatMessageId: "message_api",
-          nodeId: "node_api",
-          summary: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachRunItem,
-        {
-          activityKind: "validating",
-          actorId: "user_api",
-          actorKind: "user",
-          chatRunId: "run_api",
-          nodeId: "node_api",
-          runItemId: "run_item_api",
-          summary: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachFileRange,
-        {
-          activityKind: "editing",
-          actorId: "user_api",
-          actorKind: "user",
-          nodeId: "node_api",
-          path: "docs/plan.md",
-          rangeEnd: 2,
-          rangeStart: 1,
-          summary: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphActivityEnd,
-        {
-          activityIntervalId: "activity_api",
-          actorId: "user_api",
-          actorKind: "user",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphRenameNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          label: "Renamed node",
-          nodeId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphUpdateNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          kind: null,
-          nodeId: "node_api",
-          summary: "Updated summary",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphDismissNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          nodeId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphPromoteNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          nodeId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphSplitNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          nodes: [{ kind: "finding", label: "Child", nodeId: "node_child", summary: "" }],
-          reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
-          sourceNodeId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphMergeNodes,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
-          sourceNodeIds: ["node_child"],
-          targetNode: { kind: "decision", label: "Merged", nodeId: "node_merged", summary: "" },
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCreateNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          kind: "constraint",
-          label: "Constraint",
-          nodeId: "node_constraint",
-          summary: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCreateEdge,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          edgeId: "edge_api",
-          fromNodeId: "node_constraint",
-          kind: "constrains",
-          label: "constrains",
-          summary: "",
-          toNodeId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphUpdateEdge,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          edgeId: "edge_api",
-          kind: null,
-          label: null,
-          summary: "Updated edge",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphRemoveEdge,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          edgeId: "edge_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCreateSteeringDirective,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          chatConversationId: "",
-          chatMessageId: "",
-          chatRunId: "",
-          instruction: "Focus here",
-          kind: "focus",
-          runItemId: "",
-          scope: "session",
-          targetEntityId: "node_api",
-          workflowDefinitionId: "",
-          workflowExecutionId: "",
-          workflowNodeExecutionId: "",
-          workflowNodeId: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphUpdateSteeringDirective,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          directiveId: "steering_api",
-          instruction: null,
-          status: "completed",
-          supersedesDirectiveId: "",
-          workspaceId,
+          answers: [],
+          approvalId: "approval_api",
+          approved: true,
+          cancelled: false,
+          executionId: "workflow_execution_api",
+          nodeExecutionId: "workflow_node_execution_api",
+          response: "",
+          workspaceId: "workspace_api",
         },
       ],
     ]);
+    expect(on).toHaveBeenCalledWith(ipcEvents.workflowEvent, expect.any(Function));
+    expect(listener).toHaveBeenCalledWith(event);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.workflowEvent, handler);
   });
 });
 
@@ -1362,5 +738,58 @@ function terminalEvent(): TerminalEvent {
     streamId: "terminal_stream_test",
     type: "terminal.output",
     workspaceId: "workspace_api",
+  };
+}
+
+function workflowEvent(): WorkflowEvent {
+  return {
+    createdAt: "2026-06-05T12:00:00Z",
+    definitionId: "workflow_definition_api",
+    definitionVersionId: "workflow_version_api",
+    details: {},
+    executionId: "workflow_execution_api",
+    id: "workflow_event_api",
+    message: "workflow started",
+    nodeExecutionId: "",
+    nodeId: "",
+    ordinal: 1,
+    runnerKind: null,
+    schemaVersion: 1,
+    tokenId: "",
+    type: "workflow.execution.started",
+    workspaceId: "workspace_api",
+  };
+}
+
+function workflowGraph(): WorkflowGraph {
+  return {
+    edges: [
+      {
+        condition: null,
+        fromNodeId: "start",
+        id: "start_end",
+        kind: "normal",
+        toNodeId: "end",
+      },
+    ],
+    layout: { nodes: [] },
+    nodes: [
+      {
+        action: null,
+        gateway: null,
+        id: "start",
+        kind: "start",
+        loopGuard: null,
+        title: "Start",
+      },
+      {
+        action: null,
+        gateway: null,
+        id: "end",
+        kind: "end",
+        loopGuard: null,
+        title: "End",
+      },
+    ],
   };
 }

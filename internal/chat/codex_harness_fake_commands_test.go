@@ -29,14 +29,7 @@ func handleFakeModelList(mode string, state *fakeCodexState, message map[string]
 	if mode == "command-model-list-paginated" {
 		return handleFakePaginatedModelList(state, message)
 	}
-	if mode == "catalog-model-list-invalid-reasoning" {
-		writeFakeInvalidReasoningModelListResponse(message["id"])
-		return true
-	}
 	writeFakeDefaultModelListResponse(message["id"])
-	if mode == "catalog-model-list-no-thread" {
-		return true
-	}
 	return fakeCommandDone(mode)
 }
 
@@ -133,24 +126,6 @@ func writeFakeDefaultModelListResponse(id any) {
 				{"description": "Medium reasoning.", "reasoningEffort": "medium"},
 				{"description": "High reasoning.", "reasoningEffort": "high"},
 				{"description": "Extra high reasoning.", "reasoningEffort": "xhigh"},
-			},
-		}},
-		"nextCursor": nil,
-	})
-}
-
-func writeFakeInvalidReasoningModelListResponse(id any) {
-	writeFakeResponse(id, map[string]any{
-		"data": []map[string]any{{
-			"defaultReasoningEffort": "enormous",
-			"description":            "Invalid model.",
-			"displayName":            "Invalid Test",
-			"hidden":                 false,
-			"id":                     "invalid-test",
-			"isDefault":              true,
-			"model":                  "invalid-test",
-			"supportedReasoningEfforts": []map[string]any{
-				{"description": "Invalid reasoning.", "reasoningEffort": "enormous"},
 			},
 		}},
 		"nextCursor": nil,

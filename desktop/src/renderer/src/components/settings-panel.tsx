@@ -14,7 +14,6 @@ import {
   Gauge,
   KeyRound,
   Loader2,
-  Map,
   Moon,
   Palette,
   RotateCcw,
@@ -42,7 +41,6 @@ import {
 import { CodexAccountSettings } from "./codex-account-settings";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import { FloatingMenu } from "./floating-menu";
-import { SemanticCartographerSettingsPanel } from "./semantic-cartographer-settings";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { TerminalProfilesSettings } from "./terminal-profiles-settings";
@@ -55,18 +53,12 @@ import {
 } from "../stores/appearance-store";
 
 type AppearanceColorValues = AppearanceColorScheme[AppearanceColorGroup];
-type SettingsSubtab =
-  | "theme"
-  | "developer"
-  | "codex-account"
-  | "terminal-profiles"
-  | "cartographer";
+type SettingsSubtab = "theme" | "developer" | "codex-account" | "terminal-profiles";
 const settingsSubtabs = [
   { Icon: Palette, id: "theme", label: "Theme" },
   { Icon: Gauge, id: "developer", label: "Developer" },
   { Icon: KeyRound, id: "codex-account", label: "Codex Account" },
   { Icon: Terminal, id: "terminal-profiles", label: "Terminal Profiles" },
-  { Icon: Map, id: "cartographer", label: "Cartographer" },
 ] as const satisfies Array<{
   Icon: typeof Palette;
   id: SettingsSubtab;
@@ -155,21 +147,13 @@ export function SettingsPanel() {
             >
               <CodexAccountSettings />
             </div>
-          ) : activeSubtab === "terminal-profiles" ? (
+          ) : (
             <div
               aria-labelledby={settingsSubtabButtonId("terminal-profiles")}
               id={settingsSubtabPanelId("terminal-profiles")}
               role="tabpanel"
             >
               <TerminalProfilesSettings />
-            </div>
-          ) : (
-            <div
-              aria-labelledby={settingsSubtabButtonId("cartographer")}
-              id={settingsSubtabPanelId("cartographer")}
-              role="tabpanel"
-            >
-              <SemanticCartographerSettingsPanel />
             </div>
           )}
         </div>

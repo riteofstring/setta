@@ -142,71 +142,6 @@ func TestValidateGraphReportsStaleLayoutAsWarning(t *testing.T) {
 	}
 }
 
-func TestValidateGraphRejectsReachableActionWithoutTerminalRoute(t *testing.T) {
-	graph := WorkflowGraph{
-		Nodes: []WorkflowNode{
-			{ID: "start", Kind: NodeKindStart},
-			testActionNode("agent"),
-			{ID: "end", Kind: NodeKindEnd},
-		},
-		Edges: []WorkflowEdge{
-			{ID: "start_agent", FromNodeID: "start", ToNodeID: "agent", Kind: EdgeKindNormal},
-			{ID: "start_end", FromNodeID: "start", ToNodeID: "end", Kind: EdgeKindNormal},
-		},
-	}
-
-	result := ValidateGraph(graph, DefaultRunnerRegistry())
-	if result.Valid {
-		t.Fatalf("validation unexpectedly passed: %+v", result.Diagnostics)
-	}
-	assertDiagnostic(t, result, "action_node_output_required")
-	assertDiagnostic(t, result, "node_cannot_reach_terminal")
-}
-
-func TestValidateGraphRejectsConditionalOnlyRouting(t *testing.T) {
-	graph := WorkflowGraph{
-		Nodes: []WorkflowNode{
-			{ID: "start", Kind: NodeKindStart},
-			testActionNode("classify"),
-			{ID: "end_yes", Kind: NodeKindEnd},
-		},
-		Edges: []WorkflowEdge{
-			{ID: "start_classify", FromNodeID: "start", ToNodeID: "classify", Kind: EdgeKindNormal},
-			{ID: "classify_yes", FromNodeID: "classify", ToNodeID: "end_yes", Kind: EdgeKindNormal, Condition: signalCondition("classify", "route", "yes")},
-		},
-	}
-
-	result := ValidateGraph(graph, DefaultRunnerRegistry())
-	if result.Valid {
-		t.Fatalf("validation unexpectedly passed: %+v", result.Diagnostics)
-	}
-	assertDiagnostic(t, result, "routing_may_match_no_edges")
-}
-
-func TestValidateGraphRejectsXORWithoutDefaultCoverage(t *testing.T) {
-	graph := WorkflowGraph{
-		Nodes: []WorkflowNode{
-			{ID: "start", Kind: NodeKindStart},
-			testActionNode("classify"),
-			{ID: "route", Kind: NodeKindGatewayXOR, Gateway: &WorkflowGatewayConfig{}},
-			{ID: "end_yes", Kind: NodeKindEnd},
-			{ID: "end_no", Kind: NodeKindEnd},
-		},
-		Edges: []WorkflowEdge{
-			{ID: "start_classify", FromNodeID: "start", ToNodeID: "classify", Kind: EdgeKindNormal},
-			{ID: "classify_route", FromNodeID: "classify", ToNodeID: "route", Kind: EdgeKindNormal},
-			{ID: "route_yes", FromNodeID: "route", ToNodeID: "end_yes", Kind: EdgeKindNormal, Condition: signalCondition("classify", "route", "yes")},
-			{ID: "route_no", FromNodeID: "route", ToNodeID: "end_no", Kind: EdgeKindNormal, Condition: signalCondition("classify", "route", "no")},
-		},
-	}
-
-	result := ValidateGraph(graph, DefaultRunnerRegistry())
-	if result.Valid {
-		t.Fatalf("validation unexpectedly passed: %+v", result.Diagnostics)
-	}
-	assertDiagnostic(t, result, "xor_gateway_total_route_required")
-}
-
 func TestANDFanOutJoinWaitsForAllBranches(t *testing.T) {
 	graph := WorkflowGraph{
 		Nodes: []WorkflowNode{
@@ -271,7 +206,7 @@ func TestANDGatewayDeadlockWithoutActiveWorkFails(t *testing.T) {
 			{ID: "join_end", FromNodeID: "join", ToNodeID: "end", Kind: EdgeKindNormal},
 		},
 	}
-	transition := startTestExecutionWithoutValidation(t, graph)
+	transition := startTestExecution(t, graph)
 	execution, classify := startActionForTest(t, transition.Execution, "classify")
 	routed, err := CompleteAction(execution, graph, classify.ID, WorkflowActionResult{
 		Status:  ActionCompletionCompleted,
@@ -309,7 +244,6 @@ func TestXORGatewaySelectsExactlyOneBranchFromStructuredSignal(t *testing.T) {
 			{ID: "classify_route", FromNodeID: "classify", ToNodeID: "route", Kind: EdgeKindNormal},
 			{ID: "route_yes", FromNodeID: "route", ToNodeID: "end_yes", Kind: EdgeKindNormal, Condition: signalCondition("classify", "route", "yes")},
 			{ID: "route_no", FromNodeID: "route", ToNodeID: "end_no", Kind: EdgeKindNormal, Condition: signalCondition("classify", "route", "no")},
-			{ID: "route_default", FromNodeID: "route", ToNodeID: "end_no", Kind: EdgeKindNormal, Condition: defaultCondition()},
 		},
 	}
 	transition := startTestExecution(t, graph)
@@ -430,7 +364,7 @@ func TestORGatewayReleasesAllMatchingBranches(t *testing.T) {
 			{ID: "join_end", FromNodeID: "join", ToNodeID: "end", Kind: EdgeKindNormal},
 		},
 	}
-	transition := startTestExecutionWithoutValidation(t, graph)
+	transition := startTestExecution(t, graph)
 	execution, classify := startActionForTest(t, transition.Execution, "classify")
 	routed, err := CompleteAction(execution, graph, classify.ID, WorkflowActionResult{
 		Status: ActionCompletionCompleted,
@@ -461,7 +395,7 @@ func TestORGatewayReleasesAllMatchingBranches(t *testing.T) {
 
 func TestORGatewayLateArrivalCompletesAfterEndReached(t *testing.T) {
 	graph := lateGatewayArrivalGraph(NodeKindGatewayOR)
-	transition := startTestExecutionWithoutValidation(t, graph)
+	transition := startTestExecution(t, graph)
 	execution, fast := startActionForTest(t, transition.Execution, "fast")
 	execution, slow := startActionForTest(t, execution, "slow")
 
@@ -489,7 +423,7 @@ func TestORGatewayLateArrivalCompletesAfterEndReached(t *testing.T) {
 
 func TestXORGatewayLateArrivalCompletesAfterEndReached(t *testing.T) {
 	graph := lateGatewayArrivalGraph(NodeKindGatewayXOR)
-	transition := startTestExecutionWithoutValidation(t, graph)
+	transition := startTestExecution(t, graph)
 	execution, fast := startActionForTest(t, transition.Execution, "fast")
 	execution, slow := startActionForTest(t, execution, "slow")
 
@@ -665,7 +599,7 @@ func TestRoutingFailureFailsExecutionAndClearsActiveWork(t *testing.T) {
 			{ID: "route_yes", FromNodeID: "route", ToNodeID: "end_yes", Kind: EdgeKindNormal, Condition: signalCondition("classify", "route", "yes")},
 		},
 	}
-	transition := startTestExecutionWithoutValidation(t, graph)
+	transition := startTestExecution(t, graph)
 	execution, classify := startActionForTest(t, transition.Execution, "classify")
 	next, err := CompleteAction(execution, graph, classify.ID, WorkflowActionResult{
 		Status:  ActionCompletionCompleted,
@@ -755,24 +689,6 @@ func startTestExecution(t *testing.T, graph WorkflowGraph) WorkflowTransition {
 	if !result.Valid {
 		t.Fatalf("invalid test graph: %+v", result.Diagnostics)
 	}
-	transition, err := StartExecution(WorkflowDefinitionVersion{
-		SchemaVersion: SchemaVersion,
-		ID:            "version_test",
-		WorkspaceID:   "workspace_test",
-		DefinitionID:  "definition_test",
-		VersionNumber: 1,
-		Name:          "Test",
-		Graph:         graph,
-		CreatedAt:     testNow,
-	}, testTransitionContext())
-	if err != nil {
-		t.Fatalf("start execution: %v", err)
-	}
-	return transition
-}
-
-func startTestExecutionWithoutValidation(t *testing.T, graph WorkflowGraph) WorkflowTransition {
-	t.Helper()
 	transition, err := StartExecution(WorkflowDefinitionVersion{
 		SchemaVersion: SchemaVersion,
 		ID:            "version_test",

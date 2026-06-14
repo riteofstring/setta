@@ -167,22 +167,6 @@ export async function captureScreenshot(client, path) {
   await writeFile(path, Buffer.from(image.data, "base64"));
 }
 
-export async function captureScreenshotClip(client, path, clip) {
-  await mkdir(dirname(path), { recursive: true });
-  const image = await client.call("Page.captureScreenshot", {
-    captureBeyondViewport: false,
-    clip: {
-      height: clip.height,
-      scale: clip.scale ?? 1,
-      width: clip.width,
-      x: clip.x,
-      y: clip.y,
-    },
-    format: "png",
-  });
-  await writeFile(path, Buffer.from(image.data, "base64"));
-}
-
 export async function reloadPage(client) {
   try {
     await client.call("Page.reload", { ignoreCache: true });
@@ -323,7 +307,7 @@ async function openPort() {
 }
 
 function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) {
-  const electron = spawn(electronBin(), electronLaunchArgs(debugPort), {
+  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
     cwd: desktopRoot,
     env: {
       ...process.env,
@@ -345,14 +329,6 @@ function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) 
   electron.stdout.on("data", (data) => appendLog(electron.logs, data));
   electron.stderr.on("data", (data) => appendLog(electron.logs, data));
   return electron;
-}
-
-function electronLaunchArgs(debugPort) {
-  return [
-    `--remote-debugging-port=${debugPort}`,
-    ".",
-    ...(process.platform === "darwin" ? ["-ApplePersistenceIgnoreState", "YES"] : []),
-  ];
 }
 
 function isPageNavigationTransient(error) {

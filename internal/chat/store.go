@@ -296,7 +296,7 @@ func (store *Store) ListConversations(workspaceID string) ([]Conversation, error
 	if err := validateStoreWorkspaceID(workspaceID); err != nil {
 		return nil, err
 	}
-	conversations, corrupt, err := store.scanConversationsAllowingCorrupt(workspaceID)
+	conversations, corrupt, err := store.ScanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +306,7 @@ func (store *Store) ListConversations(workspaceID string) ([]Conversation, error
 	return conversations, nil
 }
 
-func (store *Store) scanConversationsAllowingCorrupt(workspaceID string) ([]Conversation, []CorruptStateFinding, error) {
+func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conversation, []CorruptStateFinding, error) {
 	if err := validateStoreWorkspaceID(workspaceID); err != nil {
 		return nil, nil, err
 	}
@@ -327,15 +327,15 @@ func (store *Store) scanConversationsAllowingCorrupt(workspaceID string) ([]Conv
 		}
 		conversation, err := store.LoadConversation(workspaceID, entry.Name())
 		if err != nil {
+			if IsCorruptStateError(err) {
+				corrupt = append(corrupt, corruptStateFinding(err, workspaceID, entry.Name(), "", corruptConversationKind))
+				continue
+			}
 			missing, missingErr := store.conversationDirDisappearedDuringScan(workspaceID, entry.Name(), err)
 			if missingErr != nil {
 				return nil, nil, missingErr
 			}
 			if missing {
-				continue
-			}
-			if IsCorruptStateError(err) {
-				corrupt = append(corrupt, corruptStateFinding(err, workspaceID, entry.Name(), "", corruptConversationKind))
 				continue
 			}
 			return nil, nil, err

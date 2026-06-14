@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"setta/internal/chat"
-	"setta/internal/semanticcontext"
 )
 
 const (
@@ -30,21 +29,16 @@ type CodexChatService interface {
 }
 
 type CodexActionRunner struct {
-	chatService      CodexChatService
-	semanticCompiler semanticcontext.Compiler
+	chatService CodexChatService
 }
 
 type CodexActionRunnerDescriptor struct{}
 
-func NewCodexActionRunner(chatService CodexChatService, compiler ...semanticcontext.Compiler) (*CodexActionRunner, error) {
+func NewCodexActionRunner(chatService CodexChatService) (*CodexActionRunner, error) {
 	if chatService == nil {
 		return nil, errors.New("codex action runner chat service is required")
 	}
-	runner := &CodexActionRunner{chatService: chatService}
-	if len(compiler) > 0 {
-		runner.semanticCompiler = compiler[0]
-	}
-	return runner, nil
+	return &CodexActionRunner{chatService: chatService}, nil
 }
 
 func (descriptor CodexActionRunnerDescriptor) Kind() WorkflowActionKind {
@@ -145,10 +139,6 @@ func (runner *CodexActionRunner) Start(_ context.Context, request ActionStartReq
 		return ActionStartResult{}, fmt.Errorf("agent.codex node %s has no codex config", request.Node.ID)
 	}
 	config := request.Node.Action.Codex
-	semanticDelivery, err := runner.compileSemanticContext(request, config.Prompt)
-	if err != nil {
-		return ActionStartResult{}, err
-	}
 	turn, err := runner.chatService.SendWorkflowAgentTurn(request.WorkspaceID, chat.WorkflowAgentTurnRequest{
 		DefinitionID:        request.DefinitionID,
 		DefinitionVersionID: request.DefinitionVersionID,
@@ -156,7 +146,6 @@ func (runner *CodexActionRunner) Start(_ context.Context, request ActionStartReq
 		NodeID:              request.Node.ID,
 		NodeExecutionID:     request.NodeExecution.ID,
 		Prompt:              config.Prompt,
-		SemanticContext:     semanticDelivery,
 		FreshConversation:   config.FreshConversation,
 		Model:               config.Model,
 		ReasoningEffort:     codexReasoningEffort(config.ReasoningEffort),
@@ -186,30 +175,6 @@ func (runner *CodexActionRunner) Start(_ context.Context, request ActionStartReq
 		}
 	}
 	return ActionStartResult{RunnerRefs: refs}, nil
-}
-
-func (runner *CodexActionRunner) compileSemanticContext(request ActionStartRequest, authoredPrompt string) (*semanticcontext.Delivery, error) {
-	if runner.semanticCompiler == nil {
-		return nil, nil
-	}
-	delivery, err := runner.semanticCompiler.CompileContext(context.Background(), semanticcontext.CompileRequest{
-		WorkspaceID:    request.WorkspaceID,
-		TriggerKind:    semanticcontext.TriggerWorkflowAgentStart,
-		AuthoredPrompt: authoredPrompt,
-		SourceRefs: semanticcontext.SourceRefs{
-			WorkflowDefinitionID:    request.DefinitionID,
-			WorkflowExecutionID:     request.Execution.ID,
-			WorkflowNodeID:          request.Node.ID,
-			WorkflowNodeExecutionID: request.NodeExecution.ID,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	if delivery.ContextText == "" {
-		return nil, nil
-	}
-	return &delivery, nil
 }
 
 func (runner *CodexActionRunner) Cancel(_ context.Context, request ActionCancelRequest) error {
