@@ -1,7 +1,7 @@
 # Workspace Graph Performance and Semantic Liveness Plan
 
 - **Date:** June 15, 2026
-- **Status:** In progress; Phase 0 instrumentation landed, baseline evidence pending
+- **Status:** Phase 0 complete; Phase 1 ready
 - **Scope:** Diagnose and fix workspace graph pan/zoom/interaction performance, then make the semantic cartographer feel live and useful during real workflow runs.
 - **Related docs:**
   - `docs/plans/living_workspace_neon_redesign_plan.md`
@@ -149,24 +149,22 @@ Manual recordings against `~/.setta` should remain useful for symptoms, but only
 
 ### Phase 0 Implementation Review
 
-Commit `a7fc49f4a` added the core diagnostic surface: renderer timing buckets, p95 frame stats, display-object layer counts, pointer/wheel input samples, CDP traces, PerformanceObserver records, contact-sheet capture, and deterministic `workflow-graph-pan-zoom-*` and `semantic-live-run` workflow registrations.
+Commits `a7fc49f4a` and `aced32937` completed Phase 0. The core diagnostic surface now includes renderer timing buckets, p95 frame stats, display-object layer counts, pointer/wheel input samples, CDP traces, PerformanceObserver records, contact-sheet capture, deterministic `workflow-graph-pan-zoom-*` workflow registrations, and the `semantic-live-run` workflow registration.
 
-Phase 0 is not complete yet. The implementation adds the recorder, but the repository does not yet contain the required baseline report under `docs/reports/performance/`, and the review did not find checked-in evidence from the new `workflow-graph-pan-zoom-baseline`, `workflow-graph-pan-zoom-active`, or `workflow-graph-pan-zoom-large` workflows.
+The required baseline report is checked in at `docs/reports/performance/workspace-graph-semantic-liveness-phase-0-baseline.md`. It covers:
 
-Do not start performance refactors until Phase 0 produces and commits a baseline report. The report should summarize, at minimum:
+- `workflow-graph-pan-zoom-baseline`
+- `workflow-graph-pan-zoom-active`
+- `workflow-graph-pan-zoom-large` at 500, 1,000, 2,500, and 5,000 nodes
+- `semantic-live-run`
 
-- The exact workflows run and artifact directories.
-- Baseline, active, and large-scene frame stats, including average, p95, worst frame, and long tasks.
-- `commit-camera-change` timing and its label, animation, filter, grid, edge, and Pixi render sub-buckets.
-- Camera update, wheel/pointer pan, wheel zoom, label sync, spatial query, redraw, and graph update deltas during scripted interaction.
-- Display object counts by layer at each scenario size.
-- Whether the recorded evidence supports Phase 1 as the next bottleneck, or whether another measured hotspot should move earlier.
+The baseline supports Phase 1 as the next implementation step. Camera events still trigger whole-graph label sync: at 5,000 nodes, 22 camera updates produced 110,000 label sync deltas. `commit-camera-change` scales from 0.2 ms average at 7 nodes to 73.9 ms average at 5,000 nodes, and `label-all-sync` is the largest measured camera-dependent sub-bucket at 5,000 nodes with 80.5 ms average and 146.7 ms worst. Display objects also scale linearly, reaching 60,021 stage objects at 5,000 nodes; that keeps Phases 2 and 3 justified, but the first measured interaction fix is Phase 1 camera coalescing.
 
 ## Phase 1 - Interaction Path Refactor
 
 Make pan/zoom event handling frame-coalesced.
 
-Readiness gate: Phase 1 is not ready to implement until the Phase 0 baseline report exists. The first Phase 1 implementation should use that report to target the measured interaction path, then append a before/after report under `docs/reports/performance/`.
+Readiness gate: Phase 1 is ready to implement. The Phase 0 baseline report exists and identifies synchronous camera-dependent work as the next measured bottleneck. The Phase 1 implementation must use that report as the before state, then append a before/after report under `docs/reports/performance/`.
 
 - Replace synchronous per-event camera work with a camera dirty flag processed in the ticker.
 - During a pan/zoom frame, update viewport transform immediately, but run label/visibility/filter/animation sync once per frame.
@@ -381,9 +379,9 @@ Because this touches workflow, cartographer, event streaming, generated contract
 
 ## Implementation Order
 
-1. Add diagnostic recording and debug timing. Do not optimize performance before the first report exists.
-2. Run the new recording against current code and save the baseline performance report.
-3. Refactor camera interaction work to be frame-coalesced.
+1. Complete: add diagnostic recording and debug timing.
+2. Complete: run the new recording against current code and save the baseline performance report.
+3. Next: refactor camera interaction work to be frame-coalesced.
 4. Make labels/glow/filter sync visibility-aware.
 5. Add visible object pooling and edge LOD if the measured bottleneck remains display-object scale.
 6. Add the semantic working-set contract and renderer projection.
