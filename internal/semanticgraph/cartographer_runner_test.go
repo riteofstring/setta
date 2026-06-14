@@ -134,11 +134,11 @@ func TestCartographerPatchEnvelopeAcceptsEmptyPatchListAsNoMutationAudit(t *test
 	if err != nil {
 		t.Fatalf("apply empty cartographer envelope: %v", err)
 	}
-	if result.Run.Status != CartographerRunCompleted ||
+	if result.Run.Status != CartographerRunCompletedNoop ||
 		!cartographerDiagnosticsContain(result.Run.Diagnostics, result.Patches, "empty_envelope") ||
 		len(result.Patches) != 0 ||
 		len(result.Events) != 0 {
-		t.Fatalf("empty envelope result = %+v, want completed no-mutation audit", result)
+		t.Fatalf("empty envelope result = %+v, want completed no-op audit", result)
 	}
 	if result.Patches == nil || result.Events == nil || result.Run.CreatedSemanticEventIDs == nil || result.Run.Diagnostics == nil {
 		t.Fatalf("empty envelope result contains nil contract arrays: %+v", result)

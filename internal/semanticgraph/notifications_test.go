@@ -96,7 +96,7 @@ func TestServicePublishesLayoutAndCartographerAuditChanges(t *testing.T) {
 	if _, err := service.SaveCartographerRun(context.Background(), CartographerRun{
 		ID:             "cartographer_run_notify",
 		WorkspaceID:    testWorkspaceID,
-		Status:         CartographerRunPending,
+		Status:         CartographerRunQueued,
 		TriggerKind:    CartographerTriggerManual,
 		TargetEntityID: "node_cartographer_notify",
 		CreatedAt:      testTimestamp(90),

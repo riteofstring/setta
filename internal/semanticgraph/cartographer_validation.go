@@ -48,10 +48,22 @@ func validateCartographerRunInput(run CartographerRun) error {
 func validateCartographerRunAudit(run CartographerRun) error {
 	if err := validateOptionalStoreIDs([]optionalStoreID{
 		{label: "cartographer run window id", value: run.WindowID},
+		{label: "cartographer run source epoch id", value: run.SourceEpochID},
 		{label: "cartographer run request id", value: run.RequestID},
 		{label: "cartographer run response id", value: run.ResponseID},
 	}); err != nil {
 		return err
+	}
+	if run.Priority < 0 {
+		return fmt.Errorf("cartographer run priority must not be negative: %d", run.Priority)
+	}
+	if run.AttemptCount < 0 {
+		return fmt.Errorf("cartographer run attemptCount must not be negative: %d", run.AttemptCount)
+	}
+	if run.LeaseDeadline != "" {
+		if err := validateTimestamp("cartographer run leaseDeadline", run.LeaseDeadline); err != nil {
+			return err
+		}
 	}
 	if err := validateCartographerInputItemCounts(run.InputItemCounts); err != nil {
 		return err
@@ -887,114 +899,4 @@ func validateOutputOrdinalMap(values map[string]int, label string) error {
 		}
 	}
 	return nil
-}
-
-func isCartographerRunStatus(status CartographerRunStatus) bool {
-	switch status {
-	case CartographerRunPending, CartographerRunRunning, CartographerRunCompleted, CartographerRunFailed, CartographerRunProposed, CartographerRunApplied, CartographerRunRejected:
-		return true
-	default:
-		return false
-	}
-}
-
-func isCartographerRunTriggerKind(kind CartographerRunTriggerKind) bool {
-	switch kind {
-	case CartographerTriggerManual, CartographerTriggerWorkflowWindow, CartographerTriggerWorkflowDone, CartographerTriggerExplicitRetry, CartographerTriggerExplicitReview:
-		return true
-	default:
-		return false
-	}
-}
-
-func isCartographerWindowStatus(status CartographerWindowStatus) bool {
-	switch status {
-	case CartographerWindowOpen, CartographerWindowClosed, CartographerWindowProcessed:
-		return true
-	default:
-		return false
-	}
-}
-
-func isCartographerSourceKind(kind CartographerSourceKind) bool {
-	switch kind {
-	case CartographerSourceWorkflowExecution, CartographerSourceChatRun, CartographerSourceSemanticTarget:
-		return true
-	default:
-		return false
-	}
-}
-
-func isCartographerTrajectoryEventSource(source CartographerTrajectoryEventSource) bool {
-	switch source {
-	case CartographerTrajectorySourceChat, CartographerTrajectorySourceWorkflow:
-		return true
-	default:
-		return false
-	}
-}
-
-func isCartographerWindowCloseReason(reason CartographerWindowCloseReason) bool {
-	switch reason {
-	case CartographerCloseNone,
-		CartographerCloseRunItemTerminal,
-		CartographerCloseApprovalRequired,
-		CartographerCloseAssistantComplete,
-		CartographerCloseAssistantThreshold,
-		CartographerCloseOutputThreshold,
-		CartographerCloseWorkflowNodeTerminal,
-		CartographerCloseWorkflowRunTerminal,
-		CartographerCloseQuietPeriod,
-		CartographerCloseManual:
-		return true
-	default:
-		return false
-	}
-}
-
-func isCartographerPatchStatus(status CartographerPatchStatus) bool {
-	switch status {
-	case CartographerPatchProposed, CartographerPatchValidated, CartographerPatchPendingReview, CartographerPatchRejected, CartographerPatchApplied:
-		return true
-	default:
-		return false
-	}
-}
-
-func isCartographerPatchOperation(operation CartographerPatchOperation) bool {
-	switch operation {
-	case CartographerPatchRecordFinding,
-		CartographerPatchRecordDecision,
-		CartographerPatchRecordConstraint,
-		CartographerPatchRecordOpenQuestion,
-		CartographerPatchUpdateNodeSummary,
-		CartographerPatchAttachEvidence,
-		CartographerPatchCreateEdge,
-		CartographerPatchStartActivity,
-		CartographerPatchEndActivity,
-		CartographerPatchSplitNode,
-		CartographerPatchMergeNodes,
-		CartographerPatchMarkResolved:
-		return true
-	default:
-		return false
-	}
-}
-
-func isCartographerPatchNodeScope(scope CartographerPatchNodeScope) bool {
-	switch scope {
-	case CartographerPatchNodeScopeSession, CartographerPatchNodeScopeWorkspace:
-		return true
-	default:
-		return false
-	}
-}
-
-func isCartographerDiagnosticSeverity(severity CartographerDiagnosticSeverity) bool {
-	switch severity {
-	case CartographerDiagnosticInfo, CartographerDiagnosticWarning, CartographerDiagnosticError:
-		return true
-	default:
-		return false
-	}
 }

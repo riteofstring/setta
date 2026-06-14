@@ -39,6 +39,12 @@ func (store *Store) SaveCartographerRun(ctx context.Context, run CartographerRun
 		run.RequestID,
 		run.ResponseID,
 		run.WindowID,
+		run.SourceEpochID,
+		run.SourceKey,
+		run.Priority,
+		run.LeaseOwner,
+		run.LeaseDeadline,
+		run.AttemptCount,
 		run.InputBundleHash,
 		columns.inputItemCountsJSON,
 		run.RawHarnessResponseHash,
@@ -106,10 +112,11 @@ INSERT INTO semantic_cartographer_runs (
   workflow_node_execution_id, chat_conversation_id, chat_run_id,
   chat_message_id, run_item_id, input_bundle_json, output_schema_json,
   harness_kind, model, request_id, response_id, window_id,
-  input_bundle_hash, input_item_counts_json, raw_harness_response_hash,
+  source_epoch_id, source_key, priority, lease_owner, lease_deadline,
+  attempt_count, input_bundle_hash, input_item_counts_json, raw_harness_response_hash,
   trajectory_summary, created_semantic_event_ids_json, diagnostics_json,
   created_at, started_at, completed_at, updated_at, error
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(workspace_id, id) DO UPDATE SET
   status = excluded.status,
   trigger_kind = excluded.trigger_kind,
@@ -129,6 +136,12 @@ ON CONFLICT(workspace_id, id) DO UPDATE SET
   request_id = excluded.request_id,
   response_id = excluded.response_id,
   window_id = excluded.window_id,
+  source_epoch_id = excluded.source_epoch_id,
+  source_key = excluded.source_key,
+  priority = excluded.priority,
+  lease_owner = excluded.lease_owner,
+  lease_deadline = excluded.lease_deadline,
+  attempt_count = excluded.attempt_count,
   input_bundle_hash = excluded.input_bundle_hash,
   input_item_counts_json = excluded.input_item_counts_json,
   raw_harness_response_hash = excluded.raw_harness_response_hash,
@@ -163,6 +176,12 @@ func saveCartographerRunLocked(ctx context.Context, tx *sql.Tx, run Cartographer
 		run.RequestID,
 		run.ResponseID,
 		run.WindowID,
+		run.SourceEpochID,
+		run.SourceKey,
+		run.Priority,
+		run.LeaseOwner,
+		run.LeaseDeadline,
+		run.AttemptCount,
 		run.InputBundleHash,
 		columns.inputItemCountsJSON,
 		run.RawHarnessResponseHash,
@@ -374,39 +393,6 @@ ORDER BY updated_at ASC, id ASC
 	}
 	if err := rows.Err(); err != nil {
 		return nil, store.persistenceError("list open cartographer windows", err)
-	}
-	return windows, nil
-}
-
-func (store *Store) ListClosedPendingCartographerWindows(ctx context.Context) ([]CartographerWindow, error) {
-	if ctx == nil {
-		return nil, errors.New("context is required")
-	}
-	rows, err := store.db.QueryContext(ctx, cartographerWindowSelectSQL+`
-WHERE status = ?
-  AND EXISTS (
-    SELECT 1
-    FROM semantic_cartographer_runs AS runs
-    WHERE runs.workspace_id = semantic_cartographer_windows.workspace_id
-      AND runs.id = semantic_cartographer_windows.run_id
-      AND runs.status = ?
-  )
-ORDER BY closed_at ASC, updated_at ASC, id ASC
-`, CartographerWindowClosed, CartographerRunPending)
-	if err != nil {
-		return nil, store.persistenceError("list closed pending cartographer windows", err)
-	}
-	defer rows.Close()
-	windows := []CartographerWindow{}
-	for rows.Next() {
-		window, err := scanCartographerWindow(rows)
-		if err != nil {
-			return nil, store.corruptError("semantic_cartographer_windows", err)
-		}
-		windows = append(windows, window)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, store.persistenceError("list closed pending cartographer windows", err)
 	}
 	return windows, nil
 }
@@ -855,7 +841,8 @@ SELECT workspace_id, id, status, trigger_kind, target_entity_id,
        workflow_node_execution_id, chat_conversation_id, chat_run_id,
        chat_message_id, run_item_id, input_bundle_json, output_schema_json,
        harness_kind, model, request_id, response_id, window_id,
-       input_bundle_hash, input_item_counts_json, raw_harness_response_hash,
+       source_epoch_id, source_key, priority, lease_owner, lease_deadline,
+       attempt_count, input_bundle_hash, input_item_counts_json, raw_harness_response_hash,
        trajectory_summary, created_semantic_event_ids_json, diagnostics_json,
        created_at, started_at, completed_at, updated_at, error
 FROM semantic_cartographer_runs

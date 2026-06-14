@@ -835,7 +835,7 @@ async function assertBuildCartographerWindowApiWithSourceRefs(client, workspaceI
     workspaceId: ${JSON.stringify(workspaceId)}
   })`);
   if (
-    result.run.status !== "pending" ||
+    result.run.status !== "queued" ||
     result.window.status !== "closed" ||
     result.window.runId !== result.run.id ||
     !result.summary?.summary.includes("E2E cartographer build current progress")

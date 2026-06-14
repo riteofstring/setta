@@ -158,6 +158,48 @@ func TestCartographerObserverClosesQuietWindow(t *testing.T) {
 	}
 }
 
+func TestCartographerObserverWorkflowCompletionQueuesFinalPassAndSupersedesQueuedWindows(t *testing.T) {
+	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{})
+	ctx := context.Background()
+	first := buildObserverWorkflowCartographerWindow(t, service, "node_workflow_done_first")
+	second := buildObserverWorkflowCartographerWindow(t, service, "node_workflow_done_second")
+	if first.InputBundle.SourceRefs.WorkflowExecutionID == "" || second.InputBundle.SourceRefs.WorkflowExecutionID == "" {
+		t.Fatalf("manual windows missing workflow source refs: first=%+v second=%+v", first.InputBundle.SourceRefs, second.InputBundle.SourceRefs)
+	}
+
+	windows, err := service.ObserveCartographerWorkflowEvent(ctx, cartographerWorkflowTerminalEvent())
+	if err != nil {
+		t.Fatalf("observe workflow terminal event: %v", err)
+	}
+	if len(windows) != 1 {
+		t.Fatalf("terminal workflow windows = %+v, want one final synthesis window", windows)
+	}
+	finalWindow := windows[0]
+	finalRun, ok, err := service.ReadCartographerRun(ctx, testWorkspaceID, finalWindow.RunID)
+	if err != nil || !ok {
+		t.Fatalf("read final cartographer run: ok=%v err=%v", ok, err)
+	}
+	if finalRun.Status != CartographerRunQueued ||
+		finalRun.TriggerKind != CartographerTriggerWorkflowDone ||
+		finalRun.Priority != finalCartographerQueuePriority ||
+		finalWindow.InputBundle.TriggerKind != CartographerTriggerWorkflowDone {
+		t.Fatalf("final run/window = %+v / %+v, want queued high-priority workflow_done", finalRun, finalWindow)
+	}
+	for _, obsolete := range []CartographerWindow{first, second} {
+		run, ok, err := service.ReadCartographerRun(ctx, testWorkspaceID, obsolete.RunID)
+		if err != nil || !ok || run.Status != CartographerRunSuperseded {
+			t.Fatalf("obsolete run %s = %+v ok=%v err=%v, want superseded", obsolete.RunID, run, ok, err)
+		}
+	}
+	state, err := service.ReadCartographerProcessingState(ctx)
+	if err != nil {
+		t.Fatalf("read cartographer processing state: %v", err)
+	}
+	if state.SupersededWindowCount < 2 || state.LastSupersededWindowID == "" {
+		t.Fatalf("cartographer state after workflow done = %+v, want supersession health", state)
+	}
+}
+
 func TestManualCartographerWindowBuildsCurrentProgressWithoutSemanticMutation(t *testing.T) {
 	service, store := newCartographerObserverTestService(t, CartographerObservationConfig{})
 	ctx := context.Background()
@@ -175,6 +217,47 @@ func TestManualCartographerWindowBuildsCurrentProgressWithoutSemanticMutation(t 
 		t.Fatalf("manual window = %+v, want closed semantic target manual window", window)
 	}
 	assertNoSemanticEvents(t, store, ctx)
+}
+
+func cartographerWorkflowTerminalEvent() orchestrator.WorkflowEventEnvelope {
+	return orchestrator.WorkflowEventEnvelope{
+		StreamID: "workflow_events",
+		Sequence: 7,
+		Event: orchestrator.WorkflowEvent{
+			SchemaVersion:       orchestrator.SchemaVersion,
+			ID:                  "workflow_event_execution_completed",
+			WorkspaceID:         testWorkspaceID,
+			DefinitionID:        "workflow_definition_cartographer",
+			DefinitionVersionID: "workflow_version_cartographer",
+			ExecutionID:         "workflow_execution_cartographer",
+			Ordinal:             7,
+			Type:                orchestrator.EventExecutionCompleted,
+			CreatedAt:           testTimestamp(47),
+			Message:             "workflow completed",
+		},
+	}
+}
+
+func buildObserverWorkflowCartographerWindow(t *testing.T, service *Service, targetEntityID string) CartographerWindow {
+	t.Helper()
+	window, err := service.BuildManualCartographerWindow(context.Background(), CartographerManualWindowRequest{
+		WorkspaceID:    testWorkspaceID,
+		TriggerKind:    CartographerTriggerWorkflowWindow,
+		TargetEntityID: targetEntityID,
+		SourceRefs: SemanticContextSourceRefs{
+			WorkflowDefinitionID:    "workflow_definition_cartographer",
+			WorkflowExecutionID:     "workflow_execution_cartographer",
+			WorkflowNodeID:          "workflow_node_cartographer",
+			WorkflowNodeExecutionID: "workflow_node_execution_cartographer",
+			ChatConversationID:      "chat_conversation_cartographer",
+			ChatRunID:               "chat_run_cartographer",
+		},
+		Summary: "Queued workflow cartographer test window.",
+	})
+	if err != nil {
+		t.Fatalf("build observer workflow cartographer window: %v", err)
+	}
+	return window
 }
 
 func newCartographerObserverTestService(t *testing.T, config CartographerObservationConfig) (*Service, *Store) {

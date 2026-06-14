@@ -263,12 +263,15 @@ var (
 		SemanticGraphChangeAreaLayout,
 	}
 	cartographerRunStatusValues = []CartographerRunStatus{
-		CartographerRunPending,
+		CartographerRunQueued,
 		CartographerRunRunning,
-		CartographerRunCompleted,
-		CartographerRunFailed,
-		CartographerRunProposed,
+		CartographerRunCompletedNoop,
 		CartographerRunApplied,
+		CartographerRunPendingReview,
+		CartographerRunFailed,
+		CartographerRunSuperseded,
+		CartographerRunCancelled,
+		CartographerRunAbandoned,
 		CartographerRunRejected,
 	}
 	cartographerRunTriggerKindValues = []CartographerRunTriggerKind{

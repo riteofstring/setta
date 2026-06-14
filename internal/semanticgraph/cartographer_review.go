@@ -183,6 +183,10 @@ func cartographerPatchReviewApplicationInput(run CartographerRun, patch Cartogra
 		Model:             run.Model,
 		RequestID:         run.RequestID,
 		ResponseID:        run.ResponseID,
+		SourceEpochID:     run.SourceEpochID,
+		SourceKey:         run.SourceKey,
+		Priority:          run.Priority,
+		AttemptCount:      run.AttemptCount,
 		TrajectorySummary: run.TrajectorySummary,
 	}
 }

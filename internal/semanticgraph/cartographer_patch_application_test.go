@@ -200,8 +200,8 @@ func TestCartographerPatchEnvelopeLeavesHighImpactAndLowConfidencePendingReview(
 	if err != nil {
 		t.Fatalf("apply pending review envelope: %v", err)
 	}
-	if result.Run.Status != CartographerRunProposed || len(result.Patches) != 2 {
-		t.Fatalf("result = %+v, want proposed run with two pending patches", result)
+	if result.Run.Status != CartographerRunPendingReview || len(result.Patches) != 2 {
+		t.Fatalf("result = %+v, want pending-review run with two pending patches", result)
 	}
 	for _, patch := range result.Patches {
 		if patch.Status != CartographerPatchPendingReview {

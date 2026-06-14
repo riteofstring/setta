@@ -2,8 +2,6 @@ package semanticgraph
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +21,10 @@ type CartographerPatchEnvelopeApplicationInput struct {
 	Model                     string                     `json:"model"`
 	RequestID                 string                     `json:"requestId"`
 	ResponseID                string                     `json:"responseId"`
+	SourceEpochID             string                     `json:"sourceEpochId"`
+	SourceKey                 string                     `json:"sourceKey"`
+	Priority                  int                        `json:"priority"`
+	AttemptCount              int                        `json:"attemptCount"`
 	RawHarnessResponse        json.RawMessage            `json:"rawHarnessResponse"`
 	HarnessError              string                     `json:"harnessError"`
 	TrajectorySummary         string                     `json:"trajectorySummary"`
@@ -68,8 +70,11 @@ func (service *Service) ApplyCartographerPatchEnvelope(ctx context.Context, inpu
 
 func (service *Service) applyDecodedCartographerPatchEnvelope(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, run CartographerRun, envelope CartographerPatchEnvelope, now string) (CartographerPatchEnvelopeApplicationResult, error) {
 	if len(envelope.Patches) == 0 {
-		run.Status = CartographerRunCompleted
-		run.Diagnostics = []CartographerDiagnostic{service.newCartographerDiagnostic(input.RunID, "", CartographerDiagnosticInfo, "empty_envelope", "cartographer patch envelope proposed no semantic graph mutations", "$.patches", now)}
+		run.Status = CartographerRunCompletedNoop
+		run.Error = "cartographer patch envelope proposed no semantic graph mutations"
+		run.Diagnostics = []CartographerDiagnostic{service.newCartographerDiagnostic(input.RunID, "", CartographerDiagnosticInfo, "empty_envelope", run.Error, "$.patches", now)}
+		run.LeaseOwner = ""
+		run.LeaseDeadline = ""
 		saved, err := service.SaveCartographerRun(ctx, run)
 		return CartographerPatchEnvelopeApplicationResult{Run: saved, Patches: []CartographerPatchRecord{}, Events: []SemanticEvent{}}, err
 	}
@@ -78,6 +83,8 @@ func (service *Service) applyDecodedCartographerPatchEnvelope(ctx context.Contex
 		run.Status = CartographerRunRejected
 		run.Error = err.Error()
 		run.Diagnostics = runDiagnostics
+		run.LeaseOwner = ""
+		run.LeaseDeadline = ""
 		saved, saveErr := service.SaveCartographerRun(ctx, run)
 		return CartographerPatchEnvelopeApplicationResult{Run: saved, Patches: []CartographerPatchRecord{}, Events: []SemanticEvent{}}, saveErr
 	}
@@ -95,6 +102,8 @@ func (service *Service) applyDecodedCartographerPatchEnvelope(ctx context.Contex
 	if run.Status == CartographerRunRejected {
 		run.Error = "cartographer patch validation rejected all proposed mutations"
 	}
+	run.LeaseOwner = ""
+	run.LeaseDeadline = ""
 
 	if _, err := service.SaveCartographerRun(ctx, run); err != nil {
 		return CartographerPatchEnvelopeApplicationResult{}, err
@@ -112,6 +121,8 @@ func (service *Service) saveCartographerPatchApplication(ctx context.Context, in
 		failed.Status = CartographerRunFailed
 		failed.Error = err.Error()
 		failed.CreatedSemanticEventIDs = []string{}
+		failed.LeaseOwner = ""
+		failed.LeaseDeadline = ""
 		failed.Diagnostics = []CartographerDiagnostic{service.newCartographerDiagnostic(input.RunID, "", CartographerDiagnosticError, "application_failed", err.Error(), "$", now)}
 		_, _ = service.SaveCartographerRun(ctx, failed)
 		return CartographerPatchEnvelopeApplicationResult{}, err
@@ -133,6 +144,8 @@ func (service *Service) saveCartographerPatchApplication(ctx context.Context, in
 func (service *Service) saveCartographerFailedRunAudit(ctx context.Context, run CartographerRun, code string, message string, now string) (CartographerPatchEnvelopeApplicationResult, error) {
 	run.Status = CartographerRunFailed
 	run.Error = message
+	run.LeaseOwner = ""
+	run.LeaseDeadline = ""
 	run.Diagnostics = []CartographerDiagnostic{service.newCartographerDiagnostic(run.ID, "", CartographerDiagnosticError, code, message, "$", now)}
 	saved, err := service.SaveCartographerRun(ctx, run)
 	return CartographerPatchEnvelopeApplicationResult{Run: saved, Patches: []CartographerPatchRecord{}, Events: []SemanticEvent{}}, err
@@ -172,7 +185,7 @@ func (service *Service) cartographerRunAuditFromPatchInput(input CartographerPat
 	return CartographerRun{
 		ID:                      input.RunID,
 		WorkspaceID:             input.WorkspaceID,
-		Status:                  CartographerRunProposed,
+		Status:                  CartographerRunPendingReview,
 		TriggerKind:             input.TriggerKind,
 		TargetEntityID:          input.TargetEntityID,
 		SourceRefs:              input.SourceRefs,
@@ -183,6 +196,10 @@ func (service *Service) cartographerRunAuditFromPatchInput(input CartographerPat
 		RequestID:               input.RequestID,
 		ResponseID:              input.ResponseID,
 		WindowID:                input.WindowID,
+		SourceEpochID:           input.SourceEpochID,
+		SourceKey:               input.SourceKey,
+		Priority:                input.Priority,
+		AttemptCount:            input.AttemptCount,
 		InputBundleHash:         hashJSONValue(bundle),
 		InputItemCounts:         cartographerInputItemCounts(bundle),
 		RawHarnessResponseHash:  hashBytes(input.RawHarnessResponse),
@@ -759,7 +776,7 @@ func cartographerRunStatusForPatchRecords(records []CartographerPatchRecord) Car
 		return CartographerRunRejected
 	}
 	if pending {
-		return CartographerRunProposed
+		return CartographerRunPendingReview
 	}
 	return CartographerRunRejected
 }
@@ -866,125 +883,4 @@ func cartographerInputBundleHasDirectSourceRef(bundle CartographerInputBundle, k
 	default:
 		return false
 	}
-}
-
-func cartographerInputBundleHasObservedSourceRef(bundle CartographerInputBundle, kind SemanticEvidenceSourceKind, sourceID string) bool {
-	switch kind {
-	case EvidenceSourceRunItem:
-		return cartographerTrajectoryEventsHaveRunItem(bundle.NewEvents, sourceID) ||
-			cartographerToolCallsHaveRunItem(bundle.ToolCalls, sourceID)
-	case EvidenceSourceFileRange:
-		return cartographerFileChangesHaveRunItem(bundle.FileChanges, sourceID)
-	case EvidenceSourceTest:
-		return cartographerTestResultsHaveRunItem(bundle.TestResults, sourceID)
-	case EvidenceSourceDiff:
-		return cartographerFileChangesHaveRunItem(bundle.FileChanges, sourceID)
-	case EvidenceSourcePrompt, EvidenceSourceLog, EvidenceSourceDocument:
-		return stringSliceContains(bundle.ObservedEventRefs, sourceID)
-	default:
-		return false
-	}
-}
-
-func cartographerInputBundleEvidenceHasSourceRef(bundle CartographerInputBundle, kind SemanticEvidenceSourceKind, sourceID string) bool {
-	for _, evidence := range bundle.Evidence {
-		if evidence.SourceKind == kind && evidence.SourceID == sourceID {
-			return true
-		}
-	}
-	return false
-}
-
-func cartographerTrajectoryEventsHaveRunItem(events []CartographerTrajectoryEvent, runItemID string) bool {
-	for _, event := range events {
-		if event.RunItemID == runItemID {
-			return true
-		}
-	}
-	return false
-}
-
-func cartographerToolCallsHaveRunItem(items []CartographerToolCallSummary, runItemID string) bool {
-	for _, item := range items {
-		if item.RunItemID == runItemID {
-			return true
-		}
-	}
-	return false
-}
-
-func cartographerFileChangesHaveRunItem(items []CartographerFileChangeSummary, runItemID string) bool {
-	for _, item := range items {
-		if item.RunItemID == runItemID {
-			return true
-		}
-	}
-	return false
-}
-
-func cartographerTestResultsHaveRunItem(items []CartographerTestResultSummary, runItemID string) bool {
-	for _, item := range items {
-		if item.RunItemID == runItemID {
-			return true
-		}
-	}
-	return false
-}
-
-func stringSliceContains(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
-}
-
-func eventIDsForPatchIndexes(events []SemanticEvent, indexes map[string][]int) map[string][]string {
-	result := map[string][]string{}
-	for patchID, eventIndexes := range indexes {
-		for _, index := range eventIndexes {
-			result[patchID] = append(result[patchID], events[index].EventID)
-		}
-	}
-	return result
-}
-
-func semanticEventIDs(events []SemanticEvent) []string {
-	ids := make([]string, 0, len(events))
-	for _, event := range events {
-		ids = append(ids, event.EventID)
-	}
-	return ids
-}
-
-func cartographerInputItemCounts(bundle CartographerInputBundle) CartographerInputItemCounts {
-	return CartographerInputItemCounts{
-		NewEvents:           len(bundle.NewEvents),
-		ToolCalls:           len(bundle.ToolCalls),
-		FileChanges:         len(bundle.FileChanges),
-		TestResults:         len(bundle.TestResults),
-		OutputSummaries:     len(bundle.OutputSummaries),
-		ExistingNodes:       len(bundle.ExistingNodes),
-		ExistingEdges:       len(bundle.ExistingEdges),
-		Evidence:            len(bundle.Evidence),
-		Activity:            len(bundle.Activity),
-		Steering:            len(bundle.Steering),
-		ContextPacks:        len(bundle.ContextPacks),
-		TrajectorySummaries: len(bundle.TrajectorySummaries),
-		ObservedEventRefs:   len(bundle.ObservedEventRefs),
-	}
-}
-
-func hashJSONValue(value any) string {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return ""
-	}
-	return hashBytes(data)
-}
-
-func hashBytes(data []byte) string {
-	sum := sha256.Sum256(data)
-	return "sha256:" + hex.EncodeToString(sum[:])
 }

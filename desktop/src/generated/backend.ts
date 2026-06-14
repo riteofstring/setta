@@ -1646,24 +1646,30 @@ export function decodeCartographerDiagnosticSeverity(value: unknown, label = "Ca
   }
 }
 
-export type CartographerRunStatus = "pending" | "running" | "completed" | "failed" | "proposed" | "applied" | "rejected";
+export type CartographerRunStatus = "queued" | "running" | "completed_noop" | "applied" | "pending_review" | "failed" | "superseded" | "cancelled" | "abandoned" | "rejected";
 
-export const cartographerRunStatusValues = ["pending", "running", "completed", "failed", "proposed", "applied", "rejected"] as const satisfies readonly CartographerRunStatus[];
+export const cartographerRunStatusValues = ["queued", "running", "completed_noop", "applied", "pending_review", "failed", "superseded", "cancelled", "abandoned", "rejected"] as const satisfies readonly CartographerRunStatus[];
 
 export function decodeCartographerRunStatus(value: unknown, label = "CartographerRunStatus"): CartographerRunStatus {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "pending":
+    case "queued":
       return decoded;
     case "running":
       return decoded;
-    case "completed":
+    case "completed_noop":
+      return decoded;
+    case "applied":
+      return decoded;
+    case "pending_review":
       return decoded;
     case "failed":
       return decoded;
-    case "proposed":
+    case "superseded":
       return decoded;
-    case "applied":
+    case "cancelled":
+      return decoded;
+    case "abandoned":
       return decoded;
     case "rejected":
       return decoded;
@@ -3792,6 +3798,12 @@ export interface CartographerRun {
   requestId: string;
   responseId: string;
   windowId: string;
+  sourceEpochId: string;
+  sourceKey: string;
+  priority: number;
+  leaseOwner: string;
+  leaseDeadline: string;
+  attemptCount: number;
   inputBundleHash: string;
   inputItemCounts: CartographerInputItemCounts;
   rawHarnessResponseHash: string;
@@ -4032,9 +4044,17 @@ export interface CartographerProcessingQueueItem {
   workspaceId: string;
   windowId: string;
   runId: string;
+  status: CartographerRunStatus;
+  triggerKind: CartographerRunTriggerKind;
+  sourceEpochId: string;
   sourceKey: string;
+  priority: number;
+  leaseOwner: string;
+  leaseDeadline: string;
+  attemptCount: number;
   enqueuedAt: string;
   startedAt: string;
+  completedAt: string;
   position: number;
 }
 
@@ -4056,6 +4076,21 @@ export interface CartographerProcessingState {
   runningWindowCount: number;
   queuedWindows: CartographerProcessingQueueItem[];
   runningWindows: CartographerProcessingQueueItem[];
+  durableQueuedWindowCount: number;
+  durableRunningWindowCount: number;
+  staleLeaseCount: number;
+  supersededWindowCount: number;
+  completedNoopRunCount: number;
+  failedRunCount: number;
+  pendingReviewPatchCount: number;
+  lastAppliedPatchId: string;
+  lastAppliedAt: string;
+  lastNoopRunId: string;
+  lastNoopAt: string;
+  lastNoopReason: string;
+  lastSupersededWindowId: string;
+  lastSupersededAt: string;
+  concurrencyGuidance: string;
   lastProcessedWorkspaceId: string;
   lastProcessedWindowId: string;
   lastProcessedRunId: string;
@@ -7816,7 +7851,7 @@ export function decodeCartographerInputItemCounts(value: unknown): CartographerI
 
 export function decodeCartographerRun(value: unknown): CartographerRun {
   const record = assertRecord(value, "CartographerRun");
-  assertKnownFields(record, "CartographerRun", ["id", "workspaceId", "status", "triggerKind", "targetEntityId", "sourceRefs", "inputBundle", "outputSchema", "harnessKind", "model", "requestId", "responseId", "windowId", "inputBundleHash", "inputItemCounts", "rawHarnessResponseHash", "trajectorySummary", "createdSemanticEventIds", "diagnostics", "createdAt", "startedAt", "completedAt", "updatedAt", "error"]);
+  assertKnownFields(record, "CartographerRun", ["id", "workspaceId", "status", "triggerKind", "targetEntityId", "sourceRefs", "inputBundle", "outputSchema", "harnessKind", "model", "requestId", "responseId", "windowId", "sourceEpochId", "sourceKey", "priority", "leaseOwner", "leaseDeadline", "attemptCount", "inputBundleHash", "inputItemCounts", "rawHarnessResponseHash", "trajectorySummary", "createdSemanticEventIds", "diagnostics", "createdAt", "startedAt", "completedAt", "updatedAt", "error"]);
   return {
     id: decodeString(requireField(record, "id", "CartographerRun"), "CartographerRun.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "CartographerRun"), "CartographerRun.workspaceId"),
@@ -7831,6 +7866,12 @@ export function decodeCartographerRun(value: unknown): CartographerRun {
     requestId: decodeString(requireField(record, "requestId", "CartographerRun"), "CartographerRun.requestId"),
     responseId: decodeString(requireField(record, "responseId", "CartographerRun"), "CartographerRun.responseId"),
     windowId: decodeString(requireField(record, "windowId", "CartographerRun"), "CartographerRun.windowId"),
+    sourceEpochId: decodeString(requireField(record, "sourceEpochId", "CartographerRun"), "CartographerRun.sourceEpochId"),
+    sourceKey: decodeString(requireField(record, "sourceKey", "CartographerRun"), "CartographerRun.sourceKey"),
+    priority: decodeInteger(requireField(record, "priority", "CartographerRun"), "CartographerRun.priority"),
+    leaseOwner: decodeString(requireField(record, "leaseOwner", "CartographerRun"), "CartographerRun.leaseOwner"),
+    leaseDeadline: decodeString(requireField(record, "leaseDeadline", "CartographerRun"), "CartographerRun.leaseDeadline"),
+    attemptCount: decodeInteger(requireField(record, "attemptCount", "CartographerRun"), "CartographerRun.attemptCount"),
     inputBundleHash: decodeString(requireField(record, "inputBundleHash", "CartographerRun"), "CartographerRun.inputBundleHash"),
     inputItemCounts: decodeCartographerInputItemCounts(requireField(record, "inputItemCounts", "CartographerRun")),
     rawHarnessResponseHash: decodeString(requireField(record, "rawHarnessResponseHash", "CartographerRun"), "CartographerRun.rawHarnessResponseHash"),
@@ -8178,14 +8219,22 @@ export function decodeReadCartographerProcessingStateRequest(value: unknown): Re
 
 export function decodeCartographerProcessingQueueItem(value: unknown): CartographerProcessingQueueItem {
   const record = assertRecord(value, "CartographerProcessingQueueItem");
-  assertKnownFields(record, "CartographerProcessingQueueItem", ["workspaceId", "windowId", "runId", "sourceKey", "enqueuedAt", "startedAt", "position"]);
+  assertKnownFields(record, "CartographerProcessingQueueItem", ["workspaceId", "windowId", "runId", "status", "triggerKind", "sourceEpochId", "sourceKey", "priority", "leaseOwner", "leaseDeadline", "attemptCount", "enqueuedAt", "startedAt", "completedAt", "position"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.workspaceId"),
     windowId: decodeString(requireField(record, "windowId", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.windowId"),
     runId: decodeString(requireField(record, "runId", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.runId"),
+    status: decodeCartographerRunStatus(requireField(record, "status", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.status"),
+    triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.triggerKind"),
+    sourceEpochId: decodeString(requireField(record, "sourceEpochId", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.sourceEpochId"),
     sourceKey: decodeString(requireField(record, "sourceKey", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.sourceKey"),
+    priority: decodeInteger(requireField(record, "priority", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.priority"),
+    leaseOwner: decodeString(requireField(record, "leaseOwner", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.leaseOwner"),
+    leaseDeadline: decodeString(requireField(record, "leaseDeadline", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.leaseDeadline"),
+    attemptCount: decodeInteger(requireField(record, "attemptCount", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.attemptCount"),
     enqueuedAt: decodeString(requireField(record, "enqueuedAt", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.enqueuedAt"),
     startedAt: decodeString(requireField(record, "startedAt", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.startedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.completedAt"),
     position: decodeInteger(requireField(record, "position", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.position"),
   };
 }
@@ -8205,7 +8254,7 @@ export function decodeCartographerProcessingFailure(value: unknown): Cartographe
 
 export function decodeCartographerProcessingState(value: unknown): CartographerProcessingState {
   const record = assertRecord(value, "CartographerProcessingState");
-  assertKnownFields(record, "CartographerProcessingState", ["enabled", "started", "maxConcurrent", "perSourceConcurrent", "queuedWindowCount", "runningWindowCount", "queuedWindows", "runningWindows", "lastProcessedWorkspaceId", "lastProcessedWindowId", "lastProcessedRunId", "lastProcessedAt", "lastFailure", "createdSemanticEventIds"]);
+  assertKnownFields(record, "CartographerProcessingState", ["enabled", "started", "maxConcurrent", "perSourceConcurrent", "queuedWindowCount", "runningWindowCount", "queuedWindows", "runningWindows", "durableQueuedWindowCount", "durableRunningWindowCount", "staleLeaseCount", "supersededWindowCount", "completedNoopRunCount", "failedRunCount", "pendingReviewPatchCount", "lastAppliedPatchId", "lastAppliedAt", "lastNoopRunId", "lastNoopAt", "lastNoopReason", "lastSupersededWindowId", "lastSupersededAt", "concurrencyGuidance", "lastProcessedWorkspaceId", "lastProcessedWindowId", "lastProcessedRunId", "lastProcessedAt", "lastFailure", "createdSemanticEventIds"]);
   return {
     enabled: decodeBoolean(requireField(record, "enabled", "CartographerProcessingState"), "CartographerProcessingState.enabled"),
     started: decodeBoolean(requireField(record, "started", "CartographerProcessingState"), "CartographerProcessingState.started"),
@@ -8215,6 +8264,21 @@ export function decodeCartographerProcessingState(value: unknown): CartographerP
     runningWindowCount: decodeInteger(requireField(record, "runningWindowCount", "CartographerProcessingState"), "CartographerProcessingState.runningWindowCount"),
     queuedWindows: decodeArray(requireField(record, "queuedWindows", "CartographerProcessingState"), "CartographerProcessingState.queuedWindows", (item) => decodeCartographerProcessingQueueItem(item)),
     runningWindows: decodeArray(requireField(record, "runningWindows", "CartographerProcessingState"), "CartographerProcessingState.runningWindows", (item) => decodeCartographerProcessingQueueItem(item)),
+    durableQueuedWindowCount: decodeInteger(requireField(record, "durableQueuedWindowCount", "CartographerProcessingState"), "CartographerProcessingState.durableQueuedWindowCount"),
+    durableRunningWindowCount: decodeInteger(requireField(record, "durableRunningWindowCount", "CartographerProcessingState"), "CartographerProcessingState.durableRunningWindowCount"),
+    staleLeaseCount: decodeInteger(requireField(record, "staleLeaseCount", "CartographerProcessingState"), "CartographerProcessingState.staleLeaseCount"),
+    supersededWindowCount: decodeInteger(requireField(record, "supersededWindowCount", "CartographerProcessingState"), "CartographerProcessingState.supersededWindowCount"),
+    completedNoopRunCount: decodeInteger(requireField(record, "completedNoopRunCount", "CartographerProcessingState"), "CartographerProcessingState.completedNoopRunCount"),
+    failedRunCount: decodeInteger(requireField(record, "failedRunCount", "CartographerProcessingState"), "CartographerProcessingState.failedRunCount"),
+    pendingReviewPatchCount: decodeInteger(requireField(record, "pendingReviewPatchCount", "CartographerProcessingState"), "CartographerProcessingState.pendingReviewPatchCount"),
+    lastAppliedPatchId: decodeString(requireField(record, "lastAppliedPatchId", "CartographerProcessingState"), "CartographerProcessingState.lastAppliedPatchId"),
+    lastAppliedAt: decodeString(requireField(record, "lastAppliedAt", "CartographerProcessingState"), "CartographerProcessingState.lastAppliedAt"),
+    lastNoopRunId: decodeString(requireField(record, "lastNoopRunId", "CartographerProcessingState"), "CartographerProcessingState.lastNoopRunId"),
+    lastNoopAt: decodeString(requireField(record, "lastNoopAt", "CartographerProcessingState"), "CartographerProcessingState.lastNoopAt"),
+    lastNoopReason: decodeString(requireField(record, "lastNoopReason", "CartographerProcessingState"), "CartographerProcessingState.lastNoopReason"),
+    lastSupersededWindowId: decodeString(requireField(record, "lastSupersededWindowId", "CartographerProcessingState"), "CartographerProcessingState.lastSupersededWindowId"),
+    lastSupersededAt: decodeString(requireField(record, "lastSupersededAt", "CartographerProcessingState"), "CartographerProcessingState.lastSupersededAt"),
+    concurrencyGuidance: decodeString(requireField(record, "concurrencyGuidance", "CartographerProcessingState"), "CartographerProcessingState.concurrencyGuidance"),
     lastProcessedWorkspaceId: decodeString(requireField(record, "lastProcessedWorkspaceId", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedWorkspaceId"),
     lastProcessedWindowId: decodeString(requireField(record, "lastProcessedWindowId", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedWindowId"),
     lastProcessedRunId: decodeString(requireField(record, "lastProcessedRunId", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedRunId"),

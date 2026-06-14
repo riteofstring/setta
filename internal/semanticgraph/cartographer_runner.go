@@ -10,6 +10,8 @@ import (
 
 type cartographerWindowProcessingOptions struct {
 	AutoApplyValidatedPatches bool
+	LeaseOwner                string
+	LeaseDeadline             string
 }
 
 func (service *Service) ProcessCartographerWindow(ctx context.Context, workspaceID string, windowID string) (CartographerWindowProcessResult, error) {
@@ -17,7 +19,7 @@ func (service *Service) ProcessCartographerWindow(ctx context.Context, workspace
 }
 
 func (service *Service) processCartographerWindow(ctx context.Context, workspaceID string, windowID string, options cartographerWindowProcessingOptions) (CartographerWindowProcessResult, error) {
-	workspaceSummary, window, run, err := service.beginCartographerWindowProcessing(ctx, workspaceID, windowID)
+	workspaceSummary, window, run, err := service.beginCartographerWindowProcessing(ctx, workspaceID, windowID, options)
 	if err != nil {
 		return CartographerWindowProcessResult{}, err
 	}
@@ -39,6 +41,13 @@ func (service *Service) processCartographerWindow(ctx context.Context, workspace
 			Model:        run.Model,
 		})
 		if err != nil {
+			if ctx.Err() != nil {
+				cancelled, cancelErr := service.cancelCartographerWindowProcessing(context.WithoutCancel(ctx), run, window, ctx.Err().Error())
+				if cancelErr != nil {
+					return CartographerWindowProcessResult{}, cancelErr
+				}
+				return cancelled, nil
+			}
 			applicationInput.HarnessError = err.Error()
 		} else {
 			applicationInput.RawHarnessResponse = harnessResult.PatchEnvelope
@@ -65,7 +74,7 @@ func (service *Service) processCartographerWindow(ctx context.Context, workspace
 	}, nil
 }
 
-func (service *Service) beginCartographerWindowProcessing(ctx context.Context, workspaceID string, windowID string) (workspaceSummary workspace.WorkspaceSummary, window CartographerWindow, run CartographerRun, err error) {
+func (service *Service) beginCartographerWindowProcessing(ctx context.Context, workspaceID string, windowID string, options cartographerWindowProcessingOptions) (workspaceSummary workspace.WorkspaceSummary, window CartographerWindow, run CartographerRun, err error) {
 	if ctx == nil {
 		err = errors.New("context is required")
 		return
@@ -90,7 +99,7 @@ func (service *Service) beginCartographerWindowProcessing(ctx context.Context, w
 		return
 	}
 	window.InputBundle.WindowID = window.ID
-	run, err = service.saveStartedCartographerRun(ctx, run, window)
+	run, err = service.saveStartedCartographerRun(ctx, run, window, options)
 	if err != nil {
 		return
 	}
@@ -119,16 +128,22 @@ func (service *Service) readProcessableCartographerRun(ctx context.Context, work
 	if !ok {
 		return CartographerRun{}, fmt.Errorf("cartographer run %s was not found for window %s", window.RunID, window.ID)
 	}
-	if run.Status != CartographerRunPending {
-		return CartographerRun{}, fmt.Errorf("cartographer run %s has status %s, want pending", run.ID, run.Status)
+	if run.Status != CartographerRunQueued {
+		return CartographerRun{}, fmt.Errorf("cartographer run %s has status %s, want queued", run.ID, run.Status)
 	}
 	return run, nil
 }
 
-func (service *Service) saveStartedCartographerRun(ctx context.Context, run CartographerRun, window CartographerWindow) (CartographerRun, error) {
+func (service *Service) saveStartedCartographerRun(ctx context.Context, run CartographerRun, window CartographerWindow, options cartographerWindowProcessingOptions) (CartographerRun, error) {
 	now := timestamp(service.now())
 	run.Status = CartographerRunRunning
 	run.WindowID = window.ID
+	run.SourceEpochID = firstNonEmpty(run.SourceEpochID, window.ID)
+	run.SourceKey = firstNonEmpty(run.SourceKey, cartographerProcessingSourceKey(window))
+	run.Priority = cartographerQueuePriority(run.TriggerKind)
+	run.LeaseOwner = options.LeaseOwner
+	run.LeaseDeadline = options.LeaseDeadline
+	run.AttemptCount++
 	run.InputBundle = window.InputBundle
 	run.OutputSchema = DefaultCartographerPatchEnvelopeSchema()
 	run.HarnessKind = string(service.cartographerHarnessKind)
@@ -151,6 +166,10 @@ func (service *Service) cartographerApplicationInputForWindow(run CartographerRu
 		InputBundle:       window.InputBundle,
 		HarnessKind:       run.HarnessKind,
 		Model:             run.Model,
+		SourceEpochID:     run.SourceEpochID,
+		SourceKey:         run.SourceKey,
+		Priority:          run.Priority,
+		AttemptCount:      run.AttemptCount,
 		TrajectorySummary: cartographerTrajectorySummaryText(window.InputBundle),
 	}
 }
@@ -162,6 +181,31 @@ func (service *Service) markCartographerWindowProcessed(ctx context.Context, win
 	window.Status = CartographerWindowProcessed
 	window.UpdatedAt = timestamp(service.now())
 	return service.SaveCartographerWindow(ctx, window)
+}
+
+func (service *Service) cancelCartographerWindowProcessing(ctx context.Context, run CartographerRun, window CartographerWindow, message string) (CartographerWindowProcessResult, error) {
+	now := timestamp(service.now())
+	run.Status = CartographerRunCancelled
+	run.LeaseOwner = ""
+	run.LeaseDeadline = ""
+	run.CompletedAt = now
+	run.UpdatedAt = now
+	run.Error = firstNonEmpty(message, "cartographer processing was cancelled")
+	run.Diagnostics = append(run.Diagnostics, service.newCartographerDiagnostic(run.ID, "", CartographerDiagnosticWarning, "processing_cancelled", run.Error, "$", now))
+	savedRun, err := service.SaveCartographerRun(ctx, run)
+	if err != nil {
+		return CartographerWindowProcessResult{}, err
+	}
+	processed, err := service.markCartographerWindowProcessed(ctx, window)
+	if err != nil {
+		return CartographerWindowProcessResult{}, err
+	}
+	return CartographerWindowProcessResult{
+		Run:     savedRun,
+		Window:  processed,
+		Patches: []CartographerPatchRecord{},
+		Events:  []SemanticEvent{},
+	}, nil
 }
 
 func cartographerTrajectorySummaryText(bundle CartographerInputBundle) string {

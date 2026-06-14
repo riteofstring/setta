@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 7
+	semanticStoreVersion = 8
 	sqliteDriverName     = "sqlite"
 )
 
@@ -387,6 +387,12 @@ CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (
   request_id TEXT NOT NULL DEFAULT '',
   response_id TEXT NOT NULL DEFAULT '',
   window_id TEXT NOT NULL DEFAULT '',
+  source_epoch_id TEXT NOT NULL DEFAULT '',
+  source_key TEXT NOT NULL DEFAULT '',
+  priority INTEGER NOT NULL DEFAULT 0,
+  lease_owner TEXT NOT NULL DEFAULT '',
+  lease_deadline TEXT NOT NULL DEFAULT '',
+  attempt_count INTEGER NOT NULL DEFAULT 0,
   input_bundle_hash TEXT NOT NULL DEFAULT '',
   input_item_counts_json TEXT NOT NULL DEFAULT '{}',
   raw_harness_response_hash TEXT NOT NULL DEFAULT '',
@@ -403,6 +409,12 @@ CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (
 
 CREATE INDEX IF NOT EXISTS semantic_cartographer_runs_workspace_source_idx
   ON semantic_cartographer_runs(workspace_id, workflow_execution_id, chat_run_id, target_entity_id, updated_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS semantic_cartographer_runs_queue_idx
+  ON semantic_cartographer_runs(status, priority DESC, created_at ASC, id);
+
+CREATE INDEX IF NOT EXISTS semantic_cartographer_runs_source_key_idx
+  ON semantic_cartographer_runs(workspace_id, source_key, status, priority DESC, created_at DESC, id);
 
 CREATE TABLE IF NOT EXISTS semantic_cartographer_windows (
   workspace_id TEXT NOT NULL,
