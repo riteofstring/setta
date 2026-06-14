@@ -57,6 +57,13 @@ type SaveWorkspaceUILayoutRequest struct {
 	Layout workspaceui.WorkspaceUILayout `json:"layout"`
 }
 
+type ReadSemanticRuntimeSnapshotRequest struct {
+	WorkspaceID         string `json:"workspaceId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	Limit               int    `json:"limit"`
+}
+
 type ListConversationsRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }

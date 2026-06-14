@@ -66,6 +66,7 @@ import type {
   ReadSemanticGraphRequest,
   ReadSemanticNodeDetailRequest,
   ReadSemanticNodeDetailResponse,
+  ReadSemanticRuntimeSnapshotRequest,
   ReadSemanticSteeringStateRequest,
   ReadSemanticWorkingSetRequest,
   ReadWorkflowGraphProjectionResponse,
@@ -93,6 +94,7 @@ import type {
   SemanticEvidenceList,
   SemanticGraph,
   SemanticGraphChangeEvent,
+  SemanticRuntimeSnapshot,
   SemanticWorkingSet,
   SemanticLayoutPositionList,
   SemanticMutationResult,
@@ -562,6 +564,9 @@ export interface SettaAPI {
     readNodeDetail: (
       request: ReadSemanticNodeDetailRequest,
     ) => Promise<ReadSemanticNodeDetailResponse>;
+    readRuntimeSnapshot: (
+      request: ReadSemanticRuntimeSnapshotRequest,
+    ) => Promise<SemanticRuntimeSnapshot>;
     readSteeringState: (
       request: ReadSemanticSteeringStateRequest,
     ) => Promise<SemanticSteeringState>;

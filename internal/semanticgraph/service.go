@@ -33,6 +33,8 @@ type Service struct {
 	cartographerHarnessKind          chat.HarnessKind
 	cartographerHarnessErr           error
 	automaticCartographer            automaticCartographerState
+	semanticRuntimeMu                sync.Mutex
+	semanticRuntimeRevision          int
 	semanticGraphChanges             *semanticGraphChangeHub
 	newID                            IDGenerator
 	now                              func() time.Time
@@ -300,7 +302,7 @@ func (service *Service) UpdateLayoutPositions(ctx context.Context, workspaceID s
 		return SemanticLayoutPositionList{}, err
 	}
 	if len(positions) > 0 {
-		service.publishSemanticGraphChange(semanticGraphChangeDraft{
+		service.PublishSemanticGraphChange(semanticGraphChangeDraft{
 			WorkspaceID:     workspaceID,
 			ChangedAreas:    []SemanticGraphChangeArea{SemanticGraphChangeAreaLayout},
 			TargetEntityIDs: semanticLayoutPositionEntityIDs(positions),

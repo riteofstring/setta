@@ -1,15 +1,18 @@
 package semanticgraph
 
-func (service *Service) publishSemanticGraphChange(draft semanticGraphChangeDraft) (SemanticGraphChangeEvent, bool) {
+func (service *Service) PublishSemanticGraphChange(draft semanticGraphChangeDraft) (SemanticGraphChangeEvent, bool) {
 	if draft.WorkspaceID == "" || len(draft.ChangedAreas) == 0 || service.semanticGraphChanges == nil {
 		return SemanticGraphChangeEvent{}, false
 	}
+	service.semanticRuntimeMu.Lock()
+	defer service.semanticRuntimeMu.Unlock()
+	draft = service.attachSemanticRuntimeChangeLocked(draft)
 	return service.semanticGraphChanges.publish(draft)
 }
 
 func (service *Service) publishSemanticGraphChangeForEvents(events []SemanticEvent, draft semanticGraphChangeDraft) (SemanticGraphChangeEvent, bool) {
 	if len(events) == 0 {
-		return service.publishSemanticGraphChange(draft)
+		return service.PublishSemanticGraphChange(draft)
 	}
 	if draft.WorkspaceID == "" {
 		draft.WorkspaceID = events[0].WorkspaceID
@@ -17,11 +20,11 @@ func (service *Service) publishSemanticGraphChangeForEvents(events []SemanticEve
 	for _, event := range events {
 		applySemanticEventChange(&draft, event)
 	}
-	return service.publishSemanticGraphChange(draft)
+	return service.PublishSemanticGraphChange(draft)
 }
 
 func (service *Service) publishSemanticGraphChangeForCartographerAudit(workspaceID string, targetEntityIDs []string, runIDs []string, windowIDs []string, patchIDs []string) (SemanticGraphChangeEvent, bool) {
-	return service.publishSemanticGraphChange(semanticGraphChangeDraft{
+	return service.PublishSemanticGraphChange(semanticGraphChangeDraft{
 		WorkspaceID:           workspaceID,
 		ChangedAreas:          []SemanticGraphChangeArea{SemanticGraphChangeAreaCartographerAudit, SemanticGraphChangeAreaWorkingSet},
 		TargetEntityIDs:       targetEntityIDs,

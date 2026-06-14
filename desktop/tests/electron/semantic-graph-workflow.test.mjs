@@ -33,6 +33,7 @@ import {
 } from "./semantic-graph-ui-helpers.mjs";
 import {
   assertCartographerAuditBurst,
+  assertSemanticRuntimeAfterAuditBurst,
   assertRendererStableForWorkingSetUpdate,
   assertSemanticWorkingSetAfterAuditBurst,
   assertSemanticWorkingSetPulseHidden,
@@ -108,6 +109,13 @@ try {
   assertCartographerAuditBurst({
     expectedBuiltCount: cartographerAuditBurstSize,
     result: auditBurst,
+  });
+  await assertSemanticRuntimeAfterAuditBurst({
+    auditBurst,
+    client: context.client,
+    seedConstraintNodeId,
+    seedWorkflowExecutionId,
+    workspaceId,
   });
   await assertSemanticWorkingSetAfterAuditBurst({
     auditBurst,
@@ -605,13 +613,27 @@ async function buildCartographerAuditBurst(client, workspaceId) {
         }));
       }
       const deadline = Date.now() + 5000;
-      while (events.length < built.length && Date.now() < deadline) {
+      const builtRunIds = () => built.map((item) => item.run.id);
+      const observedRunIds = () =>
+        new Set(events.flatMap((event) =>
+          event.semanticRuntimeDelta?.cartographerRunUpdates.map((run) => run.id) ?? []
+        ));
+      while (
+        !builtRunIds().every((runId) => observedRunIds().has(runId)) &&
+        Date.now() < deadline
+      ) {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
       return {
         auditEventCount: events.length,
         builtCount: built.length,
         changedAreas: events.map((event) => event.changedAreas),
+        runtimeDeltaFromRevisions: events.map((event) => event.semanticRuntimeDelta?.fromRevision ?? 0),
+        runtimeDeltaRunIds: events.map((event) =>
+          event.semanticRuntimeDelta?.cartographerRunUpdates.map((run) => run.id) ?? []
+        ),
+        runtimeDeltaToRevisions: events.map((event) => event.semanticRuntimeDelta?.toRevision ?? 0),
+        runtimeSnapshotRequired: events.map((event) => event.semanticRuntimeSnapshotRequired),
         runIds: built.map((item) => item.run.id),
         windowIds: built.map((item) => item.window.id)
       };

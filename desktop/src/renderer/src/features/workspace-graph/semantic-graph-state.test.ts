@@ -95,19 +95,19 @@ describe("semanticGraphRefreshRequestForChange", () => {
     ).toEqual({ activity: true, graph: false, workingSet: true });
   });
 
-  test("requests working-set refreshes for cartographer audit state", () => {
+  test("keeps cartographer runtime changes out of durable graph refreshes", () => {
     expect(
       semanticGraphRefreshRequestForChange(
         semanticGraphChangeEvent({ changedAreas: ["cartographer_audit"] }),
         "workspace_graph",
       ),
-    ).toEqual({ activity: false, graph: false, workingSet: true });
+    ).toBeNull();
     expect(
       semanticGraphRefreshRequestForChange(
         semanticGraphChangeEvent({ changedAreas: ["working_set"] }),
         "workspace_graph",
       ),
-    ).toEqual({ activity: false, graph: false, workingSet: true });
+    ).toBeNull();
   });
 
   test("ignores non-graph surface areas and other workspaces", () => {
@@ -182,6 +182,9 @@ function semanticGraphChangeEvent(
     schemaVersion: 1,
     semanticEdgeIds: [],
     semanticNodeIds: ["node_graph"],
+    semanticRuntimeDelta: null,
+    semanticRuntimeRevision: 1,
+    semanticRuntimeSnapshotRequired: false,
     sequence: 1,
     streamId: "semantic_graph_changes",
     targetEntityIds: ["node_graph"],

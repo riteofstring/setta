@@ -102,6 +102,7 @@ var apiEndpoints = []endpoint{
 	post[ListSemanticActivityRequest, semanticgraph.SemanticActivityList]("ListSemanticActivity", "/semantic-graph/activity/list", handler.listSemanticActivity),
 	post[ListSemanticActivityPageRequest, semanticgraph.SemanticActivityPage]("ListSemanticActivityPage", "/semantic-graph/activity/page", handler.listSemanticActivityPage),
 	post[ReadSemanticActivitySummaryRequest, semanticgraph.SemanticActivitySummary]("ReadSemanticActivitySummary", "/semantic-graph/activity/summary", handler.readSemanticActivitySummary),
+	post[ReadSemanticRuntimeSnapshotRequest, semanticgraph.SemanticRuntimeSnapshot]("ReadSemanticRuntimeSnapshot", "/semantic-graph/runtime/snapshot", handler.readSemanticRuntimeSnapshot),
 	post[ReadSemanticWorkingSetRequest, semanticgraph.SemanticWorkingSet]("ReadSemanticWorkingSet", "/semantic-graph/working-set/read", handler.readSemanticWorkingSet),
 	post[ReadSemanticSteeringStateRequest, semanticgraph.SemanticSteeringState]("ReadSemanticSteeringState", "/semantic-graph/steering/read", handler.readSemanticSteeringState),
 	post[ReadSemanticEventHistoryRequest, semanticgraph.SemanticEventHistory]("ReadSemanticEventHistory", "/semantic-graph/events/history", handler.readSemanticEventHistory),

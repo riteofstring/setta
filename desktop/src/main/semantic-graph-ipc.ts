@@ -70,6 +70,14 @@ export function registerSemanticGraphIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "semanticGraphRuntimeSnapshot",
+    async (_event, request) => {
+      return requireBackendClient().readSemanticRuntimeSnapshot(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "semanticGraphSteeringRead",
     async (_event, request) => {
       return requireBackendClient().readSemanticSteeringState(request);

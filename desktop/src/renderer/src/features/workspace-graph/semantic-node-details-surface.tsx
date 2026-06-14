@@ -18,6 +18,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SemanticEditControls } from "./semantic-node-edit-controls";
+import { semanticWorkingSetFromRuntimeSnapshot } from "./semantic-graph-state";
 import { semanticGraphChangeAffectsSemanticNodeInspection } from "./semantic-node-details-invalidation";
 import { SemanticSourceLinkSection } from "./semantic-node-source-links";
 import {
@@ -52,7 +53,7 @@ interface SemanticNodeInspectionState {
 }
 
 const semanticEventHistoryLimit = 80;
-const semanticWorkingSetInspectionLimit = 80;
+const semanticRuntimeInspectionLimit = 80;
 
 export function SemanticNodeDetailsSurface() {
   const target = useSemanticGraphStore((state) => state.selectedNodeTarget);
@@ -113,7 +114,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
     };
 
     const load = async () => {
-      const [detailResponse, history, workingSet] = await Promise.all([
+      const [detailResponse, history, runtimeSnapshot] = await Promise.all([
         window.setta.semanticGraph.readNodeDetail({
           nodeId: target.nodeId,
           workspaceId: target.workspaceId,
@@ -124,13 +125,14 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
           targetEntityId: target.nodeId,
           workspaceId: target.workspaceId,
         }),
-        window.setta.semanticGraph.readWorkingSet({
+        window.setta.semanticGraph.readRuntimeSnapshot({
           chatRunId: "",
-          limit: semanticWorkingSetInspectionLimit,
+          limit: semanticRuntimeInspectionLimit,
           workflowExecutionId: "",
           workspaceId: target.workspaceId,
         }),
       ]);
+      const workingSet = semanticWorkingSetFromRuntimeSnapshot(runtimeSnapshot);
       if (!disposed) {
         loadedDetail = detailResponse.detail;
         setState({

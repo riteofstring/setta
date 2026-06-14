@@ -68,6 +68,7 @@ import type {
   ReadSemanticGraphRequest,
   ReadSemanticNodeDetailRequest,
   ReadSemanticNodeDetailResponse,
+  ReadSemanticRuntimeSnapshotRequest,
   ReadSemanticSteeringStateRequest,
   ReadSemanticWorkingSetRequest,
   ReasoningEffort,
@@ -95,6 +96,7 @@ import type {
   SemanticEventHistory,
   SemanticEvidenceList,
   SemanticGraph,
+  SemanticRuntimeSnapshot,
   SemanticWorkingSet,
   SemanticLayoutPositionList,
   SemanticMutationResult,
@@ -221,6 +223,7 @@ export const ipcChannels = {
   semanticGraphNodeDetail: "semantic-graph:node-detail",
   semanticGraphPromoteNode: "semantic-graph:promote-node",
   semanticGraphRead: "semantic-graph:read",
+  semanticGraphRuntimeSnapshot: "semantic-graph:runtime-snapshot",
   semanticGraphRemoveEdge: "semantic-graph:remove-edge",
   semanticGraphRenameNode: "semantic-graph:rename-node",
   semanticGraphSplitNode: "semantic-graph:split-node",
@@ -606,6 +609,10 @@ interface IpcContract {
   semanticGraphRead: {
     args: [request: ReadSemanticGraphRequest];
     result: SemanticGraph;
+  };
+  semanticGraphRuntimeSnapshot: {
+    args: [request: ReadSemanticRuntimeSnapshotRequest];
+    result: SemanticRuntimeSnapshot;
   };
   semanticGraphRemoveEdge: {
     args: [request: SemanticEdgeOperationRequest];

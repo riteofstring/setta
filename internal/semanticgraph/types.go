@@ -394,6 +394,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SemanticContextPackItemKind", Values: stringValues(semanticContextPackItemKindValues)},
 		{Name: "SemanticContextPackPriority", Values: stringValues(semanticContextPackPriorityValues)},
 		{Name: "SemanticGraphChangeArea", Values: stringValues(semanticGraphChangeAreaValues)},
+		{Name: "SemanticRuntimeChangeArea", Values: stringValues(semanticRuntimeChangeAreaValues)},
 		{Name: "SemanticWorkingSetStatus", Values: stringValues(semanticWorkingSetStatusValues)},
 		{Name: "SemanticWorkingSetPulseKind", Values: stringValues(semanticWorkingSetPulseKindValues)},
 		{Name: "CartographerRunStatus", Values: stringValues(cartographerRunStatusValues)},

@@ -14,6 +14,48 @@ export function assertCartographerAuditBurst({ expectedBuiltCount, result }) {
       `cartographer audit burst omitted working-set invalidation: ${JSON.stringify(result)}`,
     );
   }
+  if (
+    result.runtimeSnapshotRequired.some(Boolean) ||
+    result.runtimeDeltaToRevisions.length < result.builtCount ||
+    result.runtimeDeltaToRevisions.some(
+      (revision, index) => revision <= result.runtimeDeltaFromRevisions[index],
+    ) ||
+    !result.runIds.every((runId) =>
+      result.runtimeDeltaRunIds.some((deltaRunIds) => deltaRunIds.includes(runId)),
+    )
+  ) {
+    throw new Error(`cartographer audit burst omitted runtime deltas: ${JSON.stringify(result)}`);
+  }
+}
+
+export async function assertSemanticRuntimeAfterAuditBurst({
+  auditBurst,
+  client,
+  seedConstraintNodeId,
+  seedWorkflowExecutionId,
+  workspaceId,
+}) {
+  const runtime = await waitForState(
+    client,
+    `window.setta.semanticGraph.readRuntimeSnapshot({
+      chatRunId: "",
+      limit: 40,
+      workflowExecutionId: ${JSON.stringify(seedWorkflowExecutionId)},
+      workspaceId: ${JSON.stringify(workspaceId)}
+    })`,
+    (value) =>
+      auditBurst.runIds.every((runId) =>
+        value.displayHints.aggregateSources.some((source) => source.runIds.includes(runId)),
+      ),
+  );
+  if (
+    runtime.revision < Math.max(...auditBurst.runtimeDeltaToRevisions) ||
+    !runtime.semanticActivity.recentSemanticChanges.every(
+      (change) => change.targetEntityId === seedConstraintNodeId,
+    )
+  ) {
+    throw new Error(`semantic runtime readback mismatch: ${JSON.stringify(runtime)}`);
+  }
 }
 
 export async function assertSemanticWorkingSetAfterAuditBurst({

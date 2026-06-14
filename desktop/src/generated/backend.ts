@@ -2014,6 +2014,28 @@ export function decodeSemanticGraphChangeArea(value: unknown, label = "SemanticG
   }
 }
 
+export type SemanticRuntimeChangeArea = "workflow" | "cartographer" | "patches" | "semantic_activity" | "aggregate_sources";
+
+export const semanticRuntimeChangeAreaValues = ["workflow", "cartographer", "patches", "semantic_activity", "aggregate_sources"] as const satisfies readonly SemanticRuntimeChangeArea[];
+
+export function decodeSemanticRuntimeChangeArea(value: unknown, label = "SemanticRuntimeChangeArea"): SemanticRuntimeChangeArea {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "workflow":
+      return decoded;
+    case "cartographer":
+      return decoded;
+    case "patches":
+      return decoded;
+    case "semantic_activity":
+      return decoded;
+    case "aggregate_sources":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type SessionStatus = "starting" | "running" | "exited" | "closed" | "error";
 
 export const sessionStatusValues = ["starting", "running", "exited", "closed", "error"] as const satisfies readonly SessionStatus[];
@@ -4212,6 +4234,207 @@ export interface SemanticActivitySummary {
   targets: SemanticActivityTargetSummary[];
 }
 
+export interface ReadSemanticRuntimeSnapshotRequest {
+  workspaceId: string;
+  workflowExecutionId: string;
+  chatRunId: string;
+  limit: number;
+}
+
+export interface SemanticRuntimeLimits {
+  maxCartographerRuns: number;
+  maxCartographerWindows: number;
+  maxPatchPreviews: number;
+  maxPatchPreviewNodes: number;
+  maxSemanticChanges: number;
+  maxAggregateSources: number;
+  maxChangedIdsPerItem: number;
+  maxPatchOperationsPerItem: number;
+  maxCreatedEventIdsPerItem: number;
+  maxAggregateEntityRefs: number;
+}
+
+export interface SemanticRuntimeWorkflowNode {
+  id: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  status: SemanticWorkingSetStatus;
+  sourceRefs: SemanticContextSourceRefs;
+  activeSourceCount: number;
+  runIds: string[];
+  windowIds: string[];
+  patchIds: string[];
+  updatedAt: string;
+}
+
+export interface SemanticRuntimeRunItem {
+  id: string;
+  runItemId: string;
+  status: SemanticWorkingSetStatus;
+  sourceRefs: SemanticContextSourceRefs;
+  activeSourceCount: number;
+  runIds: string[];
+  windowIds: string[];
+  patchIds: string[];
+  updatedAt: string;
+}
+
+export interface SemanticRuntimeWorkflowState {
+  activeWorkflowNodeIds: string[];
+  activeRunItemIds: string[];
+  workflowNodeUpdates: SemanticRuntimeWorkflowNode[];
+  runItemUpdates: SemanticRuntimeRunItem[];
+  hiddenActiveWorkflowNodes: number;
+  hiddenActiveRunItems: number;
+}
+
+export interface SemanticRuntimeCartographerRun {
+  id: string;
+  windowId: string;
+  status: SemanticWorkingSetStatus;
+  triggerKind: CartographerRunTriggerKind;
+  sourceRefs: SemanticContextSourceRefs;
+  targetEntityId: string;
+  inputItemCounts: CartographerInputItemCounts;
+  changedSemanticNodeIds: string[];
+  changedSemanticEdgeIds: string[];
+  patchOperationNames: CartographerPatchOperation[];
+  publicSummary: string;
+  createdSemanticEventIds: string[];
+  createdAt: string;
+  startedAt: string;
+  completedAt: string;
+  updatedAt: string;
+}
+
+export interface SemanticRuntimeCartographerWindow {
+  id: string;
+  runId: string;
+  status: SemanticWorkingSetStatus;
+  triggerKind: CartographerRunTriggerKind;
+  sourceRefs: SemanticContextSourceRefs;
+  targetEntityId: string;
+  inputItemCounts: CartographerInputItemCounts;
+  changedSemanticNodeIds: string[];
+  changedSemanticEdgeIds: string[];
+  patchOperationNames: CartographerPatchOperation[];
+  publicSummary: string;
+  openedAt: string;
+  closedAt: string;
+  updatedAt: string;
+}
+
+export interface SemanticRuntimeStatusCount {
+  status: SemanticWorkingSetStatus;
+  count: number;
+}
+
+export interface SemanticRuntimeCartographer {
+  activeRuns: SemanticRuntimeCartographerRun[];
+  activeWindows: SemanticRuntimeCartographerWindow[];
+  statusCounts: SemanticRuntimeStatusCount[];
+  hiddenRunCount: number;
+  hiddenWindowCount: number;
+  hiddenPatchPreviewCount: number;
+  updatedAt: string;
+}
+
+export interface SemanticRuntimePreviewNode {
+  semanticNodeId: string;
+  kind: SemanticNodeKind;
+  label: string;
+  summary: string;
+  scope: CartographerPatchNodeScope;
+}
+
+export interface SemanticRuntimePatchPreview {
+  id: string;
+  patchId: string;
+  runId: string;
+  windowId: string;
+  status: SemanticWorkingSetStatus;
+  triggerKind: CartographerRunTriggerKind;
+  sourceRefs: SemanticContextSourceRefs;
+  targetEntityId: string;
+  operation: CartographerPatchOperation;
+  patchOperationNames: CartographerPatchOperation[];
+  newNodes: SemanticRuntimePreviewNode[];
+  changedSemanticNodeIds: string[];
+  changedSemanticEdgeIds: string[];
+  publicSummary: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SemanticRuntimeSemanticChange {
+  id: string;
+  runId: string;
+  windowId: string;
+  patchId: string;
+  status: SemanticWorkingSetStatus;
+  triggerKind: CartographerRunTriggerKind;
+  sourceRefs: SemanticContextSourceRefs;
+  targetEntityId: string;
+  changedSemanticNodeIds: string[];
+  changedSemanticEdgeIds: string[];
+  patchOperationNames: CartographerPatchOperation[];
+  publicSummary: string;
+  createdSemanticEventIds: string[];
+  occurredAt: string;
+}
+
+export interface SemanticRuntimeNodeActivity {
+  id: string;
+  targetEntityId: string;
+  lastSemanticEventId: string;
+  changedSemanticNodeIds: string[];
+  changedSemanticEdgeIds: string[];
+  createdSemanticEventIds: string[];
+  updatedAt: string;
+}
+
+export interface SemanticRuntimeActivity {
+  recentSemanticChanges: SemanticRuntimeSemanticChange[];
+  nodeActivity: SemanticRuntimeNodeActivity[];
+  hiddenRecentChanges: number;
+}
+
+export interface SemanticRuntimeSourceAggregate {
+  id: string;
+  sourceRefs: SemanticContextSourceRefs;
+  targetEntityId: string;
+  status: SemanticWorkingSetStatus;
+  statusCounts: SemanticRuntimeStatusCount[];
+  totalCount: number;
+  visibleCount: number;
+  hiddenCount: number;
+  runIds: string[];
+  windowIds: string[];
+  patchIds: string[];
+  updatedAt: string;
+}
+
+export interface SemanticRuntimeDisplayHints {
+  aggregateSources: SemanticRuntimeSourceAggregate[];
+  statusCounts: SemanticRuntimeStatusCount[];
+  hiddenLiveSourceCount: number;
+  collapsedSourceCount: number;
+}
+
+export interface SemanticRuntimeSnapshot {
+  workspaceId: string;
+  workflowExecutionId: string;
+  chatRunId: string;
+  revision: number;
+  generatedAt: string;
+  limits: SemanticRuntimeLimits;
+  workflow: SemanticRuntimeWorkflowState;
+  cartographer: SemanticRuntimeCartographer;
+  patches: SemanticRuntimePatchPreview[];
+  semanticActivity: SemanticRuntimeActivity;
+  displayHints: SemanticRuntimeDisplayHints;
+}
+
 export interface ReadSemanticWorkingSetRequest {
   workspaceId: string;
   workflowExecutionId: string;
@@ -4964,6 +5187,33 @@ export interface UpdateSemanticSteeringDirectiveRequest {
   actorId: string;
 }
 
+export interface SemanticRuntimeRemovals {
+  workflowNodeIds: string[];
+  runItemIds: string[];
+  cartographerRunIds: string[];
+  cartographerWindowIds: string[];
+  patchPreviewIds: string[];
+  aggregateSourceIds: string[];
+  semanticNodeActivityIds: string[];
+}
+
+export interface SemanticRuntimeDelta {
+  workspaceId: string;
+  fromRevision: number;
+  toRevision: number;
+  generatedAt: string;
+  changedAreas: SemanticRuntimeChangeArea[];
+  workflowNodeUpdates: SemanticRuntimeWorkflowNode[];
+  runItemUpdates: SemanticRuntimeRunItem[];
+  cartographerRunUpdates: SemanticRuntimeCartographerRun[];
+  cartographerWindowUpdates: SemanticRuntimeCartographerWindow[];
+  patchPreviewUpdates: SemanticRuntimePatchPreview[];
+  semanticNodeActivityUpdates: SemanticRuntimeNodeActivity[];
+  aggregateSourceUpdates: SemanticRuntimeSourceAggregate[];
+  semanticChangeUpdates: SemanticRuntimeSemanticChange[];
+  removals: SemanticRuntimeRemovals;
+}
+
 export interface SemanticGraphChangeEvent {
   schemaVersion: number;
   streamId: string;
@@ -4979,6 +5229,9 @@ export interface SemanticGraphChangeEvent {
   cartographerRunIds: string[];
   cartographerWindowIds: string[];
   cartographerPatchIds: string[];
+  semanticRuntimeRevision: number;
+  semanticRuntimeDelta: SemanticRuntimeDelta | null;
+  semanticRuntimeSnapshotRequired: boolean;
   occurredAt: string;
 }
 
@@ -5739,6 +5992,10 @@ export const backendEndpoints = {
   ReadSemanticActivitySummary: {
     method: "POST",
     path: "/semantic-graph/activity/summary",
+  },
+  ReadSemanticRuntimeSnapshot: {
+    method: "POST",
+    path: "/semantic-graph/runtime/snapshot",
   },
   ReadSemanticWorkingSet: {
     method: "POST",
@@ -8766,6 +9023,275 @@ export function decodeSemanticActivitySummary(value: unknown): SemanticActivityS
   };
 }
 
+export function decodeReadSemanticRuntimeSnapshotRequest(value: unknown): ReadSemanticRuntimeSnapshotRequest {
+  const record = assertRecord(value, "ReadSemanticRuntimeSnapshotRequest");
+  assertKnownFields(record, "ReadSemanticRuntimeSnapshotRequest", ["workspaceId", "workflowExecutionId", "chatRunId", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadSemanticRuntimeSnapshotRequest"), "ReadSemanticRuntimeSnapshotRequest.workspaceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "ReadSemanticRuntimeSnapshotRequest"), "ReadSemanticRuntimeSnapshotRequest.workflowExecutionId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "ReadSemanticRuntimeSnapshotRequest"), "ReadSemanticRuntimeSnapshotRequest.chatRunId"),
+    limit: decodeInteger(requireField(record, "limit", "ReadSemanticRuntimeSnapshotRequest"), "ReadSemanticRuntimeSnapshotRequest.limit"),
+  };
+}
+
+export function decodeSemanticRuntimeLimits(value: unknown): SemanticRuntimeLimits {
+  const record = assertRecord(value, "SemanticRuntimeLimits");
+  assertKnownFields(record, "SemanticRuntimeLimits", ["maxCartographerRuns", "maxCartographerWindows", "maxPatchPreviews", "maxPatchPreviewNodes", "maxSemanticChanges", "maxAggregateSources", "maxChangedIdsPerItem", "maxPatchOperationsPerItem", "maxCreatedEventIdsPerItem", "maxAggregateEntityRefs"]);
+  return {
+    maxCartographerRuns: decodeInteger(requireField(record, "maxCartographerRuns", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxCartographerRuns"),
+    maxCartographerWindows: decodeInteger(requireField(record, "maxCartographerWindows", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxCartographerWindows"),
+    maxPatchPreviews: decodeInteger(requireField(record, "maxPatchPreviews", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxPatchPreviews"),
+    maxPatchPreviewNodes: decodeInteger(requireField(record, "maxPatchPreviewNodes", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxPatchPreviewNodes"),
+    maxSemanticChanges: decodeInteger(requireField(record, "maxSemanticChanges", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxSemanticChanges"),
+    maxAggregateSources: decodeInteger(requireField(record, "maxAggregateSources", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxAggregateSources"),
+    maxChangedIdsPerItem: decodeInteger(requireField(record, "maxChangedIdsPerItem", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxChangedIdsPerItem"),
+    maxPatchOperationsPerItem: decodeInteger(requireField(record, "maxPatchOperationsPerItem", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxPatchOperationsPerItem"),
+    maxCreatedEventIdsPerItem: decodeInteger(requireField(record, "maxCreatedEventIdsPerItem", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxCreatedEventIdsPerItem"),
+    maxAggregateEntityRefs: decodeInteger(requireField(record, "maxAggregateEntityRefs", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxAggregateEntityRefs"),
+  };
+}
+
+export function decodeSemanticRuntimeWorkflowNode(value: unknown): SemanticRuntimeWorkflowNode {
+  const record = assertRecord(value, "SemanticRuntimeWorkflowNode");
+  assertKnownFields(record, "SemanticRuntimeWorkflowNode", ["id", "workflowExecutionId", "workflowNodeId", "status", "sourceRefs", "activeSourceCount", "runIds", "windowIds", "patchIds", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticRuntimeWorkflowNode"), "SemanticRuntimeWorkflowNode.id"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "SemanticRuntimeWorkflowNode"), "SemanticRuntimeWorkflowNode.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "SemanticRuntimeWorkflowNode"), "SemanticRuntimeWorkflowNode.workflowNodeId"),
+    status: decodeSemanticWorkingSetStatus(requireField(record, "status", "SemanticRuntimeWorkflowNode"), "SemanticRuntimeWorkflowNode.status"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticRuntimeWorkflowNode")),
+    activeSourceCount: decodeInteger(requireField(record, "activeSourceCount", "SemanticRuntimeWorkflowNode"), "SemanticRuntimeWorkflowNode.activeSourceCount"),
+    runIds: decodeArray(requireField(record, "runIds", "SemanticRuntimeWorkflowNode"), "SemanticRuntimeWorkflowNode.runIds", (item) => decodeString(item, "SemanticRuntimeWorkflowNode.runIds item")),
+    windowIds: decodeArray(requireField(record, "windowIds", "SemanticRuntimeWorkflowNode"), "SemanticRuntimeWorkflowNode.windowIds", (item) => decodeString(item, "SemanticRuntimeWorkflowNode.windowIds item")),
+    patchIds: decodeArray(requireField(record, "patchIds", "SemanticRuntimeWorkflowNode"), "SemanticRuntimeWorkflowNode.patchIds", (item) => decodeString(item, "SemanticRuntimeWorkflowNode.patchIds item")),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticRuntimeWorkflowNode"), "SemanticRuntimeWorkflowNode.updatedAt"),
+  };
+}
+
+export function decodeSemanticRuntimeRunItem(value: unknown): SemanticRuntimeRunItem {
+  const record = assertRecord(value, "SemanticRuntimeRunItem");
+  assertKnownFields(record, "SemanticRuntimeRunItem", ["id", "runItemId", "status", "sourceRefs", "activeSourceCount", "runIds", "windowIds", "patchIds", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticRuntimeRunItem"), "SemanticRuntimeRunItem.id"),
+    runItemId: decodeString(requireField(record, "runItemId", "SemanticRuntimeRunItem"), "SemanticRuntimeRunItem.runItemId"),
+    status: decodeSemanticWorkingSetStatus(requireField(record, "status", "SemanticRuntimeRunItem"), "SemanticRuntimeRunItem.status"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticRuntimeRunItem")),
+    activeSourceCount: decodeInteger(requireField(record, "activeSourceCount", "SemanticRuntimeRunItem"), "SemanticRuntimeRunItem.activeSourceCount"),
+    runIds: decodeArray(requireField(record, "runIds", "SemanticRuntimeRunItem"), "SemanticRuntimeRunItem.runIds", (item) => decodeString(item, "SemanticRuntimeRunItem.runIds item")),
+    windowIds: decodeArray(requireField(record, "windowIds", "SemanticRuntimeRunItem"), "SemanticRuntimeRunItem.windowIds", (item) => decodeString(item, "SemanticRuntimeRunItem.windowIds item")),
+    patchIds: decodeArray(requireField(record, "patchIds", "SemanticRuntimeRunItem"), "SemanticRuntimeRunItem.patchIds", (item) => decodeString(item, "SemanticRuntimeRunItem.patchIds item")),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticRuntimeRunItem"), "SemanticRuntimeRunItem.updatedAt"),
+  };
+}
+
+export function decodeSemanticRuntimeWorkflowState(value: unknown): SemanticRuntimeWorkflowState {
+  const record = assertRecord(value, "SemanticRuntimeWorkflowState");
+  assertKnownFields(record, "SemanticRuntimeWorkflowState", ["activeWorkflowNodeIds", "activeRunItemIds", "workflowNodeUpdates", "runItemUpdates", "hiddenActiveWorkflowNodes", "hiddenActiveRunItems"]);
+  return {
+    activeWorkflowNodeIds: decodeArray(requireField(record, "activeWorkflowNodeIds", "SemanticRuntimeWorkflowState"), "SemanticRuntimeWorkflowState.activeWorkflowNodeIds", (item) => decodeString(item, "SemanticRuntimeWorkflowState.activeWorkflowNodeIds item")),
+    activeRunItemIds: decodeArray(requireField(record, "activeRunItemIds", "SemanticRuntimeWorkflowState"), "SemanticRuntimeWorkflowState.activeRunItemIds", (item) => decodeString(item, "SemanticRuntimeWorkflowState.activeRunItemIds item")),
+    workflowNodeUpdates: decodeArray(requireField(record, "workflowNodeUpdates", "SemanticRuntimeWorkflowState"), "SemanticRuntimeWorkflowState.workflowNodeUpdates", (item) => decodeSemanticRuntimeWorkflowNode(item)),
+    runItemUpdates: decodeArray(requireField(record, "runItemUpdates", "SemanticRuntimeWorkflowState"), "SemanticRuntimeWorkflowState.runItemUpdates", (item) => decodeSemanticRuntimeRunItem(item)),
+    hiddenActiveWorkflowNodes: decodeInteger(requireField(record, "hiddenActiveWorkflowNodes", "SemanticRuntimeWorkflowState"), "SemanticRuntimeWorkflowState.hiddenActiveWorkflowNodes"),
+    hiddenActiveRunItems: decodeInteger(requireField(record, "hiddenActiveRunItems", "SemanticRuntimeWorkflowState"), "SemanticRuntimeWorkflowState.hiddenActiveRunItems"),
+  };
+}
+
+export function decodeSemanticRuntimeCartographerRun(value: unknown): SemanticRuntimeCartographerRun {
+  const record = assertRecord(value, "SemanticRuntimeCartographerRun");
+  assertKnownFields(record, "SemanticRuntimeCartographerRun", ["id", "windowId", "status", "triggerKind", "sourceRefs", "targetEntityId", "inputItemCounts", "changedSemanticNodeIds", "changedSemanticEdgeIds", "patchOperationNames", "publicSummary", "createdSemanticEventIds", "createdAt", "startedAt", "completedAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.id"),
+    windowId: decodeString(requireField(record, "windowId", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.windowId"),
+    status: decodeSemanticWorkingSetStatus(requireField(record, "status", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.status"),
+    triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.triggerKind"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticRuntimeCartographerRun")),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.targetEntityId"),
+    inputItemCounts: decodeCartographerInputItemCounts(requireField(record, "inputItemCounts", "SemanticRuntimeCartographerRun")),
+    changedSemanticNodeIds: decodeArray(requireField(record, "changedSemanticNodeIds", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.changedSemanticNodeIds", (item) => decodeString(item, "SemanticRuntimeCartographerRun.changedSemanticNodeIds item")),
+    changedSemanticEdgeIds: decodeArray(requireField(record, "changedSemanticEdgeIds", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.changedSemanticEdgeIds", (item) => decodeString(item, "SemanticRuntimeCartographerRun.changedSemanticEdgeIds item")),
+    patchOperationNames: decodeArray(requireField(record, "patchOperationNames", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.patchOperationNames", (item) => decodeCartographerPatchOperation(item, "SemanticRuntimeCartographerRun.patchOperationNames item")),
+    publicSummary: decodeString(requireField(record, "publicSummary", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.publicSummary"),
+    createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.createdSemanticEventIds", (item) => decodeString(item, "SemanticRuntimeCartographerRun.createdSemanticEventIds item")),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.createdAt"),
+    startedAt: decodeString(requireField(record, "startedAt", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.startedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.completedAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.updatedAt"),
+  };
+}
+
+export function decodeSemanticRuntimeCartographerWindow(value: unknown): SemanticRuntimeCartographerWindow {
+  const record = assertRecord(value, "SemanticRuntimeCartographerWindow");
+  assertKnownFields(record, "SemanticRuntimeCartographerWindow", ["id", "runId", "status", "triggerKind", "sourceRefs", "targetEntityId", "inputItemCounts", "changedSemanticNodeIds", "changedSemanticEdgeIds", "patchOperationNames", "publicSummary", "openedAt", "closedAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.id"),
+    runId: decodeString(requireField(record, "runId", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.runId"),
+    status: decodeSemanticWorkingSetStatus(requireField(record, "status", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.status"),
+    triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.triggerKind"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticRuntimeCartographerWindow")),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.targetEntityId"),
+    inputItemCounts: decodeCartographerInputItemCounts(requireField(record, "inputItemCounts", "SemanticRuntimeCartographerWindow")),
+    changedSemanticNodeIds: decodeArray(requireField(record, "changedSemanticNodeIds", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.changedSemanticNodeIds", (item) => decodeString(item, "SemanticRuntimeCartographerWindow.changedSemanticNodeIds item")),
+    changedSemanticEdgeIds: decodeArray(requireField(record, "changedSemanticEdgeIds", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.changedSemanticEdgeIds", (item) => decodeString(item, "SemanticRuntimeCartographerWindow.changedSemanticEdgeIds item")),
+    patchOperationNames: decodeArray(requireField(record, "patchOperationNames", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.patchOperationNames", (item) => decodeCartographerPatchOperation(item, "SemanticRuntimeCartographerWindow.patchOperationNames item")),
+    publicSummary: decodeString(requireField(record, "publicSummary", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.publicSummary"),
+    openedAt: decodeString(requireField(record, "openedAt", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.openedAt"),
+    closedAt: decodeString(requireField(record, "closedAt", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.closedAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticRuntimeCartographerWindow"), "SemanticRuntimeCartographerWindow.updatedAt"),
+  };
+}
+
+export function decodeSemanticRuntimeStatusCount(value: unknown): SemanticRuntimeStatusCount {
+  const record = assertRecord(value, "SemanticRuntimeStatusCount");
+  assertKnownFields(record, "SemanticRuntimeStatusCount", ["status", "count"]);
+  return {
+    status: decodeSemanticWorkingSetStatus(requireField(record, "status", "SemanticRuntimeStatusCount"), "SemanticRuntimeStatusCount.status"),
+    count: decodeInteger(requireField(record, "count", "SemanticRuntimeStatusCount"), "SemanticRuntimeStatusCount.count"),
+  };
+}
+
+export function decodeSemanticRuntimeCartographer(value: unknown): SemanticRuntimeCartographer {
+  const record = assertRecord(value, "SemanticRuntimeCartographer");
+  assertKnownFields(record, "SemanticRuntimeCartographer", ["activeRuns", "activeWindows", "statusCounts", "hiddenRunCount", "hiddenWindowCount", "hiddenPatchPreviewCount", "updatedAt"]);
+  return {
+    activeRuns: decodeArray(requireField(record, "activeRuns", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.activeRuns", (item) => decodeSemanticRuntimeCartographerRun(item)),
+    activeWindows: decodeArray(requireField(record, "activeWindows", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.activeWindows", (item) => decodeSemanticRuntimeCartographerWindow(item)),
+    statusCounts: decodeArray(requireField(record, "statusCounts", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.statusCounts", (item) => decodeSemanticRuntimeStatusCount(item)),
+    hiddenRunCount: decodeInteger(requireField(record, "hiddenRunCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.hiddenRunCount"),
+    hiddenWindowCount: decodeInteger(requireField(record, "hiddenWindowCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.hiddenWindowCount"),
+    hiddenPatchPreviewCount: decodeInteger(requireField(record, "hiddenPatchPreviewCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.hiddenPatchPreviewCount"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.updatedAt"),
+  };
+}
+
+export function decodeSemanticRuntimePreviewNode(value: unknown): SemanticRuntimePreviewNode {
+  const record = assertRecord(value, "SemanticRuntimePreviewNode");
+  assertKnownFields(record, "SemanticRuntimePreviewNode", ["semanticNodeId", "kind", "label", "summary", "scope"]);
+  return {
+    semanticNodeId: decodeString(requireField(record, "semanticNodeId", "SemanticRuntimePreviewNode"), "SemanticRuntimePreviewNode.semanticNodeId"),
+    kind: decodeSemanticNodeKind(requireField(record, "kind", "SemanticRuntimePreviewNode"), "SemanticRuntimePreviewNode.kind"),
+    label: decodeString(requireField(record, "label", "SemanticRuntimePreviewNode"), "SemanticRuntimePreviewNode.label"),
+    summary: decodeString(requireField(record, "summary", "SemanticRuntimePreviewNode"), "SemanticRuntimePreviewNode.summary"),
+    scope: decodeCartographerPatchNodeScope(requireField(record, "scope", "SemanticRuntimePreviewNode"), "SemanticRuntimePreviewNode.scope"),
+  };
+}
+
+export function decodeSemanticRuntimePatchPreview(value: unknown): SemanticRuntimePatchPreview {
+  const record = assertRecord(value, "SemanticRuntimePatchPreview");
+  assertKnownFields(record, "SemanticRuntimePatchPreview", ["id", "patchId", "runId", "windowId", "status", "triggerKind", "sourceRefs", "targetEntityId", "operation", "patchOperationNames", "newNodes", "changedSemanticNodeIds", "changedSemanticEdgeIds", "publicSummary", "createdAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.id"),
+    patchId: decodeString(requireField(record, "patchId", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.patchId"),
+    runId: decodeString(requireField(record, "runId", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.runId"),
+    windowId: decodeString(requireField(record, "windowId", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.windowId"),
+    status: decodeSemanticWorkingSetStatus(requireField(record, "status", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.status"),
+    triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.triggerKind"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticRuntimePatchPreview")),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.targetEntityId"),
+    operation: decodeCartographerPatchOperation(requireField(record, "operation", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.operation"),
+    patchOperationNames: decodeArray(requireField(record, "patchOperationNames", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.patchOperationNames", (item) => decodeCartographerPatchOperation(item, "SemanticRuntimePatchPreview.patchOperationNames item")),
+    newNodes: decodeArray(requireField(record, "newNodes", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.newNodes", (item) => decodeSemanticRuntimePreviewNode(item)),
+    changedSemanticNodeIds: decodeArray(requireField(record, "changedSemanticNodeIds", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.changedSemanticNodeIds", (item) => decodeString(item, "SemanticRuntimePatchPreview.changedSemanticNodeIds item")),
+    changedSemanticEdgeIds: decodeArray(requireField(record, "changedSemanticEdgeIds", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.changedSemanticEdgeIds", (item) => decodeString(item, "SemanticRuntimePatchPreview.changedSemanticEdgeIds item")),
+    publicSummary: decodeString(requireField(record, "publicSummary", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.publicSummary"),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticRuntimePatchPreview"), "SemanticRuntimePatchPreview.updatedAt"),
+  };
+}
+
+export function decodeSemanticRuntimeSemanticChange(value: unknown): SemanticRuntimeSemanticChange {
+  const record = assertRecord(value, "SemanticRuntimeSemanticChange");
+  assertKnownFields(record, "SemanticRuntimeSemanticChange", ["id", "runId", "windowId", "patchId", "status", "triggerKind", "sourceRefs", "targetEntityId", "changedSemanticNodeIds", "changedSemanticEdgeIds", "patchOperationNames", "publicSummary", "createdSemanticEventIds", "occurredAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.id"),
+    runId: decodeString(requireField(record, "runId", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.runId"),
+    windowId: decodeString(requireField(record, "windowId", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.windowId"),
+    patchId: decodeString(requireField(record, "patchId", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.patchId"),
+    status: decodeSemanticWorkingSetStatus(requireField(record, "status", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.status"),
+    triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.triggerKind"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticRuntimeSemanticChange")),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.targetEntityId"),
+    changedSemanticNodeIds: decodeArray(requireField(record, "changedSemanticNodeIds", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.changedSemanticNodeIds", (item) => decodeString(item, "SemanticRuntimeSemanticChange.changedSemanticNodeIds item")),
+    changedSemanticEdgeIds: decodeArray(requireField(record, "changedSemanticEdgeIds", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.changedSemanticEdgeIds", (item) => decodeString(item, "SemanticRuntimeSemanticChange.changedSemanticEdgeIds item")),
+    patchOperationNames: decodeArray(requireField(record, "patchOperationNames", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.patchOperationNames", (item) => decodeCartographerPatchOperation(item, "SemanticRuntimeSemanticChange.patchOperationNames item")),
+    publicSummary: decodeString(requireField(record, "publicSummary", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.publicSummary"),
+    createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.createdSemanticEventIds", (item) => decodeString(item, "SemanticRuntimeSemanticChange.createdSemanticEventIds item")),
+    occurredAt: decodeString(requireField(record, "occurredAt", "SemanticRuntimeSemanticChange"), "SemanticRuntimeSemanticChange.occurredAt"),
+  };
+}
+
+export function decodeSemanticRuntimeNodeActivity(value: unknown): SemanticRuntimeNodeActivity {
+  const record = assertRecord(value, "SemanticRuntimeNodeActivity");
+  assertKnownFields(record, "SemanticRuntimeNodeActivity", ["id", "targetEntityId", "lastSemanticEventId", "changedSemanticNodeIds", "changedSemanticEdgeIds", "createdSemanticEventIds", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticRuntimeNodeActivity"), "SemanticRuntimeNodeActivity.id"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticRuntimeNodeActivity"), "SemanticRuntimeNodeActivity.targetEntityId"),
+    lastSemanticEventId: decodeString(requireField(record, "lastSemanticEventId", "SemanticRuntimeNodeActivity"), "SemanticRuntimeNodeActivity.lastSemanticEventId"),
+    changedSemanticNodeIds: decodeArray(requireField(record, "changedSemanticNodeIds", "SemanticRuntimeNodeActivity"), "SemanticRuntimeNodeActivity.changedSemanticNodeIds", (item) => decodeString(item, "SemanticRuntimeNodeActivity.changedSemanticNodeIds item")),
+    changedSemanticEdgeIds: decodeArray(requireField(record, "changedSemanticEdgeIds", "SemanticRuntimeNodeActivity"), "SemanticRuntimeNodeActivity.changedSemanticEdgeIds", (item) => decodeString(item, "SemanticRuntimeNodeActivity.changedSemanticEdgeIds item")),
+    createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "SemanticRuntimeNodeActivity"), "SemanticRuntimeNodeActivity.createdSemanticEventIds", (item) => decodeString(item, "SemanticRuntimeNodeActivity.createdSemanticEventIds item")),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticRuntimeNodeActivity"), "SemanticRuntimeNodeActivity.updatedAt"),
+  };
+}
+
+export function decodeSemanticRuntimeActivity(value: unknown): SemanticRuntimeActivity {
+  const record = assertRecord(value, "SemanticRuntimeActivity");
+  assertKnownFields(record, "SemanticRuntimeActivity", ["recentSemanticChanges", "nodeActivity", "hiddenRecentChanges"]);
+  return {
+    recentSemanticChanges: decodeArray(requireField(record, "recentSemanticChanges", "SemanticRuntimeActivity"), "SemanticRuntimeActivity.recentSemanticChanges", (item) => decodeSemanticRuntimeSemanticChange(item)),
+    nodeActivity: decodeArray(requireField(record, "nodeActivity", "SemanticRuntimeActivity"), "SemanticRuntimeActivity.nodeActivity", (item) => decodeSemanticRuntimeNodeActivity(item)),
+    hiddenRecentChanges: decodeInteger(requireField(record, "hiddenRecentChanges", "SemanticRuntimeActivity"), "SemanticRuntimeActivity.hiddenRecentChanges"),
+  };
+}
+
+export function decodeSemanticRuntimeSourceAggregate(value: unknown): SemanticRuntimeSourceAggregate {
+  const record = assertRecord(value, "SemanticRuntimeSourceAggregate");
+  assertKnownFields(record, "SemanticRuntimeSourceAggregate", ["id", "sourceRefs", "targetEntityId", "status", "statusCounts", "totalCount", "visibleCount", "hiddenCount", "runIds", "windowIds", "patchIds", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.id"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticRuntimeSourceAggregate")),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.targetEntityId"),
+    status: decodeSemanticWorkingSetStatus(requireField(record, "status", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.status"),
+    statusCounts: decodeArray(requireField(record, "statusCounts", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.statusCounts", (item) => decodeSemanticRuntimeStatusCount(item)),
+    totalCount: decodeInteger(requireField(record, "totalCount", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.totalCount"),
+    visibleCount: decodeInteger(requireField(record, "visibleCount", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.visibleCount"),
+    hiddenCount: decodeInteger(requireField(record, "hiddenCount", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.hiddenCount"),
+    runIds: decodeArray(requireField(record, "runIds", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.runIds", (item) => decodeString(item, "SemanticRuntimeSourceAggregate.runIds item")),
+    windowIds: decodeArray(requireField(record, "windowIds", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.windowIds", (item) => decodeString(item, "SemanticRuntimeSourceAggregate.windowIds item")),
+    patchIds: decodeArray(requireField(record, "patchIds", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.patchIds", (item) => decodeString(item, "SemanticRuntimeSourceAggregate.patchIds item")),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.updatedAt"),
+  };
+}
+
+export function decodeSemanticRuntimeDisplayHints(value: unknown): SemanticRuntimeDisplayHints {
+  const record = assertRecord(value, "SemanticRuntimeDisplayHints");
+  assertKnownFields(record, "SemanticRuntimeDisplayHints", ["aggregateSources", "statusCounts", "hiddenLiveSourceCount", "collapsedSourceCount"]);
+  return {
+    aggregateSources: decodeArray(requireField(record, "aggregateSources", "SemanticRuntimeDisplayHints"), "SemanticRuntimeDisplayHints.aggregateSources", (item) => decodeSemanticRuntimeSourceAggregate(item)),
+    statusCounts: decodeArray(requireField(record, "statusCounts", "SemanticRuntimeDisplayHints"), "SemanticRuntimeDisplayHints.statusCounts", (item) => decodeSemanticRuntimeStatusCount(item)),
+    hiddenLiveSourceCount: decodeInteger(requireField(record, "hiddenLiveSourceCount", "SemanticRuntimeDisplayHints"), "SemanticRuntimeDisplayHints.hiddenLiveSourceCount"),
+    collapsedSourceCount: decodeInteger(requireField(record, "collapsedSourceCount", "SemanticRuntimeDisplayHints"), "SemanticRuntimeDisplayHints.collapsedSourceCount"),
+  };
+}
+
+export function decodeSemanticRuntimeSnapshot(value: unknown): SemanticRuntimeSnapshot {
+  const record = assertRecord(value, "SemanticRuntimeSnapshot");
+  assertKnownFields(record, "SemanticRuntimeSnapshot", ["workspaceId", "workflowExecutionId", "chatRunId", "revision", "generatedAt", "limits", "workflow", "cartographer", "patches", "semanticActivity", "displayHints"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.workspaceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.workflowExecutionId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.chatRunId"),
+    revision: decodeInteger(requireField(record, "revision", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.revision"),
+    generatedAt: decodeString(requireField(record, "generatedAt", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.generatedAt"),
+    limits: decodeSemanticRuntimeLimits(requireField(record, "limits", "SemanticRuntimeSnapshot")),
+    workflow: decodeSemanticRuntimeWorkflowState(requireField(record, "workflow", "SemanticRuntimeSnapshot")),
+    cartographer: decodeSemanticRuntimeCartographer(requireField(record, "cartographer", "SemanticRuntimeSnapshot")),
+    patches: decodeArray(requireField(record, "patches", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.patches", (item) => decodeSemanticRuntimePatchPreview(item)),
+    semanticActivity: decodeSemanticRuntimeActivity(requireField(record, "semanticActivity", "SemanticRuntimeSnapshot")),
+    displayHints: decodeSemanticRuntimeDisplayHints(requireField(record, "displayHints", "SemanticRuntimeSnapshot")),
+  };
+}
+
 export function decodeReadSemanticWorkingSetRequest(value: unknown): ReadSemanticWorkingSetRequest {
   const record = assertRecord(value, "ReadSemanticWorkingSetRequest");
   assertKnownFields(record, "ReadSemanticWorkingSetRequest", ["workspaceId", "workflowExecutionId", "chatRunId", "limit"]);
@@ -9834,9 +10360,44 @@ export function decodeUpdateSemanticSteeringDirectiveRequest(value: unknown): Up
   };
 }
 
+export function decodeSemanticRuntimeRemovals(value: unknown): SemanticRuntimeRemovals {
+  const record = assertRecord(value, "SemanticRuntimeRemovals");
+  assertKnownFields(record, "SemanticRuntimeRemovals", ["workflowNodeIds", "runItemIds", "cartographerRunIds", "cartographerWindowIds", "patchPreviewIds", "aggregateSourceIds", "semanticNodeActivityIds"]);
+  return {
+    workflowNodeIds: decodeArray(requireField(record, "workflowNodeIds", "SemanticRuntimeRemovals"), "SemanticRuntimeRemovals.workflowNodeIds", (item) => decodeString(item, "SemanticRuntimeRemovals.workflowNodeIds item")),
+    runItemIds: decodeArray(requireField(record, "runItemIds", "SemanticRuntimeRemovals"), "SemanticRuntimeRemovals.runItemIds", (item) => decodeString(item, "SemanticRuntimeRemovals.runItemIds item")),
+    cartographerRunIds: decodeArray(requireField(record, "cartographerRunIds", "SemanticRuntimeRemovals"), "SemanticRuntimeRemovals.cartographerRunIds", (item) => decodeString(item, "SemanticRuntimeRemovals.cartographerRunIds item")),
+    cartographerWindowIds: decodeArray(requireField(record, "cartographerWindowIds", "SemanticRuntimeRemovals"), "SemanticRuntimeRemovals.cartographerWindowIds", (item) => decodeString(item, "SemanticRuntimeRemovals.cartographerWindowIds item")),
+    patchPreviewIds: decodeArray(requireField(record, "patchPreviewIds", "SemanticRuntimeRemovals"), "SemanticRuntimeRemovals.patchPreviewIds", (item) => decodeString(item, "SemanticRuntimeRemovals.patchPreviewIds item")),
+    aggregateSourceIds: decodeArray(requireField(record, "aggregateSourceIds", "SemanticRuntimeRemovals"), "SemanticRuntimeRemovals.aggregateSourceIds", (item) => decodeString(item, "SemanticRuntimeRemovals.aggregateSourceIds item")),
+    semanticNodeActivityIds: decodeArray(requireField(record, "semanticNodeActivityIds", "SemanticRuntimeRemovals"), "SemanticRuntimeRemovals.semanticNodeActivityIds", (item) => decodeString(item, "SemanticRuntimeRemovals.semanticNodeActivityIds item")),
+  };
+}
+
+export function decodeSemanticRuntimeDelta(value: unknown): SemanticRuntimeDelta {
+  const record = assertRecord(value, "SemanticRuntimeDelta");
+  assertKnownFields(record, "SemanticRuntimeDelta", ["workspaceId", "fromRevision", "toRevision", "generatedAt", "changedAreas", "workflowNodeUpdates", "runItemUpdates", "cartographerRunUpdates", "cartographerWindowUpdates", "patchPreviewUpdates", "semanticNodeActivityUpdates", "aggregateSourceUpdates", "semanticChangeUpdates", "removals"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.workspaceId"),
+    fromRevision: decodeInteger(requireField(record, "fromRevision", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.fromRevision"),
+    toRevision: decodeInteger(requireField(record, "toRevision", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.toRevision"),
+    generatedAt: decodeString(requireField(record, "generatedAt", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.generatedAt"),
+    changedAreas: decodeArray(requireField(record, "changedAreas", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.changedAreas", (item) => decodeSemanticRuntimeChangeArea(item, "SemanticRuntimeDelta.changedAreas item")),
+    workflowNodeUpdates: decodeArray(requireField(record, "workflowNodeUpdates", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.workflowNodeUpdates", (item) => decodeSemanticRuntimeWorkflowNode(item)),
+    runItemUpdates: decodeArray(requireField(record, "runItemUpdates", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.runItemUpdates", (item) => decodeSemanticRuntimeRunItem(item)),
+    cartographerRunUpdates: decodeArray(requireField(record, "cartographerRunUpdates", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.cartographerRunUpdates", (item) => decodeSemanticRuntimeCartographerRun(item)),
+    cartographerWindowUpdates: decodeArray(requireField(record, "cartographerWindowUpdates", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.cartographerWindowUpdates", (item) => decodeSemanticRuntimeCartographerWindow(item)),
+    patchPreviewUpdates: decodeArray(requireField(record, "patchPreviewUpdates", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.patchPreviewUpdates", (item) => decodeSemanticRuntimePatchPreview(item)),
+    semanticNodeActivityUpdates: decodeArray(requireField(record, "semanticNodeActivityUpdates", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.semanticNodeActivityUpdates", (item) => decodeSemanticRuntimeNodeActivity(item)),
+    aggregateSourceUpdates: decodeArray(requireField(record, "aggregateSourceUpdates", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.aggregateSourceUpdates", (item) => decodeSemanticRuntimeSourceAggregate(item)),
+    semanticChangeUpdates: decodeArray(requireField(record, "semanticChangeUpdates", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.semanticChangeUpdates", (item) => decodeSemanticRuntimeSemanticChange(item)),
+    removals: decodeSemanticRuntimeRemovals(requireField(record, "removals", "SemanticRuntimeDelta")),
+  };
+}
+
 export function decodeSemanticGraphChangeEvent(value: unknown): SemanticGraphChangeEvent {
   const record = assertRecord(value, "SemanticGraphChangeEvent");
-  assertKnownFields(record, "SemanticGraphChangeEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "workspaceId", "changedAreas", "semanticNodeIds", "semanticEdgeIds", "targetEntityIds", "createdSemanticEventIds", "cartographerRunIds", "cartographerWindowIds", "cartographerPatchIds", "occurredAt"]);
+  assertKnownFields(record, "SemanticGraphChangeEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "workspaceId", "changedAreas", "semanticNodeIds", "semanticEdgeIds", "targetEntityIds", "createdSemanticEventIds", "cartographerRunIds", "cartographerWindowIds", "cartographerPatchIds", "semanticRuntimeRevision", "semanticRuntimeDelta", "semanticRuntimeSnapshotRequired", "occurredAt"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.schemaVersion"),
     streamId: decodeString(requireField(record, "streamId", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.streamId"),
@@ -9852,6 +10413,9 @@ export function decodeSemanticGraphChangeEvent(value: unknown): SemanticGraphCha
     cartographerRunIds: decodeArray(requireField(record, "cartographerRunIds", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.cartographerRunIds", (item) => decodeString(item, "SemanticGraphChangeEvent.cartographerRunIds item")),
     cartographerWindowIds: decodeArray(requireField(record, "cartographerWindowIds", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.cartographerWindowIds", (item) => decodeString(item, "SemanticGraphChangeEvent.cartographerWindowIds item")),
     cartographerPatchIds: decodeArray(requireField(record, "cartographerPatchIds", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.cartographerPatchIds", (item) => decodeString(item, "SemanticGraphChangeEvent.cartographerPatchIds item")),
+    semanticRuntimeRevision: decodeInteger(requireField(record, "semanticRuntimeRevision", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.semanticRuntimeRevision"),
+    semanticRuntimeDelta: decodeNullable(requireField(record, "semanticRuntimeDelta", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.semanticRuntimeDelta", (item) => decodeSemanticRuntimeDelta(item)),
+    semanticRuntimeSnapshotRequired: decodeBoolean(requireField(record, "semanticRuntimeSnapshotRequired", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.semanticRuntimeSnapshotRequired"),
     occurredAt: decodeString(requireField(record, "occurredAt", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.occurredAt"),
   };
 }
@@ -10600,6 +11164,7 @@ export interface BackendClient {
   listSemanticActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
   listSemanticActivityPage: (request: ListSemanticActivityPageRequest) => Promise<SemanticActivityPage>;
   readSemanticActivitySummary: (request: ReadSemanticActivitySummaryRequest) => Promise<SemanticActivitySummary>;
+  readSemanticRuntimeSnapshot: (request: ReadSemanticRuntimeSnapshotRequest) => Promise<SemanticRuntimeSnapshot>;
   readSemanticWorkingSet: (request: ReadSemanticWorkingSetRequest) => Promise<SemanticWorkingSet>;
   readSemanticSteeringState: (request: ReadSemanticSteeringStateRequest) => Promise<SemanticSteeringState>;
   readSemanticEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
@@ -11167,6 +11732,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticActivitySummary,
       endpoint: backendEndpoints.ReadSemanticActivitySummary,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readSemanticRuntimeSnapshot: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticRuntimeSnapshot,
+      endpoint: backendEndpoints.ReadSemanticRuntimeSnapshot,
       fetchImpl,
       requestPayload: request,
     }),

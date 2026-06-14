@@ -49,8 +49,8 @@ const requiredAutomaticReadbackPulseKinds = [
   "evidence_attached",
   "edge_created",
 ];
-const phase0MaxBlankScopeWorkingSetReads = 120;
-const phase0MaxBlankScopeWorkingSetIpcBytesPerMinute = 8_000_000;
+const phase1MaxBlankScopeWorkingSetReads = 0;
+const phase1MaxRuntimeIpcBytesPerMinute = 1_000_000;
 
 configureChatWorkflowHarness({ visible: options.visible });
 
@@ -924,9 +924,13 @@ function semanticRuntimePhase0BudgetReport({ backendRows, eventRows, ipcRows, re
     .filter(({ row }) => row.channel === "semantic-graph:working-set-read")
     .filter(({ row }) => blankScopeIpcIds.has(row.id))
     .reduce((sum, { bytes }) => sum + bytes, 0);
+  const runtimeSnapshotIpcBytes = ipcRows
+    .filter(({ row }) => row.channel === "semantic-graph:runtime-snapshot")
+    .reduce((sum, { bytes }) => sum + bytes, 0);
   const rawDurationMinutes = recordingDurationMinutes([...ipcRows, ...backendRows, ...eventRows]);
   const rateWindowMinutes = Math.max(rawDurationMinutes, 1);
   const workingSetIpcBytesPerMinute = workingSetIpcBytes / rateWindowMinutes;
+  const runtimeSnapshotIpcBytesPerMinute = runtimeSnapshotIpcBytes / rateWindowMinutes;
   const blankScopeWorkingSetReadCount = ipcRows.filter(
     ({ row }) =>
       row.type === "ipc_finish" &&
@@ -941,27 +945,27 @@ function semanticRuntimePhase0BudgetReport({ backendRows, eventRows, ipcRows, re
   ).length;
   return {
     budgets: {
-      maxBlankScopeWorkingSetIpcBytesPerMinute: phase0MaxBlankScopeWorkingSetIpcBytesPerMinute,
-      maxBlankScopeWorkingSetReads: phase0MaxBlankScopeWorkingSetReads,
+      maxBlankScopeWorkingSetReads: phase1MaxBlankScopeWorkingSetReads,
+      maxRuntimeIpcBytesPerMinute: phase1MaxRuntimeIpcBytesPerMinute,
     },
     checks: [
       hardBudgetCheck({
         actual: blankScopeWorkingSetReadCount,
-        budget: phase0MaxBlankScopeWorkingSetReads,
+        budget: phase1MaxBlankScopeWorkingSetReads,
         id: "small-workflow-blank-scope-working-set-reads",
-        pass: blankScopeWorkingSetReadCount <= phase0MaxBlankScopeWorkingSetReads,
+        pass: blankScopeWorkingSetReadCount <= phase1MaxBlankScopeWorkingSetReads,
       }),
       hardBudgetCheck({
         actual: blankScopeWorkingSetHttpRequestCount,
-        budget: phase0MaxBlankScopeWorkingSetReads,
+        budget: phase1MaxBlankScopeWorkingSetReads,
         id: "small-workflow-blank-scope-working-set-http-requests",
-        pass: blankScopeWorkingSetHttpRequestCount <= phase0MaxBlankScopeWorkingSetReads,
+        pass: blankScopeWorkingSetHttpRequestCount <= phase1MaxBlankScopeWorkingSetReads,
       }),
       hardBudgetCheck({
-        actual: Math.round(workingSetIpcBytesPerMinute),
-        budget: phase0MaxBlankScopeWorkingSetIpcBytesPerMinute,
-        id: "semantic-runtime-working-set-ipc-bytes-per-minute",
-        pass: workingSetIpcBytesPerMinute < phase0MaxBlankScopeWorkingSetIpcBytesPerMinute,
+        actual: Math.round(runtimeSnapshotIpcBytesPerMinute),
+        budget: phase1MaxRuntimeIpcBytesPerMinute,
+        id: "semantic-runtime-snapshot-ipc-bytes-per-minute",
+        pass: runtimeSnapshotIpcBytesPerMinute < phase1MaxRuntimeIpcBytesPerMinute,
       }),
     ],
     generatedAt: new Date().toISOString(),
@@ -970,15 +974,17 @@ function semanticRuntimePhase0BudgetReport({ backendRows, eventRows, ipcRows, re
       blankScopeWorkingSetReadCount,
       rateWindowMinutes,
       rawDurationMinutes,
+      runtimeSnapshotIpcBytes,
+      runtimeSnapshotIpcBytesPerMinute,
       semanticEventCount,
       workingSetIpcBytes,
       workingSetIpcBytesPerMinute,
     },
     recordingDir,
     status:
-      blankScopeWorkingSetReadCount <= phase0MaxBlankScopeWorkingSetReads &&
-      blankScopeWorkingSetHttpRequestCount <= phase0MaxBlankScopeWorkingSetReads &&
-      workingSetIpcBytesPerMinute < phase0MaxBlankScopeWorkingSetIpcBytesPerMinute
+      blankScopeWorkingSetReadCount <= phase1MaxBlankScopeWorkingSetReads &&
+      blankScopeWorkingSetHttpRequestCount <= phase1MaxBlankScopeWorkingSetReads &&
+      runtimeSnapshotIpcBytesPerMinute < phase1MaxRuntimeIpcBytesPerMinute
         ? "passed"
         : "failed",
   };
