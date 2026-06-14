@@ -527,7 +527,29 @@ Recommended Phase 4 tests:
 - Unsupported saved explicit model and unsupported reasoning effort produce
   specific validation errors with no silent fallback.
 
+Implementation note:
+
+- Phase 4 was implemented by adding a reusable chat harness model-catalog path,
+  `Service.ListCodexModelOptions(workspaceID)`, and
+  `CodexHarness.ListModelOptions`.
+- The shared catalog path is now used by the existing `/model` command picker,
+  so pagination, hidden-model filtering, provider-drift validation, and
+  reasoning option mapping stay in one backend implementation.
+- Catalog lookup resolves a workspace and may start a short Codex app-server
+  session, but it does not require an active conversation or thread ref.
+- `ValidateSemanticCartographerSettingsAgainstModelCatalog` validates explicit
+  cartographer models against `ChatModelOption.model`, accepts
+  `provider_default` without storing a fake model id, and rejects unsupported
+  model/reasoning combinations with no fallback.
+- No persistent schema changed in Phase 4, so the semantic graph store remains
+  version `12`.
+
 ## Phase 5 - HTTP, IPC, and Generated Contracts
+
+Phase 5 is ready to implement. It should expose the Phase 1 settings state and
+Phase 4 model catalog through Go-owned contracts. It should not add duplicate
+run-audit endpoints: `ReadCartographerRun` and `ListCartographerRuns` already
+expose the Phase 2 audit fields and should remain the run-audit read path.
 
 Add Go-owned endpoints:
 
@@ -535,22 +557,81 @@ Add Go-owned endpoints:
 ReadSemanticCartographerSettings
 UpdateSemanticCartographerSettings
 ListSemanticCartographerModelOptions
-ReadSemanticCartographerRunAudit
-ListSemanticCartographerRunAudit
 ```
+
+Recommended contract shape:
+
+- `ReadSemanticCartographerSettings` can use an empty request and should return
+  `semanticgraph.SemanticCartographerSettingsRecord`.
+- `UpdateSemanticCartographerSettings` should take `workspaceId` plus the
+  editable semantic cartographer settings fields. The settings remain global;
+  the workspace id exists only so the backend can resolve the Codex catalog used
+  for model/reasoning validation. `updatedAt`, `settingsHash`, `createdAt`, and
+  the singleton row id are backend-owned response fields, not renderer-edited
+  input.
+- `ListSemanticCartographerModelOptions` should take `workspaceId` and return
+  the `[]chat.ChatModelOption` catalog from the Phase 4 chat service path. Do
+  not create renderer-owned model ids, hardcoded model lists, or a fake
+  `provider_default` option.
+
+Backend behavior:
+
+- Extend `internal/httpapi.ChatService` with the Phase 4
+  `ListCodexModelOptions(workspaceID string)` method.
+- Extend `internal/httpapi.SemanticGraphService` with settings read/update
+  methods, and implement matching methods on `semanticgraph.Service`.
+- Settings updates must validate with
+  `semanticgraph.ValidateSemanticCartographerSettingsAgainstModelCatalog` before
+  persistence. The HTTP handler should fetch the workspace catalog through the
+  chat service, then call a semantic graph service update method that stamps the
+  backend-owned `updatedAt`, validates the candidate settings against the
+  catalog, persists the canonical row, and returns the saved record.
+- The semantic graph service update path should persist the canonical settings
+  record and immediately re-apply the runtime automatic-processing and
+  observation defaults from the saved settings. It must not rewrite already
+  queued run snapshots.
+- Keep store-level settings validation provider-independent; catalog validation
+  belongs at the service/API boundary where Codex model options are available.
+- Do not bump `semanticStoreVersion` in Phase 5 unless the implementation adds
+  another persistent schema field.
 
 The existing processing state endpoint should include:
 
 - Current settings hash.
 - Effective processing config.
-- Last processed run model/reasoning summary.
-- Last failure input-size and model/reasoning summary.
+- Last processed run model/reasoning summary, including task profile,
+  requested/effective/reported model, requested/effective/reported reasoning,
+  input size, harness duration, total duration, and terminal status.
+- Last failure input-size and model/reasoning summary. This should be derived
+  from the existing `CartographerRun` audit record when a run id is available,
+  not from a second audit table or duplicate endpoint.
 
 After editing contracts:
 
 - Regenerate generated TypeScript surfaces.
 - Update preload/main IPC wrappers.
 - Keep endpoint request/response contracts owned by `internal/httpapi`.
+- Do not maintain a separate generated-type list or manually edit generated
+  TypeScript.
+
+Recommended Phase 5 tests:
+
+- HTTP tests cover reading settings, listing model options for a workspace,
+  updating settings with a supported explicit model/reasoning pair, rejecting an
+  unsupported explicit model, rejecting unsupported reasoning for the selected
+  model, and accepting `provider_default` without persisting a fake model id.
+- Semantic graph service tests cover immediate runtime config application after
+  a settings update and confirm already queued runs keep their Phase 2 settings
+  snapshot.
+- Existing `ReadCartographerRun` and `ListCartographerRuns` tests should remain
+  the audit endpoint coverage; do not add parallel run-audit handler tests for
+  new duplicate endpoints.
+- Generated TypeScript/preload/main tests cover the new settings and model
+  option IPC surfaces.
+- Because this phase touches HTTP contracts, generated backend contracts, IPC,
+  preload, and settings persistence, run deterministic end-to-end app workflow
+  coverage through the production Electron/main/preload/renderer/HTTP/store
+  paths before committing implementation code.
 
 ## Phase 6 - Settings UI
 
