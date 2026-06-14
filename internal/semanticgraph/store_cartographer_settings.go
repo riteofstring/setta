@@ -23,7 +23,6 @@ func (store *Store) UpdateSemanticCartographerSettings(ctx context.Context, sett
 	if ctx == nil {
 		return SemanticCartographerSettingsRecord{}, errors.New("context is required")
 	}
-	settings.UpdatedAt = timestamp(time.Now())
 	settingsJSON, settingsHash, err := prepareSemanticCartographerSettingsJSON(settings)
 	if err != nil {
 		return SemanticCartographerSettingsRecord{}, err

@@ -1908,6 +1908,24 @@ export function decodeSemanticEventType(value: unknown, label = "SemanticEventTy
   }
 }
 
+export type SemanticCartographerAuditCaptureLevel = "minimal" | "standard" | "debug";
+
+export const semanticCartographerAuditCaptureLevelValues = ["minimal", "standard", "debug"] as const satisfies readonly SemanticCartographerAuditCaptureLevel[];
+
+export function decodeSemanticCartographerAuditCaptureLevel(value: unknown, label = "SemanticCartographerAuditCaptureLevel"): SemanticCartographerAuditCaptureLevel {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "minimal":
+      return decoded;
+    case "standard":
+      return decoded;
+    case "debug":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type SemanticGraphChangeArea = "graph" | "activity" | "steering" | "context_packs" | "cartographer_audit" | "layout";
 
 export const semanticGraphChangeAreaValues = ["graph", "activity", "steering", "context_packs", "cartographer_audit", "layout"] as const satisfies readonly SemanticGraphChangeArea[];
@@ -4201,6 +4219,74 @@ export interface CartographerWindowProcessResult {
   events: SemanticEvent[];
 }
 
+export interface ReadSemanticCartographerSettingsRequest {
+}
+
+export interface SemanticCartographerTaskConfig {
+  modelSelection: SemanticCartographerModelSelection;
+  modelId: string;
+  reasoningEffort: ReasoningEffort;
+  inputBudget: number;
+}
+
+export interface SemanticCartographerProcessingConfig {
+  maxConcurrent: number;
+  perSourceConcurrent: number;
+  maxQueuedPerSource: number;
+  leaseDurationSeconds: number;
+}
+
+export interface SemanticCartographerObservationConfig {
+  maxWindowEvents: number;
+  maxWindowContentBytes: number;
+  assistantThresholdBytes: number;
+  outputThresholdBytes: number;
+  priorSummaryLimit: number;
+  tokenBudget: number;
+  quietCloseAfterSeconds: number;
+}
+
+export interface SemanticCartographerAuditConfig {
+  captureLevel: SemanticCartographerAuditCaptureLevel;
+}
+
+export interface SemanticCartographerSettings {
+  schemaVersion: number;
+  automaticProcessingEnabled: boolean;
+  liveTaskConfig: SemanticCartographerTaskConfig;
+  finalSynthesisTaskConfig: SemanticCartographerTaskConfig;
+  processingConfig: SemanticCartographerProcessingConfig;
+  observationConfig: SemanticCartographerObservationConfig;
+  auditConfig: SemanticCartographerAuditConfig;
+  updatedAt: string;
+}
+
+export interface SemanticCartographerSettingsRecord {
+  id: string;
+  settings: SemanticCartographerSettings;
+  settingsHash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SemanticCartographerSettingsInput {
+  automaticProcessingEnabled: boolean;
+  liveTaskConfig: SemanticCartographerTaskConfig;
+  finalSynthesisTaskConfig: SemanticCartographerTaskConfig;
+  processingConfig: SemanticCartographerProcessingConfig;
+  observationConfig: SemanticCartographerObservationConfig;
+  auditConfig: SemanticCartographerAuditConfig;
+}
+
+export interface UpdateSemanticCartographerSettingsRequest {
+  workspaceId: string;
+  settings: SemanticCartographerSettingsInput;
+}
+
+export interface ListSemanticCartographerModelOptionsRequest {
+  workspaceId: string;
+}
+
 export interface ReadCartographerProcessingStateRequest {
 }
 
@@ -4222,6 +4308,29 @@ export interface CartographerProcessingQueueItem {
   position: number;
 }
 
+export interface CartographerProcessingRunAuditSummary {
+  workspaceId: string;
+  runId: string;
+  windowId: string;
+  status: CartographerRunStatus;
+  taskProfile: CartographerTaskProfile;
+  requestedModelSelection: SemanticCartographerModelSelection;
+  requestedModel: string;
+  effectiveModel: string;
+  reportedModel: string;
+  requestedReasoningEffort: ReasoningEffort;
+  effectiveReasoningEffort: string;
+  reportedReasoningEffort: string;
+  reasoningEffortReported: boolean;
+  inputBundleBytes: number;
+  inputBundleCharacterCount: number;
+  closeReason: CartographerWindowCloseReason;
+  harnessDurationMs: number;
+  totalDurationMs: number;
+  completedAt: string;
+  error: string;
+}
+
 export interface CartographerProcessingFailure {
   workspaceId: string;
   windowId: string;
@@ -4236,6 +4345,8 @@ export interface CartographerProcessingState {
   started: boolean;
   maxConcurrent: number;
   perSourceConcurrent: number;
+  settingsHash: string;
+  effectiveProcessingConfig: SemanticCartographerProcessingConfig;
   queuedWindowCount: number;
   runningWindowCount: number;
   queuedWindows: CartographerProcessingQueueItem[];
@@ -4259,7 +4370,9 @@ export interface CartographerProcessingState {
   lastProcessedWindowId: string;
   lastProcessedRunId: string;
   lastProcessedAt: string;
+  lastProcessedRunSummary: CartographerProcessingRunAuditSummary | null;
   lastFailure: CartographerProcessingFailure | null;
+  lastFailureRunSummary: CartographerProcessingRunAuditSummary | null;
   createdSemanticEventIds: string[];
 }
 
@@ -5370,6 +5483,18 @@ export const backendEndpoints = {
   ProcessCartographerWindow: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/process",
+  },
+  ReadSemanticCartographerSettings: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/settings/read",
+  },
+  UpdateSemanticCartographerSettings: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/settings/update",
+  },
+  ListSemanticCartographerModelOptions: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/model-options/list",
   },
   ReadCartographerProcessingState: {
     method: "POST",
@@ -8468,6 +8593,114 @@ export function decodeCartographerWindowProcessResult(value: unknown): Cartograp
   };
 }
 
+export function decodeReadSemanticCartographerSettingsRequest(value: unknown): ReadSemanticCartographerSettingsRequest {
+  const record = assertRecord(value, "ReadSemanticCartographerSettingsRequest");
+  assertKnownFields(record, "ReadSemanticCartographerSettingsRequest", []);
+  return {
+  };
+}
+
+export function decodeSemanticCartographerTaskConfig(value: unknown): SemanticCartographerTaskConfig {
+  const record = assertRecord(value, "SemanticCartographerTaskConfig");
+  assertKnownFields(record, "SemanticCartographerTaskConfig", ["modelSelection", "modelId", "reasoningEffort", "inputBudget"]);
+  return {
+    modelSelection: decodeSemanticCartographerModelSelection(requireField(record, "modelSelection", "SemanticCartographerTaskConfig"), "SemanticCartographerTaskConfig.modelSelection"),
+    modelId: decodeString(requireField(record, "modelId", "SemanticCartographerTaskConfig"), "SemanticCartographerTaskConfig.modelId"),
+    reasoningEffort: decodeReasoningEffort(requireField(record, "reasoningEffort", "SemanticCartographerTaskConfig"), "SemanticCartographerTaskConfig.reasoningEffort"),
+    inputBudget: decodeInteger(requireField(record, "inputBudget", "SemanticCartographerTaskConfig"), "SemanticCartographerTaskConfig.inputBudget"),
+  };
+}
+
+export function decodeSemanticCartographerProcessingConfig(value: unknown): SemanticCartographerProcessingConfig {
+  const record = assertRecord(value, "SemanticCartographerProcessingConfig");
+  assertKnownFields(record, "SemanticCartographerProcessingConfig", ["maxConcurrent", "perSourceConcurrent", "maxQueuedPerSource", "leaseDurationSeconds"]);
+  return {
+    maxConcurrent: decodeInteger(requireField(record, "maxConcurrent", "SemanticCartographerProcessingConfig"), "SemanticCartographerProcessingConfig.maxConcurrent"),
+    perSourceConcurrent: decodeInteger(requireField(record, "perSourceConcurrent", "SemanticCartographerProcessingConfig"), "SemanticCartographerProcessingConfig.perSourceConcurrent"),
+    maxQueuedPerSource: decodeInteger(requireField(record, "maxQueuedPerSource", "SemanticCartographerProcessingConfig"), "SemanticCartographerProcessingConfig.maxQueuedPerSource"),
+    leaseDurationSeconds: decodeInteger(requireField(record, "leaseDurationSeconds", "SemanticCartographerProcessingConfig"), "SemanticCartographerProcessingConfig.leaseDurationSeconds"),
+  };
+}
+
+export function decodeSemanticCartographerObservationConfig(value: unknown): SemanticCartographerObservationConfig {
+  const record = assertRecord(value, "SemanticCartographerObservationConfig");
+  assertKnownFields(record, "SemanticCartographerObservationConfig", ["maxWindowEvents", "maxWindowContentBytes", "assistantThresholdBytes", "outputThresholdBytes", "priorSummaryLimit", "tokenBudget", "quietCloseAfterSeconds"]);
+  return {
+    maxWindowEvents: decodeInteger(requireField(record, "maxWindowEvents", "SemanticCartographerObservationConfig"), "SemanticCartographerObservationConfig.maxWindowEvents"),
+    maxWindowContentBytes: decodeInteger(requireField(record, "maxWindowContentBytes", "SemanticCartographerObservationConfig"), "SemanticCartographerObservationConfig.maxWindowContentBytes"),
+    assistantThresholdBytes: decodeInteger(requireField(record, "assistantThresholdBytes", "SemanticCartographerObservationConfig"), "SemanticCartographerObservationConfig.assistantThresholdBytes"),
+    outputThresholdBytes: decodeInteger(requireField(record, "outputThresholdBytes", "SemanticCartographerObservationConfig"), "SemanticCartographerObservationConfig.outputThresholdBytes"),
+    priorSummaryLimit: decodeInteger(requireField(record, "priorSummaryLimit", "SemanticCartographerObservationConfig"), "SemanticCartographerObservationConfig.priorSummaryLimit"),
+    tokenBudget: decodeInteger(requireField(record, "tokenBudget", "SemanticCartographerObservationConfig"), "SemanticCartographerObservationConfig.tokenBudget"),
+    quietCloseAfterSeconds: decodeInteger(requireField(record, "quietCloseAfterSeconds", "SemanticCartographerObservationConfig"), "SemanticCartographerObservationConfig.quietCloseAfterSeconds"),
+  };
+}
+
+export function decodeSemanticCartographerAuditConfig(value: unknown): SemanticCartographerAuditConfig {
+  const record = assertRecord(value, "SemanticCartographerAuditConfig");
+  assertKnownFields(record, "SemanticCartographerAuditConfig", ["captureLevel"]);
+  return {
+    captureLevel: decodeSemanticCartographerAuditCaptureLevel(requireField(record, "captureLevel", "SemanticCartographerAuditConfig"), "SemanticCartographerAuditConfig.captureLevel"),
+  };
+}
+
+export function decodeSemanticCartographerSettings(value: unknown): SemanticCartographerSettings {
+  const record = assertRecord(value, "SemanticCartographerSettings");
+  assertKnownFields(record, "SemanticCartographerSettings", ["schemaVersion", "automaticProcessingEnabled", "liveTaskConfig", "finalSynthesisTaskConfig", "processingConfig", "observationConfig", "auditConfig", "updatedAt"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "SemanticCartographerSettings"), "SemanticCartographerSettings.schemaVersion"),
+    automaticProcessingEnabled: decodeBoolean(requireField(record, "automaticProcessingEnabled", "SemanticCartographerSettings"), "SemanticCartographerSettings.automaticProcessingEnabled"),
+    liveTaskConfig: decodeSemanticCartographerTaskConfig(requireField(record, "liveTaskConfig", "SemanticCartographerSettings")),
+    finalSynthesisTaskConfig: decodeSemanticCartographerTaskConfig(requireField(record, "finalSynthesisTaskConfig", "SemanticCartographerSettings")),
+    processingConfig: decodeSemanticCartographerProcessingConfig(requireField(record, "processingConfig", "SemanticCartographerSettings")),
+    observationConfig: decodeSemanticCartographerObservationConfig(requireField(record, "observationConfig", "SemanticCartographerSettings")),
+    auditConfig: decodeSemanticCartographerAuditConfig(requireField(record, "auditConfig", "SemanticCartographerSettings")),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticCartographerSettings"), "SemanticCartographerSettings.updatedAt"),
+  };
+}
+
+export function decodeSemanticCartographerSettingsRecord(value: unknown): SemanticCartographerSettingsRecord {
+  const record = assertRecord(value, "SemanticCartographerSettingsRecord");
+  assertKnownFields(record, "SemanticCartographerSettingsRecord", ["id", "settings", "settingsHash", "createdAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticCartographerSettingsRecord"), "SemanticCartographerSettingsRecord.id"),
+    settings: decodeSemanticCartographerSettings(requireField(record, "settings", "SemanticCartographerSettingsRecord")),
+    settingsHash: decodeString(requireField(record, "settingsHash", "SemanticCartographerSettingsRecord"), "SemanticCartographerSettingsRecord.settingsHash"),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticCartographerSettingsRecord"), "SemanticCartographerSettingsRecord.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticCartographerSettingsRecord"), "SemanticCartographerSettingsRecord.updatedAt"),
+  };
+}
+
+export function decodeSemanticCartographerSettingsInput(value: unknown): SemanticCartographerSettingsInput {
+  const record = assertRecord(value, "SemanticCartographerSettingsInput");
+  assertKnownFields(record, "SemanticCartographerSettingsInput", ["automaticProcessingEnabled", "liveTaskConfig", "finalSynthesisTaskConfig", "processingConfig", "observationConfig", "auditConfig"]);
+  return {
+    automaticProcessingEnabled: decodeBoolean(requireField(record, "automaticProcessingEnabled", "SemanticCartographerSettingsInput"), "SemanticCartographerSettingsInput.automaticProcessingEnabled"),
+    liveTaskConfig: decodeSemanticCartographerTaskConfig(requireField(record, "liveTaskConfig", "SemanticCartographerSettingsInput")),
+    finalSynthesisTaskConfig: decodeSemanticCartographerTaskConfig(requireField(record, "finalSynthesisTaskConfig", "SemanticCartographerSettingsInput")),
+    processingConfig: decodeSemanticCartographerProcessingConfig(requireField(record, "processingConfig", "SemanticCartographerSettingsInput")),
+    observationConfig: decodeSemanticCartographerObservationConfig(requireField(record, "observationConfig", "SemanticCartographerSettingsInput")),
+    auditConfig: decodeSemanticCartographerAuditConfig(requireField(record, "auditConfig", "SemanticCartographerSettingsInput")),
+  };
+}
+
+export function decodeUpdateSemanticCartographerSettingsRequest(value: unknown): UpdateSemanticCartographerSettingsRequest {
+  const record = assertRecord(value, "UpdateSemanticCartographerSettingsRequest");
+  assertKnownFields(record, "UpdateSemanticCartographerSettingsRequest", ["workspaceId", "settings"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateSemanticCartographerSettingsRequest"), "UpdateSemanticCartographerSettingsRequest.workspaceId"),
+    settings: decodeSemanticCartographerSettingsInput(requireField(record, "settings", "UpdateSemanticCartographerSettingsRequest")),
+  };
+}
+
+export function decodeListSemanticCartographerModelOptionsRequest(value: unknown): ListSemanticCartographerModelOptionsRequest {
+  const record = assertRecord(value, "ListSemanticCartographerModelOptionsRequest");
+  assertKnownFields(record, "ListSemanticCartographerModelOptionsRequest", ["workspaceId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListSemanticCartographerModelOptionsRequest"), "ListSemanticCartographerModelOptionsRequest.workspaceId"),
+  };
+}
+
 export function decodeReadCartographerProcessingStateRequest(value: unknown): ReadCartographerProcessingStateRequest {
   const record = assertRecord(value, "ReadCartographerProcessingStateRequest");
   assertKnownFields(record, "ReadCartographerProcessingStateRequest", []);
@@ -8497,6 +8730,33 @@ export function decodeCartographerProcessingQueueItem(value: unknown): Cartograp
   };
 }
 
+export function decodeCartographerProcessingRunAuditSummary(value: unknown): CartographerProcessingRunAuditSummary {
+  const record = assertRecord(value, "CartographerProcessingRunAuditSummary");
+  assertKnownFields(record, "CartographerProcessingRunAuditSummary", ["workspaceId", "runId", "windowId", "status", "taskProfile", "requestedModelSelection", "requestedModel", "effectiveModel", "reportedModel", "requestedReasoningEffort", "effectiveReasoningEffort", "reportedReasoningEffort", "reasoningEffortReported", "inputBundleBytes", "inputBundleCharacterCount", "closeReason", "harnessDurationMs", "totalDurationMs", "completedAt", "error"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.workspaceId"),
+    runId: decodeString(requireField(record, "runId", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.runId"),
+    windowId: decodeString(requireField(record, "windowId", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.windowId"),
+    status: decodeCartographerRunStatus(requireField(record, "status", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.status"),
+    taskProfile: decodeCartographerTaskProfile(requireField(record, "taskProfile", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.taskProfile"),
+    requestedModelSelection: decodeSemanticCartographerModelSelection(requireField(record, "requestedModelSelection", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.requestedModelSelection"),
+    requestedModel: decodeString(requireField(record, "requestedModel", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.requestedModel"),
+    effectiveModel: decodeString(requireField(record, "effectiveModel", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.effectiveModel"),
+    reportedModel: decodeString(requireField(record, "reportedModel", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.reportedModel"),
+    requestedReasoningEffort: decodeReasoningEffort(requireField(record, "requestedReasoningEffort", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.requestedReasoningEffort"),
+    effectiveReasoningEffort: decodeString(requireField(record, "effectiveReasoningEffort", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.effectiveReasoningEffort"),
+    reportedReasoningEffort: decodeString(requireField(record, "reportedReasoningEffort", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.reportedReasoningEffort"),
+    reasoningEffortReported: decodeBoolean(requireField(record, "reasoningEffortReported", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.reasoningEffortReported"),
+    inputBundleBytes: decodeInteger(requireField(record, "inputBundleBytes", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.inputBundleBytes"),
+    inputBundleCharacterCount: decodeInteger(requireField(record, "inputBundleCharacterCount", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.inputBundleCharacterCount"),
+    closeReason: decodeCartographerWindowCloseReason(requireField(record, "closeReason", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.closeReason"),
+    harnessDurationMs: decodeInteger(requireField(record, "harnessDurationMs", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.harnessDurationMs"),
+    totalDurationMs: decodeInteger(requireField(record, "totalDurationMs", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.totalDurationMs"),
+    completedAt: decodeString(requireField(record, "completedAt", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.completedAt"),
+    error: decodeString(requireField(record, "error", "CartographerProcessingRunAuditSummary"), "CartographerProcessingRunAuditSummary.error"),
+  };
+}
+
 export function decodeCartographerProcessingFailure(value: unknown): CartographerProcessingFailure {
   const record = assertRecord(value, "CartographerProcessingFailure");
   assertKnownFields(record, "CartographerProcessingFailure", ["workspaceId", "windowId", "runId", "sourceKey", "message", "failedAt"]);
@@ -8512,12 +8772,14 @@ export function decodeCartographerProcessingFailure(value: unknown): Cartographe
 
 export function decodeCartographerProcessingState(value: unknown): CartographerProcessingState {
   const record = assertRecord(value, "CartographerProcessingState");
-  assertKnownFields(record, "CartographerProcessingState", ["enabled", "started", "maxConcurrent", "perSourceConcurrent", "queuedWindowCount", "runningWindowCount", "queuedWindows", "runningWindows", "durableQueuedWindowCount", "durableRunningWindowCount", "staleLeaseCount", "supersededWindowCount", "completedNoopRunCount", "failedRunCount", "pendingReviewPatchCount", "lastAppliedPatchId", "lastAppliedAt", "lastNoopRunId", "lastNoopAt", "lastNoopReason", "lastSupersededWindowId", "lastSupersededAt", "concurrencyGuidance", "lastProcessedWorkspaceId", "lastProcessedWindowId", "lastProcessedRunId", "lastProcessedAt", "lastFailure", "createdSemanticEventIds"]);
+  assertKnownFields(record, "CartographerProcessingState", ["enabled", "started", "maxConcurrent", "perSourceConcurrent", "settingsHash", "effectiveProcessingConfig", "queuedWindowCount", "runningWindowCount", "queuedWindows", "runningWindows", "durableQueuedWindowCount", "durableRunningWindowCount", "staleLeaseCount", "supersededWindowCount", "completedNoopRunCount", "failedRunCount", "pendingReviewPatchCount", "lastAppliedPatchId", "lastAppliedAt", "lastNoopRunId", "lastNoopAt", "lastNoopReason", "lastSupersededWindowId", "lastSupersededAt", "concurrencyGuidance", "lastProcessedWorkspaceId", "lastProcessedWindowId", "lastProcessedRunId", "lastProcessedAt", "lastProcessedRunSummary", "lastFailure", "lastFailureRunSummary", "createdSemanticEventIds"]);
   return {
     enabled: decodeBoolean(requireField(record, "enabled", "CartographerProcessingState"), "CartographerProcessingState.enabled"),
     started: decodeBoolean(requireField(record, "started", "CartographerProcessingState"), "CartographerProcessingState.started"),
     maxConcurrent: decodeInteger(requireField(record, "maxConcurrent", "CartographerProcessingState"), "CartographerProcessingState.maxConcurrent"),
     perSourceConcurrent: decodeInteger(requireField(record, "perSourceConcurrent", "CartographerProcessingState"), "CartographerProcessingState.perSourceConcurrent"),
+    settingsHash: decodeString(requireField(record, "settingsHash", "CartographerProcessingState"), "CartographerProcessingState.settingsHash"),
+    effectiveProcessingConfig: decodeSemanticCartographerProcessingConfig(requireField(record, "effectiveProcessingConfig", "CartographerProcessingState")),
     queuedWindowCount: decodeInteger(requireField(record, "queuedWindowCount", "CartographerProcessingState"), "CartographerProcessingState.queuedWindowCount"),
     runningWindowCount: decodeInteger(requireField(record, "runningWindowCount", "CartographerProcessingState"), "CartographerProcessingState.runningWindowCount"),
     queuedWindows: decodeArray(requireField(record, "queuedWindows", "CartographerProcessingState"), "CartographerProcessingState.queuedWindows", (item) => decodeCartographerProcessingQueueItem(item)),
@@ -8541,7 +8803,9 @@ export function decodeCartographerProcessingState(value: unknown): CartographerP
     lastProcessedWindowId: decodeString(requireField(record, "lastProcessedWindowId", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedWindowId"),
     lastProcessedRunId: decodeString(requireField(record, "lastProcessedRunId", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedRunId"),
     lastProcessedAt: decodeString(requireField(record, "lastProcessedAt", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedAt"),
+    lastProcessedRunSummary: decodeNullable(requireField(record, "lastProcessedRunSummary", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedRunSummary", (item) => decodeCartographerProcessingRunAuditSummary(item)),
     lastFailure: decodeNullable(requireField(record, "lastFailure", "CartographerProcessingState"), "CartographerProcessingState.lastFailure", (item) => decodeCartographerProcessingFailure(item)),
+    lastFailureRunSummary: decodeNullable(requireField(record, "lastFailureRunSummary", "CartographerProcessingState"), "CartographerProcessingState.lastFailureRunSummary", (item) => decodeCartographerProcessingRunAuditSummary(item)),
     createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "CartographerProcessingState"), "CartographerProcessingState.createdSemanticEventIds", (item) => decodeString(item, "CartographerProcessingState.createdSemanticEventIds item")),
   };
 }
@@ -9774,6 +10038,9 @@ export interface BackendClient {
   listSemanticContextPacks: (request: ListSemanticContextPacksRequest) => Promise<SemanticContextPackList>;
   buildCartographerWindow: (request: BuildCartographerWindowRequest) => Promise<CartographerWindowBuildResult>;
   processCartographerWindow: (request: ProcessCartographerWindowRequest) => Promise<CartographerWindowProcessResult>;
+  readSemanticCartographerSettings: (request: ReadSemanticCartographerSettingsRequest) => Promise<SemanticCartographerSettingsRecord>;
+  updateSemanticCartographerSettings: (request: UpdateSemanticCartographerSettingsRequest) => Promise<SemanticCartographerSettingsRecord>;
+  listSemanticCartographerModelOptions: (request: ListSemanticCartographerModelOptionsRequest) => Promise<ChatModelOption[]>;
   readCartographerProcessingState: (request: ReadCartographerProcessingStateRequest) => Promise<CartographerProcessingState>;
   readCartographerRun: (request: ReadCartographerRunRequest) => Promise<CartographerRunReadResponse>;
   listCartographerRuns: (request: ListCartographerRunsRequest) => Promise<CartographerRunList>;
@@ -10378,6 +10645,30 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerWindowProcessResult,
       endpoint: backendEndpoints.ProcessCartographerWindow,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readSemanticCartographerSettings: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticCartographerSettingsRecord,
+      endpoint: backendEndpoints.ReadSemanticCartographerSettings,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateSemanticCartographerSettings: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticCartographerSettingsRecord,
+      endpoint: backendEndpoints.UpdateSemanticCartographerSettings,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listSemanticCartographerModelOptions: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: (value: unknown) => decodeArray(value, "ListSemanticCartographerModelOptions response", (item) => decodeChatModelOption(item)),
+      endpoint: backendEndpoints.ListSemanticCartographerModelOptions,
       fetchImpl,
       requestPayload: request,
     }),

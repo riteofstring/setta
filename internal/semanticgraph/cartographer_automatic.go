@@ -482,25 +482,39 @@ func (service *Service) cartographerProcessingStateLocked() CartographerProcessi
 		createdIDs = []string{}
 	}
 	return CartographerProcessingState{
-		Enabled:                  service.automaticCartographer.enabled,
-		Started:                  service.automaticCartographer.started,
-		MaxConcurrent:            service.automaticCartographer.config.MaxConcurrent,
-		PerSourceConcurrent:      service.automaticCartographer.config.PerSourceConcurrent,
-		ConcurrencyGuidance:      cartographerConcurrencyGuidance,
-		QueuedWindowCount:        len(queued),
-		RunningWindowCount:       len(running),
-		QueuedWindows:            queued,
-		RunningWindows:           running,
-		LastProcessedWorkspaceID: service.automaticCartographer.lastProcessed.WorkspaceID,
-		LastProcessedWindowID:    service.automaticCartographer.lastProcessed.WindowID,
-		LastProcessedRunID:       service.automaticCartographer.lastProcessed.RunID,
-		LastProcessedAt:          service.automaticCartographer.lastProcessedAt,
-		LastFailure:              service.automaticCartographer.lastFailure,
-		CreatedSemanticEventIDs:  createdIDs,
+		Enabled:                   service.automaticCartographer.enabled,
+		Started:                   service.automaticCartographer.started,
+		MaxConcurrent:             service.automaticCartographer.config.MaxConcurrent,
+		PerSourceConcurrent:       service.automaticCartographer.config.PerSourceConcurrent,
+		EffectiveProcessingConfig: semanticCartographerProcessingConfigFromAutomatic(service.automaticCartographer.config),
+		ConcurrencyGuidance:       cartographerConcurrencyGuidance,
+		QueuedWindowCount:         len(queued),
+		RunningWindowCount:        len(running),
+		QueuedWindows:             queued,
+		RunningWindows:            running,
+		LastProcessedWorkspaceID:  service.automaticCartographer.lastProcessed.WorkspaceID,
+		LastProcessedWindowID:     service.automaticCartographer.lastProcessed.WindowID,
+		LastProcessedRunID:        service.automaticCartographer.lastProcessed.RunID,
+		LastProcessedAt:           service.automaticCartographer.lastProcessedAt,
+		LastFailure:               service.automaticCartographer.lastFailure,
+		CreatedSemanticEventIDs:   createdIDs,
 	}
 }
 
 func (service *Service) enrichCartographerProcessingState(ctx context.Context, state CartographerProcessingState) (CartographerProcessingState, error) {
+	settings, err := service.store.ReadSemanticCartographerSettings(ctx)
+	if err != nil {
+		return CartographerProcessingState{}, err
+	}
+	state.SettingsHash = settings.SettingsHash
+	state, err = service.enrichCartographerProcessingStateFromDurableHealth(ctx, state)
+	if err != nil {
+		return CartographerProcessingState{}, err
+	}
+	return service.enrichCartographerProcessingStateRunSummaries(ctx, state)
+}
+
+func (service *Service) enrichCartographerProcessingStateFromDurableHealth(ctx context.Context, state CartographerProcessingState) (CartographerProcessingState, error) {
 	health, err := service.store.ReadCartographerProcessingDurableHealth(ctx, timestamp(service.now()))
 	if err != nil {
 		return CartographerProcessingState{}, err
@@ -513,6 +527,15 @@ func (service *Service) enrichCartographerProcessingState(ctx context.Context, s
 	if err != nil {
 		return CartographerProcessingState{}, err
 	}
+	return cartographerProcessingStateWithDurableHealth(state, health, queued, running), nil
+}
+
+func cartographerProcessingStateWithDurableHealth(
+	state CartographerProcessingState,
+	health cartographerProcessingDurableHealth,
+	queued []CartographerProcessingQueueItem,
+	running []CartographerProcessingQueueItem,
+) CartographerProcessingState {
 	state.QueuedWindows = queued
 	state.RunningWindows = running
 	state.QueuedWindowCount = len(queued)
@@ -534,7 +557,63 @@ func (service *Service) enrichCartographerProcessingState(ctx context.Context, s
 	if state.LastFailure == nil {
 		state.LastFailure = health.LastFailure
 	}
+	return state
+}
+
+func (service *Service) enrichCartographerProcessingStateRunSummaries(ctx context.Context, state CartographerProcessingState) (CartographerProcessingState, error) {
+	processed, err := service.maybeCartographerProcessingRunAuditSummary(ctx, state.LastProcessedWorkspaceID, state.LastProcessedRunID)
+	if err != nil {
+		return CartographerProcessingState{}, err
+	}
+	state.LastProcessedRunSummary = processed
+	if state.LastFailure != nil {
+		failed, err := service.maybeCartographerProcessingRunAuditSummary(ctx, state.LastFailure.WorkspaceID, state.LastFailure.RunID)
+		if err != nil {
+			return CartographerProcessingState{}, err
+		}
+		state.LastFailureRunSummary = failed
+	}
 	return state, nil
+}
+
+func (service *Service) maybeCartographerProcessingRunAuditSummary(ctx context.Context, workspaceID string, runID string) (*CartographerProcessingRunAuditSummary, error) {
+	if workspaceID == "" || runID == "" {
+		return nil, nil
+	}
+	run, ok, err := service.store.ReadCartographerRun(ctx, workspaceID, runID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+	summary := cartographerProcessingRunAuditSummary(run)
+	return &summary, nil
+}
+
+func cartographerProcessingRunAuditSummary(run CartographerRun) CartographerProcessingRunAuditSummary {
+	return CartographerProcessingRunAuditSummary{
+		WorkspaceID:               run.WorkspaceID,
+		RunID:                     run.ID,
+		WindowID:                  run.WindowID,
+		Status:                    run.Status,
+		TaskProfile:               run.TaskProfile,
+		RequestedModelSelection:   run.RequestedModelSelection,
+		RequestedModel:            run.RequestedModel,
+		EffectiveModel:            run.EffectiveModel,
+		ReportedModel:             run.ReportedModel,
+		RequestedReasoningEffort:  run.RequestedReasoningEffort,
+		EffectiveReasoningEffort:  run.EffectiveReasoningEffort,
+		ReportedReasoningEffort:   run.ReportedReasoningEffort,
+		ReasoningEffortReported:   run.ReasoningEffortReported,
+		InputBundleBytes:          run.InputBundleBytes,
+		InputBundleCharacterCount: run.InputBundleCharacterCount,
+		CloseReason:               run.CloseReason,
+		HarnessDurationMS:         run.HarnessDurationMS,
+		TotalDurationMS:           run.TotalDurationMS,
+		CompletedAt:               run.CompletedAt,
+		Error:                     run.Error,
+	}
 }
 
 func (service *Service) cartographerProcessingQueueItems(ctx context.Context, windows []CartographerWindow) ([]CartographerProcessingQueueItem, error) {

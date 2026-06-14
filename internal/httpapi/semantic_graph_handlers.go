@@ -255,6 +255,66 @@ func (handler handler) processCartographerWindow(response http.ResponseWriter, r
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) readSemanticCartographerSettings(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ReadSemanticCartographerSettingsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	record, err := service.ReadSemanticCartographerSettings(request.Context())
+	if err != nil {
+		writeSemanticGraphError(response, "read_semantic_cartographer_settings_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, record)
+}
+
+func (handler handler) updateSemanticCartographerSettings(response http.ResponseWriter, request *http.Request) {
+	semanticService := requireSemanticGraphService(response, handler.semanticGraphService)
+	if semanticService == nil {
+		return
+	}
+	chatService := requireChatService(response, handler.chatService)
+	if chatService == nil {
+		return
+	}
+	var payload UpdateSemanticCartographerSettingsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	models, err := chatService.ListCodexModelOptions(payload.WorkspaceID)
+	if err != nil {
+		writeSemanticGraphError(response, "list_semantic_cartographer_model_options_failed", err)
+		return
+	}
+	record, err := semanticService.UpdateSemanticCartographerSettings(request.Context(), payload.Settings, models)
+	if err != nil {
+		writeSemanticGraphError(response, "update_semantic_cartographer_settings_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, record)
+}
+
+func (handler handler) listSemanticCartographerModelOptions(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ListSemanticCartographerModelOptionsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	models, err := service.ListCodexModelOptions(payload.WorkspaceID)
+	if err != nil {
+		writeSemanticGraphError(response, "list_semantic_cartographer_model_options_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, models)
+}
+
 func (handler handler) readCartographerProcessingState(response http.ResponseWriter, request *http.Request) {
 	service := requireSemanticGraphService(response, handler.semanticGraphService)
 	if service == nil {

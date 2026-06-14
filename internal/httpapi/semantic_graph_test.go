@@ -106,6 +106,226 @@ func TestCartographerReadAndReviewEndpoints(t *testing.T) {
 	assertHTTPCartographerRejectEndpoint(t, handler, workspaceID)
 }
 
+func TestSemanticCartographerSettingsEndpoints(t *testing.T) {
+	handler, semanticService := newSemanticGraphHandler(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	workspaceID := opened.Workspace.ID
+	seedHTTPSemanticReadFixture(t, semanticService, workspaceID)
+
+	initial := assertHTTPSemanticCartographerDefaultSettings(t, handler)
+	assertHTTPModelOptionsInclude(t, handler, workspaceID, "scripted-careful", chat.ReasoningEffortHigh)
+	providerDefaultUpdate := updateHTTPSemanticCartographerSettings(t, handler, workspaceID, initial, func(input *semanticgraph.SemanticCartographerSettingsInput) {
+		input.LiveTaskConfig.ModelSelection = semanticgraph.SemanticCartographerModelSelectionProviderDefault
+		input.LiveTaskConfig.ModelID = ""
+		input.LiveTaskConfig.ReasoningEffort = chat.ReasoningEffortLow
+	})
+	assertHTTPProviderDefaultCartographerSettingsAccepted(t, providerDefaultUpdate)
+	firstUpdate := updateHTTPSemanticCartographerSettings(t, handler, workspaceID, providerDefaultUpdate, func(input *semanticgraph.SemanticCartographerSettingsInput) {
+		input.AutomaticProcessingEnabled = false
+		input.LiveTaskConfig.ModelSelection = semanticgraph.SemanticCartographerModelSelectionExplicit
+		input.LiveTaskConfig.ModelID = "scripted-careful"
+		input.LiveTaskConfig.ReasoningEffort = chat.ReasoningEffortHigh
+		input.ProcessingConfig.MaxConcurrent = 3
+		input.ProcessingConfig.PerSourceConcurrent = 1
+		input.ProcessingConfig.MaxQueuedPerSource = 5
+		input.ProcessingConfig.LeaseDurationSeconds = 60
+	})
+
+	built := buildHTTPCartographerWindow(t, handler, workspaceID)
+	assertHTTPCartographerRunSnapshot(t, handler, workspaceID, built.Run.ID, firstUpdate.SettingsHash, "scripted-careful", chat.ReasoningEffortHigh)
+	secondUpdate := updateHTTPSemanticCartographerSettings(t, handler, workspaceID, firstUpdate, func(input *semanticgraph.SemanticCartographerSettingsInput) {
+		input.LiveTaskConfig.ModelID = "scripted-fast"
+		input.LiveTaskConfig.ReasoningEffort = chat.ReasoningEffortLow
+	})
+	assertHTTPCartographerRunSnapshot(t, handler, workspaceID, built.Run.ID, firstUpdate.SettingsHash, "scripted-careful", chat.ReasoningEffortHigh)
+	assertHTTPInvalidCartographerSettingsRejected(t, handler, workspaceID, secondUpdate)
+
+	seedHTTPFailedCartographerRun(t, semanticService, workspaceID, secondUpdate)
+	assertHTTPCartographerProcessingStateSummary(t, handler, secondUpdate)
+}
+
+func assertHTTPSemanticCartographerDefaultSettings(t *testing.T, handler http.Handler) semanticgraph.SemanticCartographerSettingsRecord {
+	t.Helper()
+	initial := postJSON[semanticgraph.SemanticCartographerSettingsRecord](t, handler, "/semantic-graph/cartographer/settings/read", ReadSemanticCartographerSettingsRequest{}, http.StatusOK)
+	if initial.SettingsHash == "" || initial.Settings.LiveTaskConfig.ReasoningEffort != chat.ReasoningEffortLow {
+		t.Fatalf("initial cartographer settings = %+v, want default low live reasoning and hash", initial)
+	}
+	return initial
+}
+
+func assertHTTPModelOptionsInclude(t *testing.T, handler http.Handler, workspaceID string, model string, effort chat.ReasoningEffort) {
+	t.Helper()
+	models := postJSON[[]chat.ChatModelOption](t, handler, "/semantic-graph/cartographer/model-options/list", ListSemanticCartographerModelOptionsRequest{
+		WorkspaceID: workspaceID,
+	}, http.StatusOK)
+	if !httpCartographerModelsContain(models, model, effort) {
+		t.Fatalf("cartographer model options = %+v, want %s with %s reasoning", models, model, effort)
+	}
+}
+
+func assertHTTPProviderDefaultCartographerSettingsAccepted(t *testing.T, updated semanticgraph.SemanticCartographerSettingsRecord) {
+	t.Helper()
+	if updated.Settings.LiveTaskConfig.ModelSelection != semanticgraph.SemanticCartographerModelSelectionProviderDefault ||
+		updated.Settings.LiveTaskConfig.ModelID != "" {
+		t.Fatalf("provider default cartographer settings = %+v, want no persisted fake model id", updated.Settings.LiveTaskConfig)
+	}
+}
+
+func updateHTTPSemanticCartographerSettings(
+	t *testing.T,
+	handler http.Handler,
+	workspaceID string,
+	current semanticgraph.SemanticCartographerSettingsRecord,
+	mutate func(*semanticgraph.SemanticCartographerSettingsInput),
+) semanticgraph.SemanticCartographerSettingsRecord {
+	t.Helper()
+	input := semanticgraph.SemanticCartographerSettingsInputFromSettings(current.Settings)
+	mutate(&input)
+	updated := postJSON[semanticgraph.SemanticCartographerSettingsRecord](t, handler, "/semantic-graph/cartographer/settings/update", UpdateSemanticCartographerSettingsRequest{
+		WorkspaceID: workspaceID,
+		Settings:    input,
+	}, http.StatusOK)
+	if updated.SettingsHash == current.SettingsHash || updated.Settings.UpdatedAt == "" {
+		t.Fatalf("updated cartographer settings = %+v, want new hash and update timestamp", updated)
+	}
+	return updated
+}
+
+func assertHTTPCartographerRunSnapshot(
+	t *testing.T,
+	handler http.Handler,
+	workspaceID string,
+	runID string,
+	settingsHash string,
+	model string,
+	reasoningEffort chat.ReasoningEffort,
+) {
+	t.Helper()
+	readQueued := postJSON[semanticgraph.CartographerRunReadResponse](t, handler, "/semantic-graph/cartographer/runs/read", ReadCartographerRunRequest{
+		WorkspaceID: workspaceID,
+		RunID:       runID,
+	}, http.StatusOK)
+	if readQueued.Run == nil ||
+		readQueued.Run.SettingsHash != settingsHash ||
+		readQueued.Run.RequestedModel != model ||
+		readQueued.Run.RequestedReasoningEffort != reasoningEffort {
+		t.Fatalf("queued cartographer run = %+v, want settings snapshot", readQueued.Run)
+	}
+}
+
+func assertHTTPInvalidCartographerSettingsRejected(t *testing.T, handler http.Handler, workspaceID string, current semanticgraph.SemanticCartographerSettingsRecord) {
+	t.Helper()
+	missingModelInput := semanticgraph.SemanticCartographerSettingsInputFromSettings(current.Settings)
+	missingModelInput.LiveTaskConfig.ModelSelection = semanticgraph.SemanticCartographerModelSelectionExplicit
+	missingModelInput.LiveTaskConfig.ModelID = "scripted-missing"
+	missingModelInput.LiveTaskConfig.ReasoningEffort = chat.ReasoningEffortLow
+	assertHTTPInvalidCartographerSettingsUpdate(t, handler, workspaceID, missingModelInput, `explicit model "scripted-missing" is absent`)
+
+	invalidInput := semanticgraph.SemanticCartographerSettingsInputFromSettings(current.Settings)
+	invalidInput.LiveTaskConfig.ReasoningEffort = chat.ReasoningEffortMinimal
+	assertHTTPInvalidCartographerSettingsUpdate(t, handler, workspaceID, invalidInput, "reasoningEffort minimal is unsupported")
+}
+
+func assertHTTPInvalidCartographerSettingsUpdate(t *testing.T, handler http.Handler, workspaceID string, input semanticgraph.SemanticCartographerSettingsInput, wantMessage string) {
+	t.Helper()
+	errResponse := postJSON[ErrorResponse](t, handler, "/semantic-graph/cartographer/settings/update", UpdateSemanticCartographerSettingsRequest{
+		WorkspaceID: workspaceID,
+		Settings:    input,
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != "update_semantic_cartographer_settings_failed" ||
+		!strings.Contains(errResponse.Error.Message, wantMessage) {
+		t.Fatalf("invalid settings response = %+v, want message containing %q", errResponse, wantMessage)
+	}
+}
+
+func assertHTTPCartographerProcessingStateSummary(t *testing.T, handler http.Handler, settings semanticgraph.SemanticCartographerSettingsRecord) {
+	t.Helper()
+	state := postJSON[semanticgraph.CartographerProcessingState](t, handler, "/semantic-graph/cartographer/processing/state", ReadCartographerProcessingStateRequest{}, http.StatusOK)
+	if state.SettingsHash != settings.SettingsHash ||
+		state.Enabled ||
+		state.EffectiveProcessingConfig.MaxConcurrent != 3 ||
+		state.LastFailureRunSummary == nil ||
+		state.LastFailureRunSummary.RunID != "cartographer_run_failed_http" ||
+		state.LastFailureRunSummary.RequestedModel != "scripted-fast" ||
+		state.LastFailureRunSummary.InputBundleBytes <= 0 ||
+		state.LastFailureRunSummary.HarnessDurationMS != 17 {
+		t.Fatalf("cartographer processing state = %+v, want settings hash/config and failed run audit summary", state)
+	}
+}
+
+func httpCartographerModelsContain(models []chat.ChatModelOption, model string, effort chat.ReasoningEffort) bool {
+	for _, option := range models {
+		if option.Model != model {
+			continue
+		}
+		for _, supported := range option.SupportedReasoningEfforts {
+			if supported.Effort == effort {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func seedHTTPFailedCartographerRun(t *testing.T, semanticService *semanticgraph.Service, workspaceID string, settings semanticgraph.SemanticCartographerSettingsRecord) {
+	t.Helper()
+	sourceRefs := semanticgraph.SemanticContextSourceRefs{WorkflowExecutionID: "execution_scope"}
+	input := semanticgraph.CartographerInputBundle{
+		WorkspaceID:    workspaceID,
+		TriggerKind:    semanticgraph.CartographerTriggerManual,
+		SourceRefs:     sourceRefs,
+		TargetEntityID: "node_scope",
+		WindowID:       "cartographer_window_failed_http",
+		NewEvents: []semanticgraph.CartographerTrajectoryEvent{{
+			Source:      semanticgraph.CartographerTrajectorySourceWorkflow,
+			EventID:     "workflow_events:cartographer_failed_http",
+			Type:        "workflow.node.completed",
+			OccurredAt:  "2026-06-10T20:02:00Z",
+			SourceRefs:  sourceRefs,
+			Summary:     "Workflow node completed before cartographer failure.",
+			Boundary:    true,
+			CloseReason: semanticgraph.CartographerCloseManual,
+		}},
+		ObservedEventRefs: []string{"workflow_events:cartographer_failed_http"},
+		TokenBudget:       120,
+	}
+	run := semanticgraph.CartographerRun{
+		ID:                       "cartographer_run_failed_http",
+		WorkspaceID:              workspaceID,
+		Status:                   semanticgraph.CartographerRunFailed,
+		TriggerKind:              semanticgraph.CartographerTriggerManual,
+		TargetEntityID:           "node_scope",
+		SourceRefs:               sourceRefs,
+		InputBundle:              input,
+		HarnessKind:              "scripted",
+		SettingsHash:             settings.SettingsHash,
+		TaskProfile:              semanticgraph.CartographerTaskProfileManual,
+		RequestedModelSelection:  settings.Settings.LiveTaskConfig.ModelSelection,
+		RequestedModel:           settings.Settings.LiveTaskConfig.ModelID,
+		EffectiveModel:           settings.Settings.LiveTaskConfig.ModelID,
+		ReportedModel:            "scripted-fast-reported",
+		RequestedReasoningEffort: settings.Settings.LiveTaskConfig.ReasoningEffort,
+		EffectiveReasoningEffort: string(settings.Settings.LiveTaskConfig.ReasoningEffort),
+		RequestID:                "request_cartographer_failed_http",
+		ResponseID:               "response_cartographer_failed_http",
+		WindowID:                 "cartographer_window_failed_http",
+		SourceEpochID:            "cartographer_window_failed_http",
+		SourceKey:                workspaceID + ":manual:cartographer_failed_http",
+		Priority:                 100,
+		AttemptCount:             1,
+		CloseReason:              semanticgraph.CartographerCloseManual,
+		HarnessDurationMS:        17,
+		CreatedAt:                "2026-06-10T20:01:00Z",
+		StartedAt:                "2026-06-10T20:02:00Z",
+		CompletedAt:              "2026-06-10T20:03:00Z",
+		UpdatedAt:                "2026-06-10T20:03:00Z",
+		Error:                    "input bundle exceeded Codex turn limit",
+	}
+	if _, err := semanticService.SaveCartographerRun(context.Background(), run); err != nil {
+		t.Fatalf("save failed cartographer run: %v", err)
+	}
+}
+
 func buildHTTPCartographerWindow(t *testing.T, handler http.Handler, workspaceID string) semanticgraph.CartographerWindowBuildResult {
 	t.Helper()
 	built := postJSON[semanticgraph.CartographerWindowBuildResult](t, handler, "/semantic-graph/cartographer/windows/build", BuildCartographerWindowRequest{
@@ -799,8 +1019,17 @@ func newSemanticGraphHandlerWithOptions(t *testing.T, options ...semanticgraph.O
 	if err != nil {
 		t.Fatalf("new semantic graph service: %v", err)
 	}
+	chatStore, err := chat.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("new chat store: %v", err)
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewFakeHarness(nil))
+	if err != nil {
+		t.Fatalf("new chat service: %v", err)
+	}
 	return NewHandler(HandlerConfig{
 		Metadata:             BackendMetadata{Name: BackendName, Version: "test"},
+		ChatService:          chatService,
 		SemanticGraphService: semanticService,
 		WorkspaceService:     workspaceService,
 	}), semanticService

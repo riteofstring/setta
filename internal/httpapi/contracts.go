@@ -452,6 +452,17 @@ type ProcessCartographerWindowRequest struct {
 	WindowID    string `json:"windowId"`
 }
 
+type ReadSemanticCartographerSettingsRequest struct{}
+
+type UpdateSemanticCartographerSettingsRequest struct {
+	WorkspaceID string                                          `json:"workspaceId"`
+	Settings    semanticgraph.SemanticCartographerSettingsInput `json:"settings"`
+}
+
+type ListSemanticCartographerModelOptionsRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
 type ReadCartographerProcessingStateRequest struct{}
 
 type ReadCartographerRunRequest struct {

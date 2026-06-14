@@ -24,6 +24,7 @@ import type {
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
+  ChatModelOption,
   CodexAccountState,
   Conversation,
   ConversationListItem,
@@ -42,6 +43,7 @@ import type {
   ListCartographerPatchesRequest,
   ListCartographerRunsRequest,
   ListCartographerWindowsRequest,
+  ListSemanticCartographerModelOptionsRequest,
   ListConversationsResponse,
   ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
@@ -54,6 +56,7 @@ import type {
   QueueMessageResult,
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
+  ReadSemanticCartographerSettingsRequest,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
@@ -79,6 +82,7 @@ import type {
   SemanticActivityPage,
   SemanticActivitySummary,
   SemanticAttachmentResult,
+  SemanticCartographerSettingsRecord,
   SemanticContextPackList,
   SemanticContextPackReadResponse,
   SemanticEdgeOperationRequest,
@@ -104,6 +108,7 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateSemanticCartographerSettingsRequest,
   UpdateSemanticEdgeRequest,
   UpdateSemanticLayoutPositionsRequest,
   UpdateSemanticNodeRequest,
@@ -495,6 +500,15 @@ export interface SettaAPI {
     readCartographerProcessingState: (
       request: ReadCartographerProcessingStateRequest,
     ) => Promise<CartographerProcessingState>;
+    readCartographerSettings: (
+      request: ReadSemanticCartographerSettingsRequest,
+    ) => Promise<SemanticCartographerSettingsRecord>;
+    updateCartographerSettings: (
+      request: UpdateSemanticCartographerSettingsRequest,
+    ) => Promise<SemanticCartographerSettingsRecord>;
+    listCartographerModelOptions: (
+      request: ListSemanticCartographerModelOptionsRequest,
+    ) => Promise<ChatModelOption[]>;
     listCartographerCursors: (
       request: ListCartographerCursorsRequest,
     ) => Promise<CartographerCursorList>;

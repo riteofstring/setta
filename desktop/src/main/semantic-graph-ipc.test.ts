@@ -34,6 +34,9 @@ describe("semantic graph IPC handlers", () => {
     await invoke(handlers, ipcChannels.semanticGraphCartographerPatchReject, request);
     await invoke(handlers, ipcChannels.semanticGraphCartographerWindowProcess, request);
     await invoke(handlers, ipcChannels.semanticGraphCartographerProcessingState, request);
+    await invoke(handlers, ipcChannels.semanticGraphCartographerSettingsRead, request);
+    await invoke(handlers, ipcChannels.semanticGraphCartographerSettingsUpdate, request);
+    await invoke(handlers, ipcChannels.semanticGraphCartographerModelOptionsList, request);
     await invoke(handlers, ipcChannels.semanticGraphRenameNode, request);
     await invoke(handlers, ipcChannels.semanticGraphUpdateNode, request);
     await invoke(handlers, ipcChannels.semanticGraphDismissNode, request);
@@ -60,6 +63,9 @@ describe("semantic graph IPC handlers", () => {
     expect(backend.rejectCartographerPatch).toHaveBeenCalledWith(request);
     expect(backend.processCartographerWindow).toHaveBeenCalledWith(request);
     expect(backend.readCartographerProcessingState).toHaveBeenCalledWith(request);
+    expect(backend.readSemanticCartographerSettings).toHaveBeenCalledWith(request);
+    expect(backend.updateSemanticCartographerSettings).toHaveBeenCalledWith(request);
+    expect(backend.listSemanticCartographerModelOptions).toHaveBeenCalledWith(request);
     expect(backend.renameSemanticNode).toHaveBeenCalledWith(request);
     expect(backend.updateSemanticNode).toHaveBeenCalledWith(request);
     expect(backend.dismissSemanticNode).toHaveBeenCalledWith(request);
@@ -93,6 +99,9 @@ function semanticBackendClient() {
     buildCartographerWindow: vi.fn(async () => ({})),
     processCartographerWindow: vi.fn(async () => ({})),
     readCartographerProcessingState: vi.fn(async () => ({})),
+    readSemanticCartographerSettings: vi.fn(async () => ({})),
+    updateSemanticCartographerSettings: vi.fn(async () => ({})),
+    listSemanticCartographerModelOptions: vi.fn(async () => []),
     createSemanticEdge: vi.fn(async () => ({})),
     createSemanticNode: vi.fn(async () => ({})),
     createSemanticSteeringDirective: vi.fn(async () => ({})),

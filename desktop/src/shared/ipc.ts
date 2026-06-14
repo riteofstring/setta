@@ -25,6 +25,7 @@ import type {
   CartographerWindowProcessResult,
   ChatCommandExecuteResult,
   ChatCommandListResult,
+  ChatModelOption,
   CodexAccountState,
   Conversation,
   ConversationListItem,
@@ -45,6 +46,7 @@ import type {
   ListCartographerWindowsRequest,
   ListConversationsResponse,
   ListSemanticContextPacksRequest,
+  ListSemanticCartographerModelOptionsRequest,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
   MergeSemanticNodesRequest,
@@ -55,6 +57,7 @@ import type {
   QueueMessageResult,
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
+  ReadSemanticCartographerSettingsRequest,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
@@ -84,6 +87,7 @@ import type {
   SemanticAttachmentResult,
   SemanticContextPackList,
   SemanticContextPackReadResponse,
+  SemanticCartographerSettingsRecord,
   SemanticEdgeOperationRequest,
   SemanticEventHistory,
   SemanticEvidenceList,
@@ -103,6 +107,7 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateSemanticCartographerSettingsRequest,
   UpdateSemanticEdgeRequest,
   UpdateSemanticLayoutPositionsRequest,
   UpdateSemanticNodeRequest,
@@ -186,12 +191,15 @@ export const ipcChannels = {
   semanticGraphAttachWorkflowExecution: "semantic-graph:attach-workflow-execution",
   semanticGraphAttachWorkflowNode: "semantic-graph:attach-workflow-node",
   semanticGraphCartographerCursorList: "semantic-graph:cartographer-cursor-list",
+  semanticGraphCartographerModelOptionsList: "semantic-graph:cartographer-model-options-list",
   semanticGraphCartographerPatchAccept: "semantic-graph:cartographer-patch-accept",
   semanticGraphCartographerPatchList: "semantic-graph:cartographer-patch-list",
   semanticGraphCartographerPatchReject: "semantic-graph:cartographer-patch-reject",
   semanticGraphCartographerProcessingState: "semantic-graph:cartographer-processing-state",
   semanticGraphCartographerRunList: "semantic-graph:cartographer-run-list",
   semanticGraphCartographerRunRead: "semantic-graph:cartographer-run-read",
+  semanticGraphCartographerSettingsRead: "semantic-graph:cartographer-settings-read",
+  semanticGraphCartographerSettingsUpdate: "semantic-graph:cartographer-settings-update",
   semanticGraphCartographerWindowBuild: "semantic-graph:cartographer-window-build",
   semanticGraphCartographerWindowProcess: "semantic-graph:cartographer-window-process",
   semanticGraphCartographerWindowList: "semantic-graph:cartographer-window-list",
@@ -489,6 +497,10 @@ interface IpcContract {
     args: [request: ListCartographerCursorsRequest];
     result: CartographerCursorList;
   };
+  semanticGraphCartographerModelOptionsList: {
+    args: [request: ListSemanticCartographerModelOptionsRequest];
+    result: ChatModelOption[];
+  };
   semanticGraphCartographerPatchAccept: {
     args: [request: ReviewCartographerPatchRequest];
     result: CartographerPatchReviewResult;
@@ -512,6 +524,14 @@ interface IpcContract {
   semanticGraphCartographerRunRead: {
     args: [request: ReadCartographerRunRequest];
     result: CartographerRunReadResponse;
+  };
+  semanticGraphCartographerSettingsRead: {
+    args: [request: ReadSemanticCartographerSettingsRequest];
+    result: SemanticCartographerSettingsRecord;
+  };
+  semanticGraphCartographerSettingsUpdate: {
+    args: [request: UpdateSemanticCartographerSettingsRequest];
+    result: SemanticCartographerSettingsRecord;
   };
   semanticGraphCartographerWindowBuild: {
     args: [request: BuildCartographerWindowRequest];

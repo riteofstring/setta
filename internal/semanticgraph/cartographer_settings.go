@@ -77,6 +77,15 @@ type SemanticCartographerSettingsRecord struct {
 	UpdatedAt    string                       `json:"updatedAt"`
 }
 
+type SemanticCartographerSettingsInput struct {
+	AutomaticProcessingEnabled bool                                  `json:"automaticProcessingEnabled"`
+	LiveTaskConfig             SemanticCartographerTaskConfig        `json:"liveTaskConfig"`
+	FinalSynthesisTaskConfig   SemanticCartographerTaskConfig        `json:"finalSynthesisTaskConfig"`
+	ProcessingConfig           SemanticCartographerProcessingConfig  `json:"processingConfig"`
+	ObservationConfig          SemanticCartographerObservationConfig `json:"observationConfig"`
+	AuditConfig                SemanticCartographerAuditConfig       `json:"auditConfig"`
+}
+
 func DefaultSemanticCartographerSettings(updatedAt string) SemanticCartographerSettings {
 	observation := DefaultCartographerObservationConfig()
 	processing := normalizeAutomaticCartographerProcessingConfig(AutomaticCartographerProcessingConfig{})
@@ -114,6 +123,30 @@ func DefaultSemanticCartographerSettings(updatedAt string) SemanticCartographerS
 			CaptureLevel: SemanticCartographerAuditCaptureStandard,
 		},
 		UpdatedAt: updatedAt,
+	}
+}
+
+func SemanticCartographerSettingsInputFromSettings(settings SemanticCartographerSettings) SemanticCartographerSettingsInput {
+	return SemanticCartographerSettingsInput{
+		AutomaticProcessingEnabled: settings.AutomaticProcessingEnabled,
+		LiveTaskConfig:             settings.LiveTaskConfig,
+		FinalSynthesisTaskConfig:   settings.FinalSynthesisTaskConfig,
+		ProcessingConfig:           settings.ProcessingConfig,
+		ObservationConfig:          settings.ObservationConfig,
+		AuditConfig:                settings.AuditConfig,
+	}
+}
+
+func SemanticCartographerSettingsFromInput(input SemanticCartographerSettingsInput, updatedAt string) SemanticCartographerSettings {
+	return SemanticCartographerSettings{
+		SchemaVersion:              semanticCartographerSettingsSchemaVersion,
+		AutomaticProcessingEnabled: input.AutomaticProcessingEnabled,
+		LiveTaskConfig:             input.LiveTaskConfig,
+		FinalSynthesisTaskConfig:   input.FinalSynthesisTaskConfig,
+		ProcessingConfig:           input.ProcessingConfig,
+		ObservationConfig:          input.ObservationConfig,
+		AuditConfig:                input.AuditConfig,
+		UpdatedAt:                  updatedAt,
 	}
 }
 
@@ -375,6 +408,15 @@ func decodeSemanticCartographerSettings(settingsJSON string) (SemanticCartograph
 
 func (config SemanticCartographerProcessingConfig) automaticCartographerProcessingConfig() AutomaticCartographerProcessingConfig {
 	return AutomaticCartographerProcessingConfig{
+		MaxConcurrent:        config.MaxConcurrent,
+		PerSourceConcurrent:  config.PerSourceConcurrent,
+		LeaseDurationSeconds: config.LeaseDurationSeconds,
+		MaxQueuedPerSource:   config.MaxQueuedPerSource,
+	}
+}
+
+func semanticCartographerProcessingConfigFromAutomatic(config AutomaticCartographerProcessingConfig) SemanticCartographerProcessingConfig {
+	return SemanticCartographerProcessingConfig{
 		MaxConcurrent:        config.MaxConcurrent,
 		PerSourceConcurrent:  config.PerSourceConcurrent,
 		LeaseDurationSeconds: config.LeaseDurationSeconds,

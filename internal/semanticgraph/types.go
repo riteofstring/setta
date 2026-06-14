@@ -292,6 +292,11 @@ var (
 		SemanticCartographerModelSelectionProviderDefault,
 		SemanticCartographerModelSelectionExplicit,
 	}
+	semanticCartographerAuditCaptureLevelValues = []SemanticCartographerAuditCaptureLevel{
+		SemanticCartographerAuditCaptureMinimal,
+		SemanticCartographerAuditCaptureStandard,
+		SemanticCartographerAuditCaptureDebug,
+	}
 	cartographerWindowStatusValues = []CartographerWindowStatus{
 		CartographerWindowOpen,
 		CartographerWindowClosed,
@@ -391,6 +396,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "CartographerRunTriggerKind", Values: stringValues(cartographerRunTriggerKindValues)},
 		{Name: "CartographerTaskProfile", Values: stringValues(cartographerTaskProfileValues)},
 		{Name: "SemanticCartographerModelSelection", Values: stringValues(semanticCartographerModelSelectionValues)},
+		{Name: "SemanticCartographerAuditCaptureLevel", Values: stringValues(semanticCartographerAuditCaptureLevelValues)},
 		{Name: "CartographerWindowStatus", Values: stringValues(cartographerWindowStatusValues)},
 		{Name: "CartographerSourceKind", Values: stringValues(cartographerSourceKindValues)},
 		{Name: "CartographerPatchStatus", Values: stringValues(cartographerPatchStatusValues)},

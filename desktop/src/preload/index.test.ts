@@ -1,7 +1,12 @@
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { ChatEvent, TerminalEvent, UpdateAppearanceSettingsRequest } from "@generated/backend";
+import type {
+  ChatEvent,
+  SemanticCartographerSettingsInput,
+  TerminalEvent,
+  UpdateAppearanceSettingsRequest,
+} from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
 
 async function exposePreloadAPI({
@@ -532,6 +537,7 @@ describe("preload workspace API", () => {
       "listActivity",
       "listActivityPage",
       "listCartographerCursors",
+      "listCartographerModelOptions",
       "listCartographerPatches",
       "listCartographerRuns",
       "listCartographerWindows",
@@ -545,6 +551,7 @@ describe("preload workspace API", () => {
       "readActivitySummary",
       "readCartographerProcessingState",
       "readCartographerRun",
+      "readCartographerSettings",
       "readContextPack",
       "readEventHistory",
       "readNodeDetail",
@@ -553,6 +560,7 @@ describe("preload workspace API", () => {
       "removeEdge",
       "renameNode",
       "splitNode",
+      "updateCartographerSettings",
       "updateEdge",
       "updateLayoutPositions",
       "updateNode",
@@ -570,6 +578,37 @@ describe("preload workspace API", () => {
       workflowNodeExecutionId: "",
       workflowNodeId: "",
     };
+    const cartographerSettingsInput = {
+      automaticProcessingEnabled: true,
+      liveTaskConfig: {
+        modelSelection: "provider_default",
+        modelId: "",
+        reasoningEffort: "low",
+        inputBudget: 6000,
+      },
+      finalSynthesisTaskConfig: {
+        modelSelection: "provider_default",
+        modelId: "",
+        reasoningEffort: "medium",
+        inputBudget: 12000,
+      },
+      processingConfig: {
+        maxConcurrent: 2,
+        perSourceConcurrent: 1,
+        maxQueuedPerSource: 8,
+        leaseDurationSeconds: 600,
+      },
+      observationConfig: {
+        maxWindowEvents: 24,
+        maxWindowContentBytes: 8192,
+        assistantThresholdBytes: 4096,
+        outputThresholdBytes: 4096,
+        priorSummaryLimit: 8,
+        tokenBudget: 6000,
+        quietCloseAfterSeconds: 120,
+      },
+      auditConfig: { captureLevel: "standard" },
+    } satisfies SemanticCartographerSettingsInput;
     await api.semanticGraph.read({ workspaceId });
     await api.semanticGraph.readNodeDetail({ nodeId: "node_api", workspaceId });
     await api.semanticGraph.listEvidence({ targetEntityId: "node_api", workspaceId });
@@ -615,6 +654,12 @@ describe("preload workspace API", () => {
       runId: "cartographer_run_api",
       workspaceId,
     });
+    await api.semanticGraph.readCartographerSettings({});
+    await api.semanticGraph.updateCartographerSettings({
+      settings: cartographerSettingsInput,
+      workspaceId,
+    });
+    await api.semanticGraph.listCartographerModelOptions({ workspaceId });
     await api.semanticGraph.listCartographerRuns({
       chatRunId: "",
       limit: 10,
@@ -901,6 +946,15 @@ describe("preload workspace API", () => {
           workspaceId,
         },
       ],
+      [ipcChannels.semanticGraphCartographerSettingsRead, {}],
+      [
+        ipcChannels.semanticGraphCartographerSettingsUpdate,
+        {
+          settings: cartographerSettingsInput,
+          workspaceId,
+        },
+      ],
+      [ipcChannels.semanticGraphCartographerModelOptionsList, { workspaceId }],
       [
         ipcChannels.semanticGraphCartographerRunList,
         {

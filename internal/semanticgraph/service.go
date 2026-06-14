@@ -79,8 +79,20 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 
 func (service *Service) applySemanticCartographerSettingsDefaults(settings SemanticCartographerSettings) {
 	service.cartographerConfig = settings.ObservationConfig.cartographerObservationConfig()
+	var cancel context.CancelFunc
+	service.automaticCartographerMu.Lock()
 	service.automaticCartographer.enabled = settings.AutomaticProcessingEnabled
 	service.automaticCartographer.config = settings.ProcessingConfig.automaticCartographerProcessingConfig()
+	if !settings.AutomaticProcessingEnabled {
+		cancel = service.automaticCartographer.cancel
+		service.automaticCartographer.cancel = nil
+		service.automaticCartographer.ctx = nil
+		service.automaticCartographer.started = false
+	}
+	service.automaticCartographerMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func WithIDGenerator(newID IDGenerator) Option {

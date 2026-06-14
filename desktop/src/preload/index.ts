@@ -235,12 +235,17 @@ const api: SettaAPI = {
       invoke("semanticGraphCartographerWindowProcess", request),
     readCartographerProcessingState: (request) =>
       invoke("semanticGraphCartographerProcessingState", request),
+    readCartographerSettings: (request) => invoke("semanticGraphCartographerSettingsRead", request),
+    updateCartographerSettings: (request) =>
+      invoke("semanticGraphCartographerSettingsUpdate", request),
     createEdge: (request) => invoke("semanticGraphCreateEdge", request),
     createNode: (request) => invoke("semanticGraphCreateNode", request),
     createSteeringDirective: (request) => invoke("semanticGraphCreateSteeringDirective", request),
     dismissNode: (request) => invoke("semanticGraphDismissNode", request),
     endActivity: (request) => invoke("semanticGraphActivityEnd", request),
     listCartographerCursors: (request) => invoke("semanticGraphCartographerCursorList", request),
+    listCartographerModelOptions: (request) =>
+      invoke("semanticGraphCartographerModelOptionsList", request),
     listCartographerPatches: (request) => invoke("semanticGraphCartographerPatchList", request),
     listCartographerRuns: (request) => invoke("semanticGraphCartographerRunList", request),
     listCartographerWindows: (request) => invoke("semanticGraphCartographerWindowList", request),
