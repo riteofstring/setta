@@ -1,7 +1,7 @@
 # Semantic Cartographer Usefulness Plan
 
 - **Date:** June 14, 2026
-- **Status:** Proposed long-term refactor
+- **Status:** Phase 1 implemented; Phase 2 ready next
 - **Scope:** Make semantic cartography produce useful, connected, inspectable work memory from real workflow runs.
 - **Related docs:**
   - `docs/plans/setta_semantic_work_graph_plan.md`
@@ -142,6 +142,53 @@ A successful run should usually leave behind:
    Keep SQLite event/projection truth, Go-owned contracts, generated TypeScript,
    the shared harness abstraction, and the current Pixi surface unless real
    usage later proves a heavier dependency is necessary.
+
+## Current Implementation Status
+
+Phase 1 has been implemented in commit `803dbda9d` (`Stabilize semantic
+cartographer lifecycle`). The implementation uses cartographer run/window
+records as the durable queue projection: queued/running state, source epoch id,
+source key, priority, lease owner/deadline, attempt count, terminal statuses,
+durable health, and regenerated backend contracts now live in the Go-owned
+model.
+
+This satisfies the lifecycle prerequisite for Phase 2:
+
+- Expired running leases are recovered on startup and idle wait instead of
+  depending on an in-memory slice.
+- Workflow terminal events enqueue a high-priority `workflow_done` pass and
+  supersede queued windows for the same run.
+- Per-source queue caps supersede old queued windows before they create an
+  unbounded backlog.
+- Empty envelopes end as `completed_noop`; failures, rejections,
+  cancellations, abandoned work, and supersessions are audit-visible terminal
+  states.
+- The processing state API reports durable queued/running counts, stale leases,
+  no-op/failure/supersession counts, pending-review counts, last processed
+  work, and concurrency guidance.
+
+Verification during the Phase 1 review:
+
+```text
+./scripts/go.sh test -count=1 ./internal/semanticgraph
+pnpm -C desktop build
+node desktop/tests/electron/run-workflows.mjs --workflow semantic-graph
+node desktop/tests/electron/run-workflows.mjs --workflow semantic-cartographer-auto
+```
+
+Phase 2 is ready to implement. Keep it scoped to replacing cartographer input
+classification and extraction with typed observation records/projections. Do
+not fold Phase 3 epoch queueing or Phase 4 source-link rendering into Phase 2
+except where typed observation fields are needed by later phases. The remaining
+usefulness problems, especially vague nodes, missing visible connections, and
+details discoverability, are intentionally left to Phases 3 through 6; Phase 1
+only makes the processing substrate reliable enough to build on.
+
+Lease recovery is deadline-based: a crashed-but-unexpired lease is not
+recoverable until its lease deadline. Treat lease duration/owner-staleness as
+future lifecycle tuning only if deterministic traces show it still affects
+throughput. Do not raise worker concurrency as a substitute for typed
+observations, epoch volume reduction, or correct lease recovery.
 
 ## Target Architecture
 
@@ -514,7 +561,7 @@ not treat deterministic harness results as provider proof.
 
 ## Phased Implementation
 
-### Phase 1: Stabilize Process Lifecycle
+### Phase 1: Stabilize Process Lifecycle (implemented)
 
 Goal: stop creating stale pending/running cartographer work.
 
@@ -539,7 +586,7 @@ idle means durable queue is terminal
 cartographer health explains what happened
 ```
 
-### Phase 2: Replace Text Heuristics With Typed Observations
+### Phase 2: Replace Text Heuristics With Typed Observations (ready next)
 
 Goal: make cartographer inputs trustworthy.
 
