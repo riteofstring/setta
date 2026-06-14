@@ -922,7 +922,7 @@ Implementation note:
 
 ## Phase 8 - Recording and Debug Integration
 
-Phase 8 is ready to implement now that Phase 7 persists requested input budget,
+Phase 8 was implemented after Phase 7 persisted requested input budget,
 serialized input size, and truncation/compaction metadata in the cartographer
 run audit.
 
@@ -961,7 +961,30 @@ diff before/after runs without scraping display text. Do not add compatibility
 aliases for old recording field names; recordings should follow the current
 generated backend contract.
 
+Implementation note:
+
+- Phase 8 added a structured renderer-side cartographer audit recording snapshot
+  with `schemaVersion: 1`.
+- The snapshot includes current settings, processing state, recent runs,
+  failed/no-op/applied run groups, model/reasoning audit summaries, final
+  synthesis budget summaries, input item counts, truncation metadata,
+  diagnostics, queue timing, harness timing, and runtime health.
+- The Settings -> Cartographer store emits snapshots on settings refresh/save.
+- Workflow graph debug mode now shows a compact `Cartographer Health` panel and
+  emits snapshots when debug opens or refreshes. The panel includes recent
+  `workflow_done` final synthesis budget outcomes so recordings can distinguish
+  within-budget, compacted-to-fit, not-measured, and pre-harness
+  `input_budget_exceeded` runs.
+- The preload recorder listens for the cartographer audit snapshot event and
+  records it as a structured `cartographer_audit_snapshot` renderer event.
+
 ## Phase 9 - Verification
+
+Phase 9 is a closure checklist, not a separate implementation phase. The
+settings/audit plan has no remaining product or architecture decisions after
+Phase 8. Move the next feature work to
+`docs/plans/workspace_graph_performance_semantic_liveness_plan.md`, and use the
+checks below as release/readiness gates when needed.
 
 Focused backend checks: `./scripts/go.sh test -count=1 ./internal/semanticgraph`,
 `./scripts/go.sh test -count=1 ./internal/httpapi`, and
@@ -981,6 +1004,20 @@ If local ChatGPT auth is available, run the live Codex E2E flow that exercises
 semantic cartographer configuration; do not use `OPENAI_API_KEY`.
 Before implementation commits that change executable code, contracts, generated
 outputs, or tests, run `./scripts/format.sh` and `./check_quality.sh --all`.
+
+Implementation note:
+
+- Phase 9 focused checks were run after Phase 8 review:
+  `./scripts/go.sh test -count=1 ./internal/semanticgraph ./internal/httpapi ./internal/chat`,
+  `pnpm -C desktop exec vitest run src/renderer/src/lib/semantic-cartographer-recording.test.ts src/renderer/src/features/workspace-graph/workflow-graph-toolbar.test.ts`,
+  `pnpm -C desktop exec vitest run src/renderer/src/stores/semantic-cartographer-settings-store.test.ts src/renderer/src/components/settings-panel.test.tsx`,
+  `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts`,
+  `pnpm -C desktop typecheck`, and `pnpm -C desktop build`.
+- Live Codex verification remains optional and depends on local ChatGPT auth.
+- Full `./check_quality.sh --all` remains the broad pre-implementation-commit
+  gate for future executable changes, but there is no standalone Phase 9
+  feature work to implement before starting the workspace graph performance and
+  semantic liveness plan.
 
 ## Open Decisions
 
