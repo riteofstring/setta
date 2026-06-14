@@ -1,7 +1,7 @@
 # Workspace Graph Performance and Semantic Liveness Plan
 
 - **Date:** June 15, 2026
-- **Status:** Phase 6 complete; Phase 7 ready
+- **Status:** Phase 7 complete; Phase 8 ready
 - **Scope:** Diagnose and fix workspace graph pan/zoom/interaction performance, then make the semantic cartographer feel live and useful during real workflow runs.
 - **Related docs:**
   - `docs/plans/living_workspace_neon_redesign_plan.md`
@@ -568,7 +568,42 @@ phase.
 
 This phase should make interaction valuable even when the graph is small.
 
+### Phase 7 Implementation Review
+
+Phase 7 is implemented. Semantic node inspection now loads node detail,
+targeted event history, and the semantic working set together so the details
+pane can explain why a node exists, show newest evidence, source refs, related
+nodes, cartographer patch provenance, live status for active cartographer work,
+and a compact recent-changes strip. The existing cartographer details remain
+available below the usefulness summary, including review actions for pending
+patches.
+
+The renderer now highlights semantic relationship edges incident to hovered or
+selected nodes, including semantic source-link edges that connect workflow
+sources to semantic cells. The implementation reuses the existing Pixi edge
+highlight layer and materialized-scene visibility checks instead of adding React
+graph state.
+
+The deterministic semantic graph Electron workflow now opens a semantic node
+details pane, verifies the usefulness summary, verifies live working-set status
+for the selected node, exercises cartographer review from the details pane, and
+continues to verify reload/layout persistence. Focused verification passed:
+
+- `pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-node-details-surface.test.tsx src/renderer/src/features/workspace-graph/pixi-renderer-edge-rendering.test.js`
+- `pnpm --dir desktop run build`
+- `node desktop/tests/electron/semantic-graph-workflow.test.mjs --skip-build`
+
 ## Phase 8 - Verification Gates
+
+Readiness gate: Phase 8 is ready to implement. Phases 0-7 have added the
+performance instrumentation, renderer architecture, working-set liveness
+substrate, deterministic pulses, semantic quality safeguards, and details-pane
+usefulness features that the gates should now verify. Phase 8 should convert
+the accumulated report-only workflows into durable performance and semantic
+liveness guardrails through production Electron/main/preload/renderer/HTTP/store
+paths. Keep budgets calibrated and report-backed; if a local threshold is still
+too noisy, record the variance and start with a report-only assertion rather
+than inventing an unmeasured budget.
 
 ### Performance Gate
 
@@ -622,8 +657,8 @@ Because this touches workflow, cartographer, event streaming, generated contract
 6. Complete: add the semantic working-set contract and renderer projection.
 7. Complete: add deterministic activity/change pulses.
 8. Complete: fix semantic evidence idempotency and usefulness diagnostics.
-9. Next: add semantic details/highlight polish.
-10. Promote calibrated performance and liveness checks into gates.
+9. Complete: add semantic details/highlight polish.
+10. Next: promote calibrated performance and liveness checks into gates.
 
 ## Non-Goals
 
