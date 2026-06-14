@@ -1,7 +1,7 @@
 # Semantic Cartographer Usefulness Plan
 
 - **Date:** June 14, 2026
-- **Status:** Phase 1 implemented; Phase 2 ready next
+- **Status:** Phases 1-2 implemented; Phase 3 ready next
 - **Scope:** Make semantic cartography produce useful, connected, inspectable work memory from real workflow runs.
 - **Related docs:**
   - `docs/plans/setta_semantic_work_graph_plan.md`
@@ -176,13 +176,42 @@ node desktop/tests/electron/run-workflows.mjs --workflow semantic-graph
 node desktop/tests/electron/run-workflows.mjs --workflow semantic-cartographer-auto
 ```
 
-Phase 2 is ready to implement. Keep it scoped to replacing cartographer input
-classification and extraction with typed observation records/projections. Do
-not fold Phase 3 epoch queueing or Phase 4 source-link rendering into Phase 2
-except where typed observation fields are needed by later phases. The remaining
-usefulness problems, especially vague nodes, missing visible connections, and
-details discoverability, are intentionally left to Phases 3 through 6; Phase 1
-only makes the processing substrate reliable enough to build on.
+Phase 2 has been implemented in commit `4b1e566de` (`Implement semantic
+cartographer phase 2`). Cartographer inputs now carry typed observation records
+derived from chat/workflow/run item fields, prompt and assistant text are routed
+by message role/status instead of summary substrings, run item observations
+carry command/file/test metadata, and generated backend TypeScript contracts
+include the new observation surfaces.
+
+This satisfies the input-trust prerequisite for Phase 3:
+
+- Prompt text containing the word "assistant" and assistant text containing the
+  word "prompt" no longer cross-contaminate prompt/assistant aggregates.
+- Command, file-change, diff, and test observations preserve typed run item
+  refs and source metadata for later evidence/source-link validation.
+- Observation records are persisted inside cartographer input bundles and
+  counted in cartographer run audit metadata.
+- Evidence ref checks can now reuse typed observations rather than relying only
+  on direct run-level refs or display summaries.
+
+Verification during the Phase 2 review:
+
+```text
+./scripts/go.sh test -count=1 ./internal/semanticgraph
+pnpm -C desktop exec vitest run src/stores/chat-store-operations.test.ts src/workspace-layout/react-dom-surface-adapter.test.tsx src/features/workspace-graph/semantic-node-details-surface.test.tsx
+pnpm -C desktop build
+node desktop/tests/electron/run-workflows.mjs --workflow chat
+node desktop/tests/electron/run-workflows.mjs --workflow semantic-cartographer-auto
+```
+
+Phase 3 is ready to implement. Keep it scoped to building semantic epochs from
+the typed observations now present, reducing threshold-fragment volume, and
+ensuring the final assistant message lands in the final synthesis epoch. Do not
+fold Phase 4 source-link rendering, Phase 4 source-adequacy validation, or Phase
+5 prompt/policy changes into Phase 3 except where the epoch boundary model must
+preserve the typed fields those phases consume. The remaining usefulness
+problems, especially visible connections, auto-applied edge/activity policy, and
+details discoverability, are intentionally left to Phases 4 through 6.
 
 Lease recovery is deadline-based: a crashed-but-unexpired lease is not
 recoverable until its lease deadline. Treat lease duration/owner-staleness as
@@ -586,7 +615,7 @@ idle means durable queue is terminal
 cartographer health explains what happened
 ```
 
-### Phase 2: Replace Text Heuristics With Typed Observations (ready next)
+### Phase 2: Replace Text Heuristics With Typed Observations (implemented)
 
 Goal: make cartographer inputs trustworthy.
 
@@ -608,7 +637,7 @@ run item source refs survive into evidence anchors
 command/file/test observations carry typed fields
 ```
 
-### Phase 3: Epoch-Based Cartographer Input
+### Phase 3: Epoch-Based Cartographer Input (ready next)
 
 Goal: submit meaningful work windows rather than threshold-sized fragments.
 
