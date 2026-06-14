@@ -15,11 +15,12 @@ import (
 type CartographerPatchEnvelopeSchema json.RawMessage
 
 type CartographerHarnessTask struct {
-	ID           string
-	Workspace    workspace.WorkspaceSummary
-	InputBundle  CartographerInputBundle
-	OutputSchema CartographerPatchEnvelopeSchema
-	Model        string
+	ID              string
+	Workspace       workspace.WorkspaceSummary
+	InputBundle     CartographerInputBundle
+	OutputSchema    CartographerPatchEnvelopeSchema
+	Model           string
+	ReasoningEffort chat.ReasoningEffort
 }
 
 type CartographerHarnessResult struct {
@@ -65,6 +66,7 @@ func (harness *CartographerHarness) RunRaw(ctx context.Context, task Cartographe
 	if len(outputSchema) == 0 {
 		outputSchema = DefaultCartographerPatchEnvelopeSchema()
 	}
+	reasoningEffort := task.ReasoningEffort
 	result, err := harness.runner.RunTask(ctx, chat.HarnessTaskRequest{
 		Surface:     chat.HarnessSurfaceSemanticCartographer,
 		HarnessKind: harness.harnessKind,
@@ -80,11 +82,12 @@ func (harness *CartographerHarness) RunRaw(ctx context.Context, task Cartographe
 			Streaming:         false,
 		},
 		StructuredTask: &chat.HarnessStructuredTask{
-			ID:        task.ID,
-			Workspace: task.Workspace,
-			Prompt:    ProductionCartographerPrompt(),
-			Input:     inputJSON,
-			Model:     task.Model,
+			ID:              task.ID,
+			Workspace:       task.Workspace,
+			Prompt:          ProductionCartographerPrompt(),
+			Input:           inputJSON,
+			Model:           task.Model,
+			ReasoningEffort: &reasoningEffort,
 		},
 		Metadata: map[string]string{
 			"setta.surface": "semantic_cartographer",
@@ -104,13 +107,23 @@ func ProductionCartographerPrompt() string {
 
 Use only ids, source refs, semantic nodes, edges, evidence anchors, activity intervals, steering directives, context packs, and trajectory summaries that are present in the input bundle. Do not invent source refs or evidence.
 
-Emit an empty patches array when no evidence-backed semantic update is warranted. For uncertain, low-confidence, broad, destructive, split, merge, resolution, or high-impact changes, set reviewRequired to true.
+retrievalResults are advisory candidate context with reasons such as explicit source links, FTS matches, exact path matches, recent activity, pins, and steering. Use them to decide which existing nodes, evidence, activity, or context packs are relevant, but do not treat retrieval text alone as semantic truth. Cite concrete evidence anchors or source refs from the input when proposing patches.
 
-When new workflow-agent output states an explicit finding, decision, constraint, or open question that is not already represented in existingNodes, emit the corresponding record_finding, record_decision, record_constraint, or record_open_question patch instead of an empty envelope. For a new finding, put the new node in payload.newNode, leave payload.semanticNodeId empty, use kind "finding", use scope "session" unless the finding is clearly workspace-wide, and cite evidenceRefs from non-empty source refs in the input bundle, such as {"sourceKind":"chat_message","sourceId":sourceRefs.chatMessageId} or {"sourceKind":"workflow_node","sourceId":sourceRefs.workflowNodeId}.
+Optimize for useful public work memory, not narration. Prefer specific findings, decisions, constraints, and open questions that would help a user understand this run or help a future run continue the work. Discourage process-only nodes such as "reviewed repository" or "ran tests" unless the process choice is itself a durable decision or constraint.
 
-Generate patchId and any new semanticNodeId, edgeId, or activityId values with only letters, numbers, underscores, or hyphens. Do not copy event refs, stream refs, source ids, or other values containing colons or punctuation into generated ids; derive a short safe id instead.
+Emit an empty patches array when no evidence-backed semantic update is warranted. For uncertain, low-confidence, broad, destructive, split, merge, resolution, or high-impact changes, set reviewRequired to true. Split, merge, mark_resolved, broad update_node_summary, and low-confidence patches must be reviewRequired unless the input gives direct evidence and the change is narrow.
 
-Every patch must include confidence as a JSON number from 0.0 through 1.0, a publicSummary suitable for user inspection, sourceRefs matching the input bundle, causationId, correlationId, modelInfo, and explicit evidenceRefs when evidence is required.
+When new workflow-agent output states an explicit finding, decision, constraint, or open question that is not already represented in existingNodes, emit the corresponding record_finding, record_decision, record_constraint, or record_open_question patch instead of an empty envelope. For a new finding, put the new node in payload.newNode, leave payload.semanticNodeId empty, use kind "finding", use scope "session" unless the finding is clearly workspace-wide, and cite evidenceRefs from non-empty source refs in the input bundle, such as {"sourceKind":"chat_message","sourceId":sourceRefs.chatMessageId}, {"sourceKind":"run_item","sourceId":sourceRefs.runItemId}, or {"sourceKind":"workflow_node","sourceId":sourceRefs.workflowNodeId}.
+
+Every automatic node must be inspectable and connected. Cite granular evidence from chat_message, run_item, file_range, diff, test, workflow_node, or a specific log/document anchor. Run-level workflow_execution, chat_run, or prompt evidence is not enough for a new automatic node. A node must have either source-link evidence or a semantic edge to an existing node or another new node in the same envelope.
+
+Use create_edge when two semantic nodes are related by the same evidence or by existing context. Prefer supports, refutes, resolves, constrains, touches, about, or related_to exactly as supported by the schema. Use start_activity when the input shows active exploring, editing, debugging, validating, or blocked work tied to a concrete source; use end_activity for existing active intervals that the input shows are complete. Edge and activity patches need evidenceRefs too.
+
+In workflow_done final synthesis, prioritize the final answer, workflow result/tool outputs, command/test results, file changes, failures, and existing semantic context. Promote the most useful concrete final findings or decisions, attach missed evidence, add relationships between related nodes, and avoid duplicate low-value session notes.
+
+Generate patchId, causationId, correlationId, and any new semanticNodeId, edgeId, or activityId values with only letters, numbers, underscores, or hyphens. causationId and correlationId are generated patch metadata ids; they are not observed event refs. Do not copy event refs, stream refs, source ids, or other values containing colons or punctuation into generated ids; derive a short safe id such as cartographer_cause_final_finding or cartographer_corr_window_summary instead.
+
+Every patch must include confidence as a JSON number from 0.0 through 1.0, a publicSummary suitable for user inspection, sourceRefs matching the input bundle, causationId, correlationId, modelInfo, and explicit evidenceRefs when evidence is required. Use confidence below 0.75 or reviewRequired true when the claim is plausible but not directly stated by the cited evidence.
 
 Because the output schema is strict, include every required payload field; set unused string fields to "", unused arrays to [], unused nested objects to null, and unused nullable kind fields to null.
 
@@ -143,8 +156,14 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
           "payload"
         ],
         "properties": {
-          "patchId": {"type": "string"},
-          "operation": {"type": "string"},
+          "patchId": {
+            "type": "string",
+            "description": "Generated safe id using only letters, numbers, underscores, or hyphens."
+          },
+          "operation": {
+            "type": "string",
+            "enum": ["record_finding", "record_decision", "record_constraint", "record_open_question", "update_node_summary", "attach_evidence", "create_edge", "start_activity", "end_activity", "split_node", "merge_nodes", "mark_resolved"]
+          },
           "workspaceId": {"type": "string"},
           "sourceRefs": {
             "type": "object",
@@ -170,8 +189,14 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
               "runItemId": {"type": "string"}
             }
           },
-          "causationId": {"type": "string"},
-          "correlationId": {"type": "string"},
+          "causationId": {
+            "type": "string",
+            "description": "Generated patch causation id using only letters, numbers, underscores, or hyphens. Do not copy observed event ids or stream ids that contain colons."
+          },
+          "correlationId": {
+            "type": "string",
+            "description": "Generated patch correlation id using only letters, numbers, underscores, or hyphens. Do not copy observed event ids or stream ids that contain colons."
+          },
           "confidence": {"type": "number", "minimum": 0, "maximum": 1},
           "publicSummary": {"type": "string"},
           "evidenceRefs": {
@@ -181,7 +206,10 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
               "additionalProperties": false,
               "required": ["sourceKind", "sourceId", "evidenceAnchorId"],
               "properties": {
-                "sourceKind": {"type": "string"},
+                "sourceKind": {
+                  "type": "string",
+                  "enum": ["", "chat_message", "run_item", "file_range", "diff", "test", "workflow_node", "workflow_execution", "chat_run", "prompt", "log", "document"]
+                },
                 "sourceId": {"type": "string"},
                 "evidenceAnchorId": {"type": "string"}
               }
@@ -250,7 +278,10 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
                       "additionalProperties": false,
                       "required": ["sourceKind", "sourceId", "evidenceAnchorId"],
                       "properties": {
-                        "sourceKind": {"type": "string"},
+                        "sourceKind": {
+                          "type": "string",
+                          "enum": ["", "chat_message", "run_item", "file_range", "diff", "test", "workflow_node", "workflow_execution", "chat_run", "prompt", "log", "document"]
+                        },
                         "sourceId": {"type": "string"},
                         "evidenceAnchorId": {"type": "string"}
                       }
@@ -260,13 +291,22 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
               },
               "summary": {"type": "string"},
               "edgeId": {"type": "string"},
-              "edgeKind": {"type": ["string", "null"]},
+              "edgeKind": {
+                "type": ["string", "null"],
+                "enum": ["about", "touches", "supports", "refutes", "resolves", "constrains", "related_to", null]
+              },
               "fromNodeId": {"type": "string"},
               "toNodeId": {"type": "string"},
               "label": {"type": "string"},
               "activityId": {"type": "string"},
-              "activityKind": {"type": ["string", "null"]},
-              "activitySourceKind": {"type": ["string", "null"]},
+              "activityKind": {
+                "type": ["string", "null"],
+                "enum": ["exploring", "editing", "debugging", "validating", "blocked", null]
+              },
+              "activitySourceKind": {
+                "type": ["string", "null"],
+                "enum": ["workflow_execution", "workflow_node", "chat_run", "chat_message", "run_item", "file_range", "test", "diff", "command", null]
+              },
               "activitySourceId": {"type": "string"},
               "evidenceAnchorId": {"type": "string"},
               "sourceNodeId": {"type": "string"},
@@ -295,7 +335,10 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
                         "additionalProperties": false,
                         "required": ["sourceKind", "sourceId", "evidenceAnchorId"],
                         "properties": {
-                          "sourceKind": {"type": "string"},
+                          "sourceKind": {
+                            "type": "string",
+                            "enum": ["", "chat_message", "run_item", "file_range", "diff", "test", "workflow_node", "workflow_execution", "chat_run", "prompt", "log", "document"]
+                          },
                           "sourceId": {"type": "string"},
                           "evidenceAnchorId": {"type": "string"}
                         }
@@ -328,7 +371,10 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
                       "additionalProperties": false,
                       "required": ["sourceKind", "sourceId", "evidenceAnchorId"],
                       "properties": {
-                        "sourceKind": {"type": "string"},
+                        "sourceKind": {
+                          "type": "string",
+                          "enum": ["", "chat_message", "run_item", "file_range", "diff", "test", "workflow_node", "workflow_execution", "chat_run", "prompt", "log", "document"]
+                        },
                         "sourceId": {"type": "string"},
                         "evidenceAnchorId": {"type": "string"}
                       }
@@ -344,7 +390,10 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
                   "additionalProperties": false,
                   "required": ["sourceKind", "sourceId", "evidenceAnchorId"],
                   "properties": {
-                    "sourceKind": {"type": "string"},
+                    "sourceKind": {
+                      "type": "string",
+                      "enum": ["", "chat_message", "run_item", "file_range", "diff", "test", "workflow_node", "workflow_execution", "chat_run", "prompt", "log", "document"]
+                    },
                     "sourceId": {"type": "string"},
                     "evidenceAnchorId": {"type": "string"}
                   }
@@ -474,6 +523,9 @@ func validateCartographerHarnessTask(ctx context.Context, task CartographerHarne
 	}
 	if task.InputBundle.WorkspaceID != "" && task.InputBundle.WorkspaceID != task.Workspace.ID {
 		return fmt.Errorf("cartographer input bundle workspaceId = %s, want %s", task.InputBundle.WorkspaceID, task.Workspace.ID)
+	}
+	if !isSemanticCartographerReasoningEffort(task.ReasoningEffort) {
+		return fmt.Errorf("cartographer harness task reasoningEffort is unsupported: %s", task.ReasoningEffort)
 	}
 	if len(task.OutputSchema) > 0 {
 		var schema any

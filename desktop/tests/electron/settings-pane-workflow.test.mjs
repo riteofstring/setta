@@ -7,8 +7,8 @@ import process from "node:process";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
+  dispatchMouseClick,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   reloadPage,
@@ -61,9 +61,16 @@ try {
   const afterOpen = await waitForSettingsPanel(context.client);
   await captureScreenshot(context.client, join(artifactDir, "after-settings-open.png"));
 
+  const cartographer = await exerciseCartographerSettings(context.client);
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "after-cartographer-settings-save.png"),
+  );
+
   await writeJson(join(artifactDir, "summary.json"), {
     afterOpen,
     artifactDir,
+    cartographer,
     beforeOpen,
     status: "passed",
     workspaceName: basename(fixture.workspaceRoot),
@@ -91,7 +98,20 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return currentWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  const opened = await client.evaluate(`(() => {
+    const button = document.querySelector('button[aria-label="Open project folder"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-open-project-folder-button" };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-open-project-folder-button" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!opened.ok) {
+    throw new Error(`workspace open failed: ${JSON.stringify(opened)}`);
+  }
   return waitForState(
     client,
     workspaceIdExpression(),
@@ -124,6 +144,18 @@ async function waitForLayoutWithoutSettings(client, workspaceId) {
 }
 
 async function clickSettingsButton(client) {
+  await waitForState(
+    client,
+    `(() => {
+      const button = document.querySelector('button[aria-label="Open settings"]');
+      return {
+        disabled: button instanceof HTMLButtonElement ? button.disabled : null,
+        exists: button instanceof HTMLButtonElement,
+      };
+    })()`,
+    (state) => state.exists && state.disabled === false,
+    workflowTimeoutMs,
+  );
   const clicked = await client.evaluate(`(() => {
     const button = document.querySelector('button[aria-label="Open settings"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -150,12 +182,152 @@ async function waitForSettingsPanel(client) {
   );
 }
 
+async function exerciseCartographerSettings(client) {
+  await openCartographerSettingsTab(client);
+  const loaded = await waitForCartographerSettingsLoaded(client);
+  const nextMaxConcurrent = loaded.maxConcurrent === "3" ? 4 : 3;
+  await setInputValue(
+    client,
+    '[data-testid="cartographer-number-processingConfig-maxConcurrent"]',
+    String(nextMaxConcurrent),
+  );
+  await clickCartographerSaveButton(client);
+  const saved = await waitForCartographerBackendSetting(client, nextMaxConcurrent);
+  const workspaceId = await client.evaluate(workspaceIdExpression());
+  await persistLayoutWithoutSettings(client, workspaceId);
+  await reloadPage(client);
+  await waitForSelector(client, '[data-testid="workspace-layout-area"]');
+  await ensureSettingsPanelOpen(client);
+  await openCartographerSettingsTab(client);
+  const reloaded = await waitForState(
+    client,
+    cartographerSettingsStateExpression(),
+    (state) => state.ready && state.maxConcurrent === String(nextMaxConcurrent),
+    workflowTimeoutMs,
+  );
+  return { loaded, reloaded, saved };
+}
+
+async function ensureSettingsPanelOpen(client) {
+  const open = await client.evaluate(
+    `(() => Boolean(document.querySelector('[data-testid="settings-panel"]')))()`,
+  );
+  if (open) {
+    return waitForSettingsPanel(client);
+  }
+  const existingRect = await client.evaluate(`(() => {
+    const host = document.querySelector('[data-testid="workspace-pane-host"][data-surface-kind="settings-dom"]');
+    if (!(host instanceof HTMLElement)) {
+      return { ok: false };
+    }
+    const rect = host.getBoundingClientRect();
+    return {
+      ok: rect.width > 0 && rect.height > 0,
+      x: rect.left + Math.min(rect.width / 2, 24),
+      y: rect.top + Math.min(rect.height / 2, 24),
+    };
+  })()`);
+  if (existingRect.ok) {
+    await dispatchMouseClick(client, existingRect);
+    return waitForSettingsPanel(client);
+  }
+  await clickSettingsButton(client);
+  return waitForSettingsPanel(client);
+}
+
+async function openCartographerSettingsTab(client) {
+  const clicked = await client.evaluate(`(() => {
+    const button = document.querySelector('#settings-subtab-cartographer');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error("cartographer settings tab was not clickable");
+  }
+  return waitForCartographerSettingsLoaded(client);
+}
+
+async function waitForCartographerSettingsLoaded(client) {
+  return waitForState(
+    client,
+    cartographerSettingsStateExpression(),
+    (state) => state.ready,
+    workflowTimeoutMs,
+  );
+}
+
+async function setInputValue(client, selector, value) {
+  const result = await client.evaluate(`(() => {
+    const input = document.querySelector(${JSON.stringify(selector)});
+    if (!(input instanceof HTMLInputElement) || input.disabled) {
+      return { ok: false, reason: "missing-or-disabled-input" };
+    }
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    if (!setter) {
+      return { ok: false, reason: "missing-input-value-setter" };
+    }
+    setter.call(input, ${JSON.stringify(value)});
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    return { ok: true, value: input.value };
+  })()`);
+  if (!result.ok) {
+    throw new Error(`failed to set input ${selector}: ${JSON.stringify(result)}`);
+  }
+}
+
+async function clickCartographerSaveButton(client) {
+  const clicked = await client.evaluate(`(() => {
+    const button = document.querySelector('[data-testid="cartographer-settings-save-button"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error("cartographer settings save button was not clickable");
+  }
+}
+
+async function waitForCartographerBackendSetting(client, maxConcurrent) {
+  return waitForState(
+    client,
+    `(async () => {
+      const metadata = await window.setta.semanticGraph.readCartographerSettingsMetadata({});
+      return {
+        maxConcurrent: metadata.record.settings.processingConfig.maxConcurrent,
+        settingsHash: metadata.record.settingsHash,
+      };
+    })()`,
+    (state) => state.maxConcurrent === maxConcurrent && state.settingsHash !== "",
+    workflowTimeoutMs,
+  );
+}
+
 async function safeSettingsState(client) {
   try {
     return await client.evaluate(settingsStateExpression());
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
+}
+
+function cartographerSettingsStateExpression() {
+  return `(() => {
+    const panel = document.querySelector('[data-testid="semantic-cartographer-settings"]');
+    const input = document.querySelector('[data-testid="cartographer-number-processingConfig-maxConcurrent"]');
+    const save = document.querySelector('[data-testid="cartographer-settings-save-button"]');
+    const text = panel instanceof HTMLElement ? panel.textContent ?? "" : "";
+    return {
+      maxConcurrent: input instanceof HTMLInputElement ? input.value : "",
+      ready: Boolean(panel) && input instanceof HTMLInputElement && text.includes("Runtime"),
+      saveDisabled: save instanceof HTMLButtonElement ? save.disabled : null,
+      text,
+    };
+  })()`;
 }
 
 function settingsStateExpression() {

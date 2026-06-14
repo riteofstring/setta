@@ -1,4 +1,6 @@
 import type {
+  AddWorkflowEdgeRequest,
+  AddWorkflowNodeRequest,
   AppearancePresetList,
   AppearanceSettings,
   AttachSemanticNodeToChatMessageRequest,
@@ -22,6 +24,7 @@ import type {
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
+  ChatModelOption,
   CodexAccountState,
   Conversation,
   ConversationListItem,
@@ -31,6 +34,8 @@ import type {
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
+  DeleteWorkflowEdgesRequest,
+  DeleteWorkflowNodesRequest,
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
@@ -38,6 +43,7 @@ import type {
   ListCartographerPatchesRequest,
   ListCartographerRunsRequest,
   ListCartographerWindowsRequest,
+  ListSemanticCartographerModelOptionsRequest,
   ListConversationsResponse,
   ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
@@ -50,6 +56,8 @@ import type {
   QueueMessageResult,
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
+  ReadSemanticCartographerSettingsRequest,
+  ReadSemanticCartographerSettingsMetadataRequest,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
@@ -58,7 +66,9 @@ import type {
   ReadSemanticGraphRequest,
   ReadSemanticNodeDetailRequest,
   ReadSemanticNodeDetailResponse,
+  ReadSemanticRuntimeSnapshotRequest,
   ReadSemanticSteeringStateRequest,
+  ReadSemanticWorkingSetRequest,
   ReadWorkflowGraphProjectionResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
@@ -75,6 +85,8 @@ import type {
   SemanticActivityPage,
   SemanticActivitySummary,
   SemanticAttachmentResult,
+  SemanticCartographerSettingsMetadata,
+  SemanticCartographerSettingsRecord,
   SemanticContextPackList,
   SemanticContextPackReadResponse,
   SemanticEdgeOperationRequest,
@@ -82,6 +94,8 @@ import type {
   SemanticEvidenceList,
   SemanticGraph,
   SemanticGraphChangeEvent,
+  SemanticRuntimeSnapshot,
+  SemanticWorkingSet,
   SemanticLayoutPositionList,
   SemanticMutationResult,
   SemanticNodeOperationRequest,
@@ -100,16 +114,24 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateSemanticCartographerSettingsRequest,
   UpdateSemanticEdgeRequest,
   UpdateSemanticLayoutPositionsRequest,
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  UpdateWorkflowDefinitionRequest,
+  UpdateWorkflowDefinitionLayoutRequest,
+  UpdateWorkflowDefinitionSettingsRequest,
+  UpdateWorkflowEdgeRequest,
+  UpdateWorkflowNodeRequest,
+  ValidateWorkflowDefinitionDraftRequest,
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowExecution,
   WorkflowExecutionEventPage,
   WorkflowGraph,
+  WorkflowGraphProjection,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
   WorkspaceUILayout,
@@ -220,7 +242,6 @@ export type WorkspaceBrowserViewKey =
 
 export interface WorkspaceBrowserViewKeyEvent {
   altKey: boolean;
-  ctrlKey: boolean;
   key: WorkspaceBrowserViewKey;
   metaKey: boolean;
   shiftKey: boolean;
@@ -286,10 +307,13 @@ export interface ChatCommandExecutionOptions {
 export interface SettaAPI {
   app: {
     flags: {
+      workflowGraphAnimationEnabled: boolean;
       workflowGraphDebug: boolean;
+      workflowGraphReduceMotion: boolean;
       workflowGraphSyntheticGraph: {
         edgesPerNode: number;
         nodeCount: number;
+        scene?: "merged" | "semantic-cells" | "workflow" | "workflow-running";
       } | null;
     };
     installedEditors: () => Promise<InstalledEditorApp[]>;
@@ -482,6 +506,18 @@ export interface SettaAPI {
     readCartographerProcessingState: (
       request: ReadCartographerProcessingStateRequest,
     ) => Promise<CartographerProcessingState>;
+    readCartographerSettings: (
+      request: ReadSemanticCartographerSettingsRequest,
+    ) => Promise<SemanticCartographerSettingsRecord>;
+    readCartographerSettingsMetadata: (
+      request: ReadSemanticCartographerSettingsMetadataRequest,
+    ) => Promise<SemanticCartographerSettingsMetadata>;
+    updateCartographerSettings: (
+      request: UpdateSemanticCartographerSettingsRequest,
+    ) => Promise<SemanticCartographerSettingsRecord>;
+    listCartographerModelOptions: (
+      request: ListSemanticCartographerModelOptionsRequest,
+    ) => Promise<ChatModelOption[]>;
     listCartographerCursors: (
       request: ListCartographerCursorsRequest,
     ) => Promise<CartographerCursorList>;
@@ -528,9 +564,13 @@ export interface SettaAPI {
     readNodeDetail: (
       request: ReadSemanticNodeDetailRequest,
     ) => Promise<ReadSemanticNodeDetailResponse>;
+    readRuntimeSnapshot: (
+      request: ReadSemanticRuntimeSnapshotRequest,
+    ) => Promise<SemanticRuntimeSnapshot>;
     readSteeringState: (
       request: ReadSemanticSteeringStateRequest,
     ) => Promise<SemanticSteeringState>;
+    readWorkingSet: (request: ReadSemanticWorkingSetRequest) => Promise<SemanticWorkingSet>;
     removeEdge: (request: SemanticEdgeOperationRequest) => Promise<SemanticMutationResult>;
     renameNode: (request: RenameSemanticNodeRequest) => Promise<SemanticMutationResult>;
     splitNode: (request: SplitSemanticNodeRequest) => Promise<SemanticMutationResult>;
@@ -544,6 +584,8 @@ export interface SettaAPI {
     ) => Promise<SemanticMutationResult>;
   };
   workflow: {
+    addEdge: (request: AddWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
+    addNode: (request: AddWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
     cancelExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
     createDefinition: (
       workspaceId: string,
@@ -555,6 +597,8 @@ export interface SettaAPI {
       workspaceId: string,
       definitionId: string,
     ) => Promise<DeleteWorkflowDefinitionResponse>;
+    deleteEdges: (request: DeleteWorkflowEdgesRequest) => Promise<WorkflowGraphProjection>;
+    deleteNodes: (request: DeleteWorkflowNodesRequest) => Promise<WorkflowGraphProjection>;
     executionEvents: (
       workspaceId: string,
       executionId: string,
@@ -577,16 +621,21 @@ export interface SettaAPI {
       versionId?: string,
     ) => Promise<WorkflowExecution>;
     submitApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
-    updateDefinition: (
-      workspaceId: string,
-      definitionId: string,
-      name: string,
-      description: string,
-      graph: WorkflowGraph,
+    updateDefinitionLayout: (
+      request: UpdateWorkflowDefinitionLayoutRequest,
+    ) => Promise<WorkflowGraphProjection>;
+    updateDefinition: (request: UpdateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
+    updateDefinitionSettings: (
+      request: UpdateWorkflowDefinitionSettingsRequest,
     ) => Promise<WorkflowDefinition>;
+    updateEdge: (request: UpdateWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
+    updateNode: (request: UpdateWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
     validateDefinition: (
       workspaceId: string,
       graph: WorkflowGraph,
     ) => Promise<WorkflowValidationResult>;
+    validateDefinitionDraft: (
+      request: ValidateWorkflowDefinitionDraftRequest,
+    ) => Promise<WorkflowGraphProjection>;
   };
 }

@@ -157,9 +157,6 @@ function WorkspaceLayoutRuntimeArea({
   const showPerformanceStats = useAppearanceStore(
     (state) => (state.draft ?? state.settings)?.developer?.showPerformanceStats ?? false,
   );
-  const shortcuts = useAppearanceStore(
-    (state) => (state.draft ?? state.settings)?.shortcuts ?? null,
-  );
   const allowResizedPanesToOverflowViewport = useAppearanceStore(
     (state) =>
       (state.draft ?? state.settings)?.developer?.allowResizedPanesToOverflowViewport ?? false,
@@ -309,7 +306,6 @@ function WorkspaceLayoutRuntimeArea({
         runLayoutAction,
         runtime,
         scheduler,
-        shortcuts: shortcuts ?? undefined,
         viewportProvider: stageViewport,
       });
     const handleWheel = (event: WheelEvent) => {
@@ -619,7 +615,6 @@ function WorkspaceLayoutRuntimeArea({
           runLayoutAction,
           runtime,
           scheduler,
-          shortcuts: shortcuts ?? undefined,
           viewportProvider: stageViewport,
         });
       }) ?? (() => {});
@@ -669,7 +664,7 @@ function WorkspaceLayoutRuntimeArea({
       delete root.dataset.paneResizingAxis;
       scheduler.teardown();
     };
-  }, [persistLayout, runLayoutAction, runtime, shortcuts, stageViewport]);
+  }, [persistLayout, runLayoutAction, runtime, stageViewport]);
 
   useEffect(() => {
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);

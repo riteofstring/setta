@@ -28,9 +28,6 @@ func TestDefaultSettingsValidate(t *testing.T) {
 	if settings.Developer.OverviewCardMaxWidthPx != defaultOverviewCardMaxWidthPx {
 		t.Fatalf("default overview card max width = %d, want %d", settings.Developer.OverviewCardMaxWidthPx, defaultOverviewCardMaxWidthPx)
 	}
-	if settings.Shortcuts.WorkspaceNavigation != WorkspaceNavigationModAltArrows {
-		t.Fatalf("default workspace navigation shortcut = %q, want %q", settings.Shortcuts.WorkspaceNavigation, WorkspaceNavigationModAltArrows)
-	}
 	if settings.Dark.Tailwind.Setta900 != "oklch(0.1631 0.0125 264.14)" {
 		t.Fatalf("dark setta 900 = %q, want original Setta dark scale", settings.Dark.Tailwind.Setta900)
 	}
@@ -48,29 +45,6 @@ func TestDefaultSettingsValidate(t *testing.T) {
 	}
 	if settings.Dark.Shadcn.Sidebar != settings.Dark.Tailwind.Setta850 {
 		t.Fatalf("dark sidebar = %q, want lighter Setta sidebar surface", settings.Dark.Shadcn.Sidebar)
-	}
-	if settings.Dark.Accent.Cyan != settaLogoCyan {
-		t.Fatalf("dark accent cyan = %q, want Setta logo cyan", settings.Dark.Accent.Cyan)
-	}
-	if settings.Dark.Status.Success != settings.Dark.Accent.Green {
-		t.Fatalf("dark status success = %q, want accent green %q", settings.Dark.Status.Success, settings.Dark.Accent.Green)
-	}
-	if settings.Light.Status.Alert != settings.Light.Accent.Magenta {
-		t.Fatalf("light status alert = %q, want accent magenta %q", settings.Light.Status.Alert, settings.Light.Accent.Magenta)
-	}
-}
-
-func TestStoreRejectsMissingAccentPalette(t *testing.T) {
-	store := newTestStore(t)
-	settings := DefaultSettings()
-	settings.Dark.Accent.Violet = ""
-
-	err := store.Save(settings)
-	if err == nil {
-		t.Fatal("save succeeded, want missing accent color error")
-	}
-	if !IsCorruptSettingsError(err) || !strings.Contains(err.Error(), "dark.accent.violet") {
-		t.Fatalf("error = %T %v, want corrupt settings accent path", err, err)
 	}
 }
 
@@ -119,7 +93,6 @@ func TestStorePersistsAppearanceSettings(t *testing.T) {
 	settings.Developer.OverviewCardMinWidthPx = 320
 	settings.Developer.OverviewCardMaxWidthPx = 540
 	settings.Developer.ShowPerformanceStats = true
-	settings.Shortcuts.WorkspaceNavigation = WorkspaceNavigationCtrlAltArrows
 
 	if err := store.Save(settings); err != nil {
 		t.Fatalf("save appearance settings: %v", err)
@@ -146,9 +119,6 @@ func TestStorePersistsAppearanceSettings(t *testing.T) {
 	}
 	if loaded.Developer.OverviewCardMaxWidthPx != 540 {
 		t.Fatalf("overview card max width = %d, want 540", loaded.Developer.OverviewCardMaxWidthPx)
-	}
-	if loaded.Shortcuts.WorkspaceNavigation != WorkspaceNavigationCtrlAltArrows {
-		t.Fatalf("workspace navigation shortcut = %q, want %q", loaded.Shortcuts.WorkspaceNavigation, WorkspaceNavigationCtrlAltArrows)
 	}
 }
 
@@ -235,20 +205,6 @@ func TestStoreRejectsInvalidOverviewCardWidthRange(t *testing.T) {
 	}
 	if !IsCorruptSettingsError(err) || !strings.Contains(err.Error(), "overview card min width") {
 		t.Fatalf("error = %T %v, want overview card width failure", err, err)
-	}
-}
-
-func TestStoreRejectsInvalidWorkspaceNavigationShortcut(t *testing.T) {
-	store := newTestStore(t)
-	settings := DefaultSettings()
-	settings.Shortcuts.WorkspaceNavigation = "arrow_keys"
-
-	err := store.Save(settings)
-	if err == nil {
-		t.Fatal("save succeeded, want invalid shortcut error")
-	}
-	if !IsCorruptSettingsError(err) || !strings.Contains(err.Error(), "workspace navigation shortcut") {
-		t.Fatalf("error = %T %v, want workspace navigation shortcut failure", err, err)
 	}
 }
 

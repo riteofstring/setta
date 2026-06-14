@@ -161,46 +161,25 @@ export async function waitForSelector(client, selector, timeoutMs = stateWaitTim
   );
 }
 
-export async function clickEnabledButtonByAria(client, label, timeoutMs = stateWaitTimeoutMs) {
-  await waitForState(
-    client,
-    enabledButtonByAriaExpression(label),
-    (value) => value.ready,
-    timeoutMs,
-  );
-  const clicked = await client.evaluate(`(() => {
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-button" };
-    }
-    if (button.disabled) {
-      return { ok: false, reason: "disabled-button" };
-    }
-    button.click();
-    return { ok: true };
-  })()`);
-  if (!clicked.ok) {
-    throw new Error(`button was not clickable: ${label}: ${JSON.stringify(clicked)}`);
-  }
-}
-
-function enabledButtonByAriaExpression(label) {
-  return `(() => {
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ready: false, reason: "missing-button" };
-    }
-    return { ready: !button.disabled, reason: button.disabled ? "disabled-button" : "ready" };
-  })()`;
-}
-
 export async function captureScreenshot(client, path) {
   await mkdir(dirname(path), { recursive: true });
   const image = await client.call("Page.captureScreenshot", { format: "png" });
+  await writeFile(path, Buffer.from(image.data, "base64"));
+}
+
+export async function captureScreenshotClip(client, path, clip) {
+  await mkdir(dirname(path), { recursive: true });
+  const image = await client.call("Page.captureScreenshot", {
+    captureBeyondViewport: false,
+    clip: {
+      height: clip.height,
+      scale: clip.scale ?? 1,
+      width: clip.width,
+      x: clip.x,
+      y: clip.y,
+    },
+    format: "png",
+  });
   await writeFile(path, Buffer.from(image.data, "base64"));
 }
 
@@ -344,7 +323,7 @@ async function openPort() {
 }
 
 function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) {
-  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
+  const electron = spawn(electronBin(), electronLaunchArgs(debugPort), {
     cwd: desktopRoot,
     env: {
       ...process.env,
@@ -366,6 +345,14 @@ function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) 
   electron.stdout.on("data", (data) => appendLog(electron.logs, data));
   electron.stderr.on("data", (data) => appendLog(electron.logs, data));
   return electron;
+}
+
+function electronLaunchArgs(debugPort) {
+  return [
+    `--remote-debugging-port=${debugPort}`,
+    ".",
+    ...(process.platform === "darwin" ? ["-ApplePersistenceIgnoreState", "YES"] : []),
+  ];
 }
 
 function isPageNavigationTransient(error) {

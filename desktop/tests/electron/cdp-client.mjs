@@ -6,6 +6,7 @@ const driverScriptPath = join(dirname(fileURLToPath(import.meta.url)), "browser-
 
 export class CDPClient {
   constructor(socket, timeoutMs) {
+    this.eventListeners = new Map();
     this.nextId = 1;
     this.pending = new Map();
     this.socket = socket;
@@ -53,7 +54,7 @@ export class CDPClient {
       returnByValue: true,
     });
     if (result.exceptionDetails) {
-      throw new Error(result.exceptionDetails.text);
+      throw new Error(runtimeExceptionMessage(result.exceptionDetails));
     }
     return result.result.value;
   }
@@ -65,7 +66,7 @@ export class CDPClient {
 
   async installDriver() {
     const installed = await this.evaluate(
-      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v5"`,
+      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v6"`,
     );
     if (!installed) {
       await this.evaluate(await readFile(driverScriptPath, "utf8"));
@@ -76,9 +77,38 @@ export class CDPClient {
     this.socket.close();
   }
 
+  onEvent(method, listener) {
+    const listeners = this.eventListeners.get(method) ?? new Set();
+    listeners.add(listener);
+    this.eventListeners.set(method, listeners);
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        this.eventListeners.delete(method);
+      }
+    };
+  }
+
+  waitForEvent(method, timeoutMs = this.timeoutMs) {
+    return new Promise((resolvePromise, reject) => {
+      const timeout = globalThis.setTimeout(() => {
+        off();
+        reject(new Error(`CDP event timed out: ${method}`));
+      }, timeoutMs);
+      const off = this.onEvent(method, (params) => {
+        globalThis.clearTimeout(timeout);
+        off();
+        resolvePromise(params);
+      });
+    });
+  }
+
   handleMessage(data) {
     const message = JSON.parse(data);
     if (!message.id || !this.pending.has(message.id)) {
+      if (typeof message.method === "string") {
+        this.emitEvent(message.method, message.params ?? {});
+      }
       return;
     }
     const pending = this.pending.get(message.id);
@@ -89,6 +119,28 @@ export class CDPClient {
     }
     pending.resolve(message.result);
   }
+
+  emitEvent(method, params) {
+    const listeners = this.eventListeners.get(method);
+    if (!listeners) {
+      return;
+    }
+    for (const listener of listeners) {
+      listener(params);
+    }
+  }
+}
+
+function runtimeExceptionMessage(exceptionDetails) {
+  const description = exceptionDetails.exception?.description;
+  if (typeof description === "string" && description.trim() !== "") {
+    return description;
+  }
+  const value = exceptionDetails.exception?.value;
+  if (typeof value === "string" && value.trim() !== "") {
+    return value;
+  }
+  return exceptionDetails.text;
 }
 
 export function driverCallExpression(method, args = {}) {

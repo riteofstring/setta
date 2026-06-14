@@ -17,10 +17,17 @@ import type {
 } from "@shared/types";
 import { installRendererRecorder } from "./renderer-recorder";
 
+type WorkflowGraphSyntheticScene = Exclude<
+  NonNullable<SettaAPI["app"]["flags"]["workflowGraphSyntheticGraph"]>["scene"],
+  undefined
+>;
+
 const invoke = createRendererIpcInvoke(ipcRenderer);
 const appFlags = {
+  workflowGraphAnimationEnabled: process.env.SETTA_WORKFLOW_GRAPH_ANIMATION !== "0",
   workflowGraphDebug:
     process.env.SETTA_E2E === "1" || process.env.SETTA_WORKFLOW_GRAPH_DEBUG === "1",
+  workflowGraphReduceMotion: process.env.SETTA_WORKFLOW_GRAPH_REDUCE_MOTION === "1",
   workflowGraphSyntheticGraph: parseWorkflowGraphSyntheticGraph(process.env),
 };
 const workspaceBrowserViewKeys = new Set<string>([
@@ -228,12 +235,19 @@ const api: SettaAPI = {
       invoke("semanticGraphCartographerWindowProcess", request),
     readCartographerProcessingState: (request) =>
       invoke("semanticGraphCartographerProcessingState", request),
+    readCartographerSettings: (request) => invoke("semanticGraphCartographerSettingsRead", request),
+    readCartographerSettingsMetadata: (request) =>
+      invoke("semanticGraphCartographerSettingsMetadata", request),
+    updateCartographerSettings: (request) =>
+      invoke("semanticGraphCartographerSettingsUpdate", request),
     createEdge: (request) => invoke("semanticGraphCreateEdge", request),
     createNode: (request) => invoke("semanticGraphCreateNode", request),
     createSteeringDirective: (request) => invoke("semanticGraphCreateSteeringDirective", request),
     dismissNode: (request) => invoke("semanticGraphDismissNode", request),
     endActivity: (request) => invoke("semanticGraphActivityEnd", request),
     listCartographerCursors: (request) => invoke("semanticGraphCartographerCursorList", request),
+    listCartographerModelOptions: (request) =>
+      invoke("semanticGraphCartographerModelOptionsList", request),
     listCartographerPatches: (request) => invoke("semanticGraphCartographerPatchList", request),
     listCartographerRuns: (request) => invoke("semanticGraphCartographerRunList", request),
     listCartographerWindows: (request) => invoke("semanticGraphCartographerWindowList", request),
@@ -258,7 +272,9 @@ const api: SettaAPI = {
     readContextPack: (request) => invoke("semanticGraphContextPackRead", request),
     readEventHistory: (request) => invoke("semanticGraphEventHistory", request),
     readNodeDetail: (request) => invoke("semanticGraphNodeDetail", request),
+    readRuntimeSnapshot: (request) => invoke("semanticGraphRuntimeSnapshot", request),
     readSteeringState: (request) => invoke("semanticGraphSteeringRead", request),
+    readWorkingSet: (request) => invoke("semanticGraphWorkingSetRead", request),
     rejectCartographerPatch: (request) => invoke("semanticGraphCartographerPatchReject", request),
     removeEdge: (request) => invoke("semanticGraphRemoveEdge", request),
     renameNode: (request) => invoke("semanticGraphRenameNode", request),
@@ -269,12 +285,16 @@ const api: SettaAPI = {
     updateSteeringDirective: (request) => invoke("semanticGraphUpdateSteeringDirective", request),
   },
   workflow: {
+    addEdge: (request) => invoke("workflowAddEdge", request),
+    addNode: (request) => invoke("workflowAddNode", request),
     cancelExecution: (workspaceId, executionId) =>
       invoke("workflowCancelExecution", workspaceId, executionId),
     createDefinition: (workspaceId, name, description, graph) =>
       invoke("workflowCreateDefinition", workspaceId, name, description, graph),
     deleteDefinition: (workspaceId, definitionId) =>
       invoke("workflowDeleteDefinition", workspaceId, definitionId),
+    deleteEdges: (request) => invoke("workflowDeleteEdges", request),
+    deleteNodes: (request) => invoke("workflowDeleteNodes", request),
     executionEvents: (workspaceId, executionId, beforeOrdinal, limit) =>
       invoke("workflowExecutionEvents", workspaceId, executionId, beforeOrdinal, limit),
     graphProjection: (workspaceId, definitionId = "", versionId = "", executionId = "") =>
@@ -296,10 +316,14 @@ const api: SettaAPI = {
     startExecution: (workspaceId, definitionId, versionId = "") =>
       invoke("workflowStartExecution", workspaceId, definitionId, versionId),
     submitApproval: (request) => invoke("workflowSubmitApproval", request),
-    updateDefinition: (workspaceId, definitionId, name, description, graph) =>
-      invoke("workflowUpdateDefinition", workspaceId, definitionId, name, description, graph),
+    updateDefinitionLayout: (request) => invoke("workflowUpdateDefinitionLayout", request),
+    updateDefinition: (request) => invoke("workflowUpdateDefinition", request),
+    updateDefinitionSettings: (request) => invoke("workflowUpdateDefinitionSettings", request),
+    updateEdge: (request) => invoke("workflowUpdateEdge", request),
+    updateNode: (request) => invoke("workflowUpdateNode", request),
     validateDefinition: (workspaceId, graph) =>
       invoke("workflowValidateDefinition", workspaceId, graph),
+    validateDefinitionDraft: (request) => invoke("workflowValidateDefinitionDraft", request),
   },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),
@@ -329,7 +353,8 @@ function parseWorkflowGraphSyntheticGraph(env: NodeJS.ProcessEnv) {
     env.SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE,
     "SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE",
   );
-  if (nodeCount === null && edgesPerNode === null) {
+  const scene = optionalWorkflowGraphSyntheticSceneEnv(env.SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE);
+  if (nodeCount === null && edgesPerNode === null && scene === null) {
     return null;
   }
   if (nodeCount === null || edgesPerNode === null) {
@@ -337,7 +362,24 @@ function parseWorkflowGraphSyntheticGraph(env: NodeJS.ProcessEnv) {
       "SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT and SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE must be set together",
     );
   }
-  return { edgesPerNode, nodeCount };
+  return { edgesPerNode, nodeCount, ...(scene === null ? {} : { scene }) };
+}
+
+function optionalWorkflowGraphSyntheticSceneEnv(
+  value: string | undefined,
+): WorkflowGraphSyntheticScene | null {
+  if (value === undefined || value === "") {
+    return null;
+  }
+  if (
+    value === "workflow" ||
+    value === "workflow-running" ||
+    value === "semantic-cells" ||
+    value === "merged"
+  ) {
+    return value;
+  }
+  throw new Error(`SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE is unsupported: ${value}`);
 }
 
 function optionalPositiveIntegerEnv(value: string | undefined, name: string) {
@@ -423,7 +465,6 @@ function decodeWorkspaceBrowserViewKeyEvent(value: unknown): WorkspaceBrowserVie
   }
   return {
     altKey: booleanField(record, "altKey", "WorkspaceBrowserViewKeyEvent"),
-    ctrlKey: booleanField(record, "ctrlKey", "WorkspaceBrowserViewKeyEvent"),
     key,
     metaKey: booleanField(record, "metaKey", "WorkspaceBrowserViewKeyEvent"),
     shiftKey: booleanField(record, "shiftKey", "WorkspaceBrowserViewKeyEvent"),

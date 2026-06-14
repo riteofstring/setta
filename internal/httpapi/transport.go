@@ -159,6 +159,10 @@ func writeCodexAccountError(response http.ResponseWriter, code string, err error
 
 func writeWorkflowError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
+	if conflictErr, ok := orchestrator.IsWorkflowConflictError(err); ok {
+		writeError(response, http.StatusConflict, conflictErr.Code, conflictErr.Error())
+		return
+	}
 	var validationErr *orchestrator.ValidationError
 	if errors.As(err, &validationErr) {
 		writeError(response, status, "workflow_validation_failed", validationErr.Error())

@@ -1,4 +1,5 @@
 import type {
+  SemanticContextSourceRefs,
   WorkflowActivityRef,
   WorkflowEdge,
   WorkflowGraph,
@@ -86,12 +87,19 @@ export function WorkflowNodeDetailsSurface() {
         target.nodeId,
         draft,
       );
-      const updated = await window.setta.workflow.updateDefinition(
+      const updatedNode = updatedGraph.nodes.find((candidate) => candidate.id === target.nodeId);
+      if (!updatedNode) {
+        throw new Error(`workflow node ${target.nodeId} was not found`);
+      }
+      await window.setta.workflow.updateNode({
+        definitionId: target.definitionId,
+        expectedRevision: definition.draftRevision,
+        node: updatedNode,
+        workspaceId: target.workspaceId,
+      });
+      const updated = await window.setta.workflow.readDefinition(
         target.workspaceId,
         target.definitionId,
-        definition.name,
-        definition.description,
-        updatedGraph,
       );
       setDefinition(updated);
       setSaveMessage("Saved");
@@ -274,6 +282,7 @@ function WorkflowNodeDetailsContent({
     return (
       <>
         <WorkflowNodeIdentity target={target} />
+        <WorkflowSemanticRuntimeDetails target={target} />
         <WorkflowRunDetailsContent inspection={runInspection} target={target} />
       </>
     );
@@ -287,6 +296,7 @@ function WorkflowNodeDetailsContent({
   return (
     <>
       <WorkflowNodeIdentity target={target} />
+      <WorkflowSemanticRuntimeDetails target={target} />
       <WorkflowLoadedNodeDetails
         draft={draft}
         graph={definition.graph}
@@ -365,12 +375,14 @@ function AgentTaskDetailsForm({
     >
       <AgentTaskReadOnlyNotice readOnly={readOnly} />
       <WorkflowTextField
+        testId="workflow-node-title"
         disabled={disabled}
         label="Title"
         onChange={(value) => onDraftChange({ ...draft, title: value })}
         value={draft.title}
       />
       <WorkflowTextArea
+        testId="workflow-node-prompt"
         disabled={disabled}
         label="Prompt"
         onChange={(value) => onDraftChange({ ...draft, prompt: value })}
@@ -378,6 +390,7 @@ function AgentTaskDetailsForm({
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <WorkflowTextField
+          testId="workflow-node-model"
           disabled={disabled}
           label="Model"
           onChange={(value) => onDraftChange({ ...draft, model: value })}
@@ -385,6 +398,7 @@ function AgentTaskDetailsForm({
           value={draft.model}
         />
         <WorkflowTextField
+          testId="workflow-node-reasoning"
           disabled={disabled}
           label="Reasoning"
           onChange={(value) => onDraftChange({ ...draft, reasoningEffort: value })}
@@ -598,6 +612,154 @@ function WorkflowNodeIdentity({ target }: { target: WorkflowNodeDetailsTarget })
   );
 }
 
+function WorkflowSemanticRuntimeDetails({ target }: { target: WorkflowNodeDetailsTarget }) {
+  const runtime = target.runtime ?? null;
+  if (runtime === null || runtime.sourceCount <= 0) {
+    return null;
+  }
+  return (
+    <div className="border-b border-zinc-800 px-4 py-3">
+      <WorkflowDetailsSection title="Semantic Runtime">
+        <WorkflowDetailsRows
+          rows={[
+            { label: "State", value: semanticRuntimeStatusLabel(runtime.status) },
+            { label: "Sources", value: runtime.sourceCount },
+            { label: "Pulses", value: runtime.pulseCount },
+            {
+              hidden: runtime.runIds.length === 0,
+              label: "Runs",
+              value: runtime.runIds.map(shortIdentifier).join(", "),
+            },
+            {
+              hidden: runtime.windowIds.length === 0,
+              label: "Windows",
+              value: runtime.windowIds.map(shortIdentifier).join(", "),
+            },
+            {
+              hidden: runtime.patchIds.length === 0,
+              label: "Patches",
+              value: runtime.patchIds.map(shortIdentifier).join(", "),
+            },
+          ]}
+        />
+        <WorkflowSemanticRuntimeStatusCounts counts={runtime.statusCounts} />
+        <WorkflowSemanticRuntimeSourceRefs sourceRefs={runtime.sourceRefs} />
+        <WorkflowSemanticRuntimePulses pulses={runtime.recentPulses} />
+      </WorkflowDetailsSection>
+    </div>
+  );
+}
+
+function WorkflowSemanticRuntimeStatusCounts({
+  counts,
+}: {
+  counts: NonNullable<WorkflowNodeDetailsTarget["runtime"]>["statusCounts"];
+}) {
+  if (counts.length === 0) {
+    return null;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {counts.map((count) => (
+        <span
+          className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-1.5 py-0.5 text-[11px] text-zinc-300"
+          key={count.status}
+        >
+          {semanticRuntimeStatusLabel(count.status)} {count.count}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function WorkflowSemanticRuntimeSourceRefs({
+  sourceRefs,
+}: {
+  sourceRefs: SemanticContextSourceRefs[];
+}) {
+  if (sourceRefs.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium text-zinc-400">Source Refs</div>
+      {sourceRefs.map((refs) => (
+        <div
+          className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1 font-mono text-[11px] text-zinc-300"
+          key={semanticRuntimeSourceRefsKey(refs)}
+        >
+          {semanticRuntimeSourceRefsLabel(refs)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WorkflowSemanticRuntimePulses({
+  pulses,
+}: {
+  pulses: NonNullable<WorkflowNodeDetailsTarget["runtime"]>["recentPulses"];
+}) {
+  if (pulses.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium text-zinc-400">Recent Pulses</div>
+      {pulses.map((pulse) => (
+        <div
+          className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-300"
+          key={pulse.id}
+        >
+          <span className="font-medium text-zinc-200">
+            {semanticRuntimePulseKindLabel(pulse.kind)}
+          </span>
+          <span className="text-zinc-500"> / {semanticRuntimeStatusLabel(pulse.status)}</span>
+          {pulse.publicSummary !== "" ? (
+            <div className="mt-1 text-zinc-400">{pulse.publicSummary}</div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function semanticRuntimeStatusLabel(status: string) {
+  return status.replaceAll("_", " ");
+}
+
+function semanticRuntimePulseKindLabel(kind: string) {
+  return kind.replaceAll("_", " ");
+}
+
+function semanticRuntimeSourceRefsLabel(refs: SemanticContextSourceRefs) {
+  const parts = [
+    sourceRefPart("workflow", refs.workflowExecutionId),
+    sourceRefPart("node", refs.workflowNodeId),
+    sourceRefPart("item", refs.runItemId),
+    sourceRefPart("chat", refs.chatRunId),
+    sourceRefPart("message", refs.chatMessageId),
+  ].filter(Boolean);
+  return parts.length === 0 ? "unscoped" : parts.join(" / ");
+}
+
+function semanticRuntimeSourceRefsKey(refs: SemanticContextSourceRefs) {
+  return [
+    refs.workflowDefinitionId,
+    refs.workflowExecutionId,
+    refs.workflowNodeId,
+    refs.workflowNodeExecutionId,
+    refs.chatConversationId,
+    refs.chatRunId,
+    refs.chatMessageId,
+    refs.runItemId,
+  ].join(":");
+}
+
+function sourceRefPart(label: string, value: string) {
+  return value === "" ? "" : `${label}:${shortIdentifier(value)}`;
+}
+
 function workflowVersionLabel(target: WorkflowNodeDetailsTarget) {
   const version = target.definitionVersionNumber;
   const versionLabel = version > 0 ? `v${version}` : "version";
@@ -643,12 +805,14 @@ function WorkflowTextField({
   label,
   onChange,
   placeholder,
+  testId,
   value,
 }: {
   disabled: boolean;
   label: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  testId?: string;
   value: string;
 }) {
   return (
@@ -659,6 +823,7 @@ function WorkflowTextField({
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
         placeholder={placeholder}
+        data-testid={testId}
         value={value}
       />
     </label>
@@ -669,11 +834,13 @@ function WorkflowTextArea({
   disabled,
   label,
   onChange,
+  testId,
   value,
 }: {
   disabled: boolean;
   label: string;
   onChange: (value: string) => void;
+  testId?: string;
   value: string;
 }) {
   return (
@@ -683,6 +850,7 @@ function WorkflowTextArea({
         className="min-h-40 flex-1 resize-none rounded-sm border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm leading-5 text-zinc-100 outline-none focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
+        data-testid={testId}
         value={value}
       />
     </label>

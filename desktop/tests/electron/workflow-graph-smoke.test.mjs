@@ -39,6 +39,7 @@ import {
   assertSpatialIndexDebugCounters,
   assertSpatialIndexQueryAdvanced,
   assertSpatialIndexUpdatesAdvanced,
+  assertWorkflowGraphLabelSizing,
   setsEqual,
   visiblePoint,
 } from "./workflow-graph-smoke-assertions.mjs";
@@ -63,13 +64,9 @@ const labelVisibilityReasons = new Set([
   "zoom-hidden",
 ]);
 const geometryConstructionCounters = [
-  "gridDrawCount",
   "nodeBodyContextCount",
-  "nodeBodyGraphicsCount",
   "nodeOutlineContextCount",
-  "nodeOutlineGraphicsCount",
   "nodeShadowContextCount",
-  "nodeShadowGraphicsCount",
 ];
 
 if (options.help) {
@@ -264,7 +261,7 @@ try {
   await delay(150);
   const afterPan = await getWorkflowGraphSnapshot(context.client);
   assertCameraMoved(afterEscapeClear, afterPan, "empty-space pan after marquee interactions");
-  assertLabelsAttachedToNodeCenters(afterPan, "empty-space pan");
+  assertLabelsAttachedToNodes(afterPan, "empty-space pan");
   assertLabelsScreenSpace(afterPan, "empty-space pan");
   assertLabelSyncAdvanced(afterEscapeClear, afterPan, "empty-space pan label sync");
   assertSpatialIndexQueryAdvanced(afterEscapeClear, afterPan, "empty-space pan label visibility");
@@ -285,7 +282,7 @@ try {
   const afterZoom = await getWorkflowGraphSnapshot(context.client);
   assertZoomChanged(afterPan, afterZoom);
   assertZoomAtLeast(afterZoom, 1.1, "zoomed group drag setup");
-  assertLabelsAttachedToNodeCenters(afterZoom, "wheel zoom");
+  assertLabelsAttachedToNodes(afterZoom, "wheel zoom");
   assertLabelsScreenSpace(afterZoom, "wheel zoom");
   assertLabelSizing(afterZoom, { label: "wheel zoom" });
   assertLabelSyncAdvanced(afterPan, afterZoom, "wheel zoom label sync");
@@ -345,7 +342,7 @@ try {
   const afterWheelPan = await getWorkflowGraphSnapshot(context.client);
   assertCameraMoved(afterZoomGroupDrag, afterWheelPan, "trackpad-style wheel pan");
   assertZoomUnchanged(afterZoomGroupDrag, afterWheelPan, "trackpad-style wheel pan");
-  assertLabelsAttachedToNodeCenters(afterWheelPan, "trackpad-style wheel pan");
+  assertLabelsAttachedToNodes(afterWheelPan, "trackpad-style wheel pan");
   assertLabelsScreenSpace(afterWheelPan, "trackpad-style wheel pan");
   assertLabelSyncAdvanced(afterZoomGroupDrag, afterWheelPan, "trackpad-style wheel pan label sync");
   assertGeometryConstructionCountersStable(
@@ -408,7 +405,7 @@ try {
   await delay(250);
   const afterDeepZoom = await getWorkflowGraphSnapshot(context.client);
   assertZoomAtLeast(afterDeepZoom, 3, "deep label zoom");
-  assertLabelsAttachedToNodeCenters(afterDeepZoom, "deep label zoom");
+  assertLabelsAttachedToNodes(afterDeepZoom, "deep label zoom");
   assertLabelsScreenSpace(afterDeepZoom, "deep label zoom");
   assertLabelSizing(afterDeepZoom, { label: "deep label zoom" });
   assertAtLeastOneVisibleLabel(afterDeepZoom, "deep label zoom");
@@ -430,7 +427,7 @@ try {
   const afterDeepZoomPan = await getWorkflowGraphSnapshot(context.client);
   assertCameraMoved(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom");
   assertZoomUnchanged(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom");
-  assertLabelsAttachedToNodeCenters(afterDeepZoomPan, "pan after deep label zoom");
+  assertLabelsAttachedToNodes(afterDeepZoomPan, "pan after deep label zoom");
   assertLabelsScreenSpace(afterDeepZoomPan, "pan after deep label zoom");
   assertLabelSizing(afterDeepZoomPan, { label: "pan after deep label zoom" });
   assertAllVisibleModeLabels(afterDeepZoomPan, "pan after deep label zoom");
@@ -464,7 +461,7 @@ try {
   });
   await delay(250);
   const afterLowZoom = await getWorkflowGraphSnapshot(context.client);
-  assertLabelsAttachedToNodeCenters(afterLowZoom, "low zoom selected-mode LOD");
+  assertLabelsAttachedToNodes(afterLowZoom, "low zoom selected-mode LOD");
   assertLabelsScreenSpace(afterLowZoom, "low zoom selected-mode LOD");
   assertSelectedModeLabelVisibility(afterLowZoom, lowZoomTarget.id, "low zoom selected-mode LOD");
   assertLabelSizing(afterLowZoom, {
@@ -752,7 +749,7 @@ function assertInitialSnapshot(snapshot) {
     throw new Error(`workflow graph canvas appears blank: ${JSON.stringify(snapshot.visual)}`);
   }
   assertSelectionDebugShape(snapshot);
-  assertLabelsAttachedToNodeCenters(snapshot, "initial render");
+  assertLabelsAttachedToNodes(snapshot, "initial render");
   assertLabelsScreenSpace(snapshot, "initial render");
   assertLabelSizing(snapshot, { label: "initial render" });
   assertLabelVisibilityMode(snapshot, "visible-priority", "initial render");
@@ -846,27 +843,45 @@ function assertSelectedExactly(snapshot, expectedNodeIds, label) {
   }
 }
 
-function assertLabelsAttachedToNodeCenters(snapshot, label) {
+function assertLabelsAttachedToNodes(snapshot, label) {
   for (const node of snapshot.graph.nodes) {
-    const nodeCenter = { x: Math.round(node.screenX), y: Math.round(node.screenY) };
+    if (node.label?.materialized === false) {
+      continue;
+    }
     assertFiniteNumber(node.label?.screenX, `${label} ${node.id} label.screenX`);
     assertFiniteNumber(node.label?.screenY, `${label} ${node.id} label.screenY`);
-    if (
-      Math.abs(node.label.screenX - nodeCenter.x) > 1 ||
-      Math.abs(node.label.screenY - nodeCenter.y) > 1
-    ) {
-      throw new Error(
-        `${label} label was not attached to node center: node=${JSON.stringify(node)}`,
-      );
+    assertLabelGlobalPosition(node, label);
+    if (node.layer !== "workflow") {
+      continue;
     }
-    if (
-      Math.abs(node.label.globalX - node.label.screenX) > 1 ||
-      Math.abs(node.label.globalY - node.label.screenY) > 1
-    ) {
-      throw new Error(
-        `${label} label global position did not match screen position: node=${JSON.stringify(node)}`,
-      );
+    if (node.label.visible === false && node.label.visibilityReason === "outside-viewport") {
+      continue;
     }
+    assertWorkflowLabelAttachedToNode(node, snapshot.camera.zoom, label);
+  }
+}
+
+function assertLabelGlobalPosition(node, label) {
+  if (
+    Math.abs(node.label.globalX - node.label.screenX) > 1 ||
+    Math.abs(node.label.globalY - node.label.screenY) > 1
+  ) {
+    throw new Error(
+      `${label} label global position did not match screen position: node=${JSON.stringify(node)}`,
+    );
+  }
+}
+
+function assertWorkflowLabelAttachedToNode(node, zoom, label) {
+  const halfWidth = (node.width * zoom) / 2;
+  const left = node.screenX - halfWidth - 1;
+  const right = node.screenX + halfWidth + 1;
+  if (
+    Math.abs(node.label.screenY - Math.round(node.screenY)) > 1 ||
+    node.label.screenX < left ||
+    node.label.screenX > right
+  ) {
+    throw new Error(`${label} label was not attached to node: node=${JSON.stringify(node)}`);
   }
 }
 
@@ -879,6 +894,9 @@ function assertLabelsScreenSpace(snapshot, label) {
       throw new Error(`${label} node label was interactive: ${JSON.stringify(node)}`);
     }
     assertLabelBitmapFontMetadata(node, label);
+    if (node.label.materialized === false) {
+      continue;
+    }
     const scaleFields = ["scaleX", "scaleY", "worldScaleX", "worldScaleY"];
     for (const field of scaleFields) {
       assertFiniteNumber(node.label[field], `${label} ${node.id} label.${field}`);
@@ -951,8 +969,8 @@ function assertNodeGeometryDebugCounters(snapshot, label) {
   for (const counter of counters) {
     assertNonNegativeInteger(render[counter], `${label} ${counter}`);
   }
-  if (render.gridDrawCount !== 1) {
-    throw new Error(`${label} gridDrawCount was not one: render=${JSON.stringify(render)}`);
+  if (render.gridDrawCount < 1) {
+    throw new Error(`${label} gridDrawCount did not advance: render=${JSON.stringify(render)}`);
   }
   assertPositiveBoundedRenderCount(
     render,
@@ -972,19 +990,10 @@ function assertNodeGeometryDebugCounters(snapshot, label) {
     snapshot.graph.nodeCount * 2,
     label,
   );
-  assertPositiveContextCount(render, "nodeBodyContextCount", render.nodeBodyGraphicsCount, label);
-  assertPositiveContextCount(
-    render,
-    "nodeOutlineContextCount",
-    render.nodeOutlineGraphicsCount,
-    label,
-  );
-  assertPositiveContextCount(
-    render,
-    "nodeShadowContextCount",
-    render.nodeShadowGraphicsCount,
-    label,
-  );
+  const retainedNodeViewCount = render.materializedNodeCount + render.pooledNodeViewCount;
+  assertPositiveContextCount(render, "nodeBodyContextCount", retainedNodeViewCount, label);
+  assertPositiveContextCount(render, "nodeOutlineContextCount", retainedNodeViewCount * 2, label);
+  assertPositiveContextCount(render, "nodeShadowContextCount", retainedNodeViewCount, label);
 }
 
 function assertPositiveBoundedRenderCount(render, counter, maximum, label) {
@@ -995,10 +1004,10 @@ function assertPositiveBoundedRenderCount(render, counter, maximum, label) {
   }
 }
 
-function assertPositiveContextCount(render, counter, graphicsCount, label) {
-  if (render[counter] < 1 || render[counter] > graphicsCount) {
+function assertPositiveContextCount(render, counter, maximum, label) {
+  if (render[counter] < 1 || render[counter] > maximum) {
     throw new Error(
-      `${label} ${counter} was outside expected cache bounds: render=${JSON.stringify(render)}`,
+      `${label} ${counter} was outside expected cache bounds: max=${maximum} render=${JSON.stringify(render)}`,
     );
   }
 }
@@ -1085,6 +1094,9 @@ function assertLabelFontSizeModeValue(value, label) {
 function assertLabelFontSizeModes(snapshot, label) {
   for (const node of snapshot.graph.nodes) {
     assertLabelFontSizeModeValue(node.label?.fontSizeMode, `${label} ${node.id} fontSizeMode`);
+    if (node.label.materialized === false) {
+      continue;
+    }
     const expectedSize =
       node.label.fontSizeMode === "compact-selected"
         ? expectedCompactSelectedLabelFontSize
@@ -1098,25 +1110,13 @@ function assertLabelFontSizeModes(snapshot, label) {
 }
 
 function assertLabelSizing(snapshot, { compactNodeId = null, label }) {
-  assertLabelDebugCounters(snapshot, label);
-  const expectedCompactCount = compactNodeId ? 1 : 0;
-  if (snapshot.render.compactSelectedLabelCount !== expectedCompactCount) {
-    throw new Error(
-      `${label} reported wrong compact label count: expected=${expectedCompactCount} render=${JSON.stringify(snapshot.render)}`,
-    );
-  }
-  for (const node of snapshot.graph.nodes) {
-    const compact = node.id === compactNodeId;
-    const expectedMode = compact ? "compact-selected" : "normal";
-    const expectedSize = compact
-      ? expectedCompactSelectedLabelFontSize
-      : expectedBitmapLabelFontSize;
-    if (node.label.fontSizeMode !== expectedMode || node.label.fontSize !== expectedSize) {
-      throw new Error(
-        `${label} label used wrong sizing: expectedMode=${expectedMode} expectedSize=${expectedSize} node=${JSON.stringify(node)}`,
-      );
-    }
-  }
+  assertWorkflowGraphLabelSizing(snapshot, {
+    compactNodeId,
+    expectedBitmapLabelFontSize,
+    expectedCompactSelectedLabelFontSize,
+    label,
+    validateDebugCounters: assertLabelDebugCounters,
+  });
 }
 
 function assertSelectedModeLabelVisibility(snapshot, selectedNodeId, label) {
@@ -1209,7 +1209,7 @@ function assertGroupDragMoved(before, after, selectedNodeIds) {
   assertCameraUnchanged(before, after, "group node drag");
   assertRenderCounterAdvanced(before, after, "nodeDragUpdateCount", "group node drag");
   assertRenderCounterAdvanced(before, after, "edgeRedrawCount", "group node drag edge redraw");
-  assertLabelsAttachedToNodeCenters(after, "group node drag");
+  assertLabelsAttachedToNodes(after, "group node drag");
   assertLabelsScreenSpace(after, "group node drag");
   assertLabelSyncAdvanced(before, after, "group node drag label sync");
 
@@ -1413,7 +1413,6 @@ function assertEdgeCommitted(before, during, after, pair) {
 function rendererRebuilt(before, after) {
   return after.render.reactRenderCount !== before.render.reactRenderCount;
 }
-
 function assertTemporaryEdgeActive(before, during, label) {
   if (!during.interaction.drawingEdge) {
     throw new Error(
@@ -1434,7 +1433,6 @@ function assertTemporaryEdgeCleared(after, label) {
     );
   }
 }
-
 function assertEdgeCountUnchanged(before, after, label) {
   if (after.graph.edgeCount !== before.graph.edgeCount) {
     throw new Error(

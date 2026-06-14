@@ -48,6 +48,7 @@ type ChatService interface {
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
+	ListCodexModelOptions(workspaceID string) ([]chat.ChatModelOption, error)
 	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)
 	ExecuteChatCommandWithOptions(workspaceID string, conversationID string, raw string, options chat.ChatCommandExecutionOptions) (chat.ChatCommandExecuteResult, error)
 	EditQueuedMessage(workspaceID string, conversationID string, messageID string, prompt string) (chat.QueueEditResult, error)
@@ -73,9 +74,13 @@ type CodexAccountService interface {
 }
 
 type WorkflowService interface {
+	AddDefinitionEdge(workspaceID string, definitionID string, expectedRevision string, connection orchestrator.WorkflowDraftEdgeConnection) (orchestrator.WorkflowGraphProjection, error)
+	AddDefinitionNode(workspaceID string, definitionID string, expectedRevision string, nodeType orchestrator.WorkflowDraftNodeType, position orchestrator.WorkflowDraftNodePosition) (orchestrator.WorkflowGraphProjection, error)
 	CancelExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
 	CreateDefinition(workspaceID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
 	DeleteDefinition(workspaceID string, definitionID string) error
+	DeleteDefinitionEdges(workspaceID string, definitionID string, expectedRevision string, edgeIDs []string) (orchestrator.WorkflowGraphProjection, error)
+	DeleteDefinitionNodes(workspaceID string, definitionID string, expectedRevision string, nodeIDs []string) (orchestrator.WorkflowGraphProjection, error)
 	ListDefinitions(workspaceID string) ([]orchestrator.WorkflowDefinition, error)
 	ReadDefinition(workspaceID string, definitionID string) (orchestrator.WorkflowDefinition, error)
 	ReadExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
@@ -84,8 +89,13 @@ type WorkflowService interface {
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
 	SubscribeEvents(cursor orchestrator.WorkflowEventCursor) (*orchestrator.EventSubscription, error)
 	SubmitApproval(workspaceID string, executionID string, nodeExecutionID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (orchestrator.WorkflowExecution, error)
-	UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
+	UpdateDefinition(workspaceID string, definitionID string, expectedRevision string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
+	UpdateDefinitionEdge(workspaceID string, definitionID string, expectedRevision string, edge orchestrator.WorkflowEdge) (orchestrator.WorkflowGraphProjection, error)
 	ValidateDefinition(workspaceID string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowValidationResult, error)
+	ValidateDefinitionDraft(workspaceID string, definitionID string, expectedRevision string) (orchestrator.WorkflowGraphProjection, error)
+	UpdateDefinitionLayout(workspaceID string, definitionID string, expectedRevision string, positions []orchestrator.WorkflowGraphNodeLayout) (orchestrator.WorkflowGraphProjection, error)
+	UpdateDefinitionNode(workspaceID string, definitionID string, expectedRevision string, node orchestrator.WorkflowNode) (orchestrator.WorkflowGraphProjection, error)
+	UpdateDefinitionSettings(workspaceID string, definitionID string, expectedRevision string, name string, description string) (orchestrator.WorkflowDefinition, error)
 }
 
 type SemanticGraphService interface {
@@ -95,12 +105,17 @@ type SemanticGraphService interface {
 	ListActivity(context.Context, string, string, int) (semanticgraph.SemanticActivityList, error)
 	ListActivityPage(context.Context, semanticgraph.SemanticActivityFilter) (semanticgraph.SemanticActivityPage, error)
 	ReadActivitySummary(context.Context, string, int) (semanticgraph.SemanticActivitySummary, error)
+	ReadSemanticRuntimeSnapshot(context.Context, semanticgraph.SemanticRuntimeFilter) (semanticgraph.SemanticRuntimeSnapshot, error)
+	ReadWorkingSet(context.Context, semanticgraph.SemanticWorkingSetFilter) (semanticgraph.SemanticWorkingSet, error)
 	ReadSteeringState(context.Context, string, string) (semanticgraph.SemanticSteeringState, error)
 	ReadEventHistory(context.Context, string, string, int, int) (semanticgraph.SemanticEventHistory, error)
 	ReadContextPack(context.Context, string, string) (semanticgraph.SemanticContextPackRecord, bool, error)
 	ListContextPacks(context.Context, semanticgraph.SemanticContextPackFilter) (semanticgraph.SemanticContextPackList, error)
 	BuildCartographerWindow(context.Context, semanticgraph.CartographerManualWindowRequest) (semanticgraph.CartographerWindowBuildResult, error)
 	ProcessCartographerWindow(context.Context, string, string) (semanticgraph.CartographerWindowProcessResult, error)
+	ReadSemanticCartographerSettings(context.Context) (semanticgraph.SemanticCartographerSettingsRecord, error)
+	ReadSemanticCartographerSettingsMetadata(context.Context) (semanticgraph.SemanticCartographerSettingsMetadata, error)
+	UpdateSemanticCartographerSettings(context.Context, semanticgraph.SemanticCartographerSettingsInput, []chat.ChatModelOption) (semanticgraph.SemanticCartographerSettingsRecord, error)
 	ReadCartographerProcessingState(context.Context) (semanticgraph.CartographerProcessingState, error)
 	ReadCartographerRun(context.Context, string, string) (semanticgraph.CartographerRun, bool, error)
 	ListCartographerRuns(context.Context, semanticgraph.CartographerRunFilter) (semanticgraph.CartographerRunList, error)

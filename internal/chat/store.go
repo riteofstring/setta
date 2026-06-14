@@ -132,13 +132,7 @@ func (store *Store) SaveConversation(conversation Conversation) error {
 	if err := validateConversation(conversation); err != nil {
 		return err
 	}
-	path := store.conversationPath(conversation.WorkspaceID, conversation.ID)
-	if _, err := os.Stat(path); err == nil {
-		return writeJSONFile(path, conversation)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return &PersistenceError{Operation: "stat conversation", Path: path, Err: err}
-	}
-	return store.writeInitialConversation(conversation)
+	return writeJSONFile(store.conversationPath(conversation.WorkspaceID, conversation.ID), conversation)
 }
 
 func (store *Store) DeleteConversation(workspaceID string, conversationID string) error {
@@ -328,7 +322,7 @@ func (store *Store) scanConversationsAllowingCorrupt(workspaceID string) ([]Conv
 	conversations := make([]Conversation, 0, len(entries))
 	corrupt := []CorruptStateFinding{}
 	for _, entry := range entries {
-		if !visibleConversationScanEntry(entry) {
+		if !entry.IsDir() {
 			continue
 		}
 		conversation, err := store.LoadConversation(workspaceID, entry.Name())

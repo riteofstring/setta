@@ -1,8 +1,9 @@
 /* global console */
 
-import { mkdir, rm } from "node:fs/promises";
+import { Buffer } from "node:buffer";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 import process from "node:process";
 
 import {
@@ -23,9 +24,14 @@ import {
 } from "./chat-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
+  buildWorkflowSourcePulseWithinOneSecond,
+  runPhase8SemanticLivenessGate,
+} from "./semantic-cartographer-phase8-liveness.mjs";
+import {
   maximizeWorkflowGraphPane,
   openWorkflowGraphPane,
 } from "./workflow-graph-layout-helpers.mjs";
+import { writeJson } from "./electron-cdp-harness.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
@@ -38,12 +44,19 @@ const seedNodeId = "semantic_auto_workflow_context";
 const smokeAgentNodeId = "agent";
 const longFastNodeId = "fast";
 const longSlowNodeId = "slow";
+const requiredAutomaticReadbackPulseKinds = [
+  "node_updated_recent",
+  "evidence_attached",
+  "edge_created",
+];
+const phase2MaxBlankScopeWorkingSetReads = 0;
+const phase2MaxRuntimeIpcBytesPerMinute = 1_000_000;
 
 configureChatWorkflowHarness({ visible: options.visible });
 
 if (options.help) {
   console.log(
-    "Usage: node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>]",
+    "Usage: node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs [--semantic-live-recording-only] [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>]",
   );
   process.exit(0);
 }
@@ -61,12 +74,17 @@ const stoppedLogs = [];
 
 try {
   const smoke = await runAutomaticAgentSmoke();
-  const longRunning = await runLongRunningAutomaticCartographerWorkflow();
+  const longRunning = options.semanticLiveRecordingOnly
+    ? null
+    : await runLongRunningAutomaticCartographerWorkflow();
   console.log(
     `semantic cartographer automatic workflow passed: ${JSON.stringify({
-      longRunningExecutionId: longRunning.executionId,
-      longRunningProcessedWindows: longRunning.processedWindowCount,
+      phase8StatusCount: smoke.phase8.statuses.length,
+      longRunningExecutionId: longRunning?.executionId ?? "",
+      longRunningProcessedWindows: longRunning?.processedWindowCount ?? 0,
+      semanticLiveRecordingOnly: options.semanticLiveRecordingOnly,
       smokeExecutionId: smoke.executionId,
+      smokeEdgePatchId: smoke.automatic.edgePatch.id,
       smokePatchId: smoke.automatic.patch.id,
       smokeRunId: smoke.automatic.run.id,
       smokeWindowId: smoke.automatic.window.id,
@@ -128,18 +146,32 @@ async function runAutomaticAgentSmoke() {
   const backend = await backendProbe(recordingDir);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   await createChat(context.client, backend, workspaceId);
+  const seeded = await seedAgentWorkflowEvidence(context.client, workspaceId);
+  await context.client.call("Page.reload", { ignoreCache: true });
+  await waitForState(
+    context.client,
+    `(() => Boolean(document.querySelector('[data-testid="workspace-layout-area"]')))()`,
+    (value) => value === true,
+    30_000,
+  );
   await openWorkflowGraphPane(context.client, { timeoutMs: 30_000 });
   const graphSurfaceId = await maximizeWorkflowGraphPane(context.client, { timeoutMs: 30_000 });
   const rendererMarker = `semantic-cartographer-open-graph-${Date.now()}`;
   await setRendererReloadMarker(context.client, rendererMarker);
-
-  const seeded = await seedAgentWorkflowEvidence(context.client, workspaceId);
   await waitForRenderedSemanticGraphNode(context.client, graphSurfaceId, seedNodeId);
   await assertScriptedCartographerNodeAbsent(context.client, graphSurfaceId);
   const started = await rendererWorkflow(context.client, "startExecution", [
     workspaceId,
     seeded.definition.id,
   ]);
+  const prePatchPulse = await buildWorkflowSourcePulseWithinOneSecond({
+    client: context.client,
+    definitionId: seeded.definition.id,
+    executionId: started.id,
+    graphSurfaceId,
+    startedAtMs: Date.now(),
+    workspaceId,
+  });
   const execution = await waitForWorkflowExecution(
     context.client,
     workspaceId,
@@ -157,10 +189,26 @@ async function runAutomaticAgentSmoke() {
   });
   await waitForRenderedSemanticGraphNode(context.client, graphSurfaceId, automatic.nodeId);
   await assertRendererReloadMarker(context.client, rendererMarker);
+  const phase8 = await runPhase8SemanticLivenessGate({
+    automatic: {
+      ...automatic,
+      evidenceAnchorId: seeded.attachment.evidence.id,
+    },
+    client: context.client,
+    definitionId: seeded.definition.id,
+    execution,
+    executionId: started.id,
+    graphSurfaceId,
+    prePatchPulse,
+    recordingDir,
+    workspaceId,
+  });
+  assertSemanticRuntimeDefaultVisualBudget(phase8);
+  const runtimeBudget = await assertSemanticRuntimePhase2TrafficContract(recordingDir);
 
   await captureScreenshot(context.client, join(recordingDir, "automatic-cartographer.png"));
   await assertSemanticCartographerRecordingEvidence(recordingDir);
-  return { automatic, executionId: started.id };
+  return { automatic, executionId: started.id, phase8, runtimeBudget };
 }
 
 async function runLongRunningAutomaticCartographerWorkflow() {
@@ -220,42 +268,72 @@ function parseArgs(args) {
     artifactDir: "",
     help: false,
     keepArtifacts: false,
+    semanticLiveRecordingOnly: false,
     skipBuild: false,
     visible: process.env.SETTA_E2E_VISIBLE === "1",
   };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    switch (arg) {
-      case "--artifact-dir":
-        if (!args[index + 1]) {
-          throw new Error("--artifact-dir requires a value");
-        }
-        parsed.artifactDir = resolve(args[index + 1]);
-        index += 1;
-        break;
-      case "--keep-artifacts":
-        parsed.keepArtifacts = true;
-        break;
-      case "--skip-build":
-        parsed.skipBuild = true;
-        break;
-      case "--visible":
-        parsed.visible = true;
-        break;
-      case "-h":
-      case "--help":
-        parsed.help = true;
-        break;
-      default:
-        throw new Error(`unknown semantic cartographer workflow argument: ${arg}`);
+    const handler = semanticCartographerArgHandlers()[arg];
+    if (!handler) {
+      throw new Error(`unknown semantic cartographer workflow argument: ${arg}`);
     }
+    index += handler(parsed, args, index);
   }
   return parsed;
+}
+
+function semanticCartographerArgHandlers() {
+  return {
+    "--artifact-dir": parseArtifactDirArg,
+    "--help": parseHelpArg,
+    "--keep-artifacts": parseKeepArtifactsArg,
+    "--semantic-live-recording-only": parseSemanticLiveRecordingOnlyArg,
+    "--skip-build": parseSkipBuildArg,
+    "--visible": parseVisibleArg,
+    "-h": parseHelpArg,
+  };
+}
+
+function parseArtifactDirArg(parsed, args, index) {
+  if (!args[index + 1]) {
+    throw new Error("--artifact-dir requires a value");
+  }
+  parsed.artifactDir = resolve(args[index + 1]);
+  return 1;
+}
+
+function parseHelpArg(parsed) {
+  parsed.help = true;
+  return 0;
+}
+
+function parseKeepArtifactsArg(parsed) {
+  parsed.keepArtifacts = true;
+  return 0;
+}
+
+function parseSemanticLiveRecordingOnlyArg(parsed) {
+  parsed.semanticLiveRecordingOnly = true;
+  return 0;
+}
+
+function parseSkipBuildArg(parsed) {
+  parsed.skipBuild = true;
+  return 0;
+}
+
+function parseVisibleArg(parsed) {
+  parsed.visible = true;
+  return 0;
 }
 
 function semanticCartographerRecordingRoot(parsed) {
   if (parsed.artifactDir !== "") {
     return parsed.artifactDir;
+  }
+  if (parsed.semanticLiveRecordingOnly) {
+    return join(repoRoot, ".recordings", "semantic-live-run", pathTimestamp());
   }
   const base = join(repoRoot, "test-results", "electron-integration", "semantic-cartographer-auto");
   return parsed.keepArtifacts ? join(base, pathTimestamp()) : base;
@@ -407,6 +485,14 @@ async function waitForAutomaticCartographerApplied({
               runId: "",
               semanticTargetId: "",
               status: "",
+              workspaceId,
+            },
+          ]),
+          workingSet: await rendererSemanticGraph(client, "readWorkingSet", [
+            {
+              chatRunId: "",
+              limit: 40,
+              workflowExecutionId: executionId,
               workspaceId,
             },
           ]),
@@ -589,12 +675,25 @@ function assertProcessedWindowsSurvivedRestart(beforeRestart, afterRestart) {
 
 function automaticCartographerReadbackReady(value) {
   return (
+    automaticReadbackHasSemanticOutput(value) &&
+    automaticReadbackHasWorkingSetPulses(value.workingSet)
+  );
+}
+
+function automaticReadbackHasSemanticOutput(value) {
+  return (
     automaticProcessingIdleWithOutput(value.state) &&
-    hasScriptedCartographerPatch(value.patches) &&
+    hasScriptedCartographerFindingPatch(value.patches) &&
+    hasScriptedCartographerEdgePatch(value.patches) &&
     hasScriptedCartographerNode(value.graph) &&
+    hasScriptedCartographerEdge(value.graph) &&
     hasAppliedCartographerRun(value.runs) &&
     hasProcessedCartographerWindow(value.windows)
   );
+}
+
+function automaticReadbackHasWorkingSetPulses(workingSet) {
+  return requiredAutomaticReadbackPulseKinds.every((kind) => hasWorkingSetPulse(workingSet, kind));
 }
 
 function automaticProcessingIdleWithOutput(state) {
@@ -608,12 +707,25 @@ function automaticProcessingIdleWithOutput(state) {
   );
 }
 
-function hasScriptedCartographerPatch(patches) {
-  return patches.patches.some(isAppliedScriptedCartographerPatch);
+function hasScriptedCartographerFindingPatch(patches) {
+  return patches.patches.some(isAppliedScriptedCartographerFindingPatch);
+}
+
+function hasScriptedCartographerEdgePatch(patches) {
+  return patches.patches.some(isAppliedScriptedCartographerEdgePatch);
 }
 
 function hasScriptedCartographerNode(graph) {
   return graph.nodes.some(isScriptedCartographerNode);
+}
+
+function hasScriptedCartographerEdge(graph) {
+  return graph.edges.some(
+    (edge) =>
+      typeof edge.fromNodeId === "string" &&
+      edge.fromNodeId.startsWith(cartographerNodeIdPrefix) &&
+      edge.toNodeId === seedNodeId,
+  );
 }
 
 function hasAppliedCartographerRun(runs) {
@@ -624,27 +736,54 @@ function hasProcessedCartographerWindow(windows) {
   return windows.windows.some((window) => window.status === "processed");
 }
 
+function hasWorkingSetPulse(workingSet, kind) {
+  return workingSet.pulses.some((pulse) => pulse.kind === kind);
+}
+
 function assertAutomaticCartographerReadback(readback, records, evidenceAnchorId, executionId) {
   assertAutomaticPatch(records.patch);
+  assertAutomaticEdgePatch(records.edgePatch, records.nodeId);
   assertAutomaticRun(records.run, executionId);
   assertAutomaticWindow(records.window, records.run.id);
   assertAutomaticSemanticNode(readback, records.nodeId, evidenceAnchorId);
+  assertAutomaticWorkingSetPulses(readback.workingSet, records.nodeId);
   return records;
 }
 
 function requireAutomaticCartographerRecords(readback) {
-  const patch = readback.patches.patches.find(isAppliedScriptedCartographerPatch);
+  const patch = readback.patches.patches.find(isAppliedScriptedCartographerFindingPatch);
+  const edgePatch = readback.patches.patches.find(
+    (candidate) =>
+      isAppliedScriptedCartographerEdgePatch(candidate) && candidate.runId === patch?.runId,
+  );
   const run = readback.runs.runs.find((candidate) => candidate.id === patch?.runId);
   const window = readback.windows.windows.find((candidate) => candidate.id === patch?.windowId);
   const nodeId = patch?.patch.payload.newNode?.semanticNodeId ?? "";
-  if (!patch || !run || !window || nodeId === "") {
+  if (!patch || !edgePatch || !run || !window || nodeId === "") {
     throw new Error(`automatic cartographer audit records missing: ${JSON.stringify(readback)}`);
   }
-  return { nodeId, patch, run, window };
+  return { edgePatch, nodeId, patch, run, window };
 }
 
 function isAppliedScriptedCartographerPatch(patch) {
   return patch.id.startsWith(cartographerPatchIdPrefix) && patch.status === "applied";
+}
+
+function isAppliedScriptedCartographerFindingPatch(patch) {
+  return (
+    isAppliedScriptedCartographerPatch(patch) &&
+    patch.patch.operation === "record_finding" &&
+    patch.patch.payload.newNode?.semanticNodeId?.startsWith(cartographerNodeIdPrefix)
+  );
+}
+
+function isAppliedScriptedCartographerEdgePatch(patch) {
+  return (
+    isAppliedScriptedCartographerPatch(patch) &&
+    patch.patch.operation === "create_edge" &&
+    patch.patch.payload.fromNodeId?.startsWith(cartographerNodeIdPrefix) &&
+    patch.patch.payload.toNodeId === seedNodeId
+  );
 }
 
 function isScriptedCartographerNode(node) {
@@ -663,6 +802,18 @@ function automaticPatchAppliedFinding(patch) {
     patch.patch.operation === "record_finding" &&
     patch.createdSemanticEventIds.length > 0
   );
+}
+
+function assertAutomaticEdgePatch(patch, nodeId) {
+  if (
+    patch.status !== "applied" ||
+    patch.patch.operation !== "create_edge" ||
+    patch.patch.payload.fromNodeId !== nodeId ||
+    patch.patch.payload.toNodeId !== seedNodeId ||
+    patch.createdSemanticEventIds.length === 0
+  ) {
+    throw new Error(`automatic cartographer edge patch mismatch: ${JSON.stringify(patch)}`);
+  }
 }
 
 function assertAutomaticRun(run, executionId) {
@@ -690,12 +841,273 @@ function assertAutomaticWindow(window, runId) {
 
 function assertAutomaticSemanticNode(readback, nodeId, evidenceAnchorId) {
   const hasNode = readback.graph.nodes.some((node) => node.id === nodeId);
+  const hasSourceLink = readback.graph.sourceLinks.some((link) => link.targetEntityId === nodeId);
+  const hasEdge = readback.graph.edges.some(
+    (edge) => edge.fromNodeId === nodeId && edge.toNodeId === seedNodeId,
+  );
   const hasEvidence = readback.detail.detail.evidence.some(
     (evidence) => evidence.reassignedFromAnchorId === evidenceAnchorId,
   );
-  if (!hasNode || !hasEvidence) {
+  if (!hasNode || !hasSourceLink || !hasEdge || !hasEvidence) {
     throw new Error(`automatic cartographer semantic node mismatch: ${JSON.stringify(readback)}`);
   }
+}
+
+function assertAutomaticWorkingSetPulses(workingSet, nodeId) {
+  assertWorkingSetPulseTouches(workingSet, "node_updated_recent", nodeId);
+  assertWorkingSetPulseTouches(workingSet, "evidence_attached", nodeId);
+  if (
+    !workingSet.pulses.some(
+      (pulse) => pulse.kind === "edge_created" && pulse.semanticEdgeIds.length > 0,
+    )
+  ) {
+    throw new Error(`edge-created working-set pulse missing: ${JSON.stringify(workingSet)}`);
+  }
+}
+
+function assertWorkingSetPulseTouches(workingSet, kind, nodeId) {
+  if (
+    !workingSet.pulses.some(
+      (pulse) =>
+        pulse.kind === kind &&
+        (pulse.targetEntityId === nodeId || pulse.semanticNodeIds.includes(nodeId)),
+    )
+  ) {
+    throw new Error(
+      `working-set pulse ${kind} missing for ${nodeId}: ${JSON.stringify(workingSet)}`,
+    );
+  }
+}
+
+function assertSemanticRuntimeDefaultVisualBudget(phase8) {
+  const renderedLiveSourceCount = Number(phase8.prePatchPulse.renderedLiveSourceCount ?? 0);
+  if (renderedLiveSourceCount !== 0) {
+    throw new Error(
+      `default graph view rendered unlabeled live-source nodes: ${renderedLiveSourceCount}`,
+    );
+  }
+  const workflowRuntimeSourceCount = Number(phase8.prePatchPulse.workflowRuntimeSourceCount ?? 0);
+  if (workflowRuntimeSourceCount <= 0) {
+    throw new Error(
+      `default graph view did not render an aggregate workflow runtime indicator: ${JSON.stringify(
+        phase8.prePatchPulse,
+      )}`,
+    );
+  }
+  const workflowRuntimeStatus = String(phase8.prePatchPulse.workflowRuntimeStatus ?? "");
+  if (workflowRuntimeStatus === "") {
+    throw new Error(
+      `aggregate workflow runtime indicator did not expose a status: ${JSON.stringify(
+        phase8.prePatchPulse,
+      )}`,
+    );
+  }
+}
+
+async function assertSemanticRuntimePhase2TrafficContract(recordingDir) {
+  const [ipcRows, backendRows, eventRows] = await Promise.all([
+    readJsonLinesWithRaw(join(recordingDir, "ipc.jsonl")),
+    readJsonLinesWithRaw(join(recordingDir, "backend-http.jsonl")),
+    readJsonLinesWithRaw(join(recordingDir, "events.jsonl")),
+  ]);
+  const budget = semanticRuntimePhase2TrafficReport({
+    backendRows,
+    eventRows,
+    ipcRows,
+    recordingDir,
+  });
+  await writeJson(join(recordingDir, "semantic-runtime-phase2-traffic-gate.json"), budget);
+  const failures = budget.checks
+    .filter((check) => check.status !== "pass")
+    .map((check) => `${check.id}: actual=${check.actual} budget=${check.budget}`);
+  if (failures.length > 0) {
+    throw new Error(`semantic runtime phase 2 traffic contract failed: ${failures.join("; ")}`);
+  }
+  return budget;
+}
+
+async function readJsonLinesWithRaw(path) {
+  const raw = await readFile(path, "utf8");
+  return raw
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => ({
+      bytes: Buffer.byteLength(line) + 1,
+      row: JSON.parse(line),
+    }));
+}
+
+function semanticRuntimePhase2TrafficReport({ backendRows, eventRows, ipcRows, recordingDir }) {
+  const blankScopeIpcIds = blankScopeWorkingSetIpcIds(ipcRows);
+  const runtimeSnapshotIpcFinishes = ipcRows.filter(
+    ({ row }) => row.type === "ipc_finish" && row.channel === "semantic-graph:runtime-snapshot",
+  );
+  const runtimeSnapshotBootstrapAt = runtimeSnapshotIpcFinishes[0]?.row.at ?? "";
+  const semanticEventCount = eventRows.filter(
+    ({ row }) => row.type === "semantic_graph_event_forwarded",
+  ).length;
+  const workingSetIpcStarts = ipcRows.filter(
+    ({ row }) => row.type === "ipc_start" && row.channel === "semantic-graph:working-set-read",
+  );
+  const workingSetIpcBytes = ipcRows
+    .filter(({ row }) => row.channel === "semantic-graph:working-set-read")
+    .filter(({ row }) => blankScopeIpcIds.has(row.id))
+    .reduce((sum, { bytes }) => sum + bytes, 0);
+  const runtimeSnapshotIpcBytes = ipcRows
+    .filter(({ row }) => row.channel === "semantic-graph:runtime-snapshot")
+    .reduce((sum, { bytes }) => sum + bytes, 0);
+  const rawDurationMinutes = recordingDurationMinutes([...ipcRows, ...backendRows, ...eventRows]);
+  const rateWindowMinutes = Math.max(rawDurationMinutes, 1);
+  const workingSetIpcBytesPerMinute = workingSetIpcBytes / rateWindowMinutes;
+  const runtimeSnapshotIpcBytesPerMinute = runtimeSnapshotIpcBytes / rateWindowMinutes;
+  const blankScopeWorkingSetReadCount = workingSetIpcStarts.filter(({ row }) =>
+    blankScopeIpcIds.has(row.id),
+  ).length;
+  const blankScopeWorkingSetReadAfterBootstrapCount = workingSetIpcStarts.filter(
+    ({ row }) => blankScopeIpcIds.has(row.id) && rowIsAtOrAfter(row, runtimeSnapshotBootstrapAt),
+  ).length;
+  const scopedWorkingSetReadCount = workingSetIpcStarts.length - blankScopeWorkingSetReadCount;
+  const blankScopeWorkingSetHttpRequestCount = backendRows.filter(
+    ({ row }) =>
+      row.type === "backend_http_request" &&
+      backendRowPath(row) === "/semantic-graph/working-set/read" &&
+      workingSetRequestBodyIsBlankScope(row.requestBody),
+  ).length;
+  const blankScopeWorkingSetHttpRequestAfterBootstrapCount = backendRows.filter(
+    ({ row }) =>
+      row.type === "backend_http_request" &&
+      backendRowPath(row) === "/semantic-graph/working-set/read" &&
+      workingSetRequestBodyIsBlankScope(row.requestBody) &&
+      rowIsAtOrAfter(row, runtimeSnapshotBootstrapAt),
+  ).length;
+  return {
+    budgets: {
+      maxBlankScopeWorkingSetReads: phase2MaxBlankScopeWorkingSetReads,
+      maxRuntimeIpcBytesPerMinute: phase2MaxRuntimeIpcBytesPerMinute,
+    },
+    checks: [
+      hardBudgetCheck({
+        actual: runtimeSnapshotIpcFinishes.length,
+        budget: 1,
+        id: "semantic-runtime-snapshot-bootstrap-recorded",
+        pass: runtimeSnapshotIpcFinishes.length > 0,
+      }),
+      hardBudgetCheck({
+        actual: blankScopeWorkingSetReadAfterBootstrapCount,
+        budget: phase2MaxBlankScopeWorkingSetReads,
+        id: "small-workflow-blank-scope-working-set-reads-after-runtime-bootstrap",
+        pass: blankScopeWorkingSetReadAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads,
+      }),
+      hardBudgetCheck({
+        actual: blankScopeWorkingSetHttpRequestAfterBootstrapCount,
+        budget: phase2MaxBlankScopeWorkingSetReads,
+        id: "small-workflow-blank-scope-working-set-http-requests-after-runtime-bootstrap",
+        pass:
+          blankScopeWorkingSetHttpRequestAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads,
+      }),
+      hardBudgetCheck({
+        actual: blankScopeWorkingSetReadCount,
+        budget: phase2MaxBlankScopeWorkingSetReads,
+        id: "small-workflow-blank-scope-working-set-reads",
+        pass: blankScopeWorkingSetReadCount <= phase2MaxBlankScopeWorkingSetReads,
+      }),
+      hardBudgetCheck({
+        actual: blankScopeWorkingSetHttpRequestCount,
+        budget: phase2MaxBlankScopeWorkingSetReads,
+        id: "small-workflow-blank-scope-working-set-http-requests",
+        pass: blankScopeWorkingSetHttpRequestCount <= phase2MaxBlankScopeWorkingSetReads,
+      }),
+      hardBudgetCheck({
+        actual: Math.round(runtimeSnapshotIpcBytesPerMinute),
+        budget: phase2MaxRuntimeIpcBytesPerMinute,
+        id: "semantic-runtime-snapshot-ipc-bytes-per-minute",
+        pass: runtimeSnapshotIpcBytesPerMinute < phase2MaxRuntimeIpcBytesPerMinute,
+      }),
+    ],
+    generatedAt: new Date().toISOString(),
+    metrics: {
+      blankScopeWorkingSetHttpRequestAfterBootstrapCount,
+      blankScopeWorkingSetHttpRequestCount,
+      blankScopeWorkingSetReadAfterBootstrapCount,
+      blankScopeWorkingSetReadCount,
+      rateWindowMinutes,
+      rawDurationMinutes,
+      runtimeSnapshotIpcBytes,
+      runtimeSnapshotIpcBytesPerMinute,
+      runtimeSnapshotIpcReadCount: runtimeSnapshotIpcFinishes.length,
+      runtimeSnapshotBootstrapAt,
+      scopedWorkingSetReadCount,
+      semanticEventCount,
+      workingSetIpcBytes,
+      workingSetIpcBytesPerMinute,
+      workingSetIpcReadCount: workingSetIpcStarts.length,
+    },
+    recordingDir,
+    status:
+      runtimeSnapshotIpcFinishes.length > 0 &&
+      blankScopeWorkingSetReadAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads &&
+      blankScopeWorkingSetHttpRequestAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads &&
+      blankScopeWorkingSetReadCount <= phase2MaxBlankScopeWorkingSetReads &&
+      blankScopeWorkingSetHttpRequestCount <= phase2MaxBlankScopeWorkingSetReads &&
+      runtimeSnapshotIpcBytesPerMinute < phase2MaxRuntimeIpcBytesPerMinute
+        ? "passed"
+        : "failed",
+  };
+}
+
+function blankScopeWorkingSetIpcIds(ipcRows) {
+  const ids = new Set();
+  for (const { row } of ipcRows) {
+    if (
+      row.type === "ipc_start" &&
+      row.channel === "semantic-graph:working-set-read" &&
+      workingSetRequestIsBlankScope(row.args?.[0])
+    ) {
+      ids.add(row.id);
+    }
+  }
+  return ids;
+}
+
+function workingSetRequestBodyIsBlankScope(requestBody) {
+  if (typeof requestBody !== "string" || requestBody === "") {
+    return false;
+  }
+  return workingSetRequestIsBlankScope(JSON.parse(requestBody));
+}
+
+function workingSetRequestIsBlankScope(request) {
+  return request?.workflowExecutionId === "" && request?.chatRunId === "";
+}
+
+function rowIsAtOrAfter(row, timestampValue) {
+  const rowTimestamp = Date.parse(row.at ?? "");
+  const threshold = Date.parse(timestampValue);
+  return Number.isFinite(rowTimestamp) && Number.isFinite(threshold) && rowTimestamp >= threshold;
+}
+
+function backendRowPath(row) {
+  return new URL(row.url).pathname;
+}
+
+function recordingDurationMinutes(rows) {
+  const timestamps = rows
+    .map(({ row }) => Date.parse(row.at ?? ""))
+    .filter((timestamp) => Number.isFinite(timestamp));
+  if (timestamps.length === 0) {
+    throw new Error("recording rows did not include timestamps");
+  }
+  return Math.max((Math.max(...timestamps) - Math.min(...timestamps)) / 60_000, 1 / 60);
+}
+
+function hardBudgetCheck({ actual, budget, id, pass }) {
+  return {
+    actual,
+    budget,
+    id,
+    severity: "hard",
+    status: pass ? "pass" : "fail",
+  };
 }
 
 async function assertSemanticCartographerRecordingEvidence(recordingDir) {
@@ -703,32 +1115,48 @@ async function assertSemanticCartographerRecordingEvidence(recordingDir) {
     backendPaths: [
       "/workspace-session",
       "/chat/conversations/create",
+      "/chat/messages/page",
+      "/chat/runs/activity",
       "/workflows/definitions/validate",
       "/workflows/definitions/create",
       "/workflows/executions/start",
       "/workflows/executions/read",
       "/semantic-graph/nodes/create",
       "/semantic-graph/attachments/workflow-node",
+      "/semantic-graph/cartographer/settings/read",
+      "/semantic-graph/cartographer/settings/update",
+      "/semantic-graph/cartographer/windows/build",
+      "/semantic-graph/cartographer/windows/process",
       "/semantic-graph/cartographer/processing/state",
       "/semantic-graph/cartographer/runs/list",
       "/semantic-graph/cartographer/windows/list",
       "/semantic-graph/cartographer/patches/list",
+      "/semantic-graph/runtime/snapshot",
+      "/semantic-graph/working-set/read",
       "/semantic-graph/nodes/detail",
       "/semantic-graph/read",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
       "chat:create-conversation",
+      "chat:message-page",
+      "chat:run-activity",
       "workflow:validate-definition",
       "workflow:create-definition",
       "workflow:start-execution",
       "workflow:read-execution",
       "semantic-graph:create-node",
       "semantic-graph:attach-workflow-node",
+      "semantic-graph:cartographer-settings-read",
+      "semantic-graph:cartographer-settings-update",
+      "semantic-graph:cartographer-window-build",
+      "semantic-graph:cartographer-window-process",
       "semantic-graph:cartographer-processing-state",
       "semantic-graph:cartographer-run-list",
       "semantic-graph:cartographer-window-list",
       "semantic-graph:cartographer-patch-list",
+      "semantic-graph:runtime-snapshot",
+      "semantic-graph:working-set-read",
       "semantic-graph:node-detail",
       "semantic-graph:read",
     ],

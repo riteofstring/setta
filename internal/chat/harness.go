@@ -82,12 +82,14 @@ type HarnessTaskResult struct {
 }
 
 type HarnessAuditMetadata struct {
-	HarnessKind HarnessKind             `json:"harnessKind"`
-	Model       string                  `json:"model"`
-	RequestID   string                  `json:"requestId"`
-	ResponseID  string                  `json:"responseId"`
-	ThreadRef   HarnessThreadRef        `json:"threadRef"`
-	Diagnostics []HarnessTaskDiagnostic `json:"diagnostics"`
+	HarnessKind             HarnessKind             `json:"harnessKind"`
+	Model                   string                  `json:"model"`
+	ReasoningEffort         ReasoningEffort         `json:"reasoningEffort"`
+	ReasoningEffortReported bool                    `json:"reasoningEffortReported"`
+	RequestID               string                  `json:"requestId"`
+	ResponseID              string                  `json:"responseId"`
+	ThreadRef               HarnessThreadRef        `json:"threadRef"`
+	Diagnostics             []HarnessTaskDiagnostic `json:"diagnostics"`
 }
 
 type HarnessTaskDiagnostic struct {
