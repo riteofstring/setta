@@ -48,6 +48,13 @@ describe("workflow graph synthetic data", () => {
     expect(() =>
       createSyntheticWorkflowGraph({
         edgesPerNode: 1,
+        nodeCount: 3,
+        scene: "merged",
+      }),
+    ).toThrow("merged synthetic graph requires at least four nodes");
+    expect(() =>
+      createSyntheticWorkflowGraph({
+        edgesPerNode: 1,
         nodeCount: 10,
         scene: "unknown",
       }),
@@ -78,5 +85,20 @@ describe("workflow graph synthetic data", () => {
       sourceNodeId: "semantic:synthetic-node-00000",
       targetNodeId: "semantic:synthetic-node-00001",
     });
+  });
+
+  test("creates merged scene with workflow and semantic layers", () => {
+    const graph = createSyntheticWorkflowGraph({
+      edgesPerNode: 1,
+      nodeCount: 18,
+      scene: "merged",
+    });
+
+    expect(graph.nodes).toHaveLength(18);
+    expect(graph.edges).toHaveLength(18);
+    expect(graph.nodes.some((node) => node.layer === "workflow")).toBe(true);
+    expect(graph.nodes.some((node) => node.layer === "semantic")).toBe(true);
+    expect(graph.edges.some((edge) => edge.layer === "workflow")).toBe(true);
+    expect(graph.edges.some((edge) => edge.layer === "semantic")).toBe(true);
   });
 });

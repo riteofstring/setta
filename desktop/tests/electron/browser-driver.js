@@ -435,6 +435,14 @@
     return { ready: true, snapshot: api.getSnapshot(surfaceId, { includeVisual }) };
   }
 
+  function fitWorkflowGraphToView({ maxZoom = 1, padding = 96, surfaceId }) {
+    const api = window.__settaWorkflowGraphDebug;
+    if (!api) {
+      throw new Error("workflow graph debug API is not installed");
+    }
+    return api.fitToGraph(surfaceId, { maxZoom, padding });
+  }
+
   function workflowGraphDebugNotReady(reason, surfaceIds = []) {
     return {
       flags: window.setta?.app.flags ?? null,
@@ -1102,6 +1110,7 @@
     dispatchDocumentEscape,
     elementValue,
     focusTerminalTextarea,
+    fitWorkflowGraphToView,
     maximizeTerminalPane,
     modelPicker,
     modelPickerButtonReady,

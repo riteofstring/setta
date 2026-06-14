@@ -2,7 +2,7 @@ import type { MutableRefObject } from "react";
 
 import type { WorkflowGraphCameraState } from "./pixi-renderer";
 
-type SyntheticWorkflowGraphScene = "semantic-cells" | "workflow";
+type SyntheticWorkflowGraphScene = "merged" | "semantic-cells" | "workflow";
 
 export type SyntheticWorkflowGraphOptions = {
   edgesPerNode: number;

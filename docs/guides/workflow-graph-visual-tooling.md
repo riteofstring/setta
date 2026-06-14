@@ -37,6 +37,21 @@ It captures screenshots, verifies the workspace-hosted canvas is nonblank throug
 the workflow graph debug snapshot API, drives pan and zoom gestures, drags a hard-coded node,
 cancels a temporary edge, commits a port-to-port edge, and writes `summary.json`.
 
+For the living workspace neon calibration gate, the workflow also writes:
+
+- `workflow-idle-fit.png` — a deterministic temp-app-data draft workflow at fit-to-view zoom.
+- `workflow-idle-fit.json` — the camera, graph, and visual debug evidence for that capture.
+- `workflow-idle-fit-review.html` — the production fit capture next to `workflow-graph-aesthetics.html#neon`.
+
+Run the phase 6.5 canonical visual calibration capture:
+
+```sh
+node desktop/tests/electron/run-workflows.mjs --workflow workflow-graph-visual-calibration
+```
+
+Artifacts are written under `.recordings/workflow-graph-visual/` with fit-to-view captures for
+`workflow-idle`, `workflow-running`, `semantic-cells`, and `merged`.
+
 To attach Chrome DevTools MCP to the latest visual run while it is still open:
 
 ```sh

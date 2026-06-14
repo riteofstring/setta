@@ -1,10 +1,10 @@
 /* global window */
 
-export function registerWorkflowGraphDebugSurface(surfaceId, getSnapshot) {
+export function registerWorkflowGraphDebugSurface(surfaceId, surface) {
   const api = ensureWorkflowGraphDebugApi();
-  api.__renderers.set(surfaceId, getSnapshot);
+  api.__renderers.set(surfaceId, surface);
   return () => {
-    if (api.__renderers.get(surfaceId) === getSnapshot) {
+    if (api.__renderers.get(surfaceId) === surface) {
       api.__renderers.delete(surfaceId);
     }
     if (api.__renderers.size === 0 && window.__settaWorkflowGraphDebug === api) {
@@ -23,15 +23,18 @@ function ensureWorkflowGraphDebugApi() {
   const api = {
     __renderers: renderers,
     getSnapshot(surfaceId, options) {
-      return resolveWorkflowGraphDebugSurface(renderers, surfaceId)(options);
+      return resolveWorkflowGraphDebugSurface(renderers, surfaceId).getSnapshot(options);
     },
     getSnapshots() {
       return Object.fromEntries(
-        [...renderers.entries()].map(([surfaceId, getSnapshot]) => [surfaceId, getSnapshot()]),
+        [...renderers.entries()].map(([surfaceId, surface]) => [surfaceId, surface.getSnapshot()]),
       );
     },
     getSurfaceIds() {
       return [...renderers.keys()];
+    },
+    fitToGraph(surfaceId, options) {
+      return resolveWorkflowGraphDebugSurface(renderers, surfaceId).fitToGraph(options);
     },
   };
   window.__settaWorkflowGraphDebug = api;

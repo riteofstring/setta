@@ -31,7 +31,7 @@ type WorkflowNodeAuraStyle = {
 };
 
 const workflowStatusColors = {
-  not_started: 0x52525b,
+  not_started: 0x94a3b8,
   pending: 0xa78bfa,
   ready: 0x38bdf8,
   running: 0x14b8a6,
@@ -43,22 +43,22 @@ const workflowStatusColors = {
 } satisfies Record<WorkflowGraphNodeStatus, number>;
 
 const workflowKindColors = {
-  action: 0x64748b,
-  end: 0x475569,
-  "gateway.and": 0x8b5cf6,
-  "gateway.or": 0x8b5cf6,
-  "gateway.xor": 0x8b5cf6,
-  "loop.guard": 0xf97316,
-  start: 0x0f766e,
+  action: 0x38bdf8,
+  end: 0x7dd3fc,
+  "gateway.and": 0xc084fc,
+  "gateway.or": 0xc084fc,
+  "gateway.xor": 0xc084fc,
+  "loop.guard": 0xfb923c,
+  start: 0x2dd4bf,
 } satisfies Record<WorkflowNodeKind, number>;
 
 const workflowEdgeStatusStyles = {
   inactive: {
-    alpha: 0.34,
-    color: 0x164e63,
-    glowAlpha: 0.08,
-    glowWidth: 6.5,
-    width: 1.8,
+    alpha: 0.42,
+    color: 0x38bdf8,
+    glowAlpha: 0.14,
+    glowWidth: 8,
+    width: 2,
   },
   active: {
     alpha: 0.88,
@@ -86,17 +86,17 @@ const workflowEdgeStatusStyles = {
 const workflowNodeAuraStyles = {
   not_started: {
     animate: false,
-    baseAlpha: 0.055,
-    baseRingAlpha: 0.025,
-    glowWidth: 5,
+    baseAlpha: 0.16,
+    baseRingAlpha: 0.085,
+    glowWidth: 8.5,
     mode: "idle",
     periodMs: 2400,
     pulseAlpha: 0,
     pulseRadius: 0,
-    radiusPadding: 19,
-    ringWidth: 1.4,
-    steadyAlpha: 0.09,
-    steadyRingAlpha: 0.045,
+    radiusPadding: 25,
+    ringWidth: 1.8,
+    steadyAlpha: 0.18,
+    steadyRingAlpha: 0.11,
   },
   pending: {
     animate: true,
@@ -418,17 +418,17 @@ export const workspaceNeonTheme = {
     },
     edgeStatus: workflowEdgeStatusStyles,
     glass: {
-      bodyBottom: 0x080b14,
-      bodyTop: 0x101827,
-      highlightAlpha: 0.1,
+      bodyBottom: 0x0a1020,
+      bodyTop: 0x16233a,
+      highlightAlpha: 0.18,
       highlightColor: 0xe0f2fe,
       radius: 8,
-      shadowAlpha: 0.32,
+      shadowAlpha: 0.42,
       shadowColor: 0x020617,
       shadowOffsetX: 8,
       shadowOffsetY: 10,
-      strokeAlpha: 0.9,
-      strokeWidth: 2,
+      strokeAlpha: 0.98,
+      strokeWidth: 2.5,
     },
     glow: {
       alpha: 0.18,

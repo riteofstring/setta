@@ -20,6 +20,7 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { captureWorkflowIdleFitReference } from "./workflow-graph-fit-artifacts.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
   dispatchWorkflowGraphMouseClick,
@@ -112,13 +113,19 @@ try {
     isWorkflowProjectionSnapshotReady(snapshot, workflowProjection),
   );
   assertWorkflowProjectionSnapshot(initial, workflowProjection);
-  assertInitialSnapshot(initial);
+  const workflowIdleFit = await captureWorkflowIdleFitReference({
+    artifactDir,
+    client: context.client,
+    surfaceId: workflowGraphSurfaceId,
+  });
+  assertWorkflowProjectionSnapshot(workflowIdleFit.snapshot, workflowProjection);
+  assertInitialSnapshot(workflowIdleFit.snapshot);
   await captureScreenshot(context.client, join(artifactDir, "initial.png"));
 
-  const selectionNodes = visibleNodes(initial);
+  const selectionNodes = visibleNodes(workflowIdleFit.snapshot);
   if (selectionNodes.length < 2) {
     throw new Error(
-      `fewer than two visible nodes were present for selection coverage: ${JSON.stringify(initial.graph.nodes)}`,
+      `fewer than two visible nodes were present for selection coverage: ${JSON.stringify(workflowIdleFit.snapshot.graph.nodes)}`,
     );
   }
   const [firstNode, secondNode] = selectionNodes;
@@ -126,9 +133,13 @@ try {
   await delay(100);
   const afterHover = await getWorkflowGraphSnapshot(context.client);
   assertSelectedExactly(afterHover, [], "node hover");
-  assertOutlineVisibilityUpdated(initial, afterHover, "node hover outline");
-  assertGeometryConstructionCountersStable(initial, afterHover, "node hover geometry");
-  assertSpatialIndexQueryAdvanced(initial, afterHover, "node hover hit test");
+  assertOutlineVisibilityUpdated(workflowIdleFit.snapshot, afterHover, "node hover outline");
+  assertGeometryConstructionCountersStable(
+    workflowIdleFit.snapshot,
+    afterHover,
+    "node hover geometry",
+  );
+  assertSpatialIndexQueryAdvanced(workflowIdleFit.snapshot, afterHover, "node hover hit test");
   assertSpatialIndexCandidateAtLeast(
     afterHover,
     "lastNodeHitCandidateCount",
@@ -537,7 +548,8 @@ try {
     artifactDir,
     duringEdgeDraw,
     duringMarquee,
-    initial,
+    initial: workflowIdleFit.snapshot,
+    workflowIdleFit,
     status: "passed",
   });
   console.log(`workflow graph visual smoke passed: ${artifactDir}`);

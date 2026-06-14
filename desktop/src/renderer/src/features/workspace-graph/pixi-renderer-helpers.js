@@ -287,16 +287,17 @@ export function drawPortVisualState(target, port, state) {
     .fill({ alpha, color: portTheme.core });
 }
 
-export function drawWorkspaceGlow(target, nodes, now, { mode = "static" } = {}) {
+export function drawWorkspaceGlow(target, nodes, now, { mode = "static", zoom = 1 } = {}) {
   target.clear();
   const semanticPulse = workspaceGlowPulse(now, mode);
+  const screenScale = glowScreenScale(zoom);
   for (const node of nodes) {
     switch (rendererNodeLayer(node)) {
       case "workflow":
-        drawWorkflowNodeGlow(target, node, now, mode);
+        drawWorkflowNodeGlow(target, node, now, mode, screenScale);
         break;
       case "semantic":
-        drawSemanticNodeGlow(target, node, semanticPulse, mode);
+        drawSemanticNodeGlow(target, node, semanticPulse, mode, screenScale);
         break;
       default:
         throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
@@ -314,15 +315,27 @@ function workspaceGlowPulse(now, mode) {
   return 0.18;
 }
 
-function drawWorkflowNodeGlow(target, node, now, mode) {
+function glowScreenScale(zoom) {
+  return 1 / clamp(Number.isFinite(zoom) ? zoom : 1, 0.25, 4);
+}
+
+function drawWorkflowNodeGlow(target, node, now, mode, screenScale) {
   const style = workflowNodeAuraStyleFor(node);
   const aura = workflowNodeAuraRenderState(node, style, now, mode);
-  const radius = Math.max(node.width, node.height) / 2 + style.radiusPadding + aura.radiusOffset;
+  const glowPadding = 8 * screenScale;
+  const radius =
+    Math.max(node.width, node.height) / 2 + (style.radiusPadding + aura.radiusOffset) * screenScale;
   target
-    .roundRect(node.x - 8, node.y - 8, node.width + 16, node.height + 16, 14)
-    .stroke({ alpha: aura.alpha, color: node.color, width: aura.glowWidth })
+    .roundRect(
+      node.x - glowPadding,
+      node.y - glowPadding,
+      node.width + glowPadding * 2,
+      node.height + glowPadding * 2,
+      14 * screenScale,
+    )
+    .stroke({ alpha: aura.alpha, color: node.color, width: aura.glowWidth * screenScale })
     .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
-    .stroke({ alpha: aura.ringAlpha, color: node.color, width: style.ringWidth });
+    .stroke({ alpha: aura.ringAlpha, color: node.color, width: style.ringWidth * screenScale });
 }
 
 function workflowNodeAuraStyleFor(node) {
@@ -374,17 +387,17 @@ function workflowNodeAuraSeed(nodeId) {
   return (hash >>> 0) / 0x100000000;
 }
 
-function drawSemanticNodeGlow(target, node, pulse, mode) {
+function drawSemanticNodeGlow(target, node, pulse, mode, screenScale) {
   const cell = workspaceNeonTheme.semantic.cell;
   const animated = mode === "animated";
   const steady = mode === "steady";
   const cellRadius = Math.min(node.width, node.height) / 2;
-  const radius = cellRadius + 15 + (animated ? pulse * 10 : steady ? 5 : 0);
+  const radius = cellRadius + (15 + (animated ? pulse * 10 : steady ? 5 : 0)) * screenScale;
   const baseAlpha = node.dismissed ? cell.dismissed.auraAlpha : cell.auraAlpha;
   const alpha = animated || steady ? baseAlpha + pulse * 0.08 : baseAlpha * 0.58;
   target
     .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
-    .stroke({ alpha, color: node.color, width: animated || steady ? 2.6 : 1.8 });
+    .stroke({ alpha, color: node.color, width: (animated || steady ? 2.6 : 1.8) * screenScale });
 }
 
 function hexToRgb(color) {
