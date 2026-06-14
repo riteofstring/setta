@@ -1,7 +1,7 @@
 # Semantic Cartographer Usefulness Plan
 
 - **Date:** June 14, 2026
-- **Status:** Phases 1-3 implemented; Phase 4 ready next
+- **Status:** Phases 1-4 implemented; Phase 5 ready next
 - **Scope:** Make semantic cartography produce useful, connected, inspectable work memory from real workflow runs.
 - **Related docs:**
   - `docs/plans/setta_semantic_work_graph_plan.md`
@@ -232,11 +232,47 @@ Verification during the Phase 3 review:
 ./scripts/go.sh test -count=1 ./internal/semanticgraph
 ```
 
-Phase 4 is ready to implement. Keep it scoped to making existing evidence,
-source refs, activity, and edges visible and enforceable. Do not fold Phase 5
-prompt/schema rewrites or Phase 6 details discoverability into Phase 4 except
-where the renderer projection must expose the source/activity connection types
-that those later phases rely on.
+Phase 4 has been implemented in commit `3c3e1765e` (`Implement semantic
+cartographer source links`). Semantic graph reads now expose evidence-backed
+`sourceLinks`, cartographer-created evidence anchors are enriched from typed
+source refs, renderer projection draws source/activity edges from matching
+workflow graph nodes to semantic nodes, and automatic patch policy now leaves
+review-required, low-confidence, and high-impact patches pending review instead
+of auto-applying them.
+
+This satisfies the connection/validation prerequisite for Phase 5:
+
+- `SemanticGraph` includes source links backed by existing
+  `SemanticEvidenceAnchor` rows, and generated backend contracts include the new
+  graph field.
+- Renderer graph projection draws semantic-to-semantic edges plus distinct
+  source/activity edges when the evidence or activity resolves to an existing
+  workflow graph node.
+- Automatic node creation requires granular evidence from `chat_message`,
+  `run_item`, `file_range`, `diff`, `test`, `workflow_node`, or a specific
+  log/document source; run-level-only evidence is rejected for automatic nodes.
+- Low-risk, evidence-backed `create_edge`, `start_activity`, and `end_activity`
+  patches can auto-apply; broad, low-confidence, review-required, or
+  high-impact patches stay pending review.
+- Node details continue to show the evidence/activity/history data behind those
+  source links.
+
+Verification during the Phase 4 review:
+
+```text
+./scripts/go.sh test -count=1 ./internal/semanticgraph ./internal/httpapi
+pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts
+pnpm -C desktop build
+node desktop/tests/electron/run-workflows.mjs --workflow semantic-graph
+node desktop/tests/electron/run-workflows.mjs --workflow semantic-cartographer-auto
+```
+
+Phase 5 is ready to implement. Keep it scoped to the patch contract/prompt
+upgrade and golden trace behavior: make the cartographer ask for specific
+findings, decisions, constraints, questions, source-backed evidence, semantic
+edges, and activity patches that the Phase 4 validators and renderer projection
+can now apply or route to review. Do not fold Phase 6 details-button
+discoverability or cartographer health UI into Phase 5.
 
 Two lifecycle/policy notes should be carried into the next phases:
 
@@ -245,11 +281,13 @@ Two lifecycle/policy notes should be carried into the next phases:
   terminal event after the first final pass has already processed. Before
   claiming the "final synthesis runs once" quality gate as complete, add that
   deterministic trace and dedupe/supersede any duplicate `workflow_done` pass.
-- Automatic processing currently uses `AutoApplyValidatedPatches` to apply every
-  deterministic-valid patch and records `reviewRequired`, low-confidence, and
-  high-impact metadata as warnings. Phase 4/5 policy work should tighten this
-  into a principled allowlist for evidence-backed low-risk node, source, edge,
-  and activity changes rather than expanding automatic application accidentally.
+- Renderer source/activity edges currently require a matching workflow graph
+  node. Run-item, file, diff, test, chat-message, log, and document evidence is
+  now preserved as source-link data and visible in details, but it does not yet
+  produce standalone visual source nodes when no workflow node is available. If
+  Phase 5 asks for these source kinds more aggressively, keep the visual
+  limitation explicit and leave standalone source-node UI to Phase 6 or a
+  dedicated renderer follow-up.
 
 Lease recovery is deadline-based: a crashed-but-unexpired lease is not
 recoverable until its lease deadline. Treat lease duration/owner-staleness as
@@ -695,7 +733,7 @@ assistant aggregates are interpreted at semantic boundaries
 final assistant message is included in final synthesis
 ```
 
-### Phase 4: Source Links, Evidence, Activity, And Edge Validation (ready next)
+### Phase 4: Source Links, Evidence, Activity, And Edge Validation (implemented)
 
 Goal: make generated nodes connected and inspectable.
 
@@ -721,7 +759,7 @@ details show source links and evidence excerpts
 automatically applied nodes are not isolated unless explicitly justified
 ```
 
-### Phase 5: Patch Contract And Prompt Upgrade
+### Phase 5: Patch Contract And Prompt Upgrade (ready next)
 
 Goal: make the LLM cartographer optimize for useful graph state.
 
