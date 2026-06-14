@@ -594,17 +594,23 @@ Focused follow-up verification:
 pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts
 pnpm --dir desktop exec eslint src/renderer/src/features/workspace-graph/semantic-runtime-store.ts src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts tests/electron/semantic-cartographer-auto-workflow.test.mjs
 pnpm --dir desktop build
-node tests/electron/semantic-cartographer-auto-workflow.test.mjs --skip-build --semantic-live-recording-only
+node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs --skip-build --semantic-live-recording-only
 ```
 
 The focused Electron run produced a passing Phase 2 traffic report with
-`0` blank-scope working-set IPC reads after runtime bootstrap and `0`
-blank-scope working-set backend HTTP requests after runtime bootstrap.
+`0` blank-scope working-set IPC reads, `0` blank-scope working-set IPC reads
+after runtime bootstrap, `0` blank-scope working-set backend HTTP requests,
+and `0` blank-scope working-set backend HTTP requests after runtime bootstrap.
+The current review run also recorded `9` runtime snapshot IPC reads,
+`151,862` runtime snapshot IPC bytes per minute, `8` scoped working-set reads
+from explicit readback/detail paths, and `131` forwarded semantic events.
 
 Phase 3 handoff:
 
-- Phase 3 is ready to implement after the final repo gates for this changeset
-  pass.
+- Phase 3 is ready to implement. The remaining pan/zoom work should stay scoped
+  to interaction priority and camera isolation; do not reopen the Phase 2
+  runtime-store contract unless Phase 3 measurements expose a concrete runtime
+  store regression.
 
 ## Phase 3 - Interaction Priority And Camera Isolation
 
