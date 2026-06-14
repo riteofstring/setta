@@ -689,38 +689,44 @@ node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs --skip-
 ```
 
 The final `small-trackpad` recording at
-`.recordings/workflow-graph-pan-zoom-small-trackpad/20260618T005055Z`
+`.recordings/workflow-graph-pan-zoom-small-trackpad/20260618T011559Z`
 reported:
 
 ```text
-idle wheel/pinch to camera transform p95: 0.30000001192092896 ms
-idle wheel/pinch to rendered frame p95: 12.699999988079071 ms
+idle wheel/pinch to camera transform p95: 0.5 ms
+idle wheel/pinch to rendered frame p95: 23.799999952316284 ms
 semantic working-set reads during camera interaction: 0
 cameraMovingLabelSyncDelta: 0
-max long task: 59 ms
+max long task: 76 ms
 hard failures: 0
-report-only findings: 0
+report-only findings: 1
 ```
 
+The remaining report-only finding is `normal-scene-p95-pan-zoom-frame-ms` at
+`29.30000001192093 ms` against the intentionally noisy `24 ms` report-only
+budget. This does not block Phase 4 because the Phase 3 hard latency budget
+uses event-to-camera and event-to-rendered-frame measurements, both of which
+passed.
+
 The active semantic recording at
-`.recordings/workflow-graph-pan-zoom-active/20260618T005014Z` reported:
+`.recordings/workflow-graph-pan-zoom-active/20260618T011525Z` reported:
 
 ```text
 semantic working-set reads during camera interaction: 0
 cameraMovingLabelSyncDelta: 0
 cameraSettleRestoreFrameCount: 4
-max long task: 92 ms
+max long task: 95 ms
 hard failures: 0
 ```
 
 The cartographer production-path traffic gate at
-`.recordings/semantic-live-run/2026-06-18T005155-753Z/automatic-agent/semantic-runtime-phase2-traffic-gate.json`
+`.recordings/semantic-live-run/2026-06-18T011626-983Z/automatic-agent/semantic-runtime-phase2-traffic-gate.json`
 reported:
 
 ```text
 blank-scope working-set reads after runtime bootstrap: 0
 blank-scope working-set HTTP requests after runtime bootstrap: 0
-runtime snapshot IPC bytes per minute: 181160
+runtime snapshot IPC bytes per minute: 151817
 ```
 
 Important caveat:
