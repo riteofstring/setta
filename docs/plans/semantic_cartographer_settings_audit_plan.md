@@ -147,6 +147,17 @@ Decision:
 - Do not implement migrations or transitional schema readers.
 - Fail loudly on incompatible state and require a fresh semantic graph store.
 
+Implementation note:
+
+- Phase 0 captured the baseline in
+  `docs/reports/performance/semantic-cartographer-settings-audit-phase-0.md`
+  and bumped the semantic graph store version to `10` as a reset gate.
+- Version `10` is a Phase 0-only store shape: it still has the old
+  cartographer run schema and no persisted cartographer settings table.
+- The first schema-changing phase must bump the semantic graph store version
+  again, from `10` to `11`, and must reject version `10` stores instead of
+  silently adding missing tables or columns through `CREATE TABLE IF NOT EXISTS`.
+
 ## Phase 1 - Semantic Cartographer Settings Domain
 
 Add a semanticgraph-owned settings model, for example:
@@ -202,6 +213,12 @@ Persist settings in `semantic-graph.sqlite`, not in appearance settings:
 - Renderer appearance settings should not become a generic app-settings drawer.
 - The settings table starts fresh with the new schema; no migration path is
   required.
+- Adding the settings table is a schema change. Bump `semanticStoreVersion` to
+  `11` in the same commit as the table and reject version `10` stores with the
+  existing reset guidance.
+- Do not rely on `CREATE TABLE IF NOT EXISTS` to upgrade a version `10`
+  database in place. A version `10` database represents pre-settings state and
+  must fail on open.
 
 Recommended SQLite shape:
 
@@ -217,6 +234,28 @@ semantic_cartographer_settings
 
 Keep the row count to one global app-level settings record at first. Workspace
 overrides can be added later only if real usage requires them.
+
+Phase 1 implementation boundary:
+
+- Implement backend domain types, default construction, validation, canonical
+  JSON persistence, and settings hash calculation in `internal/semanticgraph`.
+- Add store methods to read the singleton settings row, create defaults for a
+  fresh store, and update the row after validation.
+- Keep Phase 1 backend-only. Do not add HTTP endpoints, IPC/preload surfaces,
+  generated TypeScript, renderer settings UI, model catalog calls, or harness
+  behavior changes until the later phases that own those surfaces.
+- Keep existing constructor options useful for tests, but persisted settings
+  should become the service-owned source for default cartographer configuration.
+- Separate defaulting from validation. Default construction may fill omitted
+  values for a fresh store, but loading or updating persisted settings must fail
+  loudly on invalid enum values, impossible concurrency limits, invalid lease or
+  window budgets, or inconsistent `modelSelection`/`modelId` pairs.
+- Validate reasoning effort values against the shared chat/Codex
+  `ReasoningEffort` enum in this phase. Model-specific compatibility validation
+  belongs to the model catalog phase because it requires provider model options.
+- Add focused semanticgraph tests for fresh-store default creation, persistence
+  across store reopen, settings hash stability, invalid settings rejection, and
+  version `10` rejection.
 
 ## Phase 2 - Run Audit Schema
 
