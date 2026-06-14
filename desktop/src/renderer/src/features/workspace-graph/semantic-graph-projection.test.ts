@@ -4,6 +4,7 @@ import type {
   SemanticActivityInterval,
   SemanticGraph,
   SemanticNode,
+  SemanticRuntimeModelAudit,
   SemanticWorkingSet,
 } from "@generated/backend";
 import {
@@ -244,6 +245,34 @@ describe("rendererGraphFromSemanticGraph", () => {
     });
   });
 
+  test("keeps terminal cartographer lifecycle visible as workflow runtime audit", () => {
+    const workflowGraph = testWorkflowGraph();
+    const semanticGraph = rendererGraphFromSemanticGraph({
+      semanticActivities: new Map(),
+      semanticGraph: testSemanticGraph(),
+      semanticWorkingSet: testTerminalSemanticWorkingSet(),
+      workflowGraph,
+    });
+
+    const merged = mergeWorkflowAndSemanticGraphs({ semanticGraph, workflowGraph });
+
+    expect(merged?.nodes.filter((node) => node.semanticRole === "source_pulse")).toEqual([]);
+    expect(merged?.nodes.find((node) => node.id === "workflow_node")).toMatchObject({
+      runtime: {
+        modelAudits: [
+          {
+            requestedModelSelection: "provider_default",
+            requestedReasoningEffort: "low",
+            totalDurationMs: 75,
+          },
+        ],
+        sourceCount: 1,
+        status: "noop",
+        statusCounts: [{ count: 1, status: "noop" }],
+      },
+    });
+  });
+
   test("round trips semantic renderer node ids", () => {
     expect(semanticNodeIdFromRendererNodeId("semantic:node_constraint")).toBe("node_constraint");
     expect(semanticNodeIdFromRendererNodeId("workflow_node")).toBeNull();
@@ -324,6 +353,7 @@ function testSemanticWorkingSet(): SemanticWorkingSet {
         diagnostics: [],
         id: "cartographer_run_live",
         inputItemCounts: inputItemCounts(),
+        modelAudit: null,
         patchOperationNames: [],
         publicSummary: "",
         sourceRefs: sourceRefs(),
@@ -363,6 +393,7 @@ function testSemanticWorkingSet(): SemanticWorkingSet {
         changedSemanticNodeIds: [],
         diagnostics: [],
         id: "semantic-working-set-source:run:cartographer_run_live",
+        modelAudit: null,
         patchId: "",
         patchOperationNames: [],
         publicSummary: "",
@@ -379,6 +410,7 @@ function testSemanticWorkingSet(): SemanticWorkingSet {
         changedSemanticNodeIds: ["node_preview"],
         diagnostics: [],
         id: "semantic-working-set-source:patch:cartographer_patch_preview",
+        modelAudit: null,
         patchId: "cartographer_patch_preview",
         patchOperationNames: ["record_finding"],
         publicSummary: "Preview a finding.",
@@ -546,6 +578,61 @@ function testSemanticWorkingSet(): SemanticWorkingSet {
     recentSemanticChanges: [],
     workflowExecutionId: "",
     workspaceId: "workspace_test",
+  };
+}
+
+function testTerminalSemanticWorkingSet(): SemanticWorkingSet {
+  return {
+    activeCartographerRuns: [],
+    activeCartographerWindows: [],
+    activeRunItemIds: [],
+    activeWorkflowNodeIds: [],
+    candidateTargets: [],
+    chatRunId: "",
+    lastUpdatedAt: "2026-06-10T12:00:10Z",
+    liveSourceRefs: [
+      {
+        changedSemanticEdgeIds: [],
+        changedSemanticNodeIds: [],
+        diagnostics: [],
+        id: "semantic-runtime-source:workflow-node:workflow_node",
+        modelAudit: modelAudit(),
+        patchId: "",
+        patchOperationNames: [],
+        publicSummary: "",
+        runId: "cartographer_run_noop",
+        sourceRefs: sourceRefs(),
+        status: "noop",
+        targetEntityId: "",
+        triggerKind: "workflow_window",
+        updatedAt: "2026-06-10T12:00:10Z",
+        windowId: "cartographer_window_noop",
+      },
+    ],
+    pendingPatchPreviews: [],
+    pulses: [],
+    recentCartographerRuns: [],
+    recentSemanticChanges: [],
+    workflowExecutionId: "",
+    workspaceId: "workspace_test",
+  };
+}
+
+function modelAudit(): SemanticRuntimeModelAudit {
+  return {
+    effectiveModel: "",
+    effectiveReasoningEffort: "low",
+    error: "",
+    harnessDurationMs: 0,
+    queueWaitMs: 40,
+    reasoningEffortReported: false,
+    reportedModel: "",
+    reportedReasoningEffort: "",
+    requestedModel: "",
+    requestedModelSelection: "provider_default",
+    requestedReasoningEffort: "low",
+    taskProfile: "live_window",
+    totalDurationMs: 75,
   };
 }
 

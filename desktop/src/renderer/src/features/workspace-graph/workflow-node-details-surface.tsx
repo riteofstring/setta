@@ -612,7 +612,7 @@ function WorkflowNodeIdentity({ target }: { target: WorkflowNodeDetailsTarget })
   );
 }
 
-function WorkflowSemanticRuntimeDetails({ target }: { target: WorkflowNodeDetailsTarget }) {
+export function WorkflowSemanticRuntimeDetails({ target }: { target: WorkflowNodeDetailsTarget }) {
   const runtime = target.runtime ?? null;
   if (runtime === null || runtime.sourceCount <= 0) {
     return null;
@@ -643,6 +643,7 @@ function WorkflowSemanticRuntimeDetails({ target }: { target: WorkflowNodeDetail
           ]}
         />
         <WorkflowSemanticRuntimeStatusCounts counts={runtime.statusCounts} />
+        <WorkflowSemanticRuntimeModelAudits audits={runtime.modelAudits} />
         <WorkflowSemanticRuntimeSourceRefs sourceRefs={runtime.sourceRefs} />
         <WorkflowSemanticRuntimePulses pulses={runtime.recentPulses} />
       </WorkflowDetailsSection>
@@ -667,6 +668,77 @@ function WorkflowSemanticRuntimeStatusCounts({
         >
           {semanticRuntimeStatusLabel(count.status)} {count.count}
         </span>
+      ))}
+    </div>
+  );
+}
+
+function WorkflowSemanticRuntimeModelAudits({
+  audits,
+}: {
+  audits: NonNullable<WorkflowNodeDetailsTarget["runtime"]>["modelAudits"];
+}) {
+  if (audits.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium text-zinc-400">Model Audit</div>
+      {audits.map((audit) => (
+        <div
+          className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1"
+          key={semanticRuntimeModelAuditKey(audit)}
+        >
+          <WorkflowDetailsRows
+            rows={[
+              {
+                hidden: String(audit.taskProfile) === "",
+                label: "Profile",
+                value: semanticRuntimeStatusLabel(audit.taskProfile),
+              },
+              {
+                hidden:
+                  String(audit.requestedModelSelection) === "" &&
+                  audit.requestedModel === "" &&
+                  String(audit.requestedReasoningEffort) === "",
+                label: "Requested",
+                value: semanticRuntimeRequestedModelLabel(audit),
+              },
+              {
+                hidden: audit.effectiveModel === "" && audit.effectiveReasoningEffort === "",
+                label: "Effective",
+                value: semanticRuntimeModelReasoningLabel(
+                  audit.effectiveModel,
+                  audit.effectiveReasoningEffort,
+                ),
+              },
+              {
+                hidden: audit.reportedModel === "" && audit.reportedReasoningEffort === "",
+                label: "Reported",
+                value: semanticRuntimeModelReasoningLabel(
+                  audit.reportedModel,
+                  audit.reportedReasoningEffort,
+                ),
+              },
+              {
+                hidden: audit.queueWaitMs <= 0,
+                label: "Queue",
+                value: `${audit.queueWaitMs} ms`,
+              },
+              {
+                hidden: audit.harnessDurationMs <= 0,
+                label: "Model time",
+                value: `${audit.harnessDurationMs} ms`,
+              },
+              {
+                hidden: audit.totalDurationMs <= 0,
+                label: "Total",
+                value: `${audit.totalDurationMs} ms`,
+              },
+              { hidden: audit.error === "", label: "Error", value: audit.error },
+            ]}
+          />
+        </div>
       ))}
     </div>
   );
@@ -730,6 +802,40 @@ function semanticRuntimeStatusLabel(status: string) {
 
 function semanticRuntimePulseKindLabel(kind: string) {
   return kind.replaceAll("_", " ");
+}
+
+function semanticRuntimeRequestedModelLabel(
+  audit: NonNullable<WorkflowNodeDetailsTarget["runtime"]>["modelAudits"][number],
+) {
+  const model =
+    String(audit.requestedModelSelection) === "provider_default"
+      ? "provider default"
+      : audit.requestedModel || semanticRuntimeStatusLabel(audit.requestedModelSelection);
+  return semanticRuntimeModelReasoningLabel(model, audit.requestedReasoningEffort);
+}
+
+function semanticRuntimeModelReasoningLabel(model: string, reasoning: string) {
+  return [model, reasoning].filter((value) => value !== "").join(" / ");
+}
+
+function semanticRuntimeModelAuditKey(
+  audit: NonNullable<WorkflowNodeDetailsTarget["runtime"]>["modelAudits"][number],
+) {
+  return [
+    audit.taskProfile,
+    audit.requestedModelSelection,
+    audit.requestedModel,
+    audit.effectiveModel,
+    audit.reportedModel,
+    audit.requestedReasoningEffort,
+    audit.effectiveReasoningEffort,
+    audit.reportedReasoningEffort,
+    audit.reasoningEffortReported ? "reported" : "",
+    audit.queueWaitMs,
+    audit.harnessDurationMs,
+    audit.totalDurationMs,
+    audit.error,
+  ].join(":");
 }
 
 function semanticRuntimeSourceRefsLabel(refs: SemanticContextSourceRefs) {

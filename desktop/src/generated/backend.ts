@@ -4288,6 +4288,22 @@ export interface SemanticRuntimeWorkflowState {
   hiddenActiveRunItems: number;
 }
 
+export interface SemanticRuntimeModelAudit {
+  taskProfile: CartographerTaskProfile;
+  requestedModelSelection: SemanticCartographerModelSelection;
+  requestedModel: string;
+  effectiveModel: string;
+  reportedModel: string;
+  requestedReasoningEffort: ReasoningEffort;
+  effectiveReasoningEffort: string;
+  reportedReasoningEffort: string;
+  reasoningEffortReported: boolean;
+  queueWaitMs: number;
+  harnessDurationMs: number;
+  totalDurationMs: number;
+  error: string;
+}
+
 export interface SemanticRuntimeCartographerRun {
   id: string;
   windowId: string;
@@ -4301,6 +4317,7 @@ export interface SemanticRuntimeCartographerRun {
   patchOperationNames: CartographerPatchOperation[];
   publicSummary: string;
   createdSemanticEventIds: string[];
+  modelAudit: SemanticRuntimeModelAudit | null;
   createdAt: string;
   startedAt: string;
   completedAt: string;
@@ -4411,6 +4428,7 @@ export interface SemanticRuntimeSourceAggregate {
   runIds: string[];
   windowIds: string[];
   patchIds: string[];
+  modelAudit: SemanticRuntimeModelAudit | null;
   updatedAt: string;
 }
 
@@ -4474,6 +4492,7 @@ export interface SemanticWorkingSetCartographerRun {
   publicSummary: string;
   diagnostics: CartographerDiagnostic[];
   createdSemanticEventIds: string[];
+  modelAudit: SemanticRuntimeModelAudit | null;
   createdAt: string;
   startedAt: string;
   completedAt: string;
@@ -4556,6 +4575,7 @@ export interface SemanticWorkingSetLiveSourceRef {
   patchOperationNames: CartographerPatchOperation[];
   publicSummary: string;
   diagnostics: CartographerDiagnostic[];
+  modelAudit: SemanticRuntimeModelAudit | null;
   updatedAt: string;
 }
 
@@ -9097,9 +9117,29 @@ export function decodeSemanticRuntimeWorkflowState(value: unknown): SemanticRunt
   };
 }
 
+export function decodeSemanticRuntimeModelAudit(value: unknown): SemanticRuntimeModelAudit {
+  const record = assertRecord(value, "SemanticRuntimeModelAudit");
+  assertKnownFields(record, "SemanticRuntimeModelAudit", ["taskProfile", "requestedModelSelection", "requestedModel", "effectiveModel", "reportedModel", "requestedReasoningEffort", "effectiveReasoningEffort", "reportedReasoningEffort", "reasoningEffortReported", "queueWaitMs", "harnessDurationMs", "totalDurationMs", "error"]);
+  return {
+    taskProfile: decodeCartographerTaskProfile(requireField(record, "taskProfile", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.taskProfile"),
+    requestedModelSelection: decodeSemanticCartographerModelSelection(requireField(record, "requestedModelSelection", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.requestedModelSelection"),
+    requestedModel: decodeString(requireField(record, "requestedModel", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.requestedModel"),
+    effectiveModel: decodeString(requireField(record, "effectiveModel", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.effectiveModel"),
+    reportedModel: decodeString(requireField(record, "reportedModel", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.reportedModel"),
+    requestedReasoningEffort: decodeReasoningEffort(requireField(record, "requestedReasoningEffort", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.requestedReasoningEffort"),
+    effectiveReasoningEffort: decodeString(requireField(record, "effectiveReasoningEffort", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.effectiveReasoningEffort"),
+    reportedReasoningEffort: decodeString(requireField(record, "reportedReasoningEffort", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.reportedReasoningEffort"),
+    reasoningEffortReported: decodeBoolean(requireField(record, "reasoningEffortReported", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.reasoningEffortReported"),
+    queueWaitMs: decodeInteger(requireField(record, "queueWaitMs", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.queueWaitMs"),
+    harnessDurationMs: decodeInteger(requireField(record, "harnessDurationMs", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.harnessDurationMs"),
+    totalDurationMs: decodeInteger(requireField(record, "totalDurationMs", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.totalDurationMs"),
+    error: decodeString(requireField(record, "error", "SemanticRuntimeModelAudit"), "SemanticRuntimeModelAudit.error"),
+  };
+}
+
 export function decodeSemanticRuntimeCartographerRun(value: unknown): SemanticRuntimeCartographerRun {
   const record = assertRecord(value, "SemanticRuntimeCartographerRun");
-  assertKnownFields(record, "SemanticRuntimeCartographerRun", ["id", "windowId", "status", "triggerKind", "sourceRefs", "targetEntityId", "inputItemCounts", "changedSemanticNodeIds", "changedSemanticEdgeIds", "patchOperationNames", "publicSummary", "createdSemanticEventIds", "createdAt", "startedAt", "completedAt", "updatedAt"]);
+  assertKnownFields(record, "SemanticRuntimeCartographerRun", ["id", "windowId", "status", "triggerKind", "sourceRefs", "targetEntityId", "inputItemCounts", "changedSemanticNodeIds", "changedSemanticEdgeIds", "patchOperationNames", "publicSummary", "createdSemanticEventIds", "modelAudit", "createdAt", "startedAt", "completedAt", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.id"),
     windowId: decodeString(requireField(record, "windowId", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.windowId"),
@@ -9113,6 +9153,7 @@ export function decodeSemanticRuntimeCartographerRun(value: unknown): SemanticRu
     patchOperationNames: decodeArray(requireField(record, "patchOperationNames", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.patchOperationNames", (item) => decodeCartographerPatchOperation(item, "SemanticRuntimeCartographerRun.patchOperationNames item")),
     publicSummary: decodeString(requireField(record, "publicSummary", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.publicSummary"),
     createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.createdSemanticEventIds", (item) => decodeString(item, "SemanticRuntimeCartographerRun.createdSemanticEventIds item")),
+    modelAudit: decodeNullable(requireField(record, "modelAudit", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.modelAudit", (item) => decodeSemanticRuntimeModelAudit(item)),
     createdAt: decodeString(requireField(record, "createdAt", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.createdAt"),
     startedAt: decodeString(requireField(record, "startedAt", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.startedAt"),
     completedAt: decodeString(requireField(record, "completedAt", "SemanticRuntimeCartographerRun"), "SemanticRuntimeCartographerRun.completedAt"),
@@ -9246,7 +9287,7 @@ export function decodeSemanticRuntimeActivity(value: unknown): SemanticRuntimeAc
 
 export function decodeSemanticRuntimeSourceAggregate(value: unknown): SemanticRuntimeSourceAggregate {
   const record = assertRecord(value, "SemanticRuntimeSourceAggregate");
-  assertKnownFields(record, "SemanticRuntimeSourceAggregate", ["id", "sourceRefs", "targetEntityId", "status", "statusCounts", "totalCount", "visibleCount", "hiddenCount", "runIds", "windowIds", "patchIds", "updatedAt"]);
+  assertKnownFields(record, "SemanticRuntimeSourceAggregate", ["id", "sourceRefs", "targetEntityId", "status", "statusCounts", "totalCount", "visibleCount", "hiddenCount", "runIds", "windowIds", "patchIds", "modelAudit", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.id"),
     sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticRuntimeSourceAggregate")),
@@ -9259,6 +9300,7 @@ export function decodeSemanticRuntimeSourceAggregate(value: unknown): SemanticRu
     runIds: decodeArray(requireField(record, "runIds", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.runIds", (item) => decodeString(item, "SemanticRuntimeSourceAggregate.runIds item")),
     windowIds: decodeArray(requireField(record, "windowIds", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.windowIds", (item) => decodeString(item, "SemanticRuntimeSourceAggregate.windowIds item")),
     patchIds: decodeArray(requireField(record, "patchIds", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.patchIds", (item) => decodeString(item, "SemanticRuntimeSourceAggregate.patchIds item")),
+    modelAudit: decodeNullable(requireField(record, "modelAudit", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.modelAudit", (item) => decodeSemanticRuntimeModelAudit(item)),
     updatedAt: decodeString(requireField(record, "updatedAt", "SemanticRuntimeSourceAggregate"), "SemanticRuntimeSourceAggregate.updatedAt"),
   };
 }
@@ -9327,7 +9369,7 @@ export function decodeSemanticWorkingSetCartographerWindow(value: unknown): Sema
 
 export function decodeSemanticWorkingSetCartographerRun(value: unknown): SemanticWorkingSetCartographerRun {
   const record = assertRecord(value, "SemanticWorkingSetCartographerRun");
-  assertKnownFields(record, "SemanticWorkingSetCartographerRun", ["id", "windowId", "status", "triggerKind", "sourceRefs", "targetEntityId", "inputItemCounts", "changedSemanticNodeIds", "changedSemanticEdgeIds", "patchOperationNames", "publicSummary", "diagnostics", "createdSemanticEventIds", "createdAt", "startedAt", "completedAt", "updatedAt"]);
+  assertKnownFields(record, "SemanticWorkingSetCartographerRun", ["id", "windowId", "status", "triggerKind", "sourceRefs", "targetEntityId", "inputItemCounts", "changedSemanticNodeIds", "changedSemanticEdgeIds", "patchOperationNames", "publicSummary", "diagnostics", "createdSemanticEventIds", "modelAudit", "createdAt", "startedAt", "completedAt", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticWorkingSetCartographerRun"), "SemanticWorkingSetCartographerRun.id"),
     windowId: decodeString(requireField(record, "windowId", "SemanticWorkingSetCartographerRun"), "SemanticWorkingSetCartographerRun.windowId"),
@@ -9342,6 +9384,7 @@ export function decodeSemanticWorkingSetCartographerRun(value: unknown): Semanti
     publicSummary: decodeString(requireField(record, "publicSummary", "SemanticWorkingSetCartographerRun"), "SemanticWorkingSetCartographerRun.publicSummary"),
     diagnostics: decodeArray(requireField(record, "diagnostics", "SemanticWorkingSetCartographerRun"), "SemanticWorkingSetCartographerRun.diagnostics", (item) => decodeCartographerDiagnostic(item)),
     createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "SemanticWorkingSetCartographerRun"), "SemanticWorkingSetCartographerRun.createdSemanticEventIds", (item) => decodeString(item, "SemanticWorkingSetCartographerRun.createdSemanticEventIds item")),
+    modelAudit: decodeNullable(requireField(record, "modelAudit", "SemanticWorkingSetCartographerRun"), "SemanticWorkingSetCartographerRun.modelAudit", (item) => decodeSemanticRuntimeModelAudit(item)),
     createdAt: decodeString(requireField(record, "createdAt", "SemanticWorkingSetCartographerRun"), "SemanticWorkingSetCartographerRun.createdAt"),
     startedAt: decodeString(requireField(record, "startedAt", "SemanticWorkingSetCartographerRun"), "SemanticWorkingSetCartographerRun.startedAt"),
     completedAt: decodeString(requireField(record, "completedAt", "SemanticWorkingSetCartographerRun"), "SemanticWorkingSetCartographerRun.completedAt"),
@@ -9429,7 +9472,7 @@ export function decodeSemanticWorkingSetPatchPreview(value: unknown): SemanticWo
 
 export function decodeSemanticWorkingSetLiveSourceRef(value: unknown): SemanticWorkingSetLiveSourceRef {
   const record = assertRecord(value, "SemanticWorkingSetLiveSourceRef");
-  assertKnownFields(record, "SemanticWorkingSetLiveSourceRef", ["id", "status", "triggerKind", "sourceRefs", "targetEntityId", "runId", "windowId", "patchId", "changedSemanticNodeIds", "changedSemanticEdgeIds", "patchOperationNames", "publicSummary", "diagnostics", "updatedAt"]);
+  assertKnownFields(record, "SemanticWorkingSetLiveSourceRef", ["id", "status", "triggerKind", "sourceRefs", "targetEntityId", "runId", "windowId", "patchId", "changedSemanticNodeIds", "changedSemanticEdgeIds", "patchOperationNames", "publicSummary", "diagnostics", "modelAudit", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticWorkingSetLiveSourceRef"), "SemanticWorkingSetLiveSourceRef.id"),
     status: decodeSemanticWorkingSetStatus(requireField(record, "status", "SemanticWorkingSetLiveSourceRef"), "SemanticWorkingSetLiveSourceRef.status"),
@@ -9444,6 +9487,7 @@ export function decodeSemanticWorkingSetLiveSourceRef(value: unknown): SemanticW
     patchOperationNames: decodeArray(requireField(record, "patchOperationNames", "SemanticWorkingSetLiveSourceRef"), "SemanticWorkingSetLiveSourceRef.patchOperationNames", (item) => decodeCartographerPatchOperation(item, "SemanticWorkingSetLiveSourceRef.patchOperationNames item")),
     publicSummary: decodeString(requireField(record, "publicSummary", "SemanticWorkingSetLiveSourceRef"), "SemanticWorkingSetLiveSourceRef.publicSummary"),
     diagnostics: decodeArray(requireField(record, "diagnostics", "SemanticWorkingSetLiveSourceRef"), "SemanticWorkingSetLiveSourceRef.diagnostics", (item) => decodeCartographerDiagnostic(item)),
+    modelAudit: decodeNullable(requireField(record, "modelAudit", "SemanticWorkingSetLiveSourceRef"), "SemanticWorkingSetLiveSourceRef.modelAudit", (item) => decodeSemanticRuntimeModelAudit(item)),
     updatedAt: decodeString(requireField(record, "updatedAt", "SemanticWorkingSetLiveSourceRef"), "SemanticWorkingSetLiveSourceRef.updatedAt"),
   };
 }

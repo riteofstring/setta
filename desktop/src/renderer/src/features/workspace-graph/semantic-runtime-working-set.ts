@@ -21,6 +21,7 @@ export function semanticWorkingSetFromRuntimeSnapshot(
     status: source.status,
     targetEntityId: source.targetEntityId,
     triggerKind: "manual" as const,
+    modelAudit: source.modelAudit,
     updatedAt: source.updatedAt,
     windowId: source.windowIds[0] ?? "",
   }));
@@ -59,6 +60,7 @@ export function semanticWorkingSetFromRuntimeSnapshot(
       status: run.status,
       targetEntityId: run.targetEntityId,
       triggerKind: run.triggerKind,
+      modelAudit: run.modelAudit,
       updatedAt: run.updatedAt,
       windowId: run.windowId,
     })),

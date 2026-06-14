@@ -646,6 +646,7 @@ function workingSet(): SemanticWorkingSet {
         diagnostics: [],
         id: "cartographer_run_live_detail",
         inputItemCounts: emptyCartographerInputItemCounts(),
+        modelAudit: null,
         patchOperationNames: ["attach_evidence"],
         publicSummary: "Live cartographer is checking this node",
         sourceRefs: cartographerSourceRefs(),

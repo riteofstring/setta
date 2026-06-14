@@ -1,4 +1,5 @@
 import type {
+  SemanticRuntimeModelAudit,
   SemanticContextSourceRefs,
   SemanticWorkingSetPulseKind,
   SemanticWorkingSetStatus,
@@ -9,6 +10,7 @@ import type {
 
 export interface WorkflowGraphRuntimeIndicator {
   hiddenSourceCount: number;
+  modelAudits: WorkflowGraphRuntimeModelAudit[];
   patchIds: string[];
   pulseCount: number;
   recentPulses: WorkflowGraphRuntimePulse[];
@@ -19,6 +21,8 @@ export interface WorkflowGraphRuntimeIndicator {
   statusCounts: WorkflowGraphRuntimeStatusCount[];
   windowIds: string[];
 }
+
+export type WorkflowGraphRuntimeModelAudit = SemanticRuntimeModelAudit;
 
 export interface WorkflowGraphRuntimePulse {
   id: string;

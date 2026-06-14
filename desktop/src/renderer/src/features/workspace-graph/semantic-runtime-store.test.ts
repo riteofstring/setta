@@ -530,6 +530,7 @@ function aggregateSource({
   return {
     hiddenCount: 0,
     id: "aggregate_source_review",
+    modelAudit: null,
     patchIds: [],
     runIds,
     sourceRefs: sourceRefs(),

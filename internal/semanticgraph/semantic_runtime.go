@@ -3,6 +3,8 @@ package semanticgraph
 import (
 	"context"
 	"errors"
+
+	"setta/internal/chat"
 )
 
 const (
@@ -147,10 +149,27 @@ type SemanticRuntimeCartographerRun struct {
 	PatchOperationNames     []CartographerPatchOperation `json:"patchOperationNames"`
 	PublicSummary           string                       `json:"publicSummary"`
 	CreatedSemanticEventIDs []string                     `json:"createdSemanticEventIds"`
+	ModelAudit              *SemanticRuntimeModelAudit   `json:"modelAudit"`
 	CreatedAt               string                       `json:"createdAt"`
 	StartedAt               string                       `json:"startedAt"`
 	CompletedAt             string                       `json:"completedAt"`
 	UpdatedAt               string                       `json:"updatedAt"`
+}
+
+type SemanticRuntimeModelAudit struct {
+	TaskProfile              CartographerTaskProfile            `json:"taskProfile"`
+	RequestedModelSelection  SemanticCartographerModelSelection `json:"requestedModelSelection"`
+	RequestedModel           string                             `json:"requestedModel"`
+	EffectiveModel           string                             `json:"effectiveModel"`
+	ReportedModel            string                             `json:"reportedModel"`
+	RequestedReasoningEffort chat.ReasoningEffort               `json:"requestedReasoningEffort"`
+	EffectiveReasoningEffort string                             `json:"effectiveReasoningEffort"`
+	ReportedReasoningEffort  string                             `json:"reportedReasoningEffort"`
+	ReasoningEffortReported  bool                               `json:"reasoningEffortReported"`
+	QueueWaitMS              int                                `json:"queueWaitMs"`
+	HarnessDurationMS        int                                `json:"harnessDurationMs"`
+	TotalDurationMS          int                                `json:"totalDurationMs"`
+	Error                    string                             `json:"error"`
 }
 
 type SemanticRuntimeCartographerWindow struct {
@@ -249,6 +268,7 @@ type SemanticRuntimeSourceAggregate struct {
 	RunIDs         []string                     `json:"runIds"`
 	WindowIDs      []string                     `json:"windowIds"`
 	PatchIDs       []string                     `json:"patchIds"`
+	ModelAudit     *SemanticRuntimeModelAudit   `json:"modelAudit"`
 	UpdatedAt      string                       `json:"updatedAt"`
 }
 
@@ -513,9 +533,10 @@ func (builder *semanticRuntimeBuilder) addRun(run CartographerRun, patches []Car
 			builder.hiddenRunCount++
 		}
 		builder.recordWorkflowSource(item.Status, item.SourceRefs, item.ID, item.WindowID, "", item.UpdatedAt)
-		builder.recordAggregate(item.Status, item.SourceRefs, item.TargetEntityID, item.ID, item.WindowID, "", item.UpdatedAt)
+		builder.recordAggregate(item.Status, item.SourceRefs, item.TargetEntityID, item.ID, item.WindowID, "", item.ModelAudit, item.UpdatedAt)
 	} else {
 		builder.hiddenRunCount++
+		builder.recordAggregate(item.Status, item.SourceRefs, item.TargetEntityID, item.ID, item.WindowID, "", item.ModelAudit, item.UpdatedAt)
 	}
 	builder.recordUpdatedAt(item.UpdatedAt)
 	return nil
@@ -534,9 +555,10 @@ func (builder *semanticRuntimeBuilder) addWindow(window CartographerWindow, run 
 			builder.hiddenWindowCount++
 		}
 		builder.recordWorkflowSource(item.Status, item.SourceRefs, item.RunID, item.ID, "", item.UpdatedAt)
-		builder.recordAggregate(item.Status, item.SourceRefs, item.TargetEntityID, item.RunID, item.ID, "", item.UpdatedAt)
+		builder.recordAggregate(item.Status, item.SourceRefs, item.TargetEntityID, item.RunID, item.ID, "", semanticRuntimeModelAuditFromRun(run), item.UpdatedAt)
 	} else {
 		builder.hiddenWindowCount++
+		builder.recordAggregate(item.Status, item.SourceRefs, item.TargetEntityID, item.RunID, item.ID, "", semanticRuntimeModelAuditFromRun(run), item.UpdatedAt)
 	}
 	builder.recordUpdatedAt(item.UpdatedAt)
 	return nil
@@ -552,7 +574,7 @@ func (builder *semanticRuntimeBuilder) addPatch(patch CartographerPatchRecord, r
 	} else {
 		builder.hiddenRecentChanges++
 	}
-	builder.recordAggregate(change.Status, change.SourceRefs, change.TargetEntityID, change.RunID, change.WindowID, change.PatchID, change.OccurredAt)
+	builder.recordAggregate(change.Status, change.SourceRefs, change.TargetEntityID, change.RunID, change.WindowID, change.PatchID, semanticRuntimeModelAuditFromRun(run), change.OccurredAt)
 	if semanticWorkingSetStatusIsActive(change.Status) {
 		builder.recordWorkflowSource(change.Status, change.SourceRefs, change.RunID, change.WindowID, change.PatchID, change.OccurredAt)
 	}
@@ -631,7 +653,7 @@ func (builder *semanticRuntimeBuilder) recordWorkflowSource(status SemanticWorki
 	}
 }
 
-func (builder *semanticRuntimeBuilder) recordAggregate(status SemanticWorkingSetStatus, refs SemanticContextSourceRefs, targetEntityID string, runID string, windowID string, patchID string, updatedAt string) {
+func (builder *semanticRuntimeBuilder) recordAggregate(status SemanticWorkingSetStatus, refs SemanticContextSourceRefs, targetEntityID string, runID string, windowID string, patchID string, modelAudit *SemanticRuntimeModelAudit, updatedAt string) {
 	if semanticWorkingSetSourceRefsEmpty(refs) && targetEntityID == "" {
 		return
 	}
@@ -657,6 +679,9 @@ func (builder *semanticRuntimeBuilder) recordAggregate(status SemanticWorkingSet
 	if semanticWorkingSetStatusRank(status) > semanticWorkingSetStatusRank(aggregate.item.Status) {
 		aggregate.item.Status = status
 		aggregate.item.SourceRefs = refs
+	}
+	if modelAudit != nil && (aggregate.item.ModelAudit == nil || updatedAt >= aggregate.item.UpdatedAt) {
+		aggregate.item.ModelAudit = modelAudit
 	}
 	aggregate.item.TotalCount++
 	if semanticWorkingSetStatusIsActive(status) {
@@ -754,7 +779,7 @@ func (builder *semanticRuntimeDeltaBuilder) addRun(run CartographerRun, patches 
 	} else {
 		builder.workflow.recordWorkflowSource(item.Status, item.SourceRefs, item.ID, item.WindowID, "", item.UpdatedAt)
 	}
-	builder.workflow.recordAggregate(item.Status, item.SourceRefs, item.TargetEntityID, item.ID, item.WindowID, "", item.UpdatedAt)
+	builder.workflow.recordAggregate(item.Status, item.SourceRefs, item.TargetEntityID, item.ID, item.WindowID, "", item.ModelAudit, item.UpdatedAt)
 	return nil
 }
 
@@ -770,7 +795,7 @@ func (builder *semanticRuntimeDeltaBuilder) addWindow(window CartographerWindow,
 	} else {
 		builder.workflow.recordWorkflowSource(item.Status, item.SourceRefs, item.RunID, item.ID, "", item.UpdatedAt)
 	}
-	builder.workflow.recordAggregate(item.Status, item.SourceRefs, item.TargetEntityID, item.RunID, item.ID, "", item.UpdatedAt)
+	builder.workflow.recordAggregate(item.Status, item.SourceRefs, item.TargetEntityID, item.RunID, item.ID, "", semanticRuntimeModelAuditFromRun(run), item.UpdatedAt)
 	return nil
 }
 
@@ -780,7 +805,7 @@ func (builder *semanticRuntimeDeltaBuilder) addPatch(patch CartographerPatchReco
 		return err
 	}
 	builder.delta.SemanticChangeUpdates = append(builder.delta.SemanticChangeUpdates, change)
-	builder.workflow.recordAggregate(change.Status, change.SourceRefs, change.TargetEntityID, change.RunID, change.WindowID, change.PatchID, change.OccurredAt)
+	builder.workflow.recordAggregate(change.Status, change.SourceRefs, change.TargetEntityID, change.RunID, change.WindowID, change.PatchID, semanticRuntimeModelAuditFromRun(run), change.OccurredAt)
 	preview, ok, err := semanticRuntimePatchPreviewFromPatch(patch, run)
 	if err != nil {
 		return err

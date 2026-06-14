@@ -1,12 +1,16 @@
 import { describe, expect, test } from "vitest";
+import { createElement } from "react";
+import { renderToString } from "react-dom/server";
 
 import type { WorkflowEvent, WorkflowExecution, WorkflowNodeExecution } from "@generated/backend";
+import type { WorkflowNodeDetailsTarget } from "../../stores/workflow-editor-store";
 import {
   latestWorkflowNodeExecution,
   workflowConditionText,
   workflowGraphWithUpdatedAgentTask,
   workflowNodeEvents,
 } from "./workflow-node-details-helpers";
+import { WorkflowSemanticRuntimeDetails } from "./workflow-node-details-surface";
 
 describe("workflow node details surface helpers", () => {
   test("updates Agent Task Codex configuration without changing other nodes", () => {
@@ -116,7 +120,69 @@ describe("workflow node details surface helpers", () => {
       }),
     ).toBe("default");
   });
+
+  test("renders semantic runtime model audit on selected workflow nodes", () => {
+    const html = renderToString(
+      createElement(WorkflowSemanticRuntimeDetails, { target: runtimeTarget() }),
+    );
+
+    expect(html).toContain("Semantic Runtime");
+    expect(html).toContain("failed");
+    expect(html).toContain("Model Audit");
+    expect(html).toContain("provider default / low");
+    expect(html).toContain("gpt-runtime-live / high");
+    expect(html).toContain("340 ms");
+    expect(html).toContain("provider timeout");
+  });
 });
+
+function runtimeTarget(): WorkflowNodeDetailsTarget {
+  return {
+    definitionId: "workflow_definition_test",
+    definitionName: "Workflow",
+    definitionVersionId: "workflow_version_test",
+    definitionVersionNumber: 1,
+    executionId: "workflow_execution_test",
+    nodeId: "reviewer",
+    nodeKind: "action",
+    nodeLabel: "Reviewer",
+    nodeStatus: "running",
+    projectionIncomingEdges: [],
+    projectionOutgoingEdges: [],
+    runtime: {
+      hiddenSourceCount: 0,
+      modelAudits: [
+        {
+          effectiveModel: "gpt-runtime-live",
+          effectiveReasoningEffort: "high",
+          error: "provider timeout",
+          harnessDurationMs: 340,
+          queueWaitMs: 120,
+          reasoningEffortReported: false,
+          reportedModel: "",
+          reportedReasoningEffort: "",
+          requestedModel: "",
+          requestedModelSelection: "provider_default",
+          requestedReasoningEffort: "low",
+          taskProfile: "live_window",
+          totalDurationMs: 520,
+        },
+      ],
+      patchIds: [],
+      pulseCount: 0,
+      recentPulses: [],
+      runIds: ["cartographer_run_failed"],
+      sourceCount: 1,
+      sourceRefs: [],
+      status: "failed",
+      statusCounts: [{ count: 1, status: "failed" }],
+      windowIds: ["cartographer_window_failed"],
+    },
+    versionMismatch: false,
+    viewMode: "run",
+    workspaceId: "workspace_test",
+  };
+}
 
 function testExecution(nodeExecutions: WorkflowNodeExecution[]): WorkflowExecution {
   return {

@@ -29,11 +29,62 @@ func semanticRuntimeRunFromCartographerRun(run CartographerRun, patches []Cartog
 		PatchOperationNames:     truncateCartographerPatchOperations(operations, semanticRuntimeMaxPatchOperations),
 		PublicSummary:           run.TrajectorySummary,
 		CreatedSemanticEventIDs: truncateStrings(uniqueSortedStrings(run.CreatedSemanticEventIDs), semanticRuntimeMaxCreatedEventIDs),
+		ModelAudit:              semanticRuntimeModelAuditFromRun(run),
 		CreatedAt:               run.CreatedAt,
 		StartedAt:               run.StartedAt,
 		CompletedAt:             run.CompletedAt,
 		UpdatedAt:               run.UpdatedAt,
 	}, nil
+}
+
+func semanticRuntimeModelAuditFromRun(run CartographerRun) *SemanticRuntimeModelAudit {
+	audit := SemanticRuntimeModelAudit{
+		TaskProfile:              run.TaskProfile,
+		RequestedModelSelection:  run.RequestedModelSelection,
+		RequestedModel:           run.RequestedModel,
+		EffectiveModel:           run.EffectiveModel,
+		ReportedModel:            run.ReportedModel,
+		RequestedReasoningEffort: run.RequestedReasoningEffort,
+		EffectiveReasoningEffort: run.EffectiveReasoningEffort,
+		ReportedReasoningEffort:  run.ReportedReasoningEffort,
+		ReasoningEffortReported:  run.ReasoningEffortReported,
+		QueueWaitMS:              run.QueueWaitMS,
+		HarnessDurationMS:        run.HarnessDurationMS,
+		TotalDurationMS:          run.TotalDurationMS,
+		Error:                    run.Error,
+	}
+	if semanticRuntimeModelAuditIsEmpty(audit) {
+		return nil
+	}
+	return &audit
+}
+
+func semanticRuntimeModelAuditIsEmpty(audit SemanticRuntimeModelAudit) bool {
+	for _, value := range []string{
+		string(audit.TaskProfile),
+		string(audit.RequestedModelSelection),
+		audit.RequestedModel,
+		audit.EffectiveModel,
+		audit.ReportedModel,
+		string(audit.RequestedReasoningEffort),
+		audit.EffectiveReasoningEffort,
+		audit.ReportedReasoningEffort,
+		audit.Error,
+	} {
+		if value != "" {
+			return false
+		}
+	}
+	for _, value := range []int{
+		audit.QueueWaitMS,
+		audit.HarnessDurationMS,
+		audit.TotalDurationMS,
+	} {
+		if value != 0 {
+			return false
+		}
+	}
+	return !audit.ReasoningEffortReported
 }
 
 func semanticRuntimeWindowFromCartographerWindow(window CartographerWindow, run CartographerRun) (SemanticRuntimeCartographerWindow, error) {

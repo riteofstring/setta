@@ -1,7 +1,7 @@
 # Semantic Runtime and Graph Interaction Refactor Plan
 
 - **Date:** June 16, 2026
-- **Status:** Phase 4 complete; Phase 5 ready
+- **Status:** Phase 5 complete; Phase 6 ready
 - **Scope:** Fix baseline pan/zoom latency even before a workflow starts, replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
 - **Related docs:**
   - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
@@ -858,6 +858,21 @@ Acceptance criteria:
   proposed/applied.
 - Slow or failed cartographer model runs leave clear audit/runtime status
   without flooding the graph.
+
+### Phase 5 Implementation Review
+
+Phase 5 is implemented in the current worktree.
+
+Implemented:
+
+- Added Go-owned `SemanticRuntimeModelAudit`, regenerated TypeScript, and threaded bounded requested/effective/reported model, reasoning, duration, and error fields through runtime runs, aggregate workflow-source hints, the working-set bridge, and selected workflow-node details.
+- Preserved workflow-first hierarchy: queued/running/pending-review/no-op/rejected/failed/applied lifecycle stays aggregated onto workflow nodes, pending previews remain provisional, and committed findings still require applied evidence-backed patches.
+- Kept fast liveness typed-event based. Workflow execution projection still drives active node styling, and cartographer queued/open/running/terminal records drive compact runtime status without waiting for model output or provider metadata.
+- Added focused backend and renderer tests for terminal no-op lifecycle visibility without source-pulse nodes and selected-node rendering of model audit metadata.
+
+Focused verification covered backend/runtime contracts, generated TypeScript, renderer projection/store/details tests, typecheck, and targeted ESLint.
+
+Phase 6 is ready. Keep Phase 5 model-audit fields bounded while adding explicit hot-path payload byte budgets, detail separation, and recording payload instrumentation.
 
 ## Phase 6 - Payload Budgets And Detail Separation
 

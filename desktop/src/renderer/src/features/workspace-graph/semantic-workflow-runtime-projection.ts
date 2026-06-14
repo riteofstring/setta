@@ -1,5 +1,6 @@
 import type {
   SemanticContextSourceRefs,
+  SemanticRuntimeModelAudit,
   SemanticWorkingSet,
   SemanticWorkingSetStatus,
 } from "@generated/backend";
@@ -24,6 +25,7 @@ const semanticWorkingSetStatusPriority = {
 
 interface WorkflowRuntimeAccumulator {
   hiddenSourceCount: number;
+  modelAuditByKey: Map<string, SemanticRuntimeModelAudit>;
   patchIds: Set<string>;
   pulseById: Map<string, WorkflowGraphRuntimeIndicator["recentPulses"][number]>;
   runIds: Set<string>;
@@ -40,6 +42,7 @@ interface WorkflowRuntimeContext {
 
 interface WorkflowRuntimeSourceRecord {
   patchId: string;
+  modelAudit: SemanticRuntimeModelAudit | null;
   runId: string;
   sourceRefs: SemanticContextSourceRefs;
   status: SemanticWorkingSetStatus;
@@ -76,6 +79,7 @@ function recordLiveSourceRuntime(
   for (const source of semanticWorkingSet.liveSourceRefs) {
     recordWorkflowRuntimeSourceForRefs(context, {
       patchId: source.patchId,
+      modelAudit: source.modelAudit,
       runId: source.runId,
       sourceRefs: source.sourceRefs,
       status: source.status,
@@ -91,6 +95,7 @@ function recordCartographerRunRuntime(
   for (const run of semanticWorkingSet.activeCartographerRuns) {
     recordWorkflowRuntimeSourceForRefs(context, {
       patchId: "",
+      modelAudit: run.modelAudit,
       runId: run.id,
       sourceRefs: run.sourceRefs,
       status: run.status,
@@ -106,6 +111,7 @@ function recordCartographerWindowRuntime(
   for (const window of semanticWorkingSet.activeCartographerWindows) {
     recordWorkflowRuntimeSourceForRefs(context, {
       patchId: "",
+      modelAudit: null,
       runId: window.runId,
       sourceRefs: window.sourceRefs,
       status: window.status,
@@ -121,6 +127,7 @@ function recordPatchPreviewRuntime(
   for (const preview of semanticWorkingSet.pendingPatchPreviews) {
     recordWorkflowRuntimeSourceForRefs(context, {
       patchId: preview.patchId,
+      modelAudit: null,
       runId: preview.runId,
       sourceRefs: preview.sourceRefs,
       status: preview.status,
@@ -140,6 +147,7 @@ function recordCandidateTargetRuntime(
     }
     recordWorkflowRuntimeSource(accumulator, {
       patchId: target.patchIds[0] ?? "",
+      modelAudit: null,
       runId: target.runIds[0] ?? "",
       sourceRefs: target.sourceRefs,
       status: target.status,
@@ -223,6 +231,7 @@ function workflowRuntimeAccumulatorFor(
   const accumulator: WorkflowRuntimeAccumulator = {
     hiddenSourceCount: 0,
     patchIds: new Set(),
+    modelAuditByKey: new Map(),
     pulseById: new Map(),
     runIds: new Set(),
     sourceCount: 0,
@@ -236,11 +245,12 @@ function workflowRuntimeAccumulatorFor(
 
 function recordWorkflowRuntimeSource(
   accumulator: WorkflowRuntimeAccumulator,
-  { patchId, runId, sourceRefs, status, windowId }: WorkflowRuntimeSourceRecord,
+  { modelAudit, patchId, runId, sourceRefs, status, windowId }: WorkflowRuntimeSourceRecord,
 ) {
   accumulator.sourceCount += 1;
   accumulator.sourceRefsByKey.set(workflowRuntimeSourceRefsKey(sourceRefs), sourceRefs);
   recordWorkflowRuntimeStatus(accumulator, status);
+  recordWorkflowRuntimeModelAudit(accumulator, modelAudit);
   recordNonEmptyString(accumulator.runIds, runId);
   recordNonEmptyString(accumulator.windowIds, windowId);
   recordNonEmptyString(accumulator.patchIds, patchId);
@@ -265,6 +275,7 @@ function workflowRuntimeIndicatorFromAccumulator(
   const status = statusCounts[0]?.status ?? "observing";
   return {
     hiddenSourceCount: accumulator.hiddenSourceCount,
+    modelAudits: [...accumulator.modelAuditByKey.values()].slice(0, workflowRuntimeDetailLimit),
     patchIds: sortedLimitedStrings(accumulator.patchIds),
     pulseCount: accumulator.pulseById.size,
     recentPulses: [...accumulator.pulseById.values()]
@@ -280,6 +291,16 @@ function workflowRuntimeIndicatorFromAccumulator(
     statusCounts: statusCounts.slice(0, workflowRuntimeDetailLimit),
     windowIds: sortedLimitedStrings(accumulator.windowIds),
   };
+}
+
+function recordWorkflowRuntimeModelAudit(
+  accumulator: WorkflowRuntimeAccumulator,
+  modelAudit: SemanticRuntimeModelAudit | null,
+) {
+  if (modelAudit === null || semanticRuntimeModelAuditIsEmpty(modelAudit)) {
+    return;
+  }
+  accumulator.modelAuditByKey.set(workflowRuntimeModelAuditKey(modelAudit), modelAudit);
 }
 
 function workflowRuntimeWorkflowNodeId(
@@ -302,6 +323,48 @@ function workflowRuntimeSourceRefsKey(sourceRefs: SemanticContextSourceRefs) {
     sourceRefs.chatMessageId,
     sourceRefs.runItemId,
   ].join("\u0000");
+}
+
+function workflowRuntimeModelAuditKey(modelAudit: SemanticRuntimeModelAudit) {
+  return [
+    modelAudit.taskProfile,
+    modelAudit.requestedModelSelection,
+    modelAudit.requestedModel,
+    modelAudit.effectiveModel,
+    modelAudit.reportedModel,
+    modelAudit.requestedReasoningEffort,
+    modelAudit.effectiveReasoningEffort,
+    modelAudit.reportedReasoningEffort,
+    modelAudit.reasoningEffortReported ? "reported" : "",
+    modelAudit.queueWaitMs,
+    modelAudit.harnessDurationMs,
+    modelAudit.totalDurationMs,
+    modelAudit.error,
+  ].join("\u0000");
+}
+
+function semanticRuntimeModelAuditIsEmpty(modelAudit: SemanticRuntimeModelAudit) {
+  const textValues = [
+    String(modelAudit.taskProfile),
+    String(modelAudit.requestedModelSelection),
+    modelAudit.requestedModel,
+    modelAudit.effectiveModel,
+    modelAudit.reportedModel,
+    String(modelAudit.requestedReasoningEffort),
+    modelAudit.effectiveReasoningEffort,
+    modelAudit.reportedReasoningEffort,
+    modelAudit.error,
+  ];
+  const numericValues = [
+    modelAudit.queueWaitMs,
+    modelAudit.harnessDurationMs,
+    modelAudit.totalDurationMs,
+  ];
+  return (
+    textValues.every((value) => value === "") &&
+    numericValues.every((value) => value === 0) &&
+    !modelAudit.reasoningEffortReported
+  );
 }
 
 function recordNonEmptyString(target: Set<string>, value: string) {
