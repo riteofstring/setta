@@ -15,6 +15,8 @@ describe("SemanticLoadedNodeDetails", () => {
     expect(html).toContain("87");
     expect(html).toContain("split_source");
     expect(html).toContain("supports");
+    expect(html).toContain("Source Links");
+    expect(html).toContain("Why this exists");
     expect(html).toContain("docs/plan.md:4-8");
     expect(html).toContain("sha256:plan");
     expect(html).toContain("chat_run");

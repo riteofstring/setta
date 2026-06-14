@@ -26,6 +26,11 @@ import {
   processedCartographerReadbackReady,
 } from "./semantic-graph-cartographer-readback.mjs";
 import {
+  assertCartographerHealthPanel,
+  openSelectedGraphNodeDetailsFromToolbar,
+} from "./semantic-graph-ui-helpers.mjs";
+import {
+  dispatchWorkflowGraphMouseClick,
   dispatchWorkflowGraphMouseDrag,
   maximizeWorkflowGraphPane,
   openWorkflowGraphPane,
@@ -45,6 +50,8 @@ const semanticNodeDetailsRequiredText = [
   "refutes",
   "resolves",
   "Phase 2 plan excerpt",
+  "SOURCE LINKS",
+  "Why this exists",
   "validating",
   "Keep semantic graph rendering read-only",
   "context_pack.created",
@@ -115,12 +122,21 @@ try {
   assertRendererStableWithoutGraphUpdate(initial, afterAuditBurst, "cartographer audit burst");
 
   const targetNode = nodeById(afterAuditBurst, seedRendererNodeId);
-  await dispatchWorkflowGraphMouseDoubleClick(context.client, workflowGraphSurfaceId, {
+  await dispatchWorkflowGraphMouseClick(context.client, workflowGraphSurfaceId, {
     x: targetNode.screenX,
     y: targetNode.screenY,
   });
+  await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) => snapshot.interaction.selectedNodeId === seedRendererNodeId,
+  );
+  await openSelectedGraphNodeDetailsFromToolbar(
+    context.client,
+    "Deterministic layout writes stay read-only",
+  );
   await waitForSelector(context.client, '[data-testid="semantic-node-details-surface"]');
   await assertSemanticNodeDetails(context.client);
+  await assertCartographerHealthPanel(context.client);
   await assertSeedContextPackReadApis(context.client, workspaceId);
   await assertSeedCartographerReadApis(context.client, workspaceId, "pending_review");
   const processedCartographer = await assertProcessCartographerWindowApi(

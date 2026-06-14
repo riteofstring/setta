@@ -189,6 +189,7 @@ export function WorkflowGraphToolbar({
         viewingDraft={!model.showDraftButton}
       />
       <ToolbarButton
+        accessibleLabel={model.detailsAccessibleLabel}
         disabled={model.detailsDisabled}
         icon={Eye}
         label={model.detailsLabel}
@@ -528,6 +529,7 @@ function workflowToolbarModel({
   const operationBlocked = busy !== null;
   const editable = workflowProjectionIsEditableDraft(projection);
   return {
+    detailsAccessibleLabel: workflowDetailsAccessibleLabel(selectedNodeLabel),
     detailsDisabled: workflowDetailsDisabled(hardDisabled, selectedNodeLabel),
     detailsLabel: workflowDetailsLabel(selectedNodeLabel),
     disabled: hardDisabled,
@@ -566,6 +568,10 @@ function workflowDetailsDisabled(disabled: boolean, selectedNodeLabel: string) {
 
 function workflowDetailsLabel(selectedNodeLabel: string) {
   return selectedNodeLabel === "" ? "Details" : selectedNodeLabel;
+}
+
+function workflowDetailsAccessibleLabel(selectedNodeLabel: string) {
+  return selectedNodeLabel === "" ? "Details" : `Open details for ${selectedNodeLabel}`;
 }
 
 function workflowRunDisabled(

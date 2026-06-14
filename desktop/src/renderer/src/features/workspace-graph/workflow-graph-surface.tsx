@@ -33,6 +33,7 @@ import {
 import {
   rendererGraphFromSemanticGraph,
   semanticNodeIdFromRendererNodeId,
+  semanticRendererNodeId,
 } from "./semantic-graph-projection";
 import { useSemanticGraphState } from "./semantic-graph-state";
 import {
@@ -198,6 +199,19 @@ export function WorkflowGraphSurface({
     () => selectedWorkflowProjectionNode(workflowProjection, selectedWorkflowNodeId),
     [selectedWorkflowNodeId, workflowProjection],
   );
+  const selectedSemanticNode = useMemo(
+    () =>
+      selectedSemanticNodeId === null
+        ? null
+        : (semanticGraphState.graph?.nodes.find((node) => node.id === selectedSemanticNodeId) ??
+          null),
+    [selectedSemanticNodeId, semanticGraphState.graph],
+  );
+  const selectedGraphNodeId =
+    selectedSemanticNodeId === null
+      ? selectedWorkflowNodeId
+      : semanticRendererNodeId(selectedSemanticNodeId);
+  const selectedGraphNodeLabel = selectedSemanticNode?.label ?? selectedWorkflowNode?.label ?? "";
   const { loadingProjection, noWorkspace, workflowProjectionError } = workflowGraphStateForSurface({
     semanticGraphError: semanticGraphState.error,
     semanticGraphLoading: semanticGraphState.loading,
@@ -742,6 +756,7 @@ export function WorkflowGraphSurface({
   useEffect(() => {
     if (
       selectedSemanticNodeId !== null &&
+      semanticGraphState.graph !== null &&
       !semanticGraphState.graph?.nodes.some((node) => node.id === selectedSemanticNodeId)
     ) {
       setSelectedSemanticNodeId(null);
@@ -889,11 +904,12 @@ export function WorkflowGraphSurface({
       />
       <WorkflowGraphToolbarLayer
         addWorkflowDraftNodeFromToolbar={addWorkflowDraftNodeFromToolbar}
-        openWorkflowNodeDetails={openWorkflowNodeDetails}
+        debugEnabled={debugEnabled}
+        openGraphNodeDetails={openGraphNodeDetails}
         openWorkflowSettings={openWorkflowSettings}
         runWorkflowDraft={runWorkflowDraft}
-        selectedWorkflowNodeId={selectedWorkflowNodeId}
-        selectedWorkflowNodeLabel={selectedWorkflowNode?.label ?? ""}
+        selectedGraphNodeId={selectedGraphNodeId}
+        selectedGraphNodeLabel={selectedGraphNodeLabel}
         showDraftWorkflow={showDraftWorkflow}
         syntheticGraph={syntheticGraph}
         validateWorkflowDraft={validateWorkflowDraft}

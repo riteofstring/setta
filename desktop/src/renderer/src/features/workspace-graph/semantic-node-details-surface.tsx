@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SemanticEditControls } from "./semantic-node-edit-controls";
 import { semanticGraphChangeAffectsSemanticNodeInspection } from "./semantic-node-details-invalidation";
+import { SemanticSourceLinkSection } from "./semantic-node-source-links";
 import {
   WorkflowDetailsEmpty,
   WorkflowDetailsError,
@@ -49,8 +50,12 @@ export function SemanticNodeDetailsSurface() {
   const target = useSemanticGraphStore((state) => state.selectedNodeTarget);
   const inspection = useSemanticNodeInspection(target);
   const title = inspection.detail?.node.label ?? target?.nodeLabel ?? "Semantic Node";
+  const subtitle =
+    inspection.detail === null
+      ? (target?.nodeKind ?? "semantic node")
+      : `${inspection.detail.node.kind} / ${semanticStatus(inspection.detail)}`;
   return (
-    <SemanticDetailsShell title={title}>
+    <SemanticDetailsShell subtitle={subtitle} title={title}>
       <SemanticNodeDetailsContent inspection={inspection} target={target} />
     </SemanticDetailsShell>
   );
@@ -200,12 +205,14 @@ export function SemanticLoadedNodeDetails({
             { label: "Created", value: node.createdAt },
             { label: "Updated", value: node.updatedAt },
             { label: "Id", value: node.id },
+            { label: "Why this exists", value: semanticWhyThisExists(detail) },
             { label: "Summary", value: node.summary },
           ]}
         />
       </WorkflowDetailsSection>
       <SemanticEditControls detail={detail} onMutation={onMutation} />
       <SemanticLineageSection detail={detail} />
+      <SemanticSourceLinkSection evidence={detail.evidence} />
       <SemanticEdgeSection incoming={detail.incomingEdges} outgoing={detail.outgoingEdges} />
       <SemanticCartographerSection detail={detail} onMutation={onMutation} />
       <SemanticEvidenceSection evidence={detail.evidence} />
@@ -790,7 +797,15 @@ function SemanticRecord({ children }: { children: ReactNode }) {
   );
 }
 
-function SemanticDetailsShell({ children, title }: { children: ReactNode; title: string }) {
+function SemanticDetailsShell({
+  children,
+  subtitle,
+  title,
+}: {
+  children: ReactNode;
+  subtitle: string;
+  title: string;
+}) {
   return (
     <section
       className="flex h-full min-h-0 flex-col bg-zinc-950 text-zinc-100"
@@ -798,7 +813,9 @@ function SemanticDetailsShell({ children, title }: { children: ReactNode; title:
     >
       <header className="border-b border-zinc-800 px-4 py-3">
         <div className="truncate text-sm font-semibold text-zinc-100">{title}</div>
-        <div className="mt-1 text-xs text-zinc-500">Semantic node details</div>
+        <div className="mt-1 text-xs text-zinc-500" data-testid="semantic-node-details-subtitle">
+          {subtitle}
+        </div>
       </header>
       {children}
     </section>
@@ -844,6 +861,16 @@ function evidencePath(anchor: SemanticEvidenceAnchor) {
     return anchor.path;
   }
   return `${anchor.path}:${anchor.rangeStart}-${anchor.rangeEnd}`;
+}
+
+function semanticWhyThisExists(detail: SemanticNodeDetail) {
+  const patchSummary = detail.cartographerPatches.find((patch) => patch.patch.publicSummary !== "")
+    ?.patch.publicSummary;
+  if (patchSummary !== undefined) {
+    return patchSummary;
+  }
+  const evidenceSummary = detail.evidence.find((anchor) => anchor.summary !== "")?.summary;
+  return evidenceSummary ?? detail.node.summary;
 }
 
 function activityActor(interval: SemanticActivityInterval) {

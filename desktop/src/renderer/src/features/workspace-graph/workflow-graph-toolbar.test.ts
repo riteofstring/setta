@@ -9,6 +9,7 @@ import {
   workflowToolbarStateLabel,
   workflowToolbarVersionLabel,
 } from "./workflow-graph-toolbar";
+import { WorkflowGraphToolbarLayer } from "./workflow-graph-surface-layers";
 
 describe("workflow graph toolbar state labels", () => {
   test("names editable draft state explicitly", () => {
@@ -100,6 +101,53 @@ describe("workflow graph toolbar state labels", () => {
 
     expect(html).toContain(">Validated</span>");
     expect(html).toContain('aria-label="Workflow validated"');
+  });
+
+  test("names the visible details command for the selected graph node", () => {
+    const html = renderToStaticMarkup(
+      createElement(WorkflowGraphToolbar, {
+        busy: null,
+        onAddNode: () => undefined,
+        onOpenDetails: () => undefined,
+        onOpenSettings: () => undefined,
+        onRun: () => undefined,
+        onShowDraft: () => undefined,
+        onValidate: () => undefined,
+        projection: workflowProjection({ viewMode: "run" }),
+        ready: true,
+        selectedNodeLabel: "Semantic API contract",
+        validation: null,
+        workspaceId: "workspace_test",
+      }),
+    );
+
+    expect(html).toContain('aria-label="Open details for Semantic API contract"');
+    expect(html).toContain(">Semantic API contract</span>");
+  });
+
+  test("renders cartographer health diagnostics when graph debug is enabled", () => {
+    const html = renderToStaticMarkup(
+      createElement(WorkflowGraphToolbarLayer, {
+        addWorkflowDraftNodeFromToolbar: async () => undefined,
+        debugEnabled: true,
+        openGraphNodeDetails: () => undefined,
+        openWorkflowSettings: () => undefined,
+        runWorkflowDraft: async () => undefined,
+        selectedGraphNodeId: null,
+        selectedGraphNodeLabel: "",
+        showDraftWorkflow: async () => undefined,
+        syntheticGraph: null,
+        validateWorkflowDraft: async () => null,
+        workflowOperation: null,
+        workflowProjection: workflowProjection({ viewMode: "draft" }),
+        workflowProjectionReady: true,
+        workflowValidation: null,
+        workflowWorkspaceId: "workspace_test",
+      }),
+    );
+
+    expect(html).toContain('data-testid="cartographer-health-panel"');
+    expect(html).toContain("Cartographer Health");
   });
 });
 
