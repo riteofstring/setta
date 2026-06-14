@@ -140,6 +140,10 @@ Workflow first establishes the shared foundation (palette, animation driver, lay
 
 ## Visual parity gate (first-class, fully automated — the user is never asked to review)
 
+> **Current checkpoint (commit `54d0f07fb`) — the gate is BUILT but NOT yet proven.** `fa15ac35c` added the initial gate/calibration WIP; `54d0f07fb` committed the durable fixtures/targets (`controls/` + `*.target.json`). Two things the next agent **must** resolve before trusting any green:
+> - **Tolerance derivation dropped three metrics** — `backgroundLuminance`, `p95Luminance`, `backgroundRgb` ("mockup values overlap a negative control"), leaving only 5 with loose bands (e.g. colourfulness `[7.97, 255]`). Those dropped three are the most direct "dark vs lit background" discriminators — the original complaint. **Verify the frozen known-bad render actually *fails* using the remaining metrics**; if it passes, the gate is broken and that is bug #1.
+> - **Known-bad provenance is `1992781fb-compatible`** — frozen from the worktree's render and asserted baseline-equivalent, not a literal `1992781fb` checkout. Acceptable for now (it's genuinely dark/flat), but regenerate from an actual `1992781fb` checkout if stricter provenance is needed.
+
 This gate was added after phases 0–6 shipped structurally correct yet looked nothing like the mockup. The hard lesson: **code review and unit tests verify structure and counts, but cannot verify "does it look like the mockup."** Every visual phase passed review and tests, yet the running app looked like a *darker* pre-redesign graph — because the render was never compared to the mockup at the real (fit-to-view) zoom. Visual parity is now a required gate, and it is **fully automated**: the user is never asked to review, compare, or sign off. Verification is the implementing agent's job, performed by the gate defined below. Work is not "done" until the gate passes; by the time the user looks, it is already gate-passing.
 
 **Root-cause failures this gate exists to prevent (all happened):**
