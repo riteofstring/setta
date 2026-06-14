@@ -1,20 +1,21 @@
 import type { RefObject } from "react";
 
-import type { PaneDirection } from "./layout-engine-helpers";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 import { WorkspaceMobileControls } from "./workspace-mobile-controls";
 import { overviewGhostLabel, type OverviewGhostTarget } from "./workspace-overview-ghost";
 import { WorkspaceToolbar, openPaneActionForSurfaceKind } from "./workspace-toolbar";
-import type { Rect, SurfaceKind } from "./types";
+import type { Rect, SurfaceKind, WorkspacePresentationMode } from "./types";
 
-export function WorkspaceOverviewGhostPane({
+export function WorkspaceOverviewGhostButton({
   onOpen,
+  presentationMode,
   target,
 }: {
   onOpen: (target: OverviewGhostTarget) => void;
+  presentationMode: WorkspacePresentationMode;
   target: OverviewGhostTarget | null;
 }) {
-  if (!target) {
+  if (presentationMode !== "overview" || !target) {
     return null;
   }
   return (
@@ -39,7 +40,7 @@ export function WorkspaceOverviewGhostPane({
   );
 }
 
-export function WorkspaceDesktopToolbarLayer({
+export function WorkspaceToolbarLayer({
   debugRef,
   mobileLayout,
   overviewActive,
@@ -93,45 +94,34 @@ export function WorkspaceMobileControlsLayer({
   if (runtime.mode !== "workspace" || !mobileLayout) {
     return null;
   }
-  const moveFocus = (direction: PaneDirection) => {
-    dismissProjectPaneOverlay();
-    runtime.store.moveFocus(direction, stageViewport());
-    persistLayout();
-  };
-  const openNewPane = () => {
-    dismissProjectPaneOverlay();
-    runLayoutAction(() => runtime.store.openEmptyFrame());
-  };
-  const openSettingsPane = () => {
-    dismissProjectPaneOverlay();
-    runLayoutAction(() => {
-      focusOrOpenPaneBySurfaceKind(runtime, "settings-dom");
-      runtime.store.ensureFocusedColumnVisible(stageViewport());
-      runtime.store.snapScrollToTarget();
-    });
-  };
-  const toggleOverview = () => {
-    dismissProjectPaneOverlay();
-    runLayoutAction(() => runtime.store.toggleOverviewMode());
-  };
   return (
     <WorkspaceMobileControls
-      moveFocus={moveFocus}
-      onNewPane={openNewPane}
-      onOpenSettingsPane={openSettingsPane}
-      onToggleOverview={toggleOverview}
+      moveFocus={(direction) => {
+        dismissProjectPaneOverlay();
+        runtime.store.moveFocus(direction, stageViewport());
+        persistLayout();
+      }}
+      onNewPane={() => {
+        dismissProjectPaneOverlay();
+        runLayoutAction(() => runtime.store.openEmptyFrame());
+      }}
+      onOpenSettingsPane={() => {
+        dismissProjectPaneOverlay();
+        runLayoutAction(() => {
+          focusOrOpenPaneBySurfaceKind(runtime, "settings-dom");
+          runtime.store.ensureFocusedColumnVisible(stageViewport());
+          runtime.store.snapScrollToTarget();
+        });
+      }}
+      onToggleOverview={() => {
+        dismissProjectPaneOverlay();
+        runLayoutAction(() => runtime.store.toggleOverviewMode());
+      }}
       onToggleProjectPane={onToggleProjectPane}
       overviewActive={overviewActive}
       projectPaneOpen={projectPaneOpen}
     />
   );
-}
-
-export function overviewGhostTargetForPresentation(
-  presentationMode: string,
-  target: OverviewGhostTarget | null,
-): OverviewGhostTarget | null {
-  return presentationMode === "overview" ? target : null;
 }
 
 export function focusOrOpenPaneBySurfaceKind(

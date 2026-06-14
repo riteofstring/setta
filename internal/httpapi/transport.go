@@ -11,13 +11,23 @@ import (
 	"setta/internal/chat"
 	"setta/internal/jsonio"
 	"setta/internal/orchestrator"
+	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
+	"setta/internal/workspaceui"
 )
 
 func requireWorkspaceService(response http.ResponseWriter, service WorkspaceService) WorkspaceService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "workspace_service_unavailable", "workspace service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireWorkspaceUIService(response http.ResponseWriter, service WorkspaceUIService) WorkspaceUIService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "workspace_ui_service_unavailable", "workspace UI service is not available")
 		return nil
 	}
 	return service
@@ -55,6 +65,14 @@ func requireWorkflowService(response http.ResponseWriter, service WorkflowServic
 	return service
 }
 
+func requireSemanticGraphService(response http.ResponseWriter, service SemanticGraphService) SemanticGraphService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "semantic_graph_service_unavailable", "semantic graph service is not available")
+		return nil
+	}
+	return service
+}
+
 func requireTerminalService(response http.ResponseWriter, service TerminalService) TerminalService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "terminal_service_unavailable", "terminal service is not available")
@@ -86,6 +104,18 @@ func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 		return
 	}
 	if appstate.IsPersistenceError(err) || workspace.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeWorkspaceUIError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if workspaceui.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_workspace_ui_state", err.Error())
+		return
+	}
+	if workspaceui.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())
@@ -139,6 +169,18 @@ func writeWorkflowError(response http.ResponseWriter, code string, err error) {
 		return
 	}
 	if orchestrator.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeSemanticGraphError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if semanticgraph.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_semantic_graph_state", err.Error())
+		return
+	}
+	if semanticgraph.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())

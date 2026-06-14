@@ -9,6 +9,7 @@ import process from "node:process";
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -109,27 +110,14 @@ console.log(`Electron terminal profile workflow passed: ${artifactDir}`);
 
 async function ensureWorkspaceOpen(client) {
   const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
-  if (currentWorkspaceId && !currentWorkspaceId.endsWith(":empty")) {
+  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return;
   }
-  const opened = await client.evaluate(`(() => {
-    const button = document.querySelector('button[aria-label="Open project folder"]');
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-open-project-folder-button" };
-    }
-    if (button.disabled) {
-      return { ok: false, reason: "disabled-open-project-folder-button" };
-    }
-    button.click();
-    return { ok: true };
-  })()`);
-  if (!opened.ok) {
-    throw new Error(`workspace open failed: ${JSON.stringify(opened)}`);
-  }
+  await clickEnabledButtonByAria(client, "Open project folder", terminalProfileWorkflowTimeoutMs);
   await waitForState(
     client,
     workspaceIdExpression(),
-    (workspaceId) => workspaceId !== "" && !workspaceId.endsWith(":empty"),
+    (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     terminalProfileWorkflowTimeoutMs,
   );
 }

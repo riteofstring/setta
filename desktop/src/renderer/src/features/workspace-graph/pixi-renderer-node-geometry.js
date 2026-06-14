@@ -38,6 +38,14 @@ const diagnosticMarkerColors = {
   warning: 0xfbbf24,
 };
 
+const activityMarkerColors = {
+  blocked: 0xfb7185,
+  debugging: 0xfbbf24,
+  editing: 0x2dd4bf,
+  exploring: 0x38bdf8,
+  validating: 0x22c55e,
+};
+
 export function createNodeGeometryContextFactory() {
   let nodeBodyContextCount = 0;
   let nodeShadowContextCount = 0;
@@ -110,6 +118,45 @@ export function drawNodeDiagnosticMarker(target, node) {
   }
   target.visible = true;
   drawDiagnosticDiamond(target, node.width - 4, -6, node.diagnostic.severity);
+}
+
+export function drawNodeActivityMarker(target, node) {
+  target.clear();
+  if (!node.activity || node.activity.count <= 0) {
+    target.visible = false;
+    return;
+  }
+  target.visible = true;
+  const color = activityMarkerColors[node.activity.kind] ?? 0x38bdf8;
+  const style = activityMarkerStyle(node.activity.active);
+  target
+    .roundRect(-7, -7, node.width + 14, node.height + 14, 12)
+    .stroke({ alpha: style.ringAlpha, color, width: style.ringWidth })
+    .circle(10, -3, style.dotRadius)
+    .fill({ alpha: style.dotAlpha, color })
+    .circle(10, -3, style.outerRadius)
+    .stroke({ alpha: style.outerAlpha, color, width: 2 });
+}
+
+function activityMarkerStyle(active) {
+  if (active) {
+    return {
+      dotAlpha: 0.96,
+      dotRadius: 7,
+      outerAlpha: 0.5,
+      outerRadius: 10,
+      ringAlpha: 0.62,
+      ringWidth: 3,
+    };
+  }
+  return {
+    dotAlpha: 0.74,
+    dotRadius: 5.5,
+    outerAlpha: 0.25,
+    outerRadius: 8,
+    ringAlpha: 0.28,
+    ringWidth: 2,
+  };
 }
 
 export function drawDiagnosticDiamond(target, centerX, centerY, severity) {

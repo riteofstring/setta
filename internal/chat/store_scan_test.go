@@ -35,12 +35,31 @@ func TestStoreConversationScanFailsWhenExistingDirLacksConversationFile(t *testi
 	if missing {
 		t.Fatal("conversation dir missing = true, want false for existing malformed dir")
 	}
-	_, _, err = store.ScanConversationsAllowingCorrupt("workspace_api")
+	_, _, err = store.scanConversationsAllowingCorrupt("workspace_api")
 	if err == nil {
 		t.Fatal("scan conversations succeeded, want missing conversation file error")
 	}
 	if !IsPersistenceError(err) || !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("scan error = %T %v, want not-exist persistence error", err, err)
+	}
+}
+
+func TestStoreConversationScanSkipsHiddenTemporaryConversationDirs(t *testing.T) {
+	store := mustStore(t, t.TempDir())
+	tempDir := filepath.Join(store.conversationsDir("workspace_api"), ".tmp-conversation-partial")
+	if err := os.MkdirAll(tempDir, 0o755); err != nil {
+		t.Fatalf("create temp conversation dir: %v", err)
+	}
+
+	conversations, corrupt, err := store.scanConversationsAllowingCorrupt("workspace_api")
+	if err != nil {
+		t.Fatalf("scan conversations: %v", err)
+	}
+	if len(conversations) != 0 {
+		t.Fatalf("conversations = %+v, want none", conversations)
+	}
+	if len(corrupt) != 0 {
+		t.Fatalf("corrupt = %+v, want none", corrupt)
 	}
 }
 

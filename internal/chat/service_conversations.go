@@ -10,7 +10,7 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 	if _, err := service.resolveWorkspaceForRequest(workspaceID); err != nil {
 		return ConversationListResult{}, err
 	}
-	conversations, corruptConversations, err := service.store.ScanConversationsAllowingCorrupt(workspaceID)
+	conversations, corruptConversations, err := service.store.scanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
 		return ConversationListResult{}, err

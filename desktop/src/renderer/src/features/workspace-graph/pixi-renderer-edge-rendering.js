@@ -18,7 +18,11 @@ export function redrawWorkspaceEdges({
     const target = getNode(edge.targetNodeId);
     const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
     const end = portWorldPosition(target, requireEdgePort(target, edge, "targetPortId"));
-    drawCurvedEdge(edgeGraphics, start, end, { alpha: 0.65, color: 0xe2e8f0, width: 2.5 });
+    drawCurvedEdge(edgeGraphics, start, end, {
+      alpha: edge.alpha ?? 0.65,
+      color: edge.color ?? 0xe2e8f0,
+      width: edge.width ?? 2.5,
+    });
     drawEdgeDiagnosticMarker(edgeGraphics, edge, start, end);
     drawEdgeLabel(edgeLabelLayer, edge, start, end, {
       fontFamily,

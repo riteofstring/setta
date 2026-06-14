@@ -7,6 +7,7 @@ import process from "node:process";
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -48,12 +49,12 @@ try {
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const layoutStorageKey = await ensureWorkspaceOpen(context.client);
+  const workspaceId = await ensureWorkspaceOpen(context.client);
 
-  await persistLayoutWithoutSettings(context.client, layoutStorageKey);
+  await persistLayoutWithoutSettings(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const beforeOpen = await waitForLayoutWithoutSettings(context.client, layoutStorageKey);
+  const beforeOpen = await waitForLayoutWithoutSettings(context.client, workspaceId);
   await captureScreenshot(context.client, join(artifactDir, "before-settings-open.png"));
 
   await clickSettingsButton(context.client);
@@ -86,45 +87,35 @@ try {
 }
 
 async function ensureWorkspaceOpen(client) {
-  const currentStorageKey = await client.evaluate(layoutStorageKeyExpression());
-  if (currentStorageKey && !currentStorageKey.endsWith(":empty")) {
-    return currentStorageKey;
+  const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
+  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
+    return currentWorkspaceId;
   }
-  const opened = await client.evaluate(`(() => {
-    const button = document.querySelector('button[aria-label="Open project folder"]');
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-open-project-folder-button" };
-    }
-    if (button.disabled) {
-      return { ok: false, reason: "disabled-open-project-folder-button" };
-    }
-    button.click();
-    return { ok: true };
-  })()`);
-  if (!opened.ok) {
-    throw new Error(`workspace open failed: ${JSON.stringify(opened)}`);
-  }
+  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   return waitForState(
     client,
-    layoutStorageKeyExpression(),
-    (storageKey) => storageKey !== "" && !storageKey.endsWith(":empty"),
+    workspaceIdExpression(),
+    (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     workflowTimeoutMs,
   );
 }
 
-async function persistLayoutWithoutSettings(client, layoutStorageKey) {
-  const serializedLayout = JSON.stringify(layoutWithoutSettings());
-  await client.evaluate(`(() => {
-    window.localStorage.setItem(${JSON.stringify(layoutStorageKey)}, ${JSON.stringify(serializedLayout)});
+async function persistLayoutWithoutSettings(client, workspaceId) {
+  const result = await client.evaluate(`(async () => {
+    await window.setta.workspace.saveUILayout(${JSON.stringify(layoutWithoutSettings(workspaceId))});
+    return true;
   })()`);
+  if (!result) {
+    throw new Error("workspace UI layout was not persisted");
+  }
 }
 
-async function waitForLayoutWithoutSettings(client, layoutStorageKey) {
+async function waitForLayoutWithoutSettings(client, workspaceId) {
   return waitForState(
     client,
     settingsStateExpression(),
     (state) =>
-      state.layoutStorageKey === layoutStorageKey &&
+      state.workspaceId === workspaceId &&
       state.paneCount === 2 &&
       !state.surfaceKinds.includes("settings-dom") &&
       !state.settingsPanelReady,
@@ -179,22 +170,22 @@ function settingsStateExpression() {
     const focused = hosts.find((host) => host.dataset.focused === "true");
     return {
       focusedSurfaceKind: focused?.dataset.surfaceKind ?? "",
-      layoutStorageKey: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
       paneCount: Number(area instanceof HTMLElement ? area.dataset.paneCount ?? "0" : "0"),
       settingsPanelReady: Boolean(document.querySelector("#settings-subtab-theme")),
       surfaceKinds: hosts.map((host) => host.dataset.surfaceKind ?? ""),
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
     };
   })()`;
 }
 
-function layoutStorageKeyExpression() {
+function workspaceIdExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
   })()`;
 }
 
-function layoutWithoutSettings() {
+function layoutWithoutSettings(workspaceId) {
   return {
     columns: [
       storedColumn("workspace_column_0", 0, ["workspace_pane_0"]),
@@ -225,7 +216,8 @@ function layoutWithoutSettings() {
         weight: 1,
       }),
     ],
-    version: 4,
+    schemaVersion: 1,
+    workspaceId,
   };
 }
 
@@ -236,6 +228,7 @@ function storedColumn(columnId, index, paneIds) {
     index,
     paneIds,
     planeIndex: 0,
+    previousProportionWidth: null,
     slotIndex: index,
     widthSpec: { unit: "px", value: 520 },
   };
@@ -245,5 +238,6 @@ function storedPane(pane) {
   return {
     ...pane,
     heat: (pane.sequence * 37) % 100,
+    terminalConfig: null,
   };
 }

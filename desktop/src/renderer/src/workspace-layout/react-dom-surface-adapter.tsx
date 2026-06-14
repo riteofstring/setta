@@ -3,6 +3,7 @@ import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
 import { WorkflowGraphSurface } from "../features/workspace-graph/workflow-graph-surface";
 import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
+import { SemanticNodeDetailsSurface } from "../features/workspace-graph/semantic-node-details-surface";
 import { WorkflowNodeDetailsSurface } from "../features/workspace-graph/workflow-node-details-surface";
 import { WorkflowSettingsSurface } from "../features/workspace-graph/workflow-settings-surface";
 import {
@@ -253,6 +254,8 @@ function restoreScrollOffsetsAcrossFrames(root: Element, remainingFrames: number
   }
   const restore = () => {
     applySnapshotScrollOffsets(root);
+    queueMicrotask(() => applySnapshotScrollOffsets(root));
+    setTimeout(() => applySnapshotScrollOffsets(root), 0);
     restoreScrollOffsetsAcrossFrames(root, remainingFrames - 1);
   };
   if (typeof requestAnimationFrame === "function") {
@@ -314,6 +317,9 @@ export function createReactDomSurfaceAdapter(
       ({ activated, focused }) => <WorkspaceSettingsSurface active={focused} loaded={activated} />,
       rootFactory,
     );
+  }
+  if (pane.surfaceKind === "semantic-node-details") {
+    return new ReactDomSurfaceAdapter(pane, () => <SemanticNodeDetailsSurface />, rootFactory);
   }
   if (pane.surfaceKind === "workflow-node-details") {
     return new ReactDomSurfaceAdapter(pane, () => <WorkflowNodeDetailsSurface />, rootFactory);

@@ -132,7 +132,13 @@ func (store *Store) SaveConversation(conversation Conversation) error {
 	if err := validateConversation(conversation); err != nil {
 		return err
 	}
-	return writeJSONFile(store.conversationPath(conversation.WorkspaceID, conversation.ID), conversation)
+	path := store.conversationPath(conversation.WorkspaceID, conversation.ID)
+	if _, err := os.Stat(path); err == nil {
+		return writeJSONFile(path, conversation)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return &PersistenceError{Operation: "stat conversation", Path: path, Err: err}
+	}
+	return store.writeInitialConversation(conversation)
 }
 
 func (store *Store) DeleteConversation(workspaceID string, conversationID string) error {
@@ -296,7 +302,7 @@ func (store *Store) ListConversations(workspaceID string) ([]Conversation, error
 	if err := validateStoreWorkspaceID(workspaceID); err != nil {
 		return nil, err
 	}
-	conversations, corrupt, err := store.ScanConversationsAllowingCorrupt(workspaceID)
+	conversations, corrupt, err := store.scanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +312,7 @@ func (store *Store) ListConversations(workspaceID string) ([]Conversation, error
 	return conversations, nil
 }
 
-func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conversation, []CorruptStateFinding, error) {
+func (store *Store) scanConversationsAllowingCorrupt(workspaceID string) ([]Conversation, []CorruptStateFinding, error) {
 	if err := validateStoreWorkspaceID(workspaceID); err != nil {
 		return nil, nil, err
 	}
@@ -322,20 +328,20 @@ func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conv
 	conversations := make([]Conversation, 0, len(entries))
 	corrupt := []CorruptStateFinding{}
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !visibleConversationScanEntry(entry) {
 			continue
 		}
 		conversation, err := store.LoadConversation(workspaceID, entry.Name())
 		if err != nil {
-			if IsCorruptStateError(err) {
-				corrupt = append(corrupt, corruptStateFinding(err, workspaceID, entry.Name(), "", corruptConversationKind))
-				continue
-			}
 			missing, missingErr := store.conversationDirDisappearedDuringScan(workspaceID, entry.Name(), err)
 			if missingErr != nil {
 				return nil, nil, missingErr
 			}
 			if missing {
+				continue
+			}
+			if IsCorruptStateError(err) {
+				corrupt = append(corrupt, corruptStateFinding(err, workspaceID, entry.Name(), "", corruptConversationKind))
 				continue
 			}
 			return nil, nil, err

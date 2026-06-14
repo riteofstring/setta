@@ -271,16 +271,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (this.destroyed) {
       return;
     }
-    const sessionId = this.sessionId;
     this.unmount();
     this.destroyed = true;
-    if (sessionId) {
-      void terminalAPI()
-        ?.close(sessionId, "terminate")
-        .catch((error: unknown) => {
-          console.error("failed to close terminal session", errorMessage(error));
-        });
-    }
   }
 
   private async loadProfiles(): Promise<void> {

@@ -78,6 +78,13 @@ export function decodeInteger(value: unknown, label: string): number {
   return value;
 }
 
+export function decodeNumber(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(label + " must be a finite number");
+  }
+  return value;
+}
+
 export function decodeString(value: unknown, label: string): string {
   if (typeof value !== "string") {
     throw new Error(label + " must be a string");
@@ -112,6 +119,15 @@ export function decodeStringRecord(value: unknown, label: string): Record<string
   const decoded: Record<string, string> = {};
   for (const [key, item] of Object.entries(record)) {
     decoded[key] = decodeString(item, `${label}.${key}`);
+  }
+  return decoded;
+}
+
+export function decodeIntegerRecord(value: unknown, label: string): Record<string, number> {
+  const record = assertRecord(value, label);
+  const decoded: Record<string, number> = {};
+  for (const [key, item] of Object.entries(record)) {
+    decoded[key] = decodeInteger(item, `${label}.${key}`);
   }
   return decoded;
 }

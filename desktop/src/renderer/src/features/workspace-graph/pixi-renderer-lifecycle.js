@@ -8,7 +8,7 @@ export function abortInitializedAppIfNeeded(app, abortSignal) {
 
 export function destroyInitializedApp(app) {
   const canvas = app.canvas;
-  app.destroy(true, { children: true, texture: true });
+  app.destroy(false, { children: true });
   canvas.remove();
 }
 

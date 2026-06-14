@@ -10,6 +10,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -139,27 +140,14 @@ async function waitForTerminalReady(client) {
 }
 
 async function openWorkspaceFromSidebar(client) {
-  const opened = await client.evaluate(`(() => {
-    const button = document.querySelector('button[aria-label="Open project folder"]');
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-open-project-folder-button" };
-    }
-    if (button.disabled) {
-      return { ok: false, reason: "disabled-open-project-folder-button" };
-    }
-    button.click();
-    return { ok: true };
-  })()`);
-  if (!opened.ok) {
-    throw new Error(`workspace open failed: ${JSON.stringify(opened)}`);
-  }
+  await clickEnabledButtonByAria(client, "Open project folder", terminalWorkflowTimeoutMs);
   await waitForState(
     client,
     `(() => {
       const area = document.querySelector('[data-testid="workspace-layout-area"]');
       return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
     })()`,
-    (workspaceId) => workspaceId !== "" && !workspaceId.endsWith(":empty"),
+    (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     terminalWorkflowTimeoutMs,
   );
 }

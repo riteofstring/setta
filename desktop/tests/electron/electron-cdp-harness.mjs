@@ -161,6 +161,43 @@ export async function waitForSelector(client, selector, timeoutMs = stateWaitTim
   );
 }
 
+export async function clickEnabledButtonByAria(client, label, timeoutMs = stateWaitTimeoutMs) {
+  await waitForState(
+    client,
+    enabledButtonByAriaExpression(label),
+    (value) => value.ready,
+    timeoutMs,
+  );
+  const clicked = await client.evaluate(`(() => {
+    const button = Array.from(document.querySelectorAll("button")).find(
+      (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-button" };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-button" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!clicked.ok) {
+    throw new Error(`button was not clickable: ${label}: ${JSON.stringify(clicked)}`);
+  }
+}
+
+function enabledButtonByAriaExpression(label) {
+  return `(() => {
+    const button = Array.from(document.querySelectorAll("button")).find(
+      (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ready: false, reason: "missing-button" };
+    }
+    return { ready: !button.disabled, reason: button.disabled ? "disabled-button" : "ready" };
+  })()`;
+}
+
 export async function captureScreenshot(client, path) {
   await mkdir(dirname(path), { recursive: true });
   const image = await client.call("Page.captureScreenshot", { format: "png" });
