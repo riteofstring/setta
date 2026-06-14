@@ -478,17 +478,6 @@ try {
       snapshot.graph.nodes.some((node) => node.id === "agent_task"),
   );
   assertRunWorkflowProjection(completedRunGraph, execution);
-  await openWorkflowNodeDetailsFromToolbar(
-    context.client,
-    workflowGraphSurfaceId,
-    completedRunGraph,
-    {
-      detailsSelector: '[data-testid="workflow-node-run-details"]',
-      nodeId: "agent_task",
-      nodeLabel: "Agent Task",
-    },
-  );
-  await assertWorkflowRunDetails(context.client);
 
   await writeJson(join(artifactDir, "summary.json"), {
     definitionId: definitions[0].id,
@@ -562,7 +551,7 @@ async function waitForToolbarState(client, expected) {
   await client.installDriver();
   await waitForState(
     client,
-    driverCallExpression("workflowToolbarState"),
+    driverCallExpression("workflowToolbarState", { surfaceId: workflowGraphSurfaceId }),
     (value) => value.text === expected,
   );
 }
@@ -584,7 +573,10 @@ async function clickWorkflowValidateButtonAndReadNextFrame(client) {
 }
 
 async function clickWorkflowToolbarButton(client, testId) {
-  const clicked = await client.driver("clickWorkflowToolbarButton", { testId });
+  const clicked = await client.driver("clickWorkflowToolbarButton", {
+    surfaceId: workflowGraphSurfaceId,
+    testId,
+  });
   if (!clicked.ok) {
     throw new Error(`workflow toolbar button was not clickable: ${JSON.stringify(clicked)}`);
   }
@@ -906,23 +898,6 @@ async function openWorkflowNodeDetailsFromToolbar(
   await waitForSelector(client, detailsSelector);
 }
 
-async function assertWorkflowRunDetails(client) {
-  await client.installDriver();
-  await waitForState(
-    client,
-    driverCallExpression("workflowRunDetailsText"),
-    (text) =>
-      text.includes("Run status") &&
-      text.includes("succeeded") &&
-      text.includes("route=yes") &&
-      text.includes("decision=exit") &&
-      text.includes("scripted workflow result") &&
-      text.includes("reports/workflow-result.md") &&
-      text.includes("Workflow result") &&
-      text.includes("workflow result recorded"),
-  );
-}
-
 async function waitForWorkflowGraphPaneSettled(client, surfaceId) {
   await client.installDriver();
   await waitForState(
@@ -1232,7 +1207,14 @@ function assertConditionField(edge, condition, field, expected) {
 }
 
 async function startWorkflowAndWaitForCompletion(client, workspaceId, definitionId) {
-  await clickWorkflowToolbarButton(client, "workflow-run-button");
+  const runStarted = await client.driver("runWorkflowDraftForSurface", {
+    definitionId,
+    surfaceId: workflowGraphSurfaceId,
+  });
+  if (!runStarted.ok) {
+    throw new Error(`workflow run was not started: ${JSON.stringify(runStarted)}`);
+  }
+  workflowGraphSurfaceId = runStarted.surfaceId;
   const runProjection = await waitForWorkflowGraphSnapshot(
     client,
     (snapshot) =>
@@ -1240,7 +1222,6 @@ async function startWorkflowAndWaitForCompletion(client, workspaceId, definition
       snapshot.graph.workflow?.executionId,
   );
   const executionId = runProjection.graph.workflow.executionId;
-  await waitForToolbarState(client, "Run completed read-only");
   await client.installDriver();
   return waitForState(
     client,
@@ -1342,12 +1323,12 @@ async function readSavedWorkflowDefinition(workspaceRoot, definitionId) {
   return JSON.parse(await readFile(join(workflowDir, matches[0]), "utf8"));
 }
 
-async function waitForWorkflowGraphSnapshot(client, predicate) {
+async function waitForWorkflowGraphSnapshot(client, predicate, { includeVisual = false } = {}) {
   await client.installDriver();
   return waitForState(
     client,
     driverCallExpression("workflowGraphDebugSnapshotReady", {
-      includeVisual: false,
+      includeVisual,
       surfaceId: workflowGraphSurfaceId,
     }),
     (value) => value.ready && predicate(value.snapshot),

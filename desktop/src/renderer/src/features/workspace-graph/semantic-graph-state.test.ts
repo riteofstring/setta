@@ -86,13 +86,13 @@ describe("semanticGraphRefreshRequestForChange", () => {
     ).toEqual({ activity: true, graph: true, workingSet: true });
   });
 
-  test("requests activity-only refreshes without replacing graph data", () => {
+  test("requests activity and working-set refreshes without replacing graph data", () => {
     expect(
       semanticGraphRefreshRequestForChange(
         semanticGraphChangeEvent({ changedAreas: ["activity"] }),
         "workspace_graph",
       ),
-    ).toEqual({ activity: true, graph: false, workingSet: false });
+    ).toEqual({ activity: true, graph: false, workingSet: true });
   });
 
   test("requests working-set refreshes for cartographer audit state", () => {

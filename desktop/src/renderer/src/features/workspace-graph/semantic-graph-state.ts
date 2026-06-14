@@ -192,6 +192,7 @@ export function semanticGraphRefreshRequestForChange(
   const activity = graph || event.changedAreas.includes("activity");
   const workingSet =
     graph ||
+    activity ||
     event.changedAreas.some((area) => area === "working_set" || area === "cartographer_audit");
   if (!graph && !activity && !workingSet) {
     return null;

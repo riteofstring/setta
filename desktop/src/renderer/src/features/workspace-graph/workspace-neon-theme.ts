@@ -2,6 +2,7 @@ import type {
   SemanticActivityInterval,
   SemanticEdgeKind,
   SemanticNodeKind,
+  SemanticWorkingSetPulseKind,
   WorkflowGraphEdgeStatus,
   WorkflowGraphNodeStatus,
   WorkflowNodeKind,
@@ -239,6 +240,16 @@ const semanticActivityColors = {
   validating: 0x22c55e,
 } satisfies Record<SemanticActivityInterval["kind"], number>;
 
+const semanticWorkingSetPulseColors = {
+  active_workflow_source: 0x22d3ee,
+  cartographer_observing: 0x67e8f9,
+  cartographer_running: 0x14b8a6,
+  patch_proposed: 0xf0abfc,
+  node_updated_recent: 0xfacc15,
+  evidence_attached: 0xa3e635,
+  edge_created: 0x818cf8,
+} satisfies Record<SemanticWorkingSetPulseKind, number>;
+
 export const workspaceNeonTheme = {
   foundation: {
     background: 0x05080e,
@@ -427,6 +438,7 @@ export const workspaceNeonTheme = {
       },
     },
     activity: semanticActivityColors,
+    workingSetPulse: semanticWorkingSetPulseColors,
     cell: {
       auraAlpha: 0.36,
       auraWidth: 5.4,

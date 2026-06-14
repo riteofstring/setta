@@ -1,6 +1,7 @@
 package semanticgraph
 
 type SemanticWorkingSetStatus string
+type SemanticWorkingSetPulseKind string
 
 const (
 	WorkingSetStatusObserving     SemanticWorkingSetStatus = "observing"
@@ -15,6 +16,14 @@ const (
 	WorkingSetStatusRejected      SemanticWorkingSetStatus = "rejected"
 	WorkingSetStatusFailed        SemanticWorkingSetStatus = "failed"
 	WorkingSetStatusSuperseded    SemanticWorkingSetStatus = "superseded"
+
+	WorkingSetPulseActiveWorkflowSource  SemanticWorkingSetPulseKind = "active_workflow_source"
+	WorkingSetPulseCartographerObserving SemanticWorkingSetPulseKind = "cartographer_observing"
+	WorkingSetPulseCartographerRunning   SemanticWorkingSetPulseKind = "cartographer_running"
+	WorkingSetPulsePatchProposed         SemanticWorkingSetPulseKind = "patch_proposed"
+	WorkingSetPulseNodeUpdatedRecent     SemanticWorkingSetPulseKind = "node_updated_recent"
+	WorkingSetPulseEvidenceAttached      SemanticWorkingSetPulseKind = "evidence_attached"
+	WorkingSetPulseEdgeCreated           SemanticWorkingSetPulseKind = "edge_created"
 )
 
 var semanticWorkingSetStatusValues = []SemanticWorkingSetStatus{
@@ -30,4 +39,14 @@ var semanticWorkingSetStatusValues = []SemanticWorkingSetStatus{
 	WorkingSetStatusRejected,
 	WorkingSetStatusFailed,
 	WorkingSetStatusSuperseded,
+}
+
+var semanticWorkingSetPulseKindValues = []SemanticWorkingSetPulseKind{
+	WorkingSetPulseActiveWorkflowSource,
+	WorkingSetPulseCartographerObserving,
+	WorkingSetPulseCartographerRunning,
+	WorkingSetPulsePatchProposed,
+	WorkingSetPulseNodeUpdatedRecent,
+	WorkingSetPulseEvidenceAttached,
+	WorkingSetPulseEdgeCreated,
 }

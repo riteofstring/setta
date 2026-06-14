@@ -38,6 +38,11 @@ const seedNodeId = "semantic_auto_workflow_context";
 const smokeAgentNodeId = "agent";
 const longFastNodeId = "fast";
 const longSlowNodeId = "slow";
+const requiredAutomaticReadbackPulseKinds = [
+  "node_updated_recent",
+  "evidence_attached",
+  "edge_created",
+];
 
 configureChatWorkflowHarness({ visible: options.visible });
 
@@ -444,6 +449,14 @@ async function waitForAutomaticCartographerApplied({
               workspaceId,
             },
           ]),
+          workingSet: await rendererSemanticGraph(client, "readWorkingSet", [
+            {
+              chatRunId: "",
+              limit: 40,
+              workflowExecutionId: executionId,
+              workspaceId,
+            },
+          ]),
           runs: await rendererSemanticGraph(client, "listCartographerRuns", [
             {
               chatRunId: "",
@@ -623,6 +636,13 @@ function assertProcessedWindowsSurvivedRestart(beforeRestart, afterRestart) {
 
 function automaticCartographerReadbackReady(value) {
   return (
+    automaticReadbackHasSemanticOutput(value) &&
+    automaticReadbackHasWorkingSetPulses(value.workingSet)
+  );
+}
+
+function automaticReadbackHasSemanticOutput(value) {
+  return (
     automaticProcessingIdleWithOutput(value.state) &&
     hasScriptedCartographerFindingPatch(value.patches) &&
     hasScriptedCartographerEdgePatch(value.patches) &&
@@ -631,6 +651,10 @@ function automaticCartographerReadbackReady(value) {
     hasAppliedCartographerRun(value.runs) &&
     hasProcessedCartographerWindow(value.windows)
   );
+}
+
+function automaticReadbackHasWorkingSetPulses(workingSet) {
+  return requiredAutomaticReadbackPulseKinds.every((kind) => hasWorkingSetPulse(workingSet, kind));
 }
 
 function automaticProcessingIdleWithOutput(state) {
@@ -673,12 +697,17 @@ function hasProcessedCartographerWindow(windows) {
   return windows.windows.some((window) => window.status === "processed");
 }
 
+function hasWorkingSetPulse(workingSet, kind) {
+  return workingSet.pulses.some((pulse) => pulse.kind === kind);
+}
+
 function assertAutomaticCartographerReadback(readback, records, evidenceAnchorId, executionId) {
   assertAutomaticPatch(records.patch);
   assertAutomaticEdgePatch(records.edgePatch, records.nodeId);
   assertAutomaticRun(records.run, executionId);
   assertAutomaticWindow(records.window, records.run.id);
   assertAutomaticSemanticNode(readback, records.nodeId, evidenceAnchorId);
+  assertAutomaticWorkingSetPulses(readback.workingSet, records.nodeId);
   return records;
 }
 
@@ -785,6 +814,32 @@ function assertAutomaticSemanticNode(readback, nodeId, evidenceAnchorId) {
   }
 }
 
+function assertAutomaticWorkingSetPulses(workingSet, nodeId) {
+  assertWorkingSetPulseTouches(workingSet, "node_updated_recent", nodeId);
+  assertWorkingSetPulseTouches(workingSet, "evidence_attached", nodeId);
+  if (
+    !workingSet.pulses.some(
+      (pulse) => pulse.kind === "edge_created" && pulse.semanticEdgeIds.length > 0,
+    )
+  ) {
+    throw new Error(`edge-created working-set pulse missing: ${JSON.stringify(workingSet)}`);
+  }
+}
+
+function assertWorkingSetPulseTouches(workingSet, kind, nodeId) {
+  if (
+    !workingSet.pulses.some(
+      (pulse) =>
+        pulse.kind === kind &&
+        (pulse.targetEntityId === nodeId || pulse.semanticNodeIds.includes(nodeId)),
+    )
+  ) {
+    throw new Error(
+      `working-set pulse ${kind} missing for ${nodeId}: ${JSON.stringify(workingSet)}`,
+    );
+  }
+}
+
 async function assertSemanticCartographerRecordingEvidence(recordingDir) {
   await assertRecordingEvidence(recordingDir, {
     backendPaths: [
@@ -800,6 +855,7 @@ async function assertSemanticCartographerRecordingEvidence(recordingDir) {
       "/semantic-graph/cartographer/runs/list",
       "/semantic-graph/cartographer/windows/list",
       "/semantic-graph/cartographer/patches/list",
+      "/semantic-graph/working-set/read",
       "/semantic-graph/nodes/detail",
       "/semantic-graph/read",
     ],
@@ -816,6 +872,7 @@ async function assertSemanticCartographerRecordingEvidence(recordingDir) {
       "semantic-graph:cartographer-run-list",
       "semantic-graph:cartographer-window-list",
       "semantic-graph:cartographer-patch-list",
+      "semantic-graph:working-set-read",
       "semantic-graph:node-detail",
       "semantic-graph:read",
     ],

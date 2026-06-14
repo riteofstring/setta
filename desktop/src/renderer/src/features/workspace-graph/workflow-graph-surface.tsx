@@ -580,6 +580,32 @@ export function WorkflowGraphSurface({
     syntheticGraph,
     workflowWorkspaceId,
   ]);
+  useEffect(() => {
+    if (!window.setta.app.flags.workflowGraphDebug) {
+      return;
+    }
+    const callbacks = window.__settaWorkflowGraphRunDrafts ?? new Map();
+    window.__settaWorkflowGraphRunDrafts = callbacks;
+    const runWorkflowDraftForDebug = async () => {
+      await runWorkflowDraft();
+      const projection = workflowProjectionRef.current;
+      return {
+        definitionId: projection?.definitionId ?? "",
+        executionId: projection?.executionId ?? "",
+        viewMode: projection?.viewMode ?? "",
+        workspaceId: projection?.workspaceId ?? "",
+      };
+    };
+    callbacks.set(surfaceId, runWorkflowDraftForDebug);
+    return () => {
+      if (callbacks.get(surfaceId) === runWorkflowDraftForDebug) {
+        callbacks.delete(surfaceId);
+      }
+      if (callbacks.size === 0 && window.__settaWorkflowGraphRunDrafts === callbacks) {
+        delete window.__settaWorkflowGraphRunDrafts;
+      }
+    };
+  }, [runWorkflowDraft, surfaceId]);
   const showDraftWorkflow = useCallback(async () => {
     if (workflowProjection === null) {
       return;

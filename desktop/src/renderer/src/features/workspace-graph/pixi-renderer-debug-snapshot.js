@@ -67,6 +67,7 @@ export function createWorkflowGraphDebugSnapshot({
           diagnostic: edge.diagnostic ?? null,
           layer: edge.layer,
           label: edge.label ?? "",
+          semanticPulseKind: edge.semanticPulseKind ?? "",
           sourceNodeId: edge.sourceNodeId,
           sourcePortId: edge.sourcePortId,
           status: edge.status ?? "",
@@ -233,8 +234,6 @@ function nodeDebugSnapshot(
   const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
   return {
     id: node.id,
-    diagnostic: node.diagnostic ?? null,
-    dismissed: node.dismissed ?? false,
     height: node.height,
     kind: node.kind ?? "",
     materialized: nodeLabels.has(node.id),
@@ -245,17 +244,40 @@ function nodeDebugSnapshot(
       nodeLabelVisibilityReasons,
     }),
     layer: node.layer,
-    mergedIntoNodeId: node.mergedIntoNodeId ?? "",
     ports: nodePortDebugSnapshots(node, viewport),
-    promoted: node.promoted ?? false,
     screenX: screen.x,
     screenY: screen.y,
-    splitFromNodeId: node.splitFromNodeId ?? "",
-    splitIntoNodeIds: node.splitIntoNodeIds ?? [],
-    status: node.status ?? "",
     width: node.width,
     x: node.x,
     y: node.y,
+    ...nodeStateDebugSnapshot(node),
+    ...nodeSemanticDebugSnapshot(node),
+    ...nodeSplitMergeDebugSnapshot(node),
+  };
+}
+
+function nodeStateDebugSnapshot(node) {
+  return {
+    activity: node.activity ?? null,
+    diagnostic: node.diagnostic ?? null,
+    dismissed: node.dismissed ?? false,
+    promoted: node.promoted ?? false,
+    status: node.status ?? "",
+  };
+}
+
+function nodeSemanticDebugSnapshot(node) {
+  return {
+    semanticPulseKind: node.semanticPulseKind ?? "",
+    semanticRole: node.semanticRole ?? "",
+  };
+}
+
+function nodeSplitMergeDebugSnapshot(node) {
+  return {
+    mergedIntoNodeId: node.mergedIntoNodeId ?? "",
+    splitFromNodeId: node.splitFromNodeId ?? "",
+    splitIntoNodeIds: node.splitIntoNodeIds ?? [],
   };
 }
 

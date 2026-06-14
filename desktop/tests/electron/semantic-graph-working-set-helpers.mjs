@@ -105,6 +105,9 @@ export function assertSemanticWorkingSetPulseVisible({ liveSource, seedWorkflowN
   if (pulse.layer !== "semantic" || pulse.width !== 18 || pulse.height !== 18) {
     throw new Error(`semantic working-set pulse shape mismatch: ${JSON.stringify(pulse)}`);
   }
+  if (pulse.semanticPulseKind !== "active_workflow_source") {
+    throw new Error(`semantic working-set pulse kind mismatch: ${JSON.stringify(pulse)}`);
+  }
   const sourceEdge = snapshot.graph.edges.find(
     (edge) =>
       edge.id === `semantic-live-source:semantic-working-set-source:run:${liveSource.built.run.id}`,
@@ -186,6 +189,13 @@ function assertLiveSourceRef(result, seedWorkflowNodeId) {
     source.sourceRefs.runItemId !== result.sourceRefs.runItemId
   ) {
     throw new Error(`live source ref source mismatch: ${JSON.stringify(result.workingSet)}`);
+  }
+  assertWorkingSetPulseKind(result, "active_workflow_source");
+}
+
+function assertWorkingSetPulseKind(result, kind) {
+  if (!result.workingSet.pulses.some((pulse) => pulse.kind === kind)) {
+    throw new Error(`working-set pulse ${kind} missing: ${JSON.stringify(result.workingSet)}`);
   }
 }
 

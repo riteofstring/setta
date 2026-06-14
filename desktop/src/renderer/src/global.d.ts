@@ -246,9 +246,17 @@ interface WorkflowGraphDebugApi {
   ) => { animationActive: boolean; now: number; tickerHeld: boolean; tickerStarted: boolean };
 }
 
+interface WorkflowGraphDebugRunDraftResult {
+  definitionId: string;
+  executionId: string;
+  viewMode: string;
+  workspaceId: string;
+}
+
 declare global {
   interface Window {
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
+    __settaWorkflowGraphRunDrafts?: Map<string, () => Promise<WorkflowGraphDebugRunDraftResult>>;
     setta: SettaAPI;
   }
 }

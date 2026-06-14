@@ -32,6 +32,7 @@ type SemanticWorkingSet struct {
 	CandidateTargets          []SemanticWorkingSetCandidateTarget    `json:"candidateTargets"`
 	PendingPatchPreviews      []SemanticWorkingSetPatchPreview       `json:"pendingPatchPreviews"`
 	LiveSourceRefs            []SemanticWorkingSetLiveSourceRef      `json:"liveSourceRefs"`
+	Pulses                    []SemanticWorkingSetPulse              `json:"pulses"`
 	LastUpdatedAt             string                                 `json:"lastUpdatedAt"`
 }
 
@@ -232,6 +233,7 @@ func (service *Service) buildSemanticWorkingSet(filter SemanticWorkingSetFilter,
 			return SemanticWorkingSet{}, err
 		}
 	}
+	builder.addGraphRecencyPulses(records.graph)
 	return builder.finish(), nil
 }
 
@@ -269,6 +271,7 @@ type semanticWorkingSetBuilder struct {
 	activeRunItems       map[string]bool
 	liveSourceRefsByID   map[string]SemanticWorkingSetLiveSourceRef
 	candidateTargetsByID map[string]*SemanticWorkingSetCandidateTarget
+	pulsesByID           map[string]SemanticWorkingSetPulse
 	workingSet           SemanticWorkingSet
 }
 
@@ -280,6 +283,7 @@ func newSemanticWorkingSetBuilder(filter SemanticWorkingSetFilter, fallbackUpdat
 		activeRunItems:       map[string]bool{},
 		liveSourceRefsByID:   map[string]SemanticWorkingSetLiveSourceRef{},
 		candidateTargetsByID: map[string]*SemanticWorkingSetCandidateTarget{},
+		pulsesByID:           map[string]SemanticWorkingSetPulse{},
 		workingSet: SemanticWorkingSet{
 			WorkspaceID:               filter.WorkspaceID,
 			WorkflowExecutionID:       filter.WorkflowExecutionID,
@@ -293,6 +297,7 @@ func newSemanticWorkingSetBuilder(filter SemanticWorkingSetFilter, fallbackUpdat
 			CandidateTargets:          []SemanticWorkingSetCandidateTarget{},
 			PendingPatchPreviews:      []SemanticWorkingSetPatchPreview{},
 			LiveSourceRefs:            []SemanticWorkingSetLiveSourceRef{},
+			Pulses:                    []SemanticWorkingSetPulse{},
 		},
 	}
 }
@@ -330,6 +335,8 @@ func (builder *semanticWorkingSetBuilder) addWindow(window CartographerWindow, r
 	builder.workingSet.ActiveCartographerWindows = append(builder.workingSet.ActiveCartographerWindows, item)
 	builder.recordLiveSourceRef("window", window.ID, item.Status, item.TriggerKind, item.SourceRefs, item.TargetEntityID, item.RunID, item.ID, "", item.ChangedSemanticNodeIDs, item.ChangedSemanticEdgeIDs, item.PatchOperationNames, item.PublicSummary, item.Diagnostics, item.UpdatedAt)
 	builder.recordCandidateTarget(item.TargetEntityID, item.Status, item.TriggerKind, item.SourceRefs, item.RunID, item.ID, "", item.ChangedSemanticNodeIDs, item.ChangedSemanticEdgeIDs, item.PatchOperationNames, item.PublicSummary, item.Diagnostics, item.UpdatedAt)
+	builder.recordActiveWorkflowSourcePulse("window", window.ID, item.Status, item.TriggerKind, item.SourceRefs, item.TargetEntityID, item.RunID, item.ID, "", item.ChangedSemanticNodeIDs, item.ChangedSemanticEdgeIDs, item.PatchOperationNames, item.PublicSummary, item.Diagnostics, item.OpenedAt, item.UpdatedAt)
+	builder.recordPulse(WorkingSetPulseCartographerObserving, "window:"+window.ID, item.Status, ActivityKindExploring, item.TriggerKind, item.SourceRefs, item.TargetEntityID, item.RunID, item.ID, "", item.ChangedSemanticNodeIDs, item.ChangedSemanticEdgeIDs, nil, item.PatchOperationNames, item.PublicSummary, item.Diagnostics, item.OpenedAt, item.UpdatedAt)
 	builder.recordLastUpdatedAt(window.UpdatedAt)
 	return nil
 }
@@ -362,6 +369,10 @@ func (builder *semanticWorkingSetBuilder) addRun(run CartographerRun, patches []
 	if semanticWorkingSetStatusIsActive(status) {
 		builder.workingSet.ActiveCartographerRuns = append(builder.workingSet.ActiveCartographerRuns, item)
 		builder.recordLiveSourceRef("run", run.ID, item.Status, item.TriggerKind, item.SourceRefs, item.TargetEntityID, item.ID, item.WindowID, "", item.ChangedSemanticNodeIDs, item.ChangedSemanticEdgeIDs, item.PatchOperationNames, item.PublicSummary, item.Diagnostics, item.UpdatedAt)
+		builder.recordActiveWorkflowSourcePulse("run", run.ID, item.Status, item.TriggerKind, item.SourceRefs, item.TargetEntityID, item.ID, item.WindowID, "", item.ChangedSemanticNodeIDs, item.ChangedSemanticEdgeIDs, item.PatchOperationNames, item.PublicSummary, item.Diagnostics, item.StartedAt, item.UpdatedAt)
+		if status == WorkingSetStatusRunning {
+			builder.recordPulse(WorkingSetPulseCartographerRunning, "run:"+run.ID, item.Status, ActivityKindExploring, item.TriggerKind, item.SourceRefs, item.TargetEntityID, item.ID, item.WindowID, "", item.ChangedSemanticNodeIDs, item.ChangedSemanticEdgeIDs, nil, item.PatchOperationNames, item.PublicSummary, item.Diagnostics, item.StartedAt, item.UpdatedAt)
+		}
 	} else {
 		builder.workingSet.RecentCartographerRuns = append(builder.workingSet.RecentCartographerRuns, item)
 	}
@@ -400,12 +411,17 @@ func (builder *semanticWorkingSetBuilder) addPatch(patch CartographerPatchRecord
 	builder.recordCandidateTarget(targetEntityID, status, run.TriggerKind, patch.Patch.SourceRefs, patch.RunID, patch.WindowID, patch.ID, changedNodeIDs, changedEdgeIDs, operations, patch.Patch.PublicSummary, diagnostics, updatedAt)
 	if semanticWorkingSetStatusIsActive(status) {
 		builder.recordLiveSourceRef("patch", patch.ID, status, run.TriggerKind, patch.Patch.SourceRefs, targetEntityID, patch.RunID, patch.WindowID, patch.ID, changedNodeIDs, changedEdgeIDs, operations, patch.Patch.PublicSummary, diagnostics, updatedAt)
+		builder.recordActiveWorkflowSourcePulse("patch", patch.ID, status, run.TriggerKind, patch.Patch.SourceRefs, targetEntityID, patch.RunID, patch.WindowID, patch.ID, changedNodeIDs, changedEdgeIDs, operations, patch.Patch.PublicSummary, diagnostics, patch.CreatedAt, updatedAt)
 	}
 	if semanticWorkingSetPatchPreviewIsPending(status) {
+		builder.recordPulse(WorkingSetPulsePatchProposed, "patch:"+patch.ID, status, ActivityKindEditing, run.TriggerKind, patch.Patch.SourceRefs, targetEntityID, patch.RunID, patch.WindowID, patch.ID, changedNodeIDs, changedEdgeIDs, semanticWorkingSetPatchEvidenceAnchorIDs(patch.Patch), operations, patch.Patch.PublicSummary, diagnostics, patch.CreatedAt, updatedAt)
 		preview := semanticWorkingSetPatchPreview(patch, run.TriggerKind, status, changedNodeIDs, changedEdgeIDs, operations, diagnostics, committedNodeIDs)
 		if len(preview.NewNodes) > 0 {
 			builder.workingSet.PendingPatchPreviews = append(builder.workingSet.PendingPatchPreviews, preview)
 		}
+	}
+	if status == WorkingSetStatusApplied {
+		builder.recordAppliedPatchPulses(patch, run, targetEntityID, changedNodeIDs, changedEdgeIDs, operations, diagnostics, updatedAt)
 	}
 	builder.recordLastUpdatedAt(updatedAt)
 	return nil
@@ -517,6 +533,7 @@ func (builder *semanticWorkingSetBuilder) finish() SemanticWorkingSet {
 		target.Diagnostics = nonNilSlice(target.Diagnostics)
 		builder.workingSet.CandidateTargets = append(builder.workingSet.CandidateTargets, target)
 	}
+	builder.finishPulses()
 	if builder.lastUpdatedAt == "" {
 		builder.lastUpdatedAt = builder.fallbackUpdatedAt
 	}
@@ -638,6 +655,21 @@ func semanticWorkingSetStatusRank(status SemanticWorkingSetStatus) int {
 		return 10
 	default:
 		return 0
+	}
+}
+
+func semanticWorkingSetActivityKindForStatus(status SemanticWorkingSetStatus) SemanticActivityKind {
+	switch status {
+	case WorkingSetStatusFailed:
+		return ActivityKindBlocked
+	case WorkingSetStatusRejected, WorkingSetStatusSuperseded:
+		return ActivityKindDebugging
+	case WorkingSetStatusProposing, WorkingSetStatusApplying, WorkingSetStatusPendingReview:
+		return ActivityKindEditing
+	case WorkingSetStatusApplied, WorkingSetStatusNoop:
+		return ActivityKindValidating
+	default:
+		return ActivityKindExploring
 	}
 }
 

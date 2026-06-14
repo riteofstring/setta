@@ -713,9 +713,21 @@ func assertHTTPSemanticWorkingSetEndpoint(t *testing.T, handler http.Handler, wo
 	}, http.StatusOK)
 	if workingSet.WorkspaceID != workspaceID ||
 		len(workingSet.ActiveCartographerRuns) == 0 ||
-		len(workingSet.LiveSourceRefs) == 0 {
+		len(workingSet.LiveSourceRefs) == 0 ||
+		!httpSemanticWorkingSetPulsesContain(workingSet.Pulses, semanticgraph.WorkingSetPulseActiveWorkflowSource) ||
+		!httpSemanticWorkingSetPulsesContain(workingSet.Pulses, semanticgraph.WorkingSetPulseEvidenceAttached) ||
+		!httpSemanticWorkingSetPulsesContain(workingSet.Pulses, semanticgraph.WorkingSetPulseNodeUpdatedRecent) {
 		t.Fatalf("working set = %+v, want active cartographer audit state", workingSet)
 	}
+}
+
+func httpSemanticWorkingSetPulsesContain(pulses []semanticgraph.SemanticWorkingSetPulse, kind semanticgraph.SemanticWorkingSetPulseKind) bool {
+	for _, pulse := range pulses {
+		if pulse.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 func assertSemanticSteeringEndpoint(t *testing.T, handler http.Handler, workspaceID string) {

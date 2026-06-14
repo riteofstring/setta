@@ -1,7 +1,7 @@
 # Workspace Graph Performance and Semantic Liveness Plan
 
 - **Date:** June 15, 2026
-- **Status:** Phase 4 complete; Phase 5 ready
+- **Status:** Phase 5 complete; Phase 6 ready
 - **Scope:** Diagnose and fix workspace graph pan/zoom/interaction performance, then make the semantic cartographer feel live and useful during real workflow runs.
 - **Related docs:**
   - `docs/plans/living_workspace_neon_redesign_plan.md`
@@ -452,6 +452,33 @@ legacy-compatibility constraints intact.
 
 This fixes the current "zero activity targets means zero life" failure mode.
 
+### Phase 5 Implementation Review
+
+Phase 5 is implemented. The Go-owned `SemanticWorkingSet` contract now includes
+deterministic non-persistent pulse records for active workflow sources,
+cartographer observing/running state, proposed patches, recent node updates,
+evidence attachment, and edge creation. The generated TypeScript surface was
+regenerated from the Go contract owner.
+
+The renderer projects pulse records into committed semantic node activity,
+live source beads, preview cells, and live source edges. Pulse-driven animation
+continues through the existing bounded active-cell system, so ambient semantic
+motion remains limited to active/recent/live cells instead of always-on
+decorative breathing.
+
+The semantic graph state path now refreshes the working set from push
+notifications for activity/evidence changes as well as graph and cartographer
+audit changes. The deterministic Electron workflows verify production-path
+working-set pulse readback, visible live source pulse projection, and
+semantic-live-run node/evidence/edge pulse evidence.
+
+Focused verification passed:
+
+- `./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi ./cmd/generate-contracts`
+- `pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/pixi-renderer-cell-animation.test.js src/renderer/src/features/workspace-graph/pixi-renderer-animation.test.js src/preload/index.test.ts src/main/semantic-graph-ipc.test.ts`
+- `node desktop/tests/electron/semantic-graph-workflow.test.mjs --skip-build`
+- `node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs --semantic-live-recording-only --skip-build --keep-artifacts --artifact-dir .recordings/semantic-live-run-phase5`
+
 ## Phase 6 - Semantic Quality And Idempotency
 
 Improve the value of committed semantic memory.
@@ -551,8 +578,8 @@ Because this touches workflow, cartographer, event streaming, generated contract
 4. Complete: make labels/glow/filter sync visibility-aware.
 5. Complete: add visible object pooling and edge LOD because the measured bottleneck remains display-object scale.
 6. Complete: add the semantic working-set contract and renderer projection.
-7. Next: add deterministic activity/change pulses.
-8. Fix semantic evidence idempotency and usefulness diagnostics.
+7. Complete: add deterministic activity/change pulses.
+8. Next: fix semantic evidence idempotency and usefulness diagnostics.
 9. Add semantic details/highlight polish.
 10. Promote calibrated performance and liveness checks into gates.
 

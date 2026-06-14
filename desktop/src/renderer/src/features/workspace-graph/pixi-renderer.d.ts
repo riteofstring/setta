@@ -1,4 +1,5 @@
 import type {
+  SemanticWorkingSetPulseKind,
   WorkflowGraphEdgeStatus,
   WorkflowGraphNodeStatus,
   WorkflowNodeKind,
@@ -9,6 +10,7 @@ export interface WorkflowGraphNode {
     active: boolean;
     count: number;
     kind: string;
+    pulseKind?: SemanticWorkingSetPulseKind;
   } | null;
   color: number;
   connectable?: boolean;
@@ -29,6 +31,8 @@ export interface WorkflowGraphNode {
   promoted?: boolean;
   /** Semantic-only visual role. Committed cells are durable graph state; the others are live working-set projections. */
   semanticRole?: "committed" | "preview" | "source_pulse";
+  /** Semantic-only pulse source from SemanticWorkingSet. */
+  semanticPulseKind?: SemanticWorkingSetPulseKind;
   /** Semantic-only lineage id in renderer namespace, or "" when unset. */
   splitFromNodeId?: string;
   /** Semantic-only lineage ids in renderer namespace. */
@@ -59,6 +63,8 @@ export interface WorkflowGraphEdge {
   sourcePortId: string;
   /** Workflow-only edge status. Semantic edge kind is pre-resolved into color. */
   status?: WorkflowGraphEdgeStatus;
+  /** Semantic-only pulse source from SemanticWorkingSet. */
+  semanticPulseKind?: SemanticWorkingSetPulseKind;
   targetNodeId: string;
   targetPortId: string;
   width?: number;

@@ -85,7 +85,10 @@ function drawActiveSemanticCell(target, node, now) {
   const geometry = semanticCellWorldGeometry(node, scale);
   const seed = stableUnitHash(node.id);
   const activityColor =
-    workspaceNeonTheme.semantic.activity[node.activity?.kind] ?? node.color ?? 0x38bdf8;
+    workspaceNeonTheme.semantic.workingSetPulse[node.activity?.pulseKind] ??
+    workspaceNeonTheme.semantic.activity[node.activity?.kind] ??
+    node.color ??
+    0x38bdf8;
   const dim = node.dismissed ? 0.32 : 1;
   drawCellShimmer(target, { color: activityColor, dim, geometry, now, seed });
   drawDriftingNucleus(target, { color: node.color, dim, geometry, now, seed });

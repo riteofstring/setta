@@ -1898,6 +1898,32 @@ export function decodeSemanticWorkingSetStatus(value: unknown, label = "Semantic
   }
 }
 
+export type SemanticWorkingSetPulseKind = "active_workflow_source" | "cartographer_observing" | "cartographer_running" | "patch_proposed" | "node_updated_recent" | "evidence_attached" | "edge_created";
+
+export const semanticWorkingSetPulseKindValues = ["active_workflow_source", "cartographer_observing", "cartographer_running", "patch_proposed", "node_updated_recent", "evidence_attached", "edge_created"] as const satisfies readonly SemanticWorkingSetPulseKind[];
+
+export function decodeSemanticWorkingSetPulseKind(value: unknown, label = "SemanticWorkingSetPulseKind"): SemanticWorkingSetPulseKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "active_workflow_source":
+      return decoded;
+    case "cartographer_observing":
+      return decoded;
+    case "cartographer_running":
+      return decoded;
+    case "patch_proposed":
+      return decoded;
+    case "node_updated_recent":
+      return decoded;
+    case "evidence_attached":
+      return decoded;
+    case "edge_created":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type SemanticEventType = "node.created" | "node.updated" | "node.renamed" | "node.dismissed" | "node.promoted" | "node.split" | "node.merged" | "edge.created" | "edge.updated" | "edge.removed" | "evidence.attached" | "activity.started" | "activity.ended" | "steering.created" | "steering.updated" | "context_pack.created" | "constraint_check.recorded";
 
 export const semanticEventTypeValues = ["node.created", "node.updated", "node.renamed", "node.dismissed", "node.promoted", "node.split", "node.merged", "edge.created", "edge.updated", "edge.removed", "evidence.attached", "activity.started", "activity.ended", "steering.created", "steering.updated", "context_pack.created", "constraint_check.recorded"] as const satisfies readonly SemanticEventType[];
@@ -4287,6 +4313,27 @@ export interface SemanticWorkingSetLiveSourceRef {
   updatedAt: string;
 }
 
+export interface SemanticWorkingSetPulse {
+  id: string;
+  kind: SemanticWorkingSetPulseKind;
+  status: SemanticWorkingSetStatus;
+  activityKind: SemanticActivityKind;
+  triggerKind: CartographerRunTriggerKind;
+  sourceRefs: SemanticContextSourceRefs;
+  targetEntityId: string;
+  runId: string;
+  windowId: string;
+  patchId: string;
+  semanticNodeIds: string[];
+  semanticEdgeIds: string[];
+  evidenceAnchorIds: string[];
+  patchOperationNames: CartographerPatchOperation[];
+  publicSummary: string;
+  diagnostics: CartographerDiagnostic[];
+  occurredAt: string;
+  updatedAt: string;
+}
+
 export interface SemanticWorkingSet {
   workspaceId: string;
   workflowExecutionId: string;
@@ -4300,6 +4347,7 @@ export interface SemanticWorkingSet {
   candidateTargets: SemanticWorkingSetCandidateTarget[];
   pendingPatchPreviews: SemanticWorkingSetPatchPreview[];
   liveSourceRefs: SemanticWorkingSetLiveSourceRef[];
+  pulses: SemanticWorkingSetPulse[];
   lastUpdatedAt: string;
 }
 
@@ -8820,9 +8868,34 @@ export function decodeSemanticWorkingSetLiveSourceRef(value: unknown): SemanticW
   };
 }
 
+export function decodeSemanticWorkingSetPulse(value: unknown): SemanticWorkingSetPulse {
+  const record = assertRecord(value, "SemanticWorkingSetPulse");
+  assertKnownFields(record, "SemanticWorkingSetPulse", ["id", "kind", "status", "activityKind", "triggerKind", "sourceRefs", "targetEntityId", "runId", "windowId", "patchId", "semanticNodeIds", "semanticEdgeIds", "evidenceAnchorIds", "patchOperationNames", "publicSummary", "diagnostics", "occurredAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.id"),
+    kind: decodeSemanticWorkingSetPulseKind(requireField(record, "kind", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.kind"),
+    status: decodeSemanticWorkingSetStatus(requireField(record, "status", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.status"),
+    activityKind: decodeSemanticActivityKind(requireField(record, "activityKind", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.activityKind"),
+    triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.triggerKind"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticWorkingSetPulse")),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.targetEntityId"),
+    runId: decodeString(requireField(record, "runId", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.runId"),
+    windowId: decodeString(requireField(record, "windowId", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.windowId"),
+    patchId: decodeString(requireField(record, "patchId", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.patchId"),
+    semanticNodeIds: decodeArray(requireField(record, "semanticNodeIds", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.semanticNodeIds", (item) => decodeString(item, "SemanticWorkingSetPulse.semanticNodeIds item")),
+    semanticEdgeIds: decodeArray(requireField(record, "semanticEdgeIds", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.semanticEdgeIds", (item) => decodeString(item, "SemanticWorkingSetPulse.semanticEdgeIds item")),
+    evidenceAnchorIds: decodeArray(requireField(record, "evidenceAnchorIds", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.evidenceAnchorIds", (item) => decodeString(item, "SemanticWorkingSetPulse.evidenceAnchorIds item")),
+    patchOperationNames: decodeArray(requireField(record, "patchOperationNames", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.patchOperationNames", (item) => decodeCartographerPatchOperation(item, "SemanticWorkingSetPulse.patchOperationNames item")),
+    publicSummary: decodeString(requireField(record, "publicSummary", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.publicSummary"),
+    diagnostics: decodeArray(requireField(record, "diagnostics", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.diagnostics", (item) => decodeCartographerDiagnostic(item)),
+    occurredAt: decodeString(requireField(record, "occurredAt", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.occurredAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticWorkingSetPulse"), "SemanticWorkingSetPulse.updatedAt"),
+  };
+}
+
 export function decodeSemanticWorkingSet(value: unknown): SemanticWorkingSet {
   const record = assertRecord(value, "SemanticWorkingSet");
-  assertKnownFields(record, "SemanticWorkingSet", ["workspaceId", "workflowExecutionId", "chatRunId", "activeWorkflowNodeIds", "activeRunItemIds", "activeCartographerWindows", "activeCartographerRuns", "recentCartographerRuns", "recentSemanticChanges", "candidateTargets", "pendingPatchPreviews", "liveSourceRefs", "lastUpdatedAt"]);
+  assertKnownFields(record, "SemanticWorkingSet", ["workspaceId", "workflowExecutionId", "chatRunId", "activeWorkflowNodeIds", "activeRunItemIds", "activeCartographerWindows", "activeCartographerRuns", "recentCartographerRuns", "recentSemanticChanges", "candidateTargets", "pendingPatchPreviews", "liveSourceRefs", "pulses", "lastUpdatedAt"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticWorkingSet"), "SemanticWorkingSet.workspaceId"),
     workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "SemanticWorkingSet"), "SemanticWorkingSet.workflowExecutionId"),
@@ -8836,6 +8909,7 @@ export function decodeSemanticWorkingSet(value: unknown): SemanticWorkingSet {
     candidateTargets: decodeArray(requireField(record, "candidateTargets", "SemanticWorkingSet"), "SemanticWorkingSet.candidateTargets", (item) => decodeSemanticWorkingSetCandidateTarget(item)),
     pendingPatchPreviews: decodeArray(requireField(record, "pendingPatchPreviews", "SemanticWorkingSet"), "SemanticWorkingSet.pendingPatchPreviews", (item) => decodeSemanticWorkingSetPatchPreview(item)),
     liveSourceRefs: decodeArray(requireField(record, "liveSourceRefs", "SemanticWorkingSet"), "SemanticWorkingSet.liveSourceRefs", (item) => decodeSemanticWorkingSetLiveSourceRef(item)),
+    pulses: decodeArray(requireField(record, "pulses", "SemanticWorkingSet"), "SemanticWorkingSet.pulses", (item) => decodeSemanticWorkingSetPulse(item)),
     lastUpdatedAt: decodeString(requireField(record, "lastUpdatedAt", "SemanticWorkingSet"), "SemanticWorkingSet.lastUpdatedAt"),
   };
 }

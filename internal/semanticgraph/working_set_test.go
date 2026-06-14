@@ -104,6 +104,11 @@ func TestServiceReadWorkingSetProjectsLiveCartographerAudit(t *testing.T) {
 	if len(workingSet.LiveSourceRefs) == 0 {
 		t.Fatalf("live source refs = %+v, want source pulses from cartographer audit", workingSet.LiveSourceRefs)
 	}
+	if !semanticWorkingSetPulsesContain(workingSet.Pulses, WorkingSetPulseActiveWorkflowSource) ||
+		!semanticWorkingSetPulsesContain(workingSet.Pulses, WorkingSetPulseCartographerObserving) ||
+		!semanticWorkingSetPulsesContain(workingSet.Pulses, WorkingSetPulsePatchProposed) {
+		t.Fatalf("working-set pulses = %+v, want active source, observing, and patch proposed pulses", workingSet.Pulses)
+	}
 }
 
 func workingSetInputBundle(sourceRefs SemanticContextSourceRefs, targetEntityID string) CartographerInputBundle {
@@ -126,4 +131,13 @@ func workingSetInputBundle(sourceRefs SemanticContextSourceRefs, targetEntityID 
 		}},
 		ObservedEventRefs: []string{"workflow_events:working_set"},
 	}
+}
+
+func semanticWorkingSetPulsesContain(pulses []SemanticWorkingSetPulse, kind SemanticWorkingSetPulseKind) bool {
+	for _, pulse := range pulses {
+		if pulse.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
