@@ -1,7 +1,7 @@
 # Semantic Cartographer Usefulness Plan
 
 - **Date:** June 14, 2026
-- **Status:** Phases 1-2 implemented; Phase 3 ready next
+- **Status:** Phases 1-3 implemented; Phase 4 ready next
 - **Scope:** Make semantic cartography produce useful, connected, inspectable work memory from real workflow runs.
 - **Related docs:**
   - `docs/plans/setta_semantic_work_graph_plan.md`
@@ -204,14 +204,52 @@ node desktop/tests/electron/run-workflows.mjs --workflow chat
 node desktop/tests/electron/run-workflows.mjs --workflow semantic-cartographer-auto
 ```
 
-Phase 3 is ready to implement. Keep it scoped to building semantic epochs from
-the typed observations now present, reducing threshold-fragment volume, and
-ensuring the final assistant message lands in the final synthesis epoch. Do not
-fold Phase 4 source-link rendering, Phase 4 source-adequacy validation, or Phase
-5 prompt/policy changes into Phase 3 except where the epoch boundary model must
-preserve the typed fields those phases consume. The remaining usefulness
-problems, especially visible connections, auto-applied edge/activity policy, and
-details discoverability, are intentionally left to Phases 4 through 6.
+Phase 3 has been implemented in commit `d7fa70885` (`Implement semantic
+cartographer phase 3`). Automatic cartographer input now closes around semantic
+epoch boundaries instead of assistant/output byte thresholds, noisy output stays
+coalesced until a semantic boundary, workflow terminal events enqueue a
+high-priority `workflow_done` final synthesis epoch, and that final epoch folds
+queued, processed, and open earlier epochs from the same workflow/chat source.
+
+This satisfies the epoch-shaping prerequisite for Phase 4:
+
+- Command/file/diff/approval/workflow-node terminal events close semantic
+  epochs; assistant text waits for terminal assistant message completion instead
+  of threshold fragments.
+- Low-value output fragments are summarized/coalesced inside the current epoch
+  until a command or workflow boundary closes it.
+- Workflow completion folds earlier queued, processed, and open epochs into the
+  final synthesis input, including the final assistant message or still-open
+  assistant aggregate.
+- Final synthesis runs are high priority and supersede obsolete queued epochs
+  for the same workflow/chat source.
+- Patch source-ref validation can now accept refs from observations and
+  trajectory events inside the folded epoch, not only the top-level bundle refs.
+
+Verification during the Phase 3 review:
+
+```text
+./scripts/go.sh test -count=1 ./internal/semanticgraph
+```
+
+Phase 4 is ready to implement. Keep it scoped to making existing evidence,
+source refs, activity, and edges visible and enforceable. Do not fold Phase 5
+prompt/schema rewrites or Phase 6 details discoverability into Phase 4 except
+where the renderer projection must expose the source/activity connection types
+that those later phases rely on.
+
+Two lifecycle/policy notes should be carried into the next phases:
+
+- The Phase 3 tests cover workflow-terminal final synthesis folding, but they do
+  not yet cover a chat-run terminal event followed by a workflow-execution
+  terminal event after the first final pass has already processed. Before
+  claiming the "final synthesis runs once" quality gate as complete, add that
+  deterministic trace and dedupe/supersede any duplicate `workflow_done` pass.
+- Automatic processing currently uses `AutoApplyValidatedPatches` to apply every
+  deterministic-valid patch and records `reviewRequired`, low-confidence, and
+  high-impact metadata as warnings. Phase 4/5 policy work should tighten this
+  into a principled allowlist for evidence-backed low-risk node, source, edge,
+  and activity changes rather than expanding automatic application accidentally.
 
 Lease recovery is deadline-based: a crashed-but-unexpired lease is not
 recoverable until its lease deadline. Treat lease duration/owner-staleness as
@@ -637,7 +675,7 @@ run item source refs survive into evidence anchors
 command/file/test observations carry typed fields
 ```
 
-### Phase 3: Epoch-Based Cartographer Input (ready next)
+### Phase 3: Epoch-Based Cartographer Input (implemented)
 
 Goal: submit meaningful work windows rather than threshold-sized fragments.
 
@@ -657,7 +695,7 @@ assistant aggregates are interpreted at semantic boundaries
 final assistant message is included in final synthesis
 ```
 
-### Phase 4: Source Links, Evidence, Activity, And Edge Validation
+### Phase 4: Source Links, Evidence, Activity, And Edge Validation (ready next)
 
 Goal: make generated nodes connected and inspectable.
 
