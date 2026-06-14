@@ -255,7 +255,19 @@ export function drawNodeDiagnosticMarker(target, node) {
 
 export function drawNodeActivityMarker(target, node) {
   target.clear();
-  if (rendererNodeLayer(node) !== "semantic" || !node.activity || node.activity.count <= 0) {
+  switch (rendererNodeLayer(node)) {
+    case "workflow":
+      drawWorkflowRuntimeMarker(target, node);
+      return;
+    case "semantic":
+      drawSemanticActivityMarker(target, node);
+      return;
+  }
+  throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
+}
+
+function drawSemanticActivityMarker(target, node) {
+  if (!node.activity || node.activity.count <= 0) {
     target.visible = false;
     return;
   }
@@ -276,6 +288,93 @@ export function drawNodeActivityMarker(target, node) {
     .fill({ alpha: style.dotAlpha, color })
     .circle(dotX, dotY, style.outerRadius)
     .stroke({ alpha: style.outerAlpha, color, width: 2 });
+}
+
+function drawWorkflowRuntimeMarker(target, node) {
+  const runtime = node.runtime;
+  if (!runtime || runtime.sourceCount <= 0) {
+    target.visible = false;
+    return;
+  }
+  target.visible = true;
+  const color = workspaceNeonTheme.semantic.workingSetStatus[runtime.status];
+  const badgeWidth = 46;
+  const badgeHeight = 18;
+  const x = node.width - badgeWidth - 10;
+  const y = node.height - badgeHeight - 8;
+  const centerY = y + badgeHeight / 2;
+  target
+    .roundRect(x, y, badgeWidth, badgeHeight, 7)
+    .fill({ alpha: 0.74, color: 0x07111f })
+    .roundRect(x, y, badgeWidth, badgeHeight, 7)
+    .stroke({ alpha: 0.86, color, width: 1.4 });
+  drawWorkflowRuntimeStatusGlyph(target, runtime.status, x + 11, centerY, color);
+  drawWorkflowRuntimeCountDots(target, runtime.sourceCount, x + 24, centerY, color);
+  if (runtime.pulseCount > 0) {
+    target
+      .circle(x + badgeWidth - 7, y + 5, 2.4)
+      .fill({ alpha: 0.92, color: 0xf8fafc })
+      .circle(x + badgeWidth - 7, y + 5, 4.1)
+      .stroke({ alpha: 0.28, color, width: 1 });
+  }
+}
+
+function drawWorkflowRuntimeStatusGlyph(target, status, centerX, centerY, color) {
+  switch (status) {
+    case "failed":
+    case "rejected":
+      target
+        .moveTo(centerX - 4, centerY - 4)
+        .lineTo(centerX + 4, centerY + 4)
+        .moveTo(centerX + 4, centerY - 4)
+        .lineTo(centerX - 4, centerY + 4)
+        .stroke({ alpha: 0.96, color, width: 1.7 });
+      return;
+    case "applied":
+      target
+        .moveTo(centerX - 4.5, centerY)
+        .lineTo(centerX - 1.4, centerY + 3.5)
+        .lineTo(centerX + 5, centerY - 4)
+        .stroke({ alpha: 0.96, color, width: 1.8 });
+      return;
+    case "noop":
+    case "superseded":
+      target
+        .moveTo(centerX - 5, centerY)
+        .lineTo(centerX + 5, centerY)
+        .stroke({ alpha: 0.92, color, width: 1.8 });
+      return;
+    case "applying":
+    case "pending_review":
+    case "proposing":
+      target
+        .moveTo(centerX, centerY - 5)
+        .lineTo(centerX + 5, centerY)
+        .lineTo(centerX, centerY + 5)
+        .lineTo(centerX - 5, centerY)
+        .closePath()
+        .stroke({ alpha: 0.94, color, width: 1.5 });
+      return;
+    default:
+      target
+        .circle(centerX, centerY, 5.1)
+        .stroke({ alpha: 0.9, color, width: 1.5 })
+        .circle(centerX, centerY, 2.3)
+        .fill({ alpha: 0.82, color });
+  }
+}
+
+function drawWorkflowRuntimeCountDots(target, count, x, centerY, color) {
+  const visibleDotCount = Math.min(3, Math.max(1, count));
+  for (let index = 0; index < visibleDotCount; index += 1) {
+    target.circle(x + index * 5.2, centerY, 1.7).fill({ alpha: 0.86, color });
+  }
+  if (count > visibleDotCount) {
+    target
+      .moveTo(x + visibleDotCount * 5.2 + 0.8, centerY)
+      .lineTo(x + visibleDotCount * 5.2 + 4.8, centerY)
+      .stroke({ alpha: 0.7, color, width: 1.2 });
+  }
 }
 
 function activityMarkerStyle(active) {
@@ -317,11 +416,23 @@ function workflowNodeBodyContextFor(node) {
       color: accentColor,
       width: glass.strokeWidth,
     });
+  if (node.status === "running") {
+    drawRunningWorkflowNodeRing(context, node, glass.radius);
+  }
   drawWorkflowKindGlyph(context, node, cardLayout);
   if (cardLayout.statusBadgeVisible) {
     drawWorkflowStatusDot(context, node);
   }
   return context;
+}
+
+function drawRunningWorkflowNodeRing(context, node, radius) {
+  const color = 0x22c55e;
+  context
+    .roundRect(-3.5, -3.5, node.width + 7, node.height + 7, radius + 4)
+    .stroke({ alpha: 0.92, color, width: 3.2 })
+    .roundRect(-7.5, -7.5, node.width + 15, node.height + 15, radius + 8)
+    .stroke({ alpha: 0.24, color, width: 5.8 });
 }
 
 function drawWorkflowKindGlyph(context, node, cardLayout) {
@@ -495,12 +606,32 @@ function semanticNodeBodyContextFor(node) {
     color: node.color,
     width: style.membraneWidth,
   });
+  if (node.semanticRole === "preview") {
+    drawSemanticPreviewProvisionalMarks(context, geometry, node.color);
+  }
   drawOrganicCellPath(context, { ...geometry, radius: geometry.radius - 2.4 }, seed + 0.19).stroke({
     alpha: 0,
     color: 0xecfeff,
     width: 0.5,
   });
   return context;
+}
+
+function drawSemanticPreviewProvisionalMarks(context, geometry, color) {
+  const radius = geometry.radius + 6;
+  const tickLength = 7;
+  for (let index = 0; index < 4; index += 1) {
+    const angle = index * (Math.PI / 2) + Math.PI / 4;
+    const outerX = geometry.centerX + Math.cos(angle) * radius;
+    const outerY = geometry.centerY + Math.sin(angle) * radius;
+    const innerX = geometry.centerX + Math.cos(angle) * (radius - tickLength);
+    const innerY = geometry.centerY + Math.sin(angle) * (radius - tickLength);
+    context.moveTo(innerX, innerY).lineTo(outerX, outerY).stroke({
+      alpha: 0.72,
+      color,
+      width: 1.5,
+    });
+  }
 }
 
 function semanticSourcePulseBodyContextFor(node) {

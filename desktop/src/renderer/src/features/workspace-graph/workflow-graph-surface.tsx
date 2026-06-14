@@ -651,7 +651,9 @@ export function WorkflowGraphSurface({
       if (workflowProjection === null || nodeId === null) {
         return;
       }
-      setSelectedNodeTarget(workflowNodeDetailsTarget(workflowProjection, nodeId));
+      const runtime =
+        pendingWorkflowGraphRef.current?.nodes.find((node) => node.id === nodeId)?.runtime ?? null;
+      setSelectedNodeTarget(workflowNodeDetailsTarget(workflowProjection, nodeId, runtime));
       requestWorkspacePaneOpen({
         surfaceKind: "workflow-node-details",
         subtitle: "workflow node details",

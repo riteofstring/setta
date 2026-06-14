@@ -1,4 +1,5 @@
 import type {
+  SemanticContextSourceRefs,
   WorkflowActivityRef,
   WorkflowEdge,
   WorkflowGraph,
@@ -281,6 +282,7 @@ function WorkflowNodeDetailsContent({
     return (
       <>
         <WorkflowNodeIdentity target={target} />
+        <WorkflowSemanticRuntimeDetails target={target} />
         <WorkflowRunDetailsContent inspection={runInspection} target={target} />
       </>
     );
@@ -294,6 +296,7 @@ function WorkflowNodeDetailsContent({
   return (
     <>
       <WorkflowNodeIdentity target={target} />
+      <WorkflowSemanticRuntimeDetails target={target} />
       <WorkflowLoadedNodeDetails
         draft={draft}
         graph={definition.graph}
@@ -607,6 +610,154 @@ function WorkflowNodeIdentity({ target }: { target: WorkflowNodeDetailsTarget })
       ) : null}
     </div>
   );
+}
+
+function WorkflowSemanticRuntimeDetails({ target }: { target: WorkflowNodeDetailsTarget }) {
+  const runtime = target.runtime ?? null;
+  if (runtime === null || runtime.sourceCount <= 0) {
+    return null;
+  }
+  return (
+    <div className="border-b border-zinc-800 px-4 py-3">
+      <WorkflowDetailsSection title="Semantic Runtime">
+        <WorkflowDetailsRows
+          rows={[
+            { label: "State", value: semanticRuntimeStatusLabel(runtime.status) },
+            { label: "Sources", value: runtime.sourceCount },
+            { label: "Pulses", value: runtime.pulseCount },
+            {
+              hidden: runtime.runIds.length === 0,
+              label: "Runs",
+              value: runtime.runIds.map(shortIdentifier).join(", "),
+            },
+            {
+              hidden: runtime.windowIds.length === 0,
+              label: "Windows",
+              value: runtime.windowIds.map(shortIdentifier).join(", "),
+            },
+            {
+              hidden: runtime.patchIds.length === 0,
+              label: "Patches",
+              value: runtime.patchIds.map(shortIdentifier).join(", "),
+            },
+          ]}
+        />
+        <WorkflowSemanticRuntimeStatusCounts counts={runtime.statusCounts} />
+        <WorkflowSemanticRuntimeSourceRefs sourceRefs={runtime.sourceRefs} />
+        <WorkflowSemanticRuntimePulses pulses={runtime.recentPulses} />
+      </WorkflowDetailsSection>
+    </div>
+  );
+}
+
+function WorkflowSemanticRuntimeStatusCounts({
+  counts,
+}: {
+  counts: NonNullable<WorkflowNodeDetailsTarget["runtime"]>["statusCounts"];
+}) {
+  if (counts.length === 0) {
+    return null;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {counts.map((count) => (
+        <span
+          className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-1.5 py-0.5 text-[11px] text-zinc-300"
+          key={count.status}
+        >
+          {semanticRuntimeStatusLabel(count.status)} {count.count}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function WorkflowSemanticRuntimeSourceRefs({
+  sourceRefs,
+}: {
+  sourceRefs: SemanticContextSourceRefs[];
+}) {
+  if (sourceRefs.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium text-zinc-400">Source Refs</div>
+      {sourceRefs.map((refs) => (
+        <div
+          className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1 font-mono text-[11px] text-zinc-300"
+          key={semanticRuntimeSourceRefsKey(refs)}
+        >
+          {semanticRuntimeSourceRefsLabel(refs)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WorkflowSemanticRuntimePulses({
+  pulses,
+}: {
+  pulses: NonNullable<WorkflowNodeDetailsTarget["runtime"]>["recentPulses"];
+}) {
+  if (pulses.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium text-zinc-400">Recent Pulses</div>
+      {pulses.map((pulse) => (
+        <div
+          className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-300"
+          key={pulse.id}
+        >
+          <span className="font-medium text-zinc-200">
+            {semanticRuntimePulseKindLabel(pulse.kind)}
+          </span>
+          <span className="text-zinc-500"> / {semanticRuntimeStatusLabel(pulse.status)}</span>
+          {pulse.publicSummary !== "" ? (
+            <div className="mt-1 text-zinc-400">{pulse.publicSummary}</div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function semanticRuntimeStatusLabel(status: string) {
+  return status.replaceAll("_", " ");
+}
+
+function semanticRuntimePulseKindLabel(kind: string) {
+  return kind.replaceAll("_", " ");
+}
+
+function semanticRuntimeSourceRefsLabel(refs: SemanticContextSourceRefs) {
+  const parts = [
+    sourceRefPart("workflow", refs.workflowExecutionId),
+    sourceRefPart("node", refs.workflowNodeId),
+    sourceRefPart("item", refs.runItemId),
+    sourceRefPart("chat", refs.chatRunId),
+    sourceRefPart("message", refs.chatMessageId),
+  ].filter(Boolean);
+  return parts.length === 0 ? "unscoped" : parts.join(" / ");
+}
+
+function semanticRuntimeSourceRefsKey(refs: SemanticContextSourceRefs) {
+  return [
+    refs.workflowDefinitionId,
+    refs.workflowExecutionId,
+    refs.workflowNodeId,
+    refs.workflowNodeExecutionId,
+    refs.chatConversationId,
+    refs.chatRunId,
+    refs.chatMessageId,
+    refs.runItemId,
+  ].join(":");
+}
+
+function sourceRefPart(label: string, value: string) {
+  return value === "" ? "" : `${label}:${shortIdentifier(value)}`;
 }
 
 function workflowVersionLabel(target: WorkflowNodeDetailsTarget) {

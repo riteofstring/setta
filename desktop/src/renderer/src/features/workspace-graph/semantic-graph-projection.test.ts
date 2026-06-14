@@ -151,6 +151,27 @@ describe("rendererGraphFromSemanticGraph", () => {
       semanticPulseKind: "cartographer_running",
       semanticRole: "committed",
     });
+    const workflowRuntime = graph.workflowRuntimeByNodeId?.workflow_node;
+    expect(workflowRuntime).toMatchObject({
+      patchIds: ["cartographer_patch_preview"],
+      pulseCount: 4,
+      runIds: ["cartographer_run_live", "cartographer_run_target"],
+      sourceCount: 5,
+      status: "pending_review",
+      statusCounts: [
+        { count: 3, status: "pending_review" },
+        { count: 5, status: "running" },
+        { count: 1, status: "applied" },
+      ],
+      windowIds: [],
+    });
+    expect(workflowRuntime?.sourceRefs).toContainEqual(sourceRefs());
+    expect(workflowRuntime?.recentPulses.map((pulse) => pulse.kind)).toEqual([
+      "patch_proposed",
+      "active_workflow_source",
+      "cartographer_running",
+      "evidence_attached",
+    ]);
     expect(graph.nodes.filter((node) => node.semanticRole === "source_pulse")).toEqual([]);
     expect(
       graph.edges.find(
@@ -198,6 +219,29 @@ describe("rendererGraphFromSemanticGraph", () => {
       "semantic:node_constraint",
       "semantic:node_finding",
     ]);
+  });
+
+  test("attaches aggregate runtime indicators to workflow nodes instead of source-pulse nodes", () => {
+    const workflowGraph = testWorkflowGraph();
+    const semanticGraph = rendererGraphFromSemanticGraph({
+      semanticActivities: new Map(),
+      semanticGraph: testSemanticGraph(),
+      semanticWorkingSet: testSemanticWorkingSet(),
+      workflowGraph,
+    });
+
+    const merged = mergeWorkflowAndSemanticGraphs({ semanticGraph, workflowGraph });
+
+    expect(merged?.nodes.filter((node) => node.semanticRole === "source_pulse")).toEqual([]);
+    expect(merged?.nodes.find((node) => node.id === "workflow_node")).toMatchObject({
+      runtime: {
+        patchIds: ["cartographer_patch_preview"],
+        pulseCount: 4,
+        runIds: ["cartographer_run_live", "cartographer_run_target"],
+        sourceCount: 5,
+        status: "pending_review",
+      },
+    });
   });
 
   test("round trips semantic renderer node ids", () => {

@@ -258,6 +258,7 @@ function nodeDebugSnapshot(
     x: node.x,
     y: node.y,
     ...nodeStateDebugSnapshot(node),
+    ...nodeRuntimeDebugSnapshot(node),
     ...nodeSemanticDebugSnapshot(node),
     ...nodeSplitMergeDebugSnapshot(node),
   };
@@ -270,6 +271,27 @@ function nodeStateDebugSnapshot(node) {
     dismissed: node.dismissed ?? false,
     promoted: node.promoted ?? false,
     status: node.status ?? "",
+  };
+}
+
+function nodeRuntimeDebugSnapshot(node) {
+  const runtime = node.runtime ?? null;
+  if (runtime === null) {
+    return { runtime: null };
+  }
+  return {
+    runtime: {
+      hiddenSourceCount: runtime.hiddenSourceCount,
+      patchIds: runtime.patchIds,
+      pulseCount: runtime.pulseCount,
+      recentPulses: runtime.recentPulses,
+      runIds: runtime.runIds,
+      sourceCount: runtime.sourceCount,
+      sourceRefs: runtime.sourceRefs,
+      status: runtime.status,
+      statusCounts: runtime.statusCounts,
+      windowIds: runtime.windowIds,
+    },
   };
 }
 

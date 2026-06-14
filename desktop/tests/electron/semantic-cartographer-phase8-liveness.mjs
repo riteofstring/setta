@@ -41,11 +41,19 @@ export async function buildWorkflowSourcePulseWithinOneSecond({
   if (latencyMs > 1000) {
     throw new Error(`semantic liveness pulse latency ${latencyMs}ms exceeded 1000ms`);
   }
-  const snapshot = await getWorkflowGraphSnapshot(client, graphSurfaceId);
+  const snapshot = await waitForBackendState(
+    () => getWorkflowGraphSnapshot(client, graphSurfaceId),
+    (value) => (workflowRuntimeIndicatorForNode(value, smokeAgentNodeId)?.sourceCount ?? 0) > 0,
+    3000,
+  );
+  const workflowRuntime = workflowRuntimeIndicatorForNode(snapshot, smokeAgentNodeId);
   return {
     latencyMs,
     pulseKinds: workingSet.pulses.map((pulse) => pulse.kind),
     renderedLiveSourceCount: renderedSemanticLiveSourceIds(snapshot).length,
+    workflowRuntimePulseCount: workflowRuntime?.pulseCount ?? 0,
+    workflowRuntimeSourceCount: workflowRuntime?.sourceCount ?? 0,
+    workflowRuntimeStatus: workflowRuntime?.status ?? "",
     runId: built.run.id,
     windowId: built.window.id,
   };
@@ -127,6 +135,11 @@ function renderedSemanticLiveSourceIds(snapshot) {
   return (snapshot.graph.nodes ?? [])
     .map((node) => node.id)
     .filter((id) => typeof id === "string" && id.startsWith("semantic-live-source:"));
+}
+
+function workflowRuntimeIndicatorForNode(snapshot, nodeId) {
+  const node = (snapshot.graph.nodes ?? []).find((candidate) => candidate.id === nodeId);
+  return node?.runtime ?? null;
 }
 
 async function assertScriptedWorkflowRunItems({ client, execution, workspaceId }) {

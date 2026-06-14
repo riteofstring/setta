@@ -1,9 +1,41 @@
 import type {
+  SemanticContextSourceRefs,
   SemanticWorkingSetPulseKind,
+  SemanticWorkingSetStatus,
   WorkflowGraphEdgeStatus,
   WorkflowGraphNodeStatus,
   WorkflowNodeKind,
 } from "@generated/backend";
+
+export interface WorkflowGraphRuntimeIndicator {
+  hiddenSourceCount: number;
+  patchIds: string[];
+  pulseCount: number;
+  recentPulses: WorkflowGraphRuntimePulse[];
+  runIds: string[];
+  sourceCount: number;
+  sourceRefs: SemanticContextSourceRefs[];
+  status: SemanticWorkingSetStatus;
+  statusCounts: WorkflowGraphRuntimeStatusCount[];
+  windowIds: string[];
+}
+
+export interface WorkflowGraphRuntimePulse {
+  id: string;
+  kind: SemanticWorkingSetPulseKind;
+  patchId: string;
+  publicSummary: string;
+  runId: string;
+  sourceRefs: SemanticContextSourceRefs;
+  status: SemanticWorkingSetStatus;
+  targetEntityId: string;
+  windowId: string;
+}
+
+export interface WorkflowGraphRuntimeStatusCount {
+  count: number;
+  status: SemanticWorkingSetStatus;
+}
 
 export interface WorkflowGraphNode {
   activity?: {
@@ -29,6 +61,8 @@ export interface WorkflowGraphNode {
   ports?: WorkflowGraphPort[];
   /** Semantic-only renderer flag. */
   promoted?: boolean;
+  /** Workflow-only aggregate semantic runtime indicator for the node. */
+  runtime?: WorkflowGraphRuntimeIndicator | null;
   /** Semantic-only visual role. Committed cells are durable graph state; the others are live working-set projections. */
   semanticRole?: "committed" | "preview" | "source_pulse";
   /** Semantic-only pulse source from SemanticWorkingSet. */
@@ -92,6 +126,7 @@ export interface WorkflowGraphGraph {
     viewMode: "draft" | "version" | "run";
     workspaceId: string;
   } | null;
+  workflowRuntimeByNodeId?: Record<string, WorkflowGraphRuntimeIndicator>;
 }
 
 export interface WorkflowGraphCameraState {

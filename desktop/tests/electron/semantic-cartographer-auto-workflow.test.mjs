@@ -146,12 +146,18 @@ async function runAutomaticAgentSmoke() {
   const backend = await backendProbe(recordingDir);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   await createChat(context.client, backend, workspaceId);
+  const seeded = await seedAgentWorkflowEvidence(context.client, workspaceId);
+  await context.client.call("Page.reload", { ignoreCache: true });
+  await waitForState(
+    context.client,
+    `(() => Boolean(document.querySelector('[data-testid="workspace-layout-area"]')))()`,
+    (value) => value === true,
+    30_000,
+  );
   await openWorkflowGraphPane(context.client, { timeoutMs: 30_000 });
   const graphSurfaceId = await maximizeWorkflowGraphPane(context.client, { timeoutMs: 30_000 });
   const rendererMarker = `semantic-cartographer-open-graph-${Date.now()}`;
   await setRendererReloadMarker(context.client, rendererMarker);
-
-  const seeded = await seedAgentWorkflowEvidence(context.client, workspaceId);
   await waitForRenderedSemanticGraphNode(context.client, graphSurfaceId, seedNodeId);
   await assertScriptedCartographerNodeAbsent(context.client, graphSurfaceId);
   const started = await rendererWorkflow(context.client, "startExecution", [
@@ -878,6 +884,22 @@ function assertSemanticRuntimeDefaultVisualBudget(phase8) {
   if (renderedLiveSourceCount !== 0) {
     throw new Error(
       `default graph view rendered unlabeled live-source nodes: ${renderedLiveSourceCount}`,
+    );
+  }
+  const workflowRuntimeSourceCount = Number(phase8.prePatchPulse.workflowRuntimeSourceCount ?? 0);
+  if (workflowRuntimeSourceCount <= 0) {
+    throw new Error(
+      `default graph view did not render an aggregate workflow runtime indicator: ${JSON.stringify(
+        phase8.prePatchPulse,
+      )}`,
+    );
+  }
+  const workflowRuntimeStatus = String(phase8.prePatchPulse.workflowRuntimeStatus ?? "");
+  if (workflowRuntimeStatus === "") {
+    throw new Error(
+      `aggregate workflow runtime indicator did not expose a status: ${JSON.stringify(
+        phase8.prePatchPulse,
+      )}`,
     );
   }
 }

@@ -317,16 +317,23 @@ function destroyNodeView(view) {
 
 function nodeContainerRequiresRebuild(previous, next) {
   return (
-    previous.color !== next.color ||
-    previous.connectable !== next.connectable ||
-    previous.dismissed !== next.dismissed ||
-    previous.height !== next.height ||
-    previous.layer !== next.layer ||
-    previous.promoted !== next.promoted ||
-    previous.semanticRole !== next.semanticRole ||
-    previous.width !== next.width ||
+    nodeRebuildStateKey(previous) !== nodeRebuildStateKey(next) ||
     !portsEqual(previous.ports, next.ports)
   );
+}
+
+function nodeRebuildStateKey(node) {
+  return [
+    node.color,
+    node.connectable,
+    node.dismissed,
+    node.height,
+    node.layer,
+    node.promoted,
+    node.semanticRole,
+    node.status,
+    node.width,
+  ].join("\u0000");
 }
 
 function portsEqual(previous, next) {

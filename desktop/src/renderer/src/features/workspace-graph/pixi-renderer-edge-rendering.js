@@ -37,7 +37,7 @@ export function redrawWorkspaceEdges({
   let drawnEdgeCount = 0;
   let drawnEdgeLabelCount = 0;
   const labelsVisible = edgeLabelsVisible(edgeLevelOfDetail);
-  for (const edge of edges) {
+  for (const edge of edgesForVisualDrawOrder(edges)) {
     const result = drawEdgeForScene({
       edge,
       edgeGraphics,
@@ -77,6 +77,19 @@ export function redrawWorkspaceEdges({
     edgeCount: edges.length,
     edgeLevelOfDetail,
   };
+}
+
+function edgesForVisualDrawOrder(edges) {
+  const semanticEdges = [];
+  const workflowEdges = [];
+  for (const edge of edges) {
+    if (rendererEdgeLayer(edge) === "workflow") {
+      workflowEdges.push(edge);
+    } else {
+      semanticEdges.push(edge);
+    }
+  }
+  return [...semanticEdges, ...workflowEdges];
 }
 
 export function redrawWorkspaceEdgeHighlights({

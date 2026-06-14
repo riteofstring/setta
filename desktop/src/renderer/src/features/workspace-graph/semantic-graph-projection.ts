@@ -14,6 +14,7 @@ import type {
 } from "@generated/backend";
 
 import type { WorkflowGraphGraph } from "./pixi-renderer";
+import { semanticWorkflowRuntimeByNodeId } from "./semantic-workflow-runtime-projection";
 import {
   semanticNodeColor as semanticNeonNodeColor,
   workspaceNeonTheme,
@@ -166,6 +167,10 @@ export function rendererGraphFromSemanticGraph({
       }),
     ],
     workflow: workflowGraph?.workflow ?? null,
+    workflowRuntimeByNodeId: semanticWorkflowRuntimeByNodeId({
+      semanticWorkingSet,
+      workflowNodeIds,
+    }),
   };
 }
 
@@ -182,10 +187,19 @@ export function mergeWorkflowAndSemanticGraphs({
   if (semanticGraph === undefined) {
     return workflowGraph;
   }
+  const workflowRuntimeByNodeId = semanticGraph.workflowRuntimeByNodeId ?? {};
+  const workflowNodes =
+    Object.keys(workflowRuntimeByNodeId).length === 0
+      ? workflowGraph.nodes
+      : workflowGraph.nodes.map((node) => ({
+          ...node,
+          runtime: workflowRuntimeByNodeId[node.id] ?? null,
+        }));
   return {
     edges: [...workflowGraph.edges, ...semanticGraph.edges],
-    nodes: [...workflowGraph.nodes, ...semanticGraph.nodes],
+    nodes: [...workflowNodes, ...semanticGraph.nodes],
     workflow: workflowGraph.workflow ?? null,
+    workflowRuntimeByNodeId,
   };
 }
 

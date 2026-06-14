@@ -149,6 +149,41 @@ describe("workspace graph edge flow rendering", () => {
     ).toBe(true);
   });
 
+  test("draws semantic edges before workflow edges for workflow-first hierarchy", () => {
+    const edgeGraphics = new RecordingGraphics();
+    const edgeLabelLayer = new RecordingLayer();
+    const nodes = new Map([
+      ["workflow", workflowNode("workflow", 0, 0)],
+      ["next", workflowNode("next", 220, 80)],
+      ["semantic", semanticNode("semantic", 440, 80)],
+    ]);
+
+    redrawWorkspaceEdges({
+      edgeGraphics,
+      edgeLabelLayer,
+      edges: [
+        workflowEdge("workflow-active", "workflow", "next", "active"),
+        semanticEdge("semantic-source", "workflow", "semantic"),
+      ],
+      fontFamily: "Test",
+      fontSize: 10,
+      getNode: (nodeId) => nodes.get(nodeId),
+      validateGlyphs: () => {},
+    });
+
+    const strokes = edgeGraphics.operations
+      .map((operation, index) => ({ index, operation }))
+      .filter(({ operation }) => operation[0] === "stroke");
+    const semanticIndex = strokes.find(
+      ({ operation }) => operation[1].color === workspaceNeonTheme.semantic.edgeKind.supports,
+    )?.index;
+    const workflowIndex = strokes.find(
+      ({ operation }) => operation[1].color === workspaceNeonTheme.workflow.edgeStatus.active.color,
+    )?.index;
+
+    expect(semanticIndex).toBeLessThan(workflowIndex);
+  });
+
   test("draws animated semantic tendrils only for visible active endpoints", () => {
     const edgeFlowGraphics = new RecordingGraphics();
     const nodes = new Map([

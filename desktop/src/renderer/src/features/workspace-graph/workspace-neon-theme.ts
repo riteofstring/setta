@@ -3,6 +3,7 @@ import type {
   SemanticEdgeKind,
   SemanticNodeKind,
   SemanticWorkingSetPulseKind,
+  SemanticWorkingSetStatus,
   WorkflowGraphEdgeStatus,
   WorkflowGraphNodeStatus,
   WorkflowNodeKind,
@@ -250,6 +251,21 @@ const semanticWorkingSetPulseColors = {
   edge_created: 0x818cf8,
 } satisfies Record<SemanticWorkingSetPulseKind, number>;
 
+const semanticWorkingSetStatusColors = {
+  applied: 0x22c55e,
+  applying: 0xa3e635,
+  failed: 0xfb7185,
+  noop: 0x94a3b8,
+  observing: 0x67e8f9,
+  pending_review: 0xf0abfc,
+  proposing: 0xc084fc,
+  queued: 0x38bdf8,
+  rejected: 0xf59e0b,
+  running: 0x14b8a6,
+  superseded: 0x64748b,
+  window_open: 0x2dd4bf,
+} satisfies Record<SemanticWorkingSetStatus, number>;
+
 export const workspaceNeonTheme = {
   foundation: {
     background: 0x05080e,
@@ -439,6 +455,7 @@ export const workspaceNeonTheme = {
     },
     activity: semanticActivityColors,
     workingSetPulse: semanticWorkingSetPulseColors,
+    workingSetStatus: semanticWorkingSetStatusColors,
     cell: {
       auraAlpha: 0.36,
       auraWidth: 5.4,
