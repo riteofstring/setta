@@ -86,6 +86,24 @@ type SemanticCartographerSettingsInput struct {
 	AuditConfig                SemanticCartographerAuditConfig       `json:"auditConfig"`
 }
 
+type SemanticCartographerSettingsMetadata struct {
+	Record          SemanticCartographerSettingsRecord      `json:"record"`
+	DefaultSettings SemanticCartographerSettingsInput       `json:"defaultSettings"`
+	NumberBounds    []SemanticCartographerNumberFieldBounds `json:"numberBounds"`
+	Relationships   []SemanticCartographerSettingsRelation  `json:"relationships"`
+}
+
+type SemanticCartographerNumberFieldBounds struct {
+	Field string `json:"field"`
+	Min   int    `json:"min"`
+}
+
+type SemanticCartographerSettingsRelation struct {
+	Field         string `json:"field"`
+	Operator      string `json:"operator"`
+	ComparedField string `json:"comparedField"`
+}
+
 func DefaultSemanticCartographerSettings(updatedAt string) SemanticCartographerSettings {
 	observation := DefaultCartographerObservationConfig()
 	processing := normalizeAutomaticCartographerProcessingConfig(AutomaticCartographerProcessingConfig{})
@@ -126,6 +144,10 @@ func DefaultSemanticCartographerSettings(updatedAt string) SemanticCartographerS
 	}
 }
 
+func DefaultSemanticCartographerSettingsInput() SemanticCartographerSettingsInput {
+	return SemanticCartographerSettingsInputFromSettings(DefaultSemanticCartographerSettings("1970-01-01T00:00:00Z"))
+}
+
 func SemanticCartographerSettingsInputFromSettings(settings SemanticCartographerSettings) SemanticCartographerSettingsInput {
 	return SemanticCartographerSettingsInput{
 		AutomaticProcessingEnabled: settings.AutomaticProcessingEnabled,
@@ -134,6 +156,44 @@ func SemanticCartographerSettingsInputFromSettings(settings SemanticCartographer
 		ProcessingConfig:           settings.ProcessingConfig,
 		ObservationConfig:          settings.ObservationConfig,
 		AuditConfig:                settings.AuditConfig,
+	}
+}
+
+func SemanticCartographerSettingsNumberBounds() []SemanticCartographerNumberFieldBounds {
+	return []SemanticCartographerNumberFieldBounds{
+		{Field: "liveTaskConfig.inputBudget", Min: 1},
+		{Field: "finalSynthesisTaskConfig.inputBudget", Min: 1},
+		{Field: "processingConfig.maxConcurrent", Min: 1},
+		{Field: "processingConfig.perSourceConcurrent", Min: 1},
+		{Field: "processingConfig.maxQueuedPerSource", Min: 1},
+		{Field: "processingConfig.leaseDurationSeconds", Min: 1},
+		{Field: "observationConfig.maxWindowEvents", Min: 1},
+		{Field: "observationConfig.maxWindowContentBytes", Min: 1},
+		{Field: "observationConfig.assistantThresholdBytes", Min: 1},
+		{Field: "observationConfig.outputThresholdBytes", Min: 1},
+		{Field: "observationConfig.priorSummaryLimit", Min: 1},
+		{Field: "observationConfig.tokenBudget", Min: 1},
+		{Field: "observationConfig.quietCloseAfterSeconds", Min: 1},
+	}
+}
+
+func SemanticCartographerSettingsRelationships() []SemanticCartographerSettingsRelation {
+	return []SemanticCartographerSettingsRelation{
+		{
+			Field:         "processingConfig.perSourceConcurrent",
+			Operator:      "lte",
+			ComparedField: "processingConfig.maxConcurrent",
+		},
+		{
+			Field:         "observationConfig.assistantThresholdBytes",
+			Operator:      "lte",
+			ComparedField: "observationConfig.maxWindowContentBytes",
+		},
+		{
+			Field:         "observationConfig.outputThresholdBytes",
+			Operator:      "lte",
+			ComparedField: "observationConfig.maxWindowContentBytes",
+		},
 	}
 }
 

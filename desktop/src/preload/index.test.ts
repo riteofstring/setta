@@ -552,6 +552,7 @@ describe("preload workspace API", () => {
       "readCartographerProcessingState",
       "readCartographerRun",
       "readCartographerSettings",
+      "readCartographerSettingsMetadata",
       "readContextPack",
       "readEventHistory",
       "readNodeDetail",
@@ -655,6 +656,7 @@ describe("preload workspace API", () => {
       workspaceId,
     });
     await api.semanticGraph.readCartographerSettings({});
+    await api.semanticGraph.readCartographerSettingsMetadata({});
     await api.semanticGraph.updateCartographerSettings({
       settings: cartographerSettingsInput,
       workspaceId,
@@ -947,6 +949,7 @@ describe("preload workspace API", () => {
         },
       ],
       [ipcChannels.semanticGraphCartographerSettingsRead, {}],
+      [ipcChannels.semanticGraphCartographerSettingsMetadata, {}],
       [
         ipcChannels.semanticGraphCartographerSettingsUpdate,
         {

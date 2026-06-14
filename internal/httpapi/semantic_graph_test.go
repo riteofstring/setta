@@ -113,6 +113,7 @@ func TestSemanticCartographerSettingsEndpoints(t *testing.T) {
 	seedHTTPSemanticReadFixture(t, semanticService, workspaceID)
 
 	initial := assertHTTPSemanticCartographerDefaultSettings(t, handler)
+	assertHTTPSemanticCartographerSettingsMetadata(t, handler, initial)
 	assertHTTPModelOptionsInclude(t, handler, workspaceID, "scripted-careful", chat.ReasoningEffortHigh)
 	providerDefaultUpdate := updateHTTPSemanticCartographerSettings(t, handler, workspaceID, initial, func(input *semanticgraph.SemanticCartographerSettingsInput) {
 		input.LiveTaskConfig.ModelSelection = semanticgraph.SemanticCartographerModelSelectionProviderDefault
@@ -151,6 +152,19 @@ func assertHTTPSemanticCartographerDefaultSettings(t *testing.T, handler http.Ha
 		t.Fatalf("initial cartographer settings = %+v, want default low live reasoning and hash", initial)
 	}
 	return initial
+}
+
+func assertHTTPSemanticCartographerSettingsMetadata(t *testing.T, handler http.Handler, expected semanticgraph.SemanticCartographerSettingsRecord) {
+	t.Helper()
+	metadata := postJSON[semanticgraph.SemanticCartographerSettingsMetadata](t, handler, "/semantic-graph/cartographer/settings/metadata", ReadSemanticCartographerSettingsMetadataRequest{}, http.StatusOK)
+	if metadata.Record.SettingsHash != expected.SettingsHash ||
+		metadata.DefaultSettings.LiveTaskConfig.ReasoningEffort != chat.ReasoningEffortLow ||
+		metadata.DefaultSettings.FinalSynthesisTaskConfig.ReasoningEffort != chat.ReasoningEffortMedium ||
+		!httpCartographerBoundsContain(metadata.NumberBounds, "processingConfig.maxConcurrent", 1) ||
+		!httpCartographerRelationshipsContain(metadata.Relationships, "processingConfig.perSourceConcurrent", "lte", "processingConfig.maxConcurrent") ||
+		!httpCartographerRelationshipsContain(metadata.Relationships, "observationConfig.assistantThresholdBytes", "lte", "observationConfig.maxWindowContentBytes") {
+		t.Fatalf("cartographer settings metadata = %+v, want current record, defaults, bounds, and relationships", metadata)
+	}
 }
 
 func assertHTTPModelOptionsInclude(t *testing.T, handler http.Handler, workspaceID string, model string, effort chat.ReasoningEffort) {
@@ -262,6 +276,26 @@ func httpCartographerModelsContain(models []chat.ChatModelOption, model string, 
 			if supported.Effort == effort {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func httpCartographerBoundsContain(bounds []semanticgraph.SemanticCartographerNumberFieldBounds, field string, min int) bool {
+	for _, bound := range bounds {
+		if bound.Field == field && bound.Min == min {
+			return true
+		}
+	}
+	return false
+}
+
+func httpCartographerRelationshipsContain(relationships []semanticgraph.SemanticCartographerSettingsRelation, field string, operator string, comparedField string) bool {
+	for _, relationship := range relationships {
+		if relationship.Field == field &&
+			relationship.Operator == operator &&
+			relationship.ComparedField == comparedField {
+			return true
 		}
 	}
 	return false

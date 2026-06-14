@@ -57,6 +57,7 @@ import type {
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
   ReadSemanticCartographerSettingsRequest,
+  ReadSemanticCartographerSettingsMetadataRequest,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
@@ -82,6 +83,7 @@ import type {
   SemanticActivityPage,
   SemanticActivitySummary,
   SemanticAttachmentResult,
+  SemanticCartographerSettingsMetadata,
   SemanticCartographerSettingsRecord,
   SemanticContextPackList,
   SemanticContextPackReadResponse,
@@ -503,6 +505,9 @@ export interface SettaAPI {
     readCartographerSettings: (
       request: ReadSemanticCartographerSettingsRequest,
     ) => Promise<SemanticCartographerSettingsRecord>;
+    readCartographerSettingsMetadata: (
+      request: ReadSemanticCartographerSettingsMetadataRequest,
+    ) => Promise<SemanticCartographerSettingsMetadata>;
     updateCartographerSettings: (
       request: UpdateSemanticCartographerSettingsRequest,
     ) => Promise<SemanticCartographerSettingsRecord>;

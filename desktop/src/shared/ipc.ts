@@ -58,6 +58,7 @@ import type {
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
   ReadSemanticCartographerSettingsRequest,
+  ReadSemanticCartographerSettingsMetadataRequest,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
@@ -88,6 +89,7 @@ import type {
   SemanticContextPackList,
   SemanticContextPackReadResponse,
   SemanticCartographerSettingsRecord,
+  SemanticCartographerSettingsMetadata,
   SemanticEdgeOperationRequest,
   SemanticEventHistory,
   SemanticEvidenceList,
@@ -199,6 +201,7 @@ export const ipcChannels = {
   semanticGraphCartographerRunList: "semantic-graph:cartographer-run-list",
   semanticGraphCartographerRunRead: "semantic-graph:cartographer-run-read",
   semanticGraphCartographerSettingsRead: "semantic-graph:cartographer-settings-read",
+  semanticGraphCartographerSettingsMetadata: "semantic-graph:cartographer-settings-metadata",
   semanticGraphCartographerSettingsUpdate: "semantic-graph:cartographer-settings-update",
   semanticGraphCartographerWindowBuild: "semantic-graph:cartographer-window-build",
   semanticGraphCartographerWindowProcess: "semantic-graph:cartographer-window-process",
@@ -528,6 +531,10 @@ interface IpcContract {
   semanticGraphCartographerSettingsRead: {
     args: [request: ReadSemanticCartographerSettingsRequest];
     result: SemanticCartographerSettingsRecord;
+  };
+  semanticGraphCartographerSettingsMetadata: {
+    args: [request: ReadSemanticCartographerSettingsMetadataRequest];
+    result: SemanticCartographerSettingsMetadata;
   };
   semanticGraphCartographerSettingsUpdate: {
     args: [request: UpdateSemanticCartographerSettingsRequest];

@@ -14,6 +14,22 @@ func (service *Service) ReadSemanticCartographerSettings(ctx context.Context) (S
 	return service.store.ReadSemanticCartographerSettings(ctx)
 }
 
+func (service *Service) ReadSemanticCartographerSettingsMetadata(ctx context.Context) (SemanticCartographerSettingsMetadata, error) {
+	if ctx == nil {
+		return SemanticCartographerSettingsMetadata{}, errors.New("context is required")
+	}
+	record, err := service.store.ReadSemanticCartographerSettings(ctx)
+	if err != nil {
+		return SemanticCartographerSettingsMetadata{}, err
+	}
+	return SemanticCartographerSettingsMetadata{
+		Record:          record,
+		DefaultSettings: DefaultSemanticCartographerSettingsInput(),
+		NumberBounds:    SemanticCartographerSettingsNumberBounds(),
+		Relationships:   SemanticCartographerSettingsRelationships(),
+	}, nil
+}
+
 func (service *Service) UpdateSemanticCartographerSettings(ctx context.Context, input SemanticCartographerSettingsInput, models []chat.ChatModelOption) (SemanticCartographerSettingsRecord, error) {
 	if ctx == nil {
 		return SemanticCartographerSettingsRecord{}, errors.New("context is required")

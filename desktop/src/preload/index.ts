@@ -236,6 +236,8 @@ const api: SettaAPI = {
     readCartographerProcessingState: (request) =>
       invoke("semanticGraphCartographerProcessingState", request),
     readCartographerSettings: (request) => invoke("semanticGraphCartographerSettingsRead", request),
+    readCartographerSettingsMetadata: (request) =>
+      invoke("semanticGraphCartographerSettingsMetadata", request),
     updateCartographerSettings: (request) =>
       invoke("semanticGraphCartographerSettingsUpdate", request),
     createEdge: (request) => invoke("semanticGraphCreateEdge", request),

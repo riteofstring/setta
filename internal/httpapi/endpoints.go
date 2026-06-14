@@ -109,6 +109,7 @@ var apiEndpoints = []endpoint{
 	post[BuildCartographerWindowRequest, semanticgraph.CartographerWindowBuildResult]("BuildCartographerWindow", "/semantic-graph/cartographer/windows/build", handler.buildCartographerWindow),
 	post[ProcessCartographerWindowRequest, semanticgraph.CartographerWindowProcessResult]("ProcessCartographerWindow", "/semantic-graph/cartographer/windows/process", handler.processCartographerWindow),
 	post[ReadSemanticCartographerSettingsRequest, semanticgraph.SemanticCartographerSettingsRecord]("ReadSemanticCartographerSettings", "/semantic-graph/cartographer/settings/read", handler.readSemanticCartographerSettings),
+	post[ReadSemanticCartographerSettingsMetadataRequest, semanticgraph.SemanticCartographerSettingsMetadata]("ReadSemanticCartographerSettingsMetadata", "/semantic-graph/cartographer/settings/metadata", handler.readSemanticCartographerSettingsMetadata),
 	post[UpdateSemanticCartographerSettingsRequest, semanticgraph.SemanticCartographerSettingsRecord]("UpdateSemanticCartographerSettings", "/semantic-graph/cartographer/settings/update", handler.updateSemanticCartographerSettings),
 	post[ListSemanticCartographerModelOptionsRequest, []chat.ChatModelOption]("ListSemanticCartographerModelOptions", "/semantic-graph/cartographer/model-options/list", handler.listSemanticCartographerModelOptions),
 	post[ReadCartographerProcessingStateRequest, semanticgraph.CartographerProcessingState]("ReadCartographerProcessingState", "/semantic-graph/cartographer/processing/state", handler.readCartographerProcessingState),

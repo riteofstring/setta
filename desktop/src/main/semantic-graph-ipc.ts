@@ -126,6 +126,14 @@ export function registerSemanticGraphIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "semanticGraphCartographerSettingsMetadata",
+    async (_event, request) => {
+      return requireBackendClient().readSemanticCartographerSettingsMetadata(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "semanticGraphCartographerSettingsUpdate",
     async (_event, request) => {
       return requireBackendClient().updateSemanticCartographerSettings(request);

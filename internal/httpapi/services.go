@@ -112,6 +112,7 @@ type SemanticGraphService interface {
 	BuildCartographerWindow(context.Context, semanticgraph.CartographerManualWindowRequest) (semanticgraph.CartographerWindowBuildResult, error)
 	ProcessCartographerWindow(context.Context, string, string) (semanticgraph.CartographerWindowProcessResult, error)
 	ReadSemanticCartographerSettings(context.Context) (semanticgraph.SemanticCartographerSettingsRecord, error)
+	ReadSemanticCartographerSettingsMetadata(context.Context) (semanticgraph.SemanticCartographerSettingsMetadata, error)
 	UpdateSemanticCartographerSettings(context.Context, semanticgraph.SemanticCartographerSettingsInput, []chat.ChatModelOption) (semanticgraph.SemanticCartographerSettingsRecord, error)
 	ReadCartographerProcessingState(context.Context) (semanticgraph.CartographerProcessingState, error)
 	ReadCartographerRun(context.Context, string, string) (semanticgraph.CartographerRun, bool, error)

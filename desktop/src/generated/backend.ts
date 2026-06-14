@@ -4269,6 +4269,9 @@ export interface SemanticCartographerSettingsRecord {
   updatedAt: string;
 }
 
+export interface ReadSemanticCartographerSettingsMetadataRequest {
+}
+
 export interface SemanticCartographerSettingsInput {
   automaticProcessingEnabled: boolean;
   liveTaskConfig: SemanticCartographerTaskConfig;
@@ -4276,6 +4279,24 @@ export interface SemanticCartographerSettingsInput {
   processingConfig: SemanticCartographerProcessingConfig;
   observationConfig: SemanticCartographerObservationConfig;
   auditConfig: SemanticCartographerAuditConfig;
+}
+
+export interface SemanticCartographerNumberFieldBounds {
+  field: string;
+  min: number;
+}
+
+export interface SemanticCartographerSettingsRelation {
+  field: string;
+  operator: string;
+  comparedField: string;
+}
+
+export interface SemanticCartographerSettingsMetadata {
+  record: SemanticCartographerSettingsRecord;
+  defaultSettings: SemanticCartographerSettingsInput;
+  numberBounds: SemanticCartographerNumberFieldBounds[];
+  relationships: SemanticCartographerSettingsRelation[];
 }
 
 export interface UpdateSemanticCartographerSettingsRequest {
@@ -5487,6 +5508,10 @@ export const backendEndpoints = {
   ReadSemanticCartographerSettings: {
     method: "POST",
     path: "/semantic-graph/cartographer/settings/read",
+  },
+  ReadSemanticCartographerSettingsMetadata: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/settings/metadata",
   },
   UpdateSemanticCartographerSettings: {
     method: "POST",
@@ -8671,6 +8696,13 @@ export function decodeSemanticCartographerSettingsRecord(value: unknown): Semant
   };
 }
 
+export function decodeReadSemanticCartographerSettingsMetadataRequest(value: unknown): ReadSemanticCartographerSettingsMetadataRequest {
+  const record = assertRecord(value, "ReadSemanticCartographerSettingsMetadataRequest");
+  assertKnownFields(record, "ReadSemanticCartographerSettingsMetadataRequest", []);
+  return {
+  };
+}
+
 export function decodeSemanticCartographerSettingsInput(value: unknown): SemanticCartographerSettingsInput {
   const record = assertRecord(value, "SemanticCartographerSettingsInput");
   assertKnownFields(record, "SemanticCartographerSettingsInput", ["automaticProcessingEnabled", "liveTaskConfig", "finalSynthesisTaskConfig", "processingConfig", "observationConfig", "auditConfig"]);
@@ -8681,6 +8713,36 @@ export function decodeSemanticCartographerSettingsInput(value: unknown): Semanti
     processingConfig: decodeSemanticCartographerProcessingConfig(requireField(record, "processingConfig", "SemanticCartographerSettingsInput")),
     observationConfig: decodeSemanticCartographerObservationConfig(requireField(record, "observationConfig", "SemanticCartographerSettingsInput")),
     auditConfig: decodeSemanticCartographerAuditConfig(requireField(record, "auditConfig", "SemanticCartographerSettingsInput")),
+  };
+}
+
+export function decodeSemanticCartographerNumberFieldBounds(value: unknown): SemanticCartographerNumberFieldBounds {
+  const record = assertRecord(value, "SemanticCartographerNumberFieldBounds");
+  assertKnownFields(record, "SemanticCartographerNumberFieldBounds", ["field", "min"]);
+  return {
+    field: decodeString(requireField(record, "field", "SemanticCartographerNumberFieldBounds"), "SemanticCartographerNumberFieldBounds.field"),
+    min: decodeInteger(requireField(record, "min", "SemanticCartographerNumberFieldBounds"), "SemanticCartographerNumberFieldBounds.min"),
+  };
+}
+
+export function decodeSemanticCartographerSettingsRelation(value: unknown): SemanticCartographerSettingsRelation {
+  const record = assertRecord(value, "SemanticCartographerSettingsRelation");
+  assertKnownFields(record, "SemanticCartographerSettingsRelation", ["field", "operator", "comparedField"]);
+  return {
+    field: decodeString(requireField(record, "field", "SemanticCartographerSettingsRelation"), "SemanticCartographerSettingsRelation.field"),
+    operator: decodeString(requireField(record, "operator", "SemanticCartographerSettingsRelation"), "SemanticCartographerSettingsRelation.operator"),
+    comparedField: decodeString(requireField(record, "comparedField", "SemanticCartographerSettingsRelation"), "SemanticCartographerSettingsRelation.comparedField"),
+  };
+}
+
+export function decodeSemanticCartographerSettingsMetadata(value: unknown): SemanticCartographerSettingsMetadata {
+  const record = assertRecord(value, "SemanticCartographerSettingsMetadata");
+  assertKnownFields(record, "SemanticCartographerSettingsMetadata", ["record", "defaultSettings", "numberBounds", "relationships"]);
+  return {
+    record: decodeSemanticCartographerSettingsRecord(requireField(record, "record", "SemanticCartographerSettingsMetadata")),
+    defaultSettings: decodeSemanticCartographerSettingsInput(requireField(record, "defaultSettings", "SemanticCartographerSettingsMetadata")),
+    numberBounds: decodeArray(requireField(record, "numberBounds", "SemanticCartographerSettingsMetadata"), "SemanticCartographerSettingsMetadata.numberBounds", (item) => decodeSemanticCartographerNumberFieldBounds(item)),
+    relationships: decodeArray(requireField(record, "relationships", "SemanticCartographerSettingsMetadata"), "SemanticCartographerSettingsMetadata.relationships", (item) => decodeSemanticCartographerSettingsRelation(item)),
   };
 }
 
@@ -10039,6 +10101,7 @@ export interface BackendClient {
   buildCartographerWindow: (request: BuildCartographerWindowRequest) => Promise<CartographerWindowBuildResult>;
   processCartographerWindow: (request: ProcessCartographerWindowRequest) => Promise<CartographerWindowProcessResult>;
   readSemanticCartographerSettings: (request: ReadSemanticCartographerSettingsRequest) => Promise<SemanticCartographerSettingsRecord>;
+  readSemanticCartographerSettingsMetadata: (request: ReadSemanticCartographerSettingsMetadataRequest) => Promise<SemanticCartographerSettingsMetadata>;
   updateSemanticCartographerSettings: (request: UpdateSemanticCartographerSettingsRequest) => Promise<SemanticCartographerSettingsRecord>;
   listSemanticCartographerModelOptions: (request: ListSemanticCartographerModelOptionsRequest) => Promise<ChatModelOption[]>;
   readCartographerProcessingState: (request: ReadCartographerProcessingStateRequest) => Promise<CartographerProcessingState>;
@@ -10653,6 +10716,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticCartographerSettingsRecord,
       endpoint: backendEndpoints.ReadSemanticCartographerSettings,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readSemanticCartographerSettingsMetadata: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticCartographerSettingsMetadata,
+      endpoint: backendEndpoints.ReadSemanticCartographerSettingsMetadata,
       fetchImpl,
       requestPayload: request,
     }),

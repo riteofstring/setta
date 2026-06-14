@@ -272,6 +272,23 @@ func (handler handler) readSemanticCartographerSettings(response http.ResponseWr
 	writeJSON(response, http.StatusOK, record)
 }
 
+func (handler handler) readSemanticCartographerSettingsMetadata(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ReadSemanticCartographerSettingsMetadataRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	metadata, err := service.ReadSemanticCartographerSettingsMetadata(request.Context())
+	if err != nil {
+		writeSemanticGraphError(response, "read_semantic_cartographer_settings_metadata_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, metadata)
+}
+
 func (handler handler) updateSemanticCartographerSettings(response http.ResponseWriter, request *http.Request) {
 	semanticService := requireSemanticGraphService(response, handler.semanticGraphService)
 	if semanticService == nil {
