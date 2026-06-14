@@ -4248,10 +4248,26 @@ export interface SemanticRuntimeLimits {
   maxPatchPreviewNodes: number;
   maxSemanticChanges: number;
   maxAggregateSources: number;
+  maxWorkflowNodes: number;
+  maxRunItems: number;
+  maxLiveSources: number;
+  maxPulses: number;
   maxChangedIdsPerItem: number;
   maxPatchOperationsPerItem: number;
   maxCreatedEventIdsPerItem: number;
   maxAggregateEntityRefs: number;
+  maxPublicSummaryBytes: number;
+  maxPreviewNodeTextBytes: number;
+  maxModelAuditTextBytes: number;
+  maxModelAuditErrorBytes: number;
+  maxSnapshotPayloadBytes: number;
+  maxDeltaPayloadBytes: number;
+}
+
+export interface SemanticRuntimePayloadBudget {
+  byteSize: number;
+  maxByteSize: number;
+  truncatedStringCount: number;
 }
 
 export interface SemanticRuntimeWorkflowNode {
@@ -4350,6 +4366,12 @@ export interface SemanticRuntimeCartographer {
   activeRuns: SemanticRuntimeCartographerRun[];
   activeWindows: SemanticRuntimeCartographerWindow[];
   statusCounts: SemanticRuntimeStatusCount[];
+  recentRunCount: number;
+  recentWindowCount: number;
+  recentPatchRecordCount: number;
+  omittedRecentRunDetailCount: number;
+  omittedRecentWindowDetailCount: number;
+  omittedRecentPatchDetailCount: number;
   hiddenRunCount: number;
   hiddenWindowCount: number;
   hiddenPatchPreviewCount: number;
@@ -4446,6 +4468,7 @@ export interface SemanticRuntimeSnapshot {
   revision: number;
   generatedAt: string;
   limits: SemanticRuntimeLimits;
+  payloadBudget: SemanticRuntimePayloadBudget;
   workflow: SemanticRuntimeWorkflowState;
   cartographer: SemanticRuntimeCartographer;
   patches: SemanticRuntimePatchPreview[];
@@ -5222,6 +5245,7 @@ export interface SemanticRuntimeDelta {
   fromRevision: number;
   toRevision: number;
   generatedAt: string;
+  payloadBudget: SemanticRuntimePayloadBudget;
   changedAreas: SemanticRuntimeChangeArea[];
   workflowNodeUpdates: SemanticRuntimeWorkflowNode[];
   runItemUpdates: SemanticRuntimeRunItem[];
@@ -9056,7 +9080,7 @@ export function decodeReadSemanticRuntimeSnapshotRequest(value: unknown): ReadSe
 
 export function decodeSemanticRuntimeLimits(value: unknown): SemanticRuntimeLimits {
   const record = assertRecord(value, "SemanticRuntimeLimits");
-  assertKnownFields(record, "SemanticRuntimeLimits", ["maxCartographerRuns", "maxCartographerWindows", "maxPatchPreviews", "maxPatchPreviewNodes", "maxSemanticChanges", "maxAggregateSources", "maxChangedIdsPerItem", "maxPatchOperationsPerItem", "maxCreatedEventIdsPerItem", "maxAggregateEntityRefs"]);
+  assertKnownFields(record, "SemanticRuntimeLimits", ["maxCartographerRuns", "maxCartographerWindows", "maxPatchPreviews", "maxPatchPreviewNodes", "maxSemanticChanges", "maxAggregateSources", "maxWorkflowNodes", "maxRunItems", "maxLiveSources", "maxPulses", "maxChangedIdsPerItem", "maxPatchOperationsPerItem", "maxCreatedEventIdsPerItem", "maxAggregateEntityRefs", "maxPublicSummaryBytes", "maxPreviewNodeTextBytes", "maxModelAuditTextBytes", "maxModelAuditErrorBytes", "maxSnapshotPayloadBytes", "maxDeltaPayloadBytes"]);
   return {
     maxCartographerRuns: decodeInteger(requireField(record, "maxCartographerRuns", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxCartographerRuns"),
     maxCartographerWindows: decodeInteger(requireField(record, "maxCartographerWindows", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxCartographerWindows"),
@@ -9064,10 +9088,30 @@ export function decodeSemanticRuntimeLimits(value: unknown): SemanticRuntimeLimi
     maxPatchPreviewNodes: decodeInteger(requireField(record, "maxPatchPreviewNodes", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxPatchPreviewNodes"),
     maxSemanticChanges: decodeInteger(requireField(record, "maxSemanticChanges", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxSemanticChanges"),
     maxAggregateSources: decodeInteger(requireField(record, "maxAggregateSources", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxAggregateSources"),
+    maxWorkflowNodes: decodeInteger(requireField(record, "maxWorkflowNodes", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxWorkflowNodes"),
+    maxRunItems: decodeInteger(requireField(record, "maxRunItems", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxRunItems"),
+    maxLiveSources: decodeInteger(requireField(record, "maxLiveSources", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxLiveSources"),
+    maxPulses: decodeInteger(requireField(record, "maxPulses", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxPulses"),
     maxChangedIdsPerItem: decodeInteger(requireField(record, "maxChangedIdsPerItem", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxChangedIdsPerItem"),
     maxPatchOperationsPerItem: decodeInteger(requireField(record, "maxPatchOperationsPerItem", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxPatchOperationsPerItem"),
     maxCreatedEventIdsPerItem: decodeInteger(requireField(record, "maxCreatedEventIdsPerItem", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxCreatedEventIdsPerItem"),
     maxAggregateEntityRefs: decodeInteger(requireField(record, "maxAggregateEntityRefs", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxAggregateEntityRefs"),
+    maxPublicSummaryBytes: decodeInteger(requireField(record, "maxPublicSummaryBytes", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxPublicSummaryBytes"),
+    maxPreviewNodeTextBytes: decodeInteger(requireField(record, "maxPreviewNodeTextBytes", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxPreviewNodeTextBytes"),
+    maxModelAuditTextBytes: decodeInteger(requireField(record, "maxModelAuditTextBytes", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxModelAuditTextBytes"),
+    maxModelAuditErrorBytes: decodeInteger(requireField(record, "maxModelAuditErrorBytes", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxModelAuditErrorBytes"),
+    maxSnapshotPayloadBytes: decodeInteger(requireField(record, "maxSnapshotPayloadBytes", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxSnapshotPayloadBytes"),
+    maxDeltaPayloadBytes: decodeInteger(requireField(record, "maxDeltaPayloadBytes", "SemanticRuntimeLimits"), "SemanticRuntimeLimits.maxDeltaPayloadBytes"),
+  };
+}
+
+export function decodeSemanticRuntimePayloadBudget(value: unknown): SemanticRuntimePayloadBudget {
+  const record = assertRecord(value, "SemanticRuntimePayloadBudget");
+  assertKnownFields(record, "SemanticRuntimePayloadBudget", ["byteSize", "maxByteSize", "truncatedStringCount"]);
+  return {
+    byteSize: decodeInteger(requireField(record, "byteSize", "SemanticRuntimePayloadBudget"), "SemanticRuntimePayloadBudget.byteSize"),
+    maxByteSize: decodeInteger(requireField(record, "maxByteSize", "SemanticRuntimePayloadBudget"), "SemanticRuntimePayloadBudget.maxByteSize"),
+    truncatedStringCount: decodeInteger(requireField(record, "truncatedStringCount", "SemanticRuntimePayloadBudget"), "SemanticRuntimePayloadBudget.truncatedStringCount"),
   };
 }
 
@@ -9193,11 +9237,17 @@ export function decodeSemanticRuntimeStatusCount(value: unknown): SemanticRuntim
 
 export function decodeSemanticRuntimeCartographer(value: unknown): SemanticRuntimeCartographer {
   const record = assertRecord(value, "SemanticRuntimeCartographer");
-  assertKnownFields(record, "SemanticRuntimeCartographer", ["activeRuns", "activeWindows", "statusCounts", "hiddenRunCount", "hiddenWindowCount", "hiddenPatchPreviewCount", "updatedAt"]);
+  assertKnownFields(record, "SemanticRuntimeCartographer", ["activeRuns", "activeWindows", "statusCounts", "recentRunCount", "recentWindowCount", "recentPatchRecordCount", "omittedRecentRunDetailCount", "omittedRecentWindowDetailCount", "omittedRecentPatchDetailCount", "hiddenRunCount", "hiddenWindowCount", "hiddenPatchPreviewCount", "updatedAt"]);
   return {
     activeRuns: decodeArray(requireField(record, "activeRuns", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.activeRuns", (item) => decodeSemanticRuntimeCartographerRun(item)),
     activeWindows: decodeArray(requireField(record, "activeWindows", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.activeWindows", (item) => decodeSemanticRuntimeCartographerWindow(item)),
     statusCounts: decodeArray(requireField(record, "statusCounts", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.statusCounts", (item) => decodeSemanticRuntimeStatusCount(item)),
+    recentRunCount: decodeInteger(requireField(record, "recentRunCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.recentRunCount"),
+    recentWindowCount: decodeInteger(requireField(record, "recentWindowCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.recentWindowCount"),
+    recentPatchRecordCount: decodeInteger(requireField(record, "recentPatchRecordCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.recentPatchRecordCount"),
+    omittedRecentRunDetailCount: decodeInteger(requireField(record, "omittedRecentRunDetailCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.omittedRecentRunDetailCount"),
+    omittedRecentWindowDetailCount: decodeInteger(requireField(record, "omittedRecentWindowDetailCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.omittedRecentWindowDetailCount"),
+    omittedRecentPatchDetailCount: decodeInteger(requireField(record, "omittedRecentPatchDetailCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.omittedRecentPatchDetailCount"),
     hiddenRunCount: decodeInteger(requireField(record, "hiddenRunCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.hiddenRunCount"),
     hiddenWindowCount: decodeInteger(requireField(record, "hiddenWindowCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.hiddenWindowCount"),
     hiddenPatchPreviewCount: decodeInteger(requireField(record, "hiddenPatchPreviewCount", "SemanticRuntimeCartographer"), "SemanticRuntimeCartographer.hiddenPatchPreviewCount"),
@@ -9318,7 +9368,7 @@ export function decodeSemanticRuntimeDisplayHints(value: unknown): SemanticRunti
 
 export function decodeSemanticRuntimeSnapshot(value: unknown): SemanticRuntimeSnapshot {
   const record = assertRecord(value, "SemanticRuntimeSnapshot");
-  assertKnownFields(record, "SemanticRuntimeSnapshot", ["workspaceId", "workflowExecutionId", "chatRunId", "revision", "generatedAt", "limits", "workflow", "cartographer", "patches", "semanticActivity", "displayHints"]);
+  assertKnownFields(record, "SemanticRuntimeSnapshot", ["workspaceId", "workflowExecutionId", "chatRunId", "revision", "generatedAt", "limits", "payloadBudget", "workflow", "cartographer", "patches", "semanticActivity", "displayHints"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.workspaceId"),
     workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.workflowExecutionId"),
@@ -9326,6 +9376,7 @@ export function decodeSemanticRuntimeSnapshot(value: unknown): SemanticRuntimeSn
     revision: decodeInteger(requireField(record, "revision", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.revision"),
     generatedAt: decodeString(requireField(record, "generatedAt", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.generatedAt"),
     limits: decodeSemanticRuntimeLimits(requireField(record, "limits", "SemanticRuntimeSnapshot")),
+    payloadBudget: decodeSemanticRuntimePayloadBudget(requireField(record, "payloadBudget", "SemanticRuntimeSnapshot")),
     workflow: decodeSemanticRuntimeWorkflowState(requireField(record, "workflow", "SemanticRuntimeSnapshot")),
     cartographer: decodeSemanticRuntimeCartographer(requireField(record, "cartographer", "SemanticRuntimeSnapshot")),
     patches: decodeArray(requireField(record, "patches", "SemanticRuntimeSnapshot"), "SemanticRuntimeSnapshot.patches", (item) => decodeSemanticRuntimePatchPreview(item)),
@@ -10420,12 +10471,13 @@ export function decodeSemanticRuntimeRemovals(value: unknown): SemanticRuntimeRe
 
 export function decodeSemanticRuntimeDelta(value: unknown): SemanticRuntimeDelta {
   const record = assertRecord(value, "SemanticRuntimeDelta");
-  assertKnownFields(record, "SemanticRuntimeDelta", ["workspaceId", "fromRevision", "toRevision", "generatedAt", "changedAreas", "workflowNodeUpdates", "runItemUpdates", "cartographerRunUpdates", "cartographerWindowUpdates", "patchPreviewUpdates", "semanticNodeActivityUpdates", "aggregateSourceUpdates", "semanticChangeUpdates", "removals"]);
+  assertKnownFields(record, "SemanticRuntimeDelta", ["workspaceId", "fromRevision", "toRevision", "generatedAt", "payloadBudget", "changedAreas", "workflowNodeUpdates", "runItemUpdates", "cartographerRunUpdates", "cartographerWindowUpdates", "patchPreviewUpdates", "semanticNodeActivityUpdates", "aggregateSourceUpdates", "semanticChangeUpdates", "removals"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.workspaceId"),
     fromRevision: decodeInteger(requireField(record, "fromRevision", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.fromRevision"),
     toRevision: decodeInteger(requireField(record, "toRevision", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.toRevision"),
     generatedAt: decodeString(requireField(record, "generatedAt", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.generatedAt"),
+    payloadBudget: decodeSemanticRuntimePayloadBudget(requireField(record, "payloadBudget", "SemanticRuntimeDelta")),
     changedAreas: decodeArray(requireField(record, "changedAreas", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.changedAreas", (item) => decodeSemanticRuntimeChangeArea(item, "SemanticRuntimeDelta.changedAreas item")),
     workflowNodeUpdates: decodeArray(requireField(record, "workflowNodeUpdates", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.workflowNodeUpdates", (item) => decodeSemanticRuntimeWorkflowNode(item)),
     runItemUpdates: decodeArray(requireField(record, "runItemUpdates", "SemanticRuntimeDelta"), "SemanticRuntimeDelta.runItemUpdates", (item) => decodeSemanticRuntimeRunItem(item)),

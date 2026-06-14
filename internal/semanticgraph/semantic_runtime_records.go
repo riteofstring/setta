@@ -373,6 +373,12 @@ func minInt(left int, right int) int {
 }
 
 func assertSemanticRuntimeListBounds(snapshot SemanticRuntimeSnapshot) error {
+	if len(snapshot.Workflow.WorkflowNodeUpdates) > snapshot.Limits.MaxWorkflowNodes {
+		return fmt.Errorf("semantic runtime workflow node updates exceeded bound: %d > %d", len(snapshot.Workflow.WorkflowNodeUpdates), snapshot.Limits.MaxWorkflowNodes)
+	}
+	if len(snapshot.Workflow.RunItemUpdates) > snapshot.Limits.MaxRunItems {
+		return fmt.Errorf("semantic runtime run item updates exceeded bound: %d > %d", len(snapshot.Workflow.RunItemUpdates), snapshot.Limits.MaxRunItems)
+	}
 	if len(snapshot.Cartographer.ActiveRuns) > snapshot.Limits.MaxCartographerRuns {
 		return fmt.Errorf("semantic runtime active runs exceeded bound: %d > %d", len(snapshot.Cartographer.ActiveRuns), snapshot.Limits.MaxCartographerRuns)
 	}
@@ -387,6 +393,23 @@ func assertSemanticRuntimeListBounds(snapshot SemanticRuntimeSnapshot) error {
 	}
 	if len(snapshot.DisplayHints.AggregateSources) > snapshot.Limits.MaxAggregateSources {
 		return fmt.Errorf("semantic runtime aggregate sources exceeded bound: %d > %d", len(snapshot.DisplayHints.AggregateSources), snapshot.Limits.MaxAggregateSources)
+	}
+	if len(snapshot.DisplayHints.AggregateSources) > snapshot.Limits.MaxLiveSources {
+		return fmt.Errorf("semantic runtime live sources exceeded bound: %d > %d", len(snapshot.DisplayHints.AggregateSources), snapshot.Limits.MaxLiveSources)
+	}
+	pulseCount := len(snapshot.DisplayHints.AggregateSources) + len(snapshot.Patches)
+	if pulseCount > snapshot.Limits.MaxPulses {
+		return fmt.Errorf("semantic runtime derived pulses exceeded bound: %d > %d", pulseCount, snapshot.Limits.MaxPulses)
+	}
+	if snapshot.PayloadBudget.ByteSize > snapshot.PayloadBudget.MaxByteSize {
+		return fmt.Errorf("semantic runtime snapshot payload exceeded byte budget: %d > %d", snapshot.PayloadBudget.ByteSize, snapshot.PayloadBudget.MaxByteSize)
+	}
+	return nil
+}
+
+func assertSemanticRuntimeDeltaPayloadBudget(delta SemanticRuntimeDelta) error {
+	if delta.PayloadBudget.ByteSize > delta.PayloadBudget.MaxByteSize {
+		return fmt.Errorf("semantic runtime delta payload exceeded byte budget: %d > %d", delta.PayloadBudget.ByteSize, delta.PayloadBudget.MaxByteSize)
 	}
 	return nil
 }

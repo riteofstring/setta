@@ -400,6 +400,7 @@ function runtimeDelta({
     changedAreas: ["aggregate_sources"],
     fromRevision,
     generatedAt: timestamp(toRevision),
+    payloadBudget: runtimePayloadBudget(),
     patchPreviewUpdates: [],
     removals: runtimeRemovals(removals),
     runItemUpdates,
@@ -429,6 +430,12 @@ function runtimeSnapshot({
       hiddenPatchPreviewCount: 0,
       hiddenRunCount: 0,
       hiddenWindowCount: 0,
+      omittedRecentPatchDetailCount: 0,
+      omittedRecentRunDetailCount: 0,
+      omittedRecentWindowDetailCount: 0,
+      recentPatchRecordCount: 0,
+      recentRunCount: 0,
+      recentWindowCount: 0,
       statusCounts: [],
       updatedAt: timestamp(revision),
     },
@@ -447,11 +454,22 @@ function runtimeSnapshot({
       maxCartographerWindows: 20,
       maxChangedIdsPerItem: 20,
       maxCreatedEventIdsPerItem: 20,
+      maxDeltaPayloadBytes: 32768,
+      maxLiveSources: 20,
+      maxModelAuditErrorBytes: 240,
+      maxModelAuditTextBytes: 160,
       maxPatchOperationsPerItem: 20,
       maxPatchPreviewNodes: 20,
       maxPatchPreviews: 20,
+      maxPreviewNodeTextBytes: 160,
+      maxPublicSummaryBytes: 320,
+      maxPulses: 40,
+      maxRunItems: 20,
       maxSemanticChanges: 20,
+      maxSnapshotPayloadBytes: 98304,
+      maxWorkflowNodes: 20,
     },
+    payloadBudget: runtimePayloadBudget(),
     patches: [],
     revision,
     semanticActivity: {
@@ -469,6 +487,14 @@ function runtimeSnapshot({
     },
     workflowExecutionId: "",
     workspaceId: "workspace_graph",
+  };
+}
+
+function runtimePayloadBudget() {
+  return {
+    byteSize: 0,
+    maxByteSize: 0,
+    truncatedStringCount: 0,
   };
 }
 

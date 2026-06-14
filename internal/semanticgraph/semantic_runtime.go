@@ -21,6 +21,12 @@ const (
 	semanticRuntimeMaxSummaryPatchPreviews   = 12
 	semanticRuntimeMaxSummarySemanticChanges = 16
 	semanticRuntimeMaxSummaryAggregates      = 20
+	semanticRuntimeMaxPublicSummaryBytes     = 320
+	semanticRuntimeMaxPreviewNodeTextBytes   = 160
+	semanticRuntimeMaxModelAuditTextBytes    = 160
+	semanticRuntimeMaxModelAuditErrorBytes   = 240
+	semanticRuntimeMaxSnapshotPayloadBytes   = 96 * 1024
+	semanticRuntimeMaxDeltaPayloadBytes      = 32 * 1024
 )
 
 type SemanticRuntimeChangeArea string
@@ -55,6 +61,7 @@ type SemanticRuntimeSnapshot struct {
 	Revision            int                           `json:"revision"`
 	GeneratedAt         string                        `json:"generatedAt"`
 	Limits              SemanticRuntimeLimits         `json:"limits"`
+	PayloadBudget       SemanticRuntimePayloadBudget  `json:"payloadBudget"`
 	Workflow            SemanticRuntimeWorkflowState  `json:"workflow"`
 	Cartographer        SemanticRuntimeCartographer   `json:"cartographer"`
 	Patches             []SemanticRuntimePatchPreview `json:"patches"`
@@ -67,6 +74,7 @@ type SemanticRuntimeDelta struct {
 	FromRevision                int                                 `json:"fromRevision"`
 	ToRevision                  int                                 `json:"toRevision"`
 	GeneratedAt                 string                              `json:"generatedAt"`
+	PayloadBudget               SemanticRuntimePayloadBudget        `json:"payloadBudget"`
 	ChangedAreas                []SemanticRuntimeChangeArea         `json:"changedAreas"`
 	WorkflowNodeUpdates         []SemanticRuntimeWorkflowNode       `json:"workflowNodeUpdates"`
 	RunItemUpdates              []SemanticRuntimeRunItem            `json:"runItemUpdates"`
@@ -86,10 +94,26 @@ type SemanticRuntimeLimits struct {
 	MaxPatchPreviewNodes      int `json:"maxPatchPreviewNodes"`
 	MaxSemanticChanges        int `json:"maxSemanticChanges"`
 	MaxAggregateSources       int `json:"maxAggregateSources"`
+	MaxWorkflowNodes          int `json:"maxWorkflowNodes"`
+	MaxRunItems               int `json:"maxRunItems"`
+	MaxLiveSources            int `json:"maxLiveSources"`
+	MaxPulses                 int `json:"maxPulses"`
 	MaxChangedIDsPerItem      int `json:"maxChangedIdsPerItem"`
 	MaxPatchOperationsPerItem int `json:"maxPatchOperationsPerItem"`
 	MaxCreatedEventIDsPerItem int `json:"maxCreatedEventIdsPerItem"`
 	MaxAggregateEntityRefs    int `json:"maxAggregateEntityRefs"`
+	MaxPublicSummaryBytes     int `json:"maxPublicSummaryBytes"`
+	MaxPreviewNodeTextBytes   int `json:"maxPreviewNodeTextBytes"`
+	MaxModelAuditTextBytes    int `json:"maxModelAuditTextBytes"`
+	MaxModelAuditErrorBytes   int `json:"maxModelAuditErrorBytes"`
+	MaxSnapshotPayloadBytes   int `json:"maxSnapshotPayloadBytes"`
+	MaxDeltaPayloadBytes      int `json:"maxDeltaPayloadBytes"`
+}
+
+type SemanticRuntimePayloadBudget struct {
+	ByteSize             int `json:"byteSize"`
+	MaxByteSize          int `json:"maxByteSize"`
+	TruncatedStringCount int `json:"truncatedStringCount"`
 }
 
 type SemanticRuntimeWorkflowState struct {
@@ -127,13 +151,19 @@ type SemanticRuntimeRunItem struct {
 }
 
 type SemanticRuntimeCartographer struct {
-	ActiveRuns              []SemanticRuntimeCartographerRun    `json:"activeRuns"`
-	ActiveWindows           []SemanticRuntimeCartographerWindow `json:"activeWindows"`
-	StatusCounts            []SemanticRuntimeStatusCount        `json:"statusCounts"`
-	HiddenRunCount          int                                 `json:"hiddenRunCount"`
-	HiddenWindowCount       int                                 `json:"hiddenWindowCount"`
-	HiddenPatchPreviewCount int                                 `json:"hiddenPatchPreviewCount"`
-	UpdatedAt               string                              `json:"updatedAt"`
+	ActiveRuns                     []SemanticRuntimeCartographerRun    `json:"activeRuns"`
+	ActiveWindows                  []SemanticRuntimeCartographerWindow `json:"activeWindows"`
+	StatusCounts                   []SemanticRuntimeStatusCount        `json:"statusCounts"`
+	RecentRunCount                 int                                 `json:"recentRunCount"`
+	RecentWindowCount              int                                 `json:"recentWindowCount"`
+	RecentPatchRecordCount         int                                 `json:"recentPatchRecordCount"`
+	OmittedRecentRunDetailCount    int                                 `json:"omittedRecentRunDetailCount"`
+	OmittedRecentWindowDetailCount int                                 `json:"omittedRecentWindowDetailCount"`
+	OmittedRecentPatchDetailCount  int                                 `json:"omittedRecentPatchDetailCount"`
+	HiddenRunCount                 int                                 `json:"hiddenRunCount"`
+	HiddenWindowCount              int                                 `json:"hiddenWindowCount"`
+	HiddenPatchPreviewCount        int                                 `json:"hiddenPatchPreviewCount"`
+	UpdatedAt                      string                              `json:"updatedAt"`
 }
 
 type SemanticRuntimeCartographerRun struct {
@@ -364,6 +394,9 @@ func (service *Service) semanticRuntimePatches(ctx context.Context, filter Seman
 
 func (service *Service) buildSemanticRuntimeSnapshotLocked(filter SemanticRuntimeFilter, records semanticRuntimeRecords) (SemanticRuntimeSnapshot, error) {
 	builder := newSemanticRuntimeBuilder(filter, service.semanticRuntimeRevision, timestamp(service.now()))
+	builder.recentRunCount = len(records.runs)
+	builder.recentWindowCount = len(records.windows)
+	builder.recentPatchRecordCount = len(records.patches)
 	runByID := semanticWorkingSetRunsByID(records.runs)
 	patchesByRunID := semanticWorkingSetPatchesByRunID(records.patches)
 	for _, window := range records.windows {
@@ -452,6 +485,9 @@ type semanticRuntimeBuilder struct {
 	filter                  SemanticRuntimeFilter
 	revision                int
 	generatedAt             string
+	recentRunCount          int
+	recentWindowCount       int
+	recentPatchRecordCount  int
 	activeWorkflowNodes     map[string]*SemanticRuntimeWorkflowNode
 	activeRunItems          map[string]*SemanticRuntimeRunItem
 	aggregatesByID          map[string]*semanticRuntimeAggregateBuilder
@@ -513,10 +549,20 @@ func semanticRuntimeLimits(limit int) SemanticRuntimeLimits {
 		MaxPatchPreviewNodes:      semanticRuntimeMaxPatchPreviewNodes,
 		MaxSemanticChanges:        minInt(normalized, semanticRuntimeMaxSummarySemanticChanges),
 		MaxAggregateSources:       minInt(normalized, semanticRuntimeMaxSummaryAggregates),
+		MaxWorkflowNodes:          normalized,
+		MaxRunItems:               normalized,
+		MaxLiveSources:            minInt(normalized, semanticRuntimeMaxSummaryAggregates),
+		MaxPulses:                 minInt(normalized, semanticRuntimeMaxSummaryAggregates) + minInt(normalized, semanticRuntimeMaxSummaryPatchPreviews),
 		MaxChangedIDsPerItem:      semanticRuntimeMaxChangedIDs,
 		MaxPatchOperationsPerItem: semanticRuntimeMaxPatchOperations,
 		MaxCreatedEventIDsPerItem: semanticRuntimeMaxCreatedEventIDs,
 		MaxAggregateEntityRefs:    semanticRuntimeMaxAggregateEntityRefs,
+		MaxPublicSummaryBytes:     semanticRuntimeMaxPublicSummaryBytes,
+		MaxPreviewNodeTextBytes:   semanticRuntimeMaxPreviewNodeTextBytes,
+		MaxModelAuditTextBytes:    semanticRuntimeMaxModelAuditTextBytes,
+		MaxModelAuditErrorBytes:   semanticRuntimeMaxModelAuditErrorBytes,
+		MaxSnapshotPayloadBytes:   semanticRuntimeMaxSnapshotPayloadBytes,
+		MaxDeltaPayloadBytes:      semanticRuntimeMaxDeltaPayloadBytes,
 	}
 }
 
@@ -728,6 +774,12 @@ func (builder *semanticRuntimeBuilder) finish() SemanticRuntimeSnapshot {
 	builder.snapshot.Workflow.ActiveWorkflowNodeIDs = uniqueSortedStrings(builder.snapshot.Workflow.ActiveWorkflowNodeIDs)
 	builder.snapshot.Workflow.ActiveRunItemIDs = uniqueSortedStrings(builder.snapshot.Workflow.ActiveRunItemIDs)
 	builder.snapshot.Cartographer.StatusCounts = semanticRuntimeStatusCounts(builder.statusCounts)
+	builder.snapshot.Cartographer.RecentRunCount = builder.recentRunCount
+	builder.snapshot.Cartographer.RecentWindowCount = builder.recentWindowCount
+	builder.snapshot.Cartographer.RecentPatchRecordCount = builder.recentPatchRecordCount
+	builder.snapshot.Cartographer.OmittedRecentRunDetailCount = builder.recentRunCount
+	builder.snapshot.Cartographer.OmittedRecentWindowDetailCount = builder.recentWindowCount
+	builder.snapshot.Cartographer.OmittedRecentPatchDetailCount = builder.recentPatchRecordCount
 	builder.snapshot.Cartographer.HiddenRunCount = builder.hiddenRunCount
 	builder.snapshot.Cartographer.HiddenWindowCount = builder.hiddenWindowCount
 	builder.snapshot.Cartographer.HiddenPatchPreviewCount = builder.hiddenPatchPreviewCount
@@ -749,6 +801,7 @@ func (builder *semanticRuntimeBuilder) finish() SemanticRuntimeSnapshot {
 	}
 	builder.snapshot.DisplayHints.StatusCounts = semanticRuntimeStatusCounts(builder.statusCounts)
 	sortSemanticRuntimeSnapshot(&builder.snapshot)
+	finalizeSemanticRuntimeSnapshot(&builder.snapshot)
 	return builder.snapshot
 }
 
@@ -846,6 +899,7 @@ func (builder *semanticRuntimeDeltaBuilder) finish() {
 	builder.delta.RunItemUpdates = snapshot.Workflow.RunItemUpdates
 	builder.delta.AggregateSourceUpdates = snapshot.DisplayHints.AggregateSources
 	sortSemanticRuntimeDelta(builder.delta)
+	finalizeSemanticRuntimeDelta(builder.delta)
 }
 
 func (builder *semanticRuntimeDeltaBuilder) removeWorkflowSource(refs SemanticContextSourceRefs) {

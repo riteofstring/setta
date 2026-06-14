@@ -51,6 +51,9 @@ const requiredAutomaticReadbackPulseKinds = [
 ];
 const phase2MaxBlankScopeWorkingSetReads = 0;
 const phase2MaxRuntimeIpcBytesPerMinute = 1_000_000;
+const phase6MaxRuntimeDeltaPayloadBytes = 32 * 1024;
+const phase6MaxRuntimeSnapshotPayloadBytes = 96 * 1024;
+const phase6MaxRuntimePayloadBytesPerMinute = 1_000_000;
 
 configureChatWorkflowHarness({ visible: options.visible });
 
@@ -917,6 +920,7 @@ async function assertSemanticRuntimePhase2TrafficContract(recordingDir) {
     recordingDir,
   });
   await writeJson(join(recordingDir, "semantic-runtime-phase2-traffic-gate.json"), budget);
+  await writeJson(join(recordingDir, "semantic-runtime-phase6-payload-gate.json"), budget);
   const failures = budget.checks
     .filter((check) => check.status !== "pass")
     .map((check) => `${check.id}: actual=${check.actual} budget=${check.budget}`);
@@ -938,14 +942,49 @@ async function readJsonLinesWithRaw(path) {
 }
 
 function semanticRuntimePhase2TrafficReport({ backendRows, eventRows, ipcRows, recordingDir }) {
+  const metrics = semanticRuntimeTrafficMetrics({ backendRows, eventRows, ipcRows });
+  const budgets = semanticRuntimeTrafficBudgets();
+  const checks = semanticRuntimeTrafficChecks(metrics);
+  return {
+    budgets,
+    checks,
+    generatedAt: new Date().toISOString(),
+    metrics,
+    recordingDir,
+    status: semanticRuntimeTrafficStatus(checks),
+  };
+}
+
+function semanticRuntimeTrafficMetrics({ backendRows, eventRows, ipcRows }) {
   const blankScopeIpcIds = blankScopeWorkingSetIpcIds(ipcRows);
   const runtimeSnapshotIpcFinishes = ipcRows.filter(
     ({ row }) => row.type === "ipc_finish" && row.channel === "semantic-graph:runtime-snapshot",
   );
+  const runtimeSnapshotPayloadSizes = runtimeSnapshotIpcFinishes.map(({ row }) =>
+    jsonPayloadByteSize(row.result),
+  );
+  const runtimeSnapshotPayloadBytes = sum(runtimeSnapshotPayloadSizes);
+  const maxRuntimeSnapshotPayloadBytes = maxOrZero(runtimeSnapshotPayloadSizes);
+  const runtimeSnapshotPayloadBudgetBytes =
+    maxOrZero(
+      runtimeSnapshotIpcFinishes.map(({ row }) =>
+        Number(row.result?.payloadBudget?.maxByteSize ?? 0),
+      ),
+    ) || phase6MaxRuntimeSnapshotPayloadBytes;
   const runtimeSnapshotBootstrapAt = runtimeSnapshotIpcFinishes[0]?.row.at ?? "";
-  const semanticEventCount = eventRows.filter(
+  const semanticEventRows = eventRows.filter(
     ({ row }) => row.type === "semantic_graph_event_forwarded",
-  ).length;
+  );
+  const semanticEventCount = semanticEventRows.length;
+  const runtimeDeltaPayloadSizes = semanticEventRows
+    .map(({ row }) => Number(row.payload?.semanticRuntimeDeltaBytes ?? 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const runtimeDeltaPayloadBytes = sum(runtimeDeltaPayloadSizes);
+  const maxRuntimeDeltaPayloadBytes = maxOrZero(runtimeDeltaPayloadSizes);
+  const runtimeDeltaPayloadBudgetBytes =
+    maxOrZero(
+      semanticEventRows.map(({ row }) => Number(row.payload?.semanticRuntimeDeltaMaxBytes ?? 0)),
+    ) || phase6MaxRuntimeDeltaPayloadBytes;
   const workingSetIpcStarts = ipcRows.filter(
     ({ row }) => row.type === "ipc_start" && row.channel === "semantic-graph:working-set-read",
   );
@@ -960,6 +999,8 @@ function semanticRuntimePhase2TrafficReport({ backendRows, eventRows, ipcRows, r
   const rateWindowMinutes = Math.max(rawDurationMinutes, 1);
   const workingSetIpcBytesPerMinute = workingSetIpcBytes / rateWindowMinutes;
   const runtimeSnapshotIpcBytesPerMinute = runtimeSnapshotIpcBytes / rateWindowMinutes;
+  const runtimePayloadBytesPerMinute =
+    (runtimeSnapshotPayloadBytes + runtimeDeltaPayloadBytes) / rateWindowMinutes;
   const blankScopeWorkingSetReadCount = workingSetIpcStarts.filter(({ row }) =>
     blankScopeIpcIds.has(row.id),
   ).length;
@@ -981,78 +1022,131 @@ function semanticRuntimePhase2TrafficReport({ backendRows, eventRows, ipcRows, r
       rowIsAtOrAfter(row, runtimeSnapshotBootstrapAt),
   ).length;
   return {
-    budgets: {
-      maxBlankScopeWorkingSetReads: phase2MaxBlankScopeWorkingSetReads,
-      maxRuntimeIpcBytesPerMinute: phase2MaxRuntimeIpcBytesPerMinute,
-    },
-    checks: [
-      hardBudgetCheck({
-        actual: runtimeSnapshotIpcFinishes.length,
-        budget: 1,
-        id: "semantic-runtime-snapshot-bootstrap-recorded",
-        pass: runtimeSnapshotIpcFinishes.length > 0,
-      }),
-      hardBudgetCheck({
-        actual: blankScopeWorkingSetReadAfterBootstrapCount,
-        budget: phase2MaxBlankScopeWorkingSetReads,
-        id: "small-workflow-blank-scope-working-set-reads-after-runtime-bootstrap",
-        pass: blankScopeWorkingSetReadAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads,
-      }),
-      hardBudgetCheck({
-        actual: blankScopeWorkingSetHttpRequestAfterBootstrapCount,
-        budget: phase2MaxBlankScopeWorkingSetReads,
-        id: "small-workflow-blank-scope-working-set-http-requests-after-runtime-bootstrap",
-        pass:
-          blankScopeWorkingSetHttpRequestAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads,
-      }),
-      hardBudgetCheck({
-        actual: blankScopeWorkingSetReadCount,
-        budget: phase2MaxBlankScopeWorkingSetReads,
-        id: "small-workflow-blank-scope-working-set-reads",
-        pass: blankScopeWorkingSetReadCount <= phase2MaxBlankScopeWorkingSetReads,
-      }),
-      hardBudgetCheck({
-        actual: blankScopeWorkingSetHttpRequestCount,
-        budget: phase2MaxBlankScopeWorkingSetReads,
-        id: "small-workflow-blank-scope-working-set-http-requests",
-        pass: blankScopeWorkingSetHttpRequestCount <= phase2MaxBlankScopeWorkingSetReads,
-      }),
-      hardBudgetCheck({
-        actual: Math.round(runtimeSnapshotIpcBytesPerMinute),
-        budget: phase2MaxRuntimeIpcBytesPerMinute,
-        id: "semantic-runtime-snapshot-ipc-bytes-per-minute",
-        pass: runtimeSnapshotIpcBytesPerMinute < phase2MaxRuntimeIpcBytesPerMinute,
-      }),
-    ],
-    generatedAt: new Date().toISOString(),
-    metrics: {
-      blankScopeWorkingSetHttpRequestAfterBootstrapCount,
-      blankScopeWorkingSetHttpRequestCount,
-      blankScopeWorkingSetReadAfterBootstrapCount,
-      blankScopeWorkingSetReadCount,
-      rateWindowMinutes,
-      rawDurationMinutes,
-      runtimeSnapshotIpcBytes,
-      runtimeSnapshotIpcBytesPerMinute,
-      runtimeSnapshotIpcReadCount: runtimeSnapshotIpcFinishes.length,
-      runtimeSnapshotBootstrapAt,
-      scopedWorkingSetReadCount,
-      semanticEventCount,
-      workingSetIpcBytes,
-      workingSetIpcBytesPerMinute,
-      workingSetIpcReadCount: workingSetIpcStarts.length,
-    },
-    recordingDir,
-    status:
-      runtimeSnapshotIpcFinishes.length > 0 &&
-      blankScopeWorkingSetReadAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads &&
-      blankScopeWorkingSetHttpRequestAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads &&
-      blankScopeWorkingSetReadCount <= phase2MaxBlankScopeWorkingSetReads &&
-      blankScopeWorkingSetHttpRequestCount <= phase2MaxBlankScopeWorkingSetReads &&
-      runtimeSnapshotIpcBytesPerMinute < phase2MaxRuntimeIpcBytesPerMinute
-        ? "passed"
-        : "failed",
+    blankScopeWorkingSetHttpRequestAfterBootstrapCount,
+    blankScopeWorkingSetHttpRequestCount,
+    blankScopeWorkingSetReadAfterBootstrapCount,
+    blankScopeWorkingSetReadCount,
+    rateWindowMinutes,
+    rawDurationMinutes,
+    runtimeDeltaMaxPayloadBytes: maxRuntimeDeltaPayloadBytes,
+    runtimeDeltaPayloadBudgetBytes,
+    runtimeDeltaPayloadBytes,
+    runtimeDeltaPayloadBytesPerMinute: runtimeDeltaPayloadBytes / rateWindowMinutes,
+    runtimePayloadBytesPerMinute,
+    runtimeSnapshotBootstrapAt,
+    runtimeSnapshotIpcBytes,
+    runtimeSnapshotIpcBytesPerMinute,
+    runtimeSnapshotIpcReadCount: runtimeSnapshotIpcFinishes.length,
+    runtimeSnapshotMaxPayloadBytes: maxRuntimeSnapshotPayloadBytes,
+    runtimeSnapshotPayloadBudgetBytes,
+    runtimeSnapshotPayloadBytes,
+    runtimeSnapshotPayloadBytesPerMinute: runtimeSnapshotPayloadBytes / rateWindowMinutes,
+    runtimeSnapshotPayloadRecorded: runtimeSnapshotPayloadSizes.length > 0,
+    scopedWorkingSetReadCount,
+    semanticEventCount,
+    workingSetIpcBytes,
+    workingSetIpcBytesPerMinute,
+    workingSetIpcReadCount: workingSetIpcStarts.length,
   };
+}
+
+function semanticRuntimeTrafficBudgets() {
+  return {
+    maxBlankScopeWorkingSetReads: phase2MaxBlankScopeWorkingSetReads,
+    maxRuntimeDeltaPayloadBytes: phase6MaxRuntimeDeltaPayloadBytes,
+    maxRuntimeIpcBytesPerMinute: phase2MaxRuntimeIpcBytesPerMinute,
+    maxRuntimePayloadBytesPerMinute: phase6MaxRuntimePayloadBytesPerMinute,
+    maxRuntimeSnapshotPayloadBytes: phase6MaxRuntimeSnapshotPayloadBytes,
+  };
+}
+
+function semanticRuntimeTrafficChecks(metrics) {
+  return [
+    hardBudgetCheck({
+      actual: metrics.runtimeSnapshotIpcReadCount,
+      budget: 1,
+      id: "semantic-runtime-snapshot-bootstrap-recorded",
+      pass: metrics.runtimeSnapshotIpcReadCount > 0,
+    }),
+    hardBudgetCheck({
+      actual: metrics.blankScopeWorkingSetReadAfterBootstrapCount,
+      budget: phase2MaxBlankScopeWorkingSetReads,
+      id: "small-workflow-blank-scope-working-set-reads-after-runtime-bootstrap",
+      pass:
+        metrics.blankScopeWorkingSetReadAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads,
+    }),
+    hardBudgetCheck({
+      actual: metrics.blankScopeWorkingSetHttpRequestAfterBootstrapCount,
+      budget: phase2MaxBlankScopeWorkingSetReads,
+      id: "small-workflow-blank-scope-working-set-http-requests-after-runtime-bootstrap",
+      pass:
+        metrics.blankScopeWorkingSetHttpRequestAfterBootstrapCount <=
+        phase2MaxBlankScopeWorkingSetReads,
+    }),
+    hardBudgetCheck({
+      actual: metrics.blankScopeWorkingSetReadCount,
+      budget: phase2MaxBlankScopeWorkingSetReads,
+      id: "small-workflow-blank-scope-working-set-reads",
+      pass: metrics.blankScopeWorkingSetReadCount <= phase2MaxBlankScopeWorkingSetReads,
+    }),
+    hardBudgetCheck({
+      actual: metrics.blankScopeWorkingSetHttpRequestCount,
+      budget: phase2MaxBlankScopeWorkingSetReads,
+      id: "small-workflow-blank-scope-working-set-http-requests",
+      pass: metrics.blankScopeWorkingSetHttpRequestCount <= phase2MaxBlankScopeWorkingSetReads,
+    }),
+    hardBudgetCheck({
+      actual: Math.round(metrics.runtimeSnapshotIpcBytesPerMinute),
+      budget: phase2MaxRuntimeIpcBytesPerMinute,
+      id: "semantic-runtime-snapshot-ipc-bytes-per-minute",
+      pass: metrics.runtimeSnapshotIpcBytesPerMinute < phase2MaxRuntimeIpcBytesPerMinute,
+    }),
+    hardBudgetCheck({
+      actual: metrics.runtimeSnapshotMaxPayloadBytes,
+      budget: metrics.runtimeSnapshotPayloadBudgetBytes,
+      id: "semantic-runtime-snapshot-hot-path-payload-bytes",
+      pass: runtimeSnapshotPayloadCheckPassed(metrics),
+    }),
+    hardBudgetCheck({
+      actual: metrics.runtimeDeltaMaxPayloadBytes,
+      budget: metrics.runtimeDeltaPayloadBudgetBytes,
+      id: "semantic-runtime-delta-hot-path-payload-bytes",
+      pass: metrics.runtimeDeltaMaxPayloadBytes <= metrics.runtimeDeltaPayloadBudgetBytes,
+    }),
+    hardBudgetCheck({
+      actual: Math.round(metrics.runtimePayloadBytesPerMinute),
+      budget: phase6MaxRuntimePayloadBytesPerMinute,
+      id: "semantic-runtime-hot-path-payload-bytes-per-minute",
+      pass: metrics.runtimePayloadBytesPerMinute < phase6MaxRuntimePayloadBytesPerMinute,
+    }),
+  ];
+}
+
+function runtimeSnapshotPayloadCheckPassed(metrics) {
+  return (
+    metrics.runtimeSnapshotPayloadRecorded &&
+    metrics.runtimeSnapshotMaxPayloadBytes <= metrics.runtimeSnapshotPayloadBudgetBytes
+  );
+}
+
+function semanticRuntimeTrafficStatus(checks) {
+  return checks.every((check) => check.status === "pass") ? "passed" : "failed";
+}
+
+function jsonPayloadByteSize(value) {
+  if (value === undefined || value === null) {
+    return 0;
+  }
+  return Buffer.byteLength(JSON.stringify(value));
+}
+
+function maxOrZero(values) {
+  const finite = values.filter((value) => Number.isFinite(value));
+  return finite.length === 0 ? 0 : Math.max(...finite);
+}
+
+function sum(values) {
+  return values.reduce((total, value) => total + value, 0);
 }
 
 function blankScopeWorkingSetIpcIds(ipcRows) {

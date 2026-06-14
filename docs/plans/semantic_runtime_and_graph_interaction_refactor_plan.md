@@ -1,7 +1,7 @@
 # Semantic Runtime and Graph Interaction Refactor Plan
 
 - **Date:** June 16, 2026
-- **Status:** Phase 5 complete; Phase 6 ready
+- **Status:** Phase 6 complete; Phase 7 ready
 - **Scope:** Fix baseline pan/zoom latency even before a workflow starts, replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
 - **Related docs:**
   - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
@@ -988,18 +988,9 @@ where `Reviewer` is an agent reviewing the codebase:
 - Do not add migrations, legacy readers, transitional adapters, old-field
   aliases, or dual-read/write paths.
 
-## Open Questions
+### Phase 6 Implementation Review
 
-None are blocking Phase 2.
-
-Recommended defaults for implementation:
-
-- Use a dedicated `SemanticRuntimeSnapshot` and `SemanticRuntimeDelta` contract
-  instead of extending `SemanticWorkingSet` until it becomes another oversized
-  mixed-purpose object.
-- Keep hot-path runtime deltas on the semantic event stream if the stream can
-  carry bounded payloads cleanly; otherwise add a dedicated runtime stream.
-- Aggregate live sources by workflow node in the default view.
-- Expand individual live sources only in selected/hovered/details contexts.
-- Make the active workflow node treatment green and visually stronger than
-  semantic telemetry.
+Phase 6 is implemented in the current worktree. It adds Go-owned
+payload-budget metadata, hot-path limits, omission counts, string caps, and
+byte-budget gates while keeping full cartographer run details on demand through
+list/read endpoints. Phase 7 is ready.

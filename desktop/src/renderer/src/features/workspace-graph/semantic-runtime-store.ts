@@ -628,6 +628,11 @@ function materializePendingRuntimeDelta(pending: PendingRuntimeDelta): SemanticR
     changedAreas: [...pending.changedAreas],
     fromRevision: pending.fromRevision,
     generatedAt: pending.generatedAt,
+    payloadBudget: {
+      byteSize: 0,
+      maxByteSize: 0,
+      truncatedStringCount: 0,
+    },
     patchPreviewUpdates: [...pending.patchPreviewUpdates.values()],
     removals: {
       aggregateSourceIds: [...pending.removals.aggregateSourceIds],
