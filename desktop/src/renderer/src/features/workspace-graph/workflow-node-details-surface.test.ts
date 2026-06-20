@@ -136,6 +136,17 @@ describe("workflow node details surface helpers", () => {
     expect(html).toContain("provider timeout");
   });
 
+  test("renders semantic runtime explanation for recent lifecycle state without active sources", () => {
+    const html = renderToString(
+      createElement(WorkflowSemanticRuntimeDetails, { target: recentRuntimeTarget() }),
+    );
+
+    expect(html).toContain("Semantic Runtime");
+    expect(html).toContain("Sources");
+    expect(html).toContain("applied");
+    expect(html).toContain("Runs");
+  });
+
   test("renders trajectory runtime provenance on selected workflow nodes", () => {
     const html = renderToString(
       createElement(WorkflowTrajectoryRuntimeDetails, { target: trajectoryTarget() }),
@@ -202,6 +213,25 @@ function runtimeTarget(): WorkflowNodeDetailsTarget {
     versionMismatch: false,
     viewMode: "run",
     workspaceId: "workspace_test",
+  };
+}
+
+function recentRuntimeTarget(): WorkflowNodeDetailsTarget {
+  return {
+    ...runtimeTarget(),
+    runtime: {
+      hiddenSourceCount: 0,
+      modelAudits: [],
+      patchIds: [],
+      pulseCount: 0,
+      recentPulses: [],
+      runIds: ["cartographer_run_applied"],
+      sourceCount: 0,
+      sourceRefs: [],
+      status: "applied",
+      statusCounts: [{ count: 1, status: "applied" }],
+      windowIds: ["cartographer_window_applied"],
+    },
   };
 }
 

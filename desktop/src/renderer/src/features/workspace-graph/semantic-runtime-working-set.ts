@@ -107,7 +107,7 @@ export function semanticWorkingSetFromRuntimeSnapshot(
       windowId: preview.windowId,
     })),
     pulses: semanticWorkingSetPulsesFromRuntime(snapshot),
-    recentCartographerRuns: [],
+    recentCartographerRuns: semanticWorkingSetRecentRunsFromRuntime(snapshot),
     recentSemanticChanges,
     workspaceId: snapshot.workspaceId,
     workflowExecutionId: snapshot.workflowExecutionId,
@@ -282,6 +282,61 @@ function semanticWorkingSetPulsesFromRuntime(
   return [...activeSourcePulses, ...patchPulses];
 }
 
+function semanticWorkingSetRecentRunsFromRuntime(
+  snapshot: SemanticRuntimeSnapshot,
+): SemanticWorkingSet["recentCartographerRuns"] {
+  const activeRunIds = new Set(snapshot.cartographer.activeRuns.map((run) => run.id));
+  return snapshot.displayHints.aggregateSources.flatMap((source) => {
+    const runId = source.runIds.find((id) => !activeRunIds.has(id)) ?? "";
+    if (runId === "") {
+      return [];
+    }
+    return [
+      {
+        changedSemanticEdgeIds: [],
+        changedSemanticNodeIds: [],
+        completedAt: semanticWorkingSetStatusIsActive(source.status) ? "" : source.updatedAt,
+        createdAt: source.updatedAt,
+        createdSemanticEventIds: [],
+        diagnostics: [],
+        id: runId,
+        inputItemCounts: emptyRuntimeInputItemCounts(),
+        modelAudit: source.modelAudit,
+        patchOperationNames: [],
+        publicSummary: "",
+        sourceRefs: source.sourceRefs,
+        startedAt: source.updatedAt,
+        status: source.status,
+        targetEntityId: source.targetEntityId,
+        triggerKind: "manual" as const,
+        updatedAt: source.updatedAt,
+        windowId: source.windowIds[0] ?? "",
+      },
+    ];
+  });
+}
+
+function emptyRuntimeInputItemCounts() {
+  return {
+    activity: 0,
+    contextPacks: 0,
+    evidence: 0,
+    evidenceCandidates: 0,
+    existingEdges: 0,
+    existingNodes: 0,
+    fileChanges: 0,
+    newEvents: 0,
+    observations: 0,
+    observedEventRefs: 0,
+    outputSummaries: 0,
+    retrievalResults: 0,
+    steering: 0,
+    testResults: 0,
+    toolCalls: 0,
+    trajectorySummaries: 0,
+  };
+}
+
 function semanticRuntimeLastUpdatedAt(snapshot: SemanticRuntimeSnapshot) {
   return (
     [
@@ -291,8 +346,24 @@ function semanticRuntimeLastUpdatedAt(snapshot: SemanticRuntimeSnapshot) {
       ...snapshot.cartographer.activeWindows.map((window) => window.updatedAt),
       ...snapshot.patches.map((patch) => patch.updatedAt),
       ...snapshot.semanticActivity.recentSemanticChanges.map((change) => change.occurredAt),
+      ...snapshot.displayHints.aggregateSources.map((source) => source.updatedAt),
     ].sort((left, right) => right.localeCompare(left))[0] ?? snapshot.generatedAt
   );
+}
+
+function semanticWorkingSetStatusIsActive(status: SemanticWorkingSetStatus) {
+  switch (status) {
+    case "observing":
+    case "window_open":
+    case "queued":
+    case "running":
+    case "proposing":
+    case "applying":
+    case "pending_review":
+      return true;
+    default:
+      return false;
+  }
 }
 
 function semanticGraphActivityKindForWorkingSetStatus(

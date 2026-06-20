@@ -82,6 +82,7 @@ export function WorkflowGraphSurface({
   const workflowCameraRef = useRef<WorkflowGraphCameraState | null>(null);
   const workflowCameraScopeRef = useRef<WorkflowGraphCameraScope | null>(null);
   const workflowRendererRef = useRef<WorkflowGraphRenderer | null>(null);
+  const initialWorkflowGraphRef = useRef<WorkflowGraphRendererGraph | null>(null);
   const pendingWorkflowGraphRef = useRef<WorkflowGraphRendererGraph | null>(null);
   const reactRenderCount = useRef(0);
   reactRenderCount.current += 1;
@@ -198,7 +199,7 @@ export function WorkflowGraphSurface({
       workflowWorkspaceId,
     ],
   );
-  pendingWorkflowGraphRef.current = graph ?? null;
+  initialWorkflowGraphRef.current = graph ?? null;
   const { graphSceneStore, syncSceneFrameToRenderer } = useWorkflowGraphSceneRuntime({
     pendingWorkflowGraphRef,
     selectedWorkflowNodeId,
@@ -686,8 +687,8 @@ export function WorkflowGraphSurface({
       if (workflowProjection === null || nodeId === null) {
         return;
       }
-      const runtime =
-        pendingWorkflowGraphRef.current?.nodes.find((node) => node.id === nodeId)?.runtime ?? null;
+      const graphForDetails = syncSceneFrameToRenderer(true) ?? pendingWorkflowGraphRef.current;
+      const runtime = graphForDetails?.nodes.find((node) => node.id === nodeId)?.runtime ?? null;
       const trajectory = trajectoryStore?.getNodeDetails(nodeId) ?? null;
       setSelectedNodeTarget(
         workflowNodeDetailsTarget(workflowProjection, nodeId, runtime, trajectory),
@@ -700,7 +701,7 @@ export function WorkflowGraphSurface({
         widthSpec: { unit: "px", value: 380 },
       });
     },
-    [setSelectedNodeTarget, trajectoryStore, workflowProjection],
+    [setSelectedNodeTarget, syncSceneFrameToRenderer, trajectoryStore, workflowProjection],
   );
   const openGraphNodeDetails = useCallback(
     (rendererNodeId: string | null) => {
@@ -838,13 +839,6 @@ export function WorkflowGraphSurface({
   }, [rendererHandlers]);
 
   useEffect(() => {
-    if (!graph) {
-      return;
-    }
-    workflowRendererRef.current?.updateGraph(graph);
-  }, [graph]);
-
-  useEffect(() => {
     if (!rendererGraphReady) {
       return;
     }
@@ -852,9 +846,12 @@ export function WorkflowGraphSurface({
     if (!host) {
       return;
     }
-    const initialGraph = pendingWorkflowGraphRef.current;
+    const initialGraph = pendingWorkflowGraphRef.current ?? initialWorkflowGraphRef.current;
     if (initialGraph === null) {
       return;
+    }
+    if (pendingWorkflowGraphRef.current === null) {
+      pendingWorkflowGraphRef.current = initialGraph;
     }
 
     host.replaceChildren();

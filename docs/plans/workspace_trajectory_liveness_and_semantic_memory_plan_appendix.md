@@ -48,7 +48,8 @@ Live-provider checks:
 
 ## Current Acceptance Status
 
-Last reviewed after commit `2d1343265`.
+Last reviewed after the Phase 6 follow-up working-tree changes on June 18,
+2026.
 
 Passing checks:
 
@@ -58,31 +59,35 @@ Passing checks:
 - Production `semantic-graph` passed.
 - Production `workspace-trajectory-file-fidelity` passed.
 - Production `semantic-cartographer-auto` passed.
+- Production `workflow-graph-pan-zoom-runtime-burst` passed after the Phase 6
+  follow-up. Evidence:
+  `.recordings/workflow-graph-pan-zoom-runtime-burst/2026-06-19T013825-039Z`.
+- Production `semantic-review-live-product` passed after the Phase 6 follow-up.
+  Evidence:
+  `.recordings/semantic-review-live-product/2026-06-19T013800-441Z`.
+- Production `semantic-runtime-reconnect` passed after the Phase 6 follow-up.
+  Evidence:
+  `.recordings/semantic-runtime-reconnect/2026-06-19T013845-717Z`.
+- Production `semantic-runtime-large-review` passed after the Phase 6 follow-up.
+  Evidence:
+  `.recordings/semantic-runtime-large-review/2026-06-19T013906-441Z`.
 
 Blocking checks:
 
-- Production `workflow-graph-pan-zoom-runtime-burst` fails
-  `no-full-graph-label-sync-per-pan-wheel-event`. Two runs produced
-  `cameraMovingLabelSyncDelta=5`, which violates the hard gate that camera
-  movement must not cause full graph label sync work.
-- Production `semantic-review-live-product` fails because workflow-node details
-  do not explain semantic runtime aggregate/source state. The details pane
-  currently exposes trajectory/cartographer status, but not the semantic runtime
-  explanation required by the product gate.
+- None from the Phase 6 follow-up.
 
-Not yet proven after the blockers:
+Not yet proven:
 
-- Production `semantic-runtime-reconnect`.
-- Production `semantic-runtime-large-review`.
-- Live Codex E2E after the Phase 6 follow-up, if the follow-up touches Codex
-  harness behavior, provider protocol handling, or live cartographer behavior.
+- Live Codex E2E was not required for the Phase 6 follow-up because it did not
+  touch Codex harness behavior, provider protocol handling, or live-provider
+  integration. Future changes in those areas still require the live-provider
+  gate when local ChatGPT auth is available.
 
 Exit criteria:
 
-- Fix the two blocking checks above.
-- Rerun the blocked Phase 7 workflow set.
-- Rerun any focused unit or production workflow checks touched by the follow-up.
-- Only then mark Phase 7 complete in the main plan.
+- The Phase 6 follow-up exit criteria are satisfied: the two blocking checks
+  are fixed, the blocked Phase 7 workflow set was rerun, and focused unit and
+  production workflow checks touched by the follow-up passed.
 
 ## Implementation Notes
 

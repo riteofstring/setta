@@ -64,6 +64,50 @@ describe("semantic runtime store", () => {
     ]);
   });
 
+  test("projects aggregate terminal runtime snapshots into recent cartographer runs", async () => {
+    const scheduler = manualScheduler();
+    const loadSnapshot = vi.fn(async () =>
+      runtimeSnapshot({
+        aggregateSources: [
+          aggregateSource({
+            runIds: ["cartographer_run_failed"],
+            status: "failed",
+            windowIds: ["cartographer_window_failed"],
+          }),
+        ],
+        revision: 1,
+      }),
+    );
+    const events = eventSource();
+    const store = createSemanticRuntimeStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workspaceId: "workspace_graph",
+    });
+
+    store.start();
+    await flushPromises();
+
+    expect(store.getFrameSnapshot().workingSet?.recentCartographerRuns).toMatchObject([
+      {
+        id: "cartographer_run_failed",
+        sourceRefs: { workflowNodeId: "reviewer" },
+        status: "failed",
+        windowId: "cartographer_window_failed",
+      },
+    ]);
+    expect(store.getFrameSnapshot().workingSet?.liveSourceRefs).toMatchObject([
+      {
+        runId: "cartographer_run_failed",
+        sourceRefs: { workflowNodeId: "reviewer" },
+        status: "failed",
+        windowId: "cartographer_window_failed",
+      },
+    ]);
+  });
+
   test("removes workflow and run-item runtime entries by source id when removal is latest", async () => {
     const scheduler = manualScheduler();
     const loadSnapshot = vi.fn(async () =>
@@ -549,9 +593,11 @@ function runtimeRunItem({ runItemId }: { runItemId: string }): SemanticRuntimeRu
 function aggregateSource({
   runIds,
   status,
+  windowIds = [],
 }: {
   runIds: string[];
   status: SemanticRuntimeSourceAggregate["status"];
+  windowIds?: string[];
 }): SemanticRuntimeSourceAggregate {
   return {
     hiddenCount: 0,
@@ -566,7 +612,7 @@ function aggregateSource({
     totalCount: 1,
     updatedAt: timestamp(1),
     visibleCount: 1,
-    windowIds: [],
+    windowIds,
   };
 }
 

@@ -65,6 +65,7 @@ export function semanticWorkflowRuntimeByNodeId({
   };
   recordLiveSourceRuntime(context, semanticWorkingSet);
   recordCartographerRunRuntime(context, semanticWorkingSet);
+  recordRecentCartographerRunRuntime(context, semanticWorkingSet);
   recordCartographerWindowRuntime(context, semanticWorkingSet);
   recordPatchPreviewRuntime(context, semanticWorkingSet);
   recordCandidateTargetRuntime(context, semanticWorkingSet);
@@ -93,6 +94,22 @@ function recordCartographerRunRuntime(
   semanticWorkingSet: SemanticWorkingSet,
 ) {
   for (const run of semanticWorkingSet.activeCartographerRuns) {
+    recordWorkflowRuntimeSourceForRefs(context, {
+      patchId: "",
+      modelAudit: run.modelAudit,
+      runId: run.id,
+      sourceRefs: run.sourceRefs,
+      status: run.status,
+      windowId: run.windowId,
+    });
+  }
+}
+
+function recordRecentCartographerRunRuntime(
+  context: WorkflowRuntimeContext,
+  semanticWorkingSet: SemanticWorkingSet,
+) {
+  for (const run of semanticWorkingSet.recentCartographerRuns) {
     recordWorkflowRuntimeSourceForRefs(context, {
       patchId: "",
       modelAudit: run.modelAudit,

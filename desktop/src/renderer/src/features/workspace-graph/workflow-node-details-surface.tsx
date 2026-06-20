@@ -617,7 +617,7 @@ function WorkflowNodeIdentity({ target }: { target: WorkflowNodeDetailsTarget })
 
 export function WorkflowSemanticRuntimeDetails({ target }: { target: WorkflowNodeDetailsTarget }) {
   const runtime = target.runtime ?? null;
-  if (runtime === null || runtime.sourceCount <= 0) {
+  if (runtime === null || !semanticRuntimeHasDetails(runtime)) {
     return null;
   }
   return (
@@ -651,6 +651,24 @@ export function WorkflowSemanticRuntimeDetails({ target }: { target: WorkflowNod
         <WorkflowSemanticRuntimePulses pulses={runtime.recentPulses} />
       </WorkflowDetailsSection>
     </div>
+  );
+}
+
+function semanticRuntimeHasDetails(runtime: NonNullable<WorkflowNodeDetailsTarget["runtime"]>) {
+  const detailLists = [
+    runtime.runIds,
+    runtime.windowIds,
+    runtime.patchIds,
+    runtime.statusCounts,
+    runtime.modelAudits,
+    runtime.sourceRefs,
+    runtime.recentPulses,
+  ];
+  return (
+    runtime.sourceCount > 0 ||
+    runtime.pulseCount > 0 ||
+    runtime.hiddenSourceCount > 0 ||
+    detailLists.some((list) => list.length > 0)
   );
 }
 

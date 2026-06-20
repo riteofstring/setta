@@ -4,7 +4,6 @@ import { cameraState, cameraStatesDiffer } from "./pixi-renderer-helpers";
 
 const cameraPanSettleDelayMs = 64;
 const cameraZoomSettleDelayMs = 48;
-const movingLabelSyncNodeLimit = 80;
 
 export function createWorkflowGraphCameraSync({
   animationCoordinator,
@@ -67,7 +66,6 @@ export function createWorkflowGraphCameraSync({
       cameraUpdateCount,
       cameraZoomSettleDelayMs,
       lastCameraMovementKind,
-      movingLabelSyncNodeLimit,
       pendingCameraSyncIncludesZoom,
       pendingSettledFidelityIncludesZoom,
     };
@@ -262,12 +260,6 @@ export function createWorkflowGraphCameraSync({
   function syncLabelsForCameraMotion(cameraMotion) {
     if (cameraMotion === "moving") {
       const visibleLabelCount = labels.visibleLabelSyncNodeCount();
-      if (visibleLabelCount <= movingLabelSyncNodeLimit) {
-        labelLayer.visible = true;
-        labels.syncVisibleLabels();
-        cameraMovingLabelSyncedFrameCount += 1;
-        return;
-      }
       labelLayer.visible = false;
       cameraMovingLabelHiddenFrameCount += 1;
       cameraMovingLabelDeferredFrameCount += visibleLabelCount;

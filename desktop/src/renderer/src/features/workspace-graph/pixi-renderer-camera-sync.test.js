@@ -3,7 +3,7 @@ import { describe, expect, test, vi } from "vitest";
 import { createWorkflowGraphCameraSync } from "./pixi-renderer-camera-sync";
 
 describe("workflow graph camera sync", () => {
-  test("keeps visible label sync during moving camera frames on small graphs", () => {
+  test("defers label sync during moving camera frames on small graphs", () => {
     const labels = labelManagerStub({ nodeCount: 3 });
     const labelLayer = { visible: true };
     const cameraSync = createWorkflowGraphCameraSync({
@@ -24,11 +24,11 @@ describe("workflow graph camera sync", () => {
     cameraSync.scheduleCameraDependentSync();
     cameraSync.runCameraDependentSyncFrame(10);
 
-    expect(labelLayer.visible).toBe(true);
-    expect(labels.syncVisibleLabels).toHaveBeenCalledTimes(1);
+    expect(labelLayer.visible).toBe(false);
+    expect(labels.syncVisibleLabels).not.toHaveBeenCalled();
     expect(cameraSync.debugSnapshot()).toMatchObject({
-      cameraMovingLabelHiddenFrameCount: 0,
-      cameraMovingLabelSyncedFrameCount: 1,
+      cameraMovingLabelHiddenFrameCount: 1,
+      cameraMovingLabelSyncedFrameCount: 0,
     });
   });
 
@@ -86,7 +86,7 @@ describe("workflow graph camera sync", () => {
     cameraSync.runCameraDependentSyncFrame(49);
 
     expect(labelLayer.visible).toBe(true);
-    expect(labels.syncVisibleLabels).toHaveBeenCalledTimes(2);
+    expect(labels.syncVisibleLabels).toHaveBeenCalledTimes(1);
     expect(animationCoordinator.syncActiveSet).toHaveBeenLastCalledWith({
       cameraMotion: "settled",
     });
@@ -121,7 +121,7 @@ describe("workflow graph camera sync", () => {
     cameraSync.runCameraDependentSyncFrame(11);
     cameraSync.runCameraDependentSyncFrame(200);
 
-    expect(labels.syncVisibleLabels).toHaveBeenCalledTimes(1);
+    expect(labels.syncVisibleLabels).not.toHaveBeenCalled();
     expect(cameraSync.debugSnapshot()).toMatchObject({
       activeCameraInteractionCount: 1,
       cameraSettleRestoreFrameCount: 0,
@@ -130,7 +130,7 @@ describe("workflow graph camera sync", () => {
     cameraSync.endCameraInteraction({ interactionKind: "pointer-pan", now: 210 });
     cameraSync.runCameraDependentSyncFrame(275);
 
-    expect(labels.syncVisibleLabels).toHaveBeenCalledTimes(2);
+    expect(labels.syncVisibleLabels).toHaveBeenCalledTimes(1);
     expect(cameraSync.debugSnapshot()).toMatchObject({
       activeCameraInteractionCount: 0,
       cameraSettleRestoreFrameCount: 1,
