@@ -38,10 +38,16 @@ motion-time LOD, or counter-only gates.
 - Semantic node placement must not shift as an incidental consequence of moving
   workflow nodes.
 - Activity sprites must be interactive when they look interactive. Clicking a
-  sprite should open useful activity details.
+  sprite opens an inline floating popover focused on that activity item, with a
+  link to open the owning workflow node's full details.
 - Workflow node details for agent work must reuse the same agent/chat activity
   presentation primitives used by chat, rather than maintaining a separate
   lower-quality representation.
+- Reuse is by extracting shared leaf components (assistant message, run item,
+  tool call, output, approval) and composing them in both the sprite popover and
+  the node details panel. The full chat transcript component is not embedded, and
+  `TranscriptTurn`/`ChatMessage` structure is not fabricated from run items (see
+  the Activity And Details UI decision record for why).
 
 ## No Hacks Policy
 
@@ -250,14 +256,50 @@ move when workflow nodes move.
 ### Activity And Details UI
 
 Activity sprites should be clickable retained objects with clear hit targets.
-Clicking an activity sprite should open a details surface focused on the
-underlying activity item or owning workflow node.
+Clicking an activity sprite opens an inline floating popover anchored near the
+sprite, focused on that one activity item, dismissable on click-away, with a
+link to open the owning workflow node's full details. The popover is not a third
+bespoke surface: it renders the clicked item through the same shared leaf
+component the node details panel uses.
 
 Agent work in workflow details should be rendered through shared chat/agent
 activity components. The workflow details pane may omit user-composer behavior,
 but it should not reimplement assistant messages, run items, tool calls,
 approvals, output pagination, or transcript-like activity rows with a separate
 visual language.
+
+#### Decision Record: Extract Shared Leaf Components, Do Not Embed The Transcript
+
+This decision is verified against the data model and is intentional. Do not
+revise it back toward a full chat transcript embed without re-verifying the
+types below.
+
+- Chat renders the agent as a `TranscriptTurn` (`triggerMessage` +
+  `assistantMessage` + `run` + `steeringMessages`), where the assistant text is
+  a `ChatMessage` with `parts: MessagePart[]`. Chat is conversation-keyed.
+- A workflow node's agent work loads as `RunActivityPage`
+  (`{ runId, items: RunItem[], output: RunItemOutput[] }`), reached through
+  `WorkflowActivityRef` keyed by `executionId`/`nodeExecutionId`/`attempt`/
+  `iteration`. It is a flat run-item list with no trigger message, no assistant
+  `ChatMessage`, and no turn structure. It is workflow-execution-keyed.
+- The two share a `Run` + `RunItem` core. They do not share conversation/turn
+  structure, and the agent's text is a `ChatMessage` in chat but a `RunItem` in
+  the workflow path.
+
+Therefore:
+
+- Extract the leaf presentation components (assistant message body / markdown,
+  run item, tool call, output pagination, approval, status) so chat and workflow
+  details render the same shapes from the same code.
+- Compose those leaf components directly in the node details panel and in the
+  sprite popover.
+- Do not embed the `ChatTranscript` (virtualized turn list) in workflow details.
+- Do not synthesize `TranscriptTurn` or `ChatMessage` objects from `RunItem`s to
+  satisfy a transcript embed; that fabricates conversation structure the
+  workflow execution path does not have.
+- If the backend later unifies workflow node runs onto genuine conversation
+  turns (real trigger/assistant `ChatMessage`s), revisit the embed then, not by
+  adapter-faking it in the renderer now.
 
 ## Diagnostic Contract
 
@@ -481,38 +523,65 @@ Goal: make activity sprites useful rather than passive decoration.
 Tasks:
 
 - Give activity sprites explicit hit targets and interaction state.
-- Define the details target for each sprite kind.
-- Open a focused details view on click.
-- Keep sprite rendering retained and camera-fast-path compatible.
-- Add E2E coverage for clicking a sprite and opening the expected details.
-- Add recording events for sprite hover/click/details target.
+- Map each sprite to its underlying activity item (its `runItemId`) and owning
+  workflow node.
+- On click, open an inline floating popover anchored near the sprite, focused on
+  that one activity item, dismissable on click-away or escape.
+- Render the popover body with the shared leaf activity component from Phase 6,
+  not a sprite-specific bespoke layout.
+- Include a "open full node details" link in the popover that opens the owning
+  workflow node details with that item in view.
+- Keep sprite rendering retained and camera-fast-path compatible; the popover is
+  a screen-space overlay and must not run graph content work during pan/zoom.
+- Add E2E coverage for clicking a sprite, rendering the popover, following the
+  link to full details, and dismissing on click-away.
+- Add recording events for sprite hover/click, the popover item id, and the
+  details link target.
 
 Acceptance criteria:
 
-- Users can click activity sprites to inspect details.
-- Sprite interaction does not compromise pan/zoom performance.
-- Recordings identify the clicked sprite and resulting target.
+- Clicking a sprite opens an inline popover focused on the clicked activity item.
+- The popover renders through the shared leaf component, not a third bespoke
+  surface.
+- The popover links to the owning workflow node's full details.
+- Sprite interaction and the popover do not compromise pan/zoom performance.
+- Recordings identify the clicked sprite, the popover item, and the link target.
 
 ## Phase 6: Shared Agent Activity UI
 
-Goal: stop duplicating inferior agent-work UI in workflow node details.
+Goal: stop duplicating inferior agent-work UI in workflow node details. Follow
+the Activity And Details UI decision record: extract shared leaf components and
+compose them; do not embed the full chat transcript and do not fabricate
+`TranscriptTurn`/`ChatMessage` from run items.
 
 Tasks:
 
-- Extract reusable agent activity primitives from the chat transcript surface.
-- Keep chat-specific controls, composer, and user-message affordances outside
-  the shared primitives.
-- Render workflow node run activity using the shared assistant/run-item/output
-  primitives.
+- Extract reusable leaf presentation components from the chat surface: assistant
+  message body/markdown (`MessagePart[]` rendering), run item, tool call, output
+  pagination, approval, and status. Keep them independent of the
+  `TranscriptTurn` virtualized container.
+- Keep chat-specific controls, composer, user-message affordances, and the
+  `ChatTranscript` virtualized turn list outside the shared leaf components.
+- Render workflow node `RunActivityPage` (`items: RunItem[]`, `output:
+  RunItemOutput[]`) by composing the shared leaf components directly, with no
+  synthesized conversation turns.
+- Render the same shared leaf component inside the Phase 5 sprite popover for a
+  single activity item.
+- Delete the bespoke `WorkflowRunActivityItem` representation once the shared
+  components render workflow run activity.
 - Reuse approval, tool call, output pagination, status, and message text
   presentation where the data contracts are the same.
-- Add tests proving workflow details and chat render the same agent activity
-  shapes consistently.
+- Add tests proving workflow details, the sprite popover, and chat render the
+  same agent activity shapes from the same components.
 
 Acceptance criteria:
 
-- Workflow node details no longer maintain a separate bespoke representation
-  for agent messages/run items/tool calls when shared components exist.
+- Workflow node details and the sprite popover render agent messages/run
+  items/tool calls through the shared leaf components, not a bespoke
+  representation.
+- The bespoke `WorkflowRunActivityItem` is removed.
+- The `ChatTranscript` virtualized turn list is not embedded in workflow details,
+  and no `TranscriptTurn`/`ChatMessage` is synthesized from run items.
 - Agent work looks and behaves consistently between chat and workflow details.
 
 ## Phase 7: Recording And Debugging Tools
