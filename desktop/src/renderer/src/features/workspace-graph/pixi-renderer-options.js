@@ -1,10 +1,8 @@
-import { initialEdges, initialNodes } from "./pixi-renderer-fixture";
 import { noopCameraStateChange, noopReactRenderCount } from "./pixi-renderer-handlers";
 
 const defaultRendererOptions = {
   animationEnabled: true,
   debugSurfaceId: "workflow-graph",
-  graph: { edges: initialEdges, nodes: initialNodes },
   initialCameraState: null,
   onCameraStateChange: noopCameraStateChange,
   onCanvasContextMenu: null,
@@ -24,10 +22,14 @@ export const workflowGraphRendererLimits = {
 };
 
 export function rendererOptionsWithDefaults(options) {
-  return {
+  const mergedOptions = {
     ...defaultRendererOptions,
     ...definedRendererOptions(options),
   };
+  if (!mergedOptions.graph) {
+    throw new Error("Workflow graph renderer creation requires a controller-supplied graph");
+  }
+  return mergedOptions;
 }
 
 function definedRendererOptions(options) {

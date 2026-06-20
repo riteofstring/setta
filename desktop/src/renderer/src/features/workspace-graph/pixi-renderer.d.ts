@@ -187,7 +187,7 @@ interface CreateWorkflowGraphRendererOptions {
   animationEnabled?: boolean;
   debugEnabled: boolean;
   debugSurfaceId?: string;
-  graph?: WorkflowGraphGraph;
+  graph: WorkflowGraphGraph;
   host: HTMLElement;
   initialCameraState?: WorkflowGraphCameraState | null;
   onCanvasContextMenu?: WorkflowGraphRendererHandlers["onCanvasContextMenu"];

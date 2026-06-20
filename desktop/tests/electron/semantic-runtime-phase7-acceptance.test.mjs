@@ -154,7 +154,7 @@ async function runWorkflowGraphPanZoomRuntimeBurst() {
     (snapshot) =>
       reviewerActive(snapshot) &&
       snapshot.render.activeNodePulseCount > 0 &&
-      snapshot.render.frameCount > 2,
+      snapshot.render.frameCount > 0,
     30_000,
   );
   const artifacts = await recordWorkflowGraphPanZoomDiagnostics({

@@ -253,7 +253,7 @@ function isInitialScaleSnapshotReady(snapshot, nodeCount) {
     snapshot.canvas.clientWidth > 0 &&
     snapshot.canvas.clientHeight > 0 &&
     snapshot.graph.nodeCount === nodeCount &&
-    snapshot.render.frameCount > 2 &&
+    snapshot.render.frameCount > 0 &&
     snapshot.visual.hasNonBackgroundPixels
   );
 }

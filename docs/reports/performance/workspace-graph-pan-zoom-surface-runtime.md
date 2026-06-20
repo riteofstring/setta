@@ -742,3 +742,124 @@ Source: artifact-parser
 - report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
 - report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=42.799999999995634 budget=24; p95FrameMs=42.799999999995634; noisy threshold remains report-only
 - report-only no-long-task-over-100ms: report; actual=158 budget=100; maxLongTaskMs=158; non-reference runner remains report-only
+
+## Run 2026-06-20T02:13:46.642Z
+
+Artifact root: `/Users/kevin/Documents/AppDevelopment/setta/.recordings/workflow-graph-pan-zoom-small-trackpad/20260620T021335Z`
+
+Phase 1 readiness: ready
+
+
+Source: artifact-parser
+
+## Pan/Zoom Diagnosis
+
+| Scenario | Recording | Interactions | Diagnosis | p95 delivery ms | p95 handler ms | p95 camera commit ms | p95 first Pixi render proxy ms | input-to-presented-frame | frame p50/p95/p99/max ms | Renderer duplicates | Camera DOM writes | Camera React commits | Scene replacements | Deferred work | Top blocker |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
+| small-trackpad | on | 2/2 (wheel-burst#14, wheel-burst#15) | event delivery | 53.90 | 0.80 | 0.30 | 66.70 | unavailable | 17.50/1141.60/5183.40/5183.40 | 0 | 0 | 0 | 0 | label-position-sync:39 | CpuProfiler::StartProfiling 71.00ms |
+
+| Scenario | Recording | Synthetic scene | Nodes | p95 frame ms | p95 delivery ms | p95 first Pixi render proxy ms | Scene visits p95 / budget | Display objects | Camera pane writes | Camera React commits | Top trace task | Hard failures | Report-only findings |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| small-trackpad | on | workflow | 3 | 1141.60 | 53.90 | 66.70 | 3.00 / 544.00 | 58 | 0 | 0 | CpuProfiler::StartProfiling 71.00ms | 0 | 2 |
+
+## Matrix Checks
+
+
+
+## small-trackpad / workflow / recording-on
+
+- build: existing-production-electron-build
+- seed: not-recorded
+- warm-up/repetitions: not-recorded / not-recorded
+- viewport/DPR/refresh: 1280x820 / 2 / 120Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+- trace top tasks: CpuProfiler::StartProfiling 71.00ms; RunTask 25.53ms; RunTask 25.53ms
+- interaction ids: wheel-burst#14, wheel-burst#15
+- timing: delivery p50/p95/max=40.40/53.90/53.90ms; handler p95=0.80ms; camera commit p95=0.30ms; first Pixi render proxy p95=66.70ms; input-to-presented=unavailable; frame p50/p95/p99/max=17.50/1141.60/5183.40/5183.40ms
+- scene visits: settaOwnedLayerVisits p95=0.00, graphObjectsConsidered p95=0.00, cullCandidatesChecked p95=0.00, displayObjectsTraversed p95=0.00, labelsConsidered p95=3.00, boundsCalculations p95=0.00
+- supplemental render: renderedObjects=58; drawCalls=not-instrumented
+- DOM mutations by owner/source: workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|unattributed|attributes|aria-disabled=2; workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|unattributed|attributes|aria-label=2; workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|unattributed|attributes|disabled=2; workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|unattributed|attributes|title=2; workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|interaction:node-drag-down|attributes|aria-disabled=1; workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|interaction:node-drag-down|attributes|aria-label=1
+- React commits by owner/source: none
+- deferred work by lane: label-position-sync:39
+- graph scene replacements: 0
+- draw calls: not instrumented in the current Pixi debug snapshot
+
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=2
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=2, afterRendererInstanceId=2
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- report-only idle-wheel-pinch-to-camera-transform-p95-ms: pass; actual=0.7000000476837158 budget=16; wheelLatencySamples=13, maxEventToCameraUpdateMs=0.7000000476837158
+- report-only idle-wheel-pinch-to-first-pixi-render-proxy-p95-ms: pass; actual=16.200000047683716 budget=32; wheelLatencySamples=13, maxEventToFirstPixiRenderAfterCameraMs=16.200000047683716; this is a Pixi postrender proxy, not compositor presentation
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-20T02:13:42.651Z, lastInputAt=2026-06-20T02:13:45.061Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=68, panWheelEventCount=17, graphNodeCount=3, materializedLabelCount=3
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=14 budget=27; staticGlowRedrawCount=14, cameraDependentSyncFrameDelta=13, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=3 budget=96; materializedNodeCount=3, visibleMaterializedNodeCount=2
+- report-only supplemental-display-object-count-budget: pass; actual=58 budget=3000; totalDisplayObjectCount=58, materializedNodeCount=3; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=1141.6000000000001 budget=24; p95FrameMs=1141.6000000000001; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: pass; actual=84 budget=100; maxLongTaskMs=84; non-reference runner remains report-only
+
+
+## Run 2026-06-20T02:17:50.952Z
+
+Artifact root: `/Users/kevin/Documents/AppDevelopment/setta/.recordings/workflow-graph-pan-zoom-normal/20260620T021729Z`
+
+Phase 1 readiness: ready
+
+
+Source: artifact-parser
+
+## Pan/Zoom Diagnosis
+
+| Scenario | Recording | Interactions | Diagnosis | p95 delivery ms | p95 handler ms | p95 camera commit ms | p95 first Pixi render proxy ms | input-to-presented-frame | frame p50/p95/p99/max ms | Renderer duplicates | Camera DOM writes | Camera React commits | Scene replacements | Deferred work | Top blocker |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
+| normal | on | 1/1 (wheel#38) | event delivery | 78.20 | 0.70 | 0.40 | 82.50 | unavailable | 16.80/25.50/34.10/34.10 | 0 | 0 | 0 | 0 | label-position-sync:125 | CpuProfiler::StartProfiling 127.12ms |
+
+| Scenario | Recording | Synthetic scene | Nodes | p95 frame ms | p95 delivery ms | p95 first Pixi render proxy ms | Scene visits p95 / budget | Display objects | Camera pane writes | Camera React commits | Top trace task | Hard failures | Report-only findings |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| normal | on | phase0-normal | 125 | 17.70 | 78.20 | 82.50 | 0.00 / 772.00 | 347 | 0 | 0 | CpuProfiler::StartProfiling 127.12ms | 0 | 2 |
+
+## Matrix Checks
+
+
+
+## normal / phase0-normal / recording-on
+
+- build: existing-production-electron-build
+- seed: phase0-normal-v1
+- warm-up/repetitions: 1 / 1
+- viewport/DPR/refresh: 1440x900 / 2 / 60Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+- trace top tasks: CpuProfiler::StartProfiling 127.12ms; RunTask 31.99ms; RunTask 31.99ms
+- interaction ids: wheel#38
+- timing: delivery p50/p95/max=63.90/78.20/78.20ms; handler p95=0.70ms; camera commit p95=0.40ms; first Pixi render proxy p95=82.50ms; input-to-presented=unavailable; frame p50/p95/p99/max=16.80/25.50/34.10/34.10ms
+- scene visits: settaOwnedLayerVisits p95=0.00, graphObjectsConsidered p95=0.00, cullCandidatesChecked p95=0.00, displayObjectsTraversed p95=0.00, labelsConsidered p95=0.00, boundsCalculations p95=0.00
+- supplemental render: renderedObjects=347; drawCalls=not-instrumented
+- DOM mutations by owner/source: none
+- React commits by owner/source: none
+- deferred work by lane: label-position-sync:125
+- graph scene replacements: 0
+- draw calls: not instrumented in the current Pixi debug snapshot
+
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=1
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=1, afterRendererInstanceId=1
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-20T02:17:38.907Z, lastInputAt=2026-06-20T02:17:47.881Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=1508, panWheelEventCount=22, graphNodeCount=125, materializedLabelCount=1
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=9 budget=36; staticGlowRedrawCount=9, cameraDependentSyncFrameDelta=22, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=0 budget=96; materializedNodeCount=0, visibleMaterializedNodeCount=0
+- report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: pass; actual=17.700000000000728 budget=24; p95FrameMs=17.700000000000728; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: report; actual=141 budget=100; maxLongTaskMs=141; non-reference runner remains report-only

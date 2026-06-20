@@ -50,33 +50,3 @@ export const initialNodes = [
     y: 150,
   },
 ];
-
-export const initialEdges = [
-  {
-    id: "source-reason",
-    layer: "workflow",
-    sourceNodeId: "source",
-    sourcePortId: "output",
-    status: "active",
-    targetNodeId: "reason",
-    targetPortId: "input",
-  },
-  {
-    id: "reason-output",
-    layer: "workflow",
-    sourceNodeId: "reason",
-    sourcePortId: "output",
-    status: "inactive",
-    targetNodeId: "output",
-    targetPortId: "input",
-  },
-  {
-    id: "reason-review",
-    layer: "workflow",
-    sourceNodeId: "reason",
-    sourcePortId: "output",
-    status: "inactive",
-    targetNodeId: "review",
-    targetPortId: "input",
-  },
-];

@@ -1,8 +1,8 @@
 # Workspace Graph Pan/Zoom Surface Runtime Refactor Plan
 
 - **Date:** June 18, 2026
-- **Status:** Phase 7 is implemented. Phase 4 remains deferred by the Phase 3
-  benchmark gate, and Phase 8 is ready to implement next.
+- **Status:** Phase 8 is implemented. Phase 4 remains deferred by the Phase 3
+  benchmark gate.
 - **Scope:** Make workspace graph pan/zoom smooth by refactoring graph canvas
   lifetime, workspace pane presentation writes, and frame-loop scheduling around
   explicit surface ownership and measurable interaction budgets.
@@ -911,6 +911,31 @@ Success criteria:
 - There is one workspace presentation write model.
 - There are no transitional adapters, compatibility readers, legacy renderer
   modes, dual paths, or stale feature flags.
+
+#### Phase 8 Status
+
+The Phase 8 implementation removes the remaining runtime bypasses after the
+surface controller and typed presentation model were proven.
+
+Current evidence supports closing this plan:
+
+- Renderer creation now requires a controller-supplied graph and fails loudly
+  without one; the fixture-backed default graph and its unused edge fixture were
+  deleted.
+- Workspace presentation no longer exposes a sync-all content option during
+  movement; movement content policy is the single typed, diffed write model.
+- Runtime mode wiring and tests that preserved the removed presentation bypass
+  were deleted.
+- Workflow graph and workspace layout guides now direct future work through the
+  surface controller, renderer frame owner, and typed presentation state model.
+- The checked-in pan/zoom performance report includes Phase 8 `small-trackpad`
+  and `normal` runs with hard gates passing for active renderer count, renderer
+  replacement, graph app creation during camera interaction, camera-caused pane
+  writes, camera-caused graph React commits, and camera-caused full graph
+  replacement.
+- Focused renderer/presentation tests, production Electron workflow graph smoke,
+  synthetic scale validation, representative pan/zoom recordings, and
+  `./check_quality.sh --all` pass.
 
 ## Verification Requirements
 

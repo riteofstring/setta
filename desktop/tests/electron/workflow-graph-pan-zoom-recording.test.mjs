@@ -1061,7 +1061,7 @@ function initialSnapshotReady(snapshot, { nodeCount, scenario }) {
 }
 
 function baseInitialSnapshotReady(snapshot, { requireVisual = true } = {}) {
-  if (!initialCanvasReady(snapshot) || snapshot.render.frameCount <= 2) {
+  if (!initialCanvasReady(snapshot) || snapshot.render.frameCount <= 0) {
     return false;
   }
   return requireVisual

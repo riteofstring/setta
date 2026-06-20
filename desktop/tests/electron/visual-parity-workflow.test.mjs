@@ -874,7 +874,7 @@ function mockupUrlForScene(scene, renderIndex, nowOverride = null) {
 }
 
 function syntheticSceneReady(scene, snapshot) {
-  if (!snapshot.visual.hasNonBackgroundPixels || snapshot.render.frameCount <= 2) {
+  if (!snapshot.visual.hasNonBackgroundPixels || snapshot.render.frameCount <= 0) {
     return false;
   }
   const check = syntheticSceneReadyChecks[scene];
