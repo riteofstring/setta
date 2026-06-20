@@ -32,6 +32,7 @@ import {
   workflowOutgoingEdges,
   type AgentTaskDraft,
 } from "./workflow-node-details-helpers";
+import { WorkflowTrajectoryRuntimeDetails } from "./workflow-trajectory-runtime-details";
 
 type WorkflowDefinitionRecord = Awaited<ReturnType<typeof window.setta.workflow.readDefinition>>;
 type WorkflowNodeDetailsTarget = NonNullable<
@@ -282,6 +283,7 @@ function WorkflowNodeDetailsContent({
     return (
       <>
         <WorkflowNodeIdentity target={target} />
+        <WorkflowTrajectoryRuntimeDetails target={target} />
         <WorkflowSemanticRuntimeDetails target={target} />
         <WorkflowRunDetailsContent inspection={runInspection} target={target} />
       </>
@@ -296,6 +298,7 @@ function WorkflowNodeDetailsContent({
   return (
     <>
       <WorkflowNodeIdentity target={target} />
+      <WorkflowTrajectoryRuntimeDetails target={target} />
       <WorkflowSemanticRuntimeDetails target={target} />
       <WorkflowLoadedNodeDetails
         draft={draft}

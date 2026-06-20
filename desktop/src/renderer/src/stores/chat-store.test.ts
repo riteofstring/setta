@@ -1185,6 +1185,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       }),
     },
     semanticGraph: {} as SettaAPI["semanticGraph"],
+    workspaceTrajectory: {} as SettaAPI["workspaceTrajectory"],
     terminal: unimplementedTerminalAPI,
     workflow: {} as SettaAPI["workflow"],
     workspace: {

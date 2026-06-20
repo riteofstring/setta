@@ -482,6 +482,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     },
     terminal: unimplementedTerminalAPI(),
     semanticGraph: unimplementedSemanticGraphAPI(),
+    workspaceTrajectory: unimplementedWorkspaceTrajectoryAPI(),
     workflow: unimplementedWorkflowAPI(),
     workspace: workspaceAPI,
   };
@@ -595,6 +596,15 @@ function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
     updateLayoutPositions: unavailable,
     updateNode: unavailable,
     updateSteeringDirective: unavailable,
+  };
+}
+
+function unimplementedWorkspaceTrajectoryAPI(): SettaAPI["workspaceTrajectory"] {
+  return {
+    onRuntimeEvent: () => () => {},
+    readRuntimeSnapshot: async (): Promise<never> => {
+      throw new Error("workspace trajectory API is not implemented in this test");
+    },
   };
 }
 

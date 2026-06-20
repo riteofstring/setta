@@ -1,20 +1,14 @@
 /* global performance */
 import { Rectangle } from "pixi.js";
 import { Viewport } from "pixi-viewport";
-import {
-  attachWorkflowGraphCanvas,
-  initializeWorkflowGraphApplication,
-} from "./pixi-renderer-application";
+import * as rendererApplication from "./pixi-renderer-application";
 import { createWorkflowGraphAnimationCoordinator } from "./pixi-renderer-animation-coordinator";
 import { createWorkflowGraphAnimationState } from "./pixi-renderer-animation";
 import { createWorkflowGraphCameraControls } from "./pixi-renderer-camera-controls";
 import { createWorkflowGraphCameraSync } from "./pixi-renderer-camera-sync";
 import { createSemanticCellAnimationController } from "./pixi-renderer-cell-animation";
 import { createRendererContainerFactories } from "./pixi-renderer-container-factories";
-import {
-  createWorkflowGraphDebugAnimationFrameRenderer,
-  registerWorkflowGraphDebugSurfaceIfEnabled,
-} from "./pixi-renderer-debug-surface";
+import * as rendererDebugSurface from "./pixi-renderer-debug-surface";
 import { createWorkflowGraphDebugSnapshot } from "./pixi-renderer-debug-snapshot";
 import { createWorkflowGraphDebugMetrics } from "./pixi-renderer-debug-metrics";
 import { addWorkflowGraphDomListeners } from "./pixi-renderer-dom-listeners";
@@ -24,10 +18,7 @@ import { createWorkflowGraphFilterAreaSync } from "./pixi-renderer-filter-areas"
 import { foundationStyleForGraph, syncRendererFoundationStyle } from "./pixi-renderer-foundation";
 import { createDynamicCanvasContextMenuHandler, rendererHandlers } from "./pixi-renderer-handlers";
 import { createWorkflowGraphInteractionScheduler } from "./pixi-renderer-interaction-scheduler";
-import {
-  compactSelectedNodeLabelBitmapFontSize,
-  validateNodeLabelGlyphs,
-} from "./pixi-renderer-label-font";
+import * as rendererLabelFont from "./pixi-renderer-label-font";
 import { createWorkflowGraphLabelManager } from "./pixi-renderer-labels";
 import { destroyInitializedApp } from "./pixi-renderer-lifecycle";
 import { createWorkflowGraphRendererLayers } from "./pixi-renderer-layer-setup";
@@ -40,6 +31,7 @@ import {
 } from "./pixi-renderer-node-geometry";
 import { createWorkflowGraphSceneGraphUpdater } from "./pixi-renderer-scene-graph";
 import { createWorkflowGraphSpatialQueries } from "./pixi-renderer-spatial-queries";
+import { createWorkflowGraphTrajectoryRuntime } from "./pixi-renderer-trajectory-runtime";
 import {
   cameraState,
   commitEdgeConnection,
@@ -62,10 +54,7 @@ import {
   screenPointFromPointer,
   setsEqual,
 } from "./pixi-renderer-helpers";
-import {
-  createWorkflowGraphKeyDownHandler,
-  createWorkflowGraphPointerDownHandler,
-} from "./pixi-renderer-input-handlers";
+import * as rendererInputHandlers from "./pixi-renderer-input-handlers";
 import { rendererOptionsWithDefaults, workflowGraphRendererLimits } from "./pixi-renderer-options";
 import { observeWorkflowGraphRendererResize } from "./pixi-renderer-resize-observer";
 import { createWorkflowGraphWheelHandler } from "./pixi-renderer-wheel-handler";
@@ -97,12 +86,13 @@ export async function createWorkflowGraphRenderer(options) {
   nextRendererInstanceId += 1;
   let foundationStyle = foundationStyleForGraph(graph);
   let backgroundColor = foundationStyle.background;
-  const { app, loadedNodeLabelFont, screenSize } = await initializeWorkflowGraphApplication({
-    abortSignal,
-    backgroundColor,
-    host,
-  });
-  attachWorkflowGraphCanvas(host, app.canvas);
+  const { app, loadedNodeLabelFont, screenSize } =
+    await rendererApplication.initializeWorkflowGraphApplication({
+      abortSignal,
+      backgroundColor,
+      host,
+    });
+  rendererApplication.attachWorkflowGraphCanvas(host, app.canvas);
   const debugMetrics = createWorkflowGraphDebugMetrics({ app, enabled: debugEnabled });
   const interactionScheduler = createWorkflowGraphInteractionScheduler({ debugMetrics });
   const viewport = new Viewport({
@@ -136,6 +126,7 @@ export async function createWorkflowGraphRenderer(options) {
     nodeLayer,
     staticGlow,
     temporaryEdgeGraphics,
+    trajectoryLayer,
     vignette,
     vignetteGradient,
   } = layers;
@@ -266,12 +257,12 @@ export async function createWorkflowGraphRenderer(options) {
     edgeSelection: edgeInteractions,
     edges,
     fontFamily: loadedNodeLabelFont.fontFamily,
-    fontSize: compactSelectedNodeLabelBitmapFontSize,
+    fontSize: rendererLabelFont.compactSelectedNodeLabelBitmapFontSize,
     getNode: requireNode,
     hoveredNodeIds,
     sceneGraph,
     selectedNodeIds,
-    validateGlyphs: validateNodeLabelGlyphs,
+    validateGlyphs: rendererLabelFont.validateNodeLabelGlyphs,
     viewport,
   });
   const animationState = createWorkflowGraphAnimationState({
@@ -306,6 +297,15 @@ export async function createWorkflowGraphRenderer(options) {
     syncVisibleScene: syncVisibleSceneForCamera,
     viewport,
   });
+  const trajectoryRuntime = createWorkflowGraphTrajectoryRuntime({
+    cameraSync,
+    debugMetrics,
+    getNode: (nodeId) => nodesById.get(nodeId) ?? null,
+    interactionScheduler,
+    loadedNodeLabelFont,
+    trajectoryLayer,
+    viewport,
+  });
   const cameraControls = createWorkflowGraphCameraControls({
     cameraSync,
     host,
@@ -330,7 +330,7 @@ export async function createWorkflowGraphRenderer(options) {
     vignetteGradient,
     viewport,
   });
-  const pointerDown = createWorkflowGraphPointerDownHandler({
+  const pointerDown = rendererInputHandlers.createWorkflowGraphPointerDownHandler({
     canvas: app.canvas,
     clearLastNodeClick,
     clearSelection,
@@ -436,7 +436,7 @@ export async function createWorkflowGraphRenderer(options) {
     handlers,
     viewport,
   });
-  const keyDown = createWorkflowGraphKeyDownHandler({
+  const keyDown = rendererInputHandlers.createWorkflowGraphKeyDownHandler({
     cancelMarqueeSelection,
     clearSelection,
     edgeInteractions,
@@ -493,13 +493,15 @@ export async function createWorkflowGraphRenderer(options) {
       },
       { cameraMotion: cameraSync.isCameraMoving() ? "moving" : "settled" },
     );
+    trajectoryRuntime.tick(now);
   });
-  const debugAnimationFrameRenderer = createWorkflowGraphDebugAnimationFrameRenderer({
-    animationCoordinator,
-    animationState,
-    app,
-  });
-  const unregisterDebugSurface = registerWorkflowGraphDebugSurfaceIfEnabled({
+  const debugAnimationFrameRenderer =
+    rendererDebugSurface.createWorkflowGraphDebugAnimationFrameRenderer({
+      animationCoordinator,
+      animationState,
+      app,
+    });
+  const unregisterDebugSurface = rendererDebugSurface.registerWorkflowGraphDebugSurfaceIfEnabled({
     debugEnabled,
     debugSurfaceId,
     fitToGraph: cameraControls.fitCameraToGraph,
@@ -526,7 +528,8 @@ export async function createWorkflowGraphRenderer(options) {
       displayObjectLayers: {
         background: backgroundLayer, edge: edgeLayer, edgeLabels: edgeLabelLayer,
         effects: effectsLayer, interaction: interactionLayer, labels: labelLayer,
-        nodeGlow: nodeGlowLayer, nodes: nodeLayer, stage: app.stage, viewport,
+        nodeGlow: nodeGlowLayer, nodes: nodeLayer, stage: app.stage,
+        trajectory: trajectoryLayer, viewport,
       },
       // prettier-ignore
       renderState: () => ({
@@ -545,6 +548,7 @@ export async function createWorkflowGraphRenderer(options) {
         ...cameraSync.debugSnapshot(), ...filterAreas.debugSnapshot(), ...labels.debugSnapshot(),
         ...interactionScheduler.debugSnapshot(),
         ...animationCoordinator.debugSnapshot(),
+        ...trajectoryRuntime.debugSnapshot(),
         ...animationState.debugSnapshot(), ...inputResponsiveness.debugSnapshot(),
         ...sceneGraph.debugSnapshot(), ...sceneGraph.updateCounts(),
       }),
@@ -570,6 +574,7 @@ export async function createWorkflowGraphRenderer(options) {
       vignette.clear();
       vignetteGradient.destroy();
       sceneGraph.destroy();
+      trajectoryRuntime.destroy();
       destroyInitializedApp(app);
     },
     setHandlers: (nextHandlers) => {
@@ -577,6 +582,9 @@ export async function createWorkflowGraphRenderer(options) {
     },
     updateGraph: (nextGraph) => {
       replaceSceneGraph(nextGraph, { countUpdate: true });
+    },
+    updateTrajectoryRuntime: (frame) => {
+      trajectoryRuntime.updateFrame(frame);
     },
   };
   function replaceSceneGraph(nextGraph, { countUpdate }) {
@@ -595,6 +603,7 @@ export async function createWorkflowGraphRenderer(options) {
       labels.resetVisibleLabels();
       animationCoordinator.resetVisibility();
       animationCoordinator.syncActiveSet();
+      trajectoryRuntime.syncPositions();
       pruneSelectionForNodes(nodes);
       edgeInteractions.prune(edges);
       redrawGridForNodes(nodes);

@@ -5,6 +5,7 @@ import {
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
   decodeWorkflowEvent,
+  decodeWorkspaceTrajectoryRuntimeEvent,
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import type {
@@ -283,6 +284,18 @@ const api: SettaAPI = {
     updateLayoutPositions: (request) => invoke("semanticGraphLayoutUpdate", request),
     updateNode: (request) => invoke("semanticGraphUpdateNode", request),
     updateSteeringDirective: (request) => invoke("semanticGraphUpdateSteeringDirective", request),
+  },
+  workspaceTrajectory: {
+    onRuntimeEvent: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeWorkspaceTrajectoryRuntimeEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.workspaceTrajectoryRuntimeEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.workspaceTrajectoryRuntimeEvent, handler);
+      };
+    },
+    readRuntimeSnapshot: (request) => invoke("workspaceTrajectoryRuntimeSnapshot", request),
   },
   workflow: {
     addEdge: (request) => invoke("workflowAddEdge", request),

@@ -27,6 +27,8 @@ import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
 import { registerTerminalIpcHandlers } from "./terminal-ipc";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
+import { startWorkspaceTrajectoryRuntimeEventForwarding } from "./workspace-trajectory-event-forwarding-stream";
+import { registerWorkspaceTrajectoryIpcHandlers } from "./workspace-trajectory-ipc";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
 import { registerWorkflowIpcHandlers } from "./workflow-ipc";
@@ -36,6 +38,9 @@ let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
 let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwarding> | null = null;
 let terminalEventStream: TerminalEventStream | null = null;
+let workspaceTrajectoryRuntimeEventStream: ReturnType<
+  typeof startWorkspaceTrajectoryRuntimeEventForwarding
+> | null = null;
 let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
@@ -91,6 +96,7 @@ async function prepareBackend(appDataDir: string) {
     startChatEventStream();
     startSemanticGraphEventStreamForwarding();
     startTerminalEventStreamForwarding();
+    startWorkspaceTrajectoryRuntimeEventStreamForwarding();
     startWorkflowEventStreamForwarding();
   } catch (error) {
     backend = null;
@@ -163,6 +169,18 @@ function startTerminalEventStreamForwarding() {
   });
 }
 
+function startWorkspaceTrajectoryRuntimeEventStreamForwarding() {
+  if (!backend) {
+    return;
+  }
+  void stopWorkspaceTrajectoryRuntimeEventStreamForwarding();
+  workspaceTrajectoryRuntimeEventStream = startWorkspaceTrajectoryRuntimeEventForwarding({
+    baseURL: backend.url,
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    recorder,
+  });
+}
+
 async function stopChatEventStream() {
   const stream = backendEventStream;
   backendEventStream = null;
@@ -187,11 +205,18 @@ async function stopTerminalEventStreamForwarding() {
   await stream?.stop();
 }
 
+async function stopWorkspaceTrajectoryRuntimeEventStreamForwarding() {
+  const stream = workspaceTrajectoryRuntimeEventStream;
+  workspaceTrajectoryRuntimeEventStream = null;
+  await stream?.stop();
+}
+
 async function stopBackendEventStreams() {
   await Promise.all([
     stopChatEventStream(),
     stopSemanticGraphEventStreamForwarding(),
     stopTerminalEventStreamForwarding(),
+    stopWorkspaceTrajectoryRuntimeEventStreamForwarding(),
     stopWorkflowEventStreamForwarding(),
   ]);
 }
@@ -695,6 +720,7 @@ function registerIpc() {
     },
     ipcObserver,
   );
+  registerWorkspaceTrajectoryIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,

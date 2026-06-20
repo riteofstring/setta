@@ -16,12 +16,16 @@ const interactionLaneDefinitions = [
     priority: 4,
   },
   {
-    id: "settled-fidelity-restore",
+    id: "trajectory-runtime-visual",
     priority: 5,
   },
   {
-    id: "background-recompute",
+    id: "settled-fidelity-restore",
     priority: 6,
+  },
+  {
+    id: "background-recompute",
+    priority: 7,
   },
 ];
 

@@ -23,17 +23,21 @@ export function createWorkflowGraphRendererLayers({ app, foundationStyle, viewpo
   const edgeLabelLayer = new Container();
   const nodeGlowLayer = new Container();
   const nodeLayer = new Container();
+  const trajectoryLayer = new Container();
   const interactionLayer = new Container();
   const effectsLayer = new Container();
   edgeLabelLayer.eventMode = "none";
   edgeLabelLayer.interactiveChildren = false;
   nodeGlowLayer.eventMode = "none";
   nodeGlowLayer.interactiveChildren = false;
+  trajectoryLayer.eventMode = "none";
+  trajectoryLayer.interactiveChildren = false;
   viewport.addChild(
     backgroundLayer,
     edgeLayer,
     nodeGlowLayer,
     nodeLayer,
+    trajectoryLayer,
     interactionLayer,
     effectsLayer,
   );
@@ -85,6 +89,7 @@ export function createWorkflowGraphRendererLayers({ app, foundationStyle, viewpo
     nodeLayer,
     staticGlow,
     temporaryEdgeGraphics,
+    trajectoryLayer,
     vignette,
     vignetteGradient,
   };

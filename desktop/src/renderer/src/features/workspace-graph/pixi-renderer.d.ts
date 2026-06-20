@@ -7,6 +7,7 @@ import type {
   WorkflowGraphNodeStatus,
   WorkflowNodeKind,
 } from "@generated/backend";
+import type { WorkspaceTrajectoryFrameSnapshot } from "./workspace-trajectory-store";
 
 export interface WorkflowGraphRuntimeIndicator {
   hiddenSourceCount: number;
@@ -198,6 +199,7 @@ export interface WorkflowGraphRenderer {
   cameraState: () => WorkflowGraphCameraState;
   destroy: () => void;
   setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
+  updateTrajectoryRuntime: (frame: WorkspaceTrajectoryFrameSnapshot) => void;
   updateGraph: (graph: WorkflowGraphGraph) => void;
 }
 

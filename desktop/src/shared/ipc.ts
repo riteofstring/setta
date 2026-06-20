@@ -71,6 +71,7 @@ import type {
   ReadSemanticRuntimeSnapshotRequest,
   ReadSemanticSteeringStateRequest,
   ReadSemanticWorkingSetRequest,
+  ReadWorkspaceTrajectoryRuntimeSnapshotRequest,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
@@ -132,6 +133,7 @@ import type {
   WorkflowGraphProjection,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
+  WorkspaceTrajectoryRuntimeSnapshot,
   WorkspaceUILayout,
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
@@ -229,6 +231,7 @@ export const ipcChannels = {
   semanticGraphSplitNode: "semantic-graph:split-node",
   semanticGraphSteeringRead: "semantic-graph:steering-read",
   semanticGraphWorkingSetRead: "semantic-graph:working-set-read",
+  workspaceTrajectoryRuntimeSnapshot: "workspace-trajectory:runtime-snapshot",
   semanticGraphUpdateEdge: "semantic-graph:update-edge",
   semanticGraphUpdateNode: "semantic-graph:update-node",
   semanticGraphUpdateSteeringDirective: "semantic-graph:update-steering-directive",
@@ -288,6 +291,7 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
   semanticGraphEvent: "semantic-graph:event",
+  workspaceTrajectoryRuntimeEvent: "workspace-trajectory:runtime-event",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
   terminalEvent: "terminal:event",
@@ -633,6 +637,10 @@ interface IpcContract {
   semanticGraphWorkingSetRead: {
     args: [request: ReadSemanticWorkingSetRequest];
     result: SemanticWorkingSet;
+  };
+  workspaceTrajectoryRuntimeSnapshot: {
+    args: [request: ReadWorkspaceTrajectoryRuntimeSnapshotRequest];
+    result: WorkspaceTrajectoryRuntimeSnapshot;
   };
   semanticGraphUpdateEdge: {
     args: [request: UpdateSemanticEdgeRequest];

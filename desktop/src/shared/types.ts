@@ -69,6 +69,7 @@ import type {
   ReadSemanticRuntimeSnapshotRequest,
   ReadSemanticSteeringStateRequest,
   ReadSemanticWorkingSetRequest,
+  ReadWorkspaceTrajectoryRuntimeSnapshotRequest,
   ReadWorkflowGraphProjectionResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
@@ -134,6 +135,8 @@ import type {
   WorkflowGraphProjection,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
+  WorkspaceTrajectoryRuntimeEvent,
+  WorkspaceTrajectoryRuntimeSnapshot,
   WorkspaceUILayout,
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
@@ -587,6 +590,12 @@ export interface SettaAPI {
     updateSteeringDirective: (
       request: UpdateSemanticSteeringDirectiveRequest,
     ) => Promise<SemanticMutationResult>;
+  };
+  workspaceTrajectory: {
+    onRuntimeEvent: (listener: (event: WorkspaceTrajectoryRuntimeEvent) => void) => () => void;
+    readRuntimeSnapshot: (
+      request: ReadWorkspaceTrajectoryRuntimeSnapshotRequest,
+    ) => Promise<WorkspaceTrajectoryRuntimeSnapshot>;
   };
   workflow: {
     addEdge: (request: AddWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;

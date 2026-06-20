@@ -6,6 +6,7 @@ import { useWorkflowEditorStore } from "../../stores/workflow-editor-store";
 import { requestWorkspacePaneOpen } from "../../workspace-layout/open-pane-events";
 import { subscribeWorkspaceSurfaceResumed } from "../../workspace-layout/surface-lifecycle-events";
 import { useSemanticGraphStore } from "../../stores/semantic-graph-store";
+import { useWorkflowContextMenuClose } from "./workflow-context-menu-close";
 import { emptyWorkflowGraph, type WorkflowDraftNodeType } from "./workflow-graph-draft";
 import type { WorkflowLayoutPosition } from "./workflow-graph-layout";
 import { persistGraphNodePositions } from "./workflow-graph-layout-persistence";
@@ -42,6 +43,7 @@ import {
   workflowNodeDetailsTarget,
   workflowSettingsTarget,
 } from "./workflow-graph-targets";
+import { useWorkspaceTrajectoryRuntime } from "./workflow-trajectory-runtime";
 import { toolbarDraftNodePosition, type WorkflowDraftNodePosition } from "./workflow-graph-toolbar";
 import {
   WorkflowContextMenuLayer,
@@ -162,6 +164,15 @@ export function WorkflowGraphSurface({
     [workflowProjection, workflowValidation],
   );
   const semanticGraphState = useSemanticGraphState();
+  const { trajectoryStore, trajectoryStoreRef } = useWorkspaceTrajectoryRuntime({
+    pendingWorkflowGraphRef,
+    selectedWorkflowNodeId,
+    setSelectedNodeTarget,
+    syntheticGraph,
+    workflowProjection,
+    workflowRendererRef,
+    workflowWorkspaceId,
+  });
   const {
     clearPersistedSemanticLayout,
     preparePendingSemanticLayout,
@@ -673,7 +684,10 @@ export function WorkflowGraphSurface({
       }
       const runtime =
         pendingWorkflowGraphRef.current?.nodes.find((node) => node.id === nodeId)?.runtime ?? null;
-      setSelectedNodeTarget(workflowNodeDetailsTarget(workflowProjection, nodeId, runtime));
+      const trajectory = trajectoryStore?.getNodeDetails(nodeId) ?? null;
+      setSelectedNodeTarget(
+        workflowNodeDetailsTarget(workflowProjection, nodeId, runtime, trajectory),
+      );
       requestWorkspacePaneOpen({
         surfaceKind: "workflow-node-details",
         subtitle: "workflow node details",
@@ -682,7 +696,7 @@ export function WorkflowGraphSurface({
         widthSpec: { unit: "px", value: 380 },
       });
     },
-    [setSelectedNodeTarget, workflowProjection],
+    [setSelectedNodeTarget, trajectoryStore, workflowProjection],
   );
   const openGraphNodeDetails = useCallback(
     (rendererNodeId: string | null) => {
@@ -883,6 +897,10 @@ export function WorkflowGraphSurface({
         rendererHandle = renderer;
         workflowRendererRef.current = renderer;
         renderer.setHandlers(rendererHandlersRef.current);
+        const currentTrajectoryStore = trajectoryStoreRef.current;
+        if (currentTrajectoryStore !== null) {
+          renderer.updateTrajectoryRuntime(currentTrajectoryStore.getFrameSnapshot());
+        }
         const pendingGraph = pendingWorkflowGraphRef.current;
         if (pendingGraph !== null && pendingGraph !== initialGraph) {
           renderer.updateGraph(pendingGraph);
@@ -910,38 +928,7 @@ export function WorkflowGraphSurface({
     surfaceId,
   ]);
 
-  useEffect(() => {
-    if (workflowContextMenu === null) {
-      return;
-    }
-
-    function closeOnClick(event: MouseEvent) {
-      if (!workflowMenuRef.current?.contains(event.target as Node)) {
-        setWorkflowContextMenu(null);
-      }
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setWorkflowContextMenu(null);
-      }
-    }
-
-    function closeMenu() {
-      setWorkflowContextMenu(null);
-    }
-
-    window.addEventListener("click", closeOnClick);
-    window.addEventListener("keydown", closeOnEscape);
-    window.addEventListener("resize", closeMenu);
-    window.addEventListener("scroll", closeMenu, true);
-    return () => {
-      window.removeEventListener("click", closeOnClick);
-      window.removeEventListener("keydown", closeOnEscape);
-      window.removeEventListener("resize", closeMenu);
-      window.removeEventListener("scroll", closeMenu, true);
-    };
-  }, [workflowContextMenu]);
+  useWorkflowContextMenuClose({ setWorkflowContextMenu, workflowContextMenu, workflowMenuRef });
 
   return (
     <section
