@@ -9,6 +9,7 @@ SENTINEL="PLAN_FULLY_IMPLEMENTED"
 MODEL="gpt-5.5"
 REASONING_CONFIG='reasoning_effort="xhigh"'
 OUTPUT_DIR=""
+PROGRESS_LOG_INTERVAL_SECONDS="60"
 
 usage() {
   cat <<'EOF'
@@ -22,9 +23,15 @@ Agent 2 reviews the implementation, updates and commits the plan if needed, and
 the loop stops only when Agent 2's final message is exactly:
   PLAN_FULLY_IMPLEMENTED
 
+Codex transcripts are written to per-agent log files. The terminal prints only
+loop status and periodic progress updates.
+
 Options:
   --output-dir PATH   Directory for per-iteration transcripts and last messages.
                       Default: mktemp directory outside the repository.
+  --progress-log-interval-seconds N
+                      Print a status line at most once every N seconds while an
+                      agent is still running. Default: 60. Use 0 to disable.
   --help             Show this help text.
 EOF
 }
@@ -54,12 +61,17 @@ run_agent() {
   local transcript_file="${run_dir}/${agent_name}.transcript.log"
   local last_message_file="${run_dir}/${agent_name}.last-message.txt"
   local status_file="${run_dir}/${agent_name}.status.txt"
+  local codex_pid=""
+  local start_epoch=""
+  local last_progress_log_epoch=""
+  local current_epoch=""
+  local elapsed_seconds=""
   local exit_code="0"
 
   mkdir -p "${run_dir}"
 
   log_info "Starting ${agent_name}. Transcript: ${transcript_file}. Last message: ${last_message_file}"
-  set +e
+
   codex exec \
     --color never \
     --cd "${ROOT_DIR}" \
@@ -68,8 +80,26 @@ run_agent() {
     --config "${REASONING_CONFIG}" \
     --dangerously-bypass-approvals-and-sandbox \
     --output-last-message "${last_message_file}" \
-    "${prompt}" 2>&1 | tee "${transcript_file}"
-  exit_code="${PIPESTATUS[0]}"
+    "${prompt}" > "${transcript_file}" 2>&1 &
+  codex_pid="$!"
+
+  start_epoch="$(date +%s)"
+  last_progress_log_epoch="${start_epoch}"
+
+  while kill -0 "${codex_pid}" 2>/dev/null; do
+    current_epoch="$(date +%s)"
+    if [[ "${PROGRESS_LOG_INTERVAL_SECONDS}" -gt 0 ]] \
+      && [[ "$((current_epoch - last_progress_log_epoch))" -ge "${PROGRESS_LOG_INTERVAL_SECONDS}" ]]; then
+      elapsed_seconds="$((current_epoch - start_epoch))"
+      log_info "${agent_name} still running after ${elapsed_seconds}s. Transcript: ${transcript_file}"
+      last_progress_log_epoch="${current_epoch}"
+    fi
+    sleep 1
+  done
+
+  set +e
+  wait "${codex_pid}"
+  exit_code="$?"
   set -e
 
   printf '%s\n' "${exit_code}" > "${status_file}"
@@ -104,6 +134,11 @@ while [[ $# -gt 0 ]]; do
       OUTPUT_DIR="$2"
       shift 2
       ;;
+    --progress-log-interval-seconds)
+      require_value "$1" "${2:-}"
+      PROGRESS_LOG_INTERVAL_SECONDS="$2"
+      shift 2
+      ;;
     --help|-h)
       usage
       exit 0
@@ -118,6 +153,11 @@ done
 
 if [[ ! -f "${ROOT_DIR}/${PLAN_PATH}" ]]; then
   echo "Plan file not found: ${ROOT_DIR}/${PLAN_PATH}" >&2
+  exit 1
+fi
+
+if [[ ! "${PROGRESS_LOG_INTERVAL_SECONDS}" =~ ^[0-9]+$ ]]; then
+  echo "--progress-log-interval-seconds must be a non-negative integer" >&2
   exit 1
 fi
 
@@ -141,6 +181,7 @@ log_info "Model: ${MODEL}"
 log_info "Reasoning effort: xhigh"
 log_info "Approvals/sandbox bypass: enabled"
 log_info "Stop sentinel: ${SENTINEL}"
+log_info "Progress log interval: ${PROGRESS_LOG_INTERVAL_SECONDS}s"
 
 iteration=1
 while true; do
