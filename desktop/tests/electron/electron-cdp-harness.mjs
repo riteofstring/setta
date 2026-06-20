@@ -92,6 +92,7 @@ export async function launchElectronCdpContext({
   deviceScaleFactor = null,
   extraEnv = {},
   fixture,
+  recordingEnabled = true,
   visible = false,
   windowSize = null,
 }) {
@@ -105,6 +106,7 @@ export async function launchElectronCdpContext({
     debugPort,
     extraEnv,
     fixture,
+    recordingEnabled,
     visible,
     windowSize,
   });
@@ -332,6 +334,7 @@ function launchElectron({
   debugPort,
   extraEnv,
   fixture,
+  recordingEnabled,
   visible,
   windowSize,
 }) {
@@ -345,10 +348,14 @@ function launchElectron({
       SETTA_E2E: "1",
       SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
       SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
-      SETTA_RECORD_INCLUDE_PAYLOADS: "1",
-      SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
-      SETTA_RECORDING: "1",
-      SETTA_RECORDING_DIR: artifactDir,
+      ...(recordingEnabled
+        ? {
+            SETTA_RECORD_INCLUDE_PAYLOADS: "1",
+            SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
+            SETTA_RECORDING: "1",
+            SETTA_RECORDING_DIR: artifactDir,
+          }
+        : {}),
       ...e2eWindowSizeEnv(windowSize),
       ...(visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
     },

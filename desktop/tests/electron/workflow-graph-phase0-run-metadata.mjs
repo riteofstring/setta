@@ -8,6 +8,7 @@ import { phase0WorkloadForScenario } from "./workflow-graph-phase0-workloads.mjs
 export async function collectPhase0RunMetadata({
   client,
   nodeCount,
+  recordingEnabled = true,
   scenario,
   skipBuild,
   syntheticScene,
@@ -18,7 +19,6 @@ export async function collectPhase0RunMetadata({
       client.evaluate("window.setta.app.versions()"),
       client.evaluate(`(() => ({
         devicePixelRatio: window.devicePixelRatio,
-        recordingEnabled: window.setta?.app?.flags ? true : false,
         userAgent: navigator.userAgent,
         viewport: { height: window.innerHeight, width: window.innerWidth }
       }))()`),
@@ -37,7 +37,7 @@ export async function collectPhase0RunMetadata({
     browserVersion,
     build: {
       mode: skipBuild ? "existing-production-electron-build" : "production-electron-build",
-      recordingEnabled: true,
+      recordingEnabled,
       timingThresholds: phase0TimingThresholdMode(),
       workflowGraphDebugEnabled: true,
     },

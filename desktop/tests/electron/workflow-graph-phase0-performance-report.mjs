@@ -12,7 +12,22 @@ const requiredSceneVisitCounterNames = [
   "boundsCalculations",
 ];
 
-export function phase0PerformanceGateReport({ artifactRoot, summaries }) {
+const phase3ScenarioSignalDefinitions = [
+  {
+    label: "camera-caused workspace presentation writes",
+    value: (scenario) => scenario.diagnostics?.paneMutations?.cameraCausedCount,
+  },
+  {
+    label: "camera-caused React commits",
+    value: (scenario) => scenario.diagnostics?.reactCommits?.cameraCausedCount,
+  },
+  {
+    label: "camera-caused graph scene replacement",
+    value: (scenario) => scenario.diagnostics?.graphSceneReplacementCount,
+  },
+];
+
+export function phase0PerformanceGateReport({ artifactRoot, phase = "phase0", summaries }) {
   const scenarios = summaries.map((summary) => ({
     artifactDir: summary.artifactDir,
     artifacts: summary.artifacts,
@@ -27,18 +42,24 @@ export function phase0PerformanceGateReport({ artifactRoot, summaries }) {
     syntheticScene: summary.syntheticScene,
   }));
   const matrixChecks = phase0MatrixChecks(scenarios);
+  const status = phase0ReportStatus({ matrixChecks, scenarios });
   return {
     artifactRoot,
     generatedAt: new Date().toISOString(),
     matrixChecks,
+    phase,
+    phase3Gate: phase === "phase3" ? phase3GateDecision({ matrixChecks, scenarios }) : null,
     scenarios,
-    status:
-      scenarios.every((scenario) =>
-        scenario.checks.every((check) => check.severity !== "hard" || check.status === "pass"),
-      ) && matrixChecks.every((check) => check.severity !== "hard" || check.status === "pass")
-        ? "passed"
-        : "failed",
+    status,
   };
+}
+
+function phase0ReportStatus({ matrixChecks, scenarios }) {
+  return scenarios.every((scenario) =>
+    scenario.checks.every((check) => check.severity !== "hard" || check.status === "pass"),
+  ) && matrixChecks.every((check) => check.severity !== "hard" || check.status === "pass")
+    ? "passed"
+    : "failed";
 }
 
 export async function appendPhase0PerformanceReport(report) {
@@ -69,15 +90,17 @@ function phase0PerformanceReportMarkdown(report) {
   const rows = report.scenarios.map(scenarioReportRow).join("\n");
   const matrixChecks = report.matrixChecks.map(formatScenarioCheck).join("\n");
   const checkSections = report.scenarios.map(scenarioCheckSection).join("\n");
+  const gateSection = report.phase === "phase3" ? phase3GateMarkdown(report.phase3Gate) : "";
   return `
-## Run ${report.generatedAt}
+## Run ${report.generatedAt}${report.phase === "phase3" ? " (Phase 3)" : ""}
 
 Artifact root: \`${report.artifactRoot}\`
 
-Phase 1 readiness: ${report.status === "passed" ? "ready" : "blocked"}
+${phaseStatusLine(report)}
+${gateSection}
 
-| Scenario | Synthetic scene | Nodes | p95 frame ms | p95 delivery ms | p95 first Pixi render proxy ms | Scene visits p95 / budget | Display objects | Camera pane writes | Camera React commits | Hard failures | Report-only findings |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Scenario | Recording | Synthetic scene | Nodes | p95 frame ms | p95 delivery ms | p95 first Pixi render proxy ms | Scene visits p95 / budget | Display objects | Camera pane writes | Camera React commits | Top trace task | Hard failures | Report-only findings |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
 ${rows}
 
 ## Matrix Checks
@@ -88,11 +111,31 @@ ${checkSections}
 `;
 }
 
+function phaseStatusLine(report) {
+  if (report.phase === "phase3") {
+    return `Phase 3 gate status: ${report.status === "passed" ? "passed" : "blocked"}`;
+  }
+  return `Phase 1 readiness: ${report.status === "passed" ? "ready" : "blocked"}`;
+}
+
+function phase3GateMarkdown(gate) {
+  if (!gate) {
+    return "";
+  }
+  return `
+Phase 4 decision: ${gate.phase4Decision}
+
+- remaining issue classification: ${gate.remainingIssue}
+- input-to-presented-frame: ${gate.presentedFrameStatus}
+- evidence basis: ${gate.evidenceBasis}
+`;
+}
+
 function scenarioReportRow(scenario) {
   const hardFailures = countScenarioChecks(scenario, hardCheckFailed);
   const reportOnlyFindings = countScenarioChecks(scenario, reportOnlyCheckReported);
   const wheelLatency = scenario.diagnostics.wheelLatency ?? {};
-  return `| ${escapeMarkdown(scenario.scenario)} | ${escapeMarkdown(
+  return `| ${escapeMarkdown(scenario.scenario)} | ${recordingModeLabel(scenario)} | ${escapeMarkdown(
     scenario.syntheticScene,
   )} | ${scenario.nodeCount} | ${formatReportNumber(
     scenario.render.p95FrameMs,
@@ -102,18 +145,195 @@ function scenarioReportRow(scenario) {
     scenario.diagnostics.paneMutations?.cameraCausedCount ?? 0
   } | ${
     scenario.diagnostics.reactCommits?.cameraCausedCount ?? 0
-  } | ${hardFailures} | ${reportOnlyFindings} |`;
+  } | ${escapeMarkdown(formatTopTraceTask(scenario))} | ${hardFailures} | ${reportOnlyFindings} |`;
+}
+
+function phase3GateDecision({ matrixChecks, scenarios }) {
+  const hardFailures = [
+    ...matrixChecks.filter(hardCheckFailed),
+    ...scenarios.flatMap((scenario) => scenario.checks.filter(hardCheckFailed)),
+  ];
+  const presentedFrameBlocked = scenarios.some((scenario) =>
+    scenario.checks.some((check) => check.id === "input-to-presented-frame-budget-blocked"),
+  );
+  const competingWork = phase3CompetingWorkSignals(scenarios);
+  if (hardFailures.length > 0) {
+    return {
+      evidenceBasis: hardFailures.map((check) => check.id).join(", "),
+      phase4Decision: "blocked until hard structural/scaling failures are fixed",
+      presentedFrameStatus: phase3PresentedFrameStatus(presentedFrameBlocked),
+      remainingIssue: phase3RemainingIssue({ competingWork, hardFailures, scenarios }),
+    };
+  }
+  if (competingWork.length > 0) {
+    return {
+      evidenceBasis: competingWork.join(", "),
+      phase4Decision: "justified by trace evidence; proceed to Phase 4",
+      presentedFrameStatus: phase3PresentedFrameStatus(presentedFrameBlocked),
+      remainingIssue: phase3RemainingIssue({ competingWork, hardFailures, scenarios }),
+    };
+  }
+  return {
+    evidenceBasis:
+      "duplicate renderer, presentation write, React commit, full replacement, and scene-visit scaling hard gates passed in every run",
+    phase4Decision: "deferred; do not build the shared frame admission coordinator yet",
+    presentedFrameStatus: phase3PresentedFrameStatus(presentedFrameBlocked),
+    remainingIssue: phase3RemainingIssue({ competingWork, hardFailures, scenarios }),
+  };
+}
+
+function phase3PresentedFrameStatus(presentedFrameBlocked) {
+  return presentedFrameBlocked
+    ? "not available; no compositor presentation trace source is wired, first-Pixi-render remains proxy evidence"
+    : "reported";
+}
+
+function phase3RemainingIssue({ competingWork, hardFailures, scenarios }) {
+  if (hardFailures.length > 0) {
+    return "hard structural or scaling regression";
+  }
+  if (competingWork.length > 0) {
+    return "competing scheduled graph, presentation, React, layout, semantic, or trajectory work";
+  }
+  const classifications = new Set(scenarios.map(classifyScenarioRemainingIssue));
+  if (classifications.has("event delivery")) {
+    return "event delivery and browser main-thread task timing";
+  }
+  if (classifications.has("browser layout/paint")) {
+    return "browser layout/paint";
+  }
+  if (classifications.has("GC")) {
+    return "GC";
+  }
+  if (classifications.has("Pixi draw work")) {
+    return "Pixi draw work";
+  }
+  return "recording overhead or non-reference-runner timing noise";
+}
+
+function phase3CompetingWorkSignals(scenarios) {
+  const signals = new Set();
+  for (const scenario of scenarios) {
+    appendPhase3ScenarioSignals(signals, scenario);
+    for (const task of topTraceEvents(scenario)) {
+      const signal = phase3TraceTaskSignal(task);
+      if (signal) {
+        signals.add(signal);
+      }
+    }
+  }
+  return [...signals];
+}
+
+function appendPhase3ScenarioSignals(signals, scenario) {
+  for (const definition of phase3ScenarioSignalDefinitions) {
+    if (Number(definition.value(scenario) ?? 0) > 0) {
+      signals.add(definition.label);
+    }
+  }
+}
+
+function phase3TraceTaskSignal(task) {
+  if (!phase3TraceTaskShowsCompetingWork(task)) {
+    return "";
+  }
+  return `trace:${task.name}`;
+}
+
+function phase3TraceTaskShowsCompetingWork(task) {
+  return /semantic|trajectory|graph scene|workspace presentation|react commit|layout|style|paint|composit/i.test(
+    traceTaskText(task),
+  );
+}
+
+function traceTaskText(task) {
+  return `${task.name ?? ""} ${task.category ?? ""}`;
+}
+
+function classifyScenarioRemainingIssue(scenario) {
+  const wheelLatency = scenario.diagnostics?.wheelLatency ?? {};
+  const p95Delivery = Number(wheelLatency.eventDeliveryDelayMs?.p95 ?? 0);
+  if (p95Delivery > refreshIntervalBudgetMs(scenario)) {
+    return "event delivery";
+  }
+  const topTasks = topTraceEvents(scenario);
+  if (topTasks.some((task) => /layout|style|paint|composit/i.test(task.name ?? ""))) {
+    return "browser layout/paint";
+  }
+  if (topTasks.some((task) => /gc/i.test(`${task.name ?? ""} ${task.category ?? ""}`))) {
+    return "GC";
+  }
+  if (pixiRenderWorstMs(scenario) > refreshIntervalBudgetMs(scenario)) {
+    return "Pixi draw work";
+  }
+  return "recording overhead or timing noise";
+}
+
+function refreshIntervalBudgetMs(scenario) {
+  const refreshRate = Number(scenario.runMetadata?.display?.refreshRateEstimateHz ?? 60);
+  return Number.isFinite(refreshRate) && refreshRate > 0 ? 1000 / refreshRate + 8 : 24;
+}
+
+function pixiRenderWorstMs(scenario) {
+  return Number(scenario.diagnostics?.timingBucketDeltas?.["pixi-render"]?.worstMs ?? 0);
+}
+
+function formatTopTraceTask(scenario) {
+  const task = topTraceEvents(scenario)[0];
+  if (!task) {
+    return "";
+  }
+  return `${task.name} ${formatReportNumber(task.durationMs)}ms`;
+}
+
+function topTraceEvents(scenario) {
+  const summary = scenario.artifacts?.traceSummary ?? {};
+  return [...(summary.topLevelTasks ?? []), ...(summary.topCompleteEvents ?? [])]
+    .filter((event) => Number.isFinite(Number(event.durationMs)))
+    .sort((left, right) => Number(right.durationMs) - Number(left.durationMs))
+    .slice(0, 20);
+}
+
+function recordingModeLabel(scenario) {
+  return scenario.runMetadata?.build?.recordingEnabled === false ? "off" : "on";
 }
 
 function phase0MatrixChecks(scenarios) {
   if (scalingScenarios(scenarios).length === 0) {
     return [];
   }
-  return [
-    phase0ScalingRequiredSceneVisitCountersCheck(scenarios),
-    phase0ScalingSceneVisitBudgetCheck(scenarios),
-    phase0ScalingSceneVisitGrowthCheck(scenarios),
-  ];
+  const groups = scalingScenarioGroups(scenarios);
+  return groups.flatMap(({ label, scenarios: groupScenarios }) => {
+    const checks = [
+      phase0ScalingRequiredSceneVisitCountersCheck(groupScenarios),
+      phase0ScalingSceneVisitBudgetCheck(groupScenarios),
+      phase0ScalingSceneVisitGrowthCheck(groupScenarios),
+    ];
+    return groups.length === 1
+      ? checks
+      : checks.map((check) => checkWithRecordingMode(check, label));
+  });
+}
+
+function scalingScenarioGroups(scenarios) {
+  const groups = new Map();
+  for (const scenario of scalingScenarios(scenarios)) {
+    const label = recordingModeLabel(scenario);
+    const group = groups.get(label) ?? [];
+    group.push(scenario);
+    groups.set(label, group);
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([label, groupScenarios]) => ({ label, scenarios: groupScenarios }));
+}
+
+function checkWithRecordingMode(check, label) {
+  return {
+    ...check,
+    id: `${check.id}-${label}`,
+    summary: `recording=${label}; ${check.summary}`,
+  };
 }
 
 function phase0ScalingRequiredSceneVisitCountersCheck(scenarios) {
@@ -283,7 +503,8 @@ function reportOnlyCheckReported(check) {
 function scenarioCheckSection(scenario) {
   const metadata = scenarioReportMetadata(scenario);
   const checks = scenario.checks.map(formatScenarioCheck).join("\n");
-  return `## ${scenario.scenario} / ${scenario.syntheticScene}
+  const traceTasks = formatScenarioTraceTasks(scenario);
+  return `## ${scenario.scenario} / ${scenario.syntheticScene} / recording-${metadata.recordingEnabled}
 
 - build: ${metadata.buildMode}
 - seed: ${metadata.randomSeed}
@@ -291,9 +512,19 @@ function scenarioCheckSection(scenario) {
 - viewport/DPR/refresh: ${metadata.viewportWidth}x${metadata.viewportHeight} / ${metadata.devicePixelRatio} / ${metadata.refreshRateEstimateHz}Hz
 - recording/debug: ${metadata.recordingEnabled} / ${metadata.workflowGraphDebugEnabled}
 - timing thresholds: ${metadata.timingThresholds}
+- trace top tasks: ${traceTasks}
 
 ${checks}
 `;
+}
+
+function formatScenarioTraceTasks(scenario) {
+  const tasks = topTraceEvents(scenario)
+    .slice(0, 3)
+    .map((task) => {
+      return `${task.name} ${formatReportNumber(task.durationMs)}ms`;
+    });
+  return tasks.length > 0 ? tasks.join("; ") : "none";
 }
 
 function scenarioReportMetadata(scenario) {

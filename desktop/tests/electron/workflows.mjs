@@ -96,6 +96,12 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
+    args: ["--scenario", "phase3"],
+    file: "workflow-graph-pan-zoom-recording.test.mjs",
+    name: "workflow-graph-pan-zoom-phase3",
+    tiers: ["performance"],
+  },
+  {
     args: ["--scenario", "baseline"],
     file: "workflow-graph-pan-zoom-recording.test.mjs",
     name: "workflow-graph-pan-zoom-baseline",
