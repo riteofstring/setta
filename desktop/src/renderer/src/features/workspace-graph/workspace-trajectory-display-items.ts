@@ -3,6 +3,7 @@ import type {
   WorkspaceTrajectorySpriteSeverity,
   WorkspaceTrajectorySpriteStatus,
 } from "@generated/backend";
+import { normalizeTrajectoryDisplayText } from "./workspace-trajectory-display-labels";
 
 type WorkspaceTrajectoryDisplayLane = "recent" | "workflow_node";
 type WorkspaceTrajectoryDisplayAggregateKind = "cartographer_status" | "memory_suggestion";
@@ -27,13 +28,23 @@ export type WorkspaceTrajectoryDisplayItem =
 interface WorkspaceTrajectoryDisplayAggregate {
   anchorNodeId: string;
   count: number;
+  hiddenSourcePreviewCount: number;
   id: string;
   kind: WorkspaceTrajectoryDisplayAggregateKind;
   label: string;
   lane: WorkspaceTrajectoryDisplayLane;
   severity: WorkspaceTrajectorySpriteSeverity;
+  sourcePreviews: WorkspaceTrajectoryDisplayAggregateSourcePreview[];
   sourceSpriteIds: string[];
   status: WorkspaceTrajectorySpriteStatus;
+  updatedAt: string;
+}
+
+interface WorkspaceTrajectoryDisplayAggregateSourcePreview {
+  id: string;
+  label: string;
+  status: WorkspaceTrajectorySpriteStatus;
+  summary: string;
   updatedAt: string;
 }
 
@@ -82,6 +93,9 @@ const aggregateStatusPriorities = {
   running: 300,
   unknown: 100,
 } satisfies Record<WorkspaceTrajectorySpriteStatus, number>;
+
+const maxAggregateSourcePreviews = 4;
+const maxAggregateSourceSummaryLength = 180;
 
 export function displayItemsForCanvas(
   items: WorkspaceTrajectoryDisplayItem[],
@@ -228,16 +242,21 @@ function cartographerLifecycleSpriteHasTypedId(sprite: WorkspaceTrajectorySprite
 function displayAggregateFromBucket(
   bucket: CartographerAggregateBucket,
 ): WorkspaceTrajectoryDisplayAggregate {
-  const sprites = sortedSprites([...bucket.sprites]);
+  const sprites = newestSprites([...bucket.sprites]);
+  const sourcePreviews = sprites
+    .slice(0, maxAggregateSourcePreviews)
+    .map((sprite) => aggregateSourcePreview(bucket.kind, sprite));
   const aggregateId = cartographerAggregateKey(bucket);
   return {
     anchorNodeId: bucket.anchorNodeId,
     count: sprites.length,
+    hiddenSourcePreviewCount: Math.max(0, sprites.length - sourcePreviews.length),
     id: aggregateId,
     kind: bucket.kind,
     label: cartographerAggregateLabel(bucket.kind, bucket.status, sprites.length),
     lane: bucket.lane,
     severity: highestSeverity(sprites.map((sprite) => sprite.severity)),
+    sourcePreviews,
     sourceSpriteIds: sprites.map((sprite) => sprite.id),
     status: bucket.status,
     updatedAt: newestSpriteUpdatedAt(sprites),
@@ -277,15 +296,91 @@ function cartographerAggregateLabel(
   return count === 1 ? `Cartographer ${state}` : `${count} cartographers ${state}`;
 }
 
-function sortedSprites(sprites: WorkspaceTrajectorySprite[]) {
+function newestSprites(sprites: WorkspaceTrajectorySprite[]) {
   return sprites.sort(
     (left, right) =>
-      spriteStatusRank(right) - spriteStatusRank(left) ||
-      severityRank(right.severity) - severityRank(left.severity) ||
       stringTimestamp(right.updatedAt || right.createdAt) -
         stringTimestamp(left.updatedAt || left.createdAt) ||
+      spriteStatusRank(right) - spriteStatusRank(left) ||
+      severityRank(right.severity) - severityRank(left.severity) ||
       left.id.localeCompare(right.id),
   );
+}
+
+function aggregateSourcePreview(
+  kind: WorkspaceTrajectoryDisplayAggregateKind,
+  sprite: WorkspaceTrajectorySprite,
+): WorkspaceTrajectoryDisplayAggregateSourcePreview {
+  return {
+    id: sprite.id,
+    label: aggregateSourcePreviewLabel(kind, sprite),
+    status: sprite.status,
+    summary: aggregateSourcePreviewSummary(kind, sprite),
+    updatedAt: sprite.updatedAt || sprite.createdAt,
+  };
+}
+
+function aggregateSourcePreviewLabel(
+  kind: WorkspaceTrajectoryDisplayAggregateKind,
+  sprite: WorkspaceTrajectorySprite,
+) {
+  if (kind === "memory_suggestion") {
+    return "Memory suggestion";
+  }
+  if (sprite.cartographerWindowId !== "") {
+    return "Cartographer window";
+  }
+  if (sprite.cartographerRunId !== "") {
+    return "Cartographer run";
+  }
+  return "Cartographer update";
+}
+
+function aggregateSourcePreviewSummary(
+  kind: WorkspaceTrajectoryDisplayAggregateKind,
+  sprite: WorkspaceTrajectorySprite,
+) {
+  if (kind === "memory_suggestion") {
+    return firstNonEmpty(
+      boundedSourceSummary(memorySuggestionSummaryText(sprite.resultSummary)),
+      "Review this suggested memory update.",
+    );
+  }
+  return firstNonEmpty(
+    boundedSourceSummary(sprite.resultSummary),
+    boundedSourceSummary(sprite.errorSummary),
+    boundedSourceSummary(sprite.subtitle),
+    boundedSourceSummary(sprite.title),
+    `Cartographer ${cartographerAggregateStateLabels[sprite.status]}`,
+  );
+}
+
+function memorySuggestionSummaryText(value: string) {
+  const summary = boundedSourceSummary(value);
+  if (summary === "" || containsInternalMemorySuggestionTerm(summary)) {
+    return "";
+  }
+  return summary;
+}
+
+function containsInternalMemorySuggestionTerm(value: string) {
+  const lower = value.toLowerCase();
+  return (
+    lower.includes("cartographer_patch") ||
+    lower.includes("pending_review") ||
+    lower.includes("semantic patch")
+  );
+}
+
+function boundedSourceSummary(value: string) {
+  const normalized = normalizeTrajectoryDisplayText(value);
+  return normalized.length <= maxAggregateSourceSummaryLength
+    ? normalized
+    : `${normalized.slice(0, maxAggregateSourceSummaryLength - 3)}...`;
+}
+
+function firstNonEmpty(...values: string[]): string {
+  return values.find((value) => value !== "") ?? "";
 }
 
 function displayItemPriority(item: WorkspaceTrajectoryDisplayItem) {

@@ -1,7 +1,8 @@
 # Workspace Trajectory Command Previews And Cartographer Aggregation Plan
 
 - **Date:** June 19, 2026
-- **Status:** Phase 3 complete; Phase 4 ready.
+- **Status:** Phase 4 complete; Phase 5 verification passed for Phase 4
+  changes.
 - **Scope:** Make workspace trajectory sprites more legible by showing raw
   command previews for command run items, aggregating cartographer lifecycle
   noise before it reaches the visible graph lanes, and replacing confusing
@@ -30,6 +31,10 @@
   single-active-node fallback only for same-workflow agent activity, suppresses
   unanchored cartographer/workflow lifecycle sprites from the canvas, and keeps
   `recentLane` empty for normal workflow activity.
+- Phase 4 is complete in the current worktree.
+- Workflow node trajectory details now hide the ordinary `Revision` row, use
+  display-count labels, render aggregate source counts with bounded newest
+  source previews, and keep memory-suggestion summaries on user-facing copy.
 - Focused Phase 1 verification passed on June 20, 2026:
 
 ```sh
@@ -59,10 +64,20 @@ pnpm -C desktop build
 node desktop/tests/electron/workspace-trajectory-file-fidelity.test.mjs --skip-build
 ```
 
-Phase 4 can start from the current details implementation. The remaining work
-is ordinary node-details presentation cleanup: hide/debug-gate `Revision`, make
-aggregate counts read naturally after display aggregation, and show bounded
-source summaries for cartographer and memory-suggestion aggregates.
+Focused Phase 4 verification passed on June 20, 2026:
+
+```sh
+pnpm -C desktop exec vitest run \
+  src/renderer/src/features/workspace-graph/workspace-trajectory-store.test.ts \
+  src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts
+pnpm -C desktop exec tsc --noEmit --pretty false
+./scripts/format.sh
+./check_quality.sh --all
+```
+
+Phase 4 details cleanup is now implemented. The remaining planned work is any
+future follow-up that extends details inspection beyond these Phase 4
+acceptance criteria.
 
 ## Position
 
@@ -507,7 +522,7 @@ Acceptance criteria:
 - Unanchored queued cartographer activity does not create top-left clutter.
 - Completed in commit `a116edff8`.
 
-### Phase 4: Details Cleanup
+### Phase 4: Details Cleanup (Complete)
 
 - Render command details with full bounded command text in monospace.
 - Render cartographer aggregate details before individual cartographer records.
@@ -518,13 +533,14 @@ Acceptance criteria:
   the old names misleading, rename them to activity/count labels that match the
   final UI.
 
-Phase 4 starts from the current `workflow-trajectory-runtime-details.tsx`
+Phase 4 started from the then-current `workflow-trajectory-runtime-details.tsx`
 presentation:
 
-- The details header still shows `Recent`, `Hidden`, and `Revision`.
-- Aggregate rows show `Count`, `Sources`, and a short list of source sprite ids.
-- Memory suggestions already use user-facing copy and avoid the phrase
-  `semantic patch`, but they do not yet show bounded public summaries.
+- The details header showed `Recent`, `Hidden`, and `Revision`.
+- Aggregate rows showed `Count`, `Sources`, and a short list of source sprite
+  ids.
+- Memory suggestions already used user-facing copy and avoided the phrase
+  `semantic patch`, but did not yet show bounded public summaries.
 
 Phase 4 implementation rules:
 

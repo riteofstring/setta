@@ -32,13 +32,12 @@ export function WorkflowTrajectoryRuntimeDetails({
       <WorkflowDetailsSection title="Trajectory">
         <WorkflowDetailsRows
           rows={[
-            { label: "Recent", value: trajectory.totalCount },
+            { label: "Activity", value: trajectory.totalCount },
             {
               hidden: trajectory.hiddenCount <= 0,
-              label: "Hidden",
+              label: "Hidden groups",
               value: trajectory.hiddenCount,
             },
-            { label: "Revision", value: trajectory.revision },
           ]}
         />
         <WorkflowTrajectoryItemList items={trajectory.items} />
@@ -125,20 +124,60 @@ function WorkflowTrajectoryAggregateDetails({
       </div>
       <WorkflowDetailsRows
         rows={[
-          { label: "Count", value: aggregate.count },
-          { label: "Sources", value: aggregate.sourceSpriteIds.length },
+          { label: "Represented", value: sourceRecordCountLabel(aggregate.count) },
+          {
+            hidden: aggregate.hiddenSourcePreviewCount <= 0,
+            label: "More sources",
+            value: aggregate.hiddenSourcePreviewCount,
+          },
         ]}
       />
-      <div className="mt-1 flex flex-wrap gap-1">
-        {aggregate.sourceSpriteIds.slice(0, 6).map((id) => (
-          <span
-            className="rounded-sm border border-zinc-800 bg-zinc-900/70 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400"
-            key={id}
-          >
-            {shortIdentifier(id)}
-          </span>
-        ))}
-      </div>
+      <WorkflowTrajectoryAggregateSourcePreviews display={display} />
+      {aggregate.kind === "memory_suggestion" ? null : (
+        <div className="mt-1 flex flex-wrap gap-1" aria-label="Source ids">
+          {aggregate.sourceSpriteIds.slice(0, 6).map((id) => (
+            <span
+              className="rounded-sm border border-zinc-800 bg-zinc-900/70 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400"
+              key={id}
+            >
+              {shortIdentifier(id)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WorkflowTrajectoryAggregateSourcePreviews({
+  display,
+}: {
+  display: WorkflowTrajectoryAggregateDisplay;
+}) {
+  const { aggregate } = display;
+  if (aggregate.sourcePreviews.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mt-1 space-y-1">
+      {aggregate.sourcePreviews.map((preview) => (
+        <div
+          className="rounded-sm border border-zinc-800 bg-zinc-900/50 px-2 py-1"
+          key={preview.id}
+        >
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <span className="truncate text-zinc-200">{preview.label}</span>
+            <span className="shrink-0 text-zinc-500">
+              {trajectorySpriteStatusLabel(preview.status)}
+            </span>
+          </div>
+          {preview.summary !== "" ? (
+            <div className="mt-0.5 whitespace-pre-wrap break-words text-zinc-400">
+              {preview.summary}
+            </div>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }
@@ -245,6 +284,10 @@ function WorkflowTrajectorySourceRefs({
       ))}
     </div>
   );
+}
+
+function sourceRecordCountLabel(count: number) {
+  return count === 1 ? "1 source record" : `${count} source records`;
 }
 
 function trajectoryFileRefLabel(

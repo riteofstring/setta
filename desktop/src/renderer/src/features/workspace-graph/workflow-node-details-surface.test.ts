@@ -153,6 +153,9 @@ describe("workflow node details surface helpers", () => {
     );
 
     expect(html).toContain("Trajectory");
+    expect(html).toContain("Activity");
+    expect(html).toContain("Hidden groups");
+    expect(html).not.toContain("Revision");
     expect(html).toContain("assistant message");
     expect(html).toContain("running");
     expect(html).toContain("Review output");
@@ -179,8 +182,15 @@ describe("workflow node details surface helpers", () => {
 
     expect(html).toContain("10 cartographers queued");
     expect(html).toContain("Memory suggestion");
-    expect(html).toContain("Sources");
+    expect(html).toContain("Represented");
+    expect(html).toContain("10 source records");
+    expect(html).toContain("Review recent source changes before the next run.");
+    expect(html).toContain("Remember that toolbar overflow blocks review actions.");
+    expect(html).toContain("Source ids");
+    expect(html).not.toContain("Revision");
     expect(html).not.toContain("semantic patch");
+    expect(html).not.toContain("pending_review");
+    expect(html).not.toContain("cartographer_patch");
   });
 });
 
@@ -402,12 +412,54 @@ function aggregateTrajectoryTarget(): WorkflowNodeDetailsTarget {
           aggregate: {
             anchorNodeId: "reviewer",
             count: 10,
+            hiddenSourcePreviewCount: 6,
             id: "trajectory-aggregate:workflow_node:reviewer:cartographer_status:pending",
             kind: "cartographer_status",
             label: "10 cartographers queued",
             lane: "workflow_node",
             severity: "info",
-            sourceSpriteIds: ["cartographer-run:cartographer_run_1"],
+            sourcePreviews: [
+              {
+                id: "cartographer-run:cartographer_run_10",
+                label: "Cartographer run",
+                status: "pending",
+                summary: "Review recent source changes before the next run.",
+                updatedAt: "2026-06-07T00:00:10Z",
+              },
+              {
+                id: "cartographer-run:cartographer_run_9",
+                label: "Cartographer run",
+                status: "pending",
+                summary: "Summarize queued workspace evidence.",
+                updatedAt: "2026-06-07T00:00:09Z",
+              },
+              {
+                id: "cartographer-run:cartographer_run_8",
+                label: "Cartographer run",
+                status: "pending",
+                summary: "Inspect recent assistant output.",
+                updatedAt: "2026-06-07T00:00:08Z",
+              },
+              {
+                id: "cartographer-run:cartographer_run_7",
+                label: "Cartographer run",
+                status: "pending",
+                summary: "Prepare memory candidates.",
+                updatedAt: "2026-06-07T00:00:07Z",
+              },
+            ],
+            sourceSpriteIds: [
+              "cartographer-run:cartographer_run_10",
+              "cartographer-run:cartographer_run_9",
+              "cartographer-run:cartographer_run_8",
+              "cartographer-run:cartographer_run_7",
+              "cartographer-run:cartographer_run_6",
+              "cartographer-run:cartographer_run_5",
+              "cartographer-run:cartographer_run_4",
+              "cartographer-run:cartographer_run_3",
+              "cartographer-run:cartographer_run_2",
+              "cartographer-run:cartographer_run_1",
+            ],
             status: "pending",
             updatedAt: "2026-06-07T00:00:01Z",
           },
@@ -420,11 +472,21 @@ function aggregateTrajectoryTarget(): WorkflowNodeDetailsTarget {
           aggregate: {
             anchorNodeId: "reviewer",
             count: 1,
+            hiddenSourcePreviewCount: 0,
             id: "trajectory-aggregate:workflow_node:reviewer:memory_suggestion:approval_required",
             kind: "memory_suggestion",
             label: "Memory suggestion",
             lane: "workflow_node",
             severity: "blocking",
+            sourcePreviews: [
+              {
+                id: "cartographer-patch:cartographer_patch_memory",
+                label: "Memory suggestion",
+                status: "approval_required",
+                summary: "Remember that toolbar overflow blocks review actions.",
+                updatedAt: "2026-06-07T00:00:02Z",
+              },
+            ],
             sourceSpriteIds: ["cartographer-patch:cartographer_patch_memory"],
             status: "approval_required",
             updatedAt: "2026-06-07T00:00:02Z",

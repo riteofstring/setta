@@ -598,10 +598,52 @@ describe("workspace trajectory store", () => {
     expect(details.items[0]).toMatchObject({
       aggregate: {
         count: 1,
+        hiddenSourcePreviewCount: 0,
         kind: "cartographer_status",
         label: "Cartographer queued",
+        sourcePreviews: [
+          {
+            id: "cartographer-run:cartographer_run_1",
+            label: "Cartographer run",
+            status: "pending",
+            summary: "Cartographer lifecycle update.",
+            updatedAt: timestamp(1),
+          },
+        ],
         sourceSpriteIds: ["cartographer-run:cartographer_run_1"],
         status: "pending",
+      },
+      type: "aggregate",
+    });
+  });
+
+  test("bounds cartographer aggregate source preview summaries", async () => {
+    const scheduler = manualScheduler();
+    const longSummary = "x".repeat(220);
+    const loadSnapshot = vi.fn(async () =>
+      runtimeSnapshot({
+        revision: 1,
+        sprites: [cartographerRunSprite(1, { resultSummary: longSummary })],
+      }),
+    );
+    const events = eventSource();
+    const store = createWorkspaceTrajectoryStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+
+    store.updateAnchors({ bindings: [], workflowNodeIds: ["reviewer"] });
+    store.start();
+    await flushPromises();
+
+    const item = store.getNodeDetails("reviewer").items[0];
+    expect(item).toMatchObject({
+      aggregate: {
+        sourcePreviews: [{ summary: `${longSummary.slice(0, 177)}...` }],
       },
       type: "aggregate",
     });
@@ -650,8 +692,39 @@ describe("workspace trajectory store", () => {
     expect(group?.items[1]).toMatchObject({
       aggregate: {
         count: 10,
+        hiddenSourcePreviewCount: 6,
         kind: "cartographer_status",
         label: "10 cartographers queued",
+        sourcePreviews: [
+          {
+            id: "cartographer-run:cartographer_run_10",
+            label: "Cartographer run",
+            status: "pending",
+            summary: "Cartographer lifecycle update.",
+            updatedAt: timestamp(29),
+          },
+          {
+            id: "cartographer-run:cartographer_run_9",
+            label: "Cartographer run",
+            status: "pending",
+            summary: "Cartographer lifecycle update.",
+            updatedAt: timestamp(28),
+          },
+          {
+            id: "cartographer-run:cartographer_run_8",
+            label: "Cartographer run",
+            status: "pending",
+            summary: "Cartographer lifecycle update.",
+            updatedAt: timestamp(27),
+          },
+          {
+            id: "cartographer-run:cartographer_run_7",
+            label: "Cartographer run",
+            status: "pending",
+            summary: "Cartographer lifecycle update.",
+            updatedAt: timestamp(26),
+          },
+        ],
         status: "pending",
       },
       type: "aggregate",
@@ -743,10 +816,11 @@ describe("workspace trajectory store", () => {
             cartographerPatchId: "cartographer_patch_memory",
             id: "cartographer-patch:cartographer_patch_memory",
             kind: "cartographer_status",
+            resultSummary: "Remember the review toolbar overflow decision.",
             severity: "blocking",
             status: "approval_required",
-            subtitle: "Background maintenance",
-            title: "Runtime update",
+            subtitle: "semantic patch pending_review",
+            title: "cartographer_patch pending_review",
           }),
         ],
       }),
@@ -769,13 +843,29 @@ describe("workspace trajectory store", () => {
     expect(store.getNodeDetails("reviewer").items[0]).toMatchObject({
       aggregate: {
         count: 1,
+        hiddenSourcePreviewCount: 0,
         kind: "memory_suggestion",
         label: "Memory suggestion",
+        sourcePreviews: [
+          {
+            id: "cartographer-patch:cartographer_patch_memory",
+            label: "Memory suggestion",
+            status: "approval_required",
+            summary: "Remember the review toolbar overflow decision.",
+            updatedAt: timestamp(1),
+          },
+        ],
         sourceSpriteIds: ["cartographer-patch:cartographer_patch_memory"],
         status: "approval_required",
       },
       type: "aggregate",
     });
+    expect(JSON.stringify(store.getNodeDetails("reviewer").items[0])).not.toContain(
+      "semantic patch",
+    );
+    expect(JSON.stringify(store.getNodeDetails("reviewer").items[0])).not.toContain(
+      "pending_review",
+    );
   });
 
   test("derives chat run anchor bindings from workflow node runner refs", () => {
