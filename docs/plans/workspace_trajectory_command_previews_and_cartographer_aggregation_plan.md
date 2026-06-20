@@ -1,7 +1,7 @@
 # Workspace Trajectory Command Previews And Cartographer Aggregation Plan
 
 - **Date:** June 19, 2026
-- **Status:** Phase 2 complete; Phase 3 ready.
+- **Status:** Phase 3 complete; Phase 4 ready.
 - **Scope:** Make workspace trajectory sprites more legible by showing raw
   command previews for command run items, aggregating cartographer lifecycle
   noise before it reaches the visible graph lanes, and replacing confusing
@@ -24,6 +24,12 @@
   cartographer lifecycle sprites before visible caps, routes pending
   cartographer patches to memory suggestions in details, and leaves backend
   trajectory payloads exact.
+- Phase 3 is complete in commit `a116edff8` (`Clean up trajectory anchorless
+  placement`).
+- The renderer now preserves runner-ref bindings during anchor refresh, uses a
+  single-active-node fallback only for same-workflow agent activity, suppresses
+  unanchored cartographer/workflow lifecycle sprites from the canvas, and keeps
+  `recentLane` empty for normal workflow activity.
 - Focused Phase 1 verification passed on June 20, 2026:
 
 ```sh
@@ -41,9 +47,20 @@ pnpm -C desktop exec vitest run \
   src/renderer/src/features/workspace-graph/workspace-trajectory-display-labels.test.ts
 ```
 
-Phase 3 can start from the current renderer display-item shape. The remaining
-work is to stop normal workflow activity from reaching the fixed top-left
-recent lane and to preserve deterministic anchoring during runner-ref refreshes.
+Focused Phase 3 verification passed on June 20, 2026:
+
+```sh
+pnpm -C desktop exec vitest run \
+  src/renderer/src/features/workspace-graph/workspace-trajectory-store.test.ts \
+  src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts \
+  src/renderer/src/features/workspace-graph/workspace-trajectory-display-labels.test.ts
+pnpm -C desktop exec tsc --noEmit --pretty false
+```
+
+Phase 4 can start from the current details implementation. The remaining work
+is ordinary node-details presentation cleanup: hide/debug-gate `Revision`, make
+aggregate counts read naturally after display aggregation, and show bounded
+source summaries for cartographer and memory-suggestion aggregates.
 
 ## Position
 
@@ -85,8 +102,9 @@ Details and memory-review surfaces can summarize them separately as
 ## Current Behavior
 
 The latest recording showed three product mismatches. Phase 1 addressed command
-labels, and Phase 2 addressed cartographer aggregation and memory-review
-routing. The remaining product mismatch is anchorless placement.
+labels, Phase 2 addressed cartographer aggregation and memory-review routing,
+and Phase 3 addressed anchorless placement. The remaining work is details-panel
+copy and inspection quality.
 
 - Command activity was visible as generic command sprites, while the meaningful
   command text was only secondary data. This is now fixed for renderer labels
@@ -95,10 +113,9 @@ routing. The remaining product mismatch is anchorless placement.
   `cartographer_status` sprites, including repeated queued/window/running states
   around the same workflow node. Phase 2 now aggregates these in the renderer
   display projection.
-- Sprites with no resolved workflow-node anchor are placed in a fixed recent
-  lane near the top-left of the viewport. That is intentional fallback behavior,
-  but it reads like a layout bug because the sprites are visually disconnected
-  from the workflow node they seem to describe.
+- Sprites with no resolved workflow-node anchor were placed in a fixed recent
+  lane near the top-left of the viewport. Phase 3 now suppresses that lane for
+  normal workflow activity.
 
 The current implementation already has most of the needed data:
 
@@ -459,7 +476,7 @@ Acceptance criteria:
   aggregation.
 - Completed in commit `d16c12111`.
 
-### Phase 3: Anchorless Placement Cleanup
+### Phase 3: Anchorless Placement Cleanup (Complete)
 
 - Replace the fixed top-left recent-lane behavior for normal workflow activity.
 - Preserve existing anchor bindings while refreshing runner refs for the same
@@ -486,6 +503,7 @@ Acceptance criteria:
 - If an item cannot be anchored, it is visually distinct from node-adjacent
   trajectory sprites or omitted from canvas display according to priority.
 - Unanchored queued cartographer activity does not create top-left clutter.
+- Completed in commit `a116edff8`.
 
 ### Phase 4: Details Cleanup
 
@@ -498,6 +516,39 @@ Acceptance criteria:
   the old names misleading, rename them to activity/count labels that match the
   final UI.
 
+Phase 4 starts from the current `workflow-trajectory-runtime-details.tsx`
+presentation:
+
+- The details header still shows `Recent`, `Hidden`, and `Revision`.
+- Aggregate rows show `Count`, `Sources`, and a short list of source sprite ids.
+- Memory suggestions already use user-facing copy and avoid the phrase
+  `semantic patch`, but they do not yet show bounded public summaries.
+
+Phase 4 implementation rules:
+
+- Remove `Revision` from the ordinary details row. If it remains available, gate
+  it behind an explicit debug-only surface or debug snapshot, not the normal
+  node details panel.
+- Rename count rows so they describe display items after aggregation. Prefer
+  labels such as `Activity` and `Hidden groups` over `Recent` and `Hidden` if
+  the old labels read as raw-event counts.
+- Preserve the command detail layout from Phase 1: primary command preview,
+  status/kind secondary text, full bounded command in monospace, plus cwd/exit
+  code/duration when present.
+- For aggregate details, show `aggregate.label` first, then the represented
+  source count. Source ids can remain available as compact debug/audit chips,
+  but they should not be the only human-readable detail.
+- Add a renderer-local bounded source preview for aggregates. Prefer deriving
+  it from source sprite fields already present in the trajectory runtime, such
+  as `resultSummary`, `subtitle`, `title`, and `errorSummary`. Keep this
+  frontend-only unless implementation proves backend data is insufficient.
+- For memory suggestions, source previews should use user-facing copy such as
+  `Memory suggestion` and bounded public summaries. They should not expose
+  `cartographer_patch`, `pending_review`, or `semantic patch` as normal product
+  labels.
+- Keep source preview lists bounded, for example the newest 3-6 source previews,
+  with a compact hidden-source count when the aggregate represents more records.
+
 Acceptance criteria:
 
 - The node details panel explains what the visible command pill represents.
@@ -505,6 +556,8 @@ Acceptance criteria:
 - A memory suggestion can be inspected without using the term `semantic patch`
   in normal product copy.
 - Ordinary users are not shown the internal runtime revision as a primary row.
+- Aggregate detail counts match display-item semantics after aggregation, not
+  raw hidden sprite counts.
 
 ### Phase 5: Verification
 
@@ -528,6 +581,10 @@ Add or update tests for:
 - anchorless activity placement and single-active-node fallback,
 - suppression of unanchored cartographer lifecycle from the canvas,
 - details rendering for command and cartographer aggregate cases.
+- hiding/debug-gating `Revision` in normal node details,
+- bounded source previews for cartographer and memory-suggestion aggregates,
+- details copy that avoids `semantic patch`, `pending_review`, and raw
+  cartographer patch terminology in normal product labels.
 
 Run the backend trajectory mapper tests when backend behavior is touched:
 
