@@ -1258,6 +1258,172 @@ export function decodeWorkflowEventType(value: unknown, label = "WorkflowEventTy
   }
 }
 
+export type WorkspaceTrajectorySpriteKind = "file_read" | "file_write" | "diff" | "command" | "test" | "tool_call" | "reasoning_summary" | "plan_update" | "assistant_message" | "approval" | "cartographer_status" | "workflow_status";
+
+export const workspaceTrajectorySpriteKindValues = ["file_read", "file_write", "diff", "command", "test", "tool_call", "reasoning_summary", "plan_update", "assistant_message", "approval", "cartographer_status", "workflow_status"] as const satisfies readonly WorkspaceTrajectorySpriteKind[];
+
+export function decodeWorkspaceTrajectorySpriteKind(value: unknown, label = "WorkspaceTrajectorySpriteKind"): WorkspaceTrajectorySpriteKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "file_read":
+      return decoded;
+    case "file_write":
+      return decoded;
+    case "diff":
+      return decoded;
+    case "command":
+      return decoded;
+    case "test":
+      return decoded;
+    case "tool_call":
+      return decoded;
+    case "reasoning_summary":
+      return decoded;
+    case "plan_update":
+      return decoded;
+    case "assistant_message":
+      return decoded;
+    case "approval":
+      return decoded;
+    case "cartographer_status":
+      return decoded;
+    case "workflow_status":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceTrajectorySpriteStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "approval_required" | "unknown";
+
+export const workspaceTrajectorySpriteStatusValues = ["pending", "running", "completed", "failed", "cancelled", "approval_required", "unknown"] as const satisfies readonly WorkspaceTrajectorySpriteStatus[];
+
+export function decodeWorkspaceTrajectorySpriteStatus(value: unknown, label = "WorkspaceTrajectorySpriteStatus"): WorkspaceTrajectorySpriteStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "running":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "approval_required":
+      return decoded;
+    case "unknown":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceTrajectorySpriteSeverity = "info" | "success" | "warning" | "error" | "blocking";
+
+export const workspaceTrajectorySpriteSeverityValues = ["info", "success", "warning", "error", "blocking"] as const satisfies readonly WorkspaceTrajectorySpriteSeverity[];
+
+export function decodeWorkspaceTrajectorySpriteSeverity(value: unknown, label = "WorkspaceTrajectorySpriteSeverity"): WorkspaceTrajectorySpriteSeverity {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "info":
+      return decoded;
+    case "success":
+      return decoded;
+    case "warning":
+      return decoded;
+    case "error":
+      return decoded;
+    case "blocking":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceTrajectorySourceKind = "chat_run" | "chat_message" | "run_item" | "run_item_output" | "workflow_execution" | "workflow_event" | "workflow_node" | "workflow_node_execution" | "cartographer_run" | "cartographer_window" | "cartographer_patch";
+
+export const workspaceTrajectorySourceKindValues = ["chat_run", "chat_message", "run_item", "run_item_output", "workflow_execution", "workflow_event", "workflow_node", "workflow_node_execution", "cartographer_run", "cartographer_window", "cartographer_patch"] as const satisfies readonly WorkspaceTrajectorySourceKind[];
+
+export function decodeWorkspaceTrajectorySourceKind(value: unknown, label = "WorkspaceTrajectorySourceKind"): WorkspaceTrajectorySourceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "chat_run":
+      return decoded;
+    case "chat_message":
+      return decoded;
+    case "run_item":
+      return decoded;
+    case "run_item_output":
+      return decoded;
+    case "workflow_execution":
+      return decoded;
+    case "workflow_event":
+      return decoded;
+    case "workflow_node":
+      return decoded;
+    case "workflow_node_execution":
+      return decoded;
+    case "cartographer_run":
+      return decoded;
+    case "cartographer_window":
+      return decoded;
+    case "cartographer_patch":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceTrajectoryFileOperation = "read" | "write" | "create" | "delete" | "rename" | "diff" | "unknown";
+
+export const workspaceTrajectoryFileOperationValues = ["read", "write", "create", "delete", "rename", "diff", "unknown"] as const satisfies readonly WorkspaceTrajectoryFileOperation[];
+
+export function decodeWorkspaceTrajectoryFileOperation(value: unknown, label = "WorkspaceTrajectoryFileOperation"): WorkspaceTrajectoryFileOperation {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "read":
+      return decoded;
+    case "write":
+      return decoded;
+    case "create":
+      return decoded;
+    case "delete":
+      return decoded;
+    case "rename":
+      return decoded;
+    case "diff":
+      return decoded;
+    case "unknown":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceTrajectoryChangeArea = "run_items" | "assistant" | "approvals" | "workflow" | "cartographer";
+
+export const workspaceTrajectoryChangeAreaValues = ["run_items", "assistant", "approvals", "workflow", "cartographer"] as const satisfies readonly WorkspaceTrajectoryChangeArea[];
+
+export function decodeWorkspaceTrajectoryChangeArea(value: unknown, label = "WorkspaceTrajectoryChangeArea"): WorkspaceTrajectoryChangeArea {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "run_items":
+      return decoded;
+    case "assistant":
+      return decoded;
+    case "approvals":
+      return decoded;
+    case "workflow":
+      return decoded;
+    case "cartographer":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type SemanticNodeKind = "concept" | "question" | "hypothesis" | "finding" | "decision" | "constraint";
 
 export const semanticNodeKindValues = ["concept", "question", "hypothesis", "finding", "decision", "constraint"] as const satisfies readonly SemanticNodeKind[];
@@ -3512,6 +3678,207 @@ export interface SubmitWorkflowApprovalRequest {
   response: string;
   answers: ApprovalAnswer[];
   cancelled: boolean;
+}
+
+export interface ReadWorkspaceTrajectoryRuntimeSnapshotRequest {
+  workspaceId: string;
+  workflowExecutionId: string;
+  chatRunId: string;
+  limit: number;
+}
+
+export interface WorkspaceTrajectoryRuntimeLimits {
+  maxSprites: number;
+  maxTimelineItems: number;
+  maxAggregates: number;
+  maxDetailRefs: number;
+  maxSourceRefsPerSprite: number;
+  maxFileRefsPerSprite: number;
+  maxChangedAreas: number;
+  maxSpriteTitleBytes: number;
+  maxSpriteSubtitleBytes: number;
+  maxSpriteResultBytes: number;
+  maxSpriteErrorBytes: number;
+  maxSnapshotPayloadBytes: number;
+  maxDeltaPayloadBytes: number;
+}
+
+export interface WorkspaceTrajectoryRuntimePayloadBudget {
+  byteSize: number;
+  maxByteSize: number;
+  truncatedStringCount: number;
+  omittedSpriteCount: number;
+}
+
+export interface WorkspaceTrajectorySourceRef {
+  kind: WorkspaceTrajectorySourceKind;
+  id: string;
+}
+
+export interface WorkspaceTrajectoryFileRef {
+  path: string;
+  displayPath: string;
+  operation: WorkspaceTrajectoryFileOperation;
+  rangeStart: number;
+  rangeEnd: number;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  contentHash: string;
+}
+
+export interface WorkspaceTrajectoryCommand {
+  command: string;
+  cwd: string;
+  exitCode: number;
+  durationMs: number;
+}
+
+export interface WorkspaceTrajectoryTool {
+  serverName: string;
+  toolName: string;
+  namespace: string;
+  requestId: string;
+}
+
+export interface WorkspaceTrajectoryDiffStats {
+  summary: string;
+  changedFiles: number;
+  additions: number;
+  deletions: number;
+  structured: boolean;
+}
+
+export interface WorkspaceTrajectorySprite {
+  schemaVersion: number;
+  id: string;
+  kind: WorkspaceTrajectorySpriteKind;
+  status: WorkspaceTrajectorySpriteStatus;
+  severity: WorkspaceTrajectorySpriteSeverity;
+  workspaceId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  workflowNodeExecutionId: string;
+  chatConversationId: string;
+  chatRunId: string;
+  chatMessageId: string;
+  runItemId: string;
+  providerItemId: string;
+  cartographerRunId: string;
+  cartographerWindowId: string;
+  cartographerPatchId: string;
+  title: string;
+  subtitle: string;
+  sourceRefs: WorkspaceTrajectorySourceRef[];
+  fileRefs: WorkspaceTrajectoryFileRef[];
+  command: WorkspaceTrajectoryCommand;
+  tool: WorkspaceTrajectoryTool;
+  diffStats: WorkspaceTrajectoryDiffStats;
+  resultSummary: string;
+  errorSummary: string;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+  ttlMs: number;
+}
+
+export interface WorkspaceTrajectoryTimelineItem {
+  schemaVersion: number;
+  id: string;
+  spriteId: string;
+  kind: WorkspaceTrajectorySpriteKind;
+  status: WorkspaceTrajectorySpriteStatus;
+  severity: WorkspaceTrajectorySpriteSeverity;
+  workspaceId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  workflowNodeExecutionId: string;
+  chatRunId: string;
+  runItemId: string;
+  summary: string;
+  occurredAt: string;
+  sourceRefs: WorkspaceTrajectorySourceRef[];
+}
+
+export interface WorkspaceTrajectorySpriteKindCount {
+  kind: WorkspaceTrajectorySpriteKind;
+  count: number;
+}
+
+export interface WorkspaceTrajectoryWorkflowNodeAggregate {
+  id: string;
+  workspaceId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  workflowNodeExecutionId: string;
+  activeCount: number;
+  recentCount: number;
+  failedCount: number;
+  approvalCount: number;
+  highestSeverity: WorkspaceTrajectorySpriteSeverity;
+  kindCounts: WorkspaceTrajectorySpriteKindCount[];
+  updatedAt: string;
+}
+
+export interface WorkspaceTrajectoryRuntimeRemovals {
+  spriteIds: string[];
+  timelineIds: string[];
+  aggregateIds: string[];
+  detailRefIds: string[];
+}
+
+export interface WorkspaceTrajectoryDetailRef {
+  id: string;
+  sourceKind: WorkspaceTrajectorySourceKind;
+  sourceId: string;
+  spriteId: string;
+  summary: string;
+}
+
+export interface WorkspaceTrajectoryRuntimeSnapshot {
+  schemaVersion: number;
+  workspaceId: string;
+  workflowExecutionId: string;
+  chatRunId: string;
+  revision: number;
+  generatedAt: string;
+  limits: WorkspaceTrajectoryRuntimeLimits;
+  payloadBudget: WorkspaceTrajectoryRuntimePayloadBudget;
+  activeWorkflowNodeIds: string[];
+  activeRunItemIds: string[];
+  sprites: WorkspaceTrajectorySprite[];
+  timeline: WorkspaceTrajectoryTimelineItem[];
+  aggregateByWorkflowNode: WorkspaceTrajectoryWorkflowNodeAggregate[];
+  removals: WorkspaceTrajectoryRuntimeRemovals;
+  detailRefs: WorkspaceTrajectoryDetailRef[];
+}
+
+export interface WorkspaceTrajectoryRuntimeDelta {
+  schemaVersion: number;
+  workspaceId: string;
+  fromRevision: number;
+  toRevision: number;
+  generatedAt: string;
+  payloadBudget: WorkspaceTrajectoryRuntimePayloadBudget;
+  changedAreas: WorkspaceTrajectoryChangeArea[];
+  spriteUpdates: WorkspaceTrajectorySprite[];
+  timelineUpdates: WorkspaceTrajectoryTimelineItem[];
+  aggregateUpdates: WorkspaceTrajectoryWorkflowNodeAggregate[];
+  removals: WorkspaceTrajectoryRuntimeRemovals;
+  detailRefs: WorkspaceTrajectoryDetailRef[];
+}
+
+export interface WorkspaceTrajectoryRuntimeEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: string;
+  workspaceId: string;
+  revision: number;
+  delta: WorkspaceTrajectoryRuntimeDelta | null;
+  snapshotRequired: boolean;
+  occurredAt: string;
 }
 
 export interface ReadSemanticGraphRequest {
@@ -6013,6 +6380,14 @@ export const backendEndpoints = {
     method: "GET",
     path: "/workflows/events",
   },
+  ReadWorkspaceTrajectoryRuntimeSnapshot: {
+    method: "POST",
+    path: "/workspace-trajectory/runtime/snapshot",
+  },
+  WorkspaceTrajectoryRuntimeEventStream: {
+    method: "GET",
+    path: "/workspace-trajectory/runtime/events",
+  },
   ReadSemanticGraph: {
     method: "POST",
     path: "/semantic-graph/read",
@@ -8128,6 +8503,275 @@ export function decodeSubmitWorkflowApprovalRequest(value: unknown): SubmitWorkf
     response: decodeString(requireField(record, "response", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.response"),
     answers: decodeArray(requireField(record, "answers", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.answers", (item) => decodeApprovalAnswer(item)),
     cancelled: decodeBoolean(requireField(record, "cancelled", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.cancelled"),
+  };
+}
+
+export function decodeReadWorkspaceTrajectoryRuntimeSnapshotRequest(value: unknown): ReadWorkspaceTrajectoryRuntimeSnapshotRequest {
+  const record = assertRecord(value, "ReadWorkspaceTrajectoryRuntimeSnapshotRequest");
+  assertKnownFields(record, "ReadWorkspaceTrajectoryRuntimeSnapshotRequest", ["workspaceId", "workflowExecutionId", "chatRunId", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceTrajectoryRuntimeSnapshotRequest"), "ReadWorkspaceTrajectoryRuntimeSnapshotRequest.workspaceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "ReadWorkspaceTrajectoryRuntimeSnapshotRequest"), "ReadWorkspaceTrajectoryRuntimeSnapshotRequest.workflowExecutionId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "ReadWorkspaceTrajectoryRuntimeSnapshotRequest"), "ReadWorkspaceTrajectoryRuntimeSnapshotRequest.chatRunId"),
+    limit: decodeInteger(requireField(record, "limit", "ReadWorkspaceTrajectoryRuntimeSnapshotRequest"), "ReadWorkspaceTrajectoryRuntimeSnapshotRequest.limit"),
+  };
+}
+
+export function decodeWorkspaceTrajectoryRuntimeLimits(value: unknown): WorkspaceTrajectoryRuntimeLimits {
+  const record = assertRecord(value, "WorkspaceTrajectoryRuntimeLimits");
+  assertKnownFields(record, "WorkspaceTrajectoryRuntimeLimits", ["maxSprites", "maxTimelineItems", "maxAggregates", "maxDetailRefs", "maxSourceRefsPerSprite", "maxFileRefsPerSprite", "maxChangedAreas", "maxSpriteTitleBytes", "maxSpriteSubtitleBytes", "maxSpriteResultBytes", "maxSpriteErrorBytes", "maxSnapshotPayloadBytes", "maxDeltaPayloadBytes"]);
+  return {
+    maxSprites: decodeInteger(requireField(record, "maxSprites", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxSprites"),
+    maxTimelineItems: decodeInteger(requireField(record, "maxTimelineItems", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxTimelineItems"),
+    maxAggregates: decodeInteger(requireField(record, "maxAggregates", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxAggregates"),
+    maxDetailRefs: decodeInteger(requireField(record, "maxDetailRefs", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxDetailRefs"),
+    maxSourceRefsPerSprite: decodeInteger(requireField(record, "maxSourceRefsPerSprite", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxSourceRefsPerSprite"),
+    maxFileRefsPerSprite: decodeInteger(requireField(record, "maxFileRefsPerSprite", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxFileRefsPerSprite"),
+    maxChangedAreas: decodeInteger(requireField(record, "maxChangedAreas", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxChangedAreas"),
+    maxSpriteTitleBytes: decodeInteger(requireField(record, "maxSpriteTitleBytes", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxSpriteTitleBytes"),
+    maxSpriteSubtitleBytes: decodeInteger(requireField(record, "maxSpriteSubtitleBytes", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxSpriteSubtitleBytes"),
+    maxSpriteResultBytes: decodeInteger(requireField(record, "maxSpriteResultBytes", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxSpriteResultBytes"),
+    maxSpriteErrorBytes: decodeInteger(requireField(record, "maxSpriteErrorBytes", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxSpriteErrorBytes"),
+    maxSnapshotPayloadBytes: decodeInteger(requireField(record, "maxSnapshotPayloadBytes", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxSnapshotPayloadBytes"),
+    maxDeltaPayloadBytes: decodeInteger(requireField(record, "maxDeltaPayloadBytes", "WorkspaceTrajectoryRuntimeLimits"), "WorkspaceTrajectoryRuntimeLimits.maxDeltaPayloadBytes"),
+  };
+}
+
+export function decodeWorkspaceTrajectoryRuntimePayloadBudget(value: unknown): WorkspaceTrajectoryRuntimePayloadBudget {
+  const record = assertRecord(value, "WorkspaceTrajectoryRuntimePayloadBudget");
+  assertKnownFields(record, "WorkspaceTrajectoryRuntimePayloadBudget", ["byteSize", "maxByteSize", "truncatedStringCount", "omittedSpriteCount"]);
+  return {
+    byteSize: decodeInteger(requireField(record, "byteSize", "WorkspaceTrajectoryRuntimePayloadBudget"), "WorkspaceTrajectoryRuntimePayloadBudget.byteSize"),
+    maxByteSize: decodeInteger(requireField(record, "maxByteSize", "WorkspaceTrajectoryRuntimePayloadBudget"), "WorkspaceTrajectoryRuntimePayloadBudget.maxByteSize"),
+    truncatedStringCount: decodeInteger(requireField(record, "truncatedStringCount", "WorkspaceTrajectoryRuntimePayloadBudget"), "WorkspaceTrajectoryRuntimePayloadBudget.truncatedStringCount"),
+    omittedSpriteCount: decodeInteger(requireField(record, "omittedSpriteCount", "WorkspaceTrajectoryRuntimePayloadBudget"), "WorkspaceTrajectoryRuntimePayloadBudget.omittedSpriteCount"),
+  };
+}
+
+export function decodeWorkspaceTrajectorySourceRef(value: unknown): WorkspaceTrajectorySourceRef {
+  const record = assertRecord(value, "WorkspaceTrajectorySourceRef");
+  assertKnownFields(record, "WorkspaceTrajectorySourceRef", ["kind", "id"]);
+  return {
+    kind: decodeWorkspaceTrajectorySourceKind(requireField(record, "kind", "WorkspaceTrajectorySourceRef"), "WorkspaceTrajectorySourceRef.kind"),
+    id: decodeString(requireField(record, "id", "WorkspaceTrajectorySourceRef"), "WorkspaceTrajectorySourceRef.id"),
+  };
+}
+
+export function decodeWorkspaceTrajectoryFileRef(value: unknown): WorkspaceTrajectoryFileRef {
+  const record = assertRecord(value, "WorkspaceTrajectoryFileRef");
+  assertKnownFields(record, "WorkspaceTrajectoryFileRef", ["path", "displayPath", "operation", "rangeStart", "rangeEnd", "additions", "deletions", "changedFiles", "contentHash"]);
+  return {
+    path: decodeString(requireField(record, "path", "WorkspaceTrajectoryFileRef"), "WorkspaceTrajectoryFileRef.path"),
+    displayPath: decodeString(requireField(record, "displayPath", "WorkspaceTrajectoryFileRef"), "WorkspaceTrajectoryFileRef.displayPath"),
+    operation: decodeWorkspaceTrajectoryFileOperation(requireField(record, "operation", "WorkspaceTrajectoryFileRef"), "WorkspaceTrajectoryFileRef.operation"),
+    rangeStart: decodeInteger(requireField(record, "rangeStart", "WorkspaceTrajectoryFileRef"), "WorkspaceTrajectoryFileRef.rangeStart"),
+    rangeEnd: decodeInteger(requireField(record, "rangeEnd", "WorkspaceTrajectoryFileRef"), "WorkspaceTrajectoryFileRef.rangeEnd"),
+    additions: decodeInteger(requireField(record, "additions", "WorkspaceTrajectoryFileRef"), "WorkspaceTrajectoryFileRef.additions"),
+    deletions: decodeInteger(requireField(record, "deletions", "WorkspaceTrajectoryFileRef"), "WorkspaceTrajectoryFileRef.deletions"),
+    changedFiles: decodeInteger(requireField(record, "changedFiles", "WorkspaceTrajectoryFileRef"), "WorkspaceTrajectoryFileRef.changedFiles"),
+    contentHash: decodeString(requireField(record, "contentHash", "WorkspaceTrajectoryFileRef"), "WorkspaceTrajectoryFileRef.contentHash"),
+  };
+}
+
+export function decodeWorkspaceTrajectoryCommand(value: unknown): WorkspaceTrajectoryCommand {
+  const record = assertRecord(value, "WorkspaceTrajectoryCommand");
+  assertKnownFields(record, "WorkspaceTrajectoryCommand", ["command", "cwd", "exitCode", "durationMs"]);
+  return {
+    command: decodeString(requireField(record, "command", "WorkspaceTrajectoryCommand"), "WorkspaceTrajectoryCommand.command"),
+    cwd: decodeString(requireField(record, "cwd", "WorkspaceTrajectoryCommand"), "WorkspaceTrajectoryCommand.cwd"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "WorkspaceTrajectoryCommand"), "WorkspaceTrajectoryCommand.exitCode"),
+    durationMs: decodeInteger(requireField(record, "durationMs", "WorkspaceTrajectoryCommand"), "WorkspaceTrajectoryCommand.durationMs"),
+  };
+}
+
+export function decodeWorkspaceTrajectoryTool(value: unknown): WorkspaceTrajectoryTool {
+  const record = assertRecord(value, "WorkspaceTrajectoryTool");
+  assertKnownFields(record, "WorkspaceTrajectoryTool", ["serverName", "toolName", "namespace", "requestId"]);
+  return {
+    serverName: decodeString(requireField(record, "serverName", "WorkspaceTrajectoryTool"), "WorkspaceTrajectoryTool.serverName"),
+    toolName: decodeString(requireField(record, "toolName", "WorkspaceTrajectoryTool"), "WorkspaceTrajectoryTool.toolName"),
+    namespace: decodeString(requireField(record, "namespace", "WorkspaceTrajectoryTool"), "WorkspaceTrajectoryTool.namespace"),
+    requestId: decodeString(requireField(record, "requestId", "WorkspaceTrajectoryTool"), "WorkspaceTrajectoryTool.requestId"),
+  };
+}
+
+export function decodeWorkspaceTrajectoryDiffStats(value: unknown): WorkspaceTrajectoryDiffStats {
+  const record = assertRecord(value, "WorkspaceTrajectoryDiffStats");
+  assertKnownFields(record, "WorkspaceTrajectoryDiffStats", ["summary", "changedFiles", "additions", "deletions", "structured"]);
+  return {
+    summary: decodeString(requireField(record, "summary", "WorkspaceTrajectoryDiffStats"), "WorkspaceTrajectoryDiffStats.summary"),
+    changedFiles: decodeInteger(requireField(record, "changedFiles", "WorkspaceTrajectoryDiffStats"), "WorkspaceTrajectoryDiffStats.changedFiles"),
+    additions: decodeInteger(requireField(record, "additions", "WorkspaceTrajectoryDiffStats"), "WorkspaceTrajectoryDiffStats.additions"),
+    deletions: decodeInteger(requireField(record, "deletions", "WorkspaceTrajectoryDiffStats"), "WorkspaceTrajectoryDiffStats.deletions"),
+    structured: decodeBoolean(requireField(record, "structured", "WorkspaceTrajectoryDiffStats"), "WorkspaceTrajectoryDiffStats.structured"),
+  };
+}
+
+export function decodeWorkspaceTrajectorySprite(value: unknown): WorkspaceTrajectorySprite {
+  const record = assertRecord(value, "WorkspaceTrajectorySprite");
+  assertKnownFields(record, "WorkspaceTrajectorySprite", ["schemaVersion", "id", "kind", "status", "severity", "workspaceId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "chatConversationId", "chatRunId", "chatMessageId", "runItemId", "providerItemId", "cartographerRunId", "cartographerWindowId", "cartographerPatchId", "title", "subtitle", "sourceRefs", "fileRefs", "command", "tool", "diffStats", "resultSummary", "errorSummary", "createdAt", "updatedAt", "expiresAt", "ttlMs"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.schemaVersion"),
+    id: decodeString(requireField(record, "id", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.id"),
+    kind: decodeWorkspaceTrajectorySpriteKind(requireField(record, "kind", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.kind"),
+    status: decodeWorkspaceTrajectorySpriteStatus(requireField(record, "status", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.status"),
+    severity: decodeWorkspaceTrajectorySpriteSeverity(requireField(record, "severity", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.severity"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.workspaceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.workflowNodeId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.workflowNodeExecutionId"),
+    chatConversationId: decodeString(requireField(record, "chatConversationId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.chatConversationId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.chatRunId"),
+    chatMessageId: decodeString(requireField(record, "chatMessageId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.chatMessageId"),
+    runItemId: decodeString(requireField(record, "runItemId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.runItemId"),
+    providerItemId: decodeString(requireField(record, "providerItemId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.providerItemId"),
+    cartographerRunId: decodeString(requireField(record, "cartographerRunId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.cartographerRunId"),
+    cartographerWindowId: decodeString(requireField(record, "cartographerWindowId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.cartographerWindowId"),
+    cartographerPatchId: decodeString(requireField(record, "cartographerPatchId", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.cartographerPatchId"),
+    title: decodeString(requireField(record, "title", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.title"),
+    subtitle: decodeString(requireField(record, "subtitle", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.subtitle"),
+    sourceRefs: decodeArray(requireField(record, "sourceRefs", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.sourceRefs", (item) => decodeWorkspaceTrajectorySourceRef(item)),
+    fileRefs: decodeArray(requireField(record, "fileRefs", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.fileRefs", (item) => decodeWorkspaceTrajectoryFileRef(item)),
+    command: decodeWorkspaceTrajectoryCommand(requireField(record, "command", "WorkspaceTrajectorySprite")),
+    tool: decodeWorkspaceTrajectoryTool(requireField(record, "tool", "WorkspaceTrajectorySprite")),
+    diffStats: decodeWorkspaceTrajectoryDiffStats(requireField(record, "diffStats", "WorkspaceTrajectorySprite")),
+    resultSummary: decodeString(requireField(record, "resultSummary", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.resultSummary"),
+    errorSummary: decodeString(requireField(record, "errorSummary", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.errorSummary"),
+    createdAt: decodeString(requireField(record, "createdAt", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.updatedAt"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.expiresAt"),
+    ttlMs: decodeInteger(requireField(record, "ttlMs", "WorkspaceTrajectorySprite"), "WorkspaceTrajectorySprite.ttlMs"),
+  };
+}
+
+export function decodeWorkspaceTrajectoryTimelineItem(value: unknown): WorkspaceTrajectoryTimelineItem {
+  const record = assertRecord(value, "WorkspaceTrajectoryTimelineItem");
+  assertKnownFields(record, "WorkspaceTrajectoryTimelineItem", ["schemaVersion", "id", "spriteId", "kind", "status", "severity", "workspaceId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "chatRunId", "runItemId", "summary", "occurredAt", "sourceRefs"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.schemaVersion"),
+    id: decodeString(requireField(record, "id", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.id"),
+    spriteId: decodeString(requireField(record, "spriteId", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.spriteId"),
+    kind: decodeWorkspaceTrajectorySpriteKind(requireField(record, "kind", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.kind"),
+    status: decodeWorkspaceTrajectorySpriteStatus(requireField(record, "status", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.status"),
+    severity: decodeWorkspaceTrajectorySpriteSeverity(requireField(record, "severity", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.severity"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.workspaceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.workflowNodeId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.workflowNodeExecutionId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.chatRunId"),
+    runItemId: decodeString(requireField(record, "runItemId", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.runItemId"),
+    summary: decodeString(requireField(record, "summary", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.summary"),
+    occurredAt: decodeString(requireField(record, "occurredAt", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.occurredAt"),
+    sourceRefs: decodeArray(requireField(record, "sourceRefs", "WorkspaceTrajectoryTimelineItem"), "WorkspaceTrajectoryTimelineItem.sourceRefs", (item) => decodeWorkspaceTrajectorySourceRef(item)),
+  };
+}
+
+export function decodeWorkspaceTrajectorySpriteKindCount(value: unknown): WorkspaceTrajectorySpriteKindCount {
+  const record = assertRecord(value, "WorkspaceTrajectorySpriteKindCount");
+  assertKnownFields(record, "WorkspaceTrajectorySpriteKindCount", ["kind", "count"]);
+  return {
+    kind: decodeWorkspaceTrajectorySpriteKind(requireField(record, "kind", "WorkspaceTrajectorySpriteKindCount"), "WorkspaceTrajectorySpriteKindCount.kind"),
+    count: decodeInteger(requireField(record, "count", "WorkspaceTrajectorySpriteKindCount"), "WorkspaceTrajectorySpriteKindCount.count"),
+  };
+}
+
+export function decodeWorkspaceTrajectoryWorkflowNodeAggregate(value: unknown): WorkspaceTrajectoryWorkflowNodeAggregate {
+  const record = assertRecord(value, "WorkspaceTrajectoryWorkflowNodeAggregate");
+  assertKnownFields(record, "WorkspaceTrajectoryWorkflowNodeAggregate", ["id", "workspaceId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "activeCount", "recentCount", "failedCount", "approvalCount", "highestSeverity", "kindCounts", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.workspaceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.workflowNodeId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.workflowNodeExecutionId"),
+    activeCount: decodeInteger(requireField(record, "activeCount", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.activeCount"),
+    recentCount: decodeInteger(requireField(record, "recentCount", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.recentCount"),
+    failedCount: decodeInteger(requireField(record, "failedCount", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.failedCount"),
+    approvalCount: decodeInteger(requireField(record, "approvalCount", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.approvalCount"),
+    highestSeverity: decodeWorkspaceTrajectorySpriteSeverity(requireField(record, "highestSeverity", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.highestSeverity"),
+    kindCounts: decodeArray(requireField(record, "kindCounts", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.kindCounts", (item) => decodeWorkspaceTrajectorySpriteKindCount(item)),
+    updatedAt: decodeString(requireField(record, "updatedAt", "WorkspaceTrajectoryWorkflowNodeAggregate"), "WorkspaceTrajectoryWorkflowNodeAggregate.updatedAt"),
+  };
+}
+
+export function decodeWorkspaceTrajectoryRuntimeRemovals(value: unknown): WorkspaceTrajectoryRuntimeRemovals {
+  const record = assertRecord(value, "WorkspaceTrajectoryRuntimeRemovals");
+  assertKnownFields(record, "WorkspaceTrajectoryRuntimeRemovals", ["spriteIds", "timelineIds", "aggregateIds", "detailRefIds"]);
+  return {
+    spriteIds: decodeArray(requireField(record, "spriteIds", "WorkspaceTrajectoryRuntimeRemovals"), "WorkspaceTrajectoryRuntimeRemovals.spriteIds", (item) => decodeString(item, "WorkspaceTrajectoryRuntimeRemovals.spriteIds item")),
+    timelineIds: decodeArray(requireField(record, "timelineIds", "WorkspaceTrajectoryRuntimeRemovals"), "WorkspaceTrajectoryRuntimeRemovals.timelineIds", (item) => decodeString(item, "WorkspaceTrajectoryRuntimeRemovals.timelineIds item")),
+    aggregateIds: decodeArray(requireField(record, "aggregateIds", "WorkspaceTrajectoryRuntimeRemovals"), "WorkspaceTrajectoryRuntimeRemovals.aggregateIds", (item) => decodeString(item, "WorkspaceTrajectoryRuntimeRemovals.aggregateIds item")),
+    detailRefIds: decodeArray(requireField(record, "detailRefIds", "WorkspaceTrajectoryRuntimeRemovals"), "WorkspaceTrajectoryRuntimeRemovals.detailRefIds", (item) => decodeString(item, "WorkspaceTrajectoryRuntimeRemovals.detailRefIds item")),
+  };
+}
+
+export function decodeWorkspaceTrajectoryDetailRef(value: unknown): WorkspaceTrajectoryDetailRef {
+  const record = assertRecord(value, "WorkspaceTrajectoryDetailRef");
+  assertKnownFields(record, "WorkspaceTrajectoryDetailRef", ["id", "sourceKind", "sourceId", "spriteId", "summary"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkspaceTrajectoryDetailRef"), "WorkspaceTrajectoryDetailRef.id"),
+    sourceKind: decodeWorkspaceTrajectorySourceKind(requireField(record, "sourceKind", "WorkspaceTrajectoryDetailRef"), "WorkspaceTrajectoryDetailRef.sourceKind"),
+    sourceId: decodeString(requireField(record, "sourceId", "WorkspaceTrajectoryDetailRef"), "WorkspaceTrajectoryDetailRef.sourceId"),
+    spriteId: decodeString(requireField(record, "spriteId", "WorkspaceTrajectoryDetailRef"), "WorkspaceTrajectoryDetailRef.spriteId"),
+    summary: decodeString(requireField(record, "summary", "WorkspaceTrajectoryDetailRef"), "WorkspaceTrajectoryDetailRef.summary"),
+  };
+}
+
+export function decodeWorkspaceTrajectoryRuntimeSnapshot(value: unknown): WorkspaceTrajectoryRuntimeSnapshot {
+  const record = assertRecord(value, "WorkspaceTrajectoryRuntimeSnapshot");
+  assertKnownFields(record, "WorkspaceTrajectoryRuntimeSnapshot", ["schemaVersion", "workspaceId", "workflowExecutionId", "chatRunId", "revision", "generatedAt", "limits", "payloadBudget", "activeWorkflowNodeIds", "activeRunItemIds", "sprites", "timeline", "aggregateByWorkflowNode", "removals", "detailRefs"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.schemaVersion"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.workspaceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.workflowExecutionId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.chatRunId"),
+    revision: decodeInteger(requireField(record, "revision", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.revision"),
+    generatedAt: decodeString(requireField(record, "generatedAt", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.generatedAt"),
+    limits: decodeWorkspaceTrajectoryRuntimeLimits(requireField(record, "limits", "WorkspaceTrajectoryRuntimeSnapshot")),
+    payloadBudget: decodeWorkspaceTrajectoryRuntimePayloadBudget(requireField(record, "payloadBudget", "WorkspaceTrajectoryRuntimeSnapshot")),
+    activeWorkflowNodeIds: decodeArray(requireField(record, "activeWorkflowNodeIds", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.activeWorkflowNodeIds", (item) => decodeString(item, "WorkspaceTrajectoryRuntimeSnapshot.activeWorkflowNodeIds item")),
+    activeRunItemIds: decodeArray(requireField(record, "activeRunItemIds", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.activeRunItemIds", (item) => decodeString(item, "WorkspaceTrajectoryRuntimeSnapshot.activeRunItemIds item")),
+    sprites: decodeArray(requireField(record, "sprites", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.sprites", (item) => decodeWorkspaceTrajectorySprite(item)),
+    timeline: decodeArray(requireField(record, "timeline", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.timeline", (item) => decodeWorkspaceTrajectoryTimelineItem(item)),
+    aggregateByWorkflowNode: decodeArray(requireField(record, "aggregateByWorkflowNode", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.aggregateByWorkflowNode", (item) => decodeWorkspaceTrajectoryWorkflowNodeAggregate(item)),
+    removals: decodeWorkspaceTrajectoryRuntimeRemovals(requireField(record, "removals", "WorkspaceTrajectoryRuntimeSnapshot")),
+    detailRefs: decodeArray(requireField(record, "detailRefs", "WorkspaceTrajectoryRuntimeSnapshot"), "WorkspaceTrajectoryRuntimeSnapshot.detailRefs", (item) => decodeWorkspaceTrajectoryDetailRef(item)),
+  };
+}
+
+export function decodeWorkspaceTrajectoryRuntimeDelta(value: unknown): WorkspaceTrajectoryRuntimeDelta {
+  const record = assertRecord(value, "WorkspaceTrajectoryRuntimeDelta");
+  assertKnownFields(record, "WorkspaceTrajectoryRuntimeDelta", ["schemaVersion", "workspaceId", "fromRevision", "toRevision", "generatedAt", "payloadBudget", "changedAreas", "spriteUpdates", "timelineUpdates", "aggregateUpdates", "removals", "detailRefs"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkspaceTrajectoryRuntimeDelta"), "WorkspaceTrajectoryRuntimeDelta.schemaVersion"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceTrajectoryRuntimeDelta"), "WorkspaceTrajectoryRuntimeDelta.workspaceId"),
+    fromRevision: decodeInteger(requireField(record, "fromRevision", "WorkspaceTrajectoryRuntimeDelta"), "WorkspaceTrajectoryRuntimeDelta.fromRevision"),
+    toRevision: decodeInteger(requireField(record, "toRevision", "WorkspaceTrajectoryRuntimeDelta"), "WorkspaceTrajectoryRuntimeDelta.toRevision"),
+    generatedAt: decodeString(requireField(record, "generatedAt", "WorkspaceTrajectoryRuntimeDelta"), "WorkspaceTrajectoryRuntimeDelta.generatedAt"),
+    payloadBudget: decodeWorkspaceTrajectoryRuntimePayloadBudget(requireField(record, "payloadBudget", "WorkspaceTrajectoryRuntimeDelta")),
+    changedAreas: decodeArray(requireField(record, "changedAreas", "WorkspaceTrajectoryRuntimeDelta"), "WorkspaceTrajectoryRuntimeDelta.changedAreas", (item) => decodeWorkspaceTrajectoryChangeArea(item, "WorkspaceTrajectoryRuntimeDelta.changedAreas item")),
+    spriteUpdates: decodeArray(requireField(record, "spriteUpdates", "WorkspaceTrajectoryRuntimeDelta"), "WorkspaceTrajectoryRuntimeDelta.spriteUpdates", (item) => decodeWorkspaceTrajectorySprite(item)),
+    timelineUpdates: decodeArray(requireField(record, "timelineUpdates", "WorkspaceTrajectoryRuntimeDelta"), "WorkspaceTrajectoryRuntimeDelta.timelineUpdates", (item) => decodeWorkspaceTrajectoryTimelineItem(item)),
+    aggregateUpdates: decodeArray(requireField(record, "aggregateUpdates", "WorkspaceTrajectoryRuntimeDelta"), "WorkspaceTrajectoryRuntimeDelta.aggregateUpdates", (item) => decodeWorkspaceTrajectoryWorkflowNodeAggregate(item)),
+    removals: decodeWorkspaceTrajectoryRuntimeRemovals(requireField(record, "removals", "WorkspaceTrajectoryRuntimeDelta")),
+    detailRefs: decodeArray(requireField(record, "detailRefs", "WorkspaceTrajectoryRuntimeDelta"), "WorkspaceTrajectoryRuntimeDelta.detailRefs", (item) => decodeWorkspaceTrajectoryDetailRef(item)),
+  };
+}
+
+export function decodeWorkspaceTrajectoryRuntimeEvent(value: unknown): WorkspaceTrajectoryRuntimeEvent {
+  const record = assertRecord(value, "WorkspaceTrajectoryRuntimeEvent");
+  assertKnownFields(record, "WorkspaceTrajectoryRuntimeEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "workspaceId", "revision", "delta", "snapshotRequired", "occurredAt"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkspaceTrajectoryRuntimeEvent"), "WorkspaceTrajectoryRuntimeEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "WorkspaceTrajectoryRuntimeEvent"), "WorkspaceTrajectoryRuntimeEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "WorkspaceTrajectoryRuntimeEvent"), "WorkspaceTrajectoryRuntimeEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "WorkspaceTrajectoryRuntimeEvent"), "WorkspaceTrajectoryRuntimeEvent.eventId"),
+    type: decodeString(requireField(record, "type", "WorkspaceTrajectoryRuntimeEvent"), "WorkspaceTrajectoryRuntimeEvent.type"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceTrajectoryRuntimeEvent"), "WorkspaceTrajectoryRuntimeEvent.workspaceId"),
+    revision: decodeInteger(requireField(record, "revision", "WorkspaceTrajectoryRuntimeEvent"), "WorkspaceTrajectoryRuntimeEvent.revision"),
+    delta: decodeNullable(requireField(record, "delta", "WorkspaceTrajectoryRuntimeEvent"), "WorkspaceTrajectoryRuntimeEvent.delta", (item) => decodeWorkspaceTrajectoryRuntimeDelta(item)),
+    snapshotRequired: decodeBoolean(requireField(record, "snapshotRequired", "WorkspaceTrajectoryRuntimeEvent"), "WorkspaceTrajectoryRuntimeEvent.snapshotRequired"),
+    occurredAt: decodeString(requireField(record, "occurredAt", "WorkspaceTrajectoryRuntimeEvent"), "WorkspaceTrajectoryRuntimeEvent.occurredAt"),
   };
 }
 
@@ -11254,6 +11898,7 @@ export interface BackendClient {
   readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
   submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
+  readWorkspaceTrajectoryRuntimeSnapshot: (request: ReadWorkspaceTrajectoryRuntimeSnapshotRequest) => Promise<WorkspaceTrajectoryRuntimeSnapshot>;
   readSemanticGraph: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
   readSemanticNodeDetail: (request: ReadSemanticNodeDetailRequest) => Promise<ReadSemanticNodeDetailResponse>;
   listSemanticEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
@@ -11780,6 +12425,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.SubmitWorkflowApproval,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readWorkspaceTrajectoryRuntimeSnapshot: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceTrajectoryRuntimeSnapshot,
+      endpoint: backendEndpoints.ReadWorkspaceTrajectoryRuntimeSnapshot,
       fetchImpl,
       requestPayload: request,
     }),

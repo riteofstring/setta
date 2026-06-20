@@ -1,7 +1,7 @@
 # Workspace Trajectory Liveness and Semantic Memory Plan
 
 - **Date:** June 18, 2026
-- **Status:** Phase 1 complete; Phase 2 ready to implement
+- **Status:** Phase 2 complete; Phase 3 ready to implement
 - **Scope:** Replace the current semantic-node-centered liveness model with a
   principled split between deterministic workflow trajectory visuals, durable
   semantic memory, cartographer audit, and graph interaction/runtime
@@ -731,7 +731,7 @@ Phase 2 handoff:
 
 ### Phase 2 - Workspace Trajectory Runtime Contracts
 
-Add the backend-owned typed trajectory runtime projection.
+Status: complete. Added the backend-owned typed trajectory runtime projection.
 
 Implementation:
 
@@ -980,47 +980,21 @@ For semantic nodes:
 
 ## Non-Goals
 
-- No polling.
-- No fake semantic estimates.
-- No command-output heuristics for file reads or line ranges.
-- No hardcoded TypeScript mirrors of Go-owned contracts.
-- No broad cartographer prompt-only fix.
-- No new graph visual that lacks a readable meaning.
-- No backward compatibility, legacy support, migrations, transitional code,
-  old-field aliases, dual-read/write paths, compatibility adapters, legacy
-  renderer modes, or silent fallback behavior.
-
+No polling, fake semantic estimates, command-output heuristics for file reads or
+line ranges, hardcoded TypeScript mirrors, broad cartographer prompt-only fixes,
+unreadable graph visuals, or backward-compatibility / legacy / migration /
+transitional behavior.
 ## Open Questions
 
-1. Which provider/tool events expose typed file read paths and line ranges today?
-2. Which provider/tool events expose structured diff additions and deletions
-   today?
-3. Should the long-term runtime composition service live in a new package, or
-   should the existing semantic runtime be narrowed while a workflow/chat
-   runtime is added beside it?
-4. How long should default trajectory sprites remain visible before collapsing
+1. Which provider/tool events expose typed file read paths, line ranges, and
+   structured diff additions/deletions today?
+2. Should the long-term runtime composition service live in a new package, or
+   should the existing semantic runtime be narrowed while workflow/chat runtime
+   is added beside it?
+3. How long should default trajectory sprites remain visible before collapsing
    into workflow-node details?
-5. Should users be able to pin individual trajectory sprites into durable
+4. Should users be able to pin individual trajectory sprites into durable
    semantic memory manually?
-6. Should "semantic memory future use" be required in the patch schema, or can
+5. Should "semantic memory future use" be required in the patch schema, or can
    it be deterministic audit derived from node kind, evidence, and retrieval
    behavior?
-
-## Recommended First Commit
-
-Start with Phase 1 before building new contracts. Phase 0 now has a baseline
-report, and Phase 1 addresses visible broken behavior while the larger
-trajectory runtime is designed.
-
-The first commit should:
-
-- make graph foundation stable when semantic nodes appear,
-- make semantic node layout local-first during pending saves,
-- disable or replace orbiting semantic-cell animations in the default view,
-- keep active workflow feedback visible while panning,
-- add focused renderer tests for those regressions,
-- and reference the Phase 0 report when documenting before/after behavior.
-
-That commit should not attempt to solve semantic usefulness through the
-cartographer. The main usefulness work starts once deterministic trajectory
-facts are visible without waiting for semantic memory.

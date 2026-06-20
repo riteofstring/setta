@@ -64,6 +64,13 @@ type ReadSemanticRuntimeSnapshotRequest struct {
 	Limit               int    `json:"limit"`
 }
 
+type ReadWorkspaceTrajectoryRuntimeSnapshotRequest struct {
+	WorkspaceID         string `json:"workspaceId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	Limit               int    `json:"limit"`
+}
+
 type ListConversationsRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }

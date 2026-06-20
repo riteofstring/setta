@@ -12,6 +12,7 @@ import (
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
+	"setta/internal/workspacetrajectory"
 	"setta/internal/workspaceui"
 )
 
@@ -147,6 +148,11 @@ type SemanticGraphService interface {
 	UpdateSteeringDirective(context.Context, semanticgraph.UpdateSteeringDirectiveInput) (semanticgraph.SemanticMutationResult, error)
 }
 
+type WorkspaceTrajectoryService interface {
+	ReadRuntimeSnapshot(context.Context, workspacetrajectory.RuntimeFilter) (workspacetrajectory.WorkspaceTrajectoryRuntimeSnapshot, error)
+	SubscribeRuntimeChanges(workspacetrajectory.RuntimeEventCursor) (*workspacetrajectory.RuntimeEventSubscription, error)
+}
+
 type TerminalService interface {
 	Attach(context.Context, string, string) (terminal.SessionSummary, error)
 	Close(context.Context, string, terminal.CloseMode) (terminal.SessionSummary, error)
@@ -162,40 +168,43 @@ type TerminalService interface {
 }
 
 type HandlerConfig struct {
-	AppearanceService    AppearanceService
-	Metadata             BackendMetadata
-	ChatService          ChatService
-	CodexAccountService  CodexAccountService
-	SemanticGraphService SemanticGraphService
-	TerminalService      TerminalService
-	WorkspaceUIService   WorkspaceUIService
-	WorkspaceService     WorkspaceService
-	WorkflowService      WorkflowService
+	AppearanceService          AppearanceService
+	Metadata                   BackendMetadata
+	ChatService                ChatService
+	CodexAccountService        CodexAccountService
+	SemanticGraphService       SemanticGraphService
+	TerminalService            TerminalService
+	WorkspaceTrajectoryService WorkspaceTrajectoryService
+	WorkspaceUIService         WorkspaceUIService
+	WorkspaceService           WorkspaceService
+	WorkflowService            WorkflowService
 }
 
 type handler struct {
-	appearanceService    AppearanceService
-	metadata             BackendMetadata
-	chatService          ChatService
-	codexAccountService  CodexAccountService
-	semanticGraphService SemanticGraphService
-	terminalService      TerminalService
-	workspaceUIService   WorkspaceUIService
-	workspaceService     WorkspaceService
-	workflowService      WorkflowService
+	appearanceService          AppearanceService
+	metadata                   BackendMetadata
+	chatService                ChatService
+	codexAccountService        CodexAccountService
+	semanticGraphService       SemanticGraphService
+	terminalService            TerminalService
+	workspaceTrajectoryService WorkspaceTrajectoryService
+	workspaceUIService         WorkspaceUIService
+	workspaceService           WorkspaceService
+	workflowService            WorkflowService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
 	apiHandler := handler{
-		appearanceService:    config.AppearanceService,
-		metadata:             config.Metadata,
-		chatService:          config.ChatService,
-		codexAccountService:  config.CodexAccountService,
-		semanticGraphService: config.SemanticGraphService,
-		terminalService:      config.TerminalService,
-		workspaceUIService:   config.WorkspaceUIService,
-		workspaceService:     config.WorkspaceService,
-		workflowService:      config.WorkflowService,
+		appearanceService:          config.AppearanceService,
+		metadata:                   config.Metadata,
+		chatService:                config.ChatService,
+		codexAccountService:        config.CodexAccountService,
+		semanticGraphService:       config.SemanticGraphService,
+		terminalService:            config.TerminalService,
+		workspaceTrajectoryService: config.WorkspaceTrajectoryService,
+		workspaceUIService:         config.WorkspaceUIService,
+		workspaceService:           config.WorkspaceService,
+		workflowService:            config.WorkflowService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)

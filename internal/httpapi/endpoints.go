@@ -11,6 +11,7 @@ import (
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspacesession"
+	"setta/internal/workspacetrajectory"
 	"setta/internal/workspaceui"
 )
 
@@ -96,6 +97,8 @@ var apiEndpoints = []endpoint{
 	post[GetWorkflowExecutionEventsRequest, orchestrator.WorkflowExecutionEventPage]("GetWorkflowExecutionEvents", "/workflows/executions/events", handler.getWorkflowExecutionEvents),
 	post[SubmitWorkflowApprovalRequest, orchestrator.WorkflowExecution]("SubmitWorkflowApproval", "/workflows/approvals/submit", handler.submitWorkflowApproval),
 	stream("WorkflowEventStream", "/workflows/events", handler.workflowEventStream),
+	post[ReadWorkspaceTrajectoryRuntimeSnapshotRequest, workspacetrajectory.WorkspaceTrajectoryRuntimeSnapshot]("ReadWorkspaceTrajectoryRuntimeSnapshot", "/workspace-trajectory/runtime/snapshot", handler.readWorkspaceTrajectoryRuntimeSnapshot),
+	streamEvent[workspacetrajectory.WorkspaceTrajectoryRuntimeEvent]("WorkspaceTrajectoryRuntimeEventStream", "/workspace-trajectory/runtime/events", handler.workspaceTrajectoryRuntimeEventStream),
 	post[ReadSemanticGraphRequest, semanticgraph.SemanticGraph]("ReadSemanticGraph", "/semantic-graph/read", handler.readSemanticGraph),
 	post[ReadSemanticNodeDetailRequest, ReadSemanticNodeDetailResponse]("ReadSemanticNodeDetail", "/semantic-graph/nodes/detail", handler.readSemanticNodeDetail),
 	post[ListSemanticEvidenceRequest, semanticgraph.SemanticEvidenceList]("ListSemanticEvidence", "/semantic-graph/evidence/list", handler.listSemanticEvidence),

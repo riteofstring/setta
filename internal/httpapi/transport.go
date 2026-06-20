@@ -73,6 +73,14 @@ func requireSemanticGraphService(response http.ResponseWriter, service SemanticG
 	return service
 }
 
+func requireWorkspaceTrajectoryService(response http.ResponseWriter, service WorkspaceTrajectoryService) WorkspaceTrajectoryService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "workspace_trajectory_service_unavailable", "workspace trajectory service is not available")
+		return nil
+	}
+	return service
+}
+
 func requireTerminalService(response http.ResponseWriter, service TerminalService) TerminalService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "terminal_service_unavailable", "terminal service is not available")
