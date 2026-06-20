@@ -762,4 +762,3 @@ Phase 1 readiness: blocked
 - report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
 - report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=71.5 budget=24; p95FrameMs=71.5; noisy threshold remains report-only
 - report-only no-long-task-over-100ms: report; actual=121 budget=100; maxLongTaskMs=121; non-reference runner remains report-only
-
