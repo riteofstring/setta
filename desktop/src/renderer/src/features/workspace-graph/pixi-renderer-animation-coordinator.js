@@ -91,6 +91,10 @@ export function createWorkflowGraphAnimationCoordinator({
   }
 
   function syncActiveSet({ cameraMotion = "settled", forceStaticGlow = false } = {}) {
+    if (cameraMotion === "moving") {
+      clearInactiveEdgeFlow();
+      return;
+    }
     const visibility = glowVisibilityWindow.sync();
     const visibleNodeIds = visibility.visibleNodeIds;
     const visibleNodes = visibility.visibleNodes;
@@ -102,10 +106,6 @@ export function createWorkflowGraphAnimationCoordinator({
     debugMetrics.measure("animation-active-set-recompute", () => {
       animationState.recompute({ edges, visibleNodeIds, visibleNodes });
     });
-    if (cameraMotion === "moving") {
-      clearInactiveEdgeFlow();
-      return;
-    }
     syncSettledGlowAndCells(visibleNodes, {
       redrawStaticGlow: forceStaticGlow || staticGlowDirty || visibility.changed,
     });

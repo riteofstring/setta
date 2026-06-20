@@ -12,25 +12,31 @@ describe("workflow graph debug animation frame renderer", () => {
       animationState: {
         debugSnapshot: () => ({ animationActive: true }),
       },
-      app: appStub({ started: true }),
+      app: appStub({ started: false }),
+      frameOwner: frameOwnerStub({ running: true }),
     });
 
     expect(renderer.renderAnimationFrame({ holdTicker: true, now: 123 })).toEqual({
       animationActive: true,
+      frameOwnerHeld: true,
+      frameOwnerRunning: false,
       now: 123,
       tickerHeld: true,
       tickerStarted: false,
     });
     expect(renderer.renderAnimationFrame({ holdTicker: true, now: 456 }).tickerStarted).toBe(false);
     expect(renderer.releaseAnimationFrame()).toEqual({
+      frameOwnerHeld: false,
+      frameOwnerRunning: true,
       tickerHeld: false,
-      tickerStarted: true,
+      tickerStarted: false,
     });
     expect(ticks).toEqual([123, 456]);
   });
 
-  test("renders without stopping the ticker when no capture hold is requested", () => {
-    const app = appStub({ started: true });
+  test("renders without suspending the frame owner when no capture hold is requested", () => {
+    const app = appStub({ started: false });
+    const frameOwner = frameOwnerStub({ running: true });
     const renderer = createWorkflowGraphDebugAnimationFrameRenderer({
       animationCoordinator: {
         tick: () => {},
@@ -39,14 +45,18 @@ describe("workflow graph debug animation frame renderer", () => {
         debugSnapshot: () => ({ animationActive: true }),
       },
       app,
+      frameOwner,
     });
 
     expect(renderer.renderAnimationFrame({ now: 789 })).toMatchObject({
+      frameOwnerHeld: false,
+      frameOwnerRunning: true,
       now: 789,
       tickerHeld: false,
-      tickerStarted: true,
+      tickerStarted: false,
     });
     expect(app.ticker.stopCount).toBe(0);
+    expect(frameOwner.suspendCount).toBe(0);
   });
 });
 
@@ -67,5 +77,26 @@ function appStub({ started }) {
   return {
     render: () => {},
     ticker,
+  };
+}
+
+function frameOwnerStub({ running }) {
+  return {
+    releaseCount: 0,
+    running,
+    suspendCount: 0,
+    debugSnapshot() {
+      return {
+        frameOwnerRunning: this.running,
+      };
+    },
+    release() {
+      this.running = true;
+      this.releaseCount += 1;
+    },
+    suspend() {
+      this.running = false;
+      this.suspendCount += 1;
+    },
   };
 }

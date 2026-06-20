@@ -128,16 +128,6 @@ export function workflowRendererGraphForSurface({
   return undefined;
 }
 
-export function workflowRendererScopeKey(
-  syntheticGraph: SyntheticWorkflowGraphOptions,
-  workflowWorkspaceId: string,
-) {
-  if (syntheticGraph !== null) {
-    return `synthetic:${syntheticGraph.scene ?? "workflow"}:${syntheticGraph.nodeCount}:${syntheticGraph.edgesPerNode}`;
-  }
-  return `workspace:${workflowWorkspaceId}`;
-}
-
 export function workflowProjectionPendingApproval(projection: WorkflowGraphProjection | null) {
   if (projection === null) {
     return null;

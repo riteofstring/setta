@@ -237,14 +237,6 @@ export function createWorkflowGraphCameraSync({
 
   function syncMovingCameraFidelity(syncIncludesZoom) {
     syncLabelsForCameraMotion("moving");
-    interactionScheduler.runLane(
-      "semantic-runtime-visual",
-      () => {
-        animationCoordinator.syncActiveSet({ cameraMotion: "moving" });
-      },
-      { cameraMotion: "moving" },
-    );
-    syncFilterAreas({ force: false });
     pendingSettledFidelityIncludesZoom = pendingSettledFidelityIncludesZoom || syncIncludesZoom;
   }
 

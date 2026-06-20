@@ -1,7 +1,13 @@
 import { fitViewportToGraph } from "./pixi-renderer-camera-fit";
 import { cameraState, clamp } from "./pixi-renderer-helpers";
 
-export function createWorkflowGraphCameraControls({ cameraSync, host, limits, nodes, viewport }) {
+export function createWorkflowGraphCameraControls({
+  cameraSync,
+  getHost,
+  limits,
+  nodes,
+  viewport,
+}) {
   return {
     fitCameraToGraph,
     panCameraByScreenDelta,
@@ -46,7 +52,7 @@ export function createWorkflowGraphCameraControls({ cameraSync, host, limits, no
 
   function fitCameraToGraph({ maxFitZoom = 1.15, paddingScreenPx = 160 } = {}) {
     return fitViewportToGraph({
-      host,
+      host: getHost(),
       maxFitZoom,
       maxZoom: limits.maxZoom,
       minZoom: limits.minZoom,

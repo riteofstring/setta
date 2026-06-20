@@ -6,8 +6,9 @@ export function createWorkflowGraphDebugAnimationFrameRenderer({
   animationCoordinator,
   animationState,
   app,
+  frameOwner,
 }) {
-  let tickerHold = null;
+  let frameOwnerHold = null;
   return {
     releaseAnimationFrame,
     renderAnimationFrame,
@@ -16,37 +17,41 @@ export function createWorkflowGraphDebugAnimationFrameRenderer({
   function renderAnimationFrame({ holdTicker = false, now } = {}) {
     const animationNow = Number.isFinite(now) ? now : performance.now();
     if (holdTicker) {
-      holdTickerForCapture();
+      holdFrameOwnerForCapture();
     }
     animationCoordinator.tick(animationNow);
     app.render();
     return {
       animationActive: animationState.debugSnapshot().animationActive,
-      tickerHeld: tickerHold !== null,
+      frameOwnerHeld: frameOwnerHold !== null,
+      frameOwnerRunning: frameOwner.debugSnapshot().frameOwnerRunning,
+      tickerHeld: frameOwnerHold !== null,
       tickerStarted: app.ticker.started === true,
       now: animationNow,
     };
   }
 
-  function holdTickerForCapture() {
-    if (tickerHold !== null) {
+  function holdFrameOwnerForCapture() {
+    if (frameOwnerHold !== null) {
       return;
     }
-    tickerHold = {
-      wasStarted: app.ticker.started === true,
+    frameOwnerHold = {
+      wasRunning: frameOwner.debugSnapshot().frameOwnerRunning,
     };
-    if (tickerHold.wasStarted) {
-      app.ticker.stop();
+    if (frameOwnerHold.wasRunning) {
+      frameOwner.suspend("debug-capture");
     }
   }
 
   function releaseAnimationFrame() {
-    const hold = tickerHold;
-    tickerHold = null;
-    if (hold?.wasStarted) {
-      app.ticker.start();
+    const hold = frameOwnerHold;
+    frameOwnerHold = null;
+    if (hold?.wasRunning) {
+      frameOwner.release("debug-capture-release");
     }
     return {
+      frameOwnerHeld: false,
+      frameOwnerRunning: frameOwner.debugSnapshot().frameOwnerRunning,
       tickerHeld: false,
       tickerStarted: app.ticker.started === true,
     };

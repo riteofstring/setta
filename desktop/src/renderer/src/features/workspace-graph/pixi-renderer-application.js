@@ -13,11 +13,14 @@ export async function initializeWorkflowGraphApplication({ abortSignal, backgrou
   await app.init({
     antialias: true,
     autoDensity: true,
+    autoStart: false,
     background: backgroundColor,
     height: screenSize.height,
     resolution: window.devicePixelRatio || 1,
+    sharedTicker: false,
     width: screenSize.width,
   });
+  app.ticker.stop();
   abortInitializedAppIfNeeded(app, abortSignal);
   const loadedNodeLabelFont = await loadNodeLabelBitmapFont();
   abortInitializedAppIfNeeded(app, abortSignal);
@@ -25,7 +28,7 @@ export async function initializeWorkflowGraphApplication({ abortSignal, backgrou
 }
 
 export function attachWorkflowGraphCanvas(host, canvas) {
-  host.appendChild(canvas);
+  host.replaceChildren(canvas);
   canvas.dataset.testid = "workflow-graph-canvas";
   canvas.style.display = "block";
   canvas.style.height = "100%";

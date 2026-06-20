@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
 import { WorkflowGraphSurface } from "../features/workspace-graph/workflow-graph-surface";
+import { destroyWorkflowGraphSurfaceController } from "../features/workspace-graph/workflow-graph-surface-controller";
 import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import { SemanticNodeDetailsSurface } from "../features/workspace-graph/semantic-node-details-surface";
 import { WorkflowNodeDetailsSurface } from "../features/workspace-graph/workflow-node-details-surface";
@@ -44,6 +45,9 @@ export interface ReactSurfaceRootFactory {
 export interface ReactDomSurfaceState {
   activated: boolean;
   focused: boolean;
+  frozen: boolean;
+  mounted: boolean;
+  visible: boolean;
 }
 
 export interface ReactDomSurfaceAdapterOptions {
@@ -110,6 +114,8 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     if (!this.root) {
       this.root = this.rootFactory.createRoot(this.container);
       this.renderCurrentSurface();
+    } else if (this.lifecycleRenderRequired()) {
+      this.renderCurrentSurface();
     }
     this.syncHostState();
   }
@@ -122,10 +128,19 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     this.host?.replaceChildren();
     this.host = null;
     this.visible = false;
+    if (this.lifecycleRenderRequired()) {
+      this.renderCurrentSurface();
+    }
   }
 
   setVisible(visible: boolean): void {
+    if (this.visible === visible) {
+      return;
+    }
     this.visible = visible;
+    if (this.lifecycleRenderRequired()) {
+      this.renderCurrentSurface();
+    }
     this.syncHostState();
   }
 
@@ -150,8 +165,15 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   }
 
   freeze(reason: FreezeReason): void {
+    if (this.frozen) {
+      this.host?.setAttribute("data-freeze-reason", reason);
+      return;
+    }
     this.frozen = true;
     this.host?.setAttribute("data-freeze-reason", reason);
+    if (this.lifecycleRenderRequired()) {
+      this.renderCurrentSurface();
+    }
     this.syncHostState();
   }
 
@@ -166,6 +188,9 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
         surfaceId: this.surfaceId,
         surfaceKind: this.kind,
       });
+      if (this.lifecycleRenderRequired()) {
+        this.renderCurrentSurface();
+      }
     }
     this.syncHostState();
   }
@@ -203,6 +228,9 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     if (root) {
       deferReactRootUnmount(root);
     }
+    if (this.kind === "workflow-graph") {
+      destroyWorkflowGraphSurfaceController(this.surfaceId);
+    }
     this.destroyed = true;
   }
 
@@ -232,8 +260,15 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
       this.renderSurface({
         activated: this.activated,
         focused: this.focused,
+        frozen: this.frozen,
+        mounted: this.host !== null,
+        visible: this.visible,
       }),
     );
+  }
+
+  private lifecycleRenderRequired(): boolean {
+    return this.kind === "workflow-graph";
   }
 
   private restoreParkedScrollOffsets(): void {
@@ -320,8 +355,9 @@ export function createReactDomSurfaceAdapter(
   if (pane.surfaceKind === "workflow-graph") {
     return new ReactDomSurfaceAdapter(
       pane,
-      () => (
+      ({ frozen, mounted, visible }) => (
         <WorkflowGraphSurface
+          active={mounted && visible && !frozen}
           debugEnabled={workflowGraphDebugEnabled()}
           syntheticGraphFallback={options.workflowGraphSyntheticGraphFallback}
           surfaceId={pane.surfaceId}

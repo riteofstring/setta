@@ -2,7 +2,6 @@ import type { WorkflowGraphProjection } from "@generated/backend";
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 
 import type { WorkflowNodeDetailsTarget } from "../../stores/workflow-editor-store";
-import type { WorkflowGraphRenderer } from "./pixi-renderer";
 import type { SemanticActivityByNodeId } from "./semantic-graph-projection";
 import type { SemanticRuntimeStore } from "./semantic-runtime-store";
 import type { SyntheticWorkflowGraphOptions } from "./workflow-graph-camera-scope";
@@ -12,7 +11,15 @@ import {
   createWorkspaceGraphSceneStore,
   type WorkspaceGraphSceneStore,
 } from "./workspace-graph-scene-store";
-import type { WorkspaceTrajectoryStore } from "./workspace-trajectory-store";
+import type {
+  WorkspaceTrajectoryFrameSnapshot,
+  WorkspaceTrajectoryStore,
+} from "./workspace-trajectory-store";
+
+interface WorkflowGraphRendererUpdateTarget {
+  updateGraph: (graph: WorkflowGraphRendererGraph) => void;
+  updateTrajectoryRuntime: (frame: WorkspaceTrajectoryFrameSnapshot) => void;
+}
 
 interface UseWorkflowGraphSceneRuntimeRequest {
   pendingWorkflowGraphRef: RefObject<WorkflowGraphRendererGraph | null>;
@@ -26,7 +33,7 @@ interface UseWorkflowGraphSceneRuntimeRequest {
   workflowGraph: WorkflowGraphRendererGraph | undefined;
   workflowProjection: WorkflowGraphProjection | null;
   workflowProjectionReady: boolean;
-  workflowRendererRef: RefObject<WorkflowGraphRenderer | null>;
+  workflowRendererRef: RefObject<WorkflowGraphRendererUpdateTarget | null>;
   workflowWorkspaceId: string;
 }
 
@@ -151,7 +158,7 @@ function syncSceneGraphFrame({
   frame: WorkspaceGraphSceneFrameSnapshot;
   lastSceneGraphVersionRef: { current: number };
   pendingWorkflowGraphRef: RefObject<WorkflowGraphRendererGraph | null>;
-  renderer: WorkflowGraphRenderer | null;
+  renderer: WorkflowGraphRendererUpdateTarget | null;
 }) {
   if (frame.graph === undefined) {
     return;
@@ -173,7 +180,7 @@ function syncTrajectoryFrame({
   force: boolean;
   frame: WorkspaceGraphSceneFrameSnapshot;
   lastTrajectoryFrameRef: { current: object | null };
-  renderer: WorkflowGraphRenderer | null;
+  renderer: WorkflowGraphRendererUpdateTarget | null;
 }) {
   if (
     frame.trajectory === null ||

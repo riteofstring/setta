@@ -13,7 +13,6 @@ import { persistGraphNodePositions } from "./workflow-graph-layout-persistence";
 import type {
   WorkflowGraphCameraState,
   WorkflowGraphEdgeConnection,
-  WorkflowGraphRenderer,
   WorkflowGraphRendererHandlers,
 } from "./pixi-renderer";
 import { WorkflowApprovalOverlay } from "./workflow-approval-overlay";
@@ -26,7 +25,7 @@ import {
 import { useWorkflowProjectionState } from "./workflow-graph-projection-state";
 import { workflowGraphReactCommitRecorder } from "./workflow-graph-react-profiler";
 import { workflowRendererHandlersForSurface } from "./workflow-graph-renderer-handlers";
-import { isWorkflowGraphRendererInitAbort } from "./workflow-graph-renderer-lifecycle";
+import { workflowGraphSurfaceControllerForSurface } from "./workflow-graph-surface-controller";
 import {
   workflowGraphAnimationSettingsForSurface,
   workflowGraphStateForSurface,
@@ -63,17 +62,18 @@ import {
   workflowProjectionForExecution,
   workflowProjectionPendingApproval,
   workflowProjectionWithLayoutPositions,
-  workflowRendererScopeKey,
   workflowRunDraftPreflightMessage,
   workflowValidationForDraftProjection,
   type WorkflowGraphRendererGraph,
 } from "./workflow-graph-surface-helpers";
 
 export function WorkflowGraphSurface({
+  active,
   debugEnabled,
   syntheticGraphFallback,
   surfaceId,
 }: {
+  active: boolean;
   debugEnabled: boolean;
   syntheticGraphFallback?: SyntheticWorkflowGraphOptions;
   surfaceId: string;
@@ -82,7 +82,12 @@ export function WorkflowGraphSurface({
   const workflowMenuRef = useRef<HTMLDivElement>(null);
   const workflowCameraRef = useRef<WorkflowGraphCameraState | null>(null);
   const workflowCameraScopeRef = useRef<WorkflowGraphCameraScope | null>(null);
-  const workflowRendererRef = useRef<WorkflowGraphRenderer | null>(null);
+  const workflowController = useMemo(
+    () => workflowGraphSurfaceControllerForSurface(surfaceId),
+    [surfaceId],
+  );
+  const workflowRendererRef = useRef(workflowController);
+  workflowRendererRef.current = workflowController;
   const initialWorkflowGraphRef = useRef<WorkflowGraphRendererGraph | null>(null);
   const pendingWorkflowGraphRef = useRef<WorkflowGraphRendererGraph | null>(null);
   const reactRenderCount = useRef(0);
@@ -218,7 +223,6 @@ export function WorkflowGraphSurface({
     workflowWorkspaceId,
   });
   const rendererGraphReady = graph !== undefined;
-  const rendererScopeKey = workflowRendererScopeKey(syntheticGraph, workflowWorkspaceId);
   const pendingApproval = useMemo(
     () => workflowProjectionPendingApproval(workflowProjection),
     [workflowProjection],
@@ -837,15 +841,47 @@ export function WorkflowGraphSurface({
   }, [selectedSemanticNodeId, semanticGraphState.graph]);
 
   useEffect(() => {
-    workflowRendererRef.current?.setHandlers(rendererHandlers);
-  }, [rendererHandlers]);
+    workflowController.configure({
+      animationEnabled: graphAnimationSettings.animationEnabled,
+      captureCameraState: (camera) => {
+        workflowCameraRef.current = camera;
+        writeWorkflowGraphCameraState(surfaceId, workflowCameraScopeRef.current, camera);
+      },
+      debugEnabled,
+      handlers: rendererHandlers,
+      initialCameraState: workflowCameraRef.current,
+      reduceMotion: graphAnimationSettings.reduceMotion,
+    });
+  }, [
+    debugEnabled,
+    graphAnimationSettings.animationEnabled,
+    graphAnimationSettings.reduceMotion,
+    rendererHandlers,
+    surfaceId,
+    workflowController,
+  ]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) {
+      return;
+    }
+    workflowController.mount(host);
+    return () => {
+      workflowController.suspend();
+    };
+  }, [workflowController]);
+
+  useEffect(() => {
+    if (active) {
+      workflowController.activate();
+      return;
+    }
+    workflowController.suspend();
+  }, [active, workflowController]);
 
   useEffect(() => {
     if (!rendererGraphReady) {
-      return;
-    }
-    const host = hostRef.current;
-    if (!host) {
       return;
     }
     const initialGraph = pendingWorkflowGraphRef.current ?? initialWorkflowGraphRef.current;
@@ -855,83 +891,9 @@ export function WorkflowGraphSurface({
     if (pendingWorkflowGraphRef.current === null) {
       pendingWorkflowGraphRef.current = initialGraph;
     }
-
-    host.replaceChildren();
-    const abortController = new AbortController();
-    let disposed = false;
-    let rendererHandle: WorkflowGraphRenderer | null = null;
-    const destroyRenderer = () => {
-      if (rendererHandle === null) {
-        return;
-      }
-      workflowCameraRef.current = rendererHandle.cameraState();
-      writeWorkflowGraphCameraState(
-        surfaceId,
-        workflowCameraScopeRef.current,
-        workflowCameraRef.current,
-      );
-      if (workflowRendererRef.current === rendererHandle) {
-        workflowRendererRef.current = null;
-      }
-      rendererHandle.destroy();
-      rendererHandle = null;
-    };
-
-    void import("./pixi-renderer")
-      .then(async ({ createWorkflowGraphRenderer }) => {
-        if (disposed) {
-          return;
-        }
-        const renderer = await createWorkflowGraphRenderer({
-          abortSignal: abortController.signal,
-          animationEnabled: graphAnimationSettings.animationEnabled,
-          debugEnabled,
-          debugSurfaceId: surfaceId,
-          graph: initialGraph,
-          host,
-          initialCameraState: workflowCameraRef.current,
-          reduceMotion: graphAnimationSettings.reduceMotion,
-          ...rendererHandlersRef.current,
-        });
-        if (disposed) {
-          renderer.destroy();
-          return;
-        }
-        rendererHandle = renderer;
-        workflowRendererRef.current = renderer;
-        renderer.setHandlers(rendererHandlersRef.current);
-        const syncedGraph = syncSceneFrameToRenderer(true);
-        const pendingGraph = pendingWorkflowGraphRef.current;
-        if (
-          pendingGraph !== null &&
-          pendingGraph !== initialGraph &&
-          pendingGraph !== syncedGraph
-        ) {
-          renderer.updateGraph(pendingGraph);
-        }
-      })
-      .catch((error: unknown) => {
-        if (isWorkflowGraphRendererInitAbort(error)) {
-          return;
-        }
-        console.error("Failed to initialize workflow graph surface", error);
-      });
-
-    return () => {
-      disposed = true;
-      abortController.abort();
-      destroyRenderer();
-      host.replaceChildren();
-    };
-  }, [
-    debugEnabled,
-    graphAnimationSettings.animationEnabled,
-    graphAnimationSettings.reduceMotion,
-    rendererGraphReady,
-    rendererScopeKey,
-    surfaceId,
-    syncSceneFrameToRenderer,
-  ]);
+    workflowController.updateScene(initialGraph);
+    syncSceneFrameToRenderer(true);
+  }, [rendererGraphReady, graph, syncSceneFrameToRenderer, workflowController]);
 
   useWorkflowContextMenuClose({ setWorkflowContextMenu, workflowContextMenu, workflowMenuRef });
 

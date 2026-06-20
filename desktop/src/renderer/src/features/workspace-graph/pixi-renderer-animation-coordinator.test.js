@@ -3,6 +3,29 @@ import { describe, expect, test, vi } from "vitest";
 import { createWorkflowGraphAnimationCoordinator } from "./pixi-renderer-animation-coordinator";
 
 describe("workflow graph animation coordinator", () => {
+  test("does not query visibility while camera is moving", () => {
+    const edgeFlowGraphics = graphicsStub();
+    const animationState = animationStateStub();
+    const nodesInPaddedViewport = vi.fn(() => [workflowNode("node_a")]);
+    const coordinator = createWorkflowGraphAnimationCoordinator({
+      animatedGlow: graphicsStub(),
+      animationState,
+      cellAnimation: { sync: vi.fn() },
+      debugMetrics: debugMetricsStub(),
+      edgeFlowGraphics,
+      edges: [],
+      getNode: () => null,
+      spatialQueries: { nodesInPaddedViewport },
+      staticGlow: graphicsStub(),
+    });
+
+    coordinator.syncActiveSet({ cameraMotion: "moving" });
+
+    expect(nodesInPaddedViewport).not.toHaveBeenCalled();
+    expect(animationState.recompute).not.toHaveBeenCalled();
+    expect(edgeFlowGraphics.clear).toHaveBeenCalledTimes(1);
+  });
+
   test("redraws static glow only when graph content is dirty or visible membership changes", () => {
     const node = workflowNode("node_a");
     const queryResults = [[node], [], [node], [], []];

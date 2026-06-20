@@ -150,9 +150,10 @@ function missingCameraFrameSamples(scenario, stats) {
 }
 
 function phase0ScalingSceneVisitBudgetCheck(scenarios) {
-  const failures = scalingScenarios(scenarios)
-    .map((scenario) => scalingSceneVisitBudgetResult(scenario))
-    .filter((result) => !result.pass);
+  const results = scalingScenarios(scenarios).map((scenario) =>
+    scalingSceneVisitBudgetResult(scenario),
+  );
+  const failures = results.filter((result) => !result.pass);
   return hardCheck({
     actual: failures.length,
     budget: 0,
@@ -160,7 +161,7 @@ function phase0ScalingSceneVisitBudgetCheck(scenarios) {
     pass: failures.length === 0,
     summary:
       failures.length === 0
-        ? scalingScenarios(scenarios).map(formatScalingSceneVisitResult).join("; ")
+        ? results.map(formatScalingSceneVisitResult).join("; ")
         : failures.map(formatScalingSceneVisitResult).join("; "),
   });
 }
@@ -208,9 +209,13 @@ function formatPhase0ScalingSceneVisitGrowth({ growth, largest, smallest }) {
 }
 
 function sceneVisitGrowthRatio({ largest, smallest }) {
-  return smallest && largest && smallest.p95 > 0
-    ? (largest.p95 - smallest.p95) / smallest.p95
-    : null;
+  if (!smallest || !largest) {
+    return null;
+  }
+  if (smallest.p95 === 0) {
+    return largest.p95 === 0 ? 0 : Number.POSITIVE_INFINITY;
+  }
+  return (largest.p95 - smallest.p95) / smallest.p95;
 }
 
 function scalingScenarios(scenarios) {
@@ -344,5 +349,9 @@ function escapeMarkdown(value) {
 }
 
 function formatReportNumber(value) {
-  return Number.isFinite(value) ? value.toFixed(2) : "";
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(2) : "";
 }

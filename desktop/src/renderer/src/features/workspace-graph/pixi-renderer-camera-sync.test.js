@@ -4,16 +4,18 @@ import { createWorkflowGraphCameraSync } from "./pixi-renderer-camera-sync";
 
 describe("workflow graph camera sync", () => {
   test("defers label sync during moving camera frames on small graphs", () => {
+    const animationCoordinator = { syncActiveSet: vi.fn() };
     const labels = labelManagerStub({ nodeCount: 3 });
     const labelLayer = { visible: true };
+    const syncFilterAreas = vi.fn();
     const cameraSync = createWorkflowGraphCameraSync({
-      animationCoordinator: { syncActiveSet: vi.fn() },
+      animationCoordinator,
       debugMetrics: debugMetricsStub(),
       handlers: { onCameraStateChange: vi.fn() },
       inputResponsiveness: { recordSettleRestore: vi.fn() },
       labelLayer,
       labels,
-      syncFilterAreas: vi.fn(),
+      syncFilterAreas,
       viewport: viewportStub(),
     });
 
@@ -26,6 +28,8 @@ describe("workflow graph camera sync", () => {
 
     expect(labelLayer.visible).toBe(false);
     expect(labels.syncVisibleLabels).not.toHaveBeenCalled();
+    expect(animationCoordinator.syncActiveSet).not.toHaveBeenCalled();
+    expect(syncFilterAreas).not.toHaveBeenCalled();
     expect(cameraSync.debugSnapshot()).toMatchObject({
       cameraMovingLabelHiddenFrameCount: 1,
       cameraMovingLabelSyncedFrameCount: 0,

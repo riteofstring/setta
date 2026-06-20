@@ -196,9 +196,14 @@ interface CreateWorkflowGraphRendererOptions {
 }
 
 export interface WorkflowGraphRenderer {
+  activate: () => void;
   cameraState: () => WorkflowGraphCameraState;
   destroy: () => void;
+  isCameraMoving: () => boolean;
+  resize: () => void;
   setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
+  suspend: () => void;
+  transferHost: (host: HTMLElement) => void;
   updateTrajectoryRuntime: (frame: WorkspaceTrajectoryFrameSnapshot) => void;
   updateGraph: (graph: WorkflowGraphGraph) => void;
 }
