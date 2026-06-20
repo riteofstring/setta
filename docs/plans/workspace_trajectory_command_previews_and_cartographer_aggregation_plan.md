@@ -55,6 +55,8 @@ pnpm -C desktop exec vitest run \
   src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts \
   src/renderer/src/features/workspace-graph/workspace-trajectory-display-labels.test.ts
 pnpm -C desktop exec tsc --noEmit --pretty false
+pnpm -C desktop build
+node desktop/tests/electron/workspace-trajectory-file-fidelity.test.mjs --skip-build
 ```
 
 Phase 4 can start from the current details implementation. The remaining work
