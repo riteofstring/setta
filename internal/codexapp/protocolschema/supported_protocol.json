@@ -91,5 +91,11 @@
     "windows/worldWritableWarning",
     "windowsSandbox/setupCompleted"
   ],
+  "experimentalNotifications": [
+    {
+      "method": "turn/moderationMetadata",
+      "source": "Live Codex app-server notification observed with ChatGPT auth before the checked stable JSON protocol snapshot included a structured schema."
+    }
+  ],
   "schemas": []
 }

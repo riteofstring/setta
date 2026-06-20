@@ -57,6 +57,20 @@ type SaveWorkspaceUILayoutRequest struct {
 	Layout workspaceui.WorkspaceUILayout `json:"layout"`
 }
 
+type ReadSemanticRuntimeSnapshotRequest struct {
+	WorkspaceID         string `json:"workspaceId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	Limit               int    `json:"limit"`
+}
+
+type ReadWorkspaceTrajectoryRuntimeSnapshotRequest struct {
+	WorkspaceID         string `json:"workspaceId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	Limit               int    `json:"limit"`
+}
+
 type ListConversationsRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }
@@ -235,11 +249,12 @@ type ReadWorkflowDefinitionRequest struct {
 }
 
 type UpdateWorkflowDefinitionRequest struct {
-	WorkspaceID  string                     `json:"workspaceId"`
-	DefinitionID string                     `json:"definitionId"`
-	Name         string                     `json:"name"`
-	Description  string                     `json:"description"`
-	Graph        orchestrator.WorkflowGraph `json:"graph"`
+	WorkspaceID      string                     `json:"workspaceId"`
+	DefinitionID     string                     `json:"definitionId"`
+	ExpectedRevision string                     `json:"expectedRevision"`
+	Name             string                     `json:"name"`
+	Description      string                     `json:"description"`
+	Graph            orchestrator.WorkflowGraph `json:"graph"`
 }
 
 type DeleteWorkflowDefinitionRequest struct {
@@ -254,6 +269,70 @@ type DeleteWorkflowDefinitionResponse struct {
 type ValidateWorkflowDefinitionRequest struct {
 	WorkspaceID string                     `json:"workspaceId"`
 	Graph       orchestrator.WorkflowGraph `json:"graph"`
+}
+
+type ValidateWorkflowDefinitionDraftRequest struct {
+	WorkspaceID      string `json:"workspaceId"`
+	DefinitionID     string `json:"definitionId"`
+	ExpectedRevision string `json:"expectedRevision"`
+}
+
+type UpdateWorkflowDefinitionLayoutRequest struct {
+	WorkspaceID      string                                 `json:"workspaceId"`
+	DefinitionID     string                                 `json:"definitionId"`
+	ExpectedRevision string                                 `json:"expectedRevision"`
+	Positions        []orchestrator.WorkflowGraphNodeLayout `json:"positions"`
+}
+
+type AddWorkflowNodeRequest struct {
+	WorkspaceID      string                                 `json:"workspaceId"`
+	DefinitionID     string                                 `json:"definitionId"`
+	ExpectedRevision string                                 `json:"expectedRevision"`
+	NodeType         orchestrator.WorkflowDraftNodeType     `json:"nodeType"`
+	Position         orchestrator.WorkflowDraftNodePosition `json:"position"`
+}
+
+type AddWorkflowEdgeRequest struct {
+	WorkspaceID      string                                   `json:"workspaceId"`
+	DefinitionID     string                                   `json:"definitionId"`
+	ExpectedRevision string                                   `json:"expectedRevision"`
+	Connection       orchestrator.WorkflowDraftEdgeConnection `json:"connection"`
+}
+
+type DeleteWorkflowNodesRequest struct {
+	WorkspaceID      string   `json:"workspaceId"`
+	DefinitionID     string   `json:"definitionId"`
+	ExpectedRevision string   `json:"expectedRevision"`
+	NodeIDs          []string `json:"nodeIds"`
+}
+
+type DeleteWorkflowEdgesRequest struct {
+	WorkspaceID      string   `json:"workspaceId"`
+	DefinitionID     string   `json:"definitionId"`
+	ExpectedRevision string   `json:"expectedRevision"`
+	EdgeIDs          []string `json:"edgeIds"`
+}
+
+type UpdateWorkflowNodeRequest struct {
+	WorkspaceID      string                    `json:"workspaceId"`
+	DefinitionID     string                    `json:"definitionId"`
+	ExpectedRevision string                    `json:"expectedRevision"`
+	Node             orchestrator.WorkflowNode `json:"node"`
+}
+
+type UpdateWorkflowEdgeRequest struct {
+	WorkspaceID      string                    `json:"workspaceId"`
+	DefinitionID     string                    `json:"definitionId"`
+	ExpectedRevision string                    `json:"expectedRevision"`
+	Edge             orchestrator.WorkflowEdge `json:"edge"`
+}
+
+type UpdateWorkflowDefinitionSettingsRequest struct {
+	WorkspaceID      string `json:"workspaceId"`
+	DefinitionID     string `json:"definitionId"`
+	ExpectedRevision string `json:"expectedRevision"`
+	Name             string `json:"name"`
+	Description      string `json:"description"`
 }
 
 type StartWorkflowExecutionRequest struct {
@@ -346,6 +425,13 @@ type ReadSemanticActivitySummaryRequest struct {
 	RecentLimit int    `json:"recentLimit"`
 }
 
+type ReadSemanticWorkingSetRequest struct {
+	WorkspaceID         string `json:"workspaceId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	Limit               int    `json:"limit"`
+}
+
 type ReadSemanticSteeringStateRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	TargetEntityID string `json:"targetEntityId"`
@@ -385,6 +471,19 @@ type BuildCartographerWindowRequest struct {
 type ProcessCartographerWindowRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	WindowID    string `json:"windowId"`
+}
+
+type ReadSemanticCartographerSettingsRequest struct{}
+
+type ReadSemanticCartographerSettingsMetadataRequest struct{}
+
+type UpdateSemanticCartographerSettingsRequest struct {
+	WorkspaceID string                                          `json:"workspaceId"`
+	Settings    semanticgraph.SemanticCartographerSettingsInput `json:"settings"`
+}
+
+type ListSemanticCartographerModelOptionsRequest struct {
+	WorkspaceID string `json:"workspaceId"`
 }
 
 type ReadCartographerProcessingStateRequest struct{}

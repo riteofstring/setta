@@ -5,12 +5,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 const (
 	SettaAgentToolNamespace          = "setta"
+	SettaWorkspaceFileReadToolName   = "read_workspace_file"
 	SettaWorkflowResultAgentToolName = "workflow_result"
+	settaWorkspaceFileReadMaxBytes   = 256 * 1024
 )
+
+type SettaWorkspaceFileReadPayload struct {
+	Path      string `json:"path"`
+	LineStart *int   `json:"lineStart"`
+	LineEnd   *int   `json:"lineEnd"`
+}
 
 type SettaWorkflowResultPayload struct {
 	Signals   []SettaWorkflowResultSignal `json:"signals"`
@@ -24,7 +35,11 @@ type SettaWorkflowResultSignal struct {
 }
 
 func NewSettaAgentToolRegistry() (*AgentToolRegistry, error) {
-	return NewAgentToolRegistry(settaWorkspaceContextTool(), settaWorkflowResultTool())
+	return NewAgentToolRegistry(
+		settaWorkspaceContextTool(),
+		settaWorkspaceFileReadTool(),
+		settaWorkflowResultTool(),
+	)
 }
 
 func mustNewSettaAgentToolRegistry() *AgentToolRegistry {
@@ -57,6 +72,51 @@ func settaWorkspaceContextTool() AgentTool {
 			Category:    "workspace",
 		},
 		Handler: handleSettaWorkspaceContext,
+	}
+}
+
+func settaWorkspaceFileReadTool() AgentTool {
+	return AgentTool{
+		Namespace: SettaAgentToolNamespace,
+		Name:      SettaWorkspaceFileReadToolName,
+		InputSchema: AgentToolSchema{
+			Type: AgentToolSchemaObject,
+			Properties: map[string]AgentToolSchema{
+				"path": {
+					Type:        AgentToolSchemaString,
+					Description: "Workspace-relative file path to read.",
+				},
+				"lineStart": {
+					Type:        AgentToolSchemaInteger,
+					Description: "Optional one-based first line to read.",
+				},
+				"lineEnd": {
+					Type:        AgentToolSchemaInteger,
+					Description: "Optional one-based last line to read, inclusive.",
+				},
+			},
+			Required: []string{"path"},
+		},
+		OutputSchema: AgentToolSchema{
+			Type:        AgentToolSchemaObject,
+			Description: "File content excerpt from the current Setta workspace.",
+		},
+		PermissionRequirements: []AgentToolPermissionRequirement{{
+			Kind:        AgentToolPermissionReadWorkspace,
+			Description: "Read a file from the current Setta workspace.",
+		}},
+		FileOperation: &AgentToolFileOperation{
+			Operation:          RunItemFileOperationRead,
+			PathArgument:       "path",
+			RangeStartArgument: "lineStart",
+			RangeEndArgument:   "lineEnd",
+		},
+		AuditMetadata: AgentToolAuditMetadata{
+			DisplayName: "Read workspace file",
+			Description: "Read an explicit file path from the current Setta workspace.",
+			Category:    "workspace",
+		},
+		Handler: handleSettaWorkspaceFileRead,
 	}
 }
 
@@ -169,6 +229,66 @@ func handleSettaWorkspaceContext(ctx context.Context, call AgentToolCall) (Agent
 	}, nil
 }
 
+func handleSettaWorkspaceFileRead(ctx context.Context, call AgentToolCall) (AgentToolResult, error) {
+	payload, err := DecodeSettaWorkspaceFileReadPayload(call.Arguments)
+	if err != nil {
+		return AgentToolResult{}, err
+	}
+	runtime, ok := AgentToolRuntimeFromContext(ctx)
+	if !ok || runtime.Workspace.RootPath == "" {
+		return AgentToolResult{}, errors.New("workspace file read context is unavailable for this tool call")
+	}
+	fullPath, err := resolveSettaWorkspaceFileReadPath(runtime.Workspace.RootPath, payload.Path)
+	if err != nil {
+		return AgentToolResult{}, err
+	}
+	data, err := readSettaWorkspaceFile(fullPath, payload.Path)
+	if err != nil {
+		return AgentToolResult{}, err
+	}
+	content, err := settaWorkspaceFileReadContent(string(data), payload.LineStart, payload.LineEnd)
+	if err != nil {
+		return AgentToolResult{}, err
+	}
+	resultPayload := map[string]any{
+		"content": content,
+		"path":    payload.Path,
+	}
+	if payload.LineStart != nil && payload.LineEnd != nil {
+		resultPayload["lineStart"] = *payload.LineStart
+		resultPayload["lineEnd"] = *payload.LineEnd
+	}
+	result, err := json.MarshalIndent(resultPayload, "", "  ")
+	if err != nil {
+		return AgentToolResult{}, fmt.Errorf("encode workspace file read result: %w", err)
+	}
+	return AgentToolResult{
+		ContentItems: []AgentToolContentItem{{
+			Type: "inputText",
+			Text: string(result),
+		}},
+		Success: true,
+	}, nil
+}
+
+func readSettaWorkspaceFile(fullPath string, requestedPath string) ([]byte, error) {
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("stat workspace file %s: %w", requestedPath, err)
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf("workspace file path is a directory: %s", requestedPath)
+	}
+	if info.Size() > settaWorkspaceFileReadMaxBytes {
+		return nil, fmt.Errorf("workspace file %s is larger than %d bytes", requestedPath, settaWorkspaceFileReadMaxBytes)
+	}
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("read workspace file %s: %w", requestedPath, err)
+	}
+	return data, nil
+}
+
 func handleSettaWorkflowResult(_ context.Context, call AgentToolCall) (AgentToolResult, error) {
 	payload, err := DecodeSettaWorkflowResultPayload(call.Arguments)
 	if err != nil {
@@ -185,6 +305,31 @@ func handleSettaWorkflowResult(_ context.Context, call AgentToolCall) (AgentTool
 		}},
 		Success: true,
 	}, nil
+}
+
+func DecodeSettaWorkspaceFileReadPayload(arguments json.RawMessage) (SettaWorkspaceFileReadPayload, error) {
+	if len(arguments) == 0 {
+		return SettaWorkspaceFileReadPayload{}, errors.New("read_workspace_file arguments are required")
+	}
+	var payload SettaWorkspaceFileReadPayload
+	if err := json.Unmarshal(arguments, &payload); err != nil {
+		return SettaWorkspaceFileReadPayload{}, fmt.Errorf("read_workspace_file arguments must be a JSON object: %w", err)
+	}
+	if payload.Path == "" {
+		return SettaWorkspaceFileReadPayload{}, errors.New("read_workspace_file path is required")
+	}
+	if (payload.LineStart == nil) != (payload.LineEnd == nil) {
+		return SettaWorkspaceFileReadPayload{}, errors.New("read_workspace_file lineStart and lineEnd must be provided together")
+	}
+	if payload.LineStart != nil {
+		if *payload.LineStart < 1 {
+			return SettaWorkspaceFileReadPayload{}, errors.New("read_workspace_file lineStart must be positive")
+		}
+		if *payload.LineEnd < *payload.LineStart {
+			return SettaWorkspaceFileReadPayload{}, errors.New("read_workspace_file lineEnd must be greater than or equal to lineStart")
+		}
+	}
+	return payload, nil
 }
 
 func DecodeSettaWorkflowResultPayload(arguments json.RawMessage) (SettaWorkflowResultPayload, error) {
@@ -212,6 +357,77 @@ func DecodeSettaWorkflowResultPayload(arguments json.RawMessage) (SettaWorkflowR
 		}
 	}
 	return payload, nil
+}
+
+func resolveSettaWorkspaceFileReadPath(rootPath string, requestedPath string) (string, error) {
+	cleanRelativePath, err := cleanSettaWorkspaceFileReadPath(requestedPath)
+	if err != nil {
+		return "", err
+	}
+	realRoot, err := filepath.EvalSymlinks(rootPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace root: %w", err)
+	}
+	fullPath := filepath.Join(realRoot, cleanRelativePath)
+	realPath, err := filepath.EvalSymlinks(fullPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace file %s: %w", requestedPath, err)
+	}
+	if err := requireSettaWorkspaceResolvedPath(realRoot, realPath, requestedPath); err != nil {
+		return "", err
+	}
+	return realPath, nil
+}
+
+func cleanSettaWorkspaceFileReadPath(requestedPath string) (string, error) {
+	if strings.ContainsRune(requestedPath, '\x00') {
+		return "", errors.New("read_workspace_file path contains a NUL byte")
+	}
+	if filepath.IsAbs(requestedPath) {
+		return "", fmt.Errorf("read_workspace_file path must be workspace-relative: %s", requestedPath)
+	}
+	cleanRelativePath := filepath.Clean(requestedPath)
+	if settaWorkspaceRelativePathEscapes(cleanRelativePath) {
+		return "", fmt.Errorf("read_workspace_file path escapes the workspace: %s", requestedPath)
+	}
+	return cleanRelativePath, nil
+}
+
+func requireSettaWorkspaceResolvedPath(realRoot string, realPath string, requestedPath string) error {
+	relativeToRoot, err := filepath.Rel(realRoot, realPath)
+	if err != nil {
+		return fmt.Errorf("resolve workspace file %s relative to workspace: %w", requestedPath, err)
+	}
+	if settaWorkspaceRelativePathEscapes(relativeToRoot) || filepath.IsAbs(relativeToRoot) {
+		return fmt.Errorf("read_workspace_file path escapes the workspace: %s", requestedPath)
+	}
+	return nil
+}
+
+func settaWorkspaceRelativePathEscapes(relativePath string) bool {
+	return relativePath == "." || relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(filepath.Separator))
+}
+
+func settaWorkspaceFileReadContent(content string, lineStart *int, lineEnd *int) (string, error) {
+	if lineStart == nil && lineEnd == nil {
+		return content, nil
+	}
+	if lineStart == nil || lineEnd == nil {
+		return "", errors.New("read_workspace_file lineStart and lineEnd must be provided together")
+	}
+	lines := strings.SplitAfter(content, "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	startIndex := *lineStart - 1
+	endIndex := *lineEnd
+	if startIndex >= len(lines) {
+		return "", fmt.Errorf("read_workspace_file lineStart %d is past end of file", *lineStart)
+	}
+	if endIndex > len(lines) {
+		return "", fmt.Errorf("read_workspace_file lineEnd %d is past end of file", *lineEnd)
+	}
+	return strings.Join(lines[startIndex:endIndex], ""), nil
 }
 
 func requireEmptyAgentToolArguments(arguments json.RawMessage, toolName string) error {

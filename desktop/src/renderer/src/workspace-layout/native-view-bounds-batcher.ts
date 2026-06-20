@@ -23,7 +23,6 @@ export class NativeViewBoundsBatcher {
   private currentFrameSurfaceIds = new Set<string>();
   private focusedSurfaceId: string | null = null;
   private lastLiveUpdates = new Map<string, WorkspaceBrowserViewUpdate>();
-  private lastSentUpdates = new Map<string, WorkspaceBrowserViewUpdate>();
   private readonly updates = new Map<string, WorkspaceBrowserViewUpdate>();
 
   constructor(
@@ -40,14 +39,13 @@ export class NativeViewBoundsBatcher {
   flush(): NativeViewBoundsFlushResult {
     const { nextLiveUpdates, updates } = this.updatesForFlush();
     if (!this.bridge) {
-      this.commitFlushState(nextLiveUpdates, updates);
+      this.lastLiveUpdates = nextLiveUpdates;
       return { batchSent: false, updateCount: updates.length };
     }
 
     const shouldSend = updates.length > 0;
 
     if (!shouldSend) {
-      this.commitFlushState(nextLiveUpdates, updates);
       return { batchSent: false, updateCount: 0 };
     }
 
@@ -58,7 +56,7 @@ export class NativeViewBoundsBatcher {
       visibleBrowserPanes: this.currentFrameSurfaceIds.size,
       workspaceId: this.options.workspaceId,
     });
-    this.commitFlushState(nextLiveUpdates, updates);
+    this.lastLiveUpdates = nextLiveUpdates;
     return { batchSent: true, updateCount: updates.length };
   }
 
@@ -83,8 +81,13 @@ export class NativeViewBoundsBatcher {
       queuedSurfaceIds.add(update.surfaceId);
       if (update.visible && update.runtimeState === "live") {
         nextLiveUpdates.set(update.surfaceId, update);
+        const previous = this.lastLiveUpdates.get(update.surfaceId);
+        if (!previous || !sameBrowserViewUpdate(previous, update)) {
+          updates.push(update);
+        }
+      } else {
+        updates.push(update);
       }
-      this.pushChangedUpdate(updates, update);
     }
     for (const [surfaceId, update] of this.lastLiveUpdates) {
       if (nextLiveUpdates.has(surfaceId) || queuedSurfaceIds.has(surfaceId)) {
@@ -101,31 +104,10 @@ export class NativeViewBoundsBatcher {
   async teardown(): Promise<WorkspaceBrowserViewStats | null> {
     this.beginFrame();
     this.lastLiveUpdates.clear();
-    this.lastSentUpdates.clear();
     if (!this.bridge) {
       return null;
     }
     return this.bridge.teardownBrowserViews(this.options.workspaceId);
-  }
-
-  private commitFlushState(
-    nextLiveUpdates: Map<string, WorkspaceBrowserViewUpdate>,
-    updates: WorkspaceBrowserViewUpdate[],
-  ): void {
-    this.lastLiveUpdates = nextLiveUpdates;
-    for (const update of updates) {
-      this.lastSentUpdates.set(update.surfaceId, update);
-    }
-  }
-
-  private pushChangedUpdate(
-    updates: WorkspaceBrowserViewUpdate[],
-    update: WorkspaceBrowserViewUpdate,
-  ): void {
-    const previous = this.lastSentUpdates.get(update.surfaceId);
-    if (!previous || !sameBrowserViewUpdate(previous, update)) {
-      updates.push(update);
-    }
   }
 }
 

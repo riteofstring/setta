@@ -53,16 +53,16 @@ describe("workspace pane runtime policy", () => {
     const summary = new PaneRuntimePolicy(budget).apply(items, "moving");
 
     expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["focused-canvas", "snapshot"],
+      ["focused-canvas", "live"],
       ["focused-chat", "snapshot"],
       ["moving-heavy", "snapshot"],
       ["moving-long-chat", "snapshot"],
       ["moving-chat", "snapshot"],
       ["moving-canvas", "snapshot"],
       ["moving-light", "live"],
-      ["moving-settings", "snapshot"],
+      ["moving-settings", "live"],
     ]);
-    expect(summary.snapshot).toBe(7);
+    expect(summary.snapshot).toBe(5);
     expect(summary.budget.maxLiveWebGpuCanvases).toBe(1);
   });
 
@@ -157,7 +157,7 @@ describe("workspace pane runtime policy", () => {
     expect(summary.snapshot).toBe(4);
   });
 
-  test("budgets terminal renderers and snapshots graph renderers during movement", () => {
+  test("budgets terminal renderers and keeps graph renderers live during movement", () => {
     const items = [
       renderItem("terminal-focused", "terminal", true),
       renderItem("terminal-live", "terminal", false),
@@ -182,12 +182,12 @@ describe("workspace pane runtime policy", () => {
     const movingSummary = new PaneRuntimePolicy(twoTerminals).apply(items, "moving");
 
     expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["terminal-focused", "snapshot"],
+      ["terminal-focused", "live"],
       ["terminal-live", "snapshot"],
       ["terminal-over-budget", "snapshot"],
-      ["graph-moving", "snapshot"],
+      ["graph-moving", "live"],
     ]);
-    expect(movingSummary.snapshot).toBe(4);
+    expect(movingSummary.snapshot).toBe(2);
   });
 
   test("uses snapshots for every visible overview pane even when focused", () => {

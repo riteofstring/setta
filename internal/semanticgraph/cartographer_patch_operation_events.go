@@ -223,9 +223,11 @@ func (service *Service) cartographerMarkResolvedEvents(_ context.Context, worksp
 
 func cartographerNodeCreatedPayload(node CartographerPatchNewNode) nodeCreatedPayload {
 	return nodeCreatedPayload{
-		NodeID:  node.SemanticNodeID,
-		Kind:    node.Kind,
-		Label:   node.Label,
-		Summary: node.Summary,
+		NodeID:      node.SemanticNodeID,
+		Kind:        node.Kind,
+		Label:       node.Label,
+		Summary:     node.Summary,
+		WhyItExists: node.WhyItExists,
+		FutureUse:   node.FutureUse,
 	}
 }

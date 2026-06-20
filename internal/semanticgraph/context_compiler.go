@@ -189,21 +189,37 @@ func (service *Service) contextCandidates(ctx context.Context, input contextComp
 	addAssociatedNodeCandidates(addCandidate, state.nodesByID, associated, "explicit source association", 0)
 	addNeighborhoodNodeCandidates(addCandidate, state.nodesByID, state.edgesByNode, associated)
 	addConstraintNodeCandidates(addCandidate, state.nodesByID, associated)
+	if err := service.addEvidenceCandidatesForContextNodes(ctx, input, candidates, addCandidate); err != nil {
+		return nil, err
+	}
+	addSourceActivityContextCandidates(addCandidate, state.sourceActivity, input.sourceRefs)
+	if err := service.addRetrievalContextCandidates(ctx, input, state, addCandidate); err != nil {
+		return nil, err
+	}
+	return sortedContextCandidates(candidates), nil
+}
 
+func (service *Service) addEvidenceCandidatesForContextNodes(ctx context.Context, input contextCompilerInput, candidates map[string]contextCandidate, addCandidate func(contextCandidate)) error {
 	nodeIDs := contextCandidateNodeIDs(candidates)
 	evidenceByNode, err := service.contextEvidenceForNodes(ctx, input.request.WorkspaceID, nodeIDs)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, anchors := range evidenceByNode {
 		for _, anchor := range anchors {
 			addCandidate(contextCandidateForEvidence(anchor, input.sourceRefs))
 		}
 	}
-	for _, interval := range state.sourceActivity {
-		addCandidate(contextCandidateForActivity(interval, input.sourceRefs))
-	}
+	return nil
+}
 
+func addSourceActivityContextCandidates(addCandidate func(contextCandidate), activity []SemanticActivityInterval, refs SemanticContextSourceRefs) {
+	for _, interval := range activity {
+		addCandidate(contextCandidateForActivity(interval, refs))
+	}
+}
+
+func sortedContextCandidates(candidates map[string]contextCandidate) []contextCandidate {
 	avoidTargets := avoidTargetIDs(candidates)
 	filtered := applyAvoidDirectives(candidates, avoidTargets)
 	result := make([]contextCandidate, 0, len(filtered))
@@ -213,7 +229,7 @@ func (service *Service) contextCandidates(ctx context.Context, input contextComp
 	sort.Slice(result, func(i int, j int) bool {
 		return compareContextCandidates(result[i], result[j]) < 0
 	})
-	return result, nil
+	return result
 }
 
 func (service *Service) contextCandidateState(ctx context.Context, input contextCompilerInput) (contextCandidateState, error) {

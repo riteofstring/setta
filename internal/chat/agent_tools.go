@@ -43,6 +43,7 @@ type AgentTool struct {
 	OutputSchema           AgentToolSchema
 	DeferLoading           bool
 	PermissionRequirements []AgentToolPermissionRequirement
+	FileOperation          *AgentToolFileOperation
 	AuditMetadata          AgentToolAuditMetadata
 	Handler                AgentToolHandler
 }
@@ -81,6 +82,17 @@ var agentToolPermissionKinds = map[AgentToolPermissionKind]struct{}{
 type AgentToolPermissionRequirement struct {
 	Kind        AgentToolPermissionKind
 	Description string
+}
+
+type AgentToolFileOperation struct {
+	Operation            RunItemFileOperation
+	PathArgument         string
+	RangeStartArgument   string
+	RangeEndArgument     string
+	AdditionsArgument    string
+	DeletionsArgument    string
+	ChangedFilesArgument string
+	ContentHashArgument  string
 }
 
 type AgentToolAuditMetadata struct {
@@ -138,6 +150,9 @@ func (registry *AgentToolRegistry) Register(tool AgentTool) error {
 		return err
 	}
 	if err := validateAgentToolPermissions(tool); err != nil {
+		return err
+	}
+	if err := validateAgentToolFileOperation(tool); err != nil {
 		return err
 	}
 	if tool.AuditMetadata.DisplayName == "" {
@@ -258,6 +273,118 @@ func validateAgentToolPermissions(tool AgentTool) error {
 		}
 	}
 	return nil
+}
+
+func validateAgentToolFileOperation(tool AgentTool) error {
+	if tool.FileOperation == nil {
+		return nil
+	}
+	operation := *tool.FileOperation
+	if !validValue(operation.Operation, runItemFileOperationValues) {
+		return fmt.Errorf("agent tool %s file operation has unsupported operation %s", tool.Name, operation.Operation)
+	}
+	if operation.PathArgument == "" {
+		return fmt.Errorf("agent tool %s file operation path argument is required", tool.Name)
+	}
+	if tool.InputSchema.Type != AgentToolSchemaObject {
+		return fmt.Errorf("agent tool %s file operation requires an object input schema", tool.Name)
+	}
+	if err := validateAgentToolFileOperationPermission(tool); err != nil {
+		return err
+	}
+	if err := requireAgentToolSchemaPropertyType(tool, operation.PathArgument, AgentToolSchemaString, "file operation path argument"); err != nil {
+		return err
+	}
+	if err := validateAgentToolFileOperationLineRange(tool, operation); err != nil {
+		return err
+	}
+	if err := validateAgentToolFileOperationStats(tool, operation); err != nil {
+		return err
+	}
+	return validateAgentToolFileOperationHash(tool, operation)
+}
+
+func validateAgentToolFileOperationLineRange(tool AgentTool, operation AgentToolFileOperation) error {
+	if operation.RangeStartArgument != "" || operation.RangeEndArgument != "" {
+		if operation.RangeStartArgument == "" || operation.RangeEndArgument == "" {
+			return fmt.Errorf("agent tool %s file operation line range requires both start and end arguments", tool.Name)
+		}
+		if err := requireAgentToolSchemaPropertyType(tool, operation.RangeStartArgument, AgentToolSchemaInteger, "file operation range start argument"); err != nil {
+			return err
+		}
+		if err := requireAgentToolSchemaPropertyType(tool, operation.RangeEndArgument, AgentToolSchemaInteger, "file operation range end argument"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateAgentToolFileOperationStats(tool AgentTool, operation AgentToolFileOperation) error {
+	for _, argument := range []struct {
+		name  string
+		label string
+	}{
+		{name: operation.AdditionsArgument, label: "file operation additions argument"},
+		{name: operation.DeletionsArgument, label: "file operation deletions argument"},
+		{name: operation.ChangedFilesArgument, label: "file operation changed files argument"},
+	} {
+		if argument.name == "" {
+			continue
+		}
+		if err := requireAgentToolSchemaPropertyType(tool, argument.name, AgentToolSchemaInteger, argument.label); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateAgentToolFileOperationHash(tool AgentTool, operation AgentToolFileOperation) error {
+	if operation.ContentHashArgument != "" {
+		if err := requireAgentToolSchemaPropertyType(tool, operation.ContentHashArgument, AgentToolSchemaString, "file operation content hash argument"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateAgentToolFileOperationPermission(tool AgentTool) error {
+	switch tool.FileOperation.Operation {
+	case RunItemFileOperationRead:
+		if !agentToolRequiresPermission(tool, AgentToolPermissionReadWorkspace) {
+			return fmt.Errorf("agent tool %s read file operation requires read_workspace permission", tool.Name)
+		}
+	case RunItemFileOperationWrite,
+		RunItemFileOperationCreate,
+		RunItemFileOperationDelete,
+		RunItemFileOperationRename,
+		RunItemFileOperationDiff:
+		if !agentToolRequiresPermission(tool, AgentToolPermissionWriteWorkspace) {
+			return fmt.Errorf("agent tool %s %s file operation requires write_workspace permission", tool.Name, tool.FileOperation.Operation)
+		}
+	case RunItemFileOperationUnknown:
+		return fmt.Errorf("agent tool %s file operation cannot be unknown", tool.Name)
+	}
+	return nil
+}
+
+func requireAgentToolSchemaPropertyType(tool AgentTool, propertyName string, propertyType AgentToolSchemaType, label string) error {
+	property, ok := tool.InputSchema.Properties[propertyName]
+	if !ok {
+		return fmt.Errorf("agent tool %s %s %q is not present in the input schema", tool.Name, label, propertyName)
+	}
+	if property.Type != propertyType {
+		return fmt.Errorf("agent tool %s %s %q must be %s, got %s", tool.Name, label, propertyName, propertyType, property.Type)
+	}
+	return nil
+}
+
+func agentToolRequiresPermission(tool AgentTool, permission AgentToolPermissionKind) bool {
+	for _, requirement := range tool.PermissionRequirements {
+		if requirement.Kind == permission {
+			return true
+		}
+	}
+	return false
 }
 
 type AttestationProvider interface {

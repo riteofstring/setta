@@ -6,7 +6,6 @@ const minimumManualPaneHeightPx = 96;
 const minimumManualPaneWidthPx = minimumColumnWidth;
 
 export type PaneResizeSession = HorizontalPaneResizeSession | VerticalPaneResizeSession;
-export type PaneResizePreview = HorizontalPaneResizePreview | VerticalPaneResizePreview;
 
 interface HorizontalPaneResizeSession {
   axis: "horizontal";
@@ -26,19 +25,6 @@ interface VerticalPaneResizeSession {
   upperPaneId: string;
   upperStartHeight: number;
   upperStartWeight: number;
-}
-
-interface HorizontalPaneResizePreview {
-  axis: "horizontal";
-  width: number;
-}
-
-interface VerticalPaneResizePreview {
-  axis: "vertical";
-  lowerHeight: number;
-  lowerHeightWeight: number;
-  upperHeight: number;
-  upperHeightWeight: number;
 }
 
 export function paneResizeSessionFromTarget(
@@ -77,57 +63,32 @@ export function paneResizeSessionFromTarget(
   };
 }
 
-export function paneResizePreviewForPointerMove(
-  session: PaneResizeSession,
-  event: Pick<PointerEvent, "clientX" | "clientY">,
-): PaneResizePreview {
-  if (session.axis === "vertical") {
-    return {
-      axis: "vertical",
-      ...paneSplitWeightsForPointerMove(session, event.clientY),
-    };
-  }
-  return {
-    axis: "horizontal",
-    width: Math.max(
-      minimumManualPaneWidthPx,
-      Math.round(session.startWidth + event.clientX - session.startClientX),
-    ),
-  };
-}
-
-export function commitPaneResize(
+export function applyPaneResizePointerMove(
   store: WorkspaceLayoutStore,
   session: PaneResizeSession,
-  event: Pick<PointerEvent, "clientX" | "clientY">,
-): boolean {
-  const preview = paneResizePreviewForPointerMove(session, event);
+  event: PointerEvent,
+): void {
   if (session.axis === "vertical") {
-    if (
-      preview.axis !== "vertical" ||
-      (preview.upperHeightWeight === session.upperStartWeight &&
-        preview.lowerHeightWeight === session.lowerStartWeight)
-    ) {
-      return false;
-    }
-    return store.resizePaneSplit(
+    const weights = paneSplitWeightsForPointerMove(session, event.clientY);
+    store.resizePaneSplit(
       session.upperPaneId,
       session.lowerPaneId,
-      preview.upperHeightWeight,
-      preview.lowerHeightWeight,
+      weights.upperHeightWeight,
+      weights.lowerHeightWeight,
     );
+    return;
   }
-  if (preview.axis !== "horizontal" || preview.width === session.startWidth) {
-    return false;
-  }
-  store.resizeColumn(session.columnId, { unit: "px", value: preview.width });
-  return true;
+  const width = Math.max(
+    minimumManualPaneWidthPx,
+    Math.round(session.startWidth + event.clientX - session.startClientX),
+  );
+  store.resizeColumn(session.columnId, { unit: "px", value: width });
 }
 
 function paneSplitWeightsForPointerMove(
   session: VerticalPaneResizeSession,
   clientY: number,
-): Omit<VerticalPaneResizePreview, "axis"> {
+): { lowerHeightWeight: number; upperHeightWeight: number } {
   const pairHeight = Math.max(1, session.upperStartHeight + session.lowerStartHeight);
   const minimumHeight = Math.min(
     minimumManualPaneHeightPx,
@@ -141,9 +102,7 @@ function paneSplitWeightsForPointerMove(
   const pairWeight = Math.max(0.2, session.upperStartWeight + session.lowerStartWeight);
   const upperHeightWeight = (pairWeight * upperHeight) / pairHeight;
   return {
-    lowerHeight: pairHeight - upperHeight,
     lowerHeightWeight: Math.max(0.1, pairWeight - upperHeightWeight),
-    upperHeight,
     upperHeightWeight: Math.max(0.1, upperHeightWeight),
   };
 }

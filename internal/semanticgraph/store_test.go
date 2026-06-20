@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -143,6 +144,148 @@ func TestStoreRebuildsProjectionsFromEventLog(t *testing.T) {
 	}
 }
 
+func TestStoreMaintainsSemanticSearchIndex(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	appendTestEvent(t, store, EventNodeCreated, "node_search", nodeCreatedPayload{
+		NodeID:  "node_search",
+		Kind:    NodeKindDecision,
+		Label:   "Cache invalidation strategy",
+		Summary: "Use semantic graph notifications for renderer invalidation.",
+	})
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "renderer invalidation",
+		Limit:       10,
+	}, semanticSearchRecordNode, "node_search")
+
+	appendTestEvent(t, store, EventNodeUpdated, "node_search", nodeUpdatedPayload{
+		NodeID:  "node_search",
+		Summary: pointerTo("Replay queue lease recovery before broad concurrency changes."),
+	})
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "lease recovery",
+		Limit:       10,
+	}, semanticSearchRecordNode, "node_search")
+
+	appendTestEvent(t, store, EventEvidenceAttached, "node_search", evidenceAttachedPayload{
+		AnchorID:       "evidence_search",
+		TargetEntityID: "node_search",
+		SourceKind:     EvidenceSourceFileRange,
+		Path:           "internal/semanticgraph/store_search.go",
+		Text:           "The search index is rebuilt from canonical semantic graph records.",
+		Summary:        "Search rebuild evidence",
+	})
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		ExactPaths:  []string{"internal/semanticgraph/store_search.go"},
+		Limit:       10,
+	}, semanticSearchRecordEvidence, "evidence_search")
+	appendTestEvent(t, store, EventNodeCreated, "node_competing_search", nodeCreatedPayload{
+		NodeID:  "node_competing_search",
+		Kind:    NodeKindFinding,
+		Label:   "Competing retrieval keyword",
+		Summary: "This node should not outrank an exact path match under a tight limit.",
+	})
+	tightResults, err := store.SearchSemanticText(ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "competing retrieval keyword",
+		ExactPaths:  []string{"internal/semanticgraph/store_search.go"},
+		Limit:       1,
+	})
+	if err != nil {
+		t.Fatalf("search exact path under tight limit: %v", err)
+	}
+	if len(tightResults) != 1 || tightResults[0].RecordKind != semanticSearchRecordEvidence || tightResults[0].RecordID != "evidence_search" || tightResults[0].Source != "exact_path" {
+		t.Fatalf("tight search results = %+v, want exact path evidence first", tightResults)
+	}
+
+	appendTestEvent(t, store, EventActivityStarted, "node_search", activityStartedPayload{
+		IntervalID:     "activity_search",
+		TargetEntityID: "node_search",
+		Kind:           ActivityKindValidating,
+		Summary:        "Validating stable search ordering",
+		SourceKind:     ActivitySourceRunItem,
+		SourceID:       "run_item_search",
+		ChatRunID:      "chat_run_search",
+		ActorKind:      ActorKindAssistant,
+		ActorID:        testActorID,
+	})
+	appendTestEvent(t, store, EventActivityEnded, "node_search", activityEndedPayload{IntervalID: "activity_search"})
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "stable search ordering",
+		Limit:       10,
+	}, semanticSearchRecordActivity, "activity_search")
+
+	appendTestEvent(t, store, EventContextPackCreated, "node_search", contextPackCreatedPayload{
+		PackID:               "pack_search",
+		TriggerKind:          ContextTriggerWorkflowAgentStart,
+		TargetEntityID:       "node_search",
+		AuthoredPromptHash:   "sha256:authored",
+		DeliveredContextHash: "sha256:delivered",
+		TokenBudget:          200,
+		EstimatedTokens:      20,
+		ItemCount:            1,
+		Items: []SemanticContextPackItem{{
+			ItemID:         "pack_search_item_001",
+			Kind:           ContextPackItemDecision,
+			SemanticNodeID: "node_search",
+			Title:          "Cache invalidation strategy",
+			Summary:        "Use semantic graph notifications.",
+			ReasonIncluded: "retrieval should preserve delivery reason",
+			Priority:       ContextPriorityImportant,
+			CreatedAt:      testTimestamp(20),
+			UpdatedAt:      testTimestamp(20),
+		}},
+		DeliveredContext: "Setta semantic context pack pack_search",
+	})
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "delivery reason",
+		Limit:       10,
+	}, semanticSearchRecordContextPackItem, "pack_search_item_001")
+
+	appendTestEvent(t, store, EventNodeDismissed, "node_search", nodeDismissedPayload{NodeID: "node_search"})
+	results, err := store.SearchSemanticText(ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "lease recovery",
+		Limit:       10,
+	})
+	if err != nil {
+		t.Fatalf("search dismissed node: %v", err)
+	}
+	for _, result := range results {
+		if result.RecordKind == semanticSearchRecordNode && result.RecordID == "node_search" {
+			t.Fatalf("search results = %+v, want dismissed node removed from FTS node rows", results)
+		}
+	}
+
+	if _, err := store.db.ExecContext(ctx, "DELETE FROM semantic_search_fts"); err != nil {
+		t.Fatalf("clear search index: %v", err)
+	}
+	empty, err := store.SearchSemanticText(ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "delivery reason",
+		Limit:       10,
+	})
+	if err != nil {
+		t.Fatalf("search cleared index: %v", err)
+	}
+	if len(empty) != 0 {
+		t.Fatalf("cleared search results = %+v, want empty", empty)
+	}
+	if err := store.RebuildSearchIndex(ctx); err != nil {
+		t.Fatalf("rebuild search index: %v", err)
+	}
+	assertSearchResult(t, store, ctx, SemanticSearchRequest{
+		WorkspaceID: testWorkspaceID,
+		Query:       "delivery reason",
+		Limit:       10,
+	}, semanticSearchRecordContextPackItem, "pack_search_item_001")
+}
+
 func TestStoreProjectsSplitMergeDismissAndPromoteLineage(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
@@ -183,6 +326,77 @@ func TestStoreProjectsSplitMergeDismissAndPromoteLineage(t *testing.T) {
 	}
 }
 
+func TestStoreMergesDuplicateEvidenceAnchorsByDeterministicIdentity(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	appendTestEvent(t, store, EventNodeCreated, "node_evidence_idempotent", nodeCreatedPayload{
+		NodeID:  "node_evidence_idempotent",
+		Kind:    NodeKindFinding,
+		Label:   "Evidence idempotency",
+		Summary: "Duplicate evidence events should not create duplicate source links.",
+	})
+	firstPayload := evidenceAttachedPayload{
+		AnchorID:       "evidence_idempotent_first",
+		TargetEntityID: "node_evidence_idempotent",
+		SourceKind:     EvidenceSourceRunItem,
+		SourceID:       "run_item_idempotent",
+		Path:           "internal/semanticgraph/store.go",
+		RangeStart:     10,
+		RangeEnd:       20,
+		Text:           "The same typed evidence body.",
+		Summary:        "Initial evidence summary.",
+		ContentHash:    "sha256:idempotent",
+		ChatRunID:      "chat_run_idempotent",
+		RunItemID:      "run_item_idempotent",
+	}
+	appendTestEvent(t, store, EventEvidenceAttached, "node_evidence_idempotent", firstPayload)
+	duplicatePayload := firstPayload
+	duplicatePayload.AnchorID = "evidence_idempotent_duplicate"
+	duplicatePayload.Summary = "Merged evidence summary."
+	appendTestEvent(t, store, EventEvidenceAttached, "node_evidence_idempotent", duplicatePayload)
+
+	graph, err := store.ReadGraph(ctx, testWorkspaceID)
+	if err != nil {
+		t.Fatalf("read graph: %v", err)
+	}
+	if len(graph.SourceLinks) != 1 {
+		t.Fatalf("source links = %+v, want one merged evidence link", graph.SourceLinks)
+	}
+	link := graph.SourceLinks[0]
+	if link.ID != "evidence_idempotent_first" || link.Summary != "Merged evidence summary." {
+		t.Fatalf("merged evidence = %+v, want original anchor id with merged summary", link)
+	}
+	history, err := store.ReadEventHistory(ctx, testWorkspaceID, "node_evidence_idempotent", 0, 10)
+	if err != nil {
+		t.Fatalf("read evidence event history: %v", err)
+	}
+	if len(history.Events) != 3 {
+		t.Fatalf("event history = %+v, want node creation plus both evidence events", history.Events)
+	}
+	var duplicateCount int
+	if err := store.db.QueryRow(`
+SELECT duplicate_count
+FROM semantic_evidence_anchors
+WHERE workspace_id = ? AND id = ?
+`, testWorkspaceID, "evidence_idempotent_first").Scan(&duplicateCount); err != nil {
+		t.Fatalf("read duplicate evidence count: %v", err)
+	}
+	if duplicateCount != 1 {
+		t.Fatalf("duplicate evidence count = %d, want 1", duplicateCount)
+	}
+
+	if err := store.RebuildProjections(ctx); err != nil {
+		t.Fatalf("rebuild projections: %v", err)
+	}
+	rebuilt, err := store.ReadGraph(ctx, testWorkspaceID)
+	if err != nil {
+		t.Fatalf("read rebuilt graph: %v", err)
+	}
+	if len(rebuilt.SourceLinks) != 1 || rebuilt.SourceLinks[0].ID != "evidence_idempotent_first" {
+		t.Fatalf("rebuilt source links = %+v, want one idempotent evidence link", rebuilt.SourceLinks)
+	}
+}
+
 func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
@@ -195,7 +409,7 @@ func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 		AnchorID:       "evidence_a",
 		TargetEntityID: "node_a",
 		SourceKind:     EvidenceSourceFileRange,
-		Path:           "docs/plans/setta_semantic_work_graph_implementation_plan.md",
+		Path:           "docs/plans/workspace_trajectory_liveness_and_semantic_memory_plan.md",
 		RangeStart:     42,
 		RangeEnd:       49,
 		Summary:        "Phase 1 scope guard",
@@ -485,6 +699,9 @@ func TestStoreRejectsUnsupportedExistingVersionBeforeCreatingSchema(t *testing.T
 	if !IsCorruptStateError(err) {
 		t.Fatalf("new store error = %T %v, want corrupt state error", err, err)
 	}
+	if !strings.Contains(err.Error(), "reset the semantic graph store") {
+		t.Fatalf("new store error = %v, want reset guidance", err)
+	}
 
 	db, err = sql.Open(sqliteDriverName, dbPath)
 	if err != nil {
@@ -518,6 +735,7 @@ func TestStoreOpensCartographerSchemaAndRejectsPreviousSemanticVersion(t *testin
 SELECT COUNT(*)
 FROM sqlite_master
 WHERE type = 'table' AND name IN (
+  'semantic_cartographer_settings',
   'semantic_cartographer_runs',
   'semantic_cartographer_windows',
   'semantic_cartographer_cursors',
@@ -528,8 +746,40 @@ WHERE type = 'table' AND name IN (
 `).Scan(&cartographerTables); err != nil {
 		t.Fatalf("count cartographer tables: %v", err)
 	}
-	if cartographerTables != 6 {
-		t.Fatalf("cartographer table count = %d, want 6", cartographerTables)
+	if cartographerTables != 7 {
+		t.Fatalf("cartographer table count = %d, want 7", cartographerTables)
+	}
+	cartographerRunColumns := cartographerRunSchemaColumns(t, store)
+	if cartographerRunColumns["model"] {
+		t.Fatalf("semantic_cartographer_runs still has legacy model column")
+	}
+	for _, column := range []string{
+		"settings_hash",
+		"task_profile",
+		"requested_model_selection",
+		"requested_model",
+		"effective_model",
+		"reported_model",
+		"requested_reasoning_effort",
+		"requested_input_budget",
+		"effective_reasoning_effort",
+		"reported_reasoning_effort",
+		"reasoning_effort_reported",
+		"queue_wait_ms",
+		"harness_duration_ms",
+		"validation_duration_ms",
+		"application_duration_ms",
+		"total_duration_ms",
+		"input_bundle_bytes",
+		"input_bundle_character_count",
+		"output_schema_bytes",
+		"raw_harness_response_bytes",
+		"close_reason",
+		"graph_usefulness_score_json",
+	} {
+		if !cartographerRunColumns[column] {
+			t.Fatalf("semantic_cartographer_runs missing phase 2 audit column %s", column)
+		}
 	}
 
 	appDataDir := t.TempDir()
@@ -552,6 +802,36 @@ WHERE type = 'table' AND name IN (
 	if !IsCorruptStateError(err) {
 		t.Fatalf("previous-version store error = %T %v, want corrupt state error", err, err)
 	}
+	if !strings.Contains(err.Error(), fmt.Sprintf("unsupported schema version %d", semanticStoreVersion-1)) ||
+		!strings.Contains(err.Error(), "reset the semantic graph store") {
+		t.Fatalf("previous-version store error = %v, want previous-version reset guidance", err)
+	}
+}
+
+func cartographerRunSchemaColumns(t *testing.T, store *Store) map[string]bool {
+	t.Helper()
+	rows, err := store.db.Query("PRAGMA table_info(semantic_cartographer_runs)")
+	if err != nil {
+		t.Fatalf("read cartographer run schema: %v", err)
+	}
+	defer rows.Close()
+	columns := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name string
+		var columnType string
+		var notNull int
+		var defaultValue sql.NullString
+		var primaryKey int
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			t.Fatalf("scan cartographer run schema column: %v", err)
+		}
+		columns[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate cartographer run schema: %v", err)
+	}
+	return columns
 }
 
 func TestStorePersistsCartographerRunWindowCursorAndSummary(t *testing.T) {
@@ -595,7 +875,16 @@ func saveCartographerRunForTest(t *testing.T, store *Store, ctx context.Context)
 	if err != nil {
 		t.Fatalf("read cartographer run: %v", err)
 	}
-	if !ok || readRun.InputBundle.ObservedEventRefs[0] != "event_observed_001" || readRun.HarnessKind != "codex" {
+	if !ok ||
+		readRun.InputBundle.ObservedEventRefs[0] != "event_observed_001" ||
+		readRun.HarnessKind != "codex" ||
+		readRun.TaskProfile != CartographerTaskProfileManual ||
+		readRun.RequestedModelSelection != SemanticCartographerModelSelectionProviderDefault ||
+		readRun.RequestedReasoningEffort != "low" ||
+		readRun.RequestedInputBudget != DefaultCartographerObservationConfig().TokenBudget ||
+		readRun.ReportedModel != "gpt-5-codex" ||
+		readRun.InputBundleBytes <= 0 ||
+		readRun.OutputSchemaBytes <= 0 {
 		t.Fatalf("read cartographer run = %+v, want persisted run input and harness audit", readRun)
 	}
 	return run
@@ -676,12 +965,17 @@ func cartographerTestRun() CartographerRun {
 			"type": "object",
 			"required": ["patches"]
 		}`),
-		HarnessKind: "codex",
-		Model:       "gpt-5-codex",
-		RequestID:   "request_cartographer",
-		CreatedAt:   testTimestamp(30),
-		StartedAt:   testTimestamp(31),
-		UpdatedAt:   testTimestamp(31),
+		HarnessKind:              "codex",
+		SettingsHash:             "sha256:cartographer-settings-test",
+		TaskProfile:              CartographerTaskProfileManual,
+		RequestedModelSelection:  SemanticCartographerModelSelectionProviderDefault,
+		RequestedReasoningEffort: "low",
+		RequestedInputBudget:     DefaultCartographerObservationConfig().TokenBudget,
+		ReportedModel:            "gpt-5-codex",
+		RequestID:                "request_cartographer",
+		CreatedAt:                testTimestamp(30),
+		StartedAt:                testTimestamp(31),
+		UpdatedAt:                testTimestamp(31),
 	}
 }
 
@@ -770,6 +1064,8 @@ func cartographerTestPatch(runID string, windowID string) CartographerPatchRecor
 					Kind:           NodeKindFinding,
 					Label:          "Observed semantic graph persistence",
 					Summary:        "The cartographer observed semantic graph persistence work.",
+					WhyItExists:    "Run item evidence preserves this semantic graph persistence finding beyond the current run.",
+					FutureUse:      "Future persistence reviews should use this finding when checking semantic graph audit behavior.",
 					Scope:          CartographerPatchNodeScopeSession,
 					EvidenceRefs: []CartographerPatchEvidenceRef{{
 						SourceKind:       EvidenceSourceRunItem,
@@ -931,6 +1227,20 @@ func semanticEdgeByID(t *testing.T, edges []SemanticEdge, id string) SemanticEdg
 	}
 	t.Fatalf("edge %s not found in %+v", id, edges)
 	return SemanticEdge{}
+}
+
+func assertSearchResult(t *testing.T, store *Store, ctx context.Context, request SemanticSearchRequest, recordKind string, recordID string) {
+	t.Helper()
+	results, err := store.SearchSemanticText(ctx, request)
+	if err != nil {
+		t.Fatalf("search semantic text: %v", err)
+	}
+	for _, result := range results {
+		if result.RecordKind == recordKind && result.RecordID == recordID {
+			return
+		}
+	}
+	t.Fatalf("search results = %+v, want %s/%s", results, recordKind, recordID)
 }
 
 func semanticLayoutPositionByEntityID(t *testing.T, positions []SemanticLayoutPosition, entityID string) SemanticLayoutPosition {

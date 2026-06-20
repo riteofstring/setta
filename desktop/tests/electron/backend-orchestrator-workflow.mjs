@@ -915,6 +915,9 @@ function phase4WorkflowEdges() {
     workflowEdge("route_end", "route", "end", {
       condition: signalCondition("consolidator", "decision", "exit"),
     }),
+    workflowEdge("route_default", "route", "end", {
+      condition: defaultCondition(),
+    }),
     workflowEdge("fix_guard", "fix", "guard"),
     workflowEdge("guard_review_a", "guard", "review_a", { kind: "loop_continue" }),
     workflowEdge("guard_review_b", "guard", "review_b", { kind: "loop_continue" }),
@@ -1041,6 +1044,18 @@ function signalCondition(nodeId, signalName, signalValue) {
     nodeId,
     signalName,
     signalValue,
+    status: null,
+  };
+}
+
+function defaultCondition() {
+  return {
+    exitCode: null,
+    invert: false,
+    kind: "default",
+    nodeId: "",
+    signalName: "",
+    signalValue: "",
     status: null,
   };
 }

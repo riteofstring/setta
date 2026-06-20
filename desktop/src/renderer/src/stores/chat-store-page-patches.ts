@@ -125,6 +125,7 @@ function terminalPreservingPagePatch(
   activeRun: RunningRun | null,
   terminalRunIds: Set<string>,
 ): ChatPatch {
+  const activeRunId = activeRun?.id ?? "";
   const patch = pagePatch(
     {
       ...page,
@@ -134,8 +135,14 @@ function terminalPreservingPagePatch(
         current.runItemOutputs,
         page.runItemOutputs,
         terminalRunIds,
+        activeRunId,
       ),
-      runItems: mergeOperationRunItems(current.runItems, page.runItems, terminalRunIds),
+      runItems: mergeOperationRunItems(
+        current.runItems,
+        page.runItems,
+        terminalRunIds,
+        activeRunId,
+      ),
       queue: mergeOperationQueue(page.queue, terminalRunIds),
       transcript: mergeOperationTranscript(current.transcript, page.transcript, terminalRunIds),
     },

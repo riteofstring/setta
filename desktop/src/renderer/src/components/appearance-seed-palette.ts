@@ -51,8 +51,8 @@ export function settingsFromSeed(
   const tailwind = tailwindPaletteFromSeed(seedColor);
   return {
     ...settings,
-    dark: darkSchemeFromTailwind(tailwind, settings.dark.status, settings.dark.accent),
-    light: lightSchemeFromTailwind(tailwind, settings.light.status, settings.light.accent),
+    dark: darkSchemeFromTailwind(tailwind, settings.dark.status),
+    light: lightSchemeFromTailwind(tailwind, settings.light.status),
   };
 }
 
@@ -74,7 +74,6 @@ function tailwindPaletteFromSeed(seedColor: string): AppearanceTailwindPalette {
 function lightSchemeFromTailwind(
   tailwind: AppearanceTailwindPalette,
   status: AppearanceColorScheme["status"],
-  accent: AppearanceColorScheme["accent"],
 ): AppearanceColorScheme {
   const card = "oklch(1.0000 0.0000 0.00)";
   const mutedForeground = firstReadableForeground(
@@ -87,7 +86,6 @@ function lightSchemeFromTailwind(
     tailwind.setta975,
   );
   return {
-    accent,
     shadcn: {
       accent: tailwind.setta200,
       accentForeground: tailwind.setta800,
@@ -132,7 +130,6 @@ function lightSchemeFromTailwind(
 function darkSchemeFromTailwind(
   tailwind: AppearanceTailwindPalette,
   status: AppearanceColorScheme["status"],
-  accent: AppearanceColorScheme["accent"],
 ): AppearanceColorScheme {
   const mutedForeground = firstReadableForeground(
     [tailwind.setta875, tailwind.setta850],
@@ -143,7 +140,6 @@ function darkSchemeFromTailwind(
     tailwind.setta50,
   );
   return {
-    accent,
     shadcn: {
       accent: tailwind.setta850,
       accentForeground: tailwind.setta100,

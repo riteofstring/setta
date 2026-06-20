@@ -145,7 +145,10 @@ func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, mes
 		return err
 	}
 	tool, ok := harness.config.Tools.Lookup(call.Namespace, call.Tool)
-	item := codexDynamicToolRunItem(call, tool, ok)
+	item, err := codexDynamicToolRunItem(call, tool, ok)
+	if err != nil {
+		return err
+	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err
 	}
@@ -199,7 +202,11 @@ func (harness *CodexHarness) agentToolRuntimeContext(ctx context.Context, runID 
 	})
 }
 
-func codexDynamicToolRunItem(call AgentToolCall, tool AgentTool, registered bool) RunItem {
+func codexDynamicToolRunItem(call AgentToolCall, tool AgentTool, registered bool) (RunItem, error) {
+	fileOperations, diffStats, err := runItemFileOperationFromAgentToolCall(call, tool, registered)
+	if err != nil {
+		return RunItem{}, err
+	}
 	item := RunItem{
 		ProviderItemID: call.CallID,
 		Type:           RunItemTypeDynamicToolCall,
@@ -209,11 +216,13 @@ func codexDynamicToolRunItem(call AgentToolCall, tool AgentTool, registered bool
 		ToolName:       call.Tool,
 		Details:        call.Arguments,
 	}
+	item.FileOperations = fileOperations
+	item.DiffStats = diffStats
 	if registered {
 		item.Title = tool.AuditMetadata.DisplayName
 		item.Summary = tool.AuditMetadata.Description
 	}
-	return item
+	return item, nil
 }
 
 func codexDynamicToolCall(params map[string]any) (AgentToolCall, error) {

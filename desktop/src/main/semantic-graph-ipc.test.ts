@@ -24,6 +24,8 @@ describe("semantic graph IPC handlers", () => {
     await invoke(handlers, ipcChannels.semanticGraphRead, request);
     await invoke(handlers, ipcChannels.semanticGraphContextPackRead, request);
     await invoke(handlers, ipcChannels.semanticGraphContextPackList, request);
+    await invoke(handlers, ipcChannels.semanticGraphWorkingSetRead, request);
+    await invoke(handlers, ipcChannels.semanticGraphRuntimeSnapshot, request);
     await invoke(handlers, ipcChannels.semanticGraphCartographerWindowBuild, request);
     await invoke(handlers, ipcChannels.semanticGraphCartographerRunRead, request);
     await invoke(handlers, ipcChannels.semanticGraphCartographerRunList, request);
@@ -34,6 +36,10 @@ describe("semantic graph IPC handlers", () => {
     await invoke(handlers, ipcChannels.semanticGraphCartographerPatchReject, request);
     await invoke(handlers, ipcChannels.semanticGraphCartographerWindowProcess, request);
     await invoke(handlers, ipcChannels.semanticGraphCartographerProcessingState, request);
+    await invoke(handlers, ipcChannels.semanticGraphCartographerSettingsRead, request);
+    await invoke(handlers, ipcChannels.semanticGraphCartographerSettingsMetadata, request);
+    await invoke(handlers, ipcChannels.semanticGraphCartographerSettingsUpdate, request);
+    await invoke(handlers, ipcChannels.semanticGraphCartographerModelOptionsList, request);
     await invoke(handlers, ipcChannels.semanticGraphRenameNode, request);
     await invoke(handlers, ipcChannels.semanticGraphUpdateNode, request);
     await invoke(handlers, ipcChannels.semanticGraphDismissNode, request);
@@ -50,6 +56,8 @@ describe("semantic graph IPC handlers", () => {
     expect(backend.readSemanticGraph).toHaveBeenCalledWith(request);
     expect(backend.readSemanticContextPack).toHaveBeenCalledWith(request);
     expect(backend.listSemanticContextPacks).toHaveBeenCalledWith(request);
+    expect(backend.readSemanticWorkingSet).toHaveBeenCalledWith(request);
+    expect(backend.readSemanticRuntimeSnapshot).toHaveBeenCalledWith(request);
     expect(backend.buildCartographerWindow).toHaveBeenCalledWith(request);
     expect(backend.readCartographerRun).toHaveBeenCalledWith(request);
     expect(backend.listCartographerRuns).toHaveBeenCalledWith(request);
@@ -60,6 +68,10 @@ describe("semantic graph IPC handlers", () => {
     expect(backend.rejectCartographerPatch).toHaveBeenCalledWith(request);
     expect(backend.processCartographerWindow).toHaveBeenCalledWith(request);
     expect(backend.readCartographerProcessingState).toHaveBeenCalledWith(request);
+    expect(backend.readSemanticCartographerSettings).toHaveBeenCalledWith(request);
+    expect(backend.readSemanticCartographerSettingsMetadata).toHaveBeenCalledWith(request);
+    expect(backend.updateSemanticCartographerSettings).toHaveBeenCalledWith(request);
+    expect(backend.listSemanticCartographerModelOptions).toHaveBeenCalledWith(request);
     expect(backend.renameSemanticNode).toHaveBeenCalledWith(request);
     expect(backend.updateSemanticNode).toHaveBeenCalledWith(request);
     expect(backend.dismissSemanticNode).toHaveBeenCalledWith(request);
@@ -93,6 +105,10 @@ function semanticBackendClient() {
     buildCartographerWindow: vi.fn(async () => ({})),
     processCartographerWindow: vi.fn(async () => ({})),
     readCartographerProcessingState: vi.fn(async () => ({})),
+    readSemanticCartographerSettings: vi.fn(async () => ({})),
+    readSemanticCartographerSettingsMetadata: vi.fn(async () => ({})),
+    updateSemanticCartographerSettings: vi.fn(async () => ({})),
+    listSemanticCartographerModelOptions: vi.fn(async () => []),
     createSemanticEdge: vi.fn(async () => ({})),
     createSemanticNode: vi.fn(async () => ({})),
     createSemanticSteeringDirective: vi.fn(async () => ({})),
@@ -107,6 +123,8 @@ function semanticBackendClient() {
     readCartographerRun: vi.fn(async () => ({})),
     readSemanticContextPack: vi.fn(async () => ({})),
     readSemanticGraph: vi.fn(async () => ({})),
+    readSemanticRuntimeSnapshot: vi.fn(async () => ({})),
+    readSemanticWorkingSet: vi.fn(async () => ({})),
     rejectCartographerPatch: vi.fn(async () => ({})),
     removeSemanticEdge: vi.fn(async () => ({})),
     renameSemanticNode: vi.fn(async () => ({})),
