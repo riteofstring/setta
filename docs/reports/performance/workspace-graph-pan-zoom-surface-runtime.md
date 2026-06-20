@@ -537,3 +537,253 @@ Phase 1 readiness: ready
 - report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
 - report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=42.599999999998545 budget=24; p95FrameMs=42.599999999998545; noisy threshold remains report-only
 - report-only no-long-task-over-100ms: report; actual=159 budget=100; maxLongTaskMs=159; non-reference runner remains report-only
+
+## Run 2026-06-19T16:19:57.885Z
+
+Artifact root: `/Users/kevin/Documents/AppDevelopment/setta/.recordings/workflow-graph-pan-zoom-phase0/20260619T161510Z`
+
+Phase 1 readiness: ready
+
+| Scenario | Synthetic scene | Nodes | p95 frame ms | p95 delivery ms | p95 first Pixi render proxy ms | Scene visits p95 / budget | Display objects | Camera pane writes | Camera React commits | Hard failures | Report-only findings |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| simple | phase0-simple | 3 | 17.50 | 57.50 | 58.50 | 3.00 / 544.00 | 58 | 0 | 0 | 0 | 2 |
+| normal | phase0-normal | 125 | 25.40 | 78.60 | 82.20 | 0.00 / 772.00 | 347 | 0 | 0 | 0 | 3 |
+| dense | phase0-dense | 650 | 25.80 | 201.80 | 215.40 | 0.00 / 1772.00 | 1597 | 0 | 0 | 0 | 3 |
+| stress | phase0-stress | 1300 | 33.70 | 271.00 | 289.40 | 0.00 / 3012.00 | 3147 | 0 | 0 | 0 | 4 |
+| scaling | phase0-scaling | 125 | 25.40 | 105.30 | 107.00 | 0.00 / 772.00 | 347 | 0 | 0 | 0 | 3 |
+| scaling | phase0-scaling | 525 | 33.40 | 161.30 | 162.40 | 0.00 / 772.00 | 347 | 0 | 0 | 0 | 3 |
+| scaling | phase0-scaling | 1025 | 33.50 | 169.90 | 171.20 | 0.00 / 772.00 | 347 | 0 | 0 | 0 | 3 |
+| scaling | phase0-scaling | 2525 | 41.80 | 239.80 | 241.40 | 0.00 / 772.00 | 347 | 0 | 0 | 0 | 3 |
+| scaling | phase0-scaling | 5025 | 42.00 | 392.40 | 393.70 | 0.00 / 772.00 | 347 | 0 | 0 | 0 | 3 |
+
+## Matrix Checks
+
+- hard scaling-required-scene-visit-counters-present: pass; actual=0 budget=0; scalingRuns=5, missing=none
+- hard scaling-scene-visits-within-visible-renderable-budget: pass; actual=0 budget=0; 125:p95=0.00 budget=772.00 visibleRenderableCount=65.00; 525:p95=0.00 budget=772.00 visibleRenderableCount=65.00; 1025:p95=0.00 budget=772.00 visibleRenderableCount=65.00; 2525:p95=0.00 budget=772.00 visibleRenderableCount=65.00; 5025:p95=0.00 budget=772.00 visibleRenderableCount=65.00
+- hard scaling-scene-visits-grow-under-five-percent: pass; actual=0 budget=0.05; smallest=125:0, largest=5025:0, growth=0.00
+
+## simple / phase0-simple
+
+- build: existing-production-electron-build
+- seed: phase0-simple-v1
+- warm-up/repetitions: 1 / 1
+- viewport/DPR/refresh: 1440x900 / 2 / 119Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=1
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=1, afterRendererInstanceId=1
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-19T16:15:17.374Z, lastInputAt=2026-06-19T16:15:24.406Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=56, panWheelEventCount=21, graphNodeCount=3, materializedLabelCount=3
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=8 budget=35; staticGlowRedrawCount=8, cameraDependentSyncFrameDelta=21, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=3 budget=96; materializedNodeCount=3, visibleMaterializedNodeCount=3
+- report-only supplemental-display-object-count-budget: pass; actual=58 budget=3000; totalDisplayObjectCount=58, materializedNodeCount=3; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: pass; actual=17.5 budget=24; p95FrameMs=17.5; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: report; actual=106 budget=100; maxLongTaskMs=106; non-reference runner remains report-only
+
+## normal / phase0-normal
+
+- build: existing-production-electron-build
+- seed: phase0-normal-v1
+- warm-up/repetitions: 1 / 1
+- viewport/DPR/refresh: 1440x900 / 2 / 60Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=1
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=1, afterRendererInstanceId=1
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-19T16:15:36.695Z, lastInputAt=2026-06-19T16:15:45.846Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=1508, panWheelEventCount=22, graphNodeCount=125, materializedLabelCount=1
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=9 budget=36; staticGlowRedrawCount=9, cameraDependentSyncFrameDelta=22, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=0 budget=96; materializedNodeCount=0, visibleMaterializedNodeCount=0
+- report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=25.399999999997817 budget=24; p95FrameMs=25.399999999997817; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: report; actual=141 budget=100; maxLongTaskMs=141; non-reference runner remains report-only
+
+## dense / phase0-dense
+
+- build: existing-production-electron-build
+- seed: phase0-dense-v1
+- warm-up/repetitions: 1 / 1
+- viewport/DPR/refresh: 1440x900 / 2 / 40Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=1
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=1, afterRendererInstanceId=1
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-19T16:16:03.578Z, lastInputAt=2026-06-19T16:16:21.017Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=7184, panWheelEventCount=22, graphNodeCount=650, materializedLabelCount=1
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=9 budget=36; staticGlowRedrawCount=9, cameraDependentSyncFrameDelta=22, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=0 budget=96; materializedNodeCount=0, visibleMaterializedNodeCount=0
+- report-only supplemental-display-object-count-budget: pass; actual=1597 budget=3000; totalDisplayObjectCount=1597, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=25.799999999995634 budget=24; p95FrameMs=25.799999999995634; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: report; actual=318 budget=100; maxLongTaskMs=318; non-reference runner remains report-only
+
+## stress / phase0-stress
+
+- build: existing-production-electron-build
+- seed: phase0-stress-v1
+- warm-up/repetitions: 1 / 1
+- viewport/DPR/refresh: 1440x900 / 2 / 24Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=1
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=1, afterRendererInstanceId=1
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-19T16:16:42.348Z, lastInputAt=2026-06-19T16:17:06.917Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=8792, panWheelEventCount=22, graphNodeCount=1300, materializedLabelCount=1
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=9 budget=36; staticGlowRedrawCount=9, cameraDependentSyncFrameDelta=22, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=0 budget=96; materializedNodeCount=0, visibleMaterializedNodeCount=0
+- report-only supplemental-display-object-count-budget: report; actual=3147 budget=3000; totalDisplayObjectCount=3147, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=33.700000000004366 budget=24; p95FrameMs=33.700000000004366; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: report; actual=471 budget=100; maxLongTaskMs=471; non-reference runner remains report-only
+
+## scaling / phase0-scaling
+
+- build: existing-production-electron-build
+- seed: phase0-scaling-v1
+- warm-up/repetitions: 1 / 1
+- viewport/DPR/refresh: 1440x900 / 2 / 60Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=1
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=1, afterRendererInstanceId=1
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-19T16:17:15.915Z, lastInputAt=2026-06-19T16:17:25.333Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=488, panWheelEventCount=22, graphNodeCount=125, materializedLabelCount=1
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=9 budget=36; staticGlowRedrawCount=9, cameraDependentSyncFrameDelta=22, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=0 budget=96; materializedNodeCount=0, visibleMaterializedNodeCount=0
+- report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=25.399999999999636 budget=24; p95FrameMs=25.399999999999636; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: report; actual=107 budget=100; maxLongTaskMs=107; non-reference runner remains report-only
+
+## scaling / phase0-scaling
+
+- build: existing-production-electron-build
+- seed: phase0-scaling-v1
+- warm-up/repetitions: 1 / 1
+- viewport/DPR/refresh: 1440x900 / 2 / 60Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=1
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=1, afterRendererInstanceId=1
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-19T16:17:33.018Z, lastInputAt=2026-06-19T16:17:47.878Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=488, panWheelEventCount=22, graphNodeCount=525, materializedLabelCount=1
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=9 budget=36; staticGlowRedrawCount=9, cameraDependentSyncFrameDelta=22, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=0 budget=96; materializedNodeCount=0, visibleMaterializedNodeCount=0
+- report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=33.39999999999782 budget=24; p95FrameMs=33.39999999999782; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: report; actual=117 budget=100; maxLongTaskMs=117; non-reference runner remains report-only
+
+## scaling / phase0-scaling
+
+- build: existing-production-electron-build
+- seed: phase0-scaling-v1
+- warm-up/repetitions: 1 / 1
+- viewport/DPR/refresh: 1440x900 / 2 / 60Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=1
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=1, afterRendererInstanceId=1
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-19T16:17:56.303Z, lastInputAt=2026-06-19T16:18:14.127Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=488, panWheelEventCount=22, graphNodeCount=1025, materializedLabelCount=1
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=9 budget=36; staticGlowRedrawCount=9, cameraDependentSyncFrameDelta=22, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=0 budget=96; materializedNodeCount=0, visibleMaterializedNodeCount=0
+- report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=33.5 budget=24; p95FrameMs=33.5; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: report; actual=124 budget=100; maxLongTaskMs=124; non-reference runner remains report-only
+
+## scaling / phase0-scaling
+
+- build: existing-production-electron-build
+- seed: phase0-scaling-v1
+- warm-up/repetitions: 1 / 1
+- viewport/DPR/refresh: 1440x900 / 2 / 40Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=1
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=1, afterRendererInstanceId=1
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-19T16:18:23.908Z, lastInputAt=2026-06-19T16:18:53.450Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=488, panWheelEventCount=22, graphNodeCount=2525, materializedLabelCount=1
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=9 budget=36; staticGlowRedrawCount=9, cameraDependentSyncFrameDelta=22, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=0 budget=96; materializedNodeCount=0, visibleMaterializedNodeCount=0
+- report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=41.799999999995634 budget=24; p95FrameMs=41.799999999995634; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: report; actual=154 budget=100; maxLongTaskMs=154; non-reference runner remains report-only
+
+## scaling / phase0-scaling
+
+- build: existing-production-electron-build
+- seed: phase0-scaling-v1
+- warm-up/repetitions: 1 / 1
+- viewport/DPR/refresh: 1440x900 / 2 / 40Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=1
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=1, afterRendererInstanceId=1
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-19T16:19:05.314Z, lastInputAt=2026-06-19T16:19:50.367Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=488, panWheelEventCount=22, graphNodeCount=5025, materializedLabelCount=1
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=9 budget=36; staticGlowRedrawCount=9, cameraDependentSyncFrameDelta=22, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=0 budget=96; materializedNodeCount=0, visibleMaterializedNodeCount=0
+- report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=42 budget=24; p95FrameMs=42; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: report; actual=179 budget=100; maxLongTaskMs=179; non-reference runner remains report-only
+

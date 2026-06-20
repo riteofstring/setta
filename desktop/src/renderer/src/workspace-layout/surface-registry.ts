@@ -34,7 +34,7 @@ interface HostRecord {
   focused: boolean | null;
   runtimeState: PaneRenderItem["runtimeState"] | null;
   surfaceId: SurfaceId;
-  viewport: Rect | null;
+  viewport: SurfaceViewportState | null;
   visible: boolean | null;
 }
 
@@ -459,7 +459,11 @@ export class SurfaceRegistry {
       item.moving,
       options.resizePhase,
     );
-    if (!viewportSyncRequired(reason, hostRecord.viewport, rect)) {
+    const nextState: SurfaceViewportState = {
+      reason,
+      rect,
+    };
+    if (!viewportSyncRequired(hostRecord.viewport, nextState)) {
       return;
     }
     if (viewportSyncDeferred(adapter.kind, reason, options.resizePhase)) {
@@ -468,7 +472,10 @@ export class SurfaceRegistry {
     }
 
     adapter.setViewport(rect, reason);
-    hostRecord.viewport = { ...rect };
+    hostRecord.viewport = {
+      reason,
+      rect: { ...rect },
+    };
     recordViewportWrite(adapter.kind, stats);
   }
 
@@ -491,6 +498,11 @@ export class SurfaceRegistry {
 }
 
 type SurfaceViewportSyncReason = "frame" | "mount" | "movement-active" | "resize" | "resize-active";
+
+interface SurfaceViewportState {
+  reason: SurfaceViewportSyncReason;
+  rect: Rect;
+}
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled workspace surface registry value: ${String(value)}`);
@@ -666,12 +678,14 @@ function viewportSyncReason(
 }
 
 function viewportSyncRequired(
-  reason: SurfaceViewportSyncReason,
-  previousRect: Rect | null,
-  nextRect: Rect,
+  previousState: SurfaceViewportState | null,
+  nextState: SurfaceViewportState,
 ): boolean {
   return (
-    reason === "mount" || reason === "resize" || !previousRect || !sameRect(previousRect, nextRect)
+    nextState.reason === "mount" ||
+    nextState.reason === "resize" ||
+    previousState === null ||
+    !sameRect(previousState.rect, nextState.rect)
   );
 }
 

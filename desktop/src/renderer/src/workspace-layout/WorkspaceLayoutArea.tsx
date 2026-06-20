@@ -815,6 +815,7 @@ function WorkspacePaneHost({
       data-testid="workspace-pane-host"
       data-tone="slate"
       data-visible="false"
+      data-workspace-presentation-owner="pane-host"
       ref={refCallback}
     />
   );

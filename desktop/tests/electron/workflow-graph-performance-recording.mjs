@@ -810,10 +810,39 @@ async function installPerformanceTimelineRecorder(client) {
       }
       const host = paneHost ?? paneChrome?.closest('[data-testid="workspace-pane-host"]');
       return {
+        component: paneMutationComponent(target),
         paneId: host?.dataset?.paneId ?? paneChrome?.dataset?.paneId ?? "",
         subsystem: paneChrome === null ? "workspace-pane-host" : "workspace-pane-chrome",
         surfaceId: host?.dataset?.surfaceId ?? "",
       };
+    }
+    function paneMutationComponent(target) {
+      if (!(target instanceof Element)) {
+        return "";
+      }
+      const owner = target.closest("[data-workspace-presentation-owner]");
+      if (owner instanceof HTMLElement) {
+        return owner.dataset.workspacePresentationOwner ?? "";
+      }
+      if (target.closest(".workspace-pane-resize-handle")) {
+        return "pane-resize-handle";
+      }
+      if (target.closest(".workspace-pane-action-button")) {
+        return "pane-action-button";
+      }
+      if (target.closest(".workspace-pane-action-strip")) {
+        return "pane-action-strip";
+      }
+      if (target.closest(".workspace-pane-drag-handle")) {
+        return "pane-drag-handle";
+      }
+      if (target.closest(".workspace-pane-top-bar")) {
+        return "pane-top-bar";
+      }
+      if (target.closest('[data-testid="workspace-pane-host"]')) {
+        return "pane-host";
+      }
+      return "";
     }
     function currentCausalSource() {
       const active = state.activeInputs.at(-1);
@@ -830,6 +859,7 @@ async function installPerformanceTimelineRecorder(client) {
     function incrementMutationCount(record) {
       const key = [
         record.owner.subsystem,
+        record.owner.component,
         record.owner.paneId,
         record.owner.surfaceId,
         record.causalSource,
