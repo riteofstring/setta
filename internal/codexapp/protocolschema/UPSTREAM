@@ -1,0 +1,8 @@
+commit: 75a08def9808ed5b77b458d09c2fe99f2b52c433
+source: codex-rs/app-server-protocol/schema/json
+experimental_source:
+  - codex-rs/app-server-protocol schema fixtures generated with --experimental
+  - codex-rs/app-server-protocol/src/protocol/common.rs
+  - codex-rs/app-server-protocol/src/protocol/v2/thread.rs
+experimental_json:
+  - json_experimental/v2/ThreadSettingsUpdateParams.json
