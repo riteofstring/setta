@@ -1,9 +1,8 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 5 graph recording evidence implemented and verified in
-  `f47cc6757`; Phase 6 trajectory sprite interaction decision is ready to
-  start.
+- **Status:** Phase 6 trajectory sprite passive-badge contract implemented and
+  verified; Phase 7 interaction refactor is ready to start.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -1048,8 +1047,10 @@ Result: passed on June 20, 2026.
 
 ## Phase 6: Trajectory Sprite Interaction Decision
 
-Status: Ready to start. Phase 6 should choose and test the trajectory sprite
-interaction model before the broader interaction-controller refactor begins.
+Status: Complete. Phase 6 chose passive trajectory badges, kept anchorless
+workflow sprites hidden from canvas lanes, and verified anchored badge placement
+through graph camera changes before the broader interaction-controller refactor
+begins.
 
 Goal: remove misleading trajectory sprite UI and make sprite placement
 predictable.
@@ -1057,7 +1058,7 @@ predictable.
 Tasks:
 
 - Decide whether trajectory sprites are interactive or passive for this
-  refactor.
+  refactor: passive.
 - If interactive:
   - enable hit testing for trajectory sprites or route pointer hits through the
     graph input layer;
@@ -1070,10 +1071,8 @@ Tasks:
   - remove interactive-looking hover/click affordances;
   - style badges as status marks attached to nodes rather than controls.
 - Add deterministic E2E coverage for the chosen behavior.
-- Define the anchorless sprite contract:
-  - hide anchorless items intentionally; or
-  - render them in a recent lane with consistent coordinate-space math; or
-  - attach them to an explicit fallback owner.
+- Define the anchorless sprite contract: hide anchorless workflow sprites from
+  canvas lanes while preserving runtime/detail counts.
 - Add coverage that anchored sprites stay attached to workflow nodes through
   pan/zoom.
 - If a recent lane is kept, add coverage that it does not drift under pan/zoom.
@@ -1087,6 +1086,8 @@ pnpm -C desktop exec vitest run \
 pnpm -C desktop build
 node desktop/tests/electron/workspace-trajectory-file-fidelity.test.mjs --skip-build
 ```
+
+Result: passed on June 20, 2026.
 
 Acceptance criteria:
 

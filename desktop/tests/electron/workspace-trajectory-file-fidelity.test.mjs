@@ -142,16 +142,16 @@ try {
     runId,
     workspaceId,
   });
-  const detailsReport = await assertWorkflowNodeDetails({
-    client: context.client,
-    graphSurfaceId,
-  });
   const trajectoryReport = await assertWorkspaceTrajectoryRuntime({
     client: context.client,
     executionId: started.executionId,
     workspaceId,
   });
   const renderReport = await assertRenderedTrajectorySprites(context.client, graphSurfaceId);
+  const detailsReport = await assertWorkflowNodeDetails({
+    client: context.client,
+    graphSurfaceId,
+  });
   const execution = await waitForWorkflowExecution(
     context.client,
     workspaceId,
@@ -371,18 +371,171 @@ async function assertWorkspaceTrajectoryRuntime({ client, executionId, workspace
 }
 
 async function assertRenderedTrajectorySprites(client, graphSurfaceId) {
+  await client.driver("workflowGraphFitToView", { surfaceId: graphSurfaceId });
+  await delay(180);
   const snapshot = await waitForWorkflowGraphSnapshot(
     client,
     graphSurfaceId,
-    (candidate) => (candidate.render.displayObjectCountsByLayer?.trajectory?.visibleCount ?? 0) > 1,
+    (candidate) => Number(candidate.render.trajectorySpriteDisplayCount ?? 0) > 0,
     10_000,
   );
+  assertPassiveTrajectoryBadges(snapshot);
+  assertTrajectoryBadgesAttachedToWorkflowNodes(snapshot, "initial render");
+  const afterZoomOut = await fitTrajectoryBadgeViewport({
+    client,
+    graphSurfaceId,
+    label: "zoom out fit",
+    maxFitZoom: 0.35,
+    paddingScreenPx: 160,
+    snapshot,
+  });
+  assertTrajectoryBadgesAttachedToWorkflowNodes(afterZoomOut, "zoom out fit");
+  const afterZoomIn = await fitTrajectoryBadgeViewport({
+    client,
+    graphSurfaceId,
+    label: "zoom in fit",
+    maxFitZoom: 1.15,
+    paddingScreenPx: 40,
+    snapshot: afterZoomOut,
+  });
+  assertTrajectoryBadgesAttachedToWorkflowNodes(afterZoomIn, "zoom in fit");
+
   const trajectoryLayer = snapshot.render.displayObjectCountsByLayer.trajectory;
   return {
+    anchoredBadgeCount: visibleTrajectoryBadgeViews(snapshot).length,
     directChildCount: trajectoryLayer.directChildCount,
+    interactionMode: snapshot.render.trajectorySpriteInteractionMode,
+    recentLaneCount: snapshot.render.trajectorySpriteRecentLaneCount,
     totalCount: trajectoryLayer.totalCount,
     visibleCount: trajectoryLayer.visibleCount,
   };
+}
+
+async function fitTrajectoryBadgeViewport({
+  client,
+  graphSurfaceId,
+  label,
+  maxFitZoom,
+  paddingScreenPx,
+  snapshot,
+}) {
+  await client.driver("workflowGraphFitToView", {
+    maxFitZoom,
+    paddingScreenPx,
+    surfaceId: graphSurfaceId,
+  });
+  await delay(180);
+  return waitForWorkflowGraphSnapshot(
+    client,
+    graphSurfaceId,
+    (candidate) =>
+      Number(candidate.render.trajectorySpriteDisplayCount ?? 0) > 0 &&
+      cameraChanged(snapshot.camera, candidate.camera),
+    5000,
+  ).catch((error) => {
+    throw new Error(
+      `${label} did not change graph camera from ${JSON.stringify(snapshot.camera)}: ${
+        error.message
+      }`,
+    );
+  });
+}
+
+function assertPassiveTrajectoryBadges(snapshot) {
+  assertPassiveTrajectoryRenderContract(snapshot.render);
+  for (const view of visibleTrajectoryBadgeViews(snapshot)) {
+    assertPassiveTrajectoryBadgeView(view);
+  }
+}
+
+function assertPassiveTrajectoryRenderContract(render) {
+  if (render.trajectorySpriteInteractionMode !== "passive") {
+    throw new Error(`trajectory sprites are not passive: ${JSON.stringify(render)}`);
+  }
+  if (
+    render.trajectorySpriteLayerEventMode !== "none" ||
+    render.trajectorySpriteLayerInteractiveChildren !== false
+  ) {
+    throw new Error(`trajectory sprite layer is interactive: ${JSON.stringify(render)}`);
+  }
+  if (render.trajectorySpriteRecentLaneCount !== 0) {
+    throw new Error(
+      `anchorless trajectory sprites rendered in recent lane: ${JSON.stringify(render)}`,
+    );
+  }
+}
+
+function assertPassiveTrajectoryBadgeView(view) {
+  if (
+    view.eventMode !== "none" ||
+    view.interactiveChildren !== false ||
+    (view.cursor !== "" && view.cursor !== "default")
+  ) {
+    throw new Error(`trajectory badge exposes an interactive affordance: ${JSON.stringify(view)}`);
+  }
+}
+
+function assertTrajectoryBadgesAttachedToWorkflowNodes(snapshot, label) {
+  const views = visibleTrajectoryBadgeViews(snapshot);
+  if (views.length === 0) {
+    throw new Error(
+      `no visible trajectory badges were present for ${label}: ${JSON.stringify(
+        trajectorySpriteDebugReport(snapshot),
+      )}`,
+    );
+  }
+  for (const view of views) {
+    const node = snapshot.graph.nodes.find((candidate) => candidate.id === view.anchorNodeId);
+    if (!node) {
+      throw new Error(
+        `trajectory badge ${view.id} references a missing node: ${JSON.stringify(view)}`,
+      );
+    }
+    const expected = expectedTrajectoryBadgePosition(snapshot, node, view);
+    assertNearlyEqual(view.screenX, expected.x, 1.5, `${label} ${view.id} x`);
+    assertNearlyEqual(view.screenY, expected.y, 1.5, `${label} ${view.id} y`);
+  }
+}
+
+function expectedTrajectoryBadgePosition(snapshot, node, view) {
+  return {
+    x: node.screenX + (node.width * snapshot.camera.zoom) / 2 + 12,
+    y: node.screenY - (node.height * snapshot.camera.zoom) / 2 + 7 + view.rank * 28,
+  };
+}
+
+function visibleTrajectoryBadgeViews(snapshot) {
+  return (snapshot.render.trajectorySpriteViews ?? []).filter(
+    (view) =>
+      view.visible === true &&
+      view.lane === "workflow_node" &&
+      typeof view.anchorNodeId === "string" &&
+      view.anchorNodeId !== "",
+  );
+}
+
+function trajectorySpriteDebugReport(snapshot) {
+  return {
+    anchors: snapshot.render.trajectoryAnchors ?? null,
+    displayCount: snapshot.render.trajectorySpriteDisplayCount ?? 0,
+    interactionMode: snapshot.render.trajectorySpriteInteractionMode ?? "",
+    recentLaneCount: snapshot.render.trajectorySpriteRecentLaneCount ?? 0,
+    views: snapshot.render.trajectorySpriteViews ?? null,
+  };
+}
+
+function assertNearlyEqual(actual, expected, tolerance, label) {
+  if (Math.abs(actual - expected) > tolerance) {
+    throw new Error(`${label} mismatch: expected=${expected} actual=${actual}`);
+  }
+}
+
+function cameraChanged(before, after) {
+  return (
+    Math.abs(after.x - before.x) > 0.01 ||
+    Math.abs(after.y - before.y) > 0.01 ||
+    Math.abs(after.zoom - before.zoom) > 0.01
+  );
 }
 
 async function assertWorkflowNodeDetails({ client, graphSurfaceId }) {

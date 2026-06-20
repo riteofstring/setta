@@ -5,6 +5,8 @@ const spriteHeight = 22;
 const spriteGap = 6;
 const spriteWidth = 148;
 const collapsedSpriteWidth = 58;
+const badgeCornerRadius = 4;
+const badgeStatusRailWidth = 2;
 const recentLaneScreenX = 24;
 const recentLaneScreenY = 108;
 
@@ -89,9 +91,13 @@ export function createWorkspaceTrajectorySpriteLayer({
     const container = new Container();
     container.eventMode = "none";
     container.interactiveChildren = false;
+    container.cursor = "default";
     const background = new Graphics();
+    background.eventMode = "none";
     const icon = new Graphics();
+    icon.eventMode = "none";
     const progress = new Graphics();
+    progress.eventMode = "none";
     const label = new BitmapText({
       anchor: { x: 0, y: 0.5 },
       style: {
@@ -135,14 +141,16 @@ export function createWorkspaceTrajectorySpriteLayer({
       return;
     }
     view.renderKey = renderKey;
-    const width = item.collapsedCount > 0 ? collapsedSpriteWidth : spriteWidth;
+    const width = itemWidth(item);
     const color = spriteColor(item);
     view.background
       .clear()
-      .roundRect(0, 0, width, spriteHeight, 7)
-      .fill({ alpha: 0.78, color: 0x06101c })
-      .roundRect(0.5, 0.5, width - 1, spriteHeight - 1, 7)
-      .stroke({ alpha: spriteStrokeAlpha(item), color, width: 1.2 });
+      .roundRect(0, 0, width, spriteHeight, badgeCornerRadius)
+      .fill({ alpha: 0.56, color: 0x06101c })
+      .rect(0, 4, badgeStatusRailWidth, spriteHeight - 8)
+      .fill({ alpha: spriteStatusRailAlpha(item), color })
+      .roundRect(0.5, 0.5, width - 1, spriteHeight - 1, badgeCornerRadius)
+      .stroke({ alpha: spriteStrokeAlpha(item), color, width: 1 });
     drawSpriteIcon(view.icon, item, color);
     view.label.text = item.collapsedCount > 0 ? `+${item.collapsedCount}` : spriteLabel(item);
     view.label.x = item.collapsedCount > 0 ? 24 : 28;
@@ -206,6 +214,9 @@ export function createWorkspaceTrajectorySpriteLayer({
       trajectorySpriteDisplayCount: activeViews.size,
       trajectorySpriteFrameRevision: frame?.revision ?? 0,
       trajectorySpriteGroupCount: frame?.groups.length ?? 0,
+      trajectorySpriteInteractionMode: "passive",
+      trajectorySpriteLayerEventMode: layer.eventMode,
+      trajectorySpriteLayerInteractiveChildren: layer.interactiveChildren,
       trajectorySpritePoolHitCount: spritePoolHitCount,
       trajectorySpritePoolMissCount: spritePoolMissCount,
       trajectorySpritePoolReleaseCount: spritePoolReleaseCount,
@@ -214,8 +225,39 @@ export function createWorkspaceTrajectorySpriteLayer({
       trajectorySpriteRedrawCount: spriteRedrawCount,
       trajectorySpriteSyncCount: spriteSyncCount,
       trajectorySpriteTotalCount: frame?.totalSpriteCount ?? 0,
+      trajectorySpriteViews: trajectorySpriteViewDebugSnapshot(activeViews, viewport),
     };
   }
+}
+
+function trajectorySpriteViewDebugSnapshot(activeViews, viewport) {
+  return [...activeViews.values()]
+    .filter((view) => view.item !== null)
+    .map((view) => {
+      const item = view.item;
+      const screen = viewport.toScreen(view.container.x, view.container.y);
+      return {
+        alpha: view.container.alpha,
+        anchorNodeId: item.anchorNodeId,
+        collapsedCount: item.collapsedCount,
+        cursor: view.container.cursor ?? "default",
+        eventMode: view.container.eventMode,
+        height: spriteHeight,
+        id: item.id,
+        interactiveChildren: view.container.interactiveChildren,
+        label: view.label.text,
+        lane: item.lane,
+        rank: item.rank,
+        screenX: screen.x,
+        screenY: screen.y,
+        status: item.status,
+        type: item.type,
+        visible: view.container.visible,
+        width: itemWidth(item),
+        x: view.container.x,
+        y: view.container.y,
+      };
+    });
 }
 
 function trajectoryAnchorDebugSnapshot(frame, getNode) {
@@ -293,6 +335,10 @@ function itemRenderKey(item) {
     return [item.id, item.collapsedCount, item.severity, item.status].join(":");
   }
   return [item.id, item.kind, item.status, item.severity, spriteLabel(item)].join(":");
+}
+
+function itemWidth(item) {
+  return item.collapsedCount > 0 ? collapsedSpriteWidth : spriteWidth;
 }
 
 function drawSpriteIcon(icon, item, color) {
@@ -450,12 +496,22 @@ function spriteColor(item) {
 
 function spriteStrokeAlpha(item) {
   if (item.status === "running" || item.status === "approval_required") {
-    return 0.94;
+    return 0.48;
   }
   if (item.severity === "error" || item.severity === "blocking") {
-    return 0.9;
+    return 0.44;
   }
-  return 0.64;
+  return 0.32;
+}
+
+function spriteStatusRailAlpha(item) {
+  if (item.status === "running" || item.status === "approval_required") {
+    return 0.82;
+  }
+  if (item.severity === "error" || item.severity === "blocking") {
+    return 0.72;
+  }
+  return 0.56;
 }
 
 function spriteAlpha(item, now) {

@@ -536,7 +536,7 @@ describe("workspace trajectory store", () => {
     expect(store.getNodeDetails("reviewer")).toMatchObject({ totalCount: 0 });
   });
 
-  test("omits unanchored workflow sprites from the canvas recent lane", async () => {
+  test("hides unanchored workflow sprites from canvas lanes while preserving runtime count", async () => {
     const scheduler = manualScheduler();
     const sprites = Array.from({ length: 10 }, (_, index) =>
       runtimeSprite({
@@ -563,6 +563,7 @@ describe("workspace trajectory store", () => {
     await flushPromises();
 
     const frame = store.getFrameSnapshot();
+    expect(frame.anchoredSpriteCount).toBe(0);
     expect(frame.groups).toEqual([]);
     expect(frame.recentLane).toEqual([]);
     expect(frame.totalSpriteCount).toBe(10);
