@@ -1,4 +1,5 @@
 import { BitmapText, Container, Graphics } from "pixi.js";
+import { trajectorySpriteCanvasLabel } from "./workspace-trajectory-display-labels";
 
 const spriteHeight = 22;
 const spriteGap = 6;
@@ -263,8 +264,7 @@ function itemRenderKey(item) {
     item.sprite.kind,
     item.sprite.status,
     item.sprite.severity,
-    item.sprite.title,
-    item.sprite.subtitle,
+    trajectorySpriteCanvasLabel(item.sprite),
   ].join(":");
 }
 
@@ -464,39 +464,7 @@ function spriteLabel(item) {
   if (sprite === null) {
     return "";
   }
-  const status = sprite.status === "running" ? "" : statusSuffix(sprite.status);
-  const base = sprite.title || kindLabel(sprite.kind);
-  return truncateLabel(`${base}${status}`);
-}
-
-function statusSuffix(status) {
-  switch (status) {
-    case "completed":
-      return " done";
-    case "failed":
-      return " failed";
-    case "cancelled":
-      return " cancelled";
-    case "approval_required":
-      return " approval";
-    case "pending":
-      return " pending";
-    case "unknown":
-    case "running":
-      return "";
-  }
-}
-
-function kindLabel(kind) {
-  return kind.replaceAll("_", " ");
-}
-
-function truncateLabel(value) {
-  const clean = value
-    .replace(/[^\x20-\x7e]/g, "?")
-    .replace(/\s+/g, " ")
-    .trim();
-  return clean.length <= 22 ? clean : `${clean.slice(0, 19)}...`;
+  return trajectorySpriteCanvasLabel(sprite);
 }
 
 function hashString(value) {

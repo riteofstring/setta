@@ -1,6 +1,17 @@
 import type { WorkflowNodeDetailsTarget } from "../../stores/workflow-editor-store";
+import {
+  trajectorySpriteFullDetailLabel,
+  trajectorySpriteKindLabel,
+  trajectorySpritePrimaryLabel,
+  trajectorySpriteSecondaryLabel,
+  trajectorySpriteStatusLabel,
+} from "./workspace-trajectory-display-labels";
 import { WorkflowDetailsRows, WorkflowDetailsSection } from "./workflow-node-details-components";
 import { shortIdentifier } from "./workflow-node-details-helpers";
+
+type WorkflowTrajectorySpriteDisplay = NonNullable<
+  WorkflowNodeDetailsTarget["trajectory"]
+>["sprites"][number];
 
 export function WorkflowTrajectoryRuntimeDetails({
   target,
@@ -41,45 +52,108 @@ function WorkflowTrajectorySpriteList({
   }
   return (
     <div className="space-y-1">
-      {sprites.map(({ sprite }) => (
-        <div
-          className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-300"
-          key={sprite.id}
-        >
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <span className="truncate font-medium text-zinc-200">
-              {trajectoryKindLabel(sprite.kind)}
-            </span>
-            <span className="shrink-0 text-zinc-500">{trajectoryStatusLabel(sprite.status)}</span>
-          </div>
-          <div className="mt-1 truncate text-zinc-300">{sprite.title}</div>
-          {sprite.subtitle !== "" ? (
-            <div className="mt-0.5 truncate text-zinc-500">{sprite.subtitle}</div>
-          ) : null}
-          <WorkflowDetailsRows
-            rows={[
-              {
-                hidden: sprite.runItemId === "",
-                label: "Run item",
-                value: shortIdentifier(sprite.runItemId),
-              },
-              {
-                hidden: sprite.chatRunId === "",
-                label: "Chat run",
-                value: shortIdentifier(sprite.chatRunId),
-              },
-              {
-                hidden: sprite.providerItemId === "",
-                label: "Provider",
-                value: shortIdentifier(sprite.providerItemId),
-              },
-            ]}
-          />
-          <WorkflowTrajectoryFileRefs files={sprite.fileRefs} />
-          <WorkflowTrajectorySourceRefs sourceRefs={sprite.sourceRefs} />
-        </div>
+      {sprites.map((display) => (
+        <WorkflowTrajectorySpriteDetails display={display} key={display.sprite.id} />
       ))}
     </div>
+  );
+}
+
+function WorkflowTrajectorySpriteDetails({
+  display,
+}: {
+  display: WorkflowTrajectorySpriteDisplay;
+}) {
+  const { sprite } = display;
+  return (
+    <div className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-300">
+      {sprite.kind === "command" ? (
+        <WorkflowTrajectoryCommandSummary sprite={sprite} />
+      ) : (
+        <WorkflowTrajectoryDefaultSummary sprite={sprite} />
+      )}
+      <WorkflowDetailsRows
+        rows={[
+          {
+            hidden: sprite.runItemId === "",
+            label: "Run item",
+            value: shortIdentifier(sprite.runItemId),
+          },
+          {
+            hidden: sprite.chatRunId === "",
+            label: "Chat run",
+            value: shortIdentifier(sprite.chatRunId),
+          },
+          {
+            hidden: sprite.providerItemId === "",
+            label: "Provider",
+            value: shortIdentifier(sprite.providerItemId),
+          },
+        ]}
+      />
+      <WorkflowTrajectoryFileRefs files={sprite.fileRefs} />
+      <WorkflowTrajectorySourceRefs sourceRefs={sprite.sourceRefs} />
+    </div>
+  );
+}
+
+function WorkflowTrajectoryCommandSummary({
+  sprite,
+}: {
+  sprite: WorkflowTrajectorySpriteDisplay["sprite"];
+}) {
+  const primary = trajectorySpritePrimaryLabel(sprite);
+  const secondary = trajectorySpriteSecondaryLabel(sprite);
+  const fullDetail = trajectorySpriteFullDetailLabel(sprite);
+  return (
+    <>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="truncate font-medium text-zinc-200">{primary}</span>
+        <span className="shrink-0 text-zinc-500">{trajectorySpriteStatusLabel(sprite.status)}</span>
+      </div>
+      {secondary !== "" ? <div className="mt-0.5 truncate text-zinc-500">{secondary}</div> : null}
+      {fullDetail !== "" ? (
+        <pre className="mt-1 overflow-auto whitespace-pre-wrap rounded-sm bg-zinc-900/70 px-2 py-1 font-mono text-[10px] leading-4 text-zinc-300">
+          {fullDetail}
+        </pre>
+      ) : null}
+      <WorkflowDetailsRows
+        rows={[
+          { hidden: sprite.command.cwd === "", label: "Cwd", value: sprite.command.cwd },
+          {
+            hidden: sprite.command.exitCode === 0 && sprite.status !== "failed",
+            label: "Exit code",
+            value: sprite.command.exitCode,
+          },
+          {
+            hidden: sprite.command.durationMs <= 0,
+            label: "Duration",
+            value: `${sprite.command.durationMs} ms`,
+          },
+        ]}
+      />
+    </>
+  );
+}
+
+function WorkflowTrajectoryDefaultSummary({
+  sprite,
+}: {
+  sprite: WorkflowTrajectorySpriteDisplay["sprite"];
+}) {
+  return (
+    <>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="truncate font-medium text-zinc-200">
+          {trajectorySpriteKindLabel(sprite.kind)}
+        </span>
+        <span className="shrink-0 text-zinc-500">{trajectorySpriteStatusLabel(sprite.status)}</span>
+      </div>
+      <div className="mt-1 truncate text-zinc-300">{sprite.title}</div>
+      {sprite.subtitle !== "" ? (
+        <div className="mt-0.5 truncate text-zinc-500">{sprite.subtitle}</div>
+      ) : null}
+    </>
   );
 }
 
@@ -142,12 +216,4 @@ function trajectoryFileRefLabel(
   const diff =
     file.additions > 0 || file.deletions > 0 ? ` +${file.additions} -${file.deletions}` : "";
   return `${file.operation} ${path}${range}${diff}`;
-}
-
-function trajectoryKindLabel(kind: string) {
-  return kind.replaceAll("_", " ");
-}
-
-function trajectoryStatusLabel(status: string) {
-  return status.replaceAll("_", " ");
 }

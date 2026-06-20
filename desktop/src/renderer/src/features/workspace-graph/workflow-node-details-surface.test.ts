@@ -162,6 +162,11 @@ describe("workflow node details surface helpers", () => {
     expect(html).toContain("chat_run_review");
     expect(html).toContain("Provider");
     expect(html).toContain("provider_i...review");
+    expect(html).toContain("rg &quot;foo&quot; src/");
+    expect(html).toContain("failed command");
+    expect(html).toContain("/workspace/setta");
+    expect(html).toContain("123 ms");
+    expect(html).not.toContain("command_execution");
     expect(html).toContain("read internal/httpapi/routes.go:12-18 +2 -1");
     expect(html).toContain("workflow_node");
     expect(html).toContain("reviewer");
@@ -309,9 +314,64 @@ function trajectoryTarget(): WorkflowNodeDetailsTarget {
             workspaceId: "workspace_test",
           },
         },
+        {
+          anchorNodeId: "reviewer",
+          lane: "workflow_node",
+          sprite: {
+            cartographerPatchId: "",
+            cartographerRunId: "",
+            cartographerWindowId: "",
+            chatConversationId: "conversation_review",
+            chatMessageId: "message_review",
+            chatRunId: "chat_run_review",
+            command: {
+              command: 'rg "foo" src/',
+              cwd: "/workspace/setta",
+              durationMs: 123,
+              exitCode: 1,
+            },
+            createdAt: "2026-06-07T00:00:00Z",
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
+            errorSummary: "",
+            expiresAt: "",
+            fileRefs: [],
+            id: "sprite_command",
+            kind: "command",
+            providerItemId: "provider_item_command",
+            resultSummary: "",
+            runItemId: "run_item_command",
+            schemaVersion: 1,
+            severity: "error",
+            sourceRefs: [
+              { id: "reviewer", kind: "workflow_node" },
+              { id: "workflow_node_execution_review", kind: "workflow_node_execution" },
+            ],
+            status: "failed",
+            subtitle: "command_execution",
+            title: "Command",
+            tool: {
+              namespace: "",
+              requestId: "",
+              serverName: "",
+              toolName: "",
+            },
+            ttlMs: 0,
+            updatedAt: "2026-06-07T00:00:02Z",
+            workflowExecutionId: "workflow_execution_test",
+            workflowNodeExecutionId: "workflow_node_execution_review",
+            workflowNodeId: "reviewer",
+            workspaceId: "workspace_test",
+          },
+        },
       ],
       timeline: [],
-      totalCount: 2,
+      totalCount: 3,
       workflowNodeId: "reviewer",
     },
   };
