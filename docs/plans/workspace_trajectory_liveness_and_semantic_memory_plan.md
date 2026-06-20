@@ -1,7 +1,7 @@
 # Workspace Trajectory Liveness and Semantic Memory Plan
 
 - **Date:** June 18, 2026
-- **Status:** Phase 2 complete; Phase 3 ready to implement
+- **Status:** Phase 3 complete; Phase 4 ready to implement
 - **Scope:** Replace the current semantic-node-centered liveness model with a
   principled split between deterministic workflow trajectory visuals, durable
   semantic memory, cartographer audit, and graph interaction/runtime
@@ -819,7 +819,9 @@ Phase 3 handoff:
 
 ### Phase 3 - Renderer Trajectory Sprite Layer
 
-Status: ready to implement.
+Status: complete. Commit `ab0d154ad` added the renderer trajectory runtime
+store, Electron event forwarding, IPC snapshot reads, workflow-node details,
+and Pixi sprite rendering.
 
 Render trajectory sprites as their own graph layer.
 
@@ -847,7 +849,54 @@ Acceptance:
 - Camera movement does not trigger trajectory backend reads.
 - Sprite rendering stays within display-object and frame budgets.
 
+Phase 3 implementation review:
+
+- Main process forwarding now streams workspace trajectory runtime SSE events
+  and forwards decoded events to renderer windows.
+- Preload and shared IPC expose trajectory runtime snapshot reads and runtime
+  event subscriptions through `window.setta.workspaceTrajectory`.
+- The renderer owns a local trajectory store with snapshot bootstrap, buffered
+  deltas before initial snapshot, animation-frame coalescing, deterministic
+  `snapshotRequired` reload behavior, TTL pruning, bounded recent-lane fallback,
+  and workflow-node anchor preservation.
+- Workflow graph rendering now has a dedicated Pixi trajectory layer with pooled
+  display objects, compact icons/labels, collapsed counts, recent unanchored
+  sprites, and cheap progress/fade animation that continues through camera
+  movement.
+- Workflow node details now show recent trajectory provenance including run item
+  ids, chat run ids, provider ids, source refs, and file refs.
+- Focused coverage verifies SSE cursor reconnect, store coalescing, snapshot
+  buffering, gap reload, workspace filtering, runner-ref anchoring, anchor
+  preservation when live deltas omit refs, recent-lane bounding, and workflow
+  node details rendering.
+- Post-review checks passed:
+  `pnpm -C desktop exec vitest run src/main/workspace-trajectory-event-stream.test.ts src/renderer/src/features/workspace-graph/workspace-trajectory-store.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts`,
+  `pnpm -C desktop typecheck`, `pnpm -C desktop build`, and
+  `node desktop/tests/electron/run-workflows.mjs --workflow workflow-graph-smoke`.
+
+Phase 4 handoff:
+
+- Phase 4 is ready to implement.
+- Keep Phase 4 focused on typed file operation fidelity in chat/provider/runtime
+  data and the existing trajectory sprite contract. Do not refactor semantic
+  memory usefulness or runtime ownership in this phase.
+- Start by inventorying which file read, file write, patch, and diff facts are
+  typed at the provider/protocol boundary today. Add explicit typed fields at
+  the owning Go/backend boundary when the data exists.
+- Regenerate TypeScript from Go-owned contracts if file-operation contract
+  fields change. Do not edit generated TypeScript manually.
+- Add a trajectory-specific deterministic Electron workflow that proves typed
+  file reads, writes, and diffs travel through production Electron, main,
+  preload, renderer, HTTP, and store paths into visible graph sprites and node
+  details. The existing workflow graph smoke test proves the graph still boots
+  after Phase 3, but it is not a file-fidelity acceptance test.
+- Unknown or untyped file activity must continue to render as honest command,
+  tool, or diff-summary sprites. Do not synthesize read ranges or `+/-` counts
+  from command strings, command output, or display text.
+
 ### Phase 4 - File Read And Edit Fidelity
+
+Status: ready to implement.
 
 Improve the fidelity of file-specific trajectory facts.
 
