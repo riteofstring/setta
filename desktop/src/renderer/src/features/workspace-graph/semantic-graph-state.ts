@@ -5,12 +5,11 @@ import type {
   SemanticGraphChangeEvent,
   SemanticLayoutPosition,
 } from "@generated/backend";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useWorkspaceStore } from "../../stores/workspace-store";
 import {
   createSemanticRuntimeStore,
-  emptySemanticRuntimeFrameSnapshot,
   semanticGraphChangeHasRuntimeUpdate,
   type SemanticRuntimeStore,
 } from "./semantic-runtime-store";
@@ -58,19 +57,6 @@ export function useSemanticGraphState() {
             workspaceId: selectedWorkspaceId,
           }),
     [selectedWorkspaceId],
-  );
-  const subscribeRuntimeFrame = useCallback(
-    (listener: () => void) => runtimeStore?.subscribe(listener) ?? (() => undefined),
-    [runtimeStore],
-  );
-  const getRuntimeFrameSnapshot = useCallback(
-    () => runtimeStore?.getFrameSnapshot() ?? emptySemanticRuntimeFrameSnapshot,
-    [runtimeStore],
-  );
-  const runtimeFrame = useSyncExternalStore(
-    subscribeRuntimeFrame,
-    getRuntimeFrameSnapshot,
-    getRuntimeFrameSnapshot,
   );
   const [state, setState] = useState<SemanticGraphState>(() => semanticGraphNoWorkspaceState(""));
 
@@ -207,12 +193,8 @@ export function useSemanticGraphState() {
 
   return {
     ...state,
-    error: [state.error, runtimeFrame.error].filter(Boolean).join("\n"),
-    loading: state.loading || runtimeFrame.loading,
-    ready: state.ready && runtimeFrame.ready,
     replaceSemanticLayoutPositions,
     runtimeStore,
-    workingSet: runtimeFrame.workingSet,
   };
 }
 

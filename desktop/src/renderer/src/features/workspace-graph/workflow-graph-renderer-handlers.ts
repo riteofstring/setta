@@ -17,7 +17,7 @@ interface WorkflowRendererHandlersForSurfaceRequest {
   deleteWorkflowDraftNodes: (nodeIds: string[]) => Promise<void>;
   handleGraphEdgeSelectionChange: (edgeIds: string[]) => void;
   handleGraphNodeSelectionChange: (nodeIds: string[]) => void;
-  noteSemanticRuntimeCameraMovement?: (() => void) | null;
+  noteGraphSceneCameraMovement?: (() => void) | null;
   openGraphNodeDetails: (nodeId: string | null) => void;
   openWorkflowContextMenu: (menu: WorkflowContextMenuState) => void;
   persistNodePositions: (positions: WorkflowLayoutPosition[]) => Promise<void>;
@@ -34,7 +34,7 @@ export function workflowRendererHandlersForSurface({
   deleteWorkflowDraftNodes,
   handleGraphEdgeSelectionChange,
   handleGraphNodeSelectionChange,
-  noteSemanticRuntimeCameraMovement,
+  noteGraphSceneCameraMovement,
   openGraphNodeDetails,
   openWorkflowContextMenu,
   persistNodePositions,
@@ -46,7 +46,7 @@ export function workflowRendererHandlersForSurface({
 }: WorkflowRendererHandlersForSurfaceRequest): WorkflowGraphRendererHandlers {
   return {
     onCameraStateChange: (camera) => {
-      noteSemanticRuntimeCameraMovement?.();
+      noteGraphSceneCameraMovement?.();
       workflowCameraRef.current = camera;
       writeWorkflowGraphCameraState(surfaceId, workflowCameraScopeRef.current, camera);
     },

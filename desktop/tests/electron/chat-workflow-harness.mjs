@@ -180,15 +180,36 @@ export async function waitForState(client, expression, isReady, timeoutMs = work
     await client.installDriver();
   }
   const startedAt = Date.now();
+  let lastError = null;
   let lastValue = null;
   while (Date.now() - startedAt < timeoutMs) {
-    lastValue = await client.evaluate(expression);
+    try {
+      lastValue = await client.evaluate(expression);
+    } catch (error) {
+      if (!isPageNavigationTransient(error)) {
+        throw error;
+      }
+      lastError = error;
+      await delay(100);
+      continue;
+    }
     if (isReady(lastValue)) {
       return lastValue;
     }
     await delay(100);
   }
-  throw new Error(`timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}`);
+  const errorMessage = lastError instanceof Error ? ` lastError=${lastError.message}` : "";
+  throw new Error(
+    `timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}${errorMessage}`,
+  );
+}
+
+function isPageNavigationTransient(error) {
+  return (
+    error instanceof Error &&
+    error.message.includes('"code":-32000') &&
+    error.message.includes("Inspected target navigated or closed")
+  );
 }
 
 export async function backendProbe(recordingDir) {

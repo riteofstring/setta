@@ -1,6 +1,6 @@
 # Workspace Trajectory Liveness and Semantic Memory Plan
 - **Date:** June 18, 2026
-- **Status:** Phase 5 complete; Phase 6 ready to implement
+- **Status:** Phase 6 complete; Phase 7 ready to execute
 - **Scope:** Replace the current semantic-node-centered liveness model with a
   principled split between deterministic workflow trajectory visuals, durable
   semantic memory, cartographer audit, and graph interaction/runtime
@@ -615,15 +615,6 @@ Phase 0 implementation review:
   write/diff labels. Exact file-read ranges and structured diff `+/-` counts
   require provider/protocol or contract additions.
 
-Phase 1 handoff:
-
-- Phase 1 is ready to implement.
-- Keep Phase 1 scoped to immediate graph UX corrections. Do not add the
-  workspace trajectory runtime, new backend contracts, or first-class sprite
-  layer in Phase 1.
-- The missing trajectory sprite layer is the Phase 2/3 problem. Phase 1 should
-  remove current graph regressions so the later trajectory runtime has a stable
-  visual and interaction foundation.
 ### Phase 1 - Immediate Graph UX Corrections
 Status: complete. Commit `06e120e06` implemented the Phase 1 renderer UX
 corrections.
@@ -668,22 +659,6 @@ Phase 1 implementation review:
   layout overlay merging, stationary semantic-cell animation, semantic activity
   marker rendering, and movement-mode animation behavior.
 
-Phase 2 handoff:
-
-- Phase 2 is ready to implement.
-- Keep Phase 2 scoped to Go-owned trajectory runtime contracts, generated
-  TypeScript, endpoint ownership, backend projection/revision behavior, and
-  mapping tests. Do not build the renderer sprite layer in Phase 2.
-- Start with typed sources confirmed by Phase 0: command execution, tool calls,
-  reasoning summaries, plan updates, file changes with paths/status, diff
-  summaries, approvals, assistant messages, workflow status, and compact
-  cartographer status.
-- Include `file_read` and structured file/diff stat fields in the contract only
-  as optional typed fields. Leave them empty until provider/protocol data exists;
-  do not infer file reads, line ranges, or `+/-` counts from command text or
-  display output.
-- Add deterministic snapshot/delta gap behavior and payload-budget tests before
-  starting Phase 3 rendering.
 ### Phase 2 - Workspace Trajectory Runtime Contracts
 Status: complete. Commit `a047823d4` added the backend-owned typed trajectory
 runtime projection.
@@ -747,29 +722,6 @@ Phase 2 implementation review:
   `./scripts/go.sh test -count=1 ./internal/workspacetrajectory ./internal/httpapi ./internal/runtime`
   and `pnpm -C desktop typecheck`.
 
-Phase 3 handoff:
-
-- Phase 3 is ready to implement.
-- Keep Phase 3 scoped to main/preload/renderer transport, a local trajectory
-  runtime store, stream reconnect behavior, Pixi sprite rendering, and workflow
-  node details. Do not broaden it into semantic-memory usefulness or file-read
-  fidelity work.
-- Bootstrap from a runtime snapshot before rendering deltas, or buffer stream
-  events until the initial snapshot has been applied.
-- Treat `snapshotRequired` as a single-flight snapshot reload for the affected
-  workspace/runtime projection.
-- Maintain a deterministic local anchor index from the runtime snapshot and the
-  current workflow graph runner refs. Live chat run-item deltas can arrive
-  without workflow node ids because they are mapped directly from chat events;
-  the renderer store should preserve existing anchors for matching sprite ids,
-  resolve anchors through typed run/chat/workflow refs when available, or place
-  the sprite in a bounded recent-activity lane until the next snapshot.
-- Do not solve missing anchors by parsing command text, filenames in output, or
-  other display strings.
-- Camera movement must not request runtime snapshots, reopen streams, or
-  trigger full graph refreshes.
-- Do not change the backend runtime contract during Phase 3 unless a hard
-  renderer blocker is discovered and documented in the plan first.
 ### Phase 3 - Renderer Trajectory Sprite Layer
 Status: complete. Commit `ab0d154ad` added the renderer trajectory runtime
 store, Electron event forwarding, IPC snapshot reads, workflow-node details,
@@ -826,25 +778,6 @@ Phase 3 implementation review:
   `pnpm -C desktop typecheck`, `pnpm -C desktop build`, and
   `node desktop/tests/electron/run-workflows.mjs --workflow workflow-graph-smoke`.
 
-Phase 4 handoff:
-
-- Phase 4 is ready to implement.
-- Keep Phase 4 focused on typed file operation fidelity in chat/provider/runtime
-  data and the existing trajectory sprite contract. Do not refactor semantic
-  memory usefulness or runtime ownership in this phase.
-- Start by inventorying which file read, file write, patch, and diff facts are
-  typed at the provider/protocol boundary today. Add explicit typed fields at
-  the owning Go/backend boundary when the data exists.
-- Regenerate TypeScript from Go-owned contracts if file-operation contract
-  fields change. Do not edit generated TypeScript manually.
-- Add a trajectory-specific deterministic Electron workflow that proves typed
-  file reads, writes, and diffs travel through production Electron, main,
-  preload, renderer, HTTP, and store paths into visible graph sprites and node
-  details. The existing workflow graph smoke test proves the graph still boots
-  after Phase 3, but it is not a file-fidelity acceptance test.
-- Unknown or untyped file activity must continue to render as honest command,
-  tool, or diff-summary sprites. Do not synthesize read ranges or `+/-` counts
-  from command strings, command output, or display text.
 ### Phase 4 - File Read And Edit Fidelity
 Status: complete. Commit `6e79eedd4` added typed file-operation fields to chat
 run items, Codex protocol mapping, Setta dynamic tool metadata, trajectory
@@ -901,26 +834,6 @@ Phase 4 implementation review:
   `workspace-trajectory-file-fidelity`, which proves typed reads, writes, and
   diffs through production Electron, main, preload, renderer, HTTP, and store
   paths.
-
-Phase 5 handoff:
-
-- Phase 5 is ready to implement.
-- Keep Phase 5 focused on semantic-memory usefulness: durable claim quality,
-  evidence selection, future-use summaries, process-only rejection, context-pack
-  reuse, and diagnostics for unused memory.
-- Use the typed trajectory facts from Phase 4 as semantic evidence candidates.
-  Do not promote raw reads, writes, diffs, commands, or tool calls into durable
-  semantic nodes unless the cartographer can state the claim and future use.
-- Add deterministic acceptance for `semantic-memory-usefulness` before changing
-  broad cartographer behavior.
-- Live Codex E2E with ChatGPT auth was run and failed in the live semantic
-  cartographer terminal assertion after the goal and normal live assistant run
-  completed. Treat that timeout as Phase 5 evidence: live semantic memory should
-  either create a useful durable claim with evidence and future use or finish as
-  an explicit no-op with a readable reason.
-- Do not address the live failure with prompt-only tweaks or compatibility
-  fallbacks. The fix should strengthen typed evidence selection, durable memory
-  criteria, no-op diagnostics, and product-facing usefulness signals.
 
 ### Phase 5 - Semantic Memory Usefulness Refactor
 
@@ -993,26 +906,11 @@ Non-blocking residual:
   dismissal reasons. Do not treat those two fields as acceptance evidence until
   a later interaction-telemetry change gives them typed event sources.
 
-Phase 6 handoff:
-
-- Phase 6 is ready to implement.
-- Keep Phase 6 focused on runtime ownership consolidation, not another
-  cartographer prompt/policy pass unless a runtime contract boundary requires
-  it.
-- Preserve the hot-path split established by earlier phases: trajectory runtime
-  for fast deterministic liveness, semantic memory for durable claims, and
-  cartographer audit for operational state.
-- Camera movement must remain local to renderer scene state. It must not cause
-  backend reads, durable graph reconstruction, or high-frequency React array
-  replacement.
-- Details panes remain complete through explicit on-demand reads.
-- Continue the no-backward-compatibility policy: no legacy runtime modes,
-  migrations, transitional readers, dual-write paths, compatibility adapters, or
-  silent fallbacks.
-
 ### Phase 6 - Runtime Ownership Consolidation
 
-Status: ready to implement.
+Status: complete. The working tree implementation consolidates renderer
+runtime ownership around a composed workspace graph scene store while preserving
+the backend runtime split from earlier phases.
 
 Clean up the long-term boundary between trajectory runtime, semantic runtime,
 and renderer state.
@@ -1039,6 +937,39 @@ Acceptance:
   projection.
 - Hot-path payload budgets are enforced.
 - Details remain complete through on-demand reads.
+
+Phase 6 implementation review:
+
+- `workspace-graph-scene-store` now composes durable workflow graph inputs,
+  durable semantic memory, semantic/cartographer runtime working-set frames, and
+  trajectory runtime frames into one renderer scene frame.
+- Semantic runtime frames no longer flow through `WorkflowGraphSurface` React
+  render state. `useSemanticGraphState` owns only low-frequency durable graph,
+  layout, and activity reads; runtime frames subscribe directly into the scene
+  store.
+- Trajectory runtime rendering is also routed through the scene store. The
+  trajectory hook now owns snapshot/event lifecycle and runner-ref anchor
+  hydration, not direct Pixi updates.
+- Camera movement notifies the scene store, which delegates only to local
+  semantic runtime movement state. It does not request semantic, trajectory,
+  cartographer, workflow, or durable graph backend reads.
+- Selected workflow-node details remain complete through explicit detail reads
+  plus the latest scene-frame runtime indicator and trajectory node details.
+- Focused coverage proves scene-frame coalescing, trajectory-only frame updates
+  without graph-array replacement, camera-movement isolation, existing
+  semantic/trajectory stream-gap single-flight reload behavior, workspace graph
+  renderer behavior, TypeScript contract consumption, and deterministic
+  production Electron graph and trajectory workflows.
+
+Phase 7 handoff:
+
+- Phase 7 is ready to execute against the product acceptance matrix in the
+  appendix.
+- Treat Phase 6 runtime boundaries as settled unless Phase 7 acceptance exposes
+  a concrete renderer or runtime ownership gap.
+- Keep future changes on the same split: deterministic trajectory runtime for
+  fast liveness, semantic memory for durable claims, cartographer audit for
+  operational state, and renderer scene state for camera-local interaction.
 
 ### Phase 7 - Product Acceptance Matrix
 

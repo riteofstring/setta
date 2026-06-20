@@ -32,7 +32,6 @@ import {
   workflowSyntheticGraphForSurface,
 } from "./workflow-graph-surface-state";
 import {
-  rendererGraphFromSemanticGraph,
   semanticNodeIdFromRendererNodeId,
   semanticRendererNodeId,
 } from "./semantic-graph-projection";
@@ -52,6 +51,8 @@ import {
   WorkflowGraphToolbarLayer,
   type WorkflowContextMenuState,
 } from "./workflow-graph-surface-layers";
+import { materializeWorkspaceGraphSceneGraph } from "./workspace-graph-scene-store";
+import { useWorkflowGraphSceneRuntime } from "./workflow-graph-scene-runtime";
 import {
   materializeWorkflowDraftEdge,
   materializeWorkflowDraftNode,
@@ -61,7 +62,6 @@ import {
   workflowProjectionForExecution,
   workflowProjectionPendingApproval,
   workflowProjectionWithLayoutPositions,
-  workflowRendererGraphForSurface,
   workflowRendererScopeKey,
   workflowRunDraftPreflightMessage,
   workflowValidationForDraftProjection,
@@ -164,13 +164,9 @@ export function WorkflowGraphSurface({
     [workflowProjection, workflowValidation],
   );
   const semanticGraphState = useSemanticGraphState();
-  const { trajectoryStore, trajectoryStoreRef } = useWorkspaceTrajectoryRuntime({
-    pendingWorkflowGraphRef,
-    selectedWorkflowNodeId,
-    setSelectedNodeTarget,
+  const { trajectoryStore } = useWorkspaceTrajectoryRuntime({
     syntheticGraph,
     workflowProjection,
-    workflowRendererRef,
     workflowWorkspaceId,
   });
   const {
@@ -181,36 +177,43 @@ export function WorkflowGraphSurface({
     semanticGraph: semanticGraphState.graph,
     workspaceId: semanticGraphState.workspaceId,
   });
-  const semanticGraph = useMemo(
-    () =>
-      syntheticGraph === null && semanticGraphWithLocalLayout !== null
-        ? rendererGraphFromSemanticGraph({
-            semanticActivities: semanticGraphState.activitiesByNodeId,
-            semanticGraph: semanticGraphWithLocalLayout,
-            semanticWorkingSet: semanticGraphState.workingSet,
-            workflowGraph,
-          })
-        : undefined,
-    [
-      semanticGraphState.activitiesByNodeId,
-      semanticGraphState.workingSet,
-      semanticGraphWithLocalLayout,
-      syntheticGraph,
-      workflowGraph,
-    ],
-  );
   const graph = useMemo(
     () =>
-      workflowRendererGraphForSurface({
-        semanticGraph,
+      materializeWorkspaceGraphSceneGraph({
+        semanticActivities: semanticGraphState.activitiesByNodeId,
+        semanticGraph: semanticGraphWithLocalLayout,
+        semanticRuntimeStore: null,
         syntheticGraph,
+        trajectoryStore: null,
         workflowGraph,
         workflowProjectionReady,
         workflowWorkspaceId,
       }),
-    [semanticGraph, syntheticGraph, workflowGraph, workflowProjectionReady, workflowWorkspaceId],
+    [
+      semanticGraphState.activitiesByNodeId,
+      semanticGraphWithLocalLayout,
+      syntheticGraph,
+      workflowGraph,
+      workflowProjectionReady,
+      workflowWorkspaceId,
+    ],
   );
   pendingWorkflowGraphRef.current = graph ?? null;
+  const { graphSceneStore, syncSceneFrameToRenderer } = useWorkflowGraphSceneRuntime({
+    pendingWorkflowGraphRef,
+    selectedWorkflowNodeId,
+    semanticActivities: semanticGraphState.activitiesByNodeId,
+    semanticGraph: semanticGraphWithLocalLayout,
+    semanticRuntimeStore: semanticGraphState.runtimeStore,
+    setSelectedNodeTarget,
+    syntheticGraph,
+    trajectoryStore,
+    workflowGraph,
+    workflowProjection,
+    workflowProjectionReady,
+    workflowRendererRef,
+    workflowWorkspaceId,
+  });
   const rendererGraphReady = graph !== undefined;
   const rendererScopeKey = workflowRendererScopeKey(syntheticGraph, workflowWorkspaceId);
   const pendingApproval = useMemo(
@@ -245,6 +248,7 @@ export function WorkflowGraphSurface({
   const openWorkflowContextMenu = useCallback((menu: WorkflowContextMenuState) => {
     setWorkflowContextMenu(menu);
   }, []);
+
   const addWorkflowDraftNodeAt = useCallback(
     async (nodeType: WorkflowDraftNodeType, position: WorkflowDraftNodePosition) => {
       setWorkflowEditorError("");
@@ -751,7 +755,7 @@ export function WorkflowGraphSurface({
         deleteWorkflowDraftNodes,
         handleGraphEdgeSelectionChange,
         handleGraphNodeSelectionChange,
-        noteSemanticRuntimeCameraMovement: semanticGraphState.runtimeStore?.noteCameraMovement,
+        noteGraphSceneCameraMovement: graphSceneStore.noteCameraMovement,
         openGraphNodeDetails,
         openWorkflowContextMenu,
         persistNodePositions,
@@ -767,10 +771,10 @@ export function WorkflowGraphSurface({
       deleteWorkflowDraftNodes,
       handleGraphEdgeSelectionChange,
       handleGraphNodeSelectionChange,
+      graphSceneStore,
       openGraphNodeDetails,
       openWorkflowContextMenu,
       persistNodePositions,
-      semanticGraphState.runtimeStore,
       surfaceId,
       syntheticGraph,
     ],
@@ -897,12 +901,13 @@ export function WorkflowGraphSurface({
         rendererHandle = renderer;
         workflowRendererRef.current = renderer;
         renderer.setHandlers(rendererHandlersRef.current);
-        const currentTrajectoryStore = trajectoryStoreRef.current;
-        if (currentTrajectoryStore !== null) {
-          renderer.updateTrajectoryRuntime(currentTrajectoryStore.getFrameSnapshot());
-        }
+        const syncedGraph = syncSceneFrameToRenderer(true);
         const pendingGraph = pendingWorkflowGraphRef.current;
-        if (pendingGraph !== null && pendingGraph !== initialGraph) {
+        if (
+          pendingGraph !== null &&
+          pendingGraph !== initialGraph &&
+          pendingGraph !== syncedGraph
+        ) {
           renderer.updateGraph(pendingGraph);
         }
       })
@@ -926,6 +931,7 @@ export function WorkflowGraphSurface({
     rendererGraphReady,
     rendererScopeKey,
     surfaceId,
+    syncSceneFrameToRenderer,
   ]);
 
   useWorkflowContextMenuClose({ setWorkflowContextMenu, workflowContextMenu, workflowMenuRef });
