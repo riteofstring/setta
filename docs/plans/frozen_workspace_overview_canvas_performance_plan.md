@@ -55,11 +55,13 @@ The problem is lower in the stack:
 
 - `SurfaceRegistry` swaps live adapters to `SnapshotSurfaceAdapter`.
 - `SnapshotSurfaceAdapter.captureTexture()` clones DOM children.
-- Canvas clones do not preserve rendered pixels.
+- DOM clone snapshots copy accessible canvas pixels as a best-effort texture, but the clone path is
+  not a complete freshness, fallback, or lifecycle contract for workflow graph and terminal panes.
 - `captureBitmap()` is currently warmed only for selected DOM-heavy surface kinds, not
   `workflow-graph` or `terminal`.
 
-So the current snapshot path is not a reliable frozen bitmap for canvas or terminal panes.
+So the current snapshot path can be useful, but it is not a reliable frozen bitmap contract for
+canvas or terminal panes.
 
 ### Workflow Graph Can Keep Work Alive While Parked
 
@@ -102,6 +104,11 @@ interface PaneTextureSlot {
 }
 ```
 
+The first pass should instrument the current `SnapshotSurfaceAdapter` behavior before replacing it.
+The existing pending capture key and geometry validation are useful; the problem is that those
+details are buried inside the snapshot adapter and are not visible to transition scheduling or
+metrics.
+
 Texture updates should happen opportunistically:
 
 - after live content first settles
@@ -131,6 +138,14 @@ The implementation should make this hard to violate:
 - animation scheduling should consume only already-resolved texture slots
 - capture completion should request a later visual refresh, not mutate the current animation path
 - tests should fail if a transition startup depends on async capture resolution
+
+Early guardrails should be cheap and deterministic:
+
+- count capture requests started during transition startup
+- count capture promises awaited by transition or frame scheduling code
+- count missing/stale/fresh texture use during overview and movement
+- assert that a delayed capture promise does not delay the first frame or replace the active
+  transition texture mid-animation
 
 ### 1. Add a Frozen Workspace Frame Boundary
 
@@ -178,7 +193,7 @@ Create a snapshot coordinator inside the presentation/surface layer. It should o
 The coordinator should support three capture paths:
 
 - DOM bitmap via `window.setta.app.captureRendererRegion`
-- canvas bitmap via the rendered canvas or Pixi extraction path
+- canvas bitmap via the rendered canvas, Pixi extraction, or a renderer-provided texture export
 - native browser view snapshot via the existing browser snapshot path
 
 `SnapshotSurfaceAdapter` should become a renderer for a captured texture, not the owner of all
@@ -217,6 +232,10 @@ When resumed:
 - apply at most one deferred resize
 - restart the ticker only if the graph is visible/live
 - restore pointer/wheel input
+
+This should be a renderer API, not a DOM convention. The current React adapter can mark dataset
+state, but the Pixi renderer needs an imperative frozen state so it can stop ticker work,
+ResizeObserver resize work, and input handling even while the React root is parked.
 
 ### 4. Cap Huge Canvas Backing Stores
 
@@ -274,11 +293,14 @@ Suggested metrics:
 
 - workspace frame p95/p99/max
 - missed 8.33ms and 16.67ms frame budgets
+- transition first-frame latency
+- capture requests started during transition startup
+- capture promises awaited by animation/frame scheduling
+- fresh/stale/missing texture use count
 - Pixi renderer resize count
 - Pixi ticker frames while frozen
 - canvas backing-store pixels
 - snapshot capture latency
-- stale snapshot usage count
 - terminal pending output count while frozen
 - terminal fit/resize count while frozen
 
@@ -286,19 +308,22 @@ Suggested metrics:
 
 1. Add focused regression tests for maximized overview aspect ratio.
 2. Patch the immediate overview maximized geometry bug.
-3. Add texture slot state and metrics, initially backed by existing snapshot behavior.
-4. Add frozen-frame geometry and convert overview transitions to use it.
-5. Move texture capture to idle/background refresh and make transitions use current slots only.
-6. Add bitmap capture for terminal/workflow graph texture slots.
-7. Add workflow graph freeze controls and pause the Pixi ticker/resize observer work while frozen.
-8. Add backing-store pixel cap for maximized workflow graph panes.
-9. Add 4K Electron performance workflows and append before/after results under
+3. Add transition/capture guard metrics around the current snapshot path.
+4. Add texture slot state, initially backed by existing snapshot/bitmap behavior.
+5. Add frozen-frame geometry and convert overview transitions to derive endpoints from the captured
+   normal frame.
+6. Move texture capture to idle/background refresh and make transitions use current slots only.
+7. Add bitmap capture for terminal/workflow graph texture slots.
+8. Add workflow graph freeze controls and pause the Pixi ticker/resize observer work while frozen.
+9. Add backing-store pixel cap for maximized workflow graph panes.
+10. Add 4K Electron performance workflows and append before/after results under
    `docs/reports/performance/`.
 
 ## Success Criteria
 
 - Maximized pane aspect ratio is unchanged between normal and overview endpoints.
 - Transition startup does not await any texture capture promise.
+- Transition startup does not start a fresh texture capture synchronously.
 - First-frame transition latency is independent of pane surface kind.
 - Stale texture fallback is allowed; blocking for fresh texture is not.
 - Pending texture capture never delays, restarts, lengthens, or cancels an active animation.
