@@ -2,7 +2,8 @@
 
 - **Date:** June 20, 2026
 - **Status:** Phase 4 layout-save outcomes and overlay rollback implemented
-  and verified; Phase 5 graph recording evidence is ready to start.
+  and verified in `01668433c`; Phase 5 graph recording evidence is ready to
+  start.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -893,13 +894,14 @@ Result: passed on June 20, 2026.
 
 Goal: make optimistic layout state honest after success, skip, or failure.
 
-Status: Complete. `persistGraphNodePositions` now returns explicit
-persisted/skipped/failed outcomes for semantic layout, draft workflow layout,
-and workflow view layout. The surface caller updates authoritative layout state
-from persisted outcomes, settles optimistic overlay generations after success,
-failure, skip, or supersession, and preserves newer generations when an older
-save settles. Draft workflow overlays now track moved workflow nodes only, so
-unchanged renderer positions cannot create stale optimistic layout.
+Status: Complete. Commit `01668433c` made `persistGraphNodePositions` return
+explicit persisted/skipped/failed outcomes for semantic layout, draft workflow
+layout, and workflow view layout. The surface caller updates authoritative
+layout state from persisted outcomes, settles optimistic overlay generations
+after success, failure, skip, or supersession, and preserves newer generations
+when an older save settles. Draft workflow overlays now track moved workflow
+nodes only, so unchanged renderer positions cannot create stale optimistic
+layout.
 
 Tasks:
 
