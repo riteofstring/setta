@@ -19,13 +19,13 @@ import {
   sortDisplayItems,
   type WorkspaceTrajectoryDisplayItem,
 } from "./workspace-trajectory-display-items";
-
-export interface WorkspaceTrajectoryWorkflowRunBinding {
-  chatRunId: string;
-  workflowExecutionId: string;
-  workflowNodeExecutionId: string;
-  workflowNodeId: string;
-}
+import {
+  emptyWorkspaceTrajectoryAnchorIndex,
+  updateWorkspaceTrajectoryAnchorIndex,
+  workspaceTrajectoryAnchorForSprite,
+  type WorkspaceTrajectoryAnchorState,
+  type WorkspaceTrajectoryWorkflowRunBinding,
+} from "./workspace-trajectory-anchors";
 
 interface WorkspaceTrajectoryDisplayGroup {
   hiddenCount: number;
@@ -57,11 +57,6 @@ export interface WorkspaceTrajectoryNodeDetails {
   timeline: WorkspaceTrajectoryTimelineItem[];
   totalCount: number;
   workflowNodeId: string;
-}
-
-interface WorkspaceTrajectoryAnchorState {
-  bindings: WorkspaceTrajectoryWorkflowRunBinding[];
-  workflowNodeIds: string[];
 }
 
 export interface WorkspaceTrajectoryStore {
@@ -110,7 +105,6 @@ interface PendingTrajectoryDelta {
 const defaultTrajectoryLimit = 80;
 const maxVisibleSpritesPerNode = 4;
 const maxNodeDetailSprites = 12;
-const maxRecentLaneSprites = 8;
 const maxBufferedEvents = 96;
 const maxExpirationDelayMs = 60_000;
 
@@ -155,9 +149,7 @@ export function createWorkspaceTrajectoryStore({
   const listeners = new Set<() => void>();
   const bufferedEvents: WorkspaceTrajectoryRuntimeEvent[] = [];
   const anchorBySpriteId = new Map<string, string>();
-  let chatRunBindings = new Map<string, WorkspaceTrajectoryWorkflowRunBinding>();
-  let nodeExecutionBindings = new Map<string, WorkspaceTrajectoryWorkflowRunBinding>();
-  let workflowNodeIds = new Set<string>();
+  let anchorIndex = emptyWorkspaceTrajectoryAnchorIndex();
   let cancelFrame: (() => void) | null = null;
   let cancelExpiration: (() => void) | null = null;
 
@@ -206,17 +198,7 @@ export function createWorkspaceTrajectoryStore({
   }
 
   function updateAnchors(anchors: WorkspaceTrajectoryAnchorState) {
-    chatRunBindings = new Map(
-      anchors.bindings
-        .filter((binding) => binding.chatRunId !== "")
-        .map((binding) => [binding.chatRunId, binding]),
-    );
-    nodeExecutionBindings = new Map(
-      anchors.bindings
-        .filter((binding) => binding.workflowNodeExecutionId !== "")
-        .map((binding) => [binding.workflowNodeExecutionId, binding]),
-    );
-    workflowNodeIds = new Set(anchors.workflowNodeIds.filter(Boolean));
+    anchorIndex = updateWorkspaceTrajectoryAnchorIndex(anchorIndex, anchors);
     if (runtime !== null) {
       publishFrame();
     }
@@ -536,7 +518,6 @@ export function createWorkspaceTrajectoryStore({
     "error" | "loading" | "ready" | "version" | "workflowExecutionId" | "workspaceId"
   > {
     const byWorkflowNodeId = new Map<string, WorkspaceTrajectoryDisplayItem[]>();
-    const recentLaneSourceItems: WorkspaceTrajectoryDisplayItem[] = [];
     for (const sprite of sortedSprites([...state.spritesById.values()])) {
       const anchorNodeId = anchorForSprite(sprite);
       const display: WorkspaceTrajectoryDisplayItem = {
@@ -547,7 +528,6 @@ export function createWorkspaceTrajectoryStore({
         type: "sprite",
       };
       if (anchorNodeId === "") {
-        recentLaneSourceItems.push(display);
         continue;
       }
       const group = byWorkflowNodeId.get(anchorNodeId) ?? [];
@@ -559,11 +539,10 @@ export function createWorkspaceTrajectoryStore({
       .map(([workflowNodeId, items]) => displayGroupForNode(workflowNodeId, items))
       .filter((group) => group.totalCount > 0)
       .sort((left, right) => stringTimestamp(right.updatedAt) - stringTimestamp(left.updatedAt));
-    const recentLane = displayItemsForCanvas(recentLaneSourceItems).slice(0, maxRecentLaneSprites);
     return {
       anchoredSpriteCount: groups.reduce((sum, group) => sum + group.totalCount, 0),
       groups,
-      recentLane,
+      recentLane: [],
       revision: state.revision,
       totalSpriteCount: state.spritesById.size,
     };
@@ -585,39 +564,12 @@ export function createWorkspaceTrajectoryStore({
   }
 
   function anchorForSprite(sprite: WorkspaceTrajectorySprite) {
-    const explicitNodeId = firstKnownWorkflowNodeId(
-      sprite.workflowNodeId,
-      sourceRefId(sprite, "workflow_node"),
-    );
-    if (explicitNodeId !== "") {
-      return explicitNodeId;
-    }
-    const explicitExecutionId = firstNonEmpty(
-      sprite.workflowNodeExecutionId,
-      sourceRefId(sprite, "workflow_node_execution"),
-    );
-    if (explicitExecutionId !== "") {
-      const binding = nodeExecutionBindings.get(explicitExecutionId);
-      if (binding?.workflowNodeId) {
-        return binding.workflowNodeId;
-      }
-    }
-    if (sprite.chatRunId !== "") {
-      const binding = chatRunBindings.get(sprite.chatRunId);
-      if (binding?.workflowNodeId) {
-        return binding.workflowNodeId;
-      }
-    }
-    return anchorBySpriteId.get(sprite.id) ?? "";
-  }
-
-  function firstKnownWorkflowNodeId(...candidates: string[]) {
-    for (const candidate of candidates) {
-      if (candidate !== "" && (workflowNodeIds.size === 0 || workflowNodeIds.has(candidate))) {
-        return candidate;
-      }
-    }
-    return "";
+    return workspaceTrajectoryAnchorForSprite({
+      anchorIndex,
+      preservedAnchor: anchorBySpriteId.get(sprite.id) ?? "",
+      sprite,
+      workflowExecutionId,
+    });
   }
 
   function getNodeDetails(workflowNodeId: string): WorkspaceTrajectoryNodeDetails {
@@ -940,16 +892,8 @@ function spriteIsExpired(sprite: WorkspaceTrajectorySprite, now: number) {
   return Number.isFinite(expiresAt) && expiresAt <= now;
 }
 
-function sourceRefId(sprite: WorkspaceTrajectorySprite, kind: string) {
-  return sprite.sourceRefs.find((ref) => ref.kind === kind)?.id ?? "";
-}
-
 function runnerRefValue(refs: readonly { id: string; kind: string }[], kind: string) {
   return refs.find((ref) => ref.kind === kind)?.id ?? "";
-}
-
-function firstNonEmpty(...values: string[]) {
-  return values.find((value) => value !== "") ?? "";
 }
 
 function uniqueStrings(values: readonly string[]) {

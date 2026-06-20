@@ -304,7 +304,239 @@ describe("workspace trajectory store", () => {
     expect(details.timeline.map((item) => item.summary)).toContain("Assistant answered");
   });
 
-  test("keeps unanchored sprites in the bounded recent lane", async () => {
+  test("preserves runner bindings while workflow runner refs refresh", async () => {
+    const scheduler = manualScheduler();
+    const loadSnapshot = vi.fn(async () => runtimeSnapshot({ revision: 1 }));
+    const events = eventSource();
+    const store = createWorkspaceTrajectoryStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+
+    store.updateAnchors({
+      bindings: [
+        {
+          chatRunId: "chat_run_review",
+          workflowExecutionId: "workflow_execution_review",
+          workflowNodeExecutionId: "workflow_node_execution_review",
+          workflowNodeId: "reviewer",
+        },
+      ],
+      workflowNodeIds: ["reviewer"],
+    });
+    store.start();
+    await flushPromises();
+
+    store.updateAnchors({ activeWorkflowNodeIds: [], workflowNodeIds: ["reviewer"] });
+    events.emit(
+      trajectoryRuntimeEvent({
+        delta: runtimeDelta({
+          fromRevision: 1,
+          spriteUpdates: [
+            runtimeSprite({
+              chatRunId: "",
+              id: "sprite_refresh",
+              sourceRefs: sourceRefs({
+                chatRunId: "chat_run_review",
+                workflowExecutionId: "workflow_execution_review",
+                workflowNodeExecutionId: "",
+                workflowNodeId: "",
+              }),
+              title: "Arrived during runner-ref refresh",
+              workflowNodeExecutionId: "",
+              workflowNodeId: "",
+            }),
+          ],
+          toRevision: 2,
+        }),
+      }),
+    );
+    scheduler.flushFrame();
+
+    const frame = store.getFrameSnapshot();
+    expect(frame.recentLane).toEqual([]);
+    expect(frame.groups[0]).toMatchObject({ totalCount: 1, workflowNodeId: "reviewer" });
+    expect(frame.groups[0]?.items[0]).toMatchObject({
+      sprite: { id: "sprite_refresh" },
+      type: "sprite",
+    });
+  });
+
+  test("anchors same-workflow agent activity to the only active node", async () => {
+    const scheduler = manualScheduler();
+    const loadSnapshot = vi.fn(async () =>
+      runtimeSnapshot({
+        revision: 1,
+        sprites: [
+          runtimeSprite({
+            chatRunId: "",
+            id: "sprite_command_fallback",
+            kind: "command",
+            sourceRefs: sourceRefs({
+              chatRunId: "",
+              runItemId: "run_item_command",
+              workflowExecutionId: "workflow_execution_review",
+              workflowNodeExecutionId: "",
+              workflowNodeId: "",
+            }),
+            title: "Command",
+            workflowNodeExecutionId: "",
+            workflowNodeId: "",
+          }),
+        ],
+      }),
+    );
+    const events = eventSource();
+    const store = createWorkspaceTrajectoryStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+
+    store.updateAnchors({
+      activeWorkflowNodeIds: ["reviewer"],
+      bindings: [],
+      workflowNodeIds: ["reviewer"],
+    });
+    store.start();
+    await flushPromises();
+
+    const frame = store.getFrameSnapshot();
+    expect(frame.recentLane).toEqual([]);
+    expect(frame.groups[0]).toMatchObject({ totalCount: 1, workflowNodeId: "reviewer" });
+    expect(frame.groups[0]?.items[0]).toMatchObject({
+      sprite: { id: "sprite_command_fallback", kind: "command" },
+      type: "sprite",
+    });
+  });
+
+  test("does not use active-node fallback without exactly one active node", async () => {
+    const fallbackCandidate = runtimeSprite({
+      id: "sprite_no_single_active",
+      kind: "assistant_message",
+      sourceRefs: sourceRefs({
+        chatRunId: "",
+        runItemId: "run_item_no_single_active",
+        workflowExecutionId: "workflow_execution_review",
+        workflowNodeExecutionId: "",
+        workflowNodeId: "",
+      }),
+      workflowNodeExecutionId: "",
+      workflowNodeId: "",
+    });
+    const zeroActiveStore = createWorkspaceTrajectoryStore({
+      loadSnapshot: vi.fn(async () =>
+        runtimeSnapshot({ revision: 1, sprites: [fallbackCandidate] }),
+      ),
+      scheduleDelay: manualScheduler().scheduleDelay,
+      scheduleFrame: manualScheduler().scheduleFrame,
+      subscribeEvents: eventSource().subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+    zeroActiveStore.updateAnchors({
+      activeWorkflowNodeIds: [],
+      bindings: [],
+      workflowNodeIds: ["reviewer"],
+    });
+    zeroActiveStore.start();
+    await flushPromises();
+
+    expect(zeroActiveStore.getFrameSnapshot().groups).toEqual([]);
+    expect(zeroActiveStore.getFrameSnapshot().recentLane).toEqual([]);
+
+    const multipleActiveStore = createWorkspaceTrajectoryStore({
+      loadSnapshot: vi.fn(async () =>
+        runtimeSnapshot({ revision: 1, sprites: [fallbackCandidate] }),
+      ),
+      scheduleDelay: manualScheduler().scheduleDelay,
+      scheduleFrame: manualScheduler().scheduleFrame,
+      subscribeEvents: eventSource().subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+    multipleActiveStore.updateAnchors({
+      activeWorkflowNodeIds: ["reviewer", "implementer"],
+      bindings: [],
+      workflowNodeIds: ["reviewer", "implementer"],
+    });
+    multipleActiveStore.start();
+    await flushPromises();
+
+    expect(multipleActiveStore.getFrameSnapshot().groups).toEqual([]);
+    expect(multipleActiveStore.getFrameSnapshot().recentLane).toEqual([]);
+  });
+
+  test("does not use active-node fallback for cartographer or workflow lifecycle sprites", async () => {
+    const scheduler = manualScheduler();
+    const loadSnapshot = vi.fn(async () =>
+      runtimeSnapshot({
+        revision: 1,
+        sprites: [
+          cartographerRunSprite(1, {
+            chatRunId: "",
+            runItemId: "",
+            sourceRefs: sourceRefs({
+              cartographerRunId: "cartographer_run_1",
+              chatRunId: "",
+              workflowExecutionId: "workflow_execution_review",
+              workflowNodeExecutionId: "",
+              workflowNodeId: "",
+            }),
+            workflowNodeExecutionId: "",
+            workflowNodeId: "",
+          }),
+          runtimeSprite({
+            chatRunId: "",
+            id: "sprite_workflow_started",
+            kind: "workflow_status",
+            runItemId: "",
+            sourceRefs: sourceRefs({
+              chatRunId: "",
+              workflowExecutionId: "workflow_execution_review",
+              workflowNodeExecutionId: "",
+              workflowNodeId: "",
+            }),
+            title: "Workflow started",
+            workflowNodeExecutionId: "",
+            workflowNodeId: "",
+          }),
+        ],
+      }),
+    );
+    const events = eventSource();
+    const store = createWorkspaceTrajectoryStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+
+    store.updateAnchors({
+      activeWorkflowNodeIds: ["reviewer"],
+      bindings: [],
+      workflowNodeIds: ["reviewer"],
+    });
+    store.start();
+    await flushPromises();
+
+    const frame = store.getFrameSnapshot();
+    expect(frame.groups).toEqual([]);
+    expect(frame.recentLane).toEqual([]);
+    expect(frame.totalSpriteCount).toBe(2);
+    expect(store.getNodeDetails("reviewer")).toMatchObject({ totalCount: 0 });
+  });
+
+  test("omits unanchored workflow sprites from the canvas recent lane", async () => {
     const scheduler = manualScheduler();
     const sprites = Array.from({ length: 10 }, (_, index) =>
       runtimeSprite({
@@ -332,11 +564,7 @@ describe("workspace trajectory store", () => {
 
     const frame = store.getFrameSnapshot();
     expect(frame.groups).toEqual([]);
-    expect(frame.recentLane).toHaveLength(8);
-    expect(frame.recentLane[0]).toMatchObject({
-      sprite: { id: "sprite_recent_9" },
-      type: "sprite",
-    });
+    expect(frame.recentLane).toEqual([]);
     expect(frame.totalSpriteCount).toBe(10);
   });
 
@@ -807,18 +1035,27 @@ function timelineItem(
 }
 
 function sourceRefs({
+  cartographerRunId = "",
   chatRunId = "chat_run_review",
+  runItemId = "",
+  workflowExecutionId = "",
   workflowNodeExecutionId = "workflow_node_execution_review",
   workflowNodeId = "reviewer",
 }: {
+  cartographerRunId?: string;
   chatRunId?: string;
+  runItemId?: string;
+  workflowExecutionId?: string;
   workflowNodeExecutionId?: string;
   workflowNodeId?: string;
 } = {}): WorkspaceTrajectorySourceRef[] {
   const refs: WorkspaceTrajectorySourceRef[] = [
     { id: chatRunId, kind: "chat_run" },
+    { id: runItemId, kind: "run_item" },
+    { id: workflowExecutionId, kind: "workflow_execution" },
     { id: workflowNodeExecutionId, kind: "workflow_node_execution" },
     { id: workflowNodeId, kind: "workflow_node" },
+    { id: cartographerRunId, kind: "cartographer_run" },
   ];
   return refs.filter((ref) => ref.id !== "");
 }

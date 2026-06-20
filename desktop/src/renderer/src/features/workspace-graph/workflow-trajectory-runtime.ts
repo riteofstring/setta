@@ -65,7 +65,9 @@ export function useWorkspaceTrajectoryRuntime({
       return;
     }
     const workflowNodeIds = workflowProjection?.nodes.map((node) => node.id) ?? [];
-    trajectoryStore.updateAnchors({ bindings: [], workflowNodeIds });
+    const activeWorkflowNodeIds =
+      workflowProjection?.nodes.filter((node) => node.active).map((node) => node.id) ?? [];
+    trajectoryStore.updateAnchors({ activeWorkflowNodeIds, workflowNodeIds });
     if (
       workflowProjection === null ||
       workflowProjection.workspaceId === "" ||
@@ -79,6 +81,7 @@ export function useWorkspaceTrajectoryRuntime({
       .then((execution) => {
         if (!disposed) {
           trajectoryStore.updateAnchors({
+            activeWorkflowNodeIds,
             bindings: workspaceTrajectoryRunBindingsFromExecution(execution),
             workflowNodeIds,
           });
