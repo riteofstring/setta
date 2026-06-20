@@ -11,7 +11,7 @@ const backgroundGreen = backgroundRgb.green;
 const backgroundBlue = backgroundRgb.blue;
 const lineWheelPixelSize = 20;
 const mouseWheelZoomSensitivity = 0.0016;
-const verticalWheelDiagnosticThreshold = 80;
+const notchedWheelDeltaThreshold = 80;
 const trackpadPinchZoomSensitivity = 0.018;
 
 const defaultPorts = [
@@ -586,40 +586,10 @@ export function normalizedWheelDelta(event) {
 }
 
 export function isZoomWheel(event, delta) {
-  return classifyWheelNavigationIntent(event, delta).treatment === "zoom";
-}
-
-export function classifyWheelNavigationIntent(event, delta) {
-  const absDeltaX = Math.abs(delta.x);
-  const absDeltaY = Math.abs(delta.y);
   if (event.ctrlKey || event.metaKey) {
-    return {
-      absDeltaX,
-      absDeltaY,
-      deltaXThreshold: 1,
-      deltaYThreshold: verticalWheelDiagnosticThreshold,
-      reason: "modifier-key",
-      treatment: "zoom",
-    };
+    return true;
   }
-  if (absDeltaX < 1 && absDeltaY >= verticalWheelDiagnosticThreshold) {
-    return {
-      absDeltaX,
-      absDeltaY,
-      deltaXThreshold: 1,
-      deltaYThreshold: verticalWheelDiagnosticThreshold,
-      reason: "vertical-wheel-pan",
-      treatment: "pan",
-    };
-  }
-  return {
-    absDeltaX,
-    absDeltaY,
-    deltaXThreshold: 1,
-    deltaYThreshold: verticalWheelDiagnosticThreshold,
-    reason: "wheel-pan",
-    treatment: "pan",
-  };
+  return Math.abs(delta.x) < 1 && Math.abs(delta.y) >= notchedWheelDeltaThreshold;
 }
 
 export function zoomFactorFromWheel(event, delta) {

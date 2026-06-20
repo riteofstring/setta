@@ -50,7 +50,7 @@ export function createWorkflowGraphPointerDownHandler({
     }
     clearSelection();
     clearLastNodeClick();
-    startCameraPanning(screen, event);
+    startCameraPanning(screen);
     capturePointer(event);
     stopNativeInteraction(event);
   };

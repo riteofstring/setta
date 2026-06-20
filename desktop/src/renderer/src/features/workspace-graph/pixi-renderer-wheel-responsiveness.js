@@ -24,10 +24,7 @@ export function createWorkflowGraphWheelResponsivenessTracker({
     recordWheelEvent,
   };
 
-  function recordWheelEvent(
-    event,
-    { cameraBefore, canvasPoint, delta, treatment, wheelIntent = null, zoomFactor = null },
-  ) {
+  function recordWheelEvent(event, { cameraBefore, canvasPoint, delta, treatment }) {
     const eventNow = now();
     const previousWheelGapMs = wheelGapMs(eventNow);
     activeGesture = activeGestureForWheelEvent(eventNow, previousWheelGapMs);
@@ -44,8 +41,6 @@ export function createWorkflowGraphWheelResponsivenessTracker({
       previousWheelGapMs,
       sequence,
       treatment,
-      wheelIntent,
-      zoomFactor,
     });
     recordWheelEventOnGesture(activeGesture, sample, eventNow, treatment);
     appendSample(sample);
@@ -55,14 +50,13 @@ export function createWorkflowGraphWheelResponsivenessTracker({
   function recordWheelCameraResult({ cameraAfter, cameraChanged, sequence }) {
     const sample = sampleBySequence(sequence);
     if (!sample) {
-      return null;
+      return;
     }
     const updateAt = now();
     sample.cameraAfter = cameraAfter;
     sample.cameraChanged = Boolean(cameraChanged);
-    sample.cameraDelta = cameraDelta(sample.cameraBefore, cameraAfter);
     if (!cameraChanged) {
-      return { ...sample };
+      return;
     }
     sample.cameraUpdateAt = updateAt;
     sample.eventToCameraUpdateMs = updateAt - sample.performanceNow;
@@ -79,7 +73,6 @@ export function createWorkflowGraphWheelResponsivenessTracker({
         wheelEventAt: sample.performanceNow,
       };
     }
-    return { ...sample };
   }
 
   function recordRenderedFrame(renderedAt = now()) {
@@ -217,8 +210,6 @@ export function createWorkflowGraphWheelResponsivenessTracker({
       previousWheelGapMs,
       sequence,
       treatment,
-      wheelIntent,
-      zoomFactor,
     },
   ) {
     const eventTimeStamp = wheelEventTimeStamp(event);
@@ -242,8 +233,6 @@ export function createWorkflowGraphWheelResponsivenessTracker({
       sequence,
       shiftKey: Boolean(event.shiftKey),
       treatment,
-      wheelIntent: wheelIntent === null ? null : { ...wheelIntent },
-      zoomFactor,
     };
   }
 
@@ -301,26 +290,4 @@ function summarizeGesture(gesture) {
     tailCandidateDurationMs: gesture.tailCandidateDurationMs,
     tailCandidateEventCount: gesture.tailCandidateEventCount,
   };
-}
-
-function cameraDelta(before, after) {
-  if (!isCameraState(before) || !isCameraState(after)) {
-    return null;
-  }
-  return {
-    x: after.x - before.x,
-    y: after.y - before.y,
-    zoom: after.zoom - before.zoom,
-    zoomRatio: before.zoom === 0 ? null : after.zoom / before.zoom,
-  };
-}
-
-function isCameraState(value) {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    Number.isFinite(value.x) &&
-    Number.isFinite(value.y) &&
-    Number.isFinite(value.zoom)
-  );
 }

@@ -15,11 +15,9 @@ export SETTA_RECORDING=1
 export SETTA_RECORDING_DIR="${RECORDING_DIR}"
 export SETTA_RECORD_INCLUDE_PAYLOADS="${SETTA_RECORD_INCLUDE_PAYLOADS:-1}"
 export SETTA_RECORD_SCREENSHOT_INTERVAL_MS="${SETTA_RECORD_SCREENSHOT_INTERVAL_MS:-10000}"
-export SETTA_WORKFLOW_GRAPH_DEBUG="${SETTA_WORKFLOW_GRAPH_DEBUG:-1}"
 
 echo "Recording Setta desktop session to ${RECORDING_DIR}"
 echo "Set SETTA_RECORD_INCLUDE_PAYLOADS=0 to omit IPC/backend payload values."
 echo "Set SETTA_RECORD_SCREENSHOT_INTERVAL_MS=0 to disable periodic screenshots."
-echo "Set SETTA_WORKFLOW_GRAPH_DEBUG=0 to disable workflow graph performance telemetry."
 
 exec "${ROOT_DIR}/scripts/dev_desktop.sh"

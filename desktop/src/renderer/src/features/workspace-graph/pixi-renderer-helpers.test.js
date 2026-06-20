@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  classifyWheelNavigationIntent,
   drawWorkspaceGlow,
   sampleCurvedEdge,
   screenPointFromPointer,
@@ -19,36 +18,6 @@ describe("Pixi renderer helpers", () => {
     expect(screenPointFromWheel(canvas, { clientX: 600, clientY: 300 })).toEqual({
       x: 1000,
       y: 500,
-    });
-  });
-
-  it("reports the wheel navigation intent classification reason", () => {
-    expect(
-      classifyWheelNavigationIntent(wheelEvent({ ctrlKey: true, deltaY: -2 }), {
-        x: 0,
-        y: -2,
-      }),
-    ).toMatchObject({
-      reason: "modifier-key",
-      treatment: "zoom",
-    });
-    expect(
-      classifyWheelNavigationIntent(wheelEvent({ deltaY: 120 }), {
-        x: 0,
-        y: 120,
-      }),
-    ).toMatchObject({
-      reason: "vertical-wheel-pan",
-      treatment: "pan",
-    });
-    expect(
-      classifyWheelNavigationIntent(wheelEvent({ deltaX: 12, deltaY: 120 }), {
-        x: 12,
-        y: 120,
-      }),
-    ).toMatchObject({
-      reason: "wheel-pan",
-      treatment: "pan",
     });
   });
 
@@ -125,15 +94,6 @@ function workflowNode(id, status) {
     width: 168,
     x: 0,
     y: 0,
-  };
-}
-
-function wheelEvent({ ctrlKey = false, deltaX = 0, deltaY, metaKey = false }) {
-  return {
-    ctrlKey,
-    deltaX,
-    deltaY,
-    metaKey,
   };
 }
 

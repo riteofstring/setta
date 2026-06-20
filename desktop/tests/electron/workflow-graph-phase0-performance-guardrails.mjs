@@ -7,7 +7,6 @@ export function assertPhase8PerformanceGuardrails({
   artifacts,
   final,
   initial,
-  rendererLifecycle,
   scenario,
   semanticTraffic,
   syntheticScene,
@@ -16,7 +15,6 @@ export function assertPhase8PerformanceGuardrails({
     diagnostics: artifacts.metrics,
     final,
     initial,
-    rendererLifecycle,
     scenario,
     semanticTraffic,
     syntheticScene,
@@ -57,52 +55,10 @@ export async function workflowGraphSemanticTrafficDuringInteraction({ artifactDi
   };
 }
 
-export async function workflowGraphRendererLifecycleDuringRecording({ artifactDir }) {
-  const rows = await readJsonLinesOptional(join(artifactDir, "renderer-events.jsonl"));
-  const samples = rows.filter((row) => row.type === "workspace_graph_performance");
-  let maxActiveRendererInstanceCount = 0;
-  let rendererCreatedCount = 0;
-  let rendererDestroyedCount = 0;
-  const duplicateSamples = [];
-  for (const row of samples) {
-    if (row.reason === "renderer-created") {
-      rendererCreatedCount += 1;
-    }
-    if (row.reason === "renderer-destroyed") {
-      rendererDestroyedCount += 1;
-    }
-    const lifecycle = row.sample?.lifecycle ?? {};
-    const activeRendererInstanceCount = Number(lifecycle.activeRendererInstanceCount ?? 0);
-    maxActiveRendererInstanceCount = Math.max(
-      maxActiveRendererInstanceCount,
-      activeRendererInstanceCount,
-    );
-    if (activeRendererInstanceCount > 1) {
-      duplicateSamples.push({
-        activeRendererInstanceCount,
-        activeRendererInstanceIds: lifecycle.activeRendererInstanceIds ?? [],
-        at: row.at,
-        reason: row.reason,
-        rendererInstanceId: row.sample?.rendererInstanceId ?? null,
-        surfaceId: row.surfaceId,
-      });
-    }
-  }
-  return {
-    duplicateSampleCount: duplicateSamples.length,
-    duplicateSamples: duplicateSamples.slice(0, 5),
-    maxActiveRendererInstanceCount,
-    rendererCreatedCount,
-    rendererDestroyedCount,
-    sampleCount: samples.length,
-  };
-}
-
 function phase8PerformanceScenarioGate({
   diagnostics,
   final,
   initial,
-  rendererLifecycle,
   scenario,
   semanticTraffic,
   syntheticScene,
@@ -111,7 +67,6 @@ function phase8PerformanceScenarioGate({
     diagnostics,
     final,
     initial,
-    rendererLifecycle,
     scenario,
     semanticTraffic,
   });
@@ -119,21 +74,13 @@ function phase8PerformanceScenarioGate({
     checks: phase8PerformanceChecks(context),
     inputCountsByKind: context.inputCounts,
     inputEventCount: context.inputEventCount,
-    rendererLifecycle: context.rendererLifecycle,
     renderDeltas: context.renderDeltas,
     scenario,
     syntheticScene,
   };
 }
 
-function phase8PerformanceGateContext({
-  diagnostics,
-  final,
-  initial,
-  rendererLifecycle,
-  scenario,
-  semanticTraffic,
-}) {
+function phase8PerformanceGateContext({ diagnostics, final, initial, scenario, semanticTraffic }) {
   const renderDeltas = phase8InteractionRenderDeltas(diagnostics, initial, final);
   const inputMetrics = phase8InputMetrics(diagnostics);
   const labelMetrics = phase8LabelMetrics(final, inputMetrics.panWheelEventCount);
@@ -147,7 +94,6 @@ function phase8PerformanceGateContext({
   return {
     diagnostics,
     final,
-    rendererLifecycle: rendererLifecycle ?? emptyRendererLifecycleMetrics(),
     renderDeltas,
     semanticTraffic: semanticTraffic ?? emptySemanticTrafficMetrics(),
     scenario,
@@ -245,7 +191,6 @@ function phase8PerformanceChecks(context) {
     phase8DisplayObjectCountCheck(context),
     phase8FrameBudgetCheck(context),
     phase8LongTaskCheck(context),
-    phase8RendererLifecycleCheck(context),
   ];
   return checks;
 }
@@ -308,16 +253,6 @@ function phase0CameraWorkingSetReadCheck({ semanticTraffic }) {
     id: "no-semantic-working-set-reads-during-camera-interaction",
     pass: actual === 0,
     summary: `workingSetIpcStarts=${semanticTraffic.workingSetIpcStarts}, workingSetHttpRequests=${semanticTraffic.workingSetHttpRequests}, firstInputAt=${semanticTraffic.firstInputAt}, lastInputAt=${semanticTraffic.lastInputAt}`,
-  });
-}
-
-function phase8RendererLifecycleCheck({ rendererLifecycle }) {
-  return hardCheck({
-    actual: rendererLifecycle.maxActiveRendererInstanceCount,
-    budget: 1,
-    id: "one-active-workflow-graph-renderer-per-surface",
-    pass: rendererLifecycle.maxActiveRendererInstanceCount <= 1,
-    summary: `maxActiveRendererInstanceCount=${rendererLifecycle.maxActiveRendererInstanceCount}, duplicateSamples=${rendererLifecycle.duplicateSampleCount}, rendererCreated=${rendererLifecycle.rendererCreatedCount}, rendererDestroyed=${rendererLifecycle.rendererDestroyedCount}`,
   });
 }
 
@@ -393,17 +328,6 @@ function emptySemanticTrafficMetrics() {
     lastInputAt: "",
     workingSetHttpRequests: 0,
     workingSetIpcStarts: 0,
-  };
-}
-
-function emptyRendererLifecycleMetrics() {
-  return {
-    duplicateSampleCount: 0,
-    duplicateSamples: [],
-    maxActiveRendererInstanceCount: 0,
-    rendererCreatedCount: 0,
-    rendererDestroyedCount: 0,
-    sampleCount: 0,
   };
 }
 

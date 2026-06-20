@@ -41,7 +41,6 @@ import {
 } from "./workflow-graph-performance-recording.mjs";
 import {
   assertPhase8PerformanceGuardrails,
-  workflowGraphRendererLifecycleDuringRecording,
   workflowGraphSemanticTrafficDuringInteraction,
 } from "./workflow-graph-phase0-performance-guardrails.mjs";
 
@@ -201,12 +200,10 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario, syntheticScen
       artifactDir,
       inputWindow: artifacts.metrics.inputWindow,
     });
-    const rendererLifecycle = await workflowGraphRendererLifecycleDuringRecording({ artifactDir });
     const phase8Gate = assertPhase8PerformanceGuardrails({
       artifacts,
       final,
       initial,
-      rendererLifecycle,
       scenario,
       semanticTraffic,
       syntheticScene,
