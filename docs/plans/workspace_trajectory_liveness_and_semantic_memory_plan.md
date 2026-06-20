@@ -1,7 +1,7 @@
 # Workspace Trajectory Liveness and Semantic Memory Plan
 
 - **Date:** June 18, 2026
-- **Status:** Proposed
+- **Status:** Phase 0 complete; Phase 1 ready to implement
 - **Scope:** Replace the current semantic-node-centered liveness model with a
   principled split between deterministic workflow trajectory visuals, durable
   semantic memory, cartographer audit, and graph interaction/runtime
@@ -597,6 +597,9 @@ Semantic node animation should be redesigned:
 
 ### Phase 0 - Evidence And Current-State Audit
 
+Status: complete. Commit `98844d3c4` added
+`docs/reports/performance/workspace-trajectory-liveness-semantic-memory-phase-0.md`.
+
 Capture the current state before changing behavior.
 
 Record and report:
@@ -631,6 +634,38 @@ This phase should also inventory provider/run-item metadata for:
 
 The output should explicitly say which desired sprite labels can be typed today
 and which require provider/protocol additions.
+
+Phase 0 implementation review:
+
+- The existing semantic-live workflow and small-trackpad graph recording passed
+  through production Electron/main/preload/renderer/backend paths with
+  temporary app data.
+- The report confirms there is no first-class trajectory sprite layer today;
+  current live graph indications are semantic/cartographer runtime signals.
+- The first semantic node still changes the canvas foundation because
+  `foundationStyleForGraph` selects the generic semantic foundation whenever
+  any node has `layer === "semantic"`.
+- Semantic layout persistence remains race-prone because the inspected path
+  applies semantic positions after the backend save resolves, without a
+  local-first pending layout overlay that survives semantic graph refreshes.
+- The report could not prove reasoning-summary liveness, active workflow
+  animation continuity during pan/zoom in the same workflow, or semantic drag
+  persistence under runtime refresh. Those gaps should become targeted tests
+  when the affected behavior is implemented.
+- Typed run-item metadata is good enough for command, tool-call, reasoning
+  summary, plan update, approval, assistant message, and partial file
+  write/diff labels. Exact file-read ranges and structured diff `+/-` counts
+  require provider/protocol or contract additions.
+
+Phase 1 handoff:
+
+- Phase 1 is ready to implement.
+- Keep Phase 1 scoped to immediate graph UX corrections. Do not add the
+  workspace trajectory runtime, new backend contracts, or first-class sprite
+  layer in Phase 1.
+- The missing trajectory sprite layer is the Phase 2/3 problem. Phase 1 should
+  remove current graph regressions so the later trajectory runtime has a stable
+  visual and interaction foundation.
 
 ### Phase 1 - Immediate Graph UX Corrections
 
@@ -936,8 +971,9 @@ For semantic nodes:
 
 ## Recommended First Commit
 
-Start with Phase 1 before building new contracts. It addresses visible broken
-behavior and reduces confusion while the larger trajectory runtime is designed.
+Start with Phase 1 before building new contracts. Phase 0 now has a baseline
+report, and Phase 1 addresses visible broken behavior while the larger
+trajectory runtime is designed.
 
 The first commit should:
 
@@ -946,7 +982,7 @@ The first commit should:
 - disable or replace orbiting semantic-cell animations in the default view,
 - keep active workflow feedback visible while panning,
 - add focused renderer tests for those regressions,
-- and add a short Phase 0 evidence note capturing the current symptoms.
+- and reference the Phase 0 report when documenting before/after behavior.
 
 That commit should not attempt to solve semantic usefulness through the
 cartographer. The main usefulness work starts once deterministic trajectory
