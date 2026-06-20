@@ -1,7 +1,8 @@
 # Workspace Graph Pan/Zoom Surface Runtime Refactor Plan
 
 - **Date:** June 18, 2026
-- **Status:** Draft active plan
+- **Status:** Phase 0 initial implementation under review; Phase 1 is blocked
+  until the Phase 0 follow-up gate below is satisfied.
 - **Scope:** Make workspace graph pan/zoom smooth by refactoring graph canvas
   lifetime, workspace pane presentation writes, and frame-loop scheduling around
   explicit surface ownership and measurable interaction budgets.
@@ -514,6 +515,37 @@ Success criteria:
   repetition count, workload, runner class, and whether timing thresholds were
   enforced or report-only.
 - No product fix is hidden inside Phase 0.
+
+#### Phase 0 Follow-Up Gate Before Phase 1
+
+The first Phase 0 implementation added the matrix runner, baseline report,
+trace capture, causal attribution hooks, synthetic workloads, and structural
+checks. Phase 1 should not start until these follow-up checks are complete:
+
+- Apply the pinned workload viewport in the runner, or fail before recording
+  when the actual viewport/DPR does not match the workload definition. Recording
+  a different Electron window size is report-only evidence, not a pinned
+  benchmark.
+- Replace the current first-Pixi-render proxy with a real
+  input-to-presented-frame metric, or rename the proxy everywhere and keep the
+  presented-frame budget blocked until the trace source proves compositor
+  presentation of the committed camera transform.
+- Add required camera-frame scene-visit counters to the graph runtime snapshot:
+  Setta-owned layer visits, graph objects considered, cull candidates checked,
+  display objects traversed, labels considered, and bounds calculations, or the
+  closest owning-layer equivalents.
+- Add a matrix-level scaling guard that compares the constant-visible-content
+  runs against each other and fails when required scene-visit counters are
+  missing, exceed `visibleRenderableCount * 4 + 512`, or grow by more than `5%`
+  from the smallest to largest total graph size.
+- Keep draw calls, display object counts, and Pixi render duration as
+  supplemental metrics only; they must not substitute for the required CPU
+  scene-visit counters.
+- Gate or bound Phase 0 user-timing instrumentation in production renderer code.
+  Marks and measures used only by the Electron recorder must not accumulate
+  unbounded entries during ordinary app use.
+- Append a new Phase 0 report after the follow-up gate passes, and state
+  whether Phase 1 is ready based on that run.
 
 ### Phase 1: Move Graph Canvas Lifetime To One Surface Controller And Frame Owner
 
