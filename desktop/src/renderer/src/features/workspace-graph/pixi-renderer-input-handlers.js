@@ -14,6 +14,7 @@ export function createWorkflowGraphPointerDownHandler({
   clearSelection,
   edgeInteractions,
   handlers,
+  hitTestActivitySpriteAtScreen = () => null,
   hitTestNodeAtScreen,
   hitTestPortAtScreen,
   repeatedNodeOpenRequested,
@@ -30,6 +31,11 @@ export function createWorkflowGraphPointerDownHandler({
       return;
     }
     const screen = screenPointFromPointer(canvas, event);
+    if (hitTestActivitySpriteAtScreen(screen)) {
+      clearLastNodeClick();
+      stopNativeInteraction(event);
+      return;
+    }
     if (
       startEdgeDrawingAtScreen(screen, event) ||
       startNodeInteractionAtScreen(screen, event) ||

@@ -14,7 +14,7 @@ import {
   type SemanticRuntimeStore,
 } from "./semantic-runtime-store";
 
-interface SemanticGraphState {
+export interface SemanticGraphState {
   activitiesByNodeId: Map<string, SemanticActivityInterval[]>;
   error: string;
   graph: SemanticGraph | null;

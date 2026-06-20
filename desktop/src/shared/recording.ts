@@ -111,13 +111,26 @@ export interface RendererGraphSnapshotEvent extends RendererGraphRecordedEventBa
 export interface RendererGraphInteractionEvent extends RendererGraphRecordedEventBase {
   interaction: {
     affectedNodeIds: string[];
-    kind: "edge_draw" | "marquee" | "node_drag" | "pointer_pan" | "selection" | "wheel";
+    kind:
+      | "activity_sprite"
+      | "edge_draw"
+      | "marquee"
+      | "node_drag"
+      | "pointer_pan"
+      | "selection"
+      | "wheel";
     movementOwner: string;
     phase: "blocked" | "cancel" | "commit" | "start" | "update";
     pointerType: string;
+    popoverRunItemId: string;
     reason: string;
     sourceNodeId: string;
     sourcePortId: string;
+    spriteChatRunId: string;
+    spriteId: string;
+    spriteRunItemId: string;
+    spriteWorkflowExecutionId: string;
+    spriteWorkflowNodeExecutionId: string;
     targetNodeId: string;
     targetPortId: string;
   };

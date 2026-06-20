@@ -6,19 +6,29 @@ export function noopReactRenderCount() {
   return 0;
 }
 
+const defaultRendererHandlers = {
+  onActivitySpriteClick: null,
+  onCameraStateChange: noopCameraStateChange,
+  onCanvasContextMenu: null,
+  onEdgeCreate: undefined,
+  onEdgeDelete: undefined,
+  onEdgeSelectionChange: null,
+  onNodeDelete: undefined,
+  onNodeOpen: null,
+  onNodePositionsChange: null,
+  onNodeSelectionChange: null,
+  reactRenderCount: noopReactRenderCount,
+};
+
 export function rendererHandlers(handlers = {}) {
   return {
-    onCameraStateChange: handlers.onCameraStateChange ?? noopCameraStateChange,
-    onCanvasContextMenu: handlers.onCanvasContextMenu ?? null,
-    onEdgeCreate: handlers.onEdgeCreate,
-    onEdgeDelete: handlers.onEdgeDelete,
-    onEdgeSelectionChange: handlers.onEdgeSelectionChange ?? null,
-    onNodeDelete: handlers.onNodeDelete,
-    onNodeOpen: handlers.onNodeOpen ?? null,
-    onNodePositionsChange: handlers.onNodePositionsChange ?? null,
-    onNodeSelectionChange: handlers.onNodeSelectionChange ?? null,
-    reactRenderCount: handlers.reactRenderCount ?? noopReactRenderCount,
+    ...defaultRendererHandlers,
+    ...definedRendererHandlers(handlers),
   };
+}
+
+function definedRendererHandlers(handlers) {
+  return Object.fromEntries(Object.entries(handlers).filter(([, value]) => value !== undefined));
 }
 
 export function createDynamicCanvasContextMenuHandler({ canvas, handlers, viewport }) {

@@ -9,6 +9,20 @@
 
 ## Implementation Status
 
+- Phase 5 was implemented in the current working tree:
+  concrete run-item activity sprites now expose retained Pixi hit targets,
+  record hover/click/details-link interactions, open an inline React popover
+  anchored near the sprite, render the clicked item through
+  `AgentRunActivityRows`, dismiss on click-away/escape, and link into the
+  owning workflow node details with the run item focused.
+- Focused verification for Phase 5 passed with
+  `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/pixi-renderer-input-handlers.test.js src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts`.
+- Production-path verification for Phase 5 passed with
+  `node desktop/tests/electron/run-workflows.mjs --workflow workspace-trajectory-file-fidelity --skip-build`
+  after `pnpm -C desktop build`.
+- Phase 6's remaining sprite-popover reuse criterion is now covered by the
+  shared activity-row focused tests and the production trajectory workflow.
+- Phase 7 is the next implementable phase.
 - Phase 6 was partially implemented by `2a0ad20fe`:
   `AgentRunActivityRows` now owns shared run-item/activity presentation,
   `ChatTranscript` renders chat run activity through it, workflow node details
@@ -16,15 +30,6 @@
   `WorkflowRunActivityItem` representation was removed.
 - Focused verification for that implementation passed with
   `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/components/chat-panel.test.tsx`.
-- Phase 6 is not fully closed because the Phase 5 sprite popover does not exist
-  yet, so the requirement that the popover render the same shared leaf activity
-  component is still unverified.
-- Phase 5 remains the next implementable phase. Activity sprites are still
-  passive Pixi objects (`trajectorySpriteInteractionMode: "passive"`), with no
-  retained hit targets, inline popover, details-link workflow, or sprite click
-  recording path.
-- Phase 7 is not ready until Phase 5 is complete and the remaining Phase 6
-  sprite-popover reuse criterion has production-path coverage.
 
 ## Position
 

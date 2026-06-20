@@ -16,6 +16,24 @@ export function createWorkflowGraphRendererRecorder({ getSnapshot, surfaceId }) 
     });
 
   return {
+    activitySpriteDetailsOpen: (target) => {
+      recordActivitySpriteInteraction(target, "commit", "details_link", {
+        popoverRunItemId: target.runItemId,
+        targetNodeId: target.workflowNodeId,
+      });
+    },
+    activitySpritePointerOut: (target) => {
+      recordActivitySpriteInteraction(target, "cancel", "pointerout");
+    },
+    activitySpritePointerOver: (target) => {
+      recordActivitySpriteInteraction(target, "start", "pointerover");
+    },
+    activitySpritePointerTap: (target) => {
+      recordActivitySpriteInteraction(target, "commit", "pointertap", {
+        popoverRunItemId: target.runItemId,
+        targetNodeId: target.workflowNodeId,
+      });
+    },
     edgePointerCancel: (edgeDrawing) => {
       recordInteraction(edgeDrawInteraction(edgeDrawing, "cancel", "pointercancel"));
       recordSnapshot("pointercancel");
@@ -88,6 +106,22 @@ export function createWorkflowGraphRendererRecorder({ getSnapshot, surfaceId }) 
       snapshot: snapshot(),
       surfaceId,
       trigger,
+    });
+  }
+
+  function recordActivitySpriteInteraction(target, phase, reason, extra = {}) {
+    recordInteraction({
+      affectedNodeIds: [target.workflowNodeId],
+      kind: "activity_sprite",
+      phase,
+      reason,
+      sourceNodeId: target.workflowNodeId,
+      spriteChatRunId: target.chatRunId,
+      spriteId: target.spriteId,
+      spriteRunItemId: target.runItemId,
+      spriteWorkflowExecutionId: target.workflowExecutionId,
+      spriteWorkflowNodeExecutionId: target.workflowNodeExecutionId,
+      ...extra,
     });
   }
 }

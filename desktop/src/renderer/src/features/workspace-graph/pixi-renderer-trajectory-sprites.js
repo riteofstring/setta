@@ -1,4 +1,4 @@
-import { BitmapText, Container, Graphics } from "pixi.js";
+import { BitmapText, Container, Graphics, Rectangle } from "pixi.js";
 import { trajectorySpriteCanvasLabel } from "./workspace-trajectory-display-labels";
 
 const spriteHeight = 22;
@@ -11,10 +11,15 @@ const recentLaneScreenX = 24;
 const recentLaneScreenY = 108;
 
 export function createWorkspaceTrajectorySpriteLayer({
+  canvas,
   debugMetrics,
   getNode,
   layer,
   loadedNodeLabelFont,
+  onActivitySpriteClick,
+  recordActivitySpritePointerOut,
+  recordActivitySpritePointerOver,
+  recordActivitySpritePointerTap,
   viewport,
 }) {
   let frame = null;
@@ -26,10 +31,13 @@ export function createWorkspaceTrajectorySpriteLayer({
   let spriteViewId = 0;
   const activeViews = new Map();
   const pooledViews = [];
+  layer.eventMode = "passive";
+  layer.interactiveChildren = true;
 
   return {
     debugSnapshot,
     destroy,
+    hitTestAtScreen,
     syncPositions,
     tick,
     updateFrame,
@@ -92,6 +100,27 @@ export function createWorkspaceTrajectorySpriteLayer({
     container.eventMode = "none";
     container.interactiveChildren = false;
     container.cursor = "default";
+    container.on("pointerout", () => {
+      const target = activitySpriteTargetForView(view, canvas);
+      if (target !== null) {
+        recordActivitySpritePointerOut?.(target);
+      }
+    });
+    container.on("pointerover", () => {
+      const target = activitySpriteTargetForView(view, canvas);
+      if (target !== null) {
+        recordActivitySpritePointerOver?.(target);
+      }
+    });
+    container.on("pointertap", (event) => {
+      const target = activitySpriteTargetForView(view, canvas);
+      if (target === null) {
+        return;
+      }
+      event.stopPropagation();
+      recordActivitySpritePointerTap?.(target);
+      onActivitySpriteClick?.(target);
+    });
     const background = new Graphics();
     background.eventMode = "none";
     const icon = new Graphics();
@@ -155,8 +184,18 @@ export function createWorkspaceTrajectorySpriteLayer({
     view.label.text = item.collapsedCount > 0 ? `+${item.collapsedCount}` : spriteLabel(item);
     view.label.x = item.collapsedCount > 0 ? 24 : 28;
     view.label.y = spriteHeight / 2 + 0.5;
+    syncViewInteraction(view, item);
     view.container.visible = true;
     spriteRedrawCount += 1;
+  }
+
+  function syncViewInteraction(view, item) {
+    const interactive = activitySpriteItemIsInteractive(item);
+    view.container.cursor = interactive ? "pointer" : "default";
+    view.container.eventMode = interactive ? "static" : "none";
+    view.container.hitArea = interactive
+      ? new Rectangle(0, 0, itemWidth(item), spriteHeight)
+      : null;
   }
 
   function syncViewPosition(view, item) {
@@ -207,6 +246,15 @@ export function createWorkspaceTrajectorySpriteLayer({
     layer.removeChildren();
   }
 
+  function hitTestAtScreen(screen) {
+    for (const view of activeViews.values()) {
+      if (screenPointInsideView(screen, view)) {
+        return activitySpriteTargetForView(view, canvas);
+      }
+    }
+    return null;
+  }
+
   function debugSnapshot() {
     const trajectoryAnchors = trajectoryAnchorDebugSnapshot(frame, getNode);
     return {
@@ -214,7 +262,7 @@ export function createWorkspaceTrajectorySpriteLayer({
       trajectorySpriteDisplayCount: activeViews.size,
       trajectorySpriteFrameRevision: frame?.revision ?? 0,
       trajectorySpriteGroupCount: frame?.groups.length ?? 0,
-      trajectorySpriteInteractionMode: "passive",
+      trajectorySpriteInteractionMode: "retained-hit-targets",
       trajectorySpriteLayerEventMode: layer.eventMode,
       trajectorySpriteLayerInteractiveChildren: layer.interactiveChildren,
       trajectorySpritePoolHitCount: spritePoolHitCount,
@@ -248,16 +296,85 @@ function trajectorySpriteViewDebugSnapshot(activeViews, viewport) {
         label: view.label.text,
         lane: item.lane,
         rank: item.rank,
+        runItemId: item.sprite?.runItemId ?? "",
         screenX: screen.x,
         screenY: screen.y,
+        spriteId: item.sprite?.id ?? "",
         status: item.status,
         type: item.type,
+        workflowNodeId: item.sprite?.workflowNodeId ?? "",
         visible: view.container.visible,
         width: itemWidth(item),
         x: view.container.x,
         y: view.container.y,
       };
     });
+}
+
+function activitySpriteItemIsInteractive(item) {
+  return (
+    item.type === "sprite" &&
+    item.sprite !== null &&
+    item.sprite.runItemId !== "" &&
+    item.sprite.chatRunId !== "" &&
+    item.sprite.workflowNodeId !== ""
+  );
+}
+
+function screenPointInsideView(screen, view) {
+  if (!viewCanReceiveActivitySpriteHit(view)) {
+    return false;
+  }
+  const screenTopLeft = viewScreenTopLeft(view);
+  return (
+    screen.x >= screenTopLeft.x &&
+    screen.y >= screenTopLeft.y &&
+    screen.x <= screenTopLeft.x + itemWidth(view.item) &&
+    screen.y <= screenTopLeft.y + spriteHeight
+  );
+}
+
+function viewCanReceiveActivitySpriteHit(view) {
+  return Boolean(view.item && view.container.visible && activitySpriteItemIsInteractive(view.item));
+}
+
+function viewScreenTopLeft(view) {
+  if (!view.container.parent?.toGlobal) {
+    return { x: view.container.x, y: view.container.y };
+  }
+  return view.container.parent.toGlobal({ x: view.container.x, y: view.container.y });
+}
+
+function activitySpriteTargetForView(view, canvas) {
+  const item = view.item;
+  if (!item || !activitySpriteItemIsInteractive(item)) {
+    return null;
+  }
+  const sprite = item.sprite;
+  const screen = viewScreenTopLeft(view);
+  const width = itemWidth(item);
+  const rect =
+    typeof canvas?.getBoundingClientRect === "function"
+      ? canvas.getBoundingClientRect()
+      : { left: 0, top: 0 };
+  return {
+    anchorNodeId: item.anchorNodeId,
+    chatRunId: sprite.chatRunId,
+    clientX: rect.left + screen.x + width + 8,
+    clientY: rect.top + screen.y,
+    height: spriteHeight,
+    kind: sprite.kind,
+    runItemId: sprite.runItemId,
+    screenX: screen.x,
+    screenY: screen.y,
+    spriteId: sprite.id,
+    status: sprite.status,
+    width,
+    workspaceId: sprite.workspaceId,
+    workflowExecutionId: sprite.workflowExecutionId,
+    workflowNodeExecutionId: sprite.workflowNodeExecutionId,
+    workflowNodeId: sprite.workflowNodeId,
+  };
 }
 
 function trajectoryAnchorDebugSnapshot(frame, getNode) {

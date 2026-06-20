@@ -8,7 +8,7 @@ import type {
   WorkflowNodeExecution,
   WorkflowToken,
 } from "@generated/backend";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { AgentRunActivityRows } from "../../components/agent-run-activity";
 import type { WorkflowNodeDetailsTarget } from "../../stores/workflow-editor-store";
@@ -61,7 +61,10 @@ export function WorkflowRunDetailsContent({
       />
       <WorkflowNodeExecutionSection nodeExecution={nodeExecution} target={target} />
       <WorkflowActionResultSection nodeExecution={nodeExecution} />
-      <WorkflowActivitySection activityPages={inspection.activityPages} />
+      <WorkflowActivitySection
+        activityPages={inspection.activityPages}
+        focusedRunItemId={target.focusedRunItemId ?? ""}
+      />
       <WorkflowProjectionFlowSection target={target} />
       <WorkflowTokenFlowSection execution={inspection.execution} nodeId={target.nodeId} />
       <WorkflowEventSection events={nodeEvents} />
@@ -176,7 +179,13 @@ function WorkflowActionResultSection({
   );
 }
 
-function WorkflowActivitySection({ activityPages }: { activityPages: WorkflowNodeActivityPage[] }) {
+function WorkflowActivitySection({
+  activityPages,
+  focusedRunItemId,
+}: {
+  activityPages: WorkflowNodeActivityPage[];
+  focusedRunItemId: string;
+}) {
   if (activityPages.length === 0) {
     return null;
   }
@@ -184,14 +193,24 @@ function WorkflowActivitySection({ activityPages }: { activityPages: WorkflowNod
     <WorkflowDetailsSection title="Activity">
       <div className="space-y-3">
         {activityPages.map((activity) => (
-          <WorkflowActivityRefDetails activity={activity} key={activity.ref.id} />
+          <WorkflowActivityRefDetails
+            activity={activity}
+            focusedRunItemId={focusedRunItemId}
+            key={activity.ref.id}
+          />
         ))}
       </div>
     </WorkflowDetailsSection>
   );
 }
 
-function WorkflowActivityRefDetails({ activity }: { activity: WorkflowNodeActivityPage }) {
+function WorkflowActivityRefDetails({
+  activity,
+  focusedRunItemId,
+}: {
+  activity: WorkflowNodeActivityPage;
+  focusedRunItemId: string;
+}) {
   return (
     <div className="space-y-2 rounded-sm border border-zinc-800 bg-zinc-950/60 p-3">
       <WorkflowDetailsRows
@@ -202,27 +221,48 @@ function WorkflowActivityRefDetails({ activity }: { activity: WorkflowNodeActivi
           { label: "Error", value: activity.error, hidden: activity.error === "" },
         ]}
       />
-      {activity.page ? <WorkflowRunActivityPageDetails page={activity.page} /> : null}
+      {activity.page ? (
+        <WorkflowRunActivityPageDetails focusedRunItemId={focusedRunItemId} page={activity.page} />
+      ) : null}
     </div>
   );
 }
 
-function WorkflowRunActivityPageDetails({ page }: { page: RunActivityPage }) {
+function WorkflowRunActivityPageDetails({
+  focusedRunItemId,
+  page,
+}: {
+  focusedRunItemId: string;
+  page: RunActivityPage;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focusedRunItemId === "") {
+      return;
+    }
+    containerRef.current
+      ?.querySelector('[data-focused-run-activity-item="true"]')
+      ?.scrollIntoView({ block: "center" });
+  }, [focusedRunItemId, page.runId]);
+
   if (page.items.length === 0) {
     return <div className="text-xs text-zinc-500">No activity items recorded.</div>;
   }
   const outputState = runActivityPageOutputState(page.output);
   return (
-    <AgentRunActivityRows
-      items={page.items}
-      outputIdsByRunItemId={outputState.outputIdsByRunItemId}
-      outputPagesByRunItemId={{}}
-      outputsById={outputState.outputsById}
-    />
+    <div ref={containerRef}>
+      <AgentRunActivityRows
+        highlightedRunItemId={focusedRunItemId}
+        items={page.items}
+        outputIdsByRunItemId={outputState.outputIdsByRunItemId}
+        outputPagesByRunItemId={{}}
+        outputsById={outputState.outputsById}
+      />
+    </div>
   );
 }
 
-function runActivityPageOutputState(output: RunItemOutput[]) {
+export function runActivityPageOutputState(output: RunItemOutput[]) {
   const outputIdsByRunItemId: Record<string, string[]> = {};
   const outputsById: Record<string, RunItemOutput> = {};
   for (const itemOutput of output) {

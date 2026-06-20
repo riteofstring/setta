@@ -17,6 +17,7 @@ import {
   type RendererGraphTruncation,
   type RendererGraphWorkflowSummary,
 } from "@shared/recording";
+import type { WorkflowGraphActivitySpriteTarget } from "./pixi-renderer";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -43,10 +44,16 @@ interface GraphInteractionRecordingOptions {
   movementOwner?: string;
   phase: RendererGraphInteractionEvent["interaction"]["phase"];
   pointerType?: string;
+  popoverRunItemId?: string;
   reason?: string;
   snapshot?: unknown;
   sourceNodeId?: string;
   sourcePortId?: string;
+  spriteChatRunId?: string;
+  spriteId?: string;
+  spriteRunItemId?: string;
+  spriteWorkflowExecutionId?: string;
+  spriteWorkflowNodeExecutionId?: string;
   surfaceId: string;
   targetNodeId?: string;
   targetPortId?: string;
@@ -76,6 +83,21 @@ const maxRecordedIds = 48;
 const maxRecordedNodes = 24;
 const maxRecordedTimingSamples = 12;
 const maxRecordedTrajectoryAnchors = 24;
+const graphInteractionStringFields = [
+  "movementOwner",
+  "pointerType",
+  "popoverRunItemId",
+  "reason",
+  "sourceNodeId",
+  "sourcePortId",
+  "spriteChatRunId",
+  "spriteId",
+  "spriteRunItemId",
+  "spriteWorkflowExecutionId",
+  "spriteWorkflowNodeExecutionId",
+  "targetNodeId",
+  "targetPortId",
+] as const;
 
 const layoutRecordingStateBySurfaceId = new Map<string, LayoutRecordingState>();
 let manualSnapshotListenerInstalled = false;
@@ -138,6 +160,30 @@ export function recordWorkflowGraphInteractionEvent(
     }),
     interaction: graphInteractionPayload(options, affectedNodeIds),
     type: "graph_interaction",
+  });
+}
+
+export function recordWorkflowGraphActivitySpriteDetailsOpen({
+  surfaceId,
+  target,
+}: {
+  surfaceId: string;
+  target: WorkflowGraphActivitySpriteTarget;
+}): void {
+  recordWorkflowGraphInteractionEvent({
+    affectedNodeIds: [target.workflowNodeId],
+    kind: "activity_sprite",
+    phase: "commit",
+    popoverRunItemId: target.runItemId,
+    reason: "details_link",
+    sourceNodeId: target.workflowNodeId,
+    spriteChatRunId: target.chatRunId,
+    spriteId: target.spriteId,
+    spriteRunItemId: target.runItemId,
+    spriteWorkflowExecutionId: target.workflowExecutionId,
+    spriteWorkflowNodeExecutionId: target.workflowNodeExecutionId,
+    surfaceId,
+    targetNodeId: target.workflowNodeId,
   });
 }
 
@@ -231,18 +277,23 @@ function graphInteractionPayload(
   options: GraphInteractionRecordingOptions,
   affectedNodeIds: readonly string[],
 ): RendererGraphInteractionEvent["interaction"] {
-  return {
+  const payload: RendererGraphInteractionEvent["interaction"] = {
     affectedNodeIds: boundedStrings(affectedNodeIds),
     kind: options.kind,
-    movementOwner: options.movementOwner ?? "",
     phase: options.phase,
-    pointerType: options.pointerType ?? "",
-    reason: options.reason ?? "",
-    sourceNodeId: options.sourceNodeId ?? "",
-    sourcePortId: options.sourcePortId ?? "",
-    targetNodeId: options.targetNodeId ?? "",
-    targetPortId: options.targetPortId ?? "",
+    ...emptyGraphInteractionStringFields(),
   };
+  for (const field of graphInteractionStringFields) {
+    payload[field] = options[field] ?? "";
+  }
+  return payload;
+}
+
+function emptyGraphInteractionStringFields() {
+  return Object.fromEntries(graphInteractionStringFields.map((field) => [field, ""])) as Pick<
+    RendererGraphInteractionEvent["interaction"],
+    (typeof graphInteractionStringFields)[number]
+  >;
 }
 
 function dispatchGraphRecordingEvent(event: RendererGraphRecordedEvent): void {

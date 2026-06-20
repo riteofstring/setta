@@ -9,6 +9,9 @@ interface WorkflowRendererHandlersForSurfaceRequest {
   deleteWorkflowDraftNodes: (nodeIds: string[]) => Promise<void>;
   handleGraphEdgeSelectionChange: (edgeIds: string[]) => void;
   handleGraphNodeSelectionChange: (nodeIds: string[]) => void;
+  handleGraphActivitySpriteClick: NonNullable<
+    WorkflowGraphRendererHandlers["onActivitySpriteClick"]
+  >;
   openGraphNodeDetails: (nodeId: string | null) => void;
   openWorkflowContextMenu: (menu: WorkflowContextMenuState) => void;
   persistNodePositions: (positions: WorkflowLayoutPosition[]) => Promise<void>;
@@ -22,6 +25,7 @@ export function workflowRendererHandlersForSurface({
   deleteWorkflowDraftNodes,
   handleGraphEdgeSelectionChange,
   handleGraphNodeSelectionChange,
+  handleGraphActivitySpriteClick,
   openGraphNodeDetails,
   openWorkflowContextMenu,
   persistNodePositions,
@@ -29,6 +33,7 @@ export function workflowRendererHandlersForSurface({
   syntheticGraph,
 }: WorkflowRendererHandlersForSurfaceRequest): WorkflowGraphRendererHandlers {
   return {
+    onActivitySpriteClick: syntheticGraph === null ? handleGraphActivitySpriteClick : null,
     onCanvasContextMenu: syntheticGraph === null ? openWorkflowContextMenu : null,
     onEdgeCreate: syntheticGraph === null ? (edge) => void addWorkflowDraftEdge(edge) : undefined,
     onEdgeDelete:

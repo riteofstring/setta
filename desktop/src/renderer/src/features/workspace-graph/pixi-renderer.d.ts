@@ -152,6 +152,25 @@ export interface WorkflowGraphCameraChange {
   interactionKind: string;
 }
 
+export interface WorkflowGraphActivitySpriteTarget {
+  anchorNodeId: string;
+  chatRunId: string;
+  clientX: number;
+  clientY: number;
+  height: number;
+  kind: string;
+  runItemId: string;
+  screenX: number;
+  screenY: number;
+  spriteId: string;
+  status: string;
+  width: number;
+  workspaceId: string;
+  workflowExecutionId: string;
+  workflowNodeExecutionId: string;
+  workflowNodeId: string;
+}
+
 export interface WorkflowGraphNodePosition {
   moved: boolean;
   nodeId: string;
@@ -179,6 +198,7 @@ export interface WorkflowGraphEdgeConnection {
 }
 
 export interface WorkflowGraphRendererHandlers {
+  onActivitySpriteClick?: ((target: WorkflowGraphActivitySpriteTarget) => void) | null;
   onCanvasContextMenu?: ((menu: WorkflowGraphCanvasContextMenu) => void) | null;
   onCameraStateChange?: (
     camera: WorkflowGraphCameraState,
@@ -202,6 +222,7 @@ interface CreateWorkflowGraphRendererOptions {
   graph: WorkflowGraphGraph;
   host: HTMLElement;
   initialCameraState?: WorkflowGraphCameraState | null;
+  onActivitySpriteClick?: WorkflowGraphRendererHandlers["onActivitySpriteClick"];
   onCanvasContextMenu?: WorkflowGraphRendererHandlers["onCanvasContextMenu"];
   onCameraStateChange?: WorkflowGraphRendererHandlers["onCameraStateChange"];
   onEdgeCreate?: WorkflowGraphRendererHandlers["onEdgeCreate"];

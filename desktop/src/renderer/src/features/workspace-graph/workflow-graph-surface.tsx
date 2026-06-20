@@ -4,7 +4,6 @@ import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-sto
 import { useWorkflowEditorStore } from "../../stores/workflow-editor-store";
 import { requestWorkspacePaneOpen } from "../../workspace-layout/open-pane-events";
 import { subscribeWorkspaceSurfaceResumed } from "../../workspace-layout/surface-lifecycle-events";
-import { useSemanticGraphStore } from "../../stores/semantic-graph-store";
 import { useWorkflowContextMenuClose } from "./workflow-context-menu-close";
 import { useWorkflowGraphDebugRunDraftRegistration } from "./workflow-graph-debug-run-draft";
 import { emptyWorkflowGraph, type WorkflowDraftNodeType } from "./workflow-graph-draft";
@@ -25,6 +24,7 @@ import type {
   WorkflowGraphEdgeConnection,
   WorkflowGraphRendererHandlers,
 } from "./pixi-renderer";
+import { WorkflowActivitySpritePopover } from "./workflow-activity-sprite-popover";
 import { WorkflowApprovalOverlay } from "./workflow-approval-overlay";
 import {
   syncWorkflowGraphCameraScope,
@@ -47,16 +47,13 @@ import {
   semanticRendererNodeId,
 } from "./semantic-graph-projection";
 import { useSemanticGraphState } from "./semantic-graph-state";
+import { useWorkflowGraphDetailsOpeners } from "./workflow-graph-details-openers";
 import { useSemanticLayoutOverlay } from "./workflow-graph-semantic-layout-overlay";
 import {
   useWorkflowGraphViewLayout,
   workflowRendererGraphWithViewLayoutPositions,
 } from "./workflow-graph-view-layout";
-import {
-  selectedWorkflowProjectionNode,
-  workflowNodeDetailsTarget,
-  workflowSettingsTarget,
-} from "./workflow-graph-targets";
+import { selectedWorkflowProjectionNode, workflowSettingsTarget } from "./workflow-graph-targets";
 import { useWorkspaceTrajectoryRuntime } from "./workflow-trajectory-runtime";
 import { toolbarDraftNodePosition, type WorkflowDraftNodePosition } from "./workflow-graph-toolbar";
 import {
@@ -131,9 +128,6 @@ export function WorkflowGraphSurface({
   const setSelectedNodeTarget = useWorkflowEditorStore((state) => state.setSelectedNodeTarget);
   const setSelectedWorkflowSettingsTarget = useWorkflowEditorStore(
     (state) => state.setSelectedWorkflowSettingsTarget,
-  );
-  const setSelectedSemanticNodeTarget = useSemanticGraphStore(
-    (state) => state.setSelectedNodeTarget,
   );
   const {
     error: workflowProjectionLoadError,
@@ -238,6 +232,20 @@ export function WorkflowGraphSurface({
     workflowProjectionReady,
     workflowRendererRef,
     workflowWorkspaceId,
+  });
+  const {
+    activitySpritePopoverTarget,
+    dismissActivitySpritePopover,
+    handleGraphActivitySpriteClick,
+    openActivitySpriteDetails,
+    openGraphNodeDetails,
+  } = useWorkflowGraphDetailsOpeners({
+    currentSceneGraphRef,
+    semanticGraphState,
+    setSelectedNodeTarget,
+    syncSceneFrameToRenderer,
+    trajectoryStore,
+    workflowProjection,
   });
   const pendingApproval = useMemo(
     () => workflowProjectionPendingApproval(workflowProjection),
@@ -717,65 +725,6 @@ export function WorkflowGraphSurface({
       setWorkflowEditorError(error instanceof Error ? error.message : "Workflow draft load failed");
     }
   }, [applyWorkflowProjection, workflowProjection]);
-  const openSemanticNodeDetails = useCallback(
-    (semanticNodeId: string) => {
-      const node = semanticGraphState.graph?.nodes.find(
-        (candidate) => candidate.id === semanticNodeId,
-      );
-      if (semanticGraphState.workspaceId === "" || node === undefined) {
-        return;
-      }
-      setSelectedSemanticNodeTarget({
-        nodeId: node.id,
-        nodeKind: node.kind,
-        nodeLabel: node.label,
-        workspaceId: semanticGraphState.workspaceId,
-      });
-      requestWorkspacePaneOpen({
-        surfaceKind: "semantic-node-details",
-        subtitle: "semantic node details",
-        title: "Semantic Node",
-        tone: "orange",
-        widthSpec: { unit: "px", value: 420 },
-      });
-    },
-    [semanticGraphState.graph, semanticGraphState.workspaceId, setSelectedSemanticNodeTarget],
-  );
-  const openWorkflowNodeDetails = useCallback(
-    (nodeId: string | null) => {
-      if (workflowProjection === null || nodeId === null) {
-        return;
-      }
-      const graphForDetails = syncSceneFrameToRenderer(true) ?? currentSceneGraphRef.current;
-      const runtime = graphForDetails?.nodes.find((node) => node.id === nodeId)?.runtime ?? null;
-      const trajectory = trajectoryStore?.getNodeDetails(nodeId) ?? null;
-      setSelectedNodeTarget(
-        workflowNodeDetailsTarget(workflowProjection, nodeId, runtime, trajectory),
-      );
-      requestWorkspacePaneOpen({
-        surfaceKind: "workflow-node-details",
-        subtitle: "workflow node details",
-        title: "Workflow Node",
-        tone: "cyan",
-        widthSpec: { unit: "px", value: 380 },
-      });
-    },
-    [setSelectedNodeTarget, syncSceneFrameToRenderer, trajectoryStore, workflowProjection],
-  );
-  const openGraphNodeDetails = useCallback(
-    (rendererNodeId: string | null) => {
-      if (rendererNodeId === null) {
-        return;
-      }
-      const semanticNodeId = semanticNodeIdFromRendererNodeId(rendererNodeId);
-      if (semanticNodeId !== null) {
-        openSemanticNodeDetails(semanticNodeId);
-        return;
-      }
-      openWorkflowNodeDetails(rendererNodeId);
-    },
-    [openSemanticNodeDetails, openWorkflowNodeDetails],
-  );
   const openWorkflowSettings = useCallback(() => {
     if (workflowProjection === null) {
       return;
@@ -813,6 +762,7 @@ export function WorkflowGraphSurface({
         addWorkflowDraftEdge,
         deleteWorkflowDraftEdges,
         deleteWorkflowDraftNodes,
+        handleGraphActivitySpriteClick,
         handleGraphEdgeSelectionChange,
         handleGraphNodeSelectionChange,
         openGraphNodeDetails,
@@ -825,6 +775,7 @@ export function WorkflowGraphSurface({
       addWorkflowDraftEdge,
       deleteWorkflowDraftEdges,
       deleteWorkflowDraftNodes,
+      handleGraphActivitySpriteClick,
       handleGraphEdgeSelectionChange,
       handleGraphNodeSelectionChange,
       openGraphNodeDetails,
@@ -964,6 +915,12 @@ export function WorkflowGraphSurface({
           addWorkflowDraftNode={addWorkflowDraftNode}
           workflowContextMenu={workflowContextMenu}
           workflowMenuRef={workflowMenuRef}
+        />
+        <WorkflowActivitySpritePopover
+          onDismiss={dismissActivitySpritePopover}
+          onOpenDetails={openActivitySpriteDetails}
+          surfaceId={surfaceId}
+          target={activitySpritePopoverTarget}
         />
         <WorkflowGraphEditorErrorLayer message={workflowEditorError} />
         <WorkflowApprovalOverlay

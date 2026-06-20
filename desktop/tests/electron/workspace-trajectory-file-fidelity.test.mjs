@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -148,6 +148,10 @@ try {
     workspaceId,
   });
   const renderReport = await assertRenderedTrajectorySprites(context.client, graphSurfaceId);
+  const popoverReport = await assertActivitySpritePopoverWorkflow({
+    client: context.client,
+    graphSurfaceId,
+  });
   const detailsReport = await assertWorkflowNodeDetails({
     client: context.client,
     graphSurfaceId,
@@ -164,6 +168,7 @@ try {
     activityReport,
     detailsReport,
     executionId: execution.id,
+    popoverReport,
     renderReport,
     trajectoryReport,
   });
@@ -194,6 +199,7 @@ await assertRecordingEvidence(artifactDir, {
     "/workspace-trajectory/runtime/snapshot",
   ],
   ipcChannels: [
+    "chat:run-activity",
     "workspace:open-local-folder",
     "chat:create-conversation",
     "workflow:create-definition",
@@ -203,6 +209,7 @@ await assertRecordingEvidence(artifactDir, {
     "workspace-trajectory:runtime-snapshot",
   ],
 });
+await assertActivitySpriteRecordingEvidence(artifactDir);
 
 process.stdout.write(`workspace trajectory file fidelity passed: ${artifactDir}\n`);
 
@@ -379,7 +386,7 @@ async function assertRenderedTrajectorySprites(client, graphSurfaceId) {
     (candidate) => Number(candidate.render.trajectorySpriteDisplayCount ?? 0) > 0,
     10_000,
   );
-  assertPassiveTrajectoryBadges(snapshot);
+  assertInteractiveTrajectoryBadges(snapshot);
   assertTrajectoryBadgesAttachedToWorkflowNodes(snapshot, "initial render");
   const afterZoomOut = await fitTrajectoryBadgeViewport({
     client,
@@ -441,22 +448,24 @@ async function fitTrajectoryBadgeViewport({
   });
 }
 
-function assertPassiveTrajectoryBadges(snapshot) {
-  assertPassiveTrajectoryRenderContract(snapshot.render);
+function assertInteractiveTrajectoryBadges(snapshot) {
+  assertInteractiveTrajectoryRenderContract(snapshot.render);
   for (const view of visibleTrajectoryBadgeViews(snapshot)) {
-    assertPassiveTrajectoryBadgeView(view);
+    assertInteractiveTrajectoryBadgeView(view);
   }
 }
 
-function assertPassiveTrajectoryRenderContract(render) {
-  if (render.trajectorySpriteInteractionMode !== "passive") {
-    throw new Error(`trajectory sprites are not passive: ${JSON.stringify(render)}`);
+function assertInteractiveTrajectoryRenderContract(render) {
+  if (render.trajectorySpriteInteractionMode !== "retained-hit-targets") {
+    throw new Error(
+      `trajectory sprites do not expose retained hit targets: ${JSON.stringify(render)}`,
+    );
   }
   if (
-    render.trajectorySpriteLayerEventMode !== "none" ||
-    render.trajectorySpriteLayerInteractiveChildren !== false
+    render.trajectorySpriteLayerEventMode !== "passive" ||
+    render.trajectorySpriteLayerInteractiveChildren !== true
   ) {
-    throw new Error(`trajectory sprite layer is interactive: ${JSON.stringify(render)}`);
+    throw new Error(`trajectory sprite layer cannot receive child hits: ${JSON.stringify(render)}`);
   }
   if (render.trajectorySpriteRecentLaneCount !== 0) {
     throw new Error(
@@ -465,13 +474,23 @@ function assertPassiveTrajectoryRenderContract(render) {
   }
 }
 
-function assertPassiveTrajectoryBadgeView(view) {
+function assertInteractiveTrajectoryBadgeView(view) {
+  if (view.runItemId === "") {
+    if (view.eventMode !== "none" || (view.cursor !== "" && view.cursor !== "default")) {
+      throw new Error(
+        `aggregate trajectory badge is incorrectly interactive: ${JSON.stringify(view)}`,
+      );
+    }
+    return;
+  }
   if (
-    view.eventMode !== "none" ||
+    view.eventMode !== "static" ||
     view.interactiveChildren !== false ||
-    (view.cursor !== "" && view.cursor !== "default")
+    view.cursor !== "pointer"
   ) {
-    throw new Error(`trajectory badge exposes an interactive affordance: ${JSON.stringify(view)}`);
+    throw new Error(
+      `trajectory badge is missing an interactive hit target: ${JSON.stringify(view)}`,
+    );
   }
 }
 
@@ -512,6 +531,176 @@ function visibleTrajectoryBadgeViews(snapshot) {
       typeof view.anchorNodeId === "string" &&
       view.anchorNodeId !== "",
   );
+}
+
+async function assertActivitySpritePopoverWorkflow({ client, graphSurfaceId }) {
+  await maximizeWorkflowGraphPane(client, { surfaceId: graphSurfaceId, timeoutMs: 30_000 });
+  await client.driver("workflowGraphFitToView", { surfaceId: graphSurfaceId });
+  const snapshot = await waitForWorkflowGraphSnapshot(
+    client,
+    graphSurfaceId,
+    (candidate) => clickableTrajectoryBadge(candidate) !== null,
+    10_000,
+  );
+  const badge = clickableTrajectoryBadge(snapshot);
+  if (badge === null) {
+    throw new Error(
+      `no clickable trajectory badge was present: ${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  const clickPoint = trajectoryBadgeClickPoint(badge);
+  await dispatchRecordedWorkflowGraphMouseClick(
+    client,
+    graphSurfaceId,
+    { kind: "activity-sprite-click", ...clickPoint },
+    [],
+  );
+  const opened = await waitForState(
+    client,
+    activitySpritePopoverStateExpression(badge.runItemId),
+    (state) =>
+      state.visible === true &&
+      state.runItemId === badge.runItemId &&
+      state.activityRows === 1 &&
+      state.focusedRows === 1 &&
+      state.text.includes("Open full node details"),
+    10_000,
+  );
+
+  await dispatchPageMouseClick(client, { x: 4, y: 4 });
+  await waitForState(
+    client,
+    activitySpritePopoverStateExpression(badge.runItemId),
+    (state) => state.visible === false,
+    5000,
+  );
+
+  await dispatchRecordedWorkflowGraphMouseClick(
+    client,
+    graphSurfaceId,
+    { kind: "activity-sprite-click", ...clickPoint },
+    [],
+  );
+  await waitForState(
+    client,
+    activitySpritePopoverStateExpression(badge.runItemId),
+    (state) => state.visible === true && state.focusedRows === 1,
+    10_000,
+  );
+  const detailsLinkClicked = await client.evaluate(activitySpriteDetailsLinkClickExpression());
+  if (!detailsLinkClicked) {
+    throw new Error("activity sprite popover details link was missing");
+  }
+  const details = await waitForState(
+    client,
+    workflowNodeDetailsFocusedActivityExpression(badge.runItemId),
+    (state) => state.focusedRows === 1 && state.surfaceText.includes("Reviewer"),
+    10_000,
+  );
+
+  return {
+    detailsTextLength: details.text.length,
+    popoverTextLength: opened.text.length,
+    runItemId: badge.runItemId,
+    spriteId: badge.spriteId,
+    workflowNodeId: badge.workflowNodeId,
+  };
+}
+
+function clickableTrajectoryBadge(snapshot) {
+  return (
+    visibleTrajectoryBadgeViews(snapshot).find(
+      (view) =>
+        view.runItemId !== "" &&
+        view.spriteId !== "" &&
+        view.workflowNodeId === reviewerNodeId &&
+        pointInsideCanvasPoint({ x: view.screenX, y: view.screenY }, snapshot),
+    ) ?? null
+  );
+}
+
+function trajectoryBadgeClickPoint(badge) {
+  return {
+    x: badge.screenX + Math.min(Math.max(2, badge.width / 2), badge.width - 2),
+    y: badge.screenY + Math.min(Math.max(2, badge.height / 2), badge.height - 2),
+  };
+}
+
+function activitySpritePopoverStateExpression(runItemId) {
+  return `(() => {
+    const popover = document.querySelector('[data-testid="workflow-activity-sprite-popover"]');
+    if (!popover) {
+      return { activityRows: 0, focusedRows: 0, runItemId: "", text: "", visible: false };
+    }
+    const rows = Array.from(popover.querySelectorAll('[data-agent-run-activity-item="true"]'));
+    return {
+      activityRows: popover.querySelectorAll('[data-agent-run-activity="true"]').length,
+      focusedRows: rows.filter((row) =>
+        row.getAttribute("data-run-item-id") === ${JSON.stringify(runItemId)} &&
+        row.getAttribute("data-focused-run-activity-item") === "true"
+      ).length,
+      runItemId: popover.getAttribute("data-run-item-id") ?? "",
+      text: popover.innerText,
+      visible: true,
+    };
+  })()`;
+}
+
+function activitySpriteDetailsLinkClickExpression() {
+  return `(() => {
+    const popover = document.querySelector('[data-testid="workflow-activity-sprite-popover"]');
+    if (!popover) {
+      return false;
+    }
+    const button = Array.from(popover.querySelectorAll("button")).find((candidate) =>
+      candidate.innerText.includes("Open full node details")
+    );
+    if (!button) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`;
+}
+
+function workflowNodeDetailsFocusedActivityExpression(runItemId) {
+  return `(() => {
+    const surface = document.querySelector('[data-testid="workflow-node-details-surface"]');
+    const rows = Array.from(document.querySelectorAll('[data-agent-run-activity-item="true"]'));
+    return {
+      focusedRows: rows.filter((row) =>
+        row.getAttribute("data-run-item-id") === ${JSON.stringify(runItemId)} &&
+        row.getAttribute("data-focused-run-activity-item") === "true"
+      ).length,
+      surfaceText: surface?.innerText ?? "",
+      text: document.body.innerText,
+    };
+  })()`;
+}
+
+async function dispatchPageMouseClick(client, { x, y }) {
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    type: "mouseMoved",
+    x,
+    y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x,
+    y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x,
+    y,
+  });
 }
 
 function trajectorySpriteDebugReport(snapshot) {
@@ -634,4 +823,59 @@ function pointInsideCanvas(node, snapshot) {
     node.screenX <= snapshot.canvas.clientWidth - 24 &&
     node.screenY <= snapshot.canvas.clientHeight - 24
   );
+}
+
+function pointInsideCanvasPoint(point, snapshot) {
+  return (
+    point.x >= 24 &&
+    point.y >= 24 &&
+    point.x <= snapshot.canvas.clientWidth - 24 &&
+    point.y <= snapshot.canvas.clientHeight - 24
+  );
+}
+
+async function assertActivitySpriteRecordingEvidence(recordingDir) {
+  const events = await readJsonLines(join(recordingDir, "renderer-events.jsonl"));
+  const spriteInteractions = events.filter(
+    (event) => event.type === "graph_interaction" && event.interaction?.kind === "activity_sprite",
+  );
+  const pointerTap = spriteInteractions.find(
+    (event) =>
+      event.interaction.reason === "pointertap" &&
+      event.interaction.spriteId !== "" &&
+      event.interaction.spriteRunItemId !== "" &&
+      event.interaction.popoverRunItemId === event.interaction.spriteRunItemId,
+  );
+  if (!pointerTap) {
+    throw new Error(
+      `recording missing activity sprite click evidence: ${JSON.stringify(spriteInteractions)}`,
+    );
+  }
+  const detailsLink = spriteInteractions.find(
+    (event) =>
+      event.interaction.reason === "details_link" &&
+      event.interaction.spriteId === pointerTap.interaction.spriteId &&
+      event.interaction.spriteRunItemId === pointerTap.interaction.spriteRunItemId &&
+      event.interaction.targetNodeId === pointerTap.interaction.sourceNodeId,
+  );
+  if (!detailsLink) {
+    throw new Error(
+      `recording missing activity sprite details-link evidence: ${JSON.stringify(
+        spriteInteractions,
+      )}`,
+    );
+  }
+}
+
+async function readJsonLines(path) {
+  const text = await readFile(path, "utf8").catch((error) => {
+    if (error?.code === "ENOENT") {
+      return "";
+    }
+    throw error;
+  });
+  return text
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
 }

@@ -4,6 +4,7 @@ const defaultRendererOptions = {
   animationEnabled: true,
   debugSurfaceId: "workflow-graph",
   initialCameraState: null,
+  onActivitySpriteClick: null,
   onCameraStateChange: noopCameraStateChange,
   onCanvasContextMenu: null,
   onNodeOpen: null,

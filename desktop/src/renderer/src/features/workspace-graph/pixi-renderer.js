@@ -80,6 +80,7 @@ export async function createWorkflowGraphRenderer(options) {
     graph,
     host: initialHost,
     initialCameraState,
+    onActivitySpriteClick,
     onCameraStateChange,
     onCanvasContextMenu,
     onEdgeCreate,
@@ -142,6 +143,7 @@ export async function createWorkflowGraphRenderer(options) {
   } = layers;
   const handlers = rendererHandlers({
     onCameraStateChange,
+    onActivitySpriteClick,
     onCanvasContextMenu,
     onEdgeCreate,
     onEdgeDelete,
@@ -335,7 +337,7 @@ export async function createWorkflowGraphRenderer(options) {
     getDrawingMarquee: () => drawingMarquee,
     getPointerCameraPan: () => panningCamera,
     nodeDrag,
-    trajectoryHitMode: "passive",
+    trajectoryHitMode: "retained-hit-targets",
   });
   const syncVisibleSceneForCamera = createWorkflowGraphCameraSceneSync({
     drawAllNodeOutlines,
@@ -358,12 +360,11 @@ export async function createWorkflowGraphRenderer(options) {
   });
   const trajectoryRuntime = createWorkflowGraphTrajectoryRuntime({
     cameraSync,
-    debugMetrics,
-    getNode: (nodeId) => nodesById.get(nodeId) ?? null,
+    graphRecorder,
+    handlers,
     interactionScheduler,
-    loadedNodeLabelFont,
-    trajectoryLayer,
-    viewport,
+    nodesById,
+    renderer: { canvas: app.canvas, debugMetrics, loadedNodeLabelFont, trajectoryLayer, viewport },
   });
   const cameraControls = createWorkflowGraphCameraControls({
     cameraSync,
@@ -420,6 +421,7 @@ export async function createWorkflowGraphRenderer(options) {
     clearSelection,
     edgeInteractions,
     handlers,
+    hitTestActivitySpriteAtScreen: trajectoryRuntime.hitTestAtScreen,
     hitTestNodeAtScreen: (screen) => hitTestTopNodeAtScreen(spatialQueries, screen),
     hitTestPortAtScreen,
     repeatedNodeOpenRequested: (nodeId, screen) =>

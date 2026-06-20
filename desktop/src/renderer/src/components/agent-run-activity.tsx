@@ -95,12 +95,14 @@ const activityIconClassByType = {
 } satisfies Record<RunItemType, string>;
 
 export function AgentRunActivityRows({
+  highlightedRunItemId = "",
   items,
   loadRunItemOutput,
   outputIdsByRunItemId,
   outputPagesByRunItemId,
   outputsById,
 }: {
+  highlightedRunItemId?: string;
   items: RunItem[];
   loadRunItemOutput?: LoadAgentRunItemOutput;
   outputIdsByRunItemId: Record<string, string[]>;
@@ -129,6 +131,7 @@ export function AgentRunActivityRows({
       <div className="mt-1.5 min-w-0 space-y-1.5 border-l border-border/70 pl-2">
         {items.map((item) => (
           <AgentRunActivityItem
+            highlighted={item.id === highlightedRunItemId}
             item={item}
             key={item.id}
             loadRunItemOutput={loadRunItemOutput}
@@ -142,11 +145,13 @@ export function AgentRunActivityRows({
 }
 
 function AgentRunActivityItem({
+  highlighted,
   item,
   loadRunItemOutput,
   outputPage,
   outputs,
 }: {
+  highlighted: boolean;
   item: RunItem;
   loadRunItemOutput?: LoadAgentRunItemOutput;
   outputPage: AgentRunItemOutputPageState | undefined;
@@ -155,8 +160,13 @@ function AgentRunActivityItem({
   const outputText = outputPreview(outputs);
   return (
     <details
-      className="group/item relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-foreground"
+      className={cn(
+        "group/item relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-foreground",
+        highlighted && "ring-1 ring-cyan-400/70 ring-offset-1 ring-offset-background",
+      )}
       data-agent-run-activity-item="true"
+      data-focused-run-activity-item={highlighted ? "true" : undefined}
+      data-run-item-id={item.id}
       data-testid="run-activity-row"
       onToggle={(event) => {
         if (!event.currentTarget.open || outputPage?.loading || outputPage || !loadRunItemOutput) {

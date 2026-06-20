@@ -2,24 +2,30 @@ import { createWorkspaceTrajectorySpriteLayer } from "./pixi-renderer-trajectory
 
 export function createWorkflowGraphTrajectoryRuntime({
   cameraSync,
-  debugMetrics,
-  getNode,
+  graphRecorder,
+  handlers,
   interactionScheduler,
-  loadedNodeLabelFont,
-  trajectoryLayer,
-  viewport,
+  nodesById,
+  renderer,
 }) {
+  const { canvas, debugMetrics, loadedNodeLabelFont, trajectoryLayer, viewport } = renderer;
   const sprites = createWorkspaceTrajectorySpriteLayer({
+    canvas,
     debugMetrics,
-    getNode,
+    getNode: (nodeId) => nodesById.get(nodeId) ?? null,
     layer: trajectoryLayer,
     loadedNodeLabelFont,
+    onActivitySpriteClick: (target) => handlers.onActivitySpriteClick?.(target),
+    recordActivitySpritePointerOut: graphRecorder.activitySpritePointerOut,
+    recordActivitySpritePointerOver: graphRecorder.activitySpritePointerOver,
+    recordActivitySpritePointerTap: graphRecorder.activitySpritePointerTap,
     viewport,
   });
 
   return {
     debugSnapshot: sprites.debugSnapshot,
     destroy: sprites.destroy,
+    hitTestAtScreen: sprites.hitTestAtScreen,
     syncPositions: sprites.syncPositions,
     tick: (now) => {
       const cameraMotion = cameraSync.isCameraMoving() ? "moving" : "settled";

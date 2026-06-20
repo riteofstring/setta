@@ -22,6 +22,7 @@ import {
   WorkflowNodeDetailsContent,
   WorkflowSemanticRuntimeDetails,
 } from "./workflow-node-details-surface";
+import { ActivitySpritePopoverBody } from "./workflow-activity-sprite-popover";
 import { WorkflowTrajectoryRuntimeDetails } from "./workflow-trajectory-runtime-details";
 
 describe("workflow node details surface helpers", () => {
@@ -283,6 +284,60 @@ describe("workflow node details surface helpers", () => {
     expect(html).toContain("workflow output chunk");
     expect(html).not.toContain("TranscriptTurn");
     expect(html).not.toContain("chat-assistant-turn-row");
+  });
+
+  test("focuses a linked workflow run activity row through the shared component", () => {
+    const ref = workflowActivityRef();
+    const execution = testExecution([
+      {
+        ...nodeExecution("workflow_node_execution_review", "reviewer", 1, 1, "succeeded"),
+        activityRefs: [ref],
+      },
+    ]);
+    const html = renderToString(
+      createElement(WorkflowNodeDetailsContent, {
+        definition: null,
+        draft: null,
+        loadError: "",
+        node: null,
+        onDraftChange: () => undefined,
+        onSave: () => undefined,
+        runInspection: {
+          activityPages: [{ error: "", page: runActivityPage(), ref }],
+          events: [],
+          execution,
+          loadError: "",
+          loading: false,
+        },
+        saveMessage: "",
+        saving: false,
+        target: { ...runtimeTarget(), focusedRunItemId: "run_item_review" },
+      }),
+    );
+
+    expect(html).toContain('data-agent-run-activity="true"');
+    expect(html).toContain('data-run-item-id="run_item_review"');
+    expect(html).toContain('data-focused-run-activity-item="true"');
+  });
+
+  test("renders sprite popover activity through shared agent activity rows", () => {
+    const item = runItem();
+    const output = runItemOutput(item.id);
+    const html = renderToString(
+      createElement(ActivitySpritePopoverBody, {
+        error: "",
+        item,
+        loading: false,
+        outputIdsByRunItemId: { [item.id]: [output.id] },
+        outputsById: { [output.id]: output },
+      }),
+    );
+
+    expect(html).toContain('data-agent-run-activity="true"');
+    expect(html).toContain('data-agent-run-activity-item="true"');
+    expect(html).toContain('data-run-item-id="run_item_review"');
+    expect(html).toContain("Assistant replied");
+    expect(html).toContain("workflow output chunk");
   });
 });
 

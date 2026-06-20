@@ -1,4 +1,4 @@
-import type { WorkflowGraphProjection } from "@generated/backend";
+import type { WorkflowGraphNode, WorkflowGraphProjection } from "@generated/backend";
 
 import type { WorkflowGraphRuntimeIndicator } from "./pixi-renderer";
 import type { WorkspaceTrajectoryNodeDetails } from "./workspace-trajectory-store";
@@ -22,8 +22,22 @@ export function workflowNodeDetailsTarget(
   nodeId: string,
   runtime: WorkflowGraphRuntimeIndicator | null = null,
   trajectory: WorkspaceTrajectoryNodeDetails | null = null,
+  focusedRunItemId = "",
 ): WorkflowNodeDetailsTarget {
-  const node = projection.nodes.find((candidate) => candidate.id === nodeId);
+  const node = projection.nodes.find((candidate) => candidate.id === nodeId) ?? null;
+  return {
+    ...workflowProjectionDetailsTargetFields(projection),
+    focusedRunItemId,
+    nodeId,
+    ...workflowNodeTargetMetadata(node, nodeId),
+    projectionIncomingEdges: projection.edges.filter((edge) => edge.toNodeId === nodeId),
+    projectionOutgoingEdges: projection.edges.filter((edge) => edge.fromNodeId === nodeId),
+    runtime,
+    trajectory,
+  };
+}
+
+function workflowProjectionDetailsTargetFields(projection: WorkflowGraphProjection) {
   return {
     definitionId: projection.definitionId,
     definitionName: projection.definitionName,
@@ -31,17 +45,20 @@ export function workflowNodeDetailsTarget(
     definitionVersionNumber: projection.definitionVersionNumber,
     editable: projection.editable,
     executionId: projection.executionId,
-    nodeId,
-    nodeKind: node?.kind ?? "",
-    nodeLabel: node?.label ?? nodeId,
-    nodeStatus: node?.status ?? "",
-    projectionIncomingEdges: projection.edges.filter((edge) => edge.toNodeId === nodeId),
-    projectionOutgoingEdges: projection.edges.filter((edge) => edge.fromNodeId === nodeId),
-    runtime,
-    trajectory,
     versionMismatch: projection.versionMismatch,
     viewMode: projection.viewMode,
     workspaceId: projection.workspaceId,
+  };
+}
+
+function workflowNodeTargetMetadata(
+  node: WorkflowGraphNode | null,
+  nodeId: string,
+): Pick<WorkflowNodeDetailsTarget, "nodeKind" | "nodeLabel" | "nodeStatus"> {
+  return {
+    nodeKind: node?.kind ?? "",
+    nodeLabel: node?.label ?? nodeId,
+    nodeStatus: node?.status ?? "",
   };
 }
 
