@@ -4,7 +4,7 @@ export const recordingCartographerAuditSnapshotEventName =
 export const recordingWorkflowGraphEventName = "setta:record-workflow-graph-event";
 export const recordingWorkflowGraphManualSnapshotEventName = "setta:record-workflow-graph-snapshot";
 
-export const workflowGraphRecordingSchemaVersion = 1;
+export const workflowGraphRecordingSchemaVersion = 2;
 
 export type RendererRecordedEvent =
   | RendererClickEvent
@@ -120,6 +120,7 @@ export interface RendererGraphInteractionEvent extends RendererGraphRecordedEven
       | "selection"
       | "wheel";
     movementOwner: string;
+    movedNodes: RendererGraphMovedNodePosition[];
     phase: "blocked" | "cancel" | "commit" | "start" | "update";
     pointerType: string;
     popoverRunItemId: string;
@@ -199,6 +200,7 @@ export interface RendererGraphRecordingState {
   timing: RendererGraphTimingSummary | null;
   trajectory: RendererGraphTrajectorySummary;
   truncation: RendererGraphTruncation[];
+  visibility: RendererGraphVisibilitySummary;
   workflow: RendererGraphWorkflowSummary | null;
 }
 
@@ -231,6 +233,8 @@ export interface RendererGraphLayoutSaveSummary {
 export interface RendererGraphNodeSummary {
   id: string;
   kind: string;
+  labelVisibilityReason: string;
+  labelVisible: boolean;
   layer: string;
   materialized: boolean;
   moved: boolean;
@@ -240,6 +244,15 @@ export interface RendererGraphNodeSummary {
   selected: boolean;
   status: string;
   visible: boolean;
+  x: number;
+  y: number;
+}
+
+export interface RendererGraphMovedNodePosition {
+  movementOwner: string;
+  nodeId: string;
+  oldX: number;
+  oldY: number;
   x: number;
   y: number;
 }
@@ -270,6 +283,21 @@ export interface RendererGraphTruncation {
   omitted: number;
   path: string;
   total: number;
+}
+
+interface RendererGraphVisibilitySummary {
+  edges: RendererGraphVisibilityCategorySummary;
+  labels: RendererGraphVisibilityCategorySummary;
+  nodes: RendererGraphVisibilityCategorySummary;
+  sprites: RendererGraphVisibilityCategorySummary;
+}
+
+interface RendererGraphVisibilityCategorySummary {
+  hidden: number;
+  hiddenReasons: Record<string, number>;
+  total: number;
+  visible: number;
+  visibleReasons: Record<string, number>;
 }
 
 export interface RendererGraphWorkflowSummary {

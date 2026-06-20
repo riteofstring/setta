@@ -40,6 +40,7 @@ import {
   maximizeWorkflowGraphPane,
   openWorkflowGraphPane,
 } from "./workflow-graph-layout-helpers.mjs";
+import { writeWorkflowGraphRecordingIncidentReport } from "./workflow-graph-recording-incident-report.mjs";
 import { dispatchRecordedWorkflowGraphMouseClick } from "./workflow-graph-performance-recording.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -865,6 +866,12 @@ async function assertActivitySpriteRecordingEvidence(recordingDir) {
       )}`,
     );
   }
+  await writeWorkflowGraphRecordingIncidentReport({
+    artifactDir: recordingDir,
+    jsonName: "workflow-graph-sprite-incident-report.json",
+    markdownName: "workflow-graph-sprite-incident-report.md",
+    requiredIncidents: ["sprite_click"],
+  });
 }
 
 async function readJsonLines(path) {

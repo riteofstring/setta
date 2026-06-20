@@ -398,6 +398,19 @@ export function compactRendererRecordedEvent(event: RendererRecordedEvent): Rend
   const truncation = [...event.graph.truncation];
   return {
     ...event,
+    ...(event.type === "graph_interaction"
+      ? {
+          interaction: {
+            ...event.interaction,
+            movedNodes: limitGraphArray(
+              event.interaction.movedNodes,
+              "interaction.movedNodes",
+              24,
+              truncation,
+            ),
+          },
+        }
+      : {}),
     graph: {
       ...event.graph,
       nodes: {

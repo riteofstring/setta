@@ -28,8 +28,21 @@
   removed.
 - Focused verification for that implementation passed with
   `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/components/chat-panel.test.tsx`.
-- The Phase 5/6 handoff criteria are satisfied. Phase 7 is the next
-  implementable phase, followed by Phase 8 broad verification.
+- Phase 7 is complete in this change:
+  graph recording schema v2 now carries compact visibility reason summaries
+  for labels, nodes, edges, and sprites; node summaries include label
+  visibility reasons; node-drag interactions carry moved node ids, owners,
+  old positions, and new positions; selection changes are recorded as graph
+  interactions; and the Electron recording tooling now includes a compact
+  incident-report parser for pan/zoom, node drag, sprite click, selection, and
+  graph replacement.
+- The Phase 7 parser writes human-readable incident reports from pan/zoom and
+  sprite-click workflows and fails when required evidence is missing.
+- Focused Phase 7 verification passed with
+  `node --test desktop/tests/electron/workflow-graph-recording-incident-report.test.mjs`,
+  `pnpm -C desktop exec tsc --noEmit --pretty false`, and
+  `pnpm -C desktop exec vitest run src/main/session-recorder.test.ts src/renderer/src/features/workspace-graph/pixi-renderer-input-handlers.test.js src/renderer/src/features/workspace-graph/pixi-renderer-camera-sync.test.js`.
+- Phase 8 broad verification is the next implementable phase.
 
 ## Position
 

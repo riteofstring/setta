@@ -83,6 +83,14 @@ export function createWorkflowGraphRendererRecorder({ getSnapshot, surfaceId }) 
     pointerPanStart: () => {
       recordInteraction({ kind: "pointer_pan", phase: "start", reason: "pointerdown" });
     },
+    selectionChange: (selectedNodeIds) => {
+      recordInteraction({
+        affectedNodeIds: [...selectedNodeIds],
+        kind: "selection",
+        phase: "commit",
+        reason: selectedNodeIds.size === 0 ? "clear" : "set",
+      });
+    },
     replacement: (replacement) =>
       recordWorkflowGraphReplacementEvent({
         ...replacement,

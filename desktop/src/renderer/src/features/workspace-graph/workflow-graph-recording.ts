@@ -7,6 +7,7 @@ import {
   type RendererGraphLayoutSaveOwner,
   type RendererGraphLayoutSaveSummary,
   type RendererGraphLayoutSaveTarget,
+  type RendererGraphMovedNodePosition,
   type RendererGraphNodeSummary,
   type RendererGraphRecordedEvent,
   type RendererGraphRecordingState,
@@ -46,6 +47,7 @@ interface GraphInteractionRecordingOptions {
   pointerType?: string;
   popoverRunItemId?: string;
   reason?: string;
+  movedNodes?: readonly RendererGraphMovedNodePosition[];
   snapshot?: unknown;
   sourceNodeId?: string;
   sourcePortId?: string;
@@ -281,6 +283,7 @@ function graphInteractionPayload(
     affectedNodeIds: boundedStrings(affectedNodeIds),
     kind: options.kind,
     phase: options.phase,
+    movedNodes: graphMovedNodePositions(options.movedNodes ?? []),
     ...emptyGraphInteractionStringFields(),
   };
   for (const field of graphInteractionStringFields) {
@@ -378,6 +381,7 @@ function compactWorkflowGraphRecordingState(
     timing: graphTimingSummary(render, truncation),
     trajectory: graphTrajectorySummary(render, truncation),
     truncation,
+    visibility: graphVisibilitySummary({ graph, render, summaries }),
     workflow: graphWorkflowSummary(recordField(graph, "workflow")),
   };
 }
@@ -396,6 +400,8 @@ function graphNodeSummary(
   return {
     id,
     kind: stringField(node, "kind"),
+    labelVisibilityReason: graphNodeLabelVisibilityReason(node),
+    labelVisible: graphNodeLabelVisible(node),
     layer: stringField(node, "layer"),
     materialized: booleanField(node, "materialized", false),
     moved: movedNodeIds.has(id),
@@ -408,6 +414,14 @@ function graphNodeSummary(
     x: roundedNumber(numberField(node, "x", 0)),
     y: roundedNumber(numberField(node, "y", 0)),
   };
+}
+
+function graphNodeLabelVisibilityReason(node: UnknownRecord): string {
+  return stringField(recordField(node, "label"), "visibilityReason");
+}
+
+function graphNodeLabelVisible(node: UnknownRecord): boolean {
+  return booleanField(recordField(node, "label"), "visible", false);
 }
 
 function graphCamera(camera: UnknownRecord | null): RendererGraphRecordingState["camera"] {
@@ -476,6 +490,90 @@ function graphTrajectorySummary(
     groupCount: integerField(render, "trajectorySpriteGroupCount", 0),
     recentLaneCount: integerField(render, "trajectorySpriteRecentLaneCount", 0),
     totalCount: integerField(render, "trajectorySpriteTotalCount", 0),
+  };
+}
+
+function graphVisibilitySummary({
+  graph,
+  render,
+  summaries,
+}: {
+  graph: UnknownRecord | null;
+  render: UnknownRecord | null;
+  summaries: readonly RendererGraphNodeSummary[];
+}): RendererGraphRecordingState["visibility"] {
+  const visibleNodes = summaries.filter((node) => node.visible).length;
+  const edgeTotal = integerField(graph, "edgeCount", arrayField(graph, "edges").length);
+  const drawnEdges = Math.max(0, integerField(render, "lastDrawnEdgeCount", 0));
+  const spriteTotal = Math.max(0, integerField(render, "trajectorySpriteTotalCount", 0));
+  const displayedSprites = Math.max(0, integerField(render, "trajectorySpriteDisplayCount", 0));
+  return {
+    edges: countVisibilityReasons({
+      hidden: Math.max(0, edgeTotal - drawnEdges),
+      hiddenReason: "not-drawn-outside-visible-scene",
+      total: edgeTotal,
+      visible: Math.min(edgeTotal, drawnEdges),
+      visibleReason: "drawn",
+    }),
+    labels: summarizedLabelVisibility(summaries),
+    nodes: countVisibilityReasons({
+      hidden: Math.max(0, summaries.length - visibleNodes),
+      hiddenReason: "not-materialized",
+      total: summaries.length,
+      visible: visibleNodes,
+      visibleReason: "materialized",
+    }),
+    sprites: countVisibilityReasons({
+      hidden: Math.max(0, spriteTotal - displayedSprites),
+      hiddenReason: "not-in-active-display-frame",
+      total: spriteTotal,
+      visible: Math.min(spriteTotal, displayedSprites),
+      visibleReason: "displayed",
+    }),
+  };
+}
+
+function summarizedLabelVisibility(summaries: readonly RendererGraphNodeSummary[]) {
+  const visibleReasons: Record<string, number> = {};
+  const hiddenReasons: Record<string, number> = {};
+  let visible = 0;
+  for (const node of summaries) {
+    const reason = node.labelVisibilityReason || "unknown";
+    if (node.labelVisible) {
+      visible += 1;
+      visibleReasons[reason] = (visibleReasons[reason] ?? 0) + 1;
+    } else {
+      hiddenReasons[reason] = (hiddenReasons[reason] ?? 0) + 1;
+    }
+  }
+  return {
+    hidden: summaries.length - visible,
+    hiddenReasons,
+    total: summaries.length,
+    visible,
+    visibleReasons,
+  };
+}
+
+function countVisibilityReasons({
+  hidden,
+  hiddenReason,
+  total,
+  visible,
+  visibleReason,
+}: {
+  hidden: number;
+  hiddenReason: string;
+  total: number;
+  visible: number;
+  visibleReason: string;
+}) {
+  return {
+    hidden,
+    hiddenReasons: hidden > 0 ? { [hiddenReason]: hidden } : {},
+    total,
+    visible,
+    visibleReasons: visible > 0 ? { [visibleReason]: visible } : {},
   };
 }
 
@@ -626,6 +724,19 @@ function roundedNumber(value: number): number {
 
 function boundedStrings(values: readonly unknown[]): string[] {
   return uniqueStrings(values).slice(0, maxRecordedIds);
+}
+
+function graphMovedNodePositions(
+  movedNodes: readonly RendererGraphMovedNodePosition[],
+): RendererGraphMovedNodePosition[] {
+  return movedNodes.slice(0, maxRecordedNodes).map((node) => ({
+    movementOwner: node.movementOwner,
+    nodeId: node.nodeId,
+    oldX: roundedNumber(node.oldX),
+    oldY: roundedNumber(node.oldY),
+    x: roundedNumber(node.x),
+    y: roundedNumber(node.y),
+  }));
 }
 
 function uniqueStrings(values: readonly unknown[]): string[] {

@@ -828,6 +828,7 @@ export async function createWorkflowGraphRenderer(options) {
     edgeScene.redrawEdgeHighlights();
     labels.syncLabelVisibility();
     notifyNodeSelectionChange(handlers.onNodeSelectionChange, selectedNodeIds);
+    graphRecorder.selectionChange(selectedNodeIds);
   }
   function drawAllNodeOutlines() {
     for (const candidate of nodes) {

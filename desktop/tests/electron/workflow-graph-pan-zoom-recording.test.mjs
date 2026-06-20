@@ -48,6 +48,7 @@ import {
   appendPhase0PerformanceReport,
   parsePanZoomPerformanceArtifacts,
 } from "./workflow-graph-phase0-performance-report.mjs";
+import { writeWorkflowGraphRecordingIncidentReport } from "./workflow-graph-recording-incident-report.mjs";
 import { assertPinnedPhase0Viewport } from "./workflow-graph-phase0-viewport.mjs";
 import {
   launchEnvForScenario,
@@ -431,11 +432,17 @@ async function assertWorkflowGraphRecordingEvents({ artifactDir }) {
   }
   assertCompactGraphRecordingPayload(nodeDragCommit);
   assertCompactGraphRecordingPayload(wheelBurstSnapshot);
+  const incidentReport = await writeWorkflowGraphRecordingIncidentReport({
+    artifactDir,
+    requiredIncidents: ["node_drag", "pan_zoom", "selection"],
+  });
   return {
     enabled: true,
     graphEventCount: graphEvents.length,
     graphInteractionCount: graphInteractions.length,
     graphSnapshotCount: graphSnapshots.length,
+    incidentCount: incidentReport.incidents.length,
+    incidentKinds: [...new Set(incidentReport.incidents.map((incident) => incident.kind))].sort(),
     nodeDragCommit: nodeDragCommit.interaction,
     truncationCount: graphEvents.reduce(
       (count, event) => count + (event.graph?.truncation?.length ?? 0),
@@ -454,7 +461,7 @@ function assertCompactGraphRecordingPayload(event) {
 }
 
 function assertGraphRecordingSchema(event) {
-  if (event.graph?.schemaVersion !== 1) {
+  if (event.graph?.schemaVersion !== 2) {
     throw new Error(`graph recording schema version missing: ${JSON.stringify(event)}`);
   }
 }

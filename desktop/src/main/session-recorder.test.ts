@@ -56,6 +56,8 @@ function graphSnapshotEvent({
   const nodes = Array.from({ length: nodeCount }, (_, index) => ({
     id: `node_${index}`,
     kind: "action",
+    labelVisibilityReason: "all-visible",
+    labelVisible: true,
     layer: "workflow",
     materialized: true,
     moved: false,
@@ -93,7 +95,7 @@ function graphSnapshotEvent({
         generation: null,
         writeCount: 0,
       },
-      schemaVersion: 1,
+      schemaVersion: 2,
       selected: {
         edgeIds: [],
         nodeIds: [],
@@ -124,11 +126,31 @@ function graphSnapshotEvent({
         totalCount: 0,
       },
       truncation: [],
+      visibility: {
+        edges: visibilitySummary(0, 0),
+        labels: visibilitySummary(nodeCount, nodeCount, { "all-visible": nodeCount }),
+        nodes: visibilitySummary(nodeCount, nodeCount, { materialized: nodeCount }),
+        sprites: visibilitySummary(0, 0),
+      },
       workflow: null,
     },
     surfaceId: "surface_recording",
     trigger: "manual",
     type: "graph_snapshot",
     url: "app://setta",
+  };
+}
+
+function visibilitySummary(
+  total: number,
+  visible: number,
+  visibleReasons: Record<string, number> = {},
+) {
+  return {
+    hidden: total - visible,
+    hiddenReasons: {},
+    total,
+    visible,
+    visibleReasons,
   };
 }

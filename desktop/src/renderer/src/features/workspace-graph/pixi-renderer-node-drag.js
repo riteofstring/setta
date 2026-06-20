@@ -97,6 +97,8 @@ export function createWorkflowGraphNodeDragController({
       }
       node.x = world.x - draggedNode.offsetX;
       node.y = world.y - draggedNode.offsetY;
+      draggedNode.currentX = node.x;
+      draggedNode.currentY = node.y;
       container.x = node.x;
       container.y = node.y;
       spatialQueries.updateNode(node);
@@ -270,6 +272,8 @@ function draggingNodeForStart({ draggedNodes, node, screen, world }) {
     nodes: draggedNodes.map((candidate) => ({
       movementOwner: candidate.movementOwner?.kind ?? "",
       nodeId: candidate.id,
+      currentX: candidate.x,
+      currentY: candidate.y,
       offsetX: world.x - candidate.x,
       offsetY: world.y - candidate.y,
       startX: candidate.x,
@@ -297,8 +301,20 @@ function nodeDragInteractionForDrag(drag, phase, reason) {
     affectedNodeIds: drag.nodes.map((node) => node.nodeId),
     kind: "node_drag",
     movementOwner: movementOwnerForDrag(drag),
+    movedNodes: drag.nodes.map((draggedNode) => movedNodePositionForDrag(draggedNode)),
     phase,
     reason,
+  };
+}
+
+function movedNodePositionForDrag(draggedNode) {
+  return {
+    movementOwner: draggedNode.movementOwner,
+    nodeId: draggedNode.nodeId,
+    oldX: draggedNode.startX,
+    oldY: draggedNode.startY,
+    x: draggedNode.currentX ?? draggedNode.startX,
+    y: draggedNode.currentY ?? draggedNode.startY,
   };
 }
 
