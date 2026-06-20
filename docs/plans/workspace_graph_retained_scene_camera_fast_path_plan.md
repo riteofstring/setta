@@ -9,7 +9,7 @@
 
 ## Implementation Status
 
-- Phase 5 was implemented in the current working tree:
+- Phase 5 was implemented by `0d63c5ae1`:
   concrete run-item activity sprites now expose retained Pixi hit targets,
   record hover/click/details-link interactions, open an inline React popover
   anchored near the sprite, render the clicked item through
@@ -20,16 +20,16 @@
 - Production-path verification for Phase 5 passed with
   `node desktop/tests/electron/run-workflows.mjs --workflow workspace-trajectory-file-fidelity --skip-build`
   after `pnpm -C desktop build`.
-- Phase 6's remaining sprite-popover reuse criterion is now covered by the
-  shared activity-row focused tests and the production trajectory workflow.
-- Phase 7 is the next implementable phase.
-- Phase 6 was partially implemented by `2a0ad20fe`:
+- Phase 6 is complete across `2a0ad20fe` and `0d63c5ae1`:
   `AgentRunActivityRows` now owns shared run-item/activity presentation,
   `ChatTranscript` renders chat run activity through it, workflow node details
-  render `RunActivityPage` through it, and the bespoke
-  `WorkflowRunActivityItem` representation was removed.
+  render `RunActivityPage` through it, the sprite popover renders the clicked
+  item through it, and the bespoke `WorkflowRunActivityItem` representation was
+  removed.
 - Focused verification for that implementation passed with
   `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/components/chat-panel.test.tsx`.
+- The Phase 5/6 handoff criteria are satisfied. Phase 7 is the next
+  implementable phase, followed by Phase 8 broad verification.
 
 ## Position
 
