@@ -132,7 +132,7 @@ else
   mkdir -p "${OUTPUT_DIR}"
 fi
 
-AGENT_ONE_PROMPT="Implement the next phase in ${PLAN_PATH}"
+AGENT_ONE_PROMPT="Implement the next phase in ${PLAN_PATH}. When you're done, commit your work."
 AGENT_TWO_PROMPT="Another agent implemented the next phase of ${PLAN_PATH}. Take a look. Is the next phase ready to be implemented? If the doc needs any updating, update it and commit. If the plan has no more phases, i.e. it's fully implemented, then respond with just ${SENTINEL}."
 
 log_info "Output directory: ${OUTPUT_DIR}"
