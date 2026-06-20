@@ -1,7 +1,7 @@
 # Workspace Trajectory Liveness and Semantic Memory Plan
 
 - **Date:** June 18, 2026
-- **Status:** Phase 0 complete; Phase 1 ready to implement
+- **Status:** Phase 1 complete; Phase 2 ready to implement
 - **Scope:** Replace the current semantic-node-centered liveness model with a
   principled split between deterministic workflow trajectory visuals, durable
   semantic memory, cartographer audit, and graph interaction/runtime
@@ -669,6 +669,9 @@ Phase 1 handoff:
 
 ### Phase 1 - Immediate Graph UX Corrections
 
+Status: complete. Commit `06e120e06` implemented the Phase 1 renderer UX
+corrections.
+
 Fix regressions that do not require the full trajectory runtime.
 
 Implementation:
@@ -691,6 +694,40 @@ Acceptance:
 - Default semantic visuals contain no unexplained orbiting particles.
 - Focused renderer tests cover foundation selection, layout overlay merging,
   and movement-mode animation behavior.
+
+Phase 1 implementation review:
+
+- `foundationStyleForGraph` now ignores semantic-node presence and chooses the
+  canvas foundation from workflow execution state.
+- Semantic layout now has a local pending overlay that is merged ahead of stale
+  backend layout positions while persistence is in flight.
+- Default semantic-cell particle animation is disabled; active semantic state is
+  represented by the existing activity/status marker path instead of orbiting
+  beads, drifting nuclei, or organelles.
+- Workflow node glow and active workflow edge flow continue while camera motion
+  is marked `moving`; expensive semantic decoration remains deferred.
+- Small visible graphs keep labels synchronized while panning, while larger
+  graphs can still hide labels during movement to protect camera interaction.
+- Focused renderer coverage was added for foundation selection, local semantic
+  layout overlay merging, stationary semantic-cell animation, semantic activity
+  marker rendering, and movement-mode animation behavior.
+
+Phase 2 handoff:
+
+- Phase 2 is ready to implement.
+- Keep Phase 2 scoped to Go-owned trajectory runtime contracts, generated
+  TypeScript, endpoint ownership, backend projection/revision behavior, and
+  mapping tests. Do not build the renderer sprite layer in Phase 2.
+- Start with typed sources confirmed by Phase 0: command execution, tool calls,
+  reasoning summaries, plan updates, file changes with paths/status, diff
+  summaries, approvals, assistant messages, workflow status, and compact
+  cartographer status.
+- Include `file_read` and structured file/diff stat fields in the contract only
+  as optional typed fields. Leave them empty until provider/protocol data exists;
+  do not infer file reads, line ranges, or `+/-` counts from command text or
+  display output.
+- Add deterministic snapshot/delta gap behavior and payload-budget tests before
+  starting Phase 3 rendering.
 
 ### Phase 2 - Workspace Trajectory Runtime Contracts
 
