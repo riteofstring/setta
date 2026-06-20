@@ -1,7 +1,7 @@
 # Workspace Trajectory Command Previews And Cartographer Aggregation Plan
 
 - **Date:** June 19, 2026
-- **Status:** Draft.
+- **Status:** Phase 1 complete; Phase 2 ready.
 - **Scope:** Make workspace trajectory sprites more legible by showing raw
   command previews for command run items, aggregating cartographer lifecycle
   noise before it reaches the visible graph lanes, and replacing confusing
@@ -10,6 +10,25 @@
   [Workspace Trajectory Liveness and Semantic Memory Plan](workspace_trajectory_liveness_and_semantic_memory_plan.md)
   and
   [Workspace Graph Pan/Zoom Surface Runtime Refactor Plan](workspace_graph_pan_zoom_surface_runtime_refactor_plan.md).
+
+## Implementation Status
+
+- Phase 1 is complete in commit `89512fcb9` (`Show command previews in
+  trajectory sprites`).
+- The renderer now has `workspace-trajectory-display-labels.ts`, Pixi sprite
+  labels use `trajectorySpriteCanvasLabel`, and workflow node details use the
+  same display-label helpers for command rows.
+- Focused Phase 1 verification passed on June 20, 2026:
+
+```sh
+pnpm -C desktop exec vitest run \
+  src/renderer/src/features/workspace-graph/workspace-trajectory-display-labels.test.ts \
+  src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts
+```
+
+Phase 2 can start from the current renderer store shape. The remaining work is
+to change the display projection from individual sprites only to local display
+items that can represent either a raw sprite or an aggregate.
 
 ## Position
 
@@ -50,10 +69,13 @@ Details and memory-review surfaces can summarize them separately as
 
 ## Current Behavior
 
-The latest recording showed three product mismatches:
+The latest recording showed three product mismatches. Phase 1 addressed the
+first item; the remaining phases address cartographer aggregation, memory
+review routing, and anchorless placement.
 
-- Command activity is visible as generic command sprites, while the meaningful
-  command text is only secondary data.
+- Command activity was visible as generic command sprites, while the meaningful
+  command text was only secondary data. This is now fixed for renderer labels
+  and command details.
 - Cartographer runtime updates can produce multiple `cartographer_status`
   sprites, including repeated queued/window/running states around the same
   workflow node.
@@ -68,8 +90,8 @@ The current implementation already has most of the needed data:
   `WorkspaceTrajectorySprite.Command.Command`.
 - Command sprites use `Kind: "command"` and currently default to title
   `"Command"` with the raw command in `Subtitle`.
-- `pixi-renderer-trajectory-sprites.js` renders the pill label from
-  `sprite.title`, so command pills do not naturally show the command.
+- `pixi-renderer-trajectory-sprites.js` now renders pill labels through
+  `trajectorySpriteCanvasLabel`.
 - `workspace-trajectory-store.ts` owns the renderer-side projection that sorts
   sprites, anchors them to workflow nodes, caps visible sprites per node, and
   builds node details.
@@ -122,6 +144,11 @@ The current implementation already has most of the needed data:
 
 - Internal `cartographer_patch` records with `status === "pending_review"` are
   user-facing memory suggestions.
+- In the workspace trajectory sprite stream, pending-review cartographer
+  patches currently arrive as `kind === "cartographer_status"` sprites with
+  `cartographerPatchId !== ""` and `status === "approval_required"`. Classify
+  these deterministically from typed fields before applying the ordinary
+  blocking-sprite canvas priority.
 - Default graph copy should use labels such as `Memory suggestion`,
   `3 memory suggestions`, or `Memory review`, not `semantic patch`.
 - Pending memory suggestions should not render as ordinary workflow trajectory
@@ -196,14 +223,26 @@ Introduce a local display item type in the renderer trajectory store:
 
 ```ts
 type WorkspaceTrajectoryDisplayItem =
-  | { type: "sprite"; anchorNodeId: string; lane: "recent" | "workflow_node"; sprite: WorkspaceTrajectorySprite }
-  | { type: "aggregate"; aggregate: WorkspaceTrajectoryDisplayAggregate };
+  | {
+      type: "sprite";
+      id: string;
+      anchorNodeId: string;
+      lane: "recent" | "workflow_node";
+      sprite: WorkspaceTrajectorySprite;
+    }
+  | {
+      type: "aggregate";
+      id: string;
+      anchorNodeId: string;
+      lane: "recent" | "workflow_node";
+      aggregate: WorkspaceTrajectoryDisplayAggregate;
+    };
 
 interface WorkspaceTrajectoryDisplayAggregate {
   id: string;
   anchorNodeId: string;
   lane: "recent" | "workflow_node";
-  kind: "cartographer_status";
+  kind: "cartographer_status" | "memory_suggestion";
   status: WorkspaceTrajectorySpriteStatus;
   severity: WorkspaceTrajectorySpriteSeverity;
   count: number;
@@ -219,6 +258,34 @@ more useful projection.
 Aggregation should happen before `maxVisibleSpritesPerNode` is applied. That
 way ten queued cartographer runs consume one visible slot, not all four visible
 slots plus a hidden-count pill.
+
+Phase 2 should migrate the renderer store display surface consistently:
+
+- `WorkspaceTrajectoryDisplayGroup.sprites` should become display items, not
+  raw sprite wrappers only.
+- `WorkspaceTrajectoryFrameSnapshot.recentLane` should also contain display
+  items if any recent/global display remains during the transition.
+- `WorkspaceTrajectoryNodeDetails.sprites` should either become display items
+  or gain a parallel `items` field before the details renderer starts showing
+  aggregate rows. Prefer replacing the field during this pre-release plan; do
+  not add compatibility aliases unless explicitly needed.
+- `totalSpriteCount` remains the raw runtime sprite count for diagnostics.
+- `group.totalCount`, `group.hiddenCount`, and collapsed `+N` pills count
+  display items after aggregation, not raw source sprites.
+- Aggregate `count` is the source-record count represented by that one display
+  item, for example `20 cartographers queued`.
+- Pixi rendering should render aggregate labels from `aggregate.label` and use
+  aggregate severity/status for icon and color. It should not create synthetic
+  backend `WorkspaceTrajectorySprite` objects just to satisfy the old renderer
+  shape.
+- Cartographer display classification must use typed fields:
+  - `sprite.kind === "cartographer_status"`,
+  - `sprite.cartographerPatchId !== ""` for memory suggestion/patch previews,
+  - `sprite.cartographerRunId !== ""` for cartographer run lifecycle,
+  - `sprite.cartographerWindowId !== ""` for cartographer window lifecycle,
+  - `sprite.status` for display state.
+  Do not classify cartographer display behavior by parsing `title` or
+  `subtitle` text.
 
 ### 3. Priority And Sorting
 
@@ -283,7 +350,7 @@ workflow concept.
 
 ## Implementation Phases
 
-### Phase 1: Command Preview Labels
+### Phase 1: Command Preview Labels (Complete)
 
 - Add the renderer display-label helper and focused tests.
 - Change Pixi trajectory labels to use the helper instead of `sprite.title`
@@ -300,11 +367,14 @@ Acceptance criteria:
   its primary visible label.
 - Failed commands keep the command preview and show failure via status styling.
 - A `sed` or `rg` command is not reclassified as file read/search intent.
+- Completed in commit `89512fcb9`.
 
 ### Phase 2: Cartographer Display Aggregation And Memory Review Routing
 
 - Add a renderer-side cartographer aggregation pass in
   `workspace-trajectory-store.ts`.
+- Classify cartographer display items by typed sprite fields before sorting or
+  visible caps.
 - Aggregate cartographer display items by lane, workflow node, status, and
   cartographer display class.
 - Apply aggregation before visible sprite caps and recent-lane caps.
@@ -327,6 +397,10 @@ Acceptance criteria:
   aggregate.
 - Pending-review cartographer patches appear as memory suggestions in
   details/review surfaces and do not appear as ordinary canvas sprites.
+- Pending-review cartographer patches are identified by `cartographerPatchId`
+  and sprite status, not by parsing title/subtitle text.
+- `group.hiddenCount`, `group.totalCount`, and collapsed `+N` pills count
+  display items after aggregation.
 - Backend trajectory snapshots and deltas still contain exact cartographer
   source records unless a later measured payload problem justifies backend
   aggregation.
@@ -382,6 +456,7 @@ Add or update tests for:
 - command preview rendering in Pixi display data,
 - cartographer aggregation before visible caps,
 - memory suggestion routing and user-facing copy,
+- `+N` and details counts based on display items after aggregation,
 - priority sorting so queued cartographer aggregates do not crowd out commands,
 - anchorless activity placement and single-active-node fallback,
 - details rendering for command and cartographer aggregate cases.
