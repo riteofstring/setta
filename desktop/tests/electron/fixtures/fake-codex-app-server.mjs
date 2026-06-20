@@ -96,9 +96,26 @@ function handleTurnStart(message) {
     setTimeout(() => process.exit(42), 5);
     return;
   }
+  if (text.includes("trajectory file fidelity workflow")) {
+    setTimeout(
+      () =>
+        requestDynamicTool("read_workspace_file", "tool_read", "read_workspace_file_minimal", {
+          lineEnd: 3,
+          lineStart: 1,
+          path: "main.go",
+        }),
+      5,
+    );
+    return;
+  }
   if (text.includes("protocol notification workflow")) {
     setTimeout(
-      () => requestDynamicTool("workspace_context", "tool_context", "workspace_context"),
+      () =>
+        requestDynamicTool("read_workspace_file", "tool_read", "read_workspace_file", {
+          lineEnd: 3,
+          lineStart: 1,
+          path: "main.go",
+        }),
       5,
     );
     return;
@@ -194,6 +211,9 @@ function assertThreadStartDynamicTools(params) {
   assertWorkspaceContextVisibility(workspaceContext);
   assertWorkspaceContextDescription(workspaceContext);
   assertWorkspaceContextInputSchema(workspaceContext);
+  const readWorkspaceFile = readWorkspaceFileTool(params);
+  assertReadWorkspaceFileDescription(readWorkspaceFile);
+  assertReadWorkspaceFileInputSchema(readWorkspaceFile);
 }
 
 function workspaceContextTool(params) {
@@ -208,6 +228,20 @@ function workspaceContextTool(params) {
     throw new Error("thread/start missing setta.workspace_context dynamic tool");
   }
   return workspaceContext;
+}
+
+function readWorkspaceFileTool(params) {
+  const tools = params?.dynamicTools;
+  if (!Array.isArray(tools) || tools.length === 0) {
+    throw new Error("thread/start missing dynamicTools");
+  }
+  const readWorkspaceFile = tools.find(
+    (tool) => tool?.namespace === "setta" && tool?.name === "read_workspace_file",
+  );
+  if (!readWorkspaceFile) {
+    throw new Error("thread/start missing setta.read_workspace_file dynamic tool");
+  }
+  return readWorkspaceFile;
 }
 
 function assertWorkspaceContextVisibility(workspaceContext) {
@@ -234,13 +268,50 @@ function assertWorkspaceContextInputSchema(workspaceContext) {
   }
 }
 
-function requestDynamicTool(tool, id, kind) {
+function assertReadWorkspaceFileDescription(readWorkspaceFile) {
+  if (
+    typeof readWorkspaceFile.description !== "string" ||
+    !readWorkspaceFile.description.includes("file path")
+  ) {
+    throw new Error("read_workspace_file description missing file terms");
+  }
+}
+
+function assertReadWorkspaceFileInputSchema(readWorkspaceFile) {
+  assertReadWorkspaceFileSchemaShape(readWorkspaceFile.inputSchema);
+  assertReadWorkspaceFileSchemaProperties(readWorkspaceFile.inputSchema?.properties ?? {});
+  assertReadWorkspaceFileRequiredPath(readWorkspaceFile.inputSchema);
+}
+
+function assertReadWorkspaceFileSchemaShape(inputSchema) {
+  if (inputSchema?.type !== "object" || inputSchema?.additionalProperties !== false) {
+    throw new Error("read_workspace_file input schema mismatch");
+  }
+}
+
+function assertReadWorkspaceFileSchemaProperties(properties) {
+  if (
+    properties.path?.type !== "string" ||
+    properties.lineStart?.type !== "integer" ||
+    properties.lineEnd?.type !== "integer"
+  ) {
+    throw new Error("read_workspace_file input schema mismatch");
+  }
+}
+
+function assertReadWorkspaceFileRequiredPath(inputSchema) {
+  if (!inputSchema?.required?.includes("path")) {
+    throw new Error("read_workspace_file input schema mismatch");
+  }
+}
+
+function requestDynamicTool(tool, id, kind, args = {}) {
   pendingDynamicTool = { id, kind };
   write({
     id,
     method: "item/tool/call",
     params: {
-      arguments: {},
+      arguments: args,
       callId: id + "_call",
       namespace: "setta",
       threadId,
@@ -256,6 +327,16 @@ function handleDynamicToolResponse(message) {
   if (message.id !== pending.id) {
     throw new Error("dynamic tool response id mismatch");
   }
+  if (pending.kind === "read_workspace_file") {
+    assertReadWorkspaceFileResponse(message);
+    requestDynamicTool("workspace_context", "tool_context", "workspace_context");
+    return;
+  }
+  if (pending.kind === "read_workspace_file_minimal") {
+    assertReadWorkspaceFileResponse(message);
+    emitFileFidelityTurn();
+    return;
+  }
   if (pending.kind === "workspace_context") {
     assertWorkspaceContextToolResponse(message);
     requestDynamicTool("missing_tool", "tool_missing", "missing_tool");
@@ -267,6 +348,32 @@ function handleDynamicToolResponse(message) {
     return;
   }
   throw new Error("unknown pending dynamic tool kind: " + pending.kind);
+}
+
+function assertReadWorkspaceFileResponse(message) {
+  if (message.error) {
+    throw new Error("read_workspace_file returned error: " + JSON.stringify(message.error));
+  }
+  assertReadWorkspaceFileResult(message.result);
+  assertReadWorkspaceFileContent(message.result.contentItems[0], message.result);
+}
+
+function assertReadWorkspaceFileResult(result) {
+  const items = result?.contentItems;
+  if (result?.success !== true || !Array.isArray(items) || items.length !== 1) {
+    throw new Error("read_workspace_file content mismatch: " + JSON.stringify(result));
+  }
+}
+
+function assertReadWorkspaceFileContent(item, result) {
+  const text = item?.text ?? "";
+  if (
+    item?.type !== "inputText" ||
+    !text.includes('"path": "main.go"') ||
+    !text.includes("package main")
+  ) {
+    throw new Error("read_workspace_file content mismatch: " + JSON.stringify(result));
+  }
 }
 
 function assertWorkspaceContextToolResponse(message) {
@@ -376,9 +483,19 @@ function emitProtocolCoverageTurn() {
     contextCompactionPayload("context_compaction_fake", { completedAtMs: 2 }),
   );
   notify("item/fileChange/patchUpdated", {
-    changedPaths: ["/tmp/workspace/main.go"],
+    changes: [
+      {
+        diff: "@@\n-old\n+new\n",
+        kind: { type: "update" },
+        path: "/tmp/workspace/main.go",
+      },
+    ],
     itemId: "file_item_fake",
-    status: "updated",
+    threadId,
+    turnId,
+  });
+  notify("turn/diff/updated", {
+    diff: "diff --git a/main.go b/main.go\n--- a/main.go\n+++ b/main.go\n@@\n-old\n+new\n",
     threadId,
     turnId,
   });
@@ -428,6 +545,38 @@ function emitProtocolCoverageTurn() {
     threadId,
     turn: fakeTurn("completed"),
   });
+}
+
+function emitFileFidelityTurn() {
+  notify("item/fileChange/patchUpdated", {
+    changes: [
+      {
+        diff: "@@\n-old\n+new\n",
+        kind: { type: "update" },
+        path: "/tmp/workspace/main.go",
+      },
+    ],
+    itemId: "file_item_fake",
+    threadId,
+    turnId,
+  });
+  notify("turn/diff/updated", {
+    diff: "diff --git a/main.go b/main.go\n--- a/main.go\n+++ b/main.go\n@@\n-old\n+new\n",
+    threadId,
+    turnId,
+  });
+  notify("item/agentMessage/delta", {
+    delta: "file fidelity complete",
+    itemId: "message_fake",
+    threadId,
+    turnId,
+  });
+  setTimeout(() => {
+    notify("turn/completed", {
+      threadId,
+      turn: fakeTurn("completed"),
+    });
+  }, 8000);
 }
 
 function hookPayload(status) {

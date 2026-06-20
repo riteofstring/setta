@@ -48,20 +48,6 @@ const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
   "workflow-node-details",
   "workflow-settings",
 ]);
-const movementDegradedSurfaceKinds = new Set<SurfaceKind>([
-  "browser",
-  "chat-dom",
-  "fake-heavy-dom",
-  "fake-long-chat",
-  "fake-terminal",
-  "git-graph",
-  "semantic-node-details",
-  "settings-dom",
-  "terminal",
-  "workflow-graph",
-  "workflow-node-details",
-  "workflow-settings",
-]);
 const surfaceRuntimeCategories = {
   browser: "browser",
   "chat-dom": "heavy-dom",
@@ -188,7 +174,10 @@ export class PaneRuntimePolicy {
     if (this.degradesOverviewItem(item)) {
       return this.snapshotOrThrottle(counters);
     }
-    if (this.degradesMovingSurface(item, movementPhase)) {
+    if (this.degradesMovingBrowser(item, movementPhase)) {
+      return this.snapshotOrThrottle(counters);
+    }
+    if (this.degradesMovingHeavyDom(item, movementPhase)) {
       return this.snapshotOrThrottle(counters);
     }
     if (item.focused) {
@@ -212,11 +201,17 @@ export class PaneRuntimePolicy {
     return this.degradeOverview || (item.resizing && this.degradeOverviewDuringResize);
   }
 
-  private degradesMovingSurface(item: PaneRenderItem, movementPhase: "idle" | "moving"): boolean {
+  private degradesMovingBrowser(item: PaneRenderItem, movementPhase: "idle" | "moving"): boolean {
+    return (
+      this.degradeDuringMovement && movementPhase === "moving" && item.surfaceKind === "browser"
+    );
+  }
+
+  private degradesMovingHeavyDom(item: PaneRenderItem, movementPhase: "idle" | "moving"): boolean {
     return (
       this.degradeDuringMovement &&
       movementPhase === "moving" &&
-      movementDegradedSurfaceKinds.has(item.surfaceKind)
+      isLiveHeavyDomSurfaceKind(item.surfaceKind)
     );
   }
 

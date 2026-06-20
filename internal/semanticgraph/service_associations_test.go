@@ -445,7 +445,7 @@ func assertFailedAttachPreservesHistory(t *testing.T, service *Service, nodeID s
 	}
 }
 
-func newAssociationTestService(t *testing.T, store *Store, workspaceRoot string, workflowResolver WorkflowSourceResolver, chatResolver ChatSourceResolver) *Service {
+func newAssociationTestService(t testing.TB, store *Store, workspaceRoot string, workflowResolver WorkflowSourceResolver, chatResolver ChatSourceResolver) *Service {
 	t.Helper()
 	clock := time.Date(2026, 6, 10, 13, 0, 0, 0, time.UTC)
 	service, err := NewService(

@@ -98,22 +98,6 @@ describe("appearance store", () => {
     expect(settings.developer.overviewCardMinWidthPx).toBe(280);
     expect(settings.developer.overviewCardMaxWidthPx).toBe(460);
   });
-
-  test("updates the draft workspace navigation shortcut", () => {
-    const settings = testAppearanceSettings();
-    useAppearanceStore.setState({
-      draft: settings,
-      settings,
-      status: "ready",
-    });
-
-    useAppearanceStore.getState().setWorkspaceNavigationShortcut("ctrl_alt_arrows");
-
-    expect(useAppearanceStore.getState().draft?.shortcuts.workspaceNavigation).toBe(
-      "ctrl_alt_arrows",
-    );
-    expect(settings.shortcuts.workspaceNavigation).toBe("mod_alt_arrows");
-  });
 });
 
 function installAppearanceAPI({
@@ -146,9 +130,6 @@ function testAppearanceSettings(): AppearanceSettings {
       overviewCardMaxWidthPx: 460,
       overviewCardMinWidthPx: 280,
       showPerformanceStats: false,
-    },
-    shortcuts: {
-      workspaceNavigation: "mod_alt_arrows",
     },
     mode: "dark",
     schemaVersion: 2,

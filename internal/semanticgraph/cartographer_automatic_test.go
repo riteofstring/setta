@@ -11,7 +11,7 @@ import (
 	"setta/internal/chat"
 )
 
-func TestAutomaticCartographerProcessingEnqueuesClosedWindowAndAppliesReviewRequiredPatch(t *testing.T) {
+func TestAutomaticCartographerProcessingEnqueuesClosedWindowAndLeavesReviewRequiredPatchPending(t *testing.T) {
 	runner := &scriptedAutomaticCartographerRunner{reviewRequired: true, confidence: 0.22}
 	service, _ := newAutomaticCartographerTestService(t, runner, AutomaticCartographerProcessingConfig{})
 	ctx := context.Background()
@@ -27,23 +27,21 @@ func TestAutomaticCartographerProcessingEnqueuesClosedWindowAndAppliesReviewRequ
 	}
 	waitForAutomaticCartographerIdle(t, service)
 
-	detail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, "node_auto_001")
-	if err != nil || !ok || len(detail.Evidence) == 0 {
-		t.Fatalf("automatic cartographer node detail = %+v ok=%v err=%v, want evidence-backed node", detail, ok, err)
+	if detail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, "node_auto_001"); err != nil || ok {
+		t.Fatalf("automatic cartographer node detail = %+v ok=%v err=%v, want no graph mutation before review", detail, ok, err)
 	}
 	patches, err := service.ListCartographerPatches(ctx, CartographerPatchFilter{
-		WorkspaceID:      testWorkspaceID,
-		SemanticTargetID: "node_auto_001",
-		Limit:            10,
+		WorkspaceID: testWorkspaceID,
+		Limit:       10,
 	})
 	if err != nil {
 		t.Fatalf("list automatic cartographer patches: %v", err)
 	}
 	if len(patches.Patches) != 1 ||
-		patches.Patches[0].Status != CartographerPatchApplied ||
-		!cartographerDiagnosticsContain(nil, patches.Patches, "review_required_auto_applied") ||
-		!cartographerDiagnosticsContain(nil, patches.Patches, "low_confidence_auto_applied") {
-		t.Fatalf("automatic patch records = %+v, want applied review-required metadata diagnostics", patches.Patches)
+		patches.Patches[0].Status != CartographerPatchPendingReview ||
+		!cartographerDiagnosticsContain(nil, patches.Patches, "review_required_pending_review") ||
+		!cartographerDiagnosticsContain(nil, patches.Patches, "low_confidence_pending_review") {
+		t.Fatalf("automatic patch records = %+v, want pending review-required metadata diagnostics", patches.Patches)
 	}
 	state, err := service.ReadCartographerProcessingState(ctx)
 	if err != nil {
@@ -53,7 +51,7 @@ func TestAutomaticCartographerProcessingEnqueuesClosedWindowAndAppliesReviewRequ
 		state.QueuedWindowCount != 0 ||
 		state.RunningWindowCount != 0 ||
 		state.LastProcessedWindowID == "" ||
-		len(state.CreatedSemanticEventIDs) == 0 {
+		len(state.CreatedSemanticEventIDs) != 0 {
 		t.Fatalf("automatic cartographer state = %+v, want completed default-on processing state", state)
 	}
 }
@@ -72,8 +70,8 @@ func TestAutomaticCartographerProcessingPreservesPerSourceOrdering(t *testing.T)
 
 	first := buildAutomaticManualWindow(t, service, "node_same_source")
 	second := buildAutomaticManualWindow(t, service, "node_same_source")
-	service.enqueueClosedCartographerWindow(first, testTimestamp(80))
-	service.enqueueClosedCartographerWindow(second, testTimestamp(81))
+	enqueueAutomaticCartographerWindow(t, service, first, testTimestamp(80))
+	enqueueAutomaticCartographerWindow(t, service, second, testTimestamp(81))
 	runner.waitForStarted(t, 1)
 
 	state, err := service.ReadCartographerProcessingState(ctx)
@@ -112,8 +110,8 @@ func TestAutomaticCartographerProcessingHonorsGlobalConcurrencyLimit(t *testing.
 
 	first := buildAutomaticManualWindow(t, service, "node_source_a")
 	second := buildAutomaticManualWindow(t, service, "node_source_b")
-	service.enqueueClosedCartographerWindow(first, testTimestamp(80))
-	service.enqueueClosedCartographerWindow(second, testTimestamp(81))
+	enqueueAutomaticCartographerWindow(t, service, first, testTimestamp(80))
+	enqueueAutomaticCartographerWindow(t, service, second, testTimestamp(81))
 	runner.waitForStarted(t, 1)
 
 	state, err := service.ReadCartographerProcessingState(ctx)
@@ -130,7 +128,35 @@ func TestAutomaticCartographerProcessingHonorsGlobalConcurrencyLimit(t *testing.
 	}
 }
 
-func TestAutomaticCartographerRecoveryProcessesClosedPendingWindowsOnce(t *testing.T) {
+func TestAutomaticCartographerIdleWaitRecoversDurableQueuedWindow(t *testing.T) {
+	runner := &emptyCartographerRunner{}
+	service, _ := newAutomaticCartographerTestService(t, runner, AutomaticCartographerProcessingConfig{})
+	ctx := context.Background()
+	window := buildAutomaticManualWindow(t, service, "node_idle_recovery")
+
+	if err := service.StartAutomaticCartographerProcessing(ctx); err != nil {
+		t.Fatalf("start automatic cartographer processing: %v", err)
+	}
+	defer service.StopAutomaticCartographerProcessing()
+	waitForAutomaticCartographerIdle(t, service)
+
+	if got := runner.count(); got != 1 {
+		t.Fatalf("recovered durable queued task count = %d, want 1", got)
+	}
+	run, ok, err := service.ReadCartographerRun(ctx, testWorkspaceID, window.RunID)
+	if err != nil || !ok || run.Status != CartographerRunCompletedNoop {
+		t.Fatalf("durable queued run after idle wait = %+v ok=%v err=%v, want completed_noop", run, ok, err)
+	}
+	state, err := service.ReadCartographerProcessingState(ctx)
+	if err != nil {
+		t.Fatalf("read cartographer state: %v", err)
+	}
+	if state.DurableQueuedWindowCount != 0 || state.DurableRunningWindowCount != 0 {
+		t.Fatalf("cartographer durable state after idle wait = %+v, want terminal queue", state)
+	}
+}
+
+func TestAutomaticCartographerRecoveryProcessesQueuedAndStaleRunningWindowsOnce(t *testing.T) {
 	store := newTestStore(t)
 	resolver := associationWorkspaceResolver{root: t.TempDir()}
 	builder := newAutomaticCartographerServiceForStore(t, store, resolver, &emptyCartographerRunner{}, AutomaticCartographerProcessingConfig{})
@@ -148,20 +174,50 @@ func TestAutomaticCartographerRecoveryProcessesClosedPendingWindowsOnce(t *testi
 	defer restarted.StopAutomaticCartographerProcessing()
 	waitForAutomaticCartographerIdle(t, restarted)
 
-	if got := runner.count(); got != 1 {
-		t.Fatalf("recovered task count = %d, want exactly one pending closed window", got)
+	if got := runner.count(); got != 2 {
+		t.Fatalf("recovered task count = %d, want queued and stale running closed windows", got)
 	}
 	read, ok, err := restarted.ReadCartographerWindow(context.Background(), testWorkspaceID, processable.ID)
 	if err != nil || !ok || read.Status != CartographerWindowProcessed {
 		t.Fatalf("recovered window = %+v ok=%v err=%v, want processed", read, ok, err)
 	}
 	runningRead, ok, err := restarted.ReadCartographerWindow(context.Background(), testWorkspaceID, running.ID)
-	if err != nil || !ok || runningRead.Status != CartographerWindowClosed {
-		t.Fatalf("running window recovery state = %+v ok=%v err=%v, want still closed/unprocessed", runningRead, ok, err)
+	if err != nil || !ok || runningRead.Status != CartographerWindowProcessed {
+		t.Fatalf("running window recovery state = %+v ok=%v err=%v, want processed after stale lease recovery", runningRead, ok, err)
+	}
+	runningRun, ok, err := restarted.ReadCartographerRun(context.Background(), testWorkspaceID, running.RunID)
+	if err != nil || !ok || runningRun.Status == CartographerRunRunning {
+		t.Fatalf("running run recovery state = %+v ok=%v err=%v, want no stale running run", runningRun, ok, err)
 	}
 	processedRead, ok, err := restarted.ReadCartographerWindow(context.Background(), testWorkspaceID, processed.ID)
 	if err != nil || !ok || processedRead.Status != CartographerWindowProcessed {
 		t.Fatalf("processed window recovery state = %+v ok=%v err=%v, want unchanged processed", processedRead, ok, err)
+	}
+}
+
+func TestAutomaticCartographerProcessingRecordsCompletedNoopHealth(t *testing.T) {
+	runner := &emptyCartographerRunner{}
+	service, _ := newAutomaticCartographerTestService(t, runner, AutomaticCartographerProcessingConfig{})
+	ctx := context.Background()
+	if err := service.StartAutomaticCartographerProcessing(ctx); err != nil {
+		t.Fatalf("start automatic cartographer processing: %v", err)
+	}
+	defer service.StopAutomaticCartographerProcessing()
+
+	window := buildAutomaticManualWindow(t, service, "node_noop_auto")
+	enqueueAutomaticCartographerWindow(t, service, window, testTimestamp(82))
+	waitForAutomaticCartographerIdle(t, service)
+
+	run, ok, err := service.ReadCartographerRun(ctx, testWorkspaceID, window.RunID)
+	if err != nil || !ok || run.Status != CartographerRunCompletedNoop {
+		t.Fatalf("no-op run = %+v ok=%v err=%v, want completed_noop", run, ok, err)
+	}
+	state, err := service.ReadCartographerProcessingState(ctx)
+	if err != nil {
+		t.Fatalf("read automatic state: %v", err)
+	}
+	if state.CompletedNoopRunCount != 1 || state.LastNoopRunID != window.RunID || state.LastNoopReason == "" {
+		t.Fatalf("automatic no-op health = %+v, want visible completed_noop audit", state)
 	}
 }
 
@@ -176,7 +232,7 @@ func TestAutomaticCartographerValidationFailureRecordsAuditWithoutGraphMutation(
 	before := semanticEventCount(t, store)
 
 	window := buildAutomaticManualWindow(t, service, "node_invalid_auto")
-	service.enqueueClosedCartographerWindow(window, testTimestamp(82))
+	enqueueAutomaticCartographerWindow(t, service, window, testTimestamp(82))
 	waitForAutomaticCartographerIdle(t, service)
 
 	if after := semanticEventCount(t, store); after != before {
@@ -193,6 +249,9 @@ func TestAutomaticCartographerValidationFailureRecordsAuditWithoutGraphMutation(
 	if state.LastFailure == nil || state.LastFailure.WindowID != window.ID {
 		t.Fatalf("automatic state after rejected patch = %+v, want last failure diagnostic", state)
 	}
+	if state.FailedRunCount != 1 {
+		t.Fatalf("automatic failure count = %d, want 1", state.FailedRunCount)
+	}
 }
 
 func TestShutdownAutomaticCartographerProcessingCancelsAndWaitsForRunningWorker(t *testing.T) {
@@ -204,7 +263,7 @@ func TestShutdownAutomaticCartographerProcessingCancelsAndWaitsForRunningWorker(
 	}
 
 	window := buildAutomaticManualWindow(t, service, "node_shutdown_auto")
-	service.enqueueClosedCartographerWindow(window, testTimestamp(83))
+	enqueueAutomaticCartographerWindow(t, service, window, testTimestamp(83))
 	runner.waitForStarted(t, 1)
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -222,6 +281,40 @@ func TestShutdownAutomaticCartographerProcessingCancelsAndWaitsForRunningWorker(
 	if state.Started || state.RunningWindowCount != 0 {
 		t.Fatalf("automatic cartographer state after shutdown = %+v, want stopped and idle", state)
 	}
+	run, ok, err := service.ReadCartographerRun(ctx, testWorkspaceID, window.RunID)
+	if err != nil || !ok || run.Status != CartographerRunCancelled {
+		t.Fatalf("cartographer run after shutdown = %+v ok=%v err=%v, want cancelled", run, ok, err)
+	}
+}
+
+func TestAutomaticCartographerProcessingCapsQueuedBacklogPerSource(t *testing.T) {
+	runner := newBlockingCartographerRunner()
+	service, _ := newAutomaticCartographerTestService(t, runner, AutomaticCartographerProcessingConfig{
+		MaxConcurrent:       1,
+		PerSourceConcurrent: 1,
+		MaxQueuedPerSource:  2,
+	})
+	ctx := context.Background()
+	if err := service.StartAutomaticCartographerProcessing(ctx); err != nil {
+		t.Fatalf("start automatic cartographer processing: %v", err)
+	}
+	defer service.StopAutomaticCartographerProcessing()
+
+	for index := range 4 {
+		window := buildAutomaticManualWindow(t, service, "node_backlog_source")
+		enqueueAutomaticCartographerWindow(t, service, window, testTimestamp(80+index))
+	}
+	runner.waitForStarted(t, 1)
+
+	state, err := service.ReadCartographerProcessingState(ctx)
+	if err != nil {
+		t.Fatalf("read automatic state: %v", err)
+	}
+	if state.QueuedWindowCount > 2 || state.SupersededWindowCount == 0 || state.ConcurrencyGuidance == "" {
+		t.Fatalf("automatic backlog state = %+v, want capped queue with supersession and guidance", state)
+	}
+	runner.releaseAll()
+	waitForAutomaticCartographerIdle(t, service)
 }
 
 func newAutomaticCartographerTestService(t *testing.T, runner chat.HarnessTaskRunner, config AutomaticCartographerProcessingConfig) (*Service, *Store) {
@@ -271,6 +364,18 @@ func buildAutomaticManualWindow(t *testing.T, service *Service, targetEntityID s
 		t.Fatalf("build automatic manual window: %v", err)
 	}
 	return window
+}
+
+func enqueueAutomaticCartographerWindow(t *testing.T, service *Service, window CartographerWindow, now string) CartographerProcessingQueueItem {
+	t.Helper()
+	item, enqueued, err := service.enqueueClosedCartographerWindow(context.Background(), window, now)
+	if err != nil {
+		t.Fatalf("enqueue automatic cartographer window %s: %v", window.ID, err)
+	}
+	if !enqueued {
+		t.Fatalf("cartographer window %s was not enqueued", window.ID)
+	}
+	return item
 }
 
 func markCartographerRunStatus(t *testing.T, service *Service, runID string, status CartographerRunStatus) {

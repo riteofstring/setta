@@ -271,7 +271,9 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const api: SettaAPI = {
     app: {
       flags: {
+        workflowGraphAnimationEnabled: true,
         workflowGraphDebug: false,
+        workflowGraphReduceMotion: false,
         workflowGraphSyntheticGraph: null,
       },
       captureRendererRegion: async () => ({
@@ -480,6 +482,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     },
     terminal: unimplementedTerminalAPI(),
     semanticGraph: unimplementedSemanticGraphAPI(),
+    workspaceTrajectory: unimplementedWorkspaceTrajectoryAPI(),
     workflow: unimplementedWorkflowAPI(),
     workspace: workspaceAPI,
   };
@@ -516,9 +519,13 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     throw new Error("workflow API is not implemented in this test");
   };
   return {
+    addEdge: unavailable,
+    addNode: unavailable,
     cancelExecution: unavailable,
     createDefinition: unavailable,
     deleteDefinition: unavailable,
+    deleteEdges: unavailable,
+    deleteNodes: unavailable,
     executionEvents: unavailable,
     graphProjection: unavailable,
     listDefinitions: unavailable,
@@ -528,7 +535,12 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     startExecution: unavailable,
     submitApproval: unavailable,
     updateDefinition: unavailable,
+    updateDefinitionLayout: unavailable,
+    updateDefinitionSettings: unavailable,
+    updateEdge: unavailable,
+    updateNode: unavailable,
     validateDefinition: unavailable,
+    validateDefinitionDraft: unavailable,
   };
 }
 
@@ -553,6 +565,7 @@ function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
     listActivity: unavailable,
     listActivityPage: unavailable,
     listCartographerCursors: unavailable,
+    listCartographerModelOptions: unavailable,
     listCartographerPatches: unavailable,
     listCartographerRuns: unavailable,
     listCartographerWindows: unavailable,
@@ -566,18 +579,32 @@ function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
     readActivitySummary: unavailable,
     readCartographerProcessingState: unavailable,
     readCartographerRun: unavailable,
+    readCartographerSettings: unavailable,
+    readCartographerSettingsMetadata: unavailable,
     readContextPack: unavailable,
     readEventHistory: unavailable,
     readNodeDetail: unavailable,
+    readRuntimeSnapshot: unavailable,
     readSteeringState: unavailable,
+    readWorkingSet: unavailable,
     rejectCartographerPatch: unavailable,
     removeEdge: unavailable,
     renameNode: unavailable,
     splitNode: unavailable,
+    updateCartographerSettings: unavailable,
     updateEdge: unavailable,
     updateLayoutPositions: unavailable,
     updateNode: unavailable,
     updateSteeringDirective: unavailable,
+  };
+}
+
+function unimplementedWorkspaceTrajectoryAPI(): SettaAPI["workspaceTrajectory"] {
+  return {
+    onRuntimeEvent: () => () => {},
+    readRuntimeSnapshot: async (): Promise<never> => {
+      throw new Error("workspace trajectory API is not implemented in this test");
+    },
   };
 }
 

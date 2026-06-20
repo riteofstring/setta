@@ -23,7 +23,7 @@ const runtimePolicyOptionsByMode = {
     degradeOverview: true,
   },
   workspace: {
-    degradeDuringMovement: true,
+    degradeDuringMovement: false,
     degradeOverview: true,
   },
 } satisfies Record<

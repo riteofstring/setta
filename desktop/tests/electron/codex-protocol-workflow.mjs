@@ -42,13 +42,56 @@ export async function assertProtocolNotificationActivity(
   await assertRunActivityItem(
     page,
     "file_change",
-    (item) => item.patchStatus === "updated" && item.filePaths.includes("/tmp/workspace/main.go"),
+    (item) =>
+      item.patchStatus === "updated" &&
+      item.filePaths.includes("/tmp/workspace/main.go") &&
+      item.fileOperations.some(
+        (operation) =>
+          operation.path === "/tmp/workspace/main.go" &&
+          operation.operation === "write" &&
+          operation.additions === 1 &&
+          operation.deletions === 1,
+      ) &&
+      item.diffStats.structured &&
+      item.diffStats.additions === 1 &&
+      item.diffStats.deletions === 1,
+  );
+  await assertRunActivityItem(
+    page,
+    "diff",
+    (item) =>
+      item.fileOperations.some(
+        (operation) =>
+          operation.path === "main.go" &&
+          operation.operation === "diff" &&
+          operation.additions === 1 &&
+          operation.deletions === 1,
+      ) &&
+      item.diffStats.structured &&
+      item.diffStats.additions === 1 &&
+      item.diffStats.deletions === 1,
   );
   await assertRunActivityItem(page, "reasoning", (item) => item.hiddenText === "private reasoning");
   await assertRunActivityItem(
     page,
     "command_execution",
     (item) => item.processId === "process_fake",
+  );
+  await assertRunActivityItem(
+    page,
+    "dynamic_tool_call",
+    (item) =>
+      item.status === "completed" &&
+      item.namespace === "setta" &&
+      item.toolName === "read_workspace_file" &&
+      item.fileOperations.some(
+        (operation) =>
+          operation.path === "main.go" &&
+          operation.operation === "read" &&
+          operation.rangeStart === 1 &&
+          operation.rangeEnd === 3,
+      ) &&
+      item.result.includes("package main"),
   );
   await assertRunActivityItem(
     page,

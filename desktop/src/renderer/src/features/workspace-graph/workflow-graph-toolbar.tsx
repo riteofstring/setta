@@ -13,6 +13,7 @@ import {
   GitBranch,
   GitMerge,
   type LucideIcon,
+  Loader2,
   Play,
   Plus,
   RefreshCcw,
@@ -21,10 +22,20 @@ import {
   Workflow,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { WorkflowDraftNodeType } from "./workflow-graph-draft";
 import { shortIdentifier } from "./workflow-node-details-helpers";
+
+const workflowOperationPendingDelayMs = 200;
+const workflowOperationMinDwellMs = 500;
+
+type WorkflowOperation = "run" | "validate";
+
+interface WorkflowVisibleStatus {
+  kind: "invalid" | "pending" | "stale" | "valid";
+  label: string;
+}
 
 export interface WorkflowDraftNodePosition {
   worldX: number;
@@ -43,6 +54,44 @@ export const workflowNodeMenuItems = [
   label: string;
   type: WorkflowDraftNodeType;
 }[];
+
+function useWorkflowDisplayedOperation(busy: WorkflowOperation | null): WorkflowOperation | null {
+  const [displayBusy, setDisplayBusy] = useState<WorkflowOperation | null>(null);
+  const displayStartedAtRef = useRef(0);
+
+  useEffect(() => {
+    if (busy !== null) {
+      if (displayBusy === busy) {
+        return;
+      }
+      if (displayBusy !== null) {
+        displayStartedAtRef.current = Date.now();
+        setDisplayBusy(busy);
+        return;
+      }
+      const timer = window.setTimeout(() => {
+        displayStartedAtRef.current = Date.now();
+        setDisplayBusy(busy);
+      }, workflowOperationPendingDelayMs);
+      return () => window.clearTimeout(timer);
+    }
+
+    if (displayBusy === null) {
+      return;
+    }
+
+    const elapsedMs = Date.now() - displayStartedAtRef.current;
+    const remainingMs = workflowOperationMinDwellMs - elapsedMs;
+    if (remainingMs <= 0) {
+      setDisplayBusy(null);
+      return;
+    }
+    const timer = window.setTimeout(() => setDisplayBusy(null), remainingMs);
+    return () => window.clearTimeout(timer);
+  }, [busy, displayBusy]);
+
+  return displayBusy;
+}
 
 export function WorkflowGraphToolbar({
   busy,
@@ -72,8 +121,10 @@ export function WorkflowGraphToolbar({
   workspaceId: string;
 }) {
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const displayBusy = useWorkflowDisplayedOperation(busy);
   const model = workflowToolbarModel({
     busy,
+    displayBusy,
     projection,
     ready,
     selectedNodeLabel,
@@ -83,57 +134,69 @@ export function WorkflowGraphToolbar({
 
   return (
     <div
-      className="absolute top-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-col gap-2"
+      className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-2 py-2 text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur"
       data-testid="workflow-graph-toolbar"
     >
-      <div className="flex max-w-full flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-2 py-2 text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur">
-        <WorkflowToolbarTitle
-          mismatchLabel={model.mismatchLabel}
-          stateLabel={model.stateLabel}
-          title={model.title}
-          versionLabel={model.versionLabel}
-        />
-        <ToolbarButton
-          disabled={model.settingsDisabled}
-          icon={Settings}
-          label="Settings"
-          onClick={onOpenSettings}
-          testId="workflow-settings-button"
-        />
-        <WorkflowAddNodeMenu
-          disabled={model.disabled || !model.editable}
-          menuOpen={addMenuOpen}
-          onAddNode={onAddNode}
-          setMenuOpen={setAddMenuOpen}
-        />
-        <ToolbarButton
-          disabled={model.disabled || !model.editable}
-          icon={model.validationIcon}
-          label={model.validateLabel}
-          onClick={onValidate}
-          testId="workflow-validate-button"
-        />
-        <ToolbarButton
-          disabled={model.runDisabled}
-          icon={model.runIcon}
-          label={model.runLabel}
-          onClick={onRun}
-          spin={busy === "run"}
-          testId="workflow-run-button"
-        />
-        <WorkflowDraftButton
-          disabled={model.disabled}
-          onShowDraft={onShowDraft}
-          viewingDraft={!model.showDraftButton}
-        />
-        <ToolbarButton
-          disabled={model.detailsDisabled}
-          icon={Eye}
-          label={model.detailsLabel}
-          onClick={onOpenDetails}
-          testId="workflow-node-details-button"
-        />
-      </div>
+      <span aria-live="polite" className="sr-only" role="status">
+        {model.operationStatus}
+      </span>
+      <WorkflowToolbarTitle
+        mismatchLabel={model.mismatchLabel}
+        stateLabel={model.stateLabel}
+        title={model.title}
+        versionLabel={model.versionLabel}
+      />
+      <ToolbarButton
+        disabled={model.settingsDisabled}
+        icon={Settings}
+        label="Settings"
+        onClick={onOpenSettings}
+        blocked={model.operationBlocked}
+        testId="workflow-settings-button"
+      />
+      <WorkflowAddNodeMenu
+        blocked={model.operationBlocked}
+        disabled={model.hardDisabled || !model.editable}
+        menuOpen={addMenuOpen}
+        onAddNode={onAddNode}
+        setMenuOpen={setAddMenuOpen}
+      />
+      <ToolbarButton
+        accessibleLabel={model.validateAccessibleLabel}
+        disabled={model.disabled || !model.editable}
+        icon={model.validationIcon}
+        label={model.validateLabel}
+        onClick={onValidate}
+        blocked={model.operationBlocked}
+        spin={displayBusy === "validate"}
+        testId="workflow-validate-button"
+      />
+      <ToolbarButton
+        accessibleLabel={model.runAccessibleLabel}
+        disabled={model.runDisabled}
+        icon={model.runIcon}
+        label={model.runLabel}
+        onClick={onRun}
+        blocked={model.operationBlocked}
+        spin={displayBusy === "run"}
+        testId="workflow-run-button"
+      />
+      <WorkflowOperationStatus status={model.visibleStatus} />
+      <WorkflowDraftButton
+        disabled={model.disabled}
+        onShowDraft={onShowDraft}
+        blocked={model.operationBlocked}
+        viewingDraft={!model.showDraftButton}
+      />
+      <ToolbarButton
+        accessibleLabel={model.detailsAccessibleLabel}
+        disabled={model.detailsDisabled}
+        icon={Eye}
+        label={model.detailsLabel}
+        onClick={onOpenDetails}
+        blocked={model.operationBlocked}
+        testId="workflow-node-details-button"
+      />
     </div>
   );
 }
@@ -145,7 +208,7 @@ export function WorkflowValidationPanel({ validation }: { validation: WorkflowVa
 
   return (
     <div
-      className="absolute top-16 left-3 z-10 max-w-md rounded-md border border-zinc-700/80 bg-zinc-950/90 px-3 py-2 text-xs text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur"
+      className="pointer-events-none max-w-md rounded-md border border-zinc-700/80 bg-zinc-950/90 px-3 py-2 text-xs text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur"
       data-testid="workflow-validation-panel"
     >
       <WorkflowValidationSummary valid={validation.valid} />
@@ -213,25 +276,39 @@ function WorkflowToolbarTitle({
 }
 
 function WorkflowAddNodeMenu({
+  blocked,
   disabled,
   menuOpen,
   onAddNode,
   setMenuOpen,
 }: {
+  blocked: boolean;
   disabled: boolean;
   menuOpen: boolean;
   onAddNode: (nodeType: WorkflowDraftNodeType) => void;
   setMenuOpen: (open: boolean | ((open: boolean) => boolean)) => void;
 }) {
+  useEffect(() => {
+    if (blocked && menuOpen) {
+      setMenuOpen(false);
+    }
+  }, [blocked, menuOpen, setMenuOpen]);
+
   return (
     <div className="relative">
       <button
+        aria-disabled={disabled || blocked}
         aria-expanded={menuOpen}
         aria-haspopup="menu"
         className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
         data-testid="workflow-add-node-button"
         disabled={disabled}
-        onClick={() => setMenuOpen((open) => !open)}
+        onClick={() => {
+          if (blocked) {
+            return;
+          }
+          setMenuOpen((open) => !open);
+        }}
         type="button"
       >
         <Plus className="h-3.5 w-3.5" />
@@ -282,10 +359,12 @@ function WorkflowAddNodeMenuItems({
 }
 
 function WorkflowDraftButton({
+  blocked,
   disabled,
   onShowDraft,
   viewingDraft,
 }: {
+  blocked: boolean;
   disabled: boolean;
   onShowDraft: () => void;
   viewingDraft: boolean;
@@ -295,6 +374,7 @@ function WorkflowDraftButton({
   }
   return (
     <ToolbarButton
+      blocked={blocked}
       disabled={disabled}
       icon={RefreshCcw}
       label="Draft"
@@ -304,7 +384,26 @@ function WorkflowDraftButton({
   );
 }
 
+function WorkflowOperationStatus({ status }: { status: WorkflowVisibleStatus | null }) {
+  return (
+    <div className="flex h-8 w-24 shrink-0 items-center" data-testid="workflow-operation-status">
+      {status ? (
+        <span
+          className={[
+            "w-full truncate rounded-sm border px-2 py-1 text-center text-[11px] font-medium",
+            workflowVisibleStatusClassName(status.kind),
+          ].join(" ")}
+        >
+          {status.label}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function ToolbarButton({
+  accessibleLabel,
+  blocked = false,
   disabled,
   icon: Icon,
   label,
@@ -312,6 +411,8 @@ function ToolbarButton({
   spin = false,
   testId,
 }: {
+  accessibleLabel?: string;
+  blocked?: boolean;
   disabled: boolean;
   icon: LucideIcon;
   label: string;
@@ -321,11 +422,18 @@ function ToolbarButton({
 }) {
   return (
     <button
+      aria-disabled={disabled || blocked}
+      aria-label={accessibleLabel ?? label}
       className="inline-flex h-8 max-w-36 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
       data-testid={testId}
       disabled={disabled}
-      onClick={onClick}
-      title={label}
+      onClick={() => {
+        if (blocked) {
+          return;
+        }
+        onClick();
+      }}
+      title={accessibleLabel ?? label}
       type="button"
     >
       <Icon className={["h-3.5 w-3.5 shrink-0", spin ? "animate-spin" : ""].join(" ")} />
@@ -402,6 +510,7 @@ function WorkflowDiagnosticRow({ diagnostic }: { diagnostic: WorkflowValidationD
 
 function workflowToolbarModel({
   busy,
+  displayBusy,
   projection,
   ready,
   selectedNodeLabel,
@@ -409,39 +518,44 @@ function workflowToolbarModel({
   workspaceId,
 }: {
   busy: "run" | "validate" | null;
+  displayBusy: "run" | "validate" | null;
   projection: WorkflowGraphProjection | null;
   ready: boolean;
   selectedNodeLabel: string;
   validation: WorkflowValidationResult | null;
   workspaceId: string;
 }) {
-  const disabled = workflowToolbarDisabled(ready, workspaceId, busy);
+  const hardDisabled = workflowToolbarHardDisabled(ready, workspaceId);
+  const operationBlocked = busy !== null;
   const editable = workflowProjectionIsEditableDraft(projection);
   return {
-    detailsDisabled: workflowDetailsDisabled(disabled, selectedNodeLabel),
+    detailsAccessibleLabel: workflowDetailsAccessibleLabel(selectedNodeLabel),
+    detailsDisabled: workflowDetailsDisabled(hardDisabled, selectedNodeLabel),
     detailsLabel: workflowDetailsLabel(selectedNodeLabel),
-    disabled,
+    disabled: hardDisabled,
     editable,
+    hardDisabled,
     mismatchLabel: workflowToolbarMismatchLabel(projection),
-    runDisabled: workflowRunDisabled(disabled, editable, projection),
-    runIcon: workflowRunIcon(busy),
-    runLabel: workflowRunLabel(busy),
-    settingsDisabled: disabled || projection === null,
+    operationBlocked,
+    operationStatus: workflowOperationStatus(displayBusy, projection, validation),
+    runAccessibleLabel: workflowRunAccessibleLabel(displayBusy),
+    runDisabled: workflowRunDisabled(hardDisabled, editable, projection),
+    runIcon: workflowRunIcon(displayBusy),
+    runLabel: workflowRunLabel(),
+    settingsDisabled: hardDisabled || projection === null,
     showDraftButton: workflowToolbarShowsDraftButton(projection),
     stateLabel: workflowToolbarStateLabel(projection, ready, workspaceId),
     title: workflowToolbarTitle(projection, workspaceId),
-    validateLabel: workflowValidateLabel(busy),
+    validateAccessibleLabel: workflowValidateAccessibleLabel(displayBusy, projection, validation),
+    validateLabel: workflowValidateLabel(),
     versionLabel: workflowToolbarVersionLabel(projection),
-    validationIcon: workflowValidationIcon(validation),
+    validationIcon: workflowValidationIcon(projection, validation, displayBusy),
+    visibleStatus: workflowVisibleStatus(displayBusy, projection, validation),
   };
 }
 
-function workflowToolbarDisabled(
-  ready: boolean,
-  workspaceId: string,
-  busy: "run" | "validate" | null,
-) {
-  return !ready || workspaceId === "" || busy !== null;
+function workflowToolbarHardDisabled(ready: boolean, workspaceId: string) {
+  return !ready || workspaceId === "";
 }
 
 function workflowProjectionIsEditableDraft(projection: WorkflowGraphProjection | null) {
@@ -456,6 +570,10 @@ function workflowDetailsLabel(selectedNodeLabel: string) {
   return selectedNodeLabel === "" ? "Details" : selectedNodeLabel;
 }
 
+function workflowDetailsAccessibleLabel(selectedNodeLabel: string) {
+  return selectedNodeLabel === "" ? "Details" : `Open details for ${selectedNodeLabel}`;
+}
+
 function workflowRunDisabled(
   disabled: boolean,
   editable: boolean,
@@ -468,12 +586,99 @@ function workflowRunIcon(busy: "run" | "validate" | null) {
   return busy === "run" ? RefreshCcw : Play;
 }
 
-function workflowRunLabel(busy: "run" | "validate" | null) {
-  return busy === "run" ? "Starting" : "Run";
+function workflowRunLabel() {
+  return "Run";
 }
 
-function workflowValidateLabel(busy: "run" | "validate" | null) {
-  return busy === "validate" ? "Validating" : "Validate";
+function workflowRunAccessibleLabel(busy: "run" | "validate" | null) {
+  return busy === "run" ? "Starting workflow" : "Run";
+}
+
+function workflowValidateLabel() {
+  return "Validate";
+}
+
+function workflowValidateAccessibleLabel(
+  busy: "run" | "validate" | null,
+  projection: WorkflowGraphProjection | null,
+  validation: WorkflowValidationResult | null,
+) {
+  if (busy === "validate") {
+    return "Validating workflow";
+  }
+  if (projection?.validation.status === "stale") {
+    return "Workflow changed since validation";
+  }
+  if (validation?.valid === true) {
+    return "Workflow validated";
+  }
+  if (validation?.valid === false) {
+    return "Workflow validation found issues";
+  }
+  return "Validate";
+}
+
+function workflowOperationStatus(
+  busy: "run" | "validate" | null,
+  projection: WorkflowGraphProjection | null,
+  validation: WorkflowValidationResult | null,
+) {
+  if (busy === "run") {
+    return "Starting workflow";
+  }
+  if (busy === "validate") {
+    return "Validating workflow";
+  }
+  if (projection?.validation.status === "stale") {
+    return "Workflow changed since validation";
+  }
+  if (validation?.valid === true) {
+    return "Workflow validated";
+  }
+  if (validation?.valid === false) {
+    return "Workflow validation found issues";
+  }
+  return "";
+}
+
+function workflowVisibleStatus(
+  busy: "run" | "validate" | null,
+  projection: WorkflowGraphProjection | null,
+  validation: WorkflowValidationResult | null,
+): WorkflowVisibleStatus | null {
+  if (busy === "run") {
+    return { kind: "pending", label: "Starting" };
+  }
+  if (busy === "validate") {
+    return { kind: "pending", label: "Validating" };
+  }
+  if (projection?.validation.status === "stale") {
+    return { kind: "stale", label: "Stale" };
+  }
+  if (validation?.valid === true) {
+    return { kind: "valid", label: "Validated" };
+  }
+  if (validation?.valid === false) {
+    return { kind: "invalid", label: "Issues found" };
+  }
+  return null;
+}
+
+function workflowVisibleStatusClassName(kind: WorkflowVisibleStatus["kind"]) {
+  switch (kind) {
+    case "invalid":
+      return "border-red-500/50 bg-red-500/10 text-red-200";
+    case "pending":
+      return "border-zinc-600/70 bg-zinc-900 text-zinc-300";
+    case "stale":
+      return "border-amber-500/50 bg-amber-500/10 text-amber-200";
+    case "valid":
+      return "border-emerald-500/50 bg-emerald-500/10 text-emerald-200";
+    default: {
+      const exhaustive: never = kind;
+      return exhaustive;
+    }
+  }
 }
 
 function workflowToolbarTitle(projection: WorkflowGraphProjection | null, workspaceId: string) {
@@ -483,7 +688,17 @@ function workflowToolbarTitle(projection: WorkflowGraphProjection | null, worksp
   return workspaceId === "" ? "No workspace" : "Blank workflow draft";
 }
 
-function workflowValidationIcon(validation: WorkflowValidationResult | null) {
+function workflowValidationIcon(
+  projection: WorkflowGraphProjection | null,
+  validation: WorkflowValidationResult | null,
+  busy: "run" | "validate" | null,
+) {
+  if (busy === "validate") {
+    return Loader2;
+  }
+  if (projection?.validation.status === "stale") {
+    return AlertTriangle;
+  }
   if (validation === null) {
     return CheckCircle2;
   }
