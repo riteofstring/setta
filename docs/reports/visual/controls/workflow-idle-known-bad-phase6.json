@@ -1,6 +1,0 @@
-{
-  "command": "\"/Users/kevin/Library/pnpm/nodejs/25.2.1/bin/node\" \"/Users/kevin/Documents/AppDevelopment/setta/desktop/tests/electron/visual-parity-workflow.test.mjs\" \"--freeze-known-bad\"\n",
-  "source": "/Users/kevin/Documents/AppDevelopment/setta/docs/reports/visual/workflow-idle/app.png",
-  "sourceCommit": "1992781fb-compatible",
-  "writtenAt": "2026-06-14T08:47:58.839Z"
-}

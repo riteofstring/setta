@@ -211,7 +211,6 @@ func (validator *graphValidator) validate() {
 	validator.validateNodes()
 	validator.validateEdges()
 	validator.validateReachability()
-	validator.validateExecutableLiveness()
 	validator.validateCycles()
 }
 

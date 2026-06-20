@@ -13,11 +13,8 @@ import type { WorkflowContextMenuState } from "./workflow-graph-surface-layers";
 
 interface WorkflowRendererHandlersForSurfaceRequest {
   addWorkflowDraftEdge: (edge: WorkflowGraphEdgeConnection) => Promise<void>;
-  deleteWorkflowDraftEdges: (edgeIds: string[]) => Promise<void>;
   deleteWorkflowDraftNodes: (nodeIds: string[]) => Promise<void>;
-  handleGraphEdgeSelectionChange: (edgeIds: string[]) => void;
   handleGraphNodeSelectionChange: (nodeIds: string[]) => void;
-  noteGraphSceneCameraMovement?: (() => void) | null;
   openGraphNodeDetails: (nodeId: string | null) => void;
   openWorkflowContextMenu: (menu: WorkflowContextMenuState) => void;
   persistNodePositions: (positions: WorkflowLayoutPosition[]) => Promise<void>;
@@ -30,11 +27,8 @@ interface WorkflowRendererHandlersForSurfaceRequest {
 
 export function workflowRendererHandlersForSurface({
   addWorkflowDraftEdge,
-  deleteWorkflowDraftEdges,
   deleteWorkflowDraftNodes,
-  handleGraphEdgeSelectionChange,
   handleGraphNodeSelectionChange,
-  noteGraphSceneCameraMovement,
   openGraphNodeDetails,
   openWorkflowContextMenu,
   persistNodePositions,
@@ -46,15 +40,11 @@ export function workflowRendererHandlersForSurface({
 }: WorkflowRendererHandlersForSurfaceRequest): WorkflowGraphRendererHandlers {
   return {
     onCameraStateChange: (camera) => {
-      noteGraphSceneCameraMovement?.();
       workflowCameraRef.current = camera;
       writeWorkflowGraphCameraState(surfaceId, workflowCameraScopeRef.current, camera);
     },
     onCanvasContextMenu: syntheticGraph === null ? openWorkflowContextMenu : null,
     onEdgeCreate: syntheticGraph === null ? (edge) => void addWorkflowDraftEdge(edge) : undefined,
-    onEdgeDelete:
-      syntheticGraph === null ? (edgeIds) => void deleteWorkflowDraftEdges(edgeIds) : undefined,
-    onEdgeSelectionChange: syntheticGraph === null ? handleGraphEdgeSelectionChange : undefined,
     onNodeDelete:
       syntheticGraph === null ? (nodeIds) => void deleteWorkflowDraftNodes(nodeIds) : undefined,
     onNodeOpen: syntheticGraph === null ? (nodeId) => openGraphNodeDetails(nodeId) : null,

@@ -130,16 +130,12 @@ function nextResyncConversation(
   selectedConversation: Conversation | null,
   workspaceId: string,
 ) {
-  const fallbackConversation = list.conversations[0]?.conversation ?? null;
-  if (!selectedConversation) {
-    return fallbackConversation;
-  }
-  if (selectedConversation.workspaceId !== workspaceId) {
-    return fallbackConversation;
+  if (!selectedConversation || selectedConversation.workspaceId !== workspaceId) {
+    return list.conversations[0]?.conversation ?? null;
   }
   return (
     list.conversations.find((item) => item.conversation.id === selectedConversation.id)
-      ?.conversation ?? fallbackConversation
+      ?.conversation ?? selectedConversation
   );
 }
 

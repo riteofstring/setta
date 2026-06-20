@@ -32,6 +32,48 @@ func TestCodexHarnessMapsStreamingTurn(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessRunsSemanticCartographerStructuredTask(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("structured-task"))
+	result, err := harness.RunTask(context.Background(), HarnessTaskRequest{
+		Surface:     HarnessSurfaceSemanticCartographer,
+		HarnessKind: HarnessCodex,
+		TurnMode:    HarnessTurnStructuredTask,
+		OutputContract: HarnessOutputContract{
+			Kind:       HarnessOutputStrictJSON,
+			JSONSchema: json.RawMessage(`{"type":"object","required":["patches"],"properties":{"patches":{"type":"array"}}}`),
+		},
+		CapabilityPolicy: HarnessCapabilityPolicy{
+			AllowedTools:      []string{},
+			WorkspaceMutation: false,
+			Approvals:         false,
+			Streaming:         false,
+		},
+		StructuredTask: &HarnessStructuredTask{
+			ID:        "cartographer_task_codex_test",
+			Workspace: testTurnRequest(t).Workspace,
+			Prompt:    "Return only a strict JSON patch envelope.",
+			Input:     json.RawMessage(`{"workspaceId":"workspace_api","sourceRefs":{},"evidence":[]}`),
+			Model:     "gpt-test",
+		},
+	})
+	if err != nil {
+		t.Fatalf("run structured task: %v", err)
+	}
+	requireTurnOutcome(t, result.Completion, TurnOutcomeCompleted)
+	if string(result.StructuredOutput) != `{"patches":[]}` {
+		t.Fatalf("structured output = %s, want empty patch envelope", result.StructuredOutput)
+	}
+	if result.Audit.HarnessKind != HarnessCodex ||
+		result.Audit.Model != "gpt-test" ||
+		result.Audit.RequestID != "cartographer_task_codex_test" ||
+		result.Audit.ResponseID != "turn_fake" ||
+		result.Audit.ThreadRef.ThreadID != "thread_fake" ||
+		result.Audit.ThreadRef.LastTurnID != "turn_fake" ||
+		result.Audit.ThreadRef.Status != HarnessRefLinked {
+		t.Fatalf("audit = %+v, want codex structured task metadata", result.Audit)
+	}
+}
+
 func TestCodexStructuredOutputUsesStreamedTextWhenCompletedTurnOmitsFinalText(t *testing.T) {
 	output, err := codexStructuredOutputFromCompletedTurn(
 		fakeCodexTurnWithItems("completed", []any{
@@ -1007,15 +1049,6 @@ func rawJSONPtr(value string) *json.RawMessage {
 	return &raw
 }
 
-func codexNotificationMessage(t *testing.T, method string, params any) jsonRPCMessage {
-	t.Helper()
-	encoded, err := json.Marshal(params)
-	if err != nil {
-		t.Fatalf("marshal codex notification params: %v", err)
-	}
-	return jsonRPCMessage{Method: method, Params: encoded}
-}
-
 func startCodexTurnAsync(t *testing.T, harness *CodexHarness, sink *recordingSink) <-chan codexTurnResult {
 	t.Helper()
 	request := testTurnRequest(t)
@@ -1322,9 +1355,6 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		})
 		return mode == "command-model-set-local" || mode == "command-effort-set-local"
 	case "thread/start", "thread/resume":
-		if mode == "catalog-model-list-no-thread" {
-			panic("model catalog lookup should not start or resume a thread")
-		}
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)
 		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
@@ -1360,11 +1390,8 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	if mode == "initial-settings" {
 		assertFakeInitialTurnSettings(message)
 	}
-	switch mode {
-	case "structured-task":
-		assertFakeStructuredTaskTurnStart(message, "gpt-test", ReasoningEffortHigh, true)
-	case "structured-task-provider-default":
-		assertFakeStructuredTaskTurnStart(message, "", ReasoningEffortMedium, false)
+	if mode == "structured-task" {
+		assertFakeStructuredTaskTurnStart(message)
 	}
 	writeFakeResponse(message["id"], map[string]any{
 		"turn": fakeCodexTurn("inProgress"),

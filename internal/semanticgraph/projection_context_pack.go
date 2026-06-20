@@ -57,23 +57,7 @@ INSERT INTO semantic_context_pack_history (
 	if err != nil {
 		return fmt.Errorf("record semantic context pack: %w", err)
 	}
-	record := SemanticContextPackRecord{
-		ID:                   payload.PackID,
-		WorkspaceID:          event.WorkspaceID,
-		TriggerKind:          payload.TriggerKind,
-		TargetEntityID:       payload.TargetEntityID,
-		SourceRefs:           payload.SourceRefs,
-		AuthoredPromptHash:   payload.AuthoredPromptHash,
-		DeliveredContextHash: payload.DeliveredContextHash,
-		TokenBudget:          payload.TokenBudget,
-		EstimatedTokens:      payload.EstimatedTokens,
-		ItemCount:            payload.ItemCount,
-		Items:                append([]SemanticContextPackItem{}, payload.Items...),
-		DeliveredContext:     payload.DeliveredContext,
-		CreatedByEventID:     event.EventID,
-		CreatedAt:            event.ObservedAt,
-	}
-	return upsertSemanticContextPackSearchRows(ctx, tx, record)
+	return nil
 }
 
 func validateContextPackCreatedPayload(event SemanticEvent, payload contextPackCreatedPayload) error {

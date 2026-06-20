@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
 import { createFakeHost } from "./test-dom-fakes";
+import { useAppearanceStore } from "../stores/appearance-store";
 import type { WorkspacePane } from "./types";
 
 const terminalMock = vi.hoisted(() => ({
@@ -154,6 +155,14 @@ describe("terminal surface adapter", () => {
     terminalMock.renderReady = true;
     terminalMock.searchAddons.length = 0;
     terminalMock.webLinkHandlers.length = 0;
+    useAppearanceStore.setState({
+      defaultPresetId: null,
+      draft: null,
+      error: null,
+      presets: [],
+      settings: null,
+      status: "idle",
+    });
   });
 
   afterEach(() => {
@@ -311,6 +320,76 @@ describe("terminal surface adapter", () => {
     const event = keyboardEvent({ ctrlKey: true, key: "c" });
     expect(terminalMock.instances[0]?.customKeyHandler?.(event)).toBe(true);
     expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  test("reroutes workspace arrow shortcuts before terminal applications receive them", async () => {
+    vi.stubGlobal("KeyboardEvent", FakeKeyboardEvent);
+    installSettaAPI({
+      attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
+      platform: "darwin",
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    const dispatchEvent = vi.spyOn(window, "dispatchEvent");
+    await waitFor(() => terminalMock.instances.length === 1);
+
+    const event = keyboardEvent({
+      altKey: true,
+      key: "ArrowRight",
+      metaKey: true,
+      shiftKey: true,
+    });
+    expect(terminalMock.instances[0]?.customKeyHandler?.(event)).toBe(false);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalledOnce();
+    expect(dispatchEvent).toHaveBeenCalledOnce();
+    expect(dispatchEvent.mock.calls[0]?.[0]).toMatchObject({
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowRight",
+      metaKey: true,
+      shiftKey: true,
+      type: "keydown",
+    });
+  });
+
+  test("reroutes configured control-alt workspace arrow shortcuts", async () => {
+    vi.stubGlobal("KeyboardEvent", FakeKeyboardEvent);
+    useAppearanceStore.setState({
+      draft: {
+        shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
+      } as ReturnType<typeof useAppearanceStore.getState>["draft"],
+    });
+    installSettaAPI({
+      attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
+      platform: "darwin",
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    const dispatchEvent = vi.spyOn(window, "dispatchEvent");
+    await waitFor(() => terminalMock.instances.length === 1);
+
+    const event = keyboardEvent({
+      altKey: true,
+      ctrlKey: true,
+      key: "ArrowLeft",
+    });
+    expect(terminalMock.instances[0]?.customKeyHandler?.(event)).toBe(false);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(dispatchEvent.mock.calls[0]?.[0]).toMatchObject({
+      altKey: true,
+      ctrlKey: true,
+      key: "ArrowLeft",
+      metaKey: false,
+      type: "keydown",
+    });
   });
 
   test("copies terminal selection with platform shortcut", async () => {
@@ -672,6 +751,33 @@ function fakeEvent(type: string): Event {
     defaultPrevented: false,
     type,
   } as Event;
+}
+
+class FakeKeyboardEvent {
+  readonly altKey: boolean;
+  readonly bubbles: boolean;
+  readonly cancelable: boolean;
+  readonly ctrlKey: boolean;
+  defaultPrevented = false;
+  readonly key: string;
+  readonly metaKey: boolean;
+  readonly shiftKey: boolean;
+  readonly type: string;
+
+  constructor(type: string, init: KeyboardEventInit & { key?: string } = {}) {
+    this.altKey = init.altKey ?? false;
+    this.bubbles = init.bubbles ?? false;
+    this.cancelable = init.cancelable ?? false;
+    this.ctrlKey = init.ctrlKey ?? false;
+    this.key = init.key ?? "";
+    this.metaKey = init.metaKey ?? false;
+    this.shiftKey = init.shiftKey ?? false;
+    this.type = type;
+  }
+
+  preventDefault(): void {
+    this.defaultPrevented = true;
+  }
 }
 
 async function waitFor(done: () => boolean): Promise<void> {

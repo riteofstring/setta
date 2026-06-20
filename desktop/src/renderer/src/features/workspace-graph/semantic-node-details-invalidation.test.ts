@@ -89,17 +89,6 @@ function semanticNodeDetail(): SemanticNodeDetail {
     node: semanticNode("node_selected"),
     outgoingEdges: [semanticEdge("edge_selected")],
     steeringDirectives: [],
-    usefulness: {
-      diagnostics: [],
-      dismissalReason: "",
-      futureUse: "",
-      lastDeliveredInContextPackAt: "",
-      lastUserOpenedAt: "",
-      lastUserPromotedAt: "",
-      retrievalUseCount: 0,
-      sourceCoverage: "",
-      whyItExists: "",
-    },
     workspaceId: "workspace_graph",
   };
 }
@@ -109,7 +98,6 @@ function semanticNode(id: string): SemanticNode {
     createdAt: "2026-06-11T12:00:00Z",
     createdByEventId: "semantic_event_node",
     dismissed: false,
-    futureUse: "",
     id,
     kind: "finding",
     label: "Selected Node",
@@ -120,7 +108,6 @@ function semanticNode(id: string): SemanticNode {
     summary: "Selected node summary",
     updatedAt: "2026-06-11T12:00:00Z",
     updatedByEventId: "semantic_event_node",
-    whyItExists: "",
     workspaceId: "workspace_graph",
   };
 }
@@ -155,9 +142,6 @@ function semanticGraphChangeEvent(
     schemaVersion: 1,
     semanticEdgeIds: [],
     semanticNodeIds: ["node_selected"],
-    semanticRuntimeDelta: null,
-    semanticRuntimeRevision: 1,
-    semanticRuntimeSnapshotRequired: false,
     sequence: 1,
     streamId: "semantic_graph_changes",
     targetEntityIds: ["node_selected"],

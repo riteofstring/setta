@@ -132,7 +132,6 @@ const (
 	SemanticGraphChangeAreaContextPacks      SemanticGraphChangeArea = "context_packs"
 	SemanticGraphChangeAreaCartographerAudit SemanticGraphChangeArea = "cartographer_audit"
 	SemanticGraphChangeAreaLayout            SemanticGraphChangeArea = "layout"
-	SemanticGraphChangeAreaWorkingSet        SemanticGraphChangeArea = "working_set"
 )
 
 var (
@@ -262,18 +261,14 @@ var (
 		SemanticGraphChangeAreaContextPacks,
 		SemanticGraphChangeAreaCartographerAudit,
 		SemanticGraphChangeAreaLayout,
-		SemanticGraphChangeAreaWorkingSet,
 	}
 	cartographerRunStatusValues = []CartographerRunStatus{
-		CartographerRunQueued,
+		CartographerRunPending,
 		CartographerRunRunning,
-		CartographerRunCompletedNoop,
-		CartographerRunApplied,
-		CartographerRunPendingReview,
+		CartographerRunCompleted,
 		CartographerRunFailed,
-		CartographerRunSuperseded,
-		CartographerRunCancelled,
-		CartographerRunAbandoned,
+		CartographerRunProposed,
+		CartographerRunApplied,
 		CartographerRunRejected,
 	}
 	cartographerRunTriggerKindValues = []CartographerRunTriggerKind{
@@ -282,22 +277,6 @@ var (
 		CartographerTriggerWorkflowDone,
 		CartographerTriggerExplicitRetry,
 		CartographerTriggerExplicitReview,
-	}
-	cartographerTaskProfileValues = []CartographerTaskProfile{
-		CartographerTaskProfileLiveWindow,
-		CartographerTaskProfileFinalSynthesis,
-		CartographerTaskProfileManual,
-		CartographerTaskProfileRetry,
-		CartographerTaskProfileReview,
-	}
-	semanticCartographerModelSelectionValues = []SemanticCartographerModelSelection{
-		SemanticCartographerModelSelectionProviderDefault,
-		SemanticCartographerModelSelectionExplicit,
-	}
-	semanticCartographerAuditCaptureLevelValues = []SemanticCartographerAuditCaptureLevel{
-		SemanticCartographerAuditCaptureMinimal,
-		SemanticCartographerAuditCaptureStandard,
-		SemanticCartographerAuditCaptureDebug,
 	}
 	cartographerWindowStatusValues = []CartographerWindowStatus{
 		CartographerWindowOpen,
@@ -355,22 +334,6 @@ var (
 		CartographerCloseQuietPeriod,
 		CartographerCloseManual,
 	}
-	cartographerObservationKindValues = []CartographerObservationKind{
-		CartographerObservationPromptMessage,
-		CartographerObservationAssistantMessageCompleted,
-		CartographerObservationAssistantTextChunkAggregate,
-		CartographerObservationCommandStarted,
-		CartographerObservationCommandCompleted,
-		CartographerObservationCommandFailed,
-		CartographerObservationFileReadObserved,
-		CartographerObservationFileChangeObserved,
-		CartographerObservationDiffObserved,
-		CartographerObservationTestResultObserved,
-		CartographerObservationWorkflowNodeStarted,
-		CartographerObservationWorkflowNodeCompleted,
-		CartographerObservationApprovalRequested,
-		CartographerObservationRunCompleted,
-	}
 )
 
 type ContractValueSet struct {
@@ -394,14 +357,8 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SemanticContextPackItemKind", Values: stringValues(semanticContextPackItemKindValues)},
 		{Name: "SemanticContextPackPriority", Values: stringValues(semanticContextPackPriorityValues)},
 		{Name: "SemanticGraphChangeArea", Values: stringValues(semanticGraphChangeAreaValues)},
-		{Name: "SemanticRuntimeChangeArea", Values: stringValues(semanticRuntimeChangeAreaValues)},
-		{Name: "SemanticWorkingSetStatus", Values: stringValues(semanticWorkingSetStatusValues)},
-		{Name: "SemanticWorkingSetPulseKind", Values: stringValues(semanticWorkingSetPulseKindValues)},
 		{Name: "CartographerRunStatus", Values: stringValues(cartographerRunStatusValues)},
 		{Name: "CartographerRunTriggerKind", Values: stringValues(cartographerRunTriggerKindValues)},
-		{Name: "CartographerTaskProfile", Values: stringValues(cartographerTaskProfileValues)},
-		{Name: "SemanticCartographerModelSelection", Values: stringValues(semanticCartographerModelSelectionValues)},
-		{Name: "SemanticCartographerAuditCaptureLevel", Values: stringValues(semanticCartographerAuditCaptureLevelValues)},
 		{Name: "CartographerWindowStatus", Values: stringValues(cartographerWindowStatusValues)},
 		{Name: "CartographerSourceKind", Values: stringValues(cartographerSourceKindValues)},
 		{Name: "CartographerPatchStatus", Values: stringValues(cartographerPatchStatusValues)},
@@ -410,7 +367,6 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "CartographerDiagnosticSeverity", Values: stringValues(cartographerDiagnosticSeverityValues)},
 		{Name: "CartographerTrajectoryEventSource", Values: stringValues(cartographerTrajectoryEventSourceValues)},
 		{Name: "CartographerWindowCloseReason", Values: stringValues(cartographerWindowCloseReasonValues)},
-		{Name: "CartographerObservationKind", Values: stringValues(cartographerObservationKindValues)},
 	}
 }
 
@@ -451,8 +407,6 @@ type SemanticNode struct {
 	Kind             SemanticNodeKind `json:"kind"`
 	Label            string           `json:"label"`
 	Summary          string           `json:"summary"`
-	WhyItExists      string           `json:"whyItExists"`
-	FutureUse        string           `json:"futureUse"`
 	Dismissed        bool             `json:"dismissed"`
 	Promoted         bool             `json:"promoted"`
 	SplitFromNodeID  string           `json:"splitFromNodeId"`
@@ -601,31 +555,6 @@ type SemanticContextPackRecord struct {
 	CreatedAt            string                     `json:"createdAt"`
 }
 
-type SemanticRetrievalResult struct {
-	ID                  string                      `json:"id"`
-	Source              string                      `json:"source"`
-	RecordKind          string                      `json:"recordKind"`
-	RecordID            string                      `json:"recordId"`
-	SemanticNodeID      string                      `json:"semanticNodeId"`
-	EvidenceAnchorID    string                      `json:"evidenceAnchorId"`
-	ActivityIntervalID  string                      `json:"activityIntervalId"`
-	SteeringDirectiveID string                      `json:"steeringDirectiveId"`
-	ContextPackID       string                      `json:"contextPackId"`
-	ContextPackItemID   string                      `json:"contextPackItemId"`
-	ItemKind            SemanticContextPackItemKind `json:"itemKind"`
-	SourceKind          string                      `json:"sourceKind"`
-	SourceID            string                      `json:"sourceId"`
-	URI                 string                      `json:"uri"`
-	Path                string                      `json:"path"`
-	SourceRefs          SemanticContextSourceRefs   `json:"sourceRefs"`
-	Title               string                      `json:"title"`
-	Summary             string                      `json:"summary"`
-	Reasons             []string                    `json:"reasons"`
-	Score               float64                     `json:"score"`
-	FTSScore            float64                     `json:"ftsScore"`
-	UpdatedAt           string                      `json:"updatedAt"`
-}
-
 type SemanticContextPackReadResponse struct {
 	Pack *SemanticContextPackRecord `json:"pack"`
 }
@@ -673,14 +602,12 @@ type SemanticGraph struct {
 	WorkspaceID     string                   `json:"workspaceId"`
 	Nodes           []SemanticNode           `json:"nodes"`
 	Edges           []SemanticEdge           `json:"edges"`
-	SourceLinks     []SemanticEvidenceAnchor `json:"sourceLinks"`
 	LayoutPositions []SemanticLayoutPosition `json:"layoutPositions"`
 }
 
 type SemanticNodeDetail struct {
 	WorkspaceID         string                      `json:"workspaceId"`
 	Node                SemanticNode                `json:"node"`
-	Usefulness          SemanticNodeUsefulness      `json:"usefulness"`
 	IncomingEdges       []SemanticEdge              `json:"incomingEdges"`
 	OutgoingEdges       []SemanticEdge              `json:"outgoingEdges"`
 	Evidence            []SemanticEvidenceAnchor    `json:"evidence"`

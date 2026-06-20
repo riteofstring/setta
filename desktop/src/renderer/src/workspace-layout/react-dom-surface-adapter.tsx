@@ -11,14 +11,7 @@ import {
   WorkspaceChatSurface,
   WorkspaceSettingsSurface,
 } from "./workspace-dom-surfaces";
-import { notifyWorkspaceSurfaceResumed } from "./surface-lifecycle-events";
-import {
-  applyCapturedSnapshotScrollOffsets,
-  applySnapshotScrollOffsets,
-  captureSnapshotScrollOffsets,
-  recordSnapshotScrollOffsets,
-  type SnapshotScrollOffsetRecord,
-} from "./surface-dom-content";
+import { applySnapshotScrollOffsets, recordSnapshotScrollOffsets } from "./surface-dom-content";
 import type {
   CanvasSurfaceStats,
   FreezeReason,
@@ -65,7 +58,6 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   private host: HTMLElement | null = null;
   private root: ReactSurfaceRoot | null = null;
   private activated = false;
-  private parkedScrollOffsets: SnapshotScrollOffsetRecord[] = [];
   private scrollbarSuppressionToken = 0;
   private visible = false;
 
@@ -116,7 +108,6 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
 
   unmount(): void {
     if (this.container) {
-      this.parkedScrollOffsets = captureSnapshotScrollOffsets(this.container);
       recordSnapshotScrollOffsets(this.container);
     }
     this.host?.replaceChildren();
@@ -161,11 +152,6 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     this.host?.setAttribute("data-resume-reason", reason);
     if (wasFrozen) {
       this.suppressLiveScrollbars();
-      notifyWorkspaceSurfaceResumed({
-        reason,
-        surfaceId: this.surfaceId,
-        surfaceKind: this.kind,
-      });
     }
     this.syncHostState();
   }
@@ -241,12 +227,8 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     if (!container) {
       return;
     }
-    const restore = () => {
-      applySnapshotScrollOffsets(container);
-      applyCapturedSnapshotScrollOffsets(container, this.parkedScrollOffsets);
-    };
-    restore();
-    restoreScrollOffsetsAcrossFrames(restore, 24);
+    applySnapshotScrollOffsets(container);
+    restoreScrollOffsetsAcrossFrames(container, 24);
   }
 
   private suppressLiveScrollbars(): void {
@@ -266,22 +248,21 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   }
 }
 
-function restoreScrollOffsetsAcrossFrames(restore: () => void, remainingFrames: number): void {
+function restoreScrollOffsetsAcrossFrames(root: Element, remainingFrames: number): void {
   if (remainingFrames <= 0) {
     return;
   }
-  const restoreFrame = () => {
-    restore();
-    queueMicrotask(() => {
-      restore();
-    });
-    restoreScrollOffsetsAcrossFrames(restore, remainingFrames - 1);
+  const restore = () => {
+    applySnapshotScrollOffsets(root);
+    queueMicrotask(() => applySnapshotScrollOffsets(root));
+    setTimeout(() => applySnapshotScrollOffsets(root), 0);
+    restoreScrollOffsetsAcrossFrames(root, remainingFrames - 1);
   };
   if (typeof requestAnimationFrame === "function") {
-    requestAnimationFrame(restoreFrame);
+    requestAnimationFrame(restore);
     return;
   }
-  queueMicrotask(restoreFrame);
+  queueMicrotask(restore);
 }
 
 function clearScrollbarsSuppressedAcrossFrames(

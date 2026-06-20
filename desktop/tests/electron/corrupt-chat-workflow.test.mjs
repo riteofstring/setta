@@ -353,7 +353,7 @@ async function openPort() {
 }
 
 function launchElectron(debugPort, appDataDir) {
-  const electron = spawn(electronBin(), electronLaunchArgs(debugPort), {
+  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
     cwd: desktopRoot,
     env: {
       ...process.env,
@@ -371,14 +371,6 @@ function launchElectron(debugPort, appDataDir) {
   electron.logs = [];
   collectProcessOutput(electron);
   return electron;
-}
-
-function electronLaunchArgs(debugPort) {
-  return [
-    `--remote-debugging-port=${debugPort}`,
-    ".",
-    ...(process.platform === "darwin" ? ["-ApplePersistenceIgnoreState", "YES"] : []),
-  ];
 }
 
 async function launchCorruptContext(appDataDir) {

@@ -1,6 +1,10 @@
 import type { ChatMessage, TranscriptTurn } from "@generated/backend";
 
+import { chatMessageText } from "./chat-message-text";
 import { transcriptTurnSortOrdinal } from "../lib/chat-transcript-ordering";
+
+const assistantTextChunkLength = 1800;
+const assistantTextChunkThreshold = assistantTextChunkLength * 2;
 
 export interface TranscriptTimelineSource {
   messageIds: string[];
@@ -24,11 +28,39 @@ export type TranscriptTimelineRow =
       messageIds: string[];
       sortOrdinal: number;
       turn: TranscriptTurn;
+    }
+  | {
+      index: number;
+      key: string;
+      kind: "turn-message";
+      message: ChatMessage;
+      messageIds: string[];
+      sortOrdinal: number;
+      turn: TranscriptTurn;
+    }
+  | {
+      chunk: TranscriptAssistantMessageChunk;
+      index: number;
+      key: string;
+      kind: "assistant-chunk";
+      message: ChatMessage;
+      messageIds: string[];
+      sortOrdinal: number;
+      turn: TranscriptTurn;
     };
 
 type TranscriptTimelineEntry =
   | Omit<Extract<TranscriptTimelineRow, { kind: "message" }>, "index">
-  | Omit<Extract<TranscriptTimelineRow, { kind: "turn" }>, "index">;
+  | Omit<Extract<TranscriptTimelineRow, { kind: "turn" }>, "index">
+  | Omit<Extract<TranscriptTimelineRow, { kind: "turn-message" }>, "index">
+  | Omit<Extract<TranscriptTimelineRow, { kind: "assistant-chunk" }>, "index">;
+
+export interface TranscriptAssistantMessageChunk {
+  index: number;
+  isFirst: boolean;
+  isLast: boolean;
+  text: string;
+}
 
 export function transcriptTimelineRows(source: TranscriptTimelineSource): TranscriptTimelineRow[] {
   const turnMessageIds = new Set<string>();
@@ -39,13 +71,7 @@ export function transcriptTimelineRows(source: TranscriptTimelineSource): Transc
       turnMessageIds.add(turn.assistantMessage.id);
     }
     addSteeringTimelineEntries(entries, turn.steeringMessages);
-    entries.push({
-      key: `turn:${turn.run.id}`,
-      kind: "turn",
-      messageIds: transcriptTurnMessageIds(turn),
-      sortOrdinal: transcriptTurnSortOrdinal(turn),
-      turn,
-    });
+    addTurnTimelineEntry(entries, turn);
   }
   for (const messageId of source.messageIds) {
     const message = source.messagesById[messageId];
@@ -75,6 +101,45 @@ export function transcriptTimelineRows(source: TranscriptTimelineSource): Transc
     .map((entry, index) => ({ ...entry, index }));
 }
 
+function addTurnTimelineEntry(entries: TranscriptTimelineEntry[], turn: TranscriptTurn) {
+  const assistantMessage = turn.assistantMessage;
+  const assistantChunks = assistantMessage ? assistantMessageChunks(assistantMessage) : null;
+  if (!assistantChunks || !assistantMessage) {
+    entries.push({
+      key: `turn:${turn.run.id}`,
+      kind: "turn",
+      messageIds: transcriptTurnMessageIds(turn),
+      sortOrdinal: transcriptTurnSortOrdinal(turn),
+      turn,
+    });
+    return;
+  }
+
+  const sortOrdinal = transcriptTurnSortOrdinal(turn);
+  if (isVisibleMessage(turn.triggerMessage)) {
+    entries.push({
+      key: `turn:${turn.run.id}:00-trigger`,
+      kind: "turn-message",
+      message: turn.triggerMessage,
+      messageIds: [turn.triggerMessage.id],
+      sortOrdinal,
+      turn,
+    });
+  }
+  const message = assistantMessage;
+  for (const chunk of assistantChunks) {
+    entries.push({
+      chunk,
+      key: `turn:${turn.run.id}:10-assistant:${String(chunk.index).padStart(4, "0")}`,
+      kind: "assistant-chunk",
+      message,
+      messageIds: [message.id],
+      sortOrdinal,
+      turn,
+    });
+  }
+}
+
 function addSteeringTimelineEntries(entries: TranscriptTimelineEntry[], messages: ChatMessage[]) {
   for (const message of messages) {
     if (isVisibleMessage(message)) {
@@ -87,6 +152,35 @@ function addSteeringTimelineEntries(entries: TranscriptTimelineEntry[], messages
       });
     }
   }
+}
+
+function assistantMessageChunks(message: ChatMessage): TranscriptAssistantMessageChunk[] | null {
+  if (message.role !== "assistant") {
+    return null;
+  }
+  const text = chatMessageText(message);
+  if (text.length < assistantTextChunkThreshold || hasChunkUnsafeMarkdownSyntax(text)) {
+    return null;
+  }
+  const chunks: TranscriptAssistantMessageChunk[] = [];
+  for (let start = 0; start < text.length; start += assistantTextChunkLength) {
+    const index = chunks.length;
+    chunks.push({
+      index,
+      isFirst: index === 0,
+      isLast: false,
+      text: text.slice(start, start + assistantTextChunkLength),
+    });
+  }
+  const lastChunk = chunks.at(-1);
+  if (lastChunk) {
+    lastChunk.isLast = true;
+  }
+  return chunks;
+}
+
+function hasChunkUnsafeMarkdownSyntax(text: string) {
+  return text.includes("`") || text.includes("**");
 }
 
 function transcriptTurnMessageIds(turn: TranscriptTurn) {

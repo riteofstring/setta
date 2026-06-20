@@ -36,8 +36,3 @@ tmp/
 .recordings/
 .setta/
 .claude/
-
-# Visual-parity gate: track control fixtures + derived targets; ignore per-run evidence bundles
-/docs/reports/visual/*/
-!/docs/reports/visual/controls/
-!/docs/reports/visual/controls/**

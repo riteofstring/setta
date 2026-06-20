@@ -28,7 +28,7 @@
 }
 
 .workspace-pane-host {
-  --workspace-pane-focus-ring: color-mix(in oklch, var(--setta-500) 46%, transparent);
+  --workspace-pane-focus-ring: color-mix(in oklch, var(--accent-cyan) 34%, var(--border));
   --workspace-pane-focus-shadow: color-mix(in oklch, black 18%, transparent);
   --workspace-pane-focus-surface: color-mix(in oklch, var(--popover) 94%, var(--setta-700));
   background: color-mix(in oklch, var(--popover) 86%, var(--background));
@@ -56,7 +56,7 @@
 }
 
 [data-color-mode="light"] .workspace-pane-host {
-  --workspace-pane-focus-ring: color-mix(in oklch, var(--setta-400) 42%, transparent);
+  --workspace-pane-focus-ring: color-mix(in oklch, var(--accent-cyan) 40%, var(--border));
   --workspace-pane-focus-shadow: color-mix(in oklch, var(--setta-900) 10%, transparent);
   --workspace-pane-focus-surface: color-mix(in oklch, var(--popover) 96%, var(--setta-100));
 }

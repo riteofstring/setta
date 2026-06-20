@@ -25,10 +25,6 @@ func (store *Store) ReadGraph(ctx context.Context, workspaceID string) (Semantic
 	if err != nil {
 		return SemanticGraph{}, err
 	}
-	sourceLinks, err := store.loadSemanticSourceLinks(ctx, workspaceID)
-	if err != nil {
-		return SemanticGraph{}, err
-	}
 	positions, err := store.loadSemanticLayoutPositions(ctx, workspaceID)
 	if err != nil {
 		return SemanticGraph{}, err
@@ -37,7 +33,6 @@ func (store *Store) ReadGraph(ctx context.Context, workspaceID string) (Semantic
 		WorkspaceID:     workspaceID,
 		Nodes:           nodes,
 		Edges:           edges,
-		SourceLinks:     sourceLinks,
 		LayoutPositions: positions,
 	}, nil
 }
@@ -61,14 +56,9 @@ func (store *Store) ReadNodeDetail(ctx context.Context, workspaceID string, node
 	if err != nil {
 		return SemanticNodeDetail{}, false, err
 	}
-	usefulness, err := store.semanticNodeUsefulness(ctx, workspaceID, nodeID, node, records)
-	if err != nil {
-		return SemanticNodeDetail{}, false, err
-	}
 	return SemanticNodeDetail{
 		WorkspaceID:         workspaceID,
 		Node:                node,
-		Usefulness:          usefulness,
 		IncomingEdges:       records.incoming,
 		OutgoingEdges:       records.outgoing,
 		Evidence:            records.evidence,
@@ -503,8 +493,7 @@ func semanticEventHistoryFromDescending(workspaceID string, targetEntityID strin
 
 func (store *Store) loadSemanticNode(ctx context.Context, workspaceID string, nodeID string) (SemanticNode, bool, error) {
 	row := store.db.QueryRowContext(ctx, `
-SELECT workspace_id, id, kind, label, summary, why_it_exists, future_use,
-       dismissed, promoted,
+SELECT workspace_id, id, kind, label, summary, dismissed, promoted,
        split_from_node_id, split_into_node_ids_json, merged_into_node_id,
        created_by_event_id, updated_by_event_id, created_at, updated_at
 FROM semantic_nodes_current
@@ -528,8 +517,7 @@ func (store *Store) loadSemanticNodes(ctx context.Context, workspaceID string, e
 		args = append(args, extraArgs...)
 	}
 	rows, err := store.db.QueryContext(ctx, fmt.Sprintf(`
-SELECT workspace_id, id, kind, label, summary, why_it_exists, future_use,
-       dismissed, promoted,
+SELECT workspace_id, id, kind, label, summary, dismissed, promoted,
        split_from_node_id, split_into_node_ids_json, merged_into_node_id,
        created_by_event_id, updated_by_event_id, created_at, updated_at
 FROM semantic_nodes_current

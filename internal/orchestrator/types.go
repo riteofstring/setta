@@ -20,7 +20,6 @@ type WorkflowGraphNodeStatus string
 type WorkflowGraphEdgeStatus string
 type WorkflowGraphViewMode string
 type WorkflowEventType string
-type WorkflowValidationStatus string
 type WorkflowValidationSeverity string
 type WorkflowTerminalReason string
 type WorkflowActionCompletionStatus string
@@ -37,7 +36,6 @@ type WorkflowRunnerStateStatus string
 type SideEffectPolicyKind string
 type SideEffectScope string
 type ApprovalTrigger string
-type WorkflowDraftNodeType string
 
 const (
 	NodeKindStart      WorkflowNodeKind = "start"
@@ -102,10 +100,6 @@ const (
 	GraphViewModeDraft   WorkflowGraphViewMode = "draft"
 	GraphViewModeVersion WorkflowGraphViewMode = "version"
 	GraphViewModeRun     WorkflowGraphViewMode = "run"
-
-	WorkflowValidationNotValidated WorkflowValidationStatus = "not_validated"
-	WorkflowValidationCurrent      WorkflowValidationStatus = "current"
-	WorkflowValidationStale        WorkflowValidationStatus = "stale"
 
 	EventExecutionStarted       WorkflowEventType = "workflow.execution.started"
 	EventNodeScheduled          WorkflowEventType = "workflow.node.scheduled"
@@ -238,13 +232,6 @@ const (
 	ApprovalTriggerExternalWrite        ApprovalTrigger = "external_write"
 	ApprovalTriggerDestructiveAction    ApprovalTrigger = "destructive_action"
 	ApprovalTriggerUnsandboxedExecution ApprovalTrigger = "unsandboxed_execution"
-
-	WorkflowDraftNodeAgentTask   WorkflowDraftNodeType = "agent_task"
-	WorkflowDraftNodeBarrierJoin WorkflowDraftNodeType = "barrier_join"
-	WorkflowDraftNodeEnd         WorkflowDraftNodeType = "end"
-	WorkflowDraftNodeMerge       WorkflowDraftNodeType = "merge"
-	WorkflowDraftNodeRoute       WorkflowDraftNodeType = "route"
-	WorkflowDraftNodeStart       WorkflowDraftNodeType = "start"
 )
 
 var (
@@ -321,11 +308,6 @@ var (
 		GraphViewModeDraft,
 		GraphViewModeVersion,
 		GraphViewModeRun,
-	}
-	workflowValidationStatusValues = []WorkflowValidationStatus{
-		WorkflowValidationNotValidated,
-		WorkflowValidationCurrent,
-		WorkflowValidationStale,
 	}
 	workflowEventTypeValues = []WorkflowEventType{
 		EventExecutionStarted,
@@ -475,14 +457,6 @@ var (
 		ApprovalTriggerDestructiveAction,
 		ApprovalTriggerUnsandboxedExecution,
 	}
-	workflowDraftNodeTypeValues = []WorkflowDraftNodeType{
-		WorkflowDraftNodeAgentTask,
-		WorkflowDraftNodeBarrierJoin,
-		WorkflowDraftNodeEnd,
-		WorkflowDraftNodeMerge,
-		WorkflowDraftNodeRoute,
-		WorkflowDraftNodeStart,
-	}
 )
 
 type ContractValueSet struct {
@@ -503,7 +477,6 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "WorkflowGraphNodeStatus", Values: stringValues(workflowGraphNodeStatusValues)},
 		{Name: "WorkflowGraphEdgeStatus", Values: stringValues(workflowGraphEdgeStatusValues)},
 		{Name: "WorkflowGraphViewMode", Values: stringValues(workflowGraphViewModeValues)},
-		{Name: "WorkflowValidationStatus", Values: stringValues(workflowValidationStatusValues)},
 		{Name: "WorkflowEventType", Values: stringValues(workflowEventTypeValues)},
 		{Name: "WorkflowValidationSeverity", Values: stringValues(workflowValidationSeverityValues)},
 		{Name: "WorkflowTerminalReason", Values: stringValues(workflowTerminalReasonValues)},
@@ -521,7 +494,6 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SideEffectPolicyKind", Values: stringValues(sideEffectPolicyKindValues)},
 		{Name: "SideEffectScope", Values: stringValues(sideEffectScopeValues)},
 		{Name: "ApprovalTrigger", Values: stringValues(approvalTriggerValues)},
-		{Name: "WorkflowDraftNodeType", Values: stringValues(workflowDraftNodeTypeValues)},
 	}
 }
 
@@ -540,7 +512,6 @@ type WorkflowDefinition struct {
 	Name          string        `json:"name"`
 	Description   string        `json:"description"`
 	Graph         WorkflowGraph `json:"graph"`
-	DraftRevision string        `json:"draftRevision"`
 	CreatedAt     string        `json:"createdAt"`
 	UpdatedAt     string        `json:"updatedAt"`
 }
@@ -571,18 +542,6 @@ type WorkflowGraphNodeLayout struct {
 	NodeID string `json:"nodeId"`
 	X      int    `json:"x"`
 	Y      int    `json:"y"`
-}
-
-type WorkflowDraftNodePosition struct {
-	X int `json:"x"`
-	Y int `json:"y"`
-}
-
-type WorkflowDraftEdgeConnection struct {
-	SourceNodeID string `json:"sourceNodeId"`
-	SourcePortID string `json:"sourcePortId"`
-	TargetNodeID string `json:"targetNodeId"`
-	TargetPortID string `json:"targetPortId"`
 }
 
 type WorkflowNode struct {
@@ -728,24 +687,6 @@ type WorkflowValidationResult struct {
 	Diagnostics []WorkflowValidationDiagnostic `json:"diagnostics"`
 }
 
-type WorkflowValidationSnapshot struct {
-	SchemaVersion        int                      `json:"schemaVersion"`
-	WorkspaceID          string                   `json:"workspaceId"`
-	DefinitionID         string                   `json:"definitionId"`
-	GraphFingerprint     string                   `json:"graphFingerprint"`
-	ValidatorFingerprint string                   `json:"validatorFingerprint"`
-	Result               WorkflowValidationResult `json:"result"`
-	ValidatedAt          string                   `json:"validatedAt"`
-}
-
-type WorkflowDefinitionValidationState struct {
-	Status                      WorkflowValidationStatus    `json:"status"`
-	CurrentGraphFingerprint     string                      `json:"currentGraphFingerprint"`
-	CurrentValidatorFingerprint string                      `json:"currentValidatorFingerprint"`
-	CurrentDraftRevision        string                      `json:"currentDraftRevision"`
-	Snapshot                    *WorkflowValidationSnapshot `json:"snapshot"`
-}
-
 type WorkflowValidationDiagnostic struct {
 	Severity WorkflowValidationSeverity `json:"severity"`
 	Code     string                     `json:"code"`
@@ -876,29 +817,27 @@ type WorkflowExecutionEventPage struct {
 }
 
 type WorkflowGraphProjection struct {
-	SchemaVersion              int                               `json:"schemaVersion"`
-	WorkspaceID                string                            `json:"workspaceId"`
-	DefinitionID               string                            `json:"definitionId"`
-	DefinitionVersionID        string                            `json:"definitionVersionId"`
-	DefinitionVersionNumber    int                               `json:"definitionVersionNumber"`
-	DefinitionVersionCreatedAt string                            `json:"definitionVersionCreatedAt"`
-	DefinitionName             string                            `json:"definitionName"`
-	DefinitionDescription      string                            `json:"definitionDescription"`
-	ViewMode                   WorkflowGraphViewMode             `json:"viewMode"`
-	Editable                   bool                              `json:"editable"`
-	DraftRevision              string                            `json:"draftRevision"`
-	DraftUpdatedAt             string                            `json:"draftUpdatedAt"`
-	DraftMatchesVersion        bool                              `json:"draftMatchesVersion"`
-	VersionMismatch            bool                              `json:"versionMismatch"`
-	ExecutionID                string                            `json:"executionId"`
-	ExecutionStatus            *WorkflowExecutionStatus          `json:"executionStatus"`
-	TerminalReason             *WorkflowTerminalReason           `json:"terminalReason"`
-	LastEventOrdinal           int                               `json:"lastEventOrdinal"`
-	UpdatedAt                  string                            `json:"updatedAt"`
-	Validation                 WorkflowDefinitionValidationState `json:"validation"`
-	Layout                     WorkflowGraphLayout               `json:"layout"`
-	Nodes                      []WorkflowGraphNode               `json:"nodes"`
-	Edges                      []WorkflowGraphEdge               `json:"edges"`
+	SchemaVersion              int                      `json:"schemaVersion"`
+	WorkspaceID                string                   `json:"workspaceId"`
+	DefinitionID               string                   `json:"definitionId"`
+	DefinitionVersionID        string                   `json:"definitionVersionId"`
+	DefinitionVersionNumber    int                      `json:"definitionVersionNumber"`
+	DefinitionVersionCreatedAt string                   `json:"definitionVersionCreatedAt"`
+	DefinitionName             string                   `json:"definitionName"`
+	DefinitionDescription      string                   `json:"definitionDescription"`
+	ViewMode                   WorkflowGraphViewMode    `json:"viewMode"`
+	Editable                   bool                     `json:"editable"`
+	DraftUpdatedAt             string                   `json:"draftUpdatedAt"`
+	DraftMatchesVersion        bool                     `json:"draftMatchesVersion"`
+	VersionMismatch            bool                     `json:"versionMismatch"`
+	ExecutionID                string                   `json:"executionId"`
+	ExecutionStatus            *WorkflowExecutionStatus `json:"executionStatus"`
+	TerminalReason             *WorkflowTerminalReason  `json:"terminalReason"`
+	LastEventOrdinal           int                      `json:"lastEventOrdinal"`
+	UpdatedAt                  string                   `json:"updatedAt"`
+	Layout                     WorkflowGraphLayout      `json:"layout"`
+	Nodes                      []WorkflowGraphNode      `json:"nodes"`
+	Edges                      []WorkflowGraphEdge      `json:"edges"`
 }
 
 type WorkflowGraphNode struct {

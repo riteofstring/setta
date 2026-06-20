@@ -246,7 +246,7 @@ async function runLiveSemanticCartographerWorkflow({
   assertLiveWorkflowCompleted(execution);
   await waitForBackendState(
     async () => readLiveCartographerState(client, workspaceId, started.id),
-    liveCartographerTerminal,
+    liveCartographerApplied,
     timeoutMs,
   );
 }
@@ -288,16 +288,6 @@ async function readLiveCartographerState(client, workspaceId, executionId) {
   return { graph, patches, runs, state, windows };
 }
 
-function liveCartographerTerminal(value) {
-  return (
-    value.state.enabled &&
-    value.state.started &&
-    liveDurableQueueIdle(value.state) &&
-    value.windows.windows.some((window) => window.status === "processed") &&
-    (liveCartographerApplied(value) || liveCartographerCompletedNoop(value))
-  );
-}
-
 function liveCartographerApplied(value) {
   const appliedRun = value.runs.runs.find((run) => run.status === "applied");
   const appliedPatch = value.patches.patches.find(
@@ -306,25 +296,13 @@ function liveCartographerApplied(value) {
       patch.status === "applied" &&
       patch.createdSemanticEventIds.length > 0,
   );
-  return Boolean(appliedRun) && Boolean(appliedPatch) && value.graph.nodes.length > 1;
-}
-
-function liveCartographerCompletedNoop(value) {
-  const completedNoopRun = value.runs.runs.find((run) => run.status === "completed_noop");
   return (
-    Boolean(completedNoopRun) &&
-    value.state.completedNoopRunCount > 0 &&
-    value.state.lastNoopRunId === completedNoopRun.id
-  );
-}
-
-function liveDurableQueueIdle(state) {
-  return (
-    state.queuedWindowCount === 0 &&
-    state.runningWindowCount === 0 &&
-    state.durableQueuedWindowCount === 0 &&
-    state.durableRunningWindowCount === 0 &&
-    state.staleLeaseCount === 0
+    value.state.enabled &&
+    value.state.started &&
+    value.windows.windows.some((window) => window.status === "processed") &&
+    Boolean(appliedRun) &&
+    Boolean(appliedPatch) &&
+    value.graph.nodes.length > 1
   );
 }
 
