@@ -1,7 +1,7 @@
 # Workspace Graph Retained Scene Camera Fast Path Plan
 
 - **Date:** June 20, 2026
-- **Status:** Active plan.
+- **Status:** Complete; all listed phases are implemented through Phase 8.
 - **Replaces:** `workspace_graph_interaction_refactor_readiness_plan.md`.
 - **Scope:** Rebuild the workspace graph interaction and rendering contract
   around a retained Pixi scene, a camera-only pan/zoom path, useful diagnostic
@@ -62,6 +62,7 @@
   `docs/reports/performance/workspace-graph-phase-8-performance-gate.md`
   explicitly separate deterministic CI invariants from machine-dependent
   millisecond timing reports.
+- No further phases remain in this plan.
 
 ## Position
 
