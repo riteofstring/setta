@@ -22,6 +22,7 @@ import * as rendererLabelFont from "./pixi-renderer-label-font";
 import { createWorkflowGraphLabelManager } from "./pixi-renderer-labels";
 import { destroyInitializedApp } from "./pixi-renderer-lifecycle";
 import { createWorkflowGraphRendererLayers } from "./pixi-renderer-layer-setup";
+import { createWorkflowGraphPerformanceRecorder } from "./pixi-renderer-performance-recorder";
 import {
   createNodeGeometryContextFactory,
   drawWorkspaceBackdrop,
@@ -40,6 +41,7 @@ import {
   drawMarqueeSelection,
   drawTemporaryEdge,
   edgeConnection,
+  frameSampleStats,
   hostScreenSize,
   hitTestPortCandidateAtScreen,
   hitTestTopNodeAtScreen,
@@ -61,6 +63,7 @@ import { createWorkflowGraphWheelHandler } from "./pixi-renderer-wheel-handler";
 import { createWorkflowGraphWheelResponsivenessTracker } from "./pixi-renderer-wheel-responsiveness";
 const limits = workflowGraphRendererLimits;
 let nextRendererInstanceId = 1;
+const activeRendererInstancesBySurface = new Map();
 export async function createWorkflowGraphRenderer(options) {
   const {
     abortSignal,
@@ -306,6 +309,11 @@ export async function createWorkflowGraphRenderer(options) {
     trajectoryLayer,
     viewport,
   });
+  const performanceRecorder = createWorkflowGraphPerformanceRecorder({
+    enabled: debugEnabled,
+    getSample: workflowGraphPerformanceSample,
+    surfaceId: debugSurfaceId,
+  });
   const cameraControls = createWorkflowGraphCameraControls({
     cameraSync,
     host,
@@ -329,6 +337,11 @@ export async function createWorkflowGraphRenderer(options) {
     vignette,
     vignetteGradient,
     viewport,
+  });
+  registerRendererInstance(debugSurfaceId, rendererInstanceId);
+  performanceRecorder.recordLifecycle({
+    now: performance.now(),
+    reason: "renderer-created",
   });
   const pointerDown = rendererInputHandlers.createWorkflowGraphPointerDownHandler({
     canvas: app.canvas,
@@ -367,7 +380,7 @@ export async function createWorkflowGraphRenderer(options) {
       return;
     }
     if (panningCamera) {
-      moveCameraPan(screen);
+      moveCameraPan(screen, event);
       return;
     }
     syncHoverAtScreen(screen);
@@ -399,9 +412,7 @@ export async function createWorkflowGraphRenderer(options) {
       return;
     }
     if (panningCamera) {
-      cameraSync.endCameraInteraction({ interactionKind: "pointer-pan" });
-      panningCamera = null;
-      viewport.plugins.resume("decelerate");
+      finishCameraPanning(event, "pointer-pan-end");
       releasePointer(event);
     }
   };
@@ -424,6 +435,9 @@ export async function createWorkflowGraphRenderer(options) {
     panCameraByScreenDelta: cameraControls.panCameraByScreenDelta,
     recordWheelPan: () => {
       wheelPanUpdateCount += 1;
+    },
+    recordWheelInput: (payload) => {
+      performanceRecorder.recordInput(payload);
     },
     recordWheelZoom: () => {
       wheelZoomUpdateCount += 1;
@@ -494,6 +508,11 @@ export async function createWorkflowGraphRenderer(options) {
       { cameraMotion: cameraSync.isCameraMoving() ? "moving" : "settled" },
     );
     trajectoryRuntime.tick(now);
+    performanceRecorder.recordFrame({
+      cameraMoving: cameraSync.isCameraMoving(),
+      frameMs,
+      now,
+    });
   });
   const debugAnimationFrameRenderer =
     rendererDebugSurface.createWorkflowGraphDebugAnimationFrameRenderer({
@@ -566,6 +585,11 @@ export async function createWorkflowGraphRenderer(options) {
       }
       destroyed = true;
       rendererDestroyCount += 1;
+      unregisterRendererInstance(debugSurfaceId, rendererInstanceId);
+      performanceRecorder.recordLifecycle({
+        now: performance.now(),
+        reason: "renderer-destroyed",
+      });
       resizeObserver.disconnect();
       removeDomListeners();
       unregisterDebugSurface?.();
@@ -611,6 +635,78 @@ export async function createWorkflowGraphRenderer(options) {
       labels.syncVisibleLabels();
       redrawEdges();
     });
+  }
+  function workflowGraphPerformanceSample({ frameMs, now, reason }) {
+    const frameStats = frameSampleStats(recentFrameMs);
+    const timing = debugMetrics.snapshot();
+    const camera = cameraSync.debugSnapshot();
+    const labelsSnapshot = labels.debugSnapshot();
+    const sceneSnapshot = sceneGraph.debugSnapshot();
+    const scheduler = interactionScheduler.debugSnapshot();
+    const wheel = inputResponsiveness.debugSnapshot();
+    return {
+      at: now,
+      animation: {
+        ...animationState.debugSnapshot(),
+        ...animationCoordinator.debugSnapshot(),
+      },
+      camera: {
+        ...cameraState(viewport),
+        ...camera,
+      },
+      frame: {
+        averageFrameMs: frameStats.average,
+        frameCount,
+        frameMs,
+        p95FrameMs: frameStats.p95,
+        recentFrameMs: recentFrameMs.slice(-30),
+        worstFrameMs: frameStats.worst,
+      },
+      graph: {
+        edgeCount: edges.length,
+        labelObjectCount: nodeLabels.size,
+        nodeCount: nodes.length,
+        portGraphicsCount: portVisuals.size,
+        ...sceneSnapshot,
+        ...sceneGraph.updateCounts(),
+      },
+      input: {
+        pointerPanUpdateCount,
+        wheelInput: {
+          ...wheel.wheelInput,
+          samples: wheel.wheelInput.samples.slice(-40),
+        },
+        wheelInputEventCount: wheel.wheelInputEventCount,
+        wheelInputGestureCount: wheel.wheelInputGestureCount,
+        wheelInputLastEventToSettleRestoreMs: wheel.wheelInputLastEventToSettleRestoreMs,
+        wheelInputTailCandidateDurationMs: wheel.wheelInputTailCandidateDurationMs,
+        wheelInputTailCandidateEventCount: wheel.wheelInputTailCandidateEventCount,
+        wheelPanUpdateCount,
+        wheelZoomUpdateCount,
+      },
+      labels: labelsSnapshot,
+      lifecycle: {
+        activeRendererInstanceCount: activeRendererInstanceIds(debugSurfaceId).length,
+        activeRendererInstanceIds: activeRendererInstanceIds(debugSurfaceId),
+        destroyed,
+        rendererDestroyCount,
+      },
+      reason,
+      rendererInstanceId,
+      scheduler: {
+        laneCounts: scheduler.interactionSchedulerLaneCounts,
+        lastLanePriority: scheduler.interactionSchedulerLastLanePriority,
+        recentLaneRuns: scheduler.interactionSchedulerRecentLaneRuns,
+        runCount: scheduler.interactionSchedulerRunCount,
+      },
+      surfaceId: debugSurfaceId,
+      timing: {
+        timingBuckets: timing.timingBuckets,
+        timingSampleLimit: timing.timingSampleLimit,
+        timingSamples: timing.timingSamples.slice(-60),
+      },
+      trajectory: trajectoryRuntime.debugSnapshot(),
+    };
   }
   function syncVisibleSceneForCamera({ force = false, zoomChanged = false } = {}) {
     const update = sceneGraph.syncVisibleScene({ force });
@@ -774,26 +870,82 @@ export async function createWorkflowGraphRenderer(options) {
   function clearLastNodeClick() {
     lastNodeClick = null;
   }
-  function startCameraPanning(screen) {
+  function startCameraPanning(screen, event) {
+    const startedAt = performance.now();
+    const cameraBefore = cameraState(viewport);
     panningCamera = {
       lastX: screen.x,
       lastY: screen.y,
+      startedAt,
+      startX: screen.x,
+      startY: screen.y,
     };
     cameraSync.beginCameraInteraction({ interactionKind: "pointer-pan" });
     viewport.plugins.pause("decelerate");
+    recordGraphInput("pointer-pan-start", {
+      cameraAfter: cameraState(viewport),
+      cameraBefore,
+      cameraChanged: false,
+      event: pointerEventDiagnostics(event, startedAt),
+      handlerDurationMs: performance.now() - startedAt,
+      kind: "pointer-pan",
+      screen: pointDiagnostics(screen),
+    });
   }
-  function moveCameraPan(screen) {
+  function moveCameraPan(screen, event) {
     if (!panningCamera) {
       return;
     }
+    const startedAt = performance.now();
+    const cameraBefore = cameraState(viewport);
     const deltaX = screen.x - panningCamera.lastX;
     const deltaY = screen.y - panningCamera.lastY;
     panningCamera.lastX = screen.x;
     panningCamera.lastY = screen.y;
-    cameraControls.panCameraByScreenDelta(-deltaX, -deltaY, {
+    const cameraChanged = cameraControls.panCameraByScreenDelta(-deltaX, -deltaY, {
       interactionKind: "pointer-pan",
     });
+    const cameraAfter = cameraState(viewport);
     pointerPanUpdateCount += 1;
+    recordGraphInput("pointer-pan-move", {
+      cameraAfter,
+      cameraBefore,
+      cameraChanged,
+      cameraDelta: cameraStateDelta(cameraBefore, cameraAfter),
+      event: pointerEventDiagnostics(event, startedAt),
+      handlerDurationMs: performance.now() - startedAt,
+      kind: "pointer-pan",
+      panCameraDeltaScreen: { x: -deltaX, y: -deltaY },
+      screen: pointDiagnostics(screen),
+      screenDelta: { x: deltaX, y: deltaY },
+    });
+  }
+  function finishCameraPanning(event, reason) {
+    if (!panningCamera) {
+      return;
+    }
+    const startedAt = performance.now();
+    const cameraBefore = cameraState(viewport);
+    const totalScreenDelta = {
+      x: panningCamera.lastX - panningCamera.startX,
+      y: panningCamera.lastY - panningCamera.startY,
+    };
+    const durationMs = startedAt - panningCamera.startedAt;
+    cameraSync.endCameraInteraction({ interactionKind: "pointer-pan" });
+    panningCamera = null;
+    viewport.plugins.resume("decelerate");
+    const cameraAfter = cameraState(viewport);
+    recordGraphInput(reason, {
+      cameraAfter,
+      cameraBefore,
+      cameraChanged: false,
+      cameraDelta: cameraStateDelta(cameraBefore, cameraAfter),
+      durationMs,
+      event: pointerEventDiagnostics(event, startedAt),
+      handlerDurationMs: performance.now() - startedAt,
+      kind: "pointer-pan",
+      totalScreenDelta,
+    });
   }
   function selectOnlyNode(nodeId) {
     edgeInteractions.clearSelection();
@@ -996,4 +1148,76 @@ export async function createWorkflowGraphRenderer(options) {
     });
     gridDrawCount += 1;
   }
+  function recordGraphInput(reason, sample) {
+    performanceRecorder.recordInput({
+      now: performance.now(),
+      reason,
+      sample: {
+        ...sample,
+        frameCount,
+        rendererInstanceId,
+        surfaceId: debugSurfaceId,
+      },
+    });
+  }
+  function pointerEventDiagnostics(event, now) {
+    if (!event) {
+      return null;
+    }
+    return {
+      altKey: Boolean(event.altKey),
+      button: event.button,
+      buttons: event.buttons,
+      cancelable: Boolean(event.cancelable),
+      clientX: event.clientX,
+      clientY: event.clientY,
+      ctrlKey: Boolean(event.ctrlKey),
+      eventTimestampDeltaMs:
+        typeof event.timeStamp === "number" && Number.isFinite(event.timeStamp)
+          ? now - event.timeStamp
+          : null,
+      isPrimary: event.isPrimary,
+      metaKey: Boolean(event.metaKey),
+      pointerId: event.pointerId,
+      pointerType: event.pointerType,
+      pressure: event.pressure,
+      shiftKey: Boolean(event.shiftKey),
+      timeStamp: typeof event.timeStamp === "number" ? event.timeStamp : null,
+    };
+  }
+  function pointDiagnostics(point) {
+    return {
+      x: point.x,
+      y: point.y,
+    };
+  }
+  function cameraStateDelta(before, after) {
+    return {
+      x: after.x - before.x,
+      y: after.y - before.y,
+      zoom: after.zoom - before.zoom,
+      zoomRatio: before.zoom === 0 ? null : after.zoom / before.zoom,
+    };
+  }
+}
+
+function registerRendererInstance(surfaceId, rendererInstanceId) {
+  const activeInstances = activeRendererInstancesBySurface.get(surfaceId) ?? new Set();
+  activeInstances.add(rendererInstanceId);
+  activeRendererInstancesBySurface.set(surfaceId, activeInstances);
+}
+
+function unregisterRendererInstance(surfaceId, rendererInstanceId) {
+  const activeInstances = activeRendererInstancesBySurface.get(surfaceId);
+  if (!activeInstances) {
+    return;
+  }
+  activeInstances.delete(rendererInstanceId);
+  if (activeInstances.size === 0) {
+    activeRendererInstancesBySurface.delete(surfaceId);
+  }
+}
+
+function activeRendererInstanceIds(surfaceId) {
+  return [...(activeRendererInstancesBySurface.get(surfaceId) ?? [])];
 }

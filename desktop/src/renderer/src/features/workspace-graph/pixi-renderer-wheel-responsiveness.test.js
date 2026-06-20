@@ -57,6 +57,12 @@ describe("workflow graph wheel responsiveness tracker", () => {
       metaKey: false,
       treatment: "zoom",
     });
+    expect(snapshot.wheelInput.samples[0].cameraDelta).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+    expect(snapshot.wheelInput.samples[0].cameraDelta.zoom).toBeCloseTo(0.1);
+    expect(snapshot.wheelInput.samples[0].cameraDelta.zoomRatio).toBeCloseTo(1.1);
   });
 });
 
