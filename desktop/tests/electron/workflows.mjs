@@ -71,6 +71,30 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    args: ["--scenario", "editable-draft-durability"],
+    file: "workflow-graph-durable-drag-contract.test.mjs",
+    name: "workflow-graph-editable-drag-contract",
+    tiers: ["refactor"],
+  },
+  {
+    args: ["--scenario", "read-only-run-ports"],
+    file: "workflow-graph-durable-drag-contract.test.mjs",
+    name: "workflow-graph-read-only-port-contract",
+    tiers: ["refactor"],
+  },
+  {
+    args: ["--scenario", "read-only-run-view-layout"],
+    file: "workflow-graph-durable-drag-contract.test.mjs",
+    name: "workflow-graph-read-only-view-layout-contract",
+    tiers: ["refactor"],
+  },
+  {
+    args: ["--scenario", "active-replacement-during-drag"],
+    file: "workflow-graph-durable-drag-contract.test.mjs",
+    name: "workflow-graph-active-replacement-contract",
+    tiers: ["refactor"],
+  },
+  {
     file: "semantic-graph-workflow.test.mjs",
     name: "semantic-graph",
     tiers: ["required"],

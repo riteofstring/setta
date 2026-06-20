@@ -1,7 +1,7 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 1 complete; Phase 2 ready to implement.
+- **Status:** Phase 2 contract tests added; Phase 3 ready to implement.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -677,9 +677,17 @@ diff.
 Goal: add behavior-first regression coverage before changing the interaction
 implementation.
 
-Status: Ready to implement. The Phase 1 view-layout owner prerequisite exists,
-so Phase 2 should include both current editable/read-only port coverage and the
-post-Phase-1 read-only/run/version node view-layout persistence coverage.
+Status: Complete. Phase 2 added behavior-first Electron contract workflows
+under the explicit `refactor` tier:
+
+- `workflow-graph-editable-drag-contract`;
+- `workflow-graph-read-only-port-contract`;
+- `workflow-graph-read-only-view-layout-contract`;
+- `workflow-graph-active-replacement-contract`.
+
+These workflows exercise production Electron/main/preload/renderer/HTTP/store
+paths with temporary app data. They are intentionally not part of the default
+required tier while the known broken interaction contract remains red.
 
 Tasks:
 
@@ -750,6 +758,23 @@ Acceptance criteria:
   same time.
 - Read-only/run/version node persistence tests are added only after the
   Go-owned view-layout owner contract exists.
+
+Phase 2 verification:
+
+```sh
+pnpm -C desktop build
+node desktop/tests/electron/run-workflows.mjs \
+  --workflow workflow-graph-editable-drag-contract \
+  --workflow workflow-graph-read-only-port-contract \
+  --workflow workflow-graph-read-only-view-layout-contract \
+  --workflow workflow-graph-active-replacement-contract \
+  --skip-build
+```
+
+Expected pre-Phase-3/Phase-7 result: editable draft drag durability should pass;
+the read-only port, read-only view-layout, and active replacement contract
+workflows should fail until movement ownership, port connectability, view-layout
+composition, and queued replacement settlement are implemented.
 
 ## Phase 3: Editability And Movement Ownership Contract
 
