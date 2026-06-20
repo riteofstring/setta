@@ -11,6 +11,8 @@ export function rendererHandlers(handlers = {}) {
     onCameraStateChange: handlers.onCameraStateChange ?? noopCameraStateChange,
     onCanvasContextMenu: handlers.onCanvasContextMenu ?? null,
     onEdgeCreate: handlers.onEdgeCreate,
+    onEdgeDelete: handlers.onEdgeDelete,
+    onEdgeSelectionChange: handlers.onEdgeSelectionChange ?? null,
     onNodeDelete: handlers.onNodeDelete,
     onNodeOpen: handlers.onNodeOpen ?? null,
     onNodePositionsChange: handlers.onNodePositionsChange ?? null,

@@ -118,6 +118,9 @@ func validateCodexStructuredTaskPayload(task *HarnessStructuredTask, schemaJSON 
 	if len(task.Input) == 0 {
 		return fmt.Errorf("%w: codex structured task input is required", ErrUnsupportedHarnessTask)
 	}
+	if task.ReasoningEffort != nil && !validValue(*task.ReasoningEffort, reasoningEffortValues) {
+		return fmt.Errorf("%w: codex structured task reasoning effort is unsupported: %s", ErrUnsupportedHarnessTask, *task.ReasoningEffort)
+	}
 	var schema any
 	if err := json.Unmarshal(schemaJSON, &schema); err != nil {
 		return fmt.Errorf("%w: codex structured output schema must be valid JSON: %v", ErrUnsupportedHarnessTask, err)

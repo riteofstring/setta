@@ -18,6 +18,7 @@ func (store *Store) SaveCartographerRun(ctx context.Context, run CartographerRun
 	if err != nil {
 		return CartographerRun{}, err
 	}
+	finalizeCartographerRunAudit(&run, columns)
 	_, err = store.db.ExecContext(ctx, saveCartographerRunSQL,
 		run.WorkspaceID,
 		run.ID,
@@ -35,16 +36,43 @@ func (store *Store) SaveCartographerRun(ctx context.Context, run CartographerRun
 		columns.inputBundleJSON,
 		columns.outputSchemaJSON,
 		run.HarnessKind,
-		run.Model,
+		run.SettingsHash,
+		run.TaskProfile,
+		run.RequestedModelSelection,
+		run.RequestedModel,
+		run.EffectiveModel,
+		run.ReportedModel,
+		run.RequestedReasoningEffort,
+		run.RequestedInputBudget,
+		run.EffectiveReasoningEffort,
+		run.ReportedReasoningEffort,
+		boolToSQLiteInt(run.ReasoningEffortReported),
 		run.RequestID,
 		run.ResponseID,
 		run.WindowID,
+		run.SourceEpochID,
+		run.SourceKey,
+		run.Priority,
+		run.LeaseOwner,
+		run.LeaseDeadline,
+		run.AttemptCount,
 		run.InputBundleHash,
+		run.InputBundleBytes,
+		run.InputBundleCharacterCount,
 		columns.inputItemCountsJSON,
+		run.OutputSchemaBytes,
 		run.RawHarnessResponseHash,
+		run.RawHarnessResponseBytes,
+		run.CloseReason,
+		run.QueueWaitMS,
+		run.HarnessDurationMS,
+		run.ValidationDurationMS,
+		run.ApplicationDurationMS,
+		run.TotalDurationMS,
 		run.TrajectorySummary,
 		columns.createdEventIDsJSON,
 		columns.diagnosticsJSON,
+		columns.graphUsefulnessScoreJSON,
 		run.CreatedAt,
 		run.StartedAt,
 		run.CompletedAt,
@@ -59,12 +87,13 @@ func (store *Store) SaveCartographerRun(ctx context.Context, run CartographerRun
 }
 
 type cartographerRunJSONColumns struct {
-	inputBundleJSON     string
-	outputSchema        json.RawMessage
-	outputSchemaJSON    string
-	inputItemCountsJSON string
-	createdEventIDsJSON string
-	diagnosticsJSON     string
+	inputBundleJSON          string
+	outputSchema             json.RawMessage
+	outputSchemaJSON         string
+	inputItemCountsJSON      string
+	createdEventIDsJSON      string
+	diagnosticsJSON          string
+	graphUsefulnessScoreJSON string
 }
 
 func prepareCartographerRunJSONColumns(run CartographerRun) (cartographerRunJSONColumns, error) {
@@ -77,6 +106,7 @@ func prepareCartographerRunJSONColumns(run CartographerRun) (cartographerRunJSON
 	if err != nil {
 		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer output schema: %w", err)
 	}
+	run.InputItemCounts = cartographerInputItemCounts(run.InputBundle)
 	inputItemCountsJSON, err := marshalJSONColumn(run.InputItemCounts)
 	if err != nil {
 		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer input item counts: %w", err)
@@ -89,14 +119,33 @@ func prepareCartographerRunJSONColumns(run CartographerRun) (cartographerRunJSON
 	if err != nil {
 		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer diagnostics: %w", err)
 	}
+	normalizeCartographerGraphUsefulnessScore(&run.GraphUsefulnessScore)
+	graphUsefulnessScoreJSON, err := marshalJSONColumn(run.GraphUsefulnessScore)
+	if err != nil {
+		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer graph usefulness score: %w", err)
+	}
 	return cartographerRunJSONColumns{
-		inputBundleJSON:     inputBundleJSON,
-		outputSchema:        outputSchema,
-		outputSchemaJSON:    outputSchemaJSON,
-		inputItemCountsJSON: inputItemCountsJSON,
-		createdEventIDsJSON: createdEventIDsJSON,
-		diagnosticsJSON:     diagnosticsJSON,
+		inputBundleJSON:          inputBundleJSON,
+		outputSchema:             outputSchema,
+		outputSchemaJSON:         outputSchemaJSON,
+		inputItemCountsJSON:      inputItemCountsJSON,
+		createdEventIDsJSON:      createdEventIDsJSON,
+		diagnosticsJSON:          diagnosticsJSON,
+		graphUsefulnessScoreJSON: graphUsefulnessScoreJSON,
 	}, nil
+}
+
+func finalizeCartographerRunAudit(run *CartographerRun, columns cartographerRunJSONColumns) {
+	run.InputBundleHash = hashBytes([]byte(columns.inputBundleJSON))
+	run.InputBundleBytes = len([]byte(columns.inputBundleJSON))
+	run.InputBundleCharacterCount = len([]rune(columns.inputBundleJSON))
+	run.InputItemCounts = cartographerInputItemCounts(run.InputBundle)
+	run.OutputSchemaBytes = len([]byte(columns.outputSchemaJSON))
+	if run.CloseReason == "" {
+		run.CloseReason = cartographerInputBundleCloseReason(run.InputBundle)
+	}
+	run.QueueWaitMS = cartographerDurationMillis(run.CreatedAt, run.StartedAt)
+	run.TotalDurationMS = cartographerDurationMillis(run.CreatedAt, run.CompletedAt)
 }
 
 const saveCartographerRunSQL = `
@@ -105,11 +154,18 @@ INSERT INTO semantic_cartographer_runs (
   workflow_definition_id, workflow_execution_id, workflow_node_id,
   workflow_node_execution_id, chat_conversation_id, chat_run_id,
   chat_message_id, run_item_id, input_bundle_json, output_schema_json,
-  harness_kind, model, request_id, response_id, window_id,
-  input_bundle_hash, input_item_counts_json, raw_harness_response_hash,
-  trajectory_summary, created_semantic_event_ids_json, diagnostics_json,
+  harness_kind, settings_hash, task_profile, requested_model_selection,
+  requested_model, effective_model, reported_model, requested_reasoning_effort,
+  requested_input_budget, effective_reasoning_effort, reported_reasoning_effort, reasoning_effort_reported,
+  request_id, response_id, window_id,
+  source_epoch_id, source_key, priority, lease_owner, lease_deadline,
+  attempt_count, input_bundle_hash, input_bundle_bytes, input_bundle_character_count,
+  input_item_counts_json, output_schema_bytes, raw_harness_response_hash,
+  raw_harness_response_bytes, close_reason, queue_wait_ms, harness_duration_ms,
+  validation_duration_ms, application_duration_ms, total_duration_ms, trajectory_summary,
+  created_semantic_event_ids_json, diagnostics_json, graph_usefulness_score_json,
   created_at, started_at, completed_at, updated_at, error
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(workspace_id, id) DO UPDATE SET
   status = excluded.status,
   trigger_kind = excluded.trigger_kind,
@@ -125,16 +181,43 @@ ON CONFLICT(workspace_id, id) DO UPDATE SET
   input_bundle_json = excluded.input_bundle_json,
   output_schema_json = excluded.output_schema_json,
   harness_kind = excluded.harness_kind,
-  model = excluded.model,
+  settings_hash = excluded.settings_hash,
+  task_profile = excluded.task_profile,
+  requested_model_selection = excluded.requested_model_selection,
+  requested_model = excluded.requested_model,
+  effective_model = excluded.effective_model,
+  reported_model = excluded.reported_model,
+  requested_reasoning_effort = excluded.requested_reasoning_effort,
+  requested_input_budget = excluded.requested_input_budget,
+  effective_reasoning_effort = excluded.effective_reasoning_effort,
+  reported_reasoning_effort = excluded.reported_reasoning_effort,
+  reasoning_effort_reported = excluded.reasoning_effort_reported,
   request_id = excluded.request_id,
   response_id = excluded.response_id,
   window_id = excluded.window_id,
+  source_epoch_id = excluded.source_epoch_id,
+  source_key = excluded.source_key,
+  priority = excluded.priority,
+  lease_owner = excluded.lease_owner,
+  lease_deadline = excluded.lease_deadline,
+  attempt_count = excluded.attempt_count,
   input_bundle_hash = excluded.input_bundle_hash,
+  input_bundle_bytes = excluded.input_bundle_bytes,
+  input_bundle_character_count = excluded.input_bundle_character_count,
   input_item_counts_json = excluded.input_item_counts_json,
+  output_schema_bytes = excluded.output_schema_bytes,
   raw_harness_response_hash = excluded.raw_harness_response_hash,
+  raw_harness_response_bytes = excluded.raw_harness_response_bytes,
+  close_reason = excluded.close_reason,
+  queue_wait_ms = excluded.queue_wait_ms,
+  harness_duration_ms = excluded.harness_duration_ms,
+  validation_duration_ms = excluded.validation_duration_ms,
+  application_duration_ms = excluded.application_duration_ms,
+  total_duration_ms = excluded.total_duration_ms,
   trajectory_summary = excluded.trajectory_summary,
   created_semantic_event_ids_json = excluded.created_semantic_event_ids_json,
   diagnostics_json = excluded.diagnostics_json,
+  graph_usefulness_score_json = excluded.graph_usefulness_score_json,
   started_at = excluded.started_at,
   completed_at = excluded.completed_at,
   updated_at = excluded.updated_at,
@@ -142,6 +225,7 @@ ON CONFLICT(workspace_id, id) DO UPDATE SET
 `
 
 func saveCartographerRunLocked(ctx context.Context, tx *sql.Tx, run CartographerRun, columns cartographerRunJSONColumns) error {
+	finalizeCartographerRunAudit(&run, columns)
 	_, err := tx.ExecContext(ctx, saveCartographerRunSQL,
 		run.WorkspaceID,
 		run.ID,
@@ -159,16 +243,43 @@ func saveCartographerRunLocked(ctx context.Context, tx *sql.Tx, run Cartographer
 		columns.inputBundleJSON,
 		columns.outputSchemaJSON,
 		run.HarnessKind,
-		run.Model,
+		run.SettingsHash,
+		run.TaskProfile,
+		run.RequestedModelSelection,
+		run.RequestedModel,
+		run.EffectiveModel,
+		run.ReportedModel,
+		run.RequestedReasoningEffort,
+		run.RequestedInputBudget,
+		run.EffectiveReasoningEffort,
+		run.ReportedReasoningEffort,
+		boolToSQLiteInt(run.ReasoningEffortReported),
 		run.RequestID,
 		run.ResponseID,
 		run.WindowID,
+		run.SourceEpochID,
+		run.SourceKey,
+		run.Priority,
+		run.LeaseOwner,
+		run.LeaseDeadline,
+		run.AttemptCount,
 		run.InputBundleHash,
+		run.InputBundleBytes,
+		run.InputBundleCharacterCount,
 		columns.inputItemCountsJSON,
+		run.OutputSchemaBytes,
 		run.RawHarnessResponseHash,
+		run.RawHarnessResponseBytes,
+		run.CloseReason,
+		run.QueueWaitMS,
+		run.HarnessDurationMS,
+		run.ValidationDurationMS,
+		run.ApplicationDurationMS,
+		run.TotalDurationMS,
 		run.TrajectorySummary,
 		columns.createdEventIDsJSON,
 		columns.diagnosticsJSON,
+		columns.graphUsefulnessScoreJSON,
 		run.CreatedAt,
 		run.StartedAt,
 		run.CompletedAt,
@@ -374,39 +485,6 @@ ORDER BY updated_at ASC, id ASC
 	}
 	if err := rows.Err(); err != nil {
 		return nil, store.persistenceError("list open cartographer windows", err)
-	}
-	return windows, nil
-}
-
-func (store *Store) ListClosedPendingCartographerWindows(ctx context.Context) ([]CartographerWindow, error) {
-	if ctx == nil {
-		return nil, errors.New("context is required")
-	}
-	rows, err := store.db.QueryContext(ctx, cartographerWindowSelectSQL+`
-WHERE status = ?
-  AND EXISTS (
-    SELECT 1
-    FROM semantic_cartographer_runs AS runs
-    WHERE runs.workspace_id = semantic_cartographer_windows.workspace_id
-      AND runs.id = semantic_cartographer_windows.run_id
-      AND runs.status = ?
-  )
-ORDER BY closed_at ASC, updated_at ASC, id ASC
-`, CartographerWindowClosed, CartographerRunPending)
-	if err != nil {
-		return nil, store.persistenceError("list closed pending cartographer windows", err)
-	}
-	defer rows.Close()
-	windows := []CartographerWindow{}
-	for rows.Next() {
-		window, err := scanCartographerWindow(rows)
-		if err != nil {
-			return nil, store.corruptError("semantic_cartographer_windows", err)
-		}
-		windows = append(windows, window)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, store.persistenceError("list closed pending cartographer windows", err)
 	}
 	return windows, nil
 }
@@ -854,10 +932,17 @@ SELECT workspace_id, id, status, trigger_kind, target_entity_id,
        workflow_definition_id, workflow_execution_id, workflow_node_id,
        workflow_node_execution_id, chat_conversation_id, chat_run_id,
        chat_message_id, run_item_id, input_bundle_json, output_schema_json,
-       harness_kind, model, request_id, response_id, window_id,
-       input_bundle_hash, input_item_counts_json, raw_harness_response_hash,
+       harness_kind, settings_hash, task_profile, requested_model_selection,
+       requested_model, effective_model, reported_model, requested_reasoning_effort,
+       requested_input_budget, effective_reasoning_effort, reported_reasoning_effort, reasoning_effort_reported,
+       request_id, response_id, window_id,
+       source_epoch_id, source_key, priority, lease_owner, lease_deadline,
+       attempt_count, input_bundle_hash, input_bundle_bytes, input_bundle_character_count,
+       input_item_counts_json, output_schema_bytes, raw_harness_response_hash,
+       raw_harness_response_bytes, close_reason, queue_wait_ms, harness_duration_ms,
+       validation_duration_ms, application_duration_ms, total_duration_ms,
        trajectory_summary, created_semantic_event_ids_json, diagnostics_json,
-       created_at, started_at, completed_at, updated_at, error
+       graph_usefulness_score_json, created_at, started_at, completed_at, updated_at, error
 FROM semantic_cartographer_runs
 `
 

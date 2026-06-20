@@ -9,7 +9,8 @@ import (
 
 func loadSemanticNodeForProjection(ctx context.Context, tx *sql.Tx, workspaceID string, nodeID string) (SemanticNode, bool, error) {
 	row := tx.QueryRowContext(ctx, `
-SELECT workspace_id, id, kind, label, summary, dismissed, promoted,
+SELECT workspace_id, id, kind, label, summary, why_it_exists, future_use,
+       dismissed, promoted,
        split_from_node_id, split_into_node_ids_json, merged_into_node_id,
        created_by_event_id, updated_by_event_id, created_at, updated_at
 FROM semantic_nodes_current
@@ -61,6 +62,38 @@ WHERE workspace_id = ? AND id = ?
 		return SemanticSteeringDirective{}, false, nil
 	}
 	return SemanticSteeringDirective{}, false, fmt.Errorf("load semantic steering directive: %w", err)
+}
+
+func loadSemanticActivityIntervalForProjection(ctx context.Context, tx *sql.Tx, workspaceID string, intervalID string) (SemanticActivityInterval, bool, error) {
+	row := tx.QueryRowContext(ctx, `
+SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
+       evidence_anchor_id, workflow_definition_id, workflow_execution_id,
+       workflow_node_id, workflow_node_execution_id, chat_conversation_id,
+       chat_run_id, chat_message_id, run_item_id, reassigned_from_interval_id,
+       actor_kind, actor_id,
+       started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
+FROM semantic_activity_intervals
+WHERE workspace_id = ? AND id = ?
+`, workspaceID, intervalID)
+	interval, err := scanSemanticActivityInterval(row)
+	if err == nil {
+		return interval, true, nil
+	}
+	if errorsIsNoRows(err) {
+		return SemanticActivityInterval{}, false, nil
+	}
+	return SemanticActivityInterval{}, false, fmt.Errorf("load semantic activity interval: %w", err)
+}
+
+func reindexSemanticNodeByID(ctx context.Context, tx *sql.Tx, workspaceID string, nodeID string) error {
+	node, ok, err := loadSemanticNodeForProjection(ctx, tx, workspaceID, nodeID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("semantic node %s does not exist", nodeID)
+	}
+	return upsertSemanticNodeSearchRow(ctx, tx, node)
 }
 
 func requireSemanticNode(ctx context.Context, tx *sql.Tx, workspaceID string, nodeID string) error {
@@ -133,6 +166,8 @@ func scanSemanticNode(scanner interface{ Scan(dest ...any) error }) (SemanticNod
 		&node.Kind,
 		&node.Label,
 		&node.Summary,
+		&node.WhyItExists,
+		&node.FutureUse,
 		&dismissed,
 		&promoted,
 		&node.SplitFromNodeID,

@@ -7,7 +7,6 @@ import process from "node:process";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -103,7 +102,20 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  const opened = await client.evaluate(`(() => {
+    const button = document.querySelector('button[aria-label="Open project folder"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-open-project-folder-button" };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-open-project-folder-button" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!opened.ok) {
+    throw new Error(`workspace open failed: ${JSON.stringify(opened)}`);
+  }
   await waitForState(
     client,
     workspaceIdExpression(),

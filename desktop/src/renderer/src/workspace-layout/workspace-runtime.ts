@@ -73,7 +73,6 @@ export function createWorkspaceRuntime({
     workspaceId,
   );
   const surfaceRegistry = new SurfaceRegistry(scene.panes, createSurfaceAdapter, {
-    metrics,
     snapshotAdapter: {
       staticFallback: snapshotStaticFallbackForRuntime(mode),
     },

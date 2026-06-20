@@ -46,9 +46,6 @@ func (store *Store) CreateRunningTurn(records RunningTurnRecords) (RunningTurnRe
 		return RunningTurnRecords{}, err
 	}
 	workspaceID := records.Run.WorkspaceID
-	if err := store.SaveConversation(records.Conversation); err != nil {
-		return RunningTurnRecords{}, err
-	}
 	if err := store.SaveMessage(workspaceID, records.UserMessage); err != nil {
 		return RunningTurnRecords{}, err
 	}
@@ -56,6 +53,9 @@ func (store *Store) CreateRunningTurn(records RunningTurnRecords) (RunningTurnRe
 		return RunningTurnRecords{}, err
 	}
 	if err := store.SaveMessage(workspaceID, records.AssistantMessage); err != nil {
+		return RunningTurnRecords{}, err
+	}
+	if err := store.SaveConversation(records.Conversation); err != nil {
 		return RunningTurnRecords{}, err
 	}
 	return records, nil
@@ -66,13 +66,13 @@ func (store *Store) CreateQueuedTurn(records QueuedTurnRecords) (QueuedTurnRecor
 		return QueuedTurnRecords{}, err
 	}
 	workspaceID := records.Run.WorkspaceID
-	if err := store.SaveConversation(records.Conversation); err != nil {
-		return QueuedTurnRecords{}, err
-	}
 	if err := store.SaveRun(records.Run); err != nil {
 		return QueuedTurnRecords{}, err
 	}
 	if err := store.SaveMessage(workspaceID, records.UserMessage); err != nil {
+		return QueuedTurnRecords{}, err
+	}
+	if err := store.SaveConversation(records.Conversation); err != nil {
 		return QueuedTurnRecords{}, err
 	}
 	return records, nil

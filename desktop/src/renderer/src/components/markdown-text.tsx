@@ -1,21 +1,8 @@
 import { memo, useMemo } from "react";
 import type { ReactNode } from "react";
 
-const plainTextSegmentLength = 512;
-const segmentedPlainTextThreshold = plainTextSegmentLength * 4;
-
 export const MarkdownText = memo(function MarkdownText({ text }: { text: string }) {
-  const markdownSyntax = hasMarkdownSyntax(text);
-  const blocks = useMemo(() => (markdownSyntax ? parseBlocks(text) : []), [markdownSyntax, text]);
-  if (!markdownSyntax) {
-    return (
-      <div className="min-w-0 max-w-full space-y-2 overflow-hidden text-[13px] leading-5 break-words text-inherit [overflow-wrap:anywhere]">
-        <p className="max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-          <PlainTextContent text={text} />
-        </p>
-      </div>
-    );
-  }
+  const blocks = useMemo(() => parseBlocks(text), [text]);
   return (
     <div className="min-w-0 max-w-full space-y-2 overflow-hidden text-[13px] leading-5 break-words text-inherit [overflow-wrap:anywhere]">
       {blocks.map((block, index) => {
@@ -43,34 +30,6 @@ export const MarkdownText = memo(function MarkdownText({ text }: { text: string 
     </div>
   );
 });
-
-function PlainTextContent({ text }: { text: string }) {
-  if (text.length < segmentedPlainTextThreshold) {
-    return text;
-  }
-  return <SegmentedPlainText text={text} />;
-}
-
-function SegmentedPlainText({ text }: { text: string }) {
-  const segments = useMemo(() => splitPlainTextSegments(text), [text]);
-  return segments.map((segment, index) => <PlainTextSegment key={index} text={segment} />);
-}
-
-const PlainTextSegment = memo(function PlainTextSegment({ text }: { text: string }) {
-  return <span>{text}</span>;
-});
-
-function splitPlainTextSegments(text: string) {
-  const segments: string[] = [];
-  for (let index = 0; index < text.length; index += plainTextSegmentLength) {
-    segments.push(text.slice(index, index + plainTextSegmentLength));
-  }
-  return segments;
-}
-
-function hasMarkdownSyntax(text: string) {
-  return text.includes("`") || text.includes("**");
-}
 
 type MarkdownBlock = { kind: "code" | "paragraph"; text: string };
 
@@ -138,7 +97,7 @@ function renderInlineMarkdown(text: string) {
     if (token.startsWith("`")) {
       nodes.push(
         <code
-          className="rounded bg-secondary px-1 py-0.5 text-[0.85em] break-words text-accent-teal [overflow-wrap:anywhere]"
+          className="rounded bg-secondary px-1 py-0.5 text-[0.85em] break-words text-secondary-foreground [overflow-wrap:anywhere]"
           key={index}
         >
           {token.slice(1, -1)}

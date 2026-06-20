@@ -12,6 +12,7 @@ describe("rendererGraphFromWorkflowProjection", () => {
       definitionName: "Review workflow",
       definitionVersionId: "version_review",
       definitionVersionNumber: 2,
+      draftRevision: "sha256:draft",
       editable: false,
       executionId: "execution_review",
       executionStatus: "running",
@@ -19,14 +20,17 @@ describe("rendererGraphFromWorkflowProjection", () => {
       viewMode: "run",
       workspaceId: "workspace_test",
     });
-    expect(graph.nodes.map((node) => [node.id, node.status, node.executionCount])).toEqual([
-      ["start", "succeeded", 1],
-      ["work", "running", 2],
-      ["end", "not_started", 0],
+    expect(
+      graph.nodes.map((node) => [node.id, node.layer, node.status, node.executionCount]),
+    ).toEqual([
+      ["start", "workflow", "succeeded", 1],
+      ["work", "workflow", "running", 2],
+      ["end", "workflow", "not_started", 0],
     ]);
     expect(
       graph.edges.map((edge) => [
         edge.id,
+        edge.layer,
         edge.sourceNodeId,
         edge.sourcePortId,
         edge.targetNodeId,
@@ -34,8 +38,8 @@ describe("rendererGraphFromWorkflowProjection", () => {
         edge.label,
       ]),
     ).toEqual([
-      ["start_work", "start", "output", "work", "completed", ""],
-      ["work_end", "work", "output", "end", "active", ""],
+      ["start_work", "workflow", "start", "output", "work", "completed", ""],
+      ["work_end", "workflow", "work", "output", "end", "active", ""],
     ]);
     expect(graph.nodes.find((node) => node.id === "start")?.x).toBeLessThan(
       graph.nodes.find((node) => node.id === "work")?.x ?? 0,
@@ -163,6 +167,22 @@ describe("rendererGraphFromWorkflowProjection", () => {
     expect(graph.nodes.find((node) => node.id === "start")?.diagnostic).toBeNull();
     expect(graph.edges.find((edge) => edge.id === "work_end")?.diagnostic).toBeNull();
   });
+
+  test("uses current projection validation state for draft diagnostics", () => {
+    const graph = rendererGraphFromWorkflowProjection({
+      ...draftProjection(),
+      validation: validationState({
+        diagnostics: [diagnostic("error", "start_node_output_required", "start", "")],
+        valid: false,
+      }),
+    });
+
+    expect(graph.nodes.find((node) => node.id === "start")?.diagnostic).toEqual({
+      codes: ["start_node_output_required"],
+      count: 1,
+      severity: "error",
+    });
+  });
 });
 
 function draftProjection(): WorkflowGraphProjection {
@@ -199,6 +219,7 @@ function testProjection(): WorkflowGraphProjection {
     definitionVersionId: "version_review",
     definitionVersionNumber: 2,
     draftMatchesVersion: true,
+    draftRevision: "sha256:draft",
     draftUpdatedAt: "2026-06-05T12:00:00Z",
     editable: false,
     edges: [
@@ -239,10 +260,34 @@ function testProjection(): WorkflowGraphProjection {
     schemaVersion: 1,
     terminalReason: null,
     updatedAt: "2026-06-05T12:00:00Z",
+    validation: validationState(null),
     versionMismatch: false,
     viewMode: "run",
     workspaceId: "workspace_test",
   };
+}
+
+function validationState(
+  result: NonNullable<WorkflowGraphProjection["validation"]["snapshot"]>["result"] | null,
+) {
+  return {
+    currentDraftRevision: "sha256:draft",
+    currentGraphFingerprint: "sha256:graph",
+    currentValidatorFingerprint: "workflow-validator:v1",
+    snapshot:
+      result === null
+        ? null
+        : {
+            definitionId: "definition_review",
+            graphFingerprint: "sha256:graph",
+            result,
+            schemaVersion: 1,
+            validatedAt: "2026-06-05T12:00:00Z",
+            validatorFingerprint: "workflow-validator:v1",
+            workspaceId: "workspace_test",
+          },
+    status: result === null ? "not_validated" : "current",
+  } satisfies WorkflowGraphProjection["validation"];
 }
 
 function projectedNode(

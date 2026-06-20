@@ -38,7 +38,7 @@ describe("workspace pane runtime policy", () => {
     });
   });
 
-  test("freezes heavy and canvas surfaces during movement", () => {
+  test("degrades heavy and canvas surfaces during movement", () => {
     const items = [
       renderItem("focused-canvas", "workflow-graph", true),
       renderItem("focused-chat", "chat-dom", true),
@@ -53,17 +53,16 @@ describe("workspace pane runtime policy", () => {
     const summary = new PaneRuntimePolicy(budget).apply(items, "moving");
 
     expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["focused-canvas", "live-throttled"],
-      ["focused-chat", "live-throttled"],
-      ["moving-heavy", "live-throttled"],
-      ["moving-long-chat", "live-throttled"],
-      ["moving-chat", "live-throttled"],
-      ["moving-canvas", "live-throttled"],
+      ["focused-canvas", "live"],
+      ["focused-chat", "snapshot"],
+      ["moving-heavy", "snapshot"],
+      ["moving-long-chat", "snapshot"],
+      ["moving-chat", "snapshot"],
+      ["moving-canvas", "snapshot"],
       ["moving-light", "live"],
-      ["moving-settings", "live-throttled"],
+      ["moving-settings", "live"],
     ]);
-    expect(summary.liveThrottled).toBe(7);
-    expect(summary.snapshot).toBe(0);
+    expect(summary.snapshot).toBe(5);
     expect(summary.budget.maxLiveWebGpuCanvases).toBe(1);
   });
 
@@ -158,7 +157,7 @@ describe("workspace pane runtime policy", () => {
     expect(summary.snapshot).toBe(4);
   });
 
-  test("budgets terminal renderers and freezes renderers during movement", () => {
+  test("budgets terminal renderers and keeps graph renderers live during movement", () => {
     const items = [
       renderItem("terminal-focused", "terminal", true),
       renderItem("terminal-live", "terminal", false),
@@ -183,16 +182,15 @@ describe("workspace pane runtime policy", () => {
     const movingSummary = new PaneRuntimePolicy(twoTerminals).apply(items, "moving");
 
     expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["terminal-focused", "live-throttled"],
-      ["terminal-live", "live-throttled"],
-      ["terminal-over-budget", "live-throttled"],
-      ["graph-moving", "live-throttled"],
+      ["terminal-focused", "live"],
+      ["terminal-live", "snapshot"],
+      ["terminal-over-budget", "snapshot"],
+      ["graph-moving", "live"],
     ]);
-    expect(movingSummary.liveThrottled).toBe(4);
-    expect(movingSummary.snapshot).toBe(0);
+    expect(movingSummary.snapshot).toBe(2);
   });
 
-  test("freezes visible overview panes even when focused", () => {
+  test("uses snapshots for every visible overview pane even when focused", () => {
     const items = [
       { ...renderItem("focused-browser", "browser", true), presentationMode: "overview" },
       { ...renderItem("overview-terminal", "terminal", false), presentationMode: "overview" },
@@ -204,12 +202,11 @@ describe("workspace pane runtime policy", () => {
 
     expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
       ["focused-browser", "snapshot"],
-      ["overview-terminal", "live-throttled"],
-      ["overview-settings", "live-throttled"],
-      ["overview-light", "live-throttled"],
+      ["overview-terminal", "snapshot"],
+      ["overview-settings", "snapshot"],
+      ["overview-light", "snapshot"],
     ]);
-    expect(summary.liveThrottled).toBe(3);
-    expect(summary.snapshot).toBe(1);
+    expect(summary.snapshot).toBe(4);
   });
 
   test("keeps workspace overview panes live when overview degradation is disabled", () => {
@@ -241,7 +238,7 @@ describe("workspace pane runtime policy", () => {
     expect(summary.snapshot).toBe(0);
   });
 
-  test("freezes workspace overview panes only during active resize", () => {
+  test("uses snapshots for workspace overview panes only during active resize", () => {
     const workspaceBudget = {
       ...budget,
       maxLiveHeavyDomPanes: 4,
@@ -272,8 +269,8 @@ describe("workspace pane runtime policy", () => {
     expect(resizingItems.map((item) => [item.paneId, item.runtimeState])).toEqual([
       ["focused-browser", "snapshot"],
       ["overview-chat", "live"],
-      ["overview-terminal", "live-throttled"],
-      ["overview-settings", "live-throttled"],
+      ["overview-terminal", "snapshot"],
+      ["overview-settings", "snapshot"],
     ]);
   });
 

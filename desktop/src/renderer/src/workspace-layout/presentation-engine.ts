@@ -76,6 +76,7 @@ export class PresentationEngine {
   }
 
   apply(items: PaneRenderItem[], options: PresentationApplyOptions): PresentationWriteCounts {
+    const presentationMark = markPresentationApplyStart(items, options);
     const writeCounts = emptyPresentationWriteCounts();
     const assignedItems = this.assignItemsToBindings(items);
     this.nativeViewBoundsBatcher?.beginFrame();
@@ -97,6 +98,7 @@ export class PresentationEngine {
     this.metrics.recordGitGraphStats(this.surfaceRegistry.gitGraphStats());
     this.metrics.recordTerminalStats(this.surfaceRegistry.terminalStats());
     writeCounts.nativeBoundsUpdates = nativeFlush?.batchSent ? 1 : 0;
+    markPresentationApplyEnd(presentationMark, writeCounts);
     return writeCounts;
   }
 
@@ -182,11 +184,10 @@ export class PresentationEngine {
       `resize ${snapshot.resize.frameCount}/${snapshot.resize.p95FrameTime.toFixed(
         2,
       )}/${snapshot.resize.deferredHeavyViewportWrites}/${snapshot.resize.heavyViewportWrites}/${snapshot.reactCommitsDuringResize}`,
-      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${snapshot.canvasRendererResizeCount}/${snapshot.canvasTickerFramesWhileFrozen}/${formatPixels(snapshot.canvasBackingStorePixels)}/${formatBytes(
+      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${formatBytes(
         snapshot.canvasGpuMemoryEstimateBytes,
       )}`,
       `terminal ${snapshot.liveTerminalRendererCount}/${snapshot.terminalDirtyRows}/${snapshot.terminalPendingOutputChunks}`,
-      `snapshot ${snapshot.snapshotFreshTextureUses}/${snapshot.snapshotStaleTextureUses}/${snapshot.snapshotMissingTextureUses}/${snapshot.snapshotCaptureRequestsDuringTransition}`,
       `graph ${snapshot.liveGitGraphPaneCount}/${snapshot.gitGraphRenderer ?? "none"}/${Math.round(
         snapshot.gitGraphProgress * 100,
       )}%/${snapshot.gitGraphWorkerBatches}${snapshot.gitGraphWorkerPending ? "+" : ""}`,
@@ -887,16 +888,6 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / 1024 / 1024).toFixed(1)}MiB`;
 }
 
-function formatPixels(pixels: number | null): string {
-  if (pixels === null) {
-    return "n/a";
-  }
-  if (pixels < 1000 * 1000) {
-    return `${Math.round(pixels / 1000)}Kpx`;
-  }
-  return `${(pixels / 1000 / 1000).toFixed(1)}Mpx`;
-}
-
 function emptyPresentationWriteCounts(): PresentationWriteCounts {
   return {
     boxWrites: 0,
@@ -910,6 +901,59 @@ function emptyPresentationWriteCounts(): PresentationWriteCounts {
     terminalViewportWrites: 0,
     transformWrites: 0,
   };
+}
+
+let nextPresentationApplySequence = 1;
+
+function markPresentationApplyStart(
+  items: readonly PaneRenderItem[],
+  options: PresentationApplyOptions,
+): { endMarkName: string; startMarkName: string } | null {
+  if (typeof performance === "undefined" || typeof performance.mark !== "function") {
+    return null;
+  }
+  if (
+    typeof globalThis.window === "undefined" ||
+    globalThis.window.__settaWorkflowGraphPerformanceRecorder === undefined
+  ) {
+    return null;
+  }
+  const sequence = nextPresentationApplySequence;
+  nextPresentationApplySequence += 1;
+  const startMarkName = `setta.workspace.presentation.apply.start.${sequence}`;
+  const endMarkName = `setta.workspace.presentation.apply.end.${sequence}`;
+  performance.mark(startMarkName, {
+    detail: {
+      itemCount: items.length,
+      resizePhase: options.resizePhase,
+      sequence,
+    },
+  });
+  return { endMarkName, startMarkName };
+}
+
+function markPresentationApplyEnd(
+  mark: { endMarkName: string; startMarkName: string } | null,
+  writeCounts: PresentationWriteCounts,
+): void {
+  if (
+    mark === null ||
+    typeof performance === "undefined" ||
+    typeof performance.mark !== "function"
+  ) {
+    return;
+  }
+  performance.mark(mark.endMarkName, { detail: writeCounts });
+  if (typeof performance.measure !== "function") {
+    return;
+  }
+  performance.measure("setta.workspace.presentation.apply", {
+    detail: writeCounts,
+    end: mark.endMarkName,
+    start: mark.startMarkName,
+  });
+  performance.clearMarks?.(mark.startMarkName);
+  performance.clearMarks?.(mark.endMarkName);
 }
 
 function addPresentationWriteCounts(

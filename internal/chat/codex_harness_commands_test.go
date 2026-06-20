@@ -135,6 +135,71 @@ func TestCodexHarnessModelListFollowsPaginationAndHidesHiddenModels(t *testing.T
 	}
 }
 
+func TestCodexHarnessListsModelCatalogWithoutThread(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("catalog-model-list-no-thread"))
+	request := testCommandRequest(t, "/model")
+
+	result, err := harness.ListModelOptions(context.Background(), HarnessModelCatalogRequest{
+		Workspace: request.Workspace,
+	})
+	if err != nil {
+		t.Fatalf("list model options: %v", err)
+	}
+	if len(result.Models) != 1 || result.Models[0].Model != "gpt-test" || !result.Models[0].IsDefault {
+		t.Fatalf("models = %+v, want provider default gpt-test", result.Models)
+	}
+	if result.Models[0].DefaultReasoningEffort != ReasoningEffortHigh {
+		t.Fatalf("default reasoning effort = %s, want high", result.Models[0].DefaultReasoningEffort)
+	}
+	if len(result.Models[0].SupportedReasoningEfforts) != 3 ||
+		!result.Models[0].SupportedReasoningEfforts[1].IsDefault ||
+		result.Models[0].SupportedReasoningEfforts[2].Effort != ReasoningEffortXHigh {
+		t.Fatalf("supported reasoning efforts = %+v, want model catalog reasoning options", result.Models[0].SupportedReasoningEfforts)
+	}
+}
+
+func TestCodexHarnessModelCatalogFollowsPaginationAndHidesHiddenModels(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-model-list-paginated"))
+	request := testCommandRequest(t, "/model")
+
+	result, err := harness.ListModelOptions(context.Background(), HarnessModelCatalogRequest{
+		Workspace: request.Workspace,
+	})
+	if err != nil {
+		t.Fatalf("list model options: %v", err)
+	}
+	if len(result.Models) != 2 {
+		t.Fatalf("models = %+v, want two visible paginated models", result.Models)
+	}
+	if result.Models[0].Model != "gpt-test" || result.Models[1].Model != "gpt-test-2" {
+		t.Fatalf("models = %+v, want visible models from both pages", result.Models)
+	}
+	for _, model := range result.Models {
+		if model.Hidden {
+			t.Fatalf("models = %+v, want hidden models filtered", result.Models)
+		}
+	}
+}
+
+func TestCodexHarnessModelCatalogFailsMalformedReasoningPayload(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("catalog-model-list-invalid-reasoning"))
+	request := testCommandRequest(t, "/model")
+
+	_, err := harness.ListModelOptions(context.Background(), HarnessModelCatalogRequest{
+		Workspace: request.Workspace,
+	})
+	if err == nil {
+		t.Fatal("list model options succeeded, want malformed provider payload error")
+	}
+	commandErr, ok := IsChatCommandError(err)
+	if !ok || commandErr.Code != ChatCommandErrorCodexProviderDrift {
+		t.Fatalf("error = %T %v, want provider drift command error", err, err)
+	}
+	if !strings.Contains(commandErr.Message, "unsupported reasoning effort enormous") {
+		t.Fatalf("error message = %q, want unsupported reasoning effort", commandErr.Message)
+	}
+}
+
 func TestCodexHarnessStoresReasoningEffortWithoutThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-effort-set-local"))
 	request := testTypedReasoningEffortCommandRequest(t, ReasoningEffortXHigh)

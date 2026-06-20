@@ -1,5 +1,7 @@
 import type { WorkflowGraphProjection } from "@generated/backend";
 
+import type { WorkflowGraphRuntimeIndicator } from "./pixi-renderer";
+import type { WorkspaceTrajectoryNodeDetails } from "./workspace-trajectory-store";
 import type {
   WorkflowNodeDetailsTarget,
   WorkflowSettingsTarget,
@@ -18,6 +20,8 @@ export function selectedWorkflowProjectionNode(
 export function workflowNodeDetailsTarget(
   projection: WorkflowGraphProjection,
   nodeId: string,
+  runtime: WorkflowGraphRuntimeIndicator | null = null,
+  trajectory: WorkspaceTrajectoryNodeDetails | null = null,
 ): WorkflowNodeDetailsTarget {
   const node = projection.nodes.find((candidate) => candidate.id === nodeId);
   return {
@@ -32,6 +36,8 @@ export function workflowNodeDetailsTarget(
     nodeStatus: node?.status ?? "",
     projectionIncomingEdges: projection.edges.filter((edge) => edge.toNodeId === nodeId),
     projectionOutgoingEdges: projection.edges.filter((edge) => edge.fromNodeId === nodeId),
+    runtime,
+    trajectory,
     versionMismatch: projection.versionMismatch,
     viewMode: projection.viewMode,
     workspaceId: projection.workspaceId,

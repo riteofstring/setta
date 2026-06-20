@@ -33,6 +33,8 @@ type Service struct {
 	cartographerHarnessKind          chat.HarnessKind
 	cartographerHarnessErr           error
 	automaticCartographer            automaticCartographerState
+	semanticRuntimeMu                sync.Mutex
+	semanticRuntimeRevision          int
 	semanticGraphChanges             *semanticGraphChangeHub
 	newID                            IDGenerator
 	now                              func() time.Time
@@ -47,6 +49,10 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 	if workspaceResolver == nil {
 		return nil, errors.New("workspace resolver is required")
 	}
+	settingsRecord, err := store.ReadSemanticCartographerSettings(context.Background())
+	if err != nil {
+		return nil, err
+	}
 	service := &Service{
 		store:                   store,
 		workspaceResolver:       workspaceResolver,
@@ -56,6 +62,7 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 		newID:                   randomID,
 		now:                     time.Now,
 	}
+	service.applySemanticCartographerSettingsDefaults(settingsRecord.Settings)
 	for _, option := range options {
 		option(service)
 	}
@@ -70,6 +77,27 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 		service.semanticGraphChanges = newSemanticGraphChangeHub(streamID, service.now)
 	}
 	return service, nil
+}
+
+func (service *Service) applySemanticCartographerSettingsDefaults(settings SemanticCartographerSettings) {
+	service.cartographerMu.Lock()
+	service.cartographerConfig = settings.ObservationConfig.cartographerObservationConfig()
+	service.cartographerMu.Unlock()
+
+	var cancel context.CancelFunc
+	service.automaticCartographerMu.Lock()
+	service.automaticCartographer.enabled = settings.AutomaticProcessingEnabled
+	service.automaticCartographer.config = settings.ProcessingConfig.automaticCartographerProcessingConfig()
+	if !settings.AutomaticProcessingEnabled {
+		cancel = service.automaticCartographer.cancel
+		service.automaticCartographer.cancel = nil
+		service.automaticCartographer.ctx = nil
+		service.automaticCartographer.started = false
+	}
+	service.automaticCartographerMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func WithIDGenerator(newID IDGenerator) Option {
@@ -274,7 +302,7 @@ func (service *Service) UpdateLayoutPositions(ctx context.Context, workspaceID s
 		return SemanticLayoutPositionList{}, err
 	}
 	if len(positions) > 0 {
-		service.publishSemanticGraphChange(semanticGraphChangeDraft{
+		service.PublishSemanticGraphChange(semanticGraphChangeDraft{
 			WorkspaceID:     workspaceID,
 			ChangedAreas:    []SemanticGraphChangeArea{SemanticGraphChangeAreaLayout},
 			TargetEntityIDs: semanticLayoutPositionEntityIDs(positions),
@@ -286,6 +314,11 @@ func (service *Service) UpdateLayoutPositions(ctx context.Context, workspaceID s
 func (service *Service) SaveCartographerRun(ctx context.Context, run CartographerRun) (CartographerRun, error) {
 	if _, err := service.resolveWorkspace(run.WorkspaceID); err != nil {
 		return CartographerRun{}, err
+	}
+	if !cartographerRunSettingsSnapshotComplete(run) {
+		if err := service.applyCartographerRunSettingsSnapshot(ctx, &run, false); err != nil {
+			return CartographerRun{}, err
+		}
 	}
 	saved, err := service.store.SaveCartographerRun(ctx, run)
 	if err != nil {

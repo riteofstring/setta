@@ -437,6 +437,58 @@ describe("chat store operation scopes", () => {
     expect(state.runItemOutputsById[completedOutput.id]?.text).toBe("done\n");
   });
 
+  test("resync completion preserves active run items missing from stale pages", async () => {
+    const conversation = testConversation();
+    const runId = "run_protocol";
+    const user = message("message_protocol_user", 1, "user", "complete", "protocol", runId);
+    const assistant = message("message_protocol_assistant", 2, "assistant", "streaming", "", runId);
+    const runningRun = testRun("running", runId);
+    const streamedItem = {
+      ...runItem("run_item_file_change", runId, "running"),
+      filePaths: ["/tmp/workspace/main.go"],
+      patchStatus: "updated",
+      title: "",
+      type: "file_change" as const,
+    };
+    const streamedOutput = runItemOutput("run_item_output_file_change", streamedItem.id, "diff\n");
+    const resyncPage = deferred<MessagePage>();
+    const messagePage = vi.fn().mockReturnValue(resyncPage.promise);
+    installSettaAPI({
+      chat: {
+        activeRun: async () => ({ hasActiveRun: true, run: runningRun }),
+        listConversations: async () => listResponse([conversationItem(conversation, 2)]),
+        messagePage,
+      },
+    });
+    useChatStore.setState({
+      activeRun: runningRun,
+      messages: [user, assistant],
+      runItemOutputs: [],
+      runItems: [],
+      selectedConversation: conversation,
+      status: "ready",
+      transcript: [transcriptTurn(runningRun, user, assistant)],
+      workspaceId: "workspace_api",
+    });
+
+    const resyncPromise = useChatStore.getState().resyncActiveConversation();
+    await waitFor(() => messagePage.mock.calls.length === 1);
+    useChatStore.getState().handleEvent(runItemCreatedEvent(1, streamedItem));
+    useChatStore.getState().handleEvent(runItemOutputDeltaEvent(2, runId, streamedOutput));
+    resyncPage.resolve({
+      ...testPage(conversation, [user, assistant]),
+      runItemOutputs: [],
+      runItems: [],
+      transcript: [transcriptTurn(runningRun, user, assistant)],
+    });
+    await resyncPromise;
+
+    const state = useChatStore.getState();
+    expect(state.runItemsById[streamedItem.id]?.type).toBe("file_change");
+    expect(state.runItemsById[streamedItem.id]?.filePaths).toEqual(["/tmp/workspace/main.go"]);
+    expect(state.runItemOutputsById[streamedOutput.id]?.text).toBe("diff\n");
+  });
+
   test("resync completion preserves newer goal state from events", async () => {
     const conversation = testConversation();
     const activeGoal = goalState("finish renderer tests", "active", 10);
@@ -656,6 +708,14 @@ function runItem(id: string, runId: string, status: RunItem["status"]): RunItem 
     error: "",
     exitCode: 0,
     filePaths: [],
+    fileOperations: [],
+    diffStats: {
+      additions: 0,
+      changedFiles: 0,
+      deletions: 0,
+      structured: false,
+      summary: "",
+    },
     hiddenText: "",
     id,
     namespace: "setta",
@@ -765,6 +825,40 @@ function messageCreatedEvent(sequence: number, chatMessage: ChatMessage, runId: 
     sequence,
     streamId: eventStreamId,
     type: "chat.message.created",
+    workspaceId: "workspace_api",
+  };
+}
+
+function runItemCreatedEvent(sequence: number, item: RunItem): ChatEvent {
+  return {
+    conversationId: item.conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${eventStreamId}:${sequence}`,
+    payload: { item },
+    runId: item.runId,
+    schemaVersion: 1,
+    sequence,
+    streamId: eventStreamId,
+    type: "chat.run_item.created",
+    workspaceId: item.workspaceId,
+  };
+}
+
+function runItemOutputDeltaEvent(
+  sequence: number,
+  runId: string,
+  output: RunItemOutput,
+): ChatEvent {
+  return {
+    conversationId: "conversation_api",
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${eventStreamId}:${sequence}`,
+    payload: { output },
+    runId,
+    schemaVersion: 1,
+    sequence,
+    streamId: eventStreamId,
+    type: "chat.run_item_output.delta",
     workspaceId: "workspace_api",
   };
 }

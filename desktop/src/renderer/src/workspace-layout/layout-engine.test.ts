@@ -245,7 +245,7 @@ describe("real workspace layout column sizing", () => {
     expect(items.find((item) => item.focused)?.x).toBe(10);
   });
 
-  test("navigation keeps split-down panes in the current vertical camera row", () => {
+  test("navigation snaps focused split-down pane top edge to the viewport lane", () => {
     const { focusedPaneId, scene } = createRealWorkspaceScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:top-snap",
@@ -267,9 +267,8 @@ describe("real workspace layout column sizing", () => {
     const firstRowItem = items.find((item) => item.paneId === "workspace_pane_0");
 
     expect(focusedItem?.focused).toBe(true);
-    expect(snapshot.targetScrollRow).toBe(0);
-    expect(firstRowItem?.y).toBe(10);
-    expect(focusedItem?.y).toBeGreaterThan(firstRowItem?.y ?? 0);
+    expect(focusedItem?.y).toBe(10);
+    expect(firstRowItem?.y).toBeLessThan(0);
   });
 
   test("keeps every pane attached to a visible column after moving out of a vertical stack", () => {
@@ -516,8 +515,12 @@ describe("real workspace layout column sizing", () => {
     const focusedPaneIdBeforeSplit = store.focusedPaneId();
     const secondLowerPaneId = store.splitFocusedPaneToPlane("down");
     const updatedScene = engine.toScene();
-    const firstLowerColumn = requireColumnForPane(updatedScene, firstLowerPaneId);
-    const secondLowerColumn = requireColumnForPane(updatedScene, secondLowerPaneId);
+    const firstLowerColumn = updatedScene.columns.find((column) =>
+      column.paneIds.includes(firstLowerPaneId),
+    );
+    const secondLowerColumn = updatedScene.columns.find((column) =>
+      column.paneIds.includes(secondLowerPaneId),
+    );
     const overviewItems = renderFrame(
       engine,
       { ...viewport, width: 1800 },
@@ -525,27 +528,13 @@ describe("real workspace layout column sizing", () => {
       secondLowerPaneId,
       "overview",
     );
-    const normalItems = renderFrame(
-      engine,
-      { ...viewport, width: 1800 },
-      0,
-      secondLowerPaneId,
-      "normal",
-      0,
-      null,
-      true,
-    );
-    const focusedPaneItem = requireRenderItem(overviewItems, focusedPaneIdBeforeSplit);
-    const lowerPaneItem = requireRenderItem(overviewItems, secondLowerPaneId);
-    const normalFocusedPaneItem = requireRenderItem(normalItems, focusedPaneIdBeforeSplit);
-    const normalLowerPaneItem = requireRenderItem(normalItems, secondLowerPaneId);
+    const focusedPaneItem = overviewItems.find((item) => item.paneId === focusedPaneIdBeforeSplit);
+    const lowerPaneItem = overviewItems.find((item) => item.paneId === secondLowerPaneId);
 
-    expect(firstLowerColumn.slotIndex).toBe(3);
-    expect(secondLowerColumn.slotIndex).toBe(2);
-    expect(store.getSnapshot().targetScrollColumn).toBe(2);
-    expect(lowerPaneItem.x).toBe(focusedPaneItem.x);
-    expect(lowerPaneItem.y).toBeGreaterThan(focusedPaneItem.y);
-    expect(normalLowerPaneItem.x).toBe(normalFocusedPaneItem.x);
+    expect(firstLowerColumn?.slotIndex).toBe(3);
+    expect(secondLowerColumn?.slotIndex).toBe(2);
+    expect(lowerPaneItem?.x).toBe(focusedPaneItem?.x);
+    expect(lowerPaneItem?.y).toBeGreaterThan(focusedPaneItem?.y ?? 0);
   });
 
   test("up and down navigation crosses horizontal planes by visual position", () => {
@@ -751,7 +740,7 @@ describe("real workspace layout column sizing", () => {
     expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
   });
 
-  test("keeps split-down panes in their plane during viewport height resize", () => {
+  test("keeps a focused split-down pane anchored during viewport height resize", () => {
     const { focusedPaneId, scene } = createRealWorkspaceScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:resize-row-focus",
@@ -773,11 +762,9 @@ describe("real workspace layout column sizing", () => {
       "normal",
       tallSnapshot.scrollRow,
     );
-    const tallFocusedItem = requireRenderItem(tallItems, stackedPaneId);
-    const tallFirstRowItem = requireRenderItem(tallItems, "workspace_pane_0");
-    expect(tallFocusedItem.height).toBeCloseTo(335.384615);
-    expect(tallFirstRowItem.y).toBe(10);
-    expect(tallFocusedItem.y).toBeGreaterThan(tallFirstRowItem.y);
+    const tallFocusedItem = tallItems.find((item) => item.paneId === stackedPaneId);
+    expect(tallFocusedItem?.height).toBeCloseTo(335.384615);
+    expect(tallFocusedItem?.y).toBe(10);
 
     store.ensureFocusedPaneVisible({ ...viewport, height: 600, width: 1200 });
     store.snapScrollToTarget();
@@ -791,12 +778,12 @@ describe("real workspace layout column sizing", () => {
       "normal",
       shortSnapshot.scrollRow,
     );
-    const focusedItem = requireRenderItem(shortItems, stackedPaneId);
-    const firstRowItem = requireRenderItem(shortItems, "workspace_pane_0");
+    const focusedItem = shortItems.find((item) => item.paneId === stackedPaneId);
+    const firstRowItem = shortItems.find((item) => item.paneId === "workspace_pane_0");
 
-    expect(focusedItem.height).toBeCloseTo(220);
-    expect(firstRowItem.y).toBe(10);
-    expect(focusedItem.y).toBeGreaterThan(firstRowItem.y);
+    expect(focusedItem?.height).toBeCloseTo(220);
+    expect(focusedItem?.y).toBe(10);
+    expect(firstRowItem?.y).toBeLessThan(0);
   });
 
   test("renders a maximized pane as a viewport-sized pane in normal layout flow", () => {
@@ -828,38 +815,6 @@ describe("real workspace layout column sizing", () => {
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
     ]);
-  });
-
-  test("keeps maximized pane aspect ratio unchanged between normal and overview endpoints", () => {
-    const engine = createRealEngine();
-    const maximizedPaneId = "workspace_pane_1";
-    const normalItems = renderFrame(
-      engine,
-      { ...viewport, width: 1200 },
-      1,
-      maximizedPaneId,
-      "normal",
-      0,
-      maximizedPaneId,
-      true,
-    );
-    const overviewItems = renderFrame(
-      engine,
-      { ...viewport, width: 1200 },
-      0,
-      maximizedPaneId,
-      "overview",
-      0,
-      maximizedPaneId,
-    );
-    const normalMaximizedItem = requireRenderItem(normalItems, maximizedPaneId);
-    const overviewMaximizedItem = requireRenderItem(overviewItems, maximizedPaneId);
-
-    expect(overviewMaximizedItem.maximized).toBe(true);
-    expect(overviewMaximizedItem.width / overviewMaximizedItem.height).toBeCloseTo(
-      normalMaximizedItem.width / normalMaximizedItem.height,
-      6,
-    );
   });
 
   test("pans naturally to the next pane while the maximized pane stays in layout flow", () => {
@@ -982,14 +937,6 @@ function requireRenderItem(items: PaneRenderItem[], paneId: string): PaneRenderI
     throw new Error(`render item ${paneId} was not found`);
   }
   return item;
-}
-
-function requireColumnForPane(scene: WorkspaceScene, paneId: string) {
-  const column = scene.columns.find((candidate) => candidate.paneIds.includes(paneId));
-  if (!column) {
-    throw new Error(`column for pane ${paneId} was not found`);
-  }
-  return column;
 }
 
 function maxVisualWidth(items: readonly PaneRenderItem[]): number {

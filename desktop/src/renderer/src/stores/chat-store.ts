@@ -38,7 +38,10 @@ import {
 import {
   conversationSelectionRequest,
   emptyCorruption,
+  findConversation,
   missingConversationPatch,
+  type ConversationSelectionRequest,
+  type ConversationSelectionResult,
 } from "./chat-store-workspace-selection";
 import {
   conversationToLoadForWorkspace,
@@ -51,13 +54,6 @@ import {
 } from "./chat-store-helpers";
 import type { ChatPatch, ChatStore } from "./chat-store-types";
 import { createChatResyncController } from "./chat-store-resync";
-import { deletedConversationSelectionPatch as deletedConversationSelectionPatchForState } from "./chat-store-delete-selection";
-import { resolveConversationSelection } from "./chat-store-selection-resolver";
-import {
-  createChatStreamEventBatcher,
-  isBufferedStreamEvent,
-  type BufferedStreamChatEvent,
-} from "./chat-store-stream-event-batcher";
 
 export { prependOlderMessages };
 export type { WorkspaceConversationListState } from "./chat-store-conversation-lists";
@@ -70,7 +66,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
   const operations = createChatOperationTracker();
   let backendOnline = true;
   let backendGeneration = 0;
-  const streamEventBatcher = createChatStreamEventBatcher(flushStreamEventBatch);
 
   function beginOperation(
     scope: ChatOperationScope,
@@ -132,7 +127,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
     backendGeneration += 1;
     backendOnline = status.status === "online";
     if (!backendOnline) {
-      streamEventBatcher.clear();
       resync.clearQueuedResync();
       cancelEventResyncOperation({});
       return;
@@ -144,27 +138,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
   function runChatStoreBackgroundResync(name: ChatBackgroundActionName) {
     runChatBackgroundAction(name, () => get().resyncActiveConversation());
-  }
-
-  function flushStreamEventBatch(events: BufferedStreamChatEvent[]) {
-    let needsResync = false;
-    set((current) => {
-      let next = current;
-      for (const event of events) {
-        const result = applyChatEvent(next, event);
-        const patch = normalizeStatePatch(next, {
-          ...result.patch,
-          lastEventSequence: event.sequence,
-          lastEventStreamId: event.streamId,
-        });
-        next = { ...next, ...patch };
-        needsResync = needsResync || result.resync;
-      }
-      return next;
-    });
-    if (needsResync) {
-      runChatStoreBackgroundResync("event-stream-resync");
-    }
   }
 
   async function loadConversationPageSnapshot(
@@ -212,14 +185,46 @@ export const useChatStore = create<ChatStore>((set, get) => {
     workspaceId: string,
     conversationId: string,
     list: ListConversationsResponse,
-  ) {
-    return deletedConversationSelectionPatchForState({
-      conversationId,
-      list,
-      loadConversationPage,
-      state: get(),
-      workspaceId,
-    });
+  ): Promise<{
+    nextConversationPatch: ChatPatch;
+    selectedConversationIdsByWorkspaceId: Record<string, string | undefined>;
+  }> {
+    const state = get();
+    const deletedSelected =
+      state.workspaceId === workspaceId && state.selectedConversation?.id === conversationId;
+    if (!deletedSelected) {
+      return {
+        nextConversationPatch: {},
+        selectedConversationIdsByWorkspaceId: state.selectedConversationIdsByWorkspaceId,
+      };
+    }
+    const nextConversation = list.conversations[0]?.conversation ?? null;
+    if (!nextConversation) {
+      return {
+        nextConversationPatch: emptyConversationPatch(),
+        selectedConversationIdsByWorkspaceId: state.selectedConversationIdsByWorkspaceId,
+      };
+    }
+    return {
+      nextConversationPatch: await loadConversationPage(workspaceId, nextConversation),
+      selectedConversationIdsByWorkspaceId: await persistSelectedConversation(
+        workspaceId,
+        nextConversation.id,
+      ),
+    };
+  }
+
+  async function resolveConversationSelection(
+    request: ConversationSelectionRequest,
+  ): Promise<ConversationSelectionResult> {
+    if (request.conversation) {
+      return { conversation: request.conversation, conversationListPatch: {} };
+    }
+    const list = await reloadConversations(request.workspaceId);
+    return {
+      conversation: findConversation(list.conversations, request.conversationId),
+      conversationListPatch: conversationListLoadedPatch(get(), request.workspaceId, list, true),
+    };
   }
 
   async function loadWorkspaceCommand(workspaceId: string) {
@@ -454,9 +459,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
       updateBackendLifecycle(status);
     },
     handleEvent: (event) => {
-      const state = streamEventBatcher.stateWithCursor(get());
+      const state = get();
       if (event.type === "chat.resync_required") {
-        streamEventBatcher.clear();
         set({
           lastEventSequence: event.payload.currentSequence,
           lastEventStreamId: event.payload.currentStreamId,
@@ -465,7 +469,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
         return;
       }
       if (isUnexpectedStream(state, event)) {
-        streamEventBatcher.clear();
         set({ lastEventSequence: event.sequence, lastEventStreamId: event.streamId });
         runChatStoreBackgroundResync("event-stream-resync");
         return;
@@ -474,17 +477,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
         return;
       }
       if (hasSequenceGap(state, event)) {
-        streamEventBatcher.clear();
         set({ lastEventSequence: event.sequence, lastEventStreamId: event.streamId });
         runChatStoreBackgroundResync("event-stream-resync");
         return;
       }
-      if (isBufferedStreamEvent(event)) {
-        streamEventBatcher.queue(event);
-        return;
-      }
-      streamEventBatcher.flush();
-      const result = applyChatEvent(get(), event);
+      const result = applyChatEvent(state, event);
       set((current) => ({
         ...normalizeStatePatch(current, result.patch),
         lastEventSequence: event.sequence,
@@ -837,11 +834,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         conversationBoundOperationScopes,
       );
       try {
-        const { conversation, conversationListPatch } = await resolveConversationSelection(
-          request,
-          get,
-          reloadConversations,
-        );
+        const { conversation, conversationListPatch } = await resolveConversationSelection(request);
         if (!conversation) {
           commitCurrent(operation, missingConversationPatch(request, conversationListPatch));
           return;

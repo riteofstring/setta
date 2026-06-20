@@ -221,6 +221,10 @@ func (harness *FakeHarness) ListCommandCapabilities(_ context.Context, request H
 	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
 }
 
+func (harness *FakeHarness) ListModelOptions(_ context.Context, _ HarnessModelCatalogRequest) (HarnessModelCatalogResult, error) {
+	return HarnessModelCatalogResult{Models: fakeModelOptions()}, nil
+}
+
 func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
 	if err := ensureCommandAvailable(request.Command, request.ActiveRun); err != nil {
 		return HarnessCommandResult{}, err

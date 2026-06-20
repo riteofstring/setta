@@ -1,17 +1,83 @@
+import type {
+  SemanticRuntimeModelAudit,
+  SemanticContextSourceRefs,
+  SemanticWorkingSetPulseKind,
+  SemanticWorkingSetStatus,
+  WorkflowGraphEdgeStatus,
+  WorkflowGraphNodeStatus,
+  WorkflowNodeKind,
+} from "@generated/backend";
+import type { WorkspaceTrajectoryFrameSnapshot } from "./workspace-trajectory-store";
+
+export interface WorkflowGraphRuntimeIndicator {
+  hiddenSourceCount: number;
+  modelAudits: WorkflowGraphRuntimeModelAudit[];
+  patchIds: string[];
+  pulseCount: number;
+  recentPulses: WorkflowGraphRuntimePulse[];
+  runIds: string[];
+  sourceCount: number;
+  sourceRefs: SemanticContextSourceRefs[];
+  status: SemanticWorkingSetStatus;
+  statusCounts: WorkflowGraphRuntimeStatusCount[];
+  windowIds: string[];
+}
+
+export type WorkflowGraphRuntimeModelAudit = SemanticRuntimeModelAudit;
+
+export interface WorkflowGraphRuntimePulse {
+  id: string;
+  kind: SemanticWorkingSetPulseKind;
+  patchId: string;
+  publicSummary: string;
+  runId: string;
+  sourceRefs: SemanticContextSourceRefs;
+  status: SemanticWorkingSetStatus;
+  targetEntityId: string;
+  windowId: string;
+}
+
+export interface WorkflowGraphRuntimeStatusCount {
+  count: number;
+  status: SemanticWorkingSetStatus;
+}
+
 export interface WorkflowGraphNode {
   activity?: {
     active: boolean;
     count: number;
     kind: string;
+    pulseKind?: SemanticWorkingSetPulseKind;
   } | null;
   color: number;
   connectable?: boolean;
   diagnostic?: WorkflowGraphDiagnostic | null;
+  /** Semantic-only renderer flag; merged nodes are also treated as dismissed by projections. */
+  dismissed?: boolean;
+  executionCount?: number;
   height: number;
   id: string;
-  layer?: "semantic" | "workflow";
+  /** Workflow-only node kind. Semantic kind is pre-resolved into color. */
+  kind?: WorkflowNodeKind;
+  layer: "semantic" | "workflow";
   label: string;
+  /** Semantic-only lineage id in renderer namespace, or "" when unset. */
+  mergedIntoNodeId?: string;
   ports?: WorkflowGraphPort[];
+  /** Semantic-only renderer flag. */
+  promoted?: boolean;
+  /** Workflow-only aggregate semantic runtime indicator for the node. */
+  runtime?: WorkflowGraphRuntimeIndicator | null;
+  /** Semantic-only visual role. Committed cells are durable graph state; the others are live working-set projections. */
+  semanticRole?: "committed" | "preview" | "source_pulse";
+  /** Semantic-only pulse source from SemanticWorkingSet. */
+  semanticPulseKind?: SemanticWorkingSetPulseKind;
+  /** Semantic-only lineage id in renderer namespace, or "" when unset. */
+  splitFromNodeId?: string;
+  /** Semantic-only lineage ids in renderer namespace. */
+  splitIntoNodeIds?: string[];
+  /** Workflow-only node status. */
+  status?: WorkflowGraphNodeStatus;
   width: number;
   x: number;
   y: number;
@@ -30,10 +96,14 @@ export interface WorkflowGraphEdge {
   color?: number;
   diagnostic?: WorkflowGraphDiagnostic | null;
   id: string;
-  layer?: "semantic" | "workflow";
+  layer: "semantic" | "workflow";
   label?: string;
   sourceNodeId: string;
   sourcePortId: string;
+  /** Workflow-only edge status. Semantic edge kind is pre-resolved into color. */
+  status?: WorkflowGraphEdgeStatus;
+  /** Semantic-only pulse source from SemanticWorkingSet. */
+  semanticPulseKind?: SemanticWorkingSetPulseKind;
   targetNodeId: string;
   targetPortId: string;
   width?: number;
@@ -53,6 +123,7 @@ export interface WorkflowGraphGraph {
     definitionName: string;
     definitionVersionId: string;
     definitionVersionNumber: number;
+    draftRevision: string;
     editable: boolean;
     executionId: string;
     executionStatus: string;
@@ -60,6 +131,7 @@ export interface WorkflowGraphGraph {
     viewMode: "draft" | "version" | "run";
     workspaceId: string;
   } | null;
+  workflowRuntimeByNodeId?: Record<string, WorkflowGraphRuntimeIndicator>;
 }
 
 export interface WorkflowGraphCameraState {
@@ -93,6 +165,8 @@ export interface WorkflowGraphRendererHandlers {
   onCanvasContextMenu?: ((menu: WorkflowGraphCanvasContextMenu) => void) | null;
   onCameraStateChange?: (camera: WorkflowGraphCameraState) => void;
   onEdgeCreate?: (connection: WorkflowGraphEdgeConnection) => void;
+  onEdgeDelete?: (edgeIds: string[]) => void;
+  onEdgeSelectionChange?: (edgeIds: string[]) => void;
   onNodeDelete?: (nodeIds: string[]) => void;
   onNodeOpen?: ((nodeId: string) => void) | null;
   onNodePositionsChange?: (positions: WorkflowGraphNodePosition[]) => void;
@@ -102,6 +176,7 @@ export interface WorkflowGraphRendererHandlers {
 
 interface CreateWorkflowGraphRendererOptions {
   abortSignal?: AbortSignal;
+  animationEnabled?: boolean;
   debugEnabled: boolean;
   debugSurfaceId?: string;
   graph?: WorkflowGraphGraph;
@@ -110,18 +185,21 @@ interface CreateWorkflowGraphRendererOptions {
   onCanvasContextMenu?: WorkflowGraphRendererHandlers["onCanvasContextMenu"];
   onCameraStateChange?: WorkflowGraphRendererHandlers["onCameraStateChange"];
   onEdgeCreate?: WorkflowGraphRendererHandlers["onEdgeCreate"];
+  onEdgeDelete?: WorkflowGraphRendererHandlers["onEdgeDelete"];
+  onEdgeSelectionChange?: WorkflowGraphRendererHandlers["onEdgeSelectionChange"];
   onNodeDelete?: WorkflowGraphRendererHandlers["onNodeDelete"];
   onNodeOpen?: WorkflowGraphRendererHandlers["onNodeOpen"];
   onNodePositionsChange?: WorkflowGraphRendererHandlers["onNodePositionsChange"];
   onNodeSelectionChange?: WorkflowGraphRendererHandlers["onNodeSelectionChange"];
   reactRenderCount?: WorkflowGraphRendererHandlers["reactRenderCount"];
+  reduceMotion?: boolean;
 }
 
 export interface WorkflowGraphRenderer {
   cameraState: () => WorkflowGraphCameraState;
   destroy: () => void;
-  setFrozen: (frozen: boolean) => void;
   setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
+  updateTrajectoryRuntime: (frame: WorkspaceTrajectoryFrameSnapshot) => void;
   updateGraph: (graph: WorkflowGraphGraph) => void;
 }
 
