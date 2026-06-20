@@ -46,8 +46,9 @@ or resync content during camera movement.
 The goal is to make the current failure modes structurally impossible:
 
 - no duplicate live graph renderers for one surface,
-- no pane chrome mutation storms during camera interaction,
-- no React commits or graph reconstruction in the camera hot path,
+- no camera-caused pane chrome mutation storms during camera interaction,
+- no camera-caused graph React commits or graph reconstruction in the camera hot
+  path,
 - no backend or semantic refresh work on the critical input path,
 - no mystery animation layer that consumes frame budget without clear meaning.
 
@@ -212,6 +213,16 @@ it must not create a second renderer for the same surface. If the invariant is
 violated, fail loudly in development and fail the deterministic Electron
 performance test.
 
+Controller creation must be race-safe. The surface registry should expose an
+atomic get-or-create path keyed by `surfaceId`, and the controller should expose
+explicit lifecycle states such as `creating`, `mounted`, `active`, `suspended`,
+`destroying`, and `destroyed`. Teardown must be idempotent and must invalidate
+the controller generation, abort async initialization, cancel stale
+`requestAnimationFrame` callbacks, stop tickers, remove listeners and observers,
+and drop queued scene or trajectory updates that target an old generation.
+Stale callbacks must be counted in diagnostics and must not mutate a destroyed
+or superseded controller.
+
 ### 2. One Frame Owner And O(1) Camera Path
 
 The graph should have one actual frame owner. Pixi auto-rendering, independent
@@ -241,6 +252,23 @@ Allowed movement work must be bounded by visible-window data structures, pooled
 display objects, and explicit dirty sets. The target is not literally constant
 time for every possible screen size; the target is that camera cost does not
 scale with total graph size.
+
+A root transform by itself is not proof of scale independence. Verification must
+include workloads where total graph size increases while visible graph density
+and visible labels stay fixed. The graph runtime must expose camera-frame
+scene-visit counters, including Setta-owned layer visits, graph objects
+considered, cull candidates checked, display objects traversed, labels
+considered, and bounds calculations, or the closest equivalent counters at the
+owning layer. If Pixi does not expose a counter, Setta-owned loops must count
+their own visits. Draw calls and rendered object counts are supplemental; they
+are not sufficient because hidden CPU traversal can stay invisible to GPU-facing
+metrics.
+
+For the constant-visible-content scaling workload, p95 camera-frame scene visits
+must stay below `visibleRenderableCount * 4 + 512`, and the p95 visit count at
+the largest total graph size must not exceed the smallest total graph size by
+more than `5%`. Any missing required visit counter fails the benchmark instead
+of being treated as unavailable data.
 
 ### 3. Frame Admission Is Evidence-Gated
 
@@ -338,10 +366,12 @@ Each pan/zoom gesture should have a stable interaction id with spans for:
 - camera transform commit,
 - next Pixi render,
 - next browser animation frame,
+- first presented frame containing the committed camera transform,
+- input-to-presented-frame duration,
 - settle time,
 - active renderer count,
-- DOM mutation count by subsystem,
-- React commit count,
+- DOM mutation count by subsystem, owner, and causal source,
+- React commit count by owner and causal source,
 - deferred graph updates,
 - and dropped/deferred animation work.
 
@@ -364,13 +394,17 @@ Tasks:
   - wheel handler p95,
   - camera update p95,
   - event delivery delay p50/p95/max,
+  - input-to-presented-frame p50/p95/max,
   - frame p50/p95/max,
+  - camera-frame scene visit counters,
+  - rendered object count and draw calls as supplemental metrics,
   - active renderer count,
   - duplicate renderer samples,
-  - pane chrome mutation counts,
-  - React commit count during camera movement,
-  - graph scene replacement count during camera movement.
+  - pane chrome mutation counts by owner and causal source,
+  - React commit count by owner and causal source during camera movement,
+  - graph scene replacement count by causal source during camera movement.
 - Capture run metadata:
+  - build mode and git commit,
   - machine model,
   - OS version,
   - Electron and Chromium version,
@@ -389,8 +423,18 @@ Tasks:
   - `stress`: 1,000 workflow nodes, 2,000 edges, 300 semantic nodes, 2,000
     recent trajectory sprites. This is report-only until the normal workload
     passes reliably.
+- Pin each benchmark workload to a fixed dataset, layout coordinates, random
+  seed, visible graph density, label cap, viewport, zoom level, warm-up count,
+  repetition count, and interaction script.
+- Add a scaling workload that keeps visible content constant while increasing
+  total graph size. Use it to compare frame cost, Pixi render cost, rendered
+  object counts, required scene-visit counters, and draw calls.
 - Run the primary desktop benchmark at `1440x900` CSS pixels and DPR `2` when
   available. Record actual DPR and refresh rate instead of assuming them.
+- Run threshold-gated benchmarks against a production Electron build on a named
+  reference runner. Development builds and non-reference machines should emit
+  reports and still fail structural invariants, but timing thresholds must not
+  gate arbitrary hardware.
 - Add or extend a deterministic Electron workflow that performs the same
   interaction script for each workload:
   - wheel pan,
@@ -419,15 +463,22 @@ Tasks:
   - camera transform commit,
   - first Pixi render after input,
   - first browser animation frame after input,
+  - first presented frame containing the committed camera transform,
   - graph scene update start/end,
   - pane presentation apply start/end,
-  - React commit start/end when observable.
+  - React commit start/end when observable,
+  - disallowed presentation write start/end with owner and causal source,
+  - camera-frame scene visit counters.
 - Make the deterministic test fail on known structural regressions:
   - active graph renderer count greater than one for a surface,
-  - React commits during camera movement,
-  - graph app creation during camera movement,
-  - pane chrome mutation bursts during camera movement,
-  - full graph replacement during camera movement.
+  - camera-caused graph or graph-shell React commits during camera movement,
+  - camera-caused graph app creation during camera movement,
+  - disallowed workspace presentation writes during camera movement,
+  - camera-caused full graph replacement during camera movement.
+
+Unrelated React commits or DOM mutations that occur while the user is panning or
+zooming should be reported with owner and causal-source attribution, not failed
+solely because they overlap the interaction window.
 
 Initial target budgets:
 
@@ -435,11 +486,19 @@ Initial target budgets:
 - camera commit p95 under `1ms`,
 - wheel event delivery p95 under one refresh interval plus `8ms` while
   recording and under one refresh interval plus `4ms` without recording,
+- input-to-presented-frame p95 under two refresh intervals plus `8ms` while
+  recording and under two refresh intervals plus `4ms` without recording for
+  the `normal` workload,
 - pan/zoom frame p95 under one refresh interval plus `4ms` for the `normal`
   workload without recording,
 - active renderer count always exactly `1` for the focused graph surface,
-- zero non-transform pane chrome mutations during camera movement,
-- zero React commits caused by camera movement.
+- zero camera-caused disallowed workspace presentation writes during camera
+  movement,
+- zero camera-caused graph or graph-shell React commits during camera movement,
+- constant-visible-content scaling p95 scene visits under
+  `visibleRenderableCount * 4 + 512`,
+- constant-visible-content scaling p95 scene visits at the largest total graph
+  size no more than `5%` above the smallest total graph size.
 
 Success criteria:
 
@@ -447,8 +506,13 @@ Success criteria:
 - The report explains whether a run is slow because of input delivery,
   renderer duplication, DOM mutation, React commits, graph work, or recording
   overhead.
+- Structural gates distinguish camera-caused graph and presentation work from
+  unrelated work that merely overlaps the interaction window.
 - The report names the largest tasks occupying the main thread before delayed
   wheel/pointer handler entry.
+- The report identifies the build mode, benchmark seed, warm-up count,
+  repetition count, workload, runner class, and whether timing thresholds were
+  enforced or report-only.
 - No product fix is hidden inside Phase 0.
 
 ### Phase 1: Move Graph Canvas Lifetime To One Surface Controller And Frame Owner
@@ -461,6 +525,8 @@ Tasks:
 - Create a `GraphSurfaceController` or equivalent under the workspace graph
   surface boundary.
 - Make controller identity keyed by `surfaceId`.
+- Make controller lookup and creation atomic for each `surfaceId`.
+- Model lifecycle with explicit states and generation tokens or abort signals.
 - Make controller creation/destruction owned by the surface registry or a
   surface runtime owner, not by ordinary React rerender dependencies.
 - Keep React responsible for overlays and commands, not Pixi app lifetime.
@@ -481,6 +547,9 @@ Tasks:
   - semantic runtime projection application.
 - Add a development invariant that throws if a second live controller is created
   for one `surfaceId`.
+- Make `destroy()` idempotent and cancel pending rAF callbacks, tickers,
+  listeners, observers, async initialization, and queued updates for the old
+  controller generation.
 - Remove the old renderer creation path after the new path is in place.
 
 Success criteria:
@@ -489,8 +558,10 @@ Success criteria:
 - Host reassignment, pane focus movement, and graph toolbar rerenders do not
   create a second Pixi app.
 - Renderer destruction happens exactly once per controller lifetime.
-- Camera movement cost does not scale with total graph size in the `normal`
-  benchmark.
+- Stale lifecycle callbacks and queued updates cannot mutate a destroyed or
+  superseded controller.
+- Camera movement cost does not scale with total graph size when visible
+  content is held constant.
 - Trace shows one graph frame owner and no independent Pixi auto-render loop.
 
 ### Phase 2: Refactor PresentationEngine To Typed Diffed Writes
@@ -533,6 +604,7 @@ Tasks:
 
 - Re-run `simple`, `normal`, `dense`, and `stress` workloads with recording on
   and off.
+- Re-run the constant-visible-content scaling workload.
 - Compare against the Phase 0 report.
 - Identify the remaining top pre-handler blockers and long frames.
 - Decide whether a shared frame admission coordinator is necessary.
@@ -544,7 +616,11 @@ Tasks:
 Success criteria:
 
 - Duplicate renderer count remains `1`.
-- Pane chrome mutation storms remain absent.
+- Camera-caused disallowed workspace presentation writes remain absent.
+- Input-to-presented-frame p95 is reported and either meets the target budget or
+  is explained by named trace evidence.
+- Required scene-visit counters are present, satisfy the numeric scaling budget,
+  and show whether frame cost scales with visible content or total graph size.
 - The report clearly states whether the remaining issue is event delivery,
   graph scene work, Pixi draw work, React work, browser layout/paint, GC, or
   recording overhead.
@@ -598,7 +674,7 @@ Tasks:
 
 Success criteria:
 
-- Camera pan/zoom produces no React commits.
+- Camera pan/zoom produces no graph or graph-shell React commits.
 - Node drag position remains stable after async refresh.
 - Backend layout persistence failure is visible and specific; stale refreshes
   do not silently reset local layout.
@@ -640,10 +716,13 @@ Tasks:
   - handler duration,
   - camera commit duration,
   - first-render-after-input duration,
+  - input-to-presented-frame duration,
   - frame p50/p95/p99/max,
+  - required camera-frame scene visit counters,
+  - rendered object counts and draw calls as supplemental metrics,
   - duplicate renderer count,
-  - DOM mutations by owner,
-  - React commits,
+  - DOM mutations by owner and causal source,
+  - React commits by owner and causal source,
   - full scene replacements,
   - deferred work by lane.
 - Store before/after reports under `docs/reports/performance/`.
@@ -687,6 +766,8 @@ Required checks before implementation commits that touch executable code:
 
 - Phase 0 trace capture and report generation for the relevant benchmark
   workload,
+- renderer-level scaling benchmark with constant visible content and increasing
+  total graph size,
 - focused renderer/unit tests for scheduler, presentation diffing, graph
   controller lifecycle, and camera state behavior,
 - deterministic Electron pan/zoom performance workflow,
@@ -701,6 +782,11 @@ reports under `docs/reports/performance/`.
 
 - Before Phase 0: whether trace capture should use Playwright/CDP tracing,
   Electron tracing, or both.
+- Before Phase 0: which machine or CI lane is the timing-threshold reference
+  runner, and which machines are report-only for timing metrics.
+- Before Phase 0: how the input-to-presented-frame timestamp is derived from
+  Chromium/Electron traces so the metric means a committed camera transform was
+  presented, not only scheduled.
 - Whether the graph controller should live directly inside `SurfaceRegistry` or
   behind a new `WorkspaceSurfaceRuntime` owner. Decide before Phase 1.
 - Whether pane chrome should remain per-pane DOM or move to a single overlay
