@@ -1,5 +1,4 @@
 import type {
-  RunItem,
   WorkflowEdge,
   WorkflowEvent,
   WorkflowExecution,
@@ -168,10 +167,6 @@ export function workflowNodeKindLabel(kind: WorkflowNodeKind | "") {
     default:
       return kind || "Unknown";
   }
-}
-
-export function runActivityItemTitle(item: RunItem) {
-  return item.title || item.command || item.toolName || item.type;
 }
 
 export function workflowJsonText(value: unknown) {

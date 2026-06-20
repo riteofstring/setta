@@ -13,9 +13,23 @@ import {
 } from "lucide-react";
 
 import { cn } from "../lib/utils";
-import type { RunItemOutputPageState } from "../stores/chat-store";
 import { BrailleSpinner } from "./ascii-spinner";
 import { Button } from "./ui/button";
+
+export interface AgentRunItemOutputPageState {
+  error: string | null;
+  hasMore: boolean;
+  loadedThroughOrdinal: number;
+  loading: boolean;
+  nextOrdinal: number;
+}
+
+export type LoadAgentRunItemOutput = (
+  runId: string,
+  runItemId: string,
+  afterOrdinal?: number,
+  limit?: number,
+) => Promise<void>;
 
 const activityLabelByType = {
   agent_message: "assistant message",
@@ -80,7 +94,7 @@ const activityIconClassByType = {
   web_search: "h-4 w-4 shrink-0 text-muted-foreground",
 } satisfies Record<RunItemType, string>;
 
-export function RunActivityRows({
+export function AgentRunActivityRows({
   items,
   loadRunItemOutput,
   outputIdsByRunItemId,
@@ -88,14 +102,9 @@ export function RunActivityRows({
   outputsById,
 }: {
   items: RunItem[];
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
+  loadRunItemOutput?: LoadAgentRunItemOutput;
   outputIdsByRunItemId: Record<string, string[]>;
-  outputPagesByRunItemId: Record<string, RunItemOutputPageState>;
+  outputPagesByRunItemId: Record<string, AgentRunItemOutputPageState>;
   outputsById: Record<string, RunItemOutput>;
 }) {
   if (items.length === 0) {
@@ -104,6 +113,7 @@ export function RunActivityRows({
   return (
     <details
       className="group/activity mt-3 w-full min-w-0 max-w-full overflow-hidden border-t border-border/80 pt-2.5 text-xs text-foreground"
+      data-agent-run-activity="true"
       data-testid="run-activity-group"
       open
     >
@@ -118,7 +128,7 @@ export function RunActivityRows({
       </summary>
       <div className="mt-1.5 min-w-0 space-y-1.5 border-l border-border/70 pl-2">
         {items.map((item) => (
-          <RunActivityRow
+          <AgentRunActivityItem
             item={item}
             key={item.id}
             loadRunItemOutput={loadRunItemOutput}
@@ -131,29 +141,25 @@ export function RunActivityRows({
   );
 }
 
-function RunActivityRow({
+function AgentRunActivityItem({
   item,
   loadRunItemOutput,
   outputPage,
   outputs,
 }: {
   item: RunItem;
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
-  outputPage: RunItemOutputPageState | undefined;
+  loadRunItemOutput?: LoadAgentRunItemOutput;
+  outputPage: AgentRunItemOutputPageState | undefined;
   outputs: RunItemOutput[];
 }) {
   const outputText = outputPreview(outputs);
   return (
     <details
       className="group/item relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-foreground"
+      data-agent-run-activity-item="true"
       data-testid="run-activity-row"
       onToggle={(event) => {
-        if (!event.currentTarget.open || outputPage?.loading || outputPage) {
+        if (!event.currentTarget.open || outputPage?.loading || outputPage || !loadRunItemOutput) {
           return;
         }
         void loadRunItemOutput(item.runId, item.id, 0);
@@ -163,14 +169,14 @@ function RunActivityRow({
         <ActivityIcon type={item.type} />
         <ToolDisclosureIcon />
         <span className="min-w-0 flex-1 truncate font-medium text-muted-foreground">
-          {activityTitle(item)}
+          {agentRunActivityTitle(item)}
         </span>
         <RunActivityStatus item={item} />
       </summary>
       <RunActivityDetails
         item={item}
         loadMoreOutput={() =>
-          void loadRunItemOutput(item.runId, item.id, outputPage?.nextOrdinal ?? 0)
+          void loadRunItemOutput?.(item.runId, item.id, outputPage?.nextOrdinal ?? 0)
         }
         outputPage={outputPage}
         outputText={outputText}
@@ -196,7 +202,7 @@ function RunActivityDetails({
 }: {
   item: RunItem;
   loadMoreOutput: () => void;
-  outputPage: RunItemOutputPageState | undefined;
+  outputPage: AgentRunItemOutputPageState | undefined;
   outputText: string;
 }) {
   return (
@@ -355,7 +361,7 @@ function RunActivityOutput({
   outputText,
 }: {
   loadMoreOutput: () => void;
-  outputPage: RunItemOutputPageState | undefined;
+  outputPage: AgentRunItemOutputPageState | undefined;
   outputText: string;
 }) {
   if (!hasRunActivityOutput(outputText, outputPage)) {
@@ -371,7 +377,10 @@ function RunActivityOutput({
   );
 }
 
-function hasRunActivityOutput(outputText: string, outputPage: RunItemOutputPageState | undefined) {
+function hasRunActivityOutput(
+  outputText: string,
+  outputPage: AgentRunItemOutputPageState | undefined,
+) {
   return Boolean(outputText || outputPage?.hasMore || outputPage?.loading || outputPage?.error);
 }
 
@@ -385,7 +394,7 @@ function RunActivityOutputText({ outputText }: { outputText: string }) {
 function RunActivityOutputError({
   outputPage,
 }: {
-  outputPage: RunItemOutputPageState | undefined;
+  outputPage: AgentRunItemOutputPageState | undefined;
 }) {
   if (!outputPage?.error) {
     return null;
@@ -398,7 +407,7 @@ function RunActivityOutputLoadMore({
   outputPage,
 }: {
   loadMoreOutput: () => void;
-  outputPage: RunItemOutputPageState | undefined;
+  outputPage: AgentRunItemOutputPageState | undefined;
 }) {
   if (!outputPage?.hasMore) {
     return null;
@@ -419,7 +428,7 @@ function RunActivityOutputLoadMore({
 function RunActivityOutputLoading({
   outputPage,
 }: {
-  outputPage: RunItemOutputPageState | undefined;
+  outputPage: AgentRunItemOutputPageState | undefined;
 }) {
   if (!outputPage?.loading) {
     return null;
@@ -472,7 +481,7 @@ function RunActivityStatus({ item }: { item: RunItem }) {
       {item.status === "running" || item.status === "pending" ? (
         <BrailleSpinner
           className="text-muted-foreground"
-          label={`${activityTitle(item)} running`}
+          label={`${agentRunActivityTitle(item)} running`}
         />
       ) : null}
       <span>{item.status}</span>
@@ -480,7 +489,7 @@ function RunActivityStatus({ item }: { item: RunItem }) {
   );
 }
 
-function activityTitle(item: RunItem) {
+function agentRunActivityTitle(item: RunItem) {
   if (item.title) {
     return item.title;
   }

@@ -2,7 +2,15 @@ import { describe, expect, test } from "vitest";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 
-import type { WorkflowEvent, WorkflowExecution, WorkflowNodeExecution } from "@generated/backend";
+import type {
+  RunActivityPage,
+  RunItem,
+  RunItemOutput,
+  WorkflowActivityRef,
+  WorkflowEvent,
+  WorkflowExecution,
+  WorkflowNodeExecution,
+} from "@generated/backend";
 import type { WorkflowNodeDetailsTarget } from "../../stores/workflow-editor-store";
 import {
   latestWorkflowNodeExecution,
@@ -236,6 +244,45 @@ describe("workflow node details surface helpers", () => {
 
     expect(html).toContain("This pane is read-only");
     expect(html).toMatch(/data-testid="workflow-node-save-button"[^>]*disabled=""/);
+  });
+
+  test("renders workflow run activity through shared agent activity rows", () => {
+    const ref = workflowActivityRef();
+    const execution = testExecution([
+      {
+        ...nodeExecution("workflow_node_execution_review", "reviewer", 1, 1, "succeeded"),
+        activityRefs: [ref],
+      },
+    ]);
+    const html = renderToString(
+      createElement(WorkflowNodeDetailsContent, {
+        definition: null,
+        draft: null,
+        loadError: "",
+        node: null,
+        onDraftChange: () => undefined,
+        onSave: () => undefined,
+        runInspection: {
+          activityPages: [{ error: "", page: runActivityPage(), ref }],
+          events: [],
+          execution,
+          loadError: "",
+          loading: false,
+        },
+        saveMessage: "",
+        saving: false,
+        target: runtimeTarget(),
+      }),
+    );
+
+    expect(html).toContain('data-agent-run-activity="true"');
+    expect(html).toContain('data-agent-run-activity-item="true"');
+    expect(html).toContain("Assistant replied");
+    expect(html).toContain("summary ready");
+    expect(html).toContain("Output");
+    expect(html).toContain("workflow output chunk");
+    expect(html).not.toContain("TranscriptTurn");
+    expect(html).not.toContain("chat-assistant-turn-row");
   });
 });
 
@@ -643,6 +690,90 @@ function nodeExecution(
     sideEffectPolicy: null,
     startedAt: "",
     status,
+  };
+}
+
+function workflowActivityRef(): WorkflowActivityRef {
+  return {
+    createdAt: "2026-06-07T00:00:00Z",
+    endCursor: "12",
+    executionId: "workflow_execution_test",
+    id: "workflow_activity_ref_review",
+    kind: "chat.run",
+    metadata: {},
+    nodeExecutionId: "workflow_node_execution_review",
+    ref: "chat_run_review",
+    schemaVersion: 1,
+    startCursor: "1",
+    updatedAt: "2026-06-07T00:00:01Z",
+    workspaceId: "workspace_test",
+  };
+}
+
+function runActivityPage(): RunActivityPage {
+  const item = runItem();
+  return {
+    items: [item],
+    output: [runItemOutput(item.id)],
+    runId: item.runId,
+  };
+}
+
+function runItem(): RunItem {
+  return {
+    command: "",
+    completedAt: "2026-06-07T00:00:02Z",
+    conversationId: "conversation_review",
+    createdAt: "2026-06-07T00:00:00Z",
+    cwd: "",
+    details: { source: "workflow" },
+    diffStats: {
+      additions: 0,
+      changedFiles: 0,
+      deletions: 0,
+      structured: false,
+      summary: "",
+    },
+    diffSummary: "",
+    durationMs: 0,
+    error: "",
+    exitCode: 0,
+    fileOperations: [],
+    filePaths: [],
+    hiddenText: "",
+    id: "run_item_review",
+    namespace: "agent",
+    noticeKind: "",
+    noticeMessage: "",
+    patchStatus: "",
+    processId: "",
+    progress: "",
+    providerItemId: "provider_item_review",
+    requestId: "request_review",
+    result: "summary ready",
+    reviewId: "",
+    runId: "chat_run_review",
+    schemaVersion: 1,
+    serverName: "",
+    startedAt: "2026-06-07T00:00:01Z",
+    status: "completed",
+    summary: "",
+    title: "Assistant replied",
+    toolName: "",
+    type: "agent_message",
+    workspaceId: "workspace_test",
+  };
+}
+
+function runItemOutput(runItemId: string): RunItemOutput {
+  return {
+    createdAt: "2026-06-07T00:00:02Z",
+    id: "run_item_output_review_1",
+    ordinal: 1,
+    runItemId,
+    schemaVersion: 1,
+    stream: "stdout",
+    text: "workflow output chunk",
   };
 }
 

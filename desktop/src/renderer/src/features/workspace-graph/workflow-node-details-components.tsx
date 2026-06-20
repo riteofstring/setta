@@ -1,6 +1,6 @@
 import type {
   RunActivityPage,
-  RunItem,
+  RunItemOutput,
   WorkflowActivityRef,
   WorkflowEvent,
   WorkflowExecution,
@@ -10,10 +10,10 @@ import type {
 } from "@generated/backend";
 import type { ReactNode } from "react";
 
+import { AgentRunActivityRows } from "../../components/agent-run-activity";
 import type { WorkflowNodeDetailsTarget } from "../../stores/workflow-editor-store";
 import {
   latestWorkflowNodeExecution,
-  runActivityItemTitle,
   shortIdentifier,
   workflowJsonText,
   workflowNodeEvents,
@@ -211,42 +211,28 @@ function WorkflowRunActivityPageDetails({ page }: { page: RunActivityPage }) {
   if (page.items.length === 0) {
     return <div className="text-xs text-zinc-500">No activity items recorded.</div>;
   }
+  const outputState = runActivityPageOutputState(page.output);
   return (
-    <div className="space-y-2">
-      {page.items.map((item) => (
-        <WorkflowRunActivityItem item={item} key={item.id} page={page} />
-      ))}
-    </div>
+    <AgentRunActivityRows
+      items={page.items}
+      outputIdsByRunItemId={outputState.outputIdsByRunItemId}
+      outputPagesByRunItemId={{}}
+      outputsById={outputState.outputsById}
+    />
   );
 }
 
-function WorkflowRunActivityItem({ item, page }: { item: RunItem; page: RunActivityPage }) {
-  const output = page.output
-    .filter((candidate) => candidate.runItemId === item.id)
-    .map((candidate) => candidate.text)
-    .join("");
-  return (
-    <div className="rounded-sm border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate font-medium text-zinc-100">
-          {runActivityItemTitle(item)}
-        </span>
-        <span className="shrink-0 text-zinc-500">{item.status}</span>
-      </div>
-      <WorkflowDetailsRows
-        rows={[
-          { label: "Type", value: item.type },
-          { label: "Tool", value: [item.namespace, item.toolName].filter(Boolean).join("/") },
-          { label: "Result", value: item.result },
-          { label: "Error", value: item.error, hidden: item.error === "" },
-        ]}
-      />
-      {output !== "" ? (
-        <pre className="mt-2 whitespace-pre-wrap text-zinc-300">{output}</pre>
-      ) : null}
-      <WorkflowJsonBlock title="Details" value={item.details} />
-    </div>
-  );
+function runActivityPageOutputState(output: RunItemOutput[]) {
+  const outputIdsByRunItemId: Record<string, string[]> = {};
+  const outputsById: Record<string, RunItemOutput> = {};
+  for (const itemOutput of output) {
+    outputsById[itemOutput.id] = itemOutput;
+    outputIdsByRunItemId[itemOutput.runItemId] = [
+      ...(outputIdsByRunItemId[itemOutput.runItemId] ?? []),
+      itemOutput.id,
+    ];
+  }
+  return { outputIdsByRunItemId, outputsById };
 }
 
 function WorkflowProjectionFlowSection({ target }: { target: WorkflowNodeDetailsTarget }) {

@@ -22,10 +22,10 @@ import {
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button } from "./ui/button";
+import { AgentRunActivityRows } from "./agent-run-activity";
 import { MessageActions, MessageTimestamp } from "./chat-message-actions";
 import { chatMessageText } from "./chat-message-text";
 import { MarkdownText } from "./markdown-text";
-import { RunActivityRows } from "./chat-run-activity";
 import { ApprovalCard, type SubmitApproval } from "./chat-transcript-approvals";
 import { BrailleSpinner } from "./ascii-spinner";
 import {
@@ -673,7 +673,7 @@ const MessageRow = memo(function MessageRow({
   }
   const activityRows =
     itemRows.length > 0 ? (
-      <RunActivityRows
+      <AgentRunActivityRows
         items={itemRows}
         loadRunItemOutput={loadRunItemOutput}
         outputIdsByRunItemId={runItemOutputIdsByRunItemId}
