@@ -1182,12 +1182,23 @@ Result: passed on June 20, 2026.
 Goal: keep pan/zoom smoothness measurable without blocking the refactor on an
 undefined performance gate.
 
+Status: Ready. The linked pan/zoom surface runtime plan is closed through its
+own Phase 8, but this readiness-plan phase remains open because the current
+pan/zoom workflow still leads with scheduler/counter evidence for node drag.
+Implement this phase by strengthening the existing pan/zoom workflow with the
+behavior-first assertions below before treating the performance guardrails as
+interaction-contract proof.
+
 Tasks:
 
 - Keep structural hard gates from the existing pan/zoom performance workflow.
 - Add behavior assertions for camera deltas, dragged-node-only movement, stable
   positions after refresh, and absence of unintended layout writes before
   scheduler/counter assertions.
+- Replace or precede the existing `node-drag-recorded` counter gate with
+  assertions that prove only the dragged node moved, the camera changed only
+  through the scripted pan/zoom operations, and no workflow or view-layout write
+  occurred outside the scripted drag.
 - Treat interaction scheduler lane counts as instrumentation unless the
   scheduler is changed to actually coalesce, defer, preempt, or remove work from
   the input path.
