@@ -1,9 +1,9 @@
 # Workspace Graph Pan/Zoom Surface Runtime Refactor Plan
 
 - **Date:** June 18, 2026
-- **Status:** Phase 1 is implemented and the current benchmark report marks
-  Phase 2 ready to implement. The next work is the typed, diffed
-  `PresentationEngine` write path.
+- **Status:** Phase 2 is implemented and the current benchmark report supports
+  moving to Phase 3. The next work is remeasurement before deciding whether any
+  shared frame admission policy is justified.
 - **Scope:** Make workspace graph pan/zoom smooth by refactoring graph canvas
   lifetime, workspace pane presentation writes, and frame-loop scheduling around
   explicit surface ownership and measurable interaction budgets.
@@ -537,10 +537,10 @@ The current checked-in performance report marks Phase 1 readiness as ready:
   the current automation and first-Pixi-render timing remains proxy evidence
   only. That is report-only on non-reference runners and does not block Phase 2.
 
-Phase 2 is ready to implement. Its first acceptance target is eliminating
-camera-caused pane chrome mutation storms through typed, diffed presentation
-writes while preserving normal focus, maximization, split, resize, adjacency,
-and action-button updates.
+Phase 2 was the next acceptance target after Phase 1: eliminate camera-caused
+pane chrome mutation storms through typed, diffed presentation writes while
+preserving normal focus, maximization, split, resize, adjacency, and
+action-button updates. Its current implementation status is recorded below.
 
 ### Phase 1: Move Graph Canvas Lifetime To One Surface Controller And Frame Owner
 
@@ -621,6 +621,33 @@ Success criteria:
 - Existing pane controls still update correctly when focus, maximization,
   split, resize, or adjacency changes.
 - Tests cover both no-op frame application and real chrome state changes.
+
+#### Phase 2 Status
+
+The Phase 2 implementation refactored workspace presentation around typed state
+records and diffed writes for host frame state, pane identity, pane chrome,
+action buttons, resize handles, and surface viewport synchronization.
+
+Current evidence supports moving to Phase 3:
+
+- Stable pane chrome is created once and reused; no-op frames do not rewrite
+  chrome, handles, host box state, or surface viewports.
+- Real focus, maximization, split action, resize adjacency, browser movement,
+  and overview/snapshot handoff changes remain covered by focused tests.
+- The Electron performance recorder attributes pane mutations by presentation
+  owner component, preserving the causal structural gate.
+- The latest checked-in performance report shows zero camera-caused workspace
+  presentation writes across the pan/zoom matrix, while duplicate-renderer,
+  graph React commit, full graph replacement, and required scene-visit scaling
+  hard checks continue to pass.
+- Input-to-presented-frame remains blocked by the missing compositor
+  presentation trace source and timing thresholds remain report-only on
+  non-reference runners.
+
+Phase 3 is ready to implement. It should re-run the Phase 0/Phase 2 benchmark
+matrix, compare the remaining input delivery and frame timing evidence, and
+only proceed to shared frame admission if traces show competing scheduled work
+is still the bottleneck.
 
 ### Phase 3: Remeasure And Gate Further Scheduling Work
 
