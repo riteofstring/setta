@@ -286,7 +286,7 @@ The kernel should not route from raw transcript text. Routing should use explici
 
 ## Concrete Runner Examples
 
-Detailed examples for Codex, sandboxed process, MCP tool, Python extraction, and agent subgraph runners live in [Backend Workflow Kernel Runner Examples](../reference/backend_workflow_kernel_runner_examples.md).
+Detailed examples for Codex, sandboxed process, MCP tool, Python extraction, and agent subgraph runners live in [Backend Workflow Kernel Runner Examples](backend_workflow_kernel_runner_examples.md).
 
 ## Persistence Architecture
 
@@ -731,7 +731,7 @@ Future process logs, MCP calls, and sidecar traces use the same reference table 
 
 ### Runtime SQLite Schema
 
-The implemented schema and transaction boundary are documented in [Backend Workflow Kernel SQLite Schema](../reference/backend_workflow_kernel_sqlite_schema.md).
+The implemented schema and transaction boundary are documented in [Backend Workflow Kernel SQLite Schema](backend_workflow_kernel_sqlite_schema.md).
 
 ### Workspace Definition Files
 

@@ -17,12 +17,6 @@ node desktop/tests/electron/run-workflows.mjs --workflow workflow-blank-canvas
 node desktop/tests/electron/run-workflows.mjs --tier performance
 ```
 
-Run the workspace graph Phase 3 pan/zoom recorder-on/off matrix directly:
-
-```sh
-node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --scenario phase3 --skip-build --keep-artifacts --write-report
-```
-
 Run the deterministic chat workflows through the root compatibility wrapper:
 
 ```sh

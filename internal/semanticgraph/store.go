@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 15
+	semanticStoreVersion = 7
 	sqliteDriverName     = "sqlite"
 )
 
@@ -130,29 +130,17 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 		return store.persistenceError("read semantic graph database schema version", err)
 	}
 	if userVersion != 0 && userVersion != semanticStoreVersion {
-		return store.corruptError("semantic graph database", unsupportedSemanticStoreVersionError(userVersion))
+		return store.corruptError("semantic graph database", fmt.Errorf("unsupported schema version %d", userVersion))
 	}
 	if err := store.createSchema(ctx); err != nil {
 		return err
 	}
 	if userVersion == 0 {
-		if err := store.createDefaultSemanticCartographerSettings(ctx); err != nil {
-			return err
-		}
 		if _, err := store.db.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", semanticStoreVersion)); err != nil {
 			return store.persistenceError("write semantic graph database schema version", err)
 		}
-	} else if err := store.validateSemanticCartographerSettingsRow(ctx); err != nil {
-		return err
 	}
 	return nil
-}
-
-func unsupportedSemanticStoreVersionError(version int) error {
-	return fmt.Errorf(
-		"unsupported schema version %d; reset the semantic graph store by deleting semantic-graph.sqlite and its WAL/SHM sidecar files",
-		version,
-	)
 }
 
 func (store *Store) createSchema(ctx context.Context) error {
@@ -202,8 +190,6 @@ CREATE TABLE IF NOT EXISTS semantic_nodes_current (
   kind TEXT NOT NULL,
   label TEXT NOT NULL,
   summary TEXT NOT NULL DEFAULT '',
-  why_it_exists TEXT NOT NULL DEFAULT '',
-  future_use TEXT NOT NULL DEFAULT '',
   dismissed INTEGER NOT NULL DEFAULT 0,
   promoted INTEGER NOT NULL DEFAULT 0,
   split_from_node_id TEXT NOT NULL DEFAULT '',
@@ -240,7 +226,6 @@ CREATE INDEX IF NOT EXISTS semantic_edges_workspace_nodes_idx
 CREATE TABLE IF NOT EXISTS semantic_evidence_anchors (
   workspace_id TEXT NOT NULL,
   id TEXT NOT NULL,
-  evidence_identity TEXT NOT NULL DEFAULT '',
   target_entity_id TEXT NOT NULL,
   source_kind TEXT NOT NULL,
   source_id TEXT NOT NULL DEFAULT '',
@@ -261,12 +246,8 @@ CREATE TABLE IF NOT EXISTS semantic_evidence_anchors (
   run_item_id TEXT NOT NULL DEFAULT '',
   reassigned_from_anchor_id TEXT NOT NULL DEFAULT '',
   created_by_event_id TEXT NOT NULL,
-  updated_by_event_id TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL DEFAULT '',
-  duplicate_count INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY(workspace_id, id),
-  UNIQUE(workspace_id, evidence_identity)
+  PRIMARY KEY(workspace_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS semantic_evidence_workspace_target_idx
@@ -385,15 +366,6 @@ CREATE TABLE IF NOT EXISTS semantic_layout_positions (
   PRIMARY KEY(workspace_id, entity_id)
 );
 
-CREATE TABLE IF NOT EXISTS semantic_cartographer_settings (
-  id TEXT PRIMARY KEY CHECK (id = 'global'),
-  schema_version INTEGER NOT NULL,
-  settings_json TEXT NOT NULL,
-  settings_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (
   workspace_id TEXT NOT NULL,
   id TEXT NOT NULL,
@@ -411,43 +383,16 @@ CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (
   input_bundle_json TEXT NOT NULL DEFAULT '{}',
   output_schema_json TEXT NOT NULL DEFAULT '{}',
   harness_kind TEXT NOT NULL DEFAULT '',
-  settings_hash TEXT NOT NULL DEFAULT '',
-  task_profile TEXT NOT NULL DEFAULT '',
-  requested_model_selection TEXT NOT NULL DEFAULT '',
-  requested_model TEXT NOT NULL DEFAULT '',
-  effective_model TEXT NOT NULL DEFAULT '',
-  reported_model TEXT NOT NULL DEFAULT '',
-  requested_reasoning_effort TEXT NOT NULL DEFAULT '',
-  requested_input_budget INTEGER NOT NULL DEFAULT 0,
-  effective_reasoning_effort TEXT NOT NULL DEFAULT '',
-  reported_reasoning_effort TEXT NOT NULL DEFAULT '',
-  reasoning_effort_reported INTEGER NOT NULL DEFAULT 0,
+  model TEXT NOT NULL DEFAULT '',
   request_id TEXT NOT NULL DEFAULT '',
   response_id TEXT NOT NULL DEFAULT '',
   window_id TEXT NOT NULL DEFAULT '',
-  source_epoch_id TEXT NOT NULL DEFAULT '',
-  source_key TEXT NOT NULL DEFAULT '',
-  priority INTEGER NOT NULL DEFAULT 0,
-  lease_owner TEXT NOT NULL DEFAULT '',
-  lease_deadline TEXT NOT NULL DEFAULT '',
-  attempt_count INTEGER NOT NULL DEFAULT 0,
   input_bundle_hash TEXT NOT NULL DEFAULT '',
-  input_bundle_bytes INTEGER NOT NULL DEFAULT 0,
-  input_bundle_character_count INTEGER NOT NULL DEFAULT 0,
   input_item_counts_json TEXT NOT NULL DEFAULT '{}',
-  output_schema_bytes INTEGER NOT NULL DEFAULT 0,
   raw_harness_response_hash TEXT NOT NULL DEFAULT '',
-  raw_harness_response_bytes INTEGER NOT NULL DEFAULT 0,
-  close_reason TEXT NOT NULL DEFAULT '',
-  queue_wait_ms INTEGER NOT NULL DEFAULT 0,
-  harness_duration_ms INTEGER NOT NULL DEFAULT 0,
-  validation_duration_ms INTEGER NOT NULL DEFAULT 0,
-  application_duration_ms INTEGER NOT NULL DEFAULT 0,
-  total_duration_ms INTEGER NOT NULL DEFAULT 0,
   trajectory_summary TEXT NOT NULL DEFAULT '',
   created_semantic_event_ids_json TEXT NOT NULL DEFAULT '[]',
   diagnostics_json TEXT NOT NULL DEFAULT '[]',
-  graph_usefulness_score_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,
   started_at TEXT NOT NULL DEFAULT '',
   completed_at TEXT NOT NULL DEFAULT '',
@@ -458,12 +403,6 @@ CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (
 
 CREATE INDEX IF NOT EXISTS semantic_cartographer_runs_workspace_source_idx
   ON semantic_cartographer_runs(workspace_id, workflow_execution_id, chat_run_id, target_entity_id, updated_at DESC, id);
-
-CREATE INDEX IF NOT EXISTS semantic_cartographer_runs_queue_idx
-  ON semantic_cartographer_runs(status, priority DESC, created_at ASC, id);
-
-CREATE INDEX IF NOT EXISTS semantic_cartographer_runs_source_key_idx
-  ON semantic_cartographer_runs(workspace_id, source_key, status, priority DESC, created_at DESC, id);
 
 CREATE TABLE IF NOT EXISTS semantic_cartographer_windows (
   workspace_id TEXT NOT NULL,
@@ -567,36 +506,6 @@ CREATE TABLE IF NOT EXISTS semantic_cartographer_validation_diagnostics (
 
 CREATE INDEX IF NOT EXISTS semantic_cartographer_diagnostics_workspace_patch_idx
   ON semantic_cartographer_validation_diagnostics(workspace_id, patch_id, created_at ASC, id);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS semantic_search_fts USING fts5(
-  workspace_id UNINDEXED,
-  record_kind UNINDEXED,
-  record_id UNINDEXED,
-  semantic_node_id UNINDEXED,
-  evidence_anchor_id UNINDEXED,
-  activity_interval_id UNINDEXED,
-  steering_directive_id UNINDEXED,
-  context_pack_id UNINDEXED,
-  context_pack_item_id UNINDEXED,
-  item_kind UNINDEXED,
-  source_kind UNINDEXED,
-  source_id UNINDEXED,
-  uri UNINDEXED,
-  path UNINDEXED,
-  workflow_definition_id UNINDEXED,
-  workflow_execution_id UNINDEXED,
-  workflow_node_id UNINDEXED,
-  workflow_node_execution_id UNINDEXED,
-  chat_conversation_id UNINDEXED,
-  chat_run_id UNINDEXED,
-  chat_message_id UNINDEXED,
-  run_item_id UNINDEXED,
-  title,
-  summary,
-  body,
-  updated_at UNINDEXED,
-  tokenize = 'unicode61'
-);
 `)
 
 func splitSQLStatements(sqlText string) []string {

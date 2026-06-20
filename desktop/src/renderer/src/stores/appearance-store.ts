@@ -5,6 +5,7 @@ import type {
   AppearancePreset,
   AppearancePresetID,
   AppearanceSettings,
+  AppearanceWorkspaceNavigationShortcut,
 } from "@generated/backend";
 import { create } from "zustand";
 
@@ -36,6 +37,7 @@ interface AppearanceStore {
   setMode: (mode: AppearanceColorMode) => void;
   setOverviewCardWidthBounds: (minWidthPx: number, maxWidthPx: number) => void;
   setShowPerformanceStats: (show: boolean) => void;
+  setWorkspaceNavigationShortcut: (shortcut: AppearanceWorkspaceNavigationShortcut) => void;
   status: AppearanceStoreStatus;
 }
 
@@ -146,6 +148,15 @@ export const useAppearanceStore = create<AppearanceStore>((set, get) => {
         },
       }));
     },
+    setWorkspaceNavigationShortcut: (shortcut) => {
+      updateDraft((settings) => ({
+        ...settings,
+        shortcuts: {
+          ...settings.shortcuts,
+          workspaceNavigation: shortcut,
+        },
+      }));
+    },
     status: "idle",
   };
 });
@@ -229,6 +240,7 @@ export function appearanceStyleVariables(settings: AppearanceSettings): Record<s
     ...tailwindVariables(scheme),
     ...shadcnVariables(scheme),
     ...statusVariables(scheme),
+    ...accentVariables(scheme),
     "--font-heading": settings.fonts.heading,
     "--font-mono": settings.fonts.mono,
     "--font-sans": settings.fonts.sans,
@@ -266,6 +278,15 @@ function statusVariables(scheme: AppearanceColorScheme): Record<string, string> 
         [`--color-status-${token}`, value],
       ];
     }),
+  );
+}
+
+function accentVariables(scheme: AppearanceColorScheme): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(scheme.accent).flatMap(([name, value]) => [
+      [`--accent-${name}`, value],
+      [`--color-accent-${name}`, value],
+    ]),
   );
 }
 

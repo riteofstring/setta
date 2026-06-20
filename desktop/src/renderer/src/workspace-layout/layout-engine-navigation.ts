@@ -5,12 +5,10 @@ import type { PaneVisualFrame } from "./pane-visual-frame";
 type ColumnVisualFrames = (column: WorkspaceColumn) => PaneVisualFrame[];
 
 export function paneInHorizontalVisualDirection({
-  columnVisualFrames,
   columns,
   direction,
   source,
 }: {
-  columnVisualFrames: ColumnVisualFrames;
   columns: WorkspaceColumn[];
   direction: "left" | "right";
   source: PaneLocation;
@@ -21,15 +19,7 @@ export function paneInHorizontalVisualDirection({
   }
   const targetIndex = source.planeColumnIndex + (direction === "left" ? -1 : 1);
   const targetColumn = planeColumns[(targetIndex + planeColumns.length) % planeColumns.length];
-  const sourceColumn = columns[source.columnIndex];
-  if (!sourceColumn || !targetColumn) {
-    return null;
-  }
-  const sourceFrame = columnVisualFrames(sourceColumn)[source.rowIndex];
-  if (!sourceFrame) {
-    return null;
-  }
-  return nearestPaneByVerticalCenter(columnVisualFrames(targetColumn), sourceFrame.centerY);
+  return targetColumn?.paneIds[0] ?? null;
 }
 
 export function paneInVerticalVisualDirection({

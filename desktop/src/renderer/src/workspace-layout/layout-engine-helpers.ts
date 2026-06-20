@@ -16,7 +16,7 @@ export type PaneLocation = {
   planeIndex: number;
   rowIndex: number;
 };
-export type ColumnGeometry = { offsets: number[]; widths: number[] };
+export type ColumnGeometry = { offsets: number[]; scrollOffsets: number[]; widths: number[] };
 
 const columnWidthPresets = [1 / 3, 0.5, 2 / 3, 1] as const;
 const maximumOverviewScale = 0.42;
@@ -270,12 +270,15 @@ export function renderedColumnIndexesForLayout({
     verticalOffset,
   );
   if (overscanColumns === 0) {
-    return renderedColumnIndexesWithoutOverscan(
+    return renderedColumnIndexesWithoutOverscan({
       columns,
-      scene.visibleColumnCount,
+      geometry,
+      scene,
+      visibleColumnCountLimit: scene.visibleColumnCount,
       visiblePlaneIndexes,
       scrollColumn,
-    );
+      viewportWidth: viewport.width,
+    });
   }
   return renderedColumnIndexesWithOverscan({
     columns,
@@ -334,19 +337,52 @@ function visiblePlaneIndexesForLayout(
     .filter((planeIndex): planeIndex is number => planeIndex !== undefined);
 }
 
-function renderedColumnIndexesWithoutOverscan(
-  columns: readonly WorkspaceColumn[],
-  visibleColumnCountLimit: number,
-  visiblePlaneIndexes: readonly number[],
-  scrollColumn: number,
-): number[] {
+function renderedColumnIndexesWithoutOverscan({
+  columns,
+  geometry,
+  scene,
+  scrollColumn,
+  visibleColumnCountLimit,
+  visiblePlaneIndexes,
+  viewportWidth,
+}: {
+  columns: readonly WorkspaceColumn[];
+  geometry: ColumnGeometry;
+  scene: Pick<WorkspaceScene, "padding">;
+  scrollColumn: number;
+  visibleColumnCountLimit: number;
+  visiblePlaneIndexes: readonly number[];
+  viewportWidth: number;
+}): number[] {
   const renderedColumnIndexes = new Set<number>();
+  const scrollOffset = scrollOffsetForColumn(scrollColumn, geometry.scrollOffsets);
   for (const planeIndex of visiblePlaneIndexes) {
     const planeColumns = columnsInPlane(columns, planeIndex);
-    const visibleColumnCount = Math.min(visibleColumnCountLimit, planeColumns.length);
-    const startColumn = clamp(Math.floor(scrollColumn), 0, Math.max(0, planeColumns.length - 1));
-    for (let offset = 0; offset < visibleColumnCount; offset += 1) {
-      addColumnIndex(renderedColumnIndexes, planeColumns[startColumn + offset]);
+    let addedColumnCount = 0;
+    for (const column of planeColumns) {
+      if (!columnIntersectsViewport(column, geometry, scene, scrollOffset, viewportWidth)) {
+        continue;
+      }
+      addColumnIndex(renderedColumnIndexes, column);
+      addedColumnCount += 1;
+      if (addedColumnCount >= visibleColumnCountLimit) {
+        break;
+      }
+    }
+    if (addedColumnCount > 0) {
+      continue;
+    }
+    const fallbackColumnIndex = nearestPlaneColumnIndexForScrollOffset(
+      planeColumns,
+      geometry,
+      scrollOffset,
+    );
+    for (
+      let index = fallbackColumnIndex;
+      index < Math.min(planeColumns.length, fallbackColumnIndex + visibleColumnCountLimit);
+      index += 1
+    ) {
+      addColumnIndex(renderedColumnIndexes, planeColumns[index]);
     }
   }
   return sortedColumnIndexes(renderedColumnIndexes);
@@ -373,10 +409,8 @@ function renderedColumnIndexesWithOverscan({
   for (const planeIndex of visiblePlaneIndexes) {
     const planeColumns = columnsInPlane(columns, planeIndex);
     const range = visibleColumnRangeForPlane({
-      columns,
       geometry,
       planeColumns,
-      planeIndex,
       scene,
       scrollColumn,
       viewportWidth,
@@ -391,24 +425,19 @@ function renderedColumnIndexesWithOverscan({
 }
 
 function visibleColumnRangeForPlane({
-  columns,
   geometry,
   planeColumns,
-  planeIndex,
   scene,
   scrollColumn,
   viewportWidth,
 }: {
-  columns: readonly WorkspaceColumn[];
   geometry: ColumnGeometry;
   planeColumns: readonly WorkspaceColumn[];
-  planeIndex: number;
   scene: Pick<WorkspaceScene, "padding">;
   scrollColumn: number;
   viewportWidth: number;
 }): { first: number; last: number } {
-  const offsets = offsetsForPlane(columns, planeIndex, geometry);
-  const scrollOffset = scrollOffsetForColumn(scrollColumn, offsets);
+  const scrollOffset = scrollOffsetForColumn(scrollColumn, geometry.scrollOffsets);
   let first = planeColumns.length;
   let last = -1;
   for (let planeColumnIndex = 0; planeColumnIndex < planeColumns.length; planeColumnIndex += 1) {
@@ -421,7 +450,11 @@ function visibleColumnRangeForPlane({
   if (last >= 0) {
     return { first, last };
   }
-  const fallbackColumn = clamp(Math.floor(scrollColumn), 0, Math.max(0, planeColumns.length - 1));
+  const fallbackColumn = nearestPlaneColumnIndexForScrollOffset(
+    planeColumns,
+    geometry,
+    scrollOffset,
+  );
   return { first: fallbackColumn, last: fallbackColumn };
 }
 
@@ -444,12 +477,25 @@ function columnsInPlane(
   return columns.filter((column) => column.planeIndex === planeIndex);
 }
 
-function offsetsForPlane(
-  columns: readonly WorkspaceColumn[],
-  planeIndex: number,
+function nearestPlaneColumnIndexForScrollOffset(
+  planeColumns: readonly WorkspaceColumn[],
   geometry: ColumnGeometry,
-): number[] {
-  return columnsInPlane(columns, planeIndex).map((column) => geometry.offsets[column.index] ?? 0);
+  scrollOffset: number,
+): number {
+  let nearestColumnIndex = 0;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < planeColumns.length; index += 1) {
+    const column = planeColumns[index];
+    if (!column) {
+      continue;
+    }
+    const distance = Math.abs((geometry.offsets[column.index] ?? 0) - scrollOffset);
+    if (distance < nearestDistance) {
+      nearestColumnIndex = index;
+      nearestDistance = distance;
+    }
+  }
+  return nearestColumnIndex;
 }
 
 function planeIndexes(columns: readonly WorkspaceColumn[]): number[] {

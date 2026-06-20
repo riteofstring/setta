@@ -1,39 +1,5 @@
 import type { WorkspaceMetricsCollector } from "./metrics";
 import type { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
-import {
-  emptyHostFrameState,
-  emptyPaneIdentityState,
-  hiddenHostFrameState,
-  hiddenPaneChromeState,
-  hostFrameStateForItem,
-  overlapSize,
-  paneActionButtonClassName,
-  paneActionButtonLabel,
-  paneChromeActionVisible,
-  paneChromeActions,
-  paneChromeStateForItem,
-  positionResizeHandle,
-  rectHeight,
-  rectWidth,
-  resizeHandleStateForItems,
-  samePaneActionButtonState,
-  samePaneChromeState,
-  samePaneIdentityState,
-  sameResizeHandleState,
-  syncAttributeValue,
-  syncDatasetValue,
-  syncElementProperty,
-  syncStyleValue,
-  visualRectForItem,
-  type HostFrameState,
-  type PaneActionButtonState,
-  type PaneChromeAction,
-  type PaneChromeState,
-  type PaneIdentityState,
-  type PaneResizeAxis,
-  type PaneVisualRect,
-  type ResizeHandleState,
-} from "./presentation-engine-state";
 import { SurfaceRegistry, type SurfaceViewportSyncStats } from "./surface-registry";
 import type { WorkspacePane, PaneRenderItem, PaneRuntimeSummary, ResizePhase } from "./types";
 
@@ -52,13 +18,29 @@ export interface PresentationEngineOptions {
 }
 
 interface PaneHostBinding {
-  actionButtonStates: Partial<Record<PaneChromeAction, PaneActionButtonState>>;
-  chromeState: PaneChromeState | null;
   contentPaneId: string | null;
-  frameState: HostFrameState;
   host: HTMLElement;
-  identityState: PaneIdentityState | null;
-  resizeHandleStates: Partial<Record<PaneResizeAxis, ResizeHandleState>>;
+  lastFocused: boolean | null;
+  lastHeight: number;
+  lastMaximized: boolean | null;
+  lastMoving: boolean | null;
+  lastOpacity: number;
+  lastPresentationMode: string | null;
+  lastRuntimeState: string | null;
+  lastTransform: string;
+  lastVisible: boolean | null;
+  lastWidth: number;
+  lastZ: number;
+}
+
+type PaneResizeAxis = "horizontal" | "vertical";
+type PaneChromeAction = "add-above" | "add-below" | "close" | "maximize" | "split-down";
+
+interface PaneVisualRect {
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
 }
 
 interface ResizeNeighborMeasurement {
@@ -67,6 +49,13 @@ interface ResizeNeighborMeasurement {
 }
 
 const maximumResizeNeighborGapPx = 48;
+const paneChromeActions = [
+  "split-down",
+  "add-above",
+  "add-below",
+  "maximize",
+  "close",
+] satisfies PaneChromeAction[];
 
 export class PresentationEngine {
   private bindings: PaneHostBinding[] = [];
@@ -87,7 +76,6 @@ export class PresentationEngine {
   }
 
   apply(items: PaneRenderItem[], options: PresentationApplyOptions): PresentationWriteCounts {
-    const presentationMark = markPresentationApplyStart(items, options);
     const writeCounts = emptyPresentationWriteCounts();
     const assignedItems = this.assignItemsToBindings(items);
     this.nativeViewBoundsBatcher?.beginFrame();
@@ -109,19 +97,24 @@ export class PresentationEngine {
     this.metrics.recordGitGraphStats(this.surfaceRegistry.gitGraphStats());
     this.metrics.recordTerminalStats(this.surfaceRegistry.terminalStats());
     writeCounts.nativeBoundsUpdates = nativeFlush?.batchSent ? 1 : 0;
-    markPresentationApplyEnd(presentationMark, writeCounts);
     return writeCounts;
   }
 
   mount(hosts: readonly HTMLElement[], debugOverlay: HTMLElement | null): void {
     this.bindings = hosts.map((host) => ({
-      actionButtonStates: {},
-      chromeState: null,
       contentPaneId: host.dataset.paneId ?? null,
-      frameState: emptyHostFrameState(),
       host,
-      identityState: null,
-      resizeHandleStates: {},
+      lastFocused: null,
+      lastHeight: -1,
+      lastMaximized: null,
+      lastMoving: null,
+      lastOpacity: -1,
+      lastPresentationMode: null,
+      lastRuntimeState: null,
+      lastTransform: "",
+      lastVisible: null,
+      lastWidth: -1,
+      lastZ: -1,
     }));
     this.debugOverlay = debugOverlay;
   }
@@ -189,10 +182,11 @@ export class PresentationEngine {
       `resize ${snapshot.resize.frameCount}/${snapshot.resize.p95FrameTime.toFixed(
         2,
       )}/${snapshot.resize.deferredHeavyViewportWrites}/${snapshot.resize.heavyViewportWrites}/${snapshot.reactCommitsDuringResize}`,
-      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${formatBytes(
+      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${snapshot.canvasRendererResizeCount}/${snapshot.canvasTickerFramesWhileFrozen}/${formatPixels(snapshot.canvasBackingStorePixels)}/${formatBytes(
         snapshot.canvasGpuMemoryEstimateBytes,
       )}`,
       `terminal ${snapshot.liveTerminalRendererCount}/${snapshot.terminalDirtyRows}/${snapshot.terminalPendingOutputChunks}`,
+      `snapshot ${snapshot.snapshotFreshTextureUses}/${snapshot.snapshotStaleTextureUses}/${snapshot.snapshotMissingTextureUses}/${snapshot.snapshotCaptureRequestsDuringTransition}`,
       `graph ${snapshot.liveGitGraphPaneCount}/${snapshot.gitGraphRenderer ?? "none"}/${Math.round(
         snapshot.gitGraphProgress * 100,
       )}%/${snapshot.gitGraphWorkerBatches}${snapshot.gitGraphWorkerPending ? "+" : ""}`,
@@ -288,16 +282,21 @@ export class PresentationEngine {
   }
 
   private hideBinding(binding: PaneHostBinding): void {
-    if (binding.contentPaneId !== null) {
-      this.surfaceRegistry.releaseHost(binding.host);
-    }
+    this.surfaceRegistry.releaseHost(binding.host);
     this.removeResizeHandles(binding.host);
     binding.contentPaneId = null;
-    this.syncPaneIdentity(binding, emptyPaneIdentityState());
-    this.syncHostFrameState(binding, hiddenHostFrameState());
-    this.syncPaneChromeState(binding, hiddenPaneChromeState());
-    binding.actionButtonStates = {};
-    binding.resizeHandleStates = {};
+    binding.host.dataset.focused = "false";
+    binding.host.dataset.maximized = "false";
+    binding.host.dataset.moving = "false";
+    binding.host.dataset.paneId = "";
+    binding.host.style.opacity = "0";
+    binding.host.style.pointerEvents = "none";
+    binding.lastFocused = false;
+    binding.lastMaximized = false;
+    binding.lastMoving = false;
+    binding.lastOpacity = 0;
+    binding.host.dataset.visible = "false";
+    binding.lastVisible = false;
   }
 
   private syncPaneControls(
@@ -309,13 +308,13 @@ export class PresentationEngine {
       throw new Error(`missing pane controls metadata for ${item.paneId}`);
     }
     const topBar = this.ensurePaneTopBar(binding.host);
-    syncDatasetValue(topBar, "paneId", item.paneId);
+    topBar.dataset.paneId = item.paneId;
 
     const dragHandle = this.ensureDragHandle(topBar);
-    syncDatasetValue(dragHandle, "paneId", item.paneId);
+    dragHandle.dataset.paneId = item.paneId;
 
     const actionStrip = this.ensurePaneActionStrip(topBar);
-    syncDatasetValue(actionStrip, "paneId", item.paneId);
+    actionStrip.dataset.paneId = item.paneId;
     let visibleActionCount = 0;
     for (const action of paneChromeActions) {
       const button = this.ensurePaneActionButton(actionStrip, action);
@@ -323,23 +322,17 @@ export class PresentationEngine {
       if (visible) {
         visibleActionCount += 1;
       }
-      this.syncPaneActionButton(binding, button, action, item, visible);
+      this.syncPaneActionButton(button, action, item, visible);
     }
-    syncDatasetValue(
-      actionStrip,
-      "workspacePaneControlsVisible",
-      visibleActionCount > 0 ? "true" : "false",
-    );
+    actionStrip.dataset.workspacePaneControlsVisible = visibleActionCount > 0 ? "true" : "false";
 
     this.syncResizeHandle(
-      binding,
       binding.host,
       item,
       "horizontal",
       resizeNeighborItem(item, assignedItems, "horizontal"),
     );
     this.syncResizeHandle(
-      binding,
       binding.host,
       item,
       "vertical",
@@ -354,7 +347,6 @@ export class PresentationEngine {
     }
     const topBar = host.ownerDocument.createElement("div");
     topBar.className = "workspace-pane-top-bar app-drag";
-    topBar.dataset.workspacePresentationOwner = "pane-top-bar";
     topBar.dataset.workspacePaneTopBar = "true";
     host.append(topBar);
     return topBar;
@@ -367,7 +359,6 @@ export class PresentationEngine {
     }
     const button = topBar.ownerDocument.createElement("button");
     button.className = "workspace-pane-drag-handle app-no-drag";
-    button.dataset.workspacePresentationOwner = "pane-drag-handle";
     button.dataset.workspacePaneDragHandle = "true";
     button.type = "button";
     button.setAttribute("aria-label", "Drag pane");
@@ -383,7 +374,6 @@ export class PresentationEngine {
     }
     const actionStrip = topBar.ownerDocument.createElement("div");
     actionStrip.className = "workspace-pane-action-strip app-no-drag";
-    actionStrip.dataset.workspacePresentationOwner = "pane-action-strip";
     actionStrip.dataset.workspacePaneActionStrip = "true";
     topBar.append(actionStrip);
     return actionStrip;
@@ -399,7 +389,6 @@ export class PresentationEngine {
     }
     const button = actionStrip.ownerDocument.createElement("button");
     button.className = paneActionButtonClassName(action);
-    button.dataset.workspacePresentationOwner = `pane-action-${action}`;
     button.dataset.workspacePaneAction = action;
     if (action === "maximize") {
       button.dataset.workspacePaneMaximizeButton = "true";
@@ -410,33 +399,22 @@ export class PresentationEngine {
   }
 
   private syncPaneActionButton(
-    binding: PaneHostBinding,
     button: HTMLButtonElement,
     action: PaneChromeAction,
     item: PaneRenderItem,
     visible: boolean,
   ): void {
+    button.dataset.paneId = item.paneId;
     const label = paneActionButtonLabel(action, item);
-    const nextState: PaneActionButtonState = {
-      label,
-      paneId: item.paneId,
-      visible,
-    };
-    if (samePaneActionButtonState(binding.actionButtonStates[action] ?? null, nextState)) {
-      return;
-    }
-    syncDatasetValue(button, "paneId", item.paneId);
-    syncAttributeValue(button, "aria-label", label);
-    syncElementProperty(button, "title", label);
-    syncElementProperty(button, "disabled", !visible);
-    syncElementProperty(button, "tabIndex", visible ? 0 : -1);
-    syncStyleValue(button.style, "display", visible ? "" : "none");
-    syncAttributeValue(button, "aria-hidden", visible ? "false" : "true");
-    binding.actionButtonStates[action] = nextState;
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    button.disabled = !visible;
+    button.tabIndex = visible ? 0 : -1;
+    button.style.display = visible ? "" : "none";
+    button.setAttribute("aria-hidden", visible ? "false" : "true");
   }
 
   private syncResizeHandle(
-    binding: PaneHostBinding,
     host: HTMLElement,
     item: PaneRenderItem,
     axis: PaneResizeAxis,
@@ -447,27 +425,20 @@ export class PresentationEngine {
       if (existing) {
         this.removeResizeHandle(host, axis);
       }
-      delete binding.resizeHandleStates[axis];
       return;
     }
     const handle = existing ?? this.createResizeHandle(host, axis);
     const label = axis === "horizontal" ? "Resize adjacent columns" : "Resize stacked panes";
-    const nextState = resizeHandleStateForItems(item, adjacentItem, axis, label);
-    if (sameResizeHandleState(binding.resizeHandleStates[axis] ?? null, nextState)) {
-      return;
-    }
-    syncDatasetValue(handle, "paneId", item.paneId);
-    syncDatasetValue(handle, "adjacentPaneId", adjacentItem.paneId);
-    syncAttributeValue(handle, "aria-label", label);
-    syncElementProperty(handle, "title", label);
-    positionResizeHandle(handle, nextState);
-    binding.resizeHandleStates[axis] = nextState;
+    handle.dataset.paneId = item.paneId;
+    handle.dataset.adjacentPaneId = adjacentItem.paneId;
+    handle.setAttribute("aria-label", label);
+    handle.title = label;
+    positionResizeHandle(handle, axis, visualRectForItem(item), visualRectForItem(adjacentItem));
   }
 
   private createResizeHandle(host: HTMLElement, axis: PaneResizeAxis): HTMLElement {
     const handle = host.ownerDocument.createElement("div");
     handle.className = `workspace-pane-resize-handle workspace-pane-resize-handle-${axis} app-no-drag`;
-    handle.dataset.workspacePresentationOwner = `pane-resize-${axis}`;
     handle.dataset.workspacePaneResizeAxis = axis;
     handle.setAttribute("aria-orientation", axis === "horizontal" ? "vertical" : "horizontal");
     handle.setAttribute("role", "separator");
@@ -556,10 +527,8 @@ export class PresentationEngine {
       throw new Error(`missing fake pane metadata for ${item.paneId}`);
     }
     binding.contentPaneId = item.paneId;
-    this.syncPaneIdentity(binding, {
-      paneId: item.paneId,
-      tone: pane.tone,
-    });
+    binding.host.dataset.paneId = item.paneId;
+    binding.host.dataset.tone = pane.tone;
     return {
       ...emptyPresentationWriteCounts(),
       ...this.surfaceRegistry.syncHost(binding.host, surfaceSyncItem(item, assignedItems), options),
@@ -590,90 +559,138 @@ export class PresentationEngine {
 
   private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): PresentationWriteCounts {
     const writeCounts = emptyPresentationWriteCounts();
-    const frameState = hostFrameStateForItem(item);
-    writeCounts.transformWrites = this.syncTransform(binding, frameState);
-    writeCounts.boxWrites = this.syncBox(binding, frameState);
-    this.syncLayer(binding, frameState);
-    this.syncPaneChromeState(binding, paneChromeStateForItem(item));
+    writeCounts.transformWrites = this.syncTransform(binding, item);
+    writeCounts.boxWrites = this.syncBox(binding, item);
+    this.syncLayer(binding, item);
+    this.syncState(binding, item);
     return writeCounts;
   }
 
-  private syncPaneIdentity(binding: PaneHostBinding, nextState: PaneIdentityState): void {
-    if (samePaneIdentityState(binding.identityState, nextState)) {
-      return;
-    }
-    syncDatasetValue(binding.host, "paneId", nextState.paneId);
-    syncDatasetValue(binding.host, "tone", nextState.tone);
-    binding.identityState = nextState;
-  }
-
-  private syncHostFrameState(binding: PaneHostBinding, nextState: HostFrameState): void {
-    this.syncTransform(binding, nextState);
-    this.syncLayer(binding, nextState);
-    this.syncPointerEvents(binding, nextState);
-  }
-
-  private syncBox(binding: PaneHostBinding, nextState: HostFrameState): number {
+  private syncBox(binding: PaneHostBinding, item: PaneRenderItem): number {
     let boxWrites = 0;
-    if (nextState.width !== null && binding.frameState.width !== nextState.width) {
-      binding.host.style.width = `${nextState.width.toFixed(2)}px`;
-      binding.frameState.width = nextState.width;
+    if (binding.lastWidth !== item.width) {
+      binding.host.style.width = `${item.width.toFixed(2)}px`;
+      binding.lastWidth = item.width;
       boxWrites += 1;
     }
-    if (nextState.height !== null && binding.frameState.height !== nextState.height) {
-      binding.host.style.height = `${nextState.height.toFixed(2)}px`;
-      binding.frameState.height = nextState.height;
+    if (binding.lastHeight !== item.height) {
+      binding.host.style.height = `${item.height.toFixed(2)}px`;
+      binding.lastHeight = item.height;
       boxWrites += 1;
     }
     return boxWrites;
   }
 
-  private syncLayer(binding: PaneHostBinding, nextState: HostFrameState): void {
-    if (nextState.opacity !== null && binding.frameState.opacity !== nextState.opacity) {
-      binding.host.style.opacity = nextState.opacity.toFixed(3);
-      binding.frameState.opacity = nextState.opacity;
+  private syncLayer(binding: PaneHostBinding, item: PaneRenderItem): void {
+    if (binding.lastOpacity !== item.opacity) {
+      binding.host.style.opacity = item.opacity.toFixed(3);
+      binding.lastOpacity = item.opacity;
     }
-    if (nextState.z !== null && binding.frameState.z !== nextState.z) {
-      binding.host.style.zIndex = String(nextState.z);
-      binding.frameState.z = nextState.z;
+    if (binding.lastZ !== item.z) {
+      binding.host.style.zIndex = String(item.z);
+      binding.lastZ = item.z;
     }
   }
 
-  private syncPaneChromeState(binding: PaneHostBinding, nextState: PaneChromeState): void {
-    if (samePaneChromeState(binding.chromeState, nextState)) {
+  private syncState(binding: PaneHostBinding, item: PaneRenderItem): void {
+    this.syncBooleanState(binding, "focused", "lastFocused", item.focused);
+    this.syncBooleanState(binding, "moving", "lastMoving", item.moving);
+    this.syncBooleanState(binding, "maximized", "lastMaximized", item.maximized);
+    const presentationModeChanged = this.syncPresentationMode(binding, item);
+    this.syncVisibleState(binding, item, presentationModeChanged);
+    this.syncRuntimeState(binding, item);
+  }
+
+  private syncBooleanState(
+    binding: PaneHostBinding,
+    datasetKey: "focused" | "maximized" | "moving",
+    cacheKey: "lastFocused" | "lastMaximized" | "lastMoving",
+    value: boolean,
+  ): void {
+    if (binding[cacheKey] === value) {
       return;
     }
-    syncDatasetValue(binding.host, "focused", String(nextState.focused));
-    syncDatasetValue(binding.host, "maximized", String(nextState.maximized));
-    syncDatasetValue(binding.host, "moving", String(nextState.moving));
-    syncDatasetValue(binding.host, "presentationMode", nextState.presentationMode);
-    syncDatasetValue(binding.host, "runtimeState", nextState.runtimeState);
-    syncDatasetValue(binding.host, "visible", String(nextState.visible));
-    binding.chromeState = nextState;
-    this.syncPointerEvents(binding, {
-      ...binding.frameState,
-      pointerEvents: nextState.visible ? "auto" : "none",
-    });
+    binding.host.dataset[datasetKey] = String(value);
+    binding[cacheKey] = value;
   }
 
-  private syncPointerEvents(binding: PaneHostBinding, nextState: HostFrameState): void {
-    if (
-      nextState.pointerEvents !== null &&
-      binding.frameState.pointerEvents !== nextState.pointerEvents
-    ) {
-      binding.host.style.pointerEvents = nextState.pointerEvents;
-      binding.frameState.pointerEvents = nextState.pointerEvents;
+  private syncPresentationMode(binding: PaneHostBinding, item: PaneRenderItem): boolean {
+    if (binding.lastPresentationMode === item.presentationMode) {
+      return false;
     }
+    binding.host.dataset.presentationMode = item.presentationMode;
+    binding.lastPresentationMode = item.presentationMode;
+    return true;
   }
 
-  private syncTransform(binding: PaneHostBinding, nextState: HostFrameState): number {
-    if (nextState.transform !== null && binding.frameState.transform !== nextState.transform) {
-      binding.host.style.transform = nextState.transform;
-      binding.frameState.transform = nextState.transform;
+  private syncVisibleState(
+    binding: PaneHostBinding,
+    item: PaneRenderItem,
+    presentationModeChanged: boolean,
+  ): void {
+    if (binding.lastVisible === item.visible && !presentationModeChanged) {
+      return;
+    }
+    binding.host.dataset.visible = String(item.visible);
+    binding.host.style.pointerEvents = item.visible ? "auto" : "none";
+    binding.lastVisible = item.visible;
+  }
+
+  private syncRuntimeState(binding: PaneHostBinding, item: PaneRenderItem): void {
+    if (binding.lastRuntimeState === item.runtimeState) {
+      return;
+    }
+    binding.host.dataset.runtimeState = item.runtimeState;
+    binding.lastRuntimeState = item.runtimeState;
+  }
+
+  private syncTransform(binding: PaneHostBinding, item: PaneRenderItem): number {
+    const transform = `translate3d(${item.x.toFixed(2)}px, ${item.y.toFixed(
+      2,
+    )}px, 0) scale(${item.scale.toFixed(3)})`;
+    if (binding.lastTransform !== transform) {
+      binding.host.style.transform = transform;
+      binding.lastTransform = transform;
       return 1;
     }
     return 0;
   }
+}
+
+function paneChromeActionVisible(action: PaneChromeAction, item: PaneRenderItem): boolean {
+  if (action === "close" || action === "maximize") {
+    return item.visible;
+  }
+  if (!item.focused || item.presentationMode !== "normal") {
+    return false;
+  }
+  return !item.maximized;
+}
+
+function paneActionButtonLabel(action: PaneChromeAction, item: PaneRenderItem): string {
+  switch (action) {
+    case "add-above":
+      return "Add pane above";
+    case "add-below":
+      return "Add pane below";
+    case "close":
+      return "Close pane";
+    case "maximize":
+      return item.maximized ? "Restore pane size" : "Maximize pane";
+    case "split-down":
+      return "Split pane down";
+    default:
+      return assertNever(action);
+  }
+}
+
+function paneActionButtonClassName(action: PaneChromeAction): string {
+  const className = `workspace-pane-action-button workspace-pane-action-${action} app-no-drag`;
+  return action === "maximize" ? `${className} workspace-pane-maximize-button` : className;
+}
+
+function assertNever(value: never): never {
+  throw new Error(`unhandled pane chrome action: ${String(value)}`);
 }
 
 function resizeNeighborItem(
@@ -791,6 +808,75 @@ function nearerResizeNeighbor(
   return !current || candidate.gap < current.gap ? candidate : current;
 }
 
+function positionResizeHandle(
+  handle: HTMLElement,
+  axis: PaneResizeAxis,
+  sourceRect: PaneVisualRect,
+  adjacentRect: PaneVisualRect,
+): void {
+  if (axis === "horizontal") {
+    const gap = Math.max(0, adjacentRect.left - sourceRect.right);
+    const overlapTop = Math.max(sourceRect.top, adjacentRect.top);
+    const overlapBottom = Math.min(sourceRect.bottom, adjacentRect.bottom);
+    syncStyleValue(
+      handle.style,
+      "height",
+      `${Math.min(72, Math.max(34, overlapBottom - overlapTop - 20)).toFixed(2)}px`,
+    );
+    syncStyleValue(handle.style, "left", `${(sourceRect.right + gap / 2).toFixed(2)}px`);
+    syncStyleValue(handle.style, "top", `${((overlapTop + overlapBottom) / 2).toFixed(2)}px`);
+    syncStyleValue(handle.style, "width", "20px");
+    return;
+  }
+  const gap = Math.max(0, adjacentRect.top - sourceRect.bottom);
+  const overlapLeft = Math.max(sourceRect.left, adjacentRect.left);
+  const overlapRight = Math.min(sourceRect.right, adjacentRect.right);
+  syncStyleValue(handle.style, "height", "20px");
+  syncStyleValue(handle.style, "left", `${((overlapLeft + overlapRight) / 2).toFixed(2)}px`);
+  syncStyleValue(handle.style, "top", `${(sourceRect.bottom + gap / 2).toFixed(2)}px`);
+  syncStyleValue(
+    handle.style,
+    "width",
+    `${Math.min(84, Math.max(42, overlapRight - overlapLeft - 20)).toFixed(2)}px`,
+  );
+}
+
+function syncStyleValue(
+  style: CSSStyleDeclaration,
+  property: "height" | "left" | "top" | "width",
+  value: string,
+): void {
+  if (style[property] !== value) {
+    style[property] = value;
+  }
+}
+
+function visualRectForItem(item: PaneRenderItem): PaneVisualRect {
+  return {
+    bottom: item.y + item.height * item.scale,
+    left: item.x,
+    right: item.x + item.width * item.scale,
+    top: item.y,
+  };
+}
+
+function overlapSize(
+  firstStart: number,
+  firstEnd: number,
+  secondStart: number,
+  secondEnd: number,
+): number {
+  return Math.max(0, Math.min(firstEnd, secondEnd) - Math.max(firstStart, secondStart));
+}
+
+function rectHeight(rect: PaneVisualRect): number {
+  return rect.bottom - rect.top;
+}
+
+function rectWidth(rect: PaneVisualRect): number {
+  return rect.right - rect.left;
+}
+
 function formatBytes(bytes: number | null): string {
   if (bytes === null) {
     return "n/a";
@@ -799,6 +885,16 @@ function formatBytes(bytes: number | null): string {
     return `${Math.round(bytes / 1024)}KiB`;
   }
   return `${(bytes / 1024 / 1024).toFixed(1)}MiB`;
+}
+
+function formatPixels(pixels: number | null): string {
+  if (pixels === null) {
+    return "n/a";
+  }
+  if (pixels < 1000 * 1000) {
+    return `${Math.round(pixels / 1000)}Kpx`;
+  }
+  return `${(pixels / 1000 / 1000).toFixed(1)}Mpx`;
 }
 
 function emptyPresentationWriteCounts(): PresentationWriteCounts {
@@ -814,59 +910,6 @@ function emptyPresentationWriteCounts(): PresentationWriteCounts {
     terminalViewportWrites: 0,
     transformWrites: 0,
   };
-}
-
-let nextPresentationApplySequence = 1;
-
-function markPresentationApplyStart(
-  items: readonly PaneRenderItem[],
-  options: PresentationApplyOptions,
-): { endMarkName: string; startMarkName: string } | null {
-  if (typeof performance === "undefined" || typeof performance.mark !== "function") {
-    return null;
-  }
-  if (
-    typeof globalThis.window === "undefined" ||
-    globalThis.window.__settaWorkflowGraphPerformanceRecorder === undefined
-  ) {
-    return null;
-  }
-  const sequence = nextPresentationApplySequence;
-  nextPresentationApplySequence += 1;
-  const startMarkName = `setta.workspace.presentation.apply.start.${sequence}`;
-  const endMarkName = `setta.workspace.presentation.apply.end.${sequence}`;
-  performance.mark(startMarkName, {
-    detail: {
-      itemCount: items.length,
-      resizePhase: options.resizePhase,
-      sequence,
-    },
-  });
-  return { endMarkName, startMarkName };
-}
-
-function markPresentationApplyEnd(
-  mark: { endMarkName: string; startMarkName: string } | null,
-  writeCounts: PresentationWriteCounts,
-): void {
-  if (
-    mark === null ||
-    typeof performance === "undefined" ||
-    typeof performance.mark !== "function"
-  ) {
-    return;
-  }
-  performance.mark(mark.endMarkName, { detail: writeCounts });
-  if (typeof performance.measure !== "function") {
-    return;
-  }
-  performance.measure("setta.workspace.presentation.apply", {
-    detail: writeCounts,
-    end: mark.endMarkName,
-    start: mark.startMarkName,
-  });
-  performance.clearMarks?.(mark.startMarkName);
-  performance.clearMarks?.(mark.endMarkName);
 }
 
 function addPresentationWriteCounts(

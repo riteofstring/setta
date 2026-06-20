@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type {
   ChatEvent,
-  SemanticCartographerSettingsInput,
   TerminalEvent,
   UpdateAppearanceSettingsRequest,
+  WorkflowEvent,
+  WorkflowGraph,
 } from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
 
@@ -41,12 +42,9 @@ describe("preload workspace API", () => {
     vi.doUnmock("electron");
     vi.unstubAllEnvs();
     vi.stubEnv("SETTA_E2E", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_ANIMATION", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_REDUCE_MOTION", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "");
   });
 
   test("exposes typed app methods through IPC", async () => {
@@ -66,9 +64,7 @@ describe("preload workspace API", () => {
     ]);
 
     expect(api.app.flags).toEqual({
-      workflowGraphAnimationEnabled: true,
       workflowGraphDebug: false,
-      workflowGraphReduceMotion: false,
       workflowGraphSyntheticGraph: null,
     });
     const dragPoint = { screenX: 200, screenY: 120 };
@@ -92,66 +88,6 @@ describe("preload workspace API", () => {
       [ipcChannels.appWorkspaceGitInfo, "/tmp/api"],
       [ipcChannels.appOpenExternalUrl, "https://example.test/login"],
     ]);
-  });
-
-  test("exposes workflow graph visual flags from environment", async () => {
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_ANIMATION", "0");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "1");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_REDUCE_MOTION", "1");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "2");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "500");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "semantic-cells");
-
-    const { api } = await exposePreloadAPI();
-
-    expect(api.app.flags).toEqual({
-      workflowGraphAnimationEnabled: false,
-      workflowGraphDebug: true,
-      workflowGraphReduceMotion: true,
-      workflowGraphSyntheticGraph: {
-        edgesPerNode: 2,
-        nodeCount: 500,
-        scene: "semantic-cells",
-      },
-    });
-  });
-
-  test("accepts visual parity synthetic workflow graph scenes", async () => {
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "1");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "6");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "workflow-running-runtime");
-
-    const { api } = await exposePreloadAPI();
-
-    expect(api.app.flags.workflowGraphSyntheticGraph).toEqual({
-      edgesPerNode: 1,
-      nodeCount: 6,
-      scene: "workflow-running-runtime",
-    });
-  });
-
-  test("accepts phase 0 workflow graph benchmark scenes", async () => {
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "1");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "100");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "phase0-normal");
-
-    const { api } = await exposePreloadAPI();
-
-    expect(api.app.flags.workflowGraphSyntheticGraph).toEqual({
-      edgesPerNode: 1,
-      nodeCount: 100,
-      scene: "phase0-normal",
-    });
-  });
-
-  test("rejects unsupported workflow graph synthetic scenes", async () => {
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "2");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "500");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "unknown");
-
-    await expect(exposePreloadAPI()).rejects.toThrow(
-      "SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE is unsupported: unknown",
-    );
   });
 
   test("exposes typed workspace methods through IPC", async () => {
@@ -232,6 +168,7 @@ describe("preload workspace API", () => {
       {},
       {
         altKey: false,
+        ctrlKey: false,
         key: "ArrowRight",
         metaKey: false,
         shiftKey: false,
@@ -280,6 +217,7 @@ describe("preload workspace API", () => {
     expect(on).toHaveBeenCalledWith("workspace:browser-view-snapshot", expect.any(Function));
     expect(keyListener).toHaveBeenCalledWith({
       altKey: false,
+      ctrlKey: false,
       key: "ArrowRight",
       metaKey: false,
       shiftKey: false,
@@ -551,7 +489,6 @@ describe("preload workspace API", () => {
       "listActivity",
       "listActivityPage",
       "listCartographerCursors",
-      "listCartographerModelOptions",
       "listCartographerPatches",
       "listCartographerRuns",
       "listCartographerWindows",
@@ -565,19 +502,14 @@ describe("preload workspace API", () => {
       "readActivitySummary",
       "readCartographerProcessingState",
       "readCartographerRun",
-      "readCartographerSettings",
-      "readCartographerSettingsMetadata",
       "readContextPack",
       "readEventHistory",
       "readNodeDetail",
-      "readRuntimeSnapshot",
       "readSteeringState",
-      "readWorkingSet",
       "rejectCartographerPatch",
       "removeEdge",
       "renameNode",
       "splitNode",
-      "updateCartographerSettings",
       "updateEdge",
       "updateLayoutPositions",
       "updateNode",
@@ -595,37 +527,6 @@ describe("preload workspace API", () => {
       workflowNodeExecutionId: "",
       workflowNodeId: "",
     };
-    const cartographerSettingsInput = {
-      automaticProcessingEnabled: true,
-      liveTaskConfig: {
-        modelSelection: "provider_default",
-        modelId: "",
-        reasoningEffort: "low",
-        inputBudget: 6000,
-      },
-      finalSynthesisTaskConfig: {
-        modelSelection: "provider_default",
-        modelId: "",
-        reasoningEffort: "medium",
-        inputBudget: 12000,
-      },
-      processingConfig: {
-        maxConcurrent: 2,
-        perSourceConcurrent: 1,
-        maxQueuedPerSource: 8,
-        leaseDurationSeconds: 600,
-      },
-      observationConfig: {
-        maxWindowEvents: 24,
-        maxWindowContentBytes: 8192,
-        assistantThresholdBytes: 4096,
-        outputThresholdBytes: 4096,
-        priorSummaryLimit: 8,
-        tokenBudget: 6000,
-        quietCloseAfterSeconds: 120,
-      },
-      auditConfig: { captureLevel: "standard" },
-    } satisfies SemanticCartographerSettingsInput;
     await api.semanticGraph.read({ workspaceId });
     await api.semanticGraph.readNodeDetail({ nodeId: "node_api", workspaceId });
     await api.semanticGraph.listEvidence({ targetEntityId: "node_api", workspaceId });
@@ -671,13 +572,6 @@ describe("preload workspace API", () => {
       runId: "cartographer_run_api",
       workspaceId,
     });
-    await api.semanticGraph.readCartographerSettings({});
-    await api.semanticGraph.readCartographerSettingsMetadata({});
-    await api.semanticGraph.updateCartographerSettings({
-      settings: cartographerSettingsInput,
-      workspaceId,
-    });
-    await api.semanticGraph.listCartographerModelOptions({ workspaceId });
     await api.semanticGraph.listCartographerRuns({
       chatRunId: "",
       limit: 10,
@@ -718,18 +612,6 @@ describe("preload workspace API", () => {
     await api.semanticGraph.readActivitySummary({ recentLimit: 3, workspaceId });
     await api.semanticGraph.readContextPack({ packId: "context_pack_api", workspaceId });
     await api.semanticGraph.readSteeringState({ targetEntityId: "node_api", workspaceId });
-    await api.semanticGraph.readRuntimeSnapshot({
-      chatRunId: "",
-      limit: 40,
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.readWorkingSet({
-      chatRunId: "",
-      limit: 40,
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
     await api.semanticGraph.readEventHistory({
       beforeLogicalClock: 0,
       limit: 20,
@@ -976,16 +858,6 @@ describe("preload workspace API", () => {
           workspaceId,
         },
       ],
-      [ipcChannels.semanticGraphCartographerSettingsRead, {}],
-      [ipcChannels.semanticGraphCartographerSettingsMetadata, {}],
-      [
-        ipcChannels.semanticGraphCartographerSettingsUpdate,
-        {
-          settings: cartographerSettingsInput,
-          workspaceId,
-        },
-      ],
-      [ipcChannels.semanticGraphCartographerModelOptionsList, { workspaceId }],
       [
         ipcChannels.semanticGraphCartographerRunList,
         {
@@ -1044,24 +916,6 @@ describe("preload workspace API", () => {
       [ipcChannels.semanticGraphActivitySummary, { recentLimit: 3, workspaceId }],
       [ipcChannels.semanticGraphContextPackRead, { packId: "context_pack_api", workspaceId }],
       [ipcChannels.semanticGraphSteeringRead, { targetEntityId: "node_api", workspaceId }],
-      [
-        ipcChannels.semanticGraphRuntimeSnapshot,
-        {
-          chatRunId: "",
-          limit: 40,
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphWorkingSetRead,
-        {
-          chatRunId: "",
-          limit: 40,
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
       [
         ipcChannels.semanticGraphEventHistory,
         {
@@ -1308,6 +1162,125 @@ describe("preload workspace API", () => {
       ],
     ]);
   });
+
+  test("exposes typed workflow methods through IPC", async () => {
+    const { api, invoke, on, removeListener } = await exposePreloadAPI();
+    const graph = workflowGraph();
+    expect(Object.keys(api.workflow).sort()).toEqual([
+      "cancelExecution",
+      "createDefinition",
+      "deleteDefinition",
+      "executionEvents",
+      "graphProjection",
+      "listDefinitions",
+      "onEvent",
+      "readDefinition",
+      "readExecution",
+      "startExecution",
+      "submitApproval",
+      "updateDefinition",
+      "validateDefinition",
+    ]);
+
+    await api.workflow.listDefinitions("workspace_api");
+    await api.workflow.createDefinition("workspace_api", "Review", "phase 4", graph);
+    await api.workflow.readDefinition("workspace_api", "workflow_definition_api");
+    await api.workflow.updateDefinition(
+      "workspace_api",
+      "workflow_definition_api",
+      "Review updated",
+      "phase 4 updated",
+      graph,
+    );
+    await api.workflow.deleteDefinition("workspace_api", "workflow_definition_api");
+    await api.workflow.validateDefinition("workspace_api", graph);
+    await api.workflow.startExecution("workspace_api", "workflow_definition_api");
+    await api.workflow.startExecution(
+      "workspace_api",
+      "workflow_definition_api",
+      "workflow_version_api",
+    );
+    await api.workflow.cancelExecution("workspace_api", "workflow_execution_api");
+    await api.workflow.readExecution("workspace_api", "workflow_execution_api");
+    await api.workflow.executionEvents("workspace_api", "workflow_execution_api", 10, 20);
+    await api.workflow.graphProjection("workspace_api");
+    await api.workflow.graphProjection(
+      "workspace_api",
+      "workflow_definition_api",
+      "workflow_version_api",
+      "workflow_execution_api",
+    );
+    await api.workflow.submitApproval({
+      answers: [],
+      approvalId: "approval_api",
+      approved: true,
+      cancelled: false,
+      executionId: "workflow_execution_api",
+      nodeExecutionId: "workflow_node_execution_api",
+      response: "",
+      workspaceId: "workspace_api",
+    });
+
+    const event = workflowEvent();
+    const listener = vi.fn();
+    const unsubscribe = api.workflow.onEvent(listener);
+    const handler = on.mock.calls.find((call) => call[0] === ipcEvents.workflowEvent)?.[1];
+    if (typeof handler !== "function") {
+      throw new Error("workflow event handler was not registered");
+    }
+    handler({}, event);
+    unsubscribe();
+
+    expectInvokeCalls(invoke, [
+      [ipcChannels.workflowListDefinitions, "workspace_api"],
+      [ipcChannels.workflowCreateDefinition, "workspace_api", "Review", "phase 4", graph],
+      [ipcChannels.workflowReadDefinition, "workspace_api", "workflow_definition_api"],
+      [
+        ipcChannels.workflowUpdateDefinition,
+        "workspace_api",
+        "workflow_definition_api",
+        "Review updated",
+        "phase 4 updated",
+        graph,
+      ],
+      [ipcChannels.workflowDeleteDefinition, "workspace_api", "workflow_definition_api"],
+      [ipcChannels.workflowValidateDefinition, "workspace_api", graph],
+      [ipcChannels.workflowStartExecution, "workspace_api", "workflow_definition_api", ""],
+      [
+        ipcChannels.workflowStartExecution,
+        "workspace_api",
+        "workflow_definition_api",
+        "workflow_version_api",
+      ],
+      [ipcChannels.workflowCancelExecution, "workspace_api", "workflow_execution_api"],
+      [ipcChannels.workflowReadExecution, "workspace_api", "workflow_execution_api"],
+      [ipcChannels.workflowExecutionEvents, "workspace_api", "workflow_execution_api", 10, 20],
+      [ipcChannels.workflowGraphProjection, "workspace_api", "", "", ""],
+      [
+        ipcChannels.workflowGraphProjection,
+        "workspace_api",
+        "workflow_definition_api",
+        "workflow_version_api",
+        "workflow_execution_api",
+      ],
+      [
+        ipcChannels.workflowSubmitApproval,
+        {
+          answers: [],
+          approvalId: "approval_api",
+          approved: true,
+          cancelled: false,
+          executionId: "workflow_execution_api",
+          nodeExecutionId: "workflow_node_execution_api",
+          response: "",
+          workspaceId: "workspace_api",
+        },
+      ],
+    ]);
+    expect(on).toHaveBeenCalledWith(ipcEvents.workflowEvent, expect.any(Function));
+    expect(listener).toHaveBeenCalledWith(event);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.workflowEvent, handler);
+  });
 });
 
 function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][]) {
@@ -1376,5 +1349,58 @@ function terminalEvent(): TerminalEvent {
     streamId: "terminal_stream_test",
     type: "terminal.output",
     workspaceId: "workspace_api",
+  };
+}
+
+function workflowEvent(): WorkflowEvent {
+  return {
+    createdAt: "2026-06-05T12:00:00Z",
+    definitionId: "workflow_definition_api",
+    definitionVersionId: "workflow_version_api",
+    details: {},
+    executionId: "workflow_execution_api",
+    id: "workflow_event_api",
+    message: "workflow started",
+    nodeExecutionId: "",
+    nodeId: "",
+    ordinal: 1,
+    runnerKind: null,
+    schemaVersion: 1,
+    tokenId: "",
+    type: "workflow.execution.started",
+    workspaceId: "workspace_api",
+  };
+}
+
+function workflowGraph(): WorkflowGraph {
+  return {
+    edges: [
+      {
+        condition: null,
+        fromNodeId: "start",
+        id: "start_end",
+        kind: "normal",
+        toNodeId: "end",
+      },
+    ],
+    layout: { nodes: [] },
+    nodes: [
+      {
+        action: null,
+        gateway: null,
+        id: "start",
+        kind: "start",
+        loopGuard: null,
+        title: "Start",
+      },
+      {
+        action: null,
+        gateway: null,
+        id: "end",
+        kind: "end",
+        loopGuard: null,
+        title: "End",
+      },
+    ],
   };
 }

@@ -1,12 +1,9 @@
 export const recordingRendererEventChannel = "recording:renderer-event";
-export const recordingCartographerAuditSnapshotEventName =
-  "setta:record-cartographer-audit-snapshot";
 
 export type RendererRecordedEvent =
   | RendererClickEvent
   | RendererKeydownEvent
   | RendererSubmitEvent
-  | RendererCartographerAuditSnapshotEvent
   | RendererErrorEvent
   | RendererLayoutSnapshotEvent
   | RendererUnhandledRejectionEvent;
@@ -45,13 +42,6 @@ interface RendererKeydownEvent extends RendererRecordedEventBase {
 
 interface RendererSubmitEvent extends RendererRecordedEventBase {
   type: "submit";
-}
-
-interface RendererCartographerAuditSnapshotEvent extends RendererRecordedEventBase {
-  snapshot: unknown;
-  trigger: string;
-  type: "cartographer_audit_snapshot";
-  workspaceId: string;
 }
 
 interface RendererErrorEvent extends RendererRecordedEventBase {

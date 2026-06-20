@@ -1,10 +1,6 @@
 import type { IpcRenderer } from "electron";
 
-import {
-  recordingCartographerAuditSnapshotEventName,
-  recordingRendererEventChannel,
-  type RendererRecordedEvent,
-} from "@shared/recording";
+import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 
 const maxTextLength = 160;
 const interestingKeys = new Set([
@@ -95,17 +91,6 @@ export function installRendererRecorder(ipcRenderer: Pick<IpcRenderer, "send">) 
   });
 
   window.addEventListener("load", () => layoutRecorder.schedule("renderer_load"));
-  window.addEventListener(recordingCartographerAuditSnapshotEventName, (event) => {
-    const detail = cartographerAuditSnapshotDetail(event);
-    record(ipcRenderer, {
-      at: timestamp(),
-      snapshot: detail.snapshot,
-      trigger: detail.trigger,
-      type: "cartographer_audit_snapshot",
-      url: window.location.href,
-      workspaceId: detail.workspaceId,
-    });
-  });
   window.addEventListener("setta:record-layout-snapshot", (event) => {
     layoutRecorder.capture(layoutSnapshotTrigger(event));
   });
@@ -286,25 +271,4 @@ function layoutSnapshotTrigger(event: Event): string {
     return "manual";
   }
   return typeof detail.trigger === "string" && detail.trigger !== "" ? detail.trigger : "manual";
-}
-
-function cartographerAuditSnapshotDetail(event: Event): {
-  snapshot: unknown;
-  trigger: string;
-  workspaceId: string;
-} {
-  if (!(event instanceof CustomEvent) || !isRecord(event.detail)) {
-    return { snapshot: null, trigger: "manual", workspaceId: "" };
-  }
-  const detail = event.detail;
-  return {
-    snapshot: "snapshot" in detail ? detail.snapshot : null,
-    trigger:
-      typeof detail.trigger === "string" && detail.trigger !== "" ? detail.trigger : "manual",
-    workspaceId: typeof detail.workspaceId === "string" ? detail.workspaceId : "",
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

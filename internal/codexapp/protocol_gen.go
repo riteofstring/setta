@@ -113,7 +113,6 @@ const (
 	CodexNotificationThreadUnarchived                        = "thread/unarchived"
 	CodexNotificationTurnCompleted                           = "turn/completed"
 	CodexNotificationTurnDiffUpdated                         = "turn/diff/updated"
-	CodexNotificationTurnModerationMetadata                  = "turn/moderationMetadata"
 	CodexNotificationTurnPlanUpdated                         = "turn/plan/updated"
 	CodexNotificationTurnStarted                             = "turn/started"
 	CodexNotificationWarning                                 = "warning"
@@ -204,7 +203,6 @@ var CodexSupportedNotificationValues = []string{
 	CodexNotificationThreadUnarchived,
 	CodexNotificationTurnCompleted,
 	CodexNotificationTurnDiffUpdated,
-	CodexNotificationTurnModerationMetadata,
 	CodexNotificationTurnPlanUpdated,
 	CodexNotificationTurnStarted,
 	CodexNotificationWarning,

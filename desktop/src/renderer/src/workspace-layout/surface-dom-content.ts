@@ -1,14 +1,5 @@
 import type { WorkspacePane, SurfaceKind } from "./types";
 
-export interface SnapshotScrollOffsetRecord {
-  classNames: readonly string[];
-  path: readonly number[];
-  scrollLeft: number;
-  scrollTop: number;
-  snapshotScroller: boolean;
-  testId: string | null;
-}
-
 export interface EmptyFrameOption {
   disabled?: boolean;
   label: string;
@@ -182,37 +173,14 @@ export function applySnapshotScrollOffsets(root: Element): void {
   }
 }
 
-export function applyCapturedSnapshotScrollOffsets(
-  root: Element,
-  offsets: readonly SnapshotScrollOffsetRecord[],
-): void {
-  for (const offset of offsets) {
-    applyCapturedSnapshotScrollOffset(root, offset);
-  }
-}
-
-export function captureSnapshotScrollOffsets(root: Element): SnapshotScrollOffsetRecord[] {
-  return collectElementTree(root).flatMap((element) => {
-    const scrollTop = scrollOffsetFor(element, "scrollTop");
-    const scrollLeft = scrollOffsetFor(element, "scrollLeft");
-    if (scrollTop <= 0 && scrollLeft <= 0) {
-      return [];
-    }
-    return [
-      {
-        classNames: classNamesFor(element),
-        path: elementPathFromRoot(root, element),
-        scrollLeft,
-        scrollTop,
-        snapshotScroller: datasetFor(element)?.snapshotScroller === "true",
-        testId: datasetFor(element)?.testid ?? null,
-      },
-    ];
-  });
-}
-
 export function recordSnapshotScrollOffsets(root: Element): void {
+  if (isInsideHiddenFrozenLiveContent(root)) {
+    return;
+  }
   for (const element of collectElementTree(root)) {
+    if (isInsideHiddenFrozenLiveContent(element)) {
+      continue;
+    }
     recordScrollableElementState(element);
   }
 }
@@ -433,86 +401,8 @@ function recordScrollableElementState(element: Element): void {
   }
 }
 
-function applyCapturedSnapshotScrollOffset(
-  root: Element,
-  offset: SnapshotScrollOffsetRecord,
-): void {
-  const pathElement = elementAtPath(root, offset.path);
-  if (pathElement && elementMatchesScrollOffsetRecord(pathElement, offset)) {
-    applyScrollOffset(pathElement, offset);
-    return;
-  }
-  if (!offset.testId || typeof root.querySelector !== "function") {
-    return;
-  }
-  const testIdElement = root.querySelector<HTMLElement>(testIdSelector(offset.testId));
-  if (testIdElement) {
-    applyScrollOffset(testIdElement, offset);
-  }
-}
-
-function applyScrollOffset(element: Element, offset: SnapshotScrollOffsetRecord): void {
-  if (offset.scrollTop > 0) {
-    (element as HTMLElement).scrollTop = offset.scrollTop;
-  }
-  if (offset.scrollLeft > 0) {
-    (element as HTMLElement).scrollLeft = offset.scrollLeft;
-  }
-}
-
 function collectElementTree(root: Element): Element[] {
   return [root, ...Array.from(root.children).flatMap((child) => collectElementTree(child))];
-}
-
-function elementAtPath(root: Element, path: readonly number[]): Element | null {
-  let current: Element | null = root;
-  for (const index of path) {
-    current = current?.children[index] ?? null;
-    if (!current) {
-      return null;
-    }
-  }
-  return current;
-}
-
-function elementMatchesScrollOffsetRecord(
-  element: Element,
-  offset: SnapshotScrollOffsetRecord,
-): boolean {
-  const dataset = datasetFor(element);
-  if (offset.testId) {
-    return dataset?.testid === offset.testId;
-  }
-  if (offset.snapshotScroller) {
-    return dataset?.snapshotScroller === "true";
-  }
-  if (offset.classNames.length === 0) {
-    return true;
-  }
-  const currentClassNames = new Set(classNamesFor(element));
-  return offset.classNames.some((className) => currentClassNames.has(className));
-}
-
-function elementPathFromRoot(root: Element, element: Element): number[] {
-  const path: number[] = [];
-  let current: Element | null = element;
-  while (current && current !== root) {
-    const parent: Element | null = current.parentElement;
-    if (!parent) {
-      return [];
-    }
-    path.unshift(Array.prototype.indexOf.call(parent.children, current));
-    current = parent;
-  }
-  return current === root ? path : [];
-}
-
-function classNamesFor(element: Element): string[] {
-  const className = (element as HTMLElement).className;
-  if (typeof className !== "string") {
-    return [];
-  }
-  return className.split(/\s+/u).filter(Boolean);
 }
 
 function datasetFor(element: Element): DOMStringMap | null {
@@ -528,16 +418,19 @@ function scrollOffsetFor(element: Element, property: "scrollLeft" | "scrollTop")
   return Number.isFinite(value) ? value : 0;
 }
 
+function isInsideHiddenFrozenLiveContent(element: Element): boolean {
+  if (typeof element.closest !== "function") {
+    return false;
+  }
+  return element.closest("[data-live-frozen-hidden='true']") !== null;
+}
+
 function parseSnapshotOffset(value: string | undefined): number | null {
   if (value === undefined) {
     return null;
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function testIdSelector(testId: string): string {
-  return `[data-testid="${testId.replace(/\\/gu, "\\\\").replace(/"/gu, '\\"')}"]`;
 }
 
 function isHtmlInputElement(element: Element): element is HTMLInputElement {
