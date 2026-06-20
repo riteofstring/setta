@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 )
 
 type ScriptedWorkflowHarness struct {
@@ -150,10 +149,6 @@ func (harness *ScriptedWorkflowHarness) SubmitApproval(_ context.Context, respon
 
 func (harness *ScriptedWorkflowHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {
 	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
-}
-
-func (harness *ScriptedWorkflowHarness) ListModelOptions(_ context.Context, _ HarnessModelCatalogRequest) (HarnessModelCatalogResult, error) {
-	return HarnessModelCatalogResult{Models: fakeModelOptions()}, nil
 }
 
 func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
@@ -467,44 +462,7 @@ func scriptedDynamicToolTurn(_ *ScriptedWorkflowHarness, _ context.Context, requ
 	return scriptedReply(sink, request.Run.ID, "Dynamic tool workflow complete.")
 }
 
-func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	commandItem := RunItem{
-		ProviderItemID: "provider_workflow_command_" + request.Run.ID,
-		Type:           RunItemTypeCommandExecution,
-		Status:         RunItemStatusRunning,
-		Title:          "Workflow test command",
-		Command:        "./scripts/go.sh test ./internal/chat",
-		Cwd:            request.Workspace.RootPath,
-		Summary:        "Deterministic scripted workflow test command.",
-	}
-	if err := sink.RunItemUpsert(commandItem); err != nil {
-		return TurnCompletion{}, err
-	}
-	if err := sink.RunItemOutputDelta(commandItem.ProviderItemID, "stdout", "ok ./internal/chat\n"); err != nil {
-		return TurnCompletion{}, err
-	}
-	commandItem.Status = RunItemStatusCompleted
-	commandItem.ExitCode = 0
-	commandItem.DurationMs = 187
-	commandItem.Result = "ok ./internal/chat"
-	if err := sink.RunItemUpsert(commandItem); err != nil {
-		return TurnCompletion{}, err
-	}
-	fileItem := RunItem{
-		ProviderItemID: "provider_workflow_file_change_" + request.Run.ID,
-		Type:           RunItemTypeFileChange,
-		Status:         RunItemStatusCompleted,
-		Title:          "Workflow report file change",
-		FilePaths:      []string{"reports/workflow-result.md"},
-		PatchStatus:    "updated",
-		Summary:        "Updated the workflow result report artifact.",
-	}
-	if err := sink.RunItemUpsert(fileItem); err != nil {
-		return TurnCompletion{}, err
-	}
-	if err := waitForScriptedWorkflowObservationWindow(ctx); err != nil {
-		return TurnCompletion{}, err
-	}
+func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	item := RunItem{
 		ProviderItemID: "provider_workflow_result_" + request.Run.ID,
 		Type:           RunItemTypeDynamicToolCall,
@@ -526,17 +484,6 @@ func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, ctx context.Context,
 		return TurnCompletion{}, err
 	}
 	return scriptedReply(sink, request.Run.ID, "Workflow result action complete.")
-}
-
-func waitForScriptedWorkflowObservationWindow(ctx context.Context) error {
-	timer := time.NewTimer(650 * time.Millisecond)
-	defer timer.Stop()
-	select {
-	case <-timer.C:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
 
 func (harness *ScriptedWorkflowHarness) phase4ReviewerTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

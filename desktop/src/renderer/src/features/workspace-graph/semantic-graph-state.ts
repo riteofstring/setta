@@ -5,15 +5,9 @@ import type {
   SemanticGraphChangeEvent,
   SemanticLayoutPosition,
 } from "@generated/backend";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useWorkspaceStore } from "../../stores/workspace-store";
-import {
-  createSemanticRuntimeStore,
-  emptySemanticRuntimeFrameSnapshot,
-  semanticGraphChangeHasRuntimeUpdate,
-  type SemanticRuntimeStore,
-} from "./semantic-runtime-store";
 
 interface SemanticGraphState {
   activitiesByNodeId: Map<string, SemanticActivityInterval[]>;
@@ -28,61 +22,23 @@ interface SemanticGraphState {
 export interface SemanticGraphRefreshRequest {
   activity: boolean;
   graph: boolean;
-  workingSet: boolean;
 }
 
 const semanticGraphActivityLimit = 3;
-const semanticWorkingSetLimit = 40;
 const emptyRefreshRequest: SemanticGraphRefreshRequest = {
   activity: false,
   graph: false,
-  workingSet: false,
 };
 const fullRefreshRequest: SemanticGraphRefreshRequest = {
   activity: true,
   graph: true,
-  workingSet: false,
 };
 
 export function useSemanticGraphState() {
   const selectedWorkspaceId = useWorkspaceStore(
     (state) => state.session?.selectedWorkspaceId ?? "",
   );
-  const runtimeStore = useMemo<SemanticRuntimeStore | null>(
-    () =>
-      selectedWorkspaceId === ""
-        ? null
-        : createSemanticRuntimeStore({
-            loadSnapshot: () => loadSemanticRuntimeSnapshot(selectedWorkspaceId),
-            subscribeEvents: (listener) => window.setta.semanticGraph.onEvent(listener),
-            workspaceId: selectedWorkspaceId,
-          }),
-    [selectedWorkspaceId],
-  );
-  const subscribeRuntimeFrame = useCallback(
-    (listener: () => void) => runtimeStore?.subscribe(listener) ?? (() => undefined),
-    [runtimeStore],
-  );
-  const getRuntimeFrameSnapshot = useCallback(
-    () => runtimeStore?.getFrameSnapshot() ?? emptySemanticRuntimeFrameSnapshot,
-    [runtimeStore],
-  );
-  const runtimeFrame = useSyncExternalStore(
-    subscribeRuntimeFrame,
-    getRuntimeFrameSnapshot,
-    getRuntimeFrameSnapshot,
-  );
   const [state, setState] = useState<SemanticGraphState>(() => semanticGraphNoWorkspaceState(""));
-
-  useEffect(() => {
-    if (runtimeStore === null) {
-      return;
-    }
-    runtimeStore.start();
-    return () => {
-      runtimeStore.destroy();
-    };
-  }, [runtimeStore]);
 
   useEffect(() => {
     let disposed = false;
@@ -114,18 +70,17 @@ export function useSemanticGraphState() {
           refreshRequested = false;
           try {
             const snapshot = await loadSemanticGraphSnapshot(selectedWorkspaceId, nextRequest);
-            if (disposed) {
-              continue;
+            if (!disposed) {
+              setState((current) => ({
+                activitiesByNodeId: snapshot.activitiesByNodeId ?? current.activitiesByNodeId,
+                error: "",
+                graph: snapshot.graph ?? current.graph,
+                loading: false,
+                noWorkspace: false,
+                ready: true,
+                workspaceId: selectedWorkspaceId,
+              }));
             }
-            setState((current) => ({
-              activitiesByNodeId: snapshot.activitiesByNodeId ?? current.activitiesByNodeId,
-              error: "",
-              graph: snapshot.graph ?? current.graph,
-              loading: false,
-              noWorkspace: false,
-              ready: true,
-              workspaceId: selectedWorkspaceId,
-            }));
           } catch (error: unknown) {
             console.error(
               reason === "initial"
@@ -207,12 +162,7 @@ export function useSemanticGraphState() {
 
   return {
     ...state,
-    error: [state.error, runtimeFrame.error].filter(Boolean).join("\n"),
-    loading: state.loading || runtimeFrame.loading,
-    ready: state.ready && runtimeFrame.ready,
     replaceSemanticLayoutPositions,
-    runtimeStore,
-    workingSet: runtimeFrame.workingSet,
   };
 }
 
@@ -233,21 +183,17 @@ export function semanticGraphRefreshRequestForChange(
   }
   const graph = event.changedAreas.some((area) => area === "graph" || area === "layout");
   const activity = graph || event.changedAreas.includes("activity");
-  const workingSet = false;
-  if (!graph && !activity && !workingSet) {
+  if (!graph && !activity) {
     return null;
   }
-  return { activity, graph, workingSet };
+  return { activity, graph };
 }
 
 export function semanticGraphChangeAffectsWorkspaceGraphState(
   event: SemanticGraphChangeEvent,
   workspaceId: string,
 ) {
-  return (
-    semanticGraphRefreshRequestForChange(event, workspaceId) !== null ||
-    (event.workspaceId === workspaceId && semanticGraphChangeHasRuntimeUpdate(event))
-  );
+  return semanticGraphRefreshRequestForChange(event, workspaceId) !== null;
 }
 
 async function loadSemanticGraphSnapshot(
@@ -267,27 +213,16 @@ async function loadSemanticGraphSnapshot(
       graph,
     };
   }
-  const activitySummary = request.activity
-    ? await window.setta.semanticGraph.readActivitySummary({
-        recentLimit: semanticGraphActivityLimit,
-        workspaceId,
-      })
-    : null;
-  if (activitySummary !== null) {
+  if (request.activity) {
+    const activitySummary = await window.setta.semanticGraph.readActivitySummary({
+      recentLimit: semanticGraphActivityLimit,
+      workspaceId,
+    });
     return {
       activitiesByNodeId: semanticGraphActivitySummaryMap(activitySummary),
     };
   }
   return {};
-}
-
-function loadSemanticRuntimeSnapshot(workspaceId: string) {
-  return window.setta.semanticGraph.readRuntimeSnapshot({
-    chatRunId: "",
-    limit: semanticWorkingSetLimit,
-    workflowExecutionId: "",
-    workspaceId,
-  });
 }
 
 function mergeSemanticGraphRefreshRequests(
@@ -297,12 +232,11 @@ function mergeSemanticGraphRefreshRequests(
   return {
     activity: left.activity || right.activity,
     graph: left.graph || right.graph,
-    workingSet: left.workingSet || right.workingSet,
   };
 }
 
 function semanticGraphRefreshRequestIsEmpty(request: SemanticGraphRefreshRequest) {
-  return !request.activity && !request.graph && !request.workingSet;
+  return !request.activity && !request.graph;
 }
 
 function dedupeSemanticActivity(activity: SemanticActivityInterval[]) {

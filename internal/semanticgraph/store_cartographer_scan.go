@@ -12,8 +12,6 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 	var inputItemCountsJSON string
 	var createdEventIDsJSON string
 	var diagnosticsJSON string
-	var graphUsefulnessScoreJSON string
-	var reasoningEffortReported int
 	if err := scanner.Scan(
 		&run.WorkspaceID,
 		&run.ID,
@@ -31,43 +29,16 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 		&inputBundleJSON,
 		&outputSchemaJSON,
 		&run.HarnessKind,
-		&run.SettingsHash,
-		&run.TaskProfile,
-		&run.RequestedModelSelection,
-		&run.RequestedModel,
-		&run.EffectiveModel,
-		&run.ReportedModel,
-		&run.RequestedReasoningEffort,
-		&run.RequestedInputBudget,
-		&run.EffectiveReasoningEffort,
-		&run.ReportedReasoningEffort,
-		&reasoningEffortReported,
+		&run.Model,
 		&run.RequestID,
 		&run.ResponseID,
 		&run.WindowID,
-		&run.SourceEpochID,
-		&run.SourceKey,
-		&run.Priority,
-		&run.LeaseOwner,
-		&run.LeaseDeadline,
-		&run.AttemptCount,
 		&run.InputBundleHash,
-		&run.InputBundleBytes,
-		&run.InputBundleCharacterCount,
 		&inputItemCountsJSON,
-		&run.OutputSchemaBytes,
 		&run.RawHarnessResponseHash,
-		&run.RawHarnessResponseBytes,
-		&run.CloseReason,
-		&run.QueueWaitMS,
-		&run.HarnessDurationMS,
-		&run.ValidationDurationMS,
-		&run.ApplicationDurationMS,
-		&run.TotalDurationMS,
 		&run.TrajectorySummary,
 		&createdEventIDsJSON,
 		&diagnosticsJSON,
-		&graphUsefulnessScoreJSON,
 		&run.CreatedAt,
 		&run.StartedAt,
 		&run.CompletedAt,
@@ -76,7 +47,6 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 	); err != nil {
 		return CartographerRun{}, err
 	}
-	run.ReasoningEffortReported = sqliteIntToBool(reasoningEffortReported)
 	if err := unmarshalJSONColumn(inputBundleJSON, &run.InputBundle); err != nil {
 		return CartographerRun{}, fmt.Errorf("decode cartographer run input bundle: %w", err)
 	}
@@ -89,9 +59,6 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 	}
 	if err := unmarshalJSONColumn(diagnosticsJSON, &run.Diagnostics); err != nil {
 		return CartographerRun{}, fmt.Errorf("decode cartographer run diagnostics: %w", err)
-	}
-	if err := unmarshalJSONColumn(graphUsefulnessScoreJSON, &run.GraphUsefulnessScore); err != nil {
-		return CartographerRun{}, fmt.Errorf("decode cartographer graph usefulness score: %w", err)
 	}
 	normalizeCartographerRun(&run)
 	return run, nil
@@ -230,13 +197,6 @@ func normalizeCartographerRun(run *CartographerRun) {
 	if run.Diagnostics == nil {
 		run.Diagnostics = []CartographerDiagnostic{}
 	}
-	normalizeCartographerGraphUsefulnessScore(&run.GraphUsefulnessScore)
-}
-
-func normalizeCartographerGraphUsefulnessScore(score *CartographerGraphUsefulnessScore) {
-	score.CreatedNodesByKind = nonNilSlice(score.CreatedNodesByKind)
-	score.CreatedEdgesByKind = nonNilSlice(score.CreatedEdgesByKind)
-	score.SourceLinksBySourceKind = nonNilSlice(score.SourceLinksBySourceKind)
 }
 
 func normalizeCartographerCursor(cursor *CartographerCursor) {
@@ -310,10 +270,6 @@ func normalizeCartographerInputBundle(bundle *CartographerInputBundle) {
 			bundle.NewEvents[index].CloseReason = CartographerCloseNone
 		}
 	}
-	bundle.Observations = nonNilSlice(bundle.Observations)
-	for index := range bundle.Observations {
-		bundle.Observations[index].FilePaths = nonNilSlice(bundle.Observations[index].FilePaths)
-	}
 	bundle.ToolCalls = nonNilSlice(bundle.ToolCalls)
 	bundle.FileChanges = nonNilSlice(bundle.FileChanges)
 	bundle.TestResults = nonNilSlice(bundle.TestResults)
@@ -324,10 +280,6 @@ func normalizeCartographerInputBundle(bundle *CartographerInputBundle) {
 	bundle.Activity = nonNilSlice(bundle.Activity)
 	bundle.Steering = nonNilSlice(bundle.Steering)
 	bundle.ContextPacks = nonNilSlice(bundle.ContextPacks)
-	bundle.RetrievalResults = nonNilSlice(bundle.RetrievalResults)
-	for index := range bundle.RetrievalResults {
-		bundle.RetrievalResults[index].Reasons = nonNilSlice(bundle.RetrievalResults[index].Reasons)
-	}
 	bundle.TrajectorySummaries = nonNilSlice(bundle.TrajectorySummaries)
 	bundle.ObservedEventRefs = nonNilSlice(bundle.ObservedEventRefs)
 	bundle.Truncation.Reasons = nonNilSlice(bundle.Truncation.Reasons)

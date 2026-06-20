@@ -25,10 +25,6 @@ func (store *Store) ReadGraph(ctx context.Context, workspaceID string) (Semantic
 	if err != nil {
 		return SemanticGraph{}, err
 	}
-	sourceLinks, err := store.loadSemanticSourceLinks(ctx, workspaceID)
-	if err != nil {
-		return SemanticGraph{}, err
-	}
 	positions, err := store.loadSemanticLayoutPositions(ctx, workspaceID)
 	if err != nil {
 		return SemanticGraph{}, err
@@ -37,7 +33,6 @@ func (store *Store) ReadGraph(ctx context.Context, workspaceID string) (Semantic
 		WorkspaceID:     workspaceID,
 		Nodes:           nodes,
 		Edges:           edges,
-		SourceLinks:     sourceLinks,
 		LayoutPositions: positions,
 	}, nil
 }

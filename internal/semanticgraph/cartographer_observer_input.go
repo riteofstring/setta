@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 
 	"setta/internal/chat"
-	"setta/internal/orchestrator"
 )
 
 type cartographerInputBundleRequest struct {
@@ -50,7 +49,6 @@ func (service *Service) newCartographerInputBundle(ctx context.Context, request 
 		WindowStartCursor:   request.windowStartCursor,
 		WindowEndCursor:     request.windowEndCursor,
 		NewEvents:           append([]CartographerTrajectoryEvent{}, request.events...),
-		Observations:        cartographerObservationRecordsFromTrajectoryEvents(request.workspaceID, request.events),
 		ExistingNodes:       nodes,
 		ExistingEdges:       edges,
 		Evidence:            evidence,
@@ -60,13 +58,10 @@ func (service *Service) newCartographerInputBundle(ctx context.Context, request 
 		TrajectorySummaries: priorSummaries,
 		TokenBudget:         service.cartographerConfig.TokenBudget,
 	}
+	normalizeCartographerInputBundle(&bundle)
 	if request.closeReason != "" {
 		bundle.Truncation.Reasons = appendUniqueString(bundle.Truncation.Reasons, string(request.closeReason))
 	}
-	if err := service.expandCartographerInputWithRetrieval(ctx, &bundle); err != nil {
-		return CartographerInputBundle{}, err
-	}
-	normalizeCartographerInputBundle(&bundle)
 	return applyCartographerInputLimits(bundle, service.cartographerConfig), nil
 }
 
@@ -154,7 +149,6 @@ func mergeObservedEventIntoInput(bundle *CartographerInputBundle, observed obser
 	if observed.run != nil {
 		bundle.PromptSummary = firstNonEmpty(observed.run.PromptSummary, bundle.PromptSummary)
 	}
-	bundle.Observations = append(bundle.Observations, cartographerObservationRecordsFromObserved(observed)...)
 	mergeObservedChatText(bundle, observed, config)
 	if observed.item != nil {
 		mergeRunItemSummary(bundle, *observed.item)
@@ -166,14 +160,18 @@ func mergeObservedEventIntoInput(bundle *CartographerInputBundle, observed obser
 
 func mergeObservedChatText(bundle *CartographerInputBundle, observed observedCartographerEvent, config CartographerObservationConfig) {
 	if observed.chatMessageID != "" {
-		switch observed.messageRole {
-		case string(chat.RoleUser):
+		if strings.Contains(observed.eventType, "message") && strings.Contains(observed.summary, "prompt") {
 			bundle.PromptText = appendBoundedAggregate(bundle.PromptText, observed.content, config.MaxWindowContentBytes)
 			bundle.PromptSummary = firstNonEmpty(observed.summary, bundle.PromptSummary)
-		case string(chat.RoleAssistant):
+		}
+		if strings.Contains(observed.summary, "assistant") {
 			bundle.AssistantText = appendBoundedAggregate(bundle.AssistantText, observed.content, config.MaxWindowContentBytes)
 			bundle.AssistantResponseSummary = assistantAggregateSummary(bundle.NewEvents)
 		}
+	}
+	if observed.eventType == chat.EventTypeAssistantTextDelta {
+		bundle.AssistantText = appendBoundedAggregate(bundle.AssistantText, observed.content, config.MaxWindowContentBytes)
+		bundle.AssistantResponseSummary = assistantAggregateSummary(bundle.NewEvents)
 	}
 }
 
@@ -251,49 +249,39 @@ func mergeOutputSummary(bundle *CartographerInputBundle, observed observedCartog
 	})
 }
 
-func cartographerCloseReason(_ CartographerInputBundle, observed observedCartographerEvent, _ CartographerObservationConfig) CartographerWindowCloseReason {
-	if reason := cartographerSemanticEpochCloseReason(observed); reason != "" {
-		return reason
+func cartographerCloseReason(bundle CartographerInputBundle, observed observedCartographerEvent, config CartographerObservationConfig) CartographerWindowCloseReason {
+	if isCartographerClosingReason(observed.closeReason) {
+		return observed.closeReason
+	}
+	if cartographerAssistantBytes(bundle.NewEvents) >= config.AssistantThresholdBytes {
+		return CartographerCloseAssistantThreshold
+	}
+	for _, total := range cartographerOutputBytesByRunItem(bundle.NewEvents) {
+		if total >= config.OutputThresholdBytes {
+			return CartographerCloseOutputThreshold
+		}
 	}
 	return ""
 }
 
-func cartographerSemanticEpochCloseReason(observed observedCartographerEvent) CartographerWindowCloseReason {
-	if !isCartographerClosingReason(observed.closeReason) {
-		return ""
-	}
-	switch observed.closeReason {
-	case CartographerCloseAssistantComplete,
-		CartographerCloseApprovalRequired,
-		CartographerCloseWorkflowNodeTerminal,
-		CartographerCloseWorkflowRunTerminal:
-		return observed.closeReason
-	case CartographerCloseRunItemTerminal:
-		if cartographerRunItemClosesSemanticEpoch(observed) {
-			return observed.closeReason
+func cartographerAssistantBytes(events []CartographerTrajectoryEvent) int {
+	total := 0
+	for _, event := range events {
+		if event.Type == chat.EventTypeAssistantTextDelta {
+			total += event.OriginalContentBytes
 		}
-		return ""
-	default:
-		return observed.closeReason
 	}
+	return total
 }
 
-func cartographerRunItemClosesSemanticEpoch(observed observedCartographerEvent) bool {
-	if observed.item == nil {
-		return observed.source == CartographerTrajectorySourceWorkflow
+func cartographerOutputBytesByRunItem(events []CartographerTrajectoryEvent) map[string]int {
+	outputBytes := map[string]int{}
+	for _, event := range events {
+		if event.RunItemID != "" && event.OutputOrdinal > 0 {
+			outputBytes[event.RunItemID] += event.OriginalContentBytes
+		}
 	}
-	switch observed.item.Type {
-	case chat.RunItemTypeCommandExecution,
-		chat.RunItemTypeFileChange,
-		chat.RunItemTypeDiff,
-		chat.RunItemTypeApprovalReview:
-		return true
-	case chat.RunItemTypeDynamicToolCall:
-		return observed.item.Namespace == chat.SettaAgentToolNamespace &&
-			observed.item.ToolName == chat.SettaWorkflowResultAgentToolName
-	default:
-		return false
-	}
+	return outputBytes
 }
 
 func cartographerTrajectoryEventFromObserved(observed observedCartographerEvent) CartographerTrajectoryEvent {
@@ -312,8 +300,6 @@ func cartographerTrajectoryEventFromObserved(observed observedCartographerEvent)
 		OccurredAt:           observed.occurredAt,
 		SourceRefs:           observed.sourceRefs,
 		ChatMessageID:        observed.chatMessageID,
-		MessageRole:          observed.messageRole,
-		MessageStatus:        observed.messageStatus,
 		RunItemID:            observed.runItemID,
 		RunItemType:          observed.runItemType,
 		RunItemStatus:        observed.runItemStatus,
@@ -327,240 +313,6 @@ func cartographerTrajectoryEventFromObserved(observed observedCartographerEvent)
 		IncludedContentBytes: len([]byte(text.text)),
 		Truncated:            text.truncated,
 	}
-}
-
-func cartographerObservationRecordsFromTrajectoryEvents(workspaceID string, events []CartographerTrajectoryEvent) []CartographerObservationRecord {
-	records := []CartographerObservationRecord{}
-	for _, event := range events {
-		kind, ok := cartographerObservationKindForTrajectoryEvent(event)
-		if !ok {
-			continue
-		}
-		records = append(records, cartographerObservationRecordFromTrajectoryEvent(workspaceID, kind, event))
-	}
-	return records
-}
-
-func cartographerObservationKindForTrajectoryEvent(event CartographerTrajectoryEvent) (CartographerObservationKind, bool) {
-	if event.MessageRole == string(chat.RoleUser) {
-		return CartographerObservationPromptMessage, true
-	}
-	if event.Type == chat.EventTypeAssistantTextDelta {
-		return CartographerObservationAssistantTextChunkAggregate, true
-	}
-	if event.MessageRole == string(chat.RoleAssistant) && isTerminalMessageStatusString(event.MessageStatus) {
-		return CartographerObservationAssistantMessageCompleted, true
-	}
-	if event.RunItemType == string(chat.RunItemTypeCommandExecution) {
-		switch chat.RunItemStatus(event.RunItemStatus) {
-		case chat.RunItemStatusCompleted:
-			return CartographerObservationCommandCompleted, true
-		case chat.RunItemStatusFailed, chat.RunItemStatusCancelled:
-			return CartographerObservationCommandFailed, true
-		case chat.RunItemStatusPending, chat.RunItemStatusRunning:
-			return CartographerObservationCommandStarted, true
-		}
-	}
-	return cartographerWorkflowObservationKind(event.Type)
-}
-
-func cartographerObservationRecordFromTrajectoryEvent(workspaceID string, kind CartographerObservationKind, event CartographerTrajectoryEvent) CartographerObservationRecord {
-	refs := event.SourceRefs
-	text := firstNonEmpty(event.Summary, event.Type)
-	return CartographerObservationRecord{
-		Kind:                    kind,
-		Source:                  event.Source,
-		EventID:                 event.EventID,
-		Type:                    event.Type,
-		WorkspaceID:             workspaceID,
-		WorkflowDefinitionID:    refs.WorkflowDefinitionID,
-		WorkflowExecutionID:     refs.WorkflowExecutionID,
-		WorkflowNodeID:          refs.WorkflowNodeID,
-		WorkflowNodeExecutionID: refs.WorkflowNodeExecutionID,
-		ChatConversationID:      refs.ChatConversationID,
-		ChatRunID:               refs.ChatRunID,
-		ChatMessageID:           event.ChatMessageID,
-		MessageRole:             event.MessageRole,
-		MessageStatus:           event.MessageStatus,
-		RunItemID:               event.RunItemID,
-		RunItemType:             event.RunItemType,
-		RunItemStatus:           event.RunItemStatus,
-		RunStatus:               event.RunStatus,
-		OutputStream:            event.OutputStream,
-		OutputOrdinal:           event.OutputOrdinal,
-		Summary:                 event.Summary,
-		TextExcerpt:             boundedText(text, cartographerEventSummaryLimit).text,
-		ContentHash:             cartographerObservationContentHash(text),
-		OccurredAt:              event.OccurredAt,
-	}
-}
-
-func cartographerObservationRecordsFromObserved(observed observedCartographerEvent) []CartographerObservationRecord {
-	records := []CartographerObservationRecord{}
-	if observed.messageRole == string(chat.RoleUser) {
-		records = append(records, cartographerObservationRecordFromObserved(observed, CartographerObservationPromptMessage, observed.content))
-	}
-	if observed.eventType == chat.EventTypeAssistantTextDelta {
-		records = append(records, cartographerObservationRecordFromObserved(observed, CartographerObservationAssistantTextChunkAggregate, observed.content))
-	} else if observed.messageRole == string(chat.RoleAssistant) && isTerminalMessageStatusString(observed.messageStatus) {
-		records = append(records, cartographerObservationRecordFromObserved(observed, CartographerObservationAssistantMessageCompleted, observed.content))
-	}
-	if observed.run != nil {
-		if observed.run.PendingApproval != nil {
-			records = append(records, cartographerObservationRecordFromObserved(observed, CartographerObservationApprovalRequested, observed.run.PendingApproval.Body))
-		}
-		if isTerminalChatRunStatus(observed.run.Status) {
-			records = append(records, cartographerObservationRecordFromObserved(observed, CartographerObservationRunCompleted, firstNonEmpty(observed.run.Error, observed.run.PromptSummary)))
-		}
-	}
-	if observed.item != nil {
-		for _, kind := range cartographerRunItemObservationKinds(*observed.item) {
-			records = append(records, cartographerObservationRecordFromObserved(observed, kind, observed.content))
-		}
-	}
-	if kind, ok := cartographerWorkflowObservationKind(observed.eventType); ok {
-		records = append(records, cartographerObservationRecordFromObserved(observed, kind, observed.content))
-	}
-	return records
-}
-
-func cartographerRunItemObservationKinds(item chat.RunItem) []CartographerObservationKind {
-	kinds := cartographerRunItemObservationKindsForType(item)
-	if item.DiffSummary != "" && !cartographerObservationKindsContain(kinds, CartographerObservationDiffObserved) {
-		kinds = append(kinds, CartographerObservationDiffObserved)
-	}
-	return kinds
-}
-
-func cartographerRunItemObservationKindsForType(item chat.RunItem) []CartographerObservationKind {
-	switch item.Type {
-	case chat.RunItemTypeCommandExecution:
-		return cartographerCommandObservationKinds(item.Status)
-	case chat.RunItemTypeFileChange:
-		return []CartographerObservationKind{CartographerObservationFileChangeObserved}
-	case chat.RunItemTypeDiff:
-		return []CartographerObservationKind{CartographerObservationDiffObserved}
-	case chat.RunItemTypeApprovalReview:
-		return cartographerApprovalObservationKinds(item.Status)
-	default:
-		return []CartographerObservationKind{}
-	}
-}
-
-func cartographerCommandObservationKinds(status chat.RunItemStatus) []CartographerObservationKind {
-	switch status {
-	case chat.RunItemStatusCompleted:
-		return []CartographerObservationKind{CartographerObservationCommandCompleted, CartographerObservationTestResultObserved}
-	case chat.RunItemStatusFailed, chat.RunItemStatusCancelled:
-		return []CartographerObservationKind{CartographerObservationCommandFailed, CartographerObservationTestResultObserved}
-	case chat.RunItemStatusPending, chat.RunItemStatusRunning:
-		return []CartographerObservationKind{CartographerObservationCommandStarted}
-	default:
-		return []CartographerObservationKind{}
-	}
-}
-
-func cartographerApprovalObservationKinds(status chat.RunItemStatus) []CartographerObservationKind {
-	switch status {
-	case chat.RunItemStatusPending, chat.RunItemStatusRunning:
-		return []CartographerObservationKind{CartographerObservationApprovalRequested}
-	default:
-		return []CartographerObservationKind{}
-	}
-}
-
-func cartographerWorkflowObservationKind(eventType string) (CartographerObservationKind, bool) {
-	switch orchestrator.WorkflowEventType(eventType) {
-	case orchestrator.EventActionStarted:
-		return CartographerObservationWorkflowNodeStarted, true
-	case orchestrator.EventActionCompleted,
-		orchestrator.EventActionFailed,
-		orchestrator.EventActionCancelled,
-		orchestrator.EventRunnerAttemptCompleted,
-		orchestrator.EventRunnerAttemptFailed,
-		orchestrator.EventRunnerAttemptCancelled,
-		orchestrator.EventRunnerAttemptRecoveryRequired:
-		return CartographerObservationWorkflowNodeCompleted, true
-	case orchestrator.EventActionApprovalWait, orchestrator.EventRunnerApprovalRequested:
-		return CartographerObservationApprovalRequested, true
-	case orchestrator.EventExecutionCompleted,
-		orchestrator.EventExecutionFailed,
-		orchestrator.EventExecutionStopped,
-		orchestrator.EventExecutionCancelled:
-		return CartographerObservationRunCompleted, true
-	default:
-		return "", false
-	}
-}
-
-func cartographerObservationRecordFromObserved(observed observedCartographerEvent, kind CartographerObservationKind, text string) CartographerObservationRecord {
-	refs := observed.sourceRefs
-	record := CartographerObservationRecord{
-		Kind:                    kind,
-		Source:                  observed.source,
-		EventID:                 observed.eventID,
-		Type:                    observed.eventType,
-		WorkspaceID:             observed.sourceRefsWorkspaceID(),
-		WorkflowDefinitionID:    refs.WorkflowDefinitionID,
-		WorkflowExecutionID:     refs.WorkflowExecutionID,
-		WorkflowNodeID:          refs.WorkflowNodeID,
-		WorkflowNodeExecutionID: refs.WorkflowNodeExecutionID,
-		ChatConversationID:      refs.ChatConversationID,
-		ChatRunID:               refs.ChatRunID,
-		ChatMessageID:           observed.chatMessageID,
-		MessageRole:             observed.messageRole,
-		MessageStatus:           observed.messageStatus,
-		RunItemID:               observed.runItemID,
-		RunItemType:             observed.runItemType,
-		RunItemStatus:           observed.runItemStatus,
-		RunStatus:               observed.runStatus,
-		OutputStream:            observed.outputStream,
-		OutputOrdinal:           observed.outputOrdinal,
-		Summary:                 boundedText(observed.summary, cartographerEventSummaryLimit).text,
-		TextExcerpt:             boundedText(firstNonEmpty(text, observed.content, observed.summary), cartographerEventSummaryLimit).text,
-		OccurredAt:              observed.occurredAt,
-	}
-	if observed.item != nil {
-		record.ProviderItemID = observed.item.ProviderItemID
-		record.Command = observed.item.Command
-		record.Cwd = observed.item.Cwd
-		record.ExitCode = observed.item.ExitCode
-		record.FilePaths = append([]string{}, observed.item.FilePaths...)
-		if len(record.FilePaths) > 0 {
-			record.FilePath = record.FilePaths[0]
-		}
-	}
-	if observed.run != nil && observed.run.PendingApproval != nil {
-		record.RunItemID = firstNonEmpty(record.RunItemID, observed.run.PendingApproval.RunItemID)
-		record.Command = firstNonEmpty(record.Command, observed.run.PendingApproval.Command)
-		if record.FilePath == "" && observed.run.PendingApproval.FilePath != "" {
-			record.FilePath = observed.run.PendingApproval.FilePath
-			record.FilePaths = []string{observed.run.PendingApproval.FilePath}
-		}
-	}
-	record.ContentHash = cartographerObservationContentHash(firstNonEmpty(record.TextExcerpt, record.Summary))
-	return record
-}
-
-func isTerminalMessageStatusString(status string) bool {
-	return isTerminalChatMessageStatus(chat.MessageStatus(status))
-}
-
-func cartographerObservationContentHash(text string) string {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return ""
-	}
-	return hashBytes([]byte(text))
-}
-
-func cartographerObservationKindsContain(kinds []CartographerObservationKind, target CartographerObservationKind) bool {
-	for _, kind := range kinds {
-		if kind == target {
-			return true
-		}
-	}
-	return false
 }
 
 func isCartographerClosingReason(reason CartographerWindowCloseReason) bool {
@@ -616,26 +368,10 @@ func boundCartographerInputText(bundle CartographerInputBundle, config Cartograp
 		bundle.NewEvents[index].Truncated = bundle.NewEvents[index].Truncated || text.truncated
 		bundle.NewEvents[index].IncludedContentBytes = len([]byte(text.text))
 	}
-	for index := range bundle.Observations {
-		bundle.Observations[index].Summary = boundedText(bundle.Observations[index].Summary, cartographerEventSummaryLimit).text
-		bundle.Observations[index].TextExcerpt = boundedText(bundle.Observations[index].TextExcerpt, cartographerEventSummaryLimit).text
-	}
 	for index := range bundle.OutputSummaries {
 		text := boundedText(bundle.OutputSummaries[index].Summary, cartographerEventSummaryLimit)
 		bundle.OutputSummaries[index].Summary = text.text
 		bundle.OutputSummaries[index].Truncated = bundle.OutputSummaries[index].Truncated || text.truncated
-	}
-	if len(bundle.RetrievalResults) > defaultSemanticRetrievalLimit {
-		bundle.RetrievalResults = append([]SemanticRetrievalResult{}, bundle.RetrievalResults[:defaultSemanticRetrievalLimit]...)
-		bundle.Truncation.Summarized = true
-		bundle.Truncation.Reasons = appendUniqueString(bundle.Truncation.Reasons, "retrieval_result_limit")
-	}
-	for index := range bundle.RetrievalResults {
-		bundle.RetrievalResults[index].Title = boundedText(bundle.RetrievalResults[index].Title, cartographerEventSummaryLimit).text
-		bundle.RetrievalResults[index].Summary = boundedText(bundle.RetrievalResults[index].Summary, cartographerEventSummaryLimit).text
-		for reasonIndex := range bundle.RetrievalResults[index].Reasons {
-			bundle.RetrievalResults[index].Reasons[reasonIndex] = boundedText(bundle.RetrievalResults[index].Reasons[reasonIndex], cartographerEventSummaryLimit).text
-		}
 	}
 	return bundle
 }
@@ -806,7 +542,7 @@ func assistantAggregateSummary(events []CartographerTrajectoryEvent) string {
 	count := 0
 	bytes := 0
 	for _, event := range events {
-		if event.Type == chat.EventTypeAssistantTextDelta || event.MessageRole == string(chat.RoleAssistant) {
+		if event.Type == chat.EventTypeAssistantTextDelta || strings.Contains(event.Summary, "assistant") {
 			count++
 			bytes += event.OriginalContentBytes
 		}
@@ -884,17 +620,8 @@ func cartographerBundleContentBytes(bundle CartographerInputBundle) int {
 	for _, event := range bundle.NewEvents {
 		total += event.OriginalContentBytes
 	}
-	for _, observation := range bundle.Observations {
-		total += len([]byte(observation.Summary)) + len([]byte(observation.TextExcerpt))
-	}
 	for _, output := range bundle.OutputSummaries {
 		total += len([]byte(output.Summary))
-	}
-	for _, result := range bundle.RetrievalResults {
-		total += len([]byte(result.Title)) + len([]byte(result.Summary))
-		for _, reason := range result.Reasons {
-			total += len([]byte(reason))
-		}
 	}
 	return total
 }

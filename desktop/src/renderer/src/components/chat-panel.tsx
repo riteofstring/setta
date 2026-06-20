@@ -301,7 +301,7 @@ function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
 
 function GoalStatusIcon({ status }: { status: string }) {
   if (status === "complete") {
-    return <Check className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />;
+    return <Check className="h-3.5 w-3.5 shrink-0 text-status-success" aria-hidden="true" />;
   }
   if (status === "blocked" || status === "budgetLimited" || status === "usageLimited") {
     return (

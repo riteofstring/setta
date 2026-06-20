@@ -571,14 +571,6 @@ func validateRunItem(item RunItem) error {
 	if item.DurationMs < 0 {
 		return fmt.Errorf("run item %s durationMs must be non-negative", item.ID)
 	}
-	for index, operation := range item.FileOperations {
-		if err := validateRunItemFileOperation(item.ID, index, operation); err != nil {
-			return err
-		}
-	}
-	if err := validateRunItemDiffStats(item.ID, item.DiffStats); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -636,65 +628,6 @@ func validateRunItemTimestamps(item RunItem) error {
 		if err := validateTimestamp(item.CompletedAt, "run item "+item.ID+" completedAt"); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func validateRunItemFileOperation(itemID string, index int, operation RunItemFileOp) error {
-	label := fmt.Sprintf("run item %s fileOperations[%d]", itemID, index)
-	if operation.Path == "" {
-		return fmt.Errorf("%s path is required", label)
-	}
-	if !validValue(operation.Operation, runItemFileOperationValues) {
-		return fmt.Errorf("%s has unsupported operation %s", label, operation.Operation)
-	}
-	if err := validateRunItemFileOperationRange(label, operation); err != nil {
-		return err
-	}
-	return validateRunItemFileOperationStats(label, operation)
-}
-
-func validateRunItemFileOperationRange(label string, operation RunItemFileOp) error {
-	if operation.RangeStart < 0 {
-		return fmt.Errorf("%s rangeStart must be non-negative", label)
-	}
-	if operation.RangeEnd < 0 {
-		return fmt.Errorf("%s rangeEnd must be non-negative", label)
-	}
-	if operation.RangeStart == 0 && operation.RangeEnd != 0 {
-		return fmt.Errorf("%s rangeStart is required when rangeEnd is set", label)
-	}
-	if operation.RangeStart != 0 && operation.RangeEnd == 0 {
-		return fmt.Errorf("%s rangeEnd is required when rangeStart is set", label)
-	}
-	if operation.RangeStart != 0 && operation.RangeEnd < operation.RangeStart {
-		return fmt.Errorf("%s rangeEnd must be greater than or equal to rangeStart", label)
-	}
-	return nil
-}
-
-func validateRunItemFileOperationStats(label string, operation RunItemFileOp) error {
-	if operation.Additions < 0 {
-		return fmt.Errorf("%s additions must be non-negative", label)
-	}
-	if operation.Deletions < 0 {
-		return fmt.Errorf("%s deletions must be non-negative", label)
-	}
-	if operation.ChangedFiles < 0 {
-		return fmt.Errorf("%s changedFiles must be non-negative", label)
-	}
-	return nil
-}
-
-func validateRunItemDiffStats(itemID string, stats RunItemDiffStats) error {
-	if stats.ChangedFiles < 0 {
-		return fmt.Errorf("run item %s diffStats changedFiles must be non-negative", itemID)
-	}
-	if stats.Additions < 0 {
-		return fmt.Errorf("run item %s diffStats additions must be non-negative", itemID)
-	}
-	if stats.Deletions < 0 {
-		return fmt.Errorf("run item %s diffStats deletions must be non-negative", itemID)
 	}
 	return nil
 }

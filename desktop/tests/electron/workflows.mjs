@@ -81,78 +81,8 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "workspace-trajectory-file-fidelity.test.mjs",
-    name: "workspace-trajectory-file-fidelity",
-    tiers: ["required"],
-  },
-  {
-    file: "visual-parity-workflow.test.mjs",
-    name: "visual-parity",
-    tiers: ["performance"],
-  },
-  {
     file: "workflow-graph-scale-validation.test.mjs",
     name: "workflow-graph-scale-validation",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--scenario", "baseline"],
-    file: "workflow-graph-pan-zoom-recording.test.mjs",
-    name: "workflow-graph-pan-zoom-baseline",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--scenario", "small-trackpad"],
-    file: "workflow-graph-pan-zoom-recording.test.mjs",
-    name: "workflow-graph-pan-zoom-small-trackpad",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--scenario", "small-active"],
-    file: "workflow-graph-pan-zoom-recording.test.mjs",
-    name: "workflow-graph-pan-zoom-small-active",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--scenario", "active"],
-    file: "workflow-graph-pan-zoom-recording.test.mjs",
-    name: "workflow-graph-pan-zoom-active",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--scenario", "large"],
-    file: "workflow-graph-pan-zoom-recording.test.mjs",
-    name: "workflow-graph-pan-zoom-large",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--semantic-live-recording-only"],
-    file: "semantic-cartographer-auto-workflow.test.mjs",
-    name: "semantic-live-run",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--workflow", "workflow-graph-pan-zoom-runtime-burst"],
-    file: "semantic-runtime-phase7-acceptance.test.mjs",
-    name: "workflow-graph-pan-zoom-runtime-burst",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--workflow", "semantic-review-live-product"],
-    file: "semantic-runtime-phase7-acceptance.test.mjs",
-    name: "semantic-review-live-product",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--workflow", "semantic-runtime-reconnect"],
-    file: "semantic-runtime-phase7-acceptance.test.mjs",
-    name: "semantic-runtime-reconnect",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--workflow", "semantic-runtime-large-review"],
-    file: "semantic-runtime-phase7-acceptance.test.mjs",
-    name: "semantic-runtime-large-review",
     tiers: ["performance"],
   },
   {

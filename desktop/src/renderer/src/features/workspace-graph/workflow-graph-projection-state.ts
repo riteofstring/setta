@@ -135,9 +135,6 @@ function workflowProjectionReducer(
       if (!workflowProjectionTargetsEqual(state.target, action.expectedTarget)) {
         return state;
       }
-      if (workflowProjectionReadyActionIsStale(state, action)) {
-        return state;
-      }
       return {
         error: "",
         projection: action.projection,
@@ -175,29 +172,6 @@ function workflowProjectionTargetsEqual(
     left.definitionId === right.definitionId &&
     left.versionId === right.versionId &&
     left.executionId === right.executionId
-  );
-}
-
-function workflowProjectionReadyActionIsStale(
-  state: WorkflowProjectionState,
-  action: Extract<WorkflowProjectionAction, { type: "ready" }>,
-) {
-  if (
-    state.status !== "ready" ||
-    state.projection === null ||
-    action.projection === null ||
-    state.projection.viewMode !== "draft" ||
-    action.projection.viewMode !== "draft"
-  ) {
-    return false;
-  }
-  return (
-    workflowProjectionTargetsEqual(
-      workflowProjectionTarget(state.projection),
-      workflowProjectionTarget(action.projection),
-    ) &&
-    state.projection.draftRevision !== action.projection.draftRevision &&
-    state.projection.draftUpdatedAt > action.projection.draftUpdatedAt
   );
 }
 

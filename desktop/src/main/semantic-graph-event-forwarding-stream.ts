@@ -21,12 +21,6 @@ export function startSemanticGraphEventForwarding(options: {
         changedAreas: event.changedAreas,
         eventId: event.eventId,
         sequence: event.sequence,
-        semanticRuntimeDeltaBytes: event.semanticRuntimeDelta?.payloadBudget.byteSize ?? 0,
-        semanticRuntimeDeltaMaxBytes: event.semanticRuntimeDelta?.payloadBudget.maxByteSize ?? 0,
-        semanticRuntimeDeltaTruncatedStringCount:
-          event.semanticRuntimeDelta?.payloadBudget.truncatedStringCount ?? 0,
-        semanticRuntimeRevision: event.semanticRuntimeRevision,
-        semanticRuntimeSnapshotRequired: event.semanticRuntimeSnapshotRequired,
         streamId: event.streamId,
         workspaceId: event.workspaceId,
       });
