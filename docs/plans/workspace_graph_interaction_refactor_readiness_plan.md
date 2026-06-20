@@ -1,7 +1,7 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Draft.
+- **Status:** Phase 1 complete; Phase 2 ready to implement.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -617,6 +617,12 @@ Acceptance criteria:
 Goal: define the durable owner for read-only/run/version workflow node
 rearrangement before renderer or E2E work depends on it.
 
+Status: Complete. Commit `2e9bc6e84` added the Go-owned workflow graph
+view-layout owner, HTTP endpoint registry entries, generated TypeScript,
+main/preload IPC exposure, SQLite persistence under backend-owned app data, and
+focused coverage for key validation, target isolation, unknown-node rejection,
+read-after-write behavior, and draft definition non-mutation.
+
 Tasks:
 
 - Add Go-owned contracts for workflow graph view layout reads and updates.
@@ -652,10 +658,28 @@ Acceptance criteria:
 - No read-only/run/version node movement test relies on undefined renderer-only
   persistence.
 
+Phase 1 verification:
+
+```sh
+./scripts/go.sh test ./internal/httpapi ./internal/orchestrator ./internal/workspaceui ./cmd/generate-contracts
+./scripts/go.sh run ./cmd/generate-contracts
+pnpm -C desktop exec vitest run \
+  src/preload/index-workflow.test.ts \
+  src/preload/index.test.ts
+pnpm -C desktop exec tsc --noEmit --pretty false
+```
+
+Result: passed on June 20, 2026. The contract generator produced no checked-in
+diff.
+
 ## Phase 2: Tests First For Durable Drag Behavior
 
 Goal: add behavior-first regression coverage before changing the interaction
 implementation.
+
+Status: Ready to implement. The Phase 1 view-layout owner prerequisite exists,
+so Phase 2 should include both current editable/read-only port coverage and the
+post-Phase-1 read-only/run/version node view-layout persistence coverage.
 
 Tasks:
 
