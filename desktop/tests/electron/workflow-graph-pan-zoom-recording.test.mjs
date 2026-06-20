@@ -44,7 +44,7 @@ import {
   workflowGraphSemanticTrafficDuringInteraction,
 } from "./workflow-graph-phase0-performance-guardrails.mjs";
 
-const scenarioNames = new Set(["active", "baseline", "large", "small-trackpad"]);
+const scenarioNames = new Set(["active", "baseline", "large", "small-active", "small-trackpad"]);
 const largeNodeCounts = [500, 1000, 2500, 5000];
 const largeSyntheticScenes = ["workflow", "semantic-cells"];
 const scenarioTimeoutMs = 120_000;
@@ -73,7 +73,7 @@ const options = parseGraphRecordingArgs(process.argv.slice(2));
 
 if (options.help) {
   console.log(
-    `Usage: node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --scenario <baseline|active|large|small-trackpad> [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>] [--write-report]`,
+    `Usage: node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --scenario <baseline|active|large|small-active|small-trackpad> [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>] [--write-report]`,
   );
   process.exit(0);
 }
@@ -270,7 +270,7 @@ async function prepareScenarioAfterLaunch({ context, fixture, scenario }) {
 
 async function exerciseScenarioPanZoom({ client, inputSamples, scenario, surfaceId }) {
   await exerciseHoverSelectionAndNodeDrag(client, surfaceId, inputSamples);
-  if (scenario === "small-trackpad") {
+  if (scenario === "small-active" || scenario === "small-trackpad") {
     await exerciseSmallTrackpadPanZoom(client, surfaceId, inputSamples);
     return;
   }
@@ -840,6 +840,9 @@ function initialSnapshotReady(snapshot, { nodeCount, scenario }) {
   if (scenario === "small-trackpad") {
     return smallTrackpadSnapshotReady(snapshot);
   }
+  if (scenario === "small-active") {
+    return smallActiveSnapshotReady(snapshot);
+  }
   return snapshot.graph.nodeCount === nodeCount;
 }
 
@@ -874,6 +877,31 @@ function smallTrackpadSnapshotReady(snapshot) {
     snapshot.graph.edgeCount === 2 &&
     snapshot.graph.nodes.every((node) => node.layer === "workflow") &&
     snapshot.graph.workflow?.viewMode === "draft"
+  );
+}
+
+function smallActiveSnapshotReady(snapshot) {
+  const reviewer = snapshot.graph.nodes.find((node) => node.id === "reviewer");
+  return (
+    hasSmallWorkflowGraphShape(snapshot) &&
+    isRunningReviewerNode(reviewer) &&
+    snapshot.render.activeEdgeFlowCount > 0
+  );
+}
+
+function hasSmallWorkflowGraphShape(snapshot) {
+  return (
+    snapshot.graph.nodeCount === 3 &&
+    snapshot.graph.edgeCount === 2 &&
+    snapshot.graph.nodes.every((node) => node.layer === "workflow")
+  );
+}
+
+function isRunningReviewerNode(node) {
+  return (
+    node?.status === "running" &&
+    node.runtime?.sourceCount > 0 &&
+    node.runtime?.status === "running"
   );
 }
 
@@ -937,6 +965,13 @@ function assertFiniteRenderCounters(snapshot) {
 }
 
 function assertPanZoomCounters(snapshot, { scenario }) {
+  assertCameraWheelUpdateCounters(snapshot);
+  assertPointerPanCounter(snapshot, scenario);
+  assertWheelInputCounters(snapshot);
+  assertNodeDragCounter(snapshot);
+}
+
+function assertCameraWheelUpdateCounters(snapshot) {
   if (
     snapshot.render.cameraUpdateCount <= 0 ||
     snapshot.render.wheelPanUpdateCount <= 0 ||
@@ -944,12 +979,25 @@ function assertPanZoomCounters(snapshot, { scenario }) {
   ) {
     throw new Error(`pan/zoom counters did not advance: ${JSON.stringify(snapshot.render)}`);
   }
-  if (scenario !== "small-trackpad" && snapshot.render.pointerPanUpdateCount <= 0) {
+}
+
+function assertPointerPanCounter(snapshot, scenario) {
+  if (
+    scenario !== "small-active" &&
+    scenario !== "small-trackpad" &&
+    snapshot.render.pointerPanUpdateCount <= 0
+  ) {
     throw new Error(`pointer pan counter did not advance: ${JSON.stringify(snapshot.render)}`);
   }
+}
+
+function assertWheelInputCounters(snapshot) {
   if (snapshot.render.wheelInputEventCount <= 0 || snapshot.render.wheelInputGestureCount <= 0) {
     throw new Error(`wheel input counters did not advance: ${JSON.stringify(snapshot.render)}`);
   }
+}
+
+function assertNodeDragCounter(snapshot) {
   if (snapshot.render.nodeDragUpdateCount <= 0) {
     throw new Error(`node drag counter did not advance: ${JSON.stringify(snapshot.render)}`);
   }
@@ -1209,6 +1257,14 @@ function launchEnvForScenario({ nodeCount, scenario, syntheticScene }) {
       SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE: "1",
       SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT: "6",
       SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE: "merged",
+    };
+  }
+  if (scenario === "small-active") {
+    return {
+      ...env,
+      SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE: "1",
+      SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT: "3",
+      SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE: "workflow-running-runtime",
     };
   }
   if (scenario === "large") {

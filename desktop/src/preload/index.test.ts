@@ -119,14 +119,14 @@ describe("preload workspace API", () => {
   test("accepts visual parity synthetic workflow graph scenes", async () => {
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "1");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "6");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "merged");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "workflow-running-runtime");
 
     const { api } = await exposePreloadAPI();
 
     expect(api.app.flags.workflowGraphSyntheticGraph).toEqual({
       edgesPerNode: 1,
       nodeCount: 6,
-      scene: "merged",
+      scene: "workflow-running-runtime",
     });
   });
 

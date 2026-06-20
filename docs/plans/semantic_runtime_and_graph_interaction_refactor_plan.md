@@ -391,12 +391,8 @@ Implemented:
   pre-runtime-projection path.
 - Added a default-view guard against unlabeled live-source graph nodes.
 
-Focused review verification:
-
-```text
-pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts
-pnpm --dir desktop exec eslint tests/electron/workflow-graph-phase0-performance-guardrails.mjs tests/electron/workflow-graph-pan-zoom-recording.test.mjs tests/electron/semantic-cartographer-auto-workflow.test.mjs tests/electron/semantic-graph-workflow.test.mjs tests/electron/semantic-graph-working-set-helpers.mjs tests/electron/workflow-graph-performance-recording.mjs
-```
+Focused review verification passed for semantic graph projection Vitest
+coverage and the Phase 0 Electron guardrail/helper ESLint set.
 
 Important caveat:
 
@@ -477,12 +473,9 @@ Implemented:
   `cartographer_audit` and `working_set` events are handled through runtime
   deltas/snapshot reload instead of scheduling full `readWorkingSet` refreshes.
 
-Focused review verification:
-
-```text
-./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi
-pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/preload/index.test.ts src/preload/semantic-graph-events.test.ts src/main/semantic-graph-ipc.test.ts src/main/semantic-graph-event-forwarding.test.ts src/main/semantic-graph-event-stream.test.ts
-```
+Focused review verification passed for `./internal/semanticgraph`,
+`./internal/httpapi`, and the renderer/preload/main semantic runtime Vitest
+coverage.
 
 Important caveat:
 
@@ -561,14 +554,8 @@ Implemented:
 - Added focused renderer unit coverage for runtime delta burst coalescing,
   stale-delta dropping, revision-gap reload, and camera-settle deferral.
 
-Focused review verification:
-
-```text
-pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts
-./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi
-```
-
-Both focused checks passed during review.
+Focused review verification passed for the semantic runtime store/state/projection
+Vitest coverage and `./internal/semanticgraph ./internal/httpapi`.
 
 Phase 2 follow-up completion:
 
@@ -588,14 +575,9 @@ Phase 2 follow-up completion:
   `semantic-graph:working-set-read` IPC or backend HTTP request after runtime
   bootstrap.
 
-Focused follow-up verification:
-
-```text
-pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts
-pnpm --dir desktop exec eslint src/renderer/src/features/workspace-graph/semantic-runtime-store.ts src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts tests/electron/semantic-cartographer-auto-workflow.test.mjs
-pnpm --dir desktop build
-node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs --skip-build --semantic-live-recording-only
-```
+Focused follow-up verification passed for runtime store/state/projection Vitest,
+runtime-store/cartographer ESLint, desktop build, and the semantic-live
+recording-only Electron workflow.
 
 The focused Electron run produced a passing Phase 2 traffic report with
 `0` blank-scope working-set IPC reads, `0` blank-scope working-set IPC reads
@@ -677,16 +659,9 @@ Implemented:
   and the cartographer runtime traffic gate still reports `0` blank-scope
   working-set reads after runtime bootstrap.
 
-Focused verification:
-
-```text
-pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/renderer/src/features/workspace-graph/pixi-renderer-camera-sync.test.js src/renderer/src/features/workspace-graph/pixi-renderer-animation.test.js src/renderer/src/features/workspace-graph/pixi-renderer-animation-coordinator.test.js src/renderer/src/features/workspace-graph/pixi-renderer-wheel-responsiveness.test.js
-pnpm --dir desktop exec eslint src/renderer/src/features/workspace-graph/pixi-renderer-interaction-scheduler.js src/renderer/src/features/workspace-graph/pixi-renderer-camera-sync.js src/renderer/src/features/workspace-graph/pixi-renderer-animation.js src/renderer/src/features/workspace-graph/pixi-renderer-animation-coordinator.js src/renderer/src/features/workspace-graph/pixi-renderer-helpers.js src/renderer/src/features/workspace-graph/pixi-renderer.js src/renderer/src/features/workspace-graph/pixi-renderer-debug-snapshot.js src/renderer/src/features/workspace-graph/pixi-renderer-camera-sync.test.js src/renderer/src/features/workspace-graph/pixi-renderer-animation.test.js tests/electron/workflow-graph-performance-recording.mjs tests/electron/workflow-graph-phase0-performance-guardrails.mjs tests/electron/workflow-graph-pan-zoom-recording.test.mjs
-pnpm --dir desktop build
-node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --skip-build --scenario active
-node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --skip-build --scenario small-trackpad --write-report
-node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs --skip-build --semantic-live-recording-only
-```
+Focused verification passed for runtime/projection and Pixi camera tests,
+targeted ESLint, desktop build, active and small-trackpad pan/zoom Electron
+recordings, and the semantic-live recording-only Electron workflow.
 
 The final `small-trackpad` recording at
 `.recordings/workflow-graph-pan-zoom-small-trackpad/20260618T011559Z`
@@ -802,14 +777,8 @@ Implemented:
   unlabeled live-source nodes and does expose an aggregate workflow runtime
   indicator.
 
-Verification:
-
-```text
-./scripts/format.sh
-./check_quality.sh --all
-```
-
-The full quality gate passed, including Go tests, desktop formatting,
+Verification passed with `./scripts/format.sh` and `./check_quality.sh --all`,
+including Go tests, desktop formatting,
 typecheck, Vitest, desktop build, dead-code checks, and the required Electron
 workflow tier. The required Electron workflows included workflow graph smoke,
 semantic graph, and `semantic-cartographer-auto`; the semantic cartographer
@@ -873,12 +842,9 @@ Implemented:
 - Kept fast liveness typed-event based. Workflow execution projection still drives active node styling, and cartographer queued/open/running/terminal records drive compact runtime status without waiting for model output or provider metadata.
 - Added focused backend and renderer tests for terminal no-op lifecycle visibility without source-pulse nodes and selected-node rendering of model audit metadata.
 
-Focused verification passed during review:
-
-- `./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi`
-- `pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/features/workspace-graph/semantic-node-details-surface.test.tsx`
-- `pnpm --dir desktop exec eslint src/renderer/src/features/workspace-graph/semantic-workflow-runtime-projection.ts src/renderer/src/features/workspace-graph/semantic-runtime-working-set.ts src/renderer/src/features/workspace-graph/workflow-node-details-surface.tsx src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts`
-- `pnpm --dir desktop typecheck`
+Focused verification passed during review for `./internal/semanticgraph`,
+`./internal/httpapi`, runtime/projection/details Vitest coverage, targeted
+ESLint, and desktop typecheck.
 
 Phase 6 is ready. The phase 5 model-audit fields are intentionally compact, but
 they are not yet governed by a measured hot-path byte budget or details-only
@@ -935,14 +901,10 @@ Implemented:
   coalesce by frame/entity, revision gaps request a snapshot, and visual
   publishing still waits for camera movement to settle.
 
-Focused verification passed during review:
-
-- `./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi`
-- `pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/features/workspace-graph/semantic-node-details-surface.test.tsx`
-- `pnpm --dir desktop exec eslint src/renderer/src/features/workspace-graph/semantic-runtime-store.ts src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/main/semantic-graph-event-forwarding-stream.ts tests/electron/semantic-cartographer-auto-workflow.test.mjs`
-- `pnpm --dir desktop typecheck`
-- `pnpm --dir desktop build`
-- `node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs --semantic-live-recording-only --skip-build`
+Focused verification passed during review for `./internal/semanticgraph`,
+`./internal/httpapi`, runtime/projection/details Vitest coverage, targeted
+ESLint, desktop typecheck/build, and the semantic-live recording-only Electron
+workflow.
 
 Phase 7 is ready. The Phase 6 gates prove the runtime payload contract for the
 focused semantic-live workflow and large backend fixtures; Phase 7 should

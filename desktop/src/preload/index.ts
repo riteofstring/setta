@@ -374,6 +374,7 @@ function optionalWorkflowGraphSyntheticSceneEnv(
   if (
     value === "workflow" ||
     value === "workflow-running" ||
+    value === "workflow-running-runtime" ||
     value === "semantic-cells" ||
     value === "merged"
   ) {

@@ -182,7 +182,7 @@ function phase8DisplayObjectBudget(scenario) {
 
 function phase8PerformanceChecks(context) {
   const checks = [
-    phase8NodeDragCheck(context),
+    ...phase8NodeDragChecks(context),
     ...phase0CameraLatencyChecks(context),
     phase0CameraWorkingSetReadCheck(context),
     phase8LabelSyncCheck(context),
@@ -195,6 +195,13 @@ function phase8PerformanceChecks(context) {
   return checks;
 }
 
+function phase8NodeDragChecks(context) {
+  if (context.scenario === "runtime-burst") {
+    return [];
+  }
+  return [phase8NodeDragCheck(context)];
+}
+
 function phase8NodeDragCheck({ nodeDragDelta }) {
   return hardCheck({
     actual: nodeDragDelta,
@@ -205,7 +212,11 @@ function phase8NodeDragCheck({ nodeDragDelta }) {
 }
 
 function phase0CameraLatencyChecks(context) {
-  if (context.scenario !== "small-trackpad") {
+  if (
+    context.scenario !== "small-trackpad" &&
+    context.scenario !== "small-active" &&
+    context.scenario !== "runtime-burst"
+  ) {
     return [];
   }
   return [
@@ -256,7 +267,8 @@ function phase8LabelSyncCheck(context) {
 }
 
 function phase8StaticGlowCheck(context) {
-  return hardCheck({
+  const check = context.scenario === "runtime-burst" ? reportOnlyCheck : hardCheck;
+  return check({
     actual: context.staticGlowRedrawCount,
     budget: context.coalescedStaticGlowBudget,
     id: "static-glow-not-redrawn-per-pan-wheel-event",

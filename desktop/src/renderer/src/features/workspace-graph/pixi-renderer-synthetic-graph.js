@@ -27,6 +27,9 @@ export function createSyntheticWorkflowGraph({ edgesPerNode, nodeCount, scene = 
   if (nodeCount < 2) {
     throw new Error(`synthetic graph requires at least two nodes: nodeCount=${nodeCount}`);
   }
+  if (scene === "workflow-running-runtime") {
+    return createSyntheticWorkflowRunningRuntimeGraph();
+  }
   if (scene === "workflow-running") {
     return createSyntheticWorkflowRunningGraph();
   }
@@ -77,6 +80,53 @@ function createSyntheticWorkflowRunningGraph() {
       syntheticWorkflowEdge({
         id: "work_end",
         sourceNodeId: "work",
+        status: "active",
+        targetNodeId: "end",
+      }),
+    ],
+    nodes,
+  };
+}
+
+function createSyntheticWorkflowRunningRuntimeGraph() {
+  const nodes = [
+    syntheticWorkflowNode({
+      id: "start",
+      kind: "start",
+      label: "Start",
+      status: "succeeded",
+      x: -360,
+      y: 0,
+    }),
+    syntheticWorkflowNode({
+      id: "reviewer",
+      kind: "action",
+      label: "Reviewer",
+      runtime: syntheticReviewerRuntimeIndicator(),
+      status: "running",
+      x: 0,
+      y: 96,
+    }),
+    syntheticWorkflowNode({
+      id: "end",
+      kind: "end",
+      label: "End",
+      status: "not_started",
+      x: 360,
+      y: 0,
+    }),
+  ];
+  return {
+    edges: [
+      syntheticWorkflowEdge({
+        id: "start_reviewer",
+        sourceNodeId: "start",
+        status: "active",
+        targetNodeId: "reviewer",
+      }),
+      syntheticWorkflowEdge({
+        id: "reviewer_end",
+        sourceNodeId: "reviewer",
         status: "active",
         targetNodeId: "end",
       }),
@@ -186,6 +236,7 @@ function syntheticWorkflowNode({
   id,
   kind,
   label,
+  runtime = null,
   status,
   width = nodeWidth,
   x,
@@ -198,10 +249,49 @@ function syntheticWorkflowNode({
     kind,
     layer: "workflow",
     label,
+    runtime,
     status,
     width,
     x,
     y,
+  };
+}
+
+function syntheticReviewerRuntimeIndicator() {
+  const sourceRefs = {
+    chatConversationId: "",
+    chatMessageId: "",
+    chatRunId: "synthetic-review-chat-run",
+    runItemId: "synthetic-review-command",
+    workflowDefinitionId: "synthetic-review-workflow",
+    workflowExecutionId: "synthetic-review-execution",
+    workflowNodeExecutionId: "synthetic-reviewer-execution",
+    workflowNodeId: "reviewer",
+  };
+  return {
+    hiddenSourceCount: 5,
+    modelAudits: [],
+    patchIds: ["synthetic-preview-patch"],
+    pulseCount: 3,
+    recentPulses: [
+      {
+        id: "synthetic-runtime-pulse-observing",
+        kind: "cartographer_observing",
+        patchId: "",
+        publicSummary: "Reviewer activity observed.",
+        runId: "synthetic-review-cartographer-run",
+        sourceRefs,
+        status: "running",
+        targetEntityId: "reviewer",
+        windowId: "synthetic-review-window",
+      },
+    ],
+    runIds: ["synthetic-review-cartographer-run"],
+    sourceCount: 6,
+    sourceRefs: [sourceRefs],
+    status: "running",
+    statusCounts: [{ count: 6, status: "running" }],
+    windowIds: ["synthetic-review-window"],
   };
 }
 
@@ -460,6 +550,7 @@ function assertSyntheticScene(scene) {
   if (
     scene !== "workflow" &&
     scene !== "workflow-running" &&
+    scene !== "workflow-running-runtime" &&
     scene !== "semantic-cells" &&
     scene !== "merged"
   ) {

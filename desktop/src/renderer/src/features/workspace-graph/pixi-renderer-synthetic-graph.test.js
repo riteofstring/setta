@@ -98,6 +98,28 @@ describe("workflow graph synthetic data", () => {
     ]);
   });
 
+  test("creates running review workflow scene with aggregate runtime indicator", () => {
+    const graph = createSyntheticWorkflowGraph({
+      edgesPerNode: 1,
+      nodeCount: 3,
+      scene: "workflow-running-runtime",
+    });
+
+    expect(graph.nodes.map((node) => [node.id, node.label, node.status])).toEqual([
+      ["start", "Start", "succeeded"],
+      ["reviewer", "Reviewer", "running"],
+      ["end", "End", "not_started"],
+    ]);
+    expect(graph.nodes.find((node) => node.id === "reviewer")?.runtime).toMatchObject({
+      sourceCount: 6,
+      status: "running",
+    });
+    expect(graph.edges.map((edge) => [edge.id, edge.status])).toEqual([
+      ["start_reviewer", "active"],
+      ["reviewer_end", "active"],
+    ]);
+  });
+
   test("creates merged workflow and semantic scene for visual parity", () => {
     const graph = createSyntheticWorkflowGraph({
       edgesPerNode: 1,
