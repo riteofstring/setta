@@ -42,7 +42,26 @@
   `node --test desktop/tests/electron/workflow-graph-recording-incident-report.test.mjs`,
   `pnpm -C desktop exec tsc --noEmit --pretty false`, and
   `pnpm -C desktop exec vitest run src/main/session-recorder.test.ts src/renderer/src/features/workspace-graph/pixi-renderer-input-handlers.test.js src/renderer/src/features/workspace-graph/pixi-renderer-camera-sync.test.js`.
-- Phase 8 broad verification is ready to implement next.
+- Phase 8 broad verification now has a reproducible gate:
+  `scripts/test_workspace_graph_phase8.sh` runs focused renderer/parser checks,
+  the `workspace-graph-phase8` Electron workflow tier, and live Codex workflows
+  when local ChatGPT auth is available.
+- The active pan/zoom workflow harness now verifies meaningful retained
+  liveness (`activeNodePulseCount`, active workflow edge flow, and active
+  semantic activity markers) instead of requiring decorative semantic cell
+  animation to be enabled.
+- Focused Phase 8 verification passed with
+  `./scripts/test_workspace_graph_phase8.sh --focused-only`.
+- Production Electron Phase 8 verification passed with
+  `./scripts/test_workspace_graph_phase8.sh --electron-only --skip-build`
+  after `pnpm -C desktop build`.
+- Live Codex Phase 8 verification passed with
+  `./scripts/test_workspace_graph_phase8.sh --live-only --skip-build` while
+  local Codex ChatGPT auth was available.
+- The Phase 8 performance-gate notes in
+  `docs/reports/performance/workspace-graph-phase-8-performance-gate.md`
+  explicitly separate deterministic CI invariants from machine-dependent
+  millisecond timing reports.
 
 ## Position
 

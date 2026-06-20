@@ -149,7 +149,7 @@ function printUsage() {
   process.stdout.write(`Usage: node desktop/tests/electron/run-workflows.mjs [options]
 
 Options:
-  --tier <required|performance|refactor|live|all>
+  --tier <required|performance|refactor|live|workspace-graph-phase8|all>
                                            Run workflows in a manifest tier.
   --workflow <name>                       Run one named workflow; repeatable.
   --visible                               Show Electron windows for workflows that support it.

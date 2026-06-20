@@ -1,21 +1,119 @@
 # Workspace Graph Phase 8 Performance Gate
 
-Generated at 2026-06-18T01:16:12.952Z.
+Updated 2026-06-20 for
+`docs/plans/workspace_graph_retained_scene_camera_fast_path_plan.md`.
 
-| Scenario | Synthetic scene | Nodes | p95 frame ms | Display objects | Hard failures | Report-only findings |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| small-trackpad | workflow | 3 | 29.30 | 57 | 0 | 1 |
+Phase 8 is now a reproducible verification gate rather than a handwritten
+checklist. The root wrapper is:
 
-## small-trackpad / workflow
+```bash
+./scripts/test_workspace_graph_phase8.sh
+```
 
-- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
-- hard idle-wheel-pinch-to-camera-transform-p95-ms: pass; actual=0.5 budget=16; wheelLatencySamples=10, maxEventToCameraUpdateMs=0.5
-- hard idle-wheel-pinch-to-rendered-frame-p95-ms: pass; actual=23.799999952316284 budget=32; wheelLatencySamples=10, maxEventToRenderedFrameMs=23.799999952316284
-- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-18T01:16:07.081Z, lastInputAt=2026-06-18T01:16:11.188Z
-- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=56, panWheelEventCount=17, graphNodeCount=3, materializedLabelCount=3
-- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=10 budget=24; staticGlowRedrawCount=10, cameraDependentSyncFrameDelta=10, nodeDragMoveEvents=8
-- hard materialized-node-count-scales-with-visible-nodes: pass; actual=3 budget=96; materializedNodeCount=3, visibleMaterializedNodeCount=2
-- hard display-object-count-budget: pass; actual=57 budget=3000; totalDisplayObjectCount=57, materializedNodeCount=3
-- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=29.30000001192093 budget=24; p95FrameMs=29.30000001192093; noisy threshold remains report-only
-- hard no-long-task-over-100ms: pass; actual=76 budget=100; maxLongTaskMs=76
+For deterministic-only local or CI runs:
 
+```bash
+./scripts/test_workspace_graph_phase8.sh --deterministic-only
+```
+
+## Gate Composition
+
+- Focused renderer and parser checks run first. These cover camera invariants,
+  retained scene sync, visible scene windows, labels, edges, graph scene-store
+  behavior, layout persistence, shared workflow/chat activity UI, pan/zoom
+  performance report parsing, and recording incident parsing.
+- Production Electron workflows run through the
+  `workspace-graph-phase8` manifest tier. The tier includes graph smoke,
+  workflow drag ownership and cancellation contracts, activity sprite
+  popover/details workflows, Phase 3 pan/zoom recorder-on/off matrix coverage,
+  baseline/small-trackpad/active pan/zoom runs, and semantic runtime burst
+  pan/zoom coverage.
+- Live Codex workflows run only when local Codex ChatGPT auth is available.
+  The wrapper delegates to `scripts/test_chat_workflows.sh --live-only` with
+  `OPENAI_API_KEY` removed from the environment. If ChatGPT auth is unavailable,
+  the live-provider portion is reported as skipped, not as provider proof.
+
+## Deterministic Versus Timing Evidence
+
+The hard CI gates are deterministic retained-scene invariants:
+
+- no duplicate focused graph renderer;
+- no renderer instance replacement during interaction;
+- no graph app/canvas creation during camera interaction;
+- no camera-caused workspace presentation writes;
+- no camera-caused graph React commits;
+- no camera-caused full graph replacement;
+- no semantic working-set reads during camera interaction;
+- no full graph label sync per pan/wheel event;
+- bounded retained object materialization;
+- drag movement and layout writes are limited to admitted movement owners;
+- recording incident reports contain the required gesture evidence.
+
+Machine-dependent millisecond evidence remains a performance report unless the
+runner opts in as the reference timing runner with
+`SETTA_PERFORMANCE_REFERENCE_RUNNER=1` or
+`SETTA_WORKFLOW_GRAPH_PHASE0_REFERENCE_RUNNER=1`. First-Pixi-render timing is
+still proxy evidence; compositor presented-frame timing is explicitly marked
+unavailable until a presentation trace source is wired.
+
+## Latest Focused Verification
+
+Command:
+
+```bash
+./scripts/test_workspace_graph_phase8.sh --focused-only
+```
+
+Result on 2026-06-20:
+
+- Vitest: 11 files passed, 65 tests passed.
+- Node parser tests: 3 tests passed.
+
+## Latest Production-Path Verification
+
+Command:
+
+```bash
+./scripts/test_workspace_graph_phase8.sh --electron-only --skip-build
+```
+
+Result on 2026-06-20 after `pnpm -C desktop build`:
+
+- Passed `workflow-graph-smoke`.
+- Passed all Phase 8 drag ownership/cancellation workflows:
+  `workflow-graph-editable-drag-contract`,
+  `workflow-graph-read-only-port-contract`,
+  `workflow-graph-read-only-view-layout-contract`,
+  `workflow-graph-active-replacement-contract`,
+  `workflow-graph-node-drag-pointercancel-contract`,
+  `workflow-graph-edge-draw-pointercancel-contract`,
+  `workflow-graph-marquee-pointercancel-contract`, and
+  `workflow-graph-live-runtime-drag-contract`.
+- Passed `workspace-trajectory-file-fidelity`, including retained activity
+  sprite hit targets, popover activity rendering, details-link behavior, and
+  sprite incident evidence.
+- Passed pan/zoom production workflows:
+  `workflow-graph-pan-zoom-phase3`,
+  `workflow-graph-pan-zoom-baseline`,
+  `workflow-graph-pan-zoom-small-trackpad`,
+  `workflow-graph-pan-zoom-small-active`,
+  `workflow-graph-pan-zoom-active`, and
+  `workflow-graph-pan-zoom-runtime-burst`.
+
+The active pan/zoom harness now treats workflow edge flow, workflow node pulse,
+and semantic activity markers as the required meaningful liveness evidence.
+Decorative semantic cell animation is not required for Phase 8 readiness.
+
+## Latest Live Codex Verification
+
+Command:
+
+```bash
+./scripts/test_workspace_graph_phase8.sh --live-only --skip-build
+```
+
+Result on 2026-06-20 with local Codex ChatGPT auth available:
+
+- Passed `live-codex-electron`.
+- Passed backend live Codex workflow
+  `./scripts/go.sh test ./internal/runtime -run TestBackendAppWorkflowWithLiveCodex -count=1`.

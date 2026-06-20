@@ -23,6 +23,13 @@ Run the workspace graph Phase 3 pan/zoom recorder-on/off matrix directly:
 node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --scenario phase3 --skip-build --keep-artifacts --write-report
 ```
 
+Run the workspace graph retained-scene Phase 8 gate through the root wrapper:
+
+```sh
+./scripts/test_workspace_graph_phase8.sh
+./scripts/test_workspace_graph_phase8.sh --deterministic-only
+```
+
 Run the deterministic chat workflows through the root compatibility wrapper:
 
 ```sh

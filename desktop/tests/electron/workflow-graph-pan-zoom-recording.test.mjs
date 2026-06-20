@@ -1158,7 +1158,7 @@ function hitTestTargetNode(
   snapshot,
   { preferPortedNode = false, preferPortlessNode = false } = {},
 ) {
-  const candidateMargin = preferPortlessNode ? 48 : 4;
+  const candidateMargin = preferPortedNode || preferPortlessNode ? 48 : 4;
   let candidates = materializedCanvasNodes(snapshot, candidateMargin);
   if (candidates.length === 0 && candidateMargin !== 4) {
     candidates = materializedCanvasNodes(snapshot, 4);
@@ -1344,9 +1344,9 @@ function baselineSnapshotReady(snapshot) {
 function activeSnapshotReady(snapshot) {
   return (
     snapshot.render.activeEdgeFlowCount > 0 &&
-    snapshot.render.cellAnimCount > 0 &&
+    snapshot.render.activeNodePulseCount > 0 &&
     snapshot.graph.nodes.some((node) => node.layer === "workflow") &&
-    snapshot.graph.nodes.some((node) => node.layer === "semantic")
+    snapshot.graph.nodes.some((node) => node.layer === "semantic" && node.activity?.active)
   );
 }
 
