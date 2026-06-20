@@ -591,7 +591,14 @@ async function waitForWorkflowGraphPaneSettled(client, surfaceId) {
   await waitForState(
     client,
     driverCallExpression("workflowGraphPaneSettled", { surfaceId }),
-    (value) => value.visible && !value.moving && value.left >= 0 && value.clientWidth > 0,
+    (value) =>
+      value.visible &&
+      !value.moving &&
+      value.left >= 0 &&
+      value.clientWidth > 0 &&
+      value.clientHeight > 0 &&
+      value.width > 0 &&
+      value.height > 0,
   );
 }
 

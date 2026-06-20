@@ -41,6 +41,7 @@ import { rendererGraphFromWorkflowProjection } from "./workflow-graph-projection
 import { useWorkflowProjectionState } from "./workflow-graph-projection-state";
 import { workflowRendererHandlersForSurface } from "./workflow-graph-renderer-handlers";
 import { isWorkflowGraphRendererInitAbort } from "./workflow-graph-renderer-lifecycle";
+import { registerWorkflowGraphRuntimeHandle } from "./workflow-graph-runtime-registry";
 import {
   workflowGraphStateForSurface,
   workflowSyntheticGraphForSurface,
@@ -596,10 +597,13 @@ export function WorkflowGraphSurface({
     const abortController = new AbortController();
     let disposed = false;
     let rendererHandle: WorkflowGraphRenderer | null = null;
+    let unregisterRuntimeHandle: (() => void) | null = null;
     const destroyRenderer = () => {
       if (rendererHandle === null) {
         return;
       }
+      unregisterRuntimeHandle?.();
+      unregisterRuntimeHandle = null;
       workflowCameraRef.current = rendererHandle.cameraState();
       writeWorkflowGraphCameraState(
         surfaceId,
@@ -633,6 +637,7 @@ export function WorkflowGraphSurface({
         }
         rendererHandle = renderer;
         workflowRendererRef.current = renderer;
+        unregisterRuntimeHandle = registerWorkflowGraphRuntimeHandle(surfaceId, renderer);
         renderer.setHandlers(rendererHandlersRef.current);
         const pendingGraph = pendingWorkflowGraphRef.current;
         if (pendingGraph !== null && pendingGraph !== initialGraph) {

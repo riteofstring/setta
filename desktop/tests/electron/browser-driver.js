@@ -339,14 +339,53 @@
   }
 
   function maximizeWorkflowGraphPane({ surfaceId = null } = {}) {
-    const surface = workflowGraphSurfaceById(surfaceId) ?? activeWorkflowGraphSurface();
-    const host = surface?.closest('[data-testid="workspace-pane-host"]');
+    const state = maximizeWorkflowGraphPaneState({ surfaceId });
+    if (!state.ok) {
+      throw new Error(`workflow graph maximize button is missing: ${JSON.stringify(state)}`);
+    }
+    return state.surfaceId;
+  }
+
+  function maximizeWorkflowGraphPaneState({ surfaceId = null } = {}) {
+    const surface = workflowGraphMaximizeSurface(surfaceId);
+    if (!surface) {
+      return {
+        ok: false,
+        reason: "missing-workflow-graph-surface",
+        roots: workflowGraphRootStates(),
+        surfaceId: null,
+      };
+    }
+    const host = surface.closest('[data-testid="workspace-pane-host"]');
+    const resolvedSurfaceId = surface.dataset.surfaceId ?? null;
+    if (paneHostBoolean(host, "maximized", false)) {
+      return { ok: true, reason: "already-maximized", surfaceId: resolvedSurfaceId };
+    }
     const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
     if (!(button instanceof HTMLButtonElement)) {
-      throw new Error("workflow graph maximize button is missing");
+      return {
+        ok: false,
+        reason: "missing-maximize-button",
+        roots: workflowGraphRootStates(),
+        surfaceId: resolvedSurfaceId,
+      };
     }
     button.click();
-    return surface.dataset.surfaceId ?? null;
+    return { ok: true, reason: "clicked", surfaceId: resolvedSurfaceId };
+  }
+
+  function workflowGraphMaximizeSurface(surfaceId) {
+    const preferredSurface = workflowGraphSurfaceById(surfaceId);
+    if (workflowGraphMaximizeButton(preferredSurface)) {
+      return preferredSurface;
+    }
+    return activeWorkflowGraphSurface();
+  }
+
+  function workflowGraphMaximizeButton(surface) {
+    const host = surface?.closest('[data-testid="workspace-pane-host"]');
+    const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
+    return button instanceof HTMLButtonElement ? button : null;
   }
 
   function newFrameButtonOrWorkflowMenuExists() {
@@ -394,17 +433,30 @@
   }
 
   function workflowGraphCanvasRect({ surfaceId }) {
+    const state = workflowGraphCanvasRectState({ surfaceId });
+    if (!state.rect) {
+      throw new Error(`workflow graph canvas is missing: ${JSON.stringify(state)}`);
+    }
+    return state.rect;
+  }
+
+  function workflowGraphCanvasRectState({ surfaceId }) {
     const roots = Array.from(document.querySelectorAll('[data-testid="workflow-graph"]'));
     const root =
       surfaceId === null
         ? roots[0]
         : roots.find((candidate) => candidate.dataset.surfaceId === surfaceId);
     const canvas = root?.querySelector('[data-testid="workflow-graph-canvas"]');
-    if (!canvas) {
-      throw new Error("workflow graph canvas is missing");
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return {
+        ready: false,
+        reason: "missing-canvas",
+        rect: null,
+        roots: roots.map(workflowGraphRootState),
+      };
     }
     const rect = canvas.getBoundingClientRect();
-    return {
+    const value = {
       clientHeight: canvas.clientHeight || rect.height,
       clientWidth: canvas.clientWidth || rect.width,
       height: rect.height,
@@ -412,6 +464,16 @@
       top: rect.top,
       width: rect.width,
     };
+    return {
+      ready: workflowGraphCanvasRectReady(value),
+      reason: workflowGraphCanvasRectReady(value) ? "" : "zero-size-canvas",
+      rect: value,
+      roots: roots.map(workflowGraphRootState),
+    };
+  }
+
+  function workflowGraphCanvasRectReady(rect) {
+    return rect.clientHeight > 0 && rect.clientWidth > 0 && rect.height > 0 && rect.width > 0;
   }
 
   function workflowGraphDebugSnapshot({ includeVisual = true, surfaceId }) {
@@ -439,11 +501,15 @@
       flags: window.setta?.app.flags ?? null,
       ready: false,
       reason,
-      roots: Array.from(document.querySelectorAll('[data-testid="workflow-graph"]')).map(
-        workflowGraphRootState,
-      ),
+      roots: workflowGraphRootStates(),
       surfaceIds,
     };
+  }
+
+  function workflowGraphRootStates() {
+    return Array.from(document.querySelectorAll('[data-testid="workflow-graph"]')).map(
+      workflowGraphRootState,
+    );
   }
 
   function workflowGraphRootState(root) {
@@ -673,18 +739,41 @@
   }
 
   function workflowGraphPaneSettled({ surfaceId }) {
-    const root = Array.from(document.querySelectorAll('[data-testid="workflow-graph"]')).find(
-      (candidate) => candidate.dataset.surfaceId === surfaceId,
-    );
+    const root = workflowGraphSurfaceById(surfaceId);
     const host = root?.closest('[data-testid="workspace-pane-host"]');
-    const canvas = root?.querySelector('[data-testid="workflow-graph-canvas"]');
-    const rect = canvas instanceof HTMLCanvasElement ? canvas.getBoundingClientRect() : null;
     return {
-      clientWidth: canvas instanceof HTMLCanvasElement ? canvas.clientWidth : 0,
-      left: rect?.left ?? Number.NEGATIVE_INFINITY,
-      moving: host instanceof HTMLElement ? host.dataset.moving === "true" : true,
-      visible: host instanceof HTMLElement ? host.dataset.visible === "true" : false,
+      ...workflowGraphCanvasLayout(root),
+      moving: paneHostBoolean(host, "moving", true),
+      visible: paneHostBoolean(host, "visible", false),
     };
+  }
+
+  function workflowGraphCanvasLayout(root) {
+    const canvas = root?.querySelector('[data-testid="workflow-graph-canvas"]');
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return {
+        clientHeight: 0,
+        clientWidth: 0,
+        height: 0,
+        left: Number.NEGATIVE_INFINITY,
+        width: 0,
+      };
+    }
+    const rect = canvas.getBoundingClientRect();
+    return {
+      clientHeight: canvas.clientHeight,
+      clientWidth: canvas.clientWidth,
+      height: rect.height,
+      left: rect.left,
+      width: rect.width,
+    };
+  }
+
+  function paneHostBoolean(host, key, missingValue) {
+    if (!(host instanceof HTMLElement)) {
+      return missingValue;
+    }
+    return host.dataset[key] === "true";
   }
 
   function workflowContextMenuPosition() {
@@ -1052,6 +1141,7 @@
     terminalScrollbackSearch,
     terminalSnapshot,
     maximizeWorkflowGraphPane,
+    maximizeWorkflowGraphPaneState,
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
@@ -1075,6 +1165,7 @@
     workflowContextMenuPosition,
     workflowDefinitions,
     workflowGraphCanvasRect,
+    workflowGraphCanvasRectState,
     workflowGraphDebugSnapshot,
     workflowGraphDebugSnapshotReady,
     workflowGraphMenuItemExists,

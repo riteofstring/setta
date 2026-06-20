@@ -1,4 +1,5 @@
 import type { SettaAPI } from "@shared/types";
+import type { WorkspaceFrameMetrics } from "./workspace-layout/types";
 
 interface WorkflowGraphDebugSnapshot {
   canvas: {
@@ -97,6 +98,7 @@ interface WorkflowGraphDebugSnapshot {
     edgeGraphicsCount: number;
     edgeRedrawCount: number;
     frameCount: number;
+    frozen: boolean;
     compactSelectedLabelCount: number;
     gridDrawCount: number;
     labelObjectCount: number;
@@ -119,6 +121,7 @@ interface WorkflowGraphDebugSnapshot {
     pointerPanUpdateCount: number;
     portGraphicsCount: number;
     reactRenderCount: number;
+    rendererResizeCount: number;
     recentFrameMs: number[];
     selectionChangeCount: number;
     spatialIndexCandidateCount: number;
@@ -127,6 +130,7 @@ interface WorkflowGraphDebugSnapshot {
     spatialIndexRebuildCount: number;
     spatialIndexUpdateCount: number;
     temporaryEdgeUpdateCount: number;
+    tickerFramesWhileFrozen: number;
     totalDisplayObjectCount: number;
     visibleLabelCount: number;
     wheelPanUpdateCount: number;
@@ -149,9 +153,20 @@ interface WorkflowGraphDebugApi {
   getSurfaceIds: () => string[];
 }
 
+interface WorkflowGraphRuntimeHandle {
+  setFrozen(frozen: boolean): void;
+}
+
+interface WorkflowGraphRuntimeApi {
+  __handles: Map<string, WorkflowGraphRuntimeHandle>;
+  getHandle: (surfaceId: string) => WorkflowGraphRuntimeHandle | null;
+}
+
 declare global {
   interface Window {
+    __settaWorkspaceReadFrameMetrics?: () => WorkspaceFrameMetrics;
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
+    __settaWorkflowGraphRuntime?: WorkflowGraphRuntimeApi;
     setta: SettaAPI;
   }
 }

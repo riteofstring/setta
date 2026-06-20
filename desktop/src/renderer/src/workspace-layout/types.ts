@@ -154,11 +154,14 @@ export interface PaneSnapshot {
 }
 
 export interface CanvasSurfaceStats {
+  backingStorePixels: number | null;
   drawCalls: number;
   farZoomSimplified: boolean;
   gpuMemoryEstimateBytes: number | null;
   liveCanvasPaneCount: number;
+  rendererResizeCount: number;
   renderedFrames: number;
+  tickerFramesWhileFrozen: number;
 }
 
 export type GitGraphRendererKind = "canvas" | "dom" | "svg";
@@ -181,6 +184,16 @@ export interface TerminalSurfaceStats {
   pendingOutputChunks: number;
   renderedRows: number;
   scrollbackRows: number;
+}
+
+export type SurfaceSnapshotFreshness = "fresh" | "stale" | "missing";
+
+export interface SurfaceSnapshotMetricsSink {
+  recordSnapshotCaptureRequest(input: {
+    duringTransition: boolean;
+    kind: "bitmap" | "texture";
+  }): void;
+  recordSnapshotTextureUse(freshness: SurfaceSnapshotFreshness): void;
 }
 
 export interface SurfaceAdapter {
@@ -272,7 +285,10 @@ export interface WorkspaceFrameMetrics {
   reactCommitsDuringResize: number;
   resize: WorkspaceResizeMetrics;
   canvasDrawCalls: number;
+  canvasBackingStorePixels: number | null;
   canvasGpuMemoryEstimateBytes: number | null;
+  canvasRendererResizeCount: number;
+  canvasTickerFramesWhileFrozen: number;
   gitGraphProgress: number;
   gitGraphRenderedNodes: number;
   gitGraphRenderer: GitGraphRendererKind | null;
@@ -284,6 +300,14 @@ export interface WorkspaceFrameMetrics {
   terminalDirtyRows: number;
   terminalDroppedOutputChunks: number;
   terminalPendingOutputChunks: number;
+  snapshotCapturePromisesAwaitedByTransition: number;
+  snapshotBitmapCaptureRequests: number;
+  snapshotCaptureRequests: number;
+  snapshotCaptureRequestsDuringTransition: number;
+  snapshotFreshTextureUses: number;
+  snapshotMissingTextureUses: number;
+  snapshotStaleTextureUses: number;
+  snapshotTextureCaptureRequests: number;
   boxWrites: number;
   transformWrites: number;
   visiblePaneCount: number;

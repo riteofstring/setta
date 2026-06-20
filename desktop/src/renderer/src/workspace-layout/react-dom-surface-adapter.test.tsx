@@ -1,6 +1,7 @@
 import { isValidElement, type ReactNode } from "react";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { registerWorkflowGraphRuntimeHandle } from "../features/workspace-graph/workflow-graph-runtime-registry";
 import {
   createReactDomSurfaceAdapter,
   ReactDomSurfaceAdapter,
@@ -9,6 +10,10 @@ import {
 } from "./react-dom-surface-adapter";
 import { createFakeHost } from "./test-dom-fakes";
 import type { WorkspacePane } from "./types";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("workspace React DOM surface adapter", () => {
   test("parks React root across host unmounts and tears it down on destroy", async () => {
@@ -94,6 +99,40 @@ describe("workspace React DOM surface adapter", () => {
     expect(scroller.scrollTop).toBe(240);
   });
 
+  test("freezes React DOM surfaces behind a static visual while hiding live content", () => {
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return new RecordingRoot([]);
+      },
+    };
+    const host = createFakeHost();
+    const adapter = new ReactDomSurfaceAdapter(
+      fakePane("chat-dom"),
+      () => "chat surface",
+      rootFactory,
+    );
+
+    adapter.mount(host);
+    const container = requireFakeChild(fakeChildrenOf(host), 0);
+    const message = host.ownerDocument.createElement("article");
+    message.textContent = "Visible frozen chat transcript";
+    container.append(message as unknown as FakeChildNode);
+
+    adapter.freeze("runtime-policy");
+
+    const frozenVisual = requireFakeChild(fakeChildrenOf(host), 1);
+    expect(container.dataset.liveFrozenHidden).toBe("true");
+    expect(frozenVisual.className).toBe("workspace-frozen-dom-visual");
+    expect(frozenVisual.children[0]?.children[0]?.textContent).toBe(
+      "Visible frozen chat transcript",
+    );
+
+    adapter.resume("visible");
+
+    expect(container.dataset.liveFrozenHidden).toBeUndefined();
+    expect(fakeChildrenOf(host)).toHaveLength(1);
+  });
+
   test("rerenders React DOM surfaces when focus changes", () => {
     const surfaceStates: Array<{ activated: boolean; focused: boolean }> = [];
     const rootFactory: ReactSurfaceRootFactory = {
@@ -137,8 +176,12 @@ describe("workspace React DOM surface adapter", () => {
 
     expect(host.dataset.surfaceKind).toBe("workflow-graph");
     expect(adapter.getCanvasStats()).toMatchObject({
+      backingStorePixels: null,
+      gpuMemoryEstimateBytes: null,
       liveCanvasPaneCount: 1,
+      rendererResizeCount: 0,
       renderedFrames: 0,
+      tickerFramesWhileFrozen: 0,
     });
 
     adapter.setVisible(false);
@@ -177,6 +220,80 @@ describe("workspace React DOM surface adapter", () => {
       edgesPerNode: 2,
       nodeCount: 500,
     });
+  });
+
+  test("forwards workflow graph freeze state to the renderer runtime handle", () => {
+    vi.stubGlobal("window", {});
+    const frozenStates: boolean[] = [];
+    const unregister = registerWorkflowGraphRuntimeHandle("surface", {
+      setFrozen(frozen) {
+        frozenStates.push(frozen);
+      },
+    });
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return new RecordingRoot([]);
+      },
+    };
+    const host = createFakeHost();
+    const adapter = createReactDomSurfaceAdapter(fakePane("workflow-graph"), rootFactory);
+
+    try {
+      adapter.mount(host);
+      adapter.freeze("snapshot");
+      adapter.resume("visible");
+
+      expect(frozenStates).toEqual([true, false]);
+    } finally {
+      unregister();
+    }
+  });
+
+  test("caches workflow graph canvas stats while frozen", () => {
+    let frameCount = 12;
+    const getSnapshot = vi.fn(() => ({
+      canvas: {
+        height: 50,
+        width: 100,
+      },
+      render: {
+        frameCount: frameCount++,
+        rendererResizeCount: 3,
+        tickerFramesWhileFrozen: 0,
+      },
+    }));
+    vi.stubGlobal("window", {
+      __settaWorkflowGraphDebug: {
+        getSnapshot,
+        getSurfaceIds: () => ["surface"],
+      },
+    });
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return new RecordingRoot([]);
+      },
+    };
+    const host = createFakeHost();
+    const adapter = createReactDomSurfaceAdapter(fakePane("workflow-graph"), rootFactory);
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+    adapter.freeze("runtime-policy");
+
+    const frozenStats = adapter.getCanvasStats();
+
+    expect(adapter.getCanvasStats()).toEqual(frozenStats);
+    expect(getSnapshot).toHaveBeenCalledTimes(1);
+    expect(frozenStats).toMatchObject({
+      backingStorePixels: 5000,
+      liveCanvasPaneCount: 0,
+      renderedFrames: 12,
+      rendererResizeCount: 3,
+    });
+
+    adapter.resume("visible");
+    expect(adapter.getCanvasStats().renderedFrames).toBe(13);
+    expect(getSnapshot).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -219,8 +336,10 @@ function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
 interface FakeChildNode {
   append(...nodes: FakeChildNode[]): void;
   children: FakeChildNode[];
+  className: string;
   dataset: Record<string, string>;
   scrollTop: number;
+  textContent: string;
 }
 
 function fakeChildrenOf(host: HTMLElement): FakeChildNode[] {

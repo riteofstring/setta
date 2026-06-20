@@ -98,6 +98,7 @@ export function renderOverviewLayoutFrame({
 }: RenderFrameContext & {
   cardSizeConstraints?: OverviewCardSizeConstraints;
 }): void {
+  const maximizedPaneId = input.maximizedPaneId;
   const unscaledWidth = maxUnscaledPlaneWidth(columns, planeIndexes, geometry);
   const unscaledHeight = totalUnscaledPlaneHeight(planeIndexes.length, input.viewport.height);
   const referenceCardWidth = maxOverviewCardWidth(columns, geometry);
@@ -129,6 +130,7 @@ export function renderOverviewLayoutFrame({
       columnWidth,
       focusedPaneId: input.focusedPaneId,
       fullSizePanes,
+      maximizedPaneId,
       moving: input.movementPhase === "moving",
       paneById,
       presentationMode: input.presentationMode,

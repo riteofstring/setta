@@ -19,7 +19,7 @@ describe("workspace frame scheduler", () => {
     raf.restore();
   });
 
-  test("reuses normal and overview endpoint layouts while only overview progress changes", () => {
+  test("reuses normal and overview endpoint frames while only overview progress changes", () => {
     const renderCalls: LayoutFrameInput[] = [];
     const engine = {
       renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void) {
@@ -54,6 +54,57 @@ describe("workspace frame scheduler", () => {
     expect(renderCalls.map((input) => input.presentationMode)).toEqual(["normal", "overview"]);
     expect(renderCalls.map((input) => input.scrollColumn)).toEqual([2, 0]);
     expect(renderCalls.map((input) => input.scrollRow)).toEqual([360, 0]);
+  });
+
+  test("keeps the final animated overview frame aligned with the settled overview frame", () => {
+    const engine = {
+      renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void) {
+        push(
+          input.presentationMode === "overview"
+            ? renderItem(input.presentationMode, input.movementPhase, {
+                height: 480,
+                scale: 0.35,
+                width: 640,
+                x: 96,
+                y: 48,
+              })
+            : renderItem(input.presentationMode, input.movementPhase, {
+                height: 850,
+                scale: 1,
+                width: 1280,
+                x: 0,
+                y: 0,
+              }),
+        );
+      },
+    } as unknown as WorkspaceLikeLayoutEngine;
+    const store = createZoomingStore([0.998, 1]);
+    const presentation = fakePresentation();
+    const scheduler = new FrameScheduler({
+      engine,
+      layoutStore: store,
+      metrics: new WorkspaceMetricsCollector(),
+      presentation,
+      reportWriter: null,
+      runtimePolicy: new PaneRuntimePolicy(),
+      viewportProvider: () => viewport,
+    });
+
+    scheduler.start();
+    raf.flush(16);
+    raf.flush(32);
+
+    const calls = vi.mocked(presentation.apply).mock.calls;
+    const animatedItem = calls[0]?.[0][0];
+    const settledItem = calls[1]?.[0][0];
+    if (!animatedItem || !settledItem) {
+      throw new Error("missing scheduler presentation items");
+    }
+    expect(animatedItem.presentationMode).toBe("overview");
+    expect(settledItem.presentationMode).toBe("overview");
+    expectPaneGeometryClose(animatedItem, settledItem);
+
+    scheduler.teardown();
   });
 
   test("keeps overview layout viewport stable across resize until overview exits", () => {
@@ -329,10 +380,11 @@ function emptyPresentationWriteCounts(): PresentationWriteCounts {
 function renderItem(
   presentationMode: LayoutFrameInput["presentationMode"],
   movementPhase: LayoutFrameInput["movementPhase"],
+  overrides: Partial<PaneRenderItem> = {},
 ): PaneRenderItem {
   return {
     focused: true,
-    height: 100,
+    height: overrides.height ?? 100,
     maximized: false,
     moving: movementPhase === "moving",
     opacity: 1,
@@ -340,15 +392,23 @@ function renderItem(
     presentationMode,
     resizing: false,
     runtimeState: "live",
-    scale: 1,
+    scale: overrides.scale ?? 1,
     surfaceId: "surface-a",
     surfaceKind: "fake-dom",
     visible: true,
-    width: 100,
-    x: 0,
-    y: 0,
+    width: overrides.width ?? 100,
+    x: overrides.x ?? 0,
+    y: overrides.y ?? 0,
     z: 1,
   };
+}
+
+function expectPaneGeometryClose(left: PaneRenderItem, right: PaneRenderItem): void {
+  expect(Math.abs(left.x - right.x)).toBeLessThan(2);
+  expect(Math.abs(left.y - right.y)).toBeLessThan(2);
+  expect(Math.abs(left.width - right.width)).toBeLessThan(2);
+  expect(Math.abs(left.height - right.height)).toBeLessThan(2);
+  expect(Math.abs(left.scale - right.scale)).toBeLessThan(0.01);
 }
 
 interface InstalledRaf {

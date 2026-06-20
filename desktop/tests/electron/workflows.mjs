@@ -86,6 +86,21 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
+    file: "workflow-graph-maximized-4k-overview.test.mjs",
+    name: "workflow-graph-maximized-4k-overview",
+    tiers: ["performance"],
+  },
+  {
+    file: "workflow-graph-maximized-idle-4k.test.mjs",
+    name: "workflow-graph-maximized-idle-4k",
+    tiers: ["performance"],
+  },
+  {
+    file: "terminal-maximized-4k-overview.test.mjs",
+    name: "terminal-maximized-4k-overview",
+    tiers: ["performance"],
+  },
+  {
     file: "overview-zoom-performance.test.mjs",
     name: "overview-zoom-performance",
     tiers: ["performance"],

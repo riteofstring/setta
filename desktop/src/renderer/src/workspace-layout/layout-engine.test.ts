@@ -830,6 +830,38 @@ describe("real workspace layout column sizing", () => {
     ]);
   });
 
+  test("keeps maximized pane aspect ratio unchanged between normal and overview endpoints", () => {
+    const engine = createRealEngine();
+    const maximizedPaneId = "workspace_pane_1";
+    const normalItems = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      1,
+      maximizedPaneId,
+      "normal",
+      0,
+      maximizedPaneId,
+      true,
+    );
+    const overviewItems = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      0,
+      maximizedPaneId,
+      "overview",
+      0,
+      maximizedPaneId,
+    );
+    const normalMaximizedItem = requireRenderItem(normalItems, maximizedPaneId);
+    const overviewMaximizedItem = requireRenderItem(overviewItems, maximizedPaneId);
+
+    expect(overviewMaximizedItem.maximized).toBe(true);
+    expect(overviewMaximizedItem.width / overviewMaximizedItem.height).toBeCloseTo(
+      normalMaximizedItem.width / normalMaximizedItem.height,
+      6,
+    );
+  });
+
   test("pans naturally to the next pane while the maximized pane stays in layout flow", () => {
     const engine = createRealEngine();
     const items = renderFrame(

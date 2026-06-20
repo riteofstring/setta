@@ -174,7 +174,13 @@ export function applySnapshotScrollOffsets(root: Element): void {
 }
 
 export function recordSnapshotScrollOffsets(root: Element): void {
+  if (isInsideHiddenFrozenLiveContent(root)) {
+    return;
+  }
   for (const element of collectElementTree(root)) {
+    if (isInsideHiddenFrozenLiveContent(element)) {
+      continue;
+    }
     recordScrollableElementState(element);
   }
 }
@@ -410,6 +416,13 @@ function styleFor(element: Element): Pick<CSSStyleDeclaration, "setProperty"> | 
 function scrollOffsetFor(element: Element, property: "scrollLeft" | "scrollTop"): number {
   const value = (element as HTMLElement)[property];
   return Number.isFinite(value) ? value : 0;
+}
+
+function isInsideHiddenFrozenLiveContent(element: Element): boolean {
+  if (typeof element.closest !== "function") {
+    return false;
+  }
+  return element.closest("[data-live-frozen-hidden='true']") !== null;
 }
 
 function parseSnapshotOffset(value: string | undefined): number | null {

@@ -182,10 +182,11 @@ export class PresentationEngine {
       `resize ${snapshot.resize.frameCount}/${snapshot.resize.p95FrameTime.toFixed(
         2,
       )}/${snapshot.resize.deferredHeavyViewportWrites}/${snapshot.resize.heavyViewportWrites}/${snapshot.reactCommitsDuringResize}`,
-      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${formatBytes(
+      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${snapshot.canvasRendererResizeCount}/${snapshot.canvasTickerFramesWhileFrozen}/${formatPixels(snapshot.canvasBackingStorePixels)}/${formatBytes(
         snapshot.canvasGpuMemoryEstimateBytes,
       )}`,
       `terminal ${snapshot.liveTerminalRendererCount}/${snapshot.terminalDirtyRows}/${snapshot.terminalPendingOutputChunks}`,
+      `snapshot ${snapshot.snapshotFreshTextureUses}/${snapshot.snapshotStaleTextureUses}/${snapshot.snapshotMissingTextureUses}/${snapshot.snapshotCaptureRequestsDuringTransition}`,
       `graph ${snapshot.liveGitGraphPaneCount}/${snapshot.gitGraphRenderer ?? "none"}/${Math.round(
         snapshot.gitGraphProgress * 100,
       )}%/${snapshot.gitGraphWorkerBatches}${snapshot.gitGraphWorkerPending ? "+" : ""}`,
@@ -884,6 +885,16 @@ function formatBytes(bytes: number | null): string {
     return `${Math.round(bytes / 1024)}KiB`;
   }
   return `${(bytes / 1024 / 1024).toFixed(1)}MiB`;
+}
+
+function formatPixels(pixels: number | null): string {
+  if (pixels === null) {
+    return "n/a";
+  }
+  if (pixels < 1000 * 1000) {
+    return `${Math.round(pixels / 1000)}Kpx`;
+  }
+  return `${(pixels / 1000 / 1000).toFixed(1)}Mpx`;
 }
 
 function emptyPresentationWriteCounts(): PresentationWriteCounts {

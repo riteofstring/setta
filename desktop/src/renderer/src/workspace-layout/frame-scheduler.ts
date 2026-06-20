@@ -326,11 +326,11 @@ export class FrameScheduler {
       return this.zoomEndpointFrames;
     }
     const normalItems: PaneRenderItem[] = [];
-    const overviewItems: PaneRenderItem[] = [];
     this.engine.renderFrame(
       { ...normalFrameInput, presentationMode: "normal", renderAllColumns: true },
       (item) => normalItems.push(item),
     );
+    const overviewItems: PaneRenderItem[] = [];
     this.engine.renderFrame({ ...overviewFrameInput, presentationMode: "overview" }, (item) =>
       overviewItems.push(item),
     );

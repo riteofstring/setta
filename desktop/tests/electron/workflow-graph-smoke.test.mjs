@@ -108,8 +108,11 @@ try {
   await openWorkflowGraphPane(context.client);
   await waitForSelector(context.client, '[data-testid="workflow-graph"]');
   workflowGraphSurfaceId = await maximizeWorkflowGraphPane(context.client);
-  const initial = await waitForWorkflowGraphSnapshot(context.client, (snapshot) =>
-    isWorkflowProjectionSnapshotReady(snapshot, workflowProjection),
+  const initial = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      isWorkflowProjectionSnapshotReady(snapshot, workflowProjection) &&
+      visibleNodes(snapshot).length >= 2,
   );
   assertWorkflowProjectionSnapshot(initial, workflowProjection);
   assertInitialSnapshot(initial);

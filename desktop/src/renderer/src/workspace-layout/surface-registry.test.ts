@@ -12,6 +12,8 @@ import type {
   ResumeReason,
   SurfaceAdapter,
   SurfaceKind,
+  SurfaceSnapshotFreshness,
+  SurfaceSnapshotMetricsSink,
   TerminalSurfaceStats,
   ViewportChangeReason,
 } from "./types";
@@ -67,6 +69,31 @@ describe("workspace surface registry", () => {
     expect(recordingAdapter.events).not.toContain("mount:snapshot");
     expect(host.dataset.surfaceKind).toBe("browser");
   });
+
+  test.each([
+    "chat-dom",
+    "fake-heavy-dom",
+    "git-graph",
+    "terminal",
+    "workflow-graph",
+  ] satisfies SurfaceKind[])(
+    "keeps %s adapters mounted for frozen runtime handoff",
+    (surfaceKind) => {
+      const pane = fakePane(surfaceKind);
+      const recordingAdapter = new RecordingSurfaceAdapter(pane);
+      const registry = new SurfaceRegistry([pane], () => recordingAdapter);
+      const host = createFakeHost();
+
+      registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+      registry.syncHost(host, renderItem(pane, "live-throttled"), { resizePhase: "idle" });
+
+      expect(recordingAdapter.events.filter((event) => event === "mount:surface")).toHaveLength(1);
+      expect(recordingAdapter.events).toContain("freeze:runtime-policy");
+      expect(recordingAdapter.events).not.toContain("unmount");
+      expect(recordingAdapter.events).not.toContain("mount:snapshot");
+      expect(host.dataset.surfaceKind).toBe(surfaceKind);
+    },
+  );
 
   test("keeps adapter records reusable after teardown releases mounted hosts", () => {
     const pane = fakePane("fake-dom");
@@ -317,20 +344,14 @@ describe("workspace surface registry", () => {
     expect(terminalAdapter.statsReadCount).toBe(1);
   });
 
-  test("captures live host content into the snapshot adapter before overview handoff", () => {
+  test("captures live host content into the snapshot adapter for non-transition handoff", () => {
     const pane = fakePane("fake-dom");
     const adapter = new TexturedSurfaceAdapter(pane);
     const registry = new SurfaceRegistry([pane], () => adapter);
     const host = createFakeHost();
 
     registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
-    registry.syncHost(
-      host,
-      { ...renderItem(pane, "snapshot"), presentationMode: "overview" },
-      {
-        resizePhase: "idle",
-      },
-    );
+    registry.syncHost(host, renderItem(pane, "snapshot"), { resizePhase: "idle" });
 
     const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
     const texture = requireFakeChild(snapshotContent.children, 0);
@@ -352,13 +373,7 @@ describe("workspace surface registry", () => {
     const host = createFakeHost();
 
     registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
-    registry.syncHost(
-      host,
-      { ...renderItem(pane, "snapshot"), presentationMode: "overview" },
-      {
-        resizePhase: "idle",
-      },
-    );
+    registry.syncHost(host, renderItem(pane, "snapshot"), { resizePhase: "idle" });
 
     const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
     const texture = requireFakeChild(snapshotContent.children, 0);
@@ -381,10 +396,11 @@ describe("workspace surface registry", () => {
     expect(capturedPane.style.getPropertyValue("overflow")).toBe("hidden");
   });
 
-  test("keeps the prior snapshot texture when a live overview handoff recaptures", () => {
+  test("does not start texture capture during overview handoff", () => {
     const pane = fakePane("chat-dom");
     const adapter = new ScrollableTexturedSurfaceAdapter(pane);
-    const registry = new SurfaceRegistry([pane], () => adapter);
+    const metrics = new RecordingSnapshotMetrics();
+    const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
     const host = createFakeHost();
 
     registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
@@ -395,6 +411,46 @@ describe("workspace surface registry", () => {
         resizePhase: "idle",
       },
     );
+
+    expect(metrics.captureRequests).toEqual([]);
+    expect(metrics.textureUses).toEqual(["missing"]);
+  });
+
+  test("freezes live DOM panes during overview without mounting snapshot content", () => {
+    const pane = fakePane("chat-dom");
+    const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+    const metrics = new RecordingSnapshotMetrics();
+    const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    registry.syncHost(
+      host,
+      { ...renderItem(pane, "live-throttled"), presentationMode: "overview" },
+      {
+        resizePhase: "idle",
+      },
+    );
+
+    const liveSurface = requireFakeChild(fakeChildrenOf(host), 0);
+
+    expect(adapter.events.filter((event) => event === "mount:surface")).toHaveLength(1);
+    expect(adapter.events).toContain("freeze:runtime-policy");
+    expect(adapter.events).not.toContain("unmount");
+    expect(host.dataset.surfaceKind).toBe("chat-dom");
+    expect(liveSurface.className).toBe("workspace-react-dom-surface");
+    expect(metrics.captureRequests).toEqual([]);
+    expect(metrics.textureUses).toEqual([]);
+  });
+
+  test("keeps the prior snapshot texture during overview handoff without recapturing", () => {
+    const pane = fakePane("chat-dom");
+    const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => adapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    registry.syncHost(host, renderItem(pane, "snapshot"), { resizePhase: "idle" });
     host.dataset.presentationMode = "overview";
     registry.syncHost(
       host,
@@ -475,7 +531,110 @@ describe("workspace surface registry", () => {
     }
   });
 
-  test("prefers the current cloned handoff over a warmed bitmap snapshot", async () => {
+  test("records idle bitmap warmup as a background snapshot capture", () => {
+    const captureRendererRegion = vi.fn().mockResolvedValue({
+      capturedAt: 123,
+      height: 480,
+      imageDataUrl: "data:image/png;base64,AAAA",
+      width: 640,
+    });
+    vi.stubGlobal("window", {
+      setta: {
+        app: {
+          captureRendererRegion,
+        },
+      },
+    });
+    try {
+      const pane = fakePane("chat-dom");
+      const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+      const metrics = new RecordingSnapshotMetrics();
+      const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
+      const host = createFakeHost();
+
+      registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+
+      expect(captureRendererRegion).toHaveBeenCalledOnce();
+      expect(metrics.captureRequests).toEqual([{ duringTransition: false, kind: "bitmap" }]);
+      expect(metrics.textureUses).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test.each(["terminal", "workflow-graph"] satisfies SurfaceKind[])(
+    "prewarms bitmap snapshots for %s panes while idle",
+    (surfaceKind) => {
+      const captureRendererRegion = vi.fn().mockResolvedValue({
+        capturedAt: 123,
+        height: 480,
+        imageDataUrl: "data:image/png;base64,AAAA",
+        width: 640,
+      });
+      vi.stubGlobal("window", {
+        setta: {
+          app: {
+            captureRendererRegion,
+          },
+        },
+      });
+      try {
+        const pane = fakePane(surfaceKind);
+        const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+        const metrics = new RecordingSnapshotMetrics();
+        const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
+        const host = createFakeHost();
+
+        registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+
+        expect(captureRendererRegion).toHaveBeenCalledWith({
+          height: 480,
+          width: 640,
+          x: 0,
+          y: 0,
+        });
+        expect(metrics.captureRequests).toEqual([{ duringTransition: false, kind: "bitmap" }]);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
+
+  test("does not start bitmap warmup while already in overview", () => {
+    const captureRendererRegion = vi.fn().mockResolvedValue({
+      capturedAt: 123,
+      height: 480,
+      imageDataUrl: "data:image/png;base64,AAAA",
+      width: 640,
+    });
+    vi.stubGlobal("window", {
+      setta: {
+        app: {
+          captureRendererRegion,
+        },
+      },
+    });
+    try {
+      const pane = fakePane("chat-dom");
+      const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+      const metrics = new RecordingSnapshotMetrics();
+      const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
+      const host = createFakeHost();
+
+      registry.syncHost(
+        host,
+        { ...renderItem(pane, "live"), presentationMode: "overview" },
+        { resizePhase: "idle" },
+      );
+
+      expect(captureRendererRegion).not.toHaveBeenCalled();
+      expect(metrics.captureRequests).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("uses the warmed bitmap during overview handoff instead of cloning", async () => {
     const captureRendererRegion = vi.fn().mockResolvedValue({
       capturedAt: 123,
       height: 480,
@@ -507,16 +666,18 @@ describe("workspace surface registry", () => {
 
       const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
       const texture = requireFakeChild(snapshotContent.children, 0);
-      const capturedPane = requireFakeChild(texture.children, 0);
+      const image = requireFakeChild(texture.children, 0);
 
-      expect(texture.className).toBe("workspace-snapshot-texture");
-      expect(capturedPane.className).toBe("workspace-react-dom-surface");
+      expect(texture.className).toBe(
+        "workspace-snapshot-texture workspace-snapshot-bitmap-texture",
+      );
+      expect(image.className).toBe("workspace-snapshot-bitmap");
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
-  test("keeps cloned snapshots when warm bitmap capture resolves after handoff", async () => {
+  test("does not replace a missing overview handoff when pending bitmap resolves late", async () => {
     type CaptureSnapshot = Awaited<ReturnType<SettaAPI["app"]["captureRendererRegion"]>>;
     let resolveCapture: (snapshot: CaptureSnapshot) => void = () => {
       throw new Error("capture promise was not created");
@@ -550,11 +711,8 @@ describe("workspace surface registry", () => {
       );
 
       const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
-      const texture = requireFakeChild(snapshotContent.children, 0);
-      const capturedPane = requireFakeChild(texture.children, 0);
 
-      expect(texture.className).toBe("workspace-snapshot-texture");
-      expect(capturedPane.className).toBe("workspace-react-dom-surface");
+      expect(snapshotContent.className).toBe("workspace-pane-content workspace-snapshot-surface");
 
       resolveCapture({
         capturedAt: 123,
@@ -565,11 +723,10 @@ describe("workspace surface registry", () => {
       await Promise.resolve();
 
       const settledSnapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
-      const settledTexture = requireFakeChild(settledSnapshotContent.children, 0);
-      const settledCapturedPane = requireFakeChild(settledTexture.children, 0);
 
-      expect(settledTexture.className).toBe("workspace-snapshot-texture");
-      expect(settledCapturedPane.className).toBe("workspace-react-dom-surface");
+      expect(settledSnapshotContent.className).toBe(
+        "workspace-pane-content workspace-snapshot-surface",
+      );
     } finally {
       vi.unstubAllGlobals();
     }
@@ -620,13 +777,8 @@ describe("workspace surface registry", () => {
       );
 
       const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
-      const texture = requireFakeChild(snapshotContent.children, 0);
-      const capturedPane = requireFakeChild(texture.children, 0);
 
-      expect(texture.className).toBe("workspace-snapshot-texture");
-      expect(capturedPane.className).toBe("workspace-react-dom-surface");
-      expect(capturedPane.dataset.snapshotWidth).toBe("640");
-      expect(capturedPane.dataset.snapshotHeight).toBe("480");
+      expect(snapshotContent.className).toBe("workspace-pane-content workspace-snapshot-surface");
     } finally {
       vi.unstubAllGlobals();
     }
@@ -683,6 +835,22 @@ class RecordingSurfaceAdapter implements SurfaceAdapter {
 
   destroy(): void {
     this.events.push("destroy");
+  }
+}
+
+class RecordingSnapshotMetrics implements SurfaceSnapshotMetricsSink {
+  captureRequests: Array<{ duringTransition: boolean; kind: "bitmap" | "texture" }> = [];
+  textureUses: SurfaceSnapshotFreshness[] = [];
+
+  recordSnapshotCaptureRequest(input: {
+    duringTransition: boolean;
+    kind: "bitmap" | "texture";
+  }): void {
+    this.captureRequests.push(input);
+  }
+
+  recordSnapshotTextureUse(freshness: SurfaceSnapshotFreshness): void {
+    this.textureUses.push(freshness);
   }
 }
 

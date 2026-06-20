@@ -802,7 +802,12 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       },
       columns: this.columns,
       fullSizePanes: this.compactLayout,
-      geometry: this.columnGeometry(input.viewport.width, null, this.scene.columnGap, true),
+      geometry: this.columnGeometry(
+        input.viewport.width,
+        input.maximizedPaneId,
+        this.scene.columnGap,
+        true,
+      ),
       input,
       paneById: this.paneById,
       planeIndexes: this.planeIndexes(),

@@ -1030,38 +1030,50 @@ function assertProcessedCartographerNodeReadback(result, processedCartographer) 
 }
 
 async function acceptSeedCartographerPatchFromDetails(client) {
-  await waitForState(
+  const clickResult = await waitForState(
     client,
     `(() => {
       const button = document.querySelector('[data-testid="cartographer-patch-accept"]');
       const surface = document.querySelector('[data-testid="semantic-node-details-surface"]');
-      return {
-        disabled: button?.disabled ?? true,
-        hasButton: button !== null,
-        loading: surface?.innerText.includes("Loading semantic node details") ?? true,
-      };
-    })()`,
-    (value) => value.hasButton && !value.disabled && !value.loading,
-  );
-  const clickResult = await client.evaluate(
-    `(() => {
-      const button = document.querySelector('[data-testid="cartographer-patch-accept"]');
-      if (!(button instanceof HTMLButtonElement) || button.disabled) {
-        return { ok: false, reason: "cartographer accept button is not clickable" };
-      }
-      try {
-        button.click();
-        return { ok: true };
-      } catch (error) {
+      if (!(button instanceof HTMLButtonElement)) {
         return {
-          ok: false,
-          reason: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack ?? "" : "",
+          clicked: false,
+          disabled: true,
+          hasButton: false,
+          loading: surface?.innerText.includes("Loading semantic node details") ?? true,
+          reason: "missing-cartographer-accept-button",
         };
       }
+      if (button.disabled) {
+        return {
+          clicked: false,
+          disabled: true,
+          hasButton: true,
+          loading: surface?.innerText.includes("Loading semantic node details") ?? true,
+          reason: "disabled-cartographer-accept-button",
+        };
+      }
+      if (surface?.innerText.includes("Loading semantic node details")) {
+        return {
+          clicked: false,
+          disabled: false,
+          hasButton: true,
+          loading: true,
+          reason: "loading-semantic-node-details",
+        };
+      }
+      button.click();
+      return {
+        clicked: true,
+        disabled: false,
+        hasButton: true,
+        loading: false,
+        reason: "",
+      };
     })()`,
+    (value) => value.clicked,
   );
-  if (!clickResult.ok) {
+  if (!clickResult.clicked) {
     throw new Error(`cartographer accept click failed: ${JSON.stringify(clickResult)}`);
   }
   await waitForState(

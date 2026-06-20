@@ -482,7 +482,7 @@ describe("workspace presentation engine", () => {
       total: 1,
     });
 
-    expect(overlay.textContent).toContain("canvas 1/7/512KiB");
+    expect(overlay.textContent).toContain("canvas 1/7/2/0/16Kpx/512KiB");
   });
 });
 
@@ -738,19 +738,25 @@ class TitleSurfaceAdapter implements SurfaceAdapter {
   getCanvasStats(): CanvasSurfaceStats {
     if (this.kind !== "workflow-graph") {
       return {
+        backingStorePixels: null,
         drawCalls: 0,
         farZoomSimplified: false,
         gpuMemoryEstimateBytes: null,
         liveCanvasPaneCount: 0,
+        rendererResizeCount: 0,
         renderedFrames: 0,
+        tickerFramesWhileFrozen: 0,
       };
     }
     return {
+      backingStorePixels: 128 * 128,
       drawCalls: 7,
       farZoomSimplified: false,
       gpuMemoryEstimateBytes: 512 * 1024,
       liveCanvasPaneCount: 1,
+      rendererResizeCount: 2,
       renderedFrames: 3,
+      tickerFramesWhileFrozen: 0,
     };
   }
 }
@@ -761,11 +767,14 @@ class RecordingSurfaceRegistry {
 
   canvasStats() {
     return {
+      backingStorePixels: null,
       drawCalls: 0,
       farZoomSimplified: false,
       gpuMemoryEstimateBytes: null,
       liveCanvasPaneCount: 0,
+      rendererResizeCount: 0,
       renderedFrames: 0,
+      tickerFramesWhileFrozen: 0,
     };
   }
 

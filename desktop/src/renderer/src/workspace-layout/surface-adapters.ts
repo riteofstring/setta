@@ -21,6 +21,7 @@ import type {
   SurfaceAdapter,
   SurfaceId,
   SurfaceKind,
+  SurfaceSnapshotFreshness,
   ViewportChangeReason,
 } from "./types";
 
@@ -204,14 +205,14 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
     return `${this.pane.surfaceId}:snapshot`;
   }
 
-  captureBitmap(sourceHost: HTMLElement): void {
+  captureBitmap(sourceHost: HTMLElement): boolean {
     const request = bitmapCaptureRequestForHost(sourceHost);
     if (!request || this.bitmapCaptureRequested(request.captureKey)) {
-      return;
+      return false;
     }
     const captureApi = rendererRegionCaptureApi();
     if (!captureApi) {
-      return;
+      return false;
     }
     this.bitmapCapturePendingKey = request.captureKey;
     void captureApi(request.captureRegion)
@@ -221,11 +222,12 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
       .catch((error: unknown) => {
         this.handleBitmapCaptureFailure(request.captureKey, error);
       });
+    return true;
   }
 
-  captureTexture(sourceHost: HTMLElement): void {
+  captureTexture(sourceHost: HTMLElement): SurfaceSnapshotFreshness {
     if (sourceHost.dataset.presentationMode === "overview" && this.hasCapturedTexture()) {
-      return;
+      return this.textureFreshnessForHost(sourceHost);
     }
     this.bitmapCapturePendingKey = null;
     const capture = rendererRegionCaptureForHost(sourceHost);
@@ -236,6 +238,22 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
     if (texture.childElementCount > 0) {
       this.texture = texture;
     }
+    return this.textureFreshnessForHost(sourceHost);
+  }
+
+  textureFreshnessForHost(sourceHost: HTMLElement | null): SurfaceSnapshotFreshness {
+    if (!this.hasCapturedTexture()) {
+      return "missing";
+    }
+    const currentCaptureKey = sourceHost ? currentRendererCaptureKeyForHost(sourceHost) : null;
+    if (this.texture !== null) {
+      return currentCaptureKey !== null && this.textureCaptureKey === currentCaptureKey
+        ? "fresh"
+        : "stale";
+    }
+    return currentCaptureKey !== null && this.bitmapCaptureKey === currentCaptureKey
+      ? "fresh"
+      : "stale";
   }
 
   mount(host: HTMLElement): void {
@@ -361,6 +379,12 @@ function bitmapCaptureRequestForHost(sourceHost: HTMLElement): BitmapCaptureRequ
     captureKey: rendererCaptureKey(capture.source, captureRegion),
     captureRegion,
   };
+}
+
+function currentRendererCaptureKeyForHost(sourceHost: HTMLElement): string | null {
+  const capture = rendererRegionCaptureForHost(sourceHost);
+  const captureRegion = rendererCaptureRegionForElement(capture?.source ?? null);
+  return capture && captureRegion ? rendererCaptureKey(capture.source, captureRegion) : null;
 }
 
 function sameBitmapCaptureRequest(

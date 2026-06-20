@@ -37,7 +37,10 @@ export function createWorkflowGraphDebugSnapshot({
   viewport,
 }) {
   return ({ includeVisual = true } = {}) => {
-    const canvasRect = app.canvas.getBoundingClientRect();
+    const canvasLayout = workflowGraphCanvasLayoutMetrics(app.canvas, {
+      height: app.renderer.screen.height,
+      width: app.renderer.screen.width,
+    });
     const visual = includeVisual
       ? samplePixiVisualState(app.renderer, app.stage, backgroundColor)
       : skippedVisualState();
@@ -48,13 +51,13 @@ export function createWorkflowGraphDebugSnapshot({
     return {
       camera,
       canvas: {
-        bottom: canvasRect.bottom,
-        clientHeight: app.canvas.clientHeight,
-        clientWidth: app.canvas.clientWidth,
+        bottom: canvasLayout.bottom,
+        clientHeight: canvasLayout.clientHeight,
+        clientWidth: canvasLayout.clientWidth,
         height: app.canvas.height,
-        left: canvasRect.left,
-        right: canvasRect.right,
-        top: canvasRect.top,
+        left: canvasLayout.left,
+        right: canvasLayout.right,
+        top: canvasLayout.top,
         width: app.canvas.width,
       },
       graph: {
@@ -158,12 +161,15 @@ export function createWorkflowGraphDebugSnapshot({
         pointerPanUpdateCount: state.pointerPanUpdateCount,
         portGraphicsCount: portVisuals.size,
         reactRenderCount: reactRenderCount(),
+        rendererResizeCount: state.rendererResizeCount,
         rendererDestroyCount: state.rendererDestroyCount,
         rendererInstanceId: state.rendererInstanceId,
+        frozen: state.frozen,
         recentFrameMs: [...recentFrameMs],
         selectionChangeCount: state.selectionChangeCount,
         ...spatialQueries.debugSnapshot(),
         temporaryEdgeUpdateCount: state.temporaryEdgeUpdateCount,
+        tickerFramesWhileFrozen: state.tickerFramesWhileFrozen,
         totalDisplayObjectCount: totalDisplayObjectCount(app.stage),
         visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
         wheelPanUpdateCount: state.wheelPanUpdateCount,
@@ -173,6 +179,59 @@ export function createWorkflowGraphDebugSnapshot({
       surfaceId: debugSurfaceId,
       visual,
     };
+  };
+}
+
+export function workflowGraphCanvasLayoutMetrics(canvas, fallbackScreenSize = null) {
+  const canvasRect = canvas.getBoundingClientRect();
+  const canvasMetrics = {
+    bottom: canvasRect.bottom,
+    clientHeight: canvas.clientHeight,
+    clientWidth: canvas.clientWidth,
+    left: canvasRect.left,
+    right: canvasRect.right,
+    top: canvasRect.top,
+  };
+  if (canvasMetrics.clientWidth > 0 && canvasMetrics.clientHeight > 0) {
+    return canvasMetrics;
+  }
+
+  const parent = canvas.parentElement;
+  if (!parent) {
+    return canvasMetricsWithFallbackScreenSize(canvasMetrics, fallbackScreenSize);
+  }
+  const parentRect = parent.getBoundingClientRect();
+  const parentClientWidth = parent.clientWidth || Math.round(parentRect.width);
+  const parentClientHeight = parent.clientHeight || Math.round(parentRect.height);
+  if (parentClientWidth <= 0 || parentClientHeight <= 0) {
+    return canvasMetricsWithFallbackScreenSize(canvasMetrics, fallbackScreenSize);
+  }
+
+  return {
+    bottom: parentRect.bottom,
+    clientHeight: parentClientHeight,
+    clientWidth: parentClientWidth,
+    left: parentRect.left,
+    right: parentRect.right,
+    top: parentRect.top,
+  };
+}
+
+function canvasMetricsWithFallbackScreenSize(canvasMetrics, fallbackScreenSize) {
+  if (
+    fallbackScreenSize === null ||
+    fallbackScreenSize.width <= 0 ||
+    fallbackScreenSize.height <= 0
+  ) {
+    return canvasMetrics;
+  }
+  return {
+    bottom: canvasMetrics.top + fallbackScreenSize.height,
+    clientHeight: fallbackScreenSize.height,
+    clientWidth: fallbackScreenSize.width,
+    left: canvasMetrics.left,
+    right: canvasMetrics.left + fallbackScreenSize.width,
+    top: canvasMetrics.top,
   };
 }
 
