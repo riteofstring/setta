@@ -28,7 +28,7 @@
   removed.
 - Focused verification for that implementation passed with
   `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/components/chat-panel.test.tsx`.
-- Phase 7 is complete in this change:
+- Phase 7 was implemented by `bb460835f`:
   graph recording schema v2 now carries compact visibility reason summaries
   for labels, nodes, edges, and sprites; node summaries include label
   visibility reasons; node-drag interactions carry moved node ids, owners,
@@ -42,7 +42,7 @@
   `node --test desktop/tests/electron/workflow-graph-recording-incident-report.test.mjs`,
   `pnpm -C desktop exec tsc --noEmit --pretty false`, and
   `pnpm -C desktop exec vitest run src/main/session-recorder.test.ts src/renderer/src/features/workspace-graph/pixi-renderer-input-handlers.test.js src/renderer/src/features/workspace-graph/pixi-renderer-camera-sync.test.js`.
-- Phase 8 broad verification is the next implementable phase.
+- Phase 8 broad verification is ready to implement next.
 
 ## Position
 
