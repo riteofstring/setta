@@ -1,7 +1,8 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 2 contract tests added; Phase 3 ready to implement.
+- **Status:** Phase 2 contract scaffolding added; Phase 2 coverage gaps remain
+  before Phase 3 is ready to implement.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -677,8 +678,8 @@ diff.
 Goal: add behavior-first regression coverage before changing the interaction
 implementation.
 
-Status: Complete. Phase 2 added behavior-first Electron contract workflows
-under the explicit `refactor` tier:
+Status: Partial. Commit `30793a63d` added behavior-first Electron contract
+workflows under the explicit `refactor` tier:
 
 - `workflow-graph-editable-drag-contract`;
 - `workflow-graph-read-only-port-contract`;
@@ -688,6 +689,27 @@ under the explicit `refactor` tier:
 These workflows exercise production Electron/main/preload/renderer/HTTP/store
 paths with temporary app data. They are intentionally not part of the default
 required tier while the known broken interaction contract remains red.
+
+Phase 2 is not complete yet. The committed workflows are useful scaffolding,
+but they do not cover the full tests-first contract required before Phase 3:
+
+- `workflow-graph-read-only-view-layout-contract` checks the view-layout owner
+  and draft-layout non-mutation, but it does not force a projection refresh or
+  reload/reopen the run target to prove durable view-layout composition.
+- `workflow-graph-active-replacement-contract` covers node drag plus a
+  validation refresh before pointerup, but it does not cover pointercancel
+  rollback, edge-draw cancellation, marquee cancellation, or settlement before
+  the latest queued graph applies.
+- The live-condition drag requirement is not covered yet. A validation refresh
+  is not a substitute for trajectory, semantic runtime, liveness, or
+  command-preview updates flowing through the production scene runtime while an
+  editable node drag is active.
+- `workflow-graph-read-only-port-contract` proves the current debug graph
+  exposes no interactive read-only ports, but it still needs an assertion that
+  read-only port interaction cannot issue an edge-creation save.
+
+Phase 3 should wait until these gaps are closed, or until this plan explicitly
+moves specific Phase 2 coverage to a later phase with the tradeoff documented.
 
 Tasks:
 
