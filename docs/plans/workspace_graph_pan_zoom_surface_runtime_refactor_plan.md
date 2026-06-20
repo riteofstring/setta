@@ -1,9 +1,8 @@
 # Workspace Graph Pan/Zoom Surface Runtime Refactor Plan
 
 - **Date:** June 18, 2026
-- **Status:** Phase 3 is implemented. The current benchmark report explicitly
-  defers Phase 4, so the next actionable implementation phase is Phase 5 camera
-  state isolation and persistence safety.
+- **Status:** Phase 5 is implemented. Phase 4 remains deferred by the Phase 3
+  benchmark gate, and Phase 6 is ready to implement next.
 - **Scope:** Make workspace graph pan/zoom smooth by refactoring graph canvas
   lifetime, workspace pane presentation writes, and frame-loop scheduling around
   explicit surface ownership and measurable interaction budgets.
@@ -759,6 +758,32 @@ Success criteria:
 - Node drag position remains stable after async refresh.
 - Backend layout persistence failure is visible and specific; stale refreshes
   do not silently reset local layout.
+
+#### Phase 5 Status
+
+The Phase 5 implementation moved camera persistence behind the graph surface
+controller, so moving camera frames update controller-local state and notify the
+semantic runtime without writing the stored camera state until settle or
+controller teardown.
+
+Current evidence supports moving to Phase 6:
+
+- Camera changes now carry explicit moving/settled metadata, and the controller
+  captures camera state only after a settled transition or destroy boundary.
+- Full graph replacement remains deferred while the camera is moving and applies
+  latest-wins after settle.
+- Workflow node layout edits are overlaid locally while persistence is pending,
+  so stale workflow projection refreshes do not snap dragged nodes back.
+- Workflow layout persistence uses revision-checked backend writes and surfaces
+  specific backend failures.
+- The latest checked-in pan/zoom matrix rerun after Phase 5 still passes the
+  structural hard gates for camera-caused graph React commits, full graph
+  replacement, presentation writes, renderer lifecycle, semantic working-set
+  reads, and scene-visit scaling.
+
+Phase 6 is ready to implement. Its first task is to inventory graph visual work
+and remove or reclassify animation that spends frame budget without visible,
+inspectable state meaning.
 
 ### Phase 6: Simplify The Graph Visual Workload
 
