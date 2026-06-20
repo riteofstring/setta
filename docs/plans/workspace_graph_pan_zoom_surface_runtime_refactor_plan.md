@@ -1,8 +1,9 @@
 # Workspace Graph Pan/Zoom Surface Runtime Refactor Plan
 
 - **Date:** June 18, 2026
-- **Status:** Phase 0 follow-up instrumentation is in place. Phase 1 is ready
-  to implement, with the scaling failures below as the first acceptance target.
+- **Status:** Phase 1 is implemented and the current benchmark report marks
+  Phase 2 ready to implement. The next work is the typed, diffed
+  `PresentationEngine` write path.
 - **Scope:** Make workspace graph pan/zoom smooth by refactoring graph canvas
   lifetime, workspace pane presentation writes, and frame-loop scheduling around
   explicit surface ownership and measurable interaction budgets.
@@ -516,29 +517,30 @@ Success criteria:
   enforced or report-only.
 - No product fix is hidden inside Phase 0.
 
-#### Phase 0 Follow-Up Status
+#### Phase 1 Status
 
-The Phase 0 follow-up implementation added the missing instrumentation gate:
-pinned workload viewport enforcement, renamed first-Pixi-render proxy metrics,
-required camera-frame scene-visit counters, matrix-level scaling checks,
-supplemental-only display object counts, bounded recorder timing entries, and
-append-only reports that state readiness.
+The Phase 1 implementation moved graph canvas lifetime behind a
+surface-keyed controller, added explicit lifecycle states and stale-generation
+cancellation, transferred hosts without recreating the Pixi app, disabled Pixi's
+independent render loop, and routed camera frames through a single frame owner.
 
-The latest checked-in Phase 0 follow-up reports deliberately do not pass the
-Phase 1 scaling target:
+The current checked-in performance report marks Phase 1 readiness as ready:
 
+- Duplicate active renderer samples remain absent.
+- Canvas creation, presentation writes, and graph React commit structural checks
+  pass for graph pan/zoom runs.
 - Required scene-visit counters are present.
-- Constant-visible-content scaling fails the `visibleRenderableCount * 4 + 512`
-  budget for every scaling run.
-- Scene visits grow from roughly `2,136` at the smallest scaling workload to
-  roughly `105,018` at the largest, about `48x`, while visible display object
-  count remains constant.
-- The compositor-backed input-to-presented-frame metric is still blocked; the
-  report now correctly labels first-Pixi-render timing as proxy evidence only.
+- Constant-visible-content scaling now satisfies the hard scene-visit budget:
+  p95 camera-frame scene visits stay at `0.00` from the smallest to largest
+  scaling workload while the visible display object count remains constant.
+- The compositor-backed input-to-presented-frame metric remains unavailable in
+  the current automation and first-Pixi-render timing remains proxy evidence
+  only. That is report-only on non-reference runners and does not block Phase 2.
 
-These failures are not a reason to keep Phase 0 open. They are the evidence
-that Phase 1 needs to remove hidden total-graph traversal from camera frames and
-then rerun the same matrix until the hard scaling checks pass.
+Phase 2 is ready to implement. Its first acceptance target is eliminating
+camera-caused pane chrome mutation storms through typed, diffed presentation
+writes while preserving normal focus, maximization, split, resize, adjacency,
+and action-button updates.
 
 ### Phase 1: Move Graph Canvas Lifetime To One Surface Controller And Frame Owner
 
