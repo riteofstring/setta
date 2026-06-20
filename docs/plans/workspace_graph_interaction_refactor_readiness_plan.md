@@ -102,6 +102,8 @@ Read-only/run workflow nodes should still be rearrangeable as a UX affordance.
 The bug is that this movement currently has no explicit non-editing layout
 owner. It should not use draft workflow definition layout persistence, and it
 should not be a local Pixi-only mutation that can vanish on refresh.
+This is a contract gap, not only a renderer bug: the current backend contract
+only persists draft workflow definition layout and semantic graph layout.
 
 The same editability mismatch can apply to ports. The workflow projection
 provides ports for read-only/run projections, Pixi exposes interactive port hit
@@ -424,6 +426,47 @@ Preview/runtime-only semantic nodes may still be clickable/selectable when they
 have details or steering value. They are non-movable only until a durable layout
 owner is defined for them.
 
+### Non-Editing Workflow View Layout Owner
+
+Read-only/run/version workflow node rearrangement needs a Go-owned
+non-editing view-layout owner before the renderer treats those moves as
+durable.
+
+Owner contract:
+
+- The view-layout owner stores node positions for graph views where movement is
+  a user layout preference, not a workflow definition edit.
+- It lives in backend-owned app data, not in the workflow definition graph.
+- It is local to the current app data profile unless a later product plan
+  explicitly makes view layout synced or shared.
+- It is keyed by `workspaceId` plus a graph target:
+  - `definition_version`: `definitionId` and `versionId`;
+  - `workflow_execution`: `definitionId`, `versionId`, and `executionId`.
+- Editable draft workflow nodes continue to use workflow definition layout.
+- If a target kind is added later, it must be added to this owner as an
+  explicit discriminated case, not inferred from partial ids.
+
+Required backend/API work:
+
+- Add Go-owned request/response contracts for reading and updating workflow
+  graph view layout through the `internal/httpapi` endpoint registry.
+- Regenerate TypeScript with `./scripts/go.sh run ./cmd/generate-contracts`
+  after changing contracts or owner types.
+- Add main/preload IPC exposure that consumes generated contracts instead of a
+  hand-maintained mirror.
+- Decide and implement the backing store/schema version in the owning Go
+  package before adding renderer persistence.
+- Do not add migrations or legacy readers. If existing local view-layout state
+  is incompatible, bump/reset loudly.
+
+Persistence expectations:
+
+- A run/version node drag writes only to the view-layout owner.
+- It never calls `UpdateWorkflowDefinitionLayout`.
+- It survives projection refresh, app reload, and reopening the same target.
+- It does not affect editable draft definition layout or any other
+  run/version target.
+
 ### Scene Store Boundary
 
 The refactor target is one mutation-respecting scene store that owns the current
@@ -485,6 +528,14 @@ drag. If a newer drag superseded it, only the failed generation is cleared.
 
 Recordings must be useful without rerunning the app.
 
+Recording ownership should be explicit:
+
+- renderer creates compact graph recording events from graph/Pixi debug state;
+- preload forwards those graph events through the supported bridge;
+- shared recording types define the event shape;
+- main `SessionRecorder` writes the event without needing to infer graph state
+  from screenshots, DOM snapshots, or console output.
+
 Graph recordings should include enough state to answer:
 
 - what graph surface was focused;
@@ -517,12 +568,54 @@ Acceptance criteria:
 - Any additional findings are classified as blocker, high, medium, or low and
   assigned to before-refactor, during-refactor, or later.
 
-## Phase 1: Tests First For Durable Drag Behavior
+## Phase 1: Non-Editing View Layout Owner Contract
+
+Goal: define the durable owner for read-only/run/version workflow node
+rearrangement before renderer or E2E work depends on it.
+
+Tasks:
+
+- Add Go-owned contracts for workflow graph view layout reads and updates.
+- Register the endpoints in `internal/httpapi`; do not maintain a separate
+  generated-type list.
+- Define the target key as an explicit discriminated contract for
+  `definition_version` and `workflow_execution`.
+- Implement the backing store/schema under backend-owned app data.
+- Expose the generated contracts through main/preload IPC.
+- Regenerate `desktop/src/generated/backend.ts`.
+- Add focused backend coverage for key validation, unknown node rejection,
+  target isolation, read-after-write, and no draft definition mutation.
+- Add focused preload/main IPC coverage that the renderer can read/update view
+  layout through production IPC paths.
+
+Focused verification:
+
+```sh
+./scripts/go.sh test ./internal/httpapi ./internal/orchestrator ./internal/workspaceui ./cmd/generate-contracts
+./scripts/go.sh run ./cmd/generate-contracts
+pnpm -C desktop exec vitest run \
+  src/preload/index-workflow.test.ts \
+  src/preload/index.test.ts
+pnpm -C desktop exec tsc --noEmit --pretty false
+```
+
+Acceptance criteria:
+
+- Read-only/run/version view layout has a named Go-owned persistence contract.
+- Generated TypeScript is updated from Go-owned contracts.
+- Renderer work can distinguish draft workflow definition layout writes from
+  non-editing view-layout writes.
+- No read-only/run/version node movement test relies on undefined renderer-only
+  persistence.
+
+## Phase 2: Tests First For Durable Drag Behavior
 
 Goal: add behavior-first regression coverage before changing the interaction
 implementation.
 
 Tasks:
+
+Current-contract tests:
 
 - Add required deterministic Electron coverage for editable workflow node drag:
   - open temporary workspace;
@@ -532,14 +625,6 @@ Tasks:
   - assert the node remains moved in the graph debug snapshot;
   - reload or relaunch with temporary app data;
   - assert the node remains moved from persisted backend definition layout.
-- Add coverage for read-only workflow nodes:
-  - open a run or version projection;
-  - drag a workflow node through the production graph surface;
-  - assert the node moves through the read-only/run view-layout owner;
-  - assert no draft workflow definition layout save is issued;
-  - force graph/projection refresh;
-  - reload or relaunch with temporary app data;
-  - assert the node remains moved according to the view-layout contract.
 - Add coverage for read-only workflow ports:
   - open a run or version projection;
   - hover and drag from a port;
@@ -560,6 +645,17 @@ Tasks:
   - assert the active interaction is not canceled by replacement;
   - assert pointerup or pointercancel commits/reverts deterministically before
     the latest queued graph applies.
+
+Tests after Phase 1 view-layout owner exists:
+
+- Add coverage for read-only workflow nodes:
+  - open a run or version projection;
+  - drag a workflow node through the production graph surface;
+  - assert the node moves through the read-only/run view-layout owner;
+  - assert no draft workflow definition layout save is issued;
+  - force graph/projection refresh;
+  - reload or relaunch with temporary app data;
+  - assert the node remains moved according to the view-layout contract.
 - Keep renderer counters as diagnostics only after behavior passes.
 
 Focused verification:
@@ -580,8 +676,10 @@ Acceptance criteria:
   paths with temporary app data.
 - At least one test exercises direct manipulation and live graph updates at the
   same time.
+- Read-only/run/version node persistence tests are added only after the
+  Go-owned view-layout owner contract exists.
 
-## Phase 2: Editability And Movement Ownership Contract
+## Phase 3: Editability And Movement Ownership Contract
 
 Goal: make editability and movement ownership explicit contracts used by graph
 interaction, details surfaces, and toolbar state.
@@ -633,7 +731,7 @@ Acceptance criteria:
 - Editable draft behavior remains unchanged except for stronger persistence
   proof.
 
-## Phase 3: Layout Save Outcome And Overlay Rollback
+## Phase 4: Layout Save Outcome And Overlay Rollback
 
 Goal: make optimistic layout state honest after success, skip, or failure.
 
@@ -669,13 +767,21 @@ Acceptance criteria:
   `workflow-graph-semantic-layout-overlay.ts` rather than relying only on
   workflow overlay tests.
 
-## Phase 4: Graph Recording Evidence
+## Phase 5: Graph Recording Evidence
 
 Goal: make `scripts/record_desktop_session.sh` recordings sufficient for graph
 bug diagnosis.
 
 Tasks:
 
+- Define a graph-specific recording event shape in
+  `desktop/src/shared/recording.ts`.
+- Emit compact graph-specific recording payloads from the renderer using the
+  existing Pixi debug snapshot data as source material.
+- Forward graph recording events through preload instead of scraping renderer
+  console output or DOM snapshots.
+- Have main/session recording write those graph events to `renderer-events.jsonl`
+  with the shared event shape.
 - Add renderer recording events for graph pointerup, pointercancel, debounced
   wheel bursts, and manual snapshot requests.
 - Default `scripts/record_desktop_session.sh` to a temporary
@@ -694,8 +800,7 @@ Tasks:
   - trajectory display counts;
   - trajectory anchor summaries;
   - renderer timing summary when available.
-- Update `SessionRecorder` to write graph events into `renderer-events.jsonl`
-  using a compact graph-specific schema that includes counts and
+- Update `SessionRecorder` to keep graph payloads compact with counts and
   touched/visible/selected/moved node subsets.
 - Include explicit truncation or chunking metadata for any omitted graph nodes,
   edges, sprites, anchors, or timing samples.
@@ -710,7 +815,9 @@ Tasks:
 Focused verification:
 
 ```sh
-pnpm -C desktop exec vitest run src/preload/index.test.ts
+pnpm -C desktop exec vitest run \
+  src/preload/index.test.ts \
+  src/shared/ipc.test.ts
 pnpm -C desktop build
 node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs \
   --scenario small-trackpad \
@@ -720,6 +827,8 @@ node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs \
 
 Acceptance criteria:
 
+- Renderer emits, preload forwards, and main records graph events using the
+  shared graph recording event shape.
 - A recording can diagnose whether a node drag was blocked, saved, failed, or
   reverted.
 - A recording can diagnose pointerup versus pointercancel and whether a queued
@@ -729,7 +838,7 @@ Acceptance criteria:
 - Recording a desktop session does not mutate the normal `~/.setta` app data
   unless the caller explicitly opts in.
 
-## Phase 5: Trajectory Sprite Interaction Decision
+## Phase 6: Trajectory Sprite Interaction Decision
 
 Goal: remove misleading trajectory sprite UI and make sprite placement
 predictable.
@@ -775,7 +884,7 @@ Acceptance criteria:
 - Anchorless sprite behavior is intentional and tested.
 - Sprite placement uses one coordinate-space model per lane.
 
-## Phase 6: Interaction Refactor
+## Phase 7: Interaction Refactor
 
 Goal: refactor graph interaction ownership after the contract and tests are in
 place.
@@ -825,10 +934,10 @@ Acceptance criteria:
   embedded `client.evaluate` scripts have been moved into normal helper modules
   instead of expanded further.
 
-## Phase 7: Pan/Zoom Performance Gate
+## Phase 8: Pan/Zoom Performance Follow-Up
 
-Goal: make smoothness regressions fail in CI or on a declared reference runner
-instead of remaining report-only forever.
+Goal: keep pan/zoom smoothness measurable without blocking the refactor on an
+undefined performance gate.
 
 Tasks:
 
@@ -839,8 +948,10 @@ Tasks:
 - Treat interaction scheduler lane counts as instrumentation unless the
   scheduler is changed to actually coalesce, defer, preempt, or remove work from
   the input path.
-- Promote one normal-size pan/zoom timing scenario to a hard gate on a declared
-  reference runner.
+- Keep timing thresholds report-only until a reference runner and failure
+  thresholds are explicitly agreed.
+- After a reference runner and thresholds exist, promote one normal-size
+  pan/zoom timing scenario to a hard gate.
 - Keep non-reference timing noisy and report-only, but record enough data to
   diagnose regressions.
 - Separate profiler overhead from normal recording overhead.
@@ -849,8 +960,10 @@ Tasks:
 
 Acceptance criteria:
 
+- Refactor readiness does not depend on a timing hard gate unless the reference
+  runner and failure thresholds are already agreed.
 - A normal pan/zoom workload can fail hard for obvious event delivery, long
-  task, or frame cadence regressions on the reference runner.
+  task, or frame cadence regressions only after that reference runner exists.
 - Report-only timing is clearly labeled as non-proof on other machines.
 - Scheduler assertions do not claim performance improvement unless they measure
   reduced input-path work or user-visible latency.
@@ -873,6 +986,23 @@ node desktop/tests/electron/run-workflows.mjs \
   --workflow workspace-trajectory-file-fidelity \
   --skip-build
 ```
+
+If Go-owned contracts, backend persistence, generated TypeScript, IPC, or
+preload surfaces change, also run the focused contract path:
+
+```sh
+./scripts/go.sh test ./internal/httpapi ./internal/orchestrator ./internal/workspaceui ./cmd/generate-contracts
+./scripts/go.sh run ./cmd/generate-contracts
+pnpm -C desktop exec vitest run \
+  src/preload/index-workflow.test.ts \
+  src/preload/index.test.ts \
+  src/shared/ipc.test.ts
+pnpm -C desktop exec tsc --noEmit --pretty false
+```
+
+If the view-layout owner lands in a different Go package, include that package
+in the focused `./scripts/go.sh test` command. Generated outputs must be
+regenerated before cleanup and before finishing the implementation.
 
 Before committing implementation changes, run:
 
@@ -897,6 +1027,9 @@ node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs \
 
 This plan is complete when:
 
+- read-only/run/version workflow node movement has a Go-owned non-editing
+  view-layout contract, generated TypeScript, IPC/preload exposure, and focused
+  backend coverage;
 - read-only workflow nodes can be rearranged through an explicit non-editing
   layout owner without using draft persistence or snapping back;
 - read-only workflow ports cannot advertise connectable actions;
@@ -916,5 +1049,7 @@ This plan is complete when:
   evidence;
 - behavior assertions lead graph tests, with renderer counters as supplemental
   diagnostics;
+- pan/zoom timing hard gates are either backed by an agreed reference runner and
+  thresholds or kept separate as report-only follow-up work;
 - and the main graph interaction refactor can proceed without preserving the
   current broken edge cases.
