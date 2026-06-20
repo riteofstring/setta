@@ -58,6 +58,19 @@ import {
   assertPhase0DebugSnapshot,
   summarizeSnapshot,
 } from "./workflow-graph-pan-zoom-snapshot-assertions.mjs";
+import {
+  assertCameraOperationsChanged,
+  assertNonCameraInputsDidNotMoveCamera,
+  assertNodePositionsStable,
+  assertOnlyNodeMoved,
+  assertPhase8InteractionBehavior,
+  cameraDelta,
+  compactCameraSnapshot,
+  compactNodePosition,
+  nodeById,
+  nodePositionDelta,
+  sampleWindow,
+} from "./workflow-graph-pan-zoom-behavior-assertions.mjs";
 
 const scenarioNames = new Set([
   "active",
@@ -300,16 +313,18 @@ async function runScenario({
       scenario,
       surfaceId: workflowGraphSurfaceId,
     });
+    let interactionEvidence = null;
     const artifacts = await recordWorkflowGraphPanZoomDiagnostics({
       artifactDir,
       client: context.client,
-      interaction: ({ inputSamples }) =>
-        exerciseScenarioPanZoom({
+      interaction: async ({ inputSamples }) => {
+        interactionEvidence = await exerciseScenarioPanZoom({
           client: context.client,
           inputSamples,
           scenario,
           surfaceId: workflowGraphSurfaceId,
-        }),
+        });
+      },
       name: "pan-zoom",
       surfaceId: workflowGraphSurfaceId,
     });
@@ -319,6 +334,23 @@ async function runScenario({
       workflowGraphSurfaceId,
       false,
     );
+    const behavior = await assertPhase8InteractionBehavior({
+      appRecordingEnabled,
+      artifactDir,
+      client: context.client,
+      evidence: interactionEvidence,
+      final,
+      surfaceId: workflowGraphSurfaceId,
+      timeoutMs: scenarioTimeoutMs,
+      waitForRefreshedSnapshot: (refreshedSurfaceId, settled) =>
+        waitForWorkflowGraphSnapshot(context.client, refreshedSurfaceId, {
+          nodeCount: settled.graph.nodeCount,
+          scenario,
+        }),
+    });
+    if (behavior.refreshedSurfaceId) {
+      workflowGraphSurfaceId = behavior.refreshedSurfaceId;
+    }
     assertPhase0DebugSnapshot(final, { nodeCount, scenario });
     const semanticTraffic = await workflowGraphSemanticTrafficDuringInteraction({
       artifactDir,
@@ -349,6 +381,7 @@ async function runScenario({
       graphRecording,
       hitTesting,
       initial: summarizeSnapshot(initial),
+      interactionBehavior: behavior.summary,
       runMetadata,
       nodeCount: final.graph.nodeCount,
       phase0Gate,
@@ -512,15 +545,21 @@ async function prepareScenarioAfterLaunch({ context, fixture, scenario }) {
 }
 
 async function exerciseScenarioPanZoom({ client, inputSamples, scenario, surfaceId }) {
-  await exerciseHoverSelectionAndNodeDrag(client, surfaceId, inputSamples);
-  if (scenario === "small-active" || scenario === "small-trackpad") {
-    await exerciseSmallTrackpadPanZoom(client, surfaceId, inputSamples);
-    return;
-  }
-  await exercisePanZoom(client, surfaceId, inputSamples);
+  const drag = await exerciseHoverSelectionAndNodeDrag(client, surfaceId, inputSamples);
+  const camera =
+    scenario === "small-active" || scenario === "small-trackpad"
+      ? await exerciseSmallTrackpadPanZoom(client, surfaceId, inputSamples)
+      : await exercisePanZoom(client, surfaceId, inputSamples);
+  assertNonCameraInputsDidNotMoveCamera(inputSamples);
+  return {
+    camera,
+    drag,
+    inputWindow: sampleWindow(inputSamples),
+  };
 }
 
 async function exerciseHoverSelectionAndNodeDrag(client, surfaceId, inputSamples) {
+  const inputStartIndex = inputSamples.length;
   const snapshot = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
   const target = hitTestTargetNode(snapshot, { preferPortlessNode: true });
   if (!target) {
@@ -532,6 +571,7 @@ async function exerciseHoverSelectionAndNodeDrag(client, surfaceId, inputSamples
       })}`,
     );
   }
+  const beforeTargetNode = nodeById(snapshot, target.nodeId);
   await dispatchRecordedWorkflowGraphMouseMove(
     client,
     surfaceId,
@@ -557,9 +597,10 @@ async function exerciseHoverSelectionAndNodeDrag(client, surfaceId, inputSamples
   );
   await delay(64);
   const dragged = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  assertOnlyNodeMoved(snapshot, dragged, target.nodeId, "phase 8 scripted node drag");
   if (dragged.render.nodeDragUpdateCount <= snapshot.render.nodeDragUpdateCount) {
     throw new Error(
-      `workflow graph node drag counter did not advance: target=${JSON.stringify(
+      `workflow graph node drag telemetry did not advance after behavior succeeded: target=${JSON.stringify(
         target,
       )} before=${snapshot.render.nodeDragUpdateCount} after=${dragged.render.nodeDragUpdateCount}`,
     );
@@ -585,6 +626,21 @@ async function exerciseHoverSelectionAndNodeDrag(client, surfaceId, inputSamples
     );
   }
   await clearWorkflowGraphSelection(client, surfaceId);
+  const dragSamples = inputSamples
+    .slice(inputStartIndex)
+    .filter((sample) => String(sample.kind).startsWith("node-drag"));
+  return {
+    after: compactNodePosition(dragged, target.nodeId),
+    before: compactNodePosition(snapshot, target.nodeId),
+    dragInputWindow: sampleWindow(dragSamples),
+    movementOwner: beforeTargetNode.movementOwner?.kind ?? "",
+    nodeId: target.nodeId,
+    screenDelta: {
+      x: dragTarget.x - target.point.x,
+      y: dragTarget.y - target.point.y,
+    },
+    worldDelta: nodePositionDelta(snapshot, dragged, target.nodeId),
+  };
 }
 
 async function clearWorkflowGraphSelection(client, surfaceId) {
@@ -619,6 +675,7 @@ function clampCanvasPoint(point, canvas, margin) {
 
 async function exercisePanZoom(client, surfaceId, inputSamples) {
   const snapshot = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  const operations = [];
   const center = {
     x: Math.floor(snapshot.canvas.clientWidth / 2),
     y: Math.floor(snapshot.canvas.clientHeight / 2),
@@ -629,95 +686,175 @@ async function exercisePanZoom(client, surfaceId, inputSamples) {
     y: Math.max(40, snapshot.canvas.clientHeight - 110),
   };
   if (largeSyntheticScene) {
-    await dispatchRecordedWorkflowGraphWheel(
+    await recordCameraOperation(
       client,
       surfaceId,
-      {
-        deltaX: -2600,
-        deltaY: -1600,
-        x: center.x,
-        y: center.y,
-      },
-      inputSamples,
+      "large-scene-pre-pan-shift",
+      () =>
+        dispatchRecordedWorkflowGraphWheel(
+          client,
+          surfaceId,
+          {
+            deltaX: -2600,
+            deltaY: -1600,
+            x: center.x,
+            y: center.y,
+          },
+          inputSamples,
+        ),
+      operations,
     );
     const shifted = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
     panStart = largeSceneBackgroundPanStart(shifted);
   }
-  await dispatchRecordedWorkflowGraphMouseDrag(
+  await recordCameraOperation(
     client,
     surfaceId,
-    {
-      from: panStart,
-      steps: 18,
-      to: { x: panStart.x - 180, y: panStart.y - 96 },
-    },
-    inputSamples,
+    "pointer-pan",
+    () =>
+      dispatchRecordedWorkflowGraphMouseDrag(
+        client,
+        surfaceId,
+        {
+          from: panStart,
+          steps: 18,
+          to: { x: panStart.x - 180, y: panStart.y - 96 },
+        },
+        inputSamples,
+      ),
+    operations,
   );
-  await dispatchRecordedWorkflowGraphWheel(
+  await recordCameraOperation(
     client,
     surfaceId,
-    {
-      deltaY: -420,
-      x: center.x,
-      y: center.y,
-    },
-    inputSamples,
+    "wheel-zoom-in",
+    () =>
+      dispatchRecordedWorkflowGraphWheel(
+        client,
+        surfaceId,
+        {
+          deltaY: -420,
+          x: center.x,
+          y: center.y,
+        },
+        inputSamples,
+      ),
+    operations,
   );
-  await dispatchRecordedWorkflowGraphWheel(
+  await recordCameraOperation(
     client,
     surfaceId,
-    {
-      deltaX: 180,
-      deltaY: 96,
-      x: center.x,
-      y: center.y,
-    },
-    inputSamples,
+    "wheel-pan",
+    () =>
+      dispatchRecordedWorkflowGraphWheel(
+        client,
+        surfaceId,
+        {
+          deltaX: 180,
+          deltaY: 96,
+          x: center.x,
+          y: center.y,
+        },
+        inputSamples,
+      ),
+    operations,
   );
-  await dispatchRecordedWorkflowGraphWheel(
+  await recordCameraOperation(
     client,
     surfaceId,
-    {
-      deltaY: 360,
-      x: center.x,
-      y: center.y,
-    },
-    inputSamples,
+    "wheel-zoom-out",
+    () =>
+      dispatchRecordedWorkflowGraphWheel(
+        client,
+        surfaceId,
+        {
+          deltaY: 360,
+          x: center.x,
+          y: center.y,
+        },
+        inputSamples,
+      ),
+    operations,
   );
+  assertCameraOperationsChanged(operations, "phase 8 pan/zoom");
+  const after = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  assertNodePositionsStable(snapshot, after, "phase 8 camera operations");
+  return {
+    after: compactCameraSnapshot(after),
+    before: compactCameraSnapshot(snapshot),
+    operations,
+  };
 }
 
 async function exerciseSmallTrackpadPanZoom(client, surfaceId, inputSamples) {
   const snapshot = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  const operations = [];
   const center = await visibleWorkflowGraphCanvasPoint(client, surfaceId);
-  await dispatchRecordedWorkflowGraphWheelBurst(
+  await recordCameraOperation(
     client,
     surfaceId,
-    {
-      events: trackpadPanEvents(),
-      x: center.x,
-      y: center.y,
+    "trackpad-pan-burst",
+    async () => {
+      await dispatchRecordedWorkflowGraphWheelBurst(
+        client,
+        surfaceId,
+        {
+          events: trackpadPanEvents(),
+          x: center.x,
+          y: center.y,
+        },
+        inputSamples,
+      );
+      await delay(160);
     },
-    inputSamples,
+    operations,
   );
-  await delay(160);
-  await dispatchRecordedWorkflowGraphWheelBurst(
+  await recordCameraOperation(
     client,
     surfaceId,
-    {
-      events: trackpadPinchEvents(),
-      modifiers: 2,
-      x: center.x,
-      y: center.y,
+    "trackpad-pinch-burst",
+    async () => {
+      await dispatchRecordedWorkflowGraphWheelBurst(
+        client,
+        surfaceId,
+        {
+          events: trackpadPinchEvents(),
+          modifiers: 2,
+          x: center.x,
+          y: center.y,
+        },
+        inputSamples,
+      );
+      await delay(180);
     },
-    inputSamples,
+    operations,
   );
-  await delay(180);
   await ensureSmallTrackpadWheelCounters({
     before: snapshot,
     center,
     client,
     inputSamples,
+    operations,
     surfaceId,
+  });
+  assertCameraOperationsChanged(operations, "phase 8 small-trackpad pan/zoom");
+  const after = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  assertNodePositionsStable(snapshot, after, "phase 8 small-trackpad camera operations");
+  return {
+    after: compactCameraSnapshot(after),
+    before: compactCameraSnapshot(snapshot),
+    operations,
+  };
+}
+
+async function recordCameraOperation(client, surfaceId, name, interaction, operations) {
+  const before = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  await interaction();
+  await delay(64);
+  const after = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  operations.push({
+    cameraDelta: cameraDelta(before.camera, after.camera),
+    name,
   });
 }
 
@@ -726,33 +863,48 @@ async function ensureSmallTrackpadWheelCounters({
   center,
   client,
   inputSamples,
+  operations,
   surfaceId,
 }) {
   const afterBurst = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
   if (wheelPanZoomCountersAdvanced(before, afterBurst)) {
     return;
   }
-  await dispatchRecordedWorkflowGraphWheel(
+  await recordCameraOperation(
     client,
     surfaceId,
-    {
-      deltaX: 160,
-      deltaY: 90,
-      x: center.x,
-      y: center.y,
-    },
-    inputSamples,
+    "trackpad-fallback-pan",
+    () =>
+      dispatchRecordedWorkflowGraphWheel(
+        client,
+        surfaceId,
+        {
+          deltaX: 160,
+          deltaY: 90,
+          x: center.x,
+          y: center.y,
+        },
+        inputSamples,
+      ),
+    operations,
   );
-  await dispatchRecordedWorkflowGraphWheel(
+  await recordCameraOperation(
     client,
     surfaceId,
-    {
-      deltaY: -180,
-      modifiers: 2,
-      x: center.x,
-      y: center.y,
-    },
-    inputSamples,
+    "trackpad-fallback-pinch",
+    () =>
+      dispatchRecordedWorkflowGraphWheel(
+        client,
+        surfaceId,
+        {
+          deltaY: -180,
+          modifiers: 2,
+          x: center.x,
+          y: center.y,
+        },
+        inputSamples,
+      ),
+    operations,
   );
   await delay(180);
 }

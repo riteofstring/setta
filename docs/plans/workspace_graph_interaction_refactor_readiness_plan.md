@@ -1,8 +1,8 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 7 interaction refactor implemented and verified; Phase 8
-  pan/zoom performance follow-up is ready to start.
+- **Status:** Phase 8 pan/zoom performance follow-up implemented and
+  verified; the readiness plan is complete.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -1182,12 +1182,15 @@ Result: passed on June 20, 2026.
 Goal: keep pan/zoom smoothness measurable without blocking the refactor on an
 undefined performance gate.
 
-Status: Ready. The linked pan/zoom surface runtime plan is closed through its
-own Phase 8, but this readiness-plan phase remains open because the current
-pan/zoom workflow still leads with scheduler/counter evidence for node drag.
-Implement this phase by strengthening the existing pan/zoom workflow with the
-behavior-first assertions below before treating the performance guardrails as
-interaction-contract proof.
+Status: Complete. The pan/zoom recording workflow now records compact
+interaction-behavior evidence before the scheduler/counter guardrails run. The
+workflow asserts that the scripted drag moves only the targeted node, non-camera
+inputs do not move the camera, scripted camera operations produce pan and zoom
+deltas, camera operations do not mutate node positions, workflow/view-layout
+writes do not occur outside the scripted drag window, and durable movement
+owners survive a production reload/refresh before telemetry gates are treated
+as supplemental proof. Synthetic-layout movement remains explicitly classified
+as non-durable refresh evidence rather than production persistence proof.
 
 Tasks:
 
@@ -1221,6 +1224,21 @@ Acceptance criteria:
 - Report-only timing is clearly labeled as non-proof on other machines.
 - Scheduler assertions do not claim performance improvement unless they measure
   reduced input-path work or user-visible latency.
+
+Phase 8 verification:
+
+```sh
+node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs \
+  --scenario small-trackpad \
+  --skip-build \
+  --keep-artifacts
+node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs \
+  --scenario normal \
+  --skip-build \
+  --keep-artifacts
+```
+
+Result: passed on June 21, 2026.
 
 ## Verification Strategy
 

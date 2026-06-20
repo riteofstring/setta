@@ -986,3 +986,64 @@ Source: artifact-parser
 - report-only supplemental-display-object-count-budget: pass; actual=58 budget=3000; totalDisplayObjectCount=58, materializedNodeCount=3; supplemental only, not a CPU scene-visit substitute
 - report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=1091.7 budget=24; p95FrameMs=1091.7; noisy threshold remains report-only
 - report-only no-long-task-over-100ms: pass; actual=77 budget=100; maxLongTaskMs=77; non-reference runner remains report-only
+
+## Run 2026-06-21T02:16:19.981Z
+
+Artifact root: `/Users/kevin/Documents/AppDevelopment/setta/.recordings/workflow-graph-pan-zoom-small-trackpad/20260621T021608Z`
+
+Phase 1 readiness: ready
+
+
+Source: artifact-parser
+
+## Pan/Zoom Diagnosis
+
+| Scenario | Recording | Interactions | Diagnosis | p95 delivery ms | p95 handler ms | p95 camera commit ms | p95 first Pixi render proxy ms | input-to-presented-frame | frame p50/p95/p99/max ms | Renderer duplicates | Camera DOM writes | Camera React commits | Scene replacements | Deferred work | Top blocker |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
+| small-trackpad | on | 1/1 (wheel-burst#15) | event delivery | 56.60 | 0.70 | 0.40 | 69.40 | unavailable | 16.70/1091.70/5141.60/5141.60 | 0 | 0 | 0 | 0 | label-position-sync:39 | CpuProfiler::StartProfiling 77.48ms |
+
+| Scenario | Recording | Synthetic scene | Nodes | p95 frame ms | p95 delivery ms | p95 first Pixi render proxy ms | Scene visits p95 / budget | Display objects | Camera pane writes | Camera React commits | Top trace task | Hard failures | Report-only findings |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| small-trackpad | on | workflow | 3 | 1091.70 | 56.60 | 69.40 | 3.00 / 544.00 | 58 | 0 | 0 | CpuProfiler::StartProfiling 77.48ms | 0 | 2 |
+
+## Matrix Checks
+
+
+
+## small-trackpad / workflow / recording-on
+
+- build: existing-production-electron-build
+- seed: not-recorded
+- warm-up/repetitions: not-recorded / not-recorded
+- viewport/DPR/refresh: 1280x820 / 2 / 120Hz
+- recording/debug: on / on
+- timing thresholds: report-only
+- trace top tasks: CpuProfiler::StartProfiling 77.48ms; RunTask 26.34ms; RunTask 26.34ms
+- interaction ids: wheel-burst#15
+- timing: delivery p50/p95/max=38.20/56.60/56.60ms; handler p95=0.70ms; camera commit p95=0.40ms; first Pixi render proxy p95=69.40ms; input-to-presented=unavailable; frame p50/p95/p99/max=16.70/1091.70/5141.60/5141.60ms
+- scene visits: settaOwnedLayerVisits p95=0.00, graphObjectsConsidered p95=0.00, cullCandidatesChecked p95=0.00, displayObjectsTraversed p95=0.00, labelsConsidered p95=3.00, boundsCalculations p95=0.00
+- supplemental render: renderedObjects=58; drawCalls=not-instrumented
+- DOM mutations by owner/source: workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|unattributed|attributes|aria-disabled=2; workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|unattributed|attributes|aria-label=2; workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|unattributed|attributes|disabled=2; workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|unattributed|attributes|title=2; workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|interaction:node-drag-down|attributes|aria-disabled=1; workspace-pane-host|pane-host|workspace_pane_4|workspace_surface_4|interaction:node-drag-down|attributes|aria-label=1
+- React commits by owner/source: none
+- deferred work by lane: label-position-sync:39
+- graph scene replacements: 0
+- draw calls: not instrumented in the current Pixi debug snapshot
+
+
+- hard one-active-renderer-for-focused-graph-surface: pass; actual=0 budget=0; duplicateRendererSamples=0, maxCanvasCountForSurface=1, maxActiveRendererCount=2
+- hard no-renderer-instance-replacement-during-interaction: pass; actual=0 budget=0; beforeRendererInstanceId=2, afterRendererInstanceId=2
+- hard no-graph-app-creation-during-camera-interaction: pass; actual=0 budget=0; canvasCreationDelta=0, rendererDestroyDelta=0
+- hard no-camera-caused-workspace-presentation-writes: pass; actual=0 budget=0; cameraCausedPaneMutations=0
+- hard no-camera-caused-graph-react-commits: pass; actual=0 budget=0; cameraCausedReactCommits=0, totalReactCommits=0
+- hard no-camera-caused-full-graph-replacement: pass; actual=0 budget=0; graphSceneReplacementCount=0
+- hard node-drag-recorded: pass; actual=8; nodeDragUpdateCount advanced by 8
+- report-only idle-wheel-pinch-to-camera-transform-p95-ms: pass; actual=0.5999999046325684 budget=16; wheelLatencySamples=14, maxEventToCameraUpdateMs=0.5999999046325684
+- report-only idle-wheel-pinch-to-first-pixi-render-proxy-p95-ms: pass; actual=12.799999952316284 budget=32; wheelLatencySamples=14, maxEventToFirstPixiRenderAfterCameraMs=12.799999952316284; this is a Pixi postrender proxy, not compositor presentation
+- hard no-semantic-working-set-reads-during-camera-interaction: pass; actual=0 budget=0; workingSetIpcStarts=0, workingSetHttpRequests=0, firstInputAt=2026-06-21T02:16:14.424Z, lastInputAt=2026-06-21T02:16:16.841Z
+- report-only input-to-presented-frame-budget-blocked: report; actual=null; no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only
+- hard no-full-graph-label-sync-per-pan-wheel-event: pass; actual=0 budget=0; cameraMovingLabelSyncDelta=0, labelSyncDelta=56, panWheelEventCount=17, graphNodeCount=3, materializedLabelCount=3
+- hard static-glow-not-redrawn-per-pan-wheel-event: pass; actual=10 budget=27; staticGlowRedrawCount=10, cameraDependentSyncFrameDelta=13, nodeDragMoveEvents=8
+- hard materialized-node-count-scales-with-visible-nodes: pass; actual=3 budget=96; materializedNodeCount=3, visibleMaterializedNodeCount=2
+- report-only supplemental-display-object-count-budget: pass; actual=58 budget=3000; totalDisplayObjectCount=58, materializedNodeCount=3; supplemental only, not a CPU scene-visit substitute
+- report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=1091.7 budget=24; p95FrameMs=1091.7; noisy threshold remains report-only
+- report-only no-long-task-over-100ms: pass; actual=88 budget=100; maxLongTaskMs=88; non-reference runner remains report-only
