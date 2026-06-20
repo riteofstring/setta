@@ -1,7 +1,7 @@
 # Workspace Trajectory Liveness and Semantic Memory Plan
 - **Date:** June 18, 2026
-- **Status:** Phase 6 follow-up implemented; the Phase 7 deterministic product
-  workflow matrix was rerun cleanly after the follow-up.
+- **Status:** Phase 7 complete; the deterministic product workflow matrix is
+  passing after the Phase 6 follow-up.
 - **Scope:** Replace the current semantic-node-centered liveness model with a
   principled split between deterministic workflow trajectory visuals, durable
   semantic memory, cartographer audit, and graph interaction/runtime
@@ -909,10 +909,10 @@ Non-blocking residual:
 
 ### Phase 6 - Runtime Ownership Consolidation
 
-Status: implementation landed. Commit `2d1343265` consolidated renderer runtime
-ownership around a composed workspace graph scene store while preserving the
-backend runtime split from earlier phases. The Phase 6 follow-up has now fixed
-the Phase 7 acceptance blockers exposed by that change.
+Status: complete. Commit `2d1343265` consolidated renderer runtime ownership
+around a composed workspace graph scene store while preserving the backend
+runtime split from earlier phases. Commit `978f209a5` fixed the Phase 7
+acceptance blockers exposed by that change.
 
 Clean up the long-term boundary between trajectory runtime, semantic runtime,
 and renderer state.
@@ -969,21 +969,23 @@ Phase 6 follow-up resolution:
   `no-full-graph-label-sync-per-pan-wheel-event`. Runtime camera movement keeps
   the label layer hidden/deferred instead of synchronizing visible labels during
   moving frames. Evidence:
-  `.recordings/workflow-graph-pan-zoom-runtime-burst/2026-06-19T013825-039Z`.
+  `.recordings/workflow-graph-pan-zoom-runtime-burst/2026-06-19T020940-682Z`.
 - `semantic-review-live-product` now passes with workflow-node details showing
   semantic runtime aggregate/source state alongside trajectory/cartographer
   status. The renderer keeps workflow-node details tied to the scene-store
   graph, and aggregate semantic runtime snapshots now preserve lifecycle state
   for workflow-node runtime projection. Evidence:
-  `.recordings/semantic-review-live-product/2026-06-19T013800-441Z`.
+  `.recordings/semantic-review-live-product/2026-06-19T021002-003Z`.
 - The remaining Phase 7 deterministic product workflows passed after rerun:
-  `.recordings/semantic-runtime-reconnect/2026-06-19T013845-717Z`,
-  `.recordings/semantic-runtime-large-review/2026-06-19T013906-441Z`.
+  `.recordings/semantic-runtime-reconnect/2026-06-19T021027-086Z`,
+  `.recordings/semantic-runtime-large-review/2026-06-19T021047-008Z`.
 
 Phase 7 handoff:
 
 - The Phase 6 follow-up blockers are resolved and the deterministic Phase 7
-  product workflow matrix has been rerun.
+  product workflow matrix has been rerun cleanly.
+- There is no next implementation phase in this plan. Future work should start
+  from a new plan or a targeted bug fix if new product evidence exposes a gap.
 - Keep the Phase 6 runtime boundary direction: deterministic trajectory runtime
   for fast liveness, semantic memory for durable claims, cartographer audit for
   operational state, and renderer scene state for camera-local interaction.
@@ -993,7 +995,8 @@ Phase 7 handoff:
 
 ### Phase 7 - Product Acceptance Matrix
 
-Status: deterministic product workflow matrix passing after the Phase 6 follow-up.
+Status: complete. The deterministic product workflow matrix is passing after
+the Phase 6 follow-up.
 
 The product acceptance matrix, current acceptance status, implementation notes,
 non-goals, and question status live in

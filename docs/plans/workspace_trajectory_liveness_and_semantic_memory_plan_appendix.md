@@ -48,29 +48,29 @@ Live-provider checks:
 
 ## Current Acceptance Status
 
-Last reviewed after the Phase 6 follow-up working-tree changes on June 18,
-2026.
+Last reviewed after commit `978f209a5` on June 19, 2026.
 
 Passing checks:
 
 - Focused renderer runtime tests passed for scene-store coalescing, semantic
   runtime store behavior, trajectory store behavior, semantic graph projection
-  and state, and workflow graph projection/layout.
-- Production `semantic-graph` passed.
+  and workflow-node details.
+- Production `semantic-graph` passed. Evidence:
+  `.recordings/semantic-graph/20260619T021112Z`.
 - Production `workspace-trajectory-file-fidelity` passed.
 - Production `semantic-cartographer-auto` passed.
 - Production `workflow-graph-pan-zoom-runtime-burst` passed after the Phase 6
   follow-up. Evidence:
-  `.recordings/workflow-graph-pan-zoom-runtime-burst/2026-06-19T013825-039Z`.
+  `.recordings/workflow-graph-pan-zoom-runtime-burst/2026-06-19T020940-682Z`.
 - Production `semantic-review-live-product` passed after the Phase 6 follow-up.
   Evidence:
-  `.recordings/semantic-review-live-product/2026-06-19T013800-441Z`.
+  `.recordings/semantic-review-live-product/2026-06-19T021002-003Z`.
 - Production `semantic-runtime-reconnect` passed after the Phase 6 follow-up.
   Evidence:
-  `.recordings/semantic-runtime-reconnect/2026-06-19T013845-717Z`.
+  `.recordings/semantic-runtime-reconnect/2026-06-19T021027-086Z`.
 - Production `semantic-runtime-large-review` passed after the Phase 6 follow-up.
   Evidence:
-  `.recordings/semantic-runtime-large-review/2026-06-19T013906-441Z`.
+  `.recordings/semantic-runtime-large-review/2026-06-19T021047-008Z`.
 
 Blocking checks:
 
@@ -88,6 +88,8 @@ Exit criteria:
 - The Phase 6 follow-up exit criteria are satisfied: the two blocking checks
   are fixed, the blocked Phase 7 workflow set was rerun, and focused unit and
   production workflow checks touched by the follow-up passed.
+- The Phase 7 deterministic product acceptance matrix is complete. There is no
+  next implementation phase in this plan.
 
 ## Implementation Notes
 
