@@ -1,8 +1,8 @@
 # Workspace Graph Pan/Zoom Surface Runtime Refactor Plan
 
 - **Date:** June 18, 2026
-- **Status:** Phase 5 is implemented. Phase 4 remains deferred by the Phase 3
-  benchmark gate, and Phase 6 is ready to implement next.
+- **Status:** Phase 6 is implemented. Phase 4 remains deferred by the Phase 3
+  benchmark gate, and Phase 7 is ready to implement next.
 - **Scope:** Make workspace graph pan/zoom smooth by refactoring graph canvas
   lifetime, workspace pane presentation writes, and frame-loop scheduling around
   explicit surface ownership and measurable interaction budgets.
