@@ -1,8 +1,9 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 3 interaction ownership implemented; Phase 4 can now start
-  against explicit layout-save outcome and rollback contracts.
+- **Status:** Phase 3 interaction ownership implemented and verified; Phase 4
+  is ready to start against explicit layout-save outcome and rollback
+  contracts.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -809,11 +810,12 @@ are already hidden and no edge save is issued.
 Goal: make editability and movement ownership explicit contracts used by graph
 interaction, details surfaces, and toolbar state.
 
-Status: Complete. Workflow graph renderer data now carries explicit movement
-owners and connectability, read-only run/version movement writes through the
-non-editing view-layout owner, semantic preview nodes are non-movable, version
-details derive read-only state from projection editability, and graph
-replacements defer while direct manipulation is active.
+Status: Complete. Commit `f2161445e` made workflow graph renderer data carry
+explicit movement owners and connectability, routed read-only run/version
+movement through the non-editing view-layout owner, kept semantic preview nodes
+non-movable, derived version details read-only state from projection
+editability, and deferred graph replacements while direct manipulation is
+active.
 
 Tasks:
 
@@ -866,9 +868,39 @@ Acceptance criteria:
 - Editable draft behavior remains unchanged except for stronger persistence
   proof.
 
+Phase 3 verification:
+
+```sh
+pnpm -C desktop exec vitest run \
+  src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts \
+  src/renderer/src/features/workspace-graph/workflow-graph-surface-controller.test.ts
+pnpm -C desktop exec tsc --noEmit --pretty false
+pnpm -C desktop build
+node desktop/tests/electron/run-workflows.mjs \
+  --workflow workflow-graph-editable-drag-contract \
+  --workflow workflow-graph-read-only-port-contract \
+  --workflow workflow-graph-read-only-view-layout-contract \
+  --workflow workflow-graph-active-replacement-contract \
+  --workflow workflow-graph-node-drag-pointercancel-contract \
+  --workflow workflow-graph-edge-draw-pointercancel-contract \
+  --workflow workflow-graph-marquee-pointercancel-contract \
+  --workflow workflow-graph-live-runtime-drag-contract \
+  --skip-build
+```
+
+Result: passed on June 20, 2026.
+
 ## Phase 4: Layout Save Outcome And Overlay Rollback
 
 Goal: make optimistic layout state honest after success, skip, or failure.
+
+Status: Ready. The current implementation still returns
+`WorkflowGraphProjection | null` from `persistGraphNodePositions`, which
+collapses skipped and failed saves into the same caller-visible value. Workflow,
+workflow view-layout, and semantic overlay cleanup still depends on callback
+side effects instead of an explicit persisted/skipped/failed result, so Phase 4
+should start by replacing that contract and then wiring overlay rollback from
+the returned outcome.
 
 Tasks:
 
