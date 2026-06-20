@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-PLAN_PATH="docs/plans/workspace_graph_interaction_refactor_readiness_plan.md"
+PLAN_PATH="docs/plans/workspace_graph_retained_scene_camera_fast_path_plan.md"
 SENTINEL="PLAN_FULLY_IMPLEMENTED"
 MODEL="gpt-5.5"
 REASONING_CONFIG='reasoning_effort="xhigh"'
@@ -16,7 +16,7 @@ usage() {
 Usage: scripts/automation/codex-loop/run-workspace-graph-interaction-refactor-loop.sh [options]
 
 Runs two fresh Codex agents in a loop for:
-  docs/plans/workspace_graph_interaction_refactor_readiness_plan.md
+  docs/plans/workspace_graph_retained_scene_camera_fast_path_plan.md
 
 Agent 1 implements the next phase.
 Agent 2 reviews the implementation, updates and commits the plan if needed, and
