@@ -731,7 +731,8 @@ Phase 2 handoff:
 
 ### Phase 2 - Workspace Trajectory Runtime Contracts
 
-Status: complete. Added the backend-owned typed trajectory runtime projection.
+Status: complete. Commit `a047823d4` added the backend-owned typed trajectory
+runtime projection.
 
 Implementation:
 
@@ -772,7 +773,53 @@ Acceptance:
 - Unit coverage proves typed file-change/diff/command/reasoning inputs map to
   sprite records.
 
+Phase 2 implementation review:
+
+- `internal/workspacetrajectory` now owns Go snapshot, delta, runtime event,
+  sprite, timeline, aggregate, limit, payload-budget, and detail-ref contracts.
+- The runtime service composes chat activity, workflow execution state, and
+  semantic/cartographer runtime status without waiting for cartographer output
+  before emitting run item activity.
+- HTTP endpoint ownership lives in `internal/httpapi` through
+  `/workspace-trajectory/runtime/snapshot` and
+  `/workspace-trajectory/runtime/events`.
+- Generated TypeScript was produced from the Go-owned contract surface.
+- Runtime snapshots and deltas are bounded, revisioned, sorted, and explicit
+  about `snapshotRequired` gaps.
+- Focused coverage verifies typed run-item mapping, absence of command-text
+  file-read synthesis, payload limits, deterministic gap behavior, and contract
+  consumption by the generated frontend types.
+- Focused post-review checks passed:
+  `./scripts/go.sh test -count=1 ./internal/workspacetrajectory ./internal/httpapi ./internal/runtime`
+  and `pnpm -C desktop typecheck`.
+
+Phase 3 handoff:
+
+- Phase 3 is ready to implement.
+- Keep Phase 3 scoped to main/preload/renderer transport, a local trajectory
+  runtime store, stream reconnect behavior, Pixi sprite rendering, and workflow
+  node details. Do not broaden it into semantic-memory usefulness or file-read
+  fidelity work.
+- Bootstrap from a runtime snapshot before rendering deltas, or buffer stream
+  events until the initial snapshot has been applied.
+- Treat `snapshotRequired` as a single-flight snapshot reload for the affected
+  workspace/runtime projection.
+- Maintain a deterministic local anchor index from the runtime snapshot and the
+  current workflow graph runner refs. Live chat run-item deltas can arrive
+  without workflow node ids because they are mapped directly from chat events;
+  the renderer store should preserve existing anchors for matching sprite ids,
+  resolve anchors through typed run/chat/workflow refs when available, or place
+  the sprite in a bounded recent-activity lane until the next snapshot.
+- Do not solve missing anchors by parsing command text, filenames in output, or
+  other display strings.
+- Camera movement must not request runtime snapshots, reopen streams, or
+  trigger full graph refreshes.
+- Do not change the backend runtime contract during Phase 3 unless a hard
+  renderer blocker is discovered and documented in the plan first.
+
 ### Phase 3 - Renderer Trajectory Sprite Layer
+
+Status: ready to implement.
 
 Render trajectory sprites as their own graph layer.
 
@@ -980,10 +1027,26 @@ For semantic nodes:
 
 ## Non-Goals
 
-No polling, fake semantic estimates, command-output heuristics for file reads or
-line ranges, hardcoded TypeScript mirrors, broad cartographer prompt-only fixes,
-unreadable graph visuals, or backward-compatibility / legacy / migration /
-transitional behavior.
+This plan explicitly excludes:
+
+- polling,
+- fake semantic estimates,
+- command-output heuristics for file reads or line ranges,
+- hardcoded TypeScript mirrors,
+- broad cartographer prompt-only fixes,
+- unreadable graph visuals,
+- backward-compatibility shims,
+- legacy support paths,
+- SQLite or file-store migrations,
+- old-field aliases,
+- transitional readers or writers,
+- dual-read/write paths,
+- compatibility adapters,
+- legacy renderer modes,
+- silent compatibility fallbacks,
+- and feature flags whose only purpose is to preserve old behavior during the
+  refactor.
+
 ## Open Questions
 
 1. Which provider/tool events expose typed file read paths, line ranges, and
