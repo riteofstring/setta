@@ -2,7 +2,7 @@
 
 - **Date:** June 20, 2026
 - **Status:** Phase 6 trajectory sprite passive-badge contract implemented and
-  verified; Phase 7 interaction refactor is ready to start.
+  verified in `5fbd51db2`; Phase 7 interaction refactor is ready to start.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -1047,10 +1047,10 @@ Result: passed on June 20, 2026.
 
 ## Phase 6: Trajectory Sprite Interaction Decision
 
-Status: Complete. Phase 6 chose passive trajectory badges, kept anchorless
-workflow sprites hidden from canvas lanes, and verified anchored badge placement
-through graph camera changes before the broader interaction-controller refactor
-begins.
+Status: Complete. Commit `5fbd51db2` chose passive trajectory badges, kept
+anchorless workflow sprites hidden from canvas lanes, and verified anchored
+badge placement through graph camera changes before the broader
+interaction-controller refactor begins.
 
 Goal: remove misleading trajectory sprite UI and make sprite placement
 predictable.
