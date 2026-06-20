@@ -1,9 +1,69 @@
 import { describe, expect, test } from "vitest";
 
-import { createWorkflowGraphAnimationState } from "./pixi-renderer-animation";
+import {
+  createWorkflowGraphAnimationState,
+  workflowGraphAnimationInventory,
+} from "./pixi-renderer-animation";
 
 describe("workflow graph animation state", () => {
-  test("activates only for visible animated workflow and semantic elements", () => {
+  test("classifies every graph animation in the Phase 6 inventory", () => {
+    expect(
+      workflowGraphAnimationInventory.map(
+        ({ classification, defaultEnabled, id, stateMeaning }) => ({
+          classification,
+          defaultEnabled,
+          id,
+          stateMeaning,
+        }),
+      ),
+    ).toEqual([
+      {
+        classification: "camera-critical",
+        defaultEnabled: true,
+        id: "camera-transform",
+        stateMeaning: "camera pan/zoom transform",
+      },
+      {
+        classification: "trajectory/liveness",
+        defaultEnabled: true,
+        id: "workflow-node-pulse",
+        stateMeaning: "workflow node is pending, ready, running, failed, waiting, or recovering",
+      },
+      {
+        classification: "trajectory/liveness",
+        defaultEnabled: true,
+        id: "workflow-edge-flow",
+        stateMeaning: "workflow edge is actively carrying work",
+      },
+      {
+        classification: "trajectory/liveness",
+        defaultEnabled: true,
+        id: "trajectory-runtime-sprites",
+        stateMeaning:
+          "recent runtime/tool/file/test activity attached to a workflow node or recent lane",
+      },
+      {
+        classification: "semantic state",
+        defaultEnabled: true,
+        id: "semantic-activity-marker",
+        stateMeaning: "semantic node has current or recent named activity",
+      },
+      {
+        classification: "decorative",
+        defaultEnabled: false,
+        id: "semantic-cell-breath",
+        stateMeaning: null,
+      },
+      {
+        classification: "decorative",
+        defaultEnabled: false,
+        id: "semantic-tendril-flow",
+        stateMeaning: null,
+      },
+    ]);
+  });
+
+  test("activates only for visible animated workflow elements", () => {
     const state = createWorkflowGraphAnimationState({
       animationEnabled: true,
       reduceMotion: false,
@@ -108,13 +168,19 @@ describe("workflow graph animation state", () => {
       activeEdgeFlowCount: 1,
       activeNodePulseCount: 4,
       animationActive: true,
+      animationDroppedWorkByLayer: {
+        decorative: 2,
+        "trajectory/liveness": 0,
+      },
       cellAnimCandidateCount: 1,
       cellAnimCapped: false,
       cellAnimCount: 0,
       cellAnimRedrawCount: 0,
       edgeFlowRedrawCount: 1,
+      lastDecorativeAnimationDroppedCount: 2,
+      lastLivenessAnimationDroppedCount: 0,
       nodePulseRedrawCount: 1,
-      semanticTendrilAnimCandidateCount: 0,
+      semanticTendrilAnimCandidateCount: 1,
       semanticTendrilAnimCapped: false,
       semanticTendrilAnimCount: 0,
       semanticTendrilRedrawCount: 0,
@@ -209,6 +275,9 @@ describe("workflow graph animation state", () => {
     expect(state.debugSnapshot()).toMatchObject({
       cellAnimRedrawCount: 0,
       edgeFlowRedrawCount: 1,
+      lastDecorativeAnimationDroppedCount: 2,
+      lastLivenessAnimationDroppedCount: 0,
+      semanticTendrilAnimCandidateCount: 1,
       semanticTendrilRedrawCount: 0,
     });
   });
@@ -254,10 +323,16 @@ describe("workflow graph animation state", () => {
     expect(edgeFlowRedraws).toEqual([]);
     expect(state.debugSnapshot()).toMatchObject({
       animationActive: false,
+      animationDroppedWorkByLayer: {
+        decorative: 2,
+        "trajectory/liveness": 0,
+      },
       cellAnimCandidateCount: 1,
       cellAnimCount: 0,
       cellAnimRedrawCount: 0,
+      lastDecorativeAnimationDroppedCount: 2,
       edgeFlowRedrawCount: 0,
+      semanticTendrilAnimCandidateCount: 1,
       semanticTendrilRedrawCount: 0,
     });
   });
@@ -293,6 +368,7 @@ describe("workflow graph animation state", () => {
         cellAnimCandidateCount: 0,
         cellAnimCount: 0,
         edgeFlowRedrawCount: 0,
+        lastLivenessAnimationDroppedCount: 3,
         nodePulseRedrawCount: 0,
         semanticTendrilAnimCount: 0,
       });
@@ -359,9 +435,14 @@ describe("workflow graph animation state", () => {
 
     expect(state.debugSnapshot()).toMatchObject({
       animationActive: false,
+      animationDroppedWorkByLayer: {
+        decorative: cellCount,
+        "trajectory/liveness": 0,
+      },
       cellAnimCandidateCount: cellCount,
       cellAnimCapped: false,
       cellAnimCount: 0,
+      lastDecorativeAnimationDroppedCount: cellCount,
     });
     expect(state.cellNodes()).toHaveLength(0);
   });

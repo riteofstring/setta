@@ -108,8 +108,19 @@ interface WorkflowGraphDebugSnapshot {
     activeEdgeFlowCount: number;
     activeNodePulseCount: number;
     averageFrameMs: number;
+    animationActiveSetDeferredCount: number;
     animationActive: boolean;
+    animationDroppedWorkByLayer: Record<string, number>;
     animationEnabled: boolean;
+    animationInventory: Array<{
+      allowedDuringCameraMotion: boolean;
+      budget: Record<string, number | string>;
+      classification: string;
+      defaultEnabled: boolean;
+      id: string;
+      stateMeaning: string | null;
+    }>;
+    animationLastDroppedWorkByLayer: Record<string, number>;
     cameraDependentSyncFrameCount: number;
     cameraDependentSyncRequiresMovingFrame: boolean;
     cameraDependentSyncScheduled: boolean;
@@ -126,6 +137,7 @@ interface WorkflowGraphDebugSnapshot {
     cellAnimCapped: boolean;
     cellAnimCount: number;
     cellAnimRedrawCount: number;
+    decorativeAnimationDroppedCount: number;
     edgeCommitCount: number;
     edgeLevelOfDetail: "low" | "medium" | "high";
     edgeFlowRedrawCount: number;
@@ -140,6 +152,7 @@ interface WorkflowGraphDebugSnapshot {
     labelVisibilityMode: "selected" | "visible-priority" | "all-visible";
     lastDrawnEdgeCount: number;
     lastDrawnEdgeLabelCount: number;
+    lastDecorativeAnimationDroppedCount: number;
     lastLabelVisibilityCandidateCount: number;
     lastMarqueeCandidateCount: number;
     lastNodeHitCandidateCount: number;
@@ -149,6 +162,7 @@ interface WorkflowGraphDebugSnapshot {
     lastSceneWindowExitedCount: number;
     lastSceneWindowVisibleNodeCount: number;
     lastVisibleMaterializedNodeCount: number;
+    lastLivenessAnimationDroppedCount: number;
     marqueeUpdateCount: number;
     materializedLabelCount: number;
     materializedNodeCount: number;

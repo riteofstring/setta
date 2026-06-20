@@ -24,6 +24,9 @@ describe("workflow graph animation coordinator", () => {
     expect(nodesInPaddedViewport).not.toHaveBeenCalled();
     expect(animationState.recompute).not.toHaveBeenCalled();
     expect(edgeFlowGraphics.clear).toHaveBeenCalledTimes(1);
+    expect(coordinator.debugSnapshot()).toMatchObject({
+      animationActiveSetDeferredCount: 1,
+    });
   });
 
   test("redraws static glow only when graph content is dirty or visible membership changes", () => {

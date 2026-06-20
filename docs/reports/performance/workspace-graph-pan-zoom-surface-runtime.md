@@ -551,3 +551,30 @@ Phase 4 decision: deferred; do not build the shared frame admission coordinator 
 - report-only supplemental-display-object-count-budget: pass; actual=347 budget=3000; totalDisplayObjectCount=347, materializedNodeCount=0; supplemental only, not a CPU scene-visit substitute
 - report-only normal-scene-p95-pan-zoom-frame-ms: report; actual=41.900000000001455 budget=24; p95FrameMs=41.900000000001455; noisy threshold remains report-only
 - report-only no-long-task-over-100ms: report; actual=178 budget=100; maxLongTaskMs=178; non-reference runner remains report-only
+
+## Phase 6 Implementation Note 2026-06-20T00:36:21Z
+
+Phase 6 simplified the graph visual workload without changing the camera
+lifetime or presentation write contracts measured above.
+
+- Added an explicit renderer animation inventory for camera-critical,
+  trajectory/liveness, semantic state, and decorative visual work.
+- Classified workflow node pulse, workflow active-edge flow, and pooled
+  trajectory runtime sprites as trajectory/liveness work that may continue
+  during camera movement.
+- Kept semantic activity as a static named-state marker while leaving default
+  semantic cell breathing and semantic tendril flow disabled as decorative
+  effects.
+- Added dropped/deferred animation work counters to renderer debug snapshots:
+  decorative semantic candidates are counted as dropped work, and animation
+  active-set recomputation skipped during camera movement is counted as
+  deferred work.
+- Preserved foundation styling independence from semantic node presence.
+
+Focused verification:
+
+```bash
+pnpm -C desktop exec vitest run src/features/workspace-graph/pixi-renderer-animation.test.js src/features/workspace-graph/pixi-renderer-animation-coordinator.test.js src/features/workspace-graph/pixi-renderer-cell-animation.test.js src/features/workspace-graph/pixi-renderer-foundation.test.js
+```
+
+Result: passed, 4 files / 13 tests.

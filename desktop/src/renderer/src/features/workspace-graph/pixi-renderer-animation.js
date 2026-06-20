@@ -7,6 +7,80 @@ const workflowPulseNodeStatuses = new Set(
     .map(([status]) => status),
 );
 
+const animationLayerIds = {
+  cameraCritical: "camera-critical",
+  decorative: "decorative",
+  semanticState: "semantic state",
+  trajectoryLiveness: "trajectory/liveness",
+};
+
+export const workflowGraphAnimationInventory = Object.freeze([
+  Object.freeze({
+    allowedDuringCameraMotion: true,
+    budget: Object.freeze({ maxFrameMs: 1 }),
+    classification: animationLayerIds.cameraCritical,
+    defaultEnabled: true,
+    id: "camera-transform",
+    stateMeaning: "camera pan/zoom transform",
+  }),
+  Object.freeze({
+    allowedDuringCameraMotion: true,
+    budget: Object.freeze({ maxFrameMs: 2, maxItems: "visible-workflow-node-window" }),
+    classification: animationLayerIds.trajectoryLiveness,
+    defaultEnabled: true,
+    id: "workflow-node-pulse",
+    stateMeaning: "workflow node is pending, ready, running, failed, waiting, or recovering",
+  }),
+  Object.freeze({
+    allowedDuringCameraMotion: true,
+    budget: Object.freeze({ maxFrameMs: 2, maxItems: "visible-active-workflow-edge-window" }),
+    classification: animationLayerIds.trajectoryLiveness,
+    defaultEnabled: true,
+    id: "workflow-edge-flow",
+    stateMeaning: "workflow edge is actively carrying work",
+  }),
+  Object.freeze({
+    allowedDuringCameraMotion: true,
+    budget: Object.freeze({ maxFrameMs: 2, maxItems: "trajectory-store-visible-sprite-caps" }),
+    classification: animationLayerIds.trajectoryLiveness,
+    defaultEnabled: true,
+    id: "trajectory-runtime-sprites",
+    stateMeaning:
+      "recent runtime/tool/file/test activity attached to a workflow node or recent lane",
+  }),
+  Object.freeze({
+    allowedDuringCameraMotion: true,
+    budget: Object.freeze({ maxFrameMs: 0.5, maxItems: "visible-semantic-activity-markers" }),
+    classification: animationLayerIds.semanticState,
+    defaultEnabled: true,
+    id: "semantic-activity-marker",
+    stateMeaning: "semantic node has current or recent named activity",
+  }),
+  Object.freeze({
+    allowedDuringCameraMotion: false,
+    budget: Object.freeze({ maxFrameMs: 0, maxItems: 0 }),
+    classification: animationLayerIds.decorative,
+    defaultEnabled: false,
+    id: "semantic-cell-breath",
+    stateMeaning: null,
+  }),
+  Object.freeze({
+    allowedDuringCameraMotion: false,
+    budget: Object.freeze({ maxFrameMs: 0, maxItems: 0 }),
+    classification: animationLayerIds.decorative,
+    defaultEnabled: false,
+    id: "semantic-tendril-flow",
+    stateMeaning: null,
+  }),
+]);
+
+const emptyAnimationWorkByLayer = Object.freeze({
+  [animationLayerIds.cameraCritical]: 0,
+  [animationLayerIds.decorative]: 0,
+  [animationLayerIds.semanticState]: 0,
+  [animationLayerIds.trajectoryLiveness]: 0,
+});
+
 export function createWorkflowGraphAnimationState({ animationEnabled, reduceMotion }) {
   const settings = {
     animationEnabled: animationEnabled !== false,
@@ -27,6 +101,10 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
   let semanticTendrilAnimCapped = false;
   let semanticTendrilAnimCount = 0;
   let semanticTendrilRedrawCount = 0;
+  let decorativeAnimationDroppedCount = 0;
+  let lastDecorativeAnimationDroppedCount = 0;
+  let livenessAnimationDroppedCount = 0;
+  let lastLivenessAnimationDroppedCount = 0;
   let cellAnimCount = 0;
   let transitionsActive = 0;
   let activeEdgeFlowCount = 0;
@@ -36,14 +114,26 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
     debugSnapshot: () => ({
       activeEdgeFlowCount,
       activeNodePulseCount,
+      animationDroppedWorkByLayer: animationWorkByLayer({
+        decorative: decorativeAnimationDroppedCount,
+        trajectoryLiveness: livenessAnimationDroppedCount,
+      }),
       animationActive,
       animationEnabled: settings.animationEnabled,
+      animationInventory: workflowGraphAnimationInventory,
+      animationLastDroppedWorkByLayer: animationWorkByLayer({
+        decorative: lastDecorativeAnimationDroppedCount,
+        trajectoryLiveness: lastLivenessAnimationDroppedCount,
+      }),
       cellAnimCandidateCount,
       cellAnimCap: workspaceNeonTheme.semantic.animation.activeCellCap,
       cellAnimCapped,
       cellAnimCount,
       cellAnimRedrawCount,
+      decorativeAnimationDroppedCount,
       edgeFlowRedrawCount,
+      lastDecorativeAnimationDroppedCount,
+      lastLivenessAnimationDroppedCount,
       nodePulseRedrawCount,
       reduceMotion: settings.reduceMotion,
       semanticTendrilAnimCandidateCount,
@@ -66,40 +156,41 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
       const visibleActiveCellCandidates = visibleNodes.filter(
         (node) => rendererNodeLayer(node) === "semantic" && node.activity?.active === true,
       );
+      const visibleActiveWorkflowEdgeCandidates = activeWorkflowEdges({
+        edges,
+        visibleNodeIds,
+      });
       cellAnimCandidateCount = visibleActiveCellCandidates.length;
       cellAnimCapped = false;
       activeGlowNodes = visiblePulseNodes;
+      semanticTendrilAnimCandidateCount = countDecorativeSemanticTendrilCandidates({
+        edges,
+        visibleActiveCellCandidates,
+        visibleNodes,
+        visibleNodeIds,
+      });
+      semanticTendrilAnimCapped = false;
+      semanticTendrilAnimCount = 0;
+      activeSemanticTendrils = [];
+      activeSemanticNodeIds = new Set();
+      activeCellNodes = [];
+      cellAnimCount = 0;
+      recordDroppedDecorativeAnimation();
       if (!animationsAllowed) {
         activeEdgeFlows = [];
-        activeCellNodes = [];
-        activeSemanticNodeIds = new Set();
-        activeSemanticTendrils = [];
         activeEdgeFlowCount = 0;
         activeNodePulseCount = 0;
         animationActive = false;
-        cellAnimCount = 0;
-        semanticTendrilAnimCandidateCount = 0;
-        semanticTendrilAnimCapped = false;
-        semanticTendrilAnimCount = 0;
         transitionsActive = 0;
+        recordDroppedLivenessAnimation(
+          visiblePulseNodes.length + visibleActiveWorkflowEdgeCandidates.length,
+        );
         return;
       }
       activeNodePulseCount = visiblePulseNodes.length;
-      activeCellNodes = [];
-      activeSemanticNodeIds = new Set();
-      cellAnimCount = 0;
-      activeEdgeFlows = edges.filter(
-        (edge) =>
-          rendererEdgeLayer(edge) === "workflow" &&
-          edge.status === "active" &&
-          visibleNodeIds.has(edge.sourceNodeId) &&
-          visibleNodeIds.has(edge.targetNodeId),
-      );
+      activeEdgeFlows = visibleActiveWorkflowEdgeCandidates;
       activeEdgeFlowCount = activeEdgeFlows.length;
-      activeSemanticTendrils = [];
-      semanticTendrilAnimCandidateCount = 0;
-      semanticTendrilAnimCapped = false;
-      semanticTendrilAnimCount = 0;
+      recordDroppedLivenessAnimation(0);
       transitionsActive = 0;
       animationActive =
         activeNodePulseCount > 0 || activeEdgeFlowCount > 0 || transitionsActive > 0;
@@ -152,4 +243,81 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
     cellAnimRedrawCount += 1;
     handlers.redrawCellAnimation?.({ nodes: activeCellNodes, now });
   }
+
+  function recordDroppedDecorativeAnimation() {
+    lastDecorativeAnimationDroppedCount =
+      cellAnimCandidateCount + semanticTendrilAnimCandidateCount;
+    decorativeAnimationDroppedCount += lastDecorativeAnimationDroppedCount;
+  }
+
+  function recordDroppedLivenessAnimation(count) {
+    lastLivenessAnimationDroppedCount = count;
+    livenessAnimationDroppedCount += count;
+  }
+}
+
+function animationWorkByLayer({ decorative, trajectoryLiveness }) {
+  return {
+    ...emptyAnimationWorkByLayer,
+    [animationLayerIds.decorative]: decorative,
+    [animationLayerIds.trajectoryLiveness]: trajectoryLiveness,
+  };
+}
+
+function activeWorkflowEdges({ edges, visibleNodeIds }) {
+  return edges.filter(
+    (edge) =>
+      rendererEdgeLayer(edge) === "workflow" &&
+      edge.status === "active" &&
+      visibleNodeIds.has(edge.sourceNodeId) &&
+      visibleNodeIds.has(edge.targetNodeId),
+  );
+}
+
+function countDecorativeSemanticTendrilCandidates({
+  edges,
+  visibleActiveCellCandidates,
+  visibleNodes,
+  visibleNodeIds,
+}) {
+  if (visibleActiveCellCandidates.length === 0) {
+    return 0;
+  }
+  const activeSemanticNodeIds = new Set(visibleActiveCellCandidates.map((node) => node.id));
+  const visibleSemanticNodeIds = new Set(
+    visibleNodes.filter((node) => rendererNodeLayer(node) === "semantic").map((node) => node.id),
+  );
+  let count = 0;
+  for (const edge of edges) {
+    if (
+      isDecorativeSemanticTendrilCandidate(edge, {
+        activeSemanticNodeIds,
+        visibleNodeIds,
+        visibleSemanticNodeIds,
+      })
+    ) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function isDecorativeSemanticTendrilCandidate(
+  edge,
+  { activeSemanticNodeIds, visibleNodeIds, visibleSemanticNodeIds },
+) {
+  return (
+    rendererEdgeLayer(edge) === "semantic" &&
+    edgeEndpointsInSet(edge, visibleSemanticNodeIds) &&
+    edgeEndpointsInSet(edge, visibleNodeIds) &&
+    edgeTouchesSet(edge, activeSemanticNodeIds)
+  );
+}
+
+function edgeEndpointsInSet(edge, ids) {
+  return ids.has(edge.sourceNodeId) && ids.has(edge.targetNodeId);
+}
+
+function edgeTouchesSet(edge, ids) {
+  return ids.has(edge.sourceNodeId) || ids.has(edge.targetNodeId);
 }

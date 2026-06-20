@@ -809,6 +809,31 @@ Success criteria:
 - Semantic animation has an explicit state meaning or is absent.
 - A semantic node appearing does not change the whole background style.
 
+#### Phase 6 Status
+
+The Phase 6 implementation makes graph visual work explicit through a renderer
+animation inventory with per-layer classifications and budgets for
+camera-critical transforms, trajectory/liveness indicators, semantic state
+markers, and decorative semantic effects.
+
+Current evidence supports moving to Phase 7:
+
+- Workflow node pulse and active workflow edge flow remain classified as
+  trajectory/liveness work and continue during camera movement.
+- Trajectory runtime sprites remain owned by the separate pooled trajectory
+  sprite layer and its upstream visible-sprite caps.
+- Semantic activity is represented by a static, named state marker; default
+  semantic cell breathing and semantic tendril flow are classified as
+  decorative, disabled by default, and counted as dropped work when candidates
+  are present.
+- Animation active-set recomputation that is skipped during camera movement is
+  counted as deferred work.
+- Foundation styling is already keyed to active workflow state, not to the mere
+  presence of semantic nodes.
+- Focused renderer tests cover the inventory, decorative-drop counters,
+  liveness behavior during camera movement, stationary semantic cells, and
+  foundation independence.
+
 ### Phase 7: Replace Raw Logs With A Pan/Zoom Performance Report
 
 Make future recordings actionable without manual log archaeology.

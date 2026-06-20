@@ -27,6 +27,7 @@ export function createWorkflowGraphAnimationCoordinator({
     spatialQueries,
   });
   let staticGlowDirty = true;
+  let animationActiveSetDeferredCount = 0;
   let staticGlowVisibilityChangeCount = 0;
   let lastStaticGlowVisibleNodeCount = 0;
 
@@ -41,6 +42,7 @@ export function createWorkflowGraphAnimationCoordinator({
   function debugSnapshot() {
     const windowSnapshot = glowVisibilityWindow.debugSnapshot();
     return {
+      animationActiveSetDeferredCount,
       glowVisibilityWindowInitialized: windowSnapshot.visibleNodeWindowInitialized,
       glowVisibilityWindowSize: windowSnapshot.visibleNodeWindowSize,
       glowVisibilityEnterPaddingScreenPx,
@@ -92,6 +94,7 @@ export function createWorkflowGraphAnimationCoordinator({
 
   function syncActiveSet({ cameraMotion = "settled", forceStaticGlow = false } = {}) {
     if (cameraMotion === "moving") {
+      animationActiveSetDeferredCount += 1;
       clearInactiveEdgeFlow();
       return;
     }
