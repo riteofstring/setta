@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { cn } from "../lib/utils";
 
 type FloatingMenuAlign = "left" | "right";
-type FloatingMenuPlacement = "bottom" | "top";
+type FloatingMenuPlacement = "bottom" | "left" | "right" | "top";
 
 interface FloatingMenuProps {
   align?: FloatingMenuAlign;
@@ -168,6 +168,94 @@ function floatingMenuPosition({
   viewportWidth: number;
 }) {
   const width = matchAnchorWidth ? anchorRect.width : menuRect.width;
+  if (placement === "right" || placement === "left") {
+    return floatingMenuSidePosition({
+      anchorRect,
+      gap,
+      matchAnchorWidth,
+      menuRect,
+      placement,
+      viewportHeight,
+      viewportInset,
+      viewportWidth,
+      width,
+    });
+  }
+  return floatingMenuVerticalPosition({
+    align,
+    anchorRect,
+    gap,
+    matchAnchorWidth,
+    menuRect,
+    placement,
+    viewportHeight,
+    viewportInset,
+    viewportWidth,
+    width,
+  });
+}
+
+function floatingMenuSidePosition({
+  anchorRect,
+  gap,
+  matchAnchorWidth,
+  menuRect,
+  placement,
+  viewportHeight,
+  viewportInset,
+  viewportWidth,
+  width,
+}: {
+  anchorRect: DOMRect;
+  gap: number;
+  matchAnchorWidth: boolean;
+  menuRect: DOMRect;
+  placement: "left" | "right";
+  viewportHeight: number;
+  viewportInset: number;
+  viewportWidth: number;
+  width: number;
+}) {
+  const placementRight = placement === "right";
+  const preferredLeft = placementRight ? anchorRect.right + gap : anchorRect.left - width - gap;
+  const alternateLeft = placementRight ? anchorRect.left - width - gap : anchorRect.right + gap;
+  const leftFits = placementRight
+    ? preferredLeft + width <= viewportWidth - viewportInset
+    : preferredLeft >= viewportInset;
+  return {
+    left: clamp(
+      leftFits ? preferredLeft : alternateLeft,
+      viewportInset,
+      viewportWidth - width - viewportInset,
+    ),
+    top: clamp(anchorRect.top, viewportInset, viewportHeight - menuRect.height - viewportInset),
+    width: matchAnchorWidth ? width : undefined,
+  };
+}
+
+function floatingMenuVerticalPosition({
+  align,
+  anchorRect,
+  gap,
+  matchAnchorWidth,
+  menuRect,
+  placement,
+  viewportHeight,
+  viewportInset,
+  viewportWidth,
+  width,
+}: {
+  align: FloatingMenuAlign;
+  anchorRect: DOMRect;
+  gap: number;
+  matchAnchorWidth: boolean;
+  menuRect: DOMRect;
+  placement: "bottom" | "top";
+  viewportHeight: number;
+  viewportInset: number;
+  viewportWidth: number;
+  width: number;
+}) {
   const unclampedLeft = align === "right" ? anchorRect.right - width : anchorRect.left;
   const preferredTop =
     placement === "top" ? anchorRect.top - menuRect.height - gap : anchorRect.bottom + gap;

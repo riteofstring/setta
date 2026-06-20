@@ -69,7 +69,7 @@ try {
   const desktopChrome = await waitForState(
     context.client,
     chromeStateExpression(),
-    (state) => state.chromePlate && state.toolbar && !state.mobileBar,
+    (state) => state.topBar && state.toolbar && !state.mobileBar,
     workflowTimeoutMs,
   );
   await captureScreenshot(context.client, join(artifactDir, "desktop-restored.png"));
@@ -131,7 +131,7 @@ async function waitForCompactLayout(client, expectedCompact) {
   );
 }
 
-// The mobile chrome contract: bottom control bar in, top-left plate, top-left
+// The mobile chrome contract: bottom control bar in, desktop top bar, top-left
 // toolbar, side project pane, and per-pane top-right action buttons out.
 async function waitForMobileChrome(client) {
   return waitForState(
@@ -139,7 +139,7 @@ async function waitForMobileChrome(client) {
     chromeStateExpression(),
     (state) =>
       state.mobileBar &&
-      !state.chromePlate &&
+      !state.topBar &&
       !state.toolbar &&
       !state.projectPaneOverlay &&
       !state.sideProjectPane &&
@@ -278,7 +278,6 @@ function chromeStateExpression() {
       '[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-action-strip',
     );
     return {
-      chromePlate: Boolean(document.querySelector('[data-testid="shell-chrome-plate"]')),
       mobileBar: Boolean(document.querySelector('[data-testid="workspace-mobile-bar"]')),
       paneActionStripHidden:
         actionStrip instanceof Element ? getComputedStyle(actionStrip).display === "none" : false,
@@ -286,6 +285,7 @@ function chromeStateExpression() {
       sideProjectPane: Boolean(
         document.querySelector('[aria-label="Resize project sidebar"]'),
       ),
+      topBar: Boolean(document.querySelector('[data-testid="shell-top-bar"]')),
       toolbar: Boolean(document.querySelector('[data-testid="workspace-toolbar"]')),
     };
   })()`;

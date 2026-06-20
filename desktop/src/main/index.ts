@@ -290,9 +290,9 @@ async function createWindow() {
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hidden" as const,
-          // y 19 centers the 12px traffic lights at y 25, matching the
-          // renderer's top chrome controls and pane top-bar buttons.
-          trafficLightPosition: { x: 22, y: 19 },
+          // The 12px traffic lights sit 13px from the top and left edges,
+          // centering vertically in the 38px renderer shell top bar.
+          trafficLightPosition: { x: 13, y: 13 },
         }
       : {}),
     title: "Setta",

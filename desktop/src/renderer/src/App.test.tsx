@@ -65,11 +65,13 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain('data-testid="shell-top-bar"');
     expect(html).toContain('data-setta-shell-title-bar="true"');
-    expect(html).toContain('style="left:86px;width:134px"');
-    expect(html).toContain('data-testid="shell-chrome-plate"');
+    expect(html).toContain("setta-shell-top-bar-logo");
+    expect(html).not.toContain('data-testid="shell-icon-rail"');
+    expect(html).not.toContain('data-testid="shell-chrome-plate"');
     expect(html).toContain('aria-label="Hide project sidebar"');
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('data-testid="project-sidebar-toggle"');
+    expect(html).toContain('data-testid="shell-settings-button"');
     expect(html).toContain('data-testid="workspace-layout-area"');
     expect(html).toContain('data-desktop-platform="darwin"');
     expect(html).toContain('data-testid="workspace-presentation-engine"');
@@ -79,12 +81,14 @@ describe("workspace renderer states", () => {
     expect(html).not.toContain('data-testid="workspace-benchmark-status"');
     expect(html).not.toContain('data-testid="workspace-performance-stats"');
     expect(html).toContain('data-testid="workspace-toolbar"');
+    expect(html).not.toContain('data-testid="sidebar-logo-shell"');
+    expect(html).not.toContain('data-testid="sidebar-memory-footer"');
     expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
     expect(html).not.toContain('data-testid="bottom-workspace-pane"');
     expect(html).not.toContain('data-testid="right-workspace-pane"');
   });
 
-  test("bounds the shell drag strip to the project pane on non-mac platforms", () => {
+  test("renders the desktop top bar on non-mac platforms", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
@@ -105,8 +109,8 @@ describe("workspace renderer states", () => {
     const html = renderToString(<App />);
 
     expect(html).toContain('data-testid="shell-top-bar"');
-    expect(html).toContain('data-setta-shell-title-bar="true"');
-    expect(html).toContain('style="left:0;width:220px"');
+    expect(html).not.toContain('data-testid="shell-icon-rail"');
+    expect(html).not.toContain('data-testid="shell-chrome-plate"');
     expect(html).toContain('data-desktop-platform="win32"');
     expect(html).toContain('aria-label="Hide project sidebar"');
   });

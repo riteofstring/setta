@@ -271,7 +271,7 @@ export class PresentationEngine {
       this.hideBinding(binding);
       return emptyPresentationWriteCounts();
     }
-    const writeCounts = this.shouldSyncContent(binding, item)
+    const writeCounts = this.shouldSyncContent(binding, item, options)
       ? addPresentationWriteCounts(
           this.syncContent(binding, item, assignedItems, options),
           this.syncFrame(binding, item),
@@ -518,7 +518,7 @@ export class PresentationEngine {
     if (
       binding.contentPaneId !== item.paneId &&
       !this.hostContentMissing(binding) &&
-      !this.contentSyncAllowedDuringMovement(item)
+      !this.contentSyncAllowedDuringMovement(item, options)
     ) {
       return emptyPresentationWriteCounts();
     }
@@ -535,16 +535,24 @@ export class PresentationEngine {
     };
   }
 
-  private shouldSyncContent(binding: PaneHostBinding, item: PaneRenderItem): boolean {
+  private shouldSyncContent(
+    binding: PaneHostBinding,
+    item: PaneRenderItem,
+    options: PresentationApplyOptions,
+  ): boolean {
     return (
       this.hostContentMissing(binding) ||
       binding.contentPaneId === item.paneId ||
-      this.contentSyncAllowedDuringMovement(item)
+      this.contentSyncAllowedDuringMovement(item, options)
     );
   }
 
-  private contentSyncAllowedDuringMovement(item: PaneRenderItem): boolean {
+  private contentSyncAllowedDuringMovement(
+    item: PaneRenderItem,
+    options: PresentationApplyOptions,
+  ): boolean {
     return (
+      options.resizePhase !== "idle" ||
       this.options.syncAllRenderedContentDuringMovement ||
       !item.moving ||
       item.focused ||

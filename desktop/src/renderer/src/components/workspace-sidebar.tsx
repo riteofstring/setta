@@ -4,7 +4,6 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
-import { cn } from "../lib/utils";
 import { useChatStore } from "../stores/chat-store";
 import { useWorkflowDefinitionStore } from "../stores/workflow-definition-store";
 import {
@@ -21,6 +20,7 @@ import {
 import { EmptySectionSpace, SidebarSettingsButton } from "./sidebar-secondary-sections";
 import { ProjectFolderButton } from "./sidebar-header-actions";
 import { SidebarShortcuts } from "./sidebar-shortcuts";
+import { SettaLogoMark } from "./setta-logo-mark";
 import {
   conversationCorruptionLabels,
   SidebarNavigationRow,
@@ -74,7 +74,6 @@ interface WorkspaceSidebarProps {
   activeRun: Run | null;
   activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
-  chromeInsetTop?: boolean;
   clearWorkspaceError?: () => void;
   closeWorkspace: (id: string) => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
@@ -95,6 +94,8 @@ interface WorkspaceSidebarProps {
     pinned: boolean,
     workspaceId?: string,
   ) => Promise<void>;
+  showFooterSettings?: boolean;
+  showLogoHeader?: boolean;
   sidebarWidth?: number;
   workspaceError?: string | null;
 }
@@ -110,7 +111,6 @@ export function WorkspaceSidebar({
   activeRun,
   activeWorkspaces,
   busy,
-  chromeInsetTop = false,
   clearWorkspaceError = noop,
   closeWorkspace,
   createConversation,
@@ -127,6 +127,8 @@ export function WorkspaceSidebar({
   selectedConversationId,
   selectedWorkspaceId,
   setConversationPinned,
+  showFooterSettings = true,
+  showLogoHeader = true,
   sidebarWidth = 220,
   workspaceError = null,
 }: WorkspaceSidebarProps) {
@@ -274,8 +276,9 @@ export function WorkspaceSidebar({
       className="setta-sidebar-surface relative flex h-full min-h-0 w-full min-w-0 flex-col text-sidebar-foreground"
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
+      <SidebarLogoHeader visible={showLogoHeader} />
       <div
-        className={cn("shrink-0 px-1 pb-2", chromeInsetTop && "pt-10")}
+        className="setta-sidebar-content-shell shrink-0 px-1 pb-2"
         data-testid="sidebar-shortcuts-shell"
       >
         <SidebarAccordionSection
@@ -288,7 +291,7 @@ export function WorkspaceSidebar({
           title="Shortcuts"
         >
           <SidebarShortcuts
-            busy={busy || chatCreateBusy}
+            busy={sidebarShortcutsBusy(busy, chatCreateBusy)}
             createConversation={createConversation}
             hasWorkspace={selectedWorkspaceId !== ""}
           />
@@ -296,7 +299,7 @@ export function WorkspaceSidebar({
         <SidebarOperationError message={visibleError} onDismiss={dismissVisibleError} />
       </div>
       <div
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1"
+        className="setta-sidebar-scroll-shell min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1"
         data-testid="sidebar-scrollable-sections"
         style={noScrollAnchoringStyle}
       >
@@ -348,11 +351,48 @@ export function WorkspaceSidebar({
           </SidebarAccordionSection>
         </div>
       </div>
-      <div className="grid shrink-0 gap-0.5 px-1 py-1" data-testid="sidebar-memory-footer">
-        <SidebarSettingsButton onOpenSettings={openSettingsPane} />
-      </div>
+      <SidebarFooterSettings onOpenSettings={openSettingsPane} visible={showFooterSettings} />
     </aside>
   );
+}
+
+function SidebarLogoHeader({ visible }: { visible: boolean }) {
+  if (!visible) {
+    return null;
+  }
+  return (
+    <div
+      className="setta-sidebar-logo-shell app-drag flex h-[50px] shrink-0 items-center justify-end px-4"
+      data-setta-shell-title-bar="true"
+      data-testid="sidebar-logo-shell"
+    >
+      <SettaLogoMark height={14} />
+    </div>
+  );
+}
+
+function SidebarFooterSettings({
+  onOpenSettings,
+  visible,
+}: {
+  onOpenSettings: () => void;
+  visible: boolean;
+}) {
+  if (!visible) {
+    return null;
+  }
+  return (
+    <div
+      className="setta-sidebar-footer grid shrink-0 gap-0.5 px-1 py-1"
+      data-testid="sidebar-memory-footer"
+    >
+      <SidebarSettingsButton onOpenSettings={onOpenSettings} />
+    </div>
+  );
+}
+
+function sidebarShortcutsBusy(busy: boolean, chatCreateBusy: boolean) {
+  return busy || chatCreateBusy;
 }
 
 function SidebarOperationError({

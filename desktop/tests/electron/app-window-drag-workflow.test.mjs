@@ -23,7 +23,8 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowTimeoutMs = 25_000;
 const dragDeltaTolerancePx = 35;
-const chromePlateEndInsetPx = 7;
+const shellTopBarButtonGapPx = 6;
+const shellTopBarButtonSizePx = 28;
 const viewport = {
   deviceScaleFactor: 1,
   height: 900,
@@ -64,7 +65,7 @@ try {
 
   const regions = await sampleDragRegions(context.client);
   assertWorkspaceControlsNotDraggable(regions);
-  assertChromePlateDoesNotCaptureControls(regions);
+  assertShellTopBarDragRegions(regions);
   assertPaneChromeDraggable(regions);
   assertPaneDragHandleNotWindowDraggable(regions);
   await assertEffectiveWindowDragRegions(context.client);
@@ -223,8 +224,8 @@ async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
   await captureScreenshot(client, join(artifactDir, "collapsed-controls.png"));
   const collapsedRegions = await sampleDragRegions(client);
   assertWorkspaceControlsNotDraggable(collapsedRegions);
-  assertChromePlateDoesNotCaptureControls(collapsedRegions);
-  assertTopChromeControlSizing(await topChromeControlMeasurements(client));
+  assertShellTopBarDragRegions(collapsedRegions);
+  assertShellTopBarControlSizing(await shellTopBarControlMeasurements(client));
   await assertEffectiveWindowDragRegions(client);
 
   const maximizeButton = await elementCenter(
@@ -317,7 +318,7 @@ async function elementCenter(client, selector) {
   };
 }
 
-async function topChromeControlMeasurements(client) {
+async function shellTopBarControlMeasurements(client) {
   return client.evaluate(`(() => {
     function rectFor(selector) {
       const element = document.querySelector(selector);
@@ -342,15 +343,10 @@ async function topChromeControlMeasurements(client) {
       return Number.isFinite(gap) ? gap : null;
     }
     return {
-      chromePlate: rectFor('[data-testid="shell-chrome-plate"]'),
       newFrameButton: rectFor(".workspace-toolbar-menu-button"),
-      paneActionButton: rectFor(
-        '[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-action-strip [data-workspace-pane-action]:not([disabled])',
-      ),
-      paneActionGap: numericGap(
-        '[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-action-strip',
-      ),
       projectToggle: rectFor('[data-testid="project-sidebar-toggle"]'),
+      settingsButton: rectFor('[data-testid="shell-settings-button"]'),
+      shellTopBar: rectFor('[data-testid="shell-top-bar"]'),
       toolbarButton: rectFor(".workspace-toolbar-button"),
       toolbarGap: numericGap(".workspace-toolbar-group"),
     };
@@ -364,20 +360,22 @@ async function topChromeControlMeasurements(client) {
 // bypasses the OS region, so clicks alone cannot catch that regression;
 // this models the ordered region math and checks the points that matter.
 async function assertEffectiveWindowDragRegions(client) {
-  const platform = await client.evaluate(`(() =>
-    document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-desktop-platform") ?? ""
-  )()`);
   const targets = [
     { name: "project-toggle", selector: '[data-testid="project-sidebar-toggle"]' },
     { name: "overview-button", selector: ".workspace-toolbar-button" },
     { name: "new-frame-button", selector: ".workspace-toolbar-menu-button" },
+    {
+      name: "shell-top-bar-surface",
+      offsetX: 600,
+      offsetY: 12,
+      selector: '[data-testid="shell-top-bar"]',
+    },
     {
       name: "pane-title-bar",
       offsetX: 220,
       offsetY: 12,
       selector: '[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-top-bar',
     },
-    ...(platform === "darwin" ? [{ name: "chrome-hit-shield", x: 12, y: 20 }] : []),
   ];
   const states = await effectiveDragRegionStates(client, targets);
   const expectations = {
@@ -385,7 +383,7 @@ async function assertEffectiveWindowDragRegions(client) {
     "overview-button": false,
     "pane-title-bar": true,
     "project-toggle": false,
-    ...(platform === "darwin" ? { "chrome-hit-shield": false } : {}),
+    "shell-top-bar-surface": true,
   };
   for (const [name, expectedDraggable] of Object.entries(expectations)) {
     const state = states.find((candidate) => candidate.name === name);
@@ -523,8 +521,7 @@ async function sampleDragRegions(client) {
       ?.getBoundingClientRect();
     return [
       sample("workspace-control", toolbar ? toolbar.left + 14 : 118, toolbar ? toolbar.top + 14 : 18),
-      sampleElement("chrome-plate", '[data-testid="shell-chrome-plate"]'),
-      sample("chrome-plate-surface", 12, 20),
+      sampleElement("shell-top-bar", '[data-testid="shell-top-bar"]'),
       sample("pane-title-bar", paneTop ? paneTop.left + 120 : 350, paneTop ? paneTop.top + 12 : 53),
       sample(
         "pane-drag-handle",
@@ -542,77 +539,55 @@ function assertWorkspaceControlsNotDraggable(regions) {
   }
 }
 
-function assertChromePlateDoesNotCaptureControls(regions) {
-  const plate = requiredRegion(regions, "chrome-plate");
-  if (plate.testid !== "shell-chrome-plate" || plate.region === "drag") {
-    throw new Error(
-      `chrome plate should not capture controls as a drag region: ${JSON.stringify(plate)}`,
-    );
-  }
-  const plateSurface = requiredRegion(regions, "chrome-plate-surface");
-  if (plateSurface.testid !== "shell-chrome-plate" || plateSurface.region !== "no-drag") {
-    throw new Error(
-      `chrome plate surface should shield pane drag regions: ${JSON.stringify(plateSurface)}`,
-    );
+function assertShellTopBarDragRegions(regions) {
+  const topBar = requiredRegion(regions, "shell-top-bar");
+  if (topBar.testid !== "shell-top-bar" || topBar.region !== "drag") {
+    throw new Error(`shell top bar should drag the window: ${JSON.stringify(topBar)}`);
   }
 }
 
-function assertTopChromeControlSizing(measurements) {
-  const {
-    chromePlate,
-    newFrameButton,
-    paneActionButton,
-    paneActionGap,
-    projectToggle,
-    toolbarButton,
-    toolbarGap,
-  } = measurements;
+function assertShellTopBarControlSizing(measurements) {
+  const { newFrameButton, projectToggle, settingsButton, shellTopBar, toolbarButton, toolbarGap } =
+    measurements;
   for (const [name, rect] of Object.entries({
-    chromePlate,
     newFrameButton,
-    paneActionButton,
     projectToggle,
+    settingsButton,
+    shellTopBar,
     toolbarButton,
   })) {
     if (!rect) {
-      throw new Error(`missing top chrome control measurement: ${name}`);
+      throw new Error(`missing shell top bar control measurement: ${name}`);
     }
   }
-  assertSameRectSize(projectToggle, paneActionButton, "project toggle");
-  assertSameRectSize(toolbarButton, paneActionButton, "workspace toolbar button");
-  assertSameRectSize(newFrameButton, paneActionButton, "workspace toolbar menu button");
+  assertTopBarButtonRect(projectToggle, shellTopBar, "project toggle");
+  assertTopBarButtonRect(settingsButton, shellTopBar, "settings button");
+  assertTopBarButtonRect(toolbarButton, shellTopBar, "workspace toolbar button");
+  assertTopBarButtonRect(newFrameButton, shellTopBar, "workspace toolbar menu button");
   assertNearlyEqual(
-    Math.round(toolbarButton.left - projectToggle.right),
-    paneActionGap,
-    "project toggle to workspace toolbar gap",
+    settingsButton.left - projectToggle.right,
+    shellTopBarButtonGapPx,
+    "project toggle to settings horizontal gap",
   );
-  assertNearlyEqual(toolbarGap, paneActionGap, "workspace toolbar group gap");
-  const paneActionCenterY = paneActionButton.top + paneActionButton.height / 2;
+  if (toolbarButton.left <= settingsButton.right) {
+    throw new Error("workspace toolbar should render to the right of shell settings button");
+  }
   assertNearlyEqual(
-    projectToggle.top + projectToggle.height / 2,
-    paneActionCenterY,
-    "project toggle vertical center",
+    newFrameButton.left - toolbarButton.right,
+    shellTopBarButtonGapPx,
+    "workspace toolbar horizontal gap",
   );
-  assertNearlyEqual(
-    toolbarButton.top + toolbarButton.height / 2,
-    paneActionCenterY,
-    "workspace toolbar button vertical center",
-  );
-  assertNearlyEqual(
-    newFrameButton.top + newFrameButton.height / 2,
-    paneActionCenterY,
-    "workspace toolbar menu button vertical center",
-  );
-  assertNearlyEqual(
-    chromePlate.right - newFrameButton.right,
-    chromePlateEndInsetPx,
-    "chrome control cluster right inset",
-  );
+  assertNearlyEqual(toolbarGap, shellTopBarButtonGapPx, "workspace toolbar group gap");
 }
 
-function assertSameRectSize(rect, expected, name) {
-  assertNearlyEqual(rect.width, expected.width, `${name} width`);
-  assertNearlyEqual(rect.height, expected.height, `${name} height`);
+function assertTopBarButtonRect(rect, topBar, name) {
+  assertNearlyEqual(rect.width, shellTopBarButtonSizePx, `${name} width`);
+  assertNearlyEqual(rect.height, shellTopBarButtonSizePx, `${name} height`);
+  assertNearlyEqual(
+    rect.top + rect.height / 2,
+    topBar.top + topBar.height / 2,
+    `${name} vertical top bar alignment`,
+  );
 }
 
 function assertNearlyEqual(actual, expected, name) {

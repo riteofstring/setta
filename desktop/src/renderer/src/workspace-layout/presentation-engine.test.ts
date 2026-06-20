@@ -32,6 +32,24 @@ describe("workspace presentation engine", () => {
     expect(host.dataset.paneId).toBe("workspace_pane_1");
   });
 
+  test("syncs newly visible pane content during viewport resize", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
+    const host = fakePaneHost("workspace_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("workspace_pane_1", "workspace_surface_1", true)], {
+      resizePhase: "active",
+    });
+
+    expect(textFor(host, "[data-workspace-pane-title]")).toBe("Pane 002");
+    expect(host.dataset.paneId).toBe("workspace_pane_1");
+  });
+
   test("can sync every rendered pane during movement for seamless workspace navigation", () => {
     const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");

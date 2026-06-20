@@ -58,6 +58,7 @@ export function WorkspaceToolbar({
       <TooltipProvider>
         <div className="workspace-toolbar-group">
           <WorkspaceToolbarButton
+            active={overviewActive}
             label={overviewActive ? "Exit overview" : "Enter overview"}
             onClick={() => runLayoutAction(() => store.toggleOverviewMode())}
           >
@@ -137,10 +138,12 @@ export function emptyFrameOptionsForStore(store: WorkspaceLayoutStore): EmptyFra
 }
 
 function WorkspaceToolbarButton({
+  active = false,
   children,
   label,
   onClick,
 }: {
+  active?: boolean;
   children: ReactNode;
   label: string;
   onClick: () => void;
@@ -150,6 +153,7 @@ function WorkspaceToolbarButton({
       <TooltipTrigger>
         <button
           aria-label={label}
+          aria-pressed={active}
           className="workspace-toolbar-button app-no-drag"
           onClick={onClick}
           type="button"
@@ -157,7 +161,7 @@ function WorkspaceToolbarButton({
           {children}
         </button>
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   );
 }
@@ -225,7 +229,7 @@ function WorkspaceToolbarMenu({
             <Icon className="h-3.5 w-3.5" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>{label}</TooltipContent>
+        <TooltipContent side="bottom">{label}</TooltipContent>
       </Tooltip>
       <FloatingMenu
         anchorRef={anchorRef}
