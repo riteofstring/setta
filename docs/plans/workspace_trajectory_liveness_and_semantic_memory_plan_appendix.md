@@ -46,6 +46,44 @@ Live-provider checks:
 - If ChatGPT auth is unavailable, skip narrowly and state that live-provider
   integration was not proven.
 
+## Current Acceptance Status
+
+Last reviewed after commit `2d1343265`.
+
+Passing checks:
+
+- Focused renderer runtime tests passed for scene-store coalescing, semantic
+  runtime store behavior, trajectory store behavior, semantic graph projection
+  and state, and workflow graph projection/layout.
+- Production `semantic-graph` passed.
+- Production `workspace-trajectory-file-fidelity` passed.
+- Production `semantic-cartographer-auto` passed.
+
+Blocking checks:
+
+- Production `workflow-graph-pan-zoom-runtime-burst` fails
+  `no-full-graph-label-sync-per-pan-wheel-event`. Two runs produced
+  `cameraMovingLabelSyncDelta=5`, which violates the hard gate that camera
+  movement must not cause full graph label sync work.
+- Production `semantic-review-live-product` fails because workflow-node details
+  do not explain semantic runtime aggregate/source state. The details pane
+  currently exposes trajectory/cartographer status, but not the semantic runtime
+  explanation required by the product gate.
+
+Not yet proven after the blockers:
+
+- Production `semantic-runtime-reconnect`.
+- Production `semantic-runtime-large-review`.
+- Live Codex E2E after the Phase 6 follow-up, if the follow-up touches Codex
+  harness behavior, provider protocol handling, or live cartographer behavior.
+
+Exit criteria:
+
+- Fix the two blocking checks above.
+- Rerun the blocked Phase 7 workflow set.
+- Rerun any focused unit or production workflow checks touched by the follow-up.
+- Only then mark Phase 7 complete in the main plan.
+
 ## Implementation Notes
 
 ### Contract And Generation Rules
@@ -107,17 +145,28 @@ This plan explicitly excludes:
 - and feature flags whose only purpose is to preserve old behavior during the
   refactor.
 
-## Open Questions
+## Question Status
 
-1. Which provider/tool events expose typed file read paths, line ranges, and
-   structured diff additions/deletions today?
-2. Should the long-term runtime composition service live in a new package, or
-   should the existing semantic runtime be narrowed while workflow/chat runtime
-   is added beside it?
-3. How long should default trajectory sprites remain visible before collapsing
-   into workflow-node details?
-4. Should users be able to pin individual trajectory sprites into durable
-   semantic memory manually?
-5. Should "semantic memory future use" be required in the patch schema, or can
-   it be deterministic audit derived from node kind, evidence, and retrieval
-   behavior?
+Resolved:
+
+- Provider/tool metadata for Phase 7 should use the typed data added in earlier
+  phases: run item file operations, structured diff stats, dynamic tool file
+  metadata, command/test/tool fields, workflow runner refs, and explicit source
+  refs. Missing provider precision should be displayed honestly instead of
+  inferred from shell commands or output text.
+- Runtime composition currently belongs in the renderer scene-store layer, with
+  separate backend runtime projections for trajectory facts, semantic memory,
+  and cartographer audit. Do not add a new backend composition service unless a
+  later measured bottleneck proves the renderer scene store cannot own this
+  boundary.
+- `futureUse` is required for new semantic memory. Phase 5 put it in the
+  cartographer schema and validation path, rather than deriving it silently.
+
+Deferred product decisions:
+
+- Exact default trajectory sprite TTL and collapse timing. Keep the existing
+  bounded behavior until Phase 7 liveness/readability evidence shows a concrete
+  problem.
+- Manual pinning of individual trajectory sprites into durable semantic memory.
+  This is useful future product work, but it is not required to complete this
+  plan.

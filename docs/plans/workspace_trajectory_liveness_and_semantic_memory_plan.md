@@ -1,6 +1,7 @@
 # Workspace Trajectory Liveness and Semantic Memory Plan
 - **Date:** June 18, 2026
-- **Status:** Phase 6 complete; Phase 7 ready to execute
+- **Status:** Phase 6 implementation landed; Phase 7 is blocked by acceptance
+  failures that require a Phase 6 follow-up.
 - **Scope:** Replace the current semantic-node-centered liveness model with a
   principled split between deterministic workflow trajectory visuals, durable
   semantic memory, cartographer audit, and graph interaction/runtime
@@ -908,9 +909,10 @@ Non-blocking residual:
 
 ### Phase 6 - Runtime Ownership Consolidation
 
-Status: complete. The working tree implementation consolidates renderer
-runtime ownership around a composed workspace graph scene store while preserving
-the backend runtime split from earlier phases.
+Status: implementation landed. Commit `2d1343265` consolidates renderer runtime
+ownership around a composed workspace graph scene store while preserving the
+backend runtime split from earlier phases. Phase 7 acceptance exposed follow-up
+work before the plan can be called complete.
 
 Clean up the long-term boundary between trajectory runtime, semantic runtime,
 and renderer state.
@@ -961,18 +963,36 @@ Phase 6 implementation review:
   renderer behavior, TypeScript contract consumption, and deterministic
   production Electron graph and trajectory workflows.
 
+Phase 6 follow-up blockers:
+
+- `workflow-graph-pan-zoom-runtime-burst` fails the hard Phase 7 guardrail
+  `no-full-graph-label-sync-per-pan-wheel-event`. Two runs after Phase 6
+  produced `cameraMovingLabelSyncDelta=5` with `labelSyncDelta=135` and
+  `labelSyncDelta=137`, so camera movement still causes label sync work.
+- `semantic-review-live-product` fails because workflow-node details no longer
+  explain the semantic runtime aggregate/source state. The details pane shows
+  trajectory/cartographer status, but the product acceptance check expects a
+  readable semantic runtime explanation.
+
 Phase 7 handoff:
 
-- Phase 7 is ready to execute against the product acceptance matrix in the
-  appendix.
-- Treat Phase 6 runtime boundaries as settled unless Phase 7 acceptance exposes
-  a concrete renderer or runtime ownership gap.
+- Phase 7 has started and is blocked. Do not mark this plan fully implemented
+  until the blockers above pass and the remaining Phase 7 workflows have been
+  rerun.
+- Keep the Phase 6 runtime boundary direction unless fixing these failures
+  proves the scene-store contract is missing a required semantic runtime or
+  renderer-local ownership field.
+- The follow-up should stay narrow: prevent label sync during camera movement,
+  restore semantic runtime aggregate explanation in workflow-node details, then
+  rerun the product acceptance matrix.
 - Keep future changes on the same split: deterministic trajectory runtime for
   fast liveness, semantic memory for durable claims, cartographer audit for
   operational state, and renderer scene state for camera-local interaction.
 
 ### Phase 7 - Product Acceptance Matrix
 
-The product acceptance matrix, implementation notes, non-goals, and open
-questions live in
+Status: blocked pending the Phase 6 follow-up above.
+
+The product acceptance matrix, current acceptance status, implementation notes,
+non-goals, and question status live in
 `docs/plans/workspace_trajectory_liveness_and_semantic_memory_plan_appendix.md`.
