@@ -70,10 +70,11 @@ describe("workflow graph camera sync", () => {
     const labelLayer = { visible: true };
     const animationCoordinator = { syncActiveSet: vi.fn() };
     const syncFilterAreas = vi.fn();
+    const onCameraStateChange = vi.fn();
     const cameraSync = createWorkflowGraphCameraSync({
       animationCoordinator,
       debugMetrics: debugMetricsStub(),
-      handlers: { onCameraStateChange: vi.fn() },
+      handlers: { onCameraStateChange },
       inputResponsiveness: { recordSettleRestore: vi.fn() },
       labelLayer,
       labels,
@@ -100,6 +101,15 @@ describe("workflow graph camera sync", () => {
       cameraSettleRestoreFrameCount: 1,
       pendingSettledFidelityIncludesZoom: false,
     });
+    expect(onCameraStateChange).toHaveBeenNthCalledWith(
+      1,
+      { x: 0, y: 0, zoom: 1.2 },
+      { cameraMotion: "moving", interactionKind: "wheel-zoom" },
+    );
+    expect(onCameraStateChange).toHaveBeenLastCalledWith(
+      { x: 0, y: 0, zoom: 1.2 },
+      { cameraMotion: "settled", interactionKind: "wheel-zoom" },
+    );
   });
 
   test("does not restore settled fidelity until an active pointer camera pan ends", () => {

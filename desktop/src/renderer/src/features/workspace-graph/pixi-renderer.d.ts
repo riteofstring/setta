@@ -140,6 +140,11 @@ export interface WorkflowGraphCameraState {
   zoom: number;
 }
 
+export interface WorkflowGraphCameraChange {
+  cameraMotion: "moving" | "settled";
+  interactionKind: string;
+}
+
 export interface WorkflowGraphNodePosition {
   moved: boolean;
   nodeId: string;
@@ -163,7 +168,10 @@ export interface WorkflowGraphEdgeConnection {
 
 export interface WorkflowGraphRendererHandlers {
   onCanvasContextMenu?: ((menu: WorkflowGraphCanvasContextMenu) => void) | null;
-  onCameraStateChange?: (camera: WorkflowGraphCameraState) => void;
+  onCameraStateChange?: (
+    camera: WorkflowGraphCameraState,
+    change?: WorkflowGraphCameraChange,
+  ) => void;
   onEdgeCreate?: (connection: WorkflowGraphEdgeConnection) => void;
   onEdgeDelete?: (edgeIds: string[]) => void;
   onEdgeSelectionChange?: (edgeIds: string[]) => void;

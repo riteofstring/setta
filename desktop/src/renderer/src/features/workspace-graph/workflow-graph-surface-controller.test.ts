@@ -16,9 +16,12 @@ import type { WorkspaceTrajectoryFrameSnapshot } from "./workspace-trajectory-st
 
 type RendererStub = WorkflowGraphRenderer & {
   graphs: WorkflowGraphGraph[];
+  setCamera: (camera: WorkflowGraphCameraState) => void;
   trajectories: WorkspaceTrajectoryFrameSnapshot[];
   transferHosts: HTMLElement[];
 };
+
+type RendererCreateOptions = Parameters<typeof createWorkflowGraphRenderer>[0];
 
 describe("workflow graph surface controller", () => {
   test("returns one live controller per surface id", () => {
@@ -121,9 +124,51 @@ describe("workflow graph surface controller", () => {
 
     destroyWorkflowGraphSurfaceController("surface-controller-stale");
   });
+
+  test("keeps moving camera state local and captures it only after settle", async () => {
+    const captureCameraState = vi.fn();
+    const noteCameraMovement = vi.fn();
+    const renderer = rendererStub();
+    const factory = rendererFactory(renderer);
+    const controller = workflowGraphSurfaceControllerForSurface("surface-controller-camera", {
+      loadRenderer: async () => ({ createWorkflowGraphRenderer: factory.factory }),
+    });
+
+    controller.configure(
+      config({
+        captureCameraState,
+        noteCameraMovement,
+      }),
+    );
+    controller.mount(host("camera"));
+    controller.updateScene(graph("initial"));
+    await flushPromises();
+
+    const camera = { x: 40, y: -20, zoom: 1.4 };
+    renderer.setCamera(camera);
+    factory.calls[0]?.options.onCameraStateChange?.(camera, {
+      cameraMotion: "moving",
+      interactionKind: "wheel-pan",
+    });
+
+    expect(noteCameraMovement).toHaveBeenCalledTimes(1);
+    expect(captureCameraState).not.toHaveBeenCalled();
+
+    factory.calls[0]?.options.onCameraStateChange?.(camera, {
+      cameraMotion: "settled",
+      interactionKind: "wheel-pan",
+    });
+
+    expect(captureCameraState).toHaveBeenCalledTimes(1);
+    expect(captureCameraState).toHaveBeenLastCalledWith(camera);
+
+    controller.destroy();
+  });
 });
 
-function config(): Parameters<WorkflowGraphSurfaceController["configure"]>[0] {
+function config(
+  overrides: Partial<Parameters<WorkflowGraphSurfaceController["configure"]>[0]> = {},
+): Parameters<WorkflowGraphSurfaceController["configure"]>[0] {
   return {
     animationEnabled: true,
     captureCameraState: () => undefined,
@@ -131,6 +176,7 @@ function config(): Parameters<WorkflowGraphSurfaceController["configure"]>[0] {
     handlers: handlers(),
     initialCameraState: null,
     reduceMotion: false,
+    ...overrides,
   };
 }
 
@@ -184,12 +230,16 @@ function host(id: string): HTMLElement {
 }
 
 function rendererFactory(renderer = rendererStub()) {
-  const calls: Array<{ graph: WorkflowGraphGraph; host: HTMLElement }> = [];
+  const calls: Array<{
+    graph: WorkflowGraphGraph;
+    host: HTMLElement;
+    options: RendererCreateOptions;
+  }> = [];
   const factory: typeof createWorkflowGraphRenderer = vi.fn(async (options) => {
     if (options.graph === undefined) {
       throw new Error("test renderer factory requires an initial graph");
     }
-    calls.push({ graph: options.graph, host: options.host });
+    calls.push({ graph: options.graph, host: options.host, options });
     return renderer;
   });
   return {
@@ -214,7 +264,7 @@ function deferredFactory(renderer: RendererStub) {
 }
 
 function rendererStub(): RendererStub {
-  const camera: WorkflowGraphCameraState = { x: 0, y: 0, zoom: 1 };
+  let camera: WorkflowGraphCameraState = { x: 0, y: 0, zoom: 1 };
   return {
     graphs: [],
     trajectories: [],
@@ -224,6 +274,9 @@ function rendererStub(): RendererStub {
     destroy: vi.fn(),
     isCameraMoving: () => false,
     resize: vi.fn(),
+    setCamera(nextCamera) {
+      camera = nextCamera;
+    },
     setHandlers: vi.fn(),
     suspend: vi.fn(),
     transferHost(host) {

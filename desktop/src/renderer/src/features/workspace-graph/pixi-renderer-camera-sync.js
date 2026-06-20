@@ -108,11 +108,25 @@ export function createWorkflowGraphCameraSync({
           pendingCameraSyncIncludesZoom || recordedCameraState.zoom !== lastCameraState.zoom;
         cameraUpdateCount += 1;
         lastCameraState = recordedCameraState;
-        handlers.onCameraStateChange(recordedCameraState);
+        const cameraMotion = cameraMotionForChange(moving);
         syncCameraMovementState({ interactionKind, moving, now });
+        handlers.onCameraStateChange(recordedCameraState, {
+          cameraMotion,
+          interactionKind,
+        });
         return true;
       }),
     );
+  }
+
+  function cameraMotionForChange(moving) {
+    if (moving === true) {
+      return "moving";
+    }
+    if (moving === false) {
+      return "settled";
+    }
+    return cameraMoving ? "moving" : "settled";
   }
 
   function syncCameraMovementState({ interactionKind, moving, now }) {
@@ -232,6 +246,10 @@ export function createWorkflowGraphCameraSync({
       { cameraMotion: "settled" },
     );
     inputResponsiveness?.recordSettleRestore(now);
+    handlers.onCameraStateChange(lastCameraState, {
+      cameraMotion: "settled",
+      interactionKind: lastCameraMovementKind,
+    });
     cameraSettleRestoreFrameCount += 1;
   }
 

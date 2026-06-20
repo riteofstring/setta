@@ -766,15 +766,28 @@ async function clickWorkflowNodeDetailsSaveButton(client) {
   }
 }
 
-async function restoreMaximizedWorkflowGraphPane(client) {
-  const restored = await client.driver("restoreMaximizedWorkflowGraphPane");
+async function restoreMaximizedWorkflowGraphPane(client, surfaceId = null) {
+  await client.installDriver();
+  const before = await client.driver("workflowGraphPaneState", { surfaceId });
+  if (!before.maximized) {
+    return;
+  }
+  await waitForState(
+    client,
+    driverCallExpression("workflowGraphPaneState", { surfaceId }),
+    (value) => !value.moving,
+  );
+  const stable = await client.driver("workflowGraphPaneState", { surfaceId });
+  if (!stable.maximized) {
+    return;
+  }
+  const restored = await client.driver("restoreMaximizedWorkflowGraphPane", { surfaceId });
   if (!restored) {
     return;
   }
-  await client.installDriver();
   await waitForState(
     client,
-    driverCallExpression("workflowGraphPaneState"),
+    driverCallExpression("workflowGraphPaneState", { surfaceId }),
     (value) => !value.maximized && !value.moving,
   );
 }
@@ -1140,7 +1153,7 @@ async function configureWorkflowResultAction(client, surfaceId, workspaceId, def
     snapshot.graph.nodes.some((node) => node.id === "agent_task"),
   );
   await openAgentTaskDetailsFromToolbar(client, surfaceId, graphSnapshot);
-  await restoreMaximizedWorkflowGraphPane(client);
+  await restoreMaximizedWorkflowGraphPane(client, surfaceId);
   await waitForSelector(
     client,
     `${visibleWorkflowNodeDetailsSurfaceSelector} [data-testid="workflow-node-prompt"]`,

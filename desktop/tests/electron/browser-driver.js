@@ -901,10 +901,15 @@
     return Array.from(document.querySelectorAll('[data-testid="workflow-graph"]'));
   }
 
-  function restoreMaximizedWorkflowGraphPane() {
-    const host = document.querySelector(
-      '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-maximized="true"]',
-    );
+  function restoreMaximizedWorkflowGraphPane({ surfaceId = null } = {}) {
+    const host =
+      (surfaceId ? workflowGraphHostBySurfaceId(surfaceId) : null) ??
+      document.querySelector(
+        '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-maximized="true"]',
+      );
+    if (!(host instanceof HTMLElement) || host.dataset.maximized !== "true") {
+      return false;
+    }
     const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
     if (!(button instanceof HTMLButtonElement)) {
       return false;

@@ -9,6 +9,7 @@ import { useSemanticGraphStore } from "../../stores/semantic-graph-store";
 import { useWorkflowContextMenuClose } from "./workflow-context-menu-close";
 import { emptyWorkflowGraph, type WorkflowDraftNodeType } from "./workflow-graph-draft";
 import type { WorkflowLayoutPosition } from "./workflow-graph-layout";
+import { useWorkflowLayoutOverlay } from "./workflow-graph-layout-overlay";
 import { persistGraphNodePositions } from "./workflow-graph-layout-persistence";
 import type {
   WorkflowGraphCameraState,
@@ -61,7 +62,6 @@ import {
   workflowProjectionForDefinition,
   workflowProjectionForExecution,
   workflowProjectionPendingApproval,
-  workflowProjectionWithLayoutPositions,
   workflowRunDraftPreflightMessage,
   workflowValidationForDraftProjection,
   type WorkflowGraphRendererGraph,
@@ -137,6 +137,13 @@ export function WorkflowGraphSurface({
     selectedDefinitionIdsByWorkspaceId,
   });
   workflowProjectionRef.current = workflowProjection;
+  const {
+    clearPersistedWorkflowLayout,
+    preparePendingWorkflowLayout,
+    workflowProjectionWithLocalLayout,
+  } = useWorkflowLayoutOverlay({
+    projection: workflowProjection,
+  });
   const applyWorkflowProjection = useCallback(
     (projection: WorkflowGraphProjection | null) => {
       workflowProjectionRef.current = projection;
@@ -168,8 +175,8 @@ export function WorkflowGraphSurface({
     [workflowProjection, workflowValidationFallback],
   );
   const workflowGraph = useMemo(
-    () => rendererGraphForWorkflowProjection(workflowProjection, workflowValidation),
-    [workflowProjection, workflowValidation],
+    () => rendererGraphForWorkflowProjection(workflowProjectionWithLocalLayout, workflowValidation),
+    [workflowProjectionWithLocalLayout, workflowValidation],
   );
   const semanticGraphState = useSemanticGraphState();
   const { trajectoryStore } = useWorkspaceTrajectoryRuntime({
@@ -312,20 +319,25 @@ export function WorkflowGraphSurface({
       layoutSaveSequenceRef.current = saveSequence;
       const semanticGraphAtDragEnd = semanticGraphState.graph;
       const semanticLayoutInputs = preparePendingSemanticLayout(positions, saveSequence);
-      const optimisticProjection = workflowProjectionWithLayoutPositions(
-        workflowProjectionRef.current,
-        positions,
-      );
-      if (optimisticProjection !== null) {
-        applyWorkflowProjection(optimisticProjection);
-      }
       const projectionAtDragEnd = workflowProjectionRef.current;
+      const workflowLayoutInputs = preparePendingWorkflowLayout(
+        projectionAtDragEnd,
+        positions,
+        saveSequence,
+      );
       const save = enqueueWorkflowGraphWrite(async () => {
+        if (saveSequence !== layoutSaveSequenceRef.current) {
+          return null;
+        }
         let semanticLayoutPersisted = false;
         const refreshed = await persistGraphNodePositions({
           positions,
           semanticGraph: semanticGraphAtDragEnd,
-          setWorkflowEditorError,
+          setWorkflowEditorError: (message) => {
+            if (saveSequence === layoutSaveSequenceRef.current) {
+              setWorkflowEditorError(message);
+            }
+          },
           updateSemanticLayoutPositions: (savedPositions) => {
             semanticLayoutPersisted = true;
             semanticGraphState.replaceSemanticLayoutPositions(savedPositions);
@@ -335,18 +347,19 @@ export function WorkflowGraphSurface({
         if (semanticLayoutPersisted) {
           clearPersistedSemanticLayout(semanticLayoutInputs, saveSequence);
         }
-        if (refreshed !== null && saveSequence === layoutSaveSequenceRef.current) {
-          return refreshed;
+        if (refreshed !== null) {
+          clearPersistedWorkflowLayout(workflowLayoutInputs, saveSequence);
         }
-        return null;
+        return refreshed;
       });
       await save;
     },
     [
-      applyWorkflowProjection,
       enqueueWorkflowGraphWrite,
+      clearPersistedWorkflowLayout,
       clearPersistedSemanticLayout,
       preparePendingSemanticLayout,
+      preparePendingWorkflowLayout,
       semanticGraphState.graph,
       semanticGraphState.replaceSemanticLayoutPositions,
       syntheticGraph,
@@ -762,15 +775,11 @@ export function WorkflowGraphSurface({
         deleteWorkflowDraftNodes,
         handleGraphEdgeSelectionChange,
         handleGraphNodeSelectionChange,
-        noteGraphSceneCameraMovement: graphSceneStore.noteCameraMovement,
         openGraphNodeDetails,
         openWorkflowContextMenu,
         persistNodePositions,
         reactRenderCount,
-        surfaceId,
         syntheticGraph,
-        workflowCameraRef,
-        workflowCameraScopeRef,
       }),
     [
       addWorkflowDraftEdge,
@@ -778,11 +787,9 @@ export function WorkflowGraphSurface({
       deleteWorkflowDraftNodes,
       handleGraphEdgeSelectionChange,
       handleGraphNodeSelectionChange,
-      graphSceneStore,
       openGraphNodeDetails,
       openWorkflowContextMenu,
       persistNodePositions,
-      surfaceId,
       syntheticGraph,
     ],
   );
@@ -850,12 +857,14 @@ export function WorkflowGraphSurface({
       debugEnabled,
       handlers: rendererHandlers,
       initialCameraState: workflowCameraRef.current,
+      noteCameraMovement: graphSceneStore.noteCameraMovement,
       reduceMotion: graphAnimationSettings.reduceMotion,
     });
   }, [
     debugEnabled,
     graphAnimationSettings.animationEnabled,
     graphAnimationSettings.reduceMotion,
+    graphSceneStore,
     rendererHandlers,
     surfaceId,
     workflowController,

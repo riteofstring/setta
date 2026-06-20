@@ -1,4 +1,5 @@
 import type {
+  WorkflowGraphCameraChange,
   WorkflowGraphCameraState,
   WorkflowGraphGraph,
   WorkflowGraphRenderer,
@@ -22,6 +23,7 @@ export interface GraphSurfaceControllerConfigureOptions {
   debugEnabled: boolean;
   handlers: WorkflowGraphRendererHandlers;
   initialCameraState: WorkflowGraphCameraState | null;
+  noteCameraMovement?: (() => void) | null;
   reduceMotion: boolean;
 }
 
@@ -86,9 +88,11 @@ export class WorkflowGraphSurfaceController implements WorkflowGraphUpdateTarget
   private activeRequested = false;
   private config: GraphSurfaceControllerConfigureOptions | null = null;
   private creationCount = 0;
+  private capturedCameraState: WorkflowGraphCameraState | null = null;
   private destroyCount = 0;
   private generation = 0;
   private host: HTMLElement | null = null;
+  private latestCameraState: WorkflowGraphCameraState | null = null;
   private pendingScene: WorkflowGraphGraph | null = null;
   private pendingTrajectory: WorkspaceTrajectoryFrameSnapshot | null = null;
   private renderer: WorkflowGraphRenderer | null = null;
@@ -139,7 +143,13 @@ export class WorkflowGraphSurfaceController implements WorkflowGraphUpdateTarget
   configure(options: GraphSurfaceControllerConfigureOptions): void {
     this.ensureUsable();
     this.config = options;
-    this.renderer?.setHandlers(options.handlers);
+    if (this.latestCameraState === null) {
+      this.latestCameraState = cloneCameraState(options.initialCameraState);
+    }
+    if (this.capturedCameraState === null) {
+      this.capturedCameraState = cloneCameraState(options.initialCameraState);
+    }
+    this.renderer?.setHandlers(this.rendererHandlers(options.handlers));
     this.ensureRenderer();
   }
 
@@ -223,7 +233,12 @@ export class WorkflowGraphSurfaceController implements WorkflowGraphUpdateTarget
   }
 
   cameraState(): WorkflowGraphCameraState | null {
-    return this.renderer?.cameraState() ?? this.config?.initialCameraState ?? null;
+    return cloneCameraState(
+      this.renderer?.cameraState() ??
+        this.latestCameraState ??
+        this.config?.initialCameraState ??
+        null,
+    );
   }
 
   setHandlers(handlers: WorkflowGraphRendererHandlers): void {
@@ -234,7 +249,7 @@ export class WorkflowGraphSurfaceController implements WorkflowGraphUpdateTarget
       ...this.config,
       handlers,
     };
-    this.renderer?.setHandlers(handlers);
+    this.renderer?.setHandlers(this.rendererHandlers(handlers));
   }
 
   destroy(): void {
@@ -287,7 +302,7 @@ export class WorkflowGraphSurfaceController implements WorkflowGraphUpdateTarget
           host,
           initialCameraState: config.initialCameraState,
           reduceMotion: config.reduceMotion,
-          ...config.handlers,
+          ...this.rendererHandlers(config.handlers),
         }),
       )
       .then((renderer) => {
@@ -323,7 +338,7 @@ export class WorkflowGraphSurfaceController implements WorkflowGraphUpdateTarget
     this.abortController = null;
     this.renderer = renderer;
     if (this.config !== null) {
-      renderer.setHandlers(this.config.handlers);
+      renderer.setHandlers(this.rendererHandlers(this.config.handlers));
     }
   }
 
@@ -378,9 +393,40 @@ export class WorkflowGraphSurfaceController implements WorkflowGraphUpdateTarget
       return;
     }
     const camera = renderer.cameraState();
-    this.config?.captureCameraState(camera);
+    this.captureSettledCameraState(camera);
     renderer.destroy();
     this.destroyCount += 1;
+  }
+
+  private rendererHandlers(handlers: WorkflowGraphRendererHandlers): WorkflowGraphRendererHandlers {
+    return {
+      ...handlers,
+      onCameraStateChange: (camera, change) => {
+        this.handleRendererCameraStateChange(camera, change);
+      },
+    };
+  }
+
+  private handleRendererCameraStateChange(
+    camera: WorkflowGraphCameraState,
+    change: WorkflowGraphCameraChange | undefined,
+  ): void {
+    this.latestCameraState = cloneCameraState(camera);
+    if (change?.cameraMotion === "moving") {
+      this.config?.noteCameraMovement?.();
+      return;
+    }
+    this.captureSettledCameraState(camera);
+  }
+
+  private captureSettledCameraState(camera: WorkflowGraphCameraState): void {
+    const nextCameraState = { ...camera };
+    this.latestCameraState = nextCameraState;
+    if (cameraStatesEqual(this.capturedCameraState, nextCameraState)) {
+      return;
+    }
+    this.capturedCameraState = nextCameraState;
+    this.config?.captureCameraState({ ...nextCameraState });
   }
 
   private generationMatches(generation: number): boolean {
@@ -396,4 +442,24 @@ export class WorkflowGraphSurfaceController implements WorkflowGraphUpdateTarget
 
 function defaultWorkflowGraphRendererLoader() {
   return import("./pixi-renderer");
+}
+
+function cloneCameraState(
+  camera: WorkflowGraphCameraState | null | undefined,
+): WorkflowGraphCameraState | null {
+  return camera === null || camera === undefined ? null : { ...camera };
+}
+
+function cameraStatesEqual(
+  left: WorkflowGraphCameraState | null,
+  right: WorkflowGraphCameraState | null,
+) {
+  return (
+    left === right ||
+    (left !== null &&
+      right !== null &&
+      left.x === right.x &&
+      left.y === right.y &&
+      left.zoom === right.zoom)
+  );
 }
