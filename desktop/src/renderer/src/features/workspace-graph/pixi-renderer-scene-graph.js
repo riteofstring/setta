@@ -1,9 +1,9 @@
-import { validateNodeLabelGlyphs } from "./pixi-renderer-label-font";
-import { drawNodeActivityMarker, drawNodeDiagnosticMarker } from "./pixi-renderer-node-geometry";
+import { createVisibleSceneWindow } from "./pixi-renderer-visible-scene-window";
 
 export function createWorkflowGraphSceneGraphUpdater({
   acquireLabel,
   createNodeContainer,
+  debugMetrics,
   edges,
   nodeActivityMarkers,
   nodeBodies,
@@ -11,12 +11,15 @@ export function createWorkflowGraphSceneGraphUpdater({
   nodeDiagnosticMarkers,
   nodeLayer,
   nodeOutlines,
+  nodesById,
   nodeShadows,
   nodes,
   portVisuals,
   portVisualStates,
-  releaseLabel,
+  deactivateLabel,
+  destroyLabel,
   requireNodeLabel,
+  spatialQueries,
 }) {
   let graphUpdateCount = 0;
   let graphUpdateEdgeAddCount = 0;
@@ -25,21 +28,49 @@ export function createWorkflowGraphSceneGraphUpdater({
   let graphUpdateNodeAddCount = 0;
   let graphUpdateNodeRemoveCount = 0;
   let graphUpdateNodeUpdateCount = 0;
+  const visibleScene = createVisibleSceneWindow({
+    acquireLabel,
+    createNodeContainer,
+    debugMetrics,
+    deactivateLabel,
+    destroyLabel,
+    nodeActivityMarkers,
+    nodeBodies,
+    nodeContainers,
+    nodeDiagnosticMarkers,
+    nodeLayer,
+    nodeOutlines,
+    nodesById,
+    nodeShadows,
+    portVisuals,
+    portVisualStates,
+    requireNodeLabel,
+    spatialQueries,
+  });
 
   return {
+    debugSnapshot: visibleScene.debugSnapshot,
+    destroy: visibleScene.destroyAll,
+    ensureNodeMaterialized: visibleScene.ensureMaterialized,
+    isNodeMaterialized: visibleScene.isMaterialized,
+    materializedNodeIds: visibleScene.materializedNodeIds,
     replaceGraph: (nextGraph, { countUpdate }) => {
       const nextNodes = nextGraph.nodes.map((node) => ({ ...node }));
       const nextEdges = nextGraph.edges.map((edge) => ({ ...edge }));
       if (countUpdate) {
         recordGraphUpdateCounts(nextNodes, nextEdges);
       }
-      applySceneGraphNodes(nextNodes);
+      debugMetrics.measure("scene-graph-node-diff-update-rebuild", () => {
+        applySceneGraphNodes(nextNodes);
+      });
       edges.splice(0, edges.length, ...nextEdges);
       return {
         nextEdgeSequence: edges.length + 1,
         workflow: nextGraph.workflow ?? null,
       };
     },
+    resetVisibleScene: visibleScene.reset,
+    syncVisibleScene: visibleScene.sync,
     updateCounts: () => ({
       graphUpdateCount,
       graphUpdateEdgeAddCount,
@@ -70,81 +101,28 @@ export function createWorkflowGraphSceneGraphUpdater({
     const nextNodeIds = new Set(nextNodes.map((node) => node.id));
     for (const node of nodes) {
       if (!nextNodeIds.has(node.id)) {
-        removeNodeDisplayObjects(node.id);
+        visibleScene.destroyNode(node.id);
       }
     }
     const updatedNodes = [];
     for (const nextNode of nextNodes) {
       const existingNode = existingNodesById.get(nextNode.id);
-      if (!existingNode || !nodeContainers.has(nextNode.id)) {
+      if (!existingNode) {
         const addedNode = { ...nextNode };
         updatedNodes.push(addedNode);
-        addNodeDisplayObjects(addedNode);
-        continue;
-      }
-      if (nodeContainerRequiresRebuild(existingNode, nextNode)) {
-        removeNodeDisplayObjects(existingNode.id);
-        Object.assign(existingNode, nextNode);
-        updatedNodes.push(existingNode);
-        addNodeDisplayObjects(existingNode);
         continue;
       }
       Object.assign(existingNode, nextNode);
       updatedNodes.push(existingNode);
-      updateNodeDisplayObjects(existingNode);
     }
     nodes.splice(0, nodes.length, ...updatedNodes);
+    syncNodesById(updatedNodes);
   }
 
-  function addNodeDisplayObjects(node) {
-    const container = createNodeContainer(node);
-    nodeContainers.set(node.id, container);
-    nodeLayer.addChild(container);
-    acquireLabel(node.id, node);
-  }
-
-  function updateNodeDisplayObjects(node) {
-    const container = nodeContainers.get(node.id);
-    if (!container) {
-      throw new Error(`node container is missing during graph update: ${node.id}`);
-    }
-    container.x = node.x;
-    container.y = node.y;
-    const label = requireNodeLabel(node.id);
-    if (label.text !== node.label) {
-      validateNodeLabelGlyphs(node.id, node.label);
-      label.text = node.label;
-    }
-    const diagnosticMarker = nodeDiagnosticMarkers.get(node.id);
-    if (!diagnosticMarker) {
-      throw new Error(`node diagnostic marker is missing during graph update: ${node.id}`);
-    }
-    drawNodeDiagnosticMarker(diagnosticMarker, node);
-    const activityMarker = nodeActivityMarkers.get(node.id);
-    if (!activityMarker) {
-      throw new Error(`node activity marker is missing during graph update: ${node.id}`);
-    }
-    drawNodeActivityMarker(activityMarker, node);
-  }
-
-  function removeNodeDisplayObjects(nodeId) {
-    releaseLabel(nodeId);
-    const container = nodeContainers.get(nodeId);
-    if (container) {
-      container.removeFromParent();
-      container.destroy({ children: true });
-    }
-    nodeActivityMarkers.delete(nodeId);
-    nodeBodies.delete(nodeId);
-    nodeContainers.delete(nodeId);
-    nodeDiagnosticMarkers.delete(nodeId);
-    nodeOutlines.delete(nodeId);
-    nodeShadows.delete(nodeId);
-    for (const key of [...portVisuals.keys()]) {
-      if (key.startsWith(`${nodeId}:`)) {
-        portVisuals.delete(key);
-        portVisualStates.delete(key);
-      }
+  function syncNodesById(updatedNodes) {
+    nodesById.clear();
+    for (const node of updatedNodes) {
+      nodesById.set(node.id, node);
     }
   }
 }
@@ -167,18 +145,4 @@ function countInBoth(left, right) {
     }
   }
   return count;
-}
-
-function nodeContainerRequiresRebuild(previous, next) {
-  return (
-    previous.color !== next.color ||
-    previous.connectable !== next.connectable ||
-    previous.height !== next.height ||
-    previous.width !== next.width ||
-    !portsEqual(previous.ports, next.ports)
-  );
-}
-
-function portsEqual(previous, next) {
-  return JSON.stringify(previous ?? null) === JSON.stringify(next ?? null);
 }

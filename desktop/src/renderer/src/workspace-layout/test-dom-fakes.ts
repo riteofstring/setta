@@ -25,7 +25,6 @@ interface FakeElement {
   getContext?(kind: string): FakeCanvasContext | null;
   hasPointerCapture(pointerId: number): boolean;
   querySelector(selector: string): FakeElement | null;
-  remove(): void;
   replaceChildren(...nodes: FakeElement[]): void;
   releasePointerCapture(pointerId: number): void;
   removeAttribute(name: string): void;
@@ -185,14 +184,6 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
     },
     querySelector(selector) {
       return findElement(this, selector);
-    },
-    remove() {
-      const parent = this.parentElement;
-      if (!parent) {
-        return;
-      }
-      parent.children = parent.children.filter((child) => child !== this);
-      this.parentElement = null;
     },
     replaceChildren(...nodes) {
       for (const child of this.children) {

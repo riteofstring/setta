@@ -2,13 +2,30 @@ import type { MutableRefObject } from "react";
 
 import type { WorkflowGraphCameraState } from "./pixi-renderer";
 
-export type SyntheticWorkflowGraphOptions = { edgesPerNode: number; nodeCount: number } | null;
+type SyntheticWorkflowGraphScene =
+  | "merged"
+  | "phase0-dense"
+  | "phase0-normal"
+  | "phase0-scaling"
+  | "phase0-simple"
+  | "phase0-stress"
+  | "semantic-cells"
+  | "workflow"
+  | "workflow-running"
+  | "workflow-running-runtime";
+
+export type SyntheticWorkflowGraphOptions = {
+  edgesPerNode: number;
+  nodeCount: number;
+  scene?: SyntheticWorkflowGraphScene;
+} | null;
 
 export type WorkflowGraphCameraScope =
   | {
       kind: "synthetic";
       edgesPerNode: number;
       nodeCount: number;
+      scene: SyntheticWorkflowGraphScene;
     }
   | {
       kind: "workspace";
@@ -31,6 +48,7 @@ function workflowGraphCameraScope(
       edgesPerNode: syntheticGraph.edgesPerNode,
       kind: "synthetic",
       nodeCount: syntheticGraph.nodeCount,
+      scene: syntheticGraph.scene ?? "workflow",
     };
   }
   if (workflowWorkspaceId === "") {
@@ -106,7 +124,11 @@ function workflowGraphCameraScopeChanged(
     return true;
   }
   if (previous.kind === "synthetic" && next.kind === "synthetic") {
-    return previous.edgesPerNode !== next.edgesPerNode || previous.nodeCount !== next.nodeCount;
+    return (
+      previous.edgesPerNode !== next.edgesPerNode ||
+      previous.nodeCount !== next.nodeCount ||
+      previous.scene !== next.scene
+    );
   }
   return (
     previous.kind === "workspace" &&

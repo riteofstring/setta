@@ -7,7 +7,6 @@ import process from "node:process";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -69,7 +68,7 @@ try {
   const desktopChrome = await waitForState(
     context.client,
     chromeStateExpression(),
-    (state) => state.topBar && state.toolbar && !state.mobileBar,
+    (state) => state.chromePlate && state.toolbar && !state.mobileBar,
     workflowTimeoutMs,
   );
   await captureScreenshot(context.client, join(artifactDir, "desktop-restored.png"));
@@ -109,7 +108,20 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && !currentWorkspaceId.endsWith(":empty")) {
     return;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  const opened = await client.evaluate(`(() => {
+    const button = document.querySelector('button[aria-label="Open project folder"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-open-project-folder-button" };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-open-project-folder-button" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!opened.ok) {
+    throw new Error(`workspace open failed: ${JSON.stringify(opened)}`);
+  }
   await waitForState(
     client,
     workspaceIdExpression(),
@@ -131,7 +143,7 @@ async function waitForCompactLayout(client, expectedCompact) {
   );
 }
 
-// The mobile chrome contract: bottom control bar in, desktop top bar, top-left
+// The mobile chrome contract: bottom control bar in, top-left plate, top-left
 // toolbar, side project pane, and per-pane top-right action buttons out.
 async function waitForMobileChrome(client) {
   return waitForState(
@@ -139,7 +151,7 @@ async function waitForMobileChrome(client) {
     chromeStateExpression(),
     (state) =>
       state.mobileBar &&
-      !state.topBar &&
+      !state.chromePlate &&
       !state.toolbar &&
       !state.projectPaneOverlay &&
       !state.sideProjectPane &&
@@ -278,6 +290,7 @@ function chromeStateExpression() {
       '[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-action-strip',
     );
     return {
+      chromePlate: Boolean(document.querySelector('[data-testid="shell-chrome-plate"]')),
       mobileBar: Boolean(document.querySelector('[data-testid="workspace-mobile-bar"]')),
       paneActionStripHidden:
         actionStrip instanceof Element ? getComputedStyle(actionStrip).display === "none" : false,
@@ -285,7 +298,6 @@ function chromeStateExpression() {
       sideProjectPane: Boolean(
         document.querySelector('[aria-label="Resize project sidebar"]'),
       ),
-      topBar: Boolean(document.querySelector('[data-testid="shell-top-bar"]')),
       toolbar: Boolean(document.querySelector('[data-testid="workspace-toolbar"]')),
     };
   })()`;

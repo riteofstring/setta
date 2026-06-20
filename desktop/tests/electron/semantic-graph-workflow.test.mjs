@@ -22,6 +22,26 @@ import {
 } from "./electron-cdp-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
+  assertProcessedCartographerResultReadback,
+  processedCartographerReadbackReady,
+} from "./semantic-graph-cartographer-readback.mjs";
+import {
+  assertCartographerHealthPanel,
+  assertSemanticNodeDetails,
+  assertSemanticNodeLiveStatus,
+  openSelectedGraphNodeDetailsFromToolbar,
+} from "./semantic-graph-ui-helpers.mjs";
+import {
+  assertCartographerAuditBurst,
+  assertSemanticRuntimeAfterAuditBurst,
+  assertRendererStableForWorkingSetUpdate,
+  assertSemanticWorkingSetAfterAuditBurst,
+  assertSemanticWorkingSetPulseHidden,
+  assertUntargetedLiveCartographerSource,
+  buildUntargetedLiveCartographerSource,
+} from "./semantic-graph-working-set-helpers.mjs";
+import {
+  dispatchWorkflowGraphMouseClick,
   dispatchWorkflowGraphMouseDrag,
   maximizeWorkflowGraphPane,
   openWorkflowGraphPane,
@@ -32,30 +52,10 @@ const options = parseElectronHarnessArgs(process.argv.slice(2));
 const seedConstraintNodeId = "semantic_seed_constraint";
 const seedCartographerPatchId = "semantic_seed_cartographer_patch_pending";
 const seedWorkflowExecutionId = "semantic_seed_workflow_execution";
+const seedWorkflowNodeId = "semantic_seed_workflow_node";
 const seedRendererNodeId = `semantic:${seedConstraintNodeId}`;
 const cartographerAuditBurstSize = 6;
 const semanticNodeDragDelta = { x: 92, y: 44 };
-const semanticNodeDetailsRequiredText = [
-  "Deterministic layout writes stay read-only",
-  "supports",
-  "refutes",
-  "resolves",
-  "Phase 2 plan excerpt",
-  "validating",
-  "Keep semantic graph rendering read-only",
-  "context_pack.created",
-  "workflow_agent_start",
-  "Renderer read-only semantic graph surface",
-  "active workspace constraint",
-  "sha256:semantic_seed_delivered_context",
-  "Delivered Context",
-  "88",
-  "Cartographer",
-  "Cartographer pending review evidence",
-  "attach_evidence",
-  "Seed cartographer window summary",
-  "semantic_seed_workflow_events:3",
-];
 
 if (options.help) {
   console.log(
@@ -106,17 +106,67 @@ try {
   await captureScreenshot(context.client, join(artifactDir, "semantic-initial.png"));
 
   const auditBurst = await buildCartographerAuditBurst(context.client, workspaceId);
-  assertCartographerAuditBurst(auditBurst);
-  const afterAuditBurst = await getWorkflowGraphSnapshot(context.client);
-  assertRendererStableWithoutGraphUpdate(initial, afterAuditBurst, "cartographer audit burst");
+  assertCartographerAuditBurst({
+    expectedBuiltCount: cartographerAuditBurstSize,
+    result: auditBurst,
+  });
+  await assertSemanticRuntimeAfterAuditBurst({
+    auditBurst,
+    client: context.client,
+    seedConstraintNodeId,
+    seedWorkflowExecutionId,
+    workspaceId,
+  });
+  await assertSemanticWorkingSetAfterAuditBurst({
+    auditBurst,
+    client: context.client,
+    seedConstraintNodeId,
+    seedWorkflowExecutionId,
+    workspaceId,
+  });
+  const afterAuditBurst = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) => snapshot.render.graphUpdateCount > initial.render.graphUpdateCount,
+  );
+  assertRendererStableForWorkingSetUpdate({
+    after: afterAuditBurst,
+    assertRendererStable,
+    before: initial,
+    label: "cartographer audit burst",
+  });
+
+  const liveSource = await buildUntargetedLiveCartographerSource({
+    client: context.client,
+    seedWorkflowExecutionId,
+    seedWorkflowNodeId,
+    workspaceId,
+  });
+  assertUntargetedLiveCartographerSource({ result: liveSource, seedWorkflowNodeId });
+  await delay(250);
+  const afterLiveSource = await getWorkflowGraphSnapshot(context.client);
+  assertSemanticWorkingSetPulseHidden({
+    liveSource,
+    snapshot: afterLiveSource,
+  });
+  assertRendererStable(afterAuditBurst, afterLiveSource, "semantic working-set live source hidden");
 
   const targetNode = nodeById(afterAuditBurst, seedRendererNodeId);
-  await dispatchWorkflowGraphMouseDoubleClick(context.client, workflowGraphSurfaceId, {
+  await dispatchWorkflowGraphMouseClick(context.client, workflowGraphSurfaceId, {
     x: targetNode.screenX,
     y: targetNode.screenY,
   });
+  await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) => snapshot.interaction.selectedNodeId === seedRendererNodeId,
+  );
+  await openSelectedGraphNodeDetailsFromToolbar(
+    context.client,
+    "Deterministic layout writes stay read-only",
+  );
   await waitForSelector(context.client, '[data-testid="semantic-node-details-surface"]');
   await assertSemanticNodeDetails(context.client);
+  await assertSemanticNodeLiveStatus(context.client);
+  await assertCartographerHealthPanel(context.client);
   await assertSeedContextPackReadApis(context.client, workspaceId);
   await assertSeedCartographerReadApis(context.client, workspaceId, "pending_review");
   const processedCartographer = await assertProcessCartographerWindowApi(
@@ -217,6 +267,7 @@ try {
     attachment,
     afterDrag,
     afterAuditBurst,
+    afterLiveSource,
     afterGraphMutationBurst,
     afterReload,
     artifactDir,
@@ -224,6 +275,7 @@ try {
     beforeHistoryCount: beforeHistory.events.length,
     editing,
     initial,
+    liveSource,
     persistedPosition,
     processedCartographer,
     status: "passed",
@@ -542,8 +594,7 @@ async function buildCartographerAuditBurst(client, workspaceId) {
     const unsubscribe = window.setta.semanticGraph.onEvent((event) => {
       if (
         event.workspaceId === workspaceId &&
-        event.changedAreas.length === 1 &&
-        event.changedAreas[0] === "cartographer_audit"
+        event.changedAreas.includes("cartographer_audit")
       ) {
         events.push(event);
       }
@@ -562,15 +613,27 @@ async function buildCartographerAuditBurst(client, workspaceId) {
         }));
       }
       const deadline = Date.now() + 5000;
-      while (events.length < 1 && Date.now() < deadline) {
+      const builtRunIds = () => built.map((item) => item.run.id);
+      const observedRunIds = () =>
+        new Set(events.flatMap((event) =>
+          event.semanticRuntimeDelta?.cartographerRunUpdates.map((run) => run.id) ?? []
+        ));
+      while (
+        !builtRunIds().every((runId) => observedRunIds().has(runId)) &&
+        Date.now() < deadline
+      ) {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
       return {
         auditEventCount: events.length,
         builtCount: built.length,
-        deliveredRunIds: [...new Set(events.flatMap((event) => event.cartographerRunIds))],
-        deliveredWindowIds: [...new Set(events.flatMap((event) => event.cartographerWindowIds))],
         changedAreas: events.map((event) => event.changedAreas),
+        runtimeDeltaFromRevisions: events.map((event) => event.semanticRuntimeDelta?.fromRevision ?? 0),
+        runtimeDeltaRunIds: events.map((event) =>
+          event.semanticRuntimeDelta?.cartographerRunUpdates.map((run) => run.id) ?? []
+        ),
+        runtimeDeltaToRevisions: events.map((event) => event.semanticRuntimeDelta?.toRevision ?? 0),
+        runtimeSnapshotRequired: events.map((event) => event.semanticRuntimeSnapshotRequired),
         runIds: built.map((item) => item.run.id),
         windowIds: built.map((item) => item.window.id)
       };
@@ -611,17 +674,6 @@ async function clickAtPagePoint(client, point, clickCount) {
     x: point.x,
     y: point.y,
   });
-}
-
-async function assertSemanticNodeDetails(client) {
-  const details = await waitForState(
-    client,
-    `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
-    (value) => textIncludesAll(value.text, semanticNodeDetailsRequiredText),
-  );
-  if (!details.text.includes("docs/plans/setta_semantic_work_graph_implementation_plan.md")) {
-    throw new Error(`semantic node details omitted evidence path: ${details.text}`);
-  }
 }
 
 async function assertSeedContextPackReadApis(client, workspaceId) {
@@ -837,7 +889,7 @@ async function assertBuildCartographerWindowApiWithSourceRefs(client, workspaceI
     workspaceId: ${JSON.stringify(workspaceId)}
   })`);
   if (
-    result.run.status !== "pending" ||
+    result.run.status !== "queued" ||
     result.window.status !== "closed" ||
     result.window.runId !== result.run.id ||
     !result.summary?.summary.includes("E2E cartographer build current progress")
@@ -853,7 +905,7 @@ async function assertProcessCartographerWindowApi(client, workspaceId) {
     chatConversationId: "",
     chatMessageId: "",
     chatRunId: setup.chatRunId,
-    runItemId: "",
+    runItemId: setup.runItemId,
     workflowDefinitionId: "",
     workflowExecutionId: "",
     workflowNodeExecutionId: "",
@@ -864,10 +916,21 @@ async function assertProcessCartographerWindowApi(client, workspaceId) {
     workspaceId: ${JSON.stringify(workspaceId)}
   })`);
   assertProcessedCartographerResult(processed, built);
+  const findingPatch = processed.patches.find(isProcessedCartographerFindingPatch);
+  const edgePatch = processed.patches.find(
+    (candidate) =>
+      isProcessedCartographerEdgePatch(candidate) && candidate.runId === findingPatch?.runId,
+  );
+  if (!findingPatch || !edgePatch) {
+    throw new Error(
+      `processed cartographer patches missing finding or edge: ${JSON.stringify(processed)}`,
+    );
+  }
   return {
+    edgePatchId: edgePatch.id,
     evidenceAnchorId: setup.evidenceAnchorId,
-    nodeId: processed.patches[0].patch.payload.newNode.semanticNodeId,
-    patchId: processed.patches[0].id,
+    nodeId: findingPatch.patch.payload.newNode.semanticNodeId,
+    patchId: findingPatch.id,
     runId: processed.run.id,
     windowId: processed.window.id,
   };
@@ -884,22 +947,48 @@ async function attachChatRunEvidenceForProcessedCartographerWindow(client, works
       conversation.id,
       "Create deterministic evidence for semantic cartographer processing."
     );
-    const attached = await window.setta.semanticGraph.attachChatRun({
+    let runActivity = { items: [] };
+    let runItem = null;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      runActivity = await window.setta.chat.runActivity(
+        ${JSON.stringify(workspaceId)},
+        sent.run.id,
+        20
+      );
+      runItem =
+        runActivity.items.find((candidate) => candidate.type === "agent_message") ??
+        runActivity.items.find((candidate) => candidate.id !== "");
+      if (runItem) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    if (!runItem) {
+      throw new Error(
+        "run item missing for semantic cartographer evidence: " + JSON.stringify(runActivity)
+      );
+    }
+    const runItemAttached = await window.setta.semanticGraph.attachRunItem({
       activityKind: "validating",
       actorId: "semantic_e2e_user",
       actorKind: "user",
       chatRunId: sent.run.id,
       nodeId: ${JSON.stringify(seedConstraintNodeId)},
-      summary: "Chat run evidence for deterministic structured cartographer processing",
+      runItemId: runItem.id,
+      summary: "Run item evidence for deterministic structured cartographer processing",
       workspaceId: ${JSON.stringify(workspaceId)}
     });
     await window.setta.semanticGraph.endActivity({
-      activityIntervalId: attached.activity.id,
+      activityIntervalId: runItemAttached.activity.id,
       actorId: "semantic_e2e_user",
       actorKind: "user",
       workspaceId: ${JSON.stringify(workspaceId)}
     });
-    return { chatRunId: sent.run.id, evidenceAnchorId: attached.evidence.id };
+    return {
+      chatRunId: sent.run.id,
+      evidenceAnchorId: runItemAttached.evidence.id,
+      runItemId: runItem.id
+    };
   })()`);
 }
 
@@ -929,15 +1018,38 @@ function assertProcessedCartographerWindowResult(window, expectedWindowId) {
 }
 
 function assertProcessedCartographerPatchResult(processed) {
-  const patch = processed.patches[0] ?? null;
+  const findingPatch = processed.patches.find(isProcessedCartographerFindingPatch);
+  const edgePatch = processed.patches.find(isProcessedCartographerEdgePatch);
   if (
-    processed.patches.length !== 1 ||
-    !patch?.id.startsWith("cartographer_patch_scripted") ||
-    patch?.status !== "applied" ||
+    !findingPatch ||
+    !edgePatch ||
+    findingPatch.status !== "applied" ||
+    edgePatch.status !== "applied" ||
     processed.events.length === 0
   ) {
     throw new Error(`cartographer process patch mismatch: ${JSON.stringify(processed)}`);
   }
+}
+
+function isProcessedCartographerPatch(patch) {
+  return patch.id.startsWith("cartographer_patch_scripted") && patch.status === "applied";
+}
+
+function isProcessedCartographerFindingPatch(patch) {
+  return (
+    isProcessedCartographerPatch(patch) &&
+    patch.patch.operation === "record_finding" &&
+    patch.patch.payload.newNode?.semanticNodeId
+  );
+}
+
+function isProcessedCartographerEdgePatch(patch) {
+  return (
+    isProcessedCartographerPatch(patch) &&
+    patch.patch.operation === "create_edge" &&
+    patch.patch.payload.fromNodeId?.startsWith("semantic_node_cartographer_scripted") &&
+    patch.patch.payload.toNodeId === seedConstraintNodeId
+  );
 }
 
 async function assertProcessedCartographerReadback(client, workspaceId, processedCartographer) {
@@ -974,106 +1086,35 @@ async function assertProcessedCartographerReadback(client, workspaceId, processe
     (value) => processedCartographerReadbackReady(value, processedCartographer),
   );
   try {
-    assertProcessedCartographerAuditReadback(result.run.run);
-    assertProcessedCartographerPatchReadback(result, processedCartographer);
-    assertProcessedCartographerNodeReadback(result, processedCartographer);
+    assertProcessedCartographerResultReadback(result, processedCartographer, seedConstraintNodeId);
   } catch {
     throw new Error(`processed cartographer readback mismatch: ${JSON.stringify(result)}`);
   }
 }
 
-function processedCartographerReadbackReady(value, processedCartographer) {
-  return (
-    value.run?.run?.status === "applied" &&
-    processedCartographerWindowReadbackReady(value, processedCartographer.windowId) &&
-    processedCartographerPatchReadbackReady(value, processedCartographer.patchId) &&
-    value.detail?.detail?.node?.id === processedCartographer.nodeId
-  );
-}
-
-function processedCartographerWindowReadbackReady(value, windowId) {
-  return value.windows?.windows?.some((window) => window.id === windowId);
-}
-
-function processedCartographerPatchReadbackReady(value, patchId) {
-  return value.patches?.patches?.some((patch) => patch.id === patchId);
-}
-
-function assertProcessedCartographerAuditReadback(run) {
-  if (
-    run.harnessKind !== "codex" ||
-    run.requestId !== "scripted-cartographer-request" ||
-    run.responseId !== "scripted-cartographer-response" ||
-    run.rawHarnessResponseHash === ""
-  ) {
-    throw new Error("processed cartographer audit mismatch");
-  }
-}
-
-function assertProcessedCartographerPatchReadback(result, processedCartographer) {
-  const patch = result.patches.patches.find(
-    (candidate) => candidate.id === processedCartographer.patchId,
-  );
-  if (!patch || patch.patch.publicSummary !== "Scripted cartographer patch envelope") {
-    throw new Error("processed cartographer patch mismatch");
-  }
-}
-
-function assertProcessedCartographerNodeReadback(result, processedCartographer) {
-  const hasEvidence = result.detail.detail.evidence.some(
-    (evidence) => evidence.reassignedFromAnchorId === processedCartographer.evidenceAnchorId,
-  );
-  const hasNode = result.graph.nodes.some((node) => node.id === processedCartographer.nodeId);
-  if (!hasEvidence || !hasNode) {
-    throw new Error("processed cartographer node mismatch");
-  }
-}
-
 async function acceptSeedCartographerPatchFromDetails(client) {
-  const clickResult = await waitForState(
-    client,
-    `(() => {
+  const clickResult = await client.evaluate(`(async () => {
+    for (let attempt = 0; attempt < 50; attempt += 1) {
       const button = document.querySelector('[data-testid="cartographer-patch-accept"]');
       const surface = document.querySelector('[data-testid="semantic-node-details-surface"]');
-      if (!(button instanceof HTMLButtonElement)) {
-        return {
-          clicked: false,
-          disabled: true,
-          hasButton: false,
-          loading: surface?.innerText.includes("Loading semantic node details") ?? true,
-          reason: "missing-cartographer-accept-button",
-        };
+      const loading = surface?.innerText.includes("Loading semantic node details") ?? true;
+      if (button instanceof HTMLButtonElement && !button.disabled && !loading) {
+        try {
+          button.click();
+          return { ok: true };
+        } catch (error) {
+          return {
+            ok: false,
+            reason: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack ?? "" : "",
+          };
+        }
       }
-      if (button.disabled) {
-        return {
-          clicked: false,
-          disabled: true,
-          hasButton: true,
-          loading: surface?.innerText.includes("Loading semantic node details") ?? true,
-          reason: "disabled-cartographer-accept-button",
-        };
-      }
-      if (surface?.innerText.includes("Loading semantic node details")) {
-        return {
-          clicked: false,
-          disabled: false,
-          hasButton: true,
-          loading: true,
-          reason: "loading-semantic-node-details",
-        };
-      }
-      button.click();
-      return {
-        clicked: true,
-        disabled: false,
-        hasButton: true,
-        loading: false,
-        reason: "",
-      };
-    })()`,
-    (value) => value.clicked,
-  );
-  if (!clickResult.clicked) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return { ok: false, reason: "cartographer accept button is not clickable" };
+  })()`);
+  if (!clickResult.ok) {
     throw new Error(`cartographer accept click failed: ${JSON.stringify(clickResult)}`);
   }
   await waitForState(
@@ -1081,10 +1122,6 @@ async function acceptSeedCartographerPatchFromDetails(client) {
     `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
     (value) => value.text.includes("applied") && !value.text.includes("pending_review"),
   );
-}
-
-function textIncludesAll(text, expected) {
-  return expected.every((item) => text.includes(item));
 }
 
 async function assertSemanticAttachmentDetails(client, attachment) {
@@ -1172,61 +1209,6 @@ function assertRendererLifecycleDebug(snapshot, label) {
   if (snapshot.render.canvasCreationCount !== 1) {
     throw new Error(
       `${label} expected one canvas for the mounted renderer: ${JSON.stringify(snapshot.render)}`,
-    );
-  }
-}
-
-function assertCartographerAuditBurst(result) {
-  if (result.builtCount !== cartographerAuditBurstSize || result.auditEventCount < 1) {
-    throw new Error(
-      `cartographer audit burst did not deliver enough events: ${JSON.stringify(result)}`,
-    );
-  }
-  const nonAuditOnly = result.changedAreas.find(
-    (areas) => areas.length !== 1 || areas[0] !== "cartographer_audit",
-  );
-  if (nonAuditOnly) {
-    throw new Error(
-      `cartographer audit burst delivered non-audit areas: ${JSON.stringify(result)}`,
-    );
-  }
-  assertIncludesAll(
-    result.deliveredRunIds,
-    result.runIds,
-    "cartographer audit burst omitted run ids",
-    result,
-  );
-  assertIncludesAll(
-    result.deliveredWindowIds,
-    result.windowIds,
-    "cartographer audit burst omitted window ids",
-    result,
-  );
-}
-
-function assertIncludesAll(actual, expected, label, result) {
-  const actualSet = new Set(actual);
-  const missing = expected.filter((item) => !actualSet.has(item));
-  if (missing.length > 0) {
-    throw new Error(
-      `${label}: missing=${JSON.stringify(missing)} result=${JSON.stringify(result)}`,
-    );
-  }
-}
-
-function assertRendererStableWithoutGraphUpdate(before, after, label) {
-  assertRendererStable(before, after, label);
-  if (after.render.graphUpdateCount !== before.render.graphUpdateCount) {
-    throw new Error(
-      `${label} triggered a graph update: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
-    );
-  }
-  if (
-    after.graph.nodeCount !== before.graph.nodeCount ||
-    after.graph.edgeCount !== before.graph.edgeCount
-  ) {
-    throw new Error(
-      `${label} changed visible graph topology: before=${JSON.stringify(before.graph)} after=${JSON.stringify(after.graph)}`,
     );
   }
 }

@@ -246,7 +246,7 @@ describe("workspace WebContentsView registry", () => {
     expect(stats.focusedSurfaceId).toBeNull();
   });
 
-  test("leaves plain browser arrows in the browser view", () => {
+  test("forwards browser arrow keys to the owning renderer", () => {
     const owner = new FakeOwnerWindow();
     const view = new FakeNativeView();
     const registry = new WebContentsViewRegistry({
@@ -258,88 +258,13 @@ describe("workspace WebContentsView registry", () => {
     registry.applyBatch(fakeEvent(), batch([update("surface-1", true)]));
     const event = view.webContents.emitBeforeInput("ArrowRight");
 
-    expect(event.prevented).toBe(false);
-    expect(owner.webContents.sent).toEqual([]);
-  });
-
-  test("forwards browser workspace arrow shortcuts to the owning renderer", () => {
-    const owner = new FakeOwnerWindow();
-    const view = new FakeNativeView();
-    const registry = new WebContentsViewRegistry({
-      createClipView: () => new FakeNativeView() as never,
-      createView: () => view as never,
-      windowFromIpcEvent: () => owner as never,
-    });
-
-    registry.applyBatch(fakeEvent(), batch([update("surface-1", true)]));
-    const event = view.webContents.emitBeforeInput("ArrowRight", { alt: true, meta: true });
-
     expect(event.prevented).toBe(true);
     expect(owner.webContents.sent).toEqual([
       {
         channel: ipcEvents.workspaceBrowserViewKey,
         payload: {
-          altKey: true,
-          ctrlKey: false,
+          altKey: false,
           key: "ArrowRight",
-          metaKey: true,
-          shiftKey: false,
-          surfaceId: "surface-1",
-          workspaceId: "phase-4-browser-pane-benchmark",
-        },
-      },
-    ]);
-  });
-
-  test("forwards browser control-alt arrow shortcuts to the owning renderer", () => {
-    const owner = new FakeOwnerWindow();
-    const view = new FakeNativeView();
-    const registry = new WebContentsViewRegistry({
-      createClipView: () => new FakeNativeView() as never,
-      createView: () => view as never,
-      windowFromIpcEvent: () => owner as never,
-    });
-
-    registry.applyBatch(fakeEvent(), batch([update("surface-1", true)]));
-    const event = view.webContents.emitBeforeInput("ArrowLeft", { alt: true, control: true });
-
-    expect(event.prevented).toBe(true);
-    expect(owner.webContents.sent).toEqual([
-      {
-        channel: ipcEvents.workspaceBrowserViewKey,
-        payload: {
-          altKey: true,
-          ctrlKey: true,
-          key: "ArrowLeft",
-          metaKey: false,
-          shiftKey: false,
-          surfaceId: "surface-1",
-          workspaceId: "phase-4-browser-pane-benchmark",
-        },
-      },
-    ]);
-  });
-
-  test("forwards browser control-alt enter workspace shortcuts to the owning renderer", () => {
-    const owner = new FakeOwnerWindow();
-    const view = new FakeNativeView();
-    const registry = new WebContentsViewRegistry({
-      createClipView: () => new FakeNativeView() as never,
-      createView: () => view as never,
-      windowFromIpcEvent: () => owner as never,
-    });
-
-    registry.applyBatch(fakeEvent(), batch([update("surface-1", true)]));
-    const event = view.webContents.emitBeforeInput("Enter", { alt: true, control: true });
-
-    expect(event.prevented).toBe(true);
-    expect(owner.webContents.sent).toEqual([
-      {
-        channel: ipcEvents.workspaceBrowserViewKey,
-        payload: {
-          altKey: true,
-          ctrlKey: true,
-          key: "Enter",
           metaKey: false,
           shiftKey: false,
           surfaceId: "surface-1",
@@ -366,7 +291,6 @@ describe("workspace WebContentsView registry", () => {
       channel: ipcEvents.workspaceBrowserViewKey,
       payload: {
         altKey: false,
-        ctrlKey: false,
         key: "o",
         metaKey: true,
         shiftKey: false,
@@ -677,14 +601,7 @@ class FakeNativeView {
 
 type FakeBeforeInputListener = (
   event: { preventDefault(): void },
-  input: {
-    alt: boolean;
-    control: boolean;
-    key: string;
-    meta: boolean;
-    shift: boolean;
-    type: string;
-  },
+  input: { alt: boolean; key: string; meta: boolean; shift: boolean; type: string },
 ) => void;
 
 type FakeLoadFinishedListener = () => void;
@@ -732,7 +649,7 @@ class FakeNativeWebContents {
 
   emitBeforeInput(
     key: string,
-    modifiers: { alt?: boolean; control?: boolean; meta?: boolean; shift?: boolean } = {},
+    modifiers: { alt?: boolean; meta?: boolean; shift?: boolean } = {},
   ): { prevented: boolean } {
     const event = {
       prevented: false,
@@ -742,7 +659,6 @@ class FakeNativeWebContents {
     };
     this.beforeInputListener?.(event, {
       alt: modifiers.alt ?? false,
-      control: modifiers.control ?? false,
       key,
       meta: modifiers.meta ?? false,
       shift: modifiers.shift ?? false,

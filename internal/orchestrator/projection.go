@@ -13,7 +13,7 @@ type edgeTokenSummary struct {
 	latest    WorkflowTokenStatus
 }
 
-func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *WorkflowExecution, updatedAt string, currentDraft *WorkflowDefinition) (WorkflowGraphProjection, error) {
+func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *WorkflowExecution, updatedAt string, currentDraft *WorkflowDefinition, validation WorkflowDefinitionValidationState) (WorkflowGraphProjection, error) {
 	var executionID string
 	var executionStatus *WorkflowExecutionStatus
 	var terminalReason *WorkflowTerminalReason
@@ -43,9 +43,11 @@ func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *
 	}
 	viewMode := workflowGraphProjectionViewMode(version, execution)
 	draftUpdatedAt := ""
+	draftRevision := ""
 	draftMatchesVersion := true
 	versionMismatch := false
 	if currentDraft != nil {
+		draftRevision = currentDraft.DraftRevision
 		draftUpdatedAt = currentDraft.UpdatedAt
 	}
 	if version.ID != "" {
@@ -63,6 +65,7 @@ func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *
 		DefinitionDescription:      version.Description,
 		ViewMode:                   viewMode,
 		Editable:                   viewMode == GraphViewModeDraft,
+		DraftRevision:              draftRevision,
 		DraftUpdatedAt:             draftUpdatedAt,
 		DraftMatchesVersion:        draftMatchesVersion,
 		VersionMismatch:            versionMismatch,
@@ -71,6 +74,7 @@ func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *
 		TerminalReason:             terminalReason,
 		LastEventOrdinal:           lastEventOrdinal,
 		UpdatedAt:                  updatedAt,
+		Validation:                 validation,
 		Layout:                     copyWorkflowGraphLayout(version.Graph.Layout),
 		Nodes:                      nodes,
 		Edges:                      edges,

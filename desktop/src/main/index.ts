@@ -27,14 +27,20 @@ import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
 import { registerTerminalIpcHandlers } from "./terminal-ipc";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
+import { startWorkspaceTrajectoryRuntimeEventForwarding } from "./workspace-trajectory-event-forwarding-stream";
+import { registerWorkspaceTrajectoryIpcHandlers } from "./workspace-trajectory-ipc";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
+import { registerWorkflowIpcHandlers } from "./workflow-ipc";
 import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
 let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwarding> | null = null;
 let terminalEventStream: TerminalEventStream | null = null;
+let workspaceTrajectoryRuntimeEventStream: ReturnType<
+  typeof startWorkspaceTrajectoryRuntimeEventForwarding
+> | null = null;
 let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
@@ -90,6 +96,7 @@ async function prepareBackend(appDataDir: string) {
     startChatEventStream();
     startSemanticGraphEventStreamForwarding();
     startTerminalEventStreamForwarding();
+    startWorkspaceTrajectoryRuntimeEventStreamForwarding();
     startWorkflowEventStreamForwarding();
   } catch (error) {
     backend = null;
@@ -162,6 +169,18 @@ function startTerminalEventStreamForwarding() {
   });
 }
 
+function startWorkspaceTrajectoryRuntimeEventStreamForwarding() {
+  if (!backend) {
+    return;
+  }
+  void stopWorkspaceTrajectoryRuntimeEventStreamForwarding();
+  workspaceTrajectoryRuntimeEventStream = startWorkspaceTrajectoryRuntimeEventForwarding({
+    baseURL: backend.url,
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    recorder,
+  });
+}
+
 async function stopChatEventStream() {
   const stream = backendEventStream;
   backendEventStream = null;
@@ -186,11 +205,18 @@ async function stopTerminalEventStreamForwarding() {
   await stream?.stop();
 }
 
+async function stopWorkspaceTrajectoryRuntimeEventStreamForwarding() {
+  const stream = workspaceTrajectoryRuntimeEventStream;
+  workspaceTrajectoryRuntimeEventStream = null;
+  await stream?.stop();
+}
+
 async function stopBackendEventStreams() {
   await Promise.all([
     stopChatEventStream(),
     stopSemanticGraphEventStreamForwarding(),
     stopTerminalEventStreamForwarding(),
+    stopWorkspaceTrajectoryRuntimeEventStreamForwarding(),
     stopWorkflowEventStreamForwarding(),
   ]);
 }
@@ -250,6 +276,21 @@ function shouldShowMainWindow() {
   return !isE2E() || isVisibleE2E();
 }
 
+function e2eWindowDimension(envName: string, fallback: number): number {
+  if (!isE2E()) {
+    return fallback;
+  }
+  const raw = process.env[envName];
+  if (raw === undefined) {
+    return fallback;
+  }
+  const value = Number(raw);
+  if (Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  throw new Error(`invalid ${envName}: ${raw}`);
+}
+
 function testOpenWorkspaceRoot() {
   if (!isE2E()) {
     return "";
@@ -257,42 +298,19 @@ function testOpenWorkspaceRoot() {
   return process.env.SETTA_E2E_OPEN_WORKSPACE_ROOT ?? "";
 }
 
-function mainWindowInitialSize() {
-  return {
-    height: e2eWindowDimension("SETTA_E2E_WINDOW_HEIGHT", 820),
-    width: e2eWindowDimension("SETTA_E2E_WINDOW_WIDTH", 1280),
-  };
-}
-
-function e2eWindowDimension(envName: string, fallback: number) {
-  if (!isE2E()) {
-    return fallback;
-  }
-  const rawValue = process.env[envName];
-  if (!rawValue) {
-    return fallback;
-  }
-  const value = Number(rawValue);
-  if (!Number.isInteger(value) || value < 320) {
-    throw new Error(`${envName} must be an integer >= 320`);
-  }
-  return value;
-}
-
 async function createWindow() {
-  const windowSize = mainWindowInitialSize();
   mainWindow = new BrowserWindow({
     backgroundColor: "#18181b",
-    height: windowSize.height,
+    height: e2eWindowDimension("SETTA_E2E_WINDOW_HEIGHT", 820),
     minHeight: compactWindowMinHeight,
     minWidth: compactWindowMinWidth,
     show: false,
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hidden" as const,
-          // The 12px traffic lights sit 13px from the top and left edges,
-          // centering vertically in the 38px renderer shell top bar.
-          trafficLightPosition: { x: 13, y: 13 },
+          // y 19 centers the 12px traffic lights at y 25, matching the
+          // renderer's top chrome controls and pane top-bar buttons.
+          trafficLightPosition: { x: 22, y: 19 },
         }
       : {}),
     title: "Setta",
@@ -302,7 +320,7 @@ async function createWindow() {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
     },
-    width: windowSize.width,
+    width: e2eWindowDimension("SETTA_E2E_WINDOW_WIDTH", 1280),
   });
   recorder?.attachWindow(mainWindow);
 
@@ -717,128 +735,8 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  handleIpc(
-    ipcMain,
-    "workflowListDefinitions",
-    async (_event, workspaceId) => {
-      return requireBackendClient().listWorkflowDefinitions({ workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowCreateDefinition",
-    async (_event, workspaceId, name, description, graph) => {
-      return requireBackendClient().createWorkflowDefinition({
-        description,
-        graph,
-        name,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowReadDefinition",
-    async (_event, workspaceId, definitionId) => {
-      return requireBackendClient().readWorkflowDefinition({ definitionId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowUpdateDefinition",
-    async (_event, ...args) => {
-      const [workspaceId, definitionId, name, description, graph] = args;
-      return requireBackendClient().updateWorkflowDefinition({
-        definitionId,
-        description,
-        graph,
-        name,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowDeleteDefinition",
-    async (_event, workspaceId, definitionId) => {
-      return requireBackendClient().deleteWorkflowDefinition({ definitionId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowValidateDefinition",
-    async (_event, workspaceId, graph) => {
-      return requireBackendClient().validateWorkflowDefinition({ graph, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowStartExecution",
-    async (_event, workspaceId, definitionId, versionId) => {
-      return requireBackendClient().startWorkflowExecution({
-        definitionId,
-        versionId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowCancelExecution",
-    async (_event, workspaceId, executionId) => {
-      return requireBackendClient().cancelWorkflowExecution({ executionId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowReadExecution",
-    async (_event, workspaceId, executionId) => {
-      return requireBackendClient().readWorkflowExecution({ executionId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowExecutionEvents",
-    async (_event, workspaceId, executionId, beforeOrdinal, limit) => {
-      return requireBackendClient().getWorkflowExecutionEvents({
-        beforeOrdinal,
-        executionId,
-        limit,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowGraphProjection",
-    async (_event, workspaceId, definitionId, versionId, executionId) => {
-      return requireBackendClient().readWorkflowGraphProjection({
-        definitionId,
-        executionId,
-        versionId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowSubmitApproval",
-    async (_event, request) => {
-      return requireBackendClient().submitWorkflowApproval(request);
-    },
-    ipcObserver,
-  );
+  registerWorkspaceTrajectoryIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "codexAccountRead",
@@ -916,6 +814,14 @@ async function stopBackend() {
   backend = null;
 }
 
+function destroyRendererWindowsForQuit() {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.destroy();
+    }
+  }
+}
+
 function requestQuit() {
   app.quit();
 }
@@ -948,6 +854,7 @@ app.on("before-quit", (event) => {
   quitting = true;
   void (async () => {
     await recorder?.captureScreenshot(mainWindow, "app-before-quit");
+    destroyRendererWindowsForQuit();
     await stopBackend();
     recorder?.close();
     app.quit();
@@ -955,7 +862,7 @@ app.on("before-quit", (event) => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
+  if (!quitting && process.platform !== "darwin") {
     app.quit();
   }
 });

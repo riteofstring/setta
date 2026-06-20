@@ -9,10 +9,11 @@ import (
 )
 
 type supportedProtocolInput struct {
-	ClientMethods  []supportedClientMethod `json:"clientMethods"`
-	ServerRequests []string                `json:"serverRequests"`
-	Notifications  []string                `json:"notifications"`
-	Schemas        []string                `json:"schemas"`
+	ClientMethods             []supportedClientMethod             `json:"clientMethods"`
+	ServerRequests            []string                            `json:"serverRequests"`
+	Notifications             []string                            `json:"notifications"`
+	ExperimentalNotifications []supportedExperimentalNotification `json:"experimentalNotifications,omitempty"`
+	Schemas                   []string                            `json:"schemas"`
 }
 
 type supportedClientMethod struct {
@@ -20,6 +21,12 @@ type supportedClientMethod struct {
 	ParamsName   string `json:"paramsName,omitempty"`
 	Source       string `json:"source,omitempty"`
 	Experimental bool   `json:"experimental,omitempty"`
+}
+
+type supportedExperimentalNotification struct {
+	Method     string `json:"method"`
+	ParamsName string `json:"paramsName,omitempty"`
+	Source     string `json:"source"`
 }
 
 func (generator *generator) loadSupportedProtocol() (supportedProtocolInput, error) {
@@ -62,7 +69,17 @@ func (generator *generator) applySupportedProtocol(input supportedProtocolInput)
 	if err != nil {
 		return err
 	}
-	generator.supportedNotifications = supportedNotifications
+	experimentalNotifications, err := generator.experimentalNotificationMembers(
+		input.ExperimentalNotifications,
+	)
+	if err != nil {
+		return err
+	}
+	generator.notifications = mergeMembers(generator.notifications, experimentalNotifications)
+	generator.supportedNotifications = mergeMembers(
+		supportedNotifications,
+		experimentalNotifications,
+	)
 
 	return nil
 }
@@ -127,6 +144,49 @@ func (generator *generator) experimentalClientMethodMember(entry supportedClient
 	}
 	if _, err := generator.experimentalSchemaFilePath(entry.ParamsName); err != nil {
 		return protocolMember{}, fmt.Errorf("client method %s params %s: %w", entry.Method, entry.ParamsName, err)
+	}
+	return protocolMember{
+		Method:       entry.Method,
+		ConstName:    methodConstName(entry.Method),
+		ParamsName:   entry.ParamsName,
+		Source:       entry.Source,
+		Experimental: true,
+	}, nil
+}
+
+func (generator *generator) experimentalNotificationMembers(input []supportedExperimentalNotification) ([]protocolMember, error) {
+	byMethod := membersByMethod(generator.notifications)
+	seen := map[string]bool{}
+	members := make([]protocolMember, 0, len(input))
+	for _, entry := range input {
+		if entry.Method == "" {
+			return nil, fmt.Errorf("experimental notification registration has empty method")
+		}
+		if seen[entry.Method] {
+			return nil, fmt.Errorf("experimental notification %s registered more than once", entry.Method)
+		}
+		seen[entry.Method] = true
+		member, err := generator.experimentalNotificationMember(entry, byMethod)
+		if err != nil {
+			return nil, err
+		}
+		members = append(members, member)
+	}
+	sortMembers(members)
+	return members, nil
+}
+
+func (generator *generator) experimentalNotificationMember(entry supportedExperimentalNotification, byMethod map[string]protocolMember) (protocolMember, error) {
+	if _, ok := byMethod[entry.Method]; ok {
+		return protocolMember{}, fmt.Errorf("notification %s is already in the stable structured protocol snapshot and cannot be registered as experimental", entry.Method)
+	}
+	if entry.Source == "" {
+		return protocolMember{}, fmt.Errorf("experimental notification %s has no source", entry.Method)
+	}
+	if entry.ParamsName != "" {
+		if _, err := generator.experimentalSchemaFilePath(entry.ParamsName); err != nil {
+			return protocolMember{}, fmt.Errorf("experimental notification %s params %s: %w", entry.Method, entry.ParamsName, err)
+		}
 	}
 	return protocolMember{
 		Method:       entry.Method,

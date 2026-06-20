@@ -2,20 +2,23 @@ import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
 import { WorkflowGraphSurface } from "../features/workspace-graph/workflow-graph-surface";
+import { destroyWorkflowGraphSurfaceController } from "../features/workspace-graph/workflow-graph-surface-controller";
 import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import { SemanticNodeDetailsSurface } from "../features/workspace-graph/semantic-node-details-surface";
 import { WorkflowNodeDetailsSurface } from "../features/workspace-graph/workflow-node-details-surface";
 import { WorkflowSettingsSurface } from "../features/workspace-graph/workflow-settings-surface";
-import { workflowGraphRuntimeHandle } from "../features/workspace-graph/workflow-graph-runtime-registry";
 import {
   FakeLongChatSurface,
   WorkspaceChatSurface,
   WorkspaceSettingsSurface,
 } from "./workspace-dom-surfaces";
+import { notifyWorkspaceSurfaceResumed } from "./surface-lifecycle-events";
 import {
+  applyCapturedSnapshotScrollOffsets,
   applySnapshotScrollOffsets,
-  cloneSnapshotNode,
+  captureSnapshotScrollOffsets,
   recordSnapshotScrollOffsets,
+  type SnapshotScrollOffsetRecord,
 } from "./surface-dom-content";
 import type {
   CanvasSurfaceStats,
@@ -42,6 +45,9 @@ export interface ReactSurfaceRootFactory {
 export interface ReactDomSurfaceState {
   activated: boolean;
   focused: boolean;
+  frozen: boolean;
+  mounted: boolean;
+  visible: boolean;
 }
 
 export interface ReactDomSurfaceAdapterOptions {
@@ -60,11 +66,10 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   private destroyed = false;
   private focused = false;
   private frozen = false;
-  private frozenVisual: HTMLElement | null = null;
   private host: HTMLElement | null = null;
   private root: ReactSurfaceRoot | null = null;
   private activated = false;
-  private frozenCanvasStats: CanvasSurfaceStats | null = null;
+  private parkedScrollOffsets: SnapshotScrollOffsetRecord[] = [];
   private scrollbarSuppressionToken = 0;
   private visible = false;
 
@@ -109,23 +114,33 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     if (!this.root) {
       this.root = this.rootFactory.createRoot(this.container);
       this.renderCurrentSurface();
+    } else if (this.lifecycleRenderRequired()) {
+      this.renderCurrentSurface();
     }
     this.syncHostState();
   }
 
   unmount(): void {
     if (this.container) {
+      this.parkedScrollOffsets = captureSnapshotScrollOffsets(this.container);
       recordSnapshotScrollOffsets(this.container);
     }
-    this.removeFrozenVisual();
-    this.frozenCanvasStats = null;
     this.host?.replaceChildren();
     this.host = null;
     this.visible = false;
+    if (this.lifecycleRenderRequired()) {
+      this.renderCurrentSurface();
+    }
   }
 
   setVisible(visible: boolean): void {
+    if (this.visible === visible) {
+      return;
+    }
     this.visible = visible;
+    if (this.lifecycleRenderRequired()) {
+      this.renderCurrentSurface();
+    }
     this.syncHostState();
   }
 
@@ -150,25 +165,32 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   }
 
   freeze(reason: FreezeReason): void {
-    if (!this.frozen) {
-      this.installFrozenVisual();
+    if (this.frozen) {
+      this.host?.setAttribute("data-freeze-reason", reason);
+      return;
     }
     this.frozen = true;
-    this.frozenCanvasStats = null;
-    this.syncWorkflowGraphFrozenState();
     this.host?.setAttribute("data-freeze-reason", reason);
+    if (this.lifecycleRenderRequired()) {
+      this.renderCurrentSurface();
+    }
     this.syncHostState();
   }
 
   resume(reason: ResumeReason): void {
     const wasFrozen = this.frozen;
     this.frozen = false;
-    this.removeFrozenVisual();
-    this.frozenCanvasStats = null;
-    this.syncWorkflowGraphFrozenState();
     this.host?.setAttribute("data-resume-reason", reason);
     if (wasFrozen) {
       this.suppressLiveScrollbars();
+      notifyWorkspaceSurfaceResumed({
+        reason,
+        surfaceId: this.surfaceId,
+        surfaceKind: this.kind,
+      });
+      if (this.lifecycleRenderRequired()) {
+        this.renderCurrentSurface();
+      }
     }
     this.syncHostState();
   }
@@ -185,21 +207,14 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     if (this.kind !== "workflow-graph") {
       return emptyCanvasStats();
     }
-    const state = {
-      frozen: this.frozen,
-      mounted: this.host !== null,
-      visible: this.visible,
-    };
-    if (this.frozen) {
-      this.frozenCanvasStats ??= canvasStatsForWorkflowGraphSnapshot(
-        workflowGraphDebugSnapshot(this.surfaceId),
-        state,
-      );
-      return this.frozenCanvasStats;
-    }
-    this.frozenCanvasStats = null;
     const snapshot = workflowGraphDebugSnapshot(this.surfaceId);
-    return canvasStatsForWorkflowGraphSnapshot(snapshot, state);
+    return {
+      drawCalls: 0,
+      farZoomSimplified: false,
+      gpuMemoryEstimateBytes: null,
+      liveCanvasPaneCount: this.visible && !this.frozen && this.host ? 1 : 0,
+      renderedFrames: snapshot?.render.frameCount ?? 0,
+    };
   }
 
   destroy(): void {
@@ -212,6 +227,9 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     this.container = null;
     if (root) {
       deferReactRootUnmount(root);
+    }
+    if (this.kind === "workflow-graph") {
+      destroyWorkflowGraphSurfaceController(this.surfaceId);
     }
     this.destroyed = true;
   }
@@ -233,20 +251,8 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     if (this.container) {
       this.container.dataset.focused = String(this.focused);
       this.container.dataset.frozen = String(this.frozen);
-      if (this.frozenVisual !== null) {
-        this.container.dataset.liveFrozenHidden = "true";
-      } else {
-        delete this.container.dataset.liveFrozenHidden;
-      }
       this.container.dataset.visible = String(this.visible);
     }
-  }
-
-  private syncWorkflowGraphFrozenState(): void {
-    if (this.kind !== "workflow-graph") {
-      return;
-    }
-    workflowGraphRuntimeHandle(this.surfaceId)?.setFrozen(this.frozen);
   }
 
   private renderCurrentSurface(): void {
@@ -254,36 +260,15 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
       this.renderSurface({
         activated: this.activated,
         focused: this.focused,
+        frozen: this.frozen,
+        mounted: this.host !== null,
+        visible: this.visible,
       }),
     );
   }
 
-  private installFrozenVisual(): void {
-    if (this.kind === "workflow-graph") {
-      return;
-    }
-    const host = this.host;
-    const container = this.container;
-    if (!host || !container) {
-      return;
-    }
-    recordSnapshotScrollOffsets(container);
-    this.removeFrozenVisual();
-    const visual = host.ownerDocument.createElement("div");
-    visual.className = "workspace-frozen-dom-visual";
-    visual.dataset.surfaceKind = this.kind;
-    visual.append(cloneSnapshotNode(container, host.ownerDocument));
-    host.append(visual);
-    applySnapshotScrollOffsets(visual);
-    this.frozenVisual = visual;
-  }
-
-  private removeFrozenVisual(): void {
-    this.frozenVisual?.remove();
-    this.frozenVisual = null;
-    if (this.container) {
-      delete this.container.dataset.liveFrozenHidden;
-    }
+  private lifecycleRenderRequired(): boolean {
+    return this.kind === "workflow-graph";
   }
 
   private restoreParkedScrollOffsets(): void {
@@ -291,8 +276,12 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     if (!container) {
       return;
     }
-    applySnapshotScrollOffsets(container);
-    restoreScrollOffsetsAcrossFrames(container, 24);
+    const restore = () => {
+      applySnapshotScrollOffsets(container);
+      applyCapturedSnapshotScrollOffsets(container, this.parkedScrollOffsets);
+    };
+    restore();
+    restoreScrollOffsetsAcrossFrames(restore, 24);
   }
 
   private suppressLiveScrollbars(): void {
@@ -312,21 +301,22 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   }
 }
 
-function restoreScrollOffsetsAcrossFrames(root: Element, remainingFrames: number): void {
+function restoreScrollOffsetsAcrossFrames(restore: () => void, remainingFrames: number): void {
   if (remainingFrames <= 0) {
     return;
   }
-  const restore = () => {
-    applySnapshotScrollOffsets(root);
-    queueMicrotask(() => applySnapshotScrollOffsets(root));
-    setTimeout(() => applySnapshotScrollOffsets(root), 0);
-    restoreScrollOffsetsAcrossFrames(root, remainingFrames - 1);
+  const restoreFrame = () => {
+    restore();
+    queueMicrotask(() => {
+      restore();
+    });
+    restoreScrollOffsetsAcrossFrames(restore, remainingFrames - 1);
   };
   if (typeof requestAnimationFrame === "function") {
-    requestAnimationFrame(restore);
+    requestAnimationFrame(restoreFrame);
     return;
   }
-  queueMicrotask(restore);
+  queueMicrotask(restoreFrame);
 }
 
 function clearScrollbarsSuppressedAcrossFrames(
@@ -365,8 +355,9 @@ export function createReactDomSurfaceAdapter(
   if (pane.surfaceKind === "workflow-graph") {
     return new ReactDomSurfaceAdapter(
       pane,
-      () => (
+      ({ frozen, mounted, visible }) => (
         <WorkflowGraphSurface
+          active={mounted && visible && !frozen}
           debugEnabled={workflowGraphDebugEnabled()}
           syntheticGraphFallback={options.workflowGraphSyntheticGraphFallback}
           surfaceId={pane.surfaceId}
@@ -407,14 +398,11 @@ function performanceNow(): number {
 
 function emptyCanvasStats(): CanvasSurfaceStats {
   return {
-    backingStorePixels: null,
     drawCalls: 0,
     farZoomSimplified: false,
     gpuMemoryEstimateBytes: null,
     liveCanvasPaneCount: 0,
-    rendererResizeCount: 0,
     renderedFrames: 0,
-    tickerFramesWhileFrozen: 0,
   };
 }
 
@@ -427,72 +415,6 @@ function workflowGraphDebugSnapshot(surfaceId: SurfaceId): WorkflowGraphDebugSna
     return null;
   }
   return api.getSnapshot(surfaceId);
-}
-
-function canvasStatsForWorkflowGraphSnapshot(
-  snapshot: WorkflowGraphDebugSnapshot | null,
-  state: { frozen: boolean; mounted: boolean; visible: boolean },
-): CanvasSurfaceStats {
-  const backingStorePixels = workflowGraphBackingStorePixels(snapshot);
-  const renderStats = workflowGraphRenderStats(snapshot);
-  return {
-    backingStorePixels,
-    drawCalls: 0,
-    farZoomSimplified: false,
-    gpuMemoryEstimateBytes: workflowGraphGpuMemoryEstimateBytes(backingStorePixels),
-    liveCanvasPaneCount: workflowGraphLiveCanvasPaneCount(state),
-    ...renderStats,
-  };
-}
-
-function workflowGraphBackingStorePixels(
-  snapshot: WorkflowGraphDebugSnapshot | null,
-): number | null {
-  if (!snapshot) {
-    return null;
-  }
-  return snapshot.canvas.width * snapshot.canvas.height;
-}
-
-function workflowGraphGpuMemoryEstimateBytes(backingStorePixels: number | null): number | null {
-  if (backingStorePixels === null) {
-    return null;
-  }
-  return backingStorePixels * 4;
-}
-
-function workflowGraphLiveCanvasPaneCount(state: {
-  frozen: boolean;
-  mounted: boolean;
-  visible: boolean;
-}): number {
-  if (!state.visible) {
-    return 0;
-  }
-  if (state.frozen) {
-    return 0;
-  }
-  if (!state.mounted) {
-    return 0;
-  }
-  return 1;
-}
-
-function workflowGraphRenderStats(
-  snapshot: WorkflowGraphDebugSnapshot | null,
-): Pick<CanvasSurfaceStats, "renderedFrames" | "rendererResizeCount" | "tickerFramesWhileFrozen"> {
-  if (!snapshot) {
-    return {
-      renderedFrames: 0,
-      rendererResizeCount: 0,
-      tickerFramesWhileFrozen: 0,
-    };
-  }
-  return {
-    renderedFrames: snapshot.render.frameCount,
-    rendererResizeCount: snapshot.render.rendererResizeCount,
-    tickerFramesWhileFrozen: snapshot.render.tickerFramesWhileFrozen,
-  };
 }
 
 type WorkflowGraphDebugSnapshot = ReturnType<

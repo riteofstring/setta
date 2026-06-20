@@ -64,6 +64,7 @@
     return {
       rows: Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]')).map(
         (row) => ({
+          conversationId: row.getAttribute("data-conversation-id") ?? "",
           text: row.innerText,
           unread: Boolean(row.querySelector('[aria-label="Unread assistant response"]')),
         }),
@@ -338,54 +339,91 @@
     }
   }
 
-  function maximizeWorkflowGraphPane({ surfaceId = null } = {}) {
-    const state = maximizeWorkflowGraphPaneState({ surfaceId });
-    if (!state.ok) {
-      throw new Error(`workflow graph maximize button is missing: ${JSON.stringify(state)}`);
+  async function maximizeWorkflowGraphPane({ surfaceId = null } = {}) {
+    let surface = initialWorkflowGraphSurface(surfaceId);
+    let host = workflowGraphHostForSurface(surface);
+    if (!workflowGraphHostIntersectsViewport(host)) {
+      surface = await workflowGraphSurfaceAfterFocusRequest(surfaceId);
+      host = workflowGraphHostForSurface(surface);
     }
-    return state.surfaceId;
+    if (!(host instanceof HTMLElement)) {
+      throw new Error("workflow graph pane host is missing");
+    }
+    clickWorkflowGraphMaximizeButton(host);
+    surface = await workflowGraphSurfaceAfterMaximize(surface?.dataset.surfaceId ?? null);
+    return surface?.dataset.surfaceId ?? null;
   }
 
-  function maximizeWorkflowGraphPaneState({ surfaceId = null } = {}) {
-    const surface = workflowGraphMaximizeSurface(surfaceId);
-    if (!surface) {
-      return {
-        ok: false,
-        reason: "missing-workflow-graph-surface",
-        roots: workflowGraphRootStates(),
-        surfaceId: null,
-      };
-    }
-    const host = surface.closest('[data-testid="workspace-pane-host"]');
-    const resolvedSurfaceId = surface.dataset.surfaceId ?? null;
-    if (paneHostBoolean(host, "maximized", false)) {
-      return { ok: true, reason: "already-maximized", surfaceId: resolvedSurfaceId };
-    }
-    const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
+  function initialWorkflowGraphSurface(surfaceId) {
+    return (
+      workflowGraphSurfaceById(surfaceId) ??
+      activeWorkflowGraphSurface() ??
+      firstWorkflowGraphSurface()
+    );
+  }
+
+  function workflowGraphHostForSurface(surface) {
+    return surface?.closest('[data-testid="workspace-pane-host"]') ?? null;
+  }
+
+  function clickWorkflowGraphMaximizeButton(host) {
+    const button = host.querySelector('[data-workspace-pane-maximize-button="true"]');
     if (!(button instanceof HTMLButtonElement)) {
-      return {
-        ok: false,
-        reason: "missing-maximize-button",
-        roots: workflowGraphRootStates(),
-        surfaceId: resolvedSurfaceId,
-      };
+      throw new Error("workflow graph maximize button is missing");
     }
-    button.click();
-    return { ok: true, reason: "clicked", surfaceId: resolvedSurfaceId };
+    if (host.dataset.maximized !== "true") {
+      button.click();
+    }
   }
 
-  function workflowGraphMaximizeSurface(surfaceId) {
-    const preferredSurface = workflowGraphSurfaceById(surfaceId);
-    if (workflowGraphMaximizeButton(preferredSurface)) {
-      return preferredSurface;
-    }
-    return activeWorkflowGraphSurface();
+  async function workflowGraphSurfaceAfterFocusRequest(surfaceId) {
+    await focusWorkflowGraphPaneByRequest();
+    return waitForWorkflowGraphSurface(surfaceId, workflowGraphInteractableSurfaceForId);
   }
 
-  function workflowGraphMaximizeButton(surface) {
-    const host = surface?.closest('[data-testid="workspace-pane-host"]');
-    const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
-    return button instanceof HTMLButtonElement ? button : null;
+  async function waitForWorkflowGraphSurface(surfaceId, findSurface) {
+    for (let index = 0; index < 24; index += 1) {
+      const surface = findSurface(surfaceId);
+      if (surface) {
+        return surface;
+      }
+      await nextFrame();
+    }
+    return null;
+  }
+
+  async function workflowGraphSurfaceAfterMaximize(surfaceId) {
+    const readySurface = await waitForWorkflowGraphSurface(
+      surfaceId,
+      workflowGraphVisualReadySurfaceForId,
+    );
+    if (readySurface) {
+      return readySurface;
+    }
+    await focusWorkflowGraphPaneByRequest();
+    return (
+      (await waitForWorkflowGraphSurface(surfaceId, workflowGraphVisualReadySurfaceForId)) ??
+      workflowGraphInteractableSurfaceForId(surfaceId)
+    );
+  }
+
+  async function focusWorkflowGraphPaneByRequest() {
+    window.dispatchEvent(
+      new CustomEvent("setta:workspace-open-pane-request", {
+        detail: {
+          subtitle: "workflow graph",
+          surfaceKind: "workflow-graph",
+          title: "Workflow Graph",
+          tone: "cyan",
+        },
+      }),
+    );
+    await nextFrame();
+    await nextFrame();
+  }
+
+  function firstWorkflowGraphSurface() {
+    return document.querySelector('[data-testid="workflow-graph"]');
   }
 
   function newFrameButtonOrWorkflowMenuExists() {
@@ -416,10 +454,6 @@
     return { ok: true, state: "opened" };
   }
 
-  function workflowGraphMenuItemExists() {
-    return Boolean(workflowGraphMenuItem());
-  }
-
   function selectWorkflowGraphMenuItem() {
     const item = workflowGraphMenuItem();
     if (!(item instanceof HTMLButtonElement)) {
@@ -433,30 +467,13 @@
   }
 
   function workflowGraphCanvasRect({ surfaceId }) {
-    const state = workflowGraphCanvasRectState({ surfaceId });
-    if (!state.rect) {
-      throw new Error(`workflow graph canvas is missing: ${JSON.stringify(state)}`);
-    }
-    return state.rect;
-  }
-
-  function workflowGraphCanvasRectState({ surfaceId }) {
-    const roots = Array.from(document.querySelectorAll('[data-testid="workflow-graph"]'));
-    const root =
-      surfaceId === null
-        ? roots[0]
-        : roots.find((candidate) => candidate.dataset.surfaceId === surfaceId);
+    const root = workflowGraphInteractableSurfaceForId(surfaceId);
     const canvas = root?.querySelector('[data-testid="workflow-graph-canvas"]');
-    if (!(canvas instanceof HTMLCanvasElement)) {
-      return {
-        ready: false,
-        reason: "missing-canvas",
-        rect: null,
-        roots: roots.map(workflowGraphRootState),
-      };
+    if (!canvas) {
+      throw new Error("workflow graph canvas is missing");
     }
     const rect = canvas.getBoundingClientRect();
-    const value = {
+    return {
       clientHeight: canvas.clientHeight || rect.height,
       clientWidth: canvas.clientWidth || rect.width,
       height: rect.height,
@@ -464,16 +481,6 @@
       top: rect.top,
       width: rect.width,
     };
-    return {
-      ready: workflowGraphCanvasRectReady(value),
-      reason: workflowGraphCanvasRectReady(value) ? "" : "zero-size-canvas",
-      rect: value,
-      roots: roots.map(workflowGraphRootState),
-    };
-  }
-
-  function workflowGraphCanvasRectReady(rect) {
-    return rect.clientHeight > 0 && rect.clientWidth > 0 && rect.height > 0 && rect.width > 0;
   }
 
   function workflowGraphDebugSnapshot({ includeVisual = true, surfaceId }) {
@@ -481,7 +488,11 @@
     if (!api) {
       throw new Error("workflow graph debug API is not installed");
     }
-    return api.getSnapshot(surfaceId, { includeVisual });
+    const readySnapshot = workflowGraphReadyDebugSnapshot(api, { includeVisual, surfaceId });
+    if (!readySnapshot.ready) {
+      throw new Error(`workflow graph debug snapshot is not ready: ${readySnapshot.reason}`);
+    }
+    return readySnapshot.snapshot;
   }
 
   function workflowGraphDebugSnapshotReady({ includeVisual = true, surfaceId }) {
@@ -489,27 +500,133 @@
     if (!api) {
       return workflowGraphDebugNotReady("missing-debug-api");
     }
-    const surfaceIds = api.getSurfaceIds();
-    if (surfaceId && !surfaceIds.includes(surfaceId)) {
-      return workflowGraphDebugNotReady("surface-not-registered", surfaceIds);
+    const readySnapshot = workflowGraphReadyDebugSnapshot(api, { includeVisual, surfaceId });
+    if (!readySnapshot.ready) {
+      return workflowGraphDebugNotReady(
+        readySnapshot.reason,
+        readySnapshot.surfaceIds,
+        readySnapshot.snapshots,
+      );
     }
-    return { ready: true, snapshot: api.getSnapshot(surfaceId, { includeVisual }) };
+    return { ready: true, snapshot: readySnapshot.snapshot };
   }
 
-  function workflowGraphDebugNotReady(reason, surfaceIds = []) {
+  function workflowGraphFitToView({ maxFitZoom = 1.15, paddingScreenPx = 160, surfaceId }) {
+    const api = window.__settaWorkflowGraphDebug;
+    if (!api) {
+      throw new Error("workflow graph debug API is not installed");
+    }
+    return api.fitToGraph(surfaceId, { maxFitZoom, paddingScreenPx });
+  }
+
+  function workflowGraphRenderAnimationFrame({ holdTicker = false, now, surfaceId }) {
+    const api = window.__settaWorkflowGraphDebug;
+    if (!api) {
+      throw new Error("workflow graph debug API is not installed");
+    }
+    return api.renderAnimationFrame(surfaceId, { holdTicker, now });
+  }
+
+  function workflowGraphReleaseAnimationFrame({ surfaceId }) {
+    const api = window.__settaWorkflowGraphDebug;
+    if (!api) {
+      throw new Error("workflow graph debug API is not installed");
+    }
+    return api.releaseAnimationFrame(surfaceId);
+  }
+
+  function hideWorkflowGraphCaptureChrome({ surfaceId = null } = {}) {
+    const host = workflowGraphHostBySurfaceId(surfaceId) ?? activeWorkflowGraphHost();
+    if (!(host instanceof HTMLElement)) {
+      return { hidden: 0, ok: false, reason: "missing-workflow-graph-host" };
+    }
+    const selectors = [
+      '[data-testid="workflow-graph-toolbar"]',
+      '[data-testid="workflow-node-details-surface"]',
+      '[data-testid="semantic-node-details-surface"]',
+      '[data-testid="workspace-layout-recovery"]',
+      '[role="alert"]',
+    ];
+    let hidden = 0;
+    for (const selector of selectors) {
+      const elements = new Set([
+        ...host.querySelectorAll(selector),
+        ...document.querySelectorAll(selector),
+      ]);
+      for (const element of elements) {
+        if (element instanceof HTMLElement) {
+          element.dataset.visualParityPreviousVisibility = element.style.visibility;
+          element.style.visibility = "hidden";
+          hidden += 1;
+        }
+      }
+    }
+    return { hidden, ok: true };
+  }
+
+  function workflowGraphDebugNotReady(reason, surfaceIds = [], snapshots = []) {
     return {
+      debugSnapshots: snapshots,
       flags: window.setta?.app.flags ?? null,
       ready: false,
       reason,
-      roots: workflowGraphRootStates(),
+      roots: workflowGraphSurfaces().map(workflowGraphRootState),
       surfaceIds,
     };
   }
 
-  function workflowGraphRootStates() {
-    return Array.from(document.querySelectorAll('[data-testid="workflow-graph"]')).map(
-      workflowGraphRootState,
+  function workflowGraphReadyDebugSnapshot(api, { includeVisual, surfaceId }) {
+    const surfaceIds = api.getSurfaceIds();
+    const candidateSurfaceIds = workflowGraphDebugSurfaceIdCandidates(surfaceId, surfaceIds);
+    if (candidateSurfaceIds.length === 0) {
+      return { ready: false, reason: "surface-not-interactable", snapshots: [], surfaceIds };
+    }
+    const snapshots = [];
+    for (const candidateSurfaceId of candidateSurfaceIds) {
+      if (!surfaceIds.includes(candidateSurfaceId)) {
+        continue;
+      }
+      const snapshot = workflowGraphDebugSnapshotForSurface(api, candidateSurfaceId, includeVisual);
+      snapshots.push(workflowGraphDebugSnapshotState(candidateSurfaceId, snapshot));
+      if (workflowGraphDebugSnapshotCanvasReady(snapshot, { includeVisual })) {
+        return { ready: true, snapshot };
+      }
+    }
+    return { ready: false, reason: "debug-canvas-not-ready", snapshots, surfaceIds };
+  }
+
+  function workflowGraphDebugSnapshotForSurface(api, surfaceId, includeVisual) {
+    try {
+      return api.getSnapshot(surfaceId, { includeVisual });
+    } catch (error) {
+      if (!String(error?.message ?? error).includes("not registered")) {
+        throw error;
+      }
+      return null;
+    }
+  }
+
+  function workflowGraphDebugSnapshotCanvasReady(snapshot, { includeVisual }) {
+    const canvas = snapshot?.canvas;
+    return Boolean(
+      canvas &&
+      canvas.clientWidth > 0 &&
+      canvas.clientHeight > 0 &&
+      (!includeVisual ||
+        (canvas.right > 0 &&
+          canvas.bottom > 0 &&
+          canvas.left < window.innerWidth &&
+          canvas.top < window.innerHeight)),
     );
+  }
+
+  function workflowGraphDebugSnapshotState(surfaceId, snapshot) {
+    return {
+      canvas: snapshot?.canvas ?? null,
+      registeredSurfaceId: surfaceId,
+      snapshotSurfaceId: snapshot?.surfaceId ?? null,
+      workflow: snapshot?.graph?.workflow ?? null,
+    };
   }
 
   function workflowGraphRootState(root) {
@@ -531,6 +648,14 @@
       activeWorkspaceCount: session.activeWorkspaces.length,
       body: document.body.innerText,
       selectedWorkspaceId: session.selectedWorkspaceId,
+    };
+  }
+
+  async function openWorkspacePath({ workspaceRoot }) {
+    const opened = await window.setta.workspace.openPath(workspaceRoot);
+    return {
+      workspaceId: opened.workspace.id,
+      workspaceName: opened.workspace.name,
     };
   }
 
@@ -561,13 +686,80 @@
     return { ok: true };
   }
 
-  function workflowToolbarState() {
-    const state = workflowToolbarElement('[data-testid="workflow-toolbar-state"]');
+  function workflowToolbarState({ surfaceId = null } = {}) {
+    const state = workflowToolbarElement('[data-testid="workflow-toolbar-state"]', surfaceId);
     return { text: state?.textContent?.trim() ?? "" };
   }
 
-  function clickWorkflowToolbarButton({ testId }) {
-    const button = workflowToolbarElement(`[data-testid="${testId}"]`);
+  const workflowToolbarButtonTestIds = [
+    "workflow-settings-button",
+    "workflow-add-node-button",
+    "workflow-validate-button",
+    "workflow-run-button",
+    "workflow-show-draft-button",
+    "workflow-node-details-button",
+  ];
+
+  function workflowToolbarButtonRects() {
+    const toolbar = workflowToolbarElement('[data-testid="workflow-graph-toolbar"]');
+    if (!(toolbar instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-workflow-toolbar" };
+    }
+    return {
+      buttons: workflowToolbarButtonSnapshots(),
+      ok: true,
+      operationStatus: workflowToolbarOperationStatusSnapshot(),
+      toolbar: elementRect(toolbar),
+    };
+  }
+
+  function workflowToolbarButtonSnapshots() {
+    const buttons = {};
+    for (const testId of workflowToolbarButtonTestIds) {
+      const button = workflowToolbarElement(`[data-testid="${testId}"]`);
+      if (button instanceof HTMLButtonElement) {
+        buttons[testId] = workflowToolbarButtonSnapshot(button);
+      }
+    }
+    return buttons;
+  }
+
+  function workflowToolbarButtonSnapshot(button) {
+    return {
+      ariaLabel: button.getAttribute("aria-label") ?? "",
+      disabled: button.disabled,
+      rect: elementRect(button),
+      text: compactElementText(button),
+      title: button.getAttribute("title") ?? "",
+    };
+  }
+
+  function workflowToolbarOperationStatusSnapshot() {
+    const operationStatus = workflowToolbarElement('[data-testid="workflow-operation-status"]');
+    if (!(operationStatus instanceof HTMLElement)) {
+      return null;
+    }
+    return {
+      rect: elementRect(operationStatus),
+      text: compactElementText(operationStatus),
+    };
+  }
+
+  function compactElementText(element) {
+    return element.textContent?.trim().replace(/\s+/g, " ") ?? "";
+  }
+
+  async function clickWorkflowToolbarButtonAndReadNextFrame({ testId }) {
+    const clicked = clickWorkflowToolbarButton({ testId });
+    if (!clicked.ok) {
+      return clicked;
+    }
+    await nextFrame();
+    return workflowToolbarButtonRects();
+  }
+
+  function clickWorkflowToolbarButton({ surfaceId = null, testId }) {
+    const button = workflowToolbarElement(`[data-testid="${testId}"]`, surfaceId);
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { ok: false, reason: "button-unavailable" };
     }
@@ -575,13 +767,97 @@
     return { ok: true };
   }
 
-  function workflowToolbarElement(selector) {
-    return activeWorkflowGraphHost()?.querySelector(selector) ?? document.querySelector(selector);
+  function workflowToolbarElement(selector, surfaceId = null) {
+    return (
+      workflowGraphSurfaceById(surfaceId)?.querySelector(selector) ??
+      workflowGraphHostBySurfaceId(surfaceId)?.querySelector(selector) ??
+      activeWorkflowGraphHost()?.querySelector(selector) ??
+      document.querySelector(selector)
+    );
   }
 
   function activeWorkflowGraphSurface() {
     const host = activeWorkflowGraphHost();
-    return host?.querySelector('[data-testid="workflow-graph"]') ?? null;
+    const surface = host?.querySelector('[data-testid="workflow-graph"]') ?? null;
+    if (workflowGraphSurfaceIsInteractable(surface)) {
+      return surface;
+    }
+    return firstInteractableWorkflowGraphSurface() ?? surface;
+  }
+
+  function firstInteractableWorkflowGraphSurface() {
+    return workflowGraphSurfaces().find(workflowGraphSurfaceIsInteractable) ?? null;
+  }
+
+  function workflowGraphVisualReadySurfaceForId(surfaceId) {
+    const candidates = [
+      workflowGraphSurfaceById(surfaceId),
+      activeWorkflowGraphSurface(),
+      firstInteractableWorkflowGraphSurface(),
+      ...workflowGraphSurfaces(),
+    ];
+    return (
+      candidates.find(
+        (candidate) =>
+          candidate instanceof HTMLElement &&
+          workflowGraphSurfaceIsInteractable(candidate) &&
+          workflowGraphDebugSurfaceVisualReady(candidate.dataset.surfaceId),
+      ) ?? null
+    );
+  }
+
+  function workflowGraphDebugSurfaceVisualReady(surfaceId) {
+    const api = window.__settaWorkflowGraphDebug;
+    if (!api || !surfaceId) {
+      return false;
+    }
+    const snapshot = workflowGraphDebugSnapshotForSurface(api, surfaceId, false);
+    return workflowGraphDebugSnapshotCanvasReady(snapshot, { includeVisual: true });
+  }
+
+  function workflowGraphDebugSurfaceIdCandidates(surfaceId, surfaceIds) {
+    const interactableSurfaceIds = surfaceIds.filter((candidateSurfaceId) =>
+      workflowGraphSurfaceIsInteractable(workflowGraphSurfaceById(candidateSurfaceId)),
+    );
+    return uniqueWorkflowGraphSurfaceIds([
+      surfaceId,
+      workflowGraphInteractableSurfaceForId(surfaceId)?.dataset.surfaceId,
+      ...interactableSurfaceIds,
+      ...surfaceIds,
+    ]);
+  }
+
+  function workflowGraphInteractableSurfaceForId(surfaceId) {
+    const requestedSurface = workflowGraphSurfaceById(surfaceId);
+    if (workflowGraphSurfaceIsInteractable(requestedSurface)) {
+      return requestedSurface;
+    }
+    const activeSurface = activeWorkflowGraphSurface();
+    if (workflowGraphSurfaceIsInteractable(activeSurface)) {
+      return activeSurface;
+    }
+    return firstInteractableWorkflowGraphSurface();
+  }
+
+  function workflowGraphSurfaceIsInteractable(surface) {
+    const canvas = surface?.querySelector('[data-testid="workflow-graph-canvas"]');
+    return (
+      workflowGraphHostIntersectsViewport(workflowGraphHostForSurface(surface)) &&
+      workflowGraphCanvasIsInteractable(canvas)
+    );
+  }
+
+  function workflowGraphHostIntersectsViewport(host) {
+    return host instanceof HTMLElement && elementIntersectsViewport(host);
+  }
+
+  function workflowGraphCanvasIsInteractable(canvas) {
+    return (
+      canvas instanceof HTMLCanvasElement &&
+      canvas.clientWidth > 0 &&
+      canvas.clientHeight > 0 &&
+      elementIntersectsViewport(canvas)
+    );
   }
 
   function activeWorkflowGraphHost() {
@@ -593,13 +869,17 @@
       '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-focused="true"][data-visible="true"]',
       '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-visible="true"]',
     ];
+    let fallbackHost = null;
     for (const selector of hostSelectors) {
       const host = document.querySelector(selector);
       if (host instanceof HTMLElement) {
-        return host;
+        if (workflowGraphHostIntersectsViewport(host)) {
+          return host;
+        }
+        fallbackHost ??= host;
       }
     }
-    return null;
+    return fallbackHost;
   }
 
   function workflowGraphHostBySurfaceId(surfaceId) {
@@ -613,32 +893,23 @@
       return null;
     }
     return (
-      Array.from(document.querySelectorAll('[data-testid="workflow-graph"]')).find(
-        (candidate) => candidate.dataset.surfaceId === surfaceId,
-      ) ?? null
+      workflowGraphSurfaces().find((candidate) => candidate.dataset.surfaceId === surfaceId) ?? null
     );
   }
 
-  async function renameWorkflowDefinitionFromCurrentGraph({
-    definitionId,
-    description,
-    name,
-    workspaceId,
-  }) {
-    const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
-    return window.setta.workflow.updateDefinition(
-      workspaceId,
-      definitionId,
-      name,
-      description,
-      definition.graph,
-    );
+  function workflowGraphSurfaces() {
+    return Array.from(document.querySelectorAll('[data-testid="workflow-graph"]'));
   }
 
-  function restoreMaximizedWorkflowGraphPane() {
-    const host = document.querySelector(
-      '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-maximized="true"]',
-    );
+  function restoreMaximizedWorkflowGraphPane({ surfaceId = null } = {}) {
+    const host =
+      (surfaceId ? workflowGraphHostBySurfaceId(surfaceId) : null) ??
+      document.querySelector(
+        '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-maximized="true"]',
+      );
+    if (!(host instanceof HTMLElement) || host.dataset.maximized !== "true") {
+      return false;
+    }
     const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
     if (!(button instanceof HTMLButtonElement)) {
       return false;
@@ -707,15 +978,6 @@
     };
   }
 
-  function clickWorkflowNodeDetailsButton() {
-    const button = workflowToolbarElement('[data-testid="workflow-node-details-button"]');
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { ok: false, reason: "details-button-unavailable" };
-    }
-    button.click();
-    return { ok: true };
-  }
-
   function workflowNodeDetailsSurfaceState() {
     return {
       exists: Boolean(document.querySelector('[data-testid="workflow-node-details-surface"]')),
@@ -733,47 +995,37 @@
     };
   }
 
-  function workflowRunDetailsText() {
-    const details = document.querySelector('[data-testid="workflow-node-run-details"]');
-    return details?.textContent ?? "";
-  }
-
   function workflowGraphPaneSettled({ surfaceId }) {
     const root = workflowGraphSurfaceById(surfaceId);
-    const host = root?.closest('[data-testid="workspace-pane-host"]');
-    return {
-      ...workflowGraphCanvasLayout(root),
-      moving: paneHostBoolean(host, "moving", true),
-      visible: paneHostBoolean(host, "visible", false),
-    };
-  }
-
-  function workflowGraphCanvasLayout(root) {
+    const host = workflowGraphHostForSurface(root);
     const canvas = root?.querySelector('[data-testid="workflow-graph-canvas"]');
-    if (!(canvas instanceof HTMLCanvasElement)) {
-      return {
-        clientHeight: 0,
-        clientWidth: 0,
-        height: 0,
-        left: Number.NEGATIVE_INFINITY,
-        width: 0,
-      };
-    }
-    const rect = canvas.getBoundingClientRect();
+    const rect = canvas instanceof HTMLCanvasElement ? canvas.getBoundingClientRect() : null;
     return {
-      clientHeight: canvas.clientHeight,
-      clientWidth: canvas.clientWidth,
-      height: rect.height,
-      left: rect.left,
-      width: rect.width,
+      clientWidth: workflowGraphCanvasClientWidth(canvas),
+      ...workflowGraphHostSettleState(host),
+      ...workflowGraphRectSettleState(rect),
     };
   }
 
-  function paneHostBoolean(host, key, missingValue) {
-    if (!(host instanceof HTMLElement)) {
-      return missingValue;
-    }
-    return host.dataset[key] === "true";
+  function workflowGraphCanvasClientWidth(canvas) {
+    return canvas instanceof HTMLCanvasElement ? canvas.clientWidth : 0;
+  }
+
+  function workflowGraphHostSettleState(host) {
+    return {
+      focused: host instanceof HTMLElement ? host.dataset.focused === "true" : false,
+      maximized: host instanceof HTMLElement ? host.dataset.maximized === "true" : false,
+      moving: host instanceof HTMLElement ? host.dataset.moving === "true" : true,
+      paneId: host instanceof HTMLElement ? (host.dataset.paneId ?? "") : "",
+      visible: host instanceof HTMLElement ? host.dataset.visible === "true" : false,
+    };
+  }
+
+  function workflowGraphRectSettleState(rect) {
+    return {
+      left: rect?.left ?? Number.NEGATIVE_INFINITY,
+      right: rect?.right ?? Number.NEGATIVE_INFINITY,
+    };
   }
 
   function workflowContextMenuPosition() {
@@ -840,7 +1092,7 @@
     const layout = {
       nodes: [
         { nodeId: "start", x: -360, y: 0 },
-        { nodeId: "work", x: 0, y: 120 },
+        { nodeId: "work", x: 0, y: 76 },
         { nodeId: "end", x: 360, y: 0 },
       ],
     };
@@ -909,35 +1161,88 @@
 
   async function configureWorkflowResultAction({ definitionId, workspaceId }) {
     const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
-    const graph = {
-      ...definition.graph,
-      nodes: definition.graph.nodes.map((node) => {
-        if (node.id !== "agent_task") {
-          return node;
-        }
-        return {
-          ...node,
-          action: {
-            ...node.action,
-            codex: {
-              ...node.action.codex,
-              prompt: "workflow result action",
-            },
-          },
-        };
-      }),
+    const agentTask = definition.graph.nodes.find((node) => node.id === "agent_task");
+    if (!agentTask) {
+      throw new Error(`agent_task node was not found: ${JSON.stringify(definition.graph.nodes)}`);
+    }
+    const node = {
+      ...agentTask,
+      action: {
+        ...agentTask.action,
+        codex: {
+          ...agentTask.action.codex,
+          prompt: "workflow result action",
+        },
+      },
     };
-    return window.setta.workflow.updateDefinition(
-      workspaceId,
+    await window.setta.workflow.updateNode({
       definitionId,
-      definition.name,
-      definition.description,
-      graph,
-    );
+      expectedRevision: definition.draftRevision,
+      node,
+      workspaceId,
+    });
+    return window.setta.workflow.readDefinition(workspaceId, definitionId);
   }
 
   async function readWorkflowExecution({ executionId, workspaceId }) {
     return window.setta.workflow.readExecution(workspaceId, executionId);
+  }
+
+  async function runWorkflowDraftForSurface({ definitionId = "", surfaceId = null } = {}) {
+    const callbacks = window.__settaWorkflowGraphRunDrafts;
+    if (!(callbacks instanceof Map)) {
+      return { ok: false, reason: "missing-workflow-runner-map", surfaceIds: [] };
+    }
+    const attempts = [];
+    for (const candidateSurfaceId of workflowGraphRunCandidateSurfaceIds(surfaceId)) {
+      const runDraft = callbacks.get(candidateSurfaceId);
+      if (!runDraft) {
+        continue;
+      }
+      const result = await runDraft();
+      attempts.push({ result, surfaceId: candidateSurfaceId });
+      if (workflowRunStarted(result, definitionId)) {
+        const focusedSurface = await workflowGraphSurfaceAfterFocusRequest(candidateSurfaceId);
+        const runSurfaceId = workflowGraphSurfaceIdOrFallback(focusedSurface, candidateSurfaceId);
+        return { executionId: result.executionId, ok: true, surfaceId: runSurfaceId };
+      }
+    }
+    return {
+      ok: false,
+      reason: workflowRunFailureReason(attempts),
+      attempts,
+      surfaceIds: [...callbacks.keys()],
+    };
+  }
+
+  function workflowRunStarted(result, definitionId) {
+    const matchesDefinition = definitionId === "" || result.definitionId === definitionId;
+    return result.executionId !== "" && matchesDefinition;
+  }
+
+  function workflowRunFailureReason(attempts) {
+    return attempts.length === 0 ? "missing-workflow-runner" : "workflow-run-not-started";
+  }
+
+  function workflowGraphSurfaceIdOrFallback(surface, fallbackId) {
+    return surface instanceof HTMLElement ? (surface.dataset.surfaceId ?? fallbackId) : fallbackId;
+  }
+
+  function workflowGraphRunCandidateSurfaceIds(surfaceId) {
+    const api = window.__settaWorkflowGraphDebug;
+    const readySnapshot = api
+      ? workflowGraphReadyDebugSnapshot(api, { includeVisual: false, surfaceId })
+      : null;
+    return uniqueWorkflowGraphSurfaceIds([
+      readySnapshot?.snapshot?.surfaceId,
+      activeWorkflowGraphSurface()?.dataset.surfaceId,
+      surfaceId,
+      ...(window.__settaWorkflowGraphRunDrafts?.keys() ?? []),
+    ]);
+  }
+
+  function uniqueWorkflowGraphSurfaceIds(surfaceIds) {
+    return [...new Set(surfaceIds.filter(Boolean))];
   }
 
   function workflowGraphMenuItem() {
@@ -1141,23 +1446,23 @@
     terminalScrollbackSearch,
     terminalSnapshot,
     maximizeWorkflowGraphPane,
-    maximizeWorkflowGraphPaneState,
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v5",
+    version: "setta-e2e-driver-v6",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
-    clickWorkflowNodeDetailsButton,
+    clickWorkflowToolbarButtonAndReadNextFrame,
     clickWorkflowToolbarButton,
     configureWorkflowResultAction,
     createWorkflowProjectionFixture,
     nullWorkflowValidation,
+    openWorkspacePath,
     openWorkflowToolbarAddMenu,
     readWorkflowExecution,
-    renameWorkflowDefinitionFromCurrentGraph,
     restoreMaximizedWorkflowGraphPane,
+    runWorkflowDraftForSurface,
     selectWorkflowNodeType,
     selectWorkflowToolbarNodeType,
     setWorkflowSettingsControlValue,
@@ -1165,16 +1470,19 @@
     workflowContextMenuPosition,
     workflowDefinitions,
     workflowGraphCanvasRect,
-    workflowGraphCanvasRectState,
     workflowGraphDebugSnapshot,
     workflowGraphDebugSnapshotReady,
-    workflowGraphMenuItemExists,
+    workflowGraphFitToView,
+    workflowGraphReleaseAnimationFrame,
+    workflowGraphRenderAnimationFrame,
+    hideWorkflowGraphCaptureChrome,
+    workflowGraphMenuItemExists: () => Boolean(workflowGraphMenuItem()),
     workflowGraphPaneSettled,
     workflowGraphPaneState,
     workflowNodeDetailsButtonRect,
     workflowNodeDetailsButtonState,
     workflowNodeDetailsSurfaceState,
-    workflowRunDetailsText,
+    workflowToolbarButtonRects,
     workflowToolbarState,
     workflowWorkspaceSessionState,
   };

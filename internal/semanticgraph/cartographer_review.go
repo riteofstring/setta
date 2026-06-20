@@ -65,8 +65,11 @@ func (service *Service) AcceptCartographerPatch(ctx context.Context, workspaceID
 	}
 	now := timestamp(service.now())
 	input := cartographerPatchReviewApplicationInput(run, patch)
-	newNodeIDs := collectCartographerEnvelopeNewNodeIDs(CartographerPatchEnvelope{Patches: []CartographerPatch{patch.Patch}})
-	diagnostics := service.validateCartographerPatch(ctx, input, patch.Patch, newNodeIDs, 0, now)
+	envelope := CartographerPatchEnvelope{Patches: []CartographerPatch{patch.Patch}}
+	newNodeIDs := collectCartographerEnvelopeNewNodeIDs(envelope)
+	newNodeSignatures := collectCartographerEnvelopeNewNodeSignatures(envelope)
+	edgeConnectedNodeIDs := collectCartographerEnvelopeEdgeConnectedNodeIDs(envelope)
+	diagnostics := service.validateCartographerPatch(ctx, input, patch.Patch, newNodeIDs, newNodeSignatures, edgeConnectedNodeIDs, 0, now)
 	if len(diagnostics) > 0 {
 		patch.Status = CartographerPatchRejected
 		patch.ValidatedAt = now
@@ -180,9 +183,14 @@ func cartographerPatchReviewApplicationInput(run CartographerRun, patch Cartogra
 		SourceRefs:        run.SourceRefs,
 		InputBundle:       run.InputBundle,
 		HarnessKind:       run.HarnessKind,
-		Model:             run.Model,
+		EffectiveModel:    run.EffectiveModel,
+		ReportedModel:     run.ReportedModel,
 		RequestID:         run.RequestID,
 		ResponseID:        run.ResponseID,
+		SourceEpochID:     run.SourceEpochID,
+		SourceKey:         run.SourceKey,
+		Priority:          run.Priority,
+		AttemptCount:      run.AttemptCount,
 		TrajectorySummary: run.TrajectorySummary,
 	}
 }
@@ -199,6 +207,7 @@ func (service *Service) saveCartographerPatchReview(ctx context.Context, run Car
 	records := replaceCartographerPatchRecord(patches.Patches, patch)
 	run.Status = cartographerRunStatusForPatchRecords(records)
 	run.CreatedSemanticEventIDs = createdSemanticEventIDsFromCartographerPatches(records)
+	run.GraphUsefulnessScore = cartographerGraphUsefulnessScoreForRun(run, records)
 	run.UpdatedAt = now
 	if run.Status != CartographerRunRejected {
 		run.Error = ""

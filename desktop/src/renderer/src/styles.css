@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "./workspace-layout.css";
-@import "./workspace-resize-preview.css";
 @import "./workspace-snapshot.css";
 @import "./workspace-pane-chrome.css";
 
@@ -38,14 +37,6 @@
   --color-status-alert-foreground: var(--status-alert-foreground);
   --color-status-critical: var(--status-critical);
   --color-status-critical-foreground: var(--status-critical-foreground);
-  --color-accent-cyan: var(--accent-cyan);
-  --color-accent-blue: var(--accent-blue);
-  --color-accent-violet: var(--accent-violet);
-  --color-accent-magenta: var(--accent-magenta);
-  --color-accent-red: var(--accent-red);
-  --color-accent-amber: var(--accent-amber);
-  --color-accent-green: var(--accent-green);
-  --color-accent-teal: var(--accent-teal);
   --color-setta-50: var(--setta-50);
   --color-setta-100: var(--setta-100);
   --color-setta-150: var(--setta-150);
@@ -93,33 +84,19 @@
   --sidebar-accent-foreground: var(--setta-100);
   --status-info: oklch(0.846 0.1292 213.38);
   --status-info-foreground: var(--setta-975);
-  --status-success: oklch(0.79 0.145 152);
+  --status-success: oklch(0.7227 0.192 149.58);
   --status-success-foreground: var(--setta-975);
-  --status-warning: oklch(0.82 0.135 78);
+  --status-warning: oklch(0.7686 0.1647 70.08);
   --status-warning-foreground: var(--setta-975);
-  --status-alert: oklch(0.77 0.135 335);
+  --status-alert: oklch(0.735 0.155 343);
   --status-alert-foreground: var(--setta-975);
   --status-critical: oklch(0.637 0.237 25.331);
   --status-critical-foreground: oklch(0.971 0.013 17.38);
-  --accent-cyan: oklch(0.846 0.1292 213.38);
-  --accent-blue: oklch(0.76 0.115 250);
-  --accent-violet: oklch(0.76 0.125 290);
-  --accent-magenta: oklch(0.77 0.135 335);
-  --accent-red: oklch(0.71 0.165 25);
-  --accent-amber: oklch(0.82 0.135 78);
-  --accent-green: oklch(0.79 0.145 152);
-  --accent-teal: oklch(0.82 0.125 185);
   --setta-font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --setta-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   --setta-font-heading: var(--setta-font-sans);
   --setta-logo: #4ce2ff;
-  --setta-shell-control-gap: 6px;
-  --setta-shell-control-size: 28px;
-  --setta-shell-top-bar-content-gap: 14px;
-  --setta-shell-top-bar-height: 38px;
-  --setta-shell-top-bar-logo-offset-y: 2px;
-  --setta-shell-top-bar-surface: color-mix(in oklch, var(--setta-950) 88%, black);
   --setta-50: oklch(0.9574 0.0071 267.38);
   --setta-100: oklch(0.9085 0.013 263.02);
   --setta-150: oklch(0.8575 0.0208 262.99);
@@ -176,125 +153,11 @@ h3 {
 }
 
 .setta-sidebar-surface {
-  --setta-sidebar-content-x: 4px;
-  --setta-sidebar-logo-x: 16px;
-  background: color-mix(in oklch, var(--background) 72%, var(--popover));
+  background: color-mix(in oklch, var(--background) 40%, var(--popover));
 }
 
 [data-color-mode="light"] .setta-sidebar-surface {
   background: var(--setta-100);
-}
-
-.setta-sidebar-logo-shell {
-  padding-left: var(--setta-sidebar-logo-x);
-  padding-right: var(--setta-sidebar-logo-x);
-}
-
-.setta-sidebar-content-shell,
-.setta-sidebar-scroll-shell,
-.setta-sidebar-footer {
-  padding-left: var(--setta-sidebar-content-x);
-  padding-right: var(--setta-sidebar-content-x);
-}
-
-.setta-shell-top-bar {
-  --setta-shell-top-bar-chrome-inset: 0px;
-  align-items: center;
-  background: var(--setta-shell-top-bar-surface);
-  border-bottom: 1px solid color-mix(in oklch, var(--setta-700) 34%, transparent);
-  box-shadow: 0 10px 28px color-mix(in oklch, black 18%, transparent);
-  color: var(--setta-150);
-  display: flex;
-  flex: 0 0 var(--setta-shell-top-bar-height);
-  height: var(--setta-shell-top-bar-height);
-  min-height: var(--setta-shell-top-bar-height);
-  position: relative;
-  width: 100%;
-  z-index: 130;
-}
-
-.setta-shell-top-bar[data-desktop-platform="darwin"] {
-  --setta-shell-top-bar-chrome-inset: 80px;
-}
-
-[data-color-mode="light"] .setta-shell-top-bar {
-  background: color-mix(in oklch, var(--setta-900) 90%, var(--setta-950));
-  border-color: color-mix(in oklch, var(--setta-400) 36%, transparent);
-  color: var(--setta-100);
-}
-
-.setta-shell-top-bar-chrome-shield {
-  bottom: 0;
-  left: 0;
-  position: absolute;
-  top: 0;
-  width: var(--setta-shell-top-bar-chrome-inset);
-}
-
-.setta-shell-top-bar-left {
-  align-items: center;
-  display: flex;
-  gap: var(--setta-shell-control-gap);
-  height: 100%;
-  min-width: 0;
-  padding-left: calc(
-    var(--setta-shell-top-bar-chrome-inset) + var(--setta-shell-top-bar-content-gap)
-  );
-  padding-right: var(--setta-shell-top-bar-content-gap);
-}
-
-.setta-shell-top-bar-right {
-  align-items: center;
-  display: flex;
-  height: 100%;
-  margin-left: auto;
-  min-width: 0;
-  padding-left: var(--setta-shell-top-bar-content-gap);
-  padding-right: var(--setta-shell-top-bar-content-gap);
-}
-
-.setta-shell-top-bar-logo {
-  transform: translateY(var(--setta-shell-top-bar-logo-offset-y));
-}
-
-.setta-shell-top-bar-controls {
-  align-items: center;
-  display: flex;
-  gap: var(--setta-shell-control-gap);
-  min-width: 0;
-}
-
-.setta-shell-top-bar-button {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 7px;
-  color: color-mix(in oklch, currentColor 84%, transparent);
-  display: inline-flex;
-  height: var(--setta-shell-control-size);
-  justify-content: center;
-  padding: 0;
-  width: var(--setta-shell-control-size);
-}
-
-.setta-shell-top-bar-button:hover,
-.setta-shell-top-bar-button:focus-visible {
-  background: transparent;
-  color: var(--setta-50);
-  outline: none;
-}
-
-.setta-shell-top-bar-button:focus-visible {
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 62%, transparent);
-}
-
-.setta-shell-top-bar-button.is-active {
-  background: transparent;
-  color: var(--primary);
-}
-
-.setta-shell-top-bar-button:disabled {
-  opacity: 0.38;
 }
 
 button:not(:disabled),

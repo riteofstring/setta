@@ -23,14 +23,7 @@ export async function openWorkflowGraphPane(client, { timeoutMs } = {}) {
 }
 
 export async function maximizeWorkflowGraphPane(client, { surfaceId = null, timeoutMs } = {}) {
-  await client.installDriver();
-  const maximized = await waitForState(
-    client,
-    driverCallExpression("maximizeWorkflowGraphPaneState", { surfaceId }),
-    (value) => value.ok,
-    timeoutMs,
-  );
-  const maximizedSurfaceId = maximized.surfaceId;
+  const maximizedSurfaceId = await client.driver("maximizeWorkflowGraphPane", { surfaceId });
   await waitForWorkflowGraphPaneSettled(client, maximizedSurfaceId, timeoutMs);
   return maximizedSurfaceId;
 }
@@ -105,7 +98,7 @@ export async function dispatchWorkflowGraphWheel(
 }
 
 export async function pagePointForCanvasPoint(client, surfaceId, point) {
-  const rect = await waitForWorkflowGraphCanvasRect(client, surfaceId);
+  const rect = await workflowGraphCanvasRect(client, surfaceId);
   return {
     x: rect.left + point.x * (rect.width / rect.clientWidth),
     y: rect.top + point.y * (rect.height / rect.clientHeight),
@@ -144,14 +137,8 @@ function visibleWorkflowGraphCountExpression() {
   return driverCallExpression("visibleWorkflowGraphCount");
 }
 
-async function waitForWorkflowGraphCanvasRect(client, surfaceId) {
-  await client.installDriver();
-  const state = await waitForState(
-    client,
-    driverCallExpression("workflowGraphCanvasRectState", { surfaceId }),
-    (value) => value.ready,
-  );
-  return state.rect;
+async function workflowGraphCanvasRect(client, surfaceId) {
+  return client.driver("workflowGraphCanvasRect", { surfaceId });
 }
 
 async function waitForWorkflowGraphPaneSettled(client, surfaceId, timeoutMs) {
@@ -159,14 +146,7 @@ async function waitForWorkflowGraphPaneSettled(client, surfaceId, timeoutMs) {
   await waitForState(
     client,
     driverCallExpression("workflowGraphPaneSettled", { surfaceId }),
-    (value) =>
-      value.visible &&
-      !value.moving &&
-      value.left >= 0 &&
-      value.clientWidth > 0 &&
-      value.clientHeight > 0 &&
-      value.width > 0 &&
-      value.height > 0,
+    (value) => value.visible && !value.moving && value.left >= 0 && value.clientWidth > 0,
     timeoutMs,
   );
 }

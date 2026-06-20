@@ -2,6 +2,8 @@ package chat
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -95,6 +97,92 @@ func TestSettaWorkspaceContextToolReturnsCurrentTurnContext(t *testing.T) {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("workspace_context text = %s, missing %s", text, expected)
 		}
+	}
+}
+
+func TestSettaWorkspaceFileReadToolReturnsTypedFileExcerpt(t *testing.T) {
+	rootPath := t.TempDir()
+	if err := os.WriteFile(filepath.Join(rootPath, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatalf("write fixture file: %v", err)
+	}
+	registry, err := NewSettaAgentToolRegistry()
+	if err != nil {
+		t.Fatalf("setta tool registry: %v", err)
+	}
+	tool, ok := registry.Lookup("setta", SettaWorkspaceFileReadToolName)
+	if !ok {
+		t.Fatal("read_workspace_file was not registered")
+	}
+	if tool.FileOperation == nil ||
+		tool.FileOperation.Operation != RunItemFileOperationRead ||
+		tool.FileOperation.PathArgument != "path" ||
+		tool.FileOperation.RangeStartArgument != "lineStart" ||
+		tool.FileOperation.RangeEndArgument != "lineEnd" {
+		t.Fatalf("read_workspace_file metadata = %+v", tool.FileOperation)
+	}
+	ctx := ContextWithAgentToolRuntime(context.Background(), AgentToolRuntimeContext{
+		Workspace: workspace.WorkspaceSummary{
+			ID:       "workspace_api",
+			RootPath: rootPath,
+		},
+		Conversation: Conversation{
+			ID:          "conversation_api",
+			WorkspaceID: "workspace_api",
+		},
+		Run: Run{
+			ID:             "run_api",
+			WorkspaceID:    "workspace_api",
+			ConversationID: "conversation_api",
+			Status:         RunStatusRunning,
+		},
+		ThreadID: "thread_api",
+		TurnID:   "turn_api",
+	})
+
+	result, err := tool.Handler(ctx, AgentToolCall{
+		Arguments: []byte(`{"path":"main.go","lineStart":1,"lineEnd":2}`),
+	})
+	if err != nil {
+		t.Fatalf("read_workspace_file handler: %v", err)
+	}
+	if !result.Success || len(result.ContentItems) != 1 {
+		t.Fatalf("result = %+v, want one successful content item", result)
+	}
+	text := result.ContentItems[0].Text
+	for _, expected := range []string{`"path": "main.go"`, `"lineStart": 1`, `"lineEnd": 2`, "package main\\n\\n"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("read_workspace_file text = %s, missing %s", text, expected)
+		}
+	}
+}
+
+func TestSettaWorkspaceFileReadToolRejectsTraversal(t *testing.T) {
+	rootPath := t.TempDir()
+	registry, err := NewSettaAgentToolRegistry()
+	if err != nil {
+		t.Fatalf("setta tool registry: %v", err)
+	}
+	tool, ok := registry.Lookup("setta", SettaWorkspaceFileReadToolName)
+	if !ok {
+		t.Fatal("read_workspace_file was not registered")
+	}
+	ctx := ContextWithAgentToolRuntime(context.Background(), AgentToolRuntimeContext{
+		Workspace: workspace.WorkspaceSummary{ID: "workspace_api", RootPath: rootPath},
+		Conversation: Conversation{
+			ID:          "conversation_api",
+			WorkspaceID: "workspace_api",
+		},
+		Run: Run{
+			ID:             "run_api",
+			WorkspaceID:    "workspace_api",
+			ConversationID: "conversation_api",
+			Status:         RunStatusRunning,
+		},
+	})
+
+	_, err = tool.Handler(ctx, AgentToolCall{Arguments: []byte(`{"path":"../outside.go"}`)})
+	if err == nil || !strings.Contains(err.Error(), "escapes the workspace") {
+		t.Fatalf("read_workspace_file traversal error = %v, want workspace escape failure", err)
 	}
 }
 

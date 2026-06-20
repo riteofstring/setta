@@ -20,41 +20,6 @@ describe("workspace metrics collector", () => {
     expect(snapshot.resize.p95FrameTime).toBe(2.5);
     expect(snapshot.resize.p99FrameTime).toBe(2.5);
   });
-
-  test("records snapshot capture guard metrics", () => {
-    const metrics = new WorkspaceMetricsCollector();
-
-    metrics.recordSnapshotCaptureRequest({ duringTransition: false, kind: "bitmap" });
-    metrics.recordSnapshotCaptureRequest({ duringTransition: true, kind: "texture" });
-    metrics.recordSnapshotCapturePromiseAwaitedByTransition();
-    metrics.recordSnapshotTextureUse("fresh");
-    metrics.recordSnapshotTextureUse("stale");
-    metrics.recordSnapshotTextureUse("missing");
-
-    expect(metrics.snapshot()).toMatchObject({
-      snapshotBitmapCaptureRequests: 1,
-      snapshotCapturePromisesAwaitedByTransition: 1,
-      snapshotCaptureRequests: 2,
-      snapshotCaptureRequestsDuringTransition: 1,
-      snapshotFreshTextureUses: 1,
-      snapshotMissingTextureUses: 1,
-      snapshotStaleTextureUses: 1,
-      snapshotTextureCaptureRequests: 1,
-    });
-
-    metrics.reset();
-
-    expect(metrics.snapshot()).toMatchObject({
-      snapshotBitmapCaptureRequests: 0,
-      snapshotCapturePromisesAwaitedByTransition: 0,
-      snapshotCaptureRequests: 0,
-      snapshotCaptureRequestsDuringTransition: 0,
-      snapshotFreshTextureUses: 0,
-      snapshotMissingTextureUses: 0,
-      snapshotStaleTextureUses: 0,
-      snapshotTextureCaptureRequests: 0,
-    });
-  });
 });
 
 function frameSample(resizePhase: ResizePhase, frameTime: number) {

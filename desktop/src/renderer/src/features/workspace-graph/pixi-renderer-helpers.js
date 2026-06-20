@@ -2,9 +2,13 @@
 
 import { Point } from "pixi.js";
 
-const backgroundRed = 7;
-const backgroundGreen = 8;
-const backgroundBlue = 13;
+import { rendererNodeLayer } from "./pixi-renderer-layers";
+import { workspaceNeonTheme } from "./workspace-neon-theme";
+
+const backgroundRgb = hexToRgb(workspaceNeonTheme.foundation.background);
+const backgroundRed = backgroundRgb.red;
+const backgroundGreen = backgroundRgb.green;
+const backgroundBlue = backgroundRgb.blue;
 const lineWheelPixelSize = 20;
 const mouseWheelZoomSensitivity = 0.0016;
 const notchedWheelDeltaThreshold = 80;
@@ -25,9 +29,18 @@ export function nodeOpenRequested(event, onNodeOpen) {
 
 export function nodeDeleteRequested(event, onNodeDelete, selectedNodeIds) {
   return (
-    isNodeDeleteKey(event.key) &&
+    isDeleteKey(event.key) &&
     selectedNodeIds.size > 0 &&
     typeof onNodeDelete === "function" &&
+    !keyboardEventTargetsEditableText(event)
+  );
+}
+
+export function edgeDeleteRequested(event, onEdgeDelete, selectedEdgeIds) {
+  return (
+    isDeleteKey(event.key) &&
+    selectedEdgeIds.size > 0 &&
+    typeof onEdgeDelete === "function" &&
     !keyboardEventTargetsEditableText(event)
   );
 }
@@ -38,7 +51,7 @@ export function notifyNodeSelectionChange(onNodeSelectionChange, selectedNodeIds
   }
 }
 
-function isNodeDeleteKey(key) {
+function isDeleteKey(key) {
   return key === "Delete" || key === "Backspace";
 }
 
@@ -86,13 +99,24 @@ export function nodeBounds(node) {
   };
 }
 
-export function pointInsideNodeBounds(point, node) {
+function pointInsideNodeBounds(point, node) {
   return (
     point.x >= node.x &&
     point.x <= node.x + node.width &&
     point.y >= node.y &&
     point.y <= node.y + node.height
   );
+}
+
+export function hitTestTopNodeAtScreen(spatialQueries, screen) {
+  const { candidates, world } = spatialQueries.nodeHitCandidatesAtScreen(screen);
+  let picked = null;
+  for (const node of candidates) {
+    if (pointInsideNodeBounds(world, node)) {
+      picked = node;
+    }
+  }
+  return picked;
 }
 
 export function rectanglesIntersect(left, right) {
@@ -148,6 +172,29 @@ export function parsePortKey(key) {
   return { nodeId, portId };
 }
 
+export function createPortVisualStateSync({ getNode, portVisuals, portVisualStates }) {
+  return (nodeId, portId, state) => {
+    const key = portKey(nodeId, portId);
+    const visual = portVisuals.get(key);
+    if (!visual) {
+      return false;
+    }
+    const node = getNode(nodeId);
+    portVisualStates.set(key, state);
+    drawPortVisualState(visual, requirePort(node, portId), state);
+    return true;
+  };
+}
+
+export function requireWorkflowGraphNode(nodes, nodeId) {
+  const node =
+    nodes instanceof Map ? nodes.get(nodeId) : nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(`workspace edge references missing node: ${nodeId}`);
+  }
+  return node;
+}
+
 function isNonBackgroundColor(red, green, blue) {
   return (
     Math.abs(red - backgroundRed) > 3 ||
@@ -190,11 +237,35 @@ export function samplePixiVisualState(renderer, stage, clearColor) {
 }
 
 export function drawCurvedEdge(target, start, end, stroke) {
-  const controlOffset = Math.max(80, Math.abs(end.x - start.x) * 0.35);
+  const controlOffset = curvedEdgeControlOffset(start, end);
   target
     .moveTo(start.x, start.y)
     .bezierCurveTo(start.x + controlOffset, start.y, end.x - controlOffset, end.y, end.x, end.y)
     .stroke(stroke);
+}
+
+export function sampleCurvedEdge(start, end, t) {
+  const clampedT = clamp(t, 0, 1);
+  const controlOffset = curvedEdgeControlOffset(start, end);
+  const firstControl = { x: start.x + controlOffset, y: start.y };
+  const secondControl = { x: end.x - controlOffset, y: end.y };
+  const inverseT = 1 - clampedT;
+  const inverseSquared = inverseT * inverseT;
+  const tSquared = clampedT * clampedT;
+  return new Point(
+    inverseSquared * inverseT * start.x +
+      3 * inverseSquared * clampedT * firstControl.x +
+      3 * inverseT * tSquared * secondControl.x +
+      tSquared * clampedT * end.x,
+    inverseSquared * inverseT * start.y +
+      3 * inverseSquared * clampedT * firstControl.y +
+      3 * inverseT * tSquared * secondControl.y +
+      tSquared * clampedT * end.y,
+  );
+}
+
+function curvedEdgeControlOffset(start, end) {
+  return Math.max(80, Math.abs(end.x - start.x) * 0.35);
 }
 
 export function drawMarqueeSelection(target, marquee) {
@@ -203,11 +274,12 @@ export function drawMarqueeSelection(target, marquee) {
     return;
   }
   const bounds = marqueeBounds(marquee);
+  const style = workspaceNeonTheme.foundation.marquee;
   target
     .rect(bounds.x, bounds.y, bounds.width, bounds.height)
-    .fill({ alpha: 0.14, color: 0x38bdf8 })
+    .fill({ alpha: style.fillAlpha, color: style.fillColor })
     .rect(bounds.x, bounds.y, bounds.width, bounds.height)
-    .stroke({ alpha: 0.9, color: 0xbae6fd, width: 2 });
+    .stroke({ alpha: style.strokeAlpha, color: style.strokeColor, width: style.strokeWidth });
 }
 
 export function drawTemporaryEdge(target, edgeDrawing) {
@@ -217,39 +289,151 @@ export function drawTemporaryEdge(target, edgeDrawing) {
   }
   const start = new Point(edgeDrawing.startX, edgeDrawing.startY);
   const end = new Point(edgeDrawing.endX, edgeDrawing.endY);
+  const style = workspaceNeonTheme.foundation.temporaryEdge;
   drawCurvedEdge(target, start, end, {
-    alpha: 0.94,
-    color: 0x67e8f9,
-    width: 3.5,
+    alpha: style.glowAlpha,
+    color: style.color,
+    width: style.glowWidth,
+  });
+  drawCurvedEdge(target, start, end, {
+    alpha: style.alpha,
+    color: style.color,
+    width: style.width,
   });
   target
-    .circle(start.x, start.y, 5.5)
-    .fill({ alpha: 0.92, color: 0x67e8f9 })
-    .circle(end.x, end.y, 5.5)
-    .stroke({ alpha: 0.82, color: 0x67e8f9, width: 2.5 });
+    .circle(start.x, start.y, style.endpointRadius)
+    .fill({ alpha: style.endpointAlpha, color: style.color })
+    .circle(end.x, end.y, style.endpointRadius)
+    .stroke({ alpha: 0.84, color: style.color, width: 2.5 });
 }
 
 export function drawPortVisualState(target, port, state) {
   target.clear();
-  const color = port.role === "source" ? 0x67e8f9 : 0xc4b5fd;
-  const alpha = state === "idle" ? 0.82 : 1;
-  const ringAlpha = state === "idle" ? 0.34 : 0.88;
+  if (state === "idle") {
+    return;
+  }
+  const portTheme = workspaceNeonTheme.foundation.port;
+  const color = port.role === "source" ? portTheme.source : portTheme.target;
+  const alpha = 1;
+  const ringAlpha = 0.88;
   const ringRadius = state === "active" || state === "target" ? 13 : 10;
   target
     .circle(0, 0, ringRadius)
-    .stroke({ alpha: ringAlpha, color, width: state === "idle" ? 1.5 : 2.5 })
+    .stroke({ alpha: ringAlpha, color, width: 2.5 })
     .circle(0, 0, 6)
-    .fill({ alpha, color: 0xf8fafc });
+    .fill({ alpha, color: portTheme.core });
 }
 
-export function drawWorkspaceGlow(target, nodes, now) {
+export function drawWorkspaceGlow(target, nodes, now, { mode = "static" } = {}) {
   target.clear();
-  const pulse = 0.35 + Math.sin(now / 450) * 0.15;
+  const semanticPulse = workspaceGlowPulse(now, mode);
   for (const node of nodes) {
-    target
-      .circle(node.x + node.width / 2, node.y + node.height / 2, 58 + pulse * 16)
-      .stroke({ alpha: 0.08 + pulse * 0.05, color: node.color, width: 2 });
+    switch (rendererNodeLayer(node)) {
+      case "workflow":
+        drawWorkflowNodeGlow(target, node, now, mode);
+        break;
+      case "semantic":
+        drawSemanticNodeGlow(target, node, semanticPulse, mode);
+        break;
+      default:
+        throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
+    }
   }
+}
+
+function workspaceGlowPulse(now, mode) {
+  if (mode === "animated") {
+    return 0.35 + Math.sin(now / 450) * 0.15;
+  }
+  if (mode === "steady") {
+    return 0.42;
+  }
+  return 0.18;
+}
+
+function drawWorkflowNodeGlow(target, node, now, mode) {
+  const style = workflowNodeAuraStyleFor(node);
+  const aura = workflowNodeAuraRenderState(node, style, now, mode);
+  const color = node.status === "not_started" ? 0x8b8b8b : node.color;
+  const radius = Math.max(node.width, node.height) / 2 + style.radiusPadding + aura.radiusOffset;
+  const compactScale = 1;
+  target
+    .roundRect(node.x - 8, node.y - 8, node.width + 16, node.height + 16, 14)
+    .stroke({ alpha: aura.alpha * compactScale, color, width: aura.glowWidth * compactScale })
+    .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
+    .stroke({ alpha: aura.ringAlpha * compactScale, color, width: style.ringWidth * compactScale });
+}
+
+function workflowNodeAuraStyleFor(node) {
+  return workspaceNeonTheme.workflow.nodeAura[node.status ?? "not_started"];
+}
+
+function workflowNodeAuraRenderState(node, style, now, mode) {
+  if (mode === "animated" && style.animate) {
+    const intensity = workflowNodeAuraIntensity(node, style, now);
+    return {
+      alpha: style.steadyAlpha + style.pulseAlpha * intensity,
+      glowWidth: style.glowWidth,
+      radiusOffset: style.pulseRadius * intensity,
+      ringAlpha: style.steadyRingAlpha + style.pulseAlpha * 0.65 * intensity,
+    };
+  }
+  if (mode === "steady") {
+    return {
+      alpha: style.steadyAlpha,
+      glowWidth: style.glowWidth,
+      radiusOffset: style.pulseRadius * 0.45,
+      ringAlpha: style.steadyRingAlpha,
+    };
+  }
+  return {
+    alpha: style.baseAlpha,
+    glowWidth: Math.max(3, style.glowWidth - 2),
+    radiusOffset: 0,
+    ringAlpha: style.baseRingAlpha,
+  };
+}
+
+function workflowNodeAuraIntensity(node, style, now) {
+  const phase = (now / style.periodMs + workflowNodeAuraSeed(node.id)) % 1;
+  const wave = 0.5 + Math.sin(phase * Math.PI * 2) * 0.5;
+  if (style.mode === "flicker") {
+    const stutter = 0.5 + Math.sin((phase + 0.17) * Math.PI * 9.4) * 0.5;
+    return clamp(wave * 0.58 + stutter * 0.42, 0.18, 1);
+  }
+  return wave;
+}
+
+function workflowNodeAuraSeed(nodeId) {
+  let hash = 2166136261;
+  for (let index = 0; index < nodeId.length; index += 1) {
+    hash ^= nodeId.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 0x100000000;
+}
+
+function drawSemanticNodeGlow(target, node, pulse, mode) {
+  const cell = workspaceNeonTheme.semantic.cell;
+  const animated = mode === "animated";
+  const steady = mode === "steady";
+  const cellRadius = Math.min(node.width, node.height) / 2;
+  const radius = cellRadius + 18 + (animated ? pulse * 8 : steady ? 6 : 0);
+  const baseAlpha = node.dismissed ? cell.dismissed.auraAlpha : cell.auraAlpha;
+  const alpha = animated || steady ? baseAlpha * 0.58 + pulse * 0.03 : baseAlpha * 0.28;
+  target
+    .circle(node.x + node.width / 2, node.y + node.height / 2, radius + 3)
+    .fill({ alpha: alpha * 0.46, color: node.color })
+    .circle(node.x + node.width / 2, node.y + node.height / 2, radius - 8)
+    .fill({ alpha: alpha * 0.18, color: node.color });
+}
+
+function hexToRgb(color) {
+  return {
+    blue: color & 0xff,
+    green: (color >> 8) & 0xff,
+    red: (color >> 16) & 0xff,
+  };
 }
 
 export function visibleDisplayObjectCount(displayObjects) {
@@ -290,12 +474,30 @@ export function cameraState(viewport) {
   };
 }
 
+export function viewportWorldBoundsForScreen(viewport, paddingScreenPx = 0) {
+  const topLeft = viewport.toWorld({ x: -paddingScreenPx, y: -paddingScreenPx });
+  const bottomRight = viewport.toWorld({
+    x: viewport.screenWidth + paddingScreenPx,
+    y: viewport.screenHeight + paddingScreenPx,
+  });
+  const left = Math.min(topLeft.x, bottomRight.x);
+  const right = Math.max(topLeft.x, bottomRight.x);
+  const top = Math.min(topLeft.y, bottomRight.y);
+  const bottom = Math.max(topLeft.y, bottomRight.y);
+  return {
+    height: bottom - top,
+    width: right - left,
+    x: left,
+    y: top,
+  };
+}
+
 export function cameraStatesDiffer(left, right) {
   return left.x !== right.x || left.y !== right.y || left.zoom !== right.zoom;
 }
 
 export function configureViewportNavigation(viewport, initialCameraState, { maxZoom, minZoom }) {
-  viewport.pinch({ percent: 1.6 }).decelerate({ friction: 0.88 });
+  viewport.pinch({ noDrag: true, percent: 1 });
   if (!initialCameraState) {
     viewport.moveCenter(0, 20);
     return;
@@ -314,7 +516,7 @@ export function edgeConnection(edgeDrawing, targetPort) {
 }
 
 function drawnEdge(sequence, connection) {
-  return { id: `drawn-${sequence}`, ...connection };
+  return { id: `drawn-${sequence}`, layer: "workflow", ...connection };
 }
 
 export function commitEdgeConnection(connection, { edges, onEdgeCreate, redrawEdges, sequence }) {
@@ -324,6 +526,37 @@ export function commitEdgeConnection(connection, { edges, onEdgeCreate, redrawEd
   }
   edges.push(drawnEdge(sequence, connection));
   redrawEdges();
+}
+
+export function hitTestPortCandidateAtScreen({
+  excludeNodeId,
+  portHitRadiusScreen,
+  role,
+  screen,
+  spatialQueries,
+  viewport,
+}) {
+  let bestPort = null;
+  let bestDistance = Infinity;
+  const candidates = spatialQueries.portHitCandidatesAtScreen(screen, portHitRadiusScreen);
+  for (const node of candidates) {
+    if (node.connectable === false || node.id === excludeNodeId) {
+      continue;
+    }
+    for (const port of interactivePortsForNode(node)) {
+      if (port.role !== role) {
+        continue;
+      }
+      const world = portWorldPosition(node, port.id);
+      const portScreen = viewport.toScreen(world.x, world.y);
+      const distance = Math.hypot(screen.x - portScreen.x, screen.y - portScreen.y);
+      if (distance <= portHitRadiusScreen && distance < bestDistance) {
+        bestDistance = distance;
+        bestPort = { nodeId: node.id, portId: port.id };
+      }
+    }
+  }
+  return bestPort;
 }
 
 export function screenPointFromPointer(canvas, event) {
@@ -396,10 +629,13 @@ export function countMapValues(map, expected) {
 
 export function frameSampleStats(samples) {
   if (samples.length === 0) {
-    return { average: 0, worst: 0 };
+    return { average: 0, p95: 0, worst: 0 };
   }
+  const sorted = [...samples].sort((left, right) => left - right);
+  const p95Index = Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1);
   return {
     average: samples.reduce((total, value) => total + value, 0) / samples.length,
+    p95: sorted[p95Index],
     worst: Math.max(...samples),
   };
 }

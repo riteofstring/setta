@@ -107,9 +107,9 @@ func semanticContextPackFilterCondition(filter SemanticContextPackFilter) (strin
 
 func (store *Store) loadSemanticContextPacks(ctx context.Context, workspaceID string, targetEntityID string) ([]SemanticContextPackRecord, error) {
 	rows, err := store.db.QueryContext(ctx, semanticContextPackSelectSQL+`
-WHERE workspace_id = ? AND target_entity_id = ?
+WHERE workspace_id = ?
 ORDER BY created_at DESC, id DESC
-`, workspaceID, targetEntityID)
+`, workspaceID)
 	if err != nil {
 		return nil, store.persistenceError("read semantic context pack history", err)
 	}
@@ -120,12 +120,29 @@ ORDER BY created_at DESC, id DESC
 		if err != nil {
 			return nil, store.corruptError("semantic_context_pack_history", err)
 		}
-		contextPacks = append(contextPacks, record)
+		if semanticContextPackIncludesNode(record, targetEntityID) {
+			contextPacks = append(contextPacks, record)
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return nil, store.persistenceError("read semantic context pack history", err)
 	}
 	return contextPacks, nil
+}
+
+func semanticContextPackIncludesNode(record SemanticContextPackRecord, nodeID string) bool {
+	if nodeID == "" {
+		return false
+	}
+	if record.TargetEntityID == nodeID {
+		return true
+	}
+	for _, item := range record.Items {
+		if item.SemanticNodeID == nodeID {
+			return true
+		}
+	}
+	return false
 }
 
 const semanticContextPackSelectSQL = `

@@ -1,6 +1,6 @@
 import type { WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
-import { PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
@@ -13,9 +13,8 @@ import {
 } from "./app-layout";
 import { useAppWindowDragHandlers } from "./app-window-drag";
 import { useViewportSize } from "./use-viewport-size";
+import { type ChatView, useChatViewState } from "./components/chat-panel";
 import { ResizablePane } from "./components/resizable-pane";
-import { SettaLogoMark } from "./components/setta-logo-mark";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { cn } from "./lib/utils";
 import {
@@ -41,7 +40,7 @@ export function App() {
 
 function SettaApp({ setta }: { setta: SettaAPI }) {
   const workspace = useWorkspaceViewState();
-  const projectChat = useProjectPaneChatState();
+  const chat = useChatViewState();
   const platform = setta.app.platform;
   const viewport = useViewportSize();
   useAppearanceSettings();
@@ -80,11 +79,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const openWorkflowGraphPane = useCallback(() => {
     focusWorkspaceSurface("workflow-graph");
   }, [focusWorkspaceSurface]);
-  const createConversation = projectChat.createConversation;
-  const createWorkspaceConversation = projectChat.createWorkspaceConversation;
-  const deleteConversation = projectChat.deleteConversation;
-  const selectConversation = projectChat.selectConversation;
-  const setConversationPinned = projectChat.setConversationPinned;
+  const createConversation = chat.createConversation;
+  const createWorkspaceConversation = chat.createWorkspaceConversation;
+  const deleteConversation = chat.deleteConversation;
+  const selectConversation = chat.selectConversation;
+  const setConversationPinned = chat.setConversationPinned;
   const createConversationAndFocusChat = useCallback(
     async (title?: string) => {
       await createConversation(title);
@@ -113,17 +112,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   }, [setta]);
 
   return (
-    <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground">
-      <AppChromeControls
-        mobileViewport={mobileViewport}
-        openSettingsPane={openSettingsPane}
-        platform={platform}
-        projectPaneOpen={projectPaneOpen}
-        setProjectPaneOpen={setProjectPaneOpen}
-      />
-      <main className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+    <div className="fixed inset-0 min-h-0 overflow-hidden bg-background text-foreground">
+      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-background">
         <ProjectPane
-          activeRun={projectChat.activeRun}
+          chat={chat}
+          chromeInsetTop={mobileViewport ? platform === "darwin" : projectPaneOpen}
           createConversation={createConversationAndFocusChat}
           createWorkspaceConversation={createWorkspaceConversationAndFocusChat}
           deleteConversation={deleteConversation}
@@ -132,7 +125,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           openSettingsPane={openSettingsPane}
           openWorkflowGraphPane={openWorkflowGraphPane}
           selectConversation={selectConversationAndFocusChat}
-          selectedConversationId={projectChat.selectedConversationId}
           setConversationPinned={setConversationPinned}
           setWidth={setProjectPaneWidth}
           viewportWidth={viewport.width}
@@ -146,6 +138,17 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           projectPaneOpen={projectPaneOpen}
         />
       </main>
+      {/* Rendered after the workspace so the no-drag chrome controls follow every
+          -webkit-app-region: drag surface in document order; Electron applies the
+          drag/no-drag rects in that order, and a later drag rect would re-cover the
+          holes these controls punch into the OS draggable region. */}
+      <AppChromeControls
+        mobileViewport={mobileViewport}
+        platform={platform}
+        projectPaneOpen={projectPaneOpen}
+        projectPaneWidth={effectiveProjectPaneWidth}
+        setProjectPaneOpen={setProjectPaneOpen}
+      />
     </div>
   );
 }
@@ -215,30 +218,10 @@ function useSelectedWorkspaceChatSync(workspaceId: string | null) {
 }
 
 type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
-type ProjectPaneChatState = ReturnType<typeof useProjectPaneChatState>;
-
-function useProjectPaneChatState() {
-  const activeRun = useChatStore((state) => state.activeRun);
-  const createConversation = useChatStore((state) => state.createConversation);
-  const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
-  const deleteConversation = useChatStore((state) => state.deleteConversation);
-  const selectConversation = useChatStore((state) => state.selectConversation);
-  const selectedConversationId = useChatStore((state) => state.selectedConversation?.id ?? "");
-  const setConversationPinned = useChatStore((state) => state.setConversationPinned);
-
-  return {
-    activeRun,
-    createConversation,
-    createWorkspaceConversation,
-    deleteConversation,
-    selectConversation,
-    selectedConversationId,
-    setConversationPinned,
-  };
-}
 
 function ProjectPane({
-  activeRun,
+  chat,
+  chromeInsetTop,
   createConversation,
   createWorkspaceConversation,
   deleteConversation,
@@ -247,24 +230,23 @@ function ProjectPane({
   openSettingsPane,
   openWorkflowGraphPane,
   selectConversation,
-  selectedConversationId,
   setConversationPinned,
   setWidth,
   viewportWidth,
   width,
   workspace,
 }: {
-  activeRun: ProjectPaneChatState["activeRun"];
-  createConversation: ProjectPaneChatState["createConversation"];
-  createWorkspaceConversation: ProjectPaneChatState["createWorkspaceConversation"];
-  deleteConversation: ProjectPaneChatState["deleteConversation"];
+  chat: ChatView;
+  chromeInsetTop: boolean;
+  createConversation: ChatView["createConversation"];
+  createWorkspaceConversation: ChatView["createWorkspaceConversation"];
+  deleteConversation: ChatView["deleteConversation"];
   mobileOverlay: boolean;
   open: boolean;
   openSettingsPane: () => void;
   openWorkflowGraphPane: () => void;
-  selectConversation: ProjectPaneChatState["selectConversation"];
-  selectedConversationId: ProjectPaneChatState["selectedConversationId"];
-  setConversationPinned: ProjectPaneChatState["setConversationPinned"];
+  selectConversation: ChatView["selectConversation"];
+  setConversationPinned: ChatView["setConversationPinned"];
   setWidth: (width: number) => void;
   viewportWidth: number;
   width: number;
@@ -276,9 +258,10 @@ function ProjectPane({
 
   const sidebar = (
     <WorkspaceSidebar
-      activeRun={activeRun}
+      activeRun={chat.activeRun}
       activeWorkspaces={workspace.activeWorkspaces}
       busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
+      chromeInsetTop={chromeInsetTop}
       clearWorkspaceError={workspace.clearError}
       closeWorkspace={workspace.closeWorkspace}
       createConversation={createConversation}
@@ -293,10 +276,8 @@ function ProjectPane({
       selectConversation={selectConversation}
       selectWorkspace={workspace.selectWorkspace}
       setConversationPinned={setConversationPinned}
-      selectedConversationId={selectedConversationId}
+      selectedConversationId={chat.selectedConversation?.id ?? ""}
       selectedWorkspaceId={workspace.selectedWorkspaceId}
-      showFooterSettings={mobileOverlay}
-      showLogoHeader={mobileOverlay}
       sidebarWidth={mobileOverlay ? viewportWidth : width}
       workspaceError={workspace.error}
     />
@@ -338,115 +319,161 @@ export function sidebarWorkspaceBusy(
 
 function AppChromeControls({
   mobileViewport,
-  openSettingsPane,
   platform,
   projectPaneOpen,
+  projectPaneWidth,
   setProjectPaneOpen,
 }: {
   mobileViewport: boolean;
-  openSettingsPane: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
+  projectPaneWidth: number;
   setProjectPaneOpen: Dispatch<SetStateAction<boolean>>;
 }) {
+  // At mobile widths the top-left chrome gives way to the workspace bottom
+  // control bar: the project pane becomes a full-screen overlay, so the plate
+  // background, project toggle, and side-pane drag strip all disappear.
   if (mobileViewport) {
     return null;
   }
   return (
-    <DesktopShellTopBar
-      onOpenSettings={openSettingsPane}
-      platform={platform}
-      projectPaneOpen={projectPaneOpen}
-      setProjectPaneOpen={setProjectPaneOpen}
+    <>
+      <AppChromePlate platform={platform} />
+      <ShellTopBar
+        platform={platform}
+        projectPaneOpen={projectPaneOpen}
+        projectPaneWidth={projectPaneWidth}
+      />
+      <FloatingProjectPaneControl
+        active={projectPaneOpen}
+        platform={platform}
+        setProjectPaneOpen={setProjectPaneOpen}
+      />
+    </>
+  );
+}
+
+function AppChromePlate({ platform }: { platform: DesktopPlatform }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed top-0 left-0 z-[80] h-10 rounded-br-xl border-r border-b border-border/45 bg-background/72 shadow-[0_10px_28px_color-mix(in_oklch,black_24%,transparent)] backdrop-blur-md"
+      data-testid="shell-chrome-plate"
+      style={{ width: appChromePlateWidth(platform) }}
+    >
+      <div
+        className="app-no-drag pointer-events-auto absolute top-0 left-0 h-10"
+        style={{ width: appChromeHitShieldWidth(platform) }}
+      />
+    </div>
+  );
+}
+
+function FloatingProjectPaneControl({
+  active,
+  platform,
+  setProjectPaneOpen,
+}: {
+  active: boolean;
+  platform: DesktopPlatform;
+  setProjectPaneOpen: Dispatch<SetStateAction<boolean>>;
+}) {
+  const Icon = active ? PanelLeftClose : PanelLeftOpen;
+  return (
+    <div
+      className={cn(
+        "app-no-drag pointer-events-auto fixed top-[14px] z-[100] text-muted-foreground",
+        floatingProjectControlLeftInsetClass(platform),
+      )}
+    >
+      <ShellPaneToggle
+        active={active}
+        label={active ? "Hide project sidebar" : "Show project sidebar"}
+        onClick={() => setProjectPaneOpen((current) => !current)}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </ShellPaneToggle>
+    </div>
+  );
+}
+
+function ShellTopBar({
+  platform,
+  projectPaneOpen,
+  projectPaneWidth,
+}: {
+  platform: DesktopPlatform;
+  projectPaneOpen: boolean;
+  projectPaneWidth: number;
+}) {
+  const windowDragHandlers = useAppWindowDragHandlers();
+  if (!projectPaneOpen) {
+    return null;
+  }
+  const left = shellTopBarLeftInset(platform);
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-auto fixed top-0 z-30 h-10 bg-transparent"
+      data-setta-shell-title-bar="true"
+      data-testid="shell-top-bar"
+      style={{ left, width: Math.max(0, projectPaneWidth - left) }}
+      {...windowDragHandlers}
     />
   );
 }
 
-function DesktopShellTopBar({
-  onOpenSettings,
-  platform,
-  projectPaneOpen,
-  setProjectPaneOpen,
-}: {
-  onOpenSettings: () => void;
-  platform: DesktopPlatform;
-  projectPaneOpen: boolean;
-  setProjectPaneOpen: Dispatch<SetStateAction<boolean>>;
-}) {
-  const windowDragHandlers = useAppWindowDragHandlers();
-  const ProjectPaneIcon = projectPaneOpen ? PanelLeftClose : PanelLeftOpen;
-  const projectPaneLabel = projectPaneOpen ? "Hide project sidebar" : "Show project sidebar";
-  return (
-    <header
-      className="setta-shell-top-bar app-drag"
-      data-desktop-platform={platform}
-      data-setta-shell-title-bar="true"
-      data-testid="shell-top-bar"
-      {...windowDragHandlers}
-    >
-      <div aria-hidden="true" className="setta-shell-top-bar-chrome-shield app-no-drag" />
-      <div className="setta-shell-top-bar-left">
-        <TooltipProvider>
-          <div aria-label="Workspace controls" className="setta-shell-top-bar-controls app-no-drag">
-            <ShellTopBarButton
-              active={projectPaneOpen}
-              label={projectPaneLabel}
-              onClick={() => setProjectPaneOpen((current) => !current)}
-              testId="project-sidebar-toggle"
-            >
-              <ProjectPaneIcon className="h-3.5 w-3.5" />
-            </ShellTopBarButton>
-            <ShellTopBarButton
-              label="Open settings"
-              onClick={onOpenSettings}
-              testId="shell-settings-button"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </ShellTopBarButton>
-          </div>
-        </TooltipProvider>
-      </div>
-      <div className="setta-shell-top-bar-right">
-        <SettaLogoMark className="setta-shell-top-bar-logo" height={12} />
-      </div>
-    </header>
-  );
-}
-
-function ShellTopBarButton({
+function ShellPaneToggle({
   active,
   children,
   disabled = false,
   label,
   onClick,
-  testId,
 }: {
-  active?: boolean;
+  active: boolean;
   children: ReactNode;
   disabled?: boolean;
   label: string;
   onClick: () => void;
-  testId?: string;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger>
-        <button
-          aria-label={label}
-          aria-pressed={active}
-          className={cn("setta-shell-top-bar-button app-no-drag", active && "is-active")}
-          data-testid={testId}
-          disabled={disabled}
-          onClick={onClick}
-          onPointerDown={(event) => event.stopPropagation()}
-          type="button"
-        >
-          {children}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
+    <button
+      aria-label={label}
+      aria-pressed={active}
+      className={
+        active
+          ? "app-no-drag inline-flex h-[22px] w-[22px] items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 focus-visible:bg-accent/80"
+          : "app-no-drag inline-flex h-[22px] w-[22px] items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground"
+      }
+      data-testid="project-sidebar-toggle"
+      disabled={disabled}
+      onClick={onClick}
+      onPointerDown={(event) => event.stopPropagation()}
+      title={label}
+      type="button"
+    >
+      {children}
+    </button>
   );
+}
+
+// The toggle + workspace toolbar cluster (22px toggle, 2px gap, 46px toolbar)
+// is right-justified inside the chrome plate with the same 7px end inset the
+// pane action strips use: plate width - 7 - 70.
+function floatingProjectControlLeftInsetClass(platform: DesktopPlatform) {
+  return platform === "darwin" ? "left-[109px]" : "left-[35px]";
+}
+
+function shellTopBarLeftInset(platform: DesktopPlatform) {
+  return platform === "darwin" ? 86 : 0;
+}
+
+function appChromePlateWidth(platform: DesktopPlatform) {
+  return platform === "darwin" ? 186 : 112;
+}
+
+function appChromeHitShieldWidth(platform: DesktopPlatform) {
+  return platform === "darwin" ? 82 : 0;
 }
 
 function useWorkspaceViewState() {

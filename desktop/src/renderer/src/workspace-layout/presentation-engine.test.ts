@@ -32,24 +32,6 @@ describe("workspace presentation engine", () => {
     expect(host.dataset.paneId).toBe("workspace_pane_1");
   });
 
-  test("syncs newly visible pane content during viewport resize", () => {
-    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
-    const host = fakePaneHost("workspace_pane_0", "Pane 001");
-    const presentation = new PresentationEngine(
-      scene.panes,
-      new WorkspaceMetricsCollector(),
-      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
-    );
-    presentation.mount([host], null);
-
-    presentation.apply([renderItem("workspace_pane_1", "workspace_surface_1", true)], {
-      resizePhase: "active",
-    });
-
-    expect(textFor(host, "[data-workspace-pane-title]")).toBe("Pane 002");
-    expect(host.dataset.paneId).toBe("workspace_pane_1");
-  });
-
   test("can sync every rendered pane during movement for seamless workspace navigation", () => {
     const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");
@@ -468,6 +450,60 @@ describe("workspace presentation engine", () => {
     expect(secondHost.querySelector(".workspace-pane-resize-handle-horizontal")).toBeNull();
   });
 
+  test("does not rewrite pane chrome or handles on an identical frame", () => {
+    const scene = generateBenchmarkScene({ paneCount: 3, targetVisiblePanes: 3 });
+    const firstHost = fakePaneHost("workspace_pane_0", "Pane 001");
+    const secondHost = fakePaneHost("workspace_pane_1", "Pane 002");
+    const thirdHost = fakePaneHost("workspace_pane_2", "Pane 003");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    const items = [
+      { ...renderItem("workspace_pane_0", "workspace_surface_0", false), focused: true },
+      renderItemAt("workspace_pane_1", "workspace_surface_1", false, 168),
+      { ...renderItem("workspace_pane_2", "workspace_surface_2", false), y: 128 },
+    ];
+    presentation.mount([firstHost, secondHost, thirdHost], null);
+
+    presentation.apply(items, { resizePhase: "idle" });
+    resetFakeWrites(firstHost, secondHost, thirdHost);
+    const writeCounts = presentation.apply(items, { resizePhase: "idle" });
+
+    expect(writeCounts.transformWrites).toBe(0);
+    expect(writeCounts.boxWrites).toBe(0);
+    expect(writeCounts.surfaceViewportWrites).toBe(0);
+    expect(fakeWrites(firstHost, secondHost, thirdHost)).toEqual([]);
+  });
+
+  test("updates chrome when a typed pane state changes", () => {
+    const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
+    const host = fakePaneHost("workspace_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("workspace_pane_0", "workspace_surface_0", false)], {
+      resizePhase: "idle",
+    });
+    resetFakeWrites(host);
+    presentation.apply(
+      [{ ...renderItem("workspace_pane_0", "workspace_surface_0", false), focused: true }],
+      { resizePhase: "idle" },
+    );
+
+    expect(host.dataset.focused).toBe("true");
+    expect(paneActionSnapshot(host)).toMatchObject({
+      controlsVisible: "true",
+      visibleActions: ["split-down", "add-above", "add-below", "maximize", "close"],
+    });
+    expect(fakeWrites(host).length).toBeGreaterThan(0);
+  });
+
   test("surfaces canvas draw stats in the debug overlay", () => {
     const scene = generateBenchmarkScene({ paneCount: 5, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");
@@ -500,7 +536,7 @@ describe("workspace presentation engine", () => {
       total: 1,
     });
 
-    expect(overlay.textContent).toContain("canvas 1/7/2/0/16Kpx/512KiB");
+    expect(overlay.textContent).toContain("canvas 1/7/512KiB");
   });
 });
 
@@ -546,9 +582,24 @@ function requiredChromeElement(host: HTMLElement, selector: string): HTMLElement
   return element;
 }
 
+function resetFakeWrites(...hosts: HTMLElement[]): void {
+  for (const host of hosts) {
+    fakeMutationLog(host).records = [];
+  }
+}
+
+function fakeWrites(...hosts: HTMLElement[]): FakeWriteRecord[] {
+  return hosts.flatMap((host) => fakeMutationLog(host).records);
+}
+
 function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTMLElement {
-  const children = fakeChildren(childElementCount);
-  const ownerDocument = fakeOwnerDocument();
+  const mutationLog: FakeMutationLog = { records: [] };
+  const ownerDocument = fakeOwnerDocument(mutationLog);
+  const children = fakeChildren(childElementCount, ownerDocument);
+  const dataset = trackedRecord(mutationLog, "host", "dataset", {
+    paneId,
+    ...(childElementCount > 0 ? { surfaceId: paneId.replace("_pane_", "_surface_") } : {}),
+  });
   const nodes = new Map<string, { textContent: string }>([
     ["[data-workspace-pane-heat]", { textContent: "" }],
     ["[data-workspace-pane-index]", { textContent: "1" }],
@@ -560,20 +611,24 @@ function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTM
       children.push(child);
     },
     children,
-    dataset: {
-      paneId,
-      ...(childElementCount > 0 ? { surfaceId: paneId.replace("_pane_", "_surface_") } : {}),
-    },
+    dataset,
     get childElementCount() {
       return children.length;
     },
+    __mutationLog: mutationLog,
     ownerDocument,
     querySelector: (selector: string) =>
       chromeChildForSelector(children, selector) ?? nodes.get(selector) ?? null,
     removeAttribute: (name: string) => {
+      mutationLog.records.push({
+        kind: "attribute",
+        property: name,
+        target: "host",
+        value: "",
+      });
       delete (host.dataset as Record<string, string>)[name.replace(/^data-/, "")];
     },
-    style: {},
+    style: trackedRecord(mutationLog, "host", "style"),
   };
   return host as unknown as HTMLElement;
 }
@@ -596,6 +651,7 @@ function chromeChildForSelector(children: FakeElement[], selector: string): Fake
 }
 
 interface FakeElement {
+  __mutationLog: FakeMutationLog;
   append: (...children: FakeElement[]) => void;
   classList: {
     add: (value: string) => void;
@@ -621,13 +677,29 @@ interface FakeElement {
   type: string;
 }
 
-function fakeChildren(count: number): FakeElement[] {
-  const ownerDocument = fakeOwnerDocument();
+interface FakeWriteRecord {
+  kind: "attribute" | "childList" | "className" | "dataset" | "property" | "style";
+  property: string;
+  target: string;
+  value: string;
+}
+
+interface FakeMutationLog {
+  records: FakeWriteRecord[];
+}
+
+function fakeMutationLog(host: HTMLElement): FakeMutationLog {
+  return (host as unknown as { __mutationLog: FakeMutationLog }).__mutationLog;
+}
+
+function fakeChildren(count: number, ownerDocument: FakeElement["ownerDocument"]): FakeElement[] {
   return Array.from({ length: count }, () => fakeElement("div", ownerDocument));
 }
 
-function fakeOwnerDocument(): FakeElement["ownerDocument"] {
-  const ownerDocument = {} as FakeElement["ownerDocument"];
+function fakeOwnerDocument(mutationLog: FakeMutationLog): FakeElement["ownerDocument"] {
+  const ownerDocument = { __mutationLog: mutationLog } as FakeElement["ownerDocument"] & {
+    __mutationLog: FakeMutationLog;
+  };
   ownerDocument.activeElement = null;
   ownerDocument.createElement = (tagName) => fakeElement(tagName, ownerDocument);
   return ownerDocument;
@@ -637,21 +709,65 @@ function fakeElement(tagName: string, ownerDocument: FakeElement["ownerDocument"
   const classNames = new Set<string>();
   const attributes = new Map<string, string>();
   const children: FakeElement[] = [];
+  const mutationLog = (
+    ownerDocument as FakeElement["ownerDocument"] & { __mutationLog: FakeMutationLog }
+  ).__mutationLog;
+  let contentEditable = "false";
+  let disabled = false;
+  let tabIndex = 0;
+  let textContent = "";
+  let title = "";
+  let type = "";
   attributes.set("data-tag-name", tagName);
   return {
+    __mutationLog: mutationLog,
     append: (...appendedChildren: FakeElement[]) => {
       children.push(...appendedChildren);
+      mutationLog.records.push({
+        kind: "childList",
+        property: "append",
+        target: tagName,
+        value: String(appendedChildren.length),
+      });
     },
     classList: {
       add: (value: string) => {
         classNames.add(value);
+        mutationLog.records.push({
+          kind: "className",
+          property: "add",
+          target: tagName,
+          value,
+        });
       },
       contains: (value: string) => classNames.has(value),
     },
     children,
-    contentEditable: "false",
-    dataset: {},
-    disabled: false,
+    get contentEditable() {
+      return contentEditable;
+    },
+    set contentEditable(value: string) {
+      contentEditable = value;
+      mutationLog.records.push({
+        kind: "property",
+        property: "contentEditable",
+        target: tagName,
+        value,
+      });
+    },
+    dataset: trackedRecord(mutationLog, tagName, "dataset"),
+    get disabled() {
+      return disabled;
+    },
+    set disabled(value: boolean) {
+      disabled = value;
+      mutationLog.records.push({
+        kind: "property",
+        property: "disabled",
+        target: tagName,
+        value: String(value),
+      });
+    },
     get className() {
       return [...classNames].join(" ");
     },
@@ -662,22 +778,124 @@ function fakeElement(tagName: string, ownerDocument: FakeElement["ownerDocument"
           classNames.add(className);
         }
       }
+      mutationLog.records.push({
+        kind: "className",
+        property: "className",
+        target: tagName,
+        value,
+      });
     },
     getAttribute: (name: string) => attributes.get(name) ?? null,
     ownerDocument,
     prepend: (...prependedChildren: FakeElement[]) => {
       children.unshift(...prependedChildren);
+      mutationLog.records.push({
+        kind: "childList",
+        property: "prepend",
+        target: tagName,
+        value: String(prependedChildren.length),
+      });
     },
-    remove: () => {},
+    remove: () => {
+      mutationLog.records.push({
+        kind: "childList",
+        property: "remove",
+        target: tagName,
+        value: "1",
+      });
+    },
     setAttribute: (name: string, value: string) => {
       attributes.set(name, value);
+      mutationLog.records.push({
+        kind: "attribute",
+        property: name,
+        target: tagName,
+        value,
+      });
     },
-    style: {},
-    tabIndex: 0,
-    textContent: "",
-    title: "",
-    type: "",
+    style: trackedRecord(mutationLog, tagName, "style"),
+    get tabIndex() {
+      return tabIndex;
+    },
+    set tabIndex(value: number) {
+      tabIndex = value;
+      mutationLog.records.push({
+        kind: "property",
+        property: "tabIndex",
+        target: tagName,
+        value: String(value),
+      });
+    },
+    get textContent() {
+      return textContent;
+    },
+    set textContent(value: string) {
+      textContent = value;
+      mutationLog.records.push({
+        kind: "property",
+        property: "textContent",
+        target: tagName,
+        value,
+      });
+    },
+    get title() {
+      return title;
+    },
+    set title(value: string) {
+      title = value;
+      mutationLog.records.push({
+        kind: "property",
+        property: "title",
+        target: tagName,
+        value,
+      });
+    },
+    get type() {
+      return type;
+    },
+    set type(value: string) {
+      type = value;
+      mutationLog.records.push({
+        kind: "property",
+        property: "type",
+        target: tagName,
+        value,
+      });
+    },
   } as FakeElement;
+}
+
+function trackedRecord(
+  mutationLog: FakeMutationLog,
+  targetName: string,
+  kind: "dataset" | "style",
+  initialValues: Record<string, string> = {},
+): Record<string, string> {
+  const values = { ...initialValues };
+  return new Proxy(values, {
+    deleteProperty(target, property) {
+      if (typeof property === "string") {
+        mutationLog.records.push({
+          kind,
+          property,
+          target: targetName,
+          value: "",
+        });
+      }
+      return Reflect.deleteProperty(target, property);
+    },
+    set(target, property, value) {
+      if (typeof property === "string") {
+        mutationLog.records.push({
+          kind,
+          property,
+          target: targetName,
+          value: String(value),
+        });
+      }
+      return Reflect.set(target, property, String(value));
+    },
+  });
 }
 
 function renderItem(
@@ -756,25 +974,19 @@ class TitleSurfaceAdapter implements SurfaceAdapter {
   getCanvasStats(): CanvasSurfaceStats {
     if (this.kind !== "workflow-graph") {
       return {
-        backingStorePixels: null,
         drawCalls: 0,
         farZoomSimplified: false,
         gpuMemoryEstimateBytes: null,
         liveCanvasPaneCount: 0,
-        rendererResizeCount: 0,
         renderedFrames: 0,
-        tickerFramesWhileFrozen: 0,
       };
     }
     return {
-      backingStorePixels: 128 * 128,
       drawCalls: 7,
       farZoomSimplified: false,
       gpuMemoryEstimateBytes: 512 * 1024,
       liveCanvasPaneCount: 1,
-      rendererResizeCount: 2,
       renderedFrames: 3,
-      tickerFramesWhileFrozen: 0,
     };
   }
 }
@@ -785,14 +997,11 @@ class RecordingSurfaceRegistry {
 
   canvasStats() {
     return {
-      backingStorePixels: null,
       drawCalls: 0,
       farZoomSimplified: false,
       gpuMemoryEstimateBytes: null,
       liveCanvasPaneCount: 0,
-      rendererResizeCount: 0,
       renderedFrames: 0,
-      tickerFramesWhileFrozen: 0,
     };
   }
 

@@ -45,42 +45,6 @@
   width: 100%;
 }
 
-.workspace-pane-host[data-surface-frozen="true"] {
-  cursor: default;
-}
-
-.workspace-pane-host[data-surface-frozen="true"] .workspace-pane-content,
-.workspace-pane-host[data-surface-frozen="true"] .workspace-pane-content *,
-.workspace-pane-host[data-surface-frozen="true"] .workspace-react-dom-surface,
-.workspace-pane-host[data-surface-frozen="true"] .workspace-react-dom-surface * {
-  caret-color: transparent !important;
-  cursor: default !important;
-  pointer-events: none !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-}
-
-.workspace-react-dom-surface[data-live-frozen-hidden="true"] {
-  content-visibility: hidden;
-  visibility: hidden;
-}
-
-.workspace-frozen-dom-visual {
-  contain: layout paint size style;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  position: absolute;
-  user-select: none;
-  z-index: 5;
-}
-
-.workspace-frozen-dom-visual,
-.workspace-frozen-dom-visual [data-snapshot-scroller="true"],
-.workspace-frozen-dom-visual [data-testid="chat-transcript-scroller"],
-.workspace-frozen-dom-visual .overflow-auto,
-.workspace-frozen-dom-visual .overflow-y-auto,
-.workspace-frozen-dom-visual .workspace-fake-long-chat-scroll,
 .workspace-snapshot-texture [data-snapshot-scroller="true"],
 .workspace-snapshot-texture .overflow-auto,
 .workspace-snapshot-texture .overflow-y-auto,
@@ -99,12 +63,6 @@
   scrollbar-width: none;
 }
 
-.workspace-frozen-dom-visual::-webkit-scrollbar,
-.workspace-frozen-dom-visual [data-snapshot-scroller="true"]::-webkit-scrollbar,
-.workspace-frozen-dom-visual [data-testid="chat-transcript-scroller"]::-webkit-scrollbar,
-.workspace-frozen-dom-visual .overflow-auto::-webkit-scrollbar,
-.workspace-frozen-dom-visual .overflow-y-auto::-webkit-scrollbar,
-.workspace-frozen-dom-visual .workspace-fake-long-chat-scroll::-webkit-scrollbar,
 .workspace-snapshot-texture [data-snapshot-scroller="true"]::-webkit-scrollbar,
 .workspace-snapshot-texture .overflow-auto::-webkit-scrollbar,
 .workspace-snapshot-texture .overflow-y-auto::-webkit-scrollbar,

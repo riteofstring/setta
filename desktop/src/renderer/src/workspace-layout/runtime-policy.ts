@@ -48,35 +48,6 @@ const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
   "workflow-node-details",
   "workflow-settings",
 ]);
-const frozenLiveVisualSurfaceKinds = new Set<SurfaceKind>([
-  "chat-dom",
-  "empty-frame",
-  "fake-dom",
-  "fake-heavy-dom",
-  "fake-long-chat",
-  "fake-terminal",
-  "git-graph",
-  "semantic-node-details",
-  "settings-dom",
-  "terminal",
-  "workflow-graph",
-  "workflow-node-details",
-  "workflow-settings",
-]);
-const movementDegradedSurfaceKinds = new Set<SurfaceKind>([
-  "browser",
-  "chat-dom",
-  "fake-heavy-dom",
-  "fake-long-chat",
-  "fake-terminal",
-  "git-graph",
-  "semantic-node-details",
-  "settings-dom",
-  "terminal",
-  "workflow-graph",
-  "workflow-node-details",
-  "workflow-settings",
-]);
 const surfaceRuntimeCategories = {
   browser: "browser",
   "chat-dom": "heavy-dom",
@@ -201,10 +172,13 @@ export class PaneRuntimePolicy {
       return this.runtimeStateForUnfocusedVisibleKind(item.surfaceKind, "idle", counters);
     }
     if (this.degradesOverviewItem(item)) {
-      return this.frozenVisualOrSnapshot(item.surfaceKind, counters);
+      return this.snapshotOrThrottle(counters);
     }
-    if (this.degradesMovingSurface(item, movementPhase)) {
-      return this.frozenVisualOrSnapshot(item.surfaceKind, counters);
+    if (this.degradesMovingBrowser(item, movementPhase)) {
+      return this.snapshotOrThrottle(counters);
+    }
+    if (this.degradesMovingHeavyDom(item, movementPhase)) {
+      return this.snapshotOrThrottle(counters);
     }
     if (item.focused) {
       return "live";
@@ -227,11 +201,17 @@ export class PaneRuntimePolicy {
     return this.degradeOverview || (item.resizing && this.degradeOverviewDuringResize);
   }
 
-  private degradesMovingSurface(item: PaneRenderItem, movementPhase: "idle" | "moving"): boolean {
+  private degradesMovingBrowser(item: PaneRenderItem, movementPhase: "idle" | "moving"): boolean {
+    return (
+      this.degradeDuringMovement && movementPhase === "moving" && item.surfaceKind === "browser"
+    );
+  }
+
+  private degradesMovingHeavyDom(item: PaneRenderItem, movementPhase: "idle" | "moving"): boolean {
     return (
       this.degradeDuringMovement &&
       movementPhase === "moving" &&
-      movementDegradedSurfaceKinds.has(item.surfaceKind)
+      isLiveHeavyDomSurfaceKind(item.surfaceKind)
     );
   }
 
@@ -382,16 +362,6 @@ export class PaneRuntimePolicy {
       return "snapshot";
     }
     return "live-throttled";
-  }
-
-  private frozenVisualOrSnapshot(
-    kind: SurfaceKind,
-    counters: { snapshot: number },
-  ): PaneRuntimeState {
-    if (frozenLiveVisualSurfaceKinds.has(kind)) {
-      return "live-throttled";
-    }
-    return this.snapshotOrThrottle(counters);
   }
 }
 

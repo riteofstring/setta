@@ -50,7 +50,9 @@ describe("workspace renderer states", () => {
         setta: {
           app: {
             flags: {
+              workflowGraphAnimationEnabled: true,
               workflowGraphDebug: false,
+              workflowGraphReduceMotion: false,
               workflowGraphSyntheticGraph: null,
             },
             platform: "darwin",
@@ -65,13 +67,11 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain('data-testid="shell-top-bar"');
     expect(html).toContain('data-setta-shell-title-bar="true"');
-    expect(html).toContain("setta-shell-top-bar-logo");
-    expect(html).not.toContain('data-testid="shell-icon-rail"');
-    expect(html).not.toContain('data-testid="shell-chrome-plate"');
+    expect(html).toContain('style="left:86px;width:134px"');
+    expect(html).toContain('data-testid="shell-chrome-plate"');
     expect(html).toContain('aria-label="Hide project sidebar"');
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('data-testid="project-sidebar-toggle"');
-    expect(html).toContain('data-testid="shell-settings-button"');
     expect(html).toContain('data-testid="workspace-layout-area"');
     expect(html).toContain('data-desktop-platform="darwin"');
     expect(html).toContain('data-testid="workspace-presentation-engine"');
@@ -81,21 +81,21 @@ describe("workspace renderer states", () => {
     expect(html).not.toContain('data-testid="workspace-benchmark-status"');
     expect(html).not.toContain('data-testid="workspace-performance-stats"');
     expect(html).toContain('data-testid="workspace-toolbar"');
-    expect(html).not.toContain('data-testid="sidebar-logo-shell"');
-    expect(html).not.toContain('data-testid="sidebar-memory-footer"');
     expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
     expect(html).not.toContain('data-testid="bottom-workspace-pane"');
     expect(html).not.toContain('data-testid="right-workspace-pane"');
   });
 
-  test("renders the desktop top bar on non-mac platforms", () => {
+  test("bounds the shell drag strip to the project pane on non-mac platforms", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
         setta: {
           app: {
             flags: {
+              workflowGraphAnimationEnabled: true,
               workflowGraphDebug: false,
+              workflowGraphReduceMotion: false,
               workflowGraphSyntheticGraph: null,
             },
             platform: "win32",
@@ -109,8 +109,8 @@ describe("workspace renderer states", () => {
     const html = renderToString(<App />);
 
     expect(html).toContain('data-testid="shell-top-bar"');
-    expect(html).not.toContain('data-testid="shell-icon-rail"');
-    expect(html).not.toContain('data-testid="shell-chrome-plate"');
+    expect(html).toContain('data-setta-shell-title-bar="true"');
+    expect(html).toContain('style="left:0;width:220px"');
     expect(html).toContain('data-desktop-platform="win32"');
     expect(html).toContain('aria-label="Hide project sidebar"');
   });
@@ -519,6 +519,14 @@ describe("chat renderer states", () => {
             error: "",
             exitCode: 0,
             filePaths: [],
+            fileOperations: [],
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
             hiddenText: "",
             id: "item_command",
             noticeKind: "",
@@ -554,6 +562,14 @@ describe("chat renderer states", () => {
             error: "",
             exitCode: 0,
             filePaths: ["/tmp/workspace/main.go"],
+            fileOperations: [],
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
             hiddenText: "",
             id: "item_file",
             noticeKind: "",
@@ -589,6 +605,14 @@ describe("chat renderer states", () => {
             error: "",
             exitCode: 0,
             filePaths: [],
+            fileOperations: [],
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
             hiddenText: "",
             id: "item_mcp",
             noticeKind: "",
@@ -624,6 +648,14 @@ describe("chat renderer states", () => {
             error: "",
             exitCode: 0,
             filePaths: [],
+            fileOperations: [],
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
             hiddenText: "",
             id: "item_notice",
             noticeKind: "warning",
@@ -872,6 +904,14 @@ describe("chat renderer states", () => {
             error: "",
             exitCode: 0,
             filePaths: [],
+            fileOperations: [],
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
             hiddenText: "",
             id: "item_command",
             noticeKind: "",
@@ -939,7 +979,7 @@ describe("chat renderer states", () => {
     );
     const scope = htmlScopeForTestId(html, "chat-tool-message-content");
 
-    expect(scope).toContain("border-accent-cyan/40");
+    expect(scope).toContain("border-cyan-400");
     expect(scope).toContain("font-mono");
     expect(scope).toContain("<pre");
     expect(scope).toContain("&quot;style_probe&quot;");
