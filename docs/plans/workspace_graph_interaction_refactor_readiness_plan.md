@@ -467,6 +467,24 @@ Persistence expectations:
 - It does not affect editable draft definition layout or any other
   run/version target.
 
+Composition rule:
+
+- Do not fold non-editing view-layout positions into
+  `WorkflowGraphProjection`. The projection remains the backend truth for
+  workflow graph structure, workflow status, and draft definition layout.
+- Read view-layout state through a separate generated contract keyed to the
+  selected graph target.
+- Compose view-layout positions in the renderer scene-store layer before Pixi
+  graph update, after the workflow projection has been converted into renderer
+  graph data.
+- Editable draft projections continue to use workflow definition layout from
+  the projection. Read-only/run/version projections use view-layout positions
+  when available and fall back to projection layout only as the initial/default
+  view.
+- The scene store records which owner supplied each node position so drag
+  persistence and debug/recording events can say whether a move targeted draft
+  definition layout, view layout, semantic layout, or no owner.
+
 ### Scene Store Boundary
 
 The refactor target is one mutation-respecting scene store that owns the current
@@ -487,6 +505,21 @@ arrives while node drag, edge draw, marquee selection, or another direct
 manipulation is active, the renderer queues the latest graph replacement. The
 active interaction then commits or cancels on pointerup, pointercancel, escape,
 or explicit teardown, and only then does the latest queued graph apply.
+
+Pointer settlement semantics:
+
+- Node drag:
+  - `pointerup` commits the move through the node movement owner.
+  - `pointercancel`, escape, or graph teardown reverts the local drag to the
+    pre-drag position and must not persist.
+- Edge draw:
+  - `pointerup` on a valid connectable target commits edge creation.
+  - `pointerup` outside a valid target, `pointercancel`, escape, or graph
+    teardown cancels the temporary edge and must not persist.
+- Marquee:
+  - `pointerup` applies the final selection.
+  - `pointercancel`, escape, or graph teardown restores the pre-marquee
+    selection.
 
 ### Node Movability
 
@@ -535,6 +568,17 @@ Recording ownership should be explicit:
 - shared recording types define the event shape;
 - main `SessionRecorder` writes the event without needing to infer graph state
   from screenshots, DOM snapshots, or console output.
+
+Graph recording should use typed event kinds, not only snapshots:
+
+- `graph_snapshot`: compact state sample on pointerup, pointercancel, wheel
+  burst end, manual snapshot, and selected debug milestones.
+- `graph_interaction`: start/update/commit/cancel for node drag, edge draw,
+  marquee, selection, and camera gestures.
+- `graph_layout_save`: started/succeeded/failed/skipped with owner, generation,
+  target, affected node ids, and error summary when present.
+- `graph_replacement`: queued/applied/dropped with graph version, reason, and
+  active interaction at queue time.
 
 Graph recordings should include enough state to answer:
 
@@ -643,8 +687,12 @@ Current-contract tests:
   - trigger a graph/projection refresh during edge draw or marquee if those
     modes remain available;
   - assert the active interaction is not canceled by replacement;
-  - assert pointerup or pointercancel commits/reverts deterministically before
-    the latest queued graph applies.
+  - assert node-drag pointerup commits through the movement owner;
+  - assert node-drag pointercancel reverts and does not persist;
+  - assert edge-draw pointercancel cancels the temporary edge and does not
+    persist;
+  - assert marquee pointercancel restores the previous selection;
+  - assert settlement happens before the latest queued graph applies.
 
 Tests after Phase 1 view-layout owner exists:
 
@@ -690,6 +738,8 @@ Tasks:
 - Populate it from `WorkflowGraphProjection.editable`.
 - Replace node-details read-only checks based on `executionId !== ""` with
   `!target.editable`.
+- Add production-path coverage for a version projection with no execution id:
+  node details must be read-only and must not expose enabled save controls.
 - Pass graph editability or per-node movability into Pixi through a typed
   renderer graph/options contract.
 - Include the node movement owner in that contract so Pixi knows whether a drag
@@ -727,6 +777,8 @@ Acceptance criteria:
   owner.
 - Semantic nodes remain clickable/selectable and available for semantic
   steering interactions when those actions have semantic or steering owners.
+- A version projection with no execution id still renders node details as
+  read-only.
 - Read-only details surfaces do not expose enabled save controls.
 - Editable draft behavior remains unchanged except for stronger persistence
   proof.
@@ -782,6 +834,8 @@ Tasks:
   console output or DOM snapshots.
 - Have main/session recording write those graph events to `renderer-events.jsonl`
   with the shared event shape.
+- Add typed event kinds for `graph_snapshot`, `graph_interaction`,
+  `graph_layout_save`, and `graph_replacement`.
 - Add renderer recording events for graph pointerup, pointercancel, debounced
   wheel bursts, and manual snapshot requests.
 - Default `scripts/record_desktop_session.sh` to a temporary
@@ -829,6 +883,9 @@ Acceptance criteria:
 
 - Renderer emits, preload forwards, and main records graph events using the
   shared graph recording event shape.
+- Recordings include chronological interaction, layout-save, and graph
+  replacement events rather than requiring those transitions to be inferred from
+  snapshots alone.
 - A recording can diagnose whether a node drag was blocked, saved, failed, or
   reverted.
 - A recording can diagnose pointerup versus pointercancel and whether a queued
@@ -1030,6 +1087,8 @@ This plan is complete when:
 - read-only/run/version workflow node movement has a Go-owned non-editing
   view-layout contract, generated TypeScript, IPC/preload exposure, and focused
   backend coverage;
+- view-layout positions are read separately and composed in the renderer
+  scene-store layer, not folded into `WorkflowGraphProjection`;
 - read-only workflow nodes can be rearranged through an explicit non-editing
   layout owner without using draft persistence or snapping back;
 - read-only workflow ports cannot advertise connectable actions;
@@ -1039,12 +1098,16 @@ This plan is complete when:
 - editable workflow node moves persist through backend refresh and reload;
 - graph/projection refreshes cannot cancel active node drag, edge draw, or
   marquee before pointerup/pointercancel settles the interaction;
+- pointercancel reverts node drag, cancels edge draw, restores marquee
+  selection, and does not persist those canceled interactions;
 - failed layout saves cannot leave false optimistic positions visible;
 - workflow node details use projection editability, not execution id, for
   read-only state;
 - trajectory sprites have an explicit tested interaction model;
 - desktop recordings include enough graph state to diagnose drag and camera
   bugs, including pointerup/pointercancel and queued graph replacement state;
+- recordings include chronological `graph_interaction`, `graph_layout_save`,
+  and `graph_replacement` events, not only graph snapshots;
 - recording payload bounds are explicit and do not silently hide graph scale
   evidence;
 - behavior assertions lead graph tests, with renderer counters as supplemental
