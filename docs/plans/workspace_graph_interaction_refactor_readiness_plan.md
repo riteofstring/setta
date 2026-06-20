@@ -1,8 +1,8 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 2 contract scaffolding added; Phase 2 coverage gaps remain
-  before Phase 3 is ready to implement.
+- **Status:** Phase 2 contract coverage added; Phase 3 can now start against
+  the expected-red interaction contract workflows.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -678,38 +678,37 @@ diff.
 Goal: add behavior-first regression coverage before changing the interaction
 implementation.
 
-Status: Partial. Commit `30793a63d` added behavior-first Electron contract
-workflows under the explicit `refactor` tier:
+Status: Complete. Commit `30793a63d` added the initial behavior-first Electron
+contract workflows under the explicit `refactor` tier:
 
 - `workflow-graph-editable-drag-contract`;
 - `workflow-graph-read-only-port-contract`;
 - `workflow-graph-read-only-view-layout-contract`;
 - `workflow-graph-active-replacement-contract`.
 
+The Phase 2 follow-up closes the remaining tests-first gaps:
+
+- `workflow-graph-read-only-port-contract` now observes production
+  `workflow:add-edge` IPC starts in the recording artifact and fails if
+  read-only port interaction issues an edge-creation save.
+- `workflow-graph-read-only-view-layout-contract` now reloads and relaunches
+  the app with the same temporary app data, then requires the same run target to
+  reopen with view-layout positions composed.
+- `workflow-graph-node-drag-pointercancel-contract` requires pointercancel to
+  revert a visible node drag, avoid draft layout persistence, and remain
+  reverted after a projection refresh.
+- `workflow-graph-edge-draw-pointercancel-contract` requires pointercancel over
+  a valid target port to cancel the temporary edge and avoid `workflow.addEdge`.
+- `workflow-graph-marquee-pointercancel-contract` requires marquee cancellation
+  during a graph refresh to restore the previous selection.
+- `workflow-graph-live-runtime-drag-contract` starts a real workflow run,
+  switches back to the editable draft, emits semantic runtime traffic through
+  production main/preload/renderer/HTTP/store paths, and requires the dragged
+  node to persist while runtime updates flow.
+
 These workflows exercise production Electron/main/preload/renderer/HTTP/store
 paths with temporary app data. They are intentionally not part of the default
 required tier while the known broken interaction contract remains red.
-
-Phase 2 is not complete yet. The committed workflows are useful scaffolding,
-but they do not cover the full tests-first contract required before Phase 3:
-
-- `workflow-graph-read-only-view-layout-contract` checks the view-layout owner
-  and draft-layout non-mutation, but it does not force a projection refresh or
-  reload/reopen the run target to prove durable view-layout composition.
-- `workflow-graph-active-replacement-contract` covers node drag plus a
-  validation refresh before pointerup, but it does not cover pointercancel
-  rollback, edge-draw cancellation, marquee cancellation, or settlement before
-  the latest queued graph applies.
-- The live-condition drag requirement is not covered yet. A validation refresh
-  is not a substitute for trajectory, semantic runtime, liveness, or
-  command-preview updates flowing through the production scene runtime while an
-  editable node drag is active.
-- `workflow-graph-read-only-port-contract` proves the current debug graph
-  exposes no interactive read-only ports, but it still needs an assertion that
-  read-only port interaction cannot issue an edge-creation save.
-
-Phase 3 should wait until these gaps are closed, or until this plan explicitly
-moves specific Phase 2 coverage to a later phase with the tradeoff documented.
 
 Tasks:
 
@@ -790,13 +789,20 @@ node desktop/tests/electron/run-workflows.mjs \
   --workflow workflow-graph-read-only-port-contract \
   --workflow workflow-graph-read-only-view-layout-contract \
   --workflow workflow-graph-active-replacement-contract \
+  --workflow workflow-graph-node-drag-pointercancel-contract \
+  --workflow workflow-graph-edge-draw-pointercancel-contract \
+  --workflow workflow-graph-marquee-pointercancel-contract \
+  --workflow workflow-graph-live-runtime-drag-contract \
   --skip-build
 ```
 
-Expected pre-Phase-3/Phase-7 result: editable draft drag durability should pass;
-the read-only port, read-only view-layout, and active replacement contract
-workflows should fail until movement ownership, port connectability, view-layout
-composition, and queued replacement settlement are implemented.
+Expected pre-Phase-3/Phase-7 result: editable draft drag durability and marquee
+pointercancel should pass; the read-only view-layout, active replacement,
+node-drag pointercancel, edge-draw pointercancel, and live-runtime drag contract
+workflows should fail until movement ownership, view-layout composition,
+cancellation semantics, runtime update queuing, and queued replacement
+settlement are implemented. The read-only port workflow may pass early if ports
+are already hidden and no edge save is issued.
 
 ## Phase 3: Editability And Movement Ownership Contract
 

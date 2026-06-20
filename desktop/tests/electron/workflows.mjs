@@ -95,6 +95,30 @@ export const electronWorkflows = [
     tiers: ["refactor"],
   },
   {
+    args: ["--scenario", "node-drag-pointercancel"],
+    file: "workflow-graph-durable-drag-contract.test.mjs",
+    name: "workflow-graph-node-drag-pointercancel-contract",
+    tiers: ["refactor"],
+  },
+  {
+    args: ["--scenario", "edge-draw-pointercancel"],
+    file: "workflow-graph-durable-drag-contract.test.mjs",
+    name: "workflow-graph-edge-draw-pointercancel-contract",
+    tiers: ["refactor"],
+  },
+  {
+    args: ["--scenario", "marquee-pointercancel"],
+    file: "workflow-graph-durable-drag-contract.test.mjs",
+    name: "workflow-graph-marquee-pointercancel-contract",
+    tiers: ["refactor"],
+  },
+  {
+    args: ["--scenario", "live-runtime-drag"],
+    file: "workflow-graph-durable-drag-contract.test.mjs",
+    name: "workflow-graph-live-runtime-drag-contract",
+    tiers: ["refactor"],
+  },
+  {
     file: "semantic-graph-workflow.test.mjs",
     name: "semantic-graph",
     tiers: ["required"],
