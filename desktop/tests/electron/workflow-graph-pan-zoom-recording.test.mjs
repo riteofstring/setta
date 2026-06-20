@@ -46,7 +46,7 @@ import { collectPhase0RunMetadata } from "./workflow-graph-phase0-run-metadata.m
 import {
   assertPhase0MatrixGatePassed,
   appendPhase0PerformanceReport,
-  phase0PerformanceGateReport,
+  parsePanZoomPerformanceArtifacts,
 } from "./workflow-graph-phase0-performance-report.mjs";
 import { assertPinnedPhase0Viewport } from "./workflow-graph-phase0-viewport.mjs";
 import {
@@ -117,10 +117,9 @@ try {
                   scenario: options.scenario,
                 }),
               ];
-  const phase0Gate = phase0PerformanceGateReport({
+  const phase0Gate = await parsePanZoomPerformanceArtifacts({
     artifactRoot,
     phase: options.scenario === "phase3" ? "phase3" : "phase0",
-    summaries,
   });
   await writeJson(join(artifactRoot, "phase0-performance-gate.json"), phase0Gate);
   if (options.writeReport) {

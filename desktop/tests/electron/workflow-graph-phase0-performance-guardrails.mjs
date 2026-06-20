@@ -60,7 +60,7 @@ export async function workflowGraphSemanticTrafficDuringInteraction({ artifactDi
   };
 }
 
-function phase0PerformanceScenarioGate({
+export function phase0PerformanceScenarioGate({
   diagnostics,
   final,
   initial,

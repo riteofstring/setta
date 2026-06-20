@@ -1,7 +1,12 @@
-import { appendFile, mkdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { appendFile, mkdir, readdir, readFile, stat } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 
 import { repoRoot } from "./electron-cdp-harness.mjs";
+import { summarizeWorkflowGraphPerformanceDiagnostics } from "./workflow-graph-performance-recording.mjs";
+import {
+  phase0PerformanceScenarioGate,
+  workflowGraphSemanticTrafficDuringInteraction,
+} from "./workflow-graph-phase0-performance-guardrails.mjs";
 
 const requiredSceneVisitCounterNames = [
   "settaOwnedLayerVisits",
@@ -27,7 +32,35 @@ const phase3ScenarioSignalDefinitions = [
   },
 ];
 
-export function phase0PerformanceGateReport({ artifactRoot, phase = "phase0", summaries }) {
+const scenarioOrder = [
+  "simple",
+  "normal",
+  "dense",
+  "stress",
+  "scaling",
+  "large",
+  "baseline",
+  "active",
+  "small-active",
+  "small-trackpad",
+];
+
+export async function parsePanZoomPerformanceArtifacts({ artifactRoot, phase = "phase0" }) {
+  const resolvedArtifactRoot = resolve(artifactRoot);
+  const scenarioEntries = await panZoomScenarioArtifactEntries(resolvedArtifactRoot);
+  const summaries = [];
+  for (const entry of scenarioEntries) {
+    summaries.push(await parsePanZoomScenarioArtifacts(entry));
+  }
+  return buildPanZoomPerformanceReport({
+    artifactRoot: resolvedArtifactRoot,
+    phase,
+    source: "artifact-parser",
+    summaries,
+  });
+}
+
+function buildPanZoomPerformanceReport({ artifactRoot, phase, source, summaries }) {
   const scenarios = summaries.map((summary) => ({
     artifactDir: summary.artifactDir,
     artifacts: summary.artifacts,
@@ -49,6 +82,8 @@ export function phase0PerformanceGateReport({ artifactRoot, phase = "phase0", su
     matrixChecks,
     phase,
     phase3Gate: phase === "phase3" ? phase3GateDecision({ matrixChecks, scenarios }) : null,
+    reportKind: "workspace-graph-pan-zoom-performance",
+    source,
     scenarios,
     status,
   };
@@ -71,7 +106,7 @@ export async function appendPhase0PerformanceReport(report) {
     "workspace-graph-pan-zoom-surface-runtime.md",
   );
   await mkdir(dirname(reportPath), { recursive: true });
-  await appendFile(reportPath, phase0PerformanceReportMarkdown(report));
+  await appendFile(reportPath, panZoomPerformanceReportMarkdown(report));
 }
 
 export function assertPhase0MatrixGatePassed(phase0Gate) {
@@ -86,7 +121,250 @@ export function assertPhase0MatrixGatePassed(phase0Gate) {
   }
 }
 
-function phase0PerformanceReportMarkdown(report) {
+async function panZoomScenarioArtifactEntries(artifactRoot) {
+  const rootSummary = await readOptionalJson(join(artifactRoot, "summary.json"));
+  if (Array.isArray(rootSummary?.scenarios) && rootSummary.scenarios.length > 0) {
+    return rootSummary.scenarios
+      .map((summary) => ({
+        artifactDir: resolveScenarioArtifactDir(artifactRoot, summary.artifactDir),
+        summary,
+      }))
+      .sort(comparePanZoomScenarioEntries);
+  }
+  if (await fileExists(join(artifactRoot, "pan-zoom-debug-snapshots.json"))) {
+    return [{ artifactDir: artifactRoot, summary: rootSummary ?? {} }];
+  }
+  const summaryPaths = await findScenarioSummaryPaths(artifactRoot);
+  const entries = [];
+  for (const summaryPath of summaryPaths) {
+    const artifactDir = dirname(summaryPath);
+    if (!(await fileExists(join(artifactDir, "pan-zoom-debug-snapshots.json")))) {
+      continue;
+    }
+    entries.push({
+      artifactDir,
+      summary: await readJson(summaryPath),
+    });
+  }
+  if (entries.length === 0) {
+    throw new Error(`no pan/zoom scenario artifacts found under ${artifactRoot}`);
+  }
+  return entries.sort(comparePanZoomScenarioEntries);
+}
+
+function resolveScenarioArtifactDir(artifactRoot, artifactDir) {
+  if (!artifactDir) {
+    throw new Error(`scenario summary under ${artifactRoot} is missing artifactDir`);
+  }
+  return resolve(artifactDir);
+}
+
+async function parsePanZoomScenarioArtifacts({ artifactDir, summary }) {
+  const context = await readPanZoomScenarioArtifactContext({ artifactDir, summary });
+  const semanticTraffic = await workflowGraphSemanticTrafficDuringInteraction({
+    artifactDir,
+    inputWindow: context.metrics.inputWindow,
+  });
+  return parsedPanZoomScenarioSummary({ ...context, semanticTraffic });
+}
+
+async function readPanZoomScenarioArtifactContext({ artifactDir, summary }) {
+  const paths = panZoomScenarioArtifactPaths(artifactDir);
+  const [inputSamples, performanceTimeline, snapshots, traceSummary, runMetadata] =
+    await Promise.all([
+      readJson(paths.inputSamplesPath),
+      readJson(paths.performancePath),
+      readJson(paths.snapshotsPath),
+      readJson(paths.traceSummaryPath),
+      readJson(paths.runMetadataPath),
+    ]);
+  const metrics = summarizeWorkflowGraphPerformanceDiagnostics({
+    inputSamples,
+    performanceTimeline,
+    snapshots,
+  });
+  const artifacts = {
+    contactSheet: summary.artifacts?.contactSheet ?? null,
+    finalScreenshot: summary.artifacts?.finalScreenshot ?? join(artifactDir, "final.png"),
+    initialScreenshot: summary.artifacts?.initialScreenshot ?? join(artifactDir, "initial.png"),
+    inputSamplesPath: paths.inputSamplesPath,
+    metrics,
+    performancePath: paths.performancePath,
+    snapshotsPath: paths.snapshotsPath,
+    tracePath: paths.tracePath,
+    traceSummary,
+    traceSummaryPath: paths.traceSummaryPath,
+  };
+  return { artifactDir, artifacts, metrics, runMetadata, snapshots, summary };
+}
+
+function parsedPanZoomScenarioSummary({
+  artifactDir,
+  artifacts,
+  metrics,
+  runMetadata,
+  semanticTraffic,
+  snapshots,
+  summary,
+}) {
+  const snapshotsPair = parsedScenarioSnapshots({ snapshots, summary });
+  const identity = parsedScenarioIdentity({ artifactDir, runMetadata, summary });
+  const phase0Gate = phase0PerformanceScenarioGate({
+    artifacts,
+    diagnostics: metrics,
+    final: snapshotsPair.final,
+    initial: snapshotsPair.initial,
+    scenario: identity.scenario,
+    semanticTraffic,
+    syntheticScene: identity.syntheticScene,
+  });
+  return {
+    artifactDir,
+    artifacts,
+    final: snapshotsPair.final,
+    hitTesting: summary.hitTesting ?? null,
+    initial: snapshotsPair.initial,
+    nodeCount: snapshotsPair.final.graph.nodeCount,
+    phase0Gate,
+    recordingEnabled: runMetadata.build?.recordingEnabled !== false,
+    runMetadata,
+    scenario: identity.scenario,
+    status: summary.status ?? "parsed",
+    syntheticScene: identity.syntheticScene,
+  };
+}
+
+function parsedScenarioSnapshots({ snapshots, summary }) {
+  return {
+    final: summary.final ?? compactScenarioSnapshot(snapshots.at(-1)?.snapshot),
+    initial: summary.initial ?? compactScenarioSnapshot(snapshots[0]?.snapshot),
+  };
+}
+
+function parsedScenarioIdentity({ artifactDir, runMetadata, summary }) {
+  return {
+    scenario: summary.scenario ?? scenarioFromArtifactDir(artifactDir),
+    syntheticScene: summary.syntheticScene ?? syntheticSceneFromRunMetadata(runMetadata),
+  };
+}
+
+function panZoomScenarioArtifactPaths(artifactDir) {
+  return {
+    inputSamplesPath: join(artifactDir, "pan-zoom-input-samples.json"),
+    performancePath: join(artifactDir, "pan-zoom-performance-observer.json"),
+    runMetadataPath: join(artifactDir, "run-metadata.json"),
+    snapshotsPath: join(artifactDir, "pan-zoom-debug-snapshots.json"),
+    tracePath: join(artifactDir, "pan-zoom-cdp-trace.json"),
+    traceSummaryPath: join(artifactDir, "pan-zoom-cdp-trace-summary.json"),
+  };
+}
+
+function compactScenarioSnapshot(snapshot) {
+  if (!snapshot) {
+    throw new Error("pan/zoom debug snapshots are missing before/after samples");
+  }
+  return {
+    camera: snapshot.camera,
+    graph: {
+      edgeCount: snapshot.graph.edgeCount,
+      nodeCount: snapshot.graph.nodeCount,
+      semanticNodeCount: countGraphNodesByLayer(snapshot, "semantic"),
+      workflowNodeCount: countGraphNodesByLayer(snapshot, "workflow"),
+    },
+    render: snapshot.render,
+  };
+}
+
+function countGraphNodesByLayer(snapshot, layer) {
+  return (snapshot.graph.nodes ?? []).filter((node) => node.layer === layer).length;
+}
+
+function syntheticSceneFromRunMetadata(runMetadata) {
+  return runMetadata.benchmark?.workload?.syntheticScene ?? "unknown";
+}
+
+function scenarioFromArtifactDir(artifactDir) {
+  const name = artifactDir.split(/[\\/]/).at(-1) ?? "";
+  if (name.endsWith("-nodes")) {
+    return "scaling";
+  }
+  return name || "unknown";
+}
+
+async function findScenarioSummaryPaths(root, depth = 0, initialRoot = root) {
+  if (depth > 5) {
+    return [];
+  }
+  const entries = await readdir(root, { withFileTypes: true });
+  const paths = [];
+  for (const entry of entries) {
+    const path = join(root, entry.name);
+    if (
+      entry.isFile() &&
+      entry.name === "summary.json" &&
+      path !== join(initialRoot, "summary.json")
+    ) {
+      paths.push(path);
+      continue;
+    }
+    if (entry.isDirectory()) {
+      paths.push(...(await findScenarioSummaryPaths(path, depth + 1, initialRoot)));
+    }
+  }
+  return paths;
+}
+
+function comparePanZoomScenarioEntries(left, right) {
+  return panZoomScenarioSortKey(left).localeCompare(panZoomScenarioSortKey(right));
+}
+
+function panZoomScenarioSortKey(entry) {
+  const summary = entry.summary ?? {};
+  const scenario = summary.scenario ?? scenarioFromArtifactDir(entry.artifactDir);
+  const scenarioIndex = scenarioOrder.includes(scenario) ? scenarioOrder.indexOf(scenario) : 99;
+  return [
+    recordingModeSortLabel(summary),
+    String(scenarioIndex).padStart(2, "0"),
+    scenario,
+    String(Number(summary.nodeCount ?? 0)).padStart(6, "0"),
+    entry.artifactDir,
+  ].join("|");
+}
+
+function recordingModeSortLabel(summary) {
+  return summary.runMetadata?.build?.recordingEnabled === false ? "recording-off" : "recording-on";
+}
+
+async function readJson(path) {
+  const raw = await readFile(path, "utf8");
+  return JSON.parse(raw);
+}
+
+async function readOptionalJson(path) {
+  try {
+    return await readJson(path);
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function fileExists(path) {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+export function panZoomPerformanceReportMarkdown(report) {
+  const diagnosisRows = report.scenarios.map(scenarioDiagnosisReportRow).join("\n");
   const rows = report.scenarios.map(scenarioReportRow).join("\n");
   const matrixChecks = report.matrixChecks.map(formatScenarioCheck).join("\n");
   const checkSections = report.scenarios.map(scenarioCheckSection).join("\n");
@@ -98,6 +376,14 @@ Artifact root: \`${report.artifactRoot}\`
 
 ${phaseStatusLine(report)}
 ${gateSection}
+
+Source: ${report.source ?? "unknown"}
+
+## Pan/Zoom Diagnosis
+
+| Scenario | Recording | Interactions | Diagnosis | p95 delivery ms | p95 handler ms | p95 camera commit ms | p95 first Pixi render proxy ms | input-to-presented-frame | frame p50/p95/p99/max ms | Renderer duplicates | Camera DOM writes | Camera React commits | Scene replacements | Deferred work | Top blocker |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
+${diagnosisRows}
 
 | Scenario | Recording | Synthetic scene | Nodes | p95 frame ms | p95 delivery ms | p95 first Pixi render proxy ms | Scene visits p95 / budget | Display objects | Camera pane writes | Camera React commits | Top trace task | Hard failures | Report-only findings |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
@@ -112,6 +398,9 @@ ${checkSections}
 }
 
 function phaseStatusLine(report) {
+  if (report.phase === "phase7") {
+    return `Phase 7 report status: ${report.status === "passed" ? "passed" : "blocked"}`;
+  }
   if (report.phase === "phase3") {
     return `Phase 3 gate status: ${report.status === "passed" ? "passed" : "blocked"}`;
   }
@@ -146,6 +435,91 @@ function scenarioReportRow(scenario) {
   } | ${
     scenario.diagnostics.reactCommits?.cameraCausedCount ?? 0
   } | ${escapeMarkdown(formatTopTraceTask(scenario))} | ${hardFailures} | ${reportOnlyFindings} |`;
+}
+
+function scenarioDiagnosisReportRow(scenario) {
+  const row = scenarioDiagnosisRowData(scenario);
+  return `| ${escapeMarkdown(row.scenario)} | ${row.recording} | ${row.interactions} | ${escapeMarkdown(
+    row.diagnosis,
+  )} | ${row.deliveryP95} | ${row.handlerP95} | ${row.cameraCommitP95} | ${
+    row.firstRenderP95
+  } | ${escapeMarkdown(row.presentedFrame)} | ${escapeMarkdown(row.frameTiming)} | ${
+    row.rendererDuplicates
+  } | ${row.cameraDomWrites} | ${row.cameraReactCommits} | ${row.sceneReplacements} | ${escapeMarkdown(
+    row.deferredWork,
+  )} | ${escapeMarkdown(row.topBlocker)} |`;
+}
+
+function scenarioDiagnosisRowData(scenario) {
+  const wheelLatency = scenario.diagnostics.wheelLatency ?? {};
+  return {
+    cameraCommitP95: formatMetricP95(wheelLatency.cameraUpdateDurationMs),
+    cameraDomWrites: cameraPaneMutationCount(scenario),
+    cameraReactCommits: cameraReactCommitCount(scenario),
+    deferredWork: formatDeferredWorkByLane(scenario.diagnostics.deferredWorkByLane),
+    deliveryP95: formatMetricP95(wheelLatency.eventDeliveryDelayMs),
+    diagnosis: classifyScenarioRemainingIssue(scenario),
+    firstRenderP95: formatMetricP95(wheelLatency.eventTimestampToFirstPixiRenderAfterCameraMs),
+    frameTiming: formatFrameTiming(scenario.diagnostics.frameTiming ?? {}),
+    handlerP95: formatMetricP95(wheelLatency.handlerDurationMs),
+    interactions: formatInteractionSummary(scenario),
+    presentedFrame: formatInputToPresentedFrame(scenario),
+    recording: recordingModeLabel(scenario),
+    rendererDuplicates: duplicateRendererSampleCount(scenario),
+    scenario: scenario.scenario,
+    sceneReplacements: scenario.diagnostics.graphSceneReplacementCount ?? 0,
+    topBlocker: formatTopTraceTask(scenario),
+  };
+}
+
+function formatMetricP95(stats) {
+  return formatReportNumber(stats?.p95);
+}
+
+function duplicateRendererSampleCount(scenario) {
+  return scenario.diagnostics.rendererLifecycle?.duplicateRendererSamples?.length ?? 0;
+}
+
+function cameraPaneMutationCount(scenario) {
+  return scenario.diagnostics.paneMutations?.cameraCausedCount ?? 0;
+}
+
+function cameraReactCommitCount(scenario) {
+  return scenario.diagnostics.reactCommits?.cameraCausedCount ?? 0;
+}
+
+function formatInteractionSummary(scenario) {
+  const interactions = scenario.diagnostics.inputInteractions ?? {};
+  const ids = (interactions.items ?? [])
+    .filter((interaction) => interaction.cameraInput)
+    .slice(0, 4)
+    .map((interaction) => `${interaction.kind}#${interaction.id}`);
+  const suffix = ids.length > 0 ? ` (${ids.join(", ")})` : "";
+  return `${interactions.cameraCount ?? 0}/${interactions.totalCount ?? 0}${suffix}`;
+}
+
+function formatInputToPresentedFrame(scenario) {
+  const check = scenario.checks.find((candidate) =>
+    candidate.id.startsWith("input-to-presented-frame"),
+  );
+  if (!check || check.actual === null || check.actual === undefined) {
+    return "unavailable";
+  }
+  return formatReportNumber(check.actual);
+}
+
+function formatFrameTiming(frameTiming) {
+  return [frameTiming.p50, frameTiming.p95, frameTiming.p99, frameTiming.max]
+    .map(formatReportNumber)
+    .join("/");
+}
+
+function formatDeferredWorkByLane(deferredWorkByLane = {}) {
+  const entries = Object.entries(deferredWorkByLane).filter(([, value]) => Number(value) > 0);
+  if (entries.length === 0) {
+    return "none";
+  }
+  return entries.map(([lane, value]) => `${lane}:${value}`).join(", ");
 }
 
 function phase3GateDecision({ matrixChecks, scenarios }) {
@@ -504,6 +878,7 @@ function scenarioCheckSection(scenario) {
   const metadata = scenarioReportMetadata(scenario);
   const checks = scenario.checks.map(formatScenarioCheck).join("\n");
   const traceTasks = formatScenarioTraceTasks(scenario);
+  const details = scenarioDiagnosticDetails(scenario);
   return `## ${scenario.scenario} / ${scenario.syntheticScene} / recording-${metadata.recordingEnabled}
 
 - build: ${metadata.buildMode}
@@ -513,9 +888,94 @@ function scenarioCheckSection(scenario) {
 - recording/debug: ${metadata.recordingEnabled} / ${metadata.workflowGraphDebugEnabled}
 - timing thresholds: ${metadata.timingThresholds}
 - trace top tasks: ${traceTasks}
+- interaction ids: ${formatInteractionIds(scenario)}
+- timing: ${formatScenarioTimingDetails(scenario)}
+- scene visits: ${formatSceneVisitCounterDetails(scenario)}
+- supplemental render: ${formatSupplementalRenderMetrics(scenario)}
+- DOM mutations by owner/source: ${formatOwnerSourceCounts(
+    scenario.diagnostics.paneMutations?.countsByOwnerAndSource,
+  )}
+- React commits by owner/source: ${formatOwnerSourceCounts(
+    scenario.diagnostics.reactCommits?.countsByOwnerAndSource,
+  )}
+- deferred work by lane: ${formatDeferredWorkByLane(scenario.diagnostics.deferredWorkByLane)}
+- graph scene replacements: ${scenario.diagnostics.graphSceneReplacementCount ?? 0}
+${details}
 
 ${checks}
 `;
+}
+
+function scenarioDiagnosticDetails(scenario) {
+  const supplemental = scenario.diagnostics.supplementalRenderMetrics ?? {};
+  if (supplemental.drawCallSource !== "not-instrumented") {
+    return "";
+  }
+  return "- draw calls: not instrumented in the current Pixi debug snapshot\n";
+}
+
+function formatInteractionIds(scenario) {
+  const items = scenario.diagnostics.inputInteractions?.items ?? [];
+  if (items.length === 0) {
+    return "none";
+  }
+  return items
+    .map((interaction) => `${interaction.kind}#${interaction.id}`)
+    .slice(0, 16)
+    .join(", ");
+}
+
+function formatScenarioTimingDetails(scenario) {
+  const wheel = scenario.diagnostics.wheelLatency ?? {};
+  return [
+    `delivery p50/p95/max=${formatStats(wheel.eventDeliveryDelayMs)}`,
+    `handler p95=${formatReportNumber(wheel.handlerDurationMs?.p95)}ms`,
+    `camera commit p95=${formatReportNumber(wheel.cameraUpdateDurationMs?.p95)}ms`,
+    `first Pixi render proxy p95=${formatReportNumber(
+      wheel.eventTimestampToFirstPixiRenderAfterCameraMs?.p95,
+    )}ms`,
+    `input-to-presented=${formatInputToPresentedFrame(scenario)}`,
+    `frame p50/p95/p99/max=${formatFrameTiming(scenario.diagnostics.frameTiming ?? {})}ms`,
+  ].join("; ");
+}
+
+function formatStats(stats = {}) {
+  return `${formatReportNumber(stats.p50)}/${formatReportNumber(stats.p95)}/${formatReportNumber(
+    stats.max,
+  )}ms`;
+}
+
+function formatSceneVisitCounterDetails(scenario) {
+  const stats = sceneVisitCountersForScenario(scenario)?.cameraFrameSceneVisitStats;
+  if (!stats?.counters) {
+    return "missing";
+  }
+  return requiredSceneVisitCounterNames
+    .map((counterName) => {
+      const counter = stats.counters[counterName] ?? {};
+      return `${counterName} p95=${formatReportNumber(counter.p95)}`;
+    })
+    .join(", ");
+}
+
+function formatSupplementalRenderMetrics(scenario) {
+  const supplemental = scenario.diagnostics.supplementalRenderMetrics ?? {};
+  const drawCalls =
+    supplemental.drawCallCount === null || supplemental.drawCallCount === undefined
+      ? "not-instrumented"
+      : formatReportNumber(supplemental.drawCallCount);
+  return `renderedObjects=${supplemental.renderedObjectCount ?? scenario.render.totalDisplayObjectCount}; drawCalls=${drawCalls}`;
+}
+
+function formatOwnerSourceCounts(counts = {}) {
+  const entries = Object.entries(counts).sort((left, right) => Number(right[1]) - Number(left[1]));
+  if (entries.length === 0) {
+    return "none";
+  }
+  return entries
+    .slice(0, 6)
+    .map(([key, count]) => `${key}=${count}`)
+    .join("; ");
 }
 
 function formatScenarioTraceTasks(scenario) {

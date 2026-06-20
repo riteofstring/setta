@@ -21,6 +21,7 @@ const traceCategories = [
 ];
 
 const renderDeltaCounters = [
+  "animationActiveSetDeferredCount",
   "canvasCreationCount",
   "cameraDependentSyncFrameCount",
   "cameraMovingLabelDeferredFrameCount",
@@ -31,6 +32,8 @@ const renderDeltaCounters = [
   "cameraSettleRestoreFrameCount",
   "cameraSettledSyncFrameCount",
   "cameraUpdateCount",
+  "deferredGraphApplyCount",
+  "deferredGraphUpdateCount",
   "frameCount",
   "graphUpdateCount",
   "labelSyncCount",
@@ -935,7 +938,7 @@ function emptyRenderDeltas() {
   return Object.fromEntries(renderDeltaCounters.map((counter) => [counter, 0]));
 }
 
-function summarizeWorkflowGraphPerformanceDiagnostics({
+export function summarizeWorkflowGraphPerformanceDiagnostics({
   inputSamples,
   performanceTimeline,
   snapshots,
@@ -943,9 +946,12 @@ function summarizeWorkflowGraphPerformanceDiagnostics({
   const snapshotPair = workflowGraphPerformanceSnapshotPair(snapshots);
   const renderDeltas = performanceRenderDeltas(snapshotPair);
   return {
+    deferredWorkByLane: workflowGraphDeferredWorkByLaneMetrics(renderDeltas),
+    frameTiming: workflowGraphFrameTimingMetrics(snapshotPair.after),
     graphSceneReplacementCount: sumCameraInputRenderDelta(inputSamples, "graphUpdateCount"),
     inputCountsByKind: countInputSamplesByKind(inputSamples),
     inputEventCount: countRecordedInputEvents(inputSamples),
+    inputInteractions: workflowGraphInputInteractionMetrics(performanceTimeline, inputSamples),
     inputWindow: inputSampleWindow(inputSamples),
     interactionRenderDeltas: renderDeltas,
     longTaskCount: performanceTimeline?.longTasks?.length ?? 0,
@@ -954,6 +960,7 @@ function summarizeWorkflowGraphPerformanceDiagnostics({
     paneMutations: workflowGraphPaneMutationMetrics(performanceTimeline),
     reactCommits: workflowGraphReactCommitMetrics(performanceTimeline),
     rendererLifecycle: workflowGraphRendererLifecycleMetrics(snapshotPair, snapshots),
+    supplementalRenderMetrics: workflowGraphSupplementalRenderMetrics(snapshotPair.after),
     timingBucketDeltas: performanceTimingBucketDeltas(snapshotPair),
     userTiming: workflowGraphUserTimingMetrics(performanceTimeline),
     wheelLatency: workflowGraphWheelLatencyMetrics(snapshotPair.after),
@@ -1076,8 +1083,170 @@ function sampleStats(values) {
     max: maxNumber(values),
     p50: percentile(values, 0.5),
     p95: percentile(values, 0.95),
+    p99: percentile(values, 0.99),
     sampleCount: values.length,
   };
+}
+
+function workflowGraphFrameTimingMetrics(snapshot) {
+  const render = snapshotRender(snapshot);
+  const recentFrameMs = finiteFrameSamples(render.recentFrameMs);
+  if (recentFrameMs.length > 0) {
+    return frameTimingFromSamples(recentFrameMs);
+  }
+  return frameTimingFromSummary(render);
+}
+
+function snapshotRender(snapshot) {
+  return snapshot && snapshot.render ? snapshot.render : {};
+}
+
+function finiteFrameSamples(samples) {
+  if (!Array.isArray(samples)) {
+    return [];
+  }
+  return samples.map(Number).filter(Number.isFinite);
+}
+
+function frameTimingFromSamples(samples) {
+  return {
+    ...sampleStats(samples),
+    source: "renderer-recent-frame-ring",
+  };
+}
+
+function frameTimingFromSummary(render) {
+  return {
+    max: Number(render.worstFrameMs ?? 0),
+    p50: Number(render.averageFrameMs ?? 0),
+    p95: Number(render.p95FrameMs ?? 0),
+    p99: Number(render.worstFrameMs ?? 0),
+    sampleCount: 0,
+    source: "renderer-summary-counters",
+  };
+}
+
+function workflowGraphInputInteractionMetrics(performanceTimeline, inputSamples) {
+  const userTimings = performanceTimeline?.userTimings ?? [];
+  const starts = userTimings.filter((entry) => entry.name === "setta.workflow-graph.input.start");
+  const items =
+    starts.length === 0
+      ? inputInteractionsFromSamples(inputSamples)
+      : inputInteractionsFromUserTimings({ inputSamples, starts, userTimings });
+  return inputInteractionMetrics(items);
+}
+
+function inputInteractionsFromSamples(inputSamples) {
+  return inputSamples.map((sample, index) => inputInteractionFromSample(sample, index));
+}
+
+function inputInteractionFromSample(sample, index) {
+  const cameraInput = cameraInputKinds.has(sample.kind);
+  return {
+    cameraInput,
+    causalSource: cameraInput ? `camera:${sample.kind}` : `interaction:${sample.kind}`,
+    durationMs: finiteNumberOrNull(sample.durationMs),
+    endedAt: finiteNumberOrNull(sample.completedAt),
+    eventCount: inputSampleEventCount(sample),
+    id: `sample-${index + 1}`,
+    kind: sample.kind ?? "",
+    startedAt: finiteNumberOrNull(sample.startedAt),
+  };
+}
+
+function inputInteractionsFromUserTimings({ inputSamples, starts, userTimings }) {
+  const endsByToken = new Map(
+    userTimings
+      .filter((entry) => entry.name === "setta.workflow-graph.input.end")
+      .map((entry) => [entry.detail?.token, entry]),
+  );
+  return starts.map((start, index) =>
+    inputInteractionFromUserTiming({
+      end: endsByToken.get(start.detail?.token),
+      index,
+      inputSamples,
+      start,
+    }),
+  );
+}
+
+function inputInteractionFromUserTiming({ end, index, inputSamples, start }) {
+  const detail = start.detail ?? {};
+  const sample = inputSamples[index] ?? {};
+  return {
+    cameraInput: Boolean(detail.cameraInput),
+    causalSource: detail.causalSource ?? "",
+    durationMs: userTimingEndDuration(end),
+    endedAt: userTimingEndAt(end),
+    eventCount: inputSampleEventCount(sample),
+    id: userTimingInteractionId(detail, index),
+    kind: userTimingInteractionKind(detail, sample),
+    startedAt: userTimingStartAt(detail, start),
+  };
+}
+
+function userTimingEndDuration(end) {
+  return finiteNumberOrNull(endDetail(end).durationMs);
+}
+
+function userTimingEndAt(end) {
+  return finiteNumberOrNull(endDetail(end).endedAt ?? endStartTime(end));
+}
+
+function endDetail(end) {
+  return end?.detail ?? {};
+}
+
+function endStartTime(end) {
+  return end?.startTime;
+}
+
+function userTimingInteractionId(detail, index) {
+  return detail.token ?? index + 1;
+}
+
+function userTimingInteractionKind(detail, sample) {
+  return detail.kind ?? sample.kind ?? "";
+}
+
+function userTimingStartAt(detail, start) {
+  return finiteNumberOrNull(detail.startedAt ?? start.startTime);
+}
+
+function inputInteractionMetrics(items) {
+  return {
+    cameraCount: items.filter((item) => item.cameraInput).length,
+    items,
+    totalCount: items.length,
+  };
+}
+
+function workflowGraphDeferredWorkByLaneMetrics(renderDeltas) {
+  return {
+    "animation-active-set": Number(renderDeltas.animationActiveSetDeferredCount ?? 0),
+    "graph-apply": Number(renderDeltas.deferredGraphApplyCount ?? 0),
+    "graph-update": Number(renderDeltas.deferredGraphUpdateCount ?? 0),
+    "label-position-sync": Number(renderDeltas.cameraMovingLabelDeferredFrameCount ?? 0),
+  };
+}
+
+function workflowGraphSupplementalRenderMetrics(snapshot) {
+  const render = snapshotRender(snapshot);
+  const drawCallCount = renderDrawCallCount(render);
+  return {
+    drawCallCount,
+    drawCallSource: drawCallCount === null ? "not-instrumented" : "debug-snapshot",
+    renderedObjectCount: Number(render.totalDisplayObjectCount ?? 0),
+  };
+}
+
+function renderDrawCallCount(render) {
+  return finiteNumberOrNull(render.drawCallCount ?? render.drawCalls);
+}
+
+function finiteNumberOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function finiteSampleValues(samples, key) {

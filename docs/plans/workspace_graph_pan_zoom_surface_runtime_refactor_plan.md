@@ -1,8 +1,8 @@
 # Workspace Graph Pan/Zoom Surface Runtime Refactor Plan
 
 - **Date:** June 18, 2026
-- **Status:** Phase 6 is implemented. Phase 4 remains deferred by the Phase 3
-  benchmark gate, and Phase 7 is ready to implement next.
+- **Status:** Phase 7 is implemented. Phase 4 remains deferred by the Phase 3
+  benchmark gate, and Phase 8 is ready to implement next.
 - **Scope:** Make workspace graph pan/zoom smooth by refactoring graph canvas
   lifetime, workspace pane presentation writes, and frame-loop scheduling around
   explicit surface ownership and measurable interaction budgets.
@@ -280,16 +280,16 @@ mutation storms are removed.
 
 Define an interaction-aware frame budget coordinator with lanes such as:
 
-| Lane | Allowed During Camera Movement | Budget |
-|---|---:|---:|
-| camera transform | yes | under 1ms p95 |
-| input diagnostics counters | yes, sampled | under 0.25ms p95 |
-| cheap trajectory sprites | yes | bounded and pooled |
-| graph label position sync | yes, coalesced | under 2ms p95 |
-| semantic decorative animation | no, unless proven cheap | deferred |
-| full graph projection replace | no | deferred until settle |
-| pane chrome/content sync | no | event-driven outside movement |
-| DOM snapshot/capture | no | idle/settled only |
+| Lane                          | Allowed During Camera Movement |                        Budget |
+| ----------------------------- | -----------------------------: | ----------------------------: |
+| camera transform              |                            yes |                 under 1ms p95 |
+| input diagnostics counters    |                   yes, sampled |              under 0.25ms p95 |
+| cheap trajectory sprites      |                            yes |            bounded and pooled |
+| graph label position sync     |                 yes, coalesced |                 under 2ms p95 |
+| semantic decorative animation |        no, unless proven cheap |                      deferred |
+| full graph projection replace |                             no |         deferred until settle |
+| pane chrome/content sync      |                             no | event-driven outside movement |
+| DOM snapshot/capture          |                             no |             idle/settled only |
 
 This does not mean all animations stop while panning. It means animation work
 is assigned a purpose and a budget:
@@ -865,6 +865,31 @@ Success criteria:
 - A new recording can answer why pan/zoom felt bad in one report.
 - The report distinguishes handler cost, event delivery delay, renderer
   lifecycle, DOM mutation, React work, and graph scene work.
+
+#### Phase 7 Status
+
+The Phase 7 implementation replaces manual raw-log inspection with a shared
+pan/zoom artifact parser and report renderer used by both saved recordings and
+the deterministic Electron workflow.
+
+Current evidence supports moving to Phase 8:
+
+- Saved `pan-zoom-*` artifact roots can be parsed with
+  `desktop/tests/electron/workflow-graph-pan-zoom-performance-report.mjs`.
+- The parser rebuilds scenario diagnostics from debug snapshots, input samples,
+  performance observer records, trace summaries, run metadata, and app
+  recording traffic artifacts.
+- The report includes interaction ids, event delivery delay, handler duration,
+  camera commit duration, first-Pixi-render proxy duration,
+  input-to-presented-frame availability, frame p50/p95/p99/max, required scene
+  visit counters, rendered object counts, draw-call instrumentation status,
+  duplicate renderer samples, DOM mutations by owner/source, React commits by
+  owner/source, full scene replacements, and deferred work by lane.
+- The deterministic pan/zoom Electron workflow now parses the artifacts it just
+  wrote before asserting gates or appending the performance report, so manual
+  and automated evidence share one vocabulary.
+- The checked-in performance report includes a Phase 7 parser-generated report
+  from the latest Phase 3 matrix artifacts.
 
 ### Phase 8: Delete Old Hot Paths And Lock In The Contract
 
