@@ -30,7 +30,6 @@ export interface WorkspaceLayoutSnapshot {
 
 type LayoutStoreListener = (snapshot: WorkspaceLayoutSnapshot) => void;
 const scrollAnimationTimeConstantMs = 140;
-const maxAnimationStepMs = 1000 / 60;
 const defaultViewportHeight = 900;
 
 export interface WorkspacePaneLimitState {
@@ -87,8 +86,7 @@ export class WorkspaceLayoutStore {
       this.snapshot = null;
       return "idle";
     }
-    const animationDeltaMs = Math.min(maxAnimationStepMs, Math.max(0, deltaMs));
-    const blend = Math.min(1, animationDeltaMs / scrollAnimationTimeConstantMs);
+    const blend = Math.min(1, deltaMs / scrollAnimationTimeConstantMs);
     this.scrollColumn += columnDistance * blend;
     this.scrollRow += rowDistance * blend;
     this.overviewProgress += zoomDistance * blend;
@@ -334,9 +332,6 @@ export class WorkspaceLayoutStore {
   }
 
   ensureFocusedColumnVisible(viewport: Rect): void {
-    if (this.presentationMode === "overview") {
-      return;
-    }
     this.lastViewport = viewport;
     const nextScrollColumn = this.engine.scrollColumnForFocusedColumnVisibility(
       this.focusedColumnIndex,
@@ -357,9 +352,6 @@ export class WorkspaceLayoutStore {
   }
 
   ensureFocusedRowVisible(viewport: Rect): void {
-    if (this.presentationMode === "overview") {
-      return;
-    }
     this.lastViewport = viewport;
     const nextScrollRow = this.targetScrollForFocusedRow();
     if (Math.abs(nextScrollRow - this.targetScrollRow) <= 0.001) {
@@ -553,9 +545,6 @@ export class WorkspaceLayoutStore {
     }
     this.focusedColumnIndex = location.columnIndex;
     this.focusedRowIndex = location.rowIndex;
-    if (this.presentationMode === "overview") {
-      return;
-    }
     this.targetScrollColumn = this.targetScrollForFocusedColumn();
     this.targetScrollRow = this.targetScrollForFocusedRow();
     if (Math.abs(this.scrollColumn - this.targetScrollColumn) < 0.001) {
@@ -567,7 +556,7 @@ export class WorkspaceLayoutStore {
   }
 
   private targetScrollForFocusedColumn(): number {
-    return this.engine.horizontalScrollColumnForPane(this.focusedPaneId());
+    return Math.max(0, this.engine.paneLocation(this.focusedPaneId())?.planeColumnIndex ?? 0);
   }
 
   private targetScrollForFocusedRow(): number {

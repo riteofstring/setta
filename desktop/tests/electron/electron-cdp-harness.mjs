@@ -17,56 +17,42 @@ export const repoRoot = resolve(desktopRoot, "..");
 const pageLoadTimeoutMs = 20_000;
 const stateWaitTimeoutMs = 15_000;
 const shutdownTimeoutMs = 10_000;
-const electronHarnessArgHandlers = {
-  "--artifact-dir": (options, argv, index) => {
-    const value = argv[index + 1];
-    if (!value) {
-      throw new Error("--artifact-dir requires a value");
-    }
-    options.artifactDir = resolve(value);
-    return 1;
-  },
-  "--keep-artifacts": (options) => {
-    options.keepArtifacts = true;
-    return 0;
-  },
-  "--skip-build": (options) => {
-    options.skipBuild = true;
-    return 0;
-  },
-  "--trace": (options) => {
-    options.trace = true;
-    return 0;
-  },
-  "--visible": (options) => {
-    options.visible = true;
-    return 0;
-  },
-  "-h": (options) => {
-    options.help = true;
-    return 0;
-  },
-  "--help": (options) => {
-    options.help = true;
-    return 0;
-  },
-};
 
 export function parseElectronHarnessArgs(argv) {
   const options = {
     artifactDir: "",
     keepArtifacts: false,
     skipBuild: false,
-    trace: false,
     visible: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    const handleArg = electronHarnessArgHandlers[arg];
-    if (!handleArg) {
-      throw new Error(`Unknown Electron harness argument: ${arg}`);
+    switch (arg) {
+      case "--artifact-dir": {
+        const value = argv[index + 1];
+        if (!value) {
+          throw new Error("--artifact-dir requires a value");
+        }
+        options.artifactDir = resolve(value);
+        index += 1;
+        break;
+      }
+      case "--keep-artifacts":
+        options.keepArtifacts = true;
+        break;
+      case "--skip-build":
+        options.skipBuild = true;
+        break;
+      case "--visible":
+        options.visible = true;
+        break;
+      case "-h":
+      case "--help":
+        options.help = true;
+        break;
+      default:
+        throw new Error(`Unknown Electron harness argument: ${arg}`);
     }
-    index += handleArg(options, argv, index);
   }
   return options;
 }
@@ -75,7 +61,7 @@ export function timestampedRecordingDir(name) {
   const timestamp = new Date()
     .toISOString()
     .replace(/[-:]/g, "")
-    .replace(/\.(\d+)Z$/, "$1Z");
+    .replace(/\.\d+Z$/, "Z");
   return join(repoRoot, ".recordings", name, timestamp);
 }
 
@@ -84,15 +70,7 @@ export async function writeLatestRecordingPointer(name, artifactDir) {
   const latestPath = join(recordingRoot, "latest");
   await mkdir(recordingRoot, { recursive: true });
   await rm(latestPath, { force: true, recursive: true });
-  try {
-    await symlink(artifactDir, latestPath, "dir");
-  } catch (error) {
-    if (!error || error.code !== "EEXIST") {
-      throw error;
-    }
-    await rm(latestPath, { force: true, recursive: true });
-    await symlink(artifactDir, latestPath, "dir");
-  }
+  await symlink(artifactDir, latestPath, "dir");
   await writeJson(join(recordingRoot, "latest.json"), {
     artifactDir,
     debugPortFile: join(artifactDir, "debug-port.txt"),
@@ -183,46 +161,25 @@ export async function waitForSelector(client, selector, timeoutMs = stateWaitTim
   );
 }
 
-export async function clickEnabledButtonByAria(client, label, timeoutMs = stateWaitTimeoutMs) {
-  await waitForState(
-    client,
-    enabledButtonByAriaExpression(label),
-    (value) => value.ready,
-    timeoutMs,
-  );
-  const clicked = await client.evaluate(`(() => {
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-button" };
-    }
-    if (button.disabled) {
-      return { ok: false, reason: "disabled-button" };
-    }
-    button.click();
-    return { ok: true };
-  })()`);
-  if (!clicked.ok) {
-    throw new Error(`button was not clickable: ${label}: ${JSON.stringify(clicked)}`);
-  }
-}
-
-function enabledButtonByAriaExpression(label) {
-  return `(() => {
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ready: false, reason: "missing-button" };
-    }
-    return { ready: !button.disabled, reason: button.disabled ? "disabled-button" : "ready" };
-  })()`;
-}
-
 export async function captureScreenshot(client, path) {
   await mkdir(dirname(path), { recursive: true });
   const image = await client.call("Page.captureScreenshot", { format: "png" });
+  await writeFile(path, Buffer.from(image.data, "base64"));
+}
+
+export async function captureScreenshotClip(client, path, clip) {
+  await mkdir(dirname(path), { recursive: true });
+  const image = await client.call("Page.captureScreenshot", {
+    captureBeyondViewport: false,
+    clip: {
+      height: clip.height,
+      scale: clip.scale ?? 1,
+      width: clip.width,
+      x: clip.x,
+      y: clip.y,
+    },
+    format: "png",
+  });
   await writeFile(path, Buffer.from(image.data, "base64"));
 }
 
@@ -334,102 +291,6 @@ export async function writeJson(path, value) {
   await writeFile(path, JSON.stringify(value, null, 2) + "\n");
 }
 
-export async function startChromiumTrace(client, path) {
-  const traceEvents = [];
-  const removeDataListener = client.on("Tracing.dataCollected", (params) => {
-    if (Array.isArray(params.value)) {
-      traceEvents.push(...params.value);
-    }
-  });
-  let removeCompleteListener = () => {};
-  const complete = new Promise((resolvePromise) => {
-    removeCompleteListener = client.on("Tracing.tracingComplete", resolvePromise);
-  });
-  await client.call("Tracing.start", {
-    categories: [
-      "blink",
-      "cc",
-      "devtools.timeline",
-      "disabled-by-default-devtools.timeline",
-      "disabled-by-default-v8.cpu_profiler",
-      "latencyInfo",
-      "loading",
-      "toplevel",
-      "v8",
-    ].join(","),
-    transferMode: "ReportEvents",
-  });
-  return {
-    async stop() {
-      await client.call("Tracing.end");
-      await complete;
-      removeDataListener();
-      removeCompleteListener();
-      const trace = { traceEvents };
-      await writeJson(path, trace);
-      return {
-        eventCount: traceEvents.length,
-        path,
-        summary: summarizeChromiumTrace(traceEvents),
-      };
-    },
-  };
-}
-
-export function summarizeChromiumTrace(traceEvents) {
-  const completeEvents = traceEvents
-    .filter((event) => event.ph === "X" && Number.isFinite(event.dur))
-    .map((event) => ({
-      category: String(event.cat ?? ""),
-      durationMs: event.dur / 1000,
-      name: String(event.name ?? ""),
-      pid: event.pid,
-      tid: event.tid,
-      tsMs: Number.isFinite(event.ts) ? event.ts / 1000 : 0,
-    }));
-  const byName = new Map();
-  for (const event of completeEvents) {
-    const key = `${event.name} [${event.category}]`;
-    const current = byName.get(key) ?? {
-      category: event.category,
-      count: 0,
-      maxMs: 0,
-      name: event.name,
-      totalMs: 0,
-    };
-    current.count += 1;
-    current.maxMs = Math.max(current.maxMs, event.durationMs);
-    current.totalMs += event.durationMs;
-    byName.set(key, current);
-  }
-  const roundEvent = (event) => ({
-    ...event,
-    durationMs: roundTraceMs(event.durationMs),
-    tsMs: roundTraceMs(event.tsMs),
-  });
-  const roundGroup = (group) => ({
-    ...group,
-    maxMs: roundTraceMs(group.maxMs),
-    totalMs: roundTraceMs(group.totalMs),
-  });
-  return {
-    completeEventCount: completeEvents.length,
-    longEvents: completeEvents
-      .filter((event) => event.durationMs >= 8)
-      .toSorted((left, right) => right.durationMs - left.durationMs)
-      .slice(0, 60)
-      .map(roundEvent),
-    topByTotalDuration: [...byName.values()]
-      .toSorted((left, right) => right.totalMs - left.totalMs)
-      .slice(0, 40)
-      .map(roundGroup),
-  };
-}
-
-function roundTraceMs(value) {
-  return Math.round(value * 1000) / 1000;
-}
-
 export async function readJsonLinesOptional(path) {
   try {
     const raw = await readFile(path, "utf8");
@@ -462,7 +323,7 @@ async function openPort() {
 }
 
 function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) {
-  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
+  const electron = spawn(electronBin(), electronLaunchArgs(debugPort), {
     cwd: desktopRoot,
     env: {
       ...process.env,
@@ -484,6 +345,14 @@ function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) 
   electron.stdout.on("data", (data) => appendLog(electron.logs, data));
   electron.stderr.on("data", (data) => appendLog(electron.logs, data));
   return electron;
+}
+
+function electronLaunchArgs(debugPort) {
+  return [
+    `--remote-debugging-port=${debugPort}`,
+    ".",
+    ...(process.platform === "darwin" ? ["-ApplePersistenceIgnoreState", "YES"] : []),
+  ];
 }
 
 function isPageNavigationTransient(error) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -74,6 +74,8 @@ const repoRoot = resolve(desktopRoot, "..");
 const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = chatWorkflowRecordingRoot(options);
+const sidebarConversationRowTimeoutMs = 30_000;
+const protocolNotificationUiTimeoutMs = 30_000;
 
 function parseArgs(args) {
   const parsed = {
@@ -813,7 +815,7 @@ async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
           sent.run.id,
           "completed",
         );
-        await waitForSidebarConversationRow(context.client, backgroundPrompt, {
+        await waitForSidebarConversationRow(context.client, conversationId, {
           unread: true,
         });
 
@@ -821,7 +823,12 @@ async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
           title: "Background created chat",
           workspaceId: fixture.secondWorkspace.id,
         });
-        await waitForSidebarConversationRow(context.client, created.title, {
+        await clickButtonByText(context.client, fixture.secondWorkspace.displayName);
+        await waitForBackendState(
+          async () => backend.get("/workspace-session"),
+          (value) => value.selectedWorkspaceId === fixture.secondWorkspace.id,
+        );
+        await waitForSidebarConversationRow(context.client, created.id, {
           unread: false,
         });
 
@@ -863,23 +870,27 @@ async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
   });
 }
 
-async function waitForSidebarConversationRow(client, text, { unread }) {
-  await waitForState(client, conversationRowsExpression(), (value) =>
-    value.rows.some((row) => row.text.includes(text) && row.unread === unread),
+async function waitForSidebarConversationRow(client, conversationId, { unread }) {
+  await waitForState(
+    client,
+    conversationRowsExpression(),
+    (value) =>
+      value.rows.some((row) => row.conversationId === conversationId && row.unread === unread),
+    sidebarConversationRowTimeoutMs,
   );
 }
 
 function conversationRowsExpression() {
-  return `(() => ({
-    rows: Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]')).map((row) => ({
-      text: row.innerText,
-      unread: Boolean(row.querySelector('[aria-label="Unread assistant response"]')),
-    })),
-  }))()`;
+  return "globalThis.__settaE2EDriver.conversationRows()";
 }
 
 async function runCodexProtocolWorkflow(results) {
   const fixture = await createFixture("codex-protocol");
+  await writeFile(
+    join(fixture.workspaceRoot, "main.go"),
+    "package main\n\nfunc main() {}\n",
+    "utf8",
+  );
   const fakeCodex = await installFakeCodexAppServer(fixture);
   const recordingDir = join(recordingRoot, "codex-protocol");
   const context = await launchContext(fixture, recordingDir, {
@@ -902,13 +913,17 @@ async function runCodexProtocolWorkflow(results) {
       "protocol notification workflow",
       "completed",
     );
-    await waitForTexts(context.client, [
-      "coverage complete",
-      "Hook: pre-command",
-      "Auto-approval review",
-      "file change",
-      "Reasoning text",
-    ]);
+    await waitForTexts(
+      context.client,
+      [
+        "coverage complete",
+        "Hook: pre-command",
+        "Auto-approval review",
+        "file change",
+        "Reasoning text",
+      ],
+      protocolNotificationUiTimeoutMs,
+    );
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 

@@ -50,7 +50,9 @@ describe("workspace renderer states", () => {
         setta: {
           app: {
             flags: {
+              workflowGraphAnimationEnabled: true,
               workflowGraphDebug: false,
+              workflowGraphReduceMotion: false,
               workflowGraphSyntheticGraph: null,
             },
             platform: "darwin",
@@ -91,7 +93,9 @@ describe("workspace renderer states", () => {
         setta: {
           app: {
             flags: {
+              workflowGraphAnimationEnabled: true,
               workflowGraphDebug: false,
+              workflowGraphReduceMotion: false,
               workflowGraphSyntheticGraph: null,
             },
             platform: "win32",
@@ -515,6 +519,14 @@ describe("chat renderer states", () => {
             error: "",
             exitCode: 0,
             filePaths: [],
+            fileOperations: [],
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
             hiddenText: "",
             id: "item_command",
             noticeKind: "",
@@ -550,6 +562,14 @@ describe("chat renderer states", () => {
             error: "",
             exitCode: 0,
             filePaths: ["/tmp/workspace/main.go"],
+            fileOperations: [],
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
             hiddenText: "",
             id: "item_file",
             noticeKind: "",
@@ -585,6 +605,14 @@ describe("chat renderer states", () => {
             error: "",
             exitCode: 0,
             filePaths: [],
+            fileOperations: [],
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
             hiddenText: "",
             id: "item_mcp",
             noticeKind: "",
@@ -620,6 +648,14 @@ describe("chat renderer states", () => {
             error: "",
             exitCode: 0,
             filePaths: [],
+            fileOperations: [],
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
             hiddenText: "",
             id: "item_notice",
             noticeKind: "warning",
@@ -868,6 +904,14 @@ describe("chat renderer states", () => {
             error: "",
             exitCode: 0,
             filePaths: [],
+            fileOperations: [],
+            diffStats: {
+              additions: 0,
+              changedFiles: 0,
+              deletions: 0,
+              structured: false,
+              summary: "",
+            },
             hiddenText: "",
             id: "item_command",
             noticeKind: "",
@@ -935,7 +979,7 @@ describe("chat renderer states", () => {
     );
     const scope = htmlScopeForTestId(html, "chat-tool-message-content");
 
-    expect(scope).toContain("border-accent-cyan/40");
+    expect(scope).toContain("border-cyan-400");
     expect(scope).toContain("font-mono");
     expect(scope).toContain("<pre");
     expect(scope).toContain("&quot;style_probe&quot;");

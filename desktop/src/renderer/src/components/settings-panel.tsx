@@ -13,8 +13,8 @@ import {
   CircleAlert,
   Gauge,
   KeyRound,
-  Keyboard,
   Loader2,
+  Map,
   Moon,
   Palette,
   RotateCcw,
@@ -42,7 +42,7 @@ import {
 import { CodexAccountSettings } from "./codex-account-settings";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import { FloatingMenu } from "./floating-menu";
-import { ShortcutSettingsEditor } from "./shortcut-settings";
+import { SemanticCartographerSettingsPanel } from "./semantic-cartographer-settings";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { TerminalProfilesSettings } from "./terminal-profiles-settings";
@@ -55,13 +55,18 @@ import {
 } from "../stores/appearance-store";
 
 type AppearanceColorValues = AppearanceColorScheme[AppearanceColorGroup];
-type SettingsSubtab = "theme" | "shortcuts" | "developer" | "codex-account" | "terminal-profiles";
+type SettingsSubtab =
+  | "theme"
+  | "developer"
+  | "codex-account"
+  | "terminal-profiles"
+  | "cartographer";
 const settingsSubtabs = [
   { Icon: Palette, id: "theme", label: "Theme" },
-  { Icon: Keyboard, id: "shortcuts", label: "Shortcuts" },
   { Icon: Gauge, id: "developer", label: "Developer" },
   { Icon: KeyRound, id: "codex-account", label: "Codex Account" },
   { Icon: Terminal, id: "terminal-profiles", label: "Terminal Profiles" },
+  { Icon: Map, id: "cartographer", label: "Cartographer" },
 ] as const satisfies Array<{
   Icon: typeof Palette;
   id: SettingsSubtab;
@@ -70,32 +75,11 @@ const settingsSubtabs = [
 
 export function SettingsPanel() {
   const [activeSubtab, setActiveSubtab] = useState<SettingsSubtab>("theme");
-  const load = useAppearanceStore((state) => state.load);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  return (
-    <section
-      className="flex h-full min-h-0 flex-col bg-popover text-foreground"
-      data-testid="settings-panel"
-    >
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <div className="mx-auto grid w-full max-w-4xl gap-3">
-          <SettingsSubtabList activeSubtab={activeSubtab} onChange={setActiveSubtab} />
-          <SettingsSubtabContent activeSubtab={activeSubtab} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab }) {
   const applyDraftSettings = useAppearanceStore((state) => state.applyDraftSettings);
   const defaultPresetId = useAppearanceStore((state) => state.defaultPresetId);
   const draft = useAppearanceStore((state) => state.draft);
   const error = useAppearanceStore((state) => state.error);
+  const load = useAppearanceStore((state) => state.load);
   const presets = useAppearanceStore((state) => state.presets);
   const revertDraft = useAppearanceStore((state) => state.revertDraft);
   const saveDraft = useAppearanceStore((state) => state.saveDraft);
@@ -110,70 +94,87 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
     (state) => state.setOverviewCardWidthBounds,
   );
   const setShowPerformanceStats = useAppearanceStore((state) => state.setShowPerformanceStats);
-  const setWorkspaceNavigationShortcut = useAppearanceStore(
-    (state) => state.setWorkspaceNavigationShortcut,
-  );
   const status = useAppearanceStore((state) => state.status);
-  const dirty = draft !== null && !appearanceSettingsEqual(draft, settings);
-  const contentBySubtab = {
-    "codex-account": <CodexAccountSettings />,
-    developer: (
-      <DeveloperSettingsEditor
-        developer={draft?.developer ?? null}
-        dirty={dirty}
-        error={error}
-        onClampResizedPanesToViewportChange={setClampResizedPanesToViewport}
-        onOverviewCardWidthBoundsChange={setOverviewCardWidthBounds}
-        onRevert={revertDraft}
-        onSave={saveDraft}
-        onShowPerformanceStatsChange={setShowPerformanceStats}
-        status={status}
-      />
-    ),
-    shortcuts: (
-      <ShortcutSettingsEditor
-        dirty={dirty}
-        error={error}
-        onRevert={revertDraft}
-        onSave={saveDraft}
-        onWorkspaceNavigationChange={setWorkspaceNavigationShortcut}
-        shortcuts={draft?.shortcuts ?? null}
-        status={status}
-      />
-    ),
-    "terminal-profiles": <TerminalProfilesSettings />,
-    theme: (
-      <AppearanceSettingsEditor
-        defaultPresetId={defaultPresetId}
-        dirty={dirty}
-        error={error}
-        onApplySettings={applyDraftSettings}
-        onColorChange={setColorValue}
-        onFontChange={setFontValue}
-        onModeChange={setMode}
-        onRevert={revertDraft}
-        onSave={saveDraft}
-        presets={presets}
-        settings={draft}
-        status={status}
-      />
-    ),
-  } satisfies Record<SettingsSubtab, ReactNode>;
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return (
-    <SettingsSubtabPanel tab={activeSubtab}>{contentBySubtab[activeSubtab]}</SettingsSubtabPanel>
-  );
-}
-
-function SettingsSubtabPanel({ children, tab }: { children: ReactNode; tab: SettingsSubtab }) {
-  return (
-    <div
-      aria-labelledby={settingsSubtabButtonId(tab)}
-      id={settingsSubtabPanelId(tab)}
-      role="tabpanel"
+    <section
+      className="flex h-full min-h-0 flex-col bg-popover text-foreground"
+      data-testid="settings-panel"
     >
-      {children}
-    </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <div className="mx-auto grid w-full max-w-4xl gap-3">
+          <SettingsSubtabList activeSubtab={activeSubtab} onChange={setActiveSubtab} />
+          {activeSubtab === "theme" ? (
+            <div
+              aria-labelledby={settingsSubtabButtonId("theme")}
+              id={settingsSubtabPanelId("theme")}
+              role="tabpanel"
+            >
+              <AppearanceSettingsEditor
+                defaultPresetId={defaultPresetId}
+                dirty={draft !== null && !appearanceSettingsEqual(draft, settings)}
+                error={error}
+                onApplySettings={applyDraftSettings}
+                onColorChange={setColorValue}
+                onFontChange={setFontValue}
+                onModeChange={setMode}
+                onRevert={revertDraft}
+                onSave={saveDraft}
+                presets={presets}
+                settings={draft}
+                status={status}
+              />
+            </div>
+          ) : activeSubtab === "developer" ? (
+            <div
+              aria-labelledby={settingsSubtabButtonId("developer")}
+              id={settingsSubtabPanelId("developer")}
+              role="tabpanel"
+            >
+              <DeveloperSettingsEditor
+                developer={draft?.developer ?? null}
+                dirty={draft !== null && !appearanceSettingsEqual(draft, settings)}
+                error={error}
+                onClampResizedPanesToViewportChange={setClampResizedPanesToViewport}
+                onOverviewCardWidthBoundsChange={setOverviewCardWidthBounds}
+                onRevert={revertDraft}
+                onSave={saveDraft}
+                onShowPerformanceStatsChange={setShowPerformanceStats}
+                status={status}
+              />
+            </div>
+          ) : activeSubtab === "codex-account" ? (
+            <div
+              aria-labelledby={settingsSubtabButtonId("codex-account")}
+              id={settingsSubtabPanelId("codex-account")}
+              role="tabpanel"
+            >
+              <CodexAccountSettings />
+            </div>
+          ) : activeSubtab === "terminal-profiles" ? (
+            <div
+              aria-labelledby={settingsSubtabButtonId("terminal-profiles")}
+              id={settingsSubtabPanelId("terminal-profiles")}
+              role="tabpanel"
+            >
+              <TerminalProfilesSettings />
+            </div>
+          ) : (
+            <div
+              aria-labelledby={settingsSubtabButtonId("cartographer")}
+              id={settingsSubtabPanelId("cartographer")}
+              role="tabpanel"
+            >
+              <SemanticCartographerSettingsPanel />
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -540,7 +541,6 @@ function PalettePresetChooser({
                       ...preset.settings,
                       developer: settings.developer,
                       mode: settings.mode,
-                      shortcuts: settings.shortcuts,
                     });
                     setOpen(false);
                     anchorRef.current?.focus();
@@ -592,12 +592,7 @@ function PresetSwatches({ className, values }: { className?: string; values: str
 
 function presetMatchesSettings(preset: AppearancePreset, settings: AppearanceSettings) {
   return appearanceSettingsEqual(
-    {
-      ...preset.settings,
-      developer: settings.developer,
-      mode: settings.mode,
-      shortcuts: settings.shortcuts,
-    },
+    { ...preset.settings, developer: settings.developer, mode: settings.mode },
     settings,
   );
 }
@@ -849,14 +844,12 @@ function ColorSchemeFields({
   scheme: AppearanceColorScheme;
 }) {
   const advancedColorCount =
-    Object.keys(scheme.tailwind).length +
-    Object.keys(scheme.shadcn).length +
-    Object.keys(scheme.accent).length;
+    Object.keys(scheme.tailwind).length + Object.keys(scheme.shadcn).length;
 
   return (
     <AccordionSection count={advancedColorCount} title="Advanced Color Tokens">
       <section className="grid gap-2">
-        {(["tailwind", "shadcn", "accent"] as const).map((group) => {
+        {(["tailwind", "shadcn"] as const).map((group) => {
           const values = scheme[group];
           return (
             <AccordionSection
@@ -951,7 +944,6 @@ const colorModes = [
 }>;
 
 const colorGroupLabels = {
-  accent: "Accent Colors",
   shadcn: "shadcn/ui Tokens",
   status: "Status Colors",
   tailwind: "Palette Scale",

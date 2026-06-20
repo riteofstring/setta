@@ -74,6 +74,7 @@ var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
 	codexapp.CodexNotificationThreadUnarchived:                        codexNotificationScopeThread,
 	codexapp.CodexNotificationTurnCompleted:                           codexNotificationScopeTurnState,
 	codexapp.CodexNotificationTurnDiffUpdated:                         codexNotificationScopeTurnState,
+	codexapp.CodexNotificationTurnModerationMetadata:                  codexNotificationScopeTurnState,
 	codexapp.CodexNotificationTurnPlanUpdated:                         codexNotificationScopeTurnState,
 	codexapp.CodexNotificationTurnStarted:                             codexNotificationScopeThread,
 	codexapp.CodexNotificationWarning:                                 codexNotificationScopeTurnState,

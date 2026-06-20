@@ -75,6 +75,7 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	codexapp.CodexNotificationThreadUnarchived:                        handleCodexThreadLifecycle,
 	codexapp.CodexNotificationTurnCompleted:                           handleCodexTurnCompletedNotification,
 	codexapp.CodexNotificationTurnDiffUpdated:                         handleCodexDiffUpdated,
+	codexapp.CodexNotificationTurnModerationMetadata:                  handleCodexTurnScopedTraceNotification,
 	codexapp.CodexNotificationTurnPlanUpdated:                         handleCodexPlanUpdated,
 	codexapp.CodexNotificationTurnStarted:                             handleCodexTurnStarted,
 	codexapp.CodexNotificationWarning:                                 handleCodexNotice,
@@ -154,6 +155,17 @@ func handleCodexThreadTokenUsageUpdated(message jsonRPCMessage, threadID string,
 		traceTurnID = turnID
 	}
 	return codexNotificationResult{}, sink.Trace("codex_thread_token_usage_updated", traceTurnID)
+}
+
+func handleCodexTurnScopedTraceNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+	params, err := objectValue(message.Params, "codex turn-scoped trace notification params")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
+	}
+	return handleCodexTraceOnlyNotification(message, threadID, turnID, sink)
 }
 
 func handleCodexRemoteControlStatusChanged(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
@@ -481,78 +493,61 @@ func handleCodexTerminalInteraction(message jsonRPCMessage, threadID string, tur
 }
 
 func handleCodexPatchUpdated(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex file patch params")
+	params, err := codexapp.DecodeFileChangePatchUpdatedNotification(message.Params)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	itemID, err := requireString(params, "itemId", "codex file patch")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	status, err := optionalString(params, "status", "codex file patch")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	paths, err := optionalStringArray(params, "changedPaths", "codex file patch")
+	paths, operations, diffStats, err := runItemFileOperationsFromCodexChanges(params.Changes)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.RunItemUpsert(RunItem{
-		ProviderItemID: itemID,
+		ProviderItemID: params.ItemId,
 		Type:           RunItemTypeFileChange,
 		Status:         RunItemStatusRunning,
 		FilePaths:      paths,
-		PatchStatus:    status,
+		FileOperations: operations,
+		PatchStatus:    "updated",
+		DiffStats:      diffStats,
 	})
 }
 
 func handleCodexMCPProgress(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex mcp progress params")
+	params, err := codexapp.DecodeMcpToolCallProgressNotification(message.Params)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
-		return codexNotificationResult{}, err
-	}
-	itemID, err := requireString(params, "itemId", "codex mcp progress")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	progress, err := requireString(params, "progress", "codex mcp progress")
-	if err != nil {
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.RunItemUpsert(RunItem{
-		ProviderItemID: itemID,
+		ProviderItemID: params.ItemId,
 		Type:           RunItemTypeMCPToolCall,
 		Status:         RunItemStatusRunning,
-		Progress:       progress,
+		Progress:       params.Message,
 	})
 }
 
 func handleCodexDiffUpdated(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex diff params")
+	params, err := codexapp.DecodeTurnDiffUpdatedNotification(message.Params)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	summary, err := optionalString(params, "summary", "codex diff")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	if summary == "" {
-		summary = "Diff updated"
-	}
+	paths, operations, diffStats := runItemFileOperationsFromUnifiedDiff(params.Diff)
 	return codexNotificationResult{}, sink.RunItemUpsert(RunItem{
 		ProviderItemID: "diff_" + turnID,
 		Type:           RunItemTypeDiff,
 		Status:         RunItemStatusCompleted,
-		DiffSummary:    summary,
+		DiffSummary:    diffStats.Summary,
+		FilePaths:      paths,
+		FileOperations: operations,
+		DiffStats:      diffStats,
 	})
 }
 

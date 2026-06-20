@@ -96,7 +96,7 @@ func TestServicePublishesLayoutAndCartographerAuditChanges(t *testing.T) {
 	if _, err := service.SaveCartographerRun(context.Background(), CartographerRun{
 		ID:             "cartographer_run_notify",
 		WorkspaceID:    testWorkspaceID,
-		Status:         CartographerRunPending,
+		Status:         CartographerRunQueued,
 		TriggerKind:    CartographerTriggerManual,
 		TargetEntityID: "node_cartographer_notify",
 		CreatedAt:      testTimestamp(90),
@@ -107,6 +107,7 @@ func TestServicePublishesLayoutAndCartographerAuditChanges(t *testing.T) {
 	auditEvent := receiveSemanticGraphChange(t, subscription)
 	if auditEvent.Sequence != layoutEvent.Sequence+1 ||
 		!semanticChangeAreasContain(auditEvent.ChangedAreas, SemanticGraphChangeAreaCartographerAudit) ||
+		!semanticChangeAreasContain(auditEvent.ChangedAreas, SemanticGraphChangeAreaWorkingSet) ||
 		!notificationStringSliceContains(auditEvent.CartographerRunIDs, "cartographer_run_notify") ||
 		!notificationStringSliceContains(auditEvent.TargetEntityIDs, "node_cartographer_notify") {
 		t.Fatalf("cartographer audit change = %+v, want monotonic audit invalidation", auditEvent)

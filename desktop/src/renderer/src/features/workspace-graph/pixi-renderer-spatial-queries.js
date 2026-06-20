@@ -4,10 +4,13 @@ import { createNodeSpatialIndex } from "./pixi-renderer-spatial-index";
 export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
   const nodeSpatialIndex = createNodeSpatialIndex(nodes);
   const counters = {
+    lastGlowVisibilityCandidateCount: 0,
     lastLabelVisibilityCandidateCount: 0,
     lastMarqueeCandidateCount: 0,
     lastNodeHitCandidateCount: 0,
     lastPortHitCandidateCount: 0,
+    lastSceneWindowCandidateCount: 0,
+    lastVisibleNodeCandidateCount: 0,
     spatialIndexCandidateCount: 0,
     spatialIndexQueryCount: 0,
     spatialIndexRebuildCount: 1,
@@ -19,20 +22,20 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
       ...counters,
       spatialIndexNodeCount: nodeSpatialIndex.count(),
     }),
-    labelVisibleNodeIds: () => {
-      const worldBounds = viewportWorldBounds(viewport);
-      return new Set(
-        searchSpatialIndex(worldBounds, "label-visibility")
-          .filter((node) => rectanglesIntersect(nodeBounds(node), worldBounds))
-          .map((node) => node.id),
-      );
-    },
+    labelVisibleNodeIds: () =>
+      new Set(
+        nodesInPaddedViewport({
+          paddingScreenPx: 0,
+          queryKind: "label-visibility",
+        }).map((node) => node.id),
+      ),
     marqueeCandidateIds: (bounds) =>
       new Set(
         searchSpatialIndex(bounds, "marquee")
           .filter((node) => rectanglesIntersect(bounds, nodeBounds(node)))
           .map((node) => node.id),
       ),
+    nodesInPaddedViewport,
     nodeHitCandidatesAtScreen: (screen) => {
       const world = viewport.toWorld(screen);
       return {
@@ -61,6 +64,14 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
         "port-hit",
       );
     },
+    visibleNodeIds: () => {
+      return new Set(
+        nodesInPaddedViewport({
+          paddingScreenPx: 0,
+          queryKind: "visible",
+        }).map((node) => node.id),
+      );
+    },
     rebuild: (nextNodes) => {
       nodeSpatialIndex.rebuild(nextNodes);
       counters.spatialIndexRebuildCount += 1;
@@ -70,6 +81,13 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
       counters.spatialIndexUpdateCount += 1;
     },
   };
+
+  function nodesInPaddedViewport({ paddingScreenPx, queryKind }) {
+    const worldBounds = viewportWorldBounds(viewport, paddingScreenPx);
+    return searchSpatialIndex(worldBounds, queryKind).filter((node) =>
+      rectanglesIntersect(nodeBounds(node), worldBounds),
+    );
+  }
 
   function searchSpatialIndex(bounds, queryKind) {
     const candidates = nodeSpatialIndex.search(bounds);
@@ -81,7 +99,9 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
     }
     counters.spatialIndexQueryCount += 1;
     counters.spatialIndexCandidateCount = candidateCount;
-    if (queryKind === "label-visibility") {
+    if (queryKind === "glow-visibility") {
+      counters.lastGlowVisibilityCandidateCount = candidateCount;
+    } else if (queryKind === "label-visibility") {
       counters.lastLabelVisibilityCandidateCount = candidateCount;
     } else if (queryKind === "marquee") {
       counters.lastMarqueeCandidateCount = candidateCount;
@@ -89,6 +109,10 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
       counters.lastNodeHitCandidateCount = candidateCount;
     } else if (queryKind === "port-hit") {
       counters.lastPortHitCandidateCount = candidateCount;
+    } else if (queryKind === "scene-window") {
+      counters.lastSceneWindowCandidateCount = candidateCount;
+    } else if (queryKind === "visible") {
+      counters.lastVisibleNodeCandidateCount = candidateCount;
     } else {
       throw new Error(`unknown spatial index query kind: ${queryKind}`);
     }
@@ -96,11 +120,11 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
   }
 }
 
-function viewportWorldBounds(viewport) {
-  const topLeft = viewport.toWorld({ x: 0, y: 0 });
+function viewportWorldBounds(viewport, paddingScreenPx = 0) {
+  const topLeft = viewport.toWorld({ x: -paddingScreenPx, y: -paddingScreenPx });
   const bottomRight = viewport.toWorld({
-    x: viewport.screenWidth,
-    y: viewport.screenHeight,
+    x: viewport.screenWidth + paddingScreenPx,
+    y: viewport.screenHeight + paddingScreenPx,
   });
   const left = Math.min(topLeft.x, bottomRight.x);
   const right = Math.max(topLeft.x, bottomRight.x);

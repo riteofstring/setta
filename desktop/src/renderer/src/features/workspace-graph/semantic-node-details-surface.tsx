@@ -11,13 +11,22 @@ import type {
   SemanticEvidenceAnchor,
   SemanticNodeDetail,
   SemanticSteeringDirective,
+  SemanticWorkingSet,
 } from "@generated/backend";
 import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SemanticEditControls } from "./semantic-node-edit-controls";
+import { semanticWorkingSetFromRuntimeSnapshot } from "./semantic-runtime-working-set";
 import { semanticGraphChangeAffectsSemanticNodeInspection } from "./semantic-node-details-invalidation";
+import { SemanticSourceLinkSection } from "./semantic-node-source-links";
+import {
+  SemanticLiveStatusSection,
+  SemanticOverviewSection,
+  SemanticRecentChangesSection,
+  semanticContextSourceRefsText,
+} from "./semantic-node-details-usefulness";
 import {
   WorkflowDetailsEmpty,
   WorkflowDetailsError,
@@ -32,7 +41,6 @@ type SemanticNodeDetailsTarget = NonNullable<
 >;
 type SemanticContextPack = SemanticNodeDetail["contextPackHistory"][number];
 type SemanticContextPackItem = SemanticContextPack["items"][number];
-type SemanticContextSourceRefs = SemanticContextPack["sourceRefs"];
 type CartographerPatch = CartographerPatchRecord["patch"];
 
 interface SemanticNodeInspectionState {
@@ -41,16 +49,22 @@ interface SemanticNodeInspectionState {
   loadError: string;
   loading: boolean;
   reload: () => void;
+  workingSet: SemanticWorkingSet | null;
 }
 
 const semanticEventHistoryLimit = 80;
+const semanticRuntimeInspectionLimit = 80;
 
 export function SemanticNodeDetailsSurface() {
   const target = useSemanticGraphStore((state) => state.selectedNodeTarget);
   const inspection = useSemanticNodeInspection(target);
   const title = inspection.detail?.node.label ?? target?.nodeLabel ?? "Semantic Node";
+  const subtitle =
+    inspection.detail === null
+      ? (target?.nodeKind ?? "semantic node")
+      : `${inspection.detail.node.kind} / ${semanticStatus(inspection.detail)}`;
   return (
-    <SemanticDetailsShell title={title}>
+    <SemanticDetailsShell subtitle={subtitle} title={title}>
       <SemanticNodeDetailsContent inspection={inspection} target={target} />
     </SemanticDetailsShell>
   );
@@ -67,6 +81,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
     loadError: "",
     loading: false,
     reload,
+    workingSet: null,
   }));
 
   useEffect(() => {
@@ -79,6 +94,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
       loadError: "",
       loading: target !== null,
       reload,
+      workingSet: null,
     });
     if (target === null) {
       return;
@@ -98,7 +114,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
     };
 
     const load = async () => {
-      const [detailResponse, history] = await Promise.all([
+      const [detailResponse, history, runtimeSnapshot] = await Promise.all([
         window.setta.semanticGraph.readNodeDetail({
           nodeId: target.nodeId,
           workspaceId: target.workspaceId,
@@ -109,7 +125,14 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
           targetEntityId: target.nodeId,
           workspaceId: target.workspaceId,
         }),
+        window.setta.semanticGraph.readRuntimeSnapshot({
+          chatRunId: "",
+          limit: semanticRuntimeInspectionLimit,
+          workflowExecutionId: "",
+          workspaceId: target.workspaceId,
+        }),
       ]);
+      const workingSet = semanticWorkingSetFromRuntimeSnapshot(runtimeSnapshot);
       if (!disposed) {
         loadedDetail = detailResponse.detail;
         setState({
@@ -118,6 +141,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
           loadError: "",
           loading: false,
           reload,
+          workingSet,
         });
       }
     };
@@ -129,6 +153,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
           loadError: errorMessage(error),
           loading: false,
           reload,
+          workingSet: null,
         });
       }
     });
@@ -170,6 +195,7 @@ function SemanticNodeDetailsContent({
       detail={inspection.detail}
       history={inspection.history}
       onMutation={inspection.reload}
+      workingSet={inspection.workingSet}
     />
   );
 }
@@ -178,10 +204,12 @@ export function SemanticLoadedNodeDetails({
   detail,
   history,
   onMutation,
+  workingSet = null,
 }: {
   detail: SemanticNodeDetail;
   history: SemanticEventHistory | null;
   onMutation?: () => void;
+  workingSet?: SemanticWorkingSet | null;
 }) {
   const confidence = useMemo(() => latestConfidence(history?.events ?? []), [history]);
   const node = detail.node;
@@ -200,12 +228,17 @@ export function SemanticLoadedNodeDetails({
             { label: "Created", value: node.createdAt },
             { label: "Updated", value: node.updatedAt },
             { label: "Id", value: node.id },
+            { label: "Why this exists", value: semanticWhyThisExists(detail) },
             { label: "Summary", value: node.summary },
           ]}
         />
       </WorkflowDetailsSection>
+      <SemanticOverviewSection detail={detail} history={history} workingSet={workingSet} />
+      <SemanticLiveStatusSection detail={detail} workingSet={workingSet} />
+      <SemanticRecentChangesSection detail={detail} history={history} workingSet={workingSet} />
       <SemanticEditControls detail={detail} onMutation={onMutation} />
       <SemanticLineageSection detail={detail} />
+      <SemanticSourceLinkSection evidence={detail.evidence} />
       <SemanticEdgeSection incoming={detail.incomingEdges} outgoing={detail.outgoingEdges} />
       <SemanticCartographerSection detail={detail} onMutation={onMutation} />
       <SemanticEvidenceSection evidence={detail.evidence} />
@@ -736,23 +769,6 @@ function SemanticContextPackDeliveredContext({ context }: { context: string }) {
   );
 }
 
-function semanticContextSourceRefsText(refs: SemanticContextSourceRefs) {
-  const entries: [string, string][] = [
-    ["workflow definition", refs.workflowDefinitionId],
-    ["workflow execution", refs.workflowExecutionId],
-    ["workflow node", refs.workflowNodeId],
-    ["workflow node execution", refs.workflowNodeExecutionId],
-    ["chat conversation", refs.chatConversationId],
-    ["chat run", refs.chatRunId],
-    ["chat message", refs.chatMessageId],
-    ["run item", refs.runItemId],
-  ];
-  return entries
-    .filter(([, value]) => value !== "")
-    .map(([label, value]) => `${label}: ${shortIdentifier(value)}`)
-    .join("; ");
-}
-
 function SemanticHistorySection({ history }: { history: SemanticEventHistory | null }) {
   if (history === null || history.events.length === 0) {
     return null;
@@ -790,7 +806,15 @@ function SemanticRecord({ children }: { children: ReactNode }) {
   );
 }
 
-function SemanticDetailsShell({ children, title }: { children: ReactNode; title: string }) {
+function SemanticDetailsShell({
+  children,
+  subtitle,
+  title,
+}: {
+  children: ReactNode;
+  subtitle: string;
+  title: string;
+}) {
   return (
     <section
       className="flex h-full min-h-0 flex-col bg-zinc-950 text-zinc-100"
@@ -798,7 +822,9 @@ function SemanticDetailsShell({ children, title }: { children: ReactNode; title:
     >
       <header className="border-b border-zinc-800 px-4 py-3">
         <div className="truncate text-sm font-semibold text-zinc-100">{title}</div>
-        <div className="mt-1 text-xs text-zinc-500">Semantic node details</div>
+        <div className="mt-1 text-xs text-zinc-500" data-testid="semantic-node-details-subtitle">
+          {subtitle}
+        </div>
       </header>
       {children}
     </section>
@@ -844,6 +870,16 @@ function evidencePath(anchor: SemanticEvidenceAnchor) {
     return anchor.path;
   }
   return `${anchor.path}:${anchor.rangeStart}-${anchor.rangeEnd}`;
+}
+
+function semanticWhyThisExists(detail: SemanticNodeDetail) {
+  const patchSummary = detail.cartographerPatches.find((patch) => patch.patch.publicSummary !== "")
+    ?.patch.publicSummary;
+  if (patchSummary !== undefined) {
+    return patchSummary;
+  }
+  const evidenceSummary = detail.evidence.find((anchor) => anchor.summary !== "")?.summary;
+  return evidenceSummary ?? detail.node.summary;
 }
 
 function activityActor(interval: SemanticActivityInterval) {

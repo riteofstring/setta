@@ -1,13 +1,17 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import type { SemanticEventHistory, SemanticNodeDetail } from "@generated/backend";
+import type {
+  SemanticEventHistory,
+  SemanticNodeDetail,
+  SemanticWorkingSet,
+} from "@generated/backend";
 import { SemanticLoadedNodeDetails } from "./semantic-node-details-surface";
 
 describe("SemanticLoadedNodeDetails", () => {
   test("renders node identity, confidence, evidence, lineage, edges, activity, steering, and history", () => {
     const html = renderToString(
-      <SemanticLoadedNodeDetails detail={detail()} history={history()} />,
+      <SemanticLoadedNodeDetails detail={detail()} history={history()} workingSet={workingSet()} />,
     );
 
     expect(html).toContain("Semantic API contract");
@@ -15,6 +19,8 @@ describe("SemanticLoadedNodeDetails", () => {
     expect(html).toContain("87");
     expect(html).toContain("split_source");
     expect(html).toContain("supports");
+    expect(html).toContain("Source Links");
+    expect(html).toContain("Why this exists");
     expect(html).toContain("docs/plan.md:4-8");
     expect(html).toContain("sha256:plan");
     expect(html).toContain("chat_run");
@@ -40,6 +46,15 @@ describe("SemanticLoadedNodeDetails", () => {
     expect(html).toContain("workflow_cursor_003");
     expect(html).toContain("Accept");
     expect(html).toContain("Reject");
+    expect(html).toContain("Overview");
+    expect(html).toContain("Newest evidence");
+    expect(html).toContain("Related");
+    expect(html).toContain("Patch");
+    expect(html).toContain("Live Status");
+    expect(html).toContain("cartographer run");
+    expect(html).toContain("Live cartographer is checking this node");
+    expect(html).toContain("Recent Changes");
+    expect(html).toContain("evidence_attached");
   });
 });
 
@@ -264,7 +279,7 @@ function cartographerPatch(): SemanticNodeDetail["cartographerPatches"][number][
   const evidenceRefs = [
     {
       evidenceAnchorId: "evidence_node",
-      sourceId: "setta_semantic_work_graph_implementation_plan",
+      sourceId: "workspace_trajectory_liveness_and_semantic_memory_plan",
       sourceKind: "document" as const,
     },
   ];
@@ -313,10 +328,13 @@ function cartographerRun(): SemanticNodeDetail["cartographerRuns"][number] {
     createdSemanticEventIds: [],
     diagnostics: [],
     error: "",
+    graphUsefulnessScore: emptyGraphUsefulnessScore(),
     harnessKind: "scripted",
     id: "cartographer_run_detail",
     inputBundle: cartographerInputBundle(),
     inputBundleHash: "sha256:cartographer_input",
+    inputBundleBytes: 2048,
+    inputBundleCharacterCount: 2048,
     inputItemCounts: {
       activity: 1,
       contextPacks: 1,
@@ -325,27 +343,72 @@ function cartographerRun(): SemanticNodeDetail["cartographerRuns"][number] {
       existingNodes: 1,
       fileChanges: 0,
       newEvents: 1,
+      observations: 0,
       observedEventRefs: 1,
       outputSummaries: 1,
+      retrievalResults: 0,
       steering: 1,
       testResults: 0,
       toolCalls: 0,
       trajectorySummaries: 0,
     },
-    model: "scripted",
+    settingsHash: "sha256:cartographer_settings",
+    taskProfile: "manual",
+    requestedModelSelection: "provider_default",
+    requestedModel: "",
+    effectiveModel: "scripted-request",
+    reportedModel: "scripted",
+    requestedReasoningEffort: "low",
+    requestedInputBudget: 1200,
+    effectiveReasoningEffort: "",
+    reportedReasoningEffort: "",
+    reasoningEffortReported: false,
     outputSchema: {},
+    outputSchemaBytes: 512,
     rawHarnessResponseHash: "sha256:cartographer_response",
+    rawHarnessResponseBytes: 1024,
+    closeReason: "manual",
+    queueWaitMs: 0,
+    harnessDurationMs: 0,
+    validationDurationMs: 0,
+    applicationDurationMs: 0,
+    totalDurationMs: 0,
     requestId: "cartographer_request_detail",
     responseId: "cartographer_response_detail",
+    sourceEpochId: "cartographer_window_detail",
+    sourceKey: "workspace_test:workflow_execution:workflow_detail",
+    priority: 100,
+    leaseOwner: "",
+    leaseDeadline: "",
+    attemptCount: 1,
     sourceRefs: cartographerSourceRefs(),
     startedAt: "2026-06-10T12:00:08Z",
-    status: "proposed",
+    status: "pending_review",
     targetEntityId: "node_contract",
     trajectorySummary: "Seed cartographer window summary",
     triggerKind: "manual",
     updatedAt: "2026-06-10T12:00:08Z",
     windowId: "cartographer_window_detail",
     workspaceId: "workspace_test",
+  };
+}
+
+function emptyGraphUsefulnessScore(): SemanticNodeDetail["cartographerRuns"][number]["graphUsefulnessScore"] {
+  return {
+    activityCoveragePercent: 0,
+    activityCoveredTargetCount: 0,
+    activityTargetCount: 0,
+    appliedPatches: 0,
+    committedUpdateLatencySampleCount: 0,
+    createdEdgesByKind: [],
+    createdNodesByKind: [],
+    duplicateEvidencePrevented: 0,
+    livePulseLatencySampleCount: 0,
+    medianSourceEventToCommittedSemanticUpdateMs: 0,
+    medianSourceEventToVisibleLivePulseMs: 0,
+    noopPatches: 0,
+    rejectedPatches: 0,
+    sourceLinksBySourceKind: [],
   };
 }
 
@@ -402,6 +465,8 @@ function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][numbe
         closeReason: "manual",
         eventId: "manual_cartographer_request",
         includedContentBytes: 72,
+        messageRole: "",
+        messageStatus: "",
         occurredAt: "2026-06-10T12:00:08Z",
         originalContentBytes: 72,
         outputOrdinal: 0,
@@ -420,6 +485,7 @@ function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][numbe
         workflowEventCursor: "workflow_cursor_003",
       },
     ],
+    observations: [],
     observedEventRefs: ["workflow_cursor_003"],
     outputSummaries: [
       {
@@ -433,6 +499,7 @@ function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][numbe
     ],
     promptSummary: "Seed cartographer window summary",
     promptText: "",
+    retrievalResults: [],
     runStatus: "completed",
     sourceRefs: cartographerSourceRefs(),
     steering: [],
@@ -445,14 +512,33 @@ function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][numbe
     triggerKind: "manual",
     truncation: {
       deterministicSummary: "",
+      budgetExceeded: false,
+      droppedItemCounts: emptyCartographerInputItemCounts(),
+      foldedWindowCount: 0,
       includedContentBytes: 72,
       includedEventCount: 1,
+      includedItemCounts: {
+        ...emptyCartographerInputItemCounts(),
+        newEvents: 1,
+        observedEventRefs: 1,
+        outputSummaries: 1,
+      },
+      inputBudgetCharacters: 1200,
       originalContentBytes: 72,
       originalEventCount: 1,
+      originalItemCounts: {
+        ...emptyCartographerInputItemCounts(),
+        newEvents: 1,
+        observedEventRefs: 1,
+        outputSummaries: 1,
+      },
       reasons: [],
       segmentCount: 1,
       segmentIndex: 0,
+      serializedInputBytes: 2048,
+      serializedInputCharacterCount: 2048,
       split: false,
+      structuredTaskCharacterLimit: 1048576,
       summarized: false,
     },
     windowEndCursor: {
@@ -469,6 +555,26 @@ function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][numbe
       workflowEventCursor: "workflow_cursor_001",
     },
     workspaceId: "workspace_test",
+  };
+}
+
+function emptyCartographerInputItemCounts() {
+  return {
+    activity: 0,
+    contextPacks: 0,
+    evidence: 0,
+    existingEdges: 0,
+    existingNodes: 0,
+    fileChanges: 0,
+    newEvents: 0,
+    observations: 0,
+    observedEventRefs: 0,
+    outputSummaries: 0,
+    retrievalResults: 0,
+    steering: 0,
+    testResults: 0,
+    toolCalls: 0,
+    trajectorySummaries: 0,
   };
 }
 
@@ -524,6 +630,101 @@ function history(): SemanticEventHistory {
     hasMoreOlder: false,
     olderBeforeLogicalClock: 1,
     targetEntityId: "node_contract",
+    workspaceId: "workspace_test",
+  };
+}
+
+function workingSet(): SemanticWorkingSet {
+  return {
+    activeCartographerRuns: [
+      {
+        changedSemanticEdgeIds: [],
+        changedSemanticNodeIds: ["node_contract"],
+        completedAt: "",
+        createdAt: "2026-06-10T12:00:09Z",
+        createdSemanticEventIds: [],
+        diagnostics: [],
+        id: "cartographer_run_live_detail",
+        inputItemCounts: emptyCartographerInputItemCounts(),
+        modelAudit: null,
+        patchOperationNames: ["attach_evidence"],
+        publicSummary: "Live cartographer is checking this node",
+        sourceRefs: cartographerSourceRefs(),
+        startedAt: "2026-06-10T12:00:09Z",
+        status: "running",
+        targetEntityId: "node_contract",
+        triggerKind: "manual",
+        updatedAt: "2026-06-10T12:00:09Z",
+        windowId: "cartographer_window_live_detail",
+      },
+    ],
+    activeCartographerWindows: [],
+    activeRunItemIds: [],
+    activeWorkflowNodeIds: [],
+    candidateTargets: [
+      {
+        changedSemanticEdgeIds: [],
+        changedSemanticNodeIds: ["node_contract"],
+        diagnostics: [],
+        patchIds: ["cartographer_patch_pending"],
+        patchOperationNames: ["attach_evidence"],
+        publicSummaries: ["Live candidate target for node_contract"],
+        runIds: ["cartographer_run_live_detail"],
+        sourceRefs: cartographerSourceRefs(),
+        status: "running",
+        targetEntityId: "node_contract",
+        triggerKind: "manual",
+        updatedAt: "2026-06-10T12:00:09Z",
+        windowIds: ["cartographer_window_live_detail"],
+      },
+    ],
+    chatRunId: "",
+    lastUpdatedAt: "2026-06-10T12:00:09Z",
+    liveSourceRefs: [],
+    pendingPatchPreviews: [],
+    pulses: [
+      {
+        activityKind: "validating",
+        diagnostics: [],
+        evidenceAnchorIds: ["evidence_node"],
+        id: "semantic-working-set-pulse:evidence_attached:evidence:evidence_node",
+        kind: "evidence_attached",
+        occurredAt: "2026-06-10T12:00:04Z",
+        patchId: "",
+        patchOperationNames: [],
+        publicSummary: "Evidence attached.",
+        runId: "",
+        semanticEdgeIds: [],
+        semanticNodeIds: ["node_contract"],
+        sourceRefs: cartographerSourceRefs(),
+        status: "applied",
+        targetEntityId: "node_contract",
+        triggerKind: "manual",
+        updatedAt: "2026-06-10T12:00:04Z",
+        windowId: "",
+      },
+    ],
+    recentCartographerRuns: [],
+    recentSemanticChanges: [
+      {
+        changedSemanticEdgeIds: [],
+        changedSemanticNodeIds: ["node_contract"],
+        createdSemanticEventIds: ["event_updated"],
+        diagnostics: [],
+        id: "semantic-working-set-change:node_contract:event_updated",
+        occurredAt: "2026-06-10T12:00:02Z",
+        patchId: "",
+        patchOperationNames: ["update_node_summary"],
+        publicSummary: "Node summary changed.",
+        runId: "",
+        sourceRefs: cartographerSourceRefs(),
+        status: "applied",
+        targetEntityId: "node_contract",
+        triggerKind: "manual",
+        windowId: "",
+      },
+    ],
+    workflowExecutionId: "",
     workspaceId: "workspace_test",
   };
 }

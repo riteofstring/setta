@@ -3,11 +3,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { minimumColumnWidth } from "./layout-engine-helpers";
 import { WorkspaceLayoutStore } from "./layout-store";
-import {
-  commitPaneResize,
-  paneResizePreviewForPointerMove,
-  type PaneResizeSession,
-} from "./pane-resize-session";
+import { applyPaneResizePointerMove, type PaneResizeSession } from "./pane-resize-session";
 import type { WorkspaceColumn, WorkspaceScene, PaneLimitPolicy, Rect } from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
 
@@ -331,7 +327,7 @@ describe("workspace layout store", () => {
     });
   });
 
-  test("moves left and right into the top pane of a vertical split column", () => {
+  test("moves left and right to the nearest pane in visual vertical order", () => {
     const store = createStore();
 
     store.moveFocus("right", viewport);
@@ -349,22 +345,16 @@ describe("workspace layout store", () => {
     store.moveFocus("right", viewport);
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
-      focusedPaneId: upperPaneId,
-      focusedRowIndex: 0,
-      targetScrollRow: 0,
-    });
-
-    store.moveFocus("down", viewport);
-    expect(store.getSnapshot()).toMatchObject({
       focusedPaneId: middlePaneId,
-      targetScrollRow: 0,
+      focusedRowIndex: 1,
     });
 
+    store.moveFocus("up", viewport);
+    expect(store.getSnapshot().focusedPaneId).toBe(upperPaneId);
+
     store.moveFocus("down", viewport);
-    expect(store.getSnapshot()).toMatchObject({
-      focusedPaneId: lowerPaneId,
-      targetScrollRow: 0,
-    });
+    store.moveFocus("down", viewport);
+    expect(store.getSnapshot().focusedPaneId).toBe(lowerPaneId);
   });
 
   test("moves focus from an unfocused pane title bar target", () => {
@@ -395,23 +385,6 @@ describe("workspace layout store", () => {
     });
   });
 
-  test("keeps overview focus changes from rewriting normal scroll targets", () => {
-    const store = createStore();
-    store.splitFocusedPaneToPlane("down");
-    const lowerPlaneSnapshot = store.getSnapshot();
-
-    store.toggleOverviewMode();
-    store.moveFocus("up", viewport);
-    store.ensureFocusedPaneVisible(viewport);
-
-    expect(store.getSnapshot()).toMatchObject({
-      focusedPaneId: "workspace_pane_0",
-      presentationMode: "overview",
-      targetScrollColumn: lowerPlaneSnapshot.targetScrollColumn,
-      targetScrollRow: lowerPlaneSnapshot.targetScrollRow,
-    });
-  });
-
   test("animates overview progress toward the selected presentation mode", () => {
     const store = createStore();
 
@@ -431,12 +404,7 @@ describe("workspace layout store", () => {
     expect(store.getSnapshot().overviewProgress).toBeLessThan(1);
 
     store.advanceFrame(1000);
-    expect(store.getSnapshot().overviewProgress).toBeGreaterThan(0);
-    expect(store.getSnapshot().overviewProgress).toBeLessThan(1);
 
-    for (let index = 0; index < 80; index += 1) {
-      store.advanceFrame(16);
-    }
     expect(store.getSnapshot()).toMatchObject({
       overviewProgress: 1,
       presentationMode: "overview",
@@ -555,12 +523,8 @@ describe("workspace layout store", () => {
     ]);
   });
 
-  test("manual horizontal resize previews movement and commits once", () => {
+  test("manual horizontal resize can shrink to the column minimum", () => {
     const store = createStore();
-    const revisions: number[] = [];
-    store.subscribe((snapshot) => {
-      revisions.push(snapshot.revision);
-    });
     const session = {
       axis: "horizontal",
       columnId: "workspace_column_0",
@@ -569,20 +533,12 @@ describe("workspace layout store", () => {
       startWidth: 520,
     } satisfies PaneResizeSession;
 
-    expect(paneResizePreviewForPointerMove(session, { clientX: 0, clientY: 0 })).toEqual({
-      axis: "horizontal",
-      width: minimumColumnWidth,
-    });
-    expect(store.toScene().columns[0]?.widthSpec).toEqual({ unit: "px", value: 520 });
-    expect(revisions).toEqual([]);
-
-    expect(commitPaneResize(store, session, { clientX: 0, clientY: 0 })).toBe(true);
+    applyPaneResizePointerMove(store, session, { clientX: 0 } as PointerEvent);
 
     expect(store.toScene().columns[0]?.widthSpec).toEqual({
       unit: "px",
       value: minimumColumnWidth,
     });
-    expect(revisions).toEqual([1]);
   });
 
   test("resizes adjacent panes inside a vertical split", () => {
