@@ -1,9 +1,12 @@
 # Workspace Trajectory Liveness and Semantic Memory Plan
+
 - **Date:** June 18, 2026
 - **Status:** Phase 7 complete; the deterministic product workflow matrix is passing after the Phase 6 follow-up.
 - **Scope:** Replace the current semantic-node-centered liveness model with a principled split between deterministic workflow trajectory visuals, durable semantic memory, cartographer audit, and graph interaction/runtime infrastructure.
 - **Supersedes:** earlier semantic work graph, semantic cartographer usefulness, cartographer settings/audit, workspace graph semantic liveness, living workspace visual redesign, and semantic runtime interaction plans.
+
 ## Position
+
 The recent semantic graph work improved important infrastructure, but it did not
 solve the product problem.
 
@@ -40,8 +43,11 @@ animation pass. Setta needs a first-class **workspace trajectory runtime** that
 is deterministic, typed, low-latency, bounded, and independent from the semantic
 cartographer model. The cartographer should create durable claims. It should
 not be responsible for making the graph feel alive.
+
 ## Diagnosis
+
 ### What The Earlier Plans Built
+
 The earlier plans did meaningful engineering work:
 
 - Cartographer settings, model/reasoning audit, queue lifecycle, lease recovery,
@@ -59,7 +65,9 @@ The earlier plans did meaningful engineering work:
 
 That work made the system more observable and less wrong. It did not produce a
 clear product language for live agent work.
+
 ### Current Product Failures
+
 The active user-visible issues are:
 
 - Semantic nodes still do not feel useful.
@@ -75,7 +83,9 @@ The active user-visible issues are:
 These are not independent bugs. They come from an unclear model of what should
 be represented in the graph, how fast it should appear, and which subsystem owns
 the truth.
+
 ### Architectural Mismatch
+
 The semantic cartographer is an interpretation system. It is allowed to be
 slow, selective, uncertain, and review-gated. That makes it a bad source for
 basic liveness.
@@ -95,9 +105,13 @@ Likewise, durable semantic nodes should not be asked to represent everything
 that happened. A semantic node should be a claim, decision, constraint, question,
 finding, or reusable concept. "Read file X" and "edited Y by +12/-3" are usually
 trajectory facts, not semantic memory.
+
 ## Product Model
+
 The workspace graph should have four explicit layers.
+
 ### 1. Workflow Graph
+
 The workflow graph is the durable execution structure:
 
 - workflow nodes,
@@ -108,7 +122,9 @@ The workflow graph is the durable execution structure:
 - draft layout.
 
 This layer owns the user's primary mental model: "Where is the workflow now?"
+
 ### 2. Trajectory Runtime
+
 The trajectory runtime is fast, deterministic, and short-lived. It renders
 typed facts from the live run:
 
@@ -127,7 +143,9 @@ typed facts from the live run:
 Trajectory visuals should usually be ephemeral sprites, badges, rails, or
 compact timeline items anchored to workflow nodes. They are not semantic graph
 nodes by default.
+
 ### 3. Semantic Memory
+
 Semantic memory is durable, evidence-backed, and future-oriented:
 
 - findings,
@@ -141,7 +159,9 @@ Semantic memory is durable, evidence-backed, and future-oriented:
 
 Semantic nodes should be fewer than trajectory items. They should be worth
 inspecting later or worth feeding back into future context packs.
+
 ### 4. Cartographer Workbench And Audit
+
 Cartographer lifecycle state explains the semantic memory pipeline:
 
 - observing,
@@ -159,7 +179,9 @@ Cartographer lifecycle state explains the semantic memory pipeline:
 
 This is operational state. It belongs in details, health panels, and compact
 workflow-node status indicators. It should not dominate the default graph view.
+
 ## Principles
+
 1. **Fast liveness is deterministic.**
    The graph should show file reads, edits, commands, tool calls, reasoning
    summaries, and approvals from typed runtime events without a cartographer
@@ -216,7 +238,9 @@ workflow-node status indicators. It should not dominate the default graph view.
     resets when schema changes are intentionally incompatible. Do not add old
     field aliases, dual-read/write paths, compatibility adapters, transitional
     readers, legacy renderer modes, silent fallback behavior, or migrations.
+
 ## Compatibility Policy
+
 This work should not preserve old semantic, runtime, trajectory, or renderer
 behavior for compatibility.
 
@@ -238,8 +262,11 @@ If a persistent schema, generated contract, runtime protocol, or renderer state
 shape changes incompatibly, bump the relevant version and fail loudly with reset
 guidance. Existing local pre-release semantic/runtime state may be reset. Tests
 should assert rejection of incompatible state instead of asserting migration.
+
 ## Target Architecture
+
 ### Workspace Trajectory Runtime
+
 Add a Go-owned workspace trajectory runtime projection that is separate from
 `SemanticGraph` and narrower than the cartographer audit surface.
 
@@ -349,7 +376,9 @@ workflow_status
 
 `cartographer_status` can remain available as a compact operational sprite, but
 it should be lower priority than raw workflow trajectory facts.
+
 ### Source Data Requirements
+
 Use existing typed data first:
 
 - `chat.RunItem.Type`
@@ -381,7 +410,9 @@ For line ranges and edit counts:
 - Do not parse shell commands such as `sed -n '1,120p' file` or `rg` output as
   semantic truth unless a later phase deliberately introduces a narrow,
   documented parser.
+
 ### Renderer Sprite Layer
+
 Trajectory sprites should be rendered in a dedicated layer, not as semantic
 nodes.
 
@@ -414,7 +445,9 @@ Sprite lifecycle:
 - Failed or approval-needed sprites remain longer and are selectable.
 - A sprite can be promoted into the selected workflow-node details timeline.
 - A sprite is never promoted into a durable semantic node by the renderer.
+
 ### Semantic Memory Pipeline
+
 The semantic cartographer should consume the same trajectory facts as evidence,
 but produce only durable memory.
 
@@ -453,7 +486,9 @@ SemanticNodeUsefulness
 
 These fields should be public summaries and counters only. Do not store private
 reasoning.
+
 ### Cartographer Role After This Refactor
+
 The cartographer should become a semantic memory compiler:
 
 - Read bounded trajectory facts.
@@ -471,7 +506,9 @@ It should not be responsible for:
 - showing reasoning-summary progress,
 - keeping the workflow graph alive,
 - or driving core graph animation.
+
 ### Interaction And Layout Architecture
+
 Pan/zoom should operate against a local renderer scene store:
 
 - camera transform,
@@ -514,7 +551,9 @@ Background/foundation should be stable:
 - Use a user appearance setting or workflow execution mode.
 - If semantic density eventually needs visual treatment, use local node/edge
   styling, not a whole-canvas background jump.
+
 ## Visual Grammar
+
 Default priority order:
 
 1. Active workflow node and active workflow edge.
@@ -548,8 +587,11 @@ Semantic node animation should be redesigned:
   - pending review,
   - failed update.
 - Keep durable settled nodes mostly still.
+
 ## Phased Plan
+
 ### Phase 0 - Evidence And Current-State Audit
+
 Status: complete. Commit `98844d3c4` added
 `docs/reports/performance/workspace-trajectory-liveness-semantic-memory-phase-0.md`.
 
@@ -611,6 +653,7 @@ Phase 0 implementation review:
   require provider/protocol or contract additions.
 
 ### Phase 1 - Immediate Graph UX Corrections
+
 Status: complete. Commit `06e120e06` implemented the Phase 1 renderer UX
 corrections.
 
@@ -655,6 +698,7 @@ Phase 1 implementation review:
   marker rendering, and movement-mode animation behavior.
 
 ### Phase 2 - Workspace Trajectory Runtime Contracts
+
 Status: complete. Commit `a047823d4` added the backend-owned typed trajectory
 runtime projection.
 
@@ -718,6 +762,7 @@ Phase 2 implementation review:
   and `pnpm -C desktop typecheck`.
 
 ### Phase 3 - Renderer Trajectory Sprite Layer
+
 Status: complete. Commit `ab0d154ad` added the renderer trajectory runtime
 store, Electron event forwarding, IPC snapshot reads, workflow-node details,
 and Pixi sprite rendering.
@@ -774,6 +819,7 @@ Phase 3 implementation review:
   `node desktop/tests/electron/run-workflows.mjs --workflow workflow-graph-smoke`.
 
 ### Phase 4 - File Read And Edit Fidelity
+
 Status: complete. Commit `6e79eedd4` added typed file-operation fields to chat
 run items, Codex protocol mapping, Setta dynamic tool metadata, trajectory
 mapping, generated TypeScript, and deterministic Electron file-fidelity
@@ -992,6 +1038,104 @@ Phase 7 handoff:
 Status: complete. The deterministic product workflow matrix is passing after
 the Phase 6 follow-up.
 
-The product acceptance matrix, current acceptance status, implementation notes,
-non-goals, and question status live in
-`docs/plans/workspace_trajectory_liveness_and_semantic_memory_plan_appendix.md`.
+Required deterministic workflows:
+
+- `trajectory-live-basic`: command, reasoning summary, tool call, file change,
+  diff, approval, and assistant output without semantic nodes.
+- `trajectory-file-fidelity`: typed file read, typed file write, typed diff
+  stats, and unknown command fallback.
+- `semantic-memory-usefulness`: trajectory facts followed by final synthesis
+  that creates durable findings/decisions with evidence and future use.
+- `graph-camera-live-runtime`: active workflow plus trajectory sprite burst
+  during pan/zoom.
+- `semantic-layout-refresh-race`: drag semantic node while runtime/graph events
+  arrive.
+- `stable-foundation`: add/remove semantic nodes without background mode
+  changes.
+- `reload-reconnect-runtime`: runtime stream reconnect with and without revision
+  gaps.
+
+Hard gates:
+
+- First deterministic trajectory sprite appears within one second of meaningful
+  typed run item activity.
+- No repeated full working-set reads after runtime bootstrap.
+- No camera-triggered backend reads.
+- Pan/zoom event-to-camera and event-to-frame latency remain within budget.
+- Essential workflow and trajectory animations continue during camera movement.
+- Default graph view has no unlabeled particles or mystery source nodes.
+- Semantic node drag positions survive graph/runtime refresh.
+- First semantic node does not change the canvas foundation/background.
+- Hot-path runtime payloads stay within budget.
+- Useful semantic nodes have evidence, source links or semantic edges, and
+  future-use summaries.
+
+Passing checks from the June 19, 2026 review after commit `978f209a5`:
+
+- Focused renderer runtime tests passed for scene-store coalescing, semantic
+  runtime store behavior, trajectory store behavior, semantic graph projection,
+  and workflow-node details.
+- Production `semantic-graph` passed. Evidence:
+  `.recordings/semantic-graph/20260619T021112Z`.
+- Production `workspace-trajectory-file-fidelity` passed.
+- Production `semantic-cartographer-auto` passed.
+- Production `workflow-graph-pan-zoom-runtime-burst` passed after the Phase 6
+  follow-up. Evidence:
+  `.recordings/workflow-graph-pan-zoom-runtime-burst/2026-06-19T020940-682Z`.
+- Production `semantic-review-live-product` passed after the Phase 6 follow-up.
+  Evidence: `.recordings/semantic-review-live-product/2026-06-19T021002-003Z`.
+- Production `semantic-runtime-reconnect` passed after the Phase 6 follow-up.
+  Evidence: `.recordings/semantic-runtime-reconnect/2026-06-19T021027-086Z`.
+- Production `semantic-runtime-large-review` passed after the Phase 6 follow-up.
+  Evidence: `.recordings/semantic-runtime-large-review/2026-06-19T021047-008Z`.
+
+Blocking checks:
+
+- None from the Phase 6 follow-up.
+
+Live-provider status:
+
+- Live Codex E2E was not required for the Phase 6 follow-up because it did not
+  touch Codex harness behavior, provider protocol handling, or live-provider
+  integration.
+- Future changes in those areas still require the live-provider gate when local
+  ChatGPT auth is available.
+- Do not use `OPENAI_API_KEY` for live provider checks.
+
+Carried-forward implementation constraints:
+
+- Go owns backend contracts, HTTP endpoints are owned by `internal/httpapi`, and
+  generated TypeScript must be regenerated rather than edited manually.
+- If persistent schema changes are needed, bump the relevant store version and
+  reject old incompatible state rather than adding silent compatibility paths.
+- Trajectory sprites must use typed source refs and structured metadata when
+  available, display provider text as text when structured fields are missing,
+  and avoid inventing precision.
+- Semantic nodes must store public summaries, evidence anchors, source refs, and
+  usefulness metadata; they must not store private reasoning or keep low-value
+  nodes for compatibility.
+- Trajectory sprites remain runtime affordances, not normal semantic graph
+  nodes. Hot-path graph state should stay out of React, display objects should
+  be pooled, layout dimensions should remain stable, and labels should stay
+  concise with details on selection.
+
+Resolved product questions:
+
+- Provider/tool metadata uses typed run item file operations, structured diff
+  stats, dynamic tool file metadata, command/test/tool fields, workflow runner
+  refs, and explicit source refs. Missing provider precision is displayed
+  honestly instead of inferred from shell commands or output text.
+- Runtime composition belongs in the renderer scene-store layer, with separate
+  backend runtime projections for trajectory facts, semantic memory, and
+  cartographer audit. Do not add a backend composition service unless a later
+  measured bottleneck proves the renderer scene store cannot own this boundary.
+- `futureUse` is required for new semantic memory and belongs in cartographer
+  schema/validation, not in silent derivation.
+
+Deferred product decisions:
+
+- Exact default trajectory sprite TTL and collapse timing. Keep the existing
+  bounded behavior until liveness/readability evidence shows a concrete problem.
+- Manual pinning of individual trajectory sprites into durable semantic memory.
+  This is useful future product work, but it is not required to complete this
+  plan.
