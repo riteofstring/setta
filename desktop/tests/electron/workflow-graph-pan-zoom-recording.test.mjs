@@ -333,6 +333,9 @@ async function runScenario({
       syntheticScene: effectiveSyntheticScene,
     });
     await assertNoRendererConsoleErrors(artifactDir);
+    const graphRecording = appRecordingEnabled
+      ? await assertWorkflowGraphRecordingEvents({ artifactDir })
+      : { enabled: false };
     await captureScreenshot(context.client, join(artifactDir, "final.png"));
     const summary = {
       artifactDir,
@@ -343,6 +346,7 @@ async function runScenario({
         initialScreenshot: join(artifactDir, "initial.png"),
       },
       final: summarizeSnapshot(final),
+      graphRecording,
       hitTesting,
       initial: summarizeSnapshot(initial),
       runMetadata,
@@ -367,6 +371,97 @@ async function runScenario({
   } finally {
     await stopElectronCdpContext(context);
   }
+}
+
+async function assertWorkflowGraphRecordingEvents({ artifactDir }) {
+  const rendererEvents = await readJsonLinesOptional(join(artifactDir, "renderer-events.jsonl"));
+  const graphEvents = rendererEvents.filter((event) =>
+    ["graph_interaction", "graph_layout_save", "graph_replacement", "graph_snapshot"].includes(
+      event.type,
+    ),
+  );
+  const graphSnapshots = graphEvents.filter((event) => event.type === "graph_snapshot");
+  const graphInteractions = graphEvents.filter((event) => event.type === "graph_interaction");
+  const nodeDragCommit = graphInteractions.find(
+    (event) => event.interaction?.kind === "node_drag" && event.interaction?.phase === "commit",
+  );
+  const wheelBurstSnapshot = graphSnapshots.find((event) => event.trigger === "wheel_burst_end");
+  const pointerUpSnapshot = graphSnapshots.find((event) => event.trigger === "pointerup");
+  if (!nodeDragCommit || !wheelBurstSnapshot || !pointerUpSnapshot) {
+    throw new Error(
+      `workflow graph recording events missing: ${JSON.stringify({
+        graphEventTypes: graphEvents.map((event) => event.type),
+        interactionPhases: graphInteractions.map((event) => event.interaction),
+        snapshotTriggers: graphSnapshots.map((event) => event.trigger),
+      })}`,
+    );
+  }
+  assertCompactGraphRecordingPayload(nodeDragCommit);
+  assertCompactGraphRecordingPayload(wheelBurstSnapshot);
+  return {
+    enabled: true,
+    graphEventCount: graphEvents.length,
+    graphInteractionCount: graphInteractions.length,
+    graphSnapshotCount: graphSnapshots.length,
+    nodeDragCommit: nodeDragCommit.interaction,
+    truncationCount: graphEvents.reduce(
+      (count, event) => count + (event.graph?.truncation?.length ?? 0),
+      0,
+    ),
+    wheelBurstTrigger: wheelBurstSnapshot.trigger,
+  };
+}
+
+function assertCompactGraphRecordingPayload(event) {
+  assertGraphRecordingSchema(event);
+  assertGraphRecordingCamera(event);
+  assertGraphRecordingCounts(event);
+  assertGraphRecordingNodeSubsetBounds(event);
+  assertGraphRecordingTruncationMetadata(event);
+}
+
+function assertGraphRecordingSchema(event) {
+  if (event.graph?.schemaVersion !== 1) {
+    throw new Error(`graph recording schema version missing: ${JSON.stringify(event)}`);
+  }
+}
+
+function assertGraphRecordingCamera(event) {
+  if (!event.graph.camera || typeof event.graph.camera.zoom !== "number") {
+    throw new Error(`graph recording camera missing: ${JSON.stringify(event)}`);
+  }
+}
+
+function assertGraphRecordingCounts(event) {
+  if (!event.graph.counts || typeof event.graph.counts.nodes !== "number") {
+    throw new Error(`graph recording counts missing: ${JSON.stringify(event)}`);
+  }
+}
+
+function assertGraphRecordingNodeSubsetBounds(event) {
+  for (const [path, nodes] of Object.entries(event.graph.nodes ?? {})) {
+    if (nodes.length > 24) {
+      throw new Error(`graph recording node subset exceeded bound: ${path}=${nodes.length}`);
+    }
+  }
+}
+
+function assertGraphRecordingTruncationMetadata(event) {
+  for (const truncation of event.graph.truncation ?? []) {
+    if (!graphRecordingTruncationComplete(truncation)) {
+      throw new Error(
+        `graph recording truncation metadata is incomplete: ${JSON.stringify(event)}`,
+      );
+    }
+  }
+}
+
+function graphRecordingTruncationComplete(truncation) {
+  return (
+    typeof truncation.path === "string" &&
+    typeof truncation.total === "number" &&
+    typeof truncation.omitted === "number"
+  );
 }
 
 function scenarioFixtureName({ nodeCount, scenario }) {

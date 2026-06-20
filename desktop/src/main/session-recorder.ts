@@ -10,7 +10,11 @@ import type {
   IpcObservedStart,
   IpcObserver,
 } from "@shared/ipc";
-import type { RendererRecordedEvent } from "@shared/recording";
+import type {
+  RendererGraphRecordedEvent,
+  RendererGraphTruncation,
+  RendererRecordedEvent,
+} from "@shared/recording";
 
 interface SessionRecorderMetadata {
   appDataDir: string;
@@ -219,11 +223,12 @@ export class SessionRecorder {
   }
 
   recordRendererEvent(event: RendererRecordedEvent) {
+    const recordedEvent = compactRendererRecordedEvent(event);
     this.writeJSONLine(this.rendererEventsStream, {
-      ...event,
-      at: event.at,
+      ...recordedEvent,
+      at: recordedEvent.at,
     });
-    this.recordEvent("renderer_event", event);
+    this.recordEvent("renderer_event", recordedEvent);
   }
 
   async captureScreenshot(window: BrowserWindow | null, reason: string): Promise<void> {
@@ -384,6 +389,141 @@ function manifest(options: SessionRecorderOptions): RecordingManifest {
     screenshotIntervalMs: options.screenshotIntervalMs,
     startedAt: timestamp(),
   };
+}
+
+export function compactRendererRecordedEvent(event: RendererRecordedEvent): RendererRecordedEvent {
+  if (!isRendererGraphRecordedEvent(event)) {
+    return event;
+  }
+  const truncation = [...event.graph.truncation];
+  return {
+    ...event,
+    graph: {
+      ...event.graph,
+      nodes: {
+        moved: limitGraphArray(event.graph.nodes.moved, "graph.nodes.moved", 24, truncation),
+        selected: limitGraphArray(
+          event.graph.nodes.selected,
+          "graph.nodes.selected",
+          24,
+          truncation,
+        ),
+        touched: limitGraphArray(event.graph.nodes.touched, "graph.nodes.touched", 24, truncation),
+        visible: limitGraphArray(event.graph.nodes.visible, "graph.nodes.visible", 24, truncation),
+      } satisfies RendererGraphRecordedEvent["graph"]["nodes"],
+      selected: {
+        edgeIds: limitGraphArray(
+          event.graph.selected.edgeIds,
+          "graph.selected.edgeIds",
+          48,
+          truncation,
+        ),
+        nodeIds: limitGraphArray(
+          event.graph.selected.nodeIds,
+          "graph.selected.nodeIds",
+          48,
+          truncation,
+        ),
+      },
+      timing:
+        event.graph.timing === null
+          ? null
+          : {
+              ...event.graph.timing,
+              recentFrameMs: limitGraphArray(
+                event.graph.timing.recentFrameMs,
+                "graph.timing.recentFrameMs",
+                12,
+                truncation,
+              ),
+              timingBuckets: limitGraphRecord(
+                event.graph.timing.timingBuckets,
+                "graph.timing.timingBuckets",
+                40,
+                truncation,
+              ),
+              timingSamples: limitGraphArray(
+                event.graph.timing.timingSamples,
+                "graph.timing.timingSamples",
+                12,
+                truncation,
+              ),
+            },
+      trajectory: {
+        ...event.graph.trajectory,
+        anchorSummaries: limitGraphArray(
+          event.graph.trajectory.anchorSummaries,
+          "graph.trajectory.anchorSummaries",
+          24,
+          truncation,
+        ),
+      },
+      truncation,
+    },
+  };
+}
+
+function isRendererGraphRecordedEvent(
+  event: RendererRecordedEvent,
+): event is RendererGraphRecordedEvent {
+  return (
+    event.type === "graph_snapshot" ||
+    event.type === "graph_interaction" ||
+    event.type === "graph_layout_save" ||
+    event.type === "graph_replacement"
+  );
+}
+
+function limitGraphArray<T>(
+  values: readonly T[],
+  path: string,
+  limit: number,
+  truncation: RendererGraphTruncation[],
+): T[] {
+  if (values.length <= limit) {
+    return [...values];
+  }
+  appendGraphTruncation(truncation, {
+    limit,
+    omitted: values.length - limit,
+    path,
+    total: values.length,
+  });
+  return values.slice(0, limit);
+}
+
+function limitGraphRecord(
+  value: Record<string, unknown>,
+  path: string,
+  limit: number,
+  truncation: RendererGraphTruncation[],
+): Record<string, unknown> {
+  const entries = Object.entries(value);
+  if (entries.length <= limit) {
+    return value;
+  }
+  appendGraphTruncation(truncation, {
+    limit,
+    omitted: entries.length - limit,
+    path,
+    total: entries.length,
+  });
+  return Object.fromEntries(entries.slice(0, limit));
+}
+
+function appendGraphTruncation(
+  truncation: RendererGraphTruncation[],
+  next: RendererGraphTruncation,
+): void {
+  if (
+    truncation.some(
+      (current) =>
+        current.path === next.path && current.limit === next.limit && current.total === next.total,
+    )
+  ) {
+    return;
+  }
+  truncation.push(next);
 }
 
 function timestamp(): string {

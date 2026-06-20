@@ -104,11 +104,13 @@
   }
 
   function dispatchLayoutSnapshot({ trigger }) {
-    window.dispatchEvent(
-      new CustomEvent("setta:record-layout-snapshot", {
-        detail: { trigger },
-      }),
-    );
+    window.dispatchEvent(new CustomEvent("setta:record-layout-snapshot", { detail: { trigger } }));
+    return true;
+  }
+
+  function dispatchGraphSnapshot({ surfaceId = "" } = {}) {
+    const eventName = "setta:record-workflow-graph-snapshot";
+    window.dispatchEvent(new CustomEvent(eventName, { detail: { surfaceId } }));
     return true;
   }
 
@@ -1436,6 +1438,7 @@
     composerFocus,
     composerReady,
     conversationRows,
+    dispatchGraphSnapshot,
     dispatchLayoutSnapshot,
     dispatchDocumentEscape,
     elementValue,

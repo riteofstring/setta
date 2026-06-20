@@ -1,9 +1,8 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 4 layout-save outcomes and overlay rollback implemented
-  and verified in `01668433c`; Phase 5 graph recording evidence is ready to
-  start.
+- **Status:** Phase 5 graph recording evidence implemented and verified; Phase
+  6 trajectory sprite interaction decision is ready to start.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -949,6 +948,11 @@ pnpm -C desktop exec tsc --noEmit --pretty false
 Result: passed on June 20, 2026.
 
 ## Phase 5: Graph Recording Evidence
+
+Status: Complete. This phase added shared graph recording event contracts,
+preload forwarding, bounded main-process compaction, renderer graph interaction
+and layout-save events, isolated recording app data by default, recording
+guidance, and scripted recording assertions for drag and pan/zoom diagnostics.
 
 Goal: make `scripts/record_desktop_session.sh` recordings sufficient for graph
 bug diagnosis.

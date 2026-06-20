@@ -42,6 +42,13 @@ Record a desktop dogfood session:
 ```
 
 Recordings are written under `.recordings/` by default.
+The recording script uses an isolated `SETTA_APP_DATA_DIR` under the recording
+directory, enables workflow graph debug recording with
+`SETTA_WORKFLOW_GRAPH_DEBUG=1`, and writes graph `graph_snapshot`,
+`graph_interaction`, `graph_layout_save`, and `graph_replacement` events to
+`renderer-events.jsonl`. Set `SETTA_RECORD_USE_EXISTING_APP_DATA=1` to record
+against existing app data; without that opt-in, any pre-set `SETTA_APP_DATA_DIR`
+is ignored for manual recordings.
 
 The convenience script checks the repo Go wrapper and then runs:
 

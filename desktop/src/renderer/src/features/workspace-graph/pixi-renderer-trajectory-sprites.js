@@ -200,7 +200,9 @@ export function createWorkspaceTrajectorySpriteLayer({
   }
 
   function debugSnapshot() {
+    const trajectoryAnchors = trajectoryAnchorDebugSnapshot(frame, getNode);
     return {
+      trajectoryAnchors,
       trajectorySpriteDisplayCount: activeViews.size,
       trajectorySpriteFrameRevision: frame?.revision ?? 0,
       trajectorySpriteGroupCount: frame?.groups.length ?? 0,
@@ -214,6 +216,32 @@ export function createWorkspaceTrajectorySpriteLayer({
       trajectorySpriteTotalCount: frame?.totalSpriteCount ?? 0,
     };
   }
+}
+
+function trajectoryAnchorDebugSnapshot(frame, getNode) {
+  const items = displayItemsForFrame(frame);
+  const anchors = items.map((item) => ({
+    anchorNodeId: item.anchorNodeId,
+    anchored: item.lane === "workflow_node" && Boolean(item.anchorNodeId),
+    id: item.id,
+    lane: item.lane,
+    missingAnchor:
+      item.lane === "workflow_node" &&
+      Boolean(item.anchorNodeId) &&
+      getNode(item.anchorNodeId) === null,
+    rank: item.rank,
+    status: item.status,
+    type: item.type,
+  }));
+  return {
+    anchors,
+    counts: {
+      anchored: anchors.filter((anchor) => anchor.anchored && !anchor.missingAnchor).length,
+      missingAnchor: anchors.filter((anchor) => anchor.missingAnchor).length,
+      recentLane: anchors.filter((anchor) => anchor.lane === "recent").length,
+      total: anchors.length,
+    },
+  };
 }
 
 function displayItemsForFrame(frame) {

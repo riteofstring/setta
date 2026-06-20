@@ -12,6 +12,7 @@ export function createWorkflowGraphNodeDragController({
   nodes,
   nodesById,
   redrawEdges,
+  recordGraphInteraction,
   requireNode,
   sceneGraph,
   selectOnlyNode,
@@ -41,6 +42,10 @@ export function createWorkflowGraphNodeDragController({
     if (!nodeIsMovable(node)) {
       nodeDragBlockedCount += 1;
       lastNodeDragAdmission = nodeDragAdmissionSnapshot("blocked", node);
+      recordNodeDragInteraction(
+        recordGraphInteraction,
+        nodeDragInteractionForNode(node, "blocked"),
+      );
       if (!selectedNodeIds.has(node.id)) {
         selectOnlyNode(node.id);
       }
@@ -52,34 +57,26 @@ export function createWorkflowGraphNodeDragController({
     if (!selectedNodeIds.has(node.id)) {
       selectOnlyNode(node.id);
     }
-    let draggedNodes = nodes.filter((candidate) => selectedNodeIds.has(candidate.id));
-    if (draggedNodes.some((candidate) => !nodeIsMovable(candidate))) {
-      selectOnlyNode(node.id);
-      draggedNodes = [node];
-    }
+    const draggedNodes = draggedNodesForStart(node);
     for (const draggedNode of draggedNodes) {
       sceneGraph.ensureNodeMaterialized(draggedNode.id);
     }
-    draggingNode = {
-      nodes: draggedNodes.map((candidate) => ({
-        nodeId: candidate.id,
-        offsetX: world.x - candidate.x,
-        offsetY: world.y - candidate.y,
-        startX: candidate.x,
-        startY: candidate.y,
-      })),
-      moved: false,
-      primaryNodeId: node.id,
-      startScreenX: screen.x,
-      startScreenY: screen.y,
-    };
-    for (const draggedNode of draggedNodes) {
-      const body = nodeBodies.get(draggedNode.id);
-      if (body) {
-        body.cursor = "grabbing";
-      }
-    }
+    draggingNode = draggingNodeForStart({ draggedNodes, node, screen, world });
+    recordNodeDragInteraction(
+      recordGraphInteraction,
+      nodeDragInteractionForDrag(draggingNode, "start", "pointerdown"),
+    );
+    setDraggedNodeCursors(draggedNodes);
     viewport.plugins.pause("decelerate");
+  }
+
+  function draggedNodesForStart(node) {
+    let draggedNodes = nodes.filter((candidate) => selectedNodeIds.has(candidate.id));
+    if (!draggedNodes.some((candidate) => !nodeIsMovable(candidate))) {
+      return draggedNodes;
+    }
+    selectOnlyNode(node.id);
+    return [node];
   }
 
   function move(screen) {
@@ -103,6 +100,10 @@ export function createWorkflowGraphNodeDragController({
     animationCoordinator.markStaticGlowDirty();
     animationCoordinator.syncActiveSet({ forceStaticGlow: true });
     draggingNode.moved = true;
+    recordNodeDragInteraction(
+      recordGraphInteraction,
+      nodeDragInteractionForDrag(draggingNode, "update", "pointermove"),
+    );
     labels.syncLabelVisibility();
     nodeDragUpdateCount += 1;
     redrawEdges();
@@ -117,15 +118,20 @@ export function createWorkflowGraphNodeDragController({
     viewport.plugins.resume("decelerate");
     draggingNode = null;
     syncNodeBodyCursors();
+    recordNodeDragInteraction(
+      recordGraphInteraction,
+      nodeDragInteractionForDrag(canceledDrag, "cancel", "pointercancel"),
+    );
   }
 
   function finish() {
     const completedDrag = draggingNode;
-    const shouldPersistPositions = completedDrag?.moved === true;
-    const movedNodeIds = new Set(completedDrag?.nodes.map((node) => node.nodeId) ?? []);
+    const shouldPersistPositions = dragMoved(completedDrag);
+    const movedNodeIds = draggedNodeIdSet(completedDrag);
     viewport.plugins.resume("decelerate");
     draggingNode = null;
     syncNodeBodyCursors();
+    recordCompletedNodeDrag(recordGraphInteraction, completedDrag, shouldPersistPositions);
     if (shouldPersistPositions && handlers.onNodePositionsChange) {
       nodeOpenClickTracker.clear();
       handlers.onNodePositionsChange(
@@ -143,6 +149,15 @@ export function createWorkflowGraphNodeDragController({
         x: completedDrag.startScreenX,
         y: completedDrag.startScreenY,
       });
+    }
+  }
+
+  function setDraggedNodeCursors(draggedNodes) {
+    for (const draggedNode of draggedNodes) {
+      const body = nodeBodies.get(draggedNode.id);
+      if (body) {
+        body.cursor = "grabbing";
+      }
     }
   }
 
@@ -197,4 +212,78 @@ function nodeDragAdmissionSnapshot(status, node) {
     nodeId: node.id,
     status,
   };
+}
+
+function draggingNodeForStart({ draggedNodes, node, screen, world }) {
+  return {
+    nodes: draggedNodes.map((candidate) => ({
+      movementOwner: candidate.movementOwner?.kind ?? "",
+      nodeId: candidate.id,
+      offsetX: world.x - candidate.x,
+      offsetY: world.y - candidate.y,
+      startX: candidate.x,
+      startY: candidate.y,
+    })),
+    moved: false,
+    primaryNodeId: node.id,
+    startScreenX: screen.x,
+    startScreenY: screen.y,
+  };
+}
+
+function nodeDragInteractionForNode(node, phase) {
+  return {
+    affectedNodeIds: [node.id],
+    kind: "node_drag",
+    movementOwner: node.movementOwner?.kind ?? "",
+    phase,
+    reason: "missing_movement_owner",
+  };
+}
+
+function nodeDragInteractionForDrag(drag, phase, reason) {
+  return {
+    affectedNodeIds: drag.nodes.map((node) => node.nodeId),
+    kind: "node_drag",
+    movementOwner: movementOwnerForDrag(drag),
+    phase,
+    reason,
+  };
+}
+
+function recordCompletedNodeDrag(recordGraphInteraction, completedDrag, shouldPersistPositions) {
+  if (!completedDrag) {
+    return;
+  }
+  recordNodeDragInteraction(
+    recordGraphInteraction,
+    nodeDragInteractionForDrag(
+      completedDrag,
+      shouldPersistPositions ? "commit" : "cancel",
+      shouldPersistPositions ? "pointerup" : "click_without_move",
+    ),
+  );
+}
+
+function recordNodeDragInteraction(recordGraphInteraction, interaction) {
+  if (!recordGraphInteraction) {
+    return;
+  }
+  recordGraphInteraction(interaction);
+}
+
+function dragMoved(drag) {
+  return drag?.moved === true;
+}
+
+function draggedNodeIdSet(drag) {
+  return new Set(drag?.nodes.map((node) => node.nodeId) ?? []);
+}
+
+function movementOwnerForDrag(drag) {
+  const owners = [...new Set(drag.nodes.map((node) => node.movementOwner).filter(Boolean))];
+  if (owners.length === 0) {
+    return "";
+  }
+  return owners.length === 1 ? owners[0] : "multiple";
 }

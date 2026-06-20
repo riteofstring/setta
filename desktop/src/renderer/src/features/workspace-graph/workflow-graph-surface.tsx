@@ -1,6 +1,5 @@
 import type { WorkflowGraphProjection, WorkflowValidationResult } from "@generated/backend";
 import { Profiler, useCallback, useEffect, useMemo, useRef, useState } from "react";
-
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import { useWorkflowEditorStore } from "../../stores/workflow-editor-store";
 import { requestWorkspacePaneOpen } from "../../workspace-layout/open-pane-events";
@@ -15,6 +14,11 @@ import {
   graphNodeLayoutPersistenceErrorMessage,
   persistGraphNodePositions,
 } from "./workflow-graph-layout-persistence";
+import {
+  recordSupersededWorkflowGraphLayoutSave,
+  recordWorkflowGraphLayoutSaveOutcome,
+  startWorkflowGraphLayoutSaveRecording,
+} from "./workflow-graph-layout-save-recording";
 import type {
   WorkflowGraphCameraState,
   WorkflowGraphEdgeConnection,
@@ -75,7 +79,6 @@ import {
   workflowValidationForDraftProjection,
   type WorkflowGraphRendererGraph,
 } from "./workflow-graph-surface-helpers";
-
 export function WorkflowGraphSurface({
   active,
   debugEnabled,
@@ -292,7 +295,6 @@ export function WorkflowGraphSurface({
   const openWorkflowContextMenu = useCallback((menu: WorkflowContextMenuState) => {
     setWorkflowContextMenu(menu);
   }, []);
-
   const addWorkflowDraftNodeAt = useCallback(
     async (nodeType: WorkflowDraftNodeType, position: WorkflowDraftNodePosition) => {
       setWorkflowEditorError("");
@@ -362,11 +364,22 @@ export function WorkflowGraphSurface({
         positions,
         saveSequence,
       );
+      const layoutSaveRecording = startWorkflowGraphLayoutSaveRecording({
+        positions,
+        projection: projectionAtDragEnd,
+        saveSequence,
+        semanticLayoutInputCount: semanticLayoutInputs.length,
+        surfaceId,
+        viewLayoutTarget: viewLayoutTargetAtDragEnd,
+        workflowLayoutInputCount: workflowLayoutInputs.length,
+        workflowViewLayoutInputCount: workflowViewLayoutInputs.length,
+      });
       const save = enqueueWorkflowGraphWrite(async () => {
         if (saveSequence !== layoutSaveSequenceRef.current) {
           settleSemanticLayoutSave(semanticLayoutInputs, saveSequence);
           settleWorkflowLayoutSave(workflowLayoutInputs, saveSequence);
           settleWorkflowViewLayoutSave(workflowViewLayoutInputs, saveSequence);
+          recordSupersededWorkflowGraphLayoutSave(layoutSaveRecording);
           return null;
         }
         const outcome = await persistGraphNodePositions({
@@ -375,6 +388,7 @@ export function WorkflowGraphSurface({
           workflowViewLayoutTarget: viewLayoutTargetAtDragEnd,
           workflowProjection: projectionAtDragEnd,
         });
+        recordWorkflowGraphLayoutSaveOutcome(layoutSaveRecording, outcome);
         if (outcome.status === "failed" && saveSequence === layoutSaveSequenceRef.current) {
           setWorkflowEditorError(graphNodeLayoutPersistenceErrorMessage(outcome));
         }
@@ -414,6 +428,7 @@ export function WorkflowGraphSurface({
       syntheticGraph,
       workflowEditorError,
       workflowViewLayoutTarget,
+      surfaceId,
     ],
   );
   const flushPendingWorkflowGraphWrites = useCallback(async () => {
@@ -829,7 +844,6 @@ export function WorkflowGraphSurface({
   );
   const rendererHandlersRef = useRef<WorkflowGraphRendererHandlers>(rendererHandlers);
   rendererHandlersRef.current = rendererHandlers;
-
   useEffect(() => {
     syncWorkflowGraphCameraScope({
       cameraRef: workflowCameraRef,
@@ -839,7 +853,6 @@ export function WorkflowGraphSurface({
       workflowWorkspaceId,
     });
   }, [surfaceId, syntheticGraph, workflowWorkspaceId]);
-
   useEffect(() => {
     return subscribeWorkspaceSurfaceResumed((event) => {
       if (event.surfaceKind !== "workflow-graph" || event.surfaceId !== surfaceId) {
@@ -852,7 +865,6 @@ export function WorkflowGraphSurface({
       });
     });
   }, [refreshCurrentDraftProjection, surfaceId]);
-
   useEffect(() => {
     if (
       selectedWorkflowNodeId !== null &&
@@ -861,7 +873,6 @@ export function WorkflowGraphSurface({
       setSelectedWorkflowNodeId(null);
     }
   }, [selectedWorkflowNodeId, workflowProjection]);
-
   useEffect(() => {
     if (
       selectedWorkflowEdgeId !== null &&
@@ -870,7 +881,6 @@ export function WorkflowGraphSurface({
       setSelectedWorkflowEdgeId(null);
     }
   }, [selectedWorkflowEdgeId, workflowProjection]);
-
   useEffect(() => {
     if (
       selectedSemanticNodeId !== null &&
@@ -880,7 +890,6 @@ export function WorkflowGraphSurface({
       setSelectedSemanticNodeId(null);
     }
   }, [selectedSemanticNodeId, semanticGraphState.graph]);
-
   useEffect(() => {
     workflowController.configure({
       animationEnabled: graphAnimationSettings.animationEnabled,
@@ -903,7 +912,6 @@ export function WorkflowGraphSurface({
     surfaceId,
     workflowController,
   ]);
-
   useEffect(() => {
     const host = hostRef.current;
     if (!host) {
@@ -914,7 +922,6 @@ export function WorkflowGraphSurface({
       workflowController.suspend();
     };
   }, [workflowController]);
-
   useEffect(() => {
     if (active) {
       workflowController.activate();
@@ -922,7 +929,6 @@ export function WorkflowGraphSurface({
     }
     workflowController.suspend();
   }, [active, workflowController]);
-
   useEffect(() => {
     if (!rendererGraphReady) {
       return;
@@ -937,9 +943,7 @@ export function WorkflowGraphSurface({
     workflowController.updateScene(initialGraph);
     syncSceneFrameToRenderer(true);
   }, [rendererGraphReady, graph, syncSceneFrameToRenderer, workflowController]);
-
   useWorkflowContextMenuClose({ setWorkflowContextMenu, workflowContextMenu, workflowMenuRef });
-
   return (
     <Profiler id={`workflow-graph:${surfaceId}`} onRender={recordWorkflowGraphReactCommit}>
       <section
