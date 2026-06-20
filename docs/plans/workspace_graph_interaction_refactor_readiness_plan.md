@@ -1,8 +1,9 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 5 graph recording evidence implemented and verified; Phase
-  6 trajectory sprite interaction decision is ready to start.
+- **Status:** Phase 5 graph recording evidence implemented and verified in
+  `f47cc6757`; Phase 6 trajectory sprite interaction decision is ready to
+  start.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -949,10 +950,11 @@ Result: passed on June 20, 2026.
 
 ## Phase 5: Graph Recording Evidence
 
-Status: Complete. This phase added shared graph recording event contracts,
-preload forwarding, bounded main-process compaction, renderer graph interaction
-and layout-save events, isolated recording app data by default, recording
-guidance, and scripted recording assertions for drag and pan/zoom diagnostics.
+Status: Complete. Commit `f47cc6757` added shared graph recording event
+contracts, preload forwarding, bounded main-process compaction, renderer graph
+interaction and layout-save events, isolated recording app data by default,
+recording guidance, and scripted recording assertions for drag and pan/zoom
+diagnostics.
 
 Goal: make `scripts/record_desktop_session.sh` recordings sufficient for graph
 bug diagnosis.
@@ -1028,7 +1030,26 @@ Acceptance criteria:
 - Recording a desktop session does not mutate the normal `~/.setta` app data
   unless the caller explicitly opts in.
 
+Phase 5 verification:
+
+```sh
+pnpm -C desktop exec vitest run \
+  src/preload/index.test.ts \
+  src/shared/ipc.test.ts \
+  src/main/session-recorder.test.ts
+pnpm -C desktop build
+node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs \
+  --scenario small-trackpad \
+  --skip-build \
+  --keep-artifacts
+```
+
+Result: passed on June 20, 2026.
+
 ## Phase 6: Trajectory Sprite Interaction Decision
+
+Status: Ready to start. Phase 6 should choose and test the trajectory sprite
+interaction model before the broader interaction-controller refactor begins.
 
 Goal: remove misleading trajectory sprite UI and make sprite placement
 predictable.
