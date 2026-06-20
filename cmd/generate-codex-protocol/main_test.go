@@ -113,38 +113,6 @@ func TestSupportedProtocolRegistrationAddsStructuredExperimentalClientMethod(t *
 	}
 }
 
-func TestSupportedProtocolRegistrationAddsExperimentalNotification(t *testing.T) {
-	generator := testProtocolGenerator(t)
-	input := supportedProtocolInput{
-		ExperimentalNotifications: []supportedExperimentalNotification{
-			{
-				Method:     "turn/moderationMetadata",
-				ParamsName: "TurnModerationMetadataNotification",
-				Source:     "live app-server fixture",
-			},
-		},
-		Notifications:  []string{"thread/started"},
-		ServerRequests: []string{"item/tool/call"},
-	}
-
-	if err := generator.applySupportedProtocol(input); err != nil {
-		t.Fatalf("apply supported protocol: %v", err)
-	}
-	if err := generator.collectSchemasFromSupported(input); err != nil {
-		t.Fatalf("collect schemas: %v", err)
-	}
-
-	if _, ok := membersByMethod(generator.notifications)["turn/moderationMetadata"]; !ok {
-		t.Fatal("experimental notification was not added to generated notifications")
-	}
-	if _, ok := membersByMethod(generator.supportedNotifications)["turn/moderationMetadata"]; !ok {
-		t.Fatal("experimental notification was not added to supported notifications")
-	}
-	if _, ok := generator.schemas["TurnModerationMetadataNotification"]; !ok {
-		t.Fatal("TurnModerationMetadataNotification schema was not collected")
-	}
-}
-
 func TestSupportedProtocolRegistrationRejectsUnclassifiedCustomClientMethod(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	input := supportedProtocolInput{
@@ -416,13 +384,6 @@ func testProtocolGenerator(t *testing.T) *generator {
 		0o644,
 	); err != nil {
 		t.Fatalf("write experimental ThreadSettingsUpdateParams schema: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(experimentalV2Dir, "TurnModerationMetadataNotification.json"),
-		[]byte(`{"title":"TurnModerationMetadataNotification","type":"object","properties":{"threadId":{"type":"string"},"turnId":{"type":"string"},"metadata":{"type":"object"}},"required":["threadId","turnId"]}`),
-		0o644,
-	); err != nil {
-		t.Fatalf("write experimental TurnModerationMetadataNotification schema: %v", err)
 	}
 	return &generator{
 		schemaDir:             schemaDir,

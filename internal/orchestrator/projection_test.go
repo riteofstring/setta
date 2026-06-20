@@ -130,7 +130,7 @@ func TestServiceReadGraphProjectionReportsDraftVersionMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start execution: %v", err)
 	}
-	updated, err := service.UpdateDefinition(workspaceID, definition.ID, definition.DraftRevision, "Review v2", "changed after run", definition.Graph)
+	updated, err := service.UpdateDefinition(workspaceID, definition.ID, "Review v2", "changed after run", definition.Graph)
 	if err != nil {
 		t.Fatalf("update definition: %v", err)
 	}

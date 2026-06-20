@@ -21,24 +21,21 @@ type SemanticGraphChangeCursor struct {
 }
 
 type SemanticGraphChangeEvent struct {
-	SchemaVersion                   int                       `json:"schemaVersion"`
-	StreamID                        string                    `json:"streamId"`
-	Sequence                        int                       `json:"sequence"`
-	EventID                         string                    `json:"eventId"`
-	Type                            string                    `json:"type"`
-	WorkspaceID                     string                    `json:"workspaceId"`
-	ChangedAreas                    []SemanticGraphChangeArea `json:"changedAreas"`
-	SemanticNodeIDs                 []string                  `json:"semanticNodeIds"`
-	SemanticEdgeIDs                 []string                  `json:"semanticEdgeIds"`
-	TargetEntityIDs                 []string                  `json:"targetEntityIds"`
-	CreatedSemanticEventIDs         []string                  `json:"createdSemanticEventIds"`
-	CartographerRunIDs              []string                  `json:"cartographerRunIds"`
-	CartographerWindowIDs           []string                  `json:"cartographerWindowIds"`
-	CartographerPatchIDs            []string                  `json:"cartographerPatchIds"`
-	SemanticRuntimeRevision         int                       `json:"semanticRuntimeRevision"`
-	SemanticRuntimeDelta            *SemanticRuntimeDelta     `json:"semanticRuntimeDelta"`
-	SemanticRuntimeSnapshotRequired bool                      `json:"semanticRuntimeSnapshotRequired"`
-	OccurredAt                      string                    `json:"occurredAt"`
+	SchemaVersion           int                       `json:"schemaVersion"`
+	StreamID                string                    `json:"streamId"`
+	Sequence                int                       `json:"sequence"`
+	EventID                 string                    `json:"eventId"`
+	Type                    string                    `json:"type"`
+	WorkspaceID             string                    `json:"workspaceId"`
+	ChangedAreas            []SemanticGraphChangeArea `json:"changedAreas"`
+	SemanticNodeIDs         []string                  `json:"semanticNodeIds"`
+	SemanticEdgeIDs         []string                  `json:"semanticEdgeIds"`
+	TargetEntityIDs         []string                  `json:"targetEntityIds"`
+	CreatedSemanticEventIDs []string                  `json:"createdSemanticEventIds"`
+	CartographerRunIDs      []string                  `json:"cartographerRunIds"`
+	CartographerWindowIDs   []string                  `json:"cartographerWindowIds"`
+	CartographerPatchIDs    []string                  `json:"cartographerPatchIds"`
+	OccurredAt              string                    `json:"occurredAt"`
 }
 
 type SemanticGraphChangeSubscription struct {
@@ -49,19 +46,16 @@ type SemanticGraphChangeSubscription struct {
 }
 
 type semanticGraphChangeDraft struct {
-	WorkspaceID                     string
-	ChangedAreas                    []SemanticGraphChangeArea
-	SemanticNodeIDs                 []string
-	SemanticEdgeIDs                 []string
-	TargetEntityIDs                 []string
-	CreatedSemanticEventIDs         []string
-	CartographerRunIDs              []string
-	CartographerWindowIDs           []string
-	CartographerPatchIDs            []string
-	SemanticRuntimeRevision         int
-	SemanticRuntimeDelta            *SemanticRuntimeDelta
-	SemanticRuntimeSnapshotRequired bool
-	OccurredAt                      string
+	WorkspaceID             string
+	ChangedAreas            []SemanticGraphChangeArea
+	SemanticNodeIDs         []string
+	SemanticEdgeIDs         []string
+	TargetEntityIDs         []string
+	CreatedSemanticEventIDs []string
+	CartographerRunIDs      []string
+	CartographerWindowIDs   []string
+	CartographerPatchIDs    []string
+	OccurredAt              string
 }
 
 type semanticGraphChangeHub struct {
@@ -166,21 +160,18 @@ func (hub *semanticGraphChangeHub) event(draft semanticGraphChangeDraft) Semanti
 		occurredAt = timestamp(hub.now())
 	}
 	return SemanticGraphChangeEvent{
-		SchemaVersion:                   SemanticGraphChangeSchemaVersion,
-		Type:                            SemanticGraphChangeEventType,
-		WorkspaceID:                     draft.WorkspaceID,
-		ChangedAreas:                    uniqueSemanticGraphChangeAreas(draft.ChangedAreas),
-		SemanticNodeIDs:                 uniqueStrings(draft.SemanticNodeIDs),
-		SemanticEdgeIDs:                 uniqueStrings(draft.SemanticEdgeIDs),
-		TargetEntityIDs:                 uniqueStrings(draft.TargetEntityIDs),
-		CreatedSemanticEventIDs:         uniqueStrings(draft.CreatedSemanticEventIDs),
-		CartographerRunIDs:              uniqueStrings(draft.CartographerRunIDs),
-		CartographerWindowIDs:           uniqueStrings(draft.CartographerWindowIDs),
-		CartographerPatchIDs:            uniqueStrings(draft.CartographerPatchIDs),
-		SemanticRuntimeRevision:         draft.SemanticRuntimeRevision,
-		SemanticRuntimeDelta:            draft.SemanticRuntimeDelta,
-		SemanticRuntimeSnapshotRequired: draft.SemanticRuntimeSnapshotRequired,
-		OccurredAt:                      occurredAt,
+		SchemaVersion:           SemanticGraphChangeSchemaVersion,
+		Type:                    SemanticGraphChangeEventType,
+		WorkspaceID:             draft.WorkspaceID,
+		ChangedAreas:            uniqueSemanticGraphChangeAreas(draft.ChangedAreas),
+		SemanticNodeIDs:         uniqueStrings(draft.SemanticNodeIDs),
+		SemanticEdgeIDs:         uniqueStrings(draft.SemanticEdgeIDs),
+		TargetEntityIDs:         uniqueStrings(draft.TargetEntityIDs),
+		CreatedSemanticEventIDs: uniqueStrings(draft.CreatedSemanticEventIDs),
+		CartographerRunIDs:      uniqueStrings(draft.CartographerRunIDs),
+		CartographerWindowIDs:   uniqueStrings(draft.CartographerWindowIDs),
+		CartographerPatchIDs:    uniqueStrings(draft.CartographerPatchIDs),
+		OccurredAt:              occurredAt,
 	}
 }
 

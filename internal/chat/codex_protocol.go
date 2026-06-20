@@ -177,14 +177,11 @@ type codexRunItemExecutionFields struct {
 }
 
 type codexRunItemFileToolFields struct {
-	filePaths      []string
-	fileOperations []RunItemFileOp
-	diffStats      RunItemDiffStats
-	patchStatus    string
-	progress       string
-	serverName     string
-	toolName       string
-	details        json.RawMessage
+	filePaths   []string
+	patchStatus string
+	progress    string
+	serverName  string
+	toolName    string
 }
 
 type codexRunItemResultFields struct {
@@ -224,15 +221,12 @@ func runItemFromCodexItem(item map[string]any, status RunItemStatus) (RunItem, e
 		ExitCode:       executionFields.exitCode,
 		DurationMs:     executionFields.durationMs,
 		FilePaths:      fileToolFields.filePaths,
-		FileOperations: fileToolFields.fileOperations,
 		PatchStatus:    fileToolFields.patchStatus,
 		ServerName:     fileToolFields.serverName,
 		ToolName:       fileToolFields.toolName,
 		Progress:       fileToolFields.progress,
 		Result:         resultFields.result,
 		Error:          resultFields.errorMessage,
-		DiffStats:      fileToolFields.diffStats,
-		Details:        fileToolFields.details,
 	}, nil
 }
 
@@ -314,7 +308,7 @@ func codexRunItemExecutionFieldsFromItem(item map[string]any) (codexRunItemExecu
 }
 
 func codexRunItemFileToolFieldsFromItem(item map[string]any) (codexRunItemFileToolFields, error) {
-	filePaths, fileOperations, diffStats, err := codexFileChangeFieldsFromItem(item)
+	filePaths, err := optionalStringArray(item, "changedPaths", "codex item")
 	if err != nil {
 		return codexRunItemFileToolFields{}, err
 	}
@@ -326,82 +320,21 @@ func codexRunItemFileToolFieldsFromItem(item map[string]any) (codexRunItemFileTo
 	if err != nil {
 		return codexRunItemFileToolFields{}, err
 	}
-	if serverName == "" {
-		serverName, err = optionalString(item, "server", "codex item")
-		if err != nil {
-			return codexRunItemFileToolFields{}, err
-		}
-	}
 	toolName, err := optionalString(item, "toolName", "codex item")
 	if err != nil {
 		return codexRunItemFileToolFields{}, err
-	}
-	if toolName == "" {
-		toolName, err = optionalString(item, "tool", "codex item")
-		if err != nil {
-			return codexRunItemFileToolFields{}, err
-		}
 	}
 	progress, err := optionalString(item, "progress", "codex item")
 	if err != nil {
 		return codexRunItemFileToolFields{}, err
 	}
-	details, err := codexRunItemArgumentsFromItem(item)
-	if err != nil {
-		return codexRunItemFileToolFields{}, err
-	}
 	return codexRunItemFileToolFields{
-		filePaths:      filePaths,
-		fileOperations: fileOperations,
-		diffStats:      diffStats,
-		patchStatus:    patchStatus,
-		progress:       progress,
-		serverName:     serverName,
-		toolName:       toolName,
-		details:        details,
+		filePaths:   filePaths,
+		patchStatus: patchStatus,
+		progress:    progress,
+		serverName:  serverName,
+		toolName:    toolName,
 	}, nil
-}
-
-func codexFileChangeFieldsFromItem(item map[string]any) ([]string, []RunItemFileOp, RunItemDiffStats, error) {
-	codexType, err := requireString(item, "type", "codex item")
-	if err != nil {
-		return nil, nil, RunItemDiffStats{}, err
-	}
-	if codexType != "fileChange" {
-		return []string{}, []RunItemFileOp{}, RunItemDiffStats{}, nil
-	}
-	rawChanges, ok := item["changes"]
-	if !ok || rawChanges == nil {
-		return nil, nil, RunItemDiffStats{}, errors.New("codex fileChange item changes are required")
-	}
-	encoded, err := json.Marshal(rawChanges)
-	if err != nil {
-		return nil, nil, RunItemDiffStats{}, fmt.Errorf("encode codex fileChange item changes: %w", err)
-	}
-	var changes []codexapp.FileUpdateChange
-	if err := json.Unmarshal(encoded, &changes); err != nil {
-		return nil, nil, RunItemDiffStats{}, fmt.Errorf("decode codex fileChange item changes: %w", err)
-	}
-	return runItemFileOperationsFromCodexChanges(changes)
-}
-
-func codexRunItemArgumentsFromItem(item map[string]any) (json.RawMessage, error) {
-	codexType, err := requireString(item, "type", "codex item")
-	if err != nil {
-		return nil, err
-	}
-	if codexType != "mcpToolCall" && codexType != "dynamicToolCall" {
-		return nil, nil
-	}
-	rawArguments, ok := item["arguments"]
-	if !ok || rawArguments == nil {
-		return nil, errors.New("codex tool call item arguments are required")
-	}
-	encoded, err := json.Marshal(rawArguments)
-	if err != nil {
-		return nil, fmt.Errorf("encode codex tool call item arguments: %w", err)
-	}
-	return encoded, nil
 }
 
 func codexRunItemResultFieldsFromItem(item map[string]any) (codexRunItemResultFields, error) {

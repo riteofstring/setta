@@ -48,6 +48,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "mcp elicitation form cancel workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormCancelTurn},
 	{Prompt: "mcp elicitation url decline workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationURLDeclineTurn},
 	{Prompt: "dynamic tool workflow", Run: scriptedDynamicToolTurn},
+	{Prompt: "chat performance stream", Run: scriptedPerformanceStreamTurn},
 	{Prompt: "workflow result action", Run: scriptedWorkflowResultTurn},
 	{Prompt: "phase4 reviewer a workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer b workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
@@ -150,10 +151,6 @@ func (harness *ScriptedWorkflowHarness) SubmitApproval(_ context.Context, respon
 
 func (harness *ScriptedWorkflowHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {
 	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
-}
-
-func (harness *ScriptedWorkflowHarness) ListModelOptions(_ context.Context, _ HarnessModelCatalogRequest) (HarnessModelCatalogResult, error) {
-	return HarnessModelCatalogResult{Models: fakeModelOptions()}, nil
 }
 
 func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
@@ -467,44 +464,55 @@ func scriptedDynamicToolTurn(_ *ScriptedWorkflowHarness, _ context.Context, requ
 	return scriptedReply(sink, request.Run.ID, "Dynamic tool workflow complete.")
 }
 
-func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	commandItem := RunItem{
-		ProviderItemID: "provider_workflow_command_" + request.Run.ID,
+func scriptedPerformanceStreamTurn(_ *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	const chunkCount = 240
+	const chunkInterval = 8 * time.Millisecond
+	item := RunItem{
+		ProviderItemID: "provider_performance_stream_" + request.Run.ID,
 		Type:           RunItemTypeCommandExecution,
 		Status:         RunItemStatusRunning,
-		Title:          "Workflow test command",
-		Command:        "./scripts/go.sh test ./internal/chat",
-		Cwd:            request.Workspace.RootPath,
-		Summary:        "Deterministic scripted workflow test command.",
+		Title:          "Performance stream",
+		Command:        "scripted chat performance stream",
+		Summary:        "Streaming assistant text and command output for renderer frame timing.",
 	}
-	if err := sink.RunItemUpsert(commandItem); err != nil {
+	if err := sink.RunItemUpsert(item); err != nil {
 		return TurnCompletion{}, err
 	}
-	if err := sink.RunItemOutputDelta(commandItem.ProviderItemID, "stdout", "ok ./internal/chat\n"); err != nil {
+	ticker := time.NewTicker(chunkInterval)
+	defer ticker.Stop()
+	for index := 0; index < chunkCount; index++ {
+		if index > 0 {
+			select {
+			case <-ctx.Done():
+				return TurnCompletion{}, ctx.Err()
+			case <-ticker.C:
+			}
+		}
+		if err := sink.AssistantTextDelta(
+			"scripted-assistant-"+request.Run.ID,
+			fmt.Sprintf("stream chunk %03d adds repeatable transcript render pressure. ", index),
+		); err != nil {
+			return TurnCompletion{}, err
+		}
+		if index%3 == 0 {
+			output := fmt.Sprintf("stdout perf line %03d: renderer output delta pressure\n", index)
+			if err := sink.RunItemOutputDelta(item.ProviderItemID, "stdout", output); err != nil {
+				return TurnCompletion{}, err
+			}
+		}
+	}
+	item.Status = RunItemStatusCompleted
+	item.Result = fmt.Sprintf("streamed %d assistant chunks", chunkCount)
+	if err := sink.RunItemUpsert(item); err != nil {
 		return TurnCompletion{}, err
 	}
-	commandItem.Status = RunItemStatusCompleted
-	commandItem.ExitCode = 0
-	commandItem.DurationMs = 187
-	commandItem.Result = "ok ./internal/chat"
-	if err := sink.RunItemUpsert(commandItem); err != nil {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Performance stream complete."); err != nil {
 		return TurnCompletion{}, err
 	}
-	fileItem := RunItem{
-		ProviderItemID: "provider_workflow_file_change_" + request.Run.ID,
-		Type:           RunItemTypeFileChange,
-		Status:         RunItemStatusCompleted,
-		Title:          "Workflow report file change",
-		FilePaths:      []string{"reports/workflow-result.md"},
-		PatchStatus:    "updated",
-		Summary:        "Updated the workflow result report artifact.",
-	}
-	if err := sink.RunItemUpsert(fileItem); err != nil {
-		return TurnCompletion{}, err
-	}
-	if err := waitForScriptedWorkflowObservationWindow(ctx); err != nil {
-		return TurnCompletion{}, err
-	}
+	return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
+}
+
+func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	item := RunItem{
 		ProviderItemID: "provider_workflow_result_" + request.Run.ID,
 		Type:           RunItemTypeDynamicToolCall,
@@ -526,17 +534,6 @@ func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, ctx context.Context,
 		return TurnCompletion{}, err
 	}
 	return scriptedReply(sink, request.Run.ID, "Workflow result action complete.")
-}
-
-func waitForScriptedWorkflowObservationWindow(ctx context.Context) error {
-	timer := time.NewTimer(650 * time.Millisecond)
-	defer timer.Stop()
-	select {
-	case <-timer.C:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
 
 func (harness *ScriptedWorkflowHarness) phase4ReviewerTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

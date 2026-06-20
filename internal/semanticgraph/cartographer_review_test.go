@@ -14,8 +14,8 @@ func TestCartographerPatchReviewAcceptsPendingPatchAfterRevalidation(t *testing.
 	if err != nil {
 		t.Fatalf("apply pending cartographer patch: %v", err)
 	}
-	if result.Run.Status != CartographerRunPendingReview || len(result.Patches) != 1 || result.Patches[0].Status != CartographerPatchPendingReview {
-		t.Fatalf("pending result = %+v, want pending-review run with pending patch", result)
+	if result.Run.Status != CartographerRunProposed || len(result.Patches) != 1 || result.Patches[0].Status != CartographerPatchPendingReview {
+		t.Fatalf("pending result = %+v, want proposed run with pending patch", result)
 	}
 	before := semanticEventCount(t, store)
 

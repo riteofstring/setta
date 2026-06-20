@@ -422,7 +422,6 @@ function workflowDefinition(id: string, name: string): WorkflowDefinition {
       layout: { nodes: [] },
       nodes: [],
     },
-    draftRevision: `sha256:${id}`,
     id,
     name,
     schemaVersion: 1,

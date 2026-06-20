@@ -11,6 +11,7 @@ import {
   type LucideIcon,
   Wrench,
 } from "lucide-react";
+import { useState } from "react";
 
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
@@ -61,7 +62,7 @@ const activityIconByType = {
 
 const activityIconClassByType = {
   agent_message: "h-4 w-4 shrink-0 text-muted-foreground",
-  approval_review: "h-4 w-4 shrink-0 text-status-warning",
+  approval_review: "h-4 w-4 shrink-0 text-status-alert",
   collab_agent_tool_call: "h-4 w-4 shrink-0 text-muted-foreground",
   command_execution: "h-4 w-4 shrink-0 text-muted-foreground",
   context_compaction: "h-4 w-4 shrink-0 text-muted-foreground",
@@ -147,13 +148,17 @@ function RunActivityRow({
   outputPage: RunItemOutputPageState | undefined;
   outputs: RunItemOutput[];
 }) {
-  const outputText = outputPreview(outputs);
+  const [open, setOpen] = useState(false);
+  const renderDetails = open || shouldRenderClosedActivityDetails(item, outputs);
+  const outputText = renderDetails ? outputPreview(outputs) : "";
   return (
     <details
       className="group/item relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-foreground"
       data-testid="run-activity-row"
       onToggle={(event) => {
-        if (!event.currentTarget.open || outputPage?.loading || outputPage) {
+        const nextOpen = event.currentTarget.open;
+        setOpen(nextOpen);
+        if (!nextOpen || outputPage?.loading || outputPage) {
           return;
         }
         void loadRunItemOutput(item.runId, item.id, 0);
@@ -167,16 +172,25 @@ function RunActivityRow({
         </span>
         <RunActivityStatus item={item} />
       </summary>
-      <RunActivityDetails
-        item={item}
-        loadMoreOutput={() =>
-          void loadRunItemOutput(item.runId, item.id, outputPage?.nextOrdinal ?? 0)
-        }
-        outputPage={outputPage}
-        outputText={outputText}
-      />
+      {renderDetails ? (
+        <RunActivityDetails
+          item={item}
+          loadMoreOutput={() =>
+            void loadRunItemOutput(item.runId, item.id, outputPage?.nextOrdinal ?? 0)
+          }
+          outputPage={outputPage}
+          outputText={outputText}
+        />
+      ) : null}
     </details>
   );
+}
+
+function shouldRenderClosedActivityDetails(item: RunItem, outputs: RunItemOutput[]) {
+  if (item.status !== "pending" && item.status !== "running") {
+    return true;
+  }
+  return outputs.length === 0;
 }
 
 function ActivityGroupDisclosureIcon() {
@@ -445,9 +459,7 @@ function RunActivityGroupStatus({ items }: { items: RunItem[] }) {
   const running = items.some((item) => item.status === "pending" || item.status === "running");
   return (
     <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-      {running ? (
-        <BrailleSpinner className="text-muted-foreground" label="Activity running" />
-      ) : null}
+      {running ? <BrailleSpinner className="text-accent-violet" label="Activity running" /> : null}
       <span>{activityGroupStatus(items)}</span>
     </span>
   );
@@ -470,10 +482,7 @@ function RunActivityStatus({ item }: { item: RunItem }) {
   return (
     <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
       {item.status === "running" || item.status === "pending" ? (
-        <BrailleSpinner
-          className="text-muted-foreground"
-          label={`${activityTitle(item)} running`}
-        />
+        <BrailleSpinner className="text-accent-violet" label={`${activityTitle(item)} running`} />
       ) : null}
       <span>{item.status}</span>
     </span>

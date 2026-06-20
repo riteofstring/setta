@@ -134,28 +134,6 @@ func (handler handler) readSemanticActivitySummary(response http.ResponseWriter,
 	writeJSON(response, http.StatusOK, summary)
 }
 
-func (handler handler) readSemanticWorkingSet(response http.ResponseWriter, request *http.Request) {
-	service := requireSemanticGraphService(response, handler.semanticGraphService)
-	if service == nil {
-		return
-	}
-	var payload ReadSemanticWorkingSetRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	workingSet, err := service.ReadWorkingSet(request.Context(), semanticgraph.SemanticWorkingSetFilter{
-		WorkspaceID:         payload.WorkspaceID,
-		WorkflowExecutionID: payload.WorkflowExecutionID,
-		ChatRunID:           payload.ChatRunID,
-		Limit:               payload.Limit,
-	})
-	if err != nil {
-		writeSemanticGraphError(response, "read_semantic_working_set_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, workingSet)
-}
-
 func (handler handler) readSemanticSteeringState(response http.ResponseWriter, request *http.Request) {
 	service := requireSemanticGraphService(response, handler.semanticGraphService)
 	if service == nil {
@@ -275,83 +253,6 @@ func (handler handler) processCartographerWindow(response http.ResponseWriter, r
 		return
 	}
 	writeJSON(response, http.StatusOK, result)
-}
-
-func (handler handler) readSemanticCartographerSettings(response http.ResponseWriter, request *http.Request) {
-	service := requireSemanticGraphService(response, handler.semanticGraphService)
-	if service == nil {
-		return
-	}
-	var payload ReadSemanticCartographerSettingsRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	record, err := service.ReadSemanticCartographerSettings(request.Context())
-	if err != nil {
-		writeSemanticGraphError(response, "read_semantic_cartographer_settings_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, record)
-}
-
-func (handler handler) readSemanticCartographerSettingsMetadata(response http.ResponseWriter, request *http.Request) {
-	service := requireSemanticGraphService(response, handler.semanticGraphService)
-	if service == nil {
-		return
-	}
-	var payload ReadSemanticCartographerSettingsMetadataRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	metadata, err := service.ReadSemanticCartographerSettingsMetadata(request.Context())
-	if err != nil {
-		writeSemanticGraphError(response, "read_semantic_cartographer_settings_metadata_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, metadata)
-}
-
-func (handler handler) updateSemanticCartographerSettings(response http.ResponseWriter, request *http.Request) {
-	semanticService := requireSemanticGraphService(response, handler.semanticGraphService)
-	if semanticService == nil {
-		return
-	}
-	chatService := requireChatService(response, handler.chatService)
-	if chatService == nil {
-		return
-	}
-	var payload UpdateSemanticCartographerSettingsRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	models, err := chatService.ListCodexModelOptions(payload.WorkspaceID)
-	if err != nil {
-		writeSemanticGraphError(response, "list_semantic_cartographer_model_options_failed", err)
-		return
-	}
-	record, err := semanticService.UpdateSemanticCartographerSettings(request.Context(), payload.Settings, models)
-	if err != nil {
-		writeSemanticGraphError(response, "update_semantic_cartographer_settings_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, record)
-}
-
-func (handler handler) listSemanticCartographerModelOptions(response http.ResponseWriter, request *http.Request) {
-	service := requireChatService(response, handler.chatService)
-	if service == nil {
-		return
-	}
-	var payload ListSemanticCartographerModelOptionsRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	models, err := service.ListCodexModelOptions(payload.WorkspaceID)
-	if err != nil {
-		writeSemanticGraphError(response, "list_semantic_cartographer_model_options_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, models)
 }
 
 func (handler handler) readCartographerProcessingState(response http.ResponseWriter, request *http.Request) {
