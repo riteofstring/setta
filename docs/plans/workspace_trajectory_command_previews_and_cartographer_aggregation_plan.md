@@ -1,7 +1,7 @@
 # Workspace Trajectory Command Previews And Cartographer Aggregation Plan
 
 - **Date:** June 19, 2026
-- **Status:** Phase 1 complete; Phase 2 ready.
+- **Status:** Phase 2 complete; Phase 3 ready.
 - **Scope:** Make workspace trajectory sprites more legible by showing raw
   command previews for command run items, aggregating cartographer lifecycle
   noise before it reaches the visible graph lanes, and replacing confusing
@@ -18,6 +18,12 @@
 - The renderer now has `workspace-trajectory-display-labels.ts`, Pixi sprite
   labels use `trajectorySpriteCanvasLabel`, and workflow node details use the
   same display-label helpers for command rows.
+- Phase 2 is complete in commit `d16c12111` (`Aggregate cartographer trajectory
+  display items`).
+- The renderer now projects `WorkspaceTrajectoryDisplayItem` values, aggregates
+  cartographer lifecycle sprites before visible caps, routes pending
+  cartographer patches to memory suggestions in details, and leaves backend
+  trajectory payloads exact.
 - Focused Phase 1 verification passed on June 20, 2026:
 
 ```sh
@@ -26,9 +32,18 @@ pnpm -C desktop exec vitest run \
   src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts
 ```
 
-Phase 2 can start from the current renderer store shape. The remaining work is
-to change the display projection from individual sprites only to local display
-items that can represent either a raw sprite or an aggregate.
+Focused Phase 2 verification passed on June 20, 2026:
+
+```sh
+pnpm -C desktop exec vitest run \
+  src/renderer/src/features/workspace-graph/workspace-trajectory-store.test.ts \
+  src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts \
+  src/renderer/src/features/workspace-graph/workspace-trajectory-display-labels.test.ts
+```
+
+Phase 3 can start from the current renderer display-item shape. The remaining
+work is to stop normal workflow activity from reaching the fixed top-left
+recent lane and to preserve deterministic anchoring during runner-ref refreshes.
 
 ## Position
 
@@ -69,16 +84,17 @@ Details and memory-review surfaces can summarize them separately as
 
 ## Current Behavior
 
-The latest recording showed three product mismatches. Phase 1 addressed the
-first item; the remaining phases address cartographer aggregation, memory
-review routing, and anchorless placement.
+The latest recording showed three product mismatches. Phase 1 addressed command
+labels, and Phase 2 addressed cartographer aggregation and memory-review
+routing. The remaining product mismatch is anchorless placement.
 
 - Command activity was visible as generic command sprites, while the meaningful
   command text was only secondary data. This is now fixed for renderer labels
   and command details.
-- Cartographer runtime updates can produce multiple `cartographer_status`
-  sprites, including repeated queued/window/running states around the same
-  workflow node.
+- Cartographer runtime updates previously produced multiple
+  `cartographer_status` sprites, including repeated queued/window/running states
+  around the same workflow node. Phase 2 now aggregates these in the renderer
+  display projection.
 - Sprites with no resolved workflow-node anchor are placed in a fixed recent
   lane near the top-left of the viewport. That is intentional fallback behavior,
   but it reads like a layout bug because the sprites are visually disconnected
@@ -325,6 +341,43 @@ The old top-left recent lane can remain as a debug or fallback mechanism during
 implementation, but it should not be the normal product presentation for
 workflow-run activity.
 
+Phase 3 starts from the Phase 2 implementation:
+
+- `WorkspaceTrajectoryFrameSnapshot.recentLane` still feeds fixed top-left
+  canvas sprites through `pixi-renderer-trajectory-sprites.js`.
+- `workflow-trajectory-runtime.ts` currently calls
+  `trajectoryStore.updateAnchors({ bindings: [], workflowNodeIds })` before the
+  async `workflow.readExecution` response arrives. During active workflow
+  updates, this can temporarily remove chat-run/node-execution bindings and
+  make otherwise-anchorable live sprites look anchorless.
+- `WorkflowGraphProjection.nodes` already exposes `active`,
+  `latestNodeExecutionId`, and `status`, so Phase 3 does not need a new backend
+  contract just to know whether there is exactly one active workflow node.
+
+Phase 3 implementation rules:
+
+- Extend the renderer anchor state with active workflow node ids or a
+  precomputed single active workflow node id derived from
+  `workflowProjection.nodes.filter((node) => node.active)`.
+- Do not clear existing runner bindings while refreshing the same workflow
+  execution's bindings. Preserve the last known bindings until replacement
+  bindings arrive. It is fine to clear bindings when the workflow execution id
+  changes.
+- Apply the single-active-node fallback only to unanchored agent activity tied
+  to the same workflow execution. Candidate sprites must have a deterministic
+  run/chat source, such as `runItemId`, `chatRunId`, or a `run_item`/`chat_run`
+  source ref, and must not be `cartographer_status`.
+- Do not use the active-node fallback for execution-level workflow events such
+  as `workflow.execution.started`, or for cartographer lifecycle/window sprites
+  that only have a workflow-execution source ref.
+- For normal product UI, `recentLane` should be empty for active workflow-run
+  activity. Any remaining unanchored items should be omitted from the canvas or
+  routed to a visually distinct debug/global surface in a later phase.
+- Unanchored queued/pending cartographer lifecycle should be suppressed from the
+  canvas. Details/audit data remains available through semantic/cartographer
+  audit surfaces; node details remain node-scoped and should not invent a node
+  association.
+
 ### 5. Node Details
 
 Update workflow node trajectory details so command entries read naturally:
@@ -369,7 +422,7 @@ Acceptance criteria:
 - A `sed` or `rg` command is not reclassified as file read/search intent.
 - Completed in commit `89512fcb9`.
 
-### Phase 2: Cartographer Display Aggregation And Memory Review Routing
+### Phase 2: Cartographer Display Aggregation And Memory Review Routing (Complete)
 
 - Add a renderer-side cartographer aggregation pass in
   `workspace-trajectory-store.ts`.
@@ -404,11 +457,15 @@ Acceptance criteria:
 - Backend trajectory snapshots and deltas still contain exact cartographer
   source records unless a later measured payload problem justifies backend
   aggregation.
+- Completed in commit `d16c12111`.
 
 ### Phase 3: Anchorless Placement Cleanup
 
 - Replace the fixed top-left recent-lane behavior for normal workflow activity.
-- Add deterministic anchor fallback only for the single-active-node case.
+- Preserve existing anchor bindings while refreshing runner refs for the same
+  workflow execution.
+- Add deterministic active-node fallback only for unanchored agent activity in
+  the single-active-node case.
 - Aggregate or suppress unanchored low-priority cartographer lifecycle activity
   on the canvas.
 - Preserve exact runtime records for details/audit.
@@ -417,6 +474,15 @@ Acceptance criteria:
 
 - Sprites associated with the active workflow do not appear as ordinary detached
   pills in the top-left of the graph.
+- Live run-item or assistant-message deltas do not flicker into `recentLane`
+  while `workflow.readExecution` is in flight for the same workflow execution.
+- A command, tool, assistant, plan, reasoning, file, diff, test, or approval
+  sprite with same-workflow run/chat refs and exactly one active workflow node
+  anchors to that node when no stronger binding exists.
+- The single-active-node fallback is not applied when there are zero or multiple
+  active workflow nodes.
+- The single-active-node fallback is not applied to cartographer lifecycle,
+  memory suggestion, or execution-level workflow-status sprites.
 - If an item cannot be anchored, it is visually distinct from node-adjacent
   trajectory sprites or omitted from canvas display according to priority.
 - Unanchored queued cartographer activity does not create top-left clutter.
@@ -458,7 +524,9 @@ Add or update tests for:
 - memory suggestion routing and user-facing copy,
 - `+N` and details counts based on display items after aggregation,
 - priority sorting so queued cartographer aggregates do not crowd out commands,
+- anchor refresh without binding-clearing flicker,
 - anchorless activity placement and single-active-node fallback,
+- suppression of unanchored cartographer lifecycle from the canvas,
 - details rendering for command and cartographer aggregate cases.
 
 Run the backend trajectory mapper tests when backend behavior is touched:
