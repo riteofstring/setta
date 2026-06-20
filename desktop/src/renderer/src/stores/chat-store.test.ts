@@ -747,12 +747,10 @@ describe("chat store", () => {
       status: "ready",
       workspaceId: "workspace_api",
     });
-
     useChatStore.getState().handleEvent(runItemCreatedEvent(1, item));
     useChatStore.getState().handleEvent(runItemUpdatedEvent(2, completed));
     useChatStore.getState().handleEvent(runItemOutputDeltaEvent(3, output));
     useChatStore.getState().handleEvent(runItemOutputDeltaEvent(3, output));
-
     expect(useChatStore.getState().runItems).toEqual([completed]);
     expect(useChatStore.getState().runItemOutputs).toEqual([output]);
     expect(useChatStore.getState().runItemIdsByRunId.run_api).toEqual([completed.id]);
@@ -1418,6 +1416,8 @@ function runItem(id: string, type: RunItemType, status: RunItemStatus): RunItem 
     error: "",
     exitCode: 0,
     filePaths: [],
+    fileOperations: [],
+    diffStats: { additions: 0, changedFiles: 0, deletions: 0, structured: false, summary: "" },
     hiddenText: "",
     id,
     noticeKind: "",

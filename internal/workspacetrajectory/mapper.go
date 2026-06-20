@@ -1,7 +1,6 @@
 package workspacetrajectory
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -18,11 +17,6 @@ type SnapshotInput struct {
 	ChatActivity    chat.RunActivityPage
 	Workflow        *orchestrator.WorkflowExecution
 	SemanticRuntime *semanticgraph.SemanticRuntimeSnapshot
-}
-
-type typedRunItemDetails struct {
-	FileRefs  []WorkspaceTrajectoryFileRef `json:"fileRefs"`
-	DiffStats WorkspaceTrajectoryDiffStats `json:"diffStats"`
 }
 
 type workflowBinding struct {
@@ -474,15 +468,8 @@ func spriteKindFromRunItem(item chat.RunItem) (WorkspaceTrajectorySpriteKind, bo
 }
 
 func typedFileReadKind(item chat.RunItem) (WorkspaceTrajectorySpriteKind, bool) {
-	if len(item.Details) == 0 {
-		return "", false
-	}
-	details := typedRunItemDetails{}
-	if err := json.Unmarshal(item.Details, &details); err != nil {
-		return "", false
-	}
-	for _, ref := range details.FileRefs {
-		if ref.Operation == FileOperationRead && ref.Path != "" {
+	for _, operation := range item.FileOperations {
+		if operation.Operation == chat.RunItemFileOperationRead && operation.Path != "" {
 			return SpriteKindFileRead, true
 		}
 	}
@@ -490,7 +477,7 @@ func typedFileReadKind(item chat.RunItem) (WorkspaceTrajectorySpriteKind, bool) 
 }
 
 func fileRefsForRunItem(item chat.RunItem, kind WorkspaceTrajectorySpriteKind) []WorkspaceTrajectoryFileRef {
-	refs := typedFileRefs(item)
+	refs := typedFileRefs(item.FileOperations)
 	if len(refs) > 0 {
 		return refs
 	}
@@ -519,28 +506,48 @@ func fileRefsForRunItem(item chat.RunItem, kind WorkspaceTrajectorySpriteKind) [
 	return refs
 }
 
-func typedFileRefs(item chat.RunItem) []WorkspaceTrajectoryFileRef {
-	if len(item.Details) == 0 {
-		return nil
-	}
-	details := typedRunItemDetails{}
-	if err := json.Unmarshal(item.Details, &details); err != nil {
-		return nil
-	}
+func typedFileRefs(operations []chat.RunItemFileOp) []WorkspaceTrajectoryFileRef {
 	refs := []WorkspaceTrajectoryFileRef{}
-	for _, ref := range details.FileRefs {
-		if ref.Path == "" {
+	for _, operation := range operations {
+		if operation.Path == "" {
 			continue
 		}
-		if ref.DisplayPath == "" {
-			ref.DisplayPath = displayPath(ref.Path)
+		display := operation.DisplayPath
+		if display == "" {
+			display = displayPath(operation.Path)
 		}
-		if ref.Operation == "" {
-			ref.Operation = FileOperationUnknown
-		}
-		refs = append(refs, ref)
+		refs = append(refs, WorkspaceTrajectoryFileRef{
+			Path:         operation.Path,
+			DisplayPath:  display,
+			Operation:    trajectoryFileOperation(operation.Operation),
+			RangeStart:   operation.RangeStart,
+			RangeEnd:     operation.RangeEnd,
+			Additions:    operation.Additions,
+			Deletions:    operation.Deletions,
+			ChangedFiles: operation.ChangedFiles,
+			ContentHash:  operation.ContentHash,
+		})
 	}
 	return refs
+}
+
+func trajectoryFileOperation(operation chat.RunItemFileOperation) WorkspaceTrajectoryFileOperation {
+	switch operation {
+	case chat.RunItemFileOperationRead:
+		return FileOperationRead
+	case chat.RunItemFileOperationWrite:
+		return FileOperationWrite
+	case chat.RunItemFileOperationCreate:
+		return FileOperationCreate
+	case chat.RunItemFileOperationDelete:
+		return FileOperationDelete
+	case chat.RunItemFileOperationRename:
+		return FileOperationRename
+	case chat.RunItemFileOperationDiff:
+		return FileOperationDiff
+	default:
+		return FileOperationUnknown
+	}
 }
 
 func fileRefsForApproval(approval chat.ApprovalRequest) []WorkspaceTrajectoryFileRef {
@@ -570,19 +577,18 @@ func diffStatsForRunItem(item chat.RunItem) WorkspaceTrajectoryDiffStats {
 }
 
 func typedDiffStats(item chat.RunItem) WorkspaceTrajectoryDiffStats {
-	if len(item.Details) == 0 {
-		return WorkspaceTrajectoryDiffStats{}
-	}
-	details := typedRunItemDetails{}
-	if err := json.Unmarshal(item.Details, &details); err != nil {
-		return WorkspaceTrajectoryDiffStats{}
-	}
-	if details.DiffStats.Structured ||
-		details.DiffStats.Summary != "" ||
-		details.DiffStats.ChangedFiles > 0 ||
-		details.DiffStats.Additions > 0 ||
-		details.DiffStats.Deletions > 0 {
-		return details.DiffStats
+	if item.DiffStats.Structured ||
+		item.DiffStats.Summary != "" ||
+		item.DiffStats.ChangedFiles > 0 ||
+		item.DiffStats.Additions > 0 ||
+		item.DiffStats.Deletions > 0 {
+		return WorkspaceTrajectoryDiffStats{
+			Summary:      item.DiffStats.Summary,
+			ChangedFiles: item.DiffStats.ChangedFiles,
+			Additions:    item.DiffStats.Additions,
+			Deletions:    item.DiffStats.Deletions,
+			Structured:   item.DiffStats.Structured,
+		}
 	}
 	return WorkspaceTrajectoryDiffStats{}
 }
@@ -622,6 +628,12 @@ func runItemSubtitle(item chat.RunItem, kind WorkspaceTrajectorySpriteKind) stri
 	case SpriteKindToolCall:
 		return firstNonEmpty(item.ToolName, item.ServerName, item.Summary)
 	case SpriteKindFileWrite, SpriteKindFileRead:
+		if len(item.FileOperations) == 1 {
+			return displayPath(item.FileOperations[0].Path)
+		}
+		if len(item.FileOperations) > 1 {
+			return fmt.Sprintf("%d files", len(item.FileOperations))
+		}
 		if len(item.FilePaths) == 1 {
 			return displayPath(item.FilePaths[0])
 		}

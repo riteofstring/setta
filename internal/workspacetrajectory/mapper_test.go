@@ -19,23 +19,6 @@ const (
 )
 
 func TestBuildSnapshotMapsTypedRunItemsToBoundedSprites(t *testing.T) {
-	diffDetails := mustJSON(t, typedRunItemDetails{
-		DiffStats: WorkspaceTrajectoryDiffStats{
-			Summary:      "typed diff summary",
-			ChangedFiles: 2,
-			Additions:    12,
-			Deletions:    3,
-			Structured:   true,
-		},
-	})
-	fileReadDetails := mustJSON(t, typedRunItemDetails{
-		FileRefs: []WorkspaceTrajectoryFileRef{{
-			Path:       "internal/chat/types.go",
-			Operation:  FileOperationRead,
-			RangeStart: 10,
-			RangeEnd:   20,
-		}},
-	})
 	activity := chat.RunActivityPage{
 		RunID: testChatRunID,
 		Items: []chat.RunItem{
@@ -52,7 +35,13 @@ func TestBuildSnapshotMapsTypedRunItemsToBoundedSprites(t *testing.T) {
 			testRunItem("item_diff", chat.RunItemTypeDiff, chat.RunItemStatusCompleted, "2026-06-18T10:00:03Z", func(item *chat.RunItem) {
 				item.FilePaths = []string{"internal/chat/service.go", "internal/chat/types.go"}
 				item.DiffSummary = "2 files changed"
-				item.Details = diffDetails
+				item.DiffStats = chat.RunItemDiffStats{
+					Summary:      "typed diff summary",
+					ChangedFiles: 2,
+					Additions:    12,
+					Deletions:    3,
+					Structured:   true,
+				}
 			}),
 			testRunItem("item_reasoning", chat.RunItemTypeReasoning, chat.RunItemStatusRunning, "2026-06-18T10:00:04Z", func(item *chat.RunItem) {
 				item.Summary = "Reasoning summary updated"
@@ -61,7 +50,12 @@ func TestBuildSnapshotMapsTypedRunItemsToBoundedSprites(t *testing.T) {
 			testRunItem("item_read", chat.RunItemTypeMCPToolCall, chat.RunItemStatusCompleted, "2026-06-18T10:00:05Z", func(item *chat.RunItem) {
 				item.ServerName = "filesystem"
 				item.ToolName = "read_file"
-				item.Details = fileReadDetails
+				item.FileOperations = []chat.RunItemFileOp{{
+					Path:       "internal/chat/types.go",
+					Operation:  chat.RunItemFileOperationRead,
+					RangeStart: 10,
+					RangeEnd:   20,
+				}}
 			}),
 		},
 	}
@@ -163,15 +157,15 @@ func TestSnapshotLimitBoundsSpritesAndTimeline(t *testing.T) {
 }
 
 func TestTypedFileRefsAreBounded(t *testing.T) {
-	fileRefs := []WorkspaceTrajectoryFileRef{}
+	fileRefs := []chat.RunItemFileOp{}
 	for index := 0; index < 12; index++ {
-		fileRefs = append(fileRefs, WorkspaceTrajectoryFileRef{
+		fileRefs = append(fileRefs, chat.RunItemFileOp{
 			Path:      "internal/workspacetrajectory/file_ref_" + string(rune('a'+index)) + ".go",
-			Operation: FileOperationRead,
+			Operation: chat.RunItemFileOperationRead,
 		})
 	}
 	item := testRunItem("item_many_refs", chat.RunItemTypeMCPToolCall, chat.RunItemStatusCompleted, "2026-06-18T10:04:00Z", func(item *chat.RunItem) {
-		item.Details = mustJSON(t, typedRunItemDetails{FileRefs: fileRefs})
+		item.FileOperations = fileRefs
 	})
 	sprite, ok := SpriteFromRunItem(item, workflowBinding{})
 	if !ok {
@@ -250,15 +244,6 @@ func chatEvent(t *testing.T, eventType string, payload any) chat.Event {
 		RunID:          testChatRunID,
 		Payload:        encoded,
 	}
-}
-
-func mustJSON(t *testing.T, value any) json.RawMessage {
-	t.Helper()
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		t.Fatalf("marshal value: %v", err)
-	}
-	return encoded
 }
 
 func spriteByID(t *testing.T, sprites []WorkspaceTrajectorySprite, id string) WorkspaceTrajectorySprite {

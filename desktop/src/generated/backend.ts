@@ -432,6 +432,32 @@ export function decodeRunItemStatus(value: unknown, label = "RunItemStatus"): Ru
   }
 }
 
+export type RunItemFileOperation = "read" | "write" | "create" | "delete" | "rename" | "diff" | "unknown";
+
+export const runItemFileOperationValues = ["read", "write", "create", "delete", "rename", "diff", "unknown"] as const satisfies readonly RunItemFileOperation[];
+
+export function decodeRunItemFileOperation(value: unknown, label = "RunItemFileOperation"): RunItemFileOperation {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "read":
+      return decoded;
+    case "write":
+      return decoded;
+    case "create":
+      return decoded;
+    case "delete":
+      return decoded;
+    case "rename":
+      return decoded;
+    case "diff":
+      return decoded;
+    case "unknown":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type RunStatus = "queued" | "running" | "completed" | "cancelled" | "failed";
 
 export const runStatusValues = ["queued", "running", "completed", "cancelled", "failed"] as const satisfies readonly RunStatus[];
@@ -2774,6 +2800,26 @@ export interface ChatMessage {
   parts: MessagePart[];
 }
 
+export interface RunItemFileOp {
+  path: string;
+  displayPath: string;
+  operation: RunItemFileOperation;
+  rangeStart: number;
+  rangeEnd: number;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  contentHash: string;
+}
+
+export interface RunItemDiffStats {
+  summary: string;
+  changedFiles: number;
+  additions: number;
+  deletions: number;
+  structured: boolean;
+}
+
 export interface RunItem {
   schemaVersion: number;
   id: string;
@@ -2793,6 +2839,7 @@ export interface RunItem {
   exitCode: number;
   durationMs: number;
   filePaths: string[];
+  fileOperations: RunItemFileOp[];
   patchStatus: string;
   serverName: string;
   toolName: string;
@@ -2806,6 +2853,7 @@ export interface RunItem {
   processId: string;
   requestId: string;
   reviewId: string;
+  diffStats: RunItemDiffStats;
   details: unknown;
   hiddenText: string;
 }
@@ -7176,9 +7224,37 @@ export function decodeChatMessage(value: unknown): ChatMessage {
   };
 }
 
+export function decodeRunItemFileOp(value: unknown): RunItemFileOp {
+  const record = assertRecord(value, "RunItemFileOp");
+  assertKnownFields(record, "RunItemFileOp", ["path", "displayPath", "operation", "rangeStart", "rangeEnd", "additions", "deletions", "changedFiles", "contentHash"]);
+  return {
+    path: decodeString(requireField(record, "path", "RunItemFileOp"), "RunItemFileOp.path"),
+    displayPath: decodeString(requireField(record, "displayPath", "RunItemFileOp"), "RunItemFileOp.displayPath"),
+    operation: decodeRunItemFileOperation(requireField(record, "operation", "RunItemFileOp"), "RunItemFileOp.operation"),
+    rangeStart: decodeInteger(requireField(record, "rangeStart", "RunItemFileOp"), "RunItemFileOp.rangeStart"),
+    rangeEnd: decodeInteger(requireField(record, "rangeEnd", "RunItemFileOp"), "RunItemFileOp.rangeEnd"),
+    additions: decodeInteger(requireField(record, "additions", "RunItemFileOp"), "RunItemFileOp.additions"),
+    deletions: decodeInteger(requireField(record, "deletions", "RunItemFileOp"), "RunItemFileOp.deletions"),
+    changedFiles: decodeInteger(requireField(record, "changedFiles", "RunItemFileOp"), "RunItemFileOp.changedFiles"),
+    contentHash: decodeString(requireField(record, "contentHash", "RunItemFileOp"), "RunItemFileOp.contentHash"),
+  };
+}
+
+export function decodeRunItemDiffStats(value: unknown): RunItemDiffStats {
+  const record = assertRecord(value, "RunItemDiffStats");
+  assertKnownFields(record, "RunItemDiffStats", ["summary", "changedFiles", "additions", "deletions", "structured"]);
+  return {
+    summary: decodeString(requireField(record, "summary", "RunItemDiffStats"), "RunItemDiffStats.summary"),
+    changedFiles: decodeInteger(requireField(record, "changedFiles", "RunItemDiffStats"), "RunItemDiffStats.changedFiles"),
+    additions: decodeInteger(requireField(record, "additions", "RunItemDiffStats"), "RunItemDiffStats.additions"),
+    deletions: decodeInteger(requireField(record, "deletions", "RunItemDiffStats"), "RunItemDiffStats.deletions"),
+    structured: decodeBoolean(requireField(record, "structured", "RunItemDiffStats"), "RunItemDiffStats.structured"),
+  };
+}
+
 export function decodeRunItem(value: unknown): RunItem {
   const record = assertRecord(value, "RunItem");
-  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "hiddenText"]);
+  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "fileOperations", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "diffStats", "details", "hiddenText"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItem"), "RunItem.schemaVersion"),
     id: decodeString(requireField(record, "id", "RunItem"), "RunItem.id"),
@@ -7198,6 +7274,7 @@ export function decodeRunItem(value: unknown): RunItem {
     exitCode: decodeInteger(requireField(record, "exitCode", "RunItem"), "RunItem.exitCode"),
     durationMs: decodeInteger(requireField(record, "durationMs", "RunItem"), "RunItem.durationMs"),
     filePaths: decodeArray(requireField(record, "filePaths", "RunItem"), "RunItem.filePaths", (item) => decodeString(item, "RunItem.filePaths item")),
+    fileOperations: decodeArray(requireField(record, "fileOperations", "RunItem"), "RunItem.fileOperations", (item) => decodeRunItemFileOp(item)),
     patchStatus: decodeString(requireField(record, "patchStatus", "RunItem"), "RunItem.patchStatus"),
     serverName: decodeString(requireField(record, "serverName", "RunItem"), "RunItem.serverName"),
     toolName: decodeString(requireField(record, "toolName", "RunItem"), "RunItem.toolName"),
@@ -7211,6 +7288,7 @@ export function decodeRunItem(value: unknown): RunItem {
     processId: decodeString(requireField(record, "processId", "RunItem"), "RunItem.processId"),
     requestId: decodeString(requireField(record, "requestId", "RunItem"), "RunItem.requestId"),
     reviewId: decodeString(requireField(record, "reviewId", "RunItem"), "RunItem.reviewId"),
+    diffStats: decodeRunItemDiffStats(requireField(record, "diffStats", "RunItem")),
     details: decodeUnknown(requireField(record, "details", "RunItem"), "RunItem.details"),
     hiddenText: decodeString(requireField(record, "hiddenText", "RunItem"), "RunItem.hiddenText"),
   };

@@ -1007,6 +1007,15 @@ func rawJSONPtr(value string) *json.RawMessage {
 	return &raw
 }
 
+func codexNotificationMessage(t *testing.T, method string, params any) jsonRPCMessage {
+	t.Helper()
+	encoded, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("marshal codex notification params: %v", err)
+	}
+	return jsonRPCMessage{Method: method, Params: encoded}
+}
+
 func startCodexTurnAsync(t *testing.T, harness *CodexHarness, sink *recordingSink) <-chan codexTurnResult {
 	t.Helper()
 	request := testTurnRequest(t)

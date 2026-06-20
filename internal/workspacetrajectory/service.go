@@ -128,14 +128,6 @@ func (service *Service) ReadRuntimeSnapshot(ctx context.Context, filter RuntimeF
 		return WorkspaceTrajectoryRuntimeSnapshot{}, errors.New("workspace trajectory workspace id is required")
 	}
 	limit := normalizeLimit(filter.Limit)
-	var activity chat.RunActivityPage
-	if filter.ChatRunID != "" && service.chatSource != nil {
-		page, err := service.chatSource.LoadRunActivityPage(filter.WorkspaceID, filter.ChatRunID, limit)
-		if err != nil {
-			return WorkspaceTrajectoryRuntimeSnapshot{}, fmt.Errorf("read trajectory chat activity: %w", err)
-		}
-		activity = page
-	}
 	var execution *orchestrator.WorkflowExecution
 	if filter.WorkflowExecutionID != "" && service.workflowSource != nil {
 		read, err := service.workflowSource.ReadExecution(filter.WorkspaceID, filter.WorkflowExecutionID)
@@ -143,6 +135,10 @@ func (service *Service) ReadRuntimeSnapshot(ctx context.Context, filter RuntimeF
 			return WorkspaceTrajectoryRuntimeSnapshot{}, fmt.Errorf("read trajectory workflow execution: %w", err)
 		}
 		execution = &read
+	}
+	activity, err := service.readRuntimeChatActivity(filter, limit, execution)
+	if err != nil {
+		return WorkspaceTrajectoryRuntimeSnapshot{}, err
 	}
 	var semanticRuntime *semanticgraph.SemanticRuntimeSnapshot
 	if service.semanticSource != nil {
@@ -165,6 +161,65 @@ func (service *Service) ReadRuntimeSnapshot(ctx context.Context, filter RuntimeF
 		Workflow:        execution,
 		SemanticRuntime: semanticRuntime,
 	}), nil
+}
+
+func (service *Service) readRuntimeChatActivity(filter RuntimeFilter, limit int, execution *orchestrator.WorkflowExecution) (chat.RunActivityPage, error) {
+	if service.chatSource == nil {
+		return chat.RunActivityPage{}, nil
+	}
+	if filter.ChatRunID != "" {
+		page, err := service.chatSource.LoadRunActivityPage(filter.WorkspaceID, filter.ChatRunID, limit)
+		if err != nil {
+			return chat.RunActivityPage{}, fmt.Errorf("read trajectory chat activity: %w", err)
+		}
+		return page, nil
+	}
+	if execution == nil {
+		return chat.RunActivityPage{}, nil
+	}
+	pages := []chat.RunActivityPage{}
+	for _, runID := range workflowChatRunIDs(*execution) {
+		page, err := service.chatSource.LoadRunActivityPage(filter.WorkspaceID, runID, limit)
+		if err != nil {
+			return chat.RunActivityPage{}, fmt.Errorf("read trajectory workflow chat activity %s: %w", runID, err)
+		}
+		pages = append(pages, page)
+	}
+	return mergeRunActivityPages(pages), nil
+}
+
+func workflowChatRunIDs(execution orchestrator.WorkflowExecution) []string {
+	seen := map[string]bool{}
+	runIDs := []string{}
+	for _, nodeExecution := range execution.NodeExecutions {
+		for _, ref := range nodeExecution.RunnerRefs {
+			if ref.Kind != orchestrator.RunnerRefChatRun || ref.ID == "" || seen[ref.ID] {
+				continue
+			}
+			seen[ref.ID] = true
+			runIDs = append(runIDs, ref.ID)
+		}
+	}
+	return runIDs
+}
+
+func mergeRunActivityPages(pages []chat.RunActivityPage) chat.RunActivityPage {
+	if len(pages) == 0 {
+		return chat.RunActivityPage{}
+	}
+	merged := chat.RunActivityPage{
+		RunID:  pages[0].RunID,
+		Items:  []chat.RunItem{},
+		Output: []chat.RunItemOutput{},
+	}
+	if len(pages) > 1 {
+		merged.RunID = ""
+	}
+	for _, page := range pages {
+		merged.Items = append(merged.Items, page.Items...)
+		merged.Output = append(merged.Output, page.Output...)
+	}
+	return merged
 }
 
 func (service *Service) SubscribeRuntimeChanges(cursor RuntimeEventCursor) (*RuntimeEventSubscription, error) {

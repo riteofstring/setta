@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -886,6 +886,11 @@ function conversationRowsExpression() {
 
 async function runCodexProtocolWorkflow(results) {
   const fixture = await createFixture("codex-protocol");
+  await writeFile(
+    join(fixture.workspaceRoot, "main.go"),
+    "package main\n\nfunc main() {}\n",
+    "utf8",
+  );
   const fakeCodex = await installFakeCodexAppServer(fixture);
   const recordingDir = join(recordingRoot, "codex-protocol");
   const context = await launchContext(fixture, recordingDir, {

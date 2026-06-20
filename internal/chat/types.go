@@ -14,6 +14,7 @@ type ApprovalStatus string
 type ApprovalKind string
 type RunItemStatus string
 type RunItemType string
+type RunItemFileOperation string
 type DiagnosticSeverity string
 type DiagnosticSource string
 type ChatCommandKind string
@@ -97,6 +98,14 @@ const (
 	RunItemTypeApprovalReview      RunItemType = "approval_review"
 	RunItemTypeHook                RunItemType = "hook"
 	RunItemTypeStructuredInput     RunItemType = "structured_input"
+
+	RunItemFileOperationRead    RunItemFileOperation = "read"
+	RunItemFileOperationWrite   RunItemFileOperation = "write"
+	RunItemFileOperationCreate  RunItemFileOperation = "create"
+	RunItemFileOperationDelete  RunItemFileOperation = "delete"
+	RunItemFileOperationRename  RunItemFileOperation = "rename"
+	RunItemFileOperationDiff    RunItemFileOperation = "diff"
+	RunItemFileOperationUnknown RunItemFileOperation = "unknown"
 
 	DiagnosticSeverityInfo     DiagnosticSeverity = "info"
 	DiagnosticSeverityWarning  DiagnosticSeverity = "warning"
@@ -219,6 +228,15 @@ var (
 		RunItemTypeHook,
 		RunItemTypeStructuredInput,
 	}
+	runItemFileOperationValues = []RunItemFileOperation{
+		RunItemFileOperationRead,
+		RunItemFileOperationWrite,
+		RunItemFileOperationCreate,
+		RunItemFileOperationDelete,
+		RunItemFileOperationRename,
+		RunItemFileOperationDiff,
+		RunItemFileOperationUnknown,
+	}
 	diagnosticSeverityValues = []DiagnosticSeverity{
 		DiagnosticSeverityInfo,
 		DiagnosticSeverityWarning,
@@ -282,6 +300,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "ApprovalKind", Values: stringValues(approvalKindValues)},
 		{Name: "RunItemStatus", Values: stringValues(runItemStatusValues)},
 		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
+		{Name: "RunItemFileOperation", Values: stringValues(runItemFileOperationValues)},
 		{Name: "DiagnosticSeverity", Values: stringValues(diagnosticSeverityValues)},
 		{Name: "DiagnosticSource", Values: stringValues(diagnosticSourceValues)},
 		{Name: "StructuredInputMode", Values: stringValues(structuredInputModeValues)},
@@ -465,39 +484,61 @@ func (diagnostic Diagnostic) MarshalJSON() ([]byte, error) {
 }
 
 type RunItem struct {
-	SchemaVersion  int             `json:"schemaVersion"`
-	ID             string          `json:"id"`
-	WorkspaceID    string          `json:"workspaceId"`
-	ConversationID string          `json:"conversationId"`
-	RunID          string          `json:"runId"`
-	ProviderItemID string          `json:"providerItemId"`
-	Type           RunItemType     `json:"type"`
-	Status         RunItemStatus   `json:"status"`
-	CreatedAt      string          `json:"createdAt"`
-	StartedAt      string          `json:"startedAt"`
-	CompletedAt    string          `json:"completedAt"`
-	Title          string          `json:"title"`
-	Summary        string          `json:"summary"`
-	Command        string          `json:"command"`
-	Cwd            string          `json:"cwd"`
-	ExitCode       int             `json:"exitCode"`
-	DurationMs     int             `json:"durationMs"`
-	FilePaths      []string        `json:"filePaths"`
-	PatchStatus    string          `json:"patchStatus"`
-	ServerName     string          `json:"serverName"`
-	ToolName       string          `json:"toolName"`
-	Progress       string          `json:"progress"`
-	Result         string          `json:"result"`
-	Error          string          `json:"error"`
-	NoticeKind     string          `json:"noticeKind"`
-	NoticeMessage  string          `json:"noticeMessage"`
-	DiffSummary    string          `json:"diffSummary"`
-	Namespace      string          `json:"namespace"`
-	ProcessID      string          `json:"processId"`
-	RequestID      string          `json:"requestId"`
-	ReviewID       string          `json:"reviewId"`
-	Details        json.RawMessage `json:"details"`
-	HiddenText     string          `json:"hiddenText"`
+	SchemaVersion  int              `json:"schemaVersion"`
+	ID             string           `json:"id"`
+	WorkspaceID    string           `json:"workspaceId"`
+	ConversationID string           `json:"conversationId"`
+	RunID          string           `json:"runId"`
+	ProviderItemID string           `json:"providerItemId"`
+	Type           RunItemType      `json:"type"`
+	Status         RunItemStatus    `json:"status"`
+	CreatedAt      string           `json:"createdAt"`
+	StartedAt      string           `json:"startedAt"`
+	CompletedAt    string           `json:"completedAt"`
+	Title          string           `json:"title"`
+	Summary        string           `json:"summary"`
+	Command        string           `json:"command"`
+	Cwd            string           `json:"cwd"`
+	ExitCode       int              `json:"exitCode"`
+	DurationMs     int              `json:"durationMs"`
+	FilePaths      []string         `json:"filePaths"`
+	FileOperations []RunItemFileOp  `json:"fileOperations"`
+	PatchStatus    string           `json:"patchStatus"`
+	ServerName     string           `json:"serverName"`
+	ToolName       string           `json:"toolName"`
+	Progress       string           `json:"progress"`
+	Result         string           `json:"result"`
+	Error          string           `json:"error"`
+	NoticeKind     string           `json:"noticeKind"`
+	NoticeMessage  string           `json:"noticeMessage"`
+	DiffSummary    string           `json:"diffSummary"`
+	Namespace      string           `json:"namespace"`
+	ProcessID      string           `json:"processId"`
+	RequestID      string           `json:"requestId"`
+	ReviewID       string           `json:"reviewId"`
+	DiffStats      RunItemDiffStats `json:"diffStats"`
+	Details        json.RawMessage  `json:"details"`
+	HiddenText     string           `json:"hiddenText"`
+}
+
+type RunItemFileOp struct {
+	Path         string               `json:"path"`
+	DisplayPath  string               `json:"displayPath"`
+	Operation    RunItemFileOperation `json:"operation"`
+	RangeStart   int                  `json:"rangeStart"`
+	RangeEnd     int                  `json:"rangeEnd"`
+	Additions    int                  `json:"additions"`
+	Deletions    int                  `json:"deletions"`
+	ChangedFiles int                  `json:"changedFiles"`
+	ContentHash  string               `json:"contentHash"`
+}
+
+type RunItemDiffStats struct {
+	Summary      string `json:"summary"`
+	ChangedFiles int    `json:"changedFiles"`
+	Additions    int    `json:"additions"`
+	Deletions    int    `json:"deletions"`
+	Structured   bool   `json:"structured"`
 }
 
 type RunItemOutput struct {
@@ -767,6 +808,9 @@ func (item RunItem) MarshalJSON() ([]byte, error) {
 	type itemAlias RunItem
 	if item.FilePaths == nil {
 		item.FilePaths = []string{}
+	}
+	if item.FileOperations == nil {
+		item.FileOperations = []RunItemFileOp{}
 	}
 	return json.Marshal(itemAlias(item))
 }

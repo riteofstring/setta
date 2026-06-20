@@ -284,15 +284,18 @@ func writeFakeActivityTurn() {
 		"turnId":   "turn_fake",
 	})
 	writeFakeNotification("item/fileChange/patchUpdated", map[string]any{
-		"changedPaths": []string{"/tmp/workspace/main.go"},
-		"itemId":       "file_fake",
-		"status":       "updated",
-		"threadId":     "thread_fake",
-		"turnId":       "turn_fake",
+		"changes": []any{map[string]any{
+			"diff": "@@\n-old\n+new\n",
+			"kind": map[string]any{"type": "update"},
+			"path": "/tmp/workspace/main.go",
+		}},
+		"itemId":   "file_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
 	})
 	writeFakeNotification("item/mcpToolCall/progress", map[string]any{
 		"itemId":   "mcp_fake",
-		"progress": "halfway",
+		"message":  "halfway",
 		"threadId": "thread_fake",
 		"turnId":   "turn_fake",
 	})
@@ -448,11 +451,14 @@ func writeFakeProtocolCoverageNotifications() {
 	writeFakeContextCompaction("item/started", "context_compaction_fake")
 	writeFakeContextCompaction("item/completed", "context_compaction_fake")
 	writeFakeNotification("item/fileChange/patchUpdated", map[string]any{
-		"changedPaths": []string{"/tmp/workspace/main.go"},
-		"itemId":       "file_fake",
-		"status":       "updated",
-		"threadId":     "thread_fake",
-		"turnId":       "turn_fake",
+		"changes": []any{map[string]any{
+			"diff": "@@\n-old\n+new\n",
+			"kind": map[string]any{"type": "update"},
+			"path": "/tmp/workspace/main.go",
+		}},
+		"itemId":   "file_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
 	})
 	writeFakeNotification("item/reasoning/textDelta", map[string]any{
 		"contentIndex": 0,

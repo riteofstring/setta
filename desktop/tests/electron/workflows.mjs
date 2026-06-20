@@ -81,6 +81,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "workspace-trajectory-file-fidelity.test.mjs",
+    name: "workspace-trajectory-file-fidelity",
+    tiers: ["required"],
+  },
+  {
     file: "visual-parity-workflow.test.mjs",
     name: "visual-parity",
     tiers: ["performance"],

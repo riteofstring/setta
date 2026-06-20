@@ -1,11 +1,68 @@
 package workspacetrajectory
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"setta/internal/chat"
+	"setta/internal/orchestrator"
 )
+
+func TestServiceWorkflowSnapshotLoadsBoundChatRunActivity(t *testing.T) {
+	execution := testWorkflowExecution()
+	source := &stubTrajectoryChatSource{
+		pages: map[string]chat.RunActivityPage{
+			testChatRunID: {
+				RunID: testChatRunID,
+				Items: []chat.RunItem{
+					testRunItem("item_service_workflow_read", chat.RunItemTypeDynamicToolCall, chat.RunItemStatusCompleted, "2026-06-18T10:10:00Z", func(item *chat.RunItem) {
+						item.Namespace = chat.SettaAgentToolNamespace
+						item.ToolName = chat.SettaWorkspaceFileReadToolName
+						item.FileOperations = []chat.RunItemFileOp{{
+							Path:       "main.go",
+							Operation:  chat.RunItemFileOperationRead,
+							RangeStart: 1,
+							RangeEnd:   3,
+						}}
+					}),
+				},
+			},
+		},
+	}
+	service, err := NewService(Config{
+		ChatSource:     source,
+		WorkflowSource: &stubTrajectoryWorkflowSource{execution: execution},
+		Now:            fixedClock("2026-06-18T10:10:01Z"),
+	})
+	if err != nil {
+		t.Fatalf("create service: %v", err)
+	}
+
+	snapshot, err := service.ReadRuntimeSnapshot(context.Background(), RuntimeFilter{
+		WorkspaceID:         testWorkspaceID,
+		WorkflowExecutionID: testWorkflowExecutionID,
+		Limit:               20,
+	})
+	if err != nil {
+		t.Fatalf("read runtime snapshot: %v", err)
+	}
+	if len(source.loadedRunIDs) != 1 || source.loadedRunIDs[0] != testChatRunID {
+		t.Fatalf("loaded run ids = %+v, want %s", source.loadedRunIDs, testChatRunID)
+	}
+	sprite := spriteByID(t, snapshot.Sprites, "run-item:item_service_workflow_read")
+	if sprite.Kind != SpriteKindFileRead ||
+		sprite.WorkflowExecutionID != testWorkflowExecutionID ||
+		sprite.WorkflowNodeID != testWorkflowNodeID ||
+		len(sprite.FileRefs) != 1 ||
+		sprite.FileRefs[0].Operation != FileOperationRead ||
+		sprite.FileRefs[0].Path != "main.go" ||
+		sprite.FileRefs[0].RangeStart != 1 ||
+		sprite.FileRefs[0].RangeEnd != 3 {
+		t.Fatalf("workflow-bound chat sprite = %+v", sprite)
+	}
+}
 
 func TestServicePublishesRevisionedDeltasAndDeterministicSnapshotRequiredGap(t *testing.T) {
 	now := fixedClock("2026-06-18T11:00:00Z")
@@ -101,4 +158,44 @@ func fixedClock(value string) func() time.Time {
 	return func() time.Time {
 		return parsed
 	}
+}
+
+type stubTrajectoryChatSource struct {
+	loadedRunIDs []string
+	pages        map[string]chat.RunActivityPage
+}
+
+func (source *stubTrajectoryChatSource) LoadRunActivityPage(workspaceID string, runID string, _ int) (chat.RunActivityPage, error) {
+	if workspaceID != testWorkspaceID {
+		return chat.RunActivityPage{}, errors.New("unexpected workspace id")
+	}
+	source.loadedRunIDs = append(source.loadedRunIDs, runID)
+	page, ok := source.pages[runID]
+	if !ok {
+		return chat.RunActivityPage{}, errors.New("missing run activity page")
+	}
+	return page, nil
+}
+
+func (source *stubTrajectoryChatSource) SubscribeEvents(chat.EventCursor) (*chat.EventSubscription, error) {
+	return nil, errors.New("chat subscription is not used by this test")
+}
+
+type stubTrajectoryWorkflowSource struct {
+	execution orchestrator.WorkflowExecution
+}
+
+func (source *stubTrajectoryWorkflowSource) ReadExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error) {
+	if workspaceID != testWorkspaceID || executionID != source.execution.ID {
+		return orchestrator.WorkflowExecution{}, errors.New("unexpected workflow execution request")
+	}
+	return source.execution, nil
+}
+
+func (source *stubTrajectoryWorkflowSource) ReadExecutionEventPage(string, string, int, int) (orchestrator.WorkflowExecutionEventPage, error) {
+	return orchestrator.WorkflowExecutionEventPage{}, errors.New("workflow event page is not used by this test")
+}
+
+func (source *stubTrajectoryWorkflowSource) SubscribeEvents(orchestrator.WorkflowEventCursor) (*orchestrator.EventSubscription, error) {
+	return nil, errors.New("workflow subscription is not used by this test")
 }
