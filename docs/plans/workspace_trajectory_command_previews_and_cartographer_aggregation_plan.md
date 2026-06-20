@@ -1,8 +1,7 @@
 # Workspace Trajectory Command Previews And Cartographer Aggregation Plan
 
 - **Date:** June 19, 2026
-- **Status:** Phase 4 complete; Phase 5 verification passed for Phase 4
-  changes.
+- **Status:** Complete.
 - **Scope:** Make workspace trajectory sprites more legible by showing raw
   command previews for command run items, aggregating cartographer lifecycle
   noise before it reaches the visible graph lanes, and replacing confusing
@@ -31,7 +30,8 @@
   single-active-node fallback only for same-workflow agent activity, suppresses
   unanchored cartographer/workflow lifecycle sprites from the canvas, and keeps
   `recentLane` empty for normal workflow activity.
-- Phase 4 is complete in the current worktree.
+- Phase 4 is complete in commit `108db485e` (`Clean up trajectory details
+  presentation`).
 - Workflow node trajectory details now hide the ordinary `Revision` row, use
   display-count labels, render aggregate source counts with bounded newest
   source previews, and keep memory-suggestion summaries on user-facing copy.
@@ -64,20 +64,22 @@ pnpm -C desktop build
 node desktop/tests/electron/workspace-trajectory-file-fidelity.test.mjs --skip-build
 ```
 
-Focused Phase 4 verification passed on June 20, 2026:
+Phase 4 and Phase 5 verification passed on June 20, 2026:
 
 ```sh
 pnpm -C desktop exec vitest run \
   src/renderer/src/features/workspace-graph/workspace-trajectory-store.test.ts \
-  src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts
+  src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts \
+  src/renderer/src/features/workspace-graph/workspace-trajectory-display-labels.test.ts
 pnpm -C desktop exec tsc --noEmit --pretty false
+pnpm -C desktop build
+node desktop/tests/electron/workspace-trajectory-file-fidelity.test.mjs --skip-build
 ./scripts/format.sh
 ./check_quality.sh --all
 ```
 
-Phase 4 details cleanup is now implemented. The remaining planned work is any
-future follow-up that extends details inspection beyond these Phase 4
-acceptance criteria.
+This plan is complete. Future follow-ups should be opened as new plans if they
+extend details inspection beyond these acceptance criteria.
 
 ## Position
 
@@ -577,7 +579,7 @@ Acceptance criteria:
 - Aggregate detail counts match display-item semantics after aggregation, not
   raw hidden sprite counts.
 
-### Phase 5: Verification
+### Phase 5: Verification (Complete)
 
 Run focused deterministic checks first:
 
@@ -621,6 +623,9 @@ Before committing implementation changes, run:
 ./scripts/format.sh
 ./check_quality.sh --all
 ```
+
+Completed after Phase 4 in commit `108db485e`; final verification is recorded
+in the implementation status section above.
 
 ## Resolved Decisions
 
