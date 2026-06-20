@@ -152,6 +152,59 @@ func TestWorkflowEndpointDeletesDraftEdges(t *testing.T) {
 	}
 }
 
+func TestWorkflowEndpointsReadAndUpdateGraphViewLayout(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "HTTP view layout",
+		Graph:       httpWorkflowActionGraph(),
+	}, http.StatusOK)
+	execution := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	target := workflowHTTPDefinitionVersionViewLayoutTarget(definition.ID, execution.DefinitionVersionID)
+
+	empty := postJSON[orchestrator.WorkflowGraphViewLayout](t, handler, "/workflows/graph/view-layout/read", ReadWorkflowGraphViewLayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Target:      target,
+	}, http.StatusOK)
+	if len(empty.Positions) != 0 {
+		t.Fatalf("empty view layout positions = %+v, want empty", empty.Positions)
+	}
+
+	updated := postJSON[orchestrator.WorkflowGraphViewLayout](t, handler, "/workflows/graph/view-layout/update", UpdateWorkflowGraphViewLayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Target:      target,
+		Positions: []orchestrator.WorkflowGraphNodeLayout{
+			{NodeID: "start", X: -72, Y: 36},
+		},
+	}, http.StatusOK)
+	if position := graphHTTPViewLayoutPosition(t, updated, "start"); position.X != -72 || position.Y != 36 {
+		t.Fatalf("updated HTTP view layout position = %+v, want -72/36", position)
+	}
+	read := postJSON[orchestrator.WorkflowGraphViewLayout](t, handler, "/workflows/graph/view-layout/read", ReadWorkflowGraphViewLayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Target:      target,
+	}, http.StatusOK)
+	if position := graphHTTPViewLayoutPosition(t, read, "start"); position.X != -72 || position.Y != 36 {
+		t.Fatalf("read HTTP view layout position = %+v, want -72/36", position)
+	}
+
+	unknown := postJSON[ErrorResponse](t, handler, "/workflows/graph/view-layout/update", UpdateWorkflowGraphViewLayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Target:      target,
+		Positions: []orchestrator.WorkflowGraphNodeLayout{
+			{NodeID: "missing", X: 0, Y: 0},
+		},
+	}, http.StatusBadRequest)
+	if unknown.Error.Code != "update_workflow_graph_view_layout_failed" ||
+		!strings.Contains(unknown.Error.Message, "unknown node missing") {
+		t.Fatalf("unknown node response = %+v, want view layout unknown-node error", unknown)
+	}
+}
+
 func TestWorkflowEndpointsSubmitWorkflowApproval(t *testing.T) {
 	handler := newScriptedWorkflowHandler(t)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -417,6 +470,27 @@ func projectedHTTPLayoutNode(t *testing.T, projection orchestrator.WorkflowGraph
 		}
 	}
 	t.Fatalf("projected layout node %s was not found in %+v", nodeID, projection.Layout.Nodes)
+	return orchestrator.WorkflowGraphNodeLayout{}
+}
+
+func workflowHTTPDefinitionVersionViewLayoutTarget(definitionID string, versionID string) orchestrator.WorkflowGraphViewLayoutTarget {
+	return orchestrator.WorkflowGraphViewLayoutTarget{
+		Kind: orchestrator.GraphViewLayoutTargetDefinitionVersion,
+		DefinitionVersion: &orchestrator.WorkflowGraphDefinitionVersionViewLayoutTarget{
+			DefinitionID: definitionID,
+			VersionID:    versionID,
+		},
+	}
+}
+
+func graphHTTPViewLayoutPosition(t *testing.T, layout orchestrator.WorkflowGraphViewLayout, nodeID string) orchestrator.WorkflowGraphNodeLayout {
+	t.Helper()
+	for _, position := range layout.Positions {
+		if position.NodeID == nodeID {
+			return position
+		}
+	}
+	t.Fatalf("view layout position %s was not found in %+v", nodeID, layout.Positions)
 	return orchestrator.WorkflowGraphNodeLayout{}
 }
 

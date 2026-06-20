@@ -71,6 +71,7 @@ import type {
   ReadSemanticWorkingSetRequest,
   ReadWorkspaceTrajectoryRuntimeSnapshotRequest,
   ReadWorkflowGraphProjectionResponse,
+  ReadWorkflowGraphViewLayoutRequest,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
@@ -125,6 +126,7 @@ import type {
   UpdateWorkflowDefinitionLayoutRequest,
   UpdateWorkflowDefinitionSettingsRequest,
   UpdateWorkflowEdgeRequest,
+  UpdateWorkflowGraphViewLayoutRequest,
   UpdateWorkflowNodeRequest,
   ValidateWorkflowDefinitionDraftRequest,
   WorkflowDefinition,
@@ -133,6 +135,7 @@ import type {
   WorkflowExecutionEventPage,
   WorkflowGraph,
   WorkflowGraphProjection,
+  WorkflowGraphViewLayout,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
   WorkspaceTrajectoryRuntimeEvent,
@@ -634,6 +637,9 @@ export interface SettaAPI {
     onEvent: (listener: (event: WorkflowEvent) => void) => () => void;
     readDefinition: (workspaceId: string, definitionId: string) => Promise<WorkflowDefinition>;
     readExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
+    readGraphViewLayout: (
+      request: ReadWorkflowGraphViewLayoutRequest,
+    ) => Promise<WorkflowGraphViewLayout>;
     startExecution: (
       workspaceId: string,
       definitionId: string,
@@ -648,6 +654,9 @@ export interface SettaAPI {
       request: UpdateWorkflowDefinitionSettingsRequest,
     ) => Promise<WorkflowDefinition>;
     updateEdge: (request: UpdateWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
+    updateGraphViewLayout: (
+      request: UpdateWorkflowGraphViewLayoutRequest,
+    ) => Promise<WorkflowGraphViewLayout>;
     updateNode: (request: UpdateWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
     validateDefinition: (
       workspaceId: string,

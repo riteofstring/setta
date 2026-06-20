@@ -87,6 +87,7 @@ type WorkflowService interface {
 	ReadExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
 	ReadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (orchestrator.WorkflowExecutionEventPage, error)
 	ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (orchestrator.WorkflowGraphProjection, bool, error)
+	ReadGraphViewLayout(workspaceID string, target orchestrator.WorkflowGraphViewLayoutTarget) (orchestrator.WorkflowGraphViewLayout, error)
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
 	SubscribeEvents(cursor orchestrator.WorkflowEventCursor) (*orchestrator.EventSubscription, error)
 	SubmitApproval(workspaceID string, executionID string, nodeExecutionID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (orchestrator.WorkflowExecution, error)
@@ -97,6 +98,7 @@ type WorkflowService interface {
 	UpdateDefinitionLayout(workspaceID string, definitionID string, expectedRevision string, positions []orchestrator.WorkflowGraphNodeLayout) (orchestrator.WorkflowGraphProjection, error)
 	UpdateDefinitionNode(workspaceID string, definitionID string, expectedRevision string, node orchestrator.WorkflowNode) (orchestrator.WorkflowGraphProjection, error)
 	UpdateDefinitionSettings(workspaceID string, definitionID string, expectedRevision string, name string, description string) (orchestrator.WorkflowDefinition, error)
+	UpdateGraphViewLayout(workspaceID string, target orchestrator.WorkflowGraphViewLayoutTarget, positions []orchestrator.WorkflowGraphNodeLayout) (orchestrator.WorkflowGraphViewLayout, error)
 }
 
 type SemanticGraphService interface {

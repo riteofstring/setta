@@ -195,6 +195,22 @@ export function registerWorkflowIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "workflowReadGraphViewLayout",
+    async (_event, request) => {
+      return requireBackendClient().readWorkflowGraphViewLayout(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowUpdateGraphViewLayout",
+    async (_event, request) => {
+      return requireBackendClient().updateWorkflowGraphViewLayout(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "workflowSubmitApproval",
     async (_event, request) => {
       return requireBackendClient().submitWorkflowApproval(request);

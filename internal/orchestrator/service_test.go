@@ -105,6 +105,51 @@ func assertLatestDefinitionVersionNumber(t *testing.T, store *Store, workspaceID
 	}
 }
 
+func workflowDefinitionVersionViewLayoutTarget(definitionID string, versionID string) WorkflowGraphViewLayoutTarget {
+	return WorkflowGraphViewLayoutTarget{
+		Kind: GraphViewLayoutTargetDefinitionVersion,
+		DefinitionVersion: &WorkflowGraphDefinitionVersionViewLayoutTarget{
+			DefinitionID: definitionID,
+			VersionID:    versionID,
+		},
+	}
+}
+
+func createStartedViewLayoutWorkflowForTest(t *testing.T, service *Service, workspaceID string) (WorkflowDefinition, WorkflowExecution) {
+	t.Helper()
+	definition, err := service.CreateDefinition(workspaceID, "View layout", "", startEndGraph())
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	return definition, started
+}
+
+func workflowExecutionViewLayoutTarget(definitionID string, versionID string, executionID string) WorkflowGraphViewLayoutTarget {
+	return WorkflowGraphViewLayoutTarget{
+		Kind: GraphViewLayoutTargetWorkflowExecution,
+		WorkflowExecution: &WorkflowGraphExecutionViewLayoutTarget{
+			DefinitionID: definitionID,
+			VersionID:    versionID,
+			ExecutionID:  executionID,
+		},
+	}
+}
+
+func graphViewLayoutPositionForTest(t *testing.T, layout WorkflowGraphViewLayout, nodeID string) WorkflowGraphNodeLayout {
+	t.Helper()
+	for _, position := range layout.Positions {
+		if position.NodeID == nodeID {
+			return position
+		}
+	}
+	t.Fatalf("view layout position %s was not found in %+v", nodeID, layout.Positions)
+	return WorkflowGraphNodeLayout{}
+}
+
 func TestServiceStoresNullWorkflowDraftAndRejectsRun(t *testing.T) {
 	_, resolver, service, workspaceID := newTestWorkflowService(t)
 	workspaceRoot := resolver.workspaces[workspaceID].RootPath
@@ -205,6 +250,120 @@ func TestServiceRejectsWorkflowLayoutForUnknownNode(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unknown node missing") {
 		t.Fatalf("layout error = %v, want unknown node", err)
+	}
+}
+
+func TestServicePersistsWorkflowGraphViewLayoutForDefinitionVersion(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	definition, started := createStartedViewLayoutWorkflowForTest(t, service, workspaceID)
+	versionTarget := workflowDefinitionVersionViewLayoutTarget(definition.ID, started.DefinitionVersionID)
+
+	initial, err := service.ReadGraphViewLayout(workspaceID, versionTarget)
+	if err != nil {
+		t.Fatalf("read empty version view layout: %v", err)
+	}
+	if len(initial.Positions) != 0 {
+		t.Fatalf("initial version view layout positions = %+v, want empty", initial.Positions)
+	}
+
+	updatedVersion, err := service.UpdateGraphViewLayout(workspaceID, versionTarget, []WorkflowGraphNodeLayout{
+		{NodeID: "start", X: -120, Y: 44},
+	})
+	if err != nil {
+		t.Fatalf("update version view layout: %v", err)
+	}
+	if position := graphViewLayoutPositionForTest(t, updatedVersion, "start"); position.X != -120 || position.Y != 44 {
+		t.Fatalf("version view layout start = %+v, want -120/44", position)
+	}
+	readVersion, err := service.ReadGraphViewLayout(workspaceID, versionTarget)
+	if err != nil {
+		t.Fatalf("read version view layout: %v", err)
+	}
+	if position := graphViewLayoutPositionForTest(t, readVersion, "start"); position.X != -120 || position.Y != 44 {
+		t.Fatalf("read version view layout start = %+v, want -120/44", position)
+	}
+
+	readDefinition, err := service.ReadDefinition(workspaceID, definition.ID)
+	if err != nil {
+		t.Fatalf("read definition after view layout update: %v", err)
+	}
+	if readDefinition.DraftRevision != definition.DraftRevision {
+		t.Fatalf("draft revision after view layout update = %s, want %s", readDefinition.DraftRevision, definition.DraftRevision)
+	}
+	if len(readDefinition.Graph.Layout.Nodes) != 0 {
+		t.Fatalf("draft definition layout = %+v, want unchanged empty layout", readDefinition.Graph.Layout.Nodes)
+	}
+}
+
+func TestServiceIsolatesWorkflowGraphViewLayoutTargets(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	definition, started := createStartedViewLayoutWorkflowForTest(t, service, workspaceID)
+	versionTarget := workflowDefinitionVersionViewLayoutTarget(definition.ID, started.DefinitionVersionID)
+	if _, err := service.UpdateGraphViewLayout(workspaceID, versionTarget, []WorkflowGraphNodeLayout{
+		{NodeID: "start", X: -120, Y: 44},
+	}); err != nil {
+		t.Fatalf("update version view layout: %v", err)
+	}
+
+	runTarget := workflowExecutionViewLayoutTarget(definition.ID, started.DefinitionVersionID, started.ID)
+	updatedRun, err := service.UpdateGraphViewLayout(workspaceID, runTarget, []WorkflowGraphNodeLayout{
+		{NodeID: "start", X: 240, Y: 88},
+	})
+	if err != nil {
+		t.Fatalf("update run view layout: %v", err)
+	}
+	if position := graphViewLayoutPositionForTest(t, updatedRun, "start"); position.X != 240 || position.Y != 88 {
+		t.Fatalf("run view layout start = %+v, want 240/88", position)
+	}
+	readVersionAgain, err := service.ReadGraphViewLayout(workspaceID, versionTarget)
+	if err != nil {
+		t.Fatalf("read isolated version view layout: %v", err)
+	}
+	if position := graphViewLayoutPositionForTest(t, readVersionAgain, "start"); position.X != -120 || position.Y != 44 {
+		t.Fatalf("version view layout after run update = %+v, want -120/44", position)
+	}
+}
+
+func TestServiceRejectsWorkflowGraphViewLayoutForUnknownNode(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	definition, err := service.CreateDefinition(workspaceID, "View layout unknown", "", startEndGraph())
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	_, err = service.UpdateGraphViewLayout(workspaceID, workflowDefinitionVersionViewLayoutTarget(definition.ID, started.DefinitionVersionID), []WorkflowGraphNodeLayout{
+		{NodeID: "missing", X: 0, Y: 0},
+	})
+	if err == nil {
+		t.Fatal("update view layout with missing node succeeded, want error")
+	}
+	if !strings.Contains(err.Error(), "unknown node missing") {
+		t.Fatalf("view layout error = %v, want unknown node", err)
+	}
+}
+
+func TestServiceRejectsInvalidWorkflowGraphViewLayoutTarget(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	_, err := service.ReadGraphViewLayout(workspaceID, WorkflowGraphViewLayoutTarget{
+		Kind: GraphViewLayoutTargetDefinitionVersion,
+	})
+	if err == nil || !strings.Contains(err.Error(), "definitionVersion target is required") {
+		t.Fatalf("nil definition version target error = %v, want required target", err)
+	}
+	_, err = service.ReadGraphViewLayout(workspaceID, WorkflowGraphViewLayoutTarget{
+		Kind:              GraphViewLayoutTargetDefinitionVersion,
+		DefinitionVersion: &WorkflowGraphDefinitionVersionViewLayoutTarget{DefinitionID: "workflow_definition_test", VersionID: "workflow_version_test"},
+		WorkflowExecution: &WorkflowGraphExecutionViewLayoutTarget{DefinitionID: "workflow_definition_test", VersionID: "workflow_version_test", ExecutionID: "workflow_execution_test"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "must not include workflowExecution") {
+		t.Fatalf("mixed target error = %v, want explicit discriminator rejection", err)
+	}
+	_, err = service.ReadGraphViewLayout(workspaceID, WorkflowGraphViewLayoutTarget{Kind: WorkflowGraphViewLayoutTargetKind("draft")})
+	if err == nil || !strings.Contains(err.Error(), "unsupported workflow graph view layout target kind draft") {
+		t.Fatalf("unsupported target error = %v, want unsupported kind", err)
 	}
 }
 

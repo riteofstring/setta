@@ -1216,6 +1216,22 @@ export function decodeWorkflowTokenStatus(value: unknown, label = "WorkflowToken
   }
 }
 
+export type WorkflowGraphViewLayoutTargetKind = "definition_version" | "workflow_execution";
+
+export const workflowGraphViewLayoutTargetKindValues = ["definition_version", "workflow_execution"] as const satisfies readonly WorkflowGraphViewLayoutTargetKind[];
+
+export function decodeWorkflowGraphViewLayoutTargetKind(value: unknown, label = "WorkflowGraphViewLayoutTargetKind"): WorkflowGraphViewLayoutTargetKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "definition_version":
+      return decoded;
+    case "workflow_execution":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type WorkflowEventType = "workflow.execution.started" | "workflow.node.scheduled" | "workflow.action.started" | "workflow.action.completed" | "workflow.action.failed" | "workflow.action.cancelled" | "workflow.action.waiting_approval" | "workflow.gateway.resolved" | "workflow.loop.advanced" | "workflow.execution.completed" | "workflow.execution.failed" | "workflow.execution.stopped" | "workflow.execution.cancelled" | "workflow.runner_refs.attached" | "workflow.action.recovered" | "workflow.action.recovery_required" | "runner.attempt.started" | "runner.text.delta" | "runner.tool_call.started" | "runner.tool_call.output" | "runner.approval.requested" | "runner.approval.resolved" | "runner.artifact.reported" | "runner.structured_output.received" | "runner.attempt.completed" | "runner.attempt.failed" | "runner.attempt.cancelled" | "runner.attempt.recovery_required";
 
 export const workflowEventTypeValues = ["workflow.execution.started", "workflow.node.scheduled", "workflow.action.started", "workflow.action.completed", "workflow.action.failed", "workflow.action.cancelled", "workflow.action.waiting_approval", "workflow.gateway.resolved", "workflow.loop.advanced", "workflow.execution.completed", "workflow.execution.failed", "workflow.execution.stopped", "workflow.execution.cancelled", "workflow.runner_refs.attached", "workflow.action.recovered", "workflow.action.recovery_required", "runner.attempt.started", "runner.text.delta", "runner.tool_call.started", "runner.tool_call.output", "runner.approval.requested", "runner.approval.resolved", "runner.artifact.reported", "runner.structured_output.received", "runner.attempt.completed", "runner.attempt.failed", "runner.attempt.cancelled", "runner.attempt.recovery_required"] as const satisfies readonly WorkflowEventType[];
@@ -3683,6 +3699,42 @@ export interface ReadWorkflowGraphProjectionRequest {
 
 export interface ReadWorkflowGraphProjectionResponse {
   projection: WorkflowGraphProjection | null;
+}
+
+export interface WorkflowGraphDefinitionVersionViewLayoutTarget {
+  definitionId: string;
+  versionId: string;
+}
+
+export interface WorkflowGraphExecutionViewLayoutTarget {
+  definitionId: string;
+  versionId: string;
+  executionId: string;
+}
+
+export interface WorkflowGraphViewLayoutTarget {
+  kind: WorkflowGraphViewLayoutTargetKind;
+  definitionVersion: WorkflowGraphDefinitionVersionViewLayoutTarget | null;
+  workflowExecution: WorkflowGraphExecutionViewLayoutTarget | null;
+}
+
+export interface ReadWorkflowGraphViewLayoutRequest {
+  workspaceId: string;
+  target: WorkflowGraphViewLayoutTarget;
+}
+
+export interface WorkflowGraphViewLayout {
+  schemaVersion: number;
+  workspaceId: string;
+  target: WorkflowGraphViewLayoutTarget;
+  positions: WorkflowGraphNodeLayout[];
+  updatedAt: string;
+}
+
+export interface UpdateWorkflowGraphViewLayoutRequest {
+  workspaceId: string;
+  target: WorkflowGraphViewLayoutTarget;
+  positions: WorkflowGraphNodeLayout[];
 }
 
 export interface GetWorkflowExecutionEventsRequest {
@@ -6484,6 +6536,14 @@ export const backendEndpoints = {
     method: "POST",
     path: "/workflows/graph/read",
   },
+  ReadWorkflowGraphViewLayout: {
+    method: "POST",
+    path: "/workflows/graph/view-layout/read",
+  },
+  UpdateWorkflowGraphViewLayout: {
+    method: "POST",
+    path: "/workflows/graph/view-layout/update",
+  },
   GetWorkflowExecutionEvents: {
     method: "POST",
     path: "/workflows/executions/events",
@@ -8590,6 +8650,66 @@ export function decodeReadWorkflowGraphProjectionResponse(value: unknown): ReadW
   assertKnownFields(record, "ReadWorkflowGraphProjectionResponse", ["projection"]);
   return {
     projection: decodeNullable(requireField(record, "projection", "ReadWorkflowGraphProjectionResponse"), "ReadWorkflowGraphProjectionResponse.projection", (item) => decodeWorkflowGraphProjection(item)),
+  };
+}
+
+export function decodeWorkflowGraphDefinitionVersionViewLayoutTarget(value: unknown): WorkflowGraphDefinitionVersionViewLayoutTarget {
+  const record = assertRecord(value, "WorkflowGraphDefinitionVersionViewLayoutTarget");
+  assertKnownFields(record, "WorkflowGraphDefinitionVersionViewLayoutTarget", ["definitionId", "versionId"]);
+  return {
+    definitionId: decodeString(requireField(record, "definitionId", "WorkflowGraphDefinitionVersionViewLayoutTarget"), "WorkflowGraphDefinitionVersionViewLayoutTarget.definitionId"),
+    versionId: decodeString(requireField(record, "versionId", "WorkflowGraphDefinitionVersionViewLayoutTarget"), "WorkflowGraphDefinitionVersionViewLayoutTarget.versionId"),
+  };
+}
+
+export function decodeWorkflowGraphExecutionViewLayoutTarget(value: unknown): WorkflowGraphExecutionViewLayoutTarget {
+  const record = assertRecord(value, "WorkflowGraphExecutionViewLayoutTarget");
+  assertKnownFields(record, "WorkflowGraphExecutionViewLayoutTarget", ["definitionId", "versionId", "executionId"]);
+  return {
+    definitionId: decodeString(requireField(record, "definitionId", "WorkflowGraphExecutionViewLayoutTarget"), "WorkflowGraphExecutionViewLayoutTarget.definitionId"),
+    versionId: decodeString(requireField(record, "versionId", "WorkflowGraphExecutionViewLayoutTarget"), "WorkflowGraphExecutionViewLayoutTarget.versionId"),
+    executionId: decodeString(requireField(record, "executionId", "WorkflowGraphExecutionViewLayoutTarget"), "WorkflowGraphExecutionViewLayoutTarget.executionId"),
+  };
+}
+
+export function decodeWorkflowGraphViewLayoutTarget(value: unknown): WorkflowGraphViewLayoutTarget {
+  const record = assertRecord(value, "WorkflowGraphViewLayoutTarget");
+  assertKnownFields(record, "WorkflowGraphViewLayoutTarget", ["kind", "definitionVersion", "workflowExecution"]);
+  return {
+    kind: decodeWorkflowGraphViewLayoutTargetKind(requireField(record, "kind", "WorkflowGraphViewLayoutTarget"), "WorkflowGraphViewLayoutTarget.kind"),
+    definitionVersion: decodeNullable(requireField(record, "definitionVersion", "WorkflowGraphViewLayoutTarget"), "WorkflowGraphViewLayoutTarget.definitionVersion", (item) => decodeWorkflowGraphDefinitionVersionViewLayoutTarget(item)),
+    workflowExecution: decodeNullable(requireField(record, "workflowExecution", "WorkflowGraphViewLayoutTarget"), "WorkflowGraphViewLayoutTarget.workflowExecution", (item) => decodeWorkflowGraphExecutionViewLayoutTarget(item)),
+  };
+}
+
+export function decodeReadWorkflowGraphViewLayoutRequest(value: unknown): ReadWorkflowGraphViewLayoutRequest {
+  const record = assertRecord(value, "ReadWorkflowGraphViewLayoutRequest");
+  assertKnownFields(record, "ReadWorkflowGraphViewLayoutRequest", ["workspaceId", "target"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkflowGraphViewLayoutRequest"), "ReadWorkflowGraphViewLayoutRequest.workspaceId"),
+    target: decodeWorkflowGraphViewLayoutTarget(requireField(record, "target", "ReadWorkflowGraphViewLayoutRequest")),
+  };
+}
+
+export function decodeWorkflowGraphViewLayout(value: unknown): WorkflowGraphViewLayout {
+  const record = assertRecord(value, "WorkflowGraphViewLayout");
+  assertKnownFields(record, "WorkflowGraphViewLayout", ["schemaVersion", "workspaceId", "target", "positions", "updatedAt"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowGraphViewLayout"), "WorkflowGraphViewLayout.schemaVersion"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowGraphViewLayout"), "WorkflowGraphViewLayout.workspaceId"),
+    target: decodeWorkflowGraphViewLayoutTarget(requireField(record, "target", "WorkflowGraphViewLayout")),
+    positions: decodeArray(requireField(record, "positions", "WorkflowGraphViewLayout"), "WorkflowGraphViewLayout.positions", (item) => decodeWorkflowGraphNodeLayout(item)),
+    updatedAt: decodeString(requireField(record, "updatedAt", "WorkflowGraphViewLayout"), "WorkflowGraphViewLayout.updatedAt"),
+  };
+}
+
+export function decodeUpdateWorkflowGraphViewLayoutRequest(value: unknown): UpdateWorkflowGraphViewLayoutRequest {
+  const record = assertRecord(value, "UpdateWorkflowGraphViewLayoutRequest");
+  assertKnownFields(record, "UpdateWorkflowGraphViewLayoutRequest", ["workspaceId", "target", "positions"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateWorkflowGraphViewLayoutRequest"), "UpdateWorkflowGraphViewLayoutRequest.workspaceId"),
+    target: decodeWorkflowGraphViewLayoutTarget(requireField(record, "target", "UpdateWorkflowGraphViewLayoutRequest")),
+    positions: decodeArray(requireField(record, "positions", "UpdateWorkflowGraphViewLayoutRequest"), "UpdateWorkflowGraphViewLayoutRequest.positions", (item) => decodeWorkflowGraphNodeLayout(item)),
   };
 }
 
@@ -12130,6 +12250,8 @@ export interface BackendClient {
   cancelWorkflowExecution: (request: CancelWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
+  readWorkflowGraphViewLayout: (request: ReadWorkflowGraphViewLayoutRequest) => Promise<WorkflowGraphViewLayout>;
+  updateWorkflowGraphViewLayout: (request: UpdateWorkflowGraphViewLayoutRequest) => Promise<WorkflowGraphViewLayout>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
   submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
   readWorkspaceTrajectoryRuntimeSnapshot: (request: ReadWorkspaceTrajectoryRuntimeSnapshotRequest) => Promise<WorkspaceTrajectoryRuntimeSnapshot>;
@@ -12643,6 +12765,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkflowGraphProjectionResponse,
       endpoint: backendEndpoints.ReadWorkflowGraphProjection,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readWorkflowGraphViewLayout: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowGraphViewLayout,
+      endpoint: backendEndpoints.ReadWorkflowGraphViewLayout,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateWorkflowGraphViewLayout: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowGraphViewLayout,
+      endpoint: backendEndpoints.UpdateWorkflowGraphViewLayout,
       fetchImpl,
       requestPayload: request,
     }),

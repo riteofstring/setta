@@ -73,6 +73,7 @@ import type {
   ReadSemanticWorkingSetRequest,
   ReadWorkspaceTrajectoryRuntimeSnapshotRequest,
   ReasoningEffort,
+  ReadWorkflowGraphViewLayoutRequest,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
   ReviewCartographerPatchRequest,
@@ -124,6 +125,7 @@ import type {
   UpdateWorkflowDefinitionLayoutRequest,
   UpdateWorkflowDefinitionSettingsRequest,
   UpdateWorkflowEdgeRequest,
+  UpdateWorkflowGraphViewLayoutRequest,
   UpdateWorkflowNodeRequest,
   ValidateWorkflowDefinitionDraftRequest,
   WorkflowDefinition,
@@ -131,6 +133,7 @@ import type {
   WorkflowExecutionEventPage,
   WorkflowGraph,
   WorkflowGraphProjection,
+  WorkflowGraphViewLayout,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
   WorkspaceTrajectoryRuntimeSnapshot,
@@ -259,12 +262,14 @@ export const ipcChannels = {
   workflowListDefinitions: "workflow:list-definitions",
   workflowReadDefinition: "workflow:read-definition",
   workflowReadExecution: "workflow:read-execution",
+  workflowReadGraphViewLayout: "workflow:read-graph-view-layout",
   workflowStartExecution: "workflow:start-execution",
   workflowSubmitApproval: "workflow:submit-approval",
   workflowUpdateDefinition: "workflow:update-definition",
   workflowUpdateDefinitionLayout: "workflow:update-definition-layout",
   workflowUpdateDefinitionSettings: "workflow:update-definition-settings",
   workflowUpdateEdge: "workflow:update-edge",
+  workflowUpdateGraphViewLayout: "workflow:update-graph-view-layout",
   workflowUpdateNode: "workflow:update-node",
   workflowValidateDefinition: "workflow:validate-definition",
   workflowValidateDefinitionDraft: "workflow:validate-definition-draft",
@@ -757,6 +762,10 @@ interface IpcContract {
     args: [workspaceId: string, executionId: string];
     result: WorkflowExecution;
   };
+  workflowReadGraphViewLayout: {
+    args: [request: ReadWorkflowGraphViewLayoutRequest];
+    result: WorkflowGraphViewLayout;
+  };
   workflowStartExecution: {
     args: [workspaceId: string, definitionId: string, versionId: string];
     result: WorkflowExecution;
@@ -780,6 +789,10 @@ interface IpcContract {
   workflowUpdateEdge: {
     args: [request: UpdateWorkflowEdgeRequest];
     result: WorkflowGraphProjection;
+  };
+  workflowUpdateGraphViewLayout: {
+    args: [request: UpdateWorkflowGraphViewLayoutRequest];
+    result: WorkflowGraphViewLayout;
   };
   workflowUpdateNode: {
     args: [request: UpdateWorkflowNodeRequest];

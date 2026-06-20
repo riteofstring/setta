@@ -25,6 +25,8 @@ type WorkflowStore interface {
 	SaveDefinitionVersion(WorkflowDefinitionVersion) error
 	LatestDefinitionVersionNumber(workspaceID string, definitionID string) (int, error)
 	LoadDefinitionVersion(workspaceID string, definitionID string, versionID string) (WorkflowDefinitionVersion, error)
+	LoadGraphViewLayout(workspaceID string, target WorkflowGraphViewLayoutTarget) (WorkflowGraphViewLayout, error)
+	SaveGraphViewLayout(WorkflowGraphViewLayout) error
 	SaveDefinitionValidationSnapshot(WorkflowValidationSnapshot) error
 	LoadDefinitionValidationSnapshot(workspaceID string, definitionID string) (WorkflowValidationSnapshot, bool, error)
 	LoadExecution(workspaceID string, executionID string) (WorkflowExecution, error)
@@ -179,6 +181,21 @@ CREATE TABLE IF NOT EXISTS workflow_versions (
 
 CREATE INDEX IF NOT EXISTS workflow_versions_definition_created_idx
   ON workflow_versions(definition_id, created_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS workflow_graph_view_layouts (
+  workspace_id TEXT NOT NULL,
+  target_kind TEXT NOT NULL,
+  definition_id TEXT NOT NULL,
+  definition_version_id TEXT NOT NULL,
+  execution_id TEXT NOT NULL DEFAULT '',
+  schema_version INTEGER NOT NULL,
+  positions_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, target_kind, definition_id, definition_version_id, execution_id)
+);
+
+CREATE INDEX IF NOT EXISTS workflow_graph_view_layouts_workspace_idx
+  ON workflow_graph_view_layouts(workspace_id, target_kind, definition_id, definition_version_id, execution_id);
 
 CREATE TABLE IF NOT EXISTS workflow_validation_snapshots (
   workspace_id TEXT NOT NULL,

@@ -19,6 +19,7 @@ type WorkflowTokenStatus string
 type WorkflowGraphNodeStatus string
 type WorkflowGraphEdgeStatus string
 type WorkflowGraphViewMode string
+type WorkflowGraphViewLayoutTargetKind string
 type WorkflowEventType string
 type WorkflowValidationStatus string
 type WorkflowValidationSeverity string
@@ -102,6 +103,9 @@ const (
 	GraphViewModeDraft   WorkflowGraphViewMode = "draft"
 	GraphViewModeVersion WorkflowGraphViewMode = "version"
 	GraphViewModeRun     WorkflowGraphViewMode = "run"
+
+	GraphViewLayoutTargetDefinitionVersion WorkflowGraphViewLayoutTargetKind = "definition_version"
+	GraphViewLayoutTargetWorkflowExecution WorkflowGraphViewLayoutTargetKind = "workflow_execution"
 
 	WorkflowValidationNotValidated WorkflowValidationStatus = "not_validated"
 	WorkflowValidationCurrent      WorkflowValidationStatus = "current"
@@ -322,6 +326,10 @@ var (
 		GraphViewModeVersion,
 		GraphViewModeRun,
 	}
+	workflowGraphViewLayoutTargetKindValues = []WorkflowGraphViewLayoutTargetKind{
+		GraphViewLayoutTargetDefinitionVersion,
+		GraphViewLayoutTargetWorkflowExecution,
+	}
 	workflowValidationStatusValues = []WorkflowValidationStatus{
 		WorkflowValidationNotValidated,
 		WorkflowValidationCurrent,
@@ -503,6 +511,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "WorkflowGraphNodeStatus", Values: stringValues(workflowGraphNodeStatusValues)},
 		{Name: "WorkflowGraphEdgeStatus", Values: stringValues(workflowGraphEdgeStatusValues)},
 		{Name: "WorkflowGraphViewMode", Values: stringValues(workflowGraphViewModeValues)},
+		{Name: "WorkflowGraphViewLayoutTargetKind", Values: stringValues(workflowGraphViewLayoutTargetKindValues)},
 		{Name: "WorkflowValidationStatus", Values: stringValues(workflowValidationStatusValues)},
 		{Name: "WorkflowEventType", Values: stringValues(workflowEventTypeValues)},
 		{Name: "WorkflowValidationSeverity", Values: stringValues(workflowValidationSeverityValues)},
@@ -571,6 +580,31 @@ type WorkflowGraphNodeLayout struct {
 	NodeID string `json:"nodeId"`
 	X      int    `json:"x"`
 	Y      int    `json:"y"`
+}
+
+type WorkflowGraphViewLayoutTarget struct {
+	Kind              WorkflowGraphViewLayoutTargetKind               `json:"kind"`
+	DefinitionVersion *WorkflowGraphDefinitionVersionViewLayoutTarget `json:"definitionVersion"`
+	WorkflowExecution *WorkflowGraphExecutionViewLayoutTarget         `json:"workflowExecution"`
+}
+
+type WorkflowGraphDefinitionVersionViewLayoutTarget struct {
+	DefinitionID string `json:"definitionId"`
+	VersionID    string `json:"versionId"`
+}
+
+type WorkflowGraphExecutionViewLayoutTarget struct {
+	DefinitionID string `json:"definitionId"`
+	VersionID    string `json:"versionId"`
+	ExecutionID  string `json:"executionId"`
+}
+
+type WorkflowGraphViewLayout struct {
+	SchemaVersion int                           `json:"schemaVersion"`
+	WorkspaceID   string                        `json:"workspaceId"`
+	Target        WorkflowGraphViewLayoutTarget `json:"target"`
+	Positions     []WorkflowGraphNodeLayout     `json:"positions"`
+	UpdatedAt     string                        `json:"updatedAt"`
 }
 
 type WorkflowDraftNodePosition struct {

@@ -61,12 +61,14 @@ describe("preload workflow API", () => {
       "onEvent",
       "readDefinition",
       "readExecution",
+      "readGraphViewLayout",
       "startExecution",
       "submitApproval",
       "updateDefinition",
       "updateDefinitionLayout",
       "updateDefinitionSettings",
       "updateEdge",
+      "updateGraphViewLayout",
       "updateNode",
       "validateDefinition",
       "validateDefinitionDraft",
@@ -124,6 +126,23 @@ describe("preload workflow API", () => {
       definitionId: "workflow_definition_api",
       expectedRevision: "revision_api",
       positions: [{ nodeId: "start", x: 10, y: 20 }],
+      workspaceId: "workspace_api",
+    });
+    const graphViewLayoutTarget = {
+      definitionVersion: {
+        definitionId: "workflow_definition_api",
+        versionId: "workflow_version_api",
+      },
+      kind: "definition_version",
+      workflowExecution: null,
+    } as const;
+    await api.workflow.readGraphViewLayout({
+      target: graphViewLayoutTarget,
+      workspaceId: "workspace_api",
+    });
+    await api.workflow.updateGraphViewLayout({
+      positions: [{ nodeId: "start", x: 30, y: 40 }],
+      target: graphViewLayoutTarget,
       workspaceId: "workspace_api",
     });
     await api.workflow.updateDefinitionSettings({
@@ -255,6 +274,21 @@ describe("preload workflow API", () => {
           definitionId: "workflow_definition_api",
           expectedRevision: "revision_api",
           positions: [{ nodeId: "start", x: 10, y: 20 }],
+          workspaceId: "workspace_api",
+        },
+      ],
+      [
+        ipcChannels.workflowReadGraphViewLayout,
+        {
+          target: graphViewLayoutTarget,
+          workspaceId: "workspace_api",
+        },
+      ],
+      [
+        ipcChannels.workflowUpdateGraphViewLayout,
+        {
+          positions: [{ nodeId: "start", x: 30, y: 40 }],
+          target: graphViewLayoutTarget,
           workspaceId: "workspace_api",
         },
       ],

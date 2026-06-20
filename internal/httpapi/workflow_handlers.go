@@ -328,6 +328,40 @@ func (handler handler) readWorkflowGraphProjection(response http.ResponseWriter,
 	writeJSON(response, http.StatusOK, ReadWorkflowGraphProjectionResponse{Projection: &projection})
 }
 
+func (handler handler) readWorkflowGraphViewLayout(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload ReadWorkflowGraphViewLayoutRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	layout, err := service.ReadGraphViewLayout(payload.WorkspaceID, payload.Target)
+	if err != nil {
+		writeWorkflowError(response, "read_workflow_graph_view_layout_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, layout)
+}
+
+func (handler handler) updateWorkflowGraphViewLayout(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload UpdateWorkflowGraphViewLayoutRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	layout, err := service.UpdateGraphViewLayout(payload.WorkspaceID, payload.Target, payload.Positions)
+	if err != nil {
+		writeWorkflowError(response, "update_workflow_graph_view_layout_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, layout)
+}
+
 func (handler handler) getWorkflowExecutionEvents(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {

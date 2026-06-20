@@ -94,6 +94,8 @@ var apiEndpoints = []endpoint{
 	post[CancelWorkflowExecutionRequest, orchestrator.WorkflowExecution]("CancelWorkflowExecution", "/workflows/executions/cancel", handler.cancelWorkflowExecution),
 	post[ReadWorkflowExecutionRequest, orchestrator.WorkflowExecution]("ReadWorkflowExecution", "/workflows/executions/read", handler.readWorkflowExecution),
 	post[ReadWorkflowGraphProjectionRequest, ReadWorkflowGraphProjectionResponse]("ReadWorkflowGraphProjection", "/workflows/graph/read", handler.readWorkflowGraphProjection),
+	post[ReadWorkflowGraphViewLayoutRequest, orchestrator.WorkflowGraphViewLayout]("ReadWorkflowGraphViewLayout", "/workflows/graph/view-layout/read", handler.readWorkflowGraphViewLayout),
+	post[UpdateWorkflowGraphViewLayoutRequest, orchestrator.WorkflowGraphViewLayout]("UpdateWorkflowGraphViewLayout", "/workflows/graph/view-layout/update", handler.updateWorkflowGraphViewLayout),
 	post[GetWorkflowExecutionEventsRequest, orchestrator.WorkflowExecutionEventPage]("GetWorkflowExecutionEvents", "/workflows/executions/events", handler.getWorkflowExecutionEvents),
 	post[SubmitWorkflowApprovalRequest, orchestrator.WorkflowExecution]("SubmitWorkflowApproval", "/workflows/approvals/submit", handler.submitWorkflowApproval),
 	stream("WorkflowEventStream", "/workflows/events", handler.workflowEventStream),

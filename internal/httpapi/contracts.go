@@ -284,6 +284,17 @@ type UpdateWorkflowDefinitionLayoutRequest struct {
 	Positions        []orchestrator.WorkflowGraphNodeLayout `json:"positions"`
 }
 
+type ReadWorkflowGraphViewLayoutRequest struct {
+	WorkspaceID string                                     `json:"workspaceId"`
+	Target      orchestrator.WorkflowGraphViewLayoutTarget `json:"target"`
+}
+
+type UpdateWorkflowGraphViewLayoutRequest struct {
+	WorkspaceID string                                     `json:"workspaceId"`
+	Target      orchestrator.WorkflowGraphViewLayoutTarget `json:"target"`
+	Positions   []orchestrator.WorkflowGraphNodeLayout     `json:"positions"`
+}
+
 type AddWorkflowNodeRequest struct {
 	WorkspaceID      string                                 `json:"workspaceId"`
 	DefinitionID     string                                 `json:"definitionId"`
