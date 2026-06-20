@@ -1,7 +1,7 @@
 # Semantic Runtime and Graph Interaction Refactor Plan
 
 - **Date:** June 16, 2026
-- **Status:** Phase 6 complete; Phase 7 ready
+- **Status:** Phase 7 complete; plan implemented with calibrated report-only performance follow-up remaining
 - **Scope:** Fix baseline pan/zoom latency even before a workflow starts, replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
 - **Related docs:**
   - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
@@ -947,6 +947,60 @@ Report-only until calibrated:
 
 - Cross-machine frame p95, if local variance remains high.
 - GPU/compositor timing, if Electron/CDP measurement remains noisy.
+
+### Phase 7 Implementation Review
+
+Phase 7 is implemented by commit `0aa0c0e05` (`Implement semantic runtime phase
+7 acceptance gates`).
+
+Implemented:
+
+- Added deterministic Electron acceptance workflows for the Phase 7 matrix:
+  `workflow-graph-pan-zoom-small-active`,
+  `workflow-graph-pan-zoom-runtime-burst`, `semantic-review-live-product`,
+  `semantic-runtime-reconnect`, and `semantic-runtime-large-review`.
+- Added shared semantic runtime traffic gates covering runtime snapshot
+  bootstrap, zero blank-scope working-set reads after runtime bootstrap,
+  semantic runtime IPC bytes per minute, snapshot/delta payload byte budgets,
+  and runtime payload bytes per minute.
+- Added production-path product acceptance checks for typed liveness within one
+  second, reviewer active styling, workflow runtime detail explanation,
+  semantic finding provenance detail, applied finding readback, reconnect
+  recovery, large-review visual budgets, and no default-view live-source graph
+  node clutter.
+- Added runtime-burst pan/zoom acceptance that streams semantic runtime deltas
+  during camera input and reuses the graph performance guardrails for camera
+  latency, no camera-time working-set reads, label-sync deferral, materialized
+  node counts, display-object counts, and long-task checks.
+- Added a three-node synthetic running workflow with aggregate runtime
+  indicator for small-active pan/zoom verification.
+
+Focused verification passed during review:
+
+- `./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi`
+- `pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/pixi-renderer-synthetic-graph.test.js src/preload/index.test.ts src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts`
+- `pnpm --dir desktop exec eslint src/preload/index.ts src/preload/index.test.ts src/shared/types.ts src/renderer/src/features/workspace-graph/pixi-renderer-synthetic-graph.js src/renderer/src/features/workspace-graph/pixi-renderer-synthetic-graph.test.js tests/electron/semantic-runtime-phase7-acceptance.test.mjs tests/electron/semantic-runtime-phase7-helpers.mjs tests/electron/semantic-runtime-traffic-gate.mjs tests/electron/workflow-graph-pan-zoom-recording.test.mjs tests/electron/workflow-graph-phase0-performance-guardrails.mjs tests/electron/workflows.mjs`
+- `pnpm --dir desktop typecheck`
+- `pnpm --dir desktop build`
+- `node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --skip-build --scenario small-active`
+- `node desktop/tests/electron/semantic-runtime-phase7-acceptance.test.mjs --skip-build --workflow workflow-graph-pan-zoom-runtime-burst`
+- `node desktop/tests/electron/semantic-runtime-phase7-acceptance.test.mjs --skip-build --workflow semantic-review-live-product`
+- `node desktop/tests/electron/semantic-runtime-phase7-acceptance.test.mjs --skip-build --workflow semantic-runtime-reconnect`
+- `node desktop/tests/electron/semantic-runtime-phase7-acceptance.test.mjs --skip-build --workflow semantic-runtime-large-review`
+
+All hard Phase 7 gates passed in the review recordings. The remaining misses are
+intentionally report-only calibration items:
+
+- `workflow-graph-pan-zoom-small-active` reported p95 frame time above the
+  provisional 24 ms frame budget, while the hard wheel-to-camera and
+  wheel-to-rendered-frame latency gates passed.
+- `workflow-graph-pan-zoom-runtime-burst` reported static-glow redraw count and
+  p95 frame time above provisional budgets, while the hard camera latency,
+  no-working-set-read, payload, visual budget, and long-task gates passed.
+
+The implementation is complete for the current plan's hard requirements. Future
+work should either calibrate those report-only frame/GPU thresholds across
+machines or convert them into hard gates once the metrics are stable enough.
 
 ## Expected User Experience After Completion
 
