@@ -27,6 +27,18 @@ export function nodeOpenRequested(event, onNodeOpen) {
   return event.detail >= 2 && onNodeOpen !== null;
 }
 
+export function nodeIsMovable(node) {
+  return nodeMovementOwner(node) !== null;
+}
+
+export function nodeCursor(node) {
+  return nodeIsMovable(node) ? "grab" : "default";
+}
+
+function nodeMovementOwner(node) {
+  return node?.movementOwner ?? null;
+}
+
 export function nodeDeleteRequested(event, onNodeDelete, selectedNodeIds) {
   return (
     isDeleteKey(event.key) &&

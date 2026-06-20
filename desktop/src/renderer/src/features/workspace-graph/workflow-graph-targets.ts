@@ -29,6 +29,7 @@ export function workflowNodeDetailsTarget(
     definitionName: projection.definitionName,
     definitionVersionId: projection.definitionVersionId,
     definitionVersionNumber: projection.definitionVersionNumber,
+    editable: projection.editable,
     executionId: projection.executionId,
     nodeId,
     nodeKind: node?.kind ?? "",

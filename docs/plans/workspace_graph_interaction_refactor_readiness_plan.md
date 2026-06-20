@@ -1,8 +1,8 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 2 contract coverage added; Phase 3 can now start against
-  the expected-red interaction contract workflows.
+- **Status:** Phase 3 interaction ownership implemented; Phase 4 can now start
+  against explicit layout-save outcome and rollback contracts.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -808,6 +808,12 @@ are already hidden and no edge save is issued.
 
 Goal: make editability and movement ownership explicit contracts used by graph
 interaction, details surfaces, and toolbar state.
+
+Status: Complete. Workflow graph renderer data now carries explicit movement
+owners and connectability, read-only run/version movement writes through the
+non-editing view-layout owner, semantic preview nodes are non-movable, version
+details derive read-only state from projection editability, and graph
+replacements defer while direct manipulation is active.
 
 Tasks:
 

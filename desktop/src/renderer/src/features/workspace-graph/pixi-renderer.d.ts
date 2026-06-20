@@ -61,6 +61,7 @@ export interface WorkflowGraphNode {
   kind?: WorkflowNodeKind;
   layer: "semantic" | "workflow";
   label: string;
+  movementOwner?: WorkflowGraphNodeMovementOwner | null;
   /** Semantic-only lineage id in renderer namespace, or "" when unset. */
   mergedIntoNodeId?: string;
   ports?: WorkflowGraphPort[];
@@ -82,6 +83,12 @@ export interface WorkflowGraphNode {
   x: number;
   y: number;
 }
+
+export type WorkflowGraphNodeMovementOwner =
+  | { kind: "semantic_layout" }
+  | { kind: "synthetic_layout" }
+  | { kind: "workflow_definition_layout" }
+  | { kind: "workflow_view_layout" };
 
 export interface WorkflowGraphPort {
   id: string;

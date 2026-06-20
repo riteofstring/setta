@@ -14,6 +14,7 @@ export interface WorkflowNodeDetailsTarget {
   definitionName: string;
   definitionVersionId: string;
   definitionVersionNumber: number;
+  editable: boolean;
   executionId: string;
   nodeId: string;
   nodeKind: WorkflowNodeKind | "";

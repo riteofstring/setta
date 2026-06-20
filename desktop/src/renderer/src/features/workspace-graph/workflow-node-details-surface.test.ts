@@ -10,7 +10,10 @@ import {
   workflowGraphWithUpdatedAgentTask,
   workflowNodeEvents,
 } from "./workflow-node-details-helpers";
-import { WorkflowSemanticRuntimeDetails } from "./workflow-node-details-surface";
+import {
+  WorkflowNodeDetailsContent,
+  WorkflowSemanticRuntimeDetails,
+} from "./workflow-node-details-surface";
 import { WorkflowTrajectoryRuntimeDetails } from "./workflow-trajectory-runtime-details";
 
 describe("workflow node details surface helpers", () => {
@@ -192,6 +195,48 @@ describe("workflow node details surface helpers", () => {
     expect(html).not.toContain("pending_review");
     expect(html).not.toContain("cartographer_patch");
   });
+
+  test("renders a version node details target without a run id as read-only", () => {
+    const definition = agentTaskDefinition();
+    const node = definition.graph.nodes[0];
+    if (node === undefined) {
+      throw new Error("agent task fixture is missing its node");
+    }
+    const html = renderToString(
+      createElement(WorkflowNodeDetailsContent, {
+        definition,
+        draft: {
+          freshConversation: true,
+          model: "",
+          prompt: "Review the workspace",
+          reasoningEffort: "",
+          title: "Review",
+        },
+        loadError: "",
+        node,
+        onDraftChange: () => undefined,
+        onSave: () => undefined,
+        runInspection: {
+          activityPages: [],
+          events: [],
+          execution: null,
+          loadError: "",
+          loading: false,
+        },
+        saveMessage: "",
+        saving: false,
+        target: {
+          ...runtimeTarget(),
+          editable: false,
+          executionId: "",
+          viewMode: "version",
+        },
+      }),
+    );
+
+    expect(html).toContain("This pane is read-only");
+    expect(html).toMatch(/data-testid="workflow-node-save-button"[^>]*disabled=""/);
+  });
 });
 
 function runtimeTarget(): WorkflowNodeDetailsTarget {
@@ -200,6 +245,7 @@ function runtimeTarget(): WorkflowNodeDetailsTarget {
     definitionName: "Workflow",
     definitionVersionId: "workflow_version_test",
     definitionVersionNumber: 1,
+    editable: false,
     executionId: "workflow_execution_test",
     nodeId: "reviewer",
     nodeKind: "action",
@@ -238,6 +284,42 @@ function runtimeTarget(): WorkflowNodeDetailsTarget {
     },
     versionMismatch: false,
     viewMode: "run",
+    workspaceId: "workspace_test",
+  };
+}
+
+function agentTaskDefinition() {
+  return {
+    createdAt: "",
+    description: "",
+    draftRevision: "sha256:draft",
+    draftUpdatedAt: "",
+    graph: {
+      edges: [],
+      layout: { nodes: [] },
+      nodes: [
+        {
+          action: {
+            codex: {
+              freshConversation: true,
+              model: "",
+              prompt: "Review the workspace",
+              reasoningEffort: "",
+            },
+            kind: "agent.codex" as const,
+          },
+          gateway: null,
+          id: "reviewer",
+          kind: "action" as const,
+          loopGuard: null,
+          title: "Review",
+        },
+      ],
+    },
+    id: "workflow_definition_test",
+    name: "Workflow",
+    schemaVersion: 1,
+    updatedAt: "",
     workspaceId: "workspace_test",
   };
 }

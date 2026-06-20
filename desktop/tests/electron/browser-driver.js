@@ -233,7 +233,7 @@
 
   function visibleWorkflowGraphCount() {
     return Array.from(document.querySelectorAll('[data-testid="workflow-graph"]')).filter(
-      (candidate) => elementIntersectsViewport(candidate),
+      workflowGraphSurfaceIsInteractable,
     ).length;
   }
 
@@ -356,8 +356,8 @@
 
   function initialWorkflowGraphSurface(surfaceId) {
     return (
+      workflowGraphInteractableSurfaceForId(surfaceId) ??
       workflowGraphSurfaceById(surfaceId) ??
-      activeWorkflowGraphSurface() ??
       firstWorkflowGraphSurface()
     );
   }
@@ -467,7 +467,8 @@
   }
 
   function workflowGraphCanvasRect({ surfaceId }) {
-    const root = workflowGraphInteractableSurfaceForId(surfaceId);
+    const root =
+      workflowGraphSurfaceById(surfaceId) ?? workflowGraphInteractableSurfaceForId(surfaceId);
     const canvas = root?.querySelector('[data-testid="workflow-graph-canvas"]');
     if (!canvas) {
       throw new Error("workflow graph canvas is missing");
@@ -705,43 +706,28 @@
     if (!(toolbar instanceof HTMLElement)) {
       return { ok: false, reason: "missing-workflow-toolbar" };
     }
-    return {
-      buttons: workflowToolbarButtonSnapshots(),
-      ok: true,
-      operationStatus: workflowToolbarOperationStatusSnapshot(),
-      toolbar: elementRect(toolbar),
-    };
-  }
-
-  function workflowToolbarButtonSnapshots() {
     const buttons = {};
     for (const testId of workflowToolbarButtonTestIds) {
       const button = workflowToolbarElement(`[data-testid="${testId}"]`);
       if (button instanceof HTMLButtonElement) {
-        buttons[testId] = workflowToolbarButtonSnapshot(button);
+        buttons[testId] = {
+          ariaLabel: button.getAttribute("aria-label") ?? "",
+          disabled: button.disabled,
+          rect: elementRect(button),
+          text: compactElementText(button),
+          title: button.getAttribute("title") ?? "",
+        };
       }
     }
-    return buttons;
-  }
-
-  function workflowToolbarButtonSnapshot(button) {
-    return {
-      ariaLabel: button.getAttribute("aria-label") ?? "",
-      disabled: button.disabled,
-      rect: elementRect(button),
-      text: compactElementText(button),
-      title: button.getAttribute("title") ?? "",
-    };
-  }
-
-  function workflowToolbarOperationStatusSnapshot() {
     const operationStatus = workflowToolbarElement('[data-testid="workflow-operation-status"]');
-    if (!(operationStatus instanceof HTMLElement)) {
-      return null;
-    }
     return {
-      rect: elementRect(operationStatus),
-      text: compactElementText(operationStatus),
+      buttons,
+      ok: true,
+      operationStatus:
+        operationStatus instanceof HTMLElement
+          ? { rect: elementRect(operationStatus), text: compactElementText(operationStatus) }
+          : null,
+      toolbar: elementRect(toolbar),
     };
   }
 
@@ -816,11 +802,16 @@
   }
 
   function workflowGraphDebugSurfaceIdCandidates(surfaceId, surfaceIds) {
+    const requestedSurface = workflowGraphSurfaceById(surfaceId);
+    const requestedInteractableSurfaceId = workflowGraphSurfaceIsInteractable(requestedSurface)
+      ? requestedSurface?.dataset.surfaceId
+      : null;
     const interactableSurfaceIds = surfaceIds.filter((candidateSurfaceId) =>
       workflowGraphSurfaceIsInteractable(workflowGraphSurfaceById(candidateSurfaceId)),
     );
     return uniqueWorkflowGraphSurfaceIds([
       surfaceId,
+      requestedInteractableSurfaceId,
       workflowGraphInteractableSurfaceForId(surfaceId)?.dataset.surfaceId,
       ...interactableSurfaceIds,
       ...surfaceIds,
@@ -843,7 +834,8 @@
     const canvas = surface?.querySelector('[data-testid="workflow-graph-canvas"]');
     return (
       workflowGraphHostIntersectsViewport(workflowGraphHostForSurface(surface)) &&
-      workflowGraphCanvasIsInteractable(canvas)
+      workflowGraphCanvasIsInteractable(canvas) &&
+      workflowGraphCanvasHasExposedPoint(surface, canvas)
     );
   }
 
@@ -852,12 +844,39 @@
   }
 
   function workflowGraphCanvasIsInteractable(canvas) {
+    const rect = canvas instanceof HTMLCanvasElement ? canvas.getBoundingClientRect() : null;
     return (
       canvas instanceof HTMLCanvasElement &&
       canvas.clientWidth > 0 &&
       canvas.clientHeight > 0 &&
-      elementIntersectsViewport(canvas)
+      rect !== null &&
+      rect.left >= 0 &&
+      rect.top >= 0 &&
+      rect.right <= window.innerWidth &&
+      rect.bottom <= window.innerHeight
     );
+  }
+
+  function workflowGraphCanvasHasExposedPoint(surface, canvas) {
+    if (!(surface instanceof HTMLElement) || !(canvas instanceof HTMLCanvasElement)) {
+      return false;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const points = [];
+    for (const xRatio of [0.5, 0.25, 0.75]) {
+      for (const yRatio of [0.5, 0.35, 0.75]) {
+        points.push({
+          x: clamp(rect.left + rect.width * xRatio, 1, window.innerWidth - 1),
+          y: clamp(rect.top + rect.height * yRatio, 1, window.innerHeight - 1),
+        });
+      }
+    }
+    return points.some(({ x, y }) => {
+      const element = document.elementFromPoint(x, y);
+      return (
+        element instanceof Element && element.closest('[data-testid="workflow-graph"]') === surface
+      );
+    });
   }
 
   function activeWorkflowGraphHost() {
@@ -1202,9 +1221,7 @@
       const result = await runDraft();
       attempts.push({ result, surfaceId: candidateSurfaceId });
       if (workflowRunStarted(result, definitionId)) {
-        const focusedSurface = await workflowGraphSurfaceAfterFocusRequest(candidateSurfaceId);
-        const runSurfaceId = workflowGraphSurfaceIdOrFallback(focusedSurface, candidateSurfaceId);
-        return { executionId: result.executionId, ok: true, surfaceId: runSurfaceId };
+        return { executionId: result.executionId, ok: true, surfaceId: candidateSurfaceId };
       }
     }
     return {
@@ -1224,18 +1241,20 @@
     return attempts.length === 0 ? "missing-workflow-runner" : "workflow-run-not-started";
   }
 
-  function workflowGraphSurfaceIdOrFallback(surface, fallbackId) {
-    return surface instanceof HTMLElement ? (surface.dataset.surfaceId ?? fallbackId) : fallbackId;
-  }
-
   function workflowGraphRunCandidateSurfaceIds(surfaceId) {
-    const api = window.__settaWorkflowGraphDebug;
-    const readySnapshot = api
-      ? workflowGraphReadyDebugSnapshot(api, { includeVisual: false, surfaceId })
+    const requestedSurface = workflowGraphSurfaceById(surfaceId);
+    const requestedSurfaceId = workflowGraphSurfaceIsInteractable(requestedSurface)
+      ? requestedSurface?.dataset.surfaceId
       : null;
+    const interactableRunnerSurfaceIds = [
+      ...(window.__settaWorkflowGraphRunDrafts?.keys() ?? []),
+    ].filter((candidateSurfaceId) =>
+      workflowGraphSurfaceIsInteractable(workflowGraphSurfaceById(candidateSurfaceId)),
+    );
     return uniqueWorkflowGraphSurfaceIds([
-      readySnapshot?.snapshot?.surfaceId,
+      requestedSurfaceId,
       activeWorkflowGraphSurface()?.dataset.surfaceId,
+      ...interactableRunnerSurfaceIds,
       surfaceId,
       ...(window.__settaWorkflowGraphRunDrafts?.keys() ?? []),
     ]);
@@ -1356,15 +1375,8 @@
   }
 
   function elementRect(element) {
-    const rect = element.getBoundingClientRect();
-    return {
-      bottom: rect.bottom,
-      height: rect.height,
-      left: rect.left,
-      right: rect.right,
-      top: rect.top,
-      width: rect.width,
-    };
+    const { bottom, height, left, right, top, width } = element.getBoundingClientRect();
+    return { bottom, height, left, right, top, width };
   }
 
   function clamp(value, min, max) {
@@ -1375,12 +1387,8 @@
     if (!element) {
       return null;
     }
-    const box = element.getBoundingClientRect();
-    return {
-      bottom: box.bottom,
-      height: box.height,
-      top: box.top,
-    };
+    const { bottom, height, top } = element.getBoundingClientRect();
+    return { bottom, height, top };
   }
 
   function activeElementSnapshot(element) {

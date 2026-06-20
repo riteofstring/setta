@@ -7,6 +7,7 @@ export function createWorkflowGraphFrameRuntime({
   animationState,
   cameraSync,
   interactionScheduler,
+  isDirectManipulationActive,
   replaceSceneGraph,
   sceneVisitCounters,
   trajectoryRuntime,
@@ -76,7 +77,7 @@ export function createWorkflowGraphFrameRuntime({
   }
 
   function queueOrApplyGraphUpdate(nextGraph) {
-    if (cameraSync.isCameraMoving()) {
+    if (graphUpdateShouldDefer()) {
       deferredGraphUpdate = nextGraph;
       deferredGraphUpdateCount += 1;
       return false;
@@ -86,7 +87,7 @@ export function createWorkflowGraphFrameRuntime({
   }
 
   function applyDeferredGraphUpdateIfSettled() {
-    if (deferredGraphUpdate === null || cameraSync.isCameraMoving()) {
+    if (deferredGraphUpdate === null || graphUpdateShouldDefer()) {
       return;
     }
     const nextGraph = deferredGraphUpdate;
@@ -101,5 +102,9 @@ export function createWorkflowGraphFrameRuntime({
       deferredGraphUpdateCount,
       frameCount,
     };
+  }
+
+  function graphUpdateShouldDefer() {
+    return cameraSync.isCameraMoving() || isDirectManipulationActive();
   }
 }

@@ -38,6 +38,71 @@ describe("workflow graph layout persistence", () => {
       workspaceId: "workspace_test",
     });
   });
+
+  test("persists read-only workflow moves through graph view layout", async () => {
+    const updateDefinitionLayout = vi.fn();
+    const updateGraphViewLayout = vi.fn(async () => ({
+      positions: [{ nodeId: "work", x: 42, y: 64 }],
+    }));
+    vi.stubGlobal("window", {
+      setta: {
+        workflow: {
+          updateDefinitionLayout,
+          updateGraphViewLayout,
+        },
+      } as unknown as Window["setta"],
+    });
+    const updateWorkflowViewLayoutPositions = vi.fn();
+
+    const refreshed = await persistGraphNodePositions({
+      positions: [
+        { moved: false, nodeId: "start", x: 0, y: 0 },
+        { moved: true, nodeId: "work", x: 42.4, y: 64.5 },
+      ],
+      semanticGraph: null,
+      setWorkflowEditorError: vi.fn(),
+      updateSemanticLayoutPositions: vi.fn(),
+      updateWorkflowViewLayoutPositions,
+      workflowProjection: {
+        ...draftProjection(),
+        definitionVersionCreatedAt: "2026-06-05T12:00:00Z",
+        definitionVersionId: "version_review",
+        definitionVersionNumber: 2,
+        editable: false,
+        executionId: "execution_review",
+        executionStatus: "running",
+        viewMode: "run",
+      },
+      workflowViewLayoutTarget: {
+        definitionVersion: null,
+        kind: "workflow_execution",
+        workflowExecution: {
+          definitionId: "definition_review",
+          executionId: "execution_review",
+          versionId: "version_review",
+        },
+      },
+    });
+
+    expect(refreshed).toBeNull();
+    expect(updateDefinitionLayout).not.toHaveBeenCalled();
+    expect(updateGraphViewLayout).toHaveBeenCalledWith({
+      positions: [{ nodeId: "work", x: 42, y: 65 }],
+      target: {
+        definitionVersion: null,
+        kind: "workflow_execution",
+        workflowExecution: {
+          definitionId: "definition_review",
+          executionId: "execution_review",
+          versionId: "version_review",
+        },
+      },
+      workspaceId: "workspace_test",
+    });
+    expect(updateWorkflowViewLayoutPositions).toHaveBeenCalledWith([
+      { nodeId: "work", x: 42, y: 64 },
+    ]);
+  });
 });
 
 function draftProjection(): WorkflowGraphProjection {

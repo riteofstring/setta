@@ -214,7 +214,7 @@ async function readOnlyRunViewLayoutScenario(scenarioArtifactDir) {
         y: 44,
       },
     );
-    assertOnlyNodeMoved(run.snapshot, afterDrag, "work", "read-only run drag");
+    assertOnlyWorkflowNodeMoved(run.snapshot, afterDrag, "work", "read-only run drag");
     await delay(500);
 
     const draftAfter = await readDraftProjection(
@@ -575,17 +575,10 @@ async function liveRuntimeDragScenario(scenarioArtifactDir) {
       throw new Error(`semantic runtime seed was not attached: ${JSON.stringify(seed)}`);
     }
     const run = await openRunProjection(context.client, setup.surfaceId, setup.projection);
-    await showDraftProjection(context.client, run.surfaceId, setup.projection);
 
-    const before = await waitForWorkflowGraphSnapshot(
-      context.client,
-      run.surfaceId,
-      (candidate) =>
-        candidate.graph.workflow?.definitionId === setup.projection.definitionId &&
-        candidate.graph.workflow?.editable === true &&
-        candidate.graph.workflow?.viewMode === "draft",
-    );
+    const before = run.snapshot;
     const initialRuntimeSourceCount = runtimeSourceCount(before, "work");
+    const initialDeferredGraphUpdateCount = before.render.deferredGraphUpdateCount ?? 0;
     const drag = await beginWorkflowGraphMouseDrag(context.client, run.surfaceId, before, "work", {
       x: 92,
       y: 48,
@@ -602,16 +595,21 @@ async function liveRuntimeDragScenario(scenarioArtifactDir) {
     if (!burst.ok) {
       throw new Error(`semantic runtime burst was not started: ${JSON.stringify(burst)}`);
     }
-    const runtimeUpdated = await waitForWorkflowGraphSnapshotOrNull(
+    const runtimeDeferred = await waitForWorkflowGraphSnapshotOrNull(
       context.client,
       run.surfaceId,
-      (candidate) => runtimeSourceCount(candidate, "work") > initialRuntimeSourceCount,
+      (candidate) =>
+        (candidate.render.deferredGraphUpdateCount ?? 0) > initialDeferredGraphUpdateCount &&
+        nodeMoved(before, candidate, "work") &&
+        runtimeSourceCount(candidate, "work") === initialRuntimeSourceCount,
       10_000,
     );
-    if (!runtimeUpdated) {
+    if (!runtimeDeferred) {
       const current = await getWorkflowGraphSnapshot(context.client, run.surfaceId);
       throw new Error(
-        `live runtime drag did not receive runtime updates: initialSourceCount=${initialRuntimeSourceCount} currentSourceCount=${runtimeSourceCount(
+        `live runtime drag did not defer runtime graph updates: initialDeferredGraphUpdateCount=${initialDeferredGraphUpdateCount} currentDeferredGraphUpdateCount=${current.render.deferredGraphUpdateCount} beforePosition=${JSON.stringify(
+          nodePosition(before, "work"),
+        )} currentPosition=${JSON.stringify(nodePosition(current, "work"))} initialSourceCount=${initialRuntimeSourceCount} currentSourceCount=${runtimeSourceCount(
           current,
           "work",
         )}`,
@@ -644,19 +642,18 @@ async function liveRuntimeDragScenario(scenarioArtifactDir) {
         )}`,
       );
     }
-    assertOnlyNodeMoved(before, afterRelease, "work", "live runtime drag");
-    const persisted = await waitForDraftProjectionLayout(
-      context.client,
-      setup.projection.workspaceId,
-      setup.projection.definitionId,
-      afterRelease,
-      "work",
-    );
+    assertOnlyWorkflowNodeMoved(before, afterRelease, "work", "live runtime drag");
+    const layout = await waitForExecutionViewLayout(context.client, afterRelease.graph.workflow, {
+      nodeId: "work",
+      snapshot: afterRelease,
+    });
+    assertViewLayoutMatchesSnapshot(layout, afterRelease, "work");
 
     await writeJson(join(scenarioArtifactDir, "summary.json"), {
       afterRelease,
       burstResult,
-      persisted: persisted.projection,
+      layout,
+      runtimeDeferred,
       scenario: "live-runtime-drag",
       status: "passed",
     });
@@ -706,25 +703,6 @@ async function openRunProjection(client, surfaceId, projection) {
       candidate.graph.workflow?.viewMode === "run",
   );
   return { executionId: run.executionId, snapshot, surfaceId: run.surfaceId };
-}
-
-async function showDraftProjection(client, surfaceId, projection) {
-  const clicked = await client.driver("clickWorkflowToolbarButton", {
-    surfaceId,
-    testId: "workflow-show-draft-button",
-  });
-  if (!clicked.ok) {
-    throw new Error(`workflow draft projection was not opened: ${JSON.stringify(clicked)}`);
-  }
-  return waitForWorkflowGraphSnapshot(
-    client,
-    surfaceId,
-    (candidate) =>
-      candidate.graph.workflow?.definitionId === projection.definitionId &&
-      candidate.graph.workflow?.editable === true &&
-      candidate.graph.workflow?.executionId === "" &&
-      candidate.graph.workflow?.viewMode === "draft",
-  );
 }
 
 async function waitForRunProjectionRestored(client, surfaceId, workflow) {
@@ -1057,6 +1035,17 @@ function assertOnlyNodeMoved(before, after, movedNodeId, label) {
       );
     }
   }
+}
+
+function assertOnlyWorkflowNodeMoved(before, after, movedNodeId, label) {
+  const workflowBefore = {
+    ...before,
+    graph: {
+      ...before.graph,
+      nodes: before.graph.nodes.filter((node) => node.layer === "workflow"),
+    },
+  };
+  assertOnlyNodeMoved(workflowBefore, after, movedNodeId, label);
 }
 
 function assertNodePositionUnchanged(before, after, nodeId, label) {

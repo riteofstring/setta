@@ -60,6 +60,7 @@ import {
   setsEqual,
 } from "./pixi-renderer-helpers";
 import * as rendererInputHandlers from "./pixi-renderer-input-handlers";
+import { createWorkflowGraphNodeDragController } from "./pixi-renderer-node-drag";
 import { rendererOptionsWithDefaults, workflowGraphRendererLimits } from "./pixi-renderer-options";
 import { observeWorkflowGraphRendererResize } from "./pixi-renderer-resize-observer";
 import { createWorkflowGraphSceneVisitCounters } from "./pixi-renderer-scene-visit-counters";
@@ -226,15 +227,16 @@ export async function createWorkflowGraphRenderer(options) {
     spatialQueries,
   });
   const hoveredNodeIds = new Set();
-  let [draggingNode, drawingEdge] = [null, null];
+  let drawingEdge = null;
   let [drawingMarquee, panningCamera, activeTargetPortKey] = [null, null, null];
   let destroyed = false;
-  let [nodeDragUpdateCount, edgeRedrawCount] = [0, 0];
+  let edgeRedrawCount = 0;
   let [marqueeUpdateCount, edgeCommitCount, nextEdgeSequence] = [0, 0, 1];
   let [pointerPanUpdateCount, selectionChangeCount, temporaryEdgeUpdateCount] = [0, 0, 0];
   let [wheelPanUpdateCount, wheelZoomUpdateCount, gridDrawCount] = [0, 0, 0];
   let nodeOutlineVisibilityUpdateCount = 0;
   let currentWorkflow = graph.workflow ?? null;
+  const workflowTransitionHistory = [];
   let rendererDestroyCount = 0;
   const inputResponsiveness = createWorkflowGraphWheelResponsivenessTracker();
   const nodeOpenClickTracker = createWorkflowGraphNodeOpenClickTracker({ limits });
@@ -300,6 +302,23 @@ export async function createWorkflowGraphRenderer(options) {
     spatialQueries,
     staticGlow,
   });
+  const nodeDrag = createWorkflowGraphNodeDragController({
+    animationCoordinator,
+    handlers,
+    labels,
+    nodeBodies,
+    nodeContainers,
+    nodeOpenClickTracker,
+    nodes,
+    nodesById,
+    redrawEdges,
+    requireNode,
+    sceneGraph,
+    selectOnlyNode,
+    selectedNodeIds,
+    spatialQueries,
+    viewport,
+  });
   const syncVisibleSceneForCamera = createWorkflowGraphCameraSceneSync({
     drawAllNodeOutlines,
     edgeScene,
@@ -340,6 +359,7 @@ export async function createWorkflowGraphRenderer(options) {
     animationState,
     cameraSync,
     interactionScheduler,
+    isDirectManipulationActive: () => Boolean(nodeDrag.active() || drawingEdge || drawingMarquee),
     replaceSceneGraph,
     sceneVisitCounters,
     trajectoryRuntime,
@@ -389,7 +409,7 @@ export async function createWorkflowGraphRenderer(options) {
     startCameraPanning,
     startEdgeDrawing,
     startMarqueeSelection,
-    startNodeDragging,
+    startNodeDragging: nodeDrag.start,
     toggleNodeSelection,
   });
   const pointerMove = (event) => {
@@ -407,8 +427,8 @@ export async function createWorkflowGraphRenderer(options) {
       updateMarqueeSelection(screen);
       return;
     }
-    if (draggingNode) {
-      moveDraggedNode(screen);
+    if (nodeDrag.active()) {
+      nodeDrag.move(screen);
       return;
     }
     if (panningCamera) {
@@ -438,8 +458,8 @@ export async function createWorkflowGraphRenderer(options) {
       releasePointer(event);
       return;
     }
-    if (draggingNode) {
-      finishNodeDragging();
+    if (nodeDrag.active()) {
+      nodeDrag.finish();
       releasePointer(event);
       return;
     }
@@ -451,8 +471,18 @@ export async function createWorkflowGraphRenderer(options) {
     }
   };
   const pointerCancel = (event) => {
+    if (drawingEdge) {
+      finishEdgeDrawing();
+      releasePointer(event);
+      return;
+    }
     if (drawingMarquee) {
       cancelMarqueeSelection();
+      releasePointer(event);
+      return;
+    }
+    if (nodeDrag.active()) {
+      nodeDrag.cancel();
       releasePointer(event);
       return;
     }
@@ -465,7 +495,7 @@ export async function createWorkflowGraphRenderer(options) {
   const wheel = createWorkflowGraphWheelHandler({
     canvas: app.canvas,
     inputResponsiveness,
-    interactionsBlockWheel: () => Boolean(drawingEdge || drawingMarquee || draggingNode),
+    interactionsBlockWheel: () => Boolean(drawingEdge || drawingMarquee || nodeDrag.active()),
     panCameraByScreenDelta: cameraFrameControls.panCameraByScreenDelta,
     recordWheelPan: () => {
       wheelPanUpdateCount += 1;
@@ -489,7 +519,7 @@ export async function createWorkflowGraphRenderer(options) {
     handlers,
     isDrawingEdge: () => Boolean(drawingEdge),
     isDrawingMarquee: () => Boolean(drawingMarquee),
-    isDraggingNode: () => Boolean(draggingNode),
+    isDraggingNode: nodeDrag.active,
     isPanningCamera: () => Boolean(panningCamera),
     selectedNodeIds,
   });
@@ -547,11 +577,12 @@ export async function createWorkflowGraphRenderer(options) {
         drawingMarquee: Boolean(drawingMarquee), edgeCommitCount, edgeRedrawCount,
         edgeSelectionChangeCount: edgeInteractions.selectionChangeCount(),
         gridDrawCount, labelSyncCount: labels.syncCount(), marqueeUpdateCount,
-        nodeDragUpdateCount, nodeOutlineVisibilityUpdateCount, pointerPanUpdateCount,
+        nodeOutlineVisibilityUpdateCount, pointerPanUpdateCount,
         rendererDestroyCount, rendererInstanceId, selectedNodeId: selectedNodeIds.values().next().value ?? null,
         selectedEdgeId: edgeInteractions.firstSelectedEdgeId(), selectedEdgeIds: edgeInteractions.selectedEdgeIds, selectedNodeIds,
         selectionChangeCount, temporaryEdgeUpdateCount, wheelPanUpdateCount, wheelZoomUpdateCount,
-        workflow: currentWorkflow, ...edgeScene.debugSnapshot(), ...cameraSync.debugSnapshot(), ...filterAreas.debugSnapshot(),
+        workflow: currentWorkflow, workflowTransitionHistory: [...workflowTransitionHistory],
+        ...nodeDrag.debugSnapshot(), ...edgeScene.debugSnapshot(), ...cameraSync.debugSnapshot(), ...filterAreas.debugSnapshot(),
         ...labels.debugSnapshot(), ...frameRuntime.debugSnapshot(),
         ...frameOwner.debugSnapshot(), ...interactionScheduler.debugSnapshot(), ...animationCoordinator.debugSnapshot(),
         ...trajectoryRuntime.debugSnapshot(), ...animationState.debugSnapshot(), ...inputResponsiveness.debugSnapshot(),
@@ -620,10 +651,12 @@ export async function createWorkflowGraphRenderer(options) {
       syncFoundationStyle(nextGraph);
       const update = sceneGraph.replaceGraph(nextGraph, { countUpdate });
       currentWorkflow = update.workflow;
+      recordWorkflowTransition(currentWorkflow, countUpdate ? "graph-update" : "initial-graph");
       nextEdgeSequence = update.nextEdgeSequence;
       spatialQueries.rebuild(nodes);
       sceneGraph.resetVisibleScene();
       sceneGraph.syncVisibleScene({ force: true });
+      nodeDrag.syncNodeBodyCursors();
       labels.resetVisibleLabels();
       animationCoordinator.resetVisibility();
       animationCoordinator.syncActiveSet();
@@ -662,7 +695,7 @@ export async function createWorkflowGraphRenderer(options) {
     }
     drawingEdge = null;
     drawingMarquee = null;
-    draggingNode = null;
+    nodeDrag.clearForGraphUpdate();
     panningCamera = null;
     activeTargetPortKey = null;
     temporaryEdgeGraphics.clear();
@@ -688,87 +721,34 @@ export async function createWorkflowGraphRenderer(options) {
       notifyNodeSelectionChange(handlers.onNodeSelectionChange, selectedNodeIds);
     }
   }
-  function startNodeDragging(nodeId, screen) {
-    const node = requireNode(nodeId);
-    const world = viewport.toWorld(screen);
-    if (!selectedNodeIds.has(node.id)) {
-      selectOnlyNode(node.id);
+  function recordWorkflowTransition(workflow, reason) {
+    workflowTransitionHistory.push(workflowTransitionSnapshot(workflow, reason));
+    if (workflowTransitionHistory.length > 16) {
+      workflowTransitionHistory.shift();
     }
-    for (const selectedNodeId of selectedNodeIds) {
-      sceneGraph.ensureNodeMaterialized(selectedNodeId);
+  }
+  function workflowTransitionSnapshot(workflow, reason) {
+    const at = Math.round(performance.now());
+    if (!workflow) {
+      return {
+        at,
+        definitionId: "",
+        editable: null,
+        executionId: "",
+        reason,
+        versionId: "",
+        viewMode: "",
+      };
     }
-    const draggedNodes = nodes.filter((candidate) => selectedNodeIds.has(candidate.id));
-    draggingNode = {
-      nodes: draggedNodes.map((candidate) => ({
-        nodeId: candidate.id,
-        offsetX: world.x - candidate.x,
-        offsetY: world.y - candidate.y,
-      })),
-      moved: false,
-      primaryNodeId: node.id,
-      startScreenX: screen.x,
-      startScreenY: screen.y,
+    return {
+      at,
+      definitionId: workflow.definitionId,
+      editable: workflow.editable,
+      executionId: workflow.executionId,
+      reason,
+      versionId: workflow.definitionVersionId,
+      viewMode: workflow.viewMode,
     };
-    for (const draggedNode of draggedNodes) {
-      const body = nodeBodies.get(draggedNode.id);
-      if (body) {
-        body.cursor = "grabbing";
-      }
-    }
-    viewport.plugins.pause("decelerate");
-  }
-  function moveDraggedNode(screen) {
-    if (!draggingNode) {
-      return;
-    }
-    const world = viewport.toWorld(screen);
-    for (const draggedNode of draggingNode.nodes) {
-      const node = requireNode(draggedNode.nodeId);
-      const container = nodeContainers.get(draggedNode.nodeId);
-      if (!container) {
-        throw new Error(`dragged node container is missing: ${draggedNode.nodeId}`);
-      }
-      node.x = world.x - draggedNode.offsetX;
-      node.y = world.y - draggedNode.offsetY;
-      container.x = node.x;
-      container.y = node.y;
-      spatialQueries.updateNode(node);
-      labels.syncLabelPosition(node.id);
-    }
-    animationCoordinator.markStaticGlowDirty();
-    animationCoordinator.syncActiveSet({ forceStaticGlow: true });
-    draggingNode.moved = true;
-    labels.syncLabelVisibility();
-    nodeDragUpdateCount += 1;
-    redrawEdges();
-  }
-  function finishNodeDragging() {
-    const completedDrag = draggingNode;
-    const shouldPersistPositions = completedDrag?.moved === true;
-    const movedNodeIds = new Set(completedDrag?.nodes.map((node) => node.nodeId) ?? []);
-    viewport.plugins.resume("decelerate");
-    draggingNode = null;
-    for (const body of nodeBodies.values()) {
-      body.cursor = "grab";
-    }
-    if (shouldPersistPositions && handlers.onNodePositionsChange) {
-      nodeOpenClickTracker.clear();
-      handlers.onNodePositionsChange(
-        nodes.map((node) => ({
-          moved: movedNodeIds.has(node.id),
-          nodeId: node.id,
-          x: Math.round(node.x),
-          y: Math.round(node.y),
-        })),
-      );
-      return;
-    }
-    if (completedDrag) {
-      nodeOpenClickTracker.record(completedDrag.primaryNodeId, {
-        x: completedDrag.startScreenX,
-        y: completedDrag.startScreenY,
-      });
-    }
   }
   function startCameraPanning(screen) {
     panningCamera = {

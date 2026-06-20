@@ -34,6 +34,7 @@ interface WorkflowGraphSyntheticNode {
   kind?: WorkflowNodeKind;
   layer: "semantic" | "workflow";
   label: string;
+  movementOwner?: { kind: "synthetic_layout" };
   mergedIntoNodeId?: string;
   promoted?: boolean;
   splitFromNodeId?: string;

@@ -39,9 +39,11 @@ describe("rendererGraphFromSemanticGraph", () => {
       workflowGraph: testWorkflowGraph(),
     });
 
-    expect(graph.nodes.map((node) => [node.id, node.layer, node.connectable])).toEqual([
-      ["semantic:node_constraint", "semantic", false],
-      ["semantic:node_finding", "semantic", false],
+    expect(
+      graph.nodes.map((node) => [node.id, node.layer, node.connectable, node.movementOwner]),
+    ).toEqual([
+      ["semantic:node_constraint", "semantic", false, { kind: "semantic_layout" }],
+      ["semantic:node_finding", "semantic", false, { kind: "semantic_layout" }],
     ]);
     expect(graph.nodes.find((node) => node.id === "semantic:node_constraint")).toMatchObject({
       activity: { active: true, count: 1, kind: "validating" },
@@ -260,6 +262,7 @@ describe("rendererGraphFromSemanticGraph", () => {
         pulseKind: "patch_proposed",
       },
       label: "Preview finding",
+      movementOwner: null,
       semanticPulseKind: "patch_proposed",
       semanticRole: "preview",
     });

@@ -9,10 +9,12 @@ import type {
   WorkflowValidationSeverity,
 } from "@generated/backend";
 
+import type { WorkflowGraphNodeMovementOwner } from "./pixi-renderer";
 import { workflowNodeAccentColor } from "./workspace-neon-theme";
 
 interface WorkflowGraphNode {
   color: number;
+  connectable: boolean;
   diagnostic: WorkflowGraphDiagnostic | null;
   executionCount: number;
   height: number;
@@ -20,6 +22,7 @@ interface WorkflowGraphNode {
   kind: WorkflowNodeKind;
   layer: "workflow";
   label: string;
+  movementOwner: WorkflowGraphNodeMovementOwner | null;
   ports?: WorkflowGraphPort[];
   status: WorkflowGraphNodeStatus;
   width: number;
@@ -91,6 +94,7 @@ export function rendererGraphFromWorkflowProjection(
 ): WorkflowGraphGraph {
   const positions = workflowNodePositions(projection);
   const diagnostics = workflowDiagnosticMaps(projection, validation);
+  const movementOwner = workflowNodeMovementOwner(projection);
   return {
     edges: projection.edges.map((edge) => ({
       diagnostic: diagnostics.edges.get(edge.id) ?? null,
@@ -107,6 +111,7 @@ export function rendererGraphFromWorkflowProjection(
       const position = positions.get(node.id) ?? { x: 0, y: 0 };
       return {
         color: workflowNodeColor(node.status, node.kind),
+        connectable: projection.editable,
         diagnostic: diagnostics.nodes.get(node.id) ?? null,
         executionCount: node.executionCount,
         height: nodeHeight,
@@ -114,6 +119,7 @@ export function rendererGraphFromWorkflowProjection(
         kind: node.kind,
         layer: "workflow",
         label: node.label,
+        movementOwner,
         ports: workflowNodePorts(node.kind),
         status: node.status,
         width: workflowNodeWidth(node.label),
@@ -135,6 +141,35 @@ export function rendererGraphFromWorkflowProjection(
       workspaceId: projection.workspaceId,
     },
   };
+}
+
+function workflowNodeMovementOwner(
+  projection: WorkflowGraphProjection,
+): WorkflowGraphNodeMovementOwner | null {
+  if (projection.editable) {
+    return { kind: "workflow_definition_layout" };
+  }
+  if (workflowProjectionHasViewLayoutOwner(projection)) {
+    return { kind: "workflow_view_layout" };
+  }
+  return null;
+}
+
+function workflowProjectionHasViewLayoutOwner(projection: WorkflowGraphProjection) {
+  switch (projection.viewMode) {
+    case "draft":
+      return false;
+    case "version":
+      return projection.definitionId !== "" && projection.definitionVersionId !== "";
+    case "run":
+      return (
+        projection.definitionId !== "" &&
+        projection.definitionVersionId !== "" &&
+        projection.executionId !== ""
+      );
+    default:
+      return assertNeverViewMode(projection.viewMode);
+  }
 }
 
 function workflowProjectionValidationResult(
@@ -235,6 +270,10 @@ function workflowNodeColor(status: WorkflowGraphNodeStatus, kind: WorkflowNodeKi
 
 function assertNever(value: never): never {
   throw new Error(`Unsupported workflow validation severity: ${String(value)}`);
+}
+
+function assertNeverViewMode(value: never): never {
+  throw new Error(`Unsupported workflow graph view mode: ${String(value)}`);
 }
 
 function workflowNodeWidth(label: string) {

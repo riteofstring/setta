@@ -21,11 +21,18 @@ describe("rendererGraphFromWorkflowProjection", () => {
       workspaceId: "workspace_test",
     });
     expect(
-      graph.nodes.map((node) => [node.id, node.layer, node.status, node.executionCount]),
+      graph.nodes.map((node) => [
+        node.id,
+        node.layer,
+        node.status,
+        node.executionCount,
+        node.connectable,
+        node.movementOwner,
+      ]),
     ).toEqual([
-      ["start", "workflow", "succeeded", 1],
-      ["work", "workflow", "running", 2],
-      ["end", "workflow", "not_started", 0],
+      ["start", "workflow", "succeeded", 1, false, { kind: "workflow_view_layout" }],
+      ["work", "workflow", "running", 2, false, { kind: "workflow_view_layout" }],
+      ["end", "workflow", "not_started", 0, false, { kind: "workflow_view_layout" }],
     ]);
     expect(
       graph.edges.map((edge) => [
@@ -65,6 +72,16 @@ describe("rendererGraphFromWorkflowProjection", () => {
       ["start", -480, -40],
       ["work", 80, 140],
       ["end", 420, -20],
+    ]);
+  });
+
+  test("marks editable draft nodes as definition-layout movable and connectable", () => {
+    const graph = rendererGraphFromWorkflowProjection(draftProjection());
+
+    expect(graph.nodes.map((node) => [node.id, node.connectable, node.movementOwner])).toEqual([
+      ["start", true, { kind: "workflow_definition_layout" }],
+      ["work", true, { kind: "workflow_definition_layout" }],
+      ["end", true, { kind: "workflow_definition_layout" }],
     ]);
   });
 

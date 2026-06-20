@@ -59,22 +59,31 @@ export function createSyntheticWorkflowGraph({ edgesPerNode, nodeCount, scene = 
   if (nodeCount < 2) {
     throw new Error(`synthetic graph requires at least two nodes: nodeCount=${nodeCount}`);
   }
+  let graph;
   if (scene === "workflow-running-runtime") {
-    return createSyntheticWorkflowRunningRuntimeGraph();
+    graph = createSyntheticWorkflowRunningRuntimeGraph();
+  } else if (scene === "workflow-running") {
+    graph = createSyntheticWorkflowRunningGraph();
+  } else if (scene === "merged") {
+    graph = createSyntheticMergedGraph();
+  } else if (scene === "semantic-cells") {
+    graph = createSyntheticSemanticCellGraph({ edgesPerNode, nodeCount });
+  } else if (isPhase0WorkloadScene(scene)) {
+    graph = createSyntheticPhase0WorkloadGraph({ nodeCount, scene });
+  } else {
+    graph = createSyntheticWorkflowStatusGraph({ edgesPerNode, nodeCount });
   }
-  if (scene === "workflow-running") {
-    return createSyntheticWorkflowRunningGraph();
-  }
-  if (scene === "merged") {
-    return createSyntheticMergedGraph();
-  }
-  if (scene === "semantic-cells") {
-    return createSyntheticSemanticCellGraph({ edgesPerNode, nodeCount });
-  }
-  if (isPhase0WorkloadScene(scene)) {
-    return createSyntheticPhase0WorkloadGraph({ nodeCount, scene });
-  }
-  return createSyntheticWorkflowStatusGraph({ edgesPerNode, nodeCount });
+  return syntheticGraphWithMovementOwners(graph);
+}
+
+function syntheticGraphWithMovementOwners(graph) {
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => ({
+      ...node,
+      movementOwner: node.movementOwner ?? { kind: "synthetic_layout" },
+    })),
+  };
 }
 
 function phase0SyntheticWorkloadSpec(scene, nodeCount) {

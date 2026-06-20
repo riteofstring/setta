@@ -47,7 +47,7 @@ export function WorkflowNodeDetailsSurface() {
   const notifyWorkflowDefinitionChanged = useWorkflowEditorStore(
     (state) => state.notifyWorkflowDefinitionChanged,
   );
-  const viewingRun = target?.executionId !== "";
+  const viewingRun = target !== null && target.executionId !== "";
   const { definition, loadError, setDefinition, setLoadError } = useWorkflowNodeDefinition(
     target,
     viewingRun,
@@ -75,7 +75,7 @@ export function WorkflowNodeDetailsSurface() {
   }, [target]);
 
   async function saveAgentTask() {
-    const readOnly = target?.executionId !== "";
+    const readOnly = target === null || workflowNodeDetailsReadOnly(target);
     if (target === null || definition === null || draft === null || readOnly) {
       return;
     }
@@ -253,7 +253,7 @@ async function loadWorkflowNodeActivityPage(
   }
 }
 
-function WorkflowNodeDetailsContent({
+export function WorkflowNodeDetailsContent({
   definition,
   draft,
   loadError,
@@ -344,7 +344,7 @@ function WorkflowLoadedNodeDetails({
       draft={draft}
       onDraftChange={onDraftChange}
       onSave={onSave}
-      readOnly={target.executionId !== ""}
+      readOnly={workflowNodeDetailsReadOnly(target)}
       saveMessage={saveMessage}
       saving={saving}
     />
@@ -425,9 +425,13 @@ function AgentTaskReadOnlyNotice({ readOnly }: { readOnly: boolean }) {
   }
   return (
     <div className="rounded-sm border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
-      This pane is showing a run snapshot. Switch to the draft workflow before editing.
+      This pane is read-only. Switch to the draft workflow before editing.
     </div>
   );
+}
+
+function workflowNodeDetailsReadOnly(target: WorkflowNodeDetailsTarget) {
+  return !target.editable;
 }
 
 function AgentTaskFreshConversationField({
