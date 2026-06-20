@@ -171,6 +171,17 @@ describe("workflow node details surface helpers", () => {
     expect(html).toContain("workflow_node");
     expect(html).toContain("reviewer");
   });
+
+  test("renders cartographer and memory suggestion trajectory aggregates", () => {
+    const html = renderToString(
+      createElement(WorkflowTrajectoryRuntimeDetails, { target: aggregateTrajectoryTarget() }),
+    );
+
+    expect(html).toContain("10 cartographers queued");
+    expect(html).toContain("Memory suggestion");
+    expect(html).toContain("Sources");
+    expect(html).not.toContain("semantic patch");
+  });
 });
 
 function runtimeTarget(): WorkflowNodeDetailsTarget {
@@ -245,11 +256,12 @@ function trajectoryTarget(): WorkflowNodeDetailsTarget {
     ...runtimeTarget(),
     trajectory: {
       hiddenCount: 1,
-      revision: 7,
-      sprites: [
+      items: [
         {
           anchorNodeId: "reviewer",
+          id: "sprite_review",
           lane: "workflow_node",
+          type: "sprite",
           sprite: {
             cartographerPatchId: "",
             cartographerRunId: "",
@@ -316,7 +328,9 @@ function trajectoryTarget(): WorkflowNodeDetailsTarget {
         },
         {
           anchorNodeId: "reviewer",
+          id: "sprite_command",
           lane: "workflow_node",
+          type: "sprite",
           sprite: {
             cartographerPatchId: "",
             cartographerRunId: "",
@@ -370,8 +384,60 @@ function trajectoryTarget(): WorkflowNodeDetailsTarget {
           },
         },
       ],
+      revision: 7,
       timeline: [],
       totalCount: 3,
+      workflowNodeId: "reviewer",
+    },
+  };
+}
+
+function aggregateTrajectoryTarget(): WorkflowNodeDetailsTarget {
+  return {
+    ...runtimeTarget(),
+    trajectory: {
+      hiddenCount: 0,
+      items: [
+        {
+          aggregate: {
+            anchorNodeId: "reviewer",
+            count: 10,
+            id: "trajectory-aggregate:workflow_node:reviewer:cartographer_status:pending",
+            kind: "cartographer_status",
+            label: "10 cartographers queued",
+            lane: "workflow_node",
+            severity: "info",
+            sourceSpriteIds: ["cartographer-run:cartographer_run_1"],
+            status: "pending",
+            updatedAt: "2026-06-07T00:00:01Z",
+          },
+          anchorNodeId: "reviewer",
+          id: "trajectory-aggregate:workflow_node:reviewer:cartographer_status:pending",
+          lane: "workflow_node",
+          type: "aggregate",
+        },
+        {
+          aggregate: {
+            anchorNodeId: "reviewer",
+            count: 1,
+            id: "trajectory-aggregate:workflow_node:reviewer:memory_suggestion:approval_required",
+            kind: "memory_suggestion",
+            label: "Memory suggestion",
+            lane: "workflow_node",
+            severity: "blocking",
+            sourceSpriteIds: ["cartographer-patch:cartographer_patch_memory"],
+            status: "approval_required",
+            updatedAt: "2026-06-07T00:00:02Z",
+          },
+          anchorNodeId: "reviewer",
+          id: "trajectory-aggregate:workflow_node:reviewer:memory_suggestion:approval_required",
+          lane: "workflow_node",
+          type: "aggregate",
+        },
+      ],
+      revision: 8,
+      timeline: [],
+      totalCount: 2,
       workflowNodeId: "reviewer",
     },
   };

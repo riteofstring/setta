@@ -176,7 +176,7 @@ export function createWorkspaceTrajectorySpriteLayer({
     const alpha = spriteAlpha(item, now);
     view.container.alpha = alpha;
     view.progress.clear();
-    if (item.collapsedCount > 0 || item.sprite.status !== "running") {
+    if (item.collapsedCount > 0 || item.status !== "running") {
       return;
     }
     const width = spriteWidth - 10;
@@ -222,7 +222,7 @@ function displayItemsForFrame(frame) {
   }
   const items = [];
   for (const group of frame.groups) {
-    group.sprites.forEach((display, rank) => {
+    group.items.forEach((display, rank) => {
       items.push(displayItem(display, rank, 0));
     });
     if (group.hiddenCount > 0) {
@@ -231,9 +231,10 @@ function displayItemsForFrame(frame) {
         collapsedCount: group.hiddenCount,
         id: `trajectory-collapsed:${group.workflowNodeId}`,
         lane: "workflow_node",
-        rank: group.sprites.length,
+        rank: group.items.length,
         severity: group.highestSeverity,
-        sprite: group.sprites[0]?.sprite ?? null,
+        status: group.items[0] ? displayStatus(group.items[0]) : "unknown",
+        type: "collapsed",
       });
     }
   }
@@ -246,26 +247,24 @@ function displayItemsForFrame(frame) {
 function displayItem(display, rank, collapsedCount) {
   return {
     anchorNodeId: display.anchorNodeId,
+    aggregate: display.type === "aggregate" ? display.aggregate : null,
     collapsedCount,
-    id: display.sprite.id,
+    id: display.id,
+    kind: displayKind(display),
     lane: display.lane,
     rank,
-    severity: display.sprite.severity,
-    sprite: display.sprite,
+    severity: displaySeverity(display),
+    sprite: display.type === "sprite" ? display.sprite : null,
+    status: displayStatus(display),
+    type: display.type,
   };
 }
 
 function itemRenderKey(item) {
   if (item.collapsedCount > 0) {
-    return [item.id, item.collapsedCount, item.severity].join(":");
+    return [item.id, item.collapsedCount, item.severity, item.status].join(":");
   }
-  return [
-    item.id,
-    item.sprite.kind,
-    item.sprite.status,
-    item.sprite.severity,
-    trajectorySpriteCanvasLabel(item.sprite),
-  ].join(":");
+  return [item.id, item.kind, item.status, item.severity, spriteLabel(item)].join(":");
 }
 
 function drawSpriteIcon(icon, item, color) {
@@ -274,11 +273,11 @@ function drawSpriteIcon(icon, item, color) {
   const centerY = spriteHeight / 2;
   icon.circle(centerX, centerY, 7).fill({ alpha: 0.18, color });
   icon.circle(centerX, centerY, 6.5).stroke({ alpha: 0.76, color, width: 1 });
-  if (item.collapsedCount > 0 || item.sprite === null) {
+  if (item.collapsedCount > 0 || item.type === "collapsed") {
     drawCollapsedIcon(icon, centerX, centerY);
     return;
   }
-  spriteIconDrawers[item.sprite.kind]?.(icon, centerX, centerY);
+  spriteIconDrawers[item.kind]?.(icon, centerX, centerY);
 }
 
 const spriteIconDrawers = {
@@ -291,6 +290,7 @@ const spriteIconDrawers = {
   file_write: drawFileIcon,
   plan_update: drawReasoningIcon,
   reasoning_summary: drawReasoningIcon,
+  memory_suggestion: drawCartographerIcon,
   test: drawTestIcon,
   tool_call: drawToolIcon,
   workflow_status: drawWorkflowIcon,
@@ -401,6 +401,7 @@ const spriteKindColors = {
   diff: 0xf0abfc,
   file_read: 0x2dd4bf,
   file_write: 0x2dd4bf,
+  memory_suggestion: 0xf0abfc,
   plan_update: 0x818cf8,
   reasoning_summary: 0xfacc15,
   test: 0x22c55e,
@@ -413,14 +414,14 @@ function spriteColor(item) {
   if (severityColor !== undefined) {
     return severityColor;
   }
-  if (item.sprite === null) {
+  if (item.type === "collapsed") {
     return 0x94a3b8;
   }
-  return spriteKindColors[item.sprite.kind];
+  return spriteKindColors[item.kind];
 }
 
 function spriteStrokeAlpha(item) {
-  if (item.sprite?.status === "running" || item.sprite?.status === "approval_required") {
+  if (item.status === "running" || item.status === "approval_required") {
     return 0.94;
   }
   if (item.severity === "error" || item.severity === "blocking") {
@@ -430,11 +431,14 @@ function spriteStrokeAlpha(item) {
 }
 
 function spriteAlpha(item, now) {
-  if (item.collapsedCount > 0 || item.sprite === null) {
+  if (item.collapsedCount > 0 || item.type === "collapsed") {
     return 0.86;
   }
-  if (spriteHasLiveStatus(item.sprite.status)) {
+  if (spriteHasLiveStatus(item.status)) {
     return 0.9 + 0.08 * Math.sin(now / 260 + hashString(item.id));
+  }
+  if (item.aggregate !== null) {
+    return 0.82;
   }
   return spriteFadeAlpha(item.sprite);
 }
@@ -460,11 +464,22 @@ function spriteFadeAlpha(sprite) {
 }
 
 function spriteLabel(item) {
-  const sprite = item.sprite;
-  if (sprite === null) {
-    return "";
+  if (item.aggregate !== null) {
+    return item.aggregate.label;
   }
-  return trajectorySpriteCanvasLabel(sprite);
+  return item.sprite === null ? "" : trajectorySpriteCanvasLabel(item.sprite);
+}
+
+function displayKind(display) {
+  return display.type === "aggregate" ? display.aggregate.kind : display.sprite.kind;
+}
+
+function displaySeverity(display) {
+  return display.type === "aggregate" ? display.aggregate.severity : display.sprite.severity;
+}
+
+function displayStatus(display) {
+  return display.type === "aggregate" ? display.aggregate.status : display.sprite.status;
 }
 
 function hashString(value) {

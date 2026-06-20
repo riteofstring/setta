@@ -311,8 +311,8 @@ function fakeTrajectoryStore(initialFrame: WorkspaceTrajectoryFrameSnapshot) {
   const listeners = new Set<() => void>();
   const emptyDetails: WorkspaceTrajectoryNodeDetails = {
     hiddenCount: 0,
+    items: [],
     revision: 0,
-    sprites: [],
     timeline: [],
     totalCount: 0,
     workflowNodeId: "",

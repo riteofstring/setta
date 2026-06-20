@@ -9,9 +9,14 @@ import {
 import { WorkflowDetailsRows, WorkflowDetailsSection } from "./workflow-node-details-components";
 import { shortIdentifier } from "./workflow-node-details-helpers";
 
-type WorkflowTrajectorySpriteDisplay = NonNullable<
+type WorkflowTrajectoryDisplayItem = NonNullable<
   WorkflowNodeDetailsTarget["trajectory"]
->["sprites"][number];
+>["items"][number];
+type WorkflowTrajectorySpriteDisplay = Extract<WorkflowTrajectoryDisplayItem, { type: "sprite" }>;
+type WorkflowTrajectoryAggregateDisplay = Extract<
+  WorkflowTrajectoryDisplayItem,
+  { type: "aggregate" }
+>;
 
 export function WorkflowTrajectoryRuntimeDetails({
   target,
@@ -36,27 +41,34 @@ export function WorkflowTrajectoryRuntimeDetails({
             { label: "Revision", value: trajectory.revision },
           ]}
         />
-        <WorkflowTrajectorySpriteList sprites={trajectory.sprites} />
+        <WorkflowTrajectoryItemList items={trajectory.items} />
       </WorkflowDetailsSection>
     </div>
   );
 }
 
-function WorkflowTrajectorySpriteList({
-  sprites,
+function WorkflowTrajectoryItemList({
+  items,
 }: {
-  sprites: NonNullable<WorkflowNodeDetailsTarget["trajectory"]>["sprites"];
+  items: NonNullable<WorkflowNodeDetailsTarget["trajectory"]>["items"];
 }) {
-  if (sprites.length === 0) {
+  if (items.length === 0) {
     return null;
   }
   return (
     <div className="space-y-1">
-      {sprites.map((display) => (
-        <WorkflowTrajectorySpriteDetails display={display} key={display.sprite.id} />
+      {items.map((display) => (
+        <WorkflowTrajectoryItemDetails display={display} key={display.id} />
       ))}
     </div>
   );
+}
+
+function WorkflowTrajectoryItemDetails({ display }: { display: WorkflowTrajectoryDisplayItem }) {
+  if (display.type === "aggregate") {
+    return <WorkflowTrajectoryAggregateDetails display={display} />;
+  }
+  return <WorkflowTrajectorySpriteDetails display={display} />;
 }
 
 function WorkflowTrajectorySpriteDetails({
@@ -93,6 +105,40 @@ function WorkflowTrajectorySpriteDetails({
       />
       <WorkflowTrajectoryFileRefs files={sprite.fileRefs} />
       <WorkflowTrajectorySourceRefs sourceRefs={sprite.sourceRefs} />
+    </div>
+  );
+}
+
+function WorkflowTrajectoryAggregateDetails({
+  display,
+}: {
+  display: WorkflowTrajectoryAggregateDisplay;
+}) {
+  const { aggregate } = display;
+  return (
+    <div className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-300">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="truncate font-medium text-zinc-200">{aggregate.label}</span>
+        <span className="shrink-0 text-zinc-500">
+          {trajectorySpriteStatusLabel(aggregate.status)}
+        </span>
+      </div>
+      <WorkflowDetailsRows
+        rows={[
+          { label: "Count", value: aggregate.count },
+          { label: "Sources", value: aggregate.sourceSpriteIds.length },
+        ]}
+      />
+      <div className="mt-1 flex flex-wrap gap-1">
+        {aggregate.sourceSpriteIds.slice(0, 6).map((id) => (
+          <span
+            className="rounded-sm border border-zinc-800 bg-zinc-900/70 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400"
+            key={id}
+          >
+            {shortIdentifier(id)}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -160,9 +206,7 @@ function WorkflowTrajectoryDefaultSummary({
 function WorkflowTrajectoryFileRefs({
   files,
 }: {
-  files: NonNullable<
-    WorkflowNodeDetailsTarget["trajectory"]
-  >["sprites"][number]["sprite"]["fileRefs"];
+  files: WorkflowTrajectorySpriteDisplay["sprite"]["fileRefs"];
 }) {
   if (files.length === 0) {
     return null;
@@ -184,9 +228,7 @@ function WorkflowTrajectoryFileRefs({
 function WorkflowTrajectorySourceRefs({
   sourceRefs,
 }: {
-  sourceRefs: NonNullable<
-    WorkflowNodeDetailsTarget["trajectory"]
-  >["sprites"][number]["sprite"]["sourceRefs"];
+  sourceRefs: WorkflowTrajectorySpriteDisplay["sprite"]["sourceRefs"];
 }) {
   if (sourceRefs.length === 0) {
     return null;
@@ -206,9 +248,7 @@ function WorkflowTrajectorySourceRefs({
 }
 
 function trajectoryFileRefLabel(
-  file: NonNullable<
-    WorkflowNodeDetailsTarget["trajectory"]
-  >["sprites"][number]["sprite"]["fileRefs"][number],
+  file: WorkflowTrajectorySpriteDisplay["sprite"]["fileRefs"][number],
 ) {
   const path = file.displayPath || file.path;
   const range =

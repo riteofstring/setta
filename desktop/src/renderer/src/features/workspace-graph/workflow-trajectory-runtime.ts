@@ -165,8 +165,8 @@ function createSyntheticTrajectoryStore({
     getFrameSnapshot: () => frame,
     getNodeDetails: (workflowNodeId) => ({
       hiddenCount: 0,
+      items: frame.groups.find((group) => group.workflowNodeId === workflowNodeId)?.items ?? [],
       revision: frame.revision,
-      sprites: frame.groups.find((group) => group.workflowNodeId === workflowNodeId)?.sprites ?? [],
       timeline: [],
       totalCount:
         frame.groups.find((group) => group.workflowNodeId === workflowNodeId)?.totalCount ?? 0,
@@ -203,19 +203,24 @@ function syntheticTrajectoryFrame({
     const workflowNodeId = phase0WorkflowNodeId(index % Math.max(1, workflowNodeCount));
     const visibleCount = Math.min(4, remaining);
     const hiddenCount = Math.max(0, Math.min(remaining - visibleCount, 12));
-    const sprites = Array.from({ length: visibleCount }, (_, ordinal) => ({
-      anchorNodeId: workflowNodeId,
-      lane: "workflow_node" as const,
-      sprite: syntheticTrajectorySprite({
+    const items = Array.from({ length: visibleCount }, (_, ordinal) => {
+      const sprite = syntheticTrajectorySprite({
         index: spriteCount - remaining + ordinal,
         updatedAt,
         workflowNodeId,
-      }),
-    }));
+      });
+      return {
+        anchorNodeId: workflowNodeId,
+        id: sprite.id,
+        lane: "workflow_node" as const,
+        sprite,
+        type: "sprite" as const,
+      };
+    });
     groups.push({
       hiddenCount,
       highestSeverity: syntheticTrajectorySeverity(index),
-      sprites,
+      items,
       totalCount: visibleCount + hiddenCount,
       updatedAt,
       workflowNodeId,
@@ -226,7 +231,7 @@ function syntheticTrajectoryFrame({
     }
   }
   const recentLane = groups
-    .flatMap((group) => group.sprites)
+    .flatMap((group) => group.items)
     .slice(0, 8)
     .map((display) => ({ ...display, lane: "recent" as const }));
   return {

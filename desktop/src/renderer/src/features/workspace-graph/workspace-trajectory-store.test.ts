@@ -81,11 +81,14 @@ describe("workspace trajectory store", () => {
     expect(frame.revision).toBe(3);
     expect(frame.groups).toHaveLength(1);
     expect(frame.groups[0]?.workflowNodeId).toBe("reviewer");
-    expect(frame.groups[0]?.sprites[0]?.sprite).toMatchObject({
-      id: "sprite_review",
-      severity: "success",
-      status: "completed",
-      title: "Completed review",
+    expect(frame.groups[0]?.items[0]).toMatchObject({
+      type: "sprite",
+      sprite: {
+        id: "sprite_review",
+        severity: "success",
+        status: "completed",
+        title: "Completed review",
+      },
     });
   });
 
@@ -127,7 +130,10 @@ describe("workspace trajectory store", () => {
       revision: 2,
       totalSpriteCount: 1,
     });
-    expect(store.getFrameSnapshot().groups[0]?.sprites[0]?.sprite.id).toBe("sprite_buffered");
+    expect(store.getFrameSnapshot().groups[0]?.items[0]).toMatchObject({
+      sprite: { id: "sprite_buffered" },
+      type: "sprite",
+    });
   });
 
   test("recovers snapshot-required events with one in-flight snapshot reload", async () => {
@@ -180,7 +186,10 @@ describe("workspace trajectory store", () => {
       revision: 5,
       totalSpriteCount: 1,
     });
-    expect(store.getFrameSnapshot().groups[0]?.sprites[0]?.sprite.id).toBe("sprite_reloaded");
+    expect(store.getFrameSnapshot().groups[0]?.items[0]).toMatchObject({
+      sprite: { id: "sprite_reloaded" },
+      type: "sprite",
+    });
   });
 
   test("ignores snapshot-required events from other workspaces", async () => {
@@ -286,7 +295,10 @@ describe("workspace trajectory store", () => {
     const frame = store.getFrameSnapshot();
     const details = store.getNodeDetails("reviewer");
     expect(frame.groups[0]?.workflowNodeId).toBe("reviewer");
-    expect(frame.groups[0]?.sprites[0]?.sprite.title).toBe("Updated without refs");
+    expect(frame.groups[0]?.items[0]).toMatchObject({
+      sprite: { title: "Updated without refs" },
+      type: "sprite",
+    });
     expect(details).toMatchObject({ revision: 2, totalCount: 1, workflowNodeId: "reviewer" });
     expect(details.timeline[0]?.summary).toBe("Updated without refs");
     expect(details.timeline.map((item) => item.summary)).toContain("Assistant answered");
@@ -321,8 +333,221 @@ describe("workspace trajectory store", () => {
     const frame = store.getFrameSnapshot();
     expect(frame.groups).toEqual([]);
     expect(frame.recentLane).toHaveLength(8);
-    expect(frame.recentLane[0]?.sprite.id).toBe("sprite_recent_9");
+    expect(frame.recentLane[0]).toMatchObject({
+      sprite: { id: "sprite_recent_9" },
+      type: "sprite",
+    });
     expect(frame.totalSpriteCount).toBe(10);
+  });
+
+  test("keeps a single queued cartographer lifecycle item in details only", async () => {
+    const scheduler = manualScheduler();
+    const loadSnapshot = vi.fn(async () =>
+      runtimeSnapshot({
+        revision: 1,
+        sprites: [cartographerRunSprite(1)],
+      }),
+    );
+    const events = eventSource();
+    const store = createWorkspaceTrajectoryStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+
+    store.updateAnchors({ bindings: [], workflowNodeIds: ["reviewer"] });
+    store.start();
+    await flushPromises();
+
+    const frame = store.getFrameSnapshot();
+    const details = store.getNodeDetails("reviewer");
+    expect(frame.groups).toEqual([]);
+    expect(frame.totalSpriteCount).toBe(1);
+    expect(details.totalCount).toBe(1);
+    expect(details.items[0]).toMatchObject({
+      aggregate: {
+        count: 1,
+        kind: "cartographer_status",
+        label: "Cartographer queued",
+        sourceSpriteIds: ["cartographer-run:cartographer_run_1"],
+        status: "pending",
+      },
+      type: "aggregate",
+    });
+  });
+
+  test("aggregates queued cartographers before visible caps and keeps commands first", async () => {
+    const scheduler = manualScheduler();
+    const queuedCartographers = Array.from({ length: 10 }, (_, index) =>
+      cartographerRunSprite(index + 1, { updatedAt: timestamp(20 + index) }),
+    );
+    const command = runtimeSprite({
+      command: {
+        command: 'rg "workspace trajectory" desktop/src',
+        cwd: "",
+        durationMs: 0,
+        exitCode: 0,
+      },
+      id: "sprite_command",
+      kind: "command",
+      status: "completed",
+      subtitle: "command_execution",
+      title: "Command",
+      updatedAt: timestamp(2),
+    });
+    const loadSnapshot = vi.fn(async () =>
+      runtimeSnapshot({ revision: 1, sprites: [...queuedCartographers, command] }),
+    );
+    const events = eventSource();
+    const store = createWorkspaceTrajectoryStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+
+    store.updateAnchors({ bindings: [], workflowNodeIds: ["reviewer"] });
+    store.start();
+    await flushPromises();
+
+    const group = store.getFrameSnapshot().groups[0];
+    expect(group).toMatchObject({ hiddenCount: 0, totalCount: 2, workflowNodeId: "reviewer" });
+    expect(group?.items).toHaveLength(2);
+    expect(group?.items[0]).toMatchObject({ sprite: { id: "sprite_command" }, type: "sprite" });
+    expect(group?.items[1]).toMatchObject({
+      aggregate: {
+        count: 10,
+        kind: "cartographer_status",
+        label: "10 cartographers queued",
+        status: "pending",
+      },
+      type: "aggregate",
+    });
+    expect(store.getFrameSnapshot().totalSpriteCount).toBe(11);
+  });
+
+  test("counts hidden display items after cartographer aggregation", async () => {
+    const scheduler = manualScheduler();
+    const commands = Array.from({ length: 5 }, (_, index) =>
+      runtimeSprite({
+        id: `sprite_command_${index}`,
+        kind: "command",
+        status: "completed",
+        title: "Command",
+        updatedAt: timestamp(index + 1),
+      }),
+    );
+    const queuedCartographers = Array.from({ length: 10 }, (_, index) =>
+      cartographerRunSprite(index + 1, { updatedAt: timestamp(20 + index) }),
+    );
+    const loadSnapshot = vi.fn(async () =>
+      runtimeSnapshot({ revision: 1, sprites: [...commands, ...queuedCartographers] }),
+    );
+    const events = eventSource();
+    const store = createWorkspaceTrajectoryStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+
+    store.updateAnchors({ bindings: [], workflowNodeIds: ["reviewer"] });
+    store.start();
+    await flushPromises();
+
+    const group = store.getFrameSnapshot().groups[0];
+    expect(group).toMatchObject({ hiddenCount: 2, totalCount: 6 });
+    expect(group?.items).toHaveLength(4);
+    expect(group?.items.every((item) => item.type === "sprite")).toBe(true);
+  });
+
+  test("aggregates repeated failed cartographer activity into one visible item", async () => {
+    const scheduler = manualScheduler();
+    const loadSnapshot = vi.fn(async () =>
+      runtimeSnapshot({
+        revision: 1,
+        sprites: [
+          cartographerRunSprite(1, { severity: "error", status: "failed" }),
+          cartographerRunSprite(2, { severity: "error", status: "failed" }),
+        ],
+      }),
+    );
+    const events = eventSource();
+    const store = createWorkspaceTrajectoryStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+
+    store.updateAnchors({ bindings: [], workflowNodeIds: ["reviewer"] });
+    store.start();
+    await flushPromises();
+
+    expect(store.getFrameSnapshot().groups[0]?.items[0]).toMatchObject({
+      aggregate: {
+        count: 2,
+        kind: "cartographer_status",
+        label: "2 cartographers failed",
+        severity: "error",
+        status: "failed",
+      },
+      type: "aggregate",
+    });
+  });
+
+  test("routes typed pending cartographer patches to memory suggestions outside the canvas", async () => {
+    const scheduler = manualScheduler();
+    const loadSnapshot = vi.fn(async () =>
+      runtimeSnapshot({
+        revision: 1,
+        sprites: [
+          runtimeSprite({
+            cartographerPatchId: "cartographer_patch_memory",
+            id: "cartographer-patch:cartographer_patch_memory",
+            kind: "cartographer_status",
+            severity: "blocking",
+            status: "approval_required",
+            subtitle: "Background maintenance",
+            title: "Runtime update",
+          }),
+        ],
+      }),
+    );
+    const events = eventSource();
+    const store = createWorkspaceTrajectoryStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workflowExecutionId: "workflow_execution_review",
+      workspaceId: "workspace_graph",
+    });
+
+    store.updateAnchors({ bindings: [], workflowNodeIds: ["reviewer"] });
+    store.start();
+    await flushPromises();
+
+    expect(store.getFrameSnapshot().groups).toEqual([]);
+    expect(store.getNodeDetails("reviewer").items[0]).toMatchObject({
+      aggregate: {
+        count: 1,
+        kind: "memory_suggestion",
+        label: "Memory suggestion",
+        sourceSpriteIds: ["cartographer-patch:cartographer_patch_memory"],
+        status: "approval_required",
+      },
+      type: "aggregate",
+    });
   });
 
   test("derives chat run anchor bindings from workflow node runner refs", () => {
@@ -534,6 +759,28 @@ function runtimeSprite(
     workspaceId: "workspace_graph",
     ...overrides,
   };
+}
+
+function cartographerRunSprite(
+  index: number,
+  overrides: Partial<WorkspaceTrajectorySprite> = {},
+): WorkspaceTrajectorySprite {
+  const runId = `cartographer_run_${index}`;
+  return runtimeSprite({
+    cartographerRunId: runId,
+    chatMessageId: "",
+    id: `cartographer-run:${runId}`,
+    kind: "cartographer_status",
+    providerItemId: "",
+    resultSummary: "Cartographer lifecycle update.",
+    runItemId: "",
+    severity: "info",
+    status: "pending",
+    subtitle: "Cartographer lifecycle update",
+    title: "Cartographer queued",
+    updatedAt: timestamp(index),
+    ...overrides,
+  });
 }
 
 function timelineItem(

@@ -10,6 +10,16 @@ import type {
   WorkflowExecution,
 } from "@generated/backend";
 
+import {
+  displayItemSeverity,
+  displayItemSourceSpriteIds,
+  displayItemsForCanvas,
+  displayItemsForDetails,
+  newestDisplayItemUpdatedAt,
+  sortDisplayItems,
+  type WorkspaceTrajectoryDisplayItem,
+} from "./workspace-trajectory-display-items";
+
 export interface WorkspaceTrajectoryWorkflowRunBinding {
   chatRunId: string;
   workflowExecutionId: string;
@@ -17,16 +27,10 @@ export interface WorkspaceTrajectoryWorkflowRunBinding {
   workflowNodeId: string;
 }
 
-interface WorkspaceTrajectoryDisplaySprite {
-  anchorNodeId: string;
-  lane: "recent" | "workflow_node";
-  sprite: WorkspaceTrajectorySprite;
-}
-
 interface WorkspaceTrajectoryDisplayGroup {
   hiddenCount: number;
   highestSeverity: WorkspaceTrajectorySpriteSeverity;
-  sprites: WorkspaceTrajectoryDisplaySprite[];
+  items: WorkspaceTrajectoryDisplayItem[];
   totalCount: number;
   updatedAt: string;
   workflowNodeId: string;
@@ -38,7 +42,7 @@ export interface WorkspaceTrajectoryFrameSnapshot {
   groups: WorkspaceTrajectoryDisplayGroup[];
   loading: boolean;
   ready: boolean;
-  recentLane: WorkspaceTrajectoryDisplaySprite[];
+  recentLane: WorkspaceTrajectoryDisplayItem[];
   revision: number;
   totalSpriteCount: number;
   version: number;
@@ -48,8 +52,8 @@ export interface WorkspaceTrajectoryFrameSnapshot {
 
 export interface WorkspaceTrajectoryNodeDetails {
   hiddenCount: number;
+  items: WorkspaceTrajectoryDisplayItem[];
   revision: number;
-  sprites: WorkspaceTrajectoryDisplaySprite[];
   timeline: WorkspaceTrajectoryTimelineItem[];
   totalCount: number;
   workflowNodeId: string;
@@ -531,17 +535,19 @@ export function createWorkspaceTrajectoryStore({
     WorkspaceTrajectoryFrameSnapshot,
     "error" | "loading" | "ready" | "version" | "workflowExecutionId" | "workspaceId"
   > {
-    const byWorkflowNodeId = new Map<string, WorkspaceTrajectoryDisplaySprite[]>();
-    const recentLane: WorkspaceTrajectoryDisplaySprite[] = [];
+    const byWorkflowNodeId = new Map<string, WorkspaceTrajectoryDisplayItem[]>();
+    const recentLaneSourceItems: WorkspaceTrajectoryDisplayItem[] = [];
     for (const sprite of sortedSprites([...state.spritesById.values()])) {
       const anchorNodeId = anchorForSprite(sprite);
-      const display: WorkspaceTrajectoryDisplaySprite = {
+      const display: WorkspaceTrajectoryDisplayItem = {
         anchorNodeId,
+        id: sprite.id,
         lane: anchorNodeId === "" ? "recent" : "workflow_node",
         sprite,
+        type: "sprite",
       };
       if (anchorNodeId === "") {
-        recentLane.push(display);
+        recentLaneSourceItems.push(display);
         continue;
       }
       const group = byWorkflowNodeId.get(anchorNodeId) ?? [];
@@ -550,12 +556,14 @@ export function createWorkspaceTrajectoryStore({
       anchorBySpriteId.set(sprite.id, anchorNodeId);
     }
     const groups = [...byWorkflowNodeId.entries()]
-      .map(([workflowNodeId, sprites]) => displayGroupForNode(workflowNodeId, sprites))
+      .map(([workflowNodeId, items]) => displayGroupForNode(workflowNodeId, items))
+      .filter((group) => group.totalCount > 0)
       .sort((left, right) => stringTimestamp(right.updatedAt) - stringTimestamp(left.updatedAt));
+    const recentLane = displayItemsForCanvas(recentLaneSourceItems).slice(0, maxRecentLaneSprites);
     return {
       anchoredSpriteCount: groups.reduce((sum, group) => sum + group.totalCount, 0),
       groups,
-      recentLane: recentLane.slice(0, maxRecentLaneSprites),
+      recentLane,
       revision: state.revision,
       totalSpriteCount: state.spritesById.size,
     };
@@ -563,15 +571,15 @@ export function createWorkspaceTrajectoryStore({
 
   function displayGroupForNode(
     workflowNodeId: string,
-    sprites: WorkspaceTrajectoryDisplaySprite[],
+    items: WorkspaceTrajectoryDisplayItem[],
   ): WorkspaceTrajectoryDisplayGroup {
-    const sorted = sortDisplaySprites(sprites);
+    const sorted = sortDisplayItems(displayItemsForCanvas(items));
     return {
       hiddenCount: Math.max(0, sorted.length - maxVisibleSpritesPerNode),
-      highestSeverity: highestSeverity(sorted.map((sprite) => sprite.sprite.severity)),
-      sprites: sorted.slice(0, maxVisibleSpritesPerNode),
+      highestSeverity: highestSeverity(sorted.map(displayItemSeverity)),
+      items: sorted.slice(0, maxVisibleSpritesPerNode),
       totalCount: sorted.length,
-      updatedAt: sorted[0]?.sprite.updatedAt ?? "",
+      updatedAt: newestDisplayItemUpdatedAt(sorted),
       workflowNodeId,
     };
   }
@@ -616,32 +624,42 @@ export function createWorkspaceTrajectoryStore({
     if (runtime === null || workflowNodeId === "") {
       return {
         hiddenCount: 0,
+        items: [],
         revision: runtime?.revision ?? 0,
-        sprites: [],
         timeline: [],
         totalCount: 0,
         workflowNodeId,
       };
     }
-    const sprites = sortDisplaySprites(
-      [...runtime.spritesById.values()].flatMap((sprite) => {
-        const anchorNodeId = anchorForSprite(sprite);
-        return anchorNodeId === workflowNodeId
-          ? [{ anchorNodeId, lane: "workflow_node" as const, sprite }]
-          : [];
-      }),
+    const items = sortDisplayItems(
+      displayItemsForDetails(
+        [...runtime.spritesById.values()].flatMap((sprite) => {
+          const anchorNodeId = anchorForSprite(sprite);
+          return anchorNodeId === workflowNodeId
+            ? [
+                {
+                  anchorNodeId,
+                  id: sprite.id,
+                  lane: "workflow_node" as const,
+                  sprite,
+                  type: "sprite" as const,
+                },
+              ]
+            : [];
+        }),
+      ),
     );
-    const spriteIds = new Set(sprites.map((sprite) => sprite.sprite.id));
+    const spriteIds = new Set(items.flatMap(displayItemSourceSpriteIds));
     const timeline = [...runtime.timelineById.values()]
       .filter((item) => spriteIds.has(item.spriteId))
       .sort((left, right) => stringTimestamp(right.occurredAt) - stringTimestamp(left.occurredAt))
       .slice(0, maxNodeDetailSprites);
     return {
-      hiddenCount: Math.max(0, sprites.length - maxNodeDetailSprites),
+      hiddenCount: Math.max(0, items.length - maxNodeDetailSprites),
+      items: items.slice(0, maxNodeDetailSprites),
       revision: runtime.revision,
-      sprites: sprites.slice(0, maxNodeDetailSprites),
       timeline,
-      totalCount: sprites.length,
+      totalCount: items.length,
       workflowNodeId,
     };
   }
@@ -850,17 +868,6 @@ function sortedSprites(sprites: WorkspaceTrajectorySprite[]) {
       stringTimestamp(right.updatedAt || right.createdAt) -
         stringTimestamp(left.updatedAt || left.createdAt) ||
       left.id.localeCompare(right.id),
-  );
-}
-
-function sortDisplaySprites(sprites: WorkspaceTrajectoryDisplaySprite[]) {
-  return sprites.sort(
-    (left, right) =>
-      spriteStatusRank(right.sprite) - spriteStatusRank(left.sprite) ||
-      severityRank(right.sprite.severity) - severityRank(left.sprite.severity) ||
-      stringTimestamp(right.sprite.updatedAt || right.sprite.createdAt) -
-        stringTimestamp(left.sprite.updatedAt || left.sprite.createdAt) ||
-      left.sprite.id.localeCompare(right.sprite.id),
   );
 }
 
