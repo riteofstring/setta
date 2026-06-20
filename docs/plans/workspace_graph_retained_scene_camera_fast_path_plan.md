@@ -7,6 +7,25 @@
   around a retained Pixi scene, a camera-only pan/zoom path, useful diagnostic
   evidence, clickable activity sprites, and shared agent activity UI.
 
+## Implementation Status
+
+- Phase 6 was partially implemented by `2a0ad20fe`:
+  `AgentRunActivityRows` now owns shared run-item/activity presentation,
+  `ChatTranscript` renders chat run activity through it, workflow node details
+  render `RunActivityPage` through it, and the bespoke
+  `WorkflowRunActivityItem` representation was removed.
+- Focused verification for that implementation passed with
+  `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/components/chat-panel.test.tsx`.
+- Phase 6 is not fully closed because the Phase 5 sprite popover does not exist
+  yet, so the requirement that the popover render the same shared leaf activity
+  component is still unverified.
+- Phase 5 remains the next implementable phase. Activity sprites are still
+  passive Pixi objects (`trajectorySpriteInteractionMode: "passive"`), with no
+  retained hit targets, inline popover, details-link workflow, or sprite click
+  recording path.
+- Phase 7 is not ready until Phase 5 is complete and the remaining Phase 6
+  sprite-popover reuse criterion has production-path coverage.
+
 ## Position
 
 The workspace graph should not need to hide labels, hide edges, degrade visible
