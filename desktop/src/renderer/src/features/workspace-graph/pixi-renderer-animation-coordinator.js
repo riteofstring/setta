@@ -15,6 +15,7 @@ export function createWorkflowGraphAnimationCoordinator({
   edgeFlowGraphics,
   edges,
   getNode,
+  sceneVisitCounters = null,
   spatialQueries,
   staticGlow,
 }) {
@@ -93,6 +94,7 @@ export function createWorkflowGraphAnimationCoordinator({
     const visibility = glowVisibilityWindow.sync();
     const visibleNodeIds = visibility.visibleNodeIds;
     const visibleNodes = visibility.visibleNodes;
+    recordActiveSetSceneVisits(visibleNodes.length);
     lastStaticGlowVisibleNodeCount = visibleNodes.length;
     if (visibility.changed) {
       staticGlowVisibilityChangeCount += 1;
@@ -108,6 +110,11 @@ export function createWorkflowGraphAnimationCoordinator({
       redrawStaticGlow: forceStaticGlow || staticGlowDirty || visibility.changed,
     });
     clearInactiveEdgeFlow();
+  }
+
+  function recordActiveSetSceneVisits(visibleNodeCount) {
+    sceneVisitCounters?.record("settaOwnedLayerVisits");
+    sceneVisitCounters?.record("graphObjectsConsidered", visibleNodeCount);
   }
 
   function clearInactiveEdgeFlow() {

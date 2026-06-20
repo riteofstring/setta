@@ -727,6 +727,7 @@ async function installPerformanceTimelineRecorder(client) {
         if (window.__settaWorkflowGraphPhase0ReactCommit) {
           delete window.__settaWorkflowGraphPhase0ReactCommit;
         }
+        clearSettaPerformanceEntries();
       },
       endInput({ tokenOrKind }) {
         const index =
@@ -842,6 +843,31 @@ async function installPerformanceTimelineRecorder(client) {
       while (array.length > limit) {
         array.shift();
       }
+    }
+    function clearSettaPerformanceEntries() {
+      if (typeof performance.getEntriesByType !== "function") {
+        return;
+      }
+      if (typeof performance.clearMarks === "function") {
+        for (const entry of performance.getEntriesByType("mark")) {
+          if (settaPerformanceEntry(entry)) {
+            performance.clearMarks(entry.name);
+          }
+        }
+      }
+      if (typeof performance.clearMeasures === "function") {
+        for (const entry of performance.getEntriesByType("measure")) {
+          if (settaPerformanceEntry(entry)) {
+            performance.clearMeasures(entry.name);
+          }
+        }
+      }
+    }
+    function settaPerformanceEntry(entry) {
+      return (
+        entry.name.startsWith("setta.workflow-graph.") ||
+        entry.name.startsWith("setta.workspace.presentation.")
+      );
     }
     return window.__settaWorkflowGraphPerformanceRecorder.snapshot();
   })()`);
@@ -982,14 +1008,14 @@ function workflowGraphWheelLatencyMetrics(snapshot) {
     samples,
     "eventTimestampToCameraUpdateMs",
   );
-  const eventTimestampToRenderedFrameMs = finiteSampleValues(
+  const eventTimestampToFirstPixiRenderAfterCameraMs = finiteSampleValues(
     samples,
-    "eventTimestampToFirstRenderedFrameAfterCameraMs",
+    "eventTimestampToFirstPixiRenderAfterCameraMs",
   );
   const eventToCameraUpdateMs = finiteSampleValues(samples, "eventToCameraUpdateMs");
-  const eventToRenderedFrameMs = finiteSampleValues(
+  const eventToFirstPixiRenderAfterCameraMs = finiteSampleValues(
     samples,
-    "eventToFirstRenderedFrameAfterCameraMs",
+    "eventToFirstPixiRenderAfterCameraMs",
   );
   const handlerDurationMs = finiteSampleValues(samples, "handlerDurationMs");
   const cameraUpdateDurationMs = finiteSampleValues(samples, "cameraUpdateDurationMs");
@@ -997,16 +1023,18 @@ function workflowGraphWheelLatencyMetrics(snapshot) {
     cameraUpdateDurationMs: sampleStats(cameraUpdateDurationMs),
     eventDeliveryDelayMs: sampleStats(eventDeliveryDelayMs),
     eventTimestampToCameraUpdateMs: sampleStats(eventTimestampToCameraUpdateMs),
-    eventTimestampToRenderedFrameMs: sampleStats(eventTimestampToRenderedFrameMs),
+    eventTimestampToFirstPixiRenderAfterCameraMs: sampleStats(
+      eventTimestampToFirstPixiRenderAfterCameraMs,
+    ),
     eventToCameraUpdateMs: sampleStats(eventToCameraUpdateMs),
-    eventToRenderedFrameMs: sampleStats(eventToRenderedFrameMs),
+    eventToFirstPixiRenderAfterCameraMs: sampleStats(eventToFirstPixiRenderAfterCameraMs),
     handlerDurationMs: sampleStats(handlerDurationMs),
     maxEventDeliveryDelayMs: maxNumber(eventDeliveryDelayMs),
     maxEventToCameraUpdateMs: maxNumber(eventToCameraUpdateMs),
-    maxEventToRenderedFrameMs: maxNumber(eventToRenderedFrameMs),
+    maxEventToFirstPixiRenderAfterCameraMs: maxNumber(eventToFirstPixiRenderAfterCameraMs),
     p50EventDeliveryDelayMs: percentile(eventDeliveryDelayMs, 0.5),
     p95EventToCameraUpdateMs: percentile(eventToCameraUpdateMs, 0.95),
-    p95EventToRenderedFrameMs: percentile(eventToRenderedFrameMs, 0.95),
+    p95EventToFirstPixiRenderAfterCameraMs: percentile(eventToFirstPixiRenderAfterCameraMs, 0.95),
     p95HandlerDurationMs: percentile(handlerDurationMs, 0.95),
     p95CameraUpdateDurationMs: percentile(cameraUpdateDurationMs, 0.95),
     sampleCount: samples.length,

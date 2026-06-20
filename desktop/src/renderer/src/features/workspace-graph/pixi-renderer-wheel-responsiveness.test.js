@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { createWorkflowGraphWheelResponsivenessTracker } from "./pixi-renderer-wheel-responsiveness";
 
 describe("workflow graph wheel responsiveness tracker", () => {
-  test("records wheel event timing, camera latency, render latency, and tail candidates", () => {
+  test("records wheel event timing, camera latency, Pixi render proxy latency, and tail candidates", () => {
     let time = 100;
     const tracker = createWorkflowGraphWheelResponsivenessTracker({
       now: () => time,
@@ -22,7 +22,7 @@ describe("workflow graph wheel responsiveness tracker", () => {
       sequence: first.sequence,
     });
     time = 116;
-    tracker.recordRenderedFrame();
+    tracker.recordPixiRenderFrame();
 
     time = 124;
     tracker.recordWheelEvent(wheelEvent({ deltaY: -2, timeStamp: 123 }), {
@@ -42,7 +42,7 @@ describe("workflow graph wheel responsiveness tracker", () => {
     expect(snapshot.wheelInput.lastCompletedGesture).toMatchObject({
       eventCount: 2,
       firstWheelEventToFirstCameraUpdateMs: 1,
-      firstWheelEventToFirstRenderedFrameAfterCameraMs: 16,
+      firstWheelEventToFirstPixiRenderAfterCameraMs: 16,
       lastWheelEventToSettleRestoreMs: 48,
       tailCandidateDurationMs: 0,
       tailCandidateEventCount: 1,
@@ -53,7 +53,7 @@ describe("workflow graph wheel responsiveness tracker", () => {
       deltaMode: 0,
       eventTimestampDeltaMs: 3,
       eventToCameraUpdateMs: 1,
-      eventToFirstRenderedFrameAfterCameraMs: 16,
+      eventToFirstPixiRenderAfterCameraMs: 16,
       metaKey: false,
       treatment: "zoom",
     });

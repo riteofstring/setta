@@ -2,7 +2,12 @@ import { Rectangle } from "pixi.js";
 
 const filterAreaScreenPaddingPx = 96;
 
-export function createWorkflowGraphFilterAreaSync({ debugMetrics, filteredGraphics, viewport }) {
+export function createWorkflowGraphFilterAreaSync({
+  debugMetrics,
+  filteredGraphics,
+  sceneVisitCounters = null,
+  viewport,
+}) {
   let currentFilterArea = null;
   let filterAreaSkipCount = 0;
   let filterAreaSyncCount = 0;
@@ -25,6 +30,9 @@ export function createWorkflowGraphFilterAreaSync({ debugMetrics, filteredGraphi
       return false;
     }
     debugMetrics.measure("filter-area-sync", () => {
+      sceneVisitCounters?.record("settaOwnedLayerVisits");
+      sceneVisitCounters?.record("boundsCalculations");
+      sceneVisitCounters?.record("displayObjectsTraversed", filteredGraphics.length);
       currentFilterArea = syncWorkflowGraphFilterAreas({ filteredGraphics, viewport });
     });
     filterAreaSyncCount += 1;

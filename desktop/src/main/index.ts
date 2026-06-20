@@ -276,6 +276,21 @@ function shouldShowMainWindow() {
   return !isE2E() || isVisibleE2E();
 }
 
+function e2eWindowDimension(envName: string, fallback: number): number {
+  if (!isE2E()) {
+    return fallback;
+  }
+  const raw = process.env[envName];
+  if (raw === undefined) {
+    return fallback;
+  }
+  const value = Number(raw);
+  if (Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  throw new Error(`invalid ${envName}: ${raw}`);
+}
+
 function testOpenWorkspaceRoot() {
   if (!isE2E()) {
     return "";
@@ -286,7 +301,7 @@ function testOpenWorkspaceRoot() {
 async function createWindow() {
   mainWindow = new BrowserWindow({
     backgroundColor: "#18181b",
-    height: 820,
+    height: e2eWindowDimension("SETTA_E2E_WINDOW_HEIGHT", 820),
     minHeight: compactWindowMinHeight,
     minWidth: compactWindowMinWidth,
     show: false,
@@ -305,7 +320,7 @@ async function createWindow() {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
     },
-    width: 1280,
+    width: e2eWindowDimension("SETTA_E2E_WINDOW_WIDTH", 1280),
   });
   recorder?.attachWindow(mainWindow);
 

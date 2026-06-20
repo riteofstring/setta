@@ -263,10 +263,18 @@ interface WorkflowGraphPhase0ReactCommit {
   surfaceId: string;
 }
 
+interface WorkflowGraphPerformanceRecorder {
+  beginInput?: (input: unknown) => number | null;
+  disconnect: () => void;
+  endInput?: (input: unknown) => boolean;
+  snapshot: () => unknown;
+}
+
 declare global {
   interface Window {
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
     __settaWorkflowGraphPhase0ReactCommit?: (commit: WorkflowGraphPhase0ReactCommit) => void;
+    __settaWorkflowGraphPerformanceRecorder?: WorkflowGraphPerformanceRecorder;
     __settaWorkflowGraphRunDrafts?: Map<string, () => Promise<WorkflowGraphDebugRunDraftResult>>;
     setta: SettaAPI;
   }

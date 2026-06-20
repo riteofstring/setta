@@ -89,9 +89,11 @@ export async function createElectronFixture(name) {
 
 export async function launchElectronCdpContext({
   artifactDir,
+  deviceScaleFactor = null,
   extraEnv = {},
   fixture,
   visible = false,
+  windowSize = null,
 }) {
   await rm(artifactDir, { force: true, recursive: true });
   await mkdir(artifactDir, { recursive: true });
@@ -99,10 +101,12 @@ export async function launchElectronCdpContext({
   await writeFile(join(artifactDir, "debug-port.txt"), `${debugPort}\n`);
   const electron = launchElectron({
     artifactDir,
+    deviceScaleFactor,
     debugPort,
     extraEnv,
     fixture,
     visible,
+    windowSize,
   });
   const client = await connectToSettaPage(debugPort);
   await client.call("Runtime.enable");
@@ -322,8 +326,16 @@ async function openPort() {
   return address.port;
 }
 
-function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) {
-  const electron = spawn(electronBin(), electronLaunchArgs(debugPort), {
+function launchElectron({
+  artifactDir,
+  deviceScaleFactor,
+  debugPort,
+  extraEnv,
+  fixture,
+  visible,
+  windowSize,
+}) {
+  const electron = spawn(electronBin(), electronLaunchArgs(debugPort, { deviceScaleFactor }), {
     cwd: desktopRoot,
     env: {
       ...process.env,
@@ -337,6 +349,7 @@ function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) 
       SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
       SETTA_RECORDING: "1",
       SETTA_RECORDING_DIR: artifactDir,
+      ...e2eWindowSizeEnv(windowSize),
       ...(visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -347,9 +360,22 @@ function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) 
   return electron;
 }
 
-function electronLaunchArgs(debugPort) {
+function e2eWindowSizeEnv(windowSize) {
+  if (!windowSize) {
+    return {};
+  }
+  return {
+    SETTA_E2E_WINDOW_HEIGHT: String(windowSize.height),
+    SETTA_E2E_WINDOW_WIDTH: String(windowSize.width),
+  };
+}
+
+function electronLaunchArgs(debugPort, { deviceScaleFactor = null } = {}) {
   return [
     `--remote-debugging-port=${debugPort}`,
+    ...(Number.isFinite(deviceScaleFactor)
+      ? ["--high-dpi-support=1", `--force-device-scale-factor=${deviceScaleFactor}`]
+      : []),
     ".",
     ...(process.platform === "darwin" ? ["-ApplePersistenceIgnoreState", "YES"] : []),
   ];

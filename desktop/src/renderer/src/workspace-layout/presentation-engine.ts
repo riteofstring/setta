@@ -912,6 +912,12 @@ function markPresentationApplyStart(
   if (typeof performance === "undefined" || typeof performance.mark !== "function") {
     return null;
   }
+  if (
+    typeof globalThis.window === "undefined" ||
+    globalThis.window.__settaWorkflowGraphPerformanceRecorder === undefined
+  ) {
+    return null;
+  }
   const sequence = nextPresentationApplySequence;
   nextPresentationApplySequence += 1;
   const startMarkName = `setta.workspace.presentation.apply.start.${sequence}`;
@@ -946,6 +952,8 @@ function markPresentationApplyEnd(
     end: mark.endMarkName,
     start: mark.startMarkName,
   });
+  performance.clearMarks?.(mark.startMarkName);
+  performance.clearMarks?.(mark.endMarkName);
 }
 
 function addPresentationWriteCounts(

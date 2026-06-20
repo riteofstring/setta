@@ -13,6 +13,7 @@ export function createWorkflowGraphCameraSync({
   interactionScheduler = { runLane: (_laneId, callback) => callback() },
   labelLayer,
   labels,
+  sceneVisitCounters = null,
   syncFilterAreas,
   syncVisibleScene,
   viewport,
@@ -169,6 +170,9 @@ export function createWorkflowGraphCameraSync({
 
   function runScheduledCameraSync(force) {
     const cameraMotion = cameraDependentSyncRequiresMovingFrame && !force ? "moving" : "settled";
+    if (cameraMotion === "moving") {
+      sceneVisitCounters?.markCameraFrame();
+    }
     const syncIncludesZoom = force || pendingCameraSyncIncludesZoom;
     cameraDependentSyncScheduled = false;
     cameraDependentSyncRequiresMovingFrame = false;
@@ -260,6 +264,7 @@ export function createWorkflowGraphCameraSync({
   function syncLabelsForCameraMotion(cameraMotion) {
     if (cameraMotion === "moving") {
       const visibleLabelCount = labels.visibleLabelSyncNodeCount();
+      sceneVisitCounters?.record("labelsConsidered", visibleLabelCount);
       labelLayer.visible = false;
       cameraMovingLabelHiddenFrameCount += 1;
       cameraMovingLabelDeferredFrameCount += visibleLabelCount;

@@ -34,6 +34,7 @@ export function createWorkflowGraphDebugSnapshot({
   reactRenderCount,
   recentFrameMs,
   renderState,
+  sceneVisitCounters,
   spatialQueries,
   viewport,
 }) {
@@ -48,6 +49,11 @@ export function createWorkflowGraphDebugSnapshot({
     const frameStats = frameSampleStats(recentFrameMs);
     const state = renderState();
     const timing = debugMetrics.snapshot();
+    const visibleRenderableCount = estimatedVisibleRenderableCount({
+      nodeLabels,
+      nodeContainers,
+      state,
+    });
     return {
       camera,
       canvas: {
@@ -226,6 +232,7 @@ export function createWorkflowGraphDebugSnapshot({
         trajectorySpriteSyncCount: state.trajectorySpriteSyncCount,
         trajectorySpriteTotalCount: state.trajectorySpriteTotalCount,
         displayObjectCountsByLayer: displayObjectCountsByLayer(displayObjectLayers),
+        sceneVisitCounters: sceneVisitCounters.snapshot({ visibleRenderableCount }),
         totalDisplayObjectCount: totalDisplayObjectCount(app.stage),
         transitionsActive: state.transitionsActive,
         visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
@@ -243,6 +250,16 @@ export function createWorkflowGraphDebugSnapshot({
       visual,
     };
   };
+}
+
+function estimatedVisibleRenderableCount({ nodeContainers, nodeLabels, state }) {
+  return (
+    Number(state.lastVisibleMaterializedNodeCount ?? nodeContainers.size) +
+    Number(state.lastDrawnEdgeCount ?? 0) +
+    Number(state.lastDrawnEdgeLabelCount ?? 0) +
+    Number(state.trajectorySpriteDisplayCount ?? 0) +
+    visibleDisplayObjectCount(nodeLabels.values())
+  );
 }
 
 function nodeDebugSnapshot(

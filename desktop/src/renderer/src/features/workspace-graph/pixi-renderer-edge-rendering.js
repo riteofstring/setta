@@ -26,49 +26,34 @@ export function redrawWorkspaceEdges({
   fontFamily,
   fontSize,
   getNode,
+  sceneVisitCounters = null,
   validateGlyphs,
   visibleNodeIds = null,
   viewportWorldBounds = null,
 }) {
   edgeGraphics.clear();
   edgeLabelLayer.removeChildren().forEach((child) => child.destroy());
-  let edgeDrawMs = 0;
-  let edgeLabelDrawMs = 0;
-  let drawnEdgeCount = 0;
-  let drawnEdgeLabelCount = 0;
-  const labelsVisible = edgeLabelsVisible(edgeLevelOfDetail);
-  for (const edge of edgesForVisualDrawOrder(edges)) {
-    const result = drawEdgeForScene({
-      edge,
+  recordEdgeSceneVisits(sceneVisitCounters, edges.length);
+  const { drawnEdgeCount, drawnEdgeLabelCount, edgeDrawMs, edgeLabelDrawMs } =
+    drawVisibleEdgesForScene({
       edgeGraphics,
       edgeLabelLayer,
       edgeLevelOfDetail,
+      edges,
       fontFamily,
       fontSize,
       getNode,
-      labelsVisible,
+      sceneVisitCounters,
       validateGlyphs,
       viewportWorldBounds,
       visibleNodeIds,
     });
-    if (!result.drawn) {
-      continue;
-    }
-    drawnEdgeCount += 1;
-    edgeDrawMs += result.edgeDrawMs;
-    edgeLabelDrawMs += result.edgeLabelDrawMs;
-    if (result.labelDrawn) {
-      drawnEdgeLabelCount += 1;
-    }
-  }
-  debugMetrics?.recordDuration("edge-redraw", edgeDrawMs, {
+  recordEdgeDrawDurations(debugMetrics, {
     drawnEdgeCount,
-    edgeCount: edges.length,
-    edgeLevelOfDetail,
-  });
-  debugMetrics?.recordDuration("edge-label-redraw", edgeLabelDrawMs, {
     drawnEdgeLabelCount,
     edgeCount: edges.length,
+    edgeDrawMs,
+    edgeLabelDrawMs,
     edgeLevelOfDetail,
   });
   return {
@@ -77,6 +62,84 @@ export function redrawWorkspaceEdges({
     edgeCount: edges.length,
     edgeLevelOfDetail,
   };
+}
+
+function recordEdgeSceneVisits(sceneVisitCounters, edgeCount) {
+  sceneVisitCounters?.record("settaOwnedLayerVisits");
+  sceneVisitCounters?.record("graphObjectsConsidered", edgeCount);
+  sceneVisitCounters?.record("cullCandidatesChecked", edgeCount);
+}
+
+function recordEdgeDrawDurations(
+  debugMetrics,
+  {
+    drawnEdgeCount,
+    drawnEdgeLabelCount,
+    edgeCount,
+    edgeDrawMs,
+    edgeLabelDrawMs,
+    edgeLevelOfDetail,
+  },
+) {
+  debugMetrics?.recordDuration("edge-redraw", edgeDrawMs, {
+    drawnEdgeCount,
+    edgeCount,
+    edgeLevelOfDetail,
+  });
+  debugMetrics?.recordDuration("edge-label-redraw", edgeLabelDrawMs, {
+    drawnEdgeLabelCount,
+    edgeCount,
+    edgeLevelOfDetail,
+  });
+}
+
+function drawVisibleEdgesForScene({
+  edgeGraphics,
+  edgeLabelLayer,
+  edgeLevelOfDetail,
+  edges,
+  fontFamily,
+  fontSize,
+  getNode,
+  sceneVisitCounters,
+  validateGlyphs,
+  viewportWorldBounds,
+  visibleNodeIds,
+}) {
+  const totals = { drawnEdgeCount: 0, drawnEdgeLabelCount: 0, edgeDrawMs: 0, edgeLabelDrawMs: 0 };
+  const labelsVisible = edgeLabelsVisible(edgeLevelOfDetail);
+  for (const edge of edgesForVisualDrawOrder(edges)) {
+    addEdgeDrawResult(
+      totals,
+      drawEdgeForScene({
+        edge,
+        edgeGraphics,
+        edgeLabelLayer,
+        edgeLevelOfDetail,
+        fontFamily,
+        fontSize,
+        getNode,
+        labelsVisible,
+        sceneVisitCounters,
+        validateGlyphs,
+        viewportWorldBounds,
+        visibleNodeIds,
+      }),
+    );
+  }
+  return totals;
+}
+
+function addEdgeDrawResult(totals, result) {
+  if (!result.drawn) {
+    return;
+  }
+  totals.drawnEdgeCount += 1;
+  totals.edgeDrawMs += result.edgeDrawMs;
+  totals.edgeLabelDrawMs += result.edgeLabelDrawMs;
+  if (result.labelDrawn) {
+    totals.drawnEdgeLabelCount += 1;
+  }
 }
 
 function edgesForVisualDrawOrder(edges) {
@@ -101,10 +164,12 @@ export function redrawWorkspaceEdgeHighlights({
   hoveredNodeIds = emptyEdgeIdSet,
   selectedEdgeIds,
   selectedNodeIds = emptyEdgeIdSet,
+  sceneVisitCounters = null,
   visibleNodeIds = null,
   viewportWorldBounds = null,
 }) {
   edgeHighlightGraphics.clear();
+  sceneVisitCounters?.record("settaOwnedLayerVisits");
   drawHighlightedEdges({
     edgeHighlightGraphics,
     edgeLevelOfDetail,
@@ -112,6 +177,7 @@ export function redrawWorkspaceEdgeHighlights({
     getNode,
     isHighlighted: (edge) =>
       semanticEdgeRelatedToNodes(edge, hoveredNodeIds) && !selectedEdgeIds.has(edge.id),
+    sceneVisitCounters,
     stroke: {
       alpha: 0.5,
       color: workspaceNeonTheme.foundation.selection.hovered.color,
@@ -126,6 +192,7 @@ export function redrawWorkspaceEdgeHighlights({
     edges,
     getNode,
     isHighlighted: (edge) => hoveredEdgeIds.has(edge.id) && !selectedEdgeIds.has(edge.id),
+    sceneVisitCounters,
     stroke: {
       alpha: 0.72,
       color: workspaceNeonTheme.foundation.selection.hovered.color,
@@ -141,6 +208,7 @@ export function redrawWorkspaceEdgeHighlights({
     getNode,
     isHighlighted: (edge) =>
       semanticEdgeRelatedToNodes(edge, selectedNodeIds) && !selectedEdgeIds.has(edge.id),
+    sceneVisitCounters,
     stroke: {
       alpha: 0.78,
       color: workspaceNeonTheme.foundation.selection.selected.color,
@@ -155,6 +223,7 @@ export function redrawWorkspaceEdgeHighlights({
     edges,
     getNode,
     isHighlighted: (edge) => selectedEdgeIds.has(edge.id),
+    sceneVisitCounters,
     stroke: {
       alpha: 0.95,
       color: workspaceNeonTheme.foundation.selection.selected.color,
@@ -182,26 +251,41 @@ export function edgeVisibleForScene({
   edgeLevelOfDetail,
   source,
   target,
+  sceneVisitCounters = null,
   viewportWorldBounds,
   visibleNodeIds,
 }) {
-  if (edgeLevelOfDetail === "low" && !edgeImportantAtLowZoom(edge, source, target)) {
+  sceneVisitCounters?.record("boundsCalculations");
+  if (!edgePassesLevelOfDetail({ edge, edgeLevelOfDetail, source, target })) {
     return false;
   }
-  if (visibleNodeIds === null && viewportWorldBounds === null) {
+  if (noVisibilityWindow({ viewportWorldBounds, visibleNodeIds })) {
     return true;
   }
-  const endpointVisible =
-    visibleNodeIds === null ||
-    visibleNodeIds.has(edge.sourceNodeId) ||
-    visibleNodeIds.has(edge.targetNodeId);
-  if (endpointVisible) {
+  if (edgeEndpointVisible(edge, visibleNodeIds)) {
     return true;
   }
   if (viewportWorldBounds === null) {
     return false;
   }
+  sceneVisitCounters?.record("boundsCalculations", 3);
   return rectanglesIntersect(edgeWorldBounds(edge, source, target), viewportWorldBounds);
+}
+
+function edgePassesLevelOfDetail({ edge, edgeLevelOfDetail, source, target }) {
+  return edgeLevelOfDetail !== "low" || edgeImportantAtLowZoom(edge, source, target);
+}
+
+function noVisibilityWindow({ viewportWorldBounds, visibleNodeIds }) {
+  return visibleNodeIds === null && viewportWorldBounds === null;
+}
+
+function edgeEndpointVisible(edge, visibleNodeIds) {
+  return (
+    visibleNodeIds === null ||
+    visibleNodeIds.has(edge.sourceNodeId) ||
+    visibleNodeIds.has(edge.targetNodeId)
+  );
 }
 
 function drawEdgeForScene({
@@ -213,6 +297,7 @@ function drawEdgeForScene({
   fontSize,
   getNode,
   labelsVisible,
+  sceneVisitCounters,
   validateGlyphs,
   viewportWorldBounds,
   visibleNodeIds,
@@ -223,6 +308,7 @@ function drawEdgeForScene({
     !edgeVisibleForScene({
       edge,
       edgeLevelOfDetail,
+      sceneVisitCounters,
       source,
       target,
       viewportWorldBounds,
@@ -338,10 +424,13 @@ function drawHighlightedEdges({
   edges,
   getNode,
   isHighlighted,
+  sceneVisitCounters = null,
   stroke,
   viewportWorldBounds,
   visibleNodeIds,
 }) {
+  sceneVisitCounters?.record("graphObjectsConsidered", edges.length);
+  sceneVisitCounters?.record("cullCandidatesChecked", edges.length);
   for (const edge of edges) {
     if (!isHighlighted(edge)) {
       continue;
@@ -351,6 +440,7 @@ function drawHighlightedEdges({
         edge,
         edgeLevelOfDetail,
         getNode,
+        sceneVisitCounters,
         viewportWorldBounds,
         visibleNodeIds,
       })
@@ -373,12 +463,14 @@ function highlightedEdgeVisibleForScene({
   edge,
   edgeLevelOfDetail,
   getNode,
+  sceneVisitCounters,
   viewportWorldBounds,
   visibleNodeIds,
 }) {
   return edgeVisibleForScene({
     edge,
     edgeLevelOfDetail,
+    sceneVisitCounters,
     source: getNode(edge.sourceNodeId),
     target: getNode(edge.targetNodeId),
     viewportWorldBounds,

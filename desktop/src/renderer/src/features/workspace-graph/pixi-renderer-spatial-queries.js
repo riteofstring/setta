@@ -1,7 +1,17 @@
 import { nodeBounds, rectanglesIntersect } from "./pixi-renderer-helpers";
 import { createNodeSpatialIndex } from "./pixi-renderer-spatial-index";
 
-export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
+const spatialIndexCandidateCounterByQueryKind = {
+  "glow-visibility": "lastGlowVisibilityCandidateCount",
+  "label-visibility": "lastLabelVisibilityCandidateCount",
+  marquee: "lastMarqueeCandidateCount",
+  "node-hit": "lastNodeHitCandidateCount",
+  "port-hit": "lastPortHitCandidateCount",
+  "scene-window": "lastSceneWindowCandidateCount",
+  visible: "lastVisibleNodeCandidateCount",
+};
+
+export function createWorkflowGraphSpatialQueries({ nodes, sceneVisitCounters = null, viewport }) {
   const nodeSpatialIndex = createNodeSpatialIndex(nodes);
   const counters = {
     lastGlowVisibilityCandidateCount: 0,
@@ -83,10 +93,13 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
   };
 
   function nodesInPaddedViewport({ paddingScreenPx, queryKind }) {
+    sceneVisitCounters?.record("settaOwnedLayerVisits");
+    sceneVisitCounters?.record("boundsCalculations");
     const worldBounds = viewportWorldBounds(viewport, paddingScreenPx);
-    return searchSpatialIndex(worldBounds, queryKind).filter((node) =>
-      rectanglesIntersect(nodeBounds(node), worldBounds),
-    );
+    const candidates = searchSpatialIndex(worldBounds, queryKind);
+    sceneVisitCounters?.record("cullCandidatesChecked", candidates.length);
+    sceneVisitCounters?.record("boundsCalculations", candidates.length);
+    return candidates.filter((node) => rectanglesIntersect(nodeBounds(node), worldBounds));
   }
 
   function searchSpatialIndex(bounds, queryKind) {
@@ -99,23 +112,12 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
     }
     counters.spatialIndexQueryCount += 1;
     counters.spatialIndexCandidateCount = candidateCount;
-    if (queryKind === "glow-visibility") {
-      counters.lastGlowVisibilityCandidateCount = candidateCount;
-    } else if (queryKind === "label-visibility") {
-      counters.lastLabelVisibilityCandidateCount = candidateCount;
-    } else if (queryKind === "marquee") {
-      counters.lastMarqueeCandidateCount = candidateCount;
-    } else if (queryKind === "node-hit") {
-      counters.lastNodeHitCandidateCount = candidateCount;
-    } else if (queryKind === "port-hit") {
-      counters.lastPortHitCandidateCount = candidateCount;
-    } else if (queryKind === "scene-window") {
-      counters.lastSceneWindowCandidateCount = candidateCount;
-    } else if (queryKind === "visible") {
-      counters.lastVisibleNodeCandidateCount = candidateCount;
-    } else {
+    sceneVisitCounters?.record("graphObjectsConsidered", candidateCount);
+    const counterName = spatialIndexCandidateCounterByQueryKind[queryKind];
+    if (!counterName) {
       throw new Error(`unknown spatial index query kind: ${queryKind}`);
     }
+    counters[counterName] = candidateCount;
     return candidates;
   }
 }

@@ -44,9 +44,11 @@ import {
 } from "./workflow-graph-phase0-performance-guardrails.mjs";
 import { collectPhase0RunMetadata } from "./workflow-graph-phase0-run-metadata.mjs";
 import {
+  assertPhase0MatrixGatePassed,
   appendPhase0PerformanceReport,
   phase0PerformanceGateReport,
 } from "./workflow-graph-phase0-performance-report.mjs";
+import { assertPinnedPhase0Viewport } from "./workflow-graph-phase0-viewport.mjs";
 import {
   launchEnvForScenario,
   phase0WorkloadDefinitions,
@@ -91,6 +93,11 @@ const requiredTimingBuckets = [
   "scene-graph-node-diff-update-rebuild",
   "static-glow-redraw",
 ];
+const syntheticSceneForScenario = (scenario, fallback) =>
+  phase0WorkloadDefinitions[scenario]?.syntheticScene ?? fallback;
+const devicePixelRatioForWorkload = (workload) => workload?.devicePixelRatio ?? null;
+const viewportForWorkload = (workload) => workload?.viewport ?? null;
+const errorMessage = (error) => (error instanceof Error ? error.message : String(error));
 
 const options = parseGraphRecordingArgs(process.argv.slice(2));
 
@@ -123,6 +130,7 @@ try {
   if (options.writeReport) {
     await appendPhase0PerformanceReport(phase0Gate);
   }
+  assertPhase0MatrixGatePassed(phase0Gate);
   await writeJson(join(artifactRoot, "summary.json"), {
     artifactRoot,
     phase0Gate: join(artifactRoot, "phase0-performance-gate.json"),
@@ -201,8 +209,8 @@ async function runScalingScenarios(scalingRoot = artifactRoot) {
 }
 
 async function runScenario({ artifactDir, nodeCount = 0, scenario, syntheticScene = "workflow" }) {
-  const effectiveSyntheticScene =
-    phase0WorkloadDefinitions[scenario]?.syntheticScene ?? syntheticScene;
+  const effectiveSyntheticScene = syntheticSceneForScenario(scenario, syntheticScene);
+  const phase0Workload = phase0WorkloadForScenario(scenario, nodeCount);
   const fixture = await createElectronFixture(scenarioFixtureName({ nodeCount, scenario }));
   let context = null;
   let workflowGraphSurfaceId = null;
@@ -210,6 +218,7 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario, syntheticScen
     await prepareScenarioBeforeLaunch({ fixture, scenario });
     context = await launchElectronCdpContext({
       artifactDir,
+      deviceScaleFactor: devicePixelRatioForWorkload(phase0Workload),
       extraEnv: launchEnvForScenario({
         nodeCount,
         scenario,
@@ -217,6 +226,12 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario, syntheticScen
       }),
       fixture,
       visible: options.visible,
+      windowSize: viewportForWorkload(phase0Workload),
+    });
+    await assertPinnedPhase0Viewport({
+      client: context.client,
+      waitForState,
+      workload: phase0Workload,
     });
     const runMetadata = await collectPhase0RunMetadata({
       client: context.client,
@@ -311,7 +326,7 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario, syntheticScen
     await writeScenarioFailureArtifacts({ artifactDir, context, workflowGraphSurfaceId });
     await writeJson(join(artifactDir, "summary.json"), {
       artifactDir,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
       scenario,
       status: "failed",
     });
@@ -1373,6 +1388,7 @@ function summarizeSnapshot(snapshot) {
       pointerPanUpdateCount: snapshot.render.pointerPanUpdateCount,
       pooledLabelCount: snapshot.render.pooledLabelCount,
       pooledNodeViewCount: snapshot.render.pooledNodeViewCount,
+      sceneVisitCounters: snapshot.render.sceneVisitCounters,
       sceneWindowSize: snapshot.render.sceneWindowSize,
       timingBuckets: snapshot.render.timingBuckets,
       totalDisplayObjectCount: snapshot.render.totalDisplayObjectCount,

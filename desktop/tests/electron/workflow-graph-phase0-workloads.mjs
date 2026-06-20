@@ -1,5 +1,6 @@
 export const phase0WorkloadDefinitions = {
   dense: {
+    devicePixelRatio: 2,
     edgeCount: 900,
     labelCap: "visible-window",
     nodeCount: 650,
@@ -16,6 +17,7 @@ export const phase0WorkloadDefinitions = {
     zoomLevel: "fit-visible-cluster",
   },
   normal: {
+    devicePixelRatio: 2,
     edgeCount: 150,
     labelCap: "visible-window",
     nodeCount: 125,
@@ -32,6 +34,7 @@ export const phase0WorkloadDefinitions = {
     zoomLevel: "fit-visible-cluster",
   },
   simple: {
+    devicePixelRatio: 2,
     edgeCount: 2,
     labelCap: "visible-window",
     nodeCount: 3,
@@ -48,6 +51,7 @@ export const phase0WorkloadDefinitions = {
     zoomLevel: "fit-graph",
   },
   stress: {
+    devicePixelRatio: 2,
     edgeCount: 2000,
     labelCap: "visible-window",
     nodeCount: 1300,
@@ -68,6 +72,7 @@ export const phase0WorkloadDefinitions = {
 export function phase0WorkloadForScenario(scenario, nodeCount) {
   if (scenario === "scaling") {
     return {
+      devicePixelRatio: 2,
       edgeCount: Math.max(2, Math.round(nodeCount * 1.5)),
       labelCap: "visible-window",
       randomSeed: "phase0-scaling-v1",

@@ -22,6 +22,7 @@ export function createWorkflowGraphLabelManager({
   nodeLabels,
   nodeLabelFontSizeModes,
   nodeLabelVisibilityReasons,
+  sceneVisitCounters = null,
   selectedNodeIds,
   spatialQueries,
   viewport,
@@ -137,6 +138,7 @@ export function createWorkflowGraphLabelManager({
   }
 
   function syncVisibleLabelsNow() {
+    sceneVisitCounters?.record("settaOwnedLayerVisits");
     const visibleUpdate = labelVisibilityWindow.sync();
     lastLabelVisibilityEnteredCount = visibleUpdate.enteredNodeIds.size;
     lastLabelVisibilityExitedCount = visibleUpdate.exitedNodeIds.size;
@@ -148,6 +150,8 @@ export function createWorkflowGraphLabelManager({
       visibleUpdate.visibleNodes,
       visibleUpdate.exitedNodes,
     ).filter((node) => nodeLabels.has(node.id));
+    sceneVisitCounters?.record("graphObjectsConsidered", nodesToSync.length);
+    sceneVisitCounters?.record("labelsConsidered", nodesToSync.length);
     const displayNodeIds = spatialQueries.labelVisibleNodeIds();
     for (const node of nodesToSync) {
       syncLabelPosition(node.id);
@@ -174,6 +178,7 @@ export function createWorkflowGraphLabelManager({
   }
 
   function syncLabelPositionNow(nodeId) {
+    sceneVisitCounters?.record("labelsConsidered");
     const node = requireNode(nodeId);
     const label = requireNodeLabel(nodeId);
     const screen = nodeLabelScreenPosition({ label, node, viewport });

@@ -192,6 +192,7 @@ function phase8PerformanceChecks(context) {
     ...phase8NodeDragChecks(context),
     ...phase0CameraLatencyChecks(context),
     phase0CameraWorkingSetReadCheck(context),
+    phase0PresentedFrameBudgetBlockedCheck(context),
     phase8LabelSyncCheck(context),
     phase8StaticGlowCheck(context),
     phase8MaterializedNodeCountCheck(context),
@@ -307,7 +308,7 @@ function phase0CameraLatencyChecks(context) {
   }
   return [
     phase0WheelEventToCameraUpdateCheck(context),
-    phase0WheelEventToRenderedFrameCheck(context),
+    phase0WheelEventToFirstPixiRenderCheck(context),
   ];
 }
 
@@ -322,14 +323,16 @@ function phase0WheelEventToCameraUpdateCheck({ timingThresholdsHard, wheelLatenc
   });
 }
 
-function phase0WheelEventToRenderedFrameCheck({ timingThresholdsHard, wheelLatency }) {
+function phase0WheelEventToFirstPixiRenderCheck({ timingThresholdsHard, wheelLatency }) {
   const check = phase0TimingCheck({ timingThresholdsHard });
   return check({
-    actual: wheelLatency.p95EventToRenderedFrameMs,
+    actual: wheelLatency.p95EventToFirstPixiRenderAfterCameraMs,
     budget: 32,
-    id: "idle-wheel-pinch-to-rendered-frame-p95-ms",
-    pass: wheelLatency.sampleCount > 0 && Number(wheelLatency.p95EventToRenderedFrameMs) < 32,
-    summary: `wheelLatencySamples=${wheelLatency.sampleCount}, maxEventToRenderedFrameMs=${wheelLatency.maxEventToRenderedFrameMs}`,
+    id: "idle-wheel-pinch-to-first-pixi-render-proxy-p95-ms",
+    pass:
+      wheelLatency.sampleCount > 0 &&
+      Number(wheelLatency.p95EventToFirstPixiRenderAfterCameraMs) < 32,
+    summary: `wheelLatencySamples=${wheelLatency.sampleCount}, maxEventToFirstPixiRenderAfterCameraMs=${wheelLatency.maxEventToFirstPixiRenderAfterCameraMs}; this is a Pixi postrender proxy, not compositor presentation`,
   });
 }
 
@@ -341,6 +344,17 @@ function phase0CameraWorkingSetReadCheck({ semanticTraffic }) {
     id: "no-semantic-working-set-reads-during-camera-interaction",
     pass: actual === 0,
     summary: `workingSetIpcStarts=${semanticTraffic.workingSetIpcStarts}, workingSetHttpRequests=${semanticTraffic.workingSetHttpRequests}, firstInputAt=${semanticTraffic.firstInputAt}, lastInputAt=${semanticTraffic.lastInputAt}`,
+  });
+}
+
+function phase0PresentedFrameBudgetBlockedCheck() {
+  return reportOnlyCheck({
+    actual: null,
+    budget: null,
+    id: "input-to-presented-frame-budget-blocked",
+    pass: false,
+    summary:
+      "no compositor presentation trace source is wired yet; first-Pixi-render metrics remain proxy evidence only",
   });
 }
 
@@ -375,14 +389,13 @@ function phase8MaterializedNodeCountCheck({ final, materializedNodeBudget }) {
   });
 }
 
-function phase8DisplayObjectCountCheck({ displayObjectBudget, final, scenario }) {
-  const check = scenario === "stress" ? reportOnlyCheck : hardCheck;
-  return check({
+function phase8DisplayObjectCountCheck({ displayObjectBudget, final }) {
+  return reportOnlyCheck({
     actual: final.render.totalDisplayObjectCount,
     budget: displayObjectBudget,
-    id: "display-object-count-budget",
+    id: "supplemental-display-object-count-budget",
     pass: Number(final.render.totalDisplayObjectCount ?? 0) <= displayObjectBudget,
-    summary: `totalDisplayObjectCount=${final.render.totalDisplayObjectCount}, materializedNodeCount=${final.render.materializedNodeCount}`,
+    summary: `totalDisplayObjectCount=${final.render.totalDisplayObjectCount}, materializedNodeCount=${final.render.materializedNodeCount}; supplemental only, not a CPU scene-visit substitute`,
   });
 }
 
@@ -436,9 +449,9 @@ function emptySemanticTrafficMetrics() {
 function emptyWheelLatencyMetrics() {
   return {
     maxEventToCameraUpdateMs: 0,
-    maxEventToRenderedFrameMs: 0,
+    maxEventToFirstPixiRenderAfterCameraMs: 0,
     p95EventToCameraUpdateMs: 0,
-    p95EventToRenderedFrameMs: 0,
+    p95EventToFirstPixiRenderAfterCameraMs: 0,
     sampleCount: 0,
   };
 }
