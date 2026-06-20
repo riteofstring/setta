@@ -29,8 +29,9 @@ from interaction ownership being split across:
 
 This split lets the UI show impossible or unproven states:
 
-- read-only workflow nodes can move locally and read-only ports can look
-  connectable even though persistence/edge creation will reject the edit;
+- read-only workflow nodes can move only through an unowned local Pixi path and
+  then snap back, while read-only ports can look connectable even though edge
+  creation will reject the edit;
 - failed layout saves can leave optimistic positions visible;
 - projection/materialization refreshes can overwrite Pixi-local node positions
   while a drag or just-saved move is still being reconciled;
@@ -52,32 +53,55 @@ behavior.
 - Do not run a broad cleanup campaign before the refactor.
 - Do not reshuffle folders or rename modules unless the current organization
   blocks the graph interaction contract.
-- Do not add compatibility shims, old-field aliases, dual-read/write paths, or
-  migration layers.
-- Do not preserve old read-only drag behavior.
+- Do not add backward compatibility, legacy support paths, migrations,
+  transitional adapters, transitional readers/writers, old-field aliases,
+  dual-read/write paths, compatibility shims, or silent fallback behavior.
+- Do not preserve old read-only drag behavior where Pixi accepts movement and
+  persistence silently no-ops. Read-only/run node rearrangement should get an
+  explicit non-editing layout owner rather than being disabled by default.
 - Do not keep misleading UI just because it is visually pleasant.
 - Do not replace behavior assertions with renderer counter assertions.
 - Do not tune cartographer prompts or semantic memory quality in this plan.
 - Do not introduce synthetic-only debug paths as proof of production behavior.
 
-## Compatibility Policy
+## No Backward Compatibility Policy
 
 There is no backward-compatibility requirement for the current pre-release graph
-interaction behavior.
+interaction behavior. This plan should not create compatibility code of any
+kind.
+
+Banned approaches:
+
+- legacy support paths;
+- migrations;
+- transitional adapters;
+- transitional readers or writers;
+- dual-read/write paths;
+- old-field aliases;
+- compatibility shims;
+- fallback parsing for old shapes;
+- silent compatibility fallbacks;
+- feature flags whose only purpose is to keep old graph behavior working during
+  the refactor.
 
 If renderer graph state, debug snapshots, workspace recordings, selected-node
 targets, or local layout overlay behavior need incompatible changes, change them
-directly. Tests should assert the new behavior. Stale local runtime state may be
-reset. Failure should be loud and specific rather than silently falling back to
-old behavior.
+directly. If persistent state becomes incompatible, bump the relevant store or
+schema version and fail loudly with reset guidance. Tests should assert the new
+behavior and rejection/reset path. Stale local runtime state may be reset.
 
 ## Current Failure Inventory
 
-### 1. Read-Only Or Runtime-Only Graph Objects Advertise Editable Actions
+### 1. Graph Objects Advertise Actions Without An Owner
 
 Pixi starts node dragging and mutates node coordinates before persistence knows
 whether the projection is editable. Later, workflow layout persistence no-ops
 when `workflowProjection.editable` is false.
+
+Read-only/run workflow nodes should still be rearrangeable as a UX affordance.
+The bug is that this movement currently has no explicit non-editing layout
+owner. It should not use draft workflow definition layout persistence, and it
+should not be a local Pixi-only mutation that can vanish on refresh.
 
 The same editability mismatch can apply to ports. The workflow projection
 provides ports for read-only/run projections, Pixi exposes interactive port hit
@@ -103,10 +127,14 @@ Primary files:
 
 Required outcome:
 
-- A node that cannot be durably moved must not start a drag.
-- Cursor state must not advertise grab/grabbing for blocked nodes.
-- Read-only run/version workflow projections and any other non-editable graph
-  state must be blocked before Pixi mutates local state.
+- Every node drag has an explicit movement owner before Pixi mutates local
+  state: draft workflow definition layout, read-only/run view layout, semantic
+  layout, or another named owner.
+- Read-only/run/version workflow nodes may be movable, but their movement must
+  go through an explicit non-editing view-layout owner and must not write
+  through draft workflow definition persistence.
+- Cursor state must advertise grab/grabbing only for nodes with a movement
+  owner.
 - Runtime-only and preview semantic nodes must not expose drag/cursor
   affordances unless a durable layout owner is explicitly defined.
 - Read-only workflow ports must not expose connectable hit targets, connection
@@ -197,7 +225,9 @@ Required outcome:
 
 - A required deterministic Electron workflow proves editable workflow node drag
   persistence through production main/preload/renderer/backend/store paths.
-- The same coverage proves read-only workflow nodes do not move.
+- The same coverage proves read-only/run workflow node rearrangement uses the
+  non-editing view-layout owner, does not issue draft workflow layout writes,
+  and survives projection refresh/reload according to that owner contract.
 - A live-condition workflow proves a trajectory, semantic runtime, liveness, or
   command-preview update during or immediately after drag cannot reset the moved
   node.
@@ -323,8 +353,8 @@ Required outcome:
 - Behavior assertions lead.
 - Counter assertions remain as supplemental diagnostics after behavior has been
   proven.
-- New tests fail on durable layout loss, read-only movement, or misleading
-  trajectory interaction even if renderer counters advance.
+- New tests fail on durable layout loss, unowned or wrong-owner node movement,
+  or misleading trajectory interaction even if renderer counters advance.
 - Pan/zoom tests prove user-visible camera deltas, dragged-node-only movement,
   stable node positions after refresh, and absence of unintended layout writes
   before asserting scheduler lanes or renderer counters.
@@ -368,6 +398,32 @@ The renderer contract should answer these questions before drag starts:
 - What happens if the save fails?
 - What projection/layout should be shown after failure?
 
+### Interaction Product Policy
+
+The graph should be interactive by default. "Read-only" means the user cannot
+mutate the workflow definition from that view; it does not mean workflow nodes,
+run nodes, version nodes, or semantic nodes are inert.
+
+Allowed non-workflow-editing interactions include:
+
+- clicking/selecting workflow and semantic nodes;
+- opening details, evidence, source links, run context, and trajectory context;
+- rearranging workflow/run/version nodes through an explicit non-editing
+  view-layout owner;
+- rearranging committed semantic nodes through semantic layout persistence;
+- using semantic nodes for steering, pinning, review, inclusion/exclusion, or
+  other semantic-context actions when those actions write through semantic or
+  steering owners rather than workflow definition persistence.
+
+Blocked interactions are the ones that would mutate the workflow definition
+from a non-editable projection, such as connecting ports, deleting workflow
+nodes, changing workflow node configuration, or writing run/version layout back
+to the draft workflow definition owner.
+
+Preview/runtime-only semantic nodes may still be clickable/selectable when they
+have details or steering value. They are non-movable only until a durable layout
+owner is defined for them.
+
 ### Scene Store Boundary
 
 The refactor target is one mutation-respecting scene store that owns the current
@@ -396,7 +452,10 @@ The policy should not be inferred inside low-level Pixi pointer handlers.
 
 Initial rule:
 
-- workflow node: movable only when the current projection is editable draft;
+- editable draft workflow node: movable through the workflow definition layout
+  owner;
+- read-only/run/version workflow node: movable through a separate non-editing
+  view-layout owner, not through draft workflow definition persistence;
 - semantic committed node: movable only when semantic layout persistence is
   available for the current workspace;
 - semantic preview/source pulse node: not movable unless a later plan defines a
@@ -475,9 +534,12 @@ Tasks:
   - assert the node remains moved from persisted backend definition layout.
 - Add coverage for read-only workflow nodes:
   - open a run or version projection;
-  - attempt to drag a node;
-  - assert the node does not move locally;
-  - assert no workflow layout save is issued.
+  - drag a workflow node through the production graph surface;
+  - assert the node moves through the read-only/run view-layout owner;
+  - assert no draft workflow definition layout save is issued;
+  - force graph/projection refresh;
+  - reload or relaunch with temporary app data;
+  - assert the node remains moved according to the view-layout contract.
 - Add coverage for read-only workflow ports:
   - open a run or version projection;
   - hover and drag from a port;
@@ -519,9 +581,9 @@ Acceptance criteria:
 - At least one test exercises direct manipulation and live graph updates at the
   same time.
 
-## Phase 2: Editability Contract
+## Phase 2: Editability And Movement Ownership Contract
 
-Goal: make editability a single projection-owned contract used by graph
+Goal: make editability and movement ownership explicit contracts used by graph
 interaction, details surfaces, and toolbar state.
 
 Tasks:
@@ -532,11 +594,17 @@ Tasks:
   `!target.editable`.
 - Pass graph editability or per-node movability into Pixi through a typed
   renderer graph/options contract.
+- Include the node movement owner in that contract so Pixi knows whether a drag
+  writes to draft definition layout, read-only/run view layout, semantic layout,
+  or no owner.
 - Pass graph editability or per-port connectability into Pixi through the same
   contract.
-- Block node drag before mutation when a node is not movable.
+- Block node drag before mutation when a node has no movement owner.
 - Mark semantic preview/runtime-only nodes as non-movable unless a durable
   layout owner is added.
+- Preserve click/select/details/steering affordances for semantic nodes,
+  including preview/runtime-only semantic nodes when they have useful semantic
+  context.
 - Suppress port hit targets and temporary edge drawing when ports are not
   connectable.
 - Set cursor state from movability rather than assuming every body can be
@@ -555,9 +623,12 @@ pnpm -C desktop exec tsc --noEmit --pretty false
 
 Acceptance criteria:
 
-- Read-only nodes never enter drag state.
+- Read-only/run workflow node drags use the non-editing view-layout owner and
+  never write to draft workflow definition layout.
 - Semantic preview/runtime-only nodes never enter drag state without a durable
   owner.
+- Semantic nodes remain clickable/selectable and available for semantic
+  steering interactions when those actions have semantic or steering owners.
 - Read-only details surfaces do not expose enabled save controls.
 - Editable draft behavior remains unchanged except for stronger persistence
   proof.
@@ -736,9 +807,12 @@ Tasks:
 Acceptance criteria:
 
 - Graph interaction code has one obvious place to answer whether a node can be
-  moved.
+  moved and which owner receives the move.
 - Graph interaction code has one obvious place to answer whether a port can be
   connected.
+- Graph interaction code distinguishes workflow-definition edits from
+  non-workflow interactions such as selection, details, view layout, semantic
+  layout, and semantic steering.
 - Durable layout state and visual state cannot disagree silently.
 - React graph materialization, scene-store materialization, and Pixi updates no
   longer race through stale pending frames.
@@ -823,9 +897,12 @@ node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs \
 
 This plan is complete when:
 
-- read-only workflow nodes cannot be moved locally;
+- read-only workflow nodes can be rearranged through an explicit non-editing
+  layout owner without using draft persistence or snapping back;
 - read-only workflow ports cannot advertise connectable actions;
 - semantic preview/runtime-only nodes cannot be dragged without a durable owner;
+- workflow and semantic nodes remain clickable/selectable/interactable for
+  non-workflow-editing actions, including semantic steering where supported;
 - editable workflow node moves persist through backend refresh and reload;
 - graph/projection refreshes cannot cancel active node drag, edge draw, or
   marquee before pointerup/pointercancel settles the interaction;
