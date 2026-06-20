@@ -1,6 +1,6 @@
 # Workspace Trajectory Liveness and Semantic Memory Plan
 - **Date:** June 18, 2026
-- **Status:** Phase 4 complete; Phase 5 ready to implement
+- **Status:** Phase 5 complete; Phase 6 ready to implement
 - **Scope:** Replace the current semantic-node-centered liveness model with a
   principled split between deterministic workflow trajectory visuals, durable
   semantic memory, cartographer audit, and graph interaction/runtime
@@ -921,8 +921,12 @@ Phase 5 handoff:
 - Do not address the live failure with prompt-only tweaks or compatibility
   fallbacks. The fix should strengthen typed evidence selection, durable memory
   criteria, no-op diagnostics, and product-facing usefulness signals.
+
 ### Phase 5 - Semantic Memory Usefulness Refactor
-Status: ready to implement.
+
+Status: complete. Commit `d5db401e2` implemented semantic-memory usefulness
+fields, evidence candidates, automatic-node policy checks, context-pack delivery
+tracking, and renderer details surfacing.
 
 Recenter semantic nodes around durable usefulness.
 
@@ -958,7 +962,58 @@ Acceptance:
   - what source facts support it,
   - what future work it should influence,
   - how it relates to other nodes.
+
+Phase 5 implementation review:
+
+- `SemanticNode` now stores public `whyItExists` and `futureUse`, and the
+  generated TypeScript contract exposes `SemanticNodeUsefulness` in details.
+- Cartographer output schema and validation require new nodes to include
+  `whyItExists` and `futureUse`, and reject chain-of-thought or large raw
+  content in those fields.
+- Automatic cartographer application now rejects or leaves pending weak durable
+  memory: process-only labels, repeated new-node summaries, missing concrete
+  evidence, run-level-only evidence, and final-synthesis session nodes that are
+  not connected to semantic context.
+- Typed Phase 4 trajectory facts now flow into cartographer input as evidence
+  candidates for run items, file changes, diffs, tests, commands, and typed file
+  operations.
+- Semantic details now report source coverage, context-pack delivery count,
+  last context-pack delivery time, last user promotion time, and usefulness
+  diagnostics for missing why/future-use or unused memory.
+- Context-pack delivery tracking is proven through retrieval-backed compiler
+  coverage, and the automatic cartographer workflow now asserts that created
+  semantic nodes have concrete evidence, future-use text, and source coverage.
+- The previous live Codex semantic-cartographer terminal timeout was rechecked
+  with ChatGPT auth and passed after Phase 5.
+
+Non-blocking residual:
+
+- `lastUserOpenedAt` and `dismissalReason` are present in the usefulness
+  contract, but current product paths do not yet record detail-pane opens or
+  dismissal reasons. Do not treat those two fields as acceptance evidence until
+  a later interaction-telemetry change gives them typed event sources.
+
+Phase 6 handoff:
+
+- Phase 6 is ready to implement.
+- Keep Phase 6 focused on runtime ownership consolidation, not another
+  cartographer prompt/policy pass unless a runtime contract boundary requires
+  it.
+- Preserve the hot-path split established by earlier phases: trajectory runtime
+  for fast deterministic liveness, semantic memory for durable claims, and
+  cartographer audit for operational state.
+- Camera movement must remain local to renderer scene state. It must not cause
+  backend reads, durable graph reconstruction, or high-frequency React array
+  replacement.
+- Details panes remain complete through explicit on-demand reads.
+- Continue the no-backward-compatibility policy: no legacy runtime modes,
+  migrations, transitional readers, dual-write paths, compatibility adapters, or
+  silent fallbacks.
+
 ### Phase 6 - Runtime Ownership Consolidation
+
+Status: ready to implement.
+
 Clean up the long-term boundary between trajectory runtime, semantic runtime,
 and renderer state.
 
@@ -984,7 +1039,9 @@ Acceptance:
   projection.
 - Hot-path payload budgets are enforced.
 - Details remain complete through on-demand reads.
+
 ### Phase 7 - Product Acceptance Matrix
+
 The product acceptance matrix, implementation notes, non-goals, and open
 questions live in
 `docs/plans/workspace_trajectory_liveness_and_semantic_memory_plan_appendix.md`.
