@@ -5,7 +5,7 @@ const semanticNodeDetailsRequiredText = [
   "supports",
   "refutes",
   "resolves",
-  "Phase 2 plan excerpt",
+  "Trajectory liveness plan excerpt",
   "SOURCE LINKS",
   "Why this exists",
   "validating",
@@ -85,7 +85,9 @@ export async function assertSemanticNodeDetails(client) {
     `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
     (value) => textIncludesAll(value.text, semanticNodeDetailsRequiredText),
   );
-  if (!details.text.includes("docs/plans/setta_semantic_work_graph_implementation_plan.md")) {
+  if (
+    !details.text.includes("docs/plans/workspace_trajectory_liveness_and_semantic_memory_plan.md")
+  ) {
     throw new Error(`semantic node details omitted evidence path: ${details.text}`);
   }
 }

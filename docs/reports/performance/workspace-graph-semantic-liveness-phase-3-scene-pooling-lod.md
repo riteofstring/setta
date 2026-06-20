@@ -4,8 +4,8 @@ Date: 2026-06-16
 
 ## Scope
 
-Phase 3 implementation and measurement for
-`docs/plans/workspace_graph_performance_semantic_liveness_plan.md`.
+Phase 3 implementation and measurement for the now-removed workspace graph
+semantic liveness plan.
 
 This phase keeps authoritative graph state in renderer-owned JS arrays/maps, but
 materializes Pixi node, port, label, and activity-marker display objects only

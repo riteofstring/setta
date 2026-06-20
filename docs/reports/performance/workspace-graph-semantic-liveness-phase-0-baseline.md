@@ -4,7 +4,7 @@ Date: 2026-06-16
 
 ## Scope
 
-Phase 0 baseline for `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`.
+Phase 0 baseline for the now-removed workspace graph semantic liveness plan.
 The run used production Electron main/preload/renderer paths, temporary app data,
 CDP tracing, debug snapshots, input samples, PerformanceObserver records, and
 fit-to-view contact sheets.

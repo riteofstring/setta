@@ -522,7 +522,7 @@ func seedHTTPSemanticReadFixture(t *testing.T, semanticService *semanticgraph.Se
 		"anchorId":       "evidence_scope",
 		"targetEntityId": "node_scope",
 		"sourceKind":     string(semanticgraph.EvidenceSourceDocument),
-		"path":           "docs/plans/setta_semantic_work_graph_implementation_plan.md",
+		"path":           "docs/plans/workspace_trajectory_liveness_and_semantic_memory_plan.md",
 		"rangeStart":     64,
 		"rangeEnd":       72,
 		"summary":        "Scope guard",

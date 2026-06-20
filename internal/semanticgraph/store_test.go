@@ -409,7 +409,7 @@ func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 		AnchorID:       "evidence_a",
 		TargetEntityID: "node_a",
 		SourceKind:     EvidenceSourceFileRange,
-		Path:           "docs/plans/setta_semantic_work_graph_implementation_plan.md",
+		Path:           "docs/plans/workspace_trajectory_liveness_and_semantic_memory_plan.md",
 		RangeStart:     42,
 		RangeEnd:       49,
 		Summary:        "Phase 1 scope guard",

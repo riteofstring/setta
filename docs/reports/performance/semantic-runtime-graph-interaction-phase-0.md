@@ -4,8 +4,8 @@ Date: 2026-06-17
 
 ## Scope
 
-Phase 0 evidence report for
-`docs/plans/semantic_runtime_and_graph_interaction_refactor_plan.md`.
+Phase 0 evidence report for the now-removed semantic runtime and graph
+interaction refactor plan.
 
 The source recording is `.recordings/20260617T041546Z`. It used development
 Electron with full recording payload capture enabled, production app IPC/HTTP

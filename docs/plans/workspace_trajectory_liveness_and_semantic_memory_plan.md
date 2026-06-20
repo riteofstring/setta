@@ -6,12 +6,9 @@
   principled split between deterministic workflow trajectory visuals, durable
   semantic memory, cartographer audit, and graph interaction/runtime
   infrastructure.
-- **Related docs:**
-  - `docs/plans/semantic_cartographer_usefulness_plan.md`
-  - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
-  - `docs/plans/semantic_runtime_and_graph_interaction_refactor_plan.md`
-  - `docs/plans/semantic_cartographer_settings_audit_plan.md`
-  - `docs/plans/setta_semantic_work_graph_plan.md`
+- **Supersedes:** earlier semantic work graph, semantic cartographer
+  usefulness, cartographer settings/audit, workspace graph semantic liveness,
+  living workspace visual redesign, and semantic runtime interaction plans.
 
 ## Position
 

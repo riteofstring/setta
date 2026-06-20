@@ -279,7 +279,7 @@ function cartographerPatch(): SemanticNodeDetail["cartographerPatches"][number][
   const evidenceRefs = [
     {
       evidenceAnchorId: "evidence_node",
-      sourceId: "setta_semantic_work_graph_implementation_plan",
+      sourceId: "workspace_trajectory_liveness_and_semantic_memory_plan",
       sourceKind: "document" as const,
     },
   ];

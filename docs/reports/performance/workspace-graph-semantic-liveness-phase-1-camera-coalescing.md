@@ -4,8 +4,8 @@ Date: 2026-06-16
 
 ## Scope
 
-Phase 1 implementation and measurement for
-`docs/plans/workspace_graph_performance_semantic_liveness_plan.md`.
+Phase 1 implementation and measurement for the now-removed workspace graph
+semantic liveness plan.
 
 The change moves camera-dependent renderer work out of pointer/wheel handlers.
 Handlers now mutate the Pixi viewport and record the camera state cheaply; the

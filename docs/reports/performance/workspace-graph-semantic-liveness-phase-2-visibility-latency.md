@@ -4,8 +4,8 @@ Date: 2026-06-16
 
 ## Scope
 
-Phase 2 implementation and measurement for
-`docs/plans/workspace_graph_performance_semantic_liveness_plan.md`.
+Phase 2 implementation and measurement for the now-removed workspace graph
+semantic liveness plan.
 
 This phase keeps the Phase 1 camera coalescing, then removes whole-graph label
 and glow work from camera settle frames. It also addresses the small-graph
