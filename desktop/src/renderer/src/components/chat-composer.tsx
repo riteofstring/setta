@@ -7,7 +7,7 @@ import type {
 } from "@generated/backend";
 import type { ChatCommandExecutionOptions } from "@shared/types";
 import { Check, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
 import {
@@ -25,6 +25,8 @@ import { SettaLogoMark } from "./setta-logo-mark";
 import { Textarea } from "./ui/textarea";
 
 export { modelPickerOptionSelected, reasoningEffortOptionSelected } from "./chat-composer-controls";
+
+const emptyCommandCapabilities: ChatCommandCapability[] = [];
 
 function composerDisabled(disabledOverride: boolean | undefined, selected: boolean, busy: boolean) {
   if (disabledOverride !== undefined) {
@@ -75,16 +77,7 @@ function modelPickerControlDisabled(
   return selectedConversation === null || disabled || running;
 }
 
-export function Composer({
-  busy,
-  chat,
-  disabled: disabledOverride,
-  formClassName,
-  frameClassName,
-  onSendPrompt,
-  placeholder = "",
-  running,
-}: {
+interface ComposerProps {
   busy: boolean;
   chat: ChatView;
   disabled?: boolean;
@@ -93,9 +86,40 @@ export function Composer({
   onSendPrompt?: (prompt: string) => Promise<void>;
   placeholder?: string;
   running: boolean;
-}) {
+}
+
+const composerChatPropSelectors = [
+  (chat: ChatView) => chat.activeRun?.id,
+  (chat: ChatView) => chat.commandListError,
+  (chat: ChatView) => chat.commandListStatus,
+  (chat: ChatView) => chat.executeCommand,
+  (chat: ChatView) => chat.goal,
+  (chat: ChatView) => chat.listCommands,
+  (chat: ChatView) => chat.operation,
+  (chat: ChatView) => chat.pendingSteeringMessageIds,
+  (chat: ChatView) => chat.queueMessage,
+  (chat: ChatView) => chat.selectedConversation,
+  (chat: ChatView) => chat.sendMessage,
+  (chat: ChatView) => chat.sendSteeringImmediately,
+  (chat: ChatView) => chat.setCodexModel,
+  (chat: ChatView) => chat.setCodexReasoningEffort,
+  (chat: ChatView) => chat.status,
+  (chat: ChatView) => chat.steerMessage,
+  (chat: ChatView) => chat.stopActiveRun,
+] as const;
+
+function ComposerComponent({
+  busy,
+  chat,
+  disabled: disabledOverride,
+  formClassName,
+  frameClassName,
+  onSendPrompt,
+  placeholder = "",
+  running,
+}: ComposerProps) {
   const [draft, setDraft] = useState("");
-  const [commands, setCommands] = useState<ChatCommandCapability[]>([]);
+  const [commands, setCommands] = useState<ChatCommandCapability[]>(emptyCommandCapabilities);
   const [commandListKey, setCommandListKey] = useState("");
   const [focusRequest, setFocusRequest] = useState(0);
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
@@ -103,14 +127,19 @@ export function Composer({
   const submittingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selected = chat.selectedConversation !== null;
+  const selectedConversationId = chat.selectedConversation?.id ?? "";
+  const listCommands = chat.listCommands;
   const acceptsPrompt = selected || onSendPrompt !== undefined;
   const disabled = composerDisabled(disabledOverride, acceptsPrompt, busy);
   const slashDraft = isSlashDraft(draft);
   const draftText = draft.trim();
   const suggestions = commandSuggestions(commands, draft);
   const selectedSuggestion = suggestions[0] ?? null;
-  const commandListError =
-    slashDraft && chat.commandListStatus === "failed" ? chat.commandListError : null;
+  const commandListError = commandListErrorForDraft(
+    slashDraft,
+    chat.commandListStatus,
+    chat.commandListError,
+  );
   const hasPendingSteering = chat.pendingSteeringMessageIds.length > 0;
   const modelPickerOpen = isModelPickerOpen(modelPicker);
   const canSend = canSendComposerDraft(disabled, draftText);
@@ -128,39 +157,38 @@ export function Composer({
   );
 
   useEffect(() => {
-    if (!chat.selectedConversation) {
-      setCommands([]);
+    if (selectedConversationId === "") {
+      setCommands(emptyCommandCapabilities);
       setCommandListKey("");
       setModelPicker(null);
       return;
     }
     if (!slashDraft) {
-      setCommands([]);
+      setCommands(emptyCommandCapabilities);
       setCommandListKey("");
       return;
     }
-    const key = chat.selectedConversation.id + ":" + (running ? "running" : "idle");
+    const key = selectedConversationId + ":" + (running ? "running" : "idle");
     if (commandListKey === key) {
       return;
     }
     let cancelled = false;
     setCommandListKey(key);
-    void chat
-      .listCommands()
+    void listCommands()
       .then((result) => {
         if (!cancelled) {
-          setCommands(result?.commands ?? []);
+          setCommands(result?.commands ?? emptyCommandCapabilities);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setCommands([]);
+          setCommands(emptyCommandCapabilities);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [chat, commandListKey, running, slashDraft]);
+  }, [commandListKey, listCommands, running, selectedConversationId, slashDraft]);
 
   useEffect(() => {
     if (focusRequest === 0) {
@@ -174,7 +202,7 @@ export function Composer({
       return;
     }
     focusComposer();
-  }, [chat.activeRun?.id, chat.messagesById, disabled, running]);
+  }, [chat.activeRun?.id, disabled, running]);
 
   useEffect(() => {
     if (modelPicker?.result.action !== "model_picker") {
@@ -505,6 +533,33 @@ export function Composer({
       submittingRef.current = false;
     }
   }
+}
+
+export const Composer = memo(ComposerComponent, composerPropsEqual);
+
+function composerPropsEqual(previous: ComposerProps, next: ComposerProps) {
+  return (
+    previous.busy === next.busy &&
+    previous.disabled === next.disabled &&
+    previous.formClassName === next.formClassName &&
+    previous.frameClassName === next.frameClassName &&
+    previous.onSendPrompt === next.onSendPrompt &&
+    previous.placeholder === next.placeholder &&
+    previous.running === next.running &&
+    composerChatPropsEqual(previous.chat, next.chat)
+  );
+}
+
+function composerChatPropsEqual(previous: ChatView, next: ChatView) {
+  return composerChatPropSelectors.every((selector) => selector(previous) === selector(next));
+}
+
+function commandListErrorForDraft(
+  slashDraft: boolean,
+  commandListStatus: ChatView["commandListStatus"],
+  commandListError: ChatView["commandListError"],
+) {
+  return slashDraft && commandListStatus === "failed" ? commandListError : null;
 }
 
 export function CommandSuggestions({

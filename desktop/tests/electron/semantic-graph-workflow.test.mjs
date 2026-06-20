@@ -562,12 +562,14 @@ async function buildCartographerAuditBurst(client, workspaceId) {
         }));
       }
       const deadline = Date.now() + 5000;
-      while (events.length < built.length && Date.now() < deadline) {
+      while (events.length < 1 && Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
       return {
         auditEventCount: events.length,
         builtCount: built.length,
+        deliveredRunIds: [...new Set(events.flatMap((event) => event.cartographerRunIds))],
+        deliveredWindowIds: [...new Set(events.flatMap((event) => event.cartographerWindowIds))],
         changedAreas: events.map((event) => event.changedAreas),
         runIds: built.map((item) => item.run.id),
         windowIds: built.map((item) => item.window.id)
@@ -1163,10 +1165,7 @@ function assertRendererLifecycleDebug(snapshot, label) {
 }
 
 function assertCartographerAuditBurst(result) {
-  if (
-    result.builtCount !== cartographerAuditBurstSize ||
-    result.auditEventCount < result.builtCount
-  ) {
+  if (result.builtCount !== cartographerAuditBurstSize || result.auditEventCount < 1) {
     throw new Error(
       `cartographer audit burst did not deliver enough events: ${JSON.stringify(result)}`,
     );
@@ -1177,6 +1176,28 @@ function assertCartographerAuditBurst(result) {
   if (nonAuditOnly) {
     throw new Error(
       `cartographer audit burst delivered non-audit areas: ${JSON.stringify(result)}`,
+    );
+  }
+  assertIncludesAll(
+    result.deliveredRunIds,
+    result.runIds,
+    "cartographer audit burst omitted run ids",
+    result,
+  );
+  assertIncludesAll(
+    result.deliveredWindowIds,
+    result.windowIds,
+    "cartographer audit burst omitted window ids",
+    result,
+  );
+}
+
+function assertIncludesAll(actual, expected, label, result) {
+  const actualSet = new Set(actual);
+  const missing = expected.filter((item) => !actualSet.has(item));
+  if (missing.length > 0) {
+    throw new Error(
+      `${label}: missing=${JSON.stringify(missing)} result=${JSON.stringify(result)}`,
     );
   }
 }

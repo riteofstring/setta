@@ -11,6 +11,7 @@ import {
   type LucideIcon,
   Wrench,
 } from "lucide-react";
+import { useState } from "react";
 
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
@@ -147,13 +148,17 @@ function RunActivityRow({
   outputPage: RunItemOutputPageState | undefined;
   outputs: RunItemOutput[];
 }) {
-  const outputText = outputPreview(outputs);
+  const [open, setOpen] = useState(false);
+  const renderDetails = open || shouldRenderClosedActivityDetails(item, outputs);
+  const outputText = renderDetails ? outputPreview(outputs) : "";
   return (
     <details
       className="group/item relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-foreground"
       data-testid="run-activity-row"
       onToggle={(event) => {
-        if (!event.currentTarget.open || outputPage?.loading || outputPage) {
+        const nextOpen = event.currentTarget.open;
+        setOpen(nextOpen);
+        if (!nextOpen || outputPage?.loading || outputPage) {
           return;
         }
         void loadRunItemOutput(item.runId, item.id, 0);
@@ -167,16 +172,25 @@ function RunActivityRow({
         </span>
         <RunActivityStatus item={item} />
       </summary>
-      <RunActivityDetails
-        item={item}
-        loadMoreOutput={() =>
-          void loadRunItemOutput(item.runId, item.id, outputPage?.nextOrdinal ?? 0)
-        }
-        outputPage={outputPage}
-        outputText={outputText}
-      />
+      {renderDetails ? (
+        <RunActivityDetails
+          item={item}
+          loadMoreOutput={() =>
+            void loadRunItemOutput(item.runId, item.id, outputPage?.nextOrdinal ?? 0)
+          }
+          outputPage={outputPage}
+          outputText={outputText}
+        />
+      ) : null}
     </details>
   );
+}
+
+function shouldRenderClosedActivityDetails(item: RunItem, outputs: RunItemOutput[]) {
+  if (item.status !== "pending" && item.status !== "running") {
+    return true;
+  }
+  return outputs.length === 0;
 }
 
 function ActivityGroupDisclosureIcon() {

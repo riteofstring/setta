@@ -91,6 +91,11 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
+    file: "chat-stream-performance.test.mjs",
+    name: "chat-stream-performance",
+    tiers: ["performance"],
+  },
+  {
     args: ["--live-only"],
     file: "chat-workflows.test.mjs",
     name: "live-codex-electron",

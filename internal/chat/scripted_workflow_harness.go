@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 type ScriptedWorkflowHarness struct {
@@ -47,6 +48,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "mcp elicitation form cancel workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormCancelTurn},
 	{Prompt: "mcp elicitation url decline workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationURLDeclineTurn},
 	{Prompt: "dynamic tool workflow", Run: scriptedDynamicToolTurn},
+	{Prompt: "chat performance stream", Run: scriptedPerformanceStreamTurn},
 	{Prompt: "workflow result action", Run: scriptedWorkflowResultTurn},
 	{Prompt: "phase4 reviewer a workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer b workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
@@ -460,6 +462,54 @@ func scriptedDynamicToolTurn(_ *ScriptedWorkflowHarness, _ context.Context, requ
 		return TurnCompletion{}, err
 	}
 	return scriptedReply(sink, request.Run.ID, "Dynamic tool workflow complete.")
+}
+
+func scriptedPerformanceStreamTurn(_ *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	const chunkCount = 240
+	const chunkInterval = 8 * time.Millisecond
+	item := RunItem{
+		ProviderItemID: "provider_performance_stream_" + request.Run.ID,
+		Type:           RunItemTypeCommandExecution,
+		Status:         RunItemStatusRunning,
+		Title:          "Performance stream",
+		Command:        "scripted chat performance stream",
+		Summary:        "Streaming assistant text and command output for renderer frame timing.",
+	}
+	if err := sink.RunItemUpsert(item); err != nil {
+		return TurnCompletion{}, err
+	}
+	ticker := time.NewTicker(chunkInterval)
+	defer ticker.Stop()
+	for index := 0; index < chunkCount; index++ {
+		if index > 0 {
+			select {
+			case <-ctx.Done():
+				return TurnCompletion{}, ctx.Err()
+			case <-ticker.C:
+			}
+		}
+		if err := sink.AssistantTextDelta(
+			"scripted-assistant-"+request.Run.ID,
+			fmt.Sprintf("stream chunk %03d adds repeatable transcript render pressure. ", index),
+		); err != nil {
+			return TurnCompletion{}, err
+		}
+		if index%3 == 0 {
+			output := fmt.Sprintf("stdout perf line %03d: renderer output delta pressure\n", index)
+			if err := sink.RunItemOutputDelta(item.ProviderItemID, "stdout", output); err != nil {
+				return TurnCompletion{}, err
+			}
+		}
+	}
+	item.Status = RunItemStatusCompleted
+	item.Result = fmt.Sprintf("streamed %d assistant chunks", chunkCount)
+	if err := sink.RunItemUpsert(item); err != nil {
+		return TurnCompletion{}, err
+	}
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Performance stream complete."); err != nil {
+		return TurnCompletion{}, err
+	}
+	return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
 }
 
 func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

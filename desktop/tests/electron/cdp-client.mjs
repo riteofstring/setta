@@ -6,6 +6,7 @@ const driverScriptPath = join(dirname(fileURLToPath(import.meta.url)), "browser-
 
 export class CDPClient {
   constructor(socket, timeoutMs) {
+    this.eventListeners = new Map();
     this.nextId = 1;
     this.pending = new Map();
     this.socket = socket;
@@ -22,6 +23,18 @@ export class CDPClient {
       socket.addEventListener("error", reject, { once: true });
     });
     return new CDPClient(socket, timeoutMs);
+  }
+
+  on(method, listener) {
+    const listeners = this.eventListeners.get(method) ?? new Set();
+    listeners.add(listener);
+    this.eventListeners.set(method, listeners);
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        this.eventListeners.delete(method);
+      }
+    };
   }
 
   call(method, params = {}) {
@@ -78,6 +91,15 @@ export class CDPClient {
 
   handleMessage(data) {
     const message = JSON.parse(data);
+    if (message.method) {
+      const listeners = this.eventListeners.get(message.method);
+      if (listeners) {
+        for (const listener of listeners) {
+          listener(message.params ?? {});
+        }
+      }
+      return;
+    }
     if (!message.id || !this.pending.has(message.id)) {
       return;
     }

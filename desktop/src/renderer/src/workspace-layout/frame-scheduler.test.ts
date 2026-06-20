@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import type { WorkspaceLayoutSnapshot, WorkspaceLayoutStore } from "./layout-store";
@@ -9,6 +9,16 @@ import type { LayoutFrameInput, PaneRenderItem, Rect } from "./types";
 import type { PresentationEngine, PresentationWriteCounts } from "./presentation-engine";
 
 describe("workspace frame scheduler", () => {
+  let raf: InstalledRaf;
+
+  beforeEach(() => {
+    raf = installRaf();
+  });
+
+  afterEach(() => {
+    raf.restore();
+  });
+
   test("reuses normal and overview endpoint layouts while only overview progress changes", () => {
     const renderCalls: LayoutFrameInput[] = [];
     const engine = {
@@ -74,9 +84,103 @@ describe("workspace frame scheduler", () => {
     expect(renderCalls.map((input) => input.scrollColumn)).toEqual([0, 0]);
     expect(renderCalls.map((input) => input.scrollRow)).toEqual([0, 0]);
   });
+
+  test("stops the normal workspace frame loop after an idle frame", () => {
+    const store = createStableStore("normal", 0, 0, 0);
+    const presentation = fakePresentation();
+    const scheduler = new FrameScheduler({
+      engine: fakeEngine(),
+      layoutStore: store,
+      metrics: new WorkspaceMetricsCollector(),
+      presentation,
+      reportWriter: null,
+      runtimePolicy: new PaneRuntimePolicy(),
+      viewportProvider: () => viewport,
+    });
+
+    scheduler.start();
+    raf.flush(16);
+
+    expect(presentation.apply).toHaveBeenCalledOnce();
+    expect(raf.pendingCount()).toBe(0);
+
+    scheduler.teardown();
+  });
+
+  test("restarts the normal workspace frame loop after a layout store change", () => {
+    const store = createStableStore("normal", 0, 0, 0);
+    const presentation = fakePresentation();
+    const scheduler = new FrameScheduler({
+      engine: fakeEngine(),
+      layoutStore: store,
+      metrics: new WorkspaceMetricsCollector(),
+      presentation,
+      reportWriter: null,
+      runtimePolicy: new PaneRuntimePolicy(),
+      viewportProvider: () => viewport,
+    });
+
+    scheduler.start();
+    raf.flush(16);
+    store.emitLayoutChange();
+    raf.flush(32);
+
+    expect(presentation.apply).toHaveBeenCalledTimes(2);
+    expect(raf.pendingCount()).toBe(0);
+
+    scheduler.teardown();
+  });
+
+  test("continues the normal workspace frame loop while layout movement is active", () => {
+    const store = createMovingStore(["moving", "idle"]);
+    const presentation = fakePresentation();
+    const scheduler = new FrameScheduler({
+      engine: fakeEngine(),
+      layoutStore: store,
+      metrics: new WorkspaceMetricsCollector(),
+      presentation,
+      reportWriter: null,
+      runtimePolicy: new PaneRuntimePolicy(),
+      viewportProvider: () => viewport,
+    });
+
+    scheduler.start();
+    raf.flush(16);
+    expect(raf.pendingCount()).toBe(1);
+    raf.flush(32);
+
+    expect(presentation.apply).toHaveBeenCalledTimes(2);
+    expect(raf.pendingCount()).toBe(0);
+
+    scheduler.teardown();
+  });
+
+  test("keeps the benchmark frame loop continuous", () => {
+    const store = createStableStore("normal", 0, 0, 0);
+    const presentation = fakePresentation();
+    const scheduler = new FrameScheduler({
+      continuous: true,
+      engine: fakeEngine(),
+      layoutStore: store,
+      metrics: new WorkspaceMetricsCollector(),
+      presentation,
+      reportWriter: null,
+      runtimePolicy: new PaneRuntimePolicy(),
+      viewportProvider: () => viewport,
+    });
+
+    scheduler.start();
+    raf.flush(16);
+
+    expect(presentation.apply).toHaveBeenCalledOnce();
+    expect(raf.pendingCount()).toBe(1);
+
+    scheduler.teardown();
+  });
 });
 
 const viewport: Rect = { height: 900, width: 1440, x: 0, y: 0 };
+type TestWorkspaceLayoutStore = WorkspaceLayoutStore & { emitLayoutChange: () => void };
 
 function createZoomingStore(
   progressByFrame: number[],
@@ -107,6 +211,9 @@ function createZoomingStore(
     },
     moveFocus() {},
     snapScrollToTarget() {},
+    subscribe() {
+      return () => {};
+    },
     visibleColumnCount() {
       return 1;
     },
@@ -118,8 +225,9 @@ function createStableStore(
   overviewProgress: number,
   scrollColumn = 0,
   scrollRow = 0,
-): WorkspaceLayoutStore {
-  return {
+): TestWorkspaceLayoutStore {
+  const listeners = new Set<(snapshot: WorkspaceLayoutSnapshot) => void>();
+  const store = {
     advanceFrame() {
       return "idle";
     },
@@ -140,11 +248,33 @@ function createStableStore(
       };
     },
     moveFocus() {},
+    emitLayoutChange() {
+      const snapshot = this.getSnapshot();
+      for (const listener of listeners) {
+        listener(snapshot);
+      }
+    },
     snapScrollToTarget() {},
+    subscribe(listener: (snapshot: WorkspaceLayoutSnapshot) => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
     visibleColumnCount() {
       return 1;
     },
-  } as unknown as WorkspaceLayoutStore;
+  };
+  return store as unknown as TestWorkspaceLayoutStore;
+}
+
+function createMovingStore(phases: Array<"idle" | "moving">): WorkspaceLayoutStore {
+  const store = createStableStore("normal", 0, 0, 0);
+  return Object.assign(store, {
+    advanceFrame() {
+      return phases.shift() ?? "idle";
+    },
+  }) as WorkspaceLayoutStore;
 }
 
 function privateRenderFrame(
@@ -167,10 +297,18 @@ function privateRenderFrame(
 
 function fakePresentation(): PresentationEngine {
   return {
-    apply: () => emptyPresentationWriteCounts(),
-    teardown: () => {},
-    updateDebugOverlay: () => {},
+    apply: vi.fn(() => emptyPresentationWriteCounts()),
+    teardown: vi.fn(),
+    updateDebugOverlay: vi.fn(),
   } as unknown as PresentationEngine;
+}
+
+function fakeEngine(): WorkspaceLikeLayoutEngine {
+  return {
+    renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void) {
+      push(renderItem(input.presentationMode, input.movementPhase));
+    },
+  } as unknown as WorkspaceLikeLayoutEngine;
 }
 
 function emptyPresentationWriteCounts(): PresentationWriteCounts {
@@ -210,5 +348,44 @@ function renderItem(
     x: 0,
     y: 0,
     z: 1,
+  };
+}
+
+interface InstalledRaf {
+  flush: (timestamp: number) => void;
+  pendingCount: () => number;
+  restore: () => void;
+}
+
+function installRaf(): InstalledRaf {
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  let nextFrameId = 1;
+  globalThis.requestAnimationFrame = ((callback: FrameRequestCallback): number => {
+    const frameId = nextFrameId;
+    nextFrameId += 1;
+    callbacks.set(frameId, callback);
+    return frameId;
+  }) as typeof requestAnimationFrame;
+  globalThis.cancelAnimationFrame = ((frameId: number): void => {
+    callbacks.delete(frameId);
+  }) as typeof cancelAnimationFrame;
+  return {
+    flush(timestamp: number) {
+      const [frameId, callback] = callbacks.entries().next().value ?? [];
+      if (typeof frameId !== "number" || !callback) {
+        throw new Error("no animation frame is pending");
+      }
+      callbacks.delete(frameId);
+      callback(timestamp);
+    },
+    pendingCount() {
+      return callbacks.size;
+    },
+    restore() {
+      globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+      globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
+    },
   };
 }

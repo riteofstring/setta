@@ -128,6 +128,31 @@ describe("workspace native view bounds batcher", () => {
       sent.at(-1)?.updates.map((candidate) => [candidate.surfaceId, candidate.visible]),
     ).toEqual([["browser-surface-1", false]]);
   });
+
+  test("does not resend unchanged hidden browser updates", () => {
+    const sent: WorkspaceBrowserViewBatch[] = [];
+    const batcher = new NativeViewBoundsBatcher(
+      {
+        totalBrowserPanes: 24,
+        workspaceId: "phase-4-browser-pane-benchmark",
+      },
+      {
+        batchBrowserViewUpdates: (batch) => {
+          sent.push(batch);
+        },
+        teardownBrowserViews: vi.fn(async () => stats()),
+      },
+    );
+
+    batcher.beginFrame();
+    batcher.queue(hiddenUpdate("browser-surface-1"));
+    expect(batcher.flush()).toEqual({ batchSent: true, updateCount: 1 });
+
+    batcher.beginFrame();
+    batcher.queue(hiddenUpdate("browser-surface-1"));
+    expect(batcher.flush()).toEqual({ batchSent: false, updateCount: 0 });
+    expect(sent).toHaveLength(1);
+  });
 });
 
 function stats(): WorkspaceBrowserViewStats {

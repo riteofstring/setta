@@ -13,7 +13,6 @@ import {
 } from "./app-layout";
 import { useAppWindowDragHandlers } from "./app-window-drag";
 import { useViewportSize } from "./use-viewport-size";
-import { type ChatView, useChatViewState } from "./components/chat-panel";
 import { ResizablePane } from "./components/resizable-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { cn } from "./lib/utils";
@@ -40,7 +39,7 @@ export function App() {
 
 function SettaApp({ setta }: { setta: SettaAPI }) {
   const workspace = useWorkspaceViewState();
-  const chat = useChatViewState();
+  const projectChat = useProjectPaneChatState();
   const platform = setta.app.platform;
   const viewport = useViewportSize();
   useAppearanceSettings();
@@ -79,11 +78,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const openWorkflowGraphPane = useCallback(() => {
     focusWorkspaceSurface("workflow-graph");
   }, [focusWorkspaceSurface]);
-  const createConversation = chat.createConversation;
-  const createWorkspaceConversation = chat.createWorkspaceConversation;
-  const deleteConversation = chat.deleteConversation;
-  const selectConversation = chat.selectConversation;
-  const setConversationPinned = chat.setConversationPinned;
+  const createConversation = projectChat.createConversation;
+  const createWorkspaceConversation = projectChat.createWorkspaceConversation;
+  const deleteConversation = projectChat.deleteConversation;
+  const selectConversation = projectChat.selectConversation;
+  const setConversationPinned = projectChat.setConversationPinned;
   const createConversationAndFocusChat = useCallback(
     async (title?: string) => {
       await createConversation(title);
@@ -115,7 +114,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     <div className="fixed inset-0 min-h-0 overflow-hidden bg-background text-foreground">
       <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-background">
         <ProjectPane
-          chat={chat}
+          activeRun={projectChat.activeRun}
           chromeInsetTop={mobileViewport ? platform === "darwin" : projectPaneOpen}
           createConversation={createConversationAndFocusChat}
           createWorkspaceConversation={createWorkspaceConversationAndFocusChat}
@@ -125,6 +124,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           openSettingsPane={openSettingsPane}
           openWorkflowGraphPane={openWorkflowGraphPane}
           selectConversation={selectConversationAndFocusChat}
+          selectedConversationId={projectChat.selectedConversationId}
           setConversationPinned={setConversationPinned}
           setWidth={setProjectPaneWidth}
           viewportWidth={viewport.width}
@@ -218,9 +218,30 @@ function useSelectedWorkspaceChatSync(workspaceId: string | null) {
 }
 
 type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
+type ProjectPaneChatState = ReturnType<typeof useProjectPaneChatState>;
+
+function useProjectPaneChatState() {
+  const activeRun = useChatStore((state) => state.activeRun);
+  const createConversation = useChatStore((state) => state.createConversation);
+  const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
+  const deleteConversation = useChatStore((state) => state.deleteConversation);
+  const selectConversation = useChatStore((state) => state.selectConversation);
+  const selectedConversationId = useChatStore((state) => state.selectedConversation?.id ?? "");
+  const setConversationPinned = useChatStore((state) => state.setConversationPinned);
+
+  return {
+    activeRun,
+    createConversation,
+    createWorkspaceConversation,
+    deleteConversation,
+    selectConversation,
+    selectedConversationId,
+    setConversationPinned,
+  };
+}
 
 function ProjectPane({
-  chat,
+  activeRun,
   chromeInsetTop,
   createConversation,
   createWorkspaceConversation,
@@ -230,23 +251,25 @@ function ProjectPane({
   openSettingsPane,
   openWorkflowGraphPane,
   selectConversation,
+  selectedConversationId,
   setConversationPinned,
   setWidth,
   viewportWidth,
   width,
   workspace,
 }: {
-  chat: ChatView;
+  activeRun: ProjectPaneChatState["activeRun"];
   chromeInsetTop: boolean;
-  createConversation: ChatView["createConversation"];
-  createWorkspaceConversation: ChatView["createWorkspaceConversation"];
-  deleteConversation: ChatView["deleteConversation"];
+  createConversation: ProjectPaneChatState["createConversation"];
+  createWorkspaceConversation: ProjectPaneChatState["createWorkspaceConversation"];
+  deleteConversation: ProjectPaneChatState["deleteConversation"];
   mobileOverlay: boolean;
   open: boolean;
   openSettingsPane: () => void;
   openWorkflowGraphPane: () => void;
-  selectConversation: ChatView["selectConversation"];
-  setConversationPinned: ChatView["setConversationPinned"];
+  selectConversation: ProjectPaneChatState["selectConversation"];
+  selectedConversationId: ProjectPaneChatState["selectedConversationId"];
+  setConversationPinned: ProjectPaneChatState["setConversationPinned"];
   setWidth: (width: number) => void;
   viewportWidth: number;
   width: number;
@@ -258,7 +281,7 @@ function ProjectPane({
 
   const sidebar = (
     <WorkspaceSidebar
-      activeRun={chat.activeRun}
+      activeRun={activeRun}
       activeWorkspaces={workspace.activeWorkspaces}
       busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
       chromeInsetTop={chromeInsetTop}
@@ -276,7 +299,7 @@ function ProjectPane({
       selectConversation={selectConversation}
       selectWorkspace={workspace.selectWorkspace}
       setConversationPinned={setConversationPinned}
-      selectedConversationId={chat.selectedConversation?.id ?? ""}
+      selectedConversationId={selectedConversationId}
       selectedWorkspaceId={workspace.selectedWorkspaceId}
       sidebarWidth={mobileOverlay ? viewportWidth : width}
       workspaceError={workspace.error}

@@ -30,6 +30,7 @@ export interface WorkspaceLayoutSnapshot {
 
 type LayoutStoreListener = (snapshot: WorkspaceLayoutSnapshot) => void;
 const scrollAnimationTimeConstantMs = 140;
+const maxAnimationStepMs = 1000 / 60;
 const defaultViewportHeight = 900;
 
 export interface WorkspacePaneLimitState {
@@ -86,7 +87,8 @@ export class WorkspaceLayoutStore {
       this.snapshot = null;
       return "idle";
     }
-    const blend = Math.min(1, deltaMs / scrollAnimationTimeConstantMs);
+    const animationDeltaMs = Math.min(maxAnimationStepMs, Math.max(0, deltaMs));
+    const blend = Math.min(1, animationDeltaMs / scrollAnimationTimeConstantMs);
     this.scrollColumn += columnDistance * blend;
     this.scrollRow += rowDistance * blend;
     this.overviewProgress += zoomDistance * blend;

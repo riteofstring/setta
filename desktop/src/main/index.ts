@@ -257,10 +257,33 @@ function testOpenWorkspaceRoot() {
   return process.env.SETTA_E2E_OPEN_WORKSPACE_ROOT ?? "";
 }
 
+function mainWindowInitialSize() {
+  return {
+    height: e2eWindowDimension("SETTA_E2E_WINDOW_HEIGHT", 820),
+    width: e2eWindowDimension("SETTA_E2E_WINDOW_WIDTH", 1280),
+  };
+}
+
+function e2eWindowDimension(envName: string, fallback: number) {
+  if (!isE2E()) {
+    return fallback;
+  }
+  const rawValue = process.env[envName];
+  if (!rawValue) {
+    return fallback;
+  }
+  const value = Number(rawValue);
+  if (!Number.isInteger(value) || value < 320) {
+    throw new Error(`${envName} must be an integer >= 320`);
+  }
+  return value;
+}
+
 async function createWindow() {
+  const windowSize = mainWindowInitialSize();
   mainWindow = new BrowserWindow({
     backgroundColor: "#18181b",
-    height: 820,
+    height: windowSize.height,
     minHeight: compactWindowMinHeight,
     minWidth: compactWindowMinWidth,
     show: false,
@@ -279,7 +302,7 @@ async function createWindow() {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
     },
-    width: 1280,
+    width: windowSize.width,
   });
   recorder?.attachWindow(mainWindow);
 

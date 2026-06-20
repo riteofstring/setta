@@ -97,7 +97,9 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
 
   syncFrame(): void {
     this.syncSnapshotSize();
-    this.queueUpdate();
+    if (this.runtimeState === "live") {
+      this.queueUpdate();
+    }
   }
 
   freeze(reason: FreezeReason): void {

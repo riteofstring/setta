@@ -109,7 +109,7 @@ async function loadAndCommitResync(
 ) {
   const { generation, selectedConversation, workspaceId } = request;
   const list = await deps.reloadConversations(workspaceId, generation);
-  const nextConversation = nextResyncConversation(list, selectedConversation);
+  const nextConversation = nextResyncConversation(list, selectedConversation, workspaceId);
   const snapshot = nextConversation
     ? await deps.loadConversationPageSnapshot(workspaceId, nextConversation, generation)
     : null;
@@ -128,8 +128,9 @@ async function loadAndCommitResync(
 function nextResyncConversation(
   list: ListConversationsResponse,
   selectedConversation: Conversation | null,
+  workspaceId: string,
 ) {
-  if (!selectedConversation) {
+  if (!selectedConversation || selectedConversation.workspaceId !== workspaceId) {
     return list.conversations[0]?.conversation ?? null;
   }
   return (

@@ -24,9 +24,9 @@ describe("workspace runtime mode options", () => {
     });
   });
 
-  test("keeps workspace movement live while using snapshots in overview", () => {
+  test("uses movement and overview degradation in real workspace mode", () => {
     expect(runtimePolicyOptionsForRuntime("workspace")).toStrictEqual({
-      degradeDuringMovement: false,
+      degradeDuringMovement: true,
       degradeOverview: true,
     });
   });

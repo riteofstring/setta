@@ -215,6 +215,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.syncHostState();
     if (visible) {
       this.fitAndResize();
+      this.drainPendingOutput();
     }
   }
 
@@ -224,6 +225,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (focused) {
       this.terminal?.focus();
       this.fitAndResize();
+      this.drainPendingOutput();
       this.startSessionIfFocused();
     }
   }
@@ -248,6 +250,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.host?.setAttribute("data-resume-reason", reason);
     this.syncHostState();
     this.fitAndResize();
+    this.drainPendingOutput();
     if (this.focused) {
       this.terminal?.focus();
       this.fitAndResize();
@@ -490,7 +493,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (dataBase64 === "") {
       return;
     }
-    if (!terminal) {
+    if (!terminal || this.frozen) {
       this.enqueuePendingOutput({ byteCount, dataBase64 });
       return;
     }
@@ -510,7 +513,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
 
   private drainPendingOutput(): void {
     const terminal = this.terminal;
-    if (!terminal || this.pendingOutput.length === 0) {
+    if (!terminal || this.frozen || this.pendingOutput.length === 0) {
       return;
     }
     const outputs = this.pendingOutput.splice(0);

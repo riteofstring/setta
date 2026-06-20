@@ -256,6 +256,30 @@ describe("chat store workspace summary cache", () => {
     expect(useChatStore.getState().selectedConversation?.id).toBe(activeConversation.id);
   });
 
+  test("resync ignores a stale selected conversation from another workspace", async () => {
+    const staleConversation = testConversation({
+      id: "conversation_web",
+      title: "Web chat",
+      workspaceId: "workspace_web",
+    });
+    const listConversations = vi.fn().mockResolvedValue(listResponse([]));
+    const messagePage = vi.fn().mockResolvedValue(testPage(staleConversation, []));
+    installSettaAPI({ chat: { listConversations, messagePage } });
+    useChatStore.setState({
+      conversations: [],
+      selectedConversation: staleConversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().resyncActiveConversation();
+
+    expect(listConversations).toHaveBeenCalledWith("workspace_api");
+    expect(messagePage).not.toHaveBeenCalled();
+    expect(useChatStore.getState().selectedConversation).toBeNull();
+    expect(useChatStore.getState().workspaceId).toBe("workspace_api");
+  });
+
   test("does not create a complete summary list from events for unloaded workspaces", () => {
     const webConversation = testConversation({
       id: "conversation_web",

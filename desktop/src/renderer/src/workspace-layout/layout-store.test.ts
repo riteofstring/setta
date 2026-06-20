@@ -3,7 +3,11 @@ import { afterEach, describe, expect, test } from "vitest";
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { minimumColumnWidth } from "./layout-engine-helpers";
 import { WorkspaceLayoutStore } from "./layout-store";
-import { applyPaneResizePointerMove, type PaneResizeSession } from "./pane-resize-session";
+import {
+  commitPaneResize,
+  paneResizePreviewForPointerMove,
+  type PaneResizeSession,
+} from "./pane-resize-session";
 import type { WorkspaceColumn, WorkspaceScene, PaneLimitPolicy, Rect } from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
 
@@ -427,7 +431,12 @@ describe("workspace layout store", () => {
     expect(store.getSnapshot().overviewProgress).toBeLessThan(1);
 
     store.advanceFrame(1000);
+    expect(store.getSnapshot().overviewProgress).toBeGreaterThan(0);
+    expect(store.getSnapshot().overviewProgress).toBeLessThan(1);
 
+    for (let index = 0; index < 80; index += 1) {
+      store.advanceFrame(16);
+    }
     expect(store.getSnapshot()).toMatchObject({
       overviewProgress: 1,
       presentationMode: "overview",
@@ -546,8 +555,12 @@ describe("workspace layout store", () => {
     ]);
   });
 
-  test("manual horizontal resize can shrink to the column minimum", () => {
+  test("manual horizontal resize previews movement and commits once", () => {
     const store = createStore();
+    const revisions: number[] = [];
+    store.subscribe((snapshot) => {
+      revisions.push(snapshot.revision);
+    });
     const session = {
       axis: "horizontal",
       columnId: "workspace_column_0",
@@ -556,12 +569,20 @@ describe("workspace layout store", () => {
       startWidth: 520,
     } satisfies PaneResizeSession;
 
-    applyPaneResizePointerMove(store, session, { clientX: 0 } as PointerEvent);
+    expect(paneResizePreviewForPointerMove(session, { clientX: 0, clientY: 0 })).toEqual({
+      axis: "horizontal",
+      width: minimumColumnWidth,
+    });
+    expect(store.toScene().columns[0]?.widthSpec).toEqual({ unit: "px", value: 520 });
+    expect(revisions).toEqual([]);
+
+    expect(commitPaneResize(store, session, { clientX: 0, clientY: 0 })).toBe(true);
 
     expect(store.toScene().columns[0]?.widthSpec).toEqual({
       unit: "px",
       value: minimumColumnWidth,
     });
+    expect(revisions).toEqual([1]);
   });
 
   test("resizes adjacent panes inside a vertical split", () => {

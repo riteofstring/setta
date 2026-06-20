@@ -13,6 +13,7 @@ const focusStepIntervalMs = 120;
 const benchmarkWarmupMs = 2000;
 
 interface FrameSchedulerDependencies {
+  continuous?: boolean;
   engine: WorkspaceLikeLayoutEngine;
   layoutStore: WorkspaceLayoutStore;
   metrics: WorkspaceMetricsCollector;
@@ -32,16 +33,23 @@ export class FrameScheduler {
   private benchmarkDirection: "left" | "right" = "right";
   private benchmarkPaused = false;
   private clock: AnimationClock;
+  private destroyed = false;
+  private frameRequestSequence = 0;
   private items: PaneRenderItem[] = [];
+  private lastFrameNeedsContinuation = false;
   private lastFocusStepTimestamp = 0;
   private longTaskObserver: PerformanceObserver | null = null;
   private measurementStartedAt = 0;
   private overviewViewport: Rect | null = null;
   private reportWritten = false;
+  private renderedFrameRequestSequence = 0;
   private resizePhaseTracker = new ResizePhaseTracker();
+  private started = false;
   private startedAt = 0;
+  private unsubscribeLayoutStore: (() => void) | null = null;
   private zoomEndpointFrames: ZoomEndpointFrames | null = null;
 
+  private readonly continuous: boolean;
   private readonly engine: WorkspaceLikeLayoutEngine;
   private readonly layoutStore: WorkspaceLayoutStore;
   private readonly metrics: WorkspaceMetricsCollector;
@@ -51,6 +59,7 @@ export class FrameScheduler {
   private readonly viewportProvider: () => Rect;
 
   constructor(dependencies: FrameSchedulerDependencies) {
+    this.continuous = dependencies.continuous ?? false;
     this.engine = dependencies.engine;
     this.layoutStore = dependencies.layoutStore;
     this.metrics = dependencies.metrics;
@@ -62,17 +71,38 @@ export class FrameScheduler {
   }
 
   start(): void {
+    if (this.started || this.destroyed) {
+      return;
+    }
+    this.started = true;
     this.startedAt = performance.now();
     this.observeLongTasks();
-    this.clock.start();
+    this.unsubscribeLayoutStore = this.layoutStore.subscribe(() => {
+      this.requestFrame();
+    });
+    this.requestFrame();
   }
 
   pauseBenchmark(): void {
     this.benchmarkPaused = true;
   }
 
+  requestFrame(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.frameRequestSequence += 1;
+    if (this.started) {
+      this.clock.start();
+    }
+  }
+
   teardown(): void {
+    this.destroyed = true;
+    this.started = false;
     this.clock.stop();
+    this.unsubscribeLayoutStore?.();
+    this.unsubscribeLayoutStore = null;
     this.longTaskObserver?.disconnect();
     this.longTaskObserver = null;
     this.zoomEndpointFrames = null;
@@ -128,6 +158,7 @@ export class FrameScheduler {
     const targetOverviewProgress = snapshot.presentationMode === "overview" ? 1 : 0;
     const zooming = Math.abs(snapshot.overviewProgress - targetOverviewProgress) > 0.001;
     const renderMovementPhase = zooming ? "moving" : movementPhase;
+    this.lastFrameNeedsContinuation = renderMovementPhase === "moving" || resizePhase === "active";
     this.items.length = 0;
     this.metrics.beginFrame({ moving: renderMovementPhase === "moving", resizePhase });
     const frameInput = {
@@ -222,6 +253,7 @@ export class FrameScheduler {
   }
 
   private tick = (timestamp: number, deltaMs: number): void => {
+    const requestSequenceAtFrameStart = this.frameRequestSequence;
     const frameStart = performance.now();
     const viewport = this.viewportProvider();
     const resizePhase = this.resizePhaseTracker.sample(viewport, timestamp);
@@ -249,6 +281,14 @@ export class FrameScheduler {
     this.presentation.updateDebugOverlay(this.runtimePolicy.getSummary());
     this.startMeasurementAfterWarmup(frameStart);
     this.writeReportWhenReady(frameStart);
+    this.renderedFrameRequestSequence = Math.max(
+      this.renderedFrameRequestSequence,
+      requestSequenceAtFrameStart,
+    );
+    const requestPending = this.renderedFrameRequestSequence < this.frameRequestSequence;
+    if (!this.continuous && !this.lastFrameNeedsContinuation && !requestPending) {
+      this.clock.stop();
+    }
   };
 
   private zoomEndpointFrameItems({

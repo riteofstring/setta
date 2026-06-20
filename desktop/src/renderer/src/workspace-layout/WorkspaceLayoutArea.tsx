@@ -17,10 +17,23 @@ import { useWorkspaceStore } from "../stores/workspace-store";
 import { useViewportSize } from "../use-viewport-size";
 import { FrameScheduler } from "./frame-scheduler";
 import type { WorkspaceLayoutStore } from "./layout-store";
-import { installWindowResizeReportHooks, installWindowReportHooks } from "./performance-report";
+import { installWindowResizeReportHooks } from "./performance-report";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
 import { createWorkspaceRuntime, type WorkspaceRuntime } from "./workspace-runtime";
+import {
+  cleanupActivePaneDragSession,
+  cleanupOverviewDragSource,
+  cleanupPaneWindowDragSession,
+  clearSchedulerRefIfCurrent,
+  type OverviewDragSession,
+  type PaneWindowDragSession,
+} from "./workspace-layout-area-cleanup";
+import {
+  installWindowReportHooksForRuntime,
+  observeStageResize,
+  requireWorkspaceLayoutElements,
+} from "./workspace-layout-area-mount";
 import {
   focusOrOpenPaneBySurfaceKind,
   WorkspaceMobileControlsLayer,
@@ -46,7 +59,6 @@ import {
 import {
   applyPaneDrop,
   beginPaneDragSession,
-  cleanupPaneDragSession,
   finishPaneDragSession,
   syncPaneDragSourceOffset,
   updatePaneDragSession,
@@ -55,7 +67,8 @@ import {
 } from "./pane-drag-reorder";
 import { paneResizeTargetFromPointer } from "./pane-resize-target";
 import {
-  applyPaneResizePointerMove,
+  commitPaneResize,
+  paneResizePreviewForPointerMove,
   paneResizeSessionFromTarget,
   type PaneResizeSession,
 } from "./pane-resize-session";
@@ -75,19 +88,6 @@ export interface WorkspaceSurfaceFocusRequest {
 }
 
 const overviewDragThresholdPx = 6;
-
-interface OverviewDragSession {
-  dragging: boolean;
-  pointerId: number;
-  sourcePaneId: string;
-  startClientX: number;
-  startClientY: number;
-}
-
-interface PaneWindowDragSession {
-  handle: HTMLElement;
-  pointerId: number;
-}
 
 export function WorkspaceLayoutArea({
   focusSurfaceRequest = null,
@@ -149,8 +149,11 @@ function WorkspaceLayoutRuntimeArea({
   const hostRefs = useRef<Array<HTMLDivElement | null>>([]);
   const overviewDragSessionRef = useRef<OverviewDragSession | null>(null);
   const paneDragSessionRef = useRef<PaneDragSession | null>(null);
+  const paneResizePreviewRef = useRef<HTMLDivElement | null>(null);
+  const paneResizeStageOriginRef = useRef<{ left: number; top: number } | null>(null);
   const paneResizeSessionRef = useRef<PaneResizeSession | null>(null);
   const paneWindowDragSessionRef = useRef<PaneWindowDragSession | null>(null);
+  const schedulerRef = useRef<FrameScheduler | null>(null);
   const suppressNextClickRef = useRef(false);
   const trackpadNavigationRef = useRef(createWorkspaceTrackpadNavigationState());
   const [overviewGhostTarget, setOverviewGhostTarget] = useState<OverviewGhostTarget | null>(null);
@@ -218,6 +221,7 @@ function WorkspaceLayoutRuntimeArea({
   }, [resetLayoutPersistenceError, workspaceId]);
   useEffect(() => {
     runtime.engine.setCompactLayout(mobileLayout);
+    schedulerRef.current?.requestFrame();
   }, [mobileLayout, runtime]);
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
@@ -274,17 +278,14 @@ function WorkspaceLayoutRuntimeArea({
   }, [runLayoutAction, runtime, stageViewport]);
 
   useEffect(() => {
-    const root = rootRef.current;
-    const stage = stageRef.current;
-    const hosts = hostRefs.current.filter((host): host is HTMLDivElement => host !== null);
-    if (!root || !stage || hosts.length !== runtime.hostPoolSize) {
-      throw new Error("workspace layout host pool did not mount");
-    }
-
+    const { hosts, root, stage } = requireWorkspaceLayoutElements({
+      hostPoolSize: runtime.hostPoolSize,
+      hostRefs: hostRefs.current,
+      root: rootRef.current,
+      stage: stageRef.current,
+    });
     runtime.presentation.mount(hosts, debugRef.current);
-    if (runtime.mode === "benchmark") {
-      installWindowReportHooks();
-    }
+    installWindowReportHooksForRuntime(runtime);
     const viewportProvider = () => viewportRect(stage);
     const uninstallResizeReportHooks = installResizeReportHooksForRuntime(
       runtime,
@@ -298,10 +299,14 @@ function WorkspaceLayoutRuntimeArea({
       reportWriter: runtime.reportWriter,
       runtimePolicy: runtime.runtimePolicy,
       viewportProvider,
+      continuous: runtime.mode === "benchmark",
     });
+    schedulerRef.current = scheduler;
     if (!workspaceBenchmarkShouldRun(runtime.mode)) {
       scheduler.pauseBenchmark();
     }
+    const requestSchedulerFrame = () => scheduler.requestFrame();
+    const stageResizeObserver = observeStageResize(stage, requestSchedulerFrame);
     const handleKeyDown = (event: KeyboardEvent) =>
       handleWorkspaceKeyDown({
         event,
@@ -349,6 +354,43 @@ function WorkspaceLayoutRuntimeArea({
         setOverviewGhostTarget,
         overviewGhostTargetFromPointer(event, stage),
       );
+    };
+    const clearPaneResizePreview = () => {
+      const preview = paneResizePreviewRef.current;
+      if (!preview) {
+        return;
+      }
+      preview.dataset.visible = "false";
+      preview.dataset.axis = "";
+      preview.style.transform = "";
+      paneResizeStageOriginRef.current = null;
+    };
+    const syncPaneResizePreview = (session: PaneResizeSession, event: PointerEvent) => {
+      const previewElement = paneResizePreviewRef.current;
+      if (!previewElement) {
+        return;
+      }
+      const stageOrigin =
+        paneResizeStageOriginRef.current ??
+        (() => {
+          const rect = stage.getBoundingClientRect();
+          return { left: rect.left, top: rect.top };
+        })();
+      paneResizeStageOriginRef.current = stageOrigin;
+      const preview = paneResizePreviewForPointerMove(session, event);
+      previewElement.dataset.axis = preview.axis;
+      previewElement.dataset.visible = "true";
+      if (session.axis === "horizontal" && preview.axis === "horizontal") {
+        const x = session.startClientX + preview.width - session.startWidth - stageOrigin.left;
+        previewElement.style.transform = `translate3d(${Math.round(x)}px, 0, 0)`;
+        return;
+      }
+      if (session.axis !== "vertical" || preview.axis !== "vertical") {
+        return;
+      }
+      const y =
+        session.startClientY + preview.upperHeight - session.upperStartHeight - stageOrigin.top;
+      previewElement.style.transform = `translate3d(0, ${Math.round(y)}px, 0)`;
     };
     const beginOverviewDrag = (event: PointerEvent): boolean => {
       if (eventTargetsOverviewGhost(event)) {
@@ -402,6 +444,9 @@ function WorkspaceLayoutRuntimeArea({
       root.dataset.paneResizing = "true";
       root.dataset.paneResizingAxis = resizeSession.axis;
       paneResizeSessionRef.current = resizeSession;
+      const rect = stage.getBoundingClientRect();
+      paneResizeStageOriginRef.current = { left: rect.left, top: rect.top };
+      syncPaneResizePreview(resizeSession, event);
       return true;
     };
     const beginPaneWindowDrag = (event: PointerEvent): boolean => {
@@ -495,7 +540,7 @@ function WorkspaceLayoutRuntimeArea({
       setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
       event.preventDefault();
       event.stopPropagation();
-      applyPaneResizePointerMove(runtime.store, session, event);
+      syncPaneResizePreview(session, event);
       return true;
     };
     const handlePointerMove = (event: PointerEvent) => {
@@ -603,10 +648,15 @@ function WorkspaceLayoutRuntimeArea({
       event.preventDefault();
       event.stopPropagation();
       paneResizeSessionRef.current = null;
+      const resizeCommitted =
+        event.type !== "pointercancel" && commitPaneResize(runtime.store, session, event);
       setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
       delete root.dataset.paneResizing;
       delete root.dataset.paneResizingAxis;
-      persistLayout();
+      clearPaneResizePreview();
+      if (resizeCommitted) {
+        persistLayout();
+      }
     };
     const unsubscribeNativeKey =
       window.setta.workspaceNativeViews?.onBrowserViewKey((event) => {
@@ -627,6 +677,7 @@ function WorkspaceLayoutRuntimeArea({
     window.addEventListener("pointermove", handlePointerMove, { capture: true });
     window.addEventListener("pointerup", handlePointerUp, { capture: true });
     window.addEventListener("pointercancel", handlePointerUp, { capture: true });
+    window.addEventListener("resize", requestSchedulerFrame);
     root.addEventListener("click", handleClick, { capture: true });
     root.addEventListener("pointerdown", handlePointerDown, { capture: true });
     window.addEventListener("wheel", handleWheel, { capture: true, passive: false });
@@ -638,41 +689,28 @@ function WorkspaceLayoutRuntimeArea({
       window.removeEventListener("pointermove", handlePointerMove, { capture: true });
       window.removeEventListener("pointerup", handlePointerUp, { capture: true });
       window.removeEventListener("pointercancel", handlePointerUp, { capture: true });
+      window.removeEventListener("resize", requestSchedulerFrame);
       root.removeEventListener("click", handleClick, { capture: true });
       root.removeEventListener("pointerdown", handlePointerDown, { capture: true });
       window.removeEventListener("wheel", handleWheel, { capture: true });
-      const overviewSourcePaneId = overviewDragSessionRef.current?.sourcePaneId;
-      overviewDragSessionRef.current = null;
-      if (overviewSourcePaneId) {
-        const overviewSourceHost = visiblePaneHostForPane(overviewSourcePaneId);
-        overviewSourceHost?.removeAttribute("data-drag-source");
-        if (overviewSourceHost) {
-          overviewSourceHost.style.translate = "";
-        }
-      }
-      if (paneDragSessionRef.current) {
-        cleanupPaneDragSession(root, paneDragSessionRef.current);
-        paneDragSessionRef.current = null;
-      }
-      const paneWindowDragSession = paneWindowDragSessionRef.current;
-      if (paneWindowDragSession) {
-        if (paneWindowDragSession.handle.hasPointerCapture?.(paneWindowDragSession.pointerId)) {
-          paneWindowDragSession.handle.releasePointerCapture(paneWindowDragSession.pointerId);
-        }
-        void window.setta.app.endWindowDrag();
-        paneWindowDragSessionRef.current = null;
-      }
+      cleanupOverviewDragSource(overviewDragSessionRef);
+      cleanupActivePaneDragSession(root, paneDragSessionRef);
+      cleanupPaneWindowDragSession(paneWindowDragSessionRef);
       setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
       runtime.store.clearPaneDropPreview();
       paneResizeSessionRef.current = null;
       delete root.dataset.paneResizing;
       delete root.dataset.paneResizingAxis;
+      clearPaneResizePreview();
       scheduler.teardown();
+      clearSchedulerRefIfCurrent(schedulerRef, scheduler);
+      stageResizeObserver?.disconnect();
     };
   }, [persistLayout, runLayoutAction, runtime, shortcuts, stageViewport]);
 
   useEffect(() => {
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
+    schedulerRef.current?.requestFrame();
   }, [runtime, showPerformanceStats]);
 
   // The full-screen project pane overlay covers the stage, so any workspace
@@ -714,6 +752,13 @@ function WorkspaceLayoutRuntimeArea({
           onOpen={openOverviewGhostPane}
           presentationMode={layoutSnapshot.presentationMode}
           target={overviewGhostTarget}
+        />
+        <div
+          aria-hidden="true"
+          className="workspace-pane-resize-preview"
+          data-axis=""
+          data-visible="false"
+          ref={paneResizePreviewRef}
         />
         <Profiler id="workspace-pane-hosts" onRender={() => runtime.metrics.recordReactCommit()}>
           {Array.from({ length: runtime.hostPoolSize }, (_, index) => (
