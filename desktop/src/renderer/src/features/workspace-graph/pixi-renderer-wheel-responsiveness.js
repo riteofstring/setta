@@ -44,10 +44,22 @@ export function createWorkflowGraphWheelResponsivenessTracker({
     });
     recordWheelEventOnGesture(activeGesture, sample, eventNow, treatment);
     appendSample(sample);
+    markWorkflowGraphTiming("wheel-handler-entry", {
+      eventTimeStamp: sample.eventTimeStamp,
+      gestureId: sample.gestureId,
+      sequence,
+      treatment,
+    });
     return { gestureId: activeGesture.id, sequence };
   }
 
-  function recordWheelCameraResult({ cameraAfter, cameraChanged, sequence }) {
+  function recordWheelCameraResult({
+    cameraAfter,
+    cameraChanged,
+    cameraUpdateDurationMs = null,
+    handlerDurationMs = null,
+    sequence,
+  }) {
     const sample = sampleBySequence(sequence);
     if (!sample) {
       return;
@@ -55,11 +67,32 @@ export function createWorkflowGraphWheelResponsivenessTracker({
     const updateAt = now();
     sample.cameraAfter = cameraAfter;
     sample.cameraChanged = Boolean(cameraChanged);
+    sample.cameraUpdateDurationMs = finiteOrNull(cameraUpdateDurationMs);
+    sample.handlerDurationMs = finiteOrNull(handlerDurationMs);
+    markWorkflowGraphTiming("wheel-handler-exit", {
+      cameraChanged: sample.cameraChanged,
+      cameraUpdateDurationMs: sample.cameraUpdateDurationMs,
+      gestureId: sample.gestureId,
+      handlerDurationMs: sample.handlerDurationMs,
+      sequence,
+      treatment: sample.treatment,
+    });
     if (!cameraChanged) {
       return;
     }
     sample.cameraUpdateAt = updateAt;
     sample.eventToCameraUpdateMs = updateAt - sample.performanceNow;
+    sample.eventTimestampToCameraUpdateMs =
+      sample.eventTimestampDeltaMs === null
+        ? null
+        : sample.eventTimestampDeltaMs + sample.eventToCameraUpdateMs;
+    markWorkflowGraphTiming("camera-transform-commit", {
+      eventToCameraUpdateMs: sample.eventToCameraUpdateMs,
+      eventTimestampToCameraUpdateMs: sample.eventTimestampToCameraUpdateMs,
+      gestureId: sample.gestureId,
+      sequence,
+      treatment: sample.treatment,
+    });
     const gesture = gestureForSample(sample);
     if (gesture && gesture.firstCameraUpdateAt === null) {
       gesture.firstCameraUpdateAt = updateAt;
@@ -86,6 +119,18 @@ export function createWorkflowGraphWheelResponsivenessTracker({
       sample.firstRenderedFrameAfterCameraAt = renderedAt;
       sample.cameraUpdateToFirstRenderedFrameMs = renderedAt - pending.cameraUpdateAt;
       sample.eventToFirstRenderedFrameAfterCameraMs = renderedAt - pending.wheelEventAt;
+      sample.eventTimestampToFirstRenderedFrameAfterCameraMs =
+        sample.eventTimestampDeltaMs === null
+          ? null
+          : sample.eventTimestampDeltaMs + sample.eventToFirstRenderedFrameAfterCameraMs;
+      markWorkflowGraphTiming("first-pixi-render-after-input", {
+        cameraUpdateToFirstRenderedFrameMs: sample.cameraUpdateToFirstRenderedFrameMs,
+        eventToFirstRenderedFrameAfterCameraMs: sample.eventToFirstRenderedFrameAfterCameraMs,
+        eventTimestampToFirstRenderedFrameAfterCameraMs:
+          sample.eventTimestampToFirstRenderedFrameAfterCameraMs,
+        gestureId: sample.gestureId,
+        sequence: pending.sequence,
+      });
     }
     const gesture = activeGesture?.id === pending.gestureId ? activeGesture : lastCompletedGesture;
     if (gesture && gesture.firstRenderedFrameAfterCameraAt === null) {
@@ -290,4 +335,16 @@ function summarizeGesture(gesture) {
     tailCandidateDurationMs: gesture.tailCandidateDurationMs,
     tailCandidateEventCount: gesture.tailCandidateEventCount,
   };
+}
+
+function finiteOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function markWorkflowGraphTiming(name, detail) {
+  if (typeof performance === "undefined" || typeof performance.mark !== "function") {
+    return;
+  }
+  performance.mark(`setta.workflow-graph.${name}`, { detail });
 }

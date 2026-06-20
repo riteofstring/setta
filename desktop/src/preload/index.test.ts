@@ -130,6 +130,20 @@ describe("preload workspace API", () => {
     });
   });
 
+  test("accepts phase 0 workflow graph benchmark scenes", async () => {
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "1");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "100");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "phase0-normal");
+
+    const { api } = await exposePreloadAPI();
+
+    expect(api.app.flags.workflowGraphSyntheticGraph).toEqual({
+      edgesPerNode: 1,
+      nodeCount: 100,
+      scene: "phase0-normal",
+    });
+  });
+
   test("rejects unsupported workflow graph synthetic scenes", async () => {
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "2");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "500");

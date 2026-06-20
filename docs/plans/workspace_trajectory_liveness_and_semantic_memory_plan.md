@@ -1,14 +1,8 @@
 # Workspace Trajectory Liveness and Semantic Memory Plan
 - **Date:** June 18, 2026
-- **Status:** Phase 7 complete; the deterministic product workflow matrix is
-  passing after the Phase 6 follow-up.
-- **Scope:** Replace the current semantic-node-centered liveness model with a
-  principled split between deterministic workflow trajectory visuals, durable
-  semantic memory, cartographer audit, and graph interaction/runtime
-  infrastructure.
-- **Supersedes:** earlier semantic work graph, semantic cartographer
-  usefulness, cartographer settings/audit, workspace graph semantic liveness,
-  living workspace visual redesign, and semantic runtime interaction plans.
+- **Status:** Phase 7 complete; the deterministic product workflow matrix is passing after the Phase 6 follow-up.
+- **Scope:** Replace the current semantic-node-centered liveness model with a principled split between deterministic workflow trajectory visuals, durable semantic memory, cartographer audit, and graph interaction/runtime infrastructure.
+- **Supersedes:** earlier semantic work graph, semantic cartographer usefulness, cartographer settings/audit, workspace graph semantic liveness, living workspace visual redesign, and semantic runtime interaction plans.
 ## Position
 The recent semantic graph work improved important infrastructure, but it did not
 solve the product problem.

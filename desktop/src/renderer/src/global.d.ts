@@ -253,9 +253,20 @@ interface WorkflowGraphDebugRunDraftResult {
   workspaceId: string;
 }
 
+interface WorkflowGraphPhase0ReactCommit {
+  actualDuration: number;
+  baseDuration: number;
+  commitTime: number;
+  id: string;
+  phase: string;
+  startTime: number;
+  surfaceId: string;
+}
+
 declare global {
   interface Window {
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
+    __settaWorkflowGraphPhase0ReactCommit?: (commit: WorkflowGraphPhase0ReactCommit) => void;
     __settaWorkflowGraphRunDrafts?: Map<string, () => Promise<WorkflowGraphDebugRunDraftResult>>;
     setta: SettaAPI;
   }

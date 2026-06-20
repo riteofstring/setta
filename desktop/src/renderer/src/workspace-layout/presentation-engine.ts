@@ -76,6 +76,7 @@ export class PresentationEngine {
   }
 
   apply(items: PaneRenderItem[], options: PresentationApplyOptions): PresentationWriteCounts {
+    const presentationMark = markPresentationApplyStart(items, options);
     const writeCounts = emptyPresentationWriteCounts();
     const assignedItems = this.assignItemsToBindings(items);
     this.nativeViewBoundsBatcher?.beginFrame();
@@ -97,6 +98,7 @@ export class PresentationEngine {
     this.metrics.recordGitGraphStats(this.surfaceRegistry.gitGraphStats());
     this.metrics.recordTerminalStats(this.surfaceRegistry.terminalStats());
     writeCounts.nativeBoundsUpdates = nativeFlush?.batchSent ? 1 : 0;
+    markPresentationApplyEnd(presentationMark, writeCounts);
     return writeCounts;
   }
 
@@ -899,6 +901,51 @@ function emptyPresentationWriteCounts(): PresentationWriteCounts {
     terminalViewportWrites: 0,
     transformWrites: 0,
   };
+}
+
+let nextPresentationApplySequence = 1;
+
+function markPresentationApplyStart(
+  items: readonly PaneRenderItem[],
+  options: PresentationApplyOptions,
+): { endMarkName: string; startMarkName: string } | null {
+  if (typeof performance === "undefined" || typeof performance.mark !== "function") {
+    return null;
+  }
+  const sequence = nextPresentationApplySequence;
+  nextPresentationApplySequence += 1;
+  const startMarkName = `setta.workspace.presentation.apply.start.${sequence}`;
+  const endMarkName = `setta.workspace.presentation.apply.end.${sequence}`;
+  performance.mark(startMarkName, {
+    detail: {
+      itemCount: items.length,
+      resizePhase: options.resizePhase,
+      sequence,
+    },
+  });
+  return { endMarkName, startMarkName };
+}
+
+function markPresentationApplyEnd(
+  mark: { endMarkName: string; startMarkName: string } | null,
+  writeCounts: PresentationWriteCounts,
+): void {
+  if (
+    mark === null ||
+    typeof performance === "undefined" ||
+    typeof performance.mark !== "function"
+  ) {
+    return;
+  }
+  performance.mark(mark.endMarkName, { detail: writeCounts });
+  if (typeof performance.measure !== "function") {
+    return;
+  }
+  performance.measure("setta.workspace.presentation.apply", {
+    detail: writeCounts,
+    end: mark.endMarkName,
+    start: mark.startMarkName,
+  });
 }
 
 function addPresentationWriteCounts(

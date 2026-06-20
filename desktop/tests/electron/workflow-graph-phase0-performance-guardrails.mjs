@@ -1,9 +1,10 @@
 import { join } from "node:path";
+import process from "node:process";
 import { URL } from "node:url";
 
 import { readJsonLinesOptional } from "./electron-cdp-harness.mjs";
 
-export function assertPhase8PerformanceGuardrails({
+export function assertPhase0PerformanceGuardrails({
   artifacts,
   final,
   initial,
@@ -11,7 +12,7 @@ export function assertPhase8PerformanceGuardrails({
   semanticTraffic,
   syntheticScene,
 }) {
-  const gate = phase8PerformanceScenarioGate({
+  const gate = phase0PerformanceScenarioGate({
     diagnostics: artifacts.metrics,
     final,
     initial,
@@ -23,9 +24,13 @@ export function assertPhase8PerformanceGuardrails({
     .filter((check) => check.severity === "hard" && check.status !== "pass")
     .map((check) => `${check.id}: ${check.summary}`);
   if (failures.length > 0) {
-    throw new Error(`phase 8 performance guardrails failed: ${failures.join("; ")}`);
+    throw new Error(`phase 0 performance guardrails failed: ${failures.join("; ")}`);
   }
   return gate;
+}
+
+export function assertPhase8PerformanceGuardrails(request) {
+  return assertPhase0PerformanceGuardrails(request);
 }
 
 export async function workflowGraphSemanticTrafficDuringInteraction({ artifactDir, inputWindow }) {
@@ -55,7 +60,7 @@ export async function workflowGraphSemanticTrafficDuringInteraction({ artifactDi
   };
 }
 
-function phase8PerformanceScenarioGate({
+function phase0PerformanceScenarioGate({
   diagnostics,
   final,
   initial,
@@ -97,6 +102,7 @@ function phase8PerformanceGateContext({ diagnostics, final, initial, scenario, s
     renderDeltas,
     semanticTraffic: semanticTraffic ?? emptySemanticTrafficMetrics(),
     scenario,
+    timingThresholdsHard: phase0TimingThresholdsHard(),
     wheelLatency: diagnostics?.wheelLatency ?? emptyWheelLatencyMetrics(),
     ...inputMetrics,
     ...labelMetrics,
@@ -182,6 +188,7 @@ function phase8DisplayObjectBudget(scenario) {
 
 function phase8PerformanceChecks(context) {
   const checks = [
+    ...phase0StructuralChecks(context),
     ...phase8NodeDragChecks(context),
     ...phase0CameraLatencyChecks(context),
     phase0CameraWorkingSetReadCheck(context),
@@ -193,6 +200,85 @@ function phase8PerformanceChecks(context) {
     phase8LongTaskCheck(context),
   ];
   return checks;
+}
+
+function phase0StructuralChecks(context) {
+  return [
+    phase0ActiveRendererCountCheck(context),
+    phase0RendererInstanceStabilityCheck(context),
+    phase0RendererCanvasCreationCheck(context),
+    phase0PaneMutationCheck(context),
+    phase0ReactCommitCheck(context),
+    phase0GraphReplacementCheck(context),
+  ];
+}
+
+function phase0ActiveRendererCountCheck({ diagnostics }) {
+  const lifecycle = diagnostics?.rendererLifecycle ?? {};
+  const duplicateSampleCount = lifecycle.duplicateRendererSamples?.length ?? 0;
+  return hardCheck({
+    actual: duplicateSampleCount,
+    budget: 0,
+    id: "one-active-renderer-for-focused-graph-surface",
+    pass: duplicateSampleCount === 0,
+    summary: `duplicateRendererSamples=${duplicateSampleCount}, maxCanvasCountForSurface=${lifecycle.maxCanvasCountForSurface ?? 0}, maxActiveRendererCount=${lifecycle.maxActiveRendererCount ?? 0}`,
+  });
+}
+
+function phase0RendererInstanceStabilityCheck({ diagnostics }) {
+  const lifecycle = diagnostics?.rendererLifecycle ?? {};
+  return hardCheck({
+    actual: lifecycle.rendererInstanceChanged ? 1 : 0,
+    budget: 0,
+    id: "no-renderer-instance-replacement-during-interaction",
+    pass: lifecycle.rendererInstanceChanged !== true,
+    summary: `beforeRendererInstanceId=${lifecycle.beforeRendererInstanceId}, afterRendererInstanceId=${lifecycle.afterRendererInstanceId}`,
+  });
+}
+
+function phase0RendererCanvasCreationCheck({ diagnostics }) {
+  const lifecycle = diagnostics?.rendererLifecycle ?? {};
+  const actual = Number(lifecycle.canvasCreationDelta ?? 0);
+  return hardCheck({
+    actual,
+    budget: 0,
+    id: "no-graph-app-creation-during-camera-interaction",
+    pass: actual === 0,
+    summary: `canvasCreationDelta=${actual}, rendererDestroyDelta=${lifecycle.rendererDestroyDelta ?? 0}`,
+  });
+}
+
+function phase0PaneMutationCheck({ diagnostics }) {
+  const actual = Number(diagnostics?.paneMutations?.cameraCausedCount ?? 0);
+  return hardCheck({
+    actual,
+    budget: 0,
+    id: "no-camera-caused-workspace-presentation-writes",
+    pass: actual === 0,
+    summary: `cameraCausedPaneMutations=${actual}`,
+  });
+}
+
+function phase0ReactCommitCheck({ diagnostics }) {
+  const actual = Number(diagnostics?.reactCommits?.cameraCausedCount ?? 0);
+  return hardCheck({
+    actual,
+    budget: 0,
+    id: "no-camera-caused-graph-react-commits",
+    pass: actual === 0,
+    summary: `cameraCausedReactCommits=${actual}, totalReactCommits=${diagnostics?.reactCommits?.totalCount ?? 0}`,
+  });
+}
+
+function phase0GraphReplacementCheck({ diagnostics }) {
+  const actual = Number(diagnostics?.graphSceneReplacementCount ?? 0);
+  return hardCheck({
+    actual,
+    budget: 0,
+    id: "no-camera-caused-full-graph-replacement",
+    pass: actual === 0,
+    summary: `graphSceneReplacementCount=${actual}`,
+  });
 }
 
 function phase8NodeDragChecks(context) {
@@ -225,8 +311,9 @@ function phase0CameraLatencyChecks(context) {
   ];
 }
 
-function phase0WheelEventToCameraUpdateCheck({ wheelLatency }) {
-  return hardCheck({
+function phase0WheelEventToCameraUpdateCheck({ timingThresholdsHard, wheelLatency }) {
+  const check = phase0TimingCheck({ timingThresholdsHard });
+  return check({
     actual: wheelLatency.p95EventToCameraUpdateMs,
     budget: 16,
     id: "idle-wheel-pinch-to-camera-transform-p95-ms",
@@ -235,8 +322,9 @@ function phase0WheelEventToCameraUpdateCheck({ wheelLatency }) {
   });
 }
 
-function phase0WheelEventToRenderedFrameCheck({ wheelLatency }) {
-  return hardCheck({
+function phase0WheelEventToRenderedFrameCheck({ timingThresholdsHard, wheelLatency }) {
+  const check = phase0TimingCheck({ timingThresholdsHard });
+  return check({
     actual: wheelLatency.p95EventToRenderedFrameMs,
     budget: 32,
     id: "idle-wheel-pinch-to-rendered-frame-p95-ms",
@@ -287,8 +375,9 @@ function phase8MaterializedNodeCountCheck({ final, materializedNodeBudget }) {
   });
 }
 
-function phase8DisplayObjectCountCheck({ displayObjectBudget, final }) {
-  return hardCheck({
+function phase8DisplayObjectCountCheck({ displayObjectBudget, final, scenario }) {
+  const check = scenario === "stress" ? reportOnlyCheck : hardCheck;
+  return check({
     actual: final.render.totalDisplayObjectCount,
     budget: displayObjectBudget,
     id: "display-object-count-budget",
@@ -307,9 +396,9 @@ function phase8FrameBudgetCheck({ final, scenario }) {
   });
 }
 
-function phase8LongTaskCheck({ diagnostics, scenario }) {
+function phase8LongTaskCheck({ diagnostics, scenario, timingThresholdsHard }) {
   const maxLongTaskMs = diagnostics?.maxLongTaskMs ?? 0;
-  const check = scenario === "large" ? reportOnlyCheck : hardCheck;
+  const check = scenario === "large" || !timingThresholdsHard ? reportOnlyCheck : hardCheck;
   return check({
     actual: maxLongTaskMs,
     budget: 100,
@@ -318,8 +407,21 @@ function phase8LongTaskCheck({ diagnostics, scenario }) {
     summary:
       scenario === "large"
         ? `maxLongTaskMs=${maxLongTaskMs}; large scale sweep remains report-only`
-        : `maxLongTaskMs=${maxLongTaskMs}`,
+        : !timingThresholdsHard
+          ? `maxLongTaskMs=${maxLongTaskMs}; non-reference runner remains report-only`
+          : `maxLongTaskMs=${maxLongTaskMs}`,
   });
+}
+
+function phase0TimingCheck({ timingThresholdsHard }) {
+  return timingThresholdsHard ? hardCheck : reportOnlyCheck;
+}
+
+function phase0TimingThresholdsHard() {
+  return (
+    process.env.SETTA_WORKFLOW_GRAPH_PHASE0_REFERENCE_RUNNER === "1" ||
+    process.env.SETTA_PERFORMANCE_REFERENCE_RUNNER === "1"
+  );
 }
 
 function emptySemanticTrafficMetrics() {

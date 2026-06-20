@@ -174,4 +174,79 @@ describe("workflow graph synthetic data", () => {
       graph.nodes.filter((node) => node.activity?.active === true).map((node) => node.id),
     ).toEqual(["semantic:question", "semantic:finding"]);
   });
+
+  test("creates deterministic phase 0 workload scenes", () => {
+    const graph = createSyntheticWorkflowGraph({
+      edgesPerNode: 1,
+      nodeCount: 100,
+      scene: "phase0-normal",
+    });
+
+    expect(graph.nodes.filter((node) => node.layer === "workflow")).toHaveLength(100);
+    expect(graph.nodes.filter((node) => node.layer === "semantic")).toHaveLength(25);
+    expect(graph.edges).toHaveLength(150);
+    expect(graph.nodes[0]).toMatchObject({
+      id: "phase0-workflow-node-00000",
+      layer: "workflow",
+      label: "Phase0 0000",
+    });
+    expect(graph.nodes.find((node) => node.id === "semantic:phase0-node-00000")).toMatchObject({
+      layer: "semantic",
+      label: "Phase0 cell 0000",
+    });
+  });
+
+  test("keeps phase 0 scaling scene central content stable as total nodes grow", () => {
+    const small = createSyntheticWorkflowGraph({
+      edgesPerNode: 1,
+      nodeCount: 100,
+      scene: "phase0-scaling",
+    });
+    const large = createSyntheticWorkflowGraph({
+      edgesPerNode: 1,
+      nodeCount: 1000,
+      scene: "phase0-scaling",
+    });
+
+    const centralSmall = small.nodes
+      .filter((node) => node.id.startsWith("phase0-workflow-node-"))
+      .slice(0, 100)
+      .map((node) => [node.id, node.x, node.y]);
+    const centralLarge = large.nodes
+      .filter((node) => node.id.startsWith("phase0-workflow-node-"))
+      .slice(0, 100)
+      .map((node) => [node.id, node.x, node.y]);
+
+    expect(centralLarge).toEqual(centralSmall);
+    expect(large.nodes.filter((node) => node.layer === "workflow")).toHaveLength(1000);
+    expect(large.nodes.filter((node) => node.layer === "semantic")).toHaveLength(25);
+  });
+
+  test("keeps phase 0 scaling overflow bounded and disconnected from visible workflow edges", () => {
+    const graph = createSyntheticWorkflowGraph({
+      edgesPerNode: 1,
+      nodeCount: 5000,
+      scene: "phase0-scaling",
+    });
+    const workflowNodes = graph.nodes.filter((node) => node.id.startsWith("phase0-workflow-node-"));
+    const visibleWorkflowIds = new Set(workflowNodes.slice(0, 100).map((node) => node.id));
+    const overflowWorkflowIds = new Set(workflowNodes.slice(100).map((node) => node.id));
+    const overflowXValues = workflowNodes.slice(100).map((node) => node.x);
+    const overflowYValues = workflowNodes.slice(100).map((node) => node.y);
+
+    expect(Math.min(...overflowXValues)).toBeGreaterThan(4000);
+    expect(Math.max(...overflowXValues)).toBeLessThan(6600);
+    expect(Math.max(...overflowYValues) - Math.min(...overflowYValues)).toBeLessThan(4700);
+    expect(
+      graph.edges
+        .filter((edge) => edge.layer === "workflow")
+        .some(
+          (edge) =>
+            (visibleWorkflowIds.has(edge.sourceNodeId) &&
+              overflowWorkflowIds.has(edge.targetNodeId)) ||
+            (overflowWorkflowIds.has(edge.sourceNodeId) &&
+              visibleWorkflowIds.has(edge.targetNodeId)),
+        ),
+    ).toBe(false);
+  });
 });

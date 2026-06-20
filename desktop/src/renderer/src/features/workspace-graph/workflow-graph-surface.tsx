@@ -1,5 +1,5 @@
 import type { WorkflowGraphProjection, WorkflowValidationResult } from "@generated/backend";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Profiler, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import { useWorkflowEditorStore } from "../../stores/workflow-editor-store";
@@ -24,6 +24,7 @@ import {
   type WorkflowGraphCameraScope,
 } from "./workflow-graph-camera-scope";
 import { useWorkflowProjectionState } from "./workflow-graph-projection-state";
+import { workflowGraphReactCommitRecorder } from "./workflow-graph-react-profiler";
 import { workflowRendererHandlersForSurface } from "./workflow-graph-renderer-handlers";
 import { isWorkflowGraphRendererInitAbort } from "./workflow-graph-renderer-lifecycle";
 import {
@@ -96,6 +97,7 @@ export function WorkflowGraphSurface({
   const [workflowValidationFallback, setWorkflowValidationFallback] =
     useState<WorkflowValidationResult | null>(null);
   const [workflowOperation, setWorkflowOperation] = useState<"run" | "validate" | null>(null);
+  const recordWorkflowGraphReactCommit = workflowGraphReactCommitRecorder(surfaceId);
   const workflowProjectionRef = useRef<WorkflowGraphProjection | null>(null);
   const workflowGraphWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
   const layoutSaveSequenceRef = useRef(0);
@@ -934,54 +936,56 @@ export function WorkflowGraphSurface({
   useWorkflowContextMenuClose({ setWorkflowContextMenu, workflowContextMenu, workflowMenuRef });
 
   return (
-    <section
-      className="workspace-workflow-graph-surface"
-      data-testid="workspace-workflow-graph-surface"
-    >
-      <div
-        ref={hostRef}
-        className="workspace-workflow-graph-host"
-        data-surface-id={surfaceId}
-        data-testid="workflow-graph"
-      />
-      <WorkflowGraphToolbarLayer
-        addWorkflowDraftNodeFromToolbar={addWorkflowDraftNodeFromToolbar}
-        debugEnabled={debugEnabled}
-        openGraphNodeDetails={openGraphNodeDetails}
-        openWorkflowSettings={openWorkflowSettings}
-        runWorkflowDraft={runWorkflowDraft}
-        selectedGraphNodeId={selectedGraphNodeId}
-        selectedGraphNodeLabel={selectedGraphNodeLabel}
-        showDraftWorkflow={showDraftWorkflow}
-        syntheticGraph={syntheticGraph}
-        validateWorkflowDraft={validateWorkflowDraft}
-        workflowOperation={workflowOperation}
-        workflowProjection={workflowProjection}
-        workflowProjectionReady={workflowProjectionReady}
-        workflowValidation={workflowValidation}
-        workflowWorkspaceId={workflowWorkspaceId}
-      />
-      <WorkflowGraphStateLayers
-        loadingProjection={loadingProjection}
-        noWorkspace={noWorkspace}
-        semanticEmpty={semanticGraphIsEmpty({
-          semanticGraph: semanticGraphState.graph,
-          semanticReady: semanticGraphState.ready,
-          workflowGraph,
-        })}
-        workflowProjectionError={workflowProjectionError}
-      />
-      <WorkflowContextMenuLayer
-        addWorkflowDraftNode={addWorkflowDraftNode}
-        workflowContextMenu={workflowContextMenu}
-        workflowMenuRef={workflowMenuRef}
-      />
-      <WorkflowGraphEditorErrorLayer message={workflowEditorError} />
-      <WorkflowApprovalOverlay
-        pendingApproval={pendingApproval}
-        projection={workflowProjection}
-        setWorkflowProjection={applyWorkflowProjection}
-      />
-    </section>
+    <Profiler id={`workflow-graph:${surfaceId}`} onRender={recordWorkflowGraphReactCommit}>
+      <section
+        className="workspace-workflow-graph-surface"
+        data-testid="workspace-workflow-graph-surface"
+      >
+        <div
+          ref={hostRef}
+          className="workspace-workflow-graph-host"
+          data-surface-id={surfaceId}
+          data-testid="workflow-graph"
+        />
+        <WorkflowGraphToolbarLayer
+          addWorkflowDraftNodeFromToolbar={addWorkflowDraftNodeFromToolbar}
+          debugEnabled={debugEnabled}
+          openGraphNodeDetails={openGraphNodeDetails}
+          openWorkflowSettings={openWorkflowSettings}
+          runWorkflowDraft={runWorkflowDraft}
+          selectedGraphNodeId={selectedGraphNodeId}
+          selectedGraphNodeLabel={selectedGraphNodeLabel}
+          showDraftWorkflow={showDraftWorkflow}
+          syntheticGraph={syntheticGraph}
+          validateWorkflowDraft={validateWorkflowDraft}
+          workflowOperation={workflowOperation}
+          workflowProjection={workflowProjection}
+          workflowProjectionReady={workflowProjectionReady}
+          workflowValidation={workflowValidation}
+          workflowWorkspaceId={workflowWorkspaceId}
+        />
+        <WorkflowGraphStateLayers
+          loadingProjection={loadingProjection}
+          noWorkspace={noWorkspace}
+          semanticEmpty={semanticGraphIsEmpty({
+            semanticGraph: semanticGraphState.graph,
+            semanticReady: semanticGraphState.ready,
+            workflowGraph,
+          })}
+          workflowProjectionError={workflowProjectionError}
+        />
+        <WorkflowContextMenuLayer
+          addWorkflowDraftNode={addWorkflowDraftNode}
+          workflowContextMenu={workflowContextMenu}
+          workflowMenuRef={workflowMenuRef}
+        />
+        <WorkflowGraphEditorErrorLayer message={workflowEditorError} />
+        <WorkflowApprovalOverlay
+          pendingApproval={pendingApproval}
+          projection={workflowProjection}
+          setWorkflowProjection={applyWorkflowProjection}
+        />
+      </section>
+    </Profiler>
   );
 }

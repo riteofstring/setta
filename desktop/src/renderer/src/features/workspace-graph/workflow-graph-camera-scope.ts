@@ -4,6 +4,11 @@ import type { WorkflowGraphCameraState } from "./pixi-renderer";
 
 type SyntheticWorkflowGraphScene =
   | "merged"
+  | "phase0-dense"
+  | "phase0-normal"
+  | "phase0-scaling"
+  | "phase0-simple"
+  | "phase0-stress"
   | "semantic-cells"
   | "workflow"
   | "workflow-running"

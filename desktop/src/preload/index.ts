@@ -23,6 +23,19 @@ type WorkflowGraphSyntheticScene = Exclude<
   undefined
 >;
 
+const workflowGraphSyntheticScenes = new Set<WorkflowGraphSyntheticScene>([
+  "merged",
+  "phase0-dense",
+  "phase0-normal",
+  "phase0-scaling",
+  "phase0-simple",
+  "phase0-stress",
+  "semantic-cells",
+  "workflow",
+  "workflow-running",
+  "workflow-running-runtime",
+]);
+
 const invoke = createRendererIpcInvoke(ipcRenderer);
 const appFlags = {
   workflowGraphAnimationEnabled: process.env.SETTA_WORKFLOW_GRAPH_ANIMATION !== "0",
@@ -384,16 +397,14 @@ function optionalWorkflowGraphSyntheticSceneEnv(
   if (value === undefined || value === "") {
     return null;
   }
-  if (
-    value === "workflow" ||
-    value === "workflow-running" ||
-    value === "workflow-running-runtime" ||
-    value === "semantic-cells" ||
-    value === "merged"
-  ) {
+  if (isWorkflowGraphSyntheticScene(value)) {
     return value;
   }
   throw new Error(`SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE is unsupported: ${value}`);
+}
+
+function isWorkflowGraphSyntheticScene(value: string): value is WorkflowGraphSyntheticScene {
+  return workflowGraphSyntheticScenes.has(value as WorkflowGraphSyntheticScene);
 }
 
 function optionalPositiveIntegerEnv(value: string | undefined, name: string) {

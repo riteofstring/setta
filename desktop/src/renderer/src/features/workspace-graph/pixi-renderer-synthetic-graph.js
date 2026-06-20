@@ -17,8 +17,40 @@ const semanticNodeHeight = 68;
 const semanticNodeWidth = semanticNodeHeight;
 const semanticNodeSpacingX = 220;
 const semanticNodeSpacingY = 132;
+const phase0ScalingVisibleNodeCount = 100;
+const phase0ScalingRemoteGridColumns = 32;
+const phase0ScalingRemoteGridRows = 64;
+const phase0ScalingRemoteOriginX = 4_200;
+const phase0ScalingRemoteSpacingX = 72;
+const phase0ScalingRemoteSpacingY = 72;
 
 const activityKinds = ["exploring", "editing", "debugging", "validating", "blocked"];
+const phase0WorkloadSpecs = {
+  "phase0-dense": {
+    edgeCount: 900,
+    semanticNodeCount: 150,
+    trajectorySpriteCount: 1000,
+    workflowNodeCount: 500,
+  },
+  "phase0-normal": {
+    edgeCount: 150,
+    semanticNodeCount: 25,
+    trajectorySpriteCount: 200,
+    workflowNodeCount: 100,
+  },
+  "phase0-simple": {
+    edgeCount: 2,
+    semanticNodeCount: 0,
+    trajectorySpriteCount: 0,
+    workflowNodeCount: 3,
+  },
+  "phase0-stress": {
+    edgeCount: 2000,
+    semanticNodeCount: 300,
+    trajectorySpriteCount: 2000,
+    workflowNodeCount: 1000,
+  },
+};
 
 export function createSyntheticWorkflowGraph({ edgesPerNode, nodeCount, scene = "workflow" }) {
   assertPositiveInteger(nodeCount, "synthetic graph nodeCount");
@@ -39,7 +71,22 @@ export function createSyntheticWorkflowGraph({ edgesPerNode, nodeCount, scene = 
   if (scene === "semantic-cells") {
     return createSyntheticSemanticCellGraph({ edgesPerNode, nodeCount });
   }
+  if (isPhase0WorkloadScene(scene)) {
+    return createSyntheticPhase0WorkloadGraph({ nodeCount, scene });
+  }
   return createSyntheticWorkflowStatusGraph({ edgesPerNode, nodeCount });
+}
+
+function phase0SyntheticWorkloadSpec(scene, nodeCount) {
+  if (scene === "phase0-scaling") {
+    return {
+      edgeCount: Math.max(2, Math.round(nodeCount * 1.5)),
+      semanticNodeCount: 25,
+      trajectorySpriteCount: 200,
+      workflowNodeCount: nodeCount,
+    };
+  }
+  return phase0WorkloadSpecs[scene] ?? null;
 }
 
 function createSyntheticWorkflowRunningGraph() {
@@ -133,6 +180,208 @@ function createSyntheticWorkflowRunningRuntimeGraph() {
     ],
     nodes,
   };
+}
+
+function createSyntheticPhase0WorkloadGraph({ nodeCount, scene }) {
+  const spec = phase0SyntheticWorkloadSpec(scene, nodeCount);
+  if (spec === null) {
+    throw new Error(`unsupported phase 0 workload scene: ${scene}`);
+  }
+  const workflowNodes = createPhase0WorkflowNodes({
+    nodeCount: spec.workflowNodeCount,
+    scaling: scene === "phase0-scaling",
+  });
+  const semanticNodes = createPhase0SemanticNodes(spec.semanticNodeCount);
+  const workflowEdgeCount = Math.min(
+    spec.edgeCount,
+    Math.max(0, Math.round(spec.edgeCount * (semanticNodes.length === 0 ? 1 : 0.8))),
+  );
+  const semanticEdgeCount = Math.min(
+    spec.edgeCount - workflowEdgeCount,
+    Math.round(spec.edgeCount * 0.15),
+  );
+  const bridgeEdgeCount = spec.edgeCount - workflowEdgeCount - semanticEdgeCount;
+  return {
+    edges: [
+      ...createPhase0WorkflowEdges(workflowNodes, workflowEdgeCount, {
+        scaling: scene === "phase0-scaling",
+      }),
+      ...createPhase0SemanticEdges(semanticNodes, semanticEdgeCount),
+      ...createPhase0BridgeEdges(workflowNodes, semanticNodes, bridgeEdgeCount),
+    ],
+    nodes: [...workflowNodes, ...semanticNodes],
+  };
+}
+
+function createPhase0WorkflowNodes({ nodeCount, scaling }) {
+  const visibleLayoutNodeCount = scaling
+    ? Math.min(nodeCount, phase0ScalingVisibleNodeCount)
+    : nodeCount;
+  const columns = Math.ceil(Math.sqrt(Math.min(visibleLayoutNodeCount, 120) * 1.6));
+  const rows = Math.ceil(visibleLayoutNodeCount / columns);
+  const nodes = [];
+  for (let index = 0; index < nodeCount; index += 1) {
+    const visibleCluster = !scaling || index < phase0ScalingVisibleNodeCount;
+    const remoteIndex = Math.max(0, index - phase0ScalingVisibleNodeCount);
+    const layoutIndex = visibleCluster ? index : remoteIndex;
+    const row = Math.floor(layoutIndex / columns);
+    const column = layoutIndex % columns;
+    const x = visibleCluster
+      ? (column - columns / 2) * nodeSpacingX
+      : phase0ScalingRemoteX(remoteIndex);
+    const y = visibleCluster ? (row - rows / 2) * nodeSpacingY : phase0ScalingRemoteY(remoteIndex);
+    const status = workflowNodeStatusValues[index % workflowNodeStatusValues.length];
+    const kind = workflowNodeKindValues[index % workflowNodeKindValues.length];
+    nodes.push(
+      syntheticWorkflowNode({
+        id: phase0WorkflowNodeId(index),
+        kind,
+        label: `Phase0 ${index.toString().padStart(4, "0")}`,
+        status,
+        x,
+        y,
+      }),
+    );
+  }
+  return nodes;
+}
+
+function phase0ScalingRemoteX(remoteIndex) {
+  const column = remoteIndex % phase0ScalingRemoteGridColumns;
+  return phase0ScalingRemoteOriginX + column * phase0ScalingRemoteSpacingX;
+}
+
+function phase0ScalingRemoteY(remoteIndex) {
+  const row =
+    Math.floor(remoteIndex / phase0ScalingRemoteGridColumns) % phase0ScalingRemoteGridRows;
+  return (row - phase0ScalingRemoteGridRows / 2) * phase0ScalingRemoteSpacingY;
+}
+
+function createPhase0SemanticNodes(nodeCount) {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(nodeCount)));
+  const nodes = [];
+  for (let index = 0; index < nodeCount; index += 1) {
+    const row = Math.floor(index / columns);
+    const column = index % columns;
+    const kind = semanticNodeKindValues[index % semanticNodeKindValues.length];
+    const promoted = index % 11 === 0;
+    const dismissed = index % 17 === 0 && index !== 0;
+    nodes.push({
+      activity: semanticSyntheticActivity(index),
+      color: semanticNodeColor({ dismissed, kind, promoted }),
+      connectable: false,
+      dismissed,
+      height: semanticNodeHeight,
+      id: phase0SemanticNodeId(index),
+      layer: "semantic",
+      label: `Phase0 cell ${index.toString().padStart(4, "0")}`,
+      mergedIntoNodeId: "",
+      promoted,
+      splitFromNodeId: "",
+      splitIntoNodeIds: [],
+      width: semanticNodeWidth,
+      x: 900 + column * semanticNodeSpacingX,
+      y: (row - Math.ceil(nodeCount / columns) / 2) * semanticNodeSpacingY,
+    });
+  }
+  return nodes;
+}
+
+function createPhase0WorkflowEdges(nodes, edgeCount, { scaling = false } = {}) {
+  if (nodes.length < 2) {
+    return [];
+  }
+  if (scaling && nodes.length > phase0ScalingVisibleNodeCount) {
+    return createPhase0ScalingWorkflowEdges(nodes, edgeCount);
+  }
+  return createPhase0WorkflowEdgesForNodes(nodes, edgeCount, 0);
+}
+
+function createPhase0ScalingWorkflowEdges(nodes, edgeCount) {
+  const visibleNodes = nodes.slice(0, phase0ScalingVisibleNodeCount);
+  const remoteNodes = nodes.slice(phase0ScalingVisibleNodeCount);
+  const visibleEdgeCount = Math.min(edgeCount, Math.round(visibleNodes.length * 1.5));
+  const edges = createPhase0WorkflowEdgesForNodes(visibleNodes, visibleEdgeCount, 0);
+  const remainingEdgeCount = edgeCount - edges.length;
+  if (remainingEdgeCount <= 0) {
+    return edges;
+  }
+  const overflowNodes = remoteNodes.length >= 2 ? remoteNodes : visibleNodes;
+  return [
+    ...edges,
+    ...createPhase0WorkflowEdgesForNodes(overflowNodes, remainingEdgeCount, edges.length),
+  ];
+}
+
+function createPhase0WorkflowEdgesForNodes(nodes, edgeCount, startIndex) {
+  const edges = [];
+  for (let index = 0; index < edgeCount; index += 1) {
+    const sourceIndex = index % nodes.length;
+    const targetIndex = deterministicTargetIndex(sourceIndex, index, nodes.length);
+    const edgeIndex = startIndex + index;
+    edges.push(
+      syntheticWorkflowEdge({
+        id: `phase0-workflow-edge-${edgeIndex.toString().padStart(5, "0")}`,
+        sourceNodeId: nodes[sourceIndex].id,
+        status: workflowEdgeStatusValues[edgeIndex % workflowEdgeStatusValues.length],
+        targetNodeId: nodes[targetIndex].id,
+      }),
+    );
+  }
+  return edges;
+}
+
+function createPhase0SemanticEdges(nodes, edgeCount) {
+  if (nodes.length < 2) {
+    return [];
+  }
+  const edges = [];
+  for (let index = 0; index < edgeCount; index += 1) {
+    const sourceIndex = index % nodes.length;
+    const targetIndex = deterministicTargetIndex(sourceIndex, index, nodes.length);
+    const edgeKind = semanticEdgeKindValues[index % semanticEdgeKindValues.length];
+    edges.push({
+      alpha: 0.72,
+      color: workspaceNeonTheme.semantic.edgeKind[edgeKind],
+      id: `semantic-edge:phase0-${index.toString().padStart(5, "0")}`,
+      layer: "semantic",
+      label: edgeKind,
+      sourceNodeId: nodes[sourceIndex].id,
+      sourcePortId: "output",
+      targetNodeId: nodes[targetIndex].id,
+      targetPortId: "input",
+      width: 1.8,
+    });
+  }
+  return edges;
+}
+
+function createPhase0BridgeEdges(workflowNodes, semanticNodes, edgeCount) {
+  if (workflowNodes.length === 0 || semanticNodes.length === 0 || edgeCount <= 0) {
+    return [];
+  }
+  const edges = [];
+  for (let index = 0; index < edgeCount; index += 1) {
+    const edgeKind = semanticEdgeKindValues[index % semanticEdgeKindValues.length];
+    edges.push({
+      alpha: 0.48,
+      color: workspaceNeonTheme.semantic.edgeKind[edgeKind],
+      id: `semantic-edge:phase0-bridge-${index.toString().padStart(5, "0")}`,
+      layer: "semantic",
+      label: edgeKind,
+      sourceNodeId: workflowNodes[(index * 7) % workflowNodes.length].id,
+      sourcePortId: "output",
+      targetNodeId: semanticNodes[(index * 5) % semanticNodes.length].id,
+      targetPortId: "input",
+      width: 1.4,
+    });
+  }
+  return edges;
+}
+
+function deterministicTargetIndex(sourceIndex, edgeIndex, nodeCount) {
+  const offset = 1 + ((edgeIndex * 7) % Math.max(1, nodeCount - 1));
+  return (sourceIndex + offset) % nodeCount;
 }
 
 function createSyntheticMergedGraph() {
@@ -534,6 +783,14 @@ function semanticSyntheticNodeId(index) {
   return `semantic:${syntheticNodeId(index)}`;
 }
 
+function phase0WorkflowNodeId(index) {
+  return `phase0-workflow-node-${index.toString().padStart(5, "0")}`;
+}
+
+function phase0SemanticNodeId(index) {
+  return `semantic:phase0-node-${index.toString().padStart(5, "0")}`;
+}
+
 function edgeTargetOffset(edgeOrdinal, columns, nodeCount) {
   const offset = [1, columns, columns + 1, Math.max(2, Math.floor(columns / 2))][edgeOrdinal];
   const candidate = offset ?? edgeOrdinal + 1;
@@ -547,15 +804,30 @@ function assertPositiveInteger(value, label) {
 }
 
 function assertSyntheticScene(scene) {
-  if (
-    scene !== "workflow" &&
-    scene !== "workflow-running" &&
-    scene !== "workflow-running-runtime" &&
-    scene !== "semantic-cells" &&
-    scene !== "merged"
-  ) {
+  if (!isSupportedSyntheticScene(scene)) {
     throw new Error(`unsupported synthetic graph scene: ${String(scene)}`);
   }
+}
+
+function isSupportedSyntheticScene(scene) {
+  return (
+    scene === "workflow" ||
+    scene === "workflow-running" ||
+    scene === "workflow-running-runtime" ||
+    scene === "semantic-cells" ||
+    scene === "merged" ||
+    isPhase0WorkloadScene(scene)
+  );
+}
+
+function isPhase0WorkloadScene(scene) {
+  return (
+    scene === "phase0-simple" ||
+    scene === "phase0-normal" ||
+    scene === "phase0-dense" ||
+    scene === "phase0-stress" ||
+    scene === "phase0-scaling"
+  );
 }
 
 function semanticSyntheticActivity(index) {

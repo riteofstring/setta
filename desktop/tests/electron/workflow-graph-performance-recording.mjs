@@ -12,11 +12,16 @@ const traceCategories = [
   "devtools.timeline",
   "disabled-by-default-devtools.timeline",
   "disabled-by-default-devtools.timeline.frame",
+  "disabled-by-default-devtools.timeline.invalidationTracking",
+  "disabled-by-default-v8.cpu_profiler",
+  "disabled-by-default-v8.gc",
   "loading",
   "toplevel",
+  "v8",
 ];
 
 const renderDeltaCounters = [
+  "canvasCreationCount",
   "cameraDependentSyncFrameCount",
   "cameraMovingLabelDeferredFrameCount",
   "cameraMovingLabelHiddenFrameCount",
@@ -27,16 +32,23 @@ const renderDeltaCounters = [
   "cameraSettledSyncFrameCount",
   "cameraUpdateCount",
   "frameCount",
+  "graphUpdateCount",
   "labelSyncCount",
   "nodeDragUpdateCount",
   "pointerPanUpdateCount",
+  "reactRenderCount",
+  "rendererDestroyCount",
+  "sceneWindowChangeCount",
   "spatialIndexQueryCount",
+  "trajectorySpriteSyncCount",
   "wheelInputEventCount",
   "wheelInputGestureCount",
   "wheelInputTailCandidateEventCount",
   "wheelPanUpdateCount",
   "wheelZoomUpdateCount",
 ];
+
+const cameraInputKinds = new Set(["pointer-pan", "wheel", "wheel-burst"]);
 
 export async function recordWorkflowGraphPanZoomDiagnostics({
   artifactDir,
@@ -62,9 +74,11 @@ export async function recordWorkflowGraphPanZoomDiagnostics({
   const snapshotsPath = join(artifactDir, `${name}-debug-snapshots.json`);
   const inputSamplesPath = join(artifactDir, `${name}-input-samples.json`);
   const performancePath = join(artifactDir, `${name}-performance-observer.json`);
+  const traceSummaryPath = join(artifactDir, `${name}-cdp-trace-summary.json`);
   await writeJson(snapshotsPath, snapshots);
   await writeJson(inputSamplesPath, inputSamples);
   await writeJson(performancePath, performanceTimeline);
+  await writeJson(traceSummaryPath, traceResult.summary);
   return {
     inputSamplesPath,
     metrics: summarizeWorkflowGraphPerformanceDiagnostics({
@@ -74,7 +88,9 @@ export async function recordWorkflowGraphPanZoomDiagnostics({
     }),
     performancePath,
     snapshotsPath,
+    traceSummaryPath,
     tracePath: traceResult.path,
+    traceSummary: traceResult.summary,
   };
 }
 
@@ -189,21 +205,30 @@ export async function dispatchRecordedWorkflowGraphWheelBurst(
   const pagePoint = await pagePointForCanvasPoint(client, surfaceId, { x, y });
   const targetCanvas = await client.driver("workflowGraphCanvasRect", { surfaceId });
   const startedAt = await client.evaluate("performance.now()");
+  await beginRecordedInput(client, surfaceId, {
+    canvasPoint: { x, y },
+    kind: "wheel-burst",
+    modifiers,
+  });
   const dispatched = [];
   const pendingDispatches = [];
-  for (const [index, event] of events.entries()) {
-    queueRecordedWheelDispatch({
-      client,
-      dispatched,
-      event,
-      index,
-      modifiers,
-      pagePoint,
-      pendingDispatches,
-    });
-    await delayAfterRecordedWheelEvent(event);
+  try {
+    for (const [index, event] of events.entries()) {
+      queueRecordedWheelDispatch({
+        client,
+        dispatched,
+        event,
+        index,
+        modifiers,
+        pagePoint,
+        pendingDispatches,
+      });
+      await delayAfterRecordedWheelEvent(event);
+    }
+    await Promise.all(pendingDispatches);
+  } finally {
+    await endRecordedInput(client, surfaceId, "wheel-burst");
   }
-  await Promise.all(pendingDispatches);
   const completedAt = await client.evaluate("performance.now()");
   samples.push({
     at: new Date().toISOString(),
@@ -419,8 +444,10 @@ async function sampleWorkflowGraphDuringInteraction({
   let running = true;
   const appendSnapshot = async (phase) => {
     const snapshot = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+    const debugRegistry = await workflowGraphDebugRegistrySnapshot(client, surfaceId);
     const sample = {
       at: new Date().toISOString(),
+      debugRegistry,
       phase,
       renderDeltas: previous === null ? emptyRenderDeltas() : renderDeltas(previous, snapshot),
       snapshot: compactWorkflowGraphSnapshot(snapshot),
@@ -448,6 +475,23 @@ async function sampleWorkflowGraphDuringInteraction({
   return samples;
 }
 
+async function workflowGraphDebugRegistrySnapshot(client, surfaceId) {
+  return client.evaluate(`(() => {
+    const api = window.__settaWorkflowGraphDebug;
+    const surfaceIds = api?.getSurfaceIds?.() ?? [];
+    const requestedSurfaceId = ${JSON.stringify(surfaceId)};
+    const host = [...document.querySelectorAll('[data-testid="workflow-graph"]')].find(
+      (candidate) => candidate.dataset.surfaceId === requestedSurfaceId
+    );
+    return {
+      activeRendererCount: surfaceIds.length,
+      canvasCountForSurface: host?.querySelectorAll("canvas").length ?? 0,
+      focusedSurfaceRegistered: surfaceIds.includes(requestedSurfaceId),
+      surfaceIds,
+    };
+  })()`);
+}
+
 function compactWorkflowGraphSnapshot(snapshot) {
   return {
     camera: snapshot.camera,
@@ -467,8 +511,13 @@ async function recordInputSample(client, surfaceId, event, dispatch, samples) {
   const before = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
   const targetCanvas = await client.driver("workflowGraphCanvasRect", { surfaceId });
   const pagePoint = await pagePointForCanvasPoint(client, surfaceId, event.canvasPoint);
-  await dispatch({ pagePoint });
-  await delay(16);
+  const inputToken = await beginRecordedInput(client, surfaceId, event);
+  try {
+    await dispatch({ pagePoint });
+    await delay(16);
+  } finally {
+    await endRecordedInput(client, surfaceId, inputToken);
+  }
   const after = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
   samples.push({
     at: new Date().toISOString(),
@@ -484,6 +533,36 @@ async function recordInputSample(client, surfaceId, event, dispatch, samples) {
     surfaceId,
     targetCanvas,
   });
+}
+
+async function beginRecordedInput(client, surfaceId, event) {
+  return client.evaluate(
+    `(() => {
+      const recorder = window.__settaWorkflowGraphPerformanceRecorder;
+      if (!recorder || typeof recorder.beginInput !== "function") {
+        return null;
+      }
+      return recorder.beginInput(${JSON.stringify({
+        cameraInput: cameraInputKinds.has(event.kind),
+        canvasPoint: event.canvasPoint ?? null,
+        kind: event.kind,
+        modifiers: event.modifiers ?? 0,
+        surfaceId,
+      })});
+    })()`,
+  );
+}
+
+async function endRecordedInput(client, surfaceId, tokenOrKind) {
+  await client.evaluate(
+    `(() => {
+      const recorder = window.__settaWorkflowGraphPerformanceRecorder;
+      if (!recorder || typeof recorder.endInput !== "function") {
+        return false;
+      }
+      return recorder.endInput(${JSON.stringify({ surfaceId, tokenOrKind })});
+    })()`,
+  );
 }
 
 async function startCdpTrace(client, artifactDir, name) {
@@ -508,8 +587,32 @@ async function startCdpTrace(client, artifactDir, name) {
       return {
         eventCount: traceEvents.length,
         path,
+        summary: summarizeCdpTrace(traceEvents),
       };
     },
+  };
+}
+
+function summarizeCdpTrace(traceEvents) {
+  const completeEvents = traceEvents
+    .filter((event) => event?.ph === "X" && Number.isFinite(event.dur))
+    .map((event) => ({
+      category: String(event.cat ?? ""),
+      durationMs: event.dur / 1000,
+      name: String(event.name ?? ""),
+      threadId: event.tid ?? null,
+      timestampMs: Number.isFinite(event.ts) ? event.ts / 1000 : null,
+    }))
+    .sort((left, right) => right.durationMs - left.durationMs);
+  const topLevelTasks = completeEvents.filter((event) =>
+    /RunTask|ThreadControllerImpl::RunTask|TaskQueueManager::ProcessTaskFromWorkQueue/.test(
+      event.name,
+    ),
+  );
+  return {
+    eventCount: traceEvents.length,
+    topCompleteEvents: completeEvents.slice(0, 20),
+    topLevelTasks: topLevelTasks.slice(0, 20),
   };
 }
 
@@ -520,19 +623,30 @@ async function installPerformanceTimelineRecorder(client) {
       existing.disconnect();
     }
     const state = {
+      activeInputs: [],
       eventTimings: [],
       longTasks: [],
+      mutationCountsByOwnerAndSource: {},
+      nextInputToken: 1,
       observerErrors: [],
+      paneMutations: [],
+      reactCommits: [],
       startedAt: performance.now(),
       supportedEntryTypes:
         typeof PerformanceObserver === "function"
           ? [...PerformanceObserver.supportedEntryTypes]
-          : []
+          : [],
+      userTimings: []
     };
     const observers = [];
+    const mutationObserver =
+      typeof MutationObserver === "function"
+        ? new MutationObserver((records) => recordPaneMutations(records))
+        : null;
     function entrySnapshot(entry) {
       return {
         cancelable: Boolean(entry.cancelable),
+        detail: entry.detail ?? null,
         duration: entry.duration,
         entryType: entry.entryType,
         interactionId: entry.interactionId ?? 0,
@@ -562,29 +676,173 @@ async function installPerformanceTimelineRecorder(client) {
         state.observerErrors.push(error instanceof Error ? error.message : String(error));
       }
     }
+    function observeUserTiming(type) {
+      observe(type, state.userTimings, { buffered: true, type });
+    }
     observe("longtask", state.longTasks, { buffered: true, type: "longtask" });
     observe("event", state.eventTimings, {
       buffered: true,
       durationThreshold: 16,
       type: "event"
     });
+    observeUserTiming("mark");
+    observeUserTiming("measure");
+    if (mutationObserver !== null) {
+      mutationObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeOldValue: true,
+        childList: true,
+        subtree: true
+      });
+    }
+    window.__settaWorkflowGraphPhase0ReactCommit = (commit) => {
+      const record = {
+        ...commit,
+        at: performance.now(),
+        causalSource: currentCausalSource()
+      };
+      state.reactCommits.push(record);
+      trimArray(state.reactCommits, 500);
+      performance.mark("setta.workflow-graph.react-commit", { detail: record });
+    };
     window.__settaWorkflowGraphPerformanceRecorder = {
+      beginInput(input) {
+        const token = state.nextInputToken;
+        state.nextInputToken += 1;
+        const record = {
+          ...input,
+          causalSource: input.cameraInput ? "camera:" + input.kind : "interaction:" + input.kind,
+          startedAt: performance.now(),
+          token
+        };
+        state.activeInputs.push(record);
+        performance.mark("setta.workflow-graph.input.start", { detail: record });
+        return token;
+      },
       disconnect() {
         while (observers.length > 0) {
           observers.pop().disconnect();
         }
+        mutationObserver?.disconnect();
+        if (window.__settaWorkflowGraphPhase0ReactCommit) {
+          delete window.__settaWorkflowGraphPhase0ReactCommit;
+        }
+      },
+      endInput({ tokenOrKind }) {
+        const index =
+          typeof tokenOrKind === "number"
+            ? state.activeInputs.findIndex((input) => input.token === tokenOrKind)
+            : findLastInputIndexByKind(tokenOrKind);
+        if (index < 0) {
+          return false;
+        }
+        const [record] = state.activeInputs.splice(index, 1);
+        const ended = {
+          ...record,
+          durationMs: performance.now() - record.startedAt,
+          endedAt: performance.now()
+        };
+        performance.mark("setta.workflow-graph.input.end", { detail: ended });
+        return true;
       },
       snapshot() {
         return {
           eventTimings: [...state.eventTimings],
           longTasks: [...state.longTasks],
+          mutationCountsByOwnerAndSource: { ...state.mutationCountsByOwnerAndSource },
           observerErrors: [...state.observerErrors],
+          paneMutations: [...state.paneMutations],
+          reactCommits: [...state.reactCommits],
           startedAt: state.startedAt,
           stoppedAt: performance.now(),
-          supportedEntryTypes: [...state.supportedEntryTypes]
+          supportedEntryTypes: [...state.supportedEntryTypes],
+          userTimings: [...state.userTimings]
         };
       }
     };
+    function recordPaneMutations(records) {
+      for (const mutation of records) {
+        const target = mutationTargetElement(mutation.target);
+        const owner = paneMutationOwner(target);
+        if (owner === null) {
+          continue;
+        }
+        const record = {
+          addedNodes: mutation.addedNodes?.length ?? 0,
+          attributeName: mutation.attributeName ?? "",
+          at: performance.now(),
+          causalSource: currentCausalSource(),
+          oldValue: mutation.oldValue ?? null,
+          owner,
+          removedNodes: mutation.removedNodes?.length ?? 0,
+          targetClassName: target?.className ?? "",
+          targetTestId: target?.dataset?.testid ?? target?.dataset?.testId ?? "",
+          type: mutation.type
+        };
+        state.paneMutations.push(record);
+        trimArray(state.paneMutations, 1000);
+        incrementMutationCount(record);
+        if (record.causalSource.startsWith("camera:")) {
+          performance.mark("setta.workspace.presentation.disallowed-write", { detail: record });
+        }
+      }
+    }
+    function mutationTargetElement(target) {
+      if (target instanceof Element) {
+        return target;
+      }
+      return target?.parentElement ?? null;
+    }
+    function paneMutationOwner(target) {
+      if (!(target instanceof Element)) {
+        return null;
+      }
+      const paneHost = target.closest('[data-testid="workspace-pane-host"]');
+      const paneChrome =
+        target.closest(".workspace-pane-top-bar") ??
+        target.closest(".workspace-pane-action-strip") ??
+        target.closest(".workspace-pane-action-button") ??
+        target.closest(".workspace-pane-drag-handle") ??
+        target.closest(".workspace-pane-resize-handle");
+      if (paneHost === null && paneChrome === null) {
+        return null;
+      }
+      const host = paneHost ?? paneChrome?.closest('[data-testid="workspace-pane-host"]');
+      return {
+        paneId: host?.dataset?.paneId ?? paneChrome?.dataset?.paneId ?? "",
+        subsystem: paneChrome === null ? "workspace-pane-host" : "workspace-pane-chrome",
+        surfaceId: host?.dataset?.surfaceId ?? "",
+      };
+    }
+    function currentCausalSource() {
+      const active = state.activeInputs.at(-1);
+      return active?.causalSource ?? "unattributed";
+    }
+    function findLastInputIndexByKind(kind) {
+      for (let index = state.activeInputs.length - 1; index >= 0; index -= 1) {
+        if (state.activeInputs[index].kind === kind) {
+          return index;
+        }
+      }
+      return -1;
+    }
+    function incrementMutationCount(record) {
+      const key = [
+        record.owner.subsystem,
+        record.owner.paneId,
+        record.owner.surfaceId,
+        record.causalSource,
+        record.type,
+        record.attributeName
+      ].join("|");
+      state.mutationCountsByOwnerAndSource[key] =
+        (state.mutationCountsByOwnerAndSource[key] ?? 0) + 1;
+    }
+    function trimArray(array, limit) {
+      while (array.length > limit) {
+        array.shift();
+      }
+    }
     return window.__settaWorkflowGraphPerformanceRecorder.snapshot();
   })()`);
 }
@@ -627,17 +885,29 @@ function summarizeWorkflowGraphPerformanceDiagnostics({
   snapshots,
 }) {
   const snapshotPair = workflowGraphPerformanceSnapshotPair(snapshots);
+  const renderDeltas = performanceRenderDeltas(snapshotPair);
   return {
+    graphSceneReplacementCount: sumCameraInputRenderDelta(inputSamples, "graphUpdateCount"),
     inputCountsByKind: countInputSamplesByKind(inputSamples),
     inputEventCount: countRecordedInputEvents(inputSamples),
     inputWindow: inputSampleWindow(inputSamples),
-    interactionRenderDeltas: performanceRenderDeltas(snapshotPair),
+    interactionRenderDeltas: renderDeltas,
     longTaskCount: performanceTimeline?.longTasks?.length ?? 0,
     maxEventTimingMs: maxDuration(performanceTimeline?.eventTimings ?? []),
     maxLongTaskMs: maxDuration(performanceTimeline?.longTasks ?? []),
+    paneMutations: workflowGraphPaneMutationMetrics(performanceTimeline),
+    reactCommits: workflowGraphReactCommitMetrics(performanceTimeline),
+    rendererLifecycle: workflowGraphRendererLifecycleMetrics(snapshotPair, snapshots),
     timingBucketDeltas: performanceTimingBucketDeltas(snapshotPair),
+    userTiming: workflowGraphUserTimingMetrics(performanceTimeline),
     wheelLatency: workflowGraphWheelLatencyMetrics(snapshotPair.after),
   };
+}
+
+function sumCameraInputRenderDelta(inputSamples, counter) {
+  return inputSamples
+    .filter((sample) => cameraInputKinds.has(sample.kind))
+    .reduce((sum, sample) => sum + Number(sample.renderDeltas?.[counter] ?? 0), 0);
 }
 
 function workflowGraphPerformanceSnapshotPair(snapshots) {
@@ -707,17 +977,48 @@ function workflowGraphWheelLatencyMetrics(snapshot) {
   const samples = (snapshot?.render?.wheelInput?.samples ?? []).filter(
     (sample) => sample.cameraChanged === true,
   );
+  const eventDeliveryDelayMs = finiteSampleValues(samples, "eventTimestampDeltaMs");
+  const eventTimestampToCameraUpdateMs = finiteSampleValues(
+    samples,
+    "eventTimestampToCameraUpdateMs",
+  );
+  const eventTimestampToRenderedFrameMs = finiteSampleValues(
+    samples,
+    "eventTimestampToFirstRenderedFrameAfterCameraMs",
+  );
   const eventToCameraUpdateMs = finiteSampleValues(samples, "eventToCameraUpdateMs");
   const eventToRenderedFrameMs = finiteSampleValues(
     samples,
     "eventToFirstRenderedFrameAfterCameraMs",
   );
+  const handlerDurationMs = finiteSampleValues(samples, "handlerDurationMs");
+  const cameraUpdateDurationMs = finiteSampleValues(samples, "cameraUpdateDurationMs");
   return {
+    cameraUpdateDurationMs: sampleStats(cameraUpdateDurationMs),
+    eventDeliveryDelayMs: sampleStats(eventDeliveryDelayMs),
+    eventTimestampToCameraUpdateMs: sampleStats(eventTimestampToCameraUpdateMs),
+    eventTimestampToRenderedFrameMs: sampleStats(eventTimestampToRenderedFrameMs),
+    eventToCameraUpdateMs: sampleStats(eventToCameraUpdateMs),
+    eventToRenderedFrameMs: sampleStats(eventToRenderedFrameMs),
+    handlerDurationMs: sampleStats(handlerDurationMs),
+    maxEventDeliveryDelayMs: maxNumber(eventDeliveryDelayMs),
     maxEventToCameraUpdateMs: maxNumber(eventToCameraUpdateMs),
     maxEventToRenderedFrameMs: maxNumber(eventToRenderedFrameMs),
+    p50EventDeliveryDelayMs: percentile(eventDeliveryDelayMs, 0.5),
     p95EventToCameraUpdateMs: percentile(eventToCameraUpdateMs, 0.95),
     p95EventToRenderedFrameMs: percentile(eventToRenderedFrameMs, 0.95),
+    p95HandlerDurationMs: percentile(handlerDurationMs, 0.95),
+    p95CameraUpdateDurationMs: percentile(cameraUpdateDurationMs, 0.95),
     sampleCount: samples.length,
+  };
+}
+
+function sampleStats(values) {
+  return {
+    max: maxNumber(values),
+    p50: percentile(values, 0.5),
+    p95: percentile(values, 0.95),
+    sampleCount: values.length,
   };
 }
 
@@ -736,6 +1037,93 @@ function percentile(values, percentileValue) {
   const sorted = [...values].sort((left, right) => left - right);
   const index = Math.ceil(percentileValue * sorted.length) - 1;
   return sorted[Math.max(0, Math.min(sorted.length - 1, index))];
+}
+
+function workflowGraphPaneMutationMetrics(performanceTimeline) {
+  const mutations = performanceTimeline?.paneMutations ?? [];
+  const cameraMutations = mutations.filter((mutation) =>
+    String(mutation.causalSource ?? "").startsWith("camera:"),
+  );
+  return {
+    cameraCausedCount: cameraMutations.length,
+    countsByOwnerAndSource: performanceTimeline?.mutationCountsByOwnerAndSource ?? {},
+    samples: mutations.slice(-80),
+    totalCount: mutations.length,
+  };
+}
+
+function workflowGraphReactCommitMetrics(performanceTimeline) {
+  const commits = performanceTimeline?.reactCommits ?? [];
+  const cameraCommits = commits.filter((commit) =>
+    String(commit.causalSource ?? "").startsWith("camera:"),
+  );
+  return {
+    cameraCausedCount: cameraCommits.length,
+    countsByOwnerAndSource: countRecordsBy(commits, (commit) =>
+      [commit.id ?? "", commit.surfaceId ?? "", commit.causalSource ?? "unattributed"].join("|"),
+    ),
+    samples: commits.slice(-80),
+    totalCount: commits.length,
+  };
+}
+
+function workflowGraphRendererLifecycleMetrics({ after, before }, snapshots) {
+  const beforeRender = before?.render ?? {};
+  const afterRender = after?.render ?? {};
+  const registrySamples = snapshots.map((sample) => sample.debugRegistry).filter(Boolean);
+  const beforeRendererDestroyCount = renderCounter(beforeRender, "rendererDestroyCount");
+  const beforeRendererInstanceId = renderCounter(beforeRender, "rendererInstanceId");
+  const afterRendererDestroyCount = renderCounter(afterRender, "rendererDestroyCount");
+  const afterRendererInstanceId = renderCounter(afterRender, "rendererInstanceId");
+  const canvasCreationDelta =
+    renderCounter(afterRender, "canvasCreationCount") -
+    renderCounter(beforeRender, "canvasCreationCount");
+  return {
+    afterRendererDestroyCount,
+    afterRendererInstanceId,
+    beforeRendererDestroyCount,
+    beforeRendererInstanceId,
+    canvasCreationDelta,
+    duplicateRendererSamples: registrySamples.filter(duplicateRendererSample),
+    maxActiveRendererCount: maxRegistryCounter(registrySamples, "activeRendererCount"),
+    maxCanvasCountForSurface: maxRegistryCounter(registrySamples, "canvasCountForSurface"),
+    rendererDestroyDelta: afterRendererDestroyCount - beforeRendererDestroyCount,
+    rendererInstanceChanged: beforeRendererInstanceId !== afterRendererInstanceId,
+  };
+}
+
+function renderCounter(render, key) {
+  return Number(render[key] ?? 0);
+}
+
+function duplicateRendererSample(sample) {
+  return sample.canvasCountForSurface !== 1 || sample.focusedSurfaceRegistered !== true;
+}
+
+function maxRegistryCounter(registrySamples, key) {
+  return maxNumber(registrySamples.map((sample) => Number(sample[key] ?? 0)));
+}
+
+function workflowGraphUserTimingMetrics(performanceTimeline) {
+  const timings = performanceTimeline?.userTimings ?? [];
+  return {
+    markCount: timings.filter((entry) => entry.entryType === "mark").length,
+    measureCount: timings.filter((entry) => entry.entryType === "measure").length,
+    presentationApplyMeasures: timings.filter(
+      (entry) =>
+        entry.entryType === "measure" && entry.name === "setta.workspace.presentation.apply",
+    ).length,
+    samples: timings.slice(-120),
+  };
+}
+
+function countRecordsBy(records, keyForRecord) {
+  const counts = {};
+  for (const record of records) {
+    const key = keyForRecord(record);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
 }
 
 function timingBucketDeltas(before, after) {

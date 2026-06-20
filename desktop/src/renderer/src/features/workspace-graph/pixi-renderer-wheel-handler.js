@@ -1,3 +1,5 @@
+/* global performance */
+
 import {
   cameraState,
   isZoomWheel,
@@ -18,6 +20,7 @@ export function createWorkflowGraphWheelHandler({
   zoomCameraAtScreen,
 }) {
   return (event) => {
+    const handlerStartedAt = performance.now();
     if (interactionsBlockWheel()) {
       return;
     }
@@ -31,6 +34,7 @@ export function createWorkflowGraphWheelHandler({
       delta,
       treatment: zoomWheel ? "zoom" : "pan",
     });
+    const cameraUpdateStartedAt = performance.now();
     const cameraChanged = zoomWheel
       ? zoomCameraAtScreen(screen, zoomFactorFromWheel(event, delta), {
           interactionKind: "wheel-zoom",
@@ -38,6 +42,7 @@ export function createWorkflowGraphWheelHandler({
       : panCameraByScreenDelta(delta.x, delta.y, {
           interactionKind: "wheel-pan",
         });
+    const cameraUpdateDurationMs = performance.now() - cameraUpdateStartedAt;
     if (zoomWheel) {
       recordWheelZoom();
     } else {
@@ -46,6 +51,8 @@ export function createWorkflowGraphWheelHandler({
     inputResponsiveness.recordWheelCameraResult({
       cameraAfter: cameraState(viewport),
       cameraChanged,
+      cameraUpdateDurationMs,
+      handlerDurationMs: performance.now() - handlerStartedAt,
       sequence: wheelInput.sequence,
     });
   };
