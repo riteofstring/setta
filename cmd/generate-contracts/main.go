@@ -18,7 +18,6 @@ import (
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
-	"setta/internal/workspacetrajectory"
 	"setta/internal/workspaceui"
 )
 
@@ -146,9 +145,6 @@ func contractValueSets() []chat.ContractValueSet {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range terminal.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range workspacetrajectory.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range workspaceui.ContractValueSets() {
@@ -501,7 +497,8 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 		return err
 	}
 	renderEventDecoders(buffer, specs.Events)
-	return renderClient(buffer, specs)
+	renderClient(buffer, specs)
+	return nil
 }
 
 func renderValueSets(buffer *bytes.Buffer, specs []valueSetSpec) {
@@ -667,15 +664,13 @@ func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
 	return nil
 }
 
-func renderClient(buffer *bytes.Buffer, specs contractSpec) error {
+func renderClient(buffer *bytes.Buffer, specs contractSpec) {
 	buffer.WriteString("export interface BackendClient {\n")
 	for _, endpoint := range specs.Endpoints {
 		if endpoint.Streaming {
 			continue
 		}
-		if err := renderClientMethod(buffer, endpoint, true); err != nil {
-			return err
-		}
+		renderClientMethod(buffer, endpoint, true)
 	}
 	buffer.WriteString("}\n\n")
 	buffer.WriteString("export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {\n")
@@ -684,69 +679,42 @@ func renderClient(buffer *bytes.Buffer, specs contractSpec) error {
 		if endpoint.Streaming {
 			continue
 		}
-		if err := renderClientOperation(buffer, endpoint, specs.ErrorResponse); err != nil {
-			return err
-		}
+		renderClientOperation(buffer, endpoint, specs.ErrorResponse)
 	}
 	buffer.WriteString("  };\n")
 	buffer.WriteString("}\n\n")
-	return nil
 }
 
-func renderClientMethod(buffer *bytes.Buffer, endpoint endpointSpec, semicolon bool) error {
+func renderClientMethod(buffer *bytes.Buffer, endpoint endpointSpec, semicolon bool) {
 	suffix := ""
 	if semicolon {
 		suffix = ";"
 	}
-	responseType, err := typeScriptType(endpoint.Response)
-	if err != nil {
-		return fmt.Errorf("%s response type: %w", endpoint.Name, err)
-	}
 	if endpoint.Request == nil {
-		fmt.Fprintf(buffer, "  %s: () => Promise<%s>%s\n", endpoint.OperationName, responseType, suffix)
-		return nil
+		fmt.Fprintf(buffer, "  %s: () => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Response), suffix)
+		return
 	}
-	requestType, err := typeScriptType(endpoint.Request)
-	if err != nil {
-		return fmt.Errorf("%s request type: %w", endpoint.Name, err)
-	}
-	fmt.Fprintf(buffer, "  %s: (request: %s) => Promise<%s>%s\n", endpoint.OperationName, requestType, responseType, suffix)
-	return nil
+	fmt.Fprintf(buffer, "  %s: (request: %s) => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Request), typeName(endpoint.Response), suffix)
 }
 
-func renderClientOperation(buffer *bytes.Buffer, endpoint endpointSpec, errorResponse reflect.Type) error {
+func renderClientOperation(buffer *bytes.Buffer, endpoint endpointSpec, errorResponse reflect.Type) {
 	if endpoint.Request == nil {
 		fmt.Fprintf(buffer, "    %s: () => requestBackend({\n", endpoint.OperationName)
-		return renderRequestBackendProperties(buffer, endpoint, errorResponse, "undefined")
+		renderRequestBackendProperties(buffer, endpoint, errorResponse, "undefined")
+		return
 	}
 	fmt.Fprintf(buffer, "    %s: (request) => requestBackend({\n", endpoint.OperationName)
-	return renderRequestBackendProperties(buffer, endpoint, errorResponse, "request")
+	renderRequestBackendProperties(buffer, endpoint, errorResponse, "request")
 }
 
-func renderRequestBackendProperties(buffer *bytes.Buffer, endpoint endpointSpec, errorResponse reflect.Type, requestPayload string) error {
-	responseDecoder, err := topLevelDecoderExpression(endpoint.Response, endpoint.Name+" response")
-	if err != nil {
-		return fmt.Errorf("%s response decoder: %w", endpoint.Name, err)
-	}
+func renderRequestBackendProperties(buffer *bytes.Buffer, endpoint endpointSpec, errorResponse reflect.Type, requestPayload string) {
 	buffer.WriteString("      baseURL,\n")
 	fmt.Fprintf(buffer, "      decodeErrorResponse: %s,\n", decoderFunctionName(errorResponse))
-	fmt.Fprintf(buffer, "      decodeResponse: %s,\n", responseDecoder)
+	fmt.Fprintf(buffer, "      decodeResponse: %s,\n", decoderFunctionName(endpoint.Response))
 	fmt.Fprintf(buffer, "      endpoint: backendEndpoints.%s,\n", endpoint.Name)
 	buffer.WriteString("      fetchImpl,\n")
 	fmt.Fprintf(buffer, "      requestPayload: %s,\n", requestPayload)
 	buffer.WriteString("    }),\n")
-	return nil
-}
-
-func topLevelDecoderExpression(goType reflect.Type, label string) (string, error) {
-	if goType.Kind() == reflect.Struct {
-		return decoderFunctionName(goType), nil
-	}
-	decoded, err := decoderExpression(goType, "value", label)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("(value: unknown) => %s", decoded), nil
 }
 
 func decoderExpression(goType reflect.Type, valueExpr string, label string) (string, error) {

@@ -57,7 +57,6 @@ export function ConversationRow({
       >
         <button
           className="grid h-7 min-w-0 grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 px-2 text-left"
-          data-conversation-id={item.conversation.id}
           data-testid="conversation-list-item"
           disabled={busy}
           onClick={() => void selectConversation(item.conversation.id)}
@@ -248,7 +247,7 @@ function ConversationStatusIndicator({
         />
       ) : running ? (
         <AsciiSpinner
-          className="w-[18px] text-[7px] text-muted-foreground"
+          className="w-[18px] text-[7px] text-accent-violet"
           label="Chat response running"
         />
       ) : unread ? (

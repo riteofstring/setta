@@ -1,5 +1,3 @@
-import { rendererNodeLayer } from "./pixi-renderer-layers";
-
 const labelDeclutterPaddingX = 8;
 const labelDeclutterPaddingY = 4;
 
@@ -192,20 +190,6 @@ function syncVisiblePriorityLabelVisibility({
       });
       continue;
     }
-    if (!nodeLabelVisibleInPriorityMode(node)) {
-      setLabelVisibility({
-        compactSelectedFontSize,
-        fontSizeModes,
-        labelVisibilityMode,
-        nodeId: node.id,
-        nodeLabels,
-        normalFontSize,
-        reason: semanticPriorityHiddenReason(node),
-        visibilityReasons,
-        visible: false,
-      });
-      continue;
-    }
     const bounds = inflatedLabelScreenBounds(requireNodeLabel(nodeLabels, node.id));
     if (acceptedBoxes.some((accepted) => screenBoundsIntersect(accepted, bounds))) {
       setLabelVisibility({
@@ -234,20 +218,6 @@ function syncVisiblePriorityLabelVisibility({
     });
     acceptedBoxes.push(bounds);
   }
-}
-
-function nodeLabelVisibleInPriorityMode(node) {
-  if (rendererNodeLayer(node) !== "semantic") {
-    return true;
-  }
-  return node.dismissed !== true;
-}
-
-function semanticPriorityHiddenReason(node) {
-  if (rendererNodeLayer(node) === "semantic" && node.dismissed === true) {
-    return "semantic-dismissed";
-  }
-  return "zoom-hidden";
 }
 
 function setLabelVisibility({

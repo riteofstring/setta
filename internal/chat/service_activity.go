@@ -144,7 +144,6 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	next.Command = keepString(next.Command, existing.Command)
 	next.Cwd = keepString(next.Cwd, existing.Cwd)
 	next.FilePaths = keepStrings(next.FilePaths, existing.FilePaths)
-	next.FileOperations = keepFileOperations(next.FileOperations, existing.FileOperations)
 	next.PatchStatus = keepString(next.PatchStatus, existing.PatchStatus)
 	next.ServerName = keepString(next.ServerName, existing.ServerName)
 	next.ToolName = keepString(next.ToolName, existing.ToolName)
@@ -158,7 +157,6 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	next.ProcessID = keepString(next.ProcessID, existing.ProcessID)
 	next.RequestID = keepString(next.RequestID, existing.RequestID)
 	next.ReviewID = keepString(next.ReviewID, existing.ReviewID)
-	next.DiffStats = keepRunItemDiffStats(next.DiffStats, existing.DiffStats)
 	next.Details = keepRawMessage(next.Details, existing.Details)
 	next.HiddenText = mergeHiddenText(existing, next)
 	return next
@@ -173,24 +171,6 @@ func keepString(next string, existing string) string {
 
 func keepStrings(next []string, existing []string) []string {
 	if len(next) > 0 {
-		return next
-	}
-	return existing
-}
-
-func keepFileOperations(next []RunItemFileOp, existing []RunItemFileOp) []RunItemFileOp {
-	if len(next) > 0 {
-		return next
-	}
-	return existing
-}
-
-func keepRunItemDiffStats(next RunItemDiffStats, existing RunItemDiffStats) RunItemDiffStats {
-	if next.Structured ||
-		next.Summary != "" ||
-		next.ChangedFiles > 0 ||
-		next.Additions > 0 ||
-		next.Deletions > 0 {
 		return next
 	}
 	return existing

@@ -42,6 +42,37 @@ func (store *Store) conversationDir(workspaceID string, conversationID string) s
 	return filepath.Join(store.conversationsDir(workspaceID), conversationID)
 }
 
+func (store *Store) writeInitialConversation(conversation Conversation) error {
+	parentDir := store.conversationsDir(conversation.WorkspaceID)
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+		return &PersistenceError{Operation: "create directory", Path: parentDir, Err: err}
+	}
+	finalDir := store.conversationDir(conversation.WorkspaceID, conversation.ID)
+	if _, err := os.Stat(finalDir); err == nil {
+		return &PersistenceError{Operation: "create conversation directory", Path: finalDir, Err: os.ErrExist}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return &PersistenceError{Operation: "stat conversation", Path: finalDir, Err: err}
+	}
+	tempDir, err := os.MkdirTemp(parentDir, ".tmp-conversation-*")
+	if err != nil {
+		return &PersistenceError{Operation: "create temp conversation directory", Path: parentDir, Err: err}
+	}
+	removeTemp := true
+	defer func() {
+		if removeTemp {
+			_ = os.RemoveAll(tempDir)
+		}
+	}()
+	if err := writeJSONFile(filepath.Join(tempDir, conversationFileName), conversation); err != nil {
+		return err
+	}
+	if err := os.Rename(tempDir, finalDir); err != nil {
+		return &PersistenceError{Operation: "publish conversation directory", Path: finalDir, Err: err}
+	}
+	removeTemp = false
+	return nil
+}
+
 func (store *Store) messagesDir(workspaceID string, conversationID string) string {
 	return filepath.Join(store.conversationDir(workspaceID, conversationID), messagesDirName)
 }

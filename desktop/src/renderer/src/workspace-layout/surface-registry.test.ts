@@ -381,7 +381,101 @@ describe("workspace surface registry", () => {
     expect(capturedPane.style.getPropertyValue("overflow")).toBe("hidden");
   });
 
-  test("warms bitmap snapshots for idle live DOM panes", async () => {
+  test("keeps the prior snapshot texture when a live overview handoff recaptures", () => {
+    const pane = fakePane("chat-dom");
+    const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => adapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    registry.syncHost(
+      host,
+      { ...renderItem(pane, "snapshot"), presentationMode: "overview" },
+      {
+        resizePhase: "idle",
+      },
+    );
+    host.dataset.presentationMode = "overview";
+    registry.syncHost(
+      host,
+      { ...renderItem(pane, "live", 300, 480), presentationMode: "overview" },
+      {
+        resizePhase: "idle",
+      },
+    );
+    const liveSurface = requireFakeChild(fakeChildrenOf(host), 0);
+    setFakeRect(liveSurface as unknown as HTMLElement, { height: 480, width: 300, x: 0, y: 0 });
+    registry.syncHost(
+      host,
+      { ...renderItem(pane, "snapshot", 300, 480), presentationMode: "overview" },
+      {
+        resizePhase: "idle",
+      },
+    );
+
+    const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
+    const texture = requireFakeChild(snapshotContent.children, 0);
+    const capturedPane = requireFakeChild(texture.children, 0);
+
+    expect(texture.className).toBe("workspace-snapshot-texture");
+    expect(capturedPane.className).toBe("workspace-react-dom-surface");
+    expect(capturedPane.dataset.snapshotWidth).toBe("640");
+    expect(capturedPane.dataset.snapshotHeight).toBe("480");
+  });
+
+  test("uses warmed bitmap snapshots when the live host releases before handoff", async () => {
+    const captureRendererRegion = vi.fn().mockResolvedValue({
+      capturedAt: 123,
+      height: 480,
+      imageDataUrl: "data:image/png;base64,AAAA",
+      width: 640,
+    });
+    vi.stubGlobal("window", {
+      setta: {
+        app: {
+          captureRendererRegion,
+        },
+      },
+    });
+    try {
+      const pane = fakePane("chat-dom");
+      const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+      const registry = new SurfaceRegistry([pane], () => adapter);
+      const host = createFakeHost();
+
+      registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+      await Promise.resolve();
+      registry.releaseHost(host);
+
+      const snapshotHost = createFakeHost();
+      registry.syncHost(
+        snapshotHost,
+        { ...renderItem(pane, "snapshot"), presentationMode: "overview" },
+        {
+          resizePhase: "idle",
+        },
+      );
+
+      const snapshotContent = requireFakeChild(fakeChildrenOf(snapshotHost), 0);
+      const texture = requireFakeChild(snapshotContent.children, 0);
+      const image = requireFakeChild(texture.children, 0);
+
+      expect(captureRendererRegion).toHaveBeenCalledWith({
+        height: 480,
+        width: 640,
+        x: 0,
+        y: 0,
+      });
+      expect(texture.className).toBe(
+        "workspace-snapshot-texture workspace-snapshot-bitmap-texture",
+      );
+      expect(image.className).toBe("workspace-snapshot-bitmap");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("prefers the current cloned handoff over a warmed bitmap snapshot", async () => {
     const captureRendererRegion = vi.fn().mockResolvedValue({
       capturedAt: 123,
       height: 480,
@@ -413,18 +507,10 @@ describe("workspace surface registry", () => {
 
       const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
       const texture = requireFakeChild(snapshotContent.children, 0);
-      const image = requireFakeChild(texture.children, 0);
+      const capturedPane = requireFakeChild(texture.children, 0);
 
-      expect(captureRendererRegion).toHaveBeenCalledWith({
-        height: 480,
-        width: 640,
-        x: 0,
-        y: 0,
-      });
-      expect(texture.className).toBe(
-        "workspace-snapshot-texture workspace-snapshot-bitmap-texture",
-      );
-      expect(image.className).toBe("workspace-snapshot-bitmap");
+      expect(texture.className).toBe("workspace-snapshot-texture");
+      expect(capturedPane.className).toBe("workspace-react-dom-surface");
     } finally {
       vi.unstubAllGlobals();
     }
@@ -484,6 +570,63 @@ describe("workspace surface registry", () => {
 
       expect(settledTexture.className).toBe("workspace-snapshot-texture");
       expect(settledCapturedPane.className).toBe("workspace-react-dom-surface");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("rejects warmed bitmap captures when source geometry changes before resolution", async () => {
+    type CaptureSnapshot = Awaited<ReturnType<SettaAPI["app"]["captureRendererRegion"]>>;
+    let resolveCapture: (snapshot: CaptureSnapshot) => void = () => {
+      throw new Error("capture promise was not created");
+    };
+    const captureRendererRegion = vi.fn(
+      () =>
+        new Promise<CaptureSnapshot>((resolve) => {
+          resolveCapture = resolve;
+        }),
+    );
+    vi.stubGlobal("window", {
+      setta: {
+        app: {
+          captureRendererRegion,
+        },
+      },
+    });
+    try {
+      const pane = fakePane("chat-dom");
+      const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+      const registry = new SurfaceRegistry([pane], () => adapter);
+      const host = createFakeHost();
+
+      registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+      const surface = requireFakeChild(fakeChildrenOf(host), 0);
+      setFakeRect(surface as unknown as HTMLElement, { height: 96, width: 140, x: 12, y: 18 });
+      resolveCapture({
+        capturedAt: 123,
+        height: 480,
+        imageDataUrl: "data:image/png;base64,AAAA",
+        width: 640,
+      });
+      await Promise.resolve();
+      setFakeRect(surface as unknown as HTMLElement, { height: 480, width: 640, x: 0, y: 0 });
+
+      registry.syncHost(
+        host,
+        { ...renderItem(pane, "snapshot"), presentationMode: "overview" },
+        {
+          resizePhase: "idle",
+        },
+      );
+
+      const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
+      const texture = requireFakeChild(snapshotContent.children, 0);
+      const capturedPane = requireFakeChild(texture.children, 0);
+
+      expect(texture.className).toBe("workspace-snapshot-texture");
+      expect(capturedPane.className).toBe("workspace-react-dom-surface");
+      expect(capturedPane.dataset.snapshotWidth).toBe("640");
+      expect(capturedPane.dataset.snapshotHeight).toBe("480");
     } finally {
       vi.unstubAllGlobals();
     }

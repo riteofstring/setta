@@ -1,7 +1,7 @@
 import type { WorkspaceSummary } from "@generated/backend";
 import { AlertTriangle, Check, Maximize2, Minimize2 } from "lucide-react";
 import { Square } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
@@ -159,6 +159,8 @@ const composerBlockingOperations = new Set([
   "sendingSteeringImmediately",
 ]);
 
+const emptyPendingSteeringMessageIds: string[] = [];
+
 function isComposerBusy(chat: ChatView) {
   return chat.status === "loading" || composerBlockingOperations.has(chat.operation ?? "");
 }
@@ -301,7 +303,7 @@ function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
 
 function GoalStatusIcon({ status }: { status: string }) {
   if (status === "complete") {
-    return <Check className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />;
+    return <Check className="h-3.5 w-3.5 shrink-0 text-status-success" aria-hidden="true" />;
   }
   if (status === "blocked" || status === "budgetLimited" || status === "usageLimited") {
     return (
@@ -399,7 +401,6 @@ export function useChatViewState() {
   const listCommands = useChatStore((state) => state.listCommands);
   const markConversationRead = useChatStore((state) => state.markConversationRead);
   const messageIds = useChatStore((state) => state.messageIds);
-  const messages = useChatStore((state) => state.messages);
   const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
   const queueMessage = useChatStore((state) => state.queueMessage);
@@ -410,9 +411,7 @@ export function useChatViewState() {
   const runItemOutputPagesByRunItemId = useChatStore(
     (state) => state.runItemOutputPagesByRunItemId,
   );
-  const runItemOutputs = useChatStore((state) => state.runItemOutputs);
   const runItemOutputsById = useChatStore((state) => state.runItemOutputsById);
-  const runItems = useChatStore((state) => state.runItems);
   const runItemsById = useChatStore((state) => state.runItemsById);
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
@@ -427,16 +426,20 @@ export function useChatViewState() {
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   const transcript = useChatStore((state) => state.transcript);
-  const pendingSteeringMessageIds = activeRun
-    ? messages
-        .filter(
-          (message) =>
-            message.delivery === "steering" &&
-            message.status === "pending" &&
-            message.runId === activeRun.id,
-        )
-        .map((message) => message.id)
-    : [];
+  const activeRunId = activeRun?.id ?? "";
+  const pendingSteeringMessageIds = useMemo(() => {
+    if (activeRunId === "") {
+      return emptyPendingSteeringMessageIds;
+    }
+    const turn = transcript.find((candidate) => candidate.run.id === activeRunId);
+    if (!turn) {
+      return emptyPendingSteeringMessageIds;
+    }
+    const pendingIds = turn.steeringMessages
+      .filter((message) => message.status === "pending")
+      .map((message) => message.id);
+    return pendingIds.length === 0 ? emptyPendingSteeringMessageIds : pendingIds;
+  }, [activeRunId, transcript]);
 
   const selectedConversationSummary =
     selectedConversation?.workspaceId === storeWorkspaceId
@@ -476,7 +479,6 @@ export function useChatViewState() {
     loadRunItemOutput,
     listCommands,
     messageIds,
-    messages,
     messagesById,
     operation,
     pendingSteeringMessageIds,
@@ -486,9 +488,7 @@ export function useChatViewState() {
     runItemIdsByRunId,
     runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,
-    runItemOutputs,
     runItemOutputsById,
-    runItems,
     runItemsById,
     selectConversation,
     selectedConversation,

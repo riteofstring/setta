@@ -103,59 +103,6 @@ export function assertSpatialIndexCandidateAtLeast(snapshot, counter, minimum, l
   }
 }
 
-export function assertWorkflowGraphLabelSizing(
-  snapshot,
-  {
-    compactNodeId = null,
-    expectedBitmapLabelFontSize,
-    expectedCompactSelectedLabelFontSize,
-    label,
-    validateDebugCounters,
-  },
-) {
-  validateDebugCounters(snapshot, label);
-  assertExpectedCompactLabelCount(snapshot, compactNodeId, label);
-  for (const node of snapshot.graph.nodes) {
-    assertNodeLabelSizing(node, {
-      compactNodeId,
-      expectedBitmapLabelFontSize,
-      expectedCompactSelectedLabelFontSize,
-      label,
-    });
-  }
-}
-
-function assertExpectedCompactLabelCount(snapshot, compactNodeId, label) {
-  const expectedCompactCount = compactNodeId ? 1 : 0;
-  if (snapshot.render.compactSelectedLabelCount !== expectedCompactCount) {
-    throw new Error(
-      `${label} reported wrong compact label count: expected=${expectedCompactCount} render=${JSON.stringify(snapshot.render)}`,
-    );
-  }
-}
-
-function assertNodeLabelSizing(
-  node,
-  { compactNodeId, expectedBitmapLabelFontSize, expectedCompactSelectedLabelFontSize, label },
-) {
-  const compact = node.id === compactNodeId;
-  const expectedMode = compact ? "compact-selected" : "normal";
-  if (node.label.fontSizeMode !== expectedMode) {
-    throw new Error(
-      `${label} label used wrong sizing mode: expectedMode=${expectedMode} node=${JSON.stringify(node)}`,
-    );
-  }
-  if (node.label.materialized === false) {
-    return;
-  }
-  const expectedSize = compact ? expectedCompactSelectedLabelFontSize : expectedBitmapLabelFontSize;
-  if (node.label.fontSize !== expectedSize) {
-    throw new Error(
-      `${label} label used wrong sizing: expectedMode=${expectedMode} expectedSize=${expectedSize} node=${JSON.stringify(node)}`,
-    );
-  }
-}
-
 export function setsEqual(left, right) {
   if (left.size !== right.size) {
     return false;
@@ -183,21 +130,10 @@ function assertFrameTimingsHealthy(snapshot) {
   }
   if (
     !Number.isFinite(snapshot.render.averageFrameMs) ||
-    !Number.isFinite(snapshot.render.p95FrameMs) ||
     !Number.isFinite(snapshot.render.worstFrameMs)
   ) {
     throw new Error(
       `Workflow graph frame timings were not finite: ${JSON.stringify(snapshot.render)}`,
-    );
-  }
-  if (!Array.isArray(snapshot.render.timingSamples)) {
-    throw new Error(
-      `Workflow graph timing samples were missing: ${JSON.stringify(snapshot.render)}`,
-    );
-  }
-  if (!snapshot.render.displayObjectCountsByLayer?.stage) {
-    throw new Error(
-      `Workflow graph display object layer counts were missing: ${JSON.stringify(snapshot.render)}`,
     );
   }
 }

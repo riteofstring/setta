@@ -46,20 +46,6 @@ func (err *ValidationError) Error() string {
 	return err.Result.Diagnostics[0].Message
 }
 
-func ensureExpectedDraftRevision(definition WorkflowDefinition, expectedRevision string) error {
-	expectedRevision = strings.TrimSpace(expectedRevision)
-	if expectedRevision == "" {
-		return errors.New("workflow draft expectedRevision is required")
-	}
-	if expectedRevision != definition.DraftRevision {
-		return &WorkflowConflictError{
-			Code:    WorkflowDraftRevisionConflictCode,
-			Message: fmt.Sprintf("workflow draft revision conflict: expected %s but current revision is %s", expectedRevision, definition.DraftRevision),
-		}
-	}
-	return nil
-}
-
 func NewService(store WorkflowStore, workspaceResolver WorkspaceResolver, options ...Option) (*Service, error) {
 	if store == nil {
 		return nil, errors.New("workflow store is required")
@@ -227,7 +213,7 @@ func (service *Service) ReadDefinition(workspaceID string, definitionID string) 
 	return definition, err
 }
 
-func (service *Service) UpdateDefinition(workspaceID string, definitionID string, expectedRevision string, name string, description string, graph WorkflowGraph) (WorkflowDefinition, error) {
+func (service *Service) UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph WorkflowGraph) (WorkflowDefinition, error) {
 	workspaceSummary, err := service.resolveWorkspace(workspaceID)
 	if err != nil {
 		return WorkflowDefinition{}, err
@@ -243,9 +229,6 @@ func (service *Service) UpdateDefinition(workspaceID string, definitionID string
 
 	current, currentPath, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
 	if err != nil {
-		return WorkflowDefinition{}, err
-	}
-	if err := ensureExpectedDraftRevision(current, expectedRevision); err != nil {
 		return WorkflowDefinition{}, err
 	}
 	now := timestamp(service.now())
@@ -285,58 +268,6 @@ func (service *Service) ValidateDefinition(workspaceID string, graph WorkflowGra
 		return WorkflowValidationResult{}, err
 	}
 	return ValidateGraph(graph, service.runnerRegistry), nil
-}
-
-func (service *Service) ValidateDefinitionDraft(workspaceID string, definitionID string, expectedRevision string) (WorkflowGraphProjection, error) {
-	workspaceSummary, err := service.resolveWorkspace(workspaceID)
-	if err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
-	definition, _, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
-	if err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	if err := ensureExpectedDraftRevision(definition, expectedRevision); err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	snapshot, err := workflowValidationSnapshotForDefinition(definition, service.runnerRegistry, timestamp(service.now()))
-	if err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	if err := service.store.SaveDefinitionValidationSnapshot(snapshot); err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	return service.workflowDraftProjectionLocked(definition, &snapshot)
-}
-
-func (service *Service) UpdateDefinitionLayout(workspaceID string, definitionID string, expectedRevision string, positions []WorkflowGraphNodeLayout) (WorkflowGraphProjection, error) {
-	workspaceSummary, err := service.resolveWorkspace(workspaceID)
-	if err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
-	definition, currentPath, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
-	if err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	if err := ensureExpectedDraftRevision(definition, expectedRevision); err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	graph, err := workflowGraphWithUpdatedLayout(definition.Graph, positions)
-	if err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	next := definition
-	next.Graph = graph
-	next.UpdatedAt = timestamp(service.now())
-	updated, err := writeWorkflowDefinitionFile(workspaceSummary.RootPath, next, currentPath)
-	if err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	return service.workflowDraftProjectionLocked(updated, nil)
 }
 
 func (service *Service) StartExecution(workspaceID string, definitionID string, versionID string) (WorkflowExecution, error) {
@@ -499,11 +430,7 @@ func (service *Service) readExecutionGraphProjectionLocked(workspaceID string, d
 	if err != nil {
 		return WorkflowGraphProjection{}, err
 	}
-	validation, err := service.workflowValidationStateForGraphLocked(workspaceID, execution.DefinitionID, version.Graph)
-	if err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	return buildWorkflowGraphProjection(version, &execution, execution.UpdatedAt, &currentDefinition, validation)
+	return buildWorkflowGraphProjection(version, &execution, execution.UpdatedAt, &currentDefinition)
 }
 
 func (service *Service) readDefinitionGraphProjectionLocked(workspaceID string, definitionID string, versionID string) (WorkflowGraphProjection, bool, error) {
@@ -512,7 +439,8 @@ func (service *Service) readDefinitionGraphProjectionLocked(workspaceID string, 
 		return WorkflowGraphProjection{}, ok, err
 	}
 	if versionID == "" {
-		projection, err := service.workflowDraftProjectionLocked(definition, nil)
+		version := workflowDefinitionVersionFromDefinition(definition, "", 0, service.now())
+		projection, err := buildWorkflowGraphProjection(version, nil, definition.UpdatedAt, &definition)
 		return projection, true, err
 	}
 	version, err := service.store.LoadDefinitionVersion(workspaceID, definition.ID, versionID)
@@ -524,53 +452,11 @@ func (service *Service) readDefinitionGraphProjectionLocked(workspaceID string, 
 		return WorkflowGraphProjection{}, false, err
 	}
 	if execution != nil {
-		validation, err := service.workflowValidationStateForGraphLocked(workspaceID, definition.ID, version.Graph)
-		if err != nil {
-			return WorkflowGraphProjection{}, false, err
-		}
-		projection, err := buildWorkflowGraphProjection(version, execution, definition.UpdatedAt, &definition, validation)
+		projection, err := buildWorkflowGraphProjection(version, execution, definition.UpdatedAt, &definition)
 		return projection, true, err
 	}
-	validation, err := service.workflowValidationStateForGraphLocked(workspaceID, definition.ID, version.Graph)
-	if err != nil {
-		return WorkflowGraphProjection{}, false, err
-	}
-	projection, err := buildWorkflowGraphProjection(version, nil, definition.UpdatedAt, &definition, validation)
+	projection, err := buildWorkflowGraphProjection(version, nil, definition.UpdatedAt, &definition)
 	return projection, true, err
-}
-
-func (service *Service) workflowDraftProjectionLocked(definition WorkflowDefinition, knownSnapshot *WorkflowValidationSnapshot) (WorkflowGraphProjection, error) {
-	validation, err := service.workflowValidationStateForDefinitionLocked(definition, knownSnapshot)
-	if err != nil {
-		return WorkflowGraphProjection{}, err
-	}
-	version := workflowDefinitionVersionFromDefinition(definition, "", 0, service.now())
-	return buildWorkflowGraphProjection(version, nil, definition.UpdatedAt, &definition, validation)
-}
-
-func (service *Service) workflowValidationStateForDefinitionLocked(definition WorkflowDefinition, knownSnapshot *WorkflowValidationSnapshot) (WorkflowDefinitionValidationState, error) {
-	if knownSnapshot != nil {
-		return workflowValidationState(definition.Graph, definition.DraftRevision, service.runnerRegistry, knownSnapshot)
-	}
-	snapshot, ok, err := service.store.LoadDefinitionValidationSnapshot(definition.WorkspaceID, definition.ID)
-	if err != nil {
-		return WorkflowDefinitionValidationState{}, err
-	}
-	if !ok {
-		return workflowValidationState(definition.Graph, definition.DraftRevision, service.runnerRegistry, nil)
-	}
-	return workflowValidationState(definition.Graph, definition.DraftRevision, service.runnerRegistry, &snapshot)
-}
-
-func (service *Service) workflowValidationStateForGraphLocked(workspaceID string, definitionID string, graph WorkflowGraph) (WorkflowDefinitionValidationState, error) {
-	snapshot, ok, err := service.store.LoadDefinitionValidationSnapshot(workspaceID, definitionID)
-	if err != nil {
-		return WorkflowDefinitionValidationState{}, err
-	}
-	if !ok {
-		return workflowValidationState(graph, "", service.runnerRegistry, nil)
-	}
-	return workflowValidationState(graph, "", service.runnerRegistry, &snapshot)
 }
 
 func (service *Service) resolveProjectionDefinitionLocked(workspaceID string, definitionID string, versionID string) (WorkflowDefinition, bool, error) {

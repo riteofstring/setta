@@ -50,6 +50,55 @@ describe("transcriptTimelineRows", () => {
 
     expect(rows.map((row) => row.key)).toEqual(["turn:run_api", "message:message_command"]);
   });
+
+  test("splits large syntax-simple assistant messages into stable virtual chunks", () => {
+    const user = message("message_user", 1, "user", "run_api", "prompt");
+    const assistant = message("message_assistant", 2, "assistant", "run_api", "x".repeat(4200));
+
+    const rows = transcriptTimelineRows({
+      messageIds: [user.id, assistant.id],
+      messagesById: messagesById([user, assistant]),
+      turns: [turn(run("run_api", user.id, assistant.id), user, assistant)],
+    });
+
+    expect(rows.map((row) => row.kind)).toEqual([
+      "turn-message",
+      "assistant-chunk",
+      "assistant-chunk",
+      "assistant-chunk",
+    ]);
+    expect(rows.map((row) => row.index)).toEqual([0, 1, 2, 3]);
+    expect(rows.map((row) => row.key)).toEqual([
+      "turn:run_api:00-trigger",
+      "turn:run_api:10-assistant:0000",
+      "turn:run_api:10-assistant:0001",
+      "turn:run_api:10-assistant:0002",
+    ]);
+    expect(timelineRowForMessage(rows, assistant.id)?.index).toBe(1);
+  });
+
+  test("keeps markdown-syntax assistant messages on the normal turn row", () => {
+    const user = message("message_user", 1, "user", "run_api", "prompt");
+    const assistant = {
+      ...message("message_assistant", 2, "assistant", "run_api", "**x**".repeat(1000)),
+      parts: [
+        {
+          format: "markdown" as const,
+          id: "message_assistant_part",
+          text: "**x**".repeat(1000),
+          type: "text" as const,
+        },
+      ],
+    };
+
+    const rows = transcriptTimelineRows({
+      messageIds: [user.id, assistant.id],
+      messagesById: messagesById([user, assistant]),
+      turns: [turn(run("run_api", user.id, assistant.id), user, assistant)],
+    });
+
+    expect(rows.map((row) => row.key)).toEqual(["turn:run_api"]);
+  });
 });
 
 function messagesById(messages: ChatMessage[]) {

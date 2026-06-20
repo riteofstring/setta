@@ -9,11 +9,6 @@ export interface ConversationSelectionRequest {
   workspaceId: string;
 }
 
-export interface ConversationSelectionResult {
-  conversation: Conversation | null;
-  conversationListPatch: ChatPatch;
-}
-
 export const emptyCorruption = {
   byKind: [],
   bySeverity: [],

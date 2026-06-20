@@ -190,10 +190,6 @@ type HarnessCommandExecutor interface {
 	ListCommandCapabilities(context.Context, HarnessCommandListRequest) (HarnessCommandListResult, error)
 }
 
-type HarnessModelCatalog interface {
-	ListModelOptions(context.Context, HarnessModelCatalogRequest) (HarnessModelCatalogResult, error)
-}
-
 type HarnessCommandRequest struct {
 	Workspace    workspace.WorkspaceSummary
 	Conversation Conversation
@@ -207,10 +203,6 @@ type HarnessCommandListRequest struct {
 	Conversation Conversation
 	ThreadRef    HarnessThreadRef
 	ActiveRun    *Run
-}
-
-type HarnessModelCatalogRequest struct {
-	Workspace workspace.WorkspaceSummary
 }
 
 type HarnessCommandResult struct {
@@ -228,10 +220,6 @@ type HarnessCommandResult struct {
 
 type HarnessCommandListResult struct {
 	Commands []ChatCommandCapability
-}
-
-type HarnessModelCatalogResult struct {
-	Models []ChatModelOption
 }
 
 func defaultCommandCapabilities(activeRun *Run) []ChatCommandCapability {
