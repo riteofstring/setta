@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { WorkflowGraphGraph } from "./pixi-renderer";
 import type { WorkflowLayoutPosition } from "./workflow-graph-layout";
 import {
-  pendingWorkflowLayoutPositionsAfterPersist,
+  pendingWorkflowLayoutPositionsAfterSaveSettlement,
   pendingWorkflowLayoutPositionsWithInputs,
   type PendingWorkflowLayoutPosition,
 } from "./workflow-graph-layout-overlay";
@@ -79,10 +79,10 @@ export function useWorkflowGraphViewLayout({
     [],
   );
 
-  const clearPersistedWorkflowViewLayout = useCallback(
+  const settleWorkflowViewLayoutSave = useCallback(
     (inputs: readonly PendingWorkflowLayoutPosition[], saveSequence: number) => {
       setPendingPositions((current) =>
-        pendingWorkflowLayoutPositionsAfterPersist({
+        pendingWorkflowLayoutPositionsAfterSaveSettlement({
           current,
           inputs,
           saveSequence,
@@ -93,9 +93,9 @@ export function useWorkflowGraphViewLayout({
   );
 
   return {
-    clearPersistedWorkflowViewLayout,
     preparePendingWorkflowViewLayout,
     replaceWorkflowGraphViewLayoutPositions: setPersistedPositions,
+    settleWorkflowViewLayoutSave,
     target,
     targetKey,
     viewLayoutPositions: positions,

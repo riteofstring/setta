@@ -48,10 +48,10 @@ export function useWorkflowLayoutOverlay({
     [],
   );
 
-  const clearPersistedWorkflowLayout = useCallback(
+  const settleWorkflowLayoutSave = useCallback(
     (inputs: readonly PendingWorkflowLayoutPosition[], saveSequence: number) => {
       setPendingWorkflowLayoutPositions((current) =>
-        pendingWorkflowLayoutPositionsAfterPersist({
+        pendingWorkflowLayoutPositionsAfterSaveSettlement({
           current,
           inputs,
           saveSequence,
@@ -62,9 +62,9 @@ export function useWorkflowLayoutOverlay({
   );
 
   return {
-    clearPersistedWorkflowLayout,
     pendingWorkflowLayoutPositions,
     preparePendingWorkflowLayout,
+    settleWorkflowLayoutSave,
     workflowProjectionWithLocalLayout,
   };
 }
@@ -83,9 +83,9 @@ export function workflowLayoutPositionsForProjection({
   }
   const workflowNodeIds = new Set(projection.nodes.map((node) => node.id));
   return positions
-    .filter((position) => workflowNodeIds.has(position.nodeId))
+    .filter((position) => position.moved === true && workflowNodeIds.has(position.nodeId))
     .map((position) => ({
-      moved: position.moved,
+      moved: true,
       nodeId: position.nodeId,
       saveSequence,
       x: Math.round(position.x),
@@ -107,7 +107,7 @@ export function pendingWorkflowLayoutPositionsWithInputs({
   return [...byNodeId.values()];
 }
 
-export function pendingWorkflowLayoutPositionsAfterPersist({
+export function pendingWorkflowLayoutPositionsAfterSaveSettlement({
   current,
   inputs,
   saveSequence,

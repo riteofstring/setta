@@ -11,7 +11,7 @@ import {
 } from "./semantic-graph-projection";
 import type { WorkflowLayoutPosition } from "./workflow-graph-layout";
 
-interface PendingSemanticLayoutPosition extends SemanticLayoutPosition {
+export interface PendingSemanticLayoutPosition extends SemanticLayoutPosition {
   saveSequence: number;
 }
 
@@ -63,10 +63,10 @@ export function useSemanticLayoutOverlay({
     [semanticGraph],
   );
 
-  const clearPersistedSemanticLayout = useCallback(
+  const settleSemanticLayoutSave = useCallback(
     (inputs: readonly SemanticLayoutPositionInput[], saveSequence: number) => {
       setPendingSemanticLayoutPositions((current) =>
-        pendingSemanticLayoutPositionsAfterPersist({
+        pendingSemanticLayoutPositionsAfterSaveSettlement({
           current,
           inputs,
           saveSequence,
@@ -77,13 +77,13 @@ export function useSemanticLayoutOverlay({
   );
 
   return {
-    clearPersistedSemanticLayout,
     preparePendingSemanticLayout,
+    settleSemanticLayoutSave,
     semanticGraphWithLocalLayout,
   };
 }
 
-function pendingSemanticLayoutPositionsWithInputs({
+export function pendingSemanticLayoutPositionsWithInputs({
   current,
   inputs,
   saveSequence,
@@ -109,7 +109,7 @@ function pendingSemanticLayoutPositionsWithInputs({
   return [...byEntityId.values()];
 }
 
-function pendingSemanticLayoutPositionsAfterPersist({
+export function pendingSemanticLayoutPositionsAfterSaveSettlement({
   current,
   inputs,
   saveSequence,

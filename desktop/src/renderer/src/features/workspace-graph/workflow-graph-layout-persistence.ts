@@ -9,119 +9,163 @@ import type {
 import { semanticLayoutPositionInputsFromRendererPositions } from "./semantic-graph-projection";
 import type { WorkflowLayoutPosition } from "./workflow-graph-layout";
 
+type LayoutPersistenceStatus = "persisted" | "skipped" | "failed";
+
+interface SkippedLayoutPersistenceOutcome<Owner extends string> {
+  owner: Owner;
+  status: "skipped";
+}
+
+interface FailedLayoutPersistenceOutcome<Owner extends string> {
+  error: string;
+  owner: Owner;
+  status: "failed";
+}
+
+type SemanticLayoutPersistenceOutcome =
+  | SkippedLayoutPersistenceOutcome<"semantic_layout">
+  | FailedLayoutPersistenceOutcome<"semantic_layout">
+  | {
+      owner: "semantic_layout";
+      positions: SemanticLayoutPosition[];
+      status: "persisted";
+    };
+
+type WorkflowLayoutPersistenceOwner = "workflow_definition_layout" | "workflow_view_layout";
+
+type WorkflowLayoutPersistenceOutcome =
+  | SkippedLayoutPersistenceOutcome<WorkflowLayoutPersistenceOwner>
+  | FailedLayoutPersistenceOutcome<WorkflowLayoutPersistenceOwner>
+  | {
+      owner: "workflow_definition_layout";
+      projection: WorkflowGraphProjection;
+      status: "persisted";
+    }
+  | {
+      owner: "workflow_view_layout";
+      positions: WorkflowGraphNodeLayout[];
+      status: "persisted";
+    };
+
+export interface GraphNodeLayoutPersistenceOutcome {
+  semantic: SemanticLayoutPersistenceOutcome;
+  status: LayoutPersistenceStatus;
+  workflow: WorkflowLayoutPersistenceOutcome;
+}
+
+export function graphNodeLayoutPersistenceErrorMessage(outcome: GraphNodeLayoutPersistenceOutcome) {
+  if (outcome.semantic.status === "failed") {
+    return outcome.semantic.error;
+  }
+  if (outcome.workflow.status === "failed") {
+    return outcome.workflow.error;
+  }
+  return "Graph layout update failed";
+}
+
 export async function persistGraphNodePositions({
   positions,
   semanticGraph,
-  setWorkflowEditorError,
-  updateSemanticLayoutPositions,
-  updateWorkflowViewLayoutPositions,
   workflowViewLayoutTarget,
   workflowProjection,
 }: {
   positions: WorkflowLayoutPosition[];
   semanticGraph: SemanticGraph | null;
-  setWorkflowEditorError: (message: string) => void;
-  updateSemanticLayoutPositions: (positions: SemanticLayoutPosition[]) => void;
-  updateWorkflowViewLayoutPositions?: (positions: WorkflowGraphNodeLayout[]) => void;
   workflowViewLayoutTarget?: WorkflowGraphViewLayoutTarget | null;
   workflowProjection: WorkflowGraphProjection | null;
-}): Promise<WorkflowGraphProjection | null> {
-  const semanticError = await persistSemanticNodePositionsResult({
+}): Promise<GraphNodeLayoutPersistenceOutcome> {
+  const semantic = await persistSemanticNodePositions({
     positions,
     semanticGraph,
-    updateSemanticLayoutPositions,
   });
-  if (semanticError !== "") {
-    setWorkflowEditorError(semanticError);
-    return null;
+  if (semantic.status === "failed") {
+    const workflow: WorkflowLayoutPersistenceOutcome = {
+      owner: workflowLayoutPersistenceOwner(workflowProjection),
+      status: "skipped",
+    };
+    return {
+      semantic,
+      status: graphNodeLayoutPersistenceStatus({ semantic, workflow }),
+      workflow,
+    };
   }
-  const workflowResult = await persistWorkflowNodePositions({
+  const workflow = await persistWorkflowNodePositions({
     positions,
-    updateWorkflowViewLayoutPositions,
     workflowViewLayoutTarget: workflowViewLayoutTarget ?? null,
     workflowProjection,
   });
-  if (workflowResult.error !== "") {
-    setWorkflowEditorError(workflowResult.error);
-    return null;
-  }
-  return workflowResult.projection;
+  return {
+    semantic,
+    status: graphNodeLayoutPersistenceStatus({ semantic, workflow }),
+    workflow,
+  };
 }
 
 async function persistSemanticNodePositions({
   positions,
   semanticGraph,
-  updateSemanticLayoutPositions,
 }: {
   positions: WorkflowLayoutPosition[];
   semanticGraph: SemanticGraph | null;
-  updateSemanticLayoutPositions: (positions: SemanticLayoutPosition[]) => void;
-}) {
+}): Promise<SemanticLayoutPersistenceOutcome> {
+  const owner = "semantic_layout";
   if (semanticGraph === null) {
-    return;
+    return { owner, status: "skipped" };
   }
   const semanticPositions = semanticLayoutPositionInputsFromRendererPositions({
     positions,
     semanticGraph,
   });
   if (semanticPositions.length === 0) {
-    return;
+    return { owner, status: "skipped" };
   }
-  const updated = await window.setta.semanticGraph.updateLayoutPositions({
-    positions: semanticPositions,
-    workspaceId: semanticGraph.workspaceId,
-  });
-  updateSemanticLayoutPositions(updated.positions);
-}
-
-async function persistSemanticNodePositionsResult({
-  positions,
-  semanticGraph,
-  updateSemanticLayoutPositions,
-}: {
-  positions: WorkflowLayoutPosition[];
-  semanticGraph: SemanticGraph | null;
-  updateSemanticLayoutPositions: (positions: SemanticLayoutPosition[]) => void;
-}) {
   try {
-    await persistSemanticNodePositions({
-      positions,
-      semanticGraph,
-      updateSemanticLayoutPositions,
+    const updated = await window.setta.semanticGraph.updateLayoutPositions({
+      positions: semanticPositions,
+      workspaceId: semanticGraph.workspaceId,
     });
-    return "";
+    return {
+      owner,
+      positions: updated.positions,
+      status: "persisted",
+    };
   } catch (error: unknown) {
-    return layoutPersistenceErrorMessage(error, "Semantic layout update failed");
+    return {
+      error: layoutPersistenceErrorMessage(error, "Semantic layout update failed"),
+      owner,
+      status: "failed",
+    };
   }
 }
 
 async function persistWorkflowNodePositions({
   positions,
-  updateWorkflowViewLayoutPositions,
   workflowViewLayoutTarget,
   workflowProjection,
 }: {
   positions: WorkflowLayoutPosition[];
-  updateWorkflowViewLayoutPositions?: (positions: WorkflowGraphNodeLayout[]) => void;
   workflowViewLayoutTarget: WorkflowGraphViewLayoutTarget | null;
   workflowProjection: WorkflowGraphProjection | null;
-}): Promise<{ error: string; projection: WorkflowGraphProjection | null }> {
+}): Promise<WorkflowLayoutPersistenceOutcome> {
+  const owner = workflowLayoutPersistenceOwner(workflowProjection);
   if (workflowProjection === null) {
-    return { error: "", projection: null };
+    return { owner, status: "skipped" };
   }
   const workflowNodeIds = new Set(workflowProjection.nodes.map((node) => node.id));
-  const workflowPositions = positions.filter((position) => workflowNodeIds.has(position.nodeId));
-  if (!workflowPositions.some((position) => position.moved)) {
-    return { error: "", projection: null };
+  const workflowPositions = positions.filter(
+    (position) => position.moved === true && workflowNodeIds.has(position.nodeId),
+  );
+  if (workflowPositions.length === 0) {
+    return { owner, status: "skipped" };
   }
   if (!workflowProjection.editable) {
     return persistWorkflowViewLayoutNodePositions({
       positions: workflowPositions,
-      updateWorkflowViewLayoutPositions,
       workflowProjection,
       workflowViewLayoutTarget,
     });
   }
+  const definitionOwner = "workflow_definition_layout";
   try {
     const projection = await window.setta.workflow.updateDefinitionLayout({
       definitionId: workflowProjection.definitionId,
@@ -129,41 +173,49 @@ async function persistWorkflowNodePositions({
       positions: workflowLayoutPositionsForBackend(workflowPositions),
       workspaceId: workflowProjection.workspaceId,
     });
-    return { error: "", projection };
+    return {
+      owner: definitionOwner,
+      projection,
+      status: "persisted",
+    };
   } catch (error: unknown) {
     return {
       error: layoutPersistenceErrorMessage(error, "Workflow layout update failed"),
-      projection: null,
+      owner: definitionOwner,
+      status: "failed",
     };
   }
 }
 
 async function persistWorkflowViewLayoutNodePositions({
   positions,
-  updateWorkflowViewLayoutPositions,
   workflowProjection,
   workflowViewLayoutTarget,
 }: {
   positions: WorkflowLayoutPosition[];
-  updateWorkflowViewLayoutPositions?: (positions: WorkflowGraphNodeLayout[]) => void;
   workflowProjection: WorkflowGraphProjection;
   workflowViewLayoutTarget: WorkflowGraphViewLayoutTarget | null;
-}): Promise<{ error: string; projection: WorkflowGraphProjection | null }> {
+}): Promise<WorkflowLayoutPersistenceOutcome> {
+  const owner = "workflow_view_layout";
   if (workflowViewLayoutTarget === null) {
-    return { error: "", projection: null };
+    return { owner, status: "skipped" };
   }
   try {
     const layout = await window.setta.workflow.updateGraphViewLayout({
-      positions: workflowLayoutPositionsForBackend(positions.filter((position) => position.moved)),
+      positions: workflowLayoutPositionsForBackend(positions),
       target: workflowViewLayoutTarget,
       workspaceId: workflowProjection.workspaceId,
     });
-    updateWorkflowViewLayoutPositions?.(layout.positions);
-    return { error: "", projection: null };
+    return {
+      owner,
+      positions: layout.positions,
+      status: "persisted",
+    };
   } catch (error: unknown) {
     return {
       error: layoutPersistenceErrorMessage(error, "Workflow view layout update failed"),
-      projection: null,
+      owner,
+      status: "failed",
     };
   }
 }
@@ -180,4 +232,29 @@ function workflowLayoutPositionsForBackend(
 
 function layoutPersistenceErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+function workflowLayoutPersistenceOwner(
+  workflowProjection: WorkflowGraphProjection | null,
+): WorkflowLayoutPersistenceOwner {
+  if (workflowProjection?.editable === false) {
+    return "workflow_view_layout";
+  }
+  return "workflow_definition_layout";
+}
+
+function graphNodeLayoutPersistenceStatus({
+  semantic,
+  workflow,
+}: {
+  semantic: SemanticLayoutPersistenceOutcome;
+  workflow: WorkflowLayoutPersistenceOutcome;
+}): LayoutPersistenceStatus {
+  if (semantic.status === "failed" || workflow.status === "failed") {
+    return "failed";
+  }
+  if (semantic.status === "persisted" || workflow.status === "persisted") {
+    return "persisted";
+  }
+  return "skipped";
 }

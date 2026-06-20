@@ -1,6 +1,7 @@
-import type { WorkflowGraphProjection } from "@generated/backend";
+import type { SemanticGraph, WorkflowGraphProjection } from "@generated/backend";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { semanticRendererNodeId } from "./semantic-graph-projection";
 import { persistGraphNodePositions } from "./workflow-graph-layout-persistence";
 
 afterEach(() => {
@@ -21,16 +22,22 @@ describe("workflow graph layout persistence", () => {
     });
     const setWorkflowEditorError = vi.fn();
 
-    const refreshed = await persistGraphNodePositions({
+    const outcome = await persistGraphNodePositions({
       positions: [{ moved: true, nodeId: "work", x: 42, y: 64 }],
       semanticGraph: null,
-      setWorkflowEditorError,
-      updateSemanticLayoutPositions: vi.fn(),
       workflowProjection: draftProjection(),
     });
 
-    expect(refreshed).toBeNull();
-    expect(setWorkflowEditorError).toHaveBeenCalledWith("workflow draft revision mismatch");
+    expect(outcome).toEqual({
+      semantic: { owner: "semantic_layout", status: "skipped" },
+      status: "failed",
+      workflow: {
+        error: "workflow draft revision mismatch",
+        owner: "workflow_definition_layout",
+        status: "failed",
+      },
+    });
+    expect(setWorkflowEditorError).not.toHaveBeenCalled();
     expect(updateDefinitionLayout).toHaveBeenCalledWith({
       definitionId: "definition_review",
       expectedRevision: "sha256:draft",
@@ -52,17 +59,13 @@ describe("workflow graph layout persistence", () => {
         },
       } as unknown as Window["setta"],
     });
-    const updateWorkflowViewLayoutPositions = vi.fn();
 
-    const refreshed = await persistGraphNodePositions({
+    const outcome = await persistGraphNodePositions({
       positions: [
         { moved: false, nodeId: "start", x: 0, y: 0 },
         { moved: true, nodeId: "work", x: 42.4, y: 64.5 },
       ],
       semanticGraph: null,
-      setWorkflowEditorError: vi.fn(),
-      updateSemanticLayoutPositions: vi.fn(),
-      updateWorkflowViewLayoutPositions,
       workflowProjection: {
         ...draftProjection(),
         definitionVersionCreatedAt: "2026-06-05T12:00:00Z",
@@ -84,7 +87,15 @@ describe("workflow graph layout persistence", () => {
       },
     });
 
-    expect(refreshed).toBeNull();
+    expect(outcome).toEqual({
+      semantic: { owner: "semantic_layout", status: "skipped" },
+      status: "persisted",
+      workflow: {
+        owner: "workflow_view_layout",
+        positions: [{ nodeId: "work", x: 42, y: 64 }],
+        status: "persisted",
+      },
+    });
     expect(updateDefinitionLayout).not.toHaveBeenCalled();
     expect(updateGraphViewLayout).toHaveBeenCalledWith({
       positions: [{ nodeId: "work", x: 42, y: 65 }],
@@ -99,9 +110,130 @@ describe("workflow graph layout persistence", () => {
       },
       workspaceId: "workspace_test",
     });
-    expect(updateWorkflowViewLayoutPositions).toHaveBeenCalledWith([
-      { nodeId: "work", x: 42, y: 64 },
-    ]);
+  });
+
+  test("reports skipped persistence when no durable moved positions are present", async () => {
+    const updateDefinitionLayout = vi.fn();
+    vi.stubGlobal("window", {
+      setta: {
+        workflow: {
+          updateDefinitionLayout,
+        },
+      } as unknown as Window["setta"],
+    });
+
+    const outcome = await persistGraphNodePositions({
+      positions: [{ moved: false, nodeId: "work", x: 42, y: 64 }],
+      semanticGraph: null,
+      workflowProjection: draftProjection(),
+    });
+
+    expect(outcome).toEqual({
+      semantic: { owner: "semantic_layout", status: "skipped" },
+      status: "skipped",
+      workflow: { owner: "workflow_definition_layout", status: "skipped" },
+    });
+    expect(updateDefinitionLayout).not.toHaveBeenCalled();
+  });
+
+  test("returns saved semantic layout positions as a persisted owner outcome", async () => {
+    const updateLayoutPositions = vi.fn(async () => ({
+      positions: [
+        {
+          entityId: "semantic_constraint",
+          pinned: true,
+          updatedAt: "2026-06-10T12:00:04Z",
+          workspaceId: "workspace_test",
+          x: 72,
+          y: -18,
+        },
+      ],
+    }));
+    vi.stubGlobal("window", {
+      setta: {
+        semanticGraph: {
+          updateLayoutPositions,
+        },
+      } as unknown as Window["setta"],
+    });
+
+    const outcome = await persistGraphNodePositions({
+      positions: [
+        {
+          moved: true,
+          nodeId: semanticRendererNodeId("semantic_constraint"),
+          x: 72.2,
+          y: -18.7,
+        },
+      ],
+      semanticGraph: semanticGraph(),
+      workflowProjection: null,
+    });
+
+    expect(outcome).toEqual({
+      semantic: {
+        owner: "semantic_layout",
+        positions: [
+          {
+            entityId: "semantic_constraint",
+            pinned: true,
+            updatedAt: "2026-06-10T12:00:04Z",
+            workspaceId: "workspace_test",
+            x: 72,
+            y: -18,
+          },
+        ],
+        status: "persisted",
+      },
+      status: "persisted",
+      workflow: { owner: "workflow_definition_layout", status: "skipped" },
+    });
+    expect(updateLayoutPositions).toHaveBeenCalledWith({
+      positions: [{ entityId: "semantic_constraint", pinned: true, x: 72.2, y: -18.7 }],
+      workspaceId: "workspace_test",
+    });
+  });
+
+  test("reports semantic layout failures without attempting workflow persistence", async () => {
+    const updateLayoutPositions = vi.fn(async () => {
+      throw new Error("semantic layout store unavailable");
+    });
+    const updateDefinitionLayout = vi.fn();
+    vi.stubGlobal("window", {
+      setta: {
+        semanticGraph: {
+          updateLayoutPositions,
+        },
+        workflow: {
+          updateDefinitionLayout,
+        },
+      } as unknown as Window["setta"],
+    });
+
+    const outcome = await persistGraphNodePositions({
+      positions: [
+        {
+          moved: true,
+          nodeId: semanticRendererNodeId("semantic_constraint"),
+          x: 72,
+          y: -18,
+        },
+        { moved: true, nodeId: "work", x: 42, y: 64 },
+      ],
+      semanticGraph: semanticGraph(),
+      workflowProjection: draftProjection(),
+    });
+
+    expect(outcome).toEqual({
+      semantic: {
+        error: "semantic layout store unavailable",
+        owner: "semantic_layout",
+        status: "failed",
+      },
+      status: "failed",
+      workflow: { owner: "workflow_definition_layout", status: "skipped" },
+    });
+    expect(updateDefinitionLayout).not.toHaveBeenCalled();
   });
 });
 
@@ -161,5 +293,36 @@ function projectedNode(
     signals: [],
     status: "not_started",
     title: "",
+  };
+}
+
+function semanticGraph(): SemanticGraph {
+  return {
+    edges: [],
+    layoutPositions: [],
+    nodes: [semanticNode("semantic_constraint")],
+    sourceLinks: [],
+    workspaceId: "workspace_test",
+  };
+}
+
+function semanticNode(id: string): SemanticGraph["nodes"][number] {
+  return {
+    createdAt: "2026-06-10T12:00:00Z",
+    createdByEventId: "event_create",
+    dismissed: false,
+    futureUse: "",
+    id,
+    kind: "constraint",
+    label: id,
+    mergedIntoNodeId: "",
+    promoted: false,
+    splitFromNodeId: "",
+    splitIntoNodeIds: [],
+    summary: "",
+    updatedAt: "2026-06-10T12:00:00Z",
+    updatedByEventId: "event_update",
+    whyItExists: "",
+    workspaceId: "workspace_test",
   };
 }

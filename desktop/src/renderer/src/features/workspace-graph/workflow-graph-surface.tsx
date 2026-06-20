@@ -11,7 +11,10 @@ import { useWorkflowGraphDebugRunDraftRegistration } from "./workflow-graph-debu
 import { emptyWorkflowGraph, type WorkflowDraftNodeType } from "./workflow-graph-draft";
 import type { WorkflowLayoutPosition } from "./workflow-graph-layout";
 import { useWorkflowLayoutOverlay } from "./workflow-graph-layout-overlay";
-import { persistGraphNodePositions } from "./workflow-graph-layout-persistence";
+import {
+  graphNodeLayoutPersistenceErrorMessage,
+  persistGraphNodePositions,
+} from "./workflow-graph-layout-persistence";
 import type {
   WorkflowGraphCameraState,
   WorkflowGraphEdgeConnection,
@@ -145,8 +148,8 @@ export function WorkflowGraphSurface({
   });
   workflowProjectionRef.current = workflowProjection;
   const {
-    clearPersistedWorkflowLayout,
     preparePendingWorkflowLayout,
+    settleWorkflowLayoutSave,
     workflowProjectionWithLocalLayout,
   } = useWorkflowLayoutOverlay({
     projection: workflowProjection,
@@ -191,9 +194,9 @@ export function WorkflowGraphSurface({
     [workflowProjectionWithLocalLayout, workflowValidation],
   );
   const {
-    clearPersistedWorkflowViewLayout,
     preparePendingWorkflowViewLayout,
     replaceWorkflowGraphViewLayoutPositions,
+    settleWorkflowViewLayoutSave,
     target: workflowViewLayoutTarget,
     viewLayoutPositions: workflowViewLayoutPositions,
   } = useWorkflowGraphViewLayout({
@@ -214,14 +217,11 @@ export function WorkflowGraphSurface({
     workflowProjection,
     workflowWorkspaceId,
   });
-  const {
-    clearPersistedSemanticLayout,
-    preparePendingSemanticLayout,
-    semanticGraphWithLocalLayout,
-  } = useSemanticLayoutOverlay({
-    semanticGraph: semanticGraphState.graph,
-    workspaceId: semanticGraphState.workspaceId,
-  });
+  const { preparePendingSemanticLayout, semanticGraphWithLocalLayout, settleSemanticLayoutSave } =
+    useSemanticLayoutOverlay({
+      semanticGraph: semanticGraphState.graph,
+      workspaceId: semanticGraphState.workspaceId,
+    });
   const graph = useMemo(
     () =>
       materializeWorkspaceGraphSceneGraph({
@@ -364,53 +364,53 @@ export function WorkflowGraphSurface({
       );
       const save = enqueueWorkflowGraphWrite(async () => {
         if (saveSequence !== layoutSaveSequenceRef.current) {
+          settleSemanticLayoutSave(semanticLayoutInputs, saveSequence);
+          settleWorkflowLayoutSave(workflowLayoutInputs, saveSequence);
+          settleWorkflowViewLayoutSave(workflowViewLayoutInputs, saveSequence);
           return null;
         }
-        let semanticLayoutPersisted = false;
-        let workflowViewLayoutPersisted = false;
-        const refreshed = await persistGraphNodePositions({
+        const outcome = await persistGraphNodePositions({
           positions,
           semanticGraph: semanticGraphAtDragEnd,
-          setWorkflowEditorError: (message) => {
-            if (saveSequence === layoutSaveSequenceRef.current) {
-              setWorkflowEditorError(message);
-            }
-          },
-          updateSemanticLayoutPositions: (savedPositions) => {
-            semanticLayoutPersisted = true;
-            semanticGraphState.replaceSemanticLayoutPositions(savedPositions);
-          },
-          updateWorkflowViewLayoutPositions: (savedPositions) => {
-            workflowViewLayoutPersisted = true;
-            replaceWorkflowGraphViewLayoutPositions(savedPositions);
-          },
           workflowViewLayoutTarget: viewLayoutTargetAtDragEnd,
           workflowProjection: projectionAtDragEnd,
         });
-        if (semanticLayoutPersisted) {
-          clearPersistedSemanticLayout(semanticLayoutInputs, saveSequence);
+        if (outcome.status === "failed" && saveSequence === layoutSaveSequenceRef.current) {
+          setWorkflowEditorError(graphNodeLayoutPersistenceErrorMessage(outcome));
         }
-        if (refreshed !== null) {
-          clearPersistedWorkflowLayout(workflowLayoutInputs, saveSequence);
+        if (outcome.semantic.status === "persisted") {
+          semanticGraphState.replaceSemanticLayoutPositions(outcome.semantic.positions);
         }
-        if (workflowViewLayoutPersisted) {
-          clearPersistedWorkflowViewLayout(workflowViewLayoutInputs, saveSequence);
+        if (
+          outcome.workflow.status === "persisted" &&
+          outcome.workflow.owner === "workflow_view_layout"
+        ) {
+          replaceWorkflowGraphViewLayoutPositions(outcome.workflow.positions);
         }
-        return refreshed;
+        settleSemanticLayoutSave(semanticLayoutInputs, saveSequence);
+        settleWorkflowLayoutSave(workflowLayoutInputs, saveSequence);
+        settleWorkflowViewLayoutSave(workflowViewLayoutInputs, saveSequence);
+        if (
+          outcome.workflow.status === "persisted" &&
+          outcome.workflow.owner === "workflow_definition_layout"
+        ) {
+          return outcome.workflow.projection;
+        }
+        return null;
       });
       await save;
     },
     [
       enqueueWorkflowGraphWrite,
-      clearPersistedWorkflowLayout,
-      clearPersistedWorkflowViewLayout,
-      clearPersistedSemanticLayout,
       preparePendingSemanticLayout,
       preparePendingWorkflowLayout,
       preparePendingWorkflowViewLayout,
       replaceWorkflowGraphViewLayoutPositions,
       semanticGraphState.graph,
       semanticGraphState.replaceSemanticLayoutPositions,
+      settleSemanticLayoutSave,
+      settleWorkflowLayoutSave,
+      settleWorkflowViewLayoutSave,
       syntheticGraph,
       workflowEditorError,
       workflowViewLayoutTarget,

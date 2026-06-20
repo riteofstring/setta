@@ -1,9 +1,8 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 3 interaction ownership implemented and verified; Phase 4
-  is ready to start against explicit layout-save outcome and rollback
-  contracts.
+- **Status:** Phase 4 layout-save outcomes and overlay rollback implemented
+  and verified; Phase 5 graph recording evidence is ready to start.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -894,13 +893,13 @@ Result: passed on June 20, 2026.
 
 Goal: make optimistic layout state honest after success, skip, or failure.
 
-Status: Ready. The current implementation still returns
-`WorkflowGraphProjection | null` from `persistGraphNodePositions`, which
-collapses skipped and failed saves into the same caller-visible value. Workflow,
-workflow view-layout, and semantic overlay cleanup still depends on callback
-side effects instead of an explicit persisted/skipped/failed result, so Phase 4
-should start by replacing that contract and then wiring overlay rollback from
-the returned outcome.
+Status: Complete. `persistGraphNodePositions` now returns explicit
+persisted/skipped/failed outcomes for semantic layout, draft workflow layout,
+and workflow view layout. The surface caller updates authoritative layout state
+from persisted outcomes, settles optimistic overlay generations after success,
+failure, skip, or supersession, and preserves newer generations when an older
+save settles. Draft workflow overlays now track moved workflow nodes only, so
+unchanged renderer positions cannot create stale optimistic layout.
 
 Tasks:
 
@@ -920,7 +919,8 @@ Focused verification:
 ```sh
 pnpm -C desktop exec vitest run \
   src/renderer/src/features/workspace-graph/workflow-graph-layout-persistence.test.ts \
-  src/renderer/src/features/workspace-graph/workflow-graph-layout-overlay.test.ts
+  src/renderer/src/features/workspace-graph/workflow-graph-layout-overlay.test.ts \
+  src/renderer/src/features/workspace-graph/workflow-graph-semantic-layout-overlay.test.ts
 ```
 
 Acceptance criteria:
@@ -933,6 +933,18 @@ Acceptance criteria:
 - If semantic overlay behavior changes, add focused coverage for
   `workflow-graph-semantic-layout-overlay.ts` rather than relying only on
   workflow overlay tests.
+
+Phase 4 verification:
+
+```sh
+pnpm -C desktop exec vitest run \
+  src/renderer/src/features/workspace-graph/workflow-graph-layout-persistence.test.ts \
+  src/renderer/src/features/workspace-graph/workflow-graph-layout-overlay.test.ts \
+  src/renderer/src/features/workspace-graph/workflow-graph-semantic-layout-overlay.test.ts
+pnpm -C desktop exec tsc --noEmit --pretty false
+```
+
+Result: passed on June 20, 2026.
 
 ## Phase 5: Graph Recording Evidence
 

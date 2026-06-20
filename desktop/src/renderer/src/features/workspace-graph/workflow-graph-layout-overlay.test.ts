@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import { workflowProjectionWithLayoutPositions } from "./workflow-graph-surface-helpers";
 import {
-  pendingWorkflowLayoutPositionsAfterPersist,
+  pendingWorkflowLayoutPositionsAfterSaveSettlement,
   pendingWorkflowLayoutPositionsWithInputs,
   workflowLayoutPositionsForProjection,
 } from "./workflow-graph-layout-overlay";
@@ -39,7 +39,7 @@ describe("workflow graph layout overlay", () => {
       inputs: [{ moved: true, nodeId: "route", saveSequence: 1, x: 120, y: 20 }],
     });
 
-    const remaining = pendingWorkflowLayoutPositionsAfterPersist({
+    const remaining = pendingWorkflowLayoutPositionsAfterSaveSettlement({
       current,
       inputs: [
         { moved: true, nodeId: "work", saveSequence: 1, x: 220, y: -80 },
@@ -50,6 +50,23 @@ describe("workflow graph layout overlay", () => {
     });
 
     expect(remaining).toEqual([{ moved: true, nodeId: "work", saveSequence: 2, x: 300, y: 40 }]);
+  });
+
+  test("ignores unmoved workflow positions when preparing optimistic layout", () => {
+    const projection = draftProjection({
+      layout: { nodes: [{ nodeId: "work", x: 0, y: 0 }] },
+    });
+
+    const pending = workflowLayoutPositionsForProjection({
+      positions: [
+        { moved: false, nodeId: "work", x: 220, y: -80 },
+        { moved: true, nodeId: "missing", x: 320, y: 10 },
+      ],
+      projection,
+      saveSequence: 1,
+    });
+
+    expect(pending).toEqual([]);
   });
 });
 
