@@ -67,9 +67,7 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
         (node) => rendererNodeLayer(node) === "semantic" && node.activity?.active === true,
       );
       cellAnimCandidateCount = visibleActiveCellCandidates.length;
-      const cellCap = workspaceNeonTheme.semantic.animation.activeCellCap;
-      const visibleActiveCells = visibleActiveCellCandidates.slice(0, cellCap);
-      cellAnimCapped = visibleActiveCellCandidates.length > visibleActiveCells.length;
+      cellAnimCapped = false;
       activeGlowNodes = visiblePulseNodes;
       if (!animationsAllowed) {
         activeEdgeFlows = [];
@@ -87,9 +85,9 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
         return;
       }
       activeNodePulseCount = visiblePulseNodes.length;
-      activeCellNodes = visibleActiveCells;
-      activeSemanticNodeIds = new Set(activeCellNodes.map((node) => node.id));
-      cellAnimCount = visibleActiveCells.length;
+      activeCellNodes = [];
+      activeSemanticNodeIds = new Set();
+      cellAnimCount = 0;
       activeEdgeFlows = edges.filter(
         (edge) =>
           rendererEdgeLayer(edge) === "workflow" &&
@@ -98,29 +96,13 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
           visibleNodeIds.has(edge.targetNodeId),
       );
       activeEdgeFlowCount = activeEdgeFlows.length;
-      const semanticTendrilCandidates =
-        activeSemanticNodeIds.size === 0
-          ? []
-          : edges.filter(
-              (edge) =>
-                rendererEdgeLayer(edge) === "semantic" &&
-                visibleNodeIds.has(edge.sourceNodeId) &&
-                visibleNodeIds.has(edge.targetNodeId) &&
-                (activeSemanticNodeIds.has(edge.sourceNodeId) ||
-                  activeSemanticNodeIds.has(edge.targetNodeId)),
-            );
-      semanticTendrilAnimCandidateCount = semanticTendrilCandidates.length;
-      const tendrilCap = workspaceNeonTheme.semantic.animation.activeTendrilCap;
-      activeSemanticTendrils = semanticTendrilCandidates.slice(0, tendrilCap);
-      semanticTendrilAnimCapped = semanticTendrilCandidates.length > activeSemanticTendrils.length;
-      semanticTendrilAnimCount = activeSemanticTendrils.length;
+      activeSemanticTendrils = [];
+      semanticTendrilAnimCandidateCount = 0;
+      semanticTendrilAnimCapped = false;
+      semanticTendrilAnimCount = 0;
       transitionsActive = 0;
       animationActive =
-        activeNodePulseCount > 0 ||
-        activeEdgeFlowCount > 0 ||
-        cellAnimCount > 0 ||
-        semanticTendrilAnimCount > 0 ||
-        transitionsActive > 0;
+        activeNodePulseCount > 0 || activeEdgeFlowCount > 0 || transitionsActive > 0;
     },
     tick: (now, handlers = {}, { cameraMotion = "settled" } = {}) => {
       if (!animationActive) {

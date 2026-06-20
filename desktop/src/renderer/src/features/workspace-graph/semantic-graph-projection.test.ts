@@ -10,6 +10,7 @@ import type {
 import {
   mergeWorkflowAndSemanticGraphs,
   rendererGraphFromSemanticGraph,
+  semanticGraphWithLayoutPositionOverlay,
   semanticLayoutPositionInputsFromRendererPositions,
   semanticNodeIdFromRendererNodeId,
   semanticRendererNodeId,
@@ -89,6 +90,73 @@ describe("rendererGraphFromSemanticGraph", () => {
         semanticGraph: testSemanticGraph(),
       }),
     ).toEqual([{ entityId: "node_constraint", pinned: true, x: 80, y: -40 }]);
+  });
+
+  test("merges pending semantic layout overlay ahead of stale backend positions", () => {
+    const semanticGraph = testSemanticGraph();
+    const graphWithOverlay = semanticGraphWithLayoutPositionOverlay({
+      overlayPositions: [
+        {
+          entityId: "node_constraint",
+          pinned: true,
+          updatedAt: "",
+          workspaceId: "workspace_test",
+          x: 260,
+          y: 140,
+        },
+        {
+          entityId: "node_finding",
+          pinned: true,
+          updatedAt: "",
+          workspaceId: "workspace_test",
+          x: 360,
+          y: -20,
+        },
+        {
+          entityId: "missing",
+          pinned: true,
+          updatedAt: "",
+          workspaceId: "workspace_test",
+          x: 999,
+          y: 999,
+        },
+      ],
+      semanticGraph,
+    });
+
+    expect(graphWithOverlay?.layoutPositions).toEqual([
+      {
+        entityId: "node_constraint",
+        pinned: true,
+        updatedAt: "",
+        workspaceId: "workspace_test",
+        x: 260,
+        y: 140,
+      },
+      {
+        entityId: "node_finding",
+        pinned: true,
+        updatedAt: "",
+        workspaceId: "workspace_test",
+        x: 360,
+        y: -20,
+      },
+    ]);
+    const rendererGraph = rendererGraphFromSemanticGraph({
+      semanticActivities: new Map(),
+      semanticGraph: graphWithOverlay ?? semanticGraph,
+      workflowGraph: testWorkflowGraph(),
+    });
+    expect(
+      rendererGraph.nodes.find((node) => node.id === "semantic:node_constraint"),
+    ).toMatchObject({
+      x: 260,
+      y: 140,
+    });
+    expect(rendererGraph.nodes.find((node) => node.id === "semantic:node_finding")).toMatchObject({
+      x: 360,
+      y: -20,
+    });
   });
 
   test("threads semantic provenance fields in renderer node id namespace", () => {

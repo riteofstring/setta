@@ -10,9 +10,6 @@ const activeWorkflowEdgeStatuses = new Set(["active"]);
 const activeWorkflowNodeStatuses = new Set(["pending", "ready", "running"]);
 
 export function foundationStyleForGraph(graph) {
-  if (graph.nodes.some((node) => node.layer === "semantic")) {
-    return workspaceNeonTheme.foundation;
-  }
   return hasActiveWorkflowState(graph)
     ? workspaceNeonTheme.foundation.workflowActive
     : workspaceNeonTheme.foundation.workflowOnly;

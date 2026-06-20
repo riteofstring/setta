@@ -4,6 +4,36 @@ import { drawNodeActivityMarker } from "./pixi-renderer-node-geometry";
 import { workspaceNeonTheme } from "./workspace-neon-theme";
 
 describe("workflow graph node geometry", () => {
+  test("draws semantic activity as a status ring marker", () => {
+    const marker = new RecordingGraphics();
+
+    drawNodeActivityMarker(marker, {
+      activity: {
+        active: true,
+        count: 1,
+        kind: "exploring",
+      },
+      color: 0x38bdf8,
+      height: 68,
+      id: "semantic:constraint",
+      layer: "semantic",
+      width: 68,
+      x: 0,
+      y: 0,
+    });
+
+    expect(marker.visible).toBe(true);
+    expect(marker.operations[0]).toEqual(["clear"]);
+    expect(marker.operations.some(([operation]) => operation === "circle")).toBe(true);
+    expect(
+      marker.operations.some(
+        ([operation, style]) =>
+          operation === "stroke" && style.color === workspaceNeonTheme.semantic.activity.exploring,
+      ),
+    ).toBe(true);
+    expect(marker.operations.some(([operation]) => operation === "fill")).toBe(true);
+  });
+
   test("draws aggregate workflow runtime markers without source-pulse nodes", () => {
     const marker = new RecordingGraphics();
 

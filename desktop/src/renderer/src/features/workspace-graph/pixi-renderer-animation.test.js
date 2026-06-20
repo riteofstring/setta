@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import { createWorkflowGraphAnimationState } from "./pixi-renderer-animation";
-import { workspaceNeonTheme } from "./workspace-neon-theme";
 
 describe("workflow graph animation state", () => {
   test("activates only for visible animated workflow and semantic elements", () => {
@@ -111,22 +110,22 @@ describe("workflow graph animation state", () => {
       animationActive: true,
       cellAnimCandidateCount: 1,
       cellAnimCapped: false,
-      cellAnimCount: 1,
-      cellAnimRedrawCount: 1,
+      cellAnimCount: 0,
+      cellAnimRedrawCount: 0,
       edgeFlowRedrawCount: 1,
       nodePulseRedrawCount: 1,
-      semanticTendrilAnimCandidateCount: 1,
+      semanticTendrilAnimCandidateCount: 0,
       semanticTendrilAnimCapped: false,
-      semanticTendrilAnimCount: 1,
-      semanticTendrilRedrawCount: 1,
+      semanticTendrilAnimCount: 0,
+      semanticTendrilRedrawCount: 0,
       transitionsActive: 0,
     });
     expect(redraws).toEqual([
       ["workflow_running", "workflow_ready", "workflow_failed", "workflow_recovery"],
     ]);
-    expect(edgeFlowRedraws).toEqual([["edge_active", "semantic_tendril_active"]]);
-    expect(cellAnimationRedraws).toEqual([["semantic_active"]]);
-    expect(semanticNodeIdSets).toEqual([["semantic_active"]]);
+    expect(edgeFlowRedraws).toEqual([["edge_active"]]);
+    expect(cellAnimationRedraws).toEqual([]);
+    expect(semanticNodeIdSets).toEqual([[]]);
   });
 
   test("keeps workflow motion and defers semantic decoration while camera is moving", () => {
@@ -182,6 +181,7 @@ describe("workflow graph animation state", () => {
     });
     const edgeFlowRedraws = [];
     const cellAnimationRedraws = [];
+    const glowRedraws = [];
     const semanticNodeIdSets = [];
     expect(
       state.tick(
@@ -194,12 +194,15 @@ describe("workflow graph animation state", () => {
             edgeFlowRedraws.push(edges.map((edge) => edge.id));
             semanticNodeIdSets.push([...activeSemanticNodeIds]);
           },
-          redrawNodeGlow: () => undefined,
+          redrawNodeGlow: ({ nodes }) => {
+            glowRedraws.push(nodes.map((node) => node.id));
+          },
         },
         { cameraMotion: "moving" },
       ),
     ).toBe(true);
 
+    expect(glowRedraws).toEqual([["workflow_running", "workflow_ready"]]);
     expect(edgeFlowRedraws).toEqual([["edge_active"]]);
     expect(cellAnimationRedraws).toEqual([]);
     expect(semanticNodeIdSets).toEqual([[]]);
@@ -210,7 +213,7 @@ describe("workflow graph animation state", () => {
     });
   });
 
-  test("clears semantic-only edge flow while camera is moving", () => {
+  test("keeps semantic-only activity idle in the default animation state", () => {
     const state = createWorkflowGraphAnimationState({
       animationEnabled: true,
       reduceMotion: false,
@@ -241,21 +244,20 @@ describe("workflow graph animation state", () => {
     });
     const edgeFlowRedraws = [];
     expect(
-      state.tick(
-        1000,
-        {
-          redrawEdgeFlow: ({ edges }) => {
-            edgeFlowRedraws.push(edges.map((edge) => edge.id));
-          },
+      state.tick(1000, {
+        redrawEdgeFlow: ({ edges }) => {
+          edgeFlowRedraws.push(edges.map((edge) => edge.id));
         },
-        { cameraMotion: "moving" },
-      ),
-    ).toBe(true);
+      }),
+    ).toBe(false);
 
-    expect(edgeFlowRedraws).toEqual([[]]);
+    expect(edgeFlowRedraws).toEqual([]);
     expect(state.debugSnapshot()).toMatchObject({
+      animationActive: false,
+      cellAnimCandidateCount: 1,
+      cellAnimCount: 0,
       cellAnimRedrawCount: 0,
-      edgeFlowRedrawCount: 1,
+      edgeFlowRedrawCount: 0,
       semanticTendrilRedrawCount: 0,
     });
   });
@@ -337,12 +339,12 @@ describe("workflow graph animation state", () => {
     expect(state.glowNodes()).toEqual([]);
   });
 
-  test("caps visible active semantic cells and reports candidate pressure", () => {
+  test("reports semantic activity candidates without enabling default cell animation", () => {
     const state = createWorkflowGraphAnimationState({
       animationEnabled: true,
       reduceMotion: false,
     });
-    const cellCount = workspaceNeonTheme.semantic.animation.activeCellCap + 2;
+    const cellCount = 12;
     const nodes = Array.from({ length: cellCount }, (_, index) => ({
       activity: { active: true, count: 1, kind: "exploring" },
       id: `semantic:${index}`,
@@ -356,12 +358,11 @@ describe("workflow graph animation state", () => {
     });
 
     expect(state.debugSnapshot()).toMatchObject({
-      animationActive: true,
+      animationActive: false,
       cellAnimCandidateCount: cellCount,
-      cellAnimCap: workspaceNeonTheme.semantic.animation.activeCellCap,
-      cellAnimCapped: true,
-      cellAnimCount: workspaceNeonTheme.semantic.animation.activeCellCap,
+      cellAnimCapped: false,
+      cellAnimCount: 0,
     });
-    expect(state.cellNodes()).toHaveLength(workspaceNeonTheme.semantic.animation.activeCellCap);
+    expect(state.cellNodes()).toHaveLength(0);
   });
 });

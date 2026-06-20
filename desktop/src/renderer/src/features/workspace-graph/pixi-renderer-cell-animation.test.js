@@ -7,7 +7,7 @@ import {
 } from "./pixi-renderer-cell-animation";
 
 describe("semantic cell animation rendering", () => {
-  test("keeps breathing subtle and centered on the node", () => {
+  test("keeps default semantic cells stationary", () => {
     const node = semanticNode("semantic:active", 20, 40);
     const container = {
       scale: {
@@ -21,16 +21,15 @@ describe("semantic cell animation rendering", () => {
     };
     const scale = semanticCellBreathScale(node, 1200);
 
-    expect(scale).toBeGreaterThan(0.97);
-    expect(scale).toBeLessThan(1.03);
+    expect(scale).toBe(1);
     setNodeContainerScaleAroundCenter(container, node, scale);
 
-    expect(container.scale.value).toBe(scale);
-    expect(container.x + (node.width * scale) / 2).toBeCloseTo(node.x + node.width / 2);
-    expect(container.y + (node.height * scale) / 2).toBeCloseTo(node.y + node.height / 2);
+    expect(container.scale.value).toBe(1);
+    expect(container.x).toBe(node.x);
+    expect(container.y).toBe(node.y);
   });
 
-  test("draws active cell shimmer, drifting nucleus, and organelles into one graphics target", () => {
+  test("does not draw default orbiting semantic-cell particles", () => {
     const graphics = new RecordingGraphics();
 
     redrawSemanticCellAnimation({
@@ -39,11 +38,7 @@ describe("semantic cell animation rendering", () => {
       now: 2400,
     });
 
-    expect(graphics.operations[0]).toEqual(["clear"]);
-    expect(graphics.operations.filter(([operation]) => operation === "stroke")).toHaveLength(2);
-    expect(
-      graphics.operations.filter(([operation]) => operation === "fill").length,
-    ).toBeGreaterThan(7);
+    expect(graphics.operations).toEqual([["clear"]]);
   });
 });
 

@@ -241,6 +241,51 @@ export function semanticLayoutPositionInputsFromRendererPositions({
   });
 }
 
+export function semanticGraphWithLayoutPositionOverlay({
+  overlayPositions,
+  semanticGraph,
+}: {
+  overlayPositions: readonly SemanticLayoutPosition[];
+  semanticGraph: SemanticGraph | null;
+}): SemanticGraph | null {
+  if (semanticGraph === null || overlayPositions.length === 0) {
+    return semanticGraph;
+  }
+  const semanticNodeIds = new Set(semanticGraph.nodes.map((node) => node.id));
+  const overlayByEntityId = new Map<string, SemanticLayoutPosition>();
+  for (const position of overlayPositions) {
+    if (!semanticNodeIds.has(position.entityId)) {
+      continue;
+    }
+    overlayByEntityId.set(position.entityId, {
+      entityId: position.entityId,
+      pinned: position.pinned,
+      updatedAt: position.updatedAt,
+      workspaceId: semanticGraph.workspaceId,
+      x: position.x,
+      y: position.y,
+    });
+  }
+  if (overlayByEntityId.size === 0) {
+    return semanticGraph;
+  }
+  const layoutPositions: SemanticLayoutPosition[] = [];
+  for (const position of semanticGraph.layoutPositions) {
+    const overlay = overlayByEntityId.get(position.entityId);
+    if (overlay) {
+      layoutPositions.push(overlay);
+      overlayByEntityId.delete(position.entityId);
+      continue;
+    }
+    layoutPositions.push(position);
+  }
+  layoutPositions.push(...overlayByEntityId.values());
+  return {
+    ...semanticGraph,
+    layoutPositions,
+  };
+}
+
 function semanticNodePositions(
   semanticGraph: SemanticGraph,
   workflowGraph: WorkflowGraphGraph | undefined,

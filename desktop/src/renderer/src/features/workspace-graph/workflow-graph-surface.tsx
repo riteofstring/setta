@@ -36,6 +36,7 @@ import {
   semanticRendererNodeId,
 } from "./semantic-graph-projection";
 import { useSemanticGraphState } from "./semantic-graph-state";
+import { useSemanticLayoutOverlay } from "./workflow-graph-semantic-layout-overlay";
 import {
   selectedWorkflowProjectionNode,
   workflowNodeDetailsTarget,
@@ -161,20 +162,28 @@ export function WorkflowGraphSurface({
     [workflowProjection, workflowValidation],
   );
   const semanticGraphState = useSemanticGraphState();
+  const {
+    clearPersistedSemanticLayout,
+    preparePendingSemanticLayout,
+    semanticGraphWithLocalLayout,
+  } = useSemanticLayoutOverlay({
+    semanticGraph: semanticGraphState.graph,
+    workspaceId: semanticGraphState.workspaceId,
+  });
   const semanticGraph = useMemo(
     () =>
-      syntheticGraph === null && semanticGraphState.graph !== null
+      syntheticGraph === null && semanticGraphWithLocalLayout !== null
         ? rendererGraphFromSemanticGraph({
             semanticActivities: semanticGraphState.activitiesByNodeId,
-            semanticGraph: semanticGraphState.graph,
+            semanticGraph: semanticGraphWithLocalLayout,
             semanticWorkingSet: semanticGraphState.workingSet,
             workflowGraph,
           })
         : undefined,
     [
       semanticGraphState.activitiesByNodeId,
-      semanticGraphState.graph,
       semanticGraphState.workingSet,
+      semanticGraphWithLocalLayout,
       syntheticGraph,
       workflowGraph,
     ],
@@ -277,6 +286,10 @@ export function WorkflowGraphSurface({
       if (workflowEditorError !== "") {
         setWorkflowEditorError("");
       }
+      const saveSequence = layoutSaveSequenceRef.current + 1;
+      layoutSaveSequenceRef.current = saveSequence;
+      const semanticGraphAtDragEnd = semanticGraphState.graph;
+      const semanticLayoutInputs = preparePendingSemanticLayout(positions, saveSequence);
       const optimisticProjection = workflowProjectionWithLayoutPositions(
         workflowProjectionRef.current,
         positions,
@@ -285,16 +298,21 @@ export function WorkflowGraphSurface({
         applyWorkflowProjection(optimisticProjection);
       }
       const projectionAtDragEnd = workflowProjectionRef.current;
-      const saveSequence = layoutSaveSequenceRef.current + 1;
-      layoutSaveSequenceRef.current = saveSequence;
       const save = enqueueWorkflowGraphWrite(async () => {
+        let semanticLayoutPersisted = false;
         const refreshed = await persistGraphNodePositions({
           positions,
-          semanticGraph: semanticGraphState.graph,
+          semanticGraph: semanticGraphAtDragEnd,
           setWorkflowEditorError,
-          updateSemanticLayoutPositions: semanticGraphState.replaceSemanticLayoutPositions,
+          updateSemanticLayoutPositions: (savedPositions) => {
+            semanticLayoutPersisted = true;
+            semanticGraphState.replaceSemanticLayoutPositions(savedPositions);
+          },
           workflowProjection: workflowProjectionRef.current ?? projectionAtDragEnd,
         });
+        if (semanticLayoutPersisted) {
+          clearPersistedSemanticLayout(semanticLayoutInputs, saveSequence);
+        }
         if (refreshed !== null && saveSequence === layoutSaveSequenceRef.current) {
           return refreshed;
         }
@@ -305,6 +323,8 @@ export function WorkflowGraphSurface({
     [
       applyWorkflowProjection,
       enqueueWorkflowGraphWrite,
+      clearPersistedSemanticLayout,
+      preparePendingSemanticLayout,
       semanticGraphState.graph,
       semanticGraphState.replaceSemanticLayoutPositions,
       syntheticGraph,
