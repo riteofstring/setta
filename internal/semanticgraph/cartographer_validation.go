@@ -415,6 +415,18 @@ func validateCartographerPatchNewNode(node CartographerPatchNewNode, label strin
 	if err := requireNonEmpty(node.Summary, label+" summary"); err != nil {
 		return err
 	}
+	if err := requireNonEmpty(node.WhyItExists, label+" whyItExists"); err != nil {
+		return err
+	}
+	if err := requireNonEmpty(node.FutureUse, label+" futureUse"); err != nil {
+		return err
+	}
+	if containsChainOfThoughtMarker(node.WhyItExists) {
+		return fmt.Errorf("%s whyItExists must not contain chain-of-thought", label)
+	}
+	if containsChainOfThoughtMarker(node.FutureUse) {
+		return fmt.Errorf("%s futureUse must not contain chain-of-thought", label)
+	}
 	if !isCartographerPatchNodeScope(node.Scope) {
 		return fmt.Errorf("%s scope is unsupported: %s", label, node.Scope)
 	}
@@ -463,6 +475,14 @@ func validateCartographerPatchPayloadText(payload CartographerPatchPayload) erro
 				label string
 				value string
 			}{label: "cartographer patch new node summary", value: payload.NewNode.Summary},
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch new node whyItExists", value: payload.NewNode.WhyItExists},
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch new node futureUse", value: payload.NewNode.FutureUse},
 		)
 	}
 	if payload.TargetNode != nil {
@@ -475,6 +495,14 @@ func validateCartographerPatchPayloadText(payload CartographerPatchPayload) erro
 				label string
 				value string
 			}{label: "cartographer patch target node summary", value: payload.TargetNode.Summary},
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch target node whyItExists", value: payload.TargetNode.WhyItExists},
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch target node futureUse", value: payload.TargetNode.FutureUse},
 		)
 	}
 	for index := range payload.NewNodes {
@@ -487,6 +515,14 @@ func validateCartographerPatchPayloadText(payload CartographerPatchPayload) erro
 				label string
 				value string
 			}{label: "cartographer patch split node summary", value: payload.NewNodes[index].Summary},
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch split node whyItExists", value: payload.NewNodes[index].WhyItExists},
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch split node futureUse", value: payload.NewNodes[index].FutureUse},
 		)
 	}
 	for _, item := range texts {
@@ -638,6 +674,7 @@ func validateCartographerInputContent(bundle CartographerInputBundle, label stri
 		func() error { return validateCartographerFileChanges(bundle.FileChanges, label) },
 		func() error { return validateCartographerTestResults(bundle.TestResults, label) },
 		func() error { return validateCartographerOutputSummaries(bundle.OutputSummaries, label) },
+		func() error { return validateCartographerEvidenceCandidates(bundle.EvidenceCandidates, label) },
 		func() error {
 			return validateSemanticRetrievalResults(bundle.RetrievalResults, label+" retrievalResults")
 		},
@@ -835,7 +872,14 @@ func validateCartographerToolSummaries(items []CartographerToolCallSummary, labe
 
 func validateCartographerFileChanges(items []CartographerFileChangeSummary, label string) error {
 	for index, item := range items {
-		if err := validateStoreIDs(fmt.Sprintf("%s fileChanges[%d] runItemId", label, index), item.RunItemID); err != nil {
+		itemLabel := fmt.Sprintf("%s fileChanges[%d]", label, index)
+		if err := validateStoreIDs(itemLabel+" runItemId", item.RunItemID); err != nil {
+			return err
+		}
+		if err := validateCartographerFileOperations(item.FileOperations, itemLabel); err != nil {
+			return err
+		}
+		if err := validateCartographerDiffStats(item.DiffStats, itemLabel+" diffStats"); err != nil {
 			return err
 		}
 	}

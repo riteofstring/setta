@@ -35,6 +35,7 @@ func (service *Service) validateCartographerAutomaticNodeConnectionPolicy(ctx co
 	node := *patch.Payload.NewNode
 	diagnostics := []CartographerDiagnostic{}
 	diagnostics = append(diagnostics, service.cartographerAutomaticNodeTextDiagnostics(input, patch, node, index, now)...)
+	diagnostics = append(diagnostics, service.cartographerAutomaticNodeUsefulnessDiagnostics(input, patch, node, index, now)...)
 	diagnostics = append(diagnostics, service.cartographerAutomaticNodeRepeatDiagnostics(ctx, input, patch, node, newNodeSignatures, index, now)...)
 	evidenceDiagnostics, hasConcreteEvidence, evidenceOK := service.cartographerAutomaticNodeEvidenceDiagnostics(ctx, input, patch, index, now)
 	diagnostics = append(diagnostics, evidenceDiagnostics...)
@@ -42,6 +43,20 @@ func (service *Service) validateCartographerAutomaticNodeConnectionPolicy(ctx co
 		diagnostics = append(diagnostics, service.cartographerAutomaticNodeIsolationDiagnostics(input, patch, node, nodeID, edgeConnectedNodeIDs, hasConcreteEvidence, index, now)...)
 	}
 	return diagnostics
+}
+
+func (service *Service) cartographerAutomaticNodeUsefulnessDiagnostics(input CartographerPatchEnvelopeApplicationInput, patch CartographerPatch, node CartographerPatchNewNode, index int, now string) []CartographerDiagnostic {
+	if !cartographerNewNodeHasSpecificUsefulness(node) {
+		return []CartographerDiagnostic{service.cartographerAutomaticNodePolicyDiagnostic(
+			input,
+			patch,
+			"node_usefulness_insufficient",
+			"cartographer auto-applied node patches require public whyItExists and futureUse text that adds durable value beyond the label and summary",
+			fmt.Sprintf("$.patches[%d].payload.newNode", index),
+			now,
+		)}
+	}
+	return nil
 }
 
 func (service *Service) cartographerAutomaticNodeTextDiagnostics(input CartographerPatchEnvelopeApplicationInput, patch CartographerPatch, node CartographerPatchNewNode, index int, now string) []CartographerDiagnostic {
@@ -211,6 +226,20 @@ func cartographerNewNodeHasSpecificText(node CartographerPatchNewNode) bool {
 		return false
 	}
 	return len(strings.Fields(label)) >= 2 && len(strings.Fields(summary)) >= 4
+}
+
+func cartographerNewNodeHasSpecificUsefulness(node CartographerPatchNewNode) bool {
+	label := normalizedCartographerNodeText(node.Label)
+	summary := normalizedCartographerNodeText(node.Summary)
+	why := normalizedCartographerNodeText(node.WhyItExists)
+	future := normalizedCartographerNodeText(node.FutureUse)
+	if why == "" || future == "" {
+		return false
+	}
+	if why == label || why == summary || future == label || future == summary || future == why {
+		return false
+	}
+	return len(strings.Fields(why)) >= 5 && len(strings.Fields(future)) >= 5
 }
 
 func cartographerNodeLabelIsGenericProcessNote(label string) bool {

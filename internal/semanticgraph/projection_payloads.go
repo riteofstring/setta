@@ -1,10 +1,12 @@
 package semanticgraph
 
 type nodeCreatedPayload struct {
-	NodeID  string           `json:"nodeId"`
-	Kind    SemanticNodeKind `json:"kind"`
-	Label   string           `json:"label"`
-	Summary string           `json:"summary"`
+	NodeID      string           `json:"nodeId"`
+	Kind        SemanticNodeKind `json:"kind"`
+	Label       string           `json:"label"`
+	Summary     string           `json:"summary"`
+	WhyItExists string           `json:"whyItExists"`
+	FutureUse   string           `json:"futureUse"`
 }
 
 type nodeUpdatedPayload struct {

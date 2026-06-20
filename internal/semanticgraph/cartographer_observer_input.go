@@ -158,6 +158,7 @@ func mergeObservedEventIntoInput(bundle *CartographerInputBundle, observed obser
 	mergeObservedChatText(bundle, observed, config)
 	if observed.item != nil {
 		mergeRunItemSummary(bundle, *observed.item)
+		mergeRunItemEvidenceCandidate(bundle, *observed.item, observed)
 	}
 	if observed.outputOrdinal > 0 && observed.runItemID != "" {
 		mergeOutputSummary(bundle, observed, config)
@@ -202,26 +203,6 @@ func cartographerToolSummary(item chat.RunItem) CartographerToolCallSummary {
 		ResultSummary: firstNonEmpty(item.Summary, item.Result, item.Progress),
 		Error:         item.Error,
 		ExitCode:      item.ExitCode,
-	}
-}
-
-func cartographerFileChangeSummary(item chat.RunItem) CartographerFileChangeSummary {
-	return CartographerFileChangeSummary{
-		RunItemID:   item.ID,
-		Status:      string(item.Status),
-		FilePaths:   append([]string{}, item.FilePaths...),
-		PatchStatus: item.PatchStatus,
-		DiffSummary: boundedText(item.DiffSummary, cartographerEventSummaryLimit).text,
-	}
-}
-
-func cartographerTestResultSummary(item chat.RunItem) CartographerTestResultSummary {
-	return CartographerTestResultSummary{
-		RunItemID: item.ID,
-		Command:   item.Command,
-		ExitCode:  item.ExitCode,
-		Result:    boundedText(item.Result, cartographerEventSummaryLimit).text,
-		Error:     boundedText(item.Error, cartographerEventSummaryLimit).text,
 	}
 }
 
@@ -426,10 +407,50 @@ func cartographerObservationRecordsFromObserved(observed observedCartographerEve
 
 func cartographerRunItemObservationKinds(item chat.RunItem) []CartographerObservationKind {
 	kinds := cartographerRunItemObservationKindsForType(item)
+	if cartographerRunItemHasFileOperation(item, chat.RunItemFileOperationRead) && !cartographerObservationKindsContain(kinds, CartographerObservationFileReadObserved) {
+		kinds = append(kinds, CartographerObservationFileReadObserved)
+	}
+	if cartographerRunItemHasWriteLikeFileOperation(item) && !cartographerObservationKindsContain(kinds, CartographerObservationFileChangeObserved) {
+		kinds = append(kinds, CartographerObservationFileChangeObserved)
+	}
 	if item.DiffSummary != "" && !cartographerObservationKindsContain(kinds, CartographerObservationDiffObserved) {
 		kinds = append(kinds, CartographerObservationDiffObserved)
 	}
+	if cartographerRunItemHasDiffFacts(item) && !cartographerObservationKindsContain(kinds, CartographerObservationDiffObserved) {
+		kinds = append(kinds, CartographerObservationDiffObserved)
+	}
 	return kinds
+}
+
+func cartographerRunItemHasDiffFacts(item chat.RunItem) bool {
+	return item.DiffSummary != "" ||
+		item.DiffStats.Structured ||
+		item.DiffStats.ChangedFiles > 0 ||
+		item.DiffStats.Additions > 0 ||
+		item.DiffStats.Deletions > 0 ||
+		cartographerRunItemHasFileOperation(item, chat.RunItemFileOperationDiff)
+}
+
+func cartographerRunItemHasWriteLikeFileOperation(item chat.RunItem) bool {
+	return cartographerRunItemHasFileOperation(
+		item,
+		chat.RunItemFileOperationWrite,
+		chat.RunItemFileOperationCreate,
+		chat.RunItemFileOperationDelete,
+		chat.RunItemFileOperationRename,
+		chat.RunItemFileOperationDiff,
+	)
+}
+
+func cartographerRunItemHasFileOperation(item chat.RunItem, operations ...chat.RunItemFileOperation) bool {
+	for _, candidate := range item.FileOperations {
+		for _, operation := range operations {
+			if candidate.Operation == operation {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func cartographerRunItemObservationKindsForType(item chat.RunItem) []CartographerObservationKind {
@@ -637,6 +658,7 @@ func boundCartographerInputText(bundle CartographerInputBundle, config Cartograp
 			bundle.RetrievalResults[index].Reasons[reasonIndex] = boundedText(bundle.RetrievalResults[index].Reasons[reasonIndex], cartographerEventSummaryLimit).text
 		}
 	}
+	bundle = compactCartographerEvidenceCandidateText(bundle, cartographerEventSummaryLimit)
 	return bundle
 }
 

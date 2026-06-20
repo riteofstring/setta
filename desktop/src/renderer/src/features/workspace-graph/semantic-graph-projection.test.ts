@@ -735,6 +735,7 @@ function inputItemCounts() {
     activity: 0,
     contextPacks: 0,
     evidence: 0,
+    evidenceCandidates: 0,
     existingEdges: 0,
     existingNodes: 0,
     fileChanges: 0,
@@ -755,6 +756,7 @@ function node(id: string, kind: SemanticNode["kind"], label: string): SemanticNo
     createdAt: "2026-06-10T12:00:01Z",
     createdByEventId: "event_node",
     dismissed: false,
+    futureUse: "",
     id,
     kind,
     label,
@@ -765,6 +767,7 @@ function node(id: string, kind: SemanticNode["kind"], label: string): SemanticNo
     summary: "",
     updatedAt: "2026-06-10T12:00:02Z",
     updatedByEventId: "event_node",
+    whyItExists: "",
     workspaceId: "workspace_test",
   };
 }

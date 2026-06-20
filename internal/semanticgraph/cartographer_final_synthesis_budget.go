@@ -35,6 +35,7 @@ func dedupeWorkflowDoneInputBundle(bundle CartographerInputBundle, config Cartog
 	bundle.ExistingNodes = dedupeCartographerItems(bundle.ExistingNodes, func(node SemanticNode) string { return node.ID })
 	bundle.ExistingEdges = dedupeCartographerItems(bundle.ExistingEdges, func(edge SemanticEdge) string { return edge.ID })
 	bundle.Evidence = dedupeCartographerItems(bundle.Evidence, func(evidence SemanticEvidenceAnchor) string { return evidence.ID })
+	bundle.EvidenceCandidates = dedupeCartographerItems(bundle.EvidenceCandidates, cartographerEvidenceCandidateDedupeKey)
 	bundle.TrajectorySummaries = dedupeCartographerItems(bundle.TrajectorySummaries, cartographerTrajectorySummaryDedupeKey)
 	bundle.ObservedEventRefs = dedupeStrings(bundle.ObservedEventRefs)
 	after := cartographerInputItemCounts(bundle)
@@ -152,6 +153,13 @@ func applyWorkflowDoneSerializedBudgetCompaction(bundle CartographerInputBundle,
 			},
 		},
 		{
+			reason: "workflow_done_evidence_candidates_limited",
+			apply: func(input CartographerInputBundle) CartographerInputBundle {
+				input.EvidenceCandidates = limitWorkflowDoneEvidenceCandidates(input.EvidenceCandidates, 64)
+				return input
+			},
+		},
+		{
 			reason: "workflow_done_trajectory_summaries_limited",
 			apply: func(input CartographerInputBundle) CartographerInputBundle {
 				input.TrajectorySummaries = limitWorkflowDoneTrajectorySummaries(input.TrajectorySummaries, input.WindowID, 8, config)
@@ -179,6 +187,13 @@ func applyWorkflowDoneSerializedBudgetCompaction(bundle CartographerInputBundle,
 			},
 		},
 		{
+			reason: "workflow_done_evidence_candidates_limited",
+			apply: func(input CartographerInputBundle) CartographerInputBundle {
+				input.EvidenceCandidates = limitWorkflowDoneEvidenceCandidates(input.EvidenceCandidates, 16)
+				return input
+			},
+		},
+		{
 			reason: "workflow_done_context_text_compacted",
 			apply: func(input CartographerInputBundle) CartographerInputBundle {
 				return compactWorkflowDoneContextText(input, 512)
@@ -197,6 +212,12 @@ func applyWorkflowDoneSerializedBudgetCompaction(bundle CartographerInputBundle,
 			reason: "workflow_done_observation_text_compacted",
 			apply: func(input CartographerInputBundle) CartographerInputBundle {
 				return compactWorkflowDoneObservationAndEventText(input, 256)
+			},
+		},
+		{
+			reason: "workflow_done_evidence_candidate_text_compacted",
+			apply: func(input CartographerInputBundle) CartographerInputBundle {
+				return compactWorkflowDoneEvidenceCandidateText(input, 256)
 			},
 		},
 		{
@@ -224,6 +245,13 @@ func applyWorkflowDoneSerializedBudgetCompaction(bundle CartographerInputBundle,
 			reason: "workflow_done_context_limited",
 			apply: func(input CartographerInputBundle) CartographerInputBundle {
 				return limitWorkflowDoneSemanticContext(input, 4, 8, 16, 4, 4, 0)
+			},
+		},
+		{
+			reason: "workflow_done_evidence_candidates_dropped",
+			apply: func(input CartographerInputBundle) CartographerInputBundle {
+				input.EvidenceCandidates = []CartographerEvidenceCandidate{}
+				return input
 			},
 		},
 		{
@@ -419,6 +447,16 @@ func cartographerTrajectorySummaryDedupeKey(summary CartographerTrajectorySummar
 	return ""
 }
 
+func cartographerEvidenceCandidateDedupeKey(candidate CartographerEvidenceCandidate) string {
+	if candidate.ID != "" {
+		return "evidence_candidate:" + candidate.ID
+	}
+	if candidate.SourceKind != "" && candidate.SourceID != "" {
+		return "evidence_candidate:" + string(candidate.SourceKind) + ":" + candidate.SourceID
+	}
+	return ""
+}
+
 func cartographerAssistantDeltaObservationAggregateKey(observation CartographerObservationRecord) string {
 	if observation.ChatMessageID != "" {
 		return "message:" + observation.ChatMessageID
@@ -485,6 +523,13 @@ func limitWorkflowDoneEvents(items []CartographerTrajectoryEvent, limit int) []C
 	return selectWorkflowDonePriorityItems(items, limit, cartographerEventHighValueForFinalSynthesis)
 }
 
+func limitWorkflowDoneEvidenceCandidates(items []CartographerEvidenceCandidate, limit int) []CartographerEvidenceCandidate {
+	if len(items) <= limit {
+		return items
+	}
+	return selectWorkflowDonePriorityItems(items, limit, cartographerEvidenceCandidateHighValueForFinalSynthesis)
+}
+
 func selectWorkflowDonePriorityItems[T any](items []T, limit int, highValue func(T) bool) []T {
 	if limit <= 0 {
 		return []T{}
@@ -542,6 +587,24 @@ func cartographerEventHighValueForFinalSynthesis(event CartographerTrajectoryEve
 	return false
 }
 
+func cartographerEvidenceCandidateHighValueForFinalSynthesis(candidate CartographerEvidenceCandidate) bool {
+	switch candidate.SourceKind {
+	case EvidenceSourceDiff, EvidenceSourceTest, EvidenceSourceFileRange:
+		return true
+	}
+	switch candidate.ObservationKind {
+	case CartographerObservationCommandCompleted,
+		CartographerObservationCommandFailed,
+		CartographerObservationFileReadObserved,
+		CartographerObservationFileChangeObserved,
+		CartographerObservationDiffObserved,
+		CartographerObservationTestResultObserved:
+		return true
+	default:
+		return false
+	}
+}
+
 func limitWorkflowDoneSemanticContext(bundle CartographerInputBundle, nodeLimit int, edgeLimit int, evidenceLimit int, activityLimit int, steeringLimit int, contextPackLimit int) CartographerInputBundle {
 	bundle.ExistingNodes = limitSlice(bundle.ExistingNodes, nodeLimit)
 	bundle.ExistingEdges = limitSlice(bundle.ExistingEdges, edgeLimit)
@@ -594,6 +657,10 @@ func compactWorkflowDoneObservationAndEventText(bundle CartographerInputBundle, 
 	return bundle
 }
 
+func compactWorkflowDoneEvidenceCandidateText(bundle CartographerInputBundle, limit int) CartographerInputBundle {
+	return compactCartographerEvidenceCandidateText(bundle, limit)
+}
+
 func limitSlice[T any](items []T, limit int) []T {
 	if limit <= 0 {
 		return []T{}
@@ -626,6 +693,7 @@ func cartographerInputItemCountsSubtract(left CartographerInputItemCounts, right
 		FileChanges:         nonNegativeInt(left.FileChanges - right.FileChanges),
 		TestResults:         nonNegativeInt(left.TestResults - right.TestResults),
 		OutputSummaries:     nonNegativeInt(left.OutputSummaries - right.OutputSummaries),
+		EvidenceCandidates:  nonNegativeInt(left.EvidenceCandidates - right.EvidenceCandidates),
 		ExistingNodes:       nonNegativeInt(left.ExistingNodes - right.ExistingNodes),
 		ExistingEdges:       nonNegativeInt(left.ExistingEdges - right.ExistingEdges),
 		Evidence:            nonNegativeInt(left.Evidence - right.Evidence),
@@ -659,6 +727,7 @@ func cartographerInputItemCountValues(counts CartographerInputItemCounts) []int 
 		counts.FileChanges,
 		counts.TestResults,
 		counts.OutputSummaries,
+		counts.EvidenceCandidates,
 		counts.ExistingNodes,
 		counts.ExistingEdges,
 		counts.Evidence,
@@ -684,6 +753,7 @@ func cartographerInputItemCountsSummary(counts CartographerInputItemCounts) stri
 	appendCount("fileChanges", counts.FileChanges)
 	appendCount("testResults", counts.TestResults)
 	appendCount("outputSummaries", counts.OutputSummaries)
+	appendCount("evidenceCandidates", counts.EvidenceCandidates)
 	appendCount("existingNodes", counts.ExistingNodes)
 	appendCount("existingEdges", counts.ExistingEdges)
 	appendCount("evidence", counts.Evidence)

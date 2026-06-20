@@ -47,6 +47,10 @@ describe("SemanticLoadedNodeDetails", () => {
     expect(html).toContain("Accept");
     expect(html).toContain("Reject");
     expect(html).toContain("Overview");
+    expect(html).toContain("Future use");
+    expect(html).toContain("Source coverage");
+    expect(html).toContain("Context delivery");
+    expect(html).toContain("Diagnostics");
     expect(html).toContain("Newest evidence");
     expect(html).toContain("Related");
     expect(html).toContain("Patch");
@@ -192,6 +196,7 @@ function detail(): SemanticNodeDetail {
       createdAt: "2026-06-10T12:00:01Z",
       createdByEventId: "event_created",
       dismissed: false,
+      futureUse: "Future renderer work should keep reading backend-owned semantic contracts.",
       id: "node_contract",
       kind: "constraint",
       label: "Semantic API contract",
@@ -202,6 +207,8 @@ function detail(): SemanticNodeDetail {
       summary: "Renderer reads backend-owned contracts.",
       updatedAt: "2026-06-10T12:00:02Z",
       updatedByEventId: "event_updated",
+      whyItExists:
+        "Backend evidence explains why renderer semantic contracts need durable inspection.",
       workspaceId: "workspace_test",
     },
     outgoingEdges: [],
@@ -231,6 +238,25 @@ function detail(): SemanticNodeDetail {
         workspaceId: "workspace_test",
       },
     ],
+    usefulness: {
+      diagnostics: [
+        {
+          code: "unused_semantic_memory",
+          message:
+            "Semantic node has not been opened, promoted, connected, or delivered in a context pack since creation.",
+          severity: "warning",
+        },
+      ],
+      dismissalReason: "",
+      futureUse: "Future renderer work should keep reading backend-owned semantic contracts.",
+      lastDeliveredInContextPackAt: "2026-06-10T12:00:07Z",
+      lastUserOpenedAt: "",
+      lastUserPromotedAt: "2026-06-10T12:00:02Z",
+      retrievalUseCount: 1,
+      sourceCoverage: "1 evidence anchor(s): document=1.",
+      whyItExists:
+        "Backend evidence explains why renderer semantic contracts need durable inspection.",
+    },
     workspaceId: "workspace_test",
   };
 }
@@ -339,6 +365,7 @@ function cartographerRun(): SemanticNodeDetail["cartographerRuns"][number] {
       activity: 1,
       contextPacks: 1,
       evidence: 1,
+      evidenceCandidates: 0,
       existingEdges: 1,
       existingNodes: 1,
       fileChanges: 0,
@@ -455,6 +482,7 @@ function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][numbe
     assistantText: "",
     contextPacks: [],
     evidence: [],
+    evidenceCandidates: [],
     existingEdges: [],
     existingNodes: [],
     fileChanges: [],
@@ -563,6 +591,7 @@ function emptyCartographerInputItemCounts() {
     activity: 0,
     contextPacks: 0,
     evidence: 0,
+    evidenceCandidates: 0,
     existingEdges: 0,
     existingNodes: 0,
     fileChanges: 0,

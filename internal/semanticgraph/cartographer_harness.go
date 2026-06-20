@@ -111,6 +111,8 @@ retrievalResults are advisory candidate context with reasons such as explicit so
 
 Optimize for useful public work memory, not narration. Prefer specific findings, decisions, constraints, and open questions that would help a user understand this run or help a future run continue the work. Discourage process-only nodes such as "reviewed repository" or "ran tests" unless the process choice is itself a durable decision or constraint.
 
+For every new semantic node, include public whyItExists and futureUse text. whyItExists must state the evidence-backed reason the memory should exist beyond the current transcript. futureUse must state the concrete future work it should influence. Do not use these fields for private reasoning.
+
 Emit an empty patches array when no evidence-backed semantic update is warranted. For uncertain, low-confidence, broad, destructive, split, merge, resolution, or high-impact changes, set reviewRequired to true. Split, merge, mark_resolved, broad update_node_summary, and low-confidence patches must be reviewRequired unless the input gives direct evidence and the change is narrow.
 
 When new workflow-agent output states an explicit finding, decision, constraint, or open question that is not already represented in existingNodes, emit the corresponding record_finding, record_decision, record_constraint, or record_open_question patch instead of an empty envelope. For a new finding, put the new node in payload.newNode, leave payload.semanticNodeId empty, use kind "finding", use scope "session" unless the finding is clearly workspace-wide, and cite evidenceRefs from non-empty source refs in the input bundle, such as {"sourceKind":"chat_message","sourceId":sourceRefs.chatMessageId}, {"sourceKind":"run_item","sourceId":sourceRefs.runItemId}, or {"sourceKind":"workflow_node","sourceId":sourceRefs.workflowNodeId}.
@@ -258,7 +260,7 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
               "newNode": {
                 "type": ["object", "null"],
                 "additionalProperties": false,
-                "required": ["semanticNodeId", "kind", "label", "summary", "scope", "evidenceRefs"],
+                "required": ["semanticNodeId", "kind", "label", "summary", "whyItExists", "futureUse", "scope", "evidenceRefs"],
                 "properties": {
                   "semanticNodeId": {"type": "string"},
                   "kind": {
@@ -267,6 +269,8 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
                   },
                   "label": {"type": "string"},
                   "summary": {"type": "string"},
+                  "whyItExists": {"type": "string"},
+                  "futureUse": {"type": "string"},
                   "scope": {
                     "type": "string",
                     "enum": ["session", "workspace"]
@@ -315,7 +319,7 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["semanticNodeId", "kind", "label", "summary", "scope", "evidenceRefs"],
+                  "required": ["semanticNodeId", "kind", "label", "summary", "whyItExists", "futureUse", "scope", "evidenceRefs"],
                   "properties": {
                     "semanticNodeId": {"type": "string"},
                     "kind": {
@@ -324,6 +328,8 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
                     },
                     "label": {"type": "string"},
                     "summary": {"type": "string"},
+                    "whyItExists": {"type": "string"},
+                    "futureUse": {"type": "string"},
                     "scope": {
                       "type": "string",
                       "enum": ["session", "workspace"]
@@ -351,7 +357,7 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
               "targetNode": {
                 "type": ["object", "null"],
                 "additionalProperties": false,
-                "required": ["semanticNodeId", "kind", "label", "summary", "scope", "evidenceRefs"],
+                "required": ["semanticNodeId", "kind", "label", "summary", "whyItExists", "futureUse", "scope", "evidenceRefs"],
                 "properties": {
                   "semanticNodeId": {"type": "string"},
                   "kind": {
@@ -360,6 +366,8 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
                   },
                   "label": {"type": "string"},
                   "summary": {"type": "string"},
+                  "whyItExists": {"type": "string"},
+                  "futureUse": {"type": "string"},
                   "scope": {
                     "type": "string",
                     "enum": ["session", "workspace"]

@@ -20,13 +20,27 @@ func TestCartographerPatchEnvelopeAppliesAcceptedEvidenceBackedRecordPatch(t *te
 	if err != nil {
 		t.Fatalf("apply cartographer patch envelope: %v", err)
 	}
+	assertAppliedCartographerPatchAudit(t, result)
+	assertAppliedCartographerGraphUsefulnessScore(t, result.Run.GraphUsefulnessScore)
+	detail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, "node_cartographer_finding")
+	if err != nil {
+		t.Fatalf("read cartographer node detail: %v", err)
+	}
+	assertAppliedCartographerNodeDetail(t, detail, ok)
+}
+
+func assertAppliedCartographerPatchAudit(t *testing.T, result CartographerPatchEnvelopeApplicationResult) {
+	t.Helper()
 	if result.Run.Status != CartographerRunApplied || result.Run.InputBundleHash == "" || result.Run.RawHarnessResponseHash == "" || len(result.Run.CreatedSemanticEventIDs) != 2 {
 		t.Fatalf("run audit = %+v, want applied run with hashes and two semantic event ids", result.Run)
 	}
 	if len(result.Patches) != 1 || result.Patches[0].Status != CartographerPatchApplied || len(result.Patches[0].CreatedSemanticEventIDs) != 2 {
 		t.Fatalf("patch audit = %+v, want applied patch with event ids", result.Patches)
 	}
-	score := result.Run.GraphUsefulnessScore
+}
+
+func assertAppliedCartographerGraphUsefulnessScore(t *testing.T, score CartographerGraphUsefulnessScore) {
+	t.Helper()
 	if score.AppliedPatches != 1 ||
 		cartographerScoreCount(score.CreatedNodesByKind, string(NodeKindFinding)) != 1 ||
 		cartographerScoreCount(score.SourceLinksBySourceKind, string(EvidenceSourceRunItem)) != 1 ||
@@ -34,12 +48,22 @@ func TestCartographerPatchEnvelopeAppliesAcceptedEvidenceBackedRecordPatch(t *te
 		score.CommittedUpdateLatencySampleCount == 0 {
 		t.Fatalf("graph usefulness score = %+v, want applied finding/source-link/timing audit", score)
 	}
-	detail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, "node_cartographer_finding")
-	if err != nil {
-		t.Fatalf("read cartographer node detail: %v", err)
-	}
+}
+
+func assertAppliedCartographerNodeDetail(t *testing.T, detail SemanticNodeDetail, ok bool) {
+	t.Helper()
 	if !ok || detail.Node.Kind != NodeKindFinding || len(detail.Evidence) != 1 || detail.Evidence[0].ReassignedFromAnchorID != "evidence_cartographer_source" {
 		t.Fatalf("cartographer node detail = %+v, want finding with copied evidence", detail)
+	}
+	if detail.Node.WhyItExists == "" ||
+		detail.Node.FutureUse == "" ||
+		detail.Usefulness.WhyItExists != detail.Node.WhyItExists ||
+		detail.Usefulness.FutureUse != detail.Node.FutureUse ||
+		!strings.Contains(detail.Usefulness.SourceCoverage, "run_item=1") {
+		t.Fatalf("cartographer node usefulness = %+v node=%+v, want persisted why/future and source coverage", detail.Usefulness, detail.Node)
+	}
+	if !semanticUsefulnessDiagnosticsContain(detail.Usefulness.Diagnostics, "unused_semantic_memory") {
+		t.Fatalf("cartographer node diagnostics = %+v, want unused semantic memory diagnostic before delivery or connection", detail.Usefulness.Diagnostics)
 	}
 }
 
@@ -403,6 +427,28 @@ func TestCartographerPatchEnvelopeRejectsGenericProcessNodeLabel(t *testing.T) {
 	}
 }
 
+func TestCartographerPatchEnvelopeRejectsAutomaticNodeWithoutSpecificUsefulness(t *testing.T) {
+	service, store := newCartographerPatchApplicationTestService(t)
+	ctx := context.Background()
+	seedCartographerPatchEvidence(t, store)
+	before := semanticEventCount(t, store)
+	patch := cartographerRecordFindingPatch("cartographer_patch_generic_usefulness", "node_generic_usefulness", "Specific renderer finding", 0.91)
+	patch.Payload.NewNode.WhyItExists = patch.Payload.NewNode.Summary
+	patch.Payload.NewNode.FutureUse = patch.Payload.NewNode.Summary
+
+	result, err := service.ApplyCartographerPatchEnvelope(ctx, cartographerPatchApplicationInput(t, "cartographer_run_generic_usefulness", []CartographerPatch{patch}))
+	if err != nil {
+		t.Fatalf("apply generic usefulness envelope: %v", err)
+	}
+	if result.Run.Status != CartographerRunRejected ||
+		!cartographerDiagnosticsContain(result.Run.Diagnostics, result.Patches, "node_usefulness_insufficient") {
+		t.Fatalf("result = %+v, want insufficient usefulness diagnostic", result)
+	}
+	if after := semanticEventCount(t, store); after != before {
+		t.Fatalf("semantic event count after usefulness rejection = %d, want %d", after, before)
+	}
+}
+
 func TestCartographerPatchEnvelopeRejectsRepeatedNewNodeSummary(t *testing.T) {
 	service, store := newCartographerPatchApplicationTestService(t)
 	ctx := context.Background()
@@ -696,6 +742,8 @@ func cartographerRecordFindingPatch(patchID string, nodeID string, label string,
 				Kind:           NodeKindFinding,
 				Label:          label,
 				Summary:        "Cartographer created " + label + ".",
+				WhyItExists:    "Run item evidence identifies a durable finding that should remain inspectable after this cartographer run.",
+				FutureUse:      "Future related work should use this finding when reviewing linked workflow behavior and evidence.",
 				Scope:          CartographerPatchNodeScopeSession,
 				EvidenceRefs:   []CartographerPatchEvidenceRef{},
 			},

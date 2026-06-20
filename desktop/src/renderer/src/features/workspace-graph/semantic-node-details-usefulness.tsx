@@ -44,7 +44,11 @@ export function SemanticOverviewSection({
       <WorkflowDetailsRows
         rows={[
           { label: "Summary", value: detail.node.summary },
-          { label: "Why", value: semanticWhyThisExists(detail) },
+          { label: "Why", value: detail.usefulness.whyItExists || semanticWhyThisExists(detail) },
+          { label: "Future use", value: detail.usefulness.futureUse || detail.node.futureUse },
+          { label: "Source coverage", value: detail.usefulness.sourceCoverage },
+          { label: "Context delivery", value: semanticContextDeliveryText(detail.usefulness) },
+          { label: "Diagnostics", value: semanticUsefulnessDiagnosticsText(detail.usefulness) },
           { label: "Newest evidence", value: newestEvidenceText(newestEvidence) },
           { label: "Sources", value: semanticDetailSourceRefsText(detail) },
           { label: "Related", value: semanticRelatedNodesText(detail) },
@@ -234,6 +238,26 @@ function semanticPatchProvenanceText(detail: SemanticNodeDetail) {
   ]
     .filter((value) => value !== "")
     .join(" / ");
+}
+
+function semanticContextDeliveryText(usefulness: SemanticNodeDetail["usefulness"]) {
+  const parts = [
+    usefulness.retrievalUseCount === 0
+      ? ""
+      : `${usefulness.retrievalUseCount} context pack${usefulness.retrievalUseCount === 1 ? "" : "s"}`,
+    usefulness.lastDeliveredInContextPackAt === ""
+      ? ""
+      : `last delivered ${usefulness.lastDeliveredInContextPackAt}`,
+    usefulness.lastUserPromotedAt === "" ? "" : `promoted ${usefulness.lastUserPromotedAt}`,
+    usefulness.lastUserOpenedAt === "" ? "" : `opened ${usefulness.lastUserOpenedAt}`,
+  ].filter((value) => value !== "");
+  return parts.join(" / ");
+}
+
+function semanticUsefulnessDiagnosticsText(usefulness: SemanticNodeDetail["usefulness"]) {
+  return usefulness.diagnostics
+    .map((diagnostic) => `${diagnostic.severity}: ${diagnostic.message}`)
+    .join("; ");
 }
 
 interface SemanticLiveStatusItem {

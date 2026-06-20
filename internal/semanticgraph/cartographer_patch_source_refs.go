@@ -37,6 +37,9 @@ func cartographerPatchSourceRefsMatchInput(patchRefs SemanticContextSourceRefs, 
 	for _, event := range bundle.NewEvents {
 		candidates = append(candidates, cartographerTrajectoryEventSourceRefs(event))
 	}
+	for _, candidate := range bundle.EvidenceCandidates {
+		candidates = append(candidates, candidate.SourceRefs)
+	}
 	for _, candidate := range candidates {
 		if cartographerPatchSourceRefsMatchCandidate(patchRefs, candidate) {
 			return true

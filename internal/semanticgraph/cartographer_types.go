@@ -234,6 +234,7 @@ type CartographerInputBundle struct {
 	FileChanges              []CartographerFileChangeSummary `json:"fileChanges"`
 	TestResults              []CartographerTestResultSummary `json:"testResults"`
 	OutputSummaries          []CartographerOutputSummary     `json:"outputSummaries"`
+	EvidenceCandidates       []CartographerEvidenceCandidate `json:"evidenceCandidates"`
 	ExistingNodes            []SemanticNode                  `json:"existingNodes"`
 	ExistingEdges            []SemanticEdge                  `json:"existingEdges"`
 	Evidence                 []SemanticEvidenceAnchor        `json:"evidence"`
@@ -330,11 +331,13 @@ type CartographerToolCallSummary struct {
 }
 
 type CartographerFileChangeSummary struct {
-	RunItemID   string   `json:"runItemId"`
-	Status      string   `json:"status"`
-	FilePaths   []string `json:"filePaths"`
-	PatchStatus string   `json:"patchStatus"`
-	DiffSummary string   `json:"diffSummary"`
+	RunItemID      string                             `json:"runItemId"`
+	Status         string                             `json:"status"`
+	FilePaths      []string                           `json:"filePaths"`
+	FileOperations []CartographerFileOperationSummary `json:"fileOperations"`
+	PatchStatus    string                             `json:"patchStatus"`
+	DiffSummary    string                             `json:"diffSummary"`
+	DiffStats      CartographerDiffStatsSummary       `json:"diffStats"`
 }
 
 type CartographerTestResultSummary struct {
@@ -352,6 +355,47 @@ type CartographerOutputSummary struct {
 	EndOrdinal   int    `json:"endOrdinal"`
 	Summary      string `json:"summary"`
 	Truncated    bool   `json:"truncated"`
+}
+
+type CartographerEvidenceCandidate struct {
+	ID              string                             `json:"id"`
+	SourceKind      SemanticEvidenceSourceKind         `json:"sourceKind"`
+	SourceID        string                             `json:"sourceId"`
+	ObservationKind CartographerObservationKind        `json:"observationKind"`
+	SourceRefs      SemanticContextSourceRefs          `json:"sourceRefs"`
+	RunItemType     string                             `json:"runItemType"`
+	RunItemStatus   string                             `json:"runItemStatus"`
+	Title           string                             `json:"title"`
+	Summary         string                             `json:"summary"`
+	FileOperations  []CartographerFileOperationSummary `json:"fileOperations"`
+	DiffStats       CartographerDiffStatsSummary       `json:"diffStats"`
+	Command         string                             `json:"command"`
+	Cwd             string                             `json:"cwd"`
+	ExitCode        int                                `json:"exitCode"`
+	ToolName        string                             `json:"toolName"`
+	ServerName      string                             `json:"serverName"`
+	ResultSummary   string                             `json:"resultSummary"`
+	Error           string                             `json:"error"`
+}
+
+type CartographerFileOperationSummary struct {
+	Path         string                    `json:"path"`
+	DisplayPath  string                    `json:"displayPath"`
+	Operation    chat.RunItemFileOperation `json:"operation"`
+	RangeStart   int                       `json:"rangeStart"`
+	RangeEnd     int                       `json:"rangeEnd"`
+	Additions    int                       `json:"additions"`
+	Deletions    int                       `json:"deletions"`
+	ChangedFiles int                       `json:"changedFiles"`
+	ContentHash  string                    `json:"contentHash"`
+}
+
+type CartographerDiffStatsSummary struct {
+	Summary      string `json:"summary"`
+	ChangedFiles int    `json:"changedFiles"`
+	Additions    int    `json:"additions"`
+	Deletions    int    `json:"deletions"`
+	Structured   bool   `json:"structured"`
 }
 
 type CartographerInputTruncation struct {
@@ -383,6 +427,7 @@ type CartographerInputItemCounts struct {
 	FileChanges         int `json:"fileChanges"`
 	TestResults         int `json:"testResults"`
 	OutputSummaries     int `json:"outputSummaries"`
+	EvidenceCandidates  int `json:"evidenceCandidates"`
 	ExistingNodes       int `json:"existingNodes"`
 	ExistingEdges       int `json:"existingEdges"`
 	Evidence            int `json:"evidence"`
@@ -464,6 +509,8 @@ type CartographerPatchNewNode struct {
 	Kind           SemanticNodeKind               `json:"kind"`
 	Label          string                         `json:"label"`
 	Summary        string                         `json:"summary"`
+	WhyItExists    string                         `json:"whyItExists"`
+	FutureUse      string                         `json:"futureUse"`
 	Scope          CartographerPatchNodeScope     `json:"scope"`
 	EvidenceRefs   []CartographerPatchEvidenceRef `json:"evidenceRefs"`
 }

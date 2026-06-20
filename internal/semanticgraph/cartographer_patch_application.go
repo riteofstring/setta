@@ -632,10 +632,12 @@ func (service *Service) cartographerRecordNodeEvents(ctx context.Context, worksp
 	if patch.Payload.NewNode != nil {
 		targetID = patch.Payload.NewNode.SemanticNodeID
 		payload := nodeCreatedPayload{
-			NodeID:  patch.Payload.NewNode.SemanticNodeID,
-			Kind:    patch.Payload.NewNode.Kind,
-			Label:   patch.Payload.NewNode.Label,
-			Summary: patch.Payload.NewNode.Summary,
+			NodeID:      patch.Payload.NewNode.SemanticNodeID,
+			Kind:        patch.Payload.NewNode.Kind,
+			Label:       patch.Payload.NewNode.Label,
+			Summary:     patch.Payload.NewNode.Summary,
+			WhyItExists: patch.Payload.NewNode.WhyItExists,
+			FutureUse:   patch.Payload.NewNode.FutureUse,
 		}
 		event, err := service.semanticEvent(workspaceID, EventNodeCreated, targetID, actor, payload)
 		if err != nil {

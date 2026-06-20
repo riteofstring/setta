@@ -597,6 +597,8 @@ func applyPendingHTTPCartographerPatch(t *testing.T, semanticService *semanticgr
 				Kind:           semanticgraph.NodeKindFinding,
 				Label:          "HTTP cartographer finding " + nodeID,
 				Summary:        "Pending review cartographer node from HTTP fixture.",
+				WhyItExists:    "HTTP fixture evidence preserves a durable cartographer finding for detail review.",
+				FutureUse:      "Future HTTP semantic graph checks should use this finding when verifying review application.",
 				Scope:          semanticgraph.CartographerPatchNodeScopeSession,
 			},
 		},

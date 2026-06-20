@@ -9,7 +9,8 @@ import (
 
 func loadSemanticNodeForProjection(ctx context.Context, tx *sql.Tx, workspaceID string, nodeID string) (SemanticNode, bool, error) {
 	row := tx.QueryRowContext(ctx, `
-SELECT workspace_id, id, kind, label, summary, dismissed, promoted,
+SELECT workspace_id, id, kind, label, summary, why_it_exists, future_use,
+       dismissed, promoted,
        split_from_node_id, split_into_node_ids_json, merged_into_node_id,
        created_by_event_id, updated_by_event_id, created_at, updated_at
 FROM semantic_nodes_current
@@ -165,6 +166,8 @@ func scanSemanticNode(scanner interface{ Scan(dest ...any) error }) (SemanticNod
 		&node.Kind,
 		&node.Label,
 		&node.Summary,
+		&node.WhyItExists,
+		&node.FutureUse,
 		&dismissed,
 		&promoted,
 		&node.SplitFromNodeID,

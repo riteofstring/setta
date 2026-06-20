@@ -29,7 +29,8 @@ var cartographerObservedSourceRefChecks = map[SemanticEvidenceSourceKind]cartogr
 func cartographerInputBundleHasRunItemObservationSourceRef(bundle CartographerInputBundle, sourceID string) bool {
 	return cartographerTrajectoryEventsHaveRunItem(bundle.NewEvents, sourceID) ||
 		cartographerObservationsHaveRunItem(bundle.Observations, sourceID) ||
-		cartographerToolCallsHaveRunItem(bundle.ToolCalls, sourceID)
+		cartographerToolCallsHaveRunItem(bundle.ToolCalls, sourceID) ||
+		cartographerEvidenceCandidatesHaveSourceRef(bundle.EvidenceCandidates, EvidenceSourceRunItem, sourceID)
 }
 
 func cartographerInputBundleHasChatMessageObservationSourceRef(bundle CartographerInputBundle, sourceID string) bool {
@@ -39,12 +40,15 @@ func cartographerInputBundleHasChatMessageObservationSourceRef(bundle Cartograph
 
 func cartographerInputBundleHasFileOrDiffObservationSourceRef(bundle CartographerInputBundle, sourceID string) bool {
 	return cartographerObservationsHaveRunItem(bundle.Observations, sourceID) ||
-		cartographerFileChangesHaveRunItem(bundle.FileChanges, sourceID)
+		cartographerFileChangesHaveRunItem(bundle.FileChanges, sourceID) ||
+		cartographerEvidenceCandidatesHaveSourceRef(bundle.EvidenceCandidates, EvidenceSourceFileRange, sourceID) ||
+		cartographerEvidenceCandidatesHaveSourceRef(bundle.EvidenceCandidates, EvidenceSourceDiff, sourceID)
 }
 
 func cartographerInputBundleHasTestObservationSourceRef(bundle CartographerInputBundle, sourceID string) bool {
 	return cartographerObservationsHaveRunItem(bundle.Observations, sourceID) ||
-		cartographerTestResultsHaveRunItem(bundle.TestResults, sourceID)
+		cartographerTestResultsHaveRunItem(bundle.TestResults, sourceID) ||
+		cartographerEvidenceCandidatesHaveSourceRef(bundle.EvidenceCandidates, EvidenceSourceTest, sourceID)
 }
 
 func cartographerInputBundleHasObservedEventRef(bundle CartographerInputBundle, sourceID string) bool {
@@ -72,6 +76,18 @@ func cartographerObservationsHaveChatMessage(observations []CartographerObservat
 func cartographerInputBundleEvidenceHasSourceRef(bundle CartographerInputBundle, kind SemanticEvidenceSourceKind, sourceID string) bool {
 	for _, evidence := range bundle.Evidence {
 		if evidence.SourceKind == kind && evidence.SourceID == sourceID {
+			return true
+		}
+	}
+	return false
+}
+
+func cartographerEvidenceCandidatesHaveSourceRef(items []CartographerEvidenceCandidate, kind SemanticEvidenceSourceKind, sourceID string) bool {
+	for _, item := range items {
+		if item.SourceKind == kind && item.SourceID == sourceID {
+			return true
+		}
+		if kind == EvidenceSourceRunItem && item.SourceID == sourceID {
 			return true
 		}
 	}
@@ -158,6 +174,7 @@ func cartographerInputItemCounts(bundle CartographerInputBundle) CartographerInp
 		FileChanges:         len(bundle.FileChanges),
 		TestResults:         len(bundle.TestResults),
 		OutputSummaries:     len(bundle.OutputSummaries),
+		EvidenceCandidates:  len(bundle.EvidenceCandidates),
 		ExistingNodes:       len(bundle.ExistingNodes),
 		ExistingEdges:       len(bundle.ExistingEdges),
 		Evidence:            len(bundle.Evidence),

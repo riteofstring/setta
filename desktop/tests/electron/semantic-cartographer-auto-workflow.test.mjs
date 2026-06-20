@@ -843,17 +843,47 @@ function assertAutomaticWindow(window, runId) {
 }
 
 function assertAutomaticSemanticNode(readback, nodeId, evidenceAnchorId) {
-  const hasNode = readback.graph.nodes.some((node) => node.id === nodeId);
-  const hasSourceLink = readback.graph.sourceLinks.some((link) => link.targetEntityId === nodeId);
-  const hasEdge = readback.graph.edges.some(
-    (edge) => edge.fromNodeId === nodeId && edge.toNodeId === seedNodeId,
-  );
-  const hasEvidence = readback.detail.detail.evidence.some(
-    (evidence) => evidence.reassignedFromAnchorId === evidenceAnchorId,
-  );
-  if (!hasNode || !hasSourceLink || !hasEdge || !hasEvidence) {
+  const detail = readback.detail.detail;
+  if (
+    !automaticGraphContainsNodeEvidenceAndEdge(readback.graph, nodeId) ||
+    !automaticDetailHasReassignedEvidence(detail, evidenceAnchorId) ||
+    !automaticDetailHasCandidateUsefulness(detail)
+  ) {
     throw new Error(`automatic cartographer semantic node mismatch: ${JSON.stringify(readback)}`);
   }
+}
+
+function automaticGraphContainsNodeEvidenceAndEdge(graph, nodeId) {
+  return (
+    graph.nodes.some((node) => node.id === nodeId) &&
+    graph.sourceLinks.some((link) => link.targetEntityId === nodeId) &&
+    graph.edges.some((edge) => edge.fromNodeId === nodeId && edge.toNodeId === seedNodeId)
+  );
+}
+
+function automaticDetailHasReassignedEvidence(detail, evidenceAnchorId) {
+  return detail.evidence.some((evidence) => evidence.reassignedFromAnchorId === evidenceAnchorId);
+}
+
+function automaticDetailHasCandidateUsefulness(detail) {
+  const candidateEvidence = detail.evidence.find(
+    (evidence) =>
+      evidence.reassignedFromAnchorId === "" &&
+      evidence.runItemId !== "" &&
+      cartographerCandidateEvidenceSourceKinds().has(evidence.sourceKind),
+  );
+  return (
+    candidateEvidence &&
+    detail.node.whyItExists !== "" &&
+    detail.node.futureUse !== "" &&
+    detail.usefulness.whyItExists === detail.node.whyItExists &&
+    detail.usefulness.futureUse === detail.node.futureUse &&
+    detail.usefulness.sourceCoverage.includes(`${candidateEvidence.sourceKind}=1`)
+  );
+}
+
+function cartographerCandidateEvidenceSourceKinds() {
+  return new Set(["diff", "file_range", "run_item", "test"]);
 }
 
 function assertAutomaticWorkingSetPulses(workingSet, nodeId) {

@@ -1064,6 +1064,8 @@ func cartographerTestPatch(runID string, windowID string) CartographerPatchRecor
 					Kind:           NodeKindFinding,
 					Label:          "Observed semantic graph persistence",
 					Summary:        "The cartographer observed semantic graph persistence work.",
+					WhyItExists:    "Run item evidence preserves this semantic graph persistence finding beyond the current run.",
+					FutureUse:      "Future persistence reviews should use this finding when checking semantic graph audit behavior.",
 					Scope:          CartographerPatchNodeScopeSession,
 					EvidenceRefs: []CartographerPatchEvidenceRef{{
 						SourceKind:       EvidenceSourceRunItem,

@@ -451,6 +451,8 @@ type SemanticNode struct {
 	Kind             SemanticNodeKind `json:"kind"`
 	Label            string           `json:"label"`
 	Summary          string           `json:"summary"`
+	WhyItExists      string           `json:"whyItExists"`
+	FutureUse        string           `json:"futureUse"`
 	Dismissed        bool             `json:"dismissed"`
 	Promoted         bool             `json:"promoted"`
 	SplitFromNodeID  string           `json:"splitFromNodeId"`
@@ -678,6 +680,7 @@ type SemanticGraph struct {
 type SemanticNodeDetail struct {
 	WorkspaceID         string                      `json:"workspaceId"`
 	Node                SemanticNode                `json:"node"`
+	Usefulness          SemanticNodeUsefulness      `json:"usefulness"`
 	IncomingEdges       []SemanticEdge              `json:"incomingEdges"`
 	OutgoingEdges       []SemanticEdge              `json:"outgoingEdges"`
 	Evidence            []SemanticEvidenceAnchor    `json:"evidence"`

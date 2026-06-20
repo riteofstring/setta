@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 14
+	semanticStoreVersion = 15
 	sqliteDriverName     = "sqlite"
 )
 
@@ -202,6 +202,8 @@ CREATE TABLE IF NOT EXISTS semantic_nodes_current (
   kind TEXT NOT NULL,
   label TEXT NOT NULL,
   summary TEXT NOT NULL DEFAULT '',
+  why_it_exists TEXT NOT NULL DEFAULT '',
+  future_use TEXT NOT NULL DEFAULT '',
   dismissed INTEGER NOT NULL DEFAULT 0,
   promoted INTEGER NOT NULL DEFAULT 0,
   split_from_node_id TEXT NOT NULL DEFAULT '',

@@ -274,6 +274,17 @@ func TestContextCompilerUsesRetrievalForRelevantPromotedDecision(t *testing.T) {
 	if !ok || !contextPackItemsContain(pack.Items, ContextPackItemDecision, "node_streaming_decision") {
 		t.Fatalf("context pack = %+v, want delivered promoted decision item", pack)
 	}
+	detail, ok, err := service.ReadNodeDetail(context.Background(), testWorkspaceID, "node_streaming_decision")
+	if err != nil {
+		t.Fatalf("read delivered node detail: %v", err)
+	}
+	if !ok ||
+		detail.Usefulness.RetrievalUseCount != 1 ||
+		detail.Usefulness.LastDeliveredInContextPackAt == "" ||
+		detail.Usefulness.LastUserPromotedAt == "" ||
+		semanticUsefulnessDiagnosticsContain(detail.Usefulness.Diagnostics, "unused_semantic_memory") {
+		t.Fatalf("delivered node usefulness = %+v, want context-pack delivery tracking without unused diagnostic", detail.Usefulness)
+	}
 }
 
 func TestContextCompilerRecordsSteeringDeltaContext(t *testing.T) {
@@ -464,6 +475,15 @@ func contextPackItemsContain(items []SemanticContextPackItem, kind SemanticConte
 			continue
 		}
 		if item.SemanticNodeID == id || item.EvidenceAnchorID == id || item.ActivityIntervalID == id || item.SteeringDirectiveID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func semanticUsefulnessDiagnosticsContain(diagnostics []SemanticNodeUsefulnessDiagnostic, code string) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == code {
 			return true
 		}
 	}

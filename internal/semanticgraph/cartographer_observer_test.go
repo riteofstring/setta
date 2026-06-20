@@ -238,28 +238,27 @@ func TestCartographerObserverRunItemObservationsCarryTypedFields(t *testing.T) {
 		t.Fatalf("command windows = %+v, want terminal command window", windows)
 	}
 	commandInput := windows[0].InputBundle
-	commandObservation, ok := findCartographerObservation(commandInput, CartographerObservationCommandCompleted, "run_item_typed_command")
-	if !ok {
-		t.Fatalf("command observations = %+v, want completed command observation", commandInput.Observations)
-	}
-	if commandObservation.ProviderItemID != "provider_command_001" ||
-		commandObservation.Command != command.Command ||
-		commandObservation.ExitCode != 0 ||
-		commandObservation.RunItemStatus != string(chat.RunItemStatusCompleted) {
-		t.Fatalf("command observation = %+v, want typed command fields", commandObservation)
-	}
-	if _, ok := findCartographerObservation(commandInput, CartographerObservationTestResultObserved, "run_item_typed_command"); !ok {
-		t.Fatalf("command observations = %+v, want test-result observation from typed command item", commandInput.Observations)
-	}
-	if !cartographerInputBundleHasSourceRef(commandInput, EvidenceSourceRunItem, "run_item_typed_command") ||
-		!cartographerInputBundleHasSourceRef(commandInput, EvidenceSourceTest, "run_item_typed_command") {
-		t.Fatalf("command input did not preserve run item source refs: %+v", commandInput)
-	}
+	assertTypedCommandCartographerInput(t, commandInput, command)
 
 	fileChange := cartographerRunItem("run_item_typed_file", chat.RunItemTypeFileChange, chat.RunItemStatusCompleted)
 	fileChange.ProviderItemID = "provider_file_001"
 	fileChange.FilePaths = []string{"internal/semanticgraph/cartographer_observer_input.go"}
+	fileChange.FileOperations = []chat.RunItemFileOp{{
+		Path:         "internal/semanticgraph/cartographer_observer_input.go",
+		DisplayPath:  "cartographer_observer_input.go",
+		Operation:    chat.RunItemFileOperationWrite,
+		Additions:    12,
+		Deletions:    3,
+		ChangedFiles: 1,
+	}}
 	fileChange.DiffSummary = "1 file changed, typed observation projection updated"
+	fileChange.DiffStats = chat.RunItemDiffStats{
+		Summary:      "1 file changed, 12 insertions, 3 deletions",
+		ChangedFiles: 1,
+		Additions:    12,
+		Deletions:    3,
+		Structured:   true,
+	}
 	windows, err = service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 2, chat.EventTypeRunItemUpdated, chat.RunItemUpdatedPayload{Item: fileChange}))
 	if err != nil {
 		t.Fatalf("observe file run item: %v", err)
@@ -268,6 +267,40 @@ func TestCartographerObserverRunItemObservationsCarryTypedFields(t *testing.T) {
 		t.Fatalf("file windows = %+v, want terminal file window", windows)
 	}
 	fileInput := windows[0].InputBundle
+	assertTypedFileChangeCartographerInput(t, fileInput)
+}
+
+func assertTypedCommandCartographerInput(t *testing.T, input CartographerInputBundle, command chat.RunItem) {
+	t.Helper()
+	commandObservation, ok := findCartographerObservation(input, CartographerObservationCommandCompleted, "run_item_typed_command")
+	if !ok {
+		t.Fatalf("command observations = %+v, want completed command observation", input.Observations)
+	}
+	if commandObservation.ProviderItemID != "provider_command_001" ||
+		commandObservation.Command != command.Command ||
+		commandObservation.ExitCode != 0 ||
+		commandObservation.RunItemStatus != string(chat.RunItemStatusCompleted) {
+		t.Fatalf("command observation = %+v, want typed command fields", commandObservation)
+	}
+	if _, ok := findCartographerObservation(input, CartographerObservationTestResultObserved, "run_item_typed_command"); !ok {
+		t.Fatalf("command observations = %+v, want test-result observation from typed command item", input.Observations)
+	}
+	if !cartographerInputBundleHasSourceRef(input, EvidenceSourceRunItem, "run_item_typed_command") ||
+		!cartographerInputBundleHasSourceRef(input, EvidenceSourceTest, "run_item_typed_command") {
+		t.Fatalf("command input did not preserve run item source refs: %+v", input)
+	}
+	commandCandidate, ok := findCartographerEvidenceCandidate(input, "run_item_typed_command")
+	if !ok ||
+		commandCandidate.SourceKind != EvidenceSourceTest ||
+		commandCandidate.Command != command.Command ||
+		commandCandidate.ResultSummary != command.Result ||
+		commandCandidate.SourceRefs.RunItemID != "run_item_typed_command" {
+		t.Fatalf("command evidence candidate = %+v, want typed test candidate", commandCandidate)
+	}
+}
+
+func assertTypedFileChangeCartographerInput(t *testing.T, fileInput CartographerInputBundle) {
+	t.Helper()
 	fileObservation, ok := findCartographerObservation(fileInput, CartographerObservationFileChangeObserved, "run_item_typed_file")
 	if !ok {
 		t.Fatalf("file observations = %+v, want file-change observation", fileInput.Observations)
@@ -282,6 +315,22 @@ func TestCartographerObserverRunItemObservationsCarryTypedFields(t *testing.T) {
 	}
 	if !cartographerInputBundleHasSourceRef(fileInput, EvidenceSourceDiff, "run_item_typed_file") {
 		t.Fatalf("file input did not preserve diff source ref: %+v", fileInput)
+	}
+	if len(fileInput.FileChanges) != 1 ||
+		len(fileInput.FileChanges[0].FileOperations) != 1 ||
+		fileInput.FileChanges[0].FileOperations[0].Operation != chat.RunItemFileOperationWrite ||
+		fileInput.FileChanges[0].DiffStats.Additions != 12 ||
+		fileInput.FileChanges[0].DiffStats.Deletions != 3 {
+		t.Fatalf("file changes = %+v, want typed file operations and diff stats", fileInput.FileChanges)
+	}
+	fileCandidate, ok := findCartographerEvidenceCandidate(fileInput, "run_item_typed_file")
+	if !ok ||
+		fileCandidate.SourceKind != EvidenceSourceDiff ||
+		fileCandidate.ObservationKind != CartographerObservationFileChangeObserved ||
+		len(fileCandidate.FileOperations) != 1 ||
+		fileCandidate.FileOperations[0].Path != "internal/semanticgraph/cartographer_observer_input.go" ||
+		fileCandidate.DiffStats.ChangedFiles != 1 {
+		t.Fatalf("file evidence candidate = %+v, want typed diff candidate", fileCandidate)
 	}
 }
 
@@ -702,6 +751,15 @@ func cartographerInputHasObservation(input CartographerInputBundle, kind Cartogr
 
 func findCartographerObservation(input CartographerInputBundle, kind CartographerObservationKind, runItemID string) (CartographerObservationRecord, bool) {
 	return findCartographerObservationByRefs(input, kind, "", runItemID)
+}
+
+func findCartographerEvidenceCandidate(input CartographerInputBundle, candidateID string) (CartographerEvidenceCandidate, bool) {
+	for _, candidate := range input.EvidenceCandidates {
+		if candidate.ID == candidateID {
+			return candidate, true
+		}
+	}
+	return CartographerEvidenceCandidate{}, false
 }
 
 func semanticNodesContain(nodes []SemanticNode, nodeID string) bool {

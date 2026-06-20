@@ -316,8 +316,15 @@ func normalizeCartographerInputBundle(bundle *CartographerInputBundle) {
 	}
 	bundle.ToolCalls = nonNilSlice(bundle.ToolCalls)
 	bundle.FileChanges = nonNilSlice(bundle.FileChanges)
+	for index := range bundle.FileChanges {
+		bundle.FileChanges[index].FileOperations = nonNilSlice(bundle.FileChanges[index].FileOperations)
+	}
 	bundle.TestResults = nonNilSlice(bundle.TestResults)
 	bundle.OutputSummaries = nonNilSlice(bundle.OutputSummaries)
+	bundle.EvidenceCandidates = nonNilSlice(bundle.EvidenceCandidates)
+	for index := range bundle.EvidenceCandidates {
+		bundle.EvidenceCandidates[index].FileOperations = nonNilSlice(bundle.EvidenceCandidates[index].FileOperations)
+	}
 	bundle.ExistingNodes = nonNilSlice(bundle.ExistingNodes)
 	bundle.ExistingEdges = nonNilSlice(bundle.ExistingEdges)
 	bundle.Evidence = nonNilSlice(bundle.Evidence)

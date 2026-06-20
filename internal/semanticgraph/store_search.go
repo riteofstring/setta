@@ -420,7 +420,8 @@ func clearSemanticSearchIndex(ctx context.Context, tx *sql.Tx) error {
 
 func rebuildSemanticNodeSearchRows(ctx context.Context, tx *sql.Tx) error {
 	rows, err := tx.QueryContext(ctx, `
-SELECT workspace_id, id, kind, label, summary, dismissed, promoted,
+SELECT workspace_id, id, kind, label, summary, why_it_exists, future_use,
+       dismissed, promoted,
        split_from_node_id, split_into_node_ids_json, merged_into_node_id,
        created_by_event_id, updated_by_event_id, created_at, updated_at
 FROM semantic_nodes_current
@@ -622,7 +623,7 @@ INSERT INTO semantic_search_fts (
 }
 
 func semanticSearchRecordFromNode(node SemanticNode) semanticSearchRecord {
-	body := []string{string(node.Kind)}
+	body := []string{string(node.Kind), node.WhyItExists, node.FutureUse}
 	if node.Promoted {
 		body = append(body, "promoted")
 	}

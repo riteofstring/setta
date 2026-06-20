@@ -726,16 +726,19 @@ func insertSemanticNode(ctx context.Context, tx *sql.Tx, event SemanticEvent, pa
 	splitIntoJSON := "[]"
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO semantic_nodes_current (
-  workspace_id, id, kind, label, summary, dismissed, promoted,
+  workspace_id, id, kind, label, summary, why_it_exists, future_use,
+  dismissed, promoted,
   split_from_node_id, split_into_node_ids_json, merged_into_node_id,
   created_by_event_id, updated_by_event_id, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)
 `,
 		event.WorkspaceID,
 		payload.NodeID,
 		payload.Kind,
 		payload.Label,
 		payload.Summary,
+		payload.WhyItExists,
+		payload.FutureUse,
 		splitFromNodeID,
 		splitIntoJSON,
 		mergedIntoNodeID,
@@ -753,6 +756,8 @@ INSERT INTO semantic_nodes_current (
 		Kind:             payload.Kind,
 		Label:            payload.Label,
 		Summary:          payload.Summary,
+		WhyItExists:      payload.WhyItExists,
+		FutureUse:        payload.FutureUse,
 		SplitFromNodeID:  splitFromNodeID,
 		SplitIntoNodeIDs: []string{},
 		MergedIntoNodeID: mergedIntoNodeID,
@@ -801,7 +806,8 @@ func replaceSemanticNode(ctx context.Context, tx *sql.Tx, node SemanticNode) err
 	}
 	result, err := tx.ExecContext(ctx, `
 UPDATE semantic_nodes_current
-SET kind = ?, label = ?, summary = ?, dismissed = ?, promoted = ?,
+SET kind = ?, label = ?, summary = ?, why_it_exists = ?, future_use = ?,
+    dismissed = ?, promoted = ?,
     split_from_node_id = ?, split_into_node_ids_json = ?, merged_into_node_id = ?,
     updated_by_event_id = ?, updated_at = ?
 WHERE workspace_id = ? AND id = ?
@@ -809,6 +815,8 @@ WHERE workspace_id = ? AND id = ?
 		node.Kind,
 		node.Label,
 		node.Summary,
+		node.WhyItExists,
+		node.FutureUse,
 		intFromBool(node.Dismissed),
 		intFromBool(node.Promoted),
 		node.SplitFromNodeID,

@@ -81,13 +81,15 @@ type scriptedCartographerInput struct {
 }
 
 type scriptedCartographerInputBundle struct {
-	WorkspaceID   string                          `json:"workspaceId"`
-	WindowID      string                          `json:"windowId"`
-	SourceRefs    map[string]any                  `json:"sourceRefs"`
-	AssistantText string                          `json:"assistantText"`
-	ExistingNodes []scriptedCartographerInputNode `json:"existingNodes"`
-	ToolCalls     []scriptedCartographerToolCall  `json:"toolCalls"`
-	Evidence      []scriptedCartographerEvidence  `json:"evidence"`
+	WorkspaceID        string                                  `json:"workspaceId"`
+	WindowID           string                                  `json:"windowId"`
+	SourceRefs         map[string]any                          `json:"sourceRefs"`
+	TargetEntityID     string                                  `json:"targetEntityId"`
+	AssistantText      string                                  `json:"assistantText"`
+	ExistingNodes      []scriptedCartographerInputNode         `json:"existingNodes"`
+	ToolCalls          []scriptedCartographerToolCall          `json:"toolCalls"`
+	Evidence           []scriptedCartographerEvidence          `json:"evidence"`
+	EvidenceCandidates []scriptedCartographerEvidenceCandidate `json:"evidenceCandidates"`
 }
 
 type scriptedCartographerInputNode struct {
@@ -101,6 +103,11 @@ type scriptedCartographerToolCall struct {
 
 type scriptedCartographerEvidence struct {
 	ID         string `json:"id"`
+	SourceKind string `json:"sourceKind"`
+	SourceID   string `json:"sourceId"`
+}
+
+type scriptedCartographerEvidenceCandidate struct {
 	SourceKind string `json:"sourceKind"`
 	SourceID   string `json:"sourceId"`
 }
@@ -132,7 +139,11 @@ func scriptedCartographerInputFromBundle(input scriptedCartographerInput, bundle
 	input.AssistantText = bundle.AssistantText
 	input.ExistingNodeIDs = scriptedCartographerExistingNodeIDs(bundle.ExistingNodes)
 	input.ToolResult = scriptedCartographerToolResult(bundle.ToolCalls)
-	input.EvidenceRefs = scriptedCartographerEvidenceRefs(bundle.Evidence)
+	candidateRefs := scriptedCartographerEvidenceCandidateRefs(bundle.EvidenceCandidates)
+	if len(candidateRefs) > 0 || input.ToolResult != "" || bundle.TargetEntityID != "" {
+		input.EvidenceRefs = scriptedCartographerEvidenceRefs(bundle.Evidence)
+	}
+	input.EvidenceRefs = append(input.EvidenceRefs, candidateRefs...)
 	return input
 }
 
@@ -165,6 +176,20 @@ func scriptedCartographerEvidenceRefs(evidenceRows []scriptedCartographerEvidenc
 			"sourceKind":       evidence.SourceKind,
 			"sourceId":         evidence.SourceID,
 			"evidenceAnchorId": evidence.ID,
+		})
+	}
+	return refs
+}
+
+func scriptedCartographerEvidenceCandidateRefs(evidenceRows []scriptedCartographerEvidenceCandidate) []map[string]any {
+	refs := []map[string]any{}
+	for _, evidence := range evidenceRows {
+		if evidence.SourceKind == "" || evidence.SourceID == "" {
+			continue
+		}
+		refs = append(refs, map[string]any{
+			"sourceKind": evidence.SourceKind,
+			"sourceId":   evidence.SourceID,
 		})
 	}
 	return refs
@@ -209,6 +234,8 @@ func scriptedCartographerPatches(request HarnessTaskRequest, input scriptedCarto
 		"kind":           "finding",
 		"label":          scriptedCartographerFindingLabel(input),
 		"summary":        scriptedCartographerFindingSummary(input),
+		"whyItExists":    "The input evidence reports a concrete workflow result that should remain available after the run.",
+		"futureUse":      "Future workflow reviews should use this finding when connecting results to existing semantic context.",
 		"scope":          "session",
 		"evidenceRefs":   []map[string]any{},
 	}

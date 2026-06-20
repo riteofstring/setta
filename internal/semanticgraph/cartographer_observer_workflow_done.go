@@ -65,6 +65,9 @@ func mergeCartographerEpochInputBundle(target *CartographerInputBundle, source C
 	for _, summary := range source.OutputSummaries {
 		target.OutputSummaries = upsertOutputSummary(target.OutputSummaries, summary, config)
 	}
+	for _, candidate := range source.EvidenceCandidates {
+		target.EvidenceCandidates = upsertEvidenceCandidate(target.EvidenceCandidates, candidate)
+	}
 	target.ExistingNodes = append(target.ExistingNodes, source.ExistingNodes...)
 	target.ExistingEdges = append(target.ExistingEdges, source.ExistingEdges...)
 	target.Evidence = append(target.Evidence, source.Evidence...)
