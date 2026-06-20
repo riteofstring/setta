@@ -1,9 +1,9 @@
 # Workspace Graph Pan/Zoom Surface Runtime Refactor Plan
 
 - **Date:** June 18, 2026
-- **Status:** Phase 2 is implemented and the current benchmark report supports
-  moving to Phase 3. The next work is remeasurement before deciding whether any
-  shared frame admission policy is justified.
+- **Status:** Phase 3 is implemented. The current benchmark report explicitly
+  defers Phase 4, so the next actionable implementation phase is Phase 5 camera
+  state isolation and persistence safety.
 - **Scope:** Make workspace graph pan/zoom smooth by refactoring graph canvas
   lifetime, workspace pane presentation writes, and frame-loop scheduling around
   explicit surface ownership and measurable interaction budgets.
@@ -644,10 +644,8 @@ Current evidence supports moving to Phase 3:
   presentation trace source and timing thresholds remain report-only on
   non-reference runners.
 
-Phase 3 is ready to implement. It should re-run the Phase 0/Phase 2 benchmark
-matrix, compare the remaining input delivery and frame timing evidence, and
-only proceed to shared frame admission if traces show competing scheduled work
-is still the bottleneck.
+Phase 3 used that evidence to decide whether Phase 4 was necessary. Its current
+implementation status is recorded below.
 
 ### Phase 3: Remeasure And Gate Further Scheduling Work
 
@@ -679,6 +677,35 @@ Success criteria:
   graph scene work, Pixi draw work, React work, browser layout/paint, GC, or
   recording overhead.
 - Phase 4 is either explicitly justified by traces or explicitly deferred.
+
+#### Phase 3 Status
+
+The Phase 3 implementation re-ran the Phase 0 benchmark matrix with recorder
+instrumentation on and off, archived the previous readiness report, and added a
+Phase 3 gate summary that records the Phase 4 decision.
+
+Current evidence supports deferring Phase 4:
+
+- `simple`, `normal`, `dense`, `stress`, and constant-visible-content
+  `scaling` workloads ran in both recording modes.
+- Duplicate renderer, renderer replacement, app creation, camera-caused
+  presentation writes, graph React commits, full graph replacement, semantic
+  working-set reads, label-sync-per-wheel, static glow, materialized-node, and
+  scene-visit scaling hard gates pass in every run.
+- Scene-visit scaling is still independent of total graph size with recorder on
+  and off.
+- The remaining issue is classified as event delivery and browser main-thread
+  task timing, with trace summaries dominated by `CpuProfiler::StartProfiling`
+  and generic `RunTask` entries rather than named graph, presentation, React,
+  semantic, or trajectory scheduling work.
+- The compositor-backed input-to-presented-frame metric remains unavailable;
+  first-Pixi-render timing remains proxy evidence and timing budgets remain
+  report-only on non-reference runners.
+
+Phase 4 is explicitly deferred. Do not build the shared frame admission
+coordinator unless a later report shows hard regressions or named trace evidence
+that competing scheduled graph, workspace presentation, React, semantic, or
+trajectory work is still the bottleneck. Phase 5 is ready to implement next.
 
 ### Phase 4: Add Shared Frame Admission Only If Remeasure Requires It
 
