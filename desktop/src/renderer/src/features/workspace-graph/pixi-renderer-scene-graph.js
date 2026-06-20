@@ -54,14 +54,14 @@ export function createWorkflowGraphSceneGraphUpdater({
     ensureNodeMaterialized: visibleScene.ensureMaterialized,
     isNodeMaterialized: visibleScene.isMaterialized,
     materializedNodeIds: visibleScene.materializedNodeIds,
-    replaceGraph: (nextGraph, { countUpdate }) => {
+    replaceGraph: (nextGraph, { countUpdate, preservedNodePositions = new Map() }) => {
       const nextNodes = nextGraph.nodes.map((node) => ({ ...node }));
       const nextEdges = nextGraph.edges.map((edge) => ({ ...edge }));
       if (countUpdate) {
         recordGraphUpdateCounts(nextNodes, nextEdges);
       }
       debugMetrics.measure("scene-graph-node-diff-update-rebuild", () => {
-        applySceneGraphNodes(nextNodes);
+        applySceneGraphNodes(nextNodes, preservedNodePositions);
       });
       edges.splice(0, edges.length, ...nextEdges);
       return {
@@ -96,7 +96,7 @@ export function createWorkflowGraphSceneGraphUpdater({
     graphUpdateEdgeUpdateCount += countInBoth(previousEdgeIds, nextEdgeIds);
   }
 
-  function applySceneGraphNodes(nextNodes) {
+  function applySceneGraphNodes(nextNodes, preservedNodePositions) {
     const existingNodesById = new Map(nodes.map((node) => [node.id, node]));
     const nextNodeIds = new Set(nextNodes.map((node) => node.id));
     for (const node of nodes) {
@@ -112,8 +112,11 @@ export function createWorkflowGraphSceneGraphUpdater({
         updatedNodes.push(addedNode);
         continue;
       }
-      Object.assign(existingNode, nextNode);
-      updatedNodes.push(existingNode);
+      updatedNodes.push(
+        mergeWorkflowGraphSceneNodeForUpdate(existingNode, nextNode, {
+          preservedNodePositions,
+        }),
+      );
     }
     nodes.splice(0, nodes.length, ...updatedNodes);
     syncNodesById(updatedNodes);
@@ -125,6 +128,21 @@ export function createWorkflowGraphSceneGraphUpdater({
       nodesById.set(node.id, node);
     }
   }
+}
+
+export function mergeWorkflowGraphSceneNodeForUpdate(
+  existingNode,
+  nextNode,
+  { preservedNodePositions = new Map() } = {},
+) {
+  const preservedPosition = preservedNodePositions.get(nextNode.id) ?? null;
+  const nextContent = { ...nextNode };
+  delete nextContent.x;
+  delete nextContent.y;
+  Object.assign(existingNode, nextContent);
+  existingNode.x = preservedPosition?.x ?? nextNode.x;
+  existingNode.y = preservedPosition?.y ?? nextNode.y;
+  return existingNode;
 }
 
 function countOnlyIn(left, right) {

@@ -22,7 +22,7 @@ interface WorkflowGraphRendererUpdateTarget {
 }
 
 interface UseWorkflowGraphSceneRuntimeRequest {
-  pendingWorkflowGraphRef: RefObject<WorkflowGraphRendererGraph | null>;
+  currentSceneGraphRef: RefObject<WorkflowGraphRendererGraph | null>;
   selectedWorkflowNodeId: string | null;
   semanticActivities: SemanticActivityByNodeId;
   semanticGraph: Parameters<WorkspaceGraphSceneStore["updateInputs"]>[0]["semanticGraph"];
@@ -38,7 +38,7 @@ interface UseWorkflowGraphSceneRuntimeRequest {
 }
 
 export function useWorkflowGraphSceneRuntime({
-  pendingWorkflowGraphRef,
+  currentSceneGraphRef,
   selectedWorkflowNodeId,
   semanticActivities,
   semanticGraph,
@@ -93,10 +93,10 @@ export function useWorkflowGraphSceneRuntime({
       const frame = graphSceneStore.getFrameSnapshot();
       const renderer = workflowRendererRef.current;
       syncSceneGraphFrame({
+        currentSceneGraphRef,
         force,
         frame,
         lastSceneGraphVersionRef,
-        pendingWorkflowGraphRef,
         renderer,
       });
       syncTrajectoryFrame({
@@ -107,7 +107,7 @@ export function useWorkflowGraphSceneRuntime({
       });
       return frame.graph;
     },
-    [graphSceneStore, pendingWorkflowGraphRef, workflowRendererRef],
+    [currentSceneGraphRef, graphSceneStore, workflowRendererRef],
   );
 
   useEffect(() => {
@@ -120,14 +120,14 @@ export function useWorkflowGraphSceneRuntime({
       return;
     }
     const runtime =
-      pendingWorkflowGraphRef.current?.nodes.find((node) => node.id === selectedWorkflowNodeId)
+      currentSceneGraphRef.current?.nodes.find((node) => node.id === selectedWorkflowNodeId)
         ?.runtime ?? null;
     const trajectory = trajectoryStore?.getNodeDetails(selectedWorkflowNodeId) ?? null;
     setSelectedNodeTarget(
       workflowNodeDetailsTarget(workflowProjection, selectedWorkflowNodeId, runtime, trajectory),
     );
   }, [
-    pendingWorkflowGraphRef,
+    currentSceneGraphRef,
     selectedWorkflowNodeId,
     setSelectedNodeTarget,
     trajectoryStore,
@@ -148,22 +148,23 @@ export function useWorkflowGraphSceneRuntime({
 type WorkspaceGraphSceneFrameSnapshot = ReturnType<WorkspaceGraphSceneStore["getFrameSnapshot"]>;
 
 function syncSceneGraphFrame({
+  currentSceneGraphRef,
   force,
   frame,
   lastSceneGraphVersionRef,
-  pendingWorkflowGraphRef,
   renderer,
 }: {
+  currentSceneGraphRef: RefObject<WorkflowGraphRendererGraph | null>;
   force: boolean;
   frame: WorkspaceGraphSceneFrameSnapshot;
   lastSceneGraphVersionRef: { current: number };
-  pendingWorkflowGraphRef: RefObject<WorkflowGraphRendererGraph | null>;
   renderer: WorkflowGraphRendererUpdateTarget | null;
 }) {
   if (frame.graph === undefined) {
+    currentSceneGraphRef.current = null;
     return;
   }
-  pendingWorkflowGraphRef.current = frame.graph;
+  currentSceneGraphRef.current = frame.graph;
   if (renderer === null || (!force && lastSceneGraphVersionRef.current === frame.graphVersion)) {
     return;
   }

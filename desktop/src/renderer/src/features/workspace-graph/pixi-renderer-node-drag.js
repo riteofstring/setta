@@ -25,6 +25,8 @@ export function createWorkflowGraphNodeDragController({
   let nodeDragStartCount = 0;
   let nodeDragBlockedCount = 0;
   let lastNodeDragAdmission = null;
+  let pendingCommittedNodePositionSequence = 0;
+  const pendingCommittedNodePositions = new Map();
 
   return {
     active: () => Boolean(draggingNode),
@@ -32,6 +34,9 @@ export function createWorkflowGraphNodeDragController({
     clearForGraphUpdate,
     debugSnapshot,
     finish,
+    pendingCommittedPositions,
+    reconcileCommittedPositions,
+    settleNodePositionSave,
     move,
     start,
     syncNodeBodyCursors,
@@ -134,6 +139,7 @@ export function createWorkflowGraphNodeDragController({
     recordCompletedNodeDrag(recordGraphInteraction, completedDrag, shouldPersistPositions);
     if (shouldPersistPositions && handlers.onNodePositionsChange) {
       nodeOpenClickTracker.clear();
+      rememberCommittedNodePositions(completedDrag);
       handlers.onNodePositionsChange(
         nodes.map((node) => ({
           moved: movedNodeIds.has(node.id),
@@ -164,6 +170,49 @@ export function createWorkflowGraphNodeDragController({
   function clearForGraphUpdate() {
     draggingNode = null;
     syncNodeBodyCursors();
+  }
+
+  function pendingCommittedPositions() {
+    return new Map(pendingCommittedNodePositions);
+  }
+
+  function reconcileCommittedPositions(nextNodes) {
+    if (pendingCommittedNodePositions.size === 0) {
+      return;
+    }
+    const nextNodesById = new Map(nextNodes.map((node) => [node.id, node]));
+    for (const [nodeId, position] of pendingCommittedNodePositions) {
+      const nextNode = nextNodesById.get(nodeId);
+      if (!nextNode || nodePositionMatches(nextNode, position)) {
+        pendingCommittedNodePositions.delete(nodeId);
+      }
+    }
+  }
+
+  function settleNodePositionSave({ nodeIds, status }) {
+    if (status === "persisted") {
+      return;
+    }
+    for (const nodeId of nodeIds) {
+      pendingCommittedNodePositions.delete(nodeId);
+    }
+  }
+
+  function rememberCommittedNodePositions(completedDrag) {
+    if (!completedDrag) {
+      return;
+    }
+    pendingCommittedNodePositionSequence += 1;
+    for (const draggedNode of completedDrag.nodes) {
+      const node = requireNode(draggedNode.nodeId);
+      pendingCommittedNodePositions.set(node.id, {
+        movementOwner: node.movementOwner?.kind ?? "",
+        nodeId: node.id,
+        sequence: pendingCommittedNodePositionSequence,
+        x: node.x,
+        y: node.y,
+      });
+    }
   }
 
   function restoreDraggedNodePositions(completedDrag) {
@@ -201,6 +250,8 @@ export function createWorkflowGraphNodeDragController({
       nodeDragBlockedCount,
       nodeDragStartCount,
       nodeDragUpdateCount,
+      pendingCommittedNodePositionCount: pendingCommittedNodePositions.size,
+      pendingCommittedNodePositionIds: [...pendingCommittedNodePositions.keys()],
     };
   }
 }
@@ -286,4 +337,10 @@ function movementOwnerForDrag(drag) {
     return "";
   }
   return owners.length === 1 ? owners[0] : "multiple";
+}
+
+function nodePositionMatches(node, position) {
+  return (
+    Math.round(node.x) === Math.round(position.x) && Math.round(node.y) === Math.round(position.y)
+  );
 }

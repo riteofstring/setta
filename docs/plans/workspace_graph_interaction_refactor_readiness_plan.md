@@ -1,8 +1,8 @@
 # Workspace Graph Interaction Refactor Readiness Plan
 
 - **Date:** June 20, 2026
-- **Status:** Phase 6 trajectory sprite passive-badge contract implemented and
-  verified in `5fbd51db2`; Phase 7 interaction refactor is ready to start.
+- **Status:** Phase 7 interaction refactor implemented and verified; Phase 8
+  pan/zoom performance follow-up is ready to start.
 - **Scope:** Stabilize the workspace graph interaction contract before the next
   graph refactor, then refactor graph interaction ownership around durable
   projection state, explicit editability, behavior-first tests, and recordings
@@ -1101,6 +1101,13 @@ Acceptance criteria:
 Goal: refactor graph interaction ownership after the contract and tests are in
 place.
 
+Status: Complete. The renderer now uses one scene-store frame handoff from
+React to the surface controller, graph replacement sees direct manipulation
+through a small interaction controller, scene-node updates preserve locally
+committed drag coordinates until an authoritative graph catches up or an
+explicit failed/skipped save outcome clears them, and runtime/trajectory
+updates remain separate from node layout and camera state.
+
 Tasks:
 
 - Move drag, pan, selection, and trajectory hit behavior behind a small
@@ -1145,6 +1152,30 @@ Acceptance criteria:
 - If semantic graph workflow tests become part of the refactor safety net, large
   embedded `client.evaluate` scripts have been moved into normal helper modules
   instead of expanded further.
+
+Phase 7 verification:
+
+```sh
+pnpm -C desktop exec vitest run \
+  src/renderer/src/features/workspace-graph/pixi-renderer-scene-graph.test.js \
+  src/renderer/src/features/workspace-graph/workspace-graph-scene-store.test.ts \
+  src/renderer/src/features/workspace-graph/workflow-graph-surface-controller.test.ts \
+  src/renderer/src/features/workspace-graph/pixi-renderer-frame-runtime.test.js
+pnpm -C desktop exec tsc --noEmit --pretty false
+pnpm -C desktop build
+node desktop/tests/electron/run-workflows.mjs \
+  --workflow workflow-graph-editable-drag-contract \
+  --workflow workflow-graph-read-only-port-contract \
+  --workflow workflow-graph-read-only-view-layout-contract \
+  --workflow workflow-graph-active-replacement-contract \
+  --workflow workflow-graph-node-drag-pointercancel-contract \
+  --workflow workflow-graph-edge-draw-pointercancel-contract \
+  --workflow workflow-graph-marquee-pointercancel-contract \
+  --workflow workflow-graph-live-runtime-drag-contract \
+  --skip-build
+```
+
+Result: passed on June 20, 2026.
 
 ## Phase 8: Pan/Zoom Performance Follow-Up
 

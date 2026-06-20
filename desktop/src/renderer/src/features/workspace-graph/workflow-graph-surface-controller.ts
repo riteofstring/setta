@@ -2,6 +2,7 @@ import type {
   WorkflowGraphCameraChange,
   WorkflowGraphCameraState,
   WorkflowGraphGraph,
+  WorkflowGraphNodePositionSaveSettlement,
   WorkflowGraphRenderer,
   WorkflowGraphRendererHandlers,
   createWorkflowGraphRenderer,
@@ -52,6 +53,7 @@ interface WorkflowGraphSurfaceControllerDependencies {
 }
 
 interface WorkflowGraphUpdateTarget {
+  settleNodePositionSave: (settlement: WorkflowGraphNodePositionSaveSettlement) => void;
   updateGraph: (graph: WorkflowGraphGraph) => void;
   updateTrajectoryRuntime: (frame: WorkspaceTrajectoryFrameSnapshot) => void;
 }
@@ -198,6 +200,10 @@ export class WorkflowGraphSurfaceController implements WorkflowGraphUpdateTarget
 
   resize(): void {
     this.renderer?.resize();
+  }
+
+  settleNodePositionSave(settlement: WorkflowGraphNodePositionSaveSettlement): void {
+    this.renderer?.settleNodePositionSave(settlement);
   }
 
   updateGraph(graph: WorkflowGraphGraph): void {

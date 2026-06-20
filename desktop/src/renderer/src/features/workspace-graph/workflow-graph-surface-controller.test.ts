@@ -164,6 +164,28 @@ describe("workflow graph surface controller", () => {
 
     controller.destroy();
   });
+
+  test("forwards node position save settlement to the live renderer", async () => {
+    const renderer = rendererStub();
+    const factory = rendererFactory(renderer);
+    const controller = workflowGraphSurfaceControllerForSurface("surface-controller-settlement", {
+      loadRenderer: async () => ({ createWorkflowGraphRenderer: factory.factory }),
+    });
+
+    controller.configure(config());
+    controller.mount(host("settlement"));
+    controller.updateScene(graph("initial"));
+    await flushPromises();
+
+    controller.settleNodePositionSave({ nodeIds: ["work"], status: "failed" });
+
+    expect(renderer.settleNodePositionSave).toHaveBeenCalledWith({
+      nodeIds: ["work"],
+      status: "failed",
+    });
+
+    controller.destroy();
+  });
 });
 
 function config(
@@ -278,6 +300,7 @@ function rendererStub(): RendererStub {
       camera = nextCamera;
     },
     setHandlers: vi.fn(),
+    settleNodePositionSave: vi.fn(),
     suspend: vi.fn(),
     transferHost(host) {
       this.transferHosts.push(host);

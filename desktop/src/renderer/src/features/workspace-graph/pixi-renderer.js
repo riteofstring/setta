@@ -22,6 +22,7 @@ import { createWorkflowGraphFrameOwner } from "./pixi-renderer-frame-owner";
 import { createWorkflowGraphFrameRuntime } from "./pixi-renderer-frame-runtime";
 import { createDynamicCanvasContextMenuHandler, rendererHandlers } from "./pixi-renderer-handlers";
 import { createWorkflowGraphInteractionScheduler } from "./pixi-renderer-interaction-scheduler";
+import { createWorkflowGraphInteractionController } from "./pixi-renderer-interaction-controller";
 import * as rendererLabelFont from "./pixi-renderer-label-font";
 import { createWorkflowGraphLabelManager } from "./pixi-renderer-labels";
 import { destroyInitializedApp } from "./pixi-renderer-lifecycle";
@@ -329,6 +330,13 @@ export async function createWorkflowGraphRenderer(options) {
     spatialQueries,
     viewport,
   });
+  const interactionController = createWorkflowGraphInteractionController({
+    getDrawingEdge: () => drawingEdge,
+    getDrawingMarquee: () => drawingMarquee,
+    getPointerCameraPan: () => panningCamera,
+    nodeDrag,
+    trajectoryHitMode: "passive",
+  });
   const syncVisibleSceneForCamera = createWorkflowGraphCameraSceneSync({
     drawAllNodeOutlines,
     edgeScene,
@@ -369,8 +377,8 @@ export async function createWorkflowGraphRenderer(options) {
     animationState,
     cameraSync,
     interactionScheduler,
-    activeInteractionKind,
-    isDirectManipulationActive: () => Boolean(nodeDrag.active() || drawingEdge || drawingMarquee),
+    activeInteractionKind: interactionController.activeKind,
+    isDirectManipulationActive: interactionController.isDirectManipulationActive,
     recordGraphReplacement: graphRecorder.replacement,
     replaceSceneGraph,
     sceneVisitCounters,
@@ -609,7 +617,7 @@ export async function createWorkflowGraphRenderer(options) {
       ...nodeDrag.debugSnapshot(), ...edgeScene.debugSnapshot(), ...cameraSync.debugSnapshot(), ...filterAreas.debugSnapshot(),
       ...labels.debugSnapshot(), ...frameRuntime.debugSnapshot(),
       ...frameOwner.debugSnapshot(), ...interactionScheduler.debugSnapshot(), ...animationCoordinator.debugSnapshot(),
-      ...trajectoryRuntime.debugSnapshot(), ...animationState.debugSnapshot(), ...inputResponsiveness.debugSnapshot(),
+      ...interactionController.debugSnapshot(), ...trajectoryRuntime.debugSnapshot(), ...animationState.debugSnapshot(), ...inputResponsiveness.debugSnapshot(),
       ...sceneGraph.debugSnapshot(), ...sceneGraph.updateCounts(),
     }),
     spatialQueries,
@@ -650,6 +658,10 @@ export async function createWorkflowGraphRenderer(options) {
       frameOwner.request("resize");
     },
     setHandlers: (nextHandlers) => void Object.assign(handlers, rendererHandlers(nextHandlers)),
+    settleNodePositionSave: (settlement) => {
+      nodeDrag.settleNodePositionSave(settlement);
+      frameOwner.request("node-position-save-settlement");
+    },
     suspend: () => frameOwner.suspend("suspend"),
     transferHost: (nextHost) => {
       if (host === nextHost) {
@@ -678,7 +690,11 @@ export async function createWorkflowGraphRenderer(options) {
       }
       cancelActiveInteractionsForGraphUpdate();
       syncFoundationStyle(nextGraph);
-      const update = sceneGraph.replaceGraph(nextGraph, { countUpdate });
+      nodeDrag.reconcileCommittedPositions(nextGraph.nodes);
+      const update = sceneGraph.replaceGraph(nextGraph, {
+        countUpdate,
+        preservedNodePositions: nodeDrag.pendingCommittedPositions(),
+      });
       currentWorkflow = update.workflow;
       recordWorkflowTransition(currentWorkflow, countUpdate ? "graph-update" : "initial-graph");
       nextEdgeSequence = update.nextEdgeSequence;
@@ -755,18 +771,6 @@ export async function createWorkflowGraphRenderer(options) {
     if (workflowTransitionHistory.length > 16) {
       workflowTransitionHistory.shift();
     }
-  }
-  function activeInteractionKind() {
-    if (nodeDrag.active()) {
-      return "node_drag";
-    }
-    if (drawingEdge) {
-      return "edge_draw";
-    }
-    if (drawingMarquee) {
-      return "marquee";
-    }
-    return "";
   }
   function startCameraPanning(screen) {
     panningCamera = {

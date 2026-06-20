@@ -76,6 +76,28 @@ describe("workspace graph scene store", () => {
     expect(next.trajectoryVersion).toBe(2);
   });
 
+  test("semantic runtime frames update workflow runtime without changing node coordinates", () => {
+    const scheduler = manualScheduler();
+    const semanticRuntime = fakeSemanticRuntimeStore(semanticRuntimeFrame({ revision: 1 }));
+    const store = createWorkspaceGraphSceneStore({ scheduleFrame: scheduler.scheduleFrame });
+
+    store.updateInputs(sceneInputs({ semanticRuntimeStore: semanticRuntime }));
+    scheduler.flushFrame();
+    const initial = store.getFrameSnapshot();
+    const initialNode = initial.graph?.nodes.find((node) => node.id === "reviewer");
+
+    semanticRuntime.emit(semanticRuntimeFrame({ revision: 2, status: "queued" }));
+    scheduler.flushFrame();
+
+    const next = store.getFrameSnapshot();
+    const nextNode = next.graph?.nodes.find((node) => node.id === "reviewer");
+    expect(nextNode).toMatchObject({
+      runtime: expect.objectContaining({ status: "queued" }),
+      x: initialNode?.x,
+      y: initialNode?.y,
+    });
+  });
+
   test("camera movement only notifies local scene runtime state", () => {
     const scheduler = manualScheduler();
     const semanticRuntime = fakeSemanticRuntimeStore(semanticRuntimeFrame({ revision: 1 }));

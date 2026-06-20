@@ -13,6 +13,7 @@ import { useWorkflowLayoutOverlay } from "./workflow-graph-layout-overlay";
 import {
   graphNodeLayoutPersistenceErrorMessage,
   persistGraphNodePositions,
+  type GraphNodeLayoutPersistenceOutcome,
 } from "./workflow-graph-layout-persistence";
 import {
   recordSupersededWorkflowGraphLayoutSave,
@@ -65,7 +66,6 @@ import {
   WorkflowGraphToolbarLayer,
   type WorkflowContextMenuState,
 } from "./workflow-graph-surface-layers";
-import { materializeWorkspaceGraphSceneGraph } from "./workspace-graph-scene-store";
 import { useWorkflowGraphSceneRuntime } from "./workflow-graph-scene-runtime";
 import {
   materializeWorkflowDraftEdge,
@@ -100,8 +100,7 @@ export function WorkflowGraphSurface({
   );
   const workflowRendererRef = useRef(workflowController);
   workflowRendererRef.current = workflowController;
-  const initialWorkflowGraphRef = useRef<WorkflowGraphRendererGraph | null>(null);
-  const pendingWorkflowGraphRef = useRef<WorkflowGraphRendererGraph | null>(null);
+  const currentSceneGraphRef = useRef<WorkflowGraphRendererGraph | null>(null);
   const reactRenderCount = useRef(0);
   reactRenderCount.current += 1;
   const [workflowEditorError, setWorkflowEditorError] = useState("");
@@ -225,30 +224,8 @@ export function WorkflowGraphSurface({
       semanticGraph: semanticGraphState.graph,
       workspaceId: semanticGraphState.workspaceId,
     });
-  const graph = useMemo(
-    () =>
-      materializeWorkspaceGraphSceneGraph({
-        semanticActivities: semanticGraphState.activitiesByNodeId,
-        semanticGraph: semanticGraphWithLocalLayout,
-        semanticRuntimeStore: null,
-        syntheticGraph,
-        trajectoryStore: null,
-        workflowGraph,
-        workflowProjectionReady,
-        workflowWorkspaceId,
-      }),
-    [
-      semanticGraphState.activitiesByNodeId,
-      semanticGraphWithLocalLayout,
-      syntheticGraph,
-      workflowGraph,
-      workflowProjectionReady,
-      workflowWorkspaceId,
-    ],
-  );
-  initialWorkflowGraphRef.current = graph ?? null;
   const { graphSceneStore, syncSceneFrameToRenderer } = useWorkflowGraphSceneRuntime({
-    pendingWorkflowGraphRef,
+    currentSceneGraphRef,
     selectedWorkflowNodeId,
     semanticActivities: semanticGraphState.activitiesByNodeId,
     semanticGraph: semanticGraphWithLocalLayout,
@@ -262,7 +239,6 @@ export function WorkflowGraphSurface({
     workflowRendererRef,
     workflowWorkspaceId,
   });
-  const rendererGraphReady = graph !== undefined;
   const pendingApproval = useMemo(
     () => workflowProjectionPendingApproval(workflowProjection),
     [workflowProjection],
@@ -339,9 +315,30 @@ export function WorkflowGraphSurface({
     },
     [addWorkflowDraftNodeAt, workflowProjection],
   );
+  const applyPersistedGraphLayoutOutcome = useCallback(
+    (outcome: GraphNodeLayoutPersistenceOutcome) => {
+      if (outcome.semantic.status === "persisted") {
+        semanticGraphState.replaceSemanticLayoutPositions(outcome.semantic.positions);
+      }
+      if (
+        outcome.workflow.status === "persisted" &&
+        outcome.workflow.owner === "workflow_view_layout"
+      ) {
+        replaceWorkflowGraphViewLayoutPositions(outcome.workflow.positions);
+      }
+    },
+    [replaceWorkflowGraphViewLayoutPositions, semanticGraphState.replaceSemanticLayoutPositions],
+  );
   const persistNodePositions = useCallback(
     async (positions: WorkflowLayoutPosition[]) => {
+      const movedNodeIds = positions
+        .filter((position) => position.moved)
+        .map((position) => position.nodeId);
       if (syntheticGraph !== null) {
+        workflowController.settleNodePositionSave({
+          nodeIds: movedNodeIds,
+          status: "skipped",
+        });
         return;
       }
       if (workflowEditorError !== "") {
@@ -352,7 +349,7 @@ export function WorkflowGraphSurface({
       const semanticGraphAtDragEnd = semanticGraphState.graph;
       const semanticLayoutInputs = preparePendingSemanticLayout(positions, saveSequence);
       const projectionAtDragEnd = workflowProjectionRef.current;
-      const graphAtDragEnd = pendingWorkflowGraphRef.current;
+      const graphAtDragEnd = currentSceneGraphRef.current;
       const viewLayoutTargetAtDragEnd = workflowViewLayoutTarget;
       const workflowLayoutInputs = preparePendingWorkflowLayout(
         projectionAtDragEnd,
@@ -389,43 +386,37 @@ export function WorkflowGraphSurface({
           workflowProjection: projectionAtDragEnd,
         });
         recordWorkflowGraphLayoutSaveOutcome(layoutSaveRecording, outcome);
-        if (outcome.status === "failed" && saveSequence === layoutSaveSequenceRef.current) {
+        if (
+          layoutSaveFailedForCurrentSequence(outcome, saveSequence, layoutSaveSequenceRef.current)
+        ) {
           setWorkflowEditorError(graphNodeLayoutPersistenceErrorMessage(outcome));
         }
-        if (outcome.semantic.status === "persisted") {
-          semanticGraphState.replaceSemanticLayoutPositions(outcome.semantic.positions);
-        }
-        if (
-          outcome.workflow.status === "persisted" &&
-          outcome.workflow.owner === "workflow_view_layout"
-        ) {
-          replaceWorkflowGraphViewLayoutPositions(outcome.workflow.positions);
-        }
+        applyPersistedGraphLayoutOutcome(outcome);
         settleSemanticLayoutSave(semanticLayoutInputs, saveSequence);
         settleWorkflowLayoutSave(workflowLayoutInputs, saveSequence);
         settleWorkflowViewLayoutSave(workflowViewLayoutInputs, saveSequence);
-        if (
-          outcome.workflow.status === "persisted" &&
-          outcome.workflow.owner === "workflow_definition_layout"
-        ) {
-          return outcome.workflow.projection;
+        if (layoutOutcomeReleasesRendererNodePositions(outcome)) {
+          workflowController.settleNodePositionSave({
+            nodeIds: movedNodeIds,
+            status: outcome.status,
+          });
         }
-        return null;
+        return workflowDefinitionProjectionFromLayoutOutcome(outcome);
       });
       await save;
     },
     [
+      applyPersistedGraphLayoutOutcome,
       enqueueWorkflowGraphWrite,
       preparePendingSemanticLayout,
       preparePendingWorkflowLayout,
       preparePendingWorkflowViewLayout,
-      replaceWorkflowGraphViewLayoutPositions,
       semanticGraphState.graph,
-      semanticGraphState.replaceSemanticLayoutPositions,
       settleSemanticLayoutSave,
       settleWorkflowLayoutSave,
       settleWorkflowViewLayoutSave,
       syntheticGraph,
+      workflowController,
       workflowEditorError,
       workflowViewLayoutTarget,
       surfaceId,
@@ -755,7 +746,7 @@ export function WorkflowGraphSurface({
       if (workflowProjection === null || nodeId === null) {
         return;
       }
-      const graphForDetails = syncSceneFrameToRenderer(true) ?? pendingWorkflowGraphRef.current;
+      const graphForDetails = syncSceneFrameToRenderer(true) ?? currentSceneGraphRef.current;
       const runtime = graphForDetails?.nodes.find((node) => node.id === nodeId)?.runtime ?? null;
       const trajectory = trajectoryStore?.getNodeDetails(nodeId) ?? null;
       setSelectedNodeTarget(
@@ -929,20 +920,6 @@ export function WorkflowGraphSurface({
     }
     workflowController.suspend();
   }, [active, workflowController]);
-  useEffect(() => {
-    if (!rendererGraphReady) {
-      return;
-    }
-    const initialGraph = pendingWorkflowGraphRef.current ?? initialWorkflowGraphRef.current;
-    if (initialGraph === null) {
-      return;
-    }
-    if (pendingWorkflowGraphRef.current === null) {
-      pendingWorkflowGraphRef.current = initialGraph;
-    }
-    workflowController.updateScene(initialGraph);
-    syncSceneFrameToRenderer(true);
-  }, [rendererGraphReady, graph, syncSceneFrameToRenderer, workflowController]);
   useWorkflowContextMenuClose({ setWorkflowContextMenu, workflowContextMenu, workflowMenuRef });
   return (
     <Profiler id={`workflow-graph:${surfaceId}`} onRender={recordWorkflowGraphReactCommit}>
@@ -997,4 +974,25 @@ export function WorkflowGraphSurface({
       </section>
     </Profiler>
   );
+}
+
+function layoutSaveFailedForCurrentSequence(
+  outcome: GraphNodeLayoutPersistenceOutcome,
+  saveSequence: number,
+  currentSaveSequence: number,
+): boolean {
+  return outcome.status === "failed" && saveSequence === currentSaveSequence;
+}
+
+function layoutOutcomeReleasesRendererNodePositions(outcome: GraphNodeLayoutPersistenceOutcome) {
+  return outcome.status === "failed" || outcome.status === "skipped";
+}
+
+function workflowDefinitionProjectionFromLayoutOutcome(
+  outcome: GraphNodeLayoutPersistenceOutcome,
+): WorkflowGraphProjection | null {
+  return outcome.workflow.status === "persisted" &&
+    outcome.workflow.owner === "workflow_definition_layout"
+    ? outcome.workflow.projection
+    : null;
 }

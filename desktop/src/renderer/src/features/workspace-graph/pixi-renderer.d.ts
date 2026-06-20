@@ -159,6 +159,11 @@ export interface WorkflowGraphNodePosition {
   y: number;
 }
 
+export interface WorkflowGraphNodePositionSaveSettlement {
+  nodeIds: string[];
+  status: "failed" | "persisted" | "skipped";
+}
+
 interface WorkflowGraphCanvasContextMenu {
   clientX: number;
   clientY: number;
@@ -217,6 +222,7 @@ export interface WorkflowGraphRenderer {
   isCameraMoving: () => boolean;
   resize: () => void;
   setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
+  settleNodePositionSave: (settlement: WorkflowGraphNodePositionSaveSettlement) => void;
   suspend: () => void;
   transferHost: (host: HTMLElement) => void;
   updateTrajectoryRuntime: (frame: WorkspaceTrajectoryFrameSnapshot) => void;
