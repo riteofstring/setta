@@ -89,6 +89,59 @@ describe("workspace presentation engine", () => {
     expect(host.dataset.surfaceKind).toBe("browser");
   });
 
+  test("keeps active pane drag source geometry owned by pointer movement", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
+    const host = fakePaneHost("workspace_pane_0", "Pane 001");
+    const registry = new RecordingSurfaceRegistry();
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      registry as unknown as SurfaceRegistry,
+    );
+    const initialItem = renderItem("workspace_pane_0", "workspace_surface_0", false);
+    const previewItem = {
+      ...initialItem,
+      height: 140,
+      moving: true,
+      width: 220,
+      x: 240,
+      y: 60,
+    };
+    presentation.mount([host], null);
+
+    expect(presentation.apply([initialItem], { resizePhase: "idle" })).toMatchObject({
+      boxWrites: 2,
+      transformWrites: 1,
+    });
+    expect(host.style.transform).toBe("translate3d(0.00px, 0.00px, 0) scale(1.000)");
+    expect(host.style.width).toBe("160.00px");
+    expect(host.style.height).toBe("120.00px");
+
+    host.dataset.dragSource = "true";
+    host.style.translate = "24px 8px";
+    expect(presentation.apply([previewItem], { resizePhase: "idle" })).toMatchObject({
+      boxWrites: 0,
+      transformWrites: 0,
+    });
+
+    expect(host.style.transform).toBe("translate3d(0.00px, 0.00px, 0) scale(1.000)");
+    expect(host.style.width).toBe("160.00px");
+    expect(host.style.height).toBe("120.00px");
+    expect(host.style.translate).toBe("24px 8px");
+    expect(registry.syncedPaneIds).toEqual(["workspace_pane_0"]);
+
+    delete host.dataset.dragSource;
+    host.style.translate = "";
+    expect(presentation.apply([previewItem], { resizePhase: "idle" })).toMatchObject({
+      boxWrites: 2,
+      transformWrites: 1,
+    });
+    expect(host.style.transform).toBe("translate3d(240.00px, 60.00px, 0) scale(1.000)");
+    expect(host.style.width).toBe("220.00px");
+    expect(host.style.height).toBe("140.00px");
+    expect(registry.syncedPaneIds).toEqual(["workspace_pane_0", "workspace_pane_0"]);
+  });
+
   test("defers non-empty snapshot proxy content while panes are moving", () => {
     const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");
