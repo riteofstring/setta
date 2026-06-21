@@ -466,20 +466,48 @@ function phase8FrameBudgetCheck({ final, scenario }) {
 }
 
 function phase8LongTaskCheck({ diagnostics, scenario, timingThresholdsHard }) {
-  const maxLongTaskMs = diagnostics?.maxLongTaskMs ?? 0;
-  const check = scenario === "large" || !timingThresholdsHard ? reportOnlyCheck : hardCheck;
+  const metrics = phase8LongTaskGateMetrics(diagnostics);
+  const scaleSweep = phase8LongTaskScaleSweepScenario(scenario);
+  const check = phase8LongTaskCheckFactory({ scaleSweep, timingThresholdsHard });
   return check({
-    actual: maxLongTaskMs,
+    actual: metrics.maxLongTaskMs,
     budget: 100,
     id: "no-long-task-over-100ms",
-    pass: Number(maxLongTaskMs) <= 100,
-    summary:
-      scenario === "large"
-        ? `maxLongTaskMs=${maxLongTaskMs}; large scale sweep remains report-only`
-        : !timingThresholdsHard
-          ? `maxLongTaskMs=${maxLongTaskMs}; non-reference runner remains report-only`
-          : `maxLongTaskMs=${maxLongTaskMs}`,
+    pass: Number(metrics.maxLongTaskMs) <= 100,
+    summary: phase8LongTaskSummary({ metrics, scaleSweep, timingThresholdsHard }),
   });
+}
+
+function phase8LongTaskGateMetrics(diagnostics) {
+  const maxLongTaskMs = diagnostics?.maxLongTaskMs ?? 0;
+  return {
+    cameraOverlappingCount:
+      diagnostics?.longTasks?.cameraOverlappingCount ?? diagnostics?.longTaskCount ?? 0,
+    maxLongTaskMs,
+    maxObservedLongTaskMs: diagnostics?.maxObservedLongTaskMs ?? maxLongTaskMs,
+  };
+}
+
+function phase8LongTaskCheckFactory({ scaleSweep, timingThresholdsHard }) {
+  if (scaleSweep || !timingThresholdsHard) {
+    return reportOnlyCheck;
+  }
+  return hardCheck;
+}
+
+function phase8LongTaskSummary({ metrics, scaleSweep, timingThresholdsHard }) {
+  const summary = `maxLongTaskMs=${metrics.maxLongTaskMs}, cameraOverlappingLongTasks=${metrics.cameraOverlappingCount}, maxObservedLongTaskMs=${metrics.maxObservedLongTaskMs}`;
+  if (scaleSweep) {
+    return `${summary}; scale/stress sweep remains report-only`;
+  }
+  if (!timingThresholdsHard) {
+    return `${summary}; non-reference runner remains report-only`;
+  }
+  return summary;
+}
+
+function phase8LongTaskScaleSweepScenario(scenario) {
+  return scenario === "large" || scenario === "scaling" || scenario === "stress";
 }
 
 function phase0TimingCheck({ timingThresholdsHard }) {

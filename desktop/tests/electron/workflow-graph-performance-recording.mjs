@@ -5,6 +5,11 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { captureScreenshotClip, writeJson } from "./electron-cdp-harness.mjs";
 import { pagePointForCanvasPoint } from "./workflow-graph-layout-helpers.mjs";
+import {
+  cameraInputKinds,
+  workflowGraphInputInteractionMetrics,
+  workflowGraphLongTaskMetrics,
+} from "./workflow-graph-performance-interactions.mjs";
 
 const traceCategories = [
   "benchmark",
@@ -53,8 +58,6 @@ const renderDeltaCounters = [
   "wheelPanUpdateCount",
   "wheelZoomUpdateCount",
 ];
-
-const cameraInputKinds = new Set(["pointer-pan", "wheel", "wheel-burst"]);
 
 export async function recordWorkflowGraphPanZoomDiagnostics({
   artifactDir,
@@ -630,6 +633,7 @@ async function installPerformanceTimelineRecorder(client) {
     }
     const state = {
       activeInputs: [],
+      completedInputs: [],
       eventTimings: [],
       longTasks: [],
       mutationCountsByOwnerAndSource: {},
@@ -749,11 +753,14 @@ async function installPerformanceTimelineRecorder(client) {
           durationMs: performance.now() - record.startedAt,
           endedAt: performance.now()
         };
+        state.completedInputs.push(ended);
+        trimArray(state.completedInputs, 500);
         performance.mark("setta.workflow-graph.input.end", { detail: ended });
         return true;
       },
       snapshot() {
         return {
+          completedInputs: [...state.completedInputs],
           eventTimings: [...state.eventTimings],
           longTasks: [...state.longTasks],
           mutationCountsByOwnerAndSource: { ...state.mutationCountsByOwnerAndSource },
@@ -948,18 +955,23 @@ export function summarizeWorkflowGraphPerformanceDiagnostics({
 }) {
   const snapshotPair = workflowGraphPerformanceSnapshotPair(snapshots);
   const renderDeltas = performanceRenderDeltas(snapshotPair);
+  const inputInteractions = workflowGraphInputInteractionMetrics(performanceTimeline, inputSamples);
+  const longTasks = workflowGraphLongTaskMetrics(performanceTimeline, inputInteractions.items);
   return {
     deferredWorkByLane: workflowGraphDeferredWorkByLaneMetrics(renderDeltas),
     frameTiming: workflowGraphFrameTimingMetrics(snapshotPair.after),
     graphSceneReplacementCount: sumCameraInputRenderDelta(inputSamples, "graphUpdateCount"),
     inputCountsByKind: countInputSamplesByKind(inputSamples),
     inputEventCount: countRecordedInputEvents(inputSamples),
-    inputInteractions: workflowGraphInputInteractionMetrics(performanceTimeline, inputSamples),
+    inputInteractions,
     inputWindow: inputSampleWindow(inputSamples),
     interactionRenderDeltas: renderDeltas,
-    longTaskCount: performanceTimeline?.longTasks?.length ?? 0,
+    longTaskCount: longTasks.cameraOverlappingCount,
+    longTasks,
     maxEventTimingMs: maxDuration(performanceTimeline?.eventTimings ?? []),
-    maxLongTaskMs: maxDuration(performanceTimeline?.longTasks ?? []),
+    maxLongTaskMs: longTasks.maxCameraOverlappingDurationMs,
+    maxObservedLongTaskMs: longTasks.maxObservedDurationMs,
+    observedLongTaskCount: longTasks.observedCount,
     paneMutations: workflowGraphPaneMutationMetrics(performanceTimeline),
     reactCommits: workflowGraphReactCommitMetrics(performanceTimeline),
     rendererLifecycle: workflowGraphRendererLifecycleMetrics(snapshotPair, snapshots),
@@ -1126,101 +1138,6 @@ function frameTimingFromSummary(render) {
     p99: Number(render.worstFrameMs ?? 0),
     sampleCount: 0,
     source: "renderer-summary-counters",
-  };
-}
-
-function workflowGraphInputInteractionMetrics(performanceTimeline, inputSamples) {
-  const userTimings = performanceTimeline?.userTimings ?? [];
-  const starts = userTimings.filter((entry) => entry.name === "setta.workflow-graph.input.start");
-  const items =
-    starts.length === 0
-      ? inputInteractionsFromSamples(inputSamples)
-      : inputInteractionsFromUserTimings({ inputSamples, starts, userTimings });
-  return inputInteractionMetrics(items);
-}
-
-function inputInteractionsFromSamples(inputSamples) {
-  return inputSamples.map((sample, index) => inputInteractionFromSample(sample, index));
-}
-
-function inputInteractionFromSample(sample, index) {
-  const cameraInput = cameraInputKinds.has(sample.kind);
-  return {
-    cameraInput,
-    causalSource: cameraInput ? `camera:${sample.kind}` : `interaction:${sample.kind}`,
-    durationMs: finiteNumberOrNull(sample.durationMs),
-    endedAt: finiteNumberOrNull(sample.completedAt),
-    eventCount: inputSampleEventCount(sample),
-    id: `sample-${index + 1}`,
-    kind: sample.kind ?? "",
-    startedAt: finiteNumberOrNull(sample.startedAt),
-  };
-}
-
-function inputInteractionsFromUserTimings({ inputSamples, starts, userTimings }) {
-  const endsByToken = new Map(
-    userTimings
-      .filter((entry) => entry.name === "setta.workflow-graph.input.end")
-      .map((entry) => [entry.detail?.token, entry]),
-  );
-  return starts.map((start, index) =>
-    inputInteractionFromUserTiming({
-      end: endsByToken.get(start.detail?.token),
-      index,
-      inputSamples,
-      start,
-    }),
-  );
-}
-
-function inputInteractionFromUserTiming({ end, index, inputSamples, start }) {
-  const detail = start.detail ?? {};
-  const sample = inputSamples[index] ?? {};
-  return {
-    cameraInput: Boolean(detail.cameraInput),
-    causalSource: detail.causalSource ?? "",
-    durationMs: userTimingEndDuration(end),
-    endedAt: userTimingEndAt(end),
-    eventCount: inputSampleEventCount(sample),
-    id: userTimingInteractionId(detail, index),
-    kind: userTimingInteractionKind(detail, sample),
-    startedAt: userTimingStartAt(detail, start),
-  };
-}
-
-function userTimingEndDuration(end) {
-  return finiteNumberOrNull(endDetail(end).durationMs);
-}
-
-function userTimingEndAt(end) {
-  return finiteNumberOrNull(endDetail(end).endedAt ?? endStartTime(end));
-}
-
-function endDetail(end) {
-  return end?.detail ?? {};
-}
-
-function endStartTime(end) {
-  return end?.startTime;
-}
-
-function userTimingInteractionId(detail, index) {
-  return detail.token ?? index + 1;
-}
-
-function userTimingInteractionKind(detail, sample) {
-  return detail.kind ?? sample.kind ?? "";
-}
-
-function userTimingStartAt(detail, start) {
-  return finiteNumberOrNull(detail.startedAt ?? start.startTime);
-}
-
-function inputInteractionMetrics(items) {
-  return {
-    cameraCount: items.filter((item) => item.cameraInput).length,
-    items,
-    totalCount: items.length,
   };
 }
 

@@ -1,4 +1,4 @@
-/* global performance, window */
+/* global performance */
 
 const maxWheelInputSamples = 160;
 const maxCompletedWheelGestures = 12;
@@ -14,7 +14,9 @@ export function createWorkflowGraphWheelResponsivenessTracker({
   let pendingFirstPixiRenderAfterCamera = null;
   let nextGestureId = 1;
   let nextWheelEventSequence = 1;
-  const samples = [];
+  let sampleCount = 0;
+  let sampleCursor = 0;
+  const samples = new Array(maxWheelInputSamples);
 
   return {
     debugSnapshot,
@@ -24,18 +26,21 @@ export function createWorkflowGraphWheelResponsivenessTracker({
     recordWheelEvent,
   };
 
-  function recordWheelEvent(event, { cameraBefore, canvasPoint, delta, treatment }) {
-    const eventNow = now();
+  function recordWheelEvent(
+    event,
+    { canvasX, canvasY, deltaX, deltaY, eventNow = now(), treatment },
+  ) {
     const previousWheelGapMs = wheelGapMs(eventNow);
     activeGesture = activeGestureForWheelEvent(eventNow, previousWheelGapMs);
     const sequence = nextWheelEventSequence;
     nextWheelEventSequence += 1;
-    const deltaMagnitude = Math.hypot(delta.x, delta.y);
+    const deltaMagnitude = Math.hypot(deltaX, deltaY);
     syncTailCandidateState(activeGesture, eventNow, deltaMagnitude);
     const sample = wheelEventSample(event, {
-      cameraBefore,
-      canvasPoint,
-      delta,
+      canvasX,
+      canvasY,
+      deltaX,
+      deltaY,
       deltaMagnitude,
       eventNow,
       previousWheelGapMs,
@@ -44,55 +49,36 @@ export function createWorkflowGraphWheelResponsivenessTracker({
     });
     recordWheelEventOnGesture(activeGesture, sample, eventNow, treatment);
     appendSample(sample);
-    markWorkflowGraphTiming("wheel-handler-entry", {
-      eventTimeStamp: sample.eventTimeStamp,
-      gestureId: sample.gestureId,
-      sequence,
-      treatment,
-    });
     return { gestureId: activeGesture.id, sequence };
   }
 
   function recordWheelCameraResult({
-    cameraAfter,
     cameraChanged,
     cameraUpdateDurationMs = null,
     handlerDurationMs = null,
     sequence,
+    updateAt = now(),
   }) {
     const sample = sampleBySequence(sequence);
     if (!sample) {
       return;
     }
-    const updateAt = now();
-    sample.cameraAfter = cameraAfter;
     sample.cameraChanged = Boolean(cameraChanged);
     sample.cameraUpdateDurationMs = finiteOrNull(cameraUpdateDurationMs);
     sample.handlerDurationMs = finiteOrNull(handlerDurationMs);
-    markWorkflowGraphTiming("wheel-handler-exit", {
-      cameraChanged: sample.cameraChanged,
-      cameraUpdateDurationMs: sample.cameraUpdateDurationMs,
-      gestureId: sample.gestureId,
-      handlerDurationMs: sample.handlerDurationMs,
-      sequence,
-      treatment: sample.treatment,
-    });
     if (!cameraChanged) {
       return;
     }
+    recordChangedWheelCameraResult(sample, sequence, updateAt);
+  }
+
+  function recordChangedWheelCameraResult(sample, sequence, updateAt) {
     sample.cameraUpdateAt = updateAt;
     sample.eventToCameraUpdateMs = updateAt - sample.performanceNow;
     sample.eventTimestampToCameraUpdateMs =
       sample.eventTimestampDeltaMs === null
         ? null
         : sample.eventTimestampDeltaMs + sample.eventToCameraUpdateMs;
-    markWorkflowGraphTiming("camera-transform-commit", {
-      eventToCameraUpdateMs: sample.eventToCameraUpdateMs,
-      eventTimestampToCameraUpdateMs: sample.eventTimestampToCameraUpdateMs,
-      gestureId: sample.gestureId,
-      sequence,
-      treatment: sample.treatment,
-    });
     const gesture = gestureForSample(sample);
     if (gesture && gesture.firstCameraUpdateAt === null) {
       gesture.firstCameraUpdateAt = updateAt;
@@ -123,14 +109,6 @@ export function createWorkflowGraphWheelResponsivenessTracker({
         sample.eventTimestampDeltaMs === null
           ? null
           : sample.eventTimestampDeltaMs + sample.eventToFirstPixiRenderAfterCameraMs;
-      markWorkflowGraphTiming("first-pixi-render-after-input", {
-        cameraUpdateToFirstPixiRenderMs: sample.cameraUpdateToFirstPixiRenderMs,
-        eventToFirstPixiRenderAfterCameraMs: sample.eventToFirstPixiRenderAfterCameraMs,
-        eventTimestampToFirstPixiRenderAfterCameraMs:
-          sample.eventTimestampToFirstPixiRenderAfterCameraMs,
-        gestureId: sample.gestureId,
-        sequence: pending.sequence,
-      });
     }
     const gesture = activeGesture?.id === pending.gestureId ? activeGesture : lastCompletedGesture;
     if (gesture && gesture.firstPixiRenderAfterCameraAt === null) {
@@ -169,7 +147,7 @@ export function createWorkflowGraphWheelResponsivenessTracker({
         gestureIdleGapMs: wheelGestureIdleGapMs,
         lastCompletedGesture,
         pendingFirstPixiRenderAfterCamera: pendingFirstPixiRenderAfterCamera !== null,
-        samples: samples.map((sample) => ({ ...sample })),
+        samples: orderedSamples().map((sample) => ({ ...sample })),
         tailCandidateMagnitudeRatio,
       },
       wheelInputEventCount: nextWheelEventSequence - 1,
@@ -247,9 +225,10 @@ export function createWorkflowGraphWheelResponsivenessTracker({
   function wheelEventSample(
     event,
     {
-      cameraBefore,
-      canvasPoint,
-      delta,
+      canvasX,
+      canvasY,
+      deltaX,
+      deltaY,
       deltaMagnitude,
       eventNow,
       previousWheelGapMs,
@@ -260,8 +239,8 @@ export function createWorkflowGraphWheelResponsivenessTracker({
     const eventTimeStamp = wheelEventTimeStamp(event);
     return {
       altKey: Boolean(event.altKey),
-      cameraBefore,
-      canvasPoint,
+      canvasX,
+      canvasY,
       ctrlKey: Boolean(event.ctrlKey),
       deltaMode: Number.isFinite(event.deltaMode) ? event.deltaMode : null,
       deltaX: event.deltaX,
@@ -271,8 +250,8 @@ export function createWorkflowGraphWheelResponsivenessTracker({
       gestureId: activeGesture.id,
       isTailCandidate: isTailCandidate(activeGesture, eventNow, deltaMagnitude),
       metaKey: Boolean(event.metaKey),
-      normalizedDeltaX: delta.x,
-      normalizedDeltaY: delta.y,
+      normalizedDeltaX: deltaX,
+      normalizedDeltaY: deltaY,
       performanceNow: eventNow,
       previousWheelGapMs,
       sequence,
@@ -301,14 +280,31 @@ export function createWorkflowGraphWheelResponsivenessTracker({
   }
 
   function appendSample(sample) {
-    samples.push(sample);
-    if (samples.length > maxWheelInputSamples) {
-      samples.shift();
-    }
+    const slot = sampleSlot(sample.sequence);
+    samples[slot] = sample;
+    sampleCursor = (slot + 1) % maxWheelInputSamples;
+    sampleCount = Math.min(maxWheelInputSamples, sampleCount + 1);
   }
 
   function sampleBySequence(sequence) {
-    return samples.find((sample) => sample.sequence === sequence) ?? null;
+    const sample = samples[sampleSlot(sequence)] ?? null;
+    return sample?.sequence === sequence ? sample : null;
+  }
+
+  function orderedSamples() {
+    const ordered = [];
+    const start = sampleCount === maxWheelInputSamples ? sampleCursor : 0;
+    for (let index = 0; index < sampleCount; index += 1) {
+      const sample = samples[(start + index) % maxWheelInputSamples];
+      if (sample) {
+        ordered.push(sample);
+      }
+    }
+    return ordered;
+  }
+
+  function sampleSlot(sequence) {
+    return (sequence - 1) % maxWheelInputSamples;
   }
 
   function gestureForSample(sample) {
@@ -340,17 +336,4 @@ function summarizeGesture(gesture) {
 function finiteOrNull(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
-}
-
-function markWorkflowGraphTiming(name, detail) {
-  if (typeof performance === "undefined" || typeof performance.mark !== "function") {
-    return;
-  }
-  if (
-    typeof window === "undefined" ||
-    window.__settaWorkflowGraphPerformanceRecorder === undefined
-  ) {
-    return;
-  }
-  performance.mark(`setta.workflow-graph.${name}`, { detail });
 }

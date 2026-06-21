@@ -152,6 +152,13 @@ function assertNodeDragCounter(snapshot) {
 }
 
 function assertCameraSyncCounters(snapshot) {
+  assertCameraSyncCoalesced(snapshot);
+  assertCameraLabelFastPath(snapshot);
+  assertCameraFastPathViolations(snapshot);
+  assertInteractionSchedulerCounters(snapshot);
+}
+
+function assertCameraSyncCoalesced(snapshot) {
   if (
     snapshot.render.cameraDependentSyncFrameCount <= 0 ||
     snapshot.render.cameraMovingSyncFrameCount <= 0 ||
@@ -164,6 +171,9 @@ function assertCameraSyncCounters(snapshot) {
       `camera sync counters did not show coalesced movement: ${JSON.stringify(snapshot.render)}`,
     );
   }
+}
+
+function assertCameraLabelFastPath(snapshot) {
   // Camera fast-path contract (Phase 1): labels are never hidden and never fully
   // re-synced per moving frame — they ride the camera transform tier instead.
   // Every moving sync frame runs exactly one bounded label transform pass, so the
@@ -187,12 +197,14 @@ function assertCameraSyncCounters(snapshot) {
       `labels did not ride the camera transform tier on every moving frame: ${JSON.stringify(snapshot.render)}`,
     );
   }
+}
+
+function assertCameraFastPathViolations(snapshot) {
   if (snapshot.render.cameraFastPathViolationCount !== 0) {
     throw new Error(
       `renderer recorded camera fast-path violations: ${JSON.stringify(snapshot.render.cameraFastPathViolations)}`,
     );
   }
-  assertInteractionSchedulerCounters(snapshot);
 }
 
 function assertInteractionSchedulerCounters(snapshot) {

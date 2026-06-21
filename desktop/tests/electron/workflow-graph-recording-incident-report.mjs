@@ -471,6 +471,13 @@ function evidenceCheck({ id, pass, summary }) {
 }
 
 function cameraInputTimingWindows(performanceTimeline) {
+  const completedInputs = performanceTimeline?.completedInputs ?? [];
+  if (completedInputs.length > 0) {
+    return completedInputs
+      .filter((input) => input.cameraInput === true)
+      .map(cameraInputTimingWindowFromCompletedInput)
+      .filter((window) => Number.isFinite(window.startTime));
+  }
   const userTimings = performanceTimeline?.userTimings ?? [];
   const endsByToken = new Map(
     userTimings
@@ -482,6 +489,18 @@ function cameraInputTimingWindows(performanceTimeline) {
     .filter((entry) => entry.detail?.cameraInput === true)
     .map((start) => cameraInputTimingWindow(start, endsByToken))
     .filter((window) => Number.isFinite(window.startTime));
+}
+
+function cameraInputTimingWindowFromCompletedInput(input) {
+  const startTime = finiteNumber(input.startedAt, input.startTime);
+  const endTime = finiteNumber(input.endedAt, input.endTime, startTime);
+  return {
+    causalSource: input.causalSource ?? "",
+    endTime,
+    kind: input.kind ?? "",
+    startTime,
+    token: input.token ?? null,
+  };
 }
 
 function cameraInputTimingWindow(start, endsByToken) {
@@ -542,7 +561,7 @@ function rangesOverlap(leftStart, leftEnd, rightStart, rightEnd) {
   if (![leftStart, leftEnd, rightStart, rightEnd].every(Number.isFinite)) {
     return false;
   }
-  return leftStart <= rightEnd && rightStart <= leftEnd;
+  return leftStart < rightEnd && rightStart < leftEnd;
 }
 
 function compactPerformanceEntry(entry) {

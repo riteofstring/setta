@@ -2,20 +2,24 @@
 
 - **Date:** June 20, 2026
 - **Status:** Partially implemented — NOT complete. Phase 0 (baseline evidence
-  reset + cross-owner drag fix) is done. Phase 1 (camera fast path) is PARTIAL:
-  camera-motion label/edge hiding was removed and replaced with a bounded
-  transform tier (labels and base edges stay visible and ride the camera during
-  pan/zoom), but the wheel-handler input hot-path cleanup — a Phase 1 task — is
-  outstanding (the handler still does two synchronous `cameraState()` reads plus
-  per-event timer churn, which the hot-path contract forbids), and
-  machine-dependent ms budgets remain pending a reference-Mac run. Phases 5–7 are done (clickable sprite popovers, shared
-  agent activity UI, recording incident reports). Phase 8's gate was relaxed
-  rather than enforcing the fast-path contract. Phases 2–4 — the retained/dirty
-  pipeline, the animation budget, and broadened layout ownership — are NOT
-  started. Phase 1 removed camera-motion label hiding, so node labels and base
-  edges now stay visible and ride a bounded transform tier during pan/zoom; the
-  remaining "no flashing" work (semantic re-materialization, sprite/edge pooling
-  churn) is Phase 2. See Implementation Status.
+  reset + cross-owner drag fix) is done. Phase 1 (camera fast path) is
+  implemented and has automated reference-runner evidence: camera-motion
+  label/edge hiding was removed and replaced with a bounded transform tier
+  (labels and base edges stay visible and ride the camera during pan/zoom), the
+  wheel-handler input hot path no longer performs synchronous `cameraState()`
+  diagnostic reads, per-event timer clear/set churn, or per-event User Timing
+  marks, and the June 21, 2026 reference-hard `workspace-graph-phase8` run passed
+  on this Apple M1 Pro with artifact
+  `.recordings/workflow-graph-pan-zoom-phase3/20260621T184642Z`. True
+  compositor presentation timing is still not available, and physical MacBook
+  trackpad feel still requires human sign-off. Phases 5–7 are done (clickable
+  sprite popovers, shared agent activity UI, recording incident reports).
+  Phases 2–4 — the retained/dirty pipeline, the animation budget, and broadened
+  layout ownership — are NOT started. Phase 1 removed camera-motion label
+  hiding, so node labels and base edges now stay visible and ride a bounded
+  transform tier during pan/zoom; the remaining "no flashing" work (semantic
+  re-materialization, sprite/edge pooling churn) is Phase 2. See Implementation
+  Status.
 - **Replaces:** `workspace_graph_interaction_refactor_readiness_plan.md`.
 - **Scope:** Rebuild the workspace graph interaction and rendering contract
   around a retained Pixi scene, a camera-only pan/zoom path, useful diagnostic
@@ -25,10 +29,11 @@
 
 CORRECTION (2026-06-21): This plan is NOT complete. An autonomous codex-loop
 implemented only Phases 5, 6, and 7 plus a relaxed Phase 8 gate, then marked the
-plan complete. Phases 0–4 were never started. Every verified-by-diff record
-below is for Phases 5–7 only, and the plan's headline goals (snappy pan/zoom, no
-camera-motion flashing, and the workflow-drag-moves-semantic-node fix) remain
-unmet. Independently verified against `142583242..HEAD`: zero
+plan complete. At that correction point, Phases 0–4 had never been started.
+Every verified-by-diff record below was for Phases 5–7 only, and the plan's
+headline goals (snappy pan/zoom, no camera-motion flashing, and the
+workflow-drag-moves-semantic-node fix) remained unmet. That audit was
+independently verified against `142583242..HEAD`: zero
 camera/wheel/scene-store/dirty-pipeline files were touched, no camera fast-path
 invariant exists in the renderer, the wheel handler still runs two synchronous
 `cameraState()` reads on the non-passive hot path, camera-motion label hiding is
@@ -36,11 +41,20 @@ still present, and `draggedNodesForStart` is unchanged from the known-buggy
 version.
 
 UPDATE (2026-06-21, later): Phases 0 and 1 have since been implemented directly
-(not by the loop). The cross-owner drag bug and the camera-motion label hiding
-flagged above are now fixed. The one item flagged above that is still true: the
-wheel handler still runs two synchronous `cameraState()` reads plus per-event
-timer churn on the non-passive hot path — the Phase 1 input hot-path cleanup is
-not done.
+(not by the loop). The cross-owner drag bug, camera-motion label hiding, and the
+wheel-handler input hot-path issues flagged above are now fixed. The automated
+reference-hard `workspace-graph-phase8` run passed on this Apple M1 Pro with
+retained Phase 3 artifact
+`.recordings/workflow-graph-pan-zoom-phase3/20260621T184642Z`: all hard scenario
+checks passed, simple/normal/dense first-camera-transform p95 stayed under 1ms,
+and recording-on/off first-camera-transform overhead stayed within the Phase 0
+2ms budget. The earlier failed attempt at
+`.recordings/workflow-graph-pan-zoom-phase3/20260621T180154Z` was a
+measurement-scope issue in the long-task gate, which counted raw trace/startup
+long tasks globally instead of camera-overlapping long tasks. The remaining
+Phase 1 sign-off item that automation cannot provide is physical MacBook
+trackpad feel; true presented-frame timing also remains unavailable until a
+compositor presentation trace source is wired.
 
 Implemented (verified):
 
@@ -118,11 +132,10 @@ Phase 0 was implemented on 2026-06-21 (deterministic/code level):
   trajectory sprites transform-only.
 - Baseline + latency-attribution categories + 2ms diagnostic-overhead budget
   recorded in `docs/reports/performance/workspace-graph-phase-0-baseline.md`.
-- Pending (machine-dependent, not measurable in CI/sandbox): the millisecond
-  start-of-gesture p95s and the recording-on vs recording-off 2ms overhead
-  comparison must be captured on the reference MacBook via
-  `run-workflows.mjs --tier workspace-graph-phase8` with
-  `SETTA_WORKFLOW_GRAPH_PHASE0_REFERENCE_RUNNER=1`.
+- Later Phase 1 reference-runner evidence captured the millisecond
+  first-camera-transform p95s and the recording-on vs recording-off 2ms overhead
+  comparison on the reference path. True presented-frame timing remains
+  report-only until a compositor presentation trace source is wired.
 
 Phase 1 was implemented on 2026-06-21 (deterministic/code level):
 
@@ -149,22 +162,27 @@ Phase 1 was implemented on 2026-06-21 (deterministic/code level):
   surface controller, semantic runtime store, layout persistence, and projection
   state); the existing hard gates remain and the new per-frame audit re-confirms
   it.
+- Wheel-handler input hot path cleaned up: `pixi-renderer-wheel-handler.js` no
+  longer reads `cameraState(viewport)` for diagnostics, wheel input samples are
+  scalar and written to a fixed-size sequence-addressed ring buffer, per-event
+  User Timing marks were removed from `pixi-renderer-wheel-responsiveness.js`,
+  and wheel-burst settlement uses a gesture deadline with one active timer
+  rather than clearing/restarting a timer on every event.
 - Deterministic regressions: `pixi-renderer-camera-sync.test.js`,
   `pixi-renderer-labels.test.js`,
+  `pixi-renderer-wheel-handler.test.js`,
+  `pixi-renderer-wheel-responsiveness.test.js`,
   `workflow-graph-phase0-performance-guardrails.test.mjs`. Report:
   `docs/reports/performance/workspace-graph-phase-1-camera-fast-path.md`.
-- Pending (machine-dependent, not measurable in CI/sandbox): the start-of-gesture
-  ms p95s, the recording-on/off 2ms overhead comparison, and the
-  `label-transform-tier` per-frame ms ceiling on normal/dense graphs, captured on
-  the reference MacBook as for Phase 0.
-- OUTSTANDING — Phase 1 is NOT complete: the wheel-handler input hot path was not
-  touched. `pixi-renderer-wheel-handler.js` still reads `cameraState(viewport)`
-  twice per event and clears/sets a settle timer every event, both forbidden by
-  the Instrumentation Hot-Path Contract. The "diagnostics use the hot-path
-  ring-buffer contract" task was applied to the frame/scene path but not to the
-  actual input hot path — the most likely source of the start-of-pinch delay.
-  This cleanup plus the pending reference-Mac measurements must land before
-  Phase 1 is done.
+- Automated reference-runner evidence captured on 2026-06-21:
+  `SETTA_WORKFLOW_GRAPH_PHASE0_REFERENCE_RUNNER=1 node desktop/tests/electron/run-workflows.mjs --tier workspace-graph-phase8 --skip-build --keep-artifacts`
+  passed all 16 manifest workflows. Phase 3 artifact:
+  `.recordings/workflow-graph-pan-zoom-phase3/20260621T184642Z`. In that
+  artifact, simple/normal/dense first-camera-transform p95s are
+  0.4ms/0.5ms/0.8ms, recording-on/off overhead is 0.0ms/-0.1ms/+0.2ms, and
+  normal/dense `label-transform-tier` worst frame costs are 0.1ms/0.2ms.
+  First-Pixi render remains proxy/report-only because no compositor presentation
+  timestamp is wired. Physical MacBook trackpad feel remains human sign-off.
 
 Not implemented (still required):
 
@@ -175,9 +193,9 @@ Not implemented (still required):
 - Phase 8 caveat: the gate was relaxed ("verifies retained liveness instead of
   requiring animation"). Phase 1 added hard camera fast-path checks
   (`no-labels-hidden-during-camera-motion`, `no-camera-fast-path-violations`) to
-  the Phase 0/8 guardrail tier, but the relaxed liveness assertion and the
-  machine-dependent ms gates still mean a green Phase 8 run does not by itself
-  prove the full Non-Negotiable UX Contract.
+  the Phase 0/8 guardrail tier and the automated reference-hard tier now passes,
+  but a green Phase 8 run does not by itself prove the full Non-Negotiable UX
+  Contract because Phases 2–4 and physical trackpad sign-off remain.
 
 Phases 2–4 are the remaining renderer-architecture work that produces the
 user-felt outcomes (no flashing, bounded dirty work, broadened layout
@@ -819,15 +837,15 @@ Acceptance criteria:
 The plan is complete only when (current status annotated):
 
 - the normal graph feels snappy on a MacBook trackpad; — PARTIAL (Phase 1 made
-  pan/zoom transform-only at the code level; ms snappiness pending reference-Mac
-  sign-off)
+  pan/zoom transform-only and automated first-camera timing passed on the
+  reference runner; physical trackpad feel still needs human sign-off)
 - no visible graph content flashes or disappears solely due to camera movement;
   — PARTIAL (Phase 1 stopped hiding labels and guards labels/base edges visible;
   remaining flashing sources — semantic re-materialization, sprite/edge pooling
   churn — are Phase 2)
 - pan/zoom has a verified camera-only fast path; — MET at the deterministic/code
-  level (Phase 1: fast-path invariant, transform tier, hard gates); ms budgets
-  pending reference Mac
+  and automated reference-runner level (Phase 1: fast-path invariant, transform
+  tier, hard gates, first-camera timing, and diagnostic overhead)
 - retained scene dirty work is explicit and bounded; — UNMET (Phase 2 not done)
 - cross-owner drag bugs are impossible by contract; — PARTIAL (Phase 0 landed
   the workflow→semantic mixed-selection fix + deterministic regression; Phase 4
@@ -838,9 +856,9 @@ The plan is complete only when (current status annotated):
 - broad quality gates pass after focused verification. — PARTIAL (Phase 8 gate
   relaxed; it cannot certify the still-UNMET Phase 2 items above).
 
-Status: 4 of 9 met (camera fast path now met at the deterministic/code level via
-Phase 1), 4 partial (snappy pan/zoom, no flashing, cross-owner drag, broad
-gates), 1 unmet (retained dirty work, Phase 2). Phase 1 removed camera-motion
-label hiding and added the fast-path invariant; the remaining core felt goal
-("no flashing" from semantic re-materialization and pooling churn) is Phase 2,
-and ms snappiness needs reference-Mac sign-off.
+Status: 4 of 9 met (camera fast path now met at the deterministic/code and
+automated reference-runner level via Phase 1), 4 partial (snappy pan/zoom, no
+flashing, cross-owner drag, broad gates), 1 unmet (retained dirty work, Phase 2).
+Phase 1 removed camera-motion label hiding and added the fast-path invariant; the
+remaining core felt goal ("no flashing" from semantic re-materialization and
+pooling churn) is Phase 2, and physical trackpad feel needs human sign-off.

@@ -60,8 +60,16 @@ test("parsePanZoomPerformanceArtifacts rebuilds a diagnostic report from raw art
       },
     ]);
     await writeJson(join(artifactRoot, "pan-zoom-performance-observer.json"), {
+      completedInputs: [
+        completedInput({ cameraInput: false, kind: "node-drag", token: 1 }),
+        completedInput({ cameraInput: true, kind: "wheel", token: 2 }),
+      ],
       eventTimings: [{ duration: 18 }],
-      longTasks: [{ duration: 42 }],
+      longTasks: [
+        { duration: 150, name: "trace-startup", startTime: 1 },
+        { duration: 42, name: "camera-work", startTime: 210 },
+        { duration: 110, name: "post-input-work", startTime: 230 },
+      ],
       mutationCountsByOwnerAndSource: {},
       observerErrors: [],
       paneMutations: [],
@@ -92,6 +100,8 @@ test("parsePanZoomPerformanceArtifacts rebuilds a diagnostic report from raw art
     assert.equal(scenario.diagnostics.inputInteractions.cameraCount, 1);
     assert.equal(scenario.diagnostics.frameTiming.p99, 20);
     assert.equal(scenario.diagnostics.deferredWorkByLane["graph-update"], 2);
+    assert.equal(scenario.diagnostics.maxLongTaskMs, 42);
+    assert.equal(scenario.diagnostics.maxObservedLongTaskMs, 150);
     assert.match(markdown, /## Pan\/Zoom Diagnosis/);
     assert.match(markdown, /wheel#2/);
     assert.match(markdown, /DOM mutations by owner\/source: none/);
@@ -221,6 +231,18 @@ function fixtureRunMetadata() {
       refreshRateEstimateHz: 60,
       viewport: { height: 900, width: 1440 },
     },
+  };
+}
+
+function completedInput({ cameraInput, kind, token }) {
+  return {
+    cameraInput,
+    causalSource: cameraInput ? `camera:${kind}` : `interaction:${kind}`,
+    durationMs: 8,
+    endedAt: token === 1 ? 168 : 230,
+    kind,
+    startedAt: token === 1 ? 160 : 200,
+    token,
   };
 }
 

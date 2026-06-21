@@ -25,6 +25,17 @@ test("parseWorkflowGraphRecordingIncidentReport summarizes required graph incide
       },
     ]);
     await writeJson(join(artifactDir, "pan-zoom-performance-observer.json"), {
+      completedInputs: [
+        {
+          cameraInput: true,
+          causalSource: "camera:wheel-burst",
+          durationMs: 24,
+          endedAt: 34,
+          kind: "wheel-burst",
+          startedAt: 10,
+          token: 1,
+        },
+      ],
       longTasks: [{ duration: 44, name: "self", startTime: 18 }],
       paneMutations: [{ causalSource: "camera:wheel-burst" }],
       reactCommits: [],

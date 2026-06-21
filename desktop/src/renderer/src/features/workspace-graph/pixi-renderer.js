@@ -542,7 +542,6 @@ export async function createWorkflowGraphRenderer(options) {
     recordWheelZoom: () => {
       wheelZoomUpdateCount += 1;
     },
-    viewport,
     zoomCameraAtScreen: cameraFrameControls.zoomCameraAtScreen,
   });
   const contextMenu = createDynamicCanvasContextMenuHandler({

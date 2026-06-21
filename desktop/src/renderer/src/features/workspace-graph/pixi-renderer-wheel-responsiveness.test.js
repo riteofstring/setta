@@ -10,14 +10,14 @@ describe("workflow graph wheel responsiveness tracker", () => {
     });
 
     const first = tracker.recordWheelEvent(wheelEvent({ deltaY: -8, timeStamp: 97 }), {
-      cameraBefore: camera(1),
-      canvasPoint: { x: 20, y: 30 },
-      delta: { x: 0, y: -8 },
+      canvasX: 20,
+      canvasY: 30,
+      deltaX: 0,
+      deltaY: -8,
       treatment: "zoom",
     });
     time = 101;
     tracker.recordWheelCameraResult({
-      cameraAfter: camera(1.1),
       cameraChanged: true,
       sequence: first.sequence,
     });
@@ -26,9 +26,10 @@ describe("workflow graph wheel responsiveness tracker", () => {
 
     time = 124;
     tracker.recordWheelEvent(wheelEvent({ deltaY: -2, timeStamp: 123 }), {
-      cameraBefore: camera(1.1),
-      canvasPoint: { x: 20, y: 30 },
-      delta: { x: 0, y: -2 },
+      canvasX: 20,
+      canvasY: 30,
+      deltaX: 0,
+      deltaY: -2,
       treatment: "zoom",
     });
     time = 172;
@@ -48,6 +49,8 @@ describe("workflow graph wheel responsiveness tracker", () => {
       tailCandidateEventCount: 1,
     });
     expect(snapshot.wheelInput.samples[0]).toMatchObject({
+      canvasX: 20,
+      canvasY: 30,
       cameraChanged: true,
       ctrlKey: true,
       deltaMode: 0,
@@ -55,7 +58,48 @@ describe("workflow graph wheel responsiveness tracker", () => {
       eventToCameraUpdateMs: 1,
       eventToFirstPixiRenderAfterCameraMs: 16,
       metaKey: false,
+      normalizedDeltaX: 0,
+      normalizedDeltaY: -8,
       treatment: "zoom",
+    });
+    expect(snapshot.wheelInput.samples[0]).not.toHaveProperty("cameraBefore");
+    expect(snapshot.wheelInput.samples[0]).not.toHaveProperty("cameraAfter");
+    expect(snapshot.wheelInput.samples[0]).not.toHaveProperty("canvasPoint");
+  });
+
+  test("keeps wheel input samples in a fixed-size sequence-addressed ring", () => {
+    let time = 100;
+    const tracker = createWorkflowGraphWheelResponsivenessTracker({
+      now: () => time,
+    });
+
+    for (let index = 1; index <= 170; index += 1) {
+      time += 1;
+      const wheelInput = tracker.recordWheelEvent(
+        wheelEvent({ deltaY: -index, timeStamp: time - 1 }),
+        {
+          canvasX: index,
+          canvasY: index + 1,
+          deltaX: 0,
+          deltaY: -index,
+          treatment: "zoom",
+        },
+      );
+      tracker.recordWheelCameraResult({
+        cameraChanged: true,
+        sequence: wheelInput.sequence,
+        updateAt: time + 0.5,
+      });
+    }
+
+    const snapshot = tracker.debugSnapshot();
+    expect(snapshot.wheelInput.samples).toHaveLength(160);
+    expect(snapshot.wheelInput.samples[0].sequence).toBe(11);
+    expect(snapshot.wheelInput.samples.at(-1).sequence).toBe(170);
+    expect(snapshot.wheelInput.samples.at(-1)).toMatchObject({
+      canvasX: 170,
+      eventToCameraUpdateMs: 0.5,
+      normalizedDeltaY: -170,
     });
   });
 });
@@ -71,8 +115,4 @@ function wheelEvent({ deltaY, timeStamp }) {
     shiftKey: false,
     timeStamp,
   };
-}
-
-function camera(zoom) {
-  return { x: 0, y: 0, zoom };
 }

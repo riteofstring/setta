@@ -85,6 +85,8 @@ fi
 if [[ "${run_focused}" -eq 1 ]]; then
   pnpm -C "${repo_root}/desktop" exec vitest run \
     src/renderer/src/features/workspace-graph/pixi-renderer-input-handlers.test.js \
+    src/renderer/src/features/workspace-graph/pixi-renderer-wheel-handler.test.js \
+    src/renderer/src/features/workspace-graph/pixi-renderer-wheel-responsiveness.test.js \
     src/renderer/src/features/workspace-graph/pixi-renderer-camera-sync.test.js \
     src/renderer/src/features/workspace-graph/pixi-renderer-camera-scene-sync.test.js \
     src/renderer/src/features/workspace-graph/pixi-renderer-scene-graph.test.js \
