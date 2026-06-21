@@ -1,7 +1,7 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { syncNodeLabelVisibility } from "./pixi-renderer-label-visibility";
-import { nodeLabelScreenPosition } from "./pixi-renderer-labels";
+import { createWorkflowGraphLabelManager, nodeLabelScreenPosition } from "./pixi-renderer-labels";
 import { workspaceNeonTheme } from "./workspace-neon-theme";
 
 describe("workspace graph node labels", () => {
@@ -73,6 +73,67 @@ describe("workspace graph node labels", () => {
     expect(visibilityReasons.get("semantic:selected-dismissed")).toBe("selected");
   });
 });
+
+describe("workspace graph label transform tier", () => {
+  // Phase 1 camera fast path: while the camera moves, only the retained visible
+  // labels are repositioned (a bounded transform), with no visibility-window
+  // query, declutter, or font/content recomputation.
+  test("repositions only visible labels and skips the visibility window", () => {
+    const { manager, nodeLabels, nodes, spatialQueries } = labelManagerHarness();
+    nodes.set("a", nodeStub({ height: 80, id: "a", layer: "workflow", width: 100, x: 10, y: 20 }));
+    nodes.set("b", nodeStub({ height: 80, id: "b", layer: "workflow", width: 100, x: 30, y: 40 }));
+    const visibleLabel = labelObjectStub({ visible: true });
+    const hiddenLabel = labelObjectStub({ visible: false });
+    nodeLabels.set("a", visibleLabel);
+    nodeLabels.set("b", hiddenLabel);
+
+    const transformedCount = manager.syncVisibleLabelTransforms();
+
+    expect(transformedCount).toBe(1);
+    expect(visibleLabel.position.set).toHaveBeenCalledTimes(1);
+    expect(hiddenLabel.position.set).not.toHaveBeenCalled();
+    // The expensive settle-time visibility recompute must not run on the transform tier.
+    expect(spatialQueries.nodesInPaddedViewport).not.toHaveBeenCalled();
+    expect(manager.syncCount()).toBe(0);
+    expect(manager.debugSnapshot()).toMatchObject({
+      labelTransformSyncCount: 1,
+      lastLabelTransformCount: 1,
+    });
+  });
+});
+
+function labelManagerHarness() {
+  const nodes = new Map();
+  const nodeLabels = new Map();
+  const spatialQueries = {
+    debugSnapshot: () => ({}),
+    nodesInPaddedViewport: vi.fn(() => []),
+  };
+  const manager = createWorkflowGraphLabelManager({
+    debugMetrics: { measure: (_bucket, callback) => callback() },
+    getNode: (nodeId) => nodes.get(nodeId) ?? null,
+    labelLayer: { addChild: vi.fn(), visible: true },
+    loadedNodeLabelFont: { fontFamily: "Test Font" },
+    nodeLabels,
+    nodeLabelFontSizeModes: new Map(),
+    nodeLabelVisibilityReasons: new Map(),
+    sceneVisitCounters: null,
+    selectedNodeIds: new Set(),
+    spatialQueries,
+    viewport: { scaled: 1, toScreen: (x, y) => ({ x: x * 2 + 10, y: y * 2 + 20 }) },
+  });
+  return { manager, nodeLabels, nodes, spatialQueries };
+}
+
+function labelObjectStub({ height = 18, visible }) {
+  return {
+    height,
+    position: { set: vi.fn() },
+    scale: { set: vi.fn() },
+    style: { fontSize: 20 },
+    visible,
+  };
+}
 
 function nodeStub({
   dismissed = false,

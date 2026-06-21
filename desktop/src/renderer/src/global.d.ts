@@ -124,14 +124,26 @@ interface WorkflowGraphDebugSnapshot {
     cameraDependentSyncFrameCount: number;
     cameraDependentSyncRequiresMovingFrame: boolean;
     cameraDependentSyncScheduled: boolean;
+    cameraFastPathViolationCount: number;
+    cameraFastPathViolations: string[];
     cameraMoving: boolean;
     cameraMovingLabelHiddenFrameCount: number;
+    cameraMovingLabelTransformCount: number;
+    cameraMovingLabelTransformFrameCount: number;
     cameraMovingSyncFrameCount: number;
     cameraSettleDelayMs: number;
     cameraSettleLabelSyncCount: number;
     cameraSettleRestoreFrameCount: number;
     cameraSettledSyncFrameCount: number;
     cameraUpdateCount: number;
+    cameraWorkAuditSamples: Array<{
+      cameraMotion: string;
+      edgesHidden: boolean;
+      labelsHidden: boolean;
+      labelTransformCount: number;
+      sceneRebuilt: boolean;
+      zoomChanged: boolean;
+    }>;
     cellAnimCandidateCount: number;
     cellAnimCap: number;
     cellAnimCapped: boolean;

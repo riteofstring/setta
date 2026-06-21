@@ -348,6 +348,7 @@ export async function createWorkflowGraphRenderer(options) {
   const cameraSync = createWorkflowGraphCameraSync({
     animationCoordinator,
     debugMetrics,
+    edgeLayer,
     handlers,
     inputResponsiveness,
     interactionScheduler,

@@ -28,6 +28,8 @@ export function createWorkflowGraphLabelManager({
   viewport,
 }) {
   let labelSyncCount = 0;
+  let labelTransformSyncCount = 0;
+  let lastLabelTransformCount = 0;
   let lastLabelVisibilityEnteredCount = 0;
   let lastLabelVisibilityExitedCount = 0;
   let labelVisibilityWindowChangeCount = 0;
@@ -53,7 +55,7 @@ export function createWorkflowGraphLabelManager({
     syncLabelPosition,
     syncLabelVisibility,
     syncVisibleLabels,
-    visibleLabelSyncNodeCount,
+    syncVisibleLabelTransforms,
   };
 
   function acquireLabel(nodeId, labelNode = null) {
@@ -194,6 +196,30 @@ export function createWorkflowGraphLabelManager({
     labelSyncCount += 1;
   }
 
+  // Camera fast-path transform tier: keep already-visible labels pinned to their
+  // nodes while the camera pans/zooms. Labels live in screen space, so the camera
+  // transform does not carry them automatically; this applies a direct numeric
+  // reposition bounded to the retained visible labels. It must stay free of the
+  // visibility window query, declutter, font-size, or content recomputation that
+  // the settle-time `syncVisibleLabels` performs — only positions move here.
+  function syncVisibleLabelTransforms() {
+    return debugMetrics.measure("label-transform-tier", () => {
+      let transformedCount = 0;
+      for (const [nodeId, label] of nodeLabels) {
+        if (!label.visible) {
+          continue;
+        }
+        const node = requireNode(nodeId);
+        const screen = nodeLabelScreenPosition({ label, node, viewport });
+        label.position.set(Math.round(screen.x), Math.round(screen.y));
+        transformedCount += 1;
+      }
+      lastLabelTransformCount = transformedCount;
+      labelTransformSyncCount += 1;
+      return transformedCount;
+    });
+  }
+
   function syncLabelVisibility() {
     return syncVisibleLabels();
   }
@@ -232,14 +258,12 @@ export function createWorkflowGraphLabelManager({
       labelVisibilityWindowInitialized: windowSnapshot.visibleNodeWindowInitialized,
       labelVisibilityWindowSize: windowSnapshot.visibleNodeWindowSize,
       labelVisibilityWindowChangeCount,
+      labelTransformSyncCount,
+      lastLabelTransformCount,
       lastLabelVisibilityEnteredCount,
       lastLabelVisibilityExitedCount,
       pooledLabelCount: pooledLabels.size,
     };
-  }
-
-  function visibleLabelSyncNodeCount() {
-    return nodeLabels.size;
   }
 
   function syncPooledLabel({ label, node }) {

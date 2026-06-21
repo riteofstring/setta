@@ -22,8 +22,8 @@ test("parsePanZoomPerformanceArtifacts rebuilds a diagnostic report from raw art
     });
     const after = fixtureSnapshot({
       cameraDependentSyncFrameCount: 2,
-      cameraMovingLabelDeferredFrameCount: 3,
-      cameraMovingLabelHiddenFrameCount: 2,
+      cameraMovingLabelTransformCount: 3,
+      cameraMovingLabelTransformFrameCount: 2,
       cameraSettleRestoreFrameCount: 1,
       deferredGraphApplyCount: 1,
       deferredGraphUpdateCount: 2,
@@ -105,9 +105,12 @@ function fixtureSnapshot(renderOverrides) {
   const render = {
     averageFrameMs: 12,
     cameraDependentSyncFrameCount: 0,
+    cameraFastPathViolationCount: 0,
     cameraMovingLabelDeferredFrameCount: 0,
     cameraMovingLabelHiddenFrameCount: 0,
     cameraMovingLabelSyncedFrameCount: 0,
+    cameraMovingLabelTransformCount: 0,
+    cameraMovingLabelTransformFrameCount: 0,
     cameraMovingSyncFrameCount: 0,
     cameraSettleRestoreFrameCount: 0,
     cameraSettledSyncFrameCount: 0,

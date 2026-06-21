@@ -54,9 +54,12 @@ function assertFiniteRenderCounters(snapshot, { expectedTrajectorySpriteCount = 
     "p95FrameMs",
     "worstFrameMs",
     "cameraDependentSyncFrameCount",
+    "cameraFastPathViolationCount",
     "cameraMovingLabelHiddenFrameCount",
     "cameraMovingLabelDeferredFrameCount",
     "cameraMovingLabelSyncedFrameCount",
+    "cameraMovingLabelTransformCount",
+    "cameraMovingLabelTransformFrameCount",
     "cameraMovingSyncFrameCount",
     "cameraPanSettleDelayMs",
     "cameraSettleDelayMs",
@@ -161,16 +164,32 @@ function assertCameraSyncCounters(snapshot) {
       `camera sync counters did not show coalesced movement: ${JSON.stringify(snapshot.render)}`,
     );
   }
-  // Phase 0 camera fast-path contract (evidence reset): labels must not be
-  // re-synced per moving frame — they ride the viewport transform. The previous
-  // requirement that labels be HIDDEN during motion
-  // (`cameraMovingLabelHiddenFrameCount > 0`) was a hack mandate and has been
-  // removed. Whether camera motion wrongly hides labels is now asserted as the
-  // camera fast-path contract in the performance gate
-  // (`no-labels-hidden-during-camera-motion`).
+  // Camera fast-path contract (Phase 1): labels are never hidden and never fully
+  // re-synced per moving frame — they ride the camera transform tier instead.
+  // Every moving sync frame runs exactly one bounded label transform pass, so the
+  // transform-frame count matches the moving sync-frame count, and the renderer's
+  // own fast-path audit must report zero violations.
   if (snapshot.render.cameraMovingLabelSyncedFrameCount !== 0) {
     throw new Error(
       `camera motion re-synced labels per moving frame (fast-path violation): ${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  if (snapshot.render.cameraMovingLabelHiddenFrameCount !== 0) {
+    throw new Error(
+      `camera motion hid labels instead of riding the transform tier (fast-path violation): ${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  if (
+    snapshot.render.cameraMovingLabelTransformFrameCount !==
+    snapshot.render.cameraMovingSyncFrameCount
+  ) {
+    throw new Error(
+      `labels did not ride the camera transform tier on every moving frame: ${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  if (snapshot.render.cameraFastPathViolationCount !== 0) {
+    throw new Error(
+      `renderer recorded camera fast-path violations: ${JSON.stringify(snapshot.render.cameraFastPathViolations)}`,
     );
   }
   assertInteractionSchedulerCounters(snapshot);
@@ -269,8 +288,11 @@ export function summarizeSnapshot(snapshot) {
       activeEdgeFlowCount: snapshot.render.activeEdgeFlowCount,
       averageFrameMs: snapshot.render.averageFrameMs,
       cameraDependentSyncFrameCount: snapshot.render.cameraDependentSyncFrameCount,
+      cameraFastPathViolationCount: snapshot.render.cameraFastPathViolationCount,
       cameraMovingLabelHiddenFrameCount: snapshot.render.cameraMovingLabelHiddenFrameCount,
       cameraMovingLabelSyncedFrameCount: snapshot.render.cameraMovingLabelSyncedFrameCount,
+      cameraMovingLabelTransformCount: snapshot.render.cameraMovingLabelTransformCount,
+      cameraMovingLabelTransformFrameCount: snapshot.render.cameraMovingLabelTransformFrameCount,
       cameraMovingSyncFrameCount: snapshot.render.cameraMovingSyncFrameCount,
       cameraPanSettleDelayMs: snapshot.render.cameraPanSettleDelayMs,
       cameraSettleLabelSyncCount: snapshot.render.cameraSettleLabelSyncCount,

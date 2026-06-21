@@ -7,46 +7,68 @@ import {
   phase0PerformanceScenarioGate,
 } from "./workflow-graph-phase0-performance-guardrails.mjs";
 
-// Phase 0 evidence reset: the camera fast-path contract "labels must not be
-// hidden during camera motion" is enforced as an expected-fail check that flips
-// to a gate-blocking failure once the renderer stops hiding labels. These tests
-// exercise the pure gate logic directly, without launching Electron.
+// Phase 1 camera fast-path contract: node labels must NOT be hidden because the
+// camera is moving — they ride the camera transform tier instead. Phase 0
+// recorded this as an expected-fail gate entry; Phase 1 removed the label hiding
+// in the renderer, so it is now a hard gate check. The renderer additionally
+// self-audits each moving frame and surfaces `cameraFastPathViolationCount`,
+// which the gate enforces as zero. These tests exercise the pure gate logic
+// directly, without launching Electron.
 
 const LABEL_VISIBILITY_CHECK_ID = "no-labels-hidden-during-camera-motion";
+const FAST_PATH_VIOLATION_CHECK_ID = "no-camera-fast-path-violations";
 
-test("records label hiding during camera motion as an expected (non-blocking) failure", () => {
+test("passes the label contract when labels ride the camera transform tier", () => {
+  const gate = phase0PerformanceScenarioGate(
+    gateInputs({ cameraMovingLabelHiddenFrameCount: 0, cameraMovingLabelTransformFrameCount: 4 }),
+  );
+  const check = checkById(gate, LABEL_VISIBILITY_CHECK_ID);
+
+  assert.equal(check.severity, "hard");
+  assert.equal(check.status, "pass");
+  assert.equal(check.actual, 0);
+  assert.equal(phase0CheckBlocksGate(check), false);
+  assert.doesNotThrow(() =>
+    assertPhase0PerformanceGuardrails(
+      assertInputs({
+        cameraMovingLabelHiddenFrameCount: 0,
+        cameraMovingLabelTransformFrameCount: 4,
+      }),
+    ),
+  );
+});
+
+test("fails the gate as a hard violation when labels are hidden during camera motion", () => {
   const gate = phase0PerformanceScenarioGate(gateInputs({ cameraMovingLabelHiddenFrameCount: 5 }));
   const check = checkById(gate, LABEL_VISIBILITY_CHECK_ID);
 
-  assert.equal(check.severity, "expected-fail");
-  assert.equal(check.status, "expected-fail");
+  assert.equal(check.severity, "hard");
+  assert.equal(check.status, "fail");
   assert.equal(check.actual, 5);
-  assert.equal(phase0CheckBlocksGate(check), false);
-  // The whole gate must still pass while the contract is unmet (expected-red).
-  assert.doesNotThrow(() =>
-    assertPhase0PerformanceGuardrails(assertInputs({ cameraMovingLabelHiddenFrameCount: 5 })),
-  );
-});
-
-test("flips to a gate-blocking failure when labels are no longer hidden during motion", () => {
-  const gate = phase0PerformanceScenarioGate(gateInputs({ cameraMovingLabelHiddenFrameCount: 0 }));
-  const check = checkById(gate, LABEL_VISIBILITY_CHECK_ID);
-
-  assert.equal(check.severity, "expected-fail");
-  assert.equal(check.status, "unexpected-pass");
   assert.equal(phase0CheckBlocksGate(check), true);
-  assert.match(check.summary, /promote .* from expected-fail to a hard check/i);
-  // Once the contract holds, the gate must demand promotion to a hard check.
+  // Hiding labels during pan/zoom is now a hard gate failure, not an expected red.
   assert.throws(
-    () => assertPhase0PerformanceGuardrails(assertInputs({ cameraMovingLabelHiddenFrameCount: 0 })),
-    /no-labels-hidden-during-camera-motion \[expected-fail\/unexpected-pass\]/,
+    () => assertPhase0PerformanceGuardrails(assertInputs({ cameraMovingLabelHiddenFrameCount: 5 })),
+    /no-labels-hidden-during-camera-motion \[hard\/fail\]/,
   );
 });
 
-test("label hiding does not mask the structural hard gates", () => {
-  // With label hiding present, every hard structural/scaling check still passes,
-  // so the only non-pass signal is the expected-fail contract check.
-  const gate = phase0PerformanceScenarioGate(gateInputs({ cameraMovingLabelHiddenFrameCount: 3 }));
+test("fails the gate when the renderer records a camera fast-path violation", () => {
+  const gate = phase0PerformanceScenarioGate(gateInputs({ cameraFastPathViolationCount: 2 }));
+  const check = checkById(gate, FAST_PATH_VIOLATION_CHECK_ID);
+
+  assert.equal(check.severity, "hard");
+  assert.equal(check.status, "fail");
+  assert.equal(check.actual, 2);
+  assert.equal(phase0CheckBlocksGate(check), true);
+  assert.throws(
+    () => assertPhase0PerformanceGuardrails(assertInputs({ cameraFastPathViolationCount: 2 })),
+    /no-camera-fast-path-violations \[hard\/fail\]/,
+  );
+});
+
+test("passes the structural and fast-path checks cleanly on a healthy interaction", () => {
+  const gate = phase0PerformanceScenarioGate(gateInputs({}));
   const blocking = gate.checks.filter(phase0CheckBlocksGate);
   assert.deepEqual(blocking, []);
   const hardFailures = gate.checks.filter(
@@ -75,12 +97,19 @@ function checkById(gate, id) {
   return check;
 }
 
-function gateInputs({ cameraMovingLabelHiddenFrameCount }) {
+function gateInputs({
+  cameraFastPathViolationCount = 0,
+  cameraMovingLabelHiddenFrameCount = 0,
+  cameraMovingLabelTransformFrameCount = cameraMovingLabelHiddenFrameCount === 0 ? 4 : 0,
+} = {}) {
   const renderDeltas = {
     cameraDependentSyncFrameCount: 4,
+    cameraFastPathViolationCount,
     cameraMovingLabelDeferredFrameCount: cameraMovingLabelHiddenFrameCount * 3,
     cameraMovingLabelHiddenFrameCount,
     cameraMovingLabelSyncedFrameCount: 0,
+    cameraMovingLabelTransformCount: cameraMovingLabelTransformFrameCount * 3,
+    cameraMovingLabelTransformFrameCount,
     labelSyncCount: 0,
     nodeDragUpdateCount: 2,
   };
@@ -105,6 +134,8 @@ function gateInputs({ cameraMovingLabelHiddenFrameCount }) {
     final: {
       graph: { nodeCount: 3 },
       render: {
+        cameraFastPathViolationCount,
+        cameraFastPathViolations: [],
         lastVisibleMaterializedNodeCount: 3,
         materializedLabelCount: 3,
         materializedNodeCount: 3,

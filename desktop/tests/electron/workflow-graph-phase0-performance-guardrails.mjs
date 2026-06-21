@@ -208,6 +208,7 @@ function phase8PerformanceChecks(context) {
     phase0CameraWorkingSetReadCheck(context),
     phase0PresentedFrameBudgetBlockedCheck(context),
     phase0CameraMotionLabelVisibilityCheck(context),
+    phase0CameraFastPathViolationCheck(context),
     phase8LabelSyncCheck(context),
     phase8StaticGlowCheck(context),
     phase8MaterializedNodeCountCheck(context),
@@ -373,26 +374,43 @@ function phase0PresentedFrameBudgetBlockedCheck() {
   });
 }
 
-// Phase 0 camera fast-path contract (evidence reset): node labels must NOT be
-// hidden because the camera is moving. The renderer currently hides them
-// (`labelLayer.visible = false` per moving frame), so this check fails today and
-// is recorded as `expected-fail`. When Phase 1 removes camera-motion label
-// hiding, `cameraMovingLabelHiddenFrameCount` will stop advancing during the
-// gesture, this check will report `unexpected-pass`, and the gate will block
-// until it is promoted to a hard check.
+// Camera fast-path contract (Phase 1, now enforced as a hard gate): node labels
+// must NOT be hidden because the camera is moving — they ride the camera
+// transform tier (`cameraMovingLabelTransformFrameCount`) instead. Phase 0
+// recorded this as an `expected-fail` while the renderer still hid labels
+// (`labelLayer.visible = false` per moving frame). Phase 1 removed that hiding,
+// so the contract holds and this is promoted to a hard check: any moving frame
+// that hides labels (`cameraMovingLabelHiddenFrameCount` advancing) fails the
+// gate.
 //
 // This is the contract `no-full-graph-label-sync-per-pan-wheel-event` cannot
 // express: avoiding a per-frame label *sync* is satisfied by hiding labels
 // entirely, which is exactly the hack this check forbids.
 function phase0CameraMotionLabelVisibilityCheck({ renderDeltas }) {
   const hiddenFrameDelta = Number(renderDeltas.cameraMovingLabelHiddenFrameCount ?? 0);
-  const deferredLabelDelta = Number(renderDeltas.cameraMovingLabelDeferredFrameCount ?? 0);
-  return expectedFailCheck({
+  const transformFrameDelta = Number(renderDeltas.cameraMovingLabelTransformFrameCount ?? 0);
+  return hardCheck({
     actual: hiddenFrameDelta,
     budget: 0,
-    contractSatisfied: hiddenFrameDelta === 0,
     id: "no-labels-hidden-during-camera-motion",
-    summary: `cameraMovingLabelHiddenFrameDelta=${hiddenFrameDelta}, cameraMovingLabelDeferredFrameDelta=${deferredLabelDelta}; labels must ride the camera transform, not be hidden during pan/zoom (Phase 1 contract)`,
+    pass: hiddenFrameDelta === 0,
+    summary: `cameraMovingLabelHiddenFrameDelta=${hiddenFrameDelta}, cameraMovingLabelTransformFrameDelta=${transformFrameDelta}; labels ride the camera transform tier, never hidden during pan/zoom (Phase 1 contract enforced)`,
+  });
+}
+
+// Camera fast-path invariant (Phase 1): the renderer self-audits every moving
+// frame and increments `cameraFastPathViolationCount` if camera motion ever
+// hides labels/base edges or rebuilds graph content. The contract requires this
+// to stay at zero for the renderer's lifetime.
+function phase0CameraFastPathViolationCheck({ final, renderDeltas }) {
+  const violationDelta = Number(renderDeltas.cameraFastPathViolationCount ?? 0);
+  const totalViolations = Number(final.render.cameraFastPathViolationCount ?? 0);
+  return hardCheck({
+    actual: totalViolations,
+    budget: 0,
+    id: "no-camera-fast-path-violations",
+    pass: violationDelta === 0 && totalViolations === 0,
+    summary: `cameraFastPathViolationCount=${totalViolations}, interactionDelta=${violationDelta}, violations=${JSON.stringify(final.render.cameraFastPathViolations ?? [])}`,
   });
 }
 
@@ -509,30 +527,21 @@ function reportOnlyCheck({ actual, budget, id, pass, summary }) {
   };
 }
 
-// An expected-fail check encodes a UX contract that the current renderer does
-// not yet satisfy (recorded as an expected-red test, per Phase 0). While the
-// contract is unmet it reports `expected-fail` and does not block the gate. The
-// moment the renderer satisfies it (`contractSatisfied === true`) it reports
-// `unexpected-pass`, which blocks the gate via `phase0CheckBlocksGate` so the
-// check gets promoted to a hard guard.
-function expectedFailCheck({ actual, budget = null, contractSatisfied, id, summary }) {
-  return {
-    actual,
-    budget,
-    id,
-    severity: "expected-fail",
-    status: contractSatisfied ? "unexpected-pass" : "expected-fail",
-    summary: contractSatisfied
-      ? `CONTRACT NOW SATISFIED — promote ${id} from expected-fail to a hard check. ${summary}`
-      : summary,
-  };
-}
+// The `phase0CheckBlocksGate` severity handling still recognizes `expected-fail`
+// checks (an unmet UX contract recorded as an expected-red gate entry that flips
+// to a gate-blocking `unexpected-pass` once satisfied). Phase 1 promoted the last
+// such check (`no-labels-hidden-during-camera-motion`) to a hard guard, so no
+// `expected-fail` checks remain; a later phase re-adds the helper when it records
+// a new not-yet-satisfied contract.
 
 function renderCounterDeltas(initialRender, finalRender) {
   const counters = [
     "cameraDependentSyncFrameCount",
+    "cameraFastPathViolationCount",
     "cameraMovingLabelDeferredFrameCount",
     "cameraMovingLabelHiddenFrameCount",
+    "cameraMovingLabelTransformCount",
+    "cameraMovingLabelTransformFrameCount",
     "cameraMovingSyncFrameCount",
     "cameraMovingLabelSyncedFrameCount",
     "cameraSettleLabelSyncCount",

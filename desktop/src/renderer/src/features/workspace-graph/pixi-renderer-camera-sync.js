@@ -4,10 +4,13 @@ import { cameraState, cameraStatesDiffer } from "./pixi-renderer-helpers";
 
 const cameraPanSettleDelayMs = 64;
 const cameraZoomSettleDelayMs = 48;
+const maxCameraWorkAuditSamples = 64;
+const maxRecordedCameraFastPathViolations = 16;
 
 export function createWorkflowGraphCameraSync({
   animationCoordinator,
   debugMetrics,
+  edgeLayer = { visible: true },
   handlers,
   inputResponsiveness,
   interactionScheduler = { runLane: (_laneId, callback) => callback() },
@@ -34,8 +37,13 @@ export function createWorkflowGraphCameraSync({
   let lastCameraMovementAt = 0;
   let lastCameraMovementKind = "none";
   let cameraMovingLabelSyncedFrameCount = 0;
+  let cameraMovingLabelTransformFrameCount = 0;
+  let cameraMovingLabelTransformCount = 0;
+  let cameraFastPathViolationCount = 0;
   let pendingCameraSyncIncludesZoom = false;
   let pendingSettledFidelityIncludesZoom = false;
+  const cameraWorkAuditSamples = [];
+  const recordedCameraFastPathViolations = [];
 
   return {
     beginCameraInteraction,
@@ -54,10 +62,14 @@ export function createWorkflowGraphCameraSync({
       cameraDependentSyncFrameCount,
       cameraDependentSyncRequiresMovingFrame,
       cameraDependentSyncScheduled,
+      cameraFastPathViolationCount,
+      cameraFastPathViolations: [...recordedCameraFastPathViolations],
       cameraMoving,
       cameraMovingLabelDeferredFrameCount,
       cameraMovingLabelHiddenFrameCount,
       cameraMovingLabelSyncedFrameCount,
+      cameraMovingLabelTransformCount,
+      cameraMovingLabelTransformFrameCount,
       cameraMovingSyncFrameCount,
       cameraPanSettleDelayMs,
       cameraSettleDelayMs: currentCameraSettleDelayMs(),
@@ -65,6 +77,7 @@ export function createWorkflowGraphCameraSync({
       cameraSettleRestoreFrameCount,
       cameraSettledSyncFrameCount,
       cameraUpdateCount,
+      cameraWorkAuditSamples: cameraWorkAuditSamples.map((entry) => ({ ...entry })),
       cameraZoomSettleDelayMs,
       lastCameraMovementKind,
       pendingCameraSyncIncludesZoom,
@@ -190,18 +203,21 @@ export function createWorkflowGraphCameraSync({
     const syncIncludesZoom = force || pendingCameraSyncIncludesZoom;
     cameraDependentSyncScheduled = false;
     cameraDependentSyncRequiresMovingFrame = false;
+    let sceneRebuilt = false;
+    let transformTierLabelCount = 0;
     debugMetrics.measure(
       "commit-camera-change",
       () => {
         interactionScheduler.runLane("visible-position-sync", () => {
-          syncVisibleScene?.({
-            cameraMotion,
-            force,
-            zoomChanged: syncIncludesZoom,
-          });
+          sceneRebuilt =
+            syncVisibleScene?.({
+              cameraMotion,
+              force,
+              zoomChanged: syncIncludesZoom,
+            }) === true;
         });
         if (cameraMotion === "moving") {
-          syncMovingCameraFidelity(syncIncludesZoom);
+          transformTierLabelCount = syncMovingCameraFidelity(syncIncludesZoom);
         } else {
           syncSettledCameraFidelity(syncIncludesZoom);
         }
@@ -211,6 +227,12 @@ export function createWorkflowGraphCameraSync({
     );
     cameraDependentSyncFrameCount += 1;
     syncCameraMotionCounter(cameraMotion);
+    recordCameraSyncAudit({
+      cameraMotion,
+      sceneRebuilt,
+      syncIncludesZoom,
+      transformTierLabelCount,
+    });
   }
 
   function syncCameraMotionCounter(cameraMotion) {
@@ -224,6 +246,7 @@ export function createWorkflowGraphCameraSync({
 
   function runCameraSettleFidelityRestore(now) {
     cameraMoving = false;
+    const zoomChanged = pendingSettledFidelityIncludesZoom;
     interactionScheduler.runLane(
       "settled-fidelity-restore",
       () => {
@@ -235,7 +258,7 @@ export function createWorkflowGraphCameraSync({
               force: false,
               zoomChanged: pendingSettledFidelityIncludesZoom,
             });
-            syncLabelsForCameraMotion("settled");
+            syncSettledLabels();
             animationCoordinator.syncActiveSet({ cameraMotion: "settled" });
             syncFilterAreas({ force: pendingSettledFidelityIncludesZoom });
             pendingSettledFidelityIncludesZoom = false;
@@ -251,18 +274,55 @@ export function createWorkflowGraphCameraSync({
       interactionKind: lastCameraMovementKind,
     });
     cameraSettleRestoreFrameCount += 1;
+    recordCameraWorkAudit({
+      cameraMotion: "settle-restore",
+      edgesHidden: edgeLayer.visible !== true,
+      labelsHidden: labelLayer.visible !== true,
+      labelTransformCount: 0,
+      sceneRebuilt: false,
+      zoomChanged,
+    });
   }
 
   function syncMovingCameraFidelity(syncIncludesZoom) {
-    syncLabelsForCameraMotion("moving");
+    const transformedLabelCount = runCameraTransformTier();
     pendingSettledFidelityIncludesZoom = pendingSettledFidelityIncludesZoom || syncIncludesZoom;
+    return transformedLabelCount;
+  }
+
+  // Zoom/pan transform tier: the only graph-content work permitted while the
+  // camera is moving. Retained labels (and base edges) ride the camera as a
+  // bounded, measured numeric transform; nothing is hidden, no visibility,
+  // declutter, content, edge-path, or scene work runs. Measured separately from
+  // dirty geometry via the label manager's `label-transform-tier` bucket.
+  function runCameraTransformTier() {
+    ensureCameraCarriedLayersVisible();
+    const transformedLabelCount = labels.syncVisibleLabelTransforms();
+    cameraMovingLabelTransformFrameCount += 1;
+    cameraMovingLabelTransformCount += transformedLabelCount;
+    return transformedLabelCount;
+  }
+
+  // Camera fast-path invariant: camera motion must never hide node labels or base
+  // edges. Nothing in the moving path hides them today; this guard keeps the
+  // contract even if a future change does, and records the offense so tests and
+  // the performance gate catch it instead of users seeing a flash.
+  function ensureCameraCarriedLayersVisible() {
+    if (labelLayer.visible !== true) {
+      recordFastPathViolation("labels-hidden-during-camera-motion");
+      labelLayer.visible = true;
+    }
+    if (edgeLayer.visible !== true) {
+      recordFastPathViolation("base-edges-hidden-during-camera-motion");
+      edgeLayer.visible = true;
+    }
   }
 
   function syncSettledCameraFidelity(syncIncludesZoom) {
     interactionScheduler.runLane(
       "settled-fidelity-restore",
       () => {
-        syncLabelsForCameraMotion("settled");
+        syncSettledLabels();
         animationCoordinator.syncActiveSet({ cameraMotion: "settled" });
         syncFilterAreas({ force: syncIncludesZoom || pendingSettledFidelityIncludesZoom });
         pendingSettledFidelityIncludesZoom = false;
@@ -271,17 +331,43 @@ export function createWorkflowGraphCameraSync({
     );
   }
 
-  function syncLabelsForCameraMotion(cameraMotion) {
-    if (cameraMotion === "moving") {
-      const visibleLabelCount = labels.visibleLabelSyncNodeCount();
-      sceneVisitCounters?.record("labelsConsidered", visibleLabelCount);
-      labelLayer.visible = false;
-      cameraMovingLabelHiddenFrameCount += 1;
-      cameraMovingLabelDeferredFrameCount += visibleLabelCount;
-      return;
-    }
+  function syncSettledLabels() {
     labelLayer.visible = true;
     labels.syncVisibleLabels();
     cameraSettleLabelSyncCount += 1;
+  }
+
+  function recordCameraSyncAudit({
+    cameraMotion,
+    sceneRebuilt,
+    syncIncludesZoom,
+    transformTierLabelCount,
+  }) {
+    recordCameraWorkAudit({
+      cameraMotion,
+      edgesHidden: edgeLayer.visible !== true,
+      labelsHidden: labelLayer.visible !== true,
+      labelTransformCount: transformTierLabelCount,
+      sceneRebuilt,
+      zoomChanged: syncIncludesZoom,
+    });
+    if (cameraMotion === "moving" && sceneRebuilt) {
+      recordFastPathViolation("scene-rebuilt-during-camera-motion");
+    }
+  }
+
+  function recordCameraWorkAudit(entry) {
+    cameraWorkAuditSamples.push(entry);
+    if (cameraWorkAuditSamples.length > maxCameraWorkAuditSamples) {
+      cameraWorkAuditSamples.shift();
+    }
+  }
+
+  function recordFastPathViolation(reason) {
+    cameraFastPathViolationCount += 1;
+    recordedCameraFastPathViolations.push(reason);
+    if (recordedCameraFastPathViolations.length > maxRecordedCameraFastPathViolations) {
+      recordedCameraFastPathViolations.shift();
+    }
   }
 }

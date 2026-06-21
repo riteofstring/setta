@@ -2,14 +2,20 @@
 
 - **Date:** June 20, 2026
 - **Status:** Partially implemented — NOT complete. Phase 0 (baseline evidence
-  reset + cross-owner drag fix) is now done at the deterministic/code level
-  (machine-dependent ms baseline pending a reference-Mac run). Phases 5–7 are
-  done (clickable sprite popovers, shared agent activity UI, recording incident
-  reports). Phase 8's gate was relaxed rather than enforcing the fast-path
-  contract. Phases 1–4 — the camera fast path, the retained/dirty pipeline, and
-  the animation budget — are NOT started. The plan's core felt goals (snappy
-  pan/zoom, no flashing) are still unmet; the drag bug is fixed. See
-  Implementation Status.
+  reset + cross-owner drag fix) is done. Phase 1 (camera fast path) is PARTIAL:
+  camera-motion label/edge hiding was removed and replaced with a bounded
+  transform tier (labels and base edges stay visible and ride the camera during
+  pan/zoom), but the wheel-handler input hot-path cleanup — a Phase 1 task — is
+  outstanding (the handler still does two synchronous `cameraState()` reads plus
+  per-event timer churn, which the hot-path contract forbids), and
+  machine-dependent ms budgets remain pending a reference-Mac run. Phases 5–7 are done (clickable sprite popovers, shared
+  agent activity UI, recording incident reports). Phase 8's gate was relaxed
+  rather than enforcing the fast-path contract. Phases 2–4 — the retained/dirty
+  pipeline, the animation budget, and broadened layout ownership — are NOT
+  started. Phase 1 removed camera-motion label hiding, so node labels and base
+  edges now stay visible and ride a bounded transform tier during pan/zoom; the
+  remaining "no flashing" work (semantic re-materialization, sprite/edge pooling
+  churn) is Phase 2. See Implementation Status.
 - **Replaces:** `workspace_graph_interaction_refactor_readiness_plan.md`.
 - **Scope:** Rebuild the workspace graph interaction and rendering contract
   around a retained Pixi scene, a camera-only pan/zoom path, useful diagnostic
@@ -28,6 +34,13 @@ invariant exists in the renderer, the wheel handler still runs two synchronous
 `cameraState()` reads on the non-passive hot path, camera-motion label hiding is
 still present, and `draggedNodesForStart` is unchanged from the known-buggy
 version.
+
+UPDATE (2026-06-21, later): Phases 0 and 1 have since been implemented directly
+(not by the loop). The cross-owner drag bug and the camera-motion label hiding
+flagged above are now fixed. The one item flagged above that is still true: the
+wheel handler still runs two synchronous `cameraState()` reads plus per-event
+timer churn on the non-passive hot path — the Phase 1 input hot-path cleanup is
+not done.
 
 Implemented (verified):
 
@@ -111,22 +124,65 @@ Phase 0 was implemented on 2026-06-21 (deterministic/code level):
   `run-workflows.mjs --tier workspace-graph-phase8` with
   `SETTA_WORKFLOW_GRAPH_PHASE0_REFERENCE_RUNNER=1`.
 
+Phase 1 was implemented on 2026-06-21 (deterministic/code level):
+
+- Camera-motion label hiding removed: `pixi-renderer-camera-sync.js` no longer
+  sets `labelLayer.visible = false` during motion. Moving frames run a bounded
+  transform tier (`runCameraTransformTier`) that repositions only the retained
+  visible labels and keeps the label and base-edge layers visible.
+- Zoom/pan transform tier defined separately from dirty geometry:
+  `pixi-renderer-labels.js` `syncVisibleLabelTransforms()` measured in its own
+  `label-transform-tier` bucket, bounded to visible labels, with no
+  visibility-window query, declutter, font, or content recompute.
+- Camera fast-path invariant in renderer code: `cameraFastPathViolationCount`
+  self-audit + `ensureCameraCarriedLayersVisible` (records + self-heals if camera
+  motion ever hides labels/edges or rebuilds graph content), plus a bounded
+  per-frame `cameraWorkAuditSamples` ring buffer recording each frame's work
+  categories and a settle-restore flush entry.
+- Performance gate teeth: `no-labels-hidden-during-camera-motion` promoted from
+  `expected-fail` to a hard check; new hard `no-camera-fast-path-violations`
+  check; `workflow-graph-pan-zoom-snapshot-assertions.mjs` now asserts labels
+  ride the transform on every moving frame and the renderer reports zero
+  violations.
+- Camera motion already produced no React commits, graph replacements, semantic
+  working-set reads, or layout/presentation writes (verified against the React
+  surface controller, semantic runtime store, layout persistence, and projection
+  state); the existing hard gates remain and the new per-frame audit re-confirms
+  it.
+- Deterministic regressions: `pixi-renderer-camera-sync.test.js`,
+  `pixi-renderer-labels.test.js`,
+  `workflow-graph-phase0-performance-guardrails.test.mjs`. Report:
+  `docs/reports/performance/workspace-graph-phase-1-camera-fast-path.md`.
+- Pending (machine-dependent, not measurable in CI/sandbox): the start-of-gesture
+  ms p95s, the recording-on/off 2ms overhead comparison, and the
+  `label-transform-tier` per-frame ms ceiling on normal/dense graphs, captured on
+  the reference MacBook as for Phase 0.
+- OUTSTANDING — Phase 1 is NOT complete: the wheel-handler input hot path was not
+  touched. `pixi-renderer-wheel-handler.js` still reads `cameraState(viewport)`
+  twice per event and clears/sets a settle timer every event, both forbidden by
+  the Instrumentation Hot-Path Contract. The "diagnostics use the hot-path
+  ring-buffer contract" task was applied to the frame/scene path but not to the
+  actual input hot path — the most likely source of the start-of-pinch delay.
+  This cleanup plus the pending reference-Mac measurements must land before
+  Phase 1 is done.
+
 Not implemented (still required):
 
-- Phase 1 (camera-only fast path): NOT done. No fast-path invariant in code; the
-  wheel handler still instruments the synchronous hot path; camera-motion label
-  hiding remains.
 - Phase 2 (retained/dirty pipeline): NOT done. Semantic-tick re-materialization
   and edge-node pooling churn — the likely flashing sources — are untouched.
 - Phase 3 (animation architecture): NOT done.
 - Phase 4 (layout ownership / cross-owner drag broadening): NOT done.
 - Phase 8 caveat: the gate was relaxed ("verifies retained liveness instead of
-  requiring animation") and cannot verify a camera fast path that was never
-  built. Its "passed" results do not prove the Non-Negotiable UX Contract.
+  requiring animation"). Phase 1 added hard camera fast-path checks
+  (`no-labels-hidden-during-camera-motion`, `no-camera-fast-path-violations`) to
+  the Phase 0/8 guardrail tier, but the relaxed liveness assertion and the
+  machine-dependent ms gates still mean a green Phase 8 run does not by itself
+  prove the full Non-Negotiable UX Contract.
 
-Phases 0–4 are the renderer-architecture work that produces the user-felt
-outcomes. They need direct implementation plus a human trackpad sign-off, not a
-phase-checkbox loop.
+Phases 2–4 are the remaining renderer-architecture work that produces the
+user-felt outcomes (no flashing, bounded dirty work, broadened layout
+ownership). They need direct implementation plus a human trackpad sign-off, not
+a phase-checkbox loop.
 
 ## Position
 
@@ -762,10 +818,16 @@ Acceptance criteria:
 
 The plan is complete only when (current status annotated):
 
-- the normal graph feels snappy on a MacBook trackpad; — UNMET (Phase 1 not done)
+- the normal graph feels snappy on a MacBook trackpad; — PARTIAL (Phase 1 made
+  pan/zoom transform-only at the code level; ms snappiness pending reference-Mac
+  sign-off)
 - no visible graph content flashes or disappears solely due to camera movement;
-  — UNMET (Phase 2 not done)
-- pan/zoom has a verified camera-only fast path; — UNMET (Phase 1 not done)
+  — PARTIAL (Phase 1 stopped hiding labels and guards labels/base edges visible;
+  remaining flashing sources — semantic re-materialization, sprite/edge pooling
+  churn — are Phase 2)
+- pan/zoom has a verified camera-only fast path; — MET at the deterministic/code
+  level (Phase 1: fast-path invariant, transform tier, hard gates); ms budgets
+  pending reference Mac
 - retained scene dirty work is explicit and bounded; — UNMET (Phase 2 not done)
 - cross-owner drag bugs are impossible by contract; — PARTIAL (Phase 0 landed
   the workflow→semantic mixed-selection fix + deterministic regression; Phase 4
@@ -774,8 +836,11 @@ The plan is complete only when (current status annotated):
 - workflow agent details use shared chat/agent activity UI; — MET (Phase 6)
 - recordings explain failures in compact causal terms; — MET (Phase 7)
 - broad quality gates pass after focused verification. — PARTIAL (Phase 8 gate
-  relaxed; it cannot certify the UNMET items above).
+  relaxed; it cannot certify the still-UNMET Phase 2 items above).
 
-Status: 3 of 9 met, 1 partial (cross-owner drag, Phase 0). The four UNMET items
-(snappy pan/zoom, no flashing, camera fast path, retained dirty work) are the
-plan's core felt goals and remain for Phases 1–2.
+Status: 4 of 9 met (camera fast path now met at the deterministic/code level via
+Phase 1), 4 partial (snappy pan/zoom, no flashing, cross-owner drag, broad
+gates), 1 unmet (retained dirty work, Phase 2). Phase 1 removed camera-motion
+label hiding and added the fast-path invariant; the remaining core felt goal
+("no flashing" from semantic re-materialization and pooling churn) is Phase 2,
+and ms snappiness needs reference-Mac sign-off.
