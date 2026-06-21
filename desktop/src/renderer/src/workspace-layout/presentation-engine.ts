@@ -33,7 +33,7 @@ interface PaneHostBinding {
   lastZ: number;
 }
 
-type PaneResizeAxis = "horizontal" | "vertical";
+type PaneResizeAxis = "height" | "horizontal" | "vertical";
 type PaneChromeAction = "add-above" | "add-below" | "close" | "maximize" | "split-down";
 
 interface PaneVisualRect {
@@ -338,6 +338,7 @@ export class PresentationEngine {
       "vertical",
       resizeNeighborItem(item, assignedItems, "vertical"),
     );
+    this.syncHeightResizeHandle(binding.host, item);
   }
 
   private ensurePaneTopBar(host: HTMLElement): HTMLElement {
@@ -434,6 +435,22 @@ export class PresentationEngine {
     handle.setAttribute("aria-label", label);
     handle.title = label;
     positionResizeHandle(handle, axis, visualRectForItem(item), visualRectForItem(adjacentItem));
+  }
+
+  private syncHeightResizeHandle(host: HTMLElement, item: PaneRenderItem): void {
+    const existing = this.resizeHandleForHost(host, "height");
+    if (!canHostResizeHandle(item)) {
+      if (existing) {
+        this.removeResizeHandle(host, "height");
+      }
+      return;
+    }
+    const handle = existing ?? this.createResizeHandle(host, "height");
+    handle.dataset.paneId = item.paneId;
+    delete handle.dataset.adjacentPaneId;
+    handle.setAttribute("aria-label", "Resize pane height");
+    handle.title = "Resize pane height";
+    positionHeightResizeHandle(handle, visualRectForItem(item));
   }
 
   private createResizeHandle(host: HTMLElement, axis: PaneResizeAxis): HTMLElement {
@@ -829,7 +846,7 @@ function positionResizeHandle(
     syncStyleValue(
       handle.style,
       "height",
-      `${Math.min(72, Math.max(34, overlapBottom - overlapTop - 20)).toFixed(2)}px`,
+      `${Math.max(34, overlapBottom - overlapTop).toFixed(2)}px`,
     );
     syncStyleValue(handle.style, "left", `${(sourceRect.right + gap / 2).toFixed(2)}px`);
     syncStyleValue(handle.style, "top", `${((overlapTop + overlapBottom) / 2).toFixed(2)}px`);
@@ -847,6 +864,17 @@ function positionResizeHandle(
     "width",
     `${Math.min(84, Math.max(42, overlapRight - overlapLeft - 20)).toFixed(2)}px`,
   );
+}
+
+function positionHeightResizeHandle(handle: HTMLElement, sourceRect: PaneVisualRect): void {
+  syncStyleValue(handle.style, "height", "20px");
+  syncStyleValue(
+    handle.style,
+    "left",
+    `${((sourceRect.left + sourceRect.right) / 2).toFixed(2)}px`,
+  );
+  syncStyleValue(handle.style, "top", `${sourceRect.bottom.toFixed(2)}px`);
+  syncStyleValue(handle.style, "width", `${Math.max(42, rectWidth(sourceRect)).toFixed(2)}px`);
 }
 
 function syncStyleValue(

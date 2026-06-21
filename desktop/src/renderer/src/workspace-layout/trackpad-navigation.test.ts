@@ -4,7 +4,7 @@ import {
   createWorkspaceTrackpadNavigationState,
   interpretWorkspaceTrackpadWheel,
   paneTopBarPaneIdFromWheelTarget,
-  wheelTargetIsAppTitleBar,
+  workspaceWheelNavigationTargetFromEventTarget,
 } from "./trackpad-navigation";
 
 describe("workspace trackpad navigation", () => {
@@ -120,6 +120,44 @@ describe("workspace trackpad navigation", () => {
     });
   });
 
+  test("releases a consumed swipe after trackpad momentum decays", () => {
+    const state = createWorkspaceTrackpadNavigationState();
+
+    expect(trackpadWheel(state, { deltaX: 120, timeStampMs: 0 })).toEqual({
+      directions: ["right"],
+      shouldHandle: true,
+    });
+    expect(trackpadWheel(state, { deltaX: 120, timeStampMs: 120 })).toEqual({
+      directions: [],
+      shouldHandle: true,
+    });
+    expect(trackpadWheel(state, { deltaX: 90, timeStampMs: 260 })).toEqual({
+      directions: [],
+      shouldHandle: true,
+    });
+    expect(trackpadWheel(state, { deltaX: 4, timeStampMs: 380 })).toEqual({
+      directions: [],
+      shouldHandle: true,
+    });
+    expect(trackpadWheel(state, { deltaX: 120, timeStampMs: 500 })).toEqual({
+      directions: ["right"],
+      shouldHandle: true,
+    });
+  });
+
+  test("lets a strong opposite swipe interrupt a consumed gesture", () => {
+    const state = createWorkspaceTrackpadNavigationState();
+
+    expect(trackpadWheel(state, { deltaX: 120, timeStampMs: 0 })).toEqual({
+      directions: ["right"],
+      shouldHandle: true,
+    });
+    expect(trackpadWheel(state, { deltaX: -120, timeStampMs: 80 })).toEqual({
+      directions: ["left"],
+      shouldHandle: true,
+    });
+  });
+
   test("identifies pane title bar wheel targets", () => {
     const target = {
       closest: (selector: string) =>
@@ -135,20 +173,46 @@ describe("workspace trackpad navigation", () => {
     expect(paneTopBarPaneIdFromWheelTarget(null)).toBeNull();
   });
 
-  test("identifies app title bar wheel targets", () => {
-    const shellTarget = {
-      closest: (selector: string) =>
-        selector === "[data-setta-shell-title-bar]" ? { dataset: {} } : null,
-    } as unknown as EventTarget;
-    const toolbarTarget = {
-      closest: (selector: string) =>
-        selector === "[data-workspace-title-bar]" ? { dataset: {} } : null,
-    } as unknown as EventTarget;
+  test("identifies workspace background wheel targets", () => {
+    const backgroundTarget = closestTarget((selector) =>
+      selector === "[data-testid='workspace-presentation-engine']" ? backgroundTarget : null,
+    );
+    const root = rootContaining(backgroundTarget);
 
-    expect(wheelTargetIsAppTitleBar(shellTarget)).toBe(true);
-    expect(wheelTargetIsAppTitleBar(toolbarTarget)).toBe(true);
-    expect(wheelTargetIsAppTitleBar({ closest: () => null } as unknown as EventTarget)).toBe(false);
-    expect(wheelTargetIsAppTitleBar(null)).toBe(false);
+    expect(workspaceWheelNavigationTargetFromEventTarget(backgroundTarget, root)).toEqual({
+      paneId: null,
+      target: "background",
+    });
+  });
+
+  test("identifies workspace pane top bar wheel targets", () => {
+    const topBar = closestTarget((selector) =>
+      selector === "[data-workspace-pane-top-bar]"
+        ? { dataset: { paneId: "workspace_pane_1" } }
+        : null,
+    );
+    const root = rootContaining(topBar);
+
+    expect(workspaceWheelNavigationTargetFromEventTarget(topBar, root)).toEqual({
+      paneId: "workspace_pane_1",
+      target: "pane-top-bar",
+    });
+  });
+
+  test("ignores pane content and targets outside the workspace", () => {
+    const contentTarget = closestTarget(() => null);
+    const outsideTarget = closestTarget((selector) =>
+      selector === "[data-workspace-pane-top-bar]"
+        ? { dataset: { paneId: "workspace_pane_2" } }
+        : null,
+    );
+
+    expect(
+      workspaceWheelNavigationTargetFromEventTarget(contentTarget, rootContaining(contentTarget)),
+    ).toBeNull();
+    expect(
+      workspaceWheelNavigationTargetFromEventTarget(outsideTarget, rootContaining(contentTarget)),
+    ).toBeNull();
   });
 });
 
@@ -166,4 +230,21 @@ function trackpadWheel(
     },
     state,
   );
+}
+
+interface FakeClosestTarget extends EventTarget {
+  closest: (selector: string) => FakeClosestTarget | { dataset?: { paneId?: string } } | null;
+  dataset?: { paneId?: string };
+}
+
+function closestTarget(
+  closest: (selector: string) => FakeClosestTarget | { dataset?: { paneId?: string } } | null,
+): FakeClosestTarget {
+  return { closest } as unknown as FakeClosestTarget;
+}
+
+function rootContaining(containedTarget: EventTarget): HTMLElement {
+  return {
+    contains: (target: EventTarget) => target === containedTarget,
+  } as unknown as HTMLElement;
 }

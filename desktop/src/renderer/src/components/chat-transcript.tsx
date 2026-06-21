@@ -428,7 +428,7 @@ export function ChatTranscript({
             setPinned(true);
           }
         }}
-        className="h-full min-h-0 min-w-0 overflow-x-hidden bg-background pt-4 pb-2"
+        className="workspace-chat-pane-surface h-full min-h-0 min-w-0 overflow-x-hidden pt-4 pb-2"
         components={virtuosoComponents}
         data={timeline}
         data-testid="chat-transcript-scroller"
@@ -458,7 +458,7 @@ function EmptyChatTranscript({
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-background px-3 pt-4 pb-2"
+        className="workspace-chat-pane-surface h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto px-3 pt-4 pb-2"
         data-testid="chat-transcript-scroller"
       >
         <div

@@ -13,11 +13,6 @@ export interface OverviewDragSession {
   startClientY: number;
 }
 
-export interface PaneWindowDragSession {
-  handle: HTMLElement;
-  pointerId: number;
-}
-
 interface MutableCurrentRef<T> {
   current: T;
 }
@@ -45,20 +40,6 @@ export function cleanupActivePaneDragSession(
     return;
   }
   cleanupPaneDragSession(root, ref.current);
-  ref.current = null;
-}
-
-export function cleanupPaneWindowDragSession(
-  ref: MutableCurrentRef<PaneWindowDragSession | null>,
-): void {
-  const session = ref.current;
-  if (!session) {
-    return;
-  }
-  if (session.handle.hasPointerCapture?.(session.pointerId)) {
-    session.handle.releasePointerCapture(session.pointerId);
-  }
-  void window.setta.app.endWindowDrag();
   ref.current = null;
 }
 

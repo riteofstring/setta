@@ -56,6 +56,7 @@ export interface ColumnWidthSpec {
 export interface WorkspacePane {
   columnId: ColumnId;
   heat: number;
+  heightPx?: number;
   paneId: PaneId;
   sequence: number;
   subtitle: string;
@@ -258,7 +259,7 @@ export interface LayoutEngine {
   reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean;
   resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
-  resizePane(paneId: PaneId, heightWeight: number): void;
+  resizePane(paneId: PaneId, heightPx: number | null): void;
   resizePaneSplit(
     upperPaneId: PaneId,
     lowerPaneId: PaneId,

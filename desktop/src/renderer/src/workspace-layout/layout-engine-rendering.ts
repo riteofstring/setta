@@ -63,7 +63,11 @@ export function renderNormalLayoutFrame({
 
   for (const column of columnsByIndexes(columns, columnIndexes)) {
     const columnWidth = geometry.widths[column.index] ?? minimumColumnWidth;
-    const x = scene.padding + (geometry.offsets[column.index] ?? 0) - horizontalPanOffset;
+    const x =
+      input.viewport.x +
+      scene.padding +
+      (geometry.offsets[column.index] ?? 0) -
+      horizontalPanOffset;
     const planeTop = planeOffsets.get(column.planeIndex) ?? 0;
     pushColumnItems({
       availableHeight,
@@ -111,8 +115,8 @@ export function renderOverviewLayoutFrame({
     width: unscaledWidth,
   });
   const xOffset = Math.max(
-    scene.padding,
-    Math.floor((input.viewport.width - unscaledWidth * scale) / 2),
+    input.viewport.x + scene.padding,
+    input.viewport.x + Math.floor((input.viewport.width - unscaledWidth * scale) / 2),
   );
   const centeredYOffset = Math.max(
     0,

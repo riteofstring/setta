@@ -25,6 +25,13 @@ export function normalizedPaneWeight(value: number): number {
   return Number.isFinite(value) ? Math.max(0.1, value) : 1;
 }
 
+export function normalizedPaneHeightPx(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return Number.isFinite(value) ? Math.max(96, Math.round(value)) : null;
+}
+
 function normalizedOptionalString(value: string | undefined): string | undefined {
   if (typeof value !== "string") {
     return undefined;

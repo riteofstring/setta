@@ -5,6 +5,7 @@ import { cn } from "../lib/utils";
 
 export function ResizablePane({
   children,
+  className,
   label,
   maxWidth,
   minWidth,
@@ -12,6 +13,7 @@ export function ResizablePane({
   width,
 }: {
   children: ReactNode;
+  className?: string;
   label: string;
   maxWidth: number;
   minWidth: number;
@@ -51,6 +53,7 @@ export function ResizablePane({
       className={cn(
         "relative h-full min-h-0 shrink-0",
         !resizing && "transition-[width] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        className,
       )}
       style={{ width }}
     >

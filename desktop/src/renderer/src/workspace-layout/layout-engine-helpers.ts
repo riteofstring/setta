@@ -209,16 +209,19 @@ export function pushColumnItems({
   const panes = column.paneIds
     .map((paneId) => paneById.get(paneId))
     .filter((pane): pane is WorkspacePane => pane !== undefined);
-  const totalWeight = panes.reduce((total, pane) => total + pane.weight, 0);
   const totalGap = scene.rowGap * Math.max(0, panes.length - 1);
+  const heights = paneHeightsForColumn(
+    panes,
+    availableHeight,
+    totalGap,
+    fullSizePanes,
+    maximizedPaneId,
+  );
   let y = yOffset + scene.padding * scale;
 
-  for (const pane of panes) {
+  for (const [index, pane] of panes.entries()) {
     const maximized = pane.paneId === maximizedPaneId;
-    const height =
-      fullSizePanes || maximized
-        ? availableHeight
-        : Math.max(42, ((availableHeight - totalGap) * pane.weight) / totalWeight);
+    const height = heights[index] ?? minimumPaneRenderHeightPx;
     const focused = pane.paneId === focusedPaneId;
     push({
       focused,
@@ -241,6 +244,44 @@ export function pushColumnItems({
     });
     y += (height + scene.rowGap) * scale;
   }
+}
+
+const minimumPaneRenderHeightPx = 42;
+
+export function paneHeightsForColumn(
+  panes: readonly WorkspacePane[],
+  availableHeight: number,
+  totalGap: number,
+  fullSizePanes = false,
+  maximizedPaneId: PaneId | null = null,
+): number[] {
+  if (fullSizePanes) {
+    return panes.map(() => availableHeight);
+  }
+  const fixedHeights: Array<number | null> = panes.map((pane) =>
+    pane.paneId === maximizedPaneId
+      ? availableHeight
+      : pane.heightPx === undefined
+        ? null
+        : Math.min(availableHeight, pane.heightPx),
+  );
+  const fixedHeightTotal = fixedHeights.reduce<number>((total, height) => total + (height ?? 0), 0);
+  const flexiblePanes = panes.filter((_pane, index) => fixedHeights[index] === null);
+  const flexibleWeightTotal = flexiblePanes.reduce((total, pane) => total + pane.weight, 0);
+  const flexibleHeight = Math.max(
+    minimumPaneRenderHeightPx * flexiblePanes.length,
+    availableHeight - totalGap - fixedHeightTotal,
+  );
+  return panes.map((pane, index) => {
+    const fixedHeight = fixedHeights[index];
+    if (fixedHeight !== null && fixedHeight !== undefined) {
+      return Math.max(minimumPaneRenderHeightPx, fixedHeight);
+    }
+    return Math.max(
+      minimumPaneRenderHeightPx,
+      (flexibleHeight * pane.weight) / Math.max(0.1, flexibleWeightTotal),
+    );
+  });
 }
 
 export function renderedColumnIndexesForLayout({

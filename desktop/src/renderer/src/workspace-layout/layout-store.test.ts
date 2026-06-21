@@ -597,6 +597,83 @@ describe("workspace layout store", () => {
     expect(store.resizePaneSplit(lowerPaneId, "workspace_pane_0", 1, 1)).toBe(false);
   });
 
+  test("manual pane height resize previews movement and commits the row once", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPane("down");
+    expect(store.toScene().paneById.get("workspace_pane_0")?.heightPx).toBeUndefined();
+    const startRevision = store.getSnapshot().revision;
+    const revisions: number[] = [];
+    store.subscribe((snapshot) => {
+      revisions.push(snapshot.revision);
+    });
+    const session = {
+      axis: "height",
+      paneId: "workspace_pane_0",
+      pointerId: 1,
+      startBottom: 400,
+      startClientY: 200,
+      startDesignatedHeight: null,
+      startHeight: 200,
+      viewportBottom: 900,
+      viewportHeight: 900,
+    } satisfies PaneResizeSession;
+
+    expect(paneResizePreviewForPointerMove(session, { clientX: 0, clientY: 260 })).toEqual({
+      axis: "height",
+      height: 260,
+      heightPx: 260,
+    });
+    expect(revisions).toEqual([]);
+
+    expect(commitPaneResize(store, session, { clientX: 0, clientY: 260 })).toBe(true);
+
+    const panes = store.toScene().paneById;
+    for (const paneId of [
+      "workspace_pane_0",
+      "workspace_pane_1",
+      "workspace_pane_2",
+      "workspace_pane_3",
+    ]) {
+      expect(panes.get(paneId)?.heightPx).toBe(260);
+    }
+    expect(panes.get(lowerPaneId)?.heightPx).toBeUndefined();
+    expect(revisions).toEqual([startRevision + 1]);
+  });
+
+  test("manual pane height resize snaps back to viewport height defaults", () => {
+    const store = createStore();
+    store.resizePaneRow("workspace_pane_0", 480);
+    const session = {
+      axis: "height",
+      paneId: "workspace_pane_0",
+      pointerId: 1,
+      startBottom: 480,
+      startClientY: 100,
+      startDesignatedHeight: 480,
+      startHeight: 480,
+      viewportBottom: 900,
+      viewportHeight: 900,
+    } satisfies PaneResizeSession;
+
+    expect(paneResizePreviewForPointerMove(session, { clientX: 0, clientY: 520 })).toEqual({
+      axis: "height",
+      height: 900,
+      heightPx: null,
+    });
+
+    expect(commitPaneResize(store, session, { clientX: 0, clientY: 520 })).toBe(true);
+
+    const panes = store.toScene().paneById;
+    for (const paneId of [
+      "workspace_pane_0",
+      "workspace_pane_1",
+      "workspace_pane_2",
+      "workspace_pane_3",
+    ]) {
+      expect(panes.get(paneId)?.heightPx).toBeUndefined();
+    }
+  });
+
   test("tracks maximized pane state without applying it to the next focused pane", () => {
     const store = createStore();
 

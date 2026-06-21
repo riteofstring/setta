@@ -20,6 +20,11 @@ export interface WorkspaceTrackpadNavigationResult {
   shouldHandle: boolean;
 }
 
+export interface WorkspaceWheelNavigationTarget {
+  paneId: string | null;
+  target: "background" | "pane-top-bar";
+}
+
 const wheelDeltaModePixel = 0;
 const wheelDeltaModeLine = 1;
 const wheelDeltaModePage = 2;
@@ -27,11 +32,14 @@ const wheelLinePixelFactor = 16;
 const wheelPagePixelFactor = 720;
 const trackpadNavigationThresholdPx = 80;
 const trackpadNavigationGestureReleaseMs = 220;
+const trackpadNavigationGestureReleaseDeltaPx = 6;
 const maxDirectionsPerWheelEvent = 1;
 
 interface ConsumedTrackpadNavigationGesture {
+  axis: WorkspaceTrackpadNavigationAxis | null;
   consumed: boolean;
   lastWheelTimeMs: number | null;
+  sign: number;
 }
 
 const consumedGestureStates = new WeakMap<
@@ -63,14 +71,22 @@ export function interpretWorkspaceTrackpadWheel(
     return navigationResult(true);
   }
   if (gesture.consumed) {
-    return navigationResult(true);
+    if (oppositeSwipeInterruptsConsumedGesture(gesture, dominantDelta)) {
+      resetWorkspaceTrackpadNavigationState(state);
+      gesture.consumed = false;
+    } else {
+      releaseConsumedTrackpadNavigationGestureAfterDecay(state, gesture, dominantDelta);
+      return navigationResult(true);
+    }
   }
 
   accumulateDominantWheelDelta(state, dominantDelta);
   const directions = drainTrackpadNavigationDirections(state);
   if (directions.length > 0) {
     state.accumulatedDelta = 0;
+    gesture.axis = dominantDelta.axis;
     gesture.consumed = true;
+    gesture.sign = Math.sign(dominantDelta.delta);
   }
   return navigationResult(true, directions);
 }
@@ -80,23 +96,53 @@ export function paneTopBarPaneIdFromWheelTarget(target: EventTarget | null): str
     return null;
   }
   const topBar = target.closest("[data-workspace-pane-top-bar]");
-  return topBar?.dataset.paneId || null;
+  return topBar?.dataset?.paneId || null;
 }
 
-export function wheelTargetIsAppTitleBar(target: EventTarget | null): boolean {
+export function workspaceWheelNavigationTargetFromEventTarget(
+  target: EventTarget | null,
+  root: HTMLElement,
+): WorkspaceWheelNavigationTarget | null {
   if (!isClosestTarget(target)) {
-    return false;
+    return null;
   }
-  return (
-    target.closest("[data-setta-shell-title-bar]") !== null ||
-    target.closest("[data-workspace-title-bar]") !== null
-  );
+  if (!rootContainsTarget(root, target)) {
+    return null;
+  }
+  const topBarPaneId = paneTopBarPaneIdFromWheelTarget(target);
+  if (topBarPaneId !== null) {
+    return {
+      paneId: topBarPaneId,
+      target: "pane-top-bar",
+    };
+  }
+  if (
+    target === root ||
+    target.closest("[data-testid='workspace-presentation-engine']") === target
+  ) {
+    return {
+      paneId: null,
+      target: "background",
+    };
+  }
+  return null;
+}
+
+interface ClosestTargetMatch extends EventTarget {
+  dataset?: { paneId?: string };
 }
 
 function isClosestTarget(target: EventTarget | null): target is EventTarget & {
-  closest: (selector: string) => { dataset: { paneId?: string } } | null;
+  closest: (selector: string) => ClosestTargetMatch | null;
 } {
   return typeof (target as { closest?: unknown } | null)?.closest === "function";
+}
+
+function rootContainsTarget(root: HTMLElement, target: EventTarget): boolean {
+  if (typeof Node !== "undefined" && target instanceof Node) {
+    return root.contains(target);
+  }
+  return (root as unknown as { contains: (candidate: EventTarget) => boolean }).contains(target);
 }
 
 function resetWorkspaceTrackpadNavigationState(state: WorkspaceTrackpadNavigationState): void {
@@ -109,8 +155,10 @@ function resetConsumedTrackpadNavigationGesture(state: WorkspaceTrackpadNavigati
   if (!gesture) {
     return;
   }
+  gesture.axis = null;
   gesture.consumed = false;
   gesture.lastWheelTimeMs = null;
+  gesture.sign = 0;
 }
 
 function consumedGestureStateFor(
@@ -121,8 +169,10 @@ function consumedGestureStateFor(
     return existing;
   }
   const gesture = {
+    axis: null,
     consumed: false,
     lastWheelTimeMs: null,
+    sign: 0,
   } satisfies ConsumedTrackpadNavigationGesture;
   consumedGestureStates.set(state, gesture);
   return gesture;
@@ -140,10 +190,38 @@ function releaseConsumedTrackpadNavigationGestureAfterIdle(
     const elapsedMs = input.timeStampMs - gesture.lastWheelTimeMs;
     if (elapsedMs < 0 || elapsedMs > trackpadNavigationGestureReleaseMs) {
       resetWorkspaceTrackpadNavigationState(state);
+      gesture.axis = null;
       gesture.consumed = false;
+      gesture.sign = 0;
     }
   }
   gesture.lastWheelTimeMs = input.timeStampMs;
+}
+
+function oppositeSwipeInterruptsConsumedGesture(
+  gesture: ConsumedTrackpadNavigationGesture,
+  dominantDelta: { axis: WorkspaceTrackpadNavigationAxis; delta: number },
+): boolean {
+  return (
+    gesture.axis === dominantDelta.axis &&
+    gesture.sign !== 0 &&
+    Math.sign(dominantDelta.delta) === -gesture.sign &&
+    Math.abs(dominantDelta.delta) >= trackpadNavigationThresholdPx
+  );
+}
+
+function releaseConsumedTrackpadNavigationGestureAfterDecay(
+  state: WorkspaceTrackpadNavigationState,
+  gesture: ConsumedTrackpadNavigationGesture,
+  dominantDelta: { axis: WorkspaceTrackpadNavigationAxis; delta: number },
+): void {
+  if (Math.abs(dominantDelta.delta) > trackpadNavigationGestureReleaseDeltaPx) {
+    return;
+  }
+  resetWorkspaceTrackpadNavigationState(state);
+  gesture.axis = null;
+  gesture.consumed = false;
+  gesture.sign = 0;
 }
 
 function navigationModifierSatisfied(input: WorkspaceTrackpadWheelInput): boolean {

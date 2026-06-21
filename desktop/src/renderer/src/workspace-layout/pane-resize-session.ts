@@ -4,9 +4,28 @@ import type { PaneResizeTarget } from "./pane-resize-target";
 
 const minimumManualPaneHeightPx = 96;
 const minimumManualPaneWidthPx = minimumColumnWidth;
+const heightResizeDefaultSnapPx = 12;
 
-export type PaneResizeSession = HorizontalPaneResizeSession | VerticalPaneResizeSession;
-export type PaneResizePreview = HorizontalPaneResizePreview | VerticalPaneResizePreview;
+export type PaneResizeSession =
+  | HeightPaneResizeSession
+  | HorizontalPaneResizeSession
+  | VerticalPaneResizeSession;
+export type PaneResizePreview =
+  | HeightPaneResizePreview
+  | HorizontalPaneResizePreview
+  | VerticalPaneResizePreview;
+
+interface HeightPaneResizeSession {
+  axis: "height";
+  paneId: string;
+  pointerId: number;
+  startBottom: number;
+  startClientY: number;
+  startDesignatedHeight: number | null;
+  startHeight: number;
+  viewportBottom: number;
+  viewportHeight: number;
+}
 
 interface HorizontalPaneResizeSession {
   axis: "horizontal";
@@ -41,24 +60,74 @@ interface VerticalPaneResizePreview {
   upperHeightWeight: number;
 }
 
+interface HeightPaneResizePreview {
+  axis: "height";
+  height: number;
+  heightPx: number | null;
+}
+
 export function paneResizeSessionFromTarget(
   target: PaneResizeTarget,
   event: PointerEvent,
   store: WorkspaceLayoutStore,
 ): PaneResizeSession | null {
-  const scene = store.toScene();
-  if (target.axis === "horizontal") {
-    const columnId = scene.paneById.get(target.paneId)?.columnId;
-    return columnId
-      ? {
-          axis: "horizontal",
-          columnId,
-          pointerId: event.pointerId,
-          startClientX: event.clientX,
-          startWidth: target.width,
-        }
-      : null;
+  switch (target.axis) {
+    case "height":
+      return heightPaneResizeSessionFromTarget(target, event, store);
+    case "horizontal":
+      return horizontalPaneResizeSessionFromTarget(target, event, store);
+    case "vertical":
+      return verticalPaneResizeSessionFromTarget(target, event, store);
   }
+}
+
+function heightPaneResizeSessionFromTarget(
+  target: Extract<PaneResizeTarget, { axis: "height" }>,
+  event: PointerEvent,
+  store: WorkspaceLayoutStore,
+): HeightPaneResizeSession | null {
+  const scene = store.toScene();
+  const pane = scene.paneById.get(target.paneId);
+  if (!pane) {
+    return null;
+  }
+  return {
+    axis: "height",
+    paneId: target.paneId,
+    pointerId: event.pointerId,
+    startBottom: target.bottom,
+    startClientY: event.clientY,
+    startDesignatedHeight: pane.heightPx ?? null,
+    startHeight: target.height,
+    viewportBottom: target.viewportBottom,
+    viewportHeight: target.viewportHeight,
+  };
+}
+
+function horizontalPaneResizeSessionFromTarget(
+  target: Extract<PaneResizeTarget, { axis: "horizontal" }>,
+  event: PointerEvent,
+  store: WorkspaceLayoutStore,
+): HorizontalPaneResizeSession | null {
+  const scene = store.toScene();
+  const columnId = scene.paneById.get(target.paneId)?.columnId;
+  return columnId
+    ? {
+        axis: "horizontal",
+        columnId,
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startWidth: target.width,
+      }
+    : null;
+}
+
+function verticalPaneResizeSessionFromTarget(
+  target: Extract<PaneResizeTarget, { axis: "vertical" }>,
+  event: PointerEvent,
+  store: WorkspaceLayoutStore,
+): VerticalPaneResizeSession | null {
+  const scene = store.toScene();
   const upperPane = scene.paneById.get(target.paneId);
   const lowerPane = scene.paneById.get(target.adjacentPaneId);
   if (!upperPane || !lowerPane || upperPane.columnId !== lowerPane.columnId) {
@@ -81,6 +150,12 @@ export function paneResizePreviewForPointerMove(
   session: PaneResizeSession,
   event: Pick<PointerEvent, "clientX" | "clientY">,
 ): PaneResizePreview {
+  if (session.axis === "height") {
+    return {
+      axis: "height",
+      ...paneHeightForPointerMove(session, event.clientY),
+    };
+  }
   if (session.axis === "vertical") {
     return {
       axis: "vertical",
@@ -102,26 +177,76 @@ export function commitPaneResize(
   event: Pick<PointerEvent, "clientX" | "clientY">,
 ): boolean {
   const preview = paneResizePreviewForPointerMove(session, event);
-  if (session.axis === "vertical") {
-    if (
-      preview.axis !== "vertical" ||
-      (preview.upperHeightWeight === session.upperStartWeight &&
-        preview.lowerHeightWeight === session.lowerStartWeight)
-    ) {
-      return false;
-    }
-    return store.resizePaneSplit(
-      session.upperPaneId,
-      session.lowerPaneId,
-      preview.upperHeightWeight,
-      preview.lowerHeightWeight,
-    );
+  switch (session.axis) {
+    case "height":
+      return commitHeightPaneResize(store, session, preview);
+    case "horizontal":
+      return commitHorizontalPaneResize(store, session, preview);
+    case "vertical":
+      return commitVerticalPaneResize(store, session, preview);
   }
+}
+
+function commitVerticalPaneResize(
+  store: WorkspaceLayoutStore,
+  session: VerticalPaneResizeSession,
+  preview: PaneResizePreview,
+): boolean {
+  if (
+    preview.axis !== "vertical" ||
+    (preview.upperHeightWeight === session.upperStartWeight &&
+      preview.lowerHeightWeight === session.lowerStartWeight)
+  ) {
+    return false;
+  }
+  return store.resizePaneSplit(
+    session.upperPaneId,
+    session.lowerPaneId,
+    preview.upperHeightWeight,
+    preview.lowerHeightWeight,
+  );
+}
+
+function commitHeightPaneResize(
+  store: WorkspaceLayoutStore,
+  session: HeightPaneResizeSession,
+  preview: PaneResizePreview,
+): boolean {
+  if (preview.axis !== "height" || preview.heightPx === session.startDesignatedHeight) {
+    return false;
+  }
+  return store.resizePaneRow(session.paneId, preview.heightPx);
+}
+
+function commitHorizontalPaneResize(
+  store: WorkspaceLayoutStore,
+  session: HorizontalPaneResizeSession,
+  preview: PaneResizePreview,
+): boolean {
   if (preview.axis !== "horizontal" || preview.width === session.startWidth) {
     return false;
   }
   store.resizeColumn(session.columnId, { unit: "px", value: preview.width });
   return true;
+}
+
+function paneHeightForPointerMove(
+  session: HeightPaneResizeSession,
+  clientY: number,
+): Omit<HeightPaneResizePreview, "axis"> {
+  const maximumHeight = Math.max(minimumManualPaneHeightPx, session.viewportHeight);
+  const height = clampNumber(
+    session.startHeight + clientY - session.startClientY,
+    minimumManualPaneHeightPx,
+    maximumHeight,
+  );
+  const bottom = session.startBottom + clientY - session.startClientY;
+  const heightPx =
+    Math.abs(session.viewportBottom - bottom) <= heightResizeDefaultSnapPx ? null : height;
+  return {
+    height,
+    heightPx,
+  };
 }
 
 function paneSplitWeightsForPointerMove(

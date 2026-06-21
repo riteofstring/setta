@@ -18,7 +18,7 @@ export function paneInHorizontalVisualDirection({
     return null;
   }
   const targetIndex = source.planeColumnIndex + (direction === "left" ? -1 : 1);
-  const targetColumn = planeColumns[(targetIndex + planeColumns.length) % planeColumns.length];
+  const targetColumn = planeColumns[targetIndex];
   return targetColumn?.paneIds[0] ?? null;
 }
 

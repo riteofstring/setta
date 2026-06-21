@@ -452,19 +452,22 @@ describe("workspace presentation engine", () => {
       { resizePhase: "idle" },
     );
 
-    const horizontal = firstHost.querySelector(
-      ".workspace-pane-resize-handle-horizontal",
-    ) as HTMLElement | null;
-    const vertical = firstHost.querySelector(
-      ".workspace-pane-resize-handle-vertical",
-    ) as HTMLElement | null;
+    const horizontal = requireResizeHandle(firstHost, "workspace-pane-resize-handle-horizontal");
+    const vertical = requireResizeHandle(firstHost, "workspace-pane-resize-handle-vertical");
+    const height = requireResizeHandle(firstHost, "workspace-pane-resize-handle-height");
 
-    expect(horizontal?.dataset.paneId).toBe("workspace_pane_0");
-    expect(horizontal?.dataset.adjacentPaneId).toBe("workspace_pane_1");
-    expect(horizontal?.style.left).toBe("164.00px");
-    expect(vertical?.dataset.paneId).toBe("workspace_pane_0");
-    expect(vertical?.dataset.adjacentPaneId).toBe("workspace_pane_2");
-    expect(vertical?.style.top).toBe("124.00px");
+    expect(horizontal.dataset.paneId).toBe("workspace_pane_0");
+    expect(horizontal.dataset.adjacentPaneId).toBe("workspace_pane_1");
+    expect(horizontal.style.height).toBe("120.00px");
+    expect(horizontal.style.left).toBe("164.00px");
+    expect(vertical.dataset.paneId).toBe("workspace_pane_0");
+    expect(vertical.dataset.adjacentPaneId).toBe("workspace_pane_2");
+    expect(vertical.style.top).toBe("124.00px");
+    expect(height.dataset.paneId).toBe("workspace_pane_0");
+    expect(height.dataset.adjacentPaneId).toBeUndefined();
+    expect(height.style.left).toBe("80.00px");
+    expect(height.style.top).toBe("120.00px");
+    expect(height.style.width).toBe("160.00px");
     expect(secondHost.querySelector(".workspace-pane-resize-handle-horizontal")).toBeNull();
   });
 
@@ -844,4 +847,12 @@ function setText(host: HTMLElement, selector: string, value: string): void {
   if (target) {
     target.textContent = value;
   }
+}
+
+function requireResizeHandle(host: HTMLElement, className: string): HTMLElement {
+  const handle = host.querySelector(`.${className}`);
+  if (!handle) {
+    throw new Error(`resize handle .${className} was not found`);
+  }
+  return handle as HTMLElement;
 }

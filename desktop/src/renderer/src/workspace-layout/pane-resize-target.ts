@@ -13,6 +13,14 @@ export type PaneResizeTarget =
       axis: "vertical";
       beforeHeight: number;
       paneId: string;
+    }
+  | {
+      bottom: number;
+      axis: "height";
+      height: number;
+      paneId: string;
+      viewportBottom: number;
+      viewportHeight: number;
     };
 
 interface ResizeHandleDataset {
@@ -32,6 +40,9 @@ export function paneResizeTargetFromPointer(event: PointerEvent): PaneResizeTarg
   }
   if (dataset.workspacePaneResizeAxis === "vertical") {
     return verticalResizeTargetFromHandle(handle, dataset);
+  }
+  if (dataset.workspacePaneResizeAxis === "height") {
+    return heightResizeTargetFromHandle(handle, dataset);
   }
   return null;
 }
@@ -77,6 +88,34 @@ function verticalResizeTargetFromHandle(
     beforeHeight: host.getBoundingClientRect().height,
     paneId,
   };
+}
+
+function heightResizeTargetFromHandle(
+  handle: HTMLElement,
+  dataset: ResizeHandleDataset,
+): PaneResizeTarget | null {
+  const paneId = dataset.paneId;
+  const host = paneId
+    ? visiblePaneHostByPaneId(handle.ownerDocument, paneId)
+    : handle.closest<HTMLElement>(visiblePaneHostSelector);
+  if (!host || !paneId) {
+    return null;
+  }
+  const hostRect = host.getBoundingClientRect();
+  const viewportRect = viewportRectForHandle(handle);
+  return {
+    axis: "height",
+    bottom: hostRect.bottom,
+    height: hostRect.height,
+    paneId,
+    viewportBottom: viewportRect.bottom,
+    viewportHeight: viewportRect.height,
+  };
+}
+
+function viewportRectForHandle(handle: HTMLElement): DOMRect {
+  const stage = handle.closest<HTMLElement>("[data-testid='workspace-presentation-engine']");
+  return (stage ?? handle.ownerDocument.documentElement).getBoundingClientRect();
 }
 
 function paneResizeHandleFromPointerTarget(target: EventTarget | null): HTMLElement | null {

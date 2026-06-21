@@ -372,7 +372,7 @@ function ComposerComponent({
 
   return (
     <form
-      className={cn("bg-background px-3 pt-1 pb-1.5", formClassName)}
+      className={cn("workspace-chat-pane-surface px-3 pt-1 pb-1.5", formClassName)}
       data-testid="chat-composer"
       onSubmit={(event) => {
         event.preventDefault();

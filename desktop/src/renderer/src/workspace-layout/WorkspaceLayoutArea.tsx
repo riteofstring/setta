@@ -24,10 +24,8 @@ import { createWorkspaceRuntime, type WorkspaceRuntime } from "./workspace-runti
 import {
   cleanupActivePaneDragSession,
   cleanupOverviewDragSource,
-  cleanupPaneWindowDragSession,
   clearSchedulerRefIfCurrent,
   type OverviewDragSession,
-  type PaneWindowDragSession,
 } from "./workspace-layout-area-cleanup";
 import {
   installWindowReportHooksForRuntime,
@@ -94,11 +92,13 @@ export function WorkspaceLayoutArea({
   onToggleProjectPane,
   platform,
   projectPaneOpen,
+  projectPaneWidth,
 }: {
   focusSurfaceRequest?: WorkspaceSurfaceFocusRequest | null;
   onToggleProjectPane: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
+  projectPaneWidth: number;
 }) {
   const workspace = useSelectedWorkspaceSummary();
   const mode = workspaceSceneMode();
@@ -116,6 +116,7 @@ export function WorkspaceLayoutArea({
       onToggleProjectPane={onToggleProjectPane}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
+      projectPaneWidth={projectPaneWidth}
       workspaceId={workspaceId}
       workspaceName={workspaceName}
     />
@@ -130,6 +131,7 @@ function WorkspaceLayoutRuntimeArea({
   onToggleProjectPane,
   platform,
   projectPaneOpen,
+  projectPaneWidth,
   workspaceId,
   workspaceName,
 }: {
@@ -140,6 +142,7 @@ function WorkspaceLayoutRuntimeArea({
   onToggleProjectPane: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
+  projectPaneWidth: number;
   workspaceId: string;
   workspaceName: string;
 }) {
@@ -152,7 +155,6 @@ function WorkspaceLayoutRuntimeArea({
   const paneResizePreviewRef = useRef<HTMLDivElement | null>(null);
   const paneResizeStageOriginRef = useRef<{ left: number; top: number } | null>(null);
   const paneResizeSessionRef = useRef<PaneResizeSession | null>(null);
-  const paneWindowDragSessionRef = useRef<PaneWindowDragSession | null>(null);
   const schedulerRef = useRef<FrameScheduler | null>(null);
   const suppressNextClickRef = useRef(false);
   const trackpadNavigationRef = useRef(createWorkspaceTrackpadNavigationState());
@@ -201,12 +203,14 @@ function WorkspaceLayoutRuntimeArea({
   const currentScene = runtime.store.toScene();
   const { layoutPersistenceError, persistLayout, resetLayoutPersistenceError } =
     useWorkspaceUILayoutPersistence(runtime, workspaceId);
+  const projectPaneWidthRef = useRef(projectPaneWidth);
+  projectPaneWidthRef.current = projectPaneWidth;
   const stageViewport = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) {
       throw new Error("workspace layout stage is not mounted");
     }
-    return viewportRect(stage);
+    return viewportRect(stage, projectPaneWidthRef.current);
   }, []);
   const runLayoutAction = useCallback(
     (action: () => void) => {
@@ -223,6 +227,13 @@ function WorkspaceLayoutRuntimeArea({
     runtime.engine.setCompactLayout(mobileLayout);
     schedulerRef.current?.requestFrame();
   }, [mobileLayout, runtime]);
+  useEffect(() => {
+    if (runtime.mode === "workspace") {
+      runtime.store.ensureFocusedColumnVisible(stageViewport());
+      runtime.store.snapScrollToTarget();
+    }
+    schedulerRef.current?.requestFrame();
+  }, [projectPaneWidth, runtime, stageViewport]);
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
       setOverviewGhostTarget(null);
@@ -286,7 +297,7 @@ function WorkspaceLayoutRuntimeArea({
     });
     runtime.presentation.mount(hosts, debugRef.current);
     installWindowReportHooksForRuntime(runtime);
-    const viewportProvider = () => viewportRect(stage);
+    const viewportProvider = () => viewportRect(stage, projectPaneWidthRef.current);
     const uninstallResizeReportHooks = installResizeReportHooksForRuntime(
       runtime,
       viewportProvider,
@@ -324,6 +335,7 @@ function WorkspaceLayoutRuntimeArea({
       handleWorkspaceWheel({
         event,
         persistLayout,
+        root,
         runtime,
         scheduler,
         state: trackpadNavigationRef.current,
@@ -383,6 +395,12 @@ function WorkspaceLayoutRuntimeArea({
       if (session.axis === "horizontal" && preview.axis === "horizontal") {
         const x = session.startClientX + preview.width - session.startWidth - stageOrigin.left;
         previewElement.style.transform = `translate3d(${Math.round(x)}px, 0, 0)`;
+        return;
+      }
+      if (session.axis === "height" && preview.axis === "height") {
+        const y = session.startClientY + preview.height - session.startHeight - stageOrigin.top;
+        previewElement.dataset.axis = "vertical";
+        previewElement.style.transform = `translate3d(0, ${Math.round(y)}px, 0)`;
         return;
       }
       if (session.axis !== "vertical" || preview.axis !== "vertical") {
@@ -449,22 +467,6 @@ function WorkspaceLayoutRuntimeArea({
       syncPaneResizePreview(resizeSession, event);
       return true;
     };
-    const beginPaneWindowDrag = (event: PointerEvent): boolean => {
-      const handle = paneWindowDragTargetFromPointer(event);
-      if (!handle) {
-        return false;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      scheduler.pauseBenchmark();
-      handle.setPointerCapture?.(event.pointerId);
-      paneWindowDragSessionRef.current = {
-        handle,
-        pointerId: event.pointerId,
-      };
-      void window.setta.app.startWindowDrag(windowDragPointFromPointer(event));
-      return true;
-    };
     const handlePointerDown = (event: PointerEvent) => {
       if (runtime.mode !== "workspace") {
         return;
@@ -474,9 +476,6 @@ function WorkspaceLayoutRuntimeArea({
         return;
       }
       if (beginPaneDrag(event)) {
-        return;
-      }
-      if (beginPaneWindowDrag(event)) {
         return;
       }
       beginPaneResize(event);
@@ -518,16 +517,6 @@ function WorkspaceLayoutRuntimeArea({
       updatePaneDragSession(event, root, paneDragSession, runtime.store);
       return true;
     };
-    const updatePaneWindowDrag = (event: PointerEvent): boolean => {
-      const paneWindowDragSession = paneWindowDragSessionRef.current;
-      if (!paneWindowDragSession || event.pointerId !== paneWindowDragSession.pointerId) {
-        return false;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      void window.setta.app.moveWindowDrag(windowDragPointFromPointer(event));
-      return true;
-    };
     const updatePaneResize = (event: PointerEvent): boolean => {
       const session = paneResizeSessionRef.current;
       if (!session) {
@@ -548,9 +537,6 @@ function WorkspaceLayoutRuntimeArea({
         return;
       }
       if (updatePaneDrag(event)) {
-        return;
-      }
-      if (updatePaneWindowDrag(event)) {
         return;
       }
       updatePaneResize(event);
@@ -617,28 +603,11 @@ function WorkspaceLayoutRuntimeArea({
       }
       return true;
     };
-    const finishActivePaneWindowDrag = (event: PointerEvent): boolean => {
-      const paneWindowDragSession = paneWindowDragSessionRef.current;
-      if (!paneWindowDragSession || event.pointerId !== paneWindowDragSession.pointerId) {
-        return false;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      paneWindowDragSessionRef.current = null;
-      if (paneWindowDragSession.handle.hasPointerCapture?.(event.pointerId)) {
-        paneWindowDragSession.handle.releasePointerCapture(event.pointerId);
-      }
-      void window.setta.app.endWindowDrag();
-      return true;
-    };
     const handlePointerUp = (event: PointerEvent) => {
       if (finishActiveOverviewDrag(event)) {
         return;
       }
       if (finishActivePaneDrag(event)) {
-        return;
-      }
-      if (finishActivePaneWindowDrag(event)) {
         return;
       }
       const session = paneResizeSessionRef.current;
@@ -695,7 +664,6 @@ function WorkspaceLayoutRuntimeArea({
       window.removeEventListener("wheel", handleWheel, { capture: true });
       cleanupOverviewDragSource(overviewDragSessionRef);
       cleanupActivePaneDragSession(root, paneDragSessionRef);
-      cleanupPaneWindowDragSession(paneWindowDragSessionRef);
       setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
       runtime.store.clearPaneDropPreview();
       paneResizeSessionRef.current = null;
@@ -771,11 +739,6 @@ function WorkspaceLayoutRuntimeArea({
           ))}
         </Profiler>
       </div>
-      {/* Rendered after the stage so the toolbar's no-drag buttons follow the pane
-          top bars' -webkit-app-region: drag surfaces in document order; Electron
-          applies the drag/no-drag rects in that order, and an earlier no-drag hole
-          would be re-covered by a later drag rect when a pane sits under the
-          toolbar with the project pane collapsed. */}
       <WorkspaceToolbarLayer
         debugRef={debugRef}
         mobileLayout={mobileLayout}
@@ -893,40 +856,6 @@ function workspaceRuntimeIdentity(workspace: { displayName: string; id: string }
   return { workspaceId: workspace.id, workspaceName: workspace.displayName };
 }
 
-function paneWindowDragTargetFromPointer(event: PointerEvent): HTMLElement | null {
-  if (event.button !== 0 || !(event.target instanceof Element)) {
-    return null;
-  }
-  const topBar = event.target.closest<HTMLElement>("[data-workspace-pane-top-bar]");
-  if (!topBar) {
-    return null;
-  }
-  if (event.target.closest(paneWindowDragNoDragSelector)) {
-    return null;
-  }
-  return topBar;
-}
-
-const paneWindowDragNoDragSelector = [
-  "[data-workspace-pane-action]",
-  "[data-workspace-pane-action-strip='true']",
-  "[data-workspace-pane-drag-handle='true']",
-  "[data-app-window-no-drag='true']",
-  "button",
-  "a",
-  "input",
-  "select",
-  "textarea",
-  "[role='button']",
-].join(",");
-
-function windowDragPointFromPointer(event: PointerEvent) {
-  return {
-    screenX: event.screenX,
-    screenY: event.screenY,
-  };
-}
-
 function useWorkspaceLayoutSnapshot(store: WorkspaceLayoutStore) {
   return useSyncExternalStore(
     (listener) => store.subscribe(listener),
@@ -948,12 +877,13 @@ function useSelectedWorkspaceSummary() {
   }, [session]);
 }
 
-function viewportRect(element: HTMLElement): Rect {
+function viewportRect(element: HTMLElement, reservedLeftWidth = 0): Rect {
   const rect = element.getBoundingClientRect();
+  const reservedWidth = Math.max(0, Math.min(rect.width - 1, reservedLeftWidth));
   return {
     height: rect.height,
-    width: rect.width,
-    x: 0,
+    width: rect.width - reservedWidth,
+    x: reservedWidth,
     y: 0,
   };
 }

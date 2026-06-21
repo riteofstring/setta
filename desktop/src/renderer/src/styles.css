@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./workspace-layout.css";
+@import "./workspace-pane-resize.css";
 @import "./workspace-resize-preview.css";
 @import "./workspace-snapshot.css";
 @import "./workspace-pane-chrome.css";
@@ -120,6 +121,12 @@
   --setta-shell-top-bar-height: 38px;
   --setta-shell-top-bar-logo-offset-y: 2px;
   --setta-shell-top-bar-surface: color-mix(in oklch, var(--setta-950) 88%, black);
+  --setta-niri-pane-surface: var(--setta-975);
+  --setta-niri-pane-title-bar-surface: color-mix(
+    in oklch,
+    var(--setta-niri-pane-surface) 98%,
+    black
+  );
   --setta-50: oklch(0.9574 0.0071 267.38);
   --setta-100: oklch(0.9085 0.013 263.02);
   --setta-150: oklch(0.8575 0.0208 262.99);
@@ -139,6 +146,15 @@
   --setta-950: oklch(0.1281 0.007 261.32);
   --setta-975: oklch(0.0697 0.0051 260.18);
   font-family: var(--setta-font-sans);
+}
+
+[data-color-mode="light"] {
+  --setta-niri-pane-surface: var(--setta-100);
+  --setta-niri-pane-title-bar-surface: color-mix(
+    in oklch,
+    var(--setta-niri-pane-surface) 96%,
+    var(--setta-200)
+  );
 }
 
 * {
@@ -178,11 +194,14 @@ h3 {
 .setta-sidebar-surface {
   --setta-sidebar-content-x: 4px;
   --setta-sidebar-logo-x: 16px;
-  background: color-mix(in oklch, var(--background) 72%, var(--popover));
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  background: color-mix(in oklch, var(--setta-niri-pane-title-bar-surface) 58%, transparent);
+  border-right: 1px solid color-mix(in oklch, var(--foreground) 7%, transparent);
 }
 
 [data-color-mode="light"] .setta-sidebar-surface {
-  background: var(--setta-100);
+  background: color-mix(in oklch, var(--setta-niri-pane-title-bar-surface) 68%, transparent);
 }
 
 .setta-sidebar-logo-shell {
@@ -195,6 +214,10 @@ h3 {
 .setta-sidebar-footer {
   padding-left: var(--setta-sidebar-content-x);
   padding-right: var(--setta-sidebar-content-x);
+}
+
+.setta-sidebar-content-shell {
+  padding-top: 8px;
 }
 
 .setta-shell-top-bar {

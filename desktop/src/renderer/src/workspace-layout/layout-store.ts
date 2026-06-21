@@ -29,7 +29,7 @@ export interface WorkspaceLayoutSnapshot {
 }
 
 type LayoutStoreListener = (snapshot: WorkspaceLayoutSnapshot) => void;
-const scrollAnimationTimeConstantMs = 140;
+const scrollAnimationTimeConstantMs = 115;
 const maxAnimationStepMs = 1000 / 60;
 const defaultViewportHeight = 900;
 
@@ -424,6 +424,36 @@ export class WorkspaceLayoutStore {
     if (
       !this.engine.resizePaneSplit(upperPaneId, lowerPaneId, upperHeightWeight, lowerHeightWeight)
     ) {
+      return false;
+    }
+    this.notify();
+    return true;
+  }
+
+  resizePane(paneId: PaneId, heightPx: number | null): void {
+    this.engine.resizePane(paneId, heightPx);
+    this.notify();
+  }
+
+  resizePaneRow(paneId: PaneId, heightPx: number | null): boolean {
+    const source = this.engine.paneLocation(paneId);
+    if (!source) {
+      return false;
+    }
+    const scene = this.toScene();
+    let resized = false;
+    for (const column of scene.columns) {
+      if (column.planeIndex !== source.planeIndex) {
+        continue;
+      }
+      const rowPaneId = column.paneIds[source.rowIndex];
+      if (!rowPaneId) {
+        continue;
+      }
+      this.engine.resizePane(rowPaneId, heightPx);
+      resized = true;
+    }
+    if (!resized) {
       return false;
     }
     this.notify();

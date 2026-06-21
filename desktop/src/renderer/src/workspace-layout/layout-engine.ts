@@ -37,6 +37,7 @@ import {
   scrollOffsetForColumn,
 } from "./layout-engine-helpers";
 import {
+  normalizedPaneHeightPx,
   normalizedPaneWeight,
   normalizeTerminalPaneConfig,
   terminalConfigForRequest,
@@ -384,14 +385,15 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     }
   }
 
-  resizePane(paneId: PaneId, heightWeight: number): void {
+  resizePane(paneId: PaneId, heightPx: number | null): void {
     const pane = this.paneById.get(paneId);
     if (!pane) {
       return;
     }
+    const nextHeightPx = normalizedPaneHeightPx(heightPx);
     this.paneById.set(paneId, {
       ...pane,
-      weight: normalizedPaneWeight(heightWeight),
+      ...(nextHeightPx === null ? { heightPx: undefined } : { heightPx: nextHeightPx }),
     });
   }
 

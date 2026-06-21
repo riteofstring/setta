@@ -121,7 +121,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         projectPaneOpen={projectPaneOpen}
         setProjectPaneOpen={setProjectPaneOpen}
       />
-      <main className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+      <main className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
         <ProjectPane
           activeRun={projectChat.activeRun}
           createConversation={createConversationAndFocusChat}
@@ -144,6 +144,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           onToggleProjectPane={toggleProjectPane}
           platform={platform}
           projectPaneOpen={projectPaneOpen}
+          projectPaneWidth={mobileViewport || !projectPaneOpen ? 0 : effectiveProjectPaneWidth}
         />
       </main>
     </div>
@@ -318,6 +319,7 @@ function ProjectPane({
 
   return (
     <ResizablePane
+      className="absolute inset-y-0 left-0 z-[80]"
       label="Resize project sidebar"
       maxWidth={projectPaneMaxWidth}
       minWidth={projectPaneMinWidth}

@@ -45,7 +45,7 @@ export function ChatPanel({
     return (
       <section
         className={cn(
-          "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background text-foreground",
+          "workspace-chat-pane-surface flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden text-foreground",
           chromeInsetTop && "pt-8",
         )}
       >
@@ -96,7 +96,7 @@ function ChatWorkspace({
   return (
     <section
       className={cn(
-        "relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-background text-foreground",
+        "workspace-chat-pane-surface relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible text-foreground",
         chromeInsetTop && "pt-8",
       )}
     >
@@ -283,7 +283,7 @@ function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
   const status = goalStatusLabel(goal.status);
   const title = `${status}: ${goal.objective}`;
   return (
-    <div className="shrink-0 border-b border-border bg-background" title={title}>
+    <div className="workspace-chat-pane-surface shrink-0 border-b border-border" title={title}>
       <div
         {...chatReadableColumnAttributes}
         className={cn(
@@ -369,7 +369,7 @@ function ChatError({ message }: { message: string | null }) {
     return null;
   }
   return (
-    <div className="border-t border-border bg-background">
+    <div className="workspace-chat-pane-surface border-t border-border">
       <div
         {...chatReadableColumnAttributes}
         className={cn(chatReadableColumnPaddedClass, "py-1.5 text-xs text-foreground")}

@@ -66,13 +66,13 @@ try {
   const regions = await sampleDragRegions(context.client);
   assertWorkspaceControlsNotDraggable(regions);
   assertShellTopBarDragRegions(regions);
-  assertPaneChromeDraggable(regions);
+  assertPaneChromeNotWindowDraggable(regions);
   assertPaneDragHandleNotWindowDraggable(regions);
   await assertEffectiveWindowDragRegions(context.client);
 
   const before = await windowPosition(context.client);
-  const paneTitleBar = requiredRegion(regions, "pane-title-bar");
-  const from = { x: Math.round(paneTitleBar.x), y: Math.round(paneTitleBar.y) };
+  const shellTopBar = requiredRegion(regions, "shell-top-bar");
+  const from = { x: Math.round(shellTopBar.left + 600), y: Math.round(shellTopBar.top + 12) };
   const to = { x: from.x + 120, y: from.y + 76 };
   await dispatchPhysicalMouseDrag(context.client, { from, steps: 24, to });
   await delay(800);
@@ -381,7 +381,7 @@ async function assertEffectiveWindowDragRegions(client) {
   const expectations = {
     "new-frame-button": false,
     "overview-button": false,
-    "pane-title-bar": true,
+    "pane-title-bar": false,
     "project-toggle": false,
     "shell-top-bar-surface": true,
   };
@@ -470,10 +470,10 @@ function dragResult(before, after, from, to) {
 
 function assertDragResult(result) {
   if (result.actualDelta.x === 0 && result.actualDelta.y === 0) {
-    throw new Error("window did not move from pane title bar drag");
+    throw new Error("window did not move from drag");
   }
   if (result.deltaError.x > dragDeltaTolerancePx || result.deltaError.y > dragDeltaTolerancePx) {
-    throw new Error(`pane title bar drag moved by unexpected delta: ${JSON.stringify(result)}`);
+    throw new Error(`window drag moved by unexpected delta: ${JSON.stringify(result)}`);
   }
 }
 
@@ -503,10 +503,12 @@ async function sampleDragRegions(client) {
         aria: element?.getAttribute("aria-label") ?? null,
         className: element?.getAttribute("class") ?? "",
         height: rect?.height ?? 0,
+        left: rect?.left ?? 0,
         name,
         region: style?.getPropertyValue("-webkit-app-region") ?? null,
         tag: element instanceof Element ? element.tagName.toLowerCase() : null,
         testid: element?.getAttribute("data-testid") ?? null,
+        top: rect?.top ?? 0,
         width: rect?.width ?? 0,
         x: -1,
         y: -1,
@@ -600,16 +602,16 @@ function assertNearlyEqual(actual, expected, name) {
   }
 }
 
-function assertPaneChromeDraggable(regions) {
+function assertPaneChromeNotWindowDraggable(regions) {
   const pane = requiredRegion(regions, "pane-title-bar");
-  if (pane.region !== "drag") {
-    throw new Error(`pane top bar is not draggable: ${JSON.stringify(pane)}`);
+  if (pane.region === "drag") {
+    throw new Error(`pane top bar should not drag the window: ${JSON.stringify(pane)}`);
   }
 }
 
 function assertPaneDragHandleNotWindowDraggable(regions) {
   const handle = requiredRegion(regions, "pane-drag-handle");
-  if (handle.region !== "no-drag") {
+  if (handle.region === "drag") {
     throw new Error(`pane drag handle should not drag the window: ${JSON.stringify(handle)}`);
   }
 }

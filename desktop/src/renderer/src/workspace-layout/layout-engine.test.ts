@@ -565,7 +565,7 @@ describe("real workspace layout column sizing", () => {
     expect(store.focusedPaneId()).toBe(planePaneId);
   });
 
-  test("right navigation wraps to the beginning of the current horizontal plane", () => {
+  test("right navigation stops at the end of the current horizontal plane", () => {
     const { focusedPaneId, scene } = createRealWorkspaceScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:right-wrap-plane",
@@ -573,16 +573,16 @@ describe("real workspace layout column sizing", () => {
     });
     const engine = new WorkspaceLikeLayoutEngine(scene);
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
-    const lowerPlanePaneId = store.splitFocusedPaneToPlane("down");
+    store.splitFocusedPaneToPlane("down");
 
     store.focusPaneBySurfaceKind("settings-dom");
+    const focusedPaneBeforeMove = store.focusedPaneId();
     store.moveFocus("right", { ...viewport, width: 1200 });
 
-    expect(store.focusedPaneId()).toBe("workspace_pane_0");
-    expect(store.focusedPaneId()).not.toBe(lowerPlanePaneId);
+    expect(store.focusedPaneId()).toBe(focusedPaneBeforeMove);
   });
 
-  test("left navigation wraps to the end of the current horizontal plane", () => {
+  test("left navigation stops at the beginning of the current horizontal plane", () => {
     const { focusedPaneId, scene } = createRealWorkspaceScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:left-wrap-plane",
@@ -593,9 +593,10 @@ describe("real workspace layout column sizing", () => {
     store.splitFocusedPaneToPlane("down");
 
     store.focusPaneBySurfaceKind("chat-dom");
+    const focusedPaneBeforeMove = store.focusedPaneId();
     store.moveFocus("left");
 
-    expect(store.focusedPaneId()).toBe("workspace_pane_3");
+    expect(store.focusedPaneId()).toBe(focusedPaneBeforeMove);
   });
 
   test("left and right navigation stay on a single-pane horizontal plane", () => {
@@ -715,6 +716,40 @@ describe("real workspace layout column sizing", () => {
 
     expect(snapshot.focusedPaneId).toBe("workspace_pane_2");
     expect(focusedItem?.x).toBe(10);
+    expect(focusedItem?.y).toBe(10);
+    expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
+  });
+
+  test("keeps the focused column to the right of a reserved sidebar inset", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storedLayout: null,
+      workspaceId: "setta:workspace-layout:sidebar-resize-focus",
+      workspaceName: "Repo",
+    });
+    const engine = new WorkspaceLikeLayoutEngine(scene);
+    const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
+    const sidebarWidth = 280;
+    const insetViewport: Rect = {
+      ...viewport,
+      width: 900 - sidebarWidth,
+      x: sidebarWidth,
+    };
+
+    store.moveFocus("right");
+    store.moveFocus("right");
+    store.ensureFocusedColumnVisible(insetViewport);
+
+    const snapshot = store.getSnapshot();
+    const items = renderFrame(
+      engine,
+      insetViewport,
+      snapshot.targetScrollColumn,
+      snapshot.focusedPaneId,
+    );
+    const focusedItem = items.find((item) => item.focused);
+
+    expect(snapshot.focusedPaneId).toBe("workspace_pane_2");
+    expect(focusedItem?.x).toBe(sidebarWidth + 10);
     expect(focusedItem?.y).toBe(10);
     expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
   });

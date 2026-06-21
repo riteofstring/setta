@@ -11,8 +11,8 @@
 
 .workspace-pane-top-bar {
   align-items: center;
-  background: color-mix(in oklch, var(--popover) 96%, var(--background));
-  border-bottom: 1px solid color-mix(in oklch, var(--foreground) 8%, transparent);
+  background: var(--workspace-pane-title-bar-surface);
+  border-bottom: 1px solid color-mix(in oklch, var(--foreground) 12%, transparent);
   color: color-mix(in oklch, var(--foreground) 72%, transparent);
   display: flex;
   gap: 4px;
@@ -23,12 +23,7 @@
   pointer-events: auto;
   position: absolute;
   width: 100%;
-  -webkit-app-region: drag;
   z-index: 6;
-}
-
-.workspace-pane-host .workspace-pane-top-bar {
-  -webkit-app-region: drag;
 }
 
 .workspace-pane-action-strip {
@@ -37,7 +32,6 @@
   flex: 0 0 auto;
   gap: 2px;
   margin-left: auto;
-  -webkit-app-region: no-drag;
 }
 
 /* Mobile-width layout pages between full-screen panes; pane management moves
@@ -71,7 +65,6 @@
     color 120ms ease,
     opacity 120ms ease;
   width: 22px;
-  -webkit-app-region: no-drag;
 }
 
 .workspace-pane-drag-handle {

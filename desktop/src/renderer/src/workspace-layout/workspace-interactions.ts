@@ -9,8 +9,7 @@ import { paneFocusTargetFromClick } from "./pane-focus-click";
 import { eventTargetsTerminalSurface } from "./terminal-surface-utils";
 import {
   interpretWorkspaceTrackpadWheel,
-  paneTopBarPaneIdFromWheelTarget,
-  wheelTargetIsAppTitleBar,
+  workspaceWheelNavigationTargetFromEventTarget,
 } from "./trackpad-navigation";
 import type { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
 import {
@@ -70,10 +69,7 @@ export function eventTargetsWorkspaceWheelNavigation(
   event: WheelEvent,
   root: HTMLElement,
 ): boolean {
-  if (!(event.target instanceof Element)) {
-    return false;
-  }
-  return root.contains(event.target) || wheelTargetIsAppTitleBar(event.target);
+  return workspaceWheelNavigationTargetFromEventTarget(event.target, root) !== null;
 }
 
 function handleEmptyFrameActionClick({
@@ -538,6 +534,7 @@ function assertNever(value: never): never {
 export function handleWorkspaceWheel({
   event,
   persistLayout,
+  root,
   runtime,
   scheduler,
   state,
@@ -545,22 +542,24 @@ export function handleWorkspaceWheel({
 }: {
   event: WheelEvent;
   persistLayout: () => void;
+  root: HTMLElement;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   state: ReturnType<typeof createWorkspaceTrackpadNavigationState>;
   viewportProvider: () => Rect;
 }): void {
   const presentationMode = runtime.store.getSnapshot().presentationMode;
-  const topBarPaneId = paneTopBarPaneIdFromWheelTarget(event.target);
-  const appTitleBarTargeted = wheelTargetIsAppTitleBar(event.target);
+  const navigationTarget = workspaceWheelNavigationTargetFromEventTarget(event.target, root);
+  if (!navigationTarget) {
+    return;
+  }
   const result = interpretWorkspaceTrackpadWheel(
     {
       deltaMode: event.deltaMode,
       deltaX: event.deltaX,
       deltaY: event.deltaY,
       metaKey: event.metaKey,
-      modifierRequired:
-        presentationMode !== "overview" && topBarPaneId === null && !appTitleBarTargeted,
+      modifierRequired: false,
       timeStampMs: event.timeStamp,
     },
     state,
@@ -577,13 +576,29 @@ export function handleWorkspaceWheel({
 
   scheduler.pauseBenchmark();
   for (const direction of result.directions) {
-    if (topBarPaneId && presentationMode === "normal") {
-      runtime.store.moveFocusFromPane(topBarPaneId, direction, viewportProvider());
+    if (
+      navigationTarget.paneId &&
+      presentationMode === "normal" &&
+      !workspaceScrollAnimationActive(runtime.store.getSnapshot())
+    ) {
+      runtime.store.moveFocusFromPane(navigationTarget.paneId, direction, viewportProvider());
       continue;
     }
     runtime.store.moveFocus(direction, viewportProvider());
   }
   persistLayout();
+}
+
+function workspaceScrollAnimationActive(snapshot: {
+  scrollColumn: number;
+  scrollRow: number;
+  targetScrollColumn: number;
+  targetScrollRow: number;
+}): boolean {
+  return (
+    Math.abs(snapshot.targetScrollColumn - snapshot.scrollColumn) > 0.001 ||
+    Math.abs(snapshot.targetScrollRow - snapshot.scrollRow) > 0.001
+  );
 }
 
 function isArrowKey(key: string): key is "ArrowDown" | "ArrowLeft" | "ArrowRight" | "ArrowUp" {
