@@ -50,7 +50,15 @@ Additional focused workspace-layout command:
 pnpm exec vitest run src/renderer/src/workspace-layout
 ```
 
-Result: 22 test files passed, 244 tests passed.
+Result: 22 test files passed, 245 tests passed.
+
+Focused store guardrail command:
+
+```sh
+pnpm exec vitest run src/renderer/src/workspace-layout/layout-store.test.ts
+```
+
+Result: 1 test file passed, 37 tests passed.
 
 Electron workflow syntax check:
 
@@ -68,6 +76,7 @@ Result: passed.
 | `after` placement | Store test verifies one revision bump for an `after` row drop. |
 | Overview drag placement | `workspace-overview-ghost.test.ts` verifies `above`/`below` map to row drops and `right` maps to a column drop. |
 | Preview coalescing | `pane-drag-reorder.test.ts` verifies multiple pointer moves before one animation frame produce one preview for the latest intent. |
+| Preview notification bounds | `layout-store.test.ts` verifies duplicate preview intents do not notify, changed intents notify once, and duplicate clears do not notify. |
 | Production pointer workflow | `pane-drag-drop-workflow.test.mjs` drives CDP mouse events through the built Electron app for normal row drop, normal column drop, and overview right-ghost column drop. It is registered in the required workflow manifest. |
 
 ## Pending Profiling
