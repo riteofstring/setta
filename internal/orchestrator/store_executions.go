@@ -459,6 +459,31 @@ WHERE workspace_id = ? AND id = ?
 	return execution, nil
 }
 
+func (store *Store) ActiveExecutionForDefinition(workspaceID string, definitionID string) (WorkflowExecution, bool, error) {
+	if err := validateStoreIDs("workspace id", workspaceID, "definition id", definitionID); err != nil {
+		return WorkflowExecution{}, false, err
+	}
+	var executionID string
+	err := store.db.QueryRowContext(context.Background(), `
+SELECT id
+FROM workflow_runs
+WHERE workspace_id = ? AND definition_id = ? AND status = ?
+ORDER BY started_at DESC, id ASC
+LIMIT 1
+`, workspaceID, definitionID, ExecutionStatusRunning).Scan(&executionID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return WorkflowExecution{}, false, nil
+		}
+		return WorkflowExecution{}, false, store.persistenceError("read active workflow execution", err)
+	}
+	execution, err := store.loadExecution(workspaceID, executionID)
+	if err != nil {
+		return WorkflowExecution{}, false, err
+	}
+	return execution, true, nil
+}
+
 func (store *Store) ListExecutions(workspaceID string) ([]WorkflowExecution, error) {
 	if err := validateStorageID("workspace id", workspaceID); err != nil {
 		return nil, err

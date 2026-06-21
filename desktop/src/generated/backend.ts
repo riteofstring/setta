@@ -4728,9 +4728,24 @@ export interface CancelCodexLoginRequest {
 export interface LogoutCodexAccountRequest {
 }
 
+export interface WorkflowExecutionSummary {
+  id: string;
+  workspaceId: string;
+  definitionId: string;
+  definitionVersionId: string;
+  definitionVersionNumber: number;
+  status: WorkflowExecutionStatus;
+  terminalReason: WorkflowTerminalReason | null;
+  startedAt: string;
+  updatedAt: string;
+  completedAt: string;
+  lastEventOrdinal: number;
+}
+
 export interface APIError {
   code: string;
   message: string;
+  activeExecution: WorkflowExecutionSummary | null;
 }
 
 export interface ErrorResponse {
@@ -9190,12 +9205,31 @@ export function decodeLogoutCodexAccountRequest(value: unknown): LogoutCodexAcco
   };
 }
 
+export function decodeWorkflowExecutionSummary(value: unknown): WorkflowExecutionSummary {
+  const record = assertRecord(value, "WorkflowExecutionSummary");
+  assertKnownFields(record, "WorkflowExecutionSummary", ["id", "workspaceId", "definitionId", "definitionVersionId", "definitionVersionNumber", "status", "terminalReason", "startedAt", "updatedAt", "completedAt", "lastEventOrdinal"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.definitionId"),
+    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.definitionVersionId"),
+    definitionVersionNumber: decodeInteger(requireField(record, "definitionVersionNumber", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.definitionVersionNumber"),
+    status: decodeWorkflowExecutionStatus(requireField(record, "status", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.status"),
+    terminalReason: decodeNullable(requireField(record, "terminalReason", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.terminalReason", (item) => decodeWorkflowTerminalReason(item, "WorkflowExecutionSummary.terminalReason")),
+    startedAt: decodeString(requireField(record, "startedAt", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.startedAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.updatedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.completedAt"),
+    lastEventOrdinal: decodeInteger(requireField(record, "lastEventOrdinal", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.lastEventOrdinal"),
+  };
+}
+
 export function decodeAPIError(value: unknown): APIError {
   const record = assertRecord(value, "APIError");
-  assertKnownFields(record, "APIError", ["code", "message"]);
+  assertKnownFields(record, "APIError", ["code", "message", "activeExecution"]);
   return {
     code: decodeString(requireField(record, "code", "APIError"), "APIError.code"),
     message: decodeString(requireField(record, "message", "APIError"), "APIError.message"),
+    activeExecution: decodeNullable(requireField(record, "activeExecution", "APIError"), "APIError.activeExecution", (item) => decodeWorkflowExecutionSummary(item)),
   };
 }
 

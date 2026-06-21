@@ -172,6 +172,15 @@ func writeWorkflowError(response http.ResponseWriter, code string, err error) {
 		writeError(response, status, "workflow_validation_failed", validationErr.Error())
 		return
 	}
+	if conflict, ok := orchestrator.IsWorkflowExecutionAlreadyRunning(err); ok {
+		activeExecution := conflict.ActiveExecution
+		writeAPIError(response, http.StatusConflict, APIError{
+			Code:            orchestrator.WorkflowExecutionAlreadyRunningCode,
+			Message:         conflict.Error(),
+			ActiveExecution: &activeExecution,
+		})
+		return
+	}
 	if orchestrator.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_workflow_state", err.Error())
 		return
@@ -212,11 +221,15 @@ func writeTerminalError(response http.ResponseWriter, code string, err error) {
 }
 
 func writeError(response http.ResponseWriter, status int, code string, message string) {
+	writeAPIError(response, status, APIError{
+		Code:    code,
+		Message: message,
+	})
+}
+
+func writeAPIError(response http.ResponseWriter, status int, apiError APIError) {
 	writeJSON(response, status, ErrorResponse{
-		Error: APIError{
-			Code:    code,
-			Message: message,
-		},
+		Error: apiError,
 	})
 }
 

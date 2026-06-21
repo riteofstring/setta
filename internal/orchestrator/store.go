@@ -26,6 +26,7 @@ type WorkflowStore interface {
 	LatestDefinitionVersionNumber(workspaceID string, definitionID string) (int, error)
 	LoadDefinitionVersion(workspaceID string, definitionID string, versionID string) (WorkflowDefinitionVersion, error)
 	LoadExecution(workspaceID string, executionID string) (WorkflowExecution, error)
+	ActiveExecutionForDefinition(workspaceID string, definitionID string) (WorkflowExecution, bool, error)
 	ListExecutions(workspaceID string) ([]WorkflowExecution, error)
 	WorkspaceIDs() ([]string, error)
 	PersistTransition(WorkflowTransition) ([]WorkflowEventEnvelope, error)
@@ -197,6 +198,9 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
 
 CREATE INDEX IF NOT EXISTS workflow_runs_workspace_started_idx
   ON workflow_runs(workspace_id, started_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS workflow_runs_workspace_definition_started_idx
+  ON workflow_runs(workspace_id, definition_id, started_at DESC, id);
 
 CREATE INDEX IF NOT EXISTS workflow_runs_nonterminal_idx
   ON workflow_runs(status, updated_at, id);

@@ -116,6 +116,37 @@ func TestWorkflowEndpointCancelReturnsCompletedExecutionWithoutFailure(t *testin
 	}
 }
 
+func TestWorkflowEndpointStartExecutionConflictIncludesActiveExecution(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Active conflict",
+		Graph:       httpWorkflowActionGraph(),
+	}, http.StatusOK)
+	active := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+
+	conflict := postJSON[ErrorResponse](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusConflict)
+	if conflict.Error.Code != orchestrator.WorkflowExecutionAlreadyRunningCode {
+		t.Fatalf("error code = %q, want %s", conflict.Error.Code, orchestrator.WorkflowExecutionAlreadyRunningCode)
+	}
+	if conflict.Error.ActiveExecution == nil {
+		t.Fatal("active execution payload was nil")
+	}
+	if conflict.Error.ActiveExecution.ID != active.ID || conflict.Error.ActiveExecution.Status != orchestrator.ExecutionStatusRunning {
+		t.Fatalf("active execution payload = %+v, want running %s", conflict.Error.ActiveExecution, active.ID)
+	}
+	if conflict.Error.ActiveExecution.DefinitionVersionNumber != 1 {
+		t.Fatalf("active version number = %d, want 1", conflict.Error.ActiveExecution.DefinitionVersionNumber)
+	}
+}
+
 func TestWorkflowEndpointsSubmitWorkflowApproval(t *testing.T) {
 	handler := newScriptedWorkflowHandler(t)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)

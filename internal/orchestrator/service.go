@@ -46,6 +46,24 @@ func (err *ValidationError) Error() string {
 	return err.Result.Diagnostics[0].Message
 }
 
+const WorkflowExecutionAlreadyRunningCode = "workflow_execution_already_running"
+
+type WorkflowExecutionAlreadyRunningError struct {
+	ActiveExecution WorkflowExecutionSummary
+}
+
+func (err *WorkflowExecutionAlreadyRunningError) Error() string {
+	return fmt.Sprintf("workflow execution %s is already running for workflow definition %s", err.ActiveExecution.ID, err.ActiveExecution.DefinitionID)
+}
+
+func IsWorkflowExecutionAlreadyRunning(err error) (*WorkflowExecutionAlreadyRunningError, bool) {
+	var conflict *WorkflowExecutionAlreadyRunningError
+	if errors.As(err, &conflict) {
+		return conflict, true
+	}
+	return nil, false
+}
+
 func NewService(store WorkflowStore, workspaceResolver WorkspaceResolver, options ...Option) (*Service, error) {
 	if store == nil {
 		return nil, errors.New("workflow store is required")
@@ -276,52 +294,91 @@ func (service *Service) StartExecution(workspaceID string, definitionID string, 
 		return WorkflowExecution{}, err
 	}
 	service.mu.Lock()
+	executionID, err := service.startExecutionLocked(workspaceSummary, workspaceID, definitionID, versionID)
+	service.mu.Unlock()
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	return service.dispatchReadyActions(workspaceID, executionID)
+}
 
-	var version WorkflowDefinitionVersion
-	if versionID == "" {
-		definition, _, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
-		if err != nil {
-			service.mu.Unlock()
-			return WorkflowExecution{}, err
-		}
-		versionID, err = service.newID("workflow_version")
-		if err != nil {
-			service.mu.Unlock()
-			return WorkflowExecution{}, fmt.Errorf("create workflow version id: %w", err)
-		}
-		latestVersionNumber, err := service.store.LatestDefinitionVersionNumber(workspaceID, definitionID)
-		if err != nil {
-			service.mu.Unlock()
-			return WorkflowExecution{}, err
-		}
-		version = workflowDefinitionVersionFromDefinition(definition, versionID, latestVersionNumber+1, service.now())
-		if err := service.store.SaveDefinitionVersion(version); err != nil {
-			service.mu.Unlock()
-			return WorkflowExecution{}, err
-		}
-	} else {
-		version, err = service.store.LoadDefinitionVersion(workspaceID, definitionID, versionID)
-		if err != nil {
-			service.mu.Unlock()
-			return WorkflowExecution{}, err
-		}
+func (service *Service) startExecutionLocked(workspaceSummary workspace.WorkspaceSummary, workspaceID string, definitionID string, versionID string) (string, error) {
+	if err := service.rejectActiveExecutionForDefinitionLocked(workspaceID, definitionID); err != nil {
+		return "", err
+	}
+	version, err := service.startExecutionVersionLocked(workspaceSummary, workspaceID, definitionID, versionID)
+	if err != nil {
+		return "", err
 	}
 	if result := ValidateExecutableGraph(version.Graph, service.runnerRegistry); !result.Valid {
-		service.mu.Unlock()
-		return WorkflowExecution{}, &ValidationError{Result: result}
+		return "", &ValidationError{Result: result}
 	}
 	transition, err := StartExecution(version, service.transitionContext())
 	if err != nil {
-		service.mu.Unlock()
-		return WorkflowExecution{}, err
+		return "", err
 	}
 	if err := service.persistTransition(transition); err != nil {
-		service.mu.Unlock()
-		return WorkflowExecution{}, err
+		return "", err
 	}
-	executionID := transition.Execution.ID
-	service.mu.Unlock()
-	return service.dispatchReadyActions(workspaceID, executionID)
+	return transition.Execution.ID, nil
+}
+
+func (service *Service) rejectActiveExecutionForDefinitionLocked(workspaceID string, definitionID string) error {
+	activeExecution, ok, err := service.store.ActiveExecutionForDefinition(workspaceID, definitionID)
+	if err != nil {
+		return err
+	}
+	if ok {
+		activeSummary, err := service.workflowExecutionSummaryLocked(activeExecution)
+		if err != nil {
+			return err
+		}
+		return &WorkflowExecutionAlreadyRunningError{ActiveExecution: activeSummary}
+	}
+	return nil
+}
+
+func (service *Service) startExecutionVersionLocked(workspaceSummary workspace.WorkspaceSummary, workspaceID string, definitionID string, versionID string) (WorkflowDefinitionVersion, error) {
+	if versionID == "" {
+		definition, _, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
+		if err != nil {
+			return WorkflowDefinitionVersion{}, err
+		}
+		versionID, err = service.newID("workflow_version")
+		if err != nil {
+			return WorkflowDefinitionVersion{}, fmt.Errorf("create workflow version id: %w", err)
+		}
+		latestVersionNumber, err := service.store.LatestDefinitionVersionNumber(workspaceID, definitionID)
+		if err != nil {
+			return WorkflowDefinitionVersion{}, err
+		}
+		version := workflowDefinitionVersionFromDefinition(definition, versionID, latestVersionNumber+1, service.now())
+		if err := service.store.SaveDefinitionVersion(version); err != nil {
+			return WorkflowDefinitionVersion{}, err
+		}
+		return version, nil
+	}
+	return service.store.LoadDefinitionVersion(workspaceID, definitionID, versionID)
+}
+
+func (service *Service) workflowExecutionSummaryLocked(execution WorkflowExecution) (WorkflowExecutionSummary, error) {
+	version, err := service.store.LoadDefinitionVersion(execution.WorkspaceID, execution.DefinitionID, execution.DefinitionVersionID)
+	if err != nil {
+		return WorkflowExecutionSummary{}, err
+	}
+	return WorkflowExecutionSummary{
+		ID:                      execution.ID,
+		WorkspaceID:             execution.WorkspaceID,
+		DefinitionID:            execution.DefinitionID,
+		DefinitionVersionID:     execution.DefinitionVersionID,
+		DefinitionVersionNumber: version.VersionNumber,
+		Status:                  execution.Status,
+		TerminalReason:          execution.TerminalReason,
+		StartedAt:               execution.StartedAt,
+		UpdatedAt:               execution.UpdatedAt,
+		CompletedAt:             execution.CompletedAt,
+		LastEventOrdinal:        execution.LastEventOrdinal,
+	}, nil
 }
 
 func (service *Service) CompleteAction(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult) (WorkflowExecution, error) {
