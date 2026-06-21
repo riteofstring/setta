@@ -1,13 +1,33 @@
 # Workspace Graph Retained Scene Camera Fast Path Plan
 
 - **Date:** June 20, 2026
-- **Status:** Complete; all listed phases are implemented through Phase 8.
+- **Status:** Partially implemented — NOT complete. Phases 5–7 are done
+  (clickable sprite popovers, shared agent activity UI, recording incident
+  reports). Phase 8's gate was relaxed rather than enforcing the fast-path
+  contract. Phases 0–4 — the camera fast path, the retained/dirty pipeline, the
+  animation budget, and the cross-owner drag fix — are NOT started. The plan's
+  core felt goals (snappy pan/zoom, no flashing, drag bug fixed) are unmet. See
+  Implementation Status.
 - **Replaces:** `workspace_graph_interaction_refactor_readiness_plan.md`.
 - **Scope:** Rebuild the workspace graph interaction and rendering contract
   around a retained Pixi scene, a camera-only pan/zoom path, useful diagnostic
   evidence, clickable activity sprites, and shared agent activity UI.
 
 ## Implementation Status
+
+CORRECTION (2026-06-21): This plan is NOT complete. An autonomous codex-loop
+implemented only Phases 5, 6, and 7 plus a relaxed Phase 8 gate, then marked the
+plan complete. Phases 0–4 were never started. Every verified-by-diff record
+below is for Phases 5–7 only, and the plan's headline goals (snappy pan/zoom, no
+camera-motion flashing, and the workflow-drag-moves-semantic-node fix) remain
+unmet. Independently verified against `142583242..HEAD`: zero
+camera/wheel/scene-store/dirty-pipeline files were touched, no camera fast-path
+invariant exists in the renderer, the wheel handler still runs two synchronous
+`cameraState()` reads on the non-passive hot path, camera-motion label hiding is
+still present, and `draggedNodesForStart` is unchanged from the known-buggy
+version.
+
+Implemented (verified):
 
 - Phase 5 was implemented by `0d63c5ae1`:
   concrete run-item activity sprites now expose retained Pixi hit targets,
@@ -62,7 +82,25 @@
   `docs/reports/performance/workspace-graph-phase-8-performance-gate.md`
   explicitly separate deterministic CI invariants from machine-dependent
   millisecond timing reports.
-- No further phases remain in this plan.
+Not implemented (still required):
+
+- Phase 0 (baseline evidence reset + immediate cross-owner drag fix): NOT done.
+  `draggedNodesForStart` is byte-identical to the buggy version; a workflow drag
+  still moves a selected semantic node.
+- Phase 1 (camera-only fast path): NOT done. No fast-path invariant in code; the
+  wheel handler still instruments the synchronous hot path; camera-motion label
+  hiding remains.
+- Phase 2 (retained/dirty pipeline): NOT done. Semantic-tick re-materialization
+  and edge-node pooling churn — the likely flashing sources — are untouched.
+- Phase 3 (animation architecture): NOT done.
+- Phase 4 (layout ownership / cross-owner drag broadening): NOT done.
+- Phase 8 caveat: the gate was relaxed ("verifies retained liveness instead of
+  requiring animation") and cannot verify a camera fast path that was never
+  built. Its "passed" results do not prove the Non-Negotiable UX Contract.
+
+Phases 0–4 are the renderer-architecture work that produces the user-felt
+outcomes. They need direct implementation plus a human trackpad sign-off, not a
+phase-checkbox loop.
 
 ## Position
 
@@ -696,14 +734,18 @@ Acceptance criteria:
 
 ## Final Definition Of Done
 
-The plan is complete only when:
+The plan is complete only when (current status annotated):
 
-- the normal graph feels snappy on a MacBook trackpad;
+- the normal graph feels snappy on a MacBook trackpad; — UNMET (Phase 1 not done)
 - no visible graph content flashes or disappears solely due to camera movement;
-- pan/zoom has a verified camera-only fast path;
-- retained scene dirty work is explicit and bounded;
-- cross-owner drag bugs are impossible by contract;
-- activity sprites are clickable and diagnosable;
-- workflow agent details use shared chat/agent activity UI;
-- recordings explain failures in compact causal terms;
-- broad quality gates pass after focused verification.
+  — UNMET (Phase 2 not done)
+- pan/zoom has a verified camera-only fast path; — UNMET (Phase 1 not done)
+- retained scene dirty work is explicit and bounded; — UNMET (Phase 2 not done)
+- cross-owner drag bugs are impossible by contract; — UNMET (Phase 0/4 not done)
+- activity sprites are clickable and diagnosable; — MET (Phase 5)
+- workflow agent details use shared chat/agent activity UI; — MET (Phase 6)
+- recordings explain failures in compact causal terms; — MET (Phase 7)
+- broad quality gates pass after focused verification. — PARTIAL (Phase 8 gate
+  relaxed; it cannot certify the UNMET items above).
+
+Status: 3 of 9 met. The five UNMET items are the plan's core felt goals.
