@@ -28,8 +28,26 @@ describe("pane drag drop intent hit-testing", () => {
         placement: "after",
         targetPaneId: "target_pane",
       },
+      mode: "insert",
       paneId: "target_pane",
       placement: "after",
+    });
+  });
+
+  test("maps a pane's center to a swap intent", () => {
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 200, clientY: 100 }),
+      "source_pane",
+      storeForDragTests(),
+    );
+
+    expect(target).toEqual({
+      intent: {
+        kind: "swap",
+        targetPaneId: "target_pane",
+      },
+      mode: "swap",
+      paneId: "target_pane",
     });
   });
 
@@ -48,6 +66,7 @@ describe("pane drag drop intent hit-testing", () => {
         slotPlacement: "before",
         targetColumnId: "target_column",
       },
+      mode: "insert",
       paneId: "target_pane",
       placement: "before",
     });
@@ -160,11 +179,15 @@ describe("pane drag drop intent hit-testing", () => {
     expect(harness.recordPaneDragPreviewClear).not.toHaveBeenCalled();
   });
 
-  test("records preview clears when a drag leaves valid targets", () => {
+  test("records preview clears when no panes are left to target", () => {
     const harness = dragTestHarness();
     const session: PaneDragSession = {
       dragging: true,
       handle: { hasPointerCapture: () => false } as HTMLElement,
+      // An empty snapshot means there is no pane to drop onto, so resolution
+      // returns null and the active preview is cleared. (With panes present the
+      // new model always resolves to a nearest insert/swap, never to nothing.)
+      hostRects: [],
       pendingDropFrame: null,
       pendingDropPointer: null,
       pointerId: 1,
@@ -178,6 +201,7 @@ describe("pane drag drop intent hit-testing", () => {
           placement: "after",
           targetPaneId: "target_pane",
         },
+        mode: "insert",
         paneId: "target_pane",
         placement: "after",
       },
@@ -222,7 +246,7 @@ describe("pane drag drop intent hit-testing", () => {
     runLatestFrame(harness);
 
     updatePaneDragSession(
-      pointerEvent({ clientX: 520, clientY: 80 }),
+      pointerEvent({ clientX: 520, clientY: 20 }),
       harness.root,
       session,
       harness.store,
@@ -231,7 +255,7 @@ describe("pane drag drop intent hit-testing", () => {
     runLatestFrame(harness);
 
     updatePaneDragSession(
-      pointerEvent({ clientX: 520, clientY: 80 }),
+      pointerEvent({ clientX: 520, clientY: 20 }),
       harness.root,
       session,
       harness.store,
