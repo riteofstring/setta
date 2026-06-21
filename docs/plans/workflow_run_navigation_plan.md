@@ -406,6 +406,8 @@ Requirements:
 - selecting a run loads the run projection;
 - selected run remains visibly selected;
 - selector is stable at small toolbar widths;
+- visual verification screenshots show the selector in its key states: no
+  history, active run pinned, historical run selected, and narrow toolbar width;
 - no large popover or sidebar redesign in this slice.
 
 ### 4. Preserve Existing Graph Surface Invariants
@@ -534,6 +536,19 @@ flow:
 The test must go through Electron/main/preload/renderer/HTTP/store production
 paths with temporary app data.
 
+The workflow must capture visual evidence screenshots for the key states:
+
+- draft with no active run, where `Run` is visible;
+- draft with an active run, where `View Active Run` replaces `Run`;
+- active run view, where `Stop` is visible;
+- open run selector with active and historical runs;
+- selected historical run view showing the terminal graph state.
+
+Automated assertions remain required for correctness. Screenshots are required
+for visual verification: button labels, selector rows, selected/active states,
+and graph/run state must be readable and not clipped, overlapped, or visually
+ambiguous.
+
 ## Verification
 
 Use focused checks while developing:
@@ -544,7 +559,10 @@ Use focused checks while developing:
 - focused renderer test for target-scoped event handling: a `draft` target does
   not switch the projection to a run on an execution event (while still allowing
   summary refresh), and a `run` target refreshes only its own `executionId`;
-- deterministic Electron workflow for the full user path.
+- deterministic Electron workflow for the full user path;
+- visual screenshot artifacts from that Electron workflow, with a short manual
+  review note in the agent's final response or an append-only report if the
+  implementation materially changes workflow graph visuals.
 
 Before commit:
 
@@ -577,6 +595,9 @@ This slice is done when:
   recovery-required node;
 - deterministic Electron coverage proves the full Run -> Edit Draft -> View
   Active Run -> Stop -> history selection path;
+- screenshot artifacts prove the workflow toolbar, `View Active Run`, `Stop`,
+  run selector, selected run state, and historical run graph are visually
+  readable and not clipped, overlapped, or ambiguous;
 - generated contracts, formatting, and broad quality gates are clean.
 
 ## Handoff Prompt
@@ -585,6 +606,8 @@ Implement `docs/plans/workflow_run_navigation_plan.md`.
 
 Keep the first slice disciplined: one active run per workflow definition,
 toolbar-level run navigation, backend-owned run summaries, and production-path
-verification. Do not build replay, left-sidebar run accordions, run diffing, or
-polling. If the active-run guard exposes stale `running` workflow rows, fix the
-recovery/reconciliation path rather than routing around it in the renderer.
+verification. Capture and inspect screenshot artifacts for the key toolbar,
+selector, active-run, and historical-run states. Do not build replay,
+left-sidebar run accordions, run diffing, or polling. If the active-run guard
+exposes stale `running` workflow rows, fix the recovery/reconciliation path
+rather than routing around it in the renderer.
