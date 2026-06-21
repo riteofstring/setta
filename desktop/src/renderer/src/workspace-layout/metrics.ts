@@ -4,6 +4,7 @@ import type {
   WorkspaceFrameMetrics,
   Rect,
   ResizePhase,
+  SurfaceSnapshotFreshness,
   WorkspaceResizeMetrics,
   TerminalSurfaceStats,
 } from "./types";
@@ -29,6 +30,14 @@ export class WorkspaceMetricsCollector {
   private reactCommitsDuringResize = 0;
   private resizeMetrics = emptyResizeMetrics();
   private activeResizeFrameTimes: number[] = [];
+  private snapshotBitmapCaptureRequests = 0;
+  private snapshotCapturePromisesAwaitedByTransition = 0;
+  private snapshotCaptureRequests = 0;
+  private snapshotCaptureRequestsDuringTransition = 0;
+  private snapshotFreshTextureUses = 0;
+  private snapshotMissingTextureUses = 0;
+  private snapshotStaleTextureUses = 0;
+  private snapshotTextureCaptureRequests = 0;
 
   beginFrame({ moving, resizePhase }: { moving: boolean; resizePhase: ResizePhase }): void {
     this.currentFrameMoving = moving;
@@ -116,6 +125,49 @@ export class WorkspaceMetricsCollector {
     this.latestTerminalStats = stats;
   }
 
+  recordSnapshotCaptureRequest({
+    duringTransition,
+    kind,
+  }: {
+    duringTransition: boolean;
+    kind: "bitmap" | "texture";
+  }): void {
+    this.snapshotCaptureRequests += 1;
+    switch (kind) {
+      case "bitmap":
+        this.snapshotBitmapCaptureRequests += 1;
+        break;
+      case "texture":
+        this.snapshotTextureCaptureRequests += 1;
+        break;
+      default:
+        assertNever(kind);
+    }
+    if (duringTransition) {
+      this.snapshotCaptureRequestsDuringTransition += 1;
+    }
+  }
+
+  recordSnapshotCapturePromiseAwaitedByTransition(): void {
+    this.snapshotCapturePromisesAwaitedByTransition += 1;
+  }
+
+  recordSnapshotTextureUse(freshness: SurfaceSnapshotFreshness): void {
+    switch (freshness) {
+      case "fresh":
+        this.snapshotFreshTextureUses += 1;
+        break;
+      case "stale":
+        this.snapshotStaleTextureUses += 1;
+        break;
+      case "missing":
+        this.snapshotMissingTextureUses += 1;
+        break;
+      default:
+        assertNever(freshness);
+    }
+  }
+
   recordReactCommit(): void {
     if (this.currentFrameMoving) {
       this.reactCommitsDuringMovement += 1;
@@ -141,6 +193,14 @@ export class WorkspaceMetricsCollector {
     this.longTasks = 0;
     this.reactCommitsDuringMovement = 0;
     this.reactCommitsDuringResize = 0;
+    this.snapshotBitmapCaptureRequests = 0;
+    this.snapshotCapturePromisesAwaitedByTransition = 0;
+    this.snapshotCaptureRequests = 0;
+    this.snapshotCaptureRequestsDuringTransition = 0;
+    this.snapshotFreshTextureUses = 0;
+    this.snapshotMissingTextureUses = 0;
+    this.snapshotStaleTextureUses = 0;
+    this.snapshotTextureCaptureRequests = 0;
     this.resetResizeMetrics();
   }
 
@@ -164,7 +224,10 @@ export class WorkspaceMetricsCollector {
       reactCommitsDuringResize: this.reactCommitsDuringResize,
       resize: this.resizeSnapshot(),
       canvasDrawCalls: this.latestCanvasStats.drawCalls,
+      canvasBackingStorePixels: this.latestCanvasStats.backingStorePixels,
       canvasGpuMemoryEstimateBytes: this.latestCanvasStats.gpuMemoryEstimateBytes,
+      canvasRendererResizeCount: this.latestCanvasStats.rendererResizeCount,
+      canvasTickerFramesWhileFrozen: this.latestCanvasStats.tickerFramesWhileFrozen,
       gitGraphProgress: this.latestGitGraphStats.progress,
       gitGraphRenderedNodes: this.latestGitGraphStats.renderedNodes,
       gitGraphRenderer: this.latestGitGraphStats.renderer,
@@ -176,6 +239,14 @@ export class WorkspaceMetricsCollector {
       terminalDirtyRows: this.latestTerminalStats.dirtyRows,
       terminalDroppedOutputChunks: this.latestTerminalStats.droppedOutputChunks,
       terminalPendingOutputChunks: this.latestTerminalStats.pendingOutputChunks,
+      snapshotBitmapCaptureRequests: this.snapshotBitmapCaptureRequests,
+      snapshotCapturePromisesAwaitedByTransition: this.snapshotCapturePromisesAwaitedByTransition,
+      snapshotCaptureRequests: this.snapshotCaptureRequests,
+      snapshotCaptureRequestsDuringTransition: this.snapshotCaptureRequestsDuringTransition,
+      snapshotFreshTextureUses: this.snapshotFreshTextureUses,
+      snapshotMissingTextureUses: this.snapshotMissingTextureUses,
+      snapshotStaleTextureUses: this.snapshotStaleTextureUses,
+      snapshotTextureCaptureRequests: this.snapshotTextureCaptureRequests,
       boxWrites: this.latestBoxWrites,
       transformWrites: this.latestTransformWrites,
       visiblePaneCount: this.latestVisiblePaneCount,
@@ -251,11 +322,14 @@ export class WorkspaceMetricsCollector {
 
 function emptyCanvasStats(): CanvasSurfaceStats {
   return {
+    backingStorePixels: null,
     drawCalls: 0,
     farZoomSimplified: false,
     gpuMemoryEstimateBytes: null,
     liveCanvasPaneCount: 0,
+    rendererResizeCount: 0,
     renderedFrames: 0,
+    tickerFramesWhileFrozen: 0,
   };
 }
 
@@ -306,6 +380,10 @@ function emptyResizeMetrics(): WorkspaceResizeMetrics {
     terminalViewportWrites: 0,
     transformWrites: 0,
   };
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled workspace metrics value: ${String(value)}`);
 }
 
 function percentile(values: number[], quantile: number): number {

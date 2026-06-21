@@ -24,12 +24,6 @@ React, Pixi, xterm, browser views, workers, and canvas renderers are pane
 contents or isolated surface implementations. They must not leak into the core
 layout engine.
 
-The presentation layer has one write model. Pane host movement is a transform,
-size, opacity, pointer-event, and z-index path; pane identity, chrome, actions,
-resize handles, and surface viewport synchronization go through typed diffed
-state. Do not add mode switches, transitional adapters, or sync-all movement
-paths that bypass those typed states.
-
 ## Things To Watch
 
 ### React in the hot path

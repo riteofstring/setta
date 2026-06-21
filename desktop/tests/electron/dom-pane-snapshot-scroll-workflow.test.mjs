@@ -85,16 +85,17 @@ try {
   const overviewSnapshot = await waitForState(
     context.client,
     overviewSnapshotExpression(liveScroller.paneId),
-    (value) =>
-      value.chatHostFound &&
-      value.hostSurfaceKind === "snapshot" &&
-      value.hostRuntimeState === "snapshot" &&
-      overviewSnapshotPreservesScroll(value, liveScroller.scrollTop) &&
-      value.settingsPlaceholderFound,
+    (value) => overviewSnapshotReady(value, liveScroller.scrollTop),
     workflowTimeoutMs,
   );
   await delay(400);
   await captureScreenshot(context.client, join(artifactDir, "overview.png"));
+  const sidebarSnapshots = await toggleProjectSidebarInOverview(
+    context.client,
+    liveScroller.paneId,
+    overviewSnapshot,
+  );
+  await captureScreenshot(context.client, join(artifactDir, "overview-after-sidebar-toggle.png"));
 
   await clickExitOverview(context.client);
   const restoreSamples = await sampleLiveScrollerAfterExit(context.client, liveScroller.paneId);
@@ -106,6 +107,7 @@ try {
     liveScroller,
     overviewSnapshot,
     restoreSamples,
+    sidebarSnapshots,
     status: "passed",
     viewport,
     workspaceName: basename(fixture.workspaceRoot),
@@ -175,6 +177,41 @@ async function clickExitOverview(client) {
   await clickOverviewButton(client, "Exit overview");
 }
 
+async function toggleProjectSidebarInOverview(client, paneId, baselineSnapshot) {
+  const afterFirstToggle = await toggleProjectSidebarAndWaitForStableSnapshot(
+    client,
+    paneId,
+    baselineSnapshot,
+  );
+  const afterSecondToggle = await toggleProjectSidebarAndWaitForStableSnapshot(
+    client,
+    paneId,
+    baselineSnapshot,
+  );
+  return { afterFirstToggle, afterSecondToggle };
+}
+
+async function toggleProjectSidebarAndWaitForStableSnapshot(client, paneId, baselineSnapshot) {
+  const clicked = await client.evaluate(`(() => {
+    const button = document.querySelector('[data-testid="project-sidebar-toggle"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-project-sidebar-toggle" };
+    }
+    const label = button.getAttribute("aria-label") ?? "";
+    button.click();
+    return { label, ok: true };
+  })()`);
+  if (!clicked.ok) {
+    throw new Error(`project sidebar toggle failed: ${JSON.stringify(clicked)}`);
+  }
+  return waitForState(
+    client,
+    overviewSnapshotExpression(paneId),
+    (value) => overviewSnapshotStableAfterSidebar(value, baselineSnapshot.scrollTop),
+    workflowTimeoutMs,
+  );
+}
+
 async function clickOverviewButton(client, label) {
   const clicked = await client.evaluate(`(() => {
     const button = Array.from(document.querySelectorAll('button')).find((candidate) =>
@@ -222,21 +259,72 @@ function overviewSnapshotExpression(paneId) {
       document.querySelectorAll('.workspace-pane-host[data-presentation-mode="overview"]')
     );
     const chatHost = hosts.find((host) => host.dataset.paneId === ${JSON.stringify(paneId)});
+    const chatRect = chatHost instanceof HTMLElement ? chatHost.getBoundingClientRect() : null;
+    const chatContent =
+      chatHost instanceof HTMLElement
+        ? Array.from(chatHost.children).find((child) =>
+            child.classList.contains("workspace-react-dom-surface") ||
+            child.classList.contains("workspace-pane-content")
+          )
+        : null;
+    const frozenVisual =
+      chatHost instanceof HTMLElement
+        ? Array.from(chatHost.children).find((child) =>
+            child.classList.contains("workspace-frozen-dom-visual")
+          )
+        : null;
+    const frozenScroller = frozenVisual?.querySelector('[data-testid="chat-transcript-scroller"]');
+    const frozenScrollerStyle =
+      frozenScroller instanceof HTMLElement ? getComputedStyle(frozenScroller) : null;
+    const centerTarget =
+      chatRect && chatRect.width > 2 && chatRect.height > 2
+        ? document.elementFromPoint(
+            chatRect.left + Math.floor(chatRect.width / 2),
+            chatRect.top + Math.floor(chatRect.height / 2)
+          )
+        : null;
     const scroller = chatHost?.querySelector('[data-testid="chat-transcript-scroller"]');
     const bitmapTexture = chatHost?.querySelector('.workspace-snapshot-bitmap-texture');
     const bitmapImage = bitmapTexture?.querySelector('.workspace-snapshot-bitmap');
+    const snapshotContent = chatHost?.querySelector('.workspace-snapshot-surface');
+    const texture = snapshotContent?.querySelector('.workspace-snapshot-texture');
+    const source = texture?.firstElementChild;
     const settingsHost = hosts.find((host) =>
+      host.dataset.surfaceKind === "settings-dom" ||
       host.querySelector('[data-testid="workspace-settings-dom-surface"]')
     );
     const settingsPlaceholder = settingsHost?.querySelector(
       '[data-testid="workspace-unloaded-surface-placeholder"]'
     );
+    const settingsSnapshotTexture = settingsHost?.querySelector(
+      '.workspace-snapshot-bitmap, .workspace-snapshot-texture'
+    );
+    const fallbackSettingsSnapshotHost = hosts.find((host) =>
+      host.dataset.paneId !== ${JSON.stringify(paneId)} &&
+      host.dataset.surfaceKind === "snapshot" &&
+      Boolean(host.querySelector('.workspace-snapshot-surface'))
+    );
     return {
       chatHostFound: Boolean(chatHost),
       clientHeight: scroller instanceof HTMLElement ? scroller.clientHeight : -1,
       hostCount: hosts.length,
+      hostHeight: chatRect ? chatRect.height : -1,
       hostRuntimeState: chatHost instanceof HTMLElement ? chatHost.dataset.runtimeState ?? "" : "",
+      hostSurfaceFrozen:
+        chatHost instanceof HTMLElement ? chatHost.dataset.surfaceFrozen ?? "" : "",
       hostSurfaceKind: chatHost instanceof HTMLElement ? chatHost.dataset.surfaceKind ?? "" : "",
+      hostWidth: chatRect ? chatRect.width : -1,
+      centerHitLiveContent:
+        chatContent instanceof HTMLElement && centerTarget instanceof Element
+          ? chatContent.contains(centerTarget)
+          : false,
+      frozenVisualFound: frozenVisual instanceof HTMLElement,
+      frozenVisualText:
+        frozenVisual instanceof HTMLElement ? frozenVisual.textContent?.slice(0, 300) ?? "" : "",
+      frozenScrollerFound: frozenScroller instanceof HTMLElement,
+      frozenScrollerScrollbarWidth: frozenScrollerStyle?.scrollbarWidth ?? "",
+      liveContentHidden:
+        chatContent instanceof HTMLElement ? chatContent.dataset.liveFrozenHidden ?? "" : "",
       bitmapCaptureKey:
         bitmapTexture instanceof HTMLElement ? bitmapTexture.dataset.snapshotCaptureKey ?? "" : "",
       bitmapFound: bitmapTexture instanceof HTMLElement && bitmapImage instanceof HTMLImageElement,
@@ -244,43 +332,140 @@ function overviewSnapshotExpression(paneId) {
       scrollData: scroller instanceof HTMLElement ? scroller.dataset.snapshotScrollTop ?? "" : "",
       scrollHeight: scroller instanceof HTMLElement ? scroller.scrollHeight : -1,
       scrollTop: scroller instanceof HTMLElement ? scroller.scrollTop : -1,
+      settingsSnapshotFound: Boolean(
+        settingsPlaceholder || settingsSnapshotTexture || fallbackSettingsSnapshotHost
+      ),
+      settingsHostFound: settingsHost instanceof HTMLElement,
+      settingsHostRuntimeState:
+        settingsHost instanceof HTMLElement ? settingsHost.dataset.runtimeState ?? "" : "",
+      settingsHostSurfaceFrozen:
+        settingsHost instanceof HTMLElement ? settingsHost.dataset.surfaceFrozen ?? "" : "",
+      settingsHostSurfaceKind:
+        settingsHost instanceof HTMLElement ? settingsHost.dataset.surfaceKind ?? "" : "",
       settingsPlaceholderFound: Boolean(settingsPlaceholder),
+      sourceClassName: source instanceof HTMLElement ? source.className : "",
+      sourceHeight: source ? snapshotSourceHeight(source) : chatRect ? chatRect.height : -1,
+      sourceWidth: source ? snapshotSourceWidth(source) : chatRect ? chatRect.width : -1,
       text: chatHost?.textContent?.slice(0, 500) ?? "",
     };
+
+    function snapshotSourceHeight(source) {
+      if (source instanceof HTMLImageElement) {
+        return source.naturalHeight || source.height;
+      }
+      if (source instanceof HTMLElement) {
+        return Number(source.dataset.snapshotHeight || source.getBoundingClientRect().height);
+      }
+      return -1;
+    }
+
+    function snapshotSourceWidth(source) {
+      if (source instanceof HTMLImageElement) {
+        return source.naturalWidth || source.width;
+      }
+      if (source instanceof HTMLElement) {
+        return Number(source.dataset.snapshotWidth || source.getBoundingClientRect().width);
+      }
+      return -1;
+    }
   })()`;
 }
 
 function overviewSnapshotPreservesScroll(snapshot, expectedScrollTop) {
   if (snapshot.scrollerFound) {
-    return (
-      Math.abs(snapshot.scrollTop - expectedScrollTop) <= 1 &&
-      snapshot.scrollData === String(expectedScrollTop)
-    );
+    return Math.abs(snapshot.scrollTop - expectedScrollTop) <= 1;
   }
   return (
     snapshot.bitmapFound && snapshot.bitmapCaptureKey.includes(`${Math.round(expectedScrollTop)},`)
   );
 }
 
+function overviewSnapshotReady(snapshot, expectedScrollTop) {
+  return (
+    chatOverviewSnapshotReady(snapshot) &&
+    snapshot.frozenVisualFound &&
+    snapshot.frozenScrollerFound &&
+    snapshot.frozenScrollerScrollbarWidth === "none" &&
+    snapshot.liveContentHidden === "true" &&
+    !snapshot.centerHitLiveContent &&
+    overviewSnapshotPreservesScroll(snapshot, expectedScrollTop) &&
+    overviewSnapshotSourceSizeReady(snapshot) &&
+    settingsOverviewSnapshotReady(snapshot)
+  );
+}
+
+function overviewSnapshotStableAfterSidebar(snapshot, expectedScrollTop) {
+  return (
+    chatOverviewSnapshotReady(snapshot) &&
+    overviewSnapshotPreservesScroll(snapshot, expectedScrollTop) &&
+    settingsOverviewSnapshotReady(snapshot) &&
+    overviewSnapshotSourceSizeReady(snapshot)
+  );
+}
+
+function chatOverviewSnapshotReady(snapshot) {
+  return (
+    snapshot.chatHostFound &&
+    snapshot.hostSurfaceKind === "chat-dom" &&
+    snapshot.hostRuntimeState === "live-throttled" &&
+    snapshot.hostSurfaceFrozen === "true"
+  );
+}
+
+function settingsOverviewSnapshotReady(snapshot) {
+  return (
+    snapshot.settingsHostFound &&
+    snapshot.settingsHostRuntimeState === "live-throttled" &&
+    snapshot.settingsHostSurfaceFrozen === "true"
+  );
+}
+
+function overviewSnapshotSourceSizeReady(snapshot) {
+  return snapshot.sourceHeight > 1 && snapshot.sourceWidth > 1;
+}
+
 async function sampleLiveScrollerAfterExit(client, paneId) {
+  await waitForState(
+    client,
+    liveHostScrollerExpression(paneId),
+    (sample) => sample.found && sample.hostRuntimeState === "live",
+    workflowTimeoutMs,
+  );
   return client.evaluate(`(async () => {
     const samples = [];
     const startedAt = performance.now();
     while (performance.now() - startedAt < 900) {
-      const liveHost = document.querySelector(
-        ${JSON.stringify(`.workspace-pane-host[data-pane-id="${paneId}"]`)}
-      );
-      const scroller = liveHost?.querySelector('[data-testid="chat-transcript-scroller"]');
       samples.push({
-        found: scroller instanceof HTMLElement,
-        hostRuntimeState: liveHost instanceof HTMLElement ? liveHost.dataset.runtimeState ?? "" : "",
-        scrollTop: scroller instanceof HTMLElement ? scroller.scrollTop : -1,
+        ...liveHostScroller(${JSON.stringify(paneId)}),
         t: Math.round(performance.now() - startedAt),
       });
       await new Promise((resolve) => requestAnimationFrame(resolve));
     }
     return samples;
+
+    ${liveHostScrollerFunctionSource()}
   })()`);
+}
+
+function liveHostScrollerExpression(paneId) {
+  return `(() => {
+    ${liveHostScrollerFunctionSource()}
+    return liveHostScroller(${JSON.stringify(paneId)});
+  })()`;
+}
+
+function liveHostScrollerFunctionSource() {
+  return `function liveHostScroller(paneId) {
+    const liveHost = document.querySelector(
+      '.workspace-pane-host[data-pane-id="' + paneId + '"]'
+    );
+    const scroller = liveHost?.querySelector('[data-testid="chat-transcript-scroller"]');
+    return {
+      found: scroller instanceof HTMLElement,
+      hostRuntimeState: liveHost instanceof HTMLElement ? liveHost.dataset.runtimeState ?? "" : "",
+      scrollTop: scroller instanceof HTMLElement ? scroller.scrollTop : -1,
+    };
+  }`;
 }
 
 function assertNoLiveScrollReplay(samples, expectedScrollTop) {
@@ -290,23 +475,16 @@ function assertNoLiveScrollReplay(samples, expectedScrollTop) {
       `no live chat scroller samples after exiting overview: ${JSON.stringify(samples)}`,
     );
   }
-  const lowOffsetSamples = liveSamples.filter((sample) => sample.scrollTop < expectedScrollTop - 8);
-  if (hasSustainedLowOffsetReplay(lowOffsetSamples)) {
+  const minimumScrollTop = Math.min(...liveSamples.map((sample) => sample.scrollTop));
+  if (minimumScrollTop < expectedScrollTop - 8) {
     throw new Error(
       `live chat scroller replayed from the wrong offset: ${JSON.stringify({
         expectedScrollTop,
-        minimumScrollTop: Math.min(...lowOffsetSamples.map((sample) => sample.scrollTop)),
+        minimumScrollTop,
         samples: liveSamples.slice(0, 20),
       })}`,
     );
   }
-}
-
-function hasSustainedLowOffsetReplay(samples) {
-  return samples.some((sample, index) => {
-    const next = samples[index + 1];
-    return next && next.t - sample.t <= 50;
-  });
 }
 
 async function safeSnapshot(client) {

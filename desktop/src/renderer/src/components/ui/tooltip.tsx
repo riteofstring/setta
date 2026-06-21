@@ -55,7 +55,7 @@ export function TooltipContent({
   ...props
 }: HTMLAttributes<HTMLSpanElement> & {
   children: ReactNode;
-  side?: "bottom" | "top";
+  side?: "bottom" | "left" | "right" | "top";
 }) {
   const { open } = useTooltipContext();
 
@@ -66,8 +66,8 @@ export function TooltipContent({
   return (
     <span
       className={cn(
-        "pointer-events-none absolute left-1/2 z-50 w-max max-w-56 -translate-x-1/2 rounded-sm border border-border bg-popover px-2 py-1 text-xs font-medium text-popover-foreground shadow-md",
-        side === "bottom" ? "top-full mt-1.5" : "bottom-full mb-1.5",
+        "pointer-events-none absolute z-50 w-max max-w-56 rounded-sm border border-border bg-popover px-2 py-1 text-xs font-medium text-popover-foreground shadow-md",
+        tooltipSideClass(side),
         className,
       )}
       role="tooltip"
@@ -76,6 +76,19 @@ export function TooltipContent({
       {children}
     </span>
   );
+}
+
+function tooltipSideClass(side: "bottom" | "left" | "right" | "top") {
+  if (side === "right") {
+    return "top-1/2 left-full ml-2 -translate-y-1/2";
+  }
+  if (side === "left") {
+    return "top-1/2 right-full mr-2 -translate-y-1/2";
+  }
+  if (side === "top") {
+    return "bottom-full left-1/2 mb-1.5 -translate-x-1/2";
+  }
+  return "top-full left-1/2 mt-1.5 -translate-x-1/2";
 }
 
 function useTooltipContext(): TooltipContextValue {

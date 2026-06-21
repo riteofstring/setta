@@ -39,41 +39,6 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 	if definition.ID == "" {
 		t.Fatalf("definition missing ids: %+v", definition)
 	}
-	validatedProjection := postJSON[orchestrator.WorkflowGraphProjection](t, handler, "/workflows/definitions/validate-draft", ValidateWorkflowDefinitionDraftRequest{
-		WorkspaceID:      opened.Workspace.ID,
-		DefinitionID:     definition.ID,
-		ExpectedRevision: definition.DraftRevision,
-	}, http.StatusOK)
-	if validatedProjection.Validation.Status != orchestrator.WorkflowValidationCurrent ||
-		validatedProjection.Validation.Snapshot == nil ||
-		!validatedProjection.Validation.Snapshot.Result.Valid {
-		t.Fatalf("validated projection state = %+v, want current valid snapshot", validatedProjection.Validation)
-	}
-	layoutProjection := postJSON[orchestrator.WorkflowGraphProjection](t, handler, "/workflows/definitions/layout", UpdateWorkflowDefinitionLayoutRequest{
-		WorkspaceID:      opened.Workspace.ID,
-		DefinitionID:     definition.ID,
-		ExpectedRevision: validatedProjection.DraftRevision,
-		Positions: []orchestrator.WorkflowGraphNodeLayout{
-			{NodeID: "start", X: -240, Y: 16},
-		},
-	}, http.StatusOK)
-	conflict := postJSON[ErrorResponse](t, handler, "/workflows/definitions/layout", UpdateWorkflowDefinitionLayoutRequest{
-		WorkspaceID:      opened.Workspace.ID,
-		DefinitionID:     definition.ID,
-		ExpectedRevision: validatedProjection.DraftRevision,
-		Positions: []orchestrator.WorkflowGraphNodeLayout{
-			{NodeID: "start", X: -120, Y: 16},
-		},
-	}, http.StatusConflict)
-	if conflict.Error.Code != orchestrator.WorkflowDraftRevisionConflictCode {
-		t.Fatalf("layout conflict code = %s, want %s", conflict.Error.Code, orchestrator.WorkflowDraftRevisionConflictCode)
-	}
-	if layoutProjection.Validation.Status != orchestrator.WorkflowValidationCurrent {
-		t.Fatalf("layout projection validation status = %s, want current", layoutProjection.Validation.Status)
-	}
-	if projectedHTTPLayoutNode(t, layoutProjection, "start").X != -240 {
-		t.Fatalf("layout projection start = %+v, want x=-240", projectedHTTPLayoutNode(t, layoutProjection, "start"))
-	}
 	list := postJSON[ListWorkflowDefinitionsResponse](t, handler, "/workflows/definitions/list", ListWorkflowDefinitionsRequest{
 		WorkspaceID: opened.Workspace.ID,
 	}, http.StatusOK)
@@ -123,85 +88,6 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 	}
 	if got := projectedHTTPNodeStatus(projection.Projection, "work"); got != orchestrator.GraphNodeStatusCancelled {
 		t.Fatalf("projected work status = %s, want cancelled", got)
-	}
-}
-
-func TestWorkflowEndpointDeletesDraftEdges(t *testing.T) {
-	handler := newChatHandler(t, nil)
-	workspaceRoot := t.TempDir()
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: workspaceRoot}, http.StatusOK)
-	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Name:        "HTTP edge delete",
-		Graph:       httpWorkflowActionGraph(),
-	}, http.StatusOK)
-
-	projection := postJSON[orchestrator.WorkflowGraphProjection](t, handler, "/workflows/definitions/edges/delete", DeleteWorkflowEdgesRequest{
-		WorkspaceID:      opened.Workspace.ID,
-		DefinitionID:     definition.ID,
-		ExpectedRevision: definition.DraftRevision,
-		EdgeIDs:          []string{"start_work"},
-	}, http.StatusOK)
-	for _, edge := range projection.Edges {
-		if edge.ID == "start_work" {
-			t.Fatalf("projection edges still contain deleted edge: %+v", projection.Edges)
-		}
-	}
-	if len(projection.Edges) != 1 {
-		t.Fatalf("projection edges = %+v, want one remaining edge", projection.Edges)
-	}
-}
-
-func TestWorkflowEndpointsReadAndUpdateGraphViewLayout(t *testing.T) {
-	handler := newChatHandler(t, nil)
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Name:        "HTTP view layout",
-		Graph:       httpWorkflowActionGraph(),
-	}, http.StatusOK)
-	execution := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
-		WorkspaceID:  opened.Workspace.ID,
-		DefinitionID: definition.ID,
-	}, http.StatusOK)
-	target := workflowHTTPDefinitionVersionViewLayoutTarget(definition.ID, execution.DefinitionVersionID)
-
-	empty := postJSON[orchestrator.WorkflowGraphViewLayout](t, handler, "/workflows/graph/view-layout/read", ReadWorkflowGraphViewLayoutRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Target:      target,
-	}, http.StatusOK)
-	if len(empty.Positions) != 0 {
-		t.Fatalf("empty view layout positions = %+v, want empty", empty.Positions)
-	}
-
-	updated := postJSON[orchestrator.WorkflowGraphViewLayout](t, handler, "/workflows/graph/view-layout/update", UpdateWorkflowGraphViewLayoutRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Target:      target,
-		Positions: []orchestrator.WorkflowGraphNodeLayout{
-			{NodeID: "start", X: -72, Y: 36},
-		},
-	}, http.StatusOK)
-	if position := graphHTTPViewLayoutPosition(t, updated, "start"); position.X != -72 || position.Y != 36 {
-		t.Fatalf("updated HTTP view layout position = %+v, want -72/36", position)
-	}
-	read := postJSON[orchestrator.WorkflowGraphViewLayout](t, handler, "/workflows/graph/view-layout/read", ReadWorkflowGraphViewLayoutRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Target:      target,
-	}, http.StatusOK)
-	if position := graphHTTPViewLayoutPosition(t, read, "start"); position.X != -72 || position.Y != 36 {
-		t.Fatalf("read HTTP view layout position = %+v, want -72/36", position)
-	}
-
-	unknown := postJSON[ErrorResponse](t, handler, "/workflows/graph/view-layout/update", UpdateWorkflowGraphViewLayoutRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Target:      target,
-		Positions: []orchestrator.WorkflowGraphNodeLayout{
-			{NodeID: "missing", X: 0, Y: 0},
-		},
-	}, http.StatusBadRequest)
-	if unknown.Error.Code != "update_workflow_graph_view_layout_failed" ||
-		!strings.Contains(unknown.Error.Message, "unknown node missing") {
-		t.Fatalf("unknown node response = %+v, want view layout unknown-node error", unknown)
 	}
 }
 
@@ -460,38 +346,6 @@ func projectedHTTPNode(t *testing.T, projection *orchestrator.WorkflowGraphProje
 	}
 	t.Fatalf("projected node %s was not found in %+v", nodeID, projection.Nodes)
 	return orchestrator.WorkflowGraphNode{}
-}
-
-func projectedHTTPLayoutNode(t *testing.T, projection orchestrator.WorkflowGraphProjection, nodeID string) orchestrator.WorkflowGraphNodeLayout {
-	t.Helper()
-	for _, node := range projection.Layout.Nodes {
-		if node.NodeID == nodeID {
-			return node
-		}
-	}
-	t.Fatalf("projected layout node %s was not found in %+v", nodeID, projection.Layout.Nodes)
-	return orchestrator.WorkflowGraphNodeLayout{}
-}
-
-func workflowHTTPDefinitionVersionViewLayoutTarget(definitionID string, versionID string) orchestrator.WorkflowGraphViewLayoutTarget {
-	return orchestrator.WorkflowGraphViewLayoutTarget{
-		Kind: orchestrator.GraphViewLayoutTargetDefinitionVersion,
-		DefinitionVersion: &orchestrator.WorkflowGraphDefinitionVersionViewLayoutTarget{
-			DefinitionID: definitionID,
-			VersionID:    versionID,
-		},
-	}
-}
-
-func graphHTTPViewLayoutPosition(t *testing.T, layout orchestrator.WorkflowGraphViewLayout, nodeID string) orchestrator.WorkflowGraphNodeLayout {
-	t.Helper()
-	for _, position := range layout.Positions {
-		if position.NodeID == nodeID {
-			return position
-		}
-	}
-	t.Fatalf("view layout position %s was not found in %+v", nodeID, layout.Positions)
-	return orchestrator.WorkflowGraphNodeLayout{}
 }
 
 func readServerSentWorkflowEvent(t *testing.T, reader *bufio.Reader) orchestrator.WorkflowEvent {

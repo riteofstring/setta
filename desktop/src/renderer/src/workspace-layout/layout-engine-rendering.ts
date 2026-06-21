@@ -12,7 +12,6 @@ import {
   minimumColumnWidth,
   overviewScale,
   type OverviewCardSizeConstraints,
-  type PaneLocation,
   planeTopOffsets,
   pushColumnItems,
   renderedColumnIndexesForLayout,
@@ -35,7 +34,6 @@ interface RenderFrameContext {
 export function renderNormalLayoutFrame({
   availableHeight,
   columns,
-  focusedLocation,
   fullSizePanes,
   geometry,
   input,
@@ -43,18 +41,11 @@ export function renderNormalLayoutFrame({
   planeIndexes,
   push,
   scene,
-}: RenderFrameContext & {
-  focusedLocation: PaneLocation | null;
-}): void {
-  const focusedPlaneIndex = focusedLocation?.planeIndex ?? planeIndexes[0] ?? 0;
+}: RenderFrameContext): void {
   const maximizedPaneId = input.maximizedPaneId;
-  const scrollColumn = constrainScrollColumnToViewport(
-    input.scrollColumn,
-    focusedPlaneIndex,
-    geometry,
-    columns,
-  );
+  const scrollColumn = constrainScrollColumnToViewport(input.scrollColumn, geometry);
   const verticalOffset = input.scrollRow;
+  const horizontalPanOffset = scrollOffsetForColumn(scrollColumn, geometry.scrollOffsets);
   const planeOffsets = planeTopOffsets(planeIndexes, input.viewport.height);
   const normalPaneSpacing = {
     padding: scene.padding,
@@ -72,10 +63,7 @@ export function renderNormalLayoutFrame({
 
   for (const column of columnsByIndexes(columns, columnIndexes)) {
     const columnWidth = geometry.widths[column.index] ?? minimumColumnWidth;
-    const x =
-      scene.padding +
-      (geometry.offsets[column.index] ?? 0) -
-      scrollOffsetForPlane(scrollColumn, geometry, column.planeIndex, columns);
+    const x = scene.padding + (geometry.offsets[column.index] ?? 0) - horizontalPanOffset;
     const planeTop = planeOffsets.get(column.planeIndex) ?? 0;
     pushColumnItems({
       availableHeight,
@@ -110,6 +98,7 @@ export function renderOverviewLayoutFrame({
 }: RenderFrameContext & {
   cardSizeConstraints?: OverviewCardSizeConstraints;
 }): void {
+  const maximizedPaneId = input.maximizedPaneId;
   const unscaledWidth = maxUnscaledPlaneWidth(columns, planeIndexes, geometry);
   const unscaledHeight = totalUnscaledPlaneHeight(planeIndexes.length, input.viewport.height);
   const referenceCardWidth = maxOverviewCardWidth(columns, geometry);
@@ -131,7 +120,7 @@ export function renderOverviewLayoutFrame({
   );
   const yOffset = centeredYOffset - input.scrollRow * scale;
   const planeOffsets = planeTopOffsets(planeIndexes, input.viewport.height);
-  const horizontalPanOffset = scrollOffsetForColumn(input.scrollColumn, geometry.offsets);
+  const horizontalPanOffset = scrollOffsetForColumn(input.scrollColumn, geometry.scrollOffsets);
 
   for (const column of columns) {
     const columnWidth = geometry.widths[column.index] ?? minimumColumnWidth;
@@ -141,6 +130,7 @@ export function renderOverviewLayoutFrame({
       columnWidth,
       focusedPaneId: input.focusedPaneId,
       fullSizePanes,
+      maximizedPaneId,
       moving: input.movementPhase === "moving",
       paneById,
       presentationMode: input.presentationMode,
@@ -153,14 +143,8 @@ export function renderOverviewLayoutFrame({
   }
 }
 
-function constrainScrollColumnToViewport(
-  scrollColumn: number,
-  planeIndex: number,
-  geometry: ColumnGeometry,
-  columns: WorkspaceColumn[],
-): number {
-  const planeOffsets = offsetsForPlane(columns, planeIndex, geometry);
-  return Math.max(0, Math.min(scrollColumn, Math.max(0, planeOffsets.length - 1)));
+function constrainScrollColumnToViewport(scrollColumn: number, geometry: ColumnGeometry): number {
+  return Math.max(0, Math.min(scrollColumn, Math.max(0, geometry.scrollOffsets.length - 1)));
 }
 
 function maxUnscaledPlaneWidth(
@@ -179,25 +163,6 @@ function maxOverviewCardWidth(columns: WorkspaceColumn[], geometry: ColumnGeomet
     minimumColumnWidth,
     ...columns.map((column) => geometry.widths[column.index] ?? minimumColumnWidth),
   );
-}
-
-function offsetsForPlane(
-  columns: WorkspaceColumn[],
-  planeIndex: number,
-  geometry: ColumnGeometry,
-): number[] {
-  return columns
-    .filter((column) => column.planeIndex === planeIndex)
-    .map((column) => geometry.offsets[column.index] ?? 0);
-}
-
-function scrollOffsetForPlane(
-  scrollColumn: number,
-  geometry: ColumnGeometry,
-  planeIndex: number,
-  columns: WorkspaceColumn[],
-): number {
-  return scrollOffsetForColumn(scrollColumn, offsetsForPlane(columns, planeIndex, geometry));
 }
 
 function totalUnscaledPlaneWidth(

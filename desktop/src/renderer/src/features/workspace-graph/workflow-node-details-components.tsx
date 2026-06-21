@@ -1,6 +1,6 @@
 import type {
   RunActivityPage,
-  RunItemOutput,
+  RunItem,
   WorkflowActivityRef,
   WorkflowEvent,
   WorkflowExecution,
@@ -8,12 +8,12 @@ import type {
   WorkflowNodeExecution,
   WorkflowToken,
 } from "@generated/backend";
-import { useEffect, useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
-import { AgentRunActivityRows } from "../../components/agent-run-activity";
 import type { WorkflowNodeDetailsTarget } from "../../stores/workflow-editor-store";
 import {
   latestWorkflowNodeExecution,
+  runActivityItemTitle,
   shortIdentifier,
   workflowJsonText,
   workflowNodeEvents,
@@ -61,10 +61,7 @@ export function WorkflowRunDetailsContent({
       />
       <WorkflowNodeExecutionSection nodeExecution={nodeExecution} target={target} />
       <WorkflowActionResultSection nodeExecution={nodeExecution} />
-      <WorkflowActivitySection
-        activityPages={inspection.activityPages}
-        focusedRunItemId={target.focusedRunItemId ?? ""}
-      />
+      <WorkflowActivitySection activityPages={inspection.activityPages} />
       <WorkflowProjectionFlowSection target={target} />
       <WorkflowTokenFlowSection execution={inspection.execution} nodeId={target.nodeId} />
       <WorkflowEventSection events={nodeEvents} />
@@ -179,13 +176,7 @@ function WorkflowActionResultSection({
   );
 }
 
-function WorkflowActivitySection({
-  activityPages,
-  focusedRunItemId,
-}: {
-  activityPages: WorkflowNodeActivityPage[];
-  focusedRunItemId: string;
-}) {
+function WorkflowActivitySection({ activityPages }: { activityPages: WorkflowNodeActivityPage[] }) {
   if (activityPages.length === 0) {
     return null;
   }
@@ -193,24 +184,14 @@ function WorkflowActivitySection({
     <WorkflowDetailsSection title="Activity">
       <div className="space-y-3">
         {activityPages.map((activity) => (
-          <WorkflowActivityRefDetails
-            activity={activity}
-            focusedRunItemId={focusedRunItemId}
-            key={activity.ref.id}
-          />
+          <WorkflowActivityRefDetails activity={activity} key={activity.ref.id} />
         ))}
       </div>
     </WorkflowDetailsSection>
   );
 }
 
-function WorkflowActivityRefDetails({
-  activity,
-  focusedRunItemId,
-}: {
-  activity: WorkflowNodeActivityPage;
-  focusedRunItemId: string;
-}) {
+function WorkflowActivityRefDetails({ activity }: { activity: WorkflowNodeActivityPage }) {
   return (
     <div className="space-y-2 rounded-sm border border-zinc-800 bg-zinc-950/60 p-3">
       <WorkflowDetailsRows
@@ -221,58 +202,51 @@ function WorkflowActivityRefDetails({
           { label: "Error", value: activity.error, hidden: activity.error === "" },
         ]}
       />
-      {activity.page ? (
-        <WorkflowRunActivityPageDetails focusedRunItemId={focusedRunItemId} page={activity.page} />
-      ) : null}
+      {activity.page ? <WorkflowRunActivityPageDetails page={activity.page} /> : null}
     </div>
   );
 }
 
-function WorkflowRunActivityPageDetails({
-  focusedRunItemId,
-  page,
-}: {
-  focusedRunItemId: string;
-  page: RunActivityPage;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (focusedRunItemId === "") {
-      return;
-    }
-    containerRef.current
-      ?.querySelector('[data-focused-run-activity-item="true"]')
-      ?.scrollIntoView({ block: "center" });
-  }, [focusedRunItemId, page.runId]);
-
+function WorkflowRunActivityPageDetails({ page }: { page: RunActivityPage }) {
   if (page.items.length === 0) {
     return <div className="text-xs text-zinc-500">No activity items recorded.</div>;
   }
-  const outputState = runActivityPageOutputState(page.output);
   return (
-    <div ref={containerRef}>
-      <AgentRunActivityRows
-        highlightedRunItemId={focusedRunItemId}
-        items={page.items}
-        outputIdsByRunItemId={outputState.outputIdsByRunItemId}
-        outputPagesByRunItemId={{}}
-        outputsById={outputState.outputsById}
-      />
+    <div className="space-y-2">
+      {page.items.map((item) => (
+        <WorkflowRunActivityItem item={item} key={item.id} page={page} />
+      ))}
     </div>
   );
 }
 
-export function runActivityPageOutputState(output: RunItemOutput[]) {
-  const outputIdsByRunItemId: Record<string, string[]> = {};
-  const outputsById: Record<string, RunItemOutput> = {};
-  for (const itemOutput of output) {
-    outputsById[itemOutput.id] = itemOutput;
-    outputIdsByRunItemId[itemOutput.runItemId] = [
-      ...(outputIdsByRunItemId[itemOutput.runItemId] ?? []),
-      itemOutput.id,
-    ];
-  }
-  return { outputIdsByRunItemId, outputsById };
+function WorkflowRunActivityItem({ item, page }: { item: RunItem; page: RunActivityPage }) {
+  const output = page.output
+    .filter((candidate) => candidate.runItemId === item.id)
+    .map((candidate) => candidate.text)
+    .join("");
+  return (
+    <div className="rounded-sm border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate font-medium text-zinc-100">
+          {runActivityItemTitle(item)}
+        </span>
+        <span className="shrink-0 text-zinc-500">{item.status}</span>
+      </div>
+      <WorkflowDetailsRows
+        rows={[
+          { label: "Type", value: item.type },
+          { label: "Tool", value: [item.namespace, item.toolName].filter(Boolean).join("/") },
+          { label: "Result", value: item.result },
+          { label: "Error", value: item.error, hidden: item.error === "" },
+        ]}
+      />
+      {output !== "" ? (
+        <pre className="mt-2 whitespace-pre-wrap text-zinc-300">{output}</pre>
+      ) : null}
+      <WorkflowJsonBlock title="Details" value={item.details} />
+    </div>
+  );
 }
 
 function WorkflowProjectionFlowSection({ target }: { target: WorkflowNodeDetailsTarget }) {

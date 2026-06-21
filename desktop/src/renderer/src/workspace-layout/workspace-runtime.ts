@@ -14,6 +14,7 @@ import {
   hostPoolSizeForRuntime,
   initialFocusedPaneIdForRuntime,
   paneLimitsForRuntime,
+  presentationOptionsForRuntime,
   reportWriterForRuntime,
   runtimePolicyOptionsForRuntime,
   sceneForRuntime,
@@ -72,6 +73,7 @@ export function createWorkspaceRuntime({
     workspaceId,
   );
   const surfaceRegistry = new SurfaceRegistry(scene.panes, createSurfaceAdapter, {
+    metrics,
     snapshotAdapter: {
       staticFallback: snapshotStaticFallbackForRuntime(mode),
     },
@@ -88,6 +90,7 @@ export function createWorkspaceRuntime({
       metrics,
       surfaceRegistry,
       nativeViewBoundsBatcher,
+      presentationOptionsForRuntime(mode),
     ),
     reportWriter: reportWriterForRuntime(mode),
     resizeReportWriter: new LocalStorageResizePerformanceReportWriter(1500),

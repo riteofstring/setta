@@ -283,7 +283,7 @@ func clearSemanticProjections(ctx context.Context, tx *sql.Tx) error {
 			return err
 		}
 	}
-	return clearSemanticSearchIndex(ctx, tx)
+	return nil
 }
 
 func scanSemanticEvent(scanner interface{ Scan(dest ...any) error }) (SemanticEvent, error) {

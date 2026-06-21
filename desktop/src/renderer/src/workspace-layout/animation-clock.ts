@@ -32,6 +32,8 @@ export class AnimationClock {
       this.lastTimestamp === null ? 1000 / 120 : Math.max(0, timestamp - this.lastTimestamp);
     this.lastTimestamp = timestamp;
     this.callback(timestamp, deltaMs);
-    this.frameId = requestAnimationFrame(this.tick);
+    if (this.running) {
+      this.frameId = requestAnimationFrame(this.tick);
+    }
   };
 }

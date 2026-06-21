@@ -73,14 +73,6 @@ func requireSemanticGraphService(response http.ResponseWriter, service SemanticG
 	return service
 }
 
-func requireWorkspaceTrajectoryService(response http.ResponseWriter, service WorkspaceTrajectoryService) WorkspaceTrajectoryService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "workspace_trajectory_service_unavailable", "workspace trajectory service is not available")
-		return nil
-	}
-	return service
-}
-
 func requireTerminalService(response http.ResponseWriter, service TerminalService) TerminalService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "terminal_service_unavailable", "terminal service is not available")
@@ -167,10 +159,6 @@ func writeCodexAccountError(response http.ResponseWriter, code string, err error
 
 func writeWorkflowError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
-	if conflictErr, ok := orchestrator.IsWorkflowConflictError(err); ok {
-		writeError(response, http.StatusConflict, conflictErr.Code, conflictErr.Error())
-		return
-	}
 	var validationErr *orchestrator.ValidationError
 	if errors.As(err, &validationErr) {
 		writeError(response, status, "workflow_validation_failed", validationErr.Error())

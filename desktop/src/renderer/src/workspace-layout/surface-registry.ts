@@ -14,12 +14,15 @@ import type {
   SurfaceAdapter,
   SurfaceId,
   SurfaceKind,
+  SurfaceSnapshotFreshness,
+  SurfaceSnapshotMetricsSink,
   TerminalSurfaceStats,
 } from "./types";
 
 export type SurfaceAdapterFactory = (pane: WorkspacePane) => SurfaceAdapter;
 
 export interface SurfaceRegistryOptions {
+  metrics?: SurfaceSnapshotMetricsSink;
   snapshotAdapter?: SnapshotSurfaceAdapterOptions;
 }
 
@@ -34,7 +37,7 @@ interface HostRecord {
   focused: boolean | null;
   runtimeState: PaneRenderItem["runtimeState"] | null;
   surfaceId: SurfaceId;
-  viewport: SurfaceViewportState | null;
+  viewport: Rect | null;
   visible: boolean | null;
 }
 
@@ -129,20 +132,30 @@ export class SurfaceRegistry {
   canvasStats(): CanvasSurfaceStats {
     let drawCalls = 0;
     let farZoomSimplified = false;
+    let backingStorePixels = 0;
+    let hasBackingStorePixels = false;
     let gpuMemoryEstimateBytes = 0;
     let hasGpuMemoryEstimate = false;
     let liveCanvasPaneCount = 0;
+    let rendererResizeCount = 0;
     let renderedFrames = 0;
+    let tickerFramesWhileFrozen = 0;
 
     for (const adapter of this.currentHostAdapters()) {
       const stats = adapter.getCanvasStats?.();
       if (!stats) {
         continue;
       }
+      if (stats.backingStorePixels !== null) {
+        backingStorePixels += stats.backingStorePixels;
+        hasBackingStorePixels = true;
+      }
       drawCalls += stats.drawCalls;
       farZoomSimplified = farZoomSimplified || stats.farZoomSimplified;
       liveCanvasPaneCount += stats.liveCanvasPaneCount;
+      rendererResizeCount += stats.rendererResizeCount;
       renderedFrames += stats.renderedFrames;
+      tickerFramesWhileFrozen += stats.tickerFramesWhileFrozen;
       if (stats.gpuMemoryEstimateBytes !== null) {
         gpuMemoryEstimateBytes += stats.gpuMemoryEstimateBytes;
         hasGpuMemoryEstimate = true;
@@ -150,11 +163,14 @@ export class SurfaceRegistry {
     }
 
     return {
+      backingStorePixels: hasBackingStorePixels ? backingStorePixels : null,
       drawCalls,
       farZoomSimplified,
       gpuMemoryEstimateBytes: hasGpuMemoryEstimate ? gpuMemoryEstimateBytes : null,
       liveCanvasPaneCount,
+      rendererResizeCount,
       renderedFrames,
+      tickerFramesWhileFrozen,
     };
   }
 
@@ -256,23 +272,9 @@ export class SurfaceRegistry {
     const stats = emptySurfaceViewportSyncStats();
 
     if (mountedNewAdapter) {
-      if (adapter === record.snapshotAdapter && existing) {
-        record.snapshotAdapter.captureTexture(host);
-      }
-      if (existing) {
-        this.unmountHostRecord(host, existing);
-      }
-      this.detachPreviousHostForSurface(item.surfaceId, host, adapter);
-      adapter.mount(host);
-      this.hostRecords.set(host, {
-        adapter,
-        focused: null,
-        runtimeState: null,
-        surfaceId: item.surfaceId,
-        viewport: null,
-        visible: null,
-      });
-      this.hostBySurfaceId.set(item.surfaceId, host);
+      this.recordMountedSnapshotFreshness(
+        this.mountAdapterForHost({ adapter, existing, host, item, options, record }),
+      );
     }
 
     const hostRecord = this.hostRecords.get(host);
@@ -293,6 +295,80 @@ export class SurfaceRegistry {
     adapter.syncFrame?.();
     this.warmSnapshotBitmap(record, host, item, options);
     return stats;
+  }
+
+  private mountAdapterForHost({
+    adapter,
+    existing,
+    host,
+    item,
+    options,
+    record,
+  }: {
+    adapter: SurfaceAdapter;
+    existing: HostRecord | undefined;
+    host: HTMLElement;
+    item: PaneRenderItem;
+    options: SurfaceSyncOptions;
+    record: SurfaceRecord;
+  }): SurfaceSnapshotFreshness | null {
+    const mountedSnapshotFreshness = this.snapshotFreshnessForMount({
+      adapter,
+      existing,
+      host,
+      item,
+      options,
+      record,
+    });
+    if (existing) {
+      this.unmountHostRecord(host, existing);
+    }
+    this.detachPreviousHostForSurface(item.surfaceId, host, adapter);
+    adapter.mount(host);
+    this.hostRecords.set(host, {
+      adapter,
+      focused: null,
+      runtimeState: null,
+      surfaceId: item.surfaceId,
+      viewport: null,
+      visible: null,
+    });
+    this.hostBySurfaceId.set(item.surfaceId, host);
+    return mountedSnapshotFreshness;
+  }
+
+  private snapshotFreshnessForMount({
+    adapter,
+    existing,
+    host,
+    item,
+    options,
+    record,
+  }: {
+    adapter: SurfaceAdapter;
+    existing: HostRecord | undefined;
+    host: HTMLElement;
+    item: PaneRenderItem;
+    options: SurfaceSyncOptions;
+    record: SurfaceRecord;
+  }): SurfaceSnapshotFreshness | null {
+    if (adapter !== record.snapshotAdapter) {
+      return null;
+    }
+    if (!existing) {
+      return record.snapshotAdapter.textureFreshnessForHost(null);
+    }
+    if (snapshotTransitionStartup(item, options)) {
+      return record.snapshotAdapter.textureFreshnessForHost(host);
+    }
+    this.recordSnapshotCaptureRequest("texture", item, options);
+    return record.snapshotAdapter.captureTexture(host);
+  }
+
+  private recordMountedSnapshotFreshness(freshness: SurfaceSnapshotFreshness | null): void {
+    if (freshness !== null) {
+      this.options.metrics?.recordSnapshotTextureUse(freshness);
+    }
   }
 
   teardown(): void {
@@ -376,7 +452,7 @@ export class SurfaceRegistry {
       case "snapshot":
         return record.adapter.kind === "browser" ? record.adapter : record.snapshotAdapter;
       case "live-throttled":
-        return record.adapter.kind === "browser" || isTerminalSurfaceKind(record.adapter.kind)
+        return record.adapter.kind === "browser" || usesFrozenLiveVisual(record.adapter.kind)
           ? record.adapter
           : record.snapshotAdapter;
       case "live":
@@ -459,11 +535,7 @@ export class SurfaceRegistry {
       item.moving,
       options.resizePhase,
     );
-    const nextState: SurfaceViewportState = {
-      reason,
-      rect,
-    };
-    if (!viewportSyncRequired(hostRecord.viewport, nextState)) {
+    if (!viewportSyncRequired(reason, hostRecord.viewport, rect)) {
       return;
     }
     if (viewportSyncDeferred(adapter.kind, reason, options.resizePhase)) {
@@ -472,10 +544,7 @@ export class SurfaceRegistry {
     }
 
     adapter.setViewport(rect, reason);
-    hostRecord.viewport = {
-      reason,
-      rect: { ...rect },
-    };
+    hostRecord.viewport = { ...rect };
     recordViewportWrite(adapter.kind, stats);
   }
 
@@ -493,16 +562,28 @@ export class SurfaceRegistry {
     ) {
       return;
     }
-    record.snapshotAdapter.captureBitmap(host);
+    if (item.presentationMode !== "normal") {
+      return;
+    }
+    const started = record.snapshotAdapter.captureBitmap(host);
+    if (started) {
+      this.recordSnapshotCaptureRequest("bitmap", item, options);
+    }
+  }
+
+  private recordSnapshotCaptureRequest(
+    kind: "bitmap" | "texture",
+    item: PaneRenderItem,
+    options: SurfaceSyncOptions,
+  ): void {
+    this.options.metrics?.recordSnapshotCaptureRequest({
+      duringTransition: snapshotTransitionStartup(item, options),
+      kind,
+    });
   }
 }
 
 type SurfaceViewportSyncReason = "frame" | "mount" | "movement-active" | "resize" | "resize-active";
-
-interface SurfaceViewportState {
-  reason: SurfaceViewportSyncReason;
-  rect: Rect;
-}
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled workspace surface registry value: ${String(value)}`);
@@ -646,9 +727,19 @@ function bitmapSnapshotSurfaceKind(kind: SurfaceKind): boolean {
     kind === "chat-dom" ||
     kind === "fake-heavy-dom" ||
     kind === "fake-long-chat" ||
+    kind === "terminal" ||
+    kind === "workflow-graph" ||
     kind === "workflow-node-details" ||
     kind === "workflow-settings"
   );
+}
+
+function usesFrozenLiveVisual(kind: SurfaceKind): boolean {
+  return kind !== "browser" && kind !== "snapshot";
+}
+
+function snapshotTransitionStartup(item: PaneRenderItem, options: SurfaceSyncOptions): boolean {
+  return item.moving || item.presentationMode === "overview" || options.resizePhase === "active";
 }
 
 function viewportSyncDeferred(
@@ -678,14 +769,12 @@ function viewportSyncReason(
 }
 
 function viewportSyncRequired(
-  previousState: SurfaceViewportState | null,
-  nextState: SurfaceViewportState,
+  reason: SurfaceViewportSyncReason,
+  previousRect: Rect | null,
+  nextRect: Rect,
 ): boolean {
   return (
-    nextState.reason === "mount" ||
-    nextState.reason === "resize" ||
-    previousState === null ||
-    !sameRect(previousState.rect, nextState.rect)
+    reason === "mount" || reason === "resize" || !previousRect || !sameRect(previousRect, nextRect)
   );
 }
 

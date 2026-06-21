@@ -3,17 +3,6 @@
 Use this workflow when developing or reviewing the workflow graph surface in the
 workspace layout.
 
-## Runtime Contract
-
-Workflow graph canvas lifetime is owned by the surface controller keyed by
-`surfaceId`. React components configure, mount, activate, suspend, and update
-that controller; they do not create Pixi applications directly.
-
-Renderer creation must receive a controller-supplied graph. Do not reintroduce a
-fixture-backed default graph, legacy renderer mode, or alternate app creation
-path for tests or debug tooling. Future rendering work should extend the surface
-controller, the renderer frame owner, or the typed graph scene update path.
-
 Run the hidden visual smoke workflow:
 
 ```sh

@@ -28,10 +28,10 @@
 }
 
 .workspace-pane-host {
-  --workspace-pane-focus-ring: color-mix(in oklch, var(--setta-500) 46%, transparent);
+  --workspace-pane-focus-ring: color-mix(in oklch, var(--accent-cyan) 34%, var(--border));
   --workspace-pane-focus-shadow: color-mix(in oklch, black 18%, transparent);
-  --workspace-pane-focus-surface: color-mix(in oklch, var(--popover) 94%, var(--setta-700));
-  background: color-mix(in oklch, var(--popover) 86%, var(--background));
+  --workspace-pane-focus-surface: color-mix(in oklch, var(--background) 38%, var(--popover));
+  background: color-mix(in oklch, var(--background) 56%, var(--popover));
   border-radius: 7px;
   color: var(--foreground);
   contain: layout paint size style;
@@ -56,7 +56,7 @@
 }
 
 [data-color-mode="light"] .workspace-pane-host {
-  --workspace-pane-focus-ring: color-mix(in oklch, var(--setta-400) 42%, transparent);
+  --workspace-pane-focus-ring: color-mix(in oklch, var(--accent-cyan) 40%, var(--border));
   --workspace-pane-focus-shadow: color-mix(in oklch, var(--setta-900) 10%, transparent);
   --workspace-pane-focus-surface: color-mix(in oklch, var(--popover) 96%, var(--setta-100));
 }
@@ -203,7 +203,7 @@
 
 .workspace-pane-host[data-runtime-state="snapshot"],
 .workspace-pane-host[data-runtime-state="live-throttled"] {
-  background: color-mix(in oklch, var(--popover) 78%, var(--muted));
+  background: color-mix(in oklch, var(--background) 54%, var(--muted));
 }
 
 .workspace-layout-area[data-presentation-mode="overview"] .workspace-pane-host {
@@ -273,32 +273,26 @@
   outline: none;
 }
 
-/* The 22px toolbar buttons sit at top 14px so their centers (y 25) match the
-   pane top-bar action buttons (10px stage padding + 30px bar) and the macOS
-   traffic lights. The left inset right-justifies the toggle + toolbar cluster
-   inside the chrome plate: plate width - 7px end inset - 70px cluster + 24px
-   toggle offset. */
 .workspace-toolbar {
   --workspace-performance-end-inset: 10px;
-  --workspace-toolbar-left-inset: 59px;
+  --workspace-toolbar-left-inset: 82px;
   align-items: center;
   background: transparent;
-  border-radius: 6px;
-  color: var(--muted-foreground);
+  color: var(--setta-150);
   display: flex;
-  gap: 2px;
+  gap: var(--setta-shell-control-gap);
   min-width: 0;
   overflow: visible;
   padding: 0;
   position: fixed;
-  top: 14px;
+  top: calc((var(--setta-shell-top-bar-height) - var(--setta-shell-control-size)) / 2);
   left: var(--workspace-toolbar-left-inset);
   width: auto;
-  z-index: 100;
+  z-index: 160;
 }
 
 .workspace-layout-area[data-desktop-platform="darwin"] .workspace-toolbar {
-  --workspace-toolbar-left-inset: 133px;
+  --workspace-toolbar-left-inset: 162px;
 }
 
 .workspace-layout-area[data-desktop-platform="win32"] .workspace-toolbar {
@@ -309,7 +303,7 @@
   align-items: center;
   display: flex;
   flex: 0 0 auto;
-  gap: 2px;
+  gap: var(--setta-shell-control-gap);
   min-width: 0;
 }
 
@@ -344,23 +338,32 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 4px;
-  color: var(--muted-foreground);
+  border-radius: 7px;
+  color: color-mix(in oklch, currentColor 84%, transparent);
   cursor: pointer;
   display: inline-flex;
-  height: 22px;
+  height: var(--setta-shell-control-size);
   justify-content: center;
   padding: 0;
-  width: 22px;
+  width: var(--setta-shell-control-size);
 }
 
 .workspace-toolbar-button:hover,
 .workspace-toolbar-button:focus-visible,
 .workspace-toolbar-menu-button:hover,
 .workspace-toolbar-menu-button:focus-visible {
-  background: color-mix(in oklch, var(--accent) 82%, transparent);
-  color: var(--foreground);
+  background: transparent;
+  color: var(--setta-50);
   outline: none;
+}
+
+.workspace-toolbar-button:focus-visible,
+.workspace-toolbar-menu-button:focus-visible {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 62%, transparent);
+}
+
+.workspace-toolbar-button[aria-pressed="true"] {
+  color: var(--primary);
 }
 
 .workspace-toolbar-menu-root {
@@ -373,15 +376,15 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 4px;
-  color: var(--muted-foreground);
+  border-radius: 7px;
+  color: color-mix(in oklch, currentColor 84%, transparent);
   cursor: pointer;
   display: inline-flex;
-  height: 22px;
+  height: var(--setta-shell-control-size);
   justify-content: center;
   padding: 0;
   white-space: nowrap;
-  width: 22px;
+  width: var(--setta-shell-control-size);
 }
 
 .workspace-toolbar-menu {
@@ -828,7 +831,7 @@
 }
 
 .workspace-dom-surface {
-  background: color-mix(in oklch, var(--popover) 88%, var(--background));
+  background: color-mix(in oklch, var(--background) 54%, var(--popover));
   color: var(--foreground);
   display: flex;
   flex-direction: column;

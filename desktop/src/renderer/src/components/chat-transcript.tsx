@@ -1,19 +1,10 @@
-import type {
-  ChatMessage,
-  MessageDelivery,
-  MessageRole,
-  MessageStatus,
-  Run,
-  RunItem,
-  RunItemOutput,
-  TranscriptTurn,
-} from "@generated/backend";
+import type { ChatMessage, Run, RunItem, RunItemOutput, TranscriptTurn } from "@generated/backend";
 import { ArrowDown, ChevronUp } from "lucide-react";
 import {
-  memo,
   type KeyboardEvent,
   type UIEvent,
   type WheelEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -22,34 +13,27 @@ import {
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button } from "./ui/button";
-import { AgentRunActivityRows } from "./agent-run-activity";
-import { MessageActions, MessageTimestamp } from "./chat-message-actions";
-import { chatMessageText } from "./chat-message-text";
-import { MarkdownText } from "./markdown-text";
 import { ApprovalCard, type SubmitApproval } from "./chat-transcript-approvals";
-import { BrailleSpinner } from "./ascii-spinner";
 import {
   chatReadableColumnAttributes,
   chatReadableColumnClass,
   chatReadableColumnPaddedClass,
 } from "./chat-layout";
 import {
-  isVisibleMessage,
   transcriptTimelineRows,
+  type TranscriptTimelineSource,
   type TranscriptTimelineRow,
 } from "./chat-transcript-timeline";
 import { ChatSearchBar, useTranscriptSearch } from "./chat-transcript-search";
+import { type TranscriptRowActions } from "./chat-transcript-row-actions";
+import { AssistantMessageChunkRow, MessageRow, TranscriptTurnRow } from "./chat-transcript-rows";
 import {
-  canSaveQueuedEdit,
-  isPendingSteeringMessage,
-  isQueuedEditableMessage,
-  MessageRowActions,
-  QueuedMessageEditor,
-  type TranscriptRowActions,
-} from "./chat-transcript-row-actions";
+  stableTranscriptTimelineRows,
+  timestampMessageIdsForTimeline,
+  type StableTranscriptTimelineRowsState,
+} from "./chat-transcript-render-helpers";
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
-import { subscribeWorkspaceSurfaceResumed } from "../workspace-layout/surface-lifecycle-events";
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
@@ -110,51 +94,6 @@ function transcriptIndexes(props: {
   };
 }
 
-const messageRowClassByRole = {
-  assistant: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
-  command: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
-  developer: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
-  system: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
-  tool: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
-  user: `${chatReadableColumnPaddedClass} flex justify-end py-1.5`,
-} satisfies Record<MessageRole, string>;
-
-const deliveryLabelByDelivery = {
-  goal: "Goal",
-  queued: "Queued",
-  steering: "Steering",
-} satisfies Record<Exclude<MessageDelivery, "normal">, string>;
-
-const messageStatusLabelByStatus = {
-  cancelled: "cancelled",
-  complete: null,
-  error: "error",
-  pending: null,
-  streaming: null,
-} satisfies Record<MessageStatus, string | null>;
-
-const assistantMessageContainerClass =
-  "min-w-0 max-w-full overflow-hidden text-[13px] leading-5 break-words text-foreground";
-
-const assistantMessageContainerClassByRole = {
-  assistant: assistantMessageContainerClass,
-  command:
-    "min-w-0 max-w-full overflow-hidden border-l border-emerald-500/40 pl-3 text-[13px] leading-5 break-words text-emerald-100",
-  developer: assistantMessageContainerClass,
-  system: assistantMessageContainerClass,
-  tool: "min-w-0 max-w-full overflow-hidden rounded-r-sm border-l border-cyan-400/40 bg-cyan-950/20 px-3 py-2 font-mono text-[12px] leading-5 break-words text-cyan-50 [overflow-wrap:anywhere]",
-} satisfies Record<Exclude<MessageRole, "user">, string>;
-
-const userMessageContainerClassByDelivery = {
-  goal: "max-w-full overflow-hidden rounded-sm border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-[13px] leading-5 break-words text-emerald-100",
-  normal:
-    "max-w-full overflow-hidden rounded-sm bg-muted px-3 py-2 text-[13px] leading-5 break-words text-foreground",
-  queued:
-    "max-w-full overflow-hidden rounded-sm border border-dashed border-border bg-background px-3 py-2 text-[13px] leading-5 break-words text-muted-foreground",
-  steering:
-    "max-w-full overflow-hidden rounded-sm border border-blue-400/40 bg-blue-950/30 px-3 py-2 text-[13px] leading-5 break-words text-blue-100",
-} satisfies Record<MessageDelivery, string>;
-
 export function transcriptVirtualItemKey(
   timeline: ReadonlyArray<Pick<TranscriptTimelineRow, "key">>,
   index: number,
@@ -195,6 +134,11 @@ export function ChatTranscript({
   transcript: backendTranscript,
 }: ChatTranscriptProps) {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+  const pinnedScrollFrameRef = useRef<number | null>(null);
+  const stableTimelineRef = useRef<StableTranscriptTimelineRowsState>({
+    byKey: new Map(),
+    result: [],
+  });
   const scrollTopRef = useRef(0);
   const visibleStartIndexRef = useRef(0);
   const [pinned, setPinned] = useState(true);
@@ -224,7 +168,23 @@ export function ChatTranscript({
       backendTranscript,
     ],
   );
-  const timeline = useMemo(() => transcriptTimelineRows(transcript), [transcript]);
+  const timelineSource = useMemo(
+    () =>
+      ({
+        messageIds,
+        messagesById,
+        turns: backendTranscript,
+      }) satisfies TranscriptTimelineSource,
+    [messageIds, messagesById, backendTranscript],
+  );
+  const timeline = useMemo(() => {
+    const nextState = stableTranscriptTimelineRows(
+      transcriptTimelineRows(timelineSource),
+      stableTimelineRef.current,
+    );
+    stableTimelineRef.current = nextState;
+    return nextState.result;
+  }, [timelineSource]);
   const timestampMessageIds = useMemo(() => timestampMessageIdsForTimeline(timeline), [timeline]);
   const search = useTranscriptSearch({
     messagesById,
@@ -234,33 +194,67 @@ export function ChatTranscript({
     timeline,
     virtuosoRef,
   });
-  const rowActions: TranscriptRowActions = {
-    activeRun,
-    editQueuedMessage,
-    editingQueuedMessageId,
-    operation,
-    removeQueuedMessage,
-    removingQueuedMessageId,
-    sendSteeringImmediately,
-  };
+  const rowActions = useMemo(
+    () =>
+      ({
+        activeRun,
+        editQueuedMessage,
+        editingQueuedMessageId,
+        operation,
+        removeQueuedMessage,
+        removingQueuedMessageId,
+        sendSteeringImmediately,
+      }) satisfies TranscriptRowActions,
+    [
+      activeRun,
+      editQueuedMessage,
+      editingQueuedMessageId,
+      operation,
+      removeQueuedMessage,
+      removingQueuedMessageId,
+      sendSteeringImmediately,
+    ],
+  );
 
-  useEffect(() => {
-    if (!pinned) {
+  const scrollToLatest = useCallback(() => {
+    virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
+  }, []);
+
+  const schedulePinnedScrollToLatest = useCallback(() => {
+    if (pinnedScrollFrameRef.current !== null) {
       return;
     }
-    scrollTranscriptToLatest(virtuosoRef.current);
-  }, [activeRun, pinned, timeline.length, transcript.runItemOutputsById, transcript.runItemsById]);
-
-  useEffect(() => {
-    if (!pinned) {
-      return;
-    }
-    return subscribeWorkspaceSurfaceResumed((detail) => {
-      if (detail.surfaceKind === "chat-dom") {
-        scrollTranscriptToLatestAcrossFrames(virtuosoRef, 8);
-      }
+    pinnedScrollFrameRef.current = requestAnimationFrame(() => {
+      pinnedScrollFrameRef.current = null;
+      scrollToLatest();
     });
-  }, [pinned]);
+  }, [scrollToLatest]);
+
+  useEffect(
+    () => () => {
+      if (pinnedScrollFrameRef.current !== null) {
+        cancelAnimationFrame(pinnedScrollFrameRef.current);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!pinned) {
+      return;
+    }
+    schedulePinnedScrollToLatest();
+  }, [
+    activeRun?.id,
+    pinned,
+    schedulePinnedScrollToLatest,
+    timeline.length,
+    transcript.runItemIdsByRunId,
+    transcript.runItemOutputIdsByRunItemId,
+    runItemOutputPagesByRunItemId,
+    transcript.runItemOutputsById,
+    transcript.runItemsById,
+  ]);
 
   useEffect(() => {
     if (!pendingScrollAnchor) {
@@ -311,7 +305,7 @@ export function ChatTranscript({
     }
   }
 
-  async function loadOlderAndPreserveScroll() {
+  const loadOlderAndPreserveScroll = useCallback(async () => {
     const anchorKey = timeline[visibleStartIndexRef.current]?.key ?? timeline[0]?.key ?? null;
     const previousFirstKey = timeline[0]?.key ?? null;
     const previousLength = timeline.length;
@@ -320,7 +314,101 @@ export function ChatTranscript({
     if (anchorKey) {
       setPendingScrollAnchor({ key: anchorKey, previousFirstKey, previousLength });
     }
-  }
+  }, [loadOlder, timeline]);
+
+  const virtuosoComponents = useMemo(
+    () => ({
+      Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
+      Header: () => (
+        <TranscriptHeader hasMoreOlder={hasMoreOlder} loadOlder={loadOlderAndPreserveScroll} />
+      ),
+    }),
+    [activeRun, hasMoreOlder, loadOlderAndPreserveScroll, submitApproval],
+  );
+
+  const renderTranscriptItem = useCallback(
+    (index: number, item: TranscriptTimelineRow | undefined) => {
+      const row = transcriptVirtualItem(timeline, index, item);
+      if (!row) {
+        return null;
+      }
+      if (row.kind === "message") {
+        return (
+          <MessageRow
+            loadRunItemOutput={loadRunItemOutput}
+            activeSearchMessageId={search.activeMessageId}
+            message={row.message}
+            rowActions={rowActions}
+            showTimestamp={timestampMessageIds.has(row.message.id)}
+            runItemIdsByRunId={transcript.runItemIdsByRunId}
+            runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
+            runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+            runItemOutputsById={transcript.runItemOutputsById}
+            runItemsById={transcript.runItemsById}
+          />
+        );
+      }
+      if (row.kind === "turn-message") {
+        return (
+          <MessageRow
+            loadRunItemOutput={loadRunItemOutput}
+            activeSearchMessageId={search.activeMessageId}
+            message={row.message}
+            rowActions={rowActions}
+            showTimestamp={timestampMessageIds.has(row.message.id)}
+            runItemIdsByRunId={transcript.runItemIdsByRunId}
+            runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
+            runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+            runItemOutputsById={transcript.runItemOutputsById}
+            runItemsById={transcript.runItemsById}
+          />
+        );
+      }
+      if (row.kind === "assistant-chunk") {
+        return (
+          <AssistantMessageChunkRow
+            loadRunItemOutput={loadRunItemOutput}
+            activeSearchMessageId={search.activeMessageId}
+            chunk={row.chunk}
+            message={row.message}
+            rowActions={rowActions}
+            showTimestamp={row.chunk.isLast && timestampMessageIds.has(row.message.id)}
+            runItemIdsByRunId={transcript.runItemIdsByRunId}
+            runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
+            runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+            runItemOutputsById={transcript.runItemOutputsById}
+            runItemsById={transcript.runItemsById}
+          />
+        );
+      }
+      return (
+        <TranscriptTurnRow
+          loadRunItemOutput={loadRunItemOutput}
+          activeSearchMessageId={search.activeMessageId}
+          runItemIdsByRunId={transcript.runItemIdsByRunId}
+          runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
+          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+          runItemOutputsById={transcript.runItemOutputsById}
+          runItemsById={transcript.runItemsById}
+          turn={row.turn}
+          rowActions={rowActions}
+          timestampMessageIds={timestampMessageIds}
+        />
+      );
+    },
+    [
+      loadRunItemOutput,
+      runItemOutputPagesByRunItemId,
+      rowActions,
+      search.activeMessageId,
+      timestampMessageIds,
+      timeline,
+      transcript.runItemIdsByRunId,
+      transcript.runItemOutputIdsByRunItemId,
+      transcript.runItemOutputsById,
+      transcript.runItemsById,
+    ],
+  );
 
   if (timeline.length === 0) {
     return <EmptyChatTranscript activeRun={activeRun} submitApproval={submitApproval} />;
@@ -340,55 +428,15 @@ export function ChatTranscript({
             setPinned(true);
           }
         }}
-        className="h-full min-h-0 min-w-0 overflow-x-hidden bg-background pt-4 pb-2 [overflow-anchor:none]"
-        components={{
-          Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
-          Header: () => (
-            <TranscriptHeader hasMoreOlder={hasMoreOlder} loadOlder={loadOlderAndPreserveScroll} />
-          ),
-        }}
+        className="h-full min-h-0 min-w-0 overflow-x-hidden bg-background pt-4 pb-2"
+        components={virtuosoComponents}
         data={timeline}
         data-testid="chat-transcript-scroller"
         computeItemKey={(index, item) => transcriptVirtualItemKey(timeline, index, item)}
-        followOutput={pinned ? "auto" : false}
+        followOutput={false}
         increaseViewportBy={{ bottom: 800, top: 400 }}
         initialItemCount={Math.min(timeline.length, 30)}
-        itemContent={(index, item) => {
-          const row = transcriptVirtualItem(timeline, index, item);
-          if (!row) {
-            return null;
-          }
-          if (row.kind === "message") {
-            return (
-              <MessageRow
-                loadRunItemOutput={loadRunItemOutput}
-                activeSearchMessageId={search.activeMessageId}
-                message={row.message}
-                rowActions={rowActions}
-                showTimestamp={timestampMessageIds.has(row.message.id)}
-                runItemIdsByRunId={transcript.runItemIdsByRunId}
-                runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-                runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-                runItemOutputsById={transcript.runItemOutputsById}
-                runItemsById={transcript.runItemsById}
-              />
-            );
-          }
-          return (
-            <TranscriptTurnRow
-              loadRunItemOutput={loadRunItemOutput}
-              activeSearchMessageId={search.activeMessageId}
-              runItemIdsByRunId={transcript.runItemIdsByRunId}
-              runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-              runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-              runItemOutputsById={transcript.runItemOutputsById}
-              runItemsById={transcript.runItemsById}
-              turn={row.turn}
-              rowActions={rowActions}
-              timestampMessageIds={timestampMessageIds}
-            />
-          );
-        }}
+        itemContent={renderTranscriptItem}
         overscan={200}
         rangeChanged={(range) => {
           visibleStartIndexRef.current = range.startIndex;
@@ -398,28 +446,6 @@ export function ChatTranscript({
       <JumpToLatestButton pinned={pinned} setPinned={setPinned} virtuosoRef={virtuosoRef} />
     </div>
   );
-}
-
-function scrollTranscriptToLatest(virtuoso: VirtuosoHandle | null): void {
-  virtuoso?.scrollTo({ behavior: "auto", top: Number.MAX_SAFE_INTEGER });
-}
-
-function scrollTranscriptToLatestAcrossFrames(
-  virtuosoRef: { current: VirtuosoHandle | null },
-  remainingFrames: number,
-): void {
-  scrollTranscriptToLatest(virtuosoRef.current);
-  if (remainingFrames <= 0) {
-    return;
-  }
-  const scrollNextFrame = () => {
-    scrollTranscriptToLatestAcrossFrames(virtuosoRef, remainingFrames - 1);
-  };
-  if (typeof requestAnimationFrame === "function") {
-    requestAnimationFrame(scrollNextFrame);
-    return;
-  }
-  queueMicrotask(scrollNextFrame);
 }
 
 function EmptyChatTranscript({
@@ -432,7 +458,7 @@ function EmptyChatTranscript({
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-background px-3 pt-4 pb-2 [overflow-anchor:none]"
+        className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-background px-3 pt-4 pb-2"
         data-testid="chat-transcript-scroller"
       >
         <div
@@ -536,408 +562,4 @@ function JumpToLatestButton({
       </div>
     </div>
   );
-}
-
-const TranscriptTurnRow = memo(function TranscriptTurnRow({
-  activeSearchMessageId,
-  turn,
-  loadRunItemOutput,
-  rowActions,
-  timestampMessageIds,
-  runItemIdsByRunId,
-  runItemOutputIdsByRunItemId,
-  runItemOutputPagesByRunItemId,
-  runItemOutputsById,
-  runItemsById,
-}: {
-  activeSearchMessageId: string | null;
-  turn: TranscriptTurn;
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
-  rowActions: TranscriptRowActions;
-  timestampMessageIds: Set<string>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
-}) {
-  return (
-    <div
-      {...chatReadableColumnAttributes}
-      className={chatReadableColumnClass}
-      data-run-id={turn.run.id}
-      data-testid="chat-transcript-turn"
-      data-turn-status={turn.run.status}
-    >
-      {isVisibleMessage(turn.triggerMessage) ? (
-        <MessageRow
-          loadRunItemOutput={loadRunItemOutput}
-          activeSearchMessageId={activeSearchMessageId}
-          message={turn.triggerMessage}
-          rowActions={rowActions}
-          showTimestamp={timestampMessageIds.has(turn.triggerMessage.id)}
-          runItemIdsByRunId={runItemIdsByRunId}
-          runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
-          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-          runItemOutputsById={runItemOutputsById}
-          runItemsById={runItemsById}
-        />
-      ) : null}
-      {turn.assistantMessage ? (
-        <MessageRow
-          loadRunItemOutput={loadRunItemOutput}
-          activeSearchMessageId={activeSearchMessageId}
-          message={turn.assistantMessage}
-          rowActions={rowActions}
-          showTimestamp={timestampMessageIds.has(turn.assistantMessage.id)}
-          runItemIdsByRunId={runItemIdsByRunId}
-          runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
-          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-          runItemOutputsById={runItemOutputsById}
-          runItemsById={runItemsById}
-        />
-      ) : null}
-    </div>
-  );
-});
-
-const MessageRow = memo(function MessageRow({
-  activeSearchMessageId,
-  message,
-  loadRunItemOutput,
-  rowActions,
-  showTimestamp,
-  runItemIdsByRunId,
-  runItemOutputIdsByRunItemId,
-  runItemOutputPagesByRunItemId,
-  runItemOutputsById,
-  runItemsById,
-}: {
-  activeSearchMessageId: string | null;
-  message: ChatMessage;
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
-  rowActions: TranscriptRowActions;
-  showTimestamp: boolean;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
-}) {
-  const itemRows = activityItemsForMessage(message, runItemIdsByRunId, runItemsById);
-  const text = chatMessageText(message);
-  const [editMode, setEditMode] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  const [draft, setDraft] = useState(text);
-  const queuedEditable = isQueuedEditableMessage(message);
-  const pendingSteering = isPendingSteeringMessage(message, rowActions.activeRun);
-  const rowBusy = messageRowBusy(message, rowActions);
-
-  useEffect(() => {
-    if (!queuedEditable) {
-      setEditMode(false);
-      setConfirmRemove(false);
-    }
-  }, [queuedEditable]);
-
-  useEffect(() => {
-    if (!editMode) {
-      setDraft(text);
-    }
-  }, [editMode, text]);
-
-  async function saveQueuedEdit() {
-    if (!canSaveQueuedEdit(message, draft, rowBusy)) {
-      return;
-    }
-    await rowActions.editQueuedMessage(message.id, draft);
-    setEditMode(false);
-  }
-
-  async function removeQueued() {
-    if (rowBusy) {
-      return;
-    }
-    await rowActions.removeQueuedMessage(message.id);
-    setConfirmRemove(false);
-  }
-  const activityRows =
-    itemRows.length > 0 ? (
-      <AgentRunActivityRows
-        items={itemRows}
-        loadRunItemOutput={loadRunItemOutput}
-        outputIdsByRunItemId={runItemOutputIdsByRunItemId}
-        outputPagesByRunItemId={runItemOutputPagesByRunItemId}
-        outputsById={runItemOutputsById}
-      />
-    ) : null;
-  const messageBody = (
-    <>
-      <MessageRowActions
-        confirmRemove={confirmRemove}
-        draft={draft}
-        editMode={editMode}
-        message={message}
-        pendingSteering={pendingSteering}
-        queuedEditable={queuedEditable}
-        rowActions={rowActions}
-        rowBusy={rowBusy}
-        saveQueuedEdit={saveQueuedEdit}
-        setConfirmRemove={setConfirmRemove}
-        setDraft={setDraft}
-        setEditMode={setEditMode}
-        removeQueued={removeQueued}
-      />
-      {editMode ? (
-        <QueuedMessageEditor
-          draft={draft}
-          message={message}
-          rowBusy={rowBusy}
-          saveQueuedEdit={saveQueuedEdit}
-          setDraft={setDraft}
-          setEditMode={setEditMode}
-        />
-      ) : (
-        <MessageContent message={message} />
-      )}
-      <UserDeliveryBadge message={message} />
-      <MessageStatus message={message} />
-    </>
-  );
-
-  return (
-    <div
-      {...chatReadableColumnAttributes}
-      className={messageRowClass(message, message.id === activeSearchMessageId)}
-      data-chat-message="true"
-      data-message-delivery={message.delivery}
-      data-message-id={message.id}
-      data-message-role={message.role}
-      data-search-active={message.id === activeSearchMessageId ? "true" : "false"}
-      data-testid={messageRowTestId(message)}
-    >
-      <div className={messageShellClass(message)}>
-        <div className={messageActionRowClass(message)}>
-          <div
-            className={messageContainerClass(message)}
-            data-testid={messageContentTestId(message)}
-          >
-            {messageBody}
-          </div>
-          {editMode ? null : <MessageActions showRetry={canRetryByForking(message)} text={text} />}
-        </div>
-        {message.role === "user" ? null : activityRows}
-        {showTimestamp ? <MessageTimestamp message={message} /> : null}
-      </div>
-    </div>
-  );
-});
-
-function messageRowClass(message: ChatMessage, activeSearchMatch: boolean) {
-  return cn(
-    messageRowClassByRole[message.role],
-    activeSearchMatch && "rounded-sm bg-blue-400/5 ring-1 ring-blue-400/50",
-  );
-}
-
-function timestampMessageIdsForTimeline(timeline: TranscriptTimelineRow[]) {
-  const messages = visibleMessagesForTimeline(timeline);
-  const timestampMessageIds = new Set<string>();
-  for (let index = 0; index < messages.length; index += 1) {
-    const message = messages[index];
-    if (!message) {
-      continue;
-    }
-    const nextMessage = messages[index + 1] ?? null;
-    if (!nextMessage || timestampGroupKey(message) !== timestampGroupKey(nextMessage)) {
-      timestampMessageIds.add(message.id);
-    }
-  }
-  return timestampMessageIds;
-}
-
-function visibleMessagesForTimeline(timeline: TranscriptTimelineRow[]) {
-  const messages: ChatMessage[] = [];
-  for (const row of timeline) {
-    if (row.kind === "message") {
-      messages.push(row.message);
-      continue;
-    }
-    if (isVisibleMessage(row.turn.triggerMessage)) {
-      messages.push(row.turn.triggerMessage);
-    }
-    if (row.turn.assistantMessage && isVisibleMessage(row.turn.assistantMessage)) {
-      messages.push(row.turn.assistantMessage);
-    }
-  }
-  return messages;
-}
-
-function timestampGroupKey(message: ChatMessage) {
-  return message.role === "user" ? "user" : "ai";
-}
-
-function messageShellClass(message: ChatMessage) {
-  if (message.role === "user") {
-    return "group/message flex max-w-[82%] min-w-0 flex-col items-end overflow-visible";
-  }
-  return "group/message flex max-w-[88%] min-w-0 flex-col items-start overflow-visible";
-}
-
-function messageActionRowClass(message: ChatMessage) {
-  if (message.role === "user") {
-    return "flex max-w-full min-w-0 flex-row-reverse items-start gap-1.5 overflow-visible";
-  }
-  return "flex max-w-full min-w-0 items-start gap-1.5 overflow-visible";
-}
-
-function canRetryByForking(message: ChatMessage) {
-  return (
-    message.delivery === "normal" &&
-    message.status === "complete" &&
-    (message.role === "assistant" || message.role === "user")
-  );
-}
-
-function messageRowBusy(message: ChatMessage, rowActions: TranscriptRowActions) {
-  return (
-    (rowActions.operation === "editingQueued" &&
-      rowActions.editingQueuedMessageId === message.id) ||
-    (rowActions.operation === "removingQueued" && rowActions.removingQueuedMessageId === message.id)
-  );
-}
-
-function messageRowTestId(message: ChatMessage) {
-  if (message.role === "assistant") {
-    return "chat-assistant-turn-row";
-  }
-  if (message.role === "command") {
-    return "chat-command-result-row";
-  }
-  if (message.delivery === "queued") {
-    return "chat-queued-turn-row";
-  }
-  return "chat-message-row";
-}
-
-function MessageContent({ message }: { message: ChatMessage }) {
-  const text = chatMessageText(message);
-  switch (message.role) {
-    case "user":
-    case "command":
-      return <PlainMessageText text={text} />;
-    case "tool":
-      return <ToolMessageContent status={message.status} text={text} />;
-    case "assistant":
-    case "developer":
-    case "system":
-      return <AssistantMessageContent status={message.status} text={text} />;
-    default:
-      return assertNever(message.role);
-  }
-}
-
-function PlainMessageText({ text }: { text: string }) {
-  return <div className="whitespace-pre-wrap">{text}</div>;
-}
-
-function ToolMessageContent({ status, text }: { status: MessageStatus; text: string }) {
-  if (text === "" && status === "streaming") {
-    return (
-      <div className="flex h-5 items-center">
-        <BrailleSpinner label="Tool output is streaming" />
-      </div>
-    );
-  }
-  return <pre className="whitespace-pre-wrap font-mono">{text}</pre>;
-}
-
-function AssistantMessageContent({ status, text }: { status: MessageStatus; text: string }) {
-  if (text === "" && status === "streaming") {
-    return (
-      <div className="flex h-5 items-center">
-        <BrailleSpinner label="Assistant is thinking" />
-      </div>
-    );
-  }
-  return <MarkdownText text={assistantMessageText(text, status)} />;
-}
-
-function assistantMessageText(text: string, status: MessageStatus) {
-  if (text !== "") {
-    return text;
-  }
-  switch (status) {
-    case "streaming":
-      return "";
-    case "cancelled":
-    case "complete":
-    case "error":
-    case "pending":
-      return "";
-    default:
-      return assertNever(status);
-  }
-}
-
-function UserDeliveryBadge({ message }: { message: ChatMessage }) {
-  if (message.role !== "user" || message.delivery === "normal") {
-    return null;
-  }
-  return <div className="mt-2 text-xs font-medium opacity-80">{deliveryLabel(message)}</div>;
-}
-
-function MessageStatus({ message }: { message: ChatMessage }) {
-  const label = messageStatusLabelByStatus[message.status];
-  if (label === null) {
-    return null;
-  }
-  return <div className="mt-3 text-xs font-medium text-status-critical">{label}</div>;
-}
-
-function activityItemsForMessage(
-  message: ChatMessage,
-  runItemIdsByRunId: Record<string, string[]>,
-  runItemsById: Record<string, RunItem>,
-) {
-  if (message.role === "user" || message.runId === "") {
-    return [];
-  }
-  return (runItemIdsByRunId[message.runId] ?? [])
-    .map((itemId) => runItemsById[itemId])
-    .filter((item): item is RunItem => item !== undefined);
-}
-
-function messageContainerClass(message: ChatMessage) {
-  return message.role === "user"
-    ? userMessageContainerClassByDelivery[message.delivery]
-    : assistantMessageContainerClassByRole[message.role];
-}
-
-function messageContentTestId(message: ChatMessage) {
-  return `chat-${message.role}-message-content`;
-}
-
-function deliveryLabel(message: ChatMessage) {
-  if (message.delivery === "normal") {
-    return "";
-  }
-  if (message.delivery === "steering" && message.status === "pending") {
-    return "Steering pending";
-  }
-  return deliveryLabelByDelivery[message.delivery];
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled generated value: ${JSON.stringify(value)}`);
 }

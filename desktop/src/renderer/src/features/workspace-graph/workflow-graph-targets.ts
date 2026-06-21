@@ -1,7 +1,5 @@
-import type { WorkflowGraphNode, WorkflowGraphProjection } from "@generated/backend";
+import type { WorkflowGraphProjection } from "@generated/backend";
 
-import type { WorkflowGraphRuntimeIndicator } from "./pixi-renderer";
-import type { WorkspaceTrajectoryNodeDetails } from "./workspace-trajectory-store";
 import type {
   WorkflowNodeDetailsTarget,
   WorkflowSettingsTarget,
@@ -20,45 +18,23 @@ export function selectedWorkflowProjectionNode(
 export function workflowNodeDetailsTarget(
   projection: WorkflowGraphProjection,
   nodeId: string,
-  runtime: WorkflowGraphRuntimeIndicator | null = null,
-  trajectory: WorkspaceTrajectoryNodeDetails | null = null,
-  focusedRunItemId = "",
 ): WorkflowNodeDetailsTarget {
-  const node = projection.nodes.find((candidate) => candidate.id === nodeId) ?? null;
-  return {
-    ...workflowProjectionDetailsTargetFields(projection),
-    focusedRunItemId,
-    nodeId,
-    ...workflowNodeTargetMetadata(node, nodeId),
-    projectionIncomingEdges: projection.edges.filter((edge) => edge.toNodeId === nodeId),
-    projectionOutgoingEdges: projection.edges.filter((edge) => edge.fromNodeId === nodeId),
-    runtime,
-    trajectory,
-  };
-}
-
-function workflowProjectionDetailsTargetFields(projection: WorkflowGraphProjection) {
+  const node = projection.nodes.find((candidate) => candidate.id === nodeId);
   return {
     definitionId: projection.definitionId,
     definitionName: projection.definitionName,
     definitionVersionId: projection.definitionVersionId,
     definitionVersionNumber: projection.definitionVersionNumber,
-    editable: projection.editable,
     executionId: projection.executionId,
-    versionMismatch: projection.versionMismatch,
-    viewMode: projection.viewMode,
-    workspaceId: projection.workspaceId,
-  };
-}
-
-function workflowNodeTargetMetadata(
-  node: WorkflowGraphNode | null,
-  nodeId: string,
-): Pick<WorkflowNodeDetailsTarget, "nodeKind" | "nodeLabel" | "nodeStatus"> {
-  return {
+    nodeId,
     nodeKind: node?.kind ?? "",
     nodeLabel: node?.label ?? nodeId,
     nodeStatus: node?.status ?? "",
+    projectionIncomingEdges: projection.edges.filter((edge) => edge.toNodeId === nodeId),
+    projectionOutgoingEdges: projection.edges.filter((edge) => edge.fromNodeId === nodeId),
+    versionMismatch: projection.versionMismatch,
+    viewMode: projection.viewMode,
+    workspaceId: projection.workspaceId,
   };
 }
 

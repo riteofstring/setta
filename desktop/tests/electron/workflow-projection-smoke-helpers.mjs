@@ -22,7 +22,7 @@ function isWorkflowGraphSnapshotRendered(snapshot) {
   return (
     snapshot.canvas.clientWidth > 0 &&
     snapshot.canvas.clientHeight > 0 &&
-    snapshot.render.frameCount > 0 &&
+    snapshot.render.frameCount > 2 &&
     snapshot.visual.hasNonBackgroundPixels
   );
 }

@@ -18,7 +18,7 @@ Options:
   --go-test-max N    Fail Go test cyclomatic complexity at >= N (default: 20).
   --ts-max N         Fail TypeScript/JavaScript cyclomatic complexity at >= N (default: 10).
   --ts-test-max N    Fail TypeScript/JavaScript test complexity at >= N (default: 10).
-  --max-lines N      Fail source/config files above N lines (default: 1000).
+  --max-lines N      Fail normal files above N lines (default: 1000).
   --test-max-lines N Fail test files above N lines (default: 1500).
   -h, --help         Show this help text.
 EOF
@@ -254,7 +254,7 @@ is_length_checked_path() {
     return 0
   fi
   case "$1" in
-    *.css|*.cjs|*.go|*.html|*.js|*.jsx|*.json|*.jsonc|*.mjs|*.mts|*.cts|*.py|*.toml|*.yaml|*.yml)
+    *.css|*.cjs|*.go|*.html|*.js|*.jsx|*.json|*.jsonc|*.md|*.mjs|*.mts|*.cts|*.py|*.toml|*.yaml|*.yml)
       return 0
       ;;
   esac

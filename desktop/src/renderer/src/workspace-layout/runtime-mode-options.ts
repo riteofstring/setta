@@ -13,13 +13,17 @@ import type { WorkspaceScene, PaneId } from "./types";
 export type WorkspaceSceneMode = "benchmark" | "workspace";
 
 const realWorkspaceHostPoolSize = 18;
+const syncAllRenderedContentDuringMovementByMode = {
+  benchmark: false,
+  workspace: false,
+} satisfies Record<WorkspaceSceneMode, boolean>;
 const runtimePolicyOptionsByMode = {
   benchmark: {
     degradeDuringMovement: true,
     degradeOverview: true,
   },
   workspace: {
-    degradeDuringMovement: false,
+    degradeDuringMovement: true,
     degradeOverview: true,
   },
 } satisfies Record<
@@ -76,6 +80,10 @@ export function initialFocusedPaneIdForRuntime(
 
 export function paneLimitsForRuntime(mode: WorkspaceSceneMode) {
   return mode === "workspace" ? defaultRealWorkspacePaneLimits : undefined;
+}
+
+export function presentationOptionsForRuntime(mode: WorkspaceSceneMode) {
+  return { syncAllRenderedContentDuringMovement: syncAllRenderedContentDuringMovementByMode[mode] };
 }
 
 export function reportWriterForRuntime(mode: WorkspaceSceneMode) {

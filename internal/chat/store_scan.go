@@ -3,7 +3,12 @@ package chat
 import (
 	"errors"
 	"os"
+	"strings"
 )
+
+func visibleConversationScanEntry(entry os.DirEntry) bool {
+	return entry.IsDir() && !strings.HasPrefix(entry.Name(), ".")
+}
 
 func (store *Store) conversationDirDisappearedDuringScan(workspaceID string, conversationID string, loadErr error) (bool, error) {
 	if !errors.Is(loadErr, os.ErrNotExist) {

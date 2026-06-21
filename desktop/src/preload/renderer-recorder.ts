@@ -1,12 +1,6 @@
 import type { IpcRenderer } from "electron";
 
-import {
-  recordingCartographerAuditSnapshotEventName,
-  recordingRendererEventChannel,
-  recordingWorkflowGraphEventName,
-  type RendererGraphRecordedEvent,
-  type RendererRecordedEvent,
-} from "@shared/recording";
+import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 
 const maxTextLength = 160;
 const interestingKeys = new Set([
@@ -24,7 +18,6 @@ export function installRendererRecorder(ipcRenderer: Pick<IpcRenderer, "send">) 
   if (!isRecordingEnabled()) {
     return;
   }
-  markRendererRecordingEnabled();
   const layoutRecorder = createLayoutRecorder(ipcRenderer);
 
   window.addEventListener(
@@ -98,20 +91,6 @@ export function installRendererRecorder(ipcRenderer: Pick<IpcRenderer, "send">) 
   });
 
   window.addEventListener("load", () => layoutRecorder.schedule("renderer_load"));
-  window.addEventListener(recordingCartographerAuditSnapshotEventName, (event) => {
-    const detail = cartographerAuditSnapshotDetail(event);
-    record(ipcRenderer, {
-      at: timestamp(),
-      snapshot: detail.snapshot,
-      trigger: detail.trigger,
-      type: "cartographer_audit_snapshot",
-      url: window.location.href,
-      workspaceId: detail.workspaceId,
-    });
-  });
-  window.addEventListener(recordingWorkflowGraphEventName, (event) => {
-    record(ipcRenderer, graphRecordingEvent(event));
-  });
   window.addEventListener("setta:record-layout-snapshot", (event) => {
     layoutRecorder.capture(layoutSnapshotTrigger(event));
   });
@@ -124,17 +103,6 @@ function isRecordingEnabled(): boolean {
   return env?.SETTA_RECORDING === "1" || env?.SETTA_RECORDING_DIR !== undefined;
 }
 
-function markRendererRecordingEnabled() {
-  const mark = () => {
-    document.documentElement.setAttribute("data-setta-recording", "true");
-  };
-  if (document.documentElement) {
-    mark();
-    return;
-  }
-  window.addEventListener("DOMContentLoaded", mark, { once: true });
-}
-
 function shouldRecordKeydown(event: KeyboardEvent): boolean {
   return interestingKeys.has(event.key) || event.metaKey || event.ctrlKey;
 }
@@ -142,63 +110,6 @@ function shouldRecordKeydown(event: KeyboardEvent): boolean {
 function record(ipcRenderer: Pick<IpcRenderer, "send">, event: RendererRecordedEvent) {
   ipcRenderer.send(recordingRendererEventChannel, event);
 }
-
-function graphRecordingEvent(event: Event): RendererGraphRecordedEvent {
-  const detail = graphRecordingEventDetail(event);
-  assertGraphRecordedEventType(detail.type);
-  assertGraphRecordingSurface(detail);
-  assertGraphRecordingPayload(detail);
-  return {
-    ...detail,
-    at: nonEmptyStringOr(detail.at, timestamp()),
-    url: typeof detail.url === "string" ? detail.url : window.location.href,
-  } as RendererGraphRecordedEvent;
-}
-
-function graphRecordingEventDetail(event: Event): Partial<RendererGraphRecordedEvent> {
-  if (event instanceof CustomEvent && event.detail && typeof event.detail === "object") {
-    return event.detail as Partial<RendererGraphRecordedEvent>;
-  }
-  throw new Error("Workflow graph recording event detail is missing");
-}
-
-function assertGraphRecordedEventType(
-  value: unknown,
-): asserts value is RendererGraphRecordedEvent["type"] {
-  if (isGraphRecordedEventType(value)) {
-    return;
-  }
-  throw new Error(`Workflow graph recording event type is unsupported: ${String(value)}`);
-}
-
-function assertGraphRecordingSurface(detail: Partial<RendererGraphRecordedEvent>) {
-  if (typeof detail.surfaceId === "string" && detail.surfaceId !== "") {
-    return;
-  }
-  throw new Error("Workflow graph recording event surfaceId is missing");
-}
-
-function assertGraphRecordingPayload(detail: Partial<RendererGraphRecordedEvent>) {
-  if (detail.graph && typeof detail.graph === "object") {
-    return;
-  }
-  throw new Error("Workflow graph recording event graph payload is missing");
-}
-
-function isGraphRecordedEventType(value: unknown): value is RendererGraphRecordedEvent["type"] {
-  return graphRecordedEventTypes.has(value as RendererGraphRecordedEvent["type"]);
-}
-
-function nonEmptyStringOr(value: unknown, fallback: string): string {
-  return typeof value === "string" && value !== "" ? value : fallback;
-}
-
-const graphRecordedEventTypes = new Set<RendererGraphRecordedEvent["type"]>([
-  "graph_interaction",
-  "graph_layout_save",
-  "graph_replacement",
-  "graph_snapshot",
-]);
 
 function createLayoutRecorder(ipcRenderer: Pick<IpcRenderer, "send">) {
   let pending = 0;
@@ -360,25 +271,4 @@ function layoutSnapshotTrigger(event: Event): string {
     return "manual";
   }
   return typeof detail.trigger === "string" && detail.trigger !== "" ? detail.trigger : "manual";
-}
-
-function cartographerAuditSnapshotDetail(event: Event): {
-  snapshot: unknown;
-  trigger: string;
-  workspaceId: string;
-} {
-  if (!(event instanceof CustomEvent) || !isRecord(event.detail)) {
-    return { snapshot: null, trigger: "manual", workspaceId: "" };
-  }
-  const detail = event.detail;
-  return {
-    snapshot: "snapshot" in detail ? detail.snapshot : null,
-    trigger:
-      typeof detail.trigger === "string" && detail.trigger !== "" ? detail.trigger : "manual",
-    workspaceId: typeof detail.workspaceId === "string" ? detail.workspaceId : "",
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
