@@ -7,7 +7,6 @@ import (
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
-	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
@@ -56,25 +55,6 @@ type ReadWorkspaceUILayoutRequest struct {
 
 type SaveWorkspaceUILayoutRequest struct {
 	Layout workspaceui.WorkspaceUILayout `json:"layout"`
-}
-
-type ReadWorkspaceActivitySnapshotRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	Limit       int    `json:"limit"`
-}
-
-type ReadWorkspaceActivitySnapshotResponse struct {
-	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
-}
-
-type ReadWorkflowExecutionActivityRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	ExecutionID string `json:"executionId"`
-	Limit       int    `json:"limit"`
-}
-
-type ReadWorkflowExecutionActivityResponse struct {
-	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
 }
 
 type ListConversationsRequest struct {
@@ -274,16 +254,6 @@ type DeleteWorkflowDefinitionResponse struct {
 type ValidateWorkflowDefinitionRequest struct {
 	WorkspaceID string                     `json:"workspaceId"`
 	Graph       orchestrator.WorkflowGraph `json:"graph"`
-}
-
-type ListWorkflowExecutionsRequest struct {
-	WorkspaceID  string `json:"workspaceId"`
-	DefinitionID string `json:"definitionId"`
-	Limit        int    `json:"limit"`
-}
-
-type ListWorkflowExecutionsResponse struct {
-	Executions []orchestrator.WorkflowExecutionSummary `json:"executions"`
 }
 
 type StartWorkflowExecutionRequest struct {
@@ -721,9 +691,8 @@ type SelectDefaultTerminalProfileRequest struct {
 }
 
 type APIError struct {
-	Code            string                                 `json:"code"`
-	Message         string                                 `json:"message"`
-	ActiveExecution *orchestrator.WorkflowExecutionSummary `json:"activeExecution"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 type ErrorResponse struct {

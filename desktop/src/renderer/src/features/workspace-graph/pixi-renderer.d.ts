@@ -1,16 +1,3 @@
-export type WorkflowGraphNodeStatus =
-  | "not_started"
-  | "pending"
-  | "ready"
-  | "running"
-  | "succeeded"
-  | "failed"
-  | "cancelled"
-  | "waiting_approval"
-  | "recovery_required";
-
-export type WorkflowGraphEdgeStatus = "inactive" | "active" | "completed" | "cancelled";
-
 export interface WorkflowGraphNode {
   activity?: {
     active: boolean;
@@ -22,46 +9,12 @@ export interface WorkflowGraphNode {
   diagnostic?: WorkflowGraphDiagnostic | null;
   height: number;
   id: string;
-  kind?: string;
   layer?: "semantic" | "workflow";
   label: string;
   ports?: WorkflowGraphPort[];
-  status?: WorkflowGraphNodeStatus;
   width: number;
   x: number;
   y: number;
-}
-
-export interface WorkflowGraphActivityMarker {
-  activityId: string;
-  active: boolean;
-  anchorKind: "workflow_node";
-  id: string;
-  kind: "workflow_status" | "command" | "file_change" | "approval";
-  label: string;
-  laneIndex: number;
-  nodeId: string;
-  revision: number;
-  slotIndex: number;
-  status:
-    | "pending"
-    | "running"
-    | "waiting_approval"
-    | "completed"
-    | "failed"
-    | "cancelled"
-    | "approved"
-    | "denied"
-    | "answered"
-    | "unknown";
-  updatedAt: string;
-}
-
-export interface WorkflowGraphActivityMarkerMaterialization {
-  created: number;
-  removed: number;
-  retained: number;
-  updated: number;
 }
 
 export interface WorkflowGraphPort {
@@ -81,7 +34,6 @@ export interface WorkflowGraphEdge {
   label?: string;
   sourceNodeId: string;
   sourcePortId: string;
-  status?: WorkflowGraphEdgeStatus;
   targetNodeId: string;
   targetPortId: string;
   width?: number;
@@ -108,18 +60,6 @@ export interface WorkflowGraphGraph {
     viewMode: "draft" | "version" | "run";
     workspaceId: string;
   } | null;
-}
-
-export type WorkflowGraphUpdateSource =
-  | "initial-mount"
-  | "workflow-projection"
-  | "semantic-graph"
-  | "semantic-activity"
-  | "draft-validation-local"
-  | "layout";
-
-export interface WorkflowGraphUpdateMetadata {
-  source: WorkflowGraphUpdateSource;
 }
 
 export interface WorkflowGraphCameraState {
@@ -182,10 +122,7 @@ export interface WorkflowGraphRenderer {
   destroy: () => void;
   setFrozen: (frozen: boolean) => void;
   setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
-  updateActivityMarkers: (
-    markers: readonly WorkflowGraphActivityMarker[],
-  ) => WorkflowGraphActivityMarkerMaterialization;
-  updateGraph: (graph: WorkflowGraphGraph, metadata: WorkflowGraphUpdateMetadata) => void;
+  updateGraph: (graph: WorkflowGraphGraph) => void;
 }
 
 export function createWorkflowGraphRenderer(

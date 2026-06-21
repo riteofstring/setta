@@ -1,10 +1,6 @@
 import { Container, Graphics, Rectangle } from "pixi.js";
 
-import {
-  drawNodeActivityMarker,
-  drawNodeDiagnosticMarker,
-  syncNodeBodyGraphic,
-} from "./pixi-renderer-node-geometry";
+import { drawNodeActivityMarker, drawNodeDiagnosticMarker } from "./pixi-renderer-node-geometry";
 
 export function createWorkflowGraphNodeContainer({
   node,
@@ -22,8 +18,7 @@ export function createWorkflowGraphNodeContainer({
   container.x = node.x;
   container.y = node.y;
 
-  const body = new Graphics();
-  syncNodeBodyGraphic(body, node, nodeGeometry);
+  const body = new Graphics(nodeGeometry.nodeBodyContextFor(node));
   body.eventMode = "static";
   body.cursor = "grab";
   body.hitArea = new Rectangle(0, 0, node.width, node.height);

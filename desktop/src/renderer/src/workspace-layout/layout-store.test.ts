@@ -486,20 +486,19 @@ describe("workspace layout store", () => {
     expect(store.focusPane("missing")).toBe(false);
   });
 
-  test("reorders columns by dragging a pane before an overview target", () => {
+  test("drops a pane before a target row through the legacy reorder wrapper", () => {
     const store = createStore();
 
     expect(store.reorderPaneBefore("workspace_pane_3", "workspace_pane_1")).toBe(true);
 
-    expect(store.toScene().columns.map((column) => column.paneIds[0])).toEqual([
-      "workspace_pane_0",
+    expect(requireColumnForPane(store.toScene(), "workspace_pane_1").paneIds).toEqual([
       "workspace_pane_3",
       "workspace_pane_1",
-      "workspace_pane_2",
     ]);
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
       focusedPaneId: "workspace_pane_3",
+      focusedRowIndex: 0,
     });
   });
 
@@ -515,6 +514,116 @@ describe("workspace layout store", () => {
       focusedPaneId: lowerPaneId,
       focusedRowIndex: 0,
     });
+  });
+
+  test("commits an after-placement row drop once", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPane("down");
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "after",
+        targetPaneId: lowerPaneId,
+      }),
+    ).toBe(true);
+
+    expect(store.toScene().columns[0]?.paneIds).toEqual([lowerPaneId, "workspace_pane_0"]);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 0,
+      focusedPaneId: "workspace_pane_0",
+      focusedRowIndex: 1,
+      revision: revisionBeforeDrop + 1,
+    });
+  });
+
+  test("skips no-op row drops without bumping revision", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPane("down");
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent(lowerPaneId, {
+        kind: "row",
+        placement: "after",
+        targetPaneId: "workspace_pane_0",
+      }),
+    ).toBe(false);
+
+    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", lowerPaneId]);
+    expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
+  });
+
+  test("skips drop onto self without bumping revision", () => {
+    const store = createStore();
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "after",
+        targetPaneId: "workspace_pane_0",
+      }),
+    ).toBe(false);
+
+    expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
+  });
+
+  test("skips no-op column drops without bumping revision", () => {
+    const store = createStore();
+    const sourceColumn = requireColumnForPane(store.toScene(), "workspace_pane_0");
+    const targetColumn = requireColumnForPane(store.toScene(), "workspace_pane_1");
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent("workspace_pane_0", {
+        kind: "column",
+        planeIndex: targetColumn.planeIndex,
+        slotPlacement: "before",
+        targetColumnId: targetColumn.columnId,
+      }),
+    ).toBe(false);
+
+    expect(requireColumnForPane(store.toScene(), "workspace_pane_0").columnId).toBe(
+      sourceColumn.columnId,
+    );
+    expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
+  });
+
+  test("bounds preview notifications to changed drag intents", () => {
+    const store = createStore();
+    const revisions: number[] = [];
+    store.subscribe((snapshot) => {
+      revisions.push(snapshot.revision);
+    });
+
+    expect(
+      store.previewPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "before",
+        targetPaneId: "workspace_pane_1",
+      }),
+    ).toBe(true);
+    expect(
+      store.previewPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "before",
+        targetPaneId: "workspace_pane_1",
+      }),
+    ).toBe(false);
+    expect(
+      store.previewPaneDropIntent("workspace_pane_0", {
+        kind: "column",
+        planeIndex: 0,
+        slotPlacement: "after",
+        targetColumnId: "workspace_column_1",
+      }),
+    ).toBe(true);
+    expect(store.clearPaneDropPreview()).toBe(true);
+    expect(store.clearPaneDropPreview()).toBe(false);
+
+    expect(revisions).toEqual([1, 2, 3]);
   });
 
   test("focuses an existing surface by kind for sidebar entry points", () => {
@@ -553,6 +662,26 @@ describe("workspace layout store", () => {
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
     ]);
+  });
+
+  test("resizes same-slot columns across vertical planes", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPaneToPlane("down");
+    const lowerColumn = requireColumnForPane(store.toScene(), lowerPaneId);
+
+    expect(store.resizePaneColumn(lowerPaneId, { unit: "px", value: 680 })).toBe(
+      lowerColumn.columnId,
+    );
+
+    const scene = store.toScene();
+    expect(requireColumnForPane(scene, "workspace_pane_0").widthSpec).toEqual({
+      unit: "px",
+      value: 680,
+    });
+    expect(requireColumnForPane(scene, lowerPaneId).widthSpec).toEqual({
+      unit: "px",
+      value: 680,
+    });
   });
 
   test("manual horizontal resize previews movement and commits once", () => {

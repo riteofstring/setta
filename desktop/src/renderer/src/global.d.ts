@@ -1,12 +1,7 @@
 import type { SettaAPI } from "@shared/types";
-import type {
-  WorkspaceActivityDebugApi,
-  WorkspaceActivityDebugSnapshot,
-} from "./features/workspace-graph/workspace-activity-debug-registry";
 import type { WorkspaceFrameMetrics } from "./workspace-layout/types";
 
 interface WorkflowGraphDebugSnapshot {
-  activity: WorkspaceActivityDebugSnapshot;
   canvas: {
     bottom: number;
     clientHeight: number;
@@ -93,17 +88,12 @@ interface WorkflowGraphDebugSnapshot {
   interaction: {
     drawingEdge: boolean;
     drawingMarquee: boolean;
-    panningCamera: boolean;
     selectedNodeId: string | null;
     selectedNodeIds: string[];
   };
   render: {
-    activityChipTextObjectCount: number;
-    activityChipViewCount: number;
-    activityMarkerGraphicsCount: number;
     averageFrameMs: number;
     cameraUpdateCount: number;
-    canvasCreationCount: number;
     edgeCommitCount: number;
     edgeGraphicsCount: number;
     edgeRedrawCount: number;
@@ -111,8 +101,6 @@ interface WorkflowGraphDebugSnapshot {
     frozen: boolean;
     compactSelectedLabelCount: number;
     gridDrawCount: number;
-    graphUpdateCameraMovingCount: number;
-    graphUpdateCount: number;
     labelObjectCount: number;
     labelSyncCount: number;
     labelVisibilityMode: "selected" | "visible-priority" | "all-visible";
@@ -130,14 +118,10 @@ interface WorkflowGraphDebugSnapshot {
     nodeOutlineVisibilityUpdateCount: number;
     nodeShadowContextCount: number;
     nodeShadowGraphicsCount: number;
-    pixiAppCreationCount: number;
     pointerPanUpdateCount: number;
     portGraphicsCount: number;
     reactRenderCount: number;
     rendererResizeCount: number;
-    rendererDestroyCount: number;
-    rendererInstanceId: string;
-    rendererLayerCreationCount: number;
     recentFrameMs: number[];
     selectionChangeCount: number;
     spatialIndexCandidateCount: number;
@@ -160,70 +144,6 @@ interface WorkflowGraphDebugSnapshot {
     sampledColorCount: number;
     sampledPixelCount: number;
   };
-  visualGrammar: {
-    activityChipLayout: {
-      config: {
-        maxVisibleChipsPerNode: number;
-        maxVisibleChipViews: number;
-        readableTextZoomThreshold: number;
-        viewportPadding: number;
-      };
-      globalOverflowCount: number;
-      items: Array<{
-        hiddenCount: number;
-        id: string;
-        label: string;
-        layoutMode: "readable" | "compact";
-        nodeId: string;
-        rank: number;
-        type: "marker" | "collapsed";
-      }>;
-      layoutMode: "readable" | "compact";
-      markerCount: number;
-      missingAnchorCount: number;
-      zoom: number;
-    };
-    activityChipStatesById: Record<string, unknown>;
-    activityChips: Array<{
-      activityId: string;
-      anchorKind: "workflow_node";
-      fullLabel: string;
-      height: number;
-      hiddenCount: number;
-      id: string;
-      kind: "workflow_status" | "command" | "file_change" | "approval" | "collapsed";
-      label: string;
-      layoutMode: "readable" | "compact";
-      markerId: string;
-      nodeId: string;
-      placement: "left" | "right";
-      rank: number;
-      screenBottom: number;
-      screenBounds: {
-        bottom: number;
-        left: number;
-        right: number;
-        top: number;
-      };
-      screenLeft: number;
-      screenRight: number;
-      screenTop: number;
-      screenX: number;
-      screenY: number;
-      sourceMarkerIds: string[];
-      status: string;
-      textVisible: boolean;
-      type: "marker" | "collapsed";
-      visible: boolean;
-      visualState: unknown;
-      width: number;
-      x: number;
-      y: number;
-    }>;
-    activityMarkerStatesById: Record<string, unknown>;
-    edgeStatesById: Record<string, unknown>;
-    nodeStatesById: Record<string, unknown>;
-  };
 }
 
 interface WorkflowGraphDebugApi {
@@ -245,7 +165,7 @@ interface WorkflowGraphRuntimeApi {
 declare global {
   interface Window {
     __settaWorkspaceReadFrameMetrics?: () => WorkspaceFrameMetrics;
-    __settaWorkspaceActivityDebug?: WorkspaceActivityDebugApi;
+    __settaWorkspaceResetFrameMetrics?: () => void;
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
     __settaWorkflowGraphRuntime?: WorkflowGraphRuntimeApi;
     setta: SettaAPI;
