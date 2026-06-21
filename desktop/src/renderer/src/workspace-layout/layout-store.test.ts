@@ -555,6 +555,41 @@ describe("workspace layout store", () => {
     expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
   });
 
+  test("bounds preview notifications to changed drag intents", () => {
+    const store = createStore();
+    const revisions: number[] = [];
+    store.subscribe((snapshot) => {
+      revisions.push(snapshot.revision);
+    });
+
+    expect(
+      store.previewPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "before",
+        targetPaneId: "workspace_pane_1",
+      }),
+    ).toBe(true);
+    expect(
+      store.previewPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "before",
+        targetPaneId: "workspace_pane_1",
+      }),
+    ).toBe(false);
+    expect(
+      store.previewPaneDropIntent("workspace_pane_0", {
+        kind: "column",
+        planeIndex: 0,
+        slotPlacement: "after",
+        targetColumnId: "workspace_column_1",
+      }),
+    ).toBe(true);
+    expect(store.clearPaneDropPreview()).toBe(true);
+    expect(store.clearPaneDropPreview()).toBe(false);
+
+    expect(revisions).toEqual([1, 2, 3]);
+  });
+
   test("focuses an existing surface by kind for sidebar entry points", () => {
     const store = createStore();
 
