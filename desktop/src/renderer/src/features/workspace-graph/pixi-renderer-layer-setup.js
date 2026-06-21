@@ -1,4 +1,4 @@
-import { BlurFilter, Container, Graphics } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
 import {
   createWorkspaceBackdropGradient,
   createWorkspaceVignetteGradient,
@@ -51,17 +51,18 @@ export function createWorkflowGraphRendererLayers({ app, foundationStyle, viewpo
   const grid = new Graphics();
   const staticGlow = new Graphics();
   const animatedGlow = new Graphics();
-  const filteredGraphics = [edgeGraphics, staticGlow, animatedGlow];
-  const edgeBlur = new BlurFilter({ quality: 2, strength: 0.45 });
-  const glowBlur = new BlurFilter({ quality: 3, strength: 8 });
+  // Neon node glow removed (2026-06-21): the BlurFilter passes on the glow and
+  // edge layers were recomputed across the viewport every frame, which made
+  // pan/zoom GPU-bound ("under water") — the long-standing pan/zoom regression.
+  // Edges now render crisp with no blur, and the glow layers are not rendered.
+  const filteredGraphics = [];
+  staticGlow.visible = false;
+  animatedGlow.visible = false;
 
   edgeFlowGraphics.blendMode = "add";
   edgeFlowGraphics.eventMode = "none";
-  edgeGraphics.filters = [edgeBlur];
   cellAnimationGraphics.blendMode = "add";
   cellAnimationGraphics.eventMode = "none";
-  staticGlow.filters = [glowBlur];
-  animatedGlow.filters = [glowBlur];
   backgroundLayer.addChild(grid);
   edgeLayer.addChild(edgeGraphics, edgeFlowGraphics, edgeHighlightGraphics, edgeLabelLayer);
   nodeGlowLayer.addChild(staticGlow, animatedGlow);
