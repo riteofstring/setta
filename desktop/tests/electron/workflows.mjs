@@ -111,6 +111,11 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
+    file: "pane-drag-drop-benchmark-performance.test.mjs",
+    name: "pane-drag-drop-benchmark-performance",
+    tiers: ["performance"],
+  },
+  {
     file: "chat-stream-performance.test.mjs",
     name: "chat-stream-performance",
     tiers: ["performance"],

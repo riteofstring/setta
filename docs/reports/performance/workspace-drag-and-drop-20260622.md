@@ -12,6 +12,8 @@ This report covers the first repair pass for workspace pane drag-and-drop:
 - drag-source host geometry isolation during preview frames,
 - drag-source host frame state isolation during preview frames,
 - drag-source host visibility preservation if a transient preview frame omits it,
+- drag-source host binding reservation if a transient preview frame wants to
+  recycle it for another pane,
 - drag-source host top-layer CSS without paint-heavy filter styling,
 - frame metrics for pane drag preview update and clear counts,
 - production-path Electron pointer workflow coverage for row, column, and
@@ -55,7 +57,7 @@ Additional focused workspace-layout command:
 pnpm exec vitest run src/renderer/src/workspace-layout
 ```
 
-Result: 22 test files passed, 254 tests passed.
+Result: 22 test files passed, 258 tests passed.
 
 Focused drag metrics command:
 
@@ -67,6 +69,8 @@ pnpm exec vitest run \
 ```
 
 Result: 3 test files passed, 28 tests passed.
+Latest rerun after the active-source binding guard: 3 test files passed, 31
+tests passed.
 
 Focused presentation-engine command:
 
@@ -74,7 +78,7 @@ Focused presentation-engine command:
 pnpm exec vitest run src/renderer/src/workspace-layout/presentation-engine.test.ts
 ```
 
-Result: 1 test file passed, 20 tests passed.
+Result: 1 test file passed, 21 tests passed.
 
 Focused store guardrail command:
 
@@ -115,7 +119,7 @@ node tests/electron/pane-drag-drop-workflow.test.mjs --keep-artifacts
 ```
 
 Result: passed. Artifact:
-`.recordings/pane-drag-drop-workflow/20260622T182643048Z`.
+`.recordings/pane-drag-drop-workflow/20260622T185753652Z`.
 
 | Area | After repair evidence |
 | --- | --- |
@@ -129,35 +133,71 @@ Result: passed. Artifact:
 | Preview coalescing | `pane-drag-reorder.test.ts` verifies multiple pointer moves before one animation frame produce one preview for the latest intent. |
 | Rapid target changes | `pane-drag-reorder.test.ts` verifies rapid back-and-forth dragging records preview updates only for changed targets and does not emit duplicate updates for repeated same-target frames. |
 | Preview notification bounds | `layout-store.test.ts` verifies duplicate preview intents do not notify, changed intents notify once, and duplicate clears do not notify. |
-| Drag-source geometry ownership | `presentation-engine.test.ts` verifies hosts marked `data-drag-source` do not receive preview frame transform, size, layer, visibility, moving, runtime, or surface viewport sync until the drag-source flag is cleared. It also verifies an active drag-source host is not hidden if a transient preview frame omits it. |
+| Drag-source geometry ownership | `presentation-engine.test.ts` verifies hosts marked `data-drag-source` do not receive preview frame transform, size, layer, visibility, moving, runtime, or surface viewport sync until the drag-source flag is cleared. It also verifies an active drag-source host is not hidden if a transient preview frame omits it, and is not recycled for another pane while the drag is active. |
 | Drag-source CSS stability | `workspace-layout.css` keeps the active drag source in a top layer with no brightness filter, avoiding filter-induced repaint work and sibling z-index flicker during pointer-driven moves. |
 | Overview drag commit stability | The production workflow verifies overview drag starts from settled visible hosts, excludes the active drag source from ghost geometry, previews the right ghost, and commits the retained preview intent on release. |
 | Preview metrics | `metrics.test.ts` verifies `paneDragPreviewUpdates` / `paneDragPreviewClears` snapshot and reset behavior. `pane-drag-reorder.test.ts` verifies the normal drag path records one coalesced update and records clears only when preview state clears. |
 | Production pointer workflow | `pane-drag-drop-workflow.test.mjs` drives CDP mouse events through the built Electron app for normal row drop, normal column drop, and overview right-ghost column drop. It is registered in the required workflow manifest. |
+| Large workspace benchmark workflow | `pane-drag-drop-benchmark-performance.test.mjs` loads the 500-pane benchmark scene at a 3840x2160 viewport, prewarms bitmap snapshots, drives normal and overview drag gestures, and is registered in the performance workflow manifest. |
 
 Production pointer workflow metrics from
-`.recordings/pane-drag-drop-workflow/20260622T182643048Z/summary.json`:
+`.recordings/pane-drag-drop-workflow/20260622T185753652Z/summary.json`:
 
 | Gesture | Preview updates | Preview clears | React commits during drag | p95 frame | p99 frame | Dropped frames | Long tasks |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Normal row drop | 1 | 1 | 0 | 11.0ms | 11.0ms | 2 | 0 |
-| Normal column drop | 1 | 1 | 0 | 7.5ms | 7.5ms | 1 | 0 |
+| Normal row drop | 1 | 1 | 0 | 12.7ms | 12.7ms | 2 | 0 |
+| Normal column drop | 1 | 1 | 0 | 12.6ms | 12.6ms | 8 | 0 |
 | Overview column drop | 1 | 1 | 0 | 0.8ms | 0.8ms | 1 | 0 |
 
-## Pending Profiling
+Focused scheduler/snapshot/source guard command:
 
-Before calling the feature done, run large workspace profiling in both normal and
-overview modes. Append the measured numbers here:
+```sh
+pnpm exec vitest run \
+  src/renderer/src/workspace-layout/presentation-engine.test.ts \
+  src/renderer/src/workspace-layout/frame-scheduler.test.ts \
+  src/renderer/src/workspace-layout/surface-registry.test.ts
+```
+
+Result: 3 test files passed, 60 tests passed.
+
+Large workspace workflow syntax check:
+
+```sh
+node --check tests/electron/pane-drag-drop-benchmark-performance.test.mjs
+```
+
+Result: passed.
+
+Large workspace benchmark workflow:
+
+```sh
+node tests/electron/pane-drag-drop-benchmark-performance.test.mjs --keep-artifacts
+```
+
+Result: passed. Artifact:
+`.recordings/pane-drag-drop-benchmark-performance/20260622T185922310Z`.
+
+The benchmark scene was run in production Electron at a 3840x2160 viewport with
+500 total panes. The normal gesture measured a cross-column row drop with 40
+visible pane hosts. The overview gesture measured active overview drag source
+stability from a centered visible overview card with all 500 overview cards
+represented. Active-drag metrics use the pre-release measurement window; preview
+clear counts come from the final post-release metrics in the same summary.
 
 | Mode | Preview updates per drag | Preview clears per drag | React commits during drag | p95 frame | p99 frame | Dropped frames | Long tasks |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Normal | pending | pending | pending | pending | pending | pending | pending |
-| Overview | pending | pending | pending | pending | pending | pending | pending |
+| Normal benchmark row drop | 1 | 1 | 0 | 5.5ms | 5.5ms | 1 | 0 sampled |
+| Overview benchmark active drag | 1 | 1 | 0 | 1.5ms | 1.5ms | 0 | 0 sampled |
 
-Chrome frame profiling for a large workspace was not run in this slice. The
-current task instruction says not to run code quality checks yet, so
-`pnpm build`, `./scripts/format.sh`, and `./check_quality.sh --all` were not
-started.
+The active drag windows also recorded zero snapshot capture requests. This is
+covered by `surface-registry.test.ts`, which verifies bitmap warmup is skipped
+while a pane drag source is active, and by `frame-scheduler.test.ts`, which
+verifies active pane-drop previews and drag-source movement overrides render as
+movement frames.
+
+The passing benchmark metrics above come from the workflow's CDP-driven
+production Electron run plus in-page `requestAnimationFrame` and
+`PerformanceObserver` sampling.
 
 The broad quality gate was intentionally not run for this slice because the task
 instruction says not to run code quality checks yet.
