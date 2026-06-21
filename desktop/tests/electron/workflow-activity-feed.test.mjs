@@ -28,6 +28,41 @@ import {
 import { createWorkflowProjectionFixture } from "./workflow-projection-smoke-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
+const phase3WaitingApprovalExpectation = {
+  edges: [["start_activity", "completed"]],
+  markers: [
+    ["approval", "waiting_approval"],
+    ["workflow_status", "waiting_approval"],
+    ["command", "running"],
+    ["command", "completed"],
+    ["file_change", "completed"],
+  ],
+  nodes: [["activity", "waiting_approval"]],
+};
+const phase3CompletedExpectation = {
+  edges: [["activity_end", "completed"]],
+  markers: [
+    ["approval", "completed"],
+    ["workflow_status", "completed"],
+  ],
+  nodes: [["activity", "completed"]],
+};
+const phase3FailedExpectation = {
+  edges: [
+    ["start_activity", "completed"],
+    ["activity_end", "idle"],
+  ],
+  markers: [["workflow_status", "failed"]],
+  nodes: [["activity", "failed"]],
+};
+const phase3CancelledExpectation = {
+  edges: [
+    ["start_activity", "completed"],
+    ["activity_end", "idle"],
+  ],
+  markers: [["workflow_status", "cancelled"]],
+  nodes: [["activity", "cancelled"]],
+};
 
 if (options.help) {
   console.log(
@@ -72,6 +107,22 @@ try {
       snapshot.graph.nodeCount >= 3,
   );
 
+  const failedVisualDebug = await runFailedVisualWorkflow(
+    context.client,
+    workflowGraphSurfaceId,
+    projection,
+  );
+  await captureScreenshot(context.client, join(artifactDir, "activity-feed-failed.png"));
+
+  workflowGraphSurfaceId = await reloadWorkflowGraphPane(context.client);
+  const cancelledVisualDebug = await runCancelledVisualWorkflow(
+    context.client,
+    workflowGraphSurfaceId,
+    projection,
+  );
+  await captureScreenshot(context.client, join(artifactDir, "activity-feed-cancelled.png"));
+
+  workflowGraphSurfaceId = await reloadWorkflowGraphPane(context.client);
   const definition = await installActivityWorkflow(context.client, projection);
   await waitForWorkflowGraphSnapshot(
     context.client,
@@ -87,6 +138,8 @@ try {
     (snapshot) => snapshot.activity.snapshotsLoaded >= 1,
   );
   const beforeActivityRun = await getWorkflowGraphSnapshot(context.client, workflowGraphSurfaceId);
+  assertPhase3IdleVisualGrammar(beforeActivityRun);
+  await captureScreenshot(context.client, join(artifactDir, "activity-feed-idle.png"));
   const pan = await beginActivityCameraPan(context.client, workflowGraphSurfaceId);
   let activityDebug = null;
   let afterContinuedPan = null;
@@ -106,8 +159,8 @@ try {
         snapshot.activity.activityDeltasDuringCameraMovement >= 1 &&
         snapshot.activity.graphSceneReplacementCheckCount >= 1 &&
         snapshot.activity.markerCreatedCount >= 4 &&
-        snapshot.activity.markerUpdatedCount >= 1 &&
-        snapshot.render.activityMarkerGraphicsCount >= snapshot.activity.markers.length &&
+        markerMaterializationRevisitedExistingMarkers(snapshot.activity) &&
+        activityMarkerGraphicsMatch(snapshot) &&
         activityMarkersHavePhase2BKinds(snapshot.activity.markers),
     );
     afterContinuedPan = await continueActivityCameraPan(
@@ -120,6 +173,13 @@ try {
     await releaseActivityCameraPan(context.client, pan.pageTo).catch(() => {});
   }
   assertPhase2BActivityDebug(beforeActivityRun, activityDebug, afterContinuedPan);
+  const waitingVisualDebug = await waitForWorkflowGraphSnapshot(
+    context.client,
+    workflowGraphSurfaceId,
+    phase3WaitingApprovalVisualGrammarReady,
+  );
+  assertPhase3WaitingApprovalVisualGrammar(waitingVisualDebug);
+  await captureScreenshot(context.client, join(artifactDir, "activity-feed-waiting-approval.png"));
 
   const activitySnapshot = await waitForActivitySnapshot(
     context.client,
@@ -131,11 +191,12 @@ try {
     context.client,
     workflowGraphSurfaceId,
     (snapshot) =>
-      snapshot.activity.markerUpdatedCount > activityDebug.activity.markerUpdatedCount &&
-      activityMarkersShowCompletion(snapshot.activity.markers),
+      activityMarkersShowCompletion(snapshot.activity.markers) &&
+      phase3CompletedVisualGrammarReady(snapshot),
   );
   assertPhase2BCompletionMarkers(completedActivityDebug.activity);
-  await captureScreenshot(context.client, join(artifactDir, "activity-feed.png"));
+  assertPhase3CompletedVisualGrammar(completedActivityDebug);
+  await captureScreenshot(context.client, join(artifactDir, "activity-feed-completed.png"));
 
   const consoleRows = await readJsonLinesOptional(join(artifactDir, "renderer-console.jsonl"));
   const consoleErrors = consoleRows.filter((row) => Number(row.level) >= 2);
@@ -146,8 +207,11 @@ try {
   await writeJson(join(artifactDir, "summary.json"), {
     activityDebug: activityDebug.activity,
     completedActivityDebug: completedActivityDebug.activity,
+    cancelledVisualGrammar: cancelledVisualDebug.visualGrammar,
+    failedVisualGrammar: failedVisualDebug.visualGrammar,
     activityKinds: activitySnapshot.activities.map((activity) => activity.kind),
     activityMarkers: completedActivityDebug.activity.markers,
+    visualGrammar: completedActivityDebug.visualGrammar,
     artifactDir,
     status: "passed",
   });
@@ -172,7 +236,14 @@ try {
 }
 
 async function installActivityWorkflow(client, projection) {
-  const graph = activityWorkflowGraph();
+  return installVisualWorkflow(client, projection, {
+    description: "Workflow that emits typed activity feed records.",
+    graph: activityWorkflowGraph("activity feed workflow"),
+    name: "Activity feed workflow",
+  });
+}
+
+async function installVisualWorkflow(client, projection, { description, graph, name }) {
   const validation = await rendererWorkflow(client, "validateDefinition", [
     projection.workspaceId,
     graph,
@@ -183,8 +254,8 @@ async function installActivityWorkflow(client, projection) {
   const definition = await rendererWorkflow(client, "updateDefinition", [
     projection.workspaceId,
     projection.definitionId,
-    "Activity feed workflow",
-    "Workflow that emits typed activity feed records.",
+    name,
+    description,
     graph,
   ]);
   await client.evaluate(
@@ -198,7 +269,80 @@ async function installActivityWorkflow(client, projection) {
   return definition;
 }
 
-function activityWorkflowGraph() {
+async function reloadWorkflowGraphPane(client) {
+  await reloadPage(client);
+  await waitForSelector(client, '[data-testid="workspace-layout-area"]');
+  await openWorkflowGraphPane(client);
+  await waitForSelector(client, '[data-testid="workflow-graph"]');
+  return maximizeWorkflowGraphPane(client);
+}
+
+async function waitForWorkflowDraft(client, surfaceId, definitionName) {
+  await waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    (snapshot) =>
+      snapshot.graph.workflow?.definitionName === definitionName &&
+      snapshot.graph.workflow?.viewMode === "draft" &&
+      snapshot.graph.nodes.some((node) => node.id === "activity"),
+  );
+}
+
+async function runFailedVisualWorkflow(client, surfaceId, projection) {
+  const definition = await installVisualWorkflow(client, projection, {
+    description: "Workflow that deterministically fails for visual grammar evidence.",
+    graph: activityWorkflowGraph("fail active workflow"),
+    name: "Failed visual workflow",
+  });
+  await waitForWorkflowDraft(client, surfaceId, "Failed visual workflow");
+  const started = await rendererWorkflow(client, "startExecution", [
+    projection.workspaceId,
+    definition.id,
+  ]);
+  const running = await waitForWorkflowExecution(
+    client,
+    projection.workspaceId,
+    started.id,
+    runningActivityExecutionReady,
+  );
+  await steerWorkflowActivity(client, projection.workspaceId, running, "trigger scripted failure");
+  const snapshot = await waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    phase3FailedVisualGrammarReady,
+  );
+  assertPhase3FailedVisualGrammar(snapshot);
+  return snapshot;
+}
+
+async function runCancelledVisualWorkflow(client, surfaceId, projection) {
+  const definition = await installVisualWorkflow(client, projection, {
+    description: "Workflow that deterministically cancels for visual grammar evidence.",
+    graph: activityWorkflowGraph("cancel active workflow"),
+    name: "Cancelled visual workflow",
+  });
+  await waitForWorkflowDraft(client, surfaceId, "Cancelled visual workflow");
+  const started = await rendererWorkflow(client, "startExecution", [
+    projection.workspaceId,
+    definition.id,
+  ]);
+  await waitForWorkflowExecution(
+    client,
+    projection.workspaceId,
+    started.id,
+    runningActivityExecutionReady,
+  );
+  await rendererWorkflow(client, "cancelExecution", [projection.workspaceId, started.id]);
+  const snapshot = await waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    phase3CancelledVisualGrammarReady,
+  );
+  assertPhase3CancelledVisualGrammar(snapshot);
+  return snapshot;
+}
+
+function activityWorkflowGraph(prompt) {
   return {
     edges: [
       {
@@ -245,7 +389,7 @@ function activityWorkflowGraph() {
           codex: {
             freshConversation: true,
             model: "",
-            prompt: "activity feed workflow",
+            prompt,
             reasoningEffort: "",
           },
           kind: "agent.codex",
@@ -296,6 +440,25 @@ async function waitForActivitySnapshot(client, workspaceId, predicate, timeoutMs
     predicate,
     timeoutMs,
   );
+}
+
+async function waitForWorkflowExecution(client, workspaceId, executionId, predicate) {
+  return waitForState(
+    client,
+    `window.setta.workflow.readExecution(${JSON.stringify(workspaceId)}, ${JSON.stringify(executionId)})`,
+    predicate,
+  );
+}
+
+async function steerWorkflowActivity(client, workspaceId, execution, prompt) {
+  const nodeExecution = latestNodeExecution(execution, "activity");
+  const conversationId = runnerRef(nodeExecution, "chat.conversation");
+  if (conversationId === "") {
+    throw new Error(
+      `running workflow activity missing chat conversation: ${JSON.stringify(execution)}`,
+    );
+  }
+  await rendererChat(client, "steerMessage", [workspaceId, conversationId, prompt]);
 }
 
 async function submitPendingWorkflowApproval(client, snapshot) {
@@ -363,6 +526,139 @@ function assertPhase2BActivityDebug(beforeRunSnapshot, activitySnapshot, afterCo
   assertActivityCameraMovementContinued(activitySnapshot, afterContinuedPan);
 }
 
+function assertPhase3IdleVisualGrammar(snapshot) {
+  assertVisualGrammarShape(snapshot);
+  assertNodeVisualState(snapshot, "start", "idle");
+  assertNodeVisualState(snapshot, "activity", "idle");
+  assertNodeVisualState(snapshot, "end", "idle");
+  assertEdgeVisualState(snapshot, "start_activity", "idle");
+  assertEdgeVisualState(snapshot, "activity_end", "idle");
+}
+
+function phase3WaitingApprovalVisualGrammarReady(snapshot) {
+  return visualGrammarMatches(snapshot, phase3WaitingApprovalExpectation);
+}
+
+function assertPhase3WaitingApprovalVisualGrammar(snapshot) {
+  assertVisualGrammarShape(snapshot);
+  assertNodeVisualState(snapshot, "start", "completed");
+  assertNodeVisualState(snapshot, "activity", "waiting_approval");
+  assertNodeVisualState(snapshot, "end", "idle");
+  assertEdgeVisualState(snapshot, "start_activity", "completed");
+  assertEdgeVisualState(snapshot, "activity_end", "idle");
+  assertMarkerVisualState(snapshot, "approval", "waiting_approval");
+  assertMarkerVisualState(snapshot, "workflow_status", "waiting_approval");
+  assertMarkerVisualState(snapshot, "command", "running");
+  assertMarkerVisualState(snapshot, "command", "completed");
+  assertMarkerVisualState(snapshot, "file_change", "completed");
+}
+
+function phase3CompletedVisualGrammarReady(snapshot) {
+  return visualGrammarMatches(snapshot, phase3CompletedExpectation);
+}
+
+function assertPhase3CompletedVisualGrammar(snapshot) {
+  assertVisualGrammarShape(snapshot);
+  assertNodeVisualState(snapshot, "start", "completed");
+  assertNodeVisualState(snapshot, "activity", "completed");
+  assertNodeVisualState(snapshot, "end", "completed");
+  assertEdgeVisualState(snapshot, "start_activity", "completed");
+  assertEdgeVisualState(snapshot, "activity_end", "completed");
+  assertMarkerVisualState(snapshot, "approval", "completed");
+  assertMarkerVisualState(snapshot, "workflow_status", "completed");
+  assertMarkerVisualState(snapshot, "command", "completed");
+  assertMarkerVisualState(snapshot, "file_change", "completed");
+}
+
+function phase3FailedVisualGrammarReady(snapshot) {
+  return visualGrammarMatches(snapshot, phase3FailedExpectation);
+}
+
+function assertPhase3FailedVisualGrammar(snapshot) {
+  assertVisualGrammarShape(snapshot);
+  assertNodeVisualState(snapshot, "start", "completed");
+  assertNodeVisualState(snapshot, "activity", "failed");
+  assertNodeVisualState(snapshot, "end", "idle");
+  assertEdgeVisualState(snapshot, "start_activity", "completed");
+  assertEdgeVisualState(snapshot, "activity_end", "idle");
+  assertMarkerVisualState(snapshot, "workflow_status", "failed");
+}
+
+function phase3CancelledVisualGrammarReady(snapshot) {
+  return visualGrammarMatches(snapshot, phase3CancelledExpectation);
+}
+
+function assertPhase3CancelledVisualGrammar(snapshot) {
+  assertVisualGrammarShape(snapshot);
+  assertNodeVisualState(snapshot, "start", "completed");
+  assertNodeVisualState(snapshot, "activity", "cancelled");
+  assertNodeVisualState(snapshot, "end", "idle");
+  assertEdgeVisualState(snapshot, "start_activity", "completed");
+  assertEdgeVisualState(snapshot, "activity_end", "idle");
+  assertMarkerVisualState(snapshot, "workflow_status", "cancelled");
+}
+
+function assertVisualGrammarShape(snapshot) {
+  if (
+    snapshot.visualGrammar?.nodeStatesById === undefined ||
+    snapshot.visualGrammar?.edgeStatesById === undefined ||
+    snapshot.visualGrammar?.activityMarkerStatesById === undefined
+  ) {
+    throw new Error(`visual grammar debug snapshot missing: ${JSON.stringify(snapshot)}`);
+  }
+}
+
+function assertNodeVisualState(snapshot, nodeId, state) {
+  const actual = snapshot.visualGrammar.nodeStatesById[nodeId];
+  if (actual?.state !== state) {
+    throw new Error(
+      `node ${nodeId} visual state = ${JSON.stringify(actual)}, want ${state}: ${JSON.stringify(snapshot.visualGrammar.nodeStatesById)}`,
+    );
+  }
+}
+
+function assertEdgeVisualState(snapshot, edgeId, state) {
+  const actual = snapshot.visualGrammar.edgeStatesById[edgeId];
+  if (actual?.state !== state) {
+    throw new Error(
+      `edge ${edgeId} visual state = ${JSON.stringify(actual)}, want ${state}: ${JSON.stringify(snapshot.visualGrammar.edgeStatesById)}`,
+    );
+  }
+}
+
+function assertMarkerVisualState(snapshot, kind, state) {
+  if (!markerVisualStateMatches(snapshot, kind, state)) {
+    throw new Error(
+      `marker ${kind} visual state missing ${state}: ${JSON.stringify(snapshot.visualGrammar.activityMarkerStatesById)}`,
+    );
+  }
+}
+
+function markerVisualStateMatches(snapshot, kind, state) {
+  return Object.values(snapshot.visualGrammar?.activityMarkerStatesById ?? {}).some(
+    (visualState) => visualState.channels?.kindShape === kind && visualState.state === state,
+  );
+}
+
+function visualGrammarMatches(snapshot, expectation) {
+  return (
+    visualStatesByIdMatch(snapshot.visualGrammar?.nodeStatesById, expectation.nodes) &&
+    visualStatesByIdMatch(snapshot.visualGrammar?.edgeStatesById, expectation.edges) &&
+    expectation.markers.every(([kind, state]) => markerVisualStateMatches(snapshot, kind, state))
+  );
+}
+
+function visualStatesByIdMatch(statesById, expectedStates) {
+  return expectedStates.every(([id, state]) => statesById?.[id]?.state === state);
+}
+
+function runningActivityExecutionReady(execution) {
+  const nodeExecution = latestNodeExecution(execution, "activity");
+  return (
+    nodeExecution?.status === "running" && runnerRef(nodeExecution, "chat.conversation") !== ""
+  );
+}
+
 function assertActivityInstrumentationObserved(activity) {
   if (activity.backendReadCameraMovementCheckCount < 1) {
     throw new Error(
@@ -393,9 +689,13 @@ function assertPhase2BMarkerCounters(activity) {
   if (activity.markerCreatedCount < 4) {
     throw new Error(`Phase 2B did not create typed markers: ${JSON.stringify(activity)}`);
   }
-  if (activity.markerUpdatedCount < 1) {
-    throw new Error(`Phase 2B did not update typed markers: ${JSON.stringify(activity)}`);
+  if (!markerMaterializationRevisitedExistingMarkers(activity)) {
+    throw new Error(`Phase 2B did not revisit typed markers: ${JSON.stringify(activity)}`);
   }
+}
+
+function markerMaterializationRevisitedExistingMarkers(activity) {
+  return activity.markerRetainedCount + activity.markerUpdatedCount >= 1;
 }
 
 function assertPhase2BMarkerKinds(activity) {
@@ -411,11 +711,15 @@ function assertPhase2BMarkerKinds(activity) {
 
 function assertPhase2BMarkerGraphics(snapshot) {
   const activity = snapshot.activity;
-  if (snapshot.render.activityMarkerGraphicsCount < activity.markers.length) {
+  if (!activityMarkerGraphicsMatch(snapshot)) {
     throw new Error(
-      `renderer marker graphics missing: render=${JSON.stringify(snapshot.render)} markers=${JSON.stringify(activity.markers)}`,
+      `renderer marker graphics mismatch: render=${JSON.stringify(snapshot.render)} markers=${JSON.stringify(activity.markers)}`,
     );
   }
+}
+
+function activityMarkerGraphicsMatch(snapshot) {
+  return snapshot.render.activityMarkerGraphicsCount === snapshot.activity.markers.length;
 }
 
 function assertPhase2BPendingMarkers(activity) {
@@ -661,6 +965,23 @@ function assertRenderCounterUnchanged(before, after, counter, label) {
       `activity marker update ${label}: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
     );
   }
+}
+
+function latestNodeExecution(execution, nodeId) {
+  return (
+    execution.nodeExecutions.filter((nodeExecution) => nodeExecution.nodeId === nodeId).at(-1) ??
+    null
+  );
+}
+
+function runnerRef(nodeExecution, kind) {
+  return nodeExecution?.runnerRefs.find((ref) => ref.kind === kind)?.id ?? "";
+}
+
+async function rendererChat(client, method, args) {
+  return client.evaluate(
+    `window.setta.chat[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
+  );
 }
 
 async function rendererWorkflow(client, method, args) {

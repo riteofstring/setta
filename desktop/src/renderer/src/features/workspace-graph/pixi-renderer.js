@@ -178,6 +178,7 @@ export async function createWorkflowGraphRenderer(options) {
     nodeBodies,
     nodeContainers,
     nodeDiagnosticMarkers,
+    nodeGeometry,
     nodeLayer,
     nodeOutlines,
     nodeShadows,
@@ -409,7 +410,6 @@ export async function createWorkflowGraphRenderer(options) {
   };
   // prettier-ignore
   const unregisterRendererEvents = registerWorkflowGraphRendererEvents({ canvas: app.canvas, contextMenu, keyDown, pointerCancel, pointerDown, pointerLeave, pointerMove, pointerUp, wheel });
-
   app.ticker.add(() => {
     if (destroyed) {
       return;
@@ -454,7 +454,7 @@ export async function createWorkflowGraphRenderer(options) {
       reactRenderCount: () => handlers.reactRenderCount(),
       recentFrameMs,
       // prettier-ignore
-      renderState: () => ({ activityMarkerGraphicsCount: workspaceActivityMarkers.count(), cameraUpdateCount, canvasCreationCount, drawingEdge: Boolean(drawingEdge), drawingMarquee: Boolean(drawingMarquee), edgeCommitCount, edgeGraphicsRedrawSkipCount, edgeLabelObjectCount: edgeLabels.count(), edgeRedrawCount, frameCount, gridDrawCount, graphUpdateAccounting: graphUpdateAccounting.snapshot(), labelSyncCount: labels.syncCount(), marqueeUpdateCount, nodeDragUpdateCount, nodeOutlineVisibilityUpdateCount, panningCamera: Boolean(panningCamera), pixiAppCreationCount: 1, pointerPanUpdateCount, rendererLayerCreationCount: 1, rendererResizeCount, rendererDestroyCount, frozen, rendererInstanceId, selectedNodeId: firstSelectedNodeId(), selectedNodeIds, selectionChangeCount, temporaryEdgeUpdateCount, tickerFramesWhileFrozen, wheelPanUpdateCount, wheelZoomUpdateCount, workflow: currentWorkflow, ...sceneGraph.updateCounts() }),
+      renderState: () => ({ activityMarkerGraphicsCount: workspaceActivityMarkers.count(), activityMarkerVisualStatesById: workspaceActivityMarkers.visualStatesById(), cameraUpdateCount, canvasCreationCount, drawingEdge: Boolean(drawingEdge), drawingMarquee: Boolean(drawingMarquee), edgeCommitCount, edgeGraphicsRedrawSkipCount, edgeLabelObjectCount: edgeLabels.count(), edgeRedrawCount, frameCount, gridDrawCount, graphUpdateAccounting: graphUpdateAccounting.snapshot(), labelSyncCount: labels.syncCount(), marqueeUpdateCount, nodeDragUpdateCount, nodeOutlineVisibilityUpdateCount, panningCamera: Boolean(panningCamera), pixiAppCreationCount: 1, pointerPanUpdateCount, rendererLayerCreationCount: 1, rendererResizeCount, rendererDestroyCount, frozen, rendererInstanceId, selectedNodeId: firstSelectedNodeId(), selectedNodeIds, selectionChangeCount, temporaryEdgeUpdateCount, tickerFramesWhileFrozen, wheelPanUpdateCount, wheelZoomUpdateCount, workflow: currentWorkflow, ...sceneGraph.updateCounts() }),
       requireNodeLabel: labels.requireNodeLabel,
       spatialQueries,
       viewport,

@@ -1,28 +1,13 @@
 import { Container, Graphics } from "pixi.js";
 
+import {
+  resolveWorkspaceActivityMarkerVisualState,
+  workspaceActivityMarkerVisualFingerprint,
+} from "./pixi-renderer-visual-state";
+
 const markerRadius = 7;
 const markerSpacing = 18;
 const recentLaneSpacing = 20;
-
-const markerColors = {
-  approval: 0xf59e0b,
-  command: 0x38bdf8,
-  file_change: 0x22c55e,
-  workflow_status: 0xa78bfa,
-};
-
-const statusStrokeColors = {
-  answered: 0x22c55e,
-  approved: 0x22c55e,
-  cancelled: 0x94a3b8,
-  completed: 0x22c55e,
-  denied: 0xef4444,
-  failed: 0xef4444,
-  pending: 0xfacc15,
-  running: 0x67e8f9,
-  unknown: 0x94a3b8,
-  waiting_approval: 0xf59e0b,
-};
 
 export function createWorkspaceActivityMarkerManager({ nodes, viewport }) {
   const markerLayer = new Container();
@@ -40,6 +25,7 @@ export function createWorkspaceActivityMarkerManager({ nodes, viewport }) {
         markers,
         nodes,
       }),
+    visualStatesById: () => workspaceActivityMarkerVisualStatesById(markerGraphics),
   };
 }
 
@@ -134,17 +120,19 @@ function graphBounds(nodes) {
 }
 
 function drawWorkspaceActivityMarker(target, marker) {
-  const color = markerColors[marker.kind] ?? markerColors.workflow_status;
-  const strokeColor = statusStrokeColors[marker.status] ?? statusStrokeColors.unknown;
-  const fillAlpha = marker.active ? 0.96 : 0.72;
-  const strokeAlpha = marker.active ? 0.95 : 0.62;
-  const strokeWidth = marker.active ? 2.25 : 1.5;
+  const visualState = resolveWorkspaceActivityMarkerVisualState(marker);
   target.clear();
   const draw = markerDrawers[marker.kind];
   if (!draw) {
     throw new Error(`unknown workspace activity marker kind: ${marker.kind}`);
   }
-  draw(target, { color, fillAlpha, strokeAlpha, strokeColor, strokeWidth });
+  draw(target, {
+    color: visualState.channels.fill,
+    fillAlpha: visualState.channels.fillAlpha,
+    strokeAlpha: visualState.channels.strokeAlpha,
+    strokeColor: visualState.channels.stroke,
+    strokeWidth: visualState.channels.strokeWidth,
+  });
 }
 
 const markerDrawers = {
@@ -191,13 +179,13 @@ function drawWorkflowStatusMarker(target, style) {
 }
 
 function activityMarkerVisualFingerprint(marker) {
-  return JSON.stringify({
-    active: marker.active,
-    anchorKind: marker.anchorKind,
-    kind: marker.kind,
-    laneIndex: marker.laneIndex,
-    nodeId: marker.nodeId,
-    slotIndex: marker.slotIndex,
-    status: marker.status,
-  });
+  return workspaceActivityMarkerVisualFingerprint(marker);
+}
+
+export function workspaceActivityMarkerVisualStatesById(markerGraphics) {
+  return Object.fromEntries(
+    [...markerGraphics.values()]
+      .map(({ marker }) => [marker.id, resolveWorkspaceActivityMarkerVisualState(marker)])
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
 }

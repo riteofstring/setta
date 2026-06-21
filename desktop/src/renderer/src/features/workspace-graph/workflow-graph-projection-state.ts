@@ -290,12 +290,7 @@ function useWorkflowProjection({
 
     const loadEventProjection = async (event: WorkflowEvent) => {
       const current = projectionStateRef.current.target;
-      if (
-        current.workspaceId === "" ||
-        current.workspaceId !== event.workspaceId ||
-        current.executionId === "" ||
-        current.executionId !== event.executionId
-      ) {
+      if (!workflowEventMatchesProjectionTarget(current, event)) {
         return;
       }
       const eventTarget = {
@@ -402,6 +397,27 @@ function workflowProjectionTarget(projection: WorkflowGraphProjection): Workflow
     versionId: projection.definitionVersionId,
     workspaceId: projection.workspaceId,
   };
+}
+
+export function workflowEventMatchesProjectionTarget(
+  current: WorkflowProjectionTarget,
+  event: WorkflowEvent,
+) {
+  if (
+    current.workspaceId === "" ||
+    current.workspaceId !== event.workspaceId ||
+    current.definitionId === "" ||
+    current.definitionId !== event.definitionId
+  ) {
+    return false;
+  }
+  if (current.executionId !== "") {
+    return current.executionId === event.executionId;
+  }
+  if (current.versionId !== "" && current.versionId !== event.definitionVersionId) {
+    return false;
+  }
+  return true;
 }
 
 function assertNever(value: never): never {

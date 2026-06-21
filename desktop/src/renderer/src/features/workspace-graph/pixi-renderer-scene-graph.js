@@ -1,5 +1,9 @@
 import { validateNodeLabelGlyphs } from "./pixi-renderer-label-font";
-import { drawNodeActivityMarker, drawNodeDiagnosticMarker } from "./pixi-renderer-node-geometry";
+import {
+  drawNodeActivityMarker,
+  drawNodeDiagnosticMarker,
+  syncNodeBodyGraphic,
+} from "./pixi-renderer-node-geometry";
 
 export function createWorkflowGraphSceneGraphUpdater({
   acquireLabel,
@@ -9,6 +13,7 @@ export function createWorkflowGraphSceneGraphUpdater({
   nodeBodies,
   nodeContainers,
   nodeDiagnosticMarkers,
+  nodeGeometry,
   nodeLayer,
   nodeOutlines,
   nodeShadows,
@@ -120,6 +125,11 @@ export function createWorkflowGraphSceneGraphUpdater({
     if (!diagnosticMarker) {
       throw new Error(`node diagnostic marker is missing during graph update: ${node.id}`);
     }
+    const body = nodeBodies.get(node.id);
+    if (!body) {
+      throw new Error(`node body is missing during graph update: ${node.id}`);
+    }
+    syncNodeBodyGraphic(body, node, nodeGeometry);
     drawNodeDiagnosticMarker(diagnosticMarker, node);
     const activityMarker = nodeActivityMarkers.get(node.id);
     if (!activityMarker) {
@@ -172,7 +182,6 @@ function countInBoth(left, right) {
 
 function nodeContainerRequiresRebuild(previous, next) {
   return (
-    previous.color !== next.color ||
     previous.connectable !== next.connectable ||
     previous.height !== next.height ||
     previous.width !== next.width ||

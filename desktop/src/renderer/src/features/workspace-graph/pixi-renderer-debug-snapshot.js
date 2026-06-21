@@ -12,6 +12,10 @@ import {
   totalDisplayObjectCount,
   visibleDisplayObjectCount,
 } from "./pixi-renderer-helpers";
+import {
+  resolveWorkflowEdgeVisualState,
+  resolveWorkflowNodeVisualState,
+} from "./pixi-renderer-visual-state";
 
 export function createWorkflowGraphDebugSnapshot({
   app,
@@ -71,6 +75,7 @@ export function createWorkflowGraphDebugSnapshot({
           sourcePortId: edge.sourcePortId,
           targetNodeId: edge.targetNodeId,
           targetPortId: edge.targetPortId,
+          visualState: resolveWorkflowEdgeVisualState(edge),
         })),
         nodeCount: nodes.length,
         nodes: nodes.map((node) => {
@@ -116,6 +121,7 @@ export function createWorkflowGraphDebugSnapshot({
             }),
             screenX: screen.x,
             screenY: screen.y,
+            visualState: resolveWorkflowNodeVisualState(node),
             width: node.width,
             x: node.x,
             y: node.y,
@@ -201,6 +207,15 @@ export function createWorkflowGraphDebugSnapshot({
       },
       surfaceId: debugSurfaceId,
       visual,
+      visualGrammar: {
+        activityMarkerStatesById: state.activityMarkerVisualStatesById,
+        edgeStatesById: Object.fromEntries(
+          edges.map((edge) => [edge.id, resolveWorkflowEdgeVisualState(edge)]),
+        ),
+        nodeStatesById: Object.fromEntries(
+          nodes.map((node) => [node.id, resolveWorkflowNodeVisualState(node)]),
+        ),
+      },
     };
   };
 }

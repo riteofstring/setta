@@ -1,4 +1,8 @@
 import { drawDiagnosticDiamond } from "./pixi-renderer-node-geometry";
+import {
+  resolveWorkflowEdgeVisualState,
+  workflowEdgeVisualFingerprint,
+} from "./pixi-renderer-visual-state";
 import { drawCurvedEdge, portWorldPosition, requirePort } from "./pixi-renderer-helpers";
 
 export function redrawWorkspaceEdges({ edgeGraphics, edgeLabels, edges, getNode, redrawGraphics }) {
@@ -7,10 +11,11 @@ export function redrawWorkspaceEdges({ edgeGraphics, edgeLabels, edges, getNode,
   if (redrawGraphics) {
     edgeGraphics.clear();
     for (const { edge, end, start } of edgeEndpoints) {
+      const visualState = resolveWorkflowEdgeVisualState(edge);
       drawCurvedEdge(edgeGraphics, start, end, {
-        alpha: edge.alpha ?? 0.65,
-        color: edge.color ?? 0xe2e8f0,
-        width: edge.width ?? 2.5,
+        alpha: visualState.channels.strokeAlpha,
+        color: visualState.channels.stroke,
+        width: visualState.channels.strokeWidth,
       });
       drawEdgeDiagnosticMarker(edgeGraphics, edge, start, end);
       rematerialized += 1;
@@ -234,10 +239,5 @@ function edgeEndpointsChanged({ nextEdge, nextNodesById, previousEdge, previousN
 }
 
 function edgeStyleSignature(edge) {
-  return JSON.stringify({
-    alpha: edge.alpha ?? 0.65,
-    color: edge.color ?? 0xe2e8f0,
-    diagnostic: edge.diagnostic ?? null,
-    width: edge.width ?? 2.5,
-  });
+  return workflowEdgeVisualFingerprint(edge);
 }

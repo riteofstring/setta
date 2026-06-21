@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import {
   syncWorkspaceActivityMarkerGraphicPositions,
   updateWorkspaceActivityMarkerGraphics,
+  workspaceActivityMarkerVisualStatesById,
 } from "./pixi-renderer-activity-markers";
 
 describe("workflow graph activity marker graphics", () => {
@@ -54,6 +55,39 @@ describe("workflow graph activity marker graphics", () => {
       }),
     ).toEqual({ created: 0, removed: 1, retained: 1, updated: 0 });
     expect(markerLayer.children).toHaveLength(1);
+  });
+
+  test("exposes resolved visual states for materialized marker graphics", () => {
+    const markerLayer = new Container();
+    const markerGraphics = new Map();
+    const nodes = [node("work", 10, 20)];
+    updateWorkspaceActivityMarkerGraphics({
+      markerGraphics,
+      markerLayer,
+      markers: [marker("approval", "waiting_approval"), marker("command", "completed", 1)],
+      nodes,
+    });
+
+    expect(workspaceActivityMarkerVisualStatesById(markerGraphics)).toMatchObject({
+      marker_approval: {
+        channels: {
+          fill: 0xf59e0b,
+          kindShape: "approval",
+          stroke: 0xf59e0b,
+        },
+        sourceStatus: "waiting_approval",
+        state: "waiting_approval",
+      },
+      marker_command: {
+        channels: {
+          fill: 0x38bdf8,
+          kindShape: "command",
+          stroke: 0x86efac,
+        },
+        sourceStatus: "completed",
+        state: "completed",
+      },
+    });
   });
 
   test("keeps node-anchored markers positioned when graph nodes move", () => {

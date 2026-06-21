@@ -1,3 +1,16 @@
+export type WorkflowGraphNodeStatus =
+  | "not_started"
+  | "pending"
+  | "ready"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled"
+  | "waiting_approval"
+  | "recovery_required";
+
+export type WorkflowGraphEdgeStatus = "inactive" | "active" | "completed" | "cancelled";
+
 export interface WorkflowGraphNode {
   activity?: {
     active: boolean;
@@ -9,9 +22,11 @@ export interface WorkflowGraphNode {
   diagnostic?: WorkflowGraphDiagnostic | null;
   height: number;
   id: string;
+  kind?: string;
   layer?: "semantic" | "workflow";
   label: string;
   ports?: WorkflowGraphPort[];
+  status?: WorkflowGraphNodeStatus;
   width: number;
   x: number;
   y: number;
@@ -66,6 +81,7 @@ export interface WorkflowGraphEdge {
   label?: string;
   sourceNodeId: string;
   sourcePortId: string;
+  status?: WorkflowGraphEdgeStatus;
   targetNodeId: string;
   targetPortId: string;
   width?: number;

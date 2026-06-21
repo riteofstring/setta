@@ -69,9 +69,11 @@ export function useWorkspaceActivityState({
   const activeWorkspaceRef = useRef(workspaceId);
   const activityGraphRef = useRef<WorkflowGraphGraph | null>(activityGraph ?? null);
   const applyActivityMarkersRef = useRef<typeof applyActivityMarkers>(applyActivityMarkers);
+  const readGraphDebugSnapshotRef = useRef<typeof readGraphDebugSnapshot>(readGraphDebugSnapshot);
   activeWorkspaceRef.current = workspaceId;
   activityGraphRef.current = activityGraph ?? null;
   applyActivityMarkersRef.current = applyActivityMarkers;
+  readGraphDebugSnapshotRef.current = readGraphDebugSnapshot;
 
   const syncMarkers = useCallback(() => {
     const materialize = applyActivityMarkersRef.current;
@@ -101,7 +103,7 @@ export function useWorkspaceActivityState({
     try {
       stateRef.current = recordWorkspaceActivityBackendReadAttempt(
         stateRef.current,
-        readGraphDebugSnapshot?.() ?? null,
+        readGraphDebugSnapshotRef.current?.() ?? null,
       );
       const snapshot = await window.setta.workspaceActivity.snapshot(workspaceId, limit);
       if (activeWorkspaceRef.current !== workspaceId) {
@@ -118,7 +120,7 @@ export function useWorkspaceActivityState({
         },
       };
     }
-  }, [limit, readGraphDebugSnapshot, syncMarkers, workspaceId]);
+  }, [limit, syncMarkers, workspaceId]);
 
   useEffect(() => {
     stateRef.current = createInitialWorkspaceActivityState(workspaceId, limit);
@@ -129,13 +131,13 @@ export function useWorkspaceActivityState({
   useEffect(() => {
     return window.setta.workspaceActivity.onEvent((event) => {
       const previous = stateRef.current;
-      const beforeGraph = readGraphDebugSnapshot?.() ?? null;
+      const beforeGraph = readGraphDebugSnapshotRef.current?.() ?? null;
       const result = applyWorkspaceActivityEvent(previous, event, limit);
       stateRef.current = result.state;
       if (result.state.debug.deltasApplied > previous.debug.deltasApplied) {
         syncMarkers();
       }
-      const afterGraph = readGraphDebugSnapshot?.() ?? null;
+      const afterGraph = readGraphDebugSnapshotRef.current?.() ?? null;
       stateRef.current = recordWorkspaceActivityDeltaInstrumentation({
         afterGraph,
         beforeGraph,
@@ -146,7 +148,7 @@ export function useWorkspaceActivityState({
         void loadSnapshot();
       }
     });
-  }, [limit, loadSnapshot, readGraphDebugSnapshot, syncMarkers]);
+  }, [limit, loadSnapshot, syncMarkers]);
 
   useEffect(() => {
     syncMarkers();

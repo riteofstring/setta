@@ -111,6 +111,33 @@ describe("workflow graph edge rendering", () => {
     expect(edgeGraphicsRedrawRequired(invalidation)).toBe(true);
   });
 
+  test("redraws shared edge graphics when a typed edge status changes", () => {
+    const nodes = workflowNodes();
+    const previousEdges = labeledEdges().map((edge) => ({ ...edge, status: "inactive" }));
+    const nextEdges = previousEdges.map((edge) =>
+      edge.id === "reason-output" ? { ...edge, status: "active" } : { ...edge },
+    );
+
+    const invalidation = edgeGraphicsInvalidationForGraphUpdate(
+      nodes,
+      previousEdges,
+      nodes,
+      nextEdges,
+    );
+
+    expect(invalidation).toMatchObject({
+      edgeAddCount: 0,
+      edgeEndpointUpdateCount: 0,
+      edgeOrderUpdateCount: 0,
+      edgeRemoveCount: 0,
+      edgeRetainCount: 2,
+      edgeStyleUpdateCount: 1,
+      edgeTopologyUpdateCount: 0,
+      edgeUpdateCount: 1,
+    });
+    expect(edgeGraphicsRedrawRequired(invalidation)).toBe(true);
+  });
+
   test("redraws shared edge graphics when retained edges change draw order", () => {
     const nodes = workflowNodes();
     const previousEdges = labeledEdges();
