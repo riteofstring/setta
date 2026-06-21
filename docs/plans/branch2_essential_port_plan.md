@@ -5,9 +5,9 @@
 - **Source cutoff SHA:** `7a67cf453a006fa4cfd9a9b7e9ef6298984364e4`
 - **Target branch:** `setta-3-workflow-kernel-conceptual-nodes-3`
 - **Shared base:** `6beddf21a554132c283255e1f1bc6c259213e537`
-- **Status:** Planning; revised after external review and an initial renderer
-  update-path probe. Phase 0 is a combined source-branch and target-branch
-  audit, not an implementation phase.
+- **Status:** Active port plan. Phase 0 through Phase 3.5A have been
+  implemented on the target branch. The next implementation slice is Phase
+  3.5B: chip click-through and shared workflow-node activity details.
 
 ## Goal
 
@@ -58,8 +58,45 @@ or changed:
 - Workspace layout and surface registry changes that overlap with branch 2's
   graph surface runtime work.
 
-Porting must therefore start with an ownership audit of the current branch
-before applying any branch 2 implementation.
+Porting therefore started with an ownership audit of the current branch before
+applying any branch 2 implementation.
+
+## Current Execution Status
+
+The plan has already taken the World B path from the Phase 0 manifest:
+graph-surface/runtime stability had to land before renderer-visible liveness
+work.
+
+Completed slices:
+
+- **Phase 0 - Audit and slice manifest.** Completed in
+  `docs/plans/branch2_slice_manifest.md`. It established that current edge,
+  label, and camera update paths made the graph-surface refactor a prerequisite
+  before adding live renderer activity.
+- **Phase 1 - Graph surface update stability.** Implemented by
+  `2bbc9dd6c Optimize workflow graph surface updates`, with follow-up update
+  source instrumentation in `e2a8ac774 Require workflow graph update sources`.
+  This moved the original graph-surface/runtime concern ahead of trajectory
+  rendering.
+- **Phase 2A - Typed workspace activity feed.** Implemented by
+  `44431c0cc Implement typed workspace activity feed`.
+- **Phase 2B - Typed workspace activity markers.** Implemented by
+  `9808e6a7a Add typed workspace activity markers`.
+- **Phase 3 - Visual grammar baseline.** Implemented by
+  `a1f847878 Implement workflow visual grammar`.
+- **Phase 3.5A - Readable activity chips.** Planned in
+  `28b1905ce docs: plan readable activity chips phase` and implemented by
+  `bb51b8df7 Add workflow activity graph chips`.
+- **Workflow run navigation stabilization.** Implemented after Phase 3.5A to
+  make draft, active-run, and historical-run views coherent:
+  one-active-run enforcement, run history, Stop, non-destructive projection
+  loading, stable toolbar slots, scoped activity markers, durable run-scoped
+  activity snapshots, and frame-aware visual verification. The completed plan
+  doc was removed in `d61852b69`.
+
+The current branch now has the typed-liveness spine needed for the next UX
+slice. The remaining immediate gap is not more markers; it is connecting the
+readable chips to the canonical workflow node details surface.
 
 ## Integration Rules
 
@@ -82,8 +119,9 @@ tests/evidence, not as an implementation authority. The target branch's current
 architecture should be improved where needed, then the useful branch 2 behavior
 should be rebuilt against that architecture.
 
-The Phase 0 manifest must therefore record prerequisite refactors explicitly.
-A recommendation of "refactor first" is a valid outcome, not a failure to port.
+The Phase 0 manifest recorded prerequisite refactors explicitly. Keep that
+standard for any later branch 2 slice: a recommendation of "refactor first" is
+a valid outcome, not a failure to port.
 
 ### No Legacy Compatibility
 
@@ -115,12 +153,13 @@ explicitly requests that exact compatibility work.
 ### Source Cutoff
 
 Use `7a67cf453a006fa4cfd9a9b7e9ef6298984364e4` as the branch 2 evidence
-cutoff. The Phase 0 manifest must cite commits relative to that SHA. Do not
+cutoff. The Phase 0 manifest cites commits relative to that SHA. Do not
 silently include newer branch 2 commits.
 
 ### Capability Versus Method
 
-The audit manifest must separate two decisions:
+The audit manifest separates two decisions, and later slice plans should keep
+the same distinction:
 
 - **Disposition:** keep, defer, discard, or learn-only.
 - **Method:** reimplement-clean, port-diff, copy-doc-only, or do-not-port.
@@ -146,8 +185,8 @@ change the owner contract.
 
 ### Runtime And Pan/Zoom Invariants
 
-Any renderer runtime frame introduced before the full graph-surface refactor
-must already obey these invariants:
+Any future renderer runtime frame must preserve the invariants established by
+Phase 1:
 
 - no runtime delta may cause full graph scene replacement during camera
   movement;
@@ -155,25 +194,25 @@ must already obey these invariants:
   movement;
 - camera movement may not trigger backend reads, layout persistence, or
   generated-contract refreshes;
-- trajectory sprite updates must be content-only and bounded, or the runtime
-  sprite work must stop and move behind the graph-surface refactor.
+- activity, chip, detail, or future trajectory updates must be content-only and
+  bounded, or the runtime work must stop until the owning surface is refactored.
 
 Do not defer these invariants to a later pan/zoom phase after adding trajectory
 runtime rendering. That ordering recreates the branch 2 jank risk.
 
-Before any trajectory renderer work starts, Phase 0 must answer this concrete
-investigation question:
+Phase 0 answered this concrete investigation question and found the World B
+path:
 
 > When a small live data update arrives while the user is interacting with the
 > current branch's graph, does the renderer update only the affected content, or
 > does the data path replace/reproject/rematerialize larger graph state?
 
-The desired end state is obvious: small updates should update small retained
-objects. The investigation exists to determine whether this branch already has
-that behavior or whether graph surface/runtime ownership must be refactored
-before adding live trajectory rendering.
+The desired end state remains: small updates should update small retained
+objects. Phase 1, Phase 2, Phase 3, Phase 3.5A, and workflow run navigation
+stabilization implemented and verified that behavior for the current activity
+surface.
 
-The audit must distinguish:
+Future liveness or graph-surface slices must still distinguish:
 
 - Pixi app, renderer, ticker, viewport, or layer recreation;
 - full graph scene replacement or rematerialization;
@@ -183,10 +222,10 @@ The audit must distinguish:
 - content-only updates that preserve camera, nodes, edges, labels, layers, and
   the React shell.
 
-If small live updates are not content-only, the graph surface/runtime refactor
-becomes the first implementation slice. Do not proceed to trajectory sprite
-rendering until the renderer can accept bounded runtime updates without
-disturbing pan/zoom.
+If a later slice discovers a non-content-only live update path, stop and fix
+that owner boundary before adding more renderer-visible behavior. Do not
+proceed by hiding churn behind loading states, compatibility fallbacks, or
+visual effects.
 
 ### Tests And Evidence
 
@@ -417,377 +456,233 @@ before the product slice exists on this branch.
 
 ## Port Strategy
 
-### Phase 0 - Combined Audit, Ownership, And Feasibility Manifest
+The original draft listed a linear Phase 0 through Phase 9. That order is no
+longer the source of truth. The Phase 0 audit found that live renderer updates
+were not safe enough, so the branch deliberately moved graph-surface stability
+ahead of renderer-visible liveness. The current port strategy is the executed
+sequence below.
 
-Produce a companion manifest before implementation:
+### Completed Phase 0 - Audit, Ownership, And Feasibility Manifest
+
+Status: complete.
+
+Output:
 
 ```text
 docs/plans/branch2_slice_manifest.md
 ```
 
-This phase combines branch archaeology and current-branch ownership review. It
-must not choose an implementation slice until both sides have been inspected.
+Key decisions:
 
-Execution order within Phase 0 is not flat. Do the two gating investigations
-first and to conclusion, because they decide the first slice and the phase
-order:
+- World B was the correct path: the graph-surface/runtime update path had to be
+  fixed before adding more live renderer layers.
+- Typed metadata was sufficient for a useful first liveness slice when scoped
+  to existing typed command, approval, file-change path/status, workflow-status,
+  and run provenance facts.
+- File reads and richer diff facts remained out of scope because they lacked
+  honest typed metadata on this branch.
+- Shell-output parsing, assistant-text parsing, and compatibility shims stayed
+  forbidden.
 
-1. the renderer update-path investigation,
-2. the typed-metadata feasibility spike.
+### Completed Phase 1 - Graph Surface Update Stability
 
-Only after those are answered, fill the cluster manifest. The manifest is
-shallow by default: one section per required cluster, but deep only for the
-cluster(s) feeding the first slice the gating investigations point to. Clusters
-the first slice does not touch are recorded as `defer` or `learn-only` with the
-open question, not reconstructed line by line. Do not let the nine-cluster
-archaeology consume the timebox before the gating investigations are done.
+Status: complete.
 
-For each branch 2 feature cluster, record:
+Source plan:
 
-- product intent,
-- source commits, relative to cutoff
-  `7a67cf453a006fa4cfd9a9b7e9ef6298984364e4`,
-- main files touched,
-- owner modules and current-branch owner files,
-- contracts changed,
-- generated outputs affected,
-- event streams or IPC/preload surfaces involved,
-- production-path tests or reports added,
-- known mistakes, false-complete claims, or incomplete follow-ups,
-- disposition: keep, defer, discard, or learn-only,
-- method: reimplement-clean, port-diff, copy-doc-only, or do-not-port,
-- prerequisite target-branch refactors, if needed,
-- risk if ported before the owning boundary is settled.
+```text
+docs/plans/branch2_phase1_graph_surface_update_plan.md
+```
 
-Required clusters:
+Implemented behavior:
 
-- workflow validation and layout ownership,
-- visual language and mockups,
-- semantic cartographer audit/settings,
-- semantic memory usefulness,
-- workspace trajectory runtime backend,
-- renderer trajectory sprites/details,
-- graph surface runtime and pan/zoom,
-- shared agent activity UI,
-- recording/performance tooling.
+- retained and diffed edge labels instead of destroying all labels on every
+  graph update;
+- kept edge graphics batched while skipping redraws when edge geometry and
+  style do not change;
+- stopped graph updates from cancelling camera pan/zoom when the interaction
+  target is still valid;
+- added source-attributed graph update counters and production Electron
+  coverage for pan-during-update behavior.
 
-Current-branch ownership areas to map:
+This slice corresponds to the original graph-surface/runtime prerequisite, not
+to the original "decision gate" wording.
 
-- workspace layout and surface registry,
-- graph renderer lifecycle,
-- pane presentation and resize handling,
-- chat transcript and run activity components,
-- chat streaming performance paths,
-- semantic graph HTTP/event-stream paths,
-- generated backend contract generator,
-- Electron workflow harnesses.
+### Completed Phase 2 - Typed Workspace Activity
 
-Renderer update-path investigation:
+Status: complete.
 
-- trace every current graph data ingress path that could receive live updates,
-  including workflow projection, semantic graph updates, semantic/runtime event
-  updates, layout updates, and any existing graph debug/runtime feeds;
-- for each path, record whether a small update is content-only, full-scene
-  replacement, React graph-shell replacement, Pixi app/layer recreation, label
-  or edge rematerialization, or unknown;
-- check what happens if the update arrives during camera movement;
-- cite the files/functions and existing per-update counters or tests used for
-  the answer;
-- decide whether the first implementation slice may safely add trajectory
-  rendering, or whether graph surface/runtime ownership must be refactored
-  first.
+Source plan:
 
-Allowed evidence in this docs-only phase: reading source, reading existing
-per-update counters such as the scene-graph updater's `updateCounts()`, and
-running the production app to watch those counters during pan/zoom. All three
-add no committed code. Do not add committed instrumentation in Phase 0. If an
-ingress path has no existing counter or observable signal, record it as "needs
-instrumentation - defer to implementation"; that is a valid Phase 0 outcome,
-not a gap to fill here.
+```text
+docs/plans/branch2_phase2_typed_liveness_plan.md
+```
 
-Starting evidence from an initial probe, preliminary and to be confirmed, not
-treated as settled: the node ingress path is already content-only. In
-`pixi-renderer-scene-graph.js`, `createWorkflowGraphSceneGraphUpdater` exposes
-`replaceGraph` and `updateCounts`; `applySceneGraphNodes` diffs nodes by id,
-adds only new ids, removes only absent ids, rebuilds a container only when
-`nodeContainerRequiresRebuild` is true, and otherwise patches position, label,
-and markers in place; per-update node and edge add/remove/update counts are
-already recorded. Still open and required before declaring World A: the edge
-graphics path (`replaceGraph` replaces the whole `edges` array, and whether
-edge display objects diff or redraw lives in `pixi-renderer-edge-rendering.js`),
-what calls `replaceGraph` and on which store/event change, whether pan/zoom
-routes through React state back into `replaceGraph`, and whether the
-not-yet-existing trajectory sprite path can be content-only by design.
+Phase 2A implemented the Go-owned typed activity feed:
 
-Typed-metadata feasibility spike:
+- workspace activity records mapped from existing typed workflow, chat run
+  item, approval, command, file-change, and workflow-status data;
+- HTTP snapshot and event-stream paths through production main, preload,
+  renderer, and store boundaries;
+- debug counters proving no marker materialization in the backend/feed slice.
 
-- enumerate the typed provider/tool/runtime metadata currently available on
-  this branch for file reads, file writes, diffs, commands, tests, tool calls,
-  approvals, reasoning summaries, assistant output, workflow execution status,
-  and run item provenance;
-- identify where branch 2 added metadata that this branch does not have;
-- mark trajectory-runtime fidelity as blocked, partial, or feasible before any
-  backend runtime implementation starts;
-- explicitly reject shell-command or arbitrary-output parsing as a substitute
-  for missing typed metadata.
+Phase 2B implemented renderer-visible activity markers:
 
-Timebox:
+- bounded Pixi marker materialization;
+- workflow-node anchoring;
+- marker debug counters;
+- production Electron assertions for marker creation, typed kinds, run
+  completion, pan continuity, no scene replacement, and no backend reads during
+  camera movement.
 
-- aim for enough evidence to choose the first safe slice, not exhaustive
-  reconstruction of every branch 2 line;
-- if a cluster cannot be resolved within the timebox, mark it `defer` or
-  `learn-only` with the remaining question instead of extending Phase 0 into an
-  implementation project.
+This intentionally used `internal/workspaceactivity`, not a separate
+`internal/workspacetrajectory` package. Do not add a new trajectory package
+unless a later slice proves the activity model is the wrong boundary for a
+specific typed fact.
 
-Exit criteria:
+### Completed Phase 3 - Visual Grammar Baseline
 
-- both gating investigations (renderer update-path and typed-metadata
-  feasibility) completed to a decision before any deep cluster archaeology,
-- one checked-in manifest section per required cluster, deep only for the
-  first-slice cluster(s) and `defer`/`learn-only` for the rest,
-- no committed source, test, generated-output, script, or contract changes;
-  reading existing counters and running the production app to observe them is
-  allowed,
-- renderer update-path investigation recorded with a decision on whether graph
-  surface/runtime refactor is a prerequisite,
-- generated-contract conflict rule recorded for each contract-touching cluster,
-- typed-metadata feasibility recorded,
-- first implementation slice chosen only if the current-branch ownership audit
-  supports it; otherwise the manifest must state what ownership question blocks
-  slice selection.
+Status: complete.
 
-### Phase 1 - First Slice Decision Gate
+Source plan:
 
-Review the Phase 0 manifest and choose one implementation slice. This is a
-decision gate, not a coding phase.
+```text
+docs/plans/branch2_phase3_visual_grammar_plan.md
+```
 
-The decision must record:
+Implemented behavior:
 
-- product outcome for the slice,
-- owning backend, renderer, IPC, and test surfaces,
-- branch 2 source commits used as reference,
-- method: reimplement-clean or port-diff,
-- prerequisite refactors, if any, and whether they must happen before feature
-  behavior lands,
-- generated contracts affected,
-- runtime/pan-zoom invariants affected,
-- renderer update-path finding that permits the slice, or the prerequisite
-  graph-surface refactor work,
-- focused verification,
-- production Electron verification,
-- explicit sign-off owner.
+- single visual-state resolver for workflow nodes, edges, and activity markers;
+- debug-visible resolved visual state from the same resolver path that drives
+  Pixi styling;
+- clear running, waiting, completed, failed, and cancelled states;
+- deterministic Electron coverage for success, failure, cancellation, and
+  approval states.
 
-Do not start feature coding if the chosen slice depends on an unresolved owner
-boundary. Refactor the owner boundary first when the Phase 0 manifest shows the
-current architecture is the wrong substrate.
+This phase deliberately avoided branch 2's neon/glow, organelle, trail,
+animation, and visual-parity harness churn.
 
-### Phase 2 - Minimal Workflow Graph Product Baseline
+### Completed Phase 3.5A - Readable Activity Chips
 
-Port or reimplement the smallest workflow graph behavior that is product-facing
-and independent from trajectory/semantic memory:
+Status: complete.
 
-- validation state and overlay behavior,
-- edge deletion correctness,
-- only the node movement, layout save, and local-first drag pieces whose
-  surface/controller ownership has already been settled by Phase 0.
+Defined inside:
 
-If graph surface/controller ownership is still unresolved, limit this phase to
-validation and edge-deletion correctness. Move drag ownership, local-first
-layout overlays, and save outcomes to the graph-surface runtime phase rather
-than implementing them twice.
+```text
+docs/plans/branch2_phase3_visual_grammar_plan.md
+```
+
+Implemented behavior:
+
+- readable text-bearing activity chips at readable zoom;
+- compact glyph/count representation at low zoom and over cap;
+- per-node cap with `+N` overflow;
+- typed labels from existing workspace activity marker records;
+- suppression/fixing of unanchored activity instead of a far-left recent lane;
+- chip placement evidence proving readable chips stay inside the canvas;
+- production Electron visual evidence for command, approval, workflow-status,
+  failure, cancellation, low-zoom compact mode, and pan continuity.
+
+### Completed Workflow Run Navigation Stabilization
+
+Status: complete.
+
+This was not in the original branch 2 phase list, but it became necessary after
+the first real manual review of readable chips and run navigation.
+
+Implemented behavior:
+
+- one active run per workflow definition;
+- run history and historical run selection;
+- Stop/cancel flow;
+- durable run-scoped activity snapshots;
+- draft, active-run, and historical-run marker scoping;
+- non-destructive projection loading;
+- stable toolbar slots;
+- validation overlay scoped to draft view;
+- frame-aware Electron assertions and screenshot evidence for the toolbar,
+  draft view, active run, and historical run.
+
+The completed stabilization plan was removed after implementation so the active
+plan set stays current.
+
+### Next Phase - Phase 3.5B: Chip Details And Shared Activity Rows
+
+Status: next implementable slice.
+
+Use the Phase 3.5B section and handoff prompt in
+`docs/plans/branch2_phase3_visual_grammar_plan.md`.
+
+Goal:
+
+- click or focus a readable activity chip and open or focus the existing
+  workflow node details Niri pane for the owning node;
+- deep-link or highlight the clicked run item, approval, or workflow event when
+  the typed detail ref supports it;
+- reuse the existing chat run-activity row rendering path for node-scoped
+  agent/tool activity, or extract only the smallest shared component needed.
+
+Do not:
+
+- create a separate chip-only details surface;
+- embed the whole chat transcript in workflow node details;
+- fabricate chat turns from flat workflow activity records;
+- add backend contracts or inferred activity kinds;
+- port the full branch 2 trajectory runtime details stack.
 
 Verification:
 
-- focused renderer/store tests for validation and any movement ownership
-  included in the slice,
-- production Electron workflow graph smoke path,
-- no generated outputs edited by hand.
+- focused component/helper tests for shared row reuse and activity highlighting;
+- focused Pixi/debug tests for chip hit targets and typed detail refs;
+- deterministic Electron `workflow-activity-feed` coverage proving chip
+  click-through through production graph and Niri details paths;
+- `./scripts/format.sh` and `./check_quality.sh --all` before executable-code
+  commits.
 
-### Phase 3 - Visual Grammar Baseline
+### Later Candidate - Semantic Memory Usefulness
 
-Implement only stable visual styling and product vocabulary:
+Status: not next.
 
-- active workflow node is obvious,
-- active workflow edge communicates direction/progress,
-- semantic nodes use explicit status/kind markers rather than ambient biology,
-- background/foundation does not change merely because semantic nodes exist.
+Port the durable semantic-memory policy only after the typed-liveness UX is
+coherent:
 
-Do not implement semantic-cell mitosis/fusion or decorative organelle motion as
-default behavior.
+- evidence candidates from typed activity facts;
+- `whyItExists` and `futureUse` for durable semantic nodes;
+- validation that rejects weak or process-only automatic nodes;
+- source refs and source coverage in details;
+- minimal cartographer settings until the behavior is proven.
 
-The source of truth for idle/running/failure/approval status must be selected
-by Phase 1. If the trajectory runtime does not exist yet, Phase 3 may use
-static or synthetic states only, and the visual evidence must be rechecked after
-trajectory runtime data lands.
+Verification remains semanticgraph tests plus production semantic-cartographer
+Electron coverage.
 
-Pan/zoom label/base-edge visibility is owned by the graph-surface runtime phase,
-not this styling phase, unless the chosen Phase 1 slice explicitly includes the
-surface controller.
+### Later Candidate - Recording And Evidence Tooling
 
-Verification:
+Status: defer until a product slice needs it.
 
-- screenshot or recording evidence for idle, running, failure, and approval
-  states, using the selected source of truth or clearly marked synthetic data,
-- no large visual parity harness until the visual slice is stable.
+Port only compact evidence tooling that explains real issues:
 
-### Phase 4 - Typed Trajectory Runtime Backend
+- pan/zoom delay or flashing;
+- unintended graph replacement;
+- label or edge visibility drops;
+- chip/detail click routing failures;
+- sprite or activity hit-target failures if a later phase adds them.
 
-Rebuild the Go-owned trajectory runtime boundary:
+Do not port broad visual parity targets or phase-loop automation as product
+work.
 
-- snapshot and delta contracts,
-- bounded payloads,
-- revision and gap behavior,
-- HTTP endpoints owned by `internal/httpapi`,
-- event streaming through production main/preload/renderer paths,
-- generated TypeScript from Go-owned contracts.
+### Reframed Or Deferred Original Phases
 
-Use typed data only. File reads, writes, diffs, commands, tests, tools,
-reasoning summaries, assistant output, approvals, and workflow status should be
-represented honestly from available metadata.
-
-Do not start this phase unless Phase 0 found enough typed metadata for a useful
-first trajectory slice. If metadata is partial, scope this phase to the typed
-facts that are actually available and display missing precision honestly.
-
-This backend-only phase may proceed before the graph-surface refactor only if
-it does not add renderer live-update pressure. If the first demo requires
-renderer-visible trajectory updates and Phase 0 found non-content-only graph
-updates, move Phase 7 before the renderer portion of trajectory work.
-
-Verification:
-
-- Go tests for mapping typed chat/workflow/provider facts into trajectory
-  records,
-- HTTP endpoint tests,
-- generated TypeScript regeneration,
-- focused desktop typecheck.
-
-### Phase 5 - Renderer Trajectory Sprites And Details
-
-Add the trajectory renderer layer after the backend contract is stable:
-
-- local trajectory runtime store,
-- snapshot bootstrap and delta application,
-- bounded sprite pools,
-- workflow-node anchoring,
-- recent unanchored fallback lane,
-- collapse behavior for crowded sprite groups,
-- workflow-node details that show activity provenance.
-
-Before sprite rendering lands, add hard gates for the runtime/pan-zoom
-invariants listed above:
-
-- trajectory delta application does not full-replace the graph scene;
-- trajectory delta application does not cause graph-shell React replacement
-  during camera movement;
-- camera movement does not request trajectory, semantic, workflow, or generated
-  contract reads;
-- sprite materialization and update work is bounded to sprite changes and does
-  not rebuild unrelated graph content.
-
-If the current graph ownership cannot satisfy those gates, stop this phase and
-move the graph-surface runtime phase earlier.
-
-This phase is not allowed to discover the replacement problem by accident. The
-Phase 0 renderer update-path investigation must already say whether trajectory
-sprite rendering is safe on the current graph surface, or whether Phase 7 is a
-prerequisite.
-
-Verification:
-
-- renderer store tests for buffering, coalescing, gap reloads, and workspace
-  filtering,
-- Pixi renderer tests for bounded sprite materialization,
-- focused pan/zoom invariant tests covering trajectory delta arrival during
-  camera movement,
-- production Electron workflow showing typed file read/write/diff/command
-  activity before semantic nodes exist.
-
-### Phase 6 - Semantic Memory Usefulness
-
-Port the durable semantic-memory policy after trajectory facts exist:
-
-- evidence candidates from typed trajectory facts,
-- `whyItExists` and `futureUse` for durable nodes,
-- validation that rejects weak/process-only automatic nodes,
-- source refs and source coverage in details,
-- context-pack delivery tracking if the current branch still needs it.
-
-Keep cartographer settings UI minimal until this behavior is proven.
-
-Verification:
-
-- semanticgraph tests for validation and evidence policy,
-- renderer details tests for usefulness/source display,
-- production semantic-cartographer workflow through Electron paths.
-
-### Phase 7 - Graph Surface Runtime And Pan/Zoom Fast Path
-
-Integrate branch 2's verified graph interaction lessons with this branch's
-current surface registry and pane-resize work:
-
-- one graph controller per surface,
-- no duplicate Pixi app/ticker/viewport for a surface,
-- camera movement does not trigger backend reads, React graph replacement,
-  layout writes, or full label sync,
-- labels and base edges remain visible during camera movement,
-- wheel/input diagnostics stay off the hot path,
-- retained/dirty geometry work is explicit before claiming pan/zoom complete.
-
-This phase should not inherit branch 2's false-complete status. Treat wheel
-hot-path cleanup and retained dirty work as open until verified on this branch.
-
-If Phase 0 finds that small live data updates currently cause full scene
-replacement, React graph-shell replacement, Pixi layer recreation, or visible
-materialization churn during camera movement, this phase moves before renderer
-trajectory sprites and becomes the first implementation slice.
-
-Verification:
-
-- focused renderer tests for controller lifecycle and camera invariants,
-- deterministic Electron pan/zoom workflow,
-- performance report under `docs/reports/performance/`,
-- reference MacBook trackpad sign-off for physical feel. If unavailable, the
-  phase remains open with an explicit risk note.
-
-### Phase 8 - Activity Sprite Popovers And Shared Agent Activity UI
-
-Once trajectory sprites and workflow-node details exist:
-
-- extract shared run/activity leaf components from chat where still applicable,
-- render workflow details through those components,
-- make trajectory sprites clickable with retained hit targets,
-- open an inline popover focused on the clicked run item,
-- link from the popover to the owning workflow node details.
-
-Do not embed the whole chat transcript in workflow details and do not fabricate
-conversation turns from flat workflow run-item data.
-
-Verification:
-
-- component tests proving shared component reuse,
-- renderer interaction tests for sprite hover/click,
-- chat streaming regression coverage so shared activity extraction does not
-  undo this branch's high-refresh chat-performance work,
-- production Electron workflow for sprite popover, details link, and dismissal.
-
-### Phase 9 - Recording And Evidence Tooling
-
-Port only the evidence tooling needed to debug the implemented slices:
-
-- compact incident reports for pan/zoom,
-- node-drag reports with moved ids and owners,
-- sprite-click reports with item ids and details targets,
-- graph replacement and label/edge visibility-drop summaries.
-
-Do not port broad visual parity targets or phase-loop scripts until there is a
-stable product slice that needs them.
-
-Verification:
-
-- parser tests fail when required evidence is missing,
-- one production recording can explain pan/zoom delay, flashing, unintended
-  movement, or sprite-click behavior without manual JSON inspection.
+- The original **Phase 4 / Phase 5 trajectory runtime** has been reframed as
+  typed workspace activity. Do not create a parallel `workspacetrajectory`
+  runtime unless a concrete missing typed fact proves the current activity
+  boundary is insufficient.
+- The original **Phase 7 graph-surface runtime** moved first and is complete
+  for the invariants needed by activity markers and chips. Larger pan/zoom
+  feel work should be scoped as its own performance slice, with fresh evidence.
+- The original **Phase 8 popovers/shared activity UI** is now split. Phase 3.5B
+  owns chip-to-details and shared activity rows. Inline popovers remain a later
+  optional affordance, not the next slice.
+- The original **Phase 9 recording/evidence tooling** remains defer-by-need.
 
 ## Verification Policy
 
@@ -817,55 +712,27 @@ scripts, manifests, or tests changed.
 
 ## Immediate Next Step
 
-Execute Phase 0 as a documentation-only audit and create:
+Implement Phase 3.5B from
+`docs/plans/branch2_phase3_visual_grammar_plan.md`.
 
-```text
-docs/plans/branch2_slice_manifest.md
-```
+Agent brief:
 
-The Phase 0 agent brief should be:
+- use branch 2 files only as design evidence, not as port targets;
+- keep Phase 3.5A chip LOD, placement, caps, and compact-mode behavior intact
+  unless a hit target or typed detail ref is required;
+- route chip click/focus into the existing workflow node details Niri pane for
+  the owning node;
+- deep-link or highlight the clicked run item, approval, or workflow event when
+  the typed activity record supports that reference;
+- reuse the existing chat run-activity row rendering path for agent/tool
+  activity, or extract only the smallest shared row component needed;
+- do not create a separate chip-only details UI, embed full chat transcripts,
+  fabricate chat turns, add inferred activity kinds, add backend contracts,
+  add compatibility paths, or port the branch 2 trajectory details stack;
+- prove the behavior with focused component/helper tests, Pixi/debug tests for
+  chip hit targets and refs, deterministic Electron `workflow-activity-feed`
+  coverage, screenshots, and the normal format/quality gates.
 
-- use source cutoff `7a67cf453a006fa4cfd9a9b7e9ef6298984364e4`;
-- do not port code;
-- do not cherry-pick;
-- do not edit generated outputs;
-- do not change source, tests, contracts, scripts, package manifests, or
-  dependency manifests;
-- do the two gating investigations first and to conclusion - the renderer
-  update-path investigation and the typed-metadata feasibility spike - because
-  they decide the first slice;
-- get empirical renderer evidence from existing per-update counters and from
-  running the production app to observe them; do not add committed
-  instrumentation; record "needs instrumentation - defer to implementation"
-  when no counter exists;
-- inspect branch 2 clusters and this branch's current owner files, going deep
-  only for the first-slice cluster(s) and marking the rest `defer`/`learn-only`;
-- record both `disposition` and `method` for every cluster;
-- include generated-contract conflict notes for every contract-touching cluster;
-- record prerequisite target-branch refactors when current architecture is the
-  wrong substrate;
-- mark unresolved ownership as a blocker instead of choosing a slice on
-  assumptions;
-- run only docs-only diff/whitespace checks unless executable files were
-  accidentally changed.
-
-The first implementation slice should be selected only after the manifest
-proves its ownership boundary. The renderer update-path finding collapses the
-choice to a binary:
-
-- World A - if small live updates are already content-only on the paths that
-  matter (the node path already is), the first slice is the typed trajectory
-  runtime spine: the Go-owned trajectory backend plus the smallest renderer
-  surface that shows typed file read/write/diff/command activity. This is the
-  highest-value slice and the cleanest ownership story, since
-  `internal/workspacetrajectory` does not exist on this branch yet and is
-  purely additive.
-- World B - if any path that matters (edges, the `replaceGraph` trigger, or
-  camera movement) causes full-scene replacement, React graph-shell
-  replacement, Pixi layer recreation, or materialization churn, the first slice
-  is the graph-surface/runtime refactor (Phase 7), done before any trajectory
-  rendering.
-
-Workflow validation/edge-deletion correctness and semantic-memory usefulness
-are real but are not first-slice candidates: the first is lower-value, the
-second is downstream of trajectory evidence. Record them as later slices.
+After Phase 3.5B is green, reassess whether the next product slice should be
+semantic-memory usefulness or another workflow details/editor refinement based
+on real use of the chip-to-details path.
