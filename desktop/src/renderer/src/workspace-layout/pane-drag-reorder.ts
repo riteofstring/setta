@@ -434,6 +434,9 @@ function samePaneDropIntent(left: PaneDropIntent | null, right: PaneDropIntent |
       left.slotPlacement === right.slotPlacement
     );
   }
+  if (left.kind === "swap" && right.kind === "swap") {
+    return left.targetPaneId === right.targetPaneId;
+  }
   return false;
 }
 

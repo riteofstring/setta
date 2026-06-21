@@ -644,6 +644,48 @@ describe("real workspace layout column sizing", () => {
     ]);
   });
 
+  test("swaps two panes between columns, trading slots and column back-references", () => {
+    const engine = createRealEngine();
+    const sourceColumnId = requireColumnForPane(engine.toScene(), "workspace_pane_0").columnId;
+    const targetColumnId = requireColumnForPane(engine.toScene(), "workspace_pane_1").columnId;
+    expect(sourceColumnId).not.toBe(targetColumnId);
+
+    expect(
+      engine.applyPaneDropIntent("workspace_pane_0", {
+        kind: "swap",
+        targetPaneId: "workspace_pane_1",
+      }),
+    ).toBe(true);
+
+    const scene = engine.toScene();
+    expect(scene.columns.find((column) => column.columnId === targetColumnId)?.paneIds).toContain(
+      "workspace_pane_0",
+    );
+    expect(scene.columns.find((column) => column.columnId === sourceColumnId)?.paneIds).toContain(
+      "workspace_pane_1",
+    );
+    expect(scene.paneById.get("workspace_pane_0")?.columnId).toBe(targetColumnId);
+    expect(scene.paneById.get("workspace_pane_1")?.columnId).toBe(sourceColumnId);
+  });
+
+  test("swaps two panes within the same column by exchanging their slots", () => {
+    const engine = createRealEngine();
+    const lowerPaneId = engine.splitPane("workspace_pane_0", "down");
+    const columnId = requireColumnForPane(engine.toScene(), "workspace_pane_0").columnId;
+    const before = requireColumnForPane(engine.toScene(), "workspace_pane_0").paneIds;
+
+    expect(
+      engine.applyPaneDropIntent("workspace_pane_0", {
+        kind: "swap",
+        targetPaneId: lowerPaneId,
+      }),
+    ).toBe(true);
+
+    const column = requireColumnForPane(engine.toScene(), "workspace_pane_0");
+    expect(column.columnId).toBe(columnId);
+    expect(column.paneIds).toEqual([...before].reverse());
+  });
+
   test("drops a pane as a new column with destination plane width settings", () => {
     const engine = createRealEngine();
     const lowerPlanePaneId = engine.splitPaneToPlane("workspace_pane_1", "down");

@@ -127,6 +127,13 @@ export type PaneDropIntent =
       planeIndex: number;
       slotPlacement: PaneDropPlacement;
       targetColumnId: ColumnId;
+    }
+  | {
+      // Exchange the source and target panes: each takes the other's grid slot
+      // (and therefore that slot's column width). The rest of the layout is
+      // untouched. Resolved when a drag is dropped onto a pane's center.
+      kind: "swap";
+      targetPaneId: PaneId;
     };
 
 export type PaneLimitPolicy = Partial<Record<SurfaceKind, number>>;

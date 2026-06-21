@@ -297,9 +297,27 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     if (intent.kind === "column") {
       this.nextColumnSequence += 1;
     }
-    this.applyPaneDropPaneState(sourcePaneId, result);
+    if (intent.kind === "swap") {
+      this.applyPaneSwapState(sourcePaneId, intent.targetPaneId);
+    } else {
+      this.applyPaneDropPaneState(sourcePaneId, result);
+    }
     this.reindexColumns();
     return true;
+  }
+
+  // A swap exchanges two panes' slots, so both panes' column back-references
+  // change. The generic pane-state path only knows the source, so handle the
+  // pair here.
+  private applyPaneSwapState(sourcePaneId: PaneId, targetPaneId: PaneId): void {
+    const sourcePane = this.paneById.get(sourcePaneId);
+    const targetPane = this.paneById.get(targetPaneId);
+    if (!sourcePane || !targetPane) {
+      return;
+    }
+    const sourceColumnId = sourcePane.columnId;
+    this.paneById.set(sourcePaneId, { ...sourcePane, columnId: targetPane.columnId });
+    this.paneById.set(targetPaneId, { ...targetPane, columnId: sourceColumnId });
   }
 
   reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
@@ -365,6 +383,11 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
 
   private paneReorderPreviewColumns(): WorkspaceColumn[] | null {
     if (!this.paneReorderPreview) {
+      return null;
+    }
+    // A swap previews as a target-pane highlight only (no layout reflow), so the
+    // committed columns render unchanged while the drag is in progress.
+    if (this.paneReorderPreview.intent.kind === "swap") {
       return null;
     }
     const result = applyPaneDropIntentToColumns(
@@ -1105,6 +1128,9 @@ function samePaneDropIntent(left: PaneDropIntent, right: PaneDropIntent): boolea
       left.planeIndex === right.planeIndex &&
       left.slotPlacement === right.slotPlacement
     );
+  }
+  if (left.kind === "swap" && right.kind === "swap") {
+    return left.targetPaneId === right.targetPaneId;
   }
   return false;
 }

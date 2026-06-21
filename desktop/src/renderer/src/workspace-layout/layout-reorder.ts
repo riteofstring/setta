@@ -55,7 +55,48 @@ export function applyPaneDropIntentToColumns(
   if (intent.kind === "row") {
     return movePaneToRow(columns, sourcePaneId, intent.targetPaneId, intent.placement);
   }
+  if (intent.kind === "swap") {
+    return swapPanesInColumns(columns, sourcePaneId, intent.targetPaneId);
+  }
   return movePaneToColumn(columns, sourcePaneId, intent, options);
+}
+
+// Exchange two panes wherever they sit in the column grid. The columns keep
+// their slots and widths, so each pane lands in the other's position and adopts
+// that column's width. Per-pane row sizing travels with the pane (handled by the
+// engine's swap pane-state update). No columns are created or removed.
+export function swapPanesInColumns(
+  columns: readonly WorkspaceColumn[],
+  sourcePaneId: PaneId,
+  targetPaneId: PaneId,
+): PaneDropColumnResult {
+  if (sourcePaneId === targetPaneId) {
+    return unchangedPaneDrop(columns);
+  }
+  const sourceColumn = columns.find((column) => column.paneIds.includes(sourcePaneId));
+  const targetColumn = columns.find((column) => column.paneIds.includes(targetPaneId));
+  if (!sourceColumn || !targetColumn) {
+    return unchangedPaneDrop(columns);
+  }
+  const swapped = columns.map((column) => {
+    if (!column.paneIds.includes(sourcePaneId) && !column.paneIds.includes(targetPaneId)) {
+      return column;
+    }
+    return {
+      ...column,
+      paneIds: column.paneIds.map((paneId) =>
+        paneId === sourcePaneId ? targetPaneId : paneId === targetPaneId ? sourcePaneId : paneId,
+      ),
+    };
+  });
+  return {
+    changed: true,
+    columns: swapped,
+    // Where the source pane ends up; the engine swaps both panes' column
+    // back-references explicitly, so the generic pane-state path is bypassed.
+    destinationColumnId: targetColumn.columnId,
+    resetPaneSizing: false,
+  };
 }
 
 function movePaneToRow(
