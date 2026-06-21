@@ -590,10 +590,11 @@ export class PresentationEngine {
 
   private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): PresentationWriteCounts {
     const writeCounts = emptyPresentationWriteCounts();
-    if (!this.hostIsActivePaneDragSource(binding, item.paneId)) {
-      writeCounts.transformWrites = this.syncTransform(binding, item);
-      writeCounts.boxWrites = this.syncBox(binding, item);
+    if (this.hostIsActivePaneDragSource(binding, item.paneId)) {
+      return writeCounts;
     }
+    writeCounts.transformWrites = this.syncTransform(binding, item);
+    writeCounts.boxWrites = this.syncBox(binding, item);
     this.syncLayer(binding, item);
     this.syncState(binding, item);
     return writeCounts;

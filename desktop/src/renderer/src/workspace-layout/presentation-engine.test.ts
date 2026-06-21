@@ -103,9 +103,13 @@ describe("workspace presentation engine", () => {
       ...initialItem,
       height: 140,
       moving: true,
+      opacity: 0.25,
+      runtimeState: "hidden" as const,
+      visible: false,
       width: 220,
       x: 240,
       y: 60,
+      z: 99,
     };
     presentation.mount([host], null);
 
@@ -127,6 +131,12 @@ describe("workspace presentation engine", () => {
     expect(host.style.transform).toBe("translate3d(0.00px, 0.00px, 0) scale(1.000)");
     expect(host.style.width).toBe("160.00px");
     expect(host.style.height).toBe("120.00px");
+    expect(host.style.opacity).toBe("1.000");
+    expect(host.style.pointerEvents).toBe("auto");
+    expect(host.style.zIndex).toBe("1");
+    expect(host.dataset.moving).toBe("false");
+    expect(host.dataset.runtimeState).toBe("live");
+    expect(host.dataset.visible).toBe("true");
     expect(host.style.translate).toBe("24px 8px");
     expect(registry.syncedPaneIds).toEqual(["workspace_pane_0"]);
 
