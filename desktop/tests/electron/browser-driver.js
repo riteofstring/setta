@@ -599,7 +599,42 @@
     };
   }
 
-  async function clickWorkflowRunAndReadStartFrame() {
+  function workflowToolbarSlotRects({ testIds = [] }) {
+    return readWorkflowToolbarFrame(testIds);
+  }
+
+  function readWorkflowToolbarFrame(testIds = []) {
+    // Read the stable toolbar slots plus the title/state text from the active workflow graph host
+    // so frame-by-frame checks can prove each slot holds its x position across modes and the title
+    // never collapses to "Blank workflow draft" while a projection is displayed.
+    const titleElement = workflowToolbarElement('[data-testid="workflow-toolbar-title"]');
+    const stateElement = workflowToolbarElement('[data-testid="workflow-toolbar-state"]');
+    return {
+      slots: testIds.map((testId) => workflowToolbarSlotRect(testId)),
+      state: stateElement instanceof HTMLElement ? (stateElement.textContent?.trim() ?? "") : "",
+      title: titleElement instanceof HTMLElement ? (titleElement.textContent?.trim() ?? "") : "",
+    };
+  }
+
+  function workflowToolbarSlotRect(testId) {
+    const element = workflowToolbarElement(`[data-testid="${testId}"]`);
+    if (!(element instanceof HTMLElement)) {
+      return { present: false, testId };
+    }
+    const rect = element.getBoundingClientRect();
+    return {
+      bottom: rect.bottom,
+      left: rect.left,
+      present: true,
+      right: rect.right,
+      testId,
+      top: rect.top,
+      width: rect.width,
+    };
+  }
+
+  async function clickWorkflowRunAndReadStartFrame(options = {}) {
+    const slotTestIds = options.slotTestIds;
     const runButton = workflowToolbarElement('[data-testid="workflow-run-button"]');
     if (!(runButton instanceof HTMLButtonElement) || runButton.disabled) {
       return { clicked: false, reason: "run-button-unavailable" };
@@ -622,6 +657,7 @@
           clicked: true,
           observedStartingFrame: true,
           runButtonText,
+          startFrame: readWorkflowToolbarFrame(slotTestIds),
           validationPanelPresent: panel instanceof HTMLElement,
         };
       }
@@ -631,6 +667,7 @@
     return {
       clicked: true,
       observedStartingFrame: false,
+      startFrame: readWorkflowToolbarFrame(slotTestIds),
       validationPanelPresent: panel instanceof HTMLElement,
     };
   }
@@ -1326,7 +1363,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v7",
+    version: "setta-e2e-driver-v8",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
@@ -1363,6 +1400,7 @@
     workflowRunDetailsText,
     workflowRunSelectorState,
     workflowToolbarButtonState,
+    workflowToolbarSlotRects,
     workflowToolbarState,
     workflowValidationPanelState,
     workflowWorkspaceSessionState,

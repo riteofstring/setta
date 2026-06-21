@@ -36,6 +36,28 @@ const workflowWheelZoomSensitivity = 0.018;
 const workflowWheelZoomThreshold = 80;
 const maxVerticalWheelPanDelta = workflowWheelZoomThreshold - 1;
 const narrowToolbarViewport = { deviceScaleFactor: 1, height: 720, mobile: false, width: 760 };
+// The toolbar must keep these slots in the same order and reserved widths across draft, active run,
+// and historical run views (UX Contract: Stable Toolbar Slots). The primary run control is measured
+// via its stable wrapper slot because the button inside it changes test id between run / view active
+// run / stop / terminal.
+const stableToolbarSlotTestIds = [
+  "workflow-toolbar-title",
+  "workflow-settings-button",
+  "workflow-add-node-button",
+  "workflow-validate-button",
+  "workflow-primary-run-control",
+  "workflow-run-selector-button",
+  "workflow-show-draft-button",
+  "workflow-node-details-button",
+];
+// Fixed-width slots should not move at all between modes; allow a small sub-pixel tolerance only.
+const toolbarSlotXTolerancePx = 2;
+const blankWorkflowDraftTitle = "Blank workflow draft";
+const executionActivitySnapshotLimit = 200;
+// Frame-by-frame toolbar evidence and per-mode activity evidence, written as artifacts so the
+// machine assertions below are reproducible from the recording directory.
+const navigationFrames = [];
+const activityEvidence = [];
 
 if (options.help) {
   console.log(
@@ -87,12 +109,18 @@ try {
     join(artifactDir, "draft-no-active-run.png"),
     { label: "draft-no-active-run" },
   );
+  await captureToolbarFrame(context.client, "before-run");
+  assertDraftHasNoRunActivity(
+    await getWorkflowGraphSnapshot(context.client, workflowGraphSurfaceId),
+    "before-run",
+  );
 
   const firstExecutionId = await startWorkflowRunWithValidationOverlayCheck(
     context.client,
     workflowGraphSurfaceId,
     projection.definitionId,
   );
+  await captureToolbarFrame(context.client, "active-run-ready");
   await clickWorkflowToolbarButton(context.client, "workflow-show-draft-button");
   await waitForWorkflowDraft(context.client, workflowGraphSurfaceId, projection.definitionId);
   await waitForToolbarButtonState(context.client, "workflow-run-button", (state) => !state.exists);
@@ -122,9 +150,12 @@ try {
   );
   const draftWhileActive = await getWorkflowGraphSnapshot(context.client, workflowGraphSurfaceId);
   assertDraftProjection(draftWhileActive, projection.definitionId);
+  // Draft view while a run is live must still project zero run activity chips/markers.
+  assertDraftHasNoRunActivity(draftWhileActive, "edit-draft");
   await waitForToolbarButtonState(context.client, "workflow-view-active-run-button", (state) => {
     return state.exists && !state.disabled && state.text.includes("View Active Run");
   });
+  await captureToolbarFrame(context.client, "edit-draft");
   await captureWorkflowRunNavigationScreenshot(
     context.client,
     workflowGraphSurfaceId,
@@ -145,6 +176,12 @@ try {
   });
   // The draft validation overlay must stay absent in run views, not just at the Starting frame.
   await waitForWorkflowValidationPanel(context.client, (state) => !state.exists);
+  await captureToolbarFrame(context.client, "view-active-run");
+  recordActivityEvidence(await getWorkflowGraphSnapshot(context.client, workflowGraphSurfaceId), {
+    executionId: firstExecutionId,
+    label: "view-active-run",
+    viewMode: "active-run",
+  });
   await captureWorkflowRunNavigationScreenshot(
     context.client,
     workflowGraphSurfaceId,
@@ -193,6 +230,21 @@ try {
     secondExecutionId,
     "running",
   );
+  // The active run view must show run-scoped live chips for the selected execution only. With the
+  // first (cancelled) run also in history, none of its durable activity may leak onto this graph.
+  await assertRunActivityScoped(context.client, workflowGraphSurfaceId, {
+    label: "active-run-with-history",
+    otherExecutionId: firstExecutionId,
+    requireSubset: false,
+    selectedExecutionId: secondExecutionId,
+    workspaceId: projection.workspaceId,
+  });
+  await captureWorkflowRunNavigationScreenshot(
+    context.client,
+    workflowGraphSurfaceId,
+    join(artifactDir, "active-run-with-history.png"),
+    { includeVisibleActivityChips: true, label: "active-run-with-history" },
+  );
   await stopWorkflowRun(context.client, projection.workspaceId, secondExecutionId);
 
   await waitForRunSelectorState(
@@ -215,6 +267,18 @@ try {
     firstExecutionId,
     "cancelled",
   );
+  await captureToolbarFrame(context.client, "historical-run");
+  // Run views must not show the draft validation overlay, including a terminal historical run.
+  await waitForWorkflowValidationPanel(context.client, (state) => !state.exists);
+  // The cancelled run must still render its own persisted, run-scoped terminal chips after the run
+  // is terminal and after switching away and back — and never the other run's activity.
+  await assertRunActivityScoped(context.client, workflowGraphSurfaceId, {
+    label: "historical-run",
+    otherExecutionId: secondExecutionId,
+    requireSubset: true,
+    selectedExecutionId: firstExecutionId,
+    workspaceId: projection.workspaceId,
+  });
   await captureWorkflowRunNavigationScreenshot(
     context.client,
     workflowGraphSurfaceId,
@@ -255,6 +319,17 @@ try {
   );
   await captureScreenshot(context.client, join(artifactDir, "run-selector-narrow-toolbar.png"));
 
+  // Toolbar slots must hold their x positions across draft, active run, and historical run, and no
+  // captured frame may collapse the title to the blank placeholder while a projection is displayed.
+  assertToolbarSlotsStable(navigationFrames);
+  assertNoBlankProjectionTitleFrame(navigationFrames);
+  await writeJson(join(artifactDir, "frames.json"), {
+    frames: navigationFrames,
+    slotTestIds: stableToolbarSlotTestIds,
+    tolerancePx: toolbarSlotXTolerancePx,
+  });
+  await writeJson(join(artifactDir, "activity-evidence.json"), { evidence: activityEvidence });
+
   const consoleRows = await readJsonLinesOptional(join(artifactDir, "renderer-console.jsonl"));
   const consoleErrors = consoleRows.filter((row) => Number(row.level) >= 2);
   if (consoleErrors.length > 0) {
@@ -263,13 +338,18 @@ try {
 
   await writeJson(join(artifactDir, "summary.json"), {
     activeHistorySelector,
+    activityEvidence,
     firstExecutionId,
+    frameLabels: navigationFrames.map((frame) => frame.label),
     historicalWorkflow: historicalProjection.graph.workflow,
     narrowSelector,
     secondExecutionId,
   });
 
   console.log(`workflow run navigation passed: ${artifactDir}`);
+} catch (error) {
+  await writeNavigationFailureEvidence(context, artifactDir, error);
+  throw error;
 } finally {
   await stopElectronCdpContext(context);
   if (!options.keepArtifacts && fixture?.tempRoot) {
@@ -331,7 +411,9 @@ async function startWorkflowRunWithValidationOverlayCheck(client, surfaceId, def
     (state) => state.exists && !state.disabled && state.text.includes("Run"),
   );
   await client.installDriver();
-  const accepted = await client.driver("clickWorkflowRunAndReadStartFrame");
+  const accepted = await client.driver("clickWorkflowRunAndReadStartFrame", {
+    slotTestIds: stableToolbarSlotTestIds,
+  });
   if (!accepted.clicked) {
     throw new Error(`workflow run button was not clickable: ${JSON.stringify(accepted)}`);
   }
@@ -343,6 +425,19 @@ async function startWorkflowRunWithValidationOverlayCheck(client, surfaceId, def
       `draft validation panel lingered into the Starting frame: ${JSON.stringify(accepted)}`,
     );
   }
+  // The Starting frame is the loading transition. The previous draft projection must still own the
+  // title here: it must read the workflow name, never "Blank workflow draft" (no destructive frame).
+  if (!accepted.startFrame) {
+    throw new Error(
+      `run accept did not capture a Starting toolbar frame: ${JSON.stringify(accepted)}`,
+    );
+  }
+  if (accepted.startFrame.title === blankWorkflowDraftTitle) {
+    throw new Error(
+      `toolbar title collapsed to "${blankWorkflowDraftTitle}" at the Starting frame: ${JSON.stringify(accepted.startFrame)}`,
+    );
+  }
+  pushToolbarFrame("run-start", accepted.startFrame);
   const runProjection = await waitForWorkflowGraphSnapshot(
     client,
     surfaceId,
@@ -779,4 +874,300 @@ function latestNodeExecution(execution, nodeId) {
 
 function runnerRef(nodeExecution, kind) {
   return nodeExecution?.runnerRefs.find((ref) => ref.kind === kind)?.id ?? "";
+}
+
+async function captureToolbarFrame(client, label) {
+  await client.installDriver();
+  const toolbar = await client.driver("workflowToolbarSlotRects", {
+    testIds: stableToolbarSlotTestIds,
+  });
+  return pushToolbarFrame(label, toolbar);
+}
+
+function pushToolbarFrame(label, toolbar) {
+  if (!toolbar || !Array.isArray(toolbar.slots)) {
+    throw new Error(`toolbar frame ${label} captured no slots: ${JSON.stringify(toolbar)}`);
+  }
+  if (toolbar.title === blankWorkflowDraftTitle) {
+    throw new Error(
+      `toolbar title collapsed to "${blankWorkflowDraftTitle}" at frame ${label}: ${JSON.stringify(toolbar)}`,
+    );
+  }
+  const frame = { label, toolbar };
+  navigationFrames.push(frame);
+  return frame;
+}
+
+function assertToolbarSlotsStable(frames) {
+  if (frames.length < 2) {
+    throw new Error(`toolbar stability needs at least two frames, captured ${frames.length}`);
+  }
+  for (const testId of stableToolbarSlotTestIds) {
+    const positions = frames.map((frame) => {
+      const slot = frame.toolbar.slots.find((candidate) => candidate.testId === testId);
+      if (!slot || !slot.present) {
+        throw new Error(
+          `toolbar slot ${testId} was absent in frame ${frame.label}: ${JSON.stringify(frame.toolbar.slots)}`,
+        );
+      }
+      return { label: frame.label, left: slot.left };
+    });
+    const lefts = positions.map((position) => position.left);
+    const drift = Math.max(...lefts) - Math.min(...lefts);
+    if (drift > toolbarSlotXTolerancePx) {
+      throw new Error(
+        `toolbar slot ${testId} x position drifted ${drift.toFixed(2)}px (> ${toolbarSlotXTolerancePx}px) across modes: ${JSON.stringify(positions)}`,
+      );
+    }
+  }
+}
+
+function assertNoBlankProjectionTitleFrame(frames) {
+  // Every captured frame is taken after a projection has been displayed, so the title must always
+  // be the workflow name and never collapse to the empty "Blank workflow draft" placeholder.
+  const blankFrame = frames.find((frame) => frame.toolbar.title === blankWorkflowDraftTitle);
+  if (blankFrame) {
+    throw new Error(
+      `toolbar title became "${blankWorkflowDraftTitle}" while a projection existed at frame ${blankFrame.label}: ${JSON.stringify(blankFrame.toolbar)}`,
+    );
+  }
+}
+
+function visibleActivityChips(snapshot) {
+  return (snapshot.visualGrammar?.activityChips ?? []).filter((chip) => chip.visible);
+}
+
+function chipActivityIds(chip) {
+  // A marker chip carries its activity id directly; a collapsed chip carries source marker ids of
+  // the form `workspace-activity:node:<nodeId>:<activityId>`, so the activity id is the suffix.
+  const ids = new Set();
+  if (chip.activityId) {
+    ids.add(chip.activityId);
+  }
+  const markerIdPrefix = `workspace-activity:node:${chip.nodeId}:`;
+  for (const markerId of chip.sourceMarkerIds ?? []) {
+    if (markerId.startsWith(markerIdPrefix)) {
+      ids.add(markerId.slice(markerIdPrefix.length));
+    }
+  }
+  return [...ids];
+}
+
+function chipEvidence(chip) {
+  return {
+    activityIds: chipActivityIds(chip),
+    id: chip.id,
+    kind: chip.kind,
+    label: chip.label,
+    nodeId: chip.nodeId,
+    status: chip.status,
+    type: chip.type,
+  };
+}
+
+function markerEvidence(marker) {
+  return {
+    activityId: marker.activityId,
+    id: marker.id,
+    kind: marker.kind,
+    nodeId: marker.nodeId,
+    status: marker.status,
+  };
+}
+
+function activityMarkers(snapshot) {
+  return snapshot.activity?.markers ?? [];
+}
+
+function activityMarkerStateIds(snapshot) {
+  return Object.keys(snapshot.visualGrammar?.activityMarkerStatesById ?? {});
+}
+
+function graphExecutionId(snapshot) {
+  return snapshot.graph.workflow?.executionId ?? "";
+}
+
+function assertDraftHasNoRunActivity(snapshot, label) {
+  const markers = activityMarkers(snapshot);
+  const markerStates = activityMarkerStateIds(snapshot);
+  const visibleChips = visibleActivityChips(snapshot);
+  if (markers.length + markerStates.length + visibleChips.length !== 0) {
+    throw new Error(
+      `draft frame ${label} projected run activity: markers=${JSON.stringify(markers.map(markerEvidence))} markerStates=${JSON.stringify(markerStates)} visibleChips=${JSON.stringify(visibleChips.map(chipEvidence))}`,
+    );
+  }
+  activityEvidence.push({
+    graphExecutionId: graphExecutionId(snapshot),
+    label,
+    markerCount: 0,
+    viewMode: "draft",
+    visibleChipCount: 0,
+  });
+}
+
+function recordActivityEvidence(snapshot, { executionId, label, viewMode }) {
+  const visibleChips = visibleActivityChips(snapshot);
+  const markers = activityMarkers(snapshot);
+  activityEvidence.push({
+    executionId,
+    graphExecutionId: graphExecutionId(snapshot),
+    label,
+    markerCount: markers.length,
+    viewMode,
+    visibleChipCount: visibleChips.length,
+    visibleChips: visibleChips.map(chipEvidence),
+  });
+}
+
+async function readExecutionActivityIds(client, workspaceId, executionId) {
+  const activityIds = await client.evaluate(`(async () => {
+    const snapshot = await window.setta.workspaceActivity.executionSnapshot(
+      ${JSON.stringify(workspaceId)},
+      ${JSON.stringify(executionId)},
+      ${executionActivitySnapshotLimit}
+    );
+    return snapshot.activities.map((activity) => activity.activityId);
+  })()`);
+  return new Set(activityIds);
+}
+
+async function assertRunActivityScoped(client, surfaceId, options) {
+  // Sample the selected run's rendered markers/chips against both executions' durable run-scoped
+  // snapshots until the contract holds: the selected run owns the canvas, projects at least one
+  // visible chip, and that chip matches the selected execution. A foreign-only activity id on the
+  // graph is an immediate leak (never retried); an active run's own live chip may briefly precede
+  // its durable record, so retry until the selected snapshot catches up. Non-convergence reports
+  // the chip/marker/durable counts so a historical run that renders no persisted chip is legible.
+  const { label, otherExecutionId, requireSubset, selectedExecutionId } = options;
+  let lastDiagnostics = null;
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const snapshot = await getWorkflowGraphSnapshot(client, surfaceId);
+    if (snapshot.graph.workflow?.executionId !== selectedExecutionId) {
+      await delay(150);
+      continue;
+    }
+    const sample = await sampleRunActivityScope(client, snapshot, options);
+    if (sample.leaked.length > 0) {
+      throw new Error(
+        `run frame ${label} leaked activity from execution ${otherExecutionId} onto ${selectedExecutionId}: ${JSON.stringify(sample.leaked)}`,
+      );
+    }
+    if (runActivityScopeSatisfied(sample, requireSubset)) {
+      activityEvidence.push(runActivityEvidence(label, selectedExecutionId, requireSubset, sample));
+      return snapshot;
+    }
+    lastDiagnostics = runActivityDiagnostics(sample);
+    await delay(150);
+  }
+
+  throw new Error(
+    `run frame ${label} activity scoping for execution ${selectedExecutionId} did not converge (requireSubset=${requireSubset}): ${JSON.stringify(lastDiagnostics)}`,
+  );
+}
+
+async function sampleRunActivityScope(
+  client,
+  snapshot,
+  { otherExecutionId, selectedExecutionId, workspaceId },
+) {
+  const visibleChips = visibleActivityChips(snapshot);
+  const markers = activityMarkers(snapshot);
+  const selectedActivityIds = await readExecutionActivityIds(
+    client,
+    workspaceId,
+    selectedExecutionId,
+  );
+  const otherActivityIds = await readExecutionActivityIds(client, workspaceId, otherExecutionId);
+  const foreignOnlyActivityIds = new Set(
+    [...otherActivityIds].filter((activityId) => !selectedActivityIds.has(activityId)),
+  );
+  const sources = [
+    ...markers.map((marker) => ({
+      activityIds: [marker.activityId],
+      source: `marker:${marker.id}`,
+    })),
+    ...visibleChips.map((chip) => ({
+      activityIds: chipActivityIds(chip),
+      source: `chip:${chip.id}`,
+    })),
+  ];
+  return {
+    markers,
+    otherActivityIds,
+    selectedActivityIds,
+    visibleChips,
+    ...classifyRunActivitySources(sources, selectedActivityIds, foreignOnlyActivityIds),
+  };
+}
+
+function classifyRunActivitySources(sources, selectedActivityIds, foreignOnlyActivityIds) {
+  const leaked = [];
+  const offSelected = [];
+  let matchedSelected = 0;
+  for (const entry of sources) {
+    for (const activityId of entry.activityIds) {
+      if (foreignOnlyActivityIds.has(activityId)) {
+        leaked.push({ activityId, source: entry.source });
+      }
+      if (selectedActivityIds.has(activityId)) {
+        matchedSelected += 1;
+      } else {
+        offSelected.push({ activityId, source: entry.source });
+      }
+    }
+  }
+  return { leaked, matchedSelected, offSelected };
+}
+
+function runActivityScopeSatisfied(sample, requireSubset) {
+  const subsetSatisfied = !requireSubset || sample.offSelected.length === 0;
+  return sample.visibleChips.length >= 1 && sample.matchedSelected >= 1 && subsetSatisfied;
+}
+
+function runActivityEvidence(label, selectedExecutionId, requireSubset, sample) {
+  return {
+    label,
+    markerCount: sample.markers.length,
+    matchedSelectedActivityCount: sample.matchedSelected,
+    offSelectedActivityCount: sample.offSelected.length,
+    otherDurableActivityCount: sample.otherActivityIds.size,
+    requireSubset,
+    selectedDurableActivityCount: sample.selectedActivityIds.size,
+    selectedExecutionId,
+    viewMode: "run",
+    visibleChipCount: sample.visibleChips.length,
+    visibleChips: sample.visibleChips.map(chipEvidence),
+  };
+}
+
+function runActivityDiagnostics(sample) {
+  return {
+    markers: sample.markers.map(markerEvidence),
+    matchedSelected: sample.matchedSelected,
+    offSelected: sample.offSelected,
+    otherDurableActivityCount: sample.otherActivityIds.size,
+    selectedDurableActivityCount: sample.selectedActivityIds.size,
+    visibleChips: sample.visibleChips.map(chipEvidence),
+  };
+}
+
+async function writeNavigationFailureEvidence(context, artifactDir, error) {
+  await writeJson(join(artifactDir, "frames.json"), {
+    frames: navigationFrames,
+    slotTestIds: stableToolbarSlotTestIds,
+    tolerancePx: toolbarSlotXTolerancePx,
+  }).catch(() => {});
+  await writeJson(join(artifactDir, "activity-evidence.json"), {
+    evidence: activityEvidence,
+  }).catch(() => {});
+  await writeJson(join(artifactDir, "summary.json"), {
+    activityEvidence,
+    artifactDir,
+    error: error instanceof Error ? error.message : String(error),
+    frameLabels: navigationFrames.map((frame) => frame.label),
+    status: "failed",
+  }).catch(() => {});
+  if (context?.client) {
+    await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
+  }
 }
