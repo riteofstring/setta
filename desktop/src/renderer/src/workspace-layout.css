@@ -74,6 +74,17 @@
   cursor: grabbing !important;
 }
 
+/* While a pane drag is active the preview opens an insertion gap by shifting the
+   surrounding tiled panes. Ease that shift so siblings glide into place instead
+   of snapping a full pane-height in one frame. Scoped to an active drag so normal
+   scroll/zoom (driven by per-frame transform writes) is never eased. The drag
+   source is excluded: it is positioned imperatively via `translate` to track the
+   cursor and must not lag behind. */
+.workspace-layout-area[data-pane-dragging="true"]
+  .workspace-pane-host:not([data-drag-source="true"]) {
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
+}
+
 .workspace-pane-host[data-moving="true"] {
   will-change: transform, opacity;
 }

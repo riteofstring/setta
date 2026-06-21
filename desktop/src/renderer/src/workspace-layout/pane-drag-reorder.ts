@@ -16,9 +16,29 @@ export interface PaneDropTarget {
   placement: PaneDropPlacement;
 }
 
+// A frozen snapshot of a visible pane host's committed geometry, captured once
+// when a drag begins. Hit-testing against this snapshot (instead of the live
+// host rect) keeps the resolved drop target a pure function of the pointer and
+// the committed layout. Without it, applying a drop preview shifts the target
+// host out from under the cursor, the next frame resolves a different (or no)
+// target, and the layout oscillates between committed and previewed every frame.
+export interface PaneHostRect {
+  bottom: number;
+  left: number;
+  paneId: string;
+  right: number;
+  top: number;
+  width: number;
+  zIndex: number;
+}
+
 export interface PaneDragSession {
   dragging: boolean;
   handle: HTMLElement;
+  // Committed host geometry captured at drag start; see PaneHostRect. Optional so
+  // unit tests can drive the session without a real DOM (they fall back to a live
+  // host query).
+  hostRects?: readonly PaneHostRect[];
   pendingDropFrame: number | null;
   pendingDropPointer: PaneDropPointer | null;
   pointerId: number;
@@ -65,6 +85,8 @@ export function beginPaneDragSession(
   return {
     dragging: false,
     handle: target.handle,
+    // Snapshot committed geometry now, before any preview shifts the hosts.
+    hostRects: collectVisiblePaneHostRects(),
     pendingDropFrame: null,
     pendingDropPointer: null,
     pointerId: event.pointerId,
@@ -220,7 +242,7 @@ function updatePaneDropTarget(
   store: WorkspaceLayoutStore,
   metrics?: PaneDragPreviewMetrics,
 ): void {
-  const target = paneDropTargetFromPointer(event, session.sourcePaneId, store);
+  const target = paneDropTargetFromPointer(event, session.sourcePaneId, store, session.hostRects);
   if (samePaneDropTarget(target, session.target)) {
     return;
   }
@@ -241,12 +263,13 @@ export function paneDropTargetFromPointer(
   event: PaneDropPointer,
   sourcePaneId: string,
   store: WorkspaceLayoutStore,
+  hostRects: readonly PaneHostRect[] = collectVisiblePaneHostRects(),
 ): PaneDropTarget | null {
-  const host = visiblePaneHostAtPoint(event.clientX, event.clientY, sourcePaneId);
-  const targetPaneId = host?.dataset.paneId;
-  if (!host || !targetPaneId) {
+  const host = visiblePaneHostRectAtPoint(event.clientX, event.clientY, sourcePaneId, hostRects);
+  if (!host) {
     return null;
   }
+  const targetPaneId = host.paneId;
   const scene = store.toScene();
   const targetPane = scene.paneById.get(targetPaneId);
   const targetColumn = scene.columns.find((column) => column.columnId === targetPane?.columnId);
@@ -280,11 +303,37 @@ export function paneDropTargetFromPointer(
   };
 }
 
+// Captures committed geometry for every visible pane host. Used once at drag
+// start to freeze the hit-test surface; also the live fallback when a session
+// carries no snapshot (unit tests drive resolution without a real DOM).
+export function collectVisiblePaneHostRects(): PaneHostRect[] {
+  const hosts = document.querySelectorAll<HTMLElement>(
+    '[data-testid="workspace-pane-host"][data-visible="true"]',
+  );
+  const rects: PaneHostRect[] = [];
+  for (const host of hosts) {
+    const paneId = host.dataset.paneId;
+    if (!paneId) {
+      continue;
+    }
+    const rect = host.getBoundingClientRect();
+    rects.push({
+      bottom: rect.bottom,
+      left: rect.left,
+      paneId,
+      right: rect.right,
+      top: rect.top,
+      width: rect.width,
+      zIndex: zIndexForHost(host),
+    });
+  }
+  return rects;
+}
+
 function paneColumnDropPlacement(
   event: PaneDropPointer,
-  host: HTMLElement,
+  rect: PaneHostRect,
 ): PaneDropPlacement | null {
-  const rect = host.getBoundingClientRect();
   const edgeBand = Math.min(
     rect.width / 2,
     Math.max(
@@ -301,46 +350,41 @@ function paneColumnDropPlacement(
   return null;
 }
 
-function paneRowDropPlacement(event: PaneDropPointer, host: HTMLElement): PaneDropPlacement {
-  const rect = host.getBoundingClientRect();
-  return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+function paneRowDropPlacement(event: PaneDropPointer, rect: PaneHostRect): PaneDropPlacement {
+  return event.clientY < (rect.top + rect.bottom) / 2 ? "before" : "after";
 }
 
-function visiblePaneHostAtPoint(
+function visiblePaneHostRectAtPoint(
   clientX: number,
   clientY: number,
   sourcePaneId: string,
-): HTMLElement | null {
-  const hosts = document.querySelectorAll<HTMLElement>(
-    '[data-testid="workspace-pane-host"][data-visible="true"]',
-  );
-  const candidates = [...hosts].filter((host) => host.dataset.paneId !== sourcePaneId);
+  hostRects: readonly PaneHostRect[],
+): PaneHostRect | null {
+  const candidates = hostRects.filter((rect) => rect.paneId !== sourcePaneId);
   const directHost = candidates
-    .filter((host) => rectContainsPoint(host, clientX, clientY))
-    .toSorted((left, right) => zIndexForHost(right) - zIndexForHost(left))[0];
+    .filter((rect) => rectContainsPoint(rect, clientX, clientY))
+    .toSorted((left, right) => right.zIndex - left.zIndex)[0];
   if (directHost) {
     return directHost;
   }
   return (
     candidates
-      .filter((host) => rectAcceptsGutterPoint(host, clientX, clientY))
+      .filter((rect) => rectAcceptsGutterPoint(rect, clientX, clientY))
       .toSorted(
         (left, right) =>
           horizontalDistanceToRect(left, clientX) - horizontalDistanceToRect(right, clientX) ||
-          zIndexForHost(right) - zIndexForHost(left),
+          right.zIndex - left.zIndex,
       )[0] ?? null
   );
 }
 
-function rectContainsPoint(host: HTMLElement, clientX: number, clientY: number): boolean {
-  const rect = host.getBoundingClientRect();
+function rectContainsPoint(rect: PaneHostRect, clientX: number, clientY: number): boolean {
   return (
     clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
   );
 }
 
-function rectAcceptsGutterPoint(host: HTMLElement, clientX: number, clientY: number): boolean {
-  const rect = host.getBoundingClientRect();
+function rectAcceptsGutterPoint(rect: PaneHostRect, clientX: number, clientY: number): boolean {
   return (
     clientY >= rect.top &&
     clientY <= rect.bottom &&
@@ -349,8 +393,7 @@ function rectAcceptsGutterPoint(host: HTMLElement, clientX: number, clientY: num
   );
 }
 
-function horizontalDistanceToRect(host: HTMLElement, clientX: number): number {
-  const rect = host.getBoundingClientRect();
+function horizontalDistanceToRect(rect: PaneHostRect, clientX: number): number {
   if (clientX < rect.left) {
     return rect.left - clientX;
   }

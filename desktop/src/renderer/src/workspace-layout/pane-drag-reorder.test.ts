@@ -68,6 +68,33 @@ describe("pane drag drop intent hit-testing", () => {
     });
   });
 
+  test("resolves against the captured host snapshot, not the live (reflowed) rects", () => {
+    // The faked live DOM would resolve `target_pane` near (200, 150). Passing an
+    // explicit snapshot that only covers `target_pane_2` there proves the snapshot
+    // is authoritative -- this is what stops the drop preview from moving the
+    // target out from under the cursor and oscillating the layout every frame.
+    const snapshot = [
+      {
+        bottom: 200,
+        left: 150,
+        paneId: "target_pane_2",
+        right: 260,
+        top: 100,
+        width: 110,
+        zIndex: 1,
+      },
+    ];
+
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 200, clientY: 150 }),
+      "source_pane",
+      storeForDragTests(),
+      snapshot,
+    );
+
+    expect(target?.paneId).toBe("target_pane_2");
+  });
+
   test("commits through a single intent-based store call", () => {
     const store = {
       applyPaneDropIntent: vi.fn(() => true),
