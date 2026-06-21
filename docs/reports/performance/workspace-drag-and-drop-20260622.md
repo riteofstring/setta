@@ -100,6 +100,23 @@ pnpm exec prettier --check src/renderer/src/workspace-layout.css
 
 Result: passed.
 
+Production Electron/Vite build:
+
+```sh
+pnpm exec electron-vite build
+```
+
+Result: passed.
+
+Production pane drag/drop workflow:
+
+```sh
+node tests/electron/pane-drag-drop-workflow.test.mjs --keep-artifacts
+```
+
+Result: passed. Artifact:
+`.recordings/pane-drag-drop-workflow/20260622T182643048Z`.
+
 | Area | After repair evidence |
 | --- | --- |
 | Cross-column pane drag | `layout-engine.test.ts` verifies a single pane leaves a stacked source column while siblings stay behind. |
@@ -114,13 +131,22 @@ Result: passed.
 | Preview notification bounds | `layout-store.test.ts` verifies duplicate preview intents do not notify, changed intents notify once, and duplicate clears do not notify. |
 | Drag-source geometry ownership | `presentation-engine.test.ts` verifies hosts marked `data-drag-source` do not receive preview frame transform, size, layer, visibility, moving, runtime, or surface viewport sync until the drag-source flag is cleared. It also verifies an active drag-source host is not hidden if a transient preview frame omits it. |
 | Drag-source CSS stability | `workspace-layout.css` keeps the active drag source in a top layer with no brightness filter, avoiding filter-induced repaint work and sibling z-index flicker during pointer-driven moves. |
+| Overview drag commit stability | The production workflow verifies overview drag starts from settled visible hosts, excludes the active drag source from ghost geometry, previews the right ghost, and commits the retained preview intent on release. |
 | Preview metrics | `metrics.test.ts` verifies `paneDragPreviewUpdates` / `paneDragPreviewClears` snapshot and reset behavior. `pane-drag-reorder.test.ts` verifies the normal drag path records one coalesced update and records clears only when preview state clears. |
 | Production pointer workflow | `pane-drag-drop-workflow.test.mjs` drives CDP mouse events through the built Electron app for normal row drop, normal column drop, and overview right-ghost column drop. It is registered in the required workflow manifest. |
 
+Production pointer workflow metrics from
+`.recordings/pane-drag-drop-workflow/20260622T182643048Z/summary.json`:
+
+| Gesture | Preview updates | Preview clears | React commits during drag | p95 frame | p99 frame | Dropped frames | Long tasks |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Normal row drop | 1 | 1 | 0 | 11.0ms | 11.0ms | 2 | 0 |
+| Normal column drop | 1 | 1 | 0 | 7.5ms | 7.5ms | 1 | 0 |
+| Overview column drop | 1 | 1 | 0 | 0.8ms | 0.8ms | 1 | 0 |
+
 ## Pending Profiling
 
-Before calling the feature done, run a fresh production desktop build, then run
-the production Electron workflow and large workspace profiling in both normal and
+Before calling the feature done, run large workspace profiling in both normal and
 overview modes. Append the measured numbers here:
 
 | Mode | Preview updates per drag | Preview clears per drag | React commits during drag | p95 frame | p99 frame | Dropped frames | Long tasks |
@@ -128,12 +154,10 @@ overview modes. Append the measured numbers here:
 | Normal | pending | pending | pending | pending | pending | pending | pending |
 | Overview | pending | pending | pending | pending | pending | pending | pending |
 
-The production Electron workflow and Chrome frame profiling were not run in this
-slice because they need a fresh desktop build. The existing `desktop/out`
-artifact is stale relative to this work: `desktop/out/renderer/index.html` was
-last modified at 2026-06-22 12:09:02, while the drag/drop source edits were made
-after 13:28. The current task instruction says not to run code quality checks
-yet, so no fresh build/typecheck gate was started.
+Chrome frame profiling for a large workspace was not run in this slice. The
+current task instruction says not to run code quality checks yet, so
+`pnpm build`, `./scripts/format.sh`, and `./check_quality.sh --all` were not
+started.
 
 The broad quality gate was intentionally not run for this slice because the task
 instruction says not to run code quality checks yet.
