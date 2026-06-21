@@ -92,6 +92,15 @@ const api: SettaAPI = {
       const response = await invoke("workspaceActivitySnapshot", workspaceId, limit);
       return response.snapshot;
     },
+    executionSnapshot: async (workspaceId, executionId, limit) => {
+      const response = await invoke(
+        "workspaceActivityExecutionSnapshot",
+        workspaceId,
+        executionId,
+        limit,
+      );
+      return response.snapshot;
+    },
   },
   appearance: {
     presets: () => invoke("appearancePresets"),

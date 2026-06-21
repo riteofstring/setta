@@ -62,6 +62,7 @@ import type {
   ReadSemanticNodeDetailRequest,
   ReadSemanticNodeDetailResponse,
   ReadSemanticSteeringStateRequest,
+  ReadWorkflowExecutionActivityResponse,
   ReadWorkspaceActivitySnapshotResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
@@ -207,6 +208,7 @@ export const ipcChannels = {
   semanticGraphUpdateNode: "semantic-graph:update-node",
   semanticGraphUpdateSteeringDirective: "semantic-graph:update-steering-directive",
   workspaceActivitySnapshot: "workspace-activity:snapshot",
+  workspaceActivityExecutionSnapshot: "workspace-activity:execution-snapshot",
   workspaceBrowserViewStats: "workspace:browser-view-stats",
   workspaceBrowserViewsTeardown: "workspace:browser-views-teardown",
   terminalAttach: "terminal:attach",
@@ -601,6 +603,10 @@ interface IpcContract {
   workspaceActivitySnapshot: {
     args: [workspaceId: string, limit: number];
     result: ReadWorkspaceActivitySnapshotResponse;
+  };
+  workspaceActivityExecutionSnapshot: {
+    args: [workspaceId: string, executionId: string, limit: number];
+    result: ReadWorkflowExecutionActivityResponse;
   };
   terminalAttach: {
     args: [workspaceId: string, paneId: string];

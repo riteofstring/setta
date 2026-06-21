@@ -499,6 +499,9 @@ function unimplementedWorkspaceActivityAPI(): SettaAPI["workspaceActivity"] {
     snapshot: async () => {
       throw new Error("workspace activity API is not implemented in this test");
     },
+    executionSnapshot: async () => {
+      throw new Error("workspace activity API is not implemented in this test");
+    },
   };
 }
 

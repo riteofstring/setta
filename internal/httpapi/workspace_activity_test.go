@@ -39,6 +39,45 @@ func TestWorkspaceActivitySnapshotEndpoint(t *testing.T) {
 	}
 }
 
+func TestWorkflowExecutionActivityEndpoint(t *testing.T) {
+	service := &fakeWorkspaceActivityService{
+		executionSnapshot: workspaceactivity.WorkspaceActivitySnapshot{
+			Activities: []workspaceactivity.WorkspaceActivityRecord{{
+				ActivityID:    "workflow_node_state:execution_run/node_a",
+				Kind:          workspaceactivity.ActivityKindWorkflowStatus,
+				SchemaVersion: workspaceactivity.SchemaVersion,
+				Status:        workspaceactivity.ActivityStatusCancelled,
+				WorkspaceID:   "workspace_activity",
+			}},
+			Revision:      7,
+			SchemaVersion: workspaceactivity.SchemaVersion,
+			Sequence:      9,
+			StreamID:      "workspace_activity_stream",
+			WorkspaceID:   "workspace_activity",
+		},
+	}
+	handler := NewHandler(HandlerConfig{
+		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
+		WorkspaceActivityService: service,
+	})
+
+	response := postJSON[ReadWorkflowExecutionActivityResponse](t, handler, "/workspace-activity/execution-snapshot", ReadWorkflowExecutionActivityRequest{
+		ExecutionID: "execution_run",
+		Limit:       25,
+		WorkspaceID: "workspace_activity",
+	}, http.StatusOK)
+
+	if service.executionSnapshotWorkspaceID != "workspace_activity" ||
+		service.executionSnapshotExecutionID != "execution_run" ||
+		service.executionSnapshotLimit != 25 {
+		t.Fatalf("execution snapshot request = %q/%q/%d", service.executionSnapshotWorkspaceID, service.executionSnapshotExecutionID, service.executionSnapshotLimit)
+	}
+	if len(response.Snapshot.Activities) != 1 ||
+		response.Snapshot.Activities[0].Status != workspaceactivity.ActivityStatusCancelled {
+		t.Fatalf("execution snapshot response = %+v", response.Snapshot)
+	}
+}
+
 func TestWorkspaceActivityEventStreamWritesTypedSSEAndWorkspaceFilter(t *testing.T) {
 	event := workspaceactivity.WorkspaceActivityEvent{
 		Delta:         nil,
@@ -115,19 +154,30 @@ func TestWorkspaceActivityEventStreamRejectsInvalidCursor(t *testing.T) {
 }
 
 type fakeWorkspaceActivityService struct {
-	events   chan workspaceactivity.WorkspaceActivityEvent
-	snapshot workspaceactivity.WorkspaceActivitySnapshot
+	events            chan workspaceactivity.WorkspaceActivityEvent
+	snapshot          workspaceactivity.WorkspaceActivitySnapshot
+	executionSnapshot workspaceactivity.WorkspaceActivitySnapshot
 
-	snapshotLimit        int
-	snapshotWorkspaceID  string
-	subscribeCursor      workspaceactivity.EventCursor
-	subscribeWorkspaceID string
+	snapshotLimit                int
+	snapshotWorkspaceID          string
+	executionSnapshotWorkspaceID string
+	executionSnapshotExecutionID string
+	executionSnapshotLimit       int
+	subscribeCursor              workspaceactivity.EventCursor
+	subscribeWorkspaceID         string
 }
 
 func (service *fakeWorkspaceActivityService) ReadSnapshot(workspaceID string, limit int) (workspaceactivity.WorkspaceActivitySnapshot, error) {
 	service.snapshotWorkspaceID = workspaceID
 	service.snapshotLimit = limit
 	return service.snapshot, nil
+}
+
+func (service *fakeWorkspaceActivityService) ReadExecutionSnapshot(workspaceID string, executionID string, limit int) (workspaceactivity.WorkspaceActivitySnapshot, error) {
+	service.executionSnapshotWorkspaceID = workspaceID
+	service.executionSnapshotExecutionID = executionID
+	service.executionSnapshotLimit = limit
+	return service.executionSnapshot, nil
 }
 
 func (service *fakeWorkspaceActivityService) SubscribeEvents(cursor workspaceactivity.EventCursor, workspaceID string) (*workspaceactivity.EventSubscription, error) {

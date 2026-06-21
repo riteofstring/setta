@@ -60,6 +60,155 @@ func ActivityRecordsFromWorkflowEvent(event orchestrator.WorkflowEvent, context 
 	return records, nil
 }
 
+// TerminalNodeActivityRecords synthesizes typed terminal workflow-status records from
+// durable per-node execution state for nodes that ended unsuccessfully (failed or
+// cancelled). The orchestrator records a node's final status on the execution even when it
+// terminates an in-flight run without emitting a per-node terminal event (for example a
+// user cancellation, where only an execution-level cancelled event is appended). Those
+// nodes are left with only transient scheduled/started records that the renderer
+// suppresses once the run is terminal, which is why a cancelled historical run renders with
+// no explanatory chips. Synthesizing one record per unsuccessfully-ended node gives the
+// canvas truthful terminal activity without preserving stale active chips.
+//
+// Routinely succeeded nodes are intentionally not synthesized: their outcome is already
+// conveyed by node colour and by any completion events they emitted, and adding a chip for
+// every implicitly-completed node (such as an entry node) is more chrome than the corrected
+// states need.
+//
+// coveredNodeExecutionIDs holds the node-execution ids that already produced a terminal
+// workflow-status record from the event stream; the matching node executions are skipped so
+// the canvas never shows two terminal chips for the same attempt. Coverage is keyed by
+// node-execution id rather than graph node id so that, across retries and loop iterations, a
+// terminal event for one attempt cannot suppress synthesis for a later attempt of the same
+// node that genuinely failed or was cancelled without its own event.
+func TerminalNodeActivityRecords(execution orchestrator.WorkflowExecution, coveredNodeExecutionIDs map[string]struct{}, context WorkflowEventContext) []WorkspaceActivityRecord {
+	latestByNode := map[string]orchestrator.WorkflowNodeExecution{}
+	for _, nodeExecution := range execution.NodeExecutions {
+		if _, ok := terminalNodeActivityStatus(nodeExecution.Status); !ok {
+			continue
+		}
+		if nodeExecution.NodeID == "" {
+			continue
+		}
+		if _, covered := coveredNodeExecutionIDs[nodeExecution.ID]; covered {
+			continue
+		}
+		existing, ok := latestByNode[nodeExecution.NodeID]
+		if !ok || nodeExecutionIsMoreRecent(nodeExecution, existing) {
+			latestByNode[nodeExecution.NodeID] = nodeExecution
+		}
+	}
+	records := make([]WorkspaceActivityRecord, 0, len(latestByNode))
+	for _, nodeExecution := range latestByNode {
+		records = append(records, terminalNodeActivityRecord(execution, nodeExecution, context))
+	}
+	return records
+}
+
+func terminalNodeActivityRecord(execution orchestrator.WorkflowExecution, nodeExecution orchestrator.WorkflowNodeExecution, context WorkflowEventContext) WorkspaceActivityRecord {
+	status, _ := terminalNodeActivityStatus(nodeExecution.Status)
+	occurredAt := firstNonEmpty(nodeExecution.CompletedAt, nodeExecution.StartedAt, nodeExecution.ScheduledAt, execution.CompletedAt, execution.UpdatedAt)
+	anchor := &WorkspaceActivityAnchor{
+		Kind:                        AnchorKindWorkflowNode,
+		WorkflowDefinitionID:        execution.DefinitionID,
+		WorkflowDefinitionVersionID: execution.DefinitionVersionID,
+		WorkflowExecutionID:         execution.ID,
+		WorkflowNodeExecutionID:     nodeExecution.ID,
+		WorkflowNodeID:              nodeExecution.NodeID,
+	}
+	return WorkspaceActivityRecord{
+		ActivityID: "workflow_node_state:" + execution.ID + ":" + nodeExecution.NodeID,
+		DetailRef: WorkspaceActivityDetailRef{
+			Kind:                DetailKindWorkflowNode,
+			WorkflowExecutionID: execution.ID,
+			WorkspaceID:         execution.WorkspaceID,
+		},
+		GraphAnchor: anchor,
+		Kind:        ActivityKindWorkflowStatus,
+		OccurredAt:  occurredAt,
+		Provenance: WorkspaceActivityProvenance{
+			WorkflowDefinitionID:        execution.DefinitionID,
+			WorkflowDefinitionVersionID: execution.DefinitionVersionID,
+			WorkflowExecutionID:         execution.ID,
+			WorkflowNodeExecutionID:     nodeExecution.ID,
+			WorkflowNodeID:              nodeExecution.NodeID,
+		},
+		Revision:      context.Revision,
+		SchemaVersion: SchemaVersion,
+		Status:        status,
+		UpdatedAt:     occurredAt,
+		WorkspaceID:   execution.WorkspaceID,
+		// The node reached this terminal outcome without a per-node event, so there is no
+		// emitted event id. EventType carries the action outcome the node state implies so
+		// the typed payload stays a valid WorkflowEventType (an empty value would be
+		// rejected by the generated decoder) while the empty EventID signals "no event".
+		Workflow: &WorkspaceActivityWorkflow{
+			EventType:  terminalNodeActivityEventType(nodeExecution.Status),
+			RunnerKind: nodeExecution.RunnerKind,
+			Message:    truncateText(nodeExecution.Error, messagePreviewLimit),
+		},
+	}
+}
+
+func terminalNodeActivityEventType(status orchestrator.WorkflowNodeExecutionStatus) orchestrator.WorkflowEventType {
+	if status == orchestrator.NodeExecutionStatusFailed {
+		return orchestrator.EventActionFailed
+	}
+	return orchestrator.EventActionCancelled
+}
+
+func nodeExecutionIsMoreRecent(candidate orchestrator.WorkflowNodeExecution, current orchestrator.WorkflowNodeExecution) bool {
+	candidateAt := firstNonEmpty(candidate.CompletedAt, candidate.StartedAt, candidate.ScheduledAt)
+	currentAt := firstNonEmpty(current.CompletedAt, current.StartedAt, current.ScheduledAt)
+	if candidateAt != currentAt {
+		return candidateAt > currentAt
+	}
+	if candidate.Iteration != current.Iteration {
+		return candidate.Iteration > current.Iteration
+	}
+	return candidate.Attempt > current.Attempt
+}
+
+// terminalNodeActivityStatus maps the unsuccessful terminal node-execution states that
+// warrant a synthesized chip. Succeeded is deliberately excluded (see
+// TerminalNodeActivityRecords), so it reports ok=false alongside the active states.
+func terminalNodeActivityStatus(status orchestrator.WorkflowNodeExecutionStatus) (WorkspaceActivityStatus, bool) {
+	switch status {
+	case orchestrator.NodeExecutionStatusFailed:
+		return ActivityStatusFailed, true
+	case orchestrator.NodeExecutionStatusCancelled:
+		return ActivityStatusCancelled, true
+	default:
+		return "", false
+	}
+}
+
+// TerminalStatusNodeExecutionID reports the node-execution id of a record that already
+// represents a terminal node outcome from the event stream, so callers can avoid
+// synthesizing a duplicate terminal record for that exact attempt.
+func TerminalStatusNodeExecutionID(record WorkspaceActivityRecord) (string, bool) {
+	if record.Kind != ActivityKindWorkflowStatus || !isTerminalWorkflowActivityStatus(record.Status) {
+		return "", false
+	}
+	if record.GraphAnchor == nil || record.GraphAnchor.Kind != AnchorKindWorkflowNode {
+		return "", false
+	}
+	nodeExecutionID := firstNonEmpty(record.GraphAnchor.WorkflowNodeExecutionID, record.Provenance.WorkflowNodeExecutionID)
+	if nodeExecutionID == "" {
+		return "", false
+	}
+	return nodeExecutionID, true
+}
+
+func isTerminalWorkflowActivityStatus(status WorkspaceActivityStatus) bool {
+	switch status {
+	case ActivityStatusCompleted, ActivityStatusFailed, ActivityStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
 func commandActivityFromRunItem(item chat.RunItem, context ChatRunItemContext) WorkspaceActivityRecord {
 	exitCode := optionalPositiveOrZero(item.ExitCode, item.Status == chat.RunItemStatusCompleted || item.Status == chat.RunItemStatusFailed)
 	durationMs := optionalPositiveOrZero(item.DurationMs, item.DurationMs > 0)

@@ -30,6 +30,7 @@ type ChatSource interface {
 
 type WorkflowSource interface {
 	ListExecutions(workspaceID string) ([]orchestrator.WorkflowExecution, error)
+	ReadExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
 	ReadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (orchestrator.WorkflowExecutionEventPage, error)
 	SubscribeEvents(cursor orchestrator.WorkflowEventCursor) (*orchestrator.EventSubscription, error)
 }
@@ -123,6 +124,33 @@ func (service *Service) ReadSnapshot(workspaceID string, limit int) (WorkspaceAc
 		return WorkspaceActivitySnapshot{}, err
 	}
 	if err := service.addChatSnapshotRecords(builder, workspaceID, limit); err != nil {
+		return WorkspaceActivitySnapshot{}, err
+	}
+	return WorkspaceActivitySnapshot{
+		Activities:    builder.activities(),
+		Revision:      state.Revision,
+		SchemaVersion: SchemaVersion,
+		Sequence:      state.Sequence,
+		StreamID:      state.StreamID,
+		WorkspaceID:   workspaceID,
+	}, nil
+}
+
+// ReadExecutionSnapshot returns a workspace activity snapshot scoped to a single
+// workflow execution. It is the durable source for historical run activity: the
+// workspace-wide snapshot is bounded across every execution, so an older run's chips
+// can be evicted by newer activity, and its records skew toward transient
+// scheduled/started entries. Scoping to one execution guarantees the selected run's
+// terminal, command, file-change, and approval activity is present regardless of how
+// much other activity exists.
+func (service *Service) ReadExecutionSnapshot(workspaceID string, executionID string, limit int) (WorkspaceActivitySnapshot, error) {
+	limit = normalizeLimit(limit)
+	state := service.hub.State()
+	builder := newSnapshotBuilder(state.Revision, limit)
+	if err := service.addExecutionSnapshotRecords(builder, workspaceID, executionID, limit); err != nil {
+		return WorkspaceActivitySnapshot{}, err
+	}
+	if err := service.addExecutionChatSnapshotRecords(builder, workspaceID, executionID, limit); err != nil {
 		return WorkspaceActivitySnapshot{}, err
 	}
 	return WorkspaceActivitySnapshot{
@@ -313,21 +341,62 @@ func (service *Service) addWorkflowSnapshotRecords(builder *snapshotBuilder, wor
 		return err
 	}
 	for _, execution := range executions {
-		page, err := service.workflow.ReadExecutionEventPage(workspaceID, execution.ID, 0, limit)
-		if err != nil {
+		if err := service.addExecutionWorkflowRecords(builder, workspaceID, execution, limit); err != nil {
 			return err
-		}
-		for _, event := range page.Events {
-			records, err := ActivityRecordsFromWorkflowEvent(event, WorkflowEventContext{Revision: builder.revision})
-			if err != nil {
-				return err
-			}
-			for _, record := range records {
-				builder.upsert(record)
-			}
 		}
 	}
 	return nil
+}
+
+func (service *Service) addExecutionSnapshotRecords(builder *snapshotBuilder, workspaceID string, executionID string, limit int) error {
+	execution, err := service.workflow.ReadExecution(workspaceID, executionID)
+	if err != nil {
+		return err
+	}
+	return service.addExecutionWorkflowRecords(builder, workspaceID, execution, limit)
+}
+
+func (service *Service) addExecutionWorkflowRecords(builder *snapshotBuilder, workspaceID string, execution orchestrator.WorkflowExecution, limit int) error {
+	page, err := service.workflow.ReadExecutionEventPage(workspaceID, execution.ID, 0, limit)
+	if err != nil {
+		return err
+	}
+	terminalNodeExecutionIDs := map[string]struct{}{}
+	for _, event := range page.Events {
+		records, err := ActivityRecordsFromWorkflowEvent(event, WorkflowEventContext{Revision: builder.revision})
+		if err != nil {
+			return err
+		}
+		for _, record := range records {
+			builder.upsert(record)
+			if nodeExecutionID, ok := TerminalStatusNodeExecutionID(record); ok {
+				terminalNodeExecutionIDs[nodeExecutionID] = struct{}{}
+			}
+		}
+	}
+	// Only a terminal execution needs synthesized terminal node activity. A running
+	// execution's live event stream already supplies node chips, and synthesizing terminal
+	// records for nodes that merely finished early (for example an entry node) would inject
+	// chips the live run never showed. Once the run reaches a terminal state, nodes left
+	// in-flight at termination have no per-node terminal event, so synthesis fills that gap.
+	if executionIsTerminal(execution.Status) {
+		for _, record := range TerminalNodeActivityRecords(execution, terminalNodeExecutionIDs, WorkflowEventContext{Revision: builder.revision}) {
+			builder.upsert(record)
+		}
+	}
+	return nil
+}
+
+func executionIsTerminal(status orchestrator.WorkflowExecutionStatus) bool {
+	switch status {
+	case orchestrator.ExecutionStatusCompleted,
+		orchestrator.ExecutionStatusFailed,
+		orchestrator.ExecutionStatusStopped,
+		orchestrator.ExecutionStatusCancelled:
+		return true
+	default:
+		return false
+	}
 }
 
 func (service *Service) addChatSnapshotRecords(builder *snapshotBuilder, workspaceID string, limit int) error {
@@ -336,26 +405,49 @@ func (service *Service) addChatSnapshotRecords(builder *snapshotBuilder, workspa
 		return err
 	}
 	for _, conversation := range conversations {
-		runs, err := service.chat.ListRuns(workspaceID, conversation.ID)
+		if err := service.addConversationSnapshotRecords(builder, workspaceID, conversation, limit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (service *Service) addExecutionChatSnapshotRecords(builder *snapshotBuilder, workspaceID string, executionID string, limit int) error {
+	conversations, err := service.chat.ListWorkflowConversations(workspaceID)
+	if err != nil {
+		return err
+	}
+	for _, conversation := range conversations {
+		if conversation.Workflow == nil || conversation.Workflow.ExecutionID != executionID {
+			continue
+		}
+		if err := service.addConversationSnapshotRecords(builder, workspaceID, conversation, limit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (service *Service) addConversationSnapshotRecords(builder *snapshotBuilder, workspaceID string, conversation chat.Conversation, limit int) error {
+	runs, err := service.chat.ListRuns(workspaceID, conversation.ID)
+	if err != nil {
+		return err
+	}
+	for _, run := range runs {
+		page, err := service.chat.LoadRunActivityPage(workspaceID, run.ID, limit)
 		if err != nil {
 			return err
 		}
-		for _, run := range runs {
-			page, err := service.chat.LoadRunActivityPage(workspaceID, run.ID, limit)
+		for _, runItem := range page.Items {
+			record, ok, err := ActivityRecordFromChatRunItem(runItem, ChatRunItemContext{
+				ConversationWorkflow: conversation.Workflow,
+				Revision:             builder.revision,
+			})
 			if err != nil {
 				return err
 			}
-			for _, runItem := range page.Items {
-				record, ok, err := ActivityRecordFromChatRunItem(runItem, ChatRunItemContext{
-					ConversationWorkflow: conversation.Workflow,
-					Revision:             builder.revision,
-				})
-				if err != nil {
-					return err
-				}
-				if ok {
-					builder.upsert(record)
-				}
+			if ok {
+				builder.upsert(record)
 			}
 		}
 	}

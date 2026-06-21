@@ -33,6 +33,17 @@ Workspace-level activity is not a display contract. It is an input source. The
 renderer must not project activity into a graph unless the current selected
 target explicitly allows that run's activity to appear.
 
+## Compatibility Constraint
+
+Do not add backward compatibility, legacy support, migrations, transitional
+code, dual-read/write paths, old-field aliases, compatibility shims, or silent
+fallbacks.
+
+If the current model or contract is wrong, replace it cleanly. If durable
+historical activity needs a different Go-owned contract, add the correct
+contract and update the callers directly. Do not preserve old renderer behavior
+or old activity semantics for compatibility.
+
 ## Manual Review Evidence
 
 The current UI fails in ways the existing tests did not catch:
@@ -351,7 +362,8 @@ screenshots prove the result is readable.
 - No animation system.
 - No new chip aesthetics beyond what is necessary to make the corrected states
   legible.
-- No legacy compatibility or transitional dual paths.
+- No backward compatibility, legacy support, migrations, transitional code,
+  dual-read/write paths, old-field aliases, or compatibility shims.
 - No heuristic reconstruction from text output.
 - No second active run model.
 
@@ -407,4 +419,5 @@ run mode. Add deterministic Electron assertions and screenshot evidence for the
 manual failure sequence.
 
 Do not add replay, animation, heuristic activity parsing, compatibility shims,
-or a second active-run model.
+legacy support, migrations, transitional code, dual-read/write paths, old-field
+aliases, silent fallbacks, or a second active-run model.

@@ -354,14 +354,16 @@ export function decodeWorkspaceActivityAnchorKind(value: unknown, label = "Works
   }
 }
 
-export type WorkspaceActivityDetailKind = "workflow_event" | "chat_run_item" | "approval";
+export type WorkspaceActivityDetailKind = "workflow_event" | "workflow_node" | "chat_run_item" | "approval";
 
-export const workspaceActivityDetailKindValues = ["workflow_event", "chat_run_item", "approval"] as const satisfies readonly WorkspaceActivityDetailKind[];
+export const workspaceActivityDetailKindValues = ["workflow_event", "workflow_node", "chat_run_item", "approval"] as const satisfies readonly WorkspaceActivityDetailKind[];
 
 export function decodeWorkspaceActivityDetailKind(value: unknown, label = "WorkspaceActivityDetailKind"): WorkspaceActivityDetailKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "workflow_event":
+      return decoded;
+    case "workflow_node":
       return decoded;
     case "chat_run_item":
       return decoded;
@@ -2506,6 +2508,16 @@ export interface WorkspaceActivitySnapshot {
 }
 
 export interface ReadWorkspaceActivitySnapshotResponse {
+  snapshot: WorkspaceActivitySnapshot;
+}
+
+export interface ReadWorkflowExecutionActivityRequest {
+  workspaceId: string;
+  executionId: string;
+  limit: number;
+}
+
+export interface ReadWorkflowExecutionActivityResponse {
   snapshot: WorkspaceActivitySnapshot;
 }
 
@@ -5125,6 +5137,10 @@ export const backendEndpoints = {
     method: "POST",
     path: "/workspace-activity/snapshot",
   },
+  ReadWorkflowExecutionActivity: {
+    method: "POST",
+    path: "/workspace-activity/execution-snapshot",
+  },
   WorkspaceActivityEventStream: {
     method: "GET",
     path: "/workspace-activity/events",
@@ -6021,6 +6037,24 @@ export function decodeReadWorkspaceActivitySnapshotResponse(value: unknown): Rea
   assertKnownFields(record, "ReadWorkspaceActivitySnapshotResponse", ["snapshot"]);
   return {
     snapshot: decodeWorkspaceActivitySnapshot(requireField(record, "snapshot", "ReadWorkspaceActivitySnapshotResponse")),
+  };
+}
+
+export function decodeReadWorkflowExecutionActivityRequest(value: unknown): ReadWorkflowExecutionActivityRequest {
+  const record = assertRecord(value, "ReadWorkflowExecutionActivityRequest");
+  assertKnownFields(record, "ReadWorkflowExecutionActivityRequest", ["workspaceId", "executionId", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkflowExecutionActivityRequest"), "ReadWorkflowExecutionActivityRequest.workspaceId"),
+    executionId: decodeString(requireField(record, "executionId", "ReadWorkflowExecutionActivityRequest"), "ReadWorkflowExecutionActivityRequest.executionId"),
+    limit: decodeInteger(requireField(record, "limit", "ReadWorkflowExecutionActivityRequest"), "ReadWorkflowExecutionActivityRequest.limit"),
+  };
+}
+
+export function decodeReadWorkflowExecutionActivityResponse(value: unknown): ReadWorkflowExecutionActivityResponse {
+  const record = assertRecord(value, "ReadWorkflowExecutionActivityResponse");
+  assertKnownFields(record, "ReadWorkflowExecutionActivityResponse", ["snapshot"]);
+  return {
+    snapshot: decodeWorkspaceActivitySnapshot(requireField(record, "snapshot", "ReadWorkflowExecutionActivityResponse")),
   };
 }
 
@@ -9661,6 +9695,7 @@ export interface BackendClient {
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest) => Promise<WorkspaceUILayoutReadResult>;
   saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
   readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest) => Promise<ReadWorkspaceActivitySnapshotResponse>;
+  readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest) => Promise<ReadWorkflowExecutionActivityResponse>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
   deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
@@ -9873,6 +9908,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkspaceActivitySnapshotResponse,
       endpoint: backendEndpoints.ReadWorkspaceActivitySnapshot,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readWorkflowExecutionActivity: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeReadWorkflowExecutionActivityResponse,
+      endpoint: backendEndpoints.ReadWorkflowExecutionActivity,
       fetchImpl,
       requestPayload: request,
     }),

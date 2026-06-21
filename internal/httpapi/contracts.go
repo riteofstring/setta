@@ -67,6 +67,16 @@ type ReadWorkspaceActivitySnapshotResponse struct {
 	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
 }
 
+type ReadWorkflowExecutionActivityRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	ExecutionID string `json:"executionId"`
+	Limit       int    `json:"limit"`
+}
+
+type ReadWorkflowExecutionActivityResponse struct {
+	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
+}
+
 type ListConversationsRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }

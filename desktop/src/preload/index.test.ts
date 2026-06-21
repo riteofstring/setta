@@ -257,7 +257,11 @@ describe("preload workspace API", () => {
 
   test("exposes typed workspace activity methods through IPC", async () => {
     const { api, invoke, on, removeListener } = await exposePreloadAPI();
-    expect(Object.keys(api.workspaceActivity).sort()).toEqual(["onEvent", "snapshot"]);
+    expect(Object.keys(api.workspaceActivity).sort()).toEqual([
+      "executionSnapshot",
+      "onEvent",
+      "snapshot",
+    ]);
 
     const snapshot = {
       activities: [],
@@ -270,6 +274,12 @@ describe("preload workspace API", () => {
     invoke.mockResolvedValueOnce({ snapshot });
     await expect(api.workspaceActivity.snapshot("workspace_api", 100)).resolves.toEqual(snapshot);
 
+    const executionSnapshot = { ...snapshot, revision: 8 };
+    invoke.mockResolvedValueOnce({ snapshot: executionSnapshot });
+    await expect(
+      api.workspaceActivity.executionSnapshot("workspace_api", "execution_api", 100),
+    ).resolves.toEqual(executionSnapshot);
+
     const event = workspaceActivityEvent();
     const listener = vi.fn();
     const unsubscribe = api.workspaceActivity.onEvent(listener);
@@ -280,7 +290,10 @@ describe("preload workspace API", () => {
     handler({}, event);
     unsubscribe();
 
-    expectInvokeCalls(invoke, [[ipcChannels.workspaceActivitySnapshot, "workspace_api", 100]]);
+    expectInvokeCalls(invoke, [
+      [ipcChannels.workspaceActivitySnapshot, "workspace_api", 100],
+      [ipcChannels.workspaceActivityExecutionSnapshot, "workspace_api", "execution_api", 100],
+    ]);
     expect(on).toHaveBeenCalledWith(ipcEvents.workspaceActivityEvent, expect.any(Function));
     expect(listener).toHaveBeenCalledWith(event);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.workspaceActivityEvent, handler);

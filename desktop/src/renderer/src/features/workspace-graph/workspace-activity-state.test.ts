@@ -1,14 +1,21 @@
 import { describe, expect, test } from "vitest";
 
-import type { WorkspaceActivityEvent, WorkspaceActivityRecord } from "@generated/backend";
+import type {
+  WorkspaceActivityEvent,
+  WorkspaceActivityRecord,
+  WorkspaceActivityStatus,
+} from "@generated/backend";
 import {
   applyWorkspaceActivityEvent,
   applyWorkspaceActivitySnapshot,
   createInitialWorkspaceActivityState,
+  mergeWorkspaceActivityExecutionSnapshot,
   recordWorkspaceActivityMarkerMaterialization,
   recordWorkspaceActivityBackendReadAttempt,
   recordWorkspaceActivityDeltaInstrumentation,
+  selectedRunReachedTerminal,
 } from "./workspace-activity-state";
+import type { WorkflowGraphTarget } from "./workflow-graph-projection-state";
 
 describe("workspace activity state", () => {
   test("loads bounded snapshots with marker counters at zero before materialization", () => {
@@ -196,7 +203,190 @@ describe("workspace activity state", () => {
     });
     expect(replaced.debug.graphSceneReplacementTouched).toBe(true);
   });
+
+  test("merges a run-scoped snapshot, keeping the selected run's live records and dropping others", () => {
+    const afterA = applyWorkspaceActivityEvent(
+      createInitialWorkspaceActivityState("workspace_a", 50),
+      activityEvent(executionRecord("run_a_cmd", "execution_run", 1, "2026-06-21T12:00:00Z"), 1),
+      50,
+    );
+    const streamed = applyWorkspaceActivityEvent(
+      afterA.state,
+      activityEvent(executionRecord("run_b_cmd", "execution_other", 2, "2026-06-21T12:00:01Z"), 2),
+      50,
+    );
+    expect(streamed.state.records).toHaveLength(2);
+
+    const merged = mergeWorkspaceActivityExecutionSnapshot(
+      streamed.state,
+      {
+        activities: [executionRecord("run_a_terminal", "execution_run", 3, "2026-06-21T12:00:05Z")],
+        revision: 3,
+        schemaVersion: 1,
+        sequence: 3,
+        streamId: "workspace_activity_stream",
+        workspaceId: "workspace_a",
+      },
+      "execution_run",
+      50,
+    );
+
+    // The selected run's streamed record survives the read (so an active run never loses
+    // its live chips), the durable snapshot record is added, and the other run is pruned.
+    expect(merged.records.map((record) => record.activityId).sort()).toEqual([
+      "run_a_cmd",
+      "run_a_terminal",
+    ]);
+    expect(merged.debug.snapshotsLoaded).toBe(1);
+    expect(merged.debug.recordsRetained).toBe(2);
+  });
+
+  test("scopes stored deltas to the selected run while advancing the stream cursor", () => {
+    const initial = applyWorkspaceActivitySnapshot(
+      createInitialWorkspaceActivityState("workspace_a", 50),
+      {
+        activities: [executionRecord("run_a_cmd", "execution_run", 1, "2026-06-21T12:00:00Z")],
+        revision: 1,
+        schemaVersion: 1,
+        sequence: 1,
+        streamId: "workspace_activity_stream",
+        workspaceId: "workspace_a",
+      },
+      50,
+    );
+
+    // A delta for a different execution must not enter the bounded pool (so it cannot evict
+    // the viewed run's chips), but must still advance the cursor.
+    const otherRun = applyWorkspaceActivityEvent(
+      initial,
+      activityEvent(executionRecord("run_b_cmd", "execution_other", 2, "2026-06-21T12:00:01Z"), 2),
+      50,
+      "execution_run",
+    );
+    expect(otherRun.needsReload).toBe(false);
+    expect(otherRun.state.records.map((record) => record.activityId)).toEqual(["run_a_cmd"]);
+    expect(otherRun.state.debug.deltasApplied).toBe(0);
+    expect(otherRun.state.debug.lastRevision).toBe(2);
+
+    // Because the cursor advanced, the next selected-run delta (revision 3) is not mistaken
+    // for a revision gap and applies normally.
+    const selectedRun = applyWorkspaceActivityEvent(
+      otherRun.state,
+      activityEvent(executionRecord("run_a_more", "execution_run", 3, "2026-06-21T12:00:02Z"), 3),
+      50,
+      "execution_run",
+    );
+    expect(selectedRun.needsReload).toBe(false);
+    expect(selectedRun.state.records.map((record) => record.activityId).sort()).toEqual([
+      "run_a_cmd",
+      "run_a_more",
+    ]);
+    expect(selectedRun.state.debug.deltasApplied).toBe(1);
+  });
+
+  test("reloads on a real revision gap even when a foreign-execution delta exposes it", () => {
+    const initial = applyWorkspaceActivitySnapshot(
+      createInitialWorkspaceActivityState("workspace_a", 50),
+      {
+        activities: [executionRecord("run_a_cmd", "execution_run", 1, "2026-06-21T12:00:00Z")],
+        revision: 1,
+        schemaVersion: 1,
+        sequence: 1,
+        streamId: "workspace_activity_stream",
+        workspaceId: "workspace_a",
+      },
+      50,
+    );
+
+    // A genuine stream loss (revision jumps 1 -> 4) whose first post-loss delta is a foreign
+    // execution must still reload, so the gap check is not bypassed by foreign-delta dropping.
+    const gapped = applyWorkspaceActivityEvent(
+      initial,
+      activityEvent(executionRecord("run_b_cmd", "execution_other", 4, "2026-06-21T12:00:04Z"), 4),
+      50,
+      "execution_run",
+    );
+    expect(gapped.needsReload).toBe(true);
+    expect(gapped.state.debug.revisionGapReloads).toBe(1);
+  });
+
+  test("re-reads the durable snapshot only when the selected run's execution finishes", () => {
+    const runTarget: WorkflowGraphTarget = {
+      definitionId: "definition_a",
+      executionId: "execution_run",
+      kind: "run",
+      versionId: "version_a",
+      workspaceId: "workspace_a",
+    };
+
+    expect(
+      selectedRunReachedTerminal(
+        workflowStatusEvent("workflow_event:cancelled", "cancelled", "execution_run", "execution"),
+        runTarget,
+      ),
+    ).toBe(true);
+
+    // A per-node terminal event must not trigger a run-scoped reload; only the
+    // execution-level terminal record does, so a normal run re-reads at most once.
+    expect(
+      selectedRunReachedTerminal(
+        workflowStatusEvent("workflow_event:node_done", "completed", "execution_run", "node"),
+        runTarget,
+      ),
+    ).toBe(false);
+
+    // Still-running and other-execution deltas, plus a draft target, never reload.
+    expect(
+      selectedRunReachedTerminal(
+        workflowStatusEvent("workflow_event:running", "running", "execution_run", "execution"),
+        runTarget,
+      ),
+    ).toBe(false);
+    expect(
+      selectedRunReachedTerminal(
+        workflowStatusEvent("workflow_event:other", "failed", "execution_other", "execution"),
+        runTarget,
+      ),
+    ).toBe(false);
+    expect(
+      selectedRunReachedTerminal(
+        workflowStatusEvent("workflow_event:cancelled", "cancelled", "execution_run", "execution"),
+        { definitionId: "definition_a", kind: "draft", workspaceId: "workspace_a" },
+      ),
+    ).toBe(false);
+  });
 });
+
+function workflowStatusEvent(
+  activityId: string,
+  status: WorkspaceActivityStatus,
+  executionId: string,
+  anchorKind: "execution" | "node",
+): WorkspaceActivityEvent {
+  const record = activityRecord(activityId, 5, "2026-06-21T12:05:00Z");
+  return activityEvent(
+    {
+      ...record,
+      graphAnchor: {
+        kind: anchorKind === "node" ? "workflow_node" : "workflow_execution",
+        workflowDefinitionId: "definition_a",
+        workflowDefinitionVersionId: "version_a",
+        workflowExecutionId: executionId,
+        workflowNodeExecutionId: anchorKind === "node" ? "node_execution_a" : "",
+        workflowNodeId: anchorKind === "node" ? "node_a" : "",
+      },
+      kind: "workflow_status",
+      status,
+      workflow: {
+        eventId: activityId,
+        eventType: "workflow.execution.cancelled",
+        message: "",
+        runnerKind: null,
+      },
+    },
+    5,
+  );
+}
 
 function activityEvent(record: WorkspaceActivityRecord, revision: number): WorkspaceActivityEvent {
   return {
@@ -251,6 +441,19 @@ function graphProbe(panningCamera: boolean, renderOverrides: { rendererInstanceI
       rendererLayerCreationCount: 1,
       ...renderOverrides,
     },
+  };
+}
+
+function executionRecord(
+  activityId: string,
+  executionId: string,
+  revision: number,
+  updatedAt: string,
+): WorkspaceActivityRecord {
+  const base = activityRecord(activityId, revision, updatedAt);
+  return {
+    ...base,
+    provenance: { ...base.provenance, workflowExecutionId: executionId },
   };
 }
 

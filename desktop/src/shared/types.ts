@@ -316,6 +316,11 @@ export interface SettaAPI {
   workspaceActivity: {
     onEvent: (listener: (event: WorkspaceActivityEvent) => void) => () => void;
     snapshot: (workspaceId: string, limit: number) => Promise<WorkspaceActivitySnapshot>;
+    executionSnapshot: (
+      workspaceId: string,
+      executionId: string,
+      limit: number,
+    ) => Promise<WorkspaceActivitySnapshot>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

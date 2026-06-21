@@ -22,4 +22,16 @@ export function registerWorkspaceActivityIpcHandlers({
     },
     ipcObserver,
   );
+  handleIpc(
+    ipcMain,
+    "workspaceActivityExecutionSnapshot",
+    async (_event, workspaceId, executionId, limit) => {
+      return requireBackendClient().readWorkflowExecutionActivity({
+        executionId,
+        limit,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
 }

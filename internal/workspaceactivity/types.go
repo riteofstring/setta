@@ -40,6 +40,7 @@ const (
 	AnchorKindWorkflowNode      WorkspaceActivityAnchorKind = "workflow_node"
 
 	DetailKindWorkflowEvent WorkspaceActivityDetailKind = "workflow_event"
+	DetailKindWorkflowNode  WorkspaceActivityDetailKind = "workflow_node"
 	DetailKindChatRunItem   WorkspaceActivityDetailKind = "chat_run_item"
 	DetailKindApproval      WorkspaceActivityDetailKind = "approval"
 )
@@ -76,6 +77,7 @@ var (
 	}
 	activityDetailKindValues = []WorkspaceActivityDetailKind{
 		DetailKindWorkflowEvent,
+		DetailKindWorkflowNode,
 		DetailKindChatRunItem,
 		DetailKindApproval,
 	}
