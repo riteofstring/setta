@@ -7,6 +7,7 @@ import type {
   WorkspaceActivityStatus,
 } from "@generated/backend";
 import type { WorkflowGraphGraph } from "./pixi-renderer";
+import type { WorkflowGraphTarget } from "./workflow-graph-projection-state";
 import {
   projectWorkspaceActivityMarkerProjection,
   projectWorkspaceActivityMarkers,
@@ -24,6 +25,7 @@ describe("workspace activity markers", () => {
         activityRecord("file", "file_change", "completed", 2, "work"),
         activityRecord("approval", "approval", "waiting_approval", 1, "work"),
       ],
+      target: runTarget(),
     });
 
     expect(markers.map((marker) => [marker.kind, marker.anchorKind, marker.nodeId])).toEqual([
@@ -50,6 +52,7 @@ describe("workspace activity markers", () => {
         activityRecord("command_old", "command", "running", 1, "work"),
         activityRecord("command_new", "command", "completed", 2, "work"),
       ],
+      target: runTarget(),
     });
 
     expect(markers.map((marker) => [marker.activityId, marker.status, marker.slotIndex])).toEqual([
@@ -67,6 +70,7 @@ describe("workspace activity markers", () => {
         activityRecord("approval_waiting", "approval", "waiting_approval", 2, "work"),
         activityRecord("approval_cancelled", "approval", "cancelled", 5, "work"),
       ],
+      target: runTarget(),
     });
 
     expect(markers.map((marker) => [marker.activityId, marker.status, marker.active])).toEqual([
@@ -85,6 +89,7 @@ describe("workspace activity markers", () => {
         activityRecord("work_command_completed", "command", "completed", 4, "work"),
         activityRecord("next_command_running", "command", "running", 5, "next"),
       ],
+      target: runTarget(),
     });
 
     expect(markers.map((marker) => [marker.activityId, marker.status, marker.nodeId])).toEqual([
@@ -99,6 +104,7 @@ describe("workspace activity markers", () => {
       records: [
         activityRecord("manual_recovery", "workflow_status", "waiting_approval", 3, "work"),
       ],
+      target: runTarget(),
     });
 
     expect(markers.map((marker) => [marker.activityId, marker.status, marker.active])).toEqual([
@@ -113,6 +119,7 @@ describe("workspace activity markers", () => {
     const markers = projectWorkspaceActivityMarkers({
       graph: workflowGraph(),
       records,
+      target: runTarget(),
     });
 
     expect(markers).toHaveLength(records.length);
@@ -126,11 +133,71 @@ describe("workspace activity markers", () => {
         activityRecord("other", "workflow_status", "running", 3, "", "execution_other"),
         activityRecord("execution", "workflow_status", "running", 2, ""),
       ],
+      target: runTarget(),
     });
 
     expect(projection.markers).toEqual([]);
     expect(projection.suppressedUnanchoredActivityCount).toBe(1);
     expect(projection.suppressedUnanchoredActivityIds).toEqual(["activity_execution"]);
+  });
+
+  test("scopes run markers to the selected execution id", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph(),
+      records: [
+        activityRecord("selected", "command", "completed", 2, "work", "execution_a"),
+        activityRecord("other_run", "command", "completed", 3, "work", "execution_other"),
+      ],
+      target: runTarget("execution_a"),
+    });
+
+    expect(markers.map((marker) => [marker.activityId, marker.nodeId])).toEqual([
+      ["activity_selected", "work"],
+    ]);
+  });
+
+  test("returns no markers for a draft target even when the graph carries run activity", () => {
+    const projection = projectWorkspaceActivityMarkerProjection({
+      graph: workflowGraph(),
+      records: [activityRecord("command", "command", "completed", 2, "work")],
+      target: draftTarget(),
+    });
+
+    expect(projection).toEqual({
+      markers: [],
+      suppressedUnanchoredActivityCount: 0,
+      suppressedUnanchoredActivityIds: [],
+    });
+  });
+
+  test("returns no markers without a selected target", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph(),
+      records: [activityRecord("command", "command", "completed", 2, "work")],
+      target: null,
+    });
+
+    expect(markers).toEqual([]);
+  });
+
+  test("returns no markers when the displayed graph is a different run than the target", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph({ executionId: "execution_other" }),
+      records: [activityRecord("command", "command", "completed", 2, "work", "execution_a")],
+      target: runTarget("execution_a"),
+    });
+
+    expect(markers).toEqual([]);
+  });
+
+  test("returns no markers when a run target is selected but a draft graph is displayed", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph({ executionId: "", viewMode: "draft" }),
+      records: [activityRecord("command", "command", "completed", 2, "work", "execution_a")],
+      target: runTarget("execution_a"),
+    });
+
+    expect(markers).toEqual([]);
   });
 
   test("counts marker creation, update, retention, and removal by stable marker id", () => {
@@ -153,17 +220,39 @@ describe("workspace activity markers", () => {
   });
 });
 
+function runTarget(executionId = "execution_a"): WorkflowGraphTarget {
+  return {
+    definitionId: "definition_a",
+    executionId,
+    kind: "run",
+    versionId: "version_a",
+    workspaceId: "workspace_a",
+  };
+}
+
+function draftTarget(): WorkflowGraphTarget {
+  return {
+    definitionId: "definition_a",
+    kind: "draft",
+    workspaceId: "workspace_a",
+  };
+}
+
 function workflowGraph({
+  executionId = "execution_a",
   executionStatus = "running",
   extraNodes = [],
   nodeStatus = "running",
+  viewMode = "run",
 }: {
+  executionId?: string;
   executionStatus?: NonNullable<WorkflowGraphGraph["workflow"]>["executionStatus"];
   extraNodes?: Array<{
     id: string;
     status: NonNullable<WorkflowGraphGraph["nodes"][number]["status"]>;
   }>;
   nodeStatus?: NonNullable<WorkflowGraphGraph["nodes"][number]["status"]>;
+  viewMode?: NonNullable<WorkflowGraphGraph["workflow"]>["viewMode"];
 } = {}): WorkflowGraphGraph {
   return {
     edges: [],
@@ -195,10 +284,10 @@ function workflowGraph({
       definitionVersionId: "version_a",
       definitionVersionNumber: 1,
       editable: false,
-      executionId: "execution_a",
+      executionId,
       executionStatus,
       versionMismatch: false,
-      viewMode: "run",
+      viewMode,
       workspaceId: "workspace_a",
     },
   };

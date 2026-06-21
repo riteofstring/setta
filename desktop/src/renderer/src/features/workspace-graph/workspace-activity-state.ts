@@ -16,6 +16,7 @@ import {
   type WorkspaceActivityMarkerProjection,
 } from "./workspace-activity-markers";
 import type { WorkflowGraphGraph } from "./pixi-renderer";
+import type { WorkflowGraphTarget } from "./workflow-graph-projection-state";
 
 const defaultRetainedActivityLimit = 200;
 const graphSceneReplacementRenderFields = [
@@ -51,6 +52,7 @@ export interface WorkflowGraphActivityProbeSnapshot {
 
 export function useWorkspaceActivityState({
   activityGraph,
+  activityTarget,
   applyActivityMarkers,
   limit = defaultRetainedActivityLimit,
   readGraphDebugSnapshot,
@@ -58,6 +60,7 @@ export function useWorkspaceActivityState({
   workspaceId,
 }: {
   activityGraph?: WorkflowGraphGraph | null;
+  activityTarget?: WorkflowGraphTarget | null;
   applyActivityMarkers?: (
     markers: readonly WorkspaceActivityMarker[],
   ) => WorkspaceActivityMarkerMaterialization | null;
@@ -69,10 +72,12 @@ export function useWorkspaceActivityState({
   const stateRef = useRef(createInitialWorkspaceActivityState(workspaceId, limit));
   const activeWorkspaceRef = useRef(workspaceId);
   const activityGraphRef = useRef<WorkflowGraphGraph | null>(activityGraph ?? null);
+  const activityTargetRef = useRef<WorkflowGraphTarget | null>(activityTarget ?? null);
   const applyActivityMarkersRef = useRef<typeof applyActivityMarkers>(applyActivityMarkers);
   const readGraphDebugSnapshotRef = useRef<typeof readGraphDebugSnapshot>(readGraphDebugSnapshot);
   activeWorkspaceRef.current = workspaceId;
   activityGraphRef.current = activityGraph ?? null;
+  activityTargetRef.current = activityTarget ?? null;
   applyActivityMarkersRef.current = applyActivityMarkers;
   readGraphDebugSnapshotRef.current = readGraphDebugSnapshot;
 
@@ -84,6 +89,7 @@ export function useWorkspaceActivityState({
     const projection = projectWorkspaceActivityMarkerProjection({
       graph: activityGraphRef.current,
       records: stateRef.current.records,
+      target: activityTargetRef.current,
     });
     const materialization = materialize(projection.markers);
     if (materialization === null) {
@@ -153,7 +159,7 @@ export function useWorkspaceActivityState({
 
   useEffect(() => {
     syncMarkers();
-  }, [activityGraph, syncMarkers]);
+  }, [activityGraph, activityTarget, syncMarkers]);
 
   useEffect(() => {
     return registerWorkspaceActivityDebugSurface(surfaceId, () => stateRef.current.debug);

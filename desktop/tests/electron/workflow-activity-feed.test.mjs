@@ -179,6 +179,9 @@ try {
     ]);
     startedExecutionId = started.id;
 
+    // Draft applies activity deltas during the pan without projecting markers or replacing
+    // the scene. This returns on the first delta, so the run is still streaming when the run
+    // view is selected below, where the run-scoped markers are asserted.
     activityDebug = await waitForWorkflowGraphSnapshot(
       context.client,
       workflowGraphSurfaceId,
@@ -187,28 +190,32 @@ try {
         snapshot.activity.deltasApplied >= 1 &&
         snapshot.activity.recordsRetained >= 1 &&
         snapshot.activity.activityDeltasDuringCameraMovement >= 1 &&
-        snapshot.activity.graphSceneReplacementCheckCount >= 1 &&
-        snapshot.activity.markerCreatedCount >= 4 &&
-        markerMaterializationRevisitedExistingMarkers(snapshot.activity) &&
-        activityMarkerGraphicsMatch(snapshot) &&
-        activityMarkersHavePhase2BKinds(snapshot.activity.markers),
+        snapshot.activity.graphSceneReplacementCheckCount >= 1,
     );
     afterContinuedPan = await continueActivityCameraPan(
       context.client,
       workflowGraphSurfaceId,
       pan.pageTo,
-      activityDebug,
     );
   } finally {
     await releaseActivityCameraPan(context.client, pan.pageTo).catch(() => {});
   }
-  assertPhase2BActivityDebug(beforeActivityRun, activityDebug, afterContinuedPan);
+  assertPhase2BInstrumentation(beforeActivityRun, activityDebug, afterContinuedPan);
+  assertDraftViewSuppressedActivityMarkers(activityDebug);
   await viewActiveWorkflowRun(context.client, workflowGraphSurfaceId, startedExecutionId);
+  // Run markers materialize in the run view. Wait for the pending-approval state so the typed
+  // marker set is complete, then assert marker work and the waiting-approval grammar.
   const waitingVisualDebug = await waitForWorkflowGraphSnapshot(
     context.client,
     workflowGraphSurfaceId,
-    phase3WaitingApprovalVisualGrammarReady,
+    (snapshot) =>
+      phase3WaitingApprovalVisualGrammarReady(snapshot) &&
+      snapshot.render.activityMarkerGraphicsCount >= 4 &&
+      markerMaterializationRevisitedExistingMarkers(snapshot.activity) &&
+      activityMarkerGraphicsMatch(snapshot) &&
+      activityMarkersHavePhase2BKinds(snapshot.activity.markers),
   );
+  assertPhase2BMarkerWork(waitingVisualDebug);
   assertPhase3WaitingApprovalVisualGrammar(waitingVisualDebug);
   assertPhase35AWaitingApprovalChips(waitingVisualDebug);
   await captureScreenshot(context.client, join(artifactDir, "activity-feed-waiting-approval.png"));
@@ -749,14 +756,19 @@ function snapshotHasPhase2AActivityKinds(snapshot) {
   );
 }
 
-function assertPhase2BActivityDebug(beforeRunSnapshot, activitySnapshot, afterContinuedPan) {
+function assertPhase2BInstrumentation(beforeRunSnapshot, activitySnapshot, afterContinuedPan) {
   assertActivityInstrumentationObserved(activitySnapshot.activity);
-  assertPhase2BMarkerWork(activitySnapshot);
   assertNoActivityGraphReplacement(activitySnapshot.activity);
   assertNoActivityBackendReadsDuringCameraMovement(activitySnapshot.activity);
   assertNoActivityRevisionReload(activitySnapshot.activity);
   assertRendererIdentityStable(beforeRunSnapshot, activitySnapshot);
   assertActivityCameraMovementContinued(activitySnapshot, afterContinuedPan);
+}
+
+function assertDraftViewSuppressedActivityMarkers(snapshot) {
+  if (snapshot.activity.markerCreatedCount !== 0 || snapshot.activity.markers.length !== 0) {
+    throw new Error(`draft view rendered run markers: ${JSON.stringify(snapshot.activity)}`);
+  }
 }
 
 function assertPhase3IdleVisualGrammar(snapshot) {
@@ -1128,8 +1140,10 @@ function assertPhase2BMarkerWork(snapshot) {
 }
 
 function assertPhase2BMarkerCounters(activity) {
-  if (activity.markerCreatedCount < 4) {
-    throw new Error(`Phase 2B did not create typed markers: ${JSON.stringify(activity)}`);
+  // A run view selected after activity streamed materializes markers via the non-counting
+  // position-sync path, so assert the projected marker set, not the created counter.
+  if (activity.markers.length < 4) {
+    throw new Error(`Phase 2B did not project typed markers: ${JSON.stringify(activity)}`);
   }
   if (!markerMaterializationRevisitedExistingMarkers(activity)) {
     throw new Error(`Phase 2B did not revisit typed markers: ${JSON.stringify(activity)}`);

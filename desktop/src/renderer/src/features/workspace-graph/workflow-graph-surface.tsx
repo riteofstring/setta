@@ -33,6 +33,7 @@ import {
 import {
   useWorkflowProjectionState,
   workflowGraphDraftTarget,
+  type WorkflowGraphTarget,
 } from "./workflow-graph-projection-state";
 import {
   refreshWorkflowRunsAfterStartFailure,
@@ -260,6 +261,7 @@ export function WorkflowGraphSurface({
     readGraphDebugSnapshot: () => window.__settaWorkflowGraphDebug?.getSnapshot(surfaceId) ?? null,
     rendererRef: workflowRendererRef,
     surfaceId,
+    target: workflowGraphTarget,
     workspaceId: workflowWorkspaceId,
   });
   const openWorkflowContextMenu = useCallback((menu: WorkflowContextMenuState) => {
@@ -889,12 +891,14 @@ function useWorkflowGraphActivityMarkerSync({
   readGraphDebugSnapshot,
   rendererRef,
   surfaceId,
+  target,
   workspaceId,
 }: {
   graph: WorkflowGraphRendererGraph | undefined;
   readGraphDebugSnapshot: () => WorkflowGraphActivityProbeSnapshot | null;
   rendererRef: RefObject<WorkflowGraphRenderer | null>;
   surfaceId: string;
+  target: WorkflowGraphTarget | null;
   workspaceId: string;
 }) {
   const applyWorkspaceActivityMarkers = useCallback(
@@ -909,6 +913,7 @@ function useWorkflowGraphActivityMarkerSync({
   );
   return useWorkspaceActivityState({
     activityGraph: graph ?? null,
+    activityTarget: target,
     applyActivityMarkers: applyWorkspaceActivityMarkers,
     readGraphDebugSnapshot,
     surfaceId,

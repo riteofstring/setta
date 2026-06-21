@@ -7,8 +7,11 @@ import type {
 } from "@generated/backend";
 
 import type { WorkflowGraphGraph } from "./pixi-renderer";
+import type { WorkflowGraphTarget } from "./workflow-graph-projection-state";
 
 type WorkspaceActivityMarkerAnchorKind = "workflow_node";
+
+type WorkflowGraphRunActivityTarget = Extract<WorkflowGraphTarget, { kind: "run" }>;
 
 export interface WorkspaceActivityMarker {
   activityId: string;
@@ -86,30 +89,61 @@ const terminalNodeStatuses = new Set<WorkflowGraphNodeStatus>(["succeeded", "fai
 export function projectWorkspaceActivityMarkers({
   graph,
   records,
+  target,
 }: {
   graph: WorkflowGraphGraph | null | undefined;
   records: readonly WorkspaceActivityRecord[];
+  target: WorkflowGraphTarget | null;
 }): WorkspaceActivityMarker[] {
-  return projectWorkspaceActivityMarkerProjection({ graph, records }).markers;
+  return projectWorkspaceActivityMarkerProjection({ graph, records, target }).markers;
 }
 
 export function projectWorkspaceActivityMarkerProjection({
   graph,
   records,
+  target,
 }: {
   graph: WorkflowGraphGraph | null | undefined;
   records: readonly WorkspaceActivityRecord[];
+  target: WorkflowGraphTarget | null;
 }): WorkspaceActivityMarkerProjection {
-  if (!graph?.workflow) {
+  const runTarget = runActivityTarget(target);
+  if (!graph?.workflow || runTarget === null) {
+    return emptyMarkerProjection();
+  }
+  if (!graphMatchesRunTarget(graph.workflow, runTarget)) {
     return emptyMarkerProjection();
   }
   const workflowNodeIds = workflowRendererNodeIds(graph);
-  const projection = anchoredMarkersByNode(records, graph, workflowNodeIds);
+  const projection = anchoredMarkersByNode(records, graph, workflowNodeIds, runTarget);
   return {
     markers: markersWithNodeSlots(projection.markersByNode),
     suppressedUnanchoredActivityCount: projection.suppressedUnanchoredActivityCount,
     suppressedUnanchoredActivityIds: projection.suppressedUnanchoredActivityIds,
   };
+}
+
+function runActivityTarget(
+  target: WorkflowGraphTarget | null,
+): WorkflowGraphRunActivityTarget | null {
+  return target?.kind === "run" ? target : null;
+}
+
+// Activity is anchored to the nodes currently on the canvas, so it must only be
+// projected when the displayed run graph is the selected run. This keeps a run's
+// activity from leaking onto another run's graph while a target switch is loading
+// and the previous projection is still displayed.
+function graphMatchesRunTarget(
+  workflow: NonNullable<WorkflowGraphGraph["workflow"]>,
+  target: WorkflowGraphRunActivityTarget,
+) {
+  return (
+    workflow.viewMode === "run" &&
+    workflow.workspaceId === target.workspaceId &&
+    workflow.definitionId === target.definitionId &&
+    workflow.definitionVersionId === target.versionId &&
+    workflow.executionId === target.executionId
+  );
 }
 
 export function workspaceActivityMarkerMaterializationDiff(
@@ -148,13 +182,14 @@ function anchoredMarkersByNode(
   records: readonly WorkspaceActivityRecord[],
   graph: WorkflowGraphGraph,
   workflowNodeIds: ReadonlySet<string>,
+  target: WorkflowGraphRunActivityTarget,
 ) {
   const markers = new Map<string, WorkspaceActivityMarker[]>();
   const nodeStatuses = workflowNodeStatuses(graph);
   let suppressedUnanchoredActivityCount = 0;
   const suppressedUnanchoredActivityIds: string[] = [];
   for (const record of sortedActivityRecords(records)) {
-    if (!recordMatchesWorkflow(record, graph.workflow)) {
+    if (!recordMatchesRunTarget(record, target)) {
       continue;
     }
     const nodeId = anchoredWorkflowNodeId(record, workflowNodeIds);
@@ -267,25 +302,19 @@ function anchoredWorkflowNodeId(
   return nodeId;
 }
 
-function recordMatchesWorkflow(
+function recordMatchesRunTarget(
   record: WorkspaceActivityRecord,
-  workflow: WorkflowGraphGraph["workflow"] | undefined,
+  target: WorkflowGraphRunActivityTarget,
 ) {
-  if (workflow == null) {
+  if (target.workspaceId !== "" && record.workspaceId !== target.workspaceId) {
     return false;
-  }
-  if (workflow.workspaceId !== "" && record.workspaceId !== workflow.workspaceId) {
-    return false;
-  }
-  if (workflow.executionId === "") {
-    return true;
   }
   const recordExecutionIds = [
     record.graphAnchor?.workflowExecutionId ?? "",
     record.provenance.workflowExecutionId,
     record.detailRef.workflowExecutionId,
   ];
-  return recordExecutionIds.includes(workflow.executionId);
+  return recordExecutionIds.includes(target.executionId);
 }
 
 function sortedActivityRecords(records: readonly WorkspaceActivityRecord[]) {
