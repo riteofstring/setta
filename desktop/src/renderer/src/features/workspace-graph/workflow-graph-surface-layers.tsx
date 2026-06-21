@@ -39,6 +39,7 @@ export function WorkflowGraphToolbarLayer({
   validateWorkflowDraft,
   workflowOperation,
   workflowProjection,
+  workflowProjectionLoading,
   workflowProjectionReady,
   workflowValidation,
   workflowWorkspaceId,
@@ -59,6 +60,7 @@ export function WorkflowGraphToolbarLayer({
   validateWorkflowDraft: () => Promise<WorkflowValidationResult | null>;
   workflowOperation: WorkflowToolbarOperation | null;
   workflowProjection: WorkflowGraphProjection | null;
+  workflowProjectionLoading: boolean;
   workflowProjectionReady: boolean;
   workflowValidation: WorkflowValidationResult | null;
   workflowWorkspaceId: string;
@@ -71,6 +73,7 @@ export function WorkflowGraphToolbarLayer({
     <WorkflowGraphToolbar
       activeRun={activeWorkflowRun}
       busy={workflowOperation}
+      loading={workflowProjectionLoading}
       onAddNode={(nodeType) => void addWorkflowDraftNodeFromToolbar(nodeType)}
       onOpenDetails={() => openWorkflowNodeDetails(selectedWorkflowNodeId)}
       onOpenSettings={() => openWorkflowSettings()}

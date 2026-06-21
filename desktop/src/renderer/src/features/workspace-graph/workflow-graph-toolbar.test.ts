@@ -5,6 +5,7 @@ import {
   workflowActiveRunSummary,
   workflowDraftButtonLabel,
   workflowDraftButtonTitle,
+  workflowToolbarDisabled,
   workflowToolbarMismatchLabel,
   workflowToolbarShowsRunButton,
   workflowToolbarShowsStopButton,
@@ -17,15 +18,25 @@ describe("workflow graph toolbar state labels", () => {
   test("names editable draft state explicitly", () => {
     const projection = workflowProjection({ viewMode: "draft" });
 
-    expect(workflowToolbarStateLabel(projection, true, "workspace_test")).toBe("Draft editable");
+    expect(workflowToolbarStateLabel(projection, true, "workspace_test", false)).toBe(
+      "Draft editable",
+    );
     expect(workflowToolbarVersionLabel(projection)).toBe("");
     expect(workflowToolbarMismatchLabel(projection)).toBe("");
+  });
+
+  test("reports loading over a still-displayed projection during a warm switch", () => {
+    const projection = workflowProjection({ viewMode: "draft" });
+
+    // ready stays true (the previous graph is still rendered) but a load is in flight, so the
+    // stable toolbar shows the subtle loading state instead of the displayed view's label.
+    expect(workflowToolbarStateLabel(projection, true, "workspace_test", true)).toBe("Loading");
   });
 
   test("names selected run and immutable version explicitly", () => {
     const projection = workflowProjection({ viewMode: "run" });
 
-    expect(workflowToolbarStateLabel(projection, true, "workspace_test")).toBe(
+    expect(workflowToolbarStateLabel(projection, true, "workspace_test", false)).toBe(
       "Run completed read-only",
     );
     expect(workflowToolbarVersionLabel(projection)).toBe(
@@ -48,10 +59,28 @@ describe("workflow graph toolbar state labels", () => {
       viewMode: "version",
     });
 
-    expect(workflowToolbarStateLabel(projection, true, "workspace_test")).toBe(
+    expect(workflowToolbarStateLabel(projection, true, "workspace_test", false)).toBe(
       "Version snapshot read-only",
     );
     expect(workflowToolbarVersionLabel(projection)).toBe("v3 workflow_v...on_003");
+  });
+});
+
+describe("workflow graph toolbar action availability", () => {
+  test("disables actions while a newly selected target loads", () => {
+    // A warm switch keeps ready true so the canvas holds the previous graph, but the in-flight
+    // load must still disable the toolbar actions for the projection about to be replaced.
+    expect(workflowToolbarDisabled(true, "workspace_test", null, true)).toBe(true);
+  });
+
+  test("keeps actions enabled once the selected target has settled", () => {
+    expect(workflowToolbarDisabled(true, "workspace_test", null, false)).toBe(false);
+  });
+
+  test("disables actions on a cold load and while an operation runs", () => {
+    expect(workflowToolbarDisabled(false, "workspace_test", null, false)).toBe(true);
+    expect(workflowToolbarDisabled(true, "workspace_test", "run", false)).toBe(true);
+    expect(workflowToolbarDisabled(true, "", null, false)).toBe(true);
   });
 });
 

@@ -54,6 +54,7 @@ export const workflowNodeMenuItems = [
 export function WorkflowGraphToolbar({
   activeRun,
   busy,
+  loading,
   onAddNode,
   onOpenDetails,
   onOpenSettings,
@@ -72,6 +73,7 @@ export function WorkflowGraphToolbar({
 }: {
   busy: WorkflowToolbarOperation | null;
   activeRun: WorkflowExecutionSummary | null;
+  loading: boolean;
   onAddNode: (nodeType: WorkflowDraftNodeType) => void;
   onOpenDetails: () => void;
   onOpenSettings: () => void;
@@ -93,6 +95,7 @@ export function WorkflowGraphToolbar({
   const model = workflowToolbarModel({
     activeRun,
     busy,
+    loading,
     projection,
     ready,
     runSummaries,
@@ -565,6 +568,7 @@ function WorkflowDiagnosticRow({ diagnostic }: { diagnostic: WorkflowValidationD
 function workflowToolbarModel({
   activeRun,
   busy,
+  loading,
   projection,
   ready,
   runSummaries,
@@ -574,6 +578,7 @@ function workflowToolbarModel({
 }: {
   activeRun: WorkflowExecutionSummary | null;
   busy: WorkflowToolbarOperation | null;
+  loading: boolean;
   projection: WorkflowGraphProjection | null;
   ready: boolean;
   runSummaries: WorkflowExecutionSummary[];
@@ -581,7 +586,7 @@ function workflowToolbarModel({
   validation: WorkflowValidationResult | null;
   workspaceId: string;
 }) {
-  const disabled = workflowToolbarDisabled(ready, workspaceId, busy);
+  const disabled = workflowToolbarDisabled(ready, workspaceId, busy, loading);
   const editable = workflowProjectionIsEditableDraft(projection);
   const viewingDraft = projection === null || projection.viewMode === "draft";
   return {
@@ -602,7 +607,7 @@ function workflowToolbarModel({
     showRunButton: workflowToolbarShowsRunButton(projection, activeRun),
     showStopButton: workflowToolbarShowsStopButton(projection),
     showViewActiveRunButton: viewingDraft && activeRun !== null,
-    stateLabel: workflowToolbarStateLabel(projection, ready, workspaceId),
+    stateLabel: workflowToolbarStateLabel(projection, ready, workspaceId, loading),
     stopDisabled: disabled || !workflowToolbarShowsStopButton(projection),
     stopLabel: workflowStopLabel(busy),
     title: workflowToolbarTitle(projection, workspaceId),
@@ -612,12 +617,16 @@ function workflowToolbarModel({
   };
 }
 
-function workflowToolbarDisabled(
+export function workflowToolbarDisabled(
   ready: boolean,
   workspaceId: string,
   busy: WorkflowToolbarOperation | null,
+  loading: boolean,
 ) {
-  return !ready || workspaceId === "" || busy !== null;
+  // While a newly selected target loads, the previous graph stays on the canvas but its
+  // actions must not fire against a projection that is about to be replaced. `ready` is
+  // content-based and stays true during a warm switch, so loading gates the actions instead.
+  return !ready || workspaceId === "" || busy !== null || loading;
 }
 
 function workflowProjectionIsEditableDraft(projection: WorkflowGraphProjection | null) {
@@ -690,8 +699,12 @@ export function workflowToolbarStateLabel(
   projection: WorkflowGraphProjection | null,
   ready: boolean,
   workspaceId: string,
+  loading: boolean,
 ) {
-  if (!ready) {
+  // A cold load (nothing displayed yet, ready false) and a warm load (previous graph still
+  // visible, ready true) both report "Loading" so the stable toolbar shows a subtle loading
+  // state without ever falling back to the "Blank workflow draft" title.
+  if (!ready || loading) {
     return "Loading";
   }
   if (workspaceId === "") {
@@ -700,6 +713,10 @@ export function workflowToolbarStateLabel(
   if (projection === null) {
     return "Blank draft";
   }
+  return workflowToolbarViewModeStateLabel(projection);
+}
+
+function workflowToolbarViewModeStateLabel(projection: WorkflowGraphProjection) {
   switch (projection.viewMode) {
     case "draft":
       return projection.editable ? "Draft editable" : "Draft read-only";

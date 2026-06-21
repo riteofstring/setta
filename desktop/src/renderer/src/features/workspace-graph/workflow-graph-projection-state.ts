@@ -23,28 +23,28 @@ type WorkflowProjectionTarget =
   | { kind: "empty"; workspaceId: string }
   | { kind: "version"; definitionId: string; versionId: string; workspaceId: string };
 
-type WorkflowProjectionState =
-  | {
-      error: "";
-      projection: null;
-      status: "loading";
-      target: WorkflowProjectionTarget;
-      updateSource: WorkflowGraphUpdateSource | null;
-    }
-  | {
-      error: "";
-      projection: WorkflowGraphProjection | null;
-      status: "ready";
-      target: WorkflowProjectionTarget;
-      updateSource: WorkflowGraphUpdateSource | null;
-    }
-  | {
-      error: string;
-      projection: null;
-      status: "error";
-      target: WorkflowProjectionTarget;
-      updateSource: WorkflowGraphUpdateSource | null;
-    };
+// The projection currently shown on the canvas, plus the target and update source it was
+// resolved for. Preserved across loading and error transitions so selecting a new target
+// never blanks the previously displayed graph.
+interface WorkflowDisplayedProjection {
+  projection: WorkflowGraphProjection | null;
+  target: WorkflowProjectionTarget;
+  updateSource: WorkflowGraphUpdateSource | null;
+}
+
+type WorkflowProjectionStatus =
+  | { kind: "loading" }
+  | { kind: "ready" }
+  | { error: string; kind: "error" };
+
+export interface WorkflowProjectionState {
+  // What the canvas is currently showing. Survives loading/error of a newly selected target.
+  displayed: WorkflowDisplayedProjection;
+  // Status of the selected/pending target load.
+  status: WorkflowProjectionStatus;
+  // Selected/pending target being loaded; equals displayed.target once status is "ready".
+  target: WorkflowProjectionTarget;
+}
 
 type WorkflowProjectionAction =
   | {
@@ -63,7 +63,6 @@ type WorkflowProjectionAction =
       expectedTarget: WorkflowProjectionTarget;
       target: WorkflowProjectionTarget;
       type: "failed";
-      updateSource?: WorkflowGraphUpdateSource;
     }
   | {
       projection: WorkflowGraphProjection | null;
@@ -77,12 +76,14 @@ const emptyWorkflowProjectionTarget: WorkflowProjectionTarget = {
   workspaceId: "",
 };
 
-const initialWorkflowProjectionState: WorkflowProjectionState = {
-  error: "",
-  projection: null,
-  status: "loading",
+export const initialWorkflowProjectionState: WorkflowProjectionState = {
+  displayed: {
+    projection: null,
+    target: emptyWorkflowProjectionTarget,
+    updateSource: null,
+  },
+  status: { kind: "loading" },
   target: emptyWorkflowProjectionTarget,
-  updateSource: null,
 };
 
 export function useWorkflowProjectionState({
@@ -147,7 +148,6 @@ export function useWorkflowProjectionState({
           expectedTarget: target,
           target,
           type: "failed",
-          updateSource,
         });
         throw error;
       }
@@ -155,65 +155,94 @@ export function useWorkflowProjectionState({
     [dispatch],
   );
 
-  const ready = state.status === "ready";
   return {
-    error: state.status === "error" ? state.error : "",
-    graphTarget: workflowGraphTargetOrNull(state.target),
+    ...workflowProjectionStateView(state),
     loadWorkflowGraphTarget,
-    loading: state.status === "loading",
-    noWorkspace: ready && workflowProjectionTargetWorkspaceId(state.target) === "",
-    projection: ready ? state.projection : null,
-    ready,
     replaceWorkflowProjection,
     state,
     stateRef,
-    updateSource: state.updateSource,
-    workspaceId: workflowProjectionTargetWorkspaceId(state.target),
   };
 }
 
-function workflowProjectionReducer(
+interface WorkflowProjectionStateView {
+  error: string;
+  graphTarget: WorkflowGraphTarget | null;
+  loading: boolean;
+  noWorkspace: boolean;
+  projection: WorkflowGraphProjection | null;
+  ready: boolean;
+  updateSource: WorkflowGraphUpdateSource | null;
+  workspaceId: string;
+}
+
+// workflowProjectionStateView derives the renderer-facing values from the reducer state. The
+// displayed projection (and its target/update source) is what the canvas should render, even
+// while a newly selected target is still loading. `ready` is content-based: it stays true
+// whenever a projection is displayed so a warm target switch neither disables the toolbar nor
+// forces a redundant scene replacement; it is only false on a cold load with nothing to show.
+export function workflowProjectionStateView(
+  state: WorkflowProjectionState,
+): WorkflowProjectionStateView {
+  const statusReady = state.status.kind === "ready";
+  const workspaceId = workflowProjectionTargetWorkspaceId(state.target);
+  return {
+    error: state.status.kind === "error" ? state.status.error : "",
+    graphTarget: workflowGraphTargetOrNull(state.displayed.target),
+    loading: state.status.kind === "loading",
+    noWorkspace: statusReady && workspaceId === "",
+    projection: state.displayed.projection,
+    ready: statusReady || state.displayed.projection !== null,
+    updateSource: state.displayed.updateSource,
+    workspaceId,
+  };
+}
+
+export function workflowProjectionReducer(
   state: WorkflowProjectionState,
   action: WorkflowProjectionAction,
 ): WorkflowProjectionState {
   switch (action.type) {
     case "loading":
+      // Preserve the displayed projection so the canvas keeps rendering the previous graph
+      // while the newly selected target loads.
       return {
-        error: "",
-        projection: null,
-        status: "loading",
+        displayed: state.displayed,
+        status: { kind: "loading" },
         target: action.target,
-        updateSource: null,
       };
     case "ready":
       if (!workflowProjectionTargetsEqual(state.target, action.expectedTarget)) {
         return state;
       }
       return {
-        error: "",
-        projection: action.projection,
-        status: "ready",
+        displayed: {
+          projection: action.projection,
+          target: action.target,
+          updateSource: action.updateSource,
+        },
+        status: { kind: "ready" },
         target: action.target,
-        updateSource: action.updateSource,
       };
     case "failed":
       if (!workflowProjectionTargetsEqual(state.target, action.expectedTarget)) {
         return state;
       }
+      // Keep the previously displayed projection visible behind the error so a failed load
+      // does not blank the canvas.
       return {
-        error: action.error,
-        projection: null,
-        status: "error",
+        displayed: state.displayed,
+        status: { error: action.error, kind: "error" },
         target: action.target,
-        updateSource: action.updateSource ?? state.updateSource,
       };
     case "replace":
       return {
-        error: "",
-        projection: action.projection,
-        status: "ready",
+        displayed: {
+          projection: action.projection,
+          target: action.target,
+          updateSource: action.updateSource,
+        },
+        status: { kind: "ready" },
         target: action.target,
-        updateSource: action.updateSource,
       };
     default:
       return assertNever(action);
@@ -370,10 +399,9 @@ function useWorkflowProjection({
       if (!workflowEventRefreshesProjectionTarget(current, event)) {
         return;
       }
-      dispatchIfMounted({
-        target: current,
-        type: "loading",
-      });
+      // Refreshing the already-selected run is a live update, not a target switch. Skip the
+      // loading transition and swap the displayed projection only once the refresh resolves so
+      // a streaming run never flickers a loading state over its own graph.
       const response = await readWorkflowGraphProjectionForTarget(current);
       dispatchIfMounted({
         expectedTarget: current,
@@ -417,7 +445,6 @@ function useWorkflowProjection({
         expectedTarget: projectionStateRef.current.target,
         target: projectionStateRef.current.target,
         type: "failed",
-        updateSource: "workflow-projection",
       });
     });
     const unsubscribe = window.setta.workflow.onEvent((event) => {
@@ -428,7 +455,6 @@ function useWorkflowProjection({
           expectedTarget: projectionStateRef.current.target,
           target: projectionStateRef.current.target,
           type: "failed",
-          updateSource: "workflow-projection",
         });
       });
     });
@@ -440,7 +466,6 @@ function useWorkflowProjection({
           expectedTarget: projectionStateRef.current.target,
           target: projectionStateRef.current.target,
           type: "failed",
-          updateSource: "workflow-projection",
         });
       });
     };

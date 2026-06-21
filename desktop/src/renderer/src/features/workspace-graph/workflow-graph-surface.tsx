@@ -249,6 +249,7 @@ export function WorkflowGraphSurface({
     [selectedWorkflowNodeId, workflowProjection],
   );
   const { loadingProjection, noWorkspace, workflowProjectionError } = workflowGraphStateForSurface({
+    hasDisplayedProjection: workflowProjection !== null,
     semanticGraphError: semanticGraphState.error,
     semanticGraphLoading: semanticGraphState.loading,
     syntheticGraph,
@@ -855,6 +856,7 @@ export function WorkflowGraphSurface({
         validateWorkflowDraft={validateWorkflowDraft}
         workflowOperation={workflowOperation}
         workflowProjection={workflowProjection}
+        workflowProjectionLoading={workflowProjectionLoading}
         workflowProjectionReady={workflowProjectionReady}
         workflowValidation={workflowValidation}
         workflowWorkspaceId={workflowWorkspaceId}
