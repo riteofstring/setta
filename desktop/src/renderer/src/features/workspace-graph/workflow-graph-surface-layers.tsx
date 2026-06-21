@@ -1,12 +1,17 @@
 import type { MutableRefObject } from "react";
 import { createPortal } from "react-dom";
 
-import type { WorkflowGraphProjection, WorkflowValidationResult } from "@generated/backend";
+import type {
+  WorkflowExecutionSummary,
+  WorkflowGraphProjection,
+  WorkflowValidationResult,
+} from "@generated/backend";
 
 import type { SyntheticWorkflowGraphOptions } from "./workflow-graph-camera-scope";
 import {
   WorkflowGraphToolbar,
   WorkflowValidationPanel,
+  type WorkflowToolbarOperation,
   workflowNodeMenuItems,
 } from "./workflow-graph-toolbar";
 import type { WorkflowDraftNodeType } from "./workflow-graph-draft";
@@ -19,10 +24,14 @@ export interface WorkflowContextMenuState {
 }
 
 export function WorkflowGraphToolbarLayer({
+  activeWorkflowRun,
   addWorkflowDraftNodeFromToolbar,
+  cancelWorkflowRun,
   openWorkflowNodeDetails,
   openWorkflowSettings,
   runWorkflowDraft,
+  runSummaries,
+  selectWorkflowRun,
   selectedWorkflowNodeId,
   selectedWorkflowNodeLabel,
   showDraftWorkflow,
@@ -30,39 +39,53 @@ export function WorkflowGraphToolbarLayer({
   validateWorkflowDraft,
   workflowOperation,
   workflowProjection,
+  workflowProjectionLoading,
   workflowProjectionReady,
   workflowValidation,
   workflowWorkspaceId,
+  viewActiveWorkflowRun,
 }: {
+  activeWorkflowRun: WorkflowExecutionSummary | null;
   addWorkflowDraftNodeFromToolbar: (nodeType: WorkflowDraftNodeType) => Promise<void>;
+  cancelWorkflowRun: () => Promise<void>;
   openWorkflowNodeDetails: (nodeId: string | null) => void;
   openWorkflowSettings: () => void;
   runWorkflowDraft: () => Promise<void>;
+  runSummaries: WorkflowExecutionSummary[];
+  selectWorkflowRun: (summary: WorkflowExecutionSummary) => Promise<void>;
   selectedWorkflowNodeId: string | null;
   selectedWorkflowNodeLabel: string;
   showDraftWorkflow: () => Promise<void>;
   syntheticGraph: SyntheticWorkflowGraphOptions;
   validateWorkflowDraft: () => Promise<WorkflowValidationResult | null>;
-  workflowOperation: "run" | "validate" | null;
+  workflowOperation: WorkflowToolbarOperation | null;
   workflowProjection: WorkflowGraphProjection | null;
+  workflowProjectionLoading: boolean;
   workflowProjectionReady: boolean;
   workflowValidation: WorkflowValidationResult | null;
   workflowWorkspaceId: string;
+  viewActiveWorkflowRun: () => Promise<void>;
 }) {
   if (syntheticGraph !== null) {
     return null;
   }
   return (
     <WorkflowGraphToolbar
+      activeRun={activeWorkflowRun}
       busy={workflowOperation}
+      loading={workflowProjectionLoading}
       onAddNode={(nodeType) => void addWorkflowDraftNodeFromToolbar(nodeType)}
       onOpenDetails={() => openWorkflowNodeDetails(selectedWorkflowNodeId)}
       onOpenSettings={() => openWorkflowSettings()}
       onRun={() => void runWorkflowDraft()}
+      onSelectRun={(summary) => void selectWorkflowRun(summary)}
       onShowDraft={() => void showDraftWorkflow()}
+      onStop={() => void cancelWorkflowRun()}
+      onViewActiveRun={() => void viewActiveWorkflowRun()}
       onValidate={() => void validateWorkflowDraft()}
       projection={workflowProjection}
       ready={workflowProjectionReady}
+      runSummaries={runSummaries}
       selectedNodeLabel={selectedWorkflowNodeLabel}
       validation={workflowValidation}
       workspaceId={workflowWorkspaceId}

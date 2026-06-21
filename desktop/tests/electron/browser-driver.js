@@ -1,6 +1,8 @@
 /* global CustomEvent, Element, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, getComputedStyle, window */
 
 (() => {
+  const workflowDefinitionChangedEventName = "setta:workflow-definition-changed";
+
   function bodyText() {
     return { body: document.body.innerText };
   }
@@ -575,6 +577,66 @@
     return { ok: true };
   }
 
+  function workflowToolbarButtonState({ testId }) {
+    // Scope to the active workflow graph host. Toolbar slots are always present now, so a
+    // background pane in another view can also expose the same testId; an unscoped lookup would
+    // read the wrong instance.
+    const button = workflowToolbarElement(`[data-testid="${testId}"]`);
+    return {
+      disabled: button instanceof HTMLButtonElement ? button.disabled : true,
+      exists: button instanceof HTMLButtonElement,
+      text: button instanceof HTMLButtonElement ? (button.textContent?.trim() ?? "") : "",
+    };
+  }
+
+  function openWorkflowRunSelector() {
+    const button = workflowToolbarElement('[data-testid="workflow-run-selector-button"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { ok: false, reason: "selector-unavailable" };
+    }
+    button.click();
+    return { ok: true };
+  }
+
+  function selectWorkflowRunSelectorRow({ executionId }) {
+    const rows = Array.from(
+      document.querySelectorAll('[data-testid^="workflow-run-selector-row-"]'),
+    );
+    const row = rows.find(
+      (candidate) =>
+        candidate instanceof HTMLButtonElement &&
+        candidate.getAttribute("data-testid") === `workflow-run-selector-row-${executionId}`,
+    );
+    if (!(row instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-run-row" };
+    }
+    row.click();
+    return { ok: true };
+  }
+
+  function workflowRunSelectorState() {
+    const toolbar = workflowToolbarElement('[data-testid="workflow-graph-toolbar"]');
+    const button = workflowToolbarElement('[data-testid="workflow-run-selector-button"]');
+    const rows = Array.from(
+      document.querySelectorAll('[data-testid^="workflow-run-selector-row-"]'),
+    ).map((row) => ({
+      current: row.getAttribute("aria-current") ?? "",
+      testId: row.getAttribute("data-testid") ?? "",
+      text: row.textContent?.trim().replace(/\s+/g, " ") ?? "",
+    }));
+    return {
+      buttonDisabled: button instanceof HTMLButtonElement ? button.disabled : true,
+      buttonExists: button instanceof HTMLButtonElement,
+      buttonText: button instanceof HTMLButtonElement ? (button.textContent?.trim() ?? "") : "",
+      menuOpen: Boolean(document.querySelector('[data-testid="workflow-run-selector-menu"]')),
+      rows,
+      toolbarVisible:
+        toolbar instanceof HTMLElement &&
+        toolbar.getBoundingClientRect().width > 0 &&
+        toolbar.getBoundingClientRect().height > 0,
+    };
+  }
+
   function workflowToolbarElement(selector) {
     return activeWorkflowGraphHost()?.querySelector(selector) ?? document.querySelector(selector);
   }
@@ -847,7 +909,7 @@
     return {
       edges: [
         {
-          condition: null,
+          condition: alwaysCondition(),
           fromNodeId: "start",
           id: "start_work",
           kind: "normal",
@@ -896,6 +958,79 @@
           title: "End",
         },
       ],
+    };
+  }
+
+  function alwaysCondition() {
+    return {
+      exitCode: null,
+      invert: false,
+      kind: "always",
+      nodeId: "",
+      signalName: "",
+      signalValue: "",
+      status: null,
+    };
+  }
+
+  async function updateWorkflowProjectionFixtureNodeTitle({
+    definitionId,
+    nodeId,
+    title,
+    workspaceId,
+  }) {
+    const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
+    const graph = {
+      ...definition.graph,
+      nodes: definition.graph.nodes.map((node) => (node.id === nodeId ? { ...node, title } : node)),
+    };
+    const updated = await window.setta.workflow.updateDefinition(
+      workspaceId,
+      definitionId,
+      definition.name,
+      definition.description,
+      graph,
+    );
+    window.dispatchEvent(
+      new CustomEvent(workflowDefinitionChangedEventName, {
+        detail: { definitionId, workspaceId },
+      }),
+    );
+    return {
+      definitionId: updated.id,
+      nodeId,
+      title,
+    };
+  }
+
+  async function removeWorkflowProjectionFixtureNode({ definitionId, nodeId, workspaceId }) {
+    const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
+    const graph = {
+      ...definition.graph,
+      edges: definition.graph.edges.filter(
+        (edge) => edge.fromNodeId !== nodeId && edge.toNodeId !== nodeId,
+      ),
+      layout: {
+        ...definition.graph.layout,
+        nodes: definition.graph.layout.nodes.filter((layoutNode) => layoutNode.nodeId !== nodeId),
+      },
+      nodes: definition.graph.nodes.filter((node) => node.id !== nodeId),
+    };
+    const updated = await window.setta.workflow.updateDefinition(
+      workspaceId,
+      definitionId,
+      definition.name,
+      definition.description,
+      graph,
+    );
+    window.dispatchEvent(
+      new CustomEvent(workflowDefinitionChangedEventName, {
+        detail: { definitionId, workspaceId },
+      }),
+    );
+    return {
+      definitionId: updated.id,
+      nodeId,
     };
   }
 
@@ -1145,7 +1280,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v5",
+    version: "setta-e2e-driver-v6",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
@@ -1154,14 +1289,18 @@
     configureWorkflowResultAction,
     createWorkflowProjectionFixture,
     nullWorkflowValidation,
+    openWorkflowRunSelector,
     openWorkflowToolbarAddMenu,
     readWorkflowExecution,
     renameWorkflowDefinitionFromCurrentGraph,
+    removeWorkflowProjectionFixtureNode,
     restoreMaximizedWorkflowGraphPane,
     selectWorkflowNodeType,
+    selectWorkflowRunSelectorRow,
     selectWorkflowToolbarNodeType,
     setWorkflowSettingsControlValue,
     sidebarWorkflowRows,
+    updateWorkflowProjectionFixtureNodeTitle,
     workflowContextMenuPosition,
     workflowDefinitions,
     workflowGraphCanvasRect,
@@ -1175,6 +1314,8 @@
     workflowNodeDetailsButtonState,
     workflowNodeDetailsSurfaceState,
     workflowRunDetailsText,
+    workflowRunSelectorState,
+    workflowToolbarButtonState,
     workflowToolbarState,
     workflowWorkspaceSessionState,
   };

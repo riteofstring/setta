@@ -51,11 +51,6 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "pane-drag-drop-workflow.test.mjs",
-    name: "pane-drag-drop",
-    tiers: ["required"],
-  },
-  {
     file: "dom-pane-snapshot-scroll-workflow.test.mjs",
     name: "dom-pane-snapshot-scroll",
     tiers: ["required"],
@@ -68,6 +63,21 @@ export const electronWorkflows = [
   {
     file: "workflow-graph-smoke.test.mjs",
     name: "workflow-graph-smoke",
+    tiers: ["required"],
+  },
+  {
+    file: "workflow-activity-feed.test.mjs",
+    name: "workflow-activity-feed",
+    tiers: ["required"],
+  },
+  {
+    file: "workflow-run-navigation.test.mjs",
+    name: "workflow-run-navigation",
+    tiers: ["required"],
+  },
+  {
+    file: "workflow-graph-interaction-cancellation.test.mjs",
+    name: "workflow-graph-interaction-cancellation",
     tiers: ["required"],
   },
   {
@@ -108,11 +118,6 @@ export const electronWorkflows = [
   {
     file: "overview-zoom-performance.test.mjs",
     name: "overview-zoom-performance",
-    tiers: ["performance"],
-  },
-  {
-    file: "pane-drag-drop-benchmark-performance.test.mjs",
-    name: "pane-drag-drop-benchmark-performance",
     tiers: ["performance"],
   },
   {

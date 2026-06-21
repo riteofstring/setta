@@ -17,7 +17,6 @@ interface FrameSchedulerDependencies {
   engine: WorkspaceLikeLayoutEngine;
   layoutStore: WorkspaceLayoutStore;
   metrics: WorkspaceMetricsCollector;
-  movementOverride?: () => boolean;
   presentation: PresentationEngine;
   reportWriter: PerformanceReportWriter | null;
   runtimePolicy: PaneRuntimePolicy;
@@ -54,7 +53,6 @@ export class FrameScheduler {
   private readonly engine: WorkspaceLikeLayoutEngine;
   private readonly layoutStore: WorkspaceLayoutStore;
   private readonly metrics: WorkspaceMetricsCollector;
-  private readonly movementOverride: () => boolean;
   private readonly presentation: PresentationEngine;
   private readonly reportWriter: PerformanceReportWriter | null;
   private readonly runtimePolicy: PaneRuntimePolicy;
@@ -65,7 +63,6 @@ export class FrameScheduler {
     this.engine = dependencies.engine;
     this.layoutStore = dependencies.layoutStore;
     this.metrics = dependencies.metrics;
-    this.movementOverride = dependencies.movementOverride ?? (() => false);
     this.presentation = dependencies.presentation;
     this.reportWriter = dependencies.reportWriter;
     this.runtimePolicy = dependencies.runtimePolicy;
@@ -160,9 +157,7 @@ export class FrameScheduler {
     this.syncOverviewViewport(snapshot, viewport);
     const targetOverviewProgress = snapshot.presentationMode === "overview" ? 1 : 0;
     const zooming = Math.abs(snapshot.overviewProgress - targetOverviewProgress) > 0.001;
-    const paneDropPreviewing = this.layoutStore.hasPaneDropPreview();
-    const renderMovementPhase =
-      zooming || paneDropPreviewing || this.movementOverride() ? "moving" : movementPhase;
+    const renderMovementPhase = zooming ? "moving" : movementPhase;
     this.lastFrameNeedsContinuation = renderMovementPhase === "moving" || resizePhase === "active";
     this.items.length = 0;
     this.metrics.beginFrame({ moving: renderMovementPhase === "moving", resizePhase });

@@ -634,41 +634,6 @@ describe("workspace surface registry", () => {
     }
   });
 
-  test("does not start bitmap warmup while a pane drag source is active", () => {
-    const captureRendererRegion = vi.fn().mockResolvedValue({
-      capturedAt: 123,
-      height: 480,
-      imageDataUrl: "data:image/png;base64,AAAA",
-      width: 640,
-    });
-    vi.stubGlobal("window", {
-      setta: {
-        app: {
-          captureRendererRegion,
-        },
-      },
-    });
-    try {
-      const pane = fakePane("chat-dom");
-      const adapter = new ScrollableTexturedSurfaceAdapter(pane);
-      const metrics = new RecordingSnapshotMetrics();
-      const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
-      const root = createFakeHost();
-      const activeDragSource = createFakeHost();
-      const host = createFakeHost();
-      root.setAttribute("data-testid", "workspace-layout-area");
-      activeDragSource.setAttribute("data-drag-source", "true");
-      root.append(activeDragSource, host);
-
-      registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
-
-      expect(captureRendererRegion).not.toHaveBeenCalled();
-      expect(metrics.captureRequests).toEqual([]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
   test("uses the warmed bitmap during overview handoff instead of cloning", async () => {
     const captureRendererRegion = vi.fn().mockResolvedValue({
       capturedAt: 123,

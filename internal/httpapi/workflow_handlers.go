@@ -120,6 +120,23 @@ func (handler handler) startWorkflowExecution(response http.ResponseWriter, requ
 	writeJSON(response, http.StatusOK, execution)
 }
 
+func (handler handler) listWorkflowExecutions(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload ListWorkflowExecutionsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	executions, err := service.ListExecutionSummariesForDefinition(payload.WorkspaceID, payload.DefinitionID, payload.Limit)
+	if err != nil {
+		writeWorkflowError(response, "list_workflow_executions_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, ListWorkflowExecutionsResponse{Executions: executions})
+}
+
 func (handler handler) cancelWorkflowExecution(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {
