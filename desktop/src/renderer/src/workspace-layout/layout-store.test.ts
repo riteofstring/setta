@@ -555,6 +555,26 @@ describe("workspace layout store", () => {
     ]);
   });
 
+  test("resizes same-slot columns across vertical planes", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPaneToPlane("down");
+    const lowerColumn = requireColumnForPane(store.toScene(), lowerPaneId);
+
+    expect(store.resizePaneColumn(lowerPaneId, { unit: "px", value: 680 })).toBe(
+      lowerColumn.columnId,
+    );
+
+    const scene = store.toScene();
+    expect(requireColumnForPane(scene, "workspace_pane_0").widthSpec).toEqual({
+      unit: "px",
+      value: 680,
+    });
+    expect(requireColumnForPane(scene, lowerPaneId).widthSpec).toEqual({
+      unit: "px",
+      value: 680,
+    });
+  });
+
   test("manual horizontal resize previews movement and commits once", () => {
     const store = createStore();
     const revisions: number[] = [];
