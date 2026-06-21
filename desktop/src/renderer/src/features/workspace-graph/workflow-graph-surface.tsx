@@ -478,6 +478,10 @@ export function WorkflowGraphSurface({
       setWorkflowEditorError(preflight.message);
       return;
     }
+    // Clear any draft validation overlay synchronously as the run is accepted — batched with the
+    // Starting state below — so a prior "valid" panel never renders through the Starting/loading
+    // frames. startWorkflowDraftRun re-populates diagnostics only if the pre-run revalidation fails.
+    setWorkflowValidation(null);
     setWorkflowOperation("run");
     setWorkflowEditorError("");
     try {
@@ -525,12 +529,14 @@ export function WorkflowGraphSurface({
       return;
     }
     setWorkflowEditorError("");
+    // Drop any stale draft validation before the switch loads, so it never re-displays over the
+    // returning draft graph without first being re-read against the current draft.
+    setWorkflowValidation(null);
     try {
       await loadWorkflowGraphTarget(
         workflowGraphDraftTarget(workflowProjection.workspaceId, workflowProjection.definitionId),
         "draft-validation-local",
       );
-      setWorkflowValidation(null);
     } catch (error: unknown) {
       setWorkflowEditorError(error instanceof Error ? error.message : "Workflow draft load failed");
     }
@@ -540,12 +546,14 @@ export function WorkflowGraphSurface({
       return;
     }
     setWorkflowEditorError("");
+    // Clear the draft validation overlay before the run loading frame so it cannot linger over
+    // the active run graph during or after the switch.
+    setWorkflowValidation(null);
     try {
       await loadWorkflowGraphTarget(
         workflowGraphTargetForRunSummary(activeWorkflowRun),
         "workflow-projection",
       );
-      setWorkflowValidation(null);
     } catch (error: unknown) {
       setWorkflowEditorError(
         error instanceof Error ? error.message : "Workflow run projection load failed",
@@ -555,12 +563,14 @@ export function WorkflowGraphSurface({
   const selectWorkflowRun = useCallback(
     async (summary: WorkflowExecutionSummary) => {
       setWorkflowEditorError("");
+      // Clear the draft validation overlay before the run loading frame so it cannot linger over
+      // the selected run graph during or after the switch.
+      setWorkflowValidation(null);
       try {
         await loadWorkflowGraphTarget(
           workflowGraphTargetForRunSummary(summary),
           "workflow-projection",
         );
-        setWorkflowValidation(null);
       } catch (error: unknown) {
         setWorkflowEditorError(
           error instanceof Error ? error.message : "Workflow run projection load failed",
@@ -872,7 +882,10 @@ export function WorkflowGraphSurface({
         })}
         workflowProjectionError={workflowProjectionError}
       />
-      <WorkflowValidationLayer workflowValidation={workflowValidation} />
+      <WorkflowValidationLayer
+        projection={workflowProjection}
+        workflowValidation={workflowValidation}
+      />
       <WorkflowContextMenuLayer
         addWorkflowDraftNode={addWorkflowDraftNode}
         workflowContextMenu={workflowContextMenu}

@@ -13,6 +13,7 @@ import {
   WorkflowValidationPanel,
   type WorkflowToolbarOperation,
   workflowNodeMenuItems,
+  workflowProjectionViewingDraft,
 } from "./workflow-graph-toolbar";
 import type { WorkflowDraftNodeType } from "./workflow-graph-draft";
 
@@ -113,11 +114,16 @@ export function WorkflowGraphStateLayers({
 }
 
 export function WorkflowValidationLayer({
+  projection,
   workflowValidation,
 }: {
+  projection: WorkflowGraphProjection | null;
   workflowValidation: WorkflowValidationResult | null;
 }) {
-  if (!workflowValidation) {
+  // Validation is a draft-only overlay. Gate the panel on the displayed draft view so a stale
+  // result can never leave DOM in the way of a run or version graph; mode switches clear the
+  // state, and this guard keeps the panel out of run views structurally.
+  if (!workflowValidation || !workflowProjectionViewingDraft(projection)) {
     return null;
   }
   return <WorkflowValidationPanel validation={workflowValidation} />;

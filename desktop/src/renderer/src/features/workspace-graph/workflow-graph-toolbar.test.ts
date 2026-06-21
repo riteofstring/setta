@@ -12,6 +12,7 @@ import {
   workflowToolbarShowsStopButton,
   workflowToolbarStateLabel,
   workflowToolbarVersionLabel,
+  workflowProjectionViewingDraft,
   workflowRunSelectorItems,
 } from "./workflow-graph-toolbar";
 
@@ -253,6 +254,22 @@ describe("workflow graph toolbar run summaries", () => {
       "workflow_execution_newest",
       "workflow_execution_older",
     ]);
+  });
+});
+
+describe("workflow graph draft-only overlay scoping", () => {
+  test("treats blank and draft views as draft-only overlay surfaces", () => {
+    expect(workflowProjectionViewingDraft(null)).toBe(true);
+    expect(workflowProjectionViewingDraft(workflowProjection({ viewMode: "draft" }))).toBe(true);
+  });
+
+  test("excludes run and version views from draft-only overlays", () => {
+    expect(workflowProjectionViewingDraft(workflowProjection({ viewMode: "run" }))).toBe(false);
+    expect(
+      workflowProjectionViewingDraft(
+        workflowProjection({ executionId: "", executionStatus: null, viewMode: "version" }),
+      ),
+    ).toBe(false);
   });
 });
 

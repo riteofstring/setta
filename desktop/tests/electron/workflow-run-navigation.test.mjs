@@ -88,7 +88,7 @@ try {
     { label: "draft-no-active-run" },
   );
 
-  const firstExecutionId = await startWorkflowRunFromToolbar(
+  const firstExecutionId = await startWorkflowRunWithValidationOverlayCheck(
     context.client,
     workflowGraphSurfaceId,
     projection.definitionId,
@@ -143,6 +143,8 @@ try {
   await waitForToolbarButtonState(context.client, "workflow-stop-button", (state) => {
     return state.exists && !state.disabled && state.text.includes("Stop");
   });
+  // The draft validation overlay must stay absent in run views, not just at the Starting frame.
+  await waitForWorkflowValidationPanel(context.client, (state) => !state.exists);
   await captureWorkflowRunNavigationScreenshot(
     context.client,
     workflowGraphSurfaceId,
@@ -313,6 +315,54 @@ async function setWorkflowActionPrompt(client, workspaceId, definitionId, prompt
   if (!result?.ok) {
     throw new Error(`workflow prompt update failed: ${JSON.stringify(result)}`);
   }
+}
+
+async function startWorkflowRunWithValidationOverlayCheck(client, surfaceId, definitionId) {
+  // Surface a "valid" draft validation panel, then prove that accepting the run clears it
+  // synchronously: it must be gone at the Starting frame, not lingering until the run loads.
+  await clickWorkflowToolbarButton(client, "workflow-validate-button");
+  await waitForWorkflowValidationPanel(
+    client,
+    (state) => state.exists && state.text.includes("Workflow draft is valid"),
+  );
+  await waitForToolbarButtonState(
+    client,
+    "workflow-run-button",
+    (state) => state.exists && !state.disabled && state.text.includes("Run"),
+  );
+  await client.installDriver();
+  const accepted = await client.driver("clickWorkflowRunAndReadStartFrame");
+  if (!accepted.clicked) {
+    throw new Error(`workflow run button was not clickable: ${JSON.stringify(accepted)}`);
+  }
+  if (!accepted.observedStartingFrame) {
+    throw new Error(`run accept never exposed a Starting frame: ${JSON.stringify(accepted)}`);
+  }
+  if (accepted.validationPanelPresent) {
+    throw new Error(
+      `draft validation panel lingered into the Starting frame: ${JSON.stringify(accepted)}`,
+    );
+  }
+  const runProjection = await waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    (snapshot) =>
+      snapshot.graph.workflow?.definitionId === definitionId &&
+      snapshot.graph.workflow?.viewMode === "run" &&
+      snapshot.graph.workflow?.executionId !== "",
+  );
+  await waitForWorkflowValidationPanel(client, (state) => !state.exists);
+  return runProjection.graph.workflow.executionId;
+}
+
+async function waitForWorkflowValidationPanel(client, predicate) {
+  await client.installDriver();
+  return waitForState(
+    client,
+    driverCallExpression("workflowValidationPanelState"),
+    predicate,
+    20_000,
+  );
 }
 
 async function startWorkflowRunFromToolbar(client, surfaceId, definitionId) {

@@ -589,6 +589,52 @@
     };
   }
 
+  function workflowValidationPanelState() {
+    // The draft validation panel is a draft-only overlay inside the active workflow graph host.
+    const panel = workflowToolbarElement('[data-testid="workflow-validation-panel"]');
+    return {
+      exists: panel instanceof HTMLElement,
+      text:
+        panel instanceof HTMLElement ? (panel.textContent?.trim().replace(/\s+/g, " ") ?? "") : "",
+    };
+  }
+
+  async function clickWorkflowRunAndReadStartFrame() {
+    const runButton = workflowToolbarElement('[data-testid="workflow-run-button"]');
+    if (!(runButton instanceof HTMLButtonElement) || runButton.disabled) {
+      return { clicked: false, reason: "run-button-unavailable" };
+    }
+    runButton.click();
+    // The run-accept handler commits the Starting state and the cleared validation overlay in one
+    // React render, but that commit is async (click() does not flush it synchronously here). Spin
+    // on rAF until the toolbar shows Starting, then read the validation panel in the SAME frame so
+    // the Starting state and the panel presence are observed atomically — proving the panel is
+    // already gone at the Starting frame rather than lingering until the run projection loads.
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      const button = workflowToolbarElement('[data-testid="workflow-run-button"]');
+      if (!(button instanceof HTMLElement)) {
+        break;
+      }
+      const runButtonText = button.textContent?.trim() ?? "";
+      if (runButtonText.includes("Starting")) {
+        const panel = workflowToolbarElement('[data-testid="workflow-validation-panel"]');
+        return {
+          clicked: true,
+          observedStartingFrame: true,
+          runButtonText,
+          validationPanelPresent: panel instanceof HTMLElement,
+        };
+      }
+      await nextFrame();
+    }
+    const panel = workflowToolbarElement('[data-testid="workflow-validation-panel"]');
+    return {
+      clicked: true,
+      observedStartingFrame: false,
+      validationPanelPresent: panel instanceof HTMLElement,
+    };
+  }
+
   function openWorkflowRunSelector() {
     const button = workflowToolbarElement('[data-testid="workflow-run-selector-button"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -1280,11 +1326,12 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v6",
+    version: "setta-e2e-driver-v7",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
     clickWorkflowNodeDetailsButton,
+    clickWorkflowRunAndReadStartFrame,
     clickWorkflowToolbarButton,
     configureWorkflowResultAction,
     createWorkflowProjectionFixture,
@@ -1317,6 +1364,7 @@
     workflowRunSelectorState,
     workflowToolbarButtonState,
     workflowToolbarState,
+    workflowValidationPanelState,
     workflowWorkspaceSessionState,
   };
 })();

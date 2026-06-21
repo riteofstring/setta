@@ -584,7 +584,7 @@ function workflowToolbarModel({
 }) {
   const disabled = workflowToolbarDisabled(ready, workspaceId, busy, loading);
   const editable = workflowProjectionIsEditableDraft(projection);
-  const viewingDraft = projection === null || projection.viewMode === "draft";
+  const viewingDraft = workflowProjectionViewingDraft(projection);
   return {
     detailsDisabled: workflowDetailsDisabled(disabled, selectedNodeLabel),
     detailsLabel: workflowDetailsLabel(selectedNodeLabel),
@@ -723,6 +723,12 @@ export function workflowToolbarDisabled(
 
 function workflowProjectionIsEditableDraft(projection: WorkflowGraphProjection | null) {
   return projection === null || (projection.viewMode === "draft" && projection.editable);
+}
+
+// True when the displayed projection is the blank or draft view. Draft-only overlays such as the
+// validation panel are scoped to this so they never render over a run or version graph.
+export function workflowProjectionViewingDraft(projection: WorkflowGraphProjection | null) {
+  return projection === null || projection.viewMode === "draft";
 }
 
 function workflowDetailsDisabled(disabled: boolean, selectedNodeLabel: string) {

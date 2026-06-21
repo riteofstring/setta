@@ -70,10 +70,15 @@ export async function startWorkflowDraftRun({
     projection.workspaceId,
     definition.graph,
   );
-  setWorkflowValidation(validation);
   if (!validation.valid) {
+    // Invalid draft: restore the diagnostics the caller cleared on run-accept and stay on the
+    // draft. No run starts, so the validation panel belongs to the draft the user keeps editing.
+    setWorkflowValidation(validation);
     return;
   }
+  // Valid draft: the caller already cleared the validation overlay synchronously when the run was
+  // accepted (batched with the Starting state), so it never lingers into the Starting or loading
+  // frames. Nothing to clear here.
   const execution = await window.setta.workflow.startExecution(
     projection.workspaceId,
     projection.definitionId,
