@@ -1,0 +1,91 @@
+import type { WorkflowGraphProjection } from "@generated/backend";
+
+export function testWorkflowGraphProjection(): WorkflowGraphProjection {
+  return {
+    definitionDescription: "",
+    definitionId: "definition_review",
+    definitionName: "Review workflow",
+    definitionVersionCreatedAt: "2026-06-05T12:00:00Z",
+    definitionVersionId: "version_review",
+    definitionVersionNumber: 2,
+    draftMatchesVersion: true,
+    draftRevision: "sha256:draft",
+    draftUpdatedAt: "2026-06-05T12:00:00Z",
+    editable: false,
+    edges: [
+      {
+        activeTokenCount: 0,
+        cancelledTokenCount: 0,
+        completedTokenCount: 1,
+        condition: null,
+        fromNodeId: "start",
+        id: "start_work",
+        kind: "normal",
+        label: "",
+        status: "completed",
+        toNodeId: "work",
+      },
+      {
+        activeTokenCount: 1,
+        cancelledTokenCount: 0,
+        completedTokenCount: 0,
+        condition: null,
+        fromNodeId: "work",
+        id: "work_end",
+        kind: "normal",
+        label: "",
+        status: "active",
+        toNodeId: "end",
+      },
+    ],
+    executionId: "execution_review",
+    executionStatus: "running",
+    lastEventOrdinal: 4,
+    layout: { nodes: [] },
+    nodes: [
+      projectedNode("start", "start", "succeeded", 1),
+      projectedNode("work", "action", "running", 2),
+      projectedNode("end", "end", "not_started", 0),
+    ],
+    schemaVersion: 1,
+    terminalReason: null,
+    updatedAt: "2026-06-05T12:00:00Z",
+    validation: {
+      currentDraftRevision: "sha256:draft",
+      currentGraphFingerprint: "sha256:graph",
+      currentValidatorFingerprint: "workflow-validator:v1",
+      snapshot: null,
+      status: "not_validated",
+    },
+    versionMismatch: false,
+    viewMode: "run",
+    workspaceId: "workspace_test",
+  };
+}
+
+function projectedNode(
+  id: string,
+  kind: WorkflowGraphProjection["nodes"][number]["kind"],
+  status: WorkflowGraphProjection["nodes"][number]["status"],
+  executionCount: number,
+): WorkflowGraphProjection["nodes"][number] {
+  return {
+    actionKind: null,
+    active: false,
+    error: "",
+    executionCount,
+    filePaths: [],
+    id,
+    kind,
+    label: id,
+    latestAttempt: 0,
+    latestIteration: 0,
+    latestNodeExecutionId: "",
+    pendingApproval: null,
+    recoveryMessage: "",
+    recoveryOutcome: null,
+    signals: [],
+    status,
+    title: "",
+  };
+}
