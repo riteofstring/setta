@@ -11,6 +11,7 @@ This report covers the first repair pass for workspace pane drag-and-drop:
 - requestAnimationFrame coalescing for drag preview updates,
 - drag-source host geometry isolation during preview frames,
 - drag-source host visibility preservation if a transient preview frame omits it,
+- drag-source host top-layer CSS without paint-heavy filter styling,
 - frame metrics for pane drag preview update and clear counts,
 - production-path Electron pointer workflow coverage for row, column, and
   overview ghost drops.
@@ -90,6 +91,14 @@ node --check tests/electron/pane-drag-drop-workflow.test.mjs
 
 Result: passed.
 
+Focused drag-source CSS formatting check:
+
+```sh
+pnpm exec prettier --check src/renderer/src/workspace-layout.css
+```
+
+Result: passed.
+
 | Area | After repair evidence |
 | --- | --- |
 | Cross-column pane drag | `layout-engine.test.ts` verifies a single pane leaves a stacked source column while siblings stay behind. |
@@ -103,6 +112,7 @@ Result: passed.
 | Rapid target changes | `pane-drag-reorder.test.ts` verifies rapid back-and-forth dragging records preview updates only for changed targets and does not emit duplicate updates for repeated same-target frames. |
 | Preview notification bounds | `layout-store.test.ts` verifies duplicate preview intents do not notify, changed intents notify once, and duplicate clears do not notify. |
 | Drag-source geometry ownership | `presentation-engine.test.ts` verifies hosts marked `data-drag-source` do not receive preview frame transform, size, or surface viewport sync until the drag-source flag is cleared. It also verifies an active drag-source host is not hidden if a transient preview frame omits it. |
+| Drag-source CSS stability | `workspace-layout.css` keeps the active drag source in a top layer with no brightness filter, avoiding filter-induced repaint work and sibling z-index flicker during pointer-driven moves. |
 | Preview metrics | `metrics.test.ts` verifies `paneDragPreviewUpdates` / `paneDragPreviewClears` snapshot and reset behavior. `pane-drag-reorder.test.ts` verifies the normal drag path records one coalesced update and records clears only when preview state clears. |
 | Production pointer workflow | `pane-drag-drop-workflow.test.mjs` drives CDP mouse events through the built Electron app for normal row drop, normal column drop, and overview right-ghost column drop. It is registered in the required workflow manifest. |
 
