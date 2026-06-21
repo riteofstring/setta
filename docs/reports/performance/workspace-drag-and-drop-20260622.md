@@ -10,6 +10,7 @@ This report covers the first repair pass for workspace pane drag-and-drop:
 - single-commit `after` placement,
 - requestAnimationFrame coalescing for drag preview updates,
 - drag-source host geometry isolation during preview frames,
+- frame metrics for pane drag preview update and clear counts,
 - production-path Electron pointer workflow coverage for row, column, and
   overview ghost drops.
 
@@ -51,7 +52,18 @@ Additional focused workspace-layout command:
 pnpm exec vitest run src/renderer/src/workspace-layout
 ```
 
-Result: 22 test files passed, 246 tests passed.
+Result: 22 test files passed, 248 tests passed.
+
+Focused drag metrics command:
+
+```sh
+pnpm exec vitest run \
+  src/renderer/src/workspace-layout/metrics.test.ts \
+  src/renderer/src/workspace-layout/pane-drag-reorder.test.ts \
+  src/renderer/src/workspace-layout/presentation-engine.test.ts
+```
+
+Result: 3 test files passed, 28 tests passed.
 
 Focused presentation-engine command:
 
@@ -87,6 +99,7 @@ Result: passed.
 | Preview coalescing | `pane-drag-reorder.test.ts` verifies multiple pointer moves before one animation frame produce one preview for the latest intent. |
 | Preview notification bounds | `layout-store.test.ts` verifies duplicate preview intents do not notify, changed intents notify once, and duplicate clears do not notify. |
 | Drag-source geometry ownership | `presentation-engine.test.ts` verifies hosts marked `data-drag-source` do not receive preview frame transform, size, or surface viewport sync until the drag-source flag is cleared. |
+| Preview metrics | `metrics.test.ts` verifies `paneDragPreviewUpdates` / `paneDragPreviewClears` snapshot and reset behavior. `pane-drag-reorder.test.ts` verifies the normal drag path records one coalesced update and records clears only when preview state clears. |
 | Production pointer workflow | `pane-drag-drop-workflow.test.mjs` drives CDP mouse events through the built Electron app for normal row drop, normal column drop, and overview right-ghost column drop. It is registered in the required workflow manifest. |
 
 ## Pending Profiling
@@ -95,10 +108,10 @@ Before calling the feature done, run a fresh production desktop build, then run
 the production Electron workflow and large workspace profiling in both normal and
 overview modes. Append the measured numbers here:
 
-| Mode | Preview recomputes per drag | React commits during drag | p95 frame | p99 frame | Dropped frames | Long tasks |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Normal | pending | pending | pending | pending | pending | pending |
-| Overview | pending | pending | pending | pending | pending | pending |
+| Mode | Preview updates per drag | Preview clears per drag | React commits during drag | p95 frame | p99 frame | Dropped frames | Long tasks |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Normal | pending | pending | pending | pending | pending | pending | pending |
+| Overview | pending | pending | pending | pending | pending | pending | pending |
 
 The production Electron workflow and Chrome frame profiling were not run in this
 slice because they need a fresh desktop build. The existing `desktop/out`
