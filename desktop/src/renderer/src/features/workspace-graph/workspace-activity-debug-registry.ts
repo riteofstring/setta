@@ -20,6 +20,8 @@ export interface WorkspaceActivityDebugSnapshot {
   retainedLimit: number;
   revisionGapReloads: number;
   snapshotsLoaded: number;
+  suppressedUnanchoredActivityCount: number;
+  suppressedUnanchoredActivityIds: string[];
   workspaceId: string;
 }
 

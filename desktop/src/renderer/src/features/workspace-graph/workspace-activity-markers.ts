@@ -6,7 +6,7 @@ import type {
 
 import type { WorkflowGraphGraph } from "./pixi-renderer";
 
-type WorkspaceActivityMarkerAnchorKind = "workflow_node" | "recent_lane";
+type WorkspaceActivityMarkerAnchorKind = "workflow_node";
 
 export interface WorkspaceActivityMarker {
   activityId: string;
@@ -30,10 +30,14 @@ export interface WorkspaceActivityMarkerMaterialization {
   updated: number;
 }
 
-const defaultMarkerLimit = 40;
-const anchoredNodeMarkerLimit = 8;
-const recentLaneLimit = 8;
+export interface WorkspaceActivityMarkerProjection {
+  markers: WorkspaceActivityMarker[];
+  suppressedUnanchoredActivityCount: number;
+  suppressedUnanchoredActivityIds: string[];
+}
+
 const markerLabelLimit = 96;
+const suppressedUnanchoredActivityDebugLimit = 24;
 const activityStatusActive = {
   answered: false,
   approved: false,
@@ -46,24 +50,52 @@ const activityStatusActive = {
   unknown: false,
   waiting_approval: true,
 } satisfies Record<WorkspaceActivityStatus, boolean>;
+const activityStatusLabels = {
+  answered: "answered",
+  approved: "approved",
+  cancelled: "cancelled",
+  completed: "completed",
+  denied: "denied",
+  failed: "failed",
+  pending: "pending",
+  running: "running",
+  unknown: "updated",
+  waiting_approval: "waiting",
+} satisfies Record<WorkspaceActivityStatus, string>;
+const primaryLabelStatusPrefixes = new Set<WorkspaceActivityStatus>([
+  "cancelled",
+  "denied",
+  "failed",
+  "waiting_approval",
+]);
 
 export function projectWorkspaceActivityMarkers({
   graph,
-  limit = defaultMarkerLimit,
   records,
 }: {
   graph: WorkflowGraphGraph | null | undefined;
-  limit?: number;
   records: readonly WorkspaceActivityRecord[];
 }): WorkspaceActivityMarker[] {
+  return projectWorkspaceActivityMarkerProjection({ graph, records }).markers;
+}
+
+export function projectWorkspaceActivityMarkerProjection({
+  graph,
+  records,
+}: {
+  graph: WorkflowGraphGraph | null | undefined;
+  records: readonly WorkspaceActivityRecord[];
+}): WorkspaceActivityMarkerProjection {
   if (!graph?.workflow) {
-    return [];
+    return emptyMarkerProjection();
   }
   const workflowNodeIds = workflowRendererNodeIds(graph);
-  const nodeMarkers = anchoredMarkersByNode(records, graph, workflowNodeIds);
-  const anchored = markersWithNodeSlots(nodeMarkers);
-  const recentLane = unanchoredRecentLaneMarkers(records, graph, workflowNodeIds);
-  return [...anchored, ...recentLane].slice(0, Math.max(1, limit));
+  const projection = anchoredMarkersByNode(records, graph, workflowNodeIds);
+  return {
+    markers: markersWithNodeSlots(projection.markersByNode),
+    suppressedUnanchoredActivityCount: projection.suppressedUnanchoredActivityCount,
+    suppressedUnanchoredActivityIds: projection.suppressedUnanchoredActivityIds,
+  };
 }
 
 export function workspaceActivityMarkerMaterializationDiff(
@@ -104,12 +136,18 @@ function anchoredMarkersByNode(
   workflowNodeIds: ReadonlySet<string>,
 ) {
   const markers = new Map<string, WorkspaceActivityMarker[]>();
+  let suppressedUnanchoredActivityCount = 0;
+  const suppressedUnanchoredActivityIds: string[] = [];
   for (const record of sortedActivityRecords(records)) {
     if (!recordMatchesWorkflow(record, graph.workflow)) {
       continue;
     }
     const nodeId = anchoredWorkflowNodeId(record, workflowNodeIds);
     if (nodeId === null) {
+      suppressedUnanchoredActivityCount += 1;
+      if (suppressedUnanchoredActivityIds.length < suppressedUnanchoredActivityDebugLimit) {
+        suppressedUnanchoredActivityIds.push(record.activityId);
+      }
       continue;
     }
     markers.set(nodeId, [
@@ -117,28 +155,11 @@ function anchoredMarkersByNode(
       markerFromRecord(record, "workflow_node", nodeId, -1, 0),
     ]);
   }
-  return markers;
-}
-
-function unanchoredRecentLaneMarkers(
-  records: readonly WorkspaceActivityRecord[],
-  graph: WorkflowGraphGraph,
-  workflowNodeIds: ReadonlySet<string>,
-) {
-  const markers: WorkspaceActivityMarker[] = [];
-  for (const record of sortedActivityRecords(records)) {
-    if (markers.length >= recentLaneLimit) {
-      break;
-    }
-    if (!recordMatchesWorkflow(record, graph.workflow)) {
-      continue;
-    }
-    if (anchoredWorkflowNodeId(record, workflowNodeIds) !== null) {
-      continue;
-    }
-    markers.push(markerFromRecord(record, "recent_lane", "", markers.length, markers.length));
-  }
-  return markers;
+  return {
+    markersByNode: markers,
+    suppressedUnanchoredActivityCount,
+    suppressedUnanchoredActivityIds,
+  };
 }
 
 function markersWithNodeSlots(byNode: ReadonlyMap<string, WorkspaceActivityMarker[]>) {
@@ -146,7 +167,7 @@ function markersWithNodeSlots(byNode: ReadonlyMap<string, WorkspaceActivityMarke
   for (const [, nodeMarkers] of [...byNode.entries()].sort(([left], [right]) =>
     left.localeCompare(right),
   )) {
-    for (const [slotIndex, marker] of nodeMarkers.slice(0, anchoredNodeMarkerLimit).entries()) {
+    for (const [slotIndex, marker] of nodeMarkers.entries()) {
       result.push({
         ...marker,
         slotIndex,
@@ -167,10 +188,7 @@ function markerFromRecord(
     activityId: record.activityId,
     active: activeActivityStatus(record.status),
     anchorKind,
-    id:
-      anchorKind === "workflow_node"
-        ? workflowNodeMarkerId(nodeId, record.activityId)
-        : `workspace-activity:recent:${record.activityId}`,
+    id: workflowNodeMarkerId(nodeId, record.activityId),
     kind: record.kind,
     label: activityMarkerLabel(record),
     laneIndex,
@@ -247,27 +265,31 @@ const activityMarkerLabelBuilders = {
 } satisfies Record<WorkspaceActivityKind, (record: WorkspaceActivityRecord) => string>;
 
 function commandMarkerLabel(record: WorkspaceActivityRecord) {
+  const command = record.command?.commandPreview ?? "";
   return boundedMarkerLabel(
-    ["Command", record.status, record.command?.commandPreview ?? ""].filter(Boolean).join(" "),
-  );
-}
-
-function fileChangeMarkerLabel(record: WorkspaceActivityRecord) {
-  return boundedMarkerLabel(
-    [
-      "File change",
-      record.status,
-      fileChangePathLabel(record.fileChange?.paths ?? [], record.fileChange?.pathCount ?? 0),
-      record.fileChange?.patchStatus ?? "",
-    ]
+    ["Command", statusPrefixForPrimaryLabel(record.status, command), command]
       .filter(Boolean)
       .join(" "),
   );
 }
 
+function fileChangeMarkerLabel(record: WorkspaceActivityRecord) {
+  const path = fileChangePathLabel(
+    record.fileChange?.paths ?? [],
+    record.fileChange?.pathCount ?? 0,
+  );
+  return boundedMarkerLabel(
+    ["File", statusPrefixForPrimaryLabel(record.status, path), path].filter(Boolean).join(" "),
+  );
+}
+
 function approvalMarkerLabel(record: WorkspaceActivityRecord) {
   return boundedMarkerLabel(
-    ["Approval", record.status, record.approval?.title ?? "", record.approval?.targetLabel ?? ""]
+    [
+      "Approval",
+      activityStatusLabel(record.status),
+      firstNonEmpty(record.approval?.title ?? "", record.approval?.targetLabel ?? ""),
+    ]
       .filter(Boolean)
       .join(" "),
   );
@@ -275,19 +297,34 @@ function approvalMarkerLabel(record: WorkspaceActivityRecord) {
 
 function workflowStatusMarkerLabel(record: WorkspaceActivityRecord) {
   return boundedMarkerLabel(
-    ["Workflow", record.status, record.workflow?.eventType ?? "", record.workflow?.message ?? ""]
+    ["Workflow", activityStatusLabel(record.status), record.workflow?.message ?? ""]
       .filter(Boolean)
       .join(" "),
   );
 }
 
 function fileChangePathLabel(paths: readonly string[], pathCount: number) {
-  const firstPath = paths[0] ?? "";
+  const firstPath = displayPathLabel(paths[0] ?? "");
   if (firstPath === "") {
     return pathCount > 0 ? `${pathCount} paths` : "";
   }
   const remaining = Math.max(0, pathCount - 1);
   return remaining === 0 ? firstPath : `${firstPath} +${remaining}`;
+}
+
+function displayPathLabel(path: string) {
+  const normalized = path.replaceAll("\\", "/");
+  return normalized.split("/").filter(Boolean).at(-1) ?? "";
+}
+
+function statusPrefixForPrimaryLabel(status: WorkspaceActivityStatus, primary: string) {
+  return primary === "" || primaryLabelStatusPrefixes.has(status)
+    ? activityStatusLabel(status)
+    : "";
+}
+
+function activityStatusLabel(status: WorkspaceActivityStatus) {
+  return activityStatusLabels[status];
 }
 
 function boundedMarkerLabel(value: string) {
@@ -300,6 +337,14 @@ function boundedMarkerLabel(value: string) {
 
 function workflowNodeMarkerId(nodeId: string, activityId: string) {
   return `workspace-activity:node:${nodeId}:${activityId}`;
+}
+
+function emptyMarkerProjection(): WorkspaceActivityMarkerProjection {
+  return {
+    markers: [],
+    suppressedUnanchoredActivityCount: 0,
+    suppressedUnanchoredActivityIds: [],
+  };
 }
 
 function workspaceActivityMarkerFingerprint(marker: WorkspaceActivityMarker) {

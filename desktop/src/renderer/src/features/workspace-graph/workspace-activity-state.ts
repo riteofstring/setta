@@ -10,9 +10,10 @@ import {
   type WorkspaceActivityDebugSnapshot,
 } from "./workspace-activity-debug-registry";
 import {
-  projectWorkspaceActivityMarkers,
+  projectWorkspaceActivityMarkerProjection,
   type WorkspaceActivityMarker,
   type WorkspaceActivityMarkerMaterialization,
+  type WorkspaceActivityMarkerProjection,
 } from "./workspace-activity-markers";
 import type { WorkflowGraphGraph } from "./pixi-renderer";
 
@@ -80,18 +81,18 @@ export function useWorkspaceActivityState({
     if (!materialize) {
       return;
     }
-    const markers = projectWorkspaceActivityMarkers({
+    const projection = projectWorkspaceActivityMarkerProjection({
       graph: activityGraphRef.current,
       records: stateRef.current.records,
     });
-    const materialization = materialize(markers);
+    const materialization = materialize(projection.markers);
     if (materialization === null) {
       return;
     }
     stateRef.current = recordWorkspaceActivityMarkerMaterialization(
       stateRef.current,
       materialization,
-      markers,
+      projection,
     );
   }, []);
 
@@ -321,6 +322,8 @@ function emptyWorkspaceActivityDebugSnapshot(
     retainedLimit: limit,
     revisionGapReloads: 0,
     snapshotsLoaded: 0,
+    suppressedUnanchoredActivityCount: 0,
+    suppressedUnanchoredActivityIds: [],
     workspaceId,
   };
 }
@@ -328,7 +331,7 @@ function emptyWorkspaceActivityDebugSnapshot(
 export function recordWorkspaceActivityMarkerMaterialization(
   state: WorkspaceActivityState,
   materialization: WorkspaceActivityMarkerMaterialization,
-  markers: readonly WorkspaceActivityMarker[],
+  projection: WorkspaceActivityMarkerProjection,
 ): WorkspaceActivityState {
   return {
     ...state,
@@ -338,7 +341,9 @@ export function recordWorkspaceActivityMarkerMaterialization(
       markerRemovedCount: state.debug.markerRemovedCount + materialization.removed,
       markerRetainedCount: state.debug.markerRetainedCount + materialization.retained,
       markerUpdatedCount: state.debug.markerUpdatedCount + materialization.updated,
-      markers: markers.map((marker) => ({ ...marker })),
+      markers: projection.markers.map((marker) => ({ ...marker })),
+      suppressedUnanchoredActivityCount: projection.suppressedUnanchoredActivityCount,
+      suppressedUnanchoredActivityIds: [...projection.suppressedUnanchoredActivityIds],
     },
   };
 }

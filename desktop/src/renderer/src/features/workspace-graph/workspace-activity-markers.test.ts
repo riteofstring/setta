@@ -8,6 +8,7 @@ import type {
 } from "@generated/backend";
 import type { WorkflowGraphGraph } from "./pixi-renderer";
 import {
+  projectWorkspaceActivityMarkerProjection,
   projectWorkspaceActivityMarkers,
   workspaceActivityMarkerMaterializationDiff,
   type WorkspaceActivityMarker,
@@ -34,6 +35,12 @@ describe("workspace activity markers", () => {
     expect(markers.map((marker) => marker.slotIndex)).toEqual([0, 1, 2, 3]);
     expect(markers.find((marker) => marker.kind === "approval")?.active).toBe(true);
     expect(markers.find((marker) => marker.kind === "command")?.active).toBe(false);
+    expect(markers.map((marker) => marker.label)).toEqual([
+      "Workflow running action started",
+      "Command printf scripted-activity",
+      "File scripted-activity-file.txt",
+      "Approval waiting Command approval",
+    ]);
   });
 
   test("keeps distinct command records for the same node", () => {
@@ -51,8 +58,21 @@ describe("workspace activity markers", () => {
     ]);
   });
 
-  test("uses a bounded recent lane for execution-level activity and filters other executions", () => {
+  test("keeps all anchored records so chip overflow counts are complete", () => {
+    const records = Array.from({ length: 45 }, (_, index) =>
+      activityRecord(`command_${index}`, "command", "completed", index + 1, "work"),
+    );
     const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph(),
+      records,
+    });
+
+    expect(markers).toHaveLength(records.length);
+    expect(markers.map((marker) => marker.slotIndex)).toEqual(records.map((_, index) => index));
+  });
+
+  test("suppresses execution-level activity and filters other executions", () => {
+    const projection = projectWorkspaceActivityMarkerProjection({
       graph: workflowGraph(),
       records: [
         activityRecord("other", "workflow_status", "running", 3, "", "execution_other"),
@@ -60,14 +80,9 @@ describe("workspace activity markers", () => {
       ],
     });
 
-    expect(markers).toEqual([
-      expect.objectContaining({
-        activityId: "activity_execution",
-        anchorKind: "recent_lane",
-        laneIndex: 0,
-        nodeId: "",
-      }),
-    ]);
+    expect(projection.markers).toEqual([]);
+    expect(projection.suppressedUnanchoredActivityCount).toBe(1);
+    expect(projection.suppressedUnanchoredActivityIds).toEqual(["activity_execution"]);
   });
 
   test("counts marker creation, update, retention, and removal by stable marker id", () => {

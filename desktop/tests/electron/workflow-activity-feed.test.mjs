@@ -21,6 +21,7 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import {
+  dispatchWorkflowGraphWheel,
   maximizeWorkflowGraphPane,
   openWorkflowGraphPane,
   pagePointForCanvasPoint,
@@ -52,7 +53,7 @@ const phase3FailedExpectation = {
     ["start_activity", "completed"],
     ["activity_end", "idle"],
   ],
-  markers: [["workflow_status", "failed"]],
+  markers: [],
   nodes: [["activity", "failed"]],
 };
 const phase3CancelledExpectation = {
@@ -60,9 +61,17 @@ const phase3CancelledExpectation = {
     ["start_activity", "completed"],
     ["activity_end", "idle"],
   ],
-  markers: [["workflow_status", "cancelled"]],
+  markers: [],
   nodes: [["activity", "cancelled"]],
 };
+const requiredVisualGrammarFields = [
+  "activityChipLayout",
+  "activityChipStatesById",
+  "activityChips",
+  "activityMarkerStatesById",
+  "edgeStatesById",
+  "nodeStatesById",
+];
 
 if (options.help) {
   console.log(
@@ -179,6 +188,7 @@ try {
     phase3WaitingApprovalVisualGrammarReady,
   );
   assertPhase3WaitingApprovalVisualGrammar(waitingVisualDebug);
+  assertPhase35AWaitingApprovalChips(waitingVisualDebug);
   await captureScreenshot(context.client, join(artifactDir, "activity-feed-waiting-approval.png"));
 
   const activitySnapshot = await waitForActivitySnapshot(
@@ -196,7 +206,15 @@ try {
   );
   assertPhase2BCompletionMarkers(completedActivityDebug.activity);
   assertPhase3CompletedVisualGrammar(completedActivityDebug);
+  assertPhase35AReadableChips(completedActivityDebug);
   await captureScreenshot(context.client, join(artifactDir, "activity-feed-completed.png"));
+  const compactActivityDebug = await zoomActivityChipsToCompact(
+    context.client,
+    workflowGraphSurfaceId,
+    completedActivityDebug,
+  );
+  assertPhase35ACompactChipLod(completedActivityDebug, compactActivityDebug);
+  await captureScreenshot(context.client, join(artifactDir, "activity-feed-compact-lod.png"));
 
   const consoleRows = await readJsonLinesOptional(join(artifactDir, "renderer-console.jsonl"));
   const consoleErrors = consoleRows.filter((row) => Number(row.level) >= 2);
@@ -211,6 +229,18 @@ try {
     failedVisualGrammar: failedVisualDebug.visualGrammar,
     activityKinds: activitySnapshot.activities.map((activity) => activity.kind),
     activityMarkers: completedActivityDebug.activity.markers,
+    activityChips: completedActivityDebug.visualGrammar.activityChips,
+    activityChipReadableTextZoomThreshold:
+      completedActivityDebug.visualGrammar.activityChipLayout.config.readableTextZoomThreshold,
+    readableActivityChipPlacements: completedActivityDebug.visualGrammar.activityChips.map(
+      activityChipPlacementSummary,
+    ),
+    compactActivityChips: compactActivityDebug.visualGrammar.activityChips,
+    compactActivityNodeLabel:
+      compactActivityDebug.graph.nodes.find((node) => node.id === "activity")?.label ?? null,
+    compactCameraZoom: compactActivityDebug.camera.zoom,
+    compactLabelVisibilityMode: compactActivityDebug.render.labelVisibilityMode,
+    compactVisibleLabelCount: compactActivityDebug.render.visibleLabelCount,
     visualGrammar: completedActivityDebug.visualGrammar,
     artifactDir,
     status: "passed",
@@ -581,7 +611,7 @@ function assertPhase3FailedVisualGrammar(snapshot) {
   assertNodeVisualState(snapshot, "end", "idle");
   assertEdgeVisualState(snapshot, "start_activity", "completed");
   assertEdgeVisualState(snapshot, "activity_end", "idle");
-  assertMarkerVisualState(snapshot, "workflow_status", "failed");
+  assertPhase35AUnanchoredActivitySuppressed(snapshot);
 }
 
 function phase3CancelledVisualGrammarReady(snapshot) {
@@ -595,16 +625,211 @@ function assertPhase3CancelledVisualGrammar(snapshot) {
   assertNodeVisualState(snapshot, "end", "idle");
   assertEdgeVisualState(snapshot, "start_activity", "completed");
   assertEdgeVisualState(snapshot, "activity_end", "idle");
-  assertMarkerVisualState(snapshot, "workflow_status", "cancelled");
+  assertPhase35AUnanchoredActivitySuppressed(snapshot);
 }
 
 function assertVisualGrammarShape(snapshot) {
-  if (
-    snapshot.visualGrammar?.nodeStatesById === undefined ||
-    snapshot.visualGrammar?.edgeStatesById === undefined ||
-    snapshot.visualGrammar?.activityMarkerStatesById === undefined
-  ) {
+  const missingFields = requiredVisualGrammarFields.filter(
+    (field) => snapshot.visualGrammar?.[field] === undefined,
+  );
+  if (missingFields.length > 0) {
     throw new Error(`visual grammar debug snapshot missing: ${JSON.stringify(snapshot)}`);
+  }
+}
+
+function assertPhase35AWaitingApprovalChips(snapshot) {
+  assertActivityChipDebugShape(snapshot);
+  assertPhase35AReadableLayout(snapshot);
+  const collapsed = snapshot.visualGrammar.activityChips.find(
+    (chip) => chip.type === "collapsed" && chip.nodeId === "activity",
+  );
+  if (!collapsed || collapsed.hiddenCount < 1 || !collapsed.label.startsWith("+")) {
+    throw new Error(
+      `waiting approval activity did not collapse node overflow: ${JSON.stringify(snapshot.visualGrammar.activityChips)}`,
+    );
+  }
+  assertActivityChipKindVisible(snapshot, "approval");
+  assertActivityChipKindVisible(snapshot, "workflow_status");
+  assertActivityChipKindVisible(snapshot, "command");
+}
+
+function assertPhase35AReadableChips(snapshot) {
+  assertActivityChipDebugShape(snapshot);
+  assertPhase35AReadableLayout(snapshot);
+  assertActivityChipKindVisible(snapshot, "command");
+  assertActivityChipKindVisible(snapshot, "file_change");
+  assertActivityChipKindVisible(snapshot, "approval");
+  assertActivityChipKindVisible(snapshot, "workflow_status");
+  assertActivityChipLabelPrefix(snapshot, "Command");
+  assertActivityChipLabelPrefix(snapshot, "File");
+  assertActivityChipLabelPrefix(snapshot, "Approval");
+  assertActivityChipLabelPrefix(snapshot, "Workflow");
+  assertNoUnanchoredActivityChips(snapshot);
+}
+
+function assertPhase35ACompactChipLod(before, after) {
+  assertActivityChipDebugShape(after);
+  if (after.visualGrammar.activityChipLayout.layoutMode !== "compact") {
+    throw new Error(
+      `activity chips did not switch to compact LOD: ${JSON.stringify(after.visualGrammar.activityChipLayout)}`,
+    );
+  }
+  const markerChips = after.visualGrammar.activityChips.filter((chip) => chip.type === "marker");
+  if (markerChips.length === 0 || markerChips.some((chip) => chip.textVisible)) {
+    throw new Error(
+      `compact activity marker chips should hide marker text: ${JSON.stringify(after.visualGrammar.activityChips)}`,
+    );
+  }
+  assertCompactChipLodPreservesNodeLabels(after, "activity");
+  if (
+    after.graph.nodeCount !== before.graph.nodeCount ||
+    after.graph.edgeCount !== before.graph.edgeCount ||
+    after.render.labelObjectCount !== before.render.labelObjectCount
+  ) {
+    throw new Error(
+      `activity-chip LOD changed core graph objects: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
+    );
+  }
+  assertActivityChipCountsMatch(after);
+}
+
+function assertCompactChipLodPreservesNodeLabels(snapshot, nodeId) {
+  if (snapshot.render.labelVisibilityMode !== "visible-priority") {
+    throw new Error(
+      `compact chip LOD should keep node labels in visible-priority mode: ${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node?.label.visible || node.label.visibilityReason !== "visible-priority") {
+    throw new Error(
+      `compact chip LOD hid ${nodeId} node label: ${JSON.stringify(snapshot.graph.nodes.map((candidate) => ({ id: candidate.id, label: candidate.label })))}`,
+    );
+  }
+}
+
+function assertPhase35AReadableLayout(snapshot) {
+  if (snapshot.visualGrammar.activityChipLayout.layoutMode !== "readable") {
+    throw new Error(
+      `activity chips should be readable at default zoom: ${JSON.stringify(snapshot.visualGrammar.activityChipLayout)}`,
+    );
+  }
+  if (snapshot.visualGrammar.activityChipLayout.config.maxVisibleChipsPerNode !== 4) {
+    throw new Error(
+      `activity chip per-node cap changed: ${JSON.stringify(snapshot.visualGrammar.activityChipLayout.config)}`,
+    );
+  }
+  const markerChips = snapshot.visualGrammar.activityChips.filter((chip) => chip.type === "marker");
+  if (markerChips.length === 0 || markerChips.some((chip) => !chip.textVisible)) {
+    throw new Error(
+      `readable activity chips should expose marker text: ${JSON.stringify(snapshot.visualGrammar.activityChips)}`,
+    );
+  }
+  assertReadableActivityChipsInsideCanvas(snapshot);
+  assertActivityChipCountsMatch(snapshot);
+}
+
+function assertReadableActivityChipsInsideCanvas(snapshot) {
+  const padding = snapshot.visualGrammar.activityChipLayout.config.viewportPadding;
+  const clippedChips = snapshot.visualGrammar.activityChips.filter(
+    (chip) =>
+      chip.visible &&
+      chip.layoutMode === "readable" &&
+      !readableActivityChipInsideCanvas(chip, snapshot.canvas, padding),
+  );
+  if (clippedChips.length > 0) {
+    throw new Error(
+      `readable activity chips clipped outside canvas: padding=${padding} canvas=${JSON.stringify(snapshot.canvas)} chips=${JSON.stringify(clippedChips)}`,
+    );
+  }
+}
+
+function readableActivityChipInsideCanvas(chip, canvas, padding) {
+  const hasPlacement = chip.placement === "left" || chip.placement === "right";
+  return (
+    hasPlacement &&
+    chip.screenLeft >= padding &&
+    chip.screenRight <= canvas.clientWidth - padding &&
+    chip.screenTop >= padding &&
+    chip.screenBottom <= canvas.clientHeight - padding
+  );
+}
+
+function activityChipPlacementSummary(chip) {
+  return {
+    id: chip.id,
+    label: chip.label,
+    nodeId: chip.nodeId,
+    placement: chip.placement,
+    screenBounds: chip.screenBounds,
+    type: chip.type,
+  };
+}
+
+function assertActivityChipDebugShape(snapshot) {
+  assertVisualGrammarShape(snapshot);
+  if (!Array.isArray(snapshot.visualGrammar.activityChips)) {
+    throw new Error(`activity chip debug list missing: ${JSON.stringify(snapshot.visualGrammar)}`);
+  }
+  assertActivityChipCountsMatch(snapshot);
+}
+
+function assertActivityChipCountsMatch(snapshot) {
+  const chipCount = snapshot.visualGrammar.activityChips.length;
+  if (
+    snapshot.render.activityChipViewCount !== chipCount ||
+    snapshot.render.activityChipTextObjectCount !== chipCount ||
+    snapshot.render.activityMarkerGraphicsCount !== chipCount ||
+    snapshot.visualGrammar.activityChipLayout.items.length !== chipCount
+  ) {
+    throw new Error(
+      `activity chip counts mismatch: render=${JSON.stringify(snapshot.render)} visual=${JSON.stringify(snapshot.visualGrammar.activityChipLayout)} chips=${JSON.stringify(snapshot.visualGrammar.activityChips)}`,
+    );
+  }
+}
+
+function assertActivityChipKindVisible(snapshot, kind) {
+  const chip = snapshot.visualGrammar.activityChips.find(
+    (candidate) => candidate.type === "marker" && candidate.kind === kind && candidate.visible,
+  );
+  if (!chip) {
+    throw new Error(
+      `visible activity chip kind ${kind} missing: ${JSON.stringify(snapshot.visualGrammar.activityChips)}`,
+    );
+  }
+}
+
+function assertActivityChipLabelPrefix(snapshot, prefix) {
+  const chip = snapshot.visualGrammar.activityChips.find(
+    (candidate) =>
+      candidate.type === "marker" && candidate.textVisible && candidate.label.startsWith(prefix),
+  );
+  if (!chip) {
+    throw new Error(
+      `activity chip label prefix ${prefix} missing: ${JSON.stringify(snapshot.visualGrammar.activityChips)}`,
+    );
+  }
+}
+
+function assertNoUnanchoredActivityChips(snapshot) {
+  if (snapshot.activity.markers.some((marker) => marker.anchorKind !== "workflow_node")) {
+    throw new Error(
+      `unanchored marker reached graph debug state: ${JSON.stringify(snapshot.activity.markers)}`,
+    );
+  }
+  if (snapshot.visualGrammar.activityChips.some((chip) => chip.anchorKind !== "workflow_node")) {
+    throw new Error(
+      `unanchored activity chip rendered: ${JSON.stringify(snapshot.visualGrammar.activityChips)}`,
+    );
+  }
+}
+
+function assertPhase35AUnanchoredActivitySuppressed(snapshot) {
+  assertActivityChipDebugShape(snapshot);
+  assertNoUnanchoredActivityChips(snapshot);
+  if (snapshot.activity.suppressedUnanchoredActivityCount < 1) {
+    throw new Error(
+      `unanchored workflow activity was not counted as suppressed: ${JSON.stringify(snapshot.activity)}`,
+    );
   }
 }
 
@@ -702,6 +927,9 @@ function assertPhase2BMarkerKinds(activity) {
   if (!activityMarkersHavePhase2BKinds(activity.markers)) {
     throw new Error(`Phase 2B marker kinds are incomplete: ${JSON.stringify(activity.markers)}`);
   }
+  if (activity.markers.some((marker) => marker.anchorKind !== "workflow_node")) {
+    throw new Error(`unanchored activity marker rendered: ${JSON.stringify(activity.markers)}`);
+  }
   if (activity.markers.some((marker) => marker.kind === "file_read" || marker.kind === "diff")) {
     throw new Error(
       `unsupported inferred marker kind rendered: ${JSON.stringify(activity.markers)}`,
@@ -719,7 +947,15 @@ function assertPhase2BMarkerGraphics(snapshot) {
 }
 
 function activityMarkerGraphicsMatch(snapshot) {
-  return snapshot.render.activityMarkerGraphicsCount === snapshot.activity.markers.length;
+  const chipCount = snapshot.visualGrammar?.activityChips?.length ?? -1;
+  return (
+    chipCount >= 0 &&
+    snapshot.render.activityMarkerGraphicsCount === chipCount &&
+    snapshot.render.activityChipViewCount === chipCount &&
+    snapshot.render.activityChipTextObjectCount === chipCount &&
+    snapshot.visualGrammar.activityChipLayout.items.length === chipCount &&
+    chipCount <= snapshot.activity.markers.length
+  );
 }
 
 function assertPhase2BPendingMarkers(activity) {
@@ -916,6 +1152,44 @@ async function releaseActivityCameraPan(client, pageTo) {
     y: pageTo.y,
   });
   await delay(100);
+}
+
+async function zoomActivityChipsToCompact(client, surfaceId, beforeSnapshot) {
+  const center = {
+    x: Math.floor(beforeSnapshot.canvas.clientWidth / 2),
+    y: Math.floor(beforeSnapshot.canvas.clientHeight / 2),
+  };
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidate = await getWorkflowGraphSnapshot(client, surfaceId);
+    if (compactChipLodPreservesVisiblePriorityLabels(candidate)) {
+      return candidate;
+    }
+    await dispatchWorkflowGraphWheel(client, surfaceId, {
+      deltaY: candidate.render.labelVisibilityMode === "selected" ? -80 : 80,
+      x: center.x,
+      y: center.y,
+    });
+    await delay(150);
+  }
+  return waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    compactChipLodPreservesVisiblePriorityLabels,
+    5_000,
+  );
+}
+
+function compactChipLodPreservesVisiblePriorityLabels(snapshot) {
+  return (
+    snapshot.visualGrammar.activityChipLayout.layoutMode === "compact" &&
+    snapshot.render.labelVisibilityMode === "visible-priority" &&
+    snapshot.graph.nodes.some(
+      (node) =>
+        node.id === "activity" &&
+        node.label.visible &&
+        node.label.visibilityReason === "visible-priority",
+    )
+  );
 }
 
 function clampCanvasPoint(snapshot, point) {

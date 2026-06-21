@@ -137,6 +137,8 @@ export function createWorkflowGraphDebugSnapshot({
         selectedNodeIds: [...state.selectedNodeIds],
       },
       render: {
+        activityChipTextObjectCount: state.activityChipTextObjectCount,
+        activityChipViewCount: state.activityChipViewCount,
         activityMarkerGraphicsCount: state.activityMarkerGraphicsCount,
         averageFrameMs: frameStats.average,
         cameraUpdateCount: state.cameraUpdateCount,
@@ -208,6 +210,9 @@ export function createWorkflowGraphDebugSnapshot({
       surfaceId: debugSurfaceId,
       visual,
       visualGrammar: {
+        activityChipLayout: state.activityChipLayout,
+        activityChipStatesById: state.activityChipStatesById,
+        activityChips: state.activityChipDebug,
         activityMarkerStatesById: state.activityMarkerVisualStatesById,
         edgeStatesById: Object.fromEntries(
           edges.map((edge) => [edge.id, resolveWorkflowEdgeVisualState(edge)]),

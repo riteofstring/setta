@@ -285,6 +285,30 @@ export function resolveWorkspaceActivityMarkerVisualState(marker) {
   };
 }
 
+export function resolveWorkspaceActivityChipVisualState(chip) {
+  if (chip.type === "marker") {
+    return resolveWorkspaceActivityMarkerVisualState(chip.marker);
+  }
+  if (chip.type === "collapsed") {
+    return resolveCollapsedWorkspaceActivityChipVisualState(chip);
+  }
+  throw new Error(`unknown workspace activity chip type: ${String(chip.type)}`);
+}
+
+export function workspaceActivityChipVisualFingerprint(chip) {
+  const visual = resolveWorkspaceActivityChipVisualState(chip);
+  return JSON.stringify({
+    channels: visual.channels,
+    hiddenCount: chip.hiddenCount ?? 0,
+    label: chip.label,
+    layoutMode: chip.layoutMode,
+    nodeId: chip.nodeId,
+    rank: chip.rank,
+    state: visual.state,
+    type: chip.type,
+  });
+}
+
 export function workflowNodeVisualFingerprint(node) {
   const visual = resolveWorkflowNodeVisualState(node);
   return JSON.stringify({
@@ -304,17 +328,26 @@ export function workflowEdgeVisualFingerprint(edge) {
   });
 }
 
-export function workspaceActivityMarkerVisualFingerprint(marker) {
-  const visual = resolveWorkspaceActivityMarkerVisualState(marker);
-  return JSON.stringify({
-    anchorKind: marker.anchorKind,
-    channels: visual.channels,
-    kind: marker.kind,
-    laneIndex: marker.laneIndex,
-    nodeId: marker.nodeId,
-    slotIndex: marker.slotIndex,
-    state: visual.state,
-  });
+function resolveCollapsedWorkspaceActivityChipVisualState(chip) {
+  if (chip.markers.length === 0) {
+    throw new Error("collapsed workspace activity chip has no source markers");
+  }
+  const markerVisuals = chip.markers.map((marker) =>
+    resolveWorkspaceActivityMarkerVisualState(marker),
+  );
+  const state = highestPriorityVisualState(markerVisuals.map((visual) => visual.state));
+  const representative =
+    markerVisuals.find((visual) => visual.state === state) ??
+    resolveWorkspaceActivityMarkerVisualState(chip.markers[0]);
+  return {
+    channels: {
+      ...representative.channels,
+      kindShape: "collapsed",
+    },
+    priority: visualStatePriorityRank(state),
+    sourceStatus: "collapsed",
+    state,
+  };
 }
 
 function visualStateForStatus(statesByStatus, status, label) {

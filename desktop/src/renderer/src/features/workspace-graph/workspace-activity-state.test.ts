@@ -45,6 +45,8 @@ describe("workspace activity state", () => {
       markers: [],
       recordsRetained: 2,
       snapshotsLoaded: 1,
+      suppressedUnanchoredActivityCount: 0,
+      suppressedUnanchoredActivityIds: [],
     });
   });
 
@@ -87,6 +89,8 @@ describe("workspace activity state", () => {
       markerUpdatedCount: 0,
       markers: [],
       recordsRetained: 1,
+      suppressedUnanchoredActivityCount: 0,
+      suppressedUnanchoredActivityIds: [],
     });
   });
 
@@ -110,7 +114,11 @@ describe("workspace activity state", () => {
     const state = recordWorkspaceActivityMarkerMaterialization(
       initial,
       { created: 1, removed: 0, retained: 2, updated: 3 },
-      [marker],
+      {
+        markers: [marker],
+        suppressedUnanchoredActivityCount: 2,
+        suppressedUnanchoredActivityIds: ["activity_execution", "activity_workspace"],
+      },
     );
 
     expect(state.debug).toMatchObject({
@@ -119,6 +127,8 @@ describe("workspace activity state", () => {
       markerRetainedCount: 2,
       markerUpdatedCount: 3,
       markers: [marker],
+      suppressedUnanchoredActivityCount: 2,
+      suppressedUnanchoredActivityIds: ["activity_execution", "activity_workspace"],
     });
   });
 

@@ -98,6 +98,8 @@ interface WorkflowGraphDebugSnapshot {
     selectedNodeIds: string[];
   };
   render: {
+    activityChipTextObjectCount: number;
+    activityChipViewCount: number;
     activityMarkerGraphicsCount: number;
     averageFrameMs: number;
     cameraUpdateCount: number;
@@ -157,6 +159,70 @@ interface WorkflowGraphDebugSnapshot {
     nonBackgroundPixelCount: number;
     sampledColorCount: number;
     sampledPixelCount: number;
+  };
+  visualGrammar: {
+    activityChipLayout: {
+      config: {
+        maxVisibleChipsPerNode: number;
+        maxVisibleChipViews: number;
+        readableTextZoomThreshold: number;
+        viewportPadding: number;
+      };
+      globalOverflowCount: number;
+      items: Array<{
+        hiddenCount: number;
+        id: string;
+        label: string;
+        layoutMode: "readable" | "compact";
+        nodeId: string;
+        rank: number;
+        type: "marker" | "collapsed";
+      }>;
+      layoutMode: "readable" | "compact";
+      markerCount: number;
+      missingAnchorCount: number;
+      zoom: number;
+    };
+    activityChipStatesById: Record<string, unknown>;
+    activityChips: Array<{
+      activityId: string;
+      anchorKind: "workflow_node";
+      fullLabel: string;
+      height: number;
+      hiddenCount: number;
+      id: string;
+      kind: "workflow_status" | "command" | "file_change" | "approval" | "collapsed";
+      label: string;
+      layoutMode: "readable" | "compact";
+      markerId: string;
+      nodeId: string;
+      placement: "left" | "right";
+      rank: number;
+      screenBottom: number;
+      screenBounds: {
+        bottom: number;
+        left: number;
+        right: number;
+        top: number;
+      };
+      screenLeft: number;
+      screenRight: number;
+      screenTop: number;
+      screenX: number;
+      screenY: number;
+      sourceMarkerIds: string[];
+      status: string;
+      textVisible: boolean;
+      type: "marker" | "collapsed";
+      visible: boolean;
+      visualState: unknown;
+      width: number;
+      x: number;
+      y: number;
+    }>;
+    activityMarkerStatesById: Record<string, unknown>;
+    edgeStatesById: Record<string, unknown>;
+    nodeStatesById: Record<string, unknown>;
   };
 }
 

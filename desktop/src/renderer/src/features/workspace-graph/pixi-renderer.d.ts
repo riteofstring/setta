@@ -35,7 +35,7 @@ export interface WorkflowGraphNode {
 export interface WorkflowGraphActivityMarker {
   activityId: string;
   active: boolean;
-  anchorKind: "workflow_node" | "recent_lane";
+  anchorKind: "workflow_node";
   id: string;
   kind: "workflow_status" | "command" | "file_change" | "approval";
   label: string;

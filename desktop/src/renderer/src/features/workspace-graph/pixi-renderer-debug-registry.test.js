@@ -38,6 +38,8 @@ describe("workflow graph debug registry", () => {
         retainedLimit: 200,
         revisionGapReloads: 1,
         snapshotsLoaded: 1,
+        suppressedUnanchoredActivityCount: 1,
+        suppressedUnanchoredActivityIds: ["activity_execution"],
         workspaceId: surfaceId === "surface_activity" ? "workspace_api" : "",
       }),
     };
@@ -66,6 +68,8 @@ describe("workflow graph debug registry", () => {
         recordsRetained: 2,
         revisionGapReloads: 1,
         snapshotsLoaded: 1,
+        suppressedUnanchoredActivityCount: 1,
+        suppressedUnanchoredActivityIds: ["activity_execution"],
         workspaceId: "workspace_api",
       },
       surfaceId: "surface_activity",
@@ -94,6 +98,8 @@ describe("workflow graph debug registry", () => {
       recordsRetained: 0,
       revisionGapReloads: 0,
       snapshotsLoaded: 0,
+      suppressedUnanchoredActivityCount: 0,
+      suppressedUnanchoredActivityIds: [],
     });
   });
 });

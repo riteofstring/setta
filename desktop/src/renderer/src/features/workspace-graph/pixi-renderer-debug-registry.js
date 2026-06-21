@@ -97,6 +97,8 @@ function emptyWorkspaceActivityDebugSnapshot() {
     retainedLimit: 0,
     revisionGapReloads: 0,
     snapshotsLoaded: 0,
+    suppressedUnanchoredActivityCount: 0,
+    suppressedUnanchoredActivityIds: [],
     workspaceId: "",
   };
 }

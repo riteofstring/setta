@@ -4,6 +4,7 @@ import {
   highestPriorityVisualState,
   resolveWorkflowEdgeVisualState,
   resolveWorkflowNodeVisualState,
+  resolveWorkspaceActivityChipVisualState,
   resolveWorkspaceActivityMarkerVisualState,
   visualStatePriorityRank,
   workflowEdgeRuntimeVisualState,
@@ -123,4 +124,46 @@ describe("workflow graph visual state resolver", () => {
       state: "waiting_approval",
     });
   });
+
+  test("resolves collapsed activity chips from the highest-priority source marker", () => {
+    const collapsedVisual = resolveWorkspaceActivityChipVisualState({
+      hiddenCount: 2,
+      id: "workspace-activity:collapsed:work",
+      label: "+2",
+      layoutMode: "readable",
+      markers: [
+        activityMarker("command", "completed"),
+        activityMarker("workflow_status", "failed"),
+      ],
+      nodeId: "work",
+      rank: 4,
+      type: "collapsed",
+    });
+
+    expect(collapsedVisual).toMatchObject({
+      channels: {
+        kindShape: "collapsed",
+        stroke: 0xef4444,
+      },
+      sourceStatus: "collapsed",
+      state: "failed",
+    });
+  });
 });
+
+function activityMarker(kind, status) {
+  return {
+    activityId: `activity_${kind}`,
+    active: status === "running" || status === "waiting_approval",
+    anchorKind: "workflow_node",
+    id: `marker_${kind}_${status}`,
+    kind,
+    label: `${kind} ${status}`,
+    laneIndex: -1,
+    nodeId: "work",
+    revision: 1,
+    slotIndex: 0,
+    status,
+    updatedAt: "2026-06-22T12:00:00Z",
+  };
+}
