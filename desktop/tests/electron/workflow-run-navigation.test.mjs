@@ -619,18 +619,15 @@ async function waitForWorkflowExecution(client, workspaceId, executionId, predic
 }
 
 async function waitForToolbarButtonState(client, testId, predicate) {
-  return waitForState(client, workflowToolbarButtonStateExpression(testId), predicate);
-}
-
-function workflowToolbarButtonStateExpression(testId) {
-  return `(() => {
-    const button = document.querySelector(${JSON.stringify(`[data-testid="${testId}"]`)});
-    return {
-      disabled: button instanceof HTMLButtonElement ? button.disabled : true,
-      exists: button instanceof HTMLButtonElement,
-      text: button instanceof HTMLButtonElement ? button.textContent?.trim() ?? "" : "",
-    };
-  })()`;
+  // Scope to the active workflow graph host via the driver. Stable toolbar slots are always
+  // present, so a background pane can also expose the same testId; an unscoped document lookup
+  // would observe the wrong toolbar instance.
+  await client.installDriver();
+  return waitForState(
+    client,
+    driverCallExpression("workflowToolbarButtonState", { testId }),
+    predicate,
+  );
 }
 
 async function clickWorkflowToolbarButton(client, testId) {

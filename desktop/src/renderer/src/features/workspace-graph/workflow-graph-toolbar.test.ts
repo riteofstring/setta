@@ -5,6 +5,7 @@ import {
   workflowActiveRunSummary,
   workflowDraftButtonLabel,
   workflowDraftButtonTitle,
+  workflowPrimaryRunControl,
   workflowToolbarDisabled,
   workflowToolbarMismatchLabel,
   workflowToolbarShowsRunButton,
@@ -118,6 +119,114 @@ describe("workflow graph toolbar run and stop visibility", () => {
 
     expect(workflowToolbarShowsRunButton(projection)).toBe(false);
     expect(workflowToolbarShowsStopButton(projection)).toBe(false);
+  });
+});
+
+describe("workflow graph toolbar primary run control", () => {
+  test("starts a run from a blank or editable draft", () => {
+    for (const projection of [null, workflowProjection({ viewMode: "draft" })]) {
+      const control = workflowPrimaryRunControl({
+        activeRun: null,
+        busy: null,
+        disabled: false,
+        editable: true,
+        projection,
+      });
+
+      expect(control.kind).toBe("run");
+      expect(control.testId).toBe("workflow-run-button");
+      expect(control.label).toBe("Run");
+    }
+  });
+
+  test("reflects the starting operation while a run launches from the draft", () => {
+    const control = workflowPrimaryRunControl({
+      activeRun: null,
+      busy: "run",
+      disabled: true,
+      editable: true,
+      projection: workflowProjection({ viewMode: "draft" }),
+    });
+
+    expect(control.kind).toBe("run");
+    expect(control.label).toBe("Starting");
+    expect(control.spin).toBe(true);
+    expect(control.disabled).toBe(true);
+  });
+
+  test("offers to view the active run from the draft instead of starting another", () => {
+    const control = workflowPrimaryRunControl({
+      activeRun: workflowRunSummary({ status: "running" }),
+      busy: null,
+      disabled: false,
+      editable: true,
+      projection: workflowProjection({ viewMode: "draft" }),
+    });
+
+    expect(control.kind).toBe("view-active-run");
+    expect(control.testId).toBe("workflow-view-active-run-button");
+    expect(control.label).toBe("View Active Run");
+    expect(control.disabled).toBe(false);
+  });
+
+  test("stops a running run from the run view", () => {
+    const control = workflowPrimaryRunControl({
+      activeRun: null,
+      busy: null,
+      disabled: false,
+      editable: false,
+      projection: workflowProjection({ executionStatus: "running", viewMode: "run" }),
+    });
+
+    expect(control.kind).toBe("stop");
+    expect(control.testId).toBe("workflow-stop-button");
+    expect(control.label).toBe("Stop");
+  });
+
+  test("shows a disabled terminal indicator for historical runs", () => {
+    for (const executionStatus of ["completed", "failed", "stopped", "cancelled"] as const) {
+      const control = workflowPrimaryRunControl({
+        activeRun: null,
+        busy: null,
+        disabled: false,
+        editable: false,
+        projection: workflowProjection({ executionStatus, viewMode: "run" }),
+      });
+
+      expect(control.kind).toBe("terminal");
+      expect(control.disabled).toBe(true);
+      expect(control.testId).toBe("workflow-run-terminal-indicator");
+    }
+  });
+
+  test("names the terminal indicator after the historical run outcome", () => {
+    const control = workflowPrimaryRunControl({
+      activeRun: null,
+      busy: null,
+      disabled: false,
+      editable: false,
+      projection: workflowProjection({ executionStatus: "cancelled", viewMode: "run" }),
+    });
+
+    expect(control.label).toBe("Cancelled");
+  });
+
+  test("falls back to a disabled run-from-draft affordance for version snapshots", () => {
+    const control = workflowPrimaryRunControl({
+      activeRun: null,
+      busy: null,
+      disabled: false,
+      editable: false,
+      projection: workflowProjection({
+        executionId: "",
+        executionStatus: null,
+        viewMode: "version",
+      }),
+    });
+
+    expect(control.kind).toBe("terminal");
+    expect(control.disabled).toBe(true);
+    expect(control.label).toBe("Run from Draft");
   });
 });
 

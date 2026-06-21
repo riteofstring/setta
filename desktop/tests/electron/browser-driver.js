@@ -577,6 +577,18 @@
     return { ok: true };
   }
 
+  function workflowToolbarButtonState({ testId }) {
+    // Scope to the active workflow graph host. Toolbar slots are always present now, so a
+    // background pane in another view can also expose the same testId; an unscoped lookup would
+    // read the wrong instance.
+    const button = workflowToolbarElement(`[data-testid="${testId}"]`);
+    return {
+      disabled: button instanceof HTMLButtonElement ? button.disabled : true,
+      exists: button instanceof HTMLButtonElement,
+      text: button instanceof HTMLButtonElement ? (button.textContent?.trim() ?? "") : "",
+    };
+  }
+
   function openWorkflowRunSelector() {
     const button = workflowToolbarElement('[data-testid="workflow-run-selector-button"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -1303,6 +1315,7 @@
     workflowNodeDetailsSurfaceState,
     workflowRunDetailsText,
     workflowRunSelectorState,
+    workflowToolbarButtonState,
     workflowToolbarState,
     workflowWorkspaceSessionState,
   };
