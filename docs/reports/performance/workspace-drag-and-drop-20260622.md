@@ -8,7 +8,9 @@ This report covers the first repair pass for workspace pane drag-and-drop:
 - normal-mode pointer geometry to `PaneDropIntent`,
 - overview-mode ghost target to `PaneDropIntent`,
 - single-commit `after` placement,
-- requestAnimationFrame coalescing for drag preview updates.
+- requestAnimationFrame coalescing for drag preview updates,
+- production-path Electron pointer workflow coverage for row, column, and
+  overview ghost drops.
 
 ## Baseline
 
@@ -50,6 +52,14 @@ pnpm exec vitest run src/renderer/src/workspace-layout
 
 Result: 22 test files passed, 244 tests passed.
 
+Electron workflow syntax check:
+
+```sh
+node --check tests/electron/pane-drag-drop-workflow.test.mjs
+```
+
+Result: passed.
+
 | Area | After repair evidence |
 | --- | --- |
 | Cross-column pane drag | `layout-engine.test.ts` verifies a single pane leaves a stacked source column while siblings stay behind. |
@@ -58,17 +68,25 @@ Result: 22 test files passed, 244 tests passed.
 | `after` placement | Store test verifies one revision bump for an `after` row drop. |
 | Overview drag placement | `workspace-overview-ghost.test.ts` verifies `above`/`below` map to row drops and `right` maps to a column drop. |
 | Preview coalescing | `pane-drag-reorder.test.ts` verifies multiple pointer moves before one animation frame produce one preview for the latest intent. |
+| Production pointer workflow | `pane-drag-drop-workflow.test.mjs` drives CDP mouse events through the built Electron app for normal row drop, normal column drop, and overview right-ghost column drop. It is registered in the required workflow manifest. |
 
 ## Pending Profiling
 
-Before calling the feature done, run the production Electron workflow against a
-large workspace fixture in both normal and overview modes and append the measured
-numbers here:
+Before calling the feature done, run a fresh production desktop build, then run
+the production Electron workflow and large workspace profiling in both normal and
+overview modes. Append the measured numbers here:
 
 | Mode | Preview recomputes per drag | React commits during drag | p95 frame | p99 frame | Dropped frames | Long tasks |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Normal | pending | pending | pending | pending | pending | pending |
 | Overview | pending | pending | pending | pending | pending | pending |
+
+The production Electron workflow and Chrome frame profiling were not run in this
+slice because they need a fresh desktop build. The existing `desktop/out`
+artifact is stale relative to this work: `desktop/out/renderer/index.html` was
+last modified at 2026-06-22 12:09:02, while the drag/drop source edits were made
+after 13:28. The current task instruction says not to run code quality checks
+yet, so no fresh build/typecheck gate was started.
 
 The broad quality gate was intentionally not run for this slice because the task
 instruction says not to run code quality checks yet.
