@@ -21,21 +21,21 @@ type WorkflowProjectionState =
       projection: null;
       status: "loading";
       target: WorkflowProjectionTarget;
-      updateSource: WorkflowGraphUpdateSource;
+      updateSource: WorkflowGraphUpdateSource | null;
     }
   | {
       error: "";
       projection: WorkflowGraphProjection | null;
       status: "ready";
       target: WorkflowProjectionTarget;
-      updateSource: WorkflowGraphUpdateSource;
+      updateSource: WorkflowGraphUpdateSource | null;
     }
   | {
       error: string;
       projection: null;
       status: "error";
       target: WorkflowProjectionTarget;
-      updateSource: WorkflowGraphUpdateSource;
+      updateSource: WorkflowGraphUpdateSource | null;
     };
 
 type WorkflowProjectionAction =
@@ -76,7 +76,7 @@ const initialWorkflowProjectionState: WorkflowProjectionState = {
   projection: null,
   status: "loading",
   target: emptyWorkflowProjectionTarget,
-  updateSource: "unknown",
+  updateSource: null,
 };
 
 export function useWorkflowProjectionState({
@@ -144,7 +144,7 @@ function workflowProjectionReducer(
         projection: null,
         status: "loading",
         target: action.target,
-        updateSource: "unknown",
+        updateSource: null,
       };
     case "ready":
       if (!workflowProjectionTargetsEqual(state.target, action.expectedTarget)) {

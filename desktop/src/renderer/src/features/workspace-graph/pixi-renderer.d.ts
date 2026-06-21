@@ -68,8 +68,7 @@ export type WorkflowGraphUpdateSource =
   | "semantic-graph"
   | "semantic-activity"
   | "draft-validation-local"
-  | "layout"
-  | "unknown";
+  | "layout";
 
 export interface WorkflowGraphUpdateMetadata {
   source: WorkflowGraphUpdateSource;
@@ -135,7 +134,7 @@ export interface WorkflowGraphRenderer {
   destroy: () => void;
   setFrozen: (frozen: boolean) => void;
   setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
-  updateGraph: (graph: WorkflowGraphGraph, metadata?: WorkflowGraphUpdateMetadata) => void;
+  updateGraph: (graph: WorkflowGraphGraph, metadata: WorkflowGraphUpdateMetadata) => void;
 }
 
 export function createWorkflowGraphRenderer(

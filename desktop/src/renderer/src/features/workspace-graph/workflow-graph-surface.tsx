@@ -129,6 +129,14 @@ export function WorkflowGraphSurface({
     [workflowProjection, workflowValidation],
   );
   const semanticGraphState = useSemanticGraphState();
+  const semanticGraphUpdateSource =
+    semanticGraphState.updateSource ??
+    (semanticGraphState.graph !== null &&
+    semanticGraphState.ready &&
+    !semanticGraphState.noWorkspace &&
+    semanticGraphState.workspaceId !== ""
+      ? "semantic-graph"
+      : null);
   const semanticGraph = useMemo(
     () =>
       syntheticGraph === null && semanticGraphState.graph !== null
@@ -171,22 +179,26 @@ export function WorkflowGraphSurface({
               source: workflowGraphUpdateSourceForSurface({
                 previous: previousRendererGraphInputsRef.current,
                 semanticGraph,
-                semanticGraphUpdateSource: semanticGraphState.updateSource,
+                semanticGraphUpdateSource,
                 syntheticGraph,
                 workflowGraph,
+                workflowProjectionReady,
                 workflowProjectionUpdateSource,
                 workflowValidation,
+                workflowWorkspaceId,
               }),
             },
           },
     [
       graph,
       semanticGraph,
-      semanticGraphState.updateSource,
+      semanticGraphUpdateSource,
       syntheticGraph,
       workflowGraph,
+      workflowProjectionReady,
       workflowProjectionUpdateSource,
       workflowValidation,
+      workflowWorkspaceId,
     ],
   );
   useEffect(() => {
@@ -615,11 +627,14 @@ export function WorkflowGraphSurface({
   }, [rendererHandlers]);
 
   useEffect(() => {
-    if (!graph) {
+    if (!rendererGraphUpdate) {
       return;
     }
-    workflowRendererRef.current?.updateGraph(graph, rendererGraphUpdate?.metadata);
-  }, [graph, rendererGraphUpdate?.metadata]);
+    workflowRendererRef.current?.updateGraph(
+      rendererGraphUpdate.graph,
+      rendererGraphUpdate.metadata,
+    );
+  }, [rendererGraphUpdate]);
 
   useEffect(() => {
     if (!rendererGraphReady) {

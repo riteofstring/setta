@@ -5,12 +5,21 @@ const graphUpdateSources = [
   "semantic-activity",
   "draft-validation-local",
   "layout",
-  "unknown",
 ];
 const graphUpdateSourceSet = new Set(graphUpdateSources);
 
-export function normalizeGraphUpdateSource(source) {
-  return graphUpdateSourceSet.has(source) ? source : "unknown";
+export function requireGraphUpdateMetadataSource(metadata) {
+  if (!metadata || typeof metadata !== "object") {
+    throw new Error("workflow graph update metadata is required");
+  }
+  return requireGraphUpdateSource(metadata.source);
+}
+
+function requireGraphUpdateSource(source) {
+  if (graphUpdateSourceSet.has(source)) {
+    return source;
+  }
+  throw new Error(`workflow graph update source is required: ${String(source)}`);
 }
 
 export function createGraphUpdateAccounting() {

@@ -17,7 +17,7 @@ interface SemanticGraphState {
   loading: boolean;
   noWorkspace: boolean;
   ready: boolean;
-  updateSource: WorkflowGraphUpdateSource;
+  updateSource: WorkflowGraphUpdateSource | null;
   workspaceId: string;
 }
 
@@ -264,7 +264,7 @@ function semanticGraphLoadingState(workspaceId: string): SemanticGraphState {
     loading: true,
     noWorkspace: false,
     ready: false,
-    updateSource: "unknown",
+    updateSource: null,
     workspaceId,
   };
 }
@@ -277,21 +277,21 @@ function semanticGraphNoWorkspaceState(workspaceId: string): SemanticGraphState 
     loading: false,
     noWorkspace: workspaceId === "",
     ready: true,
-    updateSource: "unknown",
+    updateSource: null,
     workspaceId,
   };
 }
 
 function semanticGraphUpdateSourceForRefreshRequest(
   request: SemanticGraphRefreshRequest,
-): WorkflowGraphUpdateSource {
+): WorkflowGraphUpdateSource | null {
   if (request.graph) {
     return "semantic-graph";
   }
   if (request.activity) {
     return "semantic-activity";
   }
-  return "unknown";
+  return null;
 }
 
 function errorMessage(error: unknown) {

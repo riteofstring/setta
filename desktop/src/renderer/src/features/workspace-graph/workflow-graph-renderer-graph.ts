@@ -88,21 +88,25 @@ export function workflowGraphUpdateSourceForSurface({
   semanticGraphUpdateSource,
   syntheticGraph,
   workflowGraph,
+  workflowProjectionReady,
   workflowProjectionUpdateSource,
   workflowValidation,
+  workflowWorkspaceId,
 }: {
   previous: WorkflowGraphSourceInputs;
   semanticGraph: WorkflowGraphRendererGraph | undefined;
-  semanticGraphUpdateSource: WorkflowGraphUpdateSource;
+  semanticGraphUpdateSource: WorkflowGraphUpdateSource | null;
   syntheticGraph: SyntheticWorkflowGraphOptions;
   workflowGraph: WorkflowGraphRendererGraph | undefined;
-  workflowProjectionUpdateSource: WorkflowGraphUpdateSource;
+  workflowProjectionReady: boolean;
+  workflowProjectionUpdateSource: WorkflowGraphUpdateSource | null;
   workflowValidation: WorkflowValidationResult | null;
+  workflowWorkspaceId: string;
 }): WorkflowGraphUpdateSource {
   if (syntheticGraph !== null) {
     return "draft-validation-local";
   }
-  return (
+  const source =
     workflowInputUpdateSource({
       previous,
       workflowGraph,
@@ -110,12 +114,17 @@ export function workflowGraphUpdateSourceForSurface({
       workflowValidation,
     }) ??
     semanticInputUpdateSource({ previous, semanticGraph, semanticGraphUpdateSource }) ??
-    fallbackWorkflowUpdateSource({
+    currentSemanticUpdateSource({ semanticGraph, semanticGraphUpdateSource }) ??
+    currentWorkflowUpdateSource({ workflowProjectionUpdateSource, workflowValidation }) ??
+    readyWorkflowProjectionSurfaceSource({
       workflowGraph,
-      workflowProjectionUpdateSource,
-      workflowValidation,
-    })
-  );
+      workflowProjectionReady,
+      workflowWorkspaceId,
+    });
+  if (source === null) {
+    throw new Error("workflow graph update source could not be resolved");
+  }
+  return source;
 }
 
 export function workflowRendererScopeKey(
@@ -143,13 +152,13 @@ function workflowInputUpdateSource({
 }: {
   previous: WorkflowGraphSourceInputs;
   workflowGraph: WorkflowGraphRendererGraph | undefined;
-  workflowProjectionUpdateSource: WorkflowGraphUpdateSource;
+  workflowProjectionUpdateSource: WorkflowGraphUpdateSource | null;
   workflowValidation: WorkflowValidationResult | null;
 }) {
   if (previous.workflowValidation !== workflowValidation) {
     return "draft-validation-local";
   }
-  if (previous.workflowGraph !== workflowGraph && workflowProjectionUpdateSource !== "unknown") {
+  if (previous.workflowGraph !== workflowGraph && workflowProjectionUpdateSource !== null) {
     return workflowProjectionUpdateSource;
   }
   return null;
@@ -162,30 +171,53 @@ function semanticInputUpdateSource({
 }: {
   previous: WorkflowGraphSourceInputs;
   semanticGraph: WorkflowGraphRendererGraph | undefined;
-  semanticGraphUpdateSource: WorkflowGraphUpdateSource;
+  semanticGraphUpdateSource: WorkflowGraphUpdateSource | null;
 }) {
   if (previous.semanticGraph === semanticGraph || semanticGraph === undefined) {
     return null;
   }
-  return semanticGraphUpdateSource === "unknown" ? null : semanticGraphUpdateSource;
+  return semanticGraphUpdateSource;
 }
 
-function fallbackWorkflowUpdateSource({
-  workflowGraph,
+function currentSemanticUpdateSource({
+  semanticGraph,
+  semanticGraphUpdateSource,
+}: {
+  semanticGraph: WorkflowGraphRendererGraph | undefined;
+  semanticGraphUpdateSource: WorkflowGraphUpdateSource | null;
+}) {
+  if (semanticGraph === undefined) {
+    return null;
+  }
+  return semanticGraphUpdateSource;
+}
+
+function currentWorkflowUpdateSource({
   workflowProjectionUpdateSource,
   workflowValidation,
 }: {
-  workflowGraph: WorkflowGraphRendererGraph | undefined;
-  workflowProjectionUpdateSource: WorkflowGraphUpdateSource;
+  workflowProjectionUpdateSource: WorkflowGraphUpdateSource | null;
   workflowValidation: WorkflowValidationResult | null;
 }) {
   if (workflowValidation !== null) {
     return "draft-validation-local";
   }
-  if (workflowGraph !== undefined && workflowProjectionUpdateSource !== "unknown") {
-    return workflowProjectionUpdateSource;
+  return workflowProjectionUpdateSource;
+}
+
+function readyWorkflowProjectionSurfaceSource({
+  workflowGraph,
+  workflowProjectionReady,
+  workflowWorkspaceId,
+}: {
+  workflowGraph: WorkflowGraphRendererGraph | undefined;
+  workflowProjectionReady: boolean;
+  workflowWorkspaceId: string;
+}) {
+  if (workflowProjectionReady && workflowWorkspaceId !== "" && workflowGraph === undefined) {
+    return "workflow-projection";
   }
-  return "unknown";
+  return null;
 }
 
 function pendingWorkflowApproval(

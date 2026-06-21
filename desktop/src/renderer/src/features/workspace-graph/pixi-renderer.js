@@ -27,7 +27,7 @@ import {
 import { createWorkspaceEdgeLabelManager } from "./pixi-renderer-edge-labels";
 import {
   createGraphUpdateAccounting,
-  normalizeGraphUpdateSource,
+  requireGraphUpdateMetadataSource,
 } from "./pixi-renderer-graph-update-accounting";
 import { createDynamicCanvasContextMenuHandler, rendererHandlers } from "./pixi-renderer-handlers";
 import {
@@ -530,7 +530,7 @@ export async function createWorkflowGraphRenderer(options) {
     if (destroyed) {
       return;
     }
-    const source = normalizeGraphUpdateSource(metadata?.source);
+    const source = requireGraphUpdateMetadataSource(metadata);
     const cameraMoving = Boolean(panningCamera);
     const edgeUpdate = edgeGraphicsInvalidationForGraphUpdate(
       nodes,
