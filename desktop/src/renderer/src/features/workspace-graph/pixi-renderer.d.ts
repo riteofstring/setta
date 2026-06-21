@@ -32,10 +32,24 @@ export interface WorkflowGraphNode {
   y: number;
 }
 
+export type WorkflowGraphActivityDetailKind =
+  | "workflow_event"
+  | "workflow_node"
+  | "chat_run_item"
+  | "approval";
+
+export interface WorkflowGraphActivityDetailRef {
+  approvalId: string;
+  kind: WorkflowGraphActivityDetailKind;
+  runItemId: string;
+  workflowEventId: string;
+}
+
 export interface WorkflowGraphActivityMarker {
   activityId: string;
   active: boolean;
   anchorKind: "workflow_node";
+  detailRef: WorkflowGraphActivityDetailRef;
   id: string;
   kind: "workflow_status" | "command" | "file_change" | "approval";
   label: string;
@@ -55,6 +69,14 @@ export interface WorkflowGraphActivityMarker {
     | "answered"
     | "unknown";
   updatedAt: string;
+}
+
+export interface WorkflowGraphActivityChipTarget {
+  activityId: string;
+  detailRef: WorkflowGraphActivityDetailRef | null;
+  markerId: string;
+  nodeId: string;
+  type: "marker" | "collapsed";
 }
 
 export interface WorkflowGraphActivityMarkerMaterialization {
@@ -150,6 +172,7 @@ export interface WorkflowGraphEdgeConnection {
 }
 
 export interface WorkflowGraphRendererHandlers {
+  onActivityChipOpen?: ((chip: WorkflowGraphActivityChipTarget) => void) | null;
   onCanvasContextMenu?: ((menu: WorkflowGraphCanvasContextMenu) => void) | null;
   onCameraStateChange?: (camera: WorkflowGraphCameraState) => void;
   onEdgeCreate?: (connection: WorkflowGraphEdgeConnection) => void;
@@ -167,6 +190,7 @@ interface CreateWorkflowGraphRendererOptions {
   graph?: WorkflowGraphGraph;
   host: HTMLElement;
   initialCameraState?: WorkflowGraphCameraState | null;
+  onActivityChipOpen?: WorkflowGraphRendererHandlers["onActivityChipOpen"];
   onCanvasContextMenu?: WorkflowGraphRendererHandlers["onCanvasContextMenu"];
   onCameraStateChange?: WorkflowGraphRendererHandlers["onCameraStateChange"];
   onEdgeCreate?: WorkflowGraphRendererHandlers["onEdgeCreate"];

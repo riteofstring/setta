@@ -7,11 +7,13 @@ import {
 } from "./pixi-renderer-helpers";
 
 export function createWorkflowGraphPointerDownHandler({
+  beginActivityChipClick,
   canvas,
   clearLastNodeClick,
   clearSelection,
   frozen,
   graphHandlers,
+  hitTestActivityChipAtScreen,
   hitTestNodeAtScreen,
   hitTestPortAtScreen,
   repeatedNodeOpenRequested,
@@ -31,6 +33,18 @@ export function createWorkflowGraphPointerDownHandler({
       return;
     }
     const screen = screenPointFromPointer(canvas, event);
+    if (
+      handleActivityChipPointerDown({
+        beginActivityChipClick,
+        clearLastNodeClick,
+        event,
+        graphHandlers,
+        hitTestActivityChipAtScreen,
+        screen,
+      })
+    ) {
+      return;
+    }
     if (
       handleSourcePortPointerDown({
         clearLastNodeClick,
@@ -66,6 +80,28 @@ export function createWorkflowGraphPointerDownHandler({
       startMarqueeSelection,
     });
   };
+}
+
+function handleActivityChipPointerDown({
+  beginActivityChipClick,
+  clearLastNodeClick,
+  event,
+  graphHandlers,
+  hitTestActivityChipAtScreen,
+  screen,
+}) {
+  if (!graphHandlers.onActivityChipOpen || !hitTestActivityChipAtScreen) {
+    return false;
+  }
+  const chip = hitTestActivityChipAtScreen(screen);
+  if (!chip) {
+    return false;
+  }
+  clearLastNodeClick();
+  beginActivityChipClick(chip, screen);
+  capturePointer(event);
+  stopNativeInteraction(event);
+  return true;
 }
 
 function handleSourcePortPointerDown({

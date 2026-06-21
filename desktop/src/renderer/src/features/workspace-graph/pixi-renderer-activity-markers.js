@@ -39,6 +39,8 @@ export function createWorkspaceActivityMarkerManager({
     chipDebugSnapshot: () => workspaceActivityChipDebugSnapshot(markerGraphics, viewport),
     chipStatesById: () => workspaceActivityChipVisualStatesById(markerGraphics),
     count: () => markerGraphics.size,
+    hitTestChipAtScreen: (screen) =>
+      hitTestWorkspaceActivityChipAtScreen(markerGraphics, viewport, screen),
     layoutSnapshot: () =>
       workspaceActivityChipLayout({
         markers: currentMarkers,
@@ -175,12 +177,15 @@ export function workspaceActivityChipDebugSnapshot(markerGraphics, viewport) {
       return {
         activityId: chip.type === "marker" ? chip.marker.activityId : "",
         anchorKind: "workflow_node",
+        approvalId: activityChipDebugDetailField(chip, "approvalId"),
+        detailKind: activityChipDebugDetailField(chip, "kind"),
         fullLabel: chip.type === "marker" ? chip.marker.label : chip.label,
         height: workspaceActivityChipLayoutConfig.chipHeight,
         hiddenCount: chip.hiddenCount,
         id,
         kind: chip.type === "marker" ? chip.marker.kind : "collapsed",
         label: chip.label,
+        runItemId: activityChipDebugDetailField(chip, "runItemId"),
         layoutMode: chip.layoutMode,
         markerId: chip.type === "marker" ? chip.marker.id : "",
         nodeId: chip.nodeId,
@@ -200,11 +205,60 @@ export function workspaceActivityChipDebugSnapshot(markerGraphics, viewport) {
         visible: entry.container.visible,
         visualState: resolveWorkspaceActivityChipVisualState(chip),
         width: chipWidth(chip),
+        workflowEventId: activityChipDebugDetailField(chip, "workflowEventId"),
         x: entry.container.x,
         y: entry.container.y,
       };
     })
     .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function activityChipDebugDetailField(chip, field) {
+  return chip.type === "marker" ? (chip.marker.detailRef?.[field] ?? "") : "";
+}
+
+function hitTestWorkspaceActivityChipAtScreen(markerGraphics, viewport, screen) {
+  let hit = null;
+  // Chips are appended to the marker layer in layout order, so a later entry paints on top of an
+  // earlier one. Keep the last containing chip so the hit target matches what the user sees.
+  for (const entry of markerGraphics.values()) {
+    if (!entry.container.visible) {
+      continue;
+    }
+    const bounds = activityChipViewScreenBounds(entry, viewport);
+    if (
+      screen.x >= bounds.left &&
+      screen.x <= bounds.right &&
+      screen.y >= bounds.top &&
+      screen.y <= bounds.bottom
+    ) {
+      hit = activityChipHitTarget(entry.chip);
+    }
+  }
+  return hit;
+}
+
+function activityChipHitTarget(chip) {
+  return {
+    activityId: chip.type === "marker" ? chip.marker.activityId : "",
+    detailRef: chip.type === "marker" ? activityChipDetailRef(chip.marker) : null,
+    markerId: chip.type === "marker" ? chip.marker.id : "",
+    nodeId: chip.nodeId,
+    type: chip.type,
+  };
+}
+
+function activityChipDetailRef(marker) {
+  const detailRef = marker.detailRef;
+  if (!detailRef) {
+    return null;
+  }
+  return {
+    approvalId: detailRef.approvalId ?? "",
+    kind: detailRef.kind,
+    runItemId: detailRef.runItemId ?? "",
+    workflowEventId: detailRef.workflowEventId ?? "",
+  };
 }
 
 function syncWorkspaceActivityMarkerViews({

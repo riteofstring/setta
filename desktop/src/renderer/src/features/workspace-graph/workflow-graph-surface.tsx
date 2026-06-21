@@ -2,7 +2,10 @@ import type { WorkflowExecutionSummary, WorkflowValidationResult } from "@genera
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
-import { useWorkflowEditorStore } from "../../stores/workflow-editor-store";
+import {
+  useWorkflowEditorStore,
+  type WorkflowNodeActivityFocusInput,
+} from "../../stores/workflow-editor-store";
 import { requestWorkspacePaneOpen } from "../../workspace-layout/open-pane-events";
 import { useSemanticGraphStore } from "../../stores/semantic-graph-store";
 import {
@@ -18,11 +21,13 @@ import {
 import type { WorkflowLayoutPosition } from "./workflow-graph-layout";
 import { persistGraphNodePositions } from "./workflow-graph-layout-persistence";
 import type {
+  WorkflowGraphActivityChipTarget,
   WorkflowGraphCameraState,
   WorkflowGraphEdgeConnection,
   WorkflowGraphRenderer,
   WorkflowGraphRendererHandlers,
 } from "./pixi-renderer";
+import { activityFocusFromChip } from "./workflow-node-activity-focus";
 import { WorkflowApprovalOverlay } from "./workflow-approval-overlay";
 import {
   syncWorkflowGraphCameraScope,
@@ -604,11 +609,11 @@ export function WorkflowGraphSurface({
     [semanticGraphState.graph, semanticGraphState.workspaceId, setSelectedSemanticNodeTarget],
   );
   const openWorkflowNodeDetails = useCallback(
-    (nodeId: string | null) => {
+    (nodeId: string | null, activityFocus: WorkflowNodeActivityFocusInput | null = null) => {
       if (workflowProjection === null || nodeId === null) {
         return;
       }
-      setSelectedNodeTarget(workflowNodeDetailsTarget(workflowProjection, nodeId));
+      setSelectedNodeTarget(workflowNodeDetailsTarget(workflowProjection, nodeId), activityFocus);
       requestWorkspacePaneOpen({
         surfaceKind: "workflow-node-details",
         subtitle: "workflow node details",
@@ -618,6 +623,12 @@ export function WorkflowGraphSurface({
       });
     },
     [setSelectedNodeTarget, workflowProjection],
+  );
+  const openWorkflowActivityChipDetails = useCallback(
+    (chip: WorkflowGraphActivityChipTarget) => {
+      openWorkflowNodeDetails(chip.nodeId, activityFocusFromChip(chip));
+    },
+    [openWorkflowNodeDetails],
   );
   const openGraphNodeDetails = useCallback(
     (rendererNodeId: string | null) => {
@@ -660,6 +671,7 @@ export function WorkflowGraphSurface({
         deleteWorkflowDraftNodes,
         handleGraphNodeSelectionChange,
         openGraphNodeDetails,
+        openWorkflowActivityChipDetails,
         openWorkflowContextMenu,
         persistNodePositions,
         reactRenderCount,
@@ -673,6 +685,7 @@ export function WorkflowGraphSurface({
       deleteWorkflowDraftNodes,
       handleGraphNodeSelectionChange,
       openGraphNodeDetails,
+      openWorkflowActivityChipDetails,
       openWorkflowContextMenu,
       persistNodePositions,
       surfaceId,

@@ -13,8 +13,6 @@ import {
   backgroundColor,
   maxZoom,
   minZoom,
-  nodeOpenClickDistanceScreen,
-  nodeOpenClickIntervalMs,
   portHitRadiusScreen,
   rendererOptionsWithDefaults,
 } from "./pixi-renderer-config";
@@ -49,6 +47,7 @@ import { createNodeGeometryContextFactory, drawWorkspaceGrid } from "./pixi-rend
 import { createWorkflowGraphNodeContainer } from "./pixi-renderer-node-container";
 import { createWorkflowGraphPortContainer } from "./pixi-renderer-port-container";
 import { createWorkflowGraphPointerDownHandler } from "./pixi-renderer-pointer-down";
+import { createWorkflowGraphPointerClicks } from "./pixi-renderer-pointer-clicks";
 import { createWorkflowGraphSceneGraphUpdater } from "./pixi-renderer-scene-graph";
 import { createWorkflowGraphSpatialQueries } from "./pixi-renderer-spatial-queries";
 import {
@@ -90,6 +89,7 @@ export async function createWorkflowGraphRenderer(options) {
     graph,
     host,
     initialCameraState,
+    onActivityChipOpen,
     onCameraStateChange,
     onCanvasContextMenu,
     onEdgeCreate,
@@ -133,6 +133,7 @@ export async function createWorkflowGraphRenderer(options) {
   viewport.addChild(backgroundLayer, edgeLayer, nodeLayer, interactionLayer, effectsLayer);
 
   const handlers = rendererHandlers({
+    onActivityChipOpen,
     onCameraStateChange,
     onCanvasContextMenu,
     onEdgeCreate,
@@ -206,9 +207,14 @@ export async function createWorkflowGraphRenderer(options) {
   const hoveredNodeIds = new Set();
   let draggingNode = null;
   let drawingEdge = null;
-  let lastNodeClick = null;
   let drawingMarquee = null;
   let panningCamera = null;
+  const { activityChips, nodeClicks } = createWorkflowGraphPointerClicks({
+    getHandlers: () => handlers,
+    hitTestChipAtScreen: (screen) => workspaceActivityMarkers.hitTestChipAtScreen(screen),
+    moveCameraPan,
+    startCameraPanning,
+  });
   let activeTargetPortKey = null;
   let destroyed = false;
   let frameCount = 0;
@@ -263,14 +269,16 @@ export async function createWorkflowGraphRenderer(options) {
   resizeObserver.observe(host);
 
   const pointerDown = createWorkflowGraphPointerDownHandler({
+    beginActivityChipClick: activityChips.begin,
     canvas: app.canvas,
-    clearLastNodeClick,
+    clearLastNodeClick: nodeClicks.clear,
     clearSelection,
     frozen: () => frozen,
     graphHandlers: handlers,
+    hitTestActivityChipAtScreen: activityChips.hitTest,
     hitTestNodeAtScreen,
     hitTestPortAtScreen,
-    repeatedNodeOpenRequested,
+    repeatedNodeOpenRequested: nodeClicks.repeatedOpenRequested,
     selectOnlyNode,
     startCameraPanning,
     startEdgeDrawing,
@@ -283,6 +291,9 @@ export async function createWorkflowGraphRenderer(options) {
       return;
     }
     const screen = screenPointFromPointer(app.canvas, event);
+    if (activityChips.handlePointerMove(screen)) {
+      return;
+    }
     if (drawingEdge) {
       const world = viewport.toWorld(screen);
       drawingEdge.endX = world.x;
@@ -310,18 +321,11 @@ export async function createWorkflowGraphRenderer(options) {
     if (frozen) {
       return;
     }
+    if (activityChips.handlePointerUp(event)) {
+      return;
+    }
     if (drawingEdge) {
-      const targetPort =
-        event && typeof event.clientX === "number"
-          ? hitTestPortAtScreen(screenPointFromPointer(app.canvas, event), {
-              excludeNodeId: drawingEdge.sourceNodeId,
-              role: "target",
-            })
-          : null;
-      if (targetPort) {
-        commitEdge(drawingEdge, targetPort);
-      }
-      finishEdgeDrawing();
+      commitDrawingEdgeAtPointer(event);
       releasePointer(event);
       return;
     }
@@ -343,6 +347,9 @@ export async function createWorkflowGraphRenderer(options) {
   };
   const pointerCancel = (event) => {
     if (frozen) {
+      return;
+    }
+    if (activityChips.handlePointerCancel(event)) {
       return;
     }
     if (drawingMarquee) {
@@ -458,7 +465,7 @@ export async function createWorkflowGraphRenderer(options) {
       reactRenderCount: () => handlers.reactRenderCount(),
       recentFrameMs,
       // prettier-ignore
-      renderState: () => ({ activityChipDebug: workspaceActivityMarkers.chipDebugSnapshot(), activityChipLayout: workspaceActivityMarkers.layoutSnapshot(), activityChipStatesById: workspaceActivityMarkers.chipStatesById(), activityChipTextObjectCount: workspaceActivityMarkers.textObjectCount(), activityChipViewCount: workspaceActivityMarkers.count(), activityMarkerGraphicsCount: workspaceActivityMarkers.count(), activityMarkerVisualStatesById: workspaceActivityMarkers.visualStatesById(), cameraUpdateCount, canvasCreationCount, drawingEdge: Boolean(drawingEdge), drawingMarquee: Boolean(drawingMarquee), edgeCommitCount, edgeGraphicsRedrawSkipCount, edgeLabelObjectCount: edgeLabels.count(), edgeRedrawCount, frameCount, gridDrawCount, graphUpdateAccounting: graphUpdateAccounting.snapshot(), labelSyncCount: labels.syncCount(), marqueeUpdateCount, nodeDragUpdateCount, nodeOutlineVisibilityUpdateCount, panningCamera: Boolean(panningCamera), pixiAppCreationCount: 1, pointerPanUpdateCount, rendererLayerCreationCount: 1, rendererResizeCount, rendererDestroyCount, frozen, rendererInstanceId, selectedNodeId: firstSelectedNodeId(), selectedNodeIds, selectionChangeCount, temporaryEdgeUpdateCount, tickerFramesWhileFrozen, wheelPanUpdateCount, wheelZoomUpdateCount, workflow: currentWorkflow, ...sceneGraph.updateCounts() }),
+      renderState: () => ({ activityChipDebug: workspaceActivityMarkers.chipDebugSnapshot(), activityChipLayout: workspaceActivityMarkers.layoutSnapshot(), activityChipStatesById: workspaceActivityMarkers.chipStatesById(), activityChipTextObjectCount: workspaceActivityMarkers.textObjectCount(), activityChipViewCount: workspaceActivityMarkers.count(), activityMarkerGraphicsCount: workspaceActivityMarkers.count(), activityMarkerVisualStatesById: workspaceActivityMarkers.visualStatesById(), cameraUpdateCount, canvasCreationCount, drawingEdge: Boolean(drawingEdge), drawingMarquee: Boolean(drawingMarquee), edgeCommitCount, edgeGraphicsRedrawSkipCount, edgeLabelObjectCount: edgeLabels.count(), edgeRedrawCount, frameCount, gridDrawCount, graphUpdateAccounting: graphUpdateAccounting.snapshot(), labelSyncCount: labels.syncCount(), marqueeUpdateCount, nodeDragUpdateCount, nodeOutlineVisibilityUpdateCount, panningCamera: Boolean(panningCamera), pixiAppCreationCount: 1, pointerPanUpdateCount, rendererLayerCreationCount: 1, rendererResizeCount, rendererDestroyCount, frozen, rendererInstanceId, selectedNodeId: selectedNodeIds.values().next().value ?? null, selectedNodeIds, selectionChangeCount, temporaryEdgeUpdateCount, tickerFramesWhileFrozen, wheelPanUpdateCount, wheelZoomUpdateCount, workflow: currentWorkflow, ...sceneGraph.updateCounts() }),
       requireNodeLabel: labels.requireNodeLabel,
       spatialQueries,
       viewport,
@@ -522,6 +529,8 @@ export async function createWorkflowGraphRenderer(options) {
     viewport.resize(nextSize.width, nextSize.height, 4000, 4000);
     viewport.forceHitArea = new Rectangle(0, 0, nextSize.width, nextSize.height);
     labels.syncAllLabels();
+    // Re-flow retained activity chips into the resized viewport so they do not strand off-screen.
+    workspaceActivityMarkers.syncPositions();
   }
   function cancelActiveInteractionsForFreeze() {
     drawingEdge = null;
@@ -700,7 +709,7 @@ export async function createWorkflowGraphRenderer(options) {
       body.cursor = "grab";
     }
     if (shouldPersistPositions && handlers.onNodePositionsChange) {
-      clearLastNodeClick();
+      nodeClicks.clear();
       handlers.onNodePositionsChange(
         nodes.map((node) => ({
           moved: movedNodeIds.has(node.id),
@@ -712,30 +721,11 @@ export async function createWorkflowGraphRenderer(options) {
       return;
     }
     if (completedDrag) {
-      recordNodeClick(completedDrag.primaryNodeId, {
+      nodeClicks.record(completedDrag.primaryNodeId, {
         x: completedDrag.startScreenX,
         y: completedDrag.startScreenY,
       });
     }
-  }
-  function repeatedNodeOpenRequested(nodeId, screen) {
-    if (handlers.onNodeOpen === null || lastNodeClick === null || lastNodeClick.nodeId !== nodeId) {
-      return false;
-    }
-    const elapsed = performance.now() - lastNodeClick.time;
-    const distance = Math.hypot(screen.x - lastNodeClick.x, screen.y - lastNodeClick.y);
-    return elapsed <= nodeOpenClickIntervalMs && distance <= nodeOpenClickDistanceScreen;
-  }
-  function recordNodeClick(nodeId, screen) {
-    lastNodeClick = {
-      nodeId,
-      time: performance.now(),
-      x: screen.x,
-      y: screen.y,
-    };
-  }
-  function clearLastNodeClick() {
-    lastNodeClick = null;
   }
   function startCameraPanning(screen) {
     panningCamera = {
@@ -935,6 +925,19 @@ export async function createWorkflowGraphRenderer(options) {
     nextEdgeSequence += 1;
     edgeCommitCount += 1;
   }
+  function commitDrawingEdgeAtPointer(event) {
+    const targetPort =
+      event && typeof event.clientX === "number"
+        ? hitTestPortAtScreen(screenPointFromPointer(app.canvas, event), {
+            excludeNodeId: drawingEdge.sourceNodeId,
+            role: "target",
+          })
+        : null;
+    if (targetPort) {
+      commitEdge(drawingEdge, targetPort);
+    }
+    finishEdgeDrawing();
+  }
   function hitTestPortAtScreen(screen, { excludeNodeId, role }) {
     return hitTestWorkflowGraphPortAtScreen({
       excludeNodeId,
@@ -985,9 +988,6 @@ export async function createWorkflowGraphRenderer(options) {
     }
     portVisualStates.set(key, state);
     drawPortVisualState(visual, requirePort(requireNode(nodeId), portId), state);
-  }
-  function firstSelectedNodeId() {
-    return selectedNodeIds.values().next().value ?? null;
   }
   function requireNode(nodeId) {
     const node = nodes.find((candidate) => candidate.id === nodeId);

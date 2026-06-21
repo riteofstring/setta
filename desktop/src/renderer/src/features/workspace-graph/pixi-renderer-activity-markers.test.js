@@ -2,6 +2,7 @@ import { Container } from "pixi.js";
 import { describe, expect, test } from "vitest";
 
 import {
+  createWorkspaceActivityMarkerManager,
   syncWorkspaceActivityMarkerGraphicPositions,
   updateWorkspaceActivityMarkerGraphics,
   workspaceActivityChipDebugSnapshot,
@@ -226,6 +227,59 @@ describe("workflow graph activity marker chips", () => {
     expect(markerGraphics.get("marker_command").container.x).toBe(92);
   });
 
+  test("hit-tests chips by screen bounds and resolves their typed detail refs", () => {
+    const nodes = [node("work", 10, 20)];
+    const viewport = managerViewport(1);
+    const manager = createWorkspaceActivityMarkerManager({
+      loadedNodeLabelFont: { fontFamily: "Arial" },
+      nodes,
+      viewport,
+    });
+    manager.update([
+      markerWithDetail("command", "running", {
+        approvalId: "",
+        kind: "chat_run_item",
+        runItemId: "run_item_command",
+        workflowEventId: "",
+      }),
+      markerWithDetail(
+        "approval",
+        "waiting_approval",
+        { approvalId: "approval_a", kind: "approval", runItemId: "", workflowEventId: "" },
+        1,
+      ),
+    ]);
+
+    const chips = manager.chipDebugSnapshot();
+    const commandChip = chips.find((chip) => chip.kind === "command");
+    expect(commandChip).toMatchObject({
+      detailKind: "chat_run_item",
+      runItemId: "run_item_command",
+    });
+
+    expect(manager.hitTestChipAtScreen(chipCenter(commandChip))).toEqual({
+      activityId: "activity_command",
+      detailRef: {
+        approvalId: "",
+        kind: "chat_run_item",
+        runItemId: "run_item_command",
+        workflowEventId: "",
+      },
+      markerId: "marker_command",
+      nodeId: "work",
+      type: "marker",
+    });
+
+    const approvalChip = chips.find((chip) => chip.kind === "approval");
+    expect(manager.hitTestChipAtScreen(chipCenter(approvalChip))).toMatchObject({
+      detailRef: { approvalId: "approval_a", kind: "approval" },
+      markerId: "marker_approval",
+      type: "marker",
+    });
+
+    expect(manager.hitTestChipAtScreen({ x: -100, y: -100 })).toBeNull();
+  });
+
   test("reports missing anchors and global cap overflow without creating unbounded chip views", () => {
     const nodes = [node("work", 10, 20)];
     const viewport = fakeViewport(1);
@@ -294,6 +348,21 @@ function marker(kind, status, slotIndex = 0, idSuffix = kind) {
     status,
     updatedAt: `2026-06-21T12:0${slotIndex}:00Z`,
   };
+}
+
+function markerWithDetail(kind, status, detailRef, slotIndex = 0) {
+  return { ...marker(kind, status, slotIndex), detailRef };
+}
+
+function chipCenter(chip) {
+  return {
+    x: (chip.screenLeft + chip.screenRight) / 2,
+    y: (chip.screenTop + chip.screenBottom) / 2,
+  };
+}
+
+function managerViewport(zoom, options) {
+  return { ...fakeViewport(zoom, options), addChild: () => {} };
 }
 
 function fakeViewport(zoom, { screenHeight = undefined, screenWidth = undefined } = {}) {

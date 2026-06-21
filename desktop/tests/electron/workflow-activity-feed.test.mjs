@@ -26,6 +26,7 @@ import {
   openWorkflowGraphPane,
   pagePointForCanvasPoint,
 } from "./workflow-graph-layout-helpers.mjs";
+import { assertPhase35BChipClickThrough } from "./workflow-activity-feed-chip-clicks.mjs";
 import {
   assertNoActiveTransientActivityMarkers,
   assertStopRefreshPreservedRendererState,
@@ -244,6 +245,8 @@ try {
   );
   assertPhase35ACompactChipLod(completedActivityDebug, compactActivityDebug);
   await captureScreenshot(context.client, join(artifactDir, "activity-feed-compact-lod.png"));
+  // Phase 3.5B chip click-through runs last because it scrolls the graph pane out of view.
+  await assertPhase35BChipClickThrough(context.client, workflowGraphSurfaceId, artifactDir);
 
   const consoleRows = await readJsonLinesOptional(join(artifactDir, "renderer-console.jsonl"));
   const consoleErrors = consoleRows.filter((row) => Number(row.level) >= 2);

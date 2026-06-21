@@ -1,24 +1,36 @@
 import type {
   RunActivityPage,
-  RunItem,
   WorkflowActivityRef,
   WorkflowEvent,
   WorkflowExecution,
   WorkflowGraphEdge,
   WorkflowNodeExecution,
+  WorkflowPendingApproval,
   WorkflowToken,
 } from "@generated/backend";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
-import type { WorkflowNodeDetailsTarget } from "../../stores/workflow-editor-store";
+import { RunActivityRows } from "../../components/chat-run-activity";
+import { cn } from "../../lib/utils";
+import type {
+  WorkflowNodeActivityFocus,
+  WorkflowNodeDetailsTarget,
+} from "../../stores/workflow-editor-store";
+import {
+  workflowActivityFocusApprovalId,
+  workflowActivityFocusElementId,
+  workflowActivityFocusWorkflowEventId,
+} from "./workflow-node-activity-focus";
 import {
   latestWorkflowNodeExecution,
-  runActivityItemTitle,
+  runActivityOutputStateFromPage,
   shortIdentifier,
   workflowJsonText,
   workflowNodeEvents,
   workflowNodeKindLabel,
 } from "./workflow-node-details-helpers";
+
+const noopLoadRunActivityOutput = async () => {};
 
 export interface WorkflowRunInspectionState {
   activityPages: WorkflowNodeActivityPage[];
@@ -35,9 +47,11 @@ export interface WorkflowNodeActivityPage {
 }
 
 export function WorkflowRunDetailsContent({
+  focus,
   inspection,
   target,
 }: {
+  focus: WorkflowNodeActivityFocus | null;
   inspection: WorkflowRunInspectionState;
   target: WorkflowNodeDetailsTarget;
 }) {
@@ -60,11 +74,59 @@ export function WorkflowRunDetailsContent({
         target={target}
       />
       <WorkflowNodeExecutionSection nodeExecution={nodeExecution} target={target} />
-      <WorkflowActionResultSection nodeExecution={nodeExecution} />
-      <WorkflowActivitySection activityPages={inspection.activityPages} />
+      <WorkflowActionResultSection focus={focus} nodeExecution={nodeExecution} />
+      <WorkflowActivitySection activityPages={inspection.activityPages} focus={focus} />
       <WorkflowProjectionFlowSection target={target} />
       <WorkflowTokenFlowSection execution={inspection.execution} nodeId={target.nodeId} />
-      <WorkflowEventSection events={nodeEvents} />
+      <WorkflowEventSection events={nodeEvents} focus={focus} />
+    </div>
+  );
+}
+
+// Scrolls a deep-linked detail row into view when an activity chip targets it. requestId in the
+// focus ensures re-clicking the same chip re-runs the effect.
+function useWorkflowActivityFocusScroll<T extends HTMLElement>(
+  focused: boolean,
+  requestId: number,
+) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    if (focused) {
+      ref.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [focused, requestId]);
+  return ref;
+}
+
+function workflowActivityRowFocused(focus: WorkflowNodeActivityFocus | null, elementId: string) {
+  return focus !== null && elementId !== "" && workflowActivityFocusElementId(focus) === elementId;
+}
+
+// A bordered detail row that highlights and scrolls into view when an activity chip deep-links to
+// its elementId. Shared by the pending-approval and workflow-event rows so the focus treatment lives
+// in one place.
+function WorkflowFocusableDetailRow({
+  children,
+  elementId,
+  focus,
+}: {
+  children: ReactNode;
+  elementId: string;
+  focus: WorkflowNodeActivityFocus | null;
+}) {
+  const focused = workflowActivityRowFocused(focus, elementId);
+  const ref = useWorkflowActivityFocusScroll<HTMLDivElement>(focused, focus?.requestId ?? 0);
+  return (
+    <div
+      className={cn(
+        "rounded-sm border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-xs text-zinc-300",
+        focused && "ring-2 ring-accent-violet/70 ring-offset-1 ring-offset-background",
+      )}
+      data-activity-focus-id={focused ? elementId : undefined}
+      data-activity-focused={focused ? "true" : undefined}
+      ref={ref}
+    >
+      {children}
     </div>
   );
 }
@@ -143,8 +205,10 @@ function WorkflowNodeExecutionSection({
 }
 
 function WorkflowActionResultSection({
+  focus,
   nodeExecution,
 }: {
+  focus: WorkflowNodeActivityFocus | null;
   nodeExecution: WorkflowNodeExecution | null;
 }) {
   if (nodeExecution === null || nodeExecution.result === null) {
@@ -158,13 +222,9 @@ function WorkflowActionResultSection({
           { label: "Status", value: result.status },
           { label: "Exit code", value: result.exitCode === null ? "" : `${result.exitCode}` },
           { label: "Error", value: result.error, hidden: result.error === "" },
-          {
-            label: "Approval",
-            value: result.pendingApproval?.approval.title ?? "",
-            hidden: result.pendingApproval === null,
-          },
         ]}
       />
+      <WorkflowPendingApprovalRow focus={focus} pendingApproval={result.pendingApproval} />
       <WorkflowSignalList signals={result.signals} />
       <WorkflowStringList
         emptyLabel="No file paths reported."
@@ -176,22 +236,71 @@ function WorkflowActionResultSection({
   );
 }
 
-function WorkflowActivitySection({ activityPages }: { activityPages: WorkflowNodeActivityPage[] }) {
+function WorkflowPendingApprovalRow({
+  focus,
+  pendingApproval,
+}: {
+  focus: WorkflowNodeActivityFocus | null;
+  pendingApproval: WorkflowPendingApproval | null;
+}) {
+  if (pendingApproval === null) {
+    return null;
+  }
+  const approval = pendingApproval.approval;
+  const detail = approval.command || approval.filePath || approval.permission;
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium text-zinc-400">Approval</div>
+      <WorkflowFocusableDetailRow
+        elementId={workflowActivityFocusApprovalId(pendingApproval.approvalId)}
+        focus={focus}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate font-medium text-zinc-100">
+            {approval.title || "Approval"}
+          </span>
+          <span className="shrink-0 text-zinc-500">{approval.status}</span>
+        </div>
+        {detail !== "" ? <div className="mt-1 truncate text-zinc-400">{detail}</div> : null}
+      </WorkflowFocusableDetailRow>
+    </div>
+  );
+}
+
+function WorkflowActivitySection({
+  activityPages,
+  focus,
+}: {
+  activityPages: WorkflowNodeActivityPage[];
+  focus: WorkflowNodeActivityFocus | null;
+}) {
   if (activityPages.length === 0) {
     return null;
   }
+  const highlightedRunItemId =
+    focus?.detailKind === "chat_run_item" && focus.runItemId !== "" ? focus.runItemId : undefined;
   return (
     <WorkflowDetailsSection title="Activity">
       <div className="space-y-3">
         {activityPages.map((activity) => (
-          <WorkflowActivityRefDetails activity={activity} key={activity.ref.id} />
+          <WorkflowActivityRefDetails
+            activity={activity}
+            highlightedRunItemId={highlightedRunItemId}
+            key={activity.ref.id}
+          />
         ))}
       </div>
     </WorkflowDetailsSection>
   );
 }
 
-function WorkflowActivityRefDetails({ activity }: { activity: WorkflowNodeActivityPage }) {
+function WorkflowActivityRefDetails({
+  activity,
+  highlightedRunItemId,
+}: {
+  activity: WorkflowNodeActivityPage;
+  highlightedRunItemId: string | undefined;
+}) {
   return (
     <div className="space-y-2 rounded-sm border border-zinc-800 bg-zinc-950/60 p-3">
       <WorkflowDetailsRows
@@ -202,50 +311,38 @@ function WorkflowActivityRefDetails({ activity }: { activity: WorkflowNodeActivi
           { label: "Error", value: activity.error, hidden: activity.error === "" },
         ]}
       />
-      {activity.page ? <WorkflowRunActivityPageDetails page={activity.page} /> : null}
+      {activity.page ? (
+        <WorkflowRunActivityPageDetails
+          highlightedRunItemId={highlightedRunItemId}
+          page={activity.page}
+        />
+      ) : null}
     </div>
   );
 }
 
-function WorkflowRunActivityPageDetails({ page }: { page: RunActivityPage }) {
+// Renders node-scoped agent/tool activity through the shared chat run-activity rows so the workflow
+// node details reuse the canonical rendering path instead of a bespoke lower-fidelity renderer.
+function WorkflowRunActivityPageDetails({
+  highlightedRunItemId,
+  page,
+}: {
+  highlightedRunItemId: string | undefined;
+  page: RunActivityPage;
+}) {
   if (page.items.length === 0) {
     return <div className="text-xs text-zinc-500">No activity items recorded.</div>;
   }
+  const outputState = runActivityOutputStateFromPage(page);
   return (
-    <div className="space-y-2">
-      {page.items.map((item) => (
-        <WorkflowRunActivityItem item={item} key={item.id} page={page} />
-      ))}
-    </div>
-  );
-}
-
-function WorkflowRunActivityItem({ item, page }: { item: RunItem; page: RunActivityPage }) {
-  const output = page.output
-    .filter((candidate) => candidate.runItemId === item.id)
-    .map((candidate) => candidate.text)
-    .join("");
-  return (
-    <div className="rounded-sm border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate font-medium text-zinc-100">
-          {runActivityItemTitle(item)}
-        </span>
-        <span className="shrink-0 text-zinc-500">{item.status}</span>
-      </div>
-      <WorkflowDetailsRows
-        rows={[
-          { label: "Type", value: item.type },
-          { label: "Tool", value: [item.namespace, item.toolName].filter(Boolean).join("/") },
-          { label: "Result", value: item.result },
-          { label: "Error", value: item.error, hidden: item.error === "" },
-        ]}
-      />
-      {output !== "" ? (
-        <pre className="mt-2 whitespace-pre-wrap text-zinc-300">{output}</pre>
-      ) : null}
-      <WorkflowJsonBlock title="Details" value={item.details} />
-    </div>
+    <RunActivityRows
+      highlightedRunItemId={highlightedRunItemId}
+      items={page.items}
+      loadRunItemOutput={noopLoadRunActivityOutput}
+      outputIdsByRunItemId={outputState.outputIdsByRunItemId}
+      outputPagesByRunItemId={outputState.outputPagesByRunItemId}
+      outputsById={outputState.outputsById}
+    />
   );
 }
 
@@ -340,7 +437,13 @@ function WorkflowTokenList({ label, tokens }: { label: string; tokens: WorkflowT
   );
 }
 
-function WorkflowEventSection({ events }: { events: WorkflowEvent[] }) {
+function WorkflowEventSection({
+  events,
+  focus,
+}: {
+  events: WorkflowEvent[];
+  focus: WorkflowNodeActivityFocus | null;
+}) {
   if (events.length === 0) {
     return null;
   }
@@ -348,21 +451,31 @@ function WorkflowEventSection({ events }: { events: WorkflowEvent[] }) {
     <WorkflowDetailsSection title="Events">
       <div className="space-y-1">
         {events.map((event) => (
-          <div
-            className="rounded-sm border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-xs text-zinc-300"
-            key={event.id}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="min-w-0 truncate font-medium text-zinc-100">{event.type}</span>
-              <span className="shrink-0 font-mono text-[11px] text-zinc-500">#{event.ordinal}</span>
-            </div>
-            {event.message !== "" ? (
-              <div className="mt-1 text-zinc-400">{event.message}</div>
-            ) : null}
-          </div>
+          <WorkflowEventRow event={event} focus={focus} key={event.id} />
         ))}
       </div>
     </WorkflowDetailsSection>
+  );
+}
+
+function WorkflowEventRow({
+  event,
+  focus,
+}: {
+  event: WorkflowEvent;
+  focus: WorkflowNodeActivityFocus | null;
+}) {
+  return (
+    <WorkflowFocusableDetailRow
+      elementId={workflowActivityFocusWorkflowEventId(event.id)}
+      focus={focus}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate font-medium text-zinc-100">{event.type}</span>
+        <span className="shrink-0 font-mono text-[11px] text-zinc-500">#{event.ordinal}</span>
+      </div>
+      {event.message !== "" ? <div className="mt-1 text-zinc-400">{event.message}</div> : null}
+    </WorkflowFocusableDetailRow>
   );
 }
 

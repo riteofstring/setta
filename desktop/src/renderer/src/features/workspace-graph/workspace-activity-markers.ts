@@ -1,6 +1,7 @@
 import type {
   WorkflowExecutionStatus,
   WorkflowGraphNodeStatus,
+  WorkspaceActivityDetailKind,
   WorkspaceActivityKind,
   WorkspaceActivityRecord,
   WorkspaceActivityStatus,
@@ -13,10 +14,22 @@ type WorkspaceActivityMarkerAnchorKind = "workflow_node";
 
 type WorkflowGraphRunActivityTarget = Extract<WorkflowGraphTarget, { kind: "run" }>;
 
+// Typed reference to the canonical detail row a chip click should deep-link to. It is a bounded
+// subset of WorkspaceActivityDetailRef carrying only the ids the workflow node details pane can
+// highlight (run item, approval, or workflow event). It is not a visual property, so it does not
+// participate in marker fingerprints.
+interface WorkspaceActivityMarkerDetailRef {
+  approvalId: string;
+  kind: WorkspaceActivityDetailKind;
+  runItemId: string;
+  workflowEventId: string;
+}
+
 export interface WorkspaceActivityMarker {
   activityId: string;
   active: boolean;
   anchorKind: WorkspaceActivityMarkerAnchorKind;
+  detailRef: WorkspaceActivityMarkerDetailRef;
   id: string;
   kind: WorkspaceActivityKind;
   label: string;
@@ -246,6 +259,7 @@ function markerFromRecord(
     activityId: record.activityId,
     active: activeActivityStatus(record.status),
     anchorKind,
+    detailRef: activityMarkerDetailRef(record),
     id: workflowNodeMarkerId(nodeId, record.activityId),
     kind: record.kind,
     label: activityMarkerLabel(record),
@@ -255,6 +269,17 @@ function markerFromRecord(
     slotIndex,
     status: record.status,
     updatedAt: record.updatedAt || record.occurredAt,
+  };
+}
+
+function activityMarkerDetailRef(
+  record: WorkspaceActivityRecord,
+): WorkspaceActivityMarkerDetailRef {
+  return {
+    approvalId: record.detailRef.approvalId,
+    kind: record.detailRef.kind,
+    runItemId: record.detailRef.runItemId,
+    workflowEventId: record.detailRef.workflowEventId,
   };
 }
 

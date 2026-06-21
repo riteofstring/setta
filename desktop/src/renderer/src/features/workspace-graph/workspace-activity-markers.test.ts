@@ -45,6 +45,40 @@ describe("workspace activity markers", () => {
     ]);
   });
 
+  test("carries typed detail refs from records onto markers for chip deep-linking", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph(),
+      records: [
+        activityRecord("workflow", "workflow_status", "running", 4, "work"),
+        activityRecord("command", "command", "completed", 3, "work"),
+        activityRecord("approval", "approval", "waiting_approval", 1, "work"),
+      ],
+      target: runTarget(),
+    });
+
+    const detailRefByKind = Object.fromEntries(
+      markers.map((marker) => [marker.kind, marker.detailRef]),
+    );
+    expect(detailRefByKind.command).toEqual({
+      approvalId: "",
+      kind: "chat_run_item",
+      runItemId: "activity_command",
+      workflowEventId: "",
+    });
+    expect(detailRefByKind.workflow_status).toEqual({
+      approvalId: "",
+      kind: "workflow_event",
+      runItemId: "",
+      workflowEventId: "event_workflow",
+    });
+    expect(detailRefByKind.approval).toEqual({
+      approvalId: "approval_a",
+      kind: "approval",
+      runItemId: "",
+      workflowEventId: "",
+    });
+  });
+
   test("keeps distinct command records for the same node", () => {
     const markers = projectWorkspaceActivityMarkers({
       graph: workflowGraph(),
@@ -410,7 +444,7 @@ function detailRef(kind: WorkspaceActivityKind, id: string, executionId: string)
   return {
     approvalId: kind === "approval" ? "approval_a" : "",
     conversationId: chatRunItem ? "conversation_a" : "",
-    kind: workflowEvent ? "workflow_event" : "chat_run_item",
+    kind: detailKindForActivityKind(kind),
     runId: chatRunItem ? "run_a" : "",
     runItemId: chatRunItem ? `activity_${id}` : "",
     workflowEventId: workflowEvent ? `event_${id}` : "",
@@ -428,6 +462,7 @@ function marker(
     activityId: `activity_${kind}`,
     active: status === "running" || status === "waiting_approval",
     anchorKind: "workflow_node",
+    detailRef: markerDetailRef(kind),
     id,
     kind,
     label: `${kind} ${status}`,
@@ -438,4 +473,24 @@ function marker(
     status,
     updatedAt: status === "running" ? "2026-06-21T12:00:00Z" : "2026-06-21T12:01:00Z",
   };
+}
+
+function markerDetailRef(kind: WorkspaceActivityKind) {
+  const chatRunItem = kind === "command" || kind === "file_change";
+  return {
+    approvalId: kind === "approval" ? "approval_a" : "",
+    kind: detailKindForActivityKind(kind),
+    runItemId: chatRunItem ? `run_item_${kind}` : "",
+    workflowEventId: kind === "workflow_status" ? `event_${kind}` : "",
+  } as const;
+}
+
+function detailKindForActivityKind(kind: WorkspaceActivityKind) {
+  if (kind === "workflow_status") {
+    return "workflow_event" as const;
+  }
+  if (kind === "approval") {
+    return "approval" as const;
+  }
+  return "chat_run_item" as const;
 }

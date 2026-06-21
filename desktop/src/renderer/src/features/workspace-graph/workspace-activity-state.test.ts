@@ -107,6 +107,12 @@ describe("workspace activity state", () => {
       activityId: "activity_command",
       active: true,
       anchorKind: "workflow_node" as const,
+      detailRef: {
+        approvalId: "",
+        kind: "chat_run_item" as const,
+        runItemId: "run_item_command",
+        workflowEventId: "",
+      },
       id: "workspace-activity:node:work:command",
       kind: "command" as const,
       label: "Command running npm test",
