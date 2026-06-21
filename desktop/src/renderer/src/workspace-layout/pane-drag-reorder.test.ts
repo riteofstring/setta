@@ -107,12 +107,14 @@ describe("pane drag drop intent hit-testing", () => {
       harness.root,
       session,
       harness.store,
+      harness.metrics,
     );
     updatePaneDragSession(
       pointerEvent({ clientX: 108, clientY: 100 }),
       harness.root,
       session,
       harness.store,
+      harness.metrics,
     );
 
     expect(harness.previewPaneDropIntent).not.toHaveBeenCalled();
@@ -127,6 +129,46 @@ describe("pane drag drop intent hit-testing", () => {
       slotPlacement: "before",
       targetColumnId: "target_column",
     });
+    expect(harness.recordPaneDragPreviewUpdate).toHaveBeenCalledOnce();
+    expect(harness.recordPaneDragPreviewClear).not.toHaveBeenCalled();
+  });
+
+  test("records preview clears when a drag leaves valid targets", () => {
+    const harness = dragTestHarness();
+    const session: PaneDragSession = {
+      dragging: true,
+      handle: { hasPointerCapture: () => false } as HTMLElement,
+      pendingDropFrame: null,
+      pendingDropPointer: null,
+      pointerId: 1,
+      sourcePaneId: "source_pane",
+      startClientX: 0,
+      startClientY: 0,
+      target: {
+        axis: "vertical",
+        intent: {
+          kind: "row",
+          placement: "after",
+          targetPaneId: "target_pane",
+        },
+        paneId: "target_pane",
+        placement: "after",
+      },
+    };
+
+    updatePaneDragSession(
+      pointerEvent({ clientX: 900, clientY: 900 }),
+      harness.root,
+      session,
+      harness.store,
+      harness.metrics,
+    );
+
+    harness.frameCallbacks[0]?.(0);
+
+    expect(harness.store.clearPaneDropPreview).toHaveBeenCalledOnce();
+    expect(harness.recordPaneDragPreviewClear).toHaveBeenCalledOnce();
+    expect(harness.recordPaneDragPreviewUpdate).not.toHaveBeenCalled();
   });
 });
 
@@ -135,8 +177,15 @@ function storeForDragTests(): WorkspaceLayoutStore {
 }
 
 function dragTestHarness(): {
+  clearPaneDropPreview: ReturnType<typeof vi.fn>;
   frameCallbacks: FrameRequestCallback[];
+  metrics: {
+    recordPaneDragPreviewClear: ReturnType<typeof vi.fn>;
+    recordPaneDragPreviewUpdate: ReturnType<typeof vi.fn>;
+  };
   previewPaneDropIntent: ReturnType<typeof vi.fn>;
+  recordPaneDragPreviewClear: ReturnType<typeof vi.fn>;
+  recordPaneDragPreviewUpdate: ReturnType<typeof vi.fn>;
   root: HTMLElement;
   store: WorkspaceLayoutStore;
 } {
@@ -159,7 +208,14 @@ function dragTestHarness(): {
       width: 200,
     }),
   ];
+  const clearPaneDropPreview = vi.fn(() => true);
   const previewPaneDropIntent = vi.fn(() => true);
+  const recordPaneDragPreviewClear = vi.fn();
+  const recordPaneDragPreviewUpdate = vi.fn();
+  const metrics = {
+    recordPaneDragPreviewClear,
+    recordPaneDragPreviewUpdate,
+  };
   vi.stubGlobal("document", {
     querySelectorAll: vi.fn(() => hosts),
   });
@@ -176,11 +232,20 @@ function dragTestHarness(): {
     querySelectorAll: vi.fn(() => hosts),
   } as unknown as HTMLElement;
   const store = {
-    clearPaneDropPreview: vi.fn(() => true),
+    clearPaneDropPreview,
     previewPaneDropIntent,
     toScene: () => dragTestScene(),
   } as unknown as WorkspaceLayoutStore;
-  return { frameCallbacks, previewPaneDropIntent, root, store };
+  return {
+    clearPaneDropPreview,
+    frameCallbacks,
+    metrics,
+    previewPaneDropIntent,
+    recordPaneDragPreviewClear,
+    recordPaneDragPreviewUpdate,
+    root,
+    store,
+  };
 }
 
 function dragTestScene(): WorkspaceScene {

@@ -83,6 +83,7 @@ try {
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
     await writeJson(join(artifactDir, "failure-snapshot.json"), {
+      frameMetrics: await safeFrameMetricsSnapshot(context.client),
       layout: await safeLayoutSnapshot(context.client),
       paneSnapshot: await safePaneSnapshot(context.client),
     }).catch(() => {});
@@ -219,6 +220,7 @@ async function performOverviewColumnDrop(client) {
     x: targetHost.rect.left + targetHost.rect.width + 10,
     y: targetHost.rect.top + targetHost.rect.height / 2,
   };
+  const beforeMetrics = await readFrameMetrics(client);
 
   await dispatchMousePress(client, sourceHandle);
   await dispatchMouseMove(client, to, { buttons: 1 });
@@ -256,9 +258,12 @@ async function performOverviewColumnDrop(client) {
     },
     workflowTimeoutMs,
   );
+  const metrics = paneDragMetricDelta(beforeMetrics, await readFrameMetrics(client));
+  assertPaneDragPreviewMetrics(metrics, "overview column drop");
   return {
     afterDrop,
     ghost,
+    metrics,
     sourceColumn: columnForPane(layout, sourceHost.paneId),
     sourcePaneId: sourceHost.paneId,
     targetColumn: columnForPane(layout, targetHost.paneId),
@@ -271,6 +276,7 @@ async function dragPaneToPoint(
   { expectedDropAxis, expectedDropTarget, sourcePaneId, targetPaneId, to },
 ) {
   const from = await dragHandleCenter(client, sourcePaneId);
+  const beforeMetrics = await readFrameMetrics(client);
   await dispatchMousePress(client, from);
   await dispatchMouseMove(client, to, { buttons: 1 });
   const during = await waitForState(
@@ -305,7 +311,9 @@ async function dragPaneToPoint(
     },
     workflowTimeoutMs,
   );
-  return { after, during };
+  const metrics = paneDragMetricDelta(beforeMetrics, await readFrameMetrics(client));
+  assertPaneDragPreviewMetrics(metrics, `${sourcePaneId} to ${targetPaneId}`);
+  return { after, during, metrics };
 }
 
 async function ensureWorkspaceOpen(client) {
@@ -451,6 +459,37 @@ async function safeLayoutSnapshot(client) {
   }
 }
 
+async function safeFrameMetricsSnapshot(client) {
+  try {
+    return await readFrameMetrics(client);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function readFrameMetrics(client) {
+  const metrics = await client.evaluate(frameMetricsExpression());
+  if (!metrics) {
+    throw new Error("workspace frame metrics hook was not installed");
+  }
+  return metrics;
+}
+
+function paneDragMetricDelta(before, after) {
+  return {
+    previewClears: after.paneDragPreviewClears - before.paneDragPreviewClears,
+    previewUpdates: after.paneDragPreviewUpdates - before.paneDragPreviewUpdates,
+  };
+}
+
+function assertPaneDragPreviewMetrics(metrics, label) {
+  if (metrics.previewUpdates !== 1 || metrics.previewClears !== 1) {
+    throw new Error(
+      `unexpected pane drag preview metrics for ${label}: ${JSON.stringify(metrics)}`,
+    );
+  }
+}
+
 function sameColumnWithOrder(layout, targetPaneId, sourcePaneId) {
   const column = findColumnForPane(layout, sourcePaneId);
   const targetColumn = findColumnForPane(layout, targetPaneId);
@@ -529,6 +568,10 @@ function layoutSnapshotExpression() {
     const result = await window.setta.workspace.readUILayout(workspaceId);
     return { layout: result.layout, workspaceId };
   })()`;
+}
+
+function frameMetricsExpression() {
+  return `(() => window.__settaWorkspaceReadFrameMetrics?.() ?? null)()`;
 }
 
 function paneSnapshotExpression() {

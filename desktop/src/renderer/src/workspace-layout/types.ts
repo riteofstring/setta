@@ -298,6 +298,8 @@ export interface WorkspaceFrameMetrics {
   p50FrameTime: number;
   p95FrameTime: number;
   p99FrameTime: number;
+  paneDragPreviewClears: number;
+  paneDragPreviewUpdates: number;
   reactCommitsDuringMovement: number;
   reactCommitsDuringResize: number;
   resize: WorkspaceResizeMetrics;

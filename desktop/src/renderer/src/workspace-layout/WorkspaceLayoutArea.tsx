@@ -78,7 +78,7 @@ import {
   workspaceLayoutAreaLabel,
   workspaceLayoutRecoveryMessage,
 } from "./workspace-ui-layout";
-import type { OpenPaneRequest, Rect, SurfaceKind } from "./types";
+import type { OpenPaneRequest, PaneDropIntent, Rect, SurfaceKind } from "./types";
 
 export interface WorkspaceSurfaceFocusRequest {
   requestId: number;
@@ -438,6 +438,16 @@ function WorkspaceLayoutRuntimeArea({
       };
       return true;
     };
+    const previewPaneDropIntent = (sourcePaneId: string, dropIntent: PaneDropIntent) => {
+      if (runtime.store.previewPaneDropIntent(sourcePaneId, dropIntent)) {
+        runtime.metrics.recordPaneDragPreviewUpdate();
+      }
+    };
+    const clearPaneDropPreview = () => {
+      if (runtime.store.clearPaneDropPreview()) {
+        runtime.metrics.recordPaneDragPreviewClear();
+      }
+    };
     const applyOverviewDropPreview = (
       overviewSession: OverviewDragSession,
       pointer: { clientX: number; clientY: number },
@@ -449,9 +459,9 @@ function WorkspaceLayoutRuntimeArea({
           : null;
       setOverviewGhostTargetIfChanged(setOverviewGhostTarget, dropIntent ? ghostTarget : null);
       if (dropIntent) {
-        runtime.store.previewPaneDropIntent(overviewSession.sourcePaneId, dropIntent);
+        previewPaneDropIntent(overviewSession.sourcePaneId, dropIntent);
       } else {
-        runtime.store.clearPaneDropPreview();
+        clearPaneDropPreview();
       }
     };
     const flushOverviewDropPreview = (overviewSession: OverviewDragSession) => {
@@ -555,7 +565,7 @@ function WorkspaceLayoutRuntimeArea({
       setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
       event.preventDefault();
       event.stopPropagation();
-      updatePaneDragSession(event, root, paneDragSession, runtime.store);
+      updatePaneDragSession(event, root, paneDragSession, runtime.store, runtime.metrics);
       return true;
     };
     const updatePaneResize = (event: PointerEvent): boolean => {
@@ -605,7 +615,7 @@ function WorkspaceLayoutRuntimeArea({
         sourceHost.removeAttribute("data-drag-source");
         sourceHost.style.translate = "";
       }
-      runtime.store.clearPaneDropPreview();
+      clearPaneDropPreview();
       if (overviewSession.dragging) {
         const ghostTarget = overviewGhostTargetFromPointer(event, stage);
         const dropIntent =
@@ -634,9 +644,15 @@ function WorkspaceLayoutRuntimeArea({
       }
       event.preventDefault();
       event.stopPropagation();
-      const dragFinish = finishPaneDragSession(event, root, paneDragSession, runtime.store);
+      const dragFinish = finishPaneDragSession(
+        event,
+        root,
+        paneDragSession,
+        runtime.store,
+        runtime.metrics,
+      );
       paneDragSessionRef.current = null;
-      runtime.store.clearPaneDropPreview();
+      clearPaneDropPreview();
       if (dragFinish.dragging) {
         suppressNextPaneClick();
       }

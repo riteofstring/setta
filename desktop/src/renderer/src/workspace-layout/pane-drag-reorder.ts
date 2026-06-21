@@ -46,6 +46,11 @@ interface PaneDropPointer {
   clientY: number;
 }
 
+interface PaneDragPreviewMetrics {
+  recordPaneDragPreviewClear(): void;
+  recordPaneDragPreviewUpdate(): void;
+}
+
 export function beginPaneDragSession(
   event: PointerEvent,
   root: HTMLElement,
@@ -75,6 +80,7 @@ export function updatePaneDragSession(
   root: HTMLElement,
   session: PaneDragSession,
   store: WorkspaceLayoutStore,
+  metrics?: PaneDragPreviewMetrics,
 ): void {
   const distance = Math.hypot(
     event.clientX - session.startClientX,
@@ -88,7 +94,7 @@ export function updatePaneDragSession(
     return;
   }
   syncPaneDragSourceOffset(session, event);
-  schedulePaneDropTargetUpdate(root, session, event, store);
+  schedulePaneDropTargetUpdate(root, session, event, store, metrics);
 }
 
 export function finishPaneDragSession(
@@ -96,9 +102,10 @@ export function finishPaneDragSession(
   root: HTMLElement,
   session: PaneDragSession,
   store?: WorkspaceLayoutStore,
+  metrics?: PaneDragPreviewMetrics,
 ): PaneDragFinish {
   if (store) {
-    flushPaneDropTarget(root, session, store);
+    flushPaneDropTarget(root, session, store, metrics);
   }
   const finish = {
     dragging: session.dragging,
@@ -129,6 +136,7 @@ function schedulePaneDropTargetUpdate(
   session: PaneDragSession,
   event: PointerEvent,
   store: WorkspaceLayoutStore,
+  metrics: PaneDragPreviewMetrics | undefined,
 ): void {
   session.pendingDropPointer = { clientX: event.clientX, clientY: event.clientY };
   if (session.pendingDropFrame !== null) {
@@ -136,7 +144,7 @@ function schedulePaneDropTargetUpdate(
   }
   session.pendingDropFrame = requestPaneDropAnimationFrame(() => {
     session.pendingDropFrame = null;
-    flushPaneDropTarget(root, session, store);
+    flushPaneDropTarget(root, session, store, metrics);
   });
 }
 
@@ -144,13 +152,14 @@ function flushPaneDropTarget(
   root: HTMLElement,
   session: PaneDragSession,
   store: WorkspaceLayoutStore,
+  metrics?: PaneDragPreviewMetrics,
 ): void {
   const pointer = session.pendingDropPointer;
   if (!pointer) {
     return;
   }
   session.pendingDropPointer = null;
-  updatePaneDropTarget(root, session, pointer, store);
+  updatePaneDropTarget(root, session, pointer, store, metrics);
 }
 
 function cancelPaneDropTargetUpdate(session: PaneDragSession): void {
@@ -209,6 +218,7 @@ function updatePaneDropTarget(
   session: PaneDragSession,
   event: PaneDropPointer,
   store: WorkspaceLayoutStore,
+  metrics?: PaneDragPreviewMetrics,
 ): void {
   const target = paneDropTargetFromPointer(event, session.sourcePaneId, store);
   if (samePaneDropTarget(target, session.target)) {
@@ -217,10 +227,14 @@ function updatePaneDropTarget(
   session.target = target;
   syncPaneDropTarget(root, target);
   if (target) {
-    store.previewPaneDropIntent(session.sourcePaneId, target.intent);
+    if (store.previewPaneDropIntent(session.sourcePaneId, target.intent)) {
+      metrics?.recordPaneDragPreviewUpdate();
+    }
     return;
   }
-  store.clearPaneDropPreview();
+  if (store.clearPaneDropPreview()) {
+    metrics?.recordPaneDragPreviewClear();
+  }
 }
 
 export function paneDropTargetFromPointer(
