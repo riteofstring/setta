@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 
 import type { WorkflowGraphProjection } from "@generated/backend";
 import {
+  workflowDraftButtonLabel,
+  workflowDraftButtonTitle,
   workflowToolbarMismatchLabel,
   workflowToolbarShowsRunButton,
   workflowToolbarShowsStopButton,
@@ -82,6 +84,20 @@ describe("workflow graph toolbar run and stop visibility", () => {
 
     expect(workflowToolbarShowsRunButton(projection)).toBe(false);
     expect(workflowToolbarShowsStopButton(projection)).toBe(false);
+  });
+});
+
+describe("workflow graph toolbar draft action", () => {
+  test("names the action as switching back to editable draft", () => {
+    const running = workflowProjection({ executionStatus: "running", viewMode: "run" });
+    const completed = workflowProjection({ executionStatus: "completed", viewMode: "run" });
+
+    expect(workflowDraftButtonLabel(running)).toBe("Edit Draft");
+    expect(workflowDraftButtonTitle(running)).toBe(
+      "Switch to the editable draft. This does not stop the running workflow.",
+    );
+    expect(workflowDraftButtonLabel(completed)).toBe("Edit Draft");
+    expect(workflowDraftButtonTitle(completed)).toBe("Switch to the editable draft.");
   });
 });
 

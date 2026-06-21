@@ -139,7 +139,9 @@ export function WorkflowGraphToolbar({
         ) : null}
         <WorkflowDraftButton
           disabled={model.disabled}
+          label={model.draftLabel}
           onShowDraft={onShowDraft}
+          title={model.draftTitle}
           viewingDraft={!model.showDraftButton}
         />
         <ToolbarButton
@@ -299,11 +301,15 @@ function WorkflowAddNodeMenuItems({
 
 function WorkflowDraftButton({
   disabled,
+  label,
   onShowDraft,
+  title,
   viewingDraft,
 }: {
   disabled: boolean;
+  label: string;
   onShowDraft: () => void;
+  title: string;
   viewingDraft: boolean;
 }) {
   if (viewingDraft) {
@@ -313,9 +319,10 @@ function WorkflowDraftButton({
     <ToolbarButton
       disabled={disabled}
       icon={RefreshCcw}
-      label="Draft"
+      label={label}
       onClick={onShowDraft}
       testId="workflow-show-draft-button"
+      title={title}
     />
   );
 }
@@ -327,6 +334,7 @@ function ToolbarButton({
   onClick,
   spin = false,
   testId,
+  title,
 }: {
   disabled: boolean;
   icon: LucideIcon;
@@ -334,14 +342,17 @@ function ToolbarButton({
   onClick: () => void;
   spin?: boolean;
   testId: string;
+  title?: string;
 }) {
+  const accessibleLabel = title ?? label;
   return (
     <button
+      aria-label={accessibleLabel}
       className="inline-flex h-8 max-w-36 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
       data-testid={testId}
       disabled={disabled}
       onClick={onClick}
-      title={label}
+      title={accessibleLabel}
       type="button"
     >
       <Icon className={["h-3.5 w-3.5 shrink-0", spin ? "animate-spin" : ""].join(" ")} />
@@ -437,6 +448,8 @@ function workflowToolbarModel({
     detailsDisabled: workflowDetailsDisabled(disabled, selectedNodeLabel),
     detailsLabel: workflowDetailsLabel(selectedNodeLabel),
     disabled,
+    draftLabel: workflowDraftButtonLabel(projection),
+    draftTitle: workflowDraftButtonTitle(projection),
     editable,
     mismatchLabel: workflowToolbarMismatchLabel(projection),
     runDisabled: workflowRunDisabled(disabled, editable, projection),
@@ -498,6 +511,21 @@ function workflowStopLabel(busy: WorkflowToolbarOperation | null) {
 
 function workflowValidateLabel(busy: WorkflowToolbarOperation | null) {
   return busy === "validate" ? "Validating" : "Validate";
+}
+
+export function workflowDraftButtonLabel(projection: WorkflowGraphProjection | null) {
+  return projection !== null && projection.viewMode !== "draft" ? "Edit Draft" : "Draft";
+}
+
+export function workflowDraftButtonTitle(projection: WorkflowGraphProjection | null) {
+  if (
+    projection !== null &&
+    projection.viewMode === "run" &&
+    projection.executionStatus === "running"
+  ) {
+    return "Switch to the editable draft. This does not stop the running workflow.";
+  }
+  return "Switch to the editable draft.";
 }
 
 function workflowToolbarTitle(projection: WorkflowGraphProjection | null, workspaceId: string) {
