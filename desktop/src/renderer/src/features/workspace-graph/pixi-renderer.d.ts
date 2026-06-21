@@ -62,6 +62,19 @@ export interface WorkflowGraphGraph {
   } | null;
 }
 
+export type WorkflowGraphUpdateSource =
+  | "initial-mount"
+  | "workflow-projection"
+  | "semantic-graph"
+  | "semantic-activity"
+  | "draft-validation-local"
+  | "layout"
+  | "unknown";
+
+export interface WorkflowGraphUpdateMetadata {
+  source: WorkflowGraphUpdateSource;
+}
+
 export interface WorkflowGraphCameraState {
   x: number;
   y: number;
@@ -122,7 +135,7 @@ export interface WorkflowGraphRenderer {
   destroy: () => void;
   setFrozen: (frozen: boolean) => void;
   setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
-  updateGraph: (graph: WorkflowGraphGraph) => void;
+  updateGraph: (graph: WorkflowGraphGraph, metadata?: WorkflowGraphUpdateMetadata) => void;
 }
 
 export function createWorkflowGraphRenderer(

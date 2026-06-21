@@ -1,10 +1,8 @@
 import type {
-  SemanticGraph,
   WorkflowDefinition,
   WorkflowGraph,
   WorkflowGraphProjection,
   WorkflowValidationResult,
-  WorkflowPendingApproval,
 } from "@generated/backend";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -25,11 +23,9 @@ import { persistGraphNodePositions } from "./workflow-graph-layout-persistence";
 import type {
   WorkflowGraphCameraState,
   WorkflowGraphEdgeConnection,
-  WorkflowGraphGraph,
   WorkflowGraphRenderer,
   WorkflowGraphRendererHandlers,
 } from "./pixi-renderer";
-import { createSyntheticWorkflowGraph } from "./pixi-renderer-synthetic-graph";
 import { WorkflowApprovalOverlay } from "./workflow-approval-overlay";
 import {
   syncWorkflowGraphCameraScope,
@@ -37,8 +33,17 @@ import {
   type SyntheticWorkflowGraphOptions,
   type WorkflowGraphCameraScope,
 } from "./workflow-graph-camera-scope";
-import { rendererGraphFromWorkflowProjection } from "./workflow-graph-projection";
 import { useWorkflowProjectionState } from "./workflow-graph-projection-state";
+import {
+  rendererGraphForWorkflowProjection,
+  semanticGraphIsEmpty,
+  workflowGraphUpdateSourceForSurface,
+  workflowProjectionPendingApproval,
+  workflowRendererGraphForSurface,
+  workflowRendererScopeKey,
+  type WorkflowGraphRendererGraphUpdate,
+  type WorkflowGraphSourceInputs,
+} from "./workflow-graph-renderer-graph";
 import { workflowRendererHandlersForSurface } from "./workflow-graph-renderer-handlers";
 import { isWorkflowGraphRendererInitAbort } from "./workflow-graph-renderer-lifecycle";
 import { registerWorkflowGraphRuntimeHandle } from "./workflow-graph-runtime-registry";
@@ -47,7 +52,6 @@ import {
   workflowSyntheticGraphForSurface,
 } from "./workflow-graph-surface-state";
 import {
-  mergeWorkflowAndSemanticGraphs,
   rendererGraphFromSemanticGraph,
   semanticNodeIdFromRendererNodeId,
 } from "./semantic-graph-projection";
@@ -81,7 +85,7 @@ export function WorkflowGraphSurface({
   const workflowCameraRef = useRef<WorkflowGraphCameraState | null>(null);
   const workflowCameraScopeRef = useRef<WorkflowGraphCameraScope | null>(null);
   const workflowRendererRef = useRef<WorkflowGraphRenderer | null>(null);
-  const pendingWorkflowGraphRef = useRef<WorkflowGraphRendererGraph | null>(null);
+  const pendingWorkflowGraphRef = useRef<WorkflowGraphRendererGraphUpdate | null>(null);
   const reactRenderCount = useRef(0);
   reactRenderCount.current += 1;
   const [workflowEditorError, setWorkflowEditorError] = useState("");
@@ -101,9 +105,6 @@ export function WorkflowGraphSurface({
   const createWorkflowDefinition = useWorkflowDefinitionStore(
     (state) => state.createWorkflowDefinition,
   );
-  const definitionChangeSequence = useWorkflowEditorStore(
-    (state) => state.definitionChangeSequence,
-  );
   const setSelectedNodeTarget = useWorkflowEditorStore((state) => state.setSelectedNodeTarget);
   const setSelectedWorkflowSettingsTarget = useWorkflowEditorStore(
     (state) => state.setSelectedWorkflowSettingsTarget,
@@ -118,9 +119,9 @@ export function WorkflowGraphSurface({
     projection: workflowProjection,
     ready: workflowProjectionReady,
     replaceWorkflowProjection,
+    updateSource: workflowProjectionUpdateSource,
     workspaceId: workflowWorkspaceId,
   } = useWorkflowProjectionState({
-    definitionChangeSequence,
     selectedDefinitionIdsByWorkspaceId,
   });
   const workflowGraph = useMemo(
@@ -155,7 +156,47 @@ export function WorkflowGraphSurface({
       }),
     [semanticGraph, syntheticGraph, workflowGraph, workflowProjectionReady, workflowWorkspaceId],
   );
-  pendingWorkflowGraphRef.current = graph ?? null;
+  const previousRendererGraphInputsRef = useRef<WorkflowGraphSourceInputs>({
+    semanticGraph: undefined,
+    workflowGraph: undefined,
+    workflowValidation: null,
+  });
+  const rendererGraphUpdate = useMemo(
+    () =>
+      graph === undefined
+        ? undefined
+        : {
+            graph,
+            metadata: {
+              source: workflowGraphUpdateSourceForSurface({
+                previous: previousRendererGraphInputsRef.current,
+                semanticGraph,
+                semanticGraphUpdateSource: semanticGraphState.updateSource,
+                syntheticGraph,
+                workflowGraph,
+                workflowProjectionUpdateSource,
+                workflowValidation,
+              }),
+            },
+          },
+    [
+      graph,
+      semanticGraph,
+      semanticGraphState.updateSource,
+      syntheticGraph,
+      workflowGraph,
+      workflowProjectionUpdateSource,
+      workflowValidation,
+    ],
+  );
+  useEffect(() => {
+    previousRendererGraphInputsRef.current = {
+      semanticGraph,
+      workflowGraph,
+      workflowValidation,
+    };
+  }, [semanticGraph, workflowGraph, workflowValidation]);
+  pendingWorkflowGraphRef.current = rendererGraphUpdate ?? null;
   const rendererGraphReady = graph !== undefined;
   const rendererScopeKey = workflowRendererScopeKey(syntheticGraph, workflowWorkspaceId);
   const pendingApproval = useMemo(
@@ -191,7 +232,7 @@ export function WorkflowGraphSurface({
           workspaceId: workflowWorkspaceId,
         });
         if (refreshed !== null) {
-          replaceWorkflowProjection(refreshed);
+          replaceWorkflowProjection(refreshed, "draft-validation-local");
         }
       } catch (error: unknown) {
         setWorkflowEditorError(
@@ -273,7 +314,7 @@ export function WorkflowGraphSurface({
           connection,
           projection: workflowProjection,
         });
-        replaceWorkflowProjection(refreshed);
+        replaceWorkflowProjection(refreshed, "draft-validation-local");
       } catch (error: unknown) {
         setWorkflowEditorError(
           error instanceof Error ? error.message : "Workflow edge edit failed",
@@ -322,7 +363,7 @@ export function WorkflowGraphSurface({
           workflowProjection.workspaceId,
           updated.id,
         );
-        replaceWorkflowProjection(refreshed);
+        replaceWorkflowProjection(refreshed, "draft-validation-local");
         setSelectedWorkflowNodeId((selectedNodeId) =>
           selectedNodeId !== null && nodeIdsToDelete.includes(selectedNodeId)
             ? null
@@ -415,7 +456,7 @@ export function WorkflowGraphSurface({
         execution.definitionVersionId,
         execution.id,
       );
-      replaceWorkflowProjection(refreshed);
+      replaceWorkflowProjection(refreshed, "draft-validation-local");
     } catch (error: unknown) {
       setWorkflowEditorError(error instanceof Error ? error.message : "Workflow run failed");
     } finally {
@@ -432,7 +473,7 @@ export function WorkflowGraphSurface({
         workflowProjection.workspaceId,
         workflowProjection.definitionId,
       );
-      replaceWorkflowProjection(refreshed);
+      replaceWorkflowProjection(refreshed, "draft-validation-local");
       setWorkflowValidation(null);
     } catch (error: unknown) {
       setWorkflowEditorError(error instanceof Error ? error.message : "Workflow draft load failed");
@@ -577,8 +618,8 @@ export function WorkflowGraphSurface({
     if (!graph) {
       return;
     }
-    workflowRendererRef.current?.updateGraph(graph);
-  }, [graph]);
+    workflowRendererRef.current?.updateGraph(graph, rendererGraphUpdate?.metadata);
+  }, [graph, rendererGraphUpdate?.metadata]);
 
   useEffect(() => {
     if (!rendererGraphReady) {
@@ -588,8 +629,8 @@ export function WorkflowGraphSurface({
     if (!host) {
       return;
     }
-    const initialGraph = pendingWorkflowGraphRef.current;
-    if (initialGraph === null) {
+    const initialUpdate = pendingWorkflowGraphRef.current;
+    if (initialUpdate === null) {
       return;
     }
 
@@ -626,7 +667,7 @@ export function WorkflowGraphSurface({
           abortSignal: abortController.signal,
           debugEnabled,
           debugSurfaceId: surfaceId,
-          graph: initialGraph,
+          graph: initialUpdate.graph,
           host,
           initialCameraState: workflowCameraRef.current,
           ...rendererHandlersRef.current,
@@ -639,9 +680,9 @@ export function WorkflowGraphSurface({
         workflowRendererRef.current = renderer;
         unregisterRuntimeHandle = registerWorkflowGraphRuntimeHandle(surfaceId, renderer);
         renderer.setHandlers(rendererHandlersRef.current);
-        const pendingGraph = pendingWorkflowGraphRef.current;
-        if (pendingGraph !== null && pendingGraph !== initialGraph) {
-          renderer.updateGraph(pendingGraph);
+        const pendingGraphUpdate = pendingWorkflowGraphRef.current;
+        if (pendingGraphUpdate !== null && pendingGraphUpdate !== initialUpdate) {
+          renderer.updateGraph(pendingGraphUpdate.graph, pendingGraphUpdate.metadata);
         }
       })
       .catch((error: unknown) => {
@@ -750,80 +791,6 @@ type CreateWorkflowDefinition = (
   name?: string,
   graph?: WorkflowGraph,
 ) => Promise<WorkflowDefinition>;
-type WorkflowGraphRendererGraph = WorkflowGraphGraph;
-
-function rendererGraphForWorkflowProjection(
-  projection: WorkflowGraphProjection | null,
-  validation: WorkflowValidationResult | null,
-) {
-  if (projection === null) {
-    return undefined;
-  }
-  return rendererGraphFromWorkflowProjection(projection, validation);
-}
-
-function semanticGraphIsEmpty({
-  semanticGraph,
-  semanticReady,
-  workflowGraph,
-}: {
-  semanticGraph: SemanticGraph | null;
-  semanticReady: boolean;
-  workflowGraph: WorkflowGraphRendererGraph | undefined;
-}) {
-  return (
-    semanticReady &&
-    semanticGraph !== null &&
-    semanticGraph.nodes.length === 0 &&
-    (workflowGraph === undefined || workflowGraph.nodes.length === 0)
-  );
-}
-
-function workflowRendererGraphForSurface({
-  semanticGraph,
-  syntheticGraph,
-  workflowGraph,
-  workflowProjectionReady,
-  workflowWorkspaceId,
-}: {
-  semanticGraph: WorkflowGraphRendererGraph | undefined;
-  syntheticGraph: SyntheticWorkflowGraphOptions;
-  workflowGraph: WorkflowGraphRendererGraph | undefined;
-  workflowProjectionReady: boolean;
-  workflowWorkspaceId: string;
-}) {
-  if (syntheticGraph) {
-    return createSyntheticWorkflowGraph(syntheticGraph);
-  }
-  const merged = mergeWorkflowAndSemanticGraphs({ semanticGraph, workflowGraph });
-  if (merged) {
-    return merged;
-  }
-  if (workflowGraph) {
-    return workflowGraph;
-  }
-  if (workflowProjectionReady && workflowWorkspaceId !== "") {
-    return emptyWorkflowRendererGraph();
-  }
-  return undefined;
-}
-
-function workflowRendererScopeKey(
-  syntheticGraph: SyntheticWorkflowGraphOptions,
-  workflowWorkspaceId: string,
-) {
-  if (syntheticGraph !== null) {
-    return `synthetic:${syntheticGraph.nodeCount}:${syntheticGraph.edgesPerNode}`;
-  }
-  return `workspace:${workflowWorkspaceId}`;
-}
-
-function workflowProjectionPendingApproval(projection: WorkflowGraphProjection | null) {
-  if (projection === null) {
-    return null;
-  }
-  return pendingWorkflowApproval(projection);
-}
 
 interface MaterializeWorkflowDraftNodeRequest {
   createWorkflowDefinition: CreateWorkflowDefinition;
@@ -954,23 +921,4 @@ async function materializeWorkflowDraftEdge({
     graph,
   );
   return workflowProjectionForDefinition(projection.workspaceId, updated.id);
-}
-
-function pendingWorkflowApproval(
-  projection: WorkflowGraphProjection,
-): WorkflowPendingApproval | null {
-  for (const node of projection.nodes) {
-    if (node.pendingApproval !== null) {
-      return node.pendingApproval;
-    }
-  }
-  return null;
-}
-
-function emptyWorkflowRendererGraph() {
-  return {
-    edges: [],
-    nodes: [],
-    workflow: null,
-  };
 }
