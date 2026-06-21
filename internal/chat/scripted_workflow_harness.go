@@ -31,6 +31,7 @@ type scriptedWorkflowFixture struct {
 
 var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "workflow hold for queue and steering", Run: (*ScriptedWorkflowHarness).workflowTurn},
+	{Prompt: "workflow hold for draft event", Run: (*ScriptedWorkflowHarness).workflowDraftEventTurn},
 	{Prompt: "immediate replay workflow", Run: (*ScriptedWorkflowHarness).workflowTurn},
 	{Prompt: "queued follow-up from active run", Run: scriptedQueuedReply},
 	{Prompt: "queued follow-up one from active run", Run: scriptedQueuedReply},
@@ -343,6 +344,24 @@ func (harness *ScriptedWorkflowHarness) workflowTurn(ctx context.Context, reques
 		return TurnCompletion{}, err
 	}
 	return scriptedReply(sink, request.Run.ID, "Active workflow complete.")
+}
+
+func (harness *ScriptedWorkflowHarness) workflowDraftEventTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if _, err := harness.waitForSteer(ctx, request.Run.ID); err != nil {
+		return TurnCompletion{}, err
+	}
+	approval := scriptedCommandApproval(request.Run.ID)
+	if err := scriptedApprovalActivity(sink, request.Run.ID, approval); err != nil {
+		return TurnCompletion{}, err
+	}
+	response, err := harness.requestAndWaitForApproval(ctx, request.Run.ID, sink, approval)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if !response.Approved || response.Cancelled {
+		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted approval was not approved"}, nil
+	}
+	return scriptedReply(sink, request.Run.ID, approval.Title+" resolved.")
 }
 
 func (harness *ScriptedWorkflowHarness) cancelTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

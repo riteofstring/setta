@@ -26,7 +26,7 @@ import {
 import { createWorkflowProjectionFixture } from "./workflow-projection-smoke-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
-const scriptedNavigationPrompt = "command approval workflow";
+const scriptedNavigationPrompt = "workflow hold for draft event";
 
 if (options.help) {
   console.log(
@@ -85,16 +85,32 @@ try {
   await waitForToolbarButtonState(context.client, "workflow-view-active-run-button", (state) => {
     return state.exists && !state.disabled && state.text.includes("View Active Run");
   });
+  const firstRunningWhileDraft = await waitForWorkflowExecution(
+    context.client,
+    projection.workspaceId,
+    firstExecutionId,
+    runningWorkflowReady,
+  );
+  const draftOrdinal = firstRunningWhileDraft.lastEventOrdinal;
+  await beginWorkflowEventCapture(context.client, firstExecutionId);
+  await steerHiddenWorkflowRun(
+    context.client,
+    projection.workspaceId,
+    firstRunningWhileDraft,
+    "event while viewing draft",
+  );
+  await waitForCapturedWorkflowEventAfter(context.client, draftOrdinal);
   await waitForWorkflowExecution(
     context.client,
     projection.workspaceId,
     firstExecutionId,
-    (run) => {
-      return run.status === "running" && run.nodeExecutions.some(isWaitingApprovalNode);
-    },
+    (run) => run.status === "running" && run.lastEventOrdinal > draftOrdinal,
   );
   const draftWhileActive = await getWorkflowGraphSnapshot(context.client, workflowGraphSurfaceId);
   assertDraftProjection(draftWhileActive, projection.definitionId);
+  await waitForToolbarButtonState(context.client, "workflow-view-active-run-button", (state) => {
+    return state.exists && !state.disabled && state.text.includes("View Active Run");
+  });
   await captureScreenshot(context.client, join(artifactDir, "draft-active-run.png"));
 
   await clickWorkflowToolbarButton(context.client, "workflow-view-active-run-button");
@@ -326,6 +342,7 @@ function workflowToolbarButtonStateExpression(testId) {
 }
 
 async function clickWorkflowToolbarButton(client, testId) {
+  await waitForToolbarButtonState(client, testId, (state) => state.exists && !state.disabled);
   await client.installDriver();
   const clicked = await client.driver("clickWorkflowToolbarButton", { testId });
   if (!clicked.ok) {
@@ -365,6 +382,62 @@ function assertDraftProjection(snapshot, definitionId) {
   }
 }
 
-function isWaitingApprovalNode(nodeExecution) {
-  return nodeExecution.nodeId === "work" && nodeExecution.status === "waiting_approval";
+async function beginWorkflowEventCapture(client, executionId) {
+  await client.evaluate(`(() => {
+    if (typeof window.__workflowRunNavigationUnsubscribe === "function") {
+      window.__workflowRunNavigationUnsubscribe();
+    }
+    window.__workflowRunNavigationCapturedEvents = [];
+    window.__workflowRunNavigationUnsubscribe = window.setta.workflow.onEvent((event) => {
+      if (event.executionId === ${JSON.stringify(executionId)}) {
+        window.__workflowRunNavigationCapturedEvents.push(event);
+      }
+    });
+    return true;
+  })()`);
+}
+
+async function waitForCapturedWorkflowEventAfter(client, ordinal) {
+  await waitForState(
+    client,
+    `(() => (window.__workflowRunNavigationCapturedEvents ?? []).some((event) => event.ordinal > ${JSON.stringify(ordinal)}))()`,
+    (captured) => captured === true,
+    20_000,
+  );
+}
+
+async function steerHiddenWorkflowRun(client, workspaceId, execution, prompt) {
+  const nodeExecution = latestNodeExecution(execution, "work");
+  const conversationId = runnerRef(nodeExecution, "chat.conversation");
+  if (conversationId === "") {
+    throw new Error(
+      `workflow execution missing hidden chat conversation: ${JSON.stringify(execution)}`,
+    );
+  }
+  await client.evaluate(`window.setta.chat.steerMessage(
+    ${JSON.stringify(workspaceId)},
+    ${JSON.stringify(conversationId)},
+    ${JSON.stringify(prompt)}
+  )`);
+}
+
+function runningWorkflowReady(execution) {
+  const nodeExecution = latestNodeExecution(execution, "work");
+  return (
+    execution.status === "running" &&
+    nodeExecution?.status === "running" &&
+    runnerRef(nodeExecution, "chat.conversation") !== ""
+  );
+}
+
+function latestNodeExecution(execution, nodeId) {
+  return (
+    execution.nodeExecutions
+      .filter((nodeExecution) => nodeExecution.nodeId === nodeId)
+      .sort((left, right) => right.attempt - left.attempt)[0] ?? null
+  );
+}
+
+function runnerRef(nodeExecution, kind) {
+  return nodeExecution?.runnerRefs.find((ref) => ref.kind === kind)?.id ?? "";
 }
