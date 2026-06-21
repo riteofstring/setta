@@ -27,6 +27,8 @@ import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
 import { registerTerminalIpcHandlers } from "./terminal-ipc";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
+import { startWorkspaceActivityEventForwarding } from "./workspace-activity-event-forwarding-stream";
+import { registerWorkspaceActivityIpcHandlers } from "./workspace-activity-ipc";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
 import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
@@ -35,6 +37,8 @@ let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
 let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwarding> | null = null;
 let terminalEventStream: TerminalEventStream | null = null;
+let workspaceActivityEventStream: ReturnType<typeof startWorkspaceActivityEventForwarding> | null =
+  null;
 let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
@@ -90,6 +94,7 @@ async function prepareBackend(appDataDir: string) {
     startChatEventStream();
     startSemanticGraphEventStreamForwarding();
     startTerminalEventStreamForwarding();
+    startWorkspaceActivityEventStreamForwarding();
     startWorkflowEventStreamForwarding();
   } catch (error) {
     backend = null;
@@ -162,6 +167,18 @@ function startTerminalEventStreamForwarding() {
   });
 }
 
+function startWorkspaceActivityEventStreamForwarding() {
+  if (!backend) {
+    return;
+  }
+  void stopWorkspaceActivityEventStreamForwarding();
+  workspaceActivityEventStream = startWorkspaceActivityEventForwarding({
+    baseURL: backend.url,
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    recorder,
+  });
+}
+
 async function stopChatEventStream() {
   const stream = backendEventStream;
   backendEventStream = null;
@@ -186,11 +203,18 @@ async function stopTerminalEventStreamForwarding() {
   await stream?.stop();
 }
 
+async function stopWorkspaceActivityEventStreamForwarding() {
+  const stream = workspaceActivityEventStream;
+  workspaceActivityEventStream = null;
+  await stream?.stop();
+}
+
 async function stopBackendEventStreams() {
   await Promise.all([
     stopChatEventStream(),
     stopSemanticGraphEventStreamForwarding(),
     stopTerminalEventStreamForwarding(),
+    stopWorkspaceActivityEventStreamForwarding(),
     stopWorkflowEventStreamForwarding(),
   ]);
 }
@@ -507,6 +531,7 @@ function registerIpc() {
     },
     ipcObserver,
   );
+  registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "chatListConversations",

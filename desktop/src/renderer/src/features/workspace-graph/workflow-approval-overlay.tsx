@@ -6,6 +6,7 @@ import type {
 import { useState } from "react";
 
 import { ApprovalCard, type SubmitApproval } from "../../components/chat-transcript-approvals";
+import type { WorkflowGraphUpdateSource } from "./pixi-renderer";
 
 export function WorkflowApprovalOverlay({
   pendingApproval,
@@ -14,7 +15,10 @@ export function WorkflowApprovalOverlay({
 }: {
   pendingApproval: WorkflowPendingApproval | null;
   projection: WorkflowGraphProjection | null;
-  setWorkflowProjection: (projection: WorkflowGraphProjection | null) => void;
+  setWorkflowProjection: (
+    projection: WorkflowGraphProjection | null,
+    source?: WorkflowGraphUpdateSource,
+  ) => void;
 }) {
   const [error, setError] = useState("");
   if (pendingApproval === null || projection === null) {
@@ -45,7 +49,7 @@ export function WorkflowApprovalOverlay({
         projection.definitionVersionId,
         pendingApproval.executionId,
       );
-      setWorkflowProjection(refreshed.projection);
+      setWorkflowProjection(refreshed.projection, "draft-validation-local");
     } catch (submitError: unknown) {
       setError(submitError instanceof Error ? submitError.message : "Workflow approval failed");
     }

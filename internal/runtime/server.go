@@ -23,6 +23,7 @@ import (
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
+	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
@@ -55,6 +56,7 @@ type Server struct {
 	closeCartographerEvents func(context.Context) error
 	closeSemanticStore      func() error
 	closeTerminal           func(context.Context) error
+	closeWorkspaceActivity  func()
 	closeWorkflowStore      func() error
 	closeEvents             func()
 	closeWorkflowEvents     func()
@@ -65,17 +67,18 @@ type Server struct {
 }
 
 type runtimeServices struct {
-	appearanceService    *appearance.Service
-	chatService          *chat.Service
-	codexAccountService  *codexaccount.Service
-	codexManager         *codexapp.Manager
-	semanticGraphService *semanticgraph.Service
-	semanticGraphStore   *semanticgraph.Store
-	terminalService      *terminal.Manager
-	workspaceUIService   *workspaceui.Service
-	workspaceService     *workspacesession.Service
-	workflowService      *orchestrator.Service
-	workflowStore        *orchestrator.Store
+	appearanceService        *appearance.Service
+	chatService              *chat.Service
+	codexAccountService      *codexaccount.Service
+	codexManager             *codexapp.Manager
+	semanticGraphService     *semanticgraph.Service
+	semanticGraphStore       *semanticgraph.Store
+	terminalService          *terminal.Manager
+	workspaceActivityService *workspaceactivity.Service
+	workspaceUIService       *workspaceui.Service
+	workspaceService         *workspacesession.Service
+	workflowService          *orchestrator.Service
+	workflowStore            *orchestrator.Store
 }
 
 func DefaultConfig() Config {
@@ -144,6 +147,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeCartographerEvents: services.semanticGraphService.ShutdownCartographerEventObserver,
 		closeSemanticStore:      services.semanticGraphStore.Close,
 		closeTerminal:           services.terminalService.Shutdown,
+		closeWorkspaceActivity:  services.workspaceActivityService.CloseEvents,
 		closeWorkflowStore:      services.workflowStore.Close,
 		closeEvents:             services.chatService.CloseEvents,
 		closeWorkflowEvents:     services.workflowService.CloseEvents,
@@ -188,6 +192,11 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
+	workspaceActivityService, err := workspaceactivity.NewService(chatService, workflowService)
+	if err != nil {
+		_ = workflowStore.Close()
+		return runtimeServices{}, fmt.Errorf("create workspace activity service: %w", err)
+	}
 	semanticGraphService, semanticGraphStore, err := newSemanticGraphService(
 		config.AppDataDir,
 		workspaceService,
@@ -196,47 +205,89 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		config.DisableAutomaticCartographerProcessing,
 	)
 	if err != nil {
+		workspaceActivityService.CloseEvents()
+		_ = workflowStore.Close()
 		return runtimeServices{}, err
 	}
 	chatService.SetSemanticContextCompiler(semanticGraphService)
 	if err := workflowService.SetSemanticContextCompiler(semanticGraphService); err != nil {
+		workspaceActivityService.CloseEvents()
 		_ = semanticGraphStore.Close()
+		_ = workflowStore.Close()
 		return runtimeServices{}, fmt.Errorf("configure semantic context compiler: %w", err)
 	}
 	if err := semanticGraphService.StartCartographerEventObserver(context.Background(), chatService, workflowService); err != nil {
+		workspaceActivityService.CloseEvents()
 		_ = semanticGraphStore.Close()
+		_ = workflowStore.Close()
 		return runtimeServices{}, fmt.Errorf("start semantic cartographer observer: %w", err)
 	}
-	terminalService, err := newTerminalService(config.AppDataDir, workspaceService)
+	terminalService, codexAccountService, err := newRuntimeEdgeServices(
+		config,
+		workspaceService,
+		chatService,
+		codexManager,
+		semanticGraphService,
+		semanticGraphStore,
+		workspaceActivityService,
+		workflowStore,
+	)
 	if err != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
-		_ = semanticGraphService.ShutdownCartographerEventObserver(shutdownCtx)
-		cancel()
-		_ = semanticGraphStore.Close()
 		return runtimeServices{}, err
-	}
-	codexAccountService, err := codexaccount.NewService(codexManager, chatService.PublishCodexAccountChanged)
-	if err != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
-		_ = semanticGraphService.ShutdownCartographerEventObserver(shutdownCtx)
-		cancel()
-		_ = semanticGraphStore.Close()
-		return runtimeServices{}, fmt.Errorf("create Codex account service: %w", err)
 	}
 
 	return runtimeServices{
-		appearanceService:    appearanceService,
-		chatService:          chatService,
-		codexAccountService:  codexAccountService,
-		codexManager:         codexManager,
-		semanticGraphService: semanticGraphService,
-		semanticGraphStore:   semanticGraphStore,
-		terminalService:      terminalService,
-		workspaceUIService:   workspaceUIService,
-		workspaceService:     workspaceService,
-		workflowService:      workflowService,
-		workflowStore:        workflowStore,
+		appearanceService:        appearanceService,
+		chatService:              chatService,
+		codexAccountService:      codexAccountService,
+		codexManager:             codexManager,
+		semanticGraphService:     semanticGraphService,
+		semanticGraphStore:       semanticGraphStore,
+		terminalService:          terminalService,
+		workspaceActivityService: workspaceActivityService,
+		workspaceUIService:       workspaceUIService,
+		workspaceService:         workspaceService,
+		workflowService:          workflowService,
+		workflowStore:            workflowStore,
 	}, nil
+}
+
+func newRuntimeEdgeServices(
+	config Config,
+	workspaceService *workspacesession.Service,
+	chatService *chat.Service,
+	codexManager *codexapp.Manager,
+	semanticGraphService *semanticgraph.Service,
+	semanticGraphStore *semanticgraph.Store,
+	workspaceActivityService *workspaceactivity.Service,
+	workflowStore *orchestrator.Store,
+) (*terminal.Manager, *codexaccount.Service, error) {
+	terminalService, err := newTerminalService(config.AppDataDir, workspaceService)
+	if err != nil {
+		closeRuntimeServicesBeforeEdgeFailure(config, semanticGraphService, semanticGraphStore, workspaceActivityService, workflowStore)
+		return nil, nil, err
+	}
+	codexAccountService, err := codexaccount.NewService(codexManager, chatService.PublishCodexAccountChanged)
+	if err != nil {
+		closeRuntimeServicesBeforeEdgeFailure(config, semanticGraphService, semanticGraphStore, workspaceActivityService, workflowStore)
+		return nil, nil, fmt.Errorf("create Codex account service: %w", err)
+	}
+	return terminalService, codexAccountService, nil
+}
+
+func closeRuntimeServicesBeforeEdgeFailure(
+	config Config,
+	semanticGraphService *semanticgraph.Service,
+	semanticGraphStore *semanticgraph.Store,
+	workspaceActivityService *workspaceactivity.Service,
+	workflowStore *orchestrator.Store,
+) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+	_ = semanticGraphService.ShutdownCartographerEventObserver(shutdownCtx)
+	cancel()
+	workspaceActivityService.CloseEvents()
+	_ = semanticGraphStore.Close()
+	_ = workflowStore.Close()
 }
 
 func newAppearanceService(appDataDir string) (*appearance.Service, error) {
@@ -382,14 +433,15 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 				Name:    httpapi.BackendName,
 				Version: config.Version,
 			},
-			AppearanceService:    services.appearanceService,
-			ChatService:          services.chatService,
-			CodexAccountService:  services.codexAccountService,
-			SemanticGraphService: services.semanticGraphService,
-			TerminalService:      services.terminalService,
-			WorkspaceUIService:   services.workspaceUIService,
-			WorkspaceService:     services.workspaceService,
-			WorkflowService:      services.workflowService,
+			AppearanceService:        services.appearanceService,
+			ChatService:              services.chatService,
+			CodexAccountService:      services.codexAccountService,
+			SemanticGraphService:     services.semanticGraphService,
+			TerminalService:          services.terminalService,
+			WorkspaceActivityService: services.workspaceActivityService,
+			WorkspaceUIService:       services.workspaceUIService,
+			WorkspaceService:         services.workspaceService,
+			WorkflowService:          services.workflowService,
 		}),
 	}
 }
@@ -416,6 +468,9 @@ func (server *Server) closeEventStreams(ctx context.Context) error {
 	var shutdownErr error
 	if server.closeCartographerEvents != nil {
 		shutdownErr = firstShutdownError(shutdownErr, server.closeCartographerEvents(ctx))
+	}
+	if server.closeWorkspaceActivity != nil {
+		server.closeWorkspaceActivity()
 	}
 	if server.closeEvents != nil {
 		server.closeEvents()

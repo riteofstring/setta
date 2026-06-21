@@ -1,0 +1,267 @@
+import { describe, expect, test } from "vitest";
+
+import type {
+  WorkspaceActivityFileChange,
+  WorkspaceActivityKind,
+  WorkspaceActivityRecord,
+  WorkspaceActivityStatus,
+} from "@generated/backend";
+import type { WorkflowGraphGraph } from "./pixi-renderer";
+import {
+  projectWorkspaceActivityMarkers,
+  workspaceActivityMarkerMaterializationDiff,
+  type WorkspaceActivityMarker,
+} from "./workspace-activity-markers";
+
+describe("workspace activity markers", () => {
+  test("projects distinct typed activity markers onto workflow nodes", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph(),
+      records: [
+        activityRecord("workflow", "workflow_status", "running", 4, "work"),
+        activityRecord("command", "command", "completed", 3, "work"),
+        activityRecord("file", "file_change", "completed", 2, "work"),
+        activityRecord("approval", "approval", "waiting_approval", 1, "work"),
+      ],
+    });
+
+    expect(markers.map((marker) => [marker.kind, marker.anchorKind, marker.nodeId])).toEqual([
+      ["workflow_status", "workflow_node", "work"],
+      ["command", "workflow_node", "work"],
+      ["file_change", "workflow_node", "work"],
+      ["approval", "workflow_node", "work"],
+    ]);
+    expect(markers.map((marker) => marker.slotIndex)).toEqual([0, 1, 2, 3]);
+    expect(markers.find((marker) => marker.kind === "approval")?.active).toBe(true);
+    expect(markers.find((marker) => marker.kind === "command")?.active).toBe(false);
+  });
+
+  test("keeps distinct command records for the same node", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph(),
+      records: [
+        activityRecord("command_old", "command", "running", 1, "work"),
+        activityRecord("command_new", "command", "completed", 2, "work"),
+      ],
+    });
+
+    expect(markers.map((marker) => [marker.activityId, marker.status, marker.slotIndex])).toEqual([
+      ["activity_command_new", "completed", 0],
+      ["activity_command_old", "running", 1],
+    ]);
+  });
+
+  test("uses a bounded recent lane for execution-level activity and filters other executions", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph(),
+      records: [
+        activityRecord("other", "workflow_status", "running", 3, "", "execution_other"),
+        activityRecord("execution", "workflow_status", "running", 2, ""),
+      ],
+    });
+
+    expect(markers).toEqual([
+      expect.objectContaining({
+        activityId: "activity_execution",
+        anchorKind: "recent_lane",
+        laneIndex: 0,
+        nodeId: "",
+      }),
+    ]);
+  });
+
+  test("counts marker creation, update, retention, and removal by stable marker id", () => {
+    const previous: WorkspaceActivityMarker[] = [
+      marker("workspace-activity:node:work:command", "command", "running"),
+      marker("workspace-activity:node:work:file_change", "file_change", "completed"),
+    ];
+    const next: WorkspaceActivityMarker[] = [
+      marker("workspace-activity:node:work:command", "command", "completed"),
+      marker("workspace-activity:node:work:approval", "approval", "waiting_approval"),
+      marker("workspace-activity:node:work:file_change", "file_change", "completed"),
+    ];
+
+    expect(workspaceActivityMarkerMaterializationDiff(previous, next)).toEqual({
+      created: 1,
+      removed: 0,
+      retained: 1,
+      updated: 1,
+    });
+  });
+});
+
+function workflowGraph(): WorkflowGraphGraph {
+  return {
+    edges: [],
+    nodes: [
+      {
+        color: 0x14b8a6,
+        height: 82,
+        id: "work",
+        label: "Work",
+        width: 168,
+        x: 0,
+        y: 0,
+      },
+    ],
+    workflow: {
+      definitionId: "definition_a",
+      definitionName: "Workflow",
+      definitionVersionId: "version_a",
+      definitionVersionNumber: 1,
+      editable: false,
+      executionId: "execution_a",
+      executionStatus: "running",
+      versionMismatch: false,
+      viewMode: "run",
+      workspaceId: "workspace_a",
+    },
+  };
+}
+
+function activityRecord(
+  id: string,
+  kind: WorkspaceActivityKind,
+  status: WorkspaceActivityStatus,
+  revision: number,
+  nodeId: string,
+  executionId = "execution_a",
+): WorkspaceActivityRecord {
+  const occurredAt = `2026-06-21T12:0${revision}:00Z`;
+  return {
+    activityId: `activity_${id}`,
+    approval: approvalPayload(kind, status),
+    command: commandPayload(kind, status),
+    detailRef: detailRef(kind, id, executionId),
+    fileChange: fileChangePayload(kind),
+    graphAnchor: {
+      kind: nodeId === "" ? "workflow_execution" : "workflow_node",
+      workflowDefinitionId: "definition_a",
+      workflowDefinitionVersionId: "version_a",
+      workflowExecutionId: executionId,
+      workflowNodeExecutionId: nodeId === "" ? "" : "node_execution_a",
+      workflowNodeId: nodeId,
+    },
+    kind,
+    occurredAt,
+    provenance: {
+      chatConversationId: "conversation_a",
+      chatEventId: "",
+      chatEventSequence: 0,
+      chatEventStreamId: "",
+      chatMessageId: "",
+      chatRunId: "run_a",
+      providerItemId: "provider_a",
+      runItemId: `activity_${id}`,
+      runnerEventId: "",
+      runnerEventOrdinal: 0,
+      runnerEventType: null,
+      workflowDefinitionId: "definition_a",
+      workflowDefinitionVersionId: "version_a",
+      workflowEventId: kind === "workflow_status" ? `event_${id}` : "",
+      workflowEventOrdinal: revision,
+      workflowEventStreamId: "workflow_stream_a",
+      workflowEventStreamSequence: revision,
+      workflowEventType: kind === "workflow_status" ? "workflow.action.started" : null,
+      workflowExecutionId: executionId,
+      workflowNodeExecutionId: nodeId === "" ? "" : "node_execution_a",
+      workflowNodeId: nodeId,
+    },
+    revision,
+    schemaVersion: 1,
+    status,
+    updatedAt: occurredAt,
+    workflow: workflowPayload(kind, id),
+    workspaceId: "workspace_a",
+  };
+}
+
+function approvalPayload(kind: WorkspaceActivityKind, status: WorkspaceActivityStatus) {
+  if (kind !== "approval") {
+    return null;
+  }
+  return {
+    approvalId: "approval_a",
+    commandPreview: "printf scripted-command",
+    filePath: "",
+    kind: "command",
+    permission: "",
+    status: status === "waiting_approval" ? "pending" : "approved",
+    targetLabel: "printf scripted-command",
+    title: "Command approval",
+  } as const;
+}
+
+function commandPayload(kind: WorkspaceActivityKind, status: WorkspaceActivityStatus) {
+  if (kind !== "command") {
+    return null;
+  }
+  return {
+    commandPreview: "printf scripted-activity",
+    cwd: "/tmp/workspace",
+    durationMs: null,
+    exitCode: null,
+    runItemStatus: status === "running" ? "running" : "completed",
+  } as const;
+}
+
+function fileChangePayload(kind: WorkspaceActivityKind): WorkspaceActivityFileChange | null {
+  if (kind !== "file_change") {
+    return null;
+  }
+  return {
+    pathCount: 1,
+    paths: ["/tmp/workspace/scripted-activity-file.txt"],
+    pathsTruncated: false,
+    patchStatus: "updated",
+    runItemStatus: "completed",
+  };
+}
+
+function workflowPayload(kind: WorkspaceActivityKind, id: string) {
+  if (kind !== "workflow_status") {
+    return null;
+  }
+  return {
+    eventId: `event_${id}`,
+    eventType: "workflow.action.started",
+    message: "action started",
+    runnerKind: "agent.codex",
+  } as const;
+}
+
+function detailRef(kind: WorkspaceActivityKind, id: string, executionId: string) {
+  const chatRunItem = kind === "command" || kind === "file_change";
+  const workflowEvent = kind === "workflow_status";
+  return {
+    approvalId: kind === "approval" ? "approval_a" : "",
+    conversationId: chatRunItem ? "conversation_a" : "",
+    kind: workflowEvent ? "workflow_event" : "chat_run_item",
+    runId: chatRunItem ? "run_a" : "",
+    runItemId: chatRunItem ? `activity_${id}` : "",
+    workflowEventId: workflowEvent ? `event_${id}` : "",
+    workflowExecutionId: executionId,
+    workspaceId: "workspace_a",
+  } as const;
+}
+
+function marker(
+  id: string,
+  kind: WorkspaceActivityKind,
+  status: WorkspaceActivityStatus,
+): WorkspaceActivityMarker {
+  return {
+    activityId: `activity_${kind}`,
+    active: status === "running" || status === "waiting_approval",
+    anchorKind: "workflow_node",
+    id,
+    kind,
+    label: `${kind} ${status}`,
+    laneIndex: -1,
+    nodeId: "work",
+    revision: status === "running" ? 1 : 2,
+    slotIndex: kind === "command" ? 1 : 2,
+    status,
+    updatedAt: status === "running" ? "2026-06-21T12:00:00Z" : "2026-06-21T12:01:00Z",
+  };
+}

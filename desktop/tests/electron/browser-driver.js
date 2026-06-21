@@ -1,6 +1,8 @@
 /* global CustomEvent, Element, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, getComputedStyle, window */
 
 (() => {
+  const workflowDefinitionChangedEventName = "setta:workflow-definition-changed";
+
   function bodyText() {
     return { body: document.body.innerText };
   }
@@ -847,7 +849,7 @@
     return {
       edges: [
         {
-          condition: null,
+          condition: alwaysCondition(),
           fromNodeId: "start",
           id: "start_work",
           kind: "normal",
@@ -896,6 +898,79 @@
           title: "End",
         },
       ],
+    };
+  }
+
+  function alwaysCondition() {
+    return {
+      exitCode: null,
+      invert: false,
+      kind: "always",
+      nodeId: "",
+      signalName: "",
+      signalValue: "",
+      status: null,
+    };
+  }
+
+  async function updateWorkflowProjectionFixtureNodeTitle({
+    definitionId,
+    nodeId,
+    title,
+    workspaceId,
+  }) {
+    const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
+    const graph = {
+      ...definition.graph,
+      nodes: definition.graph.nodes.map((node) => (node.id === nodeId ? { ...node, title } : node)),
+    };
+    const updated = await window.setta.workflow.updateDefinition(
+      workspaceId,
+      definitionId,
+      definition.name,
+      definition.description,
+      graph,
+    );
+    window.dispatchEvent(
+      new CustomEvent(workflowDefinitionChangedEventName, {
+        detail: { definitionId, workspaceId },
+      }),
+    );
+    return {
+      definitionId: updated.id,
+      nodeId,
+      title,
+    };
+  }
+
+  async function removeWorkflowProjectionFixtureNode({ definitionId, nodeId, workspaceId }) {
+    const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
+    const graph = {
+      ...definition.graph,
+      edges: definition.graph.edges.filter(
+        (edge) => edge.fromNodeId !== nodeId && edge.toNodeId !== nodeId,
+      ),
+      layout: {
+        ...definition.graph.layout,
+        nodes: definition.graph.layout.nodes.filter((layoutNode) => layoutNode.nodeId !== nodeId),
+      },
+      nodes: definition.graph.nodes.filter((node) => node.id !== nodeId),
+    };
+    const updated = await window.setta.workflow.updateDefinition(
+      workspaceId,
+      definitionId,
+      definition.name,
+      definition.description,
+      graph,
+    );
+    window.dispatchEvent(
+      new CustomEvent(workflowDefinitionChangedEventName, {
+        detail: { definitionId, workspaceId },
+      }),
+    );
+    return {
+      definitionId: updated.id,
+      nodeId,
     };
   }
 
@@ -1157,11 +1232,13 @@
     openWorkflowToolbarAddMenu,
     readWorkflowExecution,
     renameWorkflowDefinitionFromCurrentGraph,
+    removeWorkflowProjectionFixtureNode,
     restoreMaximizedWorkflowGraphPane,
     selectWorkflowNodeType,
     selectWorkflowToolbarNodeType,
     setWorkflowSettingsControlValue,
     sidebarWorkflowRows,
+    updateWorkflowProjectionFixtureNodeTitle,
     workflowContextMenuPosition,
     workflowDefinitions,
     workflowGraphCanvasRect,

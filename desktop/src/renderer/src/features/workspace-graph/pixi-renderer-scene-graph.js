@@ -21,17 +21,18 @@ export function createWorkflowGraphSceneGraphUpdater({
   let graphUpdateCount = 0;
   let graphUpdateEdgeAddCount = 0;
   let graphUpdateEdgeRemoveCount = 0;
+  let graphUpdateEdgeRetainCount = 0;
   let graphUpdateEdgeUpdateCount = 0;
   let graphUpdateNodeAddCount = 0;
   let graphUpdateNodeRemoveCount = 0;
   let graphUpdateNodeUpdateCount = 0;
 
   return {
-    replaceGraph: (nextGraph, { countUpdate }) => {
+    replaceGraph: (nextGraph, { countUpdate, edgeUpdate }) => {
       const nextNodes = nextGraph.nodes.map((node) => ({ ...node }));
       const nextEdges = nextGraph.edges.map((edge) => ({ ...edge }));
       if (countUpdate) {
-        recordGraphUpdateCounts(nextNodes, nextEdges);
+        recordGraphUpdateCounts(nextNodes, nextEdges, edgeUpdate);
       }
       applySceneGraphNodes(nextNodes);
       edges.splice(0, edges.length, ...nextEdges);
@@ -44,6 +45,7 @@ export function createWorkflowGraphSceneGraphUpdater({
       graphUpdateCount,
       graphUpdateEdgeAddCount,
       graphUpdateEdgeRemoveCount,
+      graphUpdateEdgeRetainCount,
       graphUpdateEdgeUpdateCount,
       graphUpdateNodeAddCount,
       graphUpdateNodeRemoveCount,
@@ -51,18 +53,17 @@ export function createWorkflowGraphSceneGraphUpdater({
     }),
   };
 
-  function recordGraphUpdateCounts(nextNodes, nextEdges) {
+  function recordGraphUpdateCounts(nextNodes, nextEdges, edgeUpdate) {
     graphUpdateCount += 1;
     const previousNodeIds = new Set(nodes.map((node) => node.id));
     const nextNodeIds = new Set(nextNodes.map((node) => node.id));
-    const previousEdgeIds = new Set(edges.map((edge) => edge.id));
-    const nextEdgeIds = new Set(nextEdges.map((edge) => edge.id));
     graphUpdateNodeAddCount += countOnlyIn(nextNodeIds, previousNodeIds);
     graphUpdateNodeRemoveCount += countOnlyIn(previousNodeIds, nextNodeIds);
     graphUpdateNodeUpdateCount += countInBoth(previousNodeIds, nextNodeIds);
-    graphUpdateEdgeAddCount += countOnlyIn(nextEdgeIds, previousEdgeIds);
-    graphUpdateEdgeRemoveCount += countOnlyIn(previousEdgeIds, nextEdgeIds);
-    graphUpdateEdgeUpdateCount += countInBoth(previousEdgeIds, nextEdgeIds);
+    graphUpdateEdgeAddCount += edgeUpdate.edgeAddCount;
+    graphUpdateEdgeRemoveCount += edgeUpdate.edgeRemoveCount;
+    graphUpdateEdgeRetainCount += edgeUpdate.edgeRetainCount;
+    graphUpdateEdgeUpdateCount += edgeUpdate.edgeUpdateCount;
   }
 
   function applySceneGraphNodes(nextNodes) {

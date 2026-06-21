@@ -21,7 +21,6 @@ import {
   shiftPlaneSlotsAtOrAfter,
   slotIndexForDenseInsertion,
   slotOffsetsForColumns,
-  slotWidthsForColumns,
 } from "./column-slots";
 import {
   clamp,
@@ -34,7 +33,7 @@ import {
   normalizedColumnWidthSpec,
   type PaneDirection,
   type PaneLocation,
-  planeGeometryForLayout,
+  planeTopOffsets,
   scrollOffsetForColumn,
 } from "./layout-engine-helpers";
 import {
@@ -183,11 +182,10 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       return this.openPane({ ...request, columnId });
     }
     const sourceColumn = this.columns[source.columnIndex];
-    const widthSpec = request.widthSpec ?? sourceColumn?.widthSpec;
     const columnId = this.insertColumnInPlaneSlot(
       source.planeIndex + (placement === "above" ? -1 : 1),
       sourceColumn ? columnSlotIndex(sourceColumn) : source.planeColumnIndex,
-      widthSpec,
+      request.widthSpec,
     ).columnId;
     return this.openPane({ ...request, columnId });
   }
@@ -349,23 +347,20 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
   lockColumnWidth(columnId: ColumnId, viewportWidth: number): void {
     const column = this.requireColumn(columnId);
     const resolvedWidth = this.resolvedColumnWidth(column.columnId, viewportWidth);
-    const slotIndex = columnSlotIndex(column);
-    for (const slotColumn of this.columns) {
-      if (columnSlotIndex(slotColumn) !== slotIndex) {
-        continue;
-      }
-      const previousProportion =
-        slotColumn.widthSpec.unit === "proportion"
-          ? slotColumn.widthSpec.value
-          : slotColumn.previousProportionWidth;
-      slotColumn.previousProportionWidth = previousProportion;
-      slotColumn.widthSpec = { unit: "px", value: Math.max(minimumColumnWidth, resolvedWidth) };
-    }
+    const previousProportion =
+      column.widthSpec.unit === "proportion"
+        ? column.widthSpec.value
+        : column.previousProportionWidth;
+    column.previousProportionWidth = previousProportion;
+    column.widthSpec = { unit: "px", value: Math.max(minimumColumnWidth, resolvedWidth) };
   }
 
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void {
     const column = this.requireColumn(columnId);
-    this.resizeColumnsInSlot(columnSlotIndex(column), width);
+    column.widthSpec = normalizedColumnWidthSpec(width);
+    if (column.widthSpec.unit === "proportion") {
+      column.previousProportionWidth = column.widthSpec.value;
+    }
   }
 
   setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
@@ -384,7 +379,10 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
 
   resetColumnWidth(columnId: ColumnId): void {
     const column = this.requireColumn(columnId);
-    this.resizeColumnsInSlot(columnSlotIndex(column), column.idealWidthSpec);
+    column.widthSpec = normalizedColumnWidthSpec(column.idealWidthSpec);
+    if (column.widthSpec.unit === "proportion") {
+      column.previousProportionWidth = column.widthSpec.value;
+    }
   }
 
   resizePane(paneId: PaneId, heightPx: number | null): void {
@@ -455,7 +453,6 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     const columnId = this.insertColumnInPlaneSlot(
       targetPlaneIndex,
       sourceColumn ? columnSlotIndex(sourceColumn) : source.planeColumnIndex,
-      sourceColumn?.widthSpec,
     ).columnId;
     return this.openPane({ columnId });
   }
@@ -468,10 +465,11 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     const unlockedProportion =
       column.previousProportionWidth ??
       nearestColumnWidthPreset(column.widthSpec.value / this.availableWidth(viewportWidth));
-    this.resizeColumnsInSlot(columnSlotIndex(column), {
+    column.widthSpec = {
       unit: "proportion",
       value: nearestColumnWidthPreset(unlockedProportion),
-    });
+    };
+    column.previousProportionWidth = column.widthSpec.value;
   }
 
   resolvedColumnWidth(columnId: ColumnId, viewportWidth: number): number {
@@ -492,19 +490,8 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       return 0;
     }
     const availableHeight = this.availablePaneHeight(viewportHeight);
-    const planeGeometry = planeGeometryForLayout({
-      availableHeight,
-      columns: this.columns,
-      fullSizePanes: this.compactLayout,
-      maximizedPaneId,
-      padding: this.renderScene().padding,
-      paneById: this.paneById,
-      planeGap: this.scene.columnGap,
-      planeIndexes: this.planeIndexes(),
-      rowGap: this.scene.rowGap,
-      viewportHeight,
-    });
-    const planeOffset = planeGeometry.offsets.get(location.planeIndex) ?? 0;
+    const planeOffset =
+      planeTopOffsets(this.planeIndexes(), viewportHeight).get(location.planeIndex) ?? 0;
     if (!this.compactLayout) {
       return planeOffset;
     }
@@ -627,30 +614,20 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     columnGap = this.scene.columnGap,
     allowViewportOverflow = this.options.allowResizedPanesToOverflowViewport ?? false,
   ): ColumnGeometry {
-    const rawWidths = this.columns.map((column) =>
+    const widths = this.columns.map((column) =>
       this.compactLayout || (maximizedPaneId && column.paneIds.includes(maximizedPaneId))
         ? this.availableWidth(viewportWidth)
         : this.resolveColumnWidth(column, viewportWidth, allowViewportOverflow),
-    );
-    const defaultWidth = this.resolveColumnWidthSpec(
-      this.scene.defaultColumnWidthSpec,
-      viewportWidth,
-      allowViewportOverflow,
-    );
-    const slotWidths = slotWidthsForColumns({
-      columns: this.columns,
-      defaultWidth,
-      widths: rawWidths,
-    });
-    const widths = this.columns.map(
-      (column) =>
-        slotWidths.get(columnSlotIndex(column)) ?? rawWidths[column.index] ?? defaultWidth,
     );
     const offsets = Array.from({ length: this.columns.length }, () => 0);
     const slotOffsets = slotOffsetsForColumns({
       columnGap,
       columns: this.columns,
-      defaultWidth,
+      defaultWidth: this.resolveColumnWidthSpec(
+        this.scene.defaultColumnWidthSpec,
+        viewportWidth,
+        allowViewportOverflow,
+      ),
       widths,
     });
     for (const planeIndex of this.planeIndexes()) {
@@ -858,19 +835,6 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       throw new Error(`unknown workspace column ${columnId}`);
     }
     return column;
-  }
-
-  private resizeColumnsInSlot(slotIndex: number, width: ColumnWidthSpec): void {
-    const normalizedWidthSpec = normalizedColumnWidthSpec(width);
-    for (const column of this.columns) {
-      if (columnSlotIndex(column) !== slotIndex) {
-        continue;
-      }
-      column.widthSpec = { ...normalizedWidthSpec };
-      if (column.widthSpec.unit === "proportion") {
-        column.previousProportionWidth = column.widthSpec.value;
-      }
-    }
   }
 
   private adjacentPlaneIndex(planeIndex: number, direction: "up" | "down"): number | null {
