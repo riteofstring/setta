@@ -266,6 +266,16 @@ type ValidateWorkflowDefinitionRequest struct {
 	Graph       orchestrator.WorkflowGraph `json:"graph"`
 }
 
+type ListWorkflowExecutionsRequest struct {
+	WorkspaceID  string `json:"workspaceId"`
+	DefinitionID string `json:"definitionId"`
+	Limit        int    `json:"limit"`
+}
+
+type ListWorkflowExecutionsResponse struct {
+	Executions []orchestrator.WorkflowExecutionSummary `json:"executions"`
+}
+
 type StartWorkflowExecutionRequest struct {
 	WorkspaceID  string `json:"workspaceId"`
 	DefinitionID string `json:"definitionId"`

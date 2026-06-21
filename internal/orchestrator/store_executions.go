@@ -484,6 +484,46 @@ LIMIT 1
 	return execution, true, nil
 }
 
+func (store *Store) ListExecutionSummariesForDefinition(workspaceID string, definitionID string, limit int) ([]WorkflowExecutionSummary, error) {
+	if err := validateStoreIDs("workspace id", workspaceID, "definition id", definitionID); err != nil {
+		return nil, err
+	}
+	if limit < 0 {
+		return nil, fmt.Errorf("workflow execution summary limit must not be negative: %d", limit)
+	}
+	query := `
+SELECT runs.id, runs.workspace_id, runs.definition_id, runs.definition_version_id,
+       versions.version_number, runs.status, runs.terminal_reason, runs.started_at,
+       runs.updated_at, runs.completed_at, runs.last_event_ordinal
+FROM workflow_runs runs
+JOIN workflow_versions versions ON versions.id = runs.definition_version_id
+WHERE runs.workspace_id = ? AND runs.definition_id = ?
+ORDER BY runs.started_at DESC, runs.id ASC
+`
+	args := []any{workspaceID, definitionID}
+	if limit > 0 {
+		query += "LIMIT ?\n"
+		args = append(args, limit)
+	}
+	rows, err := store.db.QueryContext(context.Background(), query, args...)
+	if err != nil {
+		return nil, store.persistenceError("list workflow execution summaries", err)
+	}
+	defer rows.Close()
+	summaries := []WorkflowExecutionSummary{}
+	for rows.Next() {
+		summary, err := scanWorkflowExecutionSummary(rows)
+		if err != nil {
+			return nil, store.persistenceError("list workflow execution summaries", err)
+		}
+		summaries = append(summaries, summary)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, store.persistenceError("list workflow execution summaries", err)
+	}
+	return summaries, nil
+}
+
 func (store *Store) ListExecutions(workspaceID string) ([]WorkflowExecution, error) {
 	if err := validateStorageID("workspace id", workspaceID); err != nil {
 		return nil, err
@@ -518,6 +558,33 @@ ORDER BY started_at DESC, id ASC
 		executions = append(executions, execution)
 	}
 	return executions, nil
+}
+
+func scanWorkflowExecutionSummary(scanner workflowDefinitionScanner) (WorkflowExecutionSummary, error) {
+	var summary WorkflowExecutionSummary
+	var terminalReason sql.NullString
+	var completedAt sql.NullString
+	if err := scanner.Scan(
+		&summary.ID,
+		&summary.WorkspaceID,
+		&summary.DefinitionID,
+		&summary.DefinitionVersionID,
+		&summary.DefinitionVersionNumber,
+		&summary.Status,
+		&terminalReason,
+		&summary.StartedAt,
+		&summary.UpdatedAt,
+		&completedAt,
+		&summary.LastEventOrdinal,
+	); err != nil {
+		return WorkflowExecutionSummary{}, err
+	}
+	summary.TerminalReason = workflowTerminalReasonFromNull(terminalReason)
+	summary.CompletedAt = stringFromNull(completedAt)
+	if err := validateWorkflowExecutionSummary(summary); err != nil {
+		return WorkflowExecutionSummary{}, err
+	}
+	return summary, nil
 }
 
 func (store *Store) WorkspaceIDs() ([]string, error) {

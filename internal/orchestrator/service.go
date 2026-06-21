@@ -450,6 +450,15 @@ func (service *Service) ListExecutions(workspaceID string) ([]WorkflowExecution,
 	return service.store.ListExecutions(workspaceID)
 }
 
+func (service *Service) ListExecutionSummariesForDefinition(workspaceID string, definitionID string, limit int) ([]WorkflowExecutionSummary, error) {
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return nil, err
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	return service.store.ListExecutionSummariesForDefinition(workspaceID, definitionID, limit)
+}
+
 func (service *Service) ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (WorkflowGraphProjection, bool, error) {
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return WorkflowGraphProjection{}, false, err

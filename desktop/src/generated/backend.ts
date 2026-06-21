@@ -3181,6 +3181,30 @@ export interface WorkflowValidationResult {
   diagnostics: WorkflowValidationDiagnostic[];
 }
 
+export interface ListWorkflowExecutionsRequest {
+  workspaceId: string;
+  definitionId: string;
+  limit: number;
+}
+
+export interface WorkflowExecutionSummary {
+  id: string;
+  workspaceId: string;
+  definitionId: string;
+  definitionVersionId: string;
+  definitionVersionNumber: number;
+  status: WorkflowExecutionStatus;
+  terminalReason: WorkflowTerminalReason | null;
+  startedAt: string;
+  updatedAt: string;
+  completedAt: string;
+  lastEventOrdinal: number;
+}
+
+export interface ListWorkflowExecutionsResponse {
+  executions: WorkflowExecutionSummary[];
+}
+
 export interface StartWorkflowExecutionRequest {
   workspaceId: string;
   definitionId: string;
@@ -4728,20 +4752,6 @@ export interface CancelCodexLoginRequest {
 export interface LogoutCodexAccountRequest {
 }
 
-export interface WorkflowExecutionSummary {
-  id: string;
-  workspaceId: string;
-  definitionId: string;
-  definitionVersionId: string;
-  definitionVersionNumber: number;
-  status: WorkflowExecutionStatus;
-  terminalReason: WorkflowTerminalReason | null;
-  startedAt: string;
-  updatedAt: string;
-  completedAt: string;
-  lastEventOrdinal: number;
-}
-
 export interface APIError {
   code: string;
   message: string;
@@ -5234,6 +5244,10 @@ export const backendEndpoints = {
   ValidateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/validate",
+  },
+  ListWorkflowExecutions: {
+    method: "POST",
+    path: "/workflows/executions/list",
   },
   StartWorkflowExecution: {
     method: "POST",
@@ -7023,6 +7037,42 @@ export function decodeWorkflowValidationResult(value: unknown): WorkflowValidati
   return {
     valid: decodeBoolean(requireField(record, "valid", "WorkflowValidationResult"), "WorkflowValidationResult.valid"),
     diagnostics: decodeArray(requireField(record, "diagnostics", "WorkflowValidationResult"), "WorkflowValidationResult.diagnostics", (item) => decodeWorkflowValidationDiagnostic(item)),
+  };
+}
+
+export function decodeListWorkflowExecutionsRequest(value: unknown): ListWorkflowExecutionsRequest {
+  const record = assertRecord(value, "ListWorkflowExecutionsRequest");
+  assertKnownFields(record, "ListWorkflowExecutionsRequest", ["workspaceId", "definitionId", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListWorkflowExecutionsRequest"), "ListWorkflowExecutionsRequest.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "ListWorkflowExecutionsRequest"), "ListWorkflowExecutionsRequest.definitionId"),
+    limit: decodeInteger(requireField(record, "limit", "ListWorkflowExecutionsRequest"), "ListWorkflowExecutionsRequest.limit"),
+  };
+}
+
+export function decodeWorkflowExecutionSummary(value: unknown): WorkflowExecutionSummary {
+  const record = assertRecord(value, "WorkflowExecutionSummary");
+  assertKnownFields(record, "WorkflowExecutionSummary", ["id", "workspaceId", "definitionId", "definitionVersionId", "definitionVersionNumber", "status", "terminalReason", "startedAt", "updatedAt", "completedAt", "lastEventOrdinal"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.definitionId"),
+    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.definitionVersionId"),
+    definitionVersionNumber: decodeInteger(requireField(record, "definitionVersionNumber", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.definitionVersionNumber"),
+    status: decodeWorkflowExecutionStatus(requireField(record, "status", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.status"),
+    terminalReason: decodeNullable(requireField(record, "terminalReason", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.terminalReason", (item) => decodeWorkflowTerminalReason(item, "WorkflowExecutionSummary.terminalReason")),
+    startedAt: decodeString(requireField(record, "startedAt", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.startedAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.updatedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.completedAt"),
+    lastEventOrdinal: decodeInteger(requireField(record, "lastEventOrdinal", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.lastEventOrdinal"),
+  };
+}
+
+export function decodeListWorkflowExecutionsResponse(value: unknown): ListWorkflowExecutionsResponse {
+  const record = assertRecord(value, "ListWorkflowExecutionsResponse");
+  assertKnownFields(record, "ListWorkflowExecutionsResponse", ["executions"]);
+  return {
+    executions: decodeArray(requireField(record, "executions", "ListWorkflowExecutionsResponse"), "ListWorkflowExecutionsResponse.executions", (item) => decodeWorkflowExecutionSummary(item)),
   };
 }
 
@@ -9205,24 +9255,6 @@ export function decodeLogoutCodexAccountRequest(value: unknown): LogoutCodexAcco
   };
 }
 
-export function decodeWorkflowExecutionSummary(value: unknown): WorkflowExecutionSummary {
-  const record = assertRecord(value, "WorkflowExecutionSummary");
-  assertKnownFields(record, "WorkflowExecutionSummary", ["id", "workspaceId", "definitionId", "definitionVersionId", "definitionVersionNumber", "status", "terminalReason", "startedAt", "updatedAt", "completedAt", "lastEventOrdinal"]);
-  return {
-    id: decodeString(requireField(record, "id", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.workspaceId"),
-    definitionId: decodeString(requireField(record, "definitionId", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.definitionId"),
-    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.definitionVersionId"),
-    definitionVersionNumber: decodeInteger(requireField(record, "definitionVersionNumber", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.definitionVersionNumber"),
-    status: decodeWorkflowExecutionStatus(requireField(record, "status", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.status"),
-    terminalReason: decodeNullable(requireField(record, "terminalReason", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.terminalReason", (item) => decodeWorkflowTerminalReason(item, "WorkflowExecutionSummary.terminalReason")),
-    startedAt: decodeString(requireField(record, "startedAt", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.startedAt"),
-    updatedAt: decodeString(requireField(record, "updatedAt", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.updatedAt"),
-    completedAt: decodeString(requireField(record, "completedAt", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.completedAt"),
-    lastEventOrdinal: decodeInteger(requireField(record, "lastEventOrdinal", "WorkflowExecutionSummary"), "WorkflowExecutionSummary.lastEventOrdinal"),
-  };
-}
-
 export function decodeAPIError(value: unknown): APIError {
   const record = assertRecord(value, "APIError");
   assertKnownFields(record, "APIError", ["code", "message", "activeExecution"]);
@@ -9658,6 +9690,7 @@ export interface BackendClient {
   updateWorkflowDefinition: (request: UpdateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
   deleteWorkflowDefinition: (request: DeleteWorkflowDefinitionRequest) => Promise<DeleteWorkflowDefinitionResponse>;
   validateWorkflowDefinition: (request: ValidateWorkflowDefinitionRequest) => Promise<WorkflowValidationResult>;
+  listWorkflowExecutions: (request: ListWorkflowExecutionsRequest) => Promise<ListWorkflowExecutionsResponse>;
   startWorkflowExecution: (request: StartWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   cancelWorkflowExecution: (request: CancelWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
@@ -10072,6 +10105,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowValidationResult,
       endpoint: backendEndpoints.ValidateWorkflowDefinition,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listWorkflowExecutions: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeListWorkflowExecutionsResponse,
+      endpoint: backendEndpoints.ListWorkflowExecutions,
       fetchImpl,
       requestPayload: request,
     }),

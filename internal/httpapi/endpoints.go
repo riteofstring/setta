@@ -83,6 +83,7 @@ var apiEndpoints = []endpoint{
 	post[UpdateWorkflowDefinitionRequest, orchestrator.WorkflowDefinition]("UpdateWorkflowDefinition", "/workflows/definitions/update", handler.updateWorkflowDefinition),
 	post[DeleteWorkflowDefinitionRequest, DeleteWorkflowDefinitionResponse]("DeleteWorkflowDefinition", "/workflows/definitions/delete", handler.deleteWorkflowDefinition),
 	post[ValidateWorkflowDefinitionRequest, orchestrator.WorkflowValidationResult]("ValidateWorkflowDefinition", "/workflows/definitions/validate", handler.validateWorkflowDefinition),
+	post[ListWorkflowExecutionsRequest, ListWorkflowExecutionsResponse]("ListWorkflowExecutions", "/workflows/executions/list", handler.listWorkflowExecutions),
 	post[StartWorkflowExecutionRequest, orchestrator.WorkflowExecution]("StartWorkflowExecution", "/workflows/executions/start", handler.startWorkflowExecution),
 	post[CancelWorkflowExecutionRequest, orchestrator.WorkflowExecution]("CancelWorkflowExecution", "/workflows/executions/cancel", handler.cancelWorkflowExecution),
 	post[ReadWorkflowExecutionRequest, orchestrator.WorkflowExecution]("ReadWorkflowExecution", "/workflows/executions/read", handler.readWorkflowExecution),

@@ -240,6 +240,106 @@ func TestServiceStartExecutionAllowsDifferentDefinitionsAndTerminalHistory(t *te
 	}
 }
 
+func TestServiceListExecutionSummariesForDefinitionReturnsScopedNewestHistory(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowServiceWithOptions(
+		t,
+		WithClock(advancingTestClock(t, "2026-06-05T12:00:00Z", time.Minute)),
+		WithRunnerRegistry(DefaultRunnerRegistry().WithRunner(newRecordingActionRunner())),
+	)
+	fixture := createWorkflowSummaryHistoryFixture(t, service, workspaceID)
+
+	summaries, err := service.ListExecutionSummariesForDefinition(workspaceID, fixture.definition.ID, 0)
+	if err != nil {
+		t.Fatalf("list target execution summaries: %v", err)
+	}
+	assertTargetWorkflowSummaries(t, summaries, fixture)
+
+	limited, err := service.ListExecutionSummariesForDefinition(workspaceID, fixture.definition.ID, 1)
+	if err != nil {
+		t.Fatalf("list limited execution summaries: %v", err)
+	}
+	assertLimitedWorkflowSummaries(t, limited, fixture.active.ID)
+
+	otherSummaries, err := service.ListExecutionSummariesForDefinition(workspaceID, fixture.otherDefinition.ID, 0)
+	if err != nil {
+		t.Fatalf("list other execution summaries: %v", err)
+	}
+	assertOtherWorkflowSummaries(t, otherSummaries, fixture.other.ID)
+}
+
+type workflowSummaryHistoryFixture struct {
+	definition      WorkflowDefinition
+	otherDefinition WorkflowDefinition
+	cancelled       WorkflowExecution
+	other           WorkflowExecution
+	active          WorkflowExecution
+}
+
+func createWorkflowSummaryHistoryFixture(t *testing.T, service *Service, workspaceID string) workflowSummaryHistoryFixture {
+	t.Helper()
+	definition, err := service.CreateDefinition(workspaceID, "Summary target", "", actionGraph("target_work"))
+	if err != nil {
+		t.Fatalf("create target definition: %v", err)
+	}
+	otherDefinition, err := service.CreateDefinition(workspaceID, "Other summary", "", actionGraph("other_work"))
+	if err != nil {
+		t.Fatalf("create other definition: %v", err)
+	}
+	first, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start first execution: %v", err)
+	}
+	cancelled, err := service.CancelExecution(workspaceID, first.ID)
+	if err != nil {
+		t.Fatalf("cancel first execution: %v", err)
+	}
+	other, err := service.StartExecution(workspaceID, otherDefinition.ID, "")
+	if err != nil {
+		t.Fatalf("start other execution: %v", err)
+	}
+	active, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start active execution: %v", err)
+	}
+	return workflowSummaryHistoryFixture{
+		definition:      definition,
+		otherDefinition: otherDefinition,
+		cancelled:       cancelled,
+		other:           other,
+		active:          active,
+	}
+}
+
+func assertTargetWorkflowSummaries(t *testing.T, summaries []WorkflowExecutionSummary, fixture workflowSummaryHistoryFixture) {
+	t.Helper()
+	if len(summaries) != 2 {
+		t.Fatalf("target summaries = %+v, want active and cancelled executions", summaries)
+	}
+	if summaries[0].ID != fixture.active.ID || summaries[0].Status != ExecutionStatusRunning || summaries[0].DefinitionVersionNumber != 2 {
+		t.Fatalf("newest target summary = %+v, want running version 2 execution %s", summaries[0], fixture.active.ID)
+	}
+	if summaries[1].ID != fixture.cancelled.ID || summaries[1].Status != ExecutionStatusCancelled || summaries[1].DefinitionVersionNumber != 1 {
+		t.Fatalf("older target summary = %+v, want cancelled version 1 execution %s", summaries[1], fixture.cancelled.ID)
+	}
+	if summaries[1].TerminalReason == nil || *summaries[1].TerminalReason != TerminalReasonExecutionCancelled {
+		t.Fatalf("cancelled terminal reason = %v, want execution_cancelled", summaries[1].TerminalReason)
+	}
+}
+
+func assertLimitedWorkflowSummaries(t *testing.T, summaries []WorkflowExecutionSummary, activeID string) {
+	t.Helper()
+	if len(summaries) != 1 || summaries[0].ID != activeID {
+		t.Fatalf("limited summaries = %+v, want only active execution %s", summaries, activeID)
+	}
+}
+
+func assertOtherWorkflowSummaries(t *testing.T, summaries []WorkflowExecutionSummary, otherID string) {
+	t.Helper()
+	if len(summaries) != 1 || summaries[0].ID != otherID {
+		t.Fatalf("other summaries = %+v, want only other execution %s", summaries, otherID)
+	}
+}
+
 func TestServiceStartupRecoveryRequiresManualStateForUncertainSideEffects(t *testing.T) {
 	runner := newRecordingActionRunner()
 	runner.recover = func(request ActionRecoverRequest) ActionRecoverResult {
@@ -942,6 +1042,19 @@ func fixedTestClock(t *testing.T) func() time.Time {
 	}
 	return func() time.Time {
 		return value
+	}
+}
+
+func advancingTestClock(t *testing.T, start string, step time.Duration) func() time.Time {
+	t.Helper()
+	value, err := time.Parse(time.RFC3339, start)
+	if err != nil {
+		t.Fatalf("parse test time: %v", err)
+	}
+	return func() time.Time {
+		current := value
+		value = value.Add(step)
+		return current
 	}
 }
 

@@ -147,6 +147,82 @@ func TestWorkflowEndpointStartExecutionConflictIncludesActiveExecution(t *testin
 	}
 }
 
+func TestWorkflowEndpointListExecutionsReturnsDefinitionSummaries(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Run summaries",
+		Graph:       httpWorkflowActionGraph(),
+	}, http.StatusOK)
+	otherDefinition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Other summaries",
+		Graph:       httpWorkflowActionGraph(),
+	}, http.StatusOK)
+	first := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	cancelled := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/cancel", CancelWorkflowExecutionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		ExecutionID: first.ID,
+	}, http.StatusOK)
+	other := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: otherDefinition.ID,
+	}, http.StatusOK)
+	active := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+
+	list := postJSON[ListWorkflowExecutionsResponse](t, handler, "/workflows/executions/list", ListWorkflowExecutionsRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	if len(list.Executions) != 2 {
+		t.Fatalf("listed executions = %+v, want active and cancelled summaries", list.Executions)
+	}
+	summariesByID := map[string]orchestrator.WorkflowExecutionSummary{}
+	for _, summary := range list.Executions {
+		summariesByID[summary.ID] = summary
+		if summary.DefinitionID != definition.ID || summary.WorkspaceID != opened.Workspace.ID {
+			t.Fatalf("summary ownership = %+v, want workspace %s definition %s", summary, opened.Workspace.ID, definition.ID)
+		}
+		if summary.ID == other.ID {
+			t.Fatalf("list included execution from other definition: %+v", summary)
+		}
+	}
+	activeSummary, ok := summariesByID[active.ID]
+	if !ok || activeSummary.Status != orchestrator.ExecutionStatusRunning || activeSummary.DefinitionVersionNumber != 2 {
+		t.Fatalf("active summary = %+v present %v, want running version 2", activeSummary, ok)
+	}
+	cancelledSummary, ok := summariesByID[cancelled.ID]
+	if !ok || cancelledSummary.Status != orchestrator.ExecutionStatusCancelled || cancelledSummary.DefinitionVersionNumber != 1 {
+		t.Fatalf("cancelled summary = %+v present %v, want cancelled version 1", cancelledSummary, ok)
+	}
+
+	limited := postJSON[ListWorkflowExecutionsResponse](t, handler, "/workflows/executions/list", ListWorkflowExecutionsRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+		Limit:        1,
+	}, http.StatusOK)
+	if len(limited.Executions) != 1 {
+		t.Fatalf("limited executions = %+v, want one summary", limited.Executions)
+	}
+
+	raw, err := json.Marshal(list)
+	if err != nil {
+		t.Fatalf("marshal list response: %v", err)
+	}
+	for _, forbidden := range []string{"nodeExecutions", "tokens", "loopIterations", "graph", "events", "runnerRefs"} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Fatalf("list response contains full payload field %q: %s", forbidden, raw)
+		}
+	}
+}
+
 func TestWorkflowEndpointsSubmitWorkflowApproval(t *testing.T) {
 	handler := newScriptedWorkflowHandler(t)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)

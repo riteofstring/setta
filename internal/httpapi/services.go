@@ -83,6 +83,7 @@ type WorkflowService interface {
 	CreateDefinition(workspaceID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
 	DeleteDefinition(workspaceID string, definitionID string) error
 	ListDefinitions(workspaceID string) ([]orchestrator.WorkflowDefinition, error)
+	ListExecutionSummariesForDefinition(workspaceID string, definitionID string, limit int) ([]orchestrator.WorkflowExecutionSummary, error)
 	ReadDefinition(workspaceID string, definitionID string) (orchestrator.WorkflowDefinition, error)
 	ReadExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
 	ListExecutions(workspaceID string) ([]orchestrator.WorkflowExecution, error)
