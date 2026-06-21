@@ -41,8 +41,8 @@ import {
 import {
   eventTargetsOverviewGhost,
   overviewGhostTargetFromPointer,
-  overviewPaneIdAtPoint,
   overviewPaneIdFromPointer,
+  overviewPaneDropIntentFromGhost,
   setOverviewGhostTargetIfChanged,
   type OverviewGhostTarget,
 } from "./workspace-overview-ghost";
@@ -485,7 +485,6 @@ function WorkspaceLayoutRuntimeArea({
       if (!overviewSession || event.pointerId !== overviewSession.pointerId) {
         return false;
       }
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
       event.preventDefault();
       event.stopPropagation();
       const distance = Math.hypot(
@@ -498,9 +497,14 @@ function WorkspaceLayoutRuntimeArea({
       overviewSession.dragging = true;
       root.dataset.overviewDragging = "true";
       syncPaneDragSourceOffset(overviewSession, event);
-      const targetPaneId = overviewPaneIdAtPoint(event, overviewSession.sourcePaneId);
-      if (targetPaneId && targetPaneId !== overviewSession.sourcePaneId) {
-        runtime.store.previewPaneDrop(overviewSession.sourcePaneId, targetPaneId, "before");
+      const ghostTarget = overviewGhostTargetFromPointer(event, stage);
+      const dropIntent =
+        ghostTarget && ghostTarget.paneId !== overviewSession.sourcePaneId
+          ? overviewPaneDropIntentFromGhost(ghostTarget, runtime.store.toScene())
+          : null;
+      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, dropIntent ? ghostTarget : null);
+      if (dropIntent) {
+        runtime.store.previewPaneDropIntent(overviewSession.sourcePaneId, dropIntent);
       } else {
         runtime.store.clearPaneDropPreview();
       }
@@ -557,6 +561,7 @@ function WorkspaceLayoutRuntimeArea({
       suppressNextPaneClick();
       overviewDragSessionRef.current = null;
       delete root.dataset.overviewDragging;
+      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
       const sourceHost = visiblePaneHostForPane(overviewSession.sourcePaneId);
       if (sourceHost) {
         sourceHost.removeAttribute("data-drag-source");
@@ -564,11 +569,15 @@ function WorkspaceLayoutRuntimeArea({
       }
       runtime.store.clearPaneDropPreview();
       if (overviewSession.dragging) {
-        const targetPaneId = overviewPaneIdAtPoint(event, overviewSession.sourcePaneId);
-        if (targetPaneId && targetPaneId !== overviewSession.sourcePaneId) {
-          runLayoutAction(() =>
-            runtime.store.reorderPaneBefore(overviewSession.sourcePaneId, targetPaneId),
-          );
+        const ghostTarget = overviewGhostTargetFromPointer(event, stage);
+        const dropIntent =
+          ghostTarget && ghostTarget.paneId !== overviewSession.sourcePaneId
+            ? overviewPaneDropIntentFromGhost(ghostTarget, runtime.store.toScene())
+            : null;
+        if (dropIntent) {
+          runLayoutAction(() => {
+            runtime.store.applyPaneDropIntent(overviewSession.sourcePaneId, dropIntent);
+          });
         }
         return true;
       }

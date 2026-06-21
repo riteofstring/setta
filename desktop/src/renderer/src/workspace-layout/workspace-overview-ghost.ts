@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { PaneInsertionPlacement } from "./types";
+import type { PaneDropIntent, PaneInsertionPlacement, WorkspaceScene } from "./types";
 
 const overviewGhostGapPx = 8;
 
@@ -74,6 +74,40 @@ export function overviewGhostLabel(placement: PaneInsertionPlacement): string {
       return "Add pane to the right";
     default:
       return assertNever(placement);
+  }
+}
+
+export function overviewPaneDropIntentFromGhost(
+  target: OverviewGhostTarget,
+  scene: WorkspaceScene,
+): PaneDropIntent | null {
+  const targetPane = scene.paneById.get(target.paneId);
+  const targetColumn = scene.columns.find((column) => column.columnId === targetPane?.columnId);
+  if (!targetPane || !targetColumn) {
+    return null;
+  }
+  switch (target.placement) {
+    case "above":
+      return {
+        kind: "row",
+        placement: "before",
+        targetPaneId: target.paneId,
+      };
+    case "below":
+      return {
+        kind: "row",
+        placement: "after",
+        targetPaneId: target.paneId,
+      };
+    case "right":
+      return {
+        kind: "column",
+        planeIndex: targetColumn.planeIndex,
+        slotPlacement: "after",
+        targetColumnId: targetColumn.columnId,
+      };
+    default:
+      return assertNever(target.placement);
   }
 }
 
