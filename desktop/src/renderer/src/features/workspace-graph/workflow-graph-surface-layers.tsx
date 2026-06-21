@@ -7,6 +7,7 @@ import type { SyntheticWorkflowGraphOptions } from "./workflow-graph-camera-scop
 import {
   WorkflowGraphToolbar,
   WorkflowValidationPanel,
+  type WorkflowToolbarOperation,
   workflowNodeMenuItems,
 } from "./workflow-graph-toolbar";
 import type { WorkflowDraftNodeType } from "./workflow-graph-draft";
@@ -20,6 +21,7 @@ export interface WorkflowContextMenuState {
 
 export function WorkflowGraphToolbarLayer({
   addWorkflowDraftNodeFromToolbar,
+  cancelWorkflowRun,
   openWorkflowNodeDetails,
   openWorkflowSettings,
   runWorkflowDraft,
@@ -35,6 +37,7 @@ export function WorkflowGraphToolbarLayer({
   workflowWorkspaceId,
 }: {
   addWorkflowDraftNodeFromToolbar: (nodeType: WorkflowDraftNodeType) => Promise<void>;
+  cancelWorkflowRun: () => Promise<void>;
   openWorkflowNodeDetails: (nodeId: string | null) => void;
   openWorkflowSettings: () => void;
   runWorkflowDraft: () => Promise<void>;
@@ -43,7 +46,7 @@ export function WorkflowGraphToolbarLayer({
   showDraftWorkflow: () => Promise<void>;
   syntheticGraph: SyntheticWorkflowGraphOptions;
   validateWorkflowDraft: () => Promise<WorkflowValidationResult | null>;
-  workflowOperation: "run" | "validate" | null;
+  workflowOperation: WorkflowToolbarOperation | null;
   workflowProjection: WorkflowGraphProjection | null;
   workflowProjectionReady: boolean;
   workflowValidation: WorkflowValidationResult | null;
@@ -60,6 +63,7 @@ export function WorkflowGraphToolbarLayer({
       onOpenSettings={() => openWorkflowSettings()}
       onRun={() => void runWorkflowDraft()}
       onShowDraft={() => void showDraftWorkflow()}
+      onStop={() => void cancelWorkflowRun()}
       onValidate={() => void validateWorkflowDraft()}
       projection={workflowProjection}
       ready={workflowProjectionReady}

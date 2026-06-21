@@ -2,6 +2,8 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -9,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/chat"
 	"setta/internal/workspace"
 )
 
@@ -253,6 +256,247 @@ func TestServiceCancelsRunnerRefsThatAttachAfterExecutionCancellation(t *testing
 	}
 }
 
+func TestServiceCancelExecutionReturnsTerminalExecutionWithoutNewEvents(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowServiceWithRunner(t, newRecordingActionRunner())
+	cases := []struct {
+		name  string
+		build func(t *testing.T) WorkflowExecution
+		want  WorkflowExecutionStatus
+	}{
+		{
+			name: "completed",
+			build: func(t *testing.T) WorkflowExecution {
+				t.Helper()
+				definition, err := service.CreateDefinition(workspaceID, "Complete before cancel", "", startEndGraph())
+				if err != nil {
+					t.Fatalf("create completed workflow: %v", err)
+				}
+				execution, err := service.StartExecution(workspaceID, definition.ID, "")
+				if err != nil {
+					t.Fatalf("start completed workflow: %v", err)
+				}
+				return execution
+			},
+			want: ExecutionStatusCompleted,
+		},
+		{
+			name: "failed",
+			build: func(t *testing.T) WorkflowExecution {
+				t.Helper()
+				definition, err := service.CreateDefinition(workspaceID, "Fail before cancel", "", actionGraph("work_failed"))
+				if err != nil {
+					t.Fatalf("create failed workflow: %v", err)
+				}
+				started, err := service.StartExecution(workspaceID, definition.ID, "")
+				if err != nil {
+					t.Fatalf("start failed workflow: %v", err)
+				}
+				work := latestNodeExecutionForTest(t, started, "work_failed")
+				failed, err := service.CompleteAction(workspaceID, started.ID, work.ID, WorkflowActionResult{
+					Status: ActionCompletionFailed,
+					Error:  "already failed",
+				})
+				if err != nil {
+					t.Fatalf("fail workflow action: %v", err)
+				}
+				return failed
+			},
+			want: ExecutionStatusFailed,
+		},
+		{
+			name: "stopped",
+			build: func(t *testing.T) WorkflowExecution {
+				t.Helper()
+				maxIterations := 1
+				definition, err := service.CreateDefinition(workspaceID, "Stopped before cancel", "", loopGraph(&maxIterations, LoopLimitStopped))
+				if err != nil {
+					t.Fatalf("create stopped workflow: %v", err)
+				}
+				started, err := service.StartExecution(workspaceID, definition.ID, "")
+				if err != nil {
+					t.Fatalf("start stopped workflow: %v", err)
+				}
+				review := latestNodeExecutionForTest(t, started, "review")
+				stopped, err := service.CompleteAction(workspaceID, started.ID, review.ID, WorkflowActionResult{
+					Status:  ActionCompletionCompleted,
+					Signals: []WorkflowActionSignal{{Name: "decision", Value: "continue"}},
+				})
+				if err != nil {
+					t.Fatalf("stop workflow by limit policy: %v", err)
+				}
+				return stopped
+			},
+			want: ExecutionStatusStopped,
+		},
+		{
+			name: "cancelled",
+			build: func(t *testing.T) WorkflowExecution {
+				t.Helper()
+				definition, err := service.CreateDefinition(workspaceID, "Cancel before cancel", "", actionGraph("work_cancelled"))
+				if err != nil {
+					t.Fatalf("create cancelled workflow: %v", err)
+				}
+				started, err := service.StartExecution(workspaceID, definition.ID, "")
+				if err != nil {
+					t.Fatalf("start cancelled workflow: %v", err)
+				}
+				cancelled, err := service.CancelExecution(workspaceID, started.ID)
+				if err != nil {
+					t.Fatalf("cancel workflow: %v", err)
+				}
+				return cancelled
+			},
+			want: ExecutionStatusCancelled,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			terminal := tc.build(t)
+			if terminal.Status != tc.want {
+				t.Fatalf("terminal status = %s, want %s", terminal.Status, tc.want)
+			}
+			before := workflowEventCountForTest(t, service, workspaceID, terminal.ID)
+			returned, err := service.CancelExecution(workspaceID, terminal.ID)
+			if err != nil {
+				t.Fatalf("cancel terminal execution: %v", err)
+			}
+			if returned.Status != tc.want {
+				t.Fatalf("returned status = %s, want %s", returned.Status, tc.want)
+			}
+			after := workflowEventCountForTest(t, service, workspaceID, terminal.ID)
+			if after != before {
+				t.Fatalf("terminal cancel event count = %d, want unchanged %d", after, before)
+			}
+		})
+	}
+}
+
+func TestServiceCancelExecutionRecordsRunnerCancelFailureAsNonfatalDiagnostic(t *testing.T) {
+	runner := newRecordingActionRunner()
+	runner.cancel = func(ActionCancelRequest) error {
+		return errors.New("turn interrupt failed")
+	}
+	_, _, service, workspaceID := newTestWorkflowServiceWithRunner(t, runner)
+	definition, err := service.CreateDefinition(workspaceID, "Cancel diagnostic", "", actionGraph("work"))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+
+	cancelled, err := service.CancelExecution(workspaceID, started.ID)
+	if err != nil {
+		t.Fatalf("cancel execution returned runner failure as fatal: %v", err)
+	}
+	if cancelled.Status != ExecutionStatusCancelled {
+		t.Fatalf("cancelled status = %s, want cancelled", cancelled.Status)
+	}
+	read, err := service.ReadExecution(workspaceID, started.ID)
+	if err != nil {
+		t.Fatalf("read execution: %v", err)
+	}
+	if read.Status != ExecutionStatusCancelled {
+		t.Fatalf("stored status = %s, want cancelled", read.Status)
+	}
+	page, err := service.ReadExecutionEventPage(workspaceID, started.ID, 0, 50)
+	if err != nil {
+		t.Fatalf("read execution events: %v", err)
+	}
+	event := workflowEventOfTypeForTest(t, page.Events, EventRunnerAttemptFailed)
+	if !strings.Contains(event.Message, "workflow runner cancel failed after execution cancellation: turn interrupt failed") {
+		t.Fatalf("diagnostic message = %q, want runner cancel failure", event.Message)
+	}
+	var details struct {
+		Nonfatal    bool        `json:"nonfatal"`
+		RunnerEvent RunnerEvent `json:"runnerEvent"`
+	}
+	if err := json.Unmarshal(event.Details, &details); err != nil {
+		t.Fatalf("decode diagnostic details: %v", err)
+	}
+	if !details.Nonfatal {
+		t.Fatalf("diagnostic details = %+v, want nonfatal", details)
+	}
+	if details.RunnerEvent.Type != RunnerEventAttemptFailed {
+		t.Fatalf("runner event type = %s, want attempt failed", details.RunnerEvent.Type)
+	}
+	var payload RunnerAttemptFailedPayload
+	if err := json.Unmarshal(details.RunnerEvent.Payload, &payload); err != nil {
+		t.Fatalf("decode runner diagnostic payload: %v", err)
+	}
+	if payload.ErrorCode != "workflow_runner_cancel_failed" || !strings.Contains(payload.Message, "turn interrupt failed") {
+		t.Fatalf("runner diagnostic payload = %+v, want cancel failure", payload)
+	}
+}
+
+func TestServiceCancelExecutionRecordsPendingApprovalAsCancelled(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowServiceWithRunner(t, newRecordingActionRunner())
+	definition, err := service.CreateDefinition(workspaceID, "Cancel pending approval", "", actionGraph("work"))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, started, "work")
+	approval := chat.ApprovalRequest{
+		ID:        "approval_test",
+		Kind:      chat.ApprovalKindCommand,
+		RunID:     "run_test",
+		Status:    chat.ApprovalStatusPending,
+		Title:     "Approve command",
+		CreatedAt: "2026-06-21T12:00:00Z",
+	}
+	waiting, err := service.CompleteAction(workspaceID, started.ID, work.ID, WorkflowActionResult{
+		Status: ActionCompletionRequiresApproval,
+		PendingApproval: &WorkflowPendingApproval{
+			WorkspaceID:     workspaceID,
+			ExecutionID:     started.ID,
+			NodeID:          work.NodeID,
+			NodeExecutionID: work.ID,
+			ApprovalID:      approval.ID,
+			Approval:        approval,
+		},
+	})
+	if err != nil {
+		t.Fatalf("put workflow action into approval state: %v", err)
+	}
+	if latestNodeExecutionForTest(t, waiting, "work").Status != NodeExecutionStatusWaitingApproval {
+		t.Fatalf("waiting execution = %+v, want approval state", waiting)
+	}
+
+	cancelled, err := service.CancelExecution(workspaceID, started.ID)
+	if err != nil {
+		t.Fatalf("cancel execution: %v", err)
+	}
+	if cancelled.Status != ExecutionStatusCancelled {
+		t.Fatalf("cancelled status = %s, want cancelled", cancelled.Status)
+	}
+	if latestNodeExecutionForTest(t, cancelled, "work").Status != NodeExecutionStatusCancelled {
+		t.Fatalf("cancelled node = %+v, want cancelled", latestNodeExecutionForTest(t, cancelled, "work"))
+	}
+	page, err := service.ReadExecutionEventPage(workspaceID, started.ID, 0, 50)
+	if err != nil {
+		t.Fatalf("read execution events: %v", err)
+	}
+	event := workflowEventOfTypeForTest(t, page.Events, EventRunnerApprovalResolved)
+	var details struct {
+		RunnerEvent RunnerEvent `json:"runnerEvent"`
+	}
+	if err := json.Unmarshal(event.Details, &details); err != nil {
+		t.Fatalf("decode approval cancellation details: %v", err)
+	}
+	var payload RunnerApprovalResolvedPayload
+	if err := json.Unmarshal(details.RunnerEvent.Payload, &payload); err != nil {
+		t.Fatalf("decode approval cancellation payload: %v", err)
+	}
+	if payload.ApprovalID != approval.ID || payload.Status != string(chat.ApprovalStatusCancelled) {
+		t.Fatalf("approval cancellation payload = %+v, want %s cancelled", payload, approval.ID)
+	}
+}
+
 func newTestWorkflowService(t *testing.T) (*Store, testWorkspaceResolver, *Service, string) {
 	t.Helper()
 	return newTestWorkflowServiceWithOptions(t)
@@ -361,6 +605,29 @@ func assertExecutionEventsPersisted(t *testing.T, service *Service, workspaceID 
 	}
 }
 
+func workflowEventCountForTest(t *testing.T, service *Service, workspaceID string, executionID string) int {
+	t.Helper()
+	page, err := service.ReadExecutionEventPage(workspaceID, executionID, 0, 100)
+	if err != nil {
+		t.Fatalf("read execution events: %v", err)
+	}
+	if page.HasMoreOlder {
+		t.Fatalf("execution %s has more events than test page limit", executionID)
+	}
+	return len(page.Events)
+}
+
+func workflowEventOfTypeForTest(t *testing.T, events []WorkflowEvent, eventType WorkflowEventType) WorkflowEvent {
+	t.Helper()
+	for _, event := range events {
+		if event.Type == eventType {
+			return event
+		}
+	}
+	t.Fatalf("workflow event type %s not found in %+v", eventType, eventTypes(events))
+	return WorkflowEvent{}
+}
+
 func assertRunningExecutionRecovered(t *testing.T, store *Store, resolver testWorkspaceResolver, runner *recordingActionRunner, workspaceID string, executionID string) {
 	t.Helper()
 	restarted, err := NewService(store, resolver, WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t)), WithRunnerRegistry(DefaultRunnerRegistry().WithRunner(runner)))
@@ -449,6 +716,7 @@ type recordingActionRunner struct {
 	mu       sync.Mutex
 	cancels  []ActionCancelRequest
 	recovers []ActionRecoverRequest
+	cancel   func(ActionCancelRequest) error
 	recover  func(ActionRecoverRequest) ActionRecoverResult
 }
 
@@ -476,6 +744,9 @@ func (runner *recordingActionRunner) Cancel(_ context.Context, request ActionCan
 	runner.mu.Lock()
 	defer runner.mu.Unlock()
 	runner.cancels = append(runner.cancels, request)
+	if runner.cancel != nil {
+		return runner.cancel(request)
+	}
 	return nil
 }
 

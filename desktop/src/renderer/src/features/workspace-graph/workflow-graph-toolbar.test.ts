@@ -3,6 +3,8 @@ import { describe, expect, test } from "vitest";
 import type { WorkflowGraphProjection } from "@generated/backend";
 import {
   workflowToolbarMismatchLabel,
+  workflowToolbarShowsRunButton,
+  workflowToolbarShowsStopButton,
   workflowToolbarStateLabel,
   workflowToolbarVersionLabel,
 } from "./workflow-graph-toolbar";
@@ -46,6 +48,40 @@ describe("workflow graph toolbar state labels", () => {
       "Version snapshot read-only",
     );
     expect(workflowToolbarVersionLabel(projection)).toBe("v3 workflow_v...on_003");
+  });
+});
+
+describe("workflow graph toolbar run and stop visibility", () => {
+  test("shows run only for blank and draft views", () => {
+    expect(workflowToolbarShowsRunButton(null)).toBe(true);
+    expect(workflowToolbarShowsStopButton(null)).toBe(false);
+
+    const draft = workflowProjection({ viewMode: "draft" });
+    expect(workflowToolbarShowsRunButton(draft)).toBe(true);
+    expect(workflowToolbarShowsStopButton(draft)).toBe(false);
+  });
+
+  test("shows stop only for running run projections", () => {
+    const running = workflowProjection({ executionStatus: "running", viewMode: "run" });
+    expect(workflowToolbarShowsRunButton(running)).toBe(false);
+    expect(workflowToolbarShowsStopButton(running)).toBe(true);
+
+    for (const executionStatus of ["completed", "failed", "stopped", "cancelled"] as const) {
+      const terminal = workflowProjection({ executionStatus, viewMode: "run" });
+      expect(workflowToolbarShowsRunButton(terminal)).toBe(false);
+      expect(workflowToolbarShowsStopButton(terminal)).toBe(false);
+    }
+  });
+
+  test("hides run and stop for version snapshots", () => {
+    const projection = workflowProjection({
+      executionId: "",
+      executionStatus: null,
+      viewMode: "version",
+    });
+
+    expect(workflowToolbarShowsRunButton(projection)).toBe(false);
+    expect(workflowToolbarShowsStopButton(projection)).toBe(false);
   });
 });
 

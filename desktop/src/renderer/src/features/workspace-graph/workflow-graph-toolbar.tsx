@@ -26,6 +26,8 @@ import { useState } from "react";
 import type { WorkflowDraftNodeType } from "./workflow-graph-draft";
 import { shortIdentifier } from "./workflow-node-details-helpers";
 
+export type WorkflowToolbarOperation = "run" | "validate" | "cancel";
+
 export interface WorkflowDraftNodePosition {
   worldX: number;
   worldY: number;
@@ -49,6 +51,7 @@ export function WorkflowGraphToolbar({
   onAddNode,
   onOpenDetails,
   onOpenSettings,
+  onStop,
   onRun,
   onShowDraft,
   onValidate,
@@ -58,10 +61,11 @@ export function WorkflowGraphToolbar({
   validation,
   workspaceId,
 }: {
-  busy: "run" | "validate" | null;
+  busy: WorkflowToolbarOperation | null;
   onAddNode: (nodeType: WorkflowDraftNodeType) => void;
   onOpenDetails: () => void;
   onOpenSettings: () => void;
+  onStop: () => void;
   onRun: () => void;
   onShowDraft: () => void;
   onValidate: () => void;
@@ -113,14 +117,26 @@ export function WorkflowGraphToolbar({
           onClick={onValidate}
           testId="workflow-validate-button"
         />
-        <ToolbarButton
-          disabled={model.runDisabled}
-          icon={model.runIcon}
-          label={model.runLabel}
-          onClick={onRun}
-          spin={busy === "run"}
-          testId="workflow-run-button"
-        />
+        {model.showRunButton ? (
+          <ToolbarButton
+            disabled={model.runDisabled}
+            icon={model.runIcon}
+            label={model.runLabel}
+            onClick={onRun}
+            spin={busy === "run"}
+            testId="workflow-run-button"
+          />
+        ) : null}
+        {model.showStopButton ? (
+          <ToolbarButton
+            disabled={model.stopDisabled}
+            icon={Square}
+            label={model.stopLabel}
+            onClick={onStop}
+            spin={busy === "cancel"}
+            testId="workflow-stop-button"
+          />
+        ) : null}
         <WorkflowDraftButton
           disabled={model.disabled}
           onShowDraft={onShowDraft}
@@ -408,7 +424,7 @@ function workflowToolbarModel({
   validation,
   workspaceId,
 }: {
-  busy: "run" | "validate" | null;
+  busy: WorkflowToolbarOperation | null;
   projection: WorkflowGraphProjection | null;
   ready: boolean;
   selectedNodeLabel: string;
@@ -428,7 +444,11 @@ function workflowToolbarModel({
     runLabel: workflowRunLabel(busy),
     settingsDisabled: disabled || projection === null,
     showDraftButton: workflowToolbarShowsDraftButton(projection),
+    showRunButton: workflowToolbarShowsRunButton(projection),
+    showStopButton: workflowToolbarShowsStopButton(projection),
     stateLabel: workflowToolbarStateLabel(projection, ready, workspaceId),
+    stopDisabled: disabled || !workflowToolbarShowsStopButton(projection),
+    stopLabel: workflowStopLabel(busy),
     title: workflowToolbarTitle(projection, workspaceId),
     validateLabel: workflowValidateLabel(busy),
     versionLabel: workflowToolbarVersionLabel(projection),
@@ -439,7 +459,7 @@ function workflowToolbarModel({
 function workflowToolbarDisabled(
   ready: boolean,
   workspaceId: string,
-  busy: "run" | "validate" | null,
+  busy: WorkflowToolbarOperation | null,
 ) {
   return !ready || workspaceId === "" || busy !== null;
 }
@@ -464,15 +484,19 @@ function workflowRunDisabled(
   return disabled || !editable || projection === null;
 }
 
-function workflowRunIcon(busy: "run" | "validate" | null) {
+function workflowRunIcon(busy: WorkflowToolbarOperation | null) {
   return busy === "run" ? RefreshCcw : Play;
 }
 
-function workflowRunLabel(busy: "run" | "validate" | null) {
+function workflowRunLabel(busy: WorkflowToolbarOperation | null) {
   return busy === "run" ? "Starting" : "Run";
 }
 
-function workflowValidateLabel(busy: "run" | "validate" | null) {
+function workflowStopLabel(busy: WorkflowToolbarOperation | null) {
+  return busy === "cancel" ? "Stopping" : "Stop";
+}
+
+function workflowValidateLabel(busy: WorkflowToolbarOperation | null) {
   return busy === "validate" ? "Validating" : "Validate";
 }
 
@@ -538,6 +562,19 @@ export function workflowToolbarMismatchLabel(projection: WorkflowGraphProjection
 
 function workflowToolbarShowsDraftButton(projection: WorkflowGraphProjection | null) {
   return projection !== null && projection.viewMode !== "draft";
+}
+
+export function workflowToolbarShowsRunButton(projection: WorkflowGraphProjection | null) {
+  return projection === null || projection.viewMode === "draft";
+}
+
+export function workflowToolbarShowsStopButton(projection: WorkflowGraphProjection | null) {
+  return (
+    projection !== null &&
+    projection.viewMode === "run" &&
+    projection.executionId !== "" &&
+    projection.executionStatus === "running"
+  );
 }
 
 function diagnosticKey(diagnostic: WorkflowValidationDiagnostic) {

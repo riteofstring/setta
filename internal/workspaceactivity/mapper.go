@@ -128,6 +128,9 @@ func workflowStatusActivityFromEvent(event orchestrator.WorkflowEvent, context W
 	if !ok {
 		return WorkspaceActivityRecord{}, false
 	}
+	if event.Type == orchestrator.EventRunnerAttemptFailed && workflowEventIsNonfatal(event) {
+		status = ActivityStatusUnknown
+	}
 	eventType := event.Type
 	record := WorkspaceActivityRecord{
 		ActivityID:    "workflow_event:" + event.ID,
@@ -149,6 +152,16 @@ func workflowStatusActivityFromEvent(event orchestrator.WorkflowEvent, context W
 		},
 	}
 	return record, true
+}
+
+func workflowEventIsNonfatal(event orchestrator.WorkflowEvent) bool {
+	var details struct {
+		Nonfatal bool `json:"nonfatal"`
+	}
+	if err := json.Unmarshal(event.Details, &details); err != nil {
+		return false
+	}
+	return details.Nonfatal
 }
 
 func approvalRequestedActivityFromEvent(event orchestrator.WorkflowEvent, context WorkflowEventContext) (WorkspaceActivityRecord, error) {

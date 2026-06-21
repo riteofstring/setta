@@ -48,6 +48,7 @@ import {
 import { workflowRendererHandlersForSurface } from "./workflow-graph-renderer-handlers";
 import { isWorkflowGraphRendererInitAbort } from "./workflow-graph-renderer-lifecycle";
 import { registerWorkflowGraphRuntimeHandle } from "./workflow-graph-runtime-registry";
+import { cancelWorkflowRunFromSurface } from "./workflow-graph-run-controls";
 import {
   workflowGraphStateForSurface,
   workflowSyntheticGraphForSurface,
@@ -77,6 +78,8 @@ import {
 } from "./workspace-activity-state";
 import type { WorkspaceActivityMarker } from "./workspace-activity-markers";
 
+type WorkflowOperation = null | "run" | "validate" | "cancel";
+
 export function WorkflowGraphSurface({
   debugEnabled,
   syntheticGraphFallback,
@@ -103,7 +106,7 @@ export function WorkflowGraphSurface({
   const [workflowValidation, setWorkflowValidation] = useState<WorkflowValidationResult | null>(
     null,
   );
-  const [workflowOperation, setWorkflowOperation] = useState<"run" | "validate" | null>(null);
+  const [workflowOperation, setWorkflowOperation] = useState<WorkflowOperation>(null);
   const syntheticGraph = workflowSyntheticGraphForSurface(syntheticGraphFallback);
   const selectedDefinitionIdsByWorkspaceId = useWorkflowDefinitionStore(
     (state) => state.selectedDefinitionIdsByWorkspaceId,
@@ -488,6 +491,16 @@ export function WorkflowGraphSurface({
       setWorkflowOperation(null);
     }
   }, [replaceWorkflowProjection, syntheticGraph, workflowProjection, workflowWorkspaceId]);
+  const cancelWorkflowRun = useCallback(async () => {
+    await cancelWorkflowRunFromSurface({
+      projection: workflowProjection,
+      replaceWorkflowProjection: (refreshed) =>
+        replaceWorkflowProjection(refreshed, "draft-validation-local"),
+      setWorkflowEditorError,
+      setWorkflowOperation,
+      syntheticGraphEnabled: syntheticGraph !== null,
+    });
+  }, [replaceWorkflowProjection, syntheticGraph, workflowProjection]);
   const showDraftWorkflow = useCallback(async () => {
     if (workflowProjection === null) {
       return;
@@ -777,6 +790,7 @@ export function WorkflowGraphSurface({
       />
       <WorkflowGraphToolbarLayer
         addWorkflowDraftNodeFromToolbar={addWorkflowDraftNodeFromToolbar}
+        cancelWorkflowRun={cancelWorkflowRun}
         openWorkflowNodeDetails={openWorkflowNodeDetails}
         openWorkflowSettings={openWorkflowSettings}
         runWorkflowDraft={runWorkflowDraft}
@@ -849,14 +863,12 @@ function useWorkflowGraphActivityMarkerSync({
   });
 }
 
-type CreateWorkflowDefinition = (
-  workspaceId: string,
-  name?: string,
-  graph?: WorkflowGraph,
-) => Promise<WorkflowDefinition>;
-
 interface MaterializeWorkflowDraftNodeRequest {
-  createWorkflowDefinition: CreateWorkflowDefinition;
+  createWorkflowDefinition: (
+    workspaceId: string,
+    name?: string,
+    graph?: WorkflowGraph,
+  ) => Promise<WorkflowDefinition>;
   nodeType: WorkflowDraftNodeType;
   position: WorkflowDraftNodePosition;
   projection: WorkflowGraphProjection | null;

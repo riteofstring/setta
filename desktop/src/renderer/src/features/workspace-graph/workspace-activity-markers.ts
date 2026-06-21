@@ -1,4 +1,6 @@
 import type {
+  WorkflowExecutionStatus,
+  WorkflowGraphNodeStatus,
   WorkspaceActivityKind,
   WorkspaceActivityRecord,
   WorkspaceActivityStatus,
@@ -68,6 +70,18 @@ const primaryLabelStatusPrefixes = new Set<WorkspaceActivityStatus>([
   "failed",
   "waiting_approval",
 ]);
+const transientActivityStatuses = new Set<WorkspaceActivityStatus>([
+  "pending",
+  "running",
+  "waiting_approval",
+]);
+const terminalExecutionStatuses = new Set<WorkflowExecutionStatus>([
+  "completed",
+  "failed",
+  "stopped",
+  "cancelled",
+]);
+const terminalNodeStatuses = new Set<WorkflowGraphNodeStatus>(["succeeded", "failed", "cancelled"]);
 
 export function projectWorkspaceActivityMarkers({
   graph,
@@ -136,6 +150,7 @@ function anchoredMarkersByNode(
   workflowNodeIds: ReadonlySet<string>,
 ) {
   const markers = new Map<string, WorkspaceActivityMarker[]>();
+  const nodeStatuses = workflowNodeStatuses(graph);
   let suppressedUnanchoredActivityCount = 0;
   const suppressedUnanchoredActivityIds: string[] = [];
   for (const record of sortedActivityRecords(records)) {
@@ -148,6 +163,14 @@ function anchoredMarkersByNode(
       if (suppressedUnanchoredActivityIds.length < suppressedUnanchoredActivityDebugLimit) {
         suppressedUnanchoredActivityIds.push(record.activityId);
       }
+      continue;
+    }
+    if (
+      recordIsStaleTransientActivity(record, {
+        nodeStatus: nodeStatuses.get(nodeId),
+        workflowStatus: graph.workflow?.executionStatus ?? "",
+      })
+    ) {
       continue;
     }
     markers.set(nodeId, [
@@ -202,6 +225,33 @@ function markerFromRecord(
 
 function workflowRendererNodeIds(graph: WorkflowGraphGraph) {
   return new Set(graph.nodes.filter((node) => node.layer !== "semantic").map((node) => node.id));
+}
+
+function workflowNodeStatuses(graph: WorkflowGraphGraph) {
+  return new Map(
+    graph.nodes
+      .filter((node) => node.layer !== "semantic")
+      .flatMap((node) => (node.status === undefined ? [] : [[node.id, node.status]])),
+  );
+}
+
+function recordIsStaleTransientActivity(
+  record: WorkspaceActivityRecord,
+  {
+    nodeStatus,
+    workflowStatus,
+  }: {
+    nodeStatus: WorkflowGraphNodeStatus | undefined;
+    workflowStatus: string;
+  },
+) {
+  if (!transientActivityStatuses.has(record.status)) {
+    return false;
+  }
+  return (
+    terminalExecutionStatuses.has(workflowStatus as WorkflowExecutionStatus) ||
+    (nodeStatus !== undefined && terminalNodeStatuses.has(nodeStatus))
+  );
 }
 
 function anchoredWorkflowNodeId(

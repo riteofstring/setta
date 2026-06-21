@@ -176,6 +176,69 @@ func TestActivityRecordsFromWorkflowApprovalEventsUseTypedPayloads(t *testing.T)
 	}
 }
 
+func TestActivityRecordsFromCancelledWorkflowApprovalEventUsesCancelledStatus(t *testing.T) {
+	cancelledPayload, err := json.Marshal(orchestrator.RunnerApprovalResolvedPayload{
+		ApprovalID: "approval_1",
+		ResolvedAt: "2026-06-21T12:00:04Z",
+		Status:     string(chat.ApprovalStatusCancelled),
+	})
+	if err != nil {
+		t.Fatalf("marshal cancelled payload: %v", err)
+	}
+	cancelled := workflowEventWithRunnerEvent(t, orchestrator.RunnerEvent{
+		ID:                 "runner_event_cancelled",
+		NodeID:             "node_review",
+		NodeExecutionID:    "node_execution_review",
+		OccurredAt:         "2026-06-21T12:00:04Z",
+		Payload:            cancelledPayload,
+		RunnerEventOrdinal: 4,
+		RunnerKind:         orchestrator.ActionKindAgentCodex,
+		Type:               orchestrator.RunnerEventApprovalResolved,
+	})
+	records, err := ActivityRecordsFromWorkflowEvent(cancelled, WorkflowEventContext{Revision: 10})
+	if err != nil {
+		t.Fatalf("map cancelled approval: %v", err)
+	}
+	if len(records) != 1 || records[0].Status != ActivityStatusCancelled || records[0].Approval.Status != chat.ApprovalStatusCancelled {
+		t.Fatalf("cancelled records = %+v", records)
+	}
+}
+
+func TestActivityRecordsFromNonfatalRunnerFailureUseDiagnosticStatus(t *testing.T) {
+	payload, err := json.Marshal(orchestrator.RunnerAttemptFailedPayload{
+		ErrorCode: "workflow_runner_cancel_failed",
+		Message:   "runner cancel failed",
+	})
+	if err != nil {
+		t.Fatalf("marshal runner failure payload: %v", err)
+	}
+	runnerEvent := orchestrator.RunnerEvent{
+		ID:                 "runner_event_failed",
+		NodeID:             "node_review",
+		NodeExecutionID:    "node_execution_review",
+		OccurredAt:         "2026-06-21T12:00:04Z",
+		Payload:            payload,
+		RunnerEventOrdinal: 4,
+		RunnerKind:         orchestrator.ActionKindAgentCodex,
+		Type:               orchestrator.RunnerEventAttemptFailed,
+	}
+	details, err := json.Marshal(struct {
+		Nonfatal    bool                     `json:"nonfatal"`
+		RunnerEvent orchestrator.RunnerEvent `json:"runnerEvent"`
+	}{Nonfatal: true, RunnerEvent: runnerEvent})
+	if err != nil {
+		t.Fatalf("marshal nonfatal details: %v", err)
+	}
+	event := workflowEventWithDetails(orchestrator.EventRunnerAttemptFailed, details)
+	records, err := ActivityRecordsFromWorkflowEvent(event, WorkflowEventContext{Revision: 11})
+	if err != nil {
+		t.Fatalf("map nonfatal runner failure: %v", err)
+	}
+	if len(records) != 1 || records[0].Kind != ActivityKindWorkflowStatus || records[0].Status != ActivityStatusUnknown {
+		t.Fatalf("nonfatal failure records = %+v", records)
+	}
+}
+
 func workflowEventWithRunnerEvent(t *testing.T, runnerEvent orchestrator.RunnerEvent) orchestrator.WorkflowEvent {
 	t.Helper()
 	details, err := json.Marshal(struct {
@@ -184,18 +247,22 @@ func workflowEventWithRunnerEvent(t *testing.T, runnerEvent orchestrator.RunnerE
 	if err != nil {
 		t.Fatalf("marshal runner event details: %v", err)
 	}
+	return workflowEventWithDetails(orchestrator.WorkflowEventType(runnerEvent.Type), details)
+}
+
+func workflowEventWithDetails(eventType orchestrator.WorkflowEventType, details json.RawMessage) orchestrator.WorkflowEvent {
 	return orchestrator.WorkflowEvent{
 		CreatedAt:           "2026-06-21T12:00:00Z",
 		DefinitionID:        "workflow_definition",
 		DefinitionVersionID: "workflow_version",
 		Details:             details,
 		ExecutionID:         "workflow_execution",
-		ID:                  "workflow_event_" + runnerEvent.ID,
+		ID:                  "workflow_event_test",
 		NodeExecutionID:     "node_execution_review",
 		NodeID:              "node_review",
 		Ordinal:             4,
 		SchemaVersion:       orchestrator.SchemaVersion,
-		Type:                orchestrator.WorkflowEventType(runnerEvent.Type),
+		Type:                eventType,
 		WorkspaceID:         "workspace",
 	}
 }

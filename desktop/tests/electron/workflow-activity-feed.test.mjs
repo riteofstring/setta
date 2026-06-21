@@ -26,6 +26,13 @@ import {
   openWorkflowGraphPane,
   pagePointForCanvasPoint,
 } from "./workflow-graph-layout-helpers.mjs";
+import {
+  assertNoActiveTransientActivityMarkers,
+  assertStopRefreshPreservedRendererState,
+  assertWorkflowNodeNeverStarted,
+  snapshotHasActiveTransientActivityMarkers,
+} from "./workflow-activity-feed-assertions.mjs";
+import { activityWorkflowGraph } from "./workflow-activity-feed-fixtures.mjs";
 import { createWorkflowProjectionFixture } from "./workflow-projection-smoke-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -59,10 +66,14 @@ const phase3FailedExpectation = {
 const phase3CancelledExpectation = {
   edges: [
     ["start_activity", "completed"],
-    ["activity_end", "idle"],
+    ["activity_after_stop", "idle"],
+    ["after_stop_end", "idle"],
   ],
   markers: [],
-  nodes: [["activity", "cancelled"]],
+  nodes: [
+    ["activity", "cancelled"],
+    ["after_stop", "idle"],
+  ],
 };
 const requiredVisualGrammarFields = [
   "activityChipLayout",
@@ -130,6 +141,14 @@ try {
     projection,
   );
   await captureScreenshot(context.client, join(artifactDir, "activity-feed-cancelled.png"));
+
+  workflowGraphSurfaceId = await reloadWorkflowGraphPane(context.client);
+  const stoppedApprovalDebug = await runStopWaitingApprovalWorkflow(
+    context.client,
+    workflowGraphSurfaceId,
+    projection,
+  );
+  await captureScreenshot(context.client, join(artifactDir, "activity-feed-stopped-approval.png"));
 
   workflowGraphSurfaceId = await reloadWorkflowGraphPane(context.client);
   const definition = await installActivityWorkflow(context.client, projection);
@@ -225,6 +244,7 @@ try {
   await writeJson(join(artifactDir, "summary.json"), {
     activityDebug: activityDebug.activity,
     completedActivityDebug: completedActivityDebug.activity,
+    stoppedApprovalMarkers: stoppedApprovalDebug.activity.markers,
     cancelledVisualGrammar: cancelledVisualDebug.visualGrammar,
     failedVisualGrammar: failedVisualDebug.visualGrammar,
     activityKinds: activitySnapshot.activities.map((activity) => activity.kind),
@@ -348,98 +368,153 @@ async function runFailedVisualWorkflow(client, surfaceId, projection) {
 async function runCancelledVisualWorkflow(client, surfaceId, projection) {
   const definition = await installVisualWorkflow(client, projection, {
     description: "Workflow that deterministically cancels for visual grammar evidence.",
-    graph: activityWorkflowGraph("cancel active workflow"),
+    graph: activityWorkflowGraph("cancel active workflow", { includeDownstreamAction: true }),
     name: "Cancelled visual workflow",
   });
   await waitForWorkflowDraft(client, surfaceId, "Cancelled visual workflow");
-  const started = await rendererWorkflow(client, "startExecution", [
-    projection.workspaceId,
-    definition.id,
-  ]);
-  await waitForWorkflowExecution(
+  const executionId = await startWorkflowRunFromToolbar(client, surfaceId, definition.id);
+  const running = await waitForWorkflowExecution(
     client,
     projection.workspaceId,
-    started.id,
+    executionId,
     runningActivityExecutionReady,
   );
-  await rendererWorkflow(client, "cancelExecution", [projection.workspaceId, started.id]);
+  const runningNode = latestNodeExecution(running, "activity");
+  const conversationId = runnerRef(runningNode, "chat.conversation");
+  const chatRunId = runnerRef(runningNode, "chat.run");
+  if (conversationId === "" || chatRunId === "") {
+    throw new Error(`running workflow activity missing chat refs: ${JSON.stringify(runningNode)}`);
+  }
+  const beforeStopSnapshot = await getWorkflowGraphSnapshot(client, surfaceId);
+  await waitForToolbarButtonState(client, "workflow-stop-button", (state) => {
+    return state.exists && !state.disabled && state.text.includes("Stop");
+  });
+  await clickWorkflowToolbarButton(client, "workflow-stop-button");
+  const cancelled = await waitForWorkflowExecution(
+    client,
+    projection.workspaceId,
+    executionId,
+    (execution) => execution.status === "cancelled",
+  );
+  assertWorkflowNodeNeverStarted(cancelled, "after_stop");
+  await waitForWorkflowChatRunStatus(
+    client,
+    projection.workspaceId,
+    conversationId,
+    chatRunId,
+    "cancelled",
+  );
+  await waitForActiveWorkflowChatRunCleared(client, projection.workspaceId, conversationId);
+  await delay(300);
+  const finalExecution = await rendererWorkflow(client, "readExecution", [
+    projection.workspaceId,
+    executionId,
+  ]);
+  assertWorkflowNodeNeverStarted(finalExecution, "after_stop");
   const snapshot = await waitForWorkflowGraphSnapshot(
     client,
     surfaceId,
     phase3CancelledVisualGrammarReady,
   );
   assertPhase3CancelledVisualGrammar(snapshot);
+  assertStopRefreshPreservedRendererState(beforeStopSnapshot, snapshot);
   return snapshot;
 }
 
-function activityWorkflowGraph(prompt) {
-  return {
-    edges: [
-      {
-        condition: {
-          exitCode: null,
-          invert: false,
-          kind: "always",
-          nodeId: "",
-          signalName: "",
-          signalValue: "",
-          status: null,
-        },
-        fromNodeId: "start",
-        id: "start_activity",
-        kind: "normal",
-        toNodeId: "activity",
-      },
-      {
-        condition: null,
-        fromNodeId: "activity",
-        id: "activity_end",
-        kind: "normal",
-        toNodeId: "end",
-      },
-    ],
-    layout: {
-      nodes: [
-        { nodeId: "start", x: -280, y: 0 },
-        { nodeId: "activity", x: 0, y: 120 },
-        { nodeId: "end", x: 280, y: 0 },
-      ],
-    },
-    nodes: [
-      {
-        action: null,
-        gateway: null,
-        id: "start",
-        kind: "start",
-        loopGuard: null,
-        title: "Start",
-      },
-      {
-        action: {
-          codex: {
-            freshConversation: true,
-            model: "",
-            prompt,
-            reasoningEffort: "",
-          },
-          kind: "agent.codex",
-        },
-        gateway: null,
-        id: "activity",
-        kind: "action",
-        loopGuard: null,
-        title: "Activity",
-      },
-      {
-        action: null,
-        gateway: null,
-        id: "end",
-        kind: "end",
-        loopGuard: null,
-        title: "End",
-      },
-    ],
-  };
+async function runStopWaitingApprovalWorkflow(client, surfaceId, projection) {
+  const definition = await installVisualWorkflow(client, projection, {
+    description: "Workflow that stops while a workflow-owned approval is pending.",
+    graph: activityWorkflowGraph("command approval workflow"),
+    name: "Stopped approval workflow",
+  });
+  await waitForWorkflowDraft(client, surfaceId, "Stopped approval workflow");
+  const executionId = await startWorkflowRunFromToolbar(client, surfaceId, definition.id);
+  const waiting = await waitForWorkflowExecution(
+    client,
+    projection.workspaceId,
+    executionId,
+    waitingApprovalActivityExecutionReady,
+  );
+  const waitingNode = latestNodeExecution(waiting, "activity");
+  const conversationId = runnerRef(waitingNode, "chat.conversation");
+  const chatRunId = runnerRef(waitingNode, "chat.run");
+  if (conversationId === "" || chatRunId === "") {
+    throw new Error(
+      `waiting approval workflow activity missing chat refs: ${JSON.stringify(waitingNode)}`,
+    );
+  }
+  await waitForWorkflowChatRunPendingApproval(
+    client,
+    projection.workspaceId,
+    conversationId,
+    chatRunId,
+  );
+  const pendingSnapshot = await waitForActivitySnapshot(
+    client,
+    projection.workspaceId,
+    (snapshot) => hasWaitingApprovalActivity(snapshot, executionId),
+  );
+  assertHasWaitingApprovalActivity(pendingSnapshot, executionId);
+  await waitForWorkflowApprovalCard(client);
+  const beforeStopSnapshot = await getWorkflowGraphSnapshot(client, surfaceId);
+  await waitForToolbarButtonState(client, "workflow-stop-button", (state) => {
+    return state.exists && !state.disabled && state.text.includes("Stop");
+  });
+  await clickWorkflowToolbarButton(client, "workflow-stop-button");
+  const cancelled = await waitForWorkflowExecution(
+    client,
+    projection.workspaceId,
+    executionId,
+    (execution) => execution.status === "cancelled",
+  );
+  const cancelledNode = latestNodeExecution(cancelled, "activity");
+  if (cancelledNode?.status !== "cancelled") {
+    throw new Error(`approval workflow node status = ${cancelledNode?.status}, want cancelled`);
+  }
+  await waitForWorkflowChatRunStatus(
+    client,
+    projection.workspaceId,
+    conversationId,
+    chatRunId,
+    "cancelled",
+  );
+  await waitForActiveWorkflowChatRunCleared(client, projection.workspaceId, conversationId);
+  await waitForNoWorkflowApprovalCard(client);
+  const resolvedActivitySnapshot = await waitForActivitySnapshot(
+    client,
+    projection.workspaceId,
+    (snapshot) =>
+      hasCancelledApprovalActivity(snapshot, executionId) &&
+      !hasWaitingApprovalActivity(snapshot, executionId),
+  );
+  assertHasCancelledApprovalActivity(resolvedActivitySnapshot, executionId);
+  const snapshot = await waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    (candidate) =>
+      candidate.graph.workflow?.executionId === executionId &&
+      candidate.graph.workflow?.executionStatus === "cancelled" &&
+      !snapshotHasActiveTransientActivityMarkers(candidate),
+  );
+  assertNoActiveTransientActivityMarkers(snapshot, executionId);
+  assertStopRefreshPreservedRendererState(beforeStopSnapshot, snapshot);
+  return snapshot;
+}
+
+async function startWorkflowRunFromToolbar(client, surfaceId, definitionId) {
+  await waitForToolbarButtonState(client, "workflow-run-button", (state) => {
+    return state.exists && !state.disabled && state.text.includes("Run");
+  });
+  await clickWorkflowToolbarButton(client, "workflow-run-button");
+  const runProjection = await waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    (snapshot) =>
+      snapshot.graph.workflow?.definitionId === definitionId &&
+      snapshot.graph.workflow?.viewMode === "run" &&
+      snapshot.graph.workflow?.executionId !== "",
+  );
+  return runProjection.graph.workflow.executionId;
 }
 
 async function waitForWorkflowGraphSnapshot(client, surfaceId, predicate, timeoutMs = 20_000) {
@@ -477,6 +552,73 @@ async function waitForWorkflowExecution(client, workspaceId, executionId, predic
     client,
     `window.setta.workflow.readExecution(${JSON.stringify(workspaceId)}, ${JSON.stringify(executionId)})`,
     predicate,
+  );
+}
+
+async function waitForToolbarButtonState(client, testId, predicate) {
+  return waitForState(client, workflowToolbarButtonStateExpression(testId), predicate);
+}
+
+function workflowToolbarButtonStateExpression(testId) {
+  return `(() => {
+    const button = document.querySelector(${JSON.stringify(`[data-testid="${testId}"]`)});
+    return {
+      disabled: button instanceof HTMLButtonElement ? button.disabled : true,
+      exists: button instanceof HTMLButtonElement,
+      text: button instanceof HTMLButtonElement ? button.textContent?.trim() ?? "" : "",
+    };
+  })()`;
+}
+
+async function clickWorkflowToolbarButton(client, testId) {
+  await client.installDriver();
+  const clicked = await client.driver("clickWorkflowToolbarButton", { testId });
+  if (!clicked.ok) {
+    throw new Error(`workflow toolbar button was not clickable: ${JSON.stringify(clicked)}`);
+  }
+}
+
+async function waitForActiveWorkflowChatRunCleared(client, workspaceId, conversationId) {
+  await waitForState(
+    client,
+    `window.setta.chat.activeRun(${JSON.stringify(workspaceId)}, ${JSON.stringify(conversationId)})`,
+    (response) => response.hasActiveRun === false,
+  );
+}
+
+async function waitForWorkflowChatRunStatus(client, workspaceId, conversationId, runId, status) {
+  return waitForState(
+    client,
+    `window.setta.chat.messagePage(${JSON.stringify(workspaceId)}, ${JSON.stringify(conversationId)}, 0, 40)`,
+    (page) => transcriptRun(page, runId)?.status === status,
+  );
+}
+
+async function waitForWorkflowChatRunPendingApproval(client, workspaceId, conversationId, runId) {
+  return waitForState(
+    client,
+    `window.setta.chat.messagePage(${JSON.stringify(workspaceId)}, ${JSON.stringify(conversationId)}, 0, 40)`,
+    (page) => transcriptRun(page, runId)?.pendingApproval?.status === "pending",
+  );
+}
+
+function transcriptRun(page, runId) {
+  return page.transcript?.find((turn) => turn.run?.id === runId)?.run ?? null;
+}
+
+async function waitForWorkflowApprovalCard(client) {
+  await waitForState(
+    client,
+    `(() => ({ present: Boolean(document.querySelector('[data-testid="approval-card"]')) }))()`,
+    (state) => state.present,
+  );
+}
+
+async function waitForNoWorkflowApprovalCard(client) {
+  await waitForState(
+    client,
+    `(() => ({ present: Boolean(document.querySelector('[data-testid="approval-card"]')) }))()`,
+    (state) => !state.present,
   );
 }
 
@@ -526,6 +668,49 @@ async function submitPendingWorkflowApproval(client, snapshot) {
     );
   }
   await client.evaluate(`window.setta.workflow.submitApproval(${JSON.stringify(request)})`);
+}
+
+function hasWaitingApprovalActivity(snapshot, executionId) {
+  return snapshot.activities.some(
+    (activity) =>
+      activity.kind === "approval" &&
+      activity.status === "waiting_approval" &&
+      activityBelongsToExecution(activity, executionId),
+  );
+}
+
+function hasCancelledApprovalActivity(snapshot, executionId) {
+  return snapshot.activities.some(
+    (activity) =>
+      activity.kind === "approval" &&
+      activity.status === "cancelled" &&
+      activity.approval?.status === "cancelled" &&
+      activityBelongsToExecution(activity, executionId),
+  );
+}
+
+function assertHasWaitingApprovalActivity(snapshot, executionId) {
+  if (!hasWaitingApprovalActivity(snapshot, executionId)) {
+    throw new Error(
+      `pending workflow approval activity missing for ${executionId}: ${JSON.stringify(snapshot.activities)}`,
+    );
+  }
+}
+
+function assertHasCancelledApprovalActivity(snapshot, executionId) {
+  if (!hasCancelledApprovalActivity(snapshot, executionId)) {
+    throw new Error(
+      `cancelled workflow approval activity missing for ${executionId}: ${JSON.stringify(snapshot.activities)}`,
+    );
+  }
+}
+
+function activityBelongsToExecution(activity, executionId) {
+  return [
+    activity.graphAnchor?.workflowExecutionId ?? "",
+    activity.provenance?.workflowExecutionId ?? "",
+    activity.detailRef?.workflowExecutionId ?? "",
+  ].includes(executionId);
 }
 
 function snapshotHasPhase2AActivityKinds(snapshot) {
@@ -622,9 +807,11 @@ function assertPhase3CancelledVisualGrammar(snapshot) {
   assertVisualGrammarShape(snapshot);
   assertNodeVisualState(snapshot, "start", "completed");
   assertNodeVisualState(snapshot, "activity", "cancelled");
+  assertNodeVisualState(snapshot, "after_stop", "idle");
   assertNodeVisualState(snapshot, "end", "idle");
   assertEdgeVisualState(snapshot, "start_activity", "completed");
-  assertEdgeVisualState(snapshot, "activity_end", "idle");
+  assertEdgeVisualState(snapshot, "activity_after_stop", "idle");
+  assertEdgeVisualState(snapshot, "after_stop_end", "idle");
   assertPhase35AUnanchoredActivitySuppressed(snapshot);
 }
 
@@ -880,7 +1067,19 @@ function visualStatesByIdMatch(statesById, expectedStates) {
 function runningActivityExecutionReady(execution) {
   const nodeExecution = latestNodeExecution(execution, "activity");
   return (
-    nodeExecution?.status === "running" && runnerRef(nodeExecution, "chat.conversation") !== ""
+    nodeExecution?.status === "running" &&
+    runnerRef(nodeExecution, "chat.conversation") !== "" &&
+    runnerRef(nodeExecution, "chat.run") !== ""
+  );
+}
+
+function waitingApprovalActivityExecutionReady(execution) {
+  const nodeExecution = latestNodeExecution(execution, "activity");
+  return (
+    nodeExecution?.status === "waiting_approval" &&
+    nodeExecution.result?.pendingApproval != null &&
+    runnerRef(nodeExecution, "chat.conversation") !== "" &&
+    runnerRef(nodeExecution, "chat.run") !== ""
   );
 }
 

@@ -58,6 +58,54 @@ describe("workspace activity markers", () => {
     ]);
   });
 
+  test("suppresses transient active records after the workflow execution is terminal", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph({ executionStatus: "cancelled", nodeStatus: "cancelled" }),
+      records: [
+        activityRecord("workflow_running", "workflow_status", "running", 4, "work"),
+        activityRecord("command_running", "command", "running", 3, "work"),
+        activityRecord("approval_waiting", "approval", "waiting_approval", 2, "work"),
+        activityRecord("approval_cancelled", "approval", "cancelled", 5, "work"),
+      ],
+    });
+
+    expect(markers.map((marker) => [marker.activityId, marker.status, marker.active])).toEqual([
+      ["activity_approval_cancelled", "cancelled", false],
+    ]);
+  });
+
+  test("suppresses transient active records for terminal nodes while other nodes continue", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph({
+        extraNodes: [{ id: "next", status: "running" }],
+        nodeStatus: "succeeded",
+      }),
+      records: [
+        activityRecord("work_command_running", "command", "running", 3, "work"),
+        activityRecord("work_command_completed", "command", "completed", 4, "work"),
+        activityRecord("next_command_running", "command", "running", 5, "next"),
+      ],
+    });
+
+    expect(markers.map((marker) => [marker.activityId, marker.status, marker.nodeId])).toEqual([
+      ["activity_next_command_running", "running", "next"],
+      ["activity_work_command_completed", "completed", "work"],
+    ]);
+  });
+
+  test("keeps waiting activity markers for recovery-required nodes", () => {
+    const markers = projectWorkspaceActivityMarkers({
+      graph: workflowGraph({ nodeStatus: "recovery_required" }),
+      records: [
+        activityRecord("manual_recovery", "workflow_status", "waiting_approval", 3, "work"),
+      ],
+    });
+
+    expect(markers.map((marker) => [marker.activityId, marker.status, marker.active])).toEqual([
+      ["activity_manual_recovery", "waiting_approval", true],
+    ]);
+  });
+
   test("keeps all anchored records so chip overflow counts are complete", () => {
     const records = Array.from({ length: 45 }, (_, index) =>
       activityRecord(`command_${index}`, "command", "completed", index + 1, "work"),
@@ -105,7 +153,18 @@ describe("workspace activity markers", () => {
   });
 });
 
-function workflowGraph(): WorkflowGraphGraph {
+function workflowGraph({
+  executionStatus = "running",
+  extraNodes = [],
+  nodeStatus = "running",
+}: {
+  executionStatus?: NonNullable<WorkflowGraphGraph["workflow"]>["executionStatus"];
+  extraNodes?: Array<{
+    id: string;
+    status: NonNullable<WorkflowGraphGraph["nodes"][number]["status"]>;
+  }>;
+  nodeStatus?: NonNullable<WorkflowGraphGraph["nodes"][number]["status"]>;
+} = {}): WorkflowGraphGraph {
   return {
     edges: [],
     nodes: [
@@ -114,10 +173,21 @@ function workflowGraph(): WorkflowGraphGraph {
         height: 82,
         id: "work",
         label: "Work",
+        status: nodeStatus,
         width: 168,
         x: 0,
         y: 0,
       },
+      ...extraNodes.map((node, index) => ({
+        color: 0x14b8a6,
+        height: 82,
+        id: node.id,
+        label: node.id,
+        status: node.status,
+        width: 168,
+        x: (index + 1) * 220,
+        y: 0,
+      })),
     ],
     workflow: {
       definitionId: "definition_a",
@@ -126,7 +196,7 @@ function workflowGraph(): WorkflowGraphGraph {
       definitionVersionNumber: 1,
       editable: false,
       executionId: "execution_a",
-      executionStatus: "running",
+      executionStatus,
       versionMismatch: false,
       viewMode: "run",
       workspaceId: "workspace_a",

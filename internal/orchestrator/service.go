@@ -348,7 +348,7 @@ func (service *Service) CancelExecution(workspaceID string, executionID string) 
 		service.mu.Unlock()
 		return WorkflowExecution{}, err
 	}
-	if execution.Status == ExecutionStatusCancelled {
+	if isTerminalExecutionStatus(execution.Status) {
 		service.mu.Unlock()
 		return execution, nil
 	}
@@ -363,8 +363,14 @@ func (service *Service) CancelExecution(workspaceID string, executionID string) 
 		return WorkflowExecution{}, err
 	}
 	service.mu.Unlock()
-	if err := service.cancelActionRunners(cancelDispatches); err != nil {
-		return transition.Execution, err
+	failures := service.cancelActionRunnersCollectFailures(cancelDispatches)
+	if len(failures) > 0 {
+		// The persisted cancelled execution is the source of truth for a user Stop.
+		// Runner cancellation is best-effort and any failures are recorded as
+		// nonfatal diagnostics so activity surfaces expose possible live external work.
+		if err := service.recordRunnerCancelFailureDiagnostics(workspaceID, transition.Execution, failures); err != nil {
+			return transition.Execution, err
+		}
 	}
 	return transition.Execution, nil
 }

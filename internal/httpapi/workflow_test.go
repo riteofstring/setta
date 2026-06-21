@@ -91,6 +91,31 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 	}
 }
 
+func TestWorkflowEndpointCancelReturnsCompletedExecutionWithoutFailure(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Completed before cancel",
+		Graph:       httpWorkflowStartEndGraph(),
+	}, http.StatusOK)
+	completed := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	if completed.Status != orchestrator.ExecutionStatusCompleted {
+		t.Fatalf("execution status = %s, want completed before cancel", completed.Status)
+	}
+
+	returned := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/cancel", CancelWorkflowExecutionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		ExecutionID: completed.ID,
+	}, http.StatusOK)
+	if returned.Status != orchestrator.ExecutionStatusCompleted {
+		t.Fatalf("cancel returned status = %s, want completed", returned.Status)
+	}
+}
+
 func TestWorkflowEndpointsSubmitWorkflowApproval(t *testing.T) {
 	handler := newScriptedWorkflowHandler(t)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -228,6 +253,18 @@ func httpWorkflowActionGraph() orchestrator.WorkflowGraph {
 		Edges: []orchestrator.WorkflowEdge{
 			{ID: "start_work", FromNodeID: "start", ToNodeID: "work", Kind: orchestrator.EdgeKindNormal},
 			{ID: "work_end", FromNodeID: "work", ToNodeID: "end", Kind: orchestrator.EdgeKindNormal},
+		},
+	}
+}
+
+func httpWorkflowStartEndGraph() orchestrator.WorkflowGraph {
+	return orchestrator.WorkflowGraph{
+		Nodes: []orchestrator.WorkflowNode{
+			{ID: "start", Kind: orchestrator.NodeKindStart},
+			{ID: "end", Kind: orchestrator.NodeKindEnd},
+		},
+		Edges: []orchestrator.WorkflowEdge{
+			{ID: "start_end", FromNodeID: "start", ToNodeID: "end", Kind: orchestrator.EdgeKindNormal},
 		},
 	}
 }
