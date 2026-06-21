@@ -1,12 +1,7 @@
 import type { SettaAPI } from "@shared/types";
-import type {
-  WorkspaceActivityDebugApi,
-  WorkspaceActivityDebugSnapshot,
-} from "./features/workspace-graph/workspace-activity-debug-registry";
 import type { WorkspaceFrameMetrics } from "./workspace-layout/types";
 
 interface WorkflowGraphDebugSnapshot {
-  activity: WorkspaceActivityDebugSnapshot;
   canvas: {
     bottom: number;
     clientHeight: number;
@@ -93,15 +88,12 @@ interface WorkflowGraphDebugSnapshot {
   interaction: {
     drawingEdge: boolean;
     drawingMarquee: boolean;
-    panningCamera: boolean;
     selectedNodeId: string | null;
     selectedNodeIds: string[];
   };
   render: {
-    activityMarkerGraphicsCount: number;
     averageFrameMs: number;
     cameraUpdateCount: number;
-    canvasCreationCount: number;
     edgeCommitCount: number;
     edgeGraphicsCount: number;
     edgeRedrawCount: number;
@@ -109,8 +101,6 @@ interface WorkflowGraphDebugSnapshot {
     frozen: boolean;
     compactSelectedLabelCount: number;
     gridDrawCount: number;
-    graphUpdateCameraMovingCount: number;
-    graphUpdateCount: number;
     labelObjectCount: number;
     labelSyncCount: number;
     labelVisibilityMode: "selected" | "visible-priority" | "all-visible";
@@ -128,14 +118,10 @@ interface WorkflowGraphDebugSnapshot {
     nodeOutlineVisibilityUpdateCount: number;
     nodeShadowContextCount: number;
     nodeShadowGraphicsCount: number;
-    pixiAppCreationCount: number;
     pointerPanUpdateCount: number;
     portGraphicsCount: number;
     reactRenderCount: number;
     rendererResizeCount: number;
-    rendererDestroyCount: number;
-    rendererInstanceId: string;
-    rendererLayerCreationCount: number;
     recentFrameMs: number[];
     selectionChangeCount: number;
     spatialIndexCandidateCount: number;
@@ -179,7 +165,6 @@ interface WorkflowGraphRuntimeApi {
 declare global {
   interface Window {
     __settaWorkspaceReadFrameMetrics?: () => WorkspaceFrameMetrics;
-    __settaWorkspaceActivityDebug?: WorkspaceActivityDebugApi;
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
     __settaWorkflowGraphRuntime?: WorkflowGraphRuntimeApi;
     setta: SettaAPI;

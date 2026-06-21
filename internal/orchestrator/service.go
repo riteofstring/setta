@@ -378,15 +378,6 @@ func (service *Service) ReadExecution(workspaceID string, executionID string) (W
 	return service.store.LoadExecution(workspaceID, executionID)
 }
 
-func (service *Service) ListExecutions(workspaceID string) ([]WorkflowExecution, error) {
-	if _, err := service.resolveWorkspace(workspaceID); err != nil {
-		return nil, err
-	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
-	return service.store.ListExecutions(workspaceID)
-}
-
 func (service *Service) ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (WorkflowGraphProjection, bool, error) {
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return WorkflowGraphProjection{}, false, err

@@ -61,7 +61,6 @@ import type {
   ReadSemanticNodeDetailRequest,
   ReadSemanticNodeDetailResponse,
   ReadSemanticSteeringStateRequest,
-  ReadWorkspaceActivitySnapshotResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
@@ -205,7 +204,6 @@ export const ipcChannels = {
   semanticGraphUpdateEdge: "semantic-graph:update-edge",
   semanticGraphUpdateNode: "semantic-graph:update-node",
   semanticGraphUpdateSteeringDirective: "semantic-graph:update-steering-directive",
-  workspaceActivitySnapshot: "workspace-activity:snapshot",
   workspaceBrowserViewStats: "workspace:browser-view-stats",
   workspaceBrowserViewsTeardown: "workspace:browser-views-teardown",
   terminalAttach: "terminal:attach",
@@ -253,7 +251,6 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
   semanticGraphEvent: "semantic-graph:event",
-  workspaceActivityEvent: "workspace-activity:event",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
   terminalEvent: "terminal:event",
@@ -595,10 +592,6 @@ interface IpcContract {
   workspaceBrowserViewsTeardown: {
     args: [workspaceId: string];
     result: WorkspaceBrowserViewStats;
-  };
-  workspaceActivitySnapshot: {
-    args: [workspaceId: string, limit: number];
-    result: ReadWorkspaceActivitySnapshotResponse;
   };
   terminalAttach: {
     args: [workspaceId: string, paneId: string];

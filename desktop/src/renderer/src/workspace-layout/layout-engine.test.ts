@@ -159,6 +159,93 @@ describe("real workspace layout column sizing", () => {
     expect(firstColumnBottom.y).toBe(firstColumnTop.y + firstColumnTop.height + 8);
   });
 
+  test("uses resized row height when spacing vertical planes", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storedLayout: null,
+      workspaceId: "setta:workspace-layout:resized-plane-spacing",
+      workspaceName: "Repo",
+    });
+    const engine = new WorkspaceLikeLayoutEngine(scene);
+    const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
+    const lowerPlanePaneId = store.splitFocusedPaneToPlane("down");
+
+    expect(store.resizePaneRow("workspace_pane_0", 260)).toBe(true);
+
+    const normalItems = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      0,
+      "workspace_pane_0",
+      "normal",
+      0,
+      null,
+      true,
+    );
+    const firstPlanePane = requireRenderItem(normalItems, "workspace_pane_0");
+    const lowerPlanePane = requireRenderItem(normalItems, lowerPlanePaneId);
+
+    expect(firstPlanePane.height).toBe(260);
+    expect(lowerPlanePane.y - (firstPlanePane.y + firstPlanePane.height)).toBe(8);
+    expect(engine.verticalScrollOffsetForPane(lowerPlanePaneId, viewport.height)).toBe(268);
+
+    const overviewItems = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      0,
+      "workspace_pane_0",
+      "overview",
+      0,
+      null,
+      true,
+    );
+    const overviewFirstPlanePane = requireRenderItem(overviewItems, "workspace_pane_0");
+    const overviewLowerPlanePane = requireRenderItem(overviewItems, lowerPlanePaneId);
+    const overviewGap =
+      overviewLowerPlanePane.y -
+      (overviewFirstPlanePane.y + overviewFirstPlanePane.height * overviewFirstPlanePane.scale);
+
+    expect(overviewGap).toBeCloseTo(8 * overviewFirstPlanePane.scale, 3);
+  });
+
+  test("keeps same-slot columns in vertical planes at the same width", () => {
+    const { scene } = createRealWorkspaceScene({
+      storedLayout: null,
+      workspaceId: "setta:workspace-layout:vertical-lane-width",
+      workspaceName: "Repo",
+    });
+    const engine = new WorkspaceLikeLayoutEngine(scene);
+
+    engine.resizeColumn("workspace_column_0", { unit: "px", value: 640 });
+    const lowerPaneId = engine.splitPaneToPlane("workspace_pane_0", "down");
+    const lowerColumn = requireColumnForPane(engine.toScene(), lowerPaneId);
+
+    expect(engine.toScene().columns[0]?.widthSpec).toEqual({ unit: "px", value: 640 });
+    expect(lowerColumn.widthSpec).toEqual({ unit: "px", value: 640 });
+
+    engine.resizeColumn(lowerColumn.columnId, { unit: "px", value: 480 });
+
+    const resizedScene = engine.toScene();
+    const resizedTopColumn = requireColumnForPane(resizedScene, "workspace_pane_0");
+    const resizedLowerColumn = requireColumnForPane(resizedScene, lowerPaneId);
+    const items = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      0,
+      "workspace_pane_0",
+      "normal",
+      0,
+      null,
+      true,
+    );
+    const topPane = requireRenderItem(items, "workspace_pane_0");
+    const lowerPane = requireRenderItem(items, lowerPaneId);
+
+    expect(resizedTopColumn.widthSpec).toEqual({ unit: "px", value: 480 });
+    expect(resizedLowerColumn.widthSpec).toEqual({ unit: "px", value: 480 });
+    expect(topPane.width).toBe(480);
+    expect(lowerPane.width).toBe(480);
+  });
+
   test("keeps next columns attached after shrinking a column", () => {
     const engine = createRealEngine();
 

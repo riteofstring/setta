@@ -1,12 +1,7 @@
 import type { WorkflowEvent, WorkflowGraphProjection } from "@generated/backend";
 import { type MutableRefObject, useCallback, useEffect, useReducer, useRef } from "react";
 
-import {
-  workflowDefinitionChangedDetail,
-  workflowDefinitionChangedEventName,
-} from "../../stores/workflow-definition-invalidation";
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
-import type { WorkflowGraphUpdateSource } from "./pixi-renderer";
 
 interface WorkflowProjectionTarget {
   definitionId: string;
@@ -21,21 +16,18 @@ type WorkflowProjectionState =
       projection: null;
       status: "loading";
       target: WorkflowProjectionTarget;
-      updateSource: WorkflowGraphUpdateSource | null;
     }
   | {
       error: "";
       projection: WorkflowGraphProjection | null;
       status: "ready";
       target: WorkflowProjectionTarget;
-      updateSource: WorkflowGraphUpdateSource | null;
     }
   | {
       error: string;
       projection: null;
       status: "error";
       target: WorkflowProjectionTarget;
-      updateSource: WorkflowGraphUpdateSource | null;
     };
 
 type WorkflowProjectionAction =
@@ -48,20 +40,17 @@ type WorkflowProjectionAction =
       projection: WorkflowGraphProjection | null;
       target: WorkflowProjectionTarget;
       type: "ready";
-      updateSource: WorkflowGraphUpdateSource;
     }
   | {
       error: string;
       expectedTarget: WorkflowProjectionTarget;
       target: WorkflowProjectionTarget;
       type: "failed";
-      updateSource?: WorkflowGraphUpdateSource;
     }
   | {
       projection: WorkflowGraphProjection | null;
       target: WorkflowProjectionTarget;
       type: "replace";
-      updateSource: WorkflowGraphUpdateSource;
     };
 
 const emptyWorkflowProjectionTarget: WorkflowProjectionTarget = {
@@ -76,12 +65,13 @@ const initialWorkflowProjectionState: WorkflowProjectionState = {
   projection: null,
   status: "loading",
   target: emptyWorkflowProjectionTarget,
-  updateSource: null,
 };
 
 export function useWorkflowProjectionState({
+  definitionChangeSequence,
   selectedDefinitionIdsByWorkspaceId,
 }: {
+  definitionChangeSequence: number;
   selectedDefinitionIdsByWorkspaceId: Record<string, string | undefined>;
 }) {
   const [state, dispatchBase] = useReducer(
@@ -97,22 +87,19 @@ export function useWorkflowProjectionState({
     stateRef.current = state;
   }, [state]);
   useWorkflowProjection({
+    definitionChangeSequence,
     dispatchWorkflowProjectionState: dispatch,
     projectionStateRef: stateRef,
     selectedDefinitionIdsByWorkspaceId,
   });
 
   const replaceWorkflowProjection = useCallback(
-    (
-      projection: WorkflowGraphProjection | null,
-      updateSource: WorkflowGraphUpdateSource = "draft-validation-local",
-    ) => {
+    (projection: WorkflowGraphProjection | null) => {
       dispatch({
         projection,
         target:
           projection === null ? stateRef.current.target : workflowProjectionTarget(projection),
         type: "replace",
-        updateSource,
       });
     },
     [dispatch],
@@ -128,7 +115,6 @@ export function useWorkflowProjectionState({
     replaceWorkflowProjection,
     state,
     stateRef,
-    updateSource: state.updateSource,
     workspaceId: state.target.workspaceId,
   };
 }
@@ -144,7 +130,6 @@ function workflowProjectionReducer(
         projection: null,
         status: "loading",
         target: action.target,
-        updateSource: null,
       };
     case "ready":
       if (!workflowProjectionTargetsEqual(state.target, action.expectedTarget)) {
@@ -155,7 +140,6 @@ function workflowProjectionReducer(
         projection: action.projection,
         status: "ready",
         target: action.target,
-        updateSource: action.updateSource,
       };
     case "failed":
       if (!workflowProjectionTargetsEqual(state.target, action.expectedTarget)) {
@@ -166,7 +150,6 @@ function workflowProjectionReducer(
         projection: null,
         status: "error",
         target: action.target,
-        updateSource: action.updateSource ?? state.updateSource,
       };
     case "replace":
       return {
@@ -174,7 +157,6 @@ function workflowProjectionReducer(
         projection: action.projection,
         status: "ready",
         target: action.target,
-        updateSource: action.updateSource,
       };
     default:
       return assertNever(action);
@@ -207,12 +189,14 @@ function workflowProjectionErrorMessage(error: unknown) {
 }
 
 interface WorkflowProjectionLoader {
+  definitionChangeSequence: number;
   dispatchWorkflowProjectionState: (action: WorkflowProjectionAction) => void;
   projectionStateRef: MutableRefObject<WorkflowProjectionState>;
   selectedDefinitionIdsByWorkspaceId: Record<string, string | undefined>;
 }
 
 function useWorkflowProjection({
+  definitionChangeSequence,
   dispatchWorkflowProjectionState,
   projectionStateRef,
   selectedDefinitionIdsByWorkspaceId,
@@ -239,7 +223,6 @@ function useWorkflowProjection({
           projection: null,
           target: emptyWorkflowProjectionTarget,
           type: "ready",
-          updateSource: "workflow-projection",
         });
         return;
       }
@@ -261,7 +244,6 @@ function useWorkflowProjection({
           projection: null,
           target: workspaceTarget,
           type: "ready",
-          updateSource: "workflow-projection",
         });
         return;
       }
@@ -284,7 +266,6 @@ function useWorkflowProjection({
           ? workflowProjectionTarget(response.projection)
           : definitionTarget,
         type: "ready",
-        updateSource: "workflow-projection",
       });
     };
 
@@ -319,35 +300,6 @@ function useWorkflowProjection({
         projection: response.projection,
         target: response.projection ? workflowProjectionTarget(response.projection) : eventTarget,
         type: "ready",
-        updateSource: "workflow-projection",
-      });
-    };
-
-    const loadDefinitionChangeProjection = async (event: Event) => {
-      const detail = workflowDefinitionChangedDetail(event);
-      if (detail === null) {
-        return;
-      }
-      const current = projectionStateRef.current.target;
-      if (
-        current.workspaceId === "" ||
-        current.workspaceId !== detail.workspaceId ||
-        current.definitionId === "" ||
-        current.definitionId !== detail.definitionId ||
-        current.executionId !== ""
-      ) {
-        return;
-      }
-      const response = await window.setta.workflow.graphProjection(
-        current.workspaceId,
-        current.definitionId,
-      );
-      dispatchIfMounted({
-        expectedTarget: current,
-        projection: response.projection,
-        target: response.projection ? workflowProjectionTarget(response.projection) : current,
-        type: "ready",
-        updateSource: "workflow-projection",
       });
     };
 
@@ -358,7 +310,6 @@ function useWorkflowProjection({
         expectedTarget: projectionStateRef.current.target,
         target: projectionStateRef.current.target,
         type: "failed",
-        updateSource: "workflow-projection",
       });
     });
     const unsubscribe = window.setta.workflow.onEvent((event) => {
@@ -369,30 +320,20 @@ function useWorkflowProjection({
           expectedTarget: projectionStateRef.current.target,
           target: projectionStateRef.current.target,
           type: "failed",
-          updateSource: "workflow-projection",
         });
       });
     });
-    const workflowDefinitionChanged = (event: Event) => {
-      void loadDefinitionChangeProjection(event).catch((error: unknown) => {
-        console.error("Failed to refresh workflow definition graph projection", error);
-        dispatchIfMounted({
-          error: workflowProjectionErrorMessage(error),
-          expectedTarget: projectionStateRef.current.target,
-          target: projectionStateRef.current.target,
-          type: "failed",
-          updateSource: "workflow-projection",
-        });
-      });
-    };
-    window.addEventListener(workflowDefinitionChangedEventName, workflowDefinitionChanged);
 
     return () => {
       disposed = true;
-      window.removeEventListener(workflowDefinitionChangedEventName, workflowDefinitionChanged);
       unsubscribe();
     };
-  }, [selectedDefinitionIdsByWorkspaceId, dispatchWorkflowProjectionState, projectionStateRef]);
+  }, [
+    selectedDefinitionIdsByWorkspaceId,
+    definitionChangeSequence,
+    dispatchWorkflowProjectionState,
+    projectionStateRef,
+  ]);
 }
 
 function workflowProjectionTarget(projection: WorkflowGraphProjection): WorkflowProjectionTarget {

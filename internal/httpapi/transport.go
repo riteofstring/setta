@@ -33,14 +33,6 @@ func requireWorkspaceUIService(response http.ResponseWriter, service WorkspaceUI
 	return service
 }
 
-func requireWorkspaceActivityService(response http.ResponseWriter, service WorkspaceActivityService) WorkspaceActivityService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "workspace_activity_service_unavailable", "workspace activity service is not available")
-		return nil
-	}
-	return service
-}
-
 func requireAppearanceService(response http.ResponseWriter, service AppearanceService) AppearanceService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "appearance_service_unavailable", "appearance service is not available")
