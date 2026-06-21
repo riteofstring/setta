@@ -70,6 +70,7 @@ import {
   WorkflowValidationLayer,
   type WorkflowContextMenuState,
 } from "./workflow-graph-surface-layers";
+import { useWorkspaceActivityState } from "./workspace-activity-state";
 
 export function WorkflowGraphSurface({
   debugEnabled,
@@ -226,6 +227,11 @@ export function WorkflowGraphSurface({
     workflowProjectionHasNoWorkspace,
     workflowProjectionLoadError,
     workflowProjectionLoading,
+  });
+  useWorkspaceActivityState({
+    readGraphDebugSnapshot: () => window.__settaWorkflowGraphDebug?.getSnapshot(surfaceId) ?? null,
+    surfaceId,
+    workspaceId: workflowWorkspaceId,
   });
   const openWorkflowContextMenu = useCallback((menu: WorkflowContextMenuState) => {
     setWorkflowContextMenu(menu);

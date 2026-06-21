@@ -10,6 +10,7 @@ import (
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
+	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
@@ -51,6 +52,8 @@ var apiEndpoints = []endpoint{
 	post[RemoveRecentWorkspaceRequest, workspacesession.WorkspaceSession]("RemoveRecentWorkspace", "/workspaces/remove-recent", handler.removeRecentWorkspace),
 	post[ReadWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayoutReadResult]("ReadWorkspaceUILayout", "/workspaces/ui/layout/read", handler.readWorkspaceUILayout),
 	post[SaveWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayout]("SaveWorkspaceUILayout", "/workspaces/ui/layout/save", handler.saveWorkspaceUILayout),
+	post[ReadWorkspaceActivitySnapshotRequest, ReadWorkspaceActivitySnapshotResponse]("ReadWorkspaceActivitySnapshot", "/workspace-activity/snapshot", handler.readWorkspaceActivitySnapshot),
+	streamEvent[workspaceactivity.WorkspaceActivityEvent]("WorkspaceActivityEventStream", "/workspace-activity/events", handler.workspaceActivityEventStream),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),

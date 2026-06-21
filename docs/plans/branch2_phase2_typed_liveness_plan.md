@@ -101,6 +101,37 @@ Electron workflow.
 This is not a port of branch 2's full `internal/workspacetrajectory` stack. Use
 branch 2 as design evidence only.
 
+### Phase 2A Implementation Note
+
+Transport ownership: Phase 2A uses a dedicated workspace activity snapshot and
+SSE delta feed owned by the backend runtime. The feed mirrors the existing
+event-stream cursor shape (`<stream-id>:<sequence>`) and emits revisioned
+activity deltas plus explicit resync-required events when in-memory replay is
+not available. It does not use semantic graph events because semantic graph
+changes are durable graph-memory mutations, while this slice is bounded runtime
+liveness.
+
+Typed sources included in Phase 2A:
+
+- chat run items of type `command_execution`, using typed command, cwd, exit
+  code, duration, status, provenance ids, and timestamps;
+- chat run items of type `file_change`, using typed file paths, path count,
+  patch status, status, provenance ids, and timestamps;
+- workflow runner approval requested/resolved events, using typed runner
+  approval payloads and embedded typed chat approval requests;
+- workflow events and execution/node ids, using typed event/status/provenance
+  fields;
+- workflow-owned chat anchoring from typed conversation workflow metadata and
+  runner refs.
+
+Partial or excluded in Phase 2A:
+
+- file changes are path/status-level only; no file ranges, hashes, diff stats,
+  or synthesized read/write operations are generated;
+- generic tool calls, reasoning summaries, assistant text, stdout/stderr,
+  tests, and file-read activity are excluded from activity records;
+- no new provider/chat extraction fields are added.
+
 ## Non-Goals
 
 Do not implement:
