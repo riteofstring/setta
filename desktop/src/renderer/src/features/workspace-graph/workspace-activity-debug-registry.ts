@@ -1,3 +1,5 @@
+import type { WorkspaceActivityMarker } from "./workspace-activity-markers";
+
 export interface WorkspaceActivityDebugSnapshot {
   activityDeltasDuringCameraMovement: number;
   backendReadCameraMovementCheckCount: number;
@@ -13,6 +15,7 @@ export interface WorkspaceActivityDebugSnapshot {
   markerRemovedCount: number;
   markerRetainedCount: number;
   markerUpdatedCount: number;
+  markers: WorkspaceActivityMarker[];
   recordsRetained: number;
   retainedLimit: number;
   revisionGapReloads: number;

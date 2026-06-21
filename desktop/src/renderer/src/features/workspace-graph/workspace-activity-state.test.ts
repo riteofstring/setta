@@ -5,12 +5,13 @@ import {
   applyWorkspaceActivityEvent,
   applyWorkspaceActivitySnapshot,
   createInitialWorkspaceActivityState,
+  recordWorkspaceActivityMarkerMaterialization,
   recordWorkspaceActivityBackendReadAttempt,
   recordWorkspaceActivityDeltaInstrumentation,
 } from "./workspace-activity-state";
 
 describe("workspace activity state", () => {
-  test("loads bounded snapshots with Phase 2A marker counters at zero", () => {
+  test("loads bounded snapshots with marker counters at zero before materialization", () => {
     const initial = createInitialWorkspaceActivityState("workspace_a", 2);
     const state = applyWorkspaceActivitySnapshot(
       initial,
@@ -41,12 +42,13 @@ describe("workspace activity state", () => {
       markerRemovedCount: 0,
       markerRetainedCount: 0,
       markerUpdatedCount: 0,
+      markers: [],
       recordsRetained: 2,
       snapshotsLoaded: 1,
     });
   });
 
-  test("applies workspace-filtered upsert deltas without marker work", () => {
+  test("applies workspace-filtered upsert deltas without marker work before materialization", () => {
     const initial = applyWorkspaceActivitySnapshot(
       createInitialWorkspaceActivityState("workspace_a", 3),
       {
@@ -83,7 +85,40 @@ describe("workspace activity state", () => {
       markerRemovedCount: 0,
       markerRetainedCount: 0,
       markerUpdatedCount: 0,
+      markers: [],
       recordsRetained: 1,
+    });
+  });
+
+  test("records marker materialization counters and debug-readable markers", () => {
+    const initial = createInitialWorkspaceActivityState("workspace_a", 3);
+    const marker = {
+      activityId: "activity_command",
+      active: true,
+      anchorKind: "workflow_node" as const,
+      id: "workspace-activity:node:work:command",
+      kind: "command" as const,
+      label: "Command running npm test",
+      laneIndex: -1,
+      nodeId: "work",
+      revision: 4,
+      slotIndex: 1,
+      status: "running" as const,
+      updatedAt: "2026-06-21T12:03:00Z",
+    };
+
+    const state = recordWorkspaceActivityMarkerMaterialization(
+      initial,
+      { created: 1, removed: 0, retained: 2, updated: 3 },
+      [marker],
+    );
+
+    expect(state.debug).toMatchObject({
+      markerCreatedCount: 1,
+      markerRemovedCount: 0,
+      markerRetainedCount: 2,
+      markerUpdatedCount: 3,
+      markers: [marker],
     });
   });
 

@@ -9,6 +9,12 @@ import {
   registerWorkspaceActivityDebugSurface,
   type WorkspaceActivityDebugSnapshot,
 } from "./workspace-activity-debug-registry";
+import {
+  projectWorkspaceActivityMarkers,
+  type WorkspaceActivityMarker,
+  type WorkspaceActivityMarkerMaterialization,
+} from "./workspace-activity-markers";
+import type { WorkflowGraphGraph } from "./pixi-renderer";
 
 const defaultRetainedActivityLimit = 200;
 const graphSceneReplacementRenderFields = [
@@ -29,7 +35,7 @@ interface ApplyActivityEventResult {
   state: WorkspaceActivityState;
 }
 
-interface WorkflowGraphActivityProbeSnapshot {
+export interface WorkflowGraphActivityProbeSnapshot {
   interaction?: {
     panningCamera?: boolean;
   };
@@ -43,11 +49,17 @@ interface WorkflowGraphActivityProbeSnapshot {
 }
 
 export function useWorkspaceActivityState({
+  activityGraph,
+  applyActivityMarkers,
   limit = defaultRetainedActivityLimit,
   readGraphDebugSnapshot,
   surfaceId,
   workspaceId,
 }: {
+  activityGraph?: WorkflowGraphGraph | null;
+  applyActivityMarkers?: (
+    markers: readonly WorkspaceActivityMarker[],
+  ) => WorkspaceActivityMarkerMaterialization | null;
   limit?: number;
   readGraphDebugSnapshot?: () => WorkflowGraphActivityProbeSnapshot | null;
   surfaceId: string;
@@ -55,7 +67,31 @@ export function useWorkspaceActivityState({
 }) {
   const stateRef = useRef(createInitialWorkspaceActivityState(workspaceId, limit));
   const activeWorkspaceRef = useRef(workspaceId);
+  const activityGraphRef = useRef<WorkflowGraphGraph | null>(activityGraph ?? null);
+  const applyActivityMarkersRef = useRef<typeof applyActivityMarkers>(applyActivityMarkers);
   activeWorkspaceRef.current = workspaceId;
+  activityGraphRef.current = activityGraph ?? null;
+  applyActivityMarkersRef.current = applyActivityMarkers;
+
+  const syncMarkers = useCallback(() => {
+    const materialize = applyActivityMarkersRef.current;
+    if (!materialize) {
+      return;
+    }
+    const markers = projectWorkspaceActivityMarkers({
+      graph: activityGraphRef.current,
+      records: stateRef.current.records,
+    });
+    const materialization = materialize(markers);
+    if (materialization === null) {
+      return;
+    }
+    stateRef.current = recordWorkspaceActivityMarkerMaterialization(
+      stateRef.current,
+      materialization,
+      markers,
+    );
+  }, []);
 
   const loadSnapshot = useCallback(async () => {
     if (workspaceId === "") {
@@ -72,6 +108,7 @@ export function useWorkspaceActivityState({
         return;
       }
       stateRef.current = applyWorkspaceActivitySnapshot(stateRef.current, snapshot, limit);
+      syncMarkers();
     } catch (error: unknown) {
       stateRef.current = {
         ...stateRef.current,
@@ -81,20 +118,24 @@ export function useWorkspaceActivityState({
         },
       };
     }
-  }, [limit, readGraphDebugSnapshot, workspaceId]);
+  }, [limit, readGraphDebugSnapshot, syncMarkers, workspaceId]);
 
   useEffect(() => {
     stateRef.current = createInitialWorkspaceActivityState(workspaceId, limit);
+    syncMarkers();
     void loadSnapshot();
-  }, [limit, loadSnapshot, workspaceId]);
+  }, [limit, loadSnapshot, syncMarkers, workspaceId]);
 
   useEffect(() => {
     return window.setta.workspaceActivity.onEvent((event) => {
       const previous = stateRef.current;
       const beforeGraph = readGraphDebugSnapshot?.() ?? null;
       const result = applyWorkspaceActivityEvent(previous, event, limit);
-      const afterGraph = readGraphDebugSnapshot?.() ?? null;
       stateRef.current = result.state;
+      if (result.state.debug.deltasApplied > previous.debug.deltasApplied) {
+        syncMarkers();
+      }
+      const afterGraph = readGraphDebugSnapshot?.() ?? null;
       stateRef.current = recordWorkspaceActivityDeltaInstrumentation({
         afterGraph,
         beforeGraph,
@@ -105,11 +146,17 @@ export function useWorkspaceActivityState({
         void loadSnapshot();
       }
     });
-  }, [limit, loadSnapshot, readGraphDebugSnapshot]);
+  }, [limit, loadSnapshot, readGraphDebugSnapshot, syncMarkers]);
+
+  useEffect(() => {
+    syncMarkers();
+  }, [activityGraph, syncMarkers]);
 
   useEffect(() => {
     return registerWorkspaceActivityDebugSurface(surfaceId, () => stateRef.current.debug);
   }, [surfaceId]);
+
+  return { syncMarkers };
 }
 
 export function createInitialWorkspaceActivityState(
@@ -267,11 +314,30 @@ function emptyWorkspaceActivityDebugSnapshot(
     markerRemovedCount: 0,
     markerRetainedCount: 0,
     markerUpdatedCount: 0,
+    markers: [],
     recordsRetained: 0,
     retainedLimit: limit,
     revisionGapReloads: 0,
     snapshotsLoaded: 0,
     workspaceId,
+  };
+}
+
+export function recordWorkspaceActivityMarkerMaterialization(
+  state: WorkspaceActivityState,
+  materialization: WorkspaceActivityMarkerMaterialization,
+  markers: readonly WorkspaceActivityMarker[],
+): WorkspaceActivityState {
+  return {
+    ...state,
+    debug: {
+      ...state.debug,
+      markerCreatedCount: state.debug.markerCreatedCount + materialization.created,
+      markerRemovedCount: state.debug.markerRemovedCount + materialization.removed,
+      markerRetainedCount: state.debug.markerRetainedCount + materialization.retained,
+      markerUpdatedCount: state.debug.markerUpdatedCount + materialization.updated,
+      markers: markers.map((marker) => ({ ...marker })),
+    },
   };
 }
 

@@ -72,14 +72,24 @@ try {
       snapshot.graph.nodeCount >= 3,
   );
 
-  const definition = await createActivityWorkflow(context.client, projection.workspaceId);
+  const definition = await installActivityWorkflow(context.client, projection);
+  await waitForWorkflowGraphSnapshot(
+    context.client,
+    workflowGraphSurfaceId,
+    (snapshot) =>
+      snapshot.graph.workflow?.definitionId === projection.definitionId &&
+      snapshot.graph.workflow?.definitionName === "Activity feed workflow" &&
+      snapshot.graph.nodes.some((node) => node.id === "activity"),
+  );
   await waitForWorkflowGraphSnapshot(
     context.client,
     workflowGraphSurfaceId,
     (snapshot) => snapshot.activity.snapshotsLoaded >= 1,
   );
+  const beforeActivityRun = await getWorkflowGraphSnapshot(context.client, workflowGraphSurfaceId);
   const pan = await beginActivityCameraPan(context.client, workflowGraphSurfaceId);
   let activityDebug = null;
+  let afterContinuedPan = null;
   try {
     await rendererWorkflow(context.client, "startExecution", [
       projection.workspaceId,
@@ -94,18 +104,37 @@ try {
         snapshot.activity.deltasApplied >= 1 &&
         snapshot.activity.recordsRetained >= 1 &&
         snapshot.activity.activityDeltasDuringCameraMovement >= 1 &&
-        snapshot.activity.graphSceneReplacementCheckCount >= 1,
+        snapshot.activity.graphSceneReplacementCheckCount >= 1 &&
+        snapshot.activity.markerCreatedCount >= 4 &&
+        snapshot.activity.markerUpdatedCount >= 1 &&
+        snapshot.render.activityMarkerGraphicsCount >= snapshot.activity.markers.length &&
+        activityMarkersHavePhase2BKinds(snapshot.activity.markers),
+    );
+    afterContinuedPan = await continueActivityCameraPan(
+      context.client,
+      workflowGraphSurfaceId,
+      pan.pageTo,
+      activityDebug,
     );
   } finally {
     await releaseActivityCameraPan(context.client, pan.pageTo).catch(() => {});
   }
-  assertPhase2AActivityDebug(activityDebug.activity);
+  assertPhase2BActivityDebug(beforeActivityRun, activityDebug, afterContinuedPan);
 
   const activitySnapshot = await waitForActivitySnapshot(
     context.client,
     projection.workspaceId,
     (snapshot) => snapshotHasPhase2AActivityKinds(snapshot),
   );
+  await submitPendingWorkflowApproval(context.client, activitySnapshot);
+  const completedActivityDebug = await waitForWorkflowGraphSnapshot(
+    context.client,
+    workflowGraphSurfaceId,
+    (snapshot) =>
+      snapshot.activity.markerUpdatedCount > activityDebug.activity.markerUpdatedCount &&
+      activityMarkersShowCompletion(snapshot.activity.markers),
+  );
+  assertPhase2BCompletionMarkers(completedActivityDebug.activity);
   await captureScreenshot(context.client, join(artifactDir, "activity-feed.png"));
 
   const consoleRows = await readJsonLinesOptional(join(artifactDir, "renderer-console.jsonl"));
@@ -116,7 +145,9 @@ try {
 
   await writeJson(join(artifactDir, "summary.json"), {
     activityDebug: activityDebug.activity,
+    completedActivityDebug: completedActivityDebug.activity,
     activityKinds: activitySnapshot.activities.map((activity) => activity.kind),
+    activityMarkers: completedActivityDebug.activity.markers,
     artifactDir,
     status: "passed",
   });
@@ -140,18 +171,31 @@ try {
   await stopElectronCdpContext(context);
 }
 
-async function createActivityWorkflow(client, workspaceId) {
+async function installActivityWorkflow(client, projection) {
   const graph = activityWorkflowGraph();
-  const validation = await rendererWorkflow(client, "validateDefinition", [workspaceId, graph]);
+  const validation = await rendererWorkflow(client, "validateDefinition", [
+    projection.workspaceId,
+    graph,
+  ]);
   if (!validation.valid) {
     throw new Error(`activity workflow graph invalid: ${JSON.stringify(validation.diagnostics)}`);
   }
-  return rendererWorkflow(client, "createDefinition", [
-    workspaceId,
+  const definition = await rendererWorkflow(client, "updateDefinition", [
+    projection.workspaceId,
+    projection.definitionId,
     "Activity feed workflow",
     "Workflow that emits typed activity feed records.",
     graph,
   ]);
+  await client.evaluate(
+    `window.dispatchEvent(new CustomEvent("setta:workflow-definition-changed", { detail: ${JSON.stringify(
+      {
+        definitionId: projection.definitionId,
+        workspaceId: projection.workspaceId,
+      },
+    )} }))`,
+  );
+  return definition;
 }
 
 function activityWorkflowGraph() {
@@ -254,6 +298,43 @@ async function waitForActivitySnapshot(client, workspaceId, predicate, timeoutMs
   );
 }
 
+async function submitPendingWorkflowApproval(client, snapshot) {
+  const approvalActivity = snapshot.activities.find(
+    (activity) =>
+      activity.kind === "approval" &&
+      activity.status === "waiting_approval" &&
+      activity.approval?.approvalId,
+  );
+  if (!approvalActivity) {
+    throw new Error(
+      `pending workflow approval activity missing: ${JSON.stringify(snapshot.activities)}`,
+    );
+  }
+  const request = {
+    answers: [],
+    approvalId: approvalActivity.approval.approvalId,
+    approved: true,
+    cancelled: false,
+    executionId: firstNonEmpty(
+      approvalActivity.graphAnchor?.workflowExecutionId ?? "",
+      approvalActivity.provenance.workflowExecutionId,
+      approvalActivity.detailRef.workflowExecutionId,
+    ),
+    nodeExecutionId: firstNonEmpty(
+      approvalActivity.graphAnchor?.workflowNodeExecutionId ?? "",
+      approvalActivity.provenance.workflowNodeExecutionId,
+    ),
+    response: "",
+    workspaceId: approvalActivity.workspaceId,
+  };
+  if (request.executionId === "" || request.nodeExecutionId === "") {
+    throw new Error(
+      `pending workflow approval activity is not workflow-scoped: ${JSON.stringify(approvalActivity)}`,
+    );
+  }
+  await client.evaluate(`window.setta.workflow.submitApproval(${JSON.stringify(request)})`);
+}
+
 function snapshotHasPhase2AActivityKinds(snapshot) {
   const kinds = new Set(snapshot.activities.map((activity) => activity.kind));
   const hasTypedFileChange = snapshot.activities.some(
@@ -272,12 +353,14 @@ function snapshotHasPhase2AActivityKinds(snapshot) {
   );
 }
 
-function assertPhase2AActivityDebug(activity) {
-  assertActivityInstrumentationObserved(activity);
-  assertNoPhase2AMarkerWork(activity);
-  assertNoPhase2AGraphReplacement(activity);
-  assertNoPhase2ABackendReadsDuringCameraMovement(activity);
-  assertNoPhase2ARevisionReload(activity);
+function assertPhase2BActivityDebug(beforeRunSnapshot, activitySnapshot, afterContinuedPan) {
+  assertActivityInstrumentationObserved(activitySnapshot.activity);
+  assertPhase2BMarkerWork(activitySnapshot);
+  assertNoActivityGraphReplacement(activitySnapshot.activity);
+  assertNoActivityBackendReadsDuringCameraMovement(activitySnapshot.activity);
+  assertNoActivityRevisionReload(activitySnapshot.activity);
+  assertRendererIdentityStable(beforeRunSnapshot, activitySnapshot);
+  assertActivityCameraMovementContinued(activitySnapshot, afterContinuedPan);
 }
 
 function assertActivityInstrumentationObserved(activity) {
@@ -298,22 +381,103 @@ function assertActivityInstrumentationObserved(activity) {
   }
 }
 
-function assertNoPhase2AMarkerWork(activity) {
-  if (activity.markerCreatedCount !== 0 || activity.markerUpdatedCount !== 0) {
-    throw new Error(`Phase 2A created markers: ${JSON.stringify(activity)}`);
+function assertPhase2BMarkerWork(snapshot) {
+  const activity = snapshot.activity;
+  assertPhase2BMarkerCounters(activity);
+  assertPhase2BMarkerKinds(activity);
+  assertPhase2BMarkerGraphics(snapshot);
+  assertPhase2BPendingMarkers(activity);
+}
+
+function assertPhase2BMarkerCounters(activity) {
+  if (activity.markerCreatedCount < 4) {
+    throw new Error(`Phase 2B did not create typed markers: ${JSON.stringify(activity)}`);
   }
-  if (activity.markerRetainedCount !== 0 || activity.markerRemovedCount !== 0) {
-    throw new Error(`Phase 2A mutated marker counters: ${JSON.stringify(activity)}`);
+  if (activity.markerUpdatedCount < 1) {
+    throw new Error(`Phase 2B did not update typed markers: ${JSON.stringify(activity)}`);
   }
 }
 
-function assertNoPhase2AGraphReplacement(activity) {
+function assertPhase2BMarkerKinds(activity) {
+  if (!activityMarkersHavePhase2BKinds(activity.markers)) {
+    throw new Error(`Phase 2B marker kinds are incomplete: ${JSON.stringify(activity.markers)}`);
+  }
+  if (activity.markers.some((marker) => marker.kind === "file_read" || marker.kind === "diff")) {
+    throw new Error(
+      `unsupported inferred marker kind rendered: ${JSON.stringify(activity.markers)}`,
+    );
+  }
+}
+
+function assertPhase2BMarkerGraphics(snapshot) {
+  const activity = snapshot.activity;
+  if (snapshot.render.activityMarkerGraphicsCount < activity.markers.length) {
+    throw new Error(
+      `renderer marker graphics missing: render=${JSON.stringify(snapshot.render)} markers=${JSON.stringify(activity.markers)}`,
+    );
+  }
+}
+
+function assertPhase2BPendingMarkers(activity) {
+  assertPhase2BCommandAndFileAnchors(activity.markers);
+  assertPhase2BWaitingApprovalState(activity.markers);
+  assertPhase2BCompletedFileState(activity.markers);
+}
+
+function assertPhase2BCommandAndFileAnchors(markers) {
+  const command = findPhase2BMarker(markers, "command");
+  const fileChange = findPhase2BMarker(markers, "file_change");
+  if (!isActivityNodeMarker(command) || !isActivityNodeMarker(fileChange)) {
+    throw new Error(`typed command/file markers are not anchored: ${JSON.stringify(markers)}`);
+  }
+}
+
+function assertPhase2BWaitingApprovalState(markers) {
+  const approval = findPhase2BMarker(markers, "approval");
+  const workflow = findPhase2BMarker(markers, "workflow_status");
+  if (
+    !isWaitingApprovalMarker(approval) ||
+    !isWaitingApprovalMarker(workflow) ||
+    !isActivityNodeMarker(workflow)
+  ) {
+    throw new Error(
+      `pending approval markers missing typed waiting state: ${JSON.stringify(markers)}`,
+    );
+  }
+}
+
+function assertPhase2BCompletedFileState(markers) {
+  const fileChange = findPhase2BMarker(markers, "file_change");
+  if (fileChange?.status !== "completed") {
+    throw new Error(`completed typed file marker missing: ${JSON.stringify(markers)}`);
+  }
+}
+
+function findPhase2BMarker(markers, kind) {
+  return markers.find((marker) => marker.kind === kind);
+}
+
+function isActivityNodeMarker(marker) {
+  return marker?.nodeId === "activity";
+}
+
+function isWaitingApprovalMarker(marker) {
+  return marker?.status === "waiting_approval";
+}
+
+function assertPhase2BCompletionMarkers(activity) {
+  if (!activityMarkersShowCompletion(activity.markers)) {
+    throw new Error(`terminal typed markers missing: ${JSON.stringify(activity.markers)}`);
+  }
+}
+
+function assertNoActivityGraphReplacement(activity) {
   if (activity.graphSceneReplacementTouched) {
     throw new Error(`activity feed touched graph scene replacement: ${JSON.stringify(activity)}`);
   }
 }
 
-function assertNoPhase2ABackendReadsDuringCameraMovement(activity) {
+function assertNoActivityBackendReadsDuringCameraMovement(activity) {
   if (activity.backendReadsDuringCameraMovement !== 0) {
     throw new Error(
       `activity feed requested backend reads during camera movement: ${JSON.stringify(activity)}`,
@@ -321,7 +485,7 @@ function assertNoPhase2ABackendReadsDuringCameraMovement(activity) {
   }
 }
 
-function assertNoPhase2ARevisionReload(activity) {
+function assertNoActivityRevisionReload(activity) {
   if (activity.revisionGapReloads !== 0) {
     throw new Error(
       `activity feed unexpectedly reloaded for revision gaps: ${JSON.stringify(activity)}`,
@@ -329,11 +493,72 @@ function assertNoPhase2ARevisionReload(activity) {
   }
 }
 
+function activityMarkersHavePhase2BKinds(markers) {
+  const kinds = new Set(markers.map((marker) => marker.kind));
+  return (
+    kinds.has("workflow_status") &&
+    kinds.has("command") &&
+    kinds.has("approval") &&
+    kinds.has("file_change") &&
+    !kinds.has("diff") &&
+    !kinds.has("file_read")
+  );
+}
+
+function activityMarkersShowCompletion(markers) {
+  const command = markers.find(
+    (marker) =>
+      marker.kind === "command" && marker.nodeId === "activity" && marker.status === "completed",
+  );
+  const fileChange = markers.find(
+    (marker) => marker.kind === "file_change" && marker.nodeId === "activity",
+  );
+  const approval = markers.find(
+    (marker) => marker.kind === "approval" && marker.nodeId === "activity",
+  );
+  const workflow = markers.find(
+    (marker) => marker.kind === "workflow_status" && marker.nodeId === "activity",
+  );
+  return (
+    command !== undefined &&
+    fileChange?.status === "completed" &&
+    approval?.status === "approved" &&
+    workflow?.status === "completed"
+  );
+}
+
+function assertRendererIdentityStable(before, after) {
+  assertRenderCounterUnchanged(before, after, "rendererInstanceId", "recreated the Pixi renderer");
+  assertRenderCounterUnchanged(before, after, "canvasCreationCount", "recreated the Pixi canvas");
+  assertRenderCounterUnchanged(
+    before,
+    after,
+    "rendererLayerCreationCount",
+    "recreated renderer layers",
+  );
+}
+
+function assertActivityCameraMovementContinued(before, after) {
+  if (after === null) {
+    throw new Error("activity camera pan continuation snapshot was not captured");
+  }
+  if (!after.interaction.panningCamera) {
+    throw new Error(`camera pan stopped during activity: ${JSON.stringify(after.interaction)}`);
+  }
+  if (after.render.cameraUpdateCount <= before.render.cameraUpdateCount) {
+    throw new Error(
+      `camera did not continue moving during activity: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
+    );
+  }
+}
+
 async function beginActivityCameraPan(client, surfaceId) {
   const snapshot = await getWorkflowGraphSnapshot(client, surfaceId);
   const from = emptyCanvasPoint(snapshot);
+  const mid = clampCanvasPoint(snapshot, { x: from.x - 64, y: from.y - 36 });
   const to = clampCanvasPoint(snapshot, { x: from.x - 132, y: from.y - 72 });
   const pageFrom = await pagePointForCanvasPoint(client, surfaceId, from);
+  const pageMid = await pagePointForCanvasPoint(client, surfaceId, mid);
   const pageTo = await pagePointForCanvasPoint(client, surfaceId, to);
   await client.call("Input.dispatchMouseEvent", {
     button: "none",
@@ -353,8 +578,8 @@ async function beginActivityCameraPan(client, surfaceId) {
     button: "left",
     buttons: 1,
     type: "mouseMoved",
-    x: pageTo.x,
-    y: pageTo.y,
+    x: pageMid.x,
+    y: pageMid.y,
   });
   await waitForWorkflowGraphSnapshot(
     client,
@@ -363,6 +588,18 @@ async function beginActivityCameraPan(client, surfaceId) {
     5_000,
   );
   return { pageTo };
+}
+
+async function continueActivityCameraPan(client, surfaceId, pageTo) {
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    type: "mouseMoved",
+    x: pageTo.x,
+    y: pageTo.y,
+  });
+  await delay(100);
+  return getWorkflowGraphSnapshot(client, surfaceId);
 }
 
 async function releaseActivityCameraPan(client, pageTo) {
@@ -412,6 +649,18 @@ function pointInsideNodeScreenBounds(snapshot, node, point, padding = 0) {
     point.y >= node.screenY - halfHeight - padding &&
     point.y <= node.screenY + halfHeight + padding
   );
+}
+
+function firstNonEmpty(...values) {
+  return values.find((value) => value !== "") ?? "";
+}
+
+function assertRenderCounterUnchanged(before, after, counter, label) {
+  if (after.render[counter] !== before.render[counter]) {
+    throw new Error(
+      `activity marker update ${label}: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
+    );
+  }
 }
 
 async function rendererWorkflow(client, method, args) {

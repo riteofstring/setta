@@ -92,6 +92,7 @@ function emptyWorkspaceActivityDebugSnapshot() {
     markerRemovedCount: 0,
     markerRetainedCount: 0,
     markerUpdatedCount: 0,
+    markers: [],
     recordsRetained: 0,
     retainedLimit: 0,
     revisionGapReloads: 0,

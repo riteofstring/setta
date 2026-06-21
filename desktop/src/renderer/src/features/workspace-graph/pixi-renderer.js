@@ -8,6 +8,7 @@ import {
   initializeWorkflowGraphApplication,
   workflowGraphRendererResolution,
 } from "./pixi-renderer-application";
+import { createWorkspaceActivityMarkerManager } from "./pixi-renderer-activity-markers";
 import {
   backgroundColor,
   maxZoom,
@@ -79,8 +80,8 @@ import {
   stopNativeInteraction,
   zoomFactorFromWheel,
 } from "./pixi-renderer-helpers";
-let nextRendererInstanceId = 1;
 
+let nextRendererInstanceId = 1;
 export async function createWorkflowGraphRenderer(options) {
   const {
     abortSignal,
@@ -144,6 +145,7 @@ export async function createWorkflowGraphRenderer(options) {
   const nodes = [];
   const edges = [];
   const spatialQueries = createWorkflowGraphSpatialQueries({ nodes, viewport });
+  const workspaceActivityMarkers = createWorkspaceActivityMarkerManager({ nodes, viewport });
   const nodeGeometry = createNodeGeometryContextFactory();
   const nodeActivityMarkers = new Map();
   const nodeContainers = new Map();
@@ -452,7 +454,7 @@ export async function createWorkflowGraphRenderer(options) {
       reactRenderCount: () => handlers.reactRenderCount(),
       recentFrameMs,
       // prettier-ignore
-      renderState: () => ({ cameraUpdateCount, canvasCreationCount, drawingEdge: Boolean(drawingEdge), drawingMarquee: Boolean(drawingMarquee), edgeCommitCount, edgeGraphicsRedrawSkipCount, edgeLabelObjectCount: edgeLabels.count(), edgeRedrawCount, frameCount, gridDrawCount, graphUpdateAccounting: graphUpdateAccounting.snapshot(), labelSyncCount: labels.syncCount(), marqueeUpdateCount, nodeDragUpdateCount, nodeOutlineVisibilityUpdateCount, panningCamera: Boolean(panningCamera), pixiAppCreationCount: 1, pointerPanUpdateCount, rendererLayerCreationCount: 1, rendererResizeCount, rendererDestroyCount, frozen, rendererInstanceId, selectedNodeId: firstSelectedNodeId(), selectedNodeIds, selectionChangeCount, temporaryEdgeUpdateCount, tickerFramesWhileFrozen, wheelPanUpdateCount, wheelZoomUpdateCount, workflow: currentWorkflow, ...sceneGraph.updateCounts() }),
+      renderState: () => ({ activityMarkerGraphicsCount: workspaceActivityMarkers.count(), cameraUpdateCount, canvasCreationCount, drawingEdge: Boolean(drawingEdge), drawingMarquee: Boolean(drawingMarquee), edgeCommitCount, edgeGraphicsRedrawSkipCount, edgeLabelObjectCount: edgeLabels.count(), edgeRedrawCount, frameCount, gridDrawCount, graphUpdateAccounting: graphUpdateAccounting.snapshot(), labelSyncCount: labels.syncCount(), marqueeUpdateCount, nodeDragUpdateCount, nodeOutlineVisibilityUpdateCount, panningCamera: Boolean(panningCamera), pixiAppCreationCount: 1, pointerPanUpdateCount, rendererLayerCreationCount: 1, rendererResizeCount, rendererDestroyCount, frozen, rendererInstanceId, selectedNodeId: firstSelectedNodeId(), selectedNodeIds, selectionChangeCount, temporaryEdgeUpdateCount, tickerFramesWhileFrozen, wheelPanUpdateCount, wheelZoomUpdateCount, workflow: currentWorkflow, ...sceneGraph.updateCounts() }),
       requireNodeLabel: labels.requireNodeLabel,
       spatialQueries,
       viewport,
@@ -477,6 +479,7 @@ export async function createWorkflowGraphRenderer(options) {
     setHandlers: (nextHandlers) => {
       Object.assign(handlers, rendererHandlers(nextHandlers));
     },
+    updateActivityMarkers: (markers) => workspaceActivityMarkers.update(markers),
     updateGraph: (nextGraph, metadata) => {
       replaceSceneGraph(nextGraph, { countUpdate: true, metadata });
     },
@@ -543,6 +546,7 @@ export async function createWorkflowGraphRenderer(options) {
     currentWorkflow = update.workflow;
     nextEdgeSequence = update.nextEdgeSequence;
     spatialQueries.rebuild(nodes);
+    syncActivityMarkerPositions();
     pruneSelectionForNodes(nodes);
     drawAllNodeOutlines();
     redrawGlow();
@@ -675,6 +679,7 @@ export async function createWorkflowGraphRenderer(options) {
       spatialQueries.updateNode(node);
       labels.syncLabelPosition(node.id);
     }
+    syncActivityMarkerPositions();
     draggingNode.moved = true;
     labels.syncLabelVisibility();
     nodeDragUpdateCount += 1;
@@ -826,6 +831,9 @@ export async function createWorkflowGraphRenderer(options) {
   function redrawGlow() {
     drawWorkspaceGlow(glow, nodes, performance.now());
   }
+  function syncActivityMarkerPositions() {
+    workspaceActivityMarkers.syncPositions();
+  }
   function startEdgeDrawing(sourceNodeId, sourcePortId) {
     const source = requireNode(sourceNodeId);
     const start = portWorldPosition(source, sourcePortId);
@@ -938,7 +946,6 @@ export async function createWorkflowGraphRenderer(options) {
       viewport,
     });
   }
-
   function hitTestNodeAtScreen(screen) {
     return hitTestWorkflowGraphNodeAtScreen({ screen, spatialQueries });
   }
@@ -971,7 +978,6 @@ export async function createWorkflowGraphRenderer(options) {
     handlers.onCameraStateChange(nextCameraState);
     labels.syncAllLabels();
   }
-
   function setPortVisualState(nodeId, portId, state) {
     const key = portKey(nodeId, portId);
     const visual = portVisuals.get(key);

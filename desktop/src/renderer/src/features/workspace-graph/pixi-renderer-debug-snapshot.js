@@ -131,6 +131,7 @@ export function createWorkflowGraphDebugSnapshot({
         selectedNodeIds: [...state.selectedNodeIds],
       },
       render: {
+        activityMarkerGraphicsCount: state.activityMarkerGraphicsCount,
         averageFrameMs: frameStats.average,
         cameraUpdateCount: state.cameraUpdateCount,
         canvasCreationCount: state.canvasCreationCount,

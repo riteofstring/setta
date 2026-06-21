@@ -17,6 +17,38 @@ export interface WorkflowGraphNode {
   y: number;
 }
 
+export interface WorkflowGraphActivityMarker {
+  activityId: string;
+  active: boolean;
+  anchorKind: "workflow_node" | "recent_lane";
+  id: string;
+  kind: "workflow_status" | "command" | "file_change" | "approval";
+  label: string;
+  laneIndex: number;
+  nodeId: string;
+  revision: number;
+  slotIndex: number;
+  status:
+    | "pending"
+    | "running"
+    | "waiting_approval"
+    | "completed"
+    | "failed"
+    | "cancelled"
+    | "approved"
+    | "denied"
+    | "answered"
+    | "unknown";
+  updatedAt: string;
+}
+
+export interface WorkflowGraphActivityMarkerMaterialization {
+  created: number;
+  removed: number;
+  retained: number;
+  updated: number;
+}
+
 export interface WorkflowGraphPort {
   id: string;
   label: string;
@@ -134,6 +166,9 @@ export interface WorkflowGraphRenderer {
   destroy: () => void;
   setFrozen: (frozen: boolean) => void;
   setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
+  updateActivityMarkers: (
+    markers: readonly WorkflowGraphActivityMarker[],
+  ) => WorkflowGraphActivityMarkerMaterialization;
   updateGraph: (graph: WorkflowGraphGraph, metadata: WorkflowGraphUpdateMetadata) => void;
 }
 

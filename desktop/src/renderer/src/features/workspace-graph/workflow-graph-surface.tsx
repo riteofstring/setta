@@ -4,7 +4,7 @@ import type {
   WorkflowGraphProjection,
   WorkflowValidationResult,
 } from "@generated/backend";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import { useWorkflowEditorStore } from "../../stores/workflow-editor-store";
@@ -41,6 +41,7 @@ import {
   workflowProjectionPendingApproval,
   workflowRendererGraphForSurface,
   workflowRendererScopeKey,
+  type WorkflowGraphRendererGraph,
   type WorkflowGraphRendererGraphUpdate,
   type WorkflowGraphSourceInputs,
 } from "./workflow-graph-renderer-graph";
@@ -70,7 +71,11 @@ import {
   WorkflowValidationLayer,
   type WorkflowContextMenuState,
 } from "./workflow-graph-surface-layers";
-import { useWorkspaceActivityState } from "./workspace-activity-state";
+import {
+  type WorkflowGraphActivityProbeSnapshot,
+  useWorkspaceActivityState,
+} from "./workspace-activity-state";
+import type { WorkspaceActivityMarker } from "./workspace-activity-markers";
 
 export function WorkflowGraphSurface({
   debugEnabled,
@@ -228,8 +233,10 @@ export function WorkflowGraphSurface({
     workflowProjectionLoadError,
     workflowProjectionLoading,
   });
-  useWorkspaceActivityState({
+  const { syncMarkers: syncWorkspaceActivityMarkers } = useWorkflowGraphActivityMarkerSync({
+    graph,
     readGraphDebugSnapshot: () => window.__settaWorkflowGraphDebug?.getSnapshot(surfaceId) ?? null,
+    rendererRef: workflowRendererRef,
     surfaceId,
     workspaceId: workflowWorkspaceId,
   });
@@ -636,11 +643,13 @@ export function WorkflowGraphSurface({
     if (!rendererGraphUpdate) {
       return;
     }
-    workflowRendererRef.current?.updateGraph(
-      rendererGraphUpdate.graph,
-      rendererGraphUpdate.metadata,
-    );
-  }, [rendererGraphUpdate]);
+    const renderer = workflowRendererRef.current;
+    if (renderer === null) {
+      return;
+    }
+    renderer.updateGraph(rendererGraphUpdate.graph, rendererGraphUpdate.metadata);
+    syncWorkspaceActivityMarkers();
+  }, [rendererGraphUpdate, syncWorkspaceActivityMarkers]);
 
   useEffect(() => {
     if (!rendererGraphReady) {
@@ -705,6 +714,7 @@ export function WorkflowGraphSurface({
         if (pendingGraphUpdate !== null && pendingGraphUpdate !== initialUpdate) {
           renderer.updateGraph(pendingGraphUpdate.graph, pendingGraphUpdate.metadata);
         }
+        syncWorkspaceActivityMarkers();
       })
       .catch((error: unknown) => {
         if (isWorkflowGraphRendererInitAbort(error)) {
@@ -719,7 +729,7 @@ export function WorkflowGraphSurface({
       destroyRenderer();
       host.replaceChildren();
     };
-  }, [debugEnabled, rendererGraphReady, rendererScopeKey, surfaceId]);
+  }, [debugEnabled, rendererGraphReady, rendererScopeKey, surfaceId, syncWorkspaceActivityMarkers]);
 
   useEffect(() => {
     if (workflowContextMenu === null) {
@@ -805,6 +815,38 @@ export function WorkflowGraphSurface({
       />
     </section>
   );
+}
+
+function useWorkflowGraphActivityMarkerSync({
+  graph,
+  readGraphDebugSnapshot,
+  rendererRef,
+  surfaceId,
+  workspaceId,
+}: {
+  graph: WorkflowGraphRendererGraph | undefined;
+  readGraphDebugSnapshot: () => WorkflowGraphActivityProbeSnapshot | null;
+  rendererRef: RefObject<WorkflowGraphRenderer | null>;
+  surfaceId: string;
+  workspaceId: string;
+}) {
+  const applyWorkspaceActivityMarkers = useCallback(
+    (markers: readonly WorkspaceActivityMarker[]) => {
+      const renderer = rendererRef.current;
+      if (renderer === null) {
+        return null;
+      }
+      return renderer.updateActivityMarkers(markers);
+    },
+    [rendererRef],
+  );
+  return useWorkspaceActivityState({
+    activityGraph: graph ?? null,
+    applyActivityMarkers: applyWorkspaceActivityMarkers,
+    readGraphDebugSnapshot,
+    surfaceId,
+    workspaceId,
+  });
 }
 
 type CreateWorkflowDefinition = (

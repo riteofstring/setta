@@ -98,6 +98,7 @@ interface WorkflowGraphDebugSnapshot {
     selectedNodeIds: string[];
   };
   render: {
+    activityMarkerGraphicsCount: number;
     averageFrameMs: number;
     cameraUpdateCount: number;
     canvasCreationCount: number;
