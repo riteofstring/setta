@@ -53,7 +53,7 @@ Additional focused workspace-layout command:
 pnpm exec vitest run src/renderer/src/workspace-layout
 ```
 
-Result: 22 test files passed, 251 tests passed.
+Result: 22 test files passed, 253 tests passed.
 
 Focused drag metrics command:
 
@@ -95,6 +95,7 @@ Result: passed.
 | Cross-column pane drag | `layout-engine.test.ts` verifies a single pane leaves a stacked source column while siblings stay behind. |
 | Row drop into another column | Engine and store tests verify `row before` and `row after` intent placement. |
 | New column drop | Engine tests verify the new column is seeded from the destination column width, not the source column. |
+| Edge placements | `layout-engine.test.ts` verifies row drops before the first row and after the last row in target columns, plus column drops before the first column and after the last column in a target plane. |
 | `after` placement | Store test verifies one revision bump for an `after` row drop. |
 | No-op drops | `layout-store.test.ts` verifies current-neighbor row drops, drop-onto-self, and no-op adjacent column drops do not bump revision. |
 | Overview drag placement | `workspace-overview-ghost.test.ts` verifies `above`/`below` map to row drops and `right` maps to a column drop. |
