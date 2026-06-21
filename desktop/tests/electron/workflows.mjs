@@ -51,6 +51,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "pane-drag-drop-workflow.test.mjs",
+    name: "pane-drag-drop",
+    tiers: ["required"],
+  },
+  {
     file: "dom-pane-snapshot-scroll-workflow.test.mjs",
     name: "dom-pane-snapshot-scroll",
     tiers: ["required"],
