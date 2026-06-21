@@ -9,6 +9,7 @@ This report covers the first repair pass for workspace pane drag-and-drop:
 - overview-mode ghost target to `PaneDropIntent`,
 - single-commit `after` placement,
 - requestAnimationFrame coalescing for drag preview updates,
+- drag-source host geometry isolation during preview frames,
 - production-path Electron pointer workflow coverage for row, column, and
   overview ghost drops.
 
@@ -50,7 +51,15 @@ Additional focused workspace-layout command:
 pnpm exec vitest run src/renderer/src/workspace-layout
 ```
 
-Result: 22 test files passed, 245 tests passed.
+Result: 22 test files passed, 246 tests passed.
+
+Focused presentation-engine command:
+
+```sh
+pnpm exec vitest run src/renderer/src/workspace-layout/presentation-engine.test.ts
+```
+
+Result: 1 test file passed, 19 tests passed.
 
 Focused store guardrail command:
 
@@ -77,6 +86,7 @@ Result: passed.
 | Overview drag placement | `workspace-overview-ghost.test.ts` verifies `above`/`below` map to row drops and `right` maps to a column drop. |
 | Preview coalescing | `pane-drag-reorder.test.ts` verifies multiple pointer moves before one animation frame produce one preview for the latest intent. |
 | Preview notification bounds | `layout-store.test.ts` verifies duplicate preview intents do not notify, changed intents notify once, and duplicate clears do not notify. |
+| Drag-source geometry ownership | `presentation-engine.test.ts` verifies hosts marked `data-drag-source` do not receive preview frame transform, size, or surface viewport sync until the drag-source flag is cleared. |
 | Production pointer workflow | `pane-drag-drop-workflow.test.mjs` drives CDP mouse events through the built Electron app for normal row drop, normal column drop, and overview right-ghost column drop. It is registered in the required workflow manifest. |
 
 ## Pending Profiling
