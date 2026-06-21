@@ -6,6 +6,7 @@ import type {
   WorkspacePresentationMode,
   WorkspaceScene,
   OpenPaneRequest,
+  PaneDropIntent,
   PaneLimitPolicy,
   PaneId,
   PaneInsertionPlacement,
@@ -474,7 +475,15 @@ export class WorkspaceLayoutStore {
     targetPaneId: PaneId,
     placement: PaneReorderPlacement,
   ): boolean {
-    if (!this.engine.previewPaneReorder(sourcePaneId, targetPaneId, placement)) {
+    return this.previewPaneDropIntent(sourcePaneId, {
+      kind: "row",
+      placement,
+      targetPaneId,
+    });
+  }
+
+  previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
+    if (!this.engine.previewPaneDropIntent(sourcePaneId, intent)) {
       return false;
     }
     this.notify();
@@ -505,7 +514,15 @@ export class WorkspaceLayoutStore {
   }
 
   reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
-    if (!this.engine.reorderPaneBefore(sourcePaneId, targetPaneId)) {
+    return this.applyPaneDropIntent(sourcePaneId, {
+      kind: "row",
+      placement: "before",
+      targetPaneId,
+    });
+  }
+
+  applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
+    if (!this.engine.applyPaneDropIntent(sourcePaneId, intent)) {
       return false;
     }
     this.setFocusedPane(sourcePaneId);

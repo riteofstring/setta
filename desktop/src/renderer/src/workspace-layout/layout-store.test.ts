@@ -486,20 +486,19 @@ describe("workspace layout store", () => {
     expect(store.focusPane("missing")).toBe(false);
   });
 
-  test("reorders columns by dragging a pane before an overview target", () => {
+  test("drops a pane before a target row through the legacy reorder wrapper", () => {
     const store = createStore();
 
     expect(store.reorderPaneBefore("workspace_pane_3", "workspace_pane_1")).toBe(true);
 
-    expect(store.toScene().columns.map((column) => column.paneIds[0])).toEqual([
-      "workspace_pane_0",
+    expect(requireColumnForPane(store.toScene(), "workspace_pane_1").paneIds).toEqual([
       "workspace_pane_3",
       "workspace_pane_1",
-      "workspace_pane_2",
     ]);
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
       focusedPaneId: "workspace_pane_3",
+      focusedRowIndex: 0,
     });
   });
 
@@ -515,6 +514,45 @@ describe("workspace layout store", () => {
       focusedPaneId: lowerPaneId,
       focusedRowIndex: 0,
     });
+  });
+
+  test("commits an after-placement row drop once", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPane("down");
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "after",
+        targetPaneId: lowerPaneId,
+      }),
+    ).toBe(true);
+
+    expect(store.toScene().columns[0]?.paneIds).toEqual([lowerPaneId, "workspace_pane_0"]);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 0,
+      focusedPaneId: "workspace_pane_0",
+      focusedRowIndex: 1,
+      revision: revisionBeforeDrop + 1,
+    });
+  });
+
+  test("skips no-op row drops without bumping revision", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPane("down");
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent(lowerPaneId, {
+        kind: "row",
+        placement: "after",
+        targetPaneId: "workspace_pane_0",
+      }),
+    ).toBe(false);
+
+    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", lowerPaneId]);
+    expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
   });
 
   test("focuses an existing surface by kind for sidebar entry points", () => {

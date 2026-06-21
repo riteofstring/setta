@@ -470,11 +470,17 @@ describe("real workspace layout column sizing", () => {
     expect(rightmostItem?.x).toBeGreaterThan(900);
   });
 
-  test("renders pane reorder previews without committing column order", () => {
+  test("renders row drop previews without committing layout state", () => {
     const engine = createRealEngine();
     const committedOrder = engine.toScene().columns.map((column) => column.paneIds[0]);
 
-    expect(engine.previewPaneReorder("workspace_pane_4", "workspace_pane_1", "before")).toBe(true);
+    expect(
+      engine.previewPaneDropIntent("workspace_pane_4", {
+        kind: "row",
+        placement: "before",
+        targetPaneId: "workspace_pane_1",
+      }),
+    ).toBe(true);
 
     const previewItems = renderFrame(
       engine,
@@ -486,15 +492,11 @@ describe("real workspace layout column sizing", () => {
       null,
       true,
     );
+    const movedPane = requireRenderItem(previewItems, "workspace_pane_4");
+    const targetPane = requireRenderItem(previewItems, "workspace_pane_1");
 
-    expect(paneOrderByX(previewItems)).toEqual([
-      "workspace_pane_0",
-      "workspace_pane_4",
-      "workspace_pane_1",
-      "workspace_pane_2",
-      "workspace_pane_3",
-      "workspace_pane_5",
-    ]);
+    expect(movedPane.x).toBe(targetPane.x);
+    expect(movedPane.y).toBeLessThan(targetPane.y);
     expect(engine.toScene().columns.map((column) => column.paneIds[0])).toEqual(committedOrder);
 
     expect(engine.clearPaneReorderPreview()).toBe(true);
@@ -511,10 +513,41 @@ describe("real workspace layout column sizing", () => {
     expect(paneOrderByX(clearedItems)).toEqual(committedOrder);
   });
 
-  test("renders after-placement pane reorder previews", () => {
+  test("renders after-placement row drop previews", () => {
     const engine = createRealEngine();
 
     expect(engine.previewPaneReorder("workspace_pane_0", "workspace_pane_2", "after")).toBe(true);
+
+    const previewItems = renderFrame(
+      engine,
+      { ...viewport, width: 4000 },
+      0,
+      "workspace_pane_0",
+      "normal",
+      0,
+      null,
+      true,
+    );
+    const movedPane = requireRenderItem(previewItems, "workspace_pane_0");
+    const targetPane = requireRenderItem(previewItems, "workspace_pane_2");
+
+    expect(movedPane.x).toBe(targetPane.x);
+    expect(movedPane.y).toBeGreaterThan(targetPane.y);
+  });
+
+  test("renders column drop previews without committing column order", () => {
+    const engine = createRealEngine();
+    const committedOrder = engine.toScene().columns.map((column) => column.paneIds[0]);
+    const targetColumn = requireColumnForPane(engine.toScene(), "workspace_pane_2");
+
+    expect(
+      engine.previewPaneDropIntent("workspace_pane_0", {
+        kind: "column",
+        planeIndex: targetColumn.planeIndex,
+        slotPlacement: "after",
+        targetColumnId: targetColumn.columnId,
+      }),
+    ).toBe(true);
 
     const previewItems = renderFrame(
       engine,
@@ -535,6 +568,83 @@ describe("real workspace layout column sizing", () => {
       "workspace_pane_4",
       "workspace_pane_5",
     ]);
+    expect(engine.toScene().columns.map((column) => column.paneIds[0])).toEqual(committedOrder);
+  });
+
+  test("drops a single pane into another column as a row without moving siblings", () => {
+    const engine = createRealEngine();
+    const lowerPaneId = engine.splitPane("workspace_pane_0", "down");
+    const sourceColumnId = requireColumnForPane(engine.toScene(), "workspace_pane_0").columnId;
+
+    engine.resizeColumn(sourceColumnId, { unit: "px", value: 700 });
+    engine.resizeColumn(requireColumnForPane(engine.toScene(), "workspace_pane_1").columnId, {
+      unit: "px",
+      value: 420,
+    });
+    engine.resizePane(lowerPaneId, 240);
+    expect(engine.resizePaneSplit("workspace_pane_0", lowerPaneId, 1.25, 3.75)).toBe(true);
+
+    expect(
+      engine.applyPaneDropIntent(lowerPaneId, {
+        kind: "row",
+        placement: "after",
+        targetPaneId: "workspace_pane_1",
+      }),
+    ).toBe(true);
+
+    const scene = engine.toScene();
+    const sourceColumn = requireColumnForPane(scene, "workspace_pane_0");
+    const targetColumn = requireColumnForPane(scene, lowerPaneId);
+    const movedPane = scene.paneById.get(lowerPaneId);
+
+    expect(sourceColumn.columnId).toBe(sourceColumnId);
+    expect(sourceColumn.paneIds).toEqual(["workspace_pane_0"]);
+    expect(targetColumn.paneIds).toEqual(["workspace_pane_1", lowerPaneId]);
+    expect(targetColumn.widthSpec).toEqual({ unit: "px", value: 420 });
+    expect(movedPane).toMatchObject({
+      columnId: targetColumn.columnId,
+      surfaceKind: "empty-frame",
+      title: "Pane 007",
+      tone: "slate",
+      weight: 1,
+    });
+    expect(movedPane?.heightPx).toBeUndefined();
+  });
+
+  test("drops a pane as a new column with destination plane width settings", () => {
+    const engine = createRealEngine();
+    const lowerPlanePaneId = engine.splitPaneToPlane("workspace_pane_1", "down");
+    const sourceColumn = requireColumnForPane(engine.toScene(), "workspace_pane_0");
+    const targetColumn = requireColumnForPane(engine.toScene(), lowerPlanePaneId);
+
+    engine.resizeColumn(sourceColumn.columnId, { unit: "px", value: 700 });
+    engine.resizeColumn(targetColumn.columnId, { unit: "px", value: 430 });
+
+    expect(
+      engine.applyPaneDropIntent("workspace_pane_0", {
+        kind: "column",
+        planeIndex: targetColumn.planeIndex,
+        slotPlacement: "after",
+        targetColumnId: targetColumn.columnId,
+      }),
+    ).toBe(true);
+
+    const scene = engine.toScene();
+    const movedColumn = requireColumnForPane(scene, "workspace_pane_0");
+    const movedPane = scene.paneById.get("workspace_pane_0");
+
+    expect(movedColumn.columnId).not.toBe(sourceColumn.columnId);
+    expect(movedColumn.planeIndex).toBe(targetColumn.planeIndex);
+    expect(movedColumn.widthSpec).toEqual({ unit: "px", value: 430 });
+    expect(movedColumn.idealWidthSpec).toEqual(targetColumn.idealWidthSpec);
+    expect(movedPane).toMatchObject({
+      columnId: movedColumn.columnId,
+      surfaceKind: "chat-dom",
+      title: "Chat",
+      tone: "cyan",
+      weight: 1,
+    });
+    expect(movedPane?.heightPx).toBeUndefined();
   });
 
   test("overview keeps split-down panes vertically stacked inside their column", () => {

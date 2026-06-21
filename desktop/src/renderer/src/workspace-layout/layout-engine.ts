@@ -7,6 +7,7 @@ import type {
   WorkspacePane,
   WorkspaceScene,
   OpenPaneRequest,
+  PaneDropIntent,
   PaneId,
   PaneInsertionPlacement,
   PaneRenderItem,
@@ -49,8 +50,9 @@ import {
 } from "./layout-engine-navigation";
 import { renderNormalLayoutFrame, renderOverviewLayoutFrame } from "./layout-engine-rendering";
 import {
+  applyPaneDropIntentToColumns,
   reorderPaneColumnBefore,
-  reorderPaneColumnForPlacement,
+  type PaneDropColumnResult,
   type PaneReorderPlacement,
 } from "./layout-reorder";
 import { columnVisualFramesForPane, type PaneVisualFrame } from "./pane-visual-frame";
@@ -62,9 +64,8 @@ export interface WorkspaceLayoutEngineOptions {
 }
 
 interface PaneReorderPreview {
-  placement: PaneReorderPlacement;
+  intent: PaneDropIntent;
   sourcePaneId: PaneId;
-  targetPaneId: PaneId;
 }
 
 export class WorkspaceLikeLayoutEngine implements LayoutEngine {
@@ -282,11 +283,46 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     return true;
   }
 
+  applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
+    const result = applyPaneDropIntentToColumns(
+      this.columns,
+      sourcePaneId,
+      intent,
+      this.paneDropColumnOptions(sourcePaneId, intent),
+    );
+    if (!result.changed) {
+      return false;
+    }
+    this.columns = result.columns;
+    if (intent.kind === "column") {
+      this.nextColumnSequence += 1;
+    }
+    this.applyPaneDropPaneState(sourcePaneId, result);
+    this.reindexColumns();
+    return true;
+  }
+
   reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
     const result = reorderPaneColumnBefore(this.columns, sourcePaneId, targetPaneId);
+    if (!result.changed) {
+      return false;
+    }
     this.columns = result.columns;
+    this.applyPaneDropPaneState(sourcePaneId, result);
     this.reindexColumns();
-    return result.changed;
+    return true;
+  }
+
+  previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
+    const nextPreview = { intent, sourcePaneId };
+    if (
+      this.paneReorderPreview?.sourcePaneId === nextPreview.sourcePaneId &&
+      samePaneDropIntent(this.paneReorderPreview.intent, nextPreview.intent)
+    ) {
+      return false;
+    }
+    this.paneReorderPreview = nextPreview;
+    return true;
   }
 
   previewPaneReorder(
@@ -294,16 +330,11 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     targetPaneId: PaneId,
     placement: PaneReorderPlacement,
   ): boolean {
-    const nextPreview = { placement, sourcePaneId, targetPaneId };
-    if (
-      this.paneReorderPreview?.sourcePaneId === nextPreview.sourcePaneId &&
-      this.paneReorderPreview.targetPaneId === nextPreview.targetPaneId &&
-      this.paneReorderPreview.placement === nextPreview.placement
-    ) {
-      return false;
-    }
-    this.paneReorderPreview = nextPreview;
-    return true;
+    return this.previewPaneDropIntent(sourcePaneId, {
+      kind: "row",
+      placement,
+      targetPaneId,
+    });
   }
 
   clearPaneReorderPreview(): boolean {
@@ -332,11 +363,15 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     if (!this.paneReorderPreview) {
       return null;
     }
-    const result = reorderPaneColumnForPlacement(
+    const result = applyPaneDropIntentToColumns(
       this.columns,
       this.paneReorderPreview.sourcePaneId,
-      this.paneReorderPreview.targetPaneId,
-      this.paneReorderPreview.placement,
+      this.paneReorderPreview.intent,
+      this.paneDropColumnOptions(
+        this.paneReorderPreview.sourcePaneId,
+        this.paneReorderPreview.intent,
+        "preview",
+      ),
     );
     return result.changed
       ? result.columns.map((column, index) => ({
@@ -750,6 +785,48 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     paneIds.splice(source.rowIndex + (direction === "down" ? 1 : 0), 0, createdPaneId);
   }
 
+  private applyPaneDropPaneState(sourcePaneId: PaneId, result: PaneDropColumnResult): void {
+    const pane = this.paneById.get(sourcePaneId);
+    if (!pane || !result.destinationColumnId) {
+      return;
+    }
+    if (!result.resetPaneSizing) {
+      this.paneById.set(sourcePaneId, {
+        ...pane,
+        columnId: result.destinationColumnId,
+      });
+      return;
+    }
+
+    // Cross-column and cross-plane drops adopt the destination layout context:
+    // column width belongs to the destination column, row sizing is reset to an
+    // even-share weight, and pane-intrinsic surface identity stays with the pane.
+    const paneWithoutHeight: WorkspacePane = {
+      ...pane,
+      columnId: result.destinationColumnId,
+      weight: 1,
+    };
+    delete paneWithoutHeight.heightPx;
+    this.paneById.set(sourcePaneId, paneWithoutHeight);
+  }
+
+  private paneDropColumnOptions(
+    sourcePaneId: PaneId,
+    intent: PaneDropIntent,
+    mode: "commit" | "preview" = "commit",
+  ) {
+    if (intent.kind !== "column") {
+      return undefined;
+    }
+    return {
+      defaultColumnWidthSpec: this.scene.defaultColumnWidthSpec,
+      newColumnId:
+        mode === "preview"
+          ? (`workspace_column_preview_${sourcePaneId}` as ColumnId)
+          : this.peekNextColumnId(),
+    };
+  }
+
   private locationForPane(paneId: PaneId): PaneLocation | null {
     for (const column of this.columns) {
       const rowIndex = column.paneIds.indexOf(paneId);
@@ -842,9 +919,13 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
   }
 
   private nextColumnId(): ColumnId {
-    const columnId = `workspace_column_${this.nextColumnSequence}`;
+    const columnId = this.peekNextColumnId();
     this.nextColumnSequence += 1;
     return columnId;
+  }
+
+  private peekNextColumnId(): ColumnId {
+    return `workspace_column_${this.nextColumnSequence}`;
   }
 
   private removeEmptyColumns(): void {
@@ -1005,4 +1086,21 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       rowGap: this.scene.rowGap,
     });
   }
+}
+
+function samePaneDropIntent(left: PaneDropIntent, right: PaneDropIntent): boolean {
+  if (left.kind !== right.kind) {
+    return false;
+  }
+  if (left.kind === "row" && right.kind === "row") {
+    return left.targetPaneId === right.targetPaneId && left.placement === right.placement;
+  }
+  if (left.kind === "column" && right.kind === "column") {
+    return (
+      left.targetColumnId === right.targetColumnId &&
+      left.planeIndex === right.planeIndex &&
+      left.slotPlacement === right.slotPlacement
+    );
+  }
+  return false;
 }
