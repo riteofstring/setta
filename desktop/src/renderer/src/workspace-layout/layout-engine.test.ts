@@ -611,6 +611,39 @@ describe("real workspace layout column sizing", () => {
     expect(movedPane?.heightPx).toBeUndefined();
   });
 
+  test("drops rows at the first and last positions of target columns", () => {
+    const beforeEngine = createRealEngine();
+    const beforeSourcePaneId = beforeEngine.splitPane("workspace_pane_0", "down");
+
+    expect(
+      beforeEngine.applyPaneDropIntent(beforeSourcePaneId, {
+        kind: "row",
+        placement: "before",
+        targetPaneId: "workspace_pane_1",
+      }),
+    ).toBe(true);
+    expect(requireColumnForPane(beforeEngine.toScene(), "workspace_pane_1").paneIds).toEqual([
+      beforeSourcePaneId,
+      "workspace_pane_1",
+    ]);
+
+    const afterEngine = createRealEngine();
+    const afterTargetPaneId = afterEngine.splitPane("workspace_pane_1", "down");
+
+    expect(
+      afterEngine.applyPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "after",
+        targetPaneId: afterTargetPaneId,
+      }),
+    ).toBe(true);
+    expect(requireColumnForPane(afterEngine.toScene(), "workspace_pane_1").paneIds).toEqual([
+      "workspace_pane_1",
+      afterTargetPaneId,
+      "workspace_pane_0",
+    ]);
+  });
+
   test("drops a pane as a new column with destination plane width settings", () => {
     const engine = createRealEngine();
     const lowerPlanePaneId = engine.splitPaneToPlane("workspace_pane_1", "down");
@@ -645,6 +678,38 @@ describe("real workspace layout column sizing", () => {
       weight: 1,
     });
     expect(movedPane?.heightPx).toBeUndefined();
+  });
+
+  test("drops columns at the first and last positions of target planes", () => {
+    const beforeEngine = createRealEngine();
+    const beforeTargetColumn = requireColumnForPane(beforeEngine.toScene(), "workspace_pane_0");
+
+    expect(
+      beforeEngine.applyPaneDropIntent("workspace_pane_2", {
+        kind: "column",
+        planeIndex: beforeTargetColumn.planeIndex,
+        slotPlacement: "before",
+        targetColumnId: beforeTargetColumn.columnId,
+      }),
+    ).toBe(true);
+    expect(
+      firstPaneIdsInPlane(beforeEngine.toScene(), beforeTargetColumn.planeIndex).slice(0, 2),
+    ).toEqual(["workspace_pane_2", "workspace_pane_0"]);
+
+    const afterEngine = createRealEngine();
+    const afterTargetColumn = requireColumnForPane(afterEngine.toScene(), "workspace_pane_5");
+
+    expect(
+      afterEngine.applyPaneDropIntent("workspace_pane_0", {
+        kind: "column",
+        planeIndex: afterTargetColumn.planeIndex,
+        slotPlacement: "after",
+        targetColumnId: afterTargetColumn.columnId,
+      }),
+    ).toBe(true);
+    expect(firstPaneIdsInPlane(afterEngine.toScene(), afterTargetColumn.planeIndex).at(-1)).toBe(
+      "workspace_pane_0",
+    );
   });
 
   test("overview keeps split-down panes vertically stacked inside their column", () => {
@@ -1254,6 +1319,13 @@ function createRealEngine(
 
 function paneOrderByX(items: readonly PaneRenderItem[]): string[] {
   return items.toSorted((left, right) => left.x - right.x).map((item) => item.paneId);
+}
+
+function firstPaneIdsInPlane(scene: WorkspaceScene, planeIndex: number): string[] {
+  return scene.columns
+    .filter((column) => column.planeIndex === planeIndex)
+    .toSorted((left, right) => left.slotIndex - right.slotIndex || left.index - right.index)
+    .map((column) => column.paneIds[0] ?? "");
 }
 
 function createSparseGeneratedPaneScene(): WorkspaceScene {
