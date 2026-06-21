@@ -53,7 +53,7 @@ Additional focused workspace-layout command:
 pnpm exec vitest run src/renderer/src/workspace-layout
 ```
 
-Result: 22 test files passed, 249 tests passed.
+Result: 22 test files passed, 251 tests passed.
 
 Focused drag metrics command:
 
@@ -80,7 +80,7 @@ Focused store guardrail command:
 pnpm exec vitest run src/renderer/src/workspace-layout/layout-store.test.ts
 ```
 
-Result: 1 test file passed, 37 tests passed.
+Result: 1 test file passed, 39 tests passed.
 
 Electron workflow syntax check:
 
@@ -96,6 +96,7 @@ Result: passed.
 | Row drop into another column | Engine and store tests verify `row before` and `row after` intent placement. |
 | New column drop | Engine tests verify the new column is seeded from the destination column width, not the source column. |
 | `after` placement | Store test verifies one revision bump for an `after` row drop. |
+| No-op drops | `layout-store.test.ts` verifies current-neighbor row drops, drop-onto-self, and no-op adjacent column drops do not bump revision. |
 | Overview drag placement | `workspace-overview-ghost.test.ts` verifies `above`/`below` map to row drops and `right` maps to a column drop. |
 | Preview coalescing | `pane-drag-reorder.test.ts` verifies multiple pointer moves before one animation frame produce one preview for the latest intent. |
 | Preview notification bounds | `layout-store.test.ts` verifies duplicate preview intents do not notify, changed intents notify once, and duplicate clears do not notify. |
