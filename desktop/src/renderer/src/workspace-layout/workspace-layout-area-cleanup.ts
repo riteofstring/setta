@@ -7,6 +7,8 @@ import {
 
 export interface OverviewDragSession {
   dragging: boolean;
+  pendingDropFrame: number | null;
+  pendingDropPointer: { clientX: number; clientY: number } | null;
   pointerId: number;
   sourcePaneId: string;
   startClientX: number;
@@ -20,7 +22,15 @@ interface MutableCurrentRef<T> {
 export function cleanupOverviewDragSource(
   ref: MutableCurrentRef<OverviewDragSession | null>,
 ): void {
-  const overviewSourcePaneId = ref.current?.sourcePaneId;
+  const session = ref.current;
+  const overviewSourcePaneId = session?.sourcePaneId;
+  if (
+    session?.pendingDropFrame !== null &&
+    session?.pendingDropFrame !== undefined &&
+    typeof window.cancelAnimationFrame === "function"
+  ) {
+    window.cancelAnimationFrame(session.pendingDropFrame);
+  }
   ref.current = null;
   if (!overviewSourcePaneId) {
     return;

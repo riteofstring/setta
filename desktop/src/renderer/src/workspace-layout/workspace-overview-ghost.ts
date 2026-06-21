@@ -25,6 +25,11 @@ interface OverviewPaneFrame {
   width: number;
 }
 
+interface OverviewGhostPointer {
+  clientX: number;
+  clientY: number;
+}
+
 export function eventTargetsOverviewGhost(event: PointerEvent): boolean {
   return (
     event.target instanceof Element &&
@@ -50,7 +55,7 @@ export function setOverviewGhostTargetIfChanged(
 }
 
 export function overviewGhostTargetFromPointer(
-  event: PointerEvent,
+  event: OverviewGhostPointer,
   stage: HTMLElement,
 ): OverviewGhostTarget | null {
   const stageRect = stage.getBoundingClientRect();
