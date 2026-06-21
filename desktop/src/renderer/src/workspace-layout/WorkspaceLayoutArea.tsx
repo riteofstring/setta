@@ -42,7 +42,6 @@ import {
   eventTargetsOverviewGhost,
   overviewGhostTargetFromPointer,
   overviewPaneIdAtPoint,
-  overviewPaneDropIntentFromGhost,
   setOverviewGhostTargetIfChanged,
   type OverviewGhostTarget,
 } from "./workspace-overview-ghost";
@@ -57,8 +56,11 @@ import {
 import {
   applyPaneDrop,
   beginPaneDragSession,
+  collectVisiblePaneHostRects,
   finishPaneDragSession,
+  paneDropTargetFromPointer,
   syncPaneDragSourceOffset,
+  syncPaneDropTarget,
   updatePaneDragSession,
   visiblePaneHostForPane,
   type PaneDragSession,
@@ -431,6 +433,7 @@ function WorkspaceLayoutRuntimeArea({
       visiblePaneHostForPane(sourcePaneId)?.setAttribute("data-drag-source", "true");
       overviewDragSessionRef.current = {
         dragging: false,
+        hostRects: collectVisiblePaneHostRects(),
         lastDropIntent: null,
         pendingDropFrame: null,
         pendingDropPointer: null,
@@ -456,15 +459,21 @@ function WorkspaceLayoutRuntimeArea({
       overviewSession: OverviewDragSession,
       pointer: { clientX: number; clientY: number },
     ) => {
-      const ghostTarget = overviewGhostTargetFromPointer(pointer, stage);
-      const dropIntent =
-        ghostTarget && ghostTarget.paneId !== overviewSession.sourcePaneId
-          ? overviewPaneDropIntentFromGhost(ghostTarget, runtime.store.toScene())
-          : null;
-      overviewSession.lastDropIntent = dropIntent;
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, dropIntent ? ghostTarget : null);
-      if (dropIntent) {
-        previewPaneDropIntent(overviewSession.sourcePaneId, dropIntent);
+      // Overview now uses the same drop model as normal mode (swap on a card's
+      // centre, insert at its edges/gaps, extend in empty space) resolved against
+      // the scaled card geometry. The dashed "add pane" ghost is no longer used
+      // during a drag; the shared data-drop affordances annotate the target card.
+      const target = paneDropTargetFromPointer(
+        pointer,
+        overviewSession.sourcePaneId,
+        runtime.store,
+        overviewSession.hostRects,
+      );
+      syncPaneDropTarget(root, target);
+      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      overviewSession.lastDropIntent = target?.intent ?? null;
+      if (target) {
+        previewPaneDropIntent(overviewSession.sourcePaneId, target.intent);
       } else {
         clearPaneDropPreview();
       }
@@ -622,6 +631,7 @@ function WorkspaceLayoutRuntimeArea({
         sourceHost.removeAttribute("data-drag-source");
         sourceHost.style.translate = "";
       }
+      syncPaneDropTarget(root, null);
       clearPaneDropPreview();
       if (overviewSession.dragging) {
         const dropIntent = overviewSession.lastDropIntent;

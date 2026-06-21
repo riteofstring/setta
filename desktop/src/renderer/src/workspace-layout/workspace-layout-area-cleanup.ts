@@ -3,11 +3,15 @@ import {
   cleanupPaneDragSession,
   visiblePaneHostForPane,
   type PaneDragSession,
+  type PaneHostRect,
 } from "./pane-drag-reorder";
 import type { PaneDropIntent } from "./types";
 
 export interface OverviewDragSession {
   dragging: boolean;
+  // Committed overview-card geometry captured at drag start, so drop resolution
+  // is stable against the same reflow protection as normal mode.
+  hostRects?: readonly PaneHostRect[];
   lastDropIntent: PaneDropIntent | null;
   pendingDropFrame: number | null;
   pendingDropPointer: { clientX: number; clientY: number } | null;

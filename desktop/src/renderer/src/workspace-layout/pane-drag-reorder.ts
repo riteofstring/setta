@@ -529,7 +529,8 @@ function columnInsertTargetForGap(
     (column) => event.clientY >= column.top && event.clientY <= column.bottom,
   );
   const pool = inBand.length > 0 ? inBand : columns;
-  let best: { column: DragColumnRect; distance: number; placement: PaneDropPlacement } | null = null;
+  let best: { column: DragColumnRect; distance: number; placement: PaneDropPlacement } | null =
+    null;
   for (const column of pool) {
     const beforeDistance = Math.abs(event.clientX - column.left);
     const afterDistance = Math.abs(event.clientX - column.right);
@@ -588,7 +589,7 @@ function samePaneDropIntent(left: PaneDropIntent | null, right: PaneDropIntent |
   return false;
 }
 
-function syncPaneDropTarget(root: HTMLElement, target: PaneDropTarget | null): void {
+export function syncPaneDropTarget(root: HTMLElement, target: PaneDropTarget | null): void {
   clearPaneDropTargets(root);
   if (!target) {
     return;

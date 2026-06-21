@@ -9,6 +9,7 @@ import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -133,6 +134,53 @@ try {
     });
   }
 
+  // --- OVERVIEW SWAP: enter overview, drag a card onto another card's center. ---
+  {
+    await clickEnabledButtonByAria(client, "Enter overview", timeoutMs);
+    await waitForState(
+      client,
+      snapshotExpression(),
+      (s) => s.mode === "overview" && s.visibleHosts.length >= 4,
+      timeoutMs,
+    );
+    await delay(350); // let the overview zoom settle
+    const scene = await snapshot(client);
+    const source = scene.visibleHosts.toSorted(
+      (a, b) => a.rect.left - b.rect.left || a.rect.top - b.rect.top,
+    )[0];
+    const target = scene.visibleHosts.find((h) => h.paneId !== source.paneId);
+    const srcPos = center(source);
+    const tgtPos = center(target);
+    const beforeMap = posMap(scene);
+    await press(client, srcPos);
+    for (let i = 1; i <= 16; i += 1) {
+      await move(client, {
+        x: srcPos.x + ((tgtPos.x - srcPos.x) * i) / 16,
+        y: srcPos.y + ((tgtPos.y - srcPos.y) * i) / 16,
+      });
+    }
+    const affordance = await client.evaluate(affordanceExpression());
+    await release(client, tgtPos);
+    await delay(250);
+    const after = await snapshot(client);
+    const sourceAfter = after.visibleHosts.find((h) => h.paneId === source.paneId);
+    const targetAfter = after.visibleHosts.find((h) => h.paneId === target.paneId);
+    const swapped =
+      !!sourceAfter &&
+      !!targetAfter &&
+      dist(center(sourceAfter), tgtPos) < 70 &&
+      dist(center(targetAfter), srcPos) < 70;
+    results.push({
+      behavior: "overview swap onto card center",
+      pass: swapped,
+      detail: {
+        beforeMap,
+        swapAffordance: affordance.filter((h) => h.dropSwap || h.dropTarget),
+        afterMap: posMap(after),
+      },
+    });
+  }
+
   console.log(JSON.stringify({ results }, null, 2));
   process.exitCode = results.every((r) => r.pass) ? 0 : 1;
 } catch (error) {
@@ -144,6 +192,10 @@ try {
 
 function center(host) {
   return { x: host.rect.left + host.rect.width / 2, y: host.rect.top + host.rect.height / 2 };
+}
+
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 function posMap(scene) {

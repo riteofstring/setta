@@ -228,15 +228,19 @@ async function performOverviewColumnDrop(client) {
 
   await dispatchMousePress(client, sourceHandle);
   await dispatchMouseMove(client, to, { buttons: 1 });
+  // Overview now uses the shared drop model: dropping past the rightmost card
+  // annotates that card with a horizontal "after" insert affordance (the dashed
+  // ghost is no longer shown during a drag).
   const ghost = await waitForState(
     client,
     paneSnapshotExpression(),
     (snapshot) => {
       const source = snapshot.visibleHosts.find((host) => host.paneId === sourceHost.paneId);
+      const target = snapshot.visibleHosts.find((host) => host.paneId === targetHost.paneId);
       return (
         snapshot.overviewDragging === "true" &&
-        snapshot.ghost?.placement === "right" &&
-        snapshot.ghost.paneId === targetHost.paneId &&
+        target?.dropAxis === "horizontal" &&
+        target?.dropTarget === "after" &&
         source?.dragSource === true
       );
     },
