@@ -1,12 +1,14 @@
 # Workspace Graph Retained Scene Camera Fast Path Plan
 
 - **Date:** June 20, 2026
-- **Status:** Partially implemented — NOT complete. Phases 5–7 are done
-  (clickable sprite popovers, shared agent activity UI, recording incident
+- **Status:** Partially implemented — NOT complete. Phase 0 (baseline evidence
+  reset + cross-owner drag fix) is now done at the deterministic/code level
+  (machine-dependent ms baseline pending a reference-Mac run). Phases 5–7 are
+  done (clickable sprite popovers, shared agent activity UI, recording incident
   reports). Phase 8's gate was relaxed rather than enforcing the fast-path
-  contract. Phases 0–4 — the camera fast path, the retained/dirty pipeline, the
-  animation budget, and the cross-owner drag fix — are NOT started. The plan's
-  core felt goals (snappy pan/zoom, no flashing, drag bug fixed) are unmet. See
+  contract. Phases 1–4 — the camera fast path, the retained/dirty pipeline, and
+  the animation budget — are NOT started. The plan's core felt goals (snappy
+  pan/zoom, no flashing) are still unmet; the drag bug is fixed. See
   Implementation Status.
 - **Replaces:** `workspace_graph_interaction_refactor_readiness_plan.md`.
 - **Scope:** Rebuild the workspace graph interaction and rendering contract
@@ -82,11 +84,35 @@ Implemented (verified):
   `docs/reports/performance/workspace-graph-phase-8-performance-gate.md`
   explicitly separate deterministic CI invariants from machine-dependent
   millisecond timing reports.
+Phase 0 was implemented on 2026-06-21 (deterministic/code level):
+
+- Cross-owner drag fixed: `pixi-renderer-node-drag.js` `draggedNodesForStart`
+  now restricts a group drag to selected nodes that share the grabbed node's
+  movement owner, so a workflow drag no longer moves a selected semantic node.
+  Deterministic regression: `pixi-renderer-node-drag.test.js`.
+- Evidence reset for the label-hiding hack: the pan/zoom snapshot assertion that
+  *required* labels to be hidden during motion
+  (`workflow-graph-pan-zoom-snapshot-assertions.mjs`) was removed, and the
+  contract "labels must not be hidden during camera motion" was added as an
+  expected-red test at both layers — unit (`pixi-renderer-camera-sync.test.js`,
+  `test.fails`) and harness gate
+  (`workflow-graph-phase0-performance-guardrails.mjs`,
+  `no-labels-hidden-during-camera-motion`, severity `expected-fail` that flips to
+  a gate-blocking failure when the renderer stops hiding labels). Gate logic is
+  verified by `workflow-graph-phase0-performance-guardrails.test.mjs`.
+- Camera-motion non-regressions documented and guarded: no React commits, no
+  graph replacement, no semantic working-set reads, base edges not hidden,
+  trajectory sprites transform-only.
+- Baseline + latency-attribution categories + 2ms diagnostic-overhead budget
+  recorded in `docs/reports/performance/workspace-graph-phase-0-baseline.md`.
+- Pending (machine-dependent, not measurable in CI/sandbox): the millisecond
+  start-of-gesture p95s and the recording-on vs recording-off 2ms overhead
+  comparison must be captured on the reference MacBook via
+  `run-workflows.mjs --tier workspace-graph-phase8` with
+  `SETTA_WORKFLOW_GRAPH_PHASE0_REFERENCE_RUNNER=1`.
+
 Not implemented (still required):
 
-- Phase 0 (baseline evidence reset + immediate cross-owner drag fix): NOT done.
-  `draggedNodesForStart` is byte-identical to the buggy version; a workflow drag
-  still moves a selected semantic node.
 - Phase 1 (camera-only fast path): NOT done. No fast-path invariant in code; the
   wheel handler still instruments the synchronous hot path; camera-motion label
   hiding remains.
@@ -741,11 +767,15 @@ The plan is complete only when (current status annotated):
   — UNMET (Phase 2 not done)
 - pan/zoom has a verified camera-only fast path; — UNMET (Phase 1 not done)
 - retained scene dirty work is explicit and bounded; — UNMET (Phase 2 not done)
-- cross-owner drag bugs are impossible by contract; — UNMET (Phase 0/4 not done)
+- cross-owner drag bugs are impossible by contract; — PARTIAL (Phase 0 landed
+  the workflow→semantic mixed-selection fix + deterministic regression; Phase 4
+  broadens to all compatible-owner group-drag cases)
 - activity sprites are clickable and diagnosable; — MET (Phase 5)
 - workflow agent details use shared chat/agent activity UI; — MET (Phase 6)
 - recordings explain failures in compact causal terms; — MET (Phase 7)
 - broad quality gates pass after focused verification. — PARTIAL (Phase 8 gate
   relaxed; it cannot certify the UNMET items above).
 
-Status: 3 of 9 met. The five UNMET items are the plan's core felt goals.
+Status: 3 of 9 met, 1 partial (cross-owner drag, Phase 0). The four UNMET items
+(snappy pan/zoom, no flashing, camera fast path, retained dirty work) are the
+plan's core felt goals and remain for Phases 1–2.

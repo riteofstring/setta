@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { repoRoot } from "./electron-cdp-harness.mjs";
 import { summarizeWorkflowGraphPerformanceDiagnostics } from "./workflow-graph-performance-recording.mjs";
 import {
+  phase0CheckBlocksGate,
   phase0PerformanceScenarioGate,
   workflowGraphSemanticTrafficDuringInteraction,
 } from "./workflow-graph-phase0-performance-guardrails.mjs";
@@ -90,9 +91,8 @@ function buildPanZoomPerformanceReport({ artifactRoot, phase, source, summaries 
 }
 
 function phase0ReportStatus({ matrixChecks, scenarios }) {
-  return scenarios.every((scenario) =>
-    scenario.checks.every((check) => check.severity !== "hard" || check.status === "pass"),
-  ) && matrixChecks.every((check) => check.severity !== "hard" || check.status === "pass")
+  return scenarios.every((scenario) => !scenario.checks.some(phase0CheckBlocksGate)) &&
+    !matrixChecks.some(phase0CheckBlocksGate)
     ? "passed"
     : "failed";
 }
@@ -114,8 +114,8 @@ export function assertPhase0MatrixGatePassed(phase0Gate) {
     ...(phase0Gate.matrixChecks ?? []),
     ...phase0Gate.scenarios.flatMap((scenario) => scenario.checks),
   ]
-    .filter((check) => check.severity === "hard" && check.status !== "pass")
-    .map((check) => `${check.id}: ${check.summary}`);
+    .filter(phase0CheckBlocksGate)
+    .map((check) => `${check.id} [${check.severity}/${check.status}]: ${check.summary}`);
   if (failures.length > 0) {
     throw new Error(`phase 0 performance matrix failed: ${failures.join("; ")}`);
   }

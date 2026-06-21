@@ -161,12 +161,16 @@ function assertCameraSyncCounters(snapshot) {
       `camera sync counters did not show coalesced movement: ${JSON.stringify(snapshot.render)}`,
     );
   }
-  if (
-    snapshot.render.cameraMovingLabelHiddenFrameCount <= 0 ||
-    snapshot.render.cameraMovingLabelSyncedFrameCount !== 0
-  ) {
+  // Phase 0 camera fast-path contract (evidence reset): labels must not be
+  // re-synced per moving frame — they ride the viewport transform. The previous
+  // requirement that labels be HIDDEN during motion
+  // (`cameraMovingLabelHiddenFrameCount > 0`) was a hack mandate and has been
+  // removed. Whether camera motion wrongly hides labels is now asserted as the
+  // camera fast-path contract in the performance gate
+  // (`no-labels-hidden-during-camera-motion`).
+  if (snapshot.render.cameraMovingLabelSyncedFrameCount !== 0) {
     throw new Error(
-      `camera sync counters did not show moving label handling: ${JSON.stringify(snapshot.render)}`,
+      `camera motion re-synced labels per moving frame (fast-path violation): ${JSON.stringify(snapshot.render)}`,
     );
   }
   assertInteractionSchedulerCounters(snapshot);

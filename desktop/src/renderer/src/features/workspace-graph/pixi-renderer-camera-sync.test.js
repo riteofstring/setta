@@ -150,6 +150,46 @@ describe("workflow graph camera sync", () => {
       cameraSettleRestoreFrameCount: 1,
     });
   });
+
+  // Phase 0 camera fast-path contract (evidence reset).
+  //
+  // The two tests above document the current behavior: the renderer hides node
+  // labels (`labelLayer.visible = false`) while the camera is moving. Per the
+  // Non-Negotiable UX Contract, node labels must NOT disappear because the
+  // camera is moving. This guard encodes that contract directly.
+  //
+  // It is marked `.fails` so it is recorded as an expected-red test now: the
+  // body currently throws (labels are hidden), which `test.fails` reports as a
+  // known, expected failure. The moment Phase 1 keeps labels visible during
+  // motion, this body will stop throwing and `test.fails` will turn RED,
+  // forcing it to be promoted to a normal `test(...)` and the label-hiding
+  // tests above to be removed.
+  test.fails(
+    "camera fast-path contract: node labels stay visible while the camera is moving (Phase 1)",
+    () => {
+      const labels = labelManagerStub({ nodeCount: 3 });
+      const labelLayer = { visible: true };
+      const cameraSync = createWorkflowGraphCameraSync({
+        animationCoordinator: { syncActiveSet: vi.fn() },
+        debugMetrics: debugMetricsStub(),
+        handlers: { onCameraStateChange: vi.fn() },
+        inputResponsiveness: { recordSettleRestore: vi.fn() },
+        labelLayer,
+        labels,
+        syncFilterAreas: vi.fn(),
+        viewport: viewportStub(),
+      });
+
+      cameraSync.recordCameraState(
+        { x: 10, y: 0, zoom: 1 },
+        { interactionKind: "wheel-pan", moving: true },
+      );
+      cameraSync.scheduleCameraDependentSync();
+      cameraSync.runCameraDependentSyncFrame(10);
+
+      expect(labelLayer.visible).toBe(true);
+    },
+  );
 });
 
 function debugMetricsStub() {

@@ -76,12 +76,17 @@ export function createWorkflowGraphNodeDragController({
   }
 
   function draggedNodesForStart(node) {
-    let draggedNodes = nodes.filter((candidate) => selectedNodeIds.has(candidate.id));
-    if (!draggedNodes.some((candidate) => !nodeIsMovable(candidate))) {
-      return draggedNodes;
-    }
-    selectOnlyNode(node.id);
-    return [node];
+    // A group drag may only move selected nodes that share the grabbed node's
+    // movement owner. This keeps a workflow-node drag from dragging a selected
+    // semantic node (cross-owner drag) and is the foundation Phase 4 broadens
+    // into full compatible-owner group movement. The primary node is always
+    // movable here (admitted in `start`) and is always selected, so it is
+    // always part of the returned set.
+    const primaryOwnerKind = movementOwnerKindFor(node);
+    return nodes.filter(
+      (candidate) =>
+        selectedNodeIds.has(candidate.id) && movementOwnerKindFor(candidate) === primaryOwnerKind,
+    );
   }
 
   function move(screen) {
@@ -345,6 +350,10 @@ function dragMoved(drag) {
 
 function draggedNodeIdSet(drag) {
   return new Set(drag?.nodes.map((node) => node.nodeId) ?? []);
+}
+
+function movementOwnerKindFor(node) {
+  return node.movementOwner?.kind ?? "";
 }
 
 function movementOwnerForDrag(drag) {

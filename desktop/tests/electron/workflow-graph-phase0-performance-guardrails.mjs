@@ -21,12 +21,26 @@ export function assertPhase0PerformanceGuardrails({
     syntheticScene,
   });
   const failures = gate.checks
-    .filter((check) => check.severity === "hard" && check.status !== "pass")
-    .map((check) => `${check.id}: ${check.summary}`);
+    .filter(phase0CheckBlocksGate)
+    .map((check) => `${check.id} [${check.severity}/${check.status}]: ${check.summary}`);
   if (failures.length > 0) {
     throw new Error(`phase 0 performance guardrails failed: ${failures.join("; ")}`);
   }
   return gate;
+}
+
+// A check blocks the Phase 0 gate when a hard check fails, or when an
+// expected-fail (camera fast-path contract) check has started passing. The
+// latter is the flip signal: the contract is now satisfied in the renderer, so
+// the check must be promoted from `expected-fail` to `hard`.
+export function phase0CheckBlocksGate(check) {
+  if (check.severity === "hard") {
+    return check.status !== "pass";
+  }
+  if (check.severity === "expected-fail") {
+    return check.status === "unexpected-pass";
+  }
+  return false;
 }
 
 export function assertPhase8PerformanceGuardrails(request) {
@@ -193,6 +207,7 @@ function phase8PerformanceChecks(context) {
     ...phase0CameraLatencyChecks(context),
     phase0CameraWorkingSetReadCheck(context),
     phase0PresentedFrameBudgetBlockedCheck(context),
+    phase0CameraMotionLabelVisibilityCheck(context),
     phase8LabelSyncCheck(context),
     phase8StaticGlowCheck(context),
     phase8MaterializedNodeCountCheck(context),
@@ -358,6 +373,29 @@ function phase0PresentedFrameBudgetBlockedCheck() {
   });
 }
 
+// Phase 0 camera fast-path contract (evidence reset): node labels must NOT be
+// hidden because the camera is moving. The renderer currently hides them
+// (`labelLayer.visible = false` per moving frame), so this check fails today and
+// is recorded as `expected-fail`. When Phase 1 removes camera-motion label
+// hiding, `cameraMovingLabelHiddenFrameCount` will stop advancing during the
+// gesture, this check will report `unexpected-pass`, and the gate will block
+// until it is promoted to a hard check.
+//
+// This is the contract `no-full-graph-label-sync-per-pan-wheel-event` cannot
+// express: avoiding a per-frame label *sync* is satisfied by hiding labels
+// entirely, which is exactly the hack this check forbids.
+function phase0CameraMotionLabelVisibilityCheck({ renderDeltas }) {
+  const hiddenFrameDelta = Number(renderDeltas.cameraMovingLabelHiddenFrameCount ?? 0);
+  const deferredLabelDelta = Number(renderDeltas.cameraMovingLabelDeferredFrameCount ?? 0);
+  return expectedFailCheck({
+    actual: hiddenFrameDelta,
+    budget: 0,
+    contractSatisfied: hiddenFrameDelta === 0,
+    id: "no-labels-hidden-during-camera-motion",
+    summary: `cameraMovingLabelHiddenFrameDelta=${hiddenFrameDelta}, cameraMovingLabelDeferredFrameDelta=${deferredLabelDelta}; labels must ride the camera transform, not be hidden during pan/zoom (Phase 1 contract)`,
+  });
+}
+
 function phase8LabelSyncCheck(context) {
   return hardCheck({
     actual: context.cameraMovingLabelSyncDelta,
@@ -471,10 +509,30 @@ function reportOnlyCheck({ actual, budget, id, pass, summary }) {
   };
 }
 
+// An expected-fail check encodes a UX contract that the current renderer does
+// not yet satisfy (recorded as an expected-red test, per Phase 0). While the
+// contract is unmet it reports `expected-fail` and does not block the gate. The
+// moment the renderer satisfies it (`contractSatisfied === true`) it reports
+// `unexpected-pass`, which blocks the gate via `phase0CheckBlocksGate` so the
+// check gets promoted to a hard guard.
+function expectedFailCheck({ actual, budget = null, contractSatisfied, id, summary }) {
+  return {
+    actual,
+    budget,
+    id,
+    severity: "expected-fail",
+    status: contractSatisfied ? "unexpected-pass" : "expected-fail",
+    summary: contractSatisfied
+      ? `CONTRACT NOW SATISFIED — promote ${id} from expected-fail to a hard check. ${summary}`
+      : summary,
+  };
+}
+
 function renderCounterDeltas(initialRender, finalRender) {
   const counters = [
     "cameraDependentSyncFrameCount",
     "cameraMovingLabelDeferredFrameCount",
+    "cameraMovingLabelHiddenFrameCount",
     "cameraMovingSyncFrameCount",
     "cameraMovingLabelSyncedFrameCount",
     "cameraSettleLabelSyncCount",
