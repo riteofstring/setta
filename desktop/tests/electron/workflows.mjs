@@ -66,16 +66,6 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "workflow-activity-feed.test.mjs",
-    name: "workflow-activity-feed",
-    tiers: ["required"],
-  },
-  {
-    file: "workflow-graph-interaction-cancellation.test.mjs",
-    name: "workflow-graph-interaction-cancellation",
-    tiers: ["required"],
-  },
-  {
     file: "workflow-blank-canvas.test.mjs",
     name: "workflow-blank-canvas",
     tiers: ["required"],

@@ -6,8 +6,6 @@ import type {
 } from "@generated/backend";
 import { create } from "zustand";
 
-import { dispatchWorkflowDefinitionChanged } from "./workflow-definition-invalidation";
-
 export interface WorkflowNodeDetailsTarget {
   definitionId: string;
   definitionName: string;
@@ -35,6 +33,7 @@ export interface WorkflowSettingsTarget {
 }
 
 interface WorkflowEditorStore {
+  definitionChangeSequence: number;
   notifyWorkflowDefinitionChanged: (workspaceId: string, definitionId: string) => void;
   selectedNodeTarget: WorkflowNodeDetailsTarget | null;
   selectedWorkflowSettingsTarget: WorkflowSettingsTarget | null;
@@ -43,8 +42,11 @@ interface WorkflowEditorStore {
 }
 
 export const useWorkflowEditorStore = create<WorkflowEditorStore>((set) => ({
-  notifyWorkflowDefinitionChanged: (workspaceId, definitionId) => {
-    dispatchWorkflowDefinitionChanged({ definitionId, workspaceId });
+  definitionChangeSequence: 0,
+  notifyWorkflowDefinitionChanged: () => {
+    set((state) => ({
+      definitionChangeSequence: state.definitionChangeSequence + 1,
+    }));
   },
   selectedNodeTarget: null,
   selectedWorkflowSettingsTarget: null,

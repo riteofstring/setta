@@ -164,28 +164,6 @@ func (service *Service) findExactWorkflowConversationLocked(workspaceID string, 
 	return Conversation{}, false, nil
 }
 
-func (service *Service) ListWorkflowConversations(workspaceID string) ([]Conversation, error) {
-	if _, err := service.resolveWorkspaceForRequest(workspaceID); err != nil {
-		return nil, err
-	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
-	conversations, corrupt, err := service.store.scanConversationsAllowingCorrupt(workspaceID)
-	if err != nil {
-		return nil, err
-	}
-	if len(corrupt) > 0 {
-		return nil, corruptFindingError(corrupt[0])
-	}
-	result := make([]Conversation, 0, len(conversations))
-	for _, conversation := range conversations {
-		if conversation.Internal && conversation.Workflow != nil {
-			result = append(result, conversation)
-		}
-	}
-	return result, nil
-}
-
 func validateWorkflowAgentTurnRequest(request WorkflowAgentTurnRequest) error {
 	if err := validateStorageID("workflow definition id", request.DefinitionID); err != nil {
 		return err

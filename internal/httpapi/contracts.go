@@ -7,7 +7,6 @@ import (
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
-	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
@@ -56,15 +55,6 @@ type ReadWorkspaceUILayoutRequest struct {
 
 type SaveWorkspaceUILayoutRequest struct {
 	Layout workspaceui.WorkspaceUILayout `json:"layout"`
-}
-
-type ReadWorkspaceActivitySnapshotRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	Limit       int    `json:"limit"`
-}
-
-type ReadWorkspaceActivitySnapshotResponse struct {
-	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
 }
 
 type ListConversationsRequest struct {

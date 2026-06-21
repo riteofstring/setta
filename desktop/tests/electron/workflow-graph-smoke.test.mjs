@@ -47,7 +47,6 @@ import {
   createWorkflowProjectionFixture,
   isWorkflowProjectionSnapshotReady,
 } from "./workflow-projection-smoke-helpers.mjs";
-import { assertSafeWorkflowProjectionUpdateDuringCameraPan } from "./workflow-graph-safe-update-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const cdpMetaModifier = 4;
@@ -55,8 +54,14 @@ const cdpShiftModifier = 8;
 const expectedBitmapLabelFontFamily = "InterMSDF";
 const expectedBitmapLabelFontSize = 16;
 const expectedCompactSelectedLabelFontSize = 12;
-// prettier-ignore
-const labelVisibilityReasons = new Set(["all-visible", "decluttered", "outside-viewport", "selected", "visible-priority", "zoom-hidden"]);
+const labelVisibilityReasons = new Set([
+  "all-visible",
+  "decluttered",
+  "outside-viewport",
+  "selected",
+  "visible-priority",
+  "zoom-hidden",
+]);
 const geometryConstructionCounters = [
   "gridDrawCount",
   "nodeBodyContextCount",
@@ -112,23 +117,11 @@ try {
   assertWorkflowProjectionSnapshot(initial, workflowProjection);
   assertInitialSnapshot(initial);
   await captureScreenshot(context.client, join(artifactDir, "initial.png"));
-  const afterSafeGraphUpdate = await assertSafeWorkflowProjectionUpdateDuringCameraPan({
-    assertCameraMoved,
-    clampCanvasPoint,
-    client: context.client,
-    emptyCanvasPoint,
-    getWorkflowGraphSnapshot,
-    nodeById,
-    projection: workflowProjection,
-    snapshot: initial,
-    surfaceId: workflowGraphSurfaceId,
-    waitForWorkflowGraphSnapshot,
-  });
 
-  const selectionNodes = visibleNodes(afterSafeGraphUpdate);
+  const selectionNodes = visibleNodes(initial);
   if (selectionNodes.length < 2) {
     throw new Error(
-      `fewer than two visible nodes were present for selection coverage: ${JSON.stringify(afterSafeGraphUpdate.graph.nodes)}`,
+      `fewer than two visible nodes were present for selection coverage: ${JSON.stringify(initial.graph.nodes)}`,
     );
   }
   const [firstNode, secondNode] = selectionNodes;
@@ -136,9 +129,9 @@ try {
   await delay(100);
   const afterHover = await getWorkflowGraphSnapshot(context.client);
   assertSelectedExactly(afterHover, [], "node hover");
-  assertOutlineVisibilityUpdated(afterSafeGraphUpdate, afterHover, "node hover outline");
-  assertGeometryConstructionCountersStable(afterSafeGraphUpdate, afterHover, "node hover geometry");
-  assertSpatialIndexQueryAdvanced(afterSafeGraphUpdate, afterHover, "node hover hit test");
+  assertOutlineVisibilityUpdated(initial, afterHover, "node hover outline");
+  assertGeometryConstructionCountersStable(initial, afterHover, "node hover geometry");
+  assertSpatialIndexQueryAdvanced(initial, afterHover, "node hover hit test");
   assertSpatialIndexCandidateAtLeast(
     afterHover,
     "lastNodeHitCandidateCount",
@@ -539,7 +532,6 @@ try {
     afterOffscreenPan,
     afterPan,
     afterPlainSelect,
-    afterSafeGraphUpdate,
     afterWheelPan,
     afterZoom,
     afterZoomGroupDrag,
