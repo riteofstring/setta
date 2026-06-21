@@ -19,6 +19,8 @@ export interface PaneDropTarget {
 export interface PaneDragSession {
   dragging: boolean;
   handle: HTMLElement;
+  pendingDropFrame: number | null;
+  pendingDropPointer: PaneDropPointer | null;
   pointerId: number;
   sourcePaneId: string;
   startClientX: number;
@@ -39,6 +41,11 @@ interface PaneDragOffsetSession {
   startClientY: number;
 }
 
+interface PaneDropPointer {
+  clientX: number;
+  clientY: number;
+}
+
 export function beginPaneDragSession(
   event: PointerEvent,
   root: HTMLElement,
@@ -53,6 +60,8 @@ export function beginPaneDragSession(
   return {
     dragging: false,
     handle: target.handle,
+    pendingDropFrame: null,
+    pendingDropPointer: null,
     pointerId: event.pointerId,
     sourcePaneId: target.paneId,
     startClientX: event.clientX,
@@ -79,14 +88,18 @@ export function updatePaneDragSession(
     return;
   }
   syncPaneDragSourceOffset(session, event);
-  updatePaneDropTarget(root, session, event, store);
+  schedulePaneDropTargetUpdate(root, session, event, store);
 }
 
 export function finishPaneDragSession(
   event: PointerEvent,
   root: HTMLElement,
   session: PaneDragSession,
+  store?: WorkspaceLayoutStore,
 ): PaneDragFinish {
+  if (store) {
+    flushPaneDropTarget(root, session, store);
+  }
   const finish = {
     dragging: session.dragging,
     shouldCommitDrop: event.type === "pointerup",
@@ -100,6 +113,7 @@ export function finishPaneDragSession(
 export function cleanupPaneDragSession(root: HTMLElement, session: PaneDragSession): void {
   delete root.dataset.paneDragging;
   clearPaneDropTargets(root);
+  cancelPaneDropTargetUpdate(session);
   const sourceHost = visiblePaneHostForPane(session.sourcePaneId);
   sourceHost?.removeAttribute("data-drag-source");
   if (sourceHost) {
@@ -108,6 +122,44 @@ export function cleanupPaneDragSession(root: HTMLElement, session: PaneDragSessi
   if (session.handle.hasPointerCapture?.(session.pointerId)) {
     session.handle.releasePointerCapture(session.pointerId);
   }
+}
+
+function schedulePaneDropTargetUpdate(
+  root: HTMLElement,
+  session: PaneDragSession,
+  event: PointerEvent,
+  store: WorkspaceLayoutStore,
+): void {
+  session.pendingDropPointer = { clientX: event.clientX, clientY: event.clientY };
+  if (session.pendingDropFrame !== null) {
+    return;
+  }
+  session.pendingDropFrame = requestPaneDropAnimationFrame(() => {
+    session.pendingDropFrame = null;
+    flushPaneDropTarget(root, session, store);
+  });
+}
+
+function flushPaneDropTarget(
+  root: HTMLElement,
+  session: PaneDragSession,
+  store: WorkspaceLayoutStore,
+): void {
+  const pointer = session.pendingDropPointer;
+  if (!pointer) {
+    return;
+  }
+  session.pendingDropPointer = null;
+  updatePaneDropTarget(root, session, pointer, store);
+}
+
+function cancelPaneDropTargetUpdate(session: PaneDragSession): void {
+  if (session.pendingDropFrame === null) {
+    return;
+  }
+  cancelPaneDropAnimationFrame(session.pendingDropFrame);
+  session.pendingDropFrame = null;
+  session.pendingDropPointer = null;
 }
 
 export function applyPaneDrop(
@@ -155,7 +207,7 @@ function paneDragTargetFromPointer(event: PointerEvent): {
 function updatePaneDropTarget(
   root: HTMLElement,
   session: PaneDragSession,
-  event: PointerEvent,
+  event: PaneDropPointer,
   store: WorkspaceLayoutStore,
 ): void {
   const target = paneDropTargetFromPointer(event, session.sourcePaneId, store);
@@ -172,7 +224,7 @@ function updatePaneDropTarget(
 }
 
 export function paneDropTargetFromPointer(
-  event: PointerEvent,
+  event: PaneDropPointer,
   sourcePaneId: string,
   store: WorkspaceLayoutStore,
 ): PaneDropTarget | null {
@@ -214,7 +266,10 @@ export function paneDropTargetFromPointer(
   };
 }
 
-function paneColumnDropPlacement(event: PointerEvent, host: HTMLElement): PaneDropPlacement | null {
+function paneColumnDropPlacement(
+  event: PaneDropPointer,
+  host: HTMLElement,
+): PaneDropPlacement | null {
   const rect = host.getBoundingClientRect();
   const edgeBand = Math.min(
     rect.width / 2,
@@ -232,7 +287,7 @@ function paneColumnDropPlacement(event: PointerEvent, host: HTMLElement): PaneDr
   return null;
 }
 
-function paneRowDropPlacement(event: PointerEvent, host: HTMLElement): PaneDropPlacement {
+function paneRowDropPlacement(event: PaneDropPointer, host: HTMLElement): PaneDropPlacement {
   const rect = host.getBoundingClientRect();
   return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
 }
@@ -344,4 +399,19 @@ function clearPaneDropTargets(root: HTMLElement): void {
     delete host.dataset.dropAxis;
     delete host.dataset.dropTarget;
   }
+}
+
+function requestPaneDropAnimationFrame(callback: FrameRequestCallback): number {
+  if (typeof window.requestAnimationFrame === "function") {
+    return window.requestAnimationFrame(callback);
+  }
+  callback(0);
+  return 0;
+}
+
+function cancelPaneDropAnimationFrame(frameId: number): void {
+  if (frameId === 0 || typeof window.cancelAnimationFrame !== "function") {
+    return;
+  }
+  window.cancelAnimationFrame(frameId);
 }

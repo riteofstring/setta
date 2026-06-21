@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { WorkspaceLayoutStore } from "./layout-store";
-import { applyPaneDrop, paneDropTargetFromPointer } from "./pane-drag-reorder";
+import {
+  applyPaneDrop,
+  paneDropTargetFromPointer,
+  updatePaneDragSession,
+  type PaneDragSession,
+} from "./pane-drag-reorder";
 import type { WorkspaceColumn, WorkspacePane, WorkspaceScene } from "./types";
 
 describe("pane drag drop intent hit-testing", () => {
@@ -82,9 +87,60 @@ describe("pane drag drop intent hit-testing", () => {
     expect(store.applyPaneDropIntent).toHaveBeenCalledOnce();
     expect(store.applyPaneDropIntent).toHaveBeenCalledWith("source_pane", target.intent);
   });
+
+  test("coalesces preview updates to one per animation frame", () => {
+    const harness = dragTestHarness();
+    const session: PaneDragSession = {
+      dragging: false,
+      handle: { hasPointerCapture: () => false } as HTMLElement,
+      pendingDropFrame: null,
+      pendingDropPointer: null,
+      pointerId: 1,
+      sourcePaneId: "source_pane",
+      startClientX: 0,
+      startClientY: 0,
+      target: null,
+    };
+
+    updatePaneDragSession(
+      pointerEvent({ clientX: 200, clientY: 150 }),
+      harness.root,
+      session,
+      harness.store,
+    );
+    updatePaneDragSession(
+      pointerEvent({ clientX: 108, clientY: 100 }),
+      harness.root,
+      session,
+      harness.store,
+    );
+
+    expect(harness.previewPaneDropIntent).not.toHaveBeenCalled();
+    expect(harness.frameCallbacks).toHaveLength(1);
+
+    harness.frameCallbacks[0]?.(0);
+
+    expect(harness.previewPaneDropIntent).toHaveBeenCalledOnce();
+    expect(harness.previewPaneDropIntent).toHaveBeenCalledWith("source_pane", {
+      kind: "column",
+      planeIndex: 2,
+      slotPlacement: "before",
+      targetColumnId: "target_column",
+    });
+  });
 });
 
 function storeForDragTests(): WorkspaceLayoutStore {
+  return dragTestHarness().store;
+}
+
+function dragTestHarness(): {
+  frameCallbacks: FrameRequestCallback[];
+  previewPaneDropIntent: ReturnType<typeof vi.fn>;
+  root: HTMLElement;
+  store: WorkspaceLayoutStore;
+} {
+  const frameCallbacks: FrameRequestCallback[] = [];
   const hosts = [
     paneHost("source_pane", {
       bottom: 200,
@@ -103,15 +159,28 @@ function storeForDragTests(): WorkspaceLayoutStore {
       width: 200,
     }),
   ];
+  const previewPaneDropIntent = vi.fn(() => true);
   vi.stubGlobal("document", {
     querySelectorAll: vi.fn(() => hosts),
   });
   vi.stubGlobal("window", {
+    cancelAnimationFrame: vi.fn(),
     getComputedStyle: vi.fn(() => ({ zIndex: "1" })),
+    requestAnimationFrame: vi.fn((callback: FrameRequestCallback) => {
+      frameCallbacks.push(callback);
+      return frameCallbacks.length;
+    }),
   });
-  return {
+  const root = {
+    dataset: {},
+    querySelectorAll: vi.fn(() => hosts),
+  } as unknown as HTMLElement;
+  const store = {
+    clearPaneDropPreview: vi.fn(() => true),
+    previewPaneDropIntent,
     toScene: () => dragTestScene(),
   } as unknown as WorkspaceLayoutStore;
+  return { frameCallbacks, previewPaneDropIntent, root, store };
 }
 
 function dragTestScene(): WorkspaceScene {
@@ -181,6 +250,7 @@ function paneHost(
       paneId,
     },
     getBoundingClientRect: () => rect,
+    style: {},
   } as HTMLElement;
 }
 

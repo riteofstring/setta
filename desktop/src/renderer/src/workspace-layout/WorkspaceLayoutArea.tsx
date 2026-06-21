@@ -596,7 +596,7 @@ function WorkspaceLayoutRuntimeArea({
       }
       event.preventDefault();
       event.stopPropagation();
-      const dragFinish = finishPaneDragSession(event, root, paneDragSession);
+      const dragFinish = finishPaneDragSession(event, root, paneDragSession, runtime.store);
       paneDragSessionRef.current = null;
       runtime.store.clearPaneDropPreview();
       if (dragFinish.dragging) {
