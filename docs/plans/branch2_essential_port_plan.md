@@ -5,8 +5,9 @@
 - **Source cutoff SHA:** `7a67cf453a006fa4cfd9a9b7e9ef6298984364e4`
 - **Target branch:** `setta-3-workflow-kernel-conceptual-nodes-3`
 - **Shared base:** `6beddf21a554132c283255e1f1bc6c259213e537`
-- **Status:** Planning; revised after external review. Phase 0 is a combined
-  source-branch and target-branch audit, not an implementation phase.
+- **Status:** Planning; revised after external review and an initial renderer
+  update-path probe. Phase 0 is a combined source-branch and target-branch
+  audit, not an implementation phase.
 
 ## Goal
 
@@ -427,6 +428,20 @@ docs/plans/branch2_slice_manifest.md
 This phase combines branch archaeology and current-branch ownership review. It
 must not choose an implementation slice until both sides have been inspected.
 
+Execution order within Phase 0 is not flat. Do the two gating investigations
+first and to conclusion, because they decide the first slice and the phase
+order:
+
+1. the renderer update-path investigation,
+2. the typed-metadata feasibility spike.
+
+Only after those are answered, fill the cluster manifest. The manifest is
+shallow by default: one section per required cluster, but deep only for the
+cluster(s) feeding the first slice the gating investigations point to. Clusters
+the first slice does not touch are recorded as `defer` or `learn-only` with the
+open question, not reconstructed line by line. Do not let the nine-cluster
+archaeology consume the timebox before the gating investigations are done.
+
 For each branch 2 feature cluster, record:
 
 - product intent,
@@ -476,11 +491,33 @@ Renderer update-path investigation:
   replacement, React graph-shell replacement, Pixi app/layer recreation, label
   or edge rematerialization, or unknown;
 - check what happens if the update arrives during camera movement;
-- cite the files/functions, existing tests/counters, or small diagnostic
-  evidence used for the answer;
+- cite the files/functions and existing per-update counters or tests used for
+  the answer;
 - decide whether the first implementation slice may safely add trajectory
   rendering, or whether graph surface/runtime ownership must be refactored
   first.
+
+Allowed evidence in this docs-only phase: reading source, reading existing
+per-update counters such as the scene-graph updater's `updateCounts()`, and
+running the production app to watch those counters during pan/zoom. All three
+add no committed code. Do not add committed instrumentation in Phase 0. If an
+ingress path has no existing counter or observable signal, record it as "needs
+instrumentation - defer to implementation"; that is a valid Phase 0 outcome,
+not a gap to fill here.
+
+Starting evidence from an initial probe, preliminary and to be confirmed, not
+treated as settled: the node ingress path is already content-only. In
+`pixi-renderer-scene-graph.js`, `createWorkflowGraphSceneGraphUpdater` exposes
+`replaceGraph` and `updateCounts`; `applySceneGraphNodes` diffs nodes by id,
+adds only new ids, removes only absent ids, rebuilds a container only when
+`nodeContainerRequiresRebuild` is true, and otherwise patches position, label,
+and markers in place; per-update node and edge add/remove/update counts are
+already recorded. Still open and required before declaring World A: the edge
+graphics path (`replaceGraph` replaces the whole `edges` array, and whether
+edge display objects diff or redraw lives in `pixi-renderer-edge-rendering.js`),
+what calls `replaceGraph` and on which store/event change, whether pan/zoom
+routes through React state back into `replaceGraph`, and whether the
+not-yet-existing trajectory sprite path can be content-only by design.
 
 Typed-metadata feasibility spike:
 
@@ -504,8 +541,13 @@ Timebox:
 
 Exit criteria:
 
-- one checked-in manifest section per required cluster,
-- no source code, test, generated-output, script, or contract changes,
+- both gating investigations (renderer update-path and typed-metadata
+  feasibility) completed to a decision before any deep cluster archaeology,
+- one checked-in manifest section per required cluster, deep only for the
+  first-slice cluster(s) and `defer`/`learn-only` for the rest,
+- no committed source, test, generated-output, script, or contract changes;
+  reading existing counters and running the production app to observe them is
+  allowed,
 - renderer update-path investigation recorded with a decision on whether graph
   surface/runtime refactor is a prerequisite,
 - generated-contract conflict rule recorded for each contract-touching cluster,
@@ -789,11 +831,16 @@ The Phase 0 agent brief should be:
 - do not edit generated outputs;
 - do not change source, tests, contracts, scripts, package manifests, or
   dependency manifests;
-- inspect branch 2 clusters and this branch's current owner files;
+- do the two gating investigations first and to conclusion - the renderer
+  update-path investigation and the typed-metadata feasibility spike - because
+  they decide the first slice;
+- get empirical renderer evidence from existing per-update counters and from
+  running the production app to observe them; do not add committed
+  instrumentation; record "needs instrumentation - defer to implementation"
+  when no counter exists;
+- inspect branch 2 clusters and this branch's current owner files, going deep
+  only for the first-slice cluster(s) and marking the rest `defer`/`learn-only`;
 - record both `disposition` and `method` for every cluster;
-- answer the renderer update-path investigation before recommending trajectory
-  sprite rendering;
-- include the typed-metadata feasibility spike;
 - include generated-contract conflict notes for every contract-touching cluster;
 - record prerequisite target-branch refactors when current architecture is the
   wrong substrate;
@@ -803,11 +850,22 @@ The Phase 0 agent brief should be:
   accidentally changed.
 
 The first implementation slice should be selected only after the manifest
-proves its ownership boundary. Likely candidates remain:
+proves its ownership boundary. The renderer update-path finding collapses the
+choice to a binary:
 
-1. workflow validation and edge-deletion correctness,
-2. typed trajectory runtime for the subset of metadata that is actually
-   available on this branch,
-3. semantic memory usefulness after typed trajectory evidence exists,
-4. graph pan/zoom fast-path and retained-scene cleanup if trajectory rendering
-   cannot satisfy the no-full-replacement invariant.
+- World A - if small live updates are already content-only on the paths that
+  matter (the node path already is), the first slice is the typed trajectory
+  runtime spine: the Go-owned trajectory backend plus the smallest renderer
+  surface that shows typed file read/write/diff/command activity. This is the
+  highest-value slice and the cleanest ownership story, since
+  `internal/workspacetrajectory` does not exist on this branch yet and is
+  purely additive.
+- World B - if any path that matters (edges, the `replaceGraph` trigger, or
+  camera movement) causes full-scene replacement, React graph-shell
+  replacement, Pixi layer recreation, or materialization churn, the first slice
+  is the graph-surface/runtime refactor (Phase 7), done before any trajectory
+  rendering.
+
+Workflow validation/edge-deletion correctness and semantic-memory usefulness
+are real but are not first-slice candidates: the first is lower-value, the
+second is downstream of trajectory evidence. Record them as later slices.
