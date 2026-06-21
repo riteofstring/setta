@@ -1,12 +1,17 @@
 import type { WorkspaceLayoutStore } from "./layout-store";
+import type { PaneDropIntent, PaneDropPlacement } from "./types";
 
 const paneDragThresholdPx = 6;
+const paneColumnDropEdgeRatio = 0.24;
+const paneColumnDropEdgeMinPx = 32;
+const paneColumnDropEdgeMaxPx = 96;
+const paneColumnDropGutterPx = 48;
 
 type PaneDropAxis = "horizontal" | "vertical";
-type PaneDropPlacement = "after" | "before";
 
 export interface PaneDropTarget {
   axis: PaneDropAxis;
+  intent: PaneDropIntent;
   paneId: string;
   placement: PaneDropPlacement;
 }
@@ -110,16 +115,7 @@ export function applyPaneDrop(
   sourcePaneId: string,
   target: PaneDropTarget,
 ): boolean {
-  if (sourcePaneId === target.paneId) {
-    return false;
-  }
-  if (target.placement === "before") {
-    return store.reorderPaneBefore(sourcePaneId, target.paneId);
-  }
-  const movedSourceBeforeTarget = store.reorderPaneBefore(sourcePaneId, target.paneId);
-  const movedTargetBeforeSource = store.reorderPaneBefore(target.paneId, sourcePaneId);
-  store.focusPane(sourcePaneId);
-  return movedSourceBeforeTarget || movedTargetBeforeSource;
+  return store.applyPaneDropIntent(sourcePaneId, target.intent);
 }
 
 export function syncPaneDragSourceOffset(
@@ -169,13 +165,13 @@ function updatePaneDropTarget(
   session.target = target;
   syncPaneDropTarget(root, target);
   if (target) {
-    store.previewPaneDrop(session.sourcePaneId, target.paneId, target.placement);
+    store.previewPaneDropIntent(session.sourcePaneId, target.intent);
     return;
   }
   store.clearPaneDropPreview();
 }
 
-function paneDropTargetFromPointer(
+export function paneDropTargetFromPointer(
   event: PointerEvent,
   sourcePaneId: string,
   store: WorkspaceLayoutStore,
@@ -186,30 +182,59 @@ function paneDropTargetFromPointer(
     return null;
   }
   const scene = store.toScene();
-  const sourcePane = scene.paneById.get(sourcePaneId);
   const targetPane = scene.paneById.get(targetPaneId);
-  if (!sourcePane || !targetPane) {
+  const targetColumn = scene.columns.find((column) => column.columnId === targetPane?.columnId);
+  if (!targetPane || !targetColumn) {
     return null;
   }
-  const axis: PaneDropAxis =
-    sourcePane.columnId === targetPane.columnId ? "vertical" : "horizontal";
+  const columnPlacement = paneColumnDropPlacement(event, host);
+  if (columnPlacement) {
+    return {
+      axis: "horizontal",
+      intent: {
+        kind: "column",
+        planeIndex: targetColumn.planeIndex,
+        slotPlacement: columnPlacement,
+        targetColumnId: targetColumn.columnId,
+      },
+      paneId: targetPaneId,
+      placement: columnPlacement,
+    };
+  }
+  const rowPlacement = paneRowDropPlacement(event, host);
   return {
-    axis,
+    axis: "vertical",
+    intent: {
+      kind: "row",
+      placement: rowPlacement,
+      targetPaneId,
+    },
     paneId: targetPaneId,
-    placement: paneDropPlacement(event, host, axis),
+    placement: rowPlacement,
   };
 }
 
-function paneDropPlacement(
-  event: PointerEvent,
-  host: HTMLElement,
-  axis: PaneDropAxis,
-): PaneDropPlacement {
+function paneColumnDropPlacement(event: PointerEvent, host: HTMLElement): PaneDropPlacement | null {
   const rect = host.getBoundingClientRect();
-  if (axis === "vertical") {
-    return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+  const edgeBand = Math.min(
+    rect.width / 2,
+    Math.max(
+      paneColumnDropEdgeMinPx,
+      Math.min(paneColumnDropEdgeMaxPx, rect.width * paneColumnDropEdgeRatio),
+    ),
+  );
+  if (event.clientX <= rect.left + edgeBand) {
+    return "before";
   }
-  return event.clientX < rect.left + rect.width / 2 ? "before" : "after";
+  if (event.clientX >= rect.right - edgeBand) {
+    return "after";
+  }
+  return null;
+}
+
+function paneRowDropPlacement(event: PointerEvent, host: HTMLElement): PaneDropPlacement {
+  const rect = host.getBoundingClientRect();
+  return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
 }
 
 function visiblePaneHostAtPoint(
@@ -220,12 +245,21 @@ function visiblePaneHostAtPoint(
   const hosts = document.querySelectorAll<HTMLElement>(
     '[data-testid="workspace-pane-host"][data-visible="true"]',
   );
+  const candidates = [...hosts].filter((host) => host.dataset.paneId !== sourcePaneId);
+  const directHost = candidates
+    .filter((host) => rectContainsPoint(host, clientX, clientY))
+    .toSorted((left, right) => zIndexForHost(right) - zIndexForHost(left))[0];
+  if (directHost) {
+    return directHost;
+  }
   return (
-    [...hosts]
-      .filter(
-        (host) => host.dataset.paneId !== sourcePaneId && rectContainsPoint(host, clientX, clientY),
-      )
-      .toSorted((left, right) => zIndexForHost(right) - zIndexForHost(left))[0] ?? null
+    candidates
+      .filter((host) => rectAcceptsGutterPoint(host, clientX, clientY))
+      .toSorted(
+        (left, right) =>
+          horizontalDistanceToRect(left, clientX) - horizontalDistanceToRect(right, clientX) ||
+          zIndexForHost(right) - zIndexForHost(left),
+      )[0] ?? null
   );
 }
 
@@ -234,6 +268,27 @@ function rectContainsPoint(host: HTMLElement, clientX: number, clientY: number):
   return (
     clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
   );
+}
+
+function rectAcceptsGutterPoint(host: HTMLElement, clientX: number, clientY: number): boolean {
+  const rect = host.getBoundingClientRect();
+  return (
+    clientY >= rect.top &&
+    clientY <= rect.bottom &&
+    clientX >= rect.left - paneColumnDropGutterPx &&
+    clientX <= rect.right + paneColumnDropGutterPx
+  );
+}
+
+function horizontalDistanceToRect(host: HTMLElement, clientX: number): number {
+  const rect = host.getBoundingClientRect();
+  if (clientX < rect.left) {
+    return rect.left - clientX;
+  }
+  if (clientX > rect.right) {
+    return clientX - rect.right;
+  }
+  return 0;
 }
 
 function zIndexForHost(host: HTMLElement): number {
@@ -245,8 +300,29 @@ function samePaneDropTarget(left: PaneDropTarget | null, right: PaneDropTarget |
   return (
     left?.paneId === right?.paneId &&
     left?.placement === right?.placement &&
-    left?.axis === right?.axis
+    left?.axis === right?.axis &&
+    samePaneDropIntent(left?.intent ?? null, right?.intent ?? null)
   );
+}
+
+function samePaneDropIntent(left: PaneDropIntent | null, right: PaneDropIntent | null): boolean {
+  if (left?.kind !== right?.kind) {
+    return false;
+  }
+  if (!left || !right) {
+    return left === right;
+  }
+  if (left.kind === "row" && right.kind === "row") {
+    return left.targetPaneId === right.targetPaneId && left.placement === right.placement;
+  }
+  if (left.kind === "column" && right.kind === "column") {
+    return (
+      left.targetColumnId === right.targetColumnId &&
+      left.planeIndex === right.planeIndex &&
+      left.slotPlacement === right.slotPlacement
+    );
+  }
+  return false;
 }
 
 function syncPaneDropTarget(root: HTMLElement, target: PaneDropTarget | null): void {
