@@ -4,9 +4,11 @@ import {
   visiblePaneHostForPane,
   type PaneDragSession,
 } from "./pane-drag-reorder";
+import type { PaneDropIntent } from "./types";
 
 export interface OverviewDragSession {
   dragging: boolean;
+  lastDropIntent: PaneDropIntent | null;
   pendingDropFrame: number | null;
   pendingDropPointer: { clientX: number; clientY: number } | null;
   pointerId: number;

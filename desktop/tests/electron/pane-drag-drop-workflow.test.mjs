@@ -204,7 +204,10 @@ async function performOverviewColumnDrop(client) {
   const overview = await waitForState(
     client,
     paneSnapshotExpression(),
-    (snapshot) => snapshot.mode === "overview" && snapshot.visibleHosts.length >= 4,
+    (snapshot) =>
+      snapshot.mode === "overview" &&
+      snapshot.visibleHosts.length >= 4 &&
+      snapshot.visibleHosts.every((host) => hostInsideStage(snapshot, host)),
     workflowTimeoutMs,
   );
   const sortedHosts = overview.visibleHosts.toSorted(
@@ -216,11 +219,12 @@ async function performOverviewColumnDrop(client) {
     throw new Error(`no overview drag target found: ${JSON.stringify(overview)}`);
   }
   const sourceHandle = await dragHandleCenter(client, sourceHost.paneId);
+  const stageRight = overview.stageRect.left + overview.stageRect.width;
   const to = {
-    x: targetHost.rect.left + targetHost.rect.width + 10,
+    x: Math.min(targetHost.rect.left + targetHost.rect.width + 2, stageRight - 1),
     y: targetHost.rect.top + targetHost.rect.height / 2,
   };
-  const beforeMetrics = await readFrameMetrics(client);
+  await resetFrameMetrics(client);
 
   await dispatchMousePress(client, sourceHandle);
   await dispatchMouseMove(client, to, { buttons: 1 });
@@ -258,7 +262,7 @@ async function performOverviewColumnDrop(client) {
     },
     workflowTimeoutMs,
   );
-  const metrics = paneDragMetricDelta(beforeMetrics, await readFrameMetrics(client));
+  const metrics = await readFrameMetrics(client);
   assertPaneDragPreviewMetrics(metrics, "overview column drop");
   return {
     afterDrop,
@@ -276,7 +280,7 @@ async function dragPaneToPoint(
   { expectedDropAxis, expectedDropTarget, sourcePaneId, targetPaneId, to },
 ) {
   const from = await dragHandleCenter(client, sourcePaneId);
-  const beforeMetrics = await readFrameMetrics(client);
+  await resetFrameMetrics(client);
   await dispatchMousePress(client, from);
   await dispatchMouseMove(client, to, { buttons: 1 });
   const during = await waitForState(
@@ -311,7 +315,7 @@ async function dragPaneToPoint(
     },
     workflowTimeoutMs,
   );
-  const metrics = paneDragMetricDelta(beforeMetrics, await readFrameMetrics(client));
+  const metrics = await readFrameMetrics(client);
   assertPaneDragPreviewMetrics(metrics, `${sourcePaneId} to ${targetPaneId}`);
   return { after, during, metrics };
 }
@@ -341,7 +345,7 @@ async function waitForNormalPaneHosts(client, minimumCount) {
 
 async function clickPaneAction(client, paneId, action) {
   const clicked = await client.evaluate(`(() => {
-    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"][data-visible="true"]'))
       .find((candidate) => candidate instanceof HTMLElement && candidate.dataset.paneId === ${JSON.stringify(paneId)});
     const button = host?.querySelector(${JSON.stringify(`[data-workspace-pane-action="${action}"]`)});
     if (!(button instanceof HTMLButtonElement)) {
@@ -360,10 +364,25 @@ async function clickPaneAction(client, paneId, action) {
 
 async function dragHandleCenter(client, paneId) {
   const center = await client.evaluate(`(() => {
-    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"][data-visible="true"]'))
       .find((candidate) => candidate instanceof HTMLElement && candidate.dataset.paneId === ${JSON.stringify(paneId)});
     const handle = host?.querySelector('[data-workspace-pane-drag-handle="true"]');
-    const target = handle instanceof HTMLElement ? handle : host;
+    const hostRect = host instanceof HTMLElement ? host.getBoundingClientRect() : null;
+    const handleRect = handle instanceof HTMLElement ? handle.getBoundingClientRect() : null;
+    const handleCenter = handleRect
+      ? { x: handleRect.left + handleRect.width / 2, y: handleRect.top + handleRect.height / 2 }
+      : null;
+    const handleInsideHost = Boolean(
+      hostRect &&
+        handleCenter &&
+        handleCenter.x >= hostRect.left &&
+        handleCenter.x <= hostRect.right &&
+        handleCenter.y >= hostRect.top &&
+        handleCenter.y <= hostRect.bottom,
+    );
+    const target = handleRect && handleRect.width > 0 && handleRect.height > 0 && handleInsideHost
+      ? handle
+      : host;
     if (!(target instanceof HTMLElement)) {
       return { ok: false, reason: "missing-target" };
     }
@@ -475,15 +494,15 @@ async function readFrameMetrics(client) {
   return metrics;
 }
 
-function paneDragMetricDelta(before, after) {
-  return {
-    previewClears: after.paneDragPreviewClears - before.paneDragPreviewClears,
-    previewUpdates: after.paneDragPreviewUpdates - before.paneDragPreviewUpdates,
-  };
+async function resetFrameMetrics(client) {
+  const reset = await client.evaluate(frameMetricsResetExpression());
+  if (!reset) {
+    throw new Error("workspace frame metrics reset hook was not installed");
+  }
 }
 
 function assertPaneDragPreviewMetrics(metrics, label) {
-  if (metrics.previewUpdates !== 1 || metrics.previewClears !== 1) {
+  if (metrics.paneDragPreviewUpdates !== 1 || metrics.paneDragPreviewClears !== 1) {
     throw new Error(
       `unexpected pane drag preview metrics for ${label}: ${JSON.stringify(metrics)}`,
     );
@@ -551,6 +570,15 @@ function requiredHost(snapshot, paneId) {
   return host;
 }
 
+function hostInsideStage(snapshot, host) {
+  return (
+    host.rect.left >= snapshot.stageRect.left &&
+    host.rect.left + host.rect.width <= snapshot.stageRect.left + snapshot.stageRect.width &&
+    host.rect.top >= snapshot.stageRect.top &&
+    host.rect.top + host.rect.height <= snapshot.stageRect.top + snapshot.stageRect.height
+  );
+}
+
 function workspaceIdExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
@@ -572,6 +600,16 @@ function layoutSnapshotExpression() {
 
 function frameMetricsExpression() {
   return `(() => window.__settaWorkspaceReadFrameMetrics?.() ?? null)()`;
+}
+
+function frameMetricsResetExpression() {
+  return `(() => {
+    if (!window.__settaWorkspaceResetFrameMetrics) {
+      return false;
+    }
+    window.__settaWorkspaceResetFrameMetrics();
+    return true;
+  })()`;
 }
 
 function paneSnapshotExpression() {

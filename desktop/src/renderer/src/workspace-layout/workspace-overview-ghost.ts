@@ -37,10 +37,6 @@ export function eventTargetsOverviewGhost(event: PointerEvent): boolean {
   );
 }
 
-export function overviewPaneIdFromPointer(event: PointerEvent): string | null {
-  return event.target instanceof Element ? visiblePaneHostId(event.target) : null;
-}
-
 export function overviewPaneIdAtPoint(event: PointerEvent, excludedPaneId?: string): string | null {
   return visiblePaneHostIdAtPoint(event.clientX, event.clientY, excludedPaneId);
 }
@@ -142,6 +138,9 @@ function overviewPaneFrames(stage: HTMLElement, stageRect: DOMRect): OverviewPan
   return Array.from(
     stage.querySelectorAll<HTMLElement>('[data-testid="workspace-pane-host"][data-visible="true"]'),
   ).flatMap((host) => {
+    if (host.dataset.dragSource === "true") {
+      return [];
+    }
     const paneId = host.dataset.paneId;
     if (!paneId) {
       return [];

@@ -41,7 +41,7 @@ import {
 import {
   eventTargetsOverviewGhost,
   overviewGhostTargetFromPointer,
-  overviewPaneIdFromPointer,
+  overviewPaneIdAtPoint,
   overviewPaneDropIntentFromGhost,
   setOverviewGhostTargetIfChanged,
   type OverviewGhostTarget,
@@ -418,7 +418,7 @@ function WorkspaceLayoutRuntimeArea({
       if (eventTargetsPaneChromeAction(event)) {
         return true;
       }
-      const sourcePaneId = overviewPaneIdFromPointer(event);
+      const sourcePaneId = overviewPaneIdAtPoint(event);
       if (!sourcePaneId) {
         return false;
       }
@@ -429,6 +429,7 @@ function WorkspaceLayoutRuntimeArea({
       visiblePaneHostForPane(sourcePaneId)?.setAttribute("data-drag-source", "true");
       overviewDragSessionRef.current = {
         dragging: false,
+        lastDropIntent: null,
         pendingDropFrame: null,
         pendingDropPointer: null,
         pointerId: event.pointerId,
@@ -457,6 +458,7 @@ function WorkspaceLayoutRuntimeArea({
         ghostTarget && ghostTarget.paneId !== overviewSession.sourcePaneId
           ? overviewPaneDropIntentFromGhost(ghostTarget, runtime.store.toScene())
           : null;
+      overviewSession.lastDropIntent = dropIntent;
       setOverviewGhostTargetIfChanged(setOverviewGhostTarget, dropIntent ? ghostTarget : null);
       if (dropIntent) {
         previewPaneDropIntent(overviewSession.sourcePaneId, dropIntent);
@@ -606,6 +608,7 @@ function WorkspaceLayoutRuntimeArea({
       event.preventDefault();
       event.stopPropagation();
       suppressNextPaneClick();
+      flushOverviewDropPreview(overviewSession);
       overviewDragSessionRef.current = null;
       delete root.dataset.overviewDragging;
       cancelOverviewDropPreview(overviewSession);
@@ -617,11 +620,7 @@ function WorkspaceLayoutRuntimeArea({
       }
       clearPaneDropPreview();
       if (overviewSession.dragging) {
-        const ghostTarget = overviewGhostTargetFromPointer(event, stage);
-        const dropIntent =
-          ghostTarget && ghostTarget.paneId !== overviewSession.sourcePaneId
-            ? overviewPaneDropIntentFromGhost(ghostTarget, runtime.store.toScene())
-            : null;
+        const dropIntent = overviewSession.lastDropIntent;
         if (dropIntent) {
           runLayoutAction(() => {
             runtime.store.applyPaneDropIntent(overviewSession.sourcePaneId, dropIntent);
