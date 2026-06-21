@@ -170,6 +170,76 @@ describe("pane drag drop intent hit-testing", () => {
     expect(harness.recordPaneDragPreviewClear).toHaveBeenCalledOnce();
     expect(harness.recordPaneDragPreviewUpdate).not.toHaveBeenCalled();
   });
+
+  test("records only changed targets during rapid back-and-forth dragging", () => {
+    const harness = dragTestHarness();
+    const session: PaneDragSession = {
+      dragging: true,
+      handle: { hasPointerCapture: () => false } as HTMLElement,
+      pendingDropFrame: null,
+      pendingDropPointer: null,
+      pointerId: 1,
+      sourcePaneId: "source_pane",
+      startClientX: 0,
+      startClientY: 0,
+      target: null,
+    };
+
+    updatePaneDragSession(
+      pointerEvent({ clientX: 200, clientY: 150 }),
+      harness.root,
+      session,
+      harness.store,
+      harness.metrics,
+    );
+    runLatestFrame(harness);
+
+    updatePaneDragSession(
+      pointerEvent({ clientX: 520, clientY: 80 }),
+      harness.root,
+      session,
+      harness.store,
+      harness.metrics,
+    );
+    runLatestFrame(harness);
+
+    updatePaneDragSession(
+      pointerEvent({ clientX: 520, clientY: 80 }),
+      harness.root,
+      session,
+      harness.store,
+      harness.metrics,
+    );
+    runLatestFrame(harness);
+
+    updatePaneDragSession(
+      pointerEvent({ clientX: 200, clientY: 150 }),
+      harness.root,
+      session,
+      harness.store,
+      harness.metrics,
+    );
+    runLatestFrame(harness);
+
+    expect(harness.previewPaneDropIntent).toHaveBeenCalledTimes(3);
+    expect(harness.previewPaneDropIntent).toHaveBeenNthCalledWith(1, "source_pane", {
+      kind: "row",
+      placement: "after",
+      targetPaneId: "target_pane",
+    });
+    expect(harness.previewPaneDropIntent).toHaveBeenNthCalledWith(2, "source_pane", {
+      kind: "row",
+      placement: "before",
+      targetPaneId: "target_pane_2",
+    });
+    expect(harness.previewPaneDropIntent).toHaveBeenNthCalledWith(3, "source_pane", {
+      kind: "row",
+      placement: "after",
+      targetPaneId: "target_pane",
+    });
+    expect(harness.recordPaneDragPreviewUpdate).toHaveBeenCalledTimes(3);
+    expect(harness.recordPaneDragPreviewClear).not.toHaveBeenCalled();
+  });
 });
 
 function storeForDragTests(): WorkspaceLayoutStore {
@@ -204,6 +274,14 @@ function dragTestHarness(): {
       height: 200,
       left: 100,
       right: 300,
+      top: 0,
+      width: 200,
+    }),
+    paneHost("target_pane_2", {
+      bottom: 200,
+      height: 200,
+      left: 420,
+      right: 620,
       top: 0,
       width: 200,
     }),
@@ -252,10 +330,12 @@ function dragTestScene(): WorkspaceScene {
   const panes: WorkspacePane[] = [
     pane("source_pane", "source_column", 0),
     pane("target_pane", "target_column", 1),
+    pane("target_pane_2", "target_column_2", 2),
   ];
   const columns: WorkspaceColumn[] = [
     column("source_column", ["source_pane"], 0, 0),
     column("target_column", ["target_pane"], 1, 2),
+    column("target_column_2", ["target_pane_2"], 2, 2),
   ];
   return {
     columnGap: 8,
@@ -268,10 +348,14 @@ function dragTestScene(): WorkspaceScene {
     panesPerColumn: 1,
     renderOverscanColumns: 2,
     rowGap: 8,
-    targetVisiblePanes: 2,
-    totalPanes: 2,
-    visibleColumnCount: 2,
+    targetVisiblePanes: 3,
+    totalPanes: 3,
+    visibleColumnCount: 3,
   };
+}
+
+function runLatestFrame({ frameCallbacks }: { frameCallbacks: FrameRequestCallback[] }): void {
+  frameCallbacks.at(-1)?.(0);
 }
 
 function pane(paneId: string, columnId: string, sequence: number): WorkspacePane {
