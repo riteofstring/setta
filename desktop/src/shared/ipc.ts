@@ -40,6 +40,7 @@ import type {
   ListCartographerRunsRequest,
   ListCartographerWindowsRequest,
   ListConversationsResponse,
+  ListWorkflowExecutionsResponse,
   ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
@@ -224,6 +225,7 @@ export const ipcChannels = {
   workflowExecutionEvents: "workflow:execution-events",
   workflowGraphProjection: "workflow:graph-projection",
   workflowListDefinitions: "workflow:list-definitions",
+  workflowListExecutions: "workflow:list-executions",
   workflowReadDefinition: "workflow:read-definition",
   workflowReadExecution: "workflow:read-execution",
   workflowStartExecution: "workflow:start-execution",
@@ -670,6 +672,10 @@ interface IpcContract {
   workflowListDefinitions: {
     args: [workspaceId: string];
     result: ListWorkflowDefinitionsResponse;
+  };
+  workflowListExecutions: {
+    args: [workspaceId: string, definitionId: string, limit: number];
+    result: ListWorkflowExecutionsResponse;
   };
   workflowReadDefinition: {
     args: [workspaceId: string, definitionId: string];

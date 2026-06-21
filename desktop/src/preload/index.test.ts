@@ -1205,6 +1205,7 @@ describe("preload workspace API", () => {
       "executionEvents",
       "graphProjection",
       "listDefinitions",
+      "listExecutions",
       "onEvent",
       "readDefinition",
       "readExecution",
@@ -1226,6 +1227,7 @@ describe("preload workspace API", () => {
     );
     await api.workflow.deleteDefinition("workspace_api", "workflow_definition_api");
     await api.workflow.validateDefinition("workspace_api", graph);
+    await api.workflow.listExecutions("workspace_api", "workflow_definition_api", 20);
     await api.workflow.startExecution("workspace_api", "workflow_definition_api");
     await api.workflow.startExecution(
       "workspace_api",
@@ -1277,6 +1279,7 @@ describe("preload workspace API", () => {
       ],
       [ipcChannels.workflowDeleteDefinition, "workspace_api", "workflow_definition_api"],
       [ipcChannels.workflowValidateDefinition, "workspace_api", graph],
+      [ipcChannels.workflowListExecutions, "workspace_api", "workflow_definition_api", 20],
       [ipcChannels.workflowStartExecution, "workspace_api", "workflow_definition_api", ""],
       [
         ipcChannels.workflowStartExecution,

@@ -39,6 +39,7 @@ import type {
   ListCartographerRunsRequest,
   ListCartographerWindowsRequest,
   ListConversationsResponse,
+  ListWorkflowExecutionsResponse,
   ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
@@ -574,6 +575,11 @@ export interface SettaAPI {
       executionId?: string,
     ) => Promise<ReadWorkflowGraphProjectionResponse>;
     listDefinitions: (workspaceId: string) => Promise<ListWorkflowDefinitionsResponse>;
+    listExecutions: (
+      workspaceId: string,
+      definitionId: string,
+      limit: number,
+    ) => Promise<ListWorkflowExecutionsResponse>;
     onEvent: (listener: (event: WorkflowEvent) => void) => () => void;
     readDefinition: (workspaceId: string, definitionId: string) => Promise<WorkflowDefinition>;
     readExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;

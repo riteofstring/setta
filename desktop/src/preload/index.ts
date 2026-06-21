@@ -296,6 +296,8 @@ const api: SettaAPI = {
     graphProjection: (workspaceId, definitionId = "", versionId = "", executionId = "") =>
       invoke("workflowGraphProjection", workspaceId, definitionId, versionId, executionId),
     listDefinitions: (workspaceId) => invoke("workflowListDefinitions", workspaceId),
+    listExecutions: (workspaceId, definitionId, limit) =>
+      invoke("workflowListExecutions", workspaceId, definitionId, limit),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeWorkflowEvent(payload));

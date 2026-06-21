@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import type { WorkflowGraphProjection } from "@generated/backend";
+import type { WorkflowExecutionSummary, WorkflowGraphProjection } from "@generated/backend";
 import {
+  workflowActiveRunSummary,
   workflowDraftButtonLabel,
   workflowDraftButtonTitle,
   workflowToolbarMismatchLabel,
@@ -9,6 +10,7 @@ import {
   workflowToolbarShowsStopButton,
   workflowToolbarStateLabel,
   workflowToolbarVersionLabel,
+  workflowRunSelectorItems,
 } from "./workflow-graph-toolbar";
 
 describe("workflow graph toolbar state labels", () => {
@@ -60,6 +62,9 @@ describe("workflow graph toolbar run and stop visibility", () => {
 
     const draft = workflowProjection({ viewMode: "draft" });
     expect(workflowToolbarShowsRunButton(draft)).toBe(true);
+    expect(workflowToolbarShowsRunButton(draft, workflowRunSummary({ status: "running" }))).toBe(
+      false,
+    );
     expect(workflowToolbarShowsStopButton(draft)).toBe(false);
   });
 
@@ -84,6 +89,32 @@ describe("workflow graph toolbar run and stop visibility", () => {
 
     expect(workflowToolbarShowsRunButton(projection)).toBe(false);
     expect(workflowToolbarShowsStopButton(projection)).toBe(false);
+  });
+});
+
+describe("workflow graph toolbar run summaries", () => {
+  test("derives the active run from backend summaries", () => {
+    const completed = workflowRunSummary({ id: "workflow_execution_completed" });
+    const running = workflowRunSummary({
+      id: "workflow_execution_running",
+      status: "running",
+    });
+
+    expect(workflowActiveRunSummary([completed, running])).toBe(running);
+  });
+
+  test("pins the active run above terminal history", () => {
+    const newestTerminal = workflowRunSummary({ id: "workflow_execution_newest" });
+    const active = workflowRunSummary({ id: "workflow_execution_active", status: "running" });
+    const olderTerminal = workflowRunSummary({ id: "workflow_execution_older" });
+
+    expect(
+      workflowRunSelectorItems([newestTerminal, active, olderTerminal]).map(({ id }) => id),
+    ).toEqual([
+      "workflow_execution_active",
+      "workflow_execution_newest",
+      "workflow_execution_older",
+    ]);
   });
 });
 
@@ -167,3 +198,22 @@ const workflowProjectionDefaultsByViewMode = {
     | "lastEventOrdinal"
   >
 >;
+
+function workflowRunSummary(
+  overrides: Partial<WorkflowExecutionSummary> = {},
+): WorkflowExecutionSummary {
+  return {
+    completedAt: "2026-06-08T12:20:00Z",
+    definitionId: "workflow_definition",
+    definitionVersionId: "workflow_version_003",
+    definitionVersionNumber: 3,
+    id: "workflow_execution_run",
+    lastEventOrdinal: 7,
+    startedAt: "2026-06-08T12:00:00Z",
+    status: "completed",
+    terminalReason: "end_reached",
+    updatedAt: "2026-06-08T12:20:00Z",
+    workspaceId: "workspace_test",
+    ...overrides,
+  };
+}

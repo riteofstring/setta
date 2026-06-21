@@ -71,6 +71,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "workflow-run-navigation.test.mjs",
+    name: "workflow-run-navigation",
+    tiers: ["required"],
+  },
+  {
     file: "workflow-graph-interaction-cancellation.test.mjs",
     name: "workflow-graph-interaction-cancellation",
     tiers: ["required"],

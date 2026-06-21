@@ -8,12 +8,20 @@ import {
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import type { WorkflowGraphUpdateSource } from "./pixi-renderer";
 
-interface WorkflowProjectionTarget {
-  definitionId: string;
-  executionId: string;
-  versionId: string;
-  workspaceId: string;
-}
+export type WorkflowGraphTarget =
+  | { kind: "draft"; definitionId: string; workspaceId: string }
+  | {
+      kind: "run";
+      definitionId: string;
+      executionId: string;
+      versionId: string;
+      workspaceId: string;
+    };
+
+type WorkflowProjectionTarget =
+  | WorkflowGraphTarget
+  | { kind: "empty"; workspaceId: string }
+  | { kind: "version"; definitionId: string; versionId: string; workspaceId: string };
 
 type WorkflowProjectionState =
   | {
@@ -65,9 +73,7 @@ type WorkflowProjectionAction =
     };
 
 const emptyWorkflowProjectionTarget: WorkflowProjectionTarget = {
-  definitionId: "",
-  executionId: "",
-  versionId: "",
+  kind: "empty",
   workspaceId: "",
 };
 
@@ -117,19 +123,52 @@ export function useWorkflowProjectionState({
     },
     [dispatch],
   );
+  const loadWorkflowGraphTarget = useCallback(
+    async (
+      target: WorkflowGraphTarget,
+      updateSource: WorkflowGraphUpdateSource = "workflow-projection",
+    ) => {
+      dispatch({
+        target,
+        type: "loading",
+      });
+      try {
+        const response = await readWorkflowGraphProjectionForTarget(target);
+        dispatch({
+          expectedTarget: target,
+          projection: response.projection,
+          target,
+          type: "ready",
+          updateSource,
+        });
+      } catch (error: unknown) {
+        dispatch({
+          error: workflowProjectionErrorMessage(error),
+          expectedTarget: target,
+          target,
+          type: "failed",
+          updateSource,
+        });
+        throw error;
+      }
+    },
+    [dispatch],
+  );
 
   const ready = state.status === "ready";
   return {
     error: state.status === "error" ? state.error : "",
+    graphTarget: workflowGraphTargetOrNull(state.target),
+    loadWorkflowGraphTarget,
     loading: state.status === "loading",
-    noWorkspace: ready && state.target.workspaceId === "",
+    noWorkspace: ready && workflowProjectionTargetWorkspaceId(state.target) === "",
     projection: ready ? state.projection : null,
     ready,
     replaceWorkflowProjection,
     state,
     stateRef,
     updateSource: state.updateSource,
-    workspaceId: state.target.workspaceId,
+    workspaceId: workflowProjectionTargetWorkspaceId(state.target),
   };
 }
 
@@ -185,19 +224,58 @@ function workflowProjectionTargetsEqual(
   left: WorkflowProjectionTarget,
   right: WorkflowProjectionTarget,
 ) {
-  return (
-    left.workspaceId === right.workspaceId &&
-    left.definitionId === right.definitionId &&
-    left.versionId === right.versionId &&
-    left.executionId === right.executionId
-  );
+  return workflowProjectionTargetKey(left) === workflowProjectionTargetKey(right);
+}
+
+function workflowProjectionTargetKey(target: WorkflowProjectionTarget) {
+  switch (target.kind) {
+    case "empty":
+      return `${target.kind}:${target.workspaceId}`;
+    case "draft":
+      return `${target.kind}:${target.workspaceId}:${target.definitionId}`;
+    case "run":
+      return `${target.kind}:${target.workspaceId}:${target.definitionId}:${target.versionId}:${target.executionId}`;
+    case "version":
+      return `${target.kind}:${target.workspaceId}:${target.definitionId}:${target.versionId}`;
+    default:
+      return assertNever(target);
+  }
 }
 
 function workflowProjectionTargetForWorkspace(workspaceId: string): WorkflowProjectionTarget {
   return {
-    definitionId: "",
-    executionId: "",
-    versionId: "",
+    kind: "empty",
+    workspaceId,
+  };
+}
+
+export function workflowGraphDraftTarget(
+  workspaceId: string,
+  definitionId: string,
+): WorkflowGraphTarget {
+  return {
+    definitionId,
+    kind: "draft",
+    workspaceId,
+  };
+}
+
+export function workflowGraphRunTarget({
+  definitionId,
+  executionId,
+  versionId,
+  workspaceId,
+}: {
+  definitionId: string;
+  executionId: string;
+  versionId: string;
+  workspaceId: string;
+}): WorkflowGraphTarget {
+  return {
+    definitionId,
+    executionId,
+    kind: "run",
+    versionId,
     workspaceId,
   };
 }
@@ -266,8 +344,9 @@ function useWorkflowProjection({
         return;
       }
       const definitionTarget = {
-        ...workspaceTarget,
         definitionId,
+        kind: "draft" as const,
+        workspaceId: session.selectedWorkspaceId,
       };
       dispatchIfMounted({
         target: definitionTarget,
@@ -280,9 +359,7 @@ function useWorkflowProjection({
       dispatchIfMounted({
         expectedTarget: definitionTarget,
         projection: response.projection,
-        target: response.projection
-          ? workflowProjectionTarget(response.projection)
-          : definitionTarget,
+        target: definitionTarget,
         type: "ready",
         updateSource: "workflow-projection",
       });
@@ -290,29 +367,18 @@ function useWorkflowProjection({
 
     const loadEventProjection = async (event: WorkflowEvent) => {
       const current = projectionStateRef.current.target;
-      if (!workflowEventMatchesProjectionTarget(current, event)) {
+      if (!workflowEventRefreshesProjectionTarget(current, event)) {
         return;
       }
-      const eventTarget = {
-        definitionId: event.definitionId,
-        executionId: event.executionId,
-        versionId: event.definitionVersionId,
-        workspaceId: event.workspaceId,
-      };
       dispatchIfMounted({
-        target: eventTarget,
+        target: current,
         type: "loading",
       });
-      const response = await window.setta.workflow.graphProjection(
-        event.workspaceId,
-        event.definitionId,
-        event.definitionVersionId,
-        event.executionId,
-      );
+      const response = await readWorkflowGraphProjectionForTarget(current);
       dispatchIfMounted({
-        expectedTarget: eventTarget,
+        expectedTarget: current,
         projection: response.projection,
-        target: response.projection ? workflowProjectionTarget(response.projection) : eventTarget,
+        target: current,
         type: "ready",
         updateSource: "workflow-projection",
       });
@@ -325,11 +391,9 @@ function useWorkflowProjection({
       }
       const current = projectionStateRef.current.target;
       if (
-        current.workspaceId === "" ||
+        current.kind !== "draft" ||
         current.workspaceId !== detail.workspaceId ||
-        current.definitionId === "" ||
-        current.definitionId !== detail.definitionId ||
-        current.executionId !== ""
+        current.definitionId !== detail.definitionId
       ) {
         return;
       }
@@ -340,7 +404,7 @@ function useWorkflowProjection({
       dispatchIfMounted({
         expectedTarget: current,
         projection: response.projection,
-        target: response.projection ? workflowProjectionTarget(response.projection) : current,
+        target: current,
         type: "ready",
         updateSource: "workflow-projection",
       });
@@ -391,9 +455,20 @@ function useWorkflowProjection({
 }
 
 function workflowProjectionTarget(projection: WorkflowGraphProjection): WorkflowProjectionTarget {
+  if (projection.viewMode === "draft") {
+    return workflowGraphDraftTarget(projection.workspaceId, projection.definitionId);
+  }
+  if (projection.viewMode === "run" && projection.executionId !== "") {
+    return workflowGraphRunTarget({
+      definitionId: projection.definitionId,
+      executionId: projection.executionId,
+      versionId: projection.definitionVersionId,
+      workspaceId: projection.workspaceId,
+    });
+  }
   return {
     definitionId: projection.definitionId,
-    executionId: projection.executionId,
+    kind: "version",
     versionId: projection.definitionVersionId,
     workspaceId: projection.workspaceId,
   };
@@ -404,20 +479,71 @@ export function workflowEventMatchesProjectionTarget(
   event: WorkflowEvent,
 ) {
   if (
+    current.kind === "empty" ||
     current.workspaceId === "" ||
     current.workspaceId !== event.workspaceId ||
-    current.definitionId === "" ||
     current.definitionId !== event.definitionId
   ) {
     return false;
   }
-  if (current.executionId !== "") {
-    return current.executionId === event.executionId;
+  switch (current.kind) {
+    case "draft":
+      return true;
+    case "run":
+      return current.executionId === event.executionId;
+    case "version":
+      return current.versionId === event.definitionVersionId;
+    default:
+      return assertNever(current);
   }
-  if (current.versionId !== "" && current.versionId !== event.definitionVersionId) {
-    return false;
+}
+
+export function workflowEventRefreshesProjectionTarget(
+  current: WorkflowProjectionTarget,
+  event: WorkflowEvent,
+) {
+  return current.kind === "run" && workflowEventMatchesProjectionTarget(current, event);
+}
+
+function workflowGraphTargetOrNull(target: WorkflowProjectionTarget): WorkflowGraphTarget | null {
+  switch (target.kind) {
+    case "draft":
+    case "run":
+      return target;
+    case "empty":
+    case "version":
+      return null;
+    default:
+      return assertNever(target);
   }
-  return true;
+}
+
+function workflowProjectionTargetWorkspaceId(target: WorkflowProjectionTarget) {
+  return target.workspaceId;
+}
+
+async function readWorkflowGraphProjectionForTarget(target: WorkflowProjectionTarget) {
+  switch (target.kind) {
+    case "draft":
+      return window.setta.workflow.graphProjection(target.workspaceId, target.definitionId);
+    case "run":
+      return window.setta.workflow.graphProjection(
+        target.workspaceId,
+        target.definitionId,
+        target.versionId,
+        target.executionId,
+      );
+    case "version":
+      return window.setta.workflow.graphProjection(
+        target.workspaceId,
+        target.definitionId,
+        target.versionId,
+      );
+    case "empty":
+      return window.setta.workflow.graphProjection(target.workspaceId);
+    default:
+      return assertNever(target);
+  }
 }
 
 function assertNever(value: never): never {

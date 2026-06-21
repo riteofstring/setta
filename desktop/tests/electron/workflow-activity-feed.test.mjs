@@ -171,11 +171,13 @@ try {
   const pan = await beginActivityCameraPan(context.client, workflowGraphSurfaceId);
   let activityDebug = null;
   let afterContinuedPan = null;
+  let startedExecutionId = "";
   try {
-    await rendererWorkflow(context.client, "startExecution", [
+    const started = await rendererWorkflow(context.client, "startExecution", [
       projection.workspaceId,
       definition.id,
     ]);
+    startedExecutionId = started.id;
 
     activityDebug = await waitForWorkflowGraphSnapshot(
       context.client,
@@ -201,6 +203,7 @@ try {
     await releaseActivityCameraPan(context.client, pan.pageTo).catch(() => {});
   }
   assertPhase2BActivityDebug(beforeActivityRun, activityDebug, afterContinuedPan);
+  await viewActiveWorkflowRun(context.client, workflowGraphSurfaceId, startedExecutionId);
   const waitingVisualDebug = await waitForWorkflowGraphSnapshot(
     context.client,
     workflowGraphSurfaceId,
@@ -355,6 +358,7 @@ async function runFailedVisualWorkflow(client, surfaceId, projection) {
     started.id,
     runningActivityExecutionReady,
   );
+  await viewActiveWorkflowRun(client, surfaceId, started.id);
   await steerWorkflowActivity(client, projection.workspaceId, running, "trigger scripted failure");
   const snapshot = await waitForWorkflowGraphSnapshot(
     client,
@@ -363,6 +367,20 @@ async function runFailedVisualWorkflow(client, surfaceId, projection) {
   );
   assertPhase3FailedVisualGrammar(snapshot);
   return snapshot;
+}
+
+async function viewActiveWorkflowRun(client, surfaceId, executionId) {
+  await waitForToolbarButtonState(client, "workflow-view-active-run-button", (state) => {
+    return state.exists && !state.disabled && state.text.includes("View Active Run");
+  });
+  await clickWorkflowToolbarButton(client, "workflow-view-active-run-button");
+  await waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    (snapshot) =>
+      snapshot.graph.workflow?.viewMode === "run" &&
+      snapshot.graph.workflow?.executionId === executionId,
+  );
 }
 
 async function runCancelledVisualWorkflow(client, surfaceId, projection) {

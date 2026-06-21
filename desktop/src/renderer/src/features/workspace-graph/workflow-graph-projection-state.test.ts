@@ -1,20 +1,26 @@
 import { describe, expect, test } from "vitest";
 
 import type { WorkflowEvent } from "@generated/backend";
-import { workflowEventMatchesProjectionTarget } from "./workflow-graph-projection-state";
+import {
+  workflowEventMatchesProjectionTarget,
+  workflowEventRefreshesProjectionTarget,
+} from "./workflow-graph-projection-state";
 
 describe("workflow projection event targeting", () => {
-  test("accepts a run event for the selected draft definition", () => {
-    expect(
-      workflowEventMatchesProjectionTarget(
-        target({ definitionId: "definition", executionId: "", versionId: "" }),
-        event({ definitionId: "definition", executionId: "execution", versionId: "version" }),
-      ),
-    ).toBe(true);
+  test("matches draft definition events without refreshing the graph projection", () => {
+    const current = draftTarget({ definitionId: "definition" });
+    const incoming = event({
+      definitionId: "definition",
+      executionId: "execution",
+      versionId: "version",
+    });
+
+    expect(workflowEventMatchesProjectionTarget(current, incoming)).toBe(true);
+    expect(workflowEventRefreshesProjectionTarget(current, incoming)).toBe(false);
   });
 
   test("accepts only the active execution once the run projection is selected", () => {
-    const current = target({
+    const current = runTarget({
       definitionId: "definition",
       executionId: "execution_active",
       versionId: "version",
@@ -22,6 +28,16 @@ describe("workflow projection event targeting", () => {
 
     expect(
       workflowEventMatchesProjectionTarget(
+        current,
+        event({
+          definitionId: "definition",
+          executionId: "execution_active",
+          versionId: "version",
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      workflowEventRefreshesProjectionTarget(
         current,
         event({
           definitionId: "definition",
@@ -45,7 +61,7 @@ describe("workflow projection event targeting", () => {
   test("does not switch a version projection to a different definition version", () => {
     expect(
       workflowEventMatchesProjectionTarget(
-        target({ definitionId: "definition", executionId: "", versionId: "version_a" }),
+        versionTarget({ definitionId: "definition", versionId: "version_a" }),
         event({ definitionId: "definition", executionId: "execution", versionId: "version_b" }),
       ),
     ).toBe(false);
@@ -54,7 +70,7 @@ describe("workflow projection event targeting", () => {
   test("rejects events for unrelated workspaces or definitions", () => {
     expect(
       workflowEventMatchesProjectionTarget(
-        target({ definitionId: "definition", executionId: "", workspaceId: "workspace_a" }),
+        draftTarget({ definitionId: "definition", workspaceId: "workspace_a" }),
         event({
           definitionId: "definition",
           executionId: "execution",
@@ -65,27 +81,59 @@ describe("workflow projection event targeting", () => {
     ).toBe(false);
     expect(
       workflowEventMatchesProjectionTarget(
-        target({ definitionId: "definition_a", executionId: "" }),
+        draftTarget({ definitionId: "definition_a" }),
         event({ definitionId: "definition_b", executionId: "execution", versionId: "version" }),
       ),
     ).toBe(false);
   });
 });
 
-function target({
+function draftTarget({
+  definitionId,
+  workspaceId = "workspace",
+}: {
+  definitionId: string;
+  workspaceId?: string;
+}) {
+  return {
+    definitionId,
+    kind: "draft" as const,
+    workspaceId,
+  };
+}
+
+function runTarget({
   definitionId,
   executionId,
-  versionId = "",
+  versionId,
   workspaceId = "workspace",
 }: {
   definitionId: string;
   executionId: string;
-  versionId?: string;
+  versionId: string;
   workspaceId?: string;
 }) {
   return {
     definitionId,
     executionId,
+    kind: "run" as const,
+    versionId,
+    workspaceId,
+  };
+}
+
+function versionTarget({
+  definitionId,
+  versionId,
+  workspaceId = "workspace",
+}: {
+  definitionId: string;
+  versionId: string;
+  workspaceId?: string;
+}) {
+  return {
+    definitionId,
+    kind: "version" as const,
     versionId,
     workspaceId,
   };

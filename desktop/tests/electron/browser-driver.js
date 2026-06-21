@@ -577,6 +577,49 @@
     return { ok: true };
   }
 
+  function openWorkflowRunSelector() {
+    const button = workflowToolbarElement('[data-testid="workflow-run-selector-button"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { ok: false, reason: "selector-unavailable" };
+    }
+    button.click();
+    return { ok: true };
+  }
+
+  function selectWorkflowRunSelectorRow({ executionId }) {
+    const rows = Array.from(
+      document.querySelectorAll('[data-testid^="workflow-run-selector-row-"]'),
+    );
+    const row = rows.find(
+      (candidate) =>
+        candidate instanceof HTMLButtonElement &&
+        candidate.getAttribute("data-testid") === `workflow-run-selector-row-${executionId}`,
+    );
+    if (!(row instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-run-row" };
+    }
+    row.click();
+    return { ok: true };
+  }
+
+  function workflowRunSelectorState() {
+    const button = workflowToolbarElement('[data-testid="workflow-run-selector-button"]');
+    const rows = Array.from(
+      document.querySelectorAll('[data-testid^="workflow-run-selector-row-"]'),
+    ).map((row) => ({
+      current: row.getAttribute("aria-current") ?? "",
+      testId: row.getAttribute("data-testid") ?? "",
+      text: row.textContent?.trim().replace(/\s+/g, " ") ?? "",
+    }));
+    return {
+      buttonDisabled: button instanceof HTMLButtonElement ? button.disabled : true,
+      buttonExists: button instanceof HTMLButtonElement,
+      buttonText: button instanceof HTMLButtonElement ? (button.textContent?.trim() ?? "") : "",
+      menuOpen: Boolean(document.querySelector('[data-testid="workflow-run-selector-menu"]')),
+      rows,
+    };
+  }
+
   function workflowToolbarElement(selector) {
     return activeWorkflowGraphHost()?.querySelector(selector) ?? document.querySelector(selector);
   }
@@ -1220,7 +1263,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v5",
+    version: "setta-e2e-driver-v6",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
@@ -1229,12 +1272,14 @@
     configureWorkflowResultAction,
     createWorkflowProjectionFixture,
     nullWorkflowValidation,
+    openWorkflowRunSelector,
     openWorkflowToolbarAddMenu,
     readWorkflowExecution,
     renameWorkflowDefinitionFromCurrentGraph,
     removeWorkflowProjectionFixtureNode,
     restoreMaximizedWorkflowGraphPane,
     selectWorkflowNodeType,
+    selectWorkflowRunSelectorRow,
     selectWorkflowToolbarNodeType,
     setWorkflowSettingsControlValue,
     sidebarWorkflowRows,
@@ -1252,6 +1297,7 @@
     workflowNodeDetailsButtonState,
     workflowNodeDetailsSurfaceState,
     workflowRunDetailsText,
+    workflowRunSelectorState,
     workflowToolbarState,
     workflowWorkspaceSessionState,
   };

@@ -1,4 +1,6 @@
 import type {
+  WorkflowExecutionStatus,
+  WorkflowExecutionSummary,
   WorkflowGraphProjection,
   WorkflowValidationDiagnostic,
   WorkflowValidationResult,
@@ -8,10 +10,13 @@ import {
   Bot,
   CheckCircle2,
   ChevronDown,
+  Clock3,
   Circle,
+  CircleDot,
   Eye,
   GitBranch,
   GitMerge,
+  History,
   type LucideIcon,
   Play,
   Plus,
@@ -47,39 +52,50 @@ export const workflowNodeMenuItems = [
 }[];
 
 export function WorkflowGraphToolbar({
+  activeRun,
   busy,
   onAddNode,
   onOpenDetails,
   onOpenSettings,
+  onSelectRun,
   onStop,
   onRun,
   onShowDraft,
+  onViewActiveRun,
   onValidate,
   projection,
   ready,
+  runSummaries,
   selectedNodeLabel,
   validation,
   workspaceId,
 }: {
   busy: WorkflowToolbarOperation | null;
+  activeRun: WorkflowExecutionSummary | null;
   onAddNode: (nodeType: WorkflowDraftNodeType) => void;
   onOpenDetails: () => void;
   onOpenSettings: () => void;
+  onSelectRun: (summary: WorkflowExecutionSummary) => void;
   onStop: () => void;
   onRun: () => void;
   onShowDraft: () => void;
+  onViewActiveRun: () => void;
   onValidate: () => void;
   projection: WorkflowGraphProjection | null;
   ready: boolean;
+  runSummaries: WorkflowExecutionSummary[];
   selectedNodeLabel: string;
   validation: WorkflowValidationResult | null;
   workspaceId: string;
 }) {
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [runMenuOpen, setRunMenuOpen] = useState(false);
   const model = workflowToolbarModel({
+    activeRun,
     busy,
     projection,
     ready,
+    runSummaries,
     selectedNodeLabel,
     validation,
     workspaceId,
@@ -127,6 +143,15 @@ export function WorkflowGraphToolbar({
             testId="workflow-run-button"
           />
         ) : null}
+        {model.showViewActiveRunButton ? (
+          <ToolbarButton
+            disabled={model.disabled}
+            icon={CircleDot}
+            label="View Active Run"
+            onClick={onViewActiveRun}
+            testId="workflow-view-active-run-button"
+          />
+        ) : null}
         {model.showStopButton ? (
           <ToolbarButton
             disabled={model.stopDisabled}
@@ -137,6 +162,17 @@ export function WorkflowGraphToolbar({
             testId="workflow-stop-button"
           />
         ) : null}
+        <WorkflowRunSelector
+          disabled={model.disabled || model.runSelectorItems.length === 0}
+          menuOpen={runMenuOpen}
+          onSelectRun={(summary) => {
+            setRunMenuOpen(false);
+            onSelectRun(summary);
+          }}
+          runSummaries={model.runSelectorItems}
+          selectedRunId={model.selectedRunId}
+          setMenuOpen={setRunMenuOpen}
+        />
         <WorkflowDraftButton
           disabled={model.disabled}
           label={model.draftLabel}
@@ -153,6 +189,105 @@ export function WorkflowGraphToolbar({
         />
       </div>
     </div>
+  );
+}
+
+function WorkflowRunSelector({
+  disabled,
+  menuOpen,
+  onSelectRun,
+  runSummaries,
+  selectedRunId,
+  setMenuOpen,
+}: {
+  disabled: boolean;
+  menuOpen: boolean;
+  onSelectRun: (summary: WorkflowExecutionSummary) => void;
+  runSummaries: WorkflowExecutionSummary[];
+  selectedRunId: string;
+  setMenuOpen: (open: boolean | ((open: boolean) => boolean)) => void;
+}) {
+  if (runSummaries.length === 0) {
+    return null;
+  }
+  const selected = runSummaries.find((summary) => summary.id === selectedRunId) ?? null;
+  const label =
+    selected === null
+      ? `Runs ${runSummaries.length}`
+      : `${workflowRunStatusLabel(selected.status)} ${shortIdentifier(selected.id)}`;
+  return (
+    <div className="relative">
+      <button
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        className="inline-flex h-8 max-w-44 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+        data-testid="workflow-run-selector-button"
+        disabled={disabled}
+        onClick={() => setMenuOpen((open) => !open)}
+        title="Workflow runs"
+        type="button"
+      >
+        <History className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{label}</span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+      </button>
+      {menuOpen ? (
+        <div
+          className="absolute top-9 left-0 z-30 w-72 rounded-sm border border-zinc-700/80 bg-zinc-900/95 p-1 shadow-2xl shadow-zinc-950/50"
+          data-testid="workflow-run-selector-menu"
+          role="menu"
+        >
+          {runSummaries.map((summary) => (
+            <WorkflowRunSelectorRow
+              key={summary.id}
+              onSelectRun={onSelectRun}
+              selected={summary.id === selectedRunId}
+              summary={summary}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function WorkflowRunSelectorRow({
+  onSelectRun,
+  selected,
+  summary,
+}: {
+  onSelectRun: (summary: WorkflowExecutionSummary) => void;
+  selected: boolean;
+  summary: WorkflowExecutionSummary;
+}) {
+  const StatusIcon = summary.status === "running" ? CircleDot : Clock3;
+  const version =
+    summary.definitionVersionNumber > 0
+      ? `v${summary.definitionVersionNumber}`
+      : shortIdentifier(summary.definitionVersionId);
+  return (
+    <button
+      aria-current={selected ? "true" : undefined}
+      className={[
+        "grid h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs",
+        selected ? "bg-cyan-950/70 text-cyan-100" : "text-zinc-200 hover:bg-zinc-800",
+      ].join(" ")}
+      data-testid={`workflow-run-selector-row-${summary.id}`}
+      onClick={() => onSelectRun(summary)}
+      role="menuitem"
+      type="button"
+    >
+      <StatusIcon className={["h-3.5 w-3.5", workflowRunStatusColor(summary.status)].join(" ")} />
+      <span className="min-w-0">
+        <span className="block truncate font-medium">
+          {workflowRunStatusLabel(summary.status)} · {shortIdentifier(summary.id)}
+        </span>
+        <span className="block truncate font-mono text-[11px] text-zinc-500">
+          {version} · {workflowRunTimestamp(summary)}
+        </span>
+      </span>
+      <span className="font-mono text-[11px] text-zinc-500">#{summary.lastEventOrdinal}</span>
+    </button>
   );
 }
 
@@ -428,22 +563,27 @@ function WorkflowDiagnosticRow({ diagnostic }: { diagnostic: WorkflowValidationD
 }
 
 function workflowToolbarModel({
+  activeRun,
   busy,
   projection,
   ready,
+  runSummaries,
   selectedNodeLabel,
   validation,
   workspaceId,
 }: {
+  activeRun: WorkflowExecutionSummary | null;
   busy: WorkflowToolbarOperation | null;
   projection: WorkflowGraphProjection | null;
   ready: boolean;
+  runSummaries: WorkflowExecutionSummary[];
   selectedNodeLabel: string;
   validation: WorkflowValidationResult | null;
   workspaceId: string;
 }) {
   const disabled = workflowToolbarDisabled(ready, workspaceId, busy);
   const editable = workflowProjectionIsEditableDraft(projection);
+  const viewingDraft = projection === null || projection.viewMode === "draft";
   return {
     detailsDisabled: workflowDetailsDisabled(disabled, selectedNodeLabel),
     detailsLabel: workflowDetailsLabel(selectedNodeLabel),
@@ -452,13 +592,16 @@ function workflowToolbarModel({
     draftTitle: workflowDraftButtonTitle(projection),
     editable,
     mismatchLabel: workflowToolbarMismatchLabel(projection),
-    runDisabled: workflowRunDisabled(disabled, editable, projection),
+    runDisabled: workflowRunDisabled(disabled, editable, projection, activeRun),
     runIcon: workflowRunIcon(busy),
     runLabel: workflowRunLabel(busy),
+    runSelectorItems: workflowRunSelectorItems(runSummaries),
     settingsDisabled: disabled || projection === null,
+    selectedRunId: projection?.viewMode === "run" ? projection.executionId : "",
     showDraftButton: workflowToolbarShowsDraftButton(projection),
-    showRunButton: workflowToolbarShowsRunButton(projection),
+    showRunButton: workflowToolbarShowsRunButton(projection, activeRun),
     showStopButton: workflowToolbarShowsStopButton(projection),
+    showViewActiveRunButton: viewingDraft && activeRun !== null,
     stateLabel: workflowToolbarStateLabel(projection, ready, workspaceId),
     stopDisabled: disabled || !workflowToolbarShowsStopButton(projection),
     stopLabel: workflowStopLabel(busy),
@@ -493,8 +636,9 @@ function workflowRunDisabled(
   disabled: boolean,
   editable: boolean,
   projection: WorkflowGraphProjection | null,
+  activeRun: WorkflowExecutionSummary | null,
 ) {
-  return disabled || !editable || projection === null;
+  return disabled || !editable || projection === null || activeRun !== null;
 }
 
 function workflowRunIcon(busy: WorkflowToolbarOperation | null) {
@@ -592,8 +736,11 @@ function workflowToolbarShowsDraftButton(projection: WorkflowGraphProjection | n
   return projection !== null && projection.viewMode !== "draft";
 }
 
-export function workflowToolbarShowsRunButton(projection: WorkflowGraphProjection | null) {
-  return projection === null || projection.viewMode === "draft";
+export function workflowToolbarShowsRunButton(
+  projection: WorkflowGraphProjection | null,
+  activeRun: WorkflowExecutionSummary | null = null,
+) {
+  return activeRun === null && (projection === null || projection.viewMode === "draft");
 }
 
 export function workflowToolbarShowsStopButton(projection: WorkflowGraphProjection | null) {
@@ -614,6 +761,56 @@ function diagnosticKey(diagnostic: WorkflowValidationDiagnostic) {
     diagnostic.message,
   ].join(":");
 }
+
+export function workflowActiveRunSummary(
+  runSummaries: WorkflowExecutionSummary[],
+): WorkflowExecutionSummary | null {
+  return runSummaries.find((summary) => summary.status === "running") ?? null;
+}
+
+export function workflowRunSelectorItems(
+  runSummaries: WorkflowExecutionSummary[],
+): WorkflowExecutionSummary[] {
+  const active = workflowActiveRunSummary(runSummaries);
+  if (active === null) {
+    return runSummaries;
+  }
+  return [active, ...runSummaries.filter((summary) => summary.id !== active.id)];
+}
+
+function workflowRunStatusLabel(status: WorkflowExecutionStatus) {
+  return workflowRunStatusLabels[status];
+}
+
+function workflowRunStatusColor(status: WorkflowExecutionStatus) {
+  return workflowRunStatusColors[status];
+}
+
+function workflowRunTimestamp(summary: WorkflowExecutionSummary) {
+  const value = summary.completedAt || summary.updatedAt || summary.startedAt;
+  if (value.length < 16) {
+    return value;
+  }
+  return value.slice(0, 16).replace("T", " ");
+}
+
+const workflowRunStatusLabels = {
+  cancelled: "Cancelled",
+  completed: "Completed",
+  failed: "Failed",
+  idle: "Idle",
+  running: "Running",
+  stopped: "Stopped",
+} satisfies Record<WorkflowExecutionStatus, string>;
+
+const workflowRunStatusColors = {
+  cancelled: "text-zinc-400",
+  completed: "text-emerald-400",
+  failed: "text-red-400",
+  idle: "text-zinc-500",
+  running: "text-cyan-400",
+  stopped: "text-amber-400",
+} satisfies Record<WorkflowExecutionStatus, string>;
 
 function assertNever(value: never): never {
   throw new Error(`Unsupported workflow graph view mode: ${String(value)}`);
