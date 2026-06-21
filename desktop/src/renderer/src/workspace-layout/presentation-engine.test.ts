@@ -142,6 +142,39 @@ describe("workspace presentation engine", () => {
     expect(registry.syncedPaneIds).toEqual(["workspace_pane_0", "workspace_pane_0"]);
   });
 
+  test("keeps active pane drag source visible if a preview frame omits it", () => {
+    const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
+    const host = fakePaneHost("workspace_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("workspace_pane_0", "workspace_surface_0", false)], {
+      resizePhase: "idle",
+    });
+    host.dataset.dragSource = "true";
+    host.style.translate = "18px 12px";
+
+    presentation.apply([], { resizePhase: "idle" });
+
+    expect(host.dataset.paneId).toBe("workspace_pane_0");
+    expect(host.dataset.visible).toBe("true");
+    expect(host.style.opacity).toBe("1.000");
+    expect(host.style.pointerEvents).toBe("auto");
+    expect(host.style.translate).toBe("18px 12px");
+
+    delete host.dataset.dragSource;
+    host.style.translate = "";
+    presentation.apply([], { resizePhase: "idle" });
+
+    expect(host.dataset.visible).toBe("false");
+    expect(host.style.opacity).toBe("0");
+    expect(host.style.pointerEvents).toBe("none");
+  });
+
   test("defers non-empty snapshot proxy content while panes are moving", () => {
     const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");

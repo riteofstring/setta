@@ -268,6 +268,9 @@ export class PresentationEngine {
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
     if (!item) {
+      if (this.hostIsActivePaneDragSource(binding)) {
+        return emptyPresentationWriteCounts();
+      }
       this.hideBinding(binding);
       return emptyPresentationWriteCounts();
     }
@@ -532,7 +535,7 @@ export class PresentationEngine {
     assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
-    if (this.hostIsActivePaneDragSource(binding, item)) {
+    if (this.hostIsActivePaneDragSource(binding, item.paneId)) {
       return emptyPresentationWriteCounts();
     }
     if (
@@ -587,7 +590,7 @@ export class PresentationEngine {
 
   private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): PresentationWriteCounts {
     const writeCounts = emptyPresentationWriteCounts();
-    if (!this.hostIsActivePaneDragSource(binding, item)) {
+    if (!this.hostIsActivePaneDragSource(binding, item.paneId)) {
       writeCounts.transformWrites = this.syncTransform(binding, item);
       writeCounts.boxWrites = this.syncBox(binding, item);
     }
@@ -596,8 +599,15 @@ export class PresentationEngine {
     return writeCounts;
   }
 
-  private hostIsActivePaneDragSource(binding: PaneHostBinding, item: PaneRenderItem): boolean {
-    return binding.host.dataset.dragSource === "true" && binding.contentPaneId === item.paneId;
+  private hostIsActivePaneDragSource(
+    binding: PaneHostBinding,
+    paneId = binding.contentPaneId,
+  ): boolean {
+    return (
+      binding.host.dataset.dragSource === "true" &&
+      paneId !== null &&
+      binding.contentPaneId === paneId
+    );
   }
 
   private syncBox(binding: PaneHostBinding, item: PaneRenderItem): number {
