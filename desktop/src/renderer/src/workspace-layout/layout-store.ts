@@ -529,7 +529,13 @@ export class WorkspaceLayoutStore {
     if (!this.engine.applyPaneDropIntent(sourcePaneId, intent)) {
       return false;
     }
-    this.setFocusedPane(sourcePaneId);
+    if (intent.kind !== "swap") {
+      this.setFocusedPane(sourcePaneId);
+    }
+    // A swap exchanges two panes in place, so focus is intentionally left on the
+    // current slot (now occupied by the other pane). Re-focusing the moved source
+    // would snap the focused column to its anchor and jump the whole row sideways
+    // -- the opposite of an in-place swap.
     this.notify();
     return true;
   }
