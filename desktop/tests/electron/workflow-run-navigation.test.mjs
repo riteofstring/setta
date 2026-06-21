@@ -27,6 +27,7 @@ import { createWorkflowProjectionFixture } from "./workflow-projection-smoke-hel
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const scriptedNavigationPrompt = "workflow hold for draft event";
+const narrowToolbarViewport = { deviceScaleFactor: 1, height: 720, mobile: false, width: 760 };
 
 if (options.help) {
   console.log(
@@ -186,6 +187,18 @@ try {
   );
   await captureScreenshot(context.client, join(artifactDir, "historical-run-selected.png"));
 
+  await context.client.call("Emulation.setDeviceMetricsOverride", narrowToolbarViewport);
+  await openWorkflowRunSelector(context.client);
+  const narrowSelector = await waitForRunSelectorState(
+    context.client,
+    (state) =>
+      state.menuOpen &&
+      state.toolbarVisible &&
+      state.rows.some((row) => row.testId === `workflow-run-selector-row-${firstExecutionId}`) &&
+      state.rows.some((row) => row.testId === `workflow-run-selector-row-${secondExecutionId}`),
+  );
+  await captureScreenshot(context.client, join(artifactDir, "run-selector-narrow-toolbar.png"));
+
   const consoleRows = await readJsonLinesOptional(join(artifactDir, "renderer-console.jsonl"));
   const consoleErrors = consoleRows.filter((row) => Number(row.level) >= 2);
   if (consoleErrors.length > 0) {
@@ -196,6 +209,7 @@ try {
     activeHistorySelector,
     firstExecutionId,
     historicalWorkflow: historicalProjection.graph.workflow,
+    narrowSelector,
     secondExecutionId,
   });
 

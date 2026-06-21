@@ -389,6 +389,48 @@ func TestServiceStartupRecoveryRequiresManualStateForUncertainSideEffects(t *tes
 		t.Fatalf("runner state = %+v, want recovery_required", recoveredWork.RunnerState)
 	}
 	assertWorkflowEventsInclude(t, restarted, workspaceID, started.ID, []WorkflowEventType{EventActionRecoveryRequired})
+
+	assertManualRecoveryRunBlocksAndCancels(t, restarted, workspaceID, definition.ID, recovered.ID)
+}
+
+func assertManualRecoveryRunBlocksAndCancels(t *testing.T, service *Service, workspaceID string, definitionID string, executionID string) {
+	t.Helper()
+	summaries, err := service.ListExecutionSummariesForDefinition(workspaceID, definitionID, 0)
+	if err != nil {
+		t.Fatalf("list recovery execution summaries: %v", err)
+	}
+	if len(summaries) != 1 || summaries[0].ID != executionID || summaries[0].Status != ExecutionStatusRunning {
+		t.Fatalf("recovery summaries = %+v, want active running execution %s", summaries, executionID)
+	}
+	_, err = service.StartExecution(workspaceID, definitionID, "")
+	if err == nil {
+		t.Fatal("start during manual recovery succeeded, want active-run conflict")
+	}
+	conflict, ok := IsWorkflowExecutionAlreadyRunning(err)
+	if !ok {
+		t.Fatalf("start during manual recovery error = %T %v, want active-run conflict", err, err)
+	}
+	if conflict.ActiveExecution.ID != executionID || conflict.ActiveExecution.Status != ExecutionStatusRunning {
+		t.Fatalf("manual recovery conflict = %+v, want running execution %s", conflict.ActiveExecution, executionID)
+	}
+	cancelled, err := service.CancelExecution(workspaceID, executionID)
+	if err != nil {
+		t.Fatalf("cancel manual recovery execution: %v", err)
+	}
+	if cancelled.Status != ExecutionStatusCancelled {
+		t.Fatalf("cancelled manual recovery status = %s, want cancelled", cancelled.Status)
+	}
+	cancelledWork := latestNodeExecutionForTest(t, cancelled, "work")
+	if cancelledWork.Status != NodeExecutionStatusCancelled {
+		t.Fatalf("cancelled recovery work status = %s, want cancelled", cancelledWork.Status)
+	}
+	restartedAfterCancel, err := service.StartExecution(workspaceID, definitionID, "")
+	if err != nil {
+		t.Fatalf("restart after manual recovery cancellation: %v", err)
+	}
+	if restartedAfterCancel.Status != ExecutionStatusRunning {
+		t.Fatalf("restart after manual recovery cancellation status = %s, want running", restartedAfterCancel.Status)
+	}
 }
 
 func TestServiceCancelsSiblingRunnerWhenActionFails(t *testing.T) {

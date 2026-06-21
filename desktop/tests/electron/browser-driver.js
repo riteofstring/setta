@@ -603,6 +603,7 @@
   }
 
   function workflowRunSelectorState() {
+    const toolbar = workflowToolbarElement('[data-testid="workflow-graph-toolbar"]');
     const button = workflowToolbarElement('[data-testid="workflow-run-selector-button"]');
     const rows = Array.from(
       document.querySelectorAll('[data-testid^="workflow-run-selector-row-"]'),
@@ -617,6 +618,10 @@
       buttonText: button instanceof HTMLButtonElement ? (button.textContent?.trim() ?? "") : "",
       menuOpen: Boolean(document.querySelector('[data-testid="workflow-run-selector-menu"]')),
       rows,
+      toolbarVisible:
+        toolbar instanceof HTMLElement &&
+        toolbar.getBoundingClientRect().width > 0 &&
+        toolbar.getBoundingClientRect().height > 0,
     };
   }
 
