@@ -498,6 +498,10 @@ export class WorkspaceLayoutStore {
     return true;
   }
 
+  hasPaneDropPreview(): boolean {
+    return this.engine.hasPaneReorderPreview();
+  }
+
   setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
     this.engine.setPaneTerminalConfig(paneId, terminalConfig);
     this.notify();

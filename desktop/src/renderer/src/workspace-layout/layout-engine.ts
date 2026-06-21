@@ -345,6 +345,10 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     return true;
   }
 
+  hasPaneReorderPreview(): boolean {
+    return this.paneReorderPreview !== null;
+  }
+
   private renderNormalFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
     renderNormalLayoutFrame({
       availableHeight: this.availablePaneHeight(input.viewport.height),

@@ -306,6 +306,8 @@ function WorkspaceLayoutRuntimeArea({
       engine: runtime.engine,
       layoutStore: runtime.store,
       metrics: runtime.metrics,
+      movementOverride: () =>
+        paneDragSessionRef.current !== null || overviewDragSessionRef.current !== null,
       presentation: runtime.presentation,
       reportWriter: runtime.reportWriter,
       runtimePolicy: runtime.runtimePolicy,
@@ -437,6 +439,7 @@ function WorkspaceLayoutRuntimeArea({
         startClientX: event.clientX,
         startClientY: event.clientY,
       };
+      scheduler.requestFrame();
       return true;
     };
     const previewPaneDropIntent = (sourcePaneId: string, dropIntent: PaneDropIntent) => {
@@ -504,6 +507,7 @@ function WorkspaceLayoutRuntimeArea({
       event.stopPropagation();
       scheduler.pauseBenchmark();
       paneDragSessionRef.current = paneDragSession;
+      scheduler.requestFrame();
       return true;
     };
     const beginPaneResize = (event: PointerEvent): boolean => {
@@ -527,7 +531,7 @@ function WorkspaceLayoutRuntimeArea({
       return true;
     };
     const handlePointerDown = (event: PointerEvent) => {
-      if (runtime.mode !== "workspace") {
+      if (runtime.mode !== "workspace" && runtime.mode !== "benchmark") {
         return;
       }
       if (runtime.store.getSnapshot().presentationMode === "overview") {

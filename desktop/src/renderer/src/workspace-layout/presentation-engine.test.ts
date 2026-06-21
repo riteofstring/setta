@@ -185,6 +185,34 @@ describe("workspace presentation engine", () => {
     expect(host.style.pointerEvents).toBe("none");
   });
 
+  test("does not recycle active pane drag source binding for another pane", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
+    const host = fakePaneHost("workspace_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("workspace_pane_0", "workspace_surface_0", false)], {
+      resizePhase: "idle",
+    });
+    host.dataset.dragSource = "true";
+    host.style.translate = "18px 12px";
+
+    presentation.apply([renderItem("workspace_pane_1", "workspace_surface_1", true)], {
+      resizePhase: "idle",
+    });
+
+    expect(host.dataset.paneId).toBe("workspace_pane_0");
+    expect(textFor(host, "[data-workspace-pane-title]")).toBe("Pane 001");
+    expect(host.dataset.visible).toBe("true");
+    expect(host.style.opacity).toBe("1.000");
+    expect(host.style.pointerEvents).toBe("auto");
+    expect(host.style.translate).toBe("18px 12px");
+  });
+
   test("defers non-empty snapshot proxy content while panes are moving", () => {
     const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");

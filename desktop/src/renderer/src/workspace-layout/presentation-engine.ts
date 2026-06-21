@@ -249,12 +249,20 @@ export class PresentationEngine {
       if (!binding || assignedBindingIndexes.has(index)) {
         continue;
       }
+      if (this.hostIsActivePaneDragSource(binding)) {
+        continue;
+      }
       if (binding.contentPaneId === null) {
         return index;
       }
     }
     for (let index = 0; index < this.bindings.length; index += 1) {
-      if (!assignedBindingIndexes.has(index)) {
+      const binding = this.bindings[index];
+      if (
+        binding &&
+        !assignedBindingIndexes.has(index) &&
+        !this.hostIsActivePaneDragSource(binding)
+      ) {
         return index;
       }
     }
