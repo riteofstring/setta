@@ -555,6 +555,42 @@ describe("workspace layout store", () => {
     expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
   });
 
+  test("skips drop onto self without bumping revision", () => {
+    const store = createStore();
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "after",
+        targetPaneId: "workspace_pane_0",
+      }),
+    ).toBe(false);
+
+    expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
+  });
+
+  test("skips no-op column drops without bumping revision", () => {
+    const store = createStore();
+    const sourceColumn = requireColumnForPane(store.toScene(), "workspace_pane_0");
+    const targetColumn = requireColumnForPane(store.toScene(), "workspace_pane_1");
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent("workspace_pane_0", {
+        kind: "column",
+        planeIndex: targetColumn.planeIndex,
+        slotPlacement: "before",
+        targetColumnId: targetColumn.columnId,
+      }),
+    ).toBe(false);
+
+    expect(requireColumnForPane(store.toScene(), "workspace_pane_0").columnId).toBe(
+      sourceColumn.columnId,
+    );
+    expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
+  });
+
   test("bounds preview notifications to changed drag intents", () => {
     const store = createStore();
     const revisions: number[] = [];
