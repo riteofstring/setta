@@ -206,58 +206,6 @@ describe("workspace frame scheduler", () => {
     scheduler.teardown();
   });
 
-  test("treats active pane drop preview frames as movement", () => {
-    const renderCalls: LayoutFrameInput[] = [];
-    const engine = {
-      renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void) {
-        renderCalls.push(input);
-        push(renderItem(input.presentationMode, input.movementPhase));
-      },
-    } as unknown as WorkspaceLikeLayoutEngine;
-    const store = Object.assign(createStableStore("normal", 0, 0, 0), {
-      hasPaneDropPreview() {
-        return true;
-      },
-    }) as WorkspaceLayoutStore;
-    const scheduler = new FrameScheduler({
-      engine,
-      layoutStore: store,
-      metrics: new WorkspaceMetricsCollector(),
-      presentation: fakePresentation(),
-      reportWriter: null,
-      runtimePolicy: new PaneRuntimePolicy(),
-      viewportProvider: () => viewport,
-    });
-
-    privateRenderFrame(scheduler)(16, viewport, "idle");
-
-    expect(renderCalls.map((input) => input.movementPhase)).toEqual(["moving"]);
-  });
-
-  test("treats external drag movement override frames as movement", () => {
-    const renderCalls: LayoutFrameInput[] = [];
-    const engine = {
-      renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void) {
-        renderCalls.push(input);
-        push(renderItem(input.presentationMode, input.movementPhase));
-      },
-    } as unknown as WorkspaceLikeLayoutEngine;
-    const scheduler = new FrameScheduler({
-      engine,
-      layoutStore: createStableStore("normal", 0, 0, 0),
-      metrics: new WorkspaceMetricsCollector(),
-      movementOverride: () => true,
-      presentation: fakePresentation(),
-      reportWriter: null,
-      runtimePolicy: new PaneRuntimePolicy(),
-      viewportProvider: () => viewport,
-    });
-
-    privateRenderFrame(scheduler)(16, viewport, "idle");
-
-    expect(renderCalls.map((input) => input.movementPhase)).toEqual(["moving"]);
-  });
-
   test("keeps the benchmark frame loop continuous", () => {
     const store = createStableStore("normal", 0, 0, 0);
     const presentation = fakePresentation();
@@ -312,9 +260,6 @@ function createZoomingStore(
         targetScrollRow: 0,
       };
     },
-    hasPaneDropPreview() {
-      return false;
-    },
     moveFocus() {},
     snapScrollToTarget() {},
     subscribe() {
@@ -352,9 +297,6 @@ function createStableStore(
         targetScrollColumn: 0,
         targetScrollRow: 0,
       };
-    },
-    hasPaneDropPreview() {
-      return false;
     },
     moveFocus() {},
     emitLayoutChange() {

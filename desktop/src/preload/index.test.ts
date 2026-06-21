@@ -5,6 +5,7 @@ import type {
   ChatEvent,
   TerminalEvent,
   UpdateAppearanceSettingsRequest,
+  WorkspaceActivityEvent,
   WorkflowEvent,
   WorkflowGraph,
 } from "@generated/backend";
@@ -252,6 +253,37 @@ describe("preload workspace API", () => {
       [ipcChannels.appearanceRead],
       [ipcChannels.appearanceUpdate, request],
     ]);
+  });
+
+  test("exposes typed workspace activity methods through IPC", async () => {
+    const { api, invoke, on, removeListener } = await exposePreloadAPI();
+    expect(Object.keys(api.workspaceActivity).sort()).toEqual(["onEvent", "snapshot"]);
+
+    const snapshot = {
+      activities: [],
+      revision: 7,
+      schemaVersion: 1,
+      sequence: 12,
+      streamId: "workspace_activity_stream_test",
+      workspaceId: "workspace_api",
+    };
+    invoke.mockResolvedValueOnce({ snapshot });
+    await expect(api.workspaceActivity.snapshot("workspace_api", 100)).resolves.toEqual(snapshot);
+
+    const event = workspaceActivityEvent();
+    const listener = vi.fn();
+    const unsubscribe = api.workspaceActivity.onEvent(listener);
+    const handler = on.mock.calls.find((call) => call[0] === ipcEvents.workspaceActivityEvent)?.[1];
+    if (typeof handler !== "function") {
+      throw new Error("workspace activity event handler was not registered");
+    }
+    handler({}, event);
+    unsubscribe();
+
+    expectInvokeCalls(invoke, [[ipcChannels.workspaceActivitySnapshot, "workspace_api", 100]]);
+    expect(on).toHaveBeenCalledWith(ipcEvents.workspaceActivityEvent, expect.any(Function));
+    expect(listener).toHaveBeenCalledWith(event);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.workspaceActivityEvent, handler);
   });
 
   test("exposes typed chat methods through IPC", async () => {
@@ -1348,6 +1380,29 @@ function terminalEvent(): TerminalEvent {
     sessionId: "terminal_api",
     streamId: "terminal_stream_test",
     type: "terminal.output",
+    workspaceId: "workspace_api",
+  };
+}
+
+function workspaceActivityEvent(): WorkspaceActivityEvent {
+  return {
+    delta: null,
+    emittedAt: "2026-06-21T12:00:00Z",
+    eventId: "workspace_activity_stream_test:12",
+    resync: {
+      currentRevision: 7,
+      currentSequence: 12,
+      currentStreamId: "workspace_activity_stream_test",
+      earliestSequence: 8,
+      reason: "workspace activity replay is no longer available",
+      requestedSequence: 1,
+      requestedStreamId: "workspace_activity_stream_old",
+    },
+    revision: 7,
+    schemaVersion: 1,
+    sequence: 12,
+    streamId: "workspace_activity_stream_test",
+    type: "workspace_activity.resync_required",
     workspaceId: "workspace_api",
   };
 }

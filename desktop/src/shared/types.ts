@@ -111,6 +111,8 @@ import type {
   WorkflowExecutionEventPage,
   WorkflowGraph,
   WorkflowValidationResult,
+  WorkspaceActivityEvent,
+  WorkspaceActivitySnapshot,
   WorkspaceSelectedConversations,
   WorkspaceUILayout,
   WorkspaceUILayoutReadResult,
@@ -309,6 +311,10 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
+  };
+  workspaceActivity: {
+    onEvent: (listener: (event: WorkspaceActivityEvent) => void) => () => void;
+    snapshot: (workspaceId: string, limit: number) => Promise<WorkspaceActivitySnapshot>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

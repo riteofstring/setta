@@ -42,6 +42,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "fail active workflow", Run: (*ScriptedWorkflowHarness).failTurn},
 	{Prompt: "command approval workflow", Run: scriptedCommandApprovalTurn},
 	{Prompt: "file approval workflow", Run: scriptedFileApprovalTurn},
+	{Prompt: "activity feed workflow", Run: (*ScriptedWorkflowHarness).activityFeedTurn},
 	{Prompt: "permission approval workflow", Run: scriptedPermissionApprovalTurn},
 	{Prompt: "user input approval workflow", Run: (*ScriptedWorkflowHarness).userInputApprovalTurn},
 	{Prompt: "mcp elicitation form accept workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormAcceptTurn},
@@ -377,6 +378,27 @@ func (harness *ScriptedWorkflowHarness) decisionApprovalTurn(ctx context.Context
 		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted approval was not approved"}, nil
 	}
 	return scriptedReply(sink, request.Run.ID, approval.Title+" resolved.")
+}
+
+func (harness *ScriptedWorkflowHarness) activityFeedTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := scriptedActivityFeedCommand(sink, request.Run.ID, request.Workspace.RootPath); err != nil {
+		return TurnCompletion{}, err
+	}
+	if err := scriptedActivityFeedFileChange(sink, request.Run.ID, request.Workspace.RootPath); err != nil {
+		return TurnCompletion{}, err
+	}
+	approval := scriptedCommandApproval(request.Run.ID)
+	if err := scriptedApprovalActivity(sink, request.Run.ID, approval); err != nil {
+		return TurnCompletion{}, err
+	}
+	response, err := harness.requestAndWaitForApproval(ctx, request.Run.ID, sink, approval)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if !response.Approved || response.Cancelled {
+		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted activity approval was not approved"}, nil
+	}
+	return scriptedReply(sink, request.Run.ID, "Activity feed workflow complete.")
 }
 
 func (harness *ScriptedWorkflowHarness) userInputApprovalTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -743,17 +765,49 @@ func scriptedReply(sink TurnSink, runID string, text string) (TurnCompletion, er
 func scriptedApprovalActivity(sink TurnSink, runID string, approval ApprovalRequest) error {
 	item := RunItem{
 		ProviderItemID: approval.ProviderItemID,
-		Type:           RunItemTypeCommandExecution,
+		Type:           approvalRunItemType(approval),
 		Status:         RunItemStatusRunning,
 		Title:          approval.Title,
-		Command:        approval.Command,
 		FilePaths:      approvalFilePaths(approval),
 		Summary:        approval.Body,
+	}
+	if approval.Kind == ApprovalKindFileChange {
+		item.PatchStatus = "approval_requested"
+	} else {
+		item.Command = approval.Command
 	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err
 	}
 	return sink.RunItemOutputDelta(approval.ProviderItemID, "stdout", "scripted approval output for "+runID+"\n")
+}
+
+func scriptedActivityFeedCommand(sink TurnSink, runID string, rootPath string) error {
+	item := RunItem{
+		ProviderItemID: "provider_activity_command_" + runID,
+		Type:           RunItemTypeCommandExecution,
+		Status:         RunItemStatusCompleted,
+		Title:          "Activity command",
+		Command:        "printf scripted-activity",
+		Cwd:            rootPath,
+		ExitCode:       0,
+		DurationMs:     42,
+		Summary:        "Scripted typed command activity.",
+	}
+	return sink.RunItemUpsert(item)
+}
+
+func scriptedActivityFeedFileChange(sink TurnSink, runID string, rootPath string) error {
+	item := RunItem{
+		ProviderItemID: "provider_activity_file_" + runID,
+		Type:           RunItemTypeFileChange,
+		Status:         RunItemStatusCompleted,
+		Title:          "Activity file change",
+		FilePaths:      []string{filepath.Join(rootPath, "scripted-activity-file.txt")},
+		PatchStatus:    "updated",
+		Summary:        "Scripted typed file-change activity.",
+	}
+	return sink.RunItemUpsert(item)
 }
 
 func scriptedStructuredApprovalActivity(sink TurnSink, approval ApprovalRequest) error {
@@ -777,6 +831,13 @@ func approvalFilePaths(approval ApprovalRequest) []string {
 		return nil
 	}
 	return []string{approval.FilePath}
+}
+
+func approvalRunItemType(approval ApprovalRequest) RunItemType {
+	if approval.Kind == ApprovalKindFileChange {
+		return RunItemTypeFileChange
+	}
+	return RunItemTypeCommandExecution
 }
 
 func scriptedCommandApproval(runID string) ApprovalRequest {

@@ -4,6 +4,7 @@ import {
   decodeChatEvent,
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
+  decodeWorkspaceActivityEvent,
   decodeWorkflowEvent,
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
@@ -75,6 +76,21 @@ const api: SettaAPI = {
       return () => {
         ipcRenderer.removeListener(ipcEvents.backendProcessStatus, handler);
       };
+    },
+  },
+  workspaceActivity: {
+    onEvent: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeWorkspaceActivityEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.workspaceActivityEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.workspaceActivityEvent, handler);
+      };
+    },
+    snapshot: async (workspaceId, limit) => {
+      const response = await invoke("workspaceActivitySnapshot", workspaceId, limit);
+      return response.snapshot;
     },
   },
   appearance: {

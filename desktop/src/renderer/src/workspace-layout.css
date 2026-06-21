@@ -92,8 +92,7 @@
 }
 
 .workspace-pane-host[data-drag-source="true"] {
-  filter: none;
-  z-index: 2147483647 !important;
+  filter: brightness(1.08);
 }
 
 .workspace-pane-host[data-drop-target] {

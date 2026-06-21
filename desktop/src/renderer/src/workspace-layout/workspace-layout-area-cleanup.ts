@@ -4,13 +4,9 @@ import {
   visiblePaneHostForPane,
   type PaneDragSession,
 } from "./pane-drag-reorder";
-import type { PaneDropIntent } from "./types";
 
 export interface OverviewDragSession {
   dragging: boolean;
-  lastDropIntent: PaneDropIntent | null;
-  pendingDropFrame: number | null;
-  pendingDropPointer: { clientX: number; clientY: number } | null;
   pointerId: number;
   sourcePaneId: string;
   startClientX: number;
@@ -24,15 +20,7 @@ interface MutableCurrentRef<T> {
 export function cleanupOverviewDragSource(
   ref: MutableCurrentRef<OverviewDragSession | null>,
 ): void {
-  const session = ref.current;
-  const overviewSourcePaneId = session?.sourcePaneId;
-  if (
-    session?.pendingDropFrame !== null &&
-    session?.pendingDropFrame !== undefined &&
-    typeof window.cancelAnimationFrame === "function"
-  ) {
-    window.cancelAnimationFrame(session.pendingDropFrame);
-  }
+  const overviewSourcePaneId = ref.current?.sourcePaneId;
   ref.current = null;
   if (!overviewSourcePaneId) {
     return;

@@ -6,7 +6,6 @@ import type {
   WorkspacePresentationMode,
   WorkspaceScene,
   OpenPaneRequest,
-  PaneDropIntent,
   PaneLimitPolicy,
   PaneId,
   PaneInsertionPlacement,
@@ -475,15 +474,7 @@ export class WorkspaceLayoutStore {
     targetPaneId: PaneId,
     placement: PaneReorderPlacement,
   ): boolean {
-    return this.previewPaneDropIntent(sourcePaneId, {
-      kind: "row",
-      placement,
-      targetPaneId,
-    });
-  }
-
-  previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
-    if (!this.engine.previewPaneDropIntent(sourcePaneId, intent)) {
+    if (!this.engine.previewPaneReorder(sourcePaneId, targetPaneId, placement)) {
       return false;
     }
     this.notify();
@@ -496,10 +487,6 @@ export class WorkspaceLayoutStore {
     }
     this.notify();
     return true;
-  }
-
-  hasPaneDropPreview(): boolean {
-    return this.engine.hasPaneReorderPreview();
   }
 
   setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
@@ -518,15 +505,7 @@ export class WorkspaceLayoutStore {
   }
 
   reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
-    return this.applyPaneDropIntent(sourcePaneId, {
-      kind: "row",
-      placement: "before",
-      targetPaneId,
-    });
-  }
-
-  applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
-    if (!this.engine.applyPaneDropIntent(sourcePaneId, intent)) {
+    if (!this.engine.reorderPaneBefore(sourcePaneId, targetPaneId)) {
       return false;
     }
     this.setFocusedPane(sourcePaneId);
