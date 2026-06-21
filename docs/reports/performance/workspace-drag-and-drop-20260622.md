@@ -42,6 +42,14 @@ pnpm exec vitest run \
 
 Result: 4 test files passed, 93 tests passed.
 
+Additional focused workspace-layout command:
+
+```sh
+pnpm exec vitest run src/renderer/src/workspace-layout
+```
+
+Result: 22 test files passed, 244 tests passed.
+
 | Area | After repair evidence |
 | --- | --- |
 | Cross-column pane drag | `layout-engine.test.ts` verifies a single pane leaves a stacked source column while siblings stay behind. |
