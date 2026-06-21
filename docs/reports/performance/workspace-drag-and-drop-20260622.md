@@ -53,7 +53,7 @@ Additional focused workspace-layout command:
 pnpm exec vitest run src/renderer/src/workspace-layout
 ```
 
-Result: 22 test files passed, 253 tests passed.
+Result: 22 test files passed, 254 tests passed.
 
 Focused drag metrics command:
 
@@ -100,6 +100,7 @@ Result: passed.
 | No-op drops | `layout-store.test.ts` verifies current-neighbor row drops, drop-onto-self, and no-op adjacent column drops do not bump revision. |
 | Overview drag placement | `workspace-overview-ghost.test.ts` verifies `above`/`below` map to row drops and `right` maps to a column drop. |
 | Preview coalescing | `pane-drag-reorder.test.ts` verifies multiple pointer moves before one animation frame produce one preview for the latest intent. |
+| Rapid target changes | `pane-drag-reorder.test.ts` verifies rapid back-and-forth dragging records preview updates only for changed targets and does not emit duplicate updates for repeated same-target frames. |
 | Preview notification bounds | `layout-store.test.ts` verifies duplicate preview intents do not notify, changed intents notify once, and duplicate clears do not notify. |
 | Drag-source geometry ownership | `presentation-engine.test.ts` verifies hosts marked `data-drag-source` do not receive preview frame transform, size, or surface viewport sync until the drag-source flag is cleared. It also verifies an active drag-source host is not hidden if a transient preview frame omits it. |
 | Preview metrics | `metrics.test.ts` verifies `paneDragPreviewUpdates` / `paneDragPreviewClears` snapshot and reset behavior. `pane-drag-reorder.test.ts` verifies the normal drag path records one coalesced update and records clears only when preview state clears. |
