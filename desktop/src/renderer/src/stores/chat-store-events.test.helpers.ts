@@ -2,12 +2,267 @@ import type {
   ChatEvent,
   ChatMessage,
   ConversationListItem,
+  MessageDelivery,
+  MessageRole,
+  MessageStatus,
+  ReasoningBlockMode,
   Run,
+  RunActivityDetailsProjection,
   RunItem,
   RunItemOutput,
+  RunItemStatus,
+  RunItemType,
+  RunStatusBlockMode,
+  TranscriptBlock,
+  TranscriptBlockStatus,
 } from "@generated/backend";
 
 const eventStreamId = "event_stream_test";
+const workspaceId = "workspace_api";
+const conversationId = "conversation_api";
+
+function emptyActivityDetails(
+  overrides: Partial<RunActivityDetailsProjection> = {},
+): RunActivityDetailsProjection {
+  return {
+    command: "",
+    cwd: "",
+    details: null,
+    diffSummary: "",
+    durationMs: 0,
+    error: "",
+    exitCode: 0,
+    filePaths: [],
+    namespace: "",
+    noticeKind: "",
+    noticeMessage: "",
+    patchStatus: "",
+    processId: "",
+    progress: "",
+    requestId: "",
+    result: "",
+    reviewId: "",
+    serverName: "",
+    summary: "",
+    toolName: "",
+    ...overrides,
+  };
+}
+
+interface BlockBase {
+  id: string;
+  runId: string;
+  ordinal: number;
+  status?: TranscriptBlockStatus;
+  conversationId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+function baseBlock(base: BlockBase, kind: TranscriptBlock["kind"]): TranscriptBlock {
+  return {
+    activity: null,
+    assistantText: null,
+    conversationId: base.conversationId ?? conversationId,
+    createdAt: base.createdAt ?? "2026-05-29T20:00:00Z",
+    id: base.id,
+    kind,
+    ordinal: base.ordinal,
+    reasoning: null,
+    runId: base.runId,
+    runStatus: null,
+    schemaVersion: 1,
+    status: base.status ?? "complete",
+    updatedAt: base.updatedAt ?? base.createdAt ?? "2026-05-29T20:00:00Z",
+    userMessage: null,
+  };
+}
+
+export function userMessageBlock(
+  base: BlockBase & {
+    messageId?: string;
+    text?: string;
+    role?: MessageRole;
+    delivery?: MessageDelivery;
+    messageStatus?: MessageStatus;
+  },
+): TranscriptBlock {
+  const messageId = base.messageId ?? `${base.id}_message`;
+  return {
+    ...baseBlock(base, "user_message"),
+    userMessage: {
+      delivery: base.delivery ?? "normal",
+      messageId,
+      parts: [
+        { format: "plain", id: `${messageId}_part`, text: base.text ?? "hello", type: "text" },
+      ],
+      role: base.role ?? "user",
+      status: base.messageStatus ?? "complete",
+    },
+  };
+}
+
+export function assistantTextBlock(base: BlockBase & { text?: string }): TranscriptBlock {
+  return {
+    ...baseBlock({ status: "streaming", ...base }, "assistant_text"),
+    assistantText: { format: "markdown", text: base.text ?? "" },
+  };
+}
+
+export function reasoningBlock(
+  base: BlockBase & {
+    mode?: ReasoningBlockMode;
+    headline?: string;
+    summary?: string;
+    sourceRunItemId?: string;
+  },
+): TranscriptBlock {
+  return {
+    ...baseBlock({ status: "streaming", ...base }, "reasoning"),
+    reasoning: {
+      headline: base.headline ?? "Mapping parser modules",
+      mode: base.mode ?? "thinking",
+      sourceRunItemId: base.sourceRunItemId ?? `${base.id}_item`,
+      summary: base.summary ?? "",
+    },
+  };
+}
+
+export function activityBlock(
+  base: BlockBase & {
+    sourceRunItemId?: string;
+    type?: RunItemType;
+    title?: string;
+    activityStatus?: RunItemStatus;
+    hasDetails?: boolean;
+    hasOutput?: boolean;
+    details?: RunActivityDetailsProjection;
+  },
+): TranscriptBlock {
+  return {
+    ...baseBlock(base, "activity_item"),
+    activity: {
+      details: base.details ?? emptyActivityDetails(),
+      hasDetails: base.hasDetails ?? false,
+      hasOutput: base.hasOutput ?? false,
+      sourceRunItemId: base.sourceRunItemId ?? `${base.id}_item`,
+      status: base.activityStatus ?? "completed",
+      title: base.title ?? "command execution",
+      type: base.type ?? "command_execution",
+    },
+  };
+}
+
+export function runStatusBlock(
+  base: BlockBase & { mode?: RunStatusBlockMode; label?: string; error?: string },
+): TranscriptBlock {
+  return {
+    ...baseBlock({ status: "streaming", ...base }, "run_status"),
+    runStatus: {
+      error: base.error ?? "",
+      label: base.label ?? "Working",
+      mode: base.mode ?? "working",
+    },
+  };
+}
+
+function transcriptBlockEvent(
+  sequence: number,
+  type: "chat.transcript_block.created" | "chat.transcript_block.updated",
+  block: TranscriptBlock,
+  streamId: string,
+): ChatEvent {
+  return {
+    conversationId: block.conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: { block },
+    runId: block.runId,
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type,
+    workspaceId,
+  };
+}
+
+export function transcriptBlockCreatedEvent(
+  sequence: number,
+  block: TranscriptBlock,
+  streamId = eventStreamId,
+): ChatEvent {
+  return transcriptBlockEvent(sequence, "chat.transcript_block.created", block, streamId);
+}
+
+export function transcriptBlockUpdatedEvent(
+  sequence: number,
+  block: TranscriptBlock,
+  streamId = eventStreamId,
+): ChatEvent {
+  return transcriptBlockEvent(sequence, "chat.transcript_block.updated", block, streamId);
+}
+
+export function transcriptTextDeltaEvent(
+  sequence: number,
+  options: { runId: string; blockId: string; delta: string; updatedAt?: string },
+  streamId = eventStreamId,
+): ChatEvent {
+  return {
+    conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: {
+      blockId: options.blockId,
+      delta: options.delta,
+      updatedAt: options.updatedAt ?? "2026-05-29T20:00:01Z",
+    },
+    runId: options.runId,
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.transcript_text.delta",
+    workspaceId,
+  };
+}
+
+export function transcriptBlocksReplacedEvent(
+  sequence: number,
+  options: { runId: string; blocks: TranscriptBlock[] },
+  streamId = eventStreamId,
+): ChatEvent {
+  return {
+    conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: { blocks: options.blocks, runId: options.runId },
+    runId: options.runId,
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.transcript_blocks.replaced",
+    workspaceId,
+  };
+}
+
+export function queueUpdatedEvent(
+  sequence: number,
+  runs: Run[],
+  messages: ChatMessage[],
+  streamId = eventStreamId,
+): ChatEvent {
+  return {
+    conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: { queue: { messages, runs } },
+    runId: "",
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.queue.updated",
+    workspaceId,
+  };
+}
 
 export function messageCreatedEvent(
   sequence: number,
@@ -27,32 +282,6 @@ export function messageCreatedEvent(
     sequence,
     streamId,
     type: "chat.message.created",
-    workspaceId: "workspace_api",
-  };
-}
-
-export function assistantDeltaEvent(
-  sequence: number,
-  messageId: string,
-  partId: string,
-  delta: string,
-  streamId = eventStreamId,
-): ChatEvent {
-  return {
-    conversationId: "conversation_api",
-    emittedAt: "2026-05-29T20:00:00Z",
-    eventId: `${streamId}:${sequence}`,
-    payload: {
-      delta,
-      messageId,
-      partId,
-      updatedAt: "2026-05-29T20:00:01Z",
-    },
-    runId: "run_api",
-    schemaVersion: 1,
-    sequence,
-    streamId,
-    type: "chat.assistant_text_delta",
     workspaceId: "workspace_api",
   };
 }

@@ -768,6 +768,13 @@ The full transcript block projection is not republished for every output chunk.
 - Preserve message action buttons, copy/retry affordances, timestamps, search
   highlighting, deep links, queued messages, steering messages, and active-run
   status behavior.
+- Migrate the workspace-graph node-details activity feed
+  (`features/workspace-graph/workflow-node-details-*`) off the removed
+  `RunActivityPage.activity` / `RunActivityGroupProjection` to the block model or
+  another explicit activity source. This on-graph surface consumes the same
+  removed projection but is outside the chat-transcript component set, so it is a
+  required, separately-tracked part of the clean cutover (not just a chat-panel
+  change).
 
 ### Phase 6: Verification And Cleanup
 

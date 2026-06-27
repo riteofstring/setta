@@ -14,7 +14,7 @@ import type {
   ReasoningEffort,
   RunItem,
   RunItemOutput,
-  TranscriptTurn,
+  TranscriptBlock,
 } from "@generated/backend";
 import type { BackendProcessStatus, ChatCommandExecutionOptions } from "@shared/types";
 
@@ -63,7 +63,7 @@ export interface ChatStore {
   messageIds: string[];
   messages: ChatMessage[];
   messagesById: Record<string, ChatMessage>;
-  olderBeforeOrdinal: number;
+  olderBeforeBlockOrdinal: number;
   operation: ChatOperation;
   queuedRuns: QueuedRun[];
   queueMessage: (prompt: string) => Promise<void>;
@@ -109,7 +109,8 @@ export interface ChatStore {
     cancelled: boolean,
   ) => Promise<void>;
   workspaceId: string | null;
-  transcript: TranscriptTurn[];
+  transcriptBlocks: TranscriptBlock[];
+  transcriptBlocksById: Record<string, TranscriptBlock>;
 }
 
 export type ChatPatch = Partial<
@@ -133,7 +134,7 @@ export type ChatPatch = Partial<
     | "messageIds"
     | "messages"
     | "messagesById"
-    | "olderBeforeOrdinal"
+    | "olderBeforeBlockOrdinal"
     | "operation"
     | "queuedRuns"
     | "removingQueuedMessageId"
@@ -147,7 +148,8 @@ export type ChatPatch = Partial<
     | "selectedConversation"
     | "selectedConversationIdsByWorkspaceId"
     | "status"
-    | "transcript"
+    | "transcriptBlocks"
+    | "transcriptBlocksById"
     | "workspaceId"
   >
 >;

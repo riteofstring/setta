@@ -8,7 +8,6 @@ import type {
   MessageStatus,
   Run,
   RunStatus,
-  TranscriptTurn,
 } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -32,7 +31,7 @@ describe("chat store queued message controls", () => {
       messageIds: [],
       messages: [],
       messagesById: {},
-      olderBeforeOrdinal: 0,
+      olderBeforeBlockOrdinal: 0,
       operation: null,
       queuedRuns: [],
       removingQueuedMessageId: null,
@@ -45,7 +44,8 @@ describe("chat store queued message controls", () => {
       runItemsById: {},
       selectedConversation: null,
       status: "idle",
-      transcript: [],
+      transcriptBlocks: [],
+      transcriptBlocksById: {},
       workspaceId: null,
     });
   });
@@ -208,14 +208,14 @@ describe("chat store queued message controls", () => {
       removingQueuedMessageId: queued.id,
       selectedConversation: conversation,
       status: "ready",
-      transcript: testPage(conversation, [queued]).transcript,
       workspaceId: "workspace_api",
     });
 
     useChatStore.getState().handleEvent(messageRemovedEvent(1, queued.id, queuedRun.id));
 
+    // A queued message owns no transcript block, so removal only clears the queue
+    // surfaces; transcript blocks are driven by block events, not message removal.
     expect(useChatStore.getState().messages).toEqual([]);
-    expect(useChatStore.getState().transcript).toEqual([]);
     expect(useChatStore.getState().editingQueuedMessageId).toBeNull();
     expect(useChatStore.getState().removingQueuedMessageId).toBeNull();
   });
@@ -246,6 +246,10 @@ function testConversation(): Conversation {
 }
 
 function testPage(conversation: Conversation, messages: ChatMessage[]): MessagePage {
+  const queuedMessages = messages.filter((item) => item.delivery === "queued");
+  const queuedRunIds = [
+    ...new Set(queuedMessages.map((item) => item.runId).filter((runId) => runId !== "")),
+  ];
   return {
     blocks: [],
     conversation,
@@ -253,43 +257,14 @@ function testPage(conversation: Conversation, messages: ChatMessage[]): MessageP
     hasMoreOlder: false,
     messages,
     olderBeforeBlockOrdinal: 0,
-    olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queue: {
-      messages: messages.filter((item) => item.delivery === "queued"),
-      runs: transcriptFromMessages(messages)
-        .map((turn) => turn.run)
-        .filter((run) => run.status === "queued"),
+      messages: queuedMessages,
+      runs: queuedRunIds.map((runId) => ({
+        ...testRun("queued", runId),
+        triggerMessageId: queuedMessages.find((item) => item.runId === runId)?.id ?? "",
+      })),
     },
-    runItemOutputs: [],
-    runItems: [],
-    transcript: transcriptFromMessages(messages),
   };
-}
-
-function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
-  const runIds = [...new Set(messages.map((item) => item.runId).filter((runId) => runId !== ""))];
-  return runIds.map((runId) => {
-    const run = testRun("running", runId);
-    const triggerMessage =
-      messages.find((item) => item.runId === runId && item.role === "user") ??
-      message(`message_user_${runId}`, 1, "user", "complete", "user", "normal", runId);
-    const assistantMessage =
-      messages.find((item) => item.runId === runId && item.role === "assistant") ?? null;
-    return {
-      activity: null,
-      assistantMessage,
-      run: {
-        ...run,
-        assistantMessageId: assistantMessage?.id ?? "",
-        status: assistantMessage ? run.status : "queued",
-        triggerMessageId: triggerMessage.id,
-      },
-      steeringMessages: messages.filter(
-        (item) => item.runId === runId && item.delivery === "steering",
-      ),
-      triggerMessage,
-    };
-  });
 }
 
 function message(

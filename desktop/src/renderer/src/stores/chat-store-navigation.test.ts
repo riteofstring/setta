@@ -765,11 +765,7 @@ function testPage(conversation: Conversation, messages: ChatMessage[]): MessageP
     hasMoreOlder: false,
     messages,
     olderBeforeBlockOrdinal: 0,
-    olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queue: { messages: [], runs: [] },
-    runItemOutputs: [],
-    runItems: [],
-    transcript: [],
   };
 }
 
@@ -799,7 +795,7 @@ function conversationDetail(conversation: Conversation, messages: ChatMessage[])
     messageIds: messages.map((item) => item.id),
     messages,
     messagesById: Object.fromEntries(messages.map((item) => [item.id, item])),
-    olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
+    olderBeforeBlockOrdinal: 0,
     queuedRuns: [],
     runItemIdsByRunId: {},
     runItemOutputIdsByRunItemId: {},
@@ -808,7 +804,8 @@ function conversationDetail(conversation: Conversation, messages: ChatMessage[])
     runItemOutputsById: {},
     runItems: [],
     runItemsById: {},
-    transcript: [],
+    transcriptBlocks: [],
+    transcriptBlocksById: {},
   };
 }
 

@@ -677,11 +677,7 @@ function emptyMessagePage(): MessagePage {
     hasMoreOlder: false,
     messages: [],
     olderBeforeBlockOrdinal: 0,
-    olderBeforeOrdinal: 0,
     queue: { messages: [], runs: [] },
-    runItemOutputs: [],
-    runItems: [],
-    transcript: [],
   };
 }
 

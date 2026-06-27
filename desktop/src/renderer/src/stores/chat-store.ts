@@ -19,11 +19,11 @@ import { ChatBackendLifecycleAbort } from "./chat-store-backend-lifecycle";
 import { cacheableCommandDescriptors, commandDescriptorCacheKey } from "./chat-store-command-cache";
 import { conversationDetailPatch, normalizeStatePatch } from "./chat-store-detail-cache";
 import {
-  activeRunFromPage,
+  blocksFromPage,
   messagesFromPage,
   outputPageLoadedState,
+  prependOlderBlocks,
   prependOlderMessages,
-  prependOlderTranscript,
   updateRunItemOutputPageState,
   upsertRunItemOutputs,
   upsertRunItems,
@@ -525,8 +525,13 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     loadOlder: async () => {
-      const { olderBeforeOrdinal, selectedConversation, workspaceId } = get();
-      if (!workspaceId || !selectedConversation || olderBeforeOrdinal <= 0 || !get().hasMoreOlder) {
+      const { olderBeforeBlockOrdinal, selectedConversation, workspaceId } = get();
+      if (
+        !workspaceId ||
+        !selectedConversation ||
+        olderBeforeBlockOrdinal <= 0 ||
+        !get().hasMoreOlder
+      ) {
         return;
       }
       const operation = beginOperation("pagination", { error: null, operation: "loadingOlder" });
@@ -534,7 +539,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         const page = await window.setta.chat.messagePage(
           workspaceId,
           selectedConversation.id,
-          olderBeforeOrdinal,
+          olderBeforeBlockOrdinal,
           pageLimit,
         );
         commitCurrentFromState(operation, (current) => {
@@ -547,12 +552,10 @@ export const useChatStore = create<ChatStore>((set, get) => {
           return {
             hasMoreOlder: page.hasMoreOlder,
             messages: prependOlderMessages(messagesFromPage(page), current.messages),
-            olderBeforeOrdinal: page.olderBeforeOrdinal,
+            olderBeforeBlockOrdinal: page.olderBeforeBlockOrdinal,
             operation: null,
-            runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.runItemOutputs),
-            runItems: upsertRunItems(current.runItems, page.runItems),
             status: "ready",
-            transcript: prependOlderTranscript(page.transcript, current.transcript),
+            transcriptBlocks: prependOlderBlocks(blocksFromPage(page), current.transcriptBlocks),
           };
         });
       } catch (error) {
@@ -571,9 +574,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
             runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
             runItems: upsertRunItems(current.runItems, page.items),
             status: "ready",
-            transcript: current.transcript.map((turn) =>
-              turn.run.id === page.runId ? { ...turn, activity: page.activity } : turn,
-            ),
           }),
         );
       } catch (error) {
@@ -661,7 +661,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     messageIds: [],
     messages: [],
     messagesById: {},
-    olderBeforeOrdinal: 0,
+    olderBeforeBlockOrdinal: 0,
     operation: null,
     queuedRuns: [],
     queueMessage: async (prompt: string) => {
@@ -704,7 +704,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           messageId,
         );
         commitCurrentFromState(operation, (current) => ({
-          ...pagePatch(result.page, activeRunFromPage(result.page) ?? current.activeRun),
+          ...pagePatch(result.page, current.activeRun),
           operation: null,
           removingQueuedMessageId: null,
           selectedConversation: result.conversation,
@@ -983,7 +983,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
         commitCurrent(operation, errorPatch(error));
       }
     },
-    transcript: [],
+    transcriptBlocks: [],
+    transcriptBlocksById: {},
     workspaceId: null,
   };
 });
