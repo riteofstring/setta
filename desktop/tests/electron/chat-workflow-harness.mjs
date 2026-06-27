@@ -791,15 +791,6 @@ export async function assertRecordingEvidence(recordingDir, expected) {
       throw new Error(`recording missing successful backend path: ${path}`);
     }
   }
-  if (expected.chatActivityProjectionEvents) {
-    await assertChatActivityProjectionEventsRecorded(recordingDir);
-  }
-  if (expected.runActivityDomSnapshots) {
-    await assertRunActivityDomSnapshotsRecorded(recordingDir);
-  }
-  if (expected.codexRpc) {
-    await assertCodexRPCRecorded(recordingDir);
-  }
 }
 
 async function assertLayoutSnapshotsRecorded(recordingDir) {
@@ -809,72 +800,6 @@ async function assertLayoutSnapshotsRecorded(recordingDir) {
   }
   if (!snapshots.some((entry) => entry.chatDetailPane && entry.composer)) {
     throw new Error(`recording layout snapshots never captured chat regions: ${recordingDir}`);
-  }
-}
-
-async function assertChatActivityProjectionEventsRecorded(recordingDir) {
-  const events = await readJsonLines(join(recordingDir, "events.jsonl"));
-  const updates = events.filter((entry) => entry.type === "chat_run_activity_updated");
-  if (updates.length === 0) {
-    throw new Error(`recording missing chat run activity projection events: ${recordingDir}`);
-  }
-  const updateWithRows = updates.find((entry) => {
-    const rows = entry.payload?.event?.payload?.activity?.rows;
-    return (
-      Array.isArray(rows) &&
-      rows.some(
-        (row) =>
-          typeof row.sourceRunItemId === "string" &&
-          row.sourceRunItemId.length > 0 &&
-          typeof row.status === "string" &&
-          row.status.length > 0 &&
-          typeof row.title === "string" &&
-          row.title.length > 0 &&
-          typeof row.type === "string" &&
-          row.type.length > 0,
-      )
-    );
-  });
-  if (!updateWithRows) {
-    throw new Error(
-      `recording chat activity projection events did not include rows: ${recordingDir}`,
-    );
-  }
-}
-
-async function assertRunActivityDomSnapshotsRecorded(recordingDir) {
-  const snapshots = await waitForLayoutSnapshots(recordingDir);
-  const snapshotWithRows = snapshots.find((entry) =>
-    entry.runActivityGroups?.some(
-      (group) =>
-        typeof group.runId === "string" &&
-        group.runId.length > 0 &&
-        Array.isArray(group.rows) &&
-        group.rows.some(
-          (row) =>
-            typeof row.sourceRunItemId === "string" &&
-            row.sourceRunItemId.length > 0 &&
-            typeof row.status === "string" &&
-            row.status.length > 0 &&
-            typeof row.title === "string" &&
-            row.title.length > 0 &&
-            typeof row.type === "string" &&
-            row.type.length > 0,
-        ),
-    ),
-  );
-  if (!snapshotWithRows) {
-    throw new Error(`recording missing run activity DOM snapshots: ${recordingDir}`);
-  }
-}
-
-async function assertCodexRPCRecorded(recordingDir) {
-  const rpc = await readJsonLines(join(recordingDir, "codex-rpc.jsonl"));
-  if (!rpc.some((entry) => entry.direction === "client_to_server" && entry.message)) {
-    throw new Error(`recording missing Codex RPC client messages: ${recordingDir}`);
-  }
-  if (!rpc.some((entry) => entry.direction === "server_to_client" && entry.message)) {
-    throw new Error(`recording missing Codex RPC server messages: ${recordingDir}`);
   }
 }
 

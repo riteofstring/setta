@@ -356,9 +356,6 @@ async function runDeterministicWorkflowLaunch(results) {
       "codex-account:read",
       "codex-account:start-login",
     ],
-    chatActivityProjectionEvents: true,
-    codexRpc: true,
-    runActivityDomSnapshots: true,
   });
 }
 
@@ -382,8 +379,7 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
   await assertActivityRows(client, []);
 
   await submitComposer(client, "chat activity projection workflow", "Send message");
-  await waitForTexts(client, ["Projection activity starting."]);
-  await assertTextAbsent(client, "Streaming reasoning placeholder");
+  await waitForTexts(client, ["Projection activity starting.", "Streaming reasoning placeholder"]);
   await submitComposer(client, "finish projection activity", "Send steering message");
   const run = await waitForRunWithPrompt(
     backend,

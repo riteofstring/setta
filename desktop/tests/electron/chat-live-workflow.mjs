@@ -175,7 +175,6 @@ export async function runLiveCodexWorkflow(results, deps) {
       "semantic-graph:cartographer-patch-list",
       "semantic-graph:read",
     ],
-    codexRpc: true,
   });
   results.push("live-codex-electron");
   process.stdout.write("Electron chat workflow passed: live-codex-electron\n");

@@ -92,8 +92,6 @@ export function RunActivityRows({
   return (
     <details
       className="group/activity mt-3 w-full min-w-0 max-w-full overflow-hidden border-t border-border/80 pt-2.5 text-xs text-foreground"
-      data-activity-status={activity.status}
-      data-run-id={activity.runId}
       data-testid="run-activity-group"
       open
     >
@@ -161,9 +159,6 @@ function RunActivityRow({
       )}
       data-activity-focus-id={focused ? `run-item:${row.sourceRunItemId}` : undefined}
       data-activity-focused={focused ? "true" : undefined}
-      data-activity-row-status={row.status}
-      data-activity-row-title={row.title}
-      data-activity-row-type={row.type}
       data-run-item-id={row.sourceRunItemId}
       data-testid="run-activity-row"
       ref={rowRef}
@@ -259,9 +254,6 @@ function CompactRunActivityRow({
       )}
       data-activity-focus-id={focused ? `run-item:${row.sourceRunItemId}` : undefined}
       data-activity-focused={focused ? "true" : undefined}
-      data-activity-row-status={row.status}
-      data-activity-row-title={row.title}
-      data-activity-row-type={row.type}
       data-run-item-id={row.sourceRunItemId}
       data-testid="run-activity-row"
     >

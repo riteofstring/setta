@@ -162,7 +162,6 @@ function layoutSnapshot(trigger: string): RendererRecordedEvent {
     chatDetailPane: elementRect(pane),
     composer: elementRect(composer),
     queueSize: document.querySelectorAll('[data-testid="chat-queued-turn-row"]').length,
-    runActivityGroups: runActivityGroupSnapshots(),
     selectedConversationId: pane?.getAttribute("data-conversation-id") ?? "",
     transcript: scrollRect(transcript, scroller),
     trigger,
@@ -175,42 +174,6 @@ function layoutSnapshot(trigger: string): RendererRecordedEvent {
     visibleTurnIds: Array.from(document.querySelectorAll('[data-testid="chat-transcript-turn"]'))
       .map((turn) => turn.getAttribute("data-run-id") ?? "")
       .filter((id) => id !== ""),
-  };
-}
-
-function runActivityGroupSnapshots() {
-  return Array.from(document.querySelectorAll('[data-testid="run-activity-group"]')).map(
-    (group, index) => {
-      const element = group as HTMLElement;
-      const rows = Array.from(
-        group.querySelectorAll<HTMLElement>('[data-testid="run-activity-row"]'),
-      );
-      return {
-        index,
-        open: group instanceof HTMLDetailsElement ? group.open : null,
-        rect: elementRect(group),
-        rowCount: rows.length,
-        rows: rows.map(runActivityRowSnapshot),
-        runId: element.dataset.runId ?? "",
-        status: element.dataset.activityStatus ?? "",
-        text: truncate(textContent(group)),
-      };
-    },
-  );
-}
-
-function runActivityRowSnapshot(row: HTMLElement, index: number) {
-  return {
-    expandable: row instanceof HTMLDetailsElement,
-    focused: row.dataset.activityFocused === "true",
-    index,
-    open: row instanceof HTMLDetailsElement ? row.open : null,
-    rect: elementRect(row),
-    sourceRunItemId: row.dataset.runItemId ?? "",
-    status: row.dataset.activityRowStatus ?? "",
-    text: truncate(textContent(row)),
-    title: row.dataset.activityRowTitle ?? "",
-    type: row.dataset.activityRowType ?? "",
   };
 }
 

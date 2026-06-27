@@ -122,14 +122,6 @@ function startChatEventStream() {
           streamId: event.streamId,
           type: event.type,
         });
-        if (event.type === "chat.run_activity.updated") {
-          recorder?.recordAppEvent("chat_run_activity_updated", {
-            event,
-            eventId: event.eventId,
-            sequence: event.sequence,
-            streamId: event.streamId,
-          });
-        }
       },
       lifecycle: (event) => {
         emitBackendEventStreamStatus(event);

@@ -277,7 +277,6 @@ func (client *Client) write(payload any) error {
 	if _, err := client.stdin.Write(append(data, '\n')); err != nil {
 		return fmt.Errorf("write codex app-server message: %w", err)
 	}
-	recordCodexRPCMessage("client_to_server", data)
 	return nil
 }
 
@@ -290,7 +289,6 @@ func (client *Client) readLoop(stdout io.Reader, stderr fmt.Stringer) {
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 4096), 16*1024*1024)
 	for scanner.Scan() {
-		recordCodexRPCMessage("server_to_client", scanner.Bytes())
 		var message Message
 		if err := json.Unmarshal(scanner.Bytes(), &message); err != nil {
 			terminalErr = fmt.Errorf("decode codex app-server message: %w", err)
