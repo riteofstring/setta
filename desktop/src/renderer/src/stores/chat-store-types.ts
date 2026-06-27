@@ -12,7 +12,6 @@ import type {
   Diagnostic,
   ListConversationsResponse,
   ReasoningEffort,
-  RunItem,
   RunItemOutput,
   TranscriptBlock,
 } from "@generated/backend";
@@ -50,7 +49,6 @@ export interface ChatStore {
   lastEventSequence: number;
   lastEventStreamId: string;
   loadOlder: () => Promise<void>;
-  loadRunActivity: (runId: string, limit?: number) => Promise<void>;
   loadRunItemOutput: (
     runId: string,
     runItemId: string,
@@ -81,13 +79,10 @@ export interface ChatStore {
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   deleteConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
-  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputs: RunItemOutput[];
   runItemOutputsById: Record<string, RunItemOutput>;
-  runItems: RunItem[];
-  runItemsById: Record<string, RunItem>;
   selectedConversation: Conversation | null;
   selectedConversationIdsByWorkspaceId: Record<string, string | undefined>;
   selectConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
@@ -138,13 +133,10 @@ export type ChatPatch = Partial<
     | "operation"
     | "queuedRuns"
     | "removingQueuedMessageId"
-    | "runItemIdsByRunId"
     | "runItemOutputIdsByRunItemId"
     | "runItemOutputPagesByRunItemId"
     | "runItemOutputs"
     | "runItemOutputsById"
-    | "runItems"
-    | "runItemsById"
     | "selectedConversation"
     | "selectedConversationIdsByWorkspaceId"
     | "status"

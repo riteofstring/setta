@@ -26,7 +26,6 @@ import {
   prependOlderMessages,
   updateRunItemOutputPageState,
   upsertRunItemOutputs,
-  upsertRunItems,
 } from "./chat-store-normalization";
 import {
   commandOperationPatch,
@@ -562,24 +561,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
         commitCurrent(operation, errorPatch(error));
       }
     },
-    loadRunActivity: async (runId, limit = 200) => {
-      const { workspaceId } = get();
-      if (!workspaceId || runId === "") {
-        return;
-      }
-      try {
-        const page = await window.setta.chat.runActivity(workspaceId, runId, limit);
-        set((current) =>
-          normalizeStatePatch(current, {
-            runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
-            runItems: upsertRunItems(current.runItems, page.items),
-            status: "ready",
-          }),
-        );
-      } catch (error) {
-        set(errorPatch(error));
-      }
-    },
     loadRunItemOutput: async (runId, runItemId, afterOrdinal = 0, limit = 200) => {
       const { workspaceId } = get();
       if (!workspaceId || runId === "" || runItemId === "") {
@@ -915,9 +896,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
     runItemOutputIdsByRunItemId: {},
     runItemOutputPagesByRunItemId: {},
     runItemOutputsById: {},
-    runItems: [],
-    runItemIdsByRunId: {},
-    runItemsById: {},
     steerMessage: async (prompt: string) => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {

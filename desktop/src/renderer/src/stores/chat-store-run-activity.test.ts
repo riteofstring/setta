@@ -15,15 +15,17 @@ import {
   runItemUpdatedEvent,
 } from "./chat-store-events.test.helpers";
 
-// Raw run items / outputs are kept only for detail surfaces (the transcript renders
-// from blocks), so they are populated by run-item events and the lazy
-// loadRunActivity / loadRunItemOutput endpoints keyed by source run item ID.
+// Run-item OUTPUT chunks are kept for the transcript's lazy output-expansion detail
+// surface (the transcript itself renders from blocks). They are populated by
+// run_item_output.delta events and the lazy loadRunItemOutput endpoint, both keyed by
+// source run item ID. Raw run-item created/updated events are no-ops in the renderer
+// (the semantic graph cartographer consumes them on the backend).
 describe("chat store run-item detail surface", () => {
   beforeEach(() => {
     useChatStore.setState(useChatStore.getInitialState(), true);
   });
 
-  test("applies run item events incrementally", () => {
+  test("ignores raw run-item events and applies run-item output deltas", () => {
     const conversation = testConversation();
     const item = runItem("run_item_command", "command_execution", "running");
     const completed: RunItem = { ...item, status: "completed", exitCode: 0 };
@@ -34,39 +36,15 @@ describe("chat store run-item detail surface", () => {
       workspaceId: "workspace_api",
     });
 
+    // Created/updated events are accepted but drive no renderer state; only output
+    // deltas populate the lazy output-expansion surface.
     useChatStore.getState().handleEvent(runItemCreatedEvent(1, item));
     useChatStore.getState().handleEvent(runItemUpdatedEvent(2, completed));
     useChatStore.getState().handleEvent(runItemOutputDeltaEvent(3, output));
     useChatStore.getState().handleEvent(runItemOutputDeltaEvent(3, output));
 
-    expect(useChatStore.getState().runItems).toEqual([completed]);
     expect(useChatStore.getState().runItemOutputs).toEqual([output]);
-    expect(useChatStore.getState().runItemIdsByRunId.run_api).toEqual([completed.id]);
     expect(useChatStore.getState().runItemOutputIdsByRunItemId[completed.id]).toEqual([output.id]);
-  });
-
-  test("lazy-loads run activity without dropping embedded output", async () => {
-    const item = runItem("run_item_command", "command_execution", "running");
-    const completed: RunItem = { ...item, status: "completed" };
-    const firstOutput = runItemOutput("run_item_output_1", item.id, 1, "first\n");
-    const secondOutput = runItemOutput("run_item_output_2", item.id, 2, "second\n");
-    const runActivity = vi.fn().mockResolvedValue({
-      items: [completed],
-      output: [secondOutput],
-      runId: "run_api",
-    });
-    installChatAPI({ runActivity });
-    useChatStore.setState({
-      runItemOutputs: [firstOutput],
-      runItems: [item],
-      workspaceId: "workspace_api",
-    });
-
-    await useChatStore.getState().loadRunActivity("run_api", 200);
-
-    expect(runActivity).toHaveBeenCalledWith("workspace_api", "run_api", 200);
-    expect(useChatStore.getState().runItems).toEqual([completed]);
-    expect(useChatStore.getState().runItemOutputs).toEqual([firstOutput, secondOutput]);
   });
 
   test("lazy-loads run item output for only the expanded row", async () => {
@@ -84,7 +62,6 @@ describe("chat store run-item detail surface", () => {
     installChatAPI({ runItemOutput: runItemOutputPage });
     useChatStore.setState({
       runItemOutputs: [outputA],
-      runItems: [itemA, itemB],
       workspaceId: "workspace_api",
     });
 
@@ -125,7 +102,6 @@ describe("chat store run-item detail surface", () => {
       });
     installChatAPI({ runItemOutput: runItemOutputPage });
     useChatStore.setState({
-      runItems: [itemA, itemB],
       workspaceId: "workspace_api",
     });
 

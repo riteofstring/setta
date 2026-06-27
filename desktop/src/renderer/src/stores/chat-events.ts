@@ -4,7 +4,6 @@ import type {
   ConversationListItem,
   Diagnostic,
   Run,
-  RunItem,
   RunItemOutput,
 } from "@generated/backend";
 
@@ -73,10 +72,11 @@ const runEventTypes = new Set<AppliedChatEvent["type"]>([
 // The chat store owns the conversation transcript through typed transcript block
 // events plus the message, run, queue, and conversation surfaces. The transcript
 // is driven only by block events: assistant text streams through
-// chat.transcript_text.delta (block-keyed), so chat.assistant_text_delta is a
-// no-op here and is consumed by the semantic graph cartographer instead. Raw run
-// items are kept only for detail surfaces and diagnostics. Events are routed to a
-// dispatcher per surface so each stays exhaustively typed.
+// chat.transcript_text.delta (block-keyed), so chat.assistant_text_delta and the
+// raw chat.run_item.created/updated events are no-ops here and are consumed by the
+// semantic graph cartographer instead. Run-item OUTPUT chunks still stream through
+// chat.run_item_output.delta to back lazy output expansion keyed by source run item
+// ID. Events are routed to a dispatcher per surface so each stays exhaustively typed.
 export function applyChatEvent(state: ChatStore, event: AppliedChatEvent): EventApplyResult {
   if (isTranscriptBlockEvent(event)) {
     return applyTranscriptBlockEvent(state, event);
@@ -132,7 +132,11 @@ function applyRunEvent(state: ChatStore, event: RunEvent): EventApplyResult {
       return applyRunUpdatedEvent(state, event);
     case "chat.run_item.created":
     case "chat.run_item.updated":
-      return applyRunItemUpsertEvent(state, event);
+      // Raw run-item created/updated events drive no renderer state: the transcript
+      // renders from typed blocks, and run-item OUTPUT chunks stream separately via
+      // chat.run_item_output.delta for lazy expansion. The events are still published
+      // for the semantic graph cartographer, so the renderer accepts and ignores them.
+      return unchangedEventResult();
     case "chat.run_item_output.delta":
       return applyRunItemOutputDeltaEvent(state, event);
     default:
@@ -224,16 +228,6 @@ function applyRunUpdatedEvent(
     false,
     true,
   );
-}
-
-function applyRunItemUpsertEvent(
-  state: ChatStore,
-  event: AppliedEventOf<"chat.run_item.created" | "chat.run_item.updated">,
-): EventApplyResult {
-  return selectedConversationEventResult(state, event, {
-    runItems: upsertRunItem(state.runItems, event.payload.item),
-    status: "ready",
-  });
 }
 
 function applyRunItemOutputDeltaEvent(
@@ -385,13 +379,10 @@ function emptySelectedConversationPatch(): ChatPatch {
     messagesById: {},
     olderBeforeBlockOrdinal: 0,
     queuedRuns: [],
-    runItemIdsByRunId: {},
     runItemOutputIdsByRunItemId: {},
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItemOutputsById: {},
-    runItems: [],
-    runItemsById: {},
     selectedConversation: null,
     transcriptBlocks: [],
     transcriptBlocksById: {},
@@ -474,19 +465,6 @@ function mergeQueueMessages(messages: ChatMessage[], queuedMessages: ChatMessage
     (message) => message.delivery !== "queued" || queuedMessageIds.has(message.id),
   );
   return queuedMessages.reduce(upsertMessage, retainedMessages);
-}
-
-function upsertRunItem(items: RunItem[], item: RunItem): RunItem[] {
-  const index = items.findIndex((current) => current.id === item.id);
-  const next = index === -1 ? [...items, item] : items.with(index, item);
-  return next.toSorted(compareRunItems);
-}
-
-function compareRunItems(left: RunItem, right: RunItem) {
-  if (left.createdAt === right.createdAt) {
-    return left.id.localeCompare(right.id);
-  }
-  return left.createdAt.localeCompare(right.createdAt);
 }
 
 function upsertRunItemOutput(outputs: RunItemOutput[], output: RunItemOutput): RunItemOutput[] {

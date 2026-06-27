@@ -4,7 +4,6 @@ import type {
   ConversationListItem,
   MessagePage,
   Run,
-  RunItem,
   RunItemOutput,
   TranscriptBlock,
 } from "@generated/backend";
@@ -26,12 +25,9 @@ type NormalizableChatPatch = {
   messages?: ChatMessage[];
   messageIds?: string[];
   messagesById?: Record<string, ChatMessage>;
-  runItemIdsByRunId?: Record<string, string[]>;
   runItemOutputIdsByRunItemId?: Record<string, string[]>;
   runItemOutputs?: RunItemOutput[];
   runItemOutputsById?: Record<string, RunItemOutput>;
-  runItems?: RunItem[];
-  runItemsById?: Record<string, RunItem>;
   transcriptBlocks?: TranscriptBlock[];
   transcriptBlocksById?: Record<string, TranscriptBlock>;
 };
@@ -120,9 +116,6 @@ export function normalizeChatPatch<T extends object>(patch: T & NormalizableChat
   if (patch.transcriptBlocks !== undefined) {
     Object.assign(next, normalizeTranscriptBlocks(patch.transcriptBlocks));
   }
-  if (patch.runItems !== undefined) {
-    Object.assign(next, normalizeRunItems(patch.runItems));
-  }
   if (patch.runItemOutputs !== undefined) {
     Object.assign(next, normalizeRunItemOutputs(patch.runItemOutputs));
   }
@@ -161,21 +154,6 @@ function normalizeTranscriptBlocks(blocks: TranscriptBlock[]) {
     transcriptBlocksById[block.id] = block;
   }
   return { transcriptBlocks, transcriptBlocksById };
-}
-
-function normalizeRunItems(items: RunItem[]) {
-  const ordered = items.toSorted(compareRunItems);
-  const runItemsById: Record<string, RunItem> = {};
-  const runItemIdsByRunId: Record<string, string[]> = {};
-  for (const item of ordered) {
-    runItemsById[item.id] = item;
-    runItemIdsByRunId[item.runId] = [...(runItemIdsByRunId[item.runId] ?? []), item.id];
-  }
-  return {
-    runItemIdsByRunId,
-    runItems: ordered,
-    runItemsById,
-  };
 }
 
 function normalizeRunItemOutputs(outputs: RunItemOutput[]) {
@@ -385,23 +363,6 @@ export function mergeOperationMessages(
     }
     return pageMessage;
   });
-}
-
-export function upsertRunItems(items: RunItem[], nextItems: RunItem[]): RunItem[] {
-  return nextItems.reduce(upsertRunItem, items);
-}
-
-function upsertRunItem(items: RunItem[], item: RunItem): RunItem[] {
-  const index = items.findIndex((current) => current.id === item.id);
-  const next = index === -1 ? [...items, item] : items.with(index, item);
-  return next.toSorted(compareRunItems);
-}
-
-function compareRunItems(left: RunItem, right: RunItem) {
-  if (left.createdAt === right.createdAt) {
-    return left.id.localeCompare(right.id);
-  }
-  return left.createdAt.localeCompare(right.createdAt);
 }
 
 export function upsertRunItemOutputs(

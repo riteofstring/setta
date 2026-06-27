@@ -32,7 +32,6 @@ export function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
     queuedRuns: queuedRunsFromPage(page),
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
-    runItems: [],
     selectedConversation: page.conversation,
     transcriptBlocks: blocksFromPage(page),
   });
@@ -124,7 +123,6 @@ export function emptyConversationPatch(): ChatPatch {
     removingQueuedMessageId: null,
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
-    runItems: [],
     selectedConversation: null,
     transcriptBlocks: [],
   });
@@ -148,16 +146,13 @@ function terminalPreservingPagePatch(
   if (patch.messages) {
     patch.messages = mergeOperationMessages(current.messages, patch.messages, terminalRunIds);
   }
-  // The page carries no detail-surface data, so an operation keeps the run items
-  // and outputs already loaded for this conversation instead of clearing them.
+  // The page carries no detail-surface data, so an operation keeps the run-item
+  // outputs already loaded for this conversation instead of clearing them.
   return {
     ...patch,
-    runItemIdsByRunId: current.runItemIdsByRunId,
     runItemOutputIdsByRunItemId: current.runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId: current.runItemOutputPagesByRunItemId,
     runItemOutputs: current.runItemOutputs,
     runItemOutputsById: current.runItemOutputsById,
-    runItems: current.runItems,
-    runItemsById: current.runItemsById,
   };
 }

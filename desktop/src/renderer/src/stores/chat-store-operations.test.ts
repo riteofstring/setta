@@ -294,7 +294,7 @@ describe("chat store operation scopes", () => {
     );
   });
 
-  test("resync completion keeps lazily-loaded detail run items the page no longer carries", async () => {
+  test("resync completion keeps lazily-loaded detail run-item outputs the page no longer carries", async () => {
     const conversation = testConversation();
     const runId = "run_activity";
     const completedItem = {
@@ -320,8 +320,6 @@ describe("chat store operation scopes", () => {
       activeRun: null,
       runItemOutputs: [completedOutput],
       runItemOutputsById: { [completedOutput.id]: completedOutput },
-      runItems: [completedItem],
-      runItemsById: { [completedItem.id]: completedItem },
       selectedConversation: conversation,
       status: "ready",
       transcriptBlocks: blocks,
@@ -331,13 +329,12 @@ describe("chat store operation scopes", () => {
 
     const resyncPromise = useChatStore.getState().resyncActiveConversation();
     await waitFor(() => messagePage.mock.calls.length === 1);
-    // The page carries blocks only; detail run items and outputs are loaded lazily
-    // by source run item ID and must survive a resync.
+    // The page carries blocks only; detail run-item outputs are loaded lazily by
+    // source run item ID and must survive a resync.
     resyncPage.resolve(testPage(conversation, [], blocks));
     await resyncPromise;
 
     const state = useChatStore.getState();
-    expect(state.runItemsById[completedItem.id]?.status).toBe("completed");
     expect(state.runItemOutputsById[completedOutput.id]?.text).toBe("done\n");
   });
 

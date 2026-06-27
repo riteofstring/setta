@@ -247,16 +247,17 @@ describe("chat transcript block reducer", () => {
     expect(blockIds()).toEqual(["a1", "a2"]);
   });
 
-  test("raw run item events feed detail surfaces but not the transcript", () => {
+  test("ignores raw run item events without disturbing the transcript", () => {
     seedBlocks([
       activityBlock({ id: "a1", ordinal: 1, runId: "run_a", sourceRunItemId: "run_item_command" }),
     ]);
 
+    // Raw run-item created/updated events are no-ops in the renderer (the semantic
+    // graph cartographer consumes them on the backend); the transcript is unchanged.
     useChatStore
       .getState()
       .handleEvent(runItemCreatedEvent(1, runItem("run_item_command", "run_a")));
 
-    expect(useChatStore.getState().runItemsById["run_item_command"]).toBeDefined();
     expect(blockIds()).toEqual(["a1"]);
   });
 

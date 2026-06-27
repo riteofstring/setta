@@ -797,13 +797,10 @@ function conversationDetail(conversation: Conversation, messages: ChatMessage[])
     messagesById: Object.fromEntries(messages.map((item) => [item.id, item])),
     olderBeforeBlockOrdinal: 0,
     queuedRuns: [],
-    runItemIdsByRunId: {},
     runItemOutputIdsByRunItemId: {},
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItemOutputsById: {},
-    runItems: [],
-    runItemsById: {},
     transcriptBlocks: [],
     transcriptBlocksById: {},
   };

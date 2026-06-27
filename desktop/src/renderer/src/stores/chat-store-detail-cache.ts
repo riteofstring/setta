@@ -2,7 +2,6 @@ import type {
   ChatGoalState,
   ChatMessage,
   Conversation,
-  RunItem,
   RunItemOutput,
   TranscriptBlock,
 } from "@generated/backend";
@@ -21,13 +20,10 @@ export interface ConversationDetailState {
   messagesById: Record<string, ChatMessage>;
   olderBeforeBlockOrdinal: number;
   queuedRuns: QueuedRun[];
-  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputs: RunItemOutput[];
   runItemOutputsById: Record<string, RunItemOutput>;
-  runItems: RunItem[];
-  runItemsById: Record<string, RunItem>;
   transcriptBlocks: TranscriptBlock[];
   transcriptBlocksById: Record<string, TranscriptBlock>;
 }
@@ -49,13 +45,10 @@ export function conversationDetailPatch(detail: ConversationDetailState): ChatPa
     messagesById: detail.messagesById,
     olderBeforeBlockOrdinal: detail.olderBeforeBlockOrdinal,
     queuedRuns: detail.queuedRuns,
-    runItemIdsByRunId: detail.runItemIdsByRunId,
     runItemOutputIdsByRunItemId: detail.runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId: detail.runItemOutputPagesByRunItemId,
     runItemOutputs: detail.runItemOutputs,
     runItemOutputsById: detail.runItemOutputsById,
-    runItems: detail.runItems,
-    runItemsById: detail.runItemsById,
     selectedConversation: detail.conversation,
     transcriptBlocks: detail.transcriptBlocks,
     transcriptBlocksById: detail.transcriptBlocksById,
@@ -111,13 +104,10 @@ function conversationDetailFromStatePatch(
     messagesById: patchedValue(state, patch, "messagesById"),
     olderBeforeBlockOrdinal: patchedValue(state, patch, "olderBeforeBlockOrdinal"),
     queuedRuns: patchedValue(state, patch, "queuedRuns"),
-    runItemIdsByRunId: patchedValue(state, patch, "runItemIdsByRunId"),
     runItemOutputIdsByRunItemId: patchedValue(state, patch, "runItemOutputIdsByRunItemId"),
     runItemOutputPagesByRunItemId: patchedValue(state, patch, "runItemOutputPagesByRunItemId"),
     runItemOutputs: patchedValue(state, patch, "runItemOutputs"),
     runItemOutputsById: patchedValue(state, patch, "runItemOutputsById"),
-    runItems: patchedValue(state, patch, "runItems"),
-    runItemsById: patchedValue(state, patch, "runItemsById"),
     transcriptBlocks: patchedValue(state, patch, "transcriptBlocks"),
     transcriptBlocksById: patchedValue(state, patch, "transcriptBlocksById"),
   };
