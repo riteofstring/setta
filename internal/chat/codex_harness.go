@@ -399,7 +399,7 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 		return threadID, nil
 	}
 
-	params, err := harness.codexThreadStartParams(request.Workspace.RootPath)
+	params, err := harness.codexThreadStartParams(request.Workspace.RootPath, codexThreadSourceForConversation(request.Conversation))
 	if err != nil {
 		return "", err
 	}

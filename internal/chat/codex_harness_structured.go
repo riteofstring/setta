@@ -137,6 +137,7 @@ func (harness *CodexHarness) startCodexStructuredTaskThread(ctx context.Context,
 		"developerInstructions": request.StructuredTask.Prompt,
 		"ephemeral":             true,
 		"sandbox":               "read-only",
+		"threadSource":          codexThreadSourceSettaSemanticCartographer,
 	}
 	if request.StructuredTask.Model != "" {
 		params["model"] = request.StructuredTask.Model

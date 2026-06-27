@@ -64,7 +64,7 @@ func (harness *CodexHarness) BeginGoalContinuation(ctx context.Context, request 
 	session.AcceptUnscopedNotifications()
 	session.AcceptUnscopedRequests()
 
-	thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.ThreadRef)
+	thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.Conversation, request.ThreadRef)
 	if err != nil {
 		return HarnessCommandResult{}, nil, err
 	}
@@ -147,7 +147,7 @@ func (harness *CodexHarness) executeIdleCommand(ctx context.Context, request Har
 }
 
 func (harness *CodexHarness) executeExistingCommandThread(ctx context.Context, session *codexapp.Session, request HarnessCommandRequest) (HarnessCommandResult, error) {
-	thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.ThreadRef)
+	thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.Conversation, request.ThreadRef)
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
@@ -181,7 +181,7 @@ func (harness *CodexHarness) executeThreadlessCommand(ctx context.Context, sessi
 }
 
 func (harness *CodexHarness) executeNewCommandThread(ctx context.Context, session *codexapp.Session, request HarnessCommandRequest) (HarnessCommandResult, error) {
-	thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.ThreadRef)
+	thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.Conversation, request.ThreadRef)
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
@@ -229,7 +229,7 @@ type codexCommandThreadSettings struct {
 	ReasoningEffort ReasoningEffort
 }
 
-func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
+func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, conversation Conversation, threadRef HarnessThreadRef) (codexCommandThread, error) {
 	if threadRef.ThreadID != "" && threadRef.Status == HarnessRefLinked {
 		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, codexThreadResumeParams(workspaceSummary.RootPath, threadRef.ThreadID))
 		if err != nil {
@@ -254,7 +254,7 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, ses
 		return thread, nil
 	}
 
-	params, err := harness.codexThreadStartParams(workspaceSummary.RootPath)
+	params, err := harness.codexThreadStartParams(workspaceSummary.RootPath, codexThreadSourceForConversation(conversation))
 	if err != nil {
 		return codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, "build codex thread start params: "+err.Error(), err)
 	}
