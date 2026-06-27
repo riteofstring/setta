@@ -140,6 +140,39 @@ describe("chat store navigation caches", () => {
     ]);
     expect(useChatStore.getState().operation).toBeNull();
   });
+
+  test("selecting a conversation keeps metadata from the message page response", async () => {
+    const firstConversation = testConversation({ id: "conversation_first", title: "First" });
+    const staleConversation = testConversation({
+      codexEffectiveSettings: null,
+      id: "conversation_next",
+      title: "Next",
+    });
+    const pageConversation = testConversation({
+      codexEffectiveSettings: { model: "gpt-test", reasoningEffort: "xhigh" },
+      id: staleConversation.id,
+      title: staleConversation.title,
+    });
+    const messagePage = vi.fn().mockResolvedValue(testPage(pageConversation, []));
+    installSettaAPI({ chat: { messagePage } });
+    useChatStore.setState({
+      conversations: [
+        conversationItem(firstConversation, 1),
+        conversationItem(staleConversation, 0),
+      ],
+      selectedConversation: firstConversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().selectConversation(staleConversation.id);
+
+    expect(useChatStore.getState().selectedConversation?.codexEffectiveSettings).toEqual({
+      model: "gpt-test",
+      reasoningEffort: "xhigh",
+    });
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", staleConversation.id, 0, 40);
+  });
 });
 
 describe("chat store workspace summary cache", () => {

@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -61,7 +62,8 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 }
 
 func (service *Service) CreateConversation(workspaceID string, title string) (Conversation, error) {
-	if _, err := service.resolveWorkspaceForRequest(workspaceID); err != nil {
+	workspaceSummary, err := service.resolveWorkspaceForRequest(workspaceID)
+	if err != nil {
 		return Conversation{}, err
 	}
 	now := timestamp(service.now())
@@ -82,6 +84,10 @@ func (service *Service) CreateConversation(workspaceID string, title string) (Co
 		UpdatedAt:     now,
 		ArchivedAt:    "",
 		HarnessRefs:   []HarnessThreadRef{},
+	}
+	conversation, err = service.conversationWithResolvedEffectiveSettings(context.Background(), workspaceSummary, conversation)
+	if err != nil {
+		return Conversation{}, err
 	}
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return Conversation{}, err
@@ -163,7 +169,8 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 	if limit == 0 {
 		limit = defaultPageLimit
 	}
-	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
+	if err != nil {
 		return MessagePage{}, err
 	}
 	service.mu.Lock()
@@ -171,6 +178,10 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 	service.mu.Unlock()
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, "")
+		return MessagePage{}, err
+	}
+	page.Conversation, err = service.conversationWithResolvedEffectiveSettings(context.Background(), workspaceSummary, page.Conversation)
+	if err != nil {
 		return MessagePage{}, err
 	}
 	return page, nil

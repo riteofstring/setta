@@ -302,6 +302,20 @@ func (harness *CodexHarness) effectiveCodexCommandSettings(ctx context.Context, 
 	return settings, nil
 }
 
+func (harness *CodexHarness) ResolveCodexEffectiveSettings(ctx context.Context, workspaceSummary workspace.WorkspaceSummary, conversation Conversation) (*ChatCodexEffectiveSettings, error) {
+	session, err := harness.manager.NewSession(ctx)
+	if err != nil {
+		return nil, commandError(ChatCommandErrorCodexRPC, "start codex app-server: "+err.Error(), err)
+	}
+	defer session.Close()
+
+	settings, err := harness.effectiveCodexCommandSettings(ctx, session, workspaceSummary, conversation)
+	if err != nil {
+		return nil, err
+	}
+	return chatCodexEffectiveSettingsFromCommandSettings(settings), nil
+}
+
 func codexCommandSettingsFromConfig(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary) (codexCommandThreadSettings, error) {
 	raw, err := session.Call(ctx, codexapp.CodexMethodConfigRead, map[string]any{"cwd": workspaceSummary.RootPath})
 	if err != nil {

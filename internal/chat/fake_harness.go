@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"setta/internal/workspace"
 )
 
 const (
@@ -216,6 +218,23 @@ func (harness *FakeHarness) SubmitApproval(_ context.Context, response ApprovalR
 		channel <- response
 	}
 	return nil
+}
+
+func (harness *FakeHarness) ResolveCodexEffectiveSettings(_ context.Context, _ workspace.WorkspaceSummary, conversation Conversation) (*ChatCodexEffectiveSettings, error) {
+	harness.mu.Lock()
+	model := harness.model
+	reasoning := harness.reasoning
+	harness.mu.Unlock()
+
+	if conversation.CodexSettings != nil {
+		if conversation.CodexSettings.Model != "" {
+			model = conversation.CodexSettings.Model
+		}
+		if conversation.CodexSettings.ReasoningEffort != nil {
+			reasoning = *conversation.CodexSettings.ReasoningEffort
+		}
+	}
+	return fakeCodexEffectiveSettings(model, reasoning), nil
 }
 
 func (harness *FakeHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {

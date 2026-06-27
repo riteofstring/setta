@@ -895,6 +895,7 @@ async function runCodexProtocolWorkflow(results) {
     const backend = await backendProbe(recordingDir);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
     const conversationId = await createChat(context.client, backend, workspaceId);
+    await waitForModelPickerSummary(waitForState, context.client, "gpt-test", "Extra High");
     await submitComposer(context.client, "protocol notification workflow", "Send message");
     const run = await waitForRunWithPrompt(
       backend,

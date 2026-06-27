@@ -77,6 +77,11 @@ function handleAccountLogout(message) {
 }
 
 function handleThreadStart(message) {
+  if (isStructuredThreadStart(message.params)) {
+    assertStructuredThreadStart(message.params);
+    respond(message.id, fakeThreadResponse());
+    return;
+  }
   assertThreadStartDeveloperInstructions(message.params);
   assertThreadStartDynamicTools(message.params);
   respond(message.id, fakeThreadResponse());
@@ -91,6 +96,11 @@ function handleThreadResume(message) {
 
 function handleTurnStart(message) {
   respond(message.id, { turn: fakeTurn("inProgress") });
+  if (isStructuredTurnStart(message.params)) {
+    assertStructuredTurnStart(message.params);
+    setTimeout(emitStructuredTaskTurn, 5);
+    return;
+  }
   const text = turnInputText(message);
   if (text.includes("app-server exit workflow")) {
     setTimeout(() => process.exit(42), 5);
@@ -186,6 +196,26 @@ function assertThreadStartDeveloperInstructions(params) {
     !instructions.includes("Do not invent dynamic tool names")
   ) {
     throw new Error("thread/start developerInstructions missing Setta dynamic tool guidance");
+  }
+}
+
+function isStructuredThreadStart(params) {
+  return params?.ephemeral === true && params?.approvalPolicy === "never";
+}
+
+function assertStructuredThreadStart(params) {
+  if (params?.sandbox !== "read-only") {
+    throw new Error("structured thread/start should use read-only sandbox");
+  }
+  if (params?.dynamicTools !== undefined) {
+    throw new Error("structured thread/start should not include dynamicTools");
+  }
+  const instructions = params?.developerInstructions;
+  if (
+    typeof instructions !== "string" ||
+    !instructions.includes("strict JSON semantic graph patch envelope")
+  ) {
+    throw new Error("structured thread/start missing semantic cartographer prompt");
   }
 }
 
@@ -300,6 +330,19 @@ function assertUnsupportedDynamicToolResponse(message) {
   }
   if (!message.error?.message?.includes("unsupported dynamic tool")) {
     throw new Error("unsupported dynamic tool error mismatch: " + JSON.stringify(message.error));
+  }
+}
+
+function isStructuredTurnStart(params) {
+  return params?.approvalPolicy === "never" && params?.outputSchema !== undefined;
+}
+
+function assertStructuredTurnStart(params) {
+  if (params?.sandboxPolicy === undefined) {
+    throw new Error("structured turn/start missing sandboxPolicy");
+  }
+  if (params?.threadId !== threadId) {
+    throw new Error("structured turn/start targeted wrong thread");
   }
 }
 
@@ -434,6 +477,22 @@ function emitProtocolCoverageTurn() {
   notify("turn/completed", {
     threadId,
     turn: fakeTurn("completed"),
+  });
+}
+
+function emitStructuredTaskTurn() {
+  notify("turn/completed", {
+    threadId,
+    turn: {
+      ...fakeTurn("completed"),
+      items: [
+        {
+          id: "structured_message_fake",
+          text: '{"patches":[]}',
+          type: "agentMessage",
+        },
+      ],
+    },
   });
 }
 

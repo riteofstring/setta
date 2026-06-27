@@ -84,6 +84,10 @@ func (harness *approvalCompletesBeforeSubmitReturnsHarness) SubmitApproval(ctx c
 	return errors.New("timed out waiting for approval run completion")
 }
 
+func (harness *approvalCompletesBeforeSubmitReturnsHarness) ResolveCodexEffectiveSettings(context.Context, workspace.WorkspaceSummary, Conversation) (*ChatCodexEffectiveSettings, error) {
+	return nil, nil
+}
+
 type unavailableRefHarness struct{}
 
 func (harness unavailableRefHarness) StartTurn(context.Context, TurnRequest, TurnSink) (TurnCompletion, error) {
@@ -104,6 +108,10 @@ func (harness unavailableRefHarness) SteerTurn(context.Context, SteerRequest) er
 
 func (harness unavailableRefHarness) SubmitApproval(context.Context, ApprovalResponse) error {
 	return nil
+}
+
+func (harness unavailableRefHarness) ResolveCodexEffectiveSettings(context.Context, workspace.WorkspaceSummary, Conversation) (*ChatCodexEffectiveSettings, error) {
+	return nil, nil
 }
 
 type preStartCancelHarness struct {
@@ -130,6 +138,10 @@ func (harness *preStartCancelHarness) SteerTurn(context.Context, SteerRequest) e
 
 func (harness *preStartCancelHarness) SubmitApproval(context.Context, ApprovalResponse) error {
 	return nil
+}
+
+func (harness *preStartCancelHarness) ResolveCodexEffectiveSettings(context.Context, workspace.WorkspaceSummary, Conversation) (*ChatCodexEffectiveSettings, error) {
+	return nil, nil
 }
 
 func (harness *preStartCancelHarness) waitForStart(t *testing.T) {

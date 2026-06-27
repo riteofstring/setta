@@ -94,6 +94,58 @@ func TestServicePersistsCodexEffectiveSettingsFromLinkedThread(t *testing.T) {
 	}
 }
 
+func TestServiceCreateConversationResolvesCodexEffectiveSettings(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	harness.model = "gpt-test"
+	harness.reasoning = ReasoningEffortXHigh
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	settings := conversation.CodexEffectiveSettings
+	if settings == nil || settings.Model != "gpt-test" || settings.ReasoningEffort == nil || *settings.ReasoningEffort != ReasoningEffortXHigh {
+		t.Fatalf("created effective settings = %+v, want gpt-test xhigh", settings)
+	}
+
+	stored, err := service.store.LoadConversation("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("load stored conversation: %v", err)
+	}
+	if !chatCodexEffectiveSettingsEqual(stored.CodexEffectiveSettings, settings) {
+		t.Fatalf("stored effective settings = %+v, want %+v", stored.CodexEffectiveSettings, settings)
+	}
+}
+
+func TestServiceLoadMessagePageResolvesCodexEffectiveSettings(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	harness.model = "gpt-page"
+	harness.reasoning = ReasoningEffortHigh
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load message page: %v", err)
+	}
+	settings := page.Conversation.CodexEffectiveSettings
+	if settings == nil || settings.Model != "gpt-page" || settings.ReasoningEffort == nil || *settings.ReasoningEffort != ReasoningEffortHigh {
+		t.Fatalf("page effective settings = %+v, want gpt-page high", settings)
+	}
+
+	stored, err := service.store.LoadConversation("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("load stored conversation: %v", err)
+	}
+	if stored.CodexEffectiveSettings != nil {
+		t.Fatalf("stored effective settings = %+v, want nil before a linked thread", stored.CodexEffectiveSettings)
+	}
+}
+
 func TestServiceRoutesMasterChatThroughSharedHarnessTask(t *testing.T) {
 	harness := NewFakeHarness(nil)
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)

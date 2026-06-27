@@ -11,6 +11,7 @@ import (
 )
 
 type Harness interface {
+	ResolveCodexEffectiveSettings(context.Context, workspace.WorkspaceSummary, Conversation) (*ChatCodexEffectiveSettings, error)
 	StartTurn(context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
 	SteerTurn(context.Context, SteerRequest) error
 	CancelTurn(context.Context, CancelRequest) error

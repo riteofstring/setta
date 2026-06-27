@@ -48,11 +48,37 @@ describe("chat store workspace conversation selection", () => {
     expect(useChatStore.getState().error).toBeNull();
     expect(useChatStore.getState().status).toBe("ready");
   });
+
+  test("loads selected conversation metadata from the message page response", async () => {
+    const listedConversation = conversation("conversation_api", "workspace_api");
+    const pageConversation: Conversation = {
+      ...listedConversation,
+      codexEffectiveSettings: { model: "gpt-test", reasoningEffort: "xhigh" },
+    };
+    const listConversations = vi
+      .fn()
+      .mockResolvedValue(listResponse([conversationItem(listedConversation)]));
+    const messagePage = vi.fn().mockResolvedValue(messagePageResponse(pageConversation));
+    installChatAPI({
+      listConversations,
+      messagePage,
+      setSelectedConversation: vi.fn(),
+    });
+
+    await useChatStore.getState().loadWorkspace("workspace_api");
+
+    expect(useChatStore.getState().selectedConversation?.codexEffectiveSettings).toEqual({
+      model: "gpt-test",
+      reasoningEffort: "xhigh",
+    });
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", listedConversation.id, 0, 40);
+  });
 });
 
 function installChatAPI({
   listConversations,
   messagePage,
+  selectedConversations = async () => ({ selectedConversationIdsByWorkspaceId: {} }),
   setSelectedConversation,
 }: {
   listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
@@ -66,6 +92,9 @@ function installChatAPI({
     workspaceId: string,
     conversationId: string,
   ) => Promise<{ selectedConversationIdsByWorkspaceId: Record<string, string> }>;
+  selectedConversations?: () => Promise<{
+    selectedConversationIdsByWorkspaceId: Record<string, string>;
+  }>;
 }) {
   Object.defineProperty(globalThis, "window", {
     configurable: true,
@@ -77,6 +106,7 @@ function installChatAPI({
           messagePage,
         },
         workspace: {
+          selectedConversations,
           setSelectedConversation,
         },
       },
