@@ -663,7 +663,26 @@ func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
 	fmt.Fprintf(buffer, "export function %s(value: unknown): %s {\n", decoderFunctionName(spec.Type), spec.Name)
 	fmt.Fprintf(buffer, "  const record = assertRecord(value, %q);\n", spec.Name)
 	fmt.Fprintf(buffer, "  assertKnownFields(record, %q, [%s]);\n", spec.Name, fieldNameLiterals(spec.Type))
-	buffer.WriteString("  return {\n")
+	taggedUnion, isTagged := contractTaggedUnionForType(spec.Type)
+	if !isTagged {
+		buffer.WriteString("  return {\n")
+		if err := renderStructDecoderFields(buffer, spec); err != nil {
+			return err
+		}
+		buffer.WriteString("  };\n}\n\n")
+		return nil
+	}
+	fmt.Fprintf(buffer, "  const result: %s = {\n", spec.Name)
+	if err := renderStructDecoderFields(buffer, spec); err != nil {
+		return err
+	}
+	buffer.WriteString("  };\n")
+	renderTaggedUnionAssertion(buffer, spec.Name, taggedUnion)
+	buffer.WriteString("  return result;\n}\n\n")
+	return nil
+}
+
+func renderStructDecoderFields(buffer *bytes.Buffer, spec interfaceSpec) error {
 	for index := range spec.Type.NumField() {
 		field := spec.Type.Field(index)
 		name := jsonName(field)
@@ -677,8 +696,6 @@ func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
 		}
 		fmt.Fprintf(buffer, "    %s: %s,\n", name, decoded)
 	}
-	buffer.WriteString("  };\n")
-	buffer.WriteString("}\n\n")
 	return nil
 }
 

@@ -31,6 +31,9 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 			imports = append(imports, rule.name)
 		}
 	}
+	if hasTaggedUnion(specs.Interfaces) {
+		imports = append(imports, "assertTaggedUnionBranch")
+	}
 	imports = append(imports, "requestBackend", "requireField")
 
 	buffer.WriteString("import {\n")

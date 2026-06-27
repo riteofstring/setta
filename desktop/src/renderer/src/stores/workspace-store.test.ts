@@ -671,10 +671,12 @@ function emptyMessage(): ChatMessage {
 
 function emptyMessagePage(): MessagePage {
   return {
+    blocks: [],
     conversation: emptyConversation(),
     goal: null,
     hasMoreOlder: false,
     messages: [],
+    olderBeforeBlockOrdinal: 0,
     olderBeforeOrdinal: 0,
     queue: { messages: [], runs: [] },
     runItemOutputs: [],

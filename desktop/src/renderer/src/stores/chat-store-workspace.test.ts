@@ -159,10 +159,12 @@ function listResponse(conversations: ConversationListItem[]): ListConversationsR
 
 function messagePageResponse(conversation: Conversation): MessagePage {
   return {
+    blocks: [],
     conversation,
     goal: null,
     hasMoreOlder: false,
     messages: [],
+    olderBeforeBlockOrdinal: 0,
     olderBeforeOrdinal: 0,
     queue: { messages: [], runs: [] },
     runItemOutputs: [],

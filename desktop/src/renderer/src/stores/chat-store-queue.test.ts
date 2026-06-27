@@ -247,10 +247,12 @@ function testConversation(): Conversation {
 
 function testPage(conversation: Conversation, messages: ChatMessage[]): MessagePage {
   return {
+    blocks: [],
     conversation,
     goal: null,
     hasMoreOlder: false,
     messages,
+    olderBeforeBlockOrdinal: 0,
     olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queue: {
       messages: messages.filter((item) => item.delivery === "queued"),

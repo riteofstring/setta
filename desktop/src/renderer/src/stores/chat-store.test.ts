@@ -972,7 +972,6 @@ interface SettaAPIOverrides {
 function emptyCorruption() {
   return { byKind: [], bySeverity: [], hasCorruption: false, total: 0 };
 }
-
 function listResponse(
   conversations: ConversationListItem[],
   corruptTotal = 0,
@@ -1246,10 +1245,12 @@ function testPage(
   goal: ChatGoalState | null = null,
 ): MessagePage {
   return {
+    blocks: [],
     conversation,
     goal,
     hasMoreOlder,
     messages,
+    olderBeforeBlockOrdinal: 0,
     olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queue: {
       messages: messages.filter((item) => item.delivery === "queued"),

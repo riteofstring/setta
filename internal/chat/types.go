@@ -317,6 +317,10 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "ModelCommandAction", Values: stringValues(modelCommandActionValues)},
 		{Name: "ReasoningEffort", Values: stringValues(reasoningEffortValues)},
 		{Name: "ChatCommandResultAction", Values: stringValues(chatCommandResultActionValues)},
+		{Name: "TranscriptBlockKind", Values: stringValues(transcriptBlockKindValues)},
+		{Name: "TranscriptBlockStatus", Values: stringValues(transcriptBlockStatusValues)},
+		{Name: "ReasoningBlockMode", Values: stringValues(reasoningBlockModeValues)},
+		{Name: "RunStatusBlockMode", Values: stringValues(runStatusBlockModeValues)},
 	}
 }
 
@@ -713,15 +717,17 @@ type ChatCommandExecuteResult struct {
 }
 
 type MessagePage struct {
-	Conversation       Conversation     `json:"conversation"`
-	Messages           []ChatMessage    `json:"messages"`
-	RunItems           []RunItem        `json:"runItems"`
-	RunItemOutputs     []RunItemOutput  `json:"runItemOutputs"`
-	Queue              QueueState       `json:"queue"`
-	Transcript         []TranscriptTurn `json:"transcript"`
-	Goal               *ChatGoalState   `json:"goal"`
-	HasMoreOlder       bool             `json:"hasMoreOlder"`
-	OlderBeforeOrdinal int              `json:"olderBeforeOrdinal"`
+	Conversation            Conversation      `json:"conversation"`
+	Messages                []ChatMessage     `json:"messages"`
+	RunItems                []RunItem         `json:"runItems"`
+	RunItemOutputs          []RunItemOutput   `json:"runItemOutputs"`
+	Queue                   QueueState        `json:"queue"`
+	Transcript              []TranscriptTurn  `json:"transcript"`
+	Blocks                  []TranscriptBlock `json:"blocks"`
+	Goal                    *ChatGoalState    `json:"goal"`
+	HasMoreOlder            bool              `json:"hasMoreOlder"`
+	OlderBeforeOrdinal      int               `json:"olderBeforeOrdinal"`
+	OlderBeforeBlockOrdinal int               `json:"olderBeforeBlockOrdinal"`
 }
 
 type RunItemOutputPage struct {
@@ -950,6 +956,9 @@ func (page MessagePage) MarshalJSON() ([]byte, error) {
 	}
 	if page.Transcript == nil {
 		page.Transcript = []TranscriptTurn{}
+	}
+	if page.Blocks == nil {
+		page.Blocks = []TranscriptBlock{}
 	}
 	return json.Marshal(pageAlias(page))
 }

@@ -593,10 +593,12 @@ function goalState(objective: string, status: string, updatedAt: number): ChatGo
 
 function testPage(conversation: Conversation, messages: ChatMessage[]): MessagePage {
   return {
+    blocks: [],
     conversation,
     goal: null,
     hasMoreOlder: false,
     messages,
+    olderBeforeBlockOrdinal: 0,
     olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queue: { messages: [], runs: [] },
     runItemOutputs: [],

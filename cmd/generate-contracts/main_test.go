@@ -228,6 +228,41 @@ func TestContractSpecsRenderRegisteredUnion(t *testing.T) {
 	}
 }
 
+func TestRenderTaggedUnionStructValidatesBranchInvariant(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractBlockPage",
+			Method:   "POST",
+			Path:     "/contract-block-page",
+			Request:  reflect.TypeFor[ContractTestRequest](),
+			Response: reflect.TypeFor[chat.MessagePage](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	}, chat.EventContractSchema{})
+	if err != nil {
+		t.Fatalf("collect contract specs: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	output := buffer.String()
+	for _, want := range []string{
+		"  assertTaggedUnionBranch,\n",
+		"export function decodeTranscriptBlock(value: unknown): TranscriptBlock {",
+		"const result: TranscriptBlock = {",
+		"assertTaggedUnionBranch(\"TranscriptBlock\", result.kind, {",
+		"\"assistant_text\": result.assistantText,",
+		"\"run_status\": result.runStatus,",
+		"return result;",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated output missing %q:\n%s", want, output)
+		}
+	}
+}
+
 func specNames(specs []interfaceSpec) []string {
 	names := make([]string, 0, len(specs))
 	for _, spec := range specs {

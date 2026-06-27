@@ -37,6 +37,25 @@ func contractUnions() map[reflect.Type]unionSpec {
 	}
 }
 
+// contractTaggedUnions registers struct contracts whose `kind` discriminator
+// selects exactly one nullable branch payload. The generated decoder validates
+// that invariant (exactly one branch populated, matching kind) so a malformed
+// block fails loudly at the decode boundary instead of null-dereferencing later.
+func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
+	return map[reflect.Type]taggedUnionSpec{
+		reflect.TypeFor[chat.TranscriptBlock](): {
+			Discriminator: "kind",
+			Branches: []taggedUnionBranch{
+				{Field: "userMessage", KindValue: string(chat.TranscriptBlockKindUserMessage)},
+				{Field: "assistantText", KindValue: string(chat.TranscriptBlockKindAssistantText)},
+				{Field: "reasoning", KindValue: string(chat.TranscriptBlockKindReasoning)},
+				{Field: "activity", KindValue: string(chat.TranscriptBlockKindActivityItem)},
+				{Field: "runStatus", KindValue: string(chat.TranscriptBlockKindRunStatus)},
+			},
+		},
+	}
+}
+
 func contractValueSets() []chat.ContractValueSet {
 	sets := chat.ContractValueSets()
 	for _, set := range appearance.ContractValueSets() {
