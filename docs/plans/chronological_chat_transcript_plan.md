@@ -102,6 +102,15 @@ assistant text blocks would make the transcript harder to scan.
 - Transcript pagination is block-aware from the first implementation.
 - Streaming is push-based. Do not poll for transcript updates.
 
+## Visual Reference
+
+Use `docs/mockups/chronological_chat_transcript_mockup.html` as the visual
+reference for the intended chronological transcript experience: slim activity
+rows, the fixed-height group slot above adjacent activity rows, hover/focus bulk
+expand controls, reasoning block modes, and removal of the heavy outer Activity
+accordion. The mockup is illustrative design guidance; the Go-owned transcript
+block contract remains the source of truth for behavior and renderer data shape.
+
 ## Target Transcript Blocks
 
 Introduce a Go-owned, generated contract for ordered transcript blocks. The exact
