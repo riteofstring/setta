@@ -107,6 +107,24 @@ func (store *Store) validateTranscriptBlockOrdinalStable(workspaceID string, run
 	return nil
 }
 
+// DeleteTranscriptBlock removes a persisted transcript block. It is used to drop
+// an assistant_text block that provider-item de-duplication emptied (tail or
+// middle — a removed middle block leaves an ordinal gap, which load tolerates) and
+// to drop steering blocks whose pending message was replayed as a fresh turn.
+func (store *Store) DeleteTranscriptBlock(workspaceID string, runID string, ordinal int, blockID string) error {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return err
+	}
+	if err := validateStorageID("transcript block id", blockID); err != nil {
+		return err
+	}
+	path := store.transcriptBlockPath(workspaceID, runID, ordinal, blockID)
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return &PersistenceError{Operation: "delete transcript block", Path: path, Err: err}
+	}
+	return nil
+}
+
 func (store *Store) LoadTranscriptBlocks(workspaceID string, runID string) ([]TranscriptBlock, error) {
 	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
 		return nil, err

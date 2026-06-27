@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 const embeddedRunOutputLimit = 200
@@ -52,6 +53,9 @@ func (service *Service) applyAssistantDeltaLocked(workspaceID string, conversati
 	message.UpdatedAt = timestamp(now)
 	partID := message.Parts[0].ID
 	active.assistantMessage = message
+	if err := service.appendAssistantTextBlockLocked(active.transcript, providerItemID, appendText); err != nil {
+		return activeTurn{}, err
+	}
 	if _, err := service.events.Publish(NewAssistantTextDeltaEvent(workspaceID, conversationID, run.ID, message.ID, partID, appendText, message.UpdatedAt)); err != nil {
 		return activeTurn{}, err
 	}
@@ -63,14 +67,25 @@ func (service *Service) applyAssistantDeltaLocked(workspaceID string, conversati
 			return activeTurn{}, err
 		}
 	}
-	if active.lastPersistedAt.IsZero() || now.Sub(active.lastPersistedAt) >= deltaPersistInterval {
-		if err := service.store.SaveMessage(workspaceID, message); err != nil {
-			return activeTurn{}, err
-		}
-		active.lastPersistedAt = now
-		if err := service.traceLocked(workspaceID, run.ID, "assistant_text_delta_received", "Assistant text delta received"); err != nil {
-			return activeTurn{}, err
-		}
+	return service.persistAssistantDeltaLocked(workspaceID, run, message, active, now)
+}
+
+// persistAssistantDeltaLocked flushes the canonical assistant message and the open
+// assistant_text block on the streaming persist cadence, leaving the block in
+// memory between flushes so per-delta writes stay throttled.
+func (service *Service) persistAssistantDeltaLocked(workspaceID string, run Run, message ChatMessage, active activeTurn, now time.Time) (activeTurn, error) {
+	if !active.lastPersistedAt.IsZero() && now.Sub(active.lastPersistedAt) < deltaPersistInterval {
+		return active, nil
+	}
+	if err := service.store.SaveMessage(workspaceID, message); err != nil {
+		return activeTurn{}, err
+	}
+	if err := service.persistOpenAssistantBlockLocked(workspaceID, active.transcript); err != nil {
+		return activeTurn{}, err
+	}
+	active.lastPersistedAt = now
+	if err := service.traceLocked(workspaceID, run.ID, "assistant_text_delta_received", "Assistant text delta received"); err != nil {
+		return activeTurn{}, err
 	}
 	return active, nil
 }
@@ -154,7 +169,33 @@ func (service *Service) upsertRunItemLocked(item RunItem) error {
 	if err := service.recordAgentMessageCompletionLocked(item); err != nil {
 		return err
 	}
+	if err := service.ingestRunItemBlockForActiveTurnLocked(item); err != nil {
+		return err
+	}
 	return service.publishRunItemUpsertLocked(item, exists)
+}
+
+// ingestRunItemBlockForActiveTurnLocked records a run item's transcript block on
+// the active turn's run-local chronology. It is a no-op when the item does not
+// belong to the live active turn.
+func (service *Service) ingestRunItemBlockForActiveTurnLocked(item RunItem) error {
+	active, ok := service.activeTurnForRunItem(item)
+	if !ok || active.transcript == nil {
+		return nil
+	}
+	hasOutput, err := service.runItemHasOutputLocked(item.WorkspaceID, item.RunID, item.ID)
+	if err != nil {
+		return err
+	}
+	return service.ingestRunItemTranscriptBlockLocked(item.WorkspaceID, active.transcript, item, hasOutput)
+}
+
+func (service *Service) runItemHasOutputLocked(workspaceID string, runID string, runItemID string) (bool, error) {
+	page, err := service.store.LoadRunItemOutputPage(workspaceID, runID, runItemID, 0, 1)
+	if err != nil {
+		return false, err
+	}
+	return len(page.Output) > 0, nil
 }
 
 func (service *Service) recordAgentMessageCompletionLocked(item RunItem) error {
@@ -196,10 +237,11 @@ func (service *Service) activeTurnForRunItem(item RunItem) (activeTurn, bool) {
 
 func (service *Service) reconcileCompletedAgentMessageTextLocked(active activeTurn, item RunItem) (activeTurn, error) {
 	state := active.assistantTextByProviderItem[item.ProviderItemID]
-	if state.appended == "" || state.appended == item.Summary {
+	appended := state.appended
+	if appended == "" || appended == item.Summary {
 		return active, nil
 	}
-	updated, changed := replaceAssistantProviderText(active.assistantMessage, state.appended, item.Summary)
+	updated, changed := replaceAssistantProviderText(active.assistantMessage, appended, item.Summary)
 	if !changed {
 		return active, nil
 	}
@@ -207,6 +249,9 @@ func (service *Service) reconcileCompletedAgentMessageTextLocked(active activeTu
 	state.appended = item.Summary
 	active = active.storeAssistantProviderState(item.ProviderItemID, state)
 	if err := service.store.SaveMessage(item.WorkspaceID, updated); err != nil {
+		return activeTurn{}, err
+	}
+	if err := service.reconcileAssistantBlockTextLocked(item.WorkspaceID, active.transcript, item.ProviderItemID, appended, item.Summary); err != nil {
 		return activeTurn{}, err
 	}
 	if _, err := service.events.Publish(NewMessageUpdatedEvent(item.WorkspaceID, item.ConversationID, item.RunID, updated)); err != nil {
@@ -217,10 +262,11 @@ func (service *Service) reconcileCompletedAgentMessageTextLocked(active activeTu
 
 func (service *Service) removeDuplicateCompletedAgentMessageLocked(active activeTurn, item RunItem) (activeTurn, error) {
 	state := active.assistantTextByProviderItem[item.ProviderItemID]
-	if !active.completedAssistantTextExists(item.Summary) || state.appended == "" {
+	appended := state.appended
+	if !active.completedAssistantTextExists(item.Summary) || appended == "" {
 		return active, nil
 	}
-	updated, changed := replaceAssistantProviderText(active.assistantMessage, state.appended, "")
+	updated, changed := replaceAssistantProviderText(active.assistantMessage, appended, "")
 	if !changed {
 		return active, nil
 	}
@@ -228,6 +274,9 @@ func (service *Service) removeDuplicateCompletedAgentMessageLocked(active active
 	state.appended = ""
 	active = active.storeAssistantProviderState(item.ProviderItemID, state)
 	if err := service.store.SaveMessage(item.WorkspaceID, updated); err != nil {
+		return activeTurn{}, err
+	}
+	if err := service.reconcileAssistantBlockTextLocked(item.WorkspaceID, active.transcript, item.ProviderItemID, appended, ""); err != nil {
 		return activeTurn{}, err
 	}
 	if _, err := service.events.Publish(NewMessageUpdatedEvent(item.WorkspaceID, item.ConversationID, item.RunID, updated)); err != nil {
@@ -366,6 +415,11 @@ func (service *Service) appendRunItemOutput(workspaceID string, conversationID s
 		return err
 	}
 	if output.Ordinal == 1 {
+		if active, ok := service.active[activeKey(workspaceID, conversationID)]; ok && active.runID == runID {
+			if err := service.markActivityBlockOutputLocked(workspaceID, active.transcript, providerItemID); err != nil {
+				return err
+			}
+		}
 		return service.publishRunActivityProjectionLocked(workspaceID, runID)
 	}
 	return nil
@@ -406,6 +460,9 @@ func (service *Service) ensureOutputRunItemLocked(workspaceID string, conversati
 		return RunItem{}, fmt.Errorf("create run item id: %w", err)
 	}
 	if err := service.store.SaveRunItem(item); err != nil {
+		return RunItem{}, err
+	}
+	if err := service.ingestRunItemBlockForActiveTurnLocked(item); err != nil {
 		return RunItem{}, err
 	}
 	if _, err = service.events.Publish(NewRunItemCreatedEvent(item)); err != nil {

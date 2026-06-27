@@ -352,12 +352,17 @@ func (service *Service) startGoalContinuationLocked(workspaceSummary workspace.W
 	if err != nil {
 		return false, err
 	}
+	ingest, err := service.newTranscriptIngestLocked(workspaceSummary.ID, run)
+	if err != nil {
+		return false, err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.active[key] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
 		runID:            run.ID,
 		workspaceID:      workspaceSummary.ID,
+		transcript:       ingest,
 	}
 	request := TurnRequest{
 		Workspace:    workspaceSummary,
