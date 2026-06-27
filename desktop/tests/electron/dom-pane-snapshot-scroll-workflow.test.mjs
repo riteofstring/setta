@@ -69,10 +69,9 @@ try {
   await waitForState(
     context.client,
     bodyTextExpression(),
-    (text) => text.includes("User input approval") && text.includes("Queued follow-up preview"),
+    (text) => text.includes("User input approval") && text.includes("cancelled"),
     workflowTimeoutMs,
   );
-  await scrollTranscriptToBottom(context.client);
 
   const liveScroller = await waitForState(
     context.client,
@@ -167,26 +166,6 @@ async function clickShowcaseConversation(client) {
   })()`);
   if (!clicked.ok) {
     throw new Error(`showcase conversation click failed: ${JSON.stringify(clicked)}`);
-  }
-}
-
-async function scrollTranscriptToBottom(client) {
-  const scrolled = await client.evaluate(`(() => {
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    if (!(scroller instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-scroller" };
-    }
-    scroller.scrollTop = scroller.scrollHeight;
-    scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
-    return {
-      clientHeight: scroller.clientHeight,
-      ok: true,
-      scrollHeight: scroller.scrollHeight,
-      scrollTop: scroller.scrollTop,
-    };
-  })()`);
-  if (!scrolled.ok) {
-    throw new Error(`transcript scroll failed: ${JSON.stringify(scrolled)}`);
   }
 }
 

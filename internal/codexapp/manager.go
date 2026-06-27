@@ -374,14 +374,6 @@ func (session *Session) Events() <-chan Event {
 }
 
 func (session *Session) OwnThread(threadID string) error {
-	return session.ownThread(threadID, nil)
-}
-
-func (session *Session) OwnThreadWithActivation(threadID string, activate func() error) error {
-	return session.ownThread(threadID, activate)
-}
-
-func (session *Session) ownThread(threadID string, activate func() error) error {
 	if threadID == "" {
 		return errors.New("codex app-server session thread ID is required")
 	}
@@ -389,11 +381,6 @@ func (session *Session) ownThread(threadID string, activate func() error) error 
 	defer session.mu.Unlock()
 	if session.closed {
 		return errors.New("codex app-server session is closed")
-	}
-	if activate != nil {
-		if err := activate(); err != nil {
-			return err
-		}
 	}
 	session.threads[threadID] = struct{}{}
 	if session.turnsByThread[threadID] == nil {

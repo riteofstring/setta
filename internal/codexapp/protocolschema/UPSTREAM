@@ -5,10 +5,4 @@ experimental_source:
   - codex-rs/app-server-protocol/src/protocol/common.rs
   - codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 experimental_json:
-  - json_experimental/v2/ThreadBackgroundTerminalsTerminateParams.json
-  - json_experimental/v2/ThreadBackgroundTerminalsTerminateResponse.json
-  - json_experimental/v2/ThreadResumeParams.json
-  - json_experimental/v2/ThreadResumeResponse.json
   - json_experimental/v2/ThreadSettingsUpdateParams.json
-  - json_experimental/v2/ThreadStartParams.json
-  - json_experimental/v2/ThreadStartResponse.json

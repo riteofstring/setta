@@ -1,23 +1,36 @@
+import type { ChatMessage } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import { transcriptSearchMatches } from "./chat-transcript-search";
 
 describe("transcript search", () => {
-  test("matches transcript-visible text case-insensitively", () => {
+  test("matches visible message text case-insensitively", () => {
     const matches = transcriptSearchMatches(
       [
-        { id: "message_user", text: "Find this" },
+        message("message_user", "normal", "Find this"),
         undefined,
-        { id: "block_assistant", text: "also find this" },
-        { id: "block_quiet", text: "nothing here" },
+        message("message_goal", "goal", "Find hidden goal"),
+        message("message_assistant", "normal", "also find this"),
       ],
       " FIND ",
     );
 
-    expect(matches.map((match) => match.id)).toEqual(["message_user", "block_assistant"]);
-  });
-
-  test("returns no matches for an empty query", () => {
-    expect(transcriptSearchMatches([{ id: "a", text: "anything" }], "   ")).toEqual([]);
+    expect(matches.map((match) => match.messageId)).toEqual(["message_user", "message_assistant"]);
   });
 });
+
+function message(id: string, delivery: ChatMessage["delivery"], text: string): ChatMessage {
+  return {
+    conversationId: "conversation_api",
+    createdAt: "2026-05-29T20:00:00Z",
+    delivery,
+    id,
+    ordinal: 1,
+    parts: [{ format: "plain", id: `${id}_part`, text, type: "text" }],
+    role: "user",
+    runId: "",
+    schemaVersion: 1,
+    status: "complete",
+    updatedAt: "2026-05-29T20:00:00Z",
+  };
+}
