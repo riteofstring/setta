@@ -81,7 +81,7 @@ func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request T
 	defer harness.unregisterRun(request.Run.ID)
 	harness.applyInitialCodexSettings(request)
 
-	if err := sink.ThreadLinked("scripted-thread-"+request.Conversation.ID, "scripted-session", "scripted-turn-"+request.Run.ID); err != nil {
+	if err := sink.ThreadLinked("scripted-thread-"+request.Conversation.ID, "scripted-session", "scripted-turn-"+request.Run.ID, scriptedCodexEffectiveSettings(harness.model, harness.reasoning)); err != nil {
 		return TurnCompletion{}, err
 	}
 
@@ -114,6 +114,16 @@ func (harness *ScriptedWorkflowHarness) applyInitialCodexSettings(request TurnRe
 	}
 	if request.Conversation.CodexSettings.ReasoningEffort != nil {
 		harness.reasoning = *request.Conversation.CodexSettings.ReasoningEffort
+	}
+}
+
+func scriptedCodexEffectiveSettings(model string, reasoning ReasoningEffort) *ChatCodexEffectiveSettings {
+	if model == "" {
+		return nil
+	}
+	return &ChatCodexEffectiveSettings{
+		Model:           model,
+		ReasoningEffort: reasoningEffortResult(reasoning),
 	}
 }
 
@@ -287,10 +297,12 @@ func (harness *ScriptedWorkflowHarness) executeModelCommandLocked(command ChatCo
 		result.ReasoningEfforts = fakeReasoningEffortOptions()
 		result.SelectedModel = harness.model
 		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
+		result.CodexEffectiveSettings = scriptedCodexEffectiveSettings(harness.model, harness.reasoning)
 	case ModelCommandSet:
 		harness.model = command.Model.ModelID
 		result.SelectedModel = command.Model.ModelID
 		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
+		result.CodexEffectiveSettings = scriptedCodexEffectiveSettings(harness.model, harness.reasoning)
 		if !result.HasThreadRef {
 			result.CodexSettings = &ChatCodexSettings{
 				Model:           harness.model,
@@ -304,6 +316,7 @@ func (harness *ScriptedWorkflowHarness) executeModelCommandLocked(command ChatCo
 		harness.reasoning = *command.Model.ReasoningEffort
 		result.SelectedModel = harness.model
 		result.SelectedReasoningEffort = reasoningEffortResult(*command.Model.ReasoningEffort)
+		result.CodexEffectiveSettings = scriptedCodexEffectiveSettings(harness.model, harness.reasoning)
 		if !result.HasThreadRef {
 			result.CodexSettings = &ChatCodexSettings{
 				Model:           harness.model,

@@ -208,6 +208,7 @@ type HarnessCommandListRequest struct {
 type HarnessCommandResult struct {
 	Action                  ChatCommandResultAction
 	CapabilityDiagnostic    string
+	CodexEffectiveSettings  *ChatCodexEffectiveSettings
 	CodexSettings           *ChatCodexSettings
 	Goal                    *ChatGoalState
 	Models                  []ChatModelOption

@@ -189,6 +189,9 @@ func TestCodexHarnessAppliesConversationSettingsToInitialTurn(t *testing.T) {
 	if sink.text != "hello from codex" {
 		t.Fatalf("assistant text = %q, want streamed response", sink.text)
 	}
+	if len(sink.settings) == 0 || sink.settings[0].Model != "gpt-test" || sink.settings[0].ReasoningEffort == nil || *sink.settings[0].ReasoningEffort != ReasoningEffortXHigh {
+		t.Fatalf("effective settings = %+v, want gpt-test xhigh", sink.settings)
+	}
 }
 
 func TestCodexHarnessExecutesModelListRPCAgainstLinkedThread(t *testing.T) {

@@ -131,6 +131,14 @@
     return { body: document.body.innerText, open: Boolean(picker), ready: Boolean(picker) };
   }
 
+  function modelPickerSummaryButton() {
+    const button = document.querySelector('[aria-label="Open model and reasoning picker"]');
+    return {
+      ready: Boolean(button),
+      text: button instanceof HTMLElement ? button.innerText : "",
+    };
+  }
+
   function modelPickerButtonReady({ text }) {
     const picker = document.querySelector('[data-testid="model-picker"]');
     const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
@@ -1347,6 +1355,7 @@
     focusTerminalTextarea,
     maximizeTerminalPane,
     modelPicker,
+    modelPickerSummaryButton,
     modelPickerButtonReady,
     paneChromeEdgeFocusPoint,
     rendererWorkspace,

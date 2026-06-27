@@ -87,6 +87,7 @@ function installChatAPI({
 function conversation(id: string, workspaceId: string): Conversation {
   return {
     archivedAt: "",
+    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],

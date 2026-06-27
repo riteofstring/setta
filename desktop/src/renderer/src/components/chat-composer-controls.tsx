@@ -1,5 +1,6 @@
 import type {
   ChatCommandExecuteResult,
+  ChatCodexEffectiveSettings,
   ChatModelOption,
   ChatReasoningEffortOption,
   Conversation,
@@ -289,15 +290,38 @@ function selectedReasoningEffortOption(modelPicker: ChatCommandExecuteResult) {
 }
 
 function conversationModelSummary(selectedConversation: Conversation | null) {
+  const effectiveSettings = conversationEffectiveSettings(selectedConversation);
   return {
-    model: selectedConversation?.codexSettings?.model || "Model",
-    reasoning: conversationReasoningSummary(selectedConversation),
+    model: conversationModelLabel(effectiveSettings),
+    reasoning: conversationReasoningSummary(effectiveSettings),
   };
 }
 
-function conversationReasoningSummary(selectedConversation: Conversation | null) {
-  const reasoningEffort = selectedConversation?.codexSettings?.reasoningEffort;
-  return reasoningEffort ? REASONING_EFFORT_DISPLAY_NAMES[reasoningEffort] : "Reasoning";
+function conversationEffectiveSettings(
+  selectedConversation: Conversation | null,
+): ChatCodexEffectiveSettings | null {
+  if (selectedConversation === null) {
+    return null;
+  }
+  return selectedConversation.codexEffectiveSettings;
+}
+
+function conversationModelLabel(effectiveSettings: ChatCodexEffectiveSettings | null) {
+  if (effectiveSettings !== null) {
+    return effectiveSettings.model;
+  }
+  return "Model";
+}
+
+function conversationReasoningSummary(effectiveSettings: ChatCodexEffectiveSettings | null) {
+  if (effectiveSettings === null) {
+    return "Reasoning";
+  }
+  const reasoningEffort = effectiveSettings.reasoningEffort;
+  if (reasoningEffort) {
+    return REASONING_EFFORT_DISPLAY_NAMES[reasoningEffort];
+  }
+  return "None";
 }
 
 export function modelPickerOptionSelected(

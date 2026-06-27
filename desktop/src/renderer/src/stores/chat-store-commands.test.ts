@@ -36,6 +36,7 @@ describe("chat store command listing", () => {
 function testConversation(): Conversation {
   return {
     archivedAt: "",
+    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-06-05T20:00:00Z",
     harnessRefs: [],

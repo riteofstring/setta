@@ -353,6 +353,16 @@ func chatCodexSettingsFromCommandSettings(settings codexCommandThreadSettings) *
 	}
 }
 
+func chatCodexEffectiveSettingsFromCommandSettings(settings codexCommandThreadSettings) *ChatCodexEffectiveSettings {
+	if settings.Model == "" {
+		return nil
+	}
+	return &ChatCodexEffectiveSettings{
+		Model:           settings.Model,
+		ReasoningEffort: reasoningEffortResult(settings.ReasoningEffort),
+	}
+}
+
 func (harness *CodexHarness) executeCodexCommandRPC(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, command ChatCommand) (HarnessCommandResult, error) {
 	switch command.Kind {
 	case ChatCommandGoal:
@@ -496,6 +506,7 @@ func executeCodexModelPickerCommand(ctx context.Context, session *codexapp.Sessi
 	}
 	return HarnessCommandResult{
 		Action:                  ChatCommandResultModelPicker,
+		CodexEffectiveSettings:  chatCodexEffectiveSettingsFromCommandSettings(currentSettings),
 		Models:                  models,
 		ReasoningEfforts:        reasoningEffortsForSelectedModel(models, currentSettings.Model),
 		SelectedModel:           currentSettings.Model,
@@ -598,6 +609,7 @@ func (harness *CodexHarness) callThreadSettingsUpdate(ctx context.Context, sessi
 func codexSettingsCommandResult(settings codexCommandThreadSettings) HarnessCommandResult {
 	return HarnessCommandResult{
 		Action:                  ChatCommandResultDisplay,
+		CodexEffectiveSettings:  chatCodexEffectiveSettingsFromCommandSettings(settings),
 		SelectedModel:           settings.Model,
 		SelectedReasoningEffort: reasoningEffortResult(settings.ReasoningEffort),
 	}

@@ -282,7 +282,7 @@ func (service *Service) persistCommandMetadataLocked(workspaceID string, convers
 	if err != nil {
 		return Conversation{}, "", err
 	}
-	conversation, err = service.persistCommandCodexSettingsLocked(workspaceID, conversationID, conversation, harnessResult, now)
+	conversation, err = service.persistCommandCodexMetadataLocked(workspaceID, conversationID, conversation, harnessResult, now)
 	if err != nil {
 		return Conversation{}, "", err
 	}
@@ -396,11 +396,19 @@ func (service *Service) persistCommandThreadRefLocked(workspaceID string, conver
 	return conversation, nil
 }
 
-func (service *Service) persistCommandCodexSettingsLocked(workspaceID string, conversationID string, conversation Conversation, harnessResult HarnessCommandResult, now string) (Conversation, error) {
-	if harnessResult.CodexSettings == nil {
+func (service *Service) persistCommandCodexMetadataLocked(workspaceID string, conversationID string, conversation Conversation, harnessResult HarnessCommandResult, now string) (Conversation, error) {
+	changed := false
+	if harnessResult.CodexSettings != nil {
+		conversation.CodexSettings = harnessResult.CodexSettings
+		changed = true
+	}
+	if harnessResult.CodexEffectiveSettings != nil {
+		conversation.CodexEffectiveSettings = harnessResult.CodexEffectiveSettings
+		changed = true
+	}
+	if !changed {
 		return conversation, nil
 	}
-	conversation.CodexSettings = harnessResult.CodexSettings
 	conversation.UpdatedAt = now
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return Conversation{}, err

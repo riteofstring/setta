@@ -8,6 +8,7 @@ import process from "node:process";
 import {
   assertNoCriticalDiagnostics,
   assertRendererQueueMatchesBackend,
+  waitForModelPickerSummary,
 } from "./chat-workflow-assertions.mjs";
 import {
   appendWorkflowState,
@@ -909,6 +910,7 @@ async function runCodexProtocolWorkflow(results) {
       "file change",
       "Reasoning text",
     ]);
+    await waitForModelPickerSummary(waitForState, context.client, "gpt-test", "Extra High");
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 

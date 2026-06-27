@@ -24,6 +24,11 @@ func validateConversation(conversation Conversation) error {
 			return err
 		}
 	}
+	if conversation.CodexEffectiveSettings != nil {
+		if err := validateChatCodexEffectiveSettings(conversation.ID, *conversation.CodexEffectiveSettings); err != nil {
+			return err
+		}
+	}
 	if err := validateConversationWorkflowMetadata(conversation); err != nil {
 		return err
 	}
@@ -133,6 +138,16 @@ func validateConversationPinState(state conversationPinState) error {
 func validateChatCodexSettings(conversationID string, settings ChatCodexSettings) error {
 	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
 		return fmt.Errorf("conversation %s codexSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)
+	}
+	return nil
+}
+
+func validateChatCodexEffectiveSettings(conversationID string, settings ChatCodexEffectiveSettings) error {
+	if settings.Model == "" {
+		return fmt.Errorf("conversation %s codexEffectiveSettings model is required", conversationID)
+	}
+	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
+		return fmt.Errorf("conversation %s codexEffectiveSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)
 	}
 	return nil
 }

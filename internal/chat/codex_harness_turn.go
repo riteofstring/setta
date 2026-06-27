@@ -5,7 +5,7 @@ func (harness *CodexHarness) applyNotificationTurnID(runID string, threadID stri
 		return activeTurnID, nil
 	}
 	harness.updateActiveTurn(runID, threadID, result.TurnID)
-	if err := sink.ThreadLinked(threadID, "", result.TurnID); err != nil {
+	if err := sink.ThreadLinked(threadID, "", result.TurnID, nil); err != nil {
 		return "", err
 	}
 	return result.TurnID, nil

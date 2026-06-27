@@ -840,42 +840,6 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 	return service.publishConversationUpdatedLocked(workspaceID, run.ConversationID, run.ID)
 }
 
-func (service *Service) linkThread(workspaceID string, conversationID string, runID string, threadID string, sessionID string, turnID string) error {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
-	if err != nil {
-		return err
-	}
-	now := timestamp(service.now())
-	upsertHarnessRef(&conversation.HarnessRefs, HarnessThreadRef{
-		Harness:        HarnessCodex,
-		ThreadID:       threadID,
-		SessionID:      sessionID,
-		LastTurnID:     turnID,
-		Status:         HarnessRefLinked,
-		CreatedAt:      now,
-		LastResumedAt:  now,
-		UnavailableMsg: "",
-	})
-	conversation.UpdatedAt = now
-	if err := service.store.SaveConversation(conversation); err != nil {
-		return err
-	}
-	if err := service.traceLocked(workspaceID, runID, "codex_thread_ref_linked", "Codex thread reference linked"); err != nil {
-		return err
-	}
-	key := activeKey(workspaceID, conversationID)
-	active, ok := service.active[key]
-	if ok && active.runID == runID {
-		active.threadID = threadID
-		active.turnID = turnID
-		service.active[key] = active
-	}
-	return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)
-}
-
 func (service *Service) markHarnessRefUnavailable(workspaceID string, conversationID string, runID string, refErr *HarnessRefUnavailableError) error {
 	service.mu.Lock()
 	defer service.mu.Unlock()

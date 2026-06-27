@@ -10,22 +10,6 @@ import (
 	"setta/internal/codexapp"
 )
 
-func threadIDFromStartResponse(raw json.RawMessage) (string, error) {
-	response, err := codexapp.DecodeThreadStartResponse(raw)
-	if err != nil {
-		return "", err
-	}
-	return threadIDFromCodexThread(response.Thread, "codex thread start response")
-}
-
-func threadIDFromResumeResponse(raw json.RawMessage) (string, error) {
-	response, err := codexapp.DecodeThreadResumeResponse(raw)
-	if err != nil {
-		return "", err
-	}
-	return threadIDFromCodexThread(response.Thread, "codex thread resume response")
-}
-
 func threadIDFromCodexThread(thread codexapp.Thread, label string) (string, error) {
 	if thread.ID == "" {
 		return "", fmt.Errorf("%s.thread.id is required", label)

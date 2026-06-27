@@ -302,20 +302,26 @@ func stringValues[T ~string](values []T) []string {
 }
 
 type Conversation struct {
-	SchemaVersion int                           `json:"schemaVersion"`
-	ID            string                        `json:"id"`
-	WorkspaceID   string                        `json:"workspaceId"`
-	Title         string                        `json:"title"`
-	Internal      bool                          `json:"internal"`
-	CreatedAt     string                        `json:"createdAt"`
-	UpdatedAt     string                        `json:"updatedAt"`
-	ArchivedAt    string                        `json:"archivedAt"`
-	CodexSettings *ChatCodexSettings            `json:"codexSettings"`
-	HarnessRefs   []HarnessThreadRef            `json:"harnessRefs"`
-	Workflow      *ConversationWorkflowMetadata `json:"workflow"`
+	SchemaVersion          int                           `json:"schemaVersion"`
+	ID                     string                        `json:"id"`
+	WorkspaceID            string                        `json:"workspaceId"`
+	Title                  string                        `json:"title"`
+	Internal               bool                          `json:"internal"`
+	CreatedAt              string                        `json:"createdAt"`
+	UpdatedAt              string                        `json:"updatedAt"`
+	ArchivedAt             string                        `json:"archivedAt"`
+	CodexSettings          *ChatCodexSettings            `json:"codexSettings"`
+	CodexEffectiveSettings *ChatCodexEffectiveSettings   `json:"codexEffectiveSettings"`
+	HarnessRefs            []HarnessThreadRef            `json:"harnessRefs"`
+	Workflow               *ConversationWorkflowMetadata `json:"workflow"`
 }
 
 type ChatCodexSettings struct {
+	Model           string           `json:"model"`
+	ReasoningEffort *ReasoningEffort `json:"reasoningEffort"`
+}
+
+type ChatCodexEffectiveSettings struct {
 	Model           string           `json:"model"`
 	ReasoningEffort *ReasoningEffort `json:"reasoningEffort"`
 }

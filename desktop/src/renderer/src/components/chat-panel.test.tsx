@@ -402,6 +402,10 @@ describe("composer controls", () => {
         running={false}
         selectedConversation={
           {
+            codexEffectiveSettings: {
+              model: "scripted-careful",
+              reasoningEffort: "high",
+            },
             codexSettings: {
               model: "scripted-careful",
               reasoningEffort: "high",
@@ -701,6 +705,10 @@ function composerChat() {
     pendingSteeringMessageIds: [],
     queueMessage: async () => {},
     selectedConversation: {
+      codexEffectiveSettings: {
+        model: "scripted-fast",
+        reasoningEffort: "medium",
+      },
       codexSettings: {
         model: "scripted-fast",
         reasoningEffort: "medium",

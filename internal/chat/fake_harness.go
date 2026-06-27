@@ -26,18 +26,19 @@ const (
 var errUnsupportedFakeHarnessEvent = errors.New("unsupported fake harness event")
 
 type FakeHarnessEvent struct {
-	Type            string
-	Text            string
-	Error           string
-	ThreadID        string
-	SessionID       string
-	TurnID          string
-	ProviderItemID  string
-	Stream          string
-	RunItem         RunItem
-	Goal            *ChatGoalState
-	Approval        ApprovalRequest
-	WaitForApproval bool
+	Type                   string
+	Text                   string
+	Error                  string
+	ThreadID               string
+	SessionID              string
+	TurnID                 string
+	ProviderItemID         string
+	Stream                 string
+	RunItem                RunItem
+	Goal                   *ChatGoalState
+	Approval               ApprovalRequest
+	CodexEffectiveSettings *ChatCodexEffectiveSettings
+	WaitForApproval        bool
 }
 
 type FakeHarness struct {
@@ -154,7 +155,7 @@ func (harness *FakeHarness) handleImmediateEvent(ctx context.Context, request Tu
 	case FakeEventRunItemOutput:
 		return sink.RunItemOutputDelta(event.ProviderItemID, event.Stream, event.Text)
 	case FakeEventThreadLinked:
-		return sink.ThreadLinked(event.ThreadID, event.SessionID, event.TurnID)
+		return sink.ThreadLinked(event.ThreadID, event.SessionID, event.TurnID, event.CodexEffectiveSettings)
 	case FakeEventTrace:
 		return sink.Trace(event.Text, event.Error)
 	case FakeEventUserMessage:
@@ -328,10 +329,12 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 		result.ReasoningEfforts = fakeReasoningEffortOptions()
 		result.SelectedModel = harness.model
 		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
+		result.CodexEffectiveSettings = fakeCodexEffectiveSettings(harness.model, harness.reasoning)
 	case ModelCommandSet:
 		harness.model = command.Model.ModelID
 		result.SelectedModel = command.Model.ModelID
 		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
+		result.CodexEffectiveSettings = fakeCodexEffectiveSettings(harness.model, harness.reasoning)
 		if !result.HasThreadRef {
 			result.CodexSettings = &ChatCodexSettings{
 				Model:           harness.model,
@@ -345,6 +348,7 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 		harness.reasoning = *command.Model.ReasoningEffort
 		result.SelectedModel = harness.model
 		result.SelectedReasoningEffort = reasoningEffortResult(*command.Model.ReasoningEffort)
+		result.CodexEffectiveSettings = fakeCodexEffectiveSettings(harness.model, harness.reasoning)
 		if !result.HasThreadRef {
 			result.CodexSettings = &ChatCodexSettings{
 				Model:           harness.model,
@@ -355,6 +359,16 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported model command action: %s", command.Model.Action), nil)
 	}
 	return result, nil
+}
+
+func fakeCodexEffectiveSettings(model string, reasoning ReasoningEffort) *ChatCodexEffectiveSettings {
+	if model == "" {
+		return nil
+	}
+	return &ChatCodexEffectiveSettings{
+		Model:           model,
+		ReasoningEffort: reasoningEffortResult(reasoning),
+	}
 }
 
 func (harness *FakeHarness) CancelledRequests() []CancelRequest {

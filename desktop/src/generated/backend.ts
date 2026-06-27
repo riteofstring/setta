@@ -2559,6 +2559,11 @@ export interface ChatCodexSettings {
   reasoningEffort: ReasoningEffort | null;
 }
 
+export interface ChatCodexEffectiveSettings {
+  model: string;
+  reasoningEffort: ReasoningEffort | null;
+}
+
 export interface HarnessThreadRef {
   harness: HarnessKind;
   threadId: string;
@@ -2588,6 +2593,7 @@ export interface Conversation {
   updatedAt: string;
   archivedAt: string;
   codexSettings: ChatCodexSettings | null;
+  codexEffectiveSettings: ChatCodexEffectiveSettings | null;
   harnessRefs: HarnessThreadRef[];
   workflow: ConversationWorkflowMetadata | null;
 }
@@ -6116,6 +6122,15 @@ export function decodeChatCodexSettings(value: unknown): ChatCodexSettings {
   };
 }
 
+export function decodeChatCodexEffectiveSettings(value: unknown): ChatCodexEffectiveSettings {
+  const record = assertRecord(value, "ChatCodexEffectiveSettings");
+  assertKnownFields(record, "ChatCodexEffectiveSettings", ["model", "reasoningEffort"]);
+  return {
+    model: decodeString(requireField(record, "model", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.model"),
+    reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexEffectiveSettings.reasoningEffort")),
+  };
+}
+
 export function decodeHarnessThreadRef(value: unknown): HarnessThreadRef {
   const record = assertRecord(value, "HarnessThreadRef");
   assertKnownFields(record, "HarnessThreadRef", ["harness", "threadId", "sessionId", "lastTurnId", "status", "createdAt", "lastResumedAt", "unavailableMessage"]);
@@ -6145,7 +6160,7 @@ export function decodeConversationWorkflowMetadata(value: unknown): Conversation
 
 export function decodeConversation(value: unknown): Conversation {
   const record = assertRecord(value, "Conversation");
-  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "harnessRefs", "workflow"]);
+  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Conversation"), "Conversation.schemaVersion"),
     id: decodeString(requireField(record, "id", "Conversation"), "Conversation.id"),
@@ -6156,6 +6171,7 @@ export function decodeConversation(value: unknown): Conversation {
     updatedAt: decodeString(requireField(record, "updatedAt", "Conversation"), "Conversation.updatedAt"),
     archivedAt: decodeString(requireField(record, "archivedAt", "Conversation"), "Conversation.archivedAt"),
     codexSettings: decodeNullable(requireField(record, "codexSettings", "Conversation"), "Conversation.codexSettings", (item) => decodeChatCodexSettings(item)),
+    codexEffectiveSettings: decodeNullable(requireField(record, "codexEffectiveSettings", "Conversation"), "Conversation.codexEffectiveSettings", (item) => decodeChatCodexEffectiveSettings(item)),
     harnessRefs: decodeArray(requireField(record, "harnessRefs", "Conversation"), "Conversation.harnessRefs", (item) => decodeHarnessThreadRef(item)),
     workflow: decodeNullable(requireField(record, "workflow", "Conversation"), "Conversation.workflow", (item) => decodeConversationWorkflowMetadata(item)),
   };

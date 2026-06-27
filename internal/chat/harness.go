@@ -237,11 +237,12 @@ type TurnSink interface {
 	AssistantTextDelta(providerItemID string, text string) error
 	ApprovalRequested(approval ApprovalRequest) error
 	ApprovalResolved(approvalID string, approved bool, response string) error
+	CodexEffectiveSettingsUpdated(settings ChatCodexEffectiveSettings) error
 	ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error
 	GoalUpdated(goal *ChatGoalState) error
 	RunItemOutputDelta(providerItemID string, stream string, text string) error
 	RunItemUpsert(item RunItem) error
-	ThreadLinked(threadID string, sessionID string, turnID string) error
+	ThreadLinked(threadID string, sessionID string, turnID string, settings *ChatCodexEffectiveSettings) error
 	UserMessageCommitted(text string) error
 	Trace(eventType string, message string) error
 }

@@ -58,6 +58,42 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	}
 }
 
+func TestServicePersistsCodexEffectiveSettingsFromLinkedThread(t *testing.T) {
+	effort := ReasoningEffortXHigh
+	harness := NewFakeHarness([]FakeHarnessEvent{
+		{
+			Type:      FakeEventThreadLinked,
+			ThreadID:  "thread_effective",
+			SessionID: "session_effective",
+			TurnID:    "turn_effective",
+			CodexEffectiveSettings: &ChatCodexEffectiveSettings{
+				Model:           "gpt-test",
+				ReasoningEffort: &effort,
+			},
+		},
+		{Type: FakeEventAssistantDelta, Text: "done"},
+	})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "effective settings")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load page: %v", err)
+	}
+	settings := page.Conversation.CodexEffectiveSettings
+	if settings == nil || settings.Model != "gpt-test" || settings.ReasoningEffort == nil || *settings.ReasoningEffort != ReasoningEffortXHigh {
+		t.Fatalf("effective settings = %+v, want gpt-test xhigh", settings)
+	}
+}
+
 func TestServiceRoutesMasterChatThroughSharedHarnessTask(t *testing.T) {
 	harness := NewFakeHarness(nil)
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
