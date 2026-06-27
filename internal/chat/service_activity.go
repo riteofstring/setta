@@ -53,7 +53,7 @@ func (service *Service) applyAssistantDeltaLocked(workspaceID string, conversati
 	message.UpdatedAt = timestamp(now)
 	partID := message.Parts[0].ID
 	active.assistantMessage = message
-	if err := service.appendAssistantTextBlockLocked(active.transcript, providerItemID, appendText); err != nil {
+	if err := service.appendAssistantTextBlockLocked(workspaceID, active.transcript, providerItemID, appendText); err != nil {
 		return activeTurn{}, err
 	}
 	if _, err := service.events.Publish(NewAssistantTextDeltaEvent(workspaceID, conversationID, run.ID, message.ID, partID, appendText, message.UpdatedAt)); err != nil {

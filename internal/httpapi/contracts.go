@@ -109,10 +109,10 @@ type SetConversationPinnedRequest struct {
 }
 
 type GetMessagePageRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	BeforeOrdinal  int    `json:"beforeOrdinal"`
-	Limit          int    `json:"limit"`
+	WorkspaceID        string `json:"workspaceId"`
+	ConversationID     string `json:"conversationId"`
+	BeforeBlockOrdinal int    `json:"beforeBlockOrdinal"`
+	Limit              int    `json:"limit"`
 }
 
 type SendChatMessageRequest struct {

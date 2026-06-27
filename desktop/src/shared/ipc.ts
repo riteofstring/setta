@@ -376,7 +376,7 @@ interface IpcContract {
     result: ConversationListItem;
   };
   chatMessagePage: {
-    args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
+    args: [workspaceId: string, conversationId: string, beforeBlockOrdinal: number, limit: number];
     result: MessagePage;
   };
   chatQueueMessage: {

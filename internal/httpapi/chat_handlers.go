@@ -108,7 +108,7 @@ func (handler handler) getMessagePage(response http.ResponseWriter, request *htt
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	page, err := service.LoadMessagePage(payload.WorkspaceID, payload.ConversationID, payload.BeforeOrdinal, payload.Limit)
+	page, err := service.LoadMessagePage(payload.WorkspaceID, payload.ConversationID, payload.BeforeBlockOrdinal, payload.Limit)
 	if err != nil {
 		writeChatError(response, "get_message_page_failed", err)
 		return

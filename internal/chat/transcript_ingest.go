@@ -140,6 +140,9 @@ func (service *Service) newTranscriptIngestLocked(workspaceID string, run Run) (
 	if err := service.appendUserMessageBlockLocked(workspaceID, ingest, trigger); err != nil {
 		return nil, err
 	}
+	if err := service.publishWorkingRunStatusCreatedLocked(workspaceID, ingest); err != nil {
+		return nil, err
+	}
 	return ingest, nil
 }
 
@@ -168,7 +171,10 @@ func (service *Service) appendUserMessageBlockLocked(workspaceID string, ingest 
 	ingest.closeAssistantSegment()
 	ingest.track(block)
 	ingest.userMessageBlockByID[message.ID] = block.ID
-	return service.saveTranscriptBlockLocked(workspaceID, *block)
+	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
+		return err
+	}
+	return service.publishTranscriptBlockCreatedLocked(workspaceID, *block)
 }
 
 // syncUserMessageBlockLocked re-projects a user_message block from the canonical
@@ -189,7 +195,10 @@ func (service *Service) syncUserMessageBlockLocked(workspaceID string, conversat
 	}
 	block.UserMessage = userMessageProjection(message)
 	block.UpdatedAt = timestamp(service.now())
-	return service.saveTranscriptBlockLocked(workspaceID, *block)
+	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
+		return err
+	}
+	return service.publishTranscriptBlockUpdatedLocked(workspaceID, *block)
 }
 
 func userMessageProjection(message ChatMessage) *TranscriptMessageProjection {
@@ -206,24 +215,32 @@ func userMessageProjection(message ChatMessage) *TranscriptMessageProjection {
 // open assistant_text block, creating a new block when none is open or the open
 // block belongs to a different provider text segment. Persistence is throttled by
 // the caller; this only mutates in-memory chronology.
-func (service *Service) appendAssistantTextBlockLocked(ingest *transcriptIngest, providerItemID string, text string) error {
+func (service *Service) appendAssistantTextBlockLocked(workspaceID string, ingest *transcriptIngest, providerItemID string, text string) error {
 	if ingest == nil || text == "" {
 		return nil
 	}
 	block := ingest.openAssistantBlock()
 	if block == nil || (providerItemID != "" && ingest.openAssistantProvider != providerItemID) {
+		// Sample public-output presence before tracking the new block so the
+		// first public block can drop the live-only working indicator. The
+		// created/replaced event carries the still-empty block; the text delta
+		// below fills it, so the renderer never double-counts the first chunk.
+		hadPublicOutput := ingest.hasPublicOutputBlock()
 		created, err := service.newAssistantTextBlockLocked(ingest, providerItemID)
 		if err != nil {
 			return err
 		}
 		block = created
+		if err := service.publishPublicBlockCreatedLocked(workspaceID, ingest, *block, hadPublicOutput); err != nil {
+			return err
+		}
 	}
 	block.AssistantText.Text += text
 	block.UpdatedAt = timestamp(service.now())
 	if providerItemID != "" {
 		ingest.assistantBlockByProvider[providerItemID] = block.ID
 	}
-	return nil
+	return service.publishTranscriptTextDeltaLocked(workspaceID, block, text)
 }
 
 func (service *Service) newAssistantTextBlockLocked(ingest *transcriptIngest, providerItemID string) (*TranscriptBlock, error) {
@@ -300,7 +317,10 @@ func (service *Service) reconcileAssistantBlockTextLocked(workspaceID string, in
 	if block.AssistantText.Text == "" {
 		return service.removeAssistantBlockLocked(workspaceID, ingest, providerItemID, blockID)
 	}
-	return service.saveTranscriptBlockLocked(workspaceID, *block)
+	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
+		return err
+	}
+	return service.publishTranscriptBlockUpdatedLocked(workspaceID, *block)
 }
 
 // removeAssistantBlockLocked drops an assistant_text block that de-duplication
@@ -322,7 +342,10 @@ func (service *Service) removeAssistantBlockLocked(workspaceID string, ingest *t
 	if ingest.assistantBlockByProvider[providerItemID] == blockID {
 		delete(ingest.assistantBlockByProvider, providerItemID)
 	}
-	return service.store.DeleteTranscriptBlock(workspaceID, ingest.runID, block.Ordinal, block.ID)
+	if err := service.store.DeleteTranscriptBlock(workspaceID, ingest.runID, block.Ordinal, block.ID); err != nil {
+		return err
+	}
+	return service.publishLiveTranscriptBlocksReplacedLocked(workspaceID, ingest)
 }
 
 func removeBlockFromOrder(order []string, blockID string) []string {
@@ -375,10 +398,17 @@ func (service *Service) ingestActivityBlockLocked(workspaceID string, ingest *tr
 	block.Activity.HasOutput = block.Activity.HasOutput || hasOutput
 	block.Status = transcriptBlockStatusForItem(item.Status)
 	block.UpdatedAt = timestamp(service.now())
-	return service.saveTranscriptBlockLocked(workspaceID, *block)
+	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
+		return err
+	}
+	return service.publishTranscriptBlockUpdatedLocked(workspaceID, *block)
 }
 
 func (service *Service) createActivityBlockLocked(workspaceID string, ingest *transcriptIngest, item RunItem, status RunItemStatus, details RunActivityDetailsProjection, hasDetails bool, hasOutput bool) error {
+	// Sample before ingest.track below: once tracked this block is itself public
+	// output, so the first-public-block check that drops the working indicator must
+	// observe the state as it was beforehand.
+	hadPublicOutput := ingest.hasPublicOutputBlock()
 	blockID, err := service.newID("transcript_block")
 	if err != nil {
 		return fmt.Errorf("create transcript block id: %w", err)
@@ -407,7 +437,10 @@ func (service *Service) createActivityBlockLocked(workspaceID string, ingest *tr
 	ingest.closeAssistantSegment()
 	ingest.track(block)
 	ingest.activityBlockByProvider[item.ProviderItemID] = block.ID
-	return service.saveTranscriptBlockLocked(workspaceID, *block)
+	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
+		return err
+	}
+	return service.publishPublicBlockCreatedLocked(workspaceID, ingest, *block, hadPublicOutput)
 }
 
 // markActivityBlockOutputLocked records that a run item's first output chunk is
@@ -427,7 +460,10 @@ func (service *Service) markActivityBlockOutputLocked(workspaceID string, ingest
 	}
 	block.Activity.HasOutput = true
 	block.UpdatedAt = timestamp(service.now())
-	return service.saveTranscriptBlockLocked(workspaceID, *block)
+	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
+		return err
+	}
+	return service.publishTranscriptBlockUpdatedLocked(workspaceID, *block)
 }
 
 func (service *Service) ingestReasoningBlockLocked(workspaceID string, ingest *transcriptIngest, item RunItem) error {
@@ -455,10 +491,16 @@ func (service *Service) ingestReasoningBlockLocked(workspaceID string, ingest *t
 	}
 	block.Status = transcriptBlockStatusForItem(item.Status)
 	block.UpdatedAt = timestamp(service.now())
-	return service.saveTranscriptBlockLocked(workspaceID, *block)
+	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
+		return err
+	}
+	return service.publishTranscriptBlockUpdatedLocked(workspaceID, *block)
 }
 
 func (service *Service) createReasoningBlockLocked(workspaceID string, ingest *transcriptIngest, item RunItem, headline string, body string) error {
+	// Sample before ingest.track below (see createActivityBlockLocked): the
+	// first-public-block check that drops the working indicator needs the prior state.
+	hadPublicOutput := ingest.hasPublicOutputBlock()
 	blockID, err := service.newID("transcript_block")
 	if err != nil {
 		return fmt.Errorf("create transcript block id: %w", err)
@@ -490,7 +532,10 @@ func (service *Service) createReasoningBlockLocked(workspaceID string, ingest *t
 	ingest.closeAssistantSegment()
 	ingest.track(block)
 	ingest.reasoningBlockByProvider[item.ProviderItemID] = block.ID
-	return service.saveTranscriptBlockLocked(workspaceID, *block)
+	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
+		return err
+	}
+	return service.publishPublicBlockCreatedLocked(workspaceID, ingest, *block, hadPublicOutput)
 }
 
 // finalizeTranscriptBlocksLocked closes out a run's blocks at completion,
@@ -514,10 +559,15 @@ func (service *Service) finalizeTranscriptBlocksLocked(workspaceID string, inges
 			return err
 		}
 	}
-	if outcome == TranscriptBlockStatusComplete {
-		return nil
+	if outcome != TranscriptBlockStatusComplete {
+		if err := service.ensureTerminalRunStatusBlockLocked(workspaceID, ingest, outcome, runError, now); err != nil {
+			return err
+		}
 	}
-	return service.ensureTerminalRunStatusBlockLocked(workspaceID, ingest, outcome, runError, now)
+	// One authoritative terminal snapshot reflects every block's terminal status,
+	// adds any cancelled/failed run_status row, and drops the live-only working
+	// indicator in place of per-block events.
+	return service.publishTerminalTranscriptBlocksReplacedLocked(workspaceID, ingest)
 }
 
 // ensureTerminalRunStatusBlockLocked records the terminal run_status row
@@ -682,23 +732,42 @@ func (service *Service) syncPersistedUserMessageBlocksLocked(workspaceID string,
 // pointing at a deleted message while the replay run shows the same text as its
 // trigger — a stale duplicate once blocks drive the transcript.
 func (service *Service) removeSteeringTranscriptBlocksLocked(workspaceID string, removed []ChatMessage) error {
+	affected := map[string]string{}
 	for _, message := range removed {
 		if message.RunID == "" {
 			continue
 		}
-		blocks, err := service.store.LoadTranscriptBlocks(workspaceID, message.RunID)
+		removedFromRun, err := service.deleteSteeringMessageBlocksLocked(workspaceID, message)
 		if err != nil {
 			return err
 		}
-		for _, block := range blocks {
-			if block.Kind == TranscriptBlockKindUserMessage && block.UserMessage.MessageID == message.ID {
-				if err := service.store.DeleteTranscriptBlock(workspaceID, message.RunID, block.Ordinal, block.ID); err != nil {
-					return err
-				}
-			}
+		if removedFromRun {
+			affected[message.RunID] = message.ConversationID
+		}
+	}
+	for runID, conversationID := range affected {
+		if err := service.publishPersistedTranscriptBlocksReplacedLocked(workspaceID, conversationID, runID); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (service *Service) deleteSteeringMessageBlocksLocked(workspaceID string, message ChatMessage) (bool, error) {
+	blocks, err := service.store.LoadTranscriptBlocks(workspaceID, message.RunID)
+	if err != nil {
+		return false, err
+	}
+	removed := false
+	for _, block := range blocks {
+		if block.Kind == TranscriptBlockKindUserMessage && block.UserMessage.MessageID == message.ID {
+			if err := service.store.DeleteTranscriptBlock(workspaceID, message.RunID, block.Ordinal, block.ID); err != nil {
+				return false, err
+			}
+			removed = true
+		}
+	}
+	return removed, nil
 }
 
 func applyTerminalStatusToActivityBlock(block *TranscriptBlock, outcome TranscriptBlockStatus) {

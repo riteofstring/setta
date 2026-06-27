@@ -2788,7 +2788,7 @@ export interface SetConversationPinnedRequest {
 export interface GetMessagePageRequest {
   workspaceId: string;
   conversationId: string;
-  beforeOrdinal: number;
+  beforeBlockOrdinal: number;
   limit: number;
 }
 
@@ -2972,7 +2972,6 @@ export interface MessagePage {
   blocks: TranscriptBlock[];
   goal: ChatGoalState | null;
   hasMoreOlder: boolean;
-  olderBeforeOrdinal: number;
   olderBeforeBlockOrdinal: number;
 }
 
@@ -5045,6 +5044,25 @@ export interface RunItemOutputDeltaPayload {
   output: RunItemOutput;
 }
 
+export interface TranscriptBlockCreatedPayload {
+  block: TranscriptBlock;
+}
+
+export interface TranscriptBlockUpdatedPayload {
+  block: TranscriptBlock;
+}
+
+export interface TranscriptTextDeltaPayload {
+  blockId: string;
+  delta: string;
+  updatedAt: string;
+}
+
+export interface TranscriptBlocksReplacedPayload {
+  runId: string;
+  blocks: TranscriptBlock[];
+}
+
 export interface QueueUpdatedPayload {
   queue: QueueState;
 }
@@ -5090,6 +5108,10 @@ export type ChatEvent =
   | ChatRunItemCreatedEvent
   | ChatRunItemUpdatedEvent
   | ChatRunItemOutputDeltaEvent
+  | ChatTranscriptBlockCreatedEvent
+  | ChatTranscriptBlockUpdatedEvent
+  | ChatTranscriptTextDeltaEvent
+  | ChatTranscriptBlocksReplacedEvent
   | ChatQueueUpdatedEvent
   | ChatGoalUpdatedEvent
   | ChatConversationUpdatedEvent
@@ -5226,6 +5248,58 @@ export interface ChatRunItemOutputDeltaEvent {
   conversationId: string;
   runId: string;
   payload: RunItemOutputDeltaPayload;
+}
+
+export interface ChatTranscriptBlockCreatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.transcript_block.created";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: TranscriptBlockCreatedPayload;
+}
+
+export interface ChatTranscriptBlockUpdatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.transcript_block.updated";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: TranscriptBlockUpdatedPayload;
+}
+
+export interface ChatTranscriptTextDeltaEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.transcript_text.delta";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: TranscriptTextDeltaPayload;
+}
+
+export interface ChatTranscriptBlocksReplacedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.transcript_blocks.replaced";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: TranscriptBlocksReplacedPayload;
 }
 
 export interface ChatQueueUpdatedEvent {
@@ -6507,11 +6581,11 @@ export function decodeSetConversationPinnedRequest(value: unknown): SetConversat
 
 export function decodeGetMessagePageRequest(value: unknown): GetMessagePageRequest {
   const record = assertRecord(value, "GetMessagePageRequest");
-  assertKnownFields(record, "GetMessagePageRequest", ["workspaceId", "conversationId", "beforeOrdinal", "limit"]);
+  assertKnownFields(record, "GetMessagePageRequest", ["workspaceId", "conversationId", "beforeBlockOrdinal", "limit"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "GetMessagePageRequest"), "GetMessagePageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "GetMessagePageRequest"), "GetMessagePageRequest.conversationId"),
-    beforeOrdinal: decodeInteger(requireField(record, "beforeOrdinal", "GetMessagePageRequest"), "GetMessagePageRequest.beforeOrdinal"),
+    beforeBlockOrdinal: decodeInteger(requireField(record, "beforeBlockOrdinal", "GetMessagePageRequest"), "GetMessagePageRequest.beforeBlockOrdinal"),
     limit: decodeInteger(requireField(record, "limit", "GetMessagePageRequest"), "GetMessagePageRequest.limit"),
   };
 }
@@ -6759,7 +6833,7 @@ export function decodeChatGoalState(value: unknown): ChatGoalState {
 
 export function decodeMessagePage(value: unknown): MessagePage {
   const record = assertRecord(value, "MessagePage");
-  assertKnownFields(record, "MessagePage", ["conversation", "messages", "queue", "blocks", "goal", "hasMoreOlder", "olderBeforeOrdinal", "olderBeforeBlockOrdinal"]);
+  assertKnownFields(record, "MessagePage", ["conversation", "messages", "queue", "blocks", "goal", "hasMoreOlder", "olderBeforeBlockOrdinal"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "MessagePage")),
     messages: decodeArray(requireField(record, "messages", "MessagePage"), "MessagePage.messages", (item) => decodeChatMessage(item)),
@@ -6767,7 +6841,6 @@ export function decodeMessagePage(value: unknown): MessagePage {
     blocks: decodeArray(requireField(record, "blocks", "MessagePage"), "MessagePage.blocks", (item) => decodeTranscriptBlock(item)),
     goal: decodeNullable(requireField(record, "goal", "MessagePage"), "MessagePage.goal", (item) => decodeChatGoalState(item)),
     hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "MessagePage"), "MessagePage.hasMoreOlder"),
-    olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "MessagePage"), "MessagePage.olderBeforeOrdinal"),
     olderBeforeBlockOrdinal: decodeInteger(requireField(record, "olderBeforeBlockOrdinal", "MessagePage"), "MessagePage.olderBeforeBlockOrdinal"),
   };
 }
@@ -9781,6 +9854,41 @@ export function decodeRunItemOutputDeltaPayload(value: unknown): RunItemOutputDe
   };
 }
 
+export function decodeTranscriptBlockCreatedPayload(value: unknown): TranscriptBlockCreatedPayload {
+  const record = assertRecord(value, "TranscriptBlockCreatedPayload");
+  assertKnownFields(record, "TranscriptBlockCreatedPayload", ["block"]);
+  return {
+    block: decodeTranscriptBlock(requireField(record, "block", "TranscriptBlockCreatedPayload")),
+  };
+}
+
+export function decodeTranscriptBlockUpdatedPayload(value: unknown): TranscriptBlockUpdatedPayload {
+  const record = assertRecord(value, "TranscriptBlockUpdatedPayload");
+  assertKnownFields(record, "TranscriptBlockUpdatedPayload", ["block"]);
+  return {
+    block: decodeTranscriptBlock(requireField(record, "block", "TranscriptBlockUpdatedPayload")),
+  };
+}
+
+export function decodeTranscriptTextDeltaPayload(value: unknown): TranscriptTextDeltaPayload {
+  const record = assertRecord(value, "TranscriptTextDeltaPayload");
+  assertKnownFields(record, "TranscriptTextDeltaPayload", ["blockId", "delta", "updatedAt"]);
+  return {
+    blockId: decodeString(requireField(record, "blockId", "TranscriptTextDeltaPayload"), "TranscriptTextDeltaPayload.blockId"),
+    delta: decodeString(requireField(record, "delta", "TranscriptTextDeltaPayload"), "TranscriptTextDeltaPayload.delta"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "TranscriptTextDeltaPayload"), "TranscriptTextDeltaPayload.updatedAt"),
+  };
+}
+
+export function decodeTranscriptBlocksReplacedPayload(value: unknown): TranscriptBlocksReplacedPayload {
+  const record = assertRecord(value, "TranscriptBlocksReplacedPayload");
+  assertKnownFields(record, "TranscriptBlocksReplacedPayload", ["runId", "blocks"]);
+  return {
+    runId: decodeString(requireField(record, "runId", "TranscriptBlocksReplacedPayload"), "TranscriptBlocksReplacedPayload.runId"),
+    blocks: decodeArray(requireField(record, "blocks", "TranscriptBlocksReplacedPayload"), "TranscriptBlocksReplacedPayload.blocks", (item) => decodeTranscriptBlock(item)),
+  };
+}
+
 export function decodeQueueUpdatedPayload(value: unknown): QueueUpdatedPayload {
   const record = assertRecord(value, "QueueUpdatedPayload");
   assertKnownFields(record, "QueueUpdatedPayload", ["queue"]);
@@ -9871,6 +9979,14 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatRunItemUpdatedEventFromRecord(record);
     case "chat.run_item_output.delta":
       return decodeChatRunItemOutputDeltaEventFromRecord(record);
+    case "chat.transcript_block.created":
+      return decodeChatTranscriptBlockCreatedEventFromRecord(record);
+    case "chat.transcript_block.updated":
+      return decodeChatTranscriptBlockUpdatedEventFromRecord(record);
+    case "chat.transcript_text.delta":
+      return decodeChatTranscriptTextDeltaEventFromRecord(record);
+    case "chat.transcript_blocks.replaced":
+      return decodeChatTranscriptBlocksReplacedEventFromRecord(record);
     case "chat.queue.updated":
       return decodeChatQueueUpdatedEventFromRecord(record);
     case "chat.goal.updated":
@@ -10005,6 +10121,54 @@ function decodeChatRunItemOutputDeltaEventFromRecord(record: Record<string, unkn
   return {
     ...base,
     payload: decodeRunItemOutputDeltaPayload(requireField(record, "payload", "ChatRunItemOutputDeltaEvent")),
+  };
+}
+
+export function decodeChatTranscriptBlockCreatedEvent(value: unknown): ChatTranscriptBlockCreatedEvent {
+  return decodeChatTranscriptBlockCreatedEventFromRecord(assertRecord(value, "ChatTranscriptBlockCreatedEvent"));
+}
+
+function decodeChatTranscriptBlockCreatedEventFromRecord(record: Record<string, unknown>): ChatTranscriptBlockCreatedEvent {
+  const base = decodeBackendEventBase(record, "ChatTranscriptBlockCreatedEvent", "chat.transcript_block.created");
+  return {
+    ...base,
+    payload: decodeTranscriptBlockCreatedPayload(requireField(record, "payload", "ChatTranscriptBlockCreatedEvent")),
+  };
+}
+
+export function decodeChatTranscriptBlockUpdatedEvent(value: unknown): ChatTranscriptBlockUpdatedEvent {
+  return decodeChatTranscriptBlockUpdatedEventFromRecord(assertRecord(value, "ChatTranscriptBlockUpdatedEvent"));
+}
+
+function decodeChatTranscriptBlockUpdatedEventFromRecord(record: Record<string, unknown>): ChatTranscriptBlockUpdatedEvent {
+  const base = decodeBackendEventBase(record, "ChatTranscriptBlockUpdatedEvent", "chat.transcript_block.updated");
+  return {
+    ...base,
+    payload: decodeTranscriptBlockUpdatedPayload(requireField(record, "payload", "ChatTranscriptBlockUpdatedEvent")),
+  };
+}
+
+export function decodeChatTranscriptTextDeltaEvent(value: unknown): ChatTranscriptTextDeltaEvent {
+  return decodeChatTranscriptTextDeltaEventFromRecord(assertRecord(value, "ChatTranscriptTextDeltaEvent"));
+}
+
+function decodeChatTranscriptTextDeltaEventFromRecord(record: Record<string, unknown>): ChatTranscriptTextDeltaEvent {
+  const base = decodeBackendEventBase(record, "ChatTranscriptTextDeltaEvent", "chat.transcript_text.delta");
+  return {
+    ...base,
+    payload: decodeTranscriptTextDeltaPayload(requireField(record, "payload", "ChatTranscriptTextDeltaEvent")),
+  };
+}
+
+export function decodeChatTranscriptBlocksReplacedEvent(value: unknown): ChatTranscriptBlocksReplacedEvent {
+  return decodeChatTranscriptBlocksReplacedEventFromRecord(assertRecord(value, "ChatTranscriptBlocksReplacedEvent"));
+}
+
+function decodeChatTranscriptBlocksReplacedEventFromRecord(record: Record<string, unknown>): ChatTranscriptBlocksReplacedEvent {
+  const base = decodeBackendEventBase(record, "ChatTranscriptBlocksReplacedEvent", "chat.transcript_blocks.replaced");
+  return {
+    ...base,
+    payload: decodeTranscriptBlocksReplacedPayload(requireField(record, "payload", "ChatTranscriptBlocksReplacedEvent")),
   };
 }
 

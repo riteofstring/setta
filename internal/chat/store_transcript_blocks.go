@@ -137,34 +137,63 @@ func (store *Store) LoadTranscriptBlocks(workspaceID string, runID string) ([]Tr
 }
 
 func (store *Store) readTranscriptBlocks(workspaceID string, runID string, files []transcriptBlockFile) ([]TranscriptBlock, error) {
+	if err := validateTranscriptBlockFileSequence(files); err != nil {
+		return nil, err
+	}
 	blocks := make([]TranscriptBlock, 0, len(files))
-	previousOrdinal := 0
-	seenIDs := map[string]bool{}
 	for _, file := range files {
-		var block TranscriptBlock
-		if err := readJSONFile(file.path, &block); err != nil {
+		block, err := store.readTranscriptBlockFile(workspaceID, runID, file)
+		if err != nil {
 			return nil, err
 		}
-		if err := validatePersistedTranscriptBlock(block); err != nil {
-			return nil, corruptStateError(file.path, err)
-		}
-		if err := validateTranscriptBlockFileConsistency(block, file, runID); err != nil {
-			return nil, err
-		}
-		if err := store.revalidatePersistedSourceRunItem(workspaceID, runID, block, file.path); err != nil {
-			return nil, err
-		}
-		if block.Ordinal <= previousOrdinal {
-			return nil, corruptStateErrorf(file.path, "transcript block %s ordinal %d is not greater than previous ordinal %d", block.ID, block.Ordinal, previousOrdinal)
-		}
-		if seenIDs[block.ID] {
-			return nil, corruptStateErrorf(file.path, "transcript block %s id is duplicated", block.ID)
-		}
-		seenIDs[block.ID] = true
-		previousOrdinal = block.Ordinal
 		blocks = append(blocks, block)
 	}
 	return blocks, nil
+}
+
+// validateTranscriptBlockFileSequence enforces the run-level block integrity that a
+// windowed page read would otherwise skip: strictly increasing ordinals and unique
+// block IDs across the whole run. Filenames encode ordinal and ID (and
+// readTranscriptBlockFile checks each loaded block matches its filename), so this
+// covers every block in the run without reading out-of-window content. Both the
+// full load and the paged window run it, so a corrupt run fails loudly through
+// either path rather than rendering duplicate or out-of-order blocks.
+func validateTranscriptBlockFileSequence(files []transcriptBlockFile) error {
+	previousOrdinal := 0
+	seenIDs := make(map[string]bool, len(files))
+	for _, file := range files {
+		if file.ordinal <= previousOrdinal {
+			return corruptStateErrorf(file.path, "transcript block %s ordinal %d is not greater than previous ordinal %d", file.id, file.ordinal, previousOrdinal)
+		}
+		if seenIDs[file.id] {
+			return corruptStateErrorf(file.path, "transcript block %s id is duplicated", file.id)
+		}
+		seenIDs[file.id] = true
+		previousOrdinal = file.ordinal
+	}
+	return nil
+}
+
+// readTranscriptBlockFile reads and validates one persisted transcript block.
+// Block-aware paging reads only the windowed block files through this helper, so
+// a giant run never parses out-of-window blocks. The cross-file integrity checks
+// (monotonic ordinals, duplicate IDs) live in readTranscriptBlocks, which loads a
+// run's blocks in full.
+func (store *Store) readTranscriptBlockFile(workspaceID string, runID string, file transcriptBlockFile) (TranscriptBlock, error) {
+	var block TranscriptBlock
+	if err := readJSONFile(file.path, &block); err != nil {
+		return TranscriptBlock{}, err
+	}
+	if err := validatePersistedTranscriptBlock(block); err != nil {
+		return TranscriptBlock{}, corruptStateError(file.path, err)
+	}
+	if err := validateTranscriptBlockFileConsistency(block, file, runID); err != nil {
+		return TranscriptBlock{}, err
+	}
+	if err := store.revalidatePersistedSourceRunItem(workspaceID, runID, block, file.path); err != nil {
+		return TranscriptBlock{}, err
+	}
+	return block, nil
 }
 
 // revalidatePersistedSourceRunItem re-checks a loaded block's source run item

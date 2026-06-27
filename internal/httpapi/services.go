@@ -52,7 +52,7 @@ type ChatService interface {
 	ListConversations(workspaceID string) (chat.ConversationListResult, error)
 	MarkConversationRead(workspaceID string, conversationID string) (chat.ConversationListItem, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
-	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
+	LoadMessagePage(workspaceID string, conversationID string, beforeBlockOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)

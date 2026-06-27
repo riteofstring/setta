@@ -22,12 +22,17 @@ const (
 	EventTypeRunItemCreated      = "chat.run_item.created"
 	EventTypeRunItemUpdated      = "chat.run_item.updated"
 	EventTypeRunItemOutputDelta  = "chat.run_item_output.delta"
-	EventTypeQueueUpdated        = "chat.queue.updated"
-	EventTypeGoalUpdated         = "chat.goal.updated"
-	EventTypeConversationUpdated = "chat.conversation.updated"
-	EventTypeResyncRequired      = "chat.resync_required"
-	EventTypeDiagnosticCreated   = "diagnostic.created"
-	EventTypeCodexAccountChanged = "codex.account.changed"
+
+	EventTypeTranscriptBlockCreated   = "chat.transcript_block.created"
+	EventTypeTranscriptBlockUpdated   = "chat.transcript_block.updated"
+	EventTypeTranscriptTextDelta      = "chat.transcript_text.delta"
+	EventTypeTranscriptBlocksReplaced = "chat.transcript_blocks.replaced"
+	EventTypeQueueUpdated             = "chat.queue.updated"
+	EventTypeGoalUpdated              = "chat.goal.updated"
+	EventTypeConversationUpdated      = "chat.conversation.updated"
+	EventTypeResyncRequired           = "chat.resync_required"
+	EventTypeDiagnosticCreated        = "diagnostic.created"
+	EventTypeCodexAccountChanged      = "codex.account.changed"
 )
 
 const (
@@ -117,6 +122,48 @@ type RunItemOutputDeltaPayload struct {
 	Output RunItemOutput `json:"output"`
 }
 
+// TranscriptBlockCreatedPayload announces a newly created transcript block. The
+// block carries its conversation, run, kind, and ordinal so the renderer can
+// upsert it by ID and place it by ordinal without inspecting raw run items.
+type TranscriptBlockCreatedPayload struct {
+	Block TranscriptBlock `json:"block"`
+}
+
+// TranscriptBlockUpdatedPayload announces an in-place mutation of an existing
+// transcript block (status, activity output/details, reasoning mode, or a
+// user_message status). The block ID and ordinal never change, so the renderer
+// updates the block by ID without reordering.
+type TranscriptBlockUpdatedPayload struct {
+	Block TranscriptBlock `json:"block"`
+}
+
+// TranscriptTextDeltaPayload streams an assistant text append keyed by the
+// transcript block ID. It carries only the appended text so assistant streaming
+// never republishes the full block projection.
+type TranscriptTextDeltaPayload struct {
+	BlockID   string `json:"blockId"`
+	Delta     string `json:"delta"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// TranscriptBlocksReplacedPayload carries the authoritative ordered block list
+// for a single run. It is used only for the rare cases an incremental created or
+// updated event cannot express: a block removed by provider-item de-duplication
+// or steering replay, and the live-only working indicator appearing or being
+// superseded by the run's first public block or terminal status.
+type TranscriptBlocksReplacedPayload struct {
+	RunID  string            `json:"runId"`
+	Blocks []TranscriptBlock `json:"blocks"`
+}
+
+func (payload TranscriptBlocksReplacedPayload) MarshalJSON() ([]byte, error) {
+	type payloadAlias TranscriptBlocksReplacedPayload
+	if payload.Blocks == nil {
+		payload.Blocks = []TranscriptBlock{}
+	}
+	return json.Marshal(payloadAlias(payload))
+}
+
 type QueueUpdatedPayload struct {
 	Queue QueueState `json:"queue"`
 }
@@ -181,6 +228,10 @@ func EventContracts() EventContractSchema {
 			{Name: "ChatRunItemCreatedEvent", Type: EventTypeRunItemCreated, Payload: reflect.TypeFor[RunItemCreatedPayload]()},
 			{Name: "ChatRunItemUpdatedEvent", Type: EventTypeRunItemUpdated, Payload: reflect.TypeFor[RunItemUpdatedPayload]()},
 			{Name: "ChatRunItemOutputDeltaEvent", Type: EventTypeRunItemOutputDelta, Payload: reflect.TypeFor[RunItemOutputDeltaPayload]()},
+			{Name: "ChatTranscriptBlockCreatedEvent", Type: EventTypeTranscriptBlockCreated, Payload: reflect.TypeFor[TranscriptBlockCreatedPayload]()},
+			{Name: "ChatTranscriptBlockUpdatedEvent", Type: EventTypeTranscriptBlockUpdated, Payload: reflect.TypeFor[TranscriptBlockUpdatedPayload]()},
+			{Name: "ChatTranscriptTextDeltaEvent", Type: EventTypeTranscriptTextDelta, Payload: reflect.TypeFor[TranscriptTextDeltaPayload]()},
+			{Name: "ChatTranscriptBlocksReplacedEvent", Type: EventTypeTranscriptBlocksReplaced, Payload: reflect.TypeFor[TranscriptBlocksReplacedPayload]()},
 			{Name: "ChatQueueUpdatedEvent", Type: EventTypeQueueUpdated, Payload: reflect.TypeFor[QueueUpdatedPayload]()},
 			{Name: "ChatGoalUpdatedEvent", Type: EventTypeGoalUpdated, Payload: reflect.TypeFor[GoalUpdatedPayload]()},
 			{Name: "ChatConversationUpdatedEvent", Type: EventTypeConversationUpdated, Payload: reflect.TypeFor[ConversationUpdatedPayload]()},
@@ -329,6 +380,50 @@ func NewRunItemOutputDeltaEvent(workspaceID string, conversationID string, runID
 		Payload:        RunItemOutputDeltaPayload{Output: output},
 		RunID:          runID,
 		Type:           EventTypeRunItemOutputDelta,
+		WorkspaceID:    workspaceID,
+	}
+}
+
+func NewTranscriptBlockCreatedEvent(workspaceID string, block TranscriptBlock) EventDraft {
+	return EventDraft{
+		ConversationID: block.ConversationID,
+		Payload:        TranscriptBlockCreatedPayload{Block: block},
+		RunID:          block.RunID,
+		Type:           EventTypeTranscriptBlockCreated,
+		WorkspaceID:    workspaceID,
+	}
+}
+
+func NewTranscriptBlockUpdatedEvent(workspaceID string, block TranscriptBlock) EventDraft {
+	return EventDraft{
+		ConversationID: block.ConversationID,
+		Payload:        TranscriptBlockUpdatedPayload{Block: block},
+		RunID:          block.RunID,
+		Type:           EventTypeTranscriptBlockUpdated,
+		WorkspaceID:    workspaceID,
+	}
+}
+
+func NewTranscriptTextDeltaEvent(workspaceID string, conversationID string, runID string, blockID string, delta string, updatedAt string) EventDraft {
+	return EventDraft{
+		ConversationID: conversationID,
+		Payload: TranscriptTextDeltaPayload{
+			BlockID:   blockID,
+			Delta:     delta,
+			UpdatedAt: updatedAt,
+		},
+		RunID:       runID,
+		Type:        EventTypeTranscriptTextDelta,
+		WorkspaceID: workspaceID,
+	}
+}
+
+func NewTranscriptBlocksReplacedEvent(workspaceID string, conversationID string, runID string, blocks []TranscriptBlock) EventDraft {
+	return EventDraft{
+		ConversationID: conversationID,
+		Payload:        TranscriptBlocksReplacedPayload{RunID: runID, Blocks: blocks},
+		RunID:          runID,
+		Type:           EventTypeTranscriptBlocksReplaced,
 		WorkspaceID:    workspaceID,
 	}
 }

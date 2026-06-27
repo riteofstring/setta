@@ -204,6 +204,26 @@ func messageFileName(ordinal int, messageID string) string {
 	return fmt.Sprintf("%012d_%s.json", ordinal, messageID)
 }
 
+// messageOrdinalsByID maps each message ID to its conversation ordinal from the
+// message file listing without reading file contents. It anchors each run in
+// conversation order (a run's trigger message ordinal) for block-aware transcript
+// paging, cheaply enough to call on every page load.
+func (store *Store) messageOrdinalsByID(workspaceID string, conversationID string) (map[string]int, error) {
+	files, err := store.messageFiles(workspaceID, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	ordinals := make(map[string]int, len(files))
+	for _, file := range files {
+		id, ok := idFromMessageFileName(filepath.Base(file.path))
+		if !ok {
+			return nil, corruptStateErrorf(file.path, "malformed message filename")
+		}
+		ordinals[id] = file.ordinal
+	}
+	return ordinals, nil
+}
+
 func (store *Store) runItemOutputFiles(workspaceID string, runID string, runItemID string) ([]runItemOutputFile, error) {
 	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
 		return nil, err

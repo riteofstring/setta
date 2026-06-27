@@ -424,7 +424,7 @@ export interface SettaAPI {
     messagePage: (
       workspaceId: string,
       conversationId: string,
-      beforeOrdinal: number,
+      beforeBlockOrdinal: number,
       limit: number,
     ) => Promise<MessagePage>;
     queueMessage: (

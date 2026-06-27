@@ -165,7 +165,7 @@ func (service *Service) MarkConversationRead(workspaceID string, conversationID 
 	return item, err
 }
 
-func (service *Service) LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
+func (service *Service) LoadMessagePage(workspaceID string, conversationID string, beforeBlockOrdinal int, limit int) (MessagePage, error) {
 	if limit == 0 {
 		limit = defaultPageLimit
 	}
@@ -174,7 +174,7 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 		return MessagePage{}, err
 	}
 	service.mu.Lock()
-	page, err := service.loadMessagePageLocked(workspaceID, conversationID, beforeOrdinal, limit)
+	page, err := service.loadMessagePageLocked(workspaceID, conversationID, beforeBlockOrdinal, limit)
 	service.mu.Unlock()
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, "")
@@ -187,12 +187,23 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 	return page, nil
 }
 
-func (service *Service) loadMessagePageLocked(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
-	page, err := service.store.LoadMessagePage(workspaceID, conversationID, beforeOrdinal, limit)
+// loadMessagePageLocked composes the message page. The transcript is the ordered
+// block stream paged by block ordinal; beforeOrdinal is the conversation-sequential
+// block cursor. Messages remain the latest window for non-transcript surfaces
+// (queue, commands) and are not load-bearing for transcript rendering.
+func (service *Service) loadMessagePageLocked(workspaceID string, conversationID string, beforeBlockOrdinal int, limit int) (MessagePage, error) {
+	page, err := service.store.LoadMessagePage(workspaceID, conversationID, 0, limit)
 	if err != nil {
 		return MessagePage{}, err
 	}
-	page = service.overlayActiveAssistantMessageLocked(workspaceID, conversationID, beforeOrdinal, page)
+	page = service.overlayActiveAssistantMessageLocked(workspaceID, conversationID, 0, page)
+	blocks, hasMoreOlder, olderBeforeBlockOrdinal, err := service.loadTranscriptBlockWindowLocked(workspaceID, conversationID, beforeBlockOrdinal, limit)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	page.Blocks = blocks
+	page.HasMoreOlder = hasMoreOlder
+	page.OlderBeforeBlockOrdinal = olderBeforeBlockOrdinal
 	if err := service.attachPageState(workspaceID, conversationID, &page); err != nil {
 		return MessagePage{}, err
 	}

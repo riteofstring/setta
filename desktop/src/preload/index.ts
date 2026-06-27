@@ -202,9 +202,9 @@ const api: SettaAPI = {
     messagePage: (
       workspaceId: string,
       conversationId: string,
-      beforeOrdinal: number,
+      beforeBlockOrdinal: number,
       limit: number,
-    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeOrdinal, limit),
+    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeBlockOrdinal, limit),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeChatEvent(payload));

@@ -580,9 +580,9 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatMessagePage",
-    async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
+    async (_event, workspaceId, conversationId, beforeBlockOrdinal, limit) => {
       return requireBackendClient().getMessagePage({
-        beforeOrdinal,
+        beforeBlockOrdinal,
         conversationId,
         limit,
         workspaceId,

@@ -708,6 +708,10 @@ type ChatCommandExecuteResult struct {
 	Result       ChatCommandResult `json:"result"`
 }
 
+// MessagePage is block-paged: the transcript is the ordered Blocks stream, paged
+// by transcript block ordinal (HasMoreOlder/OlderBeforeBlockOrdinal). Messages are
+// the latest window for non-transcript surfaces (queue, commands) and are not
+// load-bearing for transcript rendering, so they carry no separate cursor.
 type MessagePage struct {
 	Conversation            Conversation      `json:"conversation"`
 	Messages                []ChatMessage     `json:"messages"`
@@ -715,7 +719,6 @@ type MessagePage struct {
 	Blocks                  []TranscriptBlock `json:"blocks"`
 	Goal                    *ChatGoalState    `json:"goal"`
 	HasMoreOlder            bool              `json:"hasMoreOlder"`
-	OlderBeforeOrdinal      int               `json:"olderBeforeOrdinal"`
 	OlderBeforeBlockOrdinal int               `json:"olderBeforeBlockOrdinal"`
 }
 
