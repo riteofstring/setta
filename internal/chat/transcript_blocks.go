@@ -135,8 +135,8 @@ type ActivityItemBlockProjection struct {
 }
 
 // RunStatusBlockProjection has two lifetimes by mode. A live-only working
-// indicator is shown before the run has any public block and is never persisted
-// as history. Terminal modes (completed, cancelled, failed) are permanent
+// indicator is shown at the tail while a run is active and is never persisted as
+// history. Terminal modes (completed, cancelled, failed) are permanent
 // transcript-visible rows.
 type RunStatusBlockProjection struct {
 	Mode  RunStatusBlockMode `json:"mode"`

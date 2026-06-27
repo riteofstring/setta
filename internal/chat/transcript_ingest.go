@@ -19,7 +19,7 @@ const reasoningHeadlineLimit = 120
 //
 // Blocks are persisted through the store as first-class records. The live-only
 // working run_status indicator is never tracked here or persisted; it is derived
-// on read while the run has no public output block yet.
+// on live reads while the run is active.
 //
 // One transcriptIngest belongs to one active turn and is held by pointer on
 // activeTurn, so the value-copied activeTurn shares a single chronology.
@@ -88,8 +88,7 @@ func (ingest *transcriptIngest) openAssistantBlock() *TranscriptBlock {
 }
 
 // hasPublicOutputBlock reports whether the run has produced any assistant-side
-// output block yet. User-side message blocks (trigger, steering) do not count:
-// the live working indicator stays at the tail until the run shows real output.
+// output block yet. User-side message blocks (trigger, steering) do not count.
 func (ingest *transcriptIngest) hasPublicOutputBlock() bool {
 	for _, id := range ingest.order {
 		switch ingest.blocks[id].Kind {
@@ -227,17 +226,12 @@ func (service *Service) appendAssistantTextBlockLocked(workspaceID string, inges
 	}
 	block := ingest.openAssistantBlock()
 	if block == nil || (providerItemID != "" && ingest.openAssistantProvider != providerItemID) {
-		// Sample public-output presence before tracking the new block so the
-		// first public block can drop the live-only working indicator. The
-		// created/replaced event carries the still-empty block; the text delta
-		// below fills it, so the renderer never double-counts the first chunk.
-		hadPublicOutput := ingest.hasPublicOutputBlock()
 		created, err := service.newAssistantTextBlockLocked(ingest, providerItemID)
 		if err != nil {
 			return err
 		}
 		block = created
-		if err := service.publishPublicBlockCreatedLocked(workspaceID, ingest, *block, hadPublicOutput); err != nil {
+		if err := service.publishPublicBlockCreatedLocked(workspaceID, ingest); err != nil {
 			return err
 		}
 	}
@@ -407,10 +401,6 @@ func (service *Service) ingestActivityBlockLocked(workspaceID string, ingest *tr
 }
 
 func (service *Service) createActivityBlockLocked(workspaceID string, ingest *transcriptIngest, item RunItem, projection ActivityItemBlockProjection) error {
-	// Sample before ingest.track below: once tracked this block is itself public
-	// output, so the first-public-block check that drops the working indicator must
-	// observe the state as it was beforehand.
-	hadPublicOutput := ingest.hasPublicOutputBlock()
 	blockID, err := service.newID("transcript_block")
 	if err != nil {
 		return fmt.Errorf("create transcript block id: %w", err)
@@ -435,7 +425,7 @@ func (service *Service) createActivityBlockLocked(workspaceID string, ingest *tr
 	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
 		return err
 	}
-	return service.publishPublicBlockCreatedLocked(workspaceID, ingest, *block, hadPublicOutput)
+	return service.publishPublicBlockCreatedLocked(workspaceID, ingest)
 }
 
 // markActivityBlockOutputLocked records that a run item's first output chunk is
@@ -493,9 +483,6 @@ func (service *Service) ingestReasoningBlockLocked(workspaceID string, ingest *t
 }
 
 func (service *Service) createReasoningBlockLocked(workspaceID string, ingest *transcriptIngest, item RunItem, headline string, body string) error {
-	// Sample before ingest.track below (see createActivityBlockLocked): the
-	// first-public-block check that drops the working indicator needs the prior state.
-	hadPublicOutput := ingest.hasPublicOutputBlock()
 	blockID, err := service.newID("transcript_block")
 	if err != nil {
 		return fmt.Errorf("create transcript block id: %w", err)
@@ -531,7 +518,7 @@ func (service *Service) createReasoningBlockLocked(workspaceID string, ingest *t
 	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
 		return err
 	}
-	return service.publishPublicBlockCreatedLocked(workspaceID, ingest, *block, hadPublicOutput)
+	return service.publishPublicBlockCreatedLocked(workspaceID, ingest)
 }
 
 // finalizeTranscriptBlocksLocked closes out a run's blocks at completion,
@@ -815,9 +802,9 @@ func transcriptBlockStatusForItem(status RunItemStatus) TranscriptBlockStatus {
 // transcriptBlocksForRunLocked returns the ordered transcript blocks for a run.
 // While the run is the live active turn the in-memory chronology is authoritative
 // (it includes not-yet-flushed assistant text) and a live-only working
-// run_status block is appended when no public output block exists yet. Otherwise
-// the persisted blocks are returned; the working indicator is never persisted, so
-// it is absent after reload.
+// run_status block is appended at the tail while the run is active. Otherwise the
+// persisted blocks are returned; the working indicator is never persisted, so it
+// is absent after reload.
 func (service *Service) transcriptBlocksForRunLocked(workspaceID string, conversationID string, runID string) ([]TranscriptBlock, error) {
 	active, ok := service.active[activeKey(workspaceID, conversationID)]
 	if ok && active.runID == runID && active.transcript != nil {
@@ -828,9 +815,6 @@ func (service *Service) transcriptBlocksForRunLocked(workspaceID string, convers
 
 func (service *Service) liveTranscriptBlocksLocked(ingest *transcriptIngest) []TranscriptBlock {
 	blocks := ingest.snapshot()
-	if ingest.hasPublicOutputBlock() {
-		return blocks
-	}
 	return append(blocks, service.workingRunStatusBlock(ingest))
 }
 

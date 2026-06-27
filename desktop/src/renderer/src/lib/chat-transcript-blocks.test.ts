@@ -39,14 +39,10 @@ describe("deriveTranscriptActivityGroups", () => {
     expect(groups).toHaveLength(2);
     expect(groups[0]).toMatchObject({
       id: "activity_group_cmd_a",
-      category: "commands",
-      count: 2,
       memberBlockIds: ["cmd_a", "cmd_b"],
-      status: "completed",
     });
     expect(groups[1]).toMatchObject({
       id: "activity_group_cmd_c",
-      count: 1,
       memberBlockIds: ["cmd_c"],
     });
   });
@@ -58,44 +54,11 @@ describe("deriveTranscriptActivityGroups", () => {
     expect(groups).toEqual([
       {
         id: "activity_group_only",
-        category: "commands",
-        count: 1,
         memberBlockIds: ["only"],
-        status: "running",
       },
     ]);
   });
-
-  test("mixed activity categories collapse to the generic actions label", () => {
-    const groups = deriveTranscriptActivityGroups([
-      activity("cmd", "command_execution", "completed"),
-      activity("tool", "mcp_tool_call", "completed"),
-    ]);
-    expect(groups[0]?.category).toBe("actions");
-  });
-
-  test("tool-only adjacency is labelled tools", () => {
-    const groups = deriveTranscriptActivityGroups([
-      activity("search", "web_search", "completed"),
-      activity("tool", "mcp_tool_call", "completed"),
-    ]);
-    expect(groups[0]?.category).toBe("tools");
-  });
-
-  test("aggregate status prefers a live row, then the worst terminal outcome", () => {
-    expect(statusOf(["completed", "running", "completed"])).toBe("running");
-    expect(statusOf(["completed", "failed", "cancelled"])).toBe("failed");
-    expect(statusOf(["completed", "cancelled"])).toBe("cancelled");
-    expect(statusOf(["completed", "completed"])).toBe("completed");
-  });
 });
-
-function statusOf(statuses: RunItemStatus[]): RunItemStatus {
-  const groups = deriveTranscriptActivityGroups(
-    statuses.map((status, index) => activity(`a${index}`, "command_execution", status)),
-  );
-  return groups[0]?.status ?? "completed";
-}
 
 function block(base: { id: string; runId: string; ordinal: number }): TranscriptBlock {
   return {

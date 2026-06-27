@@ -53,6 +53,18 @@ func eventsOfType(events []Event, eventType string) []Event {
 	return matches
 }
 
+func firstReplacedBlockOfKind(t *testing.T, events []Event, kind TranscriptBlockKind) TranscriptBlock {
+	t.Helper()
+	for _, event := range eventsOfType(events, EventTypeTranscriptBlocksReplaced) {
+		for _, block := range decodeBlocksReplaced(t, event).Blocks {
+			if block.Kind == kind {
+				return block
+			}
+		}
+	}
+	return TranscriptBlock{}
+}
+
 // collectTranscriptEventsUntilTerminal drives the run's events from a subscription
 // until the run reaches a terminal status, returning every event observed. The
 // terminal run_status replaced snapshot is published before the terminal
@@ -96,10 +108,10 @@ func textCommandTextHarness() *scriptedTranscriptHarness {
 }
 
 // TestTranscriptBlockEventsStreamChronology verifies the block streaming events:
-// a working indicator is created at genesis and superseded (never persisted), each
-// assistant segment streams its own block-keyed text delta, the run-end snapshot
-// reflects the full chronology with no working indicator, and the transcript is
-// not republished per text delta.
+// a working indicator is created at genesis and kept at the tail of live
+// snapshots, each assistant segment streams its own block-keyed text delta, the
+// run-end snapshot reflects the full chronology with no working indicator, and
+// the transcript is not republished per text delta.
 func TestTranscriptBlockEventsStreamChronology(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), textCommandTextHarness())
 	subscription, err := service.SubscribeEvents(EventCursor{})
@@ -114,20 +126,20 @@ func TestTranscriptBlockEventsStreamChronology(t *testing.T) {
 	}
 	events := collectTranscriptEventsUntilTerminal(t, subscription, result.Run.ID)
 
-	assertWorkingIndicatorCreatedThenSuperseded(t, events)
+	assertWorkingIndicatorCreatedAndLiveTail(t, events)
 	assertSegmentedTextDeltas(t, events, "Inspecting the scripts.", "They are wrappers.")
 	assertTerminalSnapshotChronology(t, events)
 
 	replaced := eventsOfType(events, EventTypeTranscriptBlocksReplaced)
-	if len(replaced) > 2 {
-		t.Fatalf("transcript replaced snapshots = %d, want at most 2 (working drop + terminal); the transcript must not republish per delta", len(replaced))
+	if len(replaced) != 4 {
+		t.Fatalf("transcript replaced snapshots = %d, want 4 (3 public block creations + terminal); the transcript must not republish per delta", len(replaced))
 	}
 	if persisted := loadPersistedBlocks(t, service, workspaceID, result.Run.ID); len(persisted) != 4 {
 		t.Fatalf("persisted blocks = %d, want 4 (no working indicator persisted)", len(persisted))
 	}
 }
 
-func assertWorkingIndicatorCreatedThenSuperseded(t *testing.T, events []Event) {
+func assertWorkingIndicatorCreatedAndLiveTail(t *testing.T, events []Event) {
 	t.Helper()
 	workingID := ""
 	for _, event := range eventsOfType(events, EventTypeTranscriptBlockCreated) {
@@ -141,13 +153,24 @@ func assertWorkingIndicatorCreatedThenSuperseded(t *testing.T, events []Event) {
 	}
 	replaced := eventsOfType(events, EventTypeTranscriptBlocksReplaced)
 	if len(replaced) == 0 {
-		t.Fatalf("working indicator was never superseded by a replaced snapshot")
+		t.Fatalf("no live transcript snapshot replaced the genesis working indicator")
 	}
-	for _, event := range replaced {
-		for _, block := range decodeBlocksReplaced(t, event).Blocks {
-			if block.ID == workingID {
-				t.Fatalf("working indicator %s still present in replaced snapshot, want superseded", workingID)
+	for index, event := range replaced {
+		blocks := decodeBlocksReplaced(t, event).Blocks
+		if index == len(replaced)-1 {
+			for _, block := range blocks {
+				if block.ID == workingID {
+					t.Fatalf("terminal snapshot still carries live working indicator %s", workingID)
+				}
 			}
+			continue
+		}
+		if len(blocks) == 0 {
+			t.Fatalf("live replaced snapshot has no blocks")
+		}
+		tail := blocks[len(blocks)-1]
+		if tail.ID != workingID || tail.Kind != TranscriptBlockKindRunStatus || tail.RunStatus.Mode != RunStatusBlockModeWorking {
+			t.Fatalf("live snapshot tail = {%s %s %+v}, want working run_status %s", tail.ID, tail.Kind, tail.RunStatus, workingID)
 		}
 	}
 }
@@ -228,12 +251,7 @@ func TestTranscriptReasoningModeUpdateEvent(t *testing.T) {
 	}
 	events := collectTranscriptEventsUntilTerminal(t, subscription, result.Run.ID)
 
-	createdReasoning := TranscriptBlock{}
-	for _, event := range eventsOfType(events, EventTypeTranscriptBlockCreated) {
-		if block := decodeBlockCreated(t, event); block.Kind == TranscriptBlockKindReasoning {
-			createdReasoning = block
-		}
-	}
+	createdReasoning := firstReplacedBlockOfKind(t, events, TranscriptBlockKindReasoning)
 	if createdReasoning.ID == "" {
 		t.Fatalf("no reasoning block created: %v", eventTypes(events))
 	}
@@ -475,12 +493,7 @@ func TestTranscriptOutputChunksDoNotRepublishProjection(t *testing.T) {
 	}
 	events := collectTranscriptEventsUntilTerminal(t, subscription, result.Run.ID)
 
-	commandBlockID := ""
-	for _, event := range eventsOfType(events, EventTypeTranscriptBlockCreated) {
-		if block := decodeBlockCreated(t, event); block.Kind == TranscriptBlockKindActivityItem {
-			commandBlockID = block.ID
-		}
-	}
+	commandBlockID := firstReplacedBlockOfKind(t, events, TranscriptBlockKindActivityItem).ID
 	if commandBlockID == "" {
 		t.Fatalf("no activity block created: %v", eventTypes(events))
 	}

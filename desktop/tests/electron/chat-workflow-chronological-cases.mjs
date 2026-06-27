@@ -35,8 +35,8 @@ const CHRONOLOGICAL_STEP_TEXTS = [
 // separately.
 const CHRONOLOGICAL_DOM_TEXT_ORDER = [
   "Chronological step one: inspecting the shell scripts.",
-  "Chronological command A",
-  "Chronological command B",
+  "printf chronological-a",
+  "printf chronological-b",
   "Chronological step two: the scripts are pinned-toolchain wrappers.",
   "Chronological reasoning headline",
   "Chronological step three: the parser lives in internal/chat.",
@@ -75,8 +75,8 @@ export async function runChronologicalTranscriptWorkflow({
     );
     await waitForTexts(client, [
       ...CHRONOLOGICAL_STEP_TEXTS,
-      "Chronological command A",
-      "Chronological command B",
+      "printf chronological-a",
+      "printf chronological-b",
       "Chronological reasoning headline",
     ]);
   } finally {

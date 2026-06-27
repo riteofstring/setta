@@ -260,12 +260,14 @@ func TestTranscriptBlocksReloadReconstructsOrder(t *testing.T) {
 	}
 }
 
-// TestTranscriptWorkingIndicatorLiveOnly verifies that an active run with no public
-// output block projects a live-only working run_status block at the tail, and that
-// the indicator disappears once real output arrives and is never persisted.
+// TestTranscriptWorkingIndicatorLiveOnly verifies that an active run projects a
+// live-only working run_status block at the tail, even after public output has
+// appeared, and that the indicator is never persisted.
 func TestTranscriptWorkingIndicatorLiveOnly(t *testing.T) {
 	reached := make(chan struct{})
 	release := make(chan struct{})
+	outputReached := make(chan struct{})
+	finish := make(chan struct{})
 	harness := &scriptedTranscriptHarness{
 		start: func(ctx context.Context, _ TurnRequest, sink TurnSink) (TurnCompletion, error) {
 			if err := linkTranscriptThread(sink); err != nil {
@@ -281,6 +283,8 @@ func TestTranscriptWorkingIndicatorLiveOnly(t *testing.T) {
 			if err := sink.AssistantTextDelta("answer", "Found the entry point."); err != nil {
 				return TurnCompletion{}, err
 			}
+			close(outputReached)
+			<-finish
 			return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
 		},
 	}
@@ -306,6 +310,19 @@ func TestTranscriptWorkingIndicatorLiveOnly(t *testing.T) {
 	}
 
 	close(release)
+	<-outputReached
+	live = liveTranscriptBlocks(t, service, workspaceID, conversationID, result.Run.ID)
+	assertBlockKindSequence(t, live, []TranscriptBlockKind{
+		TranscriptBlockKindUserMessage,
+		TranscriptBlockKindAssistantText,
+		TranscriptBlockKindRunStatus,
+	})
+	working = live[len(live)-1]
+	if working.RunStatus.Mode != RunStatusBlockModeWorking {
+		t.Fatalf("tail block after output mode = %s, want working", working.RunStatus.Mode)
+	}
+
+	close(finish)
 	waitForRunStatus(t, service, workspaceID, conversationID, result.Run.ID, RunStatusCompleted)
 	final := loadPersistedBlocks(t, service, workspaceID, result.Run.ID)
 	assertBlockKindSequence(t, final, []TranscriptBlockKind{

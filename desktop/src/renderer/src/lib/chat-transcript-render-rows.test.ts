@@ -68,7 +68,7 @@ describe("transcriptRenderRows", () => {
     if (group?.kind !== "activity-group") {
       throw new Error("expected a derived activity group slot row");
     }
-    expect(group.group.count).toBe(2);
+    expect(group.group.memberBlockIds).toEqual(["cmd_a", "cmd_b"]);
     expect(group.members.map((member) => member.id)).toEqual(["cmd_a", "cmd_b"]);
   });
 

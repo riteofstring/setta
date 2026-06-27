@@ -471,13 +471,13 @@ describe("chat renderer states", () => {
     );
 
     expect(html).not.toContain('data-testid="run-activity-group"');
-    expect(html).toContain('data-testid="activity-group-label"');
-    expect(html).toContain("2 commands");
+    expect(html).toContain('data-testid="activity-group-slot"');
+    expect(html).not.toContain("2 commands");
     expect(rowCount(html, "run-activity-row")).toBe(2);
     expectTextOrder(html, [
       "Step one before the commands.",
-      "command A",
-      "command B",
+      "find . -name &#x27;*.sh&#x27;",
+      "sed -n 1p setup.sh",
       "Step two after the commands.",
     ]);
   });

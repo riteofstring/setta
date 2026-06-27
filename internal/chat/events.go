@@ -147,10 +147,10 @@ type TranscriptTextDeltaPayload struct {
 }
 
 // TranscriptBlocksReplacedPayload carries the authoritative ordered block list
-// for a single run. It is used only for the rare cases an incremental created or
-// updated event cannot express: a block removed by provider-item de-duplication
-// or steering replay, and the live-only working indicator appearing or being
-// superseded by the run's first public block or terminal status.
+// for a single run. It is used when an incremental created or updated event
+// cannot express the change: a block removed by provider-item de-duplication or
+// steering replay, and the live-only working indicator appearing, moving to the
+// active tail, or being superseded by terminal status.
 type TranscriptBlocksReplacedPayload struct {
 	RunID  string            `json:"runId"`
 	Blocks []TranscriptBlock `json:"blocks"`

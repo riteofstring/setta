@@ -101,8 +101,8 @@ assistant text blocks would make the transcript harder to scan.
   details or output are expandable.
 - Every activity sequence renders with a very slim fixed-height group slot above
   the first activity row. The slot is derived from adjacent typed activity
-  blocks, carries the lightweight type/count label and hover/focus bulk
-  expand/collapse controls, and does not require a persisted wrapper block.
+  blocks, carries only hover/focus bulk expand/collapse controls, and does not
+  require a persisted wrapper block.
 - Reasoning is one stable transcript block kind. Active thinking and public
   summary display are modes of that block, not separate block kinds.
 - Run item output pagination still keys off the source run item ID.
@@ -429,7 +429,7 @@ Examples:
 ```text
 assistant: I will inspect the scripts.
 
-3 commands                         [expand all on hover/focus]
+[expand all appears on hover/focus above the group]
 $ find . -maxdepth 1 -name '*.sh'
 $ sed -n '1p' ./setup.sh
 $ ./check_quality.sh --git-changes
@@ -438,46 +438,42 @@ assistant: The scripts are wrappers around the pinned toolchain.
 ```
 
 Single activity rows still get the same slim slot so later grouping controls and
-counts never need to be inserted above an already-visible row:
+bulk controls never need to be inserted above an already-visible row:
 
 ```text
 assistant: I will run the focused test.
 
-command                            [expand on hover/focus]
+[expand appears on hover/focus above the row]
 $ ./scripts/go.sh test ./internal/chat -run TestChronological
 
 assistant: The focused test passes.
 ```
 
-### Group Labels
+### Group Control Slot
 
 Consecutive activity items are grouped by the renderer from the ordered typed
-block list. The group label is not a persisted backend block. The renderer always
-reserves the label/control slot immediately before the first activity row in the
+block list. The group slot is not a persisted backend block. The renderer always
+reserves a tiny control slot immediately before the first activity row in the
 sequence, including live streaming, so a later second or third command only
-mutates the slot text and controls in place.
+mutates the slot controls in place.
 
 The derived group has:
 
 - stable group ID derived from the first member block ID
-- count
-- primary type, such as `commands`, `tools`, or `actions`
 - list of member activity block IDs
-- aggregate status
 
-The label should be visually light: small muted text, no box, no parent border,
-no permanent chevron, and a very small fixed height. It should read as a timeline
-label, not as a container. For a single row it can say `command`, `tool`, or
-`action`; for multiple adjacent rows it mutates to `2 commands`, `3 actions`,
-and so on. Do not insert a new label above historical rows during normal live
-streaming.
+The slot should be visually minimal: no visible `command`, `tool`, `action`, or
+count text, no box, no parent border, no permanent chevron, and a very small
+fixed height. It exists only to provide a stable hover/focus target for bulk row
+controls. Do not insert a new visible label above historical rows during normal
+live streaming.
 
 ### Bulk Expand/Collapse
 
 For adjacent activity groups:
 
 - Show a small expand/collapse-all icon on hover and focus near the top-most row
-  or group label.
+  or group control slot.
 - Use the same visual language as existing message hover actions.
 - Include keyboard access. Hover-only controls are not sufficient.
 - Only expandable member rows participate.
@@ -566,7 +562,7 @@ assistant_text: They are all pinned-toolchain wrappers.
 Rendered activity slot:
 
 ```text
-2 commands
+[hover/focus bulk expand control only; no visible count/type label]
 ```
 
 ### Text, Reasoning, Text, No Tools
@@ -643,8 +639,9 @@ Final transcript:
 assistant_text: I found the entry point.
 ```
 
-The generic working indicator is live-only and disappears before any later block
-can shift beneath it.
+The generic working indicator is live-only. As public blocks appear, live
+snapshots keep it at the active run tail; terminal snapshots drop it so history
+does not retain a fake status row.
 
 ### Steering Interleaved Mid-Run
 
@@ -763,7 +760,7 @@ The full transcript block projection is not republished for every output chunk.
 - Replace turn/group rendering with block rendering.
 - Build slim activity rows from `activity_item` blocks.
 - Build mode-specific `reasoning` rendering for thinking and public summaries.
-- Build lightweight derived activity group labels.
+- Build tiny derived activity group control slots.
 - Add hover/focus bulk expand/collapse controls.
 - Preserve message action buttons, copy/retry affordances, timestamps, search
   highlighting, deep links, queued messages, steering messages, and active-run
@@ -803,7 +800,7 @@ Focused Go tests:
 - a reasoning block can update from `mode=thinking` to `mode=summary` without
   changing block ID or kind
 - private/generic reasoning produces no transcript block
-- no-public-block active runs project a live-only working `run_status`
+- active runs project a live-only working `run_status` tail
 - the live-only working `run_status` is not persisted and is absent after reload
 - steering messages receive run-local transcript ordinals and interleave with
   assistant/activity blocks
@@ -820,13 +817,13 @@ Renderer/store tests:
 - text deltas append to the right block
 - stale events do not reorder blocks
 - raw run item updates do not drive transcript rendering
-- derived activity group labels and member IDs render correctly
+- derived activity group control slots and member IDs render correctly
 - bulk expand/collapse affects only expandable rows in the group
 - reasoning after assistant text renders as its own block
 - reasoning mode updates keep the same block identity
 - summary-mode collapsed row shows the reasoning headline; expanding reveals the
   full public summary
-- live-only startup working status disappears when the first public block arrives
+- live-only working status stays at the active tail and disappears at terminal
 - summary mode superseding a non-tail thinking block renders collapsed and keeps
   the block's height stable
 - private reasoning is absent
@@ -904,12 +901,13 @@ node desktop/tests/electron/chat-workflows.test.mjs --live-only --keep-artifacts
   expand. The headline persists across the mode change.
 - Derive the very slim activity group slot in the renderer from adjacent
   `activity_item` blocks. The slot exists above the first activity row from the
-  start, so counts and bulk controls mutate in place instead of being inserted
+  start, so bulk controls mutate in place instead of being inserted
   above already-visible rows.
-- Keep generic/private-only thinking silent after public blocks exist. Before
-  the first public block, show a minimal live-only working indicator. The
-  `working` indicator is live-only `run_status` state and is never persisted as
-  history; terminal `run_status` modes are permanent.
+- Keep generic/private-only thinking silent, and show a minimal live-only
+  working indicator at the active run tail so the user can tell the run is still
+  alive after earlier assistant text or activity. The `working` indicator is
+  live-only `run_status` state and is never persisted as history; terminal
+  `run_status` modes are permanent.
 - Interleave steering messages by assigning them run-local transcript ordinals
   at ingestion time.
 - Remove `Run.AssistantMessageID` from transcript rendering responsibility.

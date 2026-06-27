@@ -140,6 +140,98 @@ function sameOutputs(previous: RunItemOutput[], next: RunItemOutput[]) {
   return previous.every((output, index) => output === next[index]);
 }
 
+interface ActivityDisplayLabel {
+  text: string;
+  monospace: boolean;
+}
+
+function activityDisplayLabel(activity: ActivityItemBlockProjection): ActivityDisplayLabel {
+  return (
+    activityLabelResolvers[activity.type](activity) ?? {
+      monospace: false,
+      text: activity.title,
+    }
+  );
+}
+
+type ActivityLabelResolver = (activity: ActivityItemBlockProjection) => ActivityDisplayLabel | null;
+
+const activityLabelResolvers = {
+  agent_message: noActivityDisplayLabel,
+  approval_review: noActivityDisplayLabel,
+  collab_agent_tool_call: toolActivityDisplayLabel,
+  command_execution: commandActivityDisplayLabel,
+  context_compaction: noActivityDisplayLabel,
+  diff: fileActivityDisplayLabel,
+  dynamic_tool_call: toolActivityDisplayLabel,
+  file_change: fileActivityDisplayLabel,
+  hook: noActivityDisplayLabel,
+  image_generation: noActivityDisplayLabel,
+  image_view: noActivityDisplayLabel,
+  mcp_tool_call: toolActivityDisplayLabel,
+  notice: noticeActivityDisplayLabel,
+  plan: noActivityDisplayLabel,
+  reasoning: noActivityDisplayLabel,
+  structured_input: noActivityDisplayLabel,
+  terminal_interaction: commandActivityDisplayLabel,
+  web_search: webSearchActivityDisplayLabel,
+} satisfies Record<RunItemType, ActivityLabelResolver>;
+
+function noActivityDisplayLabel(): null {
+  return null;
+}
+
+function commandActivityDisplayLabel(activity: ActivityItemBlockProjection) {
+  return activity.details.command === ""
+    ? null
+    : { monospace: true, text: activity.details.command };
+}
+
+function fileActivityDisplayLabel(activity: ActivityItemBlockProjection) {
+  if (activity.details.filePaths.length > 0) {
+    return { monospace: true, text: filePathsDisplayLabel(activity.details.filePaths) };
+  }
+  if (activity.details.diffSummary !== "") {
+    return { monospace: false, text: activity.details.diffSummary };
+  }
+  return null;
+}
+
+function toolActivityDisplayLabel(activity: ActivityItemBlockProjection) {
+  const { serverName, toolName } = activity.details;
+  if (toolName !== "" && serverName !== "") {
+    return { monospace: true, text: `${serverName}.${toolName}` };
+  }
+  return toolName === "" ? null : { monospace: true, text: toolName };
+}
+
+function webSearchActivityDisplayLabel(activity: ActivityItemBlockProjection) {
+  const { progress, summary } = activity.details;
+  if (summary !== "") {
+    return { monospace: false, text: summary };
+  }
+  return progress === "" ? null : { monospace: false, text: progress };
+}
+
+function noticeActivityDisplayLabel(activity: ActivityItemBlockProjection) {
+  const { noticeKind, noticeMessage } = activity.details;
+  if (noticeMessage !== "") {
+    return { monospace: false, text: noticeMessage };
+  }
+  return noticeKind === "" ? null : { monospace: false, text: noticeKind };
+}
+
+function filePathsDisplayLabel(paths: string[]) {
+  const [first, ...rest] = paths;
+  if (!first) {
+    return "";
+  }
+  if (rest.length === 0) {
+    return first;
+  }
+  return `${first} + ${rest.length} more`;
+}
+
 function ActivityRowView({
   activity,
   blockKind,
@@ -161,6 +253,7 @@ function ActivityRowView({
   const rowRef = useRef<HTMLDetailsElement>(null);
   useFocusedActivityRow(focused, rowRef, onExpandedChange);
   const focusAttributes = activityFocusAttributes(focused, activity.sourceRunItemId);
+  const label = activityDisplayLabel(activity);
   if (!hasExpandableActivityRow(activity)) {
     return (
       <CompactActivityRow
@@ -168,6 +261,7 @@ function ActivityRowView({
         blockKind={blockKind}
         focusAttributes={focusAttributes}
         focused={focused}
+        label={label}
         runId={runId}
       />
     );
@@ -200,10 +294,15 @@ function ActivityRowView({
     >
       <summary className="flex h-6 min-w-0 cursor-pointer list-none items-center gap-1.5 text-left text-xs text-muted-foreground marker:hidden">
         <ActivityIcon type={activity.type} />
-        <span className="min-w-0 flex-1 truncate font-medium text-muted-foreground">
-          {activity.title}
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate font-medium text-muted-foreground",
+            label.monospace && "font-mono text-[12px] font-normal text-foreground",
+          )}
+        >
+          {label.text}
         </span>
-        <ActivityRowStatus status={activity.status} title={activity.title} />
+        <ActivityRowStatus status={activity.status} title={label.text} />
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-open/item:rotate-180" />
       </summary>
       {renderDetails ? (
@@ -225,12 +324,14 @@ function CompactActivityRow({
   blockKind,
   focusAttributes,
   focused,
+  label,
   runId,
 }: {
   activity: ActivityItemBlockProjection;
   blockKind: "activity_item" | undefined;
   focusAttributes: Record<string, string>;
   focused: boolean;
+  label: ActivityDisplayLabel;
   runId: string;
 }) {
   return (
@@ -247,10 +348,15 @@ function CompactActivityRow({
       {...focusAttributes}
     >
       <ActivityIcon type={activity.type} />
-      <span className="min-w-0 flex-1 truncate font-medium text-muted-foreground">
-        {activity.title}
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate font-medium text-muted-foreground",
+          label.monospace && "font-mono text-[12px] font-normal text-foreground",
+        )}
+      >
+        {label.text}
       </span>
-      <ActivityRowStatus status={activity.status} title={activity.title} />
+      <ActivityRowStatus status={activity.status} title={label.text} />
     </div>
   );
 }
@@ -284,40 +390,34 @@ function useFocusedActivityRow(
   }, [focused, onExpandedChange, rowRef]);
 }
 
-// TranscriptActivityGroupSlot is the slim render-only label above a maximal run
-// of adjacent activity rows. It carries the type/count label and the hover/focus
-// bulk expand/collapse control. It is never a persisted backend block; the slot
-// is reserved before the first row so a later adjacent row only mutates it.
+// TranscriptActivityGroupSlot is the slim render-only control slot above a
+// maximal run of adjacent activity rows. It carries only the hover/focus bulk
+// expand/collapse control. It is never a persisted backend block; the slot is
+// reserved before the first row so a later adjacent row only mutates it.
 export function TranscriptActivityGroupSlot({
-  count,
-  category,
   controlsVisible = false,
   expandableBlockIds,
   expandedBlockIds,
   onBulkToggle,
-  status,
 }: {
-  count: number;
-  category: "commands" | "tools" | "actions";
   controlsVisible?: boolean;
   expandableBlockIds: string[];
   expandedBlockIds: Set<string>;
   onBulkToggle: (blockIds: string[], open: boolean) => void;
-  status: RunItemStatus;
 }) {
   const anyCollapsed = expandableBlockIds.some((blockId) => !expandedBlockIds.has(blockId));
   const hasExpandable = expandableBlockIds.length > 0;
   return (
-    <div className="group/activity-slot flex h-[22px] min-w-0 items-center gap-2 pl-0.5 text-[11px] font-semibold tracking-[0.02em] text-muted-foreground/80">
-      <span className="min-w-0 truncate" data-testid="activity-group-label">
-        {activityGroupLabel(count, category)}
-      </span>
-      <ActivityGroupStatus status={status} />
+    <div
+      aria-hidden={!hasExpandable}
+      className="group/activity-slot relative h-2 min-w-0"
+      data-testid="activity-group-slot"
+    >
       {hasExpandable ? (
         <button
           aria-label={anyCollapsed ? "Expand all activity rows" : "Collapse all activity rows"}
           className={cn(
-            "ml-auto grid h-5 w-5 shrink-0 place-items-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover/activity-slot:opacity-100 group-focus-within/activity-slot:opacity-100",
+            "absolute top-1/2 right-0 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover/activity-slot:opacity-100 group-focus-within/activity-slot:opacity-100",
             controlsVisible && "opacity-100",
           )}
           data-testid="activity-group-bulk-toggle"
@@ -335,19 +435,6 @@ export function TranscriptActivityGroupSlot({
     </div>
   );
 }
-
-function activityGroupLabel(count: number, category: "commands" | "tools" | "actions") {
-  if (count === 1) {
-    return singularActivityCategory[category];
-  }
-  return `${count} ${category}`;
-}
-
-const singularActivityCategory = {
-  commands: "command",
-  tools: "tool",
-  actions: "action",
-} satisfies Record<"commands" | "tools" | "actions", string>;
 
 // RunItemActivityList renders projected activity rows for non-transcript surfaces
 // (the workflow node-details feed). Those panes are not virtualized and preload
@@ -660,13 +747,6 @@ function hasActivityOutput(outputText: string, outputPage: RunItemOutputPageStat
 function ActivityIcon({ type }: { type: RunItemType }) {
   const Icon = activityIconByType[type];
   return <Icon className={activityIconClassByType[type]} />;
-}
-
-function ActivityGroupStatus({ status }: { status: RunItemStatus }) {
-  if (status !== "running" && status !== "pending") {
-    return null;
-  }
-  return <BrailleSpinner className="text-accent-violet" label="Activity running" />;
 }
 
 function ActivityRowStatus({ status, title }: { status: RunItemStatus; title: string }) {

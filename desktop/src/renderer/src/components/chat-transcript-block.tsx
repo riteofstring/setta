@@ -170,13 +170,10 @@ function ActivityGroupSlotRow({
   return (
     <div {...chatReadableColumnAttributes} className={chatReadableColumnPaddedClass}>
       <TranscriptActivityGroupSlot
-        category={row.group.category}
         controlsVisible={focusVisible}
-        count={row.group.count}
         expandableBlockIds={expandableBlockIds}
         expandedBlockIds={context.expandedActivityBlockIds}
         onBulkToggle={context.setActivityRowsExpanded}
-        status={row.group.status}
       />
     </div>
   );
