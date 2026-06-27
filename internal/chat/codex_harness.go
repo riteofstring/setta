@@ -162,7 +162,7 @@ func (harness *CodexHarness) applyCodexSessionEventForWait(ctx context.Context, 
 			return TurnCompletion{}, false, err
 		}
 	}
-	result, err := harness.handleCodexSessionEvent(ctx, event, runID, threadID, state.activeTurnID, sink)
+	result, err := harness.handleCodexSessionEvent(ctx, session, event, runID, threadID, state.activeTurnID, sink)
 	if err != nil {
 		return TurnCompletion{}, false, err
 	}
@@ -249,7 +249,7 @@ func notificationTurnIDForRebind(message jsonRPCMessage, expectedThreadID string
 	return turnID, true, err
 }
 
-func (harness *CodexHarness) handleCodexSessionEvent(ctx context.Context, event codexapp.Event, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {
+func (harness *CodexHarness) handleCodexSessionEvent(ctx context.Context, session *codexapp.Session, event codexapp.Event, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {
 	switch event.Kind {
 	case codexapp.EventRequest:
 		if err := harness.handleCodexServerRequestForTurn(ctx, event.Message, runID, threadID, activeTurnID, sink); err != nil {
@@ -257,7 +257,7 @@ func (harness *CodexHarness) handleCodexSessionEvent(ctx context.Context, event 
 		}
 		return codexTurnWaitResult{activeTurnID: activeTurnID}, nil
 	case codexapp.EventNotification:
-		return harness.handleCodexNotificationForTurn(event.Message, runID, threadID, activeTurnID, sink)
+		return harness.handleCodexNotificationForTurn(ctx, session, event.Message, runID, threadID, activeTurnID, sink)
 	case codexapp.EventLifecycle:
 		return codexTurnWaitResult{}, fmt.Errorf("codex app-server exited before turn completed: %w", event.Err)
 	default:
@@ -265,8 +265,8 @@ func (harness *CodexHarness) handleCodexSessionEvent(ctx context.Context, event 
 	}
 }
 
-func (harness *CodexHarness) handleCodexNotificationForTurn(message jsonRPCMessage, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {
-	result, err := harness.handleCodexNotification(message, runID, threadID, activeTurnID, sink)
+func (harness *CodexHarness) handleCodexNotificationForTurn(ctx context.Context, session *codexapp.Session, message jsonRPCMessage, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {
+	result, err := harness.handleCodexNotification(ctx, session, message, runID, threadID, activeTurnID, sink)
 	if err != nil {
 		return codexTurnWaitResult{}, err
 	}
@@ -397,7 +397,7 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 				Message:  fmt.Sprintf("resume codex thread %s: %v", request.ThreadRef.ThreadID, err),
 			}
 		}
-		return thread, nil
+		return harness.codexCommandThreadWithDisplayLabels(ctx, session, thread)
 	}
 
 	effectiveSettings, err := harness.effectiveCodexCommandSettings(ctx, session, request.Workspace, request.Conversation)
@@ -417,15 +417,21 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 		return codexCommandThread{}, err
 	}
 	thread.Settings = overlayCodexEffectiveSettings(thread.Settings, effectiveSettings)
-	return thread, nil
+	return harness.codexCommandThreadWithDisplayLabels(ctx, session, thread)
 }
 
 func overlayCodexEffectiveSettings(base codexCommandThreadSettings, effective codexCommandThreadSettings) codexCommandThreadSettings {
 	if effective.Model != "" {
 		base.Model = effective.Model
 	}
+	if effective.ModelDisplayName != "" {
+		base.ModelDisplayName = effective.ModelDisplayName
+	}
 	if effective.ReasoningEffort != "" {
 		base.ReasoningEffort = effective.ReasoningEffort
+	}
+	if effective.ReasoningEffortDisplayName != "" {
+		base.ReasoningEffortDisplayName = effective.ReasoningEffortDisplayName
 	}
 	return base
 }

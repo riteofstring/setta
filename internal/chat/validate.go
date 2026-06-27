@@ -146,8 +146,14 @@ func validateChatCodexEffectiveSettings(conversationID string, settings ChatCode
 	if settings.Model == "" {
 		return fmt.Errorf("conversation %s codexEffectiveSettings model is required", conversationID)
 	}
+	if settings.ModelDisplayName == "" {
+		return fmt.Errorf("conversation %s codexEffectiveSettings modelDisplayName is required", conversationID)
+	}
 	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
 		return fmt.Errorf("conversation %s codexEffectiveSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)
+	}
+	if settings.ReasoningEffortDisplayName == "" {
+		return fmt.Errorf("conversation %s codexEffectiveSettings reasoningEffortDisplayName is required", conversationID)
 	}
 	return nil
 }

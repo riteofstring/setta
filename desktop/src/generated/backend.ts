@@ -2561,7 +2561,9 @@ export interface ChatCodexSettings {
 
 export interface ChatCodexEffectiveSettings {
   model: string;
+  modelDisplayName: string;
   reasoningEffort: ReasoningEffort | null;
+  reasoningEffortDisplayName: string;
 }
 
 export interface HarnessThreadRef {
@@ -6124,10 +6126,12 @@ export function decodeChatCodexSettings(value: unknown): ChatCodexSettings {
 
 export function decodeChatCodexEffectiveSettings(value: unknown): ChatCodexEffectiveSettings {
   const record = assertRecord(value, "ChatCodexEffectiveSettings");
-  assertKnownFields(record, "ChatCodexEffectiveSettings", ["model", "reasoningEffort"]);
+  assertKnownFields(record, "ChatCodexEffectiveSettings", ["model", "modelDisplayName", "reasoningEffort", "reasoningEffortDisplayName"]);
   return {
     model: decodeString(requireField(record, "model", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.model"),
+    modelDisplayName: decodeString(requireField(record, "modelDisplayName", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.modelDisplayName"),
     reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexEffectiveSettings.reasoningEffort")),
+    reasoningEffortDisplayName: decodeString(requireField(record, "reasoningEffortDisplayName", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffortDisplayName"),
   };
 }
 

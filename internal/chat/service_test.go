@@ -67,8 +67,10 @@ func TestServicePersistsCodexEffectiveSettingsFromLinkedThread(t *testing.T) {
 			SessionID: "session_effective",
 			TurnID:    "turn_effective",
 			CodexEffectiveSettings: &ChatCodexEffectiveSettings{
-				Model:           "gpt-test",
-				ReasoningEffort: &effort,
+				Model:                      "gpt-test",
+				ModelDisplayName:           "GPT Test",
+				ReasoningEffort:            &effort,
+				ReasoningEffortDisplayName: "Extra high",
 			},
 		},
 		{Type: FakeEventAssistantDelta, Text: "done"},
@@ -89,14 +91,19 @@ func TestServicePersistsCodexEffectiveSettingsFromLinkedThread(t *testing.T) {
 		t.Fatalf("load page: %v", err)
 	}
 	settings := page.Conversation.CodexEffectiveSettings
-	if settings == nil || settings.Model != "gpt-test" || settings.ReasoningEffort == nil || *settings.ReasoningEffort != ReasoningEffortXHigh {
-		t.Fatalf("effective settings = %+v, want gpt-test xhigh", settings)
+	if settings == nil ||
+		settings.Model != "gpt-test" ||
+		settings.ModelDisplayName != "GPT Test" ||
+		settings.ReasoningEffort == nil ||
+		*settings.ReasoningEffort != ReasoningEffortXHigh ||
+		settings.ReasoningEffortDisplayName != "Extra high" {
+		t.Fatalf("effective settings = %+v, want GPT Test Extra high", settings)
 	}
 }
 
 func TestServiceCreateConversationResolvesCodexEffectiveSettings(t *testing.T) {
 	harness := NewFakeHarness(nil)
-	harness.model = "gpt-test"
+	harness.model = "scripted-careful"
 	harness.reasoning = ReasoningEffortXHigh
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 
@@ -105,8 +112,13 @@ func TestServiceCreateConversationResolvesCodexEffectiveSettings(t *testing.T) {
 		t.Fatalf("create conversation: %v", err)
 	}
 	settings := conversation.CodexEffectiveSettings
-	if settings == nil || settings.Model != "gpt-test" || settings.ReasoningEffort == nil || *settings.ReasoningEffort != ReasoningEffortXHigh {
-		t.Fatalf("created effective settings = %+v, want gpt-test xhigh", settings)
+	if settings == nil ||
+		settings.Model != "scripted-careful" ||
+		settings.ModelDisplayName != "Scripted Careful" ||
+		settings.ReasoningEffort == nil ||
+		*settings.ReasoningEffort != ReasoningEffortXHigh ||
+		settings.ReasoningEffortDisplayName != "Extra high" {
+		t.Fatalf("created effective settings = %+v, want Scripted Careful Extra high", settings)
 	}
 
 	stored, err := service.store.LoadConversation("workspace_api", conversation.ID)
@@ -126,15 +138,20 @@ func TestServiceLoadMessagePageResolvesCodexEffectiveSettings(t *testing.T) {
 		t.Fatalf("create conversation: %v", err)
 	}
 
-	harness.model = "gpt-page"
+	harness.model = "scripted-fast"
 	harness.reasoning = ReasoningEffortHigh
 	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
 	if err != nil {
 		t.Fatalf("load message page: %v", err)
 	}
 	settings := page.Conversation.CodexEffectiveSettings
-	if settings == nil || settings.Model != "gpt-page" || settings.ReasoningEffort == nil || *settings.ReasoningEffort != ReasoningEffortHigh {
-		t.Fatalf("page effective settings = %+v, want gpt-page high", settings)
+	if settings == nil ||
+		settings.Model != "scripted-fast" ||
+		settings.ModelDisplayName != "Scripted Fast" ||
+		settings.ReasoningEffort == nil ||
+		*settings.ReasoningEffort != ReasoningEffortHigh ||
+		settings.ReasoningEffortDisplayName != "High" {
+		t.Fatalf("page effective settings = %+v, want Scripted Fast High", settings)
 	}
 
 	stored, err := service.store.LoadConversation("workspace_api", conversation.ID)

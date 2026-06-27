@@ -404,7 +404,9 @@ describe("composer controls", () => {
           {
             codexEffectiveSettings: {
               model: "scripted-careful",
+              modelDisplayName: "Scripted Careful",
               reasoningEffort: "high",
+              reasoningEffortDisplayName: "High",
             },
             codexSettings: {
               model: "scripted-careful",
@@ -416,7 +418,7 @@ describe("composer controls", () => {
     );
 
     expect(html).toContain("Open model and reasoning picker");
-    expect(html).toContain("scripted-careful");
+    expect(html).toContain("Scripted Careful");
     expect(html).toContain("High");
   });
 
@@ -707,7 +709,9 @@ function composerChat() {
     selectedConversation: {
       codexEffectiveSettings: {
         model: "scripted-fast",
+        modelDisplayName: "Scripted Fast",
         reasoningEffort: "medium",
+        reasoningEffortDisplayName: "Medium",
       },
       codexSettings: {
         model: "scripted-fast",

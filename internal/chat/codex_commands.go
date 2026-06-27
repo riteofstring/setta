@@ -225,8 +225,10 @@ type codexCommandThread struct {
 }
 
 type codexCommandThreadSettings struct {
-	Model           string
-	ReasoningEffort ReasoningEffort
+	Model                      string
+	ModelDisplayName           string
+	ReasoningEffort            ReasoningEffort
+	ReasoningEffortDisplayName string
 }
 
 func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
@@ -288,8 +290,13 @@ func (harness *CodexHarness) executeCodexLocalModelSettingsCommand(ctx context.C
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported local model command action: %s", request.Command.Model.Action), nil)
 	}
+	pendingSettings := settings
+	settings, err = harness.codexCommandSettingsWithDisplayLabels(ctx, session, settings)
+	if err != nil {
+		return HarnessCommandResult{}, err
+	}
 	result := codexSettingsCommandResult(settings)
-	result.CodexSettings = chatCodexSettingsFromCommandSettings(settings)
+	result.CodexSettings = chatCodexSettingsFromCommandSettings(pendingSettings)
 	return result, nil
 }
 
@@ -310,6 +317,10 @@ func (harness *CodexHarness) ResolveCodexEffectiveSettings(ctx context.Context, 
 	defer session.Close()
 
 	settings, err := harness.effectiveCodexCommandSettings(ctx, session, workspaceSummary, conversation)
+	if err != nil {
+		return nil, err
+	}
+	settings, err = harness.codexCommandSettingsWithDisplayLabels(ctx, session, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -372,8 +383,10 @@ func chatCodexEffectiveSettingsFromCommandSettings(settings codexCommandThreadSe
 		return nil
 	}
 	return &ChatCodexEffectiveSettings{
-		Model:           settings.Model,
-		ReasoningEffort: reasoningEffortResult(settings.ReasoningEffort),
+		Model:                      settings.Model,
+		ModelDisplayName:           settings.ModelDisplayName,
+		ReasoningEffort:            reasoningEffortResult(settings.ReasoningEffort),
+		ReasoningEffortDisplayName: settings.ReasoningEffortDisplayName,
 	}
 }
 
@@ -518,13 +531,17 @@ func executeCodexModelPickerCommand(ctx context.Context, session *codexapp.Sessi
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
+	settings, err := codexCommandSettingsWithDisplayLabelsFromModels(currentSettings, models)
+	if err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "model/list response: "+err.Error(), err)
+	}
 	return HarnessCommandResult{
 		Action:                  ChatCommandResultModelPicker,
-		CodexEffectiveSettings:  chatCodexEffectiveSettingsFromCommandSettings(currentSettings),
+		CodexEffectiveSettings:  chatCodexEffectiveSettingsFromCommandSettings(settings),
 		Models:                  models,
-		ReasoningEfforts:        reasoningEffortsForSelectedModel(models, currentSettings.Model),
-		SelectedModel:           currentSettings.Model,
-		SelectedReasoningEffort: reasoningEffortResult(currentSettings.ReasoningEffort),
+		ReasoningEfforts:        reasoningEffortsForSelectedModel(models, settings.Model),
+		SelectedModel:           settings.Model,
+		SelectedReasoningEffort: reasoningEffortResult(settings.ReasoningEffort),
 	}, nil
 }
 
@@ -561,19 +578,79 @@ func listCodexModelOptions(ctx context.Context, session *codexapp.Session) ([]Ch
 	}
 }
 
+func (harness *CodexHarness) codexCommandThreadWithDisplayLabels(ctx context.Context, session *codexapp.Session, thread codexCommandThread) (codexCommandThread, error) {
+	settings, err := harness.codexCommandSettingsWithDisplayLabels(ctx, session, thread.Settings)
+	if err != nil {
+		return codexCommandThread{}, err
+	}
+	thread.Settings = settings
+	return thread, nil
+}
+
+func (harness *CodexHarness) codexCommandSettingsWithDisplayLabels(ctx context.Context, session *codexapp.Session, settings codexCommandThreadSettings) (codexCommandThreadSettings, error) {
+	models, err := listCodexModelOptions(ctx, session)
+	if err != nil {
+		return codexCommandThreadSettings{}, err
+	}
+	settings, err = codexCommandSettingsWithDisplayLabelsFromModels(settings, models)
+	if err != nil {
+		return codexCommandThreadSettings{}, commandError(ChatCommandErrorCodexProviderDrift, "model/list response: "+err.Error(), err)
+	}
+	return settings, nil
+}
+
+func codexCommandSettingsWithDisplayLabelsFromModels(settings codexCommandThreadSettings, models []ChatModelOption) (codexCommandThreadSettings, error) {
+	if settings.Model == "" {
+		return settings, nil
+	}
+	model, ok := modelOptionByModel(models, settings.Model)
+	if !ok {
+		return codexCommandThreadSettings{}, fmt.Errorf("effective model %s was not present in model/list", settings.Model)
+	}
+	settings.ModelDisplayName = model.DisplayName
+	if settings.ReasoningEffort == "" {
+		settings.ReasoningEffort = model.DefaultReasoningEffort
+	}
+	effort, ok := reasoningEffortOptionByEffort(model.SupportedReasoningEfforts, settings.ReasoningEffort)
+	if !ok {
+		return codexCommandThreadSettings{}, fmt.Errorf("effective reasoning effort %s was not present for model %s in model/list", settings.ReasoningEffort, settings.Model)
+	}
+	settings.ReasoningEffortDisplayName = effort.DisplayName
+	return settings, nil
+}
+
+func modelOptionByModel(models []ChatModelOption, selectedModel string) (ChatModelOption, bool) {
+	for _, model := range models {
+		if model.Model == selectedModel {
+			return model, true
+		}
+	}
+	return ChatModelOption{}, false
+}
+
+func reasoningEffortOptionByEffort(options []ChatReasoningEffortOption, selectedEffort ReasoningEffort) (ChatReasoningEffortOption, bool) {
+	for _, option := range options {
+		if option.Effort == selectedEffort {
+			return option, true
+		}
+	}
+	return ChatReasoningEffortOption{}, false
+}
+
 func (harness *CodexHarness) executeCodexModelSetCommand(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, modelID string) (HarnessCommandResult, error) {
 	if threadID == "" {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is required to set the model", nil)
 	}
-	if currentSettings.Model == modelID {
-		return codexSettingsCommandResult(codexCommandThreadSettings{
-			Model:           modelID,
-			ReasoningEffort: currentSettings.ReasoningEffort,
-		}), nil
-	}
 	settings := codexCommandThreadSettings{
 		Model:           modelID,
 		ReasoningEffort: currentSettings.ReasoningEffort,
+	}
+	settings, err := harness.codexCommandSettingsWithDisplayLabels(ctx, session, settings)
+	if err != nil {
+		return HarnessCommandResult{}, err
+	}
+	if currentSettings.Model == modelID {
+		return codexSettingsCommandResult(settings), nil
 	}
 	if err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
 		Model:    &modelID,
@@ -588,16 +665,17 @@ func (harness *CodexHarness) executeCodexEffortSetCommand(ctx context.Context, s
 	if threadID == "" {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is required to set reasoning effort", nil)
 	}
-	if currentSettings.ReasoningEffort == effort {
-		return codexSettingsCommandResult(codexCommandThreadSettings{
-			Model:           currentSettings.Model,
-			ReasoningEffort: effort,
-		}), nil
-	}
 	codexEffort := codexapp.ReasoningEffort(effort)
 	settings := codexCommandThreadSettings{
 		Model:           currentSettings.Model,
 		ReasoningEffort: effort,
+	}
+	settings, err := harness.codexCommandSettingsWithDisplayLabels(ctx, session, settings)
+	if err != nil {
+		return HarnessCommandResult{}, err
+	}
+	if currentSettings.ReasoningEffort == effort {
+		return codexSettingsCommandResult(settings), nil
 	}
 	if err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
 		Effort:   &codexEffort,

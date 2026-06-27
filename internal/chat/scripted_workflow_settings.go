@@ -20,5 +20,5 @@ func (harness *ScriptedWorkflowHarness) ResolveCodexEffectiveSettings(_ context.
 			reasoning = *conversation.CodexSettings.ReasoningEffort
 		}
 	}
-	return scriptedCodexEffectiveSettings(model, reasoning), nil
+	return scriptedCodexEffectiveSettings(model, reasoning)
 }

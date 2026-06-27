@@ -1283,7 +1283,7 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 			"layers":  []any{},
 			"origins": map[string]any{},
 		})
-		return mode == "command-model-set-local" || mode == "command-effort-set-local"
+		return false
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)

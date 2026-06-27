@@ -53,7 +53,12 @@ describe("chat store workspace conversation selection", () => {
     const listedConversation = conversation("conversation_api", "workspace_api");
     const pageConversation: Conversation = {
       ...listedConversation,
-      codexEffectiveSettings: { model: "gpt-test", reasoningEffort: "xhigh" },
+      codexEffectiveSettings: {
+        model: "gpt-test",
+        modelDisplayName: "GPT Test",
+        reasoningEffort: "xhigh",
+        reasoningEffortDisplayName: "Extra high",
+      },
     };
     const listConversations = vi
       .fn()
@@ -69,7 +74,9 @@ describe("chat store workspace conversation selection", () => {
 
     expect(useChatStore.getState().selectedConversation?.codexEffectiveSettings).toEqual({
       model: "gpt-test",
+      modelDisplayName: "GPT Test",
       reasoningEffort: "xhigh",
+      reasoningEffortDisplayName: "Extra high",
     });
     expect(messagePage).toHaveBeenCalledWith("workspace_api", listedConversation.id, 0, 40);
   });

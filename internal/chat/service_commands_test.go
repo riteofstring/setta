@@ -225,19 +225,19 @@ func TestServiceStoresTypedCodexModelWithoutParsingSlashCommand(t *testing.T) {
 		t.Fatalf("create conversation: %v", err)
 	}
 
-	result, err := service.SetChatCodexModel("workspace_api", conversation.ID, "gpt-test")
+	result, err := service.SetChatCodexModel("workspace_api", conversation.ID, "scripted-careful")
 	if err != nil {
 		t.Fatalf("set codex model: %v", err)
 	}
 
-	if result.Message == nil || result.Message.Parts[0].Text != "Model set: gpt-test" {
+	if result.Message == nil || result.Message.Parts[0].Text != "Model set: scripted-careful" {
 		t.Fatalf("command message = %+v, want model set result", result.Message)
 	}
-	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.Model != "gpt-test" {
-		t.Fatalf("result conversation codex settings = %+v, want gpt-test", result.Conversation.CodexSettings)
+	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.Model != "scripted-careful" {
+		t.Fatalf("result conversation codex settings = %+v, want scripted-careful", result.Conversation.CodexSettings)
 	}
 	requests := harness.CommandRequests()
-	if len(requests) != 1 || requests[0].Command.Model == nil || requests[0].Command.Model.ModelID != "gpt-test" {
+	if len(requests) != 1 || requests[0].Command.Model == nil || requests[0].Command.Model.ModelID != "scripted-careful" {
 		t.Fatalf("command requests = %+v, want typed model set request", requests)
 	}
 }

@@ -33,6 +33,12 @@ func chatCodexEffectiveSettingsEqual(left *ChatCodexEffectiveSettings, right *Ch
 	if left.Model != right.Model {
 		return false
 	}
+	if left.ModelDisplayName != right.ModelDisplayName {
+		return false
+	}
+	if left.ReasoningEffortDisplayName != right.ReasoningEffortDisplayName {
+		return false
+	}
 	return reasoningEffortPointersEqual(left.ReasoningEffort, right.ReasoningEffort)
 }
 

@@ -12,15 +12,6 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 
-const REASONING_EFFORT_DISPLAY_NAMES = {
-  none: "None",
-  minimal: "Minimal",
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  xhigh: "Extra High",
-} satisfies Record<ReasoningEffort, string>;
-
 export interface ComposerKeyActions {
   completeCommand: () => void;
   draftEmpty: boolean;
@@ -308,7 +299,7 @@ function conversationEffectiveSettings(
 
 function conversationModelLabel(effectiveSettings: ChatCodexEffectiveSettings | null) {
   if (effectiveSettings !== null) {
-    return effectiveSettings.model;
+    return effectiveSettings.modelDisplayName;
   }
   return "Model";
 }
@@ -317,11 +308,7 @@ function conversationReasoningSummary(effectiveSettings: ChatCodexEffectiveSetti
   if (effectiveSettings === null) {
     return "Reasoning";
   }
-  const reasoningEffort = effectiveSettings.reasoningEffort;
-  if (reasoningEffort) {
-    return REASONING_EFFORT_DISPLAY_NAMES[reasoningEffort];
-  }
-  return "None";
+  return effectiveSettings.reasoningEffortDisplayName;
 }
 
 export function modelPickerOptionSelected(

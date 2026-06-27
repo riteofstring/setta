@@ -322,8 +322,10 @@ type ChatCodexSettings struct {
 }
 
 type ChatCodexEffectiveSettings struct {
-	Model           string           `json:"model"`
-	ReasoningEffort *ReasoningEffort `json:"reasoningEffort"`
+	Model                      string           `json:"model"`
+	ModelDisplayName           string           `json:"modelDisplayName"`
+	ReasoningEffort            *ReasoningEffort `json:"reasoningEffort"`
+	ReasoningEffortDisplayName string           `json:"reasoningEffortDisplayName"`
 }
 
 type ConversationWorkflowMetadata struct {

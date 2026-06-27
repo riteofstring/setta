@@ -149,7 +149,12 @@ describe("chat store navigation caches", () => {
       title: "Next",
     });
     const pageConversation = testConversation({
-      codexEffectiveSettings: { model: "gpt-test", reasoningEffort: "xhigh" },
+      codexEffectiveSettings: {
+        model: "gpt-test",
+        modelDisplayName: "GPT Test",
+        reasoningEffort: "xhigh",
+        reasoningEffortDisplayName: "Extra high",
+      },
       id: staleConversation.id,
       title: staleConversation.title,
     });
@@ -169,7 +174,9 @@ describe("chat store navigation caches", () => {
 
     expect(useChatStore.getState().selectedConversation?.codexEffectiveSettings).toEqual({
       model: "gpt-test",
+      modelDisplayName: "GPT Test",
       reasoningEffort: "xhigh",
+      reasoningEffortDisplayName: "Extra high",
     });
     expect(messagePage).toHaveBeenCalledWith("workspace_api", staleConversation.id, 0, 40);
   });

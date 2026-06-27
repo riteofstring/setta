@@ -162,7 +162,28 @@ function handleConfigRead(message) {
 }
 
 function handleModelList(message) {
-  respond(message.id, { data: [], nextCursor: null });
+  respond(message.id, {
+    data: [
+      {
+        defaultReasoningEffort: "xhigh",
+        description: "Fake protocol model.",
+        displayName: "GPT Test",
+        hidden: false,
+        id: "gpt-test",
+        isDefault: true,
+        model: "gpt-test",
+        supportedReasoningEfforts: [
+          { description: "Fast responses with lighter reasoning.", reasoningEffort: "low" },
+          { description: "Greater reasoning depth for complex problems.", reasoningEffort: "high" },
+          {
+            description: "Extra high reasoning depth for complex problems.",
+            reasoningEffort: "xhigh",
+          },
+        ],
+      },
+    ],
+    nextCursor: null,
+  });
 }
 
 function handleThreadGoalGet(message) {
