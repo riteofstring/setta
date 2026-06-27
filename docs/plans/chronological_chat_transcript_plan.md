@@ -34,6 +34,17 @@ is not a CSS-only refactor.
 - Do not keep the current outer Activity accordion in the chronological
   transcript.
 
+## Compatibility Policy
+
+This plan intentionally requires a clean replacement. Implementation must not
+include any backward compatibility, legacy support, migrations, transitional
+code, dual-read/write paths, compatibility aliases, best-effort old-data parsing,
+or silent fallbacks to the old transcript/activity model.
+
+Development data can be recreated. If an old transcript shape is encountered
+after this work lands, fail loudly and specifically rather than rendering it
+through a compatibility shim.
+
 ## Current Problem
 
 Today the service appends assistant deltas into one growing text part:

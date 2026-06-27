@@ -56,6 +56,7 @@ import {
   waitForText,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
+import { runChronologicalTranscriptWorkflow } from "./chat-workflow-chronological-cases.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
@@ -233,6 +234,29 @@ async function runDeterministicWorkflowLaunch(results) {
           workspaceId,
           conversationId,
         );
+      },
+    );
+    await runWorkflowStep(
+      results,
+      recordingDir,
+      "chronological-transcript",
+      context.client,
+      async () => {
+        const conversationId = await createChat(context.client, backend, workspaceId);
+        await runChronologicalTranscriptWorkflow({
+          appendWorkflowState,
+          assertActivityRows,
+          assertRunActivityProjection,
+          assertTextAbsent,
+          backend,
+          client: context.client,
+          conversationId,
+          recordingDir,
+          submitComposer,
+          waitForRunWithPrompt,
+          waitForTexts,
+          workspaceId,
+        });
       },
     );
     await runWorkflowStep(results, recordingDir, "queued-controls", context.client, async () => {
