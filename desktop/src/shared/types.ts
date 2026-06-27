@@ -39,7 +39,6 @@ import type {
   ListCartographerRunsRequest,
   ListCartographerWindowsRequest,
   ListConversationsResponse,
-  ListWorkflowExecutionsResponse,
   ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
@@ -112,8 +111,6 @@ import type {
   WorkflowExecutionEventPage,
   WorkflowGraph,
   WorkflowValidationResult,
-  WorkspaceActivityEvent,
-  WorkspaceActivitySnapshot,
   WorkspaceSelectedConversations,
   WorkspaceUILayout,
   WorkspaceUILayoutReadResult,
@@ -312,15 +309,6 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
-  };
-  workspaceActivity: {
-    onEvent: (listener: (event: WorkspaceActivityEvent) => void) => () => void;
-    snapshot: (workspaceId: string, limit: number) => Promise<WorkspaceActivitySnapshot>;
-    executionSnapshot: (
-      workspaceId: string,
-      executionId: string,
-      limit: number,
-    ) => Promise<WorkspaceActivitySnapshot>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;
@@ -580,11 +568,6 @@ export interface SettaAPI {
       executionId?: string,
     ) => Promise<ReadWorkflowGraphProjectionResponse>;
     listDefinitions: (workspaceId: string) => Promise<ListWorkflowDefinitionsResponse>;
-    listExecutions: (
-      workspaceId: string,
-      definitionId: string,
-      limit: number,
-    ) => Promise<ListWorkflowExecutionsResponse>;
     onEvent: (listener: (event: WorkflowEvent) => void) => () => void;
     readDefinition: (workspaceId: string, definitionId: string) => Promise<WorkflowDefinition>;
     readExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;

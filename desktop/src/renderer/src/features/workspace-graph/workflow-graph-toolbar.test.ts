@@ -1,44 +1,25 @@
 import { describe, expect, test } from "vitest";
 
-import type { WorkflowExecutionSummary, WorkflowGraphProjection } from "@generated/backend";
+import type { WorkflowGraphProjection } from "@generated/backend";
 import {
-  workflowActiveRunSummary,
-  workflowDraftButtonLabel,
-  workflowDraftButtonTitle,
-  workflowPrimaryRunControl,
-  workflowToolbarDisabled,
   workflowToolbarMismatchLabel,
-  workflowToolbarShowsRunButton,
-  workflowToolbarShowsStopButton,
   workflowToolbarStateLabel,
   workflowToolbarVersionLabel,
-  workflowProjectionViewingDraft,
-  workflowRunSelectorItems,
 } from "./workflow-graph-toolbar";
 
 describe("workflow graph toolbar state labels", () => {
   test("names editable draft state explicitly", () => {
     const projection = workflowProjection({ viewMode: "draft" });
 
-    expect(workflowToolbarStateLabel(projection, true, "workspace_test", false)).toBe(
-      "Draft editable",
-    );
+    expect(workflowToolbarStateLabel(projection, true, "workspace_test")).toBe("Draft editable");
     expect(workflowToolbarVersionLabel(projection)).toBe("");
     expect(workflowToolbarMismatchLabel(projection)).toBe("");
-  });
-
-  test("reports loading over a still-displayed projection during a warm switch", () => {
-    const projection = workflowProjection({ viewMode: "draft" });
-
-    // ready stays true (the previous graph is still rendered) but a load is in flight, so the
-    // stable toolbar shows the subtle loading state instead of the displayed view's label.
-    expect(workflowToolbarStateLabel(projection, true, "workspace_test", true)).toBe("Loading");
   });
 
   test("names selected run and immutable version explicitly", () => {
     const projection = workflowProjection({ viewMode: "run" });
 
-    expect(workflowToolbarStateLabel(projection, true, "workspace_test", false)).toBe(
+    expect(workflowToolbarStateLabel(projection, true, "workspace_test")).toBe(
       "Run completed read-only",
     );
     expect(workflowToolbarVersionLabel(projection)).toBe(
@@ -61,229 +42,10 @@ describe("workflow graph toolbar state labels", () => {
       viewMode: "version",
     });
 
-    expect(workflowToolbarStateLabel(projection, true, "workspace_test", false)).toBe(
+    expect(workflowToolbarStateLabel(projection, true, "workspace_test")).toBe(
       "Version snapshot read-only",
     );
     expect(workflowToolbarVersionLabel(projection)).toBe("v3 workflow_v...on_003");
-  });
-});
-
-describe("workflow graph toolbar action availability", () => {
-  test("disables actions while a newly selected target loads", () => {
-    // A warm switch keeps ready true so the canvas holds the previous graph, but the in-flight
-    // load must still disable the toolbar actions for the projection about to be replaced.
-    expect(workflowToolbarDisabled(true, "workspace_test", null, true)).toBe(true);
-  });
-
-  test("keeps actions enabled once the selected target has settled", () => {
-    expect(workflowToolbarDisabled(true, "workspace_test", null, false)).toBe(false);
-  });
-
-  test("disables actions on a cold load and while an operation runs", () => {
-    expect(workflowToolbarDisabled(false, "workspace_test", null, false)).toBe(true);
-    expect(workflowToolbarDisabled(true, "workspace_test", "run", false)).toBe(true);
-    expect(workflowToolbarDisabled(true, "", null, false)).toBe(true);
-  });
-});
-
-describe("workflow graph toolbar run and stop visibility", () => {
-  test("shows run only for blank and draft views", () => {
-    expect(workflowToolbarShowsRunButton(null)).toBe(true);
-    expect(workflowToolbarShowsStopButton(null)).toBe(false);
-
-    const draft = workflowProjection({ viewMode: "draft" });
-    expect(workflowToolbarShowsRunButton(draft)).toBe(true);
-    expect(workflowToolbarShowsRunButton(draft, workflowRunSummary({ status: "running" }))).toBe(
-      false,
-    );
-    expect(workflowToolbarShowsStopButton(draft)).toBe(false);
-  });
-
-  test("shows stop only for running run projections", () => {
-    const running = workflowProjection({ executionStatus: "running", viewMode: "run" });
-    expect(workflowToolbarShowsRunButton(running)).toBe(false);
-    expect(workflowToolbarShowsStopButton(running)).toBe(true);
-
-    for (const executionStatus of ["completed", "failed", "stopped", "cancelled"] as const) {
-      const terminal = workflowProjection({ executionStatus, viewMode: "run" });
-      expect(workflowToolbarShowsRunButton(terminal)).toBe(false);
-      expect(workflowToolbarShowsStopButton(terminal)).toBe(false);
-    }
-  });
-
-  test("hides run and stop for version snapshots", () => {
-    const projection = workflowProjection({
-      executionId: "",
-      executionStatus: null,
-      viewMode: "version",
-    });
-
-    expect(workflowToolbarShowsRunButton(projection)).toBe(false);
-    expect(workflowToolbarShowsStopButton(projection)).toBe(false);
-  });
-});
-
-describe("workflow graph toolbar primary run control", () => {
-  test("starts a run from a blank or editable draft", () => {
-    for (const projection of [null, workflowProjection({ viewMode: "draft" })]) {
-      const control = workflowPrimaryRunControl({
-        activeRun: null,
-        busy: null,
-        disabled: false,
-        editable: true,
-        projection,
-      });
-
-      expect(control.kind).toBe("run");
-      expect(control.testId).toBe("workflow-run-button");
-      expect(control.label).toBe("Run");
-    }
-  });
-
-  test("reflects the starting operation while a run launches from the draft", () => {
-    const control = workflowPrimaryRunControl({
-      activeRun: null,
-      busy: "run",
-      disabled: true,
-      editable: true,
-      projection: workflowProjection({ viewMode: "draft" }),
-    });
-
-    expect(control.kind).toBe("run");
-    expect(control.label).toBe("Starting");
-    expect(control.spin).toBe(true);
-    expect(control.disabled).toBe(true);
-  });
-
-  test("offers to view the active run from the draft instead of starting another", () => {
-    const control = workflowPrimaryRunControl({
-      activeRun: workflowRunSummary({ status: "running" }),
-      busy: null,
-      disabled: false,
-      editable: true,
-      projection: workflowProjection({ viewMode: "draft" }),
-    });
-
-    expect(control.kind).toBe("view-active-run");
-    expect(control.testId).toBe("workflow-view-active-run-button");
-    expect(control.label).toBe("View Active Run");
-    expect(control.disabled).toBe(false);
-  });
-
-  test("stops a running run from the run view", () => {
-    const control = workflowPrimaryRunControl({
-      activeRun: null,
-      busy: null,
-      disabled: false,
-      editable: false,
-      projection: workflowProjection({ executionStatus: "running", viewMode: "run" }),
-    });
-
-    expect(control.kind).toBe("stop");
-    expect(control.testId).toBe("workflow-stop-button");
-    expect(control.label).toBe("Stop");
-  });
-
-  test("shows a disabled terminal indicator for historical runs", () => {
-    for (const executionStatus of ["completed", "failed", "stopped", "cancelled"] as const) {
-      const control = workflowPrimaryRunControl({
-        activeRun: null,
-        busy: null,
-        disabled: false,
-        editable: false,
-        projection: workflowProjection({ executionStatus, viewMode: "run" }),
-      });
-
-      expect(control.kind).toBe("terminal");
-      expect(control.disabled).toBe(true);
-      expect(control.testId).toBe("workflow-run-terminal-indicator");
-    }
-  });
-
-  test("names the terminal indicator after the historical run outcome", () => {
-    const control = workflowPrimaryRunControl({
-      activeRun: null,
-      busy: null,
-      disabled: false,
-      editable: false,
-      projection: workflowProjection({ executionStatus: "cancelled", viewMode: "run" }),
-    });
-
-    expect(control.label).toBe("Cancelled");
-  });
-
-  test("falls back to a disabled run-from-draft affordance for version snapshots", () => {
-    const control = workflowPrimaryRunControl({
-      activeRun: null,
-      busy: null,
-      disabled: false,
-      editable: false,
-      projection: workflowProjection({
-        executionId: "",
-        executionStatus: null,
-        viewMode: "version",
-      }),
-    });
-
-    expect(control.kind).toBe("terminal");
-    expect(control.disabled).toBe(true);
-    expect(control.label).toBe("Run from Draft");
-  });
-});
-
-describe("workflow graph toolbar run summaries", () => {
-  test("derives the active run from backend summaries", () => {
-    const completed = workflowRunSummary({ id: "workflow_execution_completed" });
-    const running = workflowRunSummary({
-      id: "workflow_execution_running",
-      status: "running",
-    });
-
-    expect(workflowActiveRunSummary([completed, running])).toBe(running);
-  });
-
-  test("pins the active run above terminal history", () => {
-    const newestTerminal = workflowRunSummary({ id: "workflow_execution_newest" });
-    const active = workflowRunSummary({ id: "workflow_execution_active", status: "running" });
-    const olderTerminal = workflowRunSummary({ id: "workflow_execution_older" });
-
-    expect(
-      workflowRunSelectorItems([newestTerminal, active, olderTerminal]).map(({ id }) => id),
-    ).toEqual([
-      "workflow_execution_active",
-      "workflow_execution_newest",
-      "workflow_execution_older",
-    ]);
-  });
-});
-
-describe("workflow graph draft-only overlay scoping", () => {
-  test("treats blank and draft views as draft-only overlay surfaces", () => {
-    expect(workflowProjectionViewingDraft(null)).toBe(true);
-    expect(workflowProjectionViewingDraft(workflowProjection({ viewMode: "draft" }))).toBe(true);
-  });
-
-  test("excludes run and version views from draft-only overlays", () => {
-    expect(workflowProjectionViewingDraft(workflowProjection({ viewMode: "run" }))).toBe(false);
-    expect(
-      workflowProjectionViewingDraft(
-        workflowProjection({ executionId: "", executionStatus: null, viewMode: "version" }),
-      ),
-    ).toBe(false);
-  });
-});
-
-describe("workflow graph toolbar draft action", () => {
-  test("names the action as switching back to editable draft", () => {
-    const running = workflowProjection({ executionStatus: "running", viewMode: "run" });
-    const completed = workflowProjection({ executionStatus: "completed", viewMode: "run" });
-
-    expect(workflowDraftButtonLabel(running)).toBe("Edit Draft");
-    expect(workflowDraftButtonTitle(running)).toBe(
-      "Switch to the editable draft. This does not stop the running workflow.",
-    );
-    expect(workflowDraftButtonLabel(completed)).toBe("Edit Draft");
-    expect(workflowDraftButtonTitle(completed)).toBe("Switch to the editable draft.");
   });
 });
 
@@ -353,22 +115,3 @@ const workflowProjectionDefaultsByViewMode = {
     | "lastEventOrdinal"
   >
 >;
-
-function workflowRunSummary(
-  overrides: Partial<WorkflowExecutionSummary> = {},
-): WorkflowExecutionSummary {
-  return {
-    completedAt: "2026-06-08T12:20:00Z",
-    definitionId: "workflow_definition",
-    definitionVersionId: "workflow_version_003",
-    definitionVersionNumber: 3,
-    id: "workflow_execution_run",
-    lastEventOrdinal: 7,
-    startedAt: "2026-06-08T12:00:00Z",
-    status: "completed",
-    terminalReason: "end_reached",
-    updatedAt: "2026-06-08T12:20:00Z",
-    workspaceId: "workspace_test",
-    ...overrides,
-  };
-}

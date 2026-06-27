@@ -1,14 +1,11 @@
 import { GraphicsContext } from "pixi.js";
 
-import {
-  resolveWorkflowNodeVisualState,
-  workflowNodeVisualFingerprint,
-} from "./pixi-renderer-visual-state";
-
-const nodeBodyGraphicFingerprints = new WeakMap();
-
 const nodeBodyStyle = {
   radius: 8,
+  fillAlpha: 0.92,
+  strokeAlpha: 0.55,
+  strokeColor: 0xffffff,
+  strokeWidth: 1.5,
 };
 
 const nodeShadowStyle = {
@@ -60,32 +57,16 @@ export function createNodeGeometryContextFactory() {
       shadow: nodeShadowContextCount,
     }),
     nodeBodyContextFor: (node) => {
-      const visualState = resolveWorkflowNodeVisualState(node);
       nodeBodyContextCount += 1;
-      const context = new GraphicsContext()
+      return new GraphicsContext()
         .roundRect(0, 0, node.width, node.height, nodeBodyStyle.radius)
-        .fill({ alpha: visualState.channels.bodyFillAlpha, color: visualState.channels.bodyFill })
+        .fill({ alpha: nodeBodyStyle.fillAlpha, color: node.color })
         .roundRect(0, 0, node.width, node.height, nodeBodyStyle.radius)
         .stroke({
-          alpha: visualState.channels.bodyStrokeAlpha,
-          color: visualState.channels.bodyStroke,
-          width: visualState.channels.bodyStrokeWidth,
+          alpha: nodeBodyStyle.strokeAlpha,
+          color: nodeBodyStyle.strokeColor,
+          width: nodeBodyStyle.strokeWidth,
         });
-      if (visualState.channels.statusAccentAlpha > 0) {
-        context
-          .roundRect(
-            10,
-            7,
-            Math.min(visualState.channels.statusAccentWidth, Math.max(0, node.width - 20)),
-            visualState.channels.statusAccentHeight,
-            2,
-          )
-          .fill({
-            alpha: visualState.channels.statusAccentAlpha,
-            color: visualState.channels.statusAccent,
-          });
-      }
-      return context;
     },
     nodeOutlineContextFor: (node, state) => {
       const style = nodeOutlineStyleFor(state);
@@ -113,16 +94,6 @@ export function createNodeGeometryContextFactory() {
         .fill({ alpha: nodeShadowStyle.alpha, color: nodeShadowStyle.color });
     },
   };
-}
-
-export function syncNodeBodyGraphic(target, node, nodeGeometry) {
-  const fingerprint = workflowNodeVisualFingerprint(node);
-  if (nodeBodyGraphicFingerprints.get(target) === fingerprint) {
-    return false;
-  }
-  target.context = nodeGeometry.nodeBodyContextFor(node);
-  nodeBodyGraphicFingerprints.set(target, fingerprint);
-  return true;
 }
 
 export function drawWorkspaceGrid(grid) {

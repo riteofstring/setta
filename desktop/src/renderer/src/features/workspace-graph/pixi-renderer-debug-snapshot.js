@@ -12,10 +12,6 @@ import {
   totalDisplayObjectCount,
   visibleDisplayObjectCount,
 } from "./pixi-renderer-helpers";
-import {
-  resolveWorkflowEdgeVisualState,
-  resolveWorkflowNodeVisualState,
-} from "./pixi-renderer-visual-state";
 
 export function createWorkflowGraphDebugSnapshot({
   app,
@@ -52,7 +48,6 @@ export function createWorkflowGraphDebugSnapshot({
     const nodeGeometryContexts = nodeGeometryContextCounts();
     const frameStats = frameSampleStats(recentFrameMs);
     const state = renderState();
-    const graphUpdateAccounting = state.graphUpdateAccounting;
     return {
       camera,
       canvas: {
@@ -75,7 +70,6 @@ export function createWorkflowGraphDebugSnapshot({
           sourcePortId: edge.sourcePortId,
           targetNodeId: edge.targetNodeId,
           targetPortId: edge.targetPortId,
-          visualState: resolveWorkflowEdgeVisualState(edge),
         })),
         nodeCount: nodes.length,
         nodes: nodes.map((node) => {
@@ -121,7 +115,6 @@ export function createWorkflowGraphDebugSnapshot({
             }),
             screenX: screen.x,
             screenY: screen.y,
-            visualState: resolveWorkflowNodeVisualState(node),
             width: node.width,
             x: node.x,
             y: node.y,
@@ -132,45 +125,25 @@ export function createWorkflowGraphDebugSnapshot({
       interaction: {
         drawingEdge: state.drawingEdge,
         drawingMarquee: state.drawingMarquee,
-        panningCamera: state.panningCamera,
         selectedNodeId: state.selectedNodeId,
         selectedNodeIds: [...state.selectedNodeIds],
       },
       render: {
-        activityChipTextObjectCount: state.activityChipTextObjectCount,
-        activityChipViewCount: state.activityChipViewCount,
-        activityMarkerGraphicsCount: state.activityMarkerGraphicsCount,
         averageFrameMs: frameStats.average,
         cameraUpdateCount: state.cameraUpdateCount,
         canvasCreationCount: state.canvasCreationCount,
         edgeCommitCount: state.edgeCommitCount,
         edgeGraphicsCount: 1,
-        edgeGraphicsRedrawCountsBySource: graphUpdateAccounting.edgeGraphicsRedrawCountsBySource,
-        edgeGraphicsRedrawSkipCount: state.edgeGraphicsRedrawSkipCount,
-        edgeGraphicsRedrawSkipCountsBySource:
-          graphUpdateAccounting.edgeGraphicsRedrawSkipCountsBySource,
-        edgeLabelAddCount: graphUpdateAccounting.totals.edgeLabelAddCount,
-        edgeLabelObjectCount: state.edgeLabelObjectCount,
-        edgeLabelRematerializeCount: graphUpdateAccounting.totals.edgeLabelRematerializeCount,
-        edgeLabelRemoveCount: graphUpdateAccounting.totals.edgeLabelRemoveCount,
-        edgeLabelRetainCount: graphUpdateAccounting.totals.edgeLabelRetainCount,
-        edgeLabelUpdateCount: graphUpdateAccounting.totals.edgeLabelUpdateCount,
-        edgeRematerializeCount: graphUpdateAccounting.totals.edgeGraphicsRematerializeCount,
         edgeRedrawCount: state.edgeRedrawCount,
         frameCount: state.frameCount,
         gridDrawCount: state.gridDrawCount,
-        graphUpdateBySource: graphUpdateAccounting.graphUpdateBySource,
-        graphUpdateCameraMovingCount: graphUpdateAccounting.totals.cameraMovingCount,
         graphUpdateCount: state.graphUpdateCount,
         graphUpdateEdgeAddCount: state.graphUpdateEdgeAddCount,
         graphUpdateEdgeRemoveCount: state.graphUpdateEdgeRemoveCount,
-        graphUpdateEdgeRetainCount: state.graphUpdateEdgeRetainCount,
         graphUpdateEdgeUpdateCount: state.graphUpdateEdgeUpdateCount,
-        graphUpdateInteractionCancelCount: graphUpdateAccounting.totals.interactionCancelCount,
         graphUpdateNodeAddCount: state.graphUpdateNodeAddCount,
         graphUpdateNodeRemoveCount: state.graphUpdateNodeRemoveCount,
         graphUpdateNodeUpdateCount: state.graphUpdateNodeUpdateCount,
-        graphUpdateSourceCounts: graphUpdateAccounting.graphUpdateSourceCounts,
         compactSelectedLabelCount: countMapValues(nodeLabelFontSizeModes, "compact-selected"),
         labelObjectCount: nodeLabels.size,
         labelSyncCount: state.labelSyncCount,
@@ -185,17 +158,13 @@ export function createWorkflowGraphDebugSnapshot({
         nodeOutlineVisibilityUpdateCount: state.nodeOutlineVisibilityUpdateCount,
         nodeShadowContextCount: nodeGeometryContexts.shadow,
         nodeShadowGraphicsCount: nodeShadows.size,
-        panningCamera: state.panningCamera,
-        pixiAppCreationCount: state.pixiAppCreationCount,
         pointerPanUpdateCount: state.pointerPanUpdateCount,
         portGraphicsCount: portVisuals.size,
         reactRenderCount: reactRenderCount(),
-        rendererLayerCreationCount: state.rendererLayerCreationCount,
         rendererResizeCount: state.rendererResizeCount,
         rendererDestroyCount: state.rendererDestroyCount,
         rendererInstanceId: state.rendererInstanceId,
         frozen: state.frozen,
-        lastGraphUpdate: graphUpdateAccounting.lastGraphUpdate,
         recentFrameMs: [...recentFrameMs],
         selectionChangeCount: state.selectionChangeCount,
         ...spatialQueries.debugSnapshot(),
@@ -209,18 +178,6 @@ export function createWorkflowGraphDebugSnapshot({
       },
       surfaceId: debugSurfaceId,
       visual,
-      visualGrammar: {
-        activityChipLayout: state.activityChipLayout,
-        activityChipStatesById: state.activityChipStatesById,
-        activityChips: state.activityChipDebug,
-        activityMarkerStatesById: state.activityMarkerVisualStatesById,
-        edgeStatesById: Object.fromEntries(
-          edges.map((edge) => [edge.id, resolveWorkflowEdgeVisualState(edge)]),
-        ),
-        nodeStatesById: Object.fromEntries(
-          nodes.map((node) => [node.id, resolveWorkflowNodeVisualState(node)]),
-        ),
-      },
     };
   };
 }

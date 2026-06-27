@@ -109,46 +109,6 @@ func TestServiceRoutesWorkflowAgentThroughSharedHarnessTask(t *testing.T) {
 	}
 }
 
-func TestServiceListsWorkflowConversationsSeparatelyFromPublicConversationList(t *testing.T) {
-	harness := NewFakeHarness(nil)
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	_, err := service.CreateConversation("workspace_api", "Public")
-	if err != nil {
-		t.Fatalf("create public conversation: %v", err)
-	}
-	result, err := service.SendWorkflowAgentTurn("workspace_api", WorkflowAgentTurnRequest{
-		DefinitionID:        "definition_internal_list",
-		DefinitionVersionID: "version_internal_list",
-		ExecutionID:         "execution_internal_list",
-		NodeID:              "node_internal_list",
-		NodeExecutionID:     "node_execution_internal_list",
-		Prompt:              "workflow shared task",
-	})
-	if err != nil {
-		t.Fatalf("send workflow agent turn: %v", err)
-	}
-	waitForRunStatus(t, service, "workspace_api", result.Conversation.ID, result.Run.ID, RunStatusCompleted)
-
-	publicList, err := service.ListConversations("workspace_api")
-	if err != nil {
-		t.Fatalf("list public conversations: %v", err)
-	}
-	if len(publicList.Conversations) != 1 || publicList.Conversations[0].Conversation.Internal {
-		t.Fatalf("public conversations = %+v, want only non-internal conversation", publicList.Conversations)
-	}
-
-	workflowConversations, err := service.ListWorkflowConversations("workspace_api")
-	if err != nil {
-		t.Fatalf("list workflow conversations: %v", err)
-	}
-	if len(workflowConversations) != 1 {
-		t.Fatalf("workflow conversations = %+v, want one internal workflow conversation", workflowConversations)
-	}
-	if workflowConversations[0].ID != result.Conversation.ID || !workflowConversations[0].Internal || workflowConversations[0].Workflow == nil {
-		t.Fatalf("workflow conversation = %+v, want internal workflow conversation", workflowConversations[0])
-	}
-}
-
 func TestServicePinsConversationAtTop(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
 	first, err := service.CreateConversation("workspace_api", "First")

@@ -1,54 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
-    "AbsolutePathBuf": {
-      "description": "A path that is guaranteed to be absolute and normalized (though it is not guaranteed to be canonicalized or exist on the filesystem).\n\nIMPORTANT: When deserializing an `AbsolutePathBuf`, a base path must be set using [AbsolutePathBufGuard::new]. If no base path is set, the deserialization will fail unless the path being deserialized is already absolute.",
-      "type": "string"
-    },
-    "AgentMessageInputContent": {
-      "oneOf": [
-        {
-          "properties": {
-            "text": {
-              "type": "string"
-            },
-            "type": {
-              "enum": [
-                "input_text"
-              ],
-              "title": "InputTextAgentMessageInputContentType",
-              "type": "string"
-            }
-          },
-          "required": [
-            "text",
-            "type"
-          ],
-          "title": "InputTextAgentMessageInputContent",
-          "type": "object"
-        },
-        {
-          "properties": {
-            "encrypted_content": {
-              "type": "string"
-            },
-            "type": {
-              "enum": [
-                "encrypted_content"
-              ],
-              "title": "EncryptedContentAgentMessageInputContentType",
-              "type": "string"
-            }
-          },
-          "required": [
-            "encrypted_content",
-            "type"
-          ],
-          "title": "EncryptedContentAgentMessageInputContent",
-          "type": "object"
-        }
-      ]
-    },
     "ApprovalsReviewer": {
       "description": "Configures who approval requests are routed to for review. Examples include sandbox escapes, blocked network access, MCP approval prompts, and ARC escalations. Defaults to `user`. `auto_review` uses a carefully prompted subagent to gather relevant context and apply a risk-based decision framework before approving or denying the request. The legacy value `guardian_subagent` is accepted for compatibility.",
       "enum": [
@@ -279,18 +231,6 @@
       ],
       "type": "string"
     },
-    "InternalChatMessageMetadataPassthrough": {
-      "description": "Internal Responses API passthrough metadata copied into underlying chat messages.\n\nResponses API strongly types this payload. Do not modify it without first getting API approval and making the corresponding Responses API change.",
-      "properties": {
-        "turn_id": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "type": "object"
-    },
     "LocalShellAction": {
       "oneOf": [
         {
@@ -464,17 +404,8 @@
               "type": [
                 "string",
                 "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              ],
+              "writeOnly": true
             },
             "phase": {
               "anyOf": [
@@ -507,53 +438,6 @@
         },
         {
           "properties": {
-            "author": {
-              "type": "string"
-            },
-            "content": {
-              "items": {
-                "$ref": "#/definitions/AgentMessageInputContent"
-              },
-              "type": "array"
-            },
-            "id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "recipient": {
-              "type": "string"
-            },
-            "type": {
-              "enum": [
-                "agent_message"
-              ],
-              "title": "AgentMessageResponseItemType",
-              "type": "string"
-            }
-          },
-          "required": [
-            "author",
-            "content",
-            "recipient",
-            "type"
-          ],
-          "title": "AgentMessageResponseItem",
-          "type": "object"
-        },
-        {
-          "properties": {
             "content": {
               "default": null,
               "items": {
@@ -568,22 +452,6 @@
               "type": [
                 "string",
                 "null"
-              ]
-            },
-            "id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
               ]
             },
             "summary": {
@@ -624,17 +492,8 @@
               "type": [
                 "string",
                 "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              ],
+              "writeOnly": true
             },
             "status": {
               "$ref": "#/definitions/LocalShellStatus"
@@ -667,17 +526,8 @@
               "type": [
                 "string",
                 "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              ],
+              "writeOnly": true
             },
             "name": {
               "type": "string"
@@ -721,17 +571,8 @@
               "type": [
                 "string",
                 "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              ],
+              "writeOnly": true
             },
             "status": {
               "type": [
@@ -759,22 +600,6 @@
           "properties": {
             "call_id": {
               "type": "string"
-            },
-            "id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             },
             "output": {
               "$ref": "#/definitions/FunctionCallOutputBody"
@@ -804,20 +629,11 @@
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "writeOnly": true
             },
             "input": {
               "type": "string"
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             },
             "name": {
               "type": "string"
@@ -849,22 +665,6 @@
           "properties": {
             "call_id": {
               "type": "string"
-            },
-            "id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             },
             "name": {
               "type": [
@@ -901,22 +701,6 @@
             },
             "execution": {
               "type": "string"
-            },
-            "id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             },
             "status": {
               "type": "string"
@@ -958,17 +742,8 @@
               "type": [
                 "string",
                 "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              ],
+              "writeOnly": true
             },
             "status": {
               "type": [
@@ -993,20 +768,7 @@
         {
           "properties": {
             "id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "result": {
               "type": "string"
@@ -1029,6 +791,7 @@
             }
           },
           "required": [
+            "id",
             "result",
             "status",
             "type"
@@ -1040,22 +803,6 @@
           "properties": {
             "encrypted_content": {
               "type": "string"
-            },
-            "id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             },
             "type": {
               "enum": [
@@ -1094,22 +841,6 @@
               "type": [
                 "string",
                 "null"
-              ]
-            },
-            "id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "internal_chat_message_metadata_passthrough": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
-                },
-                {
-                  "type": "null"
-                }
               ]
             },
             "type": {

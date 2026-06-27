@@ -19,7 +19,6 @@ describe("generated backend client", () => {
       jsonResponse(
         {
           error: {
-            activeExecution: null,
             code: "select_workspace_failed",
             message: "workspace is not active: workspace_missing",
           },

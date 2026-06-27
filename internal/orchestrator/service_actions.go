@@ -3,7 +3,6 @@ package orchestrator
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"setta/internal/chat"
@@ -12,11 +11,6 @@ import (
 type actionCancelDispatch struct {
 	runner  ActionRunner
 	request ActionCancelRequest
-}
-
-type actionCancelFailure struct {
-	request ActionCancelRequest
-	err     error
 }
 
 type bufferingRunnerEventSink struct {
@@ -326,109 +320,12 @@ func (service *Service) recordRunnerEvents(workspaceID string, executionID strin
 }
 
 func (service *Service) cancelActionRunners(requests []actionCancelDispatch) error {
-	failures := service.cancelActionRunnersCollectFailures(requests)
-	if len(failures) == 0 {
-		return nil
-	}
-	errs := make([]error, 0, len(failures))
-	for _, failure := range failures {
-		errs = append(errs, fmt.Errorf(
-			"cancel action runner for node execution %s: %w",
-			failure.request.NodeExecution.ID,
-			failure.err,
-		))
-	}
-	return errors.Join(errs...)
-}
-
-func (service *Service) cancelActionRunnersCollectFailures(requests []actionCancelDispatch) []actionCancelFailure {
-	failures := []actionCancelFailure{}
 	for _, item := range requests {
 		if err := item.runner.Cancel(context.Background(), item.request); err != nil {
-			failures = append(failures, actionCancelFailure{
-				request: item.request,
-				err:     err,
-			})
-		}
-	}
-	return failures
-}
-
-func (service *Service) recordRunnerCancelFailureDiagnostics(workspaceID string, cancelled WorkflowExecution, failures []actionCancelFailure) error {
-	if len(failures) == 0 {
-		return nil
-	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
-	execution, err := service.store.LoadExecution(workspaceID, cancelled.ID)
-	if err != nil {
-		return err
-	}
-	events := []WorkflowEvent{}
-	context := service.transitionContext()
-	nextOrdinalsByNodeExecutionID := map[string]int{}
-	for _, failure := range failures {
-		if err := appendRunnerCancelFailureDiagnostic(&execution, &events, context, nextOrdinalsByNodeExecutionID, failure); err != nil {
 			return err
 		}
 	}
-	return service.persistTransition(WorkflowTransition{Execution: execution, Events: events})
-}
-
-func appendRunnerCancelFailureDiagnostic(execution *WorkflowExecution, events *[]WorkflowEvent, context TransitionContext, nextOrdinalsByNodeExecutionID map[string]int, failure actionCancelFailure) error {
-	nodeExecution := nodeExecutionByID(*execution, failure.request.NodeExecution.ID)
-	if nodeExecution.ID == "" {
-		return fmt.Errorf("node execution %s was not found", failure.request.NodeExecution.ID)
-	}
-	runnerKind, ok := nodeExecutionRunnerKind(nodeExecution)
-	if !ok {
-		return fmt.Errorf("node execution %s has no runner kind", nodeExecution.ID)
-	}
-	runnerEventID, err := context.NewID("workflow_runner_event")
-	if err != nil {
-		return fmt.Errorf("create runner cancel failure event id: %w", err)
-	}
-	message := fmt.Sprintf("workflow runner cancel failed after execution cancellation: %v", failure.err)
-	payload, err := json.Marshal(RunnerAttemptFailedPayload{
-		ErrorCode: "workflow_runner_cancel_failed",
-		Message:   message,
-		Retryable: false,
-	})
-	if err != nil {
-		return fmt.Errorf("encode runner cancel failure payload: %w", err)
-	}
-	ordinal := nextOrdinalsByNodeExecutionID[nodeExecution.ID]
-	if ordinal == 0 {
-		ordinal = nextRunnerEventOrdinal(nodeExecution)
-	}
-	nextOrdinalsByNodeExecutionID[nodeExecution.ID] = ordinal + 1
-	runnerEvent := RunnerEvent{
-		SchemaVersion:      SchemaVersion,
-		ID:                 runnerEventID,
-		WorkspaceID:        execution.WorkspaceID,
-		ExecutionID:        execution.ID,
-		NodeID:             nodeExecution.NodeID,
-		NodeExecutionID:    nodeExecution.ID,
-		RunnerKind:         runnerKind,
-		RunnerEventOrdinal: ordinal,
-		OccurredAt:         context.Now,
-		Type:               RunnerEventAttemptFailed,
-		Payload:            payload,
-	}
-	details, err := json.Marshal(struct {
-		Nonfatal    bool        `json:"nonfatal"`
-		RunnerEvent RunnerEvent `json:"runnerEvent"`
-	}{Nonfatal: true, RunnerEvent: runnerEvent})
-	if err != nil {
-		return fmt.Errorf("encode runner cancel failure details: %w", err)
-	}
-	return appendEvent(execution, events, context, EventRunnerAttemptFailed, WorkflowEvent{
-		NodeID:          nodeExecution.NodeID,
-		NodeExecutionID: nodeExecution.ID,
-		RunnerKind:      &runnerKind,
-		Message:         message,
-		Details:         details,
-	})
+	return nil
 }
 
 func (service *Service) activeActionCancelRequestsLocked(workspaceID string, execution WorkflowExecution, excludedNodeExecutionID string) []actionCancelDispatch {

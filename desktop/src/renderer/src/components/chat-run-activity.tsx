@@ -11,7 +11,7 @@ import {
   type LucideIcon,
   Wrench,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
@@ -82,14 +82,12 @@ const activityIconClassByType = {
 } satisfies Record<RunItemType, string>;
 
 export function RunActivityRows({
-  highlightedRunItemId,
   items,
   loadRunItemOutput,
   outputIdsByRunItemId,
   outputPagesByRunItemId,
   outputsById,
 }: {
-  highlightedRunItemId?: string;
   items: RunItem[];
   loadRunItemOutput: (
     runId: string,
@@ -122,7 +120,6 @@ export function RunActivityRows({
       <div className="mt-1.5 min-w-0 space-y-1.5 border-l border-border/70 pl-2">
         {items.map((item) => (
           <RunActivityRow
-            focused={highlightedRunItemId !== undefined && item.id === highlightedRunItemId}
             item={item}
             key={item.id}
             loadRunItemOutput={loadRunItemOutput}
@@ -136,13 +133,11 @@ export function RunActivityRows({
 }
 
 function RunActivityRow({
-  focused = false,
   item,
   loadRunItemOutput,
   outputPage,
   outputs,
 }: {
-  focused?: boolean;
   item: RunItem;
   loadRunItemOutput: (
     runId: string,
@@ -154,33 +149,12 @@ function RunActivityRow({
   outputs: RunItemOutput[];
 }) {
   const [open, setOpen] = useState(false);
-  const rowRef = useRef<HTMLDetailsElement>(null);
-  // A deep-linked row (from an activity-chip click) opens and scrolls into view. The effect is inert
-  // for chat usage, where no row is ever focused. The native disclosure is left uncontrolled, so the
-  // open state is nudged through the element ref rather than a declarative `open` attribute.
-  useEffect(() => {
-    if (!focused) {
-      return;
-    }
-    if (rowRef.current !== null) {
-      rowRef.current.open = true;
-    }
-    setOpen(true);
-    rowRef.current?.scrollIntoView({ block: "nearest" });
-  }, [focused]);
-  const renderDetails = open || focused || shouldRenderClosedActivityDetails(item, outputs);
+  const renderDetails = open || shouldRenderClosedActivityDetails(item, outputs);
   const outputText = renderDetails ? outputPreview(outputs) : "";
   return (
     <details
-      className={cn(
-        "group/item relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-foreground",
-        focused && "ring-2 ring-accent-violet/70 ring-offset-1 ring-offset-background",
-      )}
-      data-activity-focus-id={focused ? `run-item:${item.id}` : undefined}
-      data-activity-focused={focused ? "true" : undefined}
-      data-run-item-id={item.id}
+      className="group/item relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-foreground"
       data-testid="run-activity-row"
-      ref={rowRef}
       onToggle={(event) => {
         const nextOpen = event.currentTarget.open;
         setOpen(nextOpen);
