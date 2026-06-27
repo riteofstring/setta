@@ -4,9 +4,23 @@ import readline from "node:readline";
 import { setTimeout } from "node:timers";
 
 const threadId = "thread_fake";
+const startupProbeThreadId = "00000000-0000-4000-8000-000000000001";
 const turnId = "turn_fake";
 let account = null;
 let pendingDynamicTool = null;
+
+const appServerArgs = normalizeAppServerArgs(process.argv.slice(2));
+if (appServerArgs.includes("--version") || appServerArgs.includes("-V")) {
+  process.stdout.write("codex-app-server 0.0.0\n");
+  process.exit(0);
+}
+if (appServerArgs.includes("--help") || appServerArgs.includes("-h")) {
+  process.stdout.write(
+    "Usage: codex-app-server [OPTIONS]\n\nOptions:\n      --listen <URL>\n      --session-source <SOURCE>\n",
+  );
+  process.exit(0);
+}
+
 const rl = readline.createInterface({ input: process.stdin });
 
 rl.on("line", (line) => {
@@ -35,15 +49,25 @@ const methodHandlers = {
   initialize: handleInitialize,
   initialized: () => {},
   "model/list": handleModelList,
-  "thread/goal/clear": respondEmpty,
+  "thread/goal/clear": handleThreadGoalClear,
   "thread/goal/get": handleThreadGoalGet,
   "thread/goal/set": handleThreadGoalSet,
+  "thread/list": handleThreadList,
+  "thread/read": handleThreadRead,
   "thread/resume": handleThreadResume,
-  "thread/settings/update": respondEmpty,
+  "thread/settings/update": handleThreadSettingsUpdate,
   "thread/start": handleThreadStart,
+  "thread/turns/list": handleThreadTurnsList,
   "turn/interrupt": respondEmpty,
   "turn/start": handleTurnStart,
 };
+
+function normalizeAppServerArgs(args) {
+  if (args[0] === "app-server") {
+    return args.slice(1);
+  }
+  return args;
+}
 
 function handleInitialize(message) {
   respond(message.id, {
@@ -87,6 +111,24 @@ function handleThreadResume(message) {
     throw new Error("thread/resume should not include dynamicTools");
   }
   respond(message.id, fakeThreadResponse());
+}
+
+function handleThreadList(message) {
+  respond(message.id, { data: [] });
+}
+
+function handleThreadRead(message) {
+  if (respondMissingProbeThread(message, "thread not loaded")) {
+    return;
+  }
+  respondError(message.id, -32600, `thread not loaded: ${message.params?.threadId ?? ""}`);
+}
+
+function handleThreadTurnsList(message) {
+  if (respondMissingProbeThread(message, "thread not loaded")) {
+    return;
+  }
+  respondError(message.id, -32600, `thread not loaded: ${message.params?.threadId ?? ""}`);
 }
 
 function handleTurnStart(message) {
@@ -156,10 +198,16 @@ function handleModelList(message) {
 }
 
 function handleThreadGoalGet(message) {
+  if (respondMissingProbeThread(message, "thread not found")) {
+    return;
+  }
   respond(message.id, { goal: null });
 }
 
 function handleThreadGoalSet(message) {
+  if (respondMissingProbeThread(message, "thread not found")) {
+    return;
+  }
   respond(message.id, {
     goal: {
       createdAt: 0,
@@ -172,6 +220,28 @@ function handleThreadGoalSet(message) {
       updatedAt: 0,
     },
   });
+}
+
+function handleThreadGoalClear(message) {
+  if (respondMissingProbeThread(message, "thread not found")) {
+    return;
+  }
+  respond(message.id, {});
+}
+
+function handleThreadSettingsUpdate(message) {
+  if (respondMissingProbeThread(message, "thread not found")) {
+    return;
+  }
+  respond(message.id, {});
+}
+
+function respondMissingProbeThread(message, prefix) {
+  if (message.params?.threadId !== startupProbeThreadId) {
+    return false;
+  }
+  respondError(message.id, -32600, `${prefix}: ${startupProbeThreadId}`);
+  return true;
 }
 
 function respondEmpty(message) {
@@ -335,6 +405,10 @@ function handleAccountLoginStart(message) {
 
 function respond(id, result) {
   write({ id, result });
+}
+
+function respondError(id, code, message) {
+  write({ error: { code, message }, id });
 }
 
 function turnInputText(message) {

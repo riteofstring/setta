@@ -5,9 +5,12 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 const accountReadTimeoutMs = 20_000;
+const runtimeCommandTimeoutMs = 10_000;
 const stderrLimitBytes = 16 * 1024;
 const apiKeyEnvNames = ["OPENAI_API_KEY"];
 const chatGPTAccountTypes = new Set(["chatgpt", "chatgptAuthTokens"]);
+const managedRuntimeOverrideEnv = "SETTA_CODEX_BIN";
+const requiredSessionSource = "app-server";
 
 export async function prepareLiveCodexAuth() {
   const status = await liveCodexSubscriptionStatus();
@@ -58,13 +61,17 @@ export async function liveCodexSubscriptionStatus() {
 }
 
 async function readCodexAccount() {
-  const client = startCodexAppServer();
+  const invocation = await resolveManagedCodexAppServerInvocation();
+  const client = startCodexAppServer(invocation);
   try {
     await client.call("initialize", {
       clientInfo: {
         name: "setta-live-test",
         title: "Setta Live Test",
         version: "dev",
+      },
+      capabilities: {
+        experimentalApi: true,
       },
     });
     await client.notify("initialized", {});
@@ -74,8 +81,43 @@ async function readCodexAccount() {
   }
 }
 
-function startCodexAppServer() {
-  const child = spawn("codex", ["app-server", "--listen", "stdio://"], {
+async function resolveManagedCodexAppServerInvocation() {
+  const command = process.env[managedRuntimeOverrideEnv]?.trim();
+  if (!command) {
+    throw new Error(
+      `managed Codex runtime is not selected; set ${managedRuntimeOverrideEnv} to the reference-compatible codex-app-server runtime`,
+    );
+  }
+
+  const directHelp = await runRuntimeCommand(command, ["--help"]);
+  if (directHelp.ok && directHelp.output.includes("--listen")) {
+    return appServerInvocation(command, [], directHelp.output);
+  }
+
+  const subcommandHelp = await runRuntimeCommand(command, ["app-server", "--help"]);
+  if (subcommandHelp.ok && subcommandHelp.output.includes("--listen")) {
+    return appServerInvocation(command, ["app-server"], subcommandHelp.output);
+  }
+
+  throw new Error(
+    `${managedRuntimeOverrideEnv} runtime does not expose an app-server --listen interface`,
+  );
+}
+
+function appServerInvocation(command, prefixArgs, helpOutput) {
+  if (!helpOutput.includes("--session-source")) {
+    throw new Error(
+      `${managedRuntimeOverrideEnv} runtime app-server entrypoint does not support --session-source ${requiredSessionSource}`,
+    );
+  }
+  return {
+    args: [...prefixArgs, "--listen", "stdio://", "--session-source", requiredSessionSource],
+    command,
+  };
+}
+
+function startCodexAppServer(invocation) {
+  const child = spawn(invocation.command, invocation.args, {
     env: codexAuthEnv(),
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -175,6 +217,46 @@ function startCodexAppServer() {
     }
     pending.clear();
   }
+}
+
+function runRuntimeCommand(command, args) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, {
+      env: codexAuthEnv(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let output = "";
+    let settled = false;
+    const timer = globalThis.setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      child.kill();
+      resolve({ ok: false, output });
+    }, runtimeCommandTimeoutMs);
+    const appendOutput = (data) => {
+      output = boundedAppend(output, data.toString(), stderrLimitBytes);
+    };
+    child.stdout.on("data", appendOutput);
+    child.stderr.on("data", appendOutput);
+    child.on("error", () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      globalThis.clearTimeout(timer);
+      resolve({ ok: false, output });
+    });
+    child.on("exit", (code) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      globalThis.clearTimeout(timer);
+      resolve({ ok: code === 0, output });
+    });
+  });
 }
 
 function codexAuthEnv() {

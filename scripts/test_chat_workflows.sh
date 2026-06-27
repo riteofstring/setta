@@ -98,7 +98,10 @@ if [[ "${run_deterministic}" -eq 1 ]]; then
 fi
 
 if [[ "${run_live}" -eq 1 ]]; then
-  if live_skip_reason="$(codex_chatgpt_auth_present 2>&1)"; then
+  if [[ -z "${SETTA_CODEX_BIN:-}" ]]; then
+    echo "Live Codex workflows require SETTA_CODEX_BIN to point at the managed/reference-compatible Codex app-server runtime." >&2
+    status=1
+  elif live_skip_reason="$(codex_chatgpt_auth_present 2>&1)"; then
     echo "Live Codex Electron chat workflow..."
     if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
       --workflow live-codex-electron; then
@@ -115,10 +118,7 @@ if [[ "${run_live}" -eq 1 ]]; then
     fi
 
     echo "Live Codex Phase 0 history validation..."
-    if [[ -z "${SETTA_CODEX_BIN:-}" ]]; then
-      echo "Live Codex Phase 0 history validation requires SETTA_CODEX_BIN to point at the managed/reference-compatible Codex app-server runtime." >&2
-      status=1
-    elif SETTA_CODEX_HISTORY_PHASE0_LIVE=1 "${repo_root}/scripts/go.sh" test ./internal/chat -run TestCodexHistoryPhase0LiveProviderValidation -count=1 -v; then
+    if SETTA_CODEX_HISTORY_PHASE0_LIVE=1 "${repo_root}/scripts/go.sh" test ./internal/chat -run TestCodexHistoryPhase0LiveProviderValidation -count=1 -v; then
       passed_workflows+=("live-codex-phase0-history")
     else
       status=1

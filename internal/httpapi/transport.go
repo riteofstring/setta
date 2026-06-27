@@ -9,6 +9,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/chat"
+	"setta/internal/codexruntime"
 	"setta/internal/jsonio"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
@@ -143,6 +144,10 @@ func writeAppearanceError(response http.ResponseWriter, code string, err error) 
 
 func writeChatError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
+	if providerErr, ok := codexruntime.IsIncompatibleProviderError(err); ok {
+		writeError(response, http.StatusServiceUnavailable, "codex_provider_incompatible", providerErr.Error())
+		return
+	}
 	if commandErr, ok := chat.IsChatCommandError(err); ok {
 		writeError(response, status, string(commandErr.Code), commandErr.Error())
 		return
@@ -162,6 +167,10 @@ func writeChatError(response http.ResponseWriter, code string, err error) {
 }
 
 func writeCodexAccountError(response http.ResponseWriter, code string, err error) {
+	if providerErr, ok := codexruntime.IsIncompatibleProviderError(err); ok {
+		writeError(response, http.StatusServiceUnavailable, "codex_provider_incompatible", providerErr.Error())
+		return
+	}
 	writeError(response, http.StatusBadRequest, code, err.Error())
 }
 
