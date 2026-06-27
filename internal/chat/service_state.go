@@ -157,7 +157,7 @@ func (service *Service) queuedStateFromRunsLocked(workspaceID string, conversati
 			return QueueState{}, err
 		}
 		if !ok {
-			err := corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "queued run %s trigger message %s was not found", run.ID, run.TriggerMessageID)
+			err := corruptStateErrorf(service.store.projectionRunPath(workspaceID, run.ID), "queued run %s trigger message %s was not found", run.ID, run.TriggerMessageID)
 			service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversationID, run.ID)
 			return QueueState{}, err
 		}

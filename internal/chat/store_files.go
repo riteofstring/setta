@@ -7,94 +7,21 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
-	"strconv"
 	"strings"
 
 	"setta/internal/jsonio"
 )
 
-func (store *Store) conversationPath(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), conversationFileName)
-}
-
-func (store *Store) conversationReadPath(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), conversationReadFileName)
-}
-
-func (store *Store) goalPath(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), goalFileName)
-}
-
 func (store *Store) workspaceDir(workspaceID string) string {
 	return filepath.Join(store.appDataDir, "workspaces", workspaceID)
 }
 
-func (store *Store) conversationPinsPath(workspaceID string) string {
-	return filepath.Join(store.workspaceDir(workspaceID), conversationPinsFileName)
+func (store *Store) projectionMessagePath(workspaceID string, conversationID string, messageID string) string {
+	return filepath.Join(store.chatOverlayDir(workspaceID), "projection", "conversations", conversationID, "messages", messageID)
 }
 
-func (store *Store) conversationsDir(workspaceID string) string {
-	return filepath.Join(store.workspaceDir(workspaceID), conversationsDirName)
-}
-
-func (store *Store) conversationDir(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationsDir(workspaceID), conversationID)
-}
-
-func (store *Store) writeInitialConversation(conversation Conversation) error {
-	parentDir := store.conversationsDir(conversation.WorkspaceID)
-	if err := os.MkdirAll(parentDir, 0o755); err != nil {
-		return &PersistenceError{Operation: "create directory", Path: parentDir, Err: err}
-	}
-	finalDir := store.conversationDir(conversation.WorkspaceID, conversation.ID)
-	if _, err := os.Stat(finalDir); err == nil {
-		return &PersistenceError{Operation: "create conversation directory", Path: finalDir, Err: os.ErrExist}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return &PersistenceError{Operation: "stat conversation", Path: finalDir, Err: err}
-	}
-	tempDir, err := os.MkdirTemp(parentDir, ".tmp-conversation-*")
-	if err != nil {
-		return &PersistenceError{Operation: "create temp conversation directory", Path: parentDir, Err: err}
-	}
-	removeTemp := true
-	defer func() {
-		if removeTemp {
-			_ = os.RemoveAll(tempDir)
-		}
-	}()
-	if err := writeJSONFile(filepath.Join(tempDir, conversationFileName), conversation); err != nil {
-		return err
-	}
-	if err := os.Rename(tempDir, finalDir); err != nil {
-		return &PersistenceError{Operation: "publish conversation directory", Path: finalDir, Err: err}
-	}
-	removeTemp = false
-	return nil
-}
-
-func (store *Store) messagesDir(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), messagesDirName)
-}
-
-func (store *Store) messagePath(workspaceID string, conversationID string, ordinal int, messageID string) string {
-	return filepath.Join(store.messagesDir(workspaceID, conversationID), messageFileName(ordinal, messageID))
-}
-
-func (store *Store) runsDir(workspaceID string) string {
-	return filepath.Join(store.appDataDir, "workspaces", workspaceID, runsDirName)
-}
-
-func (store *Store) runPath(workspaceID string, runID string) string {
-	return filepath.Join(store.runsDir(workspaceID), runID+".json")
-}
-
-func (store *Store) runDataDir(workspaceID string, runID string) string {
-	return filepath.Join(store.runsDir(workspaceID), runID)
-}
-
-func (store *Store) tracePath(workspaceID string, runID string, traceID string) string {
-	return filepath.Join(store.runDataDir(workspaceID, runID), tracesDirName, traceID+".json")
+func (store *Store) projectionRunPath(workspaceID string, runID string) string {
+	return filepath.Join(store.chatOverlayDir(workspaceID), "projection", "runs", runID)
 }
 
 func (store *Store) diagnosticsDir() string {
@@ -105,143 +32,8 @@ func (store *Store) diagnosticPath(diagnosticID string) string {
 	return filepath.Join(store.diagnosticsDir(), diagnosticID+".json")
 }
 
-func (store *Store) runItemsDir(workspaceID string, runID string) string {
-	return filepath.Join(store.runsDir(workspaceID), runID, runItemsDirName)
-}
-
-func (store *Store) runItemDir(workspaceID string, runID string, runItemID string) string {
-	return filepath.Join(store.runItemsDir(workspaceID, runID), runItemID)
-}
-
-func (store *Store) runItemPath(workspaceID string, runID string, runItemID string) string {
-	return filepath.Join(store.runItemDir(workspaceID, runID, runItemID), runItemFileName)
-}
-
-func (store *Store) runItemOutputsDir(workspaceID string, runID string, runItemID string) string {
-	return filepath.Join(store.runItemDir(workspaceID, runID, runItemID), runItemOutputsDirName)
-}
-
-func (store *Store) runItemOutputPath(workspaceID string, runID string, runItemID string, ordinal int, outputID string) string {
-	return filepath.Join(store.runItemOutputsDir(workspaceID, runID, runItemID), messageFileName(ordinal, outputID))
-}
-
-func (store *Store) messageFiles(workspaceID string, conversationID string) ([]messageFile, error) {
-	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
-		return nil, err
-	}
-	dir := store.messagesDir(workspaceID, conversationID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []messageFile{}, nil
-		}
-		return nil, &PersistenceError{Operation: "list messages", Path: dir, Err: err}
-	}
-	files := make([]messageFile, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
-			continue
-		}
-		ordinal, ok := ordinalFromMessageFileName(entry.Name())
-		if !ok {
-			return nil, corruptStateErrorf(filepath.Join(dir, entry.Name()), "malformed message filename")
-		}
-		files = append(files, messageFile{
-			ordinal: ordinal,
-			path:    filepath.Join(dir, entry.Name()),
-		})
-	}
-	sort.SliceStable(files, func(left int, right int) bool {
-		return files[left].ordinal < files[right].ordinal
-	})
-	return files, nil
-}
-
-func (store *Store) messageFilesAllowingCorrupt(workspaceID string, conversationID string) ([]messageFile, []CorruptStateFinding, error) {
-	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
-		return nil, nil, err
-	}
-	dir := store.messagesDir(workspaceID, conversationID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []messageFile{}, nil, nil
-		}
-		return nil, nil, &PersistenceError{Operation: "list messages", Path: dir, Err: err}
-	}
-	files := make([]messageFile, 0, len(entries))
-	corrupt := []CorruptStateFinding{}
-	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
-			continue
-		}
-		path := filepath.Join(dir, entry.Name())
-		ordinal, ok := ordinalFromMessageFileName(entry.Name())
-		if !ok {
-			corrupt = append(corrupt, corruptStateFinding(corruptStateErrorf(path, "malformed message filename"), workspaceID, conversationID, "", corruptMessageKind))
-			continue
-		}
-		files = append(files, messageFile{
-			ordinal: ordinal,
-			path:    path,
-		})
-	}
-	sort.SliceStable(files, func(left int, right int) bool {
-		return files[left].ordinal < files[right].ordinal
-	})
-	return files, corrupt, nil
-}
-
-func messageFileName(ordinal int, messageID string) string {
-	return fmt.Sprintf("%012d_%s.json", ordinal, messageID)
-}
-
-func (store *Store) runItemOutputFiles(workspaceID string, runID string, runItemID string) ([]runItemOutputFile, error) {
-	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
-		return nil, err
-	}
-	dir := store.runItemOutputsDir(workspaceID, runID, runItemID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []runItemOutputFile{}, nil
-		}
-		return nil, &PersistenceError{Operation: "list run item outputs", Path: dir, Err: err}
-	}
-	files := make([]runItemOutputFile, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
-			continue
-		}
-		ordinal, ok := ordinalFromMessageFileName(entry.Name())
-		if !ok {
-			return nil, corruptStateErrorf(filepath.Join(dir, entry.Name()), "malformed run item output filename")
-		}
-		files = append(files, runItemOutputFile{
-			ordinal: ordinal,
-			path:    filepath.Join(dir, entry.Name()),
-		})
-	}
-	sort.SliceStable(files, func(left int, right int) bool {
-		return files[left].ordinal < files[right].ordinal
-	})
-	return files, nil
-}
-
 func isDataJSONFile(name string) bool {
 	return filepath.Ext(name) == ".json" && !strings.HasPrefix(name, ".")
-}
-
-func ordinalFromMessageFileName(name string) (int, bool) {
-	prefix, _, ok := strings.Cut(name, "_")
-	if !ok {
-		return 0, false
-	}
-	ordinal, err := strconv.Atoi(prefix)
-	if err != nil || ordinal <= 0 {
-		return 0, false
-	}
-	return ordinal, true
 }
 
 func writeJSONFile(path string, payload any) error {

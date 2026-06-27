@@ -126,14 +126,14 @@ func (service *Service) existingWorkflowAgentTurnLocked(workspaceID string, requ
 		return SendMessageResult{}, false, err
 	}
 	if !ok {
-		return SendMessageResult{}, false, corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s trigger message %s was not found", run.ID, run.TriggerMessageID)
+		return SendMessageResult{}, false, corruptStateErrorf(service.store.projectionRunPath(workspaceID, run.ID), "run %s trigger message %s was not found", run.ID, run.TriggerMessageID)
 	}
 	assistantMessage, ok, err := service.store.FindMessageByID(workspaceID, conversation.ID, run.AssistantMessageID)
 	if err != nil {
 		return SendMessageResult{}, false, err
 	}
 	if !ok {
-		return SendMessageResult{}, false, corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID)
+		return SendMessageResult{}, false, corruptStateErrorf(service.store.projectionRunPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID)
 	}
 	page, err := service.loadMessagePageLocked(workspaceID, conversation.ID, 0, defaultPageLimit)
 	if err != nil {

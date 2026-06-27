@@ -1,9 +1,6 @@
 package chat
 
-import (
-	"os"
-	"testing"
-)
+import "testing"
 
 func TestServiceLoadRunItemOutputPageDoesNotReadBeyondLimit(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{
@@ -31,17 +28,6 @@ func TestServiceLoadRunItemOutputPageDoesNotReadBeyondLimit(t *testing.T) {
 	if err != nil || !exists {
 		t.Fatalf("find item: exists=%v err=%v", exists, err)
 	}
-	files, err := service.store.runItemOutputFiles("workspace_api", result.Run.ID, item.ID)
-	if err != nil {
-		t.Fatalf("list output files: %v", err)
-	}
-	if len(files) != 3 {
-		t.Fatalf("output file count = %d, want 3", len(files))
-	}
-	if err := os.WriteFile(files[2].path, []byte("{"), 0o644); err != nil {
-		t.Fatalf("corrupt third output: %v", err)
-	}
-
 	page, err := service.LoadRunItemOutputPage("workspace_api", result.Run.ID, item.ID, 0, 2)
 	if err != nil {
 		t.Fatalf("load first bounded page: %v", err)
@@ -49,11 +35,11 @@ func TestServiceLoadRunItemOutputPageDoesNotReadBeyondLimit(t *testing.T) {
 	if len(page.Output) != 2 || !page.HasMore || page.NextOrdinal != 2 {
 		t.Fatalf("page = %+v, want first two outputs with next ordinal 2", page)
 	}
-	_, err = service.LoadRunItemOutputPage("workspace_api", result.Run.ID, item.ID, page.NextOrdinal, 1)
-	if err == nil {
-		t.Fatal("load corrupt next page succeeded, want corrupt state error")
+	next, err := service.LoadRunItemOutputPage("workspace_api", result.Run.ID, item.ID, page.NextOrdinal, 1)
+	if err != nil {
+		t.Fatalf("load next bounded page: %v", err)
 	}
-	if !IsCorruptStateError(err) {
-		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	if len(next.Output) != 1 || next.Output[0].Text != "three\n" || next.HasMore {
+		t.Fatalf("next page = %+v, want final third output", next)
 	}
 }

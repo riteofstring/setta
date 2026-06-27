@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -114,17 +113,29 @@ func seedUIShowcaseRuns(store *Store, workspaceID string, seededAt time.Time) er
 }
 
 func removeUIShowcaseArtifacts(store *Store, workspaceID string) error {
-	if err := os.RemoveAll(store.conversationDir(workspaceID, UIShowcaseConversationID)); err != nil {
-		return &PersistenceError{Operation: "remove UI showcase conversation", Path: store.conversationDir(workspaceID, UIShowcaseConversationID), Err: err}
+	if store.conversations[workspaceID] != nil {
+		delete(store.conversations[workspaceID], UIShowcaseConversationID)
+	}
+	if store.messages[workspaceID] != nil {
+		delete(store.messages[workspaceID], UIShowcaseConversationID)
+	}
+	if store.goals[workspaceID] != nil {
+		delete(store.goals[workspaceID], UIShowcaseConversationID)
 	}
 	for _, runID := range uiShowcaseRunIDs {
-		if err := os.Remove(store.runPath(workspaceID, runID)); err != nil && !os.IsNotExist(err) {
-			return &PersistenceError{Operation: "remove UI showcase run", Path: store.runPath(workspaceID, runID), Err: err}
+		if store.runs[workspaceID] != nil {
+			delete(store.runs[workspaceID], runID)
 		}
-		runDir := filepath.Join(store.runsDir(workspaceID), runID)
-		if err := os.RemoveAll(runDir); err != nil {
-			return &PersistenceError{Operation: "remove UI showcase run artifacts", Path: runDir, Err: err}
+		if store.runItems[workspaceID] != nil {
+			delete(store.runItems[workspaceID], runID)
 		}
+		if store.runOutputs[workspaceID] != nil {
+			delete(store.runOutputs[workspaceID], runID)
+		}
+	}
+	path := store.threadOverlayDir(workspaceID, "thread_ui_showcase")
+	if err := os.RemoveAll(path); err != nil {
+		return &PersistenceError{Operation: "remove UI showcase overlay", Path: path, Err: err}
 	}
 	return nil
 }

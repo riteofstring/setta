@@ -84,7 +84,7 @@ func (service *Service) selectedTranscriptRunIDs(workspaceID string, conversatio
 		}
 		if _, ok := runsByID[message.RunID]; !ok {
 			return nil, corruptStateErrorf(
-				service.store.messagePath(workspaceID, conversationID, message.Ordinal, message.ID),
+				service.store.projectionMessagePath(workspaceID, conversationID, message.ID),
 				"message %s references missing run %s",
 				message.ID,
 				message.RunID,
@@ -153,14 +153,14 @@ func (service *Service) transcriptTurnForRunLocked(
 	trigger, ok := messagesByID[run.TriggerMessageID]
 	if !ok {
 		return TranscriptTurn{}, corruptStateErrorf(
-			service.store.runPath(workspaceID, run.ID),
+			service.store.projectionRunPath(workspaceID, run.ID),
 			"run %s trigger message %s was not found",
 			run.ID,
 			run.TriggerMessageID,
 		)
 	}
 	if err := validateTranscriptTriggerMessage(run, trigger); err != nil {
-		return TranscriptTurn{}, corruptStateError(service.store.runPath(workspaceID, run.ID), err)
+		return TranscriptTurn{}, corruptStateError(service.store.projectionRunPath(workspaceID, run.ID), err)
 	}
 
 	var assistant *ChatMessage
@@ -168,14 +168,14 @@ func (service *Service) transcriptTurnForRunLocked(
 		message, ok := messagesByID[run.AssistantMessageID]
 		if !ok {
 			return TranscriptTurn{}, corruptStateErrorf(
-				service.store.runPath(workspaceID, run.ID),
+				service.store.projectionRunPath(workspaceID, run.ID),
 				"run %s assistant message %s was not found",
 				run.ID,
 				run.AssistantMessageID,
 			)
 		}
 		if err := validateRunAssistantMessageRecord(run, message); err != nil {
-			return TranscriptTurn{}, corruptStateError(service.store.runPath(workspaceID, run.ID), err)
+			return TranscriptTurn{}, corruptStateError(service.store.projectionRunPath(workspaceID, run.ID), err)
 		}
 		assistantMessage := message
 		assistant = &assistantMessage
@@ -183,7 +183,7 @@ func (service *Service) transcriptTurnForRunLocked(
 
 	steeringMessages, err := transcriptSteeringMessages(run, runMessages)
 	if err != nil {
-		return TranscriptTurn{}, corruptStateError(service.store.runPath(workspaceID, run.ID), err)
+		return TranscriptTurn{}, corruptStateError(service.store.projectionRunPath(workspaceID, run.ID), err)
 	}
 	return TranscriptTurn{
 		AssistantMessage: assistant,

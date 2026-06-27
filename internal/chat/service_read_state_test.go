@@ -1,13 +1,16 @@
 package chat
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestServiceRecoveryAdvancesReadMarkerForInterruptedRun(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	fixture := saveInterruptedRunningTurnFixture(t, store)
 
-	restarted := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	restarted := newTestServiceWithStore(t, store)
 	item := listConversationItem(t, restarted, fixture.workspaceID, fixture.conversationID)
 	if item.LatestReadRelevantMarker <= item.ReadMarker {
 		t.Fatalf("markers = read %d latest %d, want recovered conversation unread", item.ReadMarker, item.LatestReadRelevantMarker)
@@ -37,7 +40,7 @@ func TestServiceRecoveryDoesNotAdvanceReadMarkerAgainAfterRead(t *testing.T) {
 	store := mustStore(t, appDataDir)
 	fixture := saveInterruptedRunningTurnFixture(t, store)
 
-	restarted := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	restarted := newTestServiceWithStore(t, store)
 	unread := listConversationItem(t, restarted, fixture.workspaceID, fixture.conversationID)
 	read, err := restarted.MarkConversationRead(fixture.workspaceID, fixture.conversationID)
 	if err != nil {
@@ -137,7 +140,13 @@ func saveInterruptedRunningTurnFixture(t *testing.T, store *Store) interruptedRu
 		Title:         "API",
 		CreatedAt:     "2026-05-29T20:00:00Z",
 		UpdatedAt:     "2026-05-29T20:00:00Z",
-		HarnessRefs:   []HarnessThreadRef{},
+		HarnessRefs: []HarnessThreadRef{{
+			Harness:       HarnessCodex,
+			ThreadID:      fixture.conversationID,
+			Status:        HarnessRefLinked,
+			CreatedAt:     "2026-05-29T20:00:00Z",
+			LastResumedAt: "2026-05-29T20:00:00Z",
+		}},
 	}
 	if err := store.SaveConversation(conversation); err != nil {
 		t.Fatalf("save conversation: %v", err)
@@ -197,6 +206,26 @@ func saveInterruptedRunningTurnFixture(t *testing.T, store *Store) interruptedRu
 		t.Fatalf("save run: %v", err)
 	}
 	return fixture
+}
+
+func newTestServiceWithStore(t *testing.T, store *Store) *Service {
+	t.Helper()
+
+	service, err := NewService(
+		store,
+		testResolver(t),
+		NewFakeHarness(nil),
+		WithClock(func() time.Time {
+			return mustTime(t, "2026-05-29T20:00:00Z")
+		}),
+		WithIDGenerator(func(prefix string) (string, error) {
+			return prefix + "_test", nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new service with store: %v", err)
+	}
+	return service
 }
 
 func listConversationItem(t *testing.T, service *Service, workspaceID string, conversationID string) ConversationListItem {

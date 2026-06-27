@@ -9,7 +9,26 @@ func (store *Store) SaveRunItemOutput(workspaceID string, runID string, output R
 	if err := validateRunItemOutput(output); err != nil {
 		return err
 	}
-	return writeJSONFile(store.runItemOutputPath(workspaceID, runID, output.RunItemID, output.Ordinal, output.ID), output)
+	if store.runOutputs[workspaceID] == nil {
+		store.runOutputs[workspaceID] = map[string]map[string][]RunItemOutput{}
+	}
+	if store.runOutputs[workspaceID][runID] == nil {
+		store.runOutputs[workspaceID][runID] = map[string][]RunItemOutput{}
+	}
+	outputs := store.runOutputs[workspaceID][runID][output.RunItemID]
+	replaced := false
+	for index, existing := range outputs {
+		if existing.ID == output.ID {
+			outputs[index] = output
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		outputs = append(outputs, output)
+	}
+	store.runOutputs[workspaceID][runID][output.RunItemID] = outputs
+	return store.appendActivityOverlayOutput(workspaceID, runID, output)
 }
 
 func (store *Store) LoadRunItemOutputs(workspaceID string, runID string) ([]RunItemOutput, error) {
@@ -35,29 +54,7 @@ func (store *Store) LoadRunItemOutputsForItem(workspaceID string, runID string, 
 	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
 		return nil, err
 	}
-	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
-	if err != nil {
-		return nil, err
-	}
-	return readRunItemOutputs(files, runItemID)
-}
-
-func readRunItemOutputs(files []runItemOutputFile, runItemID string) ([]RunItemOutput, error) {
-	outputs := make([]RunItemOutput, 0, len(files))
-	for _, file := range files {
-		var output RunItemOutput
-		if err := readJSONFile(file.path, &output); err != nil {
-			return nil, err
-		}
-		if err := validateRunItemOutput(output); err != nil {
-			return nil, corruptStateError(file.path, err)
-		}
-		if output.RunItemID != runItemID {
-			return nil, corruptStateErrorf(file.path, "run item output %s belongs to run item %s, not %s", output.ID, output.RunItemID, runItemID)
-		}
-		outputs = append(outputs, output)
-	}
-	return outputs, nil
+	return cloneRunItemOutputs(store.runOutputs[workspaceID][runID][runItemID]), nil
 }
 
 func (store *Store) LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (RunItemOutputPage, error) {
@@ -76,36 +73,15 @@ func (store *Store) LoadRunItemOutputPage(workspaceID string, runID string, runI
 	if err := store.validateRunItemBelongsToRun(workspaceID, runID, runItemID); err != nil {
 		return RunItemOutputPage{}, err
 	}
-	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
-	if err != nil {
-		return RunItemOutputPage{}, err
-	}
-	files = outputFilesAfterOrdinal(files, afterOrdinal)
+	outputs := outputsAfterOrdinal(cloneRunItemOutputs(store.runOutputs[workspaceID][runID][runItemID]), afterOrdinal)
 	hasMore := false
 	nextOrdinal := 0
-	if limit > 0 && len(files) > limit {
-		files = files[:limit]
+	if limit > 0 && len(outputs) > limit {
+		outputs = outputs[:limit]
 		hasMore = true
-		nextOrdinal = files[len(files)-1].ordinal
-	}
-	outputs, err := readRunItemOutputs(files, runItemID)
-	if err != nil {
-		return RunItemOutputPage{}, err
+		nextOrdinal = outputs[len(outputs)-1].Ordinal
 	}
 	return RunItemOutputPage{RunID: runID, RunItemID: runItemID, Output: outputs, HasMore: hasMore, NextOrdinal: nextOrdinal}, nil
-}
-
-func outputFilesAfterOrdinal(files []runItemOutputFile, afterOrdinal int) []runItemOutputFile {
-	if afterOrdinal <= 0 {
-		return files
-	}
-	filtered := files[:0]
-	for _, file := range files {
-		if file.ordinal > afterOrdinal {
-			filtered = append(filtered, file)
-		}
-	}
-	return filtered
 }
 
 func (store *Store) validateRunItemBelongsToRun(workspaceID string, runID string, runItemID string) error {
@@ -128,12 +104,28 @@ func (store *Store) NextRunItemOutputOrdinal(workspaceID string, runID string, r
 	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
 		return 0, err
 	}
-	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
-	if err != nil {
-		return 0, err
-	}
-	if len(files) == 0 {
+	outputs := store.runOutputs[workspaceID][runID][runItemID]
+	if len(outputs) == 0 {
 		return 1, nil
 	}
-	return files[len(files)-1].ordinal + 1, nil
+	return outputs[len(outputs)-1].Ordinal + 1, nil
+}
+
+func outputsAfterOrdinal(outputs []RunItemOutput, afterOrdinal int) []RunItemOutput {
+	if afterOrdinal <= 0 {
+		return outputs
+	}
+	filtered := outputs[:0]
+	for _, output := range outputs {
+		if output.Ordinal > afterOrdinal {
+			filtered = append(filtered, output)
+		}
+	}
+	return filtered
+}
+
+func cloneRunItemOutputs(outputs []RunItemOutput) []RunItemOutput {
+	cloned := make([]RunItemOutput, len(outputs))
+	copy(cloned, outputs)
+	return cloned
 }
