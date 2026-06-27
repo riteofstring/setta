@@ -55,6 +55,8 @@ rm -rf "${snapshot_dir}/json" "${snapshot_dir}/json_experimental" "${snapshot_di
 mkdir -p "${snapshot_dir}/json" "${snapshot_dir}/json_experimental/v2" "${snapshot_dir}/rust/protocol/v2"
 cp -R "${schema_source}/." "${snapshot_dir}/json/"
 cp "${experimental_schema_root}/json/v2/ThreadSettingsUpdateParams.json" "${snapshot_dir}/json_experimental/v2/ThreadSettingsUpdateParams.json"
+cp "${experimental_schema_root}/json/v2/ThreadTurnsListParams.json" "${snapshot_dir}/json_experimental/v2/ThreadTurnsListParams.json"
+cp "${experimental_schema_root}/json/v2/ThreadTurnsListResponse.json" "${snapshot_dir}/json_experimental/v2/ThreadTurnsListResponse.json"
 cp "${common_source}" "${snapshot_dir}/rust/protocol/common.rs"
 cp "${thread_source}" "${snapshot_dir}/rust/protocol/v2/thread.rs"
 

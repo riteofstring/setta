@@ -6,3 +6,5 @@ experimental_source:
   - codex-rs/app-server-protocol/src/protocol/v2/thread.rs
 experimental_json:
   - json_experimental/v2/ThreadSettingsUpdateParams.json
+  - json_experimental/v2/ThreadTurnsListParams.json
+  - json_experimental/v2/ThreadTurnsListResponse.json
