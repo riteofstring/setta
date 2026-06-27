@@ -98,10 +98,7 @@ if [[ "${run_deterministic}" -eq 1 ]]; then
 fi
 
 if [[ "${run_live}" -eq 1 ]]; then
-  if [[ -z "${SETTA_CODEX_BIN:-}" ]]; then
-    echo "Live Codex workflows require SETTA_CODEX_BIN to point at the managed/reference-compatible Codex app-server runtime." >&2
-    status=1
-  elif live_skip_reason="$(codex_chatgpt_auth_present 2>&1)"; then
+  if live_skip_reason="$(codex_chatgpt_auth_present 2>&1)"; then
     echo "Live Codex Electron chat workflow..."
     if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
       --workflow live-codex-electron; then
@@ -116,18 +113,10 @@ if [[ "${run_live}" -eq 1 ]]; then
     else
       status=1
     fi
-
-    echo "Live Codex Phase 0 history validation..."
-    if SETTA_CODEX_HISTORY_PHASE0_LIVE=1 "${repo_root}/scripts/go.sh" test ./internal/chat -run TestCodexHistoryPhase0LiveProviderValidation -count=1 -v; then
-      passed_workflows+=("live-codex-phase0-history")
-    else
-      status=1
-    fi
   else
     live_skip_reason="${live_skip_reason:-Codex ChatGPT auth is unavailable}"
     skipped_workflows+=("live-codex-electron (${live_skip_reason})")
     skipped_workflows+=("live-codex-backend (${live_skip_reason})")
-    skipped_workflows+=("live-codex-phase0-history (${live_skip_reason})")
     echo "Live Codex chat workflows skipped: ${live_skip_reason}"
   fi
 fi

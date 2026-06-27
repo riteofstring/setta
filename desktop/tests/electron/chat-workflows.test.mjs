@@ -198,7 +198,6 @@ async function runDeterministicWorkflowLaunch(results) {
   const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-      SETTA_CODEX_BIN: fakeCodex.commandPath,
     },
   });
   let failure = null;
@@ -430,7 +429,6 @@ async function runTranscriptSearchWorkflowLaunch(results) {
   const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-      SETTA_CODEX_BIN: fakeCodex.commandPath,
     },
   });
   let failure = null;
@@ -887,7 +885,6 @@ async function runCodexProtocolWorkflow(results) {
   const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-      SETTA_CODEX_BIN: fakeCodex.commandPath,
     },
     harness: "codex",
   });

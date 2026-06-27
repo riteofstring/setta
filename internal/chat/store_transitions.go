@@ -1,6 +1,11 @@
 package chat
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+)
 
 type RunningTurnRecords struct {
 	Conversation     Conversation
@@ -458,30 +463,31 @@ func (store *Store) loadQueuedTurnForDelete(workspaceID string, conversationID s
 }
 
 func (store *Store) removeMessageFile(workspaceID string, message ChatMessage) error {
-	messages := store.messages[workspaceID][message.ConversationID]
-	filtered := messages[:0]
-	for _, existing := range messages {
-		if existing.ID != message.ID {
-			filtered = append(filtered, existing)
+	path := store.messagePath(workspaceID, message.ConversationID, message.Ordinal, message.ID)
+	if err := os.Remove(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
 		}
+		return &PersistenceError{Operation: "remove message", Path: path, Err: err}
 	}
-	store.messages[workspaceID][message.ConversationID] = filtered
 	return nil
 }
 
 func (store *Store) removeRunFile(workspaceID string, runID string) error {
-	run, ok := store.runs[workspaceID][runID]
-	if ok {
-		if err := store.removeQueueOverlay(workspaceID, run.ConversationID, runID); err != nil {
-			return err
+	path := store.runPath(workspaceID, runID)
+	if err := os.Remove(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
 		}
+		return &PersistenceError{Operation: "remove run", Path: path, Err: err}
 	}
-	delete(store.runs[workspaceID], runID)
 	return nil
 }
 
 func (store *Store) removeRunDirectory(workspaceID string, runID string) error {
-	delete(store.runItems[workspaceID], runID)
-	delete(store.runOutputs[workspaceID], runID)
+	path := filepath.Join(store.runsDir(workspaceID), runID)
+	if err := os.RemoveAll(path); err != nil {
+		return &PersistenceError{Operation: "remove run directory", Path: path, Err: err}
+	}
 	return nil
 }

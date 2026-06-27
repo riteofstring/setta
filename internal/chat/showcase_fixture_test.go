@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func TestSeedUIShowcaseConversationCreatesInProcessFixture(t *testing.T) {
+func TestSeedUIShowcaseConversationCreatesReloadableFixture(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	seededAt := time.Date(2026, 6, 2, 20, 0, 0, 0, time.UTC)
@@ -31,17 +31,7 @@ func TestSeedUIShowcaseConversationCreatesInProcessFixture(t *testing.T) {
 		t.Fatalf("approval id = %q, want %q", run.PendingApproval.ID, uiShowcaseUserInputApprovalID)
 	}
 
-	service, err := NewService(
-		store,
-		testResolver(t),
-		NewFakeHarness(nil),
-		WithClock(func() time.Time {
-			return mustTime(t, "2026-05-29T20:00:00Z")
-		}),
-	)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
+	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
 	page, err := service.LoadMessagePage("workspace_api", UIShowcaseConversationID, 0, 40)
 	if err != nil {
 		t.Fatalf("load message page: %v", err)

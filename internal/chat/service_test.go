@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestServicePersistsThreadOverlayWithoutTranscriptAcrossRestart(t *testing.T) {
+func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	appDataDir := t.TempDir()
 	resolver := testResolver(t)
 	harness := NewFakeHarness(nil)
@@ -36,22 +36,25 @@ func TestServicePersistsThreadOverlayWithoutTranscriptAcrossRestart(t *testing.T
 	if len(list.Conversations) != 1 {
 		t.Fatalf("conversation count = %d, want 1", len(list.Conversations))
 	}
-	if list.Conversations[0].Conversation.ID != conversation.ID {
-		t.Fatalf("conversation id = %q, want local id %q", list.Conversations[0].Conversation.ID, conversation.ID)
-	}
-	if list.Conversations[0].MessageCount != 0 {
-		t.Fatalf("message count = %d, want no Setta-persisted transcript messages", list.Conversations[0].MessageCount)
+	if list.Conversations[0].MessageCount != 2 {
+		t.Fatalf("message count = %d, want 2", list.Conversations[0].MessageCount)
 	}
 
 	latest, err := restarted.LoadMessagePage("workspace_api", conversation.ID, 0, 1)
 	if err != nil {
 		t.Fatalf("load latest page: %v", err)
 	}
-	if len(latest.Messages) != 0 || len(latest.Transcript) != 0 {
-		t.Fatalf("latest page = %+v, want no Setta-persisted transcript", latest)
+	if len(latest.Messages) != 1 || latest.Messages[0].Role != RoleAssistant {
+		t.Fatalf("latest messages = %+v, want assistant only", latest.Messages)
 	}
-	if _, err := restarted.store.LoadRun("workspace_api", result.Run.ID); err == nil {
-		t.Fatal("load completed run after restart succeeded, want no Setta-persisted run")
+	if !strings.Contains(latest.Messages[0].Parts[0].Text, "Explain Phase 3") {
+		t.Fatalf("assistant text = %q, want streamed fake response", latest.Messages[0].Parts[0].Text)
+	}
+	if latest.HasMoreOlder {
+		t.Fatal("latest page hasMoreOlder = true, want false because transcript includes the complete turn")
+	}
+	if got, want := transcriptMessageTexts(latest.Transcript), []string{"Explain Phase 3", latest.Messages[0].Parts[0].Text}; !equalStrings(got, want) {
+		t.Fatalf("latest transcript = %+v, want complete turn %+v", got, want)
 	}
 }
 
@@ -287,13 +290,12 @@ func TestServiceLoadsUnpersistedActiveAssistantDeltas(t *testing.T) {
 	if page.Messages[1].Parts[0].Text != "firstsecond" {
 		t.Fatalf("assistant text = %q, want latest in-memory deltas", page.Messages[1].Parts[0].Text)
 	}
-	reopened := mustStore(t, service.store.appDataDir)
-	storedMessages, err := reopened.LoadMessages("workspace_api", conversation.ID)
+	storedPage, err := service.store.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
 	if err != nil {
-		t.Fatalf("load messages from fresh store: %v", err)
+		t.Fatalf("load stored page: %v", err)
 	}
-	if len(storedMessages) != 0 {
-		t.Fatalf("stored messages = %+v, want no Setta-persisted active deltas", storedMessages)
+	if storedPage.Messages[1].Parts[0].Text == page.Messages[1].Parts[0].Text {
+		t.Fatal("stored page already includes all deltas; test did not observe in-memory overlay")
 	}
 	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
 		t.Fatalf("cancel active run %s: %v", result.Run.ID, err)
@@ -984,13 +986,7 @@ func TestServiceRecoveryLeavesQueuedRunsQueued(t *testing.T) {
 		Title:         "API",
 		CreatedAt:     "2026-05-29T20:00:00Z",
 		UpdatedAt:     "2026-05-29T20:00:00Z",
-		HarnessRefs: []HarnessThreadRef{{
-			Harness:       HarnessCodex,
-			ThreadID:      "thread_queue",
-			Status:        HarnessRefLinked,
-			CreatedAt:     "2026-05-29T20:00:00Z",
-			LastResumedAt: "2026-05-29T20:00:00Z",
-		}},
+		HarnessRefs:   []HarnessThreadRef{},
 	}
 	if err := store.SaveConversation(conversation); err != nil {
 		t.Fatalf("save conversation: %v", err)
@@ -1038,6 +1034,64 @@ func TestServiceRecoveryLeavesQueuedRunsQueued(t *testing.T) {
 	}
 }
 
+func TestStoreIgnoresTemporaryJSONFiles(t *testing.T) {
+	store := mustStore(t, t.TempDir())
+	conversation := Conversation{
+		SchemaVersion: SchemaVersion,
+		ID:            "conversation_api",
+		WorkspaceID:   "workspace_api",
+		Title:         "API",
+		CreatedAt:     "2026-05-29T20:00:00Z",
+		UpdatedAt:     "2026-05-29T20:00:00Z",
+		HarnessRefs:   []HarnessThreadRef{},
+	}
+	if err := store.SaveConversation(conversation); err != nil {
+		t.Fatalf("save conversation: %v", err)
+	}
+	if err := os.MkdirAll(store.messagesDir("workspace_api", conversation.ID), 0o755); err != nil {
+		t.Fatalf("create messages dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(store.messagesDir("workspace_api", conversation.ID), ".tmp-message.json"), []byte("{"), 0o644); err != nil {
+		t.Fatalf("write temp message: %v", err)
+	}
+	if err := store.SaveMessage("workspace_api", ChatMessage{
+		SchemaVersion:  SchemaVersion,
+		ID:             "message_api",
+		ConversationID: conversation.ID,
+		Role:           RoleUser,
+		Delivery:       MessageDeliveryNormal,
+		Ordinal:        1,
+		CreatedAt:      "2026-05-29T20:00:00Z",
+		UpdatedAt:      "2026-05-29T20:00:00Z",
+		Status:         MessageStatusComplete,
+		Parts: []MessagePart{{
+			Format: TextFormatPlain,
+			ID:     "part_api",
+			Text:   "hello",
+			Type:   MessagePartText,
+		}},
+	}); err != nil {
+		t.Fatalf("save message: %v", err)
+	}
+	if err := os.MkdirAll(store.runsDir("workspace_api"), 0o755); err != nil {
+		t.Fatalf("create runs dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(store.runsDir("workspace_api"), ".tmp-run.json"), []byte("{"), 0o644); err != nil {
+		t.Fatalf("write temp run: %v", err)
+	}
+
+	page, err := store.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load page: %v", err)
+	}
+	if len(page.Messages) != 1 {
+		t.Fatalf("message count = %d, want 1", len(page.Messages))
+	}
+	if _, ok, err := store.ActiveRun("workspace_api", conversation.ID); err != nil || ok {
+		t.Fatalf("active run = ok %v err %v, want none and no temp-file error", ok, err)
+	}
+}
+
 func TestApprovalRequestMarshalsEmptySlicesAsArrays(t *testing.T) {
 	data, err := json.Marshal(ApprovalRequest{})
 	if err != nil {
@@ -1080,5 +1134,207 @@ func TestValidateRunRejectsPendingApprovalOnNonRunningRun(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "has pendingApproval while status is queued") {
 		t.Fatalf("error = %q, want pending approval status diagnostic", err)
+	}
+}
+
+func TestStoreRejectsMalformedConversationState(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	conversationPath := store.conversationPath("workspace_api", "conversation_bad")
+	if err := os.MkdirAll(filepath.Dir(conversationPath), 0o755); err != nil {
+		t.Fatalf("create conversation dir: %v", err)
+	}
+	if err := os.WriteFile(conversationPath, []byte(`{"schemaVersion":1,"id":"conversation_bad","workspaceId":"workspace_api","title":"Bad","createdAt":"2026-05-29T20:00:00Z","updatedAt":"2026-05-29T20:00:00Z","archivedAt":"","harnessRefs":[],"extra":true}`), 0o644); err != nil {
+		t.Fatalf("write malformed conversation: %v", err)
+	}
+
+	_, err = store.LoadConversation("workspace_api", "conversation_bad")
+	if err == nil {
+		t.Fatal("load conversation succeeded, want malformed state error")
+	}
+	if !strings.Contains(err.Error(), `unknown field "extra"`) {
+		t.Fatalf("error = %q, want unknown field", err)
+	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	}
+}
+
+func TestStoreRecognizesConversationDirectoryRemovedDuringScan(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	dir := store.conversationDir("workspace_api", "conversation_gone")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("create conversation dir: %v", err)
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		t.Fatalf("remove conversation dir: %v", err)
+	}
+	_, loadErr := store.LoadConversation("workspace_api", "conversation_gone")
+	if loadErr == nil {
+		t.Fatal("load removed conversation succeeded, want missing file error")
+	}
+	vanished, err := store.conversationDirDisappearedDuringScan("workspace_api", "conversation_gone", loadErr)
+	if err != nil {
+		t.Fatalf("check vanished conversation: %v", err)
+	}
+	if !vanished {
+		t.Fatal("vanished = false, want true for removed conversation dir")
+	}
+
+	stillMissingFileDir := store.conversationDir("workspace_api", "conversation_missing_file")
+	if err := os.MkdirAll(stillMissingFileDir, 0o755); err != nil {
+		t.Fatalf("create missing-file conversation dir: %v", err)
+	}
+	_, loadErr = store.LoadConversation("workspace_api", "conversation_missing_file")
+	if loadErr == nil {
+		t.Fatal("load missing-file conversation succeeded, want error")
+	}
+	vanished, err = store.conversationDirDisappearedDuringScan("workspace_api", "conversation_missing_file", loadErr)
+	if err != nil {
+		t.Fatalf("check missing-file conversation: %v", err)
+	}
+	if vanished {
+		t.Fatal("vanished = true, want false while conversation directory still exists")
+	}
+}
+
+func TestServiceListConversationsReturnsValidItemsWithMalformedConversationState(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := mustStore(t, appDataDir)
+	goodConversation := Conversation{
+		SchemaVersion: SchemaVersion,
+		ID:            "conversation_good",
+		WorkspaceID:   "workspace_api",
+		Title:         "Good",
+		CreatedAt:     "2026-05-29T20:00:00Z",
+		UpdatedAt:     "2026-05-29T20:00:00Z",
+		HarnessRefs:   []HarnessThreadRef{},
+	}
+	if err := store.SaveConversation(goodConversation); err != nil {
+		t.Fatalf("save good conversation: %v", err)
+	}
+	conversationPath := store.conversationPath("workspace_api", "conversation_bad")
+	if err := os.MkdirAll(filepath.Dir(conversationPath), 0o755); err != nil {
+		t.Fatalf("create bad conversation dir: %v", err)
+	}
+	if err := os.WriteFile(conversationPath, []byte(`{"schemaVersion":1,"id":"conversation_bad","workspaceId":"workspace_api","title":"Bad","createdAt":"2026-05-29T20:00:00Z","updatedAt":"2026-05-29T20:00:00Z","archivedAt":"","harnessRefs":[],"extra":true}`), 0o644); err != nil {
+		t.Fatalf("write malformed conversation: %v", err)
+	}
+	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+
+	list, err := service.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list conversations: %v", err)
+	}
+	if len(list.Conversations) != 1 || list.Conversations[0].Conversation.ID != goodConversation.ID {
+		t.Fatalf("conversations = %+v, want good conversation only", list.Conversations)
+	}
+	if !list.Corruption.HasCorruption || list.Corruption.Total != 1 {
+		t.Fatalf("corruption summary = %+v, want one corrupt record", list.Corruption)
+	}
+	if len(list.Diagnostics) != 1 || !strings.Contains(list.Diagnostics[0].Message, `unknown field "extra"`) {
+		t.Fatalf("diagnostics = %+v, want unknown field", list.Diagnostics)
+	}
+	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
+	if !strings.Contains(diagnostic.Message, `unknown field "extra"`) {
+		t.Fatalf("diagnostic = %q, want unknown field", diagnostic.Message)
+	}
+}
+
+func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := mustStore(t, appDataDir)
+	conversation := Conversation{
+		SchemaVersion: SchemaVersion,
+		ID:            "conversation_api",
+		WorkspaceID:   "workspace_api",
+		Title:         "API",
+		CreatedAt:     "2026-05-29T20:00:00Z",
+		UpdatedAt:     "2026-05-29T20:00:00Z",
+		HarnessRefs:   []HarnessThreadRef{},
+	}
+	if err := store.SaveConversation(conversation); err != nil {
+		t.Fatalf("save conversation: %v", err)
+	}
+	if err := store.SaveMessage("workspace_api", ChatMessage{
+		SchemaVersion:  SchemaVersion,
+		ID:             "message_user",
+		ConversationID: conversation.ID,
+		RunID:          "run_api",
+		Role:           RoleUser,
+		Delivery:       MessageDeliveryNormal,
+		Ordinal:        1,
+		CreatedAt:      "2026-05-29T20:00:00Z",
+		UpdatedAt:      "2026-05-29T20:00:00Z",
+		Status:         MessageStatusComplete,
+		Parts: []MessagePart{{
+			Format: TextFormatPlain,
+			ID:     "part_user",
+			Text:   "prompt",
+			Type:   MessagePartText,
+		}},
+	}); err != nil {
+		t.Fatalf("save user message: %v", err)
+	}
+	if err := store.SaveMessage("workspace_api", ChatMessage{
+		SchemaVersion:  SchemaVersion,
+		ID:             "message_assistant",
+		ConversationID: conversation.ID,
+		RunID:          "run_api",
+		Role:           RoleAssistant,
+		Delivery:       MessageDeliveryNormal,
+		Ordinal:        2,
+		CreatedAt:      "2026-05-29T20:00:00Z",
+		UpdatedAt:      "2026-05-29T20:00:00Z",
+		Status:         MessageStatusStreaming,
+		Parts: []MessagePart{{
+			Format: TextFormatMarkdown,
+			ID:     "part_assistant",
+			Text:   "partial",
+			Type:   MessagePartText,
+		}},
+	}); err != nil {
+		t.Fatalf("save message: %v", err)
+	}
+	if err := store.SaveRun(Run{
+		SchemaVersion:      SchemaVersion,
+		ID:                 "run_api",
+		WorkspaceID:        "workspace_api",
+		ConversationID:     conversation.ID,
+		TriggerMessageID:   "message_user",
+		AssistantMessageID: "message_assistant",
+		Harness:            HarnessCodex,
+		Status:             RunStatusRunning,
+		StartedAt:          "2026-05-29T20:00:00Z",
+		PromptSummary:      "prompt",
+	}); err != nil {
+		t.Fatalf("save run: %v", err)
+	}
+
+	restarted := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	run, err := restarted.store.LoadRun("workspace_api", "run_api")
+	if err != nil {
+		t.Fatalf("load recovered run: %v", err)
+	}
+	if run.Status != RunStatusFailed || run.Error != "run interrupted by backend restart" {
+		t.Fatalf("recovered run = %+v, want failed restart error", run)
+	}
+	page, err := restarted.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load recovered page: %v", err)
+	}
+	if len(page.Messages) != 2 {
+		t.Fatalf("message count = %d, want 2", len(page.Messages))
+	}
+	if page.Messages[0].ID != "message_user" || page.Messages[0].Status != MessageStatusComplete {
+		t.Fatalf("user message = %+v, want complete user message", page.Messages[0])
+	}
+	if page.Messages[1].ID != "message_assistant" || page.Messages[1].Status != MessageStatusError {
+		t.Fatalf("assistant message = %+v, want error assistant message", page.Messages[1])
 	}
 }

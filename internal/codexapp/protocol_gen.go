@@ -12,12 +12,9 @@ const (
 	CodexMethodThreadGoalClear      = "thread/goal/clear"
 	CodexMethodThreadGoalGet        = "thread/goal/get"
 	CodexMethodThreadGoalSet        = "thread/goal/set"
-	CodexMethodThreadList           = "thread/list"
-	CodexMethodThreadRead           = "thread/read"
 	CodexMethodThreadResume         = "thread/resume"
 	CodexMethodThreadSettingsUpdate = "thread/settings/update"
 	CodexMethodThreadStart          = "thread/start"
-	CodexMethodThreadTurnsList      = "thread/turns/list"
 	CodexMethodTurnInterrupt        = "turn/interrupt"
 	CodexMethodTurnStart            = "turn/start"
 	CodexMethodTurnSteer            = "turn/steer"
@@ -30,12 +27,9 @@ var CodexMethodValues = []string{
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
 	CodexMethodThreadGoalSet,
-	CodexMethodThreadList,
-	CodexMethodThreadRead,
 	CodexMethodThreadResume,
 	CodexMethodThreadSettingsUpdate,
 	CodexMethodThreadStart,
-	CodexMethodThreadTurnsList,
 	CodexMethodTurnInterrupt,
 	CodexMethodTurnStart,
 	CodexMethodTurnSteer,
@@ -134,12 +128,9 @@ var CodexSupportedMethodValues = []string{
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
 	CodexMethodThreadGoalSet,
-	CodexMethodThreadList,
-	CodexMethodThreadRead,
 	CodexMethodThreadResume,
 	CodexMethodThreadSettingsUpdate,
 	CodexMethodThreadStart,
-	CodexMethodThreadTurnsList,
 	CodexMethodTurnInterrupt,
 	CodexMethodTurnStart,
 	CodexMethodTurnSteer,
@@ -3506,13 +3497,6 @@ func DecodeSkillsChangedNotification(raw json.RawMessage) (SkillsChangedNotifica
 	return value, err
 }
 
-type SortDirection string
-
-const (
-	SortDirectionAsc  SortDirection = "asc"
-	SortDirectionDesc SortDirection = "desc"
-)
-
 type SpendControlLimitSnapshot struct {
 	Limit            string `json:"limit"`
 	RemainingPercent int    `json:"remainingPercent"`
@@ -3965,64 +3949,6 @@ type ThreadId = string
 
 type ThreadItem = json.RawMessage
 
-type ThreadListCwdFilter = json.RawMessage
-
-type ThreadListParams struct {
-	Archived       *bool                `json:"archived,omitempty"`
-	Cursor         *string              `json:"cursor,omitempty"`
-	CWD            *ThreadListCwdFilter `json:"cwd,omitempty"`
-	Limit          *int                 `json:"limit,omitempty"`
-	ModelProviders *[]string            `json:"modelProviders,omitempty"`
-	SearchTerm     *string              `json:"searchTerm,omitempty"`
-	SortDirection  *SortDirection       `json:"sortDirection,omitempty"`
-	SortKey        *ThreadSortKey       `json:"sortKey,omitempty"`
-	SourceKinds    *[]ThreadSourceKind  `json:"sourceKinds,omitempty"`
-	UseStateDbOnly *bool                `json:"useStateDbOnly,omitempty"`
-}
-
-func validateThreadListParams(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, nil); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadListParams(raw json.RawMessage) (ThreadListParams, error) {
-	var value ThreadListParams
-	err := decodeCodexObject(raw, "ThreadListParams", validateThreadListParams, &value)
-	return value, err
-}
-
-type ThreadListResponse struct {
-	BackwardsCursor *string  `json:"backwardsCursor,omitempty"`
-	Data            []Thread `json:"data"`
-	NextCursor      *string  `json:"nextCursor,omitempty"`
-}
-
-func validateThreadListResponse(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "data"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectArrayField(fields, "data", name+".data", false, false, validateThread); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadListResponse(raw json.RawMessage) (ThreadListResponse, error) {
-	var value ThreadListResponse
-	err := decodeCodexObject(raw, "ThreadListResponse", validateThreadListResponse, &value)
-	return value, err
-}
-
 type ThreadNameUpdatedNotification struct {
 	ThreadID   string  `json:"threadId"`
 	ThreadName *string `json:"threadName,omitempty"`
@@ -4042,52 +3968,6 @@ func validateThreadNameUpdatedNotification(raw json.RawMessage, name string) err
 func DecodeThreadNameUpdatedNotification(raw json.RawMessage) (ThreadNameUpdatedNotification, error) {
 	var value ThreadNameUpdatedNotification
 	err := decodeCodexObject(raw, "ThreadNameUpdatedNotification", validateThreadNameUpdatedNotification, &value)
-	return value, err
-}
-
-type ThreadReadParams struct {
-	IncludeTurns *bool  `json:"includeTurns,omitempty"`
-	ThreadID     string `json:"threadId"`
-}
-
-func validateThreadReadParams(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "threadId"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadReadParams(raw json.RawMessage) (ThreadReadParams, error) {
-	var value ThreadReadParams
-	err := decodeCodexObject(raw, "ThreadReadParams", validateThreadReadParams, &value)
-	return value, err
-}
-
-type ThreadReadResponse struct {
-	Thread Thread `json:"thread"`
-}
-
-func validateThreadReadResponse(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "thread"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "thread", name+".thread", false, validateThread); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadReadResponse(raw json.RawMessage) (ThreadReadResponse, error) {
-	var value ThreadReadResponse
-	err := decodeCodexObject(raw, "ThreadReadResponse", validateThreadReadResponse, &value)
 	return value, err
 }
 
@@ -4462,30 +4342,7 @@ func DecodeThreadSettingsUpdatedNotification(raw json.RawMessage) (ThreadSetting
 	return value, err
 }
 
-type ThreadSortKey string
-
-const (
-	ThreadSortKeyCreatedAt ThreadSortKey = "created_at"
-	ThreadSortKeyUpdatedAt ThreadSortKey = "updated_at"
-	ThreadSortKeyRecencyAt ThreadSortKey = "recency_at"
-)
-
 type ThreadSource = string
-
-type ThreadSourceKind string
-
-const (
-	ThreadSourceKindCli                 ThreadSourceKind = "cli"
-	ThreadSourceKindVscode              ThreadSourceKind = "vscode"
-	ThreadSourceKindExec                ThreadSourceKind = "exec"
-	ThreadSourceKindAppServer           ThreadSourceKind = "appServer"
-	ThreadSourceKindSubAgent            ThreadSourceKind = "subAgent"
-	ThreadSourceKindSubAgentReview      ThreadSourceKind = "subAgentReview"
-	ThreadSourceKindSubAgentCompact     ThreadSourceKind = "subAgentCompact"
-	ThreadSourceKindSubAgentThreadSpawn ThreadSourceKind = "subAgentThreadSpawn"
-	ThreadSourceKindSubAgentOther       ThreadSourceKind = "subAgentOther"
-	ThreadSourceKindUnknown             ThreadSourceKind = "unknown"
-)
 
 type ThreadStartParams struct {
 	ApprovalPolicy        *AskForApproval             `json:"approvalPolicy,omitempty"`
@@ -4662,57 +4519,6 @@ func validateThreadTokenUsageUpdatedNotification(raw json.RawMessage, name strin
 func DecodeThreadTokenUsageUpdatedNotification(raw json.RawMessage) (ThreadTokenUsageUpdatedNotification, error) {
 	var value ThreadTokenUsageUpdatedNotification
 	err := decodeCodexObject(raw, "ThreadTokenUsageUpdatedNotification", validateThreadTokenUsageUpdatedNotification, &value)
-	return value, err
-}
-
-type ThreadTurnsListParams struct {
-	Cursor        *string        `json:"cursor,omitempty"`
-	ItemsView     *TurnItemsView `json:"itemsView,omitempty"`
-	Limit         *int           `json:"limit,omitempty"`
-	SortDirection *SortDirection `json:"sortDirection,omitempty"`
-	ThreadID      string         `json:"threadId"`
-}
-
-func validateThreadTurnsListParams(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "threadId"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadTurnsListParams(raw json.RawMessage) (ThreadTurnsListParams, error) {
-	var value ThreadTurnsListParams
-	err := decodeCodexObject(raw, "ThreadTurnsListParams", validateThreadTurnsListParams, &value)
-	return value, err
-}
-
-type ThreadTurnsListResponse struct {
-	BackwardsCursor *string `json:"backwardsCursor,omitempty"`
-	Data            []Turn  `json:"data"`
-	NextCursor      *string `json:"nextCursor,omitempty"`
-}
-
-func validateThreadTurnsListResponse(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "data"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectArrayField(fields, "data", name+".data", false, false, validateTurn); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadTurnsListResponse(raw json.RawMessage) (ThreadTurnsListResponse, error) {
-	var value ThreadTurnsListResponse
-	err := decodeCodexObject(raw, "ThreadTurnsListResponse", validateThreadTurnsListResponse, &value)
 	return value, err
 }
 

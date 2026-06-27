@@ -42,10 +42,10 @@ func (service *Service) recoverInterruptedRun(workspaceID string, run Run, now s
 		return err
 	}
 	if !ok {
-		return corruptStateErrorf(service.store.projectionRunPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID)
+		return corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID)
 	}
 	if err := validateRunAssistantMessageRecord(run, message); err != nil {
-		return corruptStateError(service.store.projectionRunPath(workspaceID, run.ID), err)
+		return corruptStateError(service.store.runPath(workspaceID, run.ID), err)
 	}
 	message.Status = MessageStatusError
 	message.UpdatedAt = now

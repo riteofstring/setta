@@ -18,7 +18,6 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
-	"setta/internal/codexruntime"
 	"setta/internal/httpapi"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
@@ -335,18 +334,12 @@ func newWorkspaceUIService(
 }
 
 func newCodexManager() *codexapp.Manager {
-	resolvedRuntime, err := codexruntime.Resolve(context.Background(), codexruntime.ResolveOptions{})
-	if err != nil {
-		return codexapp.NewManager(codexapp.ManagerConfig{
-			StartupCheck:     func() error { return err },
-			InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
-		})
-	}
 	return codexapp.NewManager(codexapp.ManagerConfig{
-		Process:                resolvedRuntime.Process,
-		InitializeParams:       chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
-		StartupInitializeError: codexruntime.StartupInitializeError(resolvedRuntime.Identity),
-		StartupProbe:           codexruntime.StartupProbe(resolvedRuntime.Identity),
+		Process: codexapp.ProcessConfig{
+			Command: "codex",
+			Args:    []string{"app-server", "--listen", "stdio://"},
+		},
+		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
 	})
 }
 

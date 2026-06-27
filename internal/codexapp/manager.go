@@ -24,11 +24,8 @@ const (
 )
 
 type ManagerConfig struct {
-	Process                ProcessConfig
-	InitializeParams       any
-	StartupCheck           func() error
-	StartupInitializeError func(message string, err error) error
-	StartupProbe           func(context.Context, *Client) error
+	Process          ProcessConfig
+	InitializeParams any
 }
 
 type Manager struct {
@@ -160,45 +157,30 @@ func (manager *Manager) Shutdown(ctx context.Context) error {
 }
 
 func (manager *Manager) ensureStarted(ctx context.Context) (*Client, error) {
-	client, err := manager.existingClient()
-	if err != nil || client != nil {
-		return client, err
+	manager.mu.Lock()
+	if manager.closed {
+		manager.mu.Unlock()
+		return nil, errors.New("codex app-server manager is closed")
 	}
+	if manager.client != nil {
+		client := manager.client
+		manager.mu.Unlock()
+		return client, nil
+	}
+	manager.mu.Unlock()
 
 	manager.startMu.Lock()
 	defer manager.startMu.Unlock()
 
-	client, err = manager.prepareStart()
-	if err != nil || client != nil {
-		return client, err
-	}
-
-	client, err = manager.startClient(ctx)
-	if err != nil {
-		manager.markStartFailed(err)
-		return nil, err
-	}
-
-	return manager.finishStart(client)
-}
-
-func (manager *Manager) existingClient() (*Client, error) {
 	manager.mu.Lock()
-	defer manager.mu.Unlock()
 	if manager.closed {
-		return nil, errors.New("codex app-server manager is closed")
-	}
-	return manager.client, nil
-}
-
-func (manager *Manager) prepareStart() (*Client, error) {
-	manager.mu.Lock()
-	defer manager.mu.Unlock()
-	if manager.closed {
+		manager.mu.Unlock()
 		return nil, errors.New("codex app-server manager is closed")
 	}
 	if manager.client != nil {
-		return manager.client, nil
+		client := manager.client
+		manager.mu.Unlock()
+		return client, nil
 	}
 	if manager.state == ManagerStateFailed {
 		manager.state = ManagerStateRestarting
@@ -206,34 +188,19 @@ func (manager *Manager) prepareStart() (*Client, error) {
 		manager.state = ManagerStateStarting
 	}
 	manager.err = nil
-	return nil, nil
-}
-
-func (manager *Manager) startClient(ctx context.Context) (*Client, error) {
-	if manager.config.StartupCheck != nil {
-		if err := manager.config.StartupCheck(); err != nil {
-			return nil, err
-		}
-	}
+	manager.mu.Unlock()
 
 	client, err := StartProcess(manager.config.Process)
 	if err != nil {
+		manager.markStartFailed(err)
 		return nil, err
 	}
 	if err := manager.initialize(ctx, client); err != nil {
 		client.Close()
+		manager.markStartFailed(err)
 		return nil, err
 	}
-	if manager.config.StartupProbe != nil {
-		if err := manager.config.StartupProbe(ctx, client); err != nil {
-			client.Close()
-			return nil, err
-		}
-	}
-	return client, nil
-}
 
-func (manager *Manager) finishStart(client *Client) (*Client, error) {
 	manager.mu.Lock()
 	if manager.closed {
 		manager.mu.Unlock()
@@ -255,19 +222,12 @@ func (manager *Manager) initialize(ctx context.Context, client *Client) error {
 		params = map[string]any{}
 	}
 	if _, err := client.Call(ctx, CodexMethodInitialize, params); err != nil {
-		return manager.startupInitializeError("initialize codex app-server", err)
+		return fmt.Errorf("initialize codex app-server: %w", err)
 	}
 	if err := client.Notify("initialized", map[string]any{}); err != nil {
-		return manager.startupInitializeError("acknowledge codex app-server initialization", err)
+		return fmt.Errorf("acknowledge codex app-server initialization: %w", err)
 	}
 	return nil
-}
-
-func (manager *Manager) startupInitializeError(message string, err error) error {
-	if manager.config.StartupInitializeError != nil {
-		return manager.config.StartupInitializeError(message, err)
-	}
-	return fmt.Errorf("%s: %w", message, err)
 }
 
 func (manager *Manager) markStartFailed(err error) {

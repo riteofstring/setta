@@ -42,12 +42,11 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
 			return ConversationListResult{}, err
 		}
-		threadID := overlayThreadIDForConversation(service.store, workspaceID, conversation.ID)
 		items = append(items, ConversationListItem{
 			Conversation:             conversation,
 			MessageCount:             count,
 			ActiveRunID:              activeRunIDFromRuns(runs, conversation.ID),
-			PinnedAt:                 pins[threadID],
+			PinnedAt:                 pins[conversation.ID],
 			ReadMarker:               readState.ReadMarker,
 			LatestReadRelevantMarker: readState.LatestReadRelevantMarker,
 		})
@@ -244,12 +243,11 @@ func (service *Service) conversationListItemFromConversationLocked(conversation 
 	if err != nil {
 		return ConversationListItem{}, err
 	}
-	threadID := overlayThreadIDForConversation(service.store, workspaceID, conversationID)
 	return ConversationListItem{
 		ActiveRunID:              activeRunID,
 		Conversation:             conversation,
 		MessageCount:             count,
-		PinnedAt:                 pins[threadID],
+		PinnedAt:                 pins[conversationID],
 		ReadMarker:               readState.ReadMarker,
 		LatestReadRelevantMarker: readState.LatestReadRelevantMarker,
 	}, nil

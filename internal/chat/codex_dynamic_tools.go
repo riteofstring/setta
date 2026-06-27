@@ -35,14 +35,13 @@ type codexDynamicToolSpec struct {
 	DeferLoading bool           `json:"deferLoading,omitempty"`
 }
 
-func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string, threadSource string) (map[string]any, error) {
+func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string) (map[string]any, error) {
 	params := map[string]any{
 		"approvalPolicy":        "on-request",
 		"approvalsReviewer":     "user",
 		"cwd":                   workspaceRoot,
 		"developerInstructions": codexDeveloperInstructions(),
 		"runtimeWorkspaceRoots": []string{workspaceRoot},
-		"threadSource":          threadSource,
 	}
 	specs, err := codexDynamicToolSpecs(harness.config.Tools)
 	if err != nil {

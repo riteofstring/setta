@@ -3,7 +3,6 @@ package chat
 import (
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestServiceTranscriptInterleavesPromotedQueuedTurns(t *testing.T) {
@@ -216,19 +215,9 @@ func TestServiceTranscriptRejectsCorruptRunMessageLinks(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("save run: %v", err)
 	}
-	service, err := NewService(
-		store,
-		testResolver(t),
-		NewFakeHarness(nil),
-		WithClock(func() time.Time {
-			return mustTime(t, "2026-05-29T20:00:00Z")
-		}),
-	)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
+	service := newTestService(t, store.appDataDir, testResolver(t), NewFakeHarness(nil))
 
-	_, err = service.LoadMessagePage("workspace_api", conversation.ID, 0, 40)
+	_, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 40)
 	if err == nil {
 		t.Fatal("load page succeeded, want corrupt transcript link error")
 	}

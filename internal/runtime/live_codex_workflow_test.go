@@ -16,7 +16,6 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
-	"setta/internal/codexruntime"
 	"setta/internal/httpapi"
 	"setta/internal/workspacesession"
 )
@@ -116,46 +115,6 @@ func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
 	}
 	assertRuntimeLiveCodexDurableState(t, config.AppDataDir, opened.Workspace.ID, conversation.ID)
 	assertRuntimeNoCriticalDiagnostics(t, config.AppDataDir)
-}
-
-func TestBackendAppWorkflowWithLiveCodexGoalCommand(t *testing.T) {
-	unsetRuntimeEnv(t, "OPENAI_API_KEY")
-	requireRuntimeLiveCodexChatGPTAuth(t)
-
-	config := testConfig(t)
-	config.Version = "test"
-	server, err := Start(context.Background(), config)
-	if err != nil {
-		t.Fatalf("start backend: %v", err)
-	}
-	defer shutdownServer(t, server)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	baseURL := "http://" + server.Addr()
-
-	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
-		RootPath: t.TempDir(),
-	}, http.StatusOK)
-	conversation := postRuntimeJSON[chat.Conversation](t, client, baseURL, "/chat/conversations/create", httpapi.CreateConversationRequest{
-		WorkspaceID: opened.Workspace.ID,
-	}, http.StatusOK)
-	defer cancelRuntimeActiveRunBestEffort(client, baseURL, opened.Workspace.ID, conversation.ID)
-
-	objective := "Reply with one short sentence containing the exact phrase setta live goal smoke."
-	result := postRuntimeJSON[chat.ChatCommandExecuteResult](t, client, baseURL, "/chat/commands/execute", httpapi.ExecuteChatCommandRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-		Raw:            "/goal " + objective,
-	}, http.StatusOK)
-	if result.Message == nil || runtimeMessageText(*result.Message) != "Goal set: "+objective {
-		t.Fatalf("goal command message = %+v, want %q", result.Message, "Goal set: "+objective)
-	}
-	if result.Page.Goal == nil || result.Page.Goal.Status != "active" || result.Page.Goal.Objective != objective {
-		t.Fatalf("goal state = %+v, want active objective %q", result.Page.Goal, objective)
-	}
-	if len(result.Page.Transcript) != 1 || result.Page.Transcript[0].TriggerMessage.Delivery != chat.MessageDeliveryGoal {
-		t.Fatalf("goal transcript = %+v, want one goal-delivered turn", result.Page.Transcript)
-	}
 }
 
 func waitForRuntimeLiveCodexReply(t *testing.T, client *http.Client, baseURL string, appDataDir string, workspaceID string, conversationID string, runID string) chat.MessagePage {
@@ -319,24 +278,18 @@ func assertRuntimeNoCriticalDiagnostics(t *testing.T, appDataDir string) {
 func requireRuntimeLiveCodexChatGPTAuth(t *testing.T) {
 	t.Helper()
 
-	resolvedRuntime, err := codexruntime.Resolve(context.Background(), codexruntime.ResolveOptions{})
-	if err != nil {
-		t.Skipf("managed Codex runtime is unavailable for live workflow test: %v", err)
-	}
 	manager := codexapp.NewManager(codexapp.ManagerConfig{
-		Process: resolvedRuntime.Process,
+		Process: codexapp.ProcessConfig{
+			Command: "codex",
+			Args:    []string{"app-server", "--listen", "stdio://"},
+		},
 		InitializeParams: map[string]any{
 			"clientInfo": map[string]any{
 				"name":    "setta-live-test",
 				"title":   "Setta Live Test",
 				"version": "dev",
 			},
-			"capabilities": map[string]any{
-				"experimentalApi": true,
-			},
 		},
-		StartupInitializeError: codexruntime.StartupInitializeError(resolvedRuntime.Identity),
-		StartupProbe:           codexruntime.StartupProbe(resolvedRuntime.Identity),
 	})
 	defer func() {
 		if err := manager.Shutdown(context.Background()); err != nil {

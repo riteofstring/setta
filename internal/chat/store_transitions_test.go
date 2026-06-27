@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -111,6 +112,9 @@ func TestStoreEditAndDeleteQueuedTurnTransitions(t *testing.T) {
 	}
 	if _, err := store.LoadRun("workspace_api", deleted.Run.ID); err == nil {
 		t.Fatal("deleted run loaded successfully, want missing run")
+	}
+	if existsPath(store.tracePath("workspace_api", deleted.Run.ID, "trace_delete")) {
+		t.Fatal("queued run trace still exists after delete")
 	}
 }
 
@@ -339,4 +343,9 @@ func transitionApproval(id string, runID string) ApprovalRequest {
 		Options:   []string{},
 		Questions: []ApprovalQuestion{},
 	}
+}
+
+func existsPath(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

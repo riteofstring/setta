@@ -78,23 +78,15 @@ func TestAddRootSchemaRejectsConflictingDuplicateName(t *testing.T) {
 	}
 }
 
-func TestSupportedProtocolRegistrationAddsHistoryClientMethods(t *testing.T) {
+func TestSupportedProtocolRegistrationAddsStructuredExperimentalClientMethod(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	input := supportedProtocolInput{
 		ClientMethods: []supportedClientMethod{
-			{Method: "thread/list"},
-			{Method: "thread/read"},
+			{Method: "thread/start"},
 			{
 				Experimental: true,
 				Method:       "thread/settings/update",
 				ParamsName:   "ThreadSettingsUpdateParams",
-				Source:       "generated experimental fixture",
-			},
-			{Method: "thread/start"},
-			{
-				Experimental: true,
-				Method:       "thread/turns/list",
-				ParamsName:   "ThreadTurnsListParams",
 				Source:       "generated experimental fixture",
 			},
 		},
@@ -110,30 +102,11 @@ func TestSupportedProtocolRegistrationAddsHistoryClientMethods(t *testing.T) {
 		t.Fatalf("collect schemas: %v", err)
 	}
 
-	supportedMethods := membersByMethod(generator.supportedClientMethods)
-	for _, method := range []string{
-		"thread/list",
-		"thread/read",
-		"thread/settings/update",
-		"thread/start",
-		"thread/turns/list",
-	} {
-		if _, ok := supportedMethods[method]; !ok {
-			t.Fatalf("%s was not added to supported client methods", method)
-		}
+	if _, ok := membersByMethod(generator.clientMethods)["thread/settings/update"]; !ok {
+		t.Fatal("experimental method was not added to generated client methods")
 	}
-	for _, schema := range []string{
-		"ThreadListParams",
-		"ThreadListResponse",
-		"ThreadReadParams",
-		"ThreadReadResponse",
-		"ThreadSettingsUpdateParams",
-		"ThreadTurnsListParams",
-		"ThreadTurnsListResponse",
-	} {
-		if _, ok := generator.schemas[schema]; !ok {
-			t.Fatalf("%s schema was not collected", schema)
-		}
+	if _, ok := generator.schemas["ThreadSettingsUpdateParams"]; !ok {
+		t.Fatal("ThreadSettingsUpdateParams schema was not collected")
 	}
 	if _, ok := generator.schemas["ExplicitFixture"]; !ok {
 		t.Fatal("explicit schema registration was not collected")
@@ -217,7 +190,7 @@ func TestRenderEmitsOnlySupportedServerRequestConstants(t *testing.T) {
 func TestRenderEmitsOnlyRegisteredCodexProtocolConstants(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	generator.clientMethods = []protocolMember{
-		{Method: "thread/archive", ConstName: "ThreadArchive", ParamsName: "ThreadArchiveParams", Source: "json"},
+		{Method: "thread/list", ConstName: "ThreadList", ParamsName: "ThreadListParams", Source: "json"},
 		{Method: "turn/start", ConstName: "TurnStart", ParamsName: "TurnStartParams", Source: "json"},
 	}
 	generator.supportedClientMethods = []protocolMember{
@@ -239,8 +212,8 @@ func TestRenderEmitsOnlyRegisteredCodexProtocolConstants(t *testing.T) {
 	if !strings.Contains(text, `CodexMethodTurnStart = "turn/start"`) {
 		t.Fatalf("output = %s, want supported turn/start method constant", text)
 	}
-	if strings.Contains(text, "CodexMethodThreadArchive") {
-		t.Fatalf("output = %s, want no unsupported thread/archive method constant", text)
+	if strings.Contains(text, "CodexMethodThreadList") {
+		t.Fatalf("output = %s, want no unsupported thread/list method constant", text)
 	}
 	if strings.Contains(text, "CodexNotificationItemFileChangeOutputDelta") {
 		t.Fatalf("output = %s, want no unsupported notification constant", text)
@@ -398,10 +371,6 @@ func testProtocolGenerator(t *testing.T) *generator {
 	}
 	for name, body := range map[string]string{
 		"ExplicitFixture":           `{"title":"ExplicitFixture","type":"object","properties":{"value":{"type":"string"}}}`,
-		"ThreadListParams":          `{"title":"ThreadListParams","type":"object","properties":{"limit":{"type":["integer","null"]}}}`,
-		"ThreadListResponse":        `{"title":"ThreadListResponse","type":"object","properties":{"data":{"type":"array","items":{"type":"string"}}},"required":["data"]}`,
-		"ThreadReadParams":          `{"title":"ThreadReadParams","type":"object","properties":{"threadId":{"type":"string"}},"required":["threadId"]}`,
-		"ThreadReadResponse":        `{"title":"ThreadReadResponse","type":"object","properties":{"thread":{"type":"object"}},"required":["thread"]}`,
 		"ThreadStartedNotification": `{"title":"ThreadStartedNotification","type":"object","properties":{"threadId":{"type":"string"}}}`,
 		"ToolCallRequest":           `{"title":"ToolCallRequest","type":"object","properties":{"itemId":{"type":"string"}}}`,
 	} {
@@ -416,14 +385,6 @@ func testProtocolGenerator(t *testing.T) *generator {
 	); err != nil {
 		t.Fatalf("write experimental ThreadSettingsUpdateParams schema: %v", err)
 	}
-	for name, body := range map[string]string{
-		"ThreadTurnsListParams":   `{"title":"ThreadTurnsListParams","type":"object","properties":{"threadId":{"type":"string"},"itemsView":{"oneOf":[{"enum":["summary"],"type":"string"},{"enum":["full"],"type":"string"}]}},"required":["threadId"]}`,
-		"ThreadTurnsListResponse": `{"title":"ThreadTurnsListResponse","type":"object","properties":{"data":{"type":"array","items":{"type":"object"}}},"required":["data"]}`,
-	} {
-		if err := os.WriteFile(filepath.Join(experimentalV2Dir, name+".json"), []byte(body), 0o644); err != nil {
-			t.Fatalf("write experimental %s schema: %v", name, err)
-		}
-	}
 	return &generator{
 		schemaDir:             schemaDir,
 		experimentalSchemaDir: experimentalSchemaDir,
@@ -432,8 +393,6 @@ func testProtocolGenerator(t *testing.T) *generator {
 		},
 		rootSchemaRaw: map[string]string{},
 		clientMethods: []protocolMember{
-			{Method: "thread/list", ConstName: "ThreadList", ParamsName: "ThreadListParams", Source: "json"},
-			{Method: "thread/read", ConstName: "ThreadRead", ParamsName: "ThreadReadParams", Source: "json"},
 			{Method: "thread/start", ConstName: "ThreadStart", ParamsName: "ThreadStartParams", Source: "json"},
 		},
 		notifications: []protocolMember{
