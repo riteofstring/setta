@@ -25,15 +25,6 @@ func TestServiceExecutesGoalCommandAndStartsPursuit(t *testing.T) {
 	if result.Message.Parts[0].Text != "Goal set: finish renderer tests" {
 		t.Fatalf("command text = %q, want goal set result", result.Message.Parts[0].Text)
 	}
-	if len(result.Page.Transcript) != 1 {
-		t.Fatalf("transcript = %+v, want goal pursuit turn", result.Page.Transcript)
-	}
-	if result.Page.Transcript[0].TriggerMessage.Parts[0].Text != "finish renderer tests" {
-		t.Fatalf("goal pursuit prompt = %q, want objective", result.Page.Transcript[0].TriggerMessage.Parts[0].Text)
-	}
-	if result.Page.Transcript[0].TriggerMessage.Delivery != MessageDeliveryGoal {
-		t.Fatalf("goal trigger delivery = %s, want goal", result.Page.Transcript[0].TriggerMessage.Delivery)
-	}
 	if result.Page.Goal == nil || result.Page.Goal.Status != "active" || result.Page.Goal.Objective != "finish renderer tests" {
 		t.Fatalf("page goal = %+v, want active renderer goal", result.Page.Goal)
 	}
@@ -43,6 +34,20 @@ func TestServiceExecutesGoalCommandAndStartsPursuit(t *testing.T) {
 	}
 	if len(runs) != 1 {
 		t.Fatalf("runs = %+v, want one run for goal pursuit", runs)
+	}
+	blocks, err := service.store.LoadTranscriptBlocks("workspace_api", runs[0].ID)
+	if err != nil {
+		t.Fatalf("load goal transcript blocks: %v", err)
+	}
+	goalBlock := firstUserMessageBlock(blocks)
+	if goalBlock == nil {
+		t.Fatalf("blocks = %+v, want goal pursuit trigger block", blocks)
+	}
+	if goalBlock.UserMessage.Parts[0].Text != "finish renderer tests" {
+		t.Fatalf("goal pursuit prompt = %q, want objective", goalBlock.UserMessage.Parts[0].Text)
+	}
+	if goalBlock.UserMessage.Delivery != MessageDeliveryGoal {
+		t.Fatalf("goal trigger delivery = %s, want goal", goalBlock.UserMessage.Delivery)
 	}
 	run := waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
 	if run.PromptSummary != "finish renderer tests" {

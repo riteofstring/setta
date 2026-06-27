@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"setta/internal/workspace"
@@ -159,83 +158,6 @@ func isThinkingReasoningItem(item RunItem) bool {
 	return item.Type == RunItemTypeReasoning && item.Title != "" && item.Summary == "" && item.HiddenText == ""
 }
 
-// TestServiceFlattensChronologicalTranscript characterizes the CURRENT confusing backend
-// behavior: the chronological provider stream is flattened into a single assistant message
-// part plus one activity group, losing the interleaving. These assertions are expected to
-// be rewritten when ingestion stores ordered transcript blocks (plan phases 1-3).
-func TestServiceFlattensChronologicalTranscript(t *testing.T) {
-	service := newTestService(t, t.TempDir(), testResolver(t), NewScriptedWorkflowHarness())
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	result, err := service.SendUserMessage("workspace_api", conversation.ID, "chronological transcript workflow")
-	if err != nil {
-		t.Fatalf("send message: %v", err)
-	}
-	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
-
-	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, defaultPageLimit)
-	if err != nil {
-		t.Fatalf("load message page: %v", err)
-	}
-	assistant := assistantMessageForRun(page.Messages, result.Run.ID)
-	if assistant == nil {
-		t.Fatalf("no assistant message for run %s: %+v", result.Run.ID, page.Messages)
-	}
-
-	// CURRENT behavior: all four chronological text segments collapse into one part and the
-	// command that happened between them leaves no trace in the assistant message.
-	if len(assistant.Parts) != 1 {
-		t.Fatalf("assistant parts = %d, want 1 flattened part: %+v", len(assistant.Parts), assistant.Parts)
-	}
-	wantText := chronologicalAssistantTextOne + chronologicalAssistantTextTwo +
-		chronologicalAssistantTextThree + chronologicalAssistantTextFour
-	if assistant.Parts[0].Text != wantText {
-		t.Fatalf("assistant text = %q, want flattened concatenation %q", assistant.Parts[0].Text, wantText)
-	}
-	if strings.Contains(assistant.Parts[0].Text, chronologicalPrivateReasoning) {
-		t.Fatalf("private reasoning leaked into assistant text: %q", assistant.Parts[0].Text)
-	}
-
-	activity, err := service.LoadRunActivityPage("workspace_api", result.Run.ID, 100)
-	if err != nil {
-		t.Fatalf("load activity page: %v", err)
-	}
-	assertChronologicalActivityProjection(t, activity.Activity)
-}
-
-// assertChronologicalActivityProjection freezes that the three displayable run items collapse
-// into one activity group: command A (with streamed output), command B, and the public
-// reasoning summary, while private/hidden reasoning never surfaces.
-func assertChronologicalActivityProjection(t *testing.T, group *RunActivityGroupProjection) {
-	t.Helper()
-	if group == nil {
-		t.Fatalf("expected an activity projection group")
-	}
-	rows := group.Rows
-	if len(rows) != 3 {
-		t.Fatalf("activity rows = %d, want 3 (command A, command B, public reasoning): %+v", len(rows), rows)
-	}
-	commandA := activityRowByTitle(rows, chronologicalCommandATitle)
-	commandB := activityRowByTitle(rows, chronologicalCommandBTitle)
-	reasoning := activityRowByTitle(rows, chronologicalReasoningTitle)
-	if commandA == nil || commandB == nil || reasoning == nil {
-		t.Fatalf("missing expected activity rows: %+v", rows)
-	}
-	if !commandA.HasOutput {
-		t.Fatalf("command A row hasOutput = false, want true from streamed chunks: %+v", commandA)
-	}
-	if reasoning.Type != RunItemTypeReasoning || reasoning.Details.Summary != chronologicalReasoningSummary {
-		t.Fatalf("reasoning row = %+v, want public summary surfaced", reasoning)
-	}
-	for _, row := range rows {
-		if rowExposesPrivateReasoning(row) {
-			t.Fatalf("private/hidden reasoning leaked into activity row: %+v", row)
-		}
-	}
-}
-
 func indexOfRunItem(events []chronoSinkEvent, from int, match func(RunItem) bool) int {
 	for index := from; index < len(events); index++ {
 		if events[index].kind == "run_item_upsert" && match(events[index].item) {
@@ -291,29 +213,4 @@ func toolItemPrecedesText(events []chronoSinkEvent, thinkingIndex int, following
 		}
 	}
 	return false
-}
-
-func assistantMessageForRun(messages []ChatMessage, runID string) *ChatMessage {
-	for index := range messages {
-		if messages[index].Role == RoleAssistant && messages[index].RunID == runID {
-			return &messages[index]
-		}
-	}
-	return nil
-}
-
-func activityRowByTitle(rows []RunActivityRowProjection, title string) *RunActivityRowProjection {
-	for index := range rows {
-		if rows[index].Title == title {
-			return &rows[index]
-		}
-	}
-	return nil
-}
-
-func rowExposesPrivateReasoning(row RunActivityRowProjection) bool {
-	return strings.Contains(row.Title, chronologicalPrivateReasoning) ||
-		strings.Contains(row.Details.Summary, chronologicalPrivateReasoning) ||
-		strings.Contains(row.Details.Progress, chronologicalPrivateReasoning) ||
-		strings.Contains(row.Details.Result, chronologicalPrivateReasoning)
 }

@@ -19,54 +19,6 @@ var runActivityDefaultTitles = map[RunItemType]string{
 	RunItemTypeAgentMessage:        "Assistant message",
 }
 
-func buildRunActivityProjection(run Run, items []RunItem, outputs []RunItemOutput) *RunActivityGroupProjection {
-	hasOutputByRunItemID := runItemOutputPresence(outputs)
-	rows := make([]RunActivityRowProjection, 0, len(items))
-	for _, item := range items {
-		row, ok := runActivityRowProjection(run, item, hasOutputByRunItemID[item.ID])
-		if ok {
-			rows = append(rows, row)
-		}
-	}
-	if len(rows) == 0 {
-		return nil
-	}
-	return &RunActivityGroupProjection{
-		RunID:  run.ID,
-		Status: runActivityGroupStatus(rows),
-		Rows:   rows,
-	}
-}
-
-func runActivityRowProjection(run Run, item RunItem, hasOutput bool) (RunActivityRowProjection, bool) {
-	status := effectiveRunActivityRowStatus(run.Status, item.Status)
-	details := runActivityDetailsProjection(item)
-	hasDetails := runActivityDetailsInspectable(details)
-	if !runItemDisplayable(item, status, hasDetails, hasOutput) {
-		return RunActivityRowProjection{}, false
-	}
-	return RunActivityRowProjection{
-		ID:              "activity_" + item.ID,
-		SourceRunItemID: item.ID,
-		Type:            item.Type,
-		Title:           runActivityTitle(item),
-		Status:          status,
-		Details:         details,
-		HasDetails:      hasDetails,
-		HasOutput:       hasOutput,
-	}, true
-}
-
-func runItemOutputPresence(outputs []RunItemOutput) map[string]bool {
-	presence := map[string]bool{}
-	for _, output := range outputs {
-		if output.RunItemID != "" {
-			presence[output.RunItemID] = true
-		}
-	}
-	return presence
-}
-
 func effectiveRunActivityRowStatus(runStatus RunStatus, itemStatus RunItemStatus) RunItemStatus {
 	if itemStatus != RunItemStatusPending && itemStatus != RunItemStatusRunning {
 		return itemStatus
@@ -225,21 +177,4 @@ func runActivityDefaultTitle(itemType RunItemType) string {
 		return title
 	}
 	return string(itemType)
-}
-
-func runActivityGroupStatus(rows []RunActivityRowProjection) RunStatus {
-	status := RunStatusCompleted
-	for _, row := range rows {
-		switch row.Status {
-		case RunItemStatusFailed:
-			return RunStatusFailed
-		case RunItemStatusCancelled:
-			status = RunStatusCancelled
-		case RunItemStatusPending, RunItemStatusRunning:
-			if status != RunStatusCancelled {
-				status = RunStatusRunning
-			}
-		}
-	}
-	return status
 }

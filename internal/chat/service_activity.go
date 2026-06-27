@@ -321,7 +321,7 @@ func (service *Service) publishRunItemUpsertLocked(item RunItem, exists bool) er
 	if err != nil {
 		return err
 	}
-	return service.publishRunActivityProjectionLocked(item.WorkspaceID, item.RunID)
+	return nil
 }
 
 func mergeRunItem(existing RunItem, next RunItem) RunItem {
@@ -420,7 +420,6 @@ func (service *Service) appendRunItemOutput(workspaceID string, conversationID s
 				return err
 			}
 		}
-		return service.publishRunActivityProjectionLocked(workspaceID, runID)
 	}
 	return nil
 }
@@ -468,24 +467,7 @@ func (service *Service) ensureOutputRunItemLocked(workspaceID string, conversati
 	if _, err = service.events.Publish(NewRunItemCreatedEvent(item)); err != nil {
 		return RunItem{}, err
 	}
-	return item, service.publishRunActivityProjectionLocked(workspaceID, runID)
-}
-
-func (service *Service) publishRunActivityProjectionLocked(workspaceID string, runID string) error {
-	run, err := service.store.LoadRun(workspaceID, runID)
-	if err != nil {
-		return err
-	}
-	items, err := service.store.LoadRunItems(workspaceID, runID)
-	if err != nil {
-		return err
-	}
-	outputs, err := service.runItemOutputPreviews(workspaceID, runID, items, embeddedRunOutputLimit)
-	if err != nil {
-		return err
-	}
-	_, err = service.events.Publish(NewRunActivityUpdatedEvent(run, buildRunActivityProjection(run, items, outputs)))
-	return err
+	return item, nil
 }
 
 func (service *Service) newRunItemOutputLocked(workspaceID string, runID string, runItemID string, stream string, text string) (RunItemOutput, error) {
@@ -523,69 +505,6 @@ func (service *Service) attachPageState(workspaceID string, conversationID strin
 		return err
 	}
 	page.Goal = goal
-	if err := service.attachTranscriptToPageLocked(workspaceID, conversationID, page, runs); err != nil {
-		return err
-	}
-	return service.attachRunActivityToPage(workspaceID, page)
-}
-
-func (service *Service) attachRunActivityToPage(workspaceID string, page *MessagePage) error {
-	for _, runID := range runIDsFromTranscript(page.Transcript) {
-		run, err := service.store.LoadRun(workspaceID, runID)
-		if err != nil {
-			return err
-		}
-		if err := service.validateRunAssistantMessage(workspaceID, run); err != nil {
-			return err
-		}
-		items, err := service.store.LoadRunItems(workspaceID, runID)
-		if err != nil {
-			return err
-		}
-		outputs, err := service.runItemOutputPreviews(workspaceID, runID, items, embeddedRunOutputLimit)
-		if err != nil {
-			return err
-		}
-		attachRunActivityProjectionToTranscript(page.Transcript, run, items, outputs)
-		page.RunItems = append(page.RunItems, items...)
-		page.RunItemOutputs = append(page.RunItemOutputs, outputs...)
-	}
-	return nil
-}
-
-func attachRunActivityProjectionToTranscript(transcript []TranscriptTurn, run Run, items []RunItem, outputs []RunItemOutput) {
-	for index := range transcript {
-		if transcript[index].Run.ID == run.ID {
-			transcript[index].Activity = buildRunActivityProjection(run, items, outputs)
-			return
-		}
-	}
-}
-
-func (service *Service) validateRunAssistantMessage(workspaceID string, run Run) error {
-	if run.Status == RunStatusQueued {
-		return nil
-	}
-	message, ok, err := service.store.FindMessageByID(workspaceID, run.ConversationID, run.AssistantMessageID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID)
-	}
-	if err := validateRunAssistantMessageRecord(run, message); err != nil {
-		return corruptStateError(service.store.runPath(workspaceID, run.ID), err)
-	}
-	return nil
-}
-
-func validateRunAssistantMessageRecord(run Run, message ChatMessage) error {
-	if message.Role != RoleAssistant {
-		return fmt.Errorf("run %s assistantMessageId %s refers to %s message", run.ID, run.AssistantMessageID, message.Role)
-	}
-	if message.RunID != run.ID {
-		return fmt.Errorf("run %s assistant message %s belongs to run %s", run.ID, message.ID, message.RunID)
-	}
 	return nil
 }
 
@@ -598,12 +517,6 @@ func (service *Service) LoadRunActivityPage(workspaceID string, runID string, li
 	}
 	service.mu.Lock()
 
-	run, err := service.store.LoadRun(workspaceID, runID)
-	if err != nil {
-		service.mu.Unlock()
-		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
-		return RunActivityPage{}, err
-	}
 	items, err := service.store.LoadRunItems(workspaceID, runID)
 	if err != nil {
 		service.mu.Unlock()
@@ -618,10 +531,9 @@ func (service *Service) LoadRunActivityPage(workspaceID string, runID string, li
 	}
 	service.mu.Unlock()
 	return RunActivityPage{
-		RunID:    runID,
-		Items:    items,
-		Output:   outputs,
-		Activity: buildRunActivityProjection(run, items, outputs),
+		RunID:  runID,
+		Items:  items,
+		Output: outputs,
 	}, nil
 }
 

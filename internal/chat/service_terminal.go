@@ -17,9 +17,6 @@ func (service *Service) publishTerminalTurnLocked(workspaceID string, conversati
 	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
 		return err
 	}
-	if err := service.publishRunActivityProjectionLocked(workspaceID, run.ID); err != nil {
-		return err
-	}
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
 		return err
 	}

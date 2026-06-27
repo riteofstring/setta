@@ -430,10 +430,6 @@ func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 	if result.Page.Goal == nil || result.Page.Goal.Status != "active" || result.Page.Goal.Objective != "finish renderer tests" {
 		t.Fatalf("page goal = %+v, want active command goal", result.Page.Goal)
 	}
-	if len(result.Page.Transcript) != 1 || result.Page.Transcript[0].TriggerMessage.Delivery != chat.MessageDeliveryGoal {
-		t.Fatalf("transcript = %+v, want internal goal trigger", result.Page.Transcript)
-	}
-
 	runs := postJSON[ListRunsResponse](t, handler, "/chat/runs/list", ListRunsRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,

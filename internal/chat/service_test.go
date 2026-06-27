@@ -50,11 +50,13 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	if !strings.Contains(latest.Messages[0].Parts[0].Text, "Explain Phase 3") {
 		t.Fatalf("assistant text = %q, want streamed fake response", latest.Messages[0].Parts[0].Text)
 	}
-	if latest.HasMoreOlder {
-		t.Fatal("latest page hasMoreOlder = true, want false because transcript includes the complete turn")
+	blocks, err := restarted.store.LoadTranscriptBlocks("workspace_api", run.ID)
+	if err != nil {
+		t.Fatalf("load persisted transcript blocks: %v", err)
 	}
-	if got, want := transcriptMessageTexts(latest.Transcript), []string{"Explain Phase 3", latest.Messages[0].Parts[0].Text}; !equalStrings(got, want) {
-		t.Fatalf("latest transcript = %+v, want complete turn %+v", got, want)
+	userBlock := firstUserMessageBlock(blocks)
+	if userBlock == nil || userBlock.UserMessage.Parts[0].Text != "Explain Phase 3" {
+		t.Fatalf("user block = %+v, want trigger text", userBlock)
 	}
 }
 
@@ -1005,13 +1007,6 @@ func TestServiceEmbedsCappedRunOutputAndLoadsFullActivityPage(t *testing.T) {
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
 
-	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
-	if err != nil {
-		t.Fatalf("load message page: %v", err)
-	}
-	if len(page.RunItemOutputs) != embeddedRunOutputLimit {
-		t.Fatalf("embedded output count = %d, want %d", len(page.RunItemOutputs), embeddedRunOutputLimit)
-	}
 	activity, err := service.LoadRunActivityPage("workspace_api", result.Run.ID, embeddedRunOutputLimit+10)
 	if err != nil {
 		t.Fatalf("load activity page: %v", err)

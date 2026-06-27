@@ -649,9 +649,6 @@ func (service *Service) publishCompletedTurnLocked(workspaceID string, conversat
 	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
 		return err
 	}
-	if err := service.publishRunActivityProjectionLocked(workspaceID, run.ID); err != nil {
-		return err
-	}
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
 		return err
 	}
@@ -824,9 +821,6 @@ func (service *Service) saveApprovalRequestLocked(workspaceID string, run Run, a
 	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
 		return err
 	}
-	if err := service.publishRunActivityProjectionLocked(workspaceID, run.ID); err != nil {
-		return err
-	}
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, run.ConversationID, approval.CreatedAt); err != nil {
 		return err
 	}
@@ -853,9 +847,6 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 		return err
 	}
 	if _, err = service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
-		return err
-	}
-	if err := service.publishRunActivityProjectionLocked(workspaceID, run.ID); err != nil {
 		return err
 	}
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, run.ConversationID, timestamp(service.now())); err != nil {

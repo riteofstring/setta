@@ -22,7 +22,6 @@ const (
 	EventTypeRunItemCreated      = "chat.run_item.created"
 	EventTypeRunItemUpdated      = "chat.run_item.updated"
 	EventTypeRunItemOutputDelta  = "chat.run_item_output.delta"
-	EventTypeRunActivityUpdated  = "chat.run_activity.updated"
 	EventTypeQueueUpdated        = "chat.queue.updated"
 	EventTypeGoalUpdated         = "chat.goal.updated"
 	EventTypeConversationUpdated = "chat.conversation.updated"
@@ -118,11 +117,6 @@ type RunItemOutputDeltaPayload struct {
 	Output RunItemOutput `json:"output"`
 }
 
-type RunActivityUpdatedPayload struct {
-	RunID    string                      `json:"runId"`
-	Activity *RunActivityGroupProjection `json:"activity"`
-}
-
 type QueueUpdatedPayload struct {
 	Queue QueueState `json:"queue"`
 }
@@ -187,7 +181,6 @@ func EventContracts() EventContractSchema {
 			{Name: "ChatRunItemCreatedEvent", Type: EventTypeRunItemCreated, Payload: reflect.TypeFor[RunItemCreatedPayload]()},
 			{Name: "ChatRunItemUpdatedEvent", Type: EventTypeRunItemUpdated, Payload: reflect.TypeFor[RunItemUpdatedPayload]()},
 			{Name: "ChatRunItemOutputDeltaEvent", Type: EventTypeRunItemOutputDelta, Payload: reflect.TypeFor[RunItemOutputDeltaPayload]()},
-			{Name: "ChatRunActivityUpdatedEvent", Type: EventTypeRunActivityUpdated, Payload: reflect.TypeFor[RunActivityUpdatedPayload]()},
 			{Name: "ChatQueueUpdatedEvent", Type: EventTypeQueueUpdated, Payload: reflect.TypeFor[QueueUpdatedPayload]()},
 			{Name: "ChatGoalUpdatedEvent", Type: EventTypeGoalUpdated, Payload: reflect.TypeFor[GoalUpdatedPayload]()},
 			{Name: "ChatConversationUpdatedEvent", Type: EventTypeConversationUpdated, Payload: reflect.TypeFor[ConversationUpdatedPayload]()},
@@ -337,16 +330,6 @@ func NewRunItemOutputDeltaEvent(workspaceID string, conversationID string, runID
 		RunID:          runID,
 		Type:           EventTypeRunItemOutputDelta,
 		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewRunActivityUpdatedEvent(run Run, activity *RunActivityGroupProjection) EventDraft {
-	return EventDraft{
-		ConversationID: run.ConversationID,
-		Payload:        RunActivityUpdatedPayload{Activity: activity, RunID: run.ID},
-		RunID:          run.ID,
-		Type:           EventTypeRunActivityUpdated,
-		WorkspaceID:    run.WorkspaceID,
 	}
 }
 

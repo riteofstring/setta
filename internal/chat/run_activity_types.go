@@ -25,28 +25,10 @@ type RunActivityDetailsProjection struct {
 	Details       json.RawMessage `json:"details"`
 }
 
-type RunActivityRowProjection struct {
-	ID              string                       `json:"id"`
-	SourceRunItemID string                       `json:"sourceRunItemId"`
-	Type            RunItemType                  `json:"type"`
-	Title           string                       `json:"title"`
-	Status          RunItemStatus                `json:"status"`
-	Details         RunActivityDetailsProjection `json:"details"`
-	HasDetails      bool                         `json:"hasDetails"`
-	HasOutput       bool                         `json:"hasOutput"`
-}
-
-type RunActivityGroupProjection struct {
-	RunID  string                     `json:"runId"`
-	Status RunStatus                  `json:"status"`
-	Rows   []RunActivityRowProjection `json:"rows"`
-}
-
 type RunActivityPage struct {
-	RunID    string                      `json:"runId"`
-	Items    []RunItem                   `json:"items"`
-	Output   []RunItemOutput             `json:"output"`
-	Activity *RunActivityGroupProjection `json:"activity"`
+	RunID  string          `json:"runId"`
+	Items  []RunItem       `json:"items"`
+	Output []RunItemOutput `json:"output"`
 }
 
 func (details RunActivityDetailsProjection) MarshalJSON() ([]byte, error) {
@@ -55,14 +37,6 @@ func (details RunActivityDetailsProjection) MarshalJSON() ([]byte, error) {
 		details.FilePaths = []string{}
 	}
 	return json.Marshal(detailsAlias(details))
-}
-
-func (group RunActivityGroupProjection) MarshalJSON() ([]byte, error) {
-	type groupAlias RunActivityGroupProjection
-	if group.Rows == nil {
-		group.Rows = []RunActivityRowProjection{}
-	}
-	return json.Marshal(groupAlias(group))
 }
 
 func (page RunActivityPage) MarshalJSON() ([]byte, error) {

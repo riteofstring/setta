@@ -45,6 +45,13 @@ Development data can be recreated. If an old transcript shape is encountered
 after this work lands, fail loudly and specifically rather than rendering it
 through a compatibility shim.
 
+Intermediate phases do not need to keep the app or transcript UI in a working
+state. Do not retain `Transcript`, `RunActivityGroupProjection`, old generated
+fields, or renderer compatibility paths solely so partially implemented phases
+continue to run. Prefer removing or replacing legacy surfaces at the same time
+their block-based owner is introduced, even if later phases are required before
+the app is usable again.
+
 ## Current Problem
 
 Today the service appends assistant deltas into one growing text part:
@@ -340,8 +347,6 @@ type MessagePage struct {
     Conversation       Conversation       `json:"conversation"`
     Blocks             []TranscriptBlock  `json:"blocks"`
     Messages           []ChatMessage      `json:"messages"`
-    RunItems           []RunItem          `json:"runItems"`
-    RunItemOutputs     []RunItemOutput    `json:"runItemOutputs"`
     Queue              QueueState         `json:"queue"`
     Goal               *ChatGoalState     `json:"goal"`
     HasMoreOlder       bool               `json:"hasMoreOlder"`
@@ -349,8 +354,11 @@ type MessagePage struct {
 }
 ```
 
-If `Messages` and `RunItems` remain in the response for detail panes, they must
-not be load-bearing for transcript rendering.
+`MessagePage` must not include page-level raw `RunItems` or `RunItemOutputs` as
+transcript-rendering inputs. Detail panes and lazy output expansion should use
+explicit source-run-item endpoints keyed by `sourceRunItemId`. If `Messages`
+remain in the response for queue state, commands, or non-transcript surfaces,
+they must not be load-bearing for transcript rendering.
 
 Block pagination is part of the first implementation. Do not select a page by
 message/run ordinal and then dump all blocks for selected runs into the renderer.
@@ -709,8 +717,9 @@ The full transcript block projection is not republished for every output chunk.
 - Add validation for block kind, branch payload, source run item references, and
   monotonic ordinals.
 - Regenerate TypeScript contracts.
-- Remove transcript-rendering dependence on `RunActivityGroupProjection` from
-  the generated page contract.
+- Remove transcript-rendering dependence on `RunActivityGroupProjection` and
+  other old transcript-rendering fields from the generated page contract. Do not
+  keep them just to preserve intermediate app usability.
 - Replace message/run-ordinal transcript paging with block-aware transcript
   paging.
 
@@ -762,12 +771,14 @@ The full transcript block projection is not republished for every output chunk.
 
 ### Phase 6: Verification And Cleanup
 
-- Remove unused outer Activity accordion code from the transcript path.
-- Remove obsolete transcript activity projection tests or rewrite them around
-  block projection.
-- Delete `Messages` and `RunItems` from transcript-rendering paths if they are
-  not needed for explicit detail surfaces.
-- Remove old generated fields and renderer state that are no longer used.
+- Verify unused outer Activity accordion code has already been removed from the
+  transcript path; delete any remnants found.
+- Verify obsolete transcript activity projection tests have already been removed
+  or rewritten around block projection; delete any remnants found.
+- Verify `Messages` and `RunItems` are absent from transcript-rendering paths
+  unless they are needed for explicit detail surfaces; delete any remnants found.
+- Verify old generated fields and renderer state are gone; delete any remnants
+  found.
 - Run the required chat workflow gates.
 
 ## Test Plan

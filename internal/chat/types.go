@@ -554,14 +554,6 @@ type QueueState struct {
 	Runs     []Run         `json:"runs"`
 }
 
-type TranscriptTurn struct {
-	Run              Run                         `json:"run"`
-	TriggerMessage   ChatMessage                 `json:"triggerMessage"`
-	AssistantMessage *ChatMessage                `json:"assistantMessage"`
-	SteeringMessages []ChatMessage               `json:"steeringMessages"`
-	Activity         *RunActivityGroupProjection `json:"activity"`
-}
-
 type ConversationListItem struct {
 	Conversation             Conversation `json:"conversation"`
 	MessageCount             int          `json:"messageCount"`
@@ -719,10 +711,7 @@ type ChatCommandExecuteResult struct {
 type MessagePage struct {
 	Conversation            Conversation      `json:"conversation"`
 	Messages                []ChatMessage     `json:"messages"`
-	RunItems                []RunItem         `json:"runItems"`
-	RunItemOutputs          []RunItemOutput   `json:"runItemOutputs"`
 	Queue                   QueueState        `json:"queue"`
-	Transcript              []TranscriptTurn  `json:"transcript"`
 	Blocks                  []TranscriptBlock `json:"blocks"`
 	Goal                    *ChatGoalState    `json:"goal"`
 	HasMoreOlder            bool              `json:"hasMoreOlder"`
@@ -913,14 +902,6 @@ func (state QueueState) MarshalJSON() ([]byte, error) {
 	return json.Marshal(stateAlias(state))
 }
 
-func (turn TranscriptTurn) MarshalJSON() ([]byte, error) {
-	type turnAlias TranscriptTurn
-	if turn.SteeringMessages == nil {
-		turn.SteeringMessages = []ChatMessage{}
-	}
-	return json.Marshal(turnAlias(turn))
-}
-
 func (summary CorruptionSummary) MarshalJSON() ([]byte, error) {
 	type summaryAlias CorruptionSummary
 	if summary.ByKind == nil {
@@ -947,15 +928,6 @@ func (page MessagePage) MarshalJSON() ([]byte, error) {
 	type pageAlias MessagePage
 	if page.Messages == nil {
 		page.Messages = []ChatMessage{}
-	}
-	if page.RunItems == nil {
-		page.RunItems = []RunItem{}
-	}
-	if page.RunItemOutputs == nil {
-		page.RunItemOutputs = []RunItemOutput{}
-	}
-	if page.Transcript == nil {
-		page.Transcript = []TranscriptTurn{}
 	}
 	if page.Blocks == nil {
 		page.Blocks = []TranscriptBlock{}
