@@ -2845,11 +2845,52 @@ export interface QueueState {
   runs: Run[];
 }
 
+export interface RunActivityDetailsProjection {
+  summary: string;
+  command: string;
+  cwd: string;
+  exitCode: number;
+  durationMs: number;
+  filePaths: string[];
+  patchStatus: string;
+  serverName: string;
+  toolName: string;
+  progress: string;
+  result: string;
+  error: string;
+  noticeKind: string;
+  noticeMessage: string;
+  diffSummary: string;
+  namespace: string;
+  processId: string;
+  requestId: string;
+  reviewId: string;
+  details: unknown;
+}
+
+export interface RunActivityRowProjection {
+  id: string;
+  sourceRunItemId: string;
+  type: RunItemType;
+  title: string;
+  status: RunItemStatus;
+  details: RunActivityDetailsProjection;
+  hasDetails: boolean;
+  hasOutput: boolean;
+}
+
+export interface RunActivityGroupProjection {
+  runId: string;
+  status: RunStatus;
+  rows: RunActivityRowProjection[];
+}
+
 export interface TranscriptTurn {
   run: Run;
   triggerMessage: ChatMessage;
   assistantMessage: ChatMessage | null;
   steeringMessages: ChatMessage[];
+  activity: RunActivityGroupProjection | null;
 }
 
 export interface ChatGoalState {
@@ -3095,6 +3136,7 @@ export interface RunActivityPage {
   runId: string;
   items: RunItem[];
   output: RunItemOutput[];
+  activity: RunActivityGroupProjection | null;
 }
 
 export interface GetRunItemOutputRequest {
@@ -4898,6 +4940,11 @@ export interface RunItemOutputDeltaPayload {
   output: RunItemOutput;
 }
 
+export interface RunActivityUpdatedPayload {
+  runId: string;
+  activity: RunActivityGroupProjection | null;
+}
+
 export interface QueueUpdatedPayload {
   queue: QueueState;
 }
@@ -4943,6 +4990,7 @@ export type ChatEvent =
   | ChatRunItemCreatedEvent
   | ChatRunItemUpdatedEvent
   | ChatRunItemOutputDeltaEvent
+  | ChatRunActivityUpdatedEvent
   | ChatQueueUpdatedEvent
   | ChatGoalUpdatedEvent
   | ChatConversationUpdatedEvent
@@ -5079,6 +5127,19 @@ export interface ChatRunItemOutputDeltaEvent {
   conversationId: string;
   runId: string;
   payload: RunItemOutputDeltaPayload;
+}
+
+export interface ChatRunActivityUpdatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.run_activity.updated";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: RunActivityUpdatedPayload;
 }
 
 export interface ChatQueueUpdatedEvent {
@@ -6537,14 +6598,67 @@ export function decodeQueueState(value: unknown): QueueState {
   };
 }
 
+export function decodeRunActivityDetailsProjection(value: unknown): RunActivityDetailsProjection {
+  const record = assertRecord(value, "RunActivityDetailsProjection");
+  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details"]);
+  return {
+    summary: decodeString(requireField(record, "summary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.summary"),
+    command: decodeString(requireField(record, "command", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.command"),
+    cwd: decodeString(requireField(record, "cwd", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.cwd"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.exitCode"),
+    durationMs: decodeInteger(requireField(record, "durationMs", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.durationMs"),
+    filePaths: decodeArray(requireField(record, "filePaths", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.filePaths", (item) => decodeString(item, "RunActivityDetailsProjection.filePaths item")),
+    patchStatus: decodeString(requireField(record, "patchStatus", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.patchStatus"),
+    serverName: decodeString(requireField(record, "serverName", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.serverName"),
+    toolName: decodeString(requireField(record, "toolName", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.toolName"),
+    progress: decodeString(requireField(record, "progress", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.progress"),
+    result: decodeString(requireField(record, "result", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.result"),
+    error: decodeString(requireField(record, "error", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.error"),
+    noticeKind: decodeString(requireField(record, "noticeKind", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.noticeKind"),
+    noticeMessage: decodeString(requireField(record, "noticeMessage", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.noticeMessage"),
+    diffSummary: decodeString(requireField(record, "diffSummary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.diffSummary"),
+    namespace: decodeString(requireField(record, "namespace", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.namespace"),
+    processId: decodeString(requireField(record, "processId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.processId"),
+    requestId: decodeString(requireField(record, "requestId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.requestId"),
+    reviewId: decodeString(requireField(record, "reviewId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.reviewId"),
+    details: decodeUnknown(requireField(record, "details", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.details"),
+  };
+}
+
+export function decodeRunActivityRowProjection(value: unknown): RunActivityRowProjection {
+  const record = assertRecord(value, "RunActivityRowProjection");
+  assertKnownFields(record, "RunActivityRowProjection", ["id", "sourceRunItemId", "type", "title", "status", "details", "hasDetails", "hasOutput"]);
+  return {
+    id: decodeString(requireField(record, "id", "RunActivityRowProjection"), "RunActivityRowProjection.id"),
+    sourceRunItemId: decodeString(requireField(record, "sourceRunItemId", "RunActivityRowProjection"), "RunActivityRowProjection.sourceRunItemId"),
+    type: decodeRunItemType(requireField(record, "type", "RunActivityRowProjection"), "RunActivityRowProjection.type"),
+    title: decodeString(requireField(record, "title", "RunActivityRowProjection"), "RunActivityRowProjection.title"),
+    status: decodeRunItemStatus(requireField(record, "status", "RunActivityRowProjection"), "RunActivityRowProjection.status"),
+    details: decodeRunActivityDetailsProjection(requireField(record, "details", "RunActivityRowProjection")),
+    hasDetails: decodeBoolean(requireField(record, "hasDetails", "RunActivityRowProjection"), "RunActivityRowProjection.hasDetails"),
+    hasOutput: decodeBoolean(requireField(record, "hasOutput", "RunActivityRowProjection"), "RunActivityRowProjection.hasOutput"),
+  };
+}
+
+export function decodeRunActivityGroupProjection(value: unknown): RunActivityGroupProjection {
+  const record = assertRecord(value, "RunActivityGroupProjection");
+  assertKnownFields(record, "RunActivityGroupProjection", ["runId", "status", "rows"]);
+  return {
+    runId: decodeString(requireField(record, "runId", "RunActivityGroupProjection"), "RunActivityGroupProjection.runId"),
+    status: decodeRunStatus(requireField(record, "status", "RunActivityGroupProjection"), "RunActivityGroupProjection.status"),
+    rows: decodeArray(requireField(record, "rows", "RunActivityGroupProjection"), "RunActivityGroupProjection.rows", (item) => decodeRunActivityRowProjection(item)),
+  };
+}
+
 export function decodeTranscriptTurn(value: unknown): TranscriptTurn {
   const record = assertRecord(value, "TranscriptTurn");
-  assertKnownFields(record, "TranscriptTurn", ["run", "triggerMessage", "assistantMessage", "steeringMessages"]);
+  assertKnownFields(record, "TranscriptTurn", ["run", "triggerMessage", "assistantMessage", "steeringMessages", "activity"]);
   return {
     run: decodeRun(requireField(record, "run", "TranscriptTurn")),
     triggerMessage: decodeChatMessage(requireField(record, "triggerMessage", "TranscriptTurn")),
     assistantMessage: decodeNullable(requireField(record, "assistantMessage", "TranscriptTurn"), "TranscriptTurn.assistantMessage", (item) => decodeChatMessage(item)),
     steeringMessages: decodeArray(requireField(record, "steeringMessages", "TranscriptTurn"), "TranscriptTurn.steeringMessages", (item) => decodeChatMessage(item)),
+    activity: decodeNullable(requireField(record, "activity", "TranscriptTurn"), "TranscriptTurn.activity", (item) => decodeRunActivityGroupProjection(item)),
   };
 }
 
@@ -6925,11 +7039,12 @@ export function decodeGetRunActivityRequest(value: unknown): GetRunActivityReque
 
 export function decodeRunActivityPage(value: unknown): RunActivityPage {
   const record = assertRecord(value, "RunActivityPage");
-  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output"]);
+  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output", "activity"]);
   return {
     runId: decodeString(requireField(record, "runId", "RunActivityPage"), "RunActivityPage.runId"),
     items: decodeArray(requireField(record, "items", "RunActivityPage"), "RunActivityPage.items", (item) => decodeRunItem(item)),
     output: decodeArray(requireField(record, "output", "RunActivityPage"), "RunActivityPage.output", (item) => decodeRunItemOutput(item)),
+    activity: decodeNullable(requireField(record, "activity", "RunActivityPage"), "RunActivityPage.activity", (item) => decodeRunActivityGroupProjection(item)),
   };
 }
 
@@ -9534,6 +9649,15 @@ export function decodeRunItemOutputDeltaPayload(value: unknown): RunItemOutputDe
   };
 }
 
+export function decodeRunActivityUpdatedPayload(value: unknown): RunActivityUpdatedPayload {
+  const record = assertRecord(value, "RunActivityUpdatedPayload");
+  assertKnownFields(record, "RunActivityUpdatedPayload", ["runId", "activity"]);
+  return {
+    runId: decodeString(requireField(record, "runId", "RunActivityUpdatedPayload"), "RunActivityUpdatedPayload.runId"),
+    activity: decodeNullable(requireField(record, "activity", "RunActivityUpdatedPayload"), "RunActivityUpdatedPayload.activity", (item) => decodeRunActivityGroupProjection(item)),
+  };
+}
+
 export function decodeQueueUpdatedPayload(value: unknown): QueueUpdatedPayload {
   const record = assertRecord(value, "QueueUpdatedPayload");
   assertKnownFields(record, "QueueUpdatedPayload", ["queue"]);
@@ -9624,6 +9748,8 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatRunItemUpdatedEventFromRecord(record);
     case "chat.run_item_output.delta":
       return decodeChatRunItemOutputDeltaEventFromRecord(record);
+    case "chat.run_activity.updated":
+      return decodeChatRunActivityUpdatedEventFromRecord(record);
     case "chat.queue.updated":
       return decodeChatQueueUpdatedEventFromRecord(record);
     case "chat.goal.updated":
@@ -9758,6 +9884,18 @@ function decodeChatRunItemOutputDeltaEventFromRecord(record: Record<string, unkn
   return {
     ...base,
     payload: decodeRunItemOutputDeltaPayload(requireField(record, "payload", "ChatRunItemOutputDeltaEvent")),
+  };
+}
+
+export function decodeChatRunActivityUpdatedEvent(value: unknown): ChatRunActivityUpdatedEvent {
+  return decodeChatRunActivityUpdatedEventFromRecord(assertRecord(value, "ChatRunActivityUpdatedEvent"));
+}
+
+function decodeChatRunActivityUpdatedEventFromRecord(record: Record<string, unknown>): ChatRunActivityUpdatedEvent {
+  const base = decodeBackendEventBase(record, "ChatRunActivityUpdatedEvent", "chat.run_activity.updated");
+  return {
+    ...base,
+    payload: decodeRunActivityUpdatedPayload(requireField(record, "payload", "ChatRunActivityUpdatedEvent")),
   };
 }
 

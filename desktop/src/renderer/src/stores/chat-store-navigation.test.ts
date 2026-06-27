@@ -502,7 +502,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         removedMessageId: "message_queued",
         removedRunId: "run_queued",
       }),
-      runActivity: async () => ({ items: [], output: [], runId: "run_api" }),
+      runActivity: async () => ({ activity: null, items: [], output: [], runId: "run_api" }),
       runItemOutput: async () => ({
         hasMore: false,
         nextOrdinal: 0,

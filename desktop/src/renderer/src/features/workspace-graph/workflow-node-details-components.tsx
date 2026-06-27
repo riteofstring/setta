@@ -330,14 +330,14 @@ function WorkflowRunActivityPageDetails({
   highlightedRunItemId: string | undefined;
   page: RunActivityPage;
 }) {
-  if (page.items.length === 0) {
+  if (!page.activity || page.activity.rows.length === 0) {
     return <div className="text-xs text-zinc-500">No activity items recorded.</div>;
   }
   const outputState = runActivityOutputStateFromPage(page);
   return (
     <RunActivityRows
+      activity={page.activity}
       highlightedRunItemId={highlightedRunItemId}
-      items={page.items}
       loadRunItemOutput={noopLoadRunActivityOutput}
       outputIdsByRunItemId={outputState.outputIdsByRunItemId}
       outputPagesByRunItemId={outputState.outputPagesByRunItemId}

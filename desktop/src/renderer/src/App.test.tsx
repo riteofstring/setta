@@ -4,6 +4,7 @@ import type {
   CorruptionSummary,
   Diagnostic,
   Run,
+  RunActivityGroupProjection,
   RunItem,
   RunItemOutput,
   TranscriptTurn,
@@ -12,6 +13,17 @@ import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { App, sidebarWorkspaceBusy } from "./App";
+import {
+  chatAssistantMessage,
+  chatRunItem,
+  chatUserMessage,
+  chatUserMessageWithText,
+  normalizedTranscriptFixture,
+  projectedActivity,
+  projectedActivityRow,
+  transcriptFromMessages,
+  transcriptRun,
+} from "./App.test.fixtures";
 import { compactPaneWidth } from "./app-layout";
 import {
   ChatTranscript,
@@ -495,6 +507,45 @@ describe("chat renderer states", () => {
             updatedAt: "2026-05-29T20:00:00Z",
           },
         ]}
+        activityByRunId={{
+          run_api: projectedActivity(
+            "run_api",
+            [
+              projectedActivityRow({
+                details: {
+                  command: `go test ./... ${"x".repeat(160)}`,
+                  cwd: "/tmp/workspace",
+                  durationMs: 10,
+                },
+                hasOutput: true,
+                sourceRunItemId: "item_command",
+                title: "command execution",
+                type: "command_execution",
+              }),
+              projectedActivityRow({
+                details: { filePaths: ["/tmp/workspace/main.go"], patchStatus: "updated" },
+                sourceRunItemId: "item_file",
+                status: "running",
+                title: "file change",
+                type: "file_change",
+              }),
+              projectedActivityRow({
+                details: { progress: "halfway", serverName: "server", toolName: "tool" },
+                sourceRunItemId: "item_mcp",
+                status: "running",
+                title: "tool",
+                type: "mcp_tool_call",
+              }),
+              projectedActivityRow({
+                details: { noticeKind: "warning", noticeMessage: "warning text" },
+                sourceRunItemId: "item_notice",
+                title: "warning",
+                type: "notice",
+              }),
+            ],
+            "running",
+          ),
+        }}
         runItemOutputs={[
           {
             createdAt: "2026-05-29T20:00:00Z",
@@ -665,6 +716,37 @@ describe("chat renderer states", () => {
     expect(htmlScopeForTestId(html, "chat-assistant-message-content")).not.toContain(
       'data-testid="run-activity-group"',
     );
+  });
+
+  test("does not reconstruct transcript activity from raw run items", () => {
+    const html = renderToString(
+      <TestChatTranscript
+        activeRun={null}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
+        messages={[
+          chatUserMessageWithText("message_user", 1, "run_api", "normal", "Hi"),
+          chatAssistantMessage("message_assistant", 2, "run_api", "Hello once."),
+        ]}
+        runItems={[
+          chatRunItem("item_agent", "run_api", "agent_message", {
+            summary: "Hello once.",
+            title: "Assistant message",
+          }),
+          chatRunItem("item_reasoning", "run_api", "reasoning", {
+            hiddenText: "private reasoning",
+            title: "Reasoning summary",
+          }),
+        ]}
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expect(html).not.toContain('data-testid="run-activity-group"');
+    expect(html).not.toContain("Assistant message");
+    expect(html).not.toContain("Reasoning summary");
+    expect(html).toContain("Hello once.");
   });
 
   test("renders message actions outside content and timestamps only at speaker group boundaries", () => {
@@ -839,6 +921,17 @@ describe("chat renderer states", () => {
             updatedAt: "2026-05-29T20:00:00Z",
           },
         ]}
+        activityByRunId={{
+          run_api: projectedActivity("run_api", [
+            projectedActivityRow({
+              details: { command: "go test ./...", cwd: "/tmp/workspace" },
+              hasOutput: true,
+              sourceRunItemId: "item_command",
+              title: "command execution",
+              type: "command_execution",
+            }),
+          ]),
+        }}
         runItemOutputPagesByRunItemId={{
           item_command: {
             error: null,
@@ -1108,6 +1201,7 @@ type TestChatTranscriptProps = Omit<
   operation?: ChatTranscriptProps["operation"];
   removeQueuedMessage?: ChatTranscriptProps["removeQueuedMessage"];
   removingQueuedMessageId?: ChatTranscriptProps["removingQueuedMessageId"];
+  activityByRunId?: Record<string, RunActivityGroupProjection | null>;
   runItemOutputPagesByRunItemId?: ChatTranscriptProps["runItemOutputPagesByRunItemId"];
   runItemOutputs?: RunItemOutput[];
   runItems?: RunItem[];
@@ -1138,143 +1232,11 @@ function TestChatTranscript(props: TestChatTranscriptProps) {
       runItemOutputsById={normalized.runItemOutputsById}
       runItemsById={normalized.runItemsById}
       sendSteeringImmediately={options.sendSteeringImmediately}
-      transcript={options.transcript ?? transcriptFromMessages(options.messages)}
+      transcript={
+        options.transcript ?? transcriptFromMessages(options.messages, options.activityByRunId)
+      }
     />
   );
-}
-
-function normalizedTranscriptFixture(
-  messages: ChatMessage[],
-  runItems: RunItem[],
-  runItemOutputs: RunItemOutput[],
-) {
-  const orderedMessages = messages.toSorted((left, right) => left.ordinal - right.ordinal);
-  const messagesById = Object.fromEntries(orderedMessages.map((message) => [message.id, message]));
-  const orderedItems = runItems.toSorted(compareRunItems);
-  const runItemsById = Object.fromEntries(orderedItems.map((item) => [item.id, item]));
-  const runItemIdsByRunId: Record<string, string[]> = {};
-  for (const item of orderedItems) {
-    runItemIdsByRunId[item.runId] = [...(runItemIdsByRunId[item.runId] ?? []), item.id];
-  }
-  const orderedOutputs = runItemOutputs.toSorted(compareRunItemOutputs);
-  const runItemOutputsById = Object.fromEntries(
-    orderedOutputs.map((output) => [output.id, output]),
-  );
-  const runItemOutputIdsByRunItemId: Record<string, string[]> = {};
-  for (const output of orderedOutputs) {
-    runItemOutputIdsByRunItemId[output.runItemId] = [
-      ...(runItemOutputIdsByRunItemId[output.runItemId] ?? []),
-      output.id,
-    ];
-  }
-  return {
-    messageIds: orderedMessages.map((message) => message.id),
-    messagesById,
-    runItemIdsByRunId,
-    runItemOutputIdsByRunItemId,
-    runItemOutputsById,
-    runItemsById,
-  };
-}
-
-function compareRunItems(left: RunItem, right: RunItem) {
-  if (left.createdAt === right.createdAt) {
-    return left.id.localeCompare(right.id);
-  }
-  return left.createdAt.localeCompare(right.createdAt);
-}
-
-function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
-  if (left.runItemId === right.runItemId) {
-    return left.ordinal - right.ordinal;
-  }
-  return left.runItemId.localeCompare(right.runItemId);
-}
-
-function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
-  const runIds = [...new Set(messages.map((message) => message.runId).filter(Boolean))];
-  return runIds.map((runId) => {
-    const triggerMessage =
-      messages.find((message) => message.runId === runId && message.role === "user") ??
-      chatUserMessage(`message_user_${runId}`, 1, runId);
-    const assistantMessage =
-      messages.find((message) => message.runId === runId && message.role === "assistant") ?? null;
-    return {
-      assistantMessage,
-      run: transcriptRun(runId, triggerMessage.id, assistantMessage?.id ?? ""),
-      steeringMessages: messages.filter(
-        (message) => message.runId === runId && message.delivery === "steering",
-      ),
-      triggerMessage,
-    };
-  });
-}
-
-function transcriptRun(runId: string, triggerMessageId: string, assistantMessageId: string): Run {
-  return {
-    assistantMessageId,
-    completedAt: assistantMessageId ? "2026-05-29T20:01:00Z" : "",
-    conversationId: "conversation_api",
-    error: "",
-    harness: "codex",
-    id: runId,
-    pendingApproval: null,
-    promptSummary: "test",
-    schemaVersion: 1,
-    startedAt: assistantMessageId ? "2026-05-29T20:00:00Z" : "",
-    status: assistantMessageId ? "completed" : "queued",
-    triggerMessageId,
-    workspaceId: "workspace_api",
-  };
-}
-
-function chatUserMessage(id: string, ordinal: number, runId: string): ChatMessage {
-  return chatUserMessageWithText(id, ordinal, runId, "normal", "prompt");
-}
-
-function chatUserMessageWithText(
-  id: string,
-  ordinal: number,
-  runId: string,
-  delivery: ChatMessage["delivery"],
-  text: string,
-  status: ChatMessage["status"] = "complete",
-): ChatMessage {
-  return {
-    conversationId: "conversation_api",
-    createdAt: "2026-05-29T20:00:00Z",
-    delivery,
-    id,
-    ordinal,
-    parts: [{ format: "plain", id: `${id}_part`, text, type: "text" }],
-    role: "user",
-    runId,
-    schemaVersion: 1,
-    status,
-    updatedAt: "2026-05-29T20:00:00Z",
-  };
-}
-
-function chatAssistantMessage(
-  id: string,
-  ordinal: number,
-  runId: string,
-  text: string,
-  status: ChatMessage["status"] = "complete",
-): ChatMessage {
-  return {
-    conversationId: "conversation_api",
-    createdAt: "2026-05-29T20:00:00Z",
-    delivery: "normal",
-    id,
-    ordinal,
-    parts: [{ format: "markdown", id: `${id}_part`, text, type: "text" }],
-    role: "assistant",
-    runId,
-    schemaVersion: 1,
-    status,
-    updatedAt: "2026-05-29T20:00:00Z",
-  };
 }
 
 function rowCount(html: string, testId: string) {

@@ -1106,7 +1106,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("queued"),
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
-      runActivity: async () => ({ items: [], output: [], runId: "run_api" }),
+      runActivity: async () => ({ activity: null, items: [], output: [], runId: "run_api" }),
       runItemOutput: async () => ({
         hasMore: false,
         nextOrdinal: 0,
@@ -1299,6 +1299,7 @@ function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
     const assistantMessage =
       messages.find((item) => item.runId === runId && item.role === "assistant") ?? null;
     return {
+      activity: null,
       assistantMessage,
       run: {
         ...run,
@@ -1370,6 +1371,7 @@ function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { sta
 function transcriptTurn(run: Run, assistantMessage: ChatMessage): TranscriptTurn {
   const triggerMessage = message("message_user", 1, "user", "complete", "hello", "normal", run.id);
   return {
+    activity: null,
     assistantMessage,
     run: { ...run, assistantMessageId: assistantMessage.id, triggerMessageId: triggerMessage.id },
     steeringMessages: [],

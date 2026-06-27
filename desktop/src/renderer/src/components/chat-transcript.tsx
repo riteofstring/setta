@@ -67,29 +67,23 @@ export interface ChatTranscriptProps {
 interface TranscriptIndexes {
   messageIds: string[];
   messagesById: Record<string, ChatMessage>;
-  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
   turns: TranscriptTurn[];
 }
 
 function transcriptIndexes(props: {
   messageIds: string[];
   messagesById: Record<string, ChatMessage>;
-  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
   transcript: TranscriptTurn[];
 }): TranscriptIndexes {
   return {
     messageIds: props.messageIds,
     messagesById: props.messagesById,
-    runItemIdsByRunId: props.runItemIdsByRunId,
     runItemOutputIdsByRunItemId: props.runItemOutputIdsByRunItemId,
     runItemOutputsById: props.runItemOutputsById,
-    runItemsById: props.runItemsById,
     turns: props.transcript,
   };
 }
@@ -122,11 +116,9 @@ export function ChatTranscript({
   operation,
   removeQueuedMessage,
   removingQueuedMessageId,
-  runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
   runItemOutputsById,
-  runItemsById,
   searchOpen = false,
   sendSteeringImmediately,
   setSearchOpen = () => {},
@@ -152,21 +144,11 @@ export function ChatTranscript({
       transcriptIndexes({
         messageIds,
         messagesById,
-        runItemIdsByRunId,
         runItemOutputIdsByRunItemId,
         runItemOutputsById,
-        runItemsById,
         transcript: backendTranscript,
       }),
-    [
-      messageIds,
-      messagesById,
-      runItemIdsByRunId,
-      runItemOutputIdsByRunItemId,
-      runItemOutputsById,
-      runItemsById,
-      backendTranscript,
-    ],
+    [messageIds, messagesById, runItemOutputIdsByRunItemId, runItemOutputsById, backendTranscript],
   );
   const timelineSource = useMemo(
     () =>
@@ -249,11 +231,9 @@ export function ChatTranscript({
     pinned,
     schedulePinnedScrollToLatest,
     timeline.length,
-    transcript.runItemIdsByRunId,
     transcript.runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,
     transcript.runItemOutputsById,
-    transcript.runItemsById,
   ]);
 
   useEffect(() => {
@@ -340,11 +320,9 @@ export function ChatTranscript({
             message={row.message}
             rowActions={rowActions}
             showTimestamp={timestampMessageIds.has(row.message.id)}
-            runItemIdsByRunId={transcript.runItemIdsByRunId}
             runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
             runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
             runItemOutputsById={transcript.runItemOutputsById}
-            runItemsById={transcript.runItemsById}
           />
         );
       }
@@ -356,11 +334,9 @@ export function ChatTranscript({
             message={row.message}
             rowActions={rowActions}
             showTimestamp={timestampMessageIds.has(row.message.id)}
-            runItemIdsByRunId={transcript.runItemIdsByRunId}
             runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
             runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
             runItemOutputsById={transcript.runItemOutputsById}
-            runItemsById={transcript.runItemsById}
           />
         );
       }
@@ -373,11 +349,10 @@ export function ChatTranscript({
             message={row.message}
             rowActions={rowActions}
             showTimestamp={row.chunk.isLast && timestampMessageIds.has(row.message.id)}
-            runItemIdsByRunId={transcript.runItemIdsByRunId}
             runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
             runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
             runItemOutputsById={transcript.runItemOutputsById}
-            runItemsById={transcript.runItemsById}
+            activity={row.chunk.isLast ? row.turn.activity : null}
           />
         );
       }
@@ -385,11 +360,9 @@ export function ChatTranscript({
         <TranscriptTurnRow
           loadRunItemOutput={loadRunItemOutput}
           activeSearchMessageId={search.activeMessageId}
-          runItemIdsByRunId={transcript.runItemIdsByRunId}
           runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
           runItemOutputsById={transcript.runItemOutputsById}
-          runItemsById={transcript.runItemsById}
           turn={row.turn}
           rowActions={rowActions}
           timestampMessageIds={timestampMessageIds}
@@ -403,10 +376,8 @@ export function ChatTranscript({
       search.activeMessageId,
       timestampMessageIds,
       timeline,
-      transcript.runItemIdsByRunId,
       transcript.runItemOutputIdsByRunItemId,
       transcript.runItemOutputsById,
-      transcript.runItemsById,
     ],
   );
 

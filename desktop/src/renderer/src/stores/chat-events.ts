@@ -34,7 +34,12 @@ type RunItemUpsertEvent = Extract<
   AppliedChatEvent,
   { type: "chat.run_item.created" | "chat.run_item.updated" }
 >;
+type RunActivityUpdatedEvent = Extract<AppliedChatEvent, { type: "chat.run_activity.updated" }>;
 type OtherChatEvent = Exclude<AppliedChatEvent, MessageUpsertEvent | RunItemUpsertEvent>;
+type ConversationOrWorkspaceEvent = Exclude<
+  OtherChatEvent,
+  { type: "codex.account.changed" } | RunActivityUpdatedEvent
+>;
 
 const messageUpsertEventTypes = new Set([
   "chat.message.created",
@@ -59,12 +64,15 @@ function applyOtherChatEvent(state: ChatStore, event: OtherChatEvent): EventAppl
   if (event.type === "codex.account.changed") {
     return unchangedEventResult();
   }
+  if (event.type === "chat.run_activity.updated") {
+    return applyRunActivityUpdatedEvent(state, event);
+  }
   return applyConversationOrWorkspaceEvent(state, event);
 }
 
 function applyConversationOrWorkspaceEvent(
   state: ChatStore,
-  event: Exclude<OtherChatEvent, { type: "codex.account.changed" }>,
+  event: ConversationOrWorkspaceEvent,
 ): EventApplyResult {
   switch (event.type) {
     case "chat.message.removed":
@@ -176,6 +184,20 @@ function applyRunItemUpsertEvent(state: ChatStore, event: RunItemUpsertEvent): E
   return selectedConversationEventResult(state, event, {
     runItems: upsertRunItem(state.runItems, event.payload.item),
     status: "ready",
+  });
+}
+
+function applyRunActivityUpdatedEvent(
+  state: ChatStore,
+  event: RunActivityUpdatedEvent,
+): EventApplyResult {
+  return selectedConversationEventResult(state, event, {
+    status: "ready",
+    transcript: updateTranscriptActivity(
+      state.transcript,
+      event.payload.runId,
+      event.payload.activity,
+    ),
   });
 }
 
@@ -375,6 +397,7 @@ function mergeQueueTranscript(
       return { resync: true, transcript };
     }
     queuedTurnsByRunId.set(run.id, {
+      activity: null,
       assistantMessage: null,
       run,
       steeringMessages: [],
@@ -408,6 +431,14 @@ function compareTranscriptTurns(left: TranscriptTurn, right: TranscriptTurn) {
 
 function updateTranscriptRun(transcript: TranscriptTurn[], run: Run): TranscriptTurn[] {
   return transcript.map((turn) => (turn.run.id === run.id ? { ...turn, run } : turn));
+}
+
+function updateTranscriptActivity(
+  transcript: TranscriptTurn[],
+  runId: string,
+  activity: TranscriptTurn["activity"],
+): TranscriptTurn[] {
+  return transcript.map((turn) => (turn.run.id === runId ? { ...turn, activity } : turn));
 }
 
 function updateTranscriptMessage(transcript: TranscriptTurn[], message: ChatMessage) {

@@ -571,6 +571,9 @@ export const useChatStore = create<ChatStore>((set, get) => {
             runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
             runItems: upsertRunItems(current.runItems, page.items),
             status: "ready",
+            transcript: current.transcript.map((turn) =>
+              turn.run.id === page.runId ? { ...turn, activity: page.activity } : turn,
+            ),
           }),
         );
       } catch (error) {

@@ -969,8 +969,8 @@ func TestServicePersistsRunActivityAndOutputChunks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load activity: %v", err)
 	}
-	if len(page.Items) < 2 {
-		t.Fatalf("items = %+v, want command and assistant items", page.Items)
+	if len(page.Items) != 1 || page.Items[0].Type != RunItemTypeCommandExecution {
+		t.Fatalf("items = %+v, want command item only", page.Items)
 	}
 	if page.Output[0].Text != "ok\n" || page.Output[0].Ordinal != 1 {
 		t.Fatalf("output = %+v, want first chunk", page.Output)

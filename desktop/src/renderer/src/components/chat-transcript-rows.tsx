@@ -3,7 +3,7 @@ import type {
   MessageDelivery,
   MessageRole,
   MessageStatus,
-  RunItem,
+  RunActivityGroupProjection,
   RunItemOutput,
   TranscriptTurn,
 } from "@generated/backend";
@@ -21,7 +21,7 @@ import { MessageActions, MessageTimestamp } from "./chat-message-actions";
 import { chatMessageText } from "./chat-message-text";
 import { RunActivityRows } from "./chat-run-activity";
 import { isVisibleMessage, type TranscriptAssistantMessageChunk } from "./chat-transcript-timeline";
-import { messageRunActivityPropsEqual } from "./chat-transcript-render-memo";
+import { activityOutputPropsEqual } from "./chat-transcript-render-memo";
 import {
   canSaveQueuedEdit,
   isPendingSteeringMessage,
@@ -85,11 +85,9 @@ type LoadRunItemOutput = (
 ) => Promise<void>;
 
 interface TranscriptRowDataProps {
-  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
 }
 
 export interface TranscriptTurnRowProps extends TranscriptRowDataProps {
@@ -106,11 +104,9 @@ export const TranscriptTurnRow = memo(function TranscriptTurnRow({
   loadRunItemOutput,
   rowActions,
   timestampMessageIds,
-  runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
   runItemOutputsById,
-  runItemsById,
 }: TranscriptTurnRowProps) {
   return (
     <div
@@ -127,25 +123,22 @@ export const TranscriptTurnRow = memo(function TranscriptTurnRow({
           message={turn.triggerMessage}
           rowActions={rowActions}
           showTimestamp={timestampMessageIds.has(turn.triggerMessage.id)}
-          runItemIdsByRunId={runItemIdsByRunId}
           runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
           runItemOutputsById={runItemOutputsById}
-          runItemsById={runItemsById}
         />
       ) : null}
       {turn.assistantMessage ? (
         <MessageRow
+          activity={turn.activity}
           loadRunItemOutput={loadRunItemOutput}
           activeSearchMessageId={activeSearchMessageId}
           message={turn.assistantMessage}
           rowActions={rowActions}
           showTimestamp={timestampMessageIds.has(turn.assistantMessage.id)}
-          runItemIdsByRunId={runItemIdsByRunId}
           runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
           runItemOutputsById={runItemOutputsById}
-          runItemsById={runItemsById}
         />
       ) : null}
     </div>
@@ -153,6 +146,7 @@ export const TranscriptTurnRow = memo(function TranscriptTurnRow({
 }, transcriptTurnRowPropsEqual);
 
 export interface MessageRowProps extends TranscriptRowDataProps {
+  activity?: RunActivityGroupProjection | null;
   activeSearchMessageId: string | null;
   message: ChatMessage;
   loadRunItemOutput: LoadRunItemOutput;
@@ -161,18 +155,16 @@ export interface MessageRowProps extends TranscriptRowDataProps {
 }
 
 export const MessageRow = memo(function MessageRow({
+  activity = null,
   activeSearchMessageId,
   message,
   loadRunItemOutput,
   rowActions,
   showTimestamp,
-  runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
   runItemOutputsById,
-  runItemsById,
 }: MessageRowProps) {
-  const itemRows = activityItemsForMessage(message, runItemIdsByRunId, runItemsById);
   const text = chatMessageText(message);
   const [editMode, setEditMode] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -210,9 +202,9 @@ export const MessageRow = memo(function MessageRow({
     setConfirmRemove(false);
   }
   const activityRows =
-    itemRows.length > 0 ? (
+    activity && message.role !== "user" ? (
       <RunActivityRows
-        items={itemRows}
+        activity={activity}
         loadRunItemOutput={loadRunItemOutput}
         outputIdsByRunItemId={runItemOutputIdsByRunItemId}
         outputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -282,6 +274,7 @@ export const MessageRow = memo(function MessageRow({
 }, messageRowPropsEqual);
 
 export interface AssistantMessageChunkRowProps extends TranscriptRowDataProps {
+  activity?: RunActivityGroupProjection | null;
   activeSearchMessageId: string | null;
   chunk: TranscriptAssistantMessageChunk;
   message: ChatMessage;
@@ -291,25 +284,21 @@ export interface AssistantMessageChunkRowProps extends TranscriptRowDataProps {
 }
 
 export const AssistantMessageChunkRow = memo(function AssistantMessageChunkRow({
+  activity = null,
   activeSearchMessageId,
   chunk,
   message,
   loadRunItemOutput,
   showTimestamp,
-  runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
   runItemOutputsById,
-  runItemsById,
 }: AssistantMessageChunkRowProps) {
-  const itemRows = chunk.isLast
-    ? activityItemsForMessage(message, runItemIdsByRunId, runItemsById)
-    : [];
   const fullText = chunk.isLast ? chatMessageText(message) : "";
   const activityRows =
-    chunk.isLast && itemRows.length > 0 ? (
+    chunk.isLast && activity ? (
       <RunActivityRows
-        items={itemRows}
+        activity={activity}
         loadRunItemOutput={loadRunItemOutput}
         outputIdsByRunItemId={runItemOutputIdsByRunItemId}
         outputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -358,10 +347,7 @@ function transcriptTurnRowPropsEqual(
     previous.rowActions === next.rowActions &&
     previous.timestampMessageIds === next.timestampMessageIds &&
     previous.turn === next.turn &&
-    messageRunActivityPropsEqual(previous, next, previous.turn.triggerMessage) &&
-    (previous.turn.assistantMessage
-      ? messageRunActivityPropsEqual(previous, next, previous.turn.assistantMessage)
-      : next.turn.assistantMessage === null)
+    activityOutputPropsEqual(previous, next, previous.turn.activity)
   );
 }
 
@@ -372,7 +358,8 @@ function messageRowPropsEqual(previous: MessageRowProps, next: MessageRowProps) 
     previous.message === next.message &&
     previous.rowActions === next.rowActions &&
     previous.showTimestamp === next.showTimestamp &&
-    messageRunActivityPropsEqual(previous, next, previous.message)
+    previous.activity === next.activity &&
+    activityOutputPropsEqual(previous, next, previous.activity)
   );
 }
 
@@ -425,7 +412,8 @@ function assistantChunkFinalPropsEqual(
 ) {
   return (
     previous.message === next.message &&
-    messageRunActivityPropsEqual(previous, next, previous.message)
+    previous.activity === next.activity &&
+    activityOutputPropsEqual(previous, next, previous.activity)
   );
 }
 
@@ -565,19 +553,6 @@ function MessageStatus({ message }: { message: ChatMessage }) {
     return null;
   }
   return <div className="mt-3 text-xs font-medium text-status-critical">{label}</div>;
-}
-
-function activityItemsForMessage(
-  message: ChatMessage,
-  runItemIdsByRunId: Record<string, string[]>,
-  runItemsById: Record<string, RunItem>,
-) {
-  if (message.role === "user" || message.runId === "") {
-    return [];
-  }
-  return (runItemIdsByRunId[message.runId] ?? [])
-    .map((itemId) => runItemsById[itemId])
-    .filter((item): item is RunItem => item !== undefined);
 }
 
 function messageContainerClass(message: ChatMessage) {

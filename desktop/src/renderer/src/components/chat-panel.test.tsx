@@ -594,6 +594,7 @@ describe("chat readable width contract", () => {
             run("run_api", userMessage.id, assistantMessage.id),
             userMessage,
             assistantMessage,
+            runActivity("run_api", activityItem.id),
           ),
         ]}
         runItemIdsByRunId={{ run_api: [activityItem.id] }}
@@ -877,12 +878,54 @@ function transcriptTurn(
   run: Run,
   triggerMessage: ChatMessage,
   assistantMessage: ChatMessage,
+  activity: TranscriptTurn["activity"] = null,
 ): TranscriptTurn {
   return {
+    activity,
     assistantMessage,
     run,
     steeringMessages: [],
     triggerMessage,
+  };
+}
+
+function runActivity(runId: string, sourceRunItemId: string): TranscriptTurn["activity"] {
+  return {
+    rows: [
+      {
+        details: {
+          command: "",
+          cwd: "",
+          details: null,
+          diffSummary: "",
+          durationMs: 0,
+          error: "",
+          exitCode: 0,
+          filePaths: [],
+          namespace: "",
+          noticeKind: "notice",
+          noticeMessage: "notice",
+          patchStatus: "",
+          processId: "",
+          progress: "",
+          requestId: "",
+          result: "",
+          reviewId: "",
+          serverName: "",
+          summary: "",
+          toolName: "",
+        },
+        hasDetails: true,
+        hasOutput: false,
+        id: `activity_${sourceRunItemId}`,
+        sourceRunItemId,
+        status: "completed",
+        title: "notice",
+        type: "notice",
+      },
+    ],
+    runId,
+    status: "completed",
   };
 }
 

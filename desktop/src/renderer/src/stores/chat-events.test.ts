@@ -6,6 +6,8 @@ import type {
   MessageRole,
   MessageStatus,
   Run,
+  RunActivityGroupProjection,
+  RunActivityRowProjection,
   RunStatus,
   TranscriptTurn,
 } from "@generated/backend";
@@ -107,6 +109,29 @@ describe("chat event reducer", () => {
     expect(state.transcript[1]?.triggerMessage.parts[0]?.text).toBe("queued follow-up");
     expect(state.transcript[1]?.assistantMessage).toBeNull();
   });
+
+  test("run activity projection events replace turn activity", () => {
+    const conversation = testConversation();
+    const run = testRun("running", "run_activity");
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      transcript: [
+        transcriptTurn(
+          run,
+          message("message_assistant", 2, "assistant", "streaming", "working", "normal", run.id),
+        ),
+      ],
+      workspaceId,
+    });
+
+    const activity = runActivityProjection(run.id, "running");
+    useChatStore.getState().handleEvent(runActivityUpdatedEvent(1, run, activity));
+    expect(useChatStore.getState().transcript[0]?.activity).toEqual(activity);
+
+    useChatStore.getState().handleEvent(runActivityUpdatedEvent(2, run, null));
+    expect(useChatStore.getState().transcript[0]?.activity).toBeNull();
+  });
 });
 
 function testConversation(): Conversation {
@@ -174,6 +199,7 @@ function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { sta
 function transcriptTurn(run: Run, assistantMessage: ChatMessage): TranscriptTurn {
   const triggerMessage = message("message_user", 1, "user", "complete", "hello", "normal", run.id);
   return {
+    activity: null,
     assistantMessage,
     run: { ...run, assistantMessageId: assistantMessage.id, triggerMessageId: triggerMessage.id },
     steeringMessages: [],
@@ -193,5 +219,69 @@ function queueUpdatedEvent(sequence: number, runs: Run[], messages: ChatMessage[
     streamId,
     type: "chat.queue.updated",
     workspaceId,
+  };
+}
+
+function runActivityUpdatedEvent(
+  sequence: number,
+  run: Run,
+  activity: RunActivityGroupProjection | null,
+): ChatEvent {
+  return {
+    conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: { activity, runId: run.id },
+    runId: run.id,
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.run_activity.updated",
+    workspaceId,
+  };
+}
+
+function runActivityProjection(
+  runId: string,
+  status: RunActivityRowProjection["status"],
+): RunActivityGroupProjection {
+  const groupStatus: RunActivityGroupProjection["status"] =
+    status === "pending" ? "running" : status;
+  return {
+    rows: [
+      {
+        details: {
+          command: "npm test",
+          cwd: "",
+          details: null,
+          diffSummary: "",
+          durationMs: 0,
+          error: "",
+          exitCode: 0,
+          filePaths: [],
+          namespace: "",
+          noticeKind: "",
+          noticeMessage: "",
+          patchStatus: "",
+          processId: "",
+          progress: "",
+          requestId: "",
+          result: "",
+          reviewId: "",
+          serverName: "",
+          summary: "",
+          toolName: "",
+        },
+        hasDetails: true,
+        hasOutput: false,
+        id: "activity_run_item_command",
+        sourceRunItemId: "run_item_command",
+        status,
+        title: "command execution",
+        type: "command_execution",
+      },
+    ],
+    runId,
+    status: groupStatus,
   };
 }

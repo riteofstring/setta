@@ -42,13 +42,15 @@ type Service struct {
 type Option func(*Service)
 
 type activeTurn struct {
-	assistantMessage ChatMessage
-	cancel           context.CancelFunc
-	lastPersistedAt  time.Time
-	runID            string
-	threadID         string
-	turnID           string
-	workspaceID      string
+	assistantMessage            ChatMessage
+	assistantTextByProviderItem map[string]assistantProviderTextState
+	completedAssistantTexts     []string
+	cancel                      context.CancelFunc
+	lastPersistedAt             time.Time
+	runID                       string
+	threadID                    string
+	turnID                      string
+	workspaceID                 string
 }
 
 type SendMessageResult struct {
@@ -631,6 +633,9 @@ func (service *Service) publishCompletedTurnLocked(workspaceID string, conversat
 	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
 		return err
 	}
+	if err := service.publishRunActivityProjectionLocked(workspaceID, run.ID); err != nil {
+		return err
+	}
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
 		return err
 	}
@@ -799,6 +804,9 @@ func (service *Service) saveApprovalRequestLocked(workspaceID string, run Run, a
 	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
 		return err
 	}
+	if err := service.publishRunActivityProjectionLocked(workspaceID, run.ID); err != nil {
+		return err
+	}
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, run.ConversationID, approval.CreatedAt); err != nil {
 		return err
 	}
@@ -821,23 +829,29 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 	if err != nil {
 		return err
 	}
-	message := "Approval denied"
-	if approved {
-		message = "Approval approved"
-	}
-	if response != "" {
-		message = "Approval answered"
-	}
-	if err := service.traceLocked(workspaceID, run.ID, "approval_resolved", message); err != nil {
+	if err := service.traceLocked(workspaceID, run.ID, "approval_resolved", approvalResolutionMessage(approved, response)); err != nil {
 		return err
 	}
 	if _, err = service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
+		return err
+	}
+	if err := service.publishRunActivityProjectionLocked(workspaceID, run.ID); err != nil {
 		return err
 	}
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, run.ConversationID, timestamp(service.now())); err != nil {
 		return err
 	}
 	return service.publishConversationUpdatedLocked(workspaceID, run.ConversationID, run.ID)
+}
+
+func approvalResolutionMessage(approved bool, response string) string {
+	if response != "" {
+		return "Approval answered"
+	}
+	if approved {
+		return "Approval approved"
+	}
+	return "Approval denied"
 }
 
 func (service *Service) markHarnessRefUnavailable(workspaceID string, conversationID string, runID string, refErr *HarnessRefUnavailableError) error {

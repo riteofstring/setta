@@ -551,10 +551,11 @@ type QueueState struct {
 }
 
 type TranscriptTurn struct {
-	Run              Run           `json:"run"`
-	TriggerMessage   ChatMessage   `json:"triggerMessage"`
-	AssistantMessage *ChatMessage  `json:"assistantMessage"`
-	SteeringMessages []ChatMessage `json:"steeringMessages"`
+	Run              Run                         `json:"run"`
+	TriggerMessage   ChatMessage                 `json:"triggerMessage"`
+	AssistantMessage *ChatMessage                `json:"assistantMessage"`
+	SteeringMessages []ChatMessage               `json:"steeringMessages"`
+	Activity         *RunActivityGroupProjection `json:"activity"`
 }
 
 type ConversationListItem struct {
@@ -721,12 +722,6 @@ type MessagePage struct {
 	Goal               *ChatGoalState   `json:"goal"`
 	HasMoreOlder       bool             `json:"hasMoreOlder"`
 	OlderBeforeOrdinal int              `json:"olderBeforeOrdinal"`
-}
-
-type RunActivityPage struct {
-	RunID  string          `json:"runId"`
-	Items  []RunItem       `json:"items"`
-	Output []RunItemOutput `json:"output"`
 }
 
 type RunItemOutputPage struct {
@@ -955,17 +950,6 @@ func (page MessagePage) MarshalJSON() ([]byte, error) {
 	}
 	if page.Transcript == nil {
 		page.Transcript = []TranscriptTurn{}
-	}
-	return json.Marshal(pageAlias(page))
-}
-
-func (page RunActivityPage) MarshalJSON() ([]byte, error) {
-	type pageAlias RunActivityPage
-	if page.Items == nil {
-		page.Items = []RunItem{}
-	}
-	if page.Output == nil {
-		page.Output = []RunItemOutput{}
 	}
 	return json.Marshal(pageAlias(page))
 }

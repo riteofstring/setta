@@ -111,6 +111,7 @@ function turn(
   assistantMessage: ChatMessage,
 ): TranscriptTurn {
   return {
+    activity: null,
     assistantMessage,
     run,
     steeringMessages: [],

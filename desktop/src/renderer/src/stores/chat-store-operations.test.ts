@@ -611,6 +611,7 @@ function transcriptTurn(
   assistantMessage: ChatMessage | null,
 ): TranscriptTurn {
   return {
+    activity: null,
     assistantMessage,
     run: {
       ...run,

@@ -44,6 +44,8 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "command approval workflow", Run: scriptedCommandApprovalTurn},
 	{Prompt: "file approval workflow", Run: scriptedFileApprovalTurn},
 	{Prompt: "activity feed workflow", Run: (*ScriptedWorkflowHarness).activityFeedTurn},
+	{Prompt: "chat activity projection workflow", Run: (*ScriptedWorkflowHarness).activityProjectionTurn},
+	{Prompt: "chat activity projection reload workflow", Run: scriptedActivityProjectionReloadTurn},
 	{Prompt: "permission approval workflow", Run: scriptedPermissionApprovalTurn},
 	{Prompt: "user input approval workflow", Run: (*ScriptedWorkflowHarness).userInputApprovalTurn},
 	{Prompt: "mcp elicitation form accept workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormAcceptTurn},

@@ -274,6 +274,7 @@ function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
     const assistantMessage =
       messages.find((item) => item.runId === runId && item.role === "assistant") ?? null;
     return {
+      activity: null,
       assistantMessage,
       run: {
         ...run,

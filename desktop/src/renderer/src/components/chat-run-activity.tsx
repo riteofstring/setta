@@ -1,4 +1,10 @@
-import type { RunItem, RunItemOutput, RunItemType } from "@generated/backend";
+import type {
+  RunActivityDetailsProjection,
+  RunActivityGroupProjection,
+  RunActivityRowProjection,
+  RunItemOutput,
+  RunItemType,
+} from "@generated/backend";
 import {
   AlertTriangle,
   Archive,
@@ -11,33 +17,12 @@ import {
   type LucideIcon,
   Wrench,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 import { BrailleSpinner } from "./ascii-spinner";
 import { Button } from "./ui/button";
-
-const activityLabelByType = {
-  agent_message: "assistant message",
-  approval_review: "approval review",
-  collab_agent_tool_call: "collab agent tool call",
-  command_execution: "command execution",
-  context_compaction: "context compaction",
-  diff: "diff",
-  dynamic_tool_call: "dynamic tool call",
-  file_change: "file change",
-  hook: "hook",
-  image_generation: "image generation",
-  image_view: "image view",
-  mcp_tool_call: "mcp tool call",
-  notice: "notice",
-  plan: "plan",
-  reasoning: "reasoning",
-  structured_input: "structured input",
-  terminal_interaction: "terminal interaction",
-  web_search: "web search",
-} satisfies Record<RunItemType, string>;
 
 const activityIconByType = {
   agent_message: Wrench,
@@ -82,15 +67,15 @@ const activityIconClassByType = {
 } satisfies Record<RunItemType, string>;
 
 export function RunActivityRows({
+  activity,
   highlightedRunItemId,
-  items,
   loadRunItemOutput,
   outputIdsByRunItemId,
   outputPagesByRunItemId,
   outputsById,
 }: {
+  activity: RunActivityGroupProjection;
   highlightedRunItemId?: string;
-  items: RunItem[];
   loadRunItemOutput: (
     runId: string,
     runItemId: string,
@@ -101,7 +86,7 @@ export function RunActivityRows({
   outputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   outputsById: Record<string, RunItemOutput>;
 }) {
-  if (items.length === 0) {
+  if (activity.rows.length === 0) {
     return null;
   }
   return (
@@ -114,20 +99,23 @@ export function RunActivityRows({
         <Bot className="h-4 w-4 shrink-0 text-muted-foreground" />
         <ActivityGroupDisclosureIcon />
         <span className="rounded-sm border border-border bg-popover px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-          {items.length}
+          {activity.rows.length}
         </span>
         <span className="min-w-0 flex-1 truncate font-medium text-muted-foreground">Activity</span>
-        <RunActivityGroupStatus items={items} />
+        <RunActivityGroupStatus activity={activity} />
       </summary>
       <div className="mt-1.5 min-w-0 space-y-1.5 border-l border-border/70 pl-2">
-        {items.map((item) => (
+        {activity.rows.map((row) => (
           <RunActivityRow
-            focused={highlightedRunItemId !== undefined && item.id === highlightedRunItemId}
-            item={item}
-            key={item.id}
+            focused={
+              highlightedRunItemId !== undefined && row.sourceRunItemId === highlightedRunItemId
+            }
+            key={row.id}
             loadRunItemOutput={loadRunItemOutput}
-            outputPage={outputPagesByRunItemId[item.id]}
-            outputs={outputsForItem(outputIdsByRunItemId, outputsById, item.id)}
+            outputPage={outputPagesByRunItemId[row.sourceRunItemId]}
+            outputs={outputsForItem(outputIdsByRunItemId, outputsById, row.sourceRunItemId)}
+            row={row}
+            runId={activity.runId}
           />
         ))}
       </div>
@@ -137,13 +125,13 @@ export function RunActivityRows({
 
 function RunActivityRow({
   focused = false,
-  item,
   loadRunItemOutput,
   outputPage,
   outputs,
+  row,
+  runId,
 }: {
   focused?: boolean;
-  item: RunItem;
   loadRunItemOutput: (
     runId: string,
     runItemId: string,
@@ -152,11 +140,65 @@ function RunActivityRow({
   ) => Promise<void>;
   outputPage: RunItemOutputPageState | undefined;
   outputs: RunItemOutput[];
+  row: RunActivityRowProjection;
+  runId: string;
 }) {
   const [open, setOpen] = useState(false);
   const rowRef = useRef<HTMLDetailsElement>(null);
-  // A deep-linked row (from an activity-chip click) opens and scrolls into view. The effect is inert
-  // for chat usage, where no row is ever focused. The native disclosure is left uncontrolled, so the
+  useFocusedRunActivityRow(focused, rowRef, setOpen);
+  if (!hasExpandableActivityRow(row)) {
+    return <CompactRunActivityRow focused={focused} row={row} />;
+  }
+  const renderDetails = shouldRenderActivityDetails(open, focused, row, outputs);
+  const outputText = renderDetails ? outputPreview(outputs) : "";
+  return (
+    <details
+      className={cn(
+        "group/item relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-foreground",
+        focused && "ring-2 ring-accent-violet/70 ring-offset-1 ring-offset-background",
+      )}
+      data-activity-focus-id={focused ? `run-item:${row.sourceRunItemId}` : undefined}
+      data-activity-focused={focused ? "true" : undefined}
+      data-run-item-id={row.sourceRunItemId}
+      data-testid="run-activity-row"
+      ref={rowRef}
+      onToggle={(event) => {
+        const nextOpen = event.currentTarget.open;
+        setOpen(nextOpen);
+        if (!shouldLoadActivityOutput(nextOpen, row, outputPage)) {
+          return;
+        }
+        void loadRunItemOutput(runId, row.sourceRunItemId, 0);
+      }}
+    >
+      <summary className="flex h-6 min-w-0 cursor-pointer list-none items-center gap-1.5 text-left text-xs text-muted-foreground marker:hidden">
+        <ActivityIcon type={row.type} />
+        <ToolDisclosureIcon />
+        <span className="min-w-0 flex-1 truncate font-medium text-muted-foreground">
+          {row.title}
+        </span>
+        <RunActivityStatus row={row} />
+      </summary>
+      {renderDetails ? (
+        <RunActivityDetails
+          details={row.details}
+          loadMoreOutput={() =>
+            void loadRunItemOutput(runId, row.sourceRunItemId, outputPage?.nextOrdinal ?? 0)
+          }
+          outputPage={outputPage}
+          outputText={outputText}
+        />
+      ) : null}
+    </details>
+  );
+}
+
+function useFocusedRunActivityRow(
+  focused: boolean,
+  rowRef: RefObject<HTMLDetailsElement | null>,
+  setOpen: (open: boolean) => void,
+) {
+  // A deep-linked row opens and scrolls into view. The native disclosure stays uncontrolled, so the
   // open state is nudged through the element ref rather than a declarative `open` attribute.
   useEffect(() => {
     if (!focused) {
@@ -167,53 +209,66 @@ function RunActivityRow({
     }
     setOpen(true);
     rowRef.current?.scrollIntoView({ block: "nearest" });
-  }, [focused]);
-  const renderDetails = open || focused || shouldRenderClosedActivityDetails(item, outputs);
-  const outputText = renderDetails ? outputPreview(outputs) : "";
+  }, [focused, rowRef, setOpen]);
+}
+
+function hasExpandableActivityRow(row: RunActivityRowProjection) {
+  return row.hasDetails || row.hasOutput;
+}
+
+function shouldRenderActivityDetails(
+  open: boolean,
+  focused: boolean,
+  row: RunActivityRowProjection,
+  outputs: RunItemOutput[],
+) {
+  if (open || focused) {
+    return true;
+  }
+  return shouldRenderClosedActivityDetails(row, outputs);
+}
+
+function shouldLoadActivityOutput(
+  open: boolean,
+  row: RunActivityRowProjection,
+  outputPage: RunItemOutputPageState | undefined,
+) {
+  if (!open || !row.hasOutput || outputPage?.loading) {
+    return false;
+  }
+  return outputPage === undefined;
+}
+
+function CompactRunActivityRow({
+  focused = false,
+  row,
+}: {
+  focused?: boolean;
+  row: RunActivityRowProjection;
+}) {
   return (
-    <details
+    <div
       className={cn(
-        "group/item relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-foreground",
+        "relative flex h-6 w-full min-w-0 max-w-full items-center gap-1.5 overflow-hidden rounded-sm text-xs text-muted-foreground",
         focused && "ring-2 ring-accent-violet/70 ring-offset-1 ring-offset-background",
       )}
-      data-activity-focus-id={focused ? `run-item:${item.id}` : undefined}
+      data-activity-focus-id={focused ? `run-item:${row.sourceRunItemId}` : undefined}
       data-activity-focused={focused ? "true" : undefined}
-      data-run-item-id={item.id}
+      data-run-item-id={row.sourceRunItemId}
       data-testid="run-activity-row"
-      ref={rowRef}
-      onToggle={(event) => {
-        const nextOpen = event.currentTarget.open;
-        setOpen(nextOpen);
-        if (!nextOpen || outputPage?.loading || outputPage) {
-          return;
-        }
-        void loadRunItemOutput(item.runId, item.id, 0);
-      }}
     >
-      <summary className="flex h-6 min-w-0 cursor-pointer list-none items-center gap-1.5 text-left text-xs text-muted-foreground marker:hidden">
-        <ActivityIcon type={item.type} />
-        <ToolDisclosureIcon />
-        <span className="min-w-0 flex-1 truncate font-medium text-muted-foreground">
-          {activityTitle(item)}
-        </span>
-        <RunActivityStatus item={item} />
-      </summary>
-      {renderDetails ? (
-        <RunActivityDetails
-          item={item}
-          loadMoreOutput={() =>
-            void loadRunItemOutput(item.runId, item.id, outputPage?.nextOrdinal ?? 0)
-          }
-          outputPage={outputPage}
-          outputText={outputText}
-        />
-      ) : null}
-    </details>
+      <ActivityIcon type={row.type} />
+      <span className="min-w-0 flex-1 truncate font-medium text-muted-foreground">{row.title}</span>
+      <RunActivityStatus row={row} />
+    </div>
   );
 }
 
-function shouldRenderClosedActivityDetails(item: RunItem, outputs: RunItemOutput[]) {
-  if (item.status !== "pending" && item.status !== "running") {
+function shouldRenderClosedActivityDetails(
+  row: RunActivityRowProjection,
+  outputs: RunItemOutput[],
+) {
+  if (row.status !== "pending" && row.status !== "running") {
     return true;
   }
   return outputs.length === 0;
@@ -229,12 +284,12 @@ function ActivityGroupDisclosureIcon() {
 }
 
 function RunActivityDetails({
-  item,
+  details,
   loadMoreOutput,
   outputPage,
   outputText,
 }: {
-  item: RunItem;
+  details: RunActivityDetailsProjection;
   loadMoreOutput: () => void;
   outputPage: RunItemOutputPageState | undefined;
   outputText: string;
@@ -242,17 +297,18 @@ function RunActivityDetails({
   return (
     <div className="mt-1.5 w-full min-w-0 max-w-full overflow-hidden border-l border-border/70 pl-2">
       <div className="w-full min-w-0 max-w-full space-y-1.5 overflow-hidden text-xs text-muted-foreground">
-        <RunActivityCwd cwd={item.cwd} />
-        <RunActivityCommand command={item.command} />
-        <RunActivityFiles paths={item.filePaths} />
-        <RunActivityMetadata item={item} />
-        <RunActivityTextBlock title="Progress" value={item.progress} />
-        <RunActivityTextBlock title="Result" value={item.result} />
-        <RunActivityTextBlock title="Error" tone="error" value={item.error} />
-        <RunActivityTextBlock title="Notice" value={item.noticeMessage} />
-        <RunActivityTextBlock title="Diff" value={item.diffSummary} />
-        <RunActivityJSONDetails details={item.details} />
-        <RunActivityExit durationMs={item.durationMs} exitCode={item.exitCode} />
+        <RunActivityCwd cwd={details.cwd} />
+        <RunActivityCommand command={details.command} />
+        <RunActivityFiles paths={details.filePaths} />
+        <RunActivityMetadata details={details} />
+        <RunActivityTextBlock title="Summary" value={details.summary} />
+        <RunActivityTextBlock title="Progress" value={details.progress} />
+        <RunActivityTextBlock title="Result" value={details.result} />
+        <RunActivityTextBlock title="Error" tone="error" value={details.error} />
+        <RunActivityTextBlock title="Notice" value={details.noticeMessage} />
+        <RunActivityTextBlock title="Diff" value={details.diffSummary} />
+        <RunActivityJSONDetails details={details.details} />
+        <RunActivityExit durationMs={details.durationMs} exitCode={details.exitCode} />
         <RunActivityOutput
           loadMoreOutput={loadMoreOutput}
           outputPage={outputPage}
@@ -284,8 +340,8 @@ function RunActivityFiles({ paths }: { paths: string[] }) {
   return <RunActivityPreBlock title="Files" value={paths.join("\n")} />;
 }
 
-function RunActivityMetadata({ item }: { item: RunItem }) {
-  const entries = runActivityMetadata(item);
+function RunActivityMetadata({ details }: { details: RunActivityDetailsProjection }) {
+  const entries = runActivityMetadata(details);
   if (entries.length === 0) {
     return null;
   }
@@ -303,12 +359,16 @@ function RunActivityMetadata({ item }: { item: RunItem }) {
   );
 }
 
-function runActivityMetadata(item: RunItem) {
+function runActivityMetadata(details: RunActivityDetailsProjection) {
   return [
-    { label: "namespace", value: item.namespace },
-    { label: "process", value: item.processId },
-    { label: "request", value: item.requestId },
-    { label: "review", value: item.reviewId },
+    { label: "server", value: details.serverName },
+    { label: "tool", value: details.toolName },
+    { label: "namespace", value: details.namespace },
+    { label: "process", value: details.processId },
+    { label: "request", value: details.requestId },
+    { label: "review", value: details.reviewId },
+    { label: "patch", value: details.patchStatus },
+    { label: "notice", value: details.noticeKind },
   ].filter((entry) => entry.value !== "");
 }
 
@@ -481,57 +541,25 @@ function ToolDisclosureIcon() {
   );
 }
 
-function RunActivityGroupStatus({ items }: { items: RunItem[] }) {
-  const running = items.some((item) => item.status === "pending" || item.status === "running");
+function RunActivityGroupStatus({ activity }: { activity: RunActivityGroupProjection }) {
+  const running = activity.status === "running";
   return (
     <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
       {running ? <BrailleSpinner className="text-accent-violet" label="Activity running" /> : null}
-      <span>{activityGroupStatus(items)}</span>
+      <span>{activity.status}</span>
     </span>
   );
 }
 
-function activityGroupStatus(items: RunItem[]) {
-  if (items.some((item) => item.status === "failed")) {
-    return "failed";
-  }
-  if (items.some((item) => item.status === "cancelled")) {
-    return "cancelled";
-  }
-  if (items.some((item) => item.status === "pending" || item.status === "running")) {
-    return "running";
-  }
-  return "completed";
-}
-
-function RunActivityStatus({ item }: { item: RunItem }) {
+function RunActivityStatus({ row }: { row: RunActivityRowProjection }) {
   return (
     <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-      {item.status === "running" || item.status === "pending" ? (
-        <BrailleSpinner className="text-accent-violet" label={`${activityTitle(item)} running`} />
+      {row.status === "running" || row.status === "pending" ? (
+        <BrailleSpinner className="text-accent-violet" label={`${row.title} running`} />
       ) : null}
-      <span>{item.status}</span>
+      <span>{row.status}</span>
     </span>
   );
-}
-
-function activityTitle(item: RunItem) {
-  if (item.title) {
-    return item.title;
-  }
-  if (item.command) {
-    return item.command;
-  }
-  if (item.toolName) {
-    return item.serverName ? `${item.serverName}.${item.toolName}` : item.toolName;
-  }
-  if (item.noticeKind) {
-    return item.noticeKind;
-  }
-  if (item.summary) {
-    return item.summary;
-  }
-  return activityLabelByType[item.type];
 }
 
 function outputsForItem(

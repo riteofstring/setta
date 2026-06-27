@@ -1,46 +1,30 @@
-import type { ChatMessage, RunItem, RunItemOutput } from "@generated/backend";
+import type { RunActivityGroupProjection, RunItemOutput } from "@generated/backend";
 
 import type { RunItemOutputPageState } from "../stores/chat-store";
 
 export interface MessageRunActivityMaps {
-  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
 }
 
-export function messageRunActivityPropsEqual(
+export function activityOutputPropsEqual(
   previous: MessageRunActivityMaps,
   next: MessageRunActivityMaps,
-  message: ChatMessage,
+  activity: RunActivityGroupProjection | null | undefined,
 ) {
-  if (message.role === "user" || message.runId === "") {
+  if (!activity) {
     return true;
   }
-  return runActivityPropsEqualForRun(previous, next, message.runId);
+  return activity.rows.every((row) => runItemOutputPropsEqual(previous, next, row.sourceRunItemId));
 }
 
-function runActivityPropsEqualForRun(
-  previous: MessageRunActivityMaps,
-  next: MessageRunActivityMaps,
-  runId: string,
-) {
-  const previousItemIds = previous.runItemIdsByRunId[runId] ?? [];
-  const nextItemIds = next.runItemIdsByRunId[runId] ?? [];
-  return (
-    sameStringItems(previousItemIds, nextItemIds) &&
-    nextItemIds.every((itemId) => runItemActivityPropsEqual(previous, next, itemId))
-  );
-}
-
-function runItemActivityPropsEqual(
+function runItemOutputPropsEqual(
   previous: MessageRunActivityMaps,
   next: MessageRunActivityMaps,
   itemId: string,
 ) {
   return (
-    previous.runItemsById[itemId] === next.runItemsById[itemId] &&
     previous.runItemOutputPagesByRunItemId[itemId] === next.runItemOutputPagesByRunItemId[itemId] &&
     runItemOutputsEqual(previous, next, itemId)
   );
