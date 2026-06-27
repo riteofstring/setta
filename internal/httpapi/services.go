@@ -59,6 +59,7 @@ type ChatService interface {
 	ExecuteChatCommandWithOptions(workspaceID string, conversationID string, raw string, options chat.ChatCommandExecutionOptions) (chat.ChatCommandExecuteResult, error)
 	EditQueuedMessage(workspaceID string, conversationID string, messageID string, prompt string) (chat.QueueEditResult, error)
 	ListCommands(workspaceID string, conversationID string) (chat.ChatCommandListResult, error)
+	OpenChatCodexModelPicker(workspaceID string, conversationID string) (chat.ChatCommandExecuteResult, error)
 	QueueUserMessage(workspaceID string, conversationID string, prompt string) (chat.QueueMessageResult, error)
 	RemoveQueuedMessage(workspaceID string, conversationID string, messageID string) (chat.QueueRemoveResult, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)

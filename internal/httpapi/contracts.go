@@ -170,6 +170,11 @@ type SetChatCodexModelRequest struct {
 	ModelID        string `json:"modelId"`
 }
 
+type OpenChatCodexModelPickerRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
 type SetChatCodexReasoningEffortRequest struct {
 	WorkspaceID     string               `json:"workspaceId"`
 	ConversationID  string               `json:"conversationId"`

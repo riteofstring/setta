@@ -157,6 +157,7 @@ export const ipcChannels = {
   chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
   chatSendSteeringImmediately: "chat:send-steering-immediately",
+  chatOpenCodexModelPicker: "chat:open-codex-model-picker",
   chatSetCodexModel: "chat:set-codex-model",
   chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
   chatSetConversationPinned: "chat:set-conversation-pinned",
@@ -344,6 +345,10 @@ interface IpcContract {
       raw: string,
       confirmGoalReplacement: boolean,
     ];
+    result: ChatCommandExecuteResult;
+  };
+  chatOpenCodexModelPicker: {
+    args: [workspaceId: string, conversationId: string];
     result: ChatCommandExecuteResult;
   };
   chatSetCodexModel: {

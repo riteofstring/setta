@@ -766,16 +766,44 @@ export function decodeStructuredInputMode(value: unknown, label = "StructuredInp
   }
 }
 
-export type ChatCommandKind = "goal" | "model";
+export type ChatSlashCommandKind = "goal";
 
-export const chatCommandKindValues = ["goal", "model"] as const satisfies readonly ChatCommandKind[];
+export const chatSlashCommandKindValues = ["goal"] as const satisfies readonly ChatSlashCommandKind[];
 
-export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
+export function decodeChatSlashCommandKind(value: unknown, label = "ChatSlashCommandKind"): ChatSlashCommandKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "goal":
       return decoded;
-    case "model":
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ChatCommandLiteralMatchMode = "exact";
+
+export const chatCommandLiteralMatchModeValues = ["exact"] as const satisfies readonly ChatCommandLiteralMatchMode[];
+
+export function decodeChatCommandLiteralMatchMode(value: unknown, label = "ChatCommandLiteralMatchMode"): ChatCommandLiteralMatchMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "exact":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ChatCommandArgumentKind = "literal" | "free_text";
+
+export const chatCommandArgumentKindValues = ["literal", "free_text"] as const satisfies readonly ChatCommandArgumentKind[];
+
+export function decodeChatCommandArgumentKind(value: unknown, label = "ChatCommandArgumentKind"): ChatCommandArgumentKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "literal":
+      return decoded;
+    case "free_text":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -794,6 +822,22 @@ export function decodeChatCommandResultAction(value: unknown, label = "ChatComma
     case "goal_editor":
       return decoded;
     case "model_picker":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ChatCommandKind = "goal" | "model";
+
+export const chatCommandKindValues = ["goal", "model"] as const satisfies readonly ChatCommandKind[];
+
+export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "goal":
+      return decoded;
+    case "model":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2921,17 +2965,37 @@ export interface ListChatCommandsRequest {
   conversationId: string;
 }
 
-export interface ChatCommandCapability {
-  kind: ChatCommandKind;
+export interface ChatCommandLiteralArgumentSpec {
+  kind: ChatCommandArgumentKind;
+  token: string;
+  description: string;
+}
+
+export interface ChatCommandFreeTextArgumentSpec {
+  kind: ChatCommandArgumentKind;
   name: string;
-  usage: string;
+  description: string;
+  maxRunes: number;
+  required: boolean;
+}
+
+export interface ChatCommandGrammar {
+  summary: string;
+  literalMatch: ChatCommandLiteralMatchMode;
+  arguments: ChatCommandArgumentSpec[];
+}
+
+export interface ChatCommandDescriptor {
+  kind: ChatSlashCommandKind;
+  name: string;
   description: string;
   available: boolean;
   unavailableReason: string;
+  grammar: ChatCommandGrammar;
 }
 
 export interface ChatCommandListResult {
-  commands: ChatCommandCapability[];
+  commands: ChatCommandDescriptor[];
 }
 
 export interface ExecuteChatCommandRequest {
@@ -2965,6 +3029,7 @@ export interface ChatCommandResult {
   raw: string;
   title: string;
   message: string;
+  composerDraft: string;
   goal: ChatGoalState | null;
   models: ChatModelOption[];
   selectedModel: string;
@@ -2977,6 +3042,11 @@ export interface ChatCommandExecuteResult {
   message: ChatMessage | null;
   page: MessagePage;
   result: ChatCommandResult;
+}
+
+export interface OpenChatCodexModelPickerRequest {
+  workspaceId: string;
+  conversationId: string;
 }
 
 export interface SetChatCodexModelRequest {
@@ -4857,6 +4927,11 @@ export interface CodexAccountChangedPayload {
   reason: string;
 }
 
+export type ChatCommandArgumentSpec =
+  ChatCommandLiteralArgumentSpec
+  | ChatCommandFreeTextArgumentSpec
+;
+
 export type ChatEvent =
   ChatMessageCreatedEvent
   | ChatMessageQueuedEvent
@@ -5208,6 +5283,10 @@ export const backendEndpoints = {
   ExecuteChatCommand: {
     method: "POST",
     path: "/chat/commands/execute",
+  },
+  OpenChatCodexModelPicker: {
+    method: "POST",
+    path: "/chat/codex/model/picker",
   },
   SetChatCodexModel: {
     method: "POST",
@@ -6642,16 +6721,48 @@ export function decodeListChatCommandsRequest(value: unknown): ListChatCommandsR
   };
 }
 
-export function decodeChatCommandCapability(value: unknown): ChatCommandCapability {
-  const record = assertRecord(value, "ChatCommandCapability");
-  assertKnownFields(record, "ChatCommandCapability", ["kind", "name", "usage", "description", "available", "unavailableReason"]);
+export function decodeChatCommandLiteralArgumentSpec(value: unknown): ChatCommandLiteralArgumentSpec {
+  const record = assertRecord(value, "ChatCommandLiteralArgumentSpec");
+  assertKnownFields(record, "ChatCommandLiteralArgumentSpec", ["kind", "token", "description"]);
   return {
-    kind: decodeChatCommandKind(requireField(record, "kind", "ChatCommandCapability"), "ChatCommandCapability.kind"),
-    name: decodeString(requireField(record, "name", "ChatCommandCapability"), "ChatCommandCapability.name"),
-    usage: decodeString(requireField(record, "usage", "ChatCommandCapability"), "ChatCommandCapability.usage"),
-    description: decodeString(requireField(record, "description", "ChatCommandCapability"), "ChatCommandCapability.description"),
-    available: decodeBoolean(requireField(record, "available", "ChatCommandCapability"), "ChatCommandCapability.available"),
-    unavailableReason: decodeString(requireField(record, "unavailableReason", "ChatCommandCapability"), "ChatCommandCapability.unavailableReason"),
+    kind: decodeChatCommandArgumentKind(requireField(record, "kind", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.kind"),
+    token: decodeString(requireField(record, "token", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.token"),
+    description: decodeString(requireField(record, "description", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.description"),
+  };
+}
+
+export function decodeChatCommandFreeTextArgumentSpec(value: unknown): ChatCommandFreeTextArgumentSpec {
+  const record = assertRecord(value, "ChatCommandFreeTextArgumentSpec");
+  assertKnownFields(record, "ChatCommandFreeTextArgumentSpec", ["kind", "name", "description", "maxRunes", "required"]);
+  return {
+    kind: decodeChatCommandArgumentKind(requireField(record, "kind", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.kind"),
+    name: decodeString(requireField(record, "name", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.name"),
+    description: decodeString(requireField(record, "description", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.description"),
+    maxRunes: decodeInteger(requireField(record, "maxRunes", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.maxRunes"),
+    required: decodeBoolean(requireField(record, "required", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.required"),
+  };
+}
+
+export function decodeChatCommandGrammar(value: unknown): ChatCommandGrammar {
+  const record = assertRecord(value, "ChatCommandGrammar");
+  assertKnownFields(record, "ChatCommandGrammar", ["summary", "literalMatch", "arguments"]);
+  return {
+    summary: decodeString(requireField(record, "summary", "ChatCommandGrammar"), "ChatCommandGrammar.summary"),
+    literalMatch: decodeChatCommandLiteralMatchMode(requireField(record, "literalMatch", "ChatCommandGrammar"), "ChatCommandGrammar.literalMatch"),
+    arguments: decodeArray(requireField(record, "arguments", "ChatCommandGrammar"), "ChatCommandGrammar.arguments", (item) => decodeChatCommandArgumentSpec(item)),
+  };
+}
+
+export function decodeChatCommandDescriptor(value: unknown): ChatCommandDescriptor {
+  const record = assertRecord(value, "ChatCommandDescriptor");
+  assertKnownFields(record, "ChatCommandDescriptor", ["kind", "name", "description", "available", "unavailableReason", "grammar"]);
+  return {
+    kind: decodeChatSlashCommandKind(requireField(record, "kind", "ChatCommandDescriptor"), "ChatCommandDescriptor.kind"),
+    name: decodeString(requireField(record, "name", "ChatCommandDescriptor"), "ChatCommandDescriptor.name"),
+    description: decodeString(requireField(record, "description", "ChatCommandDescriptor"), "ChatCommandDescriptor.description"),
+    available: decodeBoolean(requireField(record, "available", "ChatCommandDescriptor"), "ChatCommandDescriptor.available"),
+    unavailableReason: decodeString(requireField(record, "unavailableReason", "ChatCommandDescriptor"), "ChatCommandDescriptor.unavailableReason"),
+    grammar: decodeChatCommandGrammar(requireField(record, "grammar", "ChatCommandDescriptor")),
   };
 }
 
@@ -6659,7 +6770,7 @@ export function decodeChatCommandListResult(value: unknown): ChatCommandListResu
   const record = assertRecord(value, "ChatCommandListResult");
   assertKnownFields(record, "ChatCommandListResult", ["commands"]);
   return {
-    commands: decodeArray(requireField(record, "commands", "ChatCommandListResult"), "ChatCommandListResult.commands", (item) => decodeChatCommandCapability(item)),
+    commands: decodeArray(requireField(record, "commands", "ChatCommandListResult"), "ChatCommandListResult.commands", (item) => decodeChatCommandDescriptor(item)),
   };
 }
 
@@ -6702,13 +6813,14 @@ export function decodeChatModelOption(value: unknown): ChatModelOption {
 
 export function decodeChatCommandResult(value: unknown): ChatCommandResult {
   const record = assertRecord(value, "ChatCommandResult");
-  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "goal", "models", "selectedModel", "reasoningEfforts", "selectedReasoningEffort"]);
+  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "composerDraft", "goal", "models", "selectedModel", "reasoningEfforts", "selectedReasoningEffort"]);
   return {
     action: decodeChatCommandResultAction(requireField(record, "action", "ChatCommandResult"), "ChatCommandResult.action"),
     kind: decodeChatCommandKind(requireField(record, "kind", "ChatCommandResult"), "ChatCommandResult.kind"),
     raw: decodeString(requireField(record, "raw", "ChatCommandResult"), "ChatCommandResult.raw"),
     title: decodeString(requireField(record, "title", "ChatCommandResult"), "ChatCommandResult.title"),
     message: decodeString(requireField(record, "message", "ChatCommandResult"), "ChatCommandResult.message"),
+    composerDraft: decodeString(requireField(record, "composerDraft", "ChatCommandResult"), "ChatCommandResult.composerDraft"),
     goal: decodeNullable(requireField(record, "goal", "ChatCommandResult"), "ChatCommandResult.goal", (item) => decodeChatGoalState(item)),
     models: decodeArray(requireField(record, "models", "ChatCommandResult"), "ChatCommandResult.models", (item) => decodeChatModelOption(item)),
     selectedModel: decodeString(requireField(record, "selectedModel", "ChatCommandResult"), "ChatCommandResult.selectedModel"),
@@ -6725,6 +6837,15 @@ export function decodeChatCommandExecuteResult(value: unknown): ChatCommandExecu
     message: decodeNullable(requireField(record, "message", "ChatCommandExecuteResult"), "ChatCommandExecuteResult.message", (item) => decodeChatMessage(item)),
     page: decodeMessagePage(requireField(record, "page", "ChatCommandExecuteResult")),
     result: decodeChatCommandResult(requireField(record, "result", "ChatCommandExecuteResult")),
+  };
+}
+
+export function decodeOpenChatCodexModelPickerRequest(value: unknown): OpenChatCodexModelPickerRequest {
+  const record = assertRecord(value, "OpenChatCodexModelPickerRequest");
+  assertKnownFields(record, "OpenChatCodexModelPickerRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "OpenChatCodexModelPickerRequest"), "OpenChatCodexModelPickerRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "OpenChatCodexModelPickerRequest"), "OpenChatCodexModelPickerRequest.conversationId"),
   };
 }
 
@@ -9466,6 +9587,19 @@ export function decodeCodexAccountChangedPayload(value: unknown): CodexAccountCh
   };
 }
 
+export function decodeChatCommandArgumentSpec(value: unknown): ChatCommandArgumentSpec {
+  const record = assertRecord(value, "ChatCommandArgumentSpec");
+  const discriminator = decodeString(requireField(record, "kind", "ChatCommandArgumentSpec"), "ChatCommandArgumentSpec.kind");
+  switch (discriminator) {
+    case "literal":
+      return decodeChatCommandLiteralArgumentSpec(value);
+    case "free_text":
+      return decodeChatCommandFreeTextArgumentSpec(value);
+    default:
+      throw new Error("ChatCommandArgumentSpec.kind" + " is unsupported: " + discriminator);
+  }
+}
+
 export function decodeChatEvent(value: unknown): ChatEvent {
   const record = assertRecord(value, "ChatEvent");
   const type = decodeString(requireField(record, "type", "ChatEvent"), "ChatEvent.type");
@@ -9730,6 +9864,7 @@ export interface BackendClient {
   sendSteeringImmediately: (request: SendSteeringImmediatelyRequest) => Promise<ImmediateSteeringResult>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
   executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
+  openChatCodexModelPicker: (request: OpenChatCodexModelPickerRequest) => Promise<ChatCommandExecuteResult>;
   setChatCodexModel: (request: SetChatCodexModelRequest) => Promise<ChatCommandExecuteResult>;
   setChatCodexReasoningEffort: (request: SetChatCodexReasoningEffortRequest) => Promise<ChatCommandExecuteResult>;
   cancelRun: (request: CancelRunRequest) => Promise<Run>;
@@ -10048,6 +10183,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.ExecuteChatCommand,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    openChatCodexModelPicker: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatCommandExecuteResult,
+      endpoint: backendEndpoints.OpenChatCodexModelPicker,
       fetchImpl,
       requestPayload: request,
     }),

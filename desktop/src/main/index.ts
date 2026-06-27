@@ -613,6 +613,17 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatOpenCodexModelPicker",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().openChatCodexModelPicker({
+        conversationId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatSetCodexModel",
     async (_event, workspaceId, conversationId, modelId) => {
       return requireBackendClient().setChatCodexModel({

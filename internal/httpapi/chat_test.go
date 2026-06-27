@@ -398,8 +398,19 @@ func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
 	}, http.StatusOK)
-	if len(list.Commands) != 2 {
-		t.Fatalf("commands = %+v, want goal and model", list.Commands)
+	if len(list.Commands) != 1 || list.Commands[0].Name != "/goal" {
+		t.Fatalf("commands = %+v, want /goal only", list.Commands)
+	}
+	if list.Commands[0].Grammar.Summary == "" || len(list.Commands[0].Grammar.Arguments) == 0 {
+		t.Fatalf("command descriptors = %+v, want typed grammar", list.Commands)
+	}
+
+	picker := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/model/picker", OpenChatCodexModelPickerRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	if picker.Result.Action != chat.ChatCommandResultModelPicker {
+		t.Fatalf("model picker result = %+v, want model picker", picker.Result)
 	}
 
 	result := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/commands/execute", ExecuteChatCommandRequest{
@@ -444,13 +455,13 @@ func TestChatCodexModelSelectionEndpoints(t *testing.T) {
 	model := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/model/set", SetChatCodexModelRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		ModelID:        "gpt-test",
+		ModelID:        "scripted-fast",
 	}, http.StatusOK)
-	if model.Message == nil || model.Message.Parts[0].Text != "Model set: gpt-test" {
+	if model.Message == nil || model.Message.Parts[0].Text != "Model set: scripted-fast" {
 		t.Fatalf("model result message = %+v, want model set", model.Message)
 	}
-	if model.Conversation.CodexSettings == nil || model.Conversation.CodexSettings.Model != "gpt-test" {
-		t.Fatalf("model settings = %+v, want gpt-test", model.Conversation.CodexSettings)
+	if model.Conversation.CodexSettings == nil || model.Conversation.CodexSettings.Model != "scripted-fast" {
+		t.Fatalf("model settings = %+v, want scripted-fast", model.Conversation.CodexSettings)
 	}
 
 	effort := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/reasoning-effort/set", SetChatCodexReasoningEffortRequest{

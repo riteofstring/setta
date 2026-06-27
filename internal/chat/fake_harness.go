@@ -238,7 +238,7 @@ func (harness *FakeHarness) ResolveCodexEffectiveSettings(_ context.Context, _ w
 }
 
 func (harness *FakeHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {
-	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
+	return HarnessCommandListResult{Commands: defaultCommandDescriptors(request.ActiveRun)}, nil
 }
 
 func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {

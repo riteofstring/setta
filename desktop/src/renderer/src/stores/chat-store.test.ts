@@ -1050,67 +1050,48 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("queued"),
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
-      executeCommand: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "goal",
-          message: "Goal set: test",
-          models: [],
-          raw: "/goal test",
-          reasoningEfforts: [],
-          selectedReasoningEffort: null,
-          selectedModel: "",
-          title: "Goal",
-        },
-      }),
-      setCodexModel: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "model",
-          message: "Model set: gpt-test",
-          models: [],
-          raw: "/model",
-          reasoningEfforts: [],
-          selectedReasoningEffort: null,
+      executeCommand: async () =>
+        commandExecuteResult(
+          conversation,
+          commandResult("goal", "display", "Goal set: test", "/goal test"),
+        ),
+      openCodexModelPicker: async () =>
+        commandExecuteResult(
+          conversation,
+          commandResult("model", "model_picker", "Choose a model.", "model_picker"),
+        ),
+      setCodexModel: async () =>
+        commandExecuteResult(conversation, {
+          ...commandResult("model", "display", "Model set: gpt-test", "model_set"),
           selectedModel: "gpt-test",
-          title: "Model",
-        },
-      }),
-      setCodexReasoningEffort: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "model",
-          message: "Reasoning set: High",
-          models: [],
-          raw: "/model",
-          reasoningEfforts: [],
+        }),
+      setCodexReasoningEffort: async () =>
+        commandExecuteResult(conversation, {
+          ...commandResult("model", "display", "Reasoning set: High", "model_reasoning_effort_set"),
           selectedReasoningEffort: "high",
-          selectedModel: "",
-          title: "Model",
-        },
-      }),
+        }),
       setConversationPinned: async () => conversationItem(conversation, 0),
       listCommands: async () => ({
         commands: [
           {
             available: true,
             description: "Goal",
+            grammar: {
+              arguments: [
+                {
+                  description: "Set objective",
+                  kind: "free_text",
+                  maxRunes: 4000,
+                  name: "objective",
+                  required: false,
+                },
+              ],
+              literalMatch: "exact",
+              summary: "/goal",
+            },
             kind: "goal",
             name: "/goal",
             unavailableReason: "",
-            usage: "/goal",
           },
         ],
       }),
@@ -1209,13 +1190,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     value: { setta: api },
   });
 }
-
 const unimplementedTerminalAPI = new Proxy({} as SettaAPI["terminal"], {
   get: () => {
     throw new Error("terminal API is not implemented in this test");
   },
 });
-
 async function waitFor(done: () => boolean) {
   const startedAt = Date.now();
   while (!done()) {
@@ -1260,7 +1239,6 @@ function conversationItem(
     readMarker: markers.readMarker,
   };
 }
-
 function testPage(
   conversation: Conversation,
   messages: ChatMessage[],
@@ -1284,7 +1262,6 @@ function testPage(
     transcript: transcriptFromMessages(messages),
   };
 }
-
 function goalState(objective: string, status: string): ChatGoalState {
   return {
     createdAt: 0,
@@ -1297,10 +1274,10 @@ function goalState(objective: string, status: string): ChatGoalState {
     updatedAt: 0,
   };
 }
-
 function goalCommandResult(): ChatCommandResult {
   return {
     action: "display",
+    composerDraft: "",
     goal: goalState("tests", "active"),
     kind: "goal",
     message: "Goal set: tests",
@@ -1312,7 +1289,6 @@ function goalCommandResult(): ChatCommandResult {
     title: "Goal",
   };
 }
-
 function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
   const runIds = [...new Set(messages.map((item) => item.runId).filter((runId) => runId !== ""))];
   return runIds.map((runId) => {
@@ -1337,7 +1313,6 @@ function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
     };
   });
 }
-
 function message(
   id: string,
   ordinal: number,
@@ -1363,7 +1338,6 @@ function message(
     updatedAt: "2026-05-29T20:00:00Z",
   };
 }
-
 function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
   const [part, ...rest] = message.parts;
   if (!part) {
@@ -1375,7 +1349,6 @@ function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
     updatedAt: "2026-05-29T20:00:01Z",
   };
 }
-
 function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { status: T } {
   const run = {
     assistantMessageId: "message_assistant",
@@ -1394,7 +1367,6 @@ function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { sta
   } satisfies Run;
   return run as Run & { status: T };
 }
-
 function transcriptTurn(run: Run, assistantMessage: ChatMessage): TranscriptTurn {
   const triggerMessage = message("message_user", 1, "user", "complete", "hello", "normal", run.id);
   return {
@@ -1474,11 +1446,38 @@ function deferred<T>(): Deferred<T> {
   }
   return { promise, reject, resolve };
 }
+function commandExecuteResult(conversation: Conversation, result: ChatCommandResult) {
+  return {
+    conversation,
+    message: null,
+    page: testPage(conversation, []),
+    result,
+  };
+}
+function commandResult(
+  kind: ChatCommandResult["kind"],
+  action: ChatCommandResult["action"],
+  messageText: string,
+  raw: string,
+): ChatCommandResult {
+  return {
+    action,
+    composerDraft: "",
+    goal: null,
+    kind,
+    message: messageText,
+    models: [],
+    raw,
+    reasoningEfforts: [],
+    selectedReasoningEffort: null,
+    selectedModel: "",
+    title: kind === "goal" ? "Goal" : "Model",
+  };
+}
 function workspaceSession(): WorkspaceSession {
   const workspace = workspaceSummary();
   return { activeWorkspaces: [workspace], recentWorkspaces: [], selectedWorkspaceId: workspace.id };
 }
-
 function emptyCodexAccountState() {
   return {
     account: null,
@@ -1488,7 +1487,6 @@ function emptyCodexAccountState() {
     status: "unauthenticated" as const,
   };
 }
-
 function workspaceSummary() {
   return {
     displayName: "api",

@@ -69,6 +69,7 @@ var apiEndpoints = []endpoint{
 	post[SendSteeringImmediatelyRequest, chat.ImmediateSteeringResult]("SendSteeringImmediately", "/chat/messages/steer/immediate", handler.sendSteeringImmediately),
 	post[ListChatCommandsRequest, chat.ChatCommandListResult]("ListChatCommands", "/chat/commands/list", handler.listChatCommands),
 	post[ExecuteChatCommandRequest, chat.ChatCommandExecuteResult]("ExecuteChatCommand", "/chat/commands/execute", handler.executeChatCommand),
+	post[OpenChatCodexModelPickerRequest, chat.ChatCommandExecuteResult]("OpenChatCodexModelPicker", "/chat/codex/model/picker", handler.openChatCodexModelPicker),
 	post[SetChatCodexModelRequest, chat.ChatCommandExecuteResult]("SetChatCodexModel", "/chat/codex/model/set", handler.setChatCodexModel),
 	post[SetChatCodexReasoningEffortRequest, chat.ChatCommandExecuteResult]("SetChatCodexReasoningEffort", "/chat/codex/reasoning-effort/set", handler.setChatCodexReasoningEffort),
 	post[CancelRunRequest, chat.Run]("CancelRun", "/chat/runs/cancel", handler.cancelRun),

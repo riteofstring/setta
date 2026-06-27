@@ -14,11 +14,8 @@ import {
 import { ChatTranscript } from "./chat-transcript";
 
 export {
-  CommandSuggestions,
+  CommandPalette,
   commandSuggestions,
-  commandTextToExecute,
-  goalEditorDraft,
-  goalReplacementExecutionOptions,
   modelPickerOptionSelected,
   reasoningEffortOptionSelected,
 } from "./chat-composer";
@@ -403,6 +400,7 @@ export function useChatViewState() {
   const messageIds = useChatStore((state) => state.messageIds);
   const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
+  const openCodexModelPicker = useChatStore((state) => state.openCodexModelPicker);
   const queueMessage = useChatStore((state) => state.queueMessage);
   const removeQueuedMessage = useChatStore((state) => state.removeQueuedMessage);
   const removingQueuedMessageId = useChatStore((state) => state.removingQueuedMessageId);
@@ -481,6 +479,7 @@ export function useChatViewState() {
     messageIds,
     messagesById,
     operation,
+    openCodexModelPicker,
     pendingSteeringMessageIds,
     queueMessage,
     removeQueuedMessage,

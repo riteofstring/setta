@@ -1,5 +1,6 @@
 import type {
   ApprovalAnswer,
+  ChatCommandDescriptor,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
@@ -32,6 +33,7 @@ export interface ChatStore {
   clearClosedWorkspaceConversationLists: (activeWorkspaceIds: string[]) => void;
   commandListError: string | null;
   commandListStatus: CommandListStatus;
+  commandDescriptorCache: Record<string, ChatCommandDescriptor[] | undefined>;
   conversationDetailsById: Record<string, ConversationDetailState | undefined>;
   conversationListsByWorkspaceId: Record<string, WorkspaceConversationListState | undefined>;
   conversations: ConversationListItem[];
@@ -71,6 +73,7 @@ export interface ChatStore {
     raw: string,
     options?: ChatCommandExecutionOptions,
   ) => Promise<ChatCommandExecuteResult>;
+  openCodexModelPicker: () => Promise<ChatCommandExecuteResult>;
   setCodexModel: (modelId: string) => Promise<ChatCommandExecuteResult>;
   setCodexReasoningEffort: (effort: ReasoningEffort) => Promise<ChatCommandExecuteResult>;
   listCommands: () => Promise<ChatCommandListResult | null>;
@@ -115,6 +118,7 @@ export type ChatPatch = Partial<
     | "activeRun"
     | "commandListError"
     | "commandListStatus"
+    | "commandDescriptorCache"
     | "conversationDetailsById"
     | "conversationListsByWorkspaceId"
     | "conversations"

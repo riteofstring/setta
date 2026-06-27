@@ -1,4 +1,5 @@
 import type {
+  ChatCommandDescriptor,
   ChatMessage,
   MessageDelivery,
   MessageRole,
@@ -12,15 +13,13 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 import { Composer } from "./chat-composer";
+import { commandComposerState } from "./chat-command-composer-controller";
 import {
-  CommandSuggestions,
+  CommandPalette,
   commandSuggestions,
-  commandTextToExecute,
   ComposerButton,
   ChatPanel,
   ConversationBody,
-  goalEditorDraft,
-  goalReplacementExecutionOptions,
   handleComposerKeyDown,
   ModelPickerButton,
   modelPickerOptionSelected,
@@ -186,45 +185,143 @@ describe("composer keyboard behavior", () => {
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(sendImmediateSteering).toHaveBeenCalledOnce();
   });
+
+  test("follows the command key-handling precedence table", () => {
+    const cases = [
+      {
+        expected: "dismissModelPicker",
+        key: "Escape",
+        name: "Escape dismisses the model picker before pending steering",
+        options: {},
+        overrides: {
+          draftEmpty: true,
+          hasPendingSteering: true,
+          modelPickerOpen: true,
+          running: true,
+          slashDraft: true,
+        },
+      },
+      {
+        expected: "sendImmediateSteering",
+        key: "Escape",
+        name: "Escape sends pending steering when the picker is closed",
+        options: {},
+        overrides: {
+          draftEmpty: true,
+          hasPendingSteering: true,
+          modelPickerOpen: false,
+          running: true,
+        },
+      },
+      {
+        expected: "completeCommand",
+        key: "Tab",
+        name: "Tab completes slash commands before queueing",
+        options: {},
+        overrides: { slashDraft: true },
+      },
+      {
+        expected: "queueDraft",
+        key: "Tab",
+        name: "Tab queues normal drafts",
+        options: {},
+        overrides: { slashDraft: false },
+      },
+      {
+        expected: "stopRun",
+        key: "c",
+        name: "Ctrl+C stops active runs",
+        options: { ctrlKey: true },
+        overrides: { running: true },
+      },
+      {
+        expected: "sendDraft",
+        key: "Enter",
+        name: "Enter sends the current draft",
+        options: {},
+        overrides: {},
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const actions = {
+        completeCommand: vi.fn(),
+        dismissModelPicker: vi.fn(),
+        queueDraft: vi.fn(),
+        sendDraft: vi.fn(),
+        sendImmediateSteering: vi.fn(),
+        stopRun: vi.fn(),
+      };
+      const event = keyboardEvent(testCase.key, testCase.options);
+
+      handleComposerKeyDown(event, {
+        completeCommand: actions.completeCommand,
+        draftEmpty: false,
+        dismissModelPicker: actions.dismissModelPicker,
+        hasPendingSteering: false,
+        modelPickerOpen: false,
+        queueDraft: actions.queueDraft,
+        running: false,
+        sendDraft: actions.sendDraft,
+        sendImmediateSteering: actions.sendImmediateSteering,
+        slashDraft: false,
+        stopRun: actions.stopRun,
+        ...testCase.overrides,
+      });
+
+      for (const [name, action] of Object.entries(actions)) {
+        if (name === testCase.expected) {
+          expect(action, testCase.name).toHaveBeenCalledOnce();
+        } else {
+          expect(action, testCase.name).not.toHaveBeenCalled();
+        }
+      }
+      expect(event.preventDefault, testCase.name).toHaveBeenCalledOnce();
+    }
+  });
 });
 
 describe("composer command helpers", () => {
   test("shows command suggestions only for slash-prefixed drafts", () => {
-    const commands = [commandCapability("/goal", true), commandCapability("/model", true)];
+    const commands = [commandCapability(true)];
 
-    expect(commandSuggestions(commands, "/g").map((command) => command.name)).toEqual(["/goal"]);
+    expect(commandSuggestions(commands, "/g").map((command) => command.label)).toEqual(["/goal"]);
     expect(commandSuggestions(commands, "hello")).toEqual([]);
   });
 
-  test("does not render static slash commands when the backend has no suggestions", () => {
+  test("renders an empty command palette when the backend has no matching descriptors", () => {
     const html = renderToString(
-      <CommandSuggestions
+      <CommandPalette
+        commandListStatus="loaded"
+        commandState={commandComposerState("/", [])}
         draft="/"
         modelPicker={null}
         onDismissModelPicker={vi.fn()}
-        onPickCommand={vi.fn()}
         onPickModel={vi.fn()}
         onPickReasoningEffort={vi.fn()}
-        selectedSuggestion={null}
-        suggestions={[]}
+        onPickSuggestion={vi.fn()}
+        paletteVisible
+        selectedSuggestionIndex={0}
       />,
     );
 
-    expect(html).toBe("");
+    expect(html).toContain("No matching slash commands");
   });
 
   test("shows slash command discovery failures while drafting a command", () => {
     const html = renderToString(
-      <CommandSuggestions
+      <CommandPalette
         commandListError="command registry failed"
+        commandListStatus="failed"
+        commandState={commandComposerState("/", [])}
         draft="/"
         modelPicker={null}
         onDismissModelPicker={vi.fn()}
-        onPickCommand={vi.fn()}
         onPickModel={vi.fn()}
         onPickReasoningEffort={vi.fn()}
-        selectedSuggestion={null}
-        suggestions={[]}
+        onPickSuggestion={vi.fn()}
+        paletteVisible
+        selectedSuggestionIndex={0}
       />,
     );
 
@@ -232,62 +329,11 @@ describe("composer command helpers", () => {
     expect(html).toContain("command registry failed");
   });
 
-  test("enters selected command only when the draft is the command token", () => {
-    const goal = commandCapability("/goal", true);
-
-    expect(commandTextToExecute("/g", goal)).toBe("/goal");
-    expect(commandTextToExecute("/g finish", goal)).toBe("/goal finish");
-    expect(commandTextToExecute("/goal finish", goal)).toBe("/goal finish");
-    expect(commandTextToExecute("/unknown", null)).toBe("/unknown");
-  });
-
-  test("confirms before replacing a non-terminal goal", () => {
-    const confirm = vi.fn(() => true);
-
-    expect(
-      goalReplacementExecutionOptions(
-        "/goal replacement",
-        goalState("existing", "active"),
-        confirm,
-      ),
-    ).toEqual({ confirmGoalReplacement: true });
-    expect(confirm).toHaveBeenCalledWith("Replace the current goal?");
-  });
-
-  test("keeps the draft when replacement is cancelled", () => {
-    const confirm = vi.fn(() => false);
-
-    expect(
-      goalReplacementExecutionOptions(
-        "/goal replacement",
-        goalState("existing", "paused"),
-        confirm,
-      ),
-    ).toBeNull();
-  });
-
-  test("does not confirm same-objective or completed goals", () => {
-    const confirm = vi.fn();
-
-    expect(
-      goalReplacementExecutionOptions("/goal existing", goalState("existing", "active"), confirm),
-    ).toEqual({});
-    expect(
-      goalReplacementExecutionOptions("/goal replacement", goalState("done", "complete"), confirm),
-    ).toEqual({});
-    expect(confirm).not.toHaveBeenCalled();
-  });
-
-  test("builds the first-pass goal editor draft", () => {
-    expect(goalEditorDraft(goalState("finish renderer tests", "active"))).toBe(
-      "/goal finish renderer tests",
-    );
-    expect(goalEditorDraft(null)).toBe("/goal ");
-  });
-
   test("keeps model picker visible after the slash draft is submitted", () => {
     const html = renderToString(
-      <CommandSuggestions
+      <CommandPalette
+        commandListStatus="loaded"
+        commandState={commandComposerState("", [])}
         draft=""
         modelPicker={
           {
@@ -296,6 +342,7 @@ describe("composer command helpers", () => {
             page: null,
             result: {
               action: "model_picker",
+              composerDraft: "",
               goal: null,
               kind: "model",
               message: "Choose a model.",
@@ -338,19 +385,19 @@ describe("composer command helpers", () => {
                   isDefault: false,
                 },
               ],
-              raw: "/model",
+              raw: "model_picker",
               selectedReasoningEffort: null,
               selectedModel: "",
               title: "Model",
             },
-          } as unknown as Parameters<typeof CommandSuggestions>[0]["modelPicker"]
+          } as unknown as Parameters<typeof CommandPalette>[0]["modelPicker"]
         }
         onDismissModelPicker={vi.fn()}
-        onPickCommand={vi.fn()}
         onPickModel={vi.fn()}
         onPickReasoningEffort={vi.fn()}
-        selectedSuggestion={null}
-        suggestions={[]}
+        onPickSuggestion={vi.fn()}
+        paletteVisible={false}
+        selectedSuggestionIndex={0}
       />,
     );
 
@@ -704,6 +751,9 @@ function composerChat() {
     },
     goal: null,
     listCommands: async () => ({ commands: [] }),
+    openCodexModelPicker: async () => {
+      throw new Error("unexpected model picker open in SSR test");
+    },
     pendingSteeringMessageIds: [],
     queueMessage: async () => {},
     selectedConversation: {
@@ -897,13 +947,26 @@ function runItem(
   };
 }
 
-function commandCapability(name: "/goal" | "/model", available: boolean) {
+function commandCapability(available: boolean): ChatCommandDescriptor {
   return {
     available,
-    description: name,
-    kind: name === "/goal" ? "goal" : "model",
-    name,
+    description: "/goal",
+    grammar: {
+      arguments: [
+        { description: "Open editor", kind: "literal", token: "edit" },
+        {
+          description: "Set objective",
+          kind: "free_text",
+          maxRunes: 4000,
+          name: "objective",
+          required: false,
+        },
+      ],
+      literalMatch: "exact",
+      summary: "/goal [objective|edit]",
+    },
+    kind: "goal",
+    name: "/goal",
     unavailableReason: available ? "" : "unavailable",
-    usage: name,
-  } as const;
+  };
 }

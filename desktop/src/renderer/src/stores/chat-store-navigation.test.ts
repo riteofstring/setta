@@ -453,6 +453,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: testPage(conversation, []),
         result: {
           action: "display",
+          composerDraft: "",
           goal: null,
           kind: "goal",
           message: "Goal set: test",
@@ -462,6 +463,24 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           selectedModel: "",
           selectedReasoningEffort: null,
           title: "Goal",
+        },
+      }),
+      openCodexModelPicker: async () => ({
+        conversation,
+        message: null,
+        page: testPage(conversation, []),
+        result: {
+          action: "model_picker",
+          composerDraft: "",
+          goal: null,
+          kind: "model",
+          message: "Choose a model.",
+          models: [],
+          raw: "model_picker",
+          reasoningEfforts: [],
+          selectedModel: "",
+          selectedReasoningEffort: null,
+          title: "Model",
         },
       }),
       listCommands: async () => ({ commands: [] }),
@@ -678,6 +697,7 @@ function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
 function commandResult(kind: "goal" | "model") {
   return {
     action: "display" as const,
+    composerDraft: "",
     goal: null,
     kind,
     message: "Command result",

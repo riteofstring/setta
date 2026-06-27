@@ -165,6 +165,9 @@ func TestServiceGoalEditOpensEditorWithoutCommandMessage(t *testing.T) {
 	if result.Result.Goal == nil || result.Result.Goal.Objective != "finish renderer tests" {
 		t.Fatalf("edit result goal = %+v, want existing goal", result.Result.Goal)
 	}
+	if result.Result.ComposerDraft != "/goal finish renderer tests" {
+		t.Fatalf("edit composer draft = %q, want goal objective draft", result.Result.ComposerDraft)
+	}
 }
 
 func TestServiceGoalStatusCommandsRequireExistingGoal(t *testing.T) {
@@ -282,9 +285,9 @@ func TestServiceRetriesModelCommandAfterMissingThreadRef(t *testing.T) {
 		t.Fatalf("save conversation: %v", err)
 	}
 
-	result, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/model")
+	result, err := service.OpenChatCodexModelPicker("workspace_api", conversation.ID)
 	if err != nil {
-		t.Fatalf("execute model command: %v", err)
+		t.Fatalf("open model picker: %v", err)
 	}
 
 	if result.Result.Action != ChatCommandResultModelPicker {
@@ -381,7 +384,10 @@ func TestServiceListsCommandAvailability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list idle commands: %v", err)
 	}
-	assertCommandAvailable(t, idle.Commands, ChatCommandModel, true)
+	assertCommandAvailable(t, idle.Commands, ChatSlashCommandGoal, true)
+	if len(idle.Commands) != 1 {
+		t.Fatalf("idle commands = %+v, want /goal only", idle.Commands)
+	}
 
 	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "active"); err != nil {
 		t.Fatalf("send active: %v", err)
@@ -390,11 +396,13 @@ func TestServiceListsCommandAvailability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list active commands: %v", err)
 	}
-	assertCommandAvailable(t, active.Commands, ChatCommandGoal, true)
-	assertCommandAvailable(t, active.Commands, ChatCommandModel, false)
+	assertCommandAvailable(t, active.Commands, ChatSlashCommandGoal, true)
+	if len(active.Commands) != 1 {
+		t.Fatalf("active commands = %+v, want /goal only", active.Commands)
+	}
 }
 
-func assertCommandAvailable(t *testing.T, commands []ChatCommandCapability, kind ChatCommandKind, available bool) {
+func assertCommandAvailable(t *testing.T, commands []ChatCommandDescriptor, kind ChatSlashCommandKind, available bool) {
 	t.Helper()
 	for _, command := range commands {
 		if command.Kind == kind {

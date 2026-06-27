@@ -160,7 +160,7 @@ func (harness *ScriptedWorkflowHarness) SubmitApproval(_ context.Context, respon
 }
 
 func (harness *ScriptedWorkflowHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {
-	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
+	return HarnessCommandListResult{Commands: defaultCommandDescriptors(request.ActiveRun)}, nil
 }
 
 func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {

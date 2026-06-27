@@ -254,6 +254,23 @@ func (handler handler) executeChatCommand(response http.ResponseWriter, request 
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) openChatCodexModelPicker(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload OpenChatCodexModelPickerRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.OpenChatCodexModelPicker(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "open_chat_codex_model_picker_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) setChatCodexModel(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {

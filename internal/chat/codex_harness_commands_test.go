@@ -91,7 +91,7 @@ func TestCodexHarnessGoalPauseRequiresExistingGoal(t *testing.T) {
 
 func TestCodexHarnessExecutesModelListRPCWithoutThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-list"))
-	request := testCommandRequest(t, "/model")
+	request := testModelPickerCommandRequest(t)
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
 	if err != nil {
@@ -116,7 +116,7 @@ func TestCodexHarnessExecutesModelListRPCWithoutThread(t *testing.T) {
 
 func TestCodexHarnessModelListFollowsPaginationAndHidesHiddenModels(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-list-paginated"))
-	request := testCommandRequest(t, "/model")
+	request := testModelPickerCommandRequest(t)
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
 	if err != nil {
@@ -196,7 +196,7 @@ func TestCodexHarnessAppliesConversationSettingsToInitialTurn(t *testing.T) {
 
 func TestCodexHarnessExecutesModelListRPCAgainstLinkedThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-list-linked"))
-	request := testCommandRequest(t, "/model")
+	request := testModelPickerCommandRequest(t)
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
@@ -325,6 +325,11 @@ func testTypedModelCommandRequest(t *testing.T, modelID string) HarnessCommandRe
 		t.Fatalf("build model command: %v", err)
 	}
 	return testCommandRequestFromCommand(t, command)
+}
+
+func testModelPickerCommandRequest(t *testing.T) HarnessCommandRequest {
+	t.Helper()
+	return testCommandRequestFromCommand(t, modelPickerChatCommand())
 }
 
 func testTypedReasoningEffortCommandRequest(t *testing.T, effort ReasoningEffort) HarnessCommandRequest {

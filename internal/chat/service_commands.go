@@ -36,7 +36,7 @@ func (service *Service) ListCommands(workspaceID string, conversationID string) 
 		return ChatCommandListResult{}, err
 	}
 	if result.Commands == nil {
-		result.Commands = []ChatCommandCapability{}
+		result.Commands = []ChatCommandDescriptor{}
 	}
 	return ChatCommandListResult{Commands: result.Commands}, nil
 }
@@ -63,6 +63,10 @@ func (service *Service) SetChatCodexModel(workspaceID string, conversationID str
 		return ChatCommandExecuteResult{}, err
 	}
 	return service.executeChatCommand(workspaceID, conversationID, command, ChatCommandExecutionOptions{})
+}
+
+func (service *Service) OpenChatCodexModelPicker(workspaceID string, conversationID string) (ChatCommandExecuteResult, error) {
+	return service.executeChatCommand(workspaceID, conversationID, modelPickerChatCommand(), ChatCommandExecutionOptions{})
 }
 
 func (service *Service) SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort ReasoningEffort) (ChatCommandExecuteResult, error) {
@@ -495,6 +499,7 @@ func commandResult(command ChatCommand, harnessResult HarnessCommandResult) Chat
 	}
 	result := ChatCommandResult{
 		Action:                  action,
+		ComposerDraft:           commandComposerDraft(command, harnessResult),
 		Goal:                    harnessResult.Goal,
 		Kind:                    command.Kind,
 		Models:                  nonNilModels(harnessResult.Models),
@@ -508,6 +513,24 @@ func commandResult(command ChatCommand, harnessResult HarnessCommandResult) Chat
 		result.Message = strings.TrimSpace(result.Message + " " + harnessResult.CapabilityDiagnostic)
 	}
 	return result
+}
+
+func commandComposerDraft(command ChatCommand, harnessResult HarnessCommandResult) string {
+	if harnessResult.Action != ChatCommandResultGoalEditor || command.Kind != ChatCommandGoal || command.Goal == nil {
+		return ""
+	}
+	name, ok := chatCommandNameBySlashKind(ChatSlashCommandGoal)
+	if !ok {
+		return ""
+	}
+	objective := ""
+	if harnessResult.Goal != nil {
+		objective = strings.TrimSpace(harnessResult.Goal.Objective)
+	}
+	if objective == "" {
+		return name + " "
+	}
+	return name + " " + objective
 }
 
 func nonNilModels(models []ChatModelOption) []ChatModelOption {

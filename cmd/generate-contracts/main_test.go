@@ -192,6 +192,42 @@ func TestRenderProducesGeneratedClientSmoke(t *testing.T) {
 	}
 }
 
+func TestContractSpecsRenderRegisteredUnion(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractCommands",
+			Method:   "POST",
+			Path:     "/contract-commands",
+			Request:  reflect.TypeFor[ContractTestRequest](),
+			Response: reflect.TypeFor[chat.ChatCommandListResult](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	}, chat.EventContractSchema{})
+	if err != nil {
+		t.Fatalf("collect contract specs: %v", err)
+	}
+	if len(specs.Unions) != 1 || specs.Unions[0].Name != "ChatCommandArgumentSpec" {
+		t.Fatalf("unions = %+v, want ChatCommandArgumentSpec", specs.Unions)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	output := buffer.String()
+	for _, want := range []string{
+		"export type ChatCommandArgumentSpec =",
+		"ChatCommandLiteralArgumentSpec",
+		"export function decodeChatCommandArgumentSpec(value: unknown): ChatCommandArgumentSpec",
+		"case \"literal\":",
+		"case \"free_text\":",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated output missing %q:\n%s", want, output)
+		}
+	}
+}
+
 func specNames(specs []interfaceSpec) []string {
 	names := make([]string, 0, len(specs))
 	for _, spec := range specs {
