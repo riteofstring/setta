@@ -1004,7 +1004,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("queued"),
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
-      runActivity: async () => ({ activity: null, items: [], output: [], runId: "run_api" }),
+      runActivity: async () => ({ activity: [], items: [], output: [], runId: "run_api" }),
       runItemOutput: async () => ({
         hasMore: false,
         nextOrdinal: 0,

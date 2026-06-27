@@ -396,7 +396,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       runActivity: async () => ({
-        activity: null,
+        activity: [],
         items: [],
         output: [],
         runId: "run_test",

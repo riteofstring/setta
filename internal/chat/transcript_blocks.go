@@ -65,15 +65,22 @@ var (
 // TranscriptBlock is a first-class persisted record, not derived from renderer
 // state. Blocks are stored per run and ordered by Ordinal.
 type TranscriptBlock struct {
-	SchemaVersion  int                   `json:"schemaVersion"`
-	ID             string                `json:"id"`
-	ConversationID string                `json:"conversationId"`
-	RunID          string                `json:"runId"`
-	Kind           TranscriptBlockKind   `json:"kind"`
-	Ordinal        int                   `json:"ordinal"`
-	Status         TranscriptBlockStatus `json:"status"`
-	CreatedAt      string                `json:"createdAt"`
-	UpdatedAt      string                `json:"updatedAt"`
+	SchemaVersion  int                 `json:"schemaVersion"`
+	ID             string              `json:"id"`
+	ConversationID string              `json:"conversationId"`
+	RunID          string              `json:"runId"`
+	Kind           TranscriptBlockKind `json:"kind"`
+	Ordinal        int                 `json:"ordinal"`
+	// RunAnchorOrdinal is the run's anchor in conversation order: the conversation
+	// ordinal of the run's trigger message, stamped on every block of the run. The
+	// renderer interleaves run-less standalone messages by comparing their
+	// conversation ordinal to each run's anchor, and reads it from any block so a
+	// page that starts mid-run (without the trigger user_message block) still
+	// anchors the run correctly.
+	RunAnchorOrdinal int                   `json:"runAnchorOrdinal"`
+	Status           TranscriptBlockStatus `json:"status"`
+	CreatedAt        string                `json:"createdAt"`
+	UpdatedAt        string                `json:"updatedAt"`
 
 	UserMessage   *TranscriptMessageProjection  `json:"userMessage"`
 	AssistantText *AssistantTextBlockProjection `json:"assistantText"`

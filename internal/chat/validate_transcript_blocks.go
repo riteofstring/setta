@@ -59,6 +59,9 @@ func validateTranscriptBlockState(block TranscriptBlock) error {
 	if block.Ordinal <= 0 {
 		return fmt.Errorf("transcript block %s ordinal must be positive", block.ID)
 	}
+	if block.RunAnchorOrdinal <= 0 {
+		return fmt.Errorf("transcript block %s runAnchorOrdinal must be positive", block.ID)
+	}
 	if !validValue(block.Status, transcriptBlockStatusValues) {
 		return fmt.Errorf("transcript block %s has unsupported status %s", block.ID, block.Status)
 	}

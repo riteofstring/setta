@@ -2,13 +2,12 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-// Phase 0 of docs/plans/chronological_chat_transcript_plan.md. The provider emits assistant
-// text interleaved with commands and reasoning, but the current backend flattens it into one
-// assistant bubble plus one outer Activity accordion. This is a hand-authored block-level
-// summary of that stream that mirrors the Go fixture scriptedChronologicalTranscriptTurn; the
-// authoritative, full raw stream (output chunks, running/completed upserts, hidden reasoning)
-// is frozen by the Go TestChronologicalFixture* tests. It is recorded as a diagnostic so the
-// artifact can line up the provider block order against the backend projection and DOM order.
+// Phase 5 of docs/plans/chronological_chat_transcript_plan.md. The provider emits assistant text
+// interleaved with commands and reasoning, and the transcript now renders those typed blocks in
+// provider chronology: assistant text splits around the commands, reasoning is its own block, and
+// there is no outer Activity accordion. This summary mirrors the Go fixture
+// scriptedChronologicalTranscriptTurn; the authoritative, full raw stream (output chunks,
+// running/completed upserts, hidden reasoning) is frozen by the Go TestChronologicalFixture* tests.
 const CHRONOLOGICAL_PROVIDER_STREAM_SUMMARY = [
   { kind: "assistant_text", label: "step one (before any command)" },
   { kind: "activity_item", label: "command A (running -> output chunks -> completed)" },
@@ -28,10 +27,24 @@ const CHRONOLOGICAL_STEP_TEXTS = [
   "Chronological step four: final chronological answer.",
 ];
 
-// runChronologicalTranscriptWorkflow drives the chronological provider stream end-to-end,
-// records the three diagnostic layers, and asserts the CURRENT confusing UI: the chronology
-// is flattened. The assertions and recorded diagnostics are expected to be flipped as the
-// chronological transcript blocks land in later phases.
+// The chronological DOM block order the transcript must render: assistant text, activity rows, and
+// reasoning interleaved exactly as the provider produced them. reasoning appears once (the thinking
+// block updates to summary mode in place, keeping its ordinal). The final answer (step four) shares
+// the post-reasoning assistant block with step three because the in-place summary update does not
+// open a new segment, so the strict order ends at step three and step four presence is checked
+// separately.
+const CHRONOLOGICAL_DOM_TEXT_ORDER = [
+  "Chronological step one: inspecting the shell scripts.",
+  "Chronological command A",
+  "Chronological command B",
+  "Chronological step two: the scripts are pinned-toolchain wrappers.",
+  "Chronological reasoning headline",
+  "Chronological step three: the parser lives in internal/chat.",
+];
+
+// runChronologicalTranscriptWorkflow drives the chronological provider stream end-to-end, records
+// the three diagnostic layers, and asserts the chronological transcript: assistant text interleaves
+// with activity rows and reasoning in provider order, with no outer Activity accordion.
 export async function runChronologicalTranscriptWorkflow({
   appendWorkflowState,
   assertActivityRows,
@@ -72,27 +85,23 @@ export async function runChronologicalTranscriptWorkflow({
     streamingViolation = await forbiddenMonitor.stop();
   }
   if (streamingViolation !== null) {
-    throw new Error(`Phase 0 private reasoning rendered while streaming: ${streamingViolation}`);
+    throw new Error(`private reasoning rendered while streaming: ${streamingViolation}`);
   }
   // Final-state guarantee in addition to the streaming monitor.
   await assertTextAbsent(client, "private chronological reasoning");
 
-  // Backend projection: three displayable rows collapsed into one activity group.
+  // Backend projection: the two commands are activity rows; reasoning is its own block, not an
+  // activity row, so it is absent from the activity projection.
   const projection = await assertRunActivityProjection(backend, workspaceId, run.id, {
     rawTypes: ["command_execution", "reasoning"],
     rows: [
       { title: "Chronological command A", type: "command_execution" },
       { title: "Chronological command B", type: "command_execution" },
-      {
-        summary: "Chronological public reasoning summary body.",
-        title: "Chronological reasoning headline",
-        type: "reasoning",
-      },
     ],
   });
   await assertActivityRows(client, projection.rows);
 
-  // Capture the three diagnostic layers, then assert the current flattened behavior.
+  // Capture the three diagnostic layers, then assert the chronological behavior.
   const domBlocks = await client.driver("chatTranscriptBlockOrder");
   const messagePage = await backend.post("/chat/messages/page", {
     conversationId,
@@ -106,52 +115,75 @@ export async function runChronologicalTranscriptWorkflow({
     projection,
     run,
   });
-  assertChronologicalFlattening(domBlocks.blocks, run.id, messagePage);
+  assertChronologicalInterleaving(domBlocks.blocks, run.id);
 }
 
-function assertChronologicalFlattening(blocks, runId, messagePage) {
-  const kinds = blocks.filter((block) => block.runId === runId).map((block) => block.kind);
+function assertChronologicalInterleaving(blocks, runId) {
+  const runBlocks = blocks.filter((block) => block.runId === runId);
+  const kinds = runBlocks.map((block) => block.kind);
   assertChronologicalBlockCounts(kinds);
-  assertChronologyFlattenedNotInterleaved(kinds);
-  assertFlattenedAssistantPart(messagePage, runId);
+  assertChronologyInterleaved(kinds);
+  assertBlockTextOrder(runBlocks, CHRONOLOGICAL_DOM_TEXT_ORDER);
 }
 
 function assertChronologicalBlockCounts(kinds) {
-  // The chronology collapses to one assistant block plus one outer Activity accordion of rows.
-  const expectedCounts = { activity_group: 1, activity_row: 3, assistant_text: 1 };
-  for (const [kind, expected] of Object.entries(expectedCounts)) {
+  // The two commands stay activity rows; reasoning is one block (thinking updated to summary in
+  // place). Assistant text splits around the commands and the reasoning into at least three
+  // chronological segments. The outer Activity accordion is gone, so no activity_group node exists.
+  const exactCounts = { activity_item: 2, reasoning: 1 };
+  for (const [kind, expected] of Object.entries(exactCounts)) {
     const actual = kinds.filter((candidate) => candidate === kind).length;
     if (actual !== expected) {
       throw new Error(
-        `Phase 0 expected ${expected} ${kind} block(s) flattened, got ${actual}: ${JSON.stringify(kinds)}`,
+        `expected ${expected} ${kind} block(s), got ${actual}: ${JSON.stringify(kinds)}`,
       );
     }
   }
-}
-
-function assertChronologyFlattenedNotInterleaved(kinds) {
-  // Lost chronology: the single assistant block precedes every activity row in the DOM even
-  // though the provider emitted assistant text after the commands and reasoning.
-  if (kinds.lastIndexOf("assistant_text") > kinds.indexOf("activity_row")) {
+  const assistantBlocks = kinds.filter((candidate) => candidate === "assistant_text").length;
+  if (assistantBlocks < 3) {
     throw new Error(
-      `Phase 0 expected all assistant text before activity rows (flattened): ${JSON.stringify(kinds)}`,
+      `expected assistant text to split into at least 3 chronological blocks, got ${assistantBlocks}: ${JSON.stringify(kinds)}`,
     );
   }
-  if (!providerStreamInterleaves() || domBlocksInterleave(kinds)) {
-    throw new Error(
-      `Phase 0 expected interleaved provider chronology but a flattened DOM: ${JSON.stringify(kinds)}`,
-    );
+  if (kinds.includes("activity_group")) {
+    throw new Error(`expected no outer activity accordion, got: ${JSON.stringify(kinds)}`);
   }
 }
 
-function providerStreamInterleaves() {
-  return CHRONOLOGICAL_PROVIDER_STREAM_SUMMARY.some(
-    (event, index) =>
-      event.kind === "assistant_text" &&
-      CHRONOLOGICAL_PROVIDER_STREAM_SUMMARY.slice(0, index).some(
-        (earlier) => earlier.kind !== "assistant_text",
-      ),
+function assertChronologyInterleaved(kinds) {
+  // Chronology preserved: assistant text exists both before the first activity row and after the
+  // last one, and reasoning lands after the commands — never flattened to one block before all rows.
+  const firstActivity = kinds.indexOf("activity_item");
+  const lastActivity = kinds.lastIndexOf("activity_item");
+  const assistantIndexes = kinds.flatMap((kind, index) =>
+    kind === "assistant_text" ? [index] : [],
   );
+  const interleaves =
+    assistantIndexes.some((index) => index < firstActivity) &&
+    assistantIndexes.some((index) => index > lastActivity);
+  if (!interleaves) {
+    throw new Error(
+      `expected assistant text both before and after activity rows: ${JSON.stringify(kinds)}`,
+    );
+  }
+  if (kinds.indexOf("reasoning") < lastActivity) {
+    throw new Error(`expected reasoning after the commands: ${JSON.stringify(kinds)}`);
+  }
+}
+
+function assertBlockTextOrder(runBlocks, texts) {
+  let previousIndex = -1;
+  for (const text of texts) {
+    const index = runBlocks.findIndex(
+      (block, candidateIndex) => candidateIndex > previousIndex && block.text.includes(text),
+    );
+    if (index <= previousIndex) {
+      throw new Error(
+        `expected "${text}" after block ${previousIndex}: ${JSON.stringify(runBlocks.map((block) => block.text))}`,
+      );
+    }
+    previousIndex = index;
+  }
 }
 
 // startForbiddenTextMonitor polls the rendered document for any of forbiddenTexts until stopped,
@@ -180,30 +212,6 @@ function startForbiddenTextMonitor(client, forbiddenTexts) {
   };
 }
 
-function domBlocksInterleave(kinds) {
-  return kinds.some(
-    (kind, index) => kind === "assistant_text" && kinds.slice(0, index).includes("activity_row"),
-  );
-}
-
-function assertFlattenedAssistantPart(messagePage, runId) {
-  // The assistant message is one flattened part holding every chronological text segment.
-  const assistant = messagePage.messages.find(
-    (message) => message.runId === runId && message.role === "assistant",
-  );
-  if (!assistant || assistant.parts.length !== 1) {
-    throw new Error(`Phase 0 expected one flattened assistant part: ${JSON.stringify(assistant)}`);
-  }
-  const flattenedText = assistant.parts.map((part) => part.text ?? "").join("");
-  for (const step of CHRONOLOGICAL_STEP_TEXTS) {
-    if (!flattenedText.includes(step)) {
-      throw new Error(
-        `Phase 0 flattened assistant text missing ${step}: ${JSON.stringify(flattenedText)}`,
-      );
-    }
-  }
-}
-
 async function recordChronologicalDiagnostics(
   recordingDir,
   { appendWorkflowState, domBlocks, messagePage, projection, run },
@@ -227,8 +235,8 @@ async function recordChronologicalDiagnostics(
       text: (assistant?.parts ?? []).map((part) => part.text ?? "").join(""),
     },
     domBlockOrder: domBlocks.blocks,
-    note: "Frozen pre-chronological behavior: provider chronology is flattened in the backend and DOM. providerStreamSummary is a hand-authored block-level summary; the full raw stream is frozen by the Go TestChronologicalFixture* tests.",
-    phase: 0,
+    note: "Chronological transcript: provider chronology is preserved as ordered transcript blocks in the backend and DOM. providerStreamSummary is a hand-authored block-level summary; the full raw stream is frozen by the Go TestChronologicalFixture* tests.",
+    phase: 5,
     plan: "docs/plans/chronological_chat_transcript_plan.md",
     providerStreamSummary: CHRONOLOGICAL_PROVIDER_STREAM_SUMMARY,
     runId: run.id,

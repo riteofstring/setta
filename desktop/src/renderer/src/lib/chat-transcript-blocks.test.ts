@@ -107,6 +107,7 @@ function block(base: { id: string; runId: string; ordinal: number }): Transcript
     kind: "assistant_text",
     ordinal: base.ordinal,
     reasoning: null,
+    runAnchorOrdinal: base.ordinal,
     runId: base.runId,
     runStatus: null,
     schemaVersion: 1,

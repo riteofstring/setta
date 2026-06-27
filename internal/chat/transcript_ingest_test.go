@@ -1158,15 +1158,16 @@ func saveInterruptedMessage(t *testing.T, store *Store, workspaceID string, conv
 
 func interruptedBlockBase(kind TranscriptBlockKind, ordinal int, id string, conversationID string, runID string, stamp string) TranscriptBlock {
 	return TranscriptBlock{
-		SchemaVersion:  SchemaVersion,
-		ID:             id,
-		ConversationID: conversationID,
-		RunID:          runID,
-		Kind:           kind,
-		Ordinal:        ordinal,
-		Status:         TranscriptBlockStatusStreaming,
-		CreatedAt:      stamp,
-		UpdatedAt:      stamp,
+		SchemaVersion:    SchemaVersion,
+		ID:               id,
+		ConversationID:   conversationID,
+		RunID:            runID,
+		Kind:             kind,
+		Ordinal:          ordinal,
+		RunAnchorOrdinal: 1,
+		Status:           TranscriptBlockStatusStreaming,
+		CreatedAt:        stamp,
+		UpdatedAt:        stamp,
 	}
 }
 

@@ -417,36 +417,64 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
     "Projection command",
     "Projection reasoning",
   ]);
-  await assertTextAbsent(client, "Streaming reasoning placeholder");
+  // The meaningfully-titled transient reasoning persists as a thinking-mode reasoning block: the
+  // chronological model keeps reasoning as a real timeline status block rather than a placeholder
+  // that vanishes after the first assistant text.
+  await assertReasoningBlockPresent(client, "Streaming reasoning placeholder");
   await assertTextAbsent(client, "private projection reasoning");
   await assertTextAbsent(client, "Projection duplicate provider agent message");
 
   const projection = await assertRunActivityProjection(backend, workspaceId, run.id, {
     rawTypes: ["agent_message", "reasoning"],
-    rows: [
-      {
-        title: "Projection command",
-        type: "command_execution",
-      },
-      {
-        summary: "Public reasoning summary visible.",
-        title: "Projection reasoning",
-        type: "reasoning",
-      },
-    ],
+    rows: projectionExpectedRows(),
   });
   await assertActivityRows(client, projection.rows);
-  await openProjectedActivityRow(
-    client,
-    requireProjectedRow(projection.rows, "Projection reasoning").sourceRunItemId,
-  );
+  await expandReasoningSummaryBlock(client, "Projection reasoning");
   await waitForText(client, "Public reasoning summary visible.");
   await assertAssistantTextOccurrence(client, "Projection assistant final.", 1);
 }
 
+// expandReasoningSummaryBlock opens the collapsed summary-mode reasoning block
+// whose collapsed headline matches the given text, so the full public summary
+// becomes visible. Reasoning is a first-class transcript block, not an activity
+// row, so it is expanded through its own disclosure rather than an activity row.
+async function assertReasoningBlockPresent(client, headline) {
+  const present = await client.evaluate(`(() => {
+    const headline = ${JSON.stringify(headline)};
+    return Array.from(document.querySelectorAll('[data-block-kind="reasoning"]')).some(
+      (block) => block.textContent?.includes(headline),
+    );
+  })()`);
+  if (!present) {
+    throw new Error(`expected a reasoning block containing ${JSON.stringify(headline)}`);
+  }
+}
+
+async function expandReasoningSummaryBlock(client, headline) {
+  const opened = await client.evaluate(`(() => {
+    const headline = ${JSON.stringify(headline)};
+    const blocks = Array.from(
+      document.querySelectorAll('[data-block-kind="reasoning"][data-reasoning-mode="summary"]'),
+    );
+    const block = blocks.find((candidate) => candidate.textContent?.includes(headline));
+    if (!(block instanceof HTMLDetailsElement)) {
+      return { ok: false, reason: "missing-reasoning-summary" };
+    }
+    if (!block.open) {
+      block.querySelector("summary")?.click();
+    }
+    return { ok: block.open, reason: block.open ? "opened" : "not-opened" };
+  })()`);
+  if (!opened.ok) {
+    throw new Error(
+      `reasoning summary block ${headline} was not opened: ${JSON.stringify(opened)}`,
+    );
+  }
+}
+
 async function assertRunActivityProjection(backend, workspaceId, runId, expected) {
   const page = await backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId });
-  const rows = page.activity?.rows ?? [];
+  const rows = page.activity ?? [];
   assertProjectedActivityRowCount(rows, expected.rows, page);
   assertProjectedActivityRows(rows, expected.rows);
   assertNoPrivateActivityProjectionLeaks(rows);
@@ -470,8 +498,8 @@ function assertProjectedActivityRows(rows, expectedRows) {
         `projected activity row missing ${JSON.stringify(expectedRow)}: ${JSON.stringify(rows)}`,
       );
     }
-    if (row.id === row.sourceRunItemId || !row.id.startsWith("activity_")) {
-      throw new Error(`activity row did not separate display/source ids: ${JSON.stringify(row)}`);
+    if (!row.sourceRunItemId) {
+      throw new Error(`activity row missing source run item id: ${JSON.stringify(row)}`);
     }
   }
 }
@@ -548,15 +576,13 @@ async function assertAssistantTextOccurrence(client, text, expectedCount) {
 }
 
 function projectionExpectedRows() {
+  // Reasoning is its own transcript block kind, not an activity_item, so the
+  // activity projection only contains true activity rows. The reasoning summary
+  // is asserted separately through the reasoning block.
   return [
     {
       title: "Projection command",
       type: "command_execution",
-    },
-    {
-      summary: "Public reasoning summary visible.",
-      title: "Projection reasoning",
-      type: "reasoning",
     },
   ];
 }
@@ -682,8 +708,9 @@ async function runHappyPathWorkflow(
   );
   await assertTranscriptSequence(client, [
     "workflow hold for queue and steering",
-    "Active workflow complete.",
+    "Workflow stream started.",
     "steer active run",
+    "Active workflow complete.",
     "queued follow-up one from active run",
     "Queued response for queued follow-up one from active run.",
     "queued follow-up two from active run",
@@ -1307,8 +1334,9 @@ async function runRestartWorkflow(results) {
     );
     await assertTranscriptSequence(second.client, [
       "workflow hold for queue and steering",
-      "Active workflow complete.",
+      "Workflow stream started.",
       "steer active run",
+      "Active workflow complete.",
       "queued follow-up one from active run",
       "Queued response for queued follow-up one from active run.",
       "queued follow-up two from active run",

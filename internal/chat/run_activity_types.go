@@ -26,9 +26,10 @@ type RunActivityDetailsProjection struct {
 }
 
 type RunActivityPage struct {
-	RunID  string          `json:"runId"`
-	Items  []RunItem       `json:"items"`
-	Output []RunItemOutput `json:"output"`
+	RunID    string                        `json:"runId"`
+	Items    []RunItem                     `json:"items"`
+	Output   []RunItemOutput               `json:"output"`
+	Activity []ActivityItemBlockProjection `json:"activity"`
 }
 
 func (details RunActivityDetailsProjection) MarshalJSON() ([]byte, error) {
@@ -46,6 +47,9 @@ func (page RunActivityPage) MarshalJSON() ([]byte, error) {
 	}
 	if page.Output == nil {
 		page.Output = []RunItemOutput{}
+	}
+	if page.Activity == nil {
+		page.Activity = []ActivityItemBlockProjection{}
 	}
 	return json.Marshal(pageAlias(page))
 }

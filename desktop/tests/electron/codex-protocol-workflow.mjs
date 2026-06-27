@@ -69,12 +69,10 @@ export async function assertProtocolNotificationActivity(
       item.error.includes("unsupported dynamic tool"),
   );
   await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "deprecationNotice");
-  if ((page.activity?.rows ?? []).some((row) => row.type === "reasoning")) {
-    throw new Error(
-      `hidden reasoning leaked into projected activity: ${JSON.stringify(page.activity)}`,
-    );
+  if ((page.activity ?? []).some((row) => row.type === "reasoning")) {
+    throw new Error(`reasoning leaked into projected activity: ${JSON.stringify(page.activity)}`);
   }
-  if ((page.activity?.rows ?? []).some((row) => row.type === "agent_message")) {
+  if ((page.activity ?? []).some((row) => row.type === "agent_message")) {
     throw new Error(
       `agent messages leaked into projected activity: ${JSON.stringify(page.activity)}`,
     );

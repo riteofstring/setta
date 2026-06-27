@@ -15,14 +15,15 @@ const (
 
 func transcriptBlockBase(ordinal int, id string) TranscriptBlock {
 	return TranscriptBlock{
-		SchemaVersion:  SchemaVersion,
-		ID:             id,
-		ConversationID: transcriptBlockTestConv,
-		RunID:          transcriptBlockTestRun,
-		Ordinal:        ordinal,
-		Status:         TranscriptBlockStatusComplete,
-		CreatedAt:      transcriptBlockTestTime,
-		UpdatedAt:      transcriptBlockTestTime,
+		SchemaVersion:    SchemaVersion,
+		ID:               id,
+		ConversationID:   transcriptBlockTestConv,
+		RunID:            transcriptBlockTestRun,
+		Ordinal:          ordinal,
+		RunAnchorOrdinal: 1,
+		Status:           TranscriptBlockStatusComplete,
+		CreatedAt:        transcriptBlockTestTime,
+		UpdatedAt:        transcriptBlockTestTime,
 	}
 }
 

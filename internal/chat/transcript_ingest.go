@@ -26,7 +26,11 @@ const reasoningHeadlineLimit = 120
 type transcriptIngest struct {
 	conversationID string
 	runID          string
-	nextOrdinal    int
+	// runAnchorOrdinal is the conversation ordinal of the run's trigger message,
+	// stamped on every block so the renderer can place run-less messages in
+	// conversation order without depending on the loaded message window.
+	runAnchorOrdinal int
+	nextOrdinal      int
 
 	blocks map[string]*TranscriptBlock
 	order  []string
@@ -137,6 +141,7 @@ func (service *Service) newTranscriptIngestLocked(workspaceID string, run Run) (
 	if !ok {
 		return nil, fmt.Errorf("transcript ingest run %s trigger message %s was not found", run.ID, run.TriggerMessageID)
 	}
+	ingest.runAnchorOrdinal = trigger.Ordinal
 	if err := service.appendUserMessageBlockLocked(workspaceID, ingest, trigger); err != nil {
 		return nil, err
 	}
@@ -157,16 +162,17 @@ func (service *Service) appendUserMessageBlockLocked(workspaceID string, ingest 
 	}
 	now := timestamp(service.now())
 	block := &TranscriptBlock{
-		SchemaVersion:  SchemaVersion,
-		ID:             blockID,
-		ConversationID: ingest.conversationID,
-		RunID:          ingest.runID,
-		Kind:           TranscriptBlockKindUserMessage,
-		Ordinal:        ingest.allocateOrdinal(),
-		Status:         TranscriptBlockStatusComplete,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		UserMessage:    userMessageProjection(message),
+		SchemaVersion:    SchemaVersion,
+		ID:               blockID,
+		ConversationID:   ingest.conversationID,
+		RunID:            ingest.runID,
+		Kind:             TranscriptBlockKindUserMessage,
+		Ordinal:          ingest.allocateOrdinal(),
+		RunAnchorOrdinal: ingest.runAnchorOrdinal,
+		Status:           TranscriptBlockStatusComplete,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		UserMessage:      userMessageProjection(message),
 	}
 	ingest.closeAssistantSegment()
 	ingest.track(block)
@@ -250,16 +256,17 @@ func (service *Service) newAssistantTextBlockLocked(ingest *transcriptIngest, pr
 	}
 	now := timestamp(service.now())
 	block := &TranscriptBlock{
-		SchemaVersion:  SchemaVersion,
-		ID:             blockID,
-		ConversationID: ingest.conversationID,
-		RunID:          ingest.runID,
-		Kind:           TranscriptBlockKindAssistantText,
-		Ordinal:        ingest.allocateOrdinal(),
-		Status:         TranscriptBlockStatusStreaming,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		AssistantText:  &AssistantTextBlockProjection{Text: "", Format: TextFormatMarkdown},
+		SchemaVersion:    SchemaVersion,
+		ID:               blockID,
+		ConversationID:   ingest.conversationID,
+		RunID:            ingest.runID,
+		Kind:             TranscriptBlockKindAssistantText,
+		Ordinal:          ingest.allocateOrdinal(),
+		RunAnchorOrdinal: ingest.runAnchorOrdinal,
+		Status:           TranscriptBlockStatusStreaming,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		AssistantText:    &AssistantTextBlockProjection{Text: "", Format: TextFormatMarkdown},
 	}
 	ingest.track(block)
 	ingest.openAssistantBlockID = block.ID
@@ -376,26 +383,21 @@ func (service *Service) ingestRunItemTranscriptBlockLocked(workspaceID string, i
 }
 
 func (service *Service) ingestActivityBlockLocked(workspaceID string, ingest *transcriptIngest, item RunItem, hasOutput bool) error {
-	status := effectiveRunActivityRowStatus(RunStatusRunning, item.Status)
-	details := runActivityDetailsProjection(item)
-	hasDetails := runActivityDetailsInspectable(details)
 	existingID, exists := ingest.activityBlockByProvider[item.ProviderItemID]
 	if !exists {
-		if !runItemDisplayable(item, status, hasDetails, hasOutput) {
+		projection, ok := activityItemBlockProjection(item, RunStatusRunning, hasOutput)
+		if !ok {
 			return nil
 		}
-		return service.createActivityBlockLocked(workspaceID, ingest, item, status, details, hasDetails, hasOutput)
+		return service.createActivityBlockLocked(workspaceID, ingest, item, projection)
 	}
 	block := ingest.blocks[existingID]
 	if block == nil || block.Activity == nil {
 		return nil
 	}
-	block.Activity.Type = item.Type
-	block.Activity.Title = runActivityTitle(item)
-	block.Activity.Status = status
-	block.Activity.Details = details
-	block.Activity.HasDetails = hasDetails
-	block.Activity.HasOutput = block.Activity.HasOutput || hasOutput
+	// Preserve a previously-recorded output flag: output may have arrived before
+	// this metadata update, and the in-place refresh must not clear it.
+	*block.Activity = activityItemBlockProjectionFields(item, RunStatusRunning, hasOutput || block.Activity.HasOutput)
 	block.Status = transcriptBlockStatusForItem(item.Status)
 	block.UpdatedAt = timestamp(service.now())
 	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {
@@ -404,7 +406,7 @@ func (service *Service) ingestActivityBlockLocked(workspaceID string, ingest *tr
 	return service.publishTranscriptBlockUpdatedLocked(workspaceID, *block)
 }
 
-func (service *Service) createActivityBlockLocked(workspaceID string, ingest *transcriptIngest, item RunItem, status RunItemStatus, details RunActivityDetailsProjection, hasDetails bool, hasOutput bool) error {
+func (service *Service) createActivityBlockLocked(workspaceID string, ingest *transcriptIngest, item RunItem, projection ActivityItemBlockProjection) error {
 	// Sample before ingest.track below: once tracked this block is itself public
 	// output, so the first-public-block check that drops the working indicator must
 	// observe the state as it was beforehand.
@@ -415,24 +417,17 @@ func (service *Service) createActivityBlockLocked(workspaceID string, ingest *tr
 	}
 	now := timestamp(service.now())
 	block := &TranscriptBlock{
-		SchemaVersion:  SchemaVersion,
-		ID:             blockID,
-		ConversationID: ingest.conversationID,
-		RunID:          ingest.runID,
-		Kind:           TranscriptBlockKindActivityItem,
-		Ordinal:        ingest.allocateOrdinal(),
-		Status:         transcriptBlockStatusForItem(item.Status),
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		Activity: &ActivityItemBlockProjection{
-			SourceRunItemID: item.ID,
-			Type:            item.Type,
-			Title:           runActivityTitle(item),
-			Status:          status,
-			Details:         details,
-			HasDetails:      hasDetails,
-			HasOutput:       hasOutput,
-		},
+		SchemaVersion:    SchemaVersion,
+		ID:               blockID,
+		ConversationID:   ingest.conversationID,
+		RunID:            ingest.runID,
+		Kind:             TranscriptBlockKindActivityItem,
+		Ordinal:          ingest.allocateOrdinal(),
+		RunAnchorOrdinal: ingest.runAnchorOrdinal,
+		Status:           transcriptBlockStatusForItem(item.Status),
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		Activity:         &projection,
 	}
 	ingest.closeAssistantSegment()
 	ingest.track(block)
@@ -513,15 +508,16 @@ func (service *Service) createReasoningBlockLocked(workspaceID string, ingest *t
 		summary = body
 	}
 	block := &TranscriptBlock{
-		SchemaVersion:  SchemaVersion,
-		ID:             blockID,
-		ConversationID: ingest.conversationID,
-		RunID:          ingest.runID,
-		Kind:           TranscriptBlockKindReasoning,
-		Ordinal:        ingest.allocateOrdinal(),
-		Status:         transcriptBlockStatusForItem(item.Status),
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		SchemaVersion:    SchemaVersion,
+		ID:               blockID,
+		ConversationID:   ingest.conversationID,
+		RunID:            ingest.runID,
+		Kind:             TranscriptBlockKindReasoning,
+		Ordinal:          ingest.allocateOrdinal(),
+		RunAnchorOrdinal: ingest.runAnchorOrdinal,
+		Status:           transcriptBlockStatusForItem(item.Status),
+		CreatedAt:        now,
+		UpdatedAt:        now,
 		Reasoning: &ReasoningBlockProjection{
 			SourceRunItemID: item.ID,
 			Mode:            mode,
@@ -590,16 +586,17 @@ func (service *Service) ensureTerminalRunStatusBlockLocked(workspaceID string, i
 		return fmt.Errorf("create transcript block id: %w", err)
 	}
 	block := &TranscriptBlock{
-		SchemaVersion:  SchemaVersion,
-		ID:             blockID,
-		ConversationID: ingest.conversationID,
-		RunID:          ingest.runID,
-		Kind:           TranscriptBlockKindRunStatus,
-		Ordinal:        ingest.allocateOrdinal(),
-		Status:         outcome,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		RunStatus:      &RunStatusBlockProjection{Mode: mode, Label: label, Error: runError},
+		SchemaVersion:    SchemaVersion,
+		ID:               blockID,
+		ConversationID:   ingest.conversationID,
+		RunID:            ingest.runID,
+		Kind:             TranscriptBlockKindRunStatus,
+		Ordinal:          ingest.allocateOrdinal(),
+		RunAnchorOrdinal: ingest.runAnchorOrdinal,
+		Status:           outcome,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		RunStatus:        &RunStatusBlockProjection{Mode: mode, Label: label, Error: runError},
 	}
 	ingest.closeAssistantSegment()
 	ingest.track(block)
@@ -643,7 +640,13 @@ func (service *Service) finalizeInterruptedTranscriptBlocks(workspaceID string, 
 	if hasFailedRunStatus {
 		return nil
 	}
-	return service.appendInterruptedFailedRunStatusLocked(workspaceID, run, blocks[len(blocks)-1].Ordinal+1, now)
+	return service.appendInterruptedFailedRunStatusLocked(
+		workspaceID,
+		run,
+		blocks[len(blocks)-1].Ordinal+1,
+		blocks[0].RunAnchorOrdinal,
+		now,
+	)
 }
 
 // reconcileInterruptedBlockToFailed brings one block into the failed-turn
@@ -679,22 +682,23 @@ func reconcileInterruptedBlockToFailed(block *TranscriptBlock, runError string) 
 	return true, false
 }
 
-func (service *Service) appendInterruptedFailedRunStatusLocked(workspaceID string, run Run, ordinal int, now string) error {
+func (service *Service) appendInterruptedFailedRunStatusLocked(workspaceID string, run Run, ordinal int, anchorOrdinal int, now string) error {
 	blockID, err := service.newID("transcript_block")
 	if err != nil {
 		return fmt.Errorf("create transcript block id: %w", err)
 	}
 	return service.saveTranscriptBlockLocked(workspaceID, TranscriptBlock{
-		SchemaVersion:  SchemaVersion,
-		ID:             blockID,
-		ConversationID: run.ConversationID,
-		RunID:          run.ID,
-		Kind:           TranscriptBlockKindRunStatus,
-		Ordinal:        ordinal,
-		Status:         TranscriptBlockStatusFailed,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		RunStatus:      &RunStatusBlockProjection{Mode: RunStatusBlockModeFailed, Label: "Failed", Error: run.Error},
+		SchemaVersion:    SchemaVersion,
+		ID:               blockID,
+		ConversationID:   run.ConversationID,
+		RunID:            run.ID,
+		Kind:             TranscriptBlockKindRunStatus,
+		Ordinal:          ordinal,
+		RunAnchorOrdinal: anchorOrdinal,
+		Status:           TranscriptBlockStatusFailed,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		RunStatus:        &RunStatusBlockProjection{Mode: RunStatusBlockModeFailed, Label: "Failed", Error: run.Error},
 	})
 }
 
@@ -833,16 +837,17 @@ func (service *Service) liveTranscriptBlocksLocked(ingest *transcriptIngest) []T
 func (service *Service) workingRunStatusBlock(ingest *transcriptIngest) TranscriptBlock {
 	now := timestamp(service.now())
 	return TranscriptBlock{
-		SchemaVersion:  SchemaVersion,
-		ID:             "transcript_working_" + ingest.runID,
-		ConversationID: ingest.conversationID,
-		RunID:          ingest.runID,
-		Kind:           TranscriptBlockKindRunStatus,
-		Ordinal:        ingest.nextOrdinal,
-		Status:         TranscriptBlockStatusStreaming,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		RunStatus:      &RunStatusBlockProjection{Mode: RunStatusBlockModeWorking, Label: "Working"},
+		SchemaVersion:    SchemaVersion,
+		ID:               "transcript_working_" + ingest.runID,
+		ConversationID:   ingest.conversationID,
+		RunID:            ingest.runID,
+		Kind:             TranscriptBlockKindRunStatus,
+		Ordinal:          ingest.nextOrdinal,
+		RunAnchorOrdinal: ingest.runAnchorOrdinal,
+		Status:           TranscriptBlockStatusStreaming,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		RunStatus:        &RunStatusBlockProjection{Mode: RunStatusBlockModeWorking, Label: "Working"},
 	}
 }
 

@@ -68,6 +68,38 @@ func runItemDisplayable(item RunItem, status RunItemStatus, hasDetails bool, has
 	}
 }
 
+// activityItemBlockProjection projects a run item into its activity_item block
+// payload and reports whether the item is displayable as activity. runStatus is
+// the owning run's status so a still-pending/running item inherits a terminal
+// run's outcome; hasOutput reports whether the item already has output recorded.
+// It is the single source the chronological transcript ingestion and the
+// run-activity page projection share, so both decide displayability and build
+// the row identically.
+func activityItemBlockProjection(item RunItem, runStatus RunStatus, hasOutput bool) (ActivityItemBlockProjection, bool) {
+	projection := activityItemBlockProjectionFields(item, runStatus, hasOutput)
+	if !runItemDisplayable(item, projection.Status, projection.HasDetails, hasOutput) {
+		return ActivityItemBlockProjection{}, false
+	}
+	return projection, true
+}
+
+// activityItemBlockProjectionFields builds the activity_item payload without the
+// displayability gate. The in-place update path uses it to refresh an existing
+// block's fields, where the block has already been deemed displayable and must
+// not be dropped if a later status makes a fresh item non-displayable.
+func activityItemBlockProjectionFields(item RunItem, runStatus RunStatus, hasOutput bool) ActivityItemBlockProjection {
+	details := runActivityDetailsProjection(item)
+	return ActivityItemBlockProjection{
+		SourceRunItemID: item.ID,
+		Type:            item.Type,
+		Title:           runActivityTitle(item),
+		Status:          effectiveRunActivityRowStatus(runStatus, item.Status),
+		Details:         details,
+		HasDetails:      runActivityDetailsInspectable(details),
+		HasOutput:       hasOutput,
+	}
+}
+
 func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 	return RunActivityDetailsProjection{
 		Summary:       publicRunActivitySummary(item),

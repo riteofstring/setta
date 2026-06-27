@@ -53,6 +53,7 @@ interface BlockBase {
   id: string;
   runId: string;
   ordinal: number;
+  runAnchorOrdinal?: number;
   status?: TranscriptBlockStatus;
   conversationId?: string;
   createdAt?: string;
@@ -69,6 +70,7 @@ function baseBlock(base: BlockBase, kind: TranscriptBlock["kind"]): TranscriptBl
     kind,
     ordinal: base.ordinal,
     reasoning: null,
+    runAnchorOrdinal: base.runAnchorOrdinal ?? base.ordinal,
     runId: base.runId,
     runStatus: null,
     schemaVersion: 1,

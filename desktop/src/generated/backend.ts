@@ -2944,6 +2944,7 @@ export interface TranscriptBlock {
   runId: string;
   kind: TranscriptBlockKind;
   ordinal: number;
+  runAnchorOrdinal: number;
   status: TranscriptBlockStatus;
   createdAt: string;
   updatedAt: string;
@@ -3241,6 +3242,7 @@ export interface RunActivityPage {
   runId: string;
   items: RunItem[];
   output: RunItemOutput[];
+  activity: ActivityItemBlockProjection[];
 }
 
 export interface GetRunItemOutputRequest {
@@ -6789,7 +6791,7 @@ export function decodeRunStatusBlockProjection(value: unknown): RunStatusBlockPr
 
 export function decodeTranscriptBlock(value: unknown): TranscriptBlock {
   const record = assertRecord(value, "TranscriptBlock");
-  assertKnownFields(record, "TranscriptBlock", ["schemaVersion", "id", "conversationId", "runId", "kind", "ordinal", "status", "createdAt", "updatedAt", "userMessage", "assistantText", "reasoning", "activity", "runStatus"]);
+  assertKnownFields(record, "TranscriptBlock", ["schemaVersion", "id", "conversationId", "runId", "kind", "ordinal", "runAnchorOrdinal", "status", "createdAt", "updatedAt", "userMessage", "assistantText", "reasoning", "activity", "runStatus"]);
   const result: TranscriptBlock = {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "TranscriptBlock"), "TranscriptBlock.schemaVersion"),
     id: decodeString(requireField(record, "id", "TranscriptBlock"), "TranscriptBlock.id"),
@@ -6797,6 +6799,7 @@ export function decodeTranscriptBlock(value: unknown): TranscriptBlock {
     runId: decodeString(requireField(record, "runId", "TranscriptBlock"), "TranscriptBlock.runId"),
     kind: decodeTranscriptBlockKind(requireField(record, "kind", "TranscriptBlock"), "TranscriptBlock.kind"),
     ordinal: decodeInteger(requireField(record, "ordinal", "TranscriptBlock"), "TranscriptBlock.ordinal"),
+    runAnchorOrdinal: decodeInteger(requireField(record, "runAnchorOrdinal", "TranscriptBlock"), "TranscriptBlock.runAnchorOrdinal"),
     status: decodeTranscriptBlockStatus(requireField(record, "status", "TranscriptBlock"), "TranscriptBlock.status"),
     createdAt: decodeString(requireField(record, "createdAt", "TranscriptBlock"), "TranscriptBlock.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "TranscriptBlock"), "TranscriptBlock.updatedAt"),
@@ -7245,11 +7248,12 @@ export function decodeRunItemOutput(value: unknown): RunItemOutput {
 
 export function decodeRunActivityPage(value: unknown): RunActivityPage {
   const record = assertRecord(value, "RunActivityPage");
-  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output"]);
+  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output", "activity"]);
   return {
     runId: decodeString(requireField(record, "runId", "RunActivityPage"), "RunActivityPage.runId"),
     items: decodeArray(requireField(record, "items", "RunActivityPage"), "RunActivityPage.items", (item) => decodeRunItem(item)),
     output: decodeArray(requireField(record, "output", "RunActivityPage"), "RunActivityPage.output", (item) => decodeRunItemOutput(item)),
+    activity: decodeArray(requireField(record, "activity", "RunActivityPage"), "RunActivityPage.activity", (item) => decodeActivityItemBlockProjection(item)),
   };
 }
 

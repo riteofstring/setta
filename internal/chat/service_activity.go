@@ -517,6 +517,12 @@ func (service *Service) LoadRunActivityPage(workspaceID string, runID string, li
 	}
 	service.mu.Lock()
 
+	run, err := service.store.LoadRun(workspaceID, runID)
+	if err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
+		return RunActivityPage{}, err
+	}
 	items, err := service.store.LoadRunItems(workspaceID, runID)
 	if err != nil {
 		service.mu.Unlock()
@@ -531,10 +537,36 @@ func (service *Service) LoadRunActivityPage(workspaceID string, runID string, li
 	}
 	service.mu.Unlock()
 	return RunActivityPage{
-		RunID:  runID,
-		Items:  items,
-		Output: outputs,
+		RunID:    runID,
+		Items:    items,
+		Output:   outputs,
+		Activity: runActivityItemProjections(run.Status, items, outputs),
 	}, nil
+}
+
+// runActivityItemProjections projects a run's items into displayable activity_item
+// rows for non-transcript activity surfaces (the workflow node-details feed). It
+// reuses the shared projection so displayability and row fields match the
+// chronological transcript's activity_item blocks: reasoning items are owned by
+// the reasoning block kind, not activity, so they are excluded here just as the
+// ingestion routes them away from the activity path. hasOutput is derived from
+// the loaded output previews.
+func runActivityItemProjections(runStatus RunStatus, items []RunItem, outputs []RunItemOutput) []ActivityItemBlockProjection {
+	hasOutput := make(map[string]bool, len(outputs))
+	for _, output := range outputs {
+		hasOutput[output.RunItemID] = true
+	}
+	projections := make([]ActivityItemBlockProjection, 0, len(items))
+	for _, item := range items {
+		if item.Type == RunItemTypeReasoning {
+			continue
+		}
+		projection, ok := activityItemBlockProjection(item, runStatus, hasOutput[item.ID])
+		if ok {
+			projections = append(projections, projection)
+		}
+	}
+	return projections
 }
 
 func (service *Service) LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (RunItemOutputPage, error) {
