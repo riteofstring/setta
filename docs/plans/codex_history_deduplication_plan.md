@@ -23,6 +23,8 @@ This is a clean replacement plan. It intentionally does not include backward com
 - Deleting `~/.setta` is now a Setta data reset: it loses Setta chat membership, user/internal classification, local UI metadata, queues, and activity overlays. Codex raw history remains in `~/.codex`, but Setta will not automatically reconstruct its chat list from Codex alone.
 - Viewing Codex-backed history now depends on a working Codex app-server. If Codex is unavailable, version-incompatible, or cannot answer the required history APIs, Setta should show a specific provider-unavailable state instead of falling back to old Setta transcript files.
 - A persisted local transcript cache would improve offline availability and latency, but it would deliberately reintroduce duplicated transcript text. That alternative is out of scope for this plan unless the product decision changes.
+- Managed Codex runtime support is a prerequisite for deleting Setta transcript persistence. Adapter and protocol work can proceed first, but storage deletion must wait until Setta has a concrete runtime selection, packaging, startup probe, and incompatible-provider UX.
+- If Setta decides not to bundle, manage, or strictly require a compatible Codex runtime, revisit the no-cache rule before continuing to storage deletion. A Codex-authoritative read-through cache is the fallback product tradeoff to evaluate, not a hidden implementation fallback.
 - Latency must be managed through process lifetime, request coalescing, cursor paging, in-memory renderer page caches, and the Setta thread index. Do not solve latency by writing a second transcript store.
 - Because this branch has no compatibility requirement, pre-cutover Setta chat records and chat-linked semantic/workflow records can be ignored or discarded. That is a product data-reset decision, not an implementation accident.
 
@@ -32,7 +34,7 @@ Setta must not base the de-duplicated history design on whatever user-installed
 `codex` binary happens to be first on `PATH`.
 
 - Setta should either bundle/manage a known-compatible Codex runtime or require
-  an exact supported Codex version before enabling Codex-backed chat and
+  an exact supported Codex version before enabling de-duplicated Codex-backed
   history.
 - The supported runtime entrypoint must expose explicit app-server session
   source selection, and Setta must start it with `--session-source app-server`.
@@ -42,9 +44,10 @@ Setta must not base the de-duplicated history design on whatever user-installed
   same compatibility probe must run against the override. An override only
   changes the binary under test; it does not waive required protocol behavior.
 - Startup must validate the selected Codex runtime before enabling
-  Codex-backed chat/history. If the runtime fails the probe, Setta should expose
-  a specific provider-unavailable or incompatible-provider state and must not
-  fall back to duplicated Setta transcript persistence.
+  de-duplicated Codex-backed history or deleting the old Setta transcript read
+  path. If the runtime fails the probe, Setta should expose a specific
+  provider-unavailable or incompatible-provider state and must not fall back to
+  duplicated Setta transcript persistence after cutover.
 - The compatibility probe must verify:
   - `thread/list`
   - `thread/read`
@@ -82,6 +85,7 @@ Setta must not base the de-duplicated history design on whatever user-installed
 
 ## Cutover Rules
 
+- Do not begin storage deletion until the managed Codex runtime phase is implemented, verified, and documented.
 - Remove the old Setta transcript persistence path. Do not leave it as a fallback.
 - Do not read existing `~/.setta` chat conversation/message/run files.
 - Do not write new user or assistant transcript text to `~/.setta`.
@@ -180,7 +184,22 @@ Create a provider adapter that converts Codex history data into Setta's frontend
 - Make unsupported Codex item variants explicit in the adapter with typed exhaustiveness checks.
 - Add fixture-based adapter tests using representative Codex `Thread`, `Turn`, and `ThreadItem` payloads.
 
-## Phase 3: Setta Storage Remodel
+## Phase 3: Managed Codex Runtime
+
+Make the compatible Codex runtime a product dependency before deleting Setta transcript persistence.
+
+- Choose and document the runtime strategy: bundled Codex runtime, Setta-managed downloaded runtime, or exact supported runtime requirement. Do not rely on arbitrary `$PATH` resolution for de-duplicated history.
+- Record the selected runtime identity in the repo or build metadata: Codex source commit, protocol schema upstream commit, artifact name, platform, and checksum or equivalent integrity metadata.
+- Prefer the standalone `codex-app-server` entrypoint when it is the only entrypoint that supports `--session-source app-server`. Do not assume `codex app-server` has the same flags or behavior.
+- Keep `CODEX_HOME` semantics explicit. Production should continue using the user's Codex home for auth, config, and Codex history unless the product deliberately chooses otherwise; tests must continue using temporary `CODEX_HOME`.
+- Keep `SETTA_CODEX_BIN` as a development and test override only. The override must run through the same startup probe and must not bypass compatibility requirements.
+- Implement runtime resolution and startup probing in production code before any history read path depends only on Codex APIs.
+- The startup probe must produce a typed incompatible-provider error that can be rendered clearly in the UI and logged with selected binary path, version output, app-server entrypoint, and failed capability.
+- Add focused tests for runtime resolution, override handling, failed probe reporting, and successful startup against a compatible fake or reference runtime.
+- Re-run the live Phase 0 validation against the selected managed/reference runtime after runtime resolution is implemented.
+- Do not start Phase 4 storage deletion until this phase is implemented and verified. If this phase is rejected or deferred indefinitely, revisit the no-cache rule before deleting transcript persistence.
+
+## Phase 4: Setta Storage Remodel
 
 Replace Setta's chat transcript store with a narrow overlay store.
 
@@ -210,7 +229,7 @@ Replace Setta's chat transcript store with a narrow overlay store.
 - Remove corrupt-state diagnostics and tests that only apply to the deleted transcript store.
 - Add tests that prove overlay records never contain user prompt text, assistant response text, or duplicated Codex-persisted item output.
 
-## Phase 4: Backend Chat Service
+## Phase 5: Backend Chat Service
 
 Rebuild chat service reads around Codex history projection.
 
@@ -230,7 +249,7 @@ Rebuild chat service reads around Codex history projection.
 - Model and reasoning settings should be set at Codex thread creation. For linked threads, use Codex `thread/settings/update` only if Phase 0 verifies the API and notification behavior. Persist only pending pre-thread selections and Setta preferences that are not Codex history.
 - If Codex app-server is unavailable for history reads, return a typed unavailable-provider error to the renderer. Do not read deleted Setta transcript paths as a degraded mode.
 
-## Phase 5: HTTP Contracts And Generated Types
+## Phase 6: HTTP Contracts And Generated Types
 
 Update the Go-owned API contracts so the renderer receives projection data rather than persisted Setta transcript records.
 
@@ -241,7 +260,7 @@ Update the Go-owned API contracts so the renderer receives projection data rathe
 - Regenerate TypeScript API surfaces from the Go-owned contracts.
 - Do not manually edit generated TypeScript outputs.
 
-## Phase 6: Renderer State And Transcript UI
+## Phase 7: Renderer State And Transcript UI
 
 Make the frontend treat transcript data as a Codex-backed projection window.
 
@@ -256,7 +275,7 @@ Make the frontend treat transcript data as a Codex-backed projection window.
 - Ensure reload reconstructs the transcript from Codex APIs plus overlay state, not from old Setta transcript files.
 - Preserve efficient large-transcript behavior: windowed pages, bounded renderer memory, and stable scroll anchors.
 
-## Phase 7: Semantic Graph And Workflow References
+## Phase 8: Semantic Graph And Workflow References
 
 Move cross-feature references from Setta transcript records to Codex-backed identities.
 
@@ -273,7 +292,7 @@ Move cross-feature references from Setta transcript records to Codex-backed iden
 - Add tests for new semantic/workflow refs that navigate from activity chips, evidence anchors, and workflow node details back to the projected Codex transcript plus Setta activity overlay.
 - Regenerate affected contracts after owner-defined type changes.
 
-## Phase 8: Verification
+## Phase 9: Verification
 
 Because this touches chat behavior, Codex harness behavior, provider protocol handling, persistence, event streaming, renderer chat state, and transcript UI, verification must exercise production paths.
 
@@ -304,6 +323,7 @@ Because this touches chat behavior, Codex harness behavior, provider protocol ha
 
 ## Acceptance Criteria
 
+- Before Setta transcript persistence is deleted, Setta resolves a managed or exact-version Codex runtime, starts the required app-server entrypoint, passes the startup compatibility probe, and has a typed incompatible-provider UX.
 - New Codex-backed chats are visible in Setta from the Setta thread index and readable from Codex `thread/turns/list` or `thread/read`.
 - `~/.setta` no longer contains duplicated Codex user messages, assistant messages, or Codex-persisted item output.
 - `~/.setta` no longer contains Codex-backed `goal.json`; Codex thread goal APIs own goal state.
@@ -320,6 +340,7 @@ Because this touches chat behavior, Codex harness behavior, provider protocol ha
 
 ## Main Risks
 
+- Managed Codex runtime packaging, versioning, and probing is the main prerequisite for this plan. If Setta is not willing to own that dependency, pause storage deletion and revisit the Codex-authoritative read-through cache alternative.
 - Codex persisted history does not preserve every live agent interaction detail. Command execution details are one known lossy area. Setta should therefore persist a separate activity overlay with a narrow schema and explicit tests proving it does not duplicate transcript text.
 - History viewing becomes coupled to Codex app-server availability and protocol compatibility. This is the direct cost of removing Setta's duplicated transcript read path.
 - `thread/turns/list` is an experimental Codex API in the vendored schema. The implementation must initialize the required capability, test the protocol path through production code, and fail specifically when the API is unavailable.
