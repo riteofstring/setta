@@ -40,6 +40,7 @@ import type {
   ListCartographerRunsRequest,
   ListCartographerWindowsRequest,
   ListConversationsResponse,
+  ListWorkflowExecutionsResponse,
   ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
@@ -61,6 +62,8 @@ import type {
   ReadSemanticNodeDetailRequest,
   ReadSemanticNodeDetailResponse,
   ReadSemanticSteeringStateRequest,
+  ReadWorkflowExecutionActivityResponse,
+  ReadWorkspaceActivitySnapshotResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
@@ -204,6 +207,8 @@ export const ipcChannels = {
   semanticGraphUpdateEdge: "semantic-graph:update-edge",
   semanticGraphUpdateNode: "semantic-graph:update-node",
   semanticGraphUpdateSteeringDirective: "semantic-graph:update-steering-directive",
+  workspaceActivitySnapshot: "workspace-activity:snapshot",
+  workspaceActivityExecutionSnapshot: "workspace-activity:execution-snapshot",
   workspaceBrowserViewStats: "workspace:browser-view-stats",
   workspaceBrowserViewsTeardown: "workspace:browser-views-teardown",
   terminalAttach: "terminal:attach",
@@ -222,6 +227,7 @@ export const ipcChannels = {
   workflowExecutionEvents: "workflow:execution-events",
   workflowGraphProjection: "workflow:graph-projection",
   workflowListDefinitions: "workflow:list-definitions",
+  workflowListExecutions: "workflow:list-executions",
   workflowReadDefinition: "workflow:read-definition",
   workflowReadExecution: "workflow:read-execution",
   workflowStartExecution: "workflow:start-execution",
@@ -251,6 +257,7 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
   semanticGraphEvent: "semantic-graph:event",
+  workspaceActivityEvent: "workspace-activity:event",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
   terminalEvent: "terminal:event",
@@ -593,6 +600,14 @@ interface IpcContract {
     args: [workspaceId: string];
     result: WorkspaceBrowserViewStats;
   };
+  workspaceActivitySnapshot: {
+    args: [workspaceId: string, limit: number];
+    result: ReadWorkspaceActivitySnapshotResponse;
+  };
+  workspaceActivityExecutionSnapshot: {
+    args: [workspaceId: string, executionId: string, limit: number];
+    result: ReadWorkflowExecutionActivityResponse;
+  };
   terminalAttach: {
     args: [workspaceId: string, paneId: string];
     result: TerminalSessionResponse;
@@ -663,6 +678,10 @@ interface IpcContract {
   workflowListDefinitions: {
     args: [workspaceId: string];
     result: ListWorkflowDefinitionsResponse;
+  };
+  workflowListExecutions: {
+    args: [workspaceId: string, definitionId: string, limit: number];
+    result: ListWorkflowExecutionsResponse;
   };
   workflowReadDefinition: {
     args: [workspaceId: string, definitionId: string];

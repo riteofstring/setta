@@ -78,7 +78,7 @@ export class CDPClient {
 
   async installDriver() {
     const installed = await this.evaluate(
-      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v5"`,
+      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v8"`,
     );
     if (!installed) {
       await this.evaluate(await readFile(driverScriptPath, "utf8"));

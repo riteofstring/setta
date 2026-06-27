@@ -552,6 +552,15 @@ func findLastRunItemType(items []RunItem, itemType RunItemType) (RunItem, bool) 
 	return RunItem{}, false
 }
 
+func findTraceType(traces []recordedTrace, traceType string) (recordedTrace, bool) {
+	for _, trace := range traces {
+		if trace.traceType == traceType {
+			return trace, true
+		}
+	}
+	return recordedTrace{}, false
+}
+
 func requireRunItemType(t *testing.T, items []RunItem, itemType RunItemType) RunItem {
 	t.Helper()
 	item, ok := findRunItemType(items, itemType)
@@ -863,6 +872,13 @@ func TestCodexHarnessHandlesTurnProtocolCoverageNotifications(t *testing.T) {
 	if reasoning.HiddenText != "private reasoning" {
 		t.Fatalf("reasoning hidden text = %q, want preserved private reasoning", reasoning.HiddenText)
 	}
+	trace, ok := findTraceType(sink.traces, "codex_turn_moderation_metadata")
+	if !ok {
+		t.Fatalf("traces = %+v, want moderation metadata trace", sink.traces)
+	}
+	if strings.Contains(trace.message, "presentation") || strings.Contains(trace.message, "inline") {
+		t.Fatalf("moderation trace message = %q, want bounded non-raw evidence", trace.message)
+	}
 	for _, diagnostic := range sink.diagnostics {
 		if diagnostic.severity == DiagnosticSeverityCritical {
 			t.Fatalf("diagnostics = %+v, want no critical diagnostics for known coverage notifications", sink.diagnostics)
@@ -1007,6 +1023,7 @@ type recordingSink struct {
 	outputs     []recordedOutput
 	text        string
 	threadID    string
+	traces      []recordedTrace
 	turnID      string
 }
 
@@ -1027,6 +1044,11 @@ type recordedProviderDiagnostic struct {
 	message        string
 	resyncRequired bool
 	severity       DiagnosticSeverity
+}
+
+type recordedTrace struct {
+	traceType string
+	message   string
 }
 
 type fakeAttestationProvider struct {
@@ -1166,7 +1188,8 @@ func (sink *recordingSink) UserMessageCommitted(string) error {
 	return nil
 }
 
-func (sink *recordingSink) Trace(string, string) error {
+func (sink *recordingSink) Trace(traceType string, message string) error {
+	sink.traces = append(sink.traces, recordedTrace{traceType: traceType, message: message})
 	return nil
 }
 
@@ -1444,6 +1467,16 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 		return true, true
 	case "thread-token-usage-notification":
 		writeFakeThreadTokenUsage()
+		writeFakeStreamTurn()
+		return true, true
+	case "moderation-metadata-notification":
+		writeFakeNotification("turn/moderationMetadata", map[string]any{
+			"metadata": map[string]any{
+				"presentation": "inline",
+			},
+			"threadId": "thread_fake",
+			"turnId":   "turn_fake",
+		})
 		writeFakeStreamTurn()
 		return true, true
 	case "provider-user-message-item":

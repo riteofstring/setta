@@ -716,6 +716,20 @@ type WorkflowExecution struct {
 	LastEventOrdinal       int                     `json:"lastEventOrdinal"`
 }
 
+type WorkflowExecutionSummary struct {
+	ID                      string                  `json:"id"`
+	WorkspaceID             string                  `json:"workspaceId"`
+	DefinitionID            string                  `json:"definitionId"`
+	DefinitionVersionID     string                  `json:"definitionVersionId"`
+	DefinitionVersionNumber int                     `json:"definitionVersionNumber"`
+	Status                  WorkflowExecutionStatus `json:"status"`
+	TerminalReason          *WorkflowTerminalReason `json:"terminalReason"`
+	StartedAt               string                  `json:"startedAt"`
+	UpdatedAt               string                  `json:"updatedAt"`
+	CompletedAt             string                  `json:"completedAt"`
+	LastEventOrdinal        int                     `json:"lastEventOrdinal"`
+}
+
 type WorkflowNodeExecution struct {
 	SchemaVersion      int                         `json:"schemaVersion"`
 	ID                 string                      `json:"id"`

@@ -395,6 +395,13 @@ function emitProtocolCoverageTurn() {
     turnId,
     verifications: ["trustedAccessForCyber"],
   });
+  notify("turn/moderationMetadata", {
+    metadata: {
+      presentation: "inline",
+    },
+    threadId,
+    turnId,
+  });
   notify("process/outputDelta", {
     capReached: false,
     deltaBase64: Buffer.from("process output\n").toString("base64"),

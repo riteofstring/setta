@@ -1182,6 +1182,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    workspaceActivity: {} as SettaAPI["workspaceActivity"],
     semanticGraph: {} as SettaAPI["semanticGraph"],
     terminal: unimplementedTerminalAPI,
     workflow: {} as SettaAPI["workflow"],

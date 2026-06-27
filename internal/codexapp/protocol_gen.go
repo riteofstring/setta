@@ -113,6 +113,7 @@ const (
 	CodexNotificationThreadUnarchived                        = "thread/unarchived"
 	CodexNotificationTurnCompleted                           = "turn/completed"
 	CodexNotificationTurnDiffUpdated                         = "turn/diff/updated"
+	CodexNotificationTurnModerationMetadata                  = "turn/moderationMetadata"
 	CodexNotificationTurnPlanUpdated                         = "turn/plan/updated"
 	CodexNotificationTurnStarted                             = "turn/started"
 	CodexNotificationWarning                                 = "warning"
@@ -203,6 +204,7 @@ var CodexSupportedNotificationValues = []string{
 	CodexNotificationThreadUnarchived,
 	CodexNotificationTurnCompleted,
 	CodexNotificationTurnDiffUpdated,
+	CodexNotificationTurnModerationMetadata,
 	CodexNotificationTurnPlanUpdated,
 	CodexNotificationTurnStarted,
 	CodexNotificationWarning,
@@ -306,8 +308,8 @@ func DecodeActivePermissionProfile(raw json.RawMessage) (ActivePermissionProfile
 type AdditionalFileSystemPermissions struct {
 	Entries          *[]FileSystemSandboxEntry `json:"entries,omitempty"`
 	GlobScanMaxDepth *int                      `json:"globScanMaxDepth,omitempty"`
-	Read             *[]AbsolutePathBuf        `json:"read,omitempty"`
-	Write            *[]AbsolutePathBuf        `json:"write,omitempty"`
+	Read             *[]LegacyAppPathString    `json:"read,omitempty"`
+	Write            *[]LegacyAppPathString    `json:"write,omitempty"`
 }
 
 func validateAdditionalFileSystemPermissions(raw json.RawMessage, name string) error {
@@ -425,12 +427,13 @@ func DecodeAppBranding(raw json.RawMessage) (AppBranding, error) {
 }
 
 type AppConfig struct {
-	DefaultToolsApprovalMode *AppToolApproval `json:"default_tools_approval_mode,omitempty"`
-	DefaultToolsEnabled      *bool            `json:"default_tools_enabled,omitempty"`
-	DestructiveEnabled       *bool            `json:"destructive_enabled,omitempty"`
-	Enabled                  *bool            `json:"enabled,omitempty"`
-	OpenWorldEnabled         *bool            `json:"open_world_enabled,omitempty"`
-	Tools                    *AppToolsConfig  `json:"tools,omitempty"`
+	ApprovalsReviewer        *ApprovalsReviewer `json:"approvals_reviewer,omitempty"`
+	DefaultToolsApprovalMode *AppToolApproval   `json:"default_tools_approval_mode,omitempty"`
+	DefaultToolsEnabled      *bool              `json:"default_tools_enabled,omitempty"`
+	DestructiveEnabled       *bool              `json:"destructive_enabled,omitempty"`
+	Enabled                  *bool              `json:"enabled,omitempty"`
+	OpenWorldEnabled         *bool              `json:"open_world_enabled,omitempty"`
+	Tools                    *AppToolsConfig    `json:"tools,omitempty"`
 }
 
 func validateAppConfig(raw json.RawMessage, name string) error {
@@ -680,9 +683,11 @@ func DecodeAppsConfig(raw json.RawMessage) (AppsConfig, error) {
 }
 
 type AppsDefaultConfig struct {
-	DestructiveEnabled *bool `json:"destructive_enabled,omitempty"`
-	Enabled            *bool `json:"enabled,omitempty"`
-	OpenWorldEnabled   *bool `json:"open_world_enabled,omitempty"`
+	ApprovalsReviewer        *ApprovalsReviewer `json:"approvals_reviewer,omitempty"`
+	DefaultToolsApprovalMode *AppToolApproval   `json:"default_tools_approval_mode,omitempty"`
+	DestructiveEnabled       *bool              `json:"destructive_enabled,omitempty"`
+	Enabled                  *bool              `json:"enabled,omitempty"`
+	OpenWorldEnabled         *bool              `json:"open_world_enabled,omitempty"`
 }
 
 func validateAppsDefaultConfig(raw json.RawMessage, name string) error {
@@ -727,10 +732,12 @@ func DecodeAttestationGenerateParams(raw json.RawMessage) (AttestationGeneratePa
 type AuthMode string
 
 const (
-	AuthModeApikey            AuthMode = "apikey"
-	AuthModeChatgpt           AuthMode = "chatgpt"
-	AuthModeChatgptAuthTokens AuthMode = "chatgptAuthTokens"
-	AuthModeAgentIdentity     AuthMode = "agentIdentity"
+	AuthModeApikey              AuthMode = "apikey"
+	AuthModeChatgpt             AuthMode = "chatgpt"
+	AuthModeChatgptAuthTokens   AuthMode = "chatgptAuthTokens"
+	AuthModeAgentIdentity       AuthMode = "agentIdentity"
+	AuthModePersonalAccessToken AuthMode = "personalAccessToken"
+	AuthModeBedrockApiKey       AuthMode = "bedrockApiKey"
 )
 
 type AutoCompactTokenLimitScope string
@@ -924,7 +931,8 @@ type CommandExecutionRequestApprovalParams struct {
 	ApprovalId                      *string                   `json:"approvalId,omitempty"`
 	Command                         *string                   `json:"command,omitempty"`
 	CommandActions                  *[]CommandAction          `json:"commandActions,omitempty"`
-	CWD                             *AbsolutePathBuf          `json:"cwd,omitempty"`
+	CWD                             *LegacyAppPathString      `json:"cwd,omitempty"`
+	EnvironmentId                   *string                   `json:"environmentId,omitempty"`
 	ItemId                          string                    `json:"itemId"`
 	NetworkApprovalContext          *NetworkApprovalContext   `json:"networkApprovalContext,omitempty"`
 	ProposedExecpolicyAmendment     *[]string                 `json:"proposedExecpolicyAmendment,omitempty"`
@@ -1263,6 +1271,8 @@ func DecodeErrorNotification(raw json.RawMessage) (ErrorNotification, error) {
 }
 
 type ExternalAgentConfigImportCompletedNotification struct {
+	ImportId        string                                `json:"importId"`
+	ItemTypeResults []ExternalAgentConfigImportTypeResult `json:"itemTypeResults"`
 }
 
 func validateExternalAgentConfigImportCompletedNotification(raw json.RawMessage, name string) error {
@@ -1270,7 +1280,10 @@ func validateExternalAgentConfigImportCompletedNotification(raw json.RawMessage,
 	if err != nil {
 		return err
 	}
-	if err := requireCodexFields(fields, name, nil); err != nil {
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "importId"}, {name: "itemTypeResults"}}); err != nil {
+		return err
+	}
+	if err := validateCodexObjectArrayField(fields, "itemTypeResults", name+".itemTypeResults", false, false, validateExternalAgentConfigImportTypeResult); err != nil {
 		return err
 	}
 	return nil
@@ -1281,6 +1294,99 @@ func DecodeExternalAgentConfigImportCompletedNotification(raw json.RawMessage) (
 	err := decodeCodexObject(raw, "ExternalAgentConfigImportCompletedNotification", validateExternalAgentConfigImportCompletedNotification, &value)
 	return value, err
 }
+
+type ExternalAgentConfigImportItemTypeFailure struct {
+	CWD          *string                              `json:"cwd,omitempty"`
+	ErrorType    *string                              `json:"errorType,omitempty"`
+	FailureStage string                               `json:"failureStage"`
+	ItemType     ExternalAgentConfigMigrationItemType `json:"itemType"`
+	Message      string                               `json:"message"`
+	Source       *string                              `json:"source,omitempty"`
+}
+
+func validateExternalAgentConfigImportItemTypeFailure(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "failureStage"}, {name: "itemType"}, {name: "message"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeExternalAgentConfigImportItemTypeFailure(raw json.RawMessage) (ExternalAgentConfigImportItemTypeFailure, error) {
+	var value ExternalAgentConfigImportItemTypeFailure
+	err := decodeCodexObject(raw, "ExternalAgentConfigImportItemTypeFailure", validateExternalAgentConfigImportItemTypeFailure, &value)
+	return value, err
+}
+
+type ExternalAgentConfigImportItemTypeSuccess struct {
+	CWD      *string                              `json:"cwd,omitempty"`
+	ItemType ExternalAgentConfigMigrationItemType `json:"itemType"`
+	Source   *string                              `json:"source,omitempty"`
+	Target   *string                              `json:"target,omitempty"`
+}
+
+func validateExternalAgentConfigImportItemTypeSuccess(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "itemType"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeExternalAgentConfigImportItemTypeSuccess(raw json.RawMessage) (ExternalAgentConfigImportItemTypeSuccess, error) {
+	var value ExternalAgentConfigImportItemTypeSuccess
+	err := decodeCodexObject(raw, "ExternalAgentConfigImportItemTypeSuccess", validateExternalAgentConfigImportItemTypeSuccess, &value)
+	return value, err
+}
+
+type ExternalAgentConfigImportTypeResult struct {
+	Failures  []ExternalAgentConfigImportItemTypeFailure `json:"failures"`
+	ItemType  ExternalAgentConfigMigrationItemType       `json:"itemType"`
+	Successes []ExternalAgentConfigImportItemTypeSuccess `json:"successes"`
+}
+
+func validateExternalAgentConfigImportTypeResult(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "failures"}, {name: "itemType"}, {name: "successes"}}); err != nil {
+		return err
+	}
+	if err := validateCodexObjectArrayField(fields, "failures", name+".failures", false, false, validateExternalAgentConfigImportItemTypeFailure); err != nil {
+		return err
+	}
+	if err := validateCodexObjectArrayField(fields, "successes", name+".successes", false, false, validateExternalAgentConfigImportItemTypeSuccess); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeExternalAgentConfigImportTypeResult(raw json.RawMessage) (ExternalAgentConfigImportTypeResult, error) {
+	var value ExternalAgentConfigImportTypeResult
+	err := decodeCodexObject(raw, "ExternalAgentConfigImportTypeResult", validateExternalAgentConfigImportTypeResult, &value)
+	return value, err
+}
+
+type ExternalAgentConfigMigrationItemType string
+
+const (
+	ExternalAgentConfigMigrationItemTypeAGENTSMD        ExternalAgentConfigMigrationItemType = "AGENTS_MD"
+	ExternalAgentConfigMigrationItemTypeCONFIG          ExternalAgentConfigMigrationItemType = "CONFIG"
+	ExternalAgentConfigMigrationItemTypeSKILLS          ExternalAgentConfigMigrationItemType = "SKILLS"
+	ExternalAgentConfigMigrationItemTypePLUGINS         ExternalAgentConfigMigrationItemType = "PLUGINS"
+	ExternalAgentConfigMigrationItemTypeMCPSERVERCONFIG ExternalAgentConfigMigrationItemType = "MCP_SERVER_CONFIG"
+	ExternalAgentConfigMigrationItemTypeSUBAGENTS       ExternalAgentConfigMigrationItemType = "SUBAGENTS"
+	ExternalAgentConfigMigrationItemTypeHOOKS           ExternalAgentConfigMigrationItemType = "HOOKS"
+	ExternalAgentConfigMigrationItemTypeCOMMANDS        ExternalAgentConfigMigrationItemType = "COMMANDS"
+	ExternalAgentConfigMigrationItemTypeSESSIONS        ExternalAgentConfigMigrationItemType = "SESSIONS"
+)
 
 type FileChangePatchUpdatedNotification struct {
 	Changes  []FileUpdateChange `json:"changes"`
@@ -1809,9 +1915,10 @@ const (
 )
 
 type InitializeCapabilities struct {
-	ExperimentalApi           *bool     `json:"experimentalApi,omitempty"`
-	OptOutNotificationMethods *[]string `json:"optOutNotificationMethods,omitempty"`
-	RequestAttestation        *bool     `json:"requestAttestation,omitempty"`
+	ExperimentalApi                *bool     `json:"experimentalApi,omitempty"`
+	McpServerOpenaiFormElicitation *bool     `json:"mcpServerOpenaiFormElicitation,omitempty"`
+	OptOutNotificationMethods      *[]string `json:"optOutNotificationMethods,omitempty"`
+	RequestAttestation             *bool     `json:"requestAttestation,omitempty"`
 }
 
 func validateInitializeCapabilities(raw json.RawMessage, name string) error {
@@ -1999,6 +2106,8 @@ func DecodeItemStartedNotification(raw json.RawMessage) (ItemStartedNotification
 	err := decodeCodexObject(raw, "ItemStartedNotification", validateItemStartedNotification, &value)
 	return value, err
 }
+
+type LegacyAppPathString = string
 
 type McpElicitationArrayType string
 
@@ -2412,9 +2521,10 @@ const (
 )
 
 type McpServerStatusUpdatedNotification struct {
-	Error  *string               `json:"error,omitempty"`
-	Name   string                `json:"name"`
-	Status McpServerStartupState `json:"status"`
+	Error    *string               `json:"error,omitempty"`
+	Name     string                `json:"name"`
+	Status   McpServerStartupState `json:"status"`
+	ThreadID *string               `json:"threadId,omitempty"`
 }
 
 func validateMcpServerStatusUpdatedNotification(raw json.RawMessage, name string) error {
@@ -2431,6 +2541,29 @@ func validateMcpServerStatusUpdatedNotification(raw json.RawMessage, name string
 func DecodeMcpServerStatusUpdatedNotification(raw json.RawMessage) (McpServerStatusUpdatedNotification, error) {
 	var value McpServerStatusUpdatedNotification
 	err := decodeCodexObject(raw, "McpServerStatusUpdatedNotification", validateMcpServerStatusUpdatedNotification, &value)
+	return value, err
+}
+
+type McpToolCallAppContext struct {
+	ConnectorId string  `json:"connectorId"`
+	LinkId      *string `json:"linkId,omitempty"`
+	ResourceUri *string `json:"resourceUri,omitempty"`
+}
+
+func validateMcpToolCallAppContext(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "connectorId"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeMcpToolCallAppContext(raw json.RawMessage) (McpToolCallAppContext, error) {
+	var value McpToolCallAppContext
+	err := decodeCodexObject(raw, "McpToolCallAppContext", validateMcpToolCallAppContext, &value)
 	return value, err
 }
 
@@ -2797,6 +2930,14 @@ func DecodeModelVerificationNotification(raw json.RawMessage) (ModelVerification
 	return value, err
 }
 
+type MultiAgentMode string
+
+const (
+	MultiAgentModeNone                MultiAgentMode = "none"
+	MultiAgentModeExplicitRequestOnly MultiAgentMode = "explicitRequestOnly"
+	MultiAgentModeProactive           MultiAgentMode = "proactive"
+)
+
 type NetworkAccess string
 
 const (
@@ -2883,13 +3024,14 @@ const (
 type PatchChangeKind = json.RawMessage
 
 type PermissionsRequestApprovalParams struct {
-	CWD         AbsolutePathBuf          `json:"cwd"`
-	ItemId      string                   `json:"itemId"`
-	Permissions RequestPermissionProfile `json:"permissions"`
-	Reason      *string                  `json:"reason,omitempty"`
-	StartedAtMs int                      `json:"startedAtMs"`
-	ThreadID    string                   `json:"threadId"`
-	TurnID      string                   `json:"turnId"`
+	CWD           AbsolutePathBuf          `json:"cwd"`
+	EnvironmentId *string                  `json:"environmentId,omitempty"`
+	ItemId        string                   `json:"itemId"`
+	Permissions   RequestPermissionProfile `json:"permissions"`
+	Reason        *string                  `json:"reason,omitempty"`
+	StartedAtMs   int                      `json:"startedAtMs"`
+	ThreadID      string                   `json:"threadId"`
+	TurnID        string                   `json:"turnId"`
 }
 
 func validatePermissionsRequestApprovalParams(raw json.RawMessage, name string) error {
@@ -3022,13 +3164,14 @@ const (
 )
 
 type RateLimitSnapshot struct {
-	Credits              *CreditsSnapshot      `json:"credits,omitempty"`
-	LimitId              *string               `json:"limitId,omitempty"`
-	LimitName            *string               `json:"limitName,omitempty"`
-	PlanType             *PlanType             `json:"planType,omitempty"`
-	Primary              *RateLimitWindow      `json:"primary,omitempty"`
-	RateLimitReachedType *RateLimitReachedType `json:"rateLimitReachedType,omitempty"`
-	Secondary            *RateLimitWindow      `json:"secondary,omitempty"`
+	Credits              *CreditsSnapshot           `json:"credits,omitempty"`
+	IndividualLimit      *SpendControlLimitSnapshot `json:"individualLimit,omitempty"`
+	LimitId              *string                    `json:"limitId,omitempty"`
+	LimitName            *string                    `json:"limitName,omitempty"`
+	PlanType             *PlanType                  `json:"planType,omitempty"`
+	Primary              *RateLimitWindow           `json:"primary,omitempty"`
+	RateLimitReachedType *RateLimitReachedType      `json:"rateLimitReachedType,omitempty"`
+	Secondary            *RateLimitWindow           `json:"secondary,omitempty"`
 }
 
 func validateRateLimitSnapshot(raw json.RawMessage, name string) error {
@@ -3040,6 +3183,9 @@ func validateRateLimitSnapshot(raw json.RawMessage, name string) error {
 		return err
 	}
 	if err := validateCodexObjectField(fields, "credits", name+".credits", true, validateCreditsSnapshot); err != nil {
+		return err
+	}
+	if err := validateCodexObjectField(fields, "individualLimit", name+".individualLimit", true, validateSpendControlLimitSnapshot); err != nil {
 		return err
 	}
 	if err := validateCodexObjectField(fields, "primary", name+".primary", true, validateRateLimitWindow); err != nil {
@@ -3087,16 +3233,7 @@ const (
 	RealtimeConversationVersionV2 RealtimeConversationVersion = "v2"
 )
 
-type ReasoningEffort string
-
-const (
-	ReasoningEffortNone    ReasoningEffort = "none"
-	ReasoningEffortMinimal ReasoningEffort = "minimal"
-	ReasoningEffortLow     ReasoningEffort = "low"
-	ReasoningEffortMedium  ReasoningEffort = "medium"
-	ReasoningEffortHigh    ReasoningEffort = "high"
-	ReasoningEffortXhigh   ReasoningEffort = "xhigh"
-)
+type ReasoningEffort = string
 
 type ReasoningEffortOption struct {
 	Description     string          `json:"description"`
@@ -3360,6 +3497,38 @@ func DecodeSkillsChangedNotification(raw json.RawMessage) (SkillsChangedNotifica
 	return value, err
 }
 
+type SpendControlLimitSnapshot struct {
+	Limit            string `json:"limit"`
+	RemainingPercent int    `json:"remainingPercent"`
+	ResetsAt         int    `json:"resetsAt"`
+	Used             string `json:"used"`
+}
+
+func validateSpendControlLimitSnapshot(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "limit"}, {name: "remainingPercent"}, {name: "resetsAt"}, {name: "used"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeSpendControlLimitSnapshot(raw json.RawMessage) (SpendControlLimitSnapshot, error) {
+	var value SpendControlLimitSnapshot
+	err := decodeCodexObject(raw, "SpendControlLimitSnapshot", validateSpendControlLimitSnapshot, &value)
+	return value, err
+}
+
+type SubAgentActivityKind string
+
+const (
+	SubAgentActivityKindStarted     SubAgentActivityKind = "started"
+	SubAgentActivityKindInteracted  SubAgentActivityKind = "interacted"
+	SubAgentActivityKindInterrupted SubAgentActivityKind = "interrupted"
+)
+
 type SubAgentSource = json.RawMessage
 
 type TerminalInteractionNotification struct {
@@ -3474,6 +3643,7 @@ type Thread struct {
 	ParentThreadId *string         `json:"parentThreadId,omitempty"`
 	Path           *string         `json:"path,omitempty"`
 	Preview        string          `json:"preview"`
+	RecencyAt      *int            `json:"recencyAt,omitempty"`
 	SessionId      string          `json:"sessionId"`
 	Source         json.RawMessage `json:"source"`
 	Status         json.RawMessage `json:"status"`
@@ -4041,16 +4211,16 @@ func DecodeThreadResumeParams(raw json.RawMessage) (ThreadResumeParams, error) {
 }
 
 type ThreadResumeResponse struct {
-	ApprovalPolicy     AskForApproval    `json:"approvalPolicy"`
-	ApprovalsReviewer  json.RawMessage   `json:"approvalsReviewer"`
-	CWD                AbsolutePathBuf   `json:"cwd"`
-	InstructionSources []AbsolutePathBuf `json:"instructionSources,omitempty"`
-	Model              string            `json:"model"`
-	ModelProvider      string            `json:"modelProvider"`
-	ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitempty"`
-	Sandbox            json.RawMessage   `json:"sandbox"`
-	ServiceTier        *string           `json:"serviceTier,omitempty"`
-	Thread             Thread            `json:"thread"`
+	ApprovalPolicy     AskForApproval        `json:"approvalPolicy"`
+	ApprovalsReviewer  json.RawMessage       `json:"approvalsReviewer"`
+	CWD                AbsolutePathBuf       `json:"cwd"`
+	InstructionSources []LegacyAppPathString `json:"instructionSources,omitempty"`
+	Model              string                `json:"model"`
+	ModelProvider      string                `json:"modelProvider"`
+	ReasoningEffort    *ReasoningEffort      `json:"reasoningEffort,omitempty"`
+	Sandbox            json.RawMessage       `json:"sandbox"`
+	ServiceTier        *string               `json:"serviceTier,omitempty"`
+	Thread             Thread                `json:"thread"`
 }
 
 func validateThreadResumeResponse(raw json.RawMessage, name string) error {
@@ -4118,6 +4288,7 @@ type ThreadSettingsUpdateParams struct {
 	CWD               *string              `json:"cwd,omitempty"`
 	Effort            *ReasoningEffort     `json:"effort,omitempty"`
 	Model             *string              `json:"model,omitempty"`
+	MultiAgentMode    *MultiAgentMode      `json:"multiAgentMode,omitempty"`
 	Permissions       *string              `json:"permissions,omitempty"`
 	Personality       *Personality         `json:"personality,omitempty"`
 	SandboxPolicy     *SandboxPolicy       `json:"sandboxPolicy,omitempty"`
@@ -4171,13 +4342,7 @@ func DecodeThreadSettingsUpdatedNotification(raw json.RawMessage) (ThreadSetting
 	return value, err
 }
 
-type ThreadSource string
-
-const (
-	ThreadSourceUser                ThreadSource = "user"
-	ThreadSourceSubagent            ThreadSource = "subagent"
-	ThreadSourceMemoryConsolidation ThreadSource = "memory_consolidation"
-)
+type ThreadSource = string
 
 type ThreadStartParams struct {
 	ApprovalPolicy        *AskForApproval             `json:"approvalPolicy,omitempty"`
@@ -4215,16 +4380,16 @@ func DecodeThreadStartParams(raw json.RawMessage) (ThreadStartParams, error) {
 }
 
 type ThreadStartResponse struct {
-	ApprovalPolicy     AskForApproval    `json:"approvalPolicy"`
-	ApprovalsReviewer  json.RawMessage   `json:"approvalsReviewer"`
-	CWD                AbsolutePathBuf   `json:"cwd"`
-	InstructionSources []AbsolutePathBuf `json:"instructionSources,omitempty"`
-	Model              string            `json:"model"`
-	ModelProvider      string            `json:"modelProvider"`
-	ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitempty"`
-	Sandbox            json.RawMessage   `json:"sandbox"`
-	ServiceTier        *string           `json:"serviceTier,omitempty"`
-	Thread             Thread            `json:"thread"`
+	ApprovalPolicy     AskForApproval        `json:"approvalPolicy"`
+	ApprovalsReviewer  json.RawMessage       `json:"approvalsReviewer"`
+	CWD                AbsolutePathBuf       `json:"cwd"`
+	InstructionSources []LegacyAppPathString `json:"instructionSources,omitempty"`
+	Model              string                `json:"model"`
+	ModelProvider      string                `json:"modelProvider"`
+	ReasoningEffort    *ReasoningEffort      `json:"reasoningEffort,omitempty"`
+	Sandbox            json.RawMessage       `json:"sandbox"`
+	ServiceTier        *string               `json:"serviceTier,omitempty"`
+	Thread             Thread                `json:"thread"`
 }
 
 func validateThreadStartResponse(raw json.RawMessage, name string) error {
@@ -4426,10 +4591,11 @@ func DecodeToolRequestUserInputOption(raw json.RawMessage) (ToolRequestUserInput
 }
 
 type ToolRequestUserInputParams struct {
-	ItemId    string                         `json:"itemId"`
-	Questions []ToolRequestUserInputQuestion `json:"questions"`
-	ThreadID  string                         `json:"threadId"`
-	TurnID    string                         `json:"turnId"`
+	AutoResolutionMs *int                           `json:"autoResolutionMs,omitempty"`
+	ItemId           string                         `json:"itemId"`
+	Questions        []ToolRequestUserInputQuestion `json:"questions"`
+	ThreadID         string                         `json:"threadId"`
+	TurnID           string                         `json:"turnId"`
 }
 
 func validateToolRequestUserInputParams(raw json.RawMessage, name string) error {
@@ -4656,6 +4822,29 @@ const (
 	TurnItemsViewSummary   TurnItemsView = "summary"
 	TurnItemsViewFull      TurnItemsView = "full"
 )
+
+type TurnModerationMetadataNotification struct {
+	Metadata json.RawMessage `json:"metadata"`
+	ThreadID string          `json:"threadId"`
+	TurnID   string          `json:"turnId"`
+}
+
+func validateTurnModerationMetadataNotification(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "metadata"}, {name: "threadId"}, {name: "turnId"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeTurnModerationMetadataNotification(raw json.RawMessage) (TurnModerationMetadataNotification, error) {
+	var value TurnModerationMetadataNotification
+	err := decodeCodexObject(raw, "TurnModerationMetadataNotification", validateTurnModerationMetadataNotification, &value)
+	return value, err
+}
 
 type TurnPlanStep struct {
 	Status TurnPlanStepStatus `json:"status"`
@@ -4947,6 +5136,7 @@ type WebSearchMode string
 const (
 	WebSearchModeDisabled WebSearchMode = "disabled"
 	WebSearchModeCached   WebSearchMode = "cached"
+	WebSearchModeIndexed  WebSearchMode = "indexed"
 	WebSearchModeLive     WebSearchMode = "live"
 )
 
