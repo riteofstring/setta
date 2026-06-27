@@ -37,9 +37,10 @@ type RunActivityRowProjection struct {
 }
 
 type RunActivityGroupProjection struct {
-	RunID  string                     `json:"runId"`
-	Status RunStatus                  `json:"status"`
-	Rows   []RunActivityRowProjection `json:"rows"`
+	RunID       string                     `json:"runId"`
+	Status      RunStatus                  `json:"status"`
+	StatusTitle string                     `json:"statusTitle"`
+	Rows        []RunActivityRowProjection `json:"rows"`
 }
 
 type RunActivityPage struct {

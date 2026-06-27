@@ -60,6 +60,7 @@ interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
   chatDetailPane: RendererRect | null;
   composer: RendererRect | null;
   queueSize: number;
+  runActivityGroups: RendererRunActivityGroupSnapshot[];
   selectedConversationId: string;
   transcript: RendererScrollRect | null;
   trigger: string;
@@ -69,6 +70,30 @@ interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
     width: number;
   };
   visibleTurnIds: string[];
+}
+
+interface RendererRunActivityGroupSnapshot {
+  index: number;
+  open: boolean | null;
+  rect: RendererRect | null;
+  rowCount: number;
+  rows: RendererRunActivityRowSnapshot[];
+  runId: string;
+  status: string;
+  text: string;
+}
+
+interface RendererRunActivityRowSnapshot {
+  expandable: boolean;
+  focused: boolean;
+  index: number;
+  open: boolean | null;
+  rect: RendererRect | null;
+  sourceRunItemId: string;
+  status: string;
+  text: string;
+  title: string;
+  type: string;
 }
 
 interface RendererRect {

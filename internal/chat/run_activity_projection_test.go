@@ -330,7 +330,7 @@ func TestServiceUsesCodexAgentDeltaAsCanonicalAssistantText(t *testing.T) {
 	}
 }
 
-func TestServiceStreamsRunActivityProjectionReplacement(t *testing.T) {
+func TestServiceProjectsEmptyRunningReasoningAsStatusTitle(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{
 		{Type: FakeEventRunItem, ProviderItemID: "reasoning_fake", RunItem: RunItem{
 			ProviderItemID: "reasoning_fake",
@@ -353,21 +353,82 @@ func TestServiceStreamsRunActivityProjectionReplacement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("send: %v", err)
 	}
-	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+	events := receiveEventsUntil(t, subscription, func(event Event) bool {
+		if event.Type != EventTypeRunUpdated || event.RunID != result.Run.ID {
+			return false
+		}
+		return decodeRunUpdatedPayload(t, event).Run.Status == RunStatusCompleted
+	})
+	sawStatusTitle := false
+	for _, payload := range activityProjectionPayloads(t, events, result.Run.ID) {
+		if payload.Activity == nil {
+			continue
+		}
+		if len(payload.Activity.Rows) != 0 {
+			t.Fatalf("activity payload rows = %+v, want empty/private reasoning to stay out of rows", payload.Activity.Rows)
+		}
+		if payload.Activity.StatusTitle == "Reasoning summary" && payload.Activity.Status == RunStatusRunning {
+			sawStatusTitle = true
+		}
+	}
+	if !sawStatusTitle {
+		t.Fatalf("activity payloads = %+v, want running reasoning status title", activityProjectionPayloads(t, events, result.Run.ID))
+	}
+	turn := requireProjectedTurn(t, service, conversation.ID, result.Run.ID)
+	if turn.Activity != nil {
+		t.Fatalf("activity = %+v, want no transcript activity for empty/private reasoning", turn.Activity)
+	}
+}
 
+func TestServiceProjectsReasoningStatusTitleWithDisplayableRows(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{
+		{Type: FakeEventRunItem, ProviderItemID: "command_fake", RunItem: RunItem{
+			ProviderItemID: "command_fake",
+			Type:           RunItemTypeCommandExecution,
+			Status:         RunItemStatusRunning,
+			Command:        "printf output",
+		}},
+		{Type: FakeEventRunItem, ProviderItemID: "reasoning_fake", RunItem: RunItem{
+			ProviderItemID: "reasoning_fake",
+			Type:           RunItemTypeReasoning,
+			Status:         RunItemStatusRunning,
+			Title:          "Checking repo state",
+		}},
+		{Type: FakeEventAssistantDelta, ProviderItemID: "agent_message_fake", Text: "done"},
+	}))
+	subscription, err := service.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "stream")
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
 	events := receiveEventsUntil(t, subscription, func(event Event) bool {
 		if event.Type != EventTypeRunActivityUpdated || event.RunID != result.Run.ID {
 			return false
 		}
 		payload := decodeRunActivityUpdatedPayload(t, event)
-		return payload.Activity == nil
+		return payload.Activity != nil && payload.Activity.StatusTitle == "Checking repo state"
 	})
-	if len(activityProjectionPayloads(t, events, result.Run.ID)) < 2 {
-		t.Fatalf("events = %v, want running projection followed by nil replacement", eventTypes(events))
+	payloads := activityProjectionPayloads(t, events, result.Run.ID)
+	latest := payloads[len(payloads)-1].Activity
+	if latest == nil {
+		t.Fatalf("activity = nil, want command row with status title")
 	}
-	first := activityProjectionPayloads(t, events, result.Run.ID)[0]
-	if first.Activity == nil || len(first.Activity.Rows) != 1 || first.Activity.Rows[0].Status != RunItemStatusRunning {
-		t.Fatalf("first activity payload = %+v, want running row", first.Activity)
+	if latest.StatusTitle != "Checking repo state" {
+		t.Fatalf("status title = %q, want Checking repo state", latest.StatusTitle)
+	}
+	if len(latest.Rows) != 1 || latest.Rows[0].Type != RunItemTypeCommandExecution {
+		t.Fatalf("rows = %+v, want only command row", latest.Rows)
+	}
+	if latest.Status != RunStatusRunning {
+		t.Fatalf("status = %s, want running while reasoning title is active", latest.Status)
 	}
 }
 
@@ -457,6 +518,16 @@ func decodeRunActivityUpdatedPayload(t *testing.T, event Event) RunActivityUpdat
 	var payload RunActivityUpdatedPayload
 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
 		t.Fatalf("decode run activity payload: %v", err)
+	}
+	return payload
+}
+
+func decodeRunUpdatedPayload(t *testing.T, event Event) RunUpdatedPayload {
+	t.Helper()
+
+	var payload RunUpdatedPayload
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		t.Fatalf("decode run updated payload: %v", err)
 	}
 	return payload
 }

@@ -22,19 +22,30 @@ var runActivityDefaultTitles = map[RunItemType]string{
 func buildRunActivityProjection(run Run, items []RunItem, outputs []RunItemOutput) *RunActivityGroupProjection {
 	hasOutputByRunItemID := runItemOutputPresence(outputs)
 	rows := make([]RunActivityRowProjection, 0, len(items))
+	statusTitle := ""
 	for _, item := range items {
-		row, ok := runActivityRowProjection(run, item, hasOutputByRunItemID[item.ID])
+		hasOutput := hasOutputByRunItemID[item.ID]
+		row, ok := runActivityRowProjection(run, item, hasOutput)
 		if ok {
 			rows = append(rows, row)
+			continue
+		}
+		if title := runActivityStatusTitle(run, item, hasOutput); title != "" {
+			statusTitle = title
 		}
 	}
-	if len(rows) == 0 {
+	if len(rows) == 0 && statusTitle == "" {
 		return nil
 	}
+	status := runActivityGroupStatus(rows)
+	if statusTitle != "" && status != RunStatusFailed && status != RunStatusCancelled {
+		status = RunStatusRunning
+	}
 	return &RunActivityGroupProjection{
-		RunID:  run.ID,
-		Status: runActivityGroupStatus(rows),
-		Rows:   rows,
+		RunID:       run.ID,
+		Status:      status,
+		StatusTitle: statusTitle,
+		Rows:        rows,
 	}
 }
 
@@ -65,6 +76,21 @@ func runItemOutputPresence(outputs []RunItemOutput) map[string]bool {
 		}
 	}
 	return presence
+}
+
+func runActivityStatusTitle(run Run, item RunItem, hasOutput bool) string {
+	status := effectiveRunActivityRowStatus(run.Status, item.Status)
+	if item.Type != RunItemTypeReasoning || hasOutput {
+		return ""
+	}
+	if status != RunItemStatusPending && status != RunItemStatusRunning {
+		return ""
+	}
+	details := runActivityDetailsProjection(item)
+	if runActivityDetailsInspectable(details) {
+		return ""
+	}
+	return runActivityTitle(item)
 }
 
 func effectiveRunActivityRowStatus(runStatus RunStatus, itemStatus RunItemStatus) RunItemStatus {
@@ -109,8 +135,10 @@ func runItemDisplayable(item RunItem, status RunItemStatus, hasDetails bool, has
 		RunItemTypeHook,
 		RunItemTypeStructuredInput:
 		return true
-	case RunItemTypePlan, RunItemTypeReasoning, RunItemTypeNotice:
+	case RunItemTypePlan, RunItemTypeNotice:
 		return item.Title != "" || item.NoticeKind != "" || item.NoticeMessage != ""
+	case RunItemTypeReasoning:
+		return false
 	default:
 		return false
 	}
