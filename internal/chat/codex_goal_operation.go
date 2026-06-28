@@ -40,20 +40,23 @@ type codexGoalOperation struct {
 	state          codexGoalOperationState
 	sinkLinked     bool
 	activeGoalSeen bool
+	goalFinal      bool
+	pendingDone    bool
 
-	mu             sync.Mutex
-	attachOnce     sync.Once
-	firstTurnOnce  sync.Once
-	finishOnce     sync.Once
-	attachCh       chan struct{}
-	firstTurnCh    chan struct{}
-	preSinkDone    chan struct{}
-	preSinkStarted bool
-	finished       chan struct{}
-	preSink        []codexapp.Event
-	preSinkBytes   int
-	finishErr      error
-	finishComplete TurnCompletion
+	mu                sync.Mutex
+	attachOnce        sync.Once
+	firstTurnOnce     sync.Once
+	finishOnce        sync.Once
+	attachCh          chan struct{}
+	firstTurnCh       chan struct{}
+	preSinkDone       chan struct{}
+	preSinkStarted    bool
+	finished          chan struct{}
+	preSink           []codexapp.Event
+	preSinkBytes      int
+	finishErr         error
+	finishComplete    TurnCompletion
+	pendingCompletion TurnCompletion
 }
 
 func (harness *CodexHarness) reserveGoalOperation(session *codexapp.Session, threadID string) (*codexGoalOperation, error) {
@@ -503,7 +506,12 @@ func (operation *codexGoalOperation) consumeLiveEvents(ctx context.Context, sink
 func (operation *codexGoalOperation) applyEvent(ctx context.Context, event codexapp.Event, sink TurnSink) (TurnCompletion, bool, error) {
 	switch event.Kind {
 	case codexapp.EventRequest:
-		if err := operation.harness.handleCodexServerRequestForTurn(ctx, event.Message, operation.runID, operation.threadID, operation.currentTurn(), sink); err != nil {
+		message, err := operation.rewriteMessageToLogicalTurn(event.Message)
+		if err != nil {
+			operation.finish(TurnCompletion{}, err)
+			return TurnCompletion{}, true, err
+		}
+		if err := operation.harness.handleCodexServerRequestForTurn(ctx, message, operation.runID, operation.threadID, operation.logicalTurn(), sink); err != nil {
 			operation.finish(TurnCompletion{}, err)
 			return TurnCompletion{}, true, err
 		}
@@ -532,7 +540,18 @@ func (operation *codexGoalOperation) applyNotification(ctx context.Context, mess
 	if handled, err := operation.routeBackgroundTerminalNotification(message); handled {
 		return operation.applyBackgroundTerminalRouteResult(err)
 	}
-	result, err := operation.harness.handleCodexNotification(ctx, operation.session, message, operation.runID, operation.threadID, operation.currentTurn(), sink)
+	switch message.Method {
+	case codexapp.CodexNotificationTurnStarted:
+		return operation.applyTurnStarted(ctx, message, sink)
+	case codexapp.CodexNotificationTurnCompleted:
+		return operation.applyTurnCompleted(ctx, message, sink)
+	}
+	message, err := operation.rewriteMessageToLogicalTurn(message)
+	if err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return TurnCompletion{}, true, err
+	}
+	result, err := operation.harness.handleCodexNotification(ctx, operation.session, message, operation.runID, operation.threadID, operation.logicalTurn(), sink)
 	if err != nil {
 		operation.finish(TurnCompletion{}, err)
 		return TurnCompletion{}, true, err
@@ -553,20 +572,22 @@ func (operation *codexGoalOperation) applyBackgroundTerminalRouteResult(err erro
 
 func (operation *codexGoalOperation) applyNotificationResult(message jsonRPCMessage, result codexNotificationResult, sink TurnSink) (TurnCompletion, bool, error) {
 	if message.Method == codexapp.CodexNotificationThreadGoalUpdated {
-		if err := operation.recordActiveGoalUpdate(message); err != nil {
+		completion, done, err := operation.recordGoalUpdate(message)
+		if err != nil {
 			operation.finish(TurnCompletion{}, err)
 			return TurnCompletion{}, true, err
 		}
-	}
-	if result.TurnID != "" {
-		if err := operation.bindPhysicalTurn(result.TurnID, sink); err != nil {
-			operation.finish(TurnCompletion{}, err)
-			return TurnCompletion{}, true, err
+		if done {
+			operation.finish(completion, nil)
+			return completion, true, nil
 		}
 	}
-	if result.Completion.Outcome != "" {
-		operation.finish(result.Completion, nil)
-		return result.Completion, true, nil
+	if message.Method == codexapp.CodexNotificationThreadGoalCleared {
+		completion, done := operation.recordGoalCleared()
+		if done {
+			operation.finish(completion, nil)
+			return completion, true, nil
+		}
 	}
 	return TurnCompletion{}, false, nil
 }
@@ -577,18 +598,51 @@ func (operation *codexGoalOperation) hasSeenActiveGoalUpdate() bool {
 	return operation.activeGoalSeen
 }
 
-func (operation *codexGoalOperation) recordActiveGoalUpdate(message jsonRPCMessage) error {
+func (operation *codexGoalOperation) recordGoalUpdate(message jsonRPCMessage) (TurnCompletion, bool, error) {
 	params, err := codexapp.DecodeThreadGoalUpdatedNotification(message.Params)
 	if err != nil {
-		return err
-	}
-	if params.Goal.Status != codexapp.ThreadGoalStatusActive {
-		return nil
+		return TurnCompletion{}, false, err
 	}
 	operation.mu.Lock()
-	operation.activeGoalSeen = true
-	operation.mu.Unlock()
-	return nil
+	defer operation.mu.Unlock()
+	if params.Goal.Status == codexapp.ThreadGoalStatusActive {
+		operation.activeGoalSeen = true
+		operation.goalFinal = false
+		operation.pendingDone = false
+		operation.pendingCompletion = TurnCompletion{}
+		return TurnCompletion{}, false, nil
+	}
+	if !codexGoalStatusIsFinal(params.Goal.Status) {
+		return TurnCompletion{}, false, fmt.Errorf("unsupported codex goal operation status: %s", params.Goal.Status)
+	}
+	operation.goalFinal = true
+	if operation.pendingDone {
+		return operation.pendingCompletion, true, nil
+	}
+	return TurnCompletion{}, false, nil
+}
+
+func codexGoalStatusIsFinal(status codexapp.ThreadGoalStatus) bool {
+	switch status {
+	case codexapp.ThreadGoalStatusBlocked,
+		codexapp.ThreadGoalStatusBudgetLimited,
+		codexapp.ThreadGoalStatusComplete,
+		codexapp.ThreadGoalStatusPaused,
+		codexapp.ThreadGoalStatusUsageLimited:
+		return true
+	default:
+		return false
+	}
+}
+
+func (operation *codexGoalOperation) recordGoalCleared() (TurnCompletion, bool) {
+	operation.mu.Lock()
+	defer operation.mu.Unlock()
+	operation.goalFinal = true
+	if operation.pendingDone {
+		return operation.pendingCompletion, true
+	}
+	return TurnCompletion{}, false
 }
 
 func (operation *codexGoalOperation) routeBackgroundTerminalNotification(message jsonRPCMessage) (bool, error) {
@@ -620,32 +674,197 @@ func (operation *codexGoalOperation) requireGoalNotificationThread(message jsonR
 	return nil
 }
 
-func (operation *codexGoalOperation) bindPhysicalTurn(turnID string, sink TurnSink) error {
+func (operation *codexGoalOperation) applyTurnStarted(ctx context.Context, message jsonRPCMessage, sink TurnSink) (TurnCompletion, bool, error) {
+	physicalTurnID, err := turnStartedNotificationID(message)
+	if err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return TurnCompletion{}, true, err
+	}
+	emitLogicalStart, err := operation.recordPhysicalTurnStarted(physicalTurnID)
+	if err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return TurnCompletion{}, true, err
+	}
+	if !emitLogicalStart {
+		return TurnCompletion{}, false, nil
+	}
+	logicalMessage, err := operation.rewriteMessageToLogicalTurn(message)
+	if err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return TurnCompletion{}, true, err
+	}
+	result, err := operation.harness.handleCodexNotification(ctx, operation.session, logicalMessage, operation.runID, operation.threadID, operation.logicalTurn(), sink)
+	if err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return TurnCompletion{}, true, err
+	}
+	if result.TurnID == "" {
+		err := fmt.Errorf("codex goal operation logical turn/started did not expose a turn id")
+		operation.finish(TurnCompletion{}, err)
+		return TurnCompletion{}, true, err
+	}
+	if err := operation.linkLogicalTurn(sink); err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return TurnCompletion{}, true, err
+	}
+	return TurnCompletion{}, false, nil
+}
+
+func (operation *codexGoalOperation) applyTurnCompleted(ctx context.Context, message jsonRPCMessage, sink TurnSink) (TurnCompletion, bool, error) {
+	if err := operation.requireCurrentPhysicalTurnCompleted(message); err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return TurnCompletion{}, true, err
+	}
+	logicalMessage, err := operation.rewriteMessageToLogicalTurn(message)
+	if err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return TurnCompletion{}, true, err
+	}
+	result, err := operation.harness.handleCodexNotification(ctx, operation.session, logicalMessage, operation.runID, operation.threadID, operation.logicalTurn(), sink)
+	if err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return TurnCompletion{}, true, err
+	}
+	completion, done := operation.recordPhysicalTurnCompleted(result.Completion)
+	if done {
+		operation.finish(completion, nil)
+		return completion, true, nil
+	}
+	return TurnCompletion{}, false, nil
+}
+
+func (operation *codexGoalOperation) recordPhysicalTurnStarted(turnID string) (bool, error) {
 	operation.mu.Lock()
-	previousTurnID := operation.currentTurnID
-	operation.currentTurnID = turnID
 	if operation.logicalTurnID == "" {
 		operation.logicalTurnID = turnID
 	}
-	shouldLink := !operation.sinkLinked || previousTurnID != turnID
-	operation.sinkLinked = true
+	operation.currentTurnID = turnID
+	operation.pendingDone = false
+	operation.pendingCompletion = TurnCompletion{}
+	emitLogicalStart := !operation.sinkLinked
 	runID := operation.runID
+	logicalTurnID := operation.logicalTurnID
 	operation.mu.Unlock()
 
-	operation.harness.updateActiveTurn(runID, operation.threadID, turnID)
+	operation.harness.updateActiveGoalTurn(runID, operation.threadID, logicalTurnID, turnID)
 	if err := operation.session.OwnTurn(operation.threadID, turnID); err != nil {
-		return err
+		return false, err
 	}
-	if shouldLink {
-		return sink.ThreadLinked(operation.threadID, "", turnID, nil)
+	return emitLogicalStart, nil
+}
+
+func (operation *codexGoalOperation) recordPhysicalTurnCompleted(completion TurnCompletion) (TurnCompletion, bool) {
+	operation.mu.Lock()
+	defer operation.mu.Unlock()
+	if completion.Outcome == TurnOutcomeFailed || completion.Outcome == TurnOutcomeCancelled {
+		return completion, true
 	}
-	return nil
+	if completion.Outcome == "" {
+		return TurnCompletion{}, false
+	}
+	operation.pendingCompletion = completion
+	operation.pendingDone = true
+	if operation.goalFinal {
+		return completion, true
+	}
+	return TurnCompletion{}, false
+}
+
+func (operation *codexGoalOperation) linkLogicalTurn(sink TurnSink) error {
+	operation.mu.Lock()
+	if operation.sinkLinked {
+		operation.mu.Unlock()
+		return nil
+	}
+	logicalTurnID := operation.logicalTurnID
+	operation.sinkLinked = true
+	operation.mu.Unlock()
+	return sink.ThreadLinked(operation.threadID, "", logicalTurnID, nil)
 }
 
 func (operation *codexGoalOperation) currentTurn() string {
 	operation.mu.Lock()
 	defer operation.mu.Unlock()
 	return operation.currentTurnID
+}
+
+func (operation *codexGoalOperation) logicalTurn() string {
+	operation.mu.Lock()
+	defer operation.mu.Unlock()
+	return operation.logicalTurnID
+}
+
+func (operation *codexGoalOperation) requireCurrentPhysicalTurnCompleted(message jsonRPCMessage) error {
+	params, err := objectValue(message.Params, "codex goal operation turn completed params")
+	if err != nil {
+		return err
+	}
+	messageThreadID, err := requireString(params, "threadId", "codex goal operation turn completed")
+	if err != nil {
+		return err
+	}
+	if messageThreadID != operation.threadID {
+		return fmt.Errorf("codex goal operation turn/completed targeted thread %s, want %s", messageThreadID, operation.threadID)
+	}
+	turn, err := requireObject(params, "turn", "codex goal operation turn completed")
+	if err != nil {
+		return err
+	}
+	messageTurnID, err := requireString(turn, "id", "codex goal operation turn completed turn")
+	if err != nil {
+		return err
+	}
+	currentTurnID := operation.currentTurn()
+	if messageTurnID != currentTurnID {
+		return fmt.Errorf("codex goal operation turn/completed targeted turn %s, want current physical turn %s", messageTurnID, currentTurnID)
+	}
+	return nil
+}
+
+func (operation *codexGoalOperation) rewriteMessageToLogicalTurn(message jsonRPCMessage) (jsonRPCMessage, error) {
+	logicalTurnID := operation.logicalTurn()
+	if logicalTurnID == "" {
+		return message, fmt.Errorf("codex goal operation logical turn id is not bound for notification %s", message.Method)
+	}
+	return rewriteCodexNotificationTurnID(message, logicalTurnID)
+}
+
+func turnStartedNotificationID(message jsonRPCMessage) (string, error) {
+	params, err := objectValue(message.Params, "codex goal operation turn started params")
+	if err != nil {
+		return "", err
+	}
+	return turnStartedID(params)
+}
+
+func rewriteCodexNotificationTurnID(message jsonRPCMessage, turnID string) (jsonRPCMessage, error) {
+	if len(message.Params) == 0 {
+		return message, nil
+	}
+	params, err := objectValue(message.Params, "codex notification params")
+	if err != nil {
+		return message, err
+	}
+	changed := false
+	if _, ok := params["turnId"].(string); ok {
+		params["turnId"] = turnID
+		changed = true
+	}
+	if turn, ok := params["turn"].(map[string]any); ok {
+		if _, ok := turn["id"].(string); ok {
+			turn["id"] = turnID
+			changed = true
+		}
+	}
+	if !changed {
+		return message, nil
+	}
+	data, err := json.Marshal(params)
+	if err != nil {
+		return message, fmt.Errorf("rewrite codex notification %s turn id: %w", message.Method, err)
+	}
+	message.Params = data
+	return message, nil
 }
 
 func (operation *codexGoalOperation) Close() {

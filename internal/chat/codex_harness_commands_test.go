@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/workspace"
 )
@@ -628,6 +629,16 @@ func writeFakeGoalOperationMultiTurn(mode string, objective string) {
 	if fakeGoalOperationEmitsBackgroundDuringSecondTurn(mode) {
 		writeFakeGoalBackgroundTerminalOutputAndCompletion("turn_goal_a")
 	}
+	if mode == "goal-operation-approval-second-turn" {
+		time.Sleep(100 * time.Millisecond)
+		writeFakeGoalCommandApprovalRequestForTurn("turn_goal_b")
+	}
+	if mode == "goal-operation-plan-second-turn" {
+		writeFakeGoalPlanUpdatedForTurn("turn_goal_b")
+	}
+	if mode == "goal-operation-steer-second-turn" {
+		return
+	}
 	if mode == "goal-operation-terminal-before-completion" || mode == "goal-operation-multi-turn" || mode == "goal-operation-duplicate-finish" {
 		writeFakeThreadGoalUpdated(objective, "complete")
 	}
@@ -684,7 +695,11 @@ func fakeGoalOperationCompletesAfterSecondTurn(mode string) bool {
 		"goal-operation-background-idle-gap",
 		"goal-operation-background-physical-turn-b",
 		"goal-operation-background-delegate-before-rewrite",
-		"goal-operation-duplicate-finish":
+		"goal-operation-duplicate-finish",
+		"goal-operation-approval-second-turn",
+		"goal-operation-plan-second-turn",
+		"goal-operation-resume",
+		"goal-operation-set-preserves-old":
 		return true
 	default:
 		return false
@@ -713,6 +728,30 @@ func writeFakeGoalBackgroundTerminalOutputAndCompletion(turnID string) {
 			"status":     "completed",
 			"type":       "commandExecution",
 		},
+	})
+}
+
+func writeFakeGoalCommandApprovalRequestForTurn(turnID string) {
+	writeFakeServerRequest("goal-approval-1", "item/commandExecution/requestApproval", map[string]any{
+		"command":     "go test ./...",
+		"itemId":      "item_goal_approval",
+		"startedAtMs": 0,
+		"threadId":    "thread_fake",
+		"turnId":      turnID,
+	})
+}
+
+func writeFakeGoalPlanUpdatedForTurn(turnID string) {
+	writeFakeNotification("turn/plan/updated", map[string]any{
+		"plan": []map[string]any{
+			{
+				"status": "inProgress",
+				"step":   "Verify physical turn B activity",
+			},
+		},
+		"summary":  "plan from physical turn B",
+		"threadId": "thread_fake",
+		"turnId":   turnID,
 	})
 }
 

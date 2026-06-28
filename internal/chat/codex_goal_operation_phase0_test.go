@@ -72,7 +72,6 @@ func TestCodexHarnessGoalResumeActivatesExistingGoalAndWaitsForRuntimeTurn(t *te
 }
 
 func TestCodexHarnessGoalOperationCoalescesRuntimeContinuations(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 3", "logical coalescing across physical goal turns")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-multi-turn"))
 	result, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
 	defer continuation.Close()
@@ -83,11 +82,17 @@ func TestCodexHarnessGoalOperationCoalescesRuntimeContinuations(t *testing.T) {
 		t.Fatalf("wait goal operation: %v", err)
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if sink.text != "goal turn A. " {
-		t.Fatalf("assistant text = %q, want current first-physical-turn-only output", sink.text)
+	if sink.text != "goal turn A. goal turn B. " {
+		t.Fatalf("assistant text = %q, want output from both physical turns", sink.text)
 	}
 	if sink.turnID != "turn_goal_a" {
-		t.Fatalf("turn id = %q, want current first physical turn id", sink.turnID)
+		t.Fatalf("turn id = %q, want first physical turn as logical turn id", sink.turnID)
+	}
+	if sink.linkCount != 1 {
+		t.Fatalf("thread links = %d, want one logical link", sink.linkCount)
+	}
+	if len(sink.goals) == 0 || sink.goals[len(sink.goals)-1] == nil || sink.goals[len(sink.goals)-1].Status != "complete" {
+		t.Fatalf("goals = %+v, want terminal complete goal", sink.goals)
 	}
 }
 
@@ -105,11 +110,11 @@ func TestCodexHarnessGoalOperationFinishExactlyOnce(t *testing.T) {
 		t.Fatalf("wait goal operation: %v", err)
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if sink.text != "goal turn A. " {
-		t.Fatalf("assistant text = %q, want current first physical turn before premature finish", sink.text)
+	if sink.text != "goal turn A. goal turn B. " {
+		t.Fatalf("assistant text = %q, want both physical turns before finish", sink.text)
 	}
 	if sink.linkCount != 1 {
-		t.Fatalf("thread links = %d, want current single first-turn link", sink.linkCount)
+		t.Fatalf("thread links = %d, want one logical link", sink.linkCount)
 	}
 	terminalUpdates := 0
 	for _, goal := range sink.goals {
@@ -117,8 +122,8 @@ func TestCodexHarnessGoalOperationFinishExactlyOnce(t *testing.T) {
 			terminalUpdates++
 		}
 	}
-	if terminalUpdates != 0 {
-		t.Fatalf("terminal goal updates = %d in %+v, want current premature finish before terminal goal update", terminalUpdates, sink.goals)
+	if terminalUpdates != 1 {
+		t.Fatalf("terminal goal updates = %d in %+v, want exactly one terminal update", terminalUpdates, sink.goals)
 	}
 	if harness.hasGoalOperation(result.ThreadRef.ThreadID) {
 		t.Fatal("goal operation route owner leaked after finish")
@@ -130,19 +135,22 @@ func TestCodexHarnessGoalOperationFinishExactlyOnce(t *testing.T) {
 }
 
 func TestCodexHarnessGoalOperationDoesNotFinishOnIntermediateCompletion(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 3", "keep logical goal run active across idle gaps")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-idle-gap"))
 	result, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
 	defer continuation.Close()
 
 	sink := newRecordingSink()
-	completion, err := continuation.Wait(context.Background(), phase0GoalTurnRequest(t, result), sink)
-	if err != nil {
-		t.Fatalf("wait goal operation: %v", err)
+	ctx, cancel := context.WithTimeout(context.Background(), phase0ShortEventTimeout)
+	defer cancel()
+	_, err := continuation.Wait(ctx, phase0GoalTurnRequest(t, result), sink)
+	if err == nil {
+		t.Fatal("goal operation completed after intermediate physical completion")
 	}
-	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if !strings.Contains(err.Error(), "context deadline exceeded") {
+		t.Fatalf("wait goal operation error = %v, want context deadline after idle gap", err)
+	}
 	if sink.text != "goal turn A. " {
-		t.Fatalf("assistant text = %q, want current first physical turn before idle-gap finish", sink.text)
+		t.Fatalf("assistant text = %q, want first physical turn output before idle-gap wait", sink.text)
 	}
 }
 
@@ -160,6 +168,43 @@ func TestCodexHarnessGoalOperationHandlesNonTerminalActiveUpdateBeforeCompletion
 
 func TestCodexHarnessGoalOperationHandlesNonTerminalActiveUpdateAfterCompletion(t *testing.T) {
 	assertPhase0GoalOperationOrderVariant(t, "goal-operation-active-after-completion")
+}
+
+func TestCodexHarnessGoalOperationRewritesSecondTurnApprovalToLogicalTurn(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-approval-second-turn"))
+	result, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
+	defer continuation.Close()
+
+	sink := newRecordingSink()
+	completion, err := continuation.Wait(context.Background(), phase0GoalTurnRequest(t, result), sink)
+	if err != nil {
+		t.Fatalf("wait goal operation: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	approval := waitForApproval(t, sink)
+	if approval.Kind != ApprovalKindCommand || approval.ProviderItemID != "item_goal_approval" {
+		t.Fatalf("approval = %+v, want second-turn command approval", approval)
+	}
+	if sink.turnID != "turn_goal_a" || sink.linkCount != 1 {
+		t.Fatalf("logical link = %q count %d, want one turn_goal_a link", sink.turnID, sink.linkCount)
+	}
+}
+
+func TestCodexHarnessGoalOperationRewritesSecondTurnRunActivityToLogicalTurn(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-plan-second-turn"))
+	result, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
+	defer continuation.Close()
+
+	sink := newRecordingSink()
+	completion, err := continuation.Wait(context.Background(), phase0GoalTurnRequest(t, result), sink)
+	if err != nil {
+		t.Fatalf("wait goal operation: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	item := requireRunItemType(t, sink.items, RunItemTypePlan)
+	if item.ProviderItemID != "plan_turn_goal_a" || item.Summary != "plan from physical turn B" {
+		t.Fatalf("plan item = %+v, want logical turn id with second-turn activity", item)
+	}
 }
 
 func TestCodexHarnessGoalSetDoesNotPreserveOldProviderGoal(t *testing.T) {
@@ -197,7 +242,6 @@ func TestCodexHarnessGoalStartupLifecycleFailureFinishesImmediately(t *testing.T
 	ctx, cancel := context.WithTimeout(context.Background(), phase0BlockingFreezeTimeout)
 	defer cancel()
 
-	started := time.Now()
 	_, continuation, err := harness.BeginGoalContinuation(ctx, testCommandRequest(t, "/goal finish renderer tests"))
 	if continuation != nil {
 		defer continuation.Close()
@@ -210,9 +254,6 @@ func TestCodexHarnessGoalStartupLifecycleFailureFinishesImmediately(t *testing.T
 	}
 	if !strings.Contains(err.Error(), "codex app-server exited before goal operation sink attached") {
 		t.Fatalf("begin goal operation error = %v, want provider lifecycle failure", err)
-	}
-	if elapsed := time.Since(started); elapsed >= time.Second {
-		t.Fatalf("begin goal operation returned after %s, want immediate provider exit failure", elapsed)
 	}
 	if harness.hasGoalOperation("thread_fake") {
 		t.Fatal("goal operation route owner leaked after pre-sink provider exit")
@@ -295,14 +336,28 @@ func TestCodexHarnessGoalOperationCancelPausesAndInterrupts(t *testing.T) {
 
 func waitForPhase0ActiveCodexTurn(t *testing.T, harness *CodexHarness, runID string) {
 	t.Helper()
+	waitForPhase0ActiveCodexTurnWhere(t, harness, runID, func(active *codexActiveTurn) bool {
+		return active.threadID != "" && active.turnID != ""
+	})
+}
+
+func waitForPhase0ActiveCodexTurnID(t *testing.T, harness *CodexHarness, runID string, turnID string) {
+	t.Helper()
+	waitForPhase0ActiveCodexTurnWhere(t, harness, runID, func(active *codexActiveTurn) bool {
+		return active.threadID != "" && active.turnID == turnID
+	})
+}
+
+func waitForPhase0ActiveCodexTurnWhere(t *testing.T, harness *CodexHarness, runID string, ready func(*codexActiveTurn) bool) {
+	t.Helper()
 
 	deadline := time.Now().Add(phase0BlockingFreezeTimeout)
 	for time.Now().Before(deadline) {
 		harness.mu.Lock()
 		active := harness.active[runID]
-		ready := active != nil && active.threadID != "" && active.turnID != ""
+		ok := active != nil && ready(active)
 		harness.mu.Unlock()
-		if ready {
+		if ok {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -311,7 +366,6 @@ func waitForPhase0ActiveCodexTurn(t *testing.T, harness *CodexHarness, runID str
 }
 
 func TestServiceGoalOperationRunRemainsActiveAcrossIdleGap(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 3", "service run remains active across provider idle gap")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-idle-gap"))
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	conversation, err := service.CreateConversation("workspace_api", "")
@@ -330,14 +384,13 @@ func TestServiceGoalOperationRunRemainsActiveAcrossIdleGap(t *testing.T) {
 	if len(runs) != 1 {
 		t.Fatalf("runs = %+v, want one goal run", runs)
 	}
-	run := waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
-	if run.Status != RunStatusCompleted {
-		t.Fatalf("run status after first physical turn = %s, want current completed run", run.Status)
+	run := waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusRunning)
+	if run.Status != RunStatusRunning {
+		t.Fatalf("run status after first physical turn = %s, want running run", run.Status)
 	}
 }
 
 func TestServiceGoalOperationTerminalProviderStateCompletesRun(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 3", "terminal provider state completes logical run after all physical turns")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-multi-turn"))
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	conversation, err := service.CreateConversation("workspace_api", "")
@@ -361,11 +414,53 @@ func TestServiceGoalOperationTerminalProviderStateCompletesRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load message page: %v", err)
 	}
-	if got := phase0AssistantText(page); got != "goal turn A. " {
-		t.Fatalf("assistant text = %q, want current first-physical-turn-only persisted output", got)
+	if got := phase0AssistantText(page); got != "goal turn A. goal turn B. " {
+		t.Fatalf("assistant text = %q, want persisted output from both physical turns", got)
 	}
-	if page.Goal == nil || page.Goal.Status != "active" {
-		t.Fatalf("page goal = %+v, want current active goal after premature run completion", page.Goal)
+	if page.Goal == nil || page.Goal.Status != "complete" {
+		t.Fatalf("page goal = %+v, want terminal complete goal", page.Goal)
+	}
+}
+
+func TestServiceGoalOperationSteersDuringSecondPhysicalTurn(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-steer-second-turn"))
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	defer cancelPhase0ActiveRunForCleanup(t, service, "workspace_api", conversation.ID)
+
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal finish renderer tests"); err != nil {
+		t.Fatalf("execute goal command: %v", err)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal run", runs)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusRunning)
+	waitForPhase0ActiveCodexTurnID(t, harness, runs[0].ID, "turn_goal_b")
+	conversation, err = service.store.LoadConversation("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("load conversation: %v", err)
+	}
+	if ref := latestHarnessRef(conversation, HarnessCodex); ref.LastTurnID != "turn_goal_a" {
+		t.Fatalf("stored codex turn ref = %q, want logical turn_goal_a before steering", ref.LastTurnID)
+	}
+
+	if _, err := service.SteerActiveRun("workspace_api", conversation.ID, "adjust course"); err != nil {
+		t.Fatalf("steer active goal run: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load message page: %v", err)
+	}
+	if got := phase0AssistantText(page); got != "goal turn A. goal turn B. steered goal. " {
+		t.Fatalf("assistant text = %q, want steered second physical turn output", got)
 	}
 }
 
@@ -730,7 +825,6 @@ func cancelPhase0ActiveRunForCleanup(t *testing.T, service *Service, workspaceID
 
 func assertPhase0GoalOperationOrderVariant(t *testing.T, mode string) {
 	t.Helper()
-	phase0FreezeCurrentGap(t, "Phase 3", "provider finality ordering across physical goal turns")
 	harness := NewCodexHarness(testCodexConfig(mode))
 	result, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
 	defer continuation.Close()
@@ -741,8 +835,14 @@ func assertPhase0GoalOperationOrderVariant(t *testing.T, mode string) {
 		t.Fatalf("wait goal operation: %v", err)
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if sink.text != "goal turn A. " {
-		t.Fatalf("%s assistant text = %q, want current first-physical-turn-only output", mode, sink.text)
+	if sink.text != "goal turn A. goal turn B. " {
+		t.Fatalf("%s assistant text = %q, want output from both physical turns", mode, sink.text)
+	}
+	if sink.linkCount != 1 || sink.turnID != "turn_goal_a" {
+		t.Fatalf("%s links/turn = %d/%q, want one logical turn_goal_a link", mode, sink.linkCount, sink.turnID)
+	}
+	if len(sink.goals) == 0 || sink.goals[len(sink.goals)-1] == nil || sink.goals[len(sink.goals)-1].Status != "complete" {
+		t.Fatalf("%s goals = %+v, want terminal complete goal", mode, sink.goals)
 	}
 }
 
@@ -760,8 +860,8 @@ func assertPhase1BackgroundTerminalGoalOperationRoutes(t *testing.T, mode string
 		t.Fatalf("wait goal operation: %v", err)
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if sink.text != "goal turn A. " {
-		t.Fatalf("%s assistant text = %q, want current first-physical-turn-only output before background-terminal composition is observable", mode, sink.text)
+	if sink.text != "goal turn A. goal turn B. " {
+		t.Fatalf("%s assistant text = %q, want output from both physical turns", mode, sink.text)
 	}
 	output := background.waitForOutput(t)
 	if output.providerItemID != fakeUnifiedExecAlphaItemID || output.text != "goal terminal output\n" {

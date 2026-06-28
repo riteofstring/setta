@@ -52,10 +52,11 @@ type backgroundTerminalThreadContext struct {
 }
 
 type codexActiveTurn struct {
-	request  TurnRequest
-	session  *codexapp.Session
-	threadID string
-	turnID   string
+	request       TurnRequest
+	session       *codexapp.Session
+	threadID      string
+	turnID        string
+	logicalTurnID string
 }
 
 type codexPendingApproval struct {
@@ -354,9 +355,7 @@ func (harness *CodexHarness) handleCodexServerRequestForTurn(ctx context.Context
 }
 
 func (harness *CodexHarness) CancelTurn(ctx context.Context, request CancelRequest) error {
-	harness.mu.Lock()
-	active := harness.active[request.RunID]
-	harness.mu.Unlock()
+	active := harness.activeTurnSnapshot(request.RunID)
 	if active == nil {
 		return fmt.Errorf("%w: codex turn is not active for run %s", ErrTurnNotStarted, request.RunID)
 	}
@@ -371,9 +370,7 @@ func (harness *CodexHarness) CancelTurn(ctx context.Context, request CancelReque
 }
 
 func (harness *CodexHarness) SteerTurn(ctx context.Context, request SteerRequest) error {
-	harness.mu.Lock()
-	active := harness.active[request.RunID]
-	harness.mu.Unlock()
+	active := harness.activeTurnSnapshot(request.RunID)
 	if active == nil {
 		return fmt.Errorf("%w: codex turn is not active for run %s", ErrTurnNotStarted, request.RunID)
 	}
@@ -384,7 +381,9 @@ func (harness *CodexHarness) SteerTurn(ctx context.Context, request SteerRequest
 		return fmt.Errorf("steering thread %s does not match active thread %s", request.ThreadID, active.threadID)
 	}
 	if request.TurnID != "" && request.TurnID != active.turnID {
-		return fmt.Errorf("steering turn %s does not match active turn %s", request.TurnID, active.turnID)
+		if active.logicalTurnID == "" || request.TurnID != active.logicalTurnID {
+			return fmt.Errorf("steering turn %s does not match active turn %s", request.TurnID, active.turnID)
+		}
 	}
 	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnSteer, map[string]any{
 		"expectedTurnId": active.turnID,
@@ -572,6 +571,22 @@ func (harness *CodexHarness) registerActive(runID string, session *codexapp.Sess
 	harness.active[runID] = &codexActiveTurn{request: request, session: session}
 }
 
+func (harness *CodexHarness) activeTurnSnapshot(runID string) *codexActiveTurn {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+	active := harness.active[runID]
+	if active == nil {
+		return nil
+	}
+	return &codexActiveTurn{
+		request:       active.request,
+		session:       active.session,
+		threadID:      active.threadID,
+		turnID:        active.turnID,
+		logicalTurnID: active.logicalTurnID,
+	}
+}
+
 func (harness *CodexHarness) updateActiveTurn(runID string, threadID string, turnID string) {
 	harness.mu.Lock()
 	defer harness.mu.Unlock()
@@ -581,6 +596,18 @@ func (harness *CodexHarness) updateActiveTurn(runID string, threadID string, tur
 	}
 	active.threadID = threadID
 	active.turnID = turnID
+}
+
+func (harness *CodexHarness) updateActiveGoalTurn(runID string, threadID string, logicalTurnID string, physicalTurnID string) {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+	active := harness.active[runID]
+	if active == nil {
+		return
+	}
+	active.threadID = threadID
+	active.turnID = physicalTurnID
+	active.logicalTurnID = logicalTurnID
 }
 
 func (harness *CodexHarness) unregisterActive(runID string) {

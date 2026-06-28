@@ -1324,21 +1324,35 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	case "turn/start":
 		return handleFakeTurnStart(mode, state, message)
 	case "turn/interrupt":
-		if mode == "goal-operation-cancel" && !state.goalPaused {
-			writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
-			return true
-		}
-		writeFakeResponse(message["id"], map[string]any{})
-		writeFakeCompletedTurn("interrupted")
-		return true
+		return handleFakeTurnInterrupt(mode, state, message)
 	case "turn/steer":
-		assertFakeSteer(message)
-		writeFakeResponse(message["id"], map[string]any{})
-		writeFakeAssistantDelta("steered")
-		writeFakeCompletedTurn("completed")
-		return true
+		return handleFakeTurnSteer(mode, message)
 	}
 	return false
+}
+
+func handleFakeTurnInterrupt(mode string, state *fakeCodexState, message map[string]any) bool {
+	if mode == "goal-operation-cancel" && !state.goalPaused {
+		writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
+		return true
+	}
+	writeFakeResponse(message["id"], map[string]any{})
+	writeFakeCompletedTurn("interrupted")
+	return true
+}
+
+func handleFakeTurnSteer(mode string, message map[string]any) bool {
+	assertFakeSteer(mode, message)
+	writeFakeResponse(message["id"], map[string]any{})
+	if mode == "goal-operation-steer-second-turn" {
+		writeFakeAssistantDeltaForTurn("turn_goal_b", "item_goal_steered", "steered goal. ")
+		writeFakeThreadGoalUpdated("finish renderer tests", "complete")
+		writeFakeCompletedTurnID("turn_goal_b", "completed")
+		return true
+	}
+	writeFakeAssistantDelta("steered")
+	writeFakeCompletedTurn("completed")
+	return true
 }
 
 func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]any) bool {

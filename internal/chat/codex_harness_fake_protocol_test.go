@@ -849,9 +849,13 @@ func writeFakeStructuredCompletedTurn() {
 	})
 }
 
-func assertFakeSteer(message map[string]any) {
+func assertFakeSteer(mode string, message map[string]any) {
 	params := fakeParams(message)
-	if params["threadId"] != "thread_fake" || params["expectedTurnId"] != "turn_fake" {
+	expectedTurnID := "turn_fake"
+	if mode == "goal-operation-steer-second-turn" {
+		expectedTurnID = "turn_goal_b"
+	}
+	if params["threadId"] != "thread_fake" || params["expectedTurnId"] != expectedTurnID {
 		panic("steer targeted wrong turn")
 	}
 	input, ok := params["input"].([]any)

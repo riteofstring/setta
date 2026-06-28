@@ -183,17 +183,7 @@ func (harness *CodexHarness) executeActiveCommand(ctx context.Context, request H
 }
 
 func (harness *CodexHarness) activeTurnForCommand(runID string) *codexActiveTurn {
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-	active := harness.active[runID]
-	if active == nil {
-		return nil
-	}
-	return &codexActiveTurn{
-		session:  active.session,
-		threadID: active.threadID,
-		turnID:   active.turnID,
-	}
+	return harness.activeTurnSnapshot(runID)
 }
 
 func (harness *CodexHarness) executeIdleCommand(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {

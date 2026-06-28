@@ -1294,12 +1294,8 @@ async function runCodexProtocolWorkflow(results) {
       "completed",
     );
     await assertAssistantCompleted(backend, workspaceId, goalConversationId, goalRun.id);
-    // Phase 0 freezes the current premature-completion baseline. Phase 3 flips this to
-    // require Goal turn B plus the provider's terminal complete state in the same run.
-    await waitForGoalStatus(backend, workspaceId, goalConversationId, "active");
-    await waitForTexts(context.client, ["Goal turn A."]);
-    await assertTextAbsent(context.client, "Goal turn B.");
-    await assertTextAbsent(context.client, "Goal complete");
+    await waitForGoalStatus(backend, workspaceId, goalConversationId, "complete");
+    await waitForTexts(context.client, ["Goal turn A.", "Goal turn B."]);
     await assertNoActiveRun(backend, workspaceId, goalConversationId);
 
     const exitConversationId = await createChat(context.client, backend, workspaceId);

@@ -122,6 +122,9 @@ func handleFakeGoalOperationPostResponseEvents(mode string, objective string) bo
 	case "goal-operation-idle-gap":
 		writeFakeGoalOperationMultiTurn(mode, objective)
 		return false
+	case "goal-operation-steer-second-turn":
+		writeFakeGoalOperationMultiTurn(mode, objective)
+		return false
 	default:
 		writeFakeGoalOperationMultiTurn(mode, objective)
 		return true

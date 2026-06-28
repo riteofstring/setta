@@ -916,6 +916,12 @@ Full chat package after the implementation stabilizes:
 ./scripts/go.sh test ./internal/chat
 ```
 
+Race check for goal-operation lifecycle changes:
+
+```text
+./scripts/go.sh test -race ./internal/chat -run 'Goal|goal|CodexHarness'
+```
+
 Required deterministic E2E:
 
 - Multi-turn `/goal` logical operation.
