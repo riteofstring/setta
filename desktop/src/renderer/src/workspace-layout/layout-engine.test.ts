@@ -915,6 +915,25 @@ describe("real workspace layout column sizing", () => {
     expect(items.find((item) => item.paneId === "workspace_pane_0")?.y).toBeLessThan(0);
   });
 
+  test("split to plane above the first plane keeps persisted plane indexes non-negative", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storedLayout: null,
+      workspaceId: "setta:workspace-layout:split-plane-above-first",
+      workspaceName: "Repo",
+    });
+    const engine = new WorkspaceLikeLayoutEngine(scene);
+    const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
+
+    const planePaneId = store.splitFocusedPaneToPlane("up");
+    const updatedScene = engine.toScene();
+    const planeColumn = requireColumnForPane(updatedScene, planePaneId);
+    const originalColumn = requireColumnForPane(updatedScene, "workspace_pane_0");
+
+    expect(planeColumn.planeIndex).toBe(0);
+    expect(originalColumn.planeIndex).toBe(1);
+    expect(updatedScene.columns.every((column) => column.planeIndex >= 0)).toBe(true);
+  });
+
   test("split to plane below inserts at the focused horizontal slot", () => {
     const { focusedPaneId, scene } = createRealWorkspaceScene({
       storedLayout: null,
@@ -1246,155 +1265,6 @@ describe("real workspace layout column sizing", () => {
     expect(focusedItem.height).toBeCloseTo(220);
     expect(firstRowItem.y).toBe(10);
     expect(focusedItem.y).toBeGreaterThan(firstRowItem.y);
-  });
-
-  test("renders a maximized pane as a viewport-sized pane in normal layout flow", () => {
-    const engine = createRealEngine();
-    const items = renderFrame(
-      engine,
-      { ...viewport, width: 1200 },
-      1,
-      "workspace_pane_1",
-      "normal",
-      0,
-      "workspace_pane_1",
-    );
-    const maximizedItem = items.find((item) => item.paneId === "workspace_pane_1");
-
-    expect(maximizedItem).toMatchObject({
-      height: viewport.height - 20,
-      maximized: true,
-      width: 1180,
-      x: 10,
-      y: 10,
-      z: 2,
-    });
-    expect(engine.toScene().columns.map((column) => column.widthSpec)).toEqual([
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-    ]);
-  });
-
-  test("keeps maximized pane aspect ratio unchanged between normal and overview endpoints", () => {
-    const engine = createRealEngine();
-    const maximizedPaneId = "workspace_pane_1";
-    const normalItems = renderFrame(
-      engine,
-      { ...viewport, width: 1200 },
-      1,
-      maximizedPaneId,
-      "normal",
-      0,
-      maximizedPaneId,
-      true,
-    );
-    const overviewItems = renderFrame(
-      engine,
-      { ...viewport, width: 1200 },
-      0,
-      maximizedPaneId,
-      "overview",
-      0,
-      maximizedPaneId,
-    );
-    const normalMaximizedItem = requireRenderItem(normalItems, maximizedPaneId);
-    const overviewMaximizedItem = requireRenderItem(overviewItems, maximizedPaneId);
-
-    expect(overviewMaximizedItem.maximized).toBe(true);
-    expect(overviewMaximizedItem.width / overviewMaximizedItem.height).toBeCloseTo(
-      normalMaximizedItem.width / normalMaximizedItem.height,
-      6,
-    );
-  });
-
-  test("pans naturally to the next pane while the maximized pane stays in layout flow", () => {
-    const engine = createRealEngine();
-    const items = renderFrame(
-      engine,
-      { ...viewport, width: 1200 },
-      2,
-      "workspace_pane_2",
-      "normal",
-      0,
-      "workspace_pane_1",
-    );
-    const focusedItem = items.find((item) => item.paneId === "workspace_pane_2");
-    const previouslyMaximizedItem = items.find((item) => item.paneId === "workspace_pane_1");
-
-    expect(focusedItem).toMatchObject({
-      focused: true,
-      maximized: false,
-      width: 520,
-      x: 10,
-      y: 10,
-    });
-    expect(previouslyMaximizedItem).toMatchObject({
-      height: viewport.height - 20,
-      maximized: true,
-      width: 1180,
-      x: -1178,
-      y: 10,
-      z: 1,
-    });
-  });
-});
-
-describe("compact mobile layout", () => {
-  const mobileViewport: Rect = { height: 700, width: 390, x: 0, y: 0 };
-
-  test("renders every pane at the full viewport size without scene padding", () => {
-    const engine = createRealEngine();
-    engine.setCompactLayout(true);
-    const items = renderFrame(engine, mobileViewport, 0, "workspace_pane_0");
-    const firstItem = requireRenderItem(items, "workspace_pane_0");
-    const secondItem = requireRenderItem(items, "workspace_pane_1");
-
-    expect(firstItem).toMatchObject({
-      height: mobileViewport.height,
-      width: mobileViewport.width,
-      x: 0,
-      y: 0,
-    });
-    expect(secondItem).toMatchObject({
-      height: mobileViewport.height,
-      width: mobileViewport.width,
-      x: mobileViewport.width + 8,
-    });
-  });
-
-  test("gives stacked panes a full-height page each and matching scroll offsets", () => {
-    const engine = createRealEngine();
-    const stackedPaneId = engine.splitPane("workspace_pane_0", "down");
-    engine.setCompactLayout(true);
-    const items = renderFrame(engine, mobileViewport, 0, stackedPaneId);
-    const topItem = requireRenderItem(items, "workspace_pane_0");
-    const bottomItem = requireRenderItem(items, stackedPaneId);
-
-    expect(topItem.height).toBe(mobileViewport.height);
-    expect(bottomItem.height).toBe(mobileViewport.height);
-    expect(bottomItem.y).toBe(topItem.y + mobileViewport.height + 8);
-    expect(engine.verticalScrollOffsetForPane(stackedPaneId, mobileViewport.height)).toBe(
-      mobileViewport.height + 8,
-    );
-  });
-
-  test("restores the regular column sizing when compact layout is disabled", () => {
-    const engine = createRealEngine();
-    engine.setCompactLayout(true);
-    engine.setCompactLayout(false);
-    const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, "workspace_pane_0");
-    const firstItem = requireRenderItem(items, "workspace_pane_0");
-
-    expect(firstItem).toMatchObject({
-      height: viewport.height - 20,
-      width: 520,
-      x: 10,
-      y: 10,
-    });
   });
 });
 

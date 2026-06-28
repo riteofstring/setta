@@ -2125,11 +2125,24 @@ export interface AppearanceAccentPalette {
   teal: string;
 }
 
+export interface AppearanceWorkspacePalette {
+  surface: string;
+  dotGrid: string;
+  paneSurface: string;
+  paneTitleBarSurface: string;
+  paneEdge: string;
+  paneSelectedOutline: string;
+  paneSelectedGlow: string;
+  dragTargetSurface: string;
+  dragTargetOutline: string;
+}
+
 export interface AppearanceColorScheme {
   tailwind: AppearanceTailwindPalette;
   shadcn: AppearanceShadcnPalette;
   status: AppearanceStatusPalette;
   accent: AppearanceAccentPalette;
+  workspace: AppearanceWorkspacePalette;
 }
 
 export interface AppearanceFontScheme {
@@ -5312,14 +5325,31 @@ export function decodeAppearanceAccentPalette(value: unknown): AppearanceAccentP
   };
 }
 
+export function decodeAppearanceWorkspacePalette(value: unknown): AppearanceWorkspacePalette {
+  const record = assertRecord(value, "AppearanceWorkspacePalette");
+  assertKnownFields(record, "AppearanceWorkspacePalette", ["surface", "dotGrid", "paneSurface", "paneTitleBarSurface", "paneEdge", "paneSelectedOutline", "paneSelectedGlow", "dragTargetSurface", "dragTargetOutline"]);
+  return {
+    surface: decodeString(requireField(record, "surface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.surface"),
+    dotGrid: decodeString(requireField(record, "dotGrid", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.dotGrid"),
+    paneSurface: decodeString(requireField(record, "paneSurface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneSurface"),
+    paneTitleBarSurface: decodeString(requireField(record, "paneTitleBarSurface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneTitleBarSurface"),
+    paneEdge: decodeString(requireField(record, "paneEdge", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneEdge"),
+    paneSelectedOutline: decodeString(requireField(record, "paneSelectedOutline", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneSelectedOutline"),
+    paneSelectedGlow: decodeString(requireField(record, "paneSelectedGlow", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneSelectedGlow"),
+    dragTargetSurface: decodeString(requireField(record, "dragTargetSurface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.dragTargetSurface"),
+    dragTargetOutline: decodeString(requireField(record, "dragTargetOutline", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.dragTargetOutline"),
+  };
+}
+
 export function decodeAppearanceColorScheme(value: unknown): AppearanceColorScheme {
   const record = assertRecord(value, "AppearanceColorScheme");
-  assertKnownFields(record, "AppearanceColorScheme", ["tailwind", "shadcn", "status", "accent"]);
+  assertKnownFields(record, "AppearanceColorScheme", ["tailwind", "shadcn", "status", "accent", "workspace"]);
   return {
     tailwind: decodeAppearanceTailwindPalette(requireField(record, "tailwind", "AppearanceColorScheme")),
     shadcn: decodeAppearanceShadcnPalette(requireField(record, "shadcn", "AppearanceColorScheme")),
     status: decodeAppearanceStatusPalette(requireField(record, "status", "AppearanceColorScheme")),
     accent: decodeAppearanceAccentPalette(requireField(record, "accent", "AppearanceColorScheme")),
+    workspace: decodeAppearanceWorkspacePalette(requireField(record, "workspace", "AppearanceColorScheme")),
   };
 }
 

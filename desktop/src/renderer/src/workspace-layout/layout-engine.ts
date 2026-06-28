@@ -3,36 +3,23 @@ import type {
   ColumnWidthSpec,
   LayoutEngine,
   LayoutFrameInput,
-  WorkspaceColumn,
-  WorkspacePane,
-  WorkspaceScene,
   OpenPaneRequest,
   PaneDropIntent,
   PaneId,
   PaneInsertionPlacement,
   PaneRenderItem,
+  Rect,
   TerminalPaneConfig,
+  WorkspaceColumn,
+  WorkspacePane,
+  WorkspaceScene,
 } from "./types";
+import { columnSlotIndex } from "./column-slots";
 import {
-  columnSlotIndex,
-  compareColumnsByPlaneAndSlot,
-  nextSlotIndexForPlane,
-  normalizeColumnSlots,
-  planeHasSlot,
-  shiftPlaneSlotsAtOrAfter,
-  slotIndexForDenseInsertion,
-  slotOffsetsForColumns,
-  slotWidthsForColumns,
-} from "./column-slots";
-import {
-  clamp,
-  type ColumnGeometry,
   isHorizontalDirection,
   isVerticalDirection,
   minimumColumnWidth,
   nearestColumnWidthPreset,
-  nextNumericSuffix,
-  normalizedColumnWidthSpec,
   type PaneDirection,
   type PaneLocation,
   planeGeometryForLayout,
@@ -48,65 +35,54 @@ import {
   paneInHorizontalVisualDirection,
   paneInVerticalVisualDirection,
 } from "./layout-engine-navigation";
-import { renderNormalLayoutFrame, renderOverviewLayoutFrame } from "./layout-engine-rendering";
+import { paneDropIntentCreatesColumn, WorkspaceLayoutEngineBase } from "./layout-engine-base";
+import { type OverviewFrameTransform, renderNormalLayoutFrame } from "./layout-engine-rendering";
 import {
   applyPaneDropIntentToColumns,
   reorderPaneColumnBefore,
-  type PaneDropColumnResult,
   type PaneReorderPlacement,
 } from "./layout-reorder";
-import { columnVisualFramesForPane, type PaneVisualFrame } from "./pane-visual-frame";
-
-export interface WorkspaceLayoutEngineOptions {
-  allowResizedPanesToOverflowViewport?: boolean;
-  overviewCardMaxWidthPx?: number;
-  overviewCardMinWidthPx?: number;
-}
+import { samePaneDropIntent } from "./pane-drop-intent-equality";
 
 interface PaneReorderPreview {
   intent: PaneDropIntent;
   sourcePaneId: PaneId;
 }
 
-export class WorkspaceLikeLayoutEngine implements LayoutEngine {
-  private columns: WorkspaceColumn[];
-  private compactLayout = false;
-  private nextColumnSequence: number;
-  private paneById: Map<PaneId, WorkspacePane>;
+interface PaneInsertFramePreview {
+  anchorPaneId: PaneId;
+  placement: PaneInsertionPlacement;
+}
+
+// The exact stage-relative rect (already scaled) where a previewed new pane would
+// land, used to position the "add pane" affordance on the real slot.
+export interface OverviewInsertPreviewRect {
+  height: number;
+  left: number;
+  top: number;
+  width: number;
+}
+
+// The empty-frame request used for the non-committing insert preview. Only the
+// width (left at the default) affects layout; the surface/title are discarded
+// when the preview is restored.
+const insertPreviewRequest: OpenPaneRequest = {
+  subtitle: "choose a pane type",
+  surfaceKind: "empty-frame",
+  title: "New frame",
+  tone: "slate",
+};
+
+interface EngineMutableState {
+  columns: WorkspaceColumn[];
+  nextColumnSequence: number;
+  nextPaneSequence: number;
+  paneById: Map<PaneId, WorkspacePane>;
+}
+
+export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase implements LayoutEngine {
   private paneReorderPreview: PaneReorderPreview | null = null;
-  private nextPaneSequence: number;
-
-  constructor(
-    private readonly scene: WorkspaceScene,
-    private readonly options: WorkspaceLayoutEngineOptions = {},
-  ) {
-    this.columns = normalizeColumnSlots(
-      scene.columns.map((column) => ({
-        ...column,
-        idealWidthSpec: { ...column.idealWidthSpec },
-        paneIds: [...column.paneIds],
-        widthSpec: { ...column.widthSpec },
-      })),
-    );
-    this.paneById = new Map(scene.paneById);
-    this.nextColumnSequence = nextNumericSuffix(
-      this.columns,
-      "workspace_column_",
-      (column) => column.columnId,
-    );
-    this.nextPaneSequence = Math.max(
-      scene.totalPanes,
-      nextNumericSuffix(scene.panes, "workspace_pane_", (pane) => pane.paneId),
-    );
-  }
-
-  // Compact (mobile-width) presentation: every column spans the full viewport
-  // width and every pane the full viewport height, so navigation pages between
-  // full-screen panes. Column width specs are untouched, so the regular layout
-  // is restored when the viewport widens again.
-  setCompactLayout(compact: boolean): void {
-    this.compactLayout = compact;
-  }
+  private paneInsertFramePreview: PaneInsertFramePreview | null = null;
 
   closePane(paneId: PaneId): void {
     this.paneById.delete(paneId);
@@ -252,21 +228,41 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       return;
     }
 
+    if (input.presentationMode === "overview" && this.paneInsertFramePreview) {
+      return this.renderInsertFramePreview(input, push);
+    }
+
     const previewColumns = this.paneReorderPreviewColumns();
     if (!previewColumns) {
-      return input.presentationMode === "overview"
-        ? this.renderOverviewFrame(input, push)
-        : this.renderNormalFrame(input, push);
+      return this.renderCommittedFrame(input, push);
     }
+
+    // A drop preview reflows the scene. In overview the frame transform (scale,
+    // centering, pan bounds) is computed from the committed columns and frozen
+    // for the preview, so the visible zoom never snaps and the drag's
+    // screen-space hit rects stay valid; only the per-pane offsets follow the
+    // preview. Normal mode has a constant (scale 1) frame and needs no freeze.
+    const overviewFrameOverride =
+      input.presentationMode === "overview" ? this.overviewFrameTransform(input) : undefined;
 
     const committedColumns = this.columns;
     this.columns = previewColumns;
     try {
-      return input.presentationMode === "overview"
-        ? this.renderOverviewFrame(input, push)
-        : this.renderNormalFrame(input, push);
+      this.renderCommittedFrame(input, push, overviewFrameOverride);
     } finally {
       this.columns = committedColumns;
+    }
+  }
+
+  private renderCommittedFrame(
+    input: LayoutFrameInput,
+    push: (item: PaneRenderItem) => void,
+    overviewFrameOverride?: OverviewFrameTransform,
+  ): void {
+    if (input.presentationMode === "overview") {
+      this.renderOverviewFrame(input, push, overviewFrameOverride);
+    } else {
+      this.renderNormalFrame(input, push);
     }
   }
 
@@ -365,6 +361,155 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
 
   hasPaneReorderPreview(): boolean {
     return this.paneReorderPreview !== null;
+  }
+
+  // Preview inserting a new empty frame next to an anchor pane (the overview
+  // "add pane here" affordance). Non-committing: the layout reflows as if the
+  // pane existed, but nothing is mutated permanently. Returns true when the
+  // previewed slot changed.
+  previewInsertFrame(anchorPaneId: PaneId, placement: PaneInsertionPlacement): boolean {
+    if (!this.paneById.has(anchorPaneId)) {
+      return false;
+    }
+    if (
+      this.paneInsertFramePreview?.anchorPaneId === anchorPaneId &&
+      this.paneInsertFramePreview.placement === placement
+    ) {
+      return false;
+    }
+    this.paneInsertFramePreview = { anchorPaneId, placement };
+    return true;
+  }
+
+  clearInsertFramePreview(): boolean {
+    if (!this.paneInsertFramePreview) {
+      return false;
+    }
+    this.paneInsertFramePreview = null;
+    return true;
+  }
+
+  hasInsertFramePreview(): boolean {
+    return this.paneInsertFramePreview !== null;
+  }
+
+  insertFramePreview(): { anchorPaneId: PaneId; placement: PaneInsertionPlacement } | null {
+    return this.paneInsertFramePreview ? { ...this.paneInsertFramePreview } : null;
+  }
+
+  // The exact stage rect the previewed new pane occupies, computed by running the
+  // real insert on a snapshot and reading the placeholder's rendered item, then
+  // restoring. Matches what `renderFrame` reflows, so the affordance lands on the
+  // real slot.
+  overviewInsertPreviewBounds(
+    viewport: Rect,
+    maximizedPaneId: PaneId | null = null,
+    overviewZoom = 1,
+    // The live overview pan must be applied here too: the renderer offsets every
+    // pane by `overviewPanX/Y` (see renderOverviewLayoutFrame), so computing the
+    // affordance slot at pan 0 would leave the "add pane" ghost behind by the pan
+    // amount once the user has panned/zoomed the overview.
+    overviewPanX = 0,
+    overviewPanY = 0,
+  ): OverviewInsertPreviewRect | null {
+    const preview = this.paneInsertFramePreview;
+    if (!preview || !this.paneById.has(preview.anchorPaneId)) {
+      return null;
+    }
+    const frameInput: LayoutFrameInput = {
+      focusedPaneId: this.focusedPaneAt(0, 0),
+      maximizedPaneId,
+      movementPhase: "idle",
+      overviewPanX,
+      overviewPanY,
+      overviewZoom,
+      presentationMode: "overview",
+      scrollColumn: 0,
+      scrollRow: 0,
+      viewport,
+    };
+    // Freeze the camera to the committed layout, so the affordance sits on the
+    // slot at the unchanged scale/centering (see renderInsertFramePreview).
+    const frameOverride = this.overviewFrameTransform(frameInput);
+    const saved = this.snapshotMutableState();
+    let rect: OverviewInsertPreviewRect | null = null;
+    try {
+      const placeholderId = this.openPaneNearPane(
+        preview.anchorPaneId,
+        preview.placement,
+        insertPreviewRequest,
+      );
+      this.renderOverviewFrame(
+        frameInput,
+        (item) => {
+          if (item.paneId === placeholderId) {
+            rect = {
+              height: item.height * item.scale,
+              left: item.x,
+              top: item.y,
+              width: item.width * item.scale,
+            };
+          }
+        },
+        frameOverride,
+      );
+    } finally {
+      this.restoreMutableState(saved);
+    }
+    return rect;
+  }
+
+  // Reflow the overview as if the previewed pane existed, but never render the
+  // placeholder itself (the "add pane" affordance marks its slot) and never
+  // commit: the real insert runs on a snapshot that is restored afterwards.
+  private renderInsertFramePreview(
+    input: LayoutFrameInput,
+    push: (item: PaneRenderItem) => void,
+  ): void {
+    const preview = this.paneInsertFramePreview;
+    if (!preview || !this.paneById.has(preview.anchorPaneId)) {
+      this.renderOverviewFrame(input, push);
+      return;
+    }
+    // Freeze the camera (scale/centering/pan) to the committed layout so hovering
+    // an add slot never rescales or recenters the overview; only the panes shift
+    // to open the new slot -- exactly like the drag preview.
+    const frameOverride = this.overviewFrameTransform(input);
+    const saved = this.snapshotMutableState();
+    try {
+      const placeholderId = this.openPaneNearPane(
+        preview.anchorPaneId,
+        preview.placement,
+        insertPreviewRequest,
+      );
+      this.renderOverviewFrame(
+        input,
+        (item) => {
+          if (item.paneId !== placeholderId) {
+            push(item);
+          }
+        },
+        frameOverride,
+      );
+    } finally {
+      this.restoreMutableState(saved);
+    }
+  }
+
+  private snapshotMutableState(): EngineMutableState {
+    return {
+      columns: this.columns.map((column) => ({ ...column, paneIds: [...column.paneIds] })),
+      nextColumnSequence: this.nextColumnSequence,
+      nextPaneSequence: this.nextPaneSequence,
+      paneById: new Map(this.paneById),
+    };
+  }
+
+  private restoreMutableState(saved: EngineMutableState): void {
+    this.columns = saved.columns;
+    this.nextColumnSequence = saved.nextColumnSequence;
+    this.nextPaneSequence = saved.nextPaneSequence;
+    this.paneById = saved.paneById;
   }
 
   private renderNormalFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
@@ -635,513 +780,4 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       visibleColumnCount: Math.min(this.scene.visibleColumnCount, widestPlaneColumnCount),
     };
   }
-
-  private appendColumn(
-    widthSpec: ColumnWidthSpec = this.scene.defaultColumnWidthSpec,
-    planeIndex = 0,
-  ): WorkspaceColumn {
-    const normalizedWidthSpec = normalizedColumnWidthSpec(widthSpec);
-    const column: WorkspaceColumn = {
-      columnId: this.nextColumnId(),
-      idealWidthSpec: { ...normalizedWidthSpec },
-      index: this.columns.length,
-      paneIds: [],
-      planeIndex,
-      previousProportionWidth:
-        normalizedWidthSpec.unit === "proportion" ? normalizedWidthSpec.value : undefined,
-      slotIndex: nextSlotIndexForPlane(this.columnsInPlane(planeIndex)),
-      widthSpec: { ...normalizedWidthSpec },
-    };
-    this.columns.push(column);
-    this.reindexColumns();
-    return column;
-  }
-
-  private scenePadding(): number {
-    return this.compactLayout ? 0 : this.scene.padding;
-  }
-
-  private compactRenderScene: WorkspaceScene | null = null;
-
-  private renderScene(): WorkspaceScene {
-    if (!this.compactLayout) {
-      return this.scene;
-    }
-    this.compactRenderScene ??= { ...this.scene, padding: 0 };
-    return this.compactRenderScene;
-  }
-
-  private availablePaneHeight(viewportHeight: number): number {
-    return Math.max(1, viewportHeight - this.scenePadding() * 2);
-  }
-
-  private availableWidth(viewportWidth: number): number {
-    return Math.max(minimumColumnWidth, viewportWidth - this.scenePadding() * 2);
-  }
-
-  private availableViewportWidth(viewportWidth: number): number {
-    return Math.max(1, viewportWidth - this.scenePadding() * 2);
-  }
-
-  private columnGeometry(
-    viewportWidth: number,
-    maximizedPaneId: PaneId | null = null,
-    columnGap = this.scene.columnGap,
-    allowViewportOverflow = this.options.allowResizedPanesToOverflowViewport ?? false,
-  ): ColumnGeometry {
-    const rawWidths = this.columns.map((column) =>
-      this.compactLayout || (maximizedPaneId && column.paneIds.includes(maximizedPaneId))
-        ? this.availableWidth(viewportWidth)
-        : this.resolveColumnWidth(column, viewportWidth, allowViewportOverflow),
-    );
-    const defaultWidth = this.resolveColumnWidthSpec(
-      this.scene.defaultColumnWidthSpec,
-      viewportWidth,
-      allowViewportOverflow,
-    );
-    const slotWidths = slotWidthsForColumns({
-      columns: this.columns,
-      defaultWidth,
-      widths: rawWidths,
-    });
-    const widths = this.columns.map(
-      (column) =>
-        slotWidths.get(columnSlotIndex(column)) ?? rawWidths[column.index] ?? defaultWidth,
-    );
-    const offsets = Array.from({ length: this.columns.length }, () => 0);
-    const slotOffsets = slotOffsetsForColumns({
-      columnGap,
-      columns: this.columns,
-      defaultWidth,
-      widths,
-    });
-    for (const planeIndex of this.planeIndexes()) {
-      for (const column of this.columnsInPlane(planeIndex)) {
-        offsets[column.index] = slotOffsets.get(columnSlotIndex(column)) ?? 0;
-      }
-    }
-    const scrollOffsets = [...slotOffsets.entries()]
-      .toSorted(([leftSlot], [rightSlot]) => leftSlot - rightSlot)
-      .map(([, offset]) => offset);
-    return { offsets, scrollOffsets, widths };
-  }
-
-  private constrainScrollColumnToViewport(
-    scrollColumn: number,
-    viewportWidth: number,
-    geometry = this.columnGeometry(viewportWidth),
-  ): number {
-    return clamp(scrollColumn, 0, Math.max(0, geometry.scrollOffsets.length - 1));
-  }
-
-  private insertAdjacentColumn(
-    source: PaneLocation,
-    direction: "left" | "right",
-    widthSpec: ColumnWidthSpec = this.scene.defaultColumnWidthSpec,
-  ): WorkspaceColumn {
-    const planeColumnIndex = source.planeColumnIndex + (direction === "left" ? 0 : 1);
-    return this.insertColumnInPlane(source.planeIndex, planeColumnIndex, widthSpec);
-  }
-
-  private insertColumnAfter(
-    adjacentToColumnId: ColumnId | undefined,
-    widthSpec: ColumnWidthSpec = this.scene.defaultColumnWidthSpec,
-  ): WorkspaceColumn {
-    if (!adjacentToColumnId) {
-      return this.appendColumn(widthSpec);
-    }
-    const adjacentColumn = this.requireColumn(adjacentToColumnId);
-    return this.insertColumnInPlane(
-      adjacentColumn.planeIndex,
-      this.planeColumnIndex(adjacentColumn) + 1,
-      widthSpec,
-    );
-  }
-
-  private insertColumnInPlane(
-    planeIndex: number,
-    planeColumnIndex: number,
-    widthSpec: ColumnWidthSpec = this.scene.defaultColumnWidthSpec,
-  ): WorkspaceColumn {
-    return this.insertColumnInPlaneSlot(
-      planeIndex,
-      slotIndexForDenseInsertion(this.columnsInPlane(planeIndex), planeColumnIndex),
-      widthSpec,
-    );
-  }
-
-  private insertColumnInPlaneSlot(
-    planeIndex: number,
-    slotIndex: number,
-    widthSpec: ColumnWidthSpec = this.scene.defaultColumnWidthSpec,
-  ): WorkspaceColumn {
-    const normalizedWidthSpec = normalizedColumnWidthSpec(widthSpec);
-    const normalizedSlotIndex = Math.max(0, Math.floor(slotIndex));
-    if (planeHasSlot(this.columnsInPlane(planeIndex), normalizedSlotIndex)) {
-      this.columns = shiftPlaneSlotsAtOrAfter(this.columns, planeIndex, normalizedSlotIndex);
-    }
-    const column: WorkspaceColumn = {
-      columnId: this.nextColumnId(),
-      idealWidthSpec: { ...normalizedWidthSpec },
-      index: this.columns.length,
-      paneIds: [],
-      planeIndex,
-      previousProportionWidth:
-        normalizedWidthSpec.unit === "proportion" ? normalizedWidthSpec.value : undefined,
-      slotIndex: normalizedSlotIndex,
-      widthSpec: { ...normalizedWidthSpec },
-    };
-    this.columns.push(column);
-    this.reindexColumns();
-    return this.requireColumn(column.columnId);
-  }
-
-  private insertPaneBesideSource(
-    createdPaneId: PaneId,
-    source: PaneLocation,
-    direction: "up" | "down",
-  ): void {
-    const paneIds = this.columns[source.columnIndex]?.paneIds;
-    if (!paneIds) {
-      return;
-    }
-    const createdIndex = paneIds.indexOf(createdPaneId);
-    if (createdIndex >= 0) {
-      paneIds.splice(createdIndex, 1);
-    }
-    paneIds.splice(source.rowIndex + (direction === "down" ? 1 : 0), 0, createdPaneId);
-  }
-
-  private applyPaneDropPaneState(sourcePaneId: PaneId, result: PaneDropColumnResult): void {
-    const pane = this.paneById.get(sourcePaneId);
-    if (!pane || !result.destinationColumnId) {
-      return;
-    }
-    if (!result.resetPaneSizing) {
-      this.paneById.set(sourcePaneId, {
-        ...pane,
-        columnId: result.destinationColumnId,
-      });
-      return;
-    }
-
-    // Cross-column and cross-plane drops adopt the destination layout context:
-    // column width belongs to the destination column, row sizing is reset to an
-    // even-share weight, and pane-intrinsic surface identity stays with the pane.
-    const paneWithoutHeight: WorkspacePane = {
-      ...pane,
-      columnId: result.destinationColumnId,
-      weight: 1,
-    };
-    delete paneWithoutHeight.heightPx;
-    this.paneById.set(sourcePaneId, paneWithoutHeight);
-  }
-
-  private paneDropColumnOptions(
-    sourcePaneId: PaneId,
-    intent: PaneDropIntent,
-    mode: "commit" | "preview" = "commit",
-  ) {
-    if (!paneDropIntentCreatesColumn(intent)) {
-      return undefined;
-    }
-    return {
-      defaultColumnWidthSpec: this.scene.defaultColumnWidthSpec,
-      newColumnId:
-        mode === "preview"
-          ? (`workspace_column_preview_${sourcePaneId}` as ColumnId)
-          : this.peekNextColumnId(),
-    };
-  }
-
-  private locationForPane(paneId: PaneId): PaneLocation | null {
-    for (const column of this.columns) {
-      const rowIndex = column.paneIds.indexOf(paneId);
-      if (rowIndex >= 0) {
-        return {
-          columnIndex: column.index,
-          planeColumnIndex: this.planeColumnIndex(column),
-          planeIndex: column.planeIndex,
-          rowIndex,
-        };
-      }
-    }
-    return null;
-  }
-
-  private movePaneToAdjacentColumn(
-    paneId: PaneId,
-    source: PaneLocation,
-    direction: "left" | "right",
-  ): void {
-    const offset = direction === "left" ? -1 : 1;
-    const planeColumns = this.columnsInPlane(source.planeIndex);
-    const targetPlaneColumnIndex = clamp(
-      source.planeColumnIndex + offset,
-      0,
-      Math.max(0, planeColumns.length - 1),
-    );
-    const targetColumn = planeColumns[targetPlaneColumnIndex];
-    if (!targetColumn || targetColumn.index === source.columnIndex) {
-      return;
-    }
-    this.columns[source.columnIndex]?.paneIds.splice(source.rowIndex, 1);
-    targetColumn.paneIds.push(paneId);
-    const pane = this.paneById.get(paneId);
-    if (pane) {
-      this.paneById.set(paneId, { ...pane, columnId: targetColumn.columnId });
-    }
-    this.removeEmptyColumns();
-  }
-
-  private movePaneWithinColumn(
-    paneId: PaneId,
-    source: PaneLocation,
-    direction: "up" | "down",
-  ): void {
-    const paneIds = this.columns[source.columnIndex]?.paneIds;
-    if (!paneIds) {
-      return;
-    }
-    const offset = direction === "up" ? -1 : 1;
-    const targetRow = clamp(source.rowIndex + offset, 0, paneIds.length - 1);
-    paneIds.splice(source.rowIndex, 1);
-    paneIds.splice(targetRow, 0, paneId);
-  }
-
-  private requirePaneAt(columnIndex: number, rowIndex: number): WorkspacePane {
-    const column = this.columns[clamp(columnIndex, 0, this.columns.length - 1)];
-    if (!column) {
-      throw new Error("workspace layout has no columns");
-    }
-    const paneId = column.paneIds[clamp(rowIndex, 0, column.paneIds.length - 1)];
-    const pane = paneId ? this.paneById.get(paneId) : undefined;
-    if (!pane) {
-      throw new Error(`workspace layout column ${column.columnId} has no pane at row ${rowIndex}`);
-    }
-    return pane;
-  }
-
-  private renderOverviewFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
-    renderOverviewLayoutFrame({
-      availableHeight: this.availablePaneHeight(input.viewport.height),
-      cardSizeConstraints: {
-        maxWidthPx: this.options.overviewCardMaxWidthPx,
-        minWidthPx: this.options.overviewCardMinWidthPx,
-      },
-      columns: this.columns,
-      fullSizePanes: this.compactLayout,
-      geometry: this.columnGeometry(
-        input.viewport.width,
-        input.maximizedPaneId,
-        this.scene.columnGap,
-        true,
-      ),
-      input,
-      paneById: this.paneById,
-      planeIndexes: this.planeIndexes(),
-      push,
-      scene: this.renderScene(),
-    });
-  }
-
-  private nextColumnId(): ColumnId {
-    const columnId = this.peekNextColumnId();
-    this.nextColumnSequence += 1;
-    return columnId;
-  }
-
-  private peekNextColumnId(): ColumnId {
-    return `workspace_column_${this.nextColumnSequence}`;
-  }
-
-  private removeEmptyColumns(): void {
-    this.columns = this.columns.filter((column) => column.paneIds.length > 0);
-    this.reindexColumns();
-  }
-
-  private requireColumn(columnId: ColumnId): WorkspaceColumn {
-    const column = this.columns.find((candidate) => candidate.columnId === columnId);
-    if (!column) {
-      throw new Error(`unknown workspace column ${columnId}`);
-    }
-    return column;
-  }
-
-  private resizeColumnsInSlot(slotIndex: number, width: ColumnWidthSpec): void {
-    const normalizedWidthSpec = normalizedColumnWidthSpec(width);
-    for (const column of this.columns) {
-      if (columnSlotIndex(column) !== slotIndex) {
-        continue;
-      }
-      column.widthSpec = { ...normalizedWidthSpec };
-      if (column.widthSpec.unit === "proportion") {
-        column.previousProportionWidth = column.widthSpec.value;
-      }
-    }
-  }
-
-  private adjacentPlaneIndex(planeIndex: number, direction: "up" | "down"): number | null {
-    const indexes = this.planeIndexes();
-    const currentIndex = indexes.indexOf(planeIndex);
-    if (currentIndex < 0) {
-      return null;
-    }
-    return indexes[currentIndex + (direction === "up" ? -1 : 1)] ?? null;
-  }
-
-  private columnsInPlane(planeIndex: number): WorkspaceColumn[] {
-    return this.columns.filter((column) => column.planeIndex === planeIndex);
-  }
-
-  private maxUnscaledPlaneWidth(geometry: ColumnGeometry): number {
-    return Math.max(
-      minimumColumnWidth,
-      ...this.planeIndexes().map((planeIndex) =>
-        this.totalUnscaledPlaneWidth(planeIndex, geometry),
-      ),
-    );
-  }
-
-  private nearestColumnInPlaneByHorizontalCenter(
-    planeIndex: number,
-    source: PaneLocation,
-    viewportWidth: number,
-  ): WorkspaceColumn | null {
-    const sourceColumn = this.columns[source.columnIndex];
-    if (!sourceColumn) {
-      return null;
-    }
-    const geometry = this.columnGeometry(viewportWidth, null, 0);
-    const sourceCenter = this.columnHorizontalCenter(sourceColumn, geometry);
-    let nearestColumn: WorkspaceColumn | null = null;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-    for (const column of this.columnsInPlane(planeIndex)) {
-      const distance = Math.abs(this.columnHorizontalCenter(column, geometry) - sourceCenter);
-      if (distance < nearestDistance) {
-        nearestColumn = column;
-        nearestDistance = distance;
-      }
-    }
-    return nearestColumn;
-  }
-
-  private columnHorizontalCenter(column: WorkspaceColumn, geometry: ColumnGeometry): number {
-    return (
-      (geometry.offsets[column.index] ?? 0) +
-      (geometry.widths[column.index] ?? minimumColumnWidth) / 2
-    );
-  }
-
-  private planeColumnIndex(column: WorkspaceColumn): number {
-    return Math.max(
-      0,
-      this.columnsInPlane(column.planeIndex).findIndex(
-        (candidate) => candidate.columnId === column.columnId,
-      ),
-    );
-  }
-
-  private scrollColumnForColumn(column: WorkspaceColumn): number {
-    const slotIndex = columnSlotIndex(column);
-    const occupiedSlots = [
-      ...new Set(this.columns.map((candidate) => columnSlotIndex(candidate))),
-    ].toSorted((left, right) => left - right);
-    return Math.max(0, occupiedSlots.indexOf(slotIndex));
-  }
-
-  private planeIndexes(): number[] {
-    return [...new Set(this.columns.map((column) => column.planeIndex))].sort(
-      (left, right) => left - right,
-    );
-  }
-
-  private reindexColumns(): void {
-    this.columns = this.columns
-      .toSorted(compareColumnsByPlaneAndSlot)
-      .map((column, index) => ({ ...column, index, slotIndex: columnSlotIndex(column) }));
-  }
-
-  private totalUnscaledPlaneWidth(planeIndex: number, geometry: ColumnGeometry): number {
-    const columns = this.columnsInPlane(planeIndex);
-    const lastColumn = columns.at(-1);
-    if (!lastColumn) {
-      return minimumColumnWidth;
-    }
-    return (
-      (geometry.offsets[lastColumn.index] ?? 0) +
-      (geometry.widths[lastColumn.index] ?? minimumColumnWidth)
-    );
-  }
-
-  private resolveColumnWidth(
-    column: WorkspaceColumn,
-    viewportWidth: number,
-    allowViewportOverflow = this.options.allowResizedPanesToOverflowViewport ?? false,
-  ): number {
-    return this.resolveColumnWidthSpec(column.widthSpec, viewportWidth, allowViewportOverflow);
-  }
-
-  private resolveColumnWidthSpec(
-    spec: ColumnWidthSpec,
-    viewportWidth: number,
-    allowViewportOverflow = this.options.allowResizedPanesToOverflowViewport ?? false,
-  ): number {
-    if (spec.unit === "px") {
-      const desiredWidth = Math.max(minimumColumnWidth, Math.round(spec.value));
-      return allowViewportOverflow
-        ? desiredWidth
-        : Math.min(desiredWidth, this.availableViewportWidth(viewportWidth));
-    }
-    return Math.max(
-      minimumColumnWidth,
-      Math.round(this.availableWidth(viewportWidth) * spec.value),
-    );
-  }
-
-  private columnVisualFrames(
-    column: WorkspaceColumn,
-    availableHeight: number,
-    maximizedPaneId: PaneId | null = null,
-  ): PaneVisualFrame[] {
-    return columnVisualFramesForPane({
-      availableHeight,
-      column,
-      fullSizeRows: this.compactLayout,
-      maximizedPaneId,
-      paneById: this.paneById,
-      rowGap: this.scene.rowGap,
-    });
-  }
-}
-
-function samePaneDropIntent(left: PaneDropIntent, right: PaneDropIntent): boolean {
-  if (left.kind !== right.kind) {
-    return false;
-  }
-  if (left.kind === "row" && right.kind === "row") {
-    return left.targetPaneId === right.targetPaneId && left.placement === right.placement;
-  }
-  if (left.kind === "column" && right.kind === "column") {
-    return (
-      left.targetColumnId === right.targetColumnId &&
-      left.planeIndex === right.planeIndex &&
-      left.slotPlacement === right.slotPlacement
-    );
-  }
-  if (left.kind === "plane-slot" && right.kind === "plane-slot") {
-    return (
-      left.planeIndex === right.planeIndex &&
-      left.referenceColumnId === right.referenceColumnId &&
-      left.slotIndex === right.slotIndex
-    );
-  }
-  if (left.kind === "swap" && right.kind === "swap") {
-    return left.targetPaneId === right.targetPaneId;
-  }
-  return false;
-}
-
-function paneDropIntentCreatesColumn(intent: PaneDropIntent): boolean {
-  return intent.kind === "column" || intent.kind === "plane-slot";
 }

@@ -121,12 +121,17 @@
   --setta-shell-top-bar-height: 38px;
   --setta-shell-top-bar-logo-offset-y: 2px;
   --setta-shell-top-bar-surface: color-mix(in oklch, var(--setta-950) 88%, black);
-  --setta-niri-pane-surface: var(--setta-975);
-  --setta-niri-pane-title-bar-surface: color-mix(
-    in oklch,
-    var(--setta-niri-pane-surface) 98%,
-    black
-  );
+  --workspace-surface: var(--setta-850);
+  --workspace-dot-grid: var(--setta-logo);
+  --workspace-pane-surface: var(--setta-975);
+  --workspace-pane-title-bar-surface: var(--setta-950);
+  --workspace-pane-edge: var(--setta-850);
+  --workspace-pane-selected-outline: oklch(0.488 0.17 264.38);
+  --workspace-pane-selected-glow: var(--setta-700);
+  --workspace-drag-target-surface: var(--setta-850);
+  --workspace-drag-target-outline: var(--setta-300);
+  --setta-niri-pane-surface: var(--workspace-pane-surface);
+  --setta-niri-pane-title-bar-surface: var(--workspace-pane-title-bar-surface);
   --setta-50: oklch(0.9574 0.0071 267.38);
   --setta-100: oklch(0.9085 0.013 263.02);
   --setta-150: oklch(0.8575 0.0208 262.99);
@@ -149,12 +154,15 @@
 }
 
 [data-color-mode="light"] {
-  --setta-niri-pane-surface: var(--setta-100);
-  --setta-niri-pane-title-bar-surface: color-mix(
-    in oklch,
-    var(--setta-niri-pane-surface) 96%,
-    var(--setta-200)
-  );
+  --workspace-surface: var(--setta-100);
+  --workspace-dot-grid: var(--setta-500);
+  --workspace-pane-surface: var(--setta-50);
+  --workspace-pane-title-bar-surface: var(--setta-100);
+  --workspace-pane-edge: var(--setta-200);
+  --workspace-pane-selected-outline: var(--setta-500);
+  --workspace-pane-selected-glow: var(--setta-300);
+  --workspace-drag-target-surface: var(--setta-200);
+  --workspace-drag-target-outline: var(--setta-500);
 }
 
 * {

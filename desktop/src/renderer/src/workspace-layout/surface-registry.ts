@@ -746,9 +746,9 @@ function workspacePaneDragSourceActive(host: HTMLElement): boolean {
       workspace.hasAttribute("data-overview-dragging"));
   return Boolean(
     workspace &&
-      (activeDragSession ||
-        (typeof workspace.querySelector === "function" &&
-          workspace.querySelector('[data-drag-source="true"]'))),
+    (activeDragSession ||
+      (typeof workspace.querySelector === "function" &&
+        workspace.querySelector('[data-drag-source="true"]'))),
   );
 }
 

@@ -1,5 +1,10 @@
 import type { WorkspaceMetricsCollector } from "./metrics";
 import type { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
+import { syncDropPreviewOverlay } from "./presentation-drop-preview";
+import {
+  addPresentationWriteCounts,
+  emptyPresentationWriteCounts,
+} from "./presentation-write-counts";
 import { SurfaceRegistry, type SurfaceViewportSyncStats } from "./surface-registry";
 import type { WorkspacePane, PaneRenderItem, PaneRuntimeSummary, ResizePhase } from "./types";
 
@@ -94,7 +99,12 @@ export class PresentationEngine {
       );
     }
 
-    this.syncDropPreviewOverlay(assignedItems);
+    syncDropPreviewOverlay({
+      assignedItems,
+      bindings: this.bindings,
+      isActivePaneDragSource: (binding) => this.hostIsActivePaneDragSource(binding),
+      overlay: this.dropPreviewOverlay,
+    });
     const nativeFlush = this.nativeViewBoundsBatcher?.flush();
     this.metrics.recordCanvasStats(this.surfaceRegistry.canvasStats());
     this.metrics.recordGitGraphStats(this.surfaceRegistry.gitGraphStats());
@@ -135,62 +145,6 @@ export class PresentationEngine {
       this.dropPreviewOverlay.dataset.visible = "false";
     }
     this.dropPreviewOverlay = dropPreviewOverlay;
-  }
-
-  private syncDropPreviewOverlay(assignedItems: ReadonlyArray<PaneRenderItem | undefined>): void {
-    const overlay = this.dropPreviewOverlay;
-    if (!overlay) {
-      return;
-    }
-    const item = this.dropPreviewItem(assignedItems);
-    if (!item) {
-      if (overlay.dataset.visible !== "false") {
-        overlay.dataset.visible = "false";
-      }
-      return;
-    }
-    const transform = `translate3d(${item.x.toFixed(2)}px, ${item.y.toFixed(2)}px, 0) scale(${item.scale.toFixed(3)})`;
-    if (overlay.style.transform !== transform) {
-      overlay.style.transform = transform;
-    }
-    const width = `${item.width.toFixed(2)}px`;
-    if (overlay.style.width !== width) {
-      overlay.style.width = width;
-    }
-    const height = `${item.height.toFixed(2)}px`;
-    if (overlay.style.height !== height) {
-      overlay.style.height = height;
-    }
-    if (overlay.dataset.visible !== "true") {
-      overlay.dataset.visible = "true";
-    }
-  }
-
-  // The drop-preview box marks where the dragged pane will land. For an insert it
-  // sits at the dragged pane's previewed slot (the engine has already reflowed it
-  // there); for a swap it sits on the pane it will swap with. Returns nothing until
-  // a drop target is resolved, so the box only appears once the drop is meaningful.
-  private dropPreviewItem(
-    assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
-  ): PaneRenderItem | undefined {
-    let dragSourceItem: PaneRenderItem | undefined;
-    let hasInsertTarget = false;
-    for (let index = 0; index < this.bindings.length; index += 1) {
-      const binding = this.bindings[index];
-      if (!binding) {
-        continue;
-      }
-      if (binding.host.dataset.dropSwap === "true") {
-        return assignedItems[index];
-      }
-      if (binding.host.dataset.dropTarget || binding.host.dataset.dropPreview === "true") {
-        hasInsertTarget = true;
-      }
-      if (this.hostIsActivePaneDragSource(binding)) {
-        dragSourceItem = assignedItems[index];
-      }
-    }
-    return hasInsertTarget ? dragSourceItem : undefined;
   }
 
   syncPanes(panes: readonly WorkspacePane[]): void {
@@ -316,28 +270,28 @@ export class PresentationEngine {
 
   private nextAvailableBindingIndex(assignedBindingIndexes: ReadonlySet<number>): number | null {
     for (let index = 0; index < this.bindings.length; index += 1) {
-      const binding = this.bindings[index];
-      if (!binding || assignedBindingIndexes.has(index)) {
-        continue;
-      }
-      if (this.hostIsActivePaneDragSource(binding)) {
-        continue;
-      }
-      if (binding.contentPaneId === null) {
+      if (this.bindingIsAvailableForAssignment(index, assignedBindingIndexes, "empty")) {
         return index;
       }
     }
     for (let index = 0; index < this.bindings.length; index += 1) {
-      const binding = this.bindings[index];
-      if (
-        binding &&
-        !assignedBindingIndexes.has(index) &&
-        !this.hostIsActivePaneDragSource(binding)
-      ) {
+      if (this.bindingIsAvailableForAssignment(index, assignedBindingIndexes, "any")) {
         return index;
       }
     }
     return null;
+  }
+
+  private bindingIsAvailableForAssignment(
+    index: number,
+    assignedBindingIndexes: ReadonlySet<number>,
+    mode: "any" | "empty",
+  ): boolean {
+    const binding = this.bindings[index];
+    if (!binding || assignedBindingIndexes.has(index) || this.hostIsActivePaneDragSource(binding)) {
+      return false;
+    }
+    return mode === "any" || binding.contentPaneId === null;
   }
 
   private applyBinding(
@@ -1041,36 +995,4 @@ function formatPixels(pixels: number | null): string {
     return `${Math.round(pixels / 1000)}Kpx`;
   }
   return `${(pixels / 1000 / 1000).toFixed(1)}Mpx`;
-}
-
-function emptyPresentationWriteCounts(): PresentationWriteCounts {
-  return {
-    boxWrites: 0,
-    browserViewportWrites: 0,
-    canvasViewportWrites: 0,
-    deferredHeavyViewportWrites: 0,
-    gitGraphViewportWrites: 0,
-    heavyViewportWrites: 0,
-    nativeBoundsUpdates: 0,
-    surfaceViewportWrites: 0,
-    terminalViewportWrites: 0,
-    transformWrites: 0,
-  };
-}
-
-function addPresentationWriteCounts(
-  target: PresentationWriteCounts,
-  source: PresentationWriteCounts,
-): PresentationWriteCounts {
-  target.boxWrites += source.boxWrites;
-  target.browserViewportWrites += source.browserViewportWrites;
-  target.canvasViewportWrites += source.canvasViewportWrites;
-  target.deferredHeavyViewportWrites += source.deferredHeavyViewportWrites;
-  target.gitGraphViewportWrites += source.gitGraphViewportWrites;
-  target.heavyViewportWrites += source.heavyViewportWrites;
-  target.nativeBoundsUpdates += source.nativeBoundsUpdates;
-  target.surfaceViewportWrites += source.surfaceViewportWrites;
-  target.terminalViewportWrites += source.terminalViewportWrites;
-  target.transformWrites += source.transformWrites;
-  return target;
 }

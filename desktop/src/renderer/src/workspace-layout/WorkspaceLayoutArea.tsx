@@ -1,6 +1,5 @@
 import type { DesktopPlatform } from "@shared/types";
 import type { WorkspaceUILayout } from "@generated/backend";
-import { AlertTriangle, X } from "lucide-react";
 import {
   Profiler,
   useCallback,
@@ -17,6 +16,16 @@ import { useWorkspaceStore } from "../stores/workspace-store";
 import { useViewportSize } from "../use-viewport-size";
 import { FrameScheduler } from "./frame-scheduler";
 import type { WorkspaceLayoutStore } from "./layout-store";
+import {
+  finishOverviewPanSession,
+  beginOverviewPanSession,
+  updateOverviewPanSession,
+  type OverviewPanSession,
+} from "./overview-pan-session";
+import {
+  clearPaneResizePreview as clearPaneResizePreviewElement,
+  syncPaneResizePreview as syncPaneResizePreviewElement,
+} from "./pane-resize-preview";
 import { installWindowResizeReportHooks } from "./performance-report";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
@@ -69,10 +78,18 @@ import {
 import { paneResizeTargetFromPointer } from "./pane-resize-target";
 import {
   commitPaneResize,
-  paneResizePreviewForPointerMove,
   paneResizeSessionFromTarget,
   type PaneResizeSession,
 } from "./pane-resize-session";
+import {
+  WorkspaceLayoutRecoveryNotice,
+  WorkspacePaneHost,
+} from "./workspace-layout-area-components";
+import {
+  workspaceBenchmarkShouldRun,
+  workspaceRuntimeIdentity,
+  workspaceSceneMode,
+} from "./workspace-layout-area-runtime";
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import {
   WorkspaceLayoutLoading,
@@ -154,6 +171,7 @@ function WorkspaceLayoutRuntimeArea({
   const debugRef = useRef<HTMLDivElement | null>(null);
   const hostRefs = useRef<Array<HTMLDivElement | null>>([]);
   const overviewDragSessionRef = useRef<OverviewDragSession | null>(null);
+  const overviewPanSessionRef = useRef<OverviewPanSession | null>(null);
   const paneDragSessionRef = useRef<PaneDragSession | null>(null);
   const paneDropPreviewRef = useRef<HTMLDivElement | null>(null);
   const paneResizePreviewRef = useRef<HTMLDivElement | null>(null);
@@ -330,7 +348,9 @@ function WorkspaceLayoutRuntimeArea({
       layoutStore: runtime.store,
       metrics: runtime.metrics,
       movementOverride: () =>
-        paneDragSessionRef.current !== null || overviewDragSessionRef.current !== null,
+        paneDragSessionRef.current !== null ||
+        overviewDragSessionRef.current !== null ||
+        overviewPanSessionRef.current !== null,
       presentation: runtime.presentation,
       reportWriter: runtime.reportWriter,
       runtimePolicy: runtime.runtimePolicy,
@@ -354,8 +374,24 @@ function WorkspaceLayoutRuntimeArea({
         viewportProvider: stageViewport,
       });
     const handleWheel = (event: WheelEvent) => {
-      if (!eventTargetsWorkspaceWheelNavigation(event, root)) {
+      // A wheel mid-drag would corrupt the drag's frozen hit rects / pan session.
+      if (
+        paneDragSessionRef.current !== null ||
+        overviewDragSessionRef.current !== null ||
+        overviewPanSessionRef.current !== null
+      ) {
         return;
+      }
+      // Overview zoom/pan applies anywhere over the surface (including over cards),
+      // so it bypasses the focus-navigation target gate that normal mode requires.
+      const overview = runtime.store.getSnapshot().presentationMode === "overview";
+      if (!overview && !eventTargetsWorkspaceWheelNavigation(event, root)) {
+        return;
+      }
+      if (overview) {
+        // Zoom/pan shifts the panes without a pointermove, so a cached "add pane"
+        // ghost would linger out of place; drop it until the next hover recomputes.
+        clearOverviewInsertPreview();
       }
       handleWorkspaceWheel({
         event,
@@ -363,6 +399,7 @@ function WorkspaceLayoutRuntimeArea({
         root,
         runtime,
         scheduler,
+        stage,
         state: trackpadNavigationRef.current,
         viewportProvider: stageViewport,
       });
@@ -400,48 +437,24 @@ function WorkspaceLayoutRuntimeArea({
       overviewInsertPreviewFramesRef.current = frames;
       setOverviewGhostTarget(target);
     };
-    const clearPaneResizePreview = () => {
-      const preview = paneResizePreviewRef.current;
-      if (!preview) {
-        return;
-      }
-      preview.dataset.visible = "false";
-      preview.dataset.axis = "";
-      preview.style.transform = "";
-      paneResizeStageOriginRef.current = null;
-    };
-    const syncPaneResizePreview = (session: PaneResizeSession, event: PointerEvent) => {
-      const previewElement = paneResizePreviewRef.current;
-      if (!previewElement) {
-        return;
-      }
-      const stageOrigin =
-        paneResizeStageOriginRef.current ??
-        (() => {
-          const rect = stage.getBoundingClientRect();
-          return { left: rect.left, top: rect.top };
-        })();
-      paneResizeStageOriginRef.current = stageOrigin;
-      const preview = paneResizePreviewForPointerMove(session, event);
-      previewElement.dataset.axis = preview.axis;
-      previewElement.dataset.visible = "true";
-      if (session.axis === "horizontal" && preview.axis === "horizontal") {
-        const x = session.startClientX + preview.width - session.startWidth - stageOrigin.left;
-        previewElement.style.transform = `translate3d(${Math.round(x)}px, 0, 0)`;
-        return;
-      }
-      if (session.axis === "height" && preview.axis === "height") {
-        const y = session.startClientY + preview.height - session.startHeight - stageOrigin.top;
-        previewElement.dataset.axis = "vertical";
-        previewElement.style.transform = `translate3d(0, ${Math.round(y)}px, 0)`;
-        return;
-      }
-      if (session.axis !== "vertical" || preview.axis !== "vertical") {
-        return;
-      }
-      const y =
-        session.startClientY + preview.upperHeight - session.upperStartHeight - stageOrigin.top;
-      previewElement.style.transform = `translate3d(0, ${Math.round(y)}px, 0)`;
+    const clearActivePaneResizePreview = () =>
+      clearPaneResizePreviewElement(paneResizePreviewRef.current, paneResizeStageOriginRef);
+    const syncActivePaneResizePreview = (session: PaneResizeSession, event: PointerEvent) =>
+      syncPaneResizePreviewElement({
+        event,
+        previewElement: paneResizePreviewRef.current,
+        session,
+        stage,
+        stageOriginRef: paneResizeStageOriginRef,
+      });
+    const beginOverviewPan = (event: PointerEvent): boolean => {
+      return beginOverviewPanSession({
+        clearOverviewInsertPreview,
+        event,
+        root,
+        scheduler,
+        sessionRef: overviewPanSessionRef,
+      });
     };
     const beginOverviewDrag = (event: PointerEvent): boolean => {
       if (eventTargetsOverviewGhost(event)) {
@@ -565,7 +578,7 @@ function WorkspaceLayoutRuntimeArea({
       paneResizeSessionRef.current = resizeSession;
       const rect = stage.getBoundingClientRect();
       paneResizeStageOriginRef.current = { left: rect.left, top: rect.top };
-      syncPaneResizePreview(resizeSession, event);
+      syncActivePaneResizePreview(resizeSession, event);
       return true;
     };
     const handlePointerDown = (event: PointerEvent) => {
@@ -573,6 +586,9 @@ function WorkspaceLayoutRuntimeArea({
         return;
       }
       if (runtime.store.getSnapshot().presentationMode === "overview") {
+        if (beginOverviewPan(event)) {
+          return;
+        }
         beginOverviewDrag(event);
         return;
       }
@@ -580,6 +596,16 @@ function WorkspaceLayoutRuntimeArea({
         return;
       }
       beginPaneResize(event);
+    };
+    const updateOverviewPan = (event: PointerEvent): boolean => {
+      return updateOverviewPanSession({
+        clearOverviewInsertPreview,
+        event,
+        panOverviewBy: (deltaX, deltaY, viewportRect) =>
+          runtime.store.panOverviewBy(deltaX, deltaY, viewportRect),
+        sessionRef: overviewPanSessionRef,
+        viewportProvider: stageViewport,
+      });
     };
     const updateOverviewDrag = (event: PointerEvent): boolean => {
       const overviewSession = overviewDragSessionRef.current;
@@ -624,10 +650,13 @@ function WorkspaceLayoutRuntimeArea({
       clearOverviewInsertPreview();
       event.preventDefault();
       event.stopPropagation();
-      syncPaneResizePreview(session, event);
+      syncActivePaneResizePreview(session, event);
       return true;
     };
     const handlePointerMove = (event: PointerEvent) => {
+      if (updateOverviewPan(event)) {
+        return;
+      }
       if (updateOverviewDrag(event)) {
         return;
       }
@@ -641,6 +670,14 @@ function WorkspaceLayoutRuntimeArea({
       window.setTimeout(() => {
         suppressNextClickRef.current = false;
       }, 0);
+    };
+    const finishActiveOverviewPan = (event: PointerEvent): boolean => {
+      return finishOverviewPanSession({
+        event,
+        root,
+        sessionRef: overviewPanSessionRef,
+        suppressNextPaneClick,
+      });
     };
     const finishActiveOverviewDrag = (event: PointerEvent): boolean => {
       const overviewSession = overviewDragSessionRef.current;
@@ -709,6 +746,9 @@ function WorkspaceLayoutRuntimeArea({
       return true;
     };
     const handlePointerUp = (event: PointerEvent) => {
+      if (finishActiveOverviewPan(event)) {
+        return;
+      }
       if (finishActiveOverviewDrag(event)) {
         return;
       }
@@ -727,7 +767,7 @@ function WorkspaceLayoutRuntimeArea({
       clearOverviewInsertPreview();
       delete root.dataset.paneResizing;
       delete root.dataset.paneResizingAxis;
-      clearPaneResizePreview();
+      clearActivePaneResizePreview();
       if (resizeCommitted) {
         persistLayout();
       }
@@ -769,12 +809,14 @@ function WorkspaceLayoutRuntimeArea({
       window.removeEventListener("wheel", handleWheel, { capture: true });
       cleanupOverviewDragSource(overviewDragSessionRef);
       cleanupActivePaneDragSession(root, paneDragSessionRef);
+      overviewPanSessionRef.current = null;
+      delete root.dataset.overviewPanning;
       clearOverviewInsertPreview();
       runtime.store.clearPaneDropPreview();
       paneResizeSessionRef.current = null;
       delete root.dataset.paneResizing;
       delete root.dataset.paneResizingAxis;
-      clearPaneResizePreview();
+      clearActivePaneResizePreview();
       scheduler.teardown();
       clearSchedulerRefIfCurrent(schedulerRef, scheduler);
       stageResizeObserver?.disconnect();
@@ -893,86 +935,6 @@ function installResizeReportHooksForRuntime(
     viewportProvider,
     writer: runtime.resizeReportWriter,
   });
-}
-
-function workspaceBenchmarkShouldRun(mode: WorkspaceSceneMode): boolean {
-  return mode === "benchmark" && workspaceAutoBenchmarkEnabled();
-}
-
-function WorkspaceLayoutRecoveryNotice({
-  message,
-  onDismiss,
-}: {
-  message: string | null;
-  onDismiss: () => void;
-}) {
-  if (!message) {
-    return null;
-  }
-  return (
-    <div
-      className="app-no-drag absolute top-10 right-3 left-3 z-50 flex min-w-0 items-start gap-2 rounded-sm border border-amber-500/35 bg-amber-950/70 px-2.5 py-2 text-xs text-amber-100 shadow-lg"
-      data-testid="workspace-layout-recovery"
-      role="alert"
-    >
-      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      <div className="min-w-0 flex-1 break-words leading-4">{message}</div>
-      <button
-        aria-label="Dismiss layout recovery notice"
-        className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-amber-100/80 hover:bg-amber-100/10 hover:text-amber-50 focus-visible:bg-amber-100/10 focus-visible:text-amber-50"
-        onClick={onDismiss}
-        title="Dismiss layout recovery notice"
-        type="button"
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </div>
-  );
-}
-
-function WorkspacePaneHost({
-  refCallback,
-}: {
-  refCallback: (host: HTMLDivElement | null) => void;
-}) {
-  return (
-    <article
-      className="workspace-pane-host app-no-drag"
-      data-focused="false"
-      data-maximized="false"
-      data-moving="false"
-      data-pane-id=""
-      data-runtime-state="live"
-      data-surface-kind=""
-      data-testid="workspace-pane-host"
-      data-tone="slate"
-      data-visible="false"
-      ref={refCallback}
-    />
-  );
-}
-
-function workspaceSceneMode(): WorkspaceSceneMode {
-  if (typeof window === "undefined") {
-    return "workspace";
-  }
-  return new URLSearchParams(window.location?.search ?? "").get("workspaceScene") === "benchmark"
-    ? "benchmark"
-    : "workspace";
-}
-
-function workspaceAutoBenchmarkEnabled(): boolean {
-  return new URLSearchParams(window.location?.search ?? "").get("workspaceAuto") !== "false";
-}
-
-function workspaceRuntimeIdentity(workspace: { displayName: string; id: string } | null): {
-  workspaceId: string;
-  workspaceName: string;
-} {
-  if (!workspace) {
-    return { workspaceId: "empty", workspaceName: "No workspace" };
-  }
-  return { workspaceId: workspace.id, workspaceName: workspace.displayName };
 }
 
 function useWorkspaceLayoutSnapshot(store: WorkspaceLayoutStore) {

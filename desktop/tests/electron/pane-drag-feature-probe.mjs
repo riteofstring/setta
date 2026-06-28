@@ -205,19 +205,7 @@ function posMap(scene) {
 function affordanceExpression() {
   return `(() => Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
     .filter((h) => h instanceof HTMLElement && h.dataset.visible === "true")
-    .map((h) => ({ paneId: h.dataset.paneId ?? "", dropSwap: h.dataset.dropSwap === "true", dropTarget: h.dataset.dropTarget ?? "", dragSource: h.dataset.dragSource === "true" })))()`;
-}
-
-function columnsOf(scene) {
-  return [...new Set(scene.visibleHosts.map((h) => Math.round(h.rect.left)))];
-}
-
-function columnIdOf(scene, paneId) {
-  return scene.layout?.columns.find((c) => c.paneIds.includes(paneId))?.columnId ?? null;
-}
-
-function columnIdInLayout(layout, paneId) {
-  return layout.columns.find((c) => c.paneIds.includes(paneId))?.columnId ?? null;
+    .map((h) => ({ paneId: h.dataset.paneId ?? "", dropPreview: h.dataset.dropPreview === "true", dropSwap: h.dataset.dropSwap === "true", dropTarget: h.dataset.dropTarget ?? "", dragSource: h.dataset.dragSource === "true" })))()`;
 }
 
 async function dragTo(client, sourcePaneId, to) {

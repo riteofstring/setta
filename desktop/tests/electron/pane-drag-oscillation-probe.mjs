@@ -78,30 +78,16 @@ try {
   await moveMouse(client, { x: colX, y: top }, 24);
 
   const log = [];
-  const record = async (phase, point, shotName) => {
-    const snap = await client.evaluate(paneSnapshotExpression());
-    const metrics = await client.evaluate(frameMetricsExpression());
-    const drop = snap.visibleHosts.find((h) => h.dropTarget);
-    const src = snap.visibleHosts.find((h) => h.dragSource);
-    const colTops =
-      clusterColumns(snap.visibleHosts)
-        .find((c) => c.panes.some((p) => p.paneId === targetColumn.panes[0].paneId))
-        ?.panes.map((p) => Math.round(p.rect.top)) ?? [];
-    log.push({
+  const record = (phase, point, shotName) =>
+    recordProbeSample({
+      artifactDir,
+      client,
+      log,
       phase,
-      x: Math.round(point.x),
-      y: Math.round(point.y),
-      dropPaneId: drop?.paneId ?? null,
-      dropAxis: drop?.dropAxis || null,
-      dropTarget: drop?.dropTarget || null,
-      srcTranslated: src ? Math.round(src.rect.top) : null,
-      targetColTops: colTops,
-      previewUpdates: metrics?.paneDragPreviewUpdates ?? null,
-      previewClears: metrics?.paneDragPreviewClears ?? null,
-      reactCommits: metrics?.reactCommitsDuringMovement ?? null,
+      point,
+      shotName,
+      targetPaneId: targetColumn.panes[0].paneId,
     });
-    if (shotName) await captureScreenshot(client, join(artifactDir, shotName));
-  };
 
   // PHASE HOLD: pointer parked, no moves. Expect zero new previews.
   for (let i = 0; i < 8; i += 1) {
@@ -188,6 +174,59 @@ function analyze(log) {
       previewChurnVsDistinct: `${log.at(-1)?.previewUpdates ?? 0} updates / ${distinct(sweep) + distinct(jitter)} distinct targets`,
     },
   };
+}
+
+async function recordProbeSample({
+  artifactDir,
+  client,
+  log,
+  phase,
+  point,
+  shotName,
+  targetPaneId,
+}) {
+  const snap = await client.evaluate(paneSnapshotExpression());
+  const metrics = await client.evaluate(frameMetricsExpression());
+  log.push({
+    ...dropSampleFields(snap),
+    ...metricsSampleFields(metrics),
+    phase,
+    targetColTops: targetColumnTops(snap, targetPaneId),
+    x: Math.round(point.x),
+    y: Math.round(point.y),
+  });
+  if (shotName) {
+    await captureScreenshot(client, join(artifactDir, shotName));
+  }
+}
+
+function dropSampleFields(snapshot) {
+  const drop = snapshot.visibleHosts.find((host) => host.dropTarget);
+  const source = snapshot.visibleHosts.find((host) => host.dragSource);
+  return {
+    dropAxis: drop ? drop.dropAxis || null : null,
+    dropPaneId: drop ? drop.paneId : null,
+    dropTarget: drop ? drop.dropTarget || null : null,
+    srcTranslated: source ? Math.round(source.rect.top) : null,
+  };
+}
+
+function metricsSampleFields(metrics) {
+  if (!metrics) {
+    return { previewClears: null, previewUpdates: null, reactCommits: null };
+  }
+  return {
+    previewClears: metrics.paneDragPreviewClears,
+    previewUpdates: metrics.paneDragPreviewUpdates,
+    reactCommits: metrics.reactCommitsDuringMovement,
+  };
+}
+
+function targetColumnTops(snapshot, targetPaneId) {
+  const column = clusterColumns(snapshot.visibleHosts).find((candidate) =>
+    candidate.panes.some((pane) => pane.paneId === targetPaneId),
+  );
+  return column ? column.panes.map((pane) => Math.round(pane.rect.top)) : [];
 }
 
 function clusterColumns(hosts) {
@@ -325,6 +364,7 @@ function paneSnapshotExpression() {
         return {
           dragSource: h.dataset.dragSource === "true",
           dropAxis: h.dataset.dropAxis ?? "",
+          dropPreview: h.dataset.dropPreview === "true",
           dropTarget: h.dataset.dropTarget ?? "",
           focused: h.dataset.focused === "true",
           paneId: h.dataset.paneId ?? "",

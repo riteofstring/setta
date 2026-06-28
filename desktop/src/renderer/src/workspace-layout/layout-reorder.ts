@@ -8,7 +8,7 @@ import type {
   PaneId,
 } from "./types";
 
-export interface PaneReorderResult {
+interface PaneReorderResult {
   changed: boolean;
   columns: WorkspaceColumn[];
 }
@@ -25,7 +25,7 @@ export interface PaneDropColumnOptions {
 
 export type PaneReorderPlacement = PaneDropPlacement;
 
-export function reorderPaneColumnForPlacement(
+function reorderPaneColumnForPlacement(
   columns: readonly WorkspaceColumn[],
   sourcePaneId: PaneId,
   targetPaneId: PaneId,
@@ -68,7 +68,7 @@ export function applyPaneDropIntentToColumns(
 // their slots and widths, so each pane lands in the other's position and adopts
 // that column's width. Per-pane row sizing travels with the pane (handled by the
 // engine's swap pane-state update). No columns are created or removed.
-export function swapPanesInColumns(
+function swapPanesInColumns(
   columns: readonly WorkspaceColumn[],
   sourcePaneId: PaneId,
   targetPaneId: PaneId,
@@ -187,36 +187,15 @@ function movePaneToColumn(
   if (!options) {
     return unchangedPaneDrop(columns);
   }
-  const sourceColumn = columns.find((column) => column.paneIds.includes(sourcePaneId));
-  const targetColumn = columns.find(
-    (column) =>
-      column.columnId === intent.targetColumnId && column.planeIndex === intent.planeIndex,
-  );
-  if (!sourceColumn || !targetColumn || options.newColumnId === sourceColumn.columnId) {
+  const pair = paneDropSourceAndTarget(columns, sourcePaneId, intent);
+  if (!pair || options.newColumnId === pair.sourceColumn.columnId) {
     return unchangedPaneDrop(columns);
   }
-  if (
-    sourceColumn.paneIds.length === 1 &&
-    columnDropKeepsSinglePaneColumnInPlace(
-      columns,
-      sourceColumn,
-      targetColumn,
-      intent.slotPlacement,
-    )
-  ) {
+  if (singlePaneColumnDropIsNoop(columns, pair.sourceColumn, pair.targetColumn, intent)) {
     return unchangedPaneDrop(columns);
   }
 
-  const columnsWithoutSourcePane = columns
-    .map((column) =>
-      column.columnId === sourceColumn.columnId
-        ? {
-            ...column,
-            paneIds: column.paneIds.filter((paneId) => paneId !== sourcePaneId),
-          }
-        : column,
-    )
-    .filter((column) => column.paneIds.length > 0);
+  const columnsWithoutSourcePane = columnsWithoutPane(columns, pair.sourceColumn, sourcePaneId);
   const extractedTargetColumn = columnsWithoutSourcePane.find(
     (column) =>
       column.columnId === intent.targetColumnId && column.planeIndex === intent.planeIndex,
@@ -227,26 +206,19 @@ function movePaneToColumn(
 
   const targetSlotIndex =
     columnSlotIndex(extractedTargetColumn) + (intent.slotPlacement === "after" ? 1 : 0);
-  const shiftedColumns = columnsWithoutSourcePane.map((column) =>
-    column.planeIndex === intent.planeIndex && columnSlotIndex(column) >= targetSlotIndex
-      ? { ...column, slotIndex: columnSlotIndex(column) + 1 }
-      : column,
+  const shiftedColumns = shiftedColumnsForSlotInsert(
+    columnsWithoutSourcePane,
+    intent.planeIndex,
+    targetSlotIndex,
   );
-  const widthSpec = copiedColumnWidthSpec(extractedTargetColumn.widthSpec);
-  const idealWidthSpec = copiedColumnWidthSpec(extractedTargetColumn.idealWidthSpec);
-  const insertedColumn: WorkspaceColumn = {
-    columnId: options.newColumnId,
-    idealWidthSpec,
+  const insertedColumn = insertedPaneColumn({
     index: shiftedColumns.length,
-    paneIds: [sourcePaneId],
+    newColumnId: options.newColumnId,
     planeIndex: intent.planeIndex,
-    previousProportionWidth:
-      widthSpec.unit === "proportion"
-        ? (extractedTargetColumn.previousProportionWidth ?? widthSpec.value)
-        : undefined,
+    referenceColumn: extractedTargetColumn,
+    sourcePaneId,
     slotIndex: targetSlotIndex,
-    widthSpec,
-  };
+  });
   return {
     changed: true,
     columns: reindexColumns([...shiftedColumns, insertedColumn]),
@@ -264,69 +236,32 @@ function movePaneToPlaneSlot(
   if (!options) {
     return unchangedPaneDrop(columns);
   }
-  const targetPlaneIndex = normalizedDropPlaneIndex(intent.planeIndex);
-  const targetSlotIndex = normalizedDropIndex(intent.slotIndex);
-  if (targetPlaneIndex === null || targetSlotIndex === null) {
-    return unchangedPaneDrop(columns);
-  }
-  const planeOffset = targetPlaneIndex < 0 ? -targetPlaneIndex : 0;
-  const normalizedColumns =
-    planeOffset > 0
-      ? columns.map((column) => ({ ...column, planeIndex: column.planeIndex + planeOffset }))
-      : columns;
-  const normalizedTargetPlaneIndex = targetPlaneIndex + planeOffset;
-  const sourceColumn = normalizedColumns.find((column) => column.paneIds.includes(sourcePaneId));
-  if (!sourceColumn) {
+  const setup = planeSlotDropSetup(columns, sourcePaneId, intent);
+  if (!setup) {
     return unchangedPaneDrop(columns);
   }
   if (
-    sourceColumn.planeIndex === normalizedTargetPlaneIndex &&
-    columnSlotIndex(sourceColumn) === targetSlotIndex
+    targetSlotIsOccupied(
+      setup.columnsWithoutSourcePane,
+      setup.normalizedTargetPlaneIndex,
+      setup.targetSlotIndex,
+    )
   ) {
     return unchangedPaneDrop(columns);
   }
 
-  const columnsWithoutSourcePane = normalizedColumns
-    .map((column) =>
-      column.columnId === sourceColumn.columnId
-        ? {
-            ...column,
-            paneIds: column.paneIds.filter((paneId) => paneId !== sourcePaneId),
-          }
-        : column,
-    )
-    .filter((column) => column.paneIds.length > 0);
-  const targetSlotOccupied = columnsWithoutSourcePane.some(
-    (column) =>
-      column.planeIndex === normalizedTargetPlaneIndex &&
-      columnSlotIndex(column) === targetSlotIndex,
-  );
-  if (targetSlotOccupied) {
-    return unchangedPaneDrop(columns);
-  }
-
-  const referenceColumn =
-    normalizedColumns.find((column) => column.columnId === intent.referenceColumnId) ??
-    normalizedColumns.find((column) => columnSlotIndex(column) === targetSlotIndex) ??
-    sourceColumn;
-  const widthSpec = copiedColumnWidthSpec(referenceColumn.widthSpec);
-  const idealWidthSpec = copiedColumnWidthSpec(referenceColumn.idealWidthSpec);
-  const insertedColumn: WorkspaceColumn = {
-    columnId: options.newColumnId,
-    idealWidthSpec,
-    index: columnsWithoutSourcePane.length,
-    paneIds: [sourcePaneId],
-    planeIndex: normalizedTargetPlaneIndex,
-    previousProportionWidth:
-      widthSpec.unit === "proportion"
-        ? (referenceColumn.previousProportionWidth ?? widthSpec.value)
-        : undefined,
-    slotIndex: targetSlotIndex,
-    widthSpec,
-  };
+  const referenceColumn = referenceColumnForPlaneSlot(setup, intent.referenceColumnId);
+  const insertedColumn = insertedPaneColumn({
+    index: setup.columnsWithoutSourcePane.length,
+    newColumnId: options.newColumnId,
+    planeIndex: setup.normalizedTargetPlaneIndex,
+    referenceColumn,
+    sourcePaneId,
+    slotIndex: setup.targetSlotIndex,
+  });
   return {
     changed: true,
-    columns: reindexColumns([...columnsWithoutSourcePane, insertedColumn]),
+    columns: reindexColumns([...setup.columnsWithoutSourcePane, insertedColumn]),
     destinationColumnId: insertedColumn.columnId,
     resetPaneSizing: true,
   };
@@ -357,6 +292,170 @@ function columnDropKeepsSinglePaneColumnInPlace(
     insertIndex -= 1;
   }
   return insertIndex === sourceIndex;
+}
+
+function columnOccupiesSlot(
+  column: WorkspaceColumn,
+  planeIndex: number,
+  slotIndex: number,
+): boolean {
+  return column.planeIndex === planeIndex && columnSlotIndex(column) === slotIndex;
+}
+
+function columnsWithoutPane(
+  columns: readonly WorkspaceColumn[],
+  sourceColumn: WorkspaceColumn,
+  sourcePaneId: PaneId,
+): WorkspaceColumn[] {
+  return columns
+    .map((column) =>
+      column.columnId === sourceColumn.columnId
+        ? {
+            ...column,
+            paneIds: column.paneIds.filter((paneId) => paneId !== sourcePaneId),
+          }
+        : column,
+    )
+    .filter((column) => column.paneIds.length > 0);
+}
+
+function insertedPaneColumn({
+  index,
+  newColumnId,
+  planeIndex,
+  referenceColumn,
+  sourcePaneId,
+  slotIndex,
+}: {
+  index: number;
+  newColumnId: ColumnId;
+  planeIndex: number;
+  referenceColumn: WorkspaceColumn;
+  sourcePaneId: PaneId;
+  slotIndex: number;
+}): WorkspaceColumn {
+  const widthSpec = copiedColumnWidthSpec(referenceColumn.widthSpec);
+  const idealWidthSpec = copiedColumnWidthSpec(referenceColumn.idealWidthSpec);
+  return {
+    columnId: newColumnId,
+    idealWidthSpec,
+    index,
+    paneIds: [sourcePaneId],
+    planeIndex,
+    previousProportionWidth:
+      widthSpec.unit === "proportion"
+        ? (referenceColumn.previousProportionWidth ?? widthSpec.value)
+        : undefined,
+    slotIndex,
+    widthSpec,
+  };
+}
+
+function paneDropSourceAndTarget(
+  columns: readonly WorkspaceColumn[],
+  sourcePaneId: PaneId,
+  intent: Extract<PaneDropIntent, { kind: "column" }>,
+): { sourceColumn: WorkspaceColumn; targetColumn: WorkspaceColumn } | null {
+  const sourceColumn = columns.find((column) => column.paneIds.includes(sourcePaneId));
+  const targetColumn = columns.find(
+    (column) =>
+      column.columnId === intent.targetColumnId && column.planeIndex === intent.planeIndex,
+  );
+  return sourceColumn && targetColumn ? { sourceColumn, targetColumn } : null;
+}
+
+interface PlaneSlotDropSetup {
+  columnsWithoutSourcePane: WorkspaceColumn[];
+  normalizedColumns: readonly WorkspaceColumn[];
+  normalizedTargetPlaneIndex: number;
+  sourceColumn: WorkspaceColumn;
+  targetSlotIndex: number;
+}
+
+function planeSlotDropSetup(
+  columns: readonly WorkspaceColumn[],
+  sourcePaneId: PaneId,
+  intent: Extract<PaneDropIntent, { kind: "plane-slot" }>,
+): PlaneSlotDropSetup | null {
+  const targetPlaneIndex = normalizedDropPlaneIndex(intent.planeIndex);
+  const targetSlotIndex = normalizedDropIndex(intent.slotIndex);
+  if (targetPlaneIndex === null || targetSlotIndex === null) {
+    return null;
+  }
+  const planeOffset = targetPlaneIndex < 0 ? -targetPlaneIndex : 0;
+  const normalizedColumns = offsetPlaneIndexes(columns, planeOffset);
+  const normalizedTargetPlaneIndex = targetPlaneIndex + planeOffset;
+  const sourceColumn = normalizedColumns.find((column) => column.paneIds.includes(sourcePaneId));
+  if (
+    !sourceColumn ||
+    columnOccupiesSlot(sourceColumn, normalizedTargetPlaneIndex, targetSlotIndex)
+  ) {
+    return null;
+  }
+  return {
+    columnsWithoutSourcePane: columnsWithoutPane(normalizedColumns, sourceColumn, sourcePaneId),
+    normalizedColumns,
+    normalizedTargetPlaneIndex,
+    sourceColumn,
+    targetSlotIndex,
+  };
+}
+
+function offsetPlaneIndexes(
+  columns: readonly WorkspaceColumn[],
+  offset: number,
+): readonly WorkspaceColumn[] {
+  return offset > 0
+    ? columns.map((column) => ({ ...column, planeIndex: column.planeIndex + offset }))
+    : columns;
+}
+
+function referenceColumnForPlaneSlot(
+  setup: PlaneSlotDropSetup,
+  referenceColumnId: ColumnId,
+): WorkspaceColumn {
+  return (
+    setup.normalizedColumns.find((column) => column.columnId === referenceColumnId) ??
+    setup.normalizedColumns.find((column) => columnSlotIndex(column) === setup.targetSlotIndex) ??
+    setup.sourceColumn
+  );
+}
+
+function shiftedColumnsForSlotInsert(
+  columns: readonly WorkspaceColumn[],
+  planeIndex: number,
+  targetSlotIndex: number,
+): WorkspaceColumn[] {
+  return columns.map((column) =>
+    column.planeIndex === planeIndex && columnSlotIndex(column) >= targetSlotIndex
+      ? { ...column, slotIndex: columnSlotIndex(column) + 1 }
+      : column,
+  );
+}
+
+function singlePaneColumnDropIsNoop(
+  columns: readonly WorkspaceColumn[],
+  sourceColumn: WorkspaceColumn,
+  targetColumn: WorkspaceColumn,
+  intent: Extract<PaneDropIntent, { kind: "column" }>,
+): boolean {
+  return (
+    sourceColumn.paneIds.length === 1 &&
+    columnDropKeepsSinglePaneColumnInPlace(
+      columns,
+      sourceColumn,
+      targetColumn,
+      intent.slotPlacement,
+    )
+  );
+}
+
+function targetSlotIsOccupied(
+  columns: readonly WorkspaceColumn[],
+  planeIndex: number,
+  slotIndex: number,
+): boolean {
+  return columns.some((column) => columnOccupiesSlot(column, planeIndex, slotIndex));
 }
 
 function copiedColumnWidthSpec(widthSpec: ColumnWidthSpec): ColumnWidthSpec {

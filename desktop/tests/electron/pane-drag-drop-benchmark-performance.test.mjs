@@ -88,7 +88,6 @@ try {
 } catch (error) {
   if (trace) {
     await trace.stop().catch(() => {});
-    trace = null;
   }
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
@@ -194,11 +193,7 @@ async function performBenchmarkOverviewDrag(client) {
   );
   const duringMetrics = await readFrameMetrics(client);
   const frameSample = await stopBrowserFrameSampler(client);
-  assertPaneDragDuringPerformance(
-    duringMetrics,
-    frameSample,
-    "benchmark overview drag",
-  );
+  assertPaneDragDuringPerformance(duringMetrics, frameSample, "benchmark overview drag");
   await dispatchMouseRelease(client, to);
   const after = await waitForState(
     client,
@@ -685,6 +680,7 @@ function paneSnapshotExpression() {
         return {
           dragSource: host.dataset.dragSource === "true",
           dropAxis: host.dataset.dropAxis ?? "",
+          dropPreview: host.dataset.dropPreview === "true",
           dropTarget: host.dataset.dropTarget ?? "",
           focused: host.dataset.focused === "true",
           paneId: host.dataset.paneId ?? "",

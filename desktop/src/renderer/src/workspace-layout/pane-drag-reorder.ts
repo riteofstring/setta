@@ -1,5 +1,6 @@
 import { columnSlotIndex } from "./column-slots";
 import type { WorkspaceLayoutStore } from "./layout-store";
+import { samePaneDropIntent } from "./pane-drop-intent-equality";
 import type { ColumnId, PaneDropIntent, PaneDropPlacement, WorkspaceScene } from "./types";
 
 const paneDragThresholdPx = 6;
@@ -573,17 +574,45 @@ function outerPlaneSlotInsertTargetForGap(
   rowGap: number,
 ): PaneDropTarget | null {
   const bands = planeBandsForColumns(columns);
+  const boundary = outerPlaneBoundary(bands, event.clientY);
+  if (!boundary) {
+    return null;
+  }
+  const referenceColumn = referenceColumnForOuterPlaneSlot(event, columns);
+  if (!referenceColumn) {
+    return null;
+  }
+  if (!outerPlaneBoundaryWithinReach(event.clientY, boundary, bands, referenceColumn, rowGap)) {
+    return null;
+  }
+  const annotatePane = paneRectNearestY(referenceColumn.paneRects, event.clientY);
+  if (!annotatePane) {
+    return null;
+  }
+  const targetPlaneIndex = outerPlaneIndex(bands, boundary.direction);
+  const placement = boundary.direction === "above" ? "before" : "after";
+  return planeSlotTarget(targetPlaneIndex, referenceColumn, annotatePane.paneId, placement);
+}
+
+function outerPlaneBoundary(
+  bands: readonly DragPlaneBand[],
+  clientY: number,
+): { direction: "above" | "below"; y: number } | null {
   const topBand = bands[0];
   const bottomBand = bands.at(-1);
-  if (!topBand || !bottomBand) {
+  if (!topBand || !bottomBand || (clientY >= topBand.top && clientY <= bottomBand.bottom)) {
     return null;
   }
-  if (event.clientY >= topBand.top && event.clientY <= bottomBand.bottom) {
-    return null;
-  }
-  const direction = event.clientY < topBand.top ? "above" : "below";
-  const boundaryY = direction === "above" ? topBand.top : bottomBand.bottom;
-  const referenceColumn = columns
+  return clientY < topBand.top
+    ? { direction: "above", y: topBand.top }
+    : { direction: "below", y: bottomBand.bottom };
+}
+
+function referenceColumnForOuterPlaneSlot(
+  event: PaneDropPointer,
+  columns: readonly DragColumnRect[],
+): DragColumnRect | undefined {
+  return columns
     .filter((column) => event.clientX >= column.left && event.clientX <= column.right)
     .toSorted(
       (left, right) =>
@@ -592,26 +621,26 @@ function outerPlaneSlotInsertTargetForGap(
         horizontalDistanceToColumnCenter(left, event.clientX) -
           horizontalDistanceToColumnCenter(right, event.clientX),
     )[0];
-  if (!referenceColumn) {
-    return null;
-  }
+}
+
+function outerPlaneBoundaryWithinReach(
+  clientY: number,
+  boundary: { direction: "above" | "below"; y: number },
+  bands: readonly DragPlaneBand[],
+  referenceColumn: DragColumnRect,
+  rowGap: number,
+): boolean {
   const referenceBand = bands.find((band) => band.planeIndex === referenceColumn.planeIndex);
   if (!referenceBand) {
-    return null;
+    return false;
   }
   const rowReach = Math.max(1, referenceBand.bottom - referenceBand.top) + Math.max(0, rowGap);
-  if (Math.abs(event.clientY - boundaryY) > rowReach) {
-    return null;
-  }
-  const annotatePane = paneRectNearestY(referenceColumn.paneRects, event.clientY);
-  if (!annotatePane) {
-    return null;
-  }
+  return Math.abs(clientY - boundary.y) <= rowReach;
+}
+
+function outerPlaneIndex(bands: readonly DragPlaneBand[], direction: "above" | "below"): number {
   const planeIndexes = bands.map((band) => band.planeIndex);
-  const targetPlaneIndex =
-    direction === "above" ? Math.min(...planeIndexes) - 1 : Math.max(...planeIndexes) + 1;
-  const placement = direction === "above" ? "before" : "after";
-  return planeSlotTarget(targetPlaneIndex, referenceColumn, annotatePane.paneId, placement);
+  return direction === "above" ? Math.min(...planeIndexes) - 1 : Math.max(...planeIndexes) + 1;
 }
 
 function planeSlotTarget(
@@ -737,44 +766,17 @@ function zIndexForHost(host: HTMLElement): number {
 }
 
 function samePaneDropTarget(left: PaneDropTarget | null, right: PaneDropTarget | null): boolean {
-  return (
-    left?.paneId === right?.paneId &&
-    left?.mode === right?.mode &&
-    left?.placement === right?.placement &&
-    left?.axis === right?.axis &&
-    left?.highlightPane === right?.highlightPane &&
-    samePaneDropIntent(left?.intent ?? null, right?.intent ?? null)
-  );
-}
-
-function samePaneDropIntent(left: PaneDropIntent | null, right: PaneDropIntent | null): boolean {
-  if (left?.kind !== right?.kind) {
-    return false;
+  if (left === right) {
+    return true;
   }
   if (!left || !right) {
-    return left === right;
+    return false;
   }
-  if (left.kind === "row" && right.kind === "row") {
-    return left.targetPaneId === right.targetPaneId && left.placement === right.placement;
-  }
-  if (left.kind === "column" && right.kind === "column") {
-    return (
-      left.targetColumnId === right.targetColumnId &&
-      left.planeIndex === right.planeIndex &&
-      left.slotPlacement === right.slotPlacement
-    );
-  }
-  if (left.kind === "plane-slot" && right.kind === "plane-slot") {
-    return (
-      left.planeIndex === right.planeIndex &&
-      left.referenceColumnId === right.referenceColumnId &&
-      left.slotIndex === right.slotIndex
-    );
-  }
-  if (left.kind === "swap" && right.kind === "swap") {
-    return left.targetPaneId === right.targetPaneId;
-  }
-  return false;
+  const targetFields = ["paneId", "mode", "placement", "axis", "highlightPane"] as const;
+  return (
+    targetFields.every((field) => left[field] === right[field]) &&
+    samePaneDropIntent(left.intent, right.intent)
+  );
 }
 
 export function syncPaneDropTarget(root: HTMLElement, target: PaneDropTarget | null): void {

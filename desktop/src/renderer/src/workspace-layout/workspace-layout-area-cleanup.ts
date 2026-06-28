@@ -30,18 +30,23 @@ export function cleanupOverviewDragSource(
 ): void {
   const session = ref.current;
   const overviewSourcePaneId = session?.sourcePaneId;
-  if (
-    session?.pendingDropFrame !== null &&
-    session?.pendingDropFrame !== undefined &&
-    typeof window.cancelAnimationFrame === "function"
-  ) {
-    window.cancelAnimationFrame(session.pendingDropFrame);
-  }
+  cancelOverviewDropFrame(session);
   ref.current = null;
   if (!overviewSourcePaneId) {
     return;
   }
-  const overviewSourceHost = visiblePaneHostForPane(overviewSourcePaneId);
+  resetOverviewSourceHost(overviewSourcePaneId);
+}
+
+function cancelOverviewDropFrame(session: OverviewDragSession | null): void {
+  if (session?.pendingDropFrame === null || session?.pendingDropFrame === undefined) {
+    return;
+  }
+  window.cancelAnimationFrame?.(session.pendingDropFrame);
+}
+
+function resetOverviewSourceHost(sourcePaneId: string): void {
+  const overviewSourceHost = visiblePaneHostForPane(sourcePaneId);
   overviewSourceHost?.removeAttribute("data-drag-source");
   if (overviewSourceHost) {
     overviewSourceHost.style.translate = "";

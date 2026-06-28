@@ -26,6 +26,14 @@ export type PlaneGeometry = {
 const columnWidthPresets = [1 / 3, 0.5, 2 / 3, 1] as const;
 const maximumOverviewScale = 0.42;
 const minimumOverviewScale = 0.12;
+// Ceiling on the effective overview scale once the user zooms in. User zoom can
+// push the effective scale up to this value, which stays well below normal (1.0)
+// so overview never reads as normal view.
+export const OVERVIEW_MAX_ZOOM_SCALE = 0.5;
+// How far the user can zoom *out* past fit-all, as a fraction of the fit scale:
+// the content shrinks below the viewport with margin around it (infinite-canvas
+// style). Fit-all is `overviewZoom === 1`; this is the minimum factor.
+export const OVERVIEW_MIN_ZOOM = 0.2;
 export const minimumColumnWidth = 96;
 
 export interface OverviewCardSizeConstraints {
@@ -119,6 +127,17 @@ export function overviewScale({
   }
   const scaleBounds = overviewCardScaleBounds(referenceCardWidth, cardSizeConstraints);
   return clamp(fitScale, scaleBounds.minScale, scaleBounds.maxScale);
+}
+
+// Apply the user's overview zoom factor to a fit-all baseline. Zooming out shrinks
+// the content to `OVERVIEW_MIN_ZOOM` of the fit scale (margin appears around it);
+// the zoom-in ceiling is `OVERVIEW_MAX_ZOOM_SCALE`, but never below the fit scale
+// itself so a configuration whose readable floor already exceeds the cap is left
+// untouched.
+export function applyOverviewZoom(fitScale: number, zoom: number | undefined): number {
+  const normalizedZoom = typeof zoom === "number" && Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  const ceiling = Math.max(fitScale, OVERVIEW_MAX_ZOOM_SCALE);
+  return clamp(fitScale * normalizedZoom, fitScale * OVERVIEW_MIN_ZOOM, ceiling);
 }
 
 function hasOverviewCardSizeConstraint({
@@ -265,6 +284,7 @@ export function pushColumnItems({
       moving,
       opacity: 1,
       paneId: pane.paneId,
+      planeIndex: column.planeIndex,
       presentationMode,
       resizing: false,
       runtimeState: "live",

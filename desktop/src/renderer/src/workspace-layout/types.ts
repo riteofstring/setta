@@ -151,6 +151,21 @@ export interface LayoutFrameInput {
   focusedPaneId: PaneId;
   maximizedPaneId: PaneId | null;
   movementPhase: "idle" | "moving";
+  /**
+   * Screen-pixel pan of the overview surface. Lets the user scroll a workspace
+   * whose scaled overview is larger than the viewport into view. Ignored outside
+   * overview mode. Defaults to 0 (centered / edge-aligned).
+   */
+  overviewPanX?: number;
+  overviewPanY?: number;
+  /**
+   * User zoom factor applied on top of the fit-all overview scale (1 = fit). The
+   * effective overview scale is `clamp(fitScale * overviewZoom, fitScale,
+   * OVERVIEW_MAX_ZOOM_SCALE)`. Distinct from `overviewProgress`, which animates
+   * the normal<->overview mode transition. Ignored outside overview mode.
+   * Defaults to 1.
+   */
+  overviewZoom?: number;
   presentationMode: WorkspacePresentationMode;
   renderAllColumns?: boolean;
   scrollColumn: number;
@@ -165,6 +180,7 @@ export interface PaneRenderItem {
   moving: boolean;
   opacity: number;
   paneId: PaneId;
+  planeIndex?: number;
   presentationMode: WorkspacePresentationMode;
   resizing: boolean;
   runtimeState: PaneRuntimeState;
