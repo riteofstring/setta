@@ -264,20 +264,29 @@ function movePaneToPlaneSlot(
   if (!options) {
     return unchangedPaneDrop(columns);
   }
-  const sourceColumn = columns.find((column) => column.paneIds.includes(sourcePaneId));
-  const targetPlaneIndex = normalizedDropIndex(intent.planeIndex);
+  const targetPlaneIndex = normalizedDropPlaneIndex(intent.planeIndex);
   const targetSlotIndex = normalizedDropIndex(intent.slotIndex);
-  if (!sourceColumn || targetPlaneIndex === null || targetSlotIndex === null) {
+  if (targetPlaneIndex === null || targetSlotIndex === null) {
+    return unchangedPaneDrop(columns);
+  }
+  const planeOffset = targetPlaneIndex < 0 ? -targetPlaneIndex : 0;
+  const normalizedColumns =
+    planeOffset > 0
+      ? columns.map((column) => ({ ...column, planeIndex: column.planeIndex + planeOffset }))
+      : columns;
+  const normalizedTargetPlaneIndex = targetPlaneIndex + planeOffset;
+  const sourceColumn = normalizedColumns.find((column) => column.paneIds.includes(sourcePaneId));
+  if (!sourceColumn) {
     return unchangedPaneDrop(columns);
   }
   if (
-    sourceColumn.planeIndex === targetPlaneIndex &&
+    sourceColumn.planeIndex === normalizedTargetPlaneIndex &&
     columnSlotIndex(sourceColumn) === targetSlotIndex
   ) {
     return unchangedPaneDrop(columns);
   }
 
-  const columnsWithoutSourcePane = columns
+  const columnsWithoutSourcePane = normalizedColumns
     .map((column) =>
       column.columnId === sourceColumn.columnId
         ? {
@@ -289,15 +298,16 @@ function movePaneToPlaneSlot(
     .filter((column) => column.paneIds.length > 0);
   const targetSlotOccupied = columnsWithoutSourcePane.some(
     (column) =>
-      column.planeIndex === targetPlaneIndex && columnSlotIndex(column) === targetSlotIndex,
+      column.planeIndex === normalizedTargetPlaneIndex &&
+      columnSlotIndex(column) === targetSlotIndex,
   );
   if (targetSlotOccupied) {
     return unchangedPaneDrop(columns);
   }
 
   const referenceColumn =
-    columns.find((column) => column.columnId === intent.referenceColumnId) ??
-    columns.find((column) => columnSlotIndex(column) === targetSlotIndex) ??
+    normalizedColumns.find((column) => column.columnId === intent.referenceColumnId) ??
+    normalizedColumns.find((column) => columnSlotIndex(column) === targetSlotIndex) ??
     sourceColumn;
   const widthSpec = copiedColumnWidthSpec(referenceColumn.widthSpec);
   const idealWidthSpec = copiedColumnWidthSpec(referenceColumn.idealWidthSpec);
@@ -306,7 +316,7 @@ function movePaneToPlaneSlot(
     idealWidthSpec,
     index: columnsWithoutSourcePane.length,
     paneIds: [sourcePaneId],
-    planeIndex: targetPlaneIndex,
+    planeIndex: normalizedTargetPlaneIndex,
     previousProportionWidth:
       widthSpec.unit === "proportion"
         ? (referenceColumn.previousProportionWidth ?? widthSpec.value)
@@ -360,10 +370,25 @@ function normalizedDropIndex(index: number): number | null {
   return Math.max(0, Math.floor(index));
 }
 
+function normalizedDropPlaneIndex(index: number): number | null {
+  if (!Number.isFinite(index)) {
+    return null;
+  }
+  return Math.floor(index);
+}
+
 function reindexColumns(columns: readonly WorkspaceColumn[]): WorkspaceColumn[] {
-  return columns
-    .toSorted(compareColumnsByPlaneAndSlot)
-    .map((column, index) => ({ ...column, index, slotIndex: columnSlotIndex(column) }));
+  const planeIndexByOldIndex = new Map(
+    [...new Set(columns.map((column) => column.planeIndex))]
+      .toSorted((left, right) => left - right)
+      .map((planeIndex, denseIndex) => [planeIndex, denseIndex]),
+  );
+  return columns.toSorted(compareColumnsByPlaneAndSlot).map((column, index) => ({
+    ...column,
+    index,
+    planeIndex: planeIndexByOldIndex.get(column.planeIndex) ?? column.planeIndex,
+    slotIndex: columnSlotIndex(column),
+  }));
 }
 
 function unchangedPaneDrop(columns: readonly WorkspaceColumn[]): PaneDropColumnResult {

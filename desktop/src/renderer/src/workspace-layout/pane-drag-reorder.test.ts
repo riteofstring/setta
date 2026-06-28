@@ -87,6 +87,119 @@ describe("pane drag drop intent hit-testing", () => {
     });
   });
 
+  test("maps the empty row directly below the lowest pane to a plane slot", () => {
+    const single = [
+      { bottom: 200, left: 100, paneId: "target_pane", right: 300, top: 0, width: 200, zIndex: 1 },
+    ];
+
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 150, clientY: 350 }),
+      "source_pane",
+      storeForDragTests(),
+      single,
+    );
+
+    expect(target).toEqual({
+      axis: "vertical",
+      intent: {
+        kind: "plane-slot",
+        planeIndex: 3,
+        referenceColumnId: "target_column",
+        slotIndex: 1,
+      },
+      mode: "insert",
+      paneId: "target_pane",
+      placement: "after",
+    });
+  });
+
+  test("maps the empty row directly above the highest pane to a plane slot", () => {
+    const hostRects = [
+      {
+        bottom: 420,
+        left: -220,
+        paneId: "source_pane",
+        right: -20,
+        top: 220,
+        width: 200,
+        zIndex: 1,
+      },
+      {
+        bottom: 420,
+        left: 100,
+        paneId: "target_pane",
+        right: 300,
+        top: 220,
+        width: 200,
+        zIndex: 1,
+      },
+    ];
+
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 150, clientY: 40 }),
+      "source_pane",
+      storeForDragTests(),
+      hostRects,
+    );
+
+    expect(target).toEqual({
+      axis: "vertical",
+      intent: {
+        kind: "plane-slot",
+        planeIndex: -1,
+        referenceColumnId: "target_column",
+        slotIndex: 1,
+      },
+      mode: "insert",
+      paneId: "target_pane",
+      placement: "before",
+    });
+  });
+
+  test("keeps far empty space below a column as a new-column drop", () => {
+    const single = [
+      { bottom: 200, left: 100, paneId: "target_pane", right: 300, top: 0, width: 200, zIndex: 1 },
+    ];
+
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 150, clientY: 650 }),
+      "source_pane",
+      storeForDragTests(),
+      single,
+    );
+
+    expect(target?.intent).toMatchObject({ kind: "column", slotPlacement: "before" });
+  });
+
+  test("keeps the outer empty-row target stable across its row-height band", () => {
+    const single = [
+      { bottom: 200, left: 100, paneId: "target_pane", right: 300, top: 0, width: 200, zIndex: 1 },
+    ];
+    const targets = [201, 240, 320, 408].map((clientY) =>
+      paneDropTargetFromPointer(
+        pointerEvent({ clientX: 150, clientY }),
+        "source_pane",
+        storeForDragTests(),
+        single,
+      ),
+    );
+
+    for (const target of targets) {
+      expect(target).toEqual({
+        axis: "vertical",
+        intent: {
+          kind: "plane-slot",
+          planeIndex: 3,
+          referenceColumnId: "target_column",
+          slotIndex: 1,
+        },
+        mode: "insert",
+        paneId: "target_pane",
+        placement: "after",
+      });
+    }
+  });
+
   test("maps an empty same-plane slot above another plane to that shared slot", () => {
     const hostRects = [
       { bottom: 200, left: 300, paneId: "source_pane", right: 500, top: 0, width: 200, zIndex: 1 },

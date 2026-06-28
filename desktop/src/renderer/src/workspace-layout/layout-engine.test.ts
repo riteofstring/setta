@@ -771,6 +771,67 @@ describe("real workspace layout column sizing", () => {
     expect(lowerItem.width).toBe(430);
   });
 
+  test("drops a pane into a new plane above the first row without negative plane indexes", () => {
+    const engine = new WorkspaceLikeLayoutEngine(createPlaneSlotDropScene());
+
+    expect(
+      engine.applyPaneDropIntent("source_pane", {
+        kind: "plane-slot",
+        planeIndex: -1,
+        referenceColumnId: "lower_column",
+        slotIndex: 0,
+      }),
+    ).toBe(true);
+
+    const scene = engine.toScene();
+    const movedColumn = requireColumnForPane(scene, "source_pane");
+    const lowerColumn = requireColumnForPane(scene, "lower_pane");
+
+    expect(movedColumn).toMatchObject({
+      planeIndex: 0,
+      slotIndex: 0,
+      widthSpec: { unit: "px", value: 430 },
+    });
+    expect(lowerColumn).toMatchObject({
+      planeIndex: 1,
+      slotIndex: 0,
+    });
+    expect(scene.columns.map((column) => column.planeIndex)).toEqual([0, 1]);
+  });
+
+  test("overview plane-slot previews keep the committed overview camera frame", () => {
+    const engine = new WorkspaceLikeLayoutEngine(createPlaneSlotDropScene());
+    const committedItems = renderFrame(
+      engine,
+      { ...viewport, height: 1200, width: 1200 },
+      0,
+      "lower_pane",
+      "overview",
+    );
+    const committedSource = requireRenderItem(committedItems, "source_pane");
+
+    expect(
+      engine.previewPaneDropIntent("lower_pane", {
+        kind: "plane-slot",
+        planeIndex: -1,
+        referenceColumnId: "source_column",
+        slotIndex: 1,
+      }),
+    ).toBe(true);
+
+    const previewItems = renderFrame(
+      engine,
+      { ...viewport, height: 1200, width: 1200 },
+      0,
+      "lower_pane",
+      "overview",
+    );
+    const previewSource = requireRenderItem(previewItems, "source_pane");
+
+    expect(previewSource.scale).toBeCloseTo(committedSource.scale, 6);
+    expect(previewSource.y).toBeGreaterThan(committedSource.y);
+  });
+
   test("drops columns at the first and last positions of target planes", () => {
     const beforeEngine = createRealEngine();
     const beforeTargetColumn = requireColumnForPane(beforeEngine.toScene(), "workspace_pane_0");
