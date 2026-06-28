@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"fmt"
+
 	"setta/internal/codexapp"
 )
 
@@ -39,6 +41,15 @@ func (harness *CodexHarness) SetBackgroundTerminalSink(sink BackgroundTerminalSi
 	harness.backgroundSink = sink
 }
 
+func (harness *CodexHarness) setBackgroundTerminalThreadContext(threadID string, workspaceID string, conversationID string) {
+	if threadID == "" {
+		return
+	}
+	harness.backgroundMu.Lock()
+	defer harness.backgroundMu.Unlock()
+	harness.threadContexts[threadID] = backgroundTerminalThreadContext{workspaceID: workspaceID, conversationID: conversationID}
+}
+
 func (harness *CodexHarness) beginBackgroundTerminalTurn(threadID string, workspaceID string, conversationID string) {
 	if threadID == "" {
 		return
@@ -66,6 +77,9 @@ func (harness *CodexHarness) endBackgroundTerminalTurn(threadID string) {
 // routeCrossTurnBackgroundNotification, which has the active turn id, not here.
 func (harness *CodexHarness) backgroundTerminalLateRouting(threadID string) (BackgroundTerminalSink, backgroundTerminalThreadContext, bool) {
 	if threadID == "" {
+		return nil, backgroundTerminalThreadContext{}, false
+	}
+	if harness.hasRoutableGoalOperation(threadID) {
 		return nil, backgroundTerminalThreadContext{}, false
 	}
 	harness.backgroundMu.Lock()
@@ -120,53 +134,104 @@ func (harness *CodexHarness) backgroundSinkForThread(threadID string) (Backgroun
 // returns handled=false for anything that is not a cross-turn background event, so
 // during-turn (matching turn id) lifecycle still flows through the normal path.
 func (harness *CodexHarness) routeCrossTurnBackgroundNotification(message jsonRPCMessage, threadID string, activeTurnID string) (bool, error) {
-	switch message.Method {
-	case codexapp.CodexNotificationItemCompleted:
-		return harness.routeCrossTurnBackgroundCompletion(message, threadID, activeTurnID)
-	case codexapp.CodexNotificationItemCommandExecutionOutputDelta:
-		return harness.routeCrossTurnBackgroundOutput(message, threadID, activeTurnID)
-	default:
+	notification, handled, err := harness.classifyBackgroundTerminalNotification(message)
+	if err != nil || !handled {
+		return false, err
+	}
+	if notification.threadID != threadID || isSameTurn(notification.turnID, activeTurnID) {
 		return false, nil
+	}
+	sink, context, ok := harness.backgroundSinkForThread(threadID)
+	if !ok {
+		return true, nil
+	}
+	return true, routeBackgroundTerminalNotification(sink, context, notification)
+}
+
+type codexBackgroundTerminalNotificationKind string
+
+const (
+	codexBackgroundTerminalOutput     codexBackgroundTerminalNotificationKind = "output"
+	codexBackgroundTerminalCompletion codexBackgroundTerminalNotificationKind = "completion"
+)
+
+type codexBackgroundTerminalNotification struct {
+	kind              codexBackgroundTerminalNotificationKind
+	threadID          string
+	turnID            string
+	providerItemID    string
+	providerProcessID string
+	stream            string
+	text              string
+	exitCode          int
+	errorMessage      string
+}
+
+func (harness *CodexHarness) classifyBackgroundTerminalNotification(message jsonRPCMessage) (codexBackgroundTerminalNotification, bool, error) {
+	switch message.Method {
+	case codexapp.CodexNotificationItemCommandExecutionOutputDelta:
+		return harness.classifyBackgroundTerminalOutput(message)
+	case codexapp.CodexNotificationItemCompleted:
+		return classifyBackgroundTerminalCompletion(message)
+	default:
+		return codexBackgroundTerminalNotification{}, false, nil
 	}
 }
 
-func (harness *CodexHarness) routeCrossTurnBackgroundCompletion(message jsonRPCMessage, threadID string, activeTurnID string) (bool, error) {
+func (harness *CodexHarness) classifyBackgroundTerminalOutput(message jsonRPCMessage) (codexBackgroundTerminalNotification, bool, error) {
+	params, err := codexapp.DecodeCommandExecutionOutputDeltaNotification(message.Params)
+	if err != nil || params.Delta == "" {
+		return codexBackgroundTerminalNotification{}, false, err
+	}
+	if !harness.isBackgroundItemID(params.ItemId) {
+		return codexBackgroundTerminalNotification{}, false, nil
+	}
+	return codexBackgroundTerminalNotification{
+		kind:           codexBackgroundTerminalOutput,
+		threadID:       params.ThreadID,
+		turnID:         params.TurnID,
+		providerItemID: params.ItemId,
+		stream:         codexCommandExecutionOutputStream,
+		text:           params.Delta,
+	}, true, nil
+}
+
+func classifyBackgroundTerminalCompletion(message jsonRPCMessage) (codexBackgroundTerminalNotification, bool, error) {
 	params, err := codexapp.DecodeItemCompletedNotification(message.Params)
-	if err != nil || isSameTurn(params.TurnID, activeTurnID) {
-		return false, nil
+	if err != nil {
+		return codexBackgroundTerminalNotification{}, false, err
 	}
 	item, err := objectValue(params.Item, "codex item")
 	if err != nil {
-		return false, nil
+		return codexBackgroundTerminalNotification{}, false, nil
 	}
 	fields, err := codexRunItemExecutionFieldsFromItem(item)
 	if err != nil || fields.source == nil || *fields.source != RunItemCommandSourceUnifiedExecStartup {
-		return false, nil
+		return codexBackgroundTerminalNotification{}, false, nil
 	}
 	providerItemID, err := requireString(item, "id", "codex item")
 	if err != nil {
-		return false, nil
+		return codexBackgroundTerminalNotification{}, false, err
 	}
-	sink, context, ok := harness.backgroundSinkForThread(threadID)
-	if !ok {
-		return true, nil
-	}
-	return true, sink.BackgroundTerminalCompleted(context.workspaceID, context.conversationID, providerItemID, fields.processID, fields.exitCode, "")
+	return codexBackgroundTerminalNotification{
+		kind:              codexBackgroundTerminalCompletion,
+		threadID:          params.ThreadID,
+		turnID:            params.TurnID,
+		providerItemID:    providerItemID,
+		providerProcessID: fields.processID,
+		exitCode:          fields.exitCode,
+	}, true, nil
 }
 
-func (harness *CodexHarness) routeCrossTurnBackgroundOutput(message jsonRPCMessage, threadID string, activeTurnID string) (bool, error) {
-	params, err := codexapp.DecodeCommandExecutionOutputDeltaNotification(message.Params)
-	if err != nil || params.Delta == "" || isSameTurn(params.TurnID, activeTurnID) {
-		return false, nil
+func routeBackgroundTerminalNotification(sink BackgroundTerminalSink, context backgroundTerminalThreadContext, notification codexBackgroundTerminalNotification) error {
+	switch notification.kind {
+	case codexBackgroundTerminalOutput:
+		return sink.BackgroundTerminalOutputDelta(context.workspaceID, context.conversationID, notification.providerItemID, notification.providerProcessID, notification.stream, notification.text)
+	case codexBackgroundTerminalCompletion:
+		return sink.BackgroundTerminalCompleted(context.workspaceID, context.conversationID, notification.providerItemID, notification.providerProcessID, notification.exitCode, notification.errorMessage)
+	default:
+		return fmt.Errorf("unsupported background terminal notification kind: %s", notification.kind)
 	}
-	if !harness.isBackgroundItemID(params.ItemId) {
-		return false, nil
-	}
-	sink, context, ok := harness.backgroundSinkForThread(threadID)
-	if !ok {
-		return true, nil
-	}
-	return true, sink.BackgroundTerminalOutputDelta(context.workspaceID, context.conversationID, params.ItemId, "", codexCommandExecutionOutputStream, params.Delta)
 }
 
 // isSameTurn reports whether a notification's turn id belongs to the active turn.
@@ -204,41 +269,32 @@ func (harness *CodexHarness) handleConnectionTurnCompleted(message codexapp.Mess
 	if err != nil {
 		return
 	}
+	if harness.hasRoutableGoalOperation(params.ThreadID) {
+		return
+	}
 	harness.endBackgroundTerminalTurn(params.ThreadID)
 }
 
 func (harness *CodexHarness) handleConnectionItemCompleted(message codexapp.Message) {
-	params, err := codexapp.DecodeItemCompletedNotification(message.Params)
-	if err != nil {
+	notification, handled, err := harness.classifyBackgroundTerminalNotification(message)
+	if err != nil || !handled {
 		return
 	}
-	item, err := objectValue(params.Item, "codex item")
-	if err != nil {
-		return
-	}
-	fields, err := codexRunItemExecutionFieldsFromItem(item)
-	if err != nil || fields.source == nil || *fields.source != RunItemCommandSourceUnifiedExecStartup {
-		return
-	}
-	providerItemID, err := requireString(item, "id", "codex item")
-	if err != nil {
-		return
-	}
-	sink, context, ok := harness.backgroundTerminalLateRouting(params.ThreadID)
+	sink, context, ok := harness.backgroundTerminalLateRouting(notification.threadID)
 	if !ok {
 		return
 	}
-	_ = sink.BackgroundTerminalCompleted(context.workspaceID, context.conversationID, providerItemID, fields.processID, fields.exitCode, "")
+	_ = routeBackgroundTerminalNotification(sink, context, notification)
 }
 
 func (harness *CodexHarness) handleConnectionOutputDelta(message codexapp.Message) {
-	params, err := codexapp.DecodeCommandExecutionOutputDeltaNotification(message.Params)
-	if err != nil || params.Delta == "" {
+	notification, handled, err := harness.classifyBackgroundTerminalNotification(message)
+	if err != nil || !handled {
 		return
 	}
-	sink, context, ok := harness.backgroundTerminalLateRouting(params.ThreadID)
+	sink, context, ok := harness.backgroundTerminalLateRouting(notification.threadID)
 	if !ok {
 		return
 	}
-	_ = sink.BackgroundTerminalOutputDelta(context.workspaceID, context.conversationID, params.ItemId, "", codexCommandExecutionOutputStream, params.Delta)
+	_ = routeBackgroundTerminalNotification(sink, context, notification)
 }

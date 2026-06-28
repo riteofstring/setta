@@ -32,6 +32,21 @@ func handleFakeGoalSetMethod(mode string, state *fakeCodexState, message map[str
 		if value, ok := params["objective"].(string); ok && value != "" {
 			objective = value
 		}
+		switch mode {
+		case "goal-operation-pre-sink-buffer":
+			writeFakeGoalOperationPreSinkBuffer(objective)
+			writeFakeGoalResponse(message["id"], objective, "active")
+			return true
+		case "goal-operation-pre-sink-overflow":
+			writeFakeGoalOperationPreSinkOverflow(objective)
+			writeFakeGoalResponse(message["id"], objective, "active")
+			return true
+		}
+		if fakeGoalOperationStartsBackgroundTerminal(mode) {
+			writeFakeGoalOperationMultiTurn(mode, objective)
+			writeFakeGoalResponse(message["id"], objective, "active")
+			return true
+		}
 		writeFakeGoalResponse(message["id"], objective, "active")
 		switch mode {
 		case "goal-operation-no-runtime-turn",
@@ -56,12 +71,6 @@ func handleFakeGoalSetMethod(mode string, state *fakeCodexState, message map[str
 			return true
 		case "goal-operation-failed-completion":
 			writeFakeGoalOperationSingleTurnCompletion(objective, "failed")
-			return true
-		case "goal-operation-pre-sink-buffer":
-			writeFakeGoalOperationPreSinkBuffer(objective)
-			return true
-		case "goal-operation-pre-sink-overflow":
-			writeFakeGoalOperationPreSinkOverflow(objective)
 			return true
 		case "goal-operation-idle-gap":
 			writeFakeGoalOperationMultiTurn(mode, objective)

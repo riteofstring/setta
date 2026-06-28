@@ -1184,6 +1184,7 @@ type fakeCodexState struct {
 	holdCalls            int
 	modelListCalls       int
 	responseOutstanding  string
+	currentThreadID      string
 }
 
 func handleFakeJSONRPCMode(mode string, state *fakeCodexState, message map[string]any) bool {
@@ -1289,7 +1290,11 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)
-		writeFakeThreadResponseForMode(message["id"], mode, fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
+		threadID := state.currentThreadID
+		if threadID == "" {
+			threadID = "thread_fake"
+		}
+		writeFakeThreadResponseForModeAndThread(message["id"], mode, fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode), threadID)
 	case "thread/goal/get":
 		return handleFakeGoalGet(mode, message)
 	case "thread/goal/set":
@@ -1346,7 +1351,11 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 		return done
 	}
 	if fakeGoalOperationMode(mode) {
-		writeFakeStreamTurn()
+		threadID := state.currentThreadID
+		if threadID == "" {
+			threadID = "thread_fake"
+		}
+		writeFakeStreamTurnForThread(threadID)
 		return true
 	}
 	return false

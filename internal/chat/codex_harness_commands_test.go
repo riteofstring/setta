@@ -431,6 +431,20 @@ func handleFakeCommandThread(mode string, state *fakeCodexState, message map[str
 	}
 	method := message["method"]
 	params := fakeParams(message)
+	if fakeGoalOperationMode(mode) {
+		if method != "thread/start" && method != "thread/resume" {
+			panic("goal operation command should start or resume a thread")
+		}
+		state.commandThreadStarted = method == "thread/start"
+		state.commandThreadResumed = method == "thread/resume"
+		state.currentThreadID = "thread_fake"
+		if method == "thread/resume" {
+			if threadID, ok := params["threadId"].(string); ok && threadID != "" {
+				state.currentThreadID = threadID
+			}
+		}
+		return
+	}
 	if fakeCommandStartsThread(mode) && method != "thread/start" {
 		panic("goal set command should start a thread")
 	}
@@ -448,6 +462,10 @@ func handleFakeCommandThread(mode string, state *fakeCodexState, message map[str
 	}
 	state.commandThreadStarted = method == "thread/start"
 	state.commandThreadResumed = method == "thread/resume"
+	state.currentThreadID = "thread_fake"
+	if method == "thread/resume" {
+		state.currentThreadID = params["threadId"].(string)
+	}
 }
 
 func fakeCommandUsesThread(mode string) bool {

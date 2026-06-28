@@ -73,10 +73,12 @@ func TestCodexHarnessGoalOperationCoalescesRuntimeContinuations(t *testing.T) {
 }
 
 func TestCodexHarnessGoalOperationFinishExactlyOnce(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 1", "exactly-once logical finish chokepoint")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-duplicate-finish"))
 	result, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
 	defer continuation.Close()
+	if !harness.hasGoalOperation(result.ThreadRef.ThreadID) {
+		t.Fatal("goal operation route owner was not registered")
+	}
 
 	sink := newRecordingSink()
 	completion, err := continuation.Wait(context.Background(), phase0GoalTurnRequest(t, result), sink)
@@ -98,6 +100,13 @@ func TestCodexHarnessGoalOperationFinishExactlyOnce(t *testing.T) {
 	}
 	if terminalUpdates != 0 {
 		t.Fatalf("terminal goal updates = %d in %+v, want current premature finish before terminal goal update", terminalUpdates, sink.goals)
+	}
+	if harness.hasGoalOperation(result.ThreadRef.ThreadID) {
+		t.Fatal("goal operation route owner leaked after finish")
+	}
+	continuation.Close()
+	if harness.hasGoalOperation(result.ThreadRef.ThreadID) {
+		t.Fatal("goal operation route owner was unregistered more than once incorrectly")
 	}
 }
 
@@ -312,26 +321,97 @@ func TestServiceGoalOperationProviderClearCompletesAfterCurrentPhysicalTurn(t *t
 }
 
 func TestCodexHarnessGoalOperationRejectsConcurrentThreadTurn(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 1", "per-thread route-owner rejection instead of global serialization")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-idle-gap"))
-	_, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
+	result, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
 	defer continuation.Close()
 
-	if harness.turnMu.TryLock() {
-		harness.turnMu.Unlock()
-		t.Fatal("turnMu was available, want current goal continuation to hold the harness-global lock")
+	request := testCommandRequest(t, "/goal second objective")
+	request.ThreadRef = result.ThreadRef
+	_, second, err := harness.BeginGoalContinuation(context.Background(), request)
+	if second != nil {
+		second.Close()
+	}
+	if err == nil {
+		t.Fatal("second goal operation for the same thread succeeded")
+	}
+	if !strings.Contains(err.Error(), "codex goal operation already owns thread thread_fake") {
+		t.Fatalf("second goal operation error = %v, want route owner conflict", err)
+	}
+	if !harness.hasGoalOperation(result.ThreadRef.ThreadID) {
+		t.Fatal("original goal operation route owner was lost after rejected second operation")
+	}
+}
+
+func TestCodexHarnessGoalOperationRejectsLinkedGoalBeforeProviderSession(t *testing.T) {
+	harness := NewCodexHarness(CodexHarnessConfig{Command: "/definitely/missing/codex-app-server"})
+	operation, err := harness.reserveGoalOperationThread("thread_fake")
+	if err != nil {
+		t.Fatalf("reserve goal operation: %v", err)
+	}
+	defer operation.Close()
+
+	request := testCommandRequest(t, "/goal second objective")
+	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
+	_, continuation, err := harness.BeginGoalContinuation(context.Background(), request)
+	if continuation != nil {
+		continuation.Close()
+	}
+	if err == nil {
+		t.Fatal("second linked goal operation succeeded")
+	}
+	if !strings.Contains(err.Error(), "codex goal operation already owns thread thread_fake") {
+		t.Fatalf("second linked goal operation error = %v, want route owner conflict before provider session", err)
+	}
+}
+
+func TestCodexHarnessGoalOperationRejectsLinkedStartTurnBeforeProviderSession(t *testing.T) {
+	harness := NewCodexHarness(CodexHarnessConfig{Command: "/definitely/missing/codex-app-server"})
+	operation, err := harness.reserveGoalOperationThread("thread_fake")
+	if err != nil {
+		t.Fatalf("reserve goal operation: %v", err)
+	}
+	defer operation.Close()
+
+	request := testTurnRequest(t)
+	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
+	_, err = harness.StartTurn(context.Background(), request, newRecordingSink())
+	if err == nil {
+		t.Fatal("linked normal turn on a goal-owned thread succeeded")
+	}
+	if !strings.Contains(err.Error(), "codex goal operation already owns thread thread_fake") {
+		t.Fatalf("linked normal turn error = %v, want route owner conflict before provider session", err)
 	}
 }
 
 func TestCodexHarnessGoalOperationDoesNotHoldGlobalTurnMuAcrossIdleGap(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 1", "release harness-global turnMu across logical goal idle gaps")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-idle-gap"))
 	_, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
 	defer continuation.Close()
 
-	if harness.turnMu.TryLock() {
-		harness.turnMu.Unlock()
-		t.Fatal("turnMu was available, want current goal continuation to block unrelated turns")
+	if !harness.turnMu.TryLock() {
+		t.Fatal("goal operation held the harness-global turnMu")
+	}
+	harness.turnMu.Unlock()
+}
+
+func TestCodexHarnessGoalOperationAllowsDifferentThreadTurn(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-idle-gap"))
+	result, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
+	defer continuation.Close()
+
+	request := testTurnRequest(t)
+	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_other", Status: HarnessRefLinked}
+	sink := newRecordingSink()
+	completion, err := harness.StartTurn(context.Background(), request, sink)
+	if err != nil {
+		t.Fatalf("start unrelated normal turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.threadID != "thread_other" || sink.text != "hello from codex" {
+		t.Fatalf("unrelated turn sink thread/text = %q/%q, want thread_other streamed response", sink.threadID, sink.text)
+	}
+	if !harness.hasGoalOperation(result.ThreadRef.ThreadID) {
+		t.Fatal("goal operation route owner was lost while unrelated thread ran")
 	}
 }
 
@@ -352,7 +432,6 @@ func TestCodexHarnessGoalOperationBuffersPreSinkEventsInOrder(t *testing.T) {
 }
 
 func TestCodexHarnessGoalOperationFailsOnPreSinkBufferOverflow(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 1", "explicit pre-sink buffer overflow error")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-pre-sink-overflow"))
 	result, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
 	defer continuation.Close()
@@ -361,25 +440,60 @@ func TestCodexHarnessGoalOperationFailsOnPreSinkBufferOverflow(t *testing.T) {
 	if err == nil {
 		t.Fatal("goal operation succeeded after pre-sink buffer overflow")
 	}
-	if !strings.Contains(err.Error(), "codex app-server session is closed") {
-		t.Fatalf("goal operation error = %v, want current closed-session failure", err)
+	if !strings.Contains(err.Error(), "codex goal operation pre-sink buffer overflow") {
+		t.Fatalf("goal operation error = %v, want specific pre-sink buffer overflow", err)
+	}
+	if harness.hasGoalOperation(result.ThreadRef.ThreadID) {
+		t.Fatal("goal operation route owner leaked after pre-sink overflow")
 	}
 }
 
 func TestCodexHarnessGoalOperationRoutesBackgroundTerminalDuringIdleGap(t *testing.T) {
-	assertPhase0BackgroundTerminalGoalOperationCurrentlyEndsAfterFirstTurn(t, "goal-operation-background-idle-gap")
+	assertPhase1BackgroundTerminalGoalOperationRoutes(t, "goal-operation-background-idle-gap")
 }
 
 func TestCodexHarnessGoalOperationRoutesBackgroundTerminalDuringPhysicalTurnB(t *testing.T) {
-	assertPhase0BackgroundTerminalGoalOperationCurrentlyEndsAfterFirstTurn(t, "goal-operation-background-physical-turn-b")
+	assertPhase1BackgroundTerminalGoalOperationRoutes(t, "goal-operation-background-physical-turn-b")
 }
 
 func TestCodexHarnessGoalOperationDelegatesBackgroundTerminalBeforeLogicalRewrite(t *testing.T) {
-	assertPhase0BackgroundTerminalGoalOperationCurrentlyEndsAfterFirstTurn(t, "goal-operation-background-delegate-before-rewrite")
+	assertPhase1BackgroundTerminalGoalOperationRoutes(t, "goal-operation-background-delegate-before-rewrite")
+}
+
+func TestServiceGoalOperationReplaysPreSinkBackgroundTerminalBeforeOutput(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-background-idle-gap"))
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal finish renderer tests"); err != nil {
+		t.Fatalf("execute goal command: %v", err)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal run", runs)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
+
+	process := waitForBackgroundTerminalProcess(t, service, "workspace_api", conversation.ID, fakeUnifiedExecAlphaItemID, BackgroundTerminalExited)
+	if process.Status != BackgroundTerminalExited || process.ProcessID != fakeUnifiedExecAlphaProcess {
+		t.Fatalf("background terminal process = %+v, want exited goal-owned process", process)
+	}
+	outputPage, err := service.store.LoadBackgroundTerminalOutputPage("workspace_api", conversation.ID, process.ID, 0, 10)
+	if err != nil {
+		t.Fatalf("load background terminal output: %v", err)
+	}
+	if len(outputPage.Output) != 1 || outputPage.Output[0].Text != "goal terminal output\n" {
+		t.Fatalf("background terminal output page = %+v, want pre-sink output persisted after startup replay", outputPage)
+	}
 }
 
 func TestCodexHarnessBackgroundTerminalClassificationSharedByGoalAndStandaloneRouters(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 1", "shared background-terminal classification")
 	harness := NewCodexHarness(testCodexConfig("stream"))
 	background := newRecordingBackgroundTerminalSink()
 	harness.SetBackgroundTerminalSink(background)
@@ -397,11 +511,112 @@ func TestCodexHarnessBackgroundTerminalClassificationSharedByGoalAndStandaloneRo
 	})
 	select {
 	case output := <-background.outputs:
-		if output.providerItemID != "item_not_registered_as_background" || output.text != "unclassified output\n" {
-			t.Fatalf("background output = %+v, want current unclassified output routed by connection handler", output)
+		t.Fatalf("unclassified output was routed by standalone background handler: %+v", output)
+	case <-time.After(phase0ShortEventTimeout):
+	}
+
+	harness.recordBackgroundItemID(fakeUnifiedExecAlphaItemID)
+	harness.handleConnectionOutputDelta(codexapp.Message{
+		Method: codexapp.CodexNotificationItemCommandExecutionOutputDelta,
+		Params: phase0JSON(t, map[string]any{
+			"delta":    "classified output\n",
+			"itemId":   fakeUnifiedExecAlphaItemID,
+			"threadId": "thread_fake",
+			"turnId":   "turn_fake",
+		}),
+	})
+	select {
+	case output := <-background.outputs:
+		if output.providerItemID != fakeUnifiedExecAlphaItemID || output.text != "classified output\n" {
+			t.Fatalf("classified background output = %+v, want registered unified-exec output", output)
 		}
 	case <-time.After(phase0ShortEventTimeout):
-		t.Fatal("timed out waiting for current connection router to accept unclassified output")
+		t.Fatal("timed out waiting for classified background output")
+	}
+}
+
+func TestCodexHarnessGoalOperationKeepsLateBackgroundRoutingBeforeThreadOwned(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("stream"))
+	background := newRecordingBackgroundTerminalSink()
+	harness.SetBackgroundTerminalSink(background)
+	harness.setBackgroundTerminalThreadContext("thread_fake", "workspace_api", "conversation_api")
+	harness.recordBackgroundItemID(fakeUnifiedExecAlphaItemID)
+
+	operation, err := harness.reserveGoalOperationThread("thread_fake")
+	if err != nil {
+		t.Fatalf("reserve goal operation: %v", err)
+	}
+	defer operation.Close()
+
+	harness.handleConnectionOutputDelta(codexapp.Message{
+		Method: codexapp.CodexNotificationItemCommandExecutionOutputDelta,
+		Params: phase0JSON(t, map[string]any{
+			"delta":    "reserved output\n",
+			"itemId":   fakeUnifiedExecAlphaItemID,
+			"threadId": "thread_fake",
+			"turnId":   "turn_previous",
+		}),
+	})
+	reserved := background.waitForOutput(t)
+	if reserved.text != "reserved output\n" {
+		t.Fatalf("reserved operation output = %+v, want late route before session attach", reserved)
+	}
+
+	session, err := harness.manager.NewSession(context.Background())
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	if err := operation.attachSession(session); err != nil {
+		t.Fatalf("attach session: %v", err)
+	}
+	harness.handleConnectionOutputDelta(codexapp.Message{
+		Method: codexapp.CodexNotificationItemCommandExecutionOutputDelta,
+		Params: phase0JSON(t, map[string]any{
+			"delta":    "attached output\n",
+			"itemId":   fakeUnifiedExecAlphaItemID,
+			"threadId": "thread_fake",
+			"turnId":   "turn_previous",
+		}),
+	})
+	attached := background.waitForOutput(t)
+	if attached.text != "attached output\n" {
+		t.Fatalf("attached-but-unowned operation output = %+v, want late route before OwnThread", attached)
+	}
+}
+
+func TestCodexHarnessGoalOperationDefersConnectionScopedBackgroundTerminalRouting(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("stream"))
+	background := newRecordingBackgroundTerminalSink()
+	harness.SetBackgroundTerminalSink(background)
+	harness.setBackgroundTerminalThreadContext("thread_fake", "workspace_api", "conversation_api")
+	harness.recordBackgroundItemID(fakeUnifiedExecAlphaItemID)
+
+	session, err := harness.manager.NewSession(context.Background())
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	operation, err := harness.reserveGoalOperation(session, "thread_fake")
+	if err != nil {
+		t.Fatalf("reserve goal operation: %v", err)
+	}
+	defer operation.Close()
+	if err := operation.ownThread(session, "thread_fake"); err != nil {
+		t.Fatalf("own thread: %v", err)
+	}
+
+	harness.handleConnectionOutputDelta(codexapp.Message{
+		Method: codexapp.CodexNotificationItemCommandExecutionOutputDelta,
+		Params: phase0JSON(t, map[string]any{
+			"delta":    "goal-owned output\n",
+			"itemId":   fakeUnifiedExecAlphaItemID,
+			"threadId": "thread_fake",
+			"turnId":   "turn_goal_a",
+		}),
+	})
+	select {
+	case output := <-background.outputs:
+		t.Fatalf("goal-owned background output used standalone connection route: %+v", output)
+	case <-time.After(phase0ShortEventTimeout):
 	}
 }
 
@@ -450,9 +665,8 @@ func assertPhase0GoalOperationOrderVariant(t *testing.T, mode string) {
 	}
 }
 
-func assertPhase0BackgroundTerminalGoalOperationCurrentlyEndsAfterFirstTurn(t *testing.T, mode string) {
+func assertPhase1BackgroundTerminalGoalOperationRoutes(t *testing.T, mode string) {
 	t.Helper()
-	phase0FreezeCurrentGap(t, "Phase 1", "goal-owned background-terminal route composition")
 	harness := NewCodexHarness(testCodexConfig(mode))
 	background := newRecordingBackgroundTerminalSink()
 	harness.SetBackgroundTerminalSink(background)
@@ -468,6 +682,38 @@ func assertPhase0BackgroundTerminalGoalOperationCurrentlyEndsAfterFirstTurn(t *t
 	if sink.text != "goal turn A. " {
 		t.Fatalf("%s assistant text = %q, want current first-physical-turn-only output before background-terminal composition is observable", mode, sink.text)
 	}
+	output := background.waitForOutput(t)
+	if output.providerItemID != fakeUnifiedExecAlphaItemID || output.text != "goal terminal output\n" {
+		t.Fatalf("%s background output = %+v, want goal-owned unified-exec output", mode, output)
+	}
+	completionEvent := background.waitForCompletion(t)
+	if completionEvent.providerItemID != fakeUnifiedExecAlphaItemID || completionEvent.providerProcessID != fakeUnifiedExecAlphaProcess {
+		t.Fatalf("%s background completion = %+v, want goal-owned unified-exec completion", mode, completionEvent)
+	}
+	select {
+	case duplicate := <-background.outputs:
+		t.Fatalf("%s background output routed more than once: %+v", mode, duplicate)
+	case <-time.After(phase0ShortEventTimeout):
+	}
+}
+
+func waitForBackgroundTerminalProcess(t *testing.T, service *Service, workspaceID string, conversationID string, providerItemID string, status BackgroundTerminalStatus) BackgroundTerminalProcess {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		processes, err := service.store.ListBackgroundTerminalProcesses(workspaceID, conversationID)
+		if err != nil {
+			t.Fatalf("list background terminals: %v", err)
+		}
+		for _, process := range processes {
+			if process.ProviderItemID == providerItemID && process.Status == status {
+				return process
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for background terminal process %s status %s", providerItemID, status)
+	return BackgroundTerminalProcess{}
 }
 
 func beginPhase0GoalOperation(t *testing.T, harness *CodexHarness, raw string) (HarnessCommandResult, HarnessGoalContinuation) {

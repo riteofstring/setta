@@ -458,3 +458,14 @@ func (sink *recordingBackgroundTerminalSink) waitForCompletion(t *testing.T) rec
 		return recordedBackgroundTerminalCompletion{}
 	}
 }
+
+func (sink *recordingBackgroundTerminalSink) waitForOutput(t *testing.T) recordedBackgroundTerminalOutput {
+	t.Helper()
+	select {
+	case event := <-sink.outputs:
+		return event
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for background terminal output")
+		return recordedBackgroundTerminalOutput{}
+	}
+}

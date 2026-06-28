@@ -22,7 +22,7 @@ if they do not change cross-turn provider routing.
 - Do not add local-only goal semantics that diverge from Codex provider state.
 - Do not infer goal completion from assistant text, item content, or keyword
   heuristics.
-- Do not preserve old generated contracts, fake harness behavior, or storage
+- Do not preserve old generated contracts, test harness behavior, or storage
   shapes only to keep the current partial `/goal` implementation working.
 - Do not add compatibility shims, legacy support paths, migrations,
   transitional adapters, dual-read/write paths, old-field aliases, dual routing
@@ -101,6 +101,42 @@ Provider behavior to account for:
 - When a goal is active and the thread becomes idle, the runtime can
   automatically start another physical turn with goal-continuation steering.
 
+## Test Source Of Truth
+
+Direct `codex app-server` behavior is the source of truth for this plan.
+Deterministic protocol fixtures are support tools; they are not allowed to
+invent provider semantics.
+
+Testing priority:
+
+1. Use direct `codex app-server` tests for real RPC request/response shape,
+   provider goal mutation semantics, notification ordering that can be observed,
+   clear-before-set behavior, thread persisted/idle validation, and normal
+   logical goal lifecycle.
+2. Use production Setta paths around that direct app-server whenever possible:
+   `codexapp.Manager`, `codexapp.Session`, `CodexHarness`, service runs, event
+   stream, store, and deterministic E2E through Electron/main/preload/renderer.
+3. Use deterministic protocol fixtures only when direct app-server cannot
+   reliably force the condition under test, such as:
+   - alternate finality-affecting notification orders not produced by the
+     current provider run;
+   - exact pre-sink timing gaps;
+   - pre-sink buffer overflow;
+   - stale-active-turn interrupt retry errors;
+   - cross-turn background-terminal output during a specific idle gap or
+     physical turn;
+   - session failure at a precise lifecycle point.
+4. Every deterministic fixture mode must name the direct app-server trace or
+   provider contract it is based on. If a fixture represents a condition that
+   cannot be forced directly, the test must say why.
+5. A deterministic fixture passing is never proof of provider integration. It is
+   proof that Setta handles a specific protocol-shaped sequence.
+
+Do not build broad fixture-only coverage for normal `/goal` behavior. The
+normal path must be exercised against direct `codex app-server`; fixtures exist
+to make edge timing, ordering, and failure paths repeatable after the real
+behavior has been characterized.
+
 ## Current Setta Gaps
 
 Setta currently has a partial goal-continuation path:
@@ -111,8 +147,8 @@ Setta currently has a partial goal-continuation path:
   `waitForTurn` path.
 - `/goal <objective>` directly calls `thread/goal/set` with objective and active
   status.
-- The fake Codex goal-continuation fixture emits one physical turn and one
-  terminal goal update.
+- The existing deterministic Codex goal-continuation fixture emits one physical
+  turn and one terminal goal update.
 
 This misses several reference requirements:
 
@@ -234,11 +270,12 @@ Use a per-thread route-ownership model instead:
   whole logical goal to finish.
 - Goal operation cleanup releases the per-thread route owner exactly once.
 
-### Live Provider Order Characterization
+### Direct App-Server Order Characterization
 
 The coalescer cannot assume a notification order until the provider is
-characterized. Phase 0 must capture live Codex ordering, when ChatGPT-auth live
-Codex is available, for at least:
+characterized. Phase 0 must capture direct `codex app-server` ordering, using
+ChatGPT-auth live Codex when the goal turn requires model execution, for at
+least:
 
 - new goal start: clear, set, first `turn/started`;
 - active continuation: non-terminal goal update, physical `turn/completed`, next
@@ -249,10 +286,10 @@ Codex is available, for at least:
 - cancellation: pause, interrupt, interrupted completion, and any stale active
   turn error shape.
 
-If live auth is unavailable, Phase 0 must say so explicitly and the fake
+If ChatGPT auth is unavailable, Phase 0 must say so explicitly and deterministic
 fixtures must cover each plausible order that affects finality, especially
 terminal status before completion and terminal status after completion. Do not
-ship an order-specific coalescer that has only been proven against one fake
+ship an order-specific coalescer that has only been proven against one fixture
 ordering.
 
 ### Pre-Sink Buffering
@@ -503,20 +540,56 @@ Implementation notes:
 
 ## Tests First
 
-Add characterization tests before implementation changes where possible.
+Add characterization tests before implementation changes where possible. Start
+with direct `codex app-server` tests for provider behavior, then add
+deterministic protocol fixtures only for conditions direct app-server cannot
+force reliably.
+
+### Direct App-Server Tests
+
+- `TestCodexAppServerGoalSetUpdatesExistingGoalWithoutClear`
+  - Use direct `codex app-server` to prove raw `thread/goal/set` with an
+    objective edits an existing provider goal instead of replacing it.
+  - This is the reason Setta's `/goal <objective>` start path must clear before
+    set.
+
+- `TestCodexAppServerGoalStartNotificationOrder`
+  - Use direct `codex app-server` to capture ordered notifications for clear,
+    set, and first runtime-generated `turn/started`.
+  - Persist the observed sequence as test evidence or fixture comments.
+
+- `TestCodexAppServerGoalContinuationNotificationOrder`
+  - Use direct `codex app-server` to capture ordered notifications across at
+    least one automatic runtime continuation when ChatGPT auth is available.
+  - Record whether non-terminal active goal updates arrive before or after the
+    physical completion that precedes the next continuation.
+
+- `TestCodexAppServerGoalTerminalNotificationOrder`
+  - Use direct `codex app-server` to capture terminal goal status ordering
+    relative to the final physical `turn/completed`.
+
+- `TestCodexAppServerGoalRequiresIdlePersistedThread`
+  - Use direct `codex app-server` responses for busy, ephemeral, or missing-path
+    thread state where those states can be created directly.
+
+- `TestCodexAppServerGoalCancelNotificationOrder`
+  - Use direct `codex app-server` to characterize pause, interrupt, interrupted
+    completion, and stale-active-turn error shape when ChatGPT auth is
+    available.
 
 ### Go Unit And Harness Tests
 
 - `TestCodexHarnessGoalSetClearsBeforeSetAndWaitsForRuntimeTurn`
-  - Fake provider has an existing goal.
+  - Deterministic protocol fixture has an existing goal, based on the direct
+    app-server raw set characterization.
   - `/goal new objective` must send `thread/goal/clear` before
     `thread/goal/set`.
   - The continuation must not return before the first `turn/started` is observed
     or buffered.
 
 - `TestCodexHarnessGoalOperationCoalescesRuntimeContinuations`
-  - Fake provider emits physical turn A, non-terminal goal update, completion A,
-    physical turn B, terminal goal update, completion B.
+  - Deterministic protocol fixture emits physical turn A, non-terminal goal
+    update, completion A, physical turn B, terminal goal update, completion B.
   - Setta sink sees one logical start, content from both turns, one logical
     completion, and one run completion.
 
@@ -525,19 +598,19 @@ Add characterization tests before implementation changes where possible.
     status is still active.
 
 - `TestCodexHarnessGoalOperationHandlesTerminalStatusBeforeCompletion`
-  - Fake provider emits terminal goal update before the final physical
-    `turn/completed`.
+  - Deterministic protocol fixture emits terminal goal update before the final
+    physical `turn/completed`.
   - Setta finishes only after the final physical completion.
 
 - `TestCodexHarnessGoalOperationHandlesTerminalStatusAfterCompletion`
-  - Fake provider emits final physical `turn/completed` before the terminal goal
-    update.
+  - Deterministic protocol fixture emits final physical `turn/completed` before
+    the terminal goal update.
   - Setta waits for the terminal goal update and then emits one logical
     completion.
 
 - `TestCodexHarnessGoalSetDoesNotPreserveOldProviderGoal`
-  - Fake provider models Codex raw set behavior: set-with-objective updates old
-    goal unless clear came first.
+  - Deterministic protocol fixture models direct app-server raw set behavior:
+    set-with-objective updates old goal unless clear came first.
   - The test fails if Setta omits the clear.
 
 - `TestCodexHarnessGoalOperationRequiresPersistedIdleThread`
@@ -558,12 +631,12 @@ Add characterization tests before implementation changes where possible.
     between physical turns.
 
 - `TestCodexHarnessGoalOperationBuffersPreSinkEventsInOrder`
-  - Fake provider emits `turn/started` and an assistant delta before the service
-    run sink attaches.
+  - Deterministic protocol fixture emits `turn/started` and an assistant delta
+    before the service run sink attaches.
   - Setta replays the buffered events before later live events, preserving order.
 
 - `TestCodexHarnessGoalOperationFailsOnPreSinkBufferOverflow`
-  - Fake provider exceeds the explicit pre-sink buffer cap.
+  - Deterministic protocol fixture exceeds the explicit pre-sink buffer cap.
   - Setta fails the operation specifically and does not drop or partially replay
     events.
 
@@ -616,7 +689,8 @@ Add characterization tests before implementation changes where possible.
 
 ### Deterministic E2E Tests
 
-Extend the chat workflow deterministic fake provider with:
+Extend the chat workflow deterministic protocol fixture with edge sequences that
+direct app-server cannot force repeatably:
 
 - Start `/goal objective`.
 - Stream assistant output from physical turn A.
@@ -646,10 +720,11 @@ provider RPCs:
 - Assert the UI run becomes cancelled or failed according to the existing
   service cancellation contract.
 
-### Live Provider Characterization
+### Direct App-Server Characterization
 
-Before the fake fixture order is treated as authoritative, run a focused live
-Codex characterization when local Codex is signed in with ChatGPT auth:
+Before any deterministic fixture order is treated as representative, run a
+focused direct `codex app-server` characterization. Use local Codex signed in
+with ChatGPT auth when model execution is required:
 
 - Capture ordered notifications for new goal start, active continuation,
   terminal completion, provider clear, and cancellation.
@@ -659,23 +734,29 @@ Codex characterization when local Codex is signed in with ChatGPT auth:
   completion that triggers the next runtime continuation.
 - Record any stale-active-turn error shape used by interrupt retry.
 
-If live auth is unavailable, document the skip and keep fake coverage for both
-orders that affect finality. Do not remove the order-agnostic tests just because
-one local live run used a particular order.
+If ChatGPT auth is unavailable, document the skip and keep deterministic fixture
+coverage for both orders that affect finality. Do not remove the order-agnostic
+tests just because one local direct app-server run used a particular order.
 
 ## Implementation Phases
 
 ### Phase 0: Reference Characterization And Failing Tests
 
-- Run the live provider characterization above when ChatGPT-auth live Codex is
-  available. If unavailable, document the skip and keep fake fixtures
-  order-agnostic.
-- Add fake Codex protocol modes for multi-turn goal operations, raw
-  set-preserves-old-goal behavior, busy/ephemeral thread read responses, and
-  cancellation.
-- Add fake Codex modes for terminal status before completion, terminal status
-  after completion, non-terminal active update before completion, and
-  non-terminal active update after completion.
+- Run the direct app-server characterization above. Use ChatGPT-auth live Codex
+  when model execution is required. If auth is unavailable, document the skip
+  narrowly and keep deterministic fixtures order-agnostic for the unobserved
+  paths.
+- Add direct app-server tests for raw `thread/goal/set` preserving existing goal
+  state, clear-before-set rationale, provider notification ordering, and
+  idle/persisted thread requirements where those states can be created directly.
+- Add deterministic Codex protocol fixture modes only for edge conditions that
+  direct app-server cannot force repeatably: multi-turn ordering variants,
+  pre-sink timing, overflow, stale interrupt errors, exact session failure
+  points, raw set-preserves-old-goal regression, busy/ephemeral thread response
+  shapes, and cancellation races.
+- Add deterministic fixture modes for terminal status before completion,
+  terminal status after completion, non-terminal active update before
+  completion, and non-terminal active update after completion.
 - Add the Go tests listed above as failing characterization tests.
 - Add deterministic E2E coverage for the multi-turn logical goal flow.
 - Add focused tests for router composition, pre-sink buffering, exactly-once
@@ -689,8 +770,9 @@ Exit criteria:
 - Tests also prove the current path has no designed answer for router
   composition, pre-sink buffering, exactly-once finish, and global-lock
   monopolization.
-- The fake provider order used by later phases is either validated by live Codex
-  or deliberately covers all plausible finality-affecting orders.
+- Any deterministic fixture order used by later phases is either validated by
+  direct app-server characterization or deliberately covers all plausible
+  finality-affecting orders that direct app-server cannot force.
 
 ### Phase 1: Goal Operation Routing Skeleton
 
@@ -809,7 +891,7 @@ Exit criteria:
 
 - Remove the old simplified `codexGoalContinuation` path or collapse it into the
   new operation type.
-- Remove fake harness shortcuts that only model one physical goal turn.
+- Remove test harness shortcuts that only model one physical goal turn.
 - Regenerate TypeScript contracts if owner-defined Go contracts changed.
 - Update command and lifecycle comments to describe logical goal operations.
 
@@ -840,14 +922,17 @@ Required deterministic E2E:
 - `/goal` cancellation.
 - `/goal` with background terminal lifecycle when Phase 5 lands.
 
-Required live-provider characterization before Phase 1, when ChatGPT auth is
-available:
+Required direct app-server characterization before Phase 1:
 
 - Goal start event order.
 - Active continuation event order.
 - Terminal completion event order.
 - Clear and cancellation event order.
 - Stale active turn interrupt error shape.
+
+Use ChatGPT-auth live Codex for characterization cases that require model
+execution. If auth is unavailable, report the narrow skip and keep deterministic
+fixture coverage for the skipped order or failure variants.
 
 Required live-provider E2E:
 
@@ -866,9 +951,9 @@ Use `./check_quality.sh --staged` only when validating exactly the staged commit
 
 ## Open Risks
 
-- If live Codex auth is unavailable during Phase 0, fake fixtures must remain
-  order-agnostic and later live-provider runs can still expose provider ordering
-  not seen locally.
+- If ChatGPT auth is unavailable during Phase 0, deterministic fixtures must
+  remain order-agnostic for unobserved paths and later live-provider runs can
+  still expose provider ordering not seen locally.
 - Current local command result persistence may need adjustment so provider goal
   notifications remain the source of truth for terminal status.
 - Live provider cancellation may report stale active turn ids. Retry logic must

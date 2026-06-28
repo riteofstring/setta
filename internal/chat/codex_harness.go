@@ -26,6 +26,8 @@ type CodexHarness struct {
 	active               map[string]*codexActiveTurn
 	approvals            map[string]codexPendingApproval
 	approvalsByRequestID map[string]string
+	goalMu               sync.Mutex
+	goalOperations       map[string]*codexGoalOperation
 
 	// Background terminal lifecycle state outlives any single turn. It is guarded
 	// by its own mutex because connection-scoped notification handlers run on the
@@ -110,6 +112,7 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 		active:               map[string]*codexActiveTurn{},
 		approvals:            map[string]codexPendingApproval{},
 		approvalsByRequestID: map[string]string{},
+		goalOperations:       map[string]*codexGoalOperation{},
 		threadContexts:       map[string]backgroundTerminalThreadContext{},
 		turnActiveByThread:   map[string]bool{},
 		backgroundItemIDs:    map[string]struct{}{},
@@ -122,8 +125,14 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	if err := ctx.Err(); err != nil {
 		return TurnCompletion{}, err
 	}
+	if err := harness.rejectLinkedGoalOperationThread(request.ThreadRef); err != nil {
+		return TurnCompletion{}, err
+	}
 	harness.turnMu.Lock()
 	defer harness.turnMu.Unlock()
+	if err := harness.rejectLinkedGoalOperationThread(request.ThreadRef); err != nil {
+		return TurnCompletion{}, err
+	}
 
 	session, err := harness.manager.NewSession(ctx)
 	if err != nil {
@@ -140,6 +149,9 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 		return TurnCompletion{}, err
 	}
 	threadID := thread.Ref.ThreadID
+	if harness.hasGoalOperation(threadID) {
+		return TurnCompletion{}, fmt.Errorf("codex goal operation already owns thread %s", threadID)
+	}
 	if err := session.OwnThread(threadID); err != nil {
 		return TurnCompletion{}, err
 	}
@@ -161,6 +173,14 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 		return TurnCompletion{}, err
 	}
 	return harness.waitForTurn(ctx, session, request.Run.ID, threadID, turnID, sink)
+}
+
+func (harness *CodexHarness) rejectLinkedGoalOperationThread(threadRef HarnessThreadRef) error {
+	threadID := linkedCodexThreadID(threadRef)
+	if threadID == "" || !harness.hasGoalOperation(threadID) {
+		return nil
+	}
+	return fmt.Errorf("codex goal operation already owns thread %s", threadID)
 }
 
 func (harness *CodexHarness) RunTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {

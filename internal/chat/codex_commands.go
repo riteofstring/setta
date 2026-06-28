@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 
 	"setta/internal/codexapp"
 	"setta/internal/workspace"
@@ -24,14 +23,6 @@ func (harness *CodexHarness) ExecuteCommand(ctx context.Context, request Harness
 	return harness.executeIdleCommand(ctx, request)
 }
 
-type codexGoalContinuation struct {
-	harness  *CodexHarness
-	session  *codexapp.Session
-	threadID string
-
-	closeOnce sync.Once
-}
-
 func (harness *CodexHarness) BeginGoalContinuation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error) {
 	if err := ensureCommandAvailable(request.Command, request.ActiveRun); err != nil {
 		return HarnessCommandResult{}, nil, err
@@ -43,17 +34,35 @@ func (harness *CodexHarness) BeginGoalContinuation(ctx context.Context, request 
 		return HarnessCommandResult{}, nil, err
 	}
 
-	harness.turnMu.Lock()
-	continuationCreated := false
-	defer func() {
-		if !continuationCreated {
-			harness.turnMu.Unlock()
-		}
-	}()
+	session, operation, thread, err := harness.startGoalOperationCommandThread(ctx, request)
+	if err != nil {
+		return HarnessCommandResult{}, nil, err
+	}
+	harness.setBackgroundTerminalThreadContext(thread.Ref.ThreadID, request.Workspace.ID, request.Conversation.ID)
+	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Settings, request.Command)
+	if err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return HarnessCommandResult{}, nil, err
+	}
+	result.ThreadRef = thread.Ref
+	result.HasThreadRef = true
 
+	return result, operation, nil
+}
+
+func (harness *CodexHarness) startGoalOperationCommandThread(ctx context.Context, request HarnessCommandRequest) (*codexapp.Session, *codexGoalOperation, codexCommandThread, error) {
+	var operation *codexGoalOperation
+	if threadID := linkedCodexThreadID(request.ThreadRef); threadID != "" {
+		var err error
+		operation, err = harness.reserveGoalOperationThread(threadID)
+		if err != nil {
+			return nil, nil, codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, err.Error(), err)
+		}
+	}
 	session, err := harness.manager.NewSession(ctx)
 	if err != nil {
-		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorCodexRPC, "start codex app-server: "+err.Error(), err)
+		finishGoalOperation(operation, err)
+		return nil, nil, codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, "start codex app-server: "+err.Error(), err)
 	}
 	closeSession := true
 	defer func() {
@@ -61,54 +70,55 @@ func (harness *CodexHarness) BeginGoalContinuation(ctx context.Context, request 
 			session.Close()
 		}
 	}()
-	session.AcceptUnscopedNotifications()
-	session.AcceptUnscopedRequests()
 
 	thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.ThreadRef)
 	if err != nil {
-		return HarnessCommandResult{}, nil, err
+		finishGoalOperation(operation, err)
+		return nil, nil, codexCommandThread{}, err
 	}
-	if err := session.OwnThread(thread.Ref.ThreadID); err != nil {
-		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorCodexRPC, "own codex command thread: "+err.Error(), err)
-	}
-	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Settings, request.Command)
+	operation, err = harness.attachGoalOperationCommandSession(session, operation, thread)
 	if err != nil {
-		return HarnessCommandResult{}, nil, err
+		return nil, nil, codexCommandThread{}, err
 	}
-	result.ThreadRef = thread.Ref
-	result.HasThreadRef = true
-
 	closeSession = false
-	continuationCreated = true
-	return result, &codexGoalContinuation{
-		harness:  harness,
-		session:  session,
-		threadID: thread.Ref.ThreadID,
-	}, nil
-}
 
-func (continuation *codexGoalContinuation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	if err := ctx.Err(); err != nil {
-		return TurnCompletion{}, err
+	if err := operation.ownThread(session, thread.Ref.ThreadID); err != nil {
+		operation.finish(TurnCompletion{}, err)
+		return nil, nil, codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, "own codex command thread: "+err.Error(), err)
 	}
-	continuation.harness.registerActive(request.Run.ID, continuation.session, request)
-	continuation.harness.updateActiveTurn(request.Run.ID, continuation.threadID, "")
-	defer continuation.harness.unregisterActive(request.Run.ID)
-	// Goal continuations run a turn outside StartTurn, so mirror its background
-	// terminal lifecycle setup: register the thread's conversation and mark its turn
-	// active, so unified-exec terminals started here route correctly and their late
-	// output/completion still reach the right conversation after the continuation.
-	continuation.harness.beginBackgroundTerminalTurn(continuation.threadID, request.Workspace.ID, request.Conversation.ID)
-	defer continuation.harness.endBackgroundTerminalTurn(continuation.threadID)
 
-	return continuation.harness.waitForTurn(ctx, continuation.session, request.Run.ID, continuation.threadID, "", sink)
+	return session, operation, thread, nil
 }
 
-func (continuation *codexGoalContinuation) Close() {
-	continuation.closeOnce.Do(func() {
-		continuation.session.Close()
-		continuation.harness.turnMu.Unlock()
-	})
+func (harness *CodexHarness) attachGoalOperationCommandSession(session *codexapp.Session, operation *codexGoalOperation, thread codexCommandThread) (*codexGoalOperation, error) {
+	var err error
+	if operation == nil {
+		operation, err = harness.reserveGoalOperation(session, thread.Ref.ThreadID)
+	} else if thread.Ref.ThreadID != operation.threadID {
+		err = fmt.Errorf("resume codex thread %s returned thread %s", operation.threadID, thread.Ref.ThreadID)
+		operation.finish(TurnCompletion{}, err)
+		return nil, commandError(ChatCommandErrorCodexProviderDrift, err.Error(), err)
+	} else {
+		err = operation.attachSession(session)
+	}
+	if err != nil {
+		finishGoalOperation(operation, err)
+		return nil, commandError(ChatCommandErrorCodexRPC, err.Error(), err)
+	}
+	return operation, nil
+}
+
+func finishGoalOperation(operation *codexGoalOperation, err error) {
+	if operation != nil {
+		operation.finish(TurnCompletion{}, err)
+	}
+}
+
+func linkedCodexThreadID(threadRef HarnessThreadRef) string {
+	if threadRef.ThreadID == "" || threadRef.Status != HarnessRefLinked {
+		return ""
+	}
+	return threadRef.ThreadID
 }
 
 func (harness *CodexHarness) executeActiveCommand(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {

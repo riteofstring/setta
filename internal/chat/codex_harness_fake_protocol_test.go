@@ -26,24 +26,16 @@ func startTestJSONRPCClient(config CodexHarnessConfig) (*codexapp.Client, error)
 	})
 }
 
-func writeFakeThreadResponse(id any, model string, effort ReasoningEffort) {
-	writeFakeResponse(id, fakeCodexThreadResponse(model, effort))
-}
-
-func writeFakeThreadResponseForMode(id any, mode string, model string, effort ReasoningEffort) {
+func writeFakeThreadResponseForModeAndThread(id any, mode string, model string, effort ReasoningEffort, threadID string) {
 	if !fakeGoalOperationMode(mode) {
-		writeFakeThreadResponse(id, model, effort)
+		writeFakeResponse(id, fakeCodexThreadResponseWithThread(model, effort, fakeCodexThreadWithID(threadID)))
 		return
 	}
-	writeFakeResponse(id, fakeCodexThreadResponseForMode(mode, model, effort))
+	writeFakeResponse(id, fakeCodexThreadResponseForModeAndThread(mode, model, effort, threadID))
 }
 
-func fakeCodexThreadResponse(model string, effort ReasoningEffort) map[string]any {
-	return fakeCodexThreadResponseWithThread(model, effort, fakeCodexThread())
-}
-
-func fakeCodexThreadResponseForMode(mode string, model string, effort ReasoningEffort) map[string]any {
-	thread := fakeCodexThread()
+func fakeCodexThreadResponseForModeAndThread(mode string, model string, effort ReasoningEffort, threadID string) map[string]any {
+	thread := fakeCodexThreadWithID(threadID)
 	if fakeGoalOperationMode(mode) {
 		path := "/tmp/codex/thread_fake.json"
 		thread["ephemeral"] = false
@@ -58,6 +50,12 @@ func fakeCodexThreadResponseForMode(mode string, model string, effort ReasoningE
 		delete(thread, "path")
 	}
 	return fakeCodexThreadResponseWithThread(model, effort, thread)
+}
+
+func fakeCodexThreadWithID(threadID string) map[string]any {
+	thread := fakeCodexThread()
+	thread["id"] = threadID
+	return thread
 }
 
 func fakeCodexThreadResponseWithThread(model string, effort ReasoningEffort, thread map[string]any) map[string]any {
@@ -123,9 +121,13 @@ func fakeCodexThreadSettings(model string, effort ReasoningEffort) map[string]an
 }
 
 func writeFakeStreamTurn() {
-	writeFakeAssistantDelta("hello ")
-	writeFakeAssistantDelta("from codex")
-	writeFakeCompletedTurn("completed")
+	writeFakeStreamTurnForThread("thread_fake")
+}
+
+func writeFakeStreamTurnForThread(threadID string) {
+	writeFakeAssistantDeltaForThread(threadID, "hello ")
+	writeFakeAssistantDeltaForThread(threadID, "from codex")
+	writeFakeCompletedTurnForThread(threadID, "completed")
 }
 
 func writeFakeTurnStartedID(turnID string) {
@@ -806,17 +808,25 @@ func writeFakeUnsupportedRequest() {
 }
 
 func writeFakeAssistantDelta(delta string) {
+	writeFakeAssistantDeltaForThread("thread_fake", delta)
+}
+
+func writeFakeAssistantDeltaForThread(threadID string, delta string) {
 	writeFakeNotification("item/agentMessage/delta", map[string]any{
 		"delta":    delta,
 		"itemId":   "item_fake",
-		"threadId": "thread_fake",
+		"threadId": threadID,
 		"turnId":   "turn_fake",
 	})
 }
 
 func writeFakeCompletedTurn(status string) {
+	writeFakeCompletedTurnForThread("thread_fake", status)
+}
+
+func writeFakeCompletedTurnForThread(threadID string, status string) {
 	writeFakeNotification("turn/completed", map[string]any{
-		"threadId": "thread_fake",
+		"threadId": threadID,
 		"turn":     fakeCodexTurn(status),
 	})
 }
