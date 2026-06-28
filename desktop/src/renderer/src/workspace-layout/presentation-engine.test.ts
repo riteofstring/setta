@@ -32,6 +32,30 @@ describe("workspace presentation engine", () => {
     expect(host.dataset.paneId).toBe("workspace_pane_1");
   });
 
+  test("writes the pane plane index onto the host for overview row sizing", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
+    const host = fakePaneHost("workspace_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply(
+      [{ ...renderItem("workspace_pane_0", "workspace_surface_0", false), planeIndex: 2 }],
+      { resizePhase: "idle" },
+    );
+    expect(host.dataset.planeIndex).toBe("2");
+
+    // Reused for a different plane → attribute follows the new pane.
+    presentation.apply(
+      [{ ...renderItem("workspace_pane_0", "workspace_surface_0", false), planeIndex: 5 }],
+      { resizePhase: "idle" },
+    );
+    expect(host.dataset.planeIndex).toBe("5");
+  });
+
   test("syncs newly visible pane content during viewport resize", () => {
     const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");
@@ -183,6 +207,79 @@ describe("workspace presentation engine", () => {
     expect(host.dataset.visible).toBe("false");
     expect(host.style.opacity).toBe("0");
     expect(host.style.pointerEvents).toBe("none");
+  });
+
+  test("positions the drop-preview box at the previewed slot and swap target", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 2 });
+    const dragHost = fakePaneHost("workspace_pane_0", "Pane 001");
+    const targetHost = fakePaneHost("workspace_pane_1", "Pane 002");
+    const overlay = fakeOverlay();
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([dragHost, targetHost], null);
+    presentation.setDropPreviewOverlay(overlay);
+
+    const settled = () => [
+      renderItemAt("workspace_pane_0", "workspace_surface_0", false, 0),
+      renderItemAt("workspace_pane_1", "workspace_surface_1", false, 200),
+    ];
+    presentation.apply(settled(), { resizePhase: "idle" });
+    // No drop target resolved yet: the box stays hidden.
+    expect(overlay.dataset.visible).toBe("false");
+
+    // Drag pane_0 with an insert resolved on pane_1; the engine has reflowed pane_0
+    // to its landing slot (x=400), while its host floats at the cursor.
+    dragHost.dataset.dragSource = "true";
+    targetHost.dataset.dropAxis = "horizontal";
+    targetHost.dataset.dropTarget = "after";
+    presentation.apply(
+      [
+        renderItemAt("workspace_pane_0", "workspace_surface_0", true, 400),
+        renderItemAt("workspace_pane_1", "workspace_surface_1", true, 200),
+      ],
+      { resizePhase: "idle" },
+    );
+    expect(overlay.dataset.visible).toBe("true");
+    expect(overlay.style.transform).toBe("translate3d(400.00px, 0.00px, 0) scale(1.000)");
+    expect(overlay.style.width).toBe("160.00px");
+
+    // Empty-space targets do not edge-highlight a real pane, but they still
+    // expose the preview marker that lets the overlay follow the landing slot.
+    delete targetHost.dataset.dropTarget;
+    delete targetHost.dataset.dropAxis;
+    targetHost.dataset.dropPreview = "true";
+    presentation.apply(
+      [
+        renderItemAt("workspace_pane_0", "workspace_surface_0", true, 420),
+        renderItemAt("workspace_pane_1", "workspace_surface_1", true, 200),
+      ],
+      { resizePhase: "idle" },
+    );
+    expect(overlay.dataset.visible).toBe("true");
+    expect(overlay.style.transform).toBe("translate3d(420.00px, 0.00px, 0) scale(1.000)");
+
+    // A swap target moves the box onto the pane being swapped with (x=200).
+    delete targetHost.dataset.dropTarget;
+    delete targetHost.dataset.dropAxis;
+    delete targetHost.dataset.dropPreview;
+    targetHost.dataset.dropSwap = "true";
+    presentation.apply(
+      [
+        renderItemAt("workspace_pane_0", "workspace_surface_0", true, 400),
+        renderItemAt("workspace_pane_1", "workspace_surface_1", true, 200),
+      ],
+      { resizePhase: "idle" },
+    );
+    expect(overlay.style.transform).toBe("translate3d(200.00px, 0.00px, 0) scale(1.000)");
+
+    // Ending the drag hides the box again.
+    delete dragHost.dataset.dragSource;
+    delete targetHost.dataset.dropSwap;
+    presentation.apply(settled(), { resizePhase: "idle" });
+    expect(overlay.dataset.visible).toBe("false");
   });
 
   test("does not recycle active pane drag source binding for another pane", () => {
@@ -671,6 +768,10 @@ function requiredChromeElement(host: HTMLElement, selector: string): HTMLElement
     throw new Error(`missing pane chrome selector ${selector}`);
   }
   return element;
+}
+
+function fakeOverlay(): HTMLElement {
+  return { dataset: {}, style: {} } as unknown as HTMLElement;
 }
 
 function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTMLElement {

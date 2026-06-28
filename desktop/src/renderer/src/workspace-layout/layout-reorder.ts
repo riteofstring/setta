@@ -332,7 +332,7 @@ function movePaneToPlaneSlot(
   };
 }
 
-function columnDropKeepsSinglePaneColumnInPlace(
+export function columnDropKeepsSinglePaneColumnInPlace(
   columns: readonly WorkspaceColumn[],
   sourceColumn: WorkspaceColumn,
   targetColumn: WorkspaceColumn,

@@ -1,4 +1,5 @@
 import { columnSlotIndex } from "./column-slots";
+import { columnDropKeepsSinglePaneColumnInPlace } from "./layout-reorder";
 import type { WorkspaceLayoutStore } from "./layout-store";
 import type { ColumnId, PaneDropIntent, PaneDropPlacement, WorkspaceScene } from "./types";
 
@@ -14,6 +15,9 @@ type PaneDropMode = "insert" | "swap";
 export interface PaneDropTarget {
   // Insert affordance only (horizontal = column, vertical = row). Undefined for swap.
   axis?: PaneDropAxis;
+  // Empty-space targets use only the engine-positioned landing rectangle. Direct
+  // pane-edge targets still highlight the reference pane edge.
+  highlightPane?: boolean;
   intent: PaneDropIntent;
   mode: PaneDropMode;
   // The pane to annotate: the swap partner, or the insert reference pane.
@@ -279,10 +283,48 @@ export function paneDropTargetFromPointer(
   const directHost = candidates
     .filter((rect) => rectContainsPoint(rect, event.clientX, event.clientY))
     .toSorted((left, right) => right.zIndex - left.zIndex)[0];
-  if (directHost) {
-    return paneDropTargetOverHost(event, directHost, scene);
+  const target = directHost
+    ? paneDropTargetOverHost(event, directHost, scene)
+    : paneDropTargetInGap(event, candidates, scene, hostRects);
+  return swapForNoOpColumnInsert(target, sourcePaneId, scene);
+}
+
+// A column insert that would leave the dragged pane exactly where it already sits
+// (its own slot, same plane) is a dead drop -- the boundary and edge bands between
+// a pane and the neighbour it is already adjacent to all resolve here. Reading that
+// gesture as "swap with the neighbour you are dragging toward" turns the dead zone
+// into a reliable swap (the annotated pane is the one under/beside the cursor), so a
+// pane can be moved past its neighbour by dropping at their shared edge.
+function swapForNoOpColumnInsert(
+  target: PaneDropTarget | null,
+  sourcePaneId: string,
+  scene: WorkspaceScene,
+): PaneDropTarget | null {
+  if (!target || target.intent.kind !== "column") {
+    return target;
   }
-  return paneDropTargetInGap(event, candidates, scene, hostRects);
+  const intent = target.intent;
+  const sourceColumn = scene.columns.find((column) => column.paneIds.includes(sourcePaneId));
+  const targetColumn = scene.columns.find(
+    (column) =>
+      column.columnId === intent.targetColumnId && column.planeIndex === intent.planeIndex,
+  );
+  if (
+    !sourceColumn ||
+    !targetColumn ||
+    // A multi-pane source column is always extracted into a fresh column, so the
+    // insert genuinely relocates the pane -- never a no-op.
+    sourceColumn.paneIds.length !== 1 ||
+    !columnDropKeepsSinglePaneColumnInPlace(
+      scene.columns,
+      sourceColumn,
+      targetColumn,
+      intent.slotPlacement,
+    )
+  ) {
+    return target;
+  }
+  return swapTarget(target.paneId);
 }
 
 // Pointer is inside a pane: the inner region swaps with it; the four outer edge
@@ -299,24 +341,24 @@ function paneDropTargetOverHost(
   }
   const fractionX = (event.clientX - host.left) / Math.max(host.right - host.left, 1);
   const fractionY = (event.clientY - host.top) / Math.max(host.bottom - host.top, 1);
-  const distLeft = fractionX;
-  const distRight = 1 - fractionX;
-  const distTop = fractionY;
-  const distBottom = 1 - fractionY;
-  const nearest = Math.min(distLeft, distRight, distTop, distBottom);
-  if (nearest > paneSwapEdgeFraction) {
-    return swapTarget(host.paneId);
-  }
-  if (nearest === distLeft) {
+  // Fixed bands, independent of the pane's aspect ratio: the left/right
+  // quarter-width strips are column inserts at *any* height, so dropping beside a
+  // tall card is as easy as beside a short one (a nearest-edge split would shrink
+  // those strips to thin slivers on tall panes). The central column's top/bottom
+  // quarter-height bands are row inserts; the centre swaps.
+  if (fractionX <= paneSwapEdgeFraction) {
     return columnInsertTarget(targetColumn, "before", host.paneId);
   }
-  if (nearest === distRight) {
+  if (fractionX >= 1 - paneSwapEdgeFraction) {
     return columnInsertTarget(targetColumn, "after", host.paneId);
   }
-  if (nearest === distTop) {
+  if (fractionY <= paneSwapEdgeFraction) {
     return rowInsertTarget(host.paneId, "before");
   }
-  return rowInsertAfterTarget(host.paneId, scene);
+  if (fractionY >= 1 - paneSwapEdgeFraction) {
+    return rowInsertAfterTarget(host.paneId, scene);
+  }
+  return swapTarget(host.paneId);
 }
 
 // "Insert after X" and "insert before the pane below X" describe the same
@@ -345,6 +387,10 @@ function swapTarget(targetPaneId: string): PaneDropTarget {
     mode: "swap",
     paneId: targetPaneId,
   };
+}
+
+function previewOnlyTarget(target: PaneDropTarget): PaneDropTarget {
+  return target.mode === "insert" ? { ...target, highlightPane: false } : target;
 }
 
 function columnInsertTarget(
@@ -436,12 +482,12 @@ function paneDropTargetInGap(
   const interRowTarget = columnUnderPointer
     ? interRowInsertTarget(columnUnderPointer, event.clientY)
     : null;
-  return (
+  const target =
     interRowTarget ??
     planeSlotInsertTargetForGap(event, allColumns) ??
     outerPlaneSlotInsertTargetForGap(event, allColumns, scene.rowGap) ??
-    columnInsertTargetForGap(event, columns)
-  );
+    columnInsertTargetForGap(event, columns);
+  return target ? previewOnlyTarget(target) : null;
 }
 
 interface DragColumnRect {
@@ -505,12 +551,16 @@ function verticalDistanceToColumn(column: DragColumnRect, clientY: number): numb
   return 0;
 }
 
+// A row insert only when the pointer sits in a *true* inter-row gap between two
+// stacked panes of the column; null otherwise (above the first / below the last
+// pane is column territory, handled by the caller). Canonicalized to "before the
+// lower pane" so the whole boundary resolves to one target (no wobble flicker).
 function interRowInsertTarget(column: DragColumnRect, clientY: number): PaneDropTarget | null {
   const panes = column.paneRects;
   for (let index = 0; index < panes.length - 1; index += 1) {
     const upper = panes[index];
     const lower = panes[index + 1];
-    if (clientY >= upper.bottom && clientY <= lower.top) {
+    if (upper && lower && clientY >= upper.bottom && clientY <= lower.top) {
       return rowInsertTarget(lower.paneId, "before");
     }
   }
@@ -685,6 +735,9 @@ function verticalDistanceToRect(rect: PaneHostRect, clientY: number): number {
   return 0;
 }
 
+// Pointer is in a horizontal gap between columns, or past the first/last column.
+// Insert a column at the nearest column edge; "past the leftmost" therefore reads
+// as "new column before the first" (extend left) and vice versa.
 function columnInsertTargetForGap(
   event: PaneDropPointer,
   columns: DragColumnRect[],
@@ -710,9 +763,11 @@ function columnInsertTargetForGap(
     return null;
   }
   const panes = best.column.paneRects;
-  const annotatePaneId =
-    best.placement === "before" ? panes[0].paneId : panes[panes.length - 1].paneId;
-  return columnInsertTarget(best.column, best.placement, annotatePaneId);
+  const annotatePane = best.placement === "before" ? panes[0] : panes[panes.length - 1];
+  if (!annotatePane) {
+    return null;
+  }
+  return columnInsertTarget(best.column, best.placement, annotatePane.paneId);
 }
 
 function zIndexForHost(host: HTMLElement): number {
@@ -726,6 +781,7 @@ function samePaneDropTarget(left: PaneDropTarget | null, right: PaneDropTarget |
     left?.mode === right?.mode &&
     left?.placement === right?.placement &&
     left?.axis === right?.axis &&
+    left?.highlightPane === right?.highlightPane &&
     samePaneDropIntent(left?.intent ?? null, right?.intent ?? null)
   );
 }
@@ -773,6 +829,10 @@ export function syncPaneDropTarget(root: HTMLElement, target: PaneDropTarget | n
     host.dataset.dropSwap = "true";
     return;
   }
+  if (target.highlightPane === false) {
+    host.dataset.dropPreview = "true";
+    return;
+  }
   if (target.axis && target.placement) {
     host.dataset.dropAxis = target.axis;
     host.dataset.dropTarget = target.placement;
@@ -783,6 +843,7 @@ function clearPaneDropTargets(root: HTMLElement): void {
   const hosts = root.querySelectorAll<HTMLElement>('[data-testid="workspace-pane-host"]');
   for (const host of hosts) {
     delete host.dataset.dropAxis;
+    delete host.dataset.dropPreview;
     delete host.dataset.dropTarget;
     delete host.dataset.dropSwap;
   }

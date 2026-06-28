@@ -4,6 +4,7 @@ import type { WorkspaceLayoutStore } from "./layout-store";
 import {
   applyPaneDrop,
   paneDropTargetFromPointer,
+  syncPaneDropTarget,
   updatePaneDragSession,
   type PaneDragSession,
 } from "./pane-drag-reorder";
@@ -87,6 +88,32 @@ describe("pane drag drop intent hit-testing", () => {
     });
   });
 
+  test("places beside a tall pane from the full-height left/right strips", () => {
+    // A tall card: a low point in the left/right quarter strip used to fall into
+    // the bottom (row) band under the old nearest-edge split; fixed strips keep it
+    // a column insert so dropping beside a tall stack is reliable.
+    const tall = [
+      { bottom: 600, left: 100, paneId: "target_pane", right: 300, top: 0, width: 200, zIndex: 1 },
+    ];
+    const store = storeForDragTests();
+
+    const leftTarget = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 140, clientY: 580 }),
+      "source_pane",
+      store,
+      tall,
+    );
+    expect(leftTarget?.intent).toMatchObject({ kind: "column", slotPlacement: "before" });
+
+    const rightTarget = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 260, clientY: 580 }),
+      "source_pane",
+      store,
+      tall,
+    );
+    expect(rightTarget?.intent).toMatchObject({ kind: "column", slotPlacement: "after" });
+  });
+
   test("maps the empty row directly below the lowest pane to a plane slot", () => {
     const single = [
       { bottom: 200, left: 100, paneId: "target_pane", right: 300, top: 0, width: 200, zIndex: 1 },
@@ -101,6 +128,7 @@ describe("pane drag drop intent hit-testing", () => {
 
     expect(target).toEqual({
       axis: "vertical",
+      highlightPane: false,
       intent: {
         kind: "plane-slot",
         planeIndex: 3,
@@ -144,6 +172,7 @@ describe("pane drag drop intent hit-testing", () => {
 
     expect(target).toEqual({
       axis: "vertical",
+      highlightPane: false,
       intent: {
         kind: "plane-slot",
         planeIndex: -1,
@@ -187,6 +216,7 @@ describe("pane drag drop intent hit-testing", () => {
     for (const target of targets) {
       expect(target).toEqual({
         axis: "vertical",
+        highlightPane: false,
         intent: {
           kind: "plane-slot",
           planeIndex: 3,
@@ -238,6 +268,7 @@ describe("pane drag drop intent hit-testing", () => {
 
     expect(target).toEqual({
       axis: "vertical",
+      highlightPane: false,
       intent: {
         kind: "plane-slot",
         planeIndex: 0,
@@ -296,6 +327,41 @@ describe("pane drag drop intent hit-testing", () => {
     expect(applyPaneDrop(store, "source_pane", target)).toBe(true);
     expect(store.applyPaneDropIntent).toHaveBeenCalledOnce();
     expect(store.applyPaneDropIntent).toHaveBeenCalledWith("source_pane", target.intent);
+  });
+
+  test("marks empty-space targets as preview-only without pane edge highlighting", () => {
+    const host = paneHost("target_pane", {
+      bottom: 200,
+      height: 200,
+      left: 100,
+      right: 300,
+      top: 0,
+      width: 200,
+    });
+    vi.stubGlobal("document", {
+      querySelectorAll: vi.fn(() => [host]),
+    });
+    const root = {
+      querySelectorAll: vi.fn(() => [host]),
+    } as unknown as HTMLElement;
+
+    syncPaneDropTarget(root, {
+      axis: "vertical",
+      highlightPane: false,
+      intent: {
+        kind: "plane-slot",
+        planeIndex: 3,
+        referenceColumnId: "target_column",
+        slotIndex: 1,
+      },
+      mode: "insert",
+      paneId: "target_pane",
+      placement: "after",
+    });
+
+    expect(host.dataset.dropPreview).toBe("true");
+    expect(host.dataset.dropAxis).toBeUndefined();
+    expect(host.dataset.dropTarget).toBeUndefined();
   });
 
   test("coalesces preview updates to one per animation frame", () => {
@@ -454,6 +520,88 @@ describe("pane drag drop intent hit-testing", () => {
     });
     expect(harness.recordPaneDragPreviewUpdate).toHaveBeenCalledTimes(3);
     expect(harness.recordPaneDragPreviewClear).not.toHaveBeenCalled();
+  });
+});
+
+describe("adjacent same-plane drops resolve to a swap", () => {
+  // Two single-pane columns side by side in one plane row:
+  // [ left_pane (slot 0) ][ source_pane (slot 1) ]
+  const hostRects = [
+    { bottom: 200, left: 0, paneId: "left_pane", right: 200, top: 0, width: 200, zIndex: 1 },
+    { bottom: 200, left: 208, paneId: "source_pane", right: 408, top: 0, width: 200, zIndex: 1 },
+  ];
+
+  function adjacentStore(): WorkspaceLayoutStore {
+    const panes = [pane("left_pane", "left_column", 0), pane("source_pane", "source_column", 1)];
+    const columns = [
+      column("left_column", ["left_pane"], 0, 0),
+      column("source_column", ["source_pane"], 1, 0),
+    ];
+    const scene: WorkspaceScene = {
+      columnGap: 8,
+      columns,
+      defaultColumnWidthSpec: { unit: "px", value: 200 },
+      id: "adjacent-scene",
+      padding: 10,
+      paneById: new Map(panes.map((candidate) => [candidate.paneId, candidate])),
+      panes,
+      panesPerColumn: 1,
+      renderOverscanColumns: 2,
+      rowGap: 8,
+      targetVisiblePanes: 2,
+      totalPanes: 2,
+      visibleColumnCount: 2,
+    };
+    return { toScene: () => scene } as unknown as WorkspaceLayoutStore;
+  }
+
+  test("dropping toward the already-adjacent neighbour swaps instead of no-op inserting", () => {
+    // Right edge of the left neighbour (the side facing the dragged pane): a plain
+    // "insert after left" would leave source exactly where it is, so it resolves to
+    // a swap with that neighbour.
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 190, clientY: 100 }),
+      "source_pane",
+      adjacentStore(),
+      hostRects,
+    );
+
+    expect(target).toEqual({
+      intent: { kind: "swap", targetPaneId: "left_pane" },
+      mode: "swap",
+      paneId: "left_pane",
+    });
+  });
+
+  test("the gap between the two adjacent panes also swaps", () => {
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 204, clientY: 100 }),
+      "source_pane",
+      adjacentStore(),
+      hostRects,
+    );
+
+    expect(target?.mode).toBe("swap");
+    expect(target?.intent).toEqual({ kind: "swap", targetPaneId: "left_pane" });
+  });
+
+  test("the far (outer) edge still inserts a new column -- a genuine relocation", () => {
+    // Left edge of the left neighbour moves source past it (a real position change),
+    // so it stays a column insert rather than collapsing to a swap.
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 10, clientY: 100 }),
+      "source_pane",
+      adjacentStore(),
+      hostRects,
+    );
+
+    expect(target?.mode).toBe("insert");
+    expect(target?.intent).toEqual({
+      kind: "column",
+      planeIndex: 0,
+      slotPlacement: "before",
+      targetColumnId: "left_column",
+    });
   });
 });
 

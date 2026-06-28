@@ -39,11 +39,12 @@ import {
   WorkspaceToolbarLayer,
 } from "./workspace-layout-layers";
 import {
+  captureOverviewPaneFrames,
   eventTargetsOverviewGhost,
-  overviewGhostTargetFromPointer,
+  overviewGhostTargetFromFrames,
   overviewPaneIdAtPoint,
-  setOverviewGhostTargetIfChanged,
   type OverviewGhostTarget,
+  type OverviewPaneFrame,
 } from "./workspace-overview-ghost";
 import {
   eventTargetsWorkspaceWheelNavigation,
@@ -154,13 +155,17 @@ function WorkspaceLayoutRuntimeArea({
   const hostRefs = useRef<Array<HTMLDivElement | null>>([]);
   const overviewDragSessionRef = useRef<OverviewDragSession | null>(null);
   const paneDragSessionRef = useRef<PaneDragSession | null>(null);
+  const paneDropPreviewRef = useRef<HTMLDivElement | null>(null);
   const paneResizePreviewRef = useRef<HTMLDivElement | null>(null);
   const paneResizeStageOriginRef = useRef<{ left: number; top: number } | null>(null);
   const paneResizeSessionRef = useRef<PaneResizeSession | null>(null);
   const schedulerRef = useRef<FrameScheduler | null>(null);
   const suppressNextClickRef = useRef(false);
   const trackpadNavigationRef = useRef(createWorkspaceTrackpadNavigationState());
-  const [overviewGhostTarget, setOverviewGhostTarget] = useState<OverviewGhostTarget | null>(null);
+  // Committed pane frames frozen while an insert preview is active, so hover
+  // resolution stays a pure function of the pre-reflow layout (no oscillation).
+  const overviewInsertPreviewFramesRef = useRef<OverviewPaneFrame[] | null>(null);
+  const overviewGhostTargetRef = useRef<OverviewGhostTarget | null>(null);
   const showPerformanceStats = useAppearanceStore(
     (state) => (state.draft ?? state.settings)?.developer?.showPerformanceStats ?? false,
   );
@@ -203,6 +208,21 @@ function WorkspaceLayoutRuntimeArea({
   const [layoutRecoveryDismissed, setLayoutRecoveryDismissed] = useState(false);
   const layoutSnapshot = useWorkspaceLayoutSnapshot(runtime.store);
   const currentScene = runtime.store.toScene();
+  const [overviewGhostTarget, setOverviewGhostTargetState] = useState<OverviewGhostTarget | null>(
+    null,
+  );
+  const setOverviewGhostTarget = useCallback((target: OverviewGhostTarget | null) => {
+    if (sameOverviewGhostTarget(overviewGhostTargetRef.current, target)) {
+      return;
+    }
+    overviewGhostTargetRef.current = target;
+    setOverviewGhostTargetState(target);
+  }, []);
+  const clearOverviewInsertPreview = useCallback(() => {
+    overviewInsertPreviewFramesRef.current = null;
+    setOverviewGhostTarget(null);
+    runtime.store.clearInsertFramePreview();
+  }, [runtime, setOverviewGhostTarget]);
   const { layoutPersistenceError, persistLayout, resetLayoutPersistenceError } =
     useWorkspaceUILayoutPersistence(runtime, workspaceId);
   const projectPaneWidthRef = useRef(projectPaneWidth);
@@ -238,7 +258,7 @@ function WorkspaceLayoutRuntimeArea({
   }, [projectPaneWidth, runtime, stageViewport]);
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
-      setOverviewGhostTarget(null);
+      clearOverviewInsertPreview();
       runLayoutAction(() => {
         runtime.store.openEmptyFrameNear(target.paneId, target.placement);
         runtime.store.toggleOverviewMode();
@@ -246,7 +266,7 @@ function WorkspaceLayoutRuntimeArea({
         runtime.store.snapScrollToTarget();
       });
     },
-    [runLayoutAction, runtime, stageViewport],
+    [clearOverviewInsertPreview, runLayoutAction, runtime, stageViewport],
   );
 
   useEffect(() => {
@@ -298,6 +318,7 @@ function WorkspaceLayoutRuntimeArea({
       stage: stageRef.current,
     });
     runtime.presentation.mount(hosts, debugRef.current);
+    runtime.presentation.setDropPreviewOverlay(paneDropPreviewRef.current);
     installWindowReportHooksForRuntime(runtime);
     const viewportProvider = () => viewportRect(stage, projectPaneWidthRef.current);
     const uninstallResizeReportHooks = installResizeReportHooksForRuntime(
@@ -361,15 +382,23 @@ function WorkspaceLayoutRuntimeArea({
         viewportProvider: stageViewport,
       });
     };
-    const syncOverviewGhostTarget = (event: PointerEvent) => {
+    const syncOverviewInsertPreview = (event: PointerEvent) => {
       if (runtime.store.getSnapshot().presentationMode !== "overview") {
-        setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+        clearOverviewInsertPreview();
         return;
       }
-      setOverviewGhostTargetIfChanged(
-        setOverviewGhostTarget,
-        overviewGhostTargetFromPointer(event, stage),
-      );
+      // Resolve the add-slot against frozen frames while the ghost is visible, so
+      // the hover target is stable even as the pointer moves within the empty slot.
+      // The ghost is an overlay only: panes do not reflow until the user clicks.
+      const frozen = overviewGhostTargetRef.current ? overviewInsertPreviewFramesRef.current : null;
+      const frames = frozen ?? captureOverviewPaneFrames(stage);
+      const target = overviewGhostTargetFromFrames(frames, event.clientX, event.clientY);
+      if (!target) {
+        clearOverviewInsertPreview();
+        return;
+      }
+      overviewInsertPreviewFramesRef.current = frames;
+      setOverviewGhostTarget(target);
     };
     const clearPaneResizePreview = () => {
       const preview = paneResizePreviewRef.current;
@@ -418,7 +447,7 @@ function WorkspaceLayoutRuntimeArea({
       if (eventTargetsOverviewGhost(event)) {
         return true;
       }
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       if (eventTargetsPaneChromeAction(event)) {
         return true;
       }
@@ -470,7 +499,7 @@ function WorkspaceLayoutRuntimeArea({
         overviewSession.hostRects,
       );
       syncPaneDropTarget(root, target);
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       overviewSession.lastDropIntent = target?.intent ?? null;
       if (target) {
         previewPaneDropIntent(overviewSession.sourcePaneId, target.intent);
@@ -577,7 +606,7 @@ function WorkspaceLayoutRuntimeArea({
       if (!paneDragSession || event.pointerId !== paneDragSession.pointerId) {
         return false;
       }
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       event.preventDefault();
       event.stopPropagation();
       updatePaneDragSession(event, root, paneDragSession, runtime.store, runtime.metrics);
@@ -586,13 +615,13 @@ function WorkspaceLayoutRuntimeArea({
     const updatePaneResize = (event: PointerEvent): boolean => {
       const session = paneResizeSessionRef.current;
       if (!session) {
-        syncOverviewGhostTarget(event);
+        syncOverviewInsertPreview(event);
         return true;
       }
       if (event.pointerId !== session.pointerId) {
         return true;
       }
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       event.preventDefault();
       event.stopPropagation();
       syncPaneResizePreview(session, event);
@@ -625,7 +654,7 @@ function WorkspaceLayoutRuntimeArea({
       overviewDragSessionRef.current = null;
       delete root.dataset.overviewDragging;
       cancelOverviewDropPreview(overviewSession);
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       const sourceHost = visiblePaneHostForPane(overviewSession.sourcePaneId);
       if (sourceHost) {
         sourceHost.removeAttribute("data-drag-source");
@@ -695,7 +724,7 @@ function WorkspaceLayoutRuntimeArea({
       paneResizeSessionRef.current = null;
       const resizeCommitted =
         event.type !== "pointercancel" && commitPaneResize(runtime.store, session, event);
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       delete root.dataset.paneResizing;
       delete root.dataset.paneResizingAxis;
       clearPaneResizePreview();
@@ -740,7 +769,7 @@ function WorkspaceLayoutRuntimeArea({
       window.removeEventListener("wheel", handleWheel, { capture: true });
       cleanupOverviewDragSource(overviewDragSessionRef);
       cleanupActivePaneDragSession(root, paneDragSessionRef);
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       runtime.store.clearPaneDropPreview();
       paneResizeSessionRef.current = null;
       delete root.dataset.paneResizing;
@@ -750,7 +779,15 @@ function WorkspaceLayoutRuntimeArea({
       clearSchedulerRefIfCurrent(schedulerRef, scheduler);
       stageResizeObserver?.disconnect();
     };
-  }, [persistLayout, runLayoutAction, runtime, shortcuts, stageViewport]);
+  }, [
+    clearOverviewInsertPreview,
+    persistLayout,
+    runLayoutAction,
+    runtime,
+    setOverviewGhostTarget,
+    shortcuts,
+    stageViewport,
+  ]);
 
   useEffect(() => {
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
@@ -803,6 +840,12 @@ function WorkspaceLayoutRuntimeArea({
           data-axis=""
           data-visible="false"
           ref={paneResizePreviewRef}
+        />
+        <div
+          aria-hidden="true"
+          className="workspace-pane-drop-preview"
+          data-visible="false"
+          ref={paneDropPreviewRef}
         />
         <Profiler id="workspace-pane-hosts" onRender={() => runtime.metrics.recordReactCommit()}>
           {Array.from({ length: runtime.hostPoolSize }, (_, index) => (
@@ -951,6 +994,24 @@ function useSelectedWorkspaceSummary() {
       null
     );
   }, [session]);
+}
+
+function sameOverviewGhostTarget(
+  left: OverviewGhostTarget | null,
+  right: OverviewGhostTarget | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  const frameFields = ["left", "top", "width", "height"] as const;
+  return (
+    left.paneId === right.paneId &&
+    left.placement === right.placement &&
+    frameFields.every((field) => left[field] === right[field])
+  );
 }
 
 function viewportRect(element: HTMLElement, reservedLeftWidth = 0): Rect {
