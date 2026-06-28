@@ -1451,8 +1451,8 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 		return true, true
 	case "deprecated-file-change-output-delta-notification":
 		writeFakeNotification("item/fileChange/outputDelta", map[string]any{
-			"delta":    "legacy patch output",
-			"itemId":   "item_file_change_legacy",
+			"delta":    "deprecated patch output",
+			"itemId":   "item_file_change_deprecated",
 			"threadId": "thread_fake",
 			"turnId":   "turn_fake",
 		})
