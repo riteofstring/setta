@@ -53,6 +53,7 @@ export async function runChronologicalTranscriptWorkflow({
   backend,
   client,
   conversationId,
+  openProjectedActivityRow,
   recordingDir,
   submitComposer,
   waitForRunWithPrompt,
@@ -73,12 +74,7 @@ export async function runChronologicalTranscriptWorkflow({
       "chronological transcript workflow",
       "completed",
     );
-    await waitForTexts(client, [
-      ...CHRONOLOGICAL_STEP_TEXTS,
-      "printf chronological-a",
-      "printf chronological-b",
-      "Chronological reasoning headline",
-    ]);
+    await waitForTexts(client, [...CHRONOLOGICAL_STEP_TEXTS, "Chronological reasoning headline"]);
   } finally {
     // Always stop polling so the monitor never outlives the workflow; stop() returns the
     // violation rather than throwing, so a failure above is preserved instead of masked.
@@ -99,6 +95,10 @@ export async function runChronologicalTranscriptWorkflow({
       { title: "Chronological command B", type: "command_execution" },
     ],
   });
+  for (const row of projection.rows) {
+    await openProjectedActivityRow(client, row.sourceRunItemId);
+  }
+  await waitForTexts(client, ["printf chronological-a", "printf chronological-b"]);
   await assertActivityRows(client, projection.rows);
 
   // Capture the three diagnostic layers, then assert the chronological behavior.

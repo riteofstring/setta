@@ -117,10 +117,16 @@ function startChatEventStream() {
     observer: {
       forwarded: (event) => {
         recorder?.recordAppEvent("chat_event_forwarded", {
+          conversationId: event.conversationId,
+          emittedAt: event.emittedAt,
           eventId: event.eventId,
+          payload: event.payload,
+          runId: event.runId,
+          schemaVersion: event.schemaVersion,
           sequence: event.sequence,
           streamId: event.streamId,
           type: event.type,
+          workspaceId: event.workspaceId,
         });
       },
       lifecycle: (event) => {

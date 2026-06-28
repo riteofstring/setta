@@ -282,6 +282,48 @@ async function createCorruptChatFixture(tempRoot) {
     triggerMessageId: "message_valid_user",
     workspaceId,
   });
+  await writeTranscriptBlock(workspaceDir, validRunId, 1, {
+    assistantText: null,
+    activity: null,
+    conversationId: validConversationId,
+    createdAt: validUpdatedAt,
+    id: "transcript_block_valid_user",
+    kind: "user_message",
+    ordinal: 1,
+    reasoning: null,
+    runAnchorOrdinal: 1,
+    runId: validRunId,
+    runStatus: null,
+    schemaVersion: 1,
+    status: "complete",
+    updatedAt: validUpdatedAt,
+    userMessage: {
+      delivery: "normal",
+      messageId: "message_valid_user",
+      parts: [
+        { format: "plain", id: "part_valid_user", text: "persisted valid message", type: "text" },
+      ],
+      role: "user",
+      status: "complete",
+    },
+  });
+  await writeTranscriptBlock(workspaceDir, validRunId, 2, {
+    assistantText: { format: "markdown", text: "persisted valid response" },
+    activity: null,
+    conversationId: validConversationId,
+    createdAt: validUpdatedAt,
+    id: "transcript_block_valid_assistant",
+    kind: "assistant_text",
+    ordinal: 2,
+    reasoning: null,
+    runAnchorOrdinal: 1,
+    runId: validRunId,
+    runStatus: null,
+    schemaVersion: 1,
+    status: "complete",
+    updatedAt: validUpdatedAt,
+    userMessage: null,
+  });
   await writeJson(
     join(workspaceDir, "conversations", secondValidConversationId, "conversation.json"),
     {
@@ -337,6 +379,19 @@ async function createCorruptChatFixture(tempRoot) {
 async function writeJson(path, value) {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, JSON.stringify(value, null, 2) + "\n");
+}
+
+async function writeTranscriptBlock(workspaceDir, runId, ordinal, block) {
+  await writeJson(
+    join(
+      workspaceDir,
+      "runs",
+      runId,
+      "transcript_blocks",
+      `${String(ordinal).padStart(12, "0")}_${block.id}.json`,
+    ),
+    block,
+  );
 }
 
 async function openPort() {
