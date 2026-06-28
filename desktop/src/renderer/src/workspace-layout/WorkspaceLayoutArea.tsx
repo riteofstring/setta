@@ -859,6 +859,7 @@ function WorkspaceLayoutRuntimeArea({
       data-compact-layout={mobileLayout}
       data-desktop-platform={platform}
       data-maximized-pane-id={layoutSnapshot.maximizedPaneId ?? ""}
+      data-native-view-clip-left={projectPaneWidth}
       data-pane-count={currentScene.totalPanes}
       data-presentation-mode={layoutSnapshot.presentationMode}
       data-workspace-mode={runtime.mode}
