@@ -1,13 +1,6 @@
-import type {
-  BackgroundTerminalListProjection,
-  Conversation,
-  ListConversationsResponse,
-  MessagePage,
-  Run,
-} from "@generated/backend";
+import type { Conversation, ListConversationsResponse, MessagePage, Run } from "@generated/backend";
 
 import { isChatBackendLifecycleAbort } from "./chat-store-backend-lifecycle";
-import { backgroundTerminalsReplacedPatch } from "./chat-store-background-terminals";
 import { conversationListLoadedPatch } from "./chat-store-conversation-lists";
 import { errorPatch } from "./chat-store-helpers";
 import type { ChatOperationToken } from "./chat-store-operations";
@@ -16,7 +9,6 @@ import type { ChatPatch, ChatStore } from "./chat-store-types";
 
 interface ConversationPageSnapshot {
   activeRun: Run | null;
-  backgroundTerminals: BackgroundTerminalListProjection;
   page: MessagePage;
 }
 
@@ -124,14 +116,7 @@ async function loadAndCommitResync(
   deps.assertBackendReadCurrent(generation);
   deps.commitCurrentFromState(operation, (current) => ({
     ...(snapshot
-      ? {
-          ...resyncPagePatch(current, snapshot.page, snapshot.activeRun),
-          ...backgroundTerminalsReplacedPatch(
-            current,
-            snapshot.page.conversation.id,
-            snapshot.backgroundTerminals.terminals,
-          ),
-        }
+      ? resyncPagePatch(current, snapshot.page, snapshot.activeRun)
       : emptyConversationPatch()),
     ...conversationListLoadedPatch(current, workspaceId, list, true),
     operation: null,

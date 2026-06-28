@@ -242,9 +242,9 @@ function message(
     ordinal,
     parts: [
       {
+        format: role === "assistant" ? "markdown" : "plain",
         id: `${id}_part`,
-        image: null,
-        text: { format: role === "assistant" ? "markdown" : "plain", text },
+        text,
         type: "text",
       },
     ],

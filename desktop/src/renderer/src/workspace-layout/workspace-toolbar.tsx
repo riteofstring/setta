@@ -1,5 +1,6 @@
 import {
   Columns2,
+  Globe,
   MessageSquarePlus,
   Plus,
   Settings,
@@ -90,6 +91,12 @@ export const openPaneActions = [
     label: "Chat",
     request: openPaneRequest("Chat", "chat workspace surface", "chat-dom", "cyan"),
     shortcutKey: "c",
+  },
+  {
+    Icon: Globe,
+    label: "Browser",
+    request: openPaneRequest("Browser", "browser surface", "browser", "green"),
+    shortcutKey: "b",
   },
   {
     Icon: Terminal,

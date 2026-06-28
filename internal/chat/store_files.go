@@ -77,18 +77,6 @@ func (store *Store) messagesDir(workspaceID string, conversationID string) strin
 	return filepath.Join(store.conversationDir(workspaceID, conversationID), messagesDirName)
 }
 
-func (store *Store) imageAttachmentsDir(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), attachmentsDirName)
-}
-
-func (store *Store) imageAttachmentDir(workspaceID string, conversationID string, attachmentID string) string {
-	return filepath.Join(store.imageAttachmentsDir(workspaceID, conversationID), attachmentID)
-}
-
-func (store *Store) imageAttachmentMetadataPath(workspaceID string, conversationID string, attachmentID string) string {
-	return filepath.Join(store.imageAttachmentDir(workspaceID, conversationID, attachmentID), attachmentMetadataFileName)
-}
-
 func (store *Store) messagePath(workspaceID string, conversationID string, ordinal int, messageID string) string {
 	return filepath.Join(store.messagesDir(workspaceID, conversationID), messageFileName(ordinal, messageID))
 }
@@ -135,34 +123,6 @@ func (store *Store) runItemOutputsDir(workspaceID string, runID string, runItemI
 
 func (store *Store) runItemOutputPath(workspaceID string, runID string, runItemID string, ordinal int, outputID string) string {
 	return filepath.Join(store.runItemOutputsDir(workspaceID, runID, runItemID), messageFileName(ordinal, outputID))
-}
-
-func (store *Store) backgroundTerminalsDir(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), backgroundTerminalsDirName)
-}
-
-func (store *Store) backgroundTerminalPath(workspaceID string, conversationID string, processID string) string {
-	return filepath.Join(store.backgroundTerminalsDir(workspaceID, conversationID), processID+".json")
-}
-
-func (store *Store) backgroundTerminalOutputRootDir(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), backgroundTerminalOutputDirName)
-}
-
-func (store *Store) backgroundTerminalOutputDir(workspaceID string, conversationID string, processID string) string {
-	return filepath.Join(store.backgroundTerminalOutputRootDir(workspaceID, conversationID), processID)
-}
-
-func (store *Store) backgroundTerminalOutputPath(workspaceID string, conversationID string, processID string, ordinal int, outputID string) string {
-	return filepath.Join(store.backgroundTerminalOutputDir(workspaceID, conversationID, processID), messageFileName(ordinal, outputID))
-}
-
-func (store *Store) transcriptBlocksDir(workspaceID string, runID string) string {
-	return filepath.Join(store.runDataDir(workspaceID, runID), transcriptBlocksDirName)
-}
-
-func (store *Store) transcriptBlockPath(workspaceID string, runID string, ordinal int, blockID string) string {
-	return filepath.Join(store.transcriptBlocksDir(workspaceID, runID), messageFileName(ordinal, blockID))
 }
 
 func (store *Store) messageFiles(workspaceID string, conversationID string) ([]messageFile, error) {
@@ -236,26 +196,6 @@ func messageFileName(ordinal int, messageID string) string {
 	return fmt.Sprintf("%012d_%s.json", ordinal, messageID)
 }
 
-// messageOrdinalsByID maps each message ID to its conversation ordinal from the
-// message file listing without reading file contents. It anchors each run in
-// conversation order (a run's trigger message ordinal) for block-aware transcript
-// paging, cheaply enough to call on every page load.
-func (store *Store) messageOrdinalsByID(workspaceID string, conversationID string) (map[string]int, error) {
-	files, err := store.messageFiles(workspaceID, conversationID)
-	if err != nil {
-		return nil, err
-	}
-	ordinals := make(map[string]int, len(files))
-	for _, file := range files {
-		id, ok := idFromMessageFileName(filepath.Base(file.path))
-		if !ok {
-			return nil, corruptStateErrorf(file.path, "malformed message filename")
-		}
-		ordinals[id] = file.ordinal
-	}
-	return ordinals, nil
-}
-
 func (store *Store) runItemOutputFiles(workspaceID string, runID string, runItemID string) ([]runItemOutputFile, error) {
 	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
 		return nil, err
@@ -288,40 +228,6 @@ func (store *Store) runItemOutputFiles(workspaceID string, runID string, runItem
 	return files, nil
 }
 
-func (store *Store) transcriptBlockFiles(workspaceID string, runID string) ([]transcriptBlockFile, error) {
-	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
-		return nil, err
-	}
-	dir := store.transcriptBlocksDir(workspaceID, runID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []transcriptBlockFile{}, nil
-		}
-		return nil, &PersistenceError{Operation: "list transcript blocks", Path: dir, Err: err}
-	}
-	files := make([]transcriptBlockFile, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
-			continue
-		}
-		ordinal, ordinalOK := ordinalFromMessageFileName(entry.Name())
-		blockID, idOK := idFromMessageFileName(entry.Name())
-		if !ordinalOK || !idOK {
-			return nil, corruptStateErrorf(filepath.Join(dir, entry.Name()), "malformed transcript block filename")
-		}
-		files = append(files, transcriptBlockFile{
-			ordinal: ordinal,
-			id:      blockID,
-			path:    filepath.Join(dir, entry.Name()),
-		})
-	}
-	sort.SliceStable(files, func(left int, right int) bool {
-		return files[left].ordinal < files[right].ordinal
-	})
-	return files, nil
-}
-
 func isDataJSONFile(name string) bool {
 	return filepath.Ext(name) == ".json" && !strings.HasPrefix(name, ".")
 }
@@ -336,15 +242,6 @@ func ordinalFromMessageFileName(name string) (int, bool) {
 		return 0, false
 	}
 	return ordinal, true
-}
-
-func idFromMessageFileName(name string) (string, bool) {
-	base := strings.TrimSuffix(name, ".json")
-	_, id, ok := strings.Cut(base, "_")
-	if !ok || id == "" {
-		return "", false
-	}
-	return id, true
 }
 
 func writeJSONFile(path string, payload any) error {

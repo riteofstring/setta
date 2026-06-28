@@ -22,8 +22,17 @@ func TestServiceExecutesGoalCommandAndStartsPursuit(t *testing.T) {
 	if result.Message == nil || result.Message.Role != RoleCommand {
 		t.Fatalf("command message = %+v, want command role", result.Message)
 	}
-	if result.Message.Parts[0].Text.Text != "Goal set: finish renderer tests" {
-		t.Fatalf("command text = %q, want goal set result", result.Message.Parts[0].Text.Text)
+	if result.Message.Parts[0].Text != "Goal set: finish renderer tests" {
+		t.Fatalf("command text = %q, want goal set result", result.Message.Parts[0].Text)
+	}
+	if len(result.Page.Transcript) != 1 {
+		t.Fatalf("transcript = %+v, want goal pursuit turn", result.Page.Transcript)
+	}
+	if result.Page.Transcript[0].TriggerMessage.Parts[0].Text != "finish renderer tests" {
+		t.Fatalf("goal pursuit prompt = %q, want objective", result.Page.Transcript[0].TriggerMessage.Parts[0].Text)
+	}
+	if result.Page.Transcript[0].TriggerMessage.Delivery != MessageDeliveryGoal {
+		t.Fatalf("goal trigger delivery = %s, want goal", result.Page.Transcript[0].TriggerMessage.Delivery)
 	}
 	if result.Page.Goal == nil || result.Page.Goal.Status != "active" || result.Page.Goal.Objective != "finish renderer tests" {
 		t.Fatalf("page goal = %+v, want active renderer goal", result.Page.Goal)
@@ -34,20 +43,6 @@ func TestServiceExecutesGoalCommandAndStartsPursuit(t *testing.T) {
 	}
 	if len(runs) != 1 {
 		t.Fatalf("runs = %+v, want one run for goal pursuit", runs)
-	}
-	blocks, err := service.store.LoadTranscriptBlocks("workspace_api", runs[0].ID)
-	if err != nil {
-		t.Fatalf("load goal transcript blocks: %v", err)
-	}
-	goalBlock := firstUserMessageBlock(blocks)
-	if goalBlock == nil {
-		t.Fatalf("blocks = %+v, want goal pursuit trigger block", blocks)
-	}
-	if goalBlock.UserMessage.Parts[0].Text.Text != "finish renderer tests" {
-		t.Fatalf("goal pursuit prompt = %q, want objective", goalBlock.UserMessage.Parts[0].Text.Text)
-	}
-	if goalBlock.UserMessage.Delivery != MessageDeliveryGoal {
-		t.Fatalf("goal trigger delivery = %s, want goal", goalBlock.UserMessage.Delivery)
 	}
 	run := waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
 	if run.PromptSummary != "finish renderer tests" {
@@ -86,7 +81,7 @@ func TestServicePersistsGoalCompletionNotification(t *testing.T) {
 		t.Fatalf("list runs: %v", err)
 	}
 	if len(runs) != 1 {
-		t.Fatalf("runs = %+v, want one goal operation run", runs)
+		t.Fatalf("runs = %+v, want one goal continuation run", runs)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
 	page := waitForGoalStatus(t, service, "workspace_api", conversation.ID, "complete")
@@ -133,7 +128,7 @@ func TestServiceRequiresConfirmationBeforeReplacingActiveGoal(t *testing.T) {
 		t.Fatalf("list runs: %v", err)
 	}
 	if len(runs) != 1 {
-		t.Fatalf("runs = %+v, want replacement goal operation", runs)
+		t.Fatalf("runs = %+v, want replacement goal continuation", runs)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
 }
@@ -153,7 +148,7 @@ func TestServiceGoalEditOpensEditorWithoutCommandMessage(t *testing.T) {
 		t.Fatalf("list runs: %v", err)
 	}
 	if len(runs) != 1 {
-		t.Fatalf("runs = %+v, want goal operation", runs)
+		t.Fatalf("runs = %+v, want goal continuation", runs)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
 
@@ -169,9 +164,6 @@ func TestServiceGoalEditOpensEditorWithoutCommandMessage(t *testing.T) {
 	}
 	if result.Result.Goal == nil || result.Result.Goal.Objective != "finish renderer tests" {
 		t.Fatalf("edit result goal = %+v, want existing goal", result.Result.Goal)
-	}
-	if result.Result.ComposerDraft != "/goal finish renderer tests" {
-		t.Fatalf("edit composer draft = %q, want goal objective draft", result.Result.ComposerDraft)
 	}
 }
 
@@ -207,7 +199,7 @@ func TestServiceStoresModelSettingsWithoutCreatingThread(t *testing.T) {
 		t.Fatalf("set reasoning effort: %v", err)
 	}
 
-	if result.Message == nil || result.Message.Parts[0].Text.Text != "Reasoning set: High" {
+	if result.Message == nil || result.Message.Parts[0].Text != "Reasoning set: High" {
 		t.Fatalf("command message = %+v, want reasoning set result", result.Message)
 	}
 	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.ReasoningEffort == nil || *result.Conversation.CodexSettings.ReasoningEffort != ReasoningEffortHigh {
@@ -233,19 +225,19 @@ func TestServiceStoresTypedCodexModelWithoutParsingSlashCommand(t *testing.T) {
 		t.Fatalf("create conversation: %v", err)
 	}
 
-	result, err := service.SetChatCodexModel("workspace_api", conversation.ID, "scripted-careful")
+	result, err := service.SetChatCodexModel("workspace_api", conversation.ID, "gpt-test")
 	if err != nil {
 		t.Fatalf("set codex model: %v", err)
 	}
 
-	if result.Message == nil || result.Message.Parts[0].Text.Text != "Model set: scripted-careful" {
+	if result.Message == nil || result.Message.Parts[0].Text != "Model set: gpt-test" {
 		t.Fatalf("command message = %+v, want model set result", result.Message)
 	}
-	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.Model != "scripted-careful" {
-		t.Fatalf("result conversation codex settings = %+v, want scripted-careful", result.Conversation.CodexSettings)
+	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.Model != "gpt-test" {
+		t.Fatalf("result conversation codex settings = %+v, want gpt-test", result.Conversation.CodexSettings)
 	}
 	requests := harness.CommandRequests()
-	if len(requests) != 1 || requests[0].Command.Model == nil || requests[0].Command.Model.ModelID != "scripted-careful" {
+	if len(requests) != 1 || requests[0].Command.Model == nil || requests[0].Command.Model.ModelID != "gpt-test" {
 		t.Fatalf("command requests = %+v, want typed model set request", requests)
 	}
 }
@@ -290,9 +282,9 @@ func TestServiceRetriesModelCommandAfterMissingThreadRef(t *testing.T) {
 		t.Fatalf("save conversation: %v", err)
 	}
 
-	result, err := service.OpenChatCodexModelPicker("workspace_api", conversation.ID)
+	result, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/model")
 	if err != nil {
-		t.Fatalf("open model picker: %v", err)
+		t.Fatalf("execute model command: %v", err)
 	}
 
 	if result.Result.Action != ChatCommandResultModelPicker {
@@ -322,7 +314,7 @@ func TestServiceExecutesActiveGoalCommandWithoutSteering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	started, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("active"))
+	started, err := service.SendUserMessage("workspace_api", conversation.ID, "active")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -332,7 +324,7 @@ func TestServiceExecutesActiveGoalCommandWithoutSteering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute active goal command: %v", err)
 	}
-	if result.Message == nil || result.Message.Parts[0].Text.Text != "Goal paused." {
+	if result.Message == nil || result.Message.Parts[0].Text != "Goal paused." {
 		t.Fatalf("command message = %+v, want goal paused", result.Message)
 	}
 	if steering := harness.SteeringRequests(); len(steering) != 0 {
@@ -367,12 +359,12 @@ func TestServiceRejectsSlashCommandThroughMessageEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("/goal")); err == nil {
+	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "/goal"); err == nil {
 		t.Fatal("send slash command succeeded, want error")
 	} else if commandErr, ok := IsChatCommandError(err); !ok || commandErr.Code != ChatCommandErrorWrongEndpoint {
 		t.Fatalf("send slash error = %#v, want wrong endpoint", err)
 	}
-	if _, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("/unknown")); err == nil {
+	if _, err := service.QueueUserMessage("workspace_api", conversation.ID, "/unknown"); err == nil {
 		t.Fatal("queue unknown slash command succeeded, want error")
 	} else if commandErr, ok := IsChatCommandError(err); !ok || commandErr.Code != ChatCommandErrorUnknownCommand {
 		t.Fatalf("queue slash error = %#v, want unknown command", err)
@@ -389,25 +381,20 @@ func TestServiceListsCommandAvailability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list idle commands: %v", err)
 	}
-	assertCommandAvailable(t, idle.Commands, ChatSlashCommandGoal, true)
-	if len(idle.Commands) != 1 {
-		t.Fatalf("idle commands = %+v, want /goal only", idle.Commands)
-	}
+	assertCommandAvailable(t, idle.Commands, ChatCommandModel, true)
 
-	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("active")); err != nil {
+	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "active"); err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	active, err := service.ListCommands("workspace_api", conversation.ID)
 	if err != nil {
 		t.Fatalf("list active commands: %v", err)
 	}
-	assertCommandAvailable(t, active.Commands, ChatSlashCommandGoal, true)
-	if len(active.Commands) != 1 {
-		t.Fatalf("active commands = %+v, want /goal only", active.Commands)
-	}
+	assertCommandAvailable(t, active.Commands, ChatCommandGoal, true)
+	assertCommandAvailable(t, active.Commands, ChatCommandModel, false)
 }
 
-func assertCommandAvailable(t *testing.T, commands []ChatCommandDescriptor, kind ChatSlashCommandKind, available bool) {
+func assertCommandAvailable(t *testing.T, commands []ChatCommandCapability, kind ChatCommandKind, available bool) {
 	t.Helper()
 	for _, command := range commands {
 		if command.Kind == kind {

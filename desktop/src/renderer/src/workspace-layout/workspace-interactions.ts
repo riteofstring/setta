@@ -4,6 +4,11 @@ import type { AppearanceShortcutsSettings } from "@generated/backend";
 import type { FrameScheduler } from "./frame-scheduler";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 import { openPaneActionForSurfaceKind, openPaneActions } from "./workspace-toolbar";
+import {
+  classifyOverviewWheel,
+  overviewWheelZoomFactor,
+  wheelDeltaModePixelFactor,
+} from "./overview-wheel-gesture";
 import { visiblePaneHostForPane } from "./pane-drag-reorder";
 import { paneFocusTargetFromClick } from "./pane-focus-click";
 import { eventTargetsTerminalSurface } from "./terminal-surface-utils";
@@ -537,6 +542,7 @@ export function handleWorkspaceWheel({
   root,
   runtime,
   scheduler,
+  stage,
   state,
   viewportProvider,
 }: {
@@ -545,10 +551,17 @@ export function handleWorkspaceWheel({
   root: HTMLElement;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
+  // The presentation stage, whose screen origin maps the cursor into the
+  // viewport coordinate space used for overview zoom-to-cursor.
+  stage: HTMLElement;
   state: ReturnType<typeof createWorkspaceTrackpadNavigationState>;
   viewportProvider: () => Rect;
 }): void {
   const presentationMode = runtime.store.getSnapshot().presentationMode;
+  if (presentationMode === "overview") {
+    handleOverviewWheel({ event, root, runtime, scheduler, stage, viewportProvider });
+    return;
+  }
   const navigationTarget = workspaceWheelNavigationTargetFromEventTarget(event.target, root);
   if (!navigationTarget) {
     return;
@@ -587,6 +600,68 @@ export function handleWorkspaceWheel({
     runtime.store.moveFocus(direction, viewportProvider());
   }
   persistLayout();
+}
+
+// In overview the wheel drives zoom or pan of the scaled surface (rather than
+// moving focus between panes): a mouse wheel / pinch / Cmd-Ctrl+wheel zooms toward
+// the cursor, a two-finger trackpad swipe pans. Both are ephemeral view state
+// (reset on toggle), so neither is persisted.
+function handleOverviewWheel({
+  event,
+  root,
+  runtime,
+  scheduler,
+  stage,
+  viewportProvider,
+}: {
+  event: WheelEvent;
+  root: HTMLElement;
+  runtime: WorkspaceRuntime;
+  scheduler: FrameScheduler;
+  stage: HTMLElement;
+  viewportProvider: () => Rect;
+}): void {
+  if (!wheelTargetWithinRoot(root, event.target)) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  const intent = classifyOverviewWheel({
+    ctrlKey: event.ctrlKey,
+    deltaMode: event.deltaMode,
+    deltaX: event.deltaX,
+    deltaY: event.deltaY,
+    metaKey: event.metaKey,
+  });
+  let changed: boolean;
+  if (intent === "zoom") {
+    const stageRect = stage.getBoundingClientRect();
+    changed = runtime.store.zoomOverviewBy(
+      overviewWheelZoomFactor(event.deltaY, event.deltaMode, event.ctrlKey),
+      event.clientX - stageRect.left,
+      event.clientY - stageRect.top,
+      viewportProvider(),
+    );
+  } else {
+    changed = runtime.store.panOverviewBy(
+      event.deltaX * wheelDeltaModePixelFactor(event.deltaMode),
+      event.deltaY * wheelDeltaModePixelFactor(event.deltaMode),
+      viewportProvider(),
+    );
+  }
+  if (changed) {
+    scheduler.pauseBenchmark();
+  }
+}
+
+function wheelTargetWithinRoot(root: HTMLElement, target: EventTarget | null): boolean {
+  if (!target) {
+    return false;
+  }
+  if (typeof Node !== "undefined" && target instanceof Node) {
+    return root.contains(target);
+  }
+  return (root as unknown as { contains: (candidate: EventTarget) => boolean }).contains(target);
 }
 
 function workspaceScrollAnimationActive(snapshot: {

@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { AppearanceShortcutsSettings } from "@generated/backend";
 
 import type { FrameScheduler } from "./frame-scheduler";
-import { handleForwardedBrowserViewKey, handleWorkspaceKeyDown } from "./workspace-interactions";
+import {
+  handleForwardedBrowserViewKey,
+  handleWorkspaceKeyDown,
+  handleWorkspaceWheel,
+} from "./workspace-interactions";
+import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 import type { Rect } from "./types";
 
@@ -146,6 +151,24 @@ describe("workspace keyboard interactions", () => {
     expect(context.runtime.store.splitFocusedPane).not.toHaveBeenCalled();
   });
 
+  test("opens a browser pane with Mod+Alt+B", () => {
+    const context = workspaceKeyContext();
+    const event = keyboardEvent({ altKey: true, key: "b", metaKey: true });
+
+    handleWorkspaceKeyDown({ ...context, event });
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(context.runtime.store.canOpenPane).toHaveBeenCalledWith(
+      expect.objectContaining({ surfaceKind: "browser" }),
+    );
+    expect(context.runtime.store.openPane).toHaveBeenCalledWith(
+      expect.objectContaining({
+        surfaceKind: "browser",
+        title: "Browser",
+      }),
+    );
+  });
+
   test("uses active shortcut settings for forwarded BrowserView arrows", () => {
     const context = workspaceKeyContext({
       shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
@@ -169,6 +192,141 @@ describe("workspace keyboard interactions", () => {
   });
 });
 
+describe("workspace overview wheel panning", () => {
+  test("routes wheel scrolling to overview pan instead of focus moves", () => {
+    const context = overviewWheelContext();
+
+    handleWorkspaceWheel({
+      ...context,
+      event: wheelEvent({ deltaX: 30, deltaY: 120, target: context.insideTarget }),
+    });
+
+    expect(context.runtime.store.panOverviewBy).toHaveBeenCalledWith(30, 120, context.viewport);
+    expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
+  });
+
+  test("ignores wheel events outside the workspace root", () => {
+    const context = overviewWheelContext();
+
+    handleWorkspaceWheel({
+      ...context,
+      event: wheelEvent({ deltaX: 30, deltaY: 120, target: {} }),
+    });
+
+    expect(context.runtime.store.panOverviewBy).not.toHaveBeenCalled();
+  });
+
+  test("routes a mouse-wheel notch to zoom toward the cursor", () => {
+    const context = overviewWheelContext();
+
+    handleWorkspaceWheel({
+      ...context,
+      event: wheelEvent({
+        clientX: 130,
+        clientY: 80,
+        deltaY: -120,
+        target: context.insideTarget,
+      }),
+    });
+
+    // Cursor is mapped into stage space (stage origin at 30, 20).
+    expect(context.runtime.store.zoomOverviewBy).toHaveBeenCalledWith(
+      expect.any(Number),
+      100,
+      60,
+      context.viewport,
+    );
+    expect(context.runtime.store.panOverviewBy).not.toHaveBeenCalled();
+  });
+
+  test("routes a trackpad swipe to pan", () => {
+    const context = overviewWheelContext();
+
+    handleWorkspaceWheel({
+      ...context,
+      event: wheelEvent({ deltaY: -8, target: context.insideTarget }),
+    });
+
+    expect(context.runtime.store.panOverviewBy).toHaveBeenCalled();
+    expect(context.runtime.store.zoomOverviewBy).not.toHaveBeenCalled();
+  });
+
+  test("routes a pinch (ctrl+wheel) to zoom", () => {
+    const context = overviewWheelContext();
+
+    handleWorkspaceWheel({
+      ...context,
+      event: wheelEvent({ ctrlKey: true, deltaY: -4, target: context.insideTarget }),
+    });
+
+    expect(context.runtime.store.zoomOverviewBy).toHaveBeenCalled();
+    expect(context.runtime.store.panOverviewBy).not.toHaveBeenCalled();
+  });
+});
+
+function overviewWheelContext() {
+  const viewport: Rect = { height: 720, width: 480, x: 0, y: 0 };
+  const insideTarget = {};
+  const root = {
+    contains: (candidate: unknown) => candidate === insideTarget,
+  } as unknown as HTMLElement;
+  const stage = {
+    getBoundingClientRect: () => ({ left: 30, top: 20 }),
+  } as unknown as HTMLElement;
+  const store = {
+    getSnapshot: () => ({ presentationMode: "overview" }),
+    moveFocus: vi.fn(),
+    panOverviewBy: vi.fn(() => true),
+    zoomOverviewBy: vi.fn(() => true),
+  };
+  const runtime = { store } as unknown as WorkspaceRuntime;
+  const scheduler = { pauseBenchmark: vi.fn() } as unknown as FrameScheduler;
+  return {
+    insideTarget,
+    persistLayout: vi.fn(),
+    root,
+    runtime,
+    scheduler,
+    stage,
+    state: createWorkspaceTrackpadNavigationState(),
+    viewport,
+    viewportProvider: () => viewport,
+  };
+}
+
+function wheelEvent({
+  clientX = 0,
+  clientY = 0,
+  ctrlKey = false,
+  deltaMode = 0,
+  deltaX = 0,
+  deltaY,
+  metaKey = false,
+  target,
+}: {
+  clientX?: number;
+  clientY?: number;
+  ctrlKey?: boolean;
+  deltaMode?: number;
+  deltaX?: number;
+  deltaY: number;
+  metaKey?: boolean;
+  target: unknown;
+}): WheelEvent {
+  return {
+    clientX,
+    clientY,
+    ctrlKey,
+    deltaMode,
+    deltaX,
+    deltaY,
+    metaKey,
+    preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
+    target,
+  } as unknown as WheelEvent;
+}
+
 function workspaceKeyContext({
   shortcuts = { workspaceNavigation: "mod_alt_arrows" },
 }: {
@@ -176,8 +334,10 @@ function workspaceKeyContext({
 } = {}) {
   const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
   const store = {
+    canOpenPane: vi.fn(() => true),
     moveFocus: vi.fn(),
     moveFocusedPane: vi.fn(),
+    openPane: vi.fn(),
     splitFocusedPane: vi.fn(),
     splitFocusedPaneToPlane: vi.fn(),
   };

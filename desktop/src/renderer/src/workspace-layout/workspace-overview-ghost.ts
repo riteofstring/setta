@@ -1,6 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
-
-import type { PaneInsertionPlacement } from "./types";
+import type { PaneDropIntent, PaneInsertionPlacement, WorkspaceScene } from "./types";
 
 const overviewGhostGapPx = 8;
 
@@ -13,11 +11,12 @@ export interface OverviewGhostTarget {
   width: number;
 }
 
-interface OverviewPaneFrame {
+export interface OverviewPaneFrame {
   bottom: number;
   height: number;
   left: number;
   paneId: string;
+  planeIndex: number;
   relativeLeft: number;
   relativeTop: number;
   right: number;
@@ -32,35 +31,32 @@ export function eventTargetsOverviewGhost(event: PointerEvent): boolean {
   );
 }
 
-export function overviewPaneIdFromPointer(event: PointerEvent): string | null {
-  return event.target instanceof Element ? visiblePaneHostId(event.target) : null;
-}
-
 export function overviewPaneIdAtPoint(event: PointerEvent, excludedPaneId?: string): string | null {
   return visiblePaneHostIdAtPoint(event.clientX, event.clientY, excludedPaneId);
 }
 
-export function setOverviewGhostTargetIfChanged(
-  setTarget: Dispatch<SetStateAction<OverviewGhostTarget | null>>,
-  nextTarget: OverviewGhostTarget | null,
-): void {
-  setTarget((currentTarget) =>
-    overviewGhostTargetsMatch(currentTarget, nextTarget) ? currentTarget : nextTarget,
-  );
+// Snapshot the visible overview pane frames (screen + stage-relative geometry).
+// Captured once when an insert preview activates so subsequent hover resolution
+// is a pure function of the committed layout -- the reflow can't shift panes under
+// the cursor and oscillate the resolved slot.
+export function captureOverviewPaneFrames(stage: HTMLElement): OverviewPaneFrame[] {
+  return overviewPaneFrames(stage, stage.getBoundingClientRect());
 }
 
-export function overviewGhostTargetFromPointer(
-  event: PointerEvent,
-  stage: HTMLElement,
+// Pure geometry: pick the "add pane" ghost slot for a pointer over a set of
+// overview pane frames. Split out from the DOM extraction above so the slot
+// math (including the non-overlap guard) is testable without a laid-out DOM.
+export function overviewGhostTargetFromFrames(
+  panes: OverviewPaneFrame[],
+  clientX: number,
+  clientY: number,
 ): OverviewGhostTarget | null {
-  const stageRect = stage.getBoundingClientRect();
-  if (!rectContainsPoint(stageRect, event.clientX, event.clientY)) {
+  if (panes.length === 0) {
     return null;
   }
-  const panes = overviewPaneFrames(stage, stageRect);
   return (
-    overviewRightGhostTarget(panes, event.clientX, event.clientY) ??
-    overviewVerticalGhostTarget(panes, event.clientX, event.clientY)
+    overviewRightGhostTarget(panes, clientX, clientY) ??
+    overviewVerticalGhostTarget(panes, clientX, clientY)
   );
 }
 
@@ -77,32 +73,47 @@ export function overviewGhostLabel(placement: PaneInsertionPlacement): string {
   }
 }
 
-function overviewGhostTargetsMatch(
-  left: OverviewGhostTarget | null,
-  right: OverviewGhostTarget | null,
-): boolean {
-  if (left === right) {
-    return true;
+export function overviewPaneDropIntentFromGhost(
+  target: OverviewGhostTarget,
+  scene: WorkspaceScene,
+): PaneDropIntent | null {
+  const targetPane = scene.paneById.get(target.paneId);
+  const targetColumn = scene.columns.find((column) => column.columnId === targetPane?.columnId);
+  if (!targetPane || !targetColumn) {
+    return null;
   }
-  if (!left || !right) {
-    return false;
+  switch (target.placement) {
+    case "above":
+      return {
+        kind: "row",
+        placement: "before",
+        targetPaneId: target.paneId,
+      };
+    case "below":
+      return {
+        kind: "row",
+        placement: "after",
+        targetPaneId: target.paneId,
+      };
+    case "right":
+      return {
+        kind: "column",
+        planeIndex: targetColumn.planeIndex,
+        slotPlacement: "after",
+        targetColumnId: targetColumn.columnId,
+      };
+    default:
+      return assertNever(target.placement);
   }
-  const frameFields = ["left", "top", "width", "height"] as const;
-  return (
-    left.paneId === right.paneId &&
-    left.placement === right.placement &&
-    frameFields.every((field) => roundedEqual(left[field], right[field]))
-  );
-}
-
-function roundedEqual(left: number, right: number): boolean {
-  return left === right || Math.abs(left - right) < 0.5;
 }
 
 function overviewPaneFrames(stage: HTMLElement, stageRect: DOMRect): OverviewPaneFrame[] {
   return Array.from(
     stage.querySelectorAll<HTMLElement>('[data-testid="workspace-pane-host"][data-visible="true"]'),
   ).flatMap((host) => {
+    if (host.dataset.dragSource === "true") {
+      return [];
+    }
     const paneId = host.dataset.paneId;
     if (!paneId) {
       return [];
@@ -114,6 +125,7 @@ function overviewPaneFrames(stage: HTMLElement, stageRect: DOMRect): OverviewPan
         height: rect.height,
         left: rect.left,
         paneId,
+        planeIndex: paneFramePlaneIndex(host),
         relativeLeft: rect.left - stageRect.left,
         relativeTop: rect.top - stageRect.top,
         right: rect.right,
@@ -140,8 +152,12 @@ function overviewRightGhostTarget(
     if (distance >= bestDistance) {
       continue;
     }
+    const candidate = ghostTargetForPane(pane, "right", planeBandForPane(pane, panes));
+    if (ghostTargetOverlapsAnyPane(candidate, panes)) {
+      continue;
+    }
     bestDistance = distance;
-    best = ghostTargetForPane(pane, "right");
+    best = candidate;
   }
   return best;
 }
@@ -169,8 +185,11 @@ function overviewVerticalGhostTarget(
     if (clientX < pane.left || clientX > pane.right) {
       continue;
     }
-    const candidate = verticalGhostCandidateForPane(pane, clientY);
+    const candidate = verticalGhostCandidateForPane(pane, clientY, panes);
     if (!candidate || candidate.distance >= bestDistance) {
+      continue;
+    }
+    if (ghostTargetOverlapsAnyPane(candidate.target, panes)) {
       continue;
     }
     bestDistance = candidate.distance;
@@ -179,69 +198,158 @@ function overviewVerticalGhostTarget(
   return best;
 }
 
+// A ghost "add pane here" slot must land in empty space, never on top of an
+// existing pane. In a dense overview grid the above/below/right detection bands
+// extend a full pane width/height into the neighbouring row or column, so the
+// computed slot would otherwise overlay (and steal pointer events from) the
+// adjacent pane. Reject any candidate whose rect intersects a real pane so the
+// affordance only appears at the outer edges of the grid.
+function ghostTargetOverlapsAnyPane(
+  target: OverviewGhostTarget,
+  panes: OverviewPaneFrame[],
+): boolean {
+  const left = target.left + overviewGhostGapPx;
+  const right = target.left + target.width - overviewGhostGapPx;
+  const top = target.top + overviewGhostGapPx;
+  const bottom = target.top + target.height - overviewGhostGapPx;
+  return panes.some(
+    (pane) =>
+      left < pane.relativeLeft + pane.width &&
+      right > pane.relativeLeft &&
+      top < pane.relativeTop + pane.height &&
+      bottom > pane.relativeTop,
+  );
+}
+
 function verticalGhostCandidateForPane(
   pane: OverviewPaneFrame,
   clientY: number,
+  panes: OverviewPaneFrame[],
 ): { distance: number; target: OverviewGhostTarget } | null {
-  return aboveGhostCandidateForPane(pane, clientY) ?? belowGhostCandidateForPane(pane, clientY);
+  return (
+    aboveGhostCandidateForPane(pane, clientY, panes) ??
+    belowGhostCandidateForPane(pane, clientY, panes)
+  );
 }
 
 function aboveGhostCandidateForPane(
   pane: OverviewPaneFrame,
   clientY: number,
+  panes: OverviewPaneFrame[],
 ): { distance: number; target: OverviewGhostTarget } | null {
-  const aboveTop = pane.top - pane.height - overviewGhostGapPx;
+  const band = planeBandForPane(pane, panes);
+  // The hit region is the full row height of empty space above the column, not
+  // just the (possibly half-height) anchor pane, so the slot is hoverable across
+  // the whole row.
+  const aboveTop = pane.top - (band.bottom - band.top) - overviewGhostGapPx;
   if (clientY < aboveTop || clientY > pane.top) {
     return null;
   }
   return {
     distance: pane.top - clientY,
-    target: ghostTargetForPane(pane, "above"),
+    target: ghostTargetForPane(pane, "above", band),
   };
 }
 
 function belowGhostCandidateForPane(
   pane: OverviewPaneFrame,
   clientY: number,
+  panes: OverviewPaneFrame[],
 ): { distance: number; target: OverviewGhostTarget } | null {
-  const belowBottom = pane.bottom + pane.height + overviewGhostGapPx;
+  const band = planeBandForPane(pane, panes);
+  const belowBottom = pane.bottom + (band.bottom - band.top) + overviewGhostGapPx;
   if (clientY < pane.bottom || clientY > belowBottom) {
     return null;
   }
   return {
     distance: clientY - pane.bottom,
-    target: ghostTargetForPane(pane, "below"),
+    target: ghostTargetForPane(pane, "below", band),
   };
 }
 
 function ghostTargetForPane(
   pane: OverviewPaneFrame,
   placement: PaneInsertionPlacement,
+  band: PaneRowBand,
 ): OverviewGhostTarget {
+  const height = band.bottom - band.top;
   return {
-    height: pane.height,
+    height,
     left: pane.relativeLeft + (placement === "right" ? pane.width + overviewGhostGapPx : 0),
     paneId: pane.paneId,
     placement,
-    top: ghostTargetTop(pane, placement),
+    top: ghostTargetTop(pane, placement, band, height),
     width: pane.width,
   };
 }
 
-function ghostTargetTop(pane: OverviewPaneFrame, placement: PaneInsertionPlacement): number {
+function ghostTargetTop(
+  pane: OverviewPaneFrame,
+  placement: PaneInsertionPlacement,
+  band: PaneRowBand,
+  height: number,
+): number {
   if (placement === "above") {
-    return pane.relativeTop - pane.height - overviewGhostGapPx;
+    return pane.relativeTop - height - overviewGhostGapPx;
   }
   if (placement === "below") {
     return pane.relativeTop + pane.height + overviewGhostGapPx;
   }
-  return pane.relativeTop;
+  // The "right" slot is a brand-new full-row column, so align it to the top of
+  // the row (plane) band rather than to the anchor pane's own (possibly mid-row)
+  // top.
+  return band.top;
 }
 
-function rectContainsPoint(rect: DOMRect, clientX: number, clientY: number): boolean {
+interface PaneRowBand {
+  bottom: number;
+  top: number;
+}
+
+// The "add pane" affordance fills an empty slot in the overview grid. Both its
+// hit region and its box span the full height of the row (plane) the anchor pane
+// belongs to rather than that single pane, so a slot above/below/beside a stacked
+// (half-height) column still reads - and stays hoverable - as a full-height row
+// instead of a short stub. Each pane carries its plane index, so the row band is
+// the vertical span of every pane sharing the anchor's plane; a lone pane falls
+// back to its own rect.
+function planeBandForPane(pane: OverviewPaneFrame, panes: OverviewPaneFrame[]): PaneRowBand {
   return (
-    clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+    rowBandContainingCenter(panes, pane.relativeTop + pane.height / 2) ?? {
+      bottom: pane.relativeTop + pane.height,
+      top: pane.relativeTop,
+    }
   );
+}
+
+function rowBandContainingCenter(panes: OverviewPaneFrame[], centerY: number): PaneRowBand | null {
+  for (const band of rowBandsByPlane(panes)) {
+    if (centerY >= band.top && centerY <= band.bottom) {
+      return band;
+    }
+  }
+  return null;
+}
+
+function rowBandsByPlane(panes: OverviewPaneFrame[]): PaneRowBand[] {
+  const bands = new Map<number, PaneRowBand>();
+  for (const pane of panes) {
+    const top = pane.relativeTop;
+    const bottom = pane.relativeTop + pane.height;
+    const band = bands.get(pane.planeIndex);
+    if (band) {
+      band.top = Math.min(band.top, top);
+      band.bottom = Math.max(band.bottom, bottom);
+    } else {
+      bands.set(pane.planeIndex, { bottom, top });
+    }
+  }
+  return [...bands.values()];
+}
+
+function paneFramePlaneIndex(host: HTMLElement): number {
+  const parsed = Number.parseInt(host.dataset.planeIndex ?? "", 10);
+  return Number.isInteger(parsed) ? parsed : 0;
 }
 
 function visiblePaneHostId(element: Element | null): string | null {

@@ -6,14 +6,7 @@
     { "method": "thread/goal/clear" },
     { "method": "thread/goal/get" },
     { "method": "thread/goal/set" },
-    { "method": "thread/read" },
     { "method": "thread/resume" },
-    {
-      "method": "thread/backgroundTerminals/terminate",
-      "experimental": true,
-      "paramsName": "ThreadBackgroundTerminalsTerminateParams",
-      "source": "Experimental upstream Codex protocol method from the app-server background terminal lifecycle API. The checked JSON schemas are copied from Codex schema fixtures generated with --experimental into json_experimental/v2/ThreadBackgroundTerminalsTerminateParams.json and ThreadBackgroundTerminalsTerminateResponse.json."
-    },
     {
       "method": "thread/settings/update",
       "experimental": true,

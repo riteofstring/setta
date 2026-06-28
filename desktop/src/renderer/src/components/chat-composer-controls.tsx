@@ -1,6 +1,5 @@
 import type {
   ChatCommandExecuteResult,
-  ChatCodexEffectiveSettings,
   ChatModelOption,
   ChatReasoningEffortOption,
   Conversation,
@@ -11,6 +10,15 @@ import type { KeyboardEvent, ReactNode } from "react";
 
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
+
+const REASONING_EFFORT_DISPLAY_NAMES = {
+  none: "None",
+  minimal: "Minimal",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra High",
+} satisfies Record<ReasoningEffort, string>;
 
 export interface ComposerKeyActions {
   completeCommand: () => void;
@@ -281,34 +289,15 @@ function selectedReasoningEffortOption(modelPicker: ChatCommandExecuteResult) {
 }
 
 function conversationModelSummary(selectedConversation: Conversation | null) {
-  const effectiveSettings = conversationEffectiveSettings(selectedConversation);
   return {
-    model: conversationModelLabel(effectiveSettings),
-    reasoning: conversationReasoningSummary(effectiveSettings),
+    model: selectedConversation?.codexSettings?.model || "Model",
+    reasoning: conversationReasoningSummary(selectedConversation),
   };
 }
 
-function conversationEffectiveSettings(
-  selectedConversation: Conversation | null,
-): ChatCodexEffectiveSettings | null {
-  if (selectedConversation === null) {
-    return null;
-  }
-  return selectedConversation.codexEffectiveSettings;
-}
-
-function conversationModelLabel(effectiveSettings: ChatCodexEffectiveSettings | null) {
-  if (effectiveSettings !== null) {
-    return effectiveSettings.modelDisplayName;
-  }
-  return "Model";
-}
-
-function conversationReasoningSummary(effectiveSettings: ChatCodexEffectiveSettings | null) {
-  if (effectiveSettings === null) {
-    return "Reasoning";
-  }
-  return effectiveSettings.reasoningEffortDisplayName;
+function conversationReasoningSummary(selectedConversation: Conversation | null) {
+  const reasoningEffort = selectedConversation?.codexSettings?.reasoningEffort;
+  return reasoningEffort ? REASONING_EFFORT_DISPLAY_NAMES[reasoningEffort] : "Reasoning";
 }
 
 export function modelPickerOptionSelected(

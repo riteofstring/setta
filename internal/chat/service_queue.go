@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,69 +10,54 @@ import (
 	"setta/internal/workspace"
 )
 
-func (service *Service) QueueUserInput(workspaceID string, conversationID string, input ChatInput) (QueueMessageResult, error) {
-	input, err := prepareMessageEndpointInput(input)
-	if err != nil {
+func (service *Service) QueueUserMessage(workspaceID string, conversationID string, prompt string) (QueueMessageResult, error) {
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
+		return QueueMessageResult{}, errors.New("prompt is required")
+	}
+	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
 		return QueueMessageResult{}, err
 	}
 	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
 	if err != nil {
 		return QueueMessageResult{}, err
 	}
-	conversationForCapability, err := service.store.LoadConversation(workspaceID, conversationID)
-	if err != nil {
-		return QueueMessageResult{}, err
-	}
-	if err := service.ensureImageInputSupported(context.Background(), workspaceSummary, conversationForCapability, input); err != nil {
-		return QueueMessageResult{}, err
-	}
 
 	service.mu.Lock()
-	message, run, err := service.persistQueuedMessageLocked(workspaceID, conversationID, input)
-	service.mu.Unlock()
+	defer service.mu.Unlock()
+
+	message, run, err := service.persistQueuedMessageLocked(workspaceID, conversationID, prompt)
 	if err != nil {
 		return QueueMessageResult{}, err
 	}
-	if err := service.promoteQueuedIfIdle(workspaceSummary, conversationID); err != nil {
+	if err := service.promoteQueuedIfIdleLocked(workspaceSummary, conversationID); err != nil {
 		return QueueMessageResult{}, err
 	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
 	return service.queueMessageResultLocked(workspaceID, conversationID, message.ID, run.ID)
 }
 
-func (service *Service) EditQueuedInput(workspaceID string, conversationID string, messageID string, input ChatInput) (QueueEditResult, error) {
-	input, err := prepareMessageEndpointInput(input)
-	if err != nil {
+func (service *Service) EditQueuedMessage(workspaceID string, conversationID string, messageID string, prompt string) (QueueEditResult, error) {
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
+		return QueueEditResult{}, errors.New("prompt is required")
+	}
+	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
 		return QueueEditResult{}, err
 	}
-	workspaceSummary, err := service.validateMessageMutationRequest(workspaceID, conversationID, messageID)
-	if err != nil {
-		return QueueEditResult{}, err
-	}
-	if err := service.ensureInputSupportedForConversation(context.Background(), workspaceSummary, workspaceID, conversationID, input); err != nil {
+	if _, err := service.validateMessageMutationRequest(workspaceID, conversationID, messageID); err != nil {
 		return QueueEditResult{}, err
 	}
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	return service.editQueuedInputLocked(workspaceID, conversationID, messageID, input)
-}
-
-func (service *Service) editQueuedInputLocked(workspaceID string, conversationID string, messageID string, input ChatInput) (QueueEditResult, error) {
 	conversation, message, run, err := service.loadQueuedMessageRunForMutationLocked(workspaceID, conversationID, messageID)
 	if err != nil {
 		return QueueEditResult{}, err
 	}
 	now := timestamp(service.now())
 	conversation.UpdatedAt = now
-	parts, err := service.messagePartsFromInput(workspaceID, conversationID, input)
-	if err != nil {
-		return QueueEditResult{}, err
-	}
-	message.Parts = parts
-	conversation, message, run, err = service.store.EditQueuedTurn(conversation, message, run)
+	conversation, message, run, err = service.store.EditQueuedTurn(conversation, message, run, prompt)
 	if err != nil {
 		return QueueEditResult{}, err
 	}
@@ -100,54 +86,47 @@ func (service *Service) RemoveQueuedMessage(workspaceID string, conversationID s
 	}
 
 	service.mu.Lock()
+	defer service.mu.Unlock()
+
 	_, message, run, err := service.loadQueuedMessageRunForMutationLocked(workspaceID, conversationID, messageID)
 	if err != nil {
-		service.mu.Unlock()
 		return QueueRemoveResult{}, err
 	}
 	_, removedRunID, err := service.store.DeleteQueuedTurn(workspaceID, conversationID, message.ID, timestamp(service.now()))
 	if err != nil {
-		service.mu.Unlock()
 		return QueueRemoveResult{}, err
 	}
 	if _, err := service.events.Publish(NewMessageRemovedEvent(workspaceID, conversationID, run.ID, message.ID)); err != nil {
-		service.mu.Unlock()
 		return QueueRemoveResult{}, err
 	}
 	if err := service.publishQueueUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
-		service.mu.Unlock()
 		return QueueRemoveResult{}, err
 	}
 	if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
-		service.mu.Unlock()
 		return QueueRemoveResult{}, err
 	}
-	service.mu.Unlock()
-
-	if err := service.promoteQueuedIfIdle(workspaceSummary, conversationID); err != nil {
+	if err := service.promoteQueuedIfIdleLocked(workspaceSummary, conversationID); err != nil {
 		return QueueRemoveResult{}, err
 	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
 	return service.queueRemoveResultLocked(workspaceID, conversationID, message.ID, removedRunID)
 }
 
-func (service *Service) persistQueuedMessageLocked(workspaceID string, conversationID string, input ChatInput) (ChatMessage, Run, error) {
+func (service *Service) persistQueuedMessageLocked(workspaceID string, conversationID string, prompt string) (ChatMessage, Run, error) {
 	now := timestamp(service.now())
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
 	if err != nil {
 		return ChatMessage{}, Run{}, err
 	}
-	message, err := service.newUserMessage(workspaceID, conversationID, "", input, MessageDeliveryQueued, MessageStatusPending, now)
+	message, err := service.newUserMessage(workspaceID, conversationID, "", prompt, MessageDeliveryQueued, MessageStatusPending, now)
 	if err != nil {
 		return ChatMessage{}, Run{}, err
 	}
-	run, err := service.newQueuedRun(workspaceID, conversationID, message)
+	run, err := service.newQueuedRun(workspaceID, conversationID, message, prompt)
 	if err != nil {
 		return ChatMessage{}, Run{}, err
 	}
 	message.RunID = run.ID
-	conversation = updateConversationAfterPrompt(conversation, messagePromptSummary(message), now)
+	conversation = updateConversationAfterPrompt(conversation, prompt, now)
 	records, err := service.store.CreateQueuedTurn(QueuedTurnRecords{
 		Conversation: conversation,
 		Run:          run,
@@ -226,6 +205,22 @@ func validateQueuedMutationRun(message ChatMessage, run Run) error {
 		return fmt.Errorf("queued message %s runId = %s, want %s", message.ID, message.RunID, run.ID)
 	}
 	return nil
+}
+
+func (service *Service) promoteQueuedIfIdleLocked(workspaceSummary workspace.WorkspaceSummary, conversationID string) error {
+	if service.hasActiveTurnLocked(workspaceSummary.ID, conversationID) {
+		return nil
+	}
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceSummary.ID, conversationID)
+	if err != nil {
+		return err
+	}
+	if _, ok, err := service.activeRunFromRunsLocked(workspaceSummary.ID, conversationID, runs); err != nil {
+		return err
+	} else if ok {
+		return nil
+	}
+	return service.promoteNextQueuedRunLocked(workspaceSummary, conversationID, runs)
 }
 
 func (service *Service) queueMessageResultLocked(workspaceID string, conversationID string, messageID string, runID string) (QueueMessageResult, error) {
@@ -310,32 +305,27 @@ func (service *Service) queueRemoveResultLocked(workspaceID string, conversation
 	return QueueRemoveResult{Conversation: conversation, Page: page, Queue: queue, RemovedMessageID: messageID, RemovedRunID: runID}, nil
 }
 
-func (service *Service) SteerActiveRunInput(workspaceID string, conversationID string, input ChatInput) (SteerMessageResult, error) {
-	input, err := prepareMessageEndpointInput(input)
-	if err != nil {
+func (service *Service) SteerActiveRun(workspaceID string, conversationID string, prompt string) (SteerMessageResult, error) {
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
+		return SteerMessageResult{}, errors.New("prompt is required")
+	}
+	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
 		return SteerMessageResult{}, err
 	}
-	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
-	if err != nil {
-		return SteerMessageResult{}, err
-	}
-	conversationForCapability, err := service.store.LoadConversation(workspaceID, conversationID)
-	if err != nil {
-		return SteerMessageResult{}, err
-	}
-	if err := service.ensureImageInputSupported(context.Background(), workspaceSummary, conversationForCapability, input); err != nil {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
 		return SteerMessageResult{}, err
 	}
 
-	message, run, err := service.submitSteeringMessage(workspaceID, conversationID, input)
+	message, run, err := service.submitSteeringMessage(workspaceID, conversationID, prompt)
 	if err != nil {
 		return SteerMessageResult{}, err
 	}
 	return service.steerMessageResult(workspaceID, conversationID, message, run)
 }
 
-func (service *Service) submitSteeringMessage(workspaceID string, conversationID string, input ChatInput) (ChatMessage, Run, error) {
-	message, run, threadID, turnID, err := service.persistSteeringMessage(workspaceID, conversationID, input)
+func (service *Service) submitSteeringMessage(workspaceID string, conversationID string, prompt string) (ChatMessage, Run, error) {
+	message, run, threadID, turnID, err := service.persistSteeringMessage(workspaceID, conversationID, prompt)
 	if err != nil {
 		return ChatMessage{}, Run{}, err
 	}
@@ -343,22 +333,18 @@ func (service *Service) submitSteeringMessage(workspaceID string, conversationID
 	if err != nil {
 		return ChatMessage{}, Run{}, err
 	}
-	semanticDelivery, err := service.compileSemanticContextForChatTurn(context.Background(), semanticcontext.TriggerSteering, conversation, run, message.ID, messageText(message))
+	semanticDelivery, err := service.compileSemanticContextForChatTurn(context.Background(), semanticcontext.TriggerSteering, conversation, run, message.ID, prompt)
 	if err != nil {
 		if _, _, finishErr := service.finishSteeringMessage(workspaceID, conversationID, message.ID, run.ID, err); finishErr != nil {
 			return ChatMessage{}, Run{}, finishErr
 		}
 		return ChatMessage{}, Run{}, err
 	}
-	deliveryInput, err := service.deliveryInputFromMessage(workspaceID, conversationID, message)
-	if err != nil {
-		return ChatMessage{}, Run{}, err
-	}
 	steerErr := service.harness.SteerTurn(context.Background(), SteerRequest{
 		ConversationID:  conversationID,
 		RunID:           run.ID,
 		SemanticContext: semanticDelivery,
-		Input:           deliveryInput,
+		Text:            prompt,
 		ThreadID:        threadID,
 		TurnID:          turnID,
 		WorkspaceID:     workspaceID,
@@ -371,6 +357,46 @@ func (service *Service) submitSteeringMessage(workspaceID string, conversationID
 		return ChatMessage{}, Run{}, steerErr
 	}
 	return message, run, nil
+}
+
+func (service *Service) SendSteeringImmediately(workspaceID string, conversationID string, prompt string) (ImmediateSteeringResult, error) {
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
+	if err != nil {
+		return ImmediateSteeringResult{}, err
+	}
+	trimmedPrompt := strings.TrimSpace(prompt)
+	if prompt != "" {
+		if trimmedPrompt == "" {
+			return ImmediateSteeringResult{}, errors.New("prompt is required")
+		}
+		if err := rejectSlashPromptForMessageEndpoint(trimmedPrompt); err != nil {
+			return ImmediateSteeringResult{}, err
+		}
+		if _, _, err := service.submitSteeringMessage(workspaceID, conversationID, trimmedPrompt); err != nil {
+			return ImmediateSteeringResult{}, err
+		}
+	}
+
+	active, sourceRun, err := service.captureImmediateSteeringSource(workspaceID, conversationID)
+	if err != nil {
+		return ImmediateSteeringResult{}, err
+	}
+	if err := service.harness.CancelTurn(context.Background(), CancelRequest{
+		ConversationID: conversationID,
+		RunID:          sourceRun.ID,
+		WorkspaceID:    workspaceID,
+	}); err != nil && !errors.Is(err, ErrTurnNotStarted) {
+		return ImmediateSteeringResult{}, err
+	}
+	active.cancel()
+	cancelledRun, err := service.markTurnInterruptedForImmediate(workspaceID, conversationID, sourceRun.ID)
+	if err != nil {
+		return ImmediateSteeringResult{}, err
+	}
+	if cancelledRun.Status != RunStatusCancelled {
+		return ImmediateSteeringResult{}, immediateSteeringConflict(fmt.Sprintf("source run %s is %s, not cancelled", cancelledRun.ID, cancelledRun.Status))
+	}
+	return service.startImmediateSteeringReplay(workspaceSummary, conversationID, sourceRun, cancelledRun)
 }
 
 func (service *Service) captureImmediateSteeringSource(workspaceID string, conversationID string) (activeTurn, Run, error) {
@@ -398,30 +424,6 @@ func (service *Service) captureImmediateSteeringSource(workspaceID string, conve
 	return active, run, nil
 }
 
-func (service *Service) validateImmediateSteeringReplayInput(workspaceSummary workspace.WorkspaceSummary, conversationID string, runID string) error {
-	workspaceID := workspaceSummary.ID
-	conversation, replayInput, err := service.immediateSteeringReplayInputSnapshot(workspaceID, conversationID, runID)
-	if err != nil {
-		return err
-	}
-	return service.ensureImageInputSupported(context.Background(), workspaceSummary, conversation, replayInput)
-}
-
-func (service *Service) immediateSteeringReplayInputSnapshot(workspaceID string, conversationID string, runID string) (Conversation, ChatInput, error) {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	_, replayInput, err := service.pendingSteeringReplayInputLocked(workspaceID, conversationID, runID)
-	if err != nil {
-		return Conversation{}, ChatInput{}, err
-	}
-	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
-	if err != nil {
-		return Conversation{}, ChatInput{}, err
-	}
-	return conversation, replayInput, nil
-}
-
 func (service *Service) markTurnInterruptedForImmediate(workspaceID string, conversationID string, runID string) (Run, error) {
 	return service.markTurnCancelledWithOptions(workspaceID, conversationID, runID, "turn interrupted for immediate steering", "immediate_steering_interrupted", "Turn interrupted for immediate steering", false)
 }
@@ -435,18 +437,13 @@ func (service *Service) startImmediateSteeringReplay(workspaceSummary workspace.
 		service.mu.Unlock()
 		return ImmediateSteeringResult{}, err
 	}
-	pending, replayInput, err := service.pendingSteeringReplayInputLocked(workspaceID, conversationID, cancelledRun.ID)
+	pending, replayPrompt, err := service.pendingSteeringReplayPromptLocked(workspaceID, conversationID, cancelledRun.ID)
 	if err != nil {
 		service.mu.Unlock()
 		return ImmediateSteeringResult{}, err
 	}
 	now := timestamp(service.now())
-	conversation, userMessage, assistantMessage, run, err := service.persistImmediateSteeringReplayLocked(workspaceID, conversationID, sourceRun, pending, replayInput, now)
-	if err != nil {
-		service.mu.Unlock()
-		return ImmediateSteeringResult{}, err
-	}
-	ingest, err := service.newTranscriptIngestLocked(workspaceID, run)
+	conversation, userMessage, assistantMessage, run, err := service.persistImmediateSteeringReplayLocked(workspaceID, conversationID, sourceRun, pending, replayPrompt, now)
 	if err != nil {
 		service.mu.Unlock()
 		return ImmediateSteeringResult{}, err
@@ -457,27 +454,25 @@ func (service *Service) startImmediateSteeringReplay(workspaceSummary workspace.
 		cancel:           cancel,
 		runID:            run.ID,
 		workspaceID:      workspaceID,
-		transcript:       ingest,
 	}
 	if err := service.publishImmediateSteeringReplayLocked(workspaceID, conversationID, userMessage, assistantMessage, run, pending); err != nil {
-		return service.abortImmediateSteeringReplayStartLocked(workspaceID, conversationID, key, run.ID, cancel, err)
-	}
-	deliveryInput, err := service.deliveryInputFromMessage(workspaceID, conversationID, userMessage)
-	if err != nil {
-		return service.abortImmediateSteeringReplayStartLocked(workspaceID, conversationID, key, run.ID, cancel, err)
+		service.mu.Unlock()
+		return ImmediateSteeringResult{}, err
 	}
 	queue, err := service.queuedStateFromRunsLocked(workspaceID, conversationID, runs)
 	if err != nil {
-		return service.abortImmediateSteeringReplayStartLocked(workspaceID, conversationID, key, run.ID, cancel, err)
+		service.mu.Unlock()
+		return ImmediateSteeringResult{}, err
 	}
 	page, err := service.loadMessagePageLocked(workspaceID, conversationID, 0, defaultPageLimit)
 	if err != nil {
-		return service.abortImmediateSteeringReplayStartLocked(workspaceID, conversationID, key, run.ID, cancel, err)
+		service.mu.Unlock()
+		return ImmediateSteeringResult{}, err
 	}
 	ids := messageIDs(pending)
 	service.mu.Unlock()
 
-	semanticDelivery, err := service.compileSemanticContextForChatTurn(context.Background(), semanticcontext.TriggerImmediateSteeringReplay, conversation, run, userMessage.ID, messageText(userMessage))
+	semanticDelivery, err := service.compileSemanticContextForChatTurn(context.Background(), semanticcontext.TriggerImmediateSteeringReplay, conversation, run, userMessage.ID, replayPrompt)
 	if err != nil {
 		cancel()
 		if failErr := service.failTurn(workspaceID, conversationID, run.ID, err.Error()); failErr != nil {
@@ -489,7 +484,7 @@ func (service *Service) startImmediateSteeringReplay(workspaceSummary workspace.
 		Workspace:       workspaceSummary,
 		Conversation:    conversation,
 		Run:             run,
-		Input:           deliveryInput,
+		Prompt:          replayPrompt,
 		SemanticContext: semanticDelivery,
 		ThreadRef:       latestHarnessRef(conversation, HarnessCodex),
 	}
@@ -502,16 +497,6 @@ func (service *Service) startImmediateSteeringReplay(workspaceSummary workspace.
 		Queue:                      queue,
 		ReplayedSteeringMessageIDs: ids,
 	}, nil
-}
-
-func (service *Service) abortImmediateSteeringReplayStartLocked(workspaceID string, conversationID string, key string, runID string, cancel context.CancelFunc, startErr error) (ImmediateSteeringResult, error) {
-	cancel()
-	delete(service.active, key)
-	service.mu.Unlock()
-	if failErr := service.failTurn(workspaceID, conversationID, runID, startErr.Error()); failErr != nil {
-		return ImmediateSteeringResult{}, failErr
-	}
-	return ImmediateSteeringResult{}, startErr
 }
 
 func (service *Service) immediateReplayRunsLocked(workspaceID string, conversationID string, key string) ([]Run, error) {
@@ -530,39 +515,36 @@ func (service *Service) immediateReplayRunsLocked(workspaceID string, conversati
 	return runs, nil
 }
 
-func (service *Service) pendingSteeringReplayInputLocked(workspaceID string, conversationID string, runID string) ([]ChatMessage, ChatInput, error) {
+func (service *Service) pendingSteeringReplayPromptLocked(workspaceID string, conversationID string, runID string) ([]ChatMessage, string, error) {
 	pending, err := service.pendingSteeringMessagesForRunLocked(workspaceID, conversationID, runID)
 	if err != nil {
-		return nil, ChatInput{}, err
+		return nil, "", err
 	}
 	if len(pending) == 0 {
-		return nil, ChatInput{}, immediateSteeringConflict("pending steering was already committed before replay")
+		return nil, "", immediateSteeringConflict("pending steering was already committed before replay")
 	}
-	replayInput, err := mergedSteeringInput(pending)
-	if err != nil {
-		return nil, ChatInput{}, err
+	replayPrompt := mergedSteeringPrompt(pending)
+	if replayPrompt == "" {
+		return nil, "", immediateSteeringConflict("pending steering prompt is empty")
 	}
-	if err := validateChatInput(replayInput); err != nil {
-		return nil, ChatInput{}, immediateSteeringConflict(err.Error())
-	}
-	return pending, replayInput, nil
+	return pending, replayPrompt, nil
 }
 
-func (service *Service) persistImmediateSteeringReplayLocked(workspaceID string, conversationID string, cancelledRun Run, pending []ChatMessage, replayInput ChatInput, now string) (Conversation, ChatMessage, ChatMessage, Run, error) {
+func (service *Service) persistImmediateSteeringReplayLocked(workspaceID string, conversationID string, cancelledRun Run, pending []ChatMessage, replayPrompt string, now string) (Conversation, ChatMessage, ChatMessage, Run, error) {
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
-	userMessage, err := service.newUserMessage(workspaceID, conversationID, "", replayInput, MessageDeliveryNormal, MessageStatusComplete, now)
+	userMessage, err := service.newUserMessage(workspaceID, conversationID, "", replayPrompt, MessageDeliveryNormal, MessageStatusComplete, now)
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
-	run, assistantMessage, err := service.newRunAndAssistantMessage(workspaceID, conversationID, userMessage, now)
+	run, assistantMessage, err := service.newRunAndAssistantMessage(workspaceID, conversationID, userMessage, replayPrompt, now)
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
 	userMessage.RunID = run.ID
-	conversation = updateConversationAfterPrompt(conversation, messagePromptSummary(userMessage), now)
+	conversation = updateConversationAfterPrompt(conversation, replayPrompt, now)
 	records, err := service.store.ReplayPendingSteeringAsTurn(PendingSteeringReplayRecords{
 		ActiveRun:               cancelledRun,
 		AssistantMessage:        assistantMessage,
@@ -572,9 +554,6 @@ func (service *Service) persistImmediateSteeringReplayLocked(workspaceID string,
 		UserMessage:             userMessage,
 	})
 	if err != nil {
-		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
-	}
-	if err := service.removeSteeringTranscriptBlocksLocked(workspaceID, records.PendingSteeringMessages); err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
 	if err := service.traceLocked(workspaceID, records.Run.ID, "immediate_steering_replayed", "Pending steering replayed immediately"); err != nil {
@@ -601,36 +580,15 @@ func (service *Service) publishImmediateSteeringReplayLocked(workspaceID string,
 	return service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID)
 }
 
-func mergedSteeringInput(messages []ChatMessage) (ChatInput, error) {
-	converted := make([]ChatInput, 0, len(messages))
-	hasImage := false
+func mergedSteeringPrompt(messages []ChatMessage) string {
+	parts := make([]string, 0, len(messages))
 	for _, message := range messages {
-		input, err := inputFromMessage(message)
-		if err != nil {
-			return ChatInput{}, err
-		}
-		if chatInputImageCount(input) > 0 {
-			hasImage = true
-		}
-		converted = append(converted, input)
-	}
-	if !hasImage {
-		parts := make([]string, 0, len(messages))
-		for _, input := range converted {
-			text := strings.TrimSpace(chatInputText(input))
-			if text != "" {
-				parts = append(parts, text)
-			}
-		}
-		return TextChatInput(strings.Join(parts, "\n")), nil
-	}
-	inputParts := []ChatInputPart{}
-	for _, input := range converted {
-		for _, part := range input.Parts {
-			inputParts = append(inputParts, part)
+		text := strings.TrimSpace(promptFromMessage(message))
+		if text != "" {
+			parts = append(parts, text)
 		}
 	}
-	return normalizeChatInput(ChatInput{Parts: inputParts}), nil
+	return strings.Join(parts, "\n")
 }
 
 func messageIDs(messages []ChatMessage) []string {
@@ -693,30 +651,21 @@ func (service *Service) promoteNextQueuedRunLocked(workspaceSummary workspace.Wo
 	if err != nil {
 		return err
 	}
-	ingest, err := service.newTranscriptIngestLocked(workspaceSummary.ID, run)
-	if err != nil {
-		return err
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.active[activeKey(workspaceSummary.ID, conversationID)] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
 		runID:            run.ID,
 		workspaceID:      workspaceSummary.ID,
-		transcript:       ingest,
 	}
 	if err := service.publishQueuedPromotionLocked(workspaceSummary.ID, conversationID, userMessage, assistantMessage, run); err != nil {
-		return err
-	}
-	deliveryInput, err := service.deliveryInputFromMessage(workspaceSummary.ID, conversationID, userMessage)
-	if err != nil {
 		return err
 	}
 	request := TurnRequest{
 		Workspace:    workspaceSummary,
 		Conversation: conversation,
 		Run:          run,
-		Input:        deliveryInput,
+		Prompt:       promptFromMessage(userMessage),
 		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}
 	go service.runHarnessTurn(ctx, request)
@@ -775,7 +724,7 @@ func (service *Service) publishQueuedPromotionLocked(workspaceID string, convers
 	return service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID)
 }
 
-func (service *Service) persistSteeringMessage(workspaceID string, conversationID string, input ChatInput) (ChatMessage, Run, string, string, error) {
+func (service *Service) persistSteeringMessage(workspaceID string, conversationID string, prompt string) (ChatMessage, Run, string, string, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
@@ -790,7 +739,7 @@ func (service *Service) persistSteeringMessage(workspaceID string, conversationI
 	if run.Status != RunStatusRunning {
 		return ChatMessage{}, Run{}, "", "", fmt.Errorf("active run %s is not running", run.ID)
 	}
-	message, err := service.saveSteeringMessageLocked(workspaceID, conversationID, input, run)
+	message, err := service.saveSteeringMessageLocked(workspaceID, conversationID, prompt, run)
 	if err != nil {
 		return ChatMessage{}, Run{}, "", "", err
 	}
@@ -819,21 +768,14 @@ func (service *Service) attachedActiveTurnLocked(workspaceID string, conversatio
 	return active, nil
 }
 
-func (service *Service) saveSteeringMessageLocked(workspaceID string, conversationID string, input ChatInput, run Run) (ChatMessage, error) {
+func (service *Service) saveSteeringMessageLocked(workspaceID string, conversationID string, prompt string, run Run) (ChatMessage, error) {
 	now := timestamp(service.now())
-	message, err := service.newUserMessage(workspaceID, conversationID, run.ID, input, MessageDeliverySteering, MessageStatusPending, now)
+	message, err := service.newUserMessage(workspaceID, conversationID, run.ID, prompt, MessageDeliverySteering, MessageStatusPending, now)
 	if err != nil {
 		return ChatMessage{}, err
 	}
 	if err := service.store.SaveMessage(workspaceID, message); err != nil {
 		return ChatMessage{}, err
-	}
-	// Assign the steering message a run-local transcript ordinal at the moment it
-	// is sent so it interleaves with the assistant/activity blocks already emitted.
-	if active, ok := service.active[activeKey(workspaceID, conversationID)]; ok && active.runID == run.ID && active.transcript != nil {
-		if err := service.appendUserMessageBlockLocked(workspaceID, active.transcript, message); err != nil {
-			return ChatMessage{}, err
-		}
 	}
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
 	if err != nil {
@@ -872,9 +814,6 @@ func (service *Service) finishSteeringMessage(workspaceID string, conversationID
 		message.Status = MessageStatusError
 	}
 	if err := service.store.SaveMessage(workspaceID, message); err != nil {
-		return ChatMessage{}, Run{}, err
-	}
-	if err := service.syncUserMessageBlockLocked(workspaceID, conversationID, run.ID, message); err != nil {
 		return ChatMessage{}, Run{}, err
 	}
 	traceMessage := "Steering message sent"
@@ -921,9 +860,6 @@ func (service *Service) markPendingSteeringCommitted(workspaceID string, convers
 		if err := service.store.SaveMessage(workspaceID, message); err != nil {
 			return err
 		}
-		if err := service.syncUserMessageBlockLocked(workspaceID, conversationID, runID, message); err != nil {
-			return err
-		}
 		if err := service.traceLocked(workspaceID, runID, "steering_message_committed", "Steering message committed by provider"); err != nil {
 			return err
 		}
@@ -943,9 +879,6 @@ func (service *Service) markPendingSteeringMessagesLocked(workspaceID string, co
 		pending[index].Status = status
 		pending[index].UpdatedAt = now
 		if err := service.store.SaveMessage(workspaceID, pending[index]); err != nil {
-			return nil, err
-		}
-		if err := service.syncUserMessageBlockLocked(workspaceID, conversationID, runID, pending[index]); err != nil {
 			return nil, err
 		}
 	}

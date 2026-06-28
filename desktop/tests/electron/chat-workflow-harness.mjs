@@ -493,9 +493,7 @@ export async function assertAssistantCompleted(backend, workspaceId, conversatio
 }
 
 function messageText(message) {
-  return message.parts
-    .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
-    .join("");
+  return message.parts.map((part) => part.text).join("");
 }
 
 export async function launchContext(fixture, recordingDir, options = {}) {
@@ -822,10 +820,7 @@ async function waitForLayoutSnapshots(recordingDir) {
 async function assertNoIpcFailures(recordingDir) {
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
   const failures = ipc.filter(
-    (entry) =>
-      entry.type === "ipc_failure" &&
-      !isExpectedInitialTerminalAttachMiss(entry) &&
-      !isExpectedBackgroundTerminalUnsupportedKill(entry),
+    (entry) => entry.type === "ipc_failure" && !isExpectedInitialTerminalAttachMiss(entry),
   );
   if (failures.length > 0) {
     throw new Error(`recording included IPC failures: ${JSON.stringify(failures)}`);
@@ -837,15 +832,6 @@ function isExpectedInitialTerminalAttachMiss(entry) {
     entry.channel === "terminal:attach" &&
     typeof entry.error?.message === "string" &&
     entry.error.message.includes("terminal session not found")
-  );
-}
-
-function isExpectedBackgroundTerminalUnsupportedKill(entry) {
-  return (
-    (entry.channel === "chat:kill-background-terminal" ||
-      entry.channel === "chat:kill-all-background-terminals") &&
-    typeof entry.error?.message === "string" &&
-    entry.error.message.includes("does not support provider termination")
   );
 }
 

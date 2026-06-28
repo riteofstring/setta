@@ -5,7 +5,6 @@ import { join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { chatTextInput } from "./chat-input-helpers.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -303,7 +302,7 @@ async function attachSemanticNodeToChatRun(client, workspaceId) {
     const sent = await window.setta.chat.sendMessage(
       ${JSON.stringify(workspaceId)},
       conversation.id,
-      ${JSON.stringify(chatTextInput("Attach this deterministic chat run to the seeded semantic graph node."))}
+      "Attach this deterministic chat run to the seeded semantic graph node."
     );
     const attached = await window.setta.semanticGraph.attachChatRun({
       activityKind: "exploring",
@@ -883,7 +882,7 @@ async function attachChatRunEvidenceForProcessedCartographerWindow(client, works
     const sent = await window.setta.chat.sendMessage(
       ${JSON.stringify(workspaceId)},
       conversation.id,
-      ${JSON.stringify(chatTextInput("Create deterministic evidence for semantic cartographer processing."))}
+      "Create deterministic evidence for semantic cartographer processing."
     );
     const attached = await window.setta.semanticGraph.attachChatRun({
       activityKind: "validating",
