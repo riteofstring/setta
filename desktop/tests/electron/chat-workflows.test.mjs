@@ -68,6 +68,7 @@ import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-wor
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
+  runProtocolGoalBackgroundTerminalWorkflow,
   runProtocolGoalCancellationWorkflow,
   runProtocolGoalMultiTurnWorkflow,
 } from "./codex-protocol-workflow.mjs";
@@ -1280,6 +1281,7 @@ async function runCodexProtocolWorkflow(results) {
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 
     await runProtocolGoalMultiTurnWorkflow(context.client, backend, workspaceId);
+    await runProtocolGoalBackgroundTerminalWorkflow(context.client, backend, workspaceId, fixture);
     await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);
 
     const exitConversationId = await createChat(context.client, backend, workspaceId);

@@ -5,6 +5,13 @@ import { setTimeout } from "node:timers";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
+const goalBackgroundTerminal = {
+  command: "npm run goal-bg",
+  idleGapOutput: "goal background idle output\n",
+  itemId: "goal_bg_terminal",
+  processId: "goal_bg_process",
+  secondTurnOutput: "goal background turn B output\n",
+};
 let account = null;
 let currentGoal = null;
 let goalCancelTurnId = null;
@@ -226,6 +233,10 @@ function handleThreadGoalSet(message) {
     setTimeout(() => emitGoalOperationMultiTurn(objective), 5);
     return;
   }
+  if (shouldEmitGoalBackgroundTerminal(objective, status)) {
+    setTimeout(() => emitGoalOperationBackgroundTerminal(objective), 5);
+    return;
+  }
   if (shouldEmitGoalCancellation(objective, status)) {
     setTimeout(() => emitGoalOperationCancellation(objective), 5);
   }
@@ -240,6 +251,10 @@ function threadGoalSetValues(params) {
 
 function shouldEmitGoalOperation(objective, status) {
   return objective === "phase0 codex multi turn" && status === "active";
+}
+
+function shouldEmitGoalBackgroundTerminal(objective, status) {
+  return objective === "phase5 codex background terminal" && status === "active";
 }
 
 function shouldEmitGoalCancellation(objective, status) {
@@ -633,6 +648,44 @@ function emitGoalOperationMultiTurn(objective) {
   });
 }
 
+function emitGoalOperationBackgroundTerminal(objective) {
+  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
+  notify("turn/started", {
+    threadId,
+    turn: fakeTurnWithID("turn_goal_a", "inProgress"),
+  });
+  notify("item/agentMessage/delta", {
+    delta: "Goal turn A. ",
+    itemId: "goal_message_a",
+    threadId,
+    turnId: "turn_goal_a",
+  });
+  notifyGoalBackgroundTerminalStarted("turn_goal_a");
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurnWithID("turn_goal_a", "completed"),
+  });
+  notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.idleGapOutput);
+  notify("turn/started", {
+    threadId,
+    turn: fakeTurnWithID("turn_goal_b", "inProgress"),
+  });
+  notify("item/agentMessage/delta", {
+    delta: "Goal turn B. ",
+    itemId: "goal_message_b",
+    threadId,
+    turnId: "turn_goal_b",
+  });
+  notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.secondTurnOutput);
+  notifyGoalBackgroundTerminalCompleted("turn_goal_a");
+  currentGoal = fakeGoal(objective, "complete");
+  notify("thread/goal/updated", { goal: currentGoal, threadId });
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurnWithID("turn_goal_b", "completed"),
+  });
+}
+
 function emitGoalOperationCancellation(objective) {
   goalPaused = false;
   notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
@@ -660,6 +713,51 @@ function emitGoalOperationCancellation(objective) {
     itemId: "goal_cancel_message_b",
     threadId,
     turnId: goalCancelTurnId,
+  });
+}
+
+function notifyGoalBackgroundTerminalStarted(turnID) {
+  notify("item/started", {
+    item: {
+      command: goalBackgroundTerminal.command,
+      cwd: "/tmp/workspace",
+      id: goalBackgroundTerminal.itemId,
+      processId: goalBackgroundTerminal.processId,
+      source: "unifiedExecStartup",
+      status: "inProgress",
+      type: "commandExecution",
+    },
+    startedAtMs: 1,
+    threadId,
+    turnId: turnID,
+  });
+}
+
+function notifyGoalBackgroundTerminalOutput(turnID, delta) {
+  notify("item/commandExecution/outputDelta", {
+    delta,
+    itemId: goalBackgroundTerminal.itemId,
+    threadId,
+    turnId: turnID,
+  });
+}
+
+function notifyGoalBackgroundTerminalCompleted(turnID) {
+  notify("item/completed", {
+    completedAtMs: 3,
+    item: {
+      command: goalBackgroundTerminal.command,
+      cwd: "/tmp/workspace",
+      durationMs: 5,
+      exitCode: 0,
+      id: goalBackgroundTerminal.itemId,
+      processId: goalBackgroundTerminal.processId,
+      source: "unifiedExecStartup",
+      status: "completed",
+      type: "commandExecution",
+    },
+    threadId,
+    turnId: turnID,
   });
 }
 
