@@ -2,9 +2,11 @@ import { describe, expect, test } from "vitest";
 
 import {
   presentationOptionsForRuntime,
+  runtimePolicyBudgetForRuntime,
   runtimePolicyOptionsForRuntime,
   workflowGraphSyntheticGraphFallbackForRuntime,
 } from "./runtime-mode-options";
+import { DEFAULT_PANE_BUDGET } from "./runtime-policy";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 
 describe("workspace runtime mode options", () => {
@@ -22,6 +24,14 @@ describe("workspace runtime mode options", () => {
       degradeDuringMovement: true,
       degradeOverview: true,
     });
+  });
+
+  test("keeps unfocused benchmark canvases frozen while leaving workspace budgets unchanged", () => {
+    expect(runtimePolicyBudgetForRuntime("benchmark")).toStrictEqual({
+      ...DEFAULT_PANE_BUDGET,
+      maxLiveWebGpuCanvases: 0,
+    });
+    expect(runtimePolicyBudgetForRuntime("workspace")).toStrictEqual(DEFAULT_PANE_BUDGET);
   });
 
   test("uses movement and overview degradation in real workspace mode", () => {

@@ -3,12 +3,13 @@ import type { WorkspaceUILayout } from "@generated/backend";
 import { generateBenchmarkScene, phaseOneVisiblePaneCount } from "./benchmark-scene";
 import type { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { LocalStoragePerformanceReportWriter } from "./performance-report";
+import { DEFAULT_PANE_BUDGET } from "./runtime-policy";
 import {
   createRealWorkspaceScene,
   defaultRealWorkspacePaneLimits,
   type RealWorkspaceSceneResult,
 } from "./workspace-scene";
-import type { WorkspaceScene, PaneId } from "./types";
+import type { WorkspaceScene, PaneId, PaneRuntimeBudget } from "./types";
 
 export type WorkspaceSceneMode = "benchmark" | "workspace";
 
@@ -37,6 +38,10 @@ const benchmarkWorkflowGraphSyntheticGraph = {
   edgesPerNode: 2,
   nodeCount: 500,
 } satisfies NonNullable<SyntheticWorkflowGraphOptions>;
+const benchmarkPaneRuntimeBudget = {
+  ...DEFAULT_PANE_BUDGET,
+  maxLiveWebGpuCanvases: 0,
+} satisfies PaneRuntimeBudget;
 
 export function browserPaneCountForScene(scene: WorkspaceScene): number {
   return scene.panes.filter((pane) => pane.surfaceKind === "browser").length;
@@ -92,6 +97,10 @@ export function reportWriterForRuntime(mode: WorkspaceSceneMode) {
 
 export function runtimePolicyOptionsForRuntime(mode: WorkspaceSceneMode) {
   return { ...runtimePolicyOptionsByMode[mode] };
+}
+
+export function runtimePolicyBudgetForRuntime(mode: WorkspaceSceneMode): PaneRuntimeBudget {
+  return mode === "benchmark" ? benchmarkPaneRuntimeBudget : DEFAULT_PANE_BUDGET;
 }
 
 export function sceneForRuntime(realScene: RealWorkspaceSceneResult | null): WorkspaceScene {
