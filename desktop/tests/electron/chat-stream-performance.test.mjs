@@ -305,7 +305,7 @@ function measurementStartExpression() {
           (value) => value > observedFrameBudgetMs * 2,
         ).length,
         transcriptMessageRowCount: document.querySelectorAll('[data-chat-message="true"]').length,
-        transcriptBlockCount: document.querySelectorAll("[data-transcript-block]").length,
+        transcriptTurnCount: document.querySelectorAll('[data-testid="chat-transcript-turn"]').length,
       };
     }
     window.__settaChatStreamPerformance = { snapshot, stop };

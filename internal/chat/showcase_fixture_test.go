@@ -47,15 +47,7 @@ func TestSeedUIShowcaseConversationCreatesReloadableFixture(t *testing.T) {
 		t.Fatalf("showcase run after service startup = %+v, want running run with pending user-input approval", showcaseRun)
 	}
 	assertUIShowcaseMessages(t, page.Messages)
-	runItems, err := store.LoadRunItems("workspace_api", uiShowcaseCompletedRunID)
-	if err != nil {
-		t.Fatalf("load showcase run items: %v", err)
-	}
-	outputs, err := store.LoadRunItemOutputs("workspace_api", uiShowcaseCompletedRunID)
-	if err != nil {
-		t.Fatalf("load showcase run item outputs: %v", err)
-	}
-	assertUIShowcaseRunItems(t, runItems, outputs)
+	assertUIShowcaseRunItems(t, page.RunItems, page.RunItemOutputs)
 }
 
 func TestSeedUIShowcaseConversationOverwritesExistingFixture(t *testing.T) {

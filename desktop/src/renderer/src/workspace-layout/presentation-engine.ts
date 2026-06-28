@@ -25,6 +25,7 @@ interface PaneHostBinding {
   lastMaximized: boolean | null;
   lastMoving: boolean | null;
   lastOpacity: number;
+  lastPlaneIndex: number | null;
   lastPresentationMode: string | null;
   lastRuntimeState: string | null;
   lastTransform: string;
@@ -60,6 +61,7 @@ const paneChromeActions = [
 export class PresentationEngine {
   private bindings: PaneHostBinding[] = [];
   private debugOverlay: HTMLElement | null = null;
+  private dropPreviewOverlay: HTMLElement | null = null;
   private paneById = new Map<string, WorkspacePane>();
   private resizeHandles = new WeakMap<HTMLElement, Partial<Record<PaneResizeAxis, HTMLElement>>>();
 
@@ -92,6 +94,7 @@ export class PresentationEngine {
       );
     }
 
+    this.syncDropPreviewOverlay(assignedItems);
     const nativeFlush = this.nativeViewBoundsBatcher?.flush();
     this.metrics.recordCanvasStats(this.surfaceRegistry.canvasStats());
     this.metrics.recordGitGraphStats(this.surfaceRegistry.gitGraphStats());
@@ -109,6 +112,7 @@ export class PresentationEngine {
       lastMaximized: null,
       lastMoving: null,
       lastOpacity: -1,
+      lastPlaneIndex: null,
       lastPresentationMode: null,
       lastRuntimeState: null,
       lastTransform: "",
@@ -124,6 +128,69 @@ export class PresentationEngine {
       this.debugOverlay.textContent = "";
     }
     this.debugOverlay = debugOverlay;
+  }
+
+  setDropPreviewOverlay(dropPreviewOverlay: HTMLElement | null): void {
+    if (this.dropPreviewOverlay && this.dropPreviewOverlay !== dropPreviewOverlay) {
+      this.dropPreviewOverlay.dataset.visible = "false";
+    }
+    this.dropPreviewOverlay = dropPreviewOverlay;
+  }
+
+  private syncDropPreviewOverlay(assignedItems: ReadonlyArray<PaneRenderItem | undefined>): void {
+    const overlay = this.dropPreviewOverlay;
+    if (!overlay) {
+      return;
+    }
+    const item = this.dropPreviewItem(assignedItems);
+    if (!item) {
+      if (overlay.dataset.visible !== "false") {
+        overlay.dataset.visible = "false";
+      }
+      return;
+    }
+    const transform = `translate3d(${item.x.toFixed(2)}px, ${item.y.toFixed(2)}px, 0) scale(${item.scale.toFixed(3)})`;
+    if (overlay.style.transform !== transform) {
+      overlay.style.transform = transform;
+    }
+    const width = `${item.width.toFixed(2)}px`;
+    if (overlay.style.width !== width) {
+      overlay.style.width = width;
+    }
+    const height = `${item.height.toFixed(2)}px`;
+    if (overlay.style.height !== height) {
+      overlay.style.height = height;
+    }
+    if (overlay.dataset.visible !== "true") {
+      overlay.dataset.visible = "true";
+    }
+  }
+
+  // The drop-preview box marks where the dragged pane will land. For an insert it
+  // sits at the dragged pane's previewed slot (the engine has already reflowed it
+  // there); for a swap it sits on the pane it will swap with. Returns nothing until
+  // a drop target is resolved, so the box only appears once the drop is meaningful.
+  private dropPreviewItem(
+    assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
+  ): PaneRenderItem | undefined {
+    let dragSourceItem: PaneRenderItem | undefined;
+    let hasInsertTarget = false;
+    for (let index = 0; index < this.bindings.length; index += 1) {
+      const binding = this.bindings[index];
+      if (!binding) {
+        continue;
+      }
+      if (binding.host.dataset.dropSwap === "true") {
+        return assignedItems[index];
+      }
+      if (binding.host.dataset.dropTarget || binding.host.dataset.dropPreview === "true") {
+        hasInsertTarget = true;
+      }
+      if (this.hostIsActivePaneDragSource(binding)) {
+        dragSourceItem = assignedItems[index];
+      }
+    }
+    return hasInsertTarget ? dragSourceItem : undefined;
   }
 
   syncPanes(panes: readonly WorkspacePane[]): void {
@@ -154,6 +221,9 @@ export class PresentationEngine {
     if (this.debugOverlay) {
       this.debugOverlay.textContent = "";
     }
+    if (this.dropPreviewOverlay) {
+      this.dropPreviewOverlay.dataset.visible = "false";
+    }
     this.surfaceRegistry.teardown();
     void this.nativeViewBoundsBatcher?.teardown().catch((error: unknown) => {
       console.error(
@@ -163,6 +233,7 @@ export class PresentationEngine {
     });
     this.bindings = [];
     this.debugOverlay = null;
+    this.dropPreviewOverlay = null;
   }
 
   updateDebugOverlay(runtimeSummary: PaneRuntimeSummary): void {
@@ -249,12 +320,20 @@ export class PresentationEngine {
       if (!binding || assignedBindingIndexes.has(index)) {
         continue;
       }
+      if (this.hostIsActivePaneDragSource(binding)) {
+        continue;
+      }
       if (binding.contentPaneId === null) {
         return index;
       }
     }
     for (let index = 0; index < this.bindings.length; index += 1) {
-      if (!assignedBindingIndexes.has(index)) {
+      const binding = this.bindings[index];
+      if (
+        binding &&
+        !assignedBindingIndexes.has(index) &&
+        !this.hostIsActivePaneDragSource(binding)
+      ) {
         return index;
       }
     }
@@ -268,6 +347,9 @@ export class PresentationEngine {
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
     if (!item) {
+      if (this.hostIsActivePaneDragSource(binding)) {
+        return emptyPresentationWriteCounts();
+      }
       this.hideBinding(binding);
       return emptyPresentationWriteCounts();
     }
@@ -289,12 +371,14 @@ export class PresentationEngine {
     binding.host.dataset.maximized = "false";
     binding.host.dataset.moving = "false";
     binding.host.dataset.paneId = "";
+    binding.host.dataset.planeIndex = "";
     binding.host.style.opacity = "0";
     binding.host.style.pointerEvents = "none";
     binding.lastFocused = false;
     binding.lastMaximized = false;
     binding.lastMoving = false;
     binding.lastOpacity = 0;
+    binding.lastPlaneIndex = null;
     binding.host.dataset.visible = "false";
     binding.lastVisible = false;
   }
@@ -532,6 +616,9 @@ export class PresentationEngine {
     assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
+    if (this.hostIsActivePaneDragSource(binding, item.paneId)) {
+      return emptyPresentationWriteCounts();
+    }
     if (
       binding.contentPaneId !== item.paneId &&
       !this.hostContentMissing(binding) &&
@@ -584,11 +671,25 @@ export class PresentationEngine {
 
   private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): PresentationWriteCounts {
     const writeCounts = emptyPresentationWriteCounts();
+    if (this.hostIsActivePaneDragSource(binding, item.paneId)) {
+      return writeCounts;
+    }
     writeCounts.transformWrites = this.syncTransform(binding, item);
     writeCounts.boxWrites = this.syncBox(binding, item);
     this.syncLayer(binding, item);
     this.syncState(binding, item);
     return writeCounts;
+  }
+
+  private hostIsActivePaneDragSource(
+    binding: PaneHostBinding,
+    paneId = binding.contentPaneId,
+  ): boolean {
+    return (
+      binding.host.dataset.dragSource === "true" &&
+      paneId !== null &&
+      binding.contentPaneId === paneId
+    );
   }
 
   private syncBox(binding: PaneHostBinding, item: PaneRenderItem): number {
@@ -621,6 +722,7 @@ export class PresentationEngine {
     this.syncBooleanState(binding, "focused", "lastFocused", item.focused);
     this.syncBooleanState(binding, "moving", "lastMoving", item.moving);
     this.syncBooleanState(binding, "maximized", "lastMaximized", item.maximized);
+    this.syncPlaneIndex(binding, item);
     const presentationModeChanged = this.syncPresentationMode(binding, item);
     this.syncVisibleState(binding, item, presentationModeChanged);
     this.syncRuntimeState(binding, item);
@@ -637,6 +739,14 @@ export class PresentationEngine {
     }
     binding.host.dataset[datasetKey] = String(value);
     binding[cacheKey] = value;
+  }
+
+  private syncPlaneIndex(binding: PaneHostBinding, item: PaneRenderItem): void {
+    if (item.planeIndex === undefined || binding.lastPlaneIndex === item.planeIndex) {
+      return;
+    }
+    binding.host.dataset.planeIndex = String(item.planeIndex);
+    binding.lastPlaneIndex = item.planeIndex;
   }
 
   private syncPresentationMode(binding: PaneHostBinding, item: PaneRenderItem): boolean {

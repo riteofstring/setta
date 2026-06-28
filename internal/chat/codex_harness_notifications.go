@@ -188,6 +188,8 @@ func handleCodexReasoningTextDelta(message jsonRPCMessage, threadID string, turn
 		ProviderItemID: params.ItemId,
 		Type:           RunItemTypeReasoning,
 		Status:         RunItemStatusRunning,
+		Title:          "Reasoning text",
+		Summary:        "Reasoning text received",
 		HiddenText:     params.Delta,
 	})
 }

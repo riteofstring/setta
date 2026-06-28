@@ -3,11 +3,8 @@ import type {
   WorkflowGraphNodeStatus,
   WorkflowGraphViewMode,
   WorkflowNodeKind,
-  WorkspaceActivityDetailKind,
 } from "@generated/backend";
 import { create } from "zustand";
-
-import { dispatchWorkflowDefinitionChanged } from "./workflow-definition-invalidation";
 
 export interface WorkflowNodeDetailsTarget {
   definitionId: string;
@@ -26,20 +23,6 @@ export interface WorkflowNodeDetailsTarget {
   workspaceId: string;
 }
 
-// Deep-link request from a clicked activity chip into the workflow node details pane. detailKind
-// selects which row to highlight; the matching id field carries the typed reference. requestId is a
-// monotonic nonce so re-clicking the same chip re-runs the highlight/scroll effect.
-export interface WorkflowNodeActivityFocus {
-  activityId: string;
-  approvalId: string;
-  detailKind: WorkspaceActivityDetailKind;
-  requestId: number;
-  runItemId: string;
-  workflowEventId: string;
-}
-
-export type WorkflowNodeActivityFocusInput = Omit<WorkflowNodeActivityFocus, "requestId">;
-
 export interface WorkflowSettingsTarget {
   definitionDescription: string;
   definitionId: string;
@@ -50,38 +33,25 @@ export interface WorkflowSettingsTarget {
 }
 
 interface WorkflowEditorStore {
-  activityFocusRequestSeq: number;
+  definitionChangeSequence: number;
   notifyWorkflowDefinitionChanged: (workspaceId: string, definitionId: string) => void;
-  selectedNodeActivityFocus: WorkflowNodeActivityFocus | null;
   selectedNodeTarget: WorkflowNodeDetailsTarget | null;
   selectedWorkflowSettingsTarget: WorkflowSettingsTarget | null;
-  setSelectedNodeTarget: (
-    target: WorkflowNodeDetailsTarget | null,
-    activityFocus?: WorkflowNodeActivityFocusInput | null,
-  ) => void;
+  setSelectedNodeTarget: (target: WorkflowNodeDetailsTarget | null) => void;
   setSelectedWorkflowSettingsTarget: (target: WorkflowSettingsTarget | null) => void;
 }
 
 export const useWorkflowEditorStore = create<WorkflowEditorStore>((set) => ({
-  activityFocusRequestSeq: 0,
-  notifyWorkflowDefinitionChanged: (workspaceId, definitionId) => {
-    dispatchWorkflowDefinitionChanged({ definitionId, workspaceId });
+  definitionChangeSequence: 0,
+  notifyWorkflowDefinitionChanged: () => {
+    set((state) => ({
+      definitionChangeSequence: state.definitionChangeSequence + 1,
+    }));
   },
-  selectedNodeActivityFocus: null,
   selectedNodeTarget: null,
   selectedWorkflowSettingsTarget: null,
-  setSelectedNodeTarget: (target, activityFocus = null) => {
-    set((state) => {
-      if (activityFocus === null) {
-        return { selectedNodeActivityFocus: null, selectedNodeTarget: target };
-      }
-      const requestId = state.activityFocusRequestSeq + 1;
-      return {
-        activityFocusRequestSeq: requestId,
-        selectedNodeActivityFocus: { ...activityFocus, requestId },
-        selectedNodeTarget: target,
-      };
-    });
+  setSelectedNodeTarget: (target) => {
+    set({ selectedNodeTarget: target });
   },
   setSelectedWorkflowSettingsTarget: (target) => {
     set({ selectedWorkflowSettingsTarget: target });

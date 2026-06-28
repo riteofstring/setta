@@ -27,7 +27,7 @@
         "read": {
           "description": "This will be removed in favor of `entries`.",
           "items": {
-            "$ref": "#/definitions/LegacyAppPathString"
+            "$ref": "#/definitions/AbsolutePathBuf"
           },
           "type": [
             "array",
@@ -37,7 +37,7 @@
         "write": {
           "description": "This will be removed in favor of `entries`.",
           "items": {
-            "$ref": "#/definitions/LegacyAppPathString"
+            "$ref": "#/definitions/AbsolutePathBuf"
           },
           "type": [
             "array",
@@ -78,7 +78,7 @@
         {
           "properties": {
             "path": {
-              "$ref": "#/definitions/LegacyAppPathString"
+              "$ref": "#/definitions/AbsolutePathBuf"
             },
             "type": {
               "enum": [
@@ -531,9 +531,6 @@
         "medium",
         "high"
       ],
-      "type": "string"
-    },
-    "LegacyAppPathString": {
       "type": "string"
     },
     "NetworkApprovalProtocol": {

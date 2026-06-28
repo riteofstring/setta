@@ -31,9 +31,6 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 			imports = append(imports, rule.name)
 		}
 	}
-	if hasTaggedUnion(specs.Interfaces) {
-		imports = append(imports, "assertTaggedUnionBranch")
-	}
 	imports = append(imports, "requestBackend", "requireField")
 
 	buffer.WriteString("import {\n")
@@ -81,25 +78,7 @@ func markDecoderHelperUsage(goType reflect.Type, helpers *decoderHelpers) {
 		helpers.Unknown = true
 		return
 	}
-	if markScalarDecoderHelperUsage(goType.Kind(), helpers) {
-		return
-	}
 	switch goType.Kind() {
-	case reflect.Slice:
-		helpers.Array = true
-		markDecoderHelperUsage(goType.Elem(), helpers)
-	case reflect.Map:
-		markMapDecoderHelperUsage(goType, helpers)
-	case reflect.Pointer:
-		helpers.Nullable = true
-		markDecoderHelperUsage(goType.Elem(), helpers)
-	case reflect.Interface:
-		helpers.String = true
-	}
-}
-
-func markScalarDecoderHelperUsage(kind reflect.Kind, helpers *decoderHelpers) bool {
-	switch kind {
 	case reflect.Bool:
 		helpers.Boolean = true
 	case reflect.Float32, reflect.Float64:
@@ -108,16 +87,17 @@ func markScalarDecoderHelperUsage(kind reflect.Kind, helpers *decoderHelpers) bo
 		helpers.Integer = true
 	case reflect.String:
 		helpers.String = true
-	default:
-		return false
+	case reflect.Slice:
+		helpers.Array = true
+		markDecoderHelperUsage(goType.Elem(), helpers)
+	case reflect.Map:
+		if goType.Key().Kind() == reflect.String && goType.Elem().Kind() == reflect.Int {
+			helpers.IntegerMap = true
+			return
+		}
+		helpers.Map = true
+	case reflect.Pointer:
+		helpers.Nullable = true
+		markDecoderHelperUsage(goType.Elem(), helpers)
 	}
-	return true
-}
-
-func markMapDecoderHelperUsage(goType reflect.Type, helpers *decoderHelpers) {
-	if goType.Key().Kind() == reflect.String && goType.Elem().Kind() == reflect.Int {
-		helpers.IntegerMap = true
-		return
-	}
-	helpers.Map = true
 }

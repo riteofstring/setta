@@ -39,12 +39,12 @@ import {
   WorkspaceToolbarLayer,
 } from "./workspace-layout-layers";
 import {
+  captureOverviewPaneFrames,
   eventTargetsOverviewGhost,
-  overviewGhostTargetFromPointer,
+  overviewGhostTargetFromFrames,
   overviewPaneIdAtPoint,
-  overviewPaneIdFromPointer,
-  setOverviewGhostTargetIfChanged,
   type OverviewGhostTarget,
+  type OverviewPaneFrame,
 } from "./workspace-overview-ghost";
 import {
   eventTargetsWorkspaceWheelNavigation,
@@ -57,8 +57,11 @@ import {
 import {
   applyPaneDrop,
   beginPaneDragSession,
+  collectVisiblePaneHostRects,
   finishPaneDragSession,
+  paneDropTargetFromPointer,
   syncPaneDragSourceOffset,
+  syncPaneDropTarget,
   updatePaneDragSession,
   visiblePaneHostForPane,
   type PaneDragSession,
@@ -78,7 +81,7 @@ import {
   workspaceLayoutAreaLabel,
   workspaceLayoutRecoveryMessage,
 } from "./workspace-ui-layout";
-import type { OpenPaneRequest, Rect, SurfaceKind } from "./types";
+import type { OpenPaneRequest, PaneDropIntent, Rect, SurfaceKind } from "./types";
 
 export interface WorkspaceSurfaceFocusRequest {
   requestId: number;
@@ -152,13 +155,17 @@ function WorkspaceLayoutRuntimeArea({
   const hostRefs = useRef<Array<HTMLDivElement | null>>([]);
   const overviewDragSessionRef = useRef<OverviewDragSession | null>(null);
   const paneDragSessionRef = useRef<PaneDragSession | null>(null);
+  const paneDropPreviewRef = useRef<HTMLDivElement | null>(null);
   const paneResizePreviewRef = useRef<HTMLDivElement | null>(null);
   const paneResizeStageOriginRef = useRef<{ left: number; top: number } | null>(null);
   const paneResizeSessionRef = useRef<PaneResizeSession | null>(null);
   const schedulerRef = useRef<FrameScheduler | null>(null);
   const suppressNextClickRef = useRef(false);
   const trackpadNavigationRef = useRef(createWorkspaceTrackpadNavigationState());
-  const [overviewGhostTarget, setOverviewGhostTarget] = useState<OverviewGhostTarget | null>(null);
+  // Committed pane frames frozen while an insert preview is active, so hover
+  // resolution stays a pure function of the pre-reflow layout (no oscillation).
+  const overviewInsertPreviewFramesRef = useRef<OverviewPaneFrame[] | null>(null);
+  const overviewGhostTargetRef = useRef<OverviewGhostTarget | null>(null);
   const showPerformanceStats = useAppearanceStore(
     (state) => (state.draft ?? state.settings)?.developer?.showPerformanceStats ?? false,
   );
@@ -201,6 +208,21 @@ function WorkspaceLayoutRuntimeArea({
   const [layoutRecoveryDismissed, setLayoutRecoveryDismissed] = useState(false);
   const layoutSnapshot = useWorkspaceLayoutSnapshot(runtime.store);
   const currentScene = runtime.store.toScene();
+  const [overviewGhostTarget, setOverviewGhostTargetState] = useState<OverviewGhostTarget | null>(
+    null,
+  );
+  const setOverviewGhostTarget = useCallback((target: OverviewGhostTarget | null) => {
+    if (sameOverviewGhostTarget(overviewGhostTargetRef.current, target)) {
+      return;
+    }
+    overviewGhostTargetRef.current = target;
+    setOverviewGhostTargetState(target);
+  }, []);
+  const clearOverviewInsertPreview = useCallback(() => {
+    overviewInsertPreviewFramesRef.current = null;
+    setOverviewGhostTarget(null);
+    runtime.store.clearInsertFramePreview();
+  }, [runtime, setOverviewGhostTarget]);
   const { layoutPersistenceError, persistLayout, resetLayoutPersistenceError } =
     useWorkspaceUILayoutPersistence(runtime, workspaceId);
   const projectPaneWidthRef = useRef(projectPaneWidth);
@@ -236,7 +258,7 @@ function WorkspaceLayoutRuntimeArea({
   }, [projectPaneWidth, runtime, stageViewport]);
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
-      setOverviewGhostTarget(null);
+      clearOverviewInsertPreview();
       runLayoutAction(() => {
         runtime.store.openEmptyFrameNear(target.paneId, target.placement);
         runtime.store.toggleOverviewMode();
@@ -244,7 +266,7 @@ function WorkspaceLayoutRuntimeArea({
         runtime.store.snapScrollToTarget();
       });
     },
-    [runLayoutAction, runtime, stageViewport],
+    [clearOverviewInsertPreview, runLayoutAction, runtime, stageViewport],
   );
 
   useEffect(() => {
@@ -296,6 +318,7 @@ function WorkspaceLayoutRuntimeArea({
       stage: stageRef.current,
     });
     runtime.presentation.mount(hosts, debugRef.current);
+    runtime.presentation.setDropPreviewOverlay(paneDropPreviewRef.current);
     installWindowReportHooksForRuntime(runtime);
     const viewportProvider = () => viewportRect(stage, projectPaneWidthRef.current);
     const uninstallResizeReportHooks = installResizeReportHooksForRuntime(
@@ -306,6 +329,8 @@ function WorkspaceLayoutRuntimeArea({
       engine: runtime.engine,
       layoutStore: runtime.store,
       metrics: runtime.metrics,
+      movementOverride: () =>
+        paneDragSessionRef.current !== null || overviewDragSessionRef.current !== null,
       presentation: runtime.presentation,
       reportWriter: runtime.reportWriter,
       runtimePolicy: runtime.runtimePolicy,
@@ -357,15 +382,23 @@ function WorkspaceLayoutRuntimeArea({
         viewportProvider: stageViewport,
       });
     };
-    const syncOverviewGhostTarget = (event: PointerEvent) => {
+    const syncOverviewInsertPreview = (event: PointerEvent) => {
       if (runtime.store.getSnapshot().presentationMode !== "overview") {
-        setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+        clearOverviewInsertPreview();
         return;
       }
-      setOverviewGhostTargetIfChanged(
-        setOverviewGhostTarget,
-        overviewGhostTargetFromPointer(event, stage),
-      );
+      // Resolve the add-slot against frozen frames while the ghost is visible, so
+      // the hover target is stable even as the pointer moves within the empty slot.
+      // The ghost is an overlay only: panes do not reflow until the user clicks.
+      const frozen = overviewGhostTargetRef.current ? overviewInsertPreviewFramesRef.current : null;
+      const frames = frozen ?? captureOverviewPaneFrames(stage);
+      const target = overviewGhostTargetFromFrames(frames, event.clientX, event.clientY);
+      if (!target) {
+        clearOverviewInsertPreview();
+        return;
+      }
+      overviewInsertPreviewFramesRef.current = frames;
+      setOverviewGhostTarget(target);
     };
     const clearPaneResizePreview = () => {
       const preview = paneResizePreviewRef.current;
@@ -414,11 +447,11 @@ function WorkspaceLayoutRuntimeArea({
       if (eventTargetsOverviewGhost(event)) {
         return true;
       }
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       if (eventTargetsPaneChromeAction(event)) {
         return true;
       }
-      const sourcePaneId = overviewPaneIdFromPointer(event);
+      const sourcePaneId = overviewPaneIdAtPoint(event);
       if (!sourcePaneId) {
         return false;
       }
@@ -429,12 +462,79 @@ function WorkspaceLayoutRuntimeArea({
       visiblePaneHostForPane(sourcePaneId)?.setAttribute("data-drag-source", "true");
       overviewDragSessionRef.current = {
         dragging: false,
+        hostRects: collectVisiblePaneHostRects(),
+        lastDropIntent: null,
+        pendingDropFrame: null,
+        pendingDropPointer: null,
         pointerId: event.pointerId,
         sourcePaneId,
         startClientX: event.clientX,
         startClientY: event.clientY,
       };
+      scheduler.requestFrame();
       return true;
+    };
+    const previewPaneDropIntent = (sourcePaneId: string, dropIntent: PaneDropIntent) => {
+      if (runtime.store.previewPaneDropIntent(sourcePaneId, dropIntent)) {
+        runtime.metrics.recordPaneDragPreviewUpdate();
+      }
+    };
+    const clearPaneDropPreview = () => {
+      if (runtime.store.clearPaneDropPreview()) {
+        runtime.metrics.recordPaneDragPreviewClear();
+      }
+    };
+    const applyOverviewDropPreview = (
+      overviewSession: OverviewDragSession,
+      pointer: { clientX: number; clientY: number },
+    ) => {
+      // Overview now uses the same drop model as normal mode (swap on a card's
+      // centre, insert at its edges/gaps, extend in empty space) resolved against
+      // the scaled card geometry. The dashed "add pane" ghost is no longer used
+      // during a drag; the shared data-drop affordances annotate the target card.
+      const target = paneDropTargetFromPointer(
+        pointer,
+        overviewSession.sourcePaneId,
+        runtime.store,
+        overviewSession.hostRects,
+      );
+      syncPaneDropTarget(root, target);
+      clearOverviewInsertPreview();
+      overviewSession.lastDropIntent = target?.intent ?? null;
+      if (target) {
+        previewPaneDropIntent(overviewSession.sourcePaneId, target.intent);
+      } else {
+        clearPaneDropPreview();
+      }
+    };
+    const flushOverviewDropPreview = (overviewSession: OverviewDragSession) => {
+      const pointer = overviewSession.pendingDropPointer;
+      if (!pointer) {
+        return;
+      }
+      overviewSession.pendingDropPointer = null;
+      applyOverviewDropPreview(overviewSession, pointer);
+    };
+    const cancelOverviewDropPreview = (overviewSession: OverviewDragSession) => {
+      if (overviewSession.pendingDropFrame === null) {
+        return;
+      }
+      window.cancelAnimationFrame?.(overviewSession.pendingDropFrame);
+      overviewSession.pendingDropFrame = null;
+      overviewSession.pendingDropPointer = null;
+    };
+    const scheduleOverviewDropPreview = (
+      overviewSession: OverviewDragSession,
+      event: PointerEvent,
+    ) => {
+      overviewSession.pendingDropPointer = { clientX: event.clientX, clientY: event.clientY };
+      if (overviewSession.pendingDropFrame !== null) {
+        return;
+      }
+      overviewSession.pendingDropFrame = window.requestAnimationFrame(() => {
+        overviewSession.pendingDropFrame = null;
+        flushOverviewDropPreview(overviewSession);
+      });
     };
     const beginPaneDrag = (event: PointerEvent): boolean => {
       const paneDragSession = beginPaneDragSession(event, root);
@@ -445,6 +545,7 @@ function WorkspaceLayoutRuntimeArea({
       event.stopPropagation();
       scheduler.pauseBenchmark();
       paneDragSessionRef.current = paneDragSession;
+      scheduler.requestFrame();
       return true;
     };
     const beginPaneResize = (event: PointerEvent): boolean => {
@@ -468,7 +569,7 @@ function WorkspaceLayoutRuntimeArea({
       return true;
     };
     const handlePointerDown = (event: PointerEvent) => {
-      if (runtime.mode !== "workspace") {
+      if (runtime.mode !== "workspace" && runtime.mode !== "benchmark") {
         return;
       }
       if (runtime.store.getSnapshot().presentationMode === "overview") {
@@ -485,7 +586,6 @@ function WorkspaceLayoutRuntimeArea({
       if (!overviewSession || event.pointerId !== overviewSession.pointerId) {
         return false;
       }
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
       event.preventDefault();
       event.stopPropagation();
       const distance = Math.hypot(
@@ -498,12 +598,7 @@ function WorkspaceLayoutRuntimeArea({
       overviewSession.dragging = true;
       root.dataset.overviewDragging = "true";
       syncPaneDragSourceOffset(overviewSession, event);
-      const targetPaneId = overviewPaneIdAtPoint(event, overviewSession.sourcePaneId);
-      if (targetPaneId && targetPaneId !== overviewSession.sourcePaneId) {
-        runtime.store.previewPaneDrop(overviewSession.sourcePaneId, targetPaneId, "before");
-      } else {
-        runtime.store.clearPaneDropPreview();
-      }
+      scheduleOverviewDropPreview(overviewSession, event);
       return true;
     };
     const updatePaneDrag = (event: PointerEvent): boolean => {
@@ -511,22 +606,22 @@ function WorkspaceLayoutRuntimeArea({
       if (!paneDragSession || event.pointerId !== paneDragSession.pointerId) {
         return false;
       }
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       event.preventDefault();
       event.stopPropagation();
-      updatePaneDragSession(event, root, paneDragSession, runtime.store);
+      updatePaneDragSession(event, root, paneDragSession, runtime.store, runtime.metrics);
       return true;
     };
     const updatePaneResize = (event: PointerEvent): boolean => {
       const session = paneResizeSessionRef.current;
       if (!session) {
-        syncOverviewGhostTarget(event);
+        syncOverviewInsertPreview(event);
         return true;
       }
       if (event.pointerId !== session.pointerId) {
         return true;
       }
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       event.preventDefault();
       event.stopPropagation();
       syncPaneResizePreview(session, event);
@@ -555,20 +650,24 @@ function WorkspaceLayoutRuntimeArea({
       event.preventDefault();
       event.stopPropagation();
       suppressNextPaneClick();
+      flushOverviewDropPreview(overviewSession);
       overviewDragSessionRef.current = null;
       delete root.dataset.overviewDragging;
+      cancelOverviewDropPreview(overviewSession);
+      clearOverviewInsertPreview();
       const sourceHost = visiblePaneHostForPane(overviewSession.sourcePaneId);
       if (sourceHost) {
         sourceHost.removeAttribute("data-drag-source");
         sourceHost.style.translate = "";
       }
-      runtime.store.clearPaneDropPreview();
+      syncPaneDropTarget(root, null);
+      clearPaneDropPreview();
       if (overviewSession.dragging) {
-        const targetPaneId = overviewPaneIdAtPoint(event, overviewSession.sourcePaneId);
-        if (targetPaneId && targetPaneId !== overviewSession.sourcePaneId) {
-          runLayoutAction(() =>
-            runtime.store.reorderPaneBefore(overviewSession.sourcePaneId, targetPaneId),
-          );
+        const dropIntent = overviewSession.lastDropIntent;
+        if (dropIntent) {
+          runLayoutAction(() => {
+            runtime.store.applyPaneDropIntent(overviewSession.sourcePaneId, dropIntent);
+          });
         }
         return true;
       }
@@ -587,9 +686,15 @@ function WorkspaceLayoutRuntimeArea({
       }
       event.preventDefault();
       event.stopPropagation();
-      const dragFinish = finishPaneDragSession(event, root, paneDragSession);
+      const dragFinish = finishPaneDragSession(
+        event,
+        root,
+        paneDragSession,
+        runtime.store,
+        runtime.metrics,
+      );
       paneDragSessionRef.current = null;
-      runtime.store.clearPaneDropPreview();
+      clearPaneDropPreview();
       if (dragFinish.dragging) {
         suppressNextPaneClick();
       }
@@ -619,7 +724,7 @@ function WorkspaceLayoutRuntimeArea({
       paneResizeSessionRef.current = null;
       const resizeCommitted =
         event.type !== "pointercancel" && commitPaneResize(runtime.store, session, event);
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       delete root.dataset.paneResizing;
       delete root.dataset.paneResizingAxis;
       clearPaneResizePreview();
@@ -664,7 +769,7 @@ function WorkspaceLayoutRuntimeArea({
       window.removeEventListener("wheel", handleWheel, { capture: true });
       cleanupOverviewDragSource(overviewDragSessionRef);
       cleanupActivePaneDragSession(root, paneDragSessionRef);
-      setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
+      clearOverviewInsertPreview();
       runtime.store.clearPaneDropPreview();
       paneResizeSessionRef.current = null;
       delete root.dataset.paneResizing;
@@ -674,7 +779,15 @@ function WorkspaceLayoutRuntimeArea({
       clearSchedulerRefIfCurrent(schedulerRef, scheduler);
       stageResizeObserver?.disconnect();
     };
-  }, [persistLayout, runLayoutAction, runtime, shortcuts, stageViewport]);
+  }, [
+    clearOverviewInsertPreview,
+    persistLayout,
+    runLayoutAction,
+    runtime,
+    setOverviewGhostTarget,
+    shortcuts,
+    stageViewport,
+  ]);
 
   useEffect(() => {
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
@@ -727,6 +840,12 @@ function WorkspaceLayoutRuntimeArea({
           data-axis=""
           data-visible="false"
           ref={paneResizePreviewRef}
+        />
+        <div
+          aria-hidden="true"
+          className="workspace-pane-drop-preview"
+          data-visible="false"
+          ref={paneDropPreviewRef}
         />
         <Profiler id="workspace-pane-hosts" onRender={() => runtime.metrics.recordReactCommit()}>
           {Array.from({ length: runtime.hostPoolSize }, (_, index) => (
@@ -875,6 +994,24 @@ function useSelectedWorkspaceSummary() {
       null
     );
   }, [session]);
+}
+
+function sameOverviewGhostTarget(
+  left: OverviewGhostTarget | null,
+  right: OverviewGhostTarget | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  const frameFields = ["left", "top", "width", "height"] as const;
+  return (
+    left.paneId === right.paneId &&
+    left.placement === right.placement &&
+    frameFields.every((field) => left[field] === right[field])
+  );
 }
 
 function viewportRect(element: HTMLElement, reservedLeftWidth = 0): Rect {

@@ -31,7 +31,6 @@ type scriptedWorkflowFixture struct {
 
 var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "workflow hold for queue and steering", Run: (*ScriptedWorkflowHarness).workflowTurn},
-	{Prompt: "workflow hold for draft event", Run: (*ScriptedWorkflowHarness).workflowDraftEventTurn},
 	{Prompt: "immediate replay workflow", Run: (*ScriptedWorkflowHarness).workflowTurn},
 	{Prompt: "queued follow-up from active run", Run: scriptedQueuedReply},
 	{Prompt: "queued follow-up one from active run", Run: scriptedQueuedReply},
@@ -43,10 +42,6 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "fail active workflow", Run: (*ScriptedWorkflowHarness).failTurn},
 	{Prompt: "command approval workflow", Run: scriptedCommandApprovalTurn},
 	{Prompt: "file approval workflow", Run: scriptedFileApprovalTurn},
-	{Prompt: "activity feed workflow", Run: (*ScriptedWorkflowHarness).activityFeedTurn},
-	{Prompt: "chat activity projection workflow", Run: (*ScriptedWorkflowHarness).activityProjectionTurn},
-	{Prompt: "chat activity projection reload workflow", Run: scriptedActivityProjectionReloadTurn},
-	{Prompt: "chronological transcript workflow", Run: scriptedChronologicalTranscriptTurn},
 	{Prompt: "permission approval workflow", Run: scriptedPermissionApprovalTurn},
 	{Prompt: "user input approval workflow", Run: (*ScriptedWorkflowHarness).userInputApprovalTurn},
 	{Prompt: "mcp elicitation form accept workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormAcceptTurn},
@@ -84,11 +79,7 @@ func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request T
 	defer harness.unregisterRun(request.Run.ID)
 	harness.applyInitialCodexSettings(request)
 
-	settings, err := scriptedCodexEffectiveSettings(harness.model, harness.reasoning)
-	if err != nil {
-		return TurnCompletion{}, err
-	}
-	if err := sink.ThreadLinked("scripted-thread-"+request.Conversation.ID, "scripted-session", "scripted-turn-"+request.Run.ID, settings); err != nil {
+	if err := sink.ThreadLinked("scripted-thread-"+request.Conversation.ID, "scripted-session", "scripted-turn-"+request.Run.ID); err != nil {
 		return TurnCompletion{}, err
 	}
 
@@ -122,10 +113,6 @@ func (harness *ScriptedWorkflowHarness) applyInitialCodexSettings(request TurnRe
 	if request.Conversation.CodexSettings.ReasoningEffort != nil {
 		harness.reasoning = *request.Conversation.CodexSettings.ReasoningEffort
 	}
-}
-
-func scriptedCodexEffectiveSettings(model string, reasoning ReasoningEffort) (*ChatCodexEffectiveSettings, error) {
-	return fakeCodexEffectiveSettings(model, reasoning)
 }
 
 func (harness *ScriptedWorkflowHarness) CancelTurn(_ context.Context, request CancelRequest) error {
@@ -163,7 +150,7 @@ func (harness *ScriptedWorkflowHarness) SubmitApproval(_ context.Context, respon
 }
 
 func (harness *ScriptedWorkflowHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {
-	return HarnessCommandListResult{Commands: defaultCommandDescriptors(request.ActiveRun)}, nil
+	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
 }
 
 func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
@@ -287,6 +274,46 @@ func (harness *ScriptedWorkflowHarness) setGoalStatusLocked(status string, threa
 	}
 }
 
+func (harness *ScriptedWorkflowHarness) executeModelCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {
+	if command.Model == nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "model command payload is required", nil)
+	}
+	switch command.Model.Action {
+	case ModelCommandShowPicker:
+		result.Action = ChatCommandResultModelPicker
+		result.Models = fakeModelOptions()
+		result.ReasoningEfforts = fakeReasoningEffortOptions()
+		result.SelectedModel = harness.model
+		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
+	case ModelCommandSet:
+		harness.model = command.Model.ModelID
+		result.SelectedModel = command.Model.ModelID
+		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
+		if !result.HasThreadRef {
+			result.CodexSettings = &ChatCodexSettings{
+				Model:           harness.model,
+				ReasoningEffort: reasoningEffortResult(harness.reasoning),
+			}
+		}
+	case ModelCommandSetEffort:
+		if command.Model.ReasoningEffort == nil {
+			return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "reasoning effort is required", nil)
+		}
+		harness.reasoning = *command.Model.ReasoningEffort
+		result.SelectedModel = harness.model
+		result.SelectedReasoningEffort = reasoningEffortResult(*command.Model.ReasoningEffort)
+		if !result.HasThreadRef {
+			result.CodexSettings = &ChatCodexSettings{
+				Model:           harness.model,
+				ReasoningEffort: reasoningEffortResult(harness.reasoning),
+			}
+		}
+	default:
+		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported model command action: %s", command.Model.Action), nil)
+	}
+	return result, nil
+}
+
 func scriptedQueuedReply(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	return scriptedReply(sink, request.Run.ID, "Queued response for "+request.Prompt+".")
 }
@@ -315,24 +342,6 @@ func (harness *ScriptedWorkflowHarness) workflowTurn(ctx context.Context, reques
 		return TurnCompletion{}, err
 	}
 	return scriptedReply(sink, request.Run.ID, "Active workflow complete.")
-}
-
-func (harness *ScriptedWorkflowHarness) workflowDraftEventTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	if _, err := harness.waitForSteer(ctx, request.Run.ID); err != nil {
-		return TurnCompletion{}, err
-	}
-	approval := scriptedCommandApproval(request.Run.ID)
-	if err := scriptedApprovalActivity(sink, request.Run.ID, approval); err != nil {
-		return TurnCompletion{}, err
-	}
-	response, err := harness.requestAndWaitForApproval(ctx, request.Run.ID, sink, approval)
-	if err != nil {
-		return TurnCompletion{}, err
-	}
-	if !response.Approved || response.Cancelled {
-		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted approval was not approved"}, nil
-	}
-	return scriptedReply(sink, request.Run.ID, approval.Title+" resolved.")
 }
 
 func (harness *ScriptedWorkflowHarness) cancelTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -368,27 +377,6 @@ func (harness *ScriptedWorkflowHarness) decisionApprovalTurn(ctx context.Context
 		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted approval was not approved"}, nil
 	}
 	return scriptedReply(sink, request.Run.ID, approval.Title+" resolved.")
-}
-
-func (harness *ScriptedWorkflowHarness) activityFeedTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	if err := scriptedActivityFeedCommand(sink, request.Run.ID, request.Workspace.RootPath); err != nil {
-		return TurnCompletion{}, err
-	}
-	if err := scriptedActivityFeedFileChange(sink, request.Run.ID, request.Workspace.RootPath); err != nil {
-		return TurnCompletion{}, err
-	}
-	approval := scriptedCommandApproval(request.Run.ID)
-	if err := scriptedApprovalActivity(sink, request.Run.ID, approval); err != nil {
-		return TurnCompletion{}, err
-	}
-	response, err := harness.requestAndWaitForApproval(ctx, request.Run.ID, sink, approval)
-	if err != nil {
-		return TurnCompletion{}, err
-	}
-	if !response.Approved || response.Cancelled {
-		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted activity approval was not approved"}, nil
-	}
-	return scriptedReply(sink, request.Run.ID, "Activity feed workflow complete.")
 }
 
 func (harness *ScriptedWorkflowHarness) userInputApprovalTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -755,49 +743,17 @@ func scriptedReply(sink TurnSink, runID string, text string) (TurnCompletion, er
 func scriptedApprovalActivity(sink TurnSink, runID string, approval ApprovalRequest) error {
 	item := RunItem{
 		ProviderItemID: approval.ProviderItemID,
-		Type:           approvalRunItemType(approval),
+		Type:           RunItemTypeCommandExecution,
 		Status:         RunItemStatusRunning,
 		Title:          approval.Title,
+		Command:        approval.Command,
 		FilePaths:      approvalFilePaths(approval),
 		Summary:        approval.Body,
-	}
-	if approval.Kind == ApprovalKindFileChange {
-		item.PatchStatus = "approval_requested"
-	} else {
-		item.Command = approval.Command
 	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err
 	}
 	return sink.RunItemOutputDelta(approval.ProviderItemID, "stdout", "scripted approval output for "+runID+"\n")
-}
-
-func scriptedActivityFeedCommand(sink TurnSink, runID string, rootPath string) error {
-	item := RunItem{
-		ProviderItemID: "provider_activity_command_" + runID,
-		Type:           RunItemTypeCommandExecution,
-		Status:         RunItemStatusCompleted,
-		Title:          "Activity command",
-		Command:        "printf scripted-activity",
-		Cwd:            rootPath,
-		ExitCode:       0,
-		DurationMs:     42,
-		Summary:        "Scripted typed command activity.",
-	}
-	return sink.RunItemUpsert(item)
-}
-
-func scriptedActivityFeedFileChange(sink TurnSink, runID string, rootPath string) error {
-	item := RunItem{
-		ProviderItemID: "provider_activity_file_" + runID,
-		Type:           RunItemTypeFileChange,
-		Status:         RunItemStatusCompleted,
-		Title:          "Activity file change",
-		FilePaths:      []string{filepath.Join(rootPath, "scripted-activity-file.txt")},
-		PatchStatus:    "updated",
-		Summary:        "Scripted typed file-change activity.",
-	}
-	return sink.RunItemUpsert(item)
 }
 
 func scriptedStructuredApprovalActivity(sink TurnSink, approval ApprovalRequest) error {
@@ -821,13 +777,6 @@ func approvalFilePaths(approval ApprovalRequest) []string {
 		return nil
 	}
 	return []string{approval.FilePath}
-}
-
-func approvalRunItemType(approval ApprovalRequest) RunItemType {
-	if approval.Kind == ApprovalKindFileChange {
-		return RunItemTypeFileChange
-	}
-	return RunItemTypeCommandExecution
 }
 
 func scriptedCommandApproval(runID string) ApprovalRequest {

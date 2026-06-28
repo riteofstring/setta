@@ -74,6 +74,17 @@
   cursor: grabbing !important;
 }
 
+/* While a pane drag is active the preview opens an insertion gap by shifting the
+   surrounding tiled panes. Ease that shift so siblings glide into place instead
+   of snapping a full pane-height in one frame. Scoped to an active drag so normal
+   scroll/zoom (driven by per-frame transform writes) is never eased. The drag
+   source is excluded: it is positioned imperatively via `translate` to track the
+   cursor and must not lag behind. */
+.workspace-layout-area[data-pane-dragging="true"]
+  .workspace-pane-host:not([data-drag-source="true"]) {
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
+}
+
 .workspace-pane-host[data-moving="true"] {
   will-change: transform, opacity;
 }
@@ -92,7 +103,8 @@
 }
 
 .workspace-pane-host[data-drag-source="true"] {
-  filter: brightness(1.08);
+  filter: none;
+  z-index: 2147483647 !important;
 }
 
 .workspace-pane-host[data-drop-target] {
@@ -122,6 +134,38 @@
   box-shadow:
     inset 0 -3px 0 color-mix(in oklch, var(--primary) 84%, white),
     0 12px 32px color-mix(in oklch, black 30%, transparent);
+}
+
+/* Swap affordance: dropping on a pane's center exchanges the two panes, so the
+   whole target pane is highlighted rather than showing an insertion edge. */
+.workspace-pane-host[data-drop-swap="true"] {
+  box-shadow:
+    inset 0 0 0 2px color-mix(in oklch, var(--primary) 82%, white),
+    0 12px 32px color-mix(in oklch, black 30%, transparent);
+  outline: 2px solid color-mix(in oklch, var(--primary) 70%, transparent);
+  outline-offset: -2px;
+}
+
+/* Faint box marking exactly where the dragged pane will land (its previewed slot),
+   or the pane it will swap with. The presentation engine positions it at the
+   engine-computed rect each frame, so it always matches the real drop. It sits
+   above the tiled panes but below the cursor-following drag source. */
+.workspace-pane-drop-preview {
+  background: color-mix(in oklch, var(--primary) 24%, transparent);
+  border: 1.5px dashed color-mix(in oklch, var(--primary) 66%, transparent);
+  border-radius: 7px;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transform-origin: left top;
+  transition: opacity 100ms ease;
+  z-index: 65;
+}
+
+.workspace-pane-drop-preview[data-visible="true"] {
+  opacity: 1;
 }
 
 .workspace-pane-host[data-runtime-state="snapshot"],

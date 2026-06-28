@@ -7,6 +7,7 @@ import type {
   WorkspacePane,
   WorkspaceScene,
   OpenPaneRequest,
+  PaneDropIntent,
   PaneId,
   PaneInsertionPlacement,
   PaneRenderItem,
@@ -21,6 +22,7 @@ import {
   shiftPlaneSlotsAtOrAfter,
   slotIndexForDenseInsertion,
   slotOffsetsForColumns,
+  slotWidthsForColumns,
 } from "./column-slots";
 import {
   clamp,
@@ -33,7 +35,7 @@ import {
   normalizedColumnWidthSpec,
   type PaneDirection,
   type PaneLocation,
-  planeTopOffsets,
+  planeGeometryForLayout,
   scrollOffsetForColumn,
 } from "./layout-engine-helpers";
 import {
@@ -48,8 +50,9 @@ import {
 } from "./layout-engine-navigation";
 import { renderNormalLayoutFrame, renderOverviewLayoutFrame } from "./layout-engine-rendering";
 import {
+  applyPaneDropIntentToColumns,
   reorderPaneColumnBefore,
-  reorderPaneColumnForPlacement,
+  type PaneDropColumnResult,
   type PaneReorderPlacement,
 } from "./layout-reorder";
 import { columnVisualFramesForPane, type PaneVisualFrame } from "./pane-visual-frame";
@@ -61,9 +64,8 @@ export interface WorkspaceLayoutEngineOptions {
 }
 
 interface PaneReorderPreview {
-  placement: PaneReorderPlacement;
+  intent: PaneDropIntent;
   sourcePaneId: PaneId;
-  targetPaneId: PaneId;
 }
 
 export class WorkspaceLikeLayoutEngine implements LayoutEngine {
@@ -182,10 +184,11 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       return this.openPane({ ...request, columnId });
     }
     const sourceColumn = this.columns[source.columnIndex];
+    const widthSpec = request.widthSpec ?? sourceColumn?.widthSpec;
     const columnId = this.insertColumnInPlaneSlot(
       source.planeIndex + (placement === "above" ? -1 : 1),
       sourceColumn ? columnSlotIndex(sourceColumn) : source.planeColumnIndex,
-      request.widthSpec,
+      widthSpec,
     ).columnId;
     return this.openPane({ ...request, columnId });
   }
@@ -280,11 +283,64 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     return true;
   }
 
+  applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
+    const result = applyPaneDropIntentToColumns(
+      this.columns,
+      sourcePaneId,
+      intent,
+      this.paneDropColumnOptions(sourcePaneId, intent),
+    );
+    if (!result.changed) {
+      return false;
+    }
+    this.columns = result.columns;
+    if (paneDropIntentCreatesColumn(intent)) {
+      this.nextColumnSequence += 1;
+    }
+    if (intent.kind === "swap") {
+      this.applyPaneSwapState(sourcePaneId, intent.targetPaneId);
+    } else {
+      this.applyPaneDropPaneState(sourcePaneId, result);
+    }
+    this.reindexColumns();
+    return true;
+  }
+
+  // A swap exchanges two panes' slots, so both panes' column back-references
+  // change. The generic pane-state path only knows the source, so handle the
+  // pair here.
+  private applyPaneSwapState(sourcePaneId: PaneId, targetPaneId: PaneId): void {
+    const sourcePane = this.paneById.get(sourcePaneId);
+    const targetPane = this.paneById.get(targetPaneId);
+    if (!sourcePane || !targetPane) {
+      return;
+    }
+    const sourceColumnId = sourcePane.columnId;
+    this.paneById.set(sourcePaneId, { ...sourcePane, columnId: targetPane.columnId });
+    this.paneById.set(targetPaneId, { ...targetPane, columnId: sourceColumnId });
+  }
+
   reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
     const result = reorderPaneColumnBefore(this.columns, sourcePaneId, targetPaneId);
+    if (!result.changed) {
+      return false;
+    }
     this.columns = result.columns;
+    this.applyPaneDropPaneState(sourcePaneId, result);
     this.reindexColumns();
-    return result.changed;
+    return true;
+  }
+
+  previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
+    const nextPreview = { intent, sourcePaneId };
+    if (
+      this.paneReorderPreview?.sourcePaneId === nextPreview.sourcePaneId &&
+      samePaneDropIntent(this.paneReorderPreview.intent, nextPreview.intent)
+    ) {
+      return false;
+    }
+    this.paneReorderPreview = nextPreview;
+    return true;
   }
 
   previewPaneReorder(
@@ -292,16 +348,11 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     targetPaneId: PaneId,
     placement: PaneReorderPlacement,
   ): boolean {
-    const nextPreview = { placement, sourcePaneId, targetPaneId };
-    if (
-      this.paneReorderPreview?.sourcePaneId === nextPreview.sourcePaneId &&
-      this.paneReorderPreview.targetPaneId === nextPreview.targetPaneId &&
-      this.paneReorderPreview.placement === nextPreview.placement
-    ) {
-      return false;
-    }
-    this.paneReorderPreview = nextPreview;
-    return true;
+    return this.previewPaneDropIntent(sourcePaneId, {
+      kind: "row",
+      placement,
+      targetPaneId,
+    });
   }
 
   clearPaneReorderPreview(): boolean {
@@ -310,6 +361,10 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     }
     this.paneReorderPreview = null;
     return true;
+  }
+
+  hasPaneReorderPreview(): boolean {
+    return this.paneReorderPreview !== null;
   }
 
   private renderNormalFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
@@ -330,11 +385,20 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     if (!this.paneReorderPreview) {
       return null;
     }
-    const result = reorderPaneColumnForPlacement(
+    // A swap previews as a target-pane highlight only (no layout reflow), so the
+    // committed columns render unchanged while the drag is in progress.
+    if (this.paneReorderPreview.intent.kind === "swap") {
+      return null;
+    }
+    const result = applyPaneDropIntentToColumns(
       this.columns,
       this.paneReorderPreview.sourcePaneId,
-      this.paneReorderPreview.targetPaneId,
-      this.paneReorderPreview.placement,
+      this.paneReorderPreview.intent,
+      this.paneDropColumnOptions(
+        this.paneReorderPreview.sourcePaneId,
+        this.paneReorderPreview.intent,
+        "preview",
+      ),
     );
     return result.changed
       ? result.columns.map((column, index) => ({
@@ -347,20 +411,23 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
   lockColumnWidth(columnId: ColumnId, viewportWidth: number): void {
     const column = this.requireColumn(columnId);
     const resolvedWidth = this.resolvedColumnWidth(column.columnId, viewportWidth);
-    const previousProportion =
-      column.widthSpec.unit === "proportion"
-        ? column.widthSpec.value
-        : column.previousProportionWidth;
-    column.previousProportionWidth = previousProportion;
-    column.widthSpec = { unit: "px", value: Math.max(minimumColumnWidth, resolvedWidth) };
+    const slotIndex = columnSlotIndex(column);
+    for (const slotColumn of this.columns) {
+      if (columnSlotIndex(slotColumn) !== slotIndex) {
+        continue;
+      }
+      const previousProportion =
+        slotColumn.widthSpec.unit === "proportion"
+          ? slotColumn.widthSpec.value
+          : slotColumn.previousProportionWidth;
+      slotColumn.previousProportionWidth = previousProportion;
+      slotColumn.widthSpec = { unit: "px", value: Math.max(minimumColumnWidth, resolvedWidth) };
+    }
   }
 
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void {
     const column = this.requireColumn(columnId);
-    column.widthSpec = normalizedColumnWidthSpec(width);
-    if (column.widthSpec.unit === "proportion") {
-      column.previousProportionWidth = column.widthSpec.value;
-    }
+    this.resizeColumnsInSlot(columnSlotIndex(column), width);
   }
 
   setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
@@ -379,10 +446,7 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
 
   resetColumnWidth(columnId: ColumnId): void {
     const column = this.requireColumn(columnId);
-    column.widthSpec = normalizedColumnWidthSpec(column.idealWidthSpec);
-    if (column.widthSpec.unit === "proportion") {
-      column.previousProportionWidth = column.widthSpec.value;
-    }
+    this.resizeColumnsInSlot(columnSlotIndex(column), column.idealWidthSpec);
   }
 
   resizePane(paneId: PaneId, heightPx: number | null): void {
@@ -453,6 +517,7 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     const columnId = this.insertColumnInPlaneSlot(
       targetPlaneIndex,
       sourceColumn ? columnSlotIndex(sourceColumn) : source.planeColumnIndex,
+      sourceColumn?.widthSpec,
     ).columnId;
     return this.openPane({ columnId });
   }
@@ -465,11 +530,10 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     const unlockedProportion =
       column.previousProportionWidth ??
       nearestColumnWidthPreset(column.widthSpec.value / this.availableWidth(viewportWidth));
-    column.widthSpec = {
+    this.resizeColumnsInSlot(columnSlotIndex(column), {
       unit: "proportion",
       value: nearestColumnWidthPreset(unlockedProportion),
-    };
-    column.previousProportionWidth = column.widthSpec.value;
+    });
   }
 
   resolvedColumnWidth(columnId: ColumnId, viewportWidth: number): number {
@@ -490,8 +554,19 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       return 0;
     }
     const availableHeight = this.availablePaneHeight(viewportHeight);
-    const planeOffset =
-      planeTopOffsets(this.planeIndexes(), viewportHeight).get(location.planeIndex) ?? 0;
+    const planeGeometry = planeGeometryForLayout({
+      availableHeight,
+      columns: this.columns,
+      fullSizePanes: this.compactLayout,
+      maximizedPaneId,
+      padding: this.renderScene().padding,
+      paneById: this.paneById,
+      planeGap: this.scene.columnGap,
+      planeIndexes: this.planeIndexes(),
+      rowGap: this.scene.rowGap,
+      viewportHeight,
+    });
+    const planeOffset = planeGeometry.offsets.get(location.planeIndex) ?? 0;
     if (!this.compactLayout) {
       return planeOffset;
     }
@@ -614,20 +689,30 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     columnGap = this.scene.columnGap,
     allowViewportOverflow = this.options.allowResizedPanesToOverflowViewport ?? false,
   ): ColumnGeometry {
-    const widths = this.columns.map((column) =>
+    const rawWidths = this.columns.map((column) =>
       this.compactLayout || (maximizedPaneId && column.paneIds.includes(maximizedPaneId))
         ? this.availableWidth(viewportWidth)
         : this.resolveColumnWidth(column, viewportWidth, allowViewportOverflow),
+    );
+    const defaultWidth = this.resolveColumnWidthSpec(
+      this.scene.defaultColumnWidthSpec,
+      viewportWidth,
+      allowViewportOverflow,
+    );
+    const slotWidths = slotWidthsForColumns({
+      columns: this.columns,
+      defaultWidth,
+      widths: rawWidths,
+    });
+    const widths = this.columns.map(
+      (column) =>
+        slotWidths.get(columnSlotIndex(column)) ?? rawWidths[column.index] ?? defaultWidth,
     );
     const offsets = Array.from({ length: this.columns.length }, () => 0);
     const slotOffsets = slotOffsetsForColumns({
       columnGap,
       columns: this.columns,
-      defaultWidth: this.resolveColumnWidthSpec(
-        this.scene.defaultColumnWidthSpec,
-        viewportWidth,
-        allowViewportOverflow,
-      ),
+      defaultWidth,
       widths,
     });
     for (const planeIndex of this.planeIndexes()) {
@@ -727,6 +812,48 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     paneIds.splice(source.rowIndex + (direction === "down" ? 1 : 0), 0, createdPaneId);
   }
 
+  private applyPaneDropPaneState(sourcePaneId: PaneId, result: PaneDropColumnResult): void {
+    const pane = this.paneById.get(sourcePaneId);
+    if (!pane || !result.destinationColumnId) {
+      return;
+    }
+    if (!result.resetPaneSizing) {
+      this.paneById.set(sourcePaneId, {
+        ...pane,
+        columnId: result.destinationColumnId,
+      });
+      return;
+    }
+
+    // Cross-column and cross-plane drops adopt the destination layout context:
+    // column width belongs to the destination column, row sizing is reset to an
+    // even-share weight, and pane-intrinsic surface identity stays with the pane.
+    const paneWithoutHeight: WorkspacePane = {
+      ...pane,
+      columnId: result.destinationColumnId,
+      weight: 1,
+    };
+    delete paneWithoutHeight.heightPx;
+    this.paneById.set(sourcePaneId, paneWithoutHeight);
+  }
+
+  private paneDropColumnOptions(
+    sourcePaneId: PaneId,
+    intent: PaneDropIntent,
+    mode: "commit" | "preview" = "commit",
+  ) {
+    if (!paneDropIntentCreatesColumn(intent)) {
+      return undefined;
+    }
+    return {
+      defaultColumnWidthSpec: this.scene.defaultColumnWidthSpec,
+      newColumnId:
+        mode === "preview"
+          ? (`workspace_column_preview_${sourcePaneId}` as ColumnId)
+          : this.peekNextColumnId(),
+    };
+  }
+
   private locationForPane(paneId: PaneId): PaneLocation | null {
     for (const column of this.columns) {
       const rowIndex = column.paneIds.indexOf(paneId);
@@ -819,9 +946,13 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
   }
 
   private nextColumnId(): ColumnId {
-    const columnId = `workspace_column_${this.nextColumnSequence}`;
+    const columnId = this.peekNextColumnId();
     this.nextColumnSequence += 1;
     return columnId;
+  }
+
+  private peekNextColumnId(): ColumnId {
+    return `workspace_column_${this.nextColumnSequence}`;
   }
 
   private removeEmptyColumns(): void {
@@ -835,6 +966,19 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       throw new Error(`unknown workspace column ${columnId}`);
     }
     return column;
+  }
+
+  private resizeColumnsInSlot(slotIndex: number, width: ColumnWidthSpec): void {
+    const normalizedWidthSpec = normalizedColumnWidthSpec(width);
+    for (const column of this.columns) {
+      if (columnSlotIndex(column) !== slotIndex) {
+        continue;
+      }
+      column.widthSpec = { ...normalizedWidthSpec };
+      if (column.widthSpec.unit === "proportion") {
+        column.previousProportionWidth = column.widthSpec.value;
+      }
+    }
   }
 
   private adjacentPlaneIndex(planeIndex: number, direction: "up" | "down"): number | null {
@@ -969,4 +1113,35 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       rowGap: this.scene.rowGap,
     });
   }
+}
+
+function samePaneDropIntent(left: PaneDropIntent, right: PaneDropIntent): boolean {
+  if (left.kind !== right.kind) {
+    return false;
+  }
+  if (left.kind === "row" && right.kind === "row") {
+    return left.targetPaneId === right.targetPaneId && left.placement === right.placement;
+  }
+  if (left.kind === "column" && right.kind === "column") {
+    return (
+      left.targetColumnId === right.targetColumnId &&
+      left.planeIndex === right.planeIndex &&
+      left.slotPlacement === right.slotPlacement
+    );
+  }
+  if (left.kind === "plane-slot" && right.kind === "plane-slot") {
+    return (
+      left.planeIndex === right.planeIndex &&
+      left.referenceColumnId === right.referenceColumnId &&
+      left.slotIndex === right.slotIndex
+    );
+  }
+  if (left.kind === "swap" && right.kind === "swap") {
+    return left.targetPaneId === right.targetPaneId;
+  }
+  return false;
+}
+
+function paneDropIntentCreatesColumn(intent: PaneDropIntent): boolean {
+  return intent.kind === "column" || intent.kind === "plane-slot";
 }

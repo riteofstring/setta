@@ -2,12 +2,9 @@ package chat
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
-
-	"setta/internal/codexapp"
 )
 
 func TestCodexHarnessFailsOnTurnScopedNotificationMismatch(t *testing.T) {
@@ -19,7 +16,6 @@ func TestCodexHarnessFailsOnTurnScopedNotificationMismatch(t *testing.T) {
 	}{
 		{mode: "mismatched-assistant-delta"},
 		{mode: "mismatched-item-upsert"},
-		{mode: "mismatched-moderation-metadata-turn"},
 		{mode: "mismatched-output-delta"},
 		{mode: "mismatched-turn-completed"},
 	}
@@ -52,32 +48,6 @@ func TestCodexHarnessFailsOnTurnScopedNotificationMismatch(t *testing.T) {
 	}
 }
 
-func TestCodexTurnModerationMetadataRejectsMismatchedThread(t *testing.T) {
-	sink := newRecordingSink()
-	message := codexapp.Message{
-		Method: codexapp.CodexNotificationTurnModerationMetadata,
-		Params: json.RawMessage(`{"threadId":"thread_other","turnId":"turn_fake","metadata":{"presentation":"inline"}}`),
-	}
-
-	_, err := handleCodexNotification(message, "thread_fake", "turn_fake", sink)
-	if err == nil {
-		t.Fatal("handle notification succeeded, want provider scope drift error")
-	}
-	if !strings.Contains(err.Error(), "codex notification") || !strings.Contains(err.Error(), "scope mismatched_ids") {
-		t.Fatalf("error = %q, want scope mismatch", err)
-	}
-	if len(sink.diagnostics) != 1 {
-		t.Fatalf("diagnostics = %+v, want one provider diagnostic", sink.diagnostics)
-	}
-	diagnostic := sink.diagnostics[0]
-	if diagnostic.code != "codex_notification_scope_drift" || !diagnostic.resyncRequired {
-		t.Fatalf("diagnostic = %+v, want scope drift resync diagnostic", diagnostic)
-	}
-	if diagnostic.context["expectedThreadId"] != "thread_fake" || diagnostic.context["receivedThreadId"] != "thread_other" {
-		t.Fatalf("diagnostic context = %+v, want thread mismatch", diagnostic.context)
-	}
-}
-
 func TestCodexHarnessIgnoresUnownedScopedNotification(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("unowned-scoped-notification"))
 	sink := newRecordingSink()
@@ -103,8 +73,6 @@ func handleFakeMismatchMode(mode string) bool {
 		writeFakeMismatchedAssistantDelta()
 	case "mismatched-item-upsert":
 		writeFakeMismatchedItemUpsert()
-	case "mismatched-moderation-metadata-turn":
-		writeFakeMismatchedModerationMetadata("thread_fake", "turn_other")
 	case "mismatched-output-delta":
 		writeFakeMismatchedOutputDelta()
 	case "mismatched-turn-completed":
@@ -139,18 +107,6 @@ func writeFakeMismatchedItemUpsert() {
 		},
 		"threadId": "thread_fake",
 		"turnId":   "turn_other",
-	})
-	time.Sleep(2 * time.Second)
-}
-
-func writeFakeMismatchedModerationMetadata(threadID string, turnID string) {
-	writeFakeTurnStartedID("turn_fake")
-	writeFakeNotification("turn/moderationMetadata", map[string]any{
-		"metadata": map[string]any{
-			"presentation": "inline",
-		},
-		"threadId": threadID,
-		"turnId":   turnID,
 	})
 	time.Sleep(2 * time.Second)
 }
