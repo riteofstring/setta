@@ -521,11 +521,11 @@ run. Remaining Phase 6 coverage: live Codex provider regression checks when
 ChatGPT auth is available.
 
 Audit note, July 2, 2026: ChatGPT auth was available. The existing
-`live-codex-electron` workflow was attempted after the deterministic Phase 6
-slices passed, but it failed in the pre-existing live semantic cartographer
-smoke while waiting for cartographer processed state. That run is not evidence
-for or against liveness reconciliation; dedicated live-provider liveness
-regression coverage remains outstanding.
+`live-codex-electron` workflow and supplemental live backend Codex workflow
+passed after the deterministic Phase 6 slices. Those workflows are useful live
+provider smoke coverage, but they do not exercise the dedicated liveness
+reconciliation scenarios; dedicated live-provider liveness regression coverage
+remains outstanding.
 
 Deterministic Electron E2E through production main/preload/renderer/HTTP and
 store paths:
