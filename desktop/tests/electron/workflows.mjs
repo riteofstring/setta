@@ -51,6 +51,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "workspace-ultrawide-live-panes.test.mjs",
+    name: "workspace-ultrawide-live-panes",
+    tiers: ["required"],
+  },
+  {
     file: "pane-drag-drop-workflow.test.mjs",
     name: "pane-drag-drop",
     tiers: ["required"],
