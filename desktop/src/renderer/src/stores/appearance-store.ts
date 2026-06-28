@@ -241,6 +241,7 @@ export function appearanceStyleVariables(settings: AppearanceSettings): Record<s
     ...shadcnVariables(scheme),
     ...statusVariables(scheme),
     ...accentVariables(scheme),
+    ...workspaceVariables(scheme),
     "--font-heading": settings.fonts.heading,
     "--font-mono": settings.fonts.mono,
     "--font-sans": settings.fonts.sans,
@@ -287,6 +288,18 @@ function accentVariables(scheme: AppearanceColorScheme): Record<string, string> 
       [`--accent-${name}`, value],
       [`--color-accent-${name}`, value],
     ]),
+  );
+}
+
+function workspaceVariables(scheme: AppearanceColorScheme): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(scheme.workspace).flatMap(([name, value]) => {
+      const token = kebabCase(name);
+      return [
+        [`--workspace-${token}`, value],
+        [`--color-workspace-${token}`, value],
+      ];
+    }),
   );
 }
 

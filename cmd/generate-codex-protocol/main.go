@@ -519,9 +519,6 @@ func refsInSchema(schema jsonSchema) []string {
 		for _, entry := range current.AnyOf {
 			walk(entry)
 		}
-		for _, entry := range current.AllOf {
-			walk(entry)
-		}
 		for _, property := range current.Properties {
 			walk(property)
 		}
@@ -614,9 +611,6 @@ func (generator *generator) renderSchema(buffer *bytes.Buffer, name string, sche
 		renderStringEnum(buffer, typeName, enumValues)
 		return nil
 	}
-	if typeName == "ThreadItem" && isTaggedObjectUnionSchema(schema) {
-		return generator.renderTaggedObjectUnionSchema(buffer, typeName, schema)
-	}
 	if isObjectSchema(schema) {
 		return generator.renderObjectSchema(buffer, typeName, schema)
 	}
@@ -657,7 +651,7 @@ func jsonFieldTag(propertyName string, required bool) string {
 }
 
 func isAliasSchema(schema jsonSchema) bool {
-	return typeString(schema.Type) != "" || len(schema.OneOf) > 0 || len(schema.AnyOf) > 0 || len(schema.AllOf) > 0 || schema.Items != nil
+	return typeString(schema.Type) != "" || len(schema.OneOf) > 0 || len(schema.AnyOf) > 0 || schema.Items != nil
 }
 
 func (generator *generator) renderAliasSchema(buffer *bytes.Buffer, typeName string, schema jsonSchema) error {
@@ -719,9 +713,6 @@ func (generator *generator) goType(schema jsonSchema, required bool) (string, er
 	if schema.Ref != "" {
 		return goTypeFromRef(schema.Ref)
 	}
-	if len(schema.AllOf) > 0 {
-		return generator.goTypeFromAllOf(schema, required)
-	}
 	if len(schema.OneOf) > 0 || len(schema.AnyOf) > 0 {
 		return goTypeFromUnion(schema), nil
 	}
@@ -729,20 +720,6 @@ func (generator *generator) goType(schema jsonSchema, required bool) (string, er
 		return primitive, nil
 	}
 	return generator.compositeGoType(schema, typeString(schema.Type))
-}
-
-func (generator *generator) goTypeFromAllOf(schema jsonSchema, required bool) (string, error) {
-	if len(schema.AllOf) != 1 {
-		return "json.RawMessage", nil
-	}
-	goType, err := generator.goType(schema.AllOf[0], true)
-	if err != nil {
-		return "", err
-	}
-	if required || goType == "json.RawMessage" {
-		return goType, nil
-	}
-	return "*" + strings.TrimPrefix(goType, "*"), nil
 }
 
 func (generator *generator) nullableGoType(schema jsonSchema) (string, error) {

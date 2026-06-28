@@ -15,22 +15,26 @@ import {
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
+  waitForState,
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import {
   backendProbe,
+  clickButtonByAria,
   createChat,
   openWorkspace,
-  submitComposer,
+  setInputValue,
   waitForRunStatus,
   waitForRunWithPrompt,
 } from "./chat-workflow-harness.mjs";
+import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame-budget.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const chatPerformanceTimeoutMs = 35_000;
 const completionMarker = "Performance stream complete.";
 const prompt = "chat performance stream";
+const streamWarmupMarker = "stream chunk 010";
 const settleAfterCompletionMs = 350;
 const viewport = {
   deviceScaleFactor: 1,
@@ -74,28 +78,33 @@ try {
   const conversationId = await createChat(context.client, backend, workspaceId);
   await waitForSelector(context.client, '[data-testid="chat-detail-pane"]');
   await waitForSelector(context.client, '[data-testid="chat-transcript-scroller"]');
+  await waitForOptionalWorkflowGraphSettled(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before-stream.png"));
   if (options.trace) {
     traceSession = await startChromiumTrace(context.client, join(artifactDir, "trace.json"));
   }
 
+  await setInputValue(context.client, 'textarea[aria-label="Ask Setta"]', prompt);
+  await clickButtonByAria(context.client, "Send message");
+  const run = await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, null);
+  await waitForChatStreamWarmup(context.client);
   const started = await context.client.evaluate(measurementStartExpression());
   if (!started.ok) {
     throw new Error(`chat performance measurement did not start: ${JSON.stringify(started)}`);
   }
-  await submitComposer(context.client, prompt, "Send message");
-  const run = await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, null);
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, {
     status: "completed",
     timeoutMs: chatPerformanceTimeoutMs,
   });
   const measurement = await waitForMeasurementSettled(context.client);
+  assertSmoothFrameSample(measurement, "chat stream performance", { minFrameCount: 30 });
   const trace = traceSession ? await stopTraceSession() : null;
   await captureScreenshot(context.client, join(artifactDir, "after-stream.png"));
 
   const summary = {
     artifactDir,
     conversationId,
+    frameBudget: frameBudgetSummary(measurement),
     measurement,
     prompt,
     runId: run.id,
@@ -174,6 +183,62 @@ async function safeMeasurementSnapshot(client) {
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
+}
+
+async function waitForOptionalWorkflowGraphSettled(client) {
+  await waitForState(client, workflowGraphSettledExpression(), (value) => value.ready, 5_000).catch(
+    () => {},
+  );
+}
+
+async function waitForChatStreamWarmup(client) {
+  await waitForState(
+    client,
+    `(() => ({
+      ready: document.body.textContent?.includes(${JSON.stringify(streamWarmupMarker)}) === true,
+    }))()`,
+    (value) => value.ready,
+    chatPerformanceTimeoutMs,
+  );
+}
+
+function workflowGraphSettledExpression() {
+  return `(() => {
+    const api = window.__settaWorkflowGraphDebug;
+    if (!api?.getSurfaceIds || !api?.getSnapshot) {
+      return { ready: true, skipped: "missing-debug-api" };
+    }
+    const surfaceIds = api.getSurfaceIds();
+    const surfaceId = surfaceIds.includes("workspace_surface_2")
+      ? "workspace_surface_2"
+      : surfaceIds[0] ?? null;
+    if (surfaceId === null) {
+      return { ready: true, skipped: "missing-debug-surface" };
+    }
+    let snapshot = null;
+    try {
+      snapshot = api.getSnapshot(surfaceId, { includeVisual: false });
+    } catch (error) {
+      return {
+        ready: false,
+        reason: error instanceof Error ? error.message : String(error),
+        surfaceId,
+      };
+    }
+    const frameCount = snapshot?.render?.frameCount ?? 0;
+    const now = performance.now();
+    const previous = window.__settaChatStreamGraphSettle;
+    if (
+      !previous ||
+      previous.surfaceId !== surfaceId ||
+      previous.frameCount !== frameCount
+    ) {
+      window.__settaChatStreamGraphSettle = { frameCount, stableSince: now, surfaceId };
+      return { frameCount, ready: false, stableMs: 0, surfaceId };
+    }
+    const stableMs = now - previous.stableSince;
+    return { frameCount, ready: stableMs >= 120, stableMs, surfaceId };
+  })()`;
 }
 
 function measurementStartExpression() {
@@ -305,7 +370,7 @@ function measurementStartExpression() {
           (value) => value > observedFrameBudgetMs * 2,
         ).length,
         transcriptMessageRowCount: document.querySelectorAll('[data-chat-message="true"]').length,
-        transcriptBlockCount: document.querySelectorAll("[data-transcript-block]").length,
+        transcriptTurnCount: document.querySelectorAll('[data-testid="chat-transcript-turn"]').length,
       };
     }
     window.__settaChatStreamPerformance = { snapshot, stop };

@@ -4,7 +4,6 @@ import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 import { TextDecoder } from "node:util";
 
-import { chatTextInput } from "./chat-input-helpers.mjs";
 import {
   appendWorkflowState,
   assertRecordingEvidence,
@@ -384,7 +383,7 @@ async function runLateGatewayArrivalWorkflow(client, backend, workspaceId) {
   const slow = latestNodeExecution(reachedEnd, "slow");
   await backend.post("/chat/messages/steer", {
     conversationId: runnerRef(slow, "chat.conversation"),
-    input: chatTextInput("finish late branch"),
+    prompt: "finish late branch",
     workspaceId,
   });
 
@@ -642,7 +641,7 @@ async function assertWorkflowConversationMetadata(
 ) {
   const conversationId = runnerRef(nodeExecution, "chat.conversation");
   const page = await backend.post("/chat/messages/page", {
-    beforeBlockOrdinal: 0,
+    beforeOrdinal: 0,
     conversationId,
     limit: 20,
     workspaceId,
@@ -841,9 +840,7 @@ function signalValue(signals, name) {
 }
 
 function chatMessageText(message) {
-  return message.parts
-    .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
-    .join("");
+  return message.parts.map((part) => part.text).join("");
 }
 
 function phase4WorkflowGraph({ limitPolicy, maxIterations }) {

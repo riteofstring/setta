@@ -1,39 +1,34 @@
 import type {
-  BackgroundTerminalOutput,
-  BackgroundTerminalProcess,
   ChatGoalState,
   ChatMessage,
   Conversation,
+  RunItem,
   RunItemOutput,
-  TranscriptBlock,
+  TranscriptTurn,
 } from "@generated/backend";
 
 import { normalizeChatPatch, type QueuedRun, type RunningRun } from "./chat-store-normalization";
 import type { ChatPatch, ChatStore } from "./chat-store";
 import type { RunItemOutputPageState } from "./chat-store-normalization";
-import type { BackgroundTerminalOutputPageState } from "./chat-store-background-terminals";
 
 export interface ConversationDetailState {
   activeRun: RunningRun | null;
-  backgroundTerminalIdsByConversationId: Record<string, string[]>;
-  backgroundTerminalOutputIdsByProcessId: Record<string, string[]>;
-  backgroundTerminalOutputPagesByProcessId: Record<string, BackgroundTerminalOutputPageState>;
-  backgroundTerminalOutputsById: Record<string, BackgroundTerminalOutput>;
-  backgroundTerminalsById: Record<string, BackgroundTerminalProcess>;
   conversation: Conversation;
   goal: ChatGoalState | null;
   hasMoreOlder: boolean;
   messageIds: string[];
   messages: ChatMessage[];
   messagesById: Record<string, ChatMessage>;
-  olderBeforeBlockOrdinal: number;
+  olderBeforeOrdinal: number;
   queuedRuns: QueuedRun[];
+  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputs: RunItemOutput[];
   runItemOutputsById: Record<string, RunItemOutput>;
-  transcriptBlocks: TranscriptBlock[];
-  transcriptBlocksById: Record<string, TranscriptBlock>;
+  runItems: RunItem[];
+  runItemsById: Record<string, RunItem>;
+  transcript: TranscriptTurn[];
 }
 
 export function normalizeStatePatch(state: ChatStore, patch: ChatPatch): ChatPatch {
@@ -46,25 +41,22 @@ export function normalizeStatePatch(state: ChatStore, patch: ChatPatch): ChatPat
 export function conversationDetailPatch(detail: ConversationDetailState): ChatPatch {
   return {
     activeRun: detail.activeRun,
-    backgroundTerminalIdsByConversationId: detail.backgroundTerminalIdsByConversationId,
-    backgroundTerminalOutputIdsByProcessId: detail.backgroundTerminalOutputIdsByProcessId,
-    backgroundTerminalOutputPagesByProcessId: detail.backgroundTerminalOutputPagesByProcessId,
-    backgroundTerminalOutputsById: detail.backgroundTerminalOutputsById,
-    backgroundTerminalsById: detail.backgroundTerminalsById,
     goal: detail.goal,
     hasMoreOlder: detail.hasMoreOlder,
     messageIds: detail.messageIds,
     messages: detail.messages,
     messagesById: detail.messagesById,
-    olderBeforeBlockOrdinal: detail.olderBeforeBlockOrdinal,
+    olderBeforeOrdinal: detail.olderBeforeOrdinal,
     queuedRuns: detail.queuedRuns,
+    runItemIdsByRunId: detail.runItemIdsByRunId,
     runItemOutputIdsByRunItemId: detail.runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId: detail.runItemOutputPagesByRunItemId,
     runItemOutputs: detail.runItemOutputs,
     runItemOutputsById: detail.runItemOutputsById,
+    runItems: detail.runItems,
+    runItemsById: detail.runItemsById,
     selectedConversation: detail.conversation,
-    transcriptBlocks: detail.transcriptBlocks,
-    transcriptBlocksById: detail.transcriptBlocksById,
+    transcript: detail.transcript,
   };
 }
 
@@ -109,37 +101,22 @@ function conversationDetailFromStatePatch(
 ): ConversationDetailState {
   return {
     activeRun: patchedValue(state, patch, "activeRun"),
-    backgroundTerminalIdsByConversationId: patchedValue(
-      state,
-      patch,
-      "backgroundTerminalIdsByConversationId",
-    ),
-    backgroundTerminalOutputIdsByProcessId: patchedValue(
-      state,
-      patch,
-      "backgroundTerminalOutputIdsByProcessId",
-    ),
-    backgroundTerminalOutputPagesByProcessId: patchedValue(
-      state,
-      patch,
-      "backgroundTerminalOutputPagesByProcessId",
-    ),
-    backgroundTerminalOutputsById: patchedValue(state, patch, "backgroundTerminalOutputsById"),
-    backgroundTerminalsById: patchedValue(state, patch, "backgroundTerminalsById"),
     conversation,
     goal: patchedValue(state, patch, "goal"),
     hasMoreOlder: patchedValue(state, patch, "hasMoreOlder"),
     messageIds: patchedValue(state, patch, "messageIds"),
     messages: patchedValue(state, patch, "messages"),
     messagesById: patchedValue(state, patch, "messagesById"),
-    olderBeforeBlockOrdinal: patchedValue(state, patch, "olderBeforeBlockOrdinal"),
+    olderBeforeOrdinal: patchedValue(state, patch, "olderBeforeOrdinal"),
     queuedRuns: patchedValue(state, patch, "queuedRuns"),
+    runItemIdsByRunId: patchedValue(state, patch, "runItemIdsByRunId"),
     runItemOutputIdsByRunItemId: patchedValue(state, patch, "runItemOutputIdsByRunItemId"),
     runItemOutputPagesByRunItemId: patchedValue(state, patch, "runItemOutputPagesByRunItemId"),
     runItemOutputs: patchedValue(state, patch, "runItemOutputs"),
     runItemOutputsById: patchedValue(state, patch, "runItemOutputsById"),
-    transcriptBlocks: patchedValue(state, patch, "transcriptBlocks"),
-    transcriptBlocksById: patchedValue(state, patch, "transcriptBlocksById"),
+    runItems: patchedValue(state, patch, "runItems"),
+    runItemsById: patchedValue(state, patch, "runItemsById"),
+    transcript: patchedValue(state, patch, "transcript"),
   };
 }
 

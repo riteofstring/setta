@@ -22,21 +22,12 @@ const (
 	EventTypeRunItemCreated      = "chat.run_item.created"
 	EventTypeRunItemUpdated      = "chat.run_item.updated"
 	EventTypeRunItemOutputDelta  = "chat.run_item_output.delta"
-
-	EventTypeTranscriptBlockCreated        = "chat.transcript_block.created"
-	EventTypeTranscriptBlockUpdated        = "chat.transcript_block.updated"
-	EventTypeTranscriptTextDelta           = "chat.transcript_text.delta"
-	EventTypeTranscriptBlocksReplaced      = "chat.transcript_blocks.replaced"
-	EventTypeBackgroundTerminalCreated     = "chat.background_terminal.created"
-	EventTypeBackgroundTerminalUpdated     = "chat.background_terminal.updated"
-	EventTypeBackgroundTerminalOutputDelta = "chat.background_terminal.output_delta"
-	EventTypeBackgroundTerminalsReplaced   = "chat.background_terminals.replaced"
-	EventTypeQueueUpdated                  = "chat.queue.updated"
-	EventTypeGoalUpdated                   = "chat.goal.updated"
-	EventTypeConversationUpdated           = "chat.conversation.updated"
-	EventTypeResyncRequired                = "chat.resync_required"
-	EventTypeDiagnosticCreated             = "diagnostic.created"
-	EventTypeCodexAccountChanged           = "codex.account.changed"
+	EventTypeQueueUpdated        = "chat.queue.updated"
+	EventTypeGoalUpdated         = "chat.goal.updated"
+	EventTypeConversationUpdated = "chat.conversation.updated"
+	EventTypeResyncRequired      = "chat.resync_required"
+	EventTypeDiagnosticCreated   = "diagnostic.created"
+	EventTypeCodexAccountChanged = "codex.account.changed"
 )
 
 const (
@@ -126,72 +117,6 @@ type RunItemOutputDeltaPayload struct {
 	Output RunItemOutput `json:"output"`
 }
 
-// TranscriptBlockCreatedPayload announces a newly created transcript block. The
-// block carries its conversation, run, kind, and ordinal so the renderer can
-// upsert it by ID and place it by ordinal without inspecting raw run items.
-type TranscriptBlockCreatedPayload struct {
-	Block TranscriptBlock `json:"block"`
-}
-
-// TranscriptBlockUpdatedPayload announces an in-place mutation of an existing
-// transcript block (status, activity output/details, reasoning mode, or a
-// user_message status). The block ID and ordinal never change, so the renderer
-// updates the block by ID without reordering.
-type TranscriptBlockUpdatedPayload struct {
-	Block TranscriptBlock `json:"block"`
-}
-
-// TranscriptTextDeltaPayload streams an assistant text append keyed by the
-// transcript block ID. It carries only the appended text so assistant streaming
-// never republishes the full block projection.
-type TranscriptTextDeltaPayload struct {
-	BlockID   string `json:"blockId"`
-	Delta     string `json:"delta"`
-	UpdatedAt string `json:"updatedAt"`
-}
-
-// TranscriptBlocksReplacedPayload carries the authoritative ordered block list
-// for a single run. It is used when an incremental created or updated event
-// cannot express the change: a block removed by provider-item de-duplication or
-// steering replay, and the live-only working indicator appearing, moving to the
-// active tail, or being superseded by terminal status.
-type TranscriptBlocksReplacedPayload struct {
-	RunID  string            `json:"runId"`
-	Blocks []TranscriptBlock `json:"blocks"`
-}
-
-func (payload TranscriptBlocksReplacedPayload) MarshalJSON() ([]byte, error) {
-	type payloadAlias TranscriptBlocksReplacedPayload
-	if payload.Blocks == nil {
-		payload.Blocks = []TranscriptBlock{}
-	}
-	return json.Marshal(payloadAlias(payload))
-}
-
-type BackgroundTerminalCreatedPayload struct {
-	Process BackgroundTerminalProcess `json:"process"`
-}
-
-type BackgroundTerminalUpdatedPayload struct {
-	Process BackgroundTerminalProcess `json:"process"`
-}
-
-type BackgroundTerminalOutputDeltaPayload struct {
-	Output BackgroundTerminalOutput `json:"output"`
-}
-
-type BackgroundTerminalsReplacedPayload struct {
-	Terminals []BackgroundTerminalProcess `json:"terminals"`
-}
-
-func (payload BackgroundTerminalsReplacedPayload) MarshalJSON() ([]byte, error) {
-	type payloadAlias BackgroundTerminalsReplacedPayload
-	if payload.Terminals == nil {
-		payload.Terminals = []BackgroundTerminalProcess{}
-	}
-	return json.Marshal(payloadAlias(payload))
-}
-
 type QueueUpdatedPayload struct {
 	Queue QueueState `json:"queue"`
 }
@@ -256,14 +181,6 @@ func EventContracts() EventContractSchema {
 			{Name: "ChatRunItemCreatedEvent", Type: EventTypeRunItemCreated, Payload: reflect.TypeFor[RunItemCreatedPayload]()},
 			{Name: "ChatRunItemUpdatedEvent", Type: EventTypeRunItemUpdated, Payload: reflect.TypeFor[RunItemUpdatedPayload]()},
 			{Name: "ChatRunItemOutputDeltaEvent", Type: EventTypeRunItemOutputDelta, Payload: reflect.TypeFor[RunItemOutputDeltaPayload]()},
-			{Name: "ChatTranscriptBlockCreatedEvent", Type: EventTypeTranscriptBlockCreated, Payload: reflect.TypeFor[TranscriptBlockCreatedPayload]()},
-			{Name: "ChatTranscriptBlockUpdatedEvent", Type: EventTypeTranscriptBlockUpdated, Payload: reflect.TypeFor[TranscriptBlockUpdatedPayload]()},
-			{Name: "ChatTranscriptTextDeltaEvent", Type: EventTypeTranscriptTextDelta, Payload: reflect.TypeFor[TranscriptTextDeltaPayload]()},
-			{Name: "ChatTranscriptBlocksReplacedEvent", Type: EventTypeTranscriptBlocksReplaced, Payload: reflect.TypeFor[TranscriptBlocksReplacedPayload]()},
-			{Name: "ChatBackgroundTerminalCreatedEvent", Type: EventTypeBackgroundTerminalCreated, Payload: reflect.TypeFor[BackgroundTerminalCreatedPayload]()},
-			{Name: "ChatBackgroundTerminalUpdatedEvent", Type: EventTypeBackgroundTerminalUpdated, Payload: reflect.TypeFor[BackgroundTerminalUpdatedPayload]()},
-			{Name: "ChatBackgroundTerminalOutputDeltaEvent", Type: EventTypeBackgroundTerminalOutputDelta, Payload: reflect.TypeFor[BackgroundTerminalOutputDeltaPayload]()},
-			{Name: "ChatBackgroundTerminalsReplacedEvent", Type: EventTypeBackgroundTerminalsReplaced, Payload: reflect.TypeFor[BackgroundTerminalsReplacedPayload]()},
 			{Name: "ChatQueueUpdatedEvent", Type: EventTypeQueueUpdated, Payload: reflect.TypeFor[QueueUpdatedPayload]()},
 			{Name: "ChatGoalUpdatedEvent", Type: EventTypeGoalUpdated, Payload: reflect.TypeFor[GoalUpdatedPayload]()},
 			{Name: "ChatConversationUpdatedEvent", Type: EventTypeConversationUpdated, Payload: reflect.TypeFor[ConversationUpdatedPayload]()},
@@ -412,89 +329,6 @@ func NewRunItemOutputDeltaEvent(workspaceID string, conversationID string, runID
 		Payload:        RunItemOutputDeltaPayload{Output: output},
 		RunID:          runID,
 		Type:           EventTypeRunItemOutputDelta,
-		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewTranscriptBlockCreatedEvent(workspaceID string, block TranscriptBlock) EventDraft {
-	return EventDraft{
-		ConversationID: block.ConversationID,
-		Payload:        TranscriptBlockCreatedPayload{Block: block},
-		RunID:          block.RunID,
-		Type:           EventTypeTranscriptBlockCreated,
-		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewTranscriptBlockUpdatedEvent(workspaceID string, block TranscriptBlock) EventDraft {
-	return EventDraft{
-		ConversationID: block.ConversationID,
-		Payload:        TranscriptBlockUpdatedPayload{Block: block},
-		RunID:          block.RunID,
-		Type:           EventTypeTranscriptBlockUpdated,
-		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewTranscriptTextDeltaEvent(workspaceID string, conversationID string, runID string, blockID string, delta string, updatedAt string) EventDraft {
-	return EventDraft{
-		ConversationID: conversationID,
-		Payload: TranscriptTextDeltaPayload{
-			BlockID:   blockID,
-			Delta:     delta,
-			UpdatedAt: updatedAt,
-		},
-		RunID:       runID,
-		Type:        EventTypeTranscriptTextDelta,
-		WorkspaceID: workspaceID,
-	}
-}
-
-func NewTranscriptBlocksReplacedEvent(workspaceID string, conversationID string, runID string, blocks []TranscriptBlock) EventDraft {
-	return EventDraft{
-		ConversationID: conversationID,
-		Payload:        TranscriptBlocksReplacedPayload{RunID: runID, Blocks: blocks},
-		RunID:          runID,
-		Type:           EventTypeTranscriptBlocksReplaced,
-		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewBackgroundTerminalCreatedEvent(process BackgroundTerminalProcess) EventDraft {
-	return EventDraft{
-		ConversationID: process.ConversationID,
-		Payload:        BackgroundTerminalCreatedPayload{Process: process},
-		RunID:          process.StartedRunID,
-		Type:           EventTypeBackgroundTerminalCreated,
-		WorkspaceID:    process.WorkspaceID,
-	}
-}
-
-func NewBackgroundTerminalUpdatedEvent(process BackgroundTerminalProcess) EventDraft {
-	return EventDraft{
-		ConversationID: process.ConversationID,
-		Payload:        BackgroundTerminalUpdatedPayload{Process: process},
-		RunID:          process.StartedRunID,
-		Type:           EventTypeBackgroundTerminalUpdated,
-		WorkspaceID:    process.WorkspaceID,
-	}
-}
-
-func NewBackgroundTerminalOutputDeltaEvent(workspaceID string, conversationID string, runID string, output BackgroundTerminalOutput) EventDraft {
-	return EventDraft{
-		ConversationID: conversationID,
-		Payload:        BackgroundTerminalOutputDeltaPayload{Output: output},
-		RunID:          runID,
-		Type:           EventTypeBackgroundTerminalOutputDelta,
-		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewBackgroundTerminalsReplacedEvent(workspaceID string, conversationID string, terminals []BackgroundTerminalProcess) EventDraft {
-	return EventDraft{
-		ConversationID: conversationID,
-		Payload:        BackgroundTerminalsReplacedPayload{Terminals: terminals},
-		Type:           EventTypeBackgroundTerminalsReplaced,
 		WorkspaceID:    workspaceID,
 	}
 }

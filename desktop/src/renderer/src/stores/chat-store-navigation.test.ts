@@ -76,7 +76,7 @@ describe("chat store navigation caches", () => {
     const selection = useChatStore.getState().selectConversation(cachedConversation.id);
 
     expect(useChatStore.getState().selectedConversation?.id).toBe(cachedConversation.id);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
       "cached detail",
     ]);
     expect(useChatStore.getState().operation).toBe("loading");
@@ -85,7 +85,7 @@ describe("chat store navigation caches", () => {
     await selection;
 
     expect(messagePage).toHaveBeenCalledWith("workspace_api", cachedConversation.id, 0, 40);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
       "fresh detail",
     ]);
     expect(useChatStore.getState().operation).toBeNull();
@@ -126,7 +126,7 @@ describe("chat store navigation caches", () => {
     const selection = useChatStore.getState().selectConversation(nextConversation.id);
 
     expect(useChatStore.getState().selectedConversation?.id).toBe(firstConversation.id);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
       "first detail",
     ]);
     expect(useChatStore.getState().operation).toBe("loading");
@@ -135,52 +135,10 @@ describe("chat store navigation caches", () => {
     await selection;
 
     expect(useChatStore.getState().selectedConversation?.id).toBe(nextConversation.id);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
       "next detail",
     ]);
     expect(useChatStore.getState().operation).toBeNull();
-  });
-
-  test("selecting a conversation keeps metadata from the message page response", async () => {
-    const firstConversation = testConversation({ id: "conversation_first", title: "First" });
-    const staleConversation = testConversation({
-      codexEffectiveSettings: null,
-      id: "conversation_next",
-      title: "Next",
-    });
-    const pageConversation = testConversation({
-      codexEffectiveSettings: {
-        model: "gpt-test",
-        modelDisplayName: "GPT Test",
-        reasoningEffort: "xhigh",
-        reasoningEffortDisplayName: "Extra high",
-        supportsImages: true,
-      },
-      id: staleConversation.id,
-      title: staleConversation.title,
-    });
-    const messagePage = vi.fn().mockResolvedValue(testPage(pageConversation, []));
-    installSettaAPI({ chat: { messagePage } });
-    useChatStore.setState({
-      conversations: [
-        conversationItem(firstConversation, 1),
-        conversationItem(staleConversation, 0),
-      ],
-      selectedConversation: firstConversation,
-      status: "ready",
-      workspaceId: "workspace_api",
-    });
-
-    await useChatStore.getState().selectConversation(staleConversation.id);
-
-    expect(useChatStore.getState().selectedConversation?.codexEffectiveSettings).toEqual({
-      model: "gpt-test",
-      modelDisplayName: "GPT Test",
-      reasoningEffort: "xhigh",
-      reasoningEffortDisplayName: "Extra high",
-      supportsImages: true,
-    });
-    expect(messagePage).toHaveBeenCalledWith("workspace_api", staleConversation.id, 0, 40);
   });
 });
 
@@ -441,9 +399,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
-      createImageAttachmentFromBytes: async () => {
-        throw new Error("create image attachment from bytes is not used by navigation tests");
-      },
       deleteConversation: async () => listResponse([]),
       editQueuedMessage: async () => ({
         conversation,
@@ -458,7 +413,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: testPage(conversation, []),
         result: {
           action: "display",
-          composerDraft: "",
           goal: null,
           kind: "goal",
           message: "Goal set: test",
@@ -470,37 +424,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           title: "Goal",
         },
       }),
-      openCodexModelPicker: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: {
-          action: "model_picker",
-          composerDraft: "",
-          goal: null,
-          kind: "model",
-          message: "Choose a model.",
-          models: [],
-          raw: "model_picker",
-          reasoningEfforts: [],
-          selectedModel: "",
-          selectedReasoningEffort: null,
-          title: "Model",
-        },
-      }),
       listCommands: async () => ({ commands: [] }),
       listConversations: async () => listResponse([]),
-      listBackgroundTerminals: async () => ({ terminals: [] }),
-      getBackgroundTerminalOutput: async () => ({
-        hasMore: false,
-        nextOrdinal: 0,
-        output: [],
-        processId: "background_terminal_api",
-      }),
-      killBackgroundTerminal: async () => {
-        throw new Error("kill background terminal is not used by chat store navigation tests");
-      },
-      killAllBackgroundTerminals: async () => ({ terminals: [] }),
       markConversationRead: async () => conversationItem(conversation, 0),
       messagePage: async () => testPage(conversation, []),
       onEvent: () => () => {},
@@ -518,7 +443,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         removedMessageId: "message_queued",
         removedRunId: "run_queued",
       }),
-      runActivity: async () => ({ activity: [], items: [], output: [], runId: "run_api" }),
+      runActivity: async () => ({ items: [], output: [], runId: "run_api" }),
       runItemOutput: async () => ({
         hasMore: false,
         nextOrdinal: 0,
@@ -554,7 +479,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         result: commandResult("model"),
       }),
       setConversationPinned: async () => conversationItem(conversation, 0),
-      selectImageAttachments: async () => [],
       steerMessage: async () => ({
         conversation,
         page: testPage(conversation, []),
@@ -714,7 +638,6 @@ function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
 function commandResult(kind: "goal" | "model") {
   return {
     action: "display" as const,
-    composerDraft: "",
     goal: null,
     kind,
     message: "Command result",
@@ -759,7 +682,6 @@ function conversationItem(conversation: Conversation, messageCount: number): Con
 function testConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     archivedAt: "",
-    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
@@ -776,13 +698,15 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
 
 function testPage(conversation: Conversation, messages: ChatMessage[]): MessagePage {
   return {
-    blocks: [],
     conversation,
     goal: null,
     hasMoreOlder: false,
     messages,
-    olderBeforeBlockOrdinal: 0,
+    olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queue: { messages: [], runs: [] },
+    runItemOutputs: [],
+    runItems: [],
+    transcript: [],
   };
 }
 
@@ -806,25 +730,22 @@ function messageCreatedEvent(sequence: number, chatMessage: ChatMessage, runId: 
 function conversationDetail(conversation: Conversation, messages: ChatMessage[]) {
   return {
     activeRun: null,
-    backgroundTerminalIdsByConversationId: {},
-    backgroundTerminalOutputIdsByProcessId: {},
-    backgroundTerminalOutputPagesByProcessId: {},
-    backgroundTerminalOutputsById: {},
-    backgroundTerminalsById: {},
     conversation,
     goal: null,
     hasMoreOlder: false,
     messageIds: messages.map((item) => item.id),
     messages,
     messagesById: Object.fromEntries(messages.map((item) => [item.id, item])),
-    olderBeforeBlockOrdinal: 0,
+    olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queuedRuns: [],
+    runItemIdsByRunId: {},
     runItemOutputIdsByRunItemId: {},
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItemOutputsById: {},
-    transcriptBlocks: [],
-    transcriptBlocksById: {},
+    runItems: [],
+    runItemsById: {},
+    transcript: [],
   };
 }
 
@@ -844,12 +765,7 @@ function message(
     id,
     ordinal,
     parts: [
-      {
-        id: `${id}_part`,
-        image: null,
-        text: { format: role === "assistant" ? "markdown" : "plain", text },
-        type: "text",
-      },
+      { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
     ],
     role,
     runId,

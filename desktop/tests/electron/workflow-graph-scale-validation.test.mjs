@@ -142,7 +142,17 @@ async function launchScaleScenario({ artifactDir, edgesPerNode, fixture, nodeCou
   workflowGraphSurfaceId = await maximizeWorkflowGraphPane(context.client, {
     timeoutMs: scenarioTimeoutMs,
   });
+  await dismissLayoutRecoveryNotice(context.client);
   return context;
+}
+
+async function dismissLayoutRecoveryNotice(client) {
+  await client.evaluate(`(() => {
+    const button = document.querySelector('button[aria-label="Dismiss layout recovery notice"]');
+    if (button instanceof HTMLButtonElement) {
+      button.click();
+    }
+  })()`);
 }
 
 async function exerciseScaleScenario({ artifactDir, client, edgesPerNode, nodeCount, startedAt }) {
@@ -291,7 +301,7 @@ async function exercisePanAndZoom(client, { afterClick, artifactDir }) {
 }
 
 async function exerciseMarquee(client, { afterZoom, artifactDir }) {
-  const marquee = marqueeForVisibleCluster(afterZoom);
+  const marquee = await marqueeForVisibleCluster(client, afterZoom);
   const expectedMarqueeNodeIds = exactMarqueeNodeIds(afterZoom, marquee);
   assertNonEmptyMarqueeSelection(expectedMarqueeNodeIds, marquee);
   await dispatchMouseDrag(client, {
@@ -714,7 +724,7 @@ function screenDistance(node, point) {
   return Math.hypot(node.screenX - point.x, node.screenY - point.y);
 }
 
-function marqueeForVisibleCluster(snapshot) {
+async function marqueeForVisibleCluster(client, snapshot) {
   const visible = visibleNodes(snapshot)
     .sort(
       (left, right) =>
@@ -730,7 +740,7 @@ function marqueeForVisibleCluster(snapshot) {
   const right = Math.max(...bounds.map((bound) => bound.right)) + 28;
   const top = Math.min(...bounds.map((bound) => bound.top)) - 28;
   const bottom = Math.max(...bounds.map((bound) => bound.bottom)) + 28;
-  const from = emptyCanvasPoint(snapshot);
+  const from = await emptyCanvasPoint(client, snapshot);
   const center = canvasCenter(snapshot);
   const to = clampCanvasPoint(snapshot, {
     x: from.x < center.x ? right : left,
@@ -879,19 +889,39 @@ function nodeScreenBounds(snapshot, node) {
   };
 }
 
-function emptyCanvasPoint(snapshot) {
+async function emptyCanvasPoint(client, snapshot) {
+  const point = await firstCanvasInputPoint(client, snapshot);
+  if (!point) {
+    const diagnostics = await emptyCanvasInputDiagnostics(client, snapshot);
+    throw new Error(
+      `could not find an input-ready empty canvas point: ${JSON.stringify(diagnostics)}`,
+    );
+  }
+  return point;
+}
+
+async function firstCanvasInputPoint(client, snapshot) {
+  for (const candidate of emptyCanvasPointCandidates(snapshot)) {
+    if (await canvasPointReceivesInput(client, candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function emptyCanvasPointCandidates(snapshot) {
   const candidates = [
+    { x: snapshot.canvas.clientWidth - 32, y: snapshot.canvas.clientHeight - 32 },
+    { x: 32, y: snapshot.canvas.clientHeight - 32 },
     { x: 32, y: 32 },
     { x: snapshot.canvas.clientWidth - 32, y: 32 },
-    { x: 32, y: snapshot.canvas.clientHeight - 32 },
-    { x: snapshot.canvas.clientWidth - 32, y: snapshot.canvas.clientHeight - 32 },
     { x: Math.floor(snapshot.canvas.clientWidth / 2), y: 32 },
     { x: Math.floor(snapshot.canvas.clientWidth / 2), y: snapshot.canvas.clientHeight - 32 },
     { x: 32, y: Math.floor(snapshot.canvas.clientHeight / 2) },
     { x: snapshot.canvas.clientWidth - 32, y: Math.floor(snapshot.canvas.clientHeight / 2) },
   ];
   const ports = snapshot.graph.nodes.flatMap((node) => node.ports);
-  const point = candidates.find((candidate) => {
+  return candidates.filter((candidate) => {
     const awayFromPorts = ports.every(
       (port) => Math.hypot(candidate.x - port.screenX, candidate.y - port.screenY) > 72,
     );
@@ -900,10 +930,44 @@ function emptyCanvasPoint(snapshot) {
     );
     return awayFromPorts && outsideNodes;
   });
-  if (!point) {
-    throw new Error(`could not find an empty canvas point for marquee start`);
+}
+
+async function canvasPointReceivesInput(client, point) {
+  const pagePoint = await pagePointForCanvasPoint(client, workflowGraphSurfaceId, point);
+  return client.evaluate(`(() => {
+    const roots = Array.from(document.querySelectorAll('[data-testid="workflow-graph"]'));
+    const root =
+      roots.find((candidate) => candidate.dataset.surfaceId === ${JSON.stringify(
+        workflowGraphSurfaceId,
+      )}) ?? roots[0];
+    const canvas = root?.querySelector('[data-testid="workflow-graph-canvas"]');
+    const hit = document.elementFromPoint(${JSON.stringify(pagePoint.x)}, ${JSON.stringify(
+      pagePoint.y,
+    )});
+    return canvas instanceof HTMLCanvasElement && hit === canvas;
+  })()`);
+}
+
+async function emptyCanvasInputDiagnostics(client, snapshot) {
+  const diagnostics = [];
+  for (const point of emptyCanvasPointCandidates(snapshot)) {
+    const pagePoint = await pagePointForCanvasPoint(client, workflowGraphSurfaceId, point);
+    const hit = await client.evaluate(`(() => {
+      const hit = document.elementFromPoint(${JSON.stringify(pagePoint.x)}, ${JSON.stringify(
+        pagePoint.y,
+      )});
+      if (!(hit instanceof Element)) {
+        return null;
+      }
+      return {
+        className: hit instanceof HTMLElement ? hit.className : "",
+        tagName: hit.tagName,
+        testId: hit.getAttribute("data-testid") ?? "",
+      };
+    })()`);
+    diagnostics.push({ canvasPoint: point, hit, pagePoint });
   }
-  return point;
+  return diagnostics;
 }
 
 function pointInsideNodeScreenBounds(snapshot, node, point, padding) {

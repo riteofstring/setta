@@ -30,21 +30,12 @@ type WorkflowEventContext struct {
 func ActivityRecordFromChatRunItem(item chat.RunItem, context ChatRunItemContext) (WorkspaceActivityRecord, bool, error) {
 	switch item.Type {
 	case chat.RunItemTypeCommandExecution:
-		if provisionalUnifiedExecStartup(item) {
-			return WorkspaceActivityRecord{}, false, nil
-		}
 		return commandActivityFromRunItem(item, context), true, nil
 	case chat.RunItemTypeFileChange:
 		return fileChangeActivityFromRunItem(item, context), true, nil
 	default:
 		return WorkspaceActivityRecord{}, false, nil
 	}
-}
-
-func provisionalUnifiedExecStartup(item chat.RunItem) bool {
-	return item.Source != nil &&
-		*item.Source == chat.RunItemCommandSourceUnifiedExecStartup &&
-		(item.Status == chat.RunItemStatusPending || item.Status == chat.RunItemStatusRunning)
 }
 
 func ActivityRecordsFromWorkflowEvent(event orchestrator.WorkflowEvent, context WorkflowEventContext) ([]WorkspaceActivityRecord, error) {

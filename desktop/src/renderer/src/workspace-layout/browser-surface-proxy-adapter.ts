@@ -219,9 +219,7 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
 
   private nativeBounds(): { contentRect: Rect; rect: Rect; visible: boolean } {
     const nativeRect = this.nativePaneRect();
-    const clipBounds = this.host
-      ?.closest<HTMLElement>('[data-testid="workspace-presentation-engine"]')
-      ?.getBoundingClientRect();
+    const clipBounds = this.host ? nativeViewClipBounds(this.host) : null;
     const visibleRect = clipBounds ? intersectRects(nativeRect, clipBounds) : nativeRect;
     const visible = visibleRect.width > 0 && visibleRect.height > 0;
     return {
@@ -271,11 +269,37 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
   }
 }
 
-function intersectRects(subject: Rect, clip: DOMRect): Rect {
-  const x = Math.max(subject.x, clip.left);
-  const y = Math.max(subject.y, clip.top);
-  const right = Math.min(subject.x + subject.width, clip.right);
-  const bottom = Math.min(subject.y + subject.height, clip.bottom);
+function nativeViewClipBounds(host: HTMLElement): Rect | null {
+  const stage = host.closest<HTMLElement>('[data-testid="workspace-presentation-engine"]');
+  const stageBounds = stage?.getBoundingClientRect();
+  if (!stageBounds) {
+    return null;
+  }
+  const workspace = host.closest<HTMLElement>('[data-testid="workspace-layout-area"]');
+  const clipLeft = readNativeViewClipLeft(workspace);
+  const left = Math.min(stageBounds.right, stageBounds.left + clipLeft);
+  return {
+    height: stageBounds.height,
+    width: Math.max(0, stageBounds.right - left),
+    x: left,
+    y: stageBounds.top,
+  };
+}
+
+function readNativeViewClipLeft(workspace: HTMLElement | null): number {
+  const value = workspace?.dataset.nativeViewClipLeft;
+  if (!value) {
+    return 0;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function intersectRects(subject: Rect, clip: Rect): Rect {
+  const x = Math.max(subject.x, clip.x);
+  const y = Math.max(subject.y, clip.y);
+  const right = Math.min(subject.x + subject.width, clip.x + clip.width);
+  const bottom = Math.min(subject.y + subject.height, clip.y + clip.height);
   return {
     height: Math.max(0, bottom - y),
     width: Math.max(0, right - x),

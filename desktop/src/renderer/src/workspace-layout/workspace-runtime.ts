@@ -16,13 +16,14 @@ import {
   paneLimitsForRuntime,
   presentationOptionsForRuntime,
   reportWriterForRuntime,
+  runtimePolicyBudgetForRuntime,
   runtimePolicyOptionsForRuntime,
   sceneForRuntime,
   snapshotStaticFallbackForRuntime,
   workflowGraphSyntheticGraphFallbackForRuntime,
   type WorkspaceSceneMode,
 } from "./runtime-mode-options";
-import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
+import { PaneRuntimePolicy } from "./runtime-policy";
 import { createDefaultSurfaceAdapter, EmptyFrameSurfaceAdapter } from "./surface-adapters";
 import { SurfaceRegistry } from "./surface-registry";
 import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
@@ -94,7 +95,10 @@ export function createWorkspaceRuntime({
     ),
     reportWriter: reportWriterForRuntime(mode),
     resizeReportWriter: new LocalStorageResizePerformanceReportWriter(1500),
-    runtimePolicy: new PaneRuntimePolicy(DEFAULT_PANE_BUDGET, runtimePolicyOptionsForRuntime(mode)),
+    runtimePolicy: new PaneRuntimePolicy(
+      runtimePolicyBudgetForRuntime(mode),
+      runtimePolicyOptionsForRuntime(mode),
+    ),
     scene,
     store,
   };

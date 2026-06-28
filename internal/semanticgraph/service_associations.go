@@ -663,8 +663,8 @@ func runItemEvidenceText(item chat.RunItem) string {
 func chatMessageText(message chat.ChatMessage) string {
 	parts := make([]string, 0, len(message.Parts))
 	for _, part := range message.Parts {
-		if part.Type == chat.MessagePartText && part.Text != nil && strings.TrimSpace(part.Text.Text) != "" {
-			parts = append(parts, part.Text.Text)
+		if part.Type == chat.MessagePartText && strings.TrimSpace(part.Text) != "" {
+			parts = append(parts, part.Text)
 		}
 	}
 	return strings.Join(parts, "\n")

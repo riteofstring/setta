@@ -24,7 +24,7 @@ export function BrailleSpinner({
     <span
       aria-label={label}
       className={cn(
-        "inline-block w-[1.1ch] font-mono text-sm leading-none tracking-normal whitespace-pre text-accent-violet [filter:drop-shadow(0_0_5px_currentColor)]",
+        "inline-block w-[1ch] overflow-hidden font-mono text-[10px] leading-none tracking-normal whitespace-pre text-muted-foreground",
         className,
       )}
       role="status"

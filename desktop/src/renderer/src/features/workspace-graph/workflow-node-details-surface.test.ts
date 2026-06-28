@@ -101,7 +101,6 @@ describe("workflow node details surface helpers", () => {
 
   test("adapts a preloaded run activity page into shared run-activity output state", () => {
     const page: RunActivityPage = {
-      activity: [],
       items: [runItem("run_item_a"), runItem("run_item_b")],
       output: [
         runOutput("output_a2", "run_item_a", 2, "second"),
@@ -243,7 +242,6 @@ function runItem(id: string): RunItem {
     runId: "run_a",
     schemaVersion: 1,
     serverName: "",
-    source: null,
     startedAt: "",
     status: "completed",
     summary: "",
