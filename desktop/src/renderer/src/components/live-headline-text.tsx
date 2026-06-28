@@ -18,6 +18,7 @@ export function LiveHeadlineText({
     <span
       className={cn("live-headline-text", className)}
       data-live-headline={active ? "active" : "idle"}
+      data-live-headline-text={typeof children === "string" ? children : undefined}
     >
       {children}
     </span>

@@ -1297,8 +1297,8 @@ async function runCodexProtocolWorkflow(results) {
     );
     await waitForTexts(context.client, ["coverage complete", "workspace_context"]);
     await assertCollapsedActivityGroupHeader(context.client, {
+      absent: "+8",
       count: "9",
-      hidden: "+8",
       preview: "workspace_context",
     });
     await assertTextAbsent(context.client, "Reasoning text");

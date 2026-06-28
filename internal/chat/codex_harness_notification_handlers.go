@@ -613,16 +613,8 @@ func handleCodexNotice(message jsonRPCMessage, threadID string, turnID string, s
 	if err != nil && len(message.Params) > 0 {
 		return codexNotificationResult{}, err
 	}
-	switch policy := codexNotificationScopePolicies[message.Method]; {
-	case len(params) == 0:
-	case policy == codexNotificationScopeTurnState:
-		if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
-			return codexNotificationResult{}, err
-		}
-	case policy == codexNotificationScopeThread:
-		if err := requireCodexThreadMatch(message, params, threadID, sink); err != nil {
-			return codexNotificationResult{}, err
-		}
+	if err := validateCodexNoticeScope(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	text, err := optionalString(params, "message", "codex notice")
 	if err != nil {
@@ -638,6 +630,22 @@ func handleCodexNotice(message jsonRPCMessage, threadID string, turnID string, s
 		NoticeKind:     message.Method,
 		NoticeMessage:  text,
 	})
+}
+
+func validateCodexNoticeScope(message jsonRPCMessage, params map[string]any, threadID string, turnID string, sink TurnSink) error {
+	if len(params) == 0 {
+		return nil
+	}
+	switch codexNotificationScopePolicies[message.Method] {
+	case codexNotificationScopeMaybeThread:
+		return requireCodexOptionalThreadMatch(message, params, threadID, sink)
+	case codexNotificationScopeTurnState:
+		return requireCodexTurnMatch(message, params, threadID, turnID, sink)
+	case codexNotificationScopeThread:
+		return requireCodexThreadMatch(message, params, threadID, sink)
+	default:
+		return nil
+	}
 }
 
 // Codex app-server 0.135.0 turn status values from the app-server protocol

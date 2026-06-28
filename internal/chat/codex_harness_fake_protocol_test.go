@@ -336,7 +336,6 @@ func writeFakeActivityTurn() {
 	writeFakeNotification("warning", map[string]any{
 		"message":  "watch out",
 		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
 	})
 	writeFakeNotification("item/completed", map[string]any{
 		"completedAtMs": 1,

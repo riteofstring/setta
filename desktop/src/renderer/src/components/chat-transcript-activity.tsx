@@ -410,7 +410,6 @@ export function TranscriptActivityGroupHeader({
   if (!state) {
     return null;
   }
-  const hiddenCount = expanded ? 0 : Math.max(0, members.length - 1);
   const sourceRunItemIds = members
     .map((member) => member.activity?.sourceRunItemId ?? "")
     .filter((sourceRunItemId) => sourceRunItemId !== "")
@@ -419,7 +418,7 @@ export function TranscriptActivityGroupHeader({
     <button
       aria-expanded={expanded}
       aria-label={`${expanded ? "Collapse" : "Expand"} activity group`}
-      className="flex h-6 w-full min-w-0 items-center gap-1.5 rounded-sm text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="flex h-6 w-full min-w-0 items-center gap-1.5 rounded-sm border border-border/70 bg-muted/55 px-2 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       data-activity-group-expanded={expanded ? "true" : "false"}
       data-activity-group-source-run-item-ids={sourceRunItemIds}
       data-testid="activity-group-header"
@@ -443,9 +442,6 @@ export function TranscriptActivityGroupHeader({
         )}
         label={state.label}
       />
-      {hiddenCount > 0 ? (
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">+{hiddenCount}</span>
-      ) : null}
     </button>
   );
 }

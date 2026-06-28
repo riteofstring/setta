@@ -10,11 +10,12 @@ import (
 type codexNotificationScopePolicy string
 
 const (
-	codexNotificationScopeGlobal     codexNotificationScopePolicy = "global_state"
-	codexNotificationScopeThread     codexNotificationScopePolicy = "thread_state"
-	codexNotificationScopeTurnState  codexNotificationScopePolicy = "turn_state"
-	codexNotificationScopeTraceOnly  codexNotificationScopePolicy = "trace_only"
-	codexNotificationScopeCapability codexNotificationScopePolicy = "capability_ignored"
+	codexNotificationScopeGlobal      codexNotificationScopePolicy = "global_state"
+	codexNotificationScopeMaybeThread codexNotificationScopePolicy = "optional_thread_state"
+	codexNotificationScopeThread      codexNotificationScopePolicy = "thread_state"
+	codexNotificationScopeTurnState   codexNotificationScopePolicy = "turn_state"
+	codexNotificationScopeTraceOnly   codexNotificationScopePolicy = "trace_only"
+	codexNotificationScopeCapability  codexNotificationScopePolicy = "capability_ignored"
 )
 
 var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
@@ -78,7 +79,7 @@ var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
 	codexapp.CodexNotificationTurnModerationMetadata:                  codexNotificationScopeTurnState,
 	codexapp.CodexNotificationTurnPlanUpdated:                         codexNotificationScopeTurnState,
 	codexapp.CodexNotificationTurnStarted:                             codexNotificationScopeThread,
-	codexapp.CodexNotificationWarning:                                 codexNotificationScopeTurnState,
+	codexapp.CodexNotificationWarning:                                 codexNotificationScopeMaybeThread,
 	codexapp.CodexNotificationWindowsWorldWritableWarning:             codexNotificationScopeGlobal,
 	codexapp.CodexNotificationWindowsSandboxSetupCompleted:            codexNotificationScopeCapability,
 }
@@ -174,6 +175,14 @@ func requireCodexThreadMatch(message jsonRPCMessage, params map[string]any, expe
 		return nil
 	}
 	return failCodexNotificationScopeDrift(message, match, expectedThreadID, "", sink)
+}
+
+func requireCodexOptionalThreadMatch(message jsonRPCMessage, params map[string]any, expectedThreadID string, sink TurnSink) error {
+	receivedThreadID, ok := params["threadId"].(string)
+	if !ok || receivedThreadID == "" {
+		return nil
+	}
+	return requireCodexThreadIDMatch(message, expectedThreadID, receivedThreadID, sink)
 }
 
 func requireCodexThreadIDMatch(message jsonRPCMessage, expectedThreadID string, receivedThreadID string, sink TurnSink) error {

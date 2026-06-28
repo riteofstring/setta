@@ -35,12 +35,16 @@ export async function assertCollapsedActivityGroupHeader(client, expected) {
     (candidate) =>
       candidate.expanded === "false" &&
       candidate.text.includes(expected.count) &&
-      candidate.text.includes(expected.preview) &&
-      candidate.text.includes(expected.hidden),
+      candidate.text.includes(expected.preview),
   );
   if (!header) {
     throw new Error(
       `collapsed activity group header missing ${JSON.stringify(expected)}: ${JSON.stringify(rendered.headers)}`,
+    );
+  }
+  if (expected.absent && header.text.includes(expected.absent)) {
+    throw new Error(
+      `collapsed activity group header included removed text ${JSON.stringify(expected.absent)}: ${JSON.stringify(header)}`,
     );
   }
 }
