@@ -78,6 +78,52 @@ func TestCodexTurnModerationMetadataRejectsMismatchedThread(t *testing.T) {
 	}
 }
 
+func TestCodexWarningAllowsThreadScopeWithoutTurnID(t *testing.T) {
+	sink := newRecordingSink()
+	message := codexapp.Message{
+		Method: codexapp.CodexNotificationWarning,
+		Params: json.RawMessage(`{"message":"falling back to HTTPS","threadId":"thread_fake"}`),
+	}
+
+	_, err := handleCodexNotification(message, "thread_fake", "turn_fake", sink)
+	if err != nil {
+		t.Fatalf("handle warning notification: %v", err)
+	}
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
+	}
+	notice := requireRunItemType(t, sink.items, RunItemTypeNotice)
+	if notice.NoticeKind != codexapp.CodexNotificationWarning || notice.NoticeMessage != "falling back to HTTPS" {
+		t.Fatalf("notice = %+v, want warning notice", notice)
+	}
+}
+
+func TestCodexWarningRejectsMismatchedThread(t *testing.T) {
+	sink := newRecordingSink()
+	message := codexapp.Message{
+		Method: codexapp.CodexNotificationWarning,
+		Params: json.RawMessage(`{"message":"wrong thread","threadId":"thread_other"}`),
+	}
+
+	_, err := handleCodexNotification(message, "thread_fake", "turn_fake", sink)
+	if err == nil {
+		t.Fatal("handle warning notification succeeded, want provider scope drift error")
+	}
+	if !strings.Contains(err.Error(), "codex notification") || !strings.Contains(err.Error(), "scope mismatched_ids") {
+		t.Fatalf("error = %q, want scope mismatch", err)
+	}
+	if len(sink.diagnostics) != 1 {
+		t.Fatalf("diagnostics = %+v, want one provider diagnostic", sink.diagnostics)
+	}
+	diagnostic := sink.diagnostics[0]
+	if diagnostic.code != "codex_notification_scope_drift" || !diagnostic.resyncRequired {
+		t.Fatalf("diagnostic = %+v, want scope drift resync diagnostic", diagnostic)
+	}
+	if diagnostic.context["expectedThreadId"] != "thread_fake" || diagnostic.context["receivedThreadId"] != "thread_other" {
+		t.Fatalf("diagnostic context = %+v, want thread mismatch", diagnostic.context)
+	}
+}
+
 func TestCodexHarnessIgnoresUnownedScopedNotification(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("unowned-scoped-notification"))
 	sink := newRecordingSink()

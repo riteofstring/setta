@@ -100,29 +100,6 @@ describe("workspace fake surface adapters", () => {
     });
   });
 
-  test("clips browser native bounds to the project sidebar inset", () => {
-    const sent: WorkspaceBrowserViewUpdate[] = [];
-    const host = createFakeHost();
-    mountBrowserStage(host, { height: 500, width: 900, x: 0, y: 40 }, { nativeViewClipLeft: 280 });
-    const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
-      queue(update) {
-        sent.push(update);
-      },
-    });
-
-    adapter.mount(host);
-    adapter.resume("visible");
-    adapter.setVisible(true);
-    setFakeRect(host, { height: 180, width: 260, x: 120, y: 76 });
-    adapter.setViewport({ height: 180, width: 260, x: 120, y: 36 }, "frame");
-
-    expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 150, width: 100, x: 280, y: 106 },
-      contentBounds: { height: 150, width: 260, x: 120, y: 106 },
-      visible: true,
-    });
-  });
-
   test("positions browser native bounds from the actual pane host below shell chrome", () => {
     const sent: WorkspaceBrowserViewUpdate[] = [];
     const host = createFakeHost();
@@ -689,18 +666,11 @@ function fakeTextContent(element: Element): string {
 function mountBrowserStage(
   host: HTMLElement,
   rect: { height: number; width: number; x: number; y: number },
-  options: { nativeViewClipLeft?: number } = {},
 ): HTMLElement {
-  const workspace = host.ownerDocument.createElement("section");
-  workspace.dataset.testid = "workspace-layout-area";
-  if (options.nativeViewClipLeft !== undefined) {
-    workspace.dataset.nativeViewClipLeft = String(options.nativeViewClipLeft);
-  }
   const stage = host.ownerDocument.createElement("div");
   stage.dataset.testid = "workspace-presentation-engine";
   setFakeRect(stage, rect);
   stage.append(host);
-  workspace.append(stage);
   return stage as unknown as HTMLElement;
 }
 

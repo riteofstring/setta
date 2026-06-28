@@ -6,27 +6,31 @@ import (
 )
 
 const (
-	CodexMethodConfigRead           = "config/read"
-	CodexMethodInitialize           = "initialize"
-	CodexMethodModelList            = "model/list"
-	CodexMethodThreadGoalClear      = "thread/goal/clear"
-	CodexMethodThreadGoalGet        = "thread/goal/get"
-	CodexMethodThreadGoalSet        = "thread/goal/set"
-	CodexMethodThreadResume         = "thread/resume"
-	CodexMethodThreadSettingsUpdate = "thread/settings/update"
-	CodexMethodThreadStart          = "thread/start"
-	CodexMethodTurnInterrupt        = "turn/interrupt"
-	CodexMethodTurnStart            = "turn/start"
-	CodexMethodTurnSteer            = "turn/steer"
+	CodexMethodConfigRead                         = "config/read"
+	CodexMethodInitialize                         = "initialize"
+	CodexMethodModelList                          = "model/list"
+	CodexMethodThreadBackgroundTerminalsTerminate = "thread/backgroundTerminals/terminate"
+	CodexMethodThreadGoalClear                    = "thread/goal/clear"
+	CodexMethodThreadGoalGet                      = "thread/goal/get"
+	CodexMethodThreadGoalSet                      = "thread/goal/set"
+	CodexMethodThreadRead                         = "thread/read"
+	CodexMethodThreadResume                       = "thread/resume"
+	CodexMethodThreadSettingsUpdate               = "thread/settings/update"
+	CodexMethodThreadStart                        = "thread/start"
+	CodexMethodTurnInterrupt                      = "turn/interrupt"
+	CodexMethodTurnStart                          = "turn/start"
+	CodexMethodTurnSteer                          = "turn/steer"
 )
 
 var CodexMethodValues = []string{
 	CodexMethodConfigRead,
 	CodexMethodInitialize,
 	CodexMethodModelList,
+	CodexMethodThreadBackgroundTerminalsTerminate,
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
 	CodexMethodThreadGoalSet,
+	CodexMethodThreadRead,
 	CodexMethodThreadResume,
 	CodexMethodThreadSettingsUpdate,
 	CodexMethodThreadStart,
@@ -125,9 +129,11 @@ var CodexSupportedMethodValues = []string{
 	CodexMethodConfigRead,
 	CodexMethodInitialize,
 	CodexMethodModelList,
+	CodexMethodThreadBackgroundTerminalsTerminate,
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
 	CodexMethodThreadGoalSet,
+	CodexMethodThreadRead,
 	CodexMethodThreadResume,
 	CodexMethodThreadSettingsUpdate,
 	CodexMethodThreadStart,
@@ -2130,6 +2136,9 @@ func validateMcpElicitationBooleanSchema(raw json.RawMessage, name string) error
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
 		return err
 	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "title", "type"}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -2156,6 +2165,9 @@ func validateMcpElicitationConstOption(raw json.RawMessage, name string) error {
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "const"}, {name: "title"}}); err != nil {
+		return err
+	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"const", "title"}); err != nil {
 		return err
 	}
 	return nil
@@ -2186,6 +2198,9 @@ func validateMcpElicitationLegacyTitledEnumSchema(raw json.RawMessage, name stri
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "enum"}, {name: "type"}}); err != nil {
 		return err
 	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "enum", "enumNames", "title", "type"}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -2212,6 +2227,9 @@ func validateMcpElicitationNumberSchema(raw json.RawMessage, name string) error 
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
+		return err
+	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "maximum", "minimum", "title", "type"}); err != nil {
 		return err
 	}
 	return nil
@@ -2253,6 +2271,9 @@ func validateMcpElicitationSchema(raw json.RawMessage, name string) error {
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "properties"}, {name: "type"}}); err != nil {
 		return err
 	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"$schema", "properties", "required", "type"}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -2291,6 +2312,9 @@ func validateMcpElicitationStringSchema(raw json.RawMessage, name string) error 
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
 		return err
 	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "format", "maxLength", "minLength", "title", "type"}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -2316,6 +2340,9 @@ func validateMcpElicitationTitledEnumItems(raw json.RawMessage, name string) err
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "anyOf"}}); err != nil {
+		return err
+	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"anyOf"}); err != nil {
 		return err
 	}
 	if err := validateCodexObjectArrayField(fields, "anyOf", name+".anyOf", false, false, validateMcpElicitationConstOption); err != nil {
@@ -2348,6 +2375,9 @@ func validateMcpElicitationTitledMultiSelectEnumSchema(raw json.RawMessage, name
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "items"}, {name: "type"}}); err != nil {
 		return err
 	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "items", "maxItems", "minItems", "title", "type"}); err != nil {
+		return err
+	}
 	if err := validateCodexObjectField(fields, "items", name+".items", false, validateMcpElicitationTitledEnumItems); err != nil {
 		return err
 	}
@@ -2376,6 +2406,9 @@ func validateMcpElicitationTitledSingleSelectEnumSchema(raw json.RawMessage, nam
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "oneOf"}, {name: "type"}}); err != nil {
 		return err
 	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "oneOf", "title", "type"}); err != nil {
+		return err
+	}
 	if err := validateCodexObjectArrayField(fields, "oneOf", name+".oneOf", false, false, validateMcpElicitationConstOption); err != nil {
 		return err
 	}
@@ -2399,6 +2432,9 @@ func validateMcpElicitationUntitledEnumItems(raw json.RawMessage, name string) e
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "enum"}, {name: "type"}}); err != nil {
+		return err
+	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"enum", "type"}); err != nil {
 		return err
 	}
 	return nil
@@ -2428,6 +2464,9 @@ func validateMcpElicitationUntitledMultiSelectEnumSchema(raw json.RawMessage, na
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "items"}, {name: "type"}}); err != nil {
 		return err
 	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "items", "maxItems", "minItems", "title", "type"}); err != nil {
+		return err
+	}
 	if err := validateCodexObjectField(fields, "items", name+".items", false, validateMcpElicitationUntitledEnumItems); err != nil {
 		return err
 	}
@@ -2454,6 +2493,9 @@ func validateMcpElicitationUntitledSingleSelectEnumSchema(raw json.RawMessage, n
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "enum"}, {name: "type"}}); err != nil {
+		return err
+	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "enum", "title", "type"}); err != nil {
 		return err
 	}
 	return nil
@@ -3381,6 +3423,9 @@ func validateRequestPermissionProfile(raw json.RawMessage, name string) error {
 	if err := requireCodexFields(fields, name, nil); err != nil {
 		return err
 	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"fileSystem", "network"}); err != nil {
+		return err
+	}
 	if err := validateCodexObjectField(fields, "fileSystem", name+".fileSystem", true, validateAdditionalFileSystemPermissions); err != nil {
 		return err
 	}
@@ -3703,6 +3748,55 @@ func DecodeThreadArchivedNotification(raw json.RawMessage) (ThreadArchivedNotifi
 	return value, err
 }
 
+type ThreadBackgroundTerminalsTerminateParams struct {
+	ProcessId string `json:"processId"`
+	ThreadID  string `json:"threadId"`
+}
+
+func validateThreadBackgroundTerminalsTerminateParams(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "processId"}, {name: "threadId"}}); err != nil {
+		return err
+	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"processId", "threadId"}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeThreadBackgroundTerminalsTerminateParams(raw json.RawMessage) (ThreadBackgroundTerminalsTerminateParams, error) {
+	var value ThreadBackgroundTerminalsTerminateParams
+	err := decodeCodexObject(raw, "ThreadBackgroundTerminalsTerminateParams", validateThreadBackgroundTerminalsTerminateParams, &value)
+	return value, err
+}
+
+type ThreadBackgroundTerminalsTerminateResponse struct {
+	Terminated bool `json:"terminated"`
+}
+
+func validateThreadBackgroundTerminalsTerminateResponse(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "terminated"}}); err != nil {
+		return err
+	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"terminated"}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeThreadBackgroundTerminalsTerminateResponse(raw json.RawMessage) (ThreadBackgroundTerminalsTerminateResponse, error) {
+	var value ThreadBackgroundTerminalsTerminateResponse
+	err := decodeCodexObject(raw, "ThreadBackgroundTerminalsTerminateResponse", validateThreadBackgroundTerminalsTerminateResponse, &value)
+	return value, err
+}
+
 type ThreadClosedNotification struct {
 	ThreadID string `json:"threadId"`
 }
@@ -3968,6 +4062,52 @@ func validateThreadNameUpdatedNotification(raw json.RawMessage, name string) err
 func DecodeThreadNameUpdatedNotification(raw json.RawMessage) (ThreadNameUpdatedNotification, error) {
 	var value ThreadNameUpdatedNotification
 	err := decodeCodexObject(raw, "ThreadNameUpdatedNotification", validateThreadNameUpdatedNotification, &value)
+	return value, err
+}
+
+type ThreadReadParams struct {
+	IncludeTurns *bool  `json:"includeTurns,omitempty"`
+	ThreadID     string `json:"threadId"`
+}
+
+func validateThreadReadParams(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "threadId"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeThreadReadParams(raw json.RawMessage) (ThreadReadParams, error) {
+	var value ThreadReadParams
+	err := decodeCodexObject(raw, "ThreadReadParams", validateThreadReadParams, &value)
+	return value, err
+}
+
+type ThreadReadResponse struct {
+	Thread Thread `json:"thread"`
+}
+
+func validateThreadReadResponse(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "thread"}}); err != nil {
+		return err
+	}
+	if err := validateCodexObjectField(fields, "thread", name+".thread", false, validateThread); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeThreadReadResponse(raw json.RawMessage) (ThreadReadResponse, error) {
+	var value ThreadReadResponse
+	err := decodeCodexObject(raw, "ThreadReadResponse", validateThreadReadResponse, &value)
 	return value, err
 }
 
@@ -5122,6 +5262,9 @@ func validateWebSearchLocation(raw json.RawMessage, name string) error {
 	if err := requireCodexFields(fields, name, nil); err != nil {
 		return err
 	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"city", "country", "region", "timezone"}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -5152,6 +5295,9 @@ func validateWebSearchToolConfig(raw json.RawMessage, name string) error {
 		return err
 	}
 	if err := requireCodexFields(fields, name, nil); err != nil {
+		return err
+	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"allowed_domains", "context_size", "location"}); err != nil {
 		return err
 	}
 	if err := validateCodexObjectField(fields, "location", name+".location", true, validateWebSearchLocation); err != nil {

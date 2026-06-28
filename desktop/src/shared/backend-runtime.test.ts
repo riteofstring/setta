@@ -1,6 +1,7 @@
 import {
   assertKnownFields,
   assertRecord,
+  assertTaggedUnionBranch,
   decodeArray,
   decodeBackendEventBase,
   decodeBoolean,
@@ -44,6 +45,21 @@ describe("backend runtime decoders", () => {
     expect(() => decodeArray("a", "Payload.items", (value) => decodeString(value, "Item"))).toThrow(
       "Payload.items must be an array",
     );
+  });
+
+  test("asserts the tagged-union branch invariant", () => {
+    expect(() =>
+      assertTaggedUnionBranch("Block", "text", { other: null, text: { value: 1 } }),
+    ).not.toThrow();
+    expect(() => assertTaggedUnionBranch("Block", "text", { other: null, text: null })).toThrow(
+      "Block must populate exactly one branch payload, found 0",
+    );
+    expect(() =>
+      assertTaggedUnionBranch("Block", "text", { other: { value: 2 }, text: { value: 1 } }),
+    ).toThrow("Block must populate exactly one branch payload, found 2");
+    expect(() =>
+      assertTaggedUnionBranch("Block", "other", { other: null, text: { value: 1 } }),
+    ).toThrow("Block kind other does not match populated text branch");
   });
 
   test("decodes backend event base fields", () => {

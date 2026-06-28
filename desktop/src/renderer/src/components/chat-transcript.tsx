@@ -1,4 +1,11 @@
-import type { ChatMessage, Run, RunItem, RunItemOutput, TranscriptTurn } from "@generated/backend";
+import type {
+  ChatInput,
+  ChatMessage,
+  MessagePart,
+  Run,
+  RunItemOutput,
+  TranscriptBlock,
+} from "@generated/backend";
 import { ArrowDown, ChevronUp } from "lucide-react";
 import {
   type KeyboardEvent,
@@ -12,6 +19,10 @@ import {
 } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
+import { cn } from "../lib/utils";
+import type { RunItemOutputPageState } from "../stores/chat-store";
+import { chatMessagePartsText } from "../lib/chat-input";
+import { transcriptRenderRows, type TranscriptRenderRow } from "../lib/chat-transcript-render-rows";
 import { Button } from "./ui/button";
 import { ApprovalCard, type SubmitApproval } from "./chat-transcript-approvals";
 import {
@@ -19,181 +30,232 @@ import {
   chatReadableColumnClass,
   chatReadableColumnPaddedClass,
 } from "./chat-layout";
-import {
-  transcriptTimelineRows,
-  type TranscriptTimelineSource,
-  type TranscriptTimelineRow,
-} from "./chat-transcript-timeline";
+import { chatMessageText } from "./chat-message-text";
+import { TranscriptRenderRowView, type TranscriptRowContext } from "./chat-transcript-block";
 import { ChatSearchBar, useTranscriptSearch } from "./chat-transcript-search";
-import { type TranscriptRowActions } from "./chat-transcript-row-actions";
-import { AssistantMessageChunkRow, MessageRow, TranscriptTurnRow } from "./chat-transcript-rows";
-import {
-  stableTranscriptTimelineRows,
-  timestampMessageIdsForTimeline,
-  type StableTranscriptTimelineRowsState,
-} from "./chat-transcript-render-helpers";
-import { cn } from "../lib/utils";
-import type { RunItemOutputPageState } from "../stores/chat-store";
+import type { LoadRunItemOutput } from "./chat-transcript-activity";
+import type { TranscriptRowActions } from "./chat-transcript-row-actions";
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
-  editQueuedMessage: (messageId: string, prompt: string) => Promise<void>;
+  blocks: TranscriptBlock[];
+  editQueuedMessage: (messageId: string, input: ChatInput) => Promise<void>;
   editingQueuedMessageId: string | null;
+  focusedSourceRunItemId?: string | null;
   hasMoreOlder: boolean;
   loadOlder: () => Promise<void>;
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
-  messageIds: string[];
-  messagesById: Record<string, ChatMessage>;
+  loadRunItemOutput: LoadRunItemOutput;
+  messages: ChatMessage[];
   operation: string | null;
+  queuedMessages: ChatMessage[];
   removeQueuedMessage: (messageId: string) => Promise<void>;
   removingQueuedMessageId: string | null;
-  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
   searchOpen?: boolean;
-  sendSteeringImmediately: (prompt?: string) => Promise<void>;
+  sendSteeringImmediately: (input?: ChatInput) => Promise<void>;
   setSearchOpen?: (open: boolean) => void;
   submitApproval: SubmitApproval;
-  transcript: TranscriptTurn[];
-}
-
-interface TranscriptIndexes {
-  messageIds: string[];
-  messagesById: Record<string, ChatMessage>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
-  turns: TranscriptTurn[];
-}
-
-function transcriptIndexes(props: {
-  messageIds: string[];
-  messagesById: Record<string, ChatMessage>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
-  transcript: TranscriptTurn[];
-}): TranscriptIndexes {
-  return {
-    messageIds: props.messageIds,
-    messagesById: props.messagesById,
-    runItemIdsByRunId: props.runItemIdsByRunId,
-    runItemOutputIdsByRunItemId: props.runItemOutputIdsByRunItemId,
-    runItemOutputsById: props.runItemOutputsById,
-    runItemsById: props.runItemsById,
-    turns: props.transcript,
-  };
 }
 
 export function transcriptVirtualItemKey(
-  timeline: ReadonlyArray<Pick<TranscriptTimelineRow, "key">>,
+  rows: ReadonlyArray<Pick<TranscriptRenderRow, "key">>,
   index: number,
-  item: Pick<TranscriptTimelineRow, "key"> | undefined,
+  item: Pick<TranscriptRenderRow, "key"> | undefined,
 ) {
-  return item?.key ?? timeline[index]?.key ?? `transcript-row:${index}`;
+  return item?.key ?? rows[index]?.key ?? `transcript-row:${index}`;
 }
 
-export function transcriptVirtualItem(
-  timeline: readonly TranscriptTimelineRow[],
-  index: number,
-  item: TranscriptTimelineRow | undefined,
-) {
-  return item ?? timeline[index] ?? null;
+function transcriptSearchIndex(rows: TranscriptRenderRow[]) {
+  const entries: { id: string; text: string }[] = [];
+  const rowIndexById = new Map<string, number>();
+  for (const row of rows) {
+    for (const entry of transcriptSearchEntries(row)) {
+      entries.push(entry);
+      rowIndexById.set(entry.id, row.index);
+    }
+  }
+  return { entries, rowIndexById };
+}
+
+function transcriptSearchEntries(row: TranscriptRenderRow): { id: string; text: string }[] {
+  switch (row.kind) {
+    case "message":
+    case "queued":
+      return [{ id: row.message.id, text: chatMessageText(row.message) }];
+    case "activity-group":
+      return row.expanded
+        ? []
+        : row.members.flatMap((member) => transcriptActivitySearchEntry(member));
+    case "activity-item":
+      return transcriptActivitySearchEntry(row.block);
+    case "block":
+      return transcriptBlockSearchEntries(row.block);
+  }
+}
+
+function transcriptBlockSearchEntries(block: TranscriptBlock): { id: string; text: string }[] {
+  if (block.kind === "user_message" && block.userMessage) {
+    return [{ id: block.userMessage.messageId, text: messagePartsText(block.userMessage.parts) }];
+  }
+  if (block.kind === "assistant_text" && block.assistantText) {
+    return [{ id: block.id, text: block.assistantText.text }];
+  }
+  return [];
+}
+
+function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; text: string }[] {
+  const activity = block.activity;
+  if (block.kind !== "activity_item" || !activity) {
+    return [];
+  }
+  const details = activity.details;
+  return [
+    {
+      id: block.id,
+      text: [
+        activity.title,
+        details.command,
+        details.cwd,
+        details.filePaths.join("\n"),
+        details.summary,
+        details.progress,
+        details.result,
+        details.error,
+        details.noticeKind,
+        details.noticeMessage,
+        details.diffSummary,
+        details.serverName,
+        details.toolName,
+        details.namespace,
+        details.processId,
+        details.requestId,
+        details.reviewId,
+        details.patchStatus,
+      ]
+        .filter((item) => item !== "")
+        .join("\n"),
+    },
+  ];
+}
+
+function messagePartsText(parts: MessagePart[]) {
+  return chatMessagePartsText(parts);
 }
 
 export function ChatTranscript({
   activeRun,
+  blocks,
   editQueuedMessage,
   editingQueuedMessageId,
+  focusedSourceRunItemId = null,
   hasMoreOlder,
   loadOlder,
   loadRunItemOutput,
-  messageIds,
-  messagesById,
+  messages,
   operation,
+  queuedMessages,
   removeQueuedMessage,
   removingQueuedMessageId,
-  runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
   runItemOutputsById,
-  runItemsById,
   searchOpen = false,
   sendSteeringImmediately,
   setSearchOpen = () => {},
   submitApproval,
-  transcript: backendTranscript,
 }: ChatTranscriptProps) {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const pinnedScrollFrameRef = useRef<number | null>(null);
-  const stableTimelineRef = useRef<StableTranscriptTimelineRowsState>({
-    byKey: new Map(),
-    result: [],
-  });
   const scrollTopRef = useRef(0);
   const visibleStartIndexRef = useRef(0);
   const [pinned, setPinned] = useState(true);
+  const [expandedActivityBlockIds, setExpandedActivityBlockIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [expandedActivityGroupIds, setExpandedActivityGroupIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [pendingScrollAnchor, setPendingScrollAnchor] = useState<{
     key: string;
     previousFirstKey: string | null;
     previousLength: number;
   } | null>(null);
-  const transcript = useMemo(
+
+  const focusedActivitySourceRunItemIds = useMemo(
+    () => (focusedSourceRunItemId ? new Set([focusedSourceRunItemId]) : undefined),
+    [focusedSourceRunItemId],
+  );
+  const baseRows = useMemo(
     () =>
-      transcriptIndexes({
-        messageIds,
-        messagesById,
-        runItemIdsByRunId,
-        runItemOutputIdsByRunItemId,
-        runItemOutputsById,
-        runItemsById,
-        transcript: backendTranscript,
+      transcriptRenderRows({
+        blocks,
+        expandedActivityGroupIds,
+        forceExpandedActivitySourceRunItemIds: focusedActivitySourceRunItemIds,
+        messages,
+        queuedMessages,
       }),
-    [
-      messageIds,
-      messagesById,
-      runItemIdsByRunId,
-      runItemOutputIdsByRunItemId,
-      runItemOutputsById,
-      runItemsById,
-      backendTranscript,
-    ],
+    [blocks, expandedActivityGroupIds, focusedActivitySourceRunItemIds, messages, queuedMessages],
   );
-  const timelineSource = useMemo(
-    () =>
-      ({
-        messageIds,
-        messagesById,
-        turns: backendTranscript,
-      }) satisfies TranscriptTimelineSource,
-    [messageIds, messagesById, backendTranscript],
-  );
-  const timeline = useMemo(() => {
-    const nextState = stableTranscriptTimelineRows(
-      transcriptTimelineRows(timelineSource),
-      stableTimelineRef.current,
-    );
-    stableTimelineRef.current = nextState;
-    return nextState.result;
-  }, [timelineSource]);
-  const timestampMessageIds = useMemo(() => timestampMessageIdsForTimeline(timeline), [timeline]);
+  const baseSearchIndex = useMemo(() => transcriptSearchIndex(baseRows), [baseRows]);
   const search = useTranscriptSearch({
-    messagesById,
-    messageIds,
+    entries: baseSearchIndex.entries,
     open: searchOpen,
+    rowIndexById: baseSearchIndex.rowIndexById,
     setOpen: setSearchOpen,
-    timeline,
     virtuosoRef,
   });
+  const activityBlockIds = useMemo(
+    () =>
+      new Set(
+        blocks
+          .filter((block) => block.kind === "activity_item" && block.activity)
+          .map((block) => block.id),
+      ),
+    [blocks],
+  );
+  const forceExpandedActivityBlockIds = useMemo(
+    () =>
+      search.activeSearchId && activityBlockIds.has(search.activeSearchId)
+        ? new Set([search.activeSearchId])
+        : undefined,
+    [activityBlockIds, search.activeSearchId],
+  );
+  const rows = useMemo(
+    () =>
+      transcriptRenderRows({
+        blocks,
+        expandedActivityGroupIds,
+        forceExpandedActivityBlockIds,
+        forceExpandedActivitySourceRunItemIds: focusedActivitySourceRunItemIds,
+        messages,
+        queuedMessages,
+      }),
+    [
+      blocks,
+      expandedActivityGroupIds,
+      focusedActivitySourceRunItemIds,
+      forceExpandedActivityBlockIds,
+      messages,
+      queuedMessages,
+    ],
+  );
+  const finalSearchIndex = useMemo(() => transcriptSearchIndex(rows), [rows]);
+
+  useEffect(() => {
+    if (!search.activeSearchId) {
+      return;
+    }
+    const index = finalSearchIndex.rowIndexById.get(search.activeSearchId);
+    if (index === undefined) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      virtuosoRef.current?.scrollToIndex({ align: "center", index });
+    });
+  }, [finalSearchIndex.rowIndexById, search.activeSearchId, virtuosoRef]);
+
   const rowActions = useMemo(
     () =>
       ({
@@ -213,6 +275,42 @@ export function ChatTranscript({
       removeQueuedMessage,
       removingQueuedMessageId,
       sendSteeringImmediately,
+    ],
+  );
+
+  const setActivityRowExpanded = useCallback((blockId: string, open: boolean) => {
+    setExpandedActivityBlockIds((current) => withIdsExpanded(current, [blockId], open));
+  }, []);
+  const setActivityGroupExpanded = useCallback((groupId: string, open: boolean) => {
+    setExpandedActivityGroupIds((current) => withIdsExpanded(current, [groupId], open));
+  }, []);
+
+  const context = useMemo<TranscriptRowContext>(
+    () => ({
+      activeSearchId: search.activeSearchId,
+      expandedActivityBlockIds,
+      expandedActivityGroupIds,
+      focusedSourceRunItemId,
+      loadRunItemOutput,
+      outputIdsByRunItemId: runItemOutputIdsByRunItemId,
+      outputPagesByRunItemId: runItemOutputPagesByRunItemId,
+      outputsById: runItemOutputsById,
+      rowActions,
+      setActivityGroupExpanded,
+      setActivityRowExpanded,
+    }),
+    [
+      expandedActivityBlockIds,
+      expandedActivityGroupIds,
+      focusedSourceRunItemId,
+      loadRunItemOutput,
+      rowActions,
+      runItemOutputIdsByRunItemId,
+      runItemOutputPagesByRunItemId,
+      runItemOutputsById,
+      search.activeSearchId,
+      setActivityGroupExpanded,
+      setActivityRowExpanded,
     ],
   );
 
@@ -248,26 +346,24 @@ export function ChatTranscript({
     activeRun?.id,
     pinned,
     schedulePinnedScrollToLatest,
-    timeline.length,
-    transcript.runItemIdsByRunId,
-    transcript.runItemOutputIdsByRunItemId,
+    rows.length,
+    runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,
-    transcript.runItemOutputsById,
-    transcript.runItemsById,
+    runItemOutputsById,
   ]);
 
   useEffect(() => {
     if (!pendingScrollAnchor) {
       return;
     }
-    const currentFirstKey = timeline[0]?.key ?? null;
+    const currentFirstKey = rows[0]?.key ?? null;
     if (
       currentFirstKey === pendingScrollAnchor.previousFirstKey &&
-      timeline.length <= pendingScrollAnchor.previousLength
+      rows.length <= pendingScrollAnchor.previousLength
     ) {
       return;
     }
-    const index = timeline.findIndex((row) => row.key === pendingScrollAnchor.key);
+    const index = rows.findIndex((row) => row.key === pendingScrollAnchor.key);
     setPendingScrollAnchor(null);
     if (index === -1) {
       return;
@@ -275,7 +371,7 @@ export function ChatTranscript({
     requestAnimationFrame(() => {
       virtuosoRef.current?.scrollToIndex({ align: "start", index });
     });
-  }, [pendingScrollAnchor, timeline, virtuosoRef]);
+  }, [pendingScrollAnchor, rows, virtuosoRef]);
 
   function updatePinnedFromScroll(scrollTop: number, scrollHeight: number, clientHeight: number) {
     const distanceFromBottom = scrollHeight - clientHeight - scrollTop;
@@ -306,15 +402,15 @@ export function ChatTranscript({
   }
 
   const loadOlderAndPreserveScroll = useCallback(async () => {
-    const anchorKey = timeline[visibleStartIndexRef.current]?.key ?? timeline[0]?.key ?? null;
-    const previousFirstKey = timeline[0]?.key ?? null;
-    const previousLength = timeline.length;
+    const anchorKey = rows[visibleStartIndexRef.current]?.key ?? rows[0]?.key ?? null;
+    const previousFirstKey = rows[0]?.key ?? null;
+    const previousLength = rows.length;
     setPinned(false);
     await loadOlder();
     if (anchorKey) {
       setPendingScrollAnchor({ key: anchorKey, previousFirstKey, previousLength });
     }
-  }, [loadOlder, timeline]);
+  }, [loadOlder, rows]);
 
   const virtuosoComponents = useMemo(
     () => ({
@@ -327,90 +423,17 @@ export function ChatTranscript({
   );
 
   const renderTranscriptItem = useCallback(
-    (index: number, item: TranscriptTimelineRow | undefined) => {
-      const row = transcriptVirtualItem(timeline, index, item);
+    (index: number, item: TranscriptRenderRow | undefined) => {
+      const row = item ?? rows[index] ?? null;
       if (!row) {
         return null;
       }
-      if (row.kind === "message") {
-        return (
-          <MessageRow
-            loadRunItemOutput={loadRunItemOutput}
-            activeSearchMessageId={search.activeMessageId}
-            message={row.message}
-            rowActions={rowActions}
-            showTimestamp={timestampMessageIds.has(row.message.id)}
-            runItemIdsByRunId={transcript.runItemIdsByRunId}
-            runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-            runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-            runItemOutputsById={transcript.runItemOutputsById}
-            runItemsById={transcript.runItemsById}
-          />
-        );
-      }
-      if (row.kind === "turn-message") {
-        return (
-          <MessageRow
-            loadRunItemOutput={loadRunItemOutput}
-            activeSearchMessageId={search.activeMessageId}
-            message={row.message}
-            rowActions={rowActions}
-            showTimestamp={timestampMessageIds.has(row.message.id)}
-            runItemIdsByRunId={transcript.runItemIdsByRunId}
-            runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-            runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-            runItemOutputsById={transcript.runItemOutputsById}
-            runItemsById={transcript.runItemsById}
-          />
-        );
-      }
-      if (row.kind === "assistant-chunk") {
-        return (
-          <AssistantMessageChunkRow
-            loadRunItemOutput={loadRunItemOutput}
-            activeSearchMessageId={search.activeMessageId}
-            chunk={row.chunk}
-            message={row.message}
-            rowActions={rowActions}
-            showTimestamp={row.chunk.isLast && timestampMessageIds.has(row.message.id)}
-            runItemIdsByRunId={transcript.runItemIdsByRunId}
-            runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-            runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-            runItemOutputsById={transcript.runItemOutputsById}
-            runItemsById={transcript.runItemsById}
-          />
-        );
-      }
-      return (
-        <TranscriptTurnRow
-          loadRunItemOutput={loadRunItemOutput}
-          activeSearchMessageId={search.activeMessageId}
-          runItemIdsByRunId={transcript.runItemIdsByRunId}
-          runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-          runItemOutputsById={transcript.runItemOutputsById}
-          runItemsById={transcript.runItemsById}
-          turn={row.turn}
-          rowActions={rowActions}
-          timestampMessageIds={timestampMessageIds}
-        />
-      );
+      return <TranscriptRenderRowView context={context} row={row} />;
     },
-    [
-      loadRunItemOutput,
-      runItemOutputPagesByRunItemId,
-      rowActions,
-      search.activeMessageId,
-      timestampMessageIds,
-      timeline,
-      transcript.runItemIdsByRunId,
-      transcript.runItemOutputIdsByRunItemId,
-      transcript.runItemOutputsById,
-      transcript.runItemsById,
-    ],
+    [context, rows],
   );
 
-  if (timeline.length === 0) {
+  if (rows.length === 0) {
     return <EmptyChatTranscript activeRun={activeRun} submitApproval={submitApproval} />;
   }
 
@@ -430,12 +453,12 @@ export function ChatTranscript({
         }}
         className="workspace-chat-pane-surface h-full min-h-0 min-w-0 overflow-x-hidden pt-4 pb-2"
         components={virtuosoComponents}
-        data={timeline}
+        data={rows}
         data-testid="chat-transcript-scroller"
-        computeItemKey={(index, item) => transcriptVirtualItemKey(timeline, index, item)}
+        computeItemKey={(index, item) => transcriptVirtualItemKey(rows, index, item)}
         followOutput={false}
         increaseViewportBy={{ bottom: 800, top: 400 }}
-        initialItemCount={Math.min(timeline.length, 30)}
+        initialItemCount={Math.min(rows.length, 30)}
         itemContent={renderTranscriptItem}
         overscan={200}
         rangeChanged={(range) => {
@@ -446,6 +469,18 @@ export function ChatTranscript({
       <JumpToLatestButton pinned={pinned} setPinned={setPinned} virtuosoRef={virtuosoRef} />
     </div>
   );
+}
+
+function withIdsExpanded(current: Set<string>, blockIds: string[], open: boolean) {
+  const next = new Set(current);
+  for (const blockId of blockIds) {
+    if (open) {
+      next.add(blockId);
+    } else {
+      next.delete(blockId);
+    }
+  }
+  return next;
 }
 
 function EmptyChatTranscript({

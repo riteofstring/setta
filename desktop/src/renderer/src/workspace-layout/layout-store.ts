@@ -1,13 +1,11 @@
 import type { WorkspaceLikeLayoutEngine } from "./layout-engine";
-import { OVERVIEW_MAX_ZOOM_SCALE, OVERVIEW_MIN_ZOOM } from "./layout-engine-helpers";
-import type { OverviewGhostTarget } from "./workspace-overview-ghost";
+import type { PaneReorderPlacement } from "./layout-reorder";
 import type {
   ColumnId,
   ColumnWidthSpec,
   WorkspacePresentationMode,
   WorkspaceScene,
   OpenPaneRequest,
-  PaneDropIntent,
   PaneLimitPolicy,
   PaneId,
   PaneInsertionPlacement,
@@ -21,11 +19,7 @@ export interface WorkspaceLayoutSnapshot {
   focusedPaneId: PaneId;
   focusedRowIndex: number;
   maximizedPaneId: PaneId | null;
-  overviewPanX: number;
-  overviewPanY: number;
-  overviewInsertPreviewTarget: OverviewGhostTarget | null;
   overviewProgress: number;
-  overviewZoom: number;
   presentationMode: WorkspacePresentationMode;
   revision: number;
   scrollColumn: number;
@@ -58,16 +52,7 @@ export class WorkspaceLayoutStore {
   private snapshot: WorkspaceLayoutSnapshot | null = null;
   private scrollColumn = 0;
   private scrollRow = 0;
-  private overviewPanX = 0;
-  private overviewPanY = 0;
   private overviewProgress = 0;
-  // User zoom factor over the fit-all overview scale (1 = fit). Stays put while a
-  // drag/preview is in progress (the engine freezes the fit baseline), and resets
-  // when overview is (re-)entered.
-  private overviewZoom = 1;
-  // The "add pane here" affordance positioned on the exact slot a previewed insert
-  // would occupy (null when not hovering an add slot).
-  private overviewInsertPreviewTarget: OverviewGhostTarget | null = null;
   private presentationMode: WorkspacePresentationMode = "normal";
   private revision = 0;
   private targetOverviewProgress = 0;
@@ -135,11 +120,7 @@ export class WorkspaceLayoutStore {
         focusedPaneId: this.focusedPaneId(),
         focusedRowIndex: this.focusedRowIndex,
         maximizedPaneId: this.maximizedPaneId,
-        overviewPanX: this.overviewPanX,
-        overviewPanY: this.overviewPanY,
-        overviewInsertPreviewTarget: this.overviewInsertPreviewTarget,
         overviewProgress: this.overviewProgress,
-        overviewZoom: this.overviewZoom,
         presentationMode: this.presentationMode,
         revision: this.revision,
         scrollColumn: this.scrollColumn,
@@ -157,11 +138,7 @@ export class WorkspaceLayoutStore {
       focusedPaneId: this.focusedPaneId(),
       focusedRowIndex: this.focusedRowIndex,
       maximizedPaneId: this.maximizedPaneId,
-      overviewPanX: this.overviewPanX,
-      overviewPanY: this.overviewPanY,
-      overviewInsertPreviewTarget: this.overviewInsertPreviewTarget,
       overviewProgress: this.overviewProgress,
-      overviewZoom: this.overviewZoom,
       presentationMode: this.presentationMode,
       revision: this.revision,
       scrollColumn: this.scrollColumn,
@@ -492,8 +469,12 @@ export class WorkspaceLayoutStore {
     return true;
   }
 
-  previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
-    if (!this.engine.previewPaneDropIntent(sourcePaneId, intent)) {
+  previewPaneDrop(
+    sourcePaneId: PaneId,
+    targetPaneId: PaneId,
+    placement: PaneReorderPlacement,
+  ): boolean {
+    if (!this.engine.previewPaneReorder(sourcePaneId, targetPaneId, placement)) {
       return false;
     }
     this.notify();
@@ -506,10 +487,6 @@ export class WorkspaceLayoutStore {
     }
     this.notify();
     return true;
-  }
-
-  hasPaneDropPreview(): boolean {
-    return this.engine.hasPaneReorderPreview();
   }
 
   setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
@@ -527,17 +504,11 @@ export class WorkspaceLayoutStore {
     return columnId;
   }
 
-  applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
-    if (!this.engine.applyPaneDropIntent(sourcePaneId, intent)) {
+  reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
+    if (!this.engine.reorderPaneBefore(sourcePaneId, targetPaneId)) {
       return false;
     }
-    if (intent.kind !== "swap") {
-      this.setFocusedPane(sourcePaneId);
-    }
-    // A swap exchanges two panes in place, so focus is intentionally left on the
-    // current slot (now occupied by the other pane). Re-focusing the moved source
-    // would snap the focused column to its anchor and jump the whole row sideways
-    // -- the opposite of an in-place swap.
+    this.setFocusedPane(sourcePaneId);
     this.notify();
     return true;
   }
@@ -578,140 +549,7 @@ export class WorkspaceLayoutStore {
   toggleOverviewMode(): void {
     this.presentationMode = this.presentationMode === "overview" ? "normal" : "overview";
     this.targetOverviewProgress = this.presentationMode === "overview" ? 1 : 0;
-    // A fresh overview always starts centered/edge-aligned and fit-all; the
-    // previous pan/zoom has no meaning for a different mode or a re-entry.
-    this.overviewPanX = 0;
-    this.overviewPanY = 0;
-    this.overviewZoom = 1;
-    this.overviewInsertPreviewTarget = null;
-    this.engine.clearInsertFramePreview();
     this.notify();
-  }
-
-  // Live-preview inserting a new empty frame next to an anchor pane: the overview
-  // reflows as if the pane existed, and the "add pane" affordance is positioned on
-  // the exact slot it will occupy. Non-committing. No-op outside overview. Returns
-  // true when the previewed slot actually changed.
-  previewInsertFrame(
-    anchorPaneId: PaneId,
-    placement: PaneInsertionPlacement,
-    viewport: Rect,
-  ): boolean {
-    if (this.presentationMode !== "overview") {
-      return false;
-    }
-    this.lastViewport = viewport;
-    if (!this.engine.previewInsertFrame(anchorPaneId, placement)) {
-      return false;
-    }
-    const rect = this.engine.overviewInsertPreviewBounds(
-      viewport,
-      this.maximizedPaneId,
-      this.overviewZoom,
-      this.overviewPanX,
-      this.overviewPanY,
-    );
-    this.overviewInsertPreviewTarget = rect
-      ? {
-          height: rect.height,
-          left: rect.left,
-          paneId: anchorPaneId,
-          placement,
-          top: rect.top,
-          width: rect.width,
-        }
-      : null;
-    this.notify();
-    return true;
-  }
-
-  clearInsertFramePreview(): boolean {
-    if (!this.engine.clearInsertFramePreview()) {
-      return false;
-    }
-    this.overviewInsertPreviewTarget = null;
-    this.notify();
-    return true;
-  }
-
-  hasInsertFramePreview(): boolean {
-    return this.engine.hasInsertFramePreview();
-  }
-
-  insertFramePreview(): { anchorPaneId: PaneId; placement: PaneInsertionPlacement } | null {
-    return this.engine.insertFramePreview();
-  }
-
-  // Scroll (pan) the overview surface by a screen-pixel delta so panes that fall
-  // outside the viewport at the fitted scale can be brought into view. No-op
-  // outside overview. Returns true when the pan actually changed.
-  panOverviewBy(deltaX: number, deltaY: number, viewport: Rect): boolean {
-    if (this.presentationMode !== "overview") {
-      return false;
-    }
-    this.lastViewport = viewport;
-    const bounds = this.engine.overviewContentBounds(
-      viewport,
-      this.maximizedPaneId,
-      this.overviewZoom,
-    );
-    const nextPanX = clampPan(this.overviewPanX + deltaX, bounds.maxPanX);
-    const nextPanY = clampPan(this.overviewPanY + deltaY, bounds.maxPanY);
-    if (nextPanX === this.overviewPanX && nextPanY === this.overviewPanY) {
-      return false;
-    }
-    this.overviewPanX = nextPanX;
-    this.overviewPanY = nextPanY;
-    this.notify();
-    return true;
-  }
-
-  // Multiply the overview zoom by `zoomFactor` (>1 zooms in, <1 out), keeping the
-  // surface point under (focalX, focalY) screen-fixed (zoom-to-cursor). The
-  // effective scale is clamped to [fit-all, OVERVIEW_MAX_ZOOM_SCALE]; pan is
-  // re-clamped to the new (zoomed) content bounds. No-op outside overview.
-  // Returns true when the zoom actually changed.
-  zoomOverviewBy(zoomFactor: number, focalX: number, focalY: number, viewport: Rect): boolean {
-    if (this.presentationMode !== "overview") {
-      return false;
-    }
-    if (!Number.isFinite(zoomFactor) || zoomFactor <= 0) {
-      return false;
-    }
-    this.lastViewport = viewport;
-    const before = this.engine.overviewContentBounds(
-      viewport,
-      this.maximizedPaneId,
-      this.overviewZoom,
-    );
-    if (before.fitScale <= 0 || before.scale <= 0) {
-      return false;
-    }
-    const maxZoom = Math.max(1, OVERVIEW_MAX_ZOOM_SCALE / before.fitScale);
-    const nextZoom = clampRange(this.overviewZoom * zoomFactor, OVERVIEW_MIN_ZOOM, maxZoom);
-    if (Math.abs(nextZoom - this.overviewZoom) < 0.0001) {
-      return false;
-    }
-    // Surface coordinate currently under the focal point (overview forces
-    // scrollColumn/scrollRow to 0, so screen = base - pan + surface * scale).
-    const surfaceX = (focalX - (before.baseXOffset - this.overviewPanX)) / before.scale;
-    const surfaceY = (focalY - (before.baseYOffset - this.overviewPanY)) / before.scale;
-    this.overviewZoom = nextZoom;
-    const after = this.engine.overviewContentBounds(
-      viewport,
-      this.maximizedPaneId,
-      this.overviewZoom,
-    );
-    this.overviewPanX = clampPan(
-      after.baseXOffset + surfaceX * after.scale - focalX,
-      after.maxPanX,
-    );
-    this.overviewPanY = clampPan(
-      after.baseYOffset + surfaceY * after.scale - focalY,
-      after.maxPanY,
-    );
-    this.notify();
-    return true;
   }
 
   subscribe(listener: LayoutStoreListener): () => void {
@@ -774,14 +612,6 @@ export class WorkspaceLayoutStore {
     this.engine.unlockColumnWidth(this.focusedColumnId(), viewport.width);
     this.notify();
   }
-}
-
-function clampPan(value: number, max: number): number {
-  return Math.max(0, Math.min(value, max));
-}
-
-function clampRange(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(value, max));
 }
 
 function emptyFramePaneRequest(): OpenPaneRequest {
