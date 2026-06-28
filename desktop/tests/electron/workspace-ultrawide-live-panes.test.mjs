@@ -25,11 +25,17 @@ const workflowName = "workspace-ultrawide-live-panes";
 const workflowTimeoutMs = 30_000;
 const paneCount = 24;
 const expectedIntersectingPaneCount = 23;
+const multiRowPaneCount = 12;
+const multiRowExpectedIntersectingPaneCount = 12;
 const viewport = {
   deviceScaleFactor: 1,
   height: 900,
   mobile: false,
   width: 12000,
+};
+const multiRowViewport = {
+  ...viewport,
+  width: 3600,
 };
 
 if (options.help) {
@@ -64,10 +70,24 @@ try {
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
 
-  const snapshot = await waitForUltraWideLivePaneSnapshot(context.client);
+  const snapshot = await waitForLivePaneSnapshot(context.client, {
+    expectedIntersectingPaneCount,
+    paneCount,
+  });
   await captureScreenshot(context.client, join(artifactDir, "ultrawide-live-panes.png"));
+  await context.client.call("Emulation.setDeviceMetricsOverride", multiRowViewport);
+  await persistMultiRowLayout(context.client, workspaceId);
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
+  const multiRowSnapshot = await waitForLivePaneSnapshot(context.client, {
+    expectedIntersectingPaneCount: multiRowExpectedIntersectingPaneCount,
+    paneCount: multiRowPaneCount,
+  });
+  await captureScreenshot(context.client, join(artifactDir, "multirow-live-panes.png"));
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
+    multiRowSnapshot,
+    multiRowViewport,
     snapshot,
     status: "passed",
     viewport,
@@ -108,10 +128,18 @@ async function ensureWorkspaceOpen(client) {
 }
 
 async function persistUltraWideLayout(client, workspaceId) {
+  await persistLayout(client, ultraWideLayout(workspaceId));
+}
+
+async function persistMultiRowLayout(client, workspaceId) {
+  await persistLayout(client, multiRowLayout(workspaceId));
+}
+
+async function persistLayout(client, layout) {
   const result = await client.evaluate(`(async () => {
-    const layout = ${JSON.stringify(ultraWideLayout(workspaceId))};
+    const layout = ${JSON.stringify(layout)};
     await window.setta.workspace.saveUILayout(layout);
-    const readback = await window.setta.workspace.readUILayout(${JSON.stringify(workspaceId)});
+    const readback = await window.setta.workspace.readUILayout(layout.workspaceId);
     return {
       ok: readback.layout?.panes?.length === layout.panes.length,
       readbackPaneCount: readback.layout?.panes?.length ?? 0,
@@ -122,7 +150,7 @@ async function persistUltraWideLayout(client, workspaceId) {
   }
 }
 
-async function waitForUltraWideLivePaneSnapshot(client) {
+async function waitForLivePaneSnapshot(client, { expectedIntersectingPaneCount, paneCount }) {
   return waitForState(
     client,
     paneSnapshotExpression(),
@@ -144,6 +172,7 @@ async function waitForUltraWideLivePaneSnapshot(client) {
         terminalHosts.length > 0 &&
         terminalHosts.every((host) => host.hasTerminalViewport && host.terminalStatus !== "") &&
         workflowHosts.length > 0 &&
+        terminalHosts.every((host) => host.terminalSessionId.startsWith("terminal_")) &&
         workflowHosts.every((host) => host.hasWorkflowGraphHost && host.hasWorkflowGraphSurface)
       );
     },
@@ -199,6 +228,7 @@ function paneSnapshotExpression() {
           surfaceKind: host.dataset.surfaceKind ?? "",
           terminalStatus:
             host.querySelector('[data-terminal-status="true"]')?.textContent?.trim() ?? "",
+          terminalSessionId: host.dataset.terminalSessionId ?? "",
         };
       });
     const intersectingHosts = hosts.filter(
@@ -269,6 +299,57 @@ function ultraWideLayout(workspaceId) {
   };
 }
 
+function multiRowLayout(workspaceId) {
+  const panes = Array.from({ length: multiRowPaneCount }, (_value, index) => {
+    const columnIndex = Math.floor(index / 2);
+    const rowIndex = index % 2;
+    const surfaceKind = multiRowSurfaceKind(columnIndex, rowIndex);
+    return {
+      columnId: `multirow_column_${columnIndex}`,
+      heat: (index * 41) % 100,
+      paneId: `multirow_pane_${index}`,
+      sequence: index,
+      subtitle: "multi-row visibility fixture",
+      surfaceId: `multirow_surface_${index}`,
+      surfaceKind,
+      terminalConfig:
+        surfaceKind === "terminal"
+          ? {
+              cwdOverride: "",
+              profileId: "",
+              titleOverride: "",
+            }
+          : null,
+      title: `Row ${rowIndex + 1} Pane ${columnIndex + 1}`,
+      tone: ["cyan", "green", "orange", "pink", "slate"][index % 5],
+      weight: 1,
+    };
+  });
+  return {
+    columns: Array.from({ length: multiRowPaneCount / 2 }, (_value, index) => ({
+      columnId: `multirow_column_${index}`,
+      idealWidthSpec: { unit: "px", value: 520 },
+      index,
+      paneIds: [`multirow_pane_${index * 2}`, `multirow_pane_${index * 2 + 1}`],
+      planeIndex: 0,
+      previousProportionWidth: null,
+      slotIndex: index,
+      widthSpec: { unit: "px", value: 520 },
+    })),
+    focusedPaneId: "multirow_pane_0",
+    panes,
+    schemaVersion: 1,
+    workspaceId,
+  };
+}
+
 function productSurfaceKindForPane(index) {
   return ["chat-dom", "empty-frame", "workflow-graph", "terminal"][index % 4];
+}
+
+function multiRowSurfaceKind(columnIndex, rowIndex) {
+  if (rowIndex === 1) {
+    return columnIndex % 2 === 0 ? "terminal" : "workflow-graph";
+  }
+  return ["chat-dom", "workflow-graph", "terminal"][columnIndex % 3];
 }
