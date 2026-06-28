@@ -26,7 +26,7 @@ node desktop/tests/electron/run-workflows.mjs --skip-build --workflow workspace-
 Artifact:
 
 ```text
-.recordings/workspace-ultrawide-live-panes/20260701T194904592Z/summary.json
+.recordings/workspace-ultrawide-live-panes/20260701T195222324Z/summary.json
 ```
 
 Observed production Electron/main/preload/renderer path:
@@ -45,6 +45,9 @@ Observed production Electron/main/preload/renderer path:
 - Dispatching the workspace `Alt+Meta+ArrowDown` shortcut moved focus from `multirow_pane_0` to lower-row terminal pane `multirow_pane_1`; the focused lower-row pane was viewport-intersecting and live.
 - Expanding the same multi-row layout to `3600x900` revealed all 12 panes as viewport-intersecting with `{ "live": 12 }`, including newly visible terminal and workflow graph panes.
 - Clicking a visible unfocused terminal and a visible unfocused workflow graph preserved workspace focus on `multirow_pane_1`.
+- Row-height verification used a `1200x520` viewport with a 10-pane vertical stack.
+- Before dragging the row split, 4 panes were viewport-intersecting with `{ "live": 10 }`, including visible terminal and workflow graph panes.
+- Dragging the first vertical row split upward revealed 9 viewport-intersecting panes with `{ "live": 10 }`; newly visible terminal and workflow graph panes were mounted and live.
 
 Result: pass.
 
@@ -74,7 +77,7 @@ pnpm --dir desktop exec electron-vite build
 node desktop/tests/electron/run-workflows.mjs --skip-build --workflow workspace-ultrawide-live-panes
 ```
 
-After adding row-navigation and viewport-expansion coverage:
+After adding row-navigation, viewport-expansion, and row-height reveal coverage:
 
 ```sh
 node desktop/tests/electron/run-workflows.mjs --skip-build --workflow workspace-ultrawide-live-panes

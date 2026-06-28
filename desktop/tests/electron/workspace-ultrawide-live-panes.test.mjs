@@ -11,6 +11,7 @@ import {
   clickEnabledButtonByAria,
   createElectronFixture,
   dispatchKeyEvent,
+  dispatchMouseDrag,
   dispatchMouseClick,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -31,6 +32,7 @@ const paneCount = 24;
 const expectedIntersectingPaneCount = 23;
 const multiRowPaneCount = 12;
 const multiRowExpectedIntersectingPaneCount = 12;
+const verticalStackPaneCount = 10;
 const viewport = {
   deviceScaleFactor: 1,
   height: 900,
@@ -45,6 +47,11 @@ const multiRowConstrainedViewport = {
   ...viewport,
   height: 520,
   width: 2200,
+};
+const verticalStackViewport = {
+  ...viewport,
+  height: 520,
+  width: 1200,
 };
 
 if (options.help) {
@@ -120,6 +127,36 @@ try {
     ),
   ];
   await captureScreenshot(context.client, join(artifactDir, "multirow-live-panes.png"));
+  await context.client.call("Emulation.setDeviceMetricsOverride", verticalStackViewport);
+  await persistVerticalStackLayout(context.client, workspaceId);
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
+  const verticalStackBeforeResize = await waitForLivePaneSnapshot(context.client, {
+    maxIntersectingPaneCount: 4,
+    minIntersectingPaneCount: 2,
+    paneCount: verticalStackPaneCount,
+    requiredFocusedPaneId: "vertical_pane_0",
+  });
+  const verticalResizeTarget = await waitForVerticalResizeTarget(context.client, {
+    adjacentPaneId: "vertical_pane_1",
+    paneId: "vertical_pane_0",
+  });
+  await dispatchMouseDrag(context.client, {
+    from: verticalResizeTarget.handle.center,
+    to: {
+      x: verticalResizeTarget.handle.center.x,
+      y: verticalResizeTarget.handle.center.y - 260,
+    },
+  });
+  const verticalStackAfterResize = await waitForLivePaneSnapshot(context.client, {
+    minIntersectingPaneCount: verticalStackBeforeResize.intersectingHosts.length + 2,
+    paneCount: verticalStackPaneCount,
+    requiredFocusedPaneId: "vertical_pane_0",
+  });
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "vertical-stack-resized-live-panes.png"),
+  );
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     clickPreservationChecks,
@@ -130,6 +167,10 @@ try {
     rowNavigationSnapshot,
     snapshot,
     status: "passed",
+    verticalResizeTarget,
+    verticalStackAfterResize,
+    verticalStackBeforeResize,
+    verticalStackViewport,
     viewport,
     workspaceName: basename(fixture.workspaceRoot),
   });
@@ -173,6 +214,10 @@ async function persistUltraWideLayout(client, workspaceId) {
 
 async function persistMultiRowLayout(client, workspaceId) {
   await persistLayout(client, multiRowLayout(workspaceId));
+}
+
+async function persistVerticalStackLayout(client, workspaceId) {
+  await persistLayout(client, verticalStackLayout(workspaceId));
 }
 
 async function persistLayout(client, layout) {
@@ -234,6 +279,36 @@ async function waitForLivePaneSnapshot(
     },
     workflowTimeoutMs,
   );
+}
+
+async function waitForVerticalResizeTarget(client, { adjacentPaneId, paneId }) {
+  const snapshot = await waitForState(
+    client,
+    paneSnapshotExpression(),
+    (candidate) =>
+      candidate.resizeHandles.some(
+        (handle) =>
+          handle.axis === "vertical" &&
+          handle.adjacentPaneId === adjacentPaneId &&
+          handle.paneId === paneId,
+      ) &&
+      candidate.intersectingHosts.some((host) => host.paneId === paneId) &&
+      candidate.intersectingHosts.some((host) => host.paneId === adjacentPaneId),
+    workflowTimeoutMs,
+  );
+  const handle = snapshot.resizeHandles.find(
+    (candidate) =>
+      candidate.axis === "vertical" &&
+      candidate.adjacentPaneId === adjacentPaneId &&
+      candidate.paneId === paneId,
+  );
+  if (!handle) {
+    throw new Error(`missing vertical resize handle: ${JSON.stringify(snapshot)}`);
+  }
+  return {
+    handle,
+    snapshot,
+  };
 }
 
 async function dispatchWorkspaceNavigationShortcut(client, key) {
@@ -300,13 +375,24 @@ function paneSnapshotExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
     const stage = document.querySelector('[data-testid="workspace-presentation-engine"]');
+    const rectFor = (element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+      };
+    };
     const stageRect = stage instanceof HTMLElement
-      ? stage.getBoundingClientRect()
+      ? rectFor(stage)
       : { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 };
     const hosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
       .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
       .map((host) => {
-        const rect = host.getBoundingClientRect();
+        const rect = rectFor(host);
         const style = getComputedStyle(host);
         return {
           focused: host.dataset.focused === "true",
@@ -318,12 +404,7 @@ function paneSnapshotExpression() {
           paneId: host.dataset.paneId ?? "",
           pointerEvents: style.pointerEvents,
           rect: {
-            bottom: rect.bottom,
-            height: rect.height,
-            left: rect.left,
-            right: rect.right,
-            top: rect.top,
-            width: rect.width,
+            ...rect,
           },
           runtimeState: host.dataset.runtimeState ?? "",
           surfaceId: host.dataset.surfaceId ?? "",
@@ -331,6 +412,21 @@ function paneSnapshotExpression() {
           terminalStatus:
             host.querySelector('[data-terminal-status="true"]')?.textContent?.trim() ?? "",
           terminalSessionId: host.dataset.terminalSessionId ?? "",
+        };
+      });
+    const resizeHandles = Array.from(document.querySelectorAll('.workspace-pane-resize-handle'))
+      .filter((handle) => handle instanceof HTMLElement)
+      .map((handle) => {
+        const rect = rectFor(handle);
+        return {
+          adjacentPaneId: handle.dataset.adjacentPaneId ?? "",
+          axis: handle.dataset.workspacePaneResizeAxis ?? "",
+          center: {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          },
+          paneId: handle.dataset.paneId ?? "",
+          rect,
         };
       });
     const intersectingHosts = hosts.filter(
@@ -344,6 +440,7 @@ function paneSnapshotExpression() {
       focusedPaneId: hosts.find((host) => host.focused)?.paneId ?? "",
       intersectingHosts,
       mode: area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "",
+      resizeHandles,
       runtimeStates: hosts.reduce((states, host) => {
         states[host.runtimeState] = (states[host.runtimeState] ?? 0) + 1;
         return states;
@@ -450,6 +547,50 @@ function multiRowLayout(workspaceId) {
   };
 }
 
+function verticalStackLayout(workspaceId) {
+  const panes = Array.from({ length: verticalStackPaneCount }, (_value, index) => {
+    const surfaceKind = verticalStackSurfaceKind(index);
+    return {
+      columnId: "vertical_stack_column_0",
+      heat: (index * 29) % 100,
+      paneId: `vertical_pane_${index}`,
+      sequence: index,
+      subtitle: "vertical stack row-height fixture",
+      surfaceId: `vertical_surface_${index}`,
+      surfaceKind,
+      terminalConfig:
+        surfaceKind === "terminal"
+          ? {
+              cwdOverride: "",
+              profileId: "",
+              titleOverride: "",
+            }
+          : null,
+      title: `Vertical Pane ${String(index + 1).padStart(2, "0")}`,
+      tone: ["cyan", "green", "orange", "pink", "slate"][index % 5],
+      weight: index === 0 ? 50 : 1,
+    };
+  });
+  return {
+    columns: [
+      {
+        columnId: "vertical_stack_column_0",
+        idealWidthSpec: { unit: "px", value: 520 },
+        index: 0,
+        paneIds: panes.map((pane) => pane.paneId),
+        planeIndex: 0,
+        previousProportionWidth: null,
+        slotIndex: 0,
+        widthSpec: { unit: "px", value: 520 },
+      },
+    ],
+    focusedPaneId: "vertical_pane_0",
+    panes,
+    schemaVersion: 1,
+    workspaceId,
+  };
+}
+
 function productSurfaceKindForPane(index) {
   return ["chat-dom", "empty-frame", "workflow-graph", "terminal"][index % 4];
 }
@@ -459,4 +600,8 @@ function multiRowSurfaceKind(columnIndex, rowIndex) {
     return columnIndex % 2 === 0 ? "terminal" : "workflow-graph";
   }
   return ["chat-dom", "workflow-graph", "terminal"][columnIndex % 3];
+}
+
+function verticalStackSurfaceKind(index) {
+  return ["terminal", "workflow-graph", "chat-dom"][index % 3];
 }
