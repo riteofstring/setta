@@ -42,13 +42,16 @@ type Service struct {
 type Option func(*Service)
 
 type activeTurn struct {
-	assistantMessage ChatMessage
-	cancel           context.CancelFunc
-	lastPersistedAt  time.Time
-	runID            string
-	threadID         string
-	turnID           string
-	workspaceID      string
+	assistantMessage            ChatMessage
+	assistantTextByProviderItem map[string]assistantProviderTextState
+	completedAssistantTexts     []string
+	cancel                      context.CancelFunc
+	lastPersistedAt             time.Time
+	runID                       string
+	threadID                    string
+	turnID                      string
+	workspaceID                 string
+	transcript                  *transcriptIngest
 }
 
 type SendMessageResult struct {
@@ -172,12 +175,17 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 	if err != nil {
 		return SendMessageResult{}, err
 	}
+	ingest, err := service.newTranscriptIngestLocked(workspaceID, run)
+	if err != nil {
+		return SendMessageResult{}, err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.active[key] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
 		runID:            run.ID,
 		workspaceID:      workspaceID,
+		transcript:       ingest,
 	}
 	request := TurnRequest{
 		Workspace:    workspaceSummary,
@@ -338,6 +346,10 @@ func (service *Service) markTurnCancelledWithOptions(workspaceID string, convers
 	run.CompletedAt = now
 	run.Error = runError
 	run.PendingApproval = nil
+	// Finalize transcript blocks before the terminal store record (see completeTurn).
+	if err := service.finalizeTranscriptBlocksLocked(workspaceID, active.transcript, TranscriptBlockStatusCancelled, runError); err != nil {
+		return Run{}, err
+	}
 	records, err := service.store.CancelTurn(TerminalTurnRecords{AssistantMessage: message, Run: run})
 	if err != nil {
 		return Run{}, err
@@ -580,6 +592,12 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 		return err
 	}
 	now := timestamp(service.now())
+	// Finalize transcript blocks before the run reaches a terminal store record so a
+	// crash cannot leave a terminal run with perpetually streaming blocks (recovery
+	// only re-finalizes still-running runs).
+	if err := service.finalizeTranscriptBlocksLocked(workspaceID, active.transcript, TranscriptBlockStatusComplete, ""); err != nil {
+		return err
+	}
 	message, run, err := service.saveCompletedTurnLocked(workspaceID, run, active.assistantMessage, now)
 	if err != nil {
 		return err
@@ -664,6 +682,10 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	run.CompletedAt = now
 	run.Error = message
 	run.PendingApproval = nil
+	// Finalize transcript blocks before the terminal store record (see completeTurn).
+	if err := service.finalizeTranscriptBlocksLocked(workspaceID, active.transcript, TranscriptBlockStatusFailed, message); err != nil {
+		return err
+	}
 	records, err := service.store.FailTurn(TerminalTurnRecords{AssistantMessage: assistant, Run: run})
 	if err != nil {
 		return err
@@ -821,14 +843,7 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 	if err != nil {
 		return err
 	}
-	message := "Approval denied"
-	if approved {
-		message = "Approval approved"
-	}
-	if response != "" {
-		message = "Approval answered"
-	}
-	if err := service.traceLocked(workspaceID, run.ID, "approval_resolved", message); err != nil {
+	if err := service.traceLocked(workspaceID, run.ID, "approval_resolved", approvalResolutionMessage(approved, response)); err != nil {
 		return err
 	}
 	if _, err = service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
@@ -840,40 +855,14 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 	return service.publishConversationUpdatedLocked(workspaceID, run.ConversationID, run.ID)
 }
 
-func (service *Service) linkThread(workspaceID string, conversationID string, runID string, threadID string, sessionID string, turnID string) error {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
-	if err != nil {
-		return err
+func approvalResolutionMessage(approved bool, response string) string {
+	if response != "" {
+		return "Approval answered"
 	}
-	now := timestamp(service.now())
-	upsertHarnessRef(&conversation.HarnessRefs, HarnessThreadRef{
-		Harness:        HarnessCodex,
-		ThreadID:       threadID,
-		SessionID:      sessionID,
-		LastTurnID:     turnID,
-		Status:         HarnessRefLinked,
-		CreatedAt:      now,
-		LastResumedAt:  now,
-		UnavailableMsg: "",
-	})
-	conversation.UpdatedAt = now
-	if err := service.store.SaveConversation(conversation); err != nil {
-		return err
+	if approved {
+		return "Approval approved"
 	}
-	if err := service.traceLocked(workspaceID, runID, "codex_thread_ref_linked", "Codex thread reference linked"); err != nil {
-		return err
-	}
-	key := activeKey(workspaceID, conversationID)
-	active, ok := service.active[key]
-	if ok && active.runID == runID {
-		active.threadID = threadID
-		active.turnID = turnID
-		service.active[key] = active
-	}
-	return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)
+	return "Approval denied"
 }
 
 func (service *Service) markHarnessRefUnavailable(workspaceID string, conversationID string, runID string, refErr *HarnessRefUnavailableError) error {

@@ -1,10 +1,10 @@
 .workspace-layout-area {
-  --workspace-layout-surface: var(--workspace-surface);
+  --workspace-layout-surface: color-mix(in oklch, var(--background) 88%, black);
 
   background:
     radial-gradient(
       circle at 18% 0%,
-      color-mix(in oklch, var(--workspace-dot-grid) 12%, transparent) 0 1px,
+      color-mix(in oklch, var(--primary) 12%, transparent) 0 1px,
       transparent 1px 100%
     ),
     var(--workspace-layout-surface);
@@ -28,14 +28,12 @@
 }
 
 .workspace-pane-host {
-  --workspace-pane-edge-shadow: color-mix(in oklch, var(--workspace-pane-edge) 38%, transparent);
-  --workspace-pane-focus-ring: var(--workspace-pane-selected-outline);
-  --workspace-pane-focus-shadow: color-mix(
-    in oklch,
-    var(--workspace-pane-selected-glow) 30%,
-    transparent
-  );
+  --workspace-pane-edge-shadow: color-mix(in oklch, var(--setta-700) 38%, transparent);
+  --workspace-pane-focus-ring: color-mix(in oklch, var(--accent-cyan) 34%, var(--border));
+  --workspace-pane-focus-shadow: color-mix(in oklch, black 18%, transparent);
   --workspace-pane-focus-surface: var(--workspace-pane-surface);
+  --workspace-pane-surface: var(--setta-niri-pane-surface);
+  --workspace-pane-title-bar-surface: var(--setta-niri-pane-title-bar-surface);
   background: var(--workspace-pane-surface);
   border-radius: 7px;
   box-shadow: inset 0 0 0 1px var(--workspace-pane-edge-shadow);
@@ -62,11 +60,9 @@
 }
 
 [data-color-mode="light"] .workspace-pane-host {
-  --workspace-pane-focus-shadow: color-mix(
-    in oklch,
-    var(--workspace-pane-selected-glow) 22%,
-    transparent
-  );
+  --workspace-pane-edge-shadow: color-mix(in oklch, var(--setta-400) 34%, transparent);
+  --workspace-pane-focus-ring: color-mix(in oklch, var(--accent-cyan) 40%, var(--border));
+  --workspace-pane-focus-shadow: color-mix(in oklch, var(--setta-900) 10%, transparent);
 }
 
 .workspace-layout-area[data-pane-dragging="true"] {
@@ -76,24 +72,6 @@
 .workspace-layout-area[data-pane-dragging="true"],
 .workspace-layout-area[data-pane-dragging="true"] * {
   cursor: grabbing !important;
-}
-
-/* While a pane drag is active the preview opens an insertion gap by shifting the
-   surrounding tiled panes. Ease that shift so siblings glide into place instead
-   of snapping a full pane-height in one frame. Scoped to an active drag so normal
-   scroll/zoom (driven by per-frame transform writes) is never eased. The drag
-   source is excluded: it is positioned imperatively via `translate` to track the
-   cursor and must not lag behind. */
-.workspace-layout-area[data-pane-dragging="true"]
-  .workspace-pane-host:not([data-drag-source="true"]) {
-  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-/* While previewing a new pane in overview, the tiled panes reflow once (one JS
-   frame) to make room; ease that single shift on the GPU so it glides instead of
-   snapping, without forcing any further JS frames. */
-.workspace-layout-area[data-insert-previewing="true"] .workspace-pane-host {
-  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .workspace-pane-host[data-moving="true"] {
@@ -114,69 +92,36 @@
 }
 
 .workspace-pane-host[data-drag-source="true"] {
-  filter: none;
-  z-index: 2147483647 !important;
+  filter: brightness(1.08);
 }
 
 .workspace-pane-host[data-drop-target] {
-  outline: 1px solid color-mix(in oklch, var(--workspace-drag-target-outline) 72%, white);
+  outline: 1px solid color-mix(in oklch, var(--primary) 72%, white);
   outline-offset: -1px;
 }
 
 .workspace-pane-host[data-drop-axis="horizontal"][data-drop-target="before"] {
   box-shadow:
-    inset 3px 0 0 color-mix(in oklch, var(--workspace-drag-target-outline) 84%, white),
+    inset 3px 0 0 color-mix(in oklch, var(--primary) 84%, white),
     0 12px 32px color-mix(in oklch, black 30%, transparent);
 }
 
 .workspace-pane-host[data-drop-axis="horizontal"][data-drop-target="after"] {
   box-shadow:
-    inset -3px 0 0 color-mix(in oklch, var(--workspace-drag-target-outline) 84%, white),
+    inset -3px 0 0 color-mix(in oklch, var(--primary) 84%, white),
     0 12px 32px color-mix(in oklch, black 30%, transparent);
 }
 
 .workspace-pane-host[data-drop-axis="vertical"][data-drop-target="before"] {
   box-shadow:
-    inset 0 3px 0 color-mix(in oklch, var(--workspace-drag-target-outline) 84%, white),
+    inset 0 3px 0 color-mix(in oklch, var(--primary) 84%, white),
     0 12px 32px color-mix(in oklch, black 30%, transparent);
 }
 
 .workspace-pane-host[data-drop-axis="vertical"][data-drop-target="after"] {
   box-shadow:
-    inset 0 -3px 0 color-mix(in oklch, var(--workspace-drag-target-outline) 84%, white),
+    inset 0 -3px 0 color-mix(in oklch, var(--primary) 84%, white),
     0 12px 32px color-mix(in oklch, black 30%, transparent);
-}
-
-/* Swap affordance: dropping on a pane's center exchanges the two panes, so the
-   whole target pane is highlighted rather than showing an insertion edge. */
-.workspace-pane-host[data-drop-swap="true"] {
-  box-shadow:
-    inset 0 0 0 2px color-mix(in oklch, var(--workspace-drag-target-outline) 82%, white),
-    0 12px 32px color-mix(in oklch, black 30%, transparent);
-  outline: 2px solid color-mix(in oklch, var(--workspace-drag-target-outline) 70%, transparent);
-  outline-offset: -2px;
-}
-
-/* Faint box marking exactly where the dragged pane will land (its previewed slot),
-   or the pane it will swap with. The presentation engine positions it at the
-   engine-computed rect each frame, so it always matches the real drop. It sits
-   above the tiled panes but below the cursor-following drag source. */
-.workspace-pane-drop-preview {
-  background: color-mix(in oklch, var(--workspace-drag-target-surface) 32%, transparent);
-  border: 1.5px dashed color-mix(in oklch, var(--workspace-drag-target-outline) 66%, transparent);
-  border-radius: 7px;
-  left: 0;
-  opacity: 0;
-  pointer-events: none;
-  position: absolute;
-  top: 0;
-  transform-origin: left top;
-  transition: opacity 100ms ease;
-  z-index: 65;
-}
-
-.workspace-pane-drop-preview[data-visible="true"] {
-  opacity: 1;
 }
 
 .workspace-pane-host[data-runtime-state="snapshot"],
@@ -201,21 +146,10 @@
     0 16px 36px var(--workspace-pane-focus-shadow);
 }
 
-/* Overview is a pannable, zoomable canvas: hint "grab" on the empty surface, and
-   show a closed hand while a middle-button / background drag pan is in progress. */
-.workspace-layout-area[data-presentation-mode="overview"] .workspace-stage {
-  cursor: grab;
-}
-
-.workspace-layout-area[data-overview-panning="true"],
-.workspace-layout-area[data-overview-panning="true"] * {
-  cursor: grabbing !important;
-}
-
 .workspace-overview-ghost-pane {
   align-items: center;
-  background: color-mix(in oklch, var(--workspace-drag-target-surface) 48%, transparent);
-  border: 1px dashed color-mix(in oklch, var(--workspace-drag-target-outline) 58%, transparent);
+  background: color-mix(in oklch, var(--setta-500) 13%, transparent);
+  border: 1px dashed color-mix(in oklch, var(--setta-300) 58%, transparent);
   border-radius: 7px;
   box-shadow:
     inset 0 0 0 1px color-mix(in oklch, var(--background) 32%, transparent),

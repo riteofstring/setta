@@ -4,11 +4,14 @@ import type {
   ConversationListItem,
   Diagnostic,
   Run,
-  RunItem,
   RunItemOutput,
-  TranscriptTurn,
 } from "@generated/backend";
 
+import {
+  appendTranscriptBlockText,
+  replaceRunTranscriptBlocks,
+  upsertTranscriptBlock,
+} from "./chat-store-normalization";
 import type { ChatPatch, ChatStore } from "./chat-store";
 
 type RunningRun = Run & { status: "running" };
@@ -20,93 +23,133 @@ interface EventApplyResult {
 }
 
 type AppliedChatEvent = Exclude<ChatEvent, { type: "chat.resync_required" }>;
-type MessageUpsertEvent = Extract<
+type AppliedEventOf<Type extends AppliedChatEvent["type"]> = Extract<
   AppliedChatEvent,
-  {
-    type:
-      | "chat.message.created"
-      | "chat.message.queued"
-      | "chat.message.steering_sent"
-      | "chat.message.updated";
-  }
+  { type: Type }
 >;
-type RunItemUpsertEvent = Extract<
-  AppliedChatEvent,
-  { type: "chat.run_item.created" | "chat.run_item.updated" }
->;
-type OtherChatEvent = Exclude<AppliedChatEvent, MessageUpsertEvent | RunItemUpsertEvent>;
 
-const messageUpsertEventTypes = new Set([
+type TranscriptBlockEvent = AppliedEventOf<
+  | "chat.transcript_block.created"
+  | "chat.transcript_block.updated"
+  | "chat.transcript_text.delta"
+  | "chat.transcript_blocks.replaced"
+>;
+type MessageEvent = AppliedEventOf<
+  | "chat.message.created"
+  | "chat.message.queued"
+  | "chat.message.steering_sent"
+  | "chat.message.updated"
+  | "chat.message.removed"
+>;
+type RunEvent = AppliedEventOf<
+  | "chat.run.updated"
+  | "chat.run_item.created"
+  | "chat.run_item.updated"
+  | "chat.run_item_output.delta"
+>;
+type ConversationEvent = Exclude<AppliedChatEvent, TranscriptBlockEvent | MessageEvent | RunEvent>;
+
+const transcriptBlockEventTypes = new Set<AppliedChatEvent["type"]>([
+  "chat.transcript_block.created",
+  "chat.transcript_block.updated",
+  "chat.transcript_text.delta",
+  "chat.transcript_blocks.replaced",
+]);
+const messageEventTypes = new Set<AppliedChatEvent["type"]>([
   "chat.message.created",
   "chat.message.queued",
   "chat.message.steering_sent",
   "chat.message.updated",
+  "chat.message.removed",
+]);
+const runEventTypes = new Set<AppliedChatEvent["type"]>([
+  "chat.run.updated",
+  "chat.run_item.created",
+  "chat.run_item.updated",
+  "chat.run_item_output.delta",
 ]);
 
-const runItemUpsertEventTypes = new Set(["chat.run_item.created", "chat.run_item.updated"]);
-
+// The chat store owns the conversation transcript through typed transcript block
+// events plus the message, run, queue, and conversation surfaces. The transcript
+// is driven only by block events: assistant text streams through
+// chat.transcript_text.delta (block-keyed), so chat.assistant_text_delta and the
+// raw chat.run_item.created/updated events are no-ops here and are consumed by the
+// semantic graph cartographer instead. Run-item OUTPUT chunks still stream through
+// chat.run_item_output.delta to back lazy output expansion keyed by source run item
+// ID. Events are routed to a dispatcher per surface so each stays exhaustively typed.
 export function applyChatEvent(state: ChatStore, event: AppliedChatEvent): EventApplyResult {
-  if (isMessageUpsertEvent(event)) {
-    return applyMessageUpsertEvent(state, event);
+  if (isTranscriptBlockEvent(event)) {
+    return applyTranscriptBlockEvent(state, event);
   }
-  if (isRunItemUpsertEvent(event)) {
-    return applyRunItemUpsertEvent(state, event);
+  if (isMessageEvent(event)) {
+    return applyMessageEvent(state, event);
   }
-  return applyOtherChatEvent(state, event);
+  if (isRunEvent(event)) {
+    return applyRunEvent(state, event);
+  }
+  return applyConversationEvent(state, event);
 }
 
-function applyOtherChatEvent(state: ChatStore, event: OtherChatEvent): EventApplyResult {
-  if (event.type === "codex.account.changed") {
-    return unchangedEventResult();
-  }
-  return applyConversationOrWorkspaceEvent(state, event);
+function isTranscriptBlockEvent(event: AppliedChatEvent): event is TranscriptBlockEvent {
+  return transcriptBlockEventTypes.has(event.type);
 }
 
-function applyConversationOrWorkspaceEvent(
+function isMessageEvent(event: AppliedChatEvent): event is MessageEvent {
+  return messageEventTypes.has(event.type);
+}
+
+function isRunEvent(event: AppliedChatEvent): event is RunEvent {
+  return runEventTypes.has(event.type);
+}
+
+function applyTranscriptBlockEvent(
   state: ChatStore,
-  event: Exclude<OtherChatEvent, { type: "codex.account.changed" }>,
+  event: TranscriptBlockEvent,
 ): EventApplyResult {
   switch (event.type) {
-    case "chat.message.removed":
-      return applyMessageRemovedEvent(state, event);
-    case "chat.assistant_text_delta":
-      return applyAssistantTextDelta(state, event);
+    case "chat.transcript_block.created":
+    case "chat.transcript_block.updated":
+      return applyTranscriptBlockUpsertEvent(state, event);
+    case "chat.transcript_text.delta":
+      return applyTranscriptTextDeltaEvent(state, event);
+    case "chat.transcript_blocks.replaced":
+      return applyTranscriptBlocksReplacedEvent(state, event);
+    default:
+      return assertNever(event);
+  }
+}
+
+function applyMessageEvent(state: ChatStore, event: MessageEvent): EventApplyResult {
+  if (event.type === "chat.message.removed") {
+    return applyMessageRemovedEvent(state, event);
+  }
+  return applyMessageUpsertEvent(state, event);
+}
+
+function applyRunEvent(state: ChatStore, event: RunEvent): EventApplyResult {
+  switch (event.type) {
     case "chat.run.updated":
-      return selectedConversationEventResult(
-        state,
-        event,
-        {
-          activeRun: activeRunFromRunEvent(state.activeRun, event.payload.run),
-          status: "ready",
-          transcript: updateTranscriptRun(state.transcript, event.payload.run),
-        },
-        false,
-        true,
-      );
+      return applyRunUpdatedEvent(state, event);
+    case "chat.run_item.created":
+    case "chat.run_item.updated":
+      // Raw run-item created/updated events drive no renderer state: the transcript
+      // renders from typed blocks, and run-item OUTPUT chunks stream separately via
+      // chat.run_item_output.delta for lazy expansion. The events are still published
+      // for the semantic graph cartographer, so the renderer accepts and ignores them.
+      return unchangedEventResult();
     case "chat.run_item_output.delta":
-      return selectedConversationEventResult(state, event, {
-        runItemOutputs: upsertRunItemOutput(state.runItemOutputs, event.payload.output),
-        status: "ready",
-      });
-    case "chat.queue.updated": {
-      const queuedTranscript = mergeQueueTranscript(
-        state.transcript,
-        event.payload.queue.runs,
-        event.payload.queue.messages,
-      );
-      return selectedConversationEventResult(
-        state,
-        event,
-        {
-          messages: mergeQueueMessages(state.messages, event.payload.queue.messages),
-          queuedRuns: queuedRunsFromQueue(event.payload.queue.runs),
-          status: "ready",
-          transcript: queuedTranscript.transcript,
-        },
-        queuedTranscript.resync,
-        true,
-      );
-    }
+      return applyRunItemOutputDeltaEvent(state, event);
+    default:
+      return assertNever(event);
+  }
+}
+
+function applyConversationEvent(state: ChatStore, event: ConversationEvent): EventApplyResult {
+  switch (event.type) {
+    case "chat.assistant_text_delta":
+      return unchangedEventResult();
+    case "chat.queue.updated":
+      return applyQueueUpdatedEvent(state, event);
     case "chat.goal.updated":
       return selectedConversationEventResult(state, event, {
         goal: event.payload.goal,
@@ -119,15 +162,38 @@ function applyConversationOrWorkspaceEvent(
       };
     case "diagnostic.created":
       return { patch: diagnosticCreatedPatch(state, event), resync: false };
+    case "codex.account.changed":
+      return unchangedEventResult();
     default:
       return assertNever(event);
   }
 }
 
+function applyMessageUpsertEvent(
+  state: ChatStore,
+  event: AppliedEventOf<
+    | "chat.message.created"
+    | "chat.message.queued"
+    | "chat.message.steering_sent"
+    | "chat.message.updated"
+  >,
+): EventApplyResult {
+  if (!isSelectedConversationEvent(state, event)) {
+    return unselectedConversationEventResult(state, event, true);
+  }
+  return {
+    patch: {
+      messages: upsertMessage(state.messages, event.payload.message),
+      status: "ready",
+    },
+    resync: false,
+  };
+}
+
 function applyMessageRemovedEvent(
   state: ChatStore,
-  event: Extract<OtherChatEvent, { type: "chat.message.removed" }>,
-) {
+  event: AppliedEventOf<"chat.message.removed">,
+): EventApplyResult {
   return selectedConversationEventResult(
     state,
     event,
@@ -142,41 +208,96 @@ function applyMessageRemovedEvent(
         event.payload.messageId,
       ),
       status: "ready",
-      transcript: removeTranscriptMessage(state.transcript, event.payload.messageId),
     },
     false,
     true,
   );
 }
 
-function isMessageUpsertEvent(event: AppliedChatEvent): event is MessageUpsertEvent {
-  return messageUpsertEventTypes.has(event.type);
-}
-
-function isRunItemUpsertEvent(event: AppliedChatEvent): event is RunItemUpsertEvent {
-  return runItemUpsertEventTypes.has(event.type);
-}
-
-function applyMessageUpsertEvent(state: ChatStore, event: MessageUpsertEvent): EventApplyResult {
-  if (!isSelectedConversationEvent(state, event)) {
-    return unselectedConversationEventResult(state, event, true);
-  }
-  const updated = updateTranscriptMessage(state.transcript, event.payload.message);
-  return {
-    patch: {
-      messages: upsertMessage(state.messages, event.payload.message),
+function applyRunUpdatedEvent(
+  state: ChatStore,
+  event: AppliedEventOf<"chat.run.updated">,
+): EventApplyResult {
+  return selectedConversationEventResult(
+    state,
+    event,
+    {
+      activeRun: activeRunFromRunEvent(state.activeRun, event.payload.run),
       status: "ready",
-      transcript: updated.transcript,
     },
-    resync: event.payload.message.runId !== "" && !updated.updated,
+    false,
+    true,
+  );
+}
+
+function applyRunItemOutputDeltaEvent(
+  state: ChatStore,
+  event: AppliedEventOf<"chat.run_item_output.delta">,
+): EventApplyResult {
+  return selectedConversationEventResult(state, event, {
+    runItemOutputs: upsertRunItemOutput(state.runItemOutputs, event.payload.output),
+    status: "ready",
+  });
+}
+
+function applyTranscriptBlockUpsertEvent(
+  state: ChatStore,
+  event: AppliedEventOf<"chat.transcript_block.created" | "chat.transcript_block.updated">,
+): EventApplyResult {
+  return selectedConversationEventResult(state, event, {
+    status: "ready",
+    transcriptBlocks: upsertTranscriptBlock(state.transcriptBlocks, event.payload.block),
+  });
+}
+
+function applyTranscriptBlocksReplacedEvent(
+  state: ChatStore,
+  event: AppliedEventOf<"chat.transcript_blocks.replaced">,
+): EventApplyResult {
+  return selectedConversationEventResult(state, event, {
+    status: "ready",
+    transcriptBlocks: replaceRunTranscriptBlocks(
+      state.transcriptBlocks,
+      event.payload.runId,
+      event.payload.blocks,
+    ),
+  });
+}
+
+function applyTranscriptTextDeltaEvent(
+  state: ChatStore,
+  event: AppliedEventOf<"chat.transcript_text.delta">,
+): EventApplyResult {
+  if (!isSelectedConversationEvent(state, event)) {
+    return unchangedEventResult();
+  }
+  const updated = appendTranscriptBlockText(
+    state.transcriptBlocks,
+    event.payload.blockId,
+    event.payload.delta,
+    event.payload.updatedAt,
+  );
+  return {
+    patch: { status: "ready", transcriptBlocks: updated.blocks },
+    resync: !updated.found,
   };
 }
 
-function applyRunItemUpsertEvent(state: ChatStore, event: RunItemUpsertEvent): EventApplyResult {
-  return selectedConversationEventResult(state, event, {
-    runItems: upsertRunItem(state.runItems, event.payload.item),
-    status: "ready",
-  });
+function applyQueueUpdatedEvent(
+  state: ChatStore,
+  event: AppliedEventOf<"chat.queue.updated">,
+): EventApplyResult {
+  return selectedConversationEventResult(
+    state,
+    event,
+    {
+      messages: mergeQueueMessages(state.messages, event.payload.queue.messages),
+      queuedRuns: queuedRunsFromQueue(event.payload.queue.runs),
+      status: "ready",
+    },
+    false,
+    true,
+  );
 }
 
 function selectedConversationEventResult(
@@ -201,48 +322,6 @@ function unselectedConversationEventResult(
     return unchangedEventResult();
   }
   return { patch: {}, resync: true };
-}
-
-function applyAssistantTextDelta(
-  state: ChatStore,
-  event: Extract<ChatEvent, { type: "chat.assistant_text_delta" }>,
-): EventApplyResult {
-  if (!isSelectedConversationEvent(state, event)) {
-    return unchangedEventResult();
-  }
-  let foundMessage = false;
-  let foundPart = false;
-  const messages = state.messages.map((message) => {
-    if (message.id !== event.payload.messageId) {
-      return message;
-    }
-    foundMessage = true;
-    return {
-      ...message,
-      parts: message.parts.map((part) => {
-        if (part.id !== event.payload.partId) {
-          return part;
-        }
-        foundPart = true;
-        return { ...part, text: part.text + event.payload.delta };
-      }),
-      updatedAt: event.payload.updatedAt,
-    };
-  });
-  if (!foundMessage || !foundPart) {
-    return { patch: {}, resync: true };
-  }
-  const updated = updateTranscriptMessageText(
-    state.transcript,
-    event.payload.messageId,
-    event.payload.partId,
-    event.payload.delta,
-    event.payload.updatedAt,
-  );
-  return {
-    patch: { messages, status: "ready", transcript: updated.transcript },
-    resync: !updated.updated,
-  };
 }
 
 function conversationUpdatedPatch(
@@ -298,23 +377,21 @@ function emptySelectedConversationPatch(): ChatPatch {
     messageIds: [],
     messages: [],
     messagesById: {},
-    olderBeforeOrdinal: 0,
+    olderBeforeBlockOrdinal: 0,
     queuedRuns: [],
-    runItemIdsByRunId: {},
     runItemOutputIdsByRunItemId: {},
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItemOutputsById: {},
-    runItems: [],
-    runItemsById: {},
     selectedConversation: null,
-    transcript: [],
+    transcriptBlocks: [],
+    transcriptBlocksById: {},
   };
 }
 
 function diagnosticCreatedPatch(
   state: ChatStore,
-  event: Extract<OtherChatEvent, { type: "diagnostic.created" }>,
+  event: AppliedEventOf<"diagnostic.created">,
 ): ChatPatch {
   const patch: ChatPatch = {};
   const summary = state.conversationListsByWorkspaceId[event.workspaceId];
@@ -361,139 +438,6 @@ function queuedRunsFromQueue(runs: Run[]): QueuedRun[] {
   return runs.filter((run): run is QueuedRun => run.status === "queued");
 }
 
-function mergeQueueTranscript(
-  transcript: TranscriptTurn[],
-  runs: Run[],
-  messages: ChatMessage[],
-): { resync: boolean; transcript: TranscriptTurn[] } {
-  const queuedRuns = queuedRunsFromQueue(runs);
-  const messagesById = new Map(messages.map((message) => [message.id, message]));
-  const queuedTurnsByRunId = new Map<string, TranscriptTurn>();
-  for (const run of queuedRuns) {
-    const triggerMessage = messagesById.get(run.triggerMessageId);
-    if (!triggerMessage) {
-      return { resync: true, transcript };
-    }
-    queuedTurnsByRunId.set(run.id, {
-      assistantMessage: null,
-      run,
-      steeringMessages: [],
-      triggerMessage,
-    });
-  }
-
-  const merged: TranscriptTurn[] = [];
-  for (const turn of transcript) {
-    const queuedTurn = queuedTurnsByRunId.get(turn.run.id);
-    if (queuedTurn) {
-      merged.push(queuedTurn);
-      queuedTurnsByRunId.delete(turn.run.id);
-      continue;
-    }
-    if (turn.run.status === "queued") {
-      continue;
-    }
-    merged.push(turn);
-  }
-  merged.push(...queuedTurnsByRunId.values());
-  return { resync: false, transcript: merged.toSorted(compareTranscriptTurns) };
-}
-
-function compareTranscriptTurns(left: TranscriptTurn, right: TranscriptTurn) {
-  if (left.triggerMessage.ordinal === right.triggerMessage.ordinal) {
-    return left.run.id.localeCompare(right.run.id);
-  }
-  return left.triggerMessage.ordinal - right.triggerMessage.ordinal;
-}
-
-function updateTranscriptRun(transcript: TranscriptTurn[], run: Run): TranscriptTurn[] {
-  return transcript.map((turn) => (turn.run.id === run.id ? { ...turn, run } : turn));
-}
-
-function updateTranscriptMessage(transcript: TranscriptTurn[], message: ChatMessage) {
-  let updated = false;
-  const next = transcript.map((turn) => {
-    const triggerMessage =
-      turn.triggerMessage.id === message.id ? markUpdatedMessage(message) : turn.triggerMessage;
-    const assistantMessage =
-      turn.assistantMessage?.id === message.id
-        ? markUpdatedMessage(message)
-        : attachedAssistantMessage(turn);
-    const steeringMessages = turn.steeringMessages.map((steeringMessage) =>
-      steeringMessage.id === message.id ? markUpdatedMessage(message) : steeringMessage,
-    );
-    return {
-      ...turn,
-      assistantMessage,
-      steeringMessages: attachedSteeringMessages(turn, steeringMessages),
-      triggerMessage,
-    };
-  });
-  return { transcript: next, updated };
-
-  function markUpdatedMessage(nextMessage: ChatMessage) {
-    updated = true;
-    return nextMessage;
-  }
-
-  function attachedAssistantMessage(turn: TranscriptTurn) {
-    if (turn.assistantMessage || turn.run.id !== message.runId || message.role !== "assistant") {
-      return turn.assistantMessage;
-    }
-    return markUpdatedMessage(message);
-  }
-
-  function attachedSteeringMessages(
-    turn: TranscriptTurn,
-    steeringMessages: ChatMessage[],
-  ): ChatMessage[] {
-    if (
-      turn.run.id !== message.runId ||
-      message.delivery !== "steering" ||
-      steeringMessages.some((steeringMessage) => steeringMessage.id === message.id)
-    ) {
-      return steeringMessages;
-    }
-    return [...steeringMessages, markUpdatedMessage(message)].toSorted(compareMessages);
-  }
-}
-
-function updateTranscriptMessageText(
-  transcript: TranscriptTurn[],
-  messageId: string,
-  partId: string,
-  delta: string,
-  updatedAt: string,
-) {
-  let updated = false;
-  const next = transcript.map((turn) => ({
-    ...turn,
-    assistantMessage: turn.assistantMessage
-      ? updateMessageText(turn.assistantMessage)
-      : turn.assistantMessage,
-    steeringMessages: turn.steeringMessages.map(updateMessageText),
-    triggerMessage: updateMessageText(turn.triggerMessage),
-  }));
-  return { transcript: next, updated };
-
-  function updateMessageText(message: ChatMessage): ChatMessage {
-    if (message.id !== messageId) {
-      return message;
-    }
-    return {
-      ...message,
-      parts: message.parts.map((part) => {
-        if (part.id !== partId) {
-          return part;
-        }
-        updated = true;
-        return { ...part, text: part.text + delta };
-      }),
-      updatedAt,
-    };
-  }
-}
-
 function upsertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessage[] {
   const index = messages.findIndex((item) => item.id === message.id);
   const next = index === -1 ? [...messages, message] : messages.with(index, message);
@@ -521,32 +465,6 @@ function mergeQueueMessages(messages: ChatMessage[], queuedMessages: ChatMessage
     (message) => message.delivery !== "queued" || queuedMessageIds.has(message.id),
   );
   return queuedMessages.reduce(upsertMessage, retainedMessages);
-}
-
-function removeTranscriptMessage(
-  transcript: TranscriptTurn[],
-  messageId: string,
-): TranscriptTurn[] {
-  return transcript
-    .filter((turn) => turn.triggerMessage.id !== messageId)
-    .map((turn) => ({
-      ...turn,
-      assistantMessage: turn.assistantMessage?.id === messageId ? null : turn.assistantMessage,
-      steeringMessages: turn.steeringMessages.filter((message) => message.id !== messageId),
-    }));
-}
-
-function upsertRunItem(items: RunItem[], item: RunItem): RunItem[] {
-  const index = items.findIndex((current) => current.id === item.id);
-  const next = index === -1 ? [...items, item] : items.with(index, item);
-  return next.toSorted(compareRunItems);
-}
-
-function compareRunItems(left: RunItem, right: RunItem) {
-  if (left.createdAt === right.createdAt) {
-    return left.id.localeCompare(right.id);
-  }
-  return left.createdAt.localeCompare(right.createdAt);
 }
 
 function upsertRunItemOutput(outputs: RunItemOutput[], output: RunItemOutput): RunItemOutput[] {

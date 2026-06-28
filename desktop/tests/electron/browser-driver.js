@@ -82,6 +82,75 @@
     };
   }
 
+  // chatTranscriptBlockOrder returns the recognized transcript blocks in document order. It is
+  // the cross-phase diagnostic used by docs/plans/chronological_chat_transcript_plan.md to
+  // compare provider chronology, backend order, and DOM order. Today it reads the current DOM
+  // hooks (message role plus the run-activity-group/row test ids), so the order is flattened.
+  // Those hooks disappear in the Phase 5 refactor, so it also prefers a stable
+  // data-transcript-block + data-block-kind tagging when present; Phase 5 should add that so the
+  // characterization flip becomes a one-line expectation change instead of a driver rewrite.
+  function chatTranscriptBlockOrder() {
+    const blockSelector =
+      '[data-transcript-block], [data-chat-message="true"], [data-testid="run-activity-group"], [data-testid="run-activity-row"]';
+    const region =
+      document.querySelector('[data-testid="chat-transcript-region"]') ?? document.body;
+    const nodes = Array.from(region.querySelectorAll(blockSelector));
+    return {
+      blocks: nodes.map((node) => {
+        const kind = transcriptBlockKind(node);
+        return {
+          kind,
+          role: node.getAttribute("data-message-role") ?? "",
+          runId: node.closest("[data-run-id]")?.getAttribute("data-run-id") ?? "",
+          sourceRunItemId: node.getAttribute("data-run-item-id") ?? "",
+          text: transcriptBlockText(node, kind, blockSelector),
+        };
+      }),
+    };
+  }
+
+  function transcriptBlockKind(node) {
+    // Prefer the stable Phase 5 tagging when present; otherwise infer from the current hooks.
+    const blockKind = node.getAttribute("data-block-kind");
+    if (blockKind) {
+      return blockKind;
+    }
+    const testId = node.getAttribute("data-testid");
+    if (testId === "run-activity-group") {
+      return "activity_group";
+    }
+    if (testId === "run-activity-row") {
+      return "activity_row";
+    }
+    const role = node.getAttribute("data-message-role");
+    if (role === "user") {
+      return "user_message";
+    }
+    if (role === "assistant") {
+      return "assistant_text";
+    }
+    return role ? `message:${role}` : "message";
+  }
+
+  function transcriptBlockText(node, kind, blockSelector) {
+    if (kind === "assistant_text" || kind === "user_message") {
+      const role = node.getAttribute("data-message-role");
+      const content = node.querySelector(`[data-testid="chat-${role}-message-content"]`);
+      if (content instanceof HTMLElement) {
+        return collapseTranscriptWhitespace(content.textContent).slice(0, 240);
+      }
+    }
+    const clone = node.cloneNode(true);
+    for (const nested of Array.from(clone.querySelectorAll(blockSelector))) {
+      nested.remove();
+    }
+    return collapseTranscriptWhitespace(clone.textContent).slice(0, 240);
+  }
+
+  function collapseTranscriptWhitespace(text) {
+    return (text ?? "").replace(/\s+/g, " ").trim();
+  }
+
   function visibleUserMessageTexts() {
     return {
       rows: Array.from(document.querySelectorAll('[data-chat-message="true"]'))
@@ -129,6 +198,14 @@
   function modelPicker() {
     const picker = document.querySelector('[data-testid="model-picker"]');
     return { body: document.body.innerText, open: Boolean(picker), ready: Boolean(picker) };
+  }
+
+  function modelPickerSummaryButton() {
+    const button = document.querySelector('[aria-label="Open model and reasoning picker"]');
+    return {
+      ready: Boolean(button),
+      text: button instanceof HTMLElement ? button.innerText : "",
+    };
   }
 
   function modelPickerButtonReady({ text }) {
@@ -1337,6 +1414,7 @@
     clickModelPickerButton,
     buttonReady,
     chatLayoutMetrics,
+    chatTranscriptBlockOrder,
     chatTranscriptRows,
     composerFocus,
     composerReady,
@@ -1347,6 +1425,7 @@
     focusTerminalTextarea,
     maximizeTerminalPane,
     modelPicker,
+    modelPickerSummaryButton,
     modelPickerButtonReady,
     paneChromeEdgeFocusPoint,
     rendererWorkspace,
@@ -1363,7 +1442,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v8",
+    version: "setta-e2e-driver-v9",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,

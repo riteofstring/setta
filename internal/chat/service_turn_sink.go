@@ -35,8 +35,12 @@ func (sink turnSink) RunItemUpsert(item RunItem) error {
 	return sink.service.upsertRunItem(sink.workspaceID, sink.conversationID, sink.runID, item)
 }
 
-func (sink turnSink) ThreadLinked(threadID string, sessionID string, turnID string) error {
-	return sink.service.linkThread(sink.workspaceID, sink.conversationID, sink.runID, threadID, sessionID, turnID)
+func (sink turnSink) CodexEffectiveSettingsUpdated(settings ChatCodexEffectiveSettings) error {
+	return sink.service.updateCodexEffectiveSettings(sink.workspaceID, sink.conversationID, sink.runID, settings)
+}
+
+func (sink turnSink) ThreadLinked(threadID string, sessionID string, turnID string, settings *ChatCodexEffectiveSettings) error {
+	return sink.service.linkThread(sink.workspaceID, sink.conversationID, sink.runID, threadID, sessionID, turnID, settings)
 }
 
 func (sink turnSink) UserMessageCommitted(text string) error {

@@ -1,5 +1,6 @@
 import type {
   ApprovalAnswer,
+  ChatCommandDescriptor,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
@@ -11,9 +12,8 @@ import type {
   Diagnostic,
   ListConversationsResponse,
   ReasoningEffort,
-  RunItem,
   RunItemOutput,
-  TranscriptTurn,
+  TranscriptBlock,
 } from "@generated/backend";
 import type { BackendProcessStatus, ChatCommandExecutionOptions } from "@shared/types";
 
@@ -32,6 +32,7 @@ export interface ChatStore {
   clearClosedWorkspaceConversationLists: (activeWorkspaceIds: string[]) => void;
   commandListError: string | null;
   commandListStatus: CommandListStatus;
+  commandDescriptorCache: Record<string, ChatCommandDescriptor[] | undefined>;
   conversationDetailsById: Record<string, ConversationDetailState | undefined>;
   conversationListsByWorkspaceId: Record<string, WorkspaceConversationListState | undefined>;
   conversations: ConversationListItem[];
@@ -48,7 +49,6 @@ export interface ChatStore {
   lastEventSequence: number;
   lastEventStreamId: string;
   loadOlder: () => Promise<void>;
-  loadRunActivity: (runId: string, limit?: number) => Promise<void>;
   loadRunItemOutput: (
     runId: string,
     runItemId: string,
@@ -61,7 +61,7 @@ export interface ChatStore {
   messageIds: string[];
   messages: ChatMessage[];
   messagesById: Record<string, ChatMessage>;
-  olderBeforeOrdinal: number;
+  olderBeforeBlockOrdinal: number;
   operation: ChatOperation;
   queuedRuns: QueuedRun[];
   queueMessage: (prompt: string) => Promise<void>;
@@ -71,6 +71,7 @@ export interface ChatStore {
     raw: string,
     options?: ChatCommandExecutionOptions,
   ) => Promise<ChatCommandExecuteResult>;
+  openCodexModelPicker: () => Promise<ChatCommandExecuteResult>;
   setCodexModel: (modelId: string) => Promise<ChatCommandExecuteResult>;
   setCodexReasoningEffort: (effort: ReasoningEffort) => Promise<ChatCommandExecuteResult>;
   listCommands: () => Promise<ChatCommandListResult | null>;
@@ -78,13 +79,10 @@ export interface ChatStore {
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   deleteConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
-  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputs: RunItemOutput[];
   runItemOutputsById: Record<string, RunItemOutput>;
-  runItems: RunItem[];
-  runItemsById: Record<string, RunItem>;
   selectedConversation: Conversation | null;
   selectedConversationIdsByWorkspaceId: Record<string, string | undefined>;
   selectConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
@@ -106,7 +104,8 @@ export interface ChatStore {
     cancelled: boolean,
   ) => Promise<void>;
   workspaceId: string | null;
-  transcript: TranscriptTurn[];
+  transcriptBlocks: TranscriptBlock[];
+  transcriptBlocksById: Record<string, TranscriptBlock>;
 }
 
 export type ChatPatch = Partial<
@@ -115,6 +114,7 @@ export type ChatPatch = Partial<
     | "activeRun"
     | "commandListError"
     | "commandListStatus"
+    | "commandDescriptorCache"
     | "conversationDetailsById"
     | "conversationListsByWorkspaceId"
     | "conversations"
@@ -129,21 +129,19 @@ export type ChatPatch = Partial<
     | "messageIds"
     | "messages"
     | "messagesById"
-    | "olderBeforeOrdinal"
+    | "olderBeforeBlockOrdinal"
     | "operation"
     | "queuedRuns"
     | "removingQueuedMessageId"
-    | "runItemIdsByRunId"
     | "runItemOutputIdsByRunItemId"
     | "runItemOutputPagesByRunItemId"
     | "runItemOutputs"
     | "runItemOutputsById"
-    | "runItems"
-    | "runItemsById"
     | "selectedConversation"
     | "selectedConversationIdsByWorkspaceId"
     | "status"
-    | "transcript"
+    | "transcriptBlocks"
+    | "transcriptBlocksById"
     | "workspaceId"
   >
 >;

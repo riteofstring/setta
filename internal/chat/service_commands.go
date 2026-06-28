@@ -36,7 +36,7 @@ func (service *Service) ListCommands(workspaceID string, conversationID string) 
 		return ChatCommandListResult{}, err
 	}
 	if result.Commands == nil {
-		result.Commands = []ChatCommandCapability{}
+		result.Commands = []ChatCommandDescriptor{}
 	}
 	return ChatCommandListResult{Commands: result.Commands}, nil
 }
@@ -63,6 +63,10 @@ func (service *Service) SetChatCodexModel(workspaceID string, conversationID str
 		return ChatCommandExecuteResult{}, err
 	}
 	return service.executeChatCommand(workspaceID, conversationID, command, ChatCommandExecutionOptions{})
+}
+
+func (service *Service) OpenChatCodexModelPicker(workspaceID string, conversationID string) (ChatCommandExecuteResult, error) {
+	return service.executeChatCommand(workspaceID, conversationID, modelPickerChatCommand(), ChatCommandExecutionOptions{})
 }
 
 func (service *Service) SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort ReasoningEffort) (ChatCommandExecuteResult, error) {
@@ -282,7 +286,7 @@ func (service *Service) persistCommandMetadataLocked(workspaceID string, convers
 	if err != nil {
 		return Conversation{}, "", err
 	}
-	conversation, err = service.persistCommandCodexSettingsLocked(workspaceID, conversationID, conversation, harnessResult, now)
+	conversation, err = service.persistCommandCodexMetadataLocked(workspaceID, conversationID, conversation, harnessResult, now)
 	if err != nil {
 		return Conversation{}, "", err
 	}
@@ -348,12 +352,17 @@ func (service *Service) startGoalContinuationLocked(workspaceSummary workspace.W
 	if err != nil {
 		return false, err
 	}
+	ingest, err := service.newTranscriptIngestLocked(workspaceSummary.ID, run)
+	if err != nil {
+		return false, err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.active[key] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
 		runID:            run.ID,
 		workspaceID:      workspaceSummary.ID,
+		transcript:       ingest,
 	}
 	request := TurnRequest{
 		Workspace:    workspaceSummary,
@@ -396,11 +405,19 @@ func (service *Service) persistCommandThreadRefLocked(workspaceID string, conver
 	return conversation, nil
 }
 
-func (service *Service) persistCommandCodexSettingsLocked(workspaceID string, conversationID string, conversation Conversation, harnessResult HarnessCommandResult, now string) (Conversation, error) {
-	if harnessResult.CodexSettings == nil {
+func (service *Service) persistCommandCodexMetadataLocked(workspaceID string, conversationID string, conversation Conversation, harnessResult HarnessCommandResult, now string) (Conversation, error) {
+	changed := false
+	if harnessResult.CodexSettings != nil {
+		conversation.CodexSettings = harnessResult.CodexSettings
+		changed = true
+	}
+	if harnessResult.CodexEffectiveSettings != nil {
+		conversation.CodexEffectiveSettings = harnessResult.CodexEffectiveSettings
+		changed = true
+	}
+	if !changed {
 		return conversation, nil
 	}
-	conversation.CodexSettings = harnessResult.CodexSettings
 	conversation.UpdatedAt = now
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return Conversation{}, err
@@ -487,6 +504,7 @@ func commandResult(command ChatCommand, harnessResult HarnessCommandResult) Chat
 	}
 	result := ChatCommandResult{
 		Action:                  action,
+		ComposerDraft:           commandComposerDraft(command, harnessResult),
 		Goal:                    harnessResult.Goal,
 		Kind:                    command.Kind,
 		Models:                  nonNilModels(harnessResult.Models),
@@ -500,6 +518,24 @@ func commandResult(command ChatCommand, harnessResult HarnessCommandResult) Chat
 		result.Message = strings.TrimSpace(result.Message + " " + harnessResult.CapabilityDiagnostic)
 	}
 	return result
+}
+
+func commandComposerDraft(command ChatCommand, harnessResult HarnessCommandResult) string {
+	if harnessResult.Action != ChatCommandResultGoalEditor || command.Kind != ChatCommandGoal || command.Goal == nil {
+		return ""
+	}
+	name, ok := chatCommandNameBySlashKind(ChatSlashCommandGoal)
+	if !ok {
+		return ""
+	}
+	objective := ""
+	if harnessResult.Goal != nil {
+		objective = strings.TrimSpace(harnessResult.Goal.Objective)
+	}
+	if objective == "" {
+		return name + " "
+	}
+	return name + " " + objective
 }
 
 func nonNilModels(models []ChatModelOption) []ChatModelOption {

@@ -30,6 +30,13 @@ func handleFakeModelList(mode string, state *fakeCodexState, message map[string]
 		return handleFakePaginatedModelList(state, message)
 	}
 	writeFakeDefaultModelListResponse(message["id"])
+	switch mode {
+	case "command-model-set",
+		"command-model-set-no-notification",
+		"command-model-set-unsupported-settings-update",
+		"command-effort-set":
+		return false
+	}
 	return fakeCommandDone(mode)
 }
 
@@ -87,6 +94,7 @@ func writeFakeModelListFirstPage(id any) {
 				"model":                  "gpt-test",
 				"supportedReasoningEfforts": []map[string]any{
 					{"description": "High reasoning.", "reasoningEffort": "high"},
+					{"description": "Extra high reasoning.", "reasoningEffort": "xhigh"},
 				},
 			},
 		},

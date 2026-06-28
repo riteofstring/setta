@@ -1,9 +1,10 @@
-import type { WorkspaceSummary } from "@generated/backend";
+import type { ChatMessage, TranscriptBlock, WorkspaceSummary } from "@generated/backend";
 import { AlertTriangle, Check, Maximize2, Minimize2 } from "lucide-react";
 import { Square } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
 import { useChatStore } from "../stores/chat-store";
+import type { QueuedRun } from "../stores/chat-store-normalization";
 import { cn } from "../lib/utils";
 import { Composer } from "./chat-composer";
 import {
@@ -14,11 +15,8 @@ import {
 import { ChatTranscript } from "./chat-transcript";
 
 export {
-  CommandSuggestions,
+  CommandPalette,
   commandSuggestions,
-  commandTextToExecute,
-  goalEditorDraft,
-  goalReplacementExecutionOptions,
   modelPickerOptionSelected,
   reasoningEffortOptionSelected,
 } from "./chat-composer";
@@ -250,26 +248,24 @@ export function ConversationBody({
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <ChatTranscript
           activeRun={chat.activeRun}
+          blocks={chat.transcriptBlocks}
           editQueuedMessage={chat.editQueuedMessage}
           editingQueuedMessageId={chat.editingQueuedMessageId}
           hasMoreOlder={chat.hasMoreOlder}
           loadOlder={chat.loadOlder}
           loadRunItemOutput={chat.loadRunItemOutput}
-          messageIds={chat.messageIds}
-          messagesById={chat.messagesById}
+          messages={chat.messages}
           operation={chat.operation}
+          queuedMessages={chat.queuedMessages}
           removeQueuedMessage={chat.removeQueuedMessage}
           removingQueuedMessageId={chat.removingQueuedMessageId}
-          runItemIdsByRunId={chat.runItemIdsByRunId}
           runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
           runItemOutputsById={chat.runItemOutputsById}
-          runItemsById={chat.runItemsById}
           searchOpen={searchOpen}
           sendSteeringImmediately={chat.sendSteeringImmediately}
           setSearchOpen={setSearchOpen}
           submitApproval={chat.submitApproval}
-          transcript={chat.transcript}
         />
       </div>
     </div>
@@ -400,19 +396,19 @@ export function useChatViewState() {
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const listCommands = useChatStore((state) => state.listCommands);
   const markConversationRead = useChatStore((state) => state.markConversationRead);
-  const messageIds = useChatStore((state) => state.messageIds);
+  const messages = useChatStore((state) => state.messages);
   const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
+  const openCodexModelPicker = useChatStore((state) => state.openCodexModelPicker);
+  const queuedRuns = useChatStore((state) => state.queuedRuns);
   const queueMessage = useChatStore((state) => state.queueMessage);
   const removeQueuedMessage = useChatStore((state) => state.removeQueuedMessage);
   const removingQueuedMessageId = useChatStore((state) => state.removingQueuedMessageId);
-  const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
   const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
   const runItemOutputPagesByRunItemId = useChatStore(
     (state) => state.runItemOutputPagesByRunItemId,
   );
   const runItemOutputsById = useChatStore((state) => state.runItemOutputsById);
-  const runItemsById = useChatStore((state) => state.runItemsById);
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
@@ -425,21 +421,22 @@ export function useChatViewState() {
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
-  const transcript = useChatStore((state) => state.transcript);
+  const transcriptBlocks = useChatStore((state) => state.transcriptBlocks);
   const activeRunId = activeRun?.id ?? "";
+  const queuedMessages = useMemo(
+    () => queuedMessagesFromRuns(queuedRuns, messagesById),
+    [messagesById, queuedRuns],
+  );
   const pendingSteeringMessageIds = useMemo(() => {
     if (activeRunId === "") {
       return emptyPendingSteeringMessageIds;
     }
-    const turn = transcript.find((candidate) => candidate.run.id === activeRunId);
-    if (!turn) {
-      return emptyPendingSteeringMessageIds;
-    }
-    const pendingIds = turn.steeringMessages
-      .filter((message) => message.status === "pending")
-      .map((message) => message.id);
+    const pendingIds = transcriptBlocks
+      .filter((block) => isPendingSteeringBlock(block, activeRunId))
+      .map((block) => block.userMessage?.messageId ?? "")
+      .filter((messageId) => messageId !== "");
     return pendingIds.length === 0 ? emptyPendingSteeringMessageIds : pendingIds;
-  }, [activeRunId, transcript]);
+  }, [activeRunId, transcriptBlocks]);
 
   const selectedConversationSummary =
     selectedConversation?.workspaceId === storeWorkspaceId
@@ -478,18 +475,17 @@ export function useChatViewState() {
     loadOlder,
     loadRunItemOutput,
     listCommands,
-    messageIds,
-    messagesById,
+    messages,
     operation,
+    openCodexModelPicker,
     pendingSteeringMessageIds,
+    queuedMessages,
     queueMessage,
     removeQueuedMessage,
     removingQueuedMessageId,
-    runItemIdsByRunId,
     runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,
     runItemOutputsById,
-    runItemsById,
     selectConversation,
     selectedConversation,
     sendMessage,
@@ -501,7 +497,25 @@ export function useChatViewState() {
     steerMessage,
     stopActiveRun,
     submitApproval,
-    transcript,
+    transcriptBlocks,
     workspaceId: storeWorkspaceId,
   };
+}
+
+function queuedMessagesFromRuns(
+  queuedRuns: QueuedRun[],
+  messagesById: Record<string, ChatMessage>,
+): ChatMessage[] {
+  return queuedRuns
+    .map((run) => messagesById[run.triggerMessageId])
+    .filter((message): message is ChatMessage => message !== undefined);
+}
+
+function isPendingSteeringBlock(block: TranscriptBlock, activeRunId: string) {
+  return (
+    block.kind === "user_message" &&
+    block.runId === activeRunId &&
+    block.userMessage?.delivery === "steering" &&
+    block.userMessage.status === "pending"
+  );
 }

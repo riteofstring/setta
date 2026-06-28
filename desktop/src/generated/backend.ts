@@ -13,6 +13,7 @@ import {
   decodeNumber,
   decodeString,
   decodeUnknown,
+  assertTaggedUnionBranch,
   requestBackend,
   requireField,
   type BackendFetch,
@@ -680,6 +681,102 @@ export function decodeTextFormat(value: unknown, label = "TextFormat"): TextForm
   }
 }
 
+export type RunStatus = "queued" | "running" | "completed" | "cancelled" | "failed";
+
+export const runStatusValues = ["queued", "running", "completed", "cancelled", "failed"] as const satisfies readonly RunStatus[];
+
+export function decodeRunStatus(value: unknown, label = "RunStatus"): RunStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "queued":
+      return decoded;
+    case "running":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "failed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type StructuredInputMode = "form" | "url";
+
+export const structuredInputModeValues = ["form", "url"] as const satisfies readonly StructuredInputMode[];
+
+export function decodeStructuredInputMode(value: unknown, label = "StructuredInputMode"): StructuredInputMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "form":
+      return decoded;
+    case "url":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TranscriptBlockKind = "user_message" | "assistant_text" | "reasoning" | "activity_item" | "run_status";
+
+export const transcriptBlockKindValues = ["user_message", "assistant_text", "reasoning", "activity_item", "run_status"] as const satisfies readonly TranscriptBlockKind[];
+
+export function decodeTranscriptBlockKind(value: unknown, label = "TranscriptBlockKind"): TranscriptBlockKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "user_message":
+      return decoded;
+    case "assistant_text":
+      return decoded;
+    case "reasoning":
+      return decoded;
+    case "activity_item":
+      return decoded;
+    case "run_status":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TranscriptBlockStatus = "streaming" | "complete" | "cancelled" | "failed";
+
+export const transcriptBlockStatusValues = ["streaming", "complete", "cancelled", "failed"] as const satisfies readonly TranscriptBlockStatus[];
+
+export function decodeTranscriptBlockStatus(value: unknown, label = "TranscriptBlockStatus"): TranscriptBlockStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "streaming":
+      return decoded;
+    case "complete":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "failed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ReasoningBlockMode = "thinking" | "summary";
+
+export const reasoningBlockModeValues = ["thinking", "summary"] as const satisfies readonly ReasoningBlockMode[];
+
+export function decodeReasoningBlockMode(value: unknown, label = "ReasoningBlockMode"): ReasoningBlockMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "thinking":
+      return decoded;
+    case "summary":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "context_compaction" | "notice" | "approval_review" | "hook" | "structured_input";
 
 export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "context_compaction", "notice", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
@@ -728,16 +825,14 @@ export function decodeRunItemType(value: unknown, label = "RunItemType"): RunIte
   }
 }
 
-export type RunStatus = "queued" | "running" | "completed" | "cancelled" | "failed";
+export type RunStatusBlockMode = "working" | "completed" | "cancelled" | "failed";
 
-export const runStatusValues = ["queued", "running", "completed", "cancelled", "failed"] as const satisfies readonly RunStatus[];
+export const runStatusBlockModeValues = ["working", "completed", "cancelled", "failed"] as const satisfies readonly RunStatusBlockMode[];
 
-export function decodeRunStatus(value: unknown, label = "RunStatus"): RunStatus {
+export function decodeRunStatusBlockMode(value: unknown, label = "RunStatusBlockMode"): RunStatusBlockMode {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "queued":
-      return decoded;
-    case "running":
+    case "working":
       return decoded;
     case "completed":
       return decoded;
@@ -750,32 +845,44 @@ export function decodeRunStatus(value: unknown, label = "RunStatus"): RunStatus 
   }
 }
 
-export type StructuredInputMode = "form" | "url";
+export type ChatSlashCommandKind = "goal";
 
-export const structuredInputModeValues = ["form", "url"] as const satisfies readonly StructuredInputMode[];
+export const chatSlashCommandKindValues = ["goal"] as const satisfies readonly ChatSlashCommandKind[];
 
-export function decodeStructuredInputMode(value: unknown, label = "StructuredInputMode"): StructuredInputMode {
+export function decodeChatSlashCommandKind(value: unknown, label = "ChatSlashCommandKind"): ChatSlashCommandKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "form":
-      return decoded;
-    case "url":
+    case "goal":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
   }
 }
 
-export type ChatCommandKind = "goal" | "model";
+export type ChatCommandLiteralMatchMode = "exact";
 
-export const chatCommandKindValues = ["goal", "model"] as const satisfies readonly ChatCommandKind[];
+export const chatCommandLiteralMatchModeValues = ["exact"] as const satisfies readonly ChatCommandLiteralMatchMode[];
 
-export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
+export function decodeChatCommandLiteralMatchMode(value: unknown, label = "ChatCommandLiteralMatchMode"): ChatCommandLiteralMatchMode {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "goal":
+    case "exact":
       return decoded;
-    case "model":
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ChatCommandArgumentKind = "literal" | "free_text";
+
+export const chatCommandArgumentKindValues = ["literal", "free_text"] as const satisfies readonly ChatCommandArgumentKind[];
+
+export function decodeChatCommandArgumentKind(value: unknown, label = "ChatCommandArgumentKind"): ChatCommandArgumentKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "literal":
+      return decoded;
+    case "free_text":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -794,6 +901,22 @@ export function decodeChatCommandResultAction(value: unknown, label = "ChatComma
     case "goal_editor":
       return decoded;
     case "model_picker":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ChatCommandKind = "goal" | "model";
+
+export const chatCommandKindValues = ["goal", "model"] as const satisfies readonly ChatCommandKind[];
+
+export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "goal":
+      return decoded;
+    case "model":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2243,24 +2366,11 @@ export interface AppearanceAccentPalette {
   teal: string;
 }
 
-export interface AppearanceWorkspacePalette {
-  surface: string;
-  dotGrid: string;
-  paneSurface: string;
-  paneTitleBarSurface: string;
-  paneEdge: string;
-  paneSelectedOutline: string;
-  paneSelectedGlow: string;
-  dragTargetSurface: string;
-  dragTargetOutline: string;
-}
-
 export interface AppearanceColorScheme {
   tailwind: AppearanceTailwindPalette;
   shadcn: AppearanceShadcnPalette;
   status: AppearanceStatusPalette;
   accent: AppearanceAccentPalette;
-  workspace: AppearanceWorkspacePalette;
 }
 
 export interface AppearanceFontScheme {
@@ -2572,6 +2682,13 @@ export interface ChatCodexSettings {
   reasoningEffort: ReasoningEffort | null;
 }
 
+export interface ChatCodexEffectiveSettings {
+  model: string;
+  modelDisplayName: string;
+  reasoningEffort: ReasoningEffort | null;
+  reasoningEffortDisplayName: string;
+}
+
 export interface HarnessThreadRef {
   harness: HarnessKind;
   threadId: string;
@@ -2601,6 +2718,7 @@ export interface Conversation {
   updatedAt: string;
   archivedAt: string;
   codexSettings: ChatCodexSettings | null;
+  codexEffectiveSettings: ChatCodexEffectiveSettings | null;
   harnessRefs: HarnessThreadRef[];
   workflow: ConversationWorkflowMetadata | null;
 }
@@ -2670,7 +2788,7 @@ export interface SetConversationPinnedRequest {
 export interface GetMessagePageRequest {
   workspaceId: string;
   conversationId: string;
-  beforeOrdinal: number;
+  beforeBlockOrdinal: number;
   limit: number;
 }
 
@@ -2693,52 +2811,6 @@ export interface ChatMessage {
   updatedAt: string;
   status: MessageStatus;
   parts: MessagePart[];
-}
-
-export interface RunItem {
-  schemaVersion: number;
-  id: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  providerItemId: string;
-  type: RunItemType;
-  status: RunItemStatus;
-  createdAt: string;
-  startedAt: string;
-  completedAt: string;
-  title: string;
-  summary: string;
-  command: string;
-  cwd: string;
-  exitCode: number;
-  durationMs: number;
-  filePaths: string[];
-  patchStatus: string;
-  serverName: string;
-  toolName: string;
-  progress: string;
-  result: string;
-  error: string;
-  noticeKind: string;
-  noticeMessage: string;
-  diffSummary: string;
-  namespace: string;
-  processId: string;
-  requestId: string;
-  reviewId: string;
-  details: unknown;
-  hiddenText: string;
-}
-
-export interface RunItemOutput {
-  schemaVersion: number;
-  id: string;
-  runItemId: string;
-  stream: string;
-  ordinal: number;
-  text: string;
-  createdAt: string;
 }
 
 export interface ApprovalQuestion {
@@ -2806,11 +2878,81 @@ export interface QueueState {
   runs: Run[];
 }
 
-export interface TranscriptTurn {
-  run: Run;
-  triggerMessage: ChatMessage;
-  assistantMessage: ChatMessage | null;
-  steeringMessages: ChatMessage[];
+export interface TranscriptMessageProjection {
+  messageId: string;
+  role: MessageRole;
+  delivery: MessageDelivery;
+  status: MessageStatus;
+  parts: MessagePart[];
+}
+
+export interface AssistantTextBlockProjection {
+  text: string;
+  format: TextFormat;
+}
+
+export interface ReasoningBlockProjection {
+  sourceRunItemId: string;
+  mode: ReasoningBlockMode;
+  headline: string;
+  summary: string;
+}
+
+export interface RunActivityDetailsProjection {
+  summary: string;
+  command: string;
+  cwd: string;
+  exitCode: number;
+  durationMs: number;
+  filePaths: string[];
+  patchStatus: string;
+  serverName: string;
+  toolName: string;
+  progress: string;
+  result: string;
+  error: string;
+  noticeKind: string;
+  noticeMessage: string;
+  diffSummary: string;
+  namespace: string;
+  processId: string;
+  requestId: string;
+  reviewId: string;
+  details: unknown;
+}
+
+export interface ActivityItemBlockProjection {
+  sourceRunItemId: string;
+  type: RunItemType;
+  title: string;
+  status: RunItemStatus;
+  details: RunActivityDetailsProjection;
+  hasDetails: boolean;
+  hasOutput: boolean;
+}
+
+export interface RunStatusBlockProjection {
+  mode: RunStatusBlockMode;
+  label: string;
+  error: string;
+}
+
+export interface TranscriptBlock {
+  schemaVersion: number;
+  id: string;
+  conversationId: string;
+  runId: string;
+  kind: TranscriptBlockKind;
+  ordinal: number;
+  runAnchorOrdinal: number;
+  status: TranscriptBlockStatus;
+  createdAt: string;
+  updatedAt: string;
+  userMessage: TranscriptMessageProjection | null;
+  assistantText: AssistantTextBlockProjection | null;
+  reasoning: ReasoningBlockProjection | null;
+  activity: ActivityItemBlockProjection | null;
+  runStatus: RunStatusBlockProjection | null;
 }
 
 export interface ChatGoalState {
@@ -2827,13 +2969,11 @@ export interface ChatGoalState {
 export interface MessagePage {
   conversation: Conversation;
   messages: ChatMessage[];
-  runItems: RunItem[];
-  runItemOutputs: RunItemOutput[];
   queue: QueueState;
-  transcript: TranscriptTurn[];
+  blocks: TranscriptBlock[];
   goal: ChatGoalState | null;
   hasMoreOlder: boolean;
-  olderBeforeOrdinal: number;
+  olderBeforeBlockOrdinal: number;
 }
 
 export interface SendChatMessageRequest {
@@ -2926,17 +3066,37 @@ export interface ListChatCommandsRequest {
   conversationId: string;
 }
 
-export interface ChatCommandCapability {
-  kind: ChatCommandKind;
+export interface ChatCommandLiteralArgumentSpec {
+  kind: ChatCommandArgumentKind;
+  token: string;
+  description: string;
+}
+
+export interface ChatCommandFreeTextArgumentSpec {
+  kind: ChatCommandArgumentKind;
   name: string;
-  usage: string;
+  description: string;
+  maxRunes: number;
+  required: boolean;
+}
+
+export interface ChatCommandGrammar {
+  summary: string;
+  literalMatch: ChatCommandLiteralMatchMode;
+  arguments: ChatCommandArgumentSpec[];
+}
+
+export interface ChatCommandDescriptor {
+  kind: ChatSlashCommandKind;
+  name: string;
   description: string;
   available: boolean;
   unavailableReason: string;
+  grammar: ChatCommandGrammar;
 }
 
 export interface ChatCommandListResult {
-  commands: ChatCommandCapability[];
+  commands: ChatCommandDescriptor[];
 }
 
 export interface ExecuteChatCommandRequest {
@@ -2970,6 +3130,7 @@ export interface ChatCommandResult {
   raw: string;
   title: string;
   message: string;
+  composerDraft: string;
   goal: ChatGoalState | null;
   models: ChatModelOption[];
   selectedModel: string;
@@ -2982,6 +3143,11 @@ export interface ChatCommandExecuteResult {
   message: ChatMessage | null;
   page: MessagePage;
   result: ChatCommandResult;
+}
+
+export interface OpenChatCodexModelPickerRequest {
+  workspaceId: string;
+  conversationId: string;
 }
 
 export interface SetChatCodexModelRequest {
@@ -3026,10 +3192,57 @@ export interface GetRunActivityRequest {
   limit: number;
 }
 
+export interface RunItem {
+  schemaVersion: number;
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  providerItemId: string;
+  type: RunItemType;
+  status: RunItemStatus;
+  createdAt: string;
+  startedAt: string;
+  completedAt: string;
+  title: string;
+  summary: string;
+  command: string;
+  cwd: string;
+  exitCode: number;
+  durationMs: number;
+  filePaths: string[];
+  patchStatus: string;
+  serverName: string;
+  toolName: string;
+  progress: string;
+  result: string;
+  error: string;
+  noticeKind: string;
+  noticeMessage: string;
+  diffSummary: string;
+  namespace: string;
+  processId: string;
+  requestId: string;
+  reviewId: string;
+  details: unknown;
+  hiddenText: string;
+}
+
+export interface RunItemOutput {
+  schemaVersion: number;
+  id: string;
+  runItemId: string;
+  stream: string;
+  ordinal: number;
+  text: string;
+  createdAt: string;
+}
+
 export interface RunActivityPage {
   runId: string;
   items: RunItem[];
   output: RunItemOutput[];
+  activity: ActivityItemBlockProjection[];
 }
 
 export interface GetRunItemOutputRequest {
@@ -4833,6 +5046,25 @@ export interface RunItemOutputDeltaPayload {
   output: RunItemOutput;
 }
 
+export interface TranscriptBlockCreatedPayload {
+  block: TranscriptBlock;
+}
+
+export interface TranscriptBlockUpdatedPayload {
+  block: TranscriptBlock;
+}
+
+export interface TranscriptTextDeltaPayload {
+  blockId: string;
+  delta: string;
+  updatedAt: string;
+}
+
+export interface TranscriptBlocksReplacedPayload {
+  runId: string;
+  blocks: TranscriptBlock[];
+}
+
 export interface QueueUpdatedPayload {
   queue: QueueState;
 }
@@ -4862,6 +5094,11 @@ export interface CodexAccountChangedPayload {
   reason: string;
 }
 
+export type ChatCommandArgumentSpec =
+  ChatCommandLiteralArgumentSpec
+  | ChatCommandFreeTextArgumentSpec
+;
+
 export type ChatEvent =
   ChatMessageCreatedEvent
   | ChatMessageQueuedEvent
@@ -4873,6 +5110,10 @@ export type ChatEvent =
   | ChatRunItemCreatedEvent
   | ChatRunItemUpdatedEvent
   | ChatRunItemOutputDeltaEvent
+  | ChatTranscriptBlockCreatedEvent
+  | ChatTranscriptBlockUpdatedEvent
+  | ChatTranscriptTextDeltaEvent
+  | ChatTranscriptBlocksReplacedEvent
   | ChatQueueUpdatedEvent
   | ChatGoalUpdatedEvent
   | ChatConversationUpdatedEvent
@@ -5009,6 +5250,58 @@ export interface ChatRunItemOutputDeltaEvent {
   conversationId: string;
   runId: string;
   payload: RunItemOutputDeltaPayload;
+}
+
+export interface ChatTranscriptBlockCreatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.transcript_block.created";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: TranscriptBlockCreatedPayload;
+}
+
+export interface ChatTranscriptBlockUpdatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.transcript_block.updated";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: TranscriptBlockUpdatedPayload;
+}
+
+export interface ChatTranscriptTextDeltaEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.transcript_text.delta";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: TranscriptTextDeltaPayload;
+}
+
+export interface ChatTranscriptBlocksReplacedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.transcript_blocks.replaced";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: TranscriptBlocksReplacedPayload;
 }
 
 export interface ChatQueueUpdatedEvent {
@@ -5213,6 +5506,10 @@ export const backendEndpoints = {
   ExecuteChatCommand: {
     method: "POST",
     path: "/chat/commands/execute",
+  },
+  OpenChatCodexModelPicker: {
+    method: "POST",
+    path: "/chat/codex/model/picker",
   },
   SetChatCodexModel: {
     method: "POST",
@@ -5637,31 +5934,14 @@ export function decodeAppearanceAccentPalette(value: unknown): AppearanceAccentP
   };
 }
 
-export function decodeAppearanceWorkspacePalette(value: unknown): AppearanceWorkspacePalette {
-  const record = assertRecord(value, "AppearanceWorkspacePalette");
-  assertKnownFields(record, "AppearanceWorkspacePalette", ["surface", "dotGrid", "paneSurface", "paneTitleBarSurface", "paneEdge", "paneSelectedOutline", "paneSelectedGlow", "dragTargetSurface", "dragTargetOutline"]);
-  return {
-    surface: decodeString(requireField(record, "surface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.surface"),
-    dotGrid: decodeString(requireField(record, "dotGrid", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.dotGrid"),
-    paneSurface: decodeString(requireField(record, "paneSurface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneSurface"),
-    paneTitleBarSurface: decodeString(requireField(record, "paneTitleBarSurface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneTitleBarSurface"),
-    paneEdge: decodeString(requireField(record, "paneEdge", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneEdge"),
-    paneSelectedOutline: decodeString(requireField(record, "paneSelectedOutline", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneSelectedOutline"),
-    paneSelectedGlow: decodeString(requireField(record, "paneSelectedGlow", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneSelectedGlow"),
-    dragTargetSurface: decodeString(requireField(record, "dragTargetSurface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.dragTargetSurface"),
-    dragTargetOutline: decodeString(requireField(record, "dragTargetOutline", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.dragTargetOutline"),
-  };
-}
-
 export function decodeAppearanceColorScheme(value: unknown): AppearanceColorScheme {
   const record = assertRecord(value, "AppearanceColorScheme");
-  assertKnownFields(record, "AppearanceColorScheme", ["tailwind", "shadcn", "status", "accent", "workspace"]);
+  assertKnownFields(record, "AppearanceColorScheme", ["tailwind", "shadcn", "status", "accent"]);
   return {
     tailwind: decodeAppearanceTailwindPalette(requireField(record, "tailwind", "AppearanceColorScheme")),
     shadcn: decodeAppearanceShadcnPalette(requireField(record, "shadcn", "AppearanceColorScheme")),
     status: decodeAppearanceStatusPalette(requireField(record, "status", "AppearanceColorScheme")),
     accent: decodeAppearanceAccentPalette(requireField(record, "accent", "AppearanceColorScheme")),
-    workspace: decodeAppearanceWorkspacePalette(requireField(record, "workspace", "AppearanceColorScheme")),
   };
 }
 
@@ -6146,6 +6426,17 @@ export function decodeChatCodexSettings(value: unknown): ChatCodexSettings {
   };
 }
 
+export function decodeChatCodexEffectiveSettings(value: unknown): ChatCodexEffectiveSettings {
+  const record = assertRecord(value, "ChatCodexEffectiveSettings");
+  assertKnownFields(record, "ChatCodexEffectiveSettings", ["model", "modelDisplayName", "reasoningEffort", "reasoningEffortDisplayName"]);
+  return {
+    model: decodeString(requireField(record, "model", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.model"),
+    modelDisplayName: decodeString(requireField(record, "modelDisplayName", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.modelDisplayName"),
+    reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexEffectiveSettings.reasoningEffort")),
+    reasoningEffortDisplayName: decodeString(requireField(record, "reasoningEffortDisplayName", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffortDisplayName"),
+  };
+}
+
 export function decodeHarnessThreadRef(value: unknown): HarnessThreadRef {
   const record = assertRecord(value, "HarnessThreadRef");
   assertKnownFields(record, "HarnessThreadRef", ["harness", "threadId", "sessionId", "lastTurnId", "status", "createdAt", "lastResumedAt", "unavailableMessage"]);
@@ -6175,7 +6466,7 @@ export function decodeConversationWorkflowMetadata(value: unknown): Conversation
 
 export function decodeConversation(value: unknown): Conversation {
   const record = assertRecord(value, "Conversation");
-  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "harnessRefs", "workflow"]);
+  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Conversation"), "Conversation.schemaVersion"),
     id: decodeString(requireField(record, "id", "Conversation"), "Conversation.id"),
@@ -6186,6 +6477,7 @@ export function decodeConversation(value: unknown): Conversation {
     updatedAt: decodeString(requireField(record, "updatedAt", "Conversation"), "Conversation.updatedAt"),
     archivedAt: decodeString(requireField(record, "archivedAt", "Conversation"), "Conversation.archivedAt"),
     codexSettings: decodeNullable(requireField(record, "codexSettings", "Conversation"), "Conversation.codexSettings", (item) => decodeChatCodexSettings(item)),
+    codexEffectiveSettings: decodeNullable(requireField(record, "codexEffectiveSettings", "Conversation"), "Conversation.codexEffectiveSettings", (item) => decodeChatCodexEffectiveSettings(item)),
     harnessRefs: decodeArray(requireField(record, "harnessRefs", "Conversation"), "Conversation.harnessRefs", (item) => decodeHarnessThreadRef(item)),
     workflow: decodeNullable(requireField(record, "workflow", "Conversation"), "Conversation.workflow", (item) => decodeConversationWorkflowMetadata(item)),
   };
@@ -6291,11 +6583,11 @@ export function decodeSetConversationPinnedRequest(value: unknown): SetConversat
 
 export function decodeGetMessagePageRequest(value: unknown): GetMessagePageRequest {
   const record = assertRecord(value, "GetMessagePageRequest");
-  assertKnownFields(record, "GetMessagePageRequest", ["workspaceId", "conversationId", "beforeOrdinal", "limit"]);
+  assertKnownFields(record, "GetMessagePageRequest", ["workspaceId", "conversationId", "beforeBlockOrdinal", "limit"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "GetMessagePageRequest"), "GetMessagePageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "GetMessagePageRequest"), "GetMessagePageRequest.conversationId"),
-    beforeOrdinal: decodeInteger(requireField(record, "beforeOrdinal", "GetMessagePageRequest"), "GetMessagePageRequest.beforeOrdinal"),
+    beforeBlockOrdinal: decodeInteger(requireField(record, "beforeBlockOrdinal", "GetMessagePageRequest"), "GetMessagePageRequest.beforeBlockOrdinal"),
     limit: decodeInteger(requireField(record, "limit", "GetMessagePageRequest"), "GetMessagePageRequest.limit"),
   };
 }
@@ -6326,60 +6618,6 @@ export function decodeChatMessage(value: unknown): ChatMessage {
     updatedAt: decodeString(requireField(record, "updatedAt", "ChatMessage"), "ChatMessage.updatedAt"),
     status: decodeMessageStatus(requireField(record, "status", "ChatMessage"), "ChatMessage.status"),
     parts: decodeArray(requireField(record, "parts", "ChatMessage"), "ChatMessage.parts", (item) => decodeMessagePart(item)),
-  };
-}
-
-export function decodeRunItem(value: unknown): RunItem {
-  const record = assertRecord(value, "RunItem");
-  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "hiddenText"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItem"), "RunItem.schemaVersion"),
-    id: decodeString(requireField(record, "id", "RunItem"), "RunItem.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "RunItem"), "RunItem.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "RunItem"), "RunItem.conversationId"),
-    runId: decodeString(requireField(record, "runId", "RunItem"), "RunItem.runId"),
-    providerItemId: decodeString(requireField(record, "providerItemId", "RunItem"), "RunItem.providerItemId"),
-    type: decodeRunItemType(requireField(record, "type", "RunItem"), "RunItem.type"),
-    status: decodeRunItemStatus(requireField(record, "status", "RunItem"), "RunItem.status"),
-    createdAt: decodeString(requireField(record, "createdAt", "RunItem"), "RunItem.createdAt"),
-    startedAt: decodeString(requireField(record, "startedAt", "RunItem"), "RunItem.startedAt"),
-    completedAt: decodeString(requireField(record, "completedAt", "RunItem"), "RunItem.completedAt"),
-    title: decodeString(requireField(record, "title", "RunItem"), "RunItem.title"),
-    summary: decodeString(requireField(record, "summary", "RunItem"), "RunItem.summary"),
-    command: decodeString(requireField(record, "command", "RunItem"), "RunItem.command"),
-    cwd: decodeString(requireField(record, "cwd", "RunItem"), "RunItem.cwd"),
-    exitCode: decodeInteger(requireField(record, "exitCode", "RunItem"), "RunItem.exitCode"),
-    durationMs: decodeInteger(requireField(record, "durationMs", "RunItem"), "RunItem.durationMs"),
-    filePaths: decodeArray(requireField(record, "filePaths", "RunItem"), "RunItem.filePaths", (item) => decodeString(item, "RunItem.filePaths item")),
-    patchStatus: decodeString(requireField(record, "patchStatus", "RunItem"), "RunItem.patchStatus"),
-    serverName: decodeString(requireField(record, "serverName", "RunItem"), "RunItem.serverName"),
-    toolName: decodeString(requireField(record, "toolName", "RunItem"), "RunItem.toolName"),
-    progress: decodeString(requireField(record, "progress", "RunItem"), "RunItem.progress"),
-    result: decodeString(requireField(record, "result", "RunItem"), "RunItem.result"),
-    error: decodeString(requireField(record, "error", "RunItem"), "RunItem.error"),
-    noticeKind: decodeString(requireField(record, "noticeKind", "RunItem"), "RunItem.noticeKind"),
-    noticeMessage: decodeString(requireField(record, "noticeMessage", "RunItem"), "RunItem.noticeMessage"),
-    diffSummary: decodeString(requireField(record, "diffSummary", "RunItem"), "RunItem.diffSummary"),
-    namespace: decodeString(requireField(record, "namespace", "RunItem"), "RunItem.namespace"),
-    processId: decodeString(requireField(record, "processId", "RunItem"), "RunItem.processId"),
-    requestId: decodeString(requireField(record, "requestId", "RunItem"), "RunItem.requestId"),
-    reviewId: decodeString(requireField(record, "reviewId", "RunItem"), "RunItem.reviewId"),
-    details: decodeUnknown(requireField(record, "details", "RunItem"), "RunItem.details"),
-    hiddenText: decodeString(requireField(record, "hiddenText", "RunItem"), "RunItem.hiddenText"),
-  };
-}
-
-export function decodeRunItemOutput(value: unknown): RunItemOutput {
-  const record = assertRecord(value, "RunItemOutput");
-  assertKnownFields(record, "RunItemOutput", ["schemaVersion", "id", "runItemId", "stream", "ordinal", "text", "createdAt"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItemOutput"), "RunItemOutput.schemaVersion"),
-    id: decodeString(requireField(record, "id", "RunItemOutput"), "RunItemOutput.id"),
-    runItemId: decodeString(requireField(record, "runItemId", "RunItemOutput"), "RunItemOutput.runItemId"),
-    stream: decodeString(requireField(record, "stream", "RunItemOutput"), "RunItemOutput.stream"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "RunItemOutput"), "RunItemOutput.ordinal"),
-    text: decodeString(requireField(record, "text", "RunItemOutput"), "RunItemOutput.text"),
-    createdAt: decodeString(requireField(record, "createdAt", "RunItemOutput"), "RunItemOutput.createdAt"),
   };
 }
 
@@ -6468,15 +6706,117 @@ export function decodeQueueState(value: unknown): QueueState {
   };
 }
 
-export function decodeTranscriptTurn(value: unknown): TranscriptTurn {
-  const record = assertRecord(value, "TranscriptTurn");
-  assertKnownFields(record, "TranscriptTurn", ["run", "triggerMessage", "assistantMessage", "steeringMessages"]);
+export function decodeTranscriptMessageProjection(value: unknown): TranscriptMessageProjection {
+  const record = assertRecord(value, "TranscriptMessageProjection");
+  assertKnownFields(record, "TranscriptMessageProjection", ["messageId", "role", "delivery", "status", "parts"]);
   return {
-    run: decodeRun(requireField(record, "run", "TranscriptTurn")),
-    triggerMessage: decodeChatMessage(requireField(record, "triggerMessage", "TranscriptTurn")),
-    assistantMessage: decodeNullable(requireField(record, "assistantMessage", "TranscriptTurn"), "TranscriptTurn.assistantMessage", (item) => decodeChatMessage(item)),
-    steeringMessages: decodeArray(requireField(record, "steeringMessages", "TranscriptTurn"), "TranscriptTurn.steeringMessages", (item) => decodeChatMessage(item)),
+    messageId: decodeString(requireField(record, "messageId", "TranscriptMessageProjection"), "TranscriptMessageProjection.messageId"),
+    role: decodeMessageRole(requireField(record, "role", "TranscriptMessageProjection"), "TranscriptMessageProjection.role"),
+    delivery: decodeMessageDelivery(requireField(record, "delivery", "TranscriptMessageProjection"), "TranscriptMessageProjection.delivery"),
+    status: decodeMessageStatus(requireField(record, "status", "TranscriptMessageProjection"), "TranscriptMessageProjection.status"),
+    parts: decodeArray(requireField(record, "parts", "TranscriptMessageProjection"), "TranscriptMessageProjection.parts", (item) => decodeMessagePart(item)),
   };
+}
+
+export function decodeAssistantTextBlockProjection(value: unknown): AssistantTextBlockProjection {
+  const record = assertRecord(value, "AssistantTextBlockProjection");
+  assertKnownFields(record, "AssistantTextBlockProjection", ["text", "format"]);
+  return {
+    text: decodeString(requireField(record, "text", "AssistantTextBlockProjection"), "AssistantTextBlockProjection.text"),
+    format: decodeTextFormat(requireField(record, "format", "AssistantTextBlockProjection"), "AssistantTextBlockProjection.format"),
+  };
+}
+
+export function decodeReasoningBlockProjection(value: unknown): ReasoningBlockProjection {
+  const record = assertRecord(value, "ReasoningBlockProjection");
+  assertKnownFields(record, "ReasoningBlockProjection", ["sourceRunItemId", "mode", "headline", "summary"]);
+  return {
+    sourceRunItemId: decodeString(requireField(record, "sourceRunItemId", "ReasoningBlockProjection"), "ReasoningBlockProjection.sourceRunItemId"),
+    mode: decodeReasoningBlockMode(requireField(record, "mode", "ReasoningBlockProjection"), "ReasoningBlockProjection.mode"),
+    headline: decodeString(requireField(record, "headline", "ReasoningBlockProjection"), "ReasoningBlockProjection.headline"),
+    summary: decodeString(requireField(record, "summary", "ReasoningBlockProjection"), "ReasoningBlockProjection.summary"),
+  };
+}
+
+export function decodeRunActivityDetailsProjection(value: unknown): RunActivityDetailsProjection {
+  const record = assertRecord(value, "RunActivityDetailsProjection");
+  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details"]);
+  return {
+    summary: decodeString(requireField(record, "summary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.summary"),
+    command: decodeString(requireField(record, "command", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.command"),
+    cwd: decodeString(requireField(record, "cwd", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.cwd"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.exitCode"),
+    durationMs: decodeInteger(requireField(record, "durationMs", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.durationMs"),
+    filePaths: decodeArray(requireField(record, "filePaths", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.filePaths", (item) => decodeString(item, "RunActivityDetailsProjection.filePaths item")),
+    patchStatus: decodeString(requireField(record, "patchStatus", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.patchStatus"),
+    serverName: decodeString(requireField(record, "serverName", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.serverName"),
+    toolName: decodeString(requireField(record, "toolName", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.toolName"),
+    progress: decodeString(requireField(record, "progress", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.progress"),
+    result: decodeString(requireField(record, "result", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.result"),
+    error: decodeString(requireField(record, "error", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.error"),
+    noticeKind: decodeString(requireField(record, "noticeKind", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.noticeKind"),
+    noticeMessage: decodeString(requireField(record, "noticeMessage", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.noticeMessage"),
+    diffSummary: decodeString(requireField(record, "diffSummary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.diffSummary"),
+    namespace: decodeString(requireField(record, "namespace", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.namespace"),
+    processId: decodeString(requireField(record, "processId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.processId"),
+    requestId: decodeString(requireField(record, "requestId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.requestId"),
+    reviewId: decodeString(requireField(record, "reviewId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.reviewId"),
+    details: decodeUnknown(requireField(record, "details", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.details"),
+  };
+}
+
+export function decodeActivityItemBlockProjection(value: unknown): ActivityItemBlockProjection {
+  const record = assertRecord(value, "ActivityItemBlockProjection");
+  assertKnownFields(record, "ActivityItemBlockProjection", ["sourceRunItemId", "type", "title", "status", "details", "hasDetails", "hasOutput"]);
+  return {
+    sourceRunItemId: decodeString(requireField(record, "sourceRunItemId", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.sourceRunItemId"),
+    type: decodeRunItemType(requireField(record, "type", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.type"),
+    title: decodeString(requireField(record, "title", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.title"),
+    status: decodeRunItemStatus(requireField(record, "status", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.status"),
+    details: decodeRunActivityDetailsProjection(requireField(record, "details", "ActivityItemBlockProjection")),
+    hasDetails: decodeBoolean(requireField(record, "hasDetails", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.hasDetails"),
+    hasOutput: decodeBoolean(requireField(record, "hasOutput", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.hasOutput"),
+  };
+}
+
+export function decodeRunStatusBlockProjection(value: unknown): RunStatusBlockProjection {
+  const record = assertRecord(value, "RunStatusBlockProjection");
+  assertKnownFields(record, "RunStatusBlockProjection", ["mode", "label", "error"]);
+  return {
+    mode: decodeRunStatusBlockMode(requireField(record, "mode", "RunStatusBlockProjection"), "RunStatusBlockProjection.mode"),
+    label: decodeString(requireField(record, "label", "RunStatusBlockProjection"), "RunStatusBlockProjection.label"),
+    error: decodeString(requireField(record, "error", "RunStatusBlockProjection"), "RunStatusBlockProjection.error"),
+  };
+}
+
+export function decodeTranscriptBlock(value: unknown): TranscriptBlock {
+  const record = assertRecord(value, "TranscriptBlock");
+  assertKnownFields(record, "TranscriptBlock", ["schemaVersion", "id", "conversationId", "runId", "kind", "ordinal", "runAnchorOrdinal", "status", "createdAt", "updatedAt", "userMessage", "assistantText", "reasoning", "activity", "runStatus"]);
+  const result: TranscriptBlock = {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "TranscriptBlock"), "TranscriptBlock.schemaVersion"),
+    id: decodeString(requireField(record, "id", "TranscriptBlock"), "TranscriptBlock.id"),
+    conversationId: decodeString(requireField(record, "conversationId", "TranscriptBlock"), "TranscriptBlock.conversationId"),
+    runId: decodeString(requireField(record, "runId", "TranscriptBlock"), "TranscriptBlock.runId"),
+    kind: decodeTranscriptBlockKind(requireField(record, "kind", "TranscriptBlock"), "TranscriptBlock.kind"),
+    ordinal: decodeInteger(requireField(record, "ordinal", "TranscriptBlock"), "TranscriptBlock.ordinal"),
+    runAnchorOrdinal: decodeInteger(requireField(record, "runAnchorOrdinal", "TranscriptBlock"), "TranscriptBlock.runAnchorOrdinal"),
+    status: decodeTranscriptBlockStatus(requireField(record, "status", "TranscriptBlock"), "TranscriptBlock.status"),
+    createdAt: decodeString(requireField(record, "createdAt", "TranscriptBlock"), "TranscriptBlock.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "TranscriptBlock"), "TranscriptBlock.updatedAt"),
+    userMessage: decodeNullable(requireField(record, "userMessage", "TranscriptBlock"), "TranscriptBlock.userMessage", (item) => decodeTranscriptMessageProjection(item)),
+    assistantText: decodeNullable(requireField(record, "assistantText", "TranscriptBlock"), "TranscriptBlock.assistantText", (item) => decodeAssistantTextBlockProjection(item)),
+    reasoning: decodeNullable(requireField(record, "reasoning", "TranscriptBlock"), "TranscriptBlock.reasoning", (item) => decodeReasoningBlockProjection(item)),
+    activity: decodeNullable(requireField(record, "activity", "TranscriptBlock"), "TranscriptBlock.activity", (item) => decodeActivityItemBlockProjection(item)),
+    runStatus: decodeNullable(requireField(record, "runStatus", "TranscriptBlock"), "TranscriptBlock.runStatus", (item) => decodeRunStatusBlockProjection(item)),
+  };
+  assertTaggedUnionBranch("TranscriptBlock", result.kind, {
+    "user_message": result.userMessage,
+    "assistant_text": result.assistantText,
+    "reasoning": result.reasoning,
+    "activity_item": result.activity,
+    "run_status": result.runStatus,
+  });
+  return result;
 }
 
 export function decodeChatGoalState(value: unknown): ChatGoalState {
@@ -6496,17 +6836,15 @@ export function decodeChatGoalState(value: unknown): ChatGoalState {
 
 export function decodeMessagePage(value: unknown): MessagePage {
   const record = assertRecord(value, "MessagePage");
-  assertKnownFields(record, "MessagePage", ["conversation", "messages", "runItems", "runItemOutputs", "queue", "transcript", "goal", "hasMoreOlder", "olderBeforeOrdinal"]);
+  assertKnownFields(record, "MessagePage", ["conversation", "messages", "queue", "blocks", "goal", "hasMoreOlder", "olderBeforeBlockOrdinal"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "MessagePage")),
     messages: decodeArray(requireField(record, "messages", "MessagePage"), "MessagePage.messages", (item) => decodeChatMessage(item)),
-    runItems: decodeArray(requireField(record, "runItems", "MessagePage"), "MessagePage.runItems", (item) => decodeRunItem(item)),
-    runItemOutputs: decodeArray(requireField(record, "runItemOutputs", "MessagePage"), "MessagePage.runItemOutputs", (item) => decodeRunItemOutput(item)),
     queue: decodeQueueState(requireField(record, "queue", "MessagePage")),
-    transcript: decodeArray(requireField(record, "transcript", "MessagePage"), "MessagePage.transcript", (item) => decodeTranscriptTurn(item)),
+    blocks: decodeArray(requireField(record, "blocks", "MessagePage"), "MessagePage.blocks", (item) => decodeTranscriptBlock(item)),
     goal: decodeNullable(requireField(record, "goal", "MessagePage"), "MessagePage.goal", (item) => decodeChatGoalState(item)),
     hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "MessagePage"), "MessagePage.hasMoreOlder"),
-    olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "MessagePage"), "MessagePage.olderBeforeOrdinal"),
+    olderBeforeBlockOrdinal: decodeInteger(requireField(record, "olderBeforeBlockOrdinal", "MessagePage"), "MessagePage.olderBeforeBlockOrdinal"),
   };
 }
 
@@ -6652,16 +6990,48 @@ export function decodeListChatCommandsRequest(value: unknown): ListChatCommandsR
   };
 }
 
-export function decodeChatCommandCapability(value: unknown): ChatCommandCapability {
-  const record = assertRecord(value, "ChatCommandCapability");
-  assertKnownFields(record, "ChatCommandCapability", ["kind", "name", "usage", "description", "available", "unavailableReason"]);
+export function decodeChatCommandLiteralArgumentSpec(value: unknown): ChatCommandLiteralArgumentSpec {
+  const record = assertRecord(value, "ChatCommandLiteralArgumentSpec");
+  assertKnownFields(record, "ChatCommandLiteralArgumentSpec", ["kind", "token", "description"]);
   return {
-    kind: decodeChatCommandKind(requireField(record, "kind", "ChatCommandCapability"), "ChatCommandCapability.kind"),
-    name: decodeString(requireField(record, "name", "ChatCommandCapability"), "ChatCommandCapability.name"),
-    usage: decodeString(requireField(record, "usage", "ChatCommandCapability"), "ChatCommandCapability.usage"),
-    description: decodeString(requireField(record, "description", "ChatCommandCapability"), "ChatCommandCapability.description"),
-    available: decodeBoolean(requireField(record, "available", "ChatCommandCapability"), "ChatCommandCapability.available"),
-    unavailableReason: decodeString(requireField(record, "unavailableReason", "ChatCommandCapability"), "ChatCommandCapability.unavailableReason"),
+    kind: decodeChatCommandArgumentKind(requireField(record, "kind", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.kind"),
+    token: decodeString(requireField(record, "token", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.token"),
+    description: decodeString(requireField(record, "description", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.description"),
+  };
+}
+
+export function decodeChatCommandFreeTextArgumentSpec(value: unknown): ChatCommandFreeTextArgumentSpec {
+  const record = assertRecord(value, "ChatCommandFreeTextArgumentSpec");
+  assertKnownFields(record, "ChatCommandFreeTextArgumentSpec", ["kind", "name", "description", "maxRunes", "required"]);
+  return {
+    kind: decodeChatCommandArgumentKind(requireField(record, "kind", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.kind"),
+    name: decodeString(requireField(record, "name", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.name"),
+    description: decodeString(requireField(record, "description", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.description"),
+    maxRunes: decodeInteger(requireField(record, "maxRunes", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.maxRunes"),
+    required: decodeBoolean(requireField(record, "required", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.required"),
+  };
+}
+
+export function decodeChatCommandGrammar(value: unknown): ChatCommandGrammar {
+  const record = assertRecord(value, "ChatCommandGrammar");
+  assertKnownFields(record, "ChatCommandGrammar", ["summary", "literalMatch", "arguments"]);
+  return {
+    summary: decodeString(requireField(record, "summary", "ChatCommandGrammar"), "ChatCommandGrammar.summary"),
+    literalMatch: decodeChatCommandLiteralMatchMode(requireField(record, "literalMatch", "ChatCommandGrammar"), "ChatCommandGrammar.literalMatch"),
+    arguments: decodeArray(requireField(record, "arguments", "ChatCommandGrammar"), "ChatCommandGrammar.arguments", (item) => decodeChatCommandArgumentSpec(item)),
+  };
+}
+
+export function decodeChatCommandDescriptor(value: unknown): ChatCommandDescriptor {
+  const record = assertRecord(value, "ChatCommandDescriptor");
+  assertKnownFields(record, "ChatCommandDescriptor", ["kind", "name", "description", "available", "unavailableReason", "grammar"]);
+  return {
+    kind: decodeChatSlashCommandKind(requireField(record, "kind", "ChatCommandDescriptor"), "ChatCommandDescriptor.kind"),
+    name: decodeString(requireField(record, "name", "ChatCommandDescriptor"), "ChatCommandDescriptor.name"),
+    description: decodeString(requireField(record, "description", "ChatCommandDescriptor"), "ChatCommandDescriptor.description"),
+    available: decodeBoolean(requireField(record, "available", "ChatCommandDescriptor"), "ChatCommandDescriptor.available"),
+    unavailableReason: decodeString(requireField(record, "unavailableReason", "ChatCommandDescriptor"), "ChatCommandDescriptor.unavailableReason"),
+    grammar: decodeChatCommandGrammar(requireField(record, "grammar", "ChatCommandDescriptor")),
   };
 }
 
@@ -6669,7 +7039,7 @@ export function decodeChatCommandListResult(value: unknown): ChatCommandListResu
   const record = assertRecord(value, "ChatCommandListResult");
   assertKnownFields(record, "ChatCommandListResult", ["commands"]);
   return {
-    commands: decodeArray(requireField(record, "commands", "ChatCommandListResult"), "ChatCommandListResult.commands", (item) => decodeChatCommandCapability(item)),
+    commands: decodeArray(requireField(record, "commands", "ChatCommandListResult"), "ChatCommandListResult.commands", (item) => decodeChatCommandDescriptor(item)),
   };
 }
 
@@ -6712,13 +7082,14 @@ export function decodeChatModelOption(value: unknown): ChatModelOption {
 
 export function decodeChatCommandResult(value: unknown): ChatCommandResult {
   const record = assertRecord(value, "ChatCommandResult");
-  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "goal", "models", "selectedModel", "reasoningEfforts", "selectedReasoningEffort"]);
+  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "composerDraft", "goal", "models", "selectedModel", "reasoningEfforts", "selectedReasoningEffort"]);
   return {
     action: decodeChatCommandResultAction(requireField(record, "action", "ChatCommandResult"), "ChatCommandResult.action"),
     kind: decodeChatCommandKind(requireField(record, "kind", "ChatCommandResult"), "ChatCommandResult.kind"),
     raw: decodeString(requireField(record, "raw", "ChatCommandResult"), "ChatCommandResult.raw"),
     title: decodeString(requireField(record, "title", "ChatCommandResult"), "ChatCommandResult.title"),
     message: decodeString(requireField(record, "message", "ChatCommandResult"), "ChatCommandResult.message"),
+    composerDraft: decodeString(requireField(record, "composerDraft", "ChatCommandResult"), "ChatCommandResult.composerDraft"),
     goal: decodeNullable(requireField(record, "goal", "ChatCommandResult"), "ChatCommandResult.goal", (item) => decodeChatGoalState(item)),
     models: decodeArray(requireField(record, "models", "ChatCommandResult"), "ChatCommandResult.models", (item) => decodeChatModelOption(item)),
     selectedModel: decodeString(requireField(record, "selectedModel", "ChatCommandResult"), "ChatCommandResult.selectedModel"),
@@ -6735,6 +7106,15 @@ export function decodeChatCommandExecuteResult(value: unknown): ChatCommandExecu
     message: decodeNullable(requireField(record, "message", "ChatCommandExecuteResult"), "ChatCommandExecuteResult.message", (item) => decodeChatMessage(item)),
     page: decodeMessagePage(requireField(record, "page", "ChatCommandExecuteResult")),
     result: decodeChatCommandResult(requireField(record, "result", "ChatCommandExecuteResult")),
+  };
+}
+
+export function decodeOpenChatCodexModelPickerRequest(value: unknown): OpenChatCodexModelPickerRequest {
+  const record = assertRecord(value, "OpenChatCodexModelPickerRequest");
+  assertKnownFields(record, "OpenChatCodexModelPickerRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "OpenChatCodexModelPickerRequest"), "OpenChatCodexModelPickerRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "OpenChatCodexModelPickerRequest"), "OpenChatCodexModelPickerRequest.conversationId"),
   };
 }
 
@@ -6812,13 +7192,68 @@ export function decodeGetRunActivityRequest(value: unknown): GetRunActivityReque
   };
 }
 
+export function decodeRunItem(value: unknown): RunItem {
+  const record = assertRecord(value, "RunItem");
+  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "hiddenText"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItem"), "RunItem.schemaVersion"),
+    id: decodeString(requireField(record, "id", "RunItem"), "RunItem.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "RunItem"), "RunItem.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "RunItem"), "RunItem.conversationId"),
+    runId: decodeString(requireField(record, "runId", "RunItem"), "RunItem.runId"),
+    providerItemId: decodeString(requireField(record, "providerItemId", "RunItem"), "RunItem.providerItemId"),
+    type: decodeRunItemType(requireField(record, "type", "RunItem"), "RunItem.type"),
+    status: decodeRunItemStatus(requireField(record, "status", "RunItem"), "RunItem.status"),
+    createdAt: decodeString(requireField(record, "createdAt", "RunItem"), "RunItem.createdAt"),
+    startedAt: decodeString(requireField(record, "startedAt", "RunItem"), "RunItem.startedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "RunItem"), "RunItem.completedAt"),
+    title: decodeString(requireField(record, "title", "RunItem"), "RunItem.title"),
+    summary: decodeString(requireField(record, "summary", "RunItem"), "RunItem.summary"),
+    command: decodeString(requireField(record, "command", "RunItem"), "RunItem.command"),
+    cwd: decodeString(requireField(record, "cwd", "RunItem"), "RunItem.cwd"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "RunItem"), "RunItem.exitCode"),
+    durationMs: decodeInteger(requireField(record, "durationMs", "RunItem"), "RunItem.durationMs"),
+    filePaths: decodeArray(requireField(record, "filePaths", "RunItem"), "RunItem.filePaths", (item) => decodeString(item, "RunItem.filePaths item")),
+    patchStatus: decodeString(requireField(record, "patchStatus", "RunItem"), "RunItem.patchStatus"),
+    serverName: decodeString(requireField(record, "serverName", "RunItem"), "RunItem.serverName"),
+    toolName: decodeString(requireField(record, "toolName", "RunItem"), "RunItem.toolName"),
+    progress: decodeString(requireField(record, "progress", "RunItem"), "RunItem.progress"),
+    result: decodeString(requireField(record, "result", "RunItem"), "RunItem.result"),
+    error: decodeString(requireField(record, "error", "RunItem"), "RunItem.error"),
+    noticeKind: decodeString(requireField(record, "noticeKind", "RunItem"), "RunItem.noticeKind"),
+    noticeMessage: decodeString(requireField(record, "noticeMessage", "RunItem"), "RunItem.noticeMessage"),
+    diffSummary: decodeString(requireField(record, "diffSummary", "RunItem"), "RunItem.diffSummary"),
+    namespace: decodeString(requireField(record, "namespace", "RunItem"), "RunItem.namespace"),
+    processId: decodeString(requireField(record, "processId", "RunItem"), "RunItem.processId"),
+    requestId: decodeString(requireField(record, "requestId", "RunItem"), "RunItem.requestId"),
+    reviewId: decodeString(requireField(record, "reviewId", "RunItem"), "RunItem.reviewId"),
+    details: decodeUnknown(requireField(record, "details", "RunItem"), "RunItem.details"),
+    hiddenText: decodeString(requireField(record, "hiddenText", "RunItem"), "RunItem.hiddenText"),
+  };
+}
+
+export function decodeRunItemOutput(value: unknown): RunItemOutput {
+  const record = assertRecord(value, "RunItemOutput");
+  assertKnownFields(record, "RunItemOutput", ["schemaVersion", "id", "runItemId", "stream", "ordinal", "text", "createdAt"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItemOutput"), "RunItemOutput.schemaVersion"),
+    id: decodeString(requireField(record, "id", "RunItemOutput"), "RunItemOutput.id"),
+    runItemId: decodeString(requireField(record, "runItemId", "RunItemOutput"), "RunItemOutput.runItemId"),
+    stream: decodeString(requireField(record, "stream", "RunItemOutput"), "RunItemOutput.stream"),
+    ordinal: decodeInteger(requireField(record, "ordinal", "RunItemOutput"), "RunItemOutput.ordinal"),
+    text: decodeString(requireField(record, "text", "RunItemOutput"), "RunItemOutput.text"),
+    createdAt: decodeString(requireField(record, "createdAt", "RunItemOutput"), "RunItemOutput.createdAt"),
+  };
+}
+
 export function decodeRunActivityPage(value: unknown): RunActivityPage {
   const record = assertRecord(value, "RunActivityPage");
-  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output"]);
+  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output", "activity"]);
   return {
     runId: decodeString(requireField(record, "runId", "RunActivityPage"), "RunActivityPage.runId"),
     items: decodeArray(requireField(record, "items", "RunActivityPage"), "RunActivityPage.items", (item) => decodeRunItem(item)),
     output: decodeArray(requireField(record, "output", "RunActivityPage"), "RunActivityPage.output", (item) => decodeRunItemOutput(item)),
+    activity: decodeArray(requireField(record, "activity", "RunActivityPage"), "RunActivityPage.activity", (item) => decodeActivityItemBlockProjection(item)),
   };
 }
 
@@ -9423,6 +9858,41 @@ export function decodeRunItemOutputDeltaPayload(value: unknown): RunItemOutputDe
   };
 }
 
+export function decodeTranscriptBlockCreatedPayload(value: unknown): TranscriptBlockCreatedPayload {
+  const record = assertRecord(value, "TranscriptBlockCreatedPayload");
+  assertKnownFields(record, "TranscriptBlockCreatedPayload", ["block"]);
+  return {
+    block: decodeTranscriptBlock(requireField(record, "block", "TranscriptBlockCreatedPayload")),
+  };
+}
+
+export function decodeTranscriptBlockUpdatedPayload(value: unknown): TranscriptBlockUpdatedPayload {
+  const record = assertRecord(value, "TranscriptBlockUpdatedPayload");
+  assertKnownFields(record, "TranscriptBlockUpdatedPayload", ["block"]);
+  return {
+    block: decodeTranscriptBlock(requireField(record, "block", "TranscriptBlockUpdatedPayload")),
+  };
+}
+
+export function decodeTranscriptTextDeltaPayload(value: unknown): TranscriptTextDeltaPayload {
+  const record = assertRecord(value, "TranscriptTextDeltaPayload");
+  assertKnownFields(record, "TranscriptTextDeltaPayload", ["blockId", "delta", "updatedAt"]);
+  return {
+    blockId: decodeString(requireField(record, "blockId", "TranscriptTextDeltaPayload"), "TranscriptTextDeltaPayload.blockId"),
+    delta: decodeString(requireField(record, "delta", "TranscriptTextDeltaPayload"), "TranscriptTextDeltaPayload.delta"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "TranscriptTextDeltaPayload"), "TranscriptTextDeltaPayload.updatedAt"),
+  };
+}
+
+export function decodeTranscriptBlocksReplacedPayload(value: unknown): TranscriptBlocksReplacedPayload {
+  const record = assertRecord(value, "TranscriptBlocksReplacedPayload");
+  assertKnownFields(record, "TranscriptBlocksReplacedPayload", ["runId", "blocks"]);
+  return {
+    runId: decodeString(requireField(record, "runId", "TranscriptBlocksReplacedPayload"), "TranscriptBlocksReplacedPayload.runId"),
+    blocks: decodeArray(requireField(record, "blocks", "TranscriptBlocksReplacedPayload"), "TranscriptBlocksReplacedPayload.blocks", (item) => decodeTranscriptBlock(item)),
+  };
+}
+
 export function decodeQueueUpdatedPayload(value: unknown): QueueUpdatedPayload {
   const record = assertRecord(value, "QueueUpdatedPayload");
   assertKnownFields(record, "QueueUpdatedPayload", ["queue"]);
@@ -9476,6 +9946,19 @@ export function decodeCodexAccountChangedPayload(value: unknown): CodexAccountCh
   };
 }
 
+export function decodeChatCommandArgumentSpec(value: unknown): ChatCommandArgumentSpec {
+  const record = assertRecord(value, "ChatCommandArgumentSpec");
+  const discriminator = decodeString(requireField(record, "kind", "ChatCommandArgumentSpec"), "ChatCommandArgumentSpec.kind");
+  switch (discriminator) {
+    case "literal":
+      return decodeChatCommandLiteralArgumentSpec(value);
+    case "free_text":
+      return decodeChatCommandFreeTextArgumentSpec(value);
+    default:
+      throw new Error("ChatCommandArgumentSpec.kind" + " is unsupported: " + discriminator);
+  }
+}
+
 export function decodeChatEvent(value: unknown): ChatEvent {
   const record = assertRecord(value, "ChatEvent");
   const type = decodeString(requireField(record, "type", "ChatEvent"), "ChatEvent.type");
@@ -9500,6 +9983,14 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatRunItemUpdatedEventFromRecord(record);
     case "chat.run_item_output.delta":
       return decodeChatRunItemOutputDeltaEventFromRecord(record);
+    case "chat.transcript_block.created":
+      return decodeChatTranscriptBlockCreatedEventFromRecord(record);
+    case "chat.transcript_block.updated":
+      return decodeChatTranscriptBlockUpdatedEventFromRecord(record);
+    case "chat.transcript_text.delta":
+      return decodeChatTranscriptTextDeltaEventFromRecord(record);
+    case "chat.transcript_blocks.replaced":
+      return decodeChatTranscriptBlocksReplacedEventFromRecord(record);
     case "chat.queue.updated":
       return decodeChatQueueUpdatedEventFromRecord(record);
     case "chat.goal.updated":
@@ -9637,6 +10128,54 @@ function decodeChatRunItemOutputDeltaEventFromRecord(record: Record<string, unkn
   };
 }
 
+export function decodeChatTranscriptBlockCreatedEvent(value: unknown): ChatTranscriptBlockCreatedEvent {
+  return decodeChatTranscriptBlockCreatedEventFromRecord(assertRecord(value, "ChatTranscriptBlockCreatedEvent"));
+}
+
+function decodeChatTranscriptBlockCreatedEventFromRecord(record: Record<string, unknown>): ChatTranscriptBlockCreatedEvent {
+  const base = decodeBackendEventBase(record, "ChatTranscriptBlockCreatedEvent", "chat.transcript_block.created");
+  return {
+    ...base,
+    payload: decodeTranscriptBlockCreatedPayload(requireField(record, "payload", "ChatTranscriptBlockCreatedEvent")),
+  };
+}
+
+export function decodeChatTranscriptBlockUpdatedEvent(value: unknown): ChatTranscriptBlockUpdatedEvent {
+  return decodeChatTranscriptBlockUpdatedEventFromRecord(assertRecord(value, "ChatTranscriptBlockUpdatedEvent"));
+}
+
+function decodeChatTranscriptBlockUpdatedEventFromRecord(record: Record<string, unknown>): ChatTranscriptBlockUpdatedEvent {
+  const base = decodeBackendEventBase(record, "ChatTranscriptBlockUpdatedEvent", "chat.transcript_block.updated");
+  return {
+    ...base,
+    payload: decodeTranscriptBlockUpdatedPayload(requireField(record, "payload", "ChatTranscriptBlockUpdatedEvent")),
+  };
+}
+
+export function decodeChatTranscriptTextDeltaEvent(value: unknown): ChatTranscriptTextDeltaEvent {
+  return decodeChatTranscriptTextDeltaEventFromRecord(assertRecord(value, "ChatTranscriptTextDeltaEvent"));
+}
+
+function decodeChatTranscriptTextDeltaEventFromRecord(record: Record<string, unknown>): ChatTranscriptTextDeltaEvent {
+  const base = decodeBackendEventBase(record, "ChatTranscriptTextDeltaEvent", "chat.transcript_text.delta");
+  return {
+    ...base,
+    payload: decodeTranscriptTextDeltaPayload(requireField(record, "payload", "ChatTranscriptTextDeltaEvent")),
+  };
+}
+
+export function decodeChatTranscriptBlocksReplacedEvent(value: unknown): ChatTranscriptBlocksReplacedEvent {
+  return decodeChatTranscriptBlocksReplacedEventFromRecord(assertRecord(value, "ChatTranscriptBlocksReplacedEvent"));
+}
+
+function decodeChatTranscriptBlocksReplacedEventFromRecord(record: Record<string, unknown>): ChatTranscriptBlocksReplacedEvent {
+  const base = decodeBackendEventBase(record, "ChatTranscriptBlocksReplacedEvent", "chat.transcript_blocks.replaced");
+  return {
+    ...base,
+    payload: decodeTranscriptBlocksReplacedPayload(requireField(record, "payload", "ChatTranscriptBlocksReplacedEvent")),
+  };
+}
+
 export function decodeChatQueueUpdatedEvent(value: unknown): ChatQueueUpdatedEvent {
   return decodeChatQueueUpdatedEventFromRecord(assertRecord(value, "ChatQueueUpdatedEvent"));
 }
@@ -9740,6 +10279,7 @@ export interface BackendClient {
   sendSteeringImmediately: (request: SendSteeringImmediatelyRequest) => Promise<ImmediateSteeringResult>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
   executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
+  openChatCodexModelPicker: (request: OpenChatCodexModelPickerRequest) => Promise<ChatCommandExecuteResult>;
   setChatCodexModel: (request: SetChatCodexModelRequest) => Promise<ChatCommandExecuteResult>;
   setChatCodexReasoningEffort: (request: SetChatCodexReasoningEffortRequest) => Promise<ChatCommandExecuteResult>;
   cancelRun: (request: CancelRunRequest) => Promise<Run>;
@@ -10058,6 +10598,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.ExecuteChatCommand,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    openChatCodexModelPicker: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatCommandExecuteResult,
+      endpoint: backendEndpoints.OpenChatCodexModelPicker,
       fetchImpl,
       requestPayload: request,
     }),
