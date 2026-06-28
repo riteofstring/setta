@@ -21,6 +21,7 @@ const (
 	ChatCommandErrorCodexProviderDrift ChatCommandErrorCode = "codex_provider_drift"
 	ChatCommandErrorGoalNotSet         ChatCommandErrorCode = "goal_not_set"
 	ChatCommandErrorGoalReplaceConfirm ChatCommandErrorCode = "goal_replacement_requires_confirmation"
+	ChatCommandErrorPermissionConfirm  ChatCommandErrorCode = "permission_change_requires_confirmation"
 	ChatCommandErrorWrongEndpoint      ChatCommandErrorCode = "slash_command_wrong_endpoint"
 )
 
@@ -159,6 +160,30 @@ func reasoningEffortSetChatCommand(effort ReasoningEffort) (ChatCommand, error) 
 	return modelChatCommand("model_reasoning_effort_set", "", ModelCommandSetEffort, "", reasoningEffortResult(effort)), nil
 }
 
+func permissionChatCommand(raw string, args string, action PermissionCommandAction, preset ChatPermissionPresetID, confirmed bool) ChatCommand {
+	return ChatCommand{
+		Args: args,
+		Kind: ChatCommandPermission,
+		Permission: &PermissionCommand{
+			Action:    action,
+			Preset:    preset,
+			Confirmed: confirmed,
+		},
+		Raw: raw,
+	}
+}
+
+func permissionPickerChatCommand() ChatCommand {
+	return permissionChatCommand("permission_picker", "", PermissionCommandShowPicker, "", false)
+}
+
+func permissionPresetSetChatCommand(preset ChatPermissionPresetID, confirmed bool) (ChatCommand, error) {
+	if _, ok := chatPermissionPresetByID(preset); !ok {
+		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "unsupported permission preset: "+string(preset), nil)
+	}
+	return permissionChatCommand("permission_set", "", PermissionCommandSet, preset, confirmed), nil
+}
+
 type HarnessCommandExecutor interface {
 	ExecuteCommand(context.Context, HarnessCommandRequest) (HarnessCommandResult, error)
 	ListCommandCapabilities(context.Context, HarnessCommandListRequest) (HarnessCommandListResult, error)
@@ -180,17 +205,20 @@ type HarnessCommandListRequest struct {
 }
 
 type HarnessCommandResult struct {
-	Action                  ChatCommandResultAction
-	CapabilityDiagnostic    string
-	CodexEffectiveSettings  *ChatCodexEffectiveSettings
-	CodexSettings           *ChatCodexSettings
-	Goal                    *ChatGoalState
-	Models                  []ChatModelOption
-	SelectedModel           string
-	ReasoningEfforts        []ChatReasoningEffortOption
-	SelectedReasoningEffort *ReasoningEffort
-	ThreadRef               HarnessThreadRef
-	HasThreadRef            bool
+	Action                   ChatCommandResultAction
+	CapabilityDiagnostic     string
+	CodexEffectiveSettings   *ChatCodexEffectiveSettings
+	CodexSettings            *ChatCodexSettings
+	CurrentPermission        *ChatCodexEffectivePermissionSettings
+	Goal                     *ChatGoalState
+	Models                   []ChatModelOption
+	PermissionPresets        []ChatPermissionPreset
+	SelectedPermissionPreset *ChatPermissionPresetID
+	SelectedModel            string
+	ReasoningEfforts         []ChatReasoningEffortOption
+	SelectedReasoningEffort  *ReasoningEffort
+	ThreadRef                HarnessThreadRef
+	HasThreadRef             bool
 }
 
 type HarnessCommandListResult struct {
@@ -206,6 +234,8 @@ func ensureCommandAvailable(command ChatCommand, activeRun *Run) error {
 		return nil
 	case ChatCommandModel:
 		return commandError(ChatCommandErrorUnavailable, "model commands are unavailable while a run is active", nil)
+	case ChatCommandPermission:
+		return commandError(ChatCommandErrorUnavailable, "permission changes apply after the current run finishes", nil)
 	default:
 		return commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("unsupported chat command kind: %s", command.Kind), nil)
 	}
@@ -217,6 +247,8 @@ func commandNeedsThread(command ChatCommand) bool {
 		return true
 	case ChatCommandModel:
 		return command.Model != nil && (command.Model.Action == ModelCommandSet || command.Model.Action == ModelCommandSetEffort)
+	case ChatCommandPermission:
+		return command.Permission != nil && command.Permission.Action == PermissionCommandSet
 	default:
 		return false
 	}

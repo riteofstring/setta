@@ -1080,21 +1080,47 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           conversation,
           commandResult("goal", "display", "Goal set: test", "/goal test"),
         ),
+      readCodexDefaults: async () => {
+        throw new Error("chat defaults are not used by chat store tests");
+      },
       openCodexModelPicker: async () =>
         commandExecuteResult(
           conversation,
           commandResult("model", "model_picker", "Choose a model.", "model_picker"),
+        ),
+      openCodexPermissionPicker: async () =>
+        commandExecuteResult(
+          conversation,
+          commandResult(
+            "permission",
+            "permission_picker",
+            "Choose a permission mode.",
+            "permission",
+          ),
         ),
       setCodexModel: async () =>
         commandExecuteResult(conversation, {
           ...commandResult("model", "display", "Model set: gpt-test", "model_set"),
           selectedModel: "gpt-test",
         }),
+      setCodexPermissionPreset: async () =>
+        commandExecuteResult(
+          conversation,
+          commandResult(
+            "permission",
+            "display",
+            "Permission set: Ask for approval",
+            "permission_set",
+          ),
+        ),
       setCodexReasoningEffort: async () =>
         commandExecuteResult(conversation, {
           ...commandResult("model", "display", "Reasoning set: High", "model_reasoning_effort_set"),
           selectedReasoningEffort: "high",
         }),
+      updateCodexDefaults: async () => {
+        throw new Error("chat defaults are not used by chat store tests");
+      },
       setConversationPinned: async () => conversationItem(conversation, 0),
       selectImageAttachments: async () => [],
       listCommands: async () => ({
@@ -1352,13 +1378,16 @@ function goalCommandResult(): ChatCommandResult {
   return {
     action: "display",
     composerDraft: "",
+    currentPermission: null,
     goal: goalState("tests", "active"),
     kind: "goal",
     message: "Goal set: tests",
     models: [],
+    permissionPresets: [],
     raw: "/goal tests",
     reasoningEfforts: [],
     selectedModel: "",
+    selectedPermissionPreset: null,
     selectedReasoningEffort: null,
     title: "Goal",
   };
@@ -1418,15 +1447,18 @@ function commandResult(
   return {
     action,
     composerDraft: "",
+    currentPermission: null,
     goal: null,
     kind,
     message: messageText,
     models: [],
+    permissionPresets: [],
     raw,
     reasoningEfforts: [],
+    selectedPermissionPreset: null,
     selectedReasoningEffort: null,
     selectedModel: "",
-    title: kind === "goal" ? "Goal" : "Model",
+    title: kind === "goal" ? "Goal" : kind === "permission" ? "Permission" : "Model",
   };
 }
 function workspaceSession(): WorkspaceSession {

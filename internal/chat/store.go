@@ -25,6 +25,8 @@ const (
 
 	backgroundTerminalsDirName      = "background_terminals"
 	backgroundTerminalOutputDirName = "background_terminal_output"
+	settingsDirName                 = "settings"
+	chatCodexDefaultsFileName       = "chat-codex-defaults.json"
 )
 
 type Store struct {

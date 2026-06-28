@@ -197,12 +197,18 @@ const api: SettaAPI = {
         raw,
         options?.confirmGoalReplacement ?? false,
       ),
+    readCodexDefaults: () => invoke("chatReadCodexDefaults"),
     openCodexModelPicker: (workspaceId: string, conversationId: string) =>
       invoke("chatOpenCodexModelPicker", workspaceId, conversationId),
+    openCodexPermissionPicker: (workspaceId: string, conversationId: string) =>
+      invoke("chatOpenCodexPermissionPicker", workspaceId, conversationId),
     setCodexModel: (workspaceId: string, conversationId: string, modelId: string) =>
       invoke("chatSetCodexModel", workspaceId, conversationId, modelId),
+    setCodexPermissionPreset: (workspaceId: string, conversationId: string, preset, confirmed) =>
+      invoke("chatSetCodexPermissionPreset", workspaceId, conversationId, preset, confirmed),
     setCodexReasoningEffort: (workspaceId: string, conversationId: string, effort) =>
       invoke("chatSetCodexReasoningEffort", workspaceId, conversationId, effort),
+    updateCodexDefaults: (request) => invoke("chatUpdateCodexDefaults", request),
     setConversationPinned: (workspaceId: string, conversationId: string, pinned: boolean) =>
       invoke("chatSetConversationPinned", workspaceId, conversationId, pinned),
     listCommands: (workspaceId: string, conversationId: string) =>

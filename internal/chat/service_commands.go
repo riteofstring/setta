@@ -77,6 +77,18 @@ func (service *Service) SetChatCodexReasoningEffort(workspaceID string, conversa
 	return service.executeChatCommand(workspaceID, conversationID, command, ChatCommandExecutionOptions{})
 }
 
+func (service *Service) OpenChatCodexPermissionPicker(workspaceID string, conversationID string) (ChatCommandExecuteResult, error) {
+	return service.executeChatCommand(workspaceID, conversationID, permissionPickerChatCommand(), ChatCommandExecutionOptions{})
+}
+
+func (service *Service) SetChatCodexPermissionPreset(workspaceID string, conversationID string, preset ChatPermissionPresetID, confirmed bool) (ChatCommandExecuteResult, error) {
+	command, err := permissionPresetSetChatCommand(preset, confirmed)
+	if err != nil {
+		return ChatCommandExecuteResult{}, err
+	}
+	return service.executeChatCommand(workspaceID, conversationID, command, ChatCommandExecutionOptions{})
+}
+
 func (service *Service) executeChatCommand(workspaceID string, conversationID string, command ChatCommand, options ChatCommandExecutionOptions) (ChatCommandExecuteResult, error) {
 	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
 	if err != nil {
@@ -141,6 +153,9 @@ func (service *Service) prepareCommandExecutionLocked(workspaceID string, conver
 	if err := service.ensureGoalReplacementConfirmedLocked(workspaceID, conversationID, command, options); err != nil {
 		return commandExecutionState{}, err
 	}
+	if err := ensurePermissionChangeConfirmed(command); err != nil {
+		return commandExecutionState{}, err
+	}
 	state := commandExecutionState{
 		activeRun:          activeRun,
 		conversation:       conversation,
@@ -150,6 +165,16 @@ func (service *Service) prepareCommandExecutionLocked(workspaceID string, conver
 		err = service.ensureCanStartTurnLocked(workspaceID, conversationID, activeKey(workspaceID, conversationID))
 	}
 	return state, err
+}
+
+func ensurePermissionChangeConfirmed(command ChatCommand) error {
+	if command.Kind != ChatCommandPermission || command.Permission == nil || command.Permission.Action != PermissionCommandSet {
+		return nil
+	}
+	if command.Permission.Preset != ChatPermissionPresetFullAccess || command.Permission.Confirmed {
+		return nil
+	}
+	return commandError(ChatCommandErrorPermissionConfirm, "Full Access requires confirmation.", nil)
 }
 
 func (service *Service) ensureNoCommandCancellationDrainLocked(workspaceID string, conversationID string) error {
@@ -208,7 +233,10 @@ func commandRequest(workspaceSummary workspace.WorkspaceSummary, conversation Co
 }
 
 func shouldRetryCommandWithMissingHarnessRef(command ChatCommand, err error) bool {
-	if err == nil || command.Kind != ChatCommandModel {
+	if err == nil {
+		return false
+	}
+	if command.Kind != ChatCommandModel && command.Kind != ChatCommandPermission {
 		return false
 	}
 	var refErr *HarnessRefUnavailableError
@@ -522,15 +550,18 @@ func commandResult(command ChatCommand, harnessResult HarnessCommandResult) Chat
 		action = ChatCommandResultDisplay
 	}
 	result := ChatCommandResult{
-		Action:                  action,
-		ComposerDraft:           commandComposerDraft(command, harnessResult),
-		Goal:                    harnessResult.Goal,
-		Kind:                    command.Kind,
-		Models:                  nonNilModels(harnessResult.Models),
-		Raw:                     command.Raw,
-		ReasoningEfforts:        nonNilReasoningEfforts(harnessResult.ReasoningEfforts),
-		SelectedModel:           harnessResult.SelectedModel,
-		SelectedReasoningEffort: harnessResult.SelectedReasoningEffort,
+		Action:                   action,
+		ComposerDraft:            commandComposerDraft(command, harnessResult),
+		CurrentPermission:        harnessResult.CurrentPermission,
+		Goal:                     harnessResult.Goal,
+		Kind:                     command.Kind,
+		Models:                   nonNilModels(harnessResult.Models),
+		PermissionPresets:        nonNilPermissionPresets(harnessResult.PermissionPresets),
+		Raw:                      command.Raw,
+		ReasoningEfforts:         nonNilReasoningEfforts(harnessResult.ReasoningEfforts),
+		SelectedModel:            harnessResult.SelectedModel,
+		SelectedPermissionPreset: harnessResult.SelectedPermissionPreset,
+		SelectedReasoningEffort:  harnessResult.SelectedReasoningEffort,
 	}
 	result.Title, result.Message = commandResultText(command, result)
 	if harnessResult.CapabilityDiagnostic != "" {
@@ -571,12 +602,21 @@ func nonNilReasoningEfforts(efforts []ChatReasoningEffortOption) []ChatReasoning
 	return efforts
 }
 
+func nonNilPermissionPresets(presets []ChatPermissionPreset) []ChatPermissionPreset {
+	if presets == nil {
+		return []ChatPermissionPreset{}
+	}
+	return presets
+}
+
 func commandResultText(command ChatCommand, result ChatCommandResult) (string, string) {
 	switch command.Kind {
 	case ChatCommandGoal:
 		return goalCommandResultText(command, result.Goal)
 	case ChatCommandModel:
 		return modelCommandResultText(command, result)
+	case ChatCommandPermission:
+		return permissionCommandResultText(command, result)
 	default:
 		return "Command", "Command completed."
 	}
@@ -607,6 +647,26 @@ func goalCommandResultText(command ChatCommand, goal *ChatGoalState) (string, st
 		return "Goal", "Goal resumed."
 	default:
 		return "Goal", "Goal command completed."
+	}
+}
+
+func permissionCommandResultText(command ChatCommand, result ChatCommandResult) (string, string) {
+	if command.Permission == nil {
+		return "Permissions", "Permission command completed."
+	}
+	switch command.Permission.Action {
+	case PermissionCommandShowPicker:
+		return "Permissions", "Choose a permission mode."
+	case PermissionCommandSet:
+		label := string(command.Permission.Preset)
+		if result.CurrentPermission != nil && result.CurrentPermission.DisplayLabel != "" {
+			label = result.CurrentPermission.DisplayLabel
+		} else if preset, ok := chatPermissionPresetByID(command.Permission.Preset); ok {
+			label = preset.Label
+		}
+		return "Permissions", "Permission mode set: " + label
+	default:
+		return "Permissions", "Permission command completed."
 	}
 }
 

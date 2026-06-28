@@ -47,6 +47,7 @@ const methodHandlers = {
   "account/logout": handleAccountLogout,
   "account/read": handleAccountRead,
   "config/read": handleConfigRead,
+  "configRequirements/read": handleConfigRequirementsRead,
   initialize: handleInitialize,
   initialized: () => {},
   "model/list": handleModelList,
@@ -100,14 +101,14 @@ function handleThreadStart(message) {
   }
   assertThreadStartDeveloperInstructions(message.params);
   assertThreadStartDynamicTools(message.params);
-  respond(message.id, fakeThreadResponse());
+  respond(message.id, fakeThreadResponse(threadResponseOptionsFromParams(message.params)));
 }
 
 function handleThreadResume(message) {
   if (message.params?.dynamicTools !== undefined) {
     throw new Error("thread/resume should not include dynamicTools");
   }
-  respond(message.id, fakeThreadResponse());
+  respond(message.id, fakeThreadResponse(threadResponseOptionsFromParams(message.params)));
 }
 
 function handleThreadRead(message) {
@@ -140,8 +141,8 @@ function handleTurnStart(message) {
 }
 
 function fakeThreadResponse(options = {}) {
-  return {
-    approvalPolicy: "on-request",
+  const response = {
+    approvalPolicy: options.approvalPolicy ?? "on-request",
     approvalsReviewer: "user",
     cwd: "/tmp/setta-fake",
     model: "gpt-test",
@@ -149,6 +150,21 @@ function fakeThreadResponse(options = {}) {
     sandbox: "workspace-write",
     thread: fakeThread(options),
   };
+  if (options.permissionProfileId) {
+    response.activePermissionProfile = { id: options.permissionProfileId };
+  }
+  return response;
+}
+
+function threadResponseOptionsFromParams(params) {
+  const options = {};
+  if (typeof params?.approvalPolicy === "string") {
+    options.approvalPolicy = params.approvalPolicy;
+  }
+  if (typeof params?.permissions === "string" && params.permissions !== "") {
+    options.permissionProfileId = params.permissions;
+  }
+  return options;
 }
 
 function fakeThread(options = {}) {
@@ -180,9 +196,19 @@ function fakeTurn(status) {
 
 function handleConfigRead(message) {
   respond(message.id, {
-    config: { model: "gpt-test", model_reasoning_effort: "xhigh" },
+    config: {
+      approval_policy: "on-request",
+      model: "gpt-test",
+      model_reasoning_effort: "xhigh",
+    },
     layers: [],
     origins: {},
+  });
+}
+
+function handleConfigRequirementsRead(message) {
+  respond(message.id, {
+    requirements: null,
   });
 }
 

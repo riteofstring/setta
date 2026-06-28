@@ -175,7 +175,12 @@ func handleFakeModelList(mode string, state *fakeCodexState, message map[string]
 	case "command-model-set",
 		"command-model-set-no-notification",
 		"command-model-set-unsupported-settings-update",
-		"command-effort-set":
+		"command-model-set-preserves-permission",
+		"command-permission-picker-linked",
+		"command-permission-picker-disabled",
+		"command-permission-set",
+		"command-effort-set",
+		"command-effort-set-preserves-permission":
 		return false
 	}
 	return fakeCommandDone(mode)
@@ -285,8 +290,10 @@ func handleFakeThreadSettingsUpdate(mode string, message map[string]any) bool {
 	if mode == "command-model-set-already-current" || mode == "command-effort-set-already-current" {
 		panic("already-current settings command should not update settings")
 	}
-	if mode == "command-effort-set" {
+	if mode == "command-effort-set" || mode == "command-effort-set-preserves-permission" {
 		assertFakeEffortSet(message)
+	} else if mode == "command-permission-set" {
+		assertFakePermissionSet(message)
 	} else {
 		assertFakeModelSet(message)
 	}
@@ -298,6 +305,10 @@ func handleFakeThreadSettingsUpdate(mode string, message map[string]any) bool {
 	if mode == "command-model-set-no-notification" {
 		return false
 	}
-	writeFakeThreadSettingsUpdated("gpt-test", ReasoningEffortHigh)
+	if mode == "command-permission-set" {
+		writeFakeThreadPermissionSettingsUpdated("gpt-test", ReasoningEffortHigh, codexApprovalPolicyNever, codexPermissionProfileDangerFullAccess)
+	} else {
+		writeFakeThreadSettingsUpdated("gpt-test", ReasoningEffortHigh)
+	}
 	return fakeCommandDone(mode)
 }

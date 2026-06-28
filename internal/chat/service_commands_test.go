@@ -225,6 +225,184 @@ func TestServiceStoresModelSettingsWithoutCreatingThread(t *testing.T) {
 	}
 }
 
+func TestServiceLocalReasoningChangePreservesChatDefaults(t *testing.T) {
+	harness := NewScriptedWorkflowHarness()
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	readOnly, ok := chatPermissionSettingsForPreset(ChatPermissionPresetReadOnly)
+	if !ok {
+		t.Fatal("read-only preset settings not found")
+	}
+	defaultReasoning := ReasoningEffortXHigh
+	defaults := expectedCodexSettings{
+		Model:            "scripted-careful",
+		PermissionPreset: ChatPermissionPresetReadOnly,
+		ReasoningEffort:  ReasoningEffortXHigh,
+	}
+	if _, err := service.UpdateChatCodexDefaults(context.Background(), ChatCodexSettings{
+		Model:           defaults.Model,
+		ReasoningEffort: &defaultReasoning,
+		Permission:      &readOnly,
+	}, false); err != nil {
+		t.Fatalf("update chat defaults: %v", err)
+	}
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	picker, err := service.OpenChatCodexModelPicker("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("open model picker: %v", err)
+	}
+	requireCommandSelection(t, picker, defaults)
+	requireEffectivePermissionPreset(t, picker.Conversation.CodexEffectiveSettings, defaults.PermissionPreset)
+
+	result, err := service.SetChatCodexReasoningEffort("workspace_api", conversation.ID, ReasoningEffortLow)
+	if err != nil {
+		t.Fatalf("set reasoning effort: %v", err)
+	}
+	changed := defaults
+	changed.ReasoningEffort = ReasoningEffortLow
+	requireCommandSelection(t, result, changed)
+	requireConversationCodexSettings(t, "changed conversation", result.Conversation.CodexSettings, changed)
+
+	nextConversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+	requireConversationCodexSettings(t, "second conversation", nextConversation.CodexSettings, defaults)
+}
+
+type expectedCodexSettings struct {
+	Model            string
+	PermissionPreset ChatPermissionPresetID
+	ReasoningEffort  ReasoningEffort
+}
+
+func requireCommandSelection(t *testing.T, result ChatCommandExecuteResult, expected expectedCodexSettings) {
+	t.Helper()
+	if result.Result.SelectedModel != expected.Model {
+		t.Fatalf("selected model = %q, want %q", result.Result.SelectedModel, expected.Model)
+	}
+	if result.Result.SelectedReasoningEffort == nil {
+		t.Fatalf("selected reasoning effort = nil, want %s", expected.ReasoningEffort)
+	}
+	if *result.Result.SelectedReasoningEffort != expected.ReasoningEffort {
+		t.Fatalf("selected reasoning effort = %s, want %s", *result.Result.SelectedReasoningEffort, expected.ReasoningEffort)
+	}
+}
+
+func requireEffectivePermissionPreset(t *testing.T, settings *ChatCodexEffectiveSettings, expected ChatPermissionPresetID) {
+	t.Helper()
+	if settings == nil || settings.Permission == nil || settings.Permission.Preset == nil {
+		t.Fatalf("effective settings = %+v, want permission preset %s", settings, expected)
+	}
+	if *settings.Permission.Preset != expected {
+		t.Fatalf("effective permission preset = %s, want %s", *settings.Permission.Preset, expected)
+	}
+}
+
+func requireConversationCodexSettings(t *testing.T, label string, settings *ChatCodexSettings, expected expectedCodexSettings) {
+	t.Helper()
+	if settings == nil {
+		t.Fatalf("%s settings = nil, want %+v", label, expected)
+	}
+	if settings.Model != expected.Model {
+		t.Fatalf("%s model = %q, want %q", label, settings.Model, expected.Model)
+	}
+	requireConversationReasoning(t, label, settings.ReasoningEffort, expected.ReasoningEffort)
+	requireConversationPermission(t, label, settings.Permission, expected.PermissionPreset)
+}
+
+func requireConversationReasoning(t *testing.T, label string, actual *ReasoningEffort, expected ReasoningEffort) {
+	t.Helper()
+	if actual == nil {
+		t.Fatalf("%s reasoning = nil, want %s", label, expected)
+	}
+	if *actual != expected {
+		t.Fatalf("%s reasoning = %s, want %s", label, *actual, expected)
+	}
+}
+
+func requireConversationPermission(t *testing.T, label string, actual *ChatCodexPermissionSettings, expected ChatPermissionPresetID) {
+	t.Helper()
+	if actual == nil {
+		t.Fatalf("%s permission = nil, want %s", label, expected)
+	}
+	if actual.Preset != expected {
+		t.Fatalf("%s permission preset = %s, want %s", label, actual.Preset, expected)
+	}
+}
+
+func TestServiceRequiresConfirmationBeforeFullAccessPermission(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	_, err = service.SetChatCodexPermissionPreset("workspace_api", conversation.ID, ChatPermissionPresetFullAccess, false)
+	if err == nil {
+		t.Fatal("set full access succeeded without confirmation")
+	}
+	commandErr, ok := IsChatCommandError(err)
+	if !ok || commandErr.Code != ChatCommandErrorPermissionConfirm {
+		t.Fatalf("full access error = %#v, want confirmation command error", err)
+	}
+	if requests := harness.CommandRequests(); len(requests) != 0 {
+		t.Fatalf("command requests = %+v, want none before confirmation", requests)
+	}
+
+	result, err := service.SetChatCodexPermissionPreset("workspace_api", conversation.ID, ChatPermissionPresetFullAccess, true)
+	if err != nil {
+		t.Fatalf("set full access with confirmation: %v", err)
+	}
+	if result.Result.SelectedPermissionPreset == nil || *result.Result.SelectedPermissionPreset != ChatPermissionPresetFullAccess {
+		t.Fatalf("selected permission = %v, want full access", result.Result.SelectedPermissionPreset)
+	}
+	if result.Result.CurrentPermission == nil || result.Result.CurrentPermission.DisplayLabel != "Full Access" {
+		t.Fatalf("current permission = %+v, want Full Access", result.Result.CurrentPermission)
+	}
+}
+
+func TestServiceStoresPermissionSettingsWithoutCreatingThread(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	result, err := service.SetChatCodexPermissionPreset("workspace_api", conversation.ID, ChatPermissionPresetReadOnly, false)
+	if err != nil {
+		t.Fatalf("set read-only permission: %v", err)
+	}
+
+	if result.Message == nil || result.Message.Parts[0].Text.Text != "Permission mode set: Read Only" {
+		t.Fatalf("command message = %+v, want permission set result", result.Message)
+	}
+	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.Permission == nil {
+		t.Fatalf("result codex settings = %+v, want permission settings", result.Conversation.CodexSettings)
+	}
+	if permission := result.Conversation.CodexSettings.Permission; permission.Preset != ChatPermissionPresetReadOnly || permission.ApprovalPolicy != codexApprovalPolicyOnRequest || permission.Permissions != codexPermissionProfileReadOnly {
+		t.Fatalf("result permission settings = %+v, want read-only preset", permission)
+	}
+	loaded, err := service.store.LoadConversation("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("load conversation: %v", err)
+	}
+	if len(loaded.HarnessRefs) != 0 {
+		t.Fatalf("harness refs = %+v, want no thread ref for local permission setting", loaded.HarnessRefs)
+	}
+	if loaded.CodexSettings == nil || loaded.CodexSettings.Permission == nil {
+		t.Fatalf("stored codex settings = %+v, want permission settings", loaded.CodexSettings)
+	}
+	if permission := loaded.CodexSettings.Permission; permission.Preset != ChatPermissionPresetReadOnly || permission.Permissions != codexPermissionProfileReadOnly {
+		t.Fatalf("stored permission settings = %+v, want read-only preset", permission)
+	}
+}
+
 func TestServiceStoresTypedCodexModelWithoutParsingSlashCommand(t *testing.T) {
 	harness := NewFakeHarness(nil)
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)

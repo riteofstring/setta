@@ -56,6 +56,7 @@ describe("chat store workspace conversation selection", () => {
       codexEffectiveSettings: {
         model: "gpt-test",
         modelDisplayName: "GPT Test",
+        permission: defaultEffectivePermissionSettings(),
         reasoningEffort: "xhigh",
         reasoningEffortDisplayName: "Extra high",
         supportsImages: true,
@@ -76,6 +77,7 @@ describe("chat store workspace conversation selection", () => {
     expect(useChatStore.getState().selectedConversation?.codexEffectiveSettings).toEqual({
       model: "gpt-test",
       modelDisplayName: "GPT Test",
+      permission: defaultEffectivePermissionSettings(),
       reasoningEffort: "xhigh",
       reasoningEffortDisplayName: "Extra high",
       supportsImages: true,
@@ -178,5 +180,16 @@ function emptyCorruption(): CorruptionSummary {
     bySeverity: [],
     hasCorruption: false,
     total: 0,
+  };
+}
+
+function defaultEffectivePermissionSettings() {
+  return {
+    activePermissionProfileExtends: "",
+    activePermissionProfileId: ":workspace",
+    approvalPolicy: "on-request",
+    builtIn: true,
+    displayLabel: "Ask for approval",
+    preset: "default" as const,
   };
 }

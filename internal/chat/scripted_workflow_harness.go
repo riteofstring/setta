@@ -16,6 +16,8 @@ type ScriptedWorkflowHarness struct {
 	commands                 []HarnessCommandRequest
 	goal                     *ChatGoalState
 	model                    string
+	permission               ChatCodexPermissionSettings
+	hasPermission            bool
 	phase4ConsolidatorCounts map[string]int
 	phase4ReviewerBarriers   map[string]map[string]chan struct{}
 	reasoning                ReasoningEffort
@@ -92,7 +94,14 @@ func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request T
 func (harness *ScriptedWorkflowHarness) runScriptedTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	harness.applyInitialCodexSettings(request)
 
-	settings, err := scriptedCodexEffectiveSettings(harness.model, harness.reasoning)
+	harness.mu.Lock()
+	model := harness.model
+	reasoning := harness.reasoning
+	permission := harness.permission
+	hasPermission := harness.hasPermission
+	harness.mu.Unlock()
+
+	settings, err := scriptedCodexEffectiveSettings(model, reasoning, fakeCodexPermissionSettings(permission, hasPermission))
 	if err != nil {
 		return TurnCompletion{}, err
 	}
@@ -125,16 +134,34 @@ func (harness *ScriptedWorkflowHarness) applyInitialCodexSettings(request TurnRe
 	}
 	harness.mu.Lock()
 	defer harness.mu.Unlock()
-	if request.Conversation.CodexSettings.Model != "" {
-		harness.model = request.Conversation.CodexSettings.Model
+	harness.applyConversationCodexSettingsLocked(request.Conversation.CodexSettings)
+}
+
+func (harness *ScriptedWorkflowHarness) applyCommandCodexSettingsLocked(request HarnessCommandRequest) {
+	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
+		return
 	}
-	if request.Conversation.CodexSettings.ReasoningEffort != nil {
-		harness.reasoning = *request.Conversation.CodexSettings.ReasoningEffort
+	harness.applyConversationCodexSettingsLocked(request.Conversation.CodexSettings)
+}
+
+func (harness *ScriptedWorkflowHarness) applyConversationCodexSettingsLocked(settings *ChatCodexSettings) {
+	if settings == nil {
+		return
+	}
+	if settings.Model != "" {
+		harness.model = settings.Model
+	}
+	if settings.ReasoningEffort != nil {
+		harness.reasoning = *settings.ReasoningEffort
+	}
+	if settings.Permission != nil {
+		harness.permission = *settings.Permission
+		harness.hasPermission = true
 	}
 }
 
-func scriptedCodexEffectiveSettings(model string, reasoning ReasoningEffort) (*ChatCodexEffectiveSettings, error) {
-	return fakeCodexEffectiveSettings(model, reasoning)
+func scriptedCodexEffectiveSettings(model string, reasoning ReasoningEffort, permissions ...*ChatCodexPermissionSettings) (*ChatCodexEffectiveSettings, error) {
+	return fakeCodexEffectiveSettings(model, reasoning, permissions...)
 }
 
 func (harness *ScriptedWorkflowHarness) CancelTurn(_ context.Context, request CancelRequest) error {
@@ -183,6 +210,7 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 	defer harness.mu.Unlock()
 
 	harness.commands = append(harness.commands, request)
+	harness.applyCommandCodexSettingsLocked(request)
 	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
 	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
 		result.ThreadRef = request.ThreadRef
@@ -206,6 +234,8 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 		return harness.executeGoalCommandLocked(request.Command, result)
 	case ChatCommandModel:
 		return harness.executeModelCommandLocked(request.Command, result)
+	case ChatCommandPermission:
+		return harness.executePermissionCommandLocked(request.Command, result)
 	default:
 		return HarnessCommandResult{}, fmt.Errorf("unsupported scripted command kind: %s", request.Command.Kind)
 	}

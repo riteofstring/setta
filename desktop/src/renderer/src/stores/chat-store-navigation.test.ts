@@ -152,6 +152,7 @@ describe("chat store navigation caches", () => {
       codexEffectiveSettings: {
         model: "gpt-test",
         modelDisplayName: "GPT Test",
+        permission: defaultEffectivePermissionSettings(),
         reasoningEffort: "xhigh",
         reasoningEffortDisplayName: "Extra high",
         supportsImages: true,
@@ -176,6 +177,7 @@ describe("chat store navigation caches", () => {
     expect(useChatStore.getState().selectedConversation?.codexEffectiveSettings).toEqual({
       model: "gpt-test",
       modelDisplayName: "GPT Test",
+      permission: defaultEffectivePermissionSettings(),
       reasoningEffort: "xhigh",
       reasoningEffortDisplayName: "Extra high",
       supportsImages: true,
@@ -459,17 +461,23 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         result: {
           action: "display",
           composerDraft: "",
+          currentPermission: null,
           goal: null,
           kind: "goal",
           message: "Goal set: test",
           models: [],
+          permissionPresets: [],
           raw: "/goal test",
           reasoningEfforts: [],
           selectedModel: "",
+          selectedPermissionPreset: null,
           selectedReasoningEffort: null,
           title: "Goal",
         },
       }),
+      readCodexDefaults: async () => {
+        throw new Error("chat defaults are not used by chat store navigation tests");
+      },
       openCodexModelPicker: async () => ({
         conversation,
         message: null,
@@ -477,16 +485,25 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         result: {
           action: "model_picker",
           composerDraft: "",
+          currentPermission: null,
           goal: null,
           kind: "model",
           message: "Choose a model.",
           models: [],
+          permissionPresets: [],
           raw: "model_picker",
           reasoningEfforts: [],
           selectedModel: "",
+          selectedPermissionPreset: null,
           selectedReasoningEffort: null,
           title: "Model",
         },
+      }),
+      openCodexPermissionPicker: async () => ({
+        conversation,
+        message: null,
+        page: testPage(conversation, []),
+        result: commandResult("permission", "permission_picker"),
       }),
       listCommands: async () => ({ commands: [] }),
       listConversations: async () => listResponse([]),
@@ -547,12 +564,21 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: testPage(conversation, []),
         result: commandResult("model"),
       }),
+      setCodexPermissionPreset: async () => ({
+        conversation,
+        message: null,
+        page: testPage(conversation, []),
+        result: commandResult("permission"),
+      }),
       setCodexReasoningEffort: async () => ({
         conversation,
         message: null,
         page: testPage(conversation, []),
         result: commandResult("model"),
       }),
+      updateCodexDefaults: async () => {
+        throw new Error("chat defaults are not used by chat store navigation tests");
+      },
       setConversationPinned: async () => conversationItem(conversation, 0),
       selectImageAttachments: async () => [],
       steerMessage: async () => ({
@@ -711,19 +737,36 @@ function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
   };
 }
 
-function commandResult(kind: "goal" | "model") {
+function commandResult(
+  kind: "goal" | "model" | "permission",
+  action: "display" | "permission_picker" = "display",
+) {
   return {
-    action: "display" as const,
+    action,
     composerDraft: "",
+    currentPermission: null,
     goal: null,
     kind,
     message: "Command result",
     models: [],
+    permissionPresets: [],
     raw: "/command",
     reasoningEfforts: [],
     selectedModel: "",
+    selectedPermissionPreset: null,
     selectedReasoningEffort: null,
     title: "Command",
+  };
+}
+
+function defaultEffectivePermissionSettings() {
+  return {
+    activePermissionProfileExtends: "",
+    activePermissionProfileId: ":workspace",
+    approvalPolicy: "on-request",
+    builtIn: true,
+    displayLabel: "Ask for approval",
+    preset: "default" as const,
   };
 }
 

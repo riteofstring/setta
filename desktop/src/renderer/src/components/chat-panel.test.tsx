@@ -22,7 +22,10 @@ import {
   ConversationBody,
   handleComposerKeyDown,
   ModelPickerButton,
+  PermissionConfirmationDialog,
+  PermissionPickerButton,
   modelPickerOptionSelected,
+  permissionPresetSelected,
   reasoningEffortOptionSelected,
 } from "./chat-panel";
 import { ChatSearchBar, type TranscriptSearchController } from "./chat-transcript-search";
@@ -44,9 +47,9 @@ describe("composer keyboard behavior", () => {
       handleComposerKeyDown(event, {
         completeCommand: vi.fn(),
         draftEmpty: false,
-        dismissModelPicker: vi.fn(),
+        dismissPicker: vi.fn(),
         hasPendingSteering: false,
-        modelPickerOpen: false,
+        pickerOpen: false,
         queueDraft,
         running: false,
         sendImmediateSteering: vi.fn(),
@@ -76,9 +79,9 @@ describe("composer keyboard behavior", () => {
       handleComposerKeyDown(event, {
         completeCommand: vi.fn(),
         draftEmpty: false,
-        dismissModelPicker: vi.fn(),
+        dismissPicker: vi.fn(),
         hasPendingSteering: false,
-        modelPickerOpen: false,
+        pickerOpen: false,
         queueDraft: vi.fn(),
         running: false,
         sendImmediateSteering: vi.fn(),
@@ -103,9 +106,9 @@ describe("composer keyboard behavior", () => {
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
       draftEmpty: false,
-      dismissModelPicker: vi.fn(),
+      dismissPicker: vi.fn(),
       hasPendingSteering: false,
-      modelPickerOpen: false,
+      pickerOpen: false,
       queueDraft: vi.fn(),
       running: true,
       sendImmediateSteering: vi.fn(),
@@ -126,9 +129,9 @@ describe("composer keyboard behavior", () => {
     handleComposerKeyDown(event, {
       completeCommand,
       draftEmpty: false,
-      dismissModelPicker: vi.fn(),
+      dismissPicker: vi.fn(),
       hasPendingSteering: false,
-      modelPickerOpen: false,
+      pickerOpen: false,
       queueDraft,
       running: false,
       sendImmediateSteering: vi.fn(),
@@ -142,16 +145,16 @@ describe("composer keyboard behavior", () => {
     expect(queueDraft).not.toHaveBeenCalled();
   });
 
-  test("dismisses the model picker on Escape", () => {
+  test("dismisses the open picker on Escape", () => {
     const event = keyboardEvent("Escape");
-    const dismissModelPicker = vi.fn();
+    const dismissPicker = vi.fn();
 
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
       draftEmpty: true,
-      dismissModelPicker,
+      dismissPicker,
       hasPendingSteering: true,
-      modelPickerOpen: true,
+      pickerOpen: true,
       queueDraft: vi.fn(),
       running: false,
       sendImmediateSteering: vi.fn(),
@@ -161,7 +164,7 @@ describe("composer keyboard behavior", () => {
     });
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(dismissModelPicker).toHaveBeenCalledOnce();
+    expect(dismissPicker).toHaveBeenCalledOnce();
   });
 
   test("sends pending steering immediately on Escape when the composer is empty", () => {
@@ -171,9 +174,9 @@ describe("composer keyboard behavior", () => {
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
       draftEmpty: true,
-      dismissModelPicker: vi.fn(),
+      dismissPicker: vi.fn(),
       hasPendingSteering: true,
-      modelPickerOpen: false,
+      pickerOpen: false,
       queueDraft: vi.fn(),
       running: true,
       sendImmediateSteering,
@@ -189,14 +192,14 @@ describe("composer keyboard behavior", () => {
   test("follows the command key-handling precedence table", () => {
     const cases = [
       {
-        expected: "dismissModelPicker",
+        expected: "dismissPicker",
         key: "Escape",
-        name: "Escape dismisses the model picker before pending steering",
+        name: "Escape dismisses the open picker before pending steering",
         options: {},
         overrides: {
           draftEmpty: true,
           hasPendingSteering: true,
-          modelPickerOpen: true,
+          pickerOpen: true,
           running: true,
           slashDraft: true,
         },
@@ -209,7 +212,7 @@ describe("composer keyboard behavior", () => {
         overrides: {
           draftEmpty: true,
           hasPendingSteering: true,
-          modelPickerOpen: false,
+          pickerOpen: false,
           running: true,
         },
       },
@@ -246,7 +249,7 @@ describe("composer keyboard behavior", () => {
     for (const testCase of cases) {
       const actions = {
         completeCommand: vi.fn(),
-        dismissModelPicker: vi.fn(),
+        dismissPicker: vi.fn(),
         queueDraft: vi.fn(),
         sendDraft: vi.fn(),
         sendImmediateSteering: vi.fn(),
@@ -257,9 +260,9 @@ describe("composer keyboard behavior", () => {
       handleComposerKeyDown(event, {
         completeCommand: actions.completeCommand,
         draftEmpty: false,
-        dismissModelPicker: actions.dismissModelPicker,
+        dismissPicker: actions.dismissPicker,
         hasPendingSteering: false,
-        modelPickerOpen: false,
+        pickerOpen: false,
         queueDraft: actions.queueDraft,
         running: false,
         sendDraft: actions.sendDraft,
@@ -459,6 +462,12 @@ describe("composer command helpers", () => {
     expect(reasoningEffortOptionSelected(defaultEffort, "high")).toBe(false);
     expect(reasoningEffortOptionSelected(selectedEffort, "high")).toBe(true);
   });
+
+  test("prefers the selected permission preset over built-in defaults", () => {
+    expect(permissionPresetSelected("default", null)).toBe(false);
+    expect(permissionPresetSelected("default", "full-access")).toBe(false);
+    expect(permissionPresetSelected("full-access", "full-access")).toBe(true);
+  });
 });
 
 describe("composer controls", () => {
@@ -474,12 +483,14 @@ describe("composer controls", () => {
             codexEffectiveSettings: {
               model: "scripted-careful",
               modelDisplayName: "Scripted Careful",
+              permission: defaultEffectivePermissionSettings(),
               reasoningEffort: "high",
               reasoningEffortDisplayName: "High",
               supportsImages: true,
             },
             codexSettings: {
               model: "scripted-careful",
+              permission: null,
               reasoningEffort: "high",
             },
           } as Parameters<typeof ModelPickerButton>[0]["selectedConversation"]
@@ -490,6 +501,59 @@ describe("composer controls", () => {
     expect(html).toContain("Open model and reasoning picker");
     expect(html).toContain("Scripted Careful");
     expect(html).toContain("High");
+  });
+
+  test("shows selected permission and picker options", () => {
+    const html = renderToString(
+      <PermissionPickerButton
+        disabled={false}
+        onOpen={vi.fn()}
+        onSelect={vi.fn()}
+        permissionPicker={permissionPickerResult()}
+        running={false}
+        selectedConversation={selectedConversationWithPermission("Ask for approval")}
+      />,
+    );
+
+    expect(html).toContain("Open permission mode picker");
+    expect(html).toContain("Ask for approval");
+    expect(html).toContain("Read Only");
+    expect(html).toContain("Full Access");
+    expect(html).toContain("Full filesystem access");
+  });
+
+  test("renders focused confirmation for dangerous permission presets", () => {
+    const preset = permissionPickerResult()?.result.permissionPresets.find(
+      (candidate) => candidate.id === "full-access",
+    );
+    const html = renderToString(
+      <PermissionConfirmationDialog
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        preset={preset ?? null}
+      />,
+    );
+
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain("Enable Full Access?");
+    expect(html).toContain("Full filesystem access removes runtime approval prompts.");
+    expect(html).toContain("Use");
+    expect(html).toContain("Full Access");
+  });
+
+  test("explains permission picker disabled state while a run is active", () => {
+    const html = renderToString(
+      <PermissionPickerButton
+        disabled
+        onOpen={vi.fn()}
+        onSelect={vi.fn()}
+        permissionPicker={null}
+        running
+        selectedConversation={selectedConversationWithPermission("Ask for approval")}
+      />,
+    );
+
+    expect(html).toContain("Permission changes apply after the current run finishes.");
   });
 
   test("hides queue controls while idle", () => {
@@ -847,12 +911,14 @@ function composerChat() {
       codexEffectiveSettings: {
         model: "scripted-fast",
         modelDisplayName: "Scripted Fast",
+        permission: defaultEffectivePermissionSettings(),
         reasoningEffort: "medium",
         reasoningEffortDisplayName: "Medium",
         supportsImages: true,
       },
       codexSettings: {
         model: "scripted-fast",
+        permission: null,
         reasoningEffort: "medium",
       },
       createdAt: "2026-05-29T20:00:00Z",
@@ -923,6 +989,128 @@ function emptyTranscriptProps(): ChatTranscriptProps {
     sendSteeringImmediately: async () => {},
     submitApproval: async () => {},
   };
+}
+
+function defaultEffectivePermissionSettings() {
+  return {
+    activePermissionProfileExtends: "",
+    activePermissionProfileId: ":workspace",
+    approvalPolicy: "on-request",
+    builtIn: true,
+    displayLabel: "Ask for approval",
+    preset: "default" as const,
+  };
+}
+
+function selectedConversationWithPermission(displayLabel: string) {
+  return {
+    archivedAt: "",
+    codexEffectiveSettings: {
+      model: "scripted-fast",
+      modelDisplayName: "Scripted Fast",
+      permission: {
+        ...defaultEffectivePermissionSettings(),
+        activePermissionProfileId: ":workspace",
+        builtIn: true,
+        displayLabel,
+        preset: "default",
+      },
+      reasoningEffort: "medium",
+      reasoningEffortDisplayName: "Medium",
+      supportsImages: true,
+    },
+    codexSettings: {
+      model: "scripted-fast",
+      permission: {
+        approvalPolicy: "on-request",
+        permissions: ":workspace",
+        preset: "default",
+      },
+      reasoningEffort: "medium",
+    },
+    createdAt: "2026-05-29T20:00:00Z",
+    harnessRefs: [],
+    id: "conversation_api",
+    internal: false,
+    schemaVersion: 1,
+    title: "API chat",
+    updatedAt: "2026-05-29T20:00:00Z",
+    workflow: null,
+    workspaceId: "workspace_api",
+  } as Parameters<typeof PermissionPickerButton>[0]["selectedConversation"];
+}
+
+function permissionPickerResult() {
+  return {
+    conversation: selectedConversationWithPermission("Ask for approval"),
+    message: null,
+    page: {
+      blocks: [],
+      conversation: selectedConversationWithPermission("Ask for approval"),
+      goal: null,
+      hasMoreOlder: false,
+      messages: [],
+      olderBeforeBlockOrdinal: 0,
+      queue: { messages: [], runs: [] },
+    },
+    result: {
+      action: "permission_picker",
+      composerDraft: "",
+      currentPermission: {
+        ...defaultEffectivePermissionSettings(),
+        activePermissionProfileId: ":workspace",
+        builtIn: true,
+        displayLabel: "Ask for approval",
+        preset: "default",
+      },
+      goal: null,
+      kind: "permission",
+      message: "Choose a permission mode.",
+      models: [],
+      permissionPresets: [
+        {
+          activePermissionProfileId: ":read-only",
+          approvalPolicy: "on-request",
+          danger: null,
+          disabled: false,
+          disabledReason: "",
+          id: "read-only",
+          label: "Read Only",
+          shortDescription: "Read files and ask before changes.",
+        },
+        {
+          activePermissionProfileId: ":workspace",
+          approvalPolicy: "on-request",
+          danger: null,
+          disabled: false,
+          disabledReason: "",
+          id: "default",
+          label: "Ask for approval",
+          shortDescription: "Ask before external writes.",
+        },
+        {
+          activePermissionProfileId: ":danger-full-access",
+          approvalPolicy: "never",
+          danger: {
+            confirmationBody: "Full filesystem access removes runtime approval prompts.",
+            confirmationTitle: "Enable Full Access?",
+            requiresConfirmation: true,
+          },
+          disabled: false,
+          disabledReason: "",
+          id: "full-access",
+          label: "Full Access",
+          shortDescription: "Full filesystem access.",
+        },
+      ],
+      raw: "permission_picker",
+      reasoningEfforts: [],
+      selectedModel: "",
+      selectedPermissionPreset: "default",
+      selectedReasoningEffort: null,
+      title: "Permission",
+    },
+  } as Parameters<typeof PermissionPickerButton>[0]["permissionPicker"];
 }
 
 function openSearchController(): TranscriptSearchController {

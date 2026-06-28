@@ -53,6 +53,8 @@ type FakeHarness struct {
 	approvals       []ApprovalResponse
 	goal            *ChatGoalState
 	model           string
+	permission      ChatCodexPermissionSettings
+	hasPermission   bool
 	reasoning       ReasoningEffort
 	steering        []SteerRequest
 	taskRequests    []HarnessTaskRequest
@@ -228,6 +230,8 @@ func (harness *FakeHarness) ResolveCodexEffectiveSettings(_ context.Context, _ w
 	harness.mu.Lock()
 	model := harness.model
 	reasoning := harness.reasoning
+	permission := harness.permission
+	hasPermission := harness.hasPermission
 	harness.mu.Unlock()
 
 	if conversation.CodexSettings != nil {
@@ -237,8 +241,12 @@ func (harness *FakeHarness) ResolveCodexEffectiveSettings(_ context.Context, _ w
 		if conversation.CodexSettings.ReasoningEffort != nil {
 			reasoning = *conversation.CodexSettings.ReasoningEffort
 		}
+		if conversation.CodexSettings.Permission != nil {
+			permission = *conversation.CodexSettings.Permission
+			hasPermission = true
+		}
 	}
-	return fakeCodexEffectiveSettings(model, reasoning)
+	return fakeCodexEffectiveSettings(model, reasoning, fakeCodexPermissionSettings(permission, hasPermission))
 }
 
 func (harness *FakeHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {
@@ -253,6 +261,7 @@ func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCom
 	defer harness.mu.Unlock()
 
 	harness.commands = append(harness.commands, request)
+	harness.applyCommandCodexSettingsLocked(request)
 	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
 	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
 		result.ThreadRef = request.ThreadRef
@@ -276,6 +285,8 @@ func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCom
 		return harness.executeGoalCommandLocked(request.Command, result)
 	case ChatCommandModel:
 		return harness.executeModelCommandLocked(request.Command, result)
+	case ChatCommandPermission:
+		return harness.executePermissionCommandLocked(request.Command, result)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("unsupported fake command kind: %s", request.Command.Kind), nil)
 	}
@@ -303,6 +314,29 @@ func (operation *fakeGoalOperation) Wait(ctx context.Context, request TurnReques
 func (operation *fakeGoalOperation) Cancel(context.Context) error { return nil }
 
 func (operation *fakeGoalOperation) Close() {}
+
+func (harness *FakeHarness) applyCommandCodexSettingsLocked(request HarnessCommandRequest) {
+	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
+		return
+	}
+	harness.applyConversationCodexSettingsLocked(request.Conversation.CodexSettings)
+}
+
+func (harness *FakeHarness) applyConversationCodexSettingsLocked(settings *ChatCodexSettings) {
+	if settings == nil {
+		return
+	}
+	if settings.Model != "" {
+		harness.model = settings.Model
+	}
+	if settings.ReasoningEffort != nil {
+		harness.reasoning = *settings.ReasoningEffort
+	}
+	if settings.Permission != nil {
+		harness.permission = *settings.Permission
+		harness.hasPermission = true
+	}
+}
 
 func (harness *FakeHarness) executeGoalCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {
 	if command.Goal == nil {
@@ -357,7 +391,7 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 		result.ReasoningEfforts = fakeReasoningEffortOptions()
 		result.SelectedModel = harness.model
 		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
-		settings, err := fakeCodexEffectiveSettings(harness.model, harness.reasoning)
+		settings, err := fakeCodexEffectiveSettings(harness.model, harness.reasoning, fakeCodexPermissionSettings(harness.permission, harness.hasPermission))
 		if err != nil {
 			return HarnessCommandResult{}, err
 		}
@@ -366,7 +400,7 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 		harness.model = command.Model.ModelID
 		result.SelectedModel = command.Model.ModelID
 		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
-		settings, err := fakeCodexEffectiveSettings(harness.model, harness.reasoning)
+		settings, err := fakeCodexEffectiveSettings(harness.model, harness.reasoning, fakeCodexPermissionSettings(harness.permission, harness.hasPermission))
 		if err != nil {
 			return HarnessCommandResult{}, err
 		}
@@ -375,6 +409,7 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 			result.CodexSettings = &ChatCodexSettings{
 				Model:           harness.model,
 				ReasoningEffort: reasoningEffortResult(harness.reasoning),
+				Permission:      fakeCodexPermissionSettings(harness.permission, harness.hasPermission),
 			}
 		}
 	case ModelCommandSetEffort:
@@ -384,7 +419,7 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 		harness.reasoning = *command.Model.ReasoningEffort
 		result.SelectedModel = harness.model
 		result.SelectedReasoningEffort = reasoningEffortResult(*command.Model.ReasoningEffort)
-		settings, err := fakeCodexEffectiveSettings(harness.model, harness.reasoning)
+		settings, err := fakeCodexEffectiveSettings(harness.model, harness.reasoning, fakeCodexPermissionSettings(harness.permission, harness.hasPermission))
 		if err != nil {
 			return HarnessCommandResult{}, err
 		}
@@ -393,6 +428,7 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 			result.CodexSettings = &ChatCodexSettings{
 				Model:           harness.model,
 				ReasoningEffort: reasoningEffortResult(harness.reasoning),
+				Permission:      fakeCodexPermissionSettings(harness.permission, harness.hasPermission),
 			}
 		}
 	default:
@@ -401,9 +437,63 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 	return result, nil
 }
 
-func fakeCodexEffectiveSettings(model string, reasoning ReasoningEffort) (*ChatCodexEffectiveSettings, error) {
+func (harness *FakeHarness) executePermissionCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {
+	if command.Permission == nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "permission command payload is required", nil)
+	}
+	switch command.Permission.Action {
+	case PermissionCommandShowPicker:
+		result.Action = ChatCommandResultPermissionPicker
+		currentPermission := fakeCodexEffectivePermissionSettings(fakeCodexPermissionSettings(harness.permission, harness.hasPermission))
+		settings, err := fakeCodexEffectiveSettings(harness.model, harness.reasoning, fakeCodexPermissionSettings(harness.permission, harness.hasPermission))
+		if err != nil {
+			return HarnessCommandResult{}, err
+		}
+		if settings != nil {
+			result.CodexEffectiveSettings = settings
+			currentPermission = settings.Permission
+		}
+		result.CurrentPermission = currentPermission
+		result.PermissionPresets = BuiltinChatPermissionPresets()
+		result.SelectedPermissionPreset = selectedPermissionPresetResult(currentPermission)
+	case PermissionCommandSet:
+		settings, ok := chatPermissionSettingsForPreset(command.Permission.Preset)
+		if !ok {
+			return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "unsupported permission preset: "+string(command.Permission.Preset), nil)
+		}
+		harness.permission = settings
+		harness.hasPermission = true
+		currentPermission := fakeCodexEffectivePermissionSettings(&settings)
+		effective, err := fakeCodexEffectiveSettings(harness.model, harness.reasoning, &settings)
+		if err != nil {
+			return HarnessCommandResult{}, err
+		}
+		if effective != nil {
+			result.CodexEffectiveSettings = effective
+			currentPermission = effective.Permission
+		}
+		result.CurrentPermission = currentPermission
+		result.SelectedPermissionPreset = selectedPermissionPresetResult(currentPermission)
+		if !result.HasThreadRef {
+			result.CodexSettings = &ChatCodexSettings{
+				Model:           harness.model,
+				ReasoningEffort: reasoningEffortResult(harness.reasoning),
+				Permission:      &settings,
+			}
+		}
+	default:
+		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported permission command action: %s", command.Permission.Action), nil)
+	}
+	return result, nil
+}
+
+func fakeCodexEffectiveSettings(model string, reasoning ReasoningEffort, permissions ...*ChatCodexPermissionSettings) (*ChatCodexEffectiveSettings, error) {
 	if model == "" {
 		return nil, nil
+	}
+	var permission *ChatCodexPermissionSettings
+	if len(permissions) > 0 {
+		permission = permissions[0]
 	}
 	modelOption, ok := modelOptionByModel(fakeModelOptions(), model)
 	if !ok {
@@ -422,7 +512,23 @@ func fakeCodexEffectiveSettings(model string, reasoning ReasoningEffort) (*ChatC
 		ReasoningEffort:            reasoningEffortResult(reasoning),
 		ReasoningEffortDisplayName: effortOption.DisplayName,
 		SupportsImages:             modelOption.SupportsImages,
+		Permission:                 fakeCodexEffectivePermissionSettings(permission),
 	}, nil
+}
+
+func fakeCodexPermissionSettings(settings ChatCodexPermissionSettings, ok bool) *ChatCodexPermissionSettings {
+	if !ok {
+		return nil
+	}
+	value := settings
+	return &value
+}
+
+func fakeCodexEffectivePermissionSettings(settings *ChatCodexPermissionSettings) *ChatCodexEffectivePermissionSettings {
+	if settings == nil {
+		return chatCodexEffectivePermissionSettings(codexApprovalPolicyOnRequest, "", "")
+	}
+	return chatCodexEffectivePermissionSettings(settings.ApprovalPolicy, settings.Permissions, "")
 }
 
 func (harness *FakeHarness) CancelledRequests() []CancelRequest {

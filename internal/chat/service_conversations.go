@@ -85,6 +85,8 @@ func (service *Service) CreateConversation(workspaceID string, title string) (Co
 		ArchivedAt:    "",
 		HarnessRefs:   []HarnessThreadRef{},
 	}
+	codexDefaults := service.currentChatCodexDefaultSettings()
+	conversation.CodexSettings = &codexDefaults
 	conversation, err = service.conversationWithResolvedEffectiveSettings(context.Background(), workspaceSummary, conversation)
 	if err != nil {
 		return Conversation{}, err

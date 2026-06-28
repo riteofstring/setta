@@ -126,6 +126,18 @@ export async function clickButtonContainingText(client, text) {
   });
 }
 
+export async function clickButtonContainingTextByRole(client, role, text) {
+  await waitForState(
+    client,
+    buttonContainingTextByRoleClickExpression(role, text),
+    (value) => value.clicked,
+  ).catch((error) => {
+    throw new Error(
+      `button with role ${role} containing text was not clickable: ${text}: ${error.message}`,
+    );
+  });
+}
+
 export async function scrollSidebarNavigationTo(client, scrollTop) {
   const scrolled = await client.driver("scrollSidebarNavigationTo", { scrollTop });
   if (!scrolled) {
@@ -152,6 +164,10 @@ function buttonClickExpression(kind, value) {
 
 function buttonContainingTextClickExpression(text) {
   return driverCallExpression("clickButtonContainingText", { text });
+}
+
+function buttonContainingTextByRoleClickExpression(role, text) {
+  return driverCallExpression("clickButtonContainingTextByRole", { role, text });
 }
 
 export async function waitForText(client, text, timeoutMs = workflowTimeoutMs) {

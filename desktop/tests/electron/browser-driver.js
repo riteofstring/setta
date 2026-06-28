@@ -46,6 +46,18 @@
     return { body: document.body.innerText, clicked: true };
   }
 
+  function clickButtonContainingTextByRole({ role, text }) {
+    const selector = `button[role="${cssEscape(role)}"]`;
+    const button = Array.from(document.querySelectorAll(selector)).find((candidate) =>
+      candidate.innerText.includes(text),
+    );
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { body: document.body.innerText, clicked: false };
+    }
+    button.click();
+    return { body: document.body.innerText, clicked: true };
+  }
+
   function composerReady() {
     const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
     return { ready: Boolean(textarea && !textarea.disabled) };
@@ -1411,6 +1423,7 @@
     bodyText,
     clickButton,
     clickButtonContainingText,
+    clickButtonContainingTextByRole,
     clickModelPickerButton,
     buttonReady,
     chatLayoutMetrics,

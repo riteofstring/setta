@@ -54,6 +54,18 @@ export function composerTextareaLabel(selected: boolean) {
   return selected ? "Ask Setta" : "Start new chat";
 }
 
+export function composerAcceptsPrompt(selected: boolean, hasPromptSender: boolean) {
+  return selected || hasPromptSender;
+}
+
+export function commandPaletteShouldOpen(
+  slashDraft: boolean,
+  paletteDismissed: boolean,
+  modelPickerOpen: boolean,
+) {
+  return slashDraft && !paletteDismissed && !modelPickerOpen;
+}
+
 export function ComposerPlaceholder({
   selected,
   visible,

@@ -20,6 +20,7 @@ import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
+import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
@@ -54,15 +55,12 @@ const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
 const backendRequestDrainTimeoutMs = 1_500;
 const workspaceBrowserViews = createElectronWebContentsViewRegistry();
-
 function desktopRoot() {
   return process.cwd();
 }
-
 function repoRoot() {
   return resolve(desktopRoot(), "..");
 }
-
 async function prepareBackend(appDataDir: string) {
   emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
   try {
@@ -613,41 +611,7 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  handleIpc(
-    ipcMain,
-    "chatOpenCodexModelPicker",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().openChatCodexModelPicker({
-        conversationId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSetCodexModel",
-    async (_event, workspaceId, conversationId, modelId) => {
-      return requireBackendClient().setChatCodexModel({
-        conversationId,
-        modelId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSetCodexReasoningEffort",
-    async (_event, workspaceId, conversationId, reasoningEffort) => {
-      return requireBackendClient().setChatCodexReasoningEffort({
-        conversationId,
-        reasoningEffort,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
+  registerChatCodexIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "chatSendMessage",

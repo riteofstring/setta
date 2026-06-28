@@ -60,10 +60,16 @@ import {
 import { runBackgroundTerminalWorkflow } from "./chat-workflow-background-terminal-cases.mjs";
 import { runChronologicalTranscriptWorkflow } from "./chat-workflow-chronological-cases.mjs";
 import { runCrossWorkspaceSidebarSummaryWorkflow } from "./chat-workflow-cross-workspace-sidebar-cases.mjs";
+import { runChatDefaultsSettingsWorkflow } from "./chat-workflow-defaults-cases.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runImageAttachmentWorkflow } from "./chat-workflow-image-attachment-cases.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
+import {
+  assertCodexProtocolNewChatPermissionContract,
+  exerciseLinkedCodexPermissionPicker,
+} from "./chat-workflow-codex-permission-cases.mjs";
+import { runPermissionModeWorkflow } from "./chat-workflow-permission-cases.mjs";
 import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
@@ -401,6 +407,10 @@ async function runDeterministicWorkflowLaunch(results) {
         workspaceId,
       });
     });
+    await runWorkflowStep(results, recordingDir, "permission-modes", context.client, async () => {
+      const conversationId = await createChat(context.client, backend, workspaceId);
+      await runPermissionModeWorkflow(context.client, backend, workspaceId, conversationId);
+    });
     await runWorkflowStep(
       results,
       recordingDir,
@@ -408,6 +418,15 @@ async function runDeterministicWorkflowLaunch(results) {
       context.client,
       async () => {
         await runConversationSwitchWorkflow(context.client, backend, workspaceId);
+      },
+    );
+    await runWorkflowStep(
+      results,
+      recordingDir,
+      "chat-defaults-settings",
+      context.client,
+      async () => {
+        await runChatDefaultsSettingsWorkflow(context.client, backend, workspaceId);
       },
     );
   } catch (error) {
@@ -439,6 +458,11 @@ async function runDeterministicWorkflowLaunch(results) {
       "/chat/approvals/submit",
       "/chat/commands/list",
       "/chat/commands/execute",
+      "/chat/codex/defaults",
+      "/chat/codex/model/picker",
+      "/chat/codex/permission/picker",
+      "/chat/codex/permission/set",
+      "/chat/codex/reasoning-effort/set",
       "/codex/account",
       "/codex/account/login/start",
       "/codex/account/logout",
@@ -456,6 +480,12 @@ async function runDeterministicWorkflowLaunch(results) {
       "chat:submit-approval",
       "chat:list-commands",
       "chat:execute-command",
+      "chat:read-codex-defaults",
+      "chat:update-codex-defaults",
+      "chat:open-codex-model-picker",
+      "chat:open-codex-permission-picker",
+      "chat:set-codex-permission-preset",
+      "chat:set-codex-reasoning-effort",
       "codex-account:logout",
       "codex-account:read",
       "codex-account:start-login",
@@ -1207,6 +1237,7 @@ async function runCodexProtocolWorkflow(results) {
     const backend = await backendProbe(recordingDir);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
     const conversationId = await createChat(context.client, backend, workspaceId);
+    await assertCodexProtocolNewChatPermissionContract(backend, workspaceId, conversationId);
     await waitForModelPickerSummary(waitForState, context.client, "GPT Test", "Extra high");
     await submitComposer(context.client, "protocol notification workflow", "Send message");
     const run = await waitForRunWithPrompt(
@@ -1233,6 +1264,7 @@ async function runCodexProtocolWorkflow(results) {
       run.id,
     );
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
+    await exerciseLinkedCodexPermissionPicker(context.client, backend, workspaceId, conversationId);
 
     await runProtocolGoalMultiTurnWorkflow(context.client, backend, workspaceId);
     await runProtocolGoalForegroundUnifiedExecWorkflow(context.client, backend, workspaceId);
@@ -1271,8 +1303,10 @@ async function runCodexProtocolWorkflow(results) {
     backendPaths: [
       "/workspaces/open",
       "/chat/conversations/create",
+      "/chat/conversations/list",
       "/chat/messages/send",
       "/chat/messages/page",
+      "/chat/codex/permission/picker",
       "/chat/commands/execute",
       "/chat/runs/cancel",
       "/chat/runs/activity",
@@ -1284,6 +1318,7 @@ async function runCodexProtocolWorkflow(results) {
       "chat:create-conversation",
       "chat:cancel-run",
       "chat:execute-command",
+      "chat:open-codex-permission-picker",
       "chat:send-message",
     ],
   });

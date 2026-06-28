@@ -27,7 +27,8 @@ import {
   ComposerButton,
   handleComposerKeyDown,
   ModelPickerButton,
-  PermissionModeUnavailableButton,
+  PermissionConfirmationDialog,
+  PermissionPickerButton,
   VoiceInputUnavailableButton,
 } from "./chat-composer-controls";
 import {
@@ -39,11 +40,14 @@ import {
   validateComposerAttachmentFiles,
 } from "./chat-composer-attachments";
 import {
+  commandPaletteShouldOpen,
   commandPaletteKeyAction,
+  composerAcceptsPrompt,
   ComposerPlaceholder,
   composerTextareaLabel,
   isSlashDraft,
 } from "./chat-composer-helpers";
+import { useComposerPermissionPicker } from "./chat-composer-permission";
 import type { ChatView } from "./chat-panel";
 import { chatReadableColumnAttributes, chatReadableColumnClass } from "./chat-layout";
 import { Textarea } from "./ui/textarea";
@@ -108,18 +112,6 @@ function canSendImmediateSteeringDraft({
   );
 }
 
-function modelPickerControlDisabled(
-  selectedConversation: ChatView["selectedConversation"],
-  disabled: boolean,
-  running: boolean,
-) {
-  return selectedConversation === null || disabled || running;
-}
-
-function selectedConversationIdForComposer(selectedConversation: ChatView["selectedConversation"]) {
-  return selectedConversation?.id ?? "";
-}
-
 function selectedConversationWorkspaceId(selectedConversation: ChatView["selectedConversation"]) {
   return selectedConversation?.workspaceId ?? null;
 }
@@ -170,6 +162,7 @@ const composerChatPropSelectors = [
   (chat: ChatView) => chat.goal,
   (chat: ChatView) => chat.listCommands,
   (chat: ChatView) => chat.openCodexModelPicker,
+  (chat: ChatView) => chat.openCodexPermissionPicker,
   (chat: ChatView) => chat.operation,
   (chat: ChatView) => chat.pendingSteeringMessageIds,
   (chat: ChatView) => chat.queueMessage,
@@ -177,6 +170,7 @@ const composerChatPropSelectors = [
   (chat: ChatView) => chat.sendMessage,
   (chat: ChatView) => chat.sendSteeringImmediately,
   (chat: ChatView) => chat.setCodexModel,
+  (chat: ChatView) => chat.setCodexPermissionPreset,
   (chat: ChatView) => chat.setCodexReasoningEffort,
   (chat: ChatView) => chat.status,
   (chat: ChatView) => chat.steerMessage,
@@ -209,7 +203,7 @@ function ComposerComponent({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selectedConversation = chat.selectedConversation;
   const selected = selectedConversation !== null;
-  const selectedConversationId = selectedConversationIdForComposer(selectedConversation);
+  const selectedConversationId = selectedConversation?.id ?? "";
   const attachmentContextRef = useRef(selectedConversationId);
   const commandListContextKey = commandDescriptorContextKey({
     active: running,
@@ -217,7 +211,7 @@ function ComposerComponent({
     workspaceId: selectedConversationWorkspaceId(selectedConversation),
   });
   const listCommands = chat.listCommands;
-  const acceptsPrompt = composerAcceptsPrompt(selected, onSendPrompt);
+  const acceptsPrompt = composerAcceptsPrompt(selected, onSendPrompt !== undefined);
   const disabled = composerDisabled(disabledOverride, acceptsPrompt, busy);
   const hasAttachments = attachments.length > 0;
   const slashDraft = composerSlashDraft(draft, hasAttachments);
@@ -230,7 +224,6 @@ function ComposerComponent({
     commandListStatus: chat.commandListStatus,
     slashDraft,
   });
-  const commandPaletteVisible = commandPaletteShouldOpen(slashDraft, paletteDismissed, modelPicker);
   const commandListError = commandListErrorForDraft(
     slashDraft,
     chat.commandListStatus,
@@ -238,6 +231,11 @@ function ComposerComponent({
   );
   const hasPendingSteering = chat.pendingSteeringMessageIds.length > 0;
   const modelPickerOpen = isModelPickerOpen(modelPicker);
+  const commandPaletteVisible = commandPaletteShouldOpen(
+    slashDraft,
+    paletteDismissed,
+    modelPickerOpen,
+  );
   const supportsImages = selectedConversationSupportsImages(selectedConversation);
   const supportsAttachments = composerAttachmentsSupported(hasAttachments, supportsImages);
   const canSend = canSendComposerDraft({
@@ -256,13 +254,35 @@ function ComposerComponent({
     slashDraft,
     supportsAttachments,
   });
-  const modelPickerDisabled = modelPickerControlDisabled(selectedConversation, disabled, running);
+  const modelPickerDisabled = selectedConversation === null || disabled || running;
+  const {
+    cancelPermissionConfirmation,
+    clearPermissionPicker,
+    clearPermissionState,
+    confirmPermissionSelection,
+    executePermissionSelection,
+    openPermissionPicker,
+    permissionConfirmation,
+    permissionPicker,
+    permissionPickerDisabled,
+    permissionPickerOpen,
+  } = useComposerPermissionPicker({
+    chat,
+    clearModelPicker: () => setModelPicker(null),
+    disabled,
+    focusComposer,
+    running,
+    setDraft,
+    submittingRef,
+  });
 
   useEffect(() => {
     attachmentContextRef.current = selectedConversationId;
     setAttachments([]);
     setAttachmentError(null);
     setAttaching(false);
+    setModelPicker(null);
+    clearPermissionState();
   }, [selectedConversationId]);
 
   useEffect(() => {
@@ -283,6 +303,7 @@ function ComposerComponent({
       setCommandListKey("");
       setCommandListRequestKey("");
       setModelPicker(null);
+      clearPermissionPicker();
       return;
     }
     if (!slashDraft) {
@@ -704,6 +725,7 @@ function ComposerComponent({
     try {
       const result = await chat.openCodexModelPicker();
       if (result.result.action === "model_picker") {
+        clearPermissionPicker();
         setModelPicker(result);
         setDraft("");
         requestAnimationFrame(() => textareaRef.current?.focus());
@@ -714,132 +736,151 @@ function ComposerComponent({
   }
 
   return (
-    <form
-      className={cn("workspace-chat-pane-surface px-3 pt-1 pb-1.5", formClassName)}
-      data-testid="chat-composer"
-      onDragOver={(event) => {
-        if (dragHasImageFile(event.dataTransfer)) {
+    <>
+      <form
+        className={cn("workspace-chat-pane-surface px-3 pt-1 pb-1.5", formClassName)}
+        data-testid="chat-composer"
+        onDragOver={(event) => {
+          if (dragHasImageFile(event.dataTransfer)) {
+            event.preventDefault();
+          }
+        }}
+        onDrop={(event) => {
+          if (!dragHasImageFile(event.dataTransfer)) {
+            return;
+          }
           event.preventDefault();
-        }
-      }}
-      onDrop={(event) => {
-        if (!dragHasImageFile(event.dataTransfer)) {
-          return;
-        }
-        event.preventDefault();
-        void attachFiles(event.dataTransfer.files);
-      }}
-      onSubmit={(event) => {
-        event.preventDefault();
-        void sendDraft();
-      }}
-    >
-      <div {...chatReadableColumnAttributes} className={cn("relative", chatReadableColumnClass)}>
-        <div
-          className={cn(
-            "min-w-0 rounded-sm border border-border bg-card/90 px-2 py-1.5 shadow-lg shadow-black/15",
-            frameClassName,
-          )}
-        >
-          <div className="relative min-w-0">
-            <ComposerPlaceholder selected={selected} visible={draft === "" && placeholder === ""} />
-            <CommandPalette
-              commandListStatus={chat.commandListStatus}
-              commandListError={commandListError}
-              commandListPending={commandListPending}
-              commandState={commandState}
-              draft={draft}
-              modelPicker={modelPicker}
-              onPickSuggestion={(suggestion) => {
-                void pickCommandSuggestion(suggestion);
-              }}
-              onDismissModelPicker={dismissModelPicker}
-              onPickModel={(model) => {
-                void executeModelSelection(model);
-              }}
-              onPickReasoningEffort={(effort) => {
-                void executeReasoningEffortSelection(effort);
-              }}
-              paletteVisible={commandPaletteVisible}
-              selectedSuggestionIndex={selectedSuggestionIndex}
-            />
-            <Textarea
-              aria-label={composerTextareaLabel(acceptsPrompt)}
-              className="relative z-10 max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={disabled}
-              onChange={(event) => updateDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (handleCommandPaletteKeyDown(event)) {
-                  return;
-                }
-                handleComposerKeyDown(event, {
-                  completeCommand,
-                  draftEmpty: draftText === "",
-                  dismissModelPicker,
-                  hasPendingSteering,
-                  modelPickerOpen,
-                  queueDraft,
-                  running,
-                  sendDraft,
-                  sendImmediateSteering,
-                  slashDraft,
-                  stopRun: chat.stopActiveRun,
-                });
-              }}
-              onPaste={(event) => {
-                if (!clipboardHasImageFile(event.clipboardData)) {
-                  return;
-                }
-                event.preventDefault();
-                void attachFiles(event.clipboardData.files);
-              }}
-              placeholder={placeholder}
-              ref={textareaRef}
-              rows={2}
-              value={draft}
-            />
-          </div>
-          <AttachmentStrip
-            attachments={attachments}
-            error={attachmentError}
-            onRemove={removeAttachment}
-          />
-          <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
-            <div className="flex min-w-0 items-center gap-1">
-              <PermissionModeUnavailableButton />
-              <button
-                aria-label="Attach image"
-                className="grid h-6 w-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!canAttachImages()}
-                onClick={() => void attachFromPicker()}
-                title={attachmentButtonTitle(supportsImages, attaching)}
-                type="button"
-              >
-                <ImagePlus className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="flex min-w-0 items-center gap-1">
-              <ModelPickerButton
-                disabled={modelPickerDisabled}
+          void attachFiles(event.dataTransfer.files);
+        }}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void sendDraft();
+        }}
+      >
+        <div {...chatReadableColumnAttributes} className={cn("relative", chatReadableColumnClass)}>
+          <div
+            className={cn(
+              "min-w-0 rounded-sm border border-border bg-card/90 px-2 py-1.5 shadow-lg shadow-black/15",
+              frameClassName,
+            )}
+          >
+            <div className="relative min-w-0">
+              <ComposerPlaceholder
+                selected={selected}
+                visible={draft === "" && placeholder === ""}
+              />
+              <CommandPalette
+                commandListStatus={chat.commandListStatus}
+                commandListError={commandListError}
+                commandListPending={commandListPending}
+                commandState={commandState}
+                draft={draft}
                 modelPicker={modelPicker}
-                onOpen={() => void openModelPicker()}
-                running={running}
-                selectedConversation={chat.selectedConversation}
+                onPickSuggestion={(suggestion) => {
+                  void pickCommandSuggestion(suggestion);
+                }}
+                onDismissModelPicker={dismissModelPicker}
+                onPickModel={(model) => {
+                  void executeModelSelection(model);
+                }}
+                onPickReasoningEffort={(effort) => {
+                  void executeReasoningEffortSelection(effort);
+                }}
+                paletteVisible={commandPaletteVisible}
+                selectedSuggestionIndex={selectedSuggestionIndex}
               />
-              <VoiceInputUnavailableButton />
-              <ComposerButton
-                canSend={canSend}
-                chat={chat}
-                canSendImmediately={canSendImmediately}
-                queueDraft={queueDraft}
-                running={running}
-                sendImmediateSteering={sendImmediateSteering}
+              <Textarea
+                aria-label={composerTextareaLabel(acceptsPrompt)}
+                className="relative z-10 max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={disabled}
+                onChange={(event) => updateDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (handleCommandPaletteKeyDown(event)) {
+                    return;
+                  }
+                  handleComposerKeyDown(event, {
+                    completeCommand,
+                    draftEmpty: draftText === "",
+                    dismissPicker,
+                    hasPendingSteering,
+                    pickerOpen: modelPickerOpen || permissionPickerOpen,
+                    queueDraft,
+                    running,
+                    sendDraft,
+                    sendImmediateSteering,
+                    slashDraft,
+                    stopRun: chat.stopActiveRun,
+                  });
+                }}
+                onPaste={(event) => {
+                  if (!clipboardHasImageFile(event.clipboardData)) {
+                    return;
+                  }
+                  event.preventDefault();
+                  void attachFiles(event.clipboardData.files);
+                }}
+                placeholder={placeholder}
+                ref={textareaRef}
+                rows={2}
+                value={draft}
               />
+            </div>
+            <AttachmentStrip
+              attachments={attachments}
+              error={attachmentError}
+              onRemove={removeAttachment}
+            />
+            <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
+              <div className="flex min-w-0 items-center gap-1">
+                <PermissionPickerButton
+                  disabled={permissionPickerDisabled}
+                  onOpen={() => void openPermissionPicker()}
+                  onSelect={(preset) => {
+                    void executePermissionSelection(preset);
+                  }}
+                  permissionPicker={permissionPicker}
+                  running={running}
+                  selectedConversation={chat.selectedConversation}
+                />
+                <button
+                  aria-label="Attach image"
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!canAttachImages()}
+                  onClick={() => void attachFromPicker()}
+                  title={attachmentButtonTitle(supportsImages, attaching)}
+                  type="button"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="flex min-w-0 items-center gap-1">
+                <ModelPickerButton
+                  disabled={modelPickerDisabled}
+                  modelPicker={modelPicker}
+                  onOpen={() => void openModelPicker()}
+                  running={running}
+                  selectedConversation={chat.selectedConversation}
+                />
+                <VoiceInputUnavailableButton />
+                <ComposerButton
+                  canSend={canSend}
+                  chat={chat}
+                  canSendImmediately={canSendImmediately}
+                  queueDraft={queueDraft}
+                  running={running}
+                  sendImmediateSteering={sendImmediateSteering}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </form>
+      </form>
+      <PermissionConfirmationDialog
+        onCancel={cancelPermissionConfirmation}
+        onConfirm={() => void confirmPermissionSelection()}
+        preset={permissionConfirmation}
+      />
+    </>
   );
 
   function updateDraft(nextDraft: string) {
@@ -874,6 +915,12 @@ function ComposerComponent({
 
   function dismissModelPicker() {
     setModelPicker(null);
+    textareaRef.current?.focus();
+  }
+
+  function dismissPicker() {
+    setModelPicker(null);
+    clearPermissionState();
     textareaRef.current?.focus();
   }
 
@@ -949,16 +996,4 @@ function composerPropsEqual(previous: ComposerProps, next: ComposerProps) {
 
 function composerChatPropsEqual(previous: ChatView, next: ChatView) {
   return composerChatPropSelectors.every((selector) => selector(previous) === selector(next));
-}
-
-function composerAcceptsPrompt(selected: boolean, onSendPrompt: ComposerProps["onSendPrompt"]) {
-  return selected || onSendPrompt !== undefined;
-}
-
-function commandPaletteShouldOpen(
-  slashDraft: boolean,
-  paletteDismissed: boolean,
-  modelPicker: ChatCommandExecuteResult | null,
-) {
-  return slashDraft && !paletteDismissed && modelPicker?.result.action !== "model_picker";
 }

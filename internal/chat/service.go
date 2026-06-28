@@ -29,6 +29,7 @@ type Service struct {
 	workspaceResolver WorkspaceResolver
 	events            *EventHub
 	semanticCompiler  semanticcontext.Compiler
+	codexDefaults     ChatCodexDefaults
 	newID             func(prefix string) (string, error)
 	now               func() time.Time
 
@@ -62,14 +63,12 @@ type SendMessageResult struct {
 }
 
 func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harness, options ...Option) (*Service, error) {
-	if store == nil {
-		return nil, errors.New("chat store is required")
+	if err := validateNewServiceDependencies(store, workspaceResolver, harness); err != nil {
+		return nil, err
 	}
-	if workspaceResolver == nil {
-		return nil, errors.New("workspace resolver is required")
-	}
-	if harness == nil {
-		return nil, errors.New("chat harness is required")
+	codexDefaults, err := store.LoadChatCodexDefaults()
+	if err != nil {
+		return nil, err
 	}
 	service := &Service{
 		store:             store,
@@ -78,37 +77,69 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		workspaceResolver: workspaceResolver,
 		newID:             randomID,
 		now:               time.Now,
+		codexDefaults:     codexDefaults,
 		active:            map[string]activeTurn{},
 	}
 	for _, option := range options {
 		option(service)
 	}
+	if err := service.ensureEventHub(); err != nil {
+		return nil, err
+	}
+	if err := service.recoverStartupState(); err != nil {
+		return nil, err
+	}
+	service.attachBackgroundTerminalSink(harness)
+	return service, nil
+}
+
+func validateNewServiceDependencies(store *Store, workspaceResolver WorkspaceResolver, harness Harness) error {
+	if store == nil {
+		return errors.New("chat store is required")
+	}
+	if workspaceResolver == nil {
+		return errors.New("workspace resolver is required")
+	}
+	if harness == nil {
+		return errors.New("chat harness is required")
+	}
+	return nil
+}
+
+func (service *Service) ensureEventHub() error {
 	if service.events == nil {
 		streamID, err := service.newID("event_stream")
 		if err != nil {
-			return nil, fmt.Errorf("create event stream id: %w", err)
+			return fmt.Errorf("create event stream id: %w", err)
 		}
 		events, err := NewEventHub(streamID, WithEventClock(service.now))
 		if err != nil {
-			return nil, err
+			return err
 		}
 		service.events = events
 	}
+	return nil
+}
+
+func (service *Service) recoverStartupState() error {
 	if err := service.recoverInterruptedRuns(); err != nil {
 		service.recordCorruptStateDiagnostic(err, "", "", "")
-		return nil, err
+		return err
 	}
 	if err := service.recoverBackgroundTerminals(); err != nil {
 		service.recordCorruptStateDiagnostic(err, "", "", "")
-		return nil, err
+		return err
 	}
+	return nil
+}
+
+func (service *Service) attachBackgroundTerminalSink(harness Harness) {
 	// Harnesses that run background terminals on a long-lived provider connection
 	// (Codex) receive the conversation-scoped sink that late unified-exec output
 	// and completion update after the starting turn has finished.
 	if attacher, ok := harness.(backgroundTerminalSinkAttacher); ok {
 		attacher.SetBackgroundTerminalSink(service.backgroundTerminalSink())
 	}
-	return service, nil
 }
 
 func WithIDGenerator(newID func(prefix string) (string, error)) Option {

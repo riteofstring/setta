@@ -182,10 +182,27 @@ type OpenChatCodexModelPickerRequest struct {
 	ConversationID string `json:"conversationId"`
 }
 
+type OpenChatCodexPermissionPickerRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type UpdateChatCodexDefaultsRequest struct {
+	Settings  chat.ChatCodexSettings `json:"settings"`
+	Confirmed bool                   `json:"confirmed"`
+}
+
 type SetChatCodexReasoningEffortRequest struct {
 	WorkspaceID     string               `json:"workspaceId"`
 	ConversationID  string               `json:"conversationId"`
 	ReasoningEffort chat.ReasoningEffort `json:"reasoningEffort"`
+}
+
+type SetChatCodexPermissionPresetRequest struct {
+	WorkspaceID    string                      `json:"workspaceId"`
+	ConversationID string                      `json:"conversationId"`
+	Preset         chat.ChatPermissionPresetID `json:"preset"`
+	Confirmed      bool                        `json:"confirmed"`
 }
 
 type CancelRunRequest struct {

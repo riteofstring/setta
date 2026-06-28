@@ -42,7 +42,10 @@ func chatCodexEffectiveSettingsEqual(left *ChatCodexEffectiveSettings, right *Ch
 	if left.SupportsImages != right.SupportsImages {
 		return false
 	}
-	return reasoningEffortPointersEqual(left.ReasoningEffort, right.ReasoningEffort)
+	if !reasoningEffortPointersEqual(left.ReasoningEffort, right.ReasoningEffort) {
+		return false
+	}
+	return chatCodexEffectivePermissionSettingsEqual(left.Permission, right.Permission)
 }
 
 func reasoningEffortPointersEqual(left *ReasoningEffort, right *ReasoningEffort) bool {
@@ -50,4 +53,29 @@ func reasoningEffortPointersEqual(left *ReasoningEffort, right *ReasoningEffort)
 		return left == right
 	}
 	return *left == *right
+}
+
+func chatCodexEffectivePermissionSettingsEqual(left *ChatCodexEffectivePermissionSettings, right *ChatCodexEffectivePermissionSettings) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	if left.ApprovalPolicy != right.ApprovalPolicy {
+		return false
+	}
+	if left.ActivePermissionProfileID != right.ActivePermissionProfileID {
+		return false
+	}
+	if left.ActivePermissionProfileExtends != right.ActivePermissionProfileExtends {
+		return false
+	}
+	if left.DisplayLabel != right.DisplayLabel {
+		return false
+	}
+	if left.BuiltIn != right.BuiltIn {
+		return false
+	}
+	if left.Preset == nil || right.Preset == nil {
+		return left.Preset == right.Preset
+	}
+	return *left.Preset == *right.Preset
 }

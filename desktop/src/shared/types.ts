@@ -24,8 +24,10 @@ import type {
   CartographerWindowProcessResult,
   ChatCommandExecuteResult,
   ChatCommandListResult,
+  ChatCodexDefaultsView,
   ChatEvent,
   ChatInput,
+  ChatPermissionPresetID,
   CodexAccountState,
   Conversation,
   ConversationListItem,
@@ -106,6 +108,7 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateChatCodexDefaultsRequest,
   UpdateSemanticEdgeRequest,
   UpdateSemanticLayoutPositionsRequest,
   UpdateSemanticNodeRequest,
@@ -412,7 +415,12 @@ export interface SettaAPI {
       raw: string,
       options?: ChatCommandExecutionOptions,
     ) => Promise<ChatCommandExecuteResult>;
+    readCodexDefaults: () => Promise<ChatCodexDefaultsView>;
     openCodexModelPicker: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ChatCommandExecuteResult>;
+    openCodexPermissionPicker: (
       workspaceId: string,
       conversationId: string,
     ) => Promise<ChatCommandExecuteResult>;
@@ -421,11 +429,20 @@ export interface SettaAPI {
       conversationId: string,
       modelId: string,
     ) => Promise<ChatCommandExecuteResult>;
+    setCodexPermissionPreset: (
+      workspaceId: string,
+      conversationId: string,
+      preset: ChatPermissionPresetID,
+      confirmed: boolean,
+    ) => Promise<ChatCommandExecuteResult>;
     setCodexReasoningEffort: (
       workspaceId: string,
       conversationId: string,
       effort: ReasoningEffort,
     ) => Promise<ChatCommandExecuteResult>;
+    updateCodexDefaults: (
+      request: UpdateChatCodexDefaultsRequest,
+    ) => Promise<ChatCodexDefaultsView>;
     setConversationPinned: (
       workspaceId: string,
       conversationId: string,

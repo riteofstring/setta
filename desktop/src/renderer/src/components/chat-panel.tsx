@@ -22,7 +22,14 @@ export {
   modelPickerOptionSelected,
   reasoningEffortOptionSelected,
 } from "./chat-composer";
-export { ComposerButton, handleComposerKeyDown, ModelPickerButton } from "./chat-composer-controls";
+export {
+  ComposerButton,
+  handleComposerKeyDown,
+  ModelPickerButton,
+  PermissionConfirmationDialog,
+  PermissionPickerButton,
+  permissionPresetSelected,
+} from "./chat-composer-controls";
 
 export function ChatPanel({
   chat,
@@ -439,6 +446,7 @@ export function useChatViewState() {
   const operation = useChatStore((state) => state.operation);
   const pendingGoalSubmission = useChatStore((state) => state.pendingGoalSubmission);
   const openCodexModelPicker = useChatStore((state) => state.openCodexModelPicker);
+  const openCodexPermissionPicker = useChatStore((state) => state.openCodexPermissionPicker);
   const queuedRuns = useChatStore((state) => state.queuedRuns);
   const queueMessage = useChatStore((state) => state.queueMessage);
   const removeQueuedMessage = useChatStore((state) => state.removeQueuedMessage);
@@ -454,6 +462,7 @@ export function useChatViewState() {
   const sendMessage = useChatStore((state) => state.sendMessage);
   const sendSteeringImmediately = useChatStore((state) => state.sendSteeringImmediately);
   const setCodexModel = useChatStore((state) => state.setCodexModel);
+  const setCodexPermissionPreset = useChatStore((state) => state.setCodexPermissionPreset);
   const setCodexReasoningEffort = useChatStore((state) => state.setCodexReasoningEffort);
   const setConversationPinned = useChatStore((state) => state.setConversationPinned);
   const status = useChatStore((state) => state.status);
@@ -532,6 +541,7 @@ export function useChatViewState() {
     messages,
     operation,
     openCodexModelPicker,
+    openCodexPermissionPicker,
     pendingGoalSubmission: visiblePendingGoalSubmission,
     pendingSteeringMessageIds,
     queuedMessages,
@@ -547,6 +557,7 @@ export function useChatViewState() {
     sendMessage,
     sendSteeringImmediately,
     setCodexModel,
+    setCodexPermissionPreset,
     setCodexReasoningEffort,
     setConversationPinned,
     status,

@@ -1,5 +1,6 @@
 import type {
   ChatInput,
+  ChatPermissionPresetID,
   Conversation,
   ListConversationsResponse,
   ReasoningEffort,
@@ -741,11 +742,19 @@ export const useChatStore = create<ChatStore>((set, get) => {
         window.setta.chat.openCodexModelPicker(workspaceId, conversationId),
       );
     },
+    openCodexPermissionPicker: () =>
+      runCommandMutation((workspaceId, conversationId) =>
+        window.setta.chat.openCodexPermissionPicker(workspaceId, conversationId),
+      ),
     setCodexModel: async (modelId: string) => {
       return runCommandMutation((workspaceId, conversationId) =>
         window.setta.chat.setCodexModel(workspaceId, conversationId, modelId),
       );
     },
+    setCodexPermissionPreset: (preset: ChatPermissionPresetID, confirmed: boolean) =>
+      runCommandMutation((workspaceId, conversationId) =>
+        window.setta.chat.setCodexPermissionPreset(workspaceId, conversationId, preset, confirmed),
+      ),
     setCodexReasoningEffort: async (effort: ReasoningEffort) => {
       return runCommandMutation((workspaceId, conversationId) =>
         window.setta.chat.setCodexReasoningEffort(workspaceId, conversationId, effort),

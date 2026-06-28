@@ -1,7 +1,10 @@
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { UpdateAppearanceSettingsRequest } from "@generated/backend";
+import type {
+  UpdateAppearanceSettingsRequest,
+  UpdateChatCodexDefaultsRequest,
+} from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
 import { chatTextInput } from "../renderer/src/lib/chat-input";
 import {
@@ -320,7 +323,9 @@ describe("preload workspace API", () => {
       "messagePage",
       "onEvent",
       "openCodexModelPicker",
+      "openCodexPermissionPicker",
       "queueMessage",
+      "readCodexDefaults",
       "removeQueuedMessage",
       "runActivity",
       "runItemOutput",
@@ -328,10 +333,12 @@ describe("preload workspace API", () => {
       "sendMessage",
       "sendSteeringImmediately",
       "setCodexModel",
+      "setCodexPermissionPreset",
       "setCodexReasoningEffort",
       "setConversationPinned",
       "steerMessage",
       "submitApproval",
+      "updateCodexDefaults",
     ]);
 
     await api.chat.listConversations("workspace_api");
@@ -342,7 +349,9 @@ describe("preload workspace API", () => {
     await api.chat.executeCommand("workspace_api", "conversation_api", "/goal replacement", {
       confirmGoalReplacement: true,
     });
+    await api.chat.readCodexDefaults();
     await api.chat.openCodexModelPicker("workspace_api", "conversation_api");
+    await api.chat.openCodexPermissionPicker("workspace_api", "conversation_api");
     await api.chat.markConversationRead("workspace_api", "conversation_api");
     await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
     await api.chat.createImageAttachmentFromBytes(
@@ -369,7 +378,18 @@ describe("preload workspace API", () => {
     await api.chat.killAllBackgroundTerminals("workspace_api", "conversation_api");
     await api.chat.sendMessage("workspace_api", "conversation_api", chatTextInput("hello"));
     await api.chat.setCodexModel("workspace_api", "conversation_api", "gpt-test");
+    await api.chat.setCodexPermissionPreset(
+      "workspace_api",
+      "conversation_api",
+      "full-access",
+      true,
+    );
     await api.chat.setCodexReasoningEffort("workspace_api", "conversation_api", "high");
+    const defaultsRequest = {
+      confirmed: false,
+      settings: { model: "gpt-test", permission: null, reasoningEffort: "high" },
+    } satisfies UpdateChatCodexDefaultsRequest;
+    await api.chat.updateCodexDefaults(defaultsRequest);
     await api.chat.setConversationPinned("workspace_api", "conversation_api", true);
     await api.chat.steerMessage("workspace_api", "conversation_api", chatTextInput("steer"));
     await api.chat.sendSteeringImmediately(
@@ -411,7 +431,9 @@ describe("preload workspace API", () => {
         "/goal replacement",
         true,
       ],
+      [ipcChannels.chatReadCodexDefaults],
       [ipcChannels.chatOpenCodexModelPicker, "workspace_api", "conversation_api"],
+      [ipcChannels.chatOpenCodexPermissionPicker, "workspace_api", "conversation_api"],
       [ipcChannels.chatMarkConversationRead, "workspace_api", "conversation_api"],
       [ipcChannels.chatMessagePage, "workspace_api", "conversation_api", 10, 40],
       [
@@ -439,7 +461,15 @@ describe("preload workspace API", () => {
       [ipcChannels.chatKillAllBackgroundTerminals, "workspace_api", "conversation_api"],
       [ipcChannels.chatSendMessage, "workspace_api", "conversation_api", chatTextInput("hello")],
       [ipcChannels.chatSetCodexModel, "workspace_api", "conversation_api", "gpt-test"],
+      [
+        ipcChannels.chatSetCodexPermissionPreset,
+        "workspace_api",
+        "conversation_api",
+        "full-access",
+        true,
+      ],
       [ipcChannels.chatSetCodexReasoningEffort, "workspace_api", "conversation_api", "high"],
+      [ipcChannels.chatUpdateCodexDefaults, defaultsRequest],
       [ipcChannels.chatSetConversationPinned, "workspace_api", "conversation_api", true],
       [ipcChannels.chatSteerMessage, "workspace_api", "conversation_api", chatTextInput("steer")],
       [

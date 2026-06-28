@@ -18,6 +18,44 @@ func writeFakeInitializeResponse(id any) {
 	})
 }
 
+func writeFakeConfigRequirementsResponse(id any, mode string) {
+	var requirements any
+	if mode == "command-permission-picker-disabled" {
+		requirements = map[string]any{
+			"allowedPermissionProfiles": map[string]any{
+				codexPermissionProfileReadOnly:         true,
+				codexPermissionProfileWorkspace:        true,
+				codexPermissionProfileDangerFullAccess: false,
+			},
+		}
+	}
+	writeFakeResponse(id, map[string]any{
+		"requirements": requirements,
+	})
+}
+
+func handleFakeConfigMethod(mode string, message map[string]any) (bool, bool) {
+	switch message["method"] {
+	case "config/read":
+		assertFakeConfigRead(message)
+		writeFakeResponse(message["id"], map[string]any{
+			"config": map[string]any{
+				"model":                  "gpt-test",
+				"model_reasoning_effort": "xhigh",
+			},
+			"layers":  []any{},
+			"origins": map[string]any{},
+		})
+		return true, false
+	case "configRequirements/read":
+		writeFakeConfigRequirementsResponse(message["id"], mode)
+		done := mode == "command-permission-picker-linked" || mode == "command-permission-picker-disabled"
+		return true, done
+	default:
+		return false, false
+	}
+}
+
 func startTestJSONRPCClient(config CodexHarnessConfig) (*codexapp.Client, error) {
 	return codexapp.StartProcess(codexapp.ProcessConfig{
 		Command: config.Command,
@@ -28,7 +66,16 @@ func startTestJSONRPCClient(config CodexHarnessConfig) (*codexapp.Client, error)
 
 func writeFakeThreadResponseForModeAndThread(id any, mode string, model string, effort ReasoningEffort, threadID string) {
 	if !fakeGoalOperationMode(mode) {
-		writeFakeResponse(id, fakeCodexThreadResponseWithThread(model, effort, fakeCodexThreadWithID(threadID)))
+		response := fakeCodexThreadResponseWithThread(model, effort, fakeCodexThreadWithID(threadID))
+		switch mode {
+		case "initial-permission-settings", "resume-permission-settings", "command-model-list-linked-full-access":
+			response["activePermissionProfile"] = map[string]any{"id": codexPermissionProfileDangerFullAccess}
+			response["approvalPolicy"] = codexApprovalPolicyNever
+		case "command-model-set-preserves-permission", "command-effort-set-preserves-permission":
+			response["activePermissionProfile"] = map[string]any{"id": codexPermissionProfileReadOnly}
+			response["approvalPolicy"] = codexApprovalPolicyOnRequest
+		}
+		writeFakeResponse(id, response)
 		return
 	}
 	writeFakeResponse(id, fakeCodexThreadResponseForModeAndThread(mode, model, effort, threadID))
@@ -921,6 +968,8 @@ var fakeCoreTurnStartHandlers = map[string]fakeCoreTurnStartHandler{
 	"dynamic-tools-thread-start":    fakeCoreStreamTurnStart,
 	"dynamic-tools-thread-resume":   fakeCoreStreamTurnStart,
 	"initial-settings":              fakeCoreStreamTurnStart,
+	"initial-permission-settings":   fakeCoreStreamTurnStart,
+	"resume-permission-settings":    fakeCoreStreamTurnStart,
 	"turn-started-id":               fakeCoreProviderTurnStart,
 	"provider-item-turn-id":         fakeCoreProviderItemTurnStart,
 	"failed-turn":                   fakeCoreFailedTurnStart,
@@ -1070,6 +1119,36 @@ func assertFakeDynamicToolsThreadParams(mode string, message map[string]any) {
 		assertFakeDynamicToolsThreadStartParams(message)
 	case "dynamic-tools-thread-resume":
 		assertFakeDynamicToolsThreadResumeParams(message)
+	case "initial-permission-settings", "initial-permission-settings-ignored":
+		assertFakeThreadStartPermissionSettings(message)
+	case "resume-permission-settings":
+		assertFakeThreadResumePermissionSettings(message)
+	}
+}
+
+func assertFakeThreadStartPermissionSettings(message map[string]any) {
+	if message["method"] != "thread/start" {
+		panic("initial permission settings should start a thread")
+	}
+	params := fakeParams(message)
+	if params["approvalPolicy"] != codexApprovalPolicyNever {
+		panic("thread/start missing full access approval policy")
+	}
+	if params["permissions"] != codexPermissionProfileDangerFullAccess {
+		panic("thread/start missing full access permission profile")
+	}
+}
+
+func assertFakeThreadResumePermissionSettings(message map[string]any) {
+	if message["method"] != "thread/resume" {
+		panic("resume permission settings should resume a thread")
+	}
+	params := fakeParams(message)
+	if params["approvalPolicy"] != codexApprovalPolicyNever {
+		panic("thread/resume missing full access approval policy")
+	}
+	if params["permissions"] != codexPermissionProfileDangerFullAccess {
+		panic("thread/resume missing full access permission profile")
 	}
 }
 
@@ -1141,6 +1220,12 @@ func assertFakeDynamicToolsThreadResumeParams(message map[string]any) {
 	params := fakeParams(message)
 	if _, ok := params["dynamicTools"]; ok {
 		panic("thread/resume should not include dynamicTools")
+	}
+	if _, ok := params["approvalPolicy"]; ok {
+		panic("thread/resume should not include approvalPolicy without conversation permission settings")
+	}
+	if _, ok := params["permissions"]; ok {
+		panic("thread/resume should not include permissions without conversation permission settings")
 	}
 }
 

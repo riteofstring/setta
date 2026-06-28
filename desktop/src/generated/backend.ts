@@ -509,6 +509,24 @@ export function decodeReasoningEffort(value: unknown, label = "ReasoningEffort")
   }
 }
 
+export type ChatPermissionPresetID = "read-only" | "default" | "full-access";
+
+export const chatPermissionPresetIDValues = ["read-only", "default", "full-access"] as const satisfies readonly ChatPermissionPresetID[];
+
+export function decodeChatPermissionPresetID(value: unknown, label = "ChatPermissionPresetID"): ChatPermissionPresetID {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "read-only":
+      return decoded;
+    case "default":
+      return decoded;
+    case "full-access":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type HarnessKind = "codex";
 
 export const harnessKindValues = ["codex"] as const satisfies readonly HarnessKind[];
@@ -929,9 +947,9 @@ export function decodeChatCommandArgumentKind(value: unknown, label = "ChatComma
   }
 }
 
-export type ChatCommandResultAction = "display" | "goal_editor" | "model_picker";
+export type ChatCommandResultAction = "display" | "goal_editor" | "model_picker" | "permission_picker";
 
-export const chatCommandResultActionValues = ["display", "goal_editor", "model_picker"] as const satisfies readonly ChatCommandResultAction[];
+export const chatCommandResultActionValues = ["display", "goal_editor", "model_picker", "permission_picker"] as const satisfies readonly ChatCommandResultAction[];
 
 export function decodeChatCommandResultAction(value: unknown, label = "ChatCommandResultAction"): ChatCommandResultAction {
   const decoded = decodeString(value, label);
@@ -942,14 +960,16 @@ export function decodeChatCommandResultAction(value: unknown, label = "ChatComma
       return decoded;
     case "model_picker":
       return decoded;
+    case "permission_picker":
+      return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
   }
 }
 
-export type ChatCommandKind = "goal" | "model";
+export type ChatCommandKind = "goal" | "model" | "permission";
 
-export const chatCommandKindValues = ["goal", "model"] as const satisfies readonly ChatCommandKind[];
+export const chatCommandKindValues = ["goal", "model", "permission"] as const satisfies readonly ChatCommandKind[];
 
 export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
   const decoded = decodeString(value, label);
@@ -957,6 +977,8 @@ export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind")
     case "goal":
       return decoded;
     case "model":
+      return decoded;
+    case "permission":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2757,9 +2779,25 @@ export interface ListConversationsRequest {
   workspaceId: string;
 }
 
+export interface ChatCodexPermissionSettings {
+  preset: ChatPermissionPresetID;
+  approvalPolicy: string;
+  permissions: string;
+}
+
 export interface ChatCodexSettings {
   model: string;
   reasoningEffort: ReasoningEffort | null;
+  permission: ChatCodexPermissionSettings | null;
+}
+
+export interface ChatCodexEffectivePermissionSettings {
+  approvalPolicy: string;
+  activePermissionProfileId: string;
+  activePermissionProfileExtends: string;
+  displayLabel: string;
+  builtIn: boolean;
+  preset: ChatPermissionPresetID | null;
 }
 
 export interface ChatCodexEffectiveSettings {
@@ -2768,6 +2806,7 @@ export interface ChatCodexEffectiveSettings {
   reasoningEffort: ReasoningEffort | null;
   reasoningEffortDisplayName: string;
   supportsImages: boolean;
+  permission: ChatCodexEffectivePermissionSettings | null;
 }
 
 export interface HarnessThreadRef {
@@ -3291,6 +3330,23 @@ export interface ChatModelOption {
   supportedReasoningEfforts: ChatReasoningEffortOption[];
 }
 
+export interface ChatPermissionDangerMeta {
+  requiresConfirmation: boolean;
+  confirmationTitle: string;
+  confirmationBody: string;
+}
+
+export interface ChatPermissionPreset {
+  id: ChatPermissionPresetID;
+  label: string;
+  shortDescription: string;
+  approvalPolicy: string;
+  activePermissionProfileId: string;
+  danger: ChatPermissionDangerMeta | null;
+  disabled: boolean;
+  disabledReason: string;
+}
+
 export interface ChatCommandResult {
   action: ChatCommandResultAction;
   kind: ChatCommandKind;
@@ -3303,6 +3359,9 @@ export interface ChatCommandResult {
   selectedModel: string;
   reasoningEfforts: ChatReasoningEffortOption[];
   selectedReasoningEffort: ReasoningEffort | null;
+  permissionPresets: ChatPermissionPreset[];
+  selectedPermissionPreset: ChatPermissionPresetID | null;
+  currentPermission: ChatCodexEffectivePermissionSettings | null;
 }
 
 export interface ChatCommandExecuteResult {
@@ -3312,7 +3371,29 @@ export interface ChatCommandExecuteResult {
   result: ChatCommandResult;
 }
 
+export interface ChatCodexDefaultsView {
+  settings: ChatCodexSettings;
+  effectiveSettings: ChatCodexEffectiveSettings | null;
+  models: ChatModelOption[];
+  reasoningEfforts: ChatReasoningEffortOption[];
+  permissionPresets: ChatPermissionPreset[];
+  currentPermission: ChatCodexEffectivePermissionSettings | null;
+  selectedModel: string;
+  selectedReasoningEffort: ReasoningEffort | null;
+  selectedPermissionPreset: ChatPermissionPresetID | null;
+}
+
+export interface UpdateChatCodexDefaultsRequest {
+  settings: ChatCodexSettings;
+  confirmed: boolean;
+}
+
 export interface OpenChatCodexModelPickerRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
+export interface OpenChatCodexPermissionPickerRequest {
   workspaceId: string;
   conversationId: string;
 }
@@ -3321,6 +3402,13 @@ export interface SetChatCodexModelRequest {
   workspaceId: string;
   conversationId: string;
   modelId: string;
+}
+
+export interface SetChatCodexPermissionPresetRequest {
+  workspaceId: string;
+  conversationId: string;
+  preset: ChatPermissionPresetID;
+  confirmed: boolean;
 }
 
 export interface SetChatCodexReasoningEffortRequest {
@@ -5817,13 +5905,29 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/commands/execute",
   },
+  ReadChatCodexDefaults: {
+    method: "GET",
+    path: "/chat/codex/defaults",
+  },
+  UpdateChatCodexDefaults: {
+    method: "POST",
+    path: "/chat/codex/defaults",
+  },
   OpenChatCodexModelPicker: {
     method: "POST",
     path: "/chat/codex/model/picker",
   },
+  OpenChatCodexPermissionPicker: {
+    method: "POST",
+    path: "/chat/codex/permission/picker",
+  },
   SetChatCodexModel: {
     method: "POST",
     path: "/chat/codex/model/set",
+  },
+  SetChatCodexPermissionPreset: {
+    method: "POST",
+    path: "/chat/codex/permission/set",
   },
   SetChatCodexReasoningEffort: {
     method: "POST",
@@ -6743,24 +6847,49 @@ export function decodeListConversationsRequest(value: unknown): ListConversation
   };
 }
 
+export function decodeChatCodexPermissionSettings(value: unknown): ChatCodexPermissionSettings {
+  const record = assertRecord(value, "ChatCodexPermissionSettings");
+  assertKnownFields(record, "ChatCodexPermissionSettings", ["preset", "approvalPolicy", "permissions"]);
+  return {
+    preset: decodeChatPermissionPresetID(requireField(record, "preset", "ChatCodexPermissionSettings"), "ChatCodexPermissionSettings.preset"),
+    approvalPolicy: decodeString(requireField(record, "approvalPolicy", "ChatCodexPermissionSettings"), "ChatCodexPermissionSettings.approvalPolicy"),
+    permissions: decodeString(requireField(record, "permissions", "ChatCodexPermissionSettings"), "ChatCodexPermissionSettings.permissions"),
+  };
+}
+
 export function decodeChatCodexSettings(value: unknown): ChatCodexSettings {
   const record = assertRecord(value, "ChatCodexSettings");
-  assertKnownFields(record, "ChatCodexSettings", ["model", "reasoningEffort"]);
+  assertKnownFields(record, "ChatCodexSettings", ["model", "reasoningEffort", "permission"]);
   return {
     model: decodeString(requireField(record, "model", "ChatCodexSettings"), "ChatCodexSettings.model"),
     reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "ChatCodexSettings"), "ChatCodexSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexSettings.reasoningEffort")),
+    permission: decodeNullable(requireField(record, "permission", "ChatCodexSettings"), "ChatCodexSettings.permission", (item) => decodeChatCodexPermissionSettings(item)),
+  };
+}
+
+export function decodeChatCodexEffectivePermissionSettings(value: unknown): ChatCodexEffectivePermissionSettings {
+  const record = assertRecord(value, "ChatCodexEffectivePermissionSettings");
+  assertKnownFields(record, "ChatCodexEffectivePermissionSettings", ["approvalPolicy", "activePermissionProfileId", "activePermissionProfileExtends", "displayLabel", "builtIn", "preset"]);
+  return {
+    approvalPolicy: decodeString(requireField(record, "approvalPolicy", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.approvalPolicy"),
+    activePermissionProfileId: decodeString(requireField(record, "activePermissionProfileId", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.activePermissionProfileId"),
+    activePermissionProfileExtends: decodeString(requireField(record, "activePermissionProfileExtends", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.activePermissionProfileExtends"),
+    displayLabel: decodeString(requireField(record, "displayLabel", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.displayLabel"),
+    builtIn: decodeBoolean(requireField(record, "builtIn", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.builtIn"),
+    preset: decodeNullable(requireField(record, "preset", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.preset", (item) => decodeChatPermissionPresetID(item, "ChatCodexEffectivePermissionSettings.preset")),
   };
 }
 
 export function decodeChatCodexEffectiveSettings(value: unknown): ChatCodexEffectiveSettings {
   const record = assertRecord(value, "ChatCodexEffectiveSettings");
-  assertKnownFields(record, "ChatCodexEffectiveSettings", ["model", "modelDisplayName", "reasoningEffort", "reasoningEffortDisplayName", "supportsImages"]);
+  assertKnownFields(record, "ChatCodexEffectiveSettings", ["model", "modelDisplayName", "reasoningEffort", "reasoningEffortDisplayName", "supportsImages", "permission"]);
   return {
     model: decodeString(requireField(record, "model", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.model"),
     modelDisplayName: decodeString(requireField(record, "modelDisplayName", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.modelDisplayName"),
     reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexEffectiveSettings.reasoningEffort")),
     reasoningEffortDisplayName: decodeString(requireField(record, "reasoningEffortDisplayName", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffortDisplayName"),
     supportsImages: decodeBoolean(requireField(record, "supportsImages", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.supportsImages"),
+    permission: decodeNullable(requireField(record, "permission", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.permission", (item) => decodeChatCodexEffectivePermissionSettings(item)),
   };
 }
 
@@ -7548,9 +7677,34 @@ export function decodeChatModelOption(value: unknown): ChatModelOption {
   };
 }
 
+export function decodeChatPermissionDangerMeta(value: unknown): ChatPermissionDangerMeta {
+  const record = assertRecord(value, "ChatPermissionDangerMeta");
+  assertKnownFields(record, "ChatPermissionDangerMeta", ["requiresConfirmation", "confirmationTitle", "confirmationBody"]);
+  return {
+    requiresConfirmation: decodeBoolean(requireField(record, "requiresConfirmation", "ChatPermissionDangerMeta"), "ChatPermissionDangerMeta.requiresConfirmation"),
+    confirmationTitle: decodeString(requireField(record, "confirmationTitle", "ChatPermissionDangerMeta"), "ChatPermissionDangerMeta.confirmationTitle"),
+    confirmationBody: decodeString(requireField(record, "confirmationBody", "ChatPermissionDangerMeta"), "ChatPermissionDangerMeta.confirmationBody"),
+  };
+}
+
+export function decodeChatPermissionPreset(value: unknown): ChatPermissionPreset {
+  const record = assertRecord(value, "ChatPermissionPreset");
+  assertKnownFields(record, "ChatPermissionPreset", ["id", "label", "shortDescription", "approvalPolicy", "activePermissionProfileId", "danger", "disabled", "disabledReason"]);
+  return {
+    id: decodeChatPermissionPresetID(requireField(record, "id", "ChatPermissionPreset"), "ChatPermissionPreset.id"),
+    label: decodeString(requireField(record, "label", "ChatPermissionPreset"), "ChatPermissionPreset.label"),
+    shortDescription: decodeString(requireField(record, "shortDescription", "ChatPermissionPreset"), "ChatPermissionPreset.shortDescription"),
+    approvalPolicy: decodeString(requireField(record, "approvalPolicy", "ChatPermissionPreset"), "ChatPermissionPreset.approvalPolicy"),
+    activePermissionProfileId: decodeString(requireField(record, "activePermissionProfileId", "ChatPermissionPreset"), "ChatPermissionPreset.activePermissionProfileId"),
+    danger: decodeNullable(requireField(record, "danger", "ChatPermissionPreset"), "ChatPermissionPreset.danger", (item) => decodeChatPermissionDangerMeta(item)),
+    disabled: decodeBoolean(requireField(record, "disabled", "ChatPermissionPreset"), "ChatPermissionPreset.disabled"),
+    disabledReason: decodeString(requireField(record, "disabledReason", "ChatPermissionPreset"), "ChatPermissionPreset.disabledReason"),
+  };
+}
+
 export function decodeChatCommandResult(value: unknown): ChatCommandResult {
   const record = assertRecord(value, "ChatCommandResult");
-  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "composerDraft", "goal", "models", "selectedModel", "reasoningEfforts", "selectedReasoningEffort"]);
+  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "composerDraft", "goal", "models", "selectedModel", "reasoningEfforts", "selectedReasoningEffort", "permissionPresets", "selectedPermissionPreset", "currentPermission"]);
   return {
     action: decodeChatCommandResultAction(requireField(record, "action", "ChatCommandResult"), "ChatCommandResult.action"),
     kind: decodeChatCommandKind(requireField(record, "kind", "ChatCommandResult"), "ChatCommandResult.kind"),
@@ -7563,6 +7717,9 @@ export function decodeChatCommandResult(value: unknown): ChatCommandResult {
     selectedModel: decodeString(requireField(record, "selectedModel", "ChatCommandResult"), "ChatCommandResult.selectedModel"),
     reasoningEfforts: decodeArray(requireField(record, "reasoningEfforts", "ChatCommandResult"), "ChatCommandResult.reasoningEfforts", (item) => decodeChatReasoningEffortOption(item)),
     selectedReasoningEffort: decodeNullable(requireField(record, "selectedReasoningEffort", "ChatCommandResult"), "ChatCommandResult.selectedReasoningEffort", (item) => decodeReasoningEffort(item, "ChatCommandResult.selectedReasoningEffort")),
+    permissionPresets: decodeArray(requireField(record, "permissionPresets", "ChatCommandResult"), "ChatCommandResult.permissionPresets", (item) => decodeChatPermissionPreset(item)),
+    selectedPermissionPreset: decodeNullable(requireField(record, "selectedPermissionPreset", "ChatCommandResult"), "ChatCommandResult.selectedPermissionPreset", (item) => decodeChatPermissionPresetID(item, "ChatCommandResult.selectedPermissionPreset")),
+    currentPermission: decodeNullable(requireField(record, "currentPermission", "ChatCommandResult"), "ChatCommandResult.currentPermission", (item) => decodeChatCodexEffectivePermissionSettings(item)),
   };
 }
 
@@ -7577,12 +7734,46 @@ export function decodeChatCommandExecuteResult(value: unknown): ChatCommandExecu
   };
 }
 
+export function decodeChatCodexDefaultsView(value: unknown): ChatCodexDefaultsView {
+  const record = assertRecord(value, "ChatCodexDefaultsView");
+  assertKnownFields(record, "ChatCodexDefaultsView", ["settings", "effectiveSettings", "models", "reasoningEfforts", "permissionPresets", "currentPermission", "selectedModel", "selectedReasoningEffort", "selectedPermissionPreset"]);
+  return {
+    settings: decodeChatCodexSettings(requireField(record, "settings", "ChatCodexDefaultsView")),
+    effectiveSettings: decodeNullable(requireField(record, "effectiveSettings", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.effectiveSettings", (item) => decodeChatCodexEffectiveSettings(item)),
+    models: decodeArray(requireField(record, "models", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.models", (item) => decodeChatModelOption(item)),
+    reasoningEfforts: decodeArray(requireField(record, "reasoningEfforts", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.reasoningEfforts", (item) => decodeChatReasoningEffortOption(item)),
+    permissionPresets: decodeArray(requireField(record, "permissionPresets", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.permissionPresets", (item) => decodeChatPermissionPreset(item)),
+    currentPermission: decodeNullable(requireField(record, "currentPermission", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.currentPermission", (item) => decodeChatCodexEffectivePermissionSettings(item)),
+    selectedModel: decodeString(requireField(record, "selectedModel", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.selectedModel"),
+    selectedReasoningEffort: decodeNullable(requireField(record, "selectedReasoningEffort", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.selectedReasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexDefaultsView.selectedReasoningEffort")),
+    selectedPermissionPreset: decodeNullable(requireField(record, "selectedPermissionPreset", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.selectedPermissionPreset", (item) => decodeChatPermissionPresetID(item, "ChatCodexDefaultsView.selectedPermissionPreset")),
+  };
+}
+
+export function decodeUpdateChatCodexDefaultsRequest(value: unknown): UpdateChatCodexDefaultsRequest {
+  const record = assertRecord(value, "UpdateChatCodexDefaultsRequest");
+  assertKnownFields(record, "UpdateChatCodexDefaultsRequest", ["settings", "confirmed"]);
+  return {
+    settings: decodeChatCodexSettings(requireField(record, "settings", "UpdateChatCodexDefaultsRequest")),
+    confirmed: decodeBoolean(requireField(record, "confirmed", "UpdateChatCodexDefaultsRequest"), "UpdateChatCodexDefaultsRequest.confirmed"),
+  };
+}
+
 export function decodeOpenChatCodexModelPickerRequest(value: unknown): OpenChatCodexModelPickerRequest {
   const record = assertRecord(value, "OpenChatCodexModelPickerRequest");
   assertKnownFields(record, "OpenChatCodexModelPickerRequest", ["workspaceId", "conversationId"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "OpenChatCodexModelPickerRequest"), "OpenChatCodexModelPickerRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "OpenChatCodexModelPickerRequest"), "OpenChatCodexModelPickerRequest.conversationId"),
+  };
+}
+
+export function decodeOpenChatCodexPermissionPickerRequest(value: unknown): OpenChatCodexPermissionPickerRequest {
+  const record = assertRecord(value, "OpenChatCodexPermissionPickerRequest");
+  assertKnownFields(record, "OpenChatCodexPermissionPickerRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "OpenChatCodexPermissionPickerRequest"), "OpenChatCodexPermissionPickerRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "OpenChatCodexPermissionPickerRequest"), "OpenChatCodexPermissionPickerRequest.conversationId"),
   };
 }
 
@@ -7593,6 +7784,17 @@ export function decodeSetChatCodexModelRequest(value: unknown): SetChatCodexMode
     workspaceId: decodeString(requireField(record, "workspaceId", "SetChatCodexModelRequest"), "SetChatCodexModelRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SetChatCodexModelRequest"), "SetChatCodexModelRequest.conversationId"),
     modelId: decodeString(requireField(record, "modelId", "SetChatCodexModelRequest"), "SetChatCodexModelRequest.modelId"),
+  };
+}
+
+export function decodeSetChatCodexPermissionPresetRequest(value: unknown): SetChatCodexPermissionPresetRequest {
+  const record = assertRecord(value, "SetChatCodexPermissionPresetRequest");
+  assertKnownFields(record, "SetChatCodexPermissionPresetRequest", ["workspaceId", "conversationId", "preset", "confirmed"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SetChatCodexPermissionPresetRequest"), "SetChatCodexPermissionPresetRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SetChatCodexPermissionPresetRequest"), "SetChatCodexPermissionPresetRequest.conversationId"),
+    preset: decodeChatPermissionPresetID(requireField(record, "preset", "SetChatCodexPermissionPresetRequest"), "SetChatCodexPermissionPresetRequest.preset"),
+    confirmed: decodeBoolean(requireField(record, "confirmed", "SetChatCodexPermissionPresetRequest"), "SetChatCodexPermissionPresetRequest.confirmed"),
   };
 }
 
@@ -10935,8 +11137,12 @@ export interface BackendClient {
   createChatImageAttachmentFromBytes: (request: CreateChatImageAttachmentFromBytesRequest) => Promise<ImageAttachment>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
   executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
+  readChatCodexDefaults: () => Promise<ChatCodexDefaultsView>;
+  updateChatCodexDefaults: (request: UpdateChatCodexDefaultsRequest) => Promise<ChatCodexDefaultsView>;
   openChatCodexModelPicker: (request: OpenChatCodexModelPickerRequest) => Promise<ChatCommandExecuteResult>;
+  openChatCodexPermissionPicker: (request: OpenChatCodexPermissionPickerRequest) => Promise<ChatCommandExecuteResult>;
   setChatCodexModel: (request: SetChatCodexModelRequest) => Promise<ChatCommandExecuteResult>;
+  setChatCodexPermissionPreset: (request: SetChatCodexPermissionPresetRequest) => Promise<ChatCommandExecuteResult>;
   setChatCodexReasoningEffort: (request: SetChatCodexReasoningEffortRequest) => Promise<ChatCommandExecuteResult>;
   cancelRun: (request: CancelRunRequest) => Promise<Run>;
   getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
@@ -11269,6 +11475,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
+    readChatCodexDefaults: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatCodexDefaultsView,
+      endpoint: backendEndpoints.ReadChatCodexDefaults,
+      fetchImpl,
+      requestPayload: undefined,
+    }),
+    updateChatCodexDefaults: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatCodexDefaultsView,
+      endpoint: backendEndpoints.UpdateChatCodexDefaults,
+      fetchImpl,
+      requestPayload: request,
+    }),
     openChatCodexModelPicker: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -11277,11 +11499,27 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
+    openChatCodexPermissionPicker: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatCommandExecuteResult,
+      endpoint: backendEndpoints.OpenChatCodexPermissionPicker,
+      fetchImpl,
+      requestPayload: request,
+    }),
     setChatCodexModel: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.SetChatCodexModel,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    setChatCodexPermissionPreset: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatCommandExecuteResult,
+      endpoint: backendEndpoints.SetChatCodexPermissionPreset,
       fetchImpl,
       requestPayload: request,
     }),

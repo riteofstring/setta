@@ -2,11 +2,23 @@ import type {
   ChatCommandExecuteResult,
   ChatCodexEffectiveSettings,
   ChatModelOption,
+  ChatPermissionPreset,
+  ChatPermissionPresetID,
   ChatReasoningEffortOption,
   Conversation,
   ReasoningEffort,
 } from "@generated/backend";
-import { ArrowUp, ChevronDown, MessageSquarePlus, Mic, Settings, Square, Zap } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUp,
+  Check,
+  ChevronDown,
+  MessageSquarePlus,
+  Mic,
+  Settings,
+  Square,
+  Zap,
+} from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { cn } from "../lib/utils";
@@ -15,9 +27,9 @@ import { Button } from "./ui/button";
 export interface ComposerKeyActions {
   completeCommand: () => void;
   draftEmpty: boolean;
-  dismissModelPicker: () => void;
   hasPendingSteering: boolean;
-  modelPickerOpen: boolean;
+  dismissPicker: () => void;
+  pickerOpen: boolean;
   queueDraft: () => Promise<void> | void;
   running: boolean;
   sendDraft: () => Promise<void> | void;
@@ -30,9 +42,9 @@ export function handleComposerKeyDown(
   event: KeyboardEvent<HTMLTextAreaElement>,
   actions: ComposerKeyActions,
 ) {
-  if (isDismissShortcut(event, actions.modelPickerOpen)) {
+  if (isDismissShortcut(event, actions.pickerOpen)) {
     event.preventDefault();
-    actions.dismissModelPicker();
+    actions.dismissPicker();
     return;
   }
   if (
@@ -70,8 +82,8 @@ export function handleComposerKeyDown(
   void actions.sendDraft();
 }
 
-function isDismissShortcut(event: KeyboardEvent<HTMLTextAreaElement>, modelPickerOpen: boolean) {
-  return modelPickerOpen && event.key === "Escape";
+function isDismissShortcut(event: KeyboardEvent<HTMLTextAreaElement>, pickerOpen: boolean) {
+  return pickerOpen && event.key === "Escape";
 }
 
 function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -108,14 +120,184 @@ function focusTextareaSoon(textarea: HTMLTextAreaElement) {
   globalThis.setTimeout(() => textarea.focus(), 0);
 }
 
-export function PermissionModeUnavailableButton() {
+export function PermissionPickerButton({
+  disabled,
+  onOpen,
+  onSelect,
+  permissionPicker,
+  running,
+  selectedConversation,
+}: {
+  disabled: boolean;
+  onOpen: () => void;
+  onSelect: (preset: ChatPermissionPresetID) => void;
+  permissionPicker: ChatCommandExecuteResult | null;
+  running: boolean;
+  selectedConversation: Conversation | null;
+}) {
+  const open = permissionPicker?.result.action === "permission_picker";
+  const label = permissionPickerLabel(permissionPicker, selectedConversation);
+  const disabledReason = permissionPickerDisabledReason({
+    disabled,
+    running,
+    selected: selectedConversation !== null,
+  });
   return (
-    <DisabledComposerPill
-      icon={<Settings className="h-3.5 w-3.5" />}
-      label="Custom"
-      reason="Permission presets are not wired to a current Setta API."
-    />
+    <div className="relative inline-flex min-w-0">
+      <button
+        aria-expanded={open ? "true" : "false"}
+        aria-haspopup="menu"
+        aria-label="Open permission mode picker"
+        className={cn(
+          "inline-flex h-6 min-w-0 items-center gap-1 rounded-sm border border-transparent px-1.5 text-xs hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+          open ? "border-border bg-accent/80 text-foreground" : "text-muted-foreground",
+        )}
+        disabled={disabled}
+        onClick={onOpen}
+        title={disabledReason ?? "Open permission mode picker"}
+        type="button"
+      >
+        <Settings className="h-3.5 w-3.5 shrink-0" />
+        <span className="max-w-36 truncate font-medium text-foreground">{label}</span>
+        <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+      </button>
+      {open ? (
+        <div
+          className="absolute bottom-7 left-0 z-30 w-72 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-lg"
+          role="menu"
+        >
+          {permissionPicker.result.permissionPresets.map((preset) => {
+            const selected = permissionPresetSelected(
+              preset.id,
+              permissionPicker.result.selectedPermissionPreset,
+            );
+            return (
+              <button
+                className="grid w-full grid-cols-[1rem_minmax(0,1fr)_1rem] gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={preset.disabled}
+                key={preset.id}
+                onClick={() => onSelect(preset.id)}
+                role="menuitemradio"
+                title={preset.disabled ? preset.disabledReason : preset.shortDescription}
+                type="button"
+                aria-checked={selected}
+              >
+                <span className="pt-0.5 text-muted-foreground">
+                  {selected ? <Check className="h-3.5 w-3.5" /> : null}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{preset.label}</span>
+                  <span className="mt-0.5 block text-muted-foreground">
+                    {preset.shortDescription}
+                  </span>
+                </span>
+                <span className="pt-0.5 text-destructive">
+                  {preset.danger?.requiresConfirmation ? (
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                  ) : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
+}
+
+export function PermissionConfirmationDialog({
+  onCancel,
+  onConfirm,
+  preset,
+}: {
+  onCancel: () => void;
+  onConfirm: () => void;
+  preset: ChatPermissionPreset | null;
+}) {
+  if (preset === null || preset.danger === null) {
+    return null;
+  }
+  return (
+    <div
+      aria-labelledby="permission-confirmation-title"
+      aria-modal="true"
+      className="fixed inset-0 z-50 grid place-items-center bg-background/70 px-4"
+      role="dialog"
+    >
+      <div className="w-full max-w-sm rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-lg">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+          <div className="min-w-0">
+            <div id="permission-confirmation-title" className="text-sm font-medium">
+              {preset.danger.confirmationTitle}
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {preset.danger.confirmationBody}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex justify-end gap-2">
+          <Button
+            autoFocus
+            className="h-7 rounded-sm px-2 text-xs"
+            onClick={onCancel}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+          <Button
+            className="h-7 rounded-sm px-2 text-xs"
+            onClick={onConfirm}
+            type="button"
+            variant="primary"
+          >
+            Use {preset.label}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function permissionPickerLabel(
+  permissionPicker: ChatCommandExecuteResult | null,
+  selectedConversation: Conversation | null,
+) {
+  if (permissionPicker?.result.action === "permission_picker") {
+    return permissionPicker.result.currentPermission?.displayLabel ?? "Ask for approval";
+  }
+  return (
+    selectedConversation?.codexEffectiveSettings?.permission?.displayLabel ?? "Ask for approval"
+  );
+}
+
+function permissionPickerDisabledReason({
+  disabled,
+  running,
+  selected,
+}: {
+  disabled: boolean;
+  running: boolean;
+  selected: boolean;
+}) {
+  if (!disabled) {
+    return null;
+  }
+  if (!selected) {
+    return "Start a chat before changing permission settings.";
+  }
+  if (running) {
+    return "Permission changes apply after the current run finishes.";
+  }
+  return "Composer controls are unavailable while the current operation finishes.";
+}
+
+export function permissionPresetSelected(
+  preset: ChatPermissionPresetID,
+  selectedPreset: ChatPermissionPresetID | null,
+) {
+  return selectedPreset !== null && preset === selectedPreset;
 }
 
 export function VoiceInputUnavailableButton() {
@@ -125,30 +307,6 @@ export function VoiceInputUnavailableButton() {
       label="Voice input"
       reason="Voice input is not implemented in this codebase."
     />
-  );
-}
-
-function DisabledComposerPill({
-  icon,
-  label,
-  reason,
-}: {
-  icon: ReactNode;
-  label: string;
-  reason: string;
-}) {
-  return (
-    <button
-      aria-label={`${label} unavailable`}
-      className="inline-flex h-6 min-w-0 items-center gap-1 rounded-sm border border-border bg-secondary px-1.5 text-xs text-muted-foreground disabled:cursor-not-allowed disabled:opacity-70"
-      disabled
-      title={reason}
-      type="button"
-    >
-      <span className="shrink-0">{icon}</span>
-      <span className="truncate">{label}</span>
-      <ChevronDown className="h-3 w-3 shrink-0" />
-    </button>
   );
 }
 

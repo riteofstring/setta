@@ -1279,20 +1279,12 @@ func handleFakeServerResponse(mode string, state *fakeCodexState, message map[st
 }
 
 func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[string]any) bool {
+	if handled, done := handleFakeConfigMethod(mode, message); handled {
+		return done
+	}
 	switch message["method"] {
 	case "initialize":
 		writeFakeInitializeResponse(message["id"])
-	case "config/read":
-		assertFakeConfigRead(message)
-		writeFakeResponse(message["id"], map[string]any{
-			"config": map[string]any{
-				"model":                  "gpt-test",
-				"model_reasoning_effort": "xhigh",
-			},
-			"layers":  []any{},
-			"origins": map[string]any{},
-		})
-		return false
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)

@@ -13,6 +13,21 @@ The goal is to replace the placeholder with real built-in permission controls
 for chat conversations. Custom permission profiles are explicitly out of scope
 for the first implementation.
 
+## Compatibility Stance
+
+This implementation must be a clean current-contract implementation. Do not add
+backward compatibility shims, legacy support paths, migrations, transitional
+adapters, dual-read/write paths, old-field aliases, or silent compatibility
+fallbacks. Current Codex wire aliases accepted by the app-server protocol are
+normalized at the protocol boundary; Setta must not persist aliases or create
+alternate storage contracts for them.
+
+Setta should persist and send only the new Setta-owned permission preset
+contract and the current Codex app-server permission fields needed by that
+contract. Existing conversations without permission settings should resolve
+through the normal current default/effective-settings path, not through a
+migration or legacy interpretation layer.
+
 ## Codex Reference Findings
 
 The upstream Codex repo models permission level as a pair of:
@@ -36,7 +51,9 @@ Relevant upstream sources:
   that the runtime must honor the concrete `PermissionProfile`.
 - `/Users/kevin/Documents/AppDevelopment/reference_repos/codex/codex-rs/app-server-protocol/src/protocol/v2/thread.rs`
   exposes `approvalPolicy`, `permissions`, and legacy sandbox fields on
-  `thread/start`, `thread/resume`, and `thread/settings/update`.
+  `thread/start`, `thread/resume`, and `thread/settings/update`. The legacy
+  sandbox fields are reference context only; Setta must not use them as a
+  compatibility path.
 - `/Users/kevin/Documents/AppDevelopment/reference_repos/codex/codex-rs/tui/src/chatwidget/permission_popups.rs`
   applies built-in presets as a single operation that updates approval policy,
   permission profile, active profile metadata, and reviewer state, with an
@@ -74,9 +91,10 @@ Initial selectable modes:
 
 - `Read Only`: Codex can read workspace files. Writes, network access, and
   broader filesystem access require approval.
-- `Default`: Codex can edit the workspace and run commands. Network access or
-  broader filesystem access requires approval. This maps to upstream `auto` /
-  `:workspace`.
+- `Ask for approval`: Codex can edit the workspace and run commands. Network
+  access or broader filesystem access requires approval. This maps to upstream
+  `auto` / `:workspace`; upstream metadata names the built-in preset `Default`,
+  but the Codex TUI shows it as `Ask for approval`.
 - `Full Access`: Codex can access the broader filesystem and network without
   asking. This is the YOLO-equivalent mode and must require an explicit
   confirmation before applying.
@@ -182,7 +200,8 @@ The set operation should behave like model/reasoning settings:
 - Persist the returned or derived effective settings to
   `Conversation.CodexEffectiveSettings`.
 - Fail loudly if the current Codex app-server rejects `permissions`; do not
-  silently fall back to legacy sandbox fields.
+  silently fall back to legacy sandbox fields, aliases, or alternate request
+  shapes.
 
 For `Full Access`, require a confirmed request from the renderer before calling
 the backend mutation. The backend should still enforce confirmation so the
@@ -193,8 +212,8 @@ dangerous mode cannot be selected by bypassing UI state.
 Replace `PermissionModeUnavailableButton` with a real permission picker button:
 
 - icon: existing settings/gear icon is acceptable;
-- label: current effective mode (`Read Only`, `Default`, `Full Access`, or
-  `Custom`);
+- label: current effective mode (`Read Only`, `Ask for approval`,
+  `Full Access`, or `Custom`);
 - menu: built-in presets only;
 - selection state: from `selectedConversation.codexEffectiveSettings`;
 - disabled while no conversation is selected, while a run is active, or while a
@@ -245,8 +264,9 @@ policy controls.
 
 ## Open Decisions
 
-- Whether the visible default label should be `Default`, `Agent`, or
-  `Workspace`. Upstream calls the preset `Default` but maps it to `:workspace`.
+- Resolved: the visible default label is `Ask for approval`, matching the Codex
+  TUI. Upstream's stable preset id is `auto`, and its built-in metadata label is
+  `Default`, but the effective profile maps to `:workspace`.
 - Whether changing permission level should create a visible transcript command
   message every time. The recommended answer is yes for auditability.
 - Whether to show `Custom` for unknown effective states or hide the control

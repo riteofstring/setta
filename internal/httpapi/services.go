@@ -65,16 +65,20 @@ type ChatService interface {
 	EditQueuedInput(workspaceID string, conversationID string, messageID string, input chat.ChatInput) (chat.QueueEditResult, error)
 	ListCommands(workspaceID string, conversationID string) (chat.ChatCommandListResult, error)
 	OpenChatCodexModelPicker(workspaceID string, conversationID string) (chat.ChatCommandExecuteResult, error)
+	OpenChatCodexPermissionPicker(workspaceID string, conversationID string) (chat.ChatCommandExecuteResult, error)
 	QueueUserInput(workspaceID string, conversationID string, input chat.ChatInput) (chat.QueueMessageResult, error)
+	ReadChatCodexDefaults(context.Context) (chat.ChatCodexDefaultsView, error)
 	RemoveQueuedMessage(workspaceID string, conversationID string, messageID string) (chat.QueueRemoveResult, error)
 	SendUserInput(workspaceID string, conversationID string, input chat.ChatInput) (chat.SendMessageResult, error)
 	SendSteeringInputImmediately(workspaceID string, conversationID string, input *chat.ChatInput) (chat.ImmediateSteeringResult, error)
 	SetChatCodexModel(workspaceID string, conversationID string, modelID string) (chat.ChatCommandExecuteResult, error)
+	SetChatCodexPermissionPreset(workspaceID string, conversationID string, preset chat.ChatPermissionPresetID, confirmed bool) (chat.ChatCommandExecuteResult, error)
 	SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort chat.ReasoningEffort) (chat.ChatCommandExecuteResult, error)
 	SetConversationPinned(workspaceID string, conversationID string, pinned bool) (chat.ConversationListItem, error)
 	SteerActiveRunInput(workspaceID string, conversationID string, input chat.ChatInput) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)
+	UpdateChatCodexDefaults(context.Context, chat.ChatCodexSettings, bool) (chat.ChatCodexDefaultsView, error)
 }
 
 type CodexAccountService interface {

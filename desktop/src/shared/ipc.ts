@@ -26,7 +26,9 @@ import type {
   CartographerWindowProcessResult,
   ChatCommandExecuteResult,
   ChatCommandListResult,
+  ChatCodexDefaultsView,
   ChatInput,
+  ChatPermissionPresetID,
   CodexAccountState,
   Conversation,
   ConversationListItem,
@@ -107,6 +109,7 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateChatCodexDefaultsRequest,
   UpdateSemanticEdgeRequest,
   UpdateSemanticLayoutPositionsRequest,
   UpdateSemanticNodeRequest,
@@ -153,6 +156,7 @@ export const ipcChannels = {
   chatDeleteConversation: "chat:delete-conversation",
   chatEditQueuedMessage: "chat:edit-queued-message",
   chatExecuteCommand: "chat:execute-command",
+  chatReadCodexDefaults: "chat:read-codex-defaults",
   chatListConversations: "chat:list-conversations",
   chatListCommands: "chat:list-commands",
   chatListBackgroundTerminals: "chat:list-background-terminals",
@@ -168,8 +172,11 @@ export const ipcChannels = {
   chatSendMessage: "chat:send-message",
   chatSendSteeringImmediately: "chat:send-steering-immediately",
   chatOpenCodexModelPicker: "chat:open-codex-model-picker",
+  chatOpenCodexPermissionPicker: "chat:open-codex-permission-picker",
   chatSetCodexModel: "chat:set-codex-model",
+  chatSetCodexPermissionPreset: "chat:set-codex-permission-preset",
   chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
+  chatUpdateCodexDefaults: "chat:update-codex-defaults",
   chatSetConversationPinned: "chat:set-conversation-pinned",
   chatSelectImageAttachments: "chat:select-image-attachments",
   chatSteerMessage: "chat:steer-message",
@@ -366,7 +373,15 @@ interface IpcContract {
     ];
     result: ChatCommandExecuteResult;
   };
+  chatReadCodexDefaults: {
+    args: [];
+    result: ChatCodexDefaultsView;
+  };
   chatOpenCodexModelPicker: {
+    args: [workspaceId: string, conversationId: string];
+    result: ChatCommandExecuteResult;
+  };
+  chatOpenCodexPermissionPicker: {
     args: [workspaceId: string, conversationId: string];
     result: ChatCommandExecuteResult;
   };
@@ -374,9 +389,22 @@ interface IpcContract {
     args: [workspaceId: string, conversationId: string, modelId: string];
     result: ChatCommandExecuteResult;
   };
+  chatSetCodexPermissionPreset: {
+    args: [
+      workspaceId: string,
+      conversationId: string,
+      preset: ChatPermissionPresetID,
+      confirmed: boolean,
+    ];
+    result: ChatCommandExecuteResult;
+  };
   chatSetCodexReasoningEffort: {
     args: [workspaceId: string, conversationId: string, effort: ReasoningEffort];
     result: ChatCommandExecuteResult;
+  };
+  chatUpdateCodexDefaults: {
+    args: [request: UpdateChatCodexDefaultsRequest];
+    result: ChatCodexDefaultsView;
   };
   chatSetConversationPinned: {
     args: [workspaceId: string, conversationId: string, pinned: boolean];

@@ -132,8 +132,9 @@ const (
 	DiagnosticSourceWorkspace   DiagnosticSource = "workspace"
 	DiagnosticSourceProvider    DiagnosticSource = "provider"
 
-	ChatCommandGoal  ChatCommandKind = "goal"
-	ChatCommandModel ChatCommandKind = "model"
+	ChatCommandGoal       ChatCommandKind = "goal"
+	ChatCommandModel      ChatCommandKind = "model"
+	ChatCommandPermission ChatCommandKind = "permission"
 
 	ChatSlashCommandGoal ChatSlashCommandKind = "goal"
 
@@ -160,9 +161,10 @@ const (
 	ReasoningEffortHigh    ReasoningEffort = "high"
 	ReasoningEffortXHigh   ReasoningEffort = "xhigh"
 
-	ChatCommandResultDisplay     ChatCommandResultAction = "display"
-	ChatCommandResultGoalEditor  ChatCommandResultAction = "goal_editor"
-	ChatCommandResultModelPicker ChatCommandResultAction = "model_picker"
+	ChatCommandResultDisplay          ChatCommandResultAction = "display"
+	ChatCommandResultGoalEditor       ChatCommandResultAction = "goal_editor"
+	ChatCommandResultModelPicker      ChatCommandResultAction = "model_picker"
+	ChatCommandResultPermissionPicker ChatCommandResultAction = "permission_picker"
 )
 
 type ContractValueSet struct {
@@ -272,6 +274,7 @@ var (
 	chatCommandKindValues = []ChatCommandKind{
 		ChatCommandGoal,
 		ChatCommandModel,
+		ChatCommandPermission,
 	}
 	chatSlashCommandKindValues = []ChatSlashCommandKind{
 		ChatSlashCommandGoal,
@@ -308,6 +311,7 @@ var (
 		ChatCommandResultDisplay,
 		ChatCommandResultGoalEditor,
 		ChatCommandResultModelPicker,
+		ChatCommandResultPermissionPicker,
 	}
 	structuredInputModeValues = []StructuredInputMode{
 		StructuredInputModeForm,
@@ -342,6 +346,8 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "ChatCommandLiteralMatchMode", Values: stringValues(chatCommandLiteralMatchModeValues)},
 		{Name: "GoalCommandAction", Values: stringValues(goalCommandActionValues)},
 		{Name: "ModelCommandAction", Values: stringValues(modelCommandActionValues)},
+		{Name: "PermissionCommandAction", Values: stringValues(permissionCommandActionValues)},
+		{Name: "ChatPermissionPresetID", Values: stringValues(chatPermissionPresetIDValues)},
 		{Name: "ReasoningEffort", Values: stringValues(reasoningEffortValues)},
 		{Name: "ChatCommandResultAction", Values: stringValues(chatCommandResultActionValues)},
 		{Name: "TranscriptBlockKind", Values: stringValues(transcriptBlockKindValues)},
@@ -375,16 +381,18 @@ type Conversation struct {
 }
 
 type ChatCodexSettings struct {
-	Model           string           `json:"model"`
-	ReasoningEffort *ReasoningEffort `json:"reasoningEffort"`
+	Model           string                       `json:"model"`
+	ReasoningEffort *ReasoningEffort             `json:"reasoningEffort"`
+	Permission      *ChatCodexPermissionSettings `json:"permission"`
 }
 
 type ChatCodexEffectiveSettings struct {
-	Model                      string           `json:"model"`
-	ModelDisplayName           string           `json:"modelDisplayName"`
-	ReasoningEffort            *ReasoningEffort `json:"reasoningEffort"`
-	ReasoningEffortDisplayName string           `json:"reasoningEffortDisplayName"`
-	SupportsImages             bool             `json:"supportsImages"`
+	Model                      string                                `json:"model"`
+	ModelDisplayName           string                                `json:"modelDisplayName"`
+	ReasoningEffort            *ReasoningEffort                      `json:"reasoningEffort"`
+	ReasoningEffortDisplayName string                                `json:"reasoningEffortDisplayName"`
+	SupportsImages             bool                                  `json:"supportsImages"`
+	Permission                 *ChatCodexEffectivePermissionSettings `json:"permission"`
 }
 
 type ConversationWorkflowMetadata struct {
@@ -620,11 +628,12 @@ type ConversationListResult struct {
 }
 
 type ChatCommand struct {
-	Kind  ChatCommandKind `json:"kind"`
-	Raw   string          `json:"raw"`
-	Args  string          `json:"args"`
-	Goal  *GoalCommand    `json:"goal"`
-	Model *ModelCommand   `json:"model"`
+	Kind       ChatCommandKind    `json:"kind"`
+	Raw        string             `json:"raw"`
+	Args       string             `json:"args"`
+	Goal       *GoalCommand       `json:"goal"`
+	Model      *ModelCommand      `json:"model"`
+	Permission *PermissionCommand `json:"permission"`
 }
 
 type GoalCommand struct {
@@ -715,17 +724,20 @@ type ChatCommandListResult struct {
 }
 
 type ChatCommandResult struct {
-	Action                  ChatCommandResultAction     `json:"action"`
-	Kind                    ChatCommandKind             `json:"kind"`
-	Raw                     string                      `json:"raw"`
-	Title                   string                      `json:"title"`
-	Message                 string                      `json:"message"`
-	ComposerDraft           string                      `json:"composerDraft"`
-	Goal                    *ChatGoalState              `json:"goal"`
-	Models                  []ChatModelOption           `json:"models"`
-	SelectedModel           string                      `json:"selectedModel"`
-	ReasoningEfforts        []ChatReasoningEffortOption `json:"reasoningEfforts"`
-	SelectedReasoningEffort *ReasoningEffort            `json:"selectedReasoningEffort"`
+	Action                   ChatCommandResultAction               `json:"action"`
+	Kind                     ChatCommandKind                       `json:"kind"`
+	Raw                      string                                `json:"raw"`
+	Title                    string                                `json:"title"`
+	Message                  string                                `json:"message"`
+	ComposerDraft            string                                `json:"composerDraft"`
+	Goal                     *ChatGoalState                        `json:"goal"`
+	Models                   []ChatModelOption                     `json:"models"`
+	SelectedModel            string                                `json:"selectedModel"`
+	ReasoningEfforts         []ChatReasoningEffortOption           `json:"reasoningEfforts"`
+	SelectedReasoningEffort  *ReasoningEffort                      `json:"selectedReasoningEffort"`
+	PermissionPresets        []ChatPermissionPreset                `json:"permissionPresets"`
+	SelectedPermissionPreset *ChatPermissionPresetID               `json:"selectedPermissionPreset"`
+	CurrentPermission        *ChatCodexEffectivePermissionSettings `json:"currentPermission"`
 }
 
 type ChatCommandExecuteResult struct {

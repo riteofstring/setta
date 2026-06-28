@@ -1,5 +1,6 @@
 import type {
   BackendHealth,
+  ChatCommandResult,
   ChatMessage,
   MessagePage,
   OpenWorkspaceResponse,
@@ -346,17 +347,23 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         result: {
           action: "display",
           composerDraft: "",
+          currentPermission: null,
           goal: null,
           kind: "goal",
           message: "Goal set: test",
           models: [],
+          permissionPresets: [],
           raw: "/goal test",
           reasoningEfforts: [],
+          selectedPermissionPreset: null,
           selectedReasoningEffort: null,
           selectedModel: "",
           title: "Goal",
         },
       }),
+      readCodexDefaults: async () => {
+        throw new Error("chat defaults are not used by workspace store tests");
+      },
       openCodexModelPicker: async () => ({
         conversation: emptyConversation(),
         message: null,
@@ -364,16 +371,25 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         result: {
           action: "model_picker",
           composerDraft: "",
+          currentPermission: null,
           goal: null,
           kind: "model",
           message: "Choose a model.",
           models: [],
+          permissionPresets: [],
           raw: "model_picker",
           reasoningEfforts: [],
+          selectedPermissionPreset: null,
           selectedReasoningEffort: null,
           selectedModel: "",
           title: "Model",
         },
+      }),
+      openCodexPermissionPicker: async () => ({
+        conversation: emptyConversation(),
+        message: null,
+        page: emptyMessagePage(),
+        result: emptyCommandResult("permission", "permission_picker"),
       }),
       listCommands: async () => ({ commands: [] }),
       listConversations: async () => ({
@@ -443,16 +459,25 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         result: {
           action: "display",
           composerDraft: "",
+          currentPermission: null,
           goal: null,
           kind: "model",
           message: "Model set: gpt-test",
           models: [],
+          permissionPresets: [],
           raw: "model_set",
           reasoningEfforts: [],
+          selectedPermissionPreset: null,
           selectedReasoningEffort: null,
           selectedModel: "gpt-test",
           title: "Model",
         },
+      }),
+      setCodexPermissionPreset: async () => ({
+        conversation: emptyConversation(),
+        message: null,
+        page: emptyMessagePage(),
+        result: emptyCommandResult("permission", "display"),
       }),
       setCodexReasoningEffort: async () => ({
         conversation: emptyConversation(),
@@ -461,17 +486,23 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         result: {
           action: "display",
           composerDraft: "",
+          currentPermission: null,
           goal: null,
           kind: "model",
           message: "Reasoning set: High",
           models: [],
+          permissionPresets: [],
           raw: "model_reasoning_effort_set",
           reasoningEfforts: [],
+          selectedPermissionPreset: null,
           selectedReasoningEffort: "high",
           selectedModel: "",
           title: "Model",
         },
       }),
+      updateCodexDefaults: async () => {
+        throw new Error("chat defaults are not used by workspace store tests");
+      },
       setConversationPinned: async () => ({
         activeRunId: "",
         pinnedAt: "",
@@ -665,6 +696,28 @@ function emptyCorruption() {
     bySeverity: [],
     hasCorruption: false,
     total: 0,
+  };
+}
+
+function emptyCommandResult(
+  kind: ChatCommandResult["kind"],
+  action: ChatCommandResult["action"],
+): ChatCommandResult {
+  return {
+    action,
+    composerDraft: "",
+    currentPermission: null,
+    goal: null,
+    kind,
+    message: "Command result",
+    models: [],
+    permissionPresets: [],
+    raw: "/command",
+    reasoningEfforts: [],
+    selectedModel: "",
+    selectedPermissionPreset: null,
+    selectedReasoningEffort: null,
+    title: "Command",
   };
 }
 

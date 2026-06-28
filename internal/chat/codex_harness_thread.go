@@ -134,7 +134,10 @@ func codexThreadSettingsFromNotification(params codexapp.ThreadSettingsUpdatedNo
 		}
 	}
 	return codexCommandThreadSettings{
-		Model:           params.ThreadSettings.Model,
-		ReasoningEffort: effort,
+		Model:                          params.ThreadSettings.Model,
+		ReasoningEffort:                effort,
+		ApprovalPolicy:                 codexApprovalPolicyString(params.ThreadSettings.ApprovalPolicy),
+		ActivePermissionProfileID:      activePermissionProfileID(params.ThreadSettings.ActivePermissionProfile),
+		ActivePermissionProfileExtends: activePermissionProfileExtends(params.ThreadSettings.ActivePermissionProfile),
 	}, nil
 }

@@ -7,6 +7,7 @@ import type {
   ChatGoalState,
   ChatInput,
   ChatMessage,
+  ChatPermissionPresetID,
   Conversation,
   ConversationListItem,
   CorruptionSummary,
@@ -106,7 +107,12 @@ export interface ChatStore {
     clientOptions?: ChatCommandClientOptions,
   ) => Promise<ChatCommandExecuteResult>;
   openCodexModelPicker: () => Promise<ChatCommandExecuteResult>;
+  openCodexPermissionPicker: () => Promise<ChatCommandExecuteResult>;
   setCodexModel: (modelId: string) => Promise<ChatCommandExecuteResult>;
+  setCodexPermissionPreset: (
+    preset: ChatPermissionPresetID,
+    confirmed: boolean,
+  ) => Promise<ChatCommandExecuteResult>;
   setCodexReasoningEffort: (effort: ReasoningEffort) => Promise<ChatCommandExecuteResult>;
   listCommands: () => Promise<ChatCommandListResult | null>;
   resyncActiveConversation: () => Promise<void>;

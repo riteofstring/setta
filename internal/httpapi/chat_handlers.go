@@ -45,6 +45,36 @@ func (handler handler) createConversation(response http.ResponseWriter, request 
 	writeJSON(response, http.StatusOK, conversation)
 }
 
+func (handler handler) readChatCodexDefaults(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	result, err := service.ReadChatCodexDefaults(request.Context())
+	if err != nil {
+		writeChatError(response, "read_chat_codex_defaults_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) updateChatCodexDefaults(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload UpdateChatCodexDefaultsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.UpdateChatCodexDefaults(request.Context(), payload.Settings, payload.Confirmed)
+	if err != nil {
+		writeChatError(response, "update_chat_codex_defaults_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) deleteConversation(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
@@ -294,6 +324,23 @@ func (handler handler) openChatCodexModelPicker(response http.ResponseWriter, re
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) openChatCodexPermissionPicker(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload OpenChatCodexPermissionPickerRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.OpenChatCodexPermissionPicker(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "open_chat_codex_permission_picker_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) setChatCodexModel(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
@@ -306,6 +353,23 @@ func (handler handler) setChatCodexModel(response http.ResponseWriter, request *
 	result, err := service.SetChatCodexModel(payload.WorkspaceID, payload.ConversationID, payload.ModelID)
 	if err != nil {
 		writeChatError(response, "set_chat_codex_model_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) setChatCodexPermissionPreset(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload SetChatCodexPermissionPresetRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.SetChatCodexPermissionPreset(payload.WorkspaceID, payload.ConversationID, payload.Preset, payload.Confirmed)
+	if err != nil {
+		writeChatError(response, "set_chat_codex_permission_preset_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, result)

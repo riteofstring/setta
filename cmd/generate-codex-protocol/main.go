@@ -270,7 +270,7 @@ func mergeMembers(base []protocolMember, extra []protocolMember) []protocolMembe
 }
 
 func (generator *generator) collectClientMethodSchemas(used map[string]bool) error {
-	byMethod := membersByMethod(generator.clientMethods)
+	byMethod := membersByMethod(generator.supportedClientMethods)
 	for method := range used {
 		member, ok := byMethod[method]
 		if !ok {
