@@ -117,6 +117,68 @@ func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
 	assertRuntimeNoCriticalDiagnostics(t, config.AppDataDir)
 }
 
+func TestBackendLiveCodexRunLivenessReconcileDuringActiveTurn(t *testing.T) {
+	unsetRuntimeEnv(t, "OPENAI_API_KEY")
+	requireRuntimeLiveCodexChatGPTAuth(t)
+
+	config := testConfig(t)
+	config.Version = "test"
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	defer shutdownServer(t, server)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	baseURL := "http://" + server.Addr()
+
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	conversation := postRuntimeJSON[chat.Conversation](t, client, baseURL, "/chat/conversations/create", httpapi.CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+
+	const liveCommand = "sleep 12; pwd"
+	const smokePhrase = "setta live liveness reconciliation smoke"
+	prompt := fmt.Sprintf("Run the shell command `%s`, then reply with one short sentence containing the exact phrase %s.", liveCommand, smokePhrase)
+	result := postRuntimeJSON[chat.SendMessageResult](t, client, baseURL, "/chat/messages/send", httpapi.SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Input:          chat.TextChatInput(prompt),
+	}, http.StatusOK)
+	defer cancelRuntimeActiveRunBestEffort(client, baseURL, opened.Workspace.ID, conversation.ID)
+
+	if result.Run.Status != chat.RunStatusRunning {
+		t.Fatalf("initial run status = %q, want running", result.Run.Status)
+	}
+	waitForRuntimeLiveCodexCommandRunning(t, client, baseURL, opened.Workspace.ID, result.Run.ID)
+
+	liveness := waitForRuntimeLiveCodexReconcileStatus(t, client, baseURL, opened.Workspace.ID, conversation.ID, result.Run.ID, chat.RunLivenessReconciling)
+	if liveness.Reason != chat.RunLivenessReasonWakeRecheck {
+		t.Fatalf("reconciled liveness reason = %q, want %q: %+v", liveness.Reason, chat.RunLivenessReasonWakeRecheck, liveness)
+	}
+	if !liveness.Retryable || !liveness.Cancellable {
+		t.Fatalf("reconciled liveness retryable/cancellable = %t/%t, want true/true: %+v", liveness.Retryable, liveness.Cancellable, liveness)
+	}
+	if liveness.ProviderThreadID == "" || liveness.ProviderTurnID == "" {
+		t.Fatalf("reconciled liveness missing provider refs: %+v", liveness)
+	}
+
+	page := waitForRuntimeLiveCodexReply(t, client, baseURL, config.AppDataDir, opened.Workspace.ID, conversation.ID, result.Run.ID)
+	if text := strings.TrimSpace(runtimeMessageText(t, page.Messages[len(page.Messages)-1])); !strings.Contains(text, smokePhrase) {
+		t.Fatalf("assistant reply = %q, want phrase %q", text, smokePhrase)
+	}
+	active := postRuntimeJSON[httpapi.GetActiveRunResponse](t, client, baseURL, "/chat/runs/active", httpapi.GetActiveRunRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	if active.HasActiveRun {
+		t.Fatalf("active run remained after live liveness workflow: %+v", active)
+	}
+	assertRuntimeNoCriticalDiagnostics(t, config.AppDataDir)
+}
+
 func waitForRuntimeLiveCodexReply(t *testing.T, client *http.Client, baseURL string, appDataDir string, workspaceID string, conversationID string, runID string) chat.MessagePage {
 	t.Helper()
 
@@ -147,6 +209,52 @@ func waitForRuntimeLiveCodexReply(t *testing.T, client *http.Client, baseURL str
 	}
 	t.Fatalf("timed out waiting for live codex reply; %s; last page = %+v", runtimeRunStateForFailure(appDataDir, workspaceID, runID), lastPage)
 	return chat.MessagePage{}
+}
+
+func waitForRuntimeLiveCodexCommandRunning(t *testing.T, client *http.Client, baseURL string, workspaceID string, runID string) chat.RunActivityPage {
+	t.Helper()
+
+	deadline := time.Now().Add(90 * time.Second)
+	var lastPage chat.RunActivityPage
+	for time.Now().Before(deadline) {
+		page := postRuntimeJSON[chat.RunActivityPage](t, client, baseURL, "/chat/runs/activity", httpapi.GetRunActivityRequest{
+			WorkspaceID: workspaceID,
+			RunID:       runID,
+			Limit:       100,
+		}, http.StatusOK)
+		lastPage = page
+		for _, item := range page.Items {
+			if item.Type == chat.RunItemTypeCommandExecution && item.Status == chat.RunItemStatusRunning {
+				return page
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for live Codex command execution to run; last activity = %+v", lastPage)
+	return chat.RunActivityPage{}
+}
+
+func waitForRuntimeLiveCodexReconcileStatus(t *testing.T, client *http.Client, baseURL string, workspaceID string, conversationID string, runID string, status chat.RunLivenessStatus) chat.RunLiveness {
+	t.Helper()
+
+	deadline := time.Now().Add(15 * time.Second)
+	var lastResult httpapi.ReconcileChatRunsResponse
+	for time.Now().Before(deadline) {
+		result := postRuntimeJSON[httpapi.ReconcileChatRunsResponse](t, client, baseURL, "/chat/runs/reconcile", httpapi.ReconcileChatRunsRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+			Reason:         chat.RunLivenessReasonWakeRecheck,
+		}, http.StatusOK)
+		lastResult = result
+		for _, liveness := range result.Result.Runs {
+			if liveness.RunID == runID && liveness.Status == status {
+				return liveness
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for live Codex liveness %q; last reconcile result = %+v", status, lastResult)
+	return chat.RunLiveness{}
 }
 
 func getRuntimeJSON[T any](t *testing.T, client *http.Client, baseURL string, path string) T {
