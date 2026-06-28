@@ -177,7 +177,7 @@ func assertRunActivityPageEmpty(t *testing.T, service *Service, workspaceID stri
 }
 
 func TestServiceUnifiedExecStartupCompletedInTurnStaysActivity(t *testing.T) {
-	startupSource := RunItemCommandSourceUnifiedExecStartup
+	source := RunItemCommandSourceUnifiedExecStartup
 	const (
 		providerItemID = "foreground_unified_exec"
 		providerProcID = "foreground_proc"
@@ -193,7 +193,7 @@ func TestServiceUnifiedExecStartupCompletedInTurnStaysActivity(t *testing.T) {
 			Command:        command,
 			Cwd:            "/tmp/workspace",
 			ProcessID:      providerProcID,
-			Source:         &startupSource,
+			Source:         &source,
 		}},
 		{Type: FakeEventRunItemOutput, ProviderItemID: providerItemID, Stream: "stdout", Text: "/opt/homebrew/bin/tokei\n"},
 		{Type: FakeEventRunItem, ProviderItemID: providerItemID, RunItem: RunItem{
@@ -203,7 +203,7 @@ func TestServiceUnifiedExecStartupCompletedInTurnStaysActivity(t *testing.T) {
 			Command:        command,
 			Cwd:            "/tmp/workspace",
 			ProcessID:      providerProcID,
-			Source:         &startupSource,
+			Source:         &source,
 			ExitCode:       0,
 		}},
 		{Type: FakeEventAssistantDelta, ProviderItemID: "text_done", Text: "Done."},
@@ -246,7 +246,7 @@ func TestServiceUnifiedExecStartupCompletedInTurnStaysActivity(t *testing.T) {
 	}
 }
 
-func TestServiceUnifiedExecInteractionCreatesVisibleActivityItem(t *testing.T) {
+func TestServiceUnifiedExecInteractionPromotesUnregisteredStartup(t *testing.T) {
 	startupSource := RunItemCommandSourceUnifiedExecStartup
 	interactionSource := RunItemCommandSourceUnifiedExecInteraction
 	const (
@@ -290,39 +290,9 @@ func TestServiceUnifiedExecInteractionCreatesVisibleActivityItem(t *testing.T) {
 	if markers := countBackgroundTerminalMarkerBlocks(blocks, command); markers != 1 {
 		t.Fatalf("startup markers = %d, want 1: %v", markers, blockKinds(blocks))
 	}
-	interaction := terminalInteractionActivityBlock(t, blocks, "rs\n")
-	if interaction.Activity.Details.ProcessID != providerProcID || interaction.Activity.Details.Summary != "rs\n" {
-		t.Fatalf("interaction activity = %+v, want visible terminal interaction", interaction.Activity)
-	}
-}
-
-func TestServiceUnifiedExecEmptyInteractionCreatesVisibleActivityItem(t *testing.T) {
-	interactionSource := RunItemCommandSourceUnifiedExecInteraction
-	const (
-		providerProcID = "checked_proc"
-	)
-	harness := NewFakeHarness([]FakeHarnessEvent{
-		{Type: FakeEventThreadLinked, ThreadID: "thread_check", SessionID: "session_check", TurnID: "turn_check"},
-		{Type: FakeEventRunItem, ProviderItemID: "checked_unified_exec_terminal", RunItem: RunItem{
-			ProviderItemID: "checked_unified_exec_terminal",
-			Type:           RunItemTypeTerminalInteraction,
-			Status:         RunItemStatusCompleted,
-			ProcessID:      providerProcID,
-			Source:         &interactionSource,
-		}},
-	})
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "check background terminal")
-	if err != nil {
-		t.Fatalf("send message: %v", err)
-	}
-	waitForRunStatus(t, service, workspaceID, conversationID, result.Run.ID, RunStatusCompleted)
-
-	blocks := loadPersistedBlocks(t, service, workspaceID, result.Run.ID)
-	interaction := terminalInteractionActivityBlock(t, blocks, "")
-	if interaction.Activity.Details.ProcessID != providerProcID || interaction.Activity.Details.Summary != "" {
-		t.Fatalf("empty interaction activity = %+v, want visible terminal interaction with empty stdin", interaction.Activity)
+	interaction := backgroundTerminalMarkerBlock(t, blocks, "rs\n")
+	if interaction.BackgroundTerminal.ProcessID != process.ID || interaction.BackgroundTerminal.Label != backgroundTerminalInteractionLabel {
+		t.Fatalf("interaction marker = %+v, want linked interaction marker", interaction.BackgroundTerminal)
 	}
 }
 
@@ -483,20 +453,6 @@ func backgroundTerminalMarkerBlock(t *testing.T, blocks []TranscriptBlock, comma
 		}
 	}
 	t.Fatalf("no background terminal marker for command %q: %v", command, blockKinds(blocks))
-	return TranscriptBlock{}
-}
-
-func terminalInteractionActivityBlock(t *testing.T, blocks []TranscriptBlock, summary string) TranscriptBlock {
-	t.Helper()
-	for _, block := range blocks {
-		if block.Kind == TranscriptBlockKindActivityItem &&
-			block.Activity != nil &&
-			block.Activity.Type == RunItemTypeTerminalInteraction &&
-			block.Activity.Details.Summary == summary {
-			return block
-		}
-	}
-	t.Fatalf("no terminal interaction activity for summary %q: %v", summary, blockKinds(blocks))
 	return TranscriptBlock{}
 }
 

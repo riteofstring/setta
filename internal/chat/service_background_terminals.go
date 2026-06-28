@@ -28,12 +28,17 @@ import (
 //     sink promotes the recorded startup before applying the late lifecycle.
 
 const (
-	backgroundTerminalStartLabel = "Started background terminal"
+	backgroundTerminalStartLabel       = "Started background terminal"
+	backgroundTerminalInteractionLabel = "Interacted with background terminal"
 	// backgroundTerminalRecentOutputLimit bounds the recent-output lines kept on
 	// the process projection for compact summaries; full output is paginated by
 	// process ID for the monitor surface.
 	backgroundTerminalRecentOutputLimit = 8
 )
+
+func isBackgroundTerminalInteractionSource(source RunItemCommandSource) bool {
+	return source == RunItemCommandSourceUnifiedExecInteraction
+}
 
 func isBackgroundTerminalStartupSource(source RunItemCommandSource) bool {
 	return source == RunItemCommandSourceUnifiedExecStartup
@@ -143,6 +148,19 @@ func (service *Service) markBackgroundTerminalTerminating(workspaceID string, co
 	return process, service.publishBackgroundTerminalUpdatedLocked(process)
 }
 
+// ingestBackgroundTerminalRunItemLocked routes a unified-exec interaction into
+// the background terminal marker path instead of the normal run-item path. Startup
+// items are intentionally excluded: they are promoted only after they prove they
+// outlive a turn boundary.
+func (service *Service) ingestBackgroundTerminalRunItemLocked(item RunItem) error {
+	switch *item.Source {
+	case RunItemCommandSourceUnifiedExecInteraction:
+		return service.ingestBackgroundTerminalInteractionLocked(item)
+	default:
+		return fmt.Errorf("unsupported background terminal run item source %s", *item.Source)
+	}
+}
+
 func (service *Service) ingestPromotedBackgroundTerminalStartupUpdateLocked(item RunItem) (bool, error) {
 	process, ok, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, item.ProviderItemID, item.ProcessID)
 	if err != nil || !ok {
@@ -210,6 +228,29 @@ func (service *Service) promoteBackgroundTerminalStartupByProviderLocked(workspa
 	}
 	process, _, err := service.promoteBackgroundTerminalStartupLocked(item, active)
 	return process, err == nil, err
+}
+
+func (service *Service) promoteBackgroundTerminalStartupByProcessLocked(item RunItem) (BackgroundTerminalProcess, bool, error) {
+	existing, exists, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, "", item.ProcessID)
+	if err != nil || exists {
+		return existing, exists, err
+	}
+	active, ok := service.active[activeKey(item.WorkspaceID, item.ConversationID)]
+	if !ok {
+		return BackgroundTerminalProcess{}, false, nil
+	}
+	items, err := service.store.LoadRunItems(item.WorkspaceID, active.runID)
+	if err != nil {
+		return BackgroundTerminalProcess{}, false, err
+	}
+	for _, candidate := range items {
+		if candidate.ProcessID != item.ProcessID || !isPromotableBackgroundTerminalStartup(candidate) {
+			continue
+		}
+		process, _, err := service.promoteBackgroundTerminalStartupLocked(candidate, active)
+		return process, err == nil, err
+	}
+	return BackgroundTerminalProcess{}, false, nil
 }
 
 func (service *Service) promoteBackgroundTerminalStartupLocked(item RunItem, active activeTurn) (BackgroundTerminalProcess, bool, error) {
@@ -448,6 +489,31 @@ func backgroundTerminalStartedAt(item RunItem, fallback string) string {
 		return item.CreatedAt
 	}
 	return fallback
+}
+
+// ingestBackgroundTerminalInteractionLocked records a slim chronological marker
+// that the assistant wrote to an existing background terminal. The interaction
+// run item carries the provider process handle, so the marker is linked to the
+// registered terminal by that handle.
+func (service *Service) ingestBackgroundTerminalInteractionLocked(item RunItem) error {
+	process, ok, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, "", item.ProcessID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		process, ok, err = service.promoteBackgroundTerminalStartupByProcessLocked(item)
+		if err != nil || !ok {
+			// The interaction targets a terminal that is not in this backend's registry
+			// (e.g. started before a restart). There is nothing to link the marker to,
+			// so it is dropped rather than fabricating a process record.
+			return err
+		}
+	}
+	active, ok := service.activeTurnForRunItem(item)
+	if !ok || active.transcript == nil {
+		return nil
+	}
+	return service.createBackgroundTerminalBlockLocked(item.WorkspaceID, active.transcript, process.ID, item.Summary, "", backgroundTerminalInteractionLabel)
 }
 
 func (service *Service) ensureBackgroundTerminalStartBlockLocked(workspaceID string, ingest *transcriptIngest, item RunItem, process BackgroundTerminalProcess) error {

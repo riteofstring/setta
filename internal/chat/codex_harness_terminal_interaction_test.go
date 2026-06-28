@@ -47,30 +47,17 @@ func TestCodexTerminalInteractionDecodesRealSchema(t *testing.T) {
 	}
 }
 
-// TestCodexTerminalInteractionEmptyStdinStillEmitsRunItem proves an empty stdin
-// interaction is still a Codex tool event and must reach the normal run-item
-// pipeline instead of being dropped as a no-op.
-func TestCodexTerminalInteractionEmptyStdinStillEmitsRunItem(t *testing.T) {
+// TestCodexTerminalInteractionEmptyStdinIsNoOp proves an empty stdin interaction (a wait/poll)
+// decodes successfully but creates no permanent transcript activity. Phase 2 routes these into a
+// live waiting status; Phase 1 must not emit a terminal interaction row for them.
+func TestCodexTerminalInteractionEmptyStdinIsNoOp(t *testing.T) {
 	sink := newRecordingSink()
 	message := terminalInteractionMessage(`{"itemId":"item_term","processId":"proc_term","stdin":"","threadId":"thread_x","turnId":"turn_x"}`)
 	if _, err := handleCodexTerminalInteraction(message, "thread_x", "turn_x", sink); err != nil {
 		t.Fatalf("handle empty terminal interaction: %v", err)
 	}
-	if len(sink.items) != 1 {
-		t.Fatalf("items = %+v, want one terminal interaction item", sink.items)
-	}
-	item := sink.items[0]
-	if item.Type != RunItemTypeTerminalInteraction {
-		t.Fatalf("item type = %s, want terminal_interaction", item.Type)
-	}
-	if item.ProcessID != "proc_term" {
-		t.Fatalf("item processId = %q, want proc_term", item.ProcessID)
-	}
-	if item.Source == nil || *item.Source != RunItemCommandSourceUnifiedExecInteraction {
-		t.Fatalf("item source = %v, want unified_exec_interaction", item.Source)
-	}
-	if item.Summary != "" {
-		t.Fatalf("item summary = %q, want empty stdin", item.Summary)
+	if len(sink.items) != 0 {
+		t.Fatalf("items = %+v, want no item for an empty stdin wait", sink.items)
 	}
 }
 

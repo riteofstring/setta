@@ -1146,11 +1146,11 @@ func assertFakeDynamicToolsThreadResumeParams(message map[string]any) {
 func assertFakeCodexDeveloperInstructions(params map[string]any) {
 	instructions, ok := params["developerInstructions"].(string)
 	if !ok || instructions == "" {
-		panic("codex thread params missing developer instructions")
+		panic("thread/start missing developer instructions")
 	}
 	if !strings.Contains(instructions, "available dynamic tool") ||
 		!strings.Contains(instructions, "Do not invent dynamic tool names") {
-		panic("codex developer instructions missing Setta dynamic tool guidance")
+		panic("thread/start developer instructions missing Setta dynamic tool guidance")
 	}
 }
 

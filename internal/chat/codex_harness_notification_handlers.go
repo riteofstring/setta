@@ -485,20 +485,24 @@ func handleCodexTerminalInteraction(message jsonRPCMessage, threadID string, tur
 	if params.ProcessId == "" {
 		return codexNotificationResult{}, fmt.Errorf("codex terminal interaction processId is required")
 	}
-	return codexNotificationResult{}, sink.RunItemUpsert(terminalInteractionRunItem(params.ItemId+"_terminal", params.ProcessId, params.Stdin))
-}
-
-func terminalInteractionRunItem(providerItemID string, processID string, stdin string) RunItem {
+	// An empty stdin interaction is a wait/poll against the background terminal; it
+	// must not create permanent transcript activity. Phase 2 routes these into a
+	// live "waiting for background terminal" status line; Phase 1 only decodes the
+	// notification with its real schema (itemId/processId/stdin) instead of the
+	// non-existent "text" field, and carries the unified exec discriminators.
+	if params.Stdin == "" {
+		return codexNotificationResult{}, nil
+	}
 	source := RunItemCommandSourceUnifiedExecInteraction
-	return RunItem{
-		ProviderItemID: providerItemID,
+	return codexNotificationResult{}, sink.RunItemUpsert(RunItem{
+		ProviderItemID: params.ItemId + "_terminal",
 		Type:           RunItemTypeTerminalInteraction,
 		Status:         RunItemStatusCompleted,
 		Title:          "Terminal interaction",
-		Summary:        stdin,
-		ProcessID:      processID,
+		Summary:        params.Stdin,
+		ProcessID:      params.ProcessId,
 		Source:         &source,
-	}
+	})
 }
 
 func handleCodexPatchUpdated(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {

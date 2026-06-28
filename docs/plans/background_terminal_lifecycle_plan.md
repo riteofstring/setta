@@ -273,10 +273,11 @@ Rules:
   activity block in place to a transcript `background_terminal` start block.
 - The start block may show a live status by joining with the background process
   projection in the renderer, but the process registry is the source of truth.
-- `terminalInteraction` events are Codex tool-call events and follow the normal
-  run-item/activity path, including empty `stdin`. Empty interactions render as
-  visible terminal-interaction activity without inventing a fake command row.
-  They do not promote unregistered `unified_exec_startup` commands.
+- Empty `terminalInteraction` events represent waiting/polling. During an active
+  run they update the live run status line to `Waiting for background terminal`;
+  they do not create permanent transcript noise.
+- Non-empty `terminalInteraction` events create a slim transcript block such as
+  `Interacted with background terminal`, linked to the process.
 - Process completion after the run is done updates the process registry and
   compact indicator only. It does not append a late transcript row to a completed
   turn.
@@ -604,10 +605,10 @@ Done:
   `terminalInteraction` notification handler was decoding a non-existent `text`
   field; it now uses the generated `DecodeTerminalInteractionNotification`
   (`itemId`/`processId`/`stdin`/`threadId`/`turnId`), carries `ProcessID` and
-  `Source = unified_exec_interaction`, and emits a run item even when `stdin` is
-  empty. Empty/invalid lifecycle identifiers (`itemId`, `processId`) are
-  rejected loudly.
-  Likewise, `codexRunItemCommandSourceFromItem` distinguishes an absent
+  `Source = unified_exec_interaction`, and treats an empty `stdin` as a wait
+  no-op. The wait/interact routing (status line vs slim block) remains Phase 2.
+  Empty/invalid lifecycle identifiers (`itemId`, `processId`) are rejected
+  loudly. Likewise, `codexRunItemCommandSourceFromItem` distinguishes an absent
   `source` (nil, for item types with no command source) from a present-but-empty
   or null one (protocol drift, fails loudly) since `CommandExecutionSource` is an
   enum.
@@ -682,10 +683,10 @@ Done:
   `background_terminal` marker (preserving chronology), and copies buffered
   run-item output into the background terminal output store + recent-output
   summary. Completed in-turn `unified_exec_startup` commands remain ordinary
-  completed command activity and create no registry process.
-  `unified_exec_interaction` events remain ordinary visible terminal-interaction
-  activity items; startup promotion owns background-terminal marker creation.
-  Marker blocks are `complete`, so run finalization never rewrites them.
+  completed command activity and create no registry process. `unified_exec_interaction`
+  still creates a slim "Interacted with background terminal" marker linked to the
+  process by provider handle. Marker blocks are `complete`, so run finalization
+  never rewrites them.
 - Late lifecycle (the core architectural change) uses connection-scoped handlers
   registered on the shared `codexapp.Manager` (the codexaccount precedent), in
   `codex_harness_background_terminal.go`: `turn/completed`, `item/completed`, and
@@ -714,9 +715,9 @@ Done:
 
 Deferred to later phases (per the plan): the `chat.background_terminal.*` events +
 list/output/kill HTTP endpoints + IPC (Phase 3); the footer, monitor, kill controls,
-and polished marker rendering (Phase 4). Empty `terminalInteraction` events are
-visible through the normal activity path, so provider-emitted tool calls are not
-dropped. Gates: `check_quality --git-changes`
+and polished marker rendering (Phase 4). The empty-`terminalInteraction` wait is a
+no-op (no permanent transcript noise); the live "Waiting for background terminal"
+status-line text is a Phase 4 renderer concern. Gates: `check_quality --git-changes`
 EXIT 0; full chat Go suite + affected packages green; deterministic
 `background-terminal` E2E step passes (the pre-existing `chat-activity-projection`
 reasoning-summary-expand flake blocks the earlier steps in this sandbox); live
@@ -789,29 +790,6 @@ renderer state should cover the two route owners explicitly where relevant:
   routing; and
 - a logical goal operation, where `codexGoalOperation` owns the thread route and
   background-terminal lifecycle delegates through that operation exactly once.
-
-#### Recording Follow-Up: Empty `write_stdin` Checks
-
-The 2026-06-29 recordings showed a second-turn "Did it finish?" check where live
-Codex called the `write_stdin` tool with empty `chars` against the background
-terminal session id. The raw Codex session transcript contained the
-`write_stdin` Responses API `function_call` and output, but local app-server did
-not emit `item/commandExecution/terminalInteraction` or
-`rawResponseItem/completed` to Setta. The checked protocol source marks
-`rawResponseItem/completed` as internal-only for Codex Cloud, so Setta cannot rely
-on it for local desktop visibility.
-
-The long-term provider fix is for app-server to emit
-`item/commandExecution/terminalInteraction` for every unified-exec
-`write_stdin`, including empty-stdin status checks. Setta handles that structured
-provider event and must not scrape `.codex/sessions` files or depend on
-`rawResponseItem/completed`.
-
-Setta-side handling: when app-server emits that structured event, Setta stores
-and renders it as a normal terminal-interaction run item, even when `stdin` is
-empty. If app-server does not emit a structured event for a raw Codex tool call,
-Setta cannot make it visible without unsupported transcript scraping; the fix
-belongs at the provider protocol boundary.
 
 ### Phase 3: Events And HTTP API
 

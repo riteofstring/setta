@@ -186,6 +186,9 @@ func (service *Service) ingestProviderOwnedRunItemLocked(item RunItem) (bool, er
 	if item.Source == nil {
 		return false, nil
 	}
+	if isBackgroundTerminalInteractionSource(*item.Source) {
+		return true, service.ingestBackgroundTerminalRunItemLocked(item)
+	}
 	if isBackgroundTerminalStartupSource(*item.Source) {
 		return service.ingestPromotedBackgroundTerminalStartupUpdateLocked(item)
 	}

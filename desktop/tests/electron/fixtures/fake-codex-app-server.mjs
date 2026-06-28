@@ -6,7 +6,6 @@ import { setTimeout } from "node:timers";
 const threadId = "thread_fake";
 const turnId = "turn_fake";
 const goalBackgroundTerminal = {
-  checkItemId: "goal_bg_terminal_check",
   command: "npm run goal-bg",
   idleGapOutput: "goal background idle output\n",
   itemId: "goal_bg_terminal",
@@ -681,7 +680,6 @@ function emitGoalOperationBackgroundTerminal(objective) {
       turn: fakeTurnWithID("turn_goal_a", "completed"),
     });
     notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.idleGapOutput);
-    notifyGoalBackgroundTerminalChecked("turn_goal_a");
     notify("turn/started", {
       threadId,
       turn: fakeTurnWithID("turn_goal_b", "inProgress"),
@@ -765,16 +763,6 @@ function notifyGoalBackgroundTerminalStarted(turnID) {
 
 function notifyGoalBackgroundTerminalOutput(turnID, delta) {
   notifyUnifiedExecOutput(turnID, goalBackgroundTerminal, delta);
-}
-
-function notifyGoalBackgroundTerminalChecked(turnID) {
-  notify("item/commandExecution/terminalInteraction", {
-    itemId: goalBackgroundTerminal.checkItemId,
-    processId: goalBackgroundTerminal.processId,
-    stdin: "",
-    threadId,
-    turnId: turnID,
-  });
 }
 
 function notifyGoalBackgroundTerminalCompleted(turnID) {
