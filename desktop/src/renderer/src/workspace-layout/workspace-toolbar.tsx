@@ -24,6 +24,7 @@ import type { EmptyFrameOption } from "./surface-adapters";
 import type { WorkspacePane, OpenPaneRequest, SurfaceKind } from "./types";
 
 export function WorkspaceToolbar({
+  onNativeOverlayActiveChange,
   openPane,
   overviewActive,
   performanceStatsRef,
@@ -31,6 +32,7 @@ export function WorkspaceToolbar({
   showPerformanceStats,
   store,
 }: {
+  onNativeOverlayActiveChange?: (active: boolean) => void;
   openPane: (request: OpenPaneRequest) => void;
   overviewActive: boolean;
   performanceStatsRef: RefObject<HTMLDivElement | null> | null;
@@ -65,7 +67,12 @@ export function WorkspaceToolbar({
           >
             <OverviewIcon className="h-3.5 w-3.5" />
           </WorkspaceToolbarButton>
-          <WorkspaceToolbarMenu Icon={Plus} items={newFrameItems} label="New frame" />
+          <WorkspaceToolbarMenu
+            Icon={Plus}
+            items={newFrameItems}
+            label="New frame"
+            onOpenChange={onNativeOverlayActiveChange}
+          />
         </div>
       </TooltipProvider>
       <div className="workspace-toolbar-spacer" aria-hidden={!showPerformanceStats}>
@@ -185,15 +192,26 @@ function WorkspaceToolbarMenu({
   Icon,
   items,
   label,
+  onOpenChange,
 }: {
   Icon: ComponentType<{ className?: string }>;
   items: readonly WorkspaceToolbarMenuItem[];
   label: string;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const anchorRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    onOpenChange?.(open);
+    return () => {
+      if (open) {
+        onOpenChange?.(false);
+      }
+    };
+  }, [onOpenChange, open]);
 
   useEffect(() => {
     if (!open) {

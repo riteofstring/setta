@@ -219,9 +219,11 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
 
   private nativeBounds(): { contentRect: Rect; rect: Rect; visible: boolean } {
     const nativeRect = this.nativePaneRect();
+    const overlayActive = this.host ? nativeViewOverlayActive(this.host) : false;
     const clipBounds = this.host ? nativeViewClipBounds(this.host) : null;
     const visibleRect = clipBounds ? intersectRects(nativeRect, clipBounds) : nativeRect;
     const visible =
+      !overlayActive &&
       visibleRect.width > 0 &&
       visibleRect.height > 0 &&
       (this.focused || rectsMatchSize(visibleRect, nativeRect));
@@ -270,6 +272,11 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
     this.host.dataset.browserRuntimeState = this.runtimeState;
     this.host.style.visibility = this.visible ? "visible" : "hidden";
   }
+}
+
+function nativeViewOverlayActive(host: HTMLElement): boolean {
+  const workspace = host.closest<HTMLElement>('[data-testid="workspace-layout-area"]');
+  return workspace?.dataset.nativeViewOverlayActive === "true";
 }
 
 function nativeViewClipBounds(host: HTMLElement): Rect | null {
