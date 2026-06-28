@@ -1,5 +1,4 @@
 import { columnSlotIndex } from "./column-slots";
-import { columnDropKeepsSinglePaneColumnInPlace } from "./layout-reorder";
 import type { WorkspaceLayoutStore } from "./layout-store";
 import type { ColumnId, PaneDropIntent, PaneDropPlacement, WorkspaceScene } from "./types";
 
@@ -286,45 +285,7 @@ export function paneDropTargetFromPointer(
   const target = directHost
     ? paneDropTargetOverHost(event, directHost, scene)
     : paneDropTargetInGap(event, candidates, scene, hostRects);
-  return swapForNoOpColumnInsert(target, sourcePaneId, scene);
-}
-
-// A column insert that would leave the dragged pane exactly where it already sits
-// (its own slot, same plane) is a dead drop -- the boundary and edge bands between
-// a pane and the neighbour it is already adjacent to all resolve here. Reading that
-// gesture as "swap with the neighbour you are dragging toward" turns the dead zone
-// into a reliable swap (the annotated pane is the one under/beside the cursor), so a
-// pane can be moved past its neighbour by dropping at their shared edge.
-function swapForNoOpColumnInsert(
-  target: PaneDropTarget | null,
-  sourcePaneId: string,
-  scene: WorkspaceScene,
-): PaneDropTarget | null {
-  if (!target || target.intent.kind !== "column") {
-    return target;
-  }
-  const intent = target.intent;
-  const sourceColumn = scene.columns.find((column) => column.paneIds.includes(sourcePaneId));
-  const targetColumn = scene.columns.find(
-    (column) =>
-      column.columnId === intent.targetColumnId && column.planeIndex === intent.planeIndex,
-  );
-  if (
-    !sourceColumn ||
-    !targetColumn ||
-    // A multi-pane source column is always extracted into a fresh column, so the
-    // insert genuinely relocates the pane -- never a no-op.
-    sourceColumn.paneIds.length !== 1 ||
-    !columnDropKeepsSinglePaneColumnInPlace(
-      scene.columns,
-      sourceColumn,
-      targetColumn,
-      intent.slotPlacement,
-    )
-  ) {
-    return target;
-  }
-  return swapTarget(target.paneId);
+  return target;
 }
 
 // Pointer is inside a pane: the inner region swaps with it; the four outer edge

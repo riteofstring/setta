@@ -523,7 +523,7 @@ describe("pane drag drop intent hit-testing", () => {
   });
 });
 
-describe("adjacent same-plane drops resolve to a swap", () => {
+describe("adjacent same-plane drops preserve the original slot", () => {
   // Two single-pane columns side by side in one plane row:
   // [ left_pane (slot 0) ][ source_pane (slot 1) ]
   const hostRects = [
@@ -555,12 +555,126 @@ describe("adjacent same-plane drops resolve to a swap", () => {
     return { toScene: () => scene } as unknown as WorkspaceLayoutStore;
   }
 
-  test("dropping toward the already-adjacent neighbour swaps instead of no-op inserting", () => {
-    // Right edge of the left neighbour (the side facing the dragged pane): a plain
-    // "insert after left" would leave source exactly where it is, so it resolves to
-    // a swap with that neighbour.
+  test("dropping toward the already-adjacent neighbour keeps the original insert target", () => {
+    // Right edge of the left neighbour (the side facing the dragged pane): this is
+    // the source pane's original slot, so it must remain a stable no-op insert
+    // target instead of turning into an adjacent swap.
     const target = paneDropTargetFromPointer(
       pointerEvent({ clientX: 190, clientY: 100 }),
+      "source_pane",
+      adjacentStore(),
+      hostRects,
+    );
+
+    expect(target).toEqual({
+      axis: "horizontal",
+      intent: {
+        kind: "column",
+        planeIndex: 0,
+        slotPlacement: "after",
+        targetColumnId: "left_column",
+      },
+      mode: "insert",
+      paneId: "left_pane",
+      placement: "after",
+    });
+  });
+
+  test("the gap between the two adjacent panes also returns to the original slot", () => {
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 204, clientY: 100 }),
+      "source_pane",
+      adjacentStore(),
+      hostRects,
+    );
+
+    expect(target).toEqual({
+      axis: "horizontal",
+      highlightPane: false,
+      intent: {
+        kind: "column",
+        planeIndex: 0,
+        slotPlacement: "after",
+        targetColumnId: "left_column",
+      },
+      mode: "insert",
+      paneId: "left_pane",
+      placement: "after",
+    });
+  });
+
+  test("the captured source rect itself remains a broad original-slot target", () => {
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 300, clientY: 100 }),
+      "source_pane",
+      adjacentStore(),
+      hostRects,
+    );
+
+    expect(target).toEqual({
+      axis: "horizontal",
+      highlightPane: false,
+      intent: {
+        kind: "column",
+        planeIndex: 0,
+        slotPlacement: "after",
+        targetColumnId: "left_column",
+      },
+      mode: "insert",
+      paneId: "left_pane",
+      placement: "after",
+    });
+  });
+
+  test("the original slot is broad when the source started before its neighbour", () => {
+    const reverseHostRects = [
+      { bottom: 200, left: 0, paneId: "source_pane", right: 200, top: 0, width: 200, zIndex: 1 },
+      { bottom: 200, left: 208, paneId: "right_pane", right: 408, top: 0, width: 200, zIndex: 1 },
+    ];
+    const panes = [pane("source_pane", "source_column", 0), pane("right_pane", "right_column", 1)];
+    const scene: WorkspaceScene = {
+      columnGap: 8,
+      columns: [
+        column("source_column", ["source_pane"], 0, 0),
+        column("right_column", ["right_pane"], 1, 0),
+      ],
+      defaultColumnWidthSpec: { unit: "px", value: 200 },
+      id: "reverse-adjacent-scene",
+      padding: 10,
+      paneById: new Map(panes.map((candidate) => [candidate.paneId, candidate])),
+      panes,
+      panesPerColumn: 1,
+      renderOverscanColumns: 2,
+      rowGap: 8,
+      targetVisiblePanes: 2,
+      totalPanes: 2,
+      visibleColumnCount: 2,
+    };
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 100, clientY: 100 }),
+      "source_pane",
+      { toScene: () => scene } as unknown as WorkspaceLayoutStore,
+      reverseHostRects,
+    );
+
+    expect(target).toEqual({
+      axis: "horizontal",
+      highlightPane: false,
+      intent: {
+        kind: "column",
+        planeIndex: 0,
+        slotPlacement: "before",
+        targetColumnId: "right_column",
+      },
+      mode: "insert",
+      paneId: "right_pane",
+      placement: "before",
+    });
+  });
+
+  test("the neighbor center is still the explicit swap target", () => {
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 100, clientY: 100 }),
       "source_pane",
       adjacentStore(),
       hostRects,
@@ -571,18 +685,6 @@ describe("adjacent same-plane drops resolve to a swap", () => {
       mode: "swap",
       paneId: "left_pane",
     });
-  });
-
-  test("the gap between the two adjacent panes also swaps", () => {
-    const target = paneDropTargetFromPointer(
-      pointerEvent({ clientX: 204, clientY: 100 }),
-      "source_pane",
-      adjacentStore(),
-      hostRects,
-    );
-
-    expect(target?.mode).toBe("swap");
-    expect(target?.intent).toEqual({ kind: "swap", targetPaneId: "left_pane" });
   });
 
   test("the far (outer) edge still inserts a new column -- a genuine relocation", () => {
