@@ -320,6 +320,7 @@ func TestTranscriptSteeringBlockCreatedEvent(t *testing.T) {
 	<-commandEmitted
 	steerWhenReady(t, service, workspaceID, conversationID, "setup.sh")
 	events := collectTranscriptEventsUntilTerminal(t, subscription, result.Run.ID)
+	waitForRunStatus(t, service, workspaceID, conversationID, result.Run.ID, RunStatusCompleted)
 
 	userBlocks := []TranscriptBlock{}
 	for _, event := range eventsOfType(events, EventTypeTranscriptBlockCreated) {
@@ -355,6 +356,7 @@ func TestTranscriptFixtureEventsNeverLeakPrivateReasoning(t *testing.T) {
 		t.Fatalf("send message: %v", err)
 	}
 	events := collectTranscriptEventsUntilTerminal(t, subscription, result.Run.ID)
+	waitForRunStatus(t, service, workspaceID, conversationID, result.Run.ID, RunStatusCompleted)
 
 	sawSummary := false
 	for _, event := range events {

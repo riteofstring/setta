@@ -100,6 +100,25 @@ func validateCodexObjectArrayField(fields map[string]json.RawMessage, field stri
 	return nil
 }
 
+func codexStringField(fields map[string]json.RawMessage, field string, name string) (string, error) {
+	value, ok := fields[field]
+	if !ok || codexJSONNull(value) {
+		return "", fmt.Errorf("%s.%s is required", name, field)
+	}
+	var text string
+	if err := json.Unmarshal(value, &text); err != nil {
+		return "", fmt.Errorf("%s.%s must be a string: %w", name, field, err)
+	}
+	if text == "" {
+		return "", fmt.Errorf("%s.%s is required", name, field)
+	}
+	return text, nil
+}
+
+func codexUnsupportedStringValue(name string, value string) error {
+	return fmt.Errorf("%s is unsupported: %s", name, value)
+}
+
 func codexJSONNull(raw json.RawMessage) bool {
 	return bytes.Equal(bytes.TrimSpace(raw), []byte("null"))
 }

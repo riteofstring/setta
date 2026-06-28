@@ -1,6 +1,9 @@
 package chat
 
-import "bytes"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 var runActivityDefaultTitles = map[RunItemType]string{
 	RunItemTypeCommandExecution:    "command execution",
@@ -122,6 +125,7 @@ func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 		RequestID:     item.RequestID,
 		ReviewID:      item.ReviewID,
 		Details:       cloneRawMessage(item.Details),
+		MCPToolCall:   runItemMCPToolCallDetailsProjection(item),
 	}
 }
 
@@ -144,7 +148,8 @@ func runActivityDetailsInspectable(details RunActivityDetailsProjection) bool {
 		details.ExitCode != 0 ||
 		details.DurationMs != 0 ||
 		len(details.FilePaths) > 0 ||
-		rawDetailsInspectable(details.Details)
+		rawDetailsInspectable(details.Details) ||
+		details.MCPToolCall != nil
 }
 
 func runActivityStringDetailsInspectable(details RunActivityDetailsProjection) bool {
@@ -184,6 +189,17 @@ func rawDetailsInspectable(raw []byte) bool {
 		!bytes.Equal(trimmed, []byte("[]"))
 }
 
+func runItemMCPToolCallDetailsProjection(item RunItem) *RunItemMCPToolCallDetails {
+	if item.Type != RunItemTypeMCPToolCall || !rawDetailsInspectable(item.Details) {
+		return nil
+	}
+	var details RunItemMCPToolCallDetails
+	if err := json.Unmarshal(item.Details, &details); err != nil {
+		return nil
+	}
+	return &details
+}
+
 func runActivityTitle(item RunItem) string {
 	if item.Title != "" {
 		return item.Title
@@ -195,6 +211,9 @@ func runActivityTitle(item RunItem) string {
 		}
 		return runActivityDefaultTitle(item.Type)
 	case RunItemTypeMCPToolCall, RunItemTypeDynamicToolCall, RunItemTypeCollabAgentToolCall:
+		if item.ToolName != "" && item.ServerName != "" {
+			return item.ServerName + "." + item.ToolName
+		}
 		if item.ToolName != "" {
 			return item.ToolName
 		}

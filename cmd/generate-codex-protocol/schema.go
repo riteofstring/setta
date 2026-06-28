@@ -13,6 +13,7 @@ type jsonSchema struct {
 	Enum                 []string              `json:"enum"`
 	OneOf                []jsonSchema          `json:"oneOf"`
 	AnyOf                []jsonSchema          `json:"anyOf"`
+	AllOf                []jsonSchema          `json:"allOf"`
 	Properties           map[string]jsonSchema `json:"properties"`
 	Required             []string              `json:"required"`
 	Items                *jsonSchema           `json:"items"`
@@ -30,6 +31,7 @@ type jsonSchemaWire struct {
 	Enum                 []string                   `json:"enum"`
 	OneOf                []json.RawMessage          `json:"oneOf"`
 	AnyOf                []json.RawMessage          `json:"anyOf"`
+	AllOf                []json.RawMessage          `json:"allOf"`
 	Properties           map[string]json.RawMessage `json:"properties"`
 	Required             []string                   `json:"required"`
 	Items                *json.RawMessage           `json:"items"`
@@ -84,8 +86,13 @@ func (schema *jsonSchema) decodeWireCompositions(wire jsonSchemaWire) error {
 	if err != nil {
 		return err
 	}
+	allOf, err := decodeChildSchemas(wire.AllOf, "allOf")
+	if err != nil {
+		return err
+	}
 	schema.OneOf = oneOf
 	schema.AnyOf = anyOf
+	schema.AllOf = allOf
 	return nil
 }
 

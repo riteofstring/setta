@@ -2996,6 +2996,23 @@ export interface ReasoningBlockProjection {
   summary: string;
 }
 
+export interface RunItemMCPToolResult {
+  content: unknown[];
+  structuredContent: unknown;
+  _meta: unknown;
+}
+
+export interface RunItemMCPToolCallDetails {
+  serverName: string;
+  toolName: string;
+  arguments: unknown;
+  appContext: unknown;
+  pluginId: string;
+  mcpAppResourceUri: string;
+  result: RunItemMCPToolResult | null;
+  error: string;
+}
+
 export interface RunActivityDetailsProjection {
   summary: string;
   command: string;
@@ -3017,6 +3034,7 @@ export interface RunActivityDetailsProjection {
   requestId: string;
   reviewId: string;
   details: unknown;
+  mcpToolCall: RunItemMCPToolCallDetails | null;
 }
 
 export interface ActivityItemBlockProjection {
@@ -7077,9 +7095,34 @@ export function decodeReasoningBlockProjection(value: unknown): ReasoningBlockPr
   };
 }
 
+export function decodeRunItemMCPToolResult(value: unknown): RunItemMCPToolResult {
+  const record = assertRecord(value, "RunItemMCPToolResult");
+  assertKnownFields(record, "RunItemMCPToolResult", ["content", "structuredContent", "_meta"]);
+  return {
+    content: decodeArray(requireField(record, "content", "RunItemMCPToolResult"), "RunItemMCPToolResult.content", (item) => decodeUnknown(item, "RunItemMCPToolResult.content item")),
+    structuredContent: decodeUnknown(requireField(record, "structuredContent", "RunItemMCPToolResult"), "RunItemMCPToolResult.structuredContent"),
+    _meta: decodeUnknown(requireField(record, "_meta", "RunItemMCPToolResult"), "RunItemMCPToolResult._meta"),
+  };
+}
+
+export function decodeRunItemMCPToolCallDetails(value: unknown): RunItemMCPToolCallDetails {
+  const record = assertRecord(value, "RunItemMCPToolCallDetails");
+  assertKnownFields(record, "RunItemMCPToolCallDetails", ["serverName", "toolName", "arguments", "appContext", "pluginId", "mcpAppResourceUri", "result", "error"]);
+  return {
+    serverName: decodeString(requireField(record, "serverName", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.serverName"),
+    toolName: decodeString(requireField(record, "toolName", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.toolName"),
+    arguments: decodeUnknown(requireField(record, "arguments", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.arguments"),
+    appContext: decodeUnknown(requireField(record, "appContext", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.appContext"),
+    pluginId: decodeString(requireField(record, "pluginId", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.pluginId"),
+    mcpAppResourceUri: decodeString(requireField(record, "mcpAppResourceUri", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.mcpAppResourceUri"),
+    result: decodeNullable(requireField(record, "result", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.result", (item) => decodeRunItemMCPToolResult(item)),
+    error: decodeString(requireField(record, "error", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.error"),
+  };
+}
+
 export function decodeRunActivityDetailsProjection(value: unknown): RunActivityDetailsProjection {
   const record = assertRecord(value, "RunActivityDetailsProjection");
-  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details"]);
+  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "mcpToolCall"]);
   return {
     summary: decodeString(requireField(record, "summary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.summary"),
     command: decodeString(requireField(record, "command", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.command"),
@@ -7101,6 +7144,7 @@ export function decodeRunActivityDetailsProjection(value: unknown): RunActivityD
     requestId: decodeString(requireField(record, "requestId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.requestId"),
     reviewId: decodeString(requireField(record, "reviewId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.reviewId"),
     details: decodeUnknown(requireField(record, "details", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.details"),
+    mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
   };
 }
 

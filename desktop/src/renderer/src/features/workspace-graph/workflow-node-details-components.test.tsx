@@ -252,6 +252,7 @@ function runActivityPage(): RunActivityPage {
           error: "",
           exitCode: 0,
           filePaths: [],
+          mcpToolCall: null,
           namespace: "",
           noticeKind: "",
           noticeMessage: "",

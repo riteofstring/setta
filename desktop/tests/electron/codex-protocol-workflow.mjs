@@ -52,6 +52,7 @@ export async function installFakeCodexAppServer(fixture) {
 }
 
 export async function assertProtocolNotificationActivity(
+  client,
   backend,
   workspaceId,
   conversationId,
@@ -94,6 +95,15 @@ export async function assertProtocolNotificationActivity(
       item.toolName === "missing_tool" &&
       item.error.includes("unsupported dynamic tool"),
   );
+  await assertRunActivityItem(page, "mcp_tool_call", (item) => isCompletedMCPToolCallItem(item));
+  await assertRunActivityItem(page, "mcp_tool_call", (item) => isFailedMCPToolCallItem(item));
+  const mcpActivity = (page.activity ?? []).find((row) => isProjectedMCPActivityRow(row));
+  if (!mcpActivity) {
+    throw new Error(
+      `projected MCP activity missing generated details: ${JSON.stringify(page.activity)}`,
+    );
+  }
+  await assertProtocolMCPActivityRendered(client, mcpActivity.sourceRunItemId);
   await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "deprecationNotice");
   if ((page.activity ?? []).some((row) => row.type === "reasoning")) {
     throw new Error(`reasoning leaked into projected activity: ${JSON.stringify(page.activity)}`);
@@ -118,6 +128,124 @@ export async function assertProtocolNotificationActivity(
       `protocol diagnostics missing expected warnings: ${JSON.stringify(diagnostics)}`,
     );
   }
+}
+
+function isCompletedMCPToolCallItem(item) {
+  return (
+    item.status === "completed" &&
+    item.serverName === "github" &&
+    item.toolName === "search" &&
+    item.result.includes("Found repository data") &&
+    mcpToolResultRepositories(item) === 1 &&
+    mcpToolResultTraceID(item) === "mcp_trace"
+  );
+}
+
+function isFailedMCPToolCallItem(item) {
+  return (
+    item.status === "failed" &&
+    item.serverName === "github" &&
+    item.toolName === "broken_search" &&
+    item.error === "MCP tool failed"
+  );
+}
+
+function isProjectedMCPActivityRow(row) {
+  return (
+    row.type === "mcp_tool_call" &&
+    row.title === "github.search" &&
+    row.details?.mcpToolCall?.result?.structuredContent?.repositories === 1
+  );
+}
+
+function mcpToolResultRepositories(item) {
+  return item.details?.result?.structuredContent?.repositories;
+}
+
+function mcpToolResultTraceID(item) {
+  return item.details?.result?._meta?.traceId;
+}
+
+async function assertProtocolMCPActivityRendered(client, sourceRunItemId) {
+  await openProtocolActivityRow(client, sourceRunItemId);
+  await waitForState(
+    client,
+    `(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const row = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'))
+        .find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      const text = row?.innerText ?? "";
+      return {
+        ok:
+          text.includes("github.search") &&
+          text.includes("ARGUMENTS") &&
+          text.includes("CONTENT") &&
+          text.includes("STRUCTURED CONTENT") &&
+          text.includes("METADATA") &&
+          text.includes("repositories") &&
+          text.includes("mcp_trace"),
+        text,
+      };
+    })()`,
+    (value) => value.ok,
+  );
+}
+
+async function openProtocolActivityRow(client, sourceRunItemId) {
+  const startedAt = Date.now();
+  let opened = null;
+  while (Date.now() - startedAt < 2_000) {
+    opened = await client.evaluate(`(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
+      const groupHeaders = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'));
+      const groupHeader = groupHeaders.find((candidate) =>
+        (candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "")
+          .split(/\\s+/)
+          .includes(sourceRunItemId)
+      );
+      let rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+      let row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      if (
+        !row &&
+        groupHeader instanceof HTMLButtonElement &&
+        groupHeader.getAttribute("data-activity-group-expanded") !== "true"
+      ) {
+        groupHeader.click();
+        rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+        row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      }
+      if (!row) {
+        return {
+          ok: false,
+          reason: "missing-row",
+          groups: groupHeaders.map((candidate) => ({
+            expanded: candidate.getAttribute("data-activity-group-expanded") ?? "",
+            sourceRunItemIds: candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "",
+            text: candidate.innerText,
+          })),
+          rows: rows.map((candidate) => ({
+            sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
+            text: candidate.innerText,
+          })),
+        };
+      }
+      if (!(row instanceof HTMLDetailsElement)) {
+        return { ok: true, reason: "compact-row" };
+      }
+      if (!row.open) {
+        row.querySelector("summary")?.click();
+      }
+      return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
+    })()`);
+    if (opened.ok) {
+      return;
+    }
+    await delay(50);
+  }
+  throw new Error(
+    `protocol activity row ${sourceRunItemId} was not opened: ${JSON.stringify(opened)}`,
+  );
 }
 
 export async function runProtocolGoalMultiTurnWorkflow(client, backend, workspaceId) {

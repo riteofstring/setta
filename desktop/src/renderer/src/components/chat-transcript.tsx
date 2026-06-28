@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   MessagePart,
   Run,
+  RunActivityDetailsProjection,
   RunItemOutput,
   TranscriptBlock,
 } from "@generated/backend";
@@ -133,11 +134,33 @@ function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; te
         details.requestId,
         details.reviewId,
         details.patchStatus,
+        ...transcriptActivityMCPSearchText(details),
       ]
         .filter((item) => item !== "")
         .join("\n"),
     },
   ];
+}
+
+function transcriptActivityMCPSearchText(details: RunActivityDetailsProjection) {
+  const mcp = details.mcpToolCall;
+  if (mcp === null) {
+    return [];
+  }
+  return [
+    mcp.pluginId,
+    mcp.mcpAppResourceUri,
+    transcriptJSONSearchText(mcp.arguments),
+    transcriptJSONSearchText(mcp.result?.structuredContent),
+  ];
+}
+
+function transcriptJSONSearchText(value: unknown) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  const text = JSON.stringify(value);
+  return text.length > 1000 ? text.slice(0, 1000) : text;
 }
 
 function messagePartsText(parts: MessagePart[]) {

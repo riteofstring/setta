@@ -179,9 +179,12 @@ func writeFakeMismatchedItemUpsert() {
 	writeFakeNotification("item/started", map[string]any{
 		"startedAtMs": 1,
 		"item": map[string]any{
-			"command": "go test ./...",
-			"id":      "command_fake",
-			"type":    "commandExecution",
+			"command":        "go test ./...",
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"id":             "command_fake",
+			"status":         "inProgress",
+			"type":           "commandExecution",
 		},
 		"threadId": "thread_fake",
 		"turnId":   "turn_other",

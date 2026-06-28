@@ -307,11 +307,12 @@ func writeFakeActivityTurn() {
 		"threadId":    "thread_fake",
 		"turnId":      "turn_fake",
 		"item": map[string]any{
-			"id":      "command_fake",
-			"type":    "commandExecution",
-			"command": "go test ./...",
-			"cwd":     "/tmp/workspace",
-			"status":  "inProgress",
+			"id":             "command_fake",
+			"type":           "commandExecution",
+			"command":        "go test ./...",
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"status":         "inProgress",
 		},
 	})
 	writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
@@ -329,7 +330,7 @@ func writeFakeActivityTurn() {
 	})
 	writeFakeNotification("item/mcpToolCall/progress", map[string]any{
 		"itemId":   "mcp_fake",
-		"progress": "halfway",
+		"message":  "halfway",
 		"threadId": "thread_fake",
 		"turnId":   "turn_fake",
 	})
@@ -342,13 +343,14 @@ func writeFakeActivityTurn() {
 		"threadId":      "thread_fake",
 		"turnId":        "turn_fake",
 		"item": map[string]any{
-			"durationMs": 42,
-			"exitCode":   0,
-			"id":         "command_fake",
-			"type":       "commandExecution",
-			"command":    "go test ./...",
-			"cwd":        "/tmp/workspace",
-			"status":     "completed",
+			"durationMs":     42,
+			"exitCode":       0,
+			"id":             "command_fake",
+			"type":           "commandExecution",
+			"command":        "go test ./...",
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"status":         "completed",
 		},
 	})
 	writeFakeCompletedTurn("completed")

@@ -223,25 +223,21 @@ func classifyBackgroundTerminalCompletion(message jsonRPCMessage) (codexBackgrou
 	if err != nil {
 		return codexBackgroundTerminalNotification{}, false, err
 	}
-	item, err := objectValue(params.Item, "codex item")
-	if err != nil {
+	item := params.Item.CommandExecution
+	if params.Item.Type != codexapp.ThreadItemTypeCommandExecution || item == nil {
 		return codexBackgroundTerminalNotification{}, false, nil
 	}
-	fields, err := codexRunItemExecutionFieldsFromItem(item)
-	if err != nil || fields.source == nil || *fields.source != RunItemCommandSourceUnifiedExecStartup {
+	source, err := codexRunItemCommandSource(item.Source)
+	if err != nil || source == nil || *source != RunItemCommandSourceUnifiedExecStartup {
 		return codexBackgroundTerminalNotification{}, false, nil
-	}
-	providerItemID, err := requireString(item, "id", "codex item")
-	if err != nil {
-		return codexBackgroundTerminalNotification{}, false, err
 	}
 	return codexBackgroundTerminalNotification{
 		kind:              codexBackgroundTerminalCompletion,
 		threadID:          params.ThreadID,
 		turnID:            params.TurnID,
-		providerItemID:    providerItemID,
-		providerProcessID: fields.processID,
-		exitCode:          fields.exitCode,
+		providerItemID:    item.ID,
+		providerProcessID: stringPtrValue(item.ProcessId),
+		exitCode:          intPtrValue(item.ExitCode),
 	}, true, nil
 }
 
@@ -271,19 +267,18 @@ func (harness *CodexHarness) handleConnectionItemStarted(message codexapp.Messag
 	if err != nil {
 		return
 	}
-	item, err := objectValue(params.Item, "codex item")
-	if err != nil {
+	item := params.Item.CommandExecution
+	if params.Item.Type != codexapp.ThreadItemTypeCommandExecution || item == nil {
 		return
 	}
-	fields, err := codexRunItemExecutionFieldsFromItem(item)
-	if err != nil || fields.source == nil || *fields.source != RunItemCommandSourceUnifiedExecStartup {
+	source, err := codexRunItemCommandSource(item.Source)
+	if err != nil || source == nil || *source != RunItemCommandSourceUnifiedExecStartup {
 		return
 	}
-	providerItemID, err := requireString(item, "id", "codex item")
-	if err != nil {
+	if item.ID == "" {
 		return
 	}
-	harness.recordBackgroundItemID(providerItemID)
+	harness.recordBackgroundItemID(item.ID)
 }
 
 func (harness *CodexHarness) handleConnectionTurnCompleted(message codexapp.Message) {

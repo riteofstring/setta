@@ -35,6 +35,9 @@ func goTypeOverride(typeName string, propertyName string, schema jsonSchema, req
 	if typeName == "ThreadSettingsUpdateParams" && propertyName == "serviceTier" && optionalNullableString(schema, required) {
 		return "*CodexNullableString", true
 	}
+	if propertyName == "type" && strings.HasSuffix(typeName, "ThreadItem") && typeName != "ThreadItem" && len(schema.Enum) == 1 && schemaTypeAllows(schema.Type, "string") {
+		return "ThreadItemType", true
+	}
 	return "", false
 }
 
@@ -168,29 +171,30 @@ func (generator *generator) schemaValidation(schema jsonSchema) (schemaValidatio
 	if allowNull {
 		schema = inner
 	}
+	if len(schema.AllOf) == 1 {
+		schema = schema.AllOf[0]
+	}
 	if schema.Ref != "" {
-		validator, ok := generator.objectValidatorFromRef(schema.Ref)
-		if !ok {
-			return schemaValidation{}, false
-		}
-		return schemaValidation{kind: schemaValidationObject, validator: validator, allowNull: allowNull}, true
+		return generator.objectSchemaValidation(schema.Ref, allowNull)
 	}
 	if typeString(schema.Type) != "array" || schema.Items == nil {
 		return schemaValidation{}, false
 	}
-	item := *schema.Items
+	return generator.arraySchemaValidation(*schema.Items, allowNull)
+}
+
+func (generator *generator) objectSchemaValidation(ref string, allowNull bool) (schemaValidation, bool) {
+	validator, ok := generator.objectValidatorFromRef(ref)
+	if !ok {
+		return schemaValidation{}, false
+	}
+	return schemaValidation{kind: schemaValidationObject, validator: validator, allowNull: allowNull}, true
+}
+
+func (generator *generator) arraySchemaValidation(item jsonSchema, allowNull bool) (schemaValidation, bool) {
 	itemAllowNull, nullableItem := nullableInner(item)
 	if itemAllowNull {
-		validator, ok := generator.schemaValidation(nullableItem)
-		if !ok || validator.kind != schemaValidationObject {
-			return schemaValidation{}, false
-		}
-		return schemaValidation{
-			kind:          schemaValidationObjectArray,
-			validator:     validator.validator,
-			allowNull:     allowNull,
-			itemAllowNull: true,
-		}, true
+		return generator.nullableItemArraySchemaValidation(nullableItem, allowNull)
 	}
 	if item.Ref == "" {
 		return schemaValidation{}, false
@@ -203,6 +207,19 @@ func (generator *generator) schemaValidation(schema jsonSchema) (schemaValidatio
 		kind:      schemaValidationObjectArray,
 		validator: validator,
 		allowNull: allowNull,
+	}, true
+}
+
+func (generator *generator) nullableItemArraySchemaValidation(item jsonSchema, allowNull bool) (schemaValidation, bool) {
+	validator, ok := generator.schemaValidation(item)
+	if !ok || validator.kind != schemaValidationObject {
+		return schemaValidation{}, false
+	}
+	return schemaValidation{
+		kind:          schemaValidationObjectArray,
+		validator:     validator.validator,
+		allowNull:     allowNull,
+		itemAllowNull: true,
 	}, true
 }
 

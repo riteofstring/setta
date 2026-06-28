@@ -2,10 +2,13 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"setta/internal/codexapp"
 )
 
 // Phase 0 characterization harness for docs/plans/background_terminal_lifecycle_plan.md.
@@ -46,15 +49,16 @@ func writeFakeUnifiedExecBackgroundTurn() {
 		"threadId":      "thread_fake",
 		"turnId":        "turn_fake",
 		"item": map[string]any{
-			"command":    fakeUnifiedExecAlphaCommand,
-			"cwd":        "/tmp/workspace",
-			"durationMs": 5,
-			"exitCode":   0,
-			"id":         fakeUnifiedExecAlphaItemID,
-			"processId":  fakeUnifiedExecAlphaProcess,
-			"source":     "unifiedExecStartup",
-			"status":     "completed",
-			"type":       "commandExecution",
+			"command":        fakeUnifiedExecAlphaCommand,
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"durationMs":     5,
+			"exitCode":       0,
+			"id":             fakeUnifiedExecAlphaItemID,
+			"processId":      fakeUnifiedExecAlphaProcess,
+			"source":         "unifiedExecStartup",
+			"status":         "completed",
+			"type":           "commandExecution",
 		},
 	})
 }
@@ -65,13 +69,14 @@ func writeFakeUnifiedExecStartup(itemID string, processID string, command string
 		"threadId":    "thread_fake",
 		"turnId":      "turn_fake",
 		"item": map[string]any{
-			"command":   command,
-			"cwd":       "/tmp/workspace",
-			"id":        itemID,
-			"processId": processID,
-			"source":    "unifiedExecStartup",
-			"status":    "inProgress",
-			"type":      "commandExecution",
+			"command":        command,
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"id":             itemID,
+			"processId":      processID,
+			"source":         "unifiedExecStartup",
+			"status":         "inProgress",
+			"type":           "commandExecution",
 		},
 	})
 }
@@ -99,15 +104,16 @@ func writeFakeUnifiedExecCrossTurnTurn() {
 		"threadId":      "thread_fake",
 		"turnId":        fakeUnifiedExecOtherTurnID,
 		"item": map[string]any{
-			"command":    fakeUnifiedExecAlphaCommand,
-			"cwd":        "/tmp/workspace",
-			"durationMs": 5,
-			"exitCode":   0,
-			"id":         fakeUnifiedExecAlphaItemID,
-			"processId":  fakeUnifiedExecAlphaProcess,
-			"source":     "unifiedExecStartup",
-			"status":     "completed",
-			"type":       "commandExecution",
+			"command":        fakeUnifiedExecAlphaCommand,
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"durationMs":     5,
+			"exitCode":       0,
+			"id":             fakeUnifiedExecAlphaItemID,
+			"processId":      fakeUnifiedExecAlphaProcess,
+			"source":         "unifiedExecStartup",
+			"status":         "completed",
+			"type":           "commandExecution",
 		},
 	})
 	writeFakeAssistantDelta(fakeUnifiedExecFinalText)
@@ -131,15 +137,16 @@ func writeFakeUnifiedExecCrossTurnFirstTurn() {
 		"threadId":      "thread_fake",
 		"turnId":        fakeUnifiedExecOtherTurnID,
 		"item": map[string]any{
-			"command":    fakeUnifiedExecAlphaCommand,
-			"cwd":        "/tmp/workspace",
-			"durationMs": 5,
-			"exitCode":   0,
-			"id":         fakeUnifiedExecAlphaItemID,
-			"processId":  fakeUnifiedExecAlphaProcess,
-			"source":     "unifiedExecStartup",
-			"status":     "completed",
-			"type":       "commandExecution",
+			"command":        fakeUnifiedExecAlphaCommand,
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"durationMs":     5,
+			"exitCode":       0,
+			"id":             fakeUnifiedExecAlphaItemID,
+			"processId":      fakeUnifiedExecAlphaProcess,
+			"source":         "unifiedExecStartup",
+			"status":         "completed",
+			"type":           "commandExecution",
 		},
 	})
 	writeFakeAssistantDelta(fakeUnifiedExecFinalText)
@@ -153,14 +160,28 @@ func fakeCoreUnifiedExecCrossTurnFirstStart(string, *fakeCodexState) bool {
 
 func fakeCodexUnifiedExecItem(source string) map[string]any {
 	return map[string]any{
-		"command":   fakeUnifiedExecAlphaCommand,
-		"cwd":       "/tmp/workspace",
-		"id":        fakeUnifiedExecAlphaItemID,
-		"processId": fakeUnifiedExecAlphaProcess,
-		"source":    source,
-		"status":    "inProgress",
-		"type":      "commandExecution",
+		"command":        fakeUnifiedExecAlphaCommand,
+		"commandActions": []any{},
+		"cwd":            "/tmp/workspace",
+		"id":             fakeUnifiedExecAlphaItemID,
+		"processId":      fakeUnifiedExecAlphaProcess,
+		"source":         source,
+		"status":         "inProgress",
+		"type":           "commandExecution",
 	}
+}
+
+func decodeFakeCodexThreadItem(t *testing.T, item map[string]any) codexapp.ThreadItem {
+	t.Helper()
+	data, err := json.Marshal(item)
+	if err != nil {
+		t.Fatalf("marshal fake codex item: %v", err)
+	}
+	decoded, err := codexapp.DecodeThreadItem(data)
+	if err != nil {
+		t.Fatalf("decode fake codex item: %v", err)
+	}
+	return decoded
 }
 
 // TestCodexUnifiedExecCommandSourcePreserved proves the Phase 1 fix for bug #1: the Codex
@@ -168,7 +189,7 @@ func fakeCodexUnifiedExecItem(source string) map[string]any {
 // background terminal is distinguishable from a normal agent command without inspecting command
 // text. This flipped the Phase 0 characterization that froze the dropped field.
 func TestCodexUnifiedExecCommandSourcePreserved(t *testing.T) {
-	startupItem, err := runItemFromCodexItem(fakeCodexUnifiedExecItem("unifiedExecStartup"), RunItemStatusRunning)
+	startupItem, err := runItemFromCodexItem(decodeFakeCodexThreadItem(t, fakeCodexUnifiedExecItem("unifiedExecStartup")), RunItemStatusRunning)
 	if err != nil {
 		t.Fatalf("project unified exec startup: %v", err)
 	}
@@ -178,7 +199,7 @@ func TestCodexUnifiedExecCommandSourcePreserved(t *testing.T) {
 	if startupItem.ProcessID != fakeUnifiedExecAlphaProcess {
 		t.Fatalf("startup processId = %q, want %q", startupItem.ProcessID, fakeUnifiedExecAlphaProcess)
 	}
-	agentItem, err := runItemFromCodexItem(fakeCodexUnifiedExecItem("agent"), RunItemStatusRunning)
+	agentItem, err := runItemFromCodexItem(decodeFakeCodexThreadItem(t, fakeCodexUnifiedExecItem("agent")), RunItemStatusRunning)
 	if err != nil {
 		t.Fatalf("project agent command: %v", err)
 	}
@@ -194,7 +215,7 @@ func TestCodexUnifiedExecCommandSourcePreserved(t *testing.T) {
 // source is treated as provider protocol drift: the projection fails loudly instead of falling
 // back to agent or silently dropping the discriminator.
 func TestCodexUnifiedExecUnknownCommandSourceFailsLoud(t *testing.T) {
-	_, err := runItemFromCodexItem(fakeCodexUnifiedExecItem("unifiedExecMystery"), RunItemStatusRunning)
+	_, err := runItemFromCodexItem(decodeFakeCodexThreadItem(t, fakeCodexUnifiedExecItem("unifiedExecMystery")), RunItemStatusRunning)
 	if err == nil {
 		t.Fatal("expected unknown command source to fail")
 	}
@@ -209,7 +230,7 @@ func TestCodexUnifiedExecUnknownCommandSourceFailsLoud(t *testing.T) {
 // source legitimately does.
 func TestCodexCommandSourcePresentButEmptyFailsLoud(t *testing.T) {
 	emptyItem := fakeCodexUnifiedExecItem("")
-	if _, err := runItemFromCodexItem(emptyItem, RunItemStatusRunning); err == nil {
+	if _, err := runItemFromCodexItem(decodeFakeCodexThreadItem(t, emptyItem), RunItemStatusRunning); err == nil {
 		t.Fatal("expected empty source to fail")
 	} else if !strings.Contains(err.Error(), "source") {
 		t.Fatalf("error = %v, want source drift", err)
@@ -217,7 +238,7 @@ func TestCodexCommandSourcePresentButEmptyFailsLoud(t *testing.T) {
 
 	nullItem := fakeCodexUnifiedExecItem("agent")
 	nullItem["source"] = nil
-	if _, err := runItemFromCodexItem(nullItem, RunItemStatusRunning); err == nil {
+	if _, err := runItemFromCodexItem(decodeFakeCodexThreadItem(t, nullItem), RunItemStatusRunning); err == nil {
 		t.Fatal("expected null source to fail")
 	} else if !strings.Contains(err.Error(), "source") {
 		t.Fatalf("error = %v, want source drift", err)
@@ -229,7 +250,7 @@ func TestCodexCommandSourcePresentButEmptyFailsLoud(t *testing.T) {
 func TestCodexCommandSourceAbsentIsNil(t *testing.T) {
 	item := fakeCodexUnifiedExecItem("agent")
 	delete(item, "source")
-	projected, err := runItemFromCodexItem(item, RunItemStatusRunning)
+	projected, err := runItemFromCodexItem(decodeFakeCodexThreadItem(t, item), RunItemStatusRunning)
 	if err != nil {
 		t.Fatalf("project item without source: %v", err)
 	}
@@ -241,7 +262,7 @@ func TestCodexCommandSourceAbsentIsNil(t *testing.T) {
 func TestCodexUnifiedExecStartupMissingProcessIDFailsLoud(t *testing.T) {
 	item := fakeCodexUnifiedExecItem("unifiedExecStartup")
 	delete(item, "processId")
-	if _, err := runItemFromCodexItem(item, RunItemStatusRunning); err == nil {
+	if _, err := runItemFromCodexItem(decodeFakeCodexThreadItem(t, item), RunItemStatusRunning); err == nil {
 		t.Fatal("expected unifiedExecStartup without processId to fail")
 	} else if !strings.Contains(err.Error(), "processId is required") {
 		t.Fatalf("error = %v, want processId drift", err)

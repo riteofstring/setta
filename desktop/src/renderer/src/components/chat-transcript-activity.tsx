@@ -574,7 +574,8 @@ function ActivityDetails({
         <ActivityTextBlock title="Error" tone="error" value={details.error} />
         <ActivityTextBlock title="Notice" value={details.noticeMessage} />
         <ActivityTextBlock title="Diff" value={details.diffSummary} />
-        <ActivityJSONDetails details={details.details} />
+        <ActivityMCPDetails details={details} />
+        {details.mcpToolCall === null ? <ActivityJSONDetails details={details.details} /> : null}
         <ActivityExit durationMs={details.durationMs} exitCode={details.exitCode} />
         <ActivityOutput
           loadMoreOutput={loadMoreOutput}
@@ -668,7 +669,7 @@ function ActivityMetadata({ details }: { details: RunActivityDetailsProjection }
 }
 
 function activityMetadata(details: RunActivityDetailsProjection) {
-  return [
+  const entries = [
     { label: "server", value: details.serverName },
     { label: "tool", value: details.toolName },
     { label: "namespace", value: details.namespace },
@@ -677,7 +678,14 @@ function activityMetadata(details: RunActivityDetailsProjection) {
     { label: "review", value: details.reviewId },
     { label: "patch", value: details.patchStatus },
     { label: "notice", value: details.noticeKind },
-  ].filter((entry) => entry.value !== "");
+  ];
+  if (details.mcpToolCall !== null) {
+    entries.push(
+      { label: "plugin", value: details.mcpToolCall.pluginId },
+      { label: "resource", value: details.mcpToolCall.mcpAppResourceUri },
+    );
+  }
+  return entries.filter((entry) => entry.value !== "");
 }
 
 function ActivityTextBlock({
@@ -725,12 +733,38 @@ function ActivityPreBlock({ title, value }: { title: string; value: string }) {
 }
 
 function ActivityJSONDetails({ details }: { details: unknown }) {
+  return <ActivityJSONBlock details={details} title="Details" />;
+}
+
+function ActivityMCPDetails({ details }: { details: RunActivityDetailsProjection }) {
+  const mcp = details.mcpToolCall;
+  if (mcp === null) {
+    return null;
+  }
+  return (
+    <>
+      <ActivityJSONBlock details={mcp.arguments} title="Arguments" />
+      <ActivityJSONBlock details={mcp.appContext} title="App Context" />
+      {mcp.result === null ? null : (
+        <>
+          <ActivityJSONBlock details={mcp.result.content} title="Content" />
+          <ActivityJSONBlock details={mcp.result.structuredContent} title="Structured Content" />
+          <ActivityJSONBlock details={mcp.result._meta} title="Metadata" />
+        </>
+      )}
+    </>
+  );
+}
+
+function ActivityJSONBlock({ details, title }: { details: unknown; title: string }) {
   const text = activityDetailsText(details);
   if (!text) {
     return null;
   }
-  return <ActivityPreBlock title="Details" value={text} />;
+  return <ActivityPreBlock title={title} value={boundedActivityDetailsText(text)} />;
 }
+
+const activityDetailsTextLimit = 4000;
 
 function activityDetailsText(details: unknown) {
   if (details === null || details === undefined) {
@@ -743,6 +777,13 @@ function activityDetailsText(details: unknown) {
     return "";
   }
   return JSON.stringify(details, null, 2);
+}
+
+function boundedActivityDetailsText(text: string) {
+  if (text.length <= activityDetailsTextLimit) {
+    return text;
+  }
+  return `${text.slice(0, activityDetailsTextLimit)}...`;
 }
 
 function ActivityExit({ durationMs, exitCode }: { durationMs: number; exitCode: number }) {

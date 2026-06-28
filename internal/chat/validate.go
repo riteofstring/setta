@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -640,6 +642,9 @@ func validateRunItem(item RunItem) error {
 	if item.DurationMs < 0 {
 		return fmt.Errorf("run item %s durationMs must be non-negative", item.ID)
 	}
+	if err := validateRunItemDetails(item); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -700,6 +705,20 @@ func validateRunItemTimestamps(item RunItem) error {
 		if err := validateTimestamp(item.CompletedAt, "run item "+item.ID+" completedAt"); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateRunItemDetails(item RunItem) error {
+	if item.Type != RunItemTypeMCPToolCall {
+		return nil
+	}
+	if len(bytes.TrimSpace(item.Details)) == 0 {
+		return nil
+	}
+	var details RunItemMCPToolCallDetails
+	if err := json.Unmarshal(item.Details, &details); err != nil {
+		return fmt.Errorf("run item %s mcpToolCall details must match RunItemMCPToolCallDetails: %w", item.ID, err)
 	}
 	return nil
 }

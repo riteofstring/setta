@@ -294,15 +294,11 @@ func handleCodexItemUpsert(message jsonRPCMessage, threadID string, turnID strin
 	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.threadID, params.turnID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	item, err := objectValue(params.item, "codex item")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	ignored, err := ignoreCodexItemIfHandled(item, sink)
+	ignored, err := ignoreCodexItemIfHandled(params.item, sink)
 	if err != nil || ignored {
 		return codexNotificationResult{}, err
 	}
-	runItem, err := runItemFromCodexItem(item, status)
+	runItem, err := runItemFromCodexItem(params.item, status)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
@@ -310,7 +306,7 @@ func handleCodexItemUpsert(message jsonRPCMessage, threadID string, turnID strin
 }
 
 type codexItemNotification struct {
-	item     json.RawMessage
+	item     codexapp.ThreadItem
 	threadID string
 	turnID   string
 }
@@ -334,19 +330,18 @@ func decodeCodexItemNotification(message jsonRPCMessage) (codexItemNotification,
 	}
 }
 
-func ignoreCodexItemIfHandled(item map[string]any, sink TurnSink) (bool, error) {
-	providerItemID, err := requireString(item, "id", "codex item")
-	if err != nil {
-		return false, err
-	}
-	codexType, err := requireString(item, "type", "codex item")
-	if err != nil {
-		return false, err
-	}
-	if codexType != "userMessage" {
+func ignoreCodexItemIfHandled(item codexapp.ThreadItem, sink TurnSink) (bool, error) {
+	if item.Type != codexapp.ThreadItemTypeUserMessage {
 		return false, nil
 	}
-	text, err := userMessageTextFromCodexItem(item)
+	if item.UserMessage == nil {
+		return false, fmt.Errorf("codex userMessage item missing generated variant payload")
+	}
+	providerItemID := item.UserMessage.ID
+	if providerItemID == "" {
+		return false, fmt.Errorf("codex userMessage item.id is required")
+	}
+	text, err := userMessageTextFromCodexItem(*item.UserMessage)
 	if err != nil {
 		return true, err
 	}
@@ -356,16 +351,12 @@ func ignoreCodexItemIfHandled(item map[string]any, sink TurnSink) (bool, error) 
 	return true, sink.Trace("codex_user_message_item_ignored", providerItemID)
 }
 
-func userMessageTextFromCodexItem(item map[string]any) (string, error) {
-	content, err := requireArray(item, "content", "codex user message item")
-	if err != nil {
-		return "", err
-	}
-	parts := make([]string, 0, len(content))
-	for index, rawPart := range content {
-		part, ok := rawPart.(map[string]any)
-		if !ok {
-			return "", fmt.Errorf("codex user message item.content[%d] must be an object", index)
+func userMessageTextFromCodexItem(item codexapp.UserMessageThreadItem) (string, error) {
+	parts := make([]string, 0, len(item.Content))
+	for index, rawPart := range item.Content {
+		var part map[string]any
+		if err := json.Unmarshal(rawPart, &part); err != nil {
+			return "", fmt.Errorf("codex user message item.content[%d] must be an object: %w", index, err)
 		}
 		partType, err := requireString(part, "type", "codex user message item content")
 		if err != nil {
@@ -535,26 +526,18 @@ func handleCodexPatchUpdated(message jsonRPCMessage, threadID string, turnID str
 }
 
 func handleCodexMCPProgress(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex mcp progress params")
+	params, err := codexapp.DecodeMcpToolCallProgressNotification(message.Params)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
-		return codexNotificationResult{}, err
-	}
-	itemID, err := requireString(params, "itemId", "codex mcp progress")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	progress, err := requireString(params, "progress", "codex mcp progress")
-	if err != nil {
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.RunItemUpsert(RunItem{
-		ProviderItemID: itemID,
+		ProviderItemID: params.ItemId,
 		Type:           RunItemTypeMCPToolCall,
 		Status:         RunItemStatusRunning,
-		Progress:       progress,
+		Progress:       params.Message,
 	})
 }
 

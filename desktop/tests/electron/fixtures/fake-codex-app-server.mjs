@@ -564,6 +564,7 @@ function emitProtocolCoverageTurn() {
     threadId,
     turnId,
   });
+  emitMcpToolCallCoverage();
   notify("mcpServer/oauthLogin/completed", { error: null, name: "github", success: true });
   notify("model/verification", {
     threadId,
@@ -609,6 +610,70 @@ function emitProtocolCoverageTurn() {
   notify("turn/completed", {
     threadId,
     turn: fakeTurn("completed"),
+  });
+}
+
+function emitMcpToolCallCoverage() {
+  notify("item/started", {
+    item: {
+      appContext: { connectorId: "github", resourceUri: "mcp://github/repo" },
+      arguments: { query: "setta" },
+      id: "mcp_structured_fake",
+      mcpAppResourceUri: "mcp://github/legacy",
+      pluginId: "plugin_github",
+      server: "github",
+      status: "inProgress",
+      tool: "search",
+      type: "mcpToolCall",
+    },
+    startedAtMs: 1,
+    threadId,
+    turnId,
+  });
+  notify("item/mcpToolCall/progress", {
+    itemId: "mcp_structured_fake",
+    message: "Fetching repository data",
+    threadId,
+    turnId,
+  });
+  notify("item/completed", {
+    completedAtMs: 2,
+    item: {
+      appContext: { connectorId: "github", resourceUri: "mcp://github/repo" },
+      arguments: { query: "setta" },
+      durationMs: 18,
+      id: "mcp_structured_fake",
+      mcpAppResourceUri: "mcp://github/legacy",
+      pluginId: "plugin_github",
+      result: {
+        _meta: { traceId: "mcp_trace" },
+        content: [
+          { text: "Found repository data", type: "text" },
+          { mimeType: "image/png", type: "image" },
+        ],
+        structuredContent: { repositories: 1 },
+      },
+      server: "github",
+      status: "completed",
+      tool: "search",
+      type: "mcpToolCall",
+    },
+    threadId,
+    turnId,
+  });
+  notify("item/completed", {
+    completedAtMs: 3,
+    item: {
+      arguments: { query: "broken" },
+      error: { message: "MCP tool failed" },
+      id: "mcp_failed_fake",
+      server: "github",
+      status: "failed",
+      tool: "broken_search",
+      type: "mcpToolCall",
+    },
+    threadId,
+    turnId,
   });
 }
 
@@ -774,6 +839,7 @@ function notifyUnifiedExecStarted(turnID, execution) {
   notify("item/started", {
     item: {
       command: execution.command,
+      commandActions: [],
       cwd: "/tmp/workspace",
       id: execution.itemId,
       processId: execution.processId,
@@ -801,6 +867,7 @@ function notifyUnifiedExecCompleted(turnID, execution) {
     completedAtMs: 3,
     item: {
       command: execution.command,
+      commandActions: [],
       cwd: "/tmp/workspace",
       durationMs: 5,
       exitCode: 0,

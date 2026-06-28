@@ -1219,13 +1219,19 @@ async function runCodexProtocolWorkflow(results) {
     await waitForTexts(context.client, ["coverage complete", "workspace_context"]);
     await assertCollapsedActivityGroupHeader(context.client, {
       absent: "+8",
-      count: "9",
+      count: "11",
       preview: "workspace_context",
     });
     await assertTextAbsent(context.client, "Reasoning text");
     await assertTextAbsent(context.client, "private reasoning");
     await waitForModelPickerSummary(waitForState, context.client, "GPT Test", "Extra high");
-    await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
+    await assertProtocolNotificationActivity(
+      context.client,
+      backend,
+      workspaceId,
+      conversationId,
+      run.id,
+    );
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 
     await runProtocolGoalMultiTurnWorkflow(context.client, backend, workspaceId);

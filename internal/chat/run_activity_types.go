@@ -3,26 +3,44 @@ package chat
 import "encoding/json"
 
 type RunActivityDetailsProjection struct {
-	Summary       string          `json:"summary"`
-	Command       string          `json:"command"`
-	Cwd           string          `json:"cwd"`
-	ExitCode      int             `json:"exitCode"`
-	DurationMs    int             `json:"durationMs"`
-	FilePaths     []string        `json:"filePaths"`
-	PatchStatus   string          `json:"patchStatus"`
-	ServerName    string          `json:"serverName"`
-	ToolName      string          `json:"toolName"`
-	Progress      string          `json:"progress"`
-	Result        string          `json:"result"`
-	Error         string          `json:"error"`
-	NoticeKind    string          `json:"noticeKind"`
-	NoticeMessage string          `json:"noticeMessage"`
-	DiffSummary   string          `json:"diffSummary"`
-	Namespace     string          `json:"namespace"`
-	ProcessID     string          `json:"processId"`
-	RequestID     string          `json:"requestId"`
-	ReviewID      string          `json:"reviewId"`
-	Details       json.RawMessage `json:"details"`
+	Summary       string                     `json:"summary"`
+	Command       string                     `json:"command"`
+	Cwd           string                     `json:"cwd"`
+	ExitCode      int                        `json:"exitCode"`
+	DurationMs    int                        `json:"durationMs"`
+	FilePaths     []string                   `json:"filePaths"`
+	PatchStatus   string                     `json:"patchStatus"`
+	ServerName    string                     `json:"serverName"`
+	ToolName      string                     `json:"toolName"`
+	Progress      string                     `json:"progress"`
+	Result        string                     `json:"result"`
+	Error         string                     `json:"error"`
+	NoticeKind    string                     `json:"noticeKind"`
+	NoticeMessage string                     `json:"noticeMessage"`
+	DiffSummary   string                     `json:"diffSummary"`
+	Namespace     string                     `json:"namespace"`
+	ProcessID     string                     `json:"processId"`
+	RequestID     string                     `json:"requestId"`
+	ReviewID      string                     `json:"reviewId"`
+	Details       json.RawMessage            `json:"details"`
+	MCPToolCall   *RunItemMCPToolCallDetails `json:"mcpToolCall"`
+}
+
+type RunItemMCPToolCallDetails struct {
+	ServerName        string                `json:"serverName"`
+	ToolName          string                `json:"toolName"`
+	Arguments         json.RawMessage       `json:"arguments"`
+	AppContext        json.RawMessage       `json:"appContext"`
+	PluginID          string                `json:"pluginId"`
+	MCPAppResourceURI string                `json:"mcpAppResourceUri"`
+	Result            *RunItemMCPToolResult `json:"result"`
+	Error             string                `json:"error"`
+}
+
+type RunItemMCPToolResult struct {
+	Content           []json.RawMessage `json:"content"`
+	StructuredContent json.RawMessage   `json:"structuredContent"`
+	Meta              json.RawMessage   `json:"_meta"`
 }
 
 type RunActivityPage struct {
