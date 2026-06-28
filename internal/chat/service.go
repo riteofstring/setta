@@ -650,7 +650,11 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 		return err
 	}
 	delete(service.active, activeKey(workspaceID, conversationID))
-	if err := service.publishCompletedTurnLocked(workspaceID, conversationID, message, pendingSteering, run); err != nil {
+	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
+		service.mu.Unlock()
+		return err
+	}
+	if err := service.publishCompletedTurnLocked(workspaceID, conversationID, message, pendingSteering, run, active.transcript); err != nil {
 		service.mu.Unlock()
 		return err
 	}
@@ -681,23 +685,8 @@ func (service *Service) saveCompletedTurnLocked(workspaceID string, run Run, mes
 	return message, run, nil
 }
 
-func (service *Service) publishCompletedTurnLocked(workspaceID string, conversationID string, message ChatMessage, pendingSteering []ChatMessage, run Run) error {
-	if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, run.ID, message)); err != nil {
-		return err
-	}
-	if err := service.publishMessageUpdatesLocked(workspaceID, conversationID, run.ID, pendingSteering); err != nil {
-		return err
-	}
-	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
-		return err
-	}
-	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
-		return err
-	}
-	if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
-		return err
-	}
-	return nil
+func (service *Service) publishCompletedTurnLocked(workspaceID string, conversationID string, message ChatMessage, pendingSteering []ChatMessage, run Run, transcript *transcriptIngest) error {
+	return service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering, transcript)
 }
 
 func (service *Service) failTurn(workspaceID string, conversationID string, runID string, message string) error {
@@ -745,7 +734,10 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 		return err
 	}
 	delete(service.active, key)
-	return service.publishTerminalTurnLocked(workspaceID, conversationID, assistant, run, pendingSteering)
+	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
+		return err
+	}
+	return service.publishTerminalTurnLocked(workspaceID, conversationID, assistant, run, pendingSteering, active.transcript)
 }
 
 func (service *Service) overlayActiveAssistantMessageLocked(workspaceID string, conversationID string, beforeOrdinal int, page MessagePage) MessagePage {

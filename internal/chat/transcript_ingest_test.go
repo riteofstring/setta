@@ -845,7 +845,7 @@ func TestServiceStartupReconcilesTerminalRunStatusOnRecovery(t *testing.T) {
 	}
 }
 
-func TestServiceStartupRecoversTerminalTransitionAbortedByClosedEventHub(t *testing.T) {
+func TestServiceClosedEventHubDoesNotAbortTerminalTransition(t *testing.T) {
 	appDataDir := t.TempDir()
 	ready := make(chan struct{})
 	release := make(chan struct{})
@@ -859,10 +859,10 @@ func TestServiceStartupRecoversTerminalTransitionAbortedByClosedEventHub(t *test
 
 	service.CloseEvents()
 	close(release)
-	assertClosedEventHubTransitionMismatch(t, service, workspaceID, result.Run.ID)
+	assertClosedEventHubTerminalTransitionPersisted(t, service, workspaceID, conversationID, result.Run.ID)
 
 	restarted := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
-	assertClosedEventHubTransitionRecovered(t, restarted, workspaceID, conversationID, result.Run.ID)
+	assertClosedEventHubTerminalTransitionSurvivesRestart(t, restarted, workspaceID, conversationID, result.Run.ID)
 }
 
 func closedEventHubTransitionHarness(ready chan<- struct{}, release <-chan struct{}) *scriptedTranscriptHarness {
@@ -898,40 +898,57 @@ func waitForClosedEventHubTransitionReady(t *testing.T, ready <-chan struct{}) {
 	}
 }
 
-func assertClosedEventHubTransitionMismatch(t *testing.T, service *Service, workspaceID string, runID string) {
+func assertClosedEventHubTerminalTransitionPersisted(t *testing.T, service *Service, workspaceID string, conversationID string, runID string) {
 	t.Helper()
-	diagnostic := waitForDiagnostic(t, service, "fail_turn_transition_failed")
-	if diagnostic.Context["error"] != "event hub is closed" {
-		t.Fatalf("diagnostic error = %q, want closed hub", diagnostic.Context["error"])
+	run := waitForRunStatus(t, service, workspaceID, conversationID, runID, RunStatusFailed)
+	if run.Error != "provider stopped" {
+		t.Fatalf("run error = %q, want provider failure", run.Error)
 	}
-	liveRun, err := service.store.LoadRun(workspaceID, runID)
-	if err != nil {
-		t.Fatalf("load live run: %v", err)
+	diagnostic := waitForDiagnostic(t, service, terminalTurnPublishFailedDiagnosticCode)
+	if diagnostic.Severity != DiagnosticSeverityWarning || diagnostic.Source != DiagnosticSourceChat {
+		t.Fatalf("publish diagnostic = %+v, want warning chat diagnostic", diagnostic)
 	}
-	if liveRun.Status != RunStatusRunning {
-		t.Fatalf("live run status = %s, want running mismatch before restart", liveRun.Status)
+	if !strings.Contains(diagnostic.Context["errors"], "event hub is closed") {
+		t.Fatalf("publish diagnostic errors = %q, want closed hub", diagnostic.Context["errors"])
 	}
-	liveStatus, ok := firstBlockOfKind(loadPersistedBlocks(t, service, workspaceID, runID), TranscriptBlockKindRunStatus)
-	if !ok || liveStatus.RunStatus.Mode != RunStatusBlockModeFailed {
-		t.Fatalf("live terminal run_status = %+v ok %v, want failed mismatch before restart", liveStatus.RunStatus, ok)
+	assertNoDiagnosticCode(t, service, "fail_turn_transition_failed")
+	if _, ok, err := service.ActiveRun(workspaceID, conversationID); err != nil || ok {
+		t.Fatalf("live active run = ok %v err %v, want none after terminal transition", ok, err)
+	}
+	status, ok := firstBlockOfKind(loadPersistedBlocks(t, service, workspaceID, runID), TranscriptBlockKindRunStatus)
+	if !ok || status.RunStatus.Mode != RunStatusBlockModeFailed || status.RunStatus.Error != run.Error {
+		t.Fatalf("terminal run_status = %+v ok %v, want failed with run error %q", status.RunStatus, ok, run.Error)
 	}
 }
 
-func assertClosedEventHubTransitionRecovered(t *testing.T, restarted *Service, workspaceID string, conversationID string, runID string) {
+func assertClosedEventHubTerminalTransitionSurvivesRestart(t *testing.T, restarted *Service, workspaceID string, conversationID string, runID string) {
 	t.Helper()
-	recoveredRun, err := restarted.store.LoadRun(workspaceID, runID)
+	run, err := restarted.store.LoadRun(workspaceID, runID)
 	if err != nil {
-		t.Fatalf("load recovered run: %v", err)
+		t.Fatalf("load restarted run: %v", err)
 	}
-	if recoveredRun.Status != RunStatusFailed || recoveredRun.Error != "run interrupted by backend restart" {
-		t.Fatalf("recovered run = %+v, want failed backend restart interruption", recoveredRun)
+	if run.Status != RunStatusFailed || run.Error != "provider stopped" {
+		t.Fatalf("restarted run = %+v, want original provider failure", run)
 	}
 	if _, ok, err := restarted.ActiveRun(workspaceID, conversationID); err != nil || ok {
 		t.Fatalf("restarted active run = ok %v err %v, want none after recovery", ok, err)
 	}
-	recoveredStatus, ok := firstBlockOfKind(loadPersistedBlocks(t, restarted, workspaceID, runID), TranscriptBlockKindRunStatus)
-	if !ok || recoveredStatus.RunStatus.Mode != RunStatusBlockModeFailed || recoveredStatus.RunStatus.Error != recoveredRun.Error {
-		t.Fatalf("recovered run_status = %+v ok %v, want failed with recovered run error %q", recoveredStatus.RunStatus, ok, recoveredRun.Error)
+	status, ok := firstBlockOfKind(loadPersistedBlocks(t, restarted, workspaceID, runID), TranscriptBlockKindRunStatus)
+	if !ok || status.RunStatus.Mode != RunStatusBlockModeFailed || status.RunStatus.Error != run.Error {
+		t.Fatalf("restarted run_status = %+v ok %v, want failed with run error %q", status.RunStatus, ok, run.Error)
+	}
+}
+
+func assertNoDiagnosticCode(t *testing.T, service *Service, code string) {
+	t.Helper()
+	diagnostics, err := service.store.ListDiagnostics()
+	if err != nil {
+		t.Fatalf("list diagnostics: %v", err)
+	}
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == code {
+			t.Fatalf("unexpected diagnostic %s: %+v", code, diagnostic)
+		}
 	}
 }
 

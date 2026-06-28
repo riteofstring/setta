@@ -57,18 +57,6 @@ func (service *Service) publishLiveTranscriptBlocksReplacedLocked(workspaceID st
 	return err
 }
 
-// publishTerminalTranscriptBlocksReplacedLocked replaces the run's block list with
-// the finalized persisted snapshot. Unlike the live snapshot it never appends the
-// working indicator, so a run that ends with no public block drops working at the
-// terminal transition.
-func (service *Service) publishTerminalTranscriptBlocksReplacedLocked(workspaceID string, ingest *transcriptIngest) error {
-	if ingest == nil {
-		return nil
-	}
-	_, err := service.events.Publish(NewTranscriptBlocksReplacedEvent(workspaceID, ingest.conversationID, ingest.runID, ingest.snapshot()))
-	return err
-}
-
 // publishPersistedTranscriptBlocksReplacedLocked replaces a run's block list from
 // the store. It is used for a run that is no longer the live active turn, such as
 // the cancelled source run whose steering blocks were removed when their pending

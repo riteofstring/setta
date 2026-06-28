@@ -179,7 +179,10 @@ func (service *Service) cancelRunningTurnLocked(workspaceID string, conversation
 	} else {
 		delete(service.active, key)
 	}
-	if err := service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering); err != nil {
+	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
+		return Run{}, err
+	}
+	if err := service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering, active.transcript); err != nil {
 		return Run{}, err
 	}
 	return run, nil

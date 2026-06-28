@@ -534,10 +534,11 @@ func (service *Service) createReasoningBlockLocked(workspaceID string, ingest *t
 	return service.publishPublicBlockCreatedLocked(workspaceID, ingest)
 }
 
-// finalizeTranscriptBlocksLocked closes out a run's blocks at completion,
-// cancellation, or failure. Every still-streaming block adopts the terminal
-// status, and cancellation/failure also append a permanent terminal run_status
-// row carrying the run error.
+// finalizeTranscriptBlocksLocked closes out a run's persisted blocks at
+// completion, cancellation, or failure. Every still-streaming block adopts the
+// terminal status, and cancellation/failure also append a permanent terminal
+// run_status row carrying the run error. The terminal replaced event is
+// published only after the canonical terminal run record is saved.
 func (service *Service) finalizeTranscriptBlocksLocked(workspaceID string, ingest *transcriptIngest, outcome TranscriptBlockStatus, runError string) error {
 	if ingest == nil {
 		return nil
@@ -560,10 +561,7 @@ func (service *Service) finalizeTranscriptBlocksLocked(workspaceID string, inges
 			return err
 		}
 	}
-	// One authoritative terminal snapshot reflects every block's terminal status,
-	// adds any cancelled/failed run_status row, and drops the live-only working
-	// indicator in place of per-block events.
-	return service.publishTerminalTranscriptBlocksReplacedLocked(workspaceID, ingest)
+	return nil
 }
 
 // ensureTerminalRunStatusBlockLocked records the terminal run_status row

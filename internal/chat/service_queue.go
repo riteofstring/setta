@@ -951,12 +951,3 @@ func (service *Service) markPendingSteeringMessagesLocked(workspaceID string, co
 	}
 	return pending, nil
 }
-
-func (service *Service) publishMessageUpdatesLocked(workspaceID string, conversationID string, runID string, messages []ChatMessage) error {
-	for _, message := range messages {
-		if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, runID, message)); err != nil {
-			return err
-		}
-	}
-	return nil
-}

@@ -219,19 +219,27 @@ func (service *Service) publishConversationUpdated(workspaceID string, conversat
 }
 
 func (service *Service) publishConversationUpdatedLocked(workspaceID string, conversationID string, runID string) error {
-	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
-	if err != nil {
+	draft, ok, err := service.conversationUpdatedEventLocked(workspaceID, conversationID, runID)
+	if err != nil || !ok {
 		return err
 	}
+	_, err = service.events.Publish(draft)
+	return err
+}
+
+func (service *Service) conversationUpdatedEventLocked(workspaceID string, conversationID string, runID string) (EventDraft, bool, error) {
+	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
+	if err != nil {
+		return EventDraft{}, false, err
+	}
 	if conversation.Internal {
-		return nil
+		return EventDraft{}, false, nil
 	}
 	item, err := service.conversationListItemFromConversationLocked(conversation)
 	if err != nil {
-		return err
+		return EventDraft{}, false, err
 	}
-	_, err = service.events.Publish(NewConversationUpdatedEvent(workspaceID, conversationID, runID, item))
-	return err
+	return NewConversationUpdatedEvent(workspaceID, conversationID, runID, item), true, nil
 }
 
 func (service *Service) conversationListItemLocked(workspaceID string, conversationID string) (ConversationListItem, error) {
