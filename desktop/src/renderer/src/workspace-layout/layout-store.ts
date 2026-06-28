@@ -1,6 +1,5 @@
 import type { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { OVERVIEW_MAX_ZOOM_SCALE, OVERVIEW_MIN_ZOOM } from "./layout-engine-helpers";
-import type { PaneReorderPlacement } from "./layout-reorder";
 import type { OverviewGhostTarget } from "./workspace-overview-ghost";
 import type {
   ColumnId,
@@ -493,18 +492,6 @@ export class WorkspaceLayoutStore {
     return true;
   }
 
-  previewPaneDrop(
-    sourcePaneId: PaneId,
-    targetPaneId: PaneId,
-    placement: PaneReorderPlacement,
-  ): boolean {
-    return this.previewPaneDropIntent(sourcePaneId, {
-      kind: "row",
-      placement,
-      targetPaneId,
-    });
-  }
-
   previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
     if (!this.engine.previewPaneDropIntent(sourcePaneId, intent)) {
       return false;
@@ -538,14 +525,6 @@ export class WorkspaceLayoutStore {
     this.engine.resizeColumn(columnId, width);
     this.notify();
     return columnId;
-  }
-
-  reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
-    return this.applyPaneDropIntent(sourcePaneId, {
-      kind: "row",
-      placement: "before",
-      targetPaneId,
-    });
   }
 
   applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {

@@ -656,27 +656,17 @@ describe("workspace layout store", () => {
     expect(store.focusPane("missing")).toBe(false);
   });
 
-  test("drops a pane before a target row through the legacy reorder wrapper", () => {
-    const store = createStore();
-
-    expect(store.reorderPaneBefore("workspace_pane_3", "workspace_pane_1")).toBe(true);
-
-    expect(requireColumnForPane(store.toScene(), "workspace_pane_1").paneIds).toEqual([
-      "workspace_pane_3",
-      "workspace_pane_1",
-    ]);
-    expect(store.getSnapshot()).toMatchObject({
-      focusedColumnIndex: 1,
-      focusedPaneId: "workspace_pane_3",
-      focusedRowIndex: 0,
-    });
-  });
-
   test("reorders panes inside the same stacked column", () => {
     const store = createStore();
     const lowerPaneId = store.splitFocusedPane("down");
 
-    expect(store.reorderPaneBefore(lowerPaneId, "workspace_pane_0")).toBe(true);
+    expect(
+      store.applyPaneDropIntent(lowerPaneId, {
+        kind: "row",
+        placement: "before",
+        targetPaneId: "workspace_pane_0",
+      }),
+    ).toBe(true);
 
     expect(store.toScene().columns[0]?.paneIds).toEqual([lowerPaneId, "workspace_pane_0"]);
     expect(store.getSnapshot()).toMatchObject({

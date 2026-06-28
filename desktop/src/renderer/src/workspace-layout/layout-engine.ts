@@ -37,11 +37,7 @@ import {
 } from "./layout-engine-navigation";
 import { paneDropIntentCreatesColumn, WorkspaceLayoutEngineBase } from "./layout-engine-base";
 import { type OverviewFrameTransform, renderNormalLayoutFrame } from "./layout-engine-rendering";
-import {
-  applyPaneDropIntentToColumns,
-  reorderPaneColumnBefore,
-  type PaneReorderPlacement,
-} from "./layout-reorder";
+import { applyPaneDropIntentToColumns } from "./layout-reorder";
 import { samePaneDropIntent } from "./pane-drop-intent-equality";
 
 interface PaneReorderPreview {
@@ -316,17 +312,6 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     this.paneById.set(targetPaneId, { ...targetPane, columnId: sourceColumnId });
   }
 
-  reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
-    const result = reorderPaneColumnBefore(this.columns, sourcePaneId, targetPaneId);
-    if (!result.changed) {
-      return false;
-    }
-    this.columns = result.columns;
-    this.applyPaneDropPaneState(sourcePaneId, result);
-    this.reindexColumns();
-    return true;
-  }
-
   previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
     const nextPreview = { intent, sourcePaneId };
     if (
@@ -337,18 +322,6 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     }
     this.paneReorderPreview = nextPreview;
     return true;
-  }
-
-  previewPaneReorder(
-    sourcePaneId: PaneId,
-    targetPaneId: PaneId,
-    placement: PaneReorderPlacement,
-  ): boolean {
-    return this.previewPaneDropIntent(sourcePaneId, {
-      kind: "row",
-      placement,
-      targetPaneId,
-    });
   }
 
   clearPaneReorderPreview(): boolean {
