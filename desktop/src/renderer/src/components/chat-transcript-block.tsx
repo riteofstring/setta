@@ -222,6 +222,18 @@ function LiveRunStatusBlock({
   rowActions: TranscriptRowActions;
 }) {
   const liveStatus = liveRunStatusForBlock(block, rowActions);
+  if (liveStatus === "approval") {
+    return (
+      <RunStatusRow
+        mode="approval"
+        runId={block.runId}
+        tone="muted"
+        icon={<CircleAlert className="h-4 w-4 shrink-0 text-muted-foreground" />}
+      >
+        <span>Awaiting approval</span>
+      </RunStatusRow>
+    );
+  }
   if (liveStatus === "reconciling") {
     return (
       <RunStatusRow
@@ -243,12 +255,19 @@ function LiveRunStatusBlock({
 function liveRunStatusForBlock(block: TranscriptBlock, rowActions: TranscriptRowActions) {
   const liveness = rowActions.activeRunLiveness;
   if (block.runId === liveness?.runId) {
+    if (liveness.status === "attached" && approvalBlocksWorkingStatus(block, rowActions)) {
+      return "approval";
+    }
     return liveness.status;
   }
-  if (block.runId === rowActions.activeRun?.id) {
-    return "reconciling";
+  if (block.runId !== rowActions.activeRun?.id) {
+    return null;
   }
-  return null;
+  return approvalBlocksWorkingStatus(block, rowActions) ? "approval" : "reconciling";
+}
+
+function approvalBlocksWorkingStatus(block: TranscriptBlock, rowActions: TranscriptRowActions) {
+  return rowActions.activeRun?.id === block.runId && rowActions.activeRun.pendingApproval !== null;
 }
 
 function WorkingRunStatusRow({ block }: { block: TranscriptBlock }) {

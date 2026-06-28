@@ -1,6 +1,6 @@
 import type { Run, RunLiveness, RunLivenessStatus } from "@generated/backend";
 
-type ActiveRunPresentationKind = "idle" | "working" | "reconnecting" | "lost";
+type ActiveRunPresentationKind = "idle" | "working" | "blocked" | "reconnecting" | "lost";
 
 export interface ActiveRunPresentation {
   canRetry: boolean;
@@ -28,6 +28,16 @@ export function activeRunPresentation(
   }
   switch (matched.status) {
     case "attached":
+      if (activeRun.pendingApproval !== null) {
+        return {
+          canRetry: false,
+          canSteer: false,
+          canStop: matched.cancellable,
+          kind: "blocked",
+          liveness: matched,
+          running: true,
+        };
+      }
       return {
         canRetry: false,
         canSteer: true,

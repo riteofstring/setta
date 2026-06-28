@@ -1014,6 +1014,30 @@ describe("chat renderer states", () => {
     expect(html).toContain("Answer");
     expect(html).toContain("Cancel");
   });
+
+  test("renders approval-blocked live status without the normal working indicator", () => {
+    const activeRun = approvalRun();
+    const html = renderToString(
+      <TestChatTranscript
+        activeRun={activeRun}
+        activeRunLiveness={runLivenessFixture(activeRun, "attached")}
+        blocks={[
+          runStatusBlock({
+            id: "block_working",
+            runId: activeRun.id,
+            ordinal: 1,
+            status: "streaming",
+            mode: "working",
+            label: "Working",
+          }),
+        ]}
+      />,
+    );
+
+    expect(html).toContain('data-run-status-mode="approval"');
+    expect(html).toContain("Awaiting approval");
+    expect(html).not.toContain('data-live-headline="active"');
+  });
 });
 
 interface TestChatTranscriptOptions {
