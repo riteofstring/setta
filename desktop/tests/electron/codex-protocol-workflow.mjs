@@ -188,6 +188,7 @@ export async function runProtocolGoalBackgroundTerminalWorkflow(
     backend,
     workspaceId,
     conversationId,
+    run.id,
   );
   await assertNoActiveRun(backend, workspaceId, conversationId);
 }
@@ -388,7 +389,19 @@ async function assertProtocolGoalBackgroundTerminalProjections(
   backend,
   workspaceId,
   conversationId,
+  runId,
 ) {
+  const activityPage = await backend.post("/chat/runs/activity", {
+    limit: 100,
+    runId,
+    workspaceId,
+  });
+  await assertRunActivityItem(
+    activityPage,
+    "terminal_interaction",
+    (item) => item.processId === goalBackgroundTerminal.processId && item.status === "completed",
+  );
+
   const list = await backend.post("/chat/background-terminals/list", {
     conversationId,
     workspaceId,
