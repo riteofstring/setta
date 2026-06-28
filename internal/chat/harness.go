@@ -11,7 +11,6 @@ import (
 )
 
 type Harness interface {
-	ResolveCodexEffectiveSettings(context.Context, workspace.WorkspaceSummary, Conversation) (*ChatCodexEffectiveSettings, error)
 	StartTurn(context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
 	SteerTurn(context.Context, SteerRequest) error
 	CancelTurn(context.Context, CancelRequest) error
@@ -238,12 +237,11 @@ type TurnSink interface {
 	AssistantTextDelta(providerItemID string, text string) error
 	ApprovalRequested(approval ApprovalRequest) error
 	ApprovalResolved(approvalID string, approved bool, response string) error
-	CodexEffectiveSettingsUpdated(settings ChatCodexEffectiveSettings) error
 	ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error
 	GoalUpdated(goal *ChatGoalState) error
 	RunItemOutputDelta(providerItemID string, stream string, text string) error
 	RunItemUpsert(item RunItem) error
-	ThreadLinked(threadID string, sessionID string, turnID string, settings *ChatCodexEffectiveSettings) error
+	ThreadLinked(threadID string, sessionID string, turnID string) error
 	UserMessageCommitted(text string) error
 	Trace(eventType string, message string) error
 }

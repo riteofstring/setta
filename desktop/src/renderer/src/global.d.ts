@@ -245,6 +245,7 @@ interface WorkflowGraphRuntimeApi {
 declare global {
   interface Window {
     __settaWorkspaceReadFrameMetrics?: () => WorkspaceFrameMetrics;
+    __settaWorkspaceResetFrameMetrics?: () => void;
     __settaWorkspaceActivityDebug?: WorkspaceActivityDebugApi;
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
     __settaWorkflowGraphRuntime?: WorkflowGraphRuntimeApi;

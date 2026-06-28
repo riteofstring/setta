@@ -105,14 +105,11 @@ export async function runQueuedControlsWorkflow({
 
   await submitComposer(client, "immediate replay workflow", "Send steering message");
   await waitForTexts(client, ["immediate replay workflow", "Steering pending"]);
-  // Steering interleaves into the active run's blocks, so the pending steering message lands after
-  // the active run's assistant text and before the queued tail (queued runs sort after the active
-  // run's blocks), rather than after the queued message by conversation ordinal.
   await assertTranscriptSequence(client, [
     "cancel active workflow",
     "Cancel workflow waiting.",
-    "immediate replay workflow",
     "queued follow-up one from active run",
+    "immediate replay workflow",
   ]);
   await waitForPendingSteeringPrompt(
     waitForBackendState,
@@ -163,8 +160,8 @@ export async function runQueuedControlsWorkflow({
   await assertTranscriptSequence(client, [
     "cancel active workflow",
     "immediate replay workflow",
-    "finish immediate replay",
     "Active workflow complete.",
+    "finish immediate replay",
     "queued follow-up one from active run",
     "Queued response for queued follow-up one from active run.",
   ]);

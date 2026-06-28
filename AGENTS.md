@@ -32,7 +32,6 @@
 - Frontend code must handle very large DOMs efficiently.
 - Treat frontend performance verification as first-class. Prefer automated guardrails; use chrome-devtools profiling when deeper analysis is needed.
 - For performance-relevant refactors, baseline first, re-measure after, and record before/after results as append-only reports under `docs/reports/performance/`.
-- When the user refers to the latest recording or a `./scripts/record_desktop_session.sh` session, inspect `.recordings/latest.json` first and then the referenced artifact directory. These recordings are repo-local event, log, and screenshot artifacts under `.recordings/`, not normal `.mov` or `.mp4` desktop captures.
 - Avoid div soup.
 
 ## Code Shape & Safety

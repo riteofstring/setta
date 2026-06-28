@@ -396,10 +396,6 @@ export interface SettaAPI {
       raw: string,
       options?: ChatCommandExecutionOptions,
     ) => Promise<ChatCommandExecuteResult>;
-    openCodexModelPicker: (
-      workspaceId: string,
-      conversationId: string,
-    ) => Promise<ChatCommandExecuteResult>;
     setCodexModel: (
       workspaceId: string,
       conversationId: string,
@@ -424,7 +420,7 @@ export interface SettaAPI {
     messagePage: (
       workspaceId: string,
       conversationId: string,
-      beforeBlockOrdinal: number,
+      beforeOrdinal: number,
       limit: number,
     ) => Promise<MessagePage>;
     queueMessage: (

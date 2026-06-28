@@ -241,38 +241,6 @@ function activityRef(): WorkflowActivityRef {
 
 function runActivityPage(): RunActivityPage {
   return {
-    activity: [
-      {
-        details: {
-          command: "npm test",
-          cwd: "",
-          details: null,
-          diffSummary: "",
-          durationMs: 0,
-          error: "",
-          exitCode: 0,
-          filePaths: [],
-          namespace: "",
-          noticeKind: "",
-          noticeMessage: "",
-          patchStatus: "",
-          processId: "",
-          progress: "",
-          requestId: "",
-          result: "passed",
-          reviewId: "",
-          serverName: "",
-          summary: "",
-          toolName: "",
-        },
-        hasDetails: true,
-        hasOutput: true,
-        sourceRunItemId: "run_item_command",
-        status: "completed",
-        title: "npm test",
-        type: "command_execution",
-      },
-    ],
     items: [runItem()],
     output: [runOutput()],
     runId: "run_a",

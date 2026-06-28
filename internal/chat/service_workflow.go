@@ -74,17 +74,12 @@ func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request 
 	if err != nil {
 		return SendMessageResult{}, err
 	}
-	ingest, err := service.newTranscriptIngestLocked(workspaceID, run)
-	if err != nil {
-		return SendMessageResult{}, err
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.active[key] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
 		runID:            run.ID,
 		workspaceID:      workspaceID,
-		transcript:       ingest,
 	}
 	turnRequest := TurnRequest{
 		Workspace:       workspaceSummary,
