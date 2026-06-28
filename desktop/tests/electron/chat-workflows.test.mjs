@@ -71,6 +71,7 @@ import {
 } from "./chat-workflow-codex-permission-cases.mjs";
 import { runPermissionModeWorkflow } from "./chat-workflow-permission-cases.mjs";
 import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases.mjs";
+import { runRestartRecoveryWorkflow } from "./chat-workflow-restart-recovery-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
 import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
@@ -200,6 +201,7 @@ async function main() {
     process.stdout.write("Electron chat workflow passed: unread-conversations\n");
     await runCodexProtocolWorkflow(results);
     await runRestartWorkflow(results);
+    await runRestartRecoveryWorkflow(results, { recordingRoot, repoRoot });
     await runBackendOrchestratorWorkflowLaunch(results, recordingRoot);
   }
   if (options.live) {
