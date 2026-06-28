@@ -1,15 +1,13 @@
 # Chat Run Liveness And Reconciliation Plan
 
 - **Date:** July 1, 2026
-- **Status:** Draft v9. Phases 0-5 completed; Phase 6 production E2E is
-  in progress. The deterministic stale-liveness, restart-recovery, and
-  shutdown-drain production Electron slices are covered; a dedicated live
-  backend liveness reconciliation regression now covers a real active Codex
-  provider turn, and a live stale-interrupt regression pins the provider error
-  shape from Appendix A. Remaining Phase 6 live-provider coverage is the
-  silent-upstream-loss regression where feasible. The reconciliation decisions
-  below are grounded in the trigger recording, current code paths, and the live
-  app-server findings in Appendix A.
+- **Status:** Draft v10. Phases 0-6 completed. The deterministic
+  stale-liveness, restart-recovery, and shutdown-drain production Electron
+  slices are covered; dedicated live backend regressions now cover a real
+  active Codex provider turn, a silent-upstream-loss reconciliation, and the
+  stale-interrupt provider error shape from Appendix A. The reconciliation
+  decisions below are grounded in the trigger recording, current code paths,
+  and the live app-server findings in Appendix A.
 - **Trigger recording:** `.recordings/20260701T215826Z`
 - **Scope:** Chat runs driven by Codex app-server through the production
   Electron/main/preload/renderer/HTTP/store paths.
@@ -513,18 +511,16 @@ sidebar conversation indicator.
 
 ### Phase 6 - Production E2E
 
-Status: In progress. Added deterministic production Electron coverage for a
-Codex turn that emits a provider delta, then remains silent while
-`thread/read` reports the turn `inProgress`; the renderer reconciles through
-the preload/main/HTTP path and leaves normal Working for the reconciling state.
+Status: Complete. Added deterministic production Electron coverage for a Codex
+turn that emits a provider delta, then remains silent while `thread/read`
+reports the turn `inProgress`; the renderer reconciles through the
+preload/main/HTTP path and leaves normal Working for the reconciling state.
 Also added deterministic production Electron restart-recovery coverage for a
 persisted active run left by an ungraceful backend exit, shutdown-drain
 persistence coverage for a graceful Electron/backend shutdown during an active
 run, live backend Codex coverage for `/chat/runs/reconcile` against a real
-active provider turn, and a live stale-interrupt regression against a backend
-created active provider turn. Remaining Phase 6 coverage: the
-silent-upstream-loss live Codex provider regression check when ChatGPT auth is
-available and that scenario is feasible to automate.
+active provider turn, a live silent-upstream-loss regression, and a live
+stale-interrupt regression against a backend-created active provider turn.
 
 Audit note, July 2, 2026: ChatGPT auth was available. The existing
 `live-codex-electron` workflow and supplemental live backend Codex workflow
@@ -545,6 +541,14 @@ command-bearing turn, calls `turn/interrupt` with a fabricated stale turn id
 against the same provider thread, verifies the provider returns RPC `-32600`
 with no typed `error.data.activeTurnId` payload, and then cancels the Setta run
 through the production HTTP path.
+
+Audit note, July 2, 2026: ChatGPT auth was available. Added and passed a live
+backend Codex silent-upstream-loss regression that runs a real command-bearing
+turn through a local CONNECT proxy, blackholes the app-server's upstream
+tunnels after the command starts, verifies the local command completes while
+`/chat/runs/reconcile` keeps the run honestly `reconciling` with provider
+thread/turn refs, and then cancels the Setta run through the production HTTP
+path.
 
 Deterministic Electron E2E through production main/preload/renderer/HTTP and
 store paths:

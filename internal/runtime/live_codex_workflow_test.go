@@ -1,16 +1,19 @@
 package runtime
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -180,6 +183,82 @@ func TestBackendLiveCodexRunLivenessReconcileDuringActiveTurn(t *testing.T) {
 	assertRuntimeNoCriticalDiagnostics(t, config.AppDataDir)
 }
 
+func TestBackendLiveCodexSilentUpstreamLossReconciliation(t *testing.T) {
+	unsetRuntimeEnv(t, "OPENAI_API_KEY")
+	requireRuntimeLiveCodexChatGPTAuth(t)
+
+	proxy := startRuntimeLiveCodexBlackholeProxy(t)
+	setRuntimeEnv(t, map[string]string{
+		"HTTPS_PROXY": proxy.URL(),
+		"https_proxy": proxy.URL(),
+		"ALL_PROXY":   proxy.URL(),
+		"all_proxy":   proxy.URL(),
+		"NO_PROXY":    "127.0.0.1,localhost,::1",
+		"no_proxy":    "127.0.0.1,localhost,::1",
+	})
+
+	config := testConfig(t)
+	config.Version = "test"
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	defer shutdownServer(t, server)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	baseURL := "http://" + server.Addr()
+
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	conversation := postRuntimeJSON[chat.Conversation](t, client, baseURL, "/chat/conversations/create", httpapi.CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+
+	const liveCommand = "sleep 8; pwd"
+	const smokePhrase = "setta silent upstream loss smoke"
+	prompt := fmt.Sprintf("Run the shell command `%s`, then reply with one short sentence containing the exact phrase %s.", liveCommand, smokePhrase)
+	result := postRuntimeJSON[chat.SendMessageResult](t, client, baseURL, "/chat/messages/send", httpapi.SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Input:          chat.TextChatInput(prompt),
+	}, http.StatusOK)
+	defer cancelRuntimeActiveRunBestEffort(client, baseURL, opened.Workspace.ID, conversation.ID)
+
+	if result.Run.Status != chat.RunStatusRunning {
+		t.Fatalf("initial run status = %q, want running", result.Run.Status)
+	}
+	waitForRuntimeLiveCodexCommandRunning(t, client, baseURL, opened.Workspace.ID, result.Run.ID)
+	if !proxy.WaitForTunnel(10 * time.Second) {
+		t.Skip("Codex app-server did not route upstream traffic through the live test proxy; silent upstream loss is not feasible in this environment")
+	}
+
+	proxy.Blackhole()
+	waitForRuntimeLiveCodexCommandStatus(t, client, baseURL, opened.Workspace.ID, result.Run.ID, chat.RunItemStatusCompleted)
+
+	liveness := waitForRuntimeLiveCodexReconcileStatus(t, client, baseURL, opened.Workspace.ID, conversation.ID, result.Run.ID, chat.RunLivenessReconciling)
+	if liveness.Reason != chat.RunLivenessReasonWakeRecheck {
+		t.Fatalf("reconciled liveness reason = %q, want %q: %+v", liveness.Reason, chat.RunLivenessReasonWakeRecheck, liveness)
+	}
+	if !liveness.Retryable || !liveness.Cancellable {
+		t.Fatalf("reconciled liveness retryable/cancellable = %t/%t, want true/true: %+v", liveness.Retryable, liveness.Cancellable, liveness)
+	}
+	if liveness.ProviderThreadID == "" || liveness.ProviderTurnID == "" {
+		t.Fatalf("reconciled liveness missing provider refs: %+v", liveness)
+	}
+	assertRuntimeLiveCodexRunStillReconciling(t, client, baseURL, opened.Workspace.ID, conversation.ID, result.Run.ID, 3*time.Second)
+
+	cancelled := postRuntimeJSON[chat.Run](t, client, baseURL, "/chat/runs/cancel", httpapi.CancelRunRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	if cancelled.Status != chat.RunStatusCancelled {
+		t.Fatalf("cancelled run status = %q, want cancelled", cancelled.Status)
+	}
+	waitForRuntimeNoActiveRun(t, client, baseURL, opened.Workspace.ID, conversation.ID)
+	assertRuntimeNoCriticalDiagnostics(t, config.AppDataDir)
+}
+
 func TestBackendLiveCodexStaleTurnInterruptRegression(t *testing.T) {
 	unsetRuntimeEnv(t, "OPENAI_API_KEY")
 	requireRuntimeLiveCodexChatGPTAuth(t)
@@ -293,6 +372,11 @@ func waitForRuntimeLiveCodexReply(t *testing.T, client *http.Client, baseURL str
 
 func waitForRuntimeLiveCodexCommandRunning(t *testing.T, client *http.Client, baseURL string, workspaceID string, runID string) chat.RunActivityPage {
 	t.Helper()
+	return waitForRuntimeLiveCodexCommandStatus(t, client, baseURL, workspaceID, runID, chat.RunItemStatusRunning)
+}
+
+func waitForRuntimeLiveCodexCommandStatus(t *testing.T, client *http.Client, baseURL string, workspaceID string, runID string, status chat.RunItemStatus) chat.RunActivityPage {
+	t.Helper()
 
 	deadline := time.Now().Add(90 * time.Second)
 	var lastPage chat.RunActivityPage
@@ -304,13 +388,13 @@ func waitForRuntimeLiveCodexCommandRunning(t *testing.T, client *http.Client, ba
 		}, http.StatusOK)
 		lastPage = page
 		for _, item := range page.Items {
-			if item.Type == chat.RunItemTypeCommandExecution && item.Status == chat.RunItemStatusRunning {
+			if item.Type == chat.RunItemTypeCommandExecution && item.Status == status {
 				return page
 			}
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
-	t.Fatalf("timed out waiting for live Codex command execution to run; last activity = %+v", lastPage)
+	t.Fatalf("timed out waiting for live Codex command execution status %q; last activity = %+v", status, lastPage)
 	return chat.RunActivityPage{}
 }
 
@@ -354,6 +438,25 @@ func waitForRuntimeNoActiveRun(t *testing.T, client *http.Client, baseURL string
 		time.Sleep(250 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for active run to clear; last active = %+v", lastActive)
+}
+
+func assertRuntimeLiveCodexRunStillReconciling(t *testing.T, client *http.Client, baseURL string, workspaceID string, conversationID string, runID string, duration time.Duration) {
+	t.Helper()
+
+	deadline := time.Now().Add(duration)
+	for time.Now().Before(deadline) {
+		active := postRuntimeJSON[httpapi.GetActiveRunResponse](t, client, baseURL, "/chat/runs/active", httpapi.GetActiveRunRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+		}, http.StatusOK)
+		if !active.HasActiveRun || active.Run == nil || active.Run.ID != runID {
+			t.Fatalf("active run during upstream blackhole = %+v, want run %s still active", active, runID)
+		}
+		if active.Liveness == nil || active.Liveness.Status != chat.RunLivenessReconciling {
+			t.Fatalf("active run liveness during upstream blackhole = %+v, want reconciling", active.Liveness)
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
 }
 
 func getRuntimeJSON[T any](t *testing.T, client *http.Client, baseURL string, path string) T {
@@ -537,6 +640,215 @@ func requireRuntimeLiveCodexChatGPTAuth(t *testing.T) {
 		t.Skip("Codex is signed in with API-key auth; ChatGPT auth is required")
 	default:
 		t.Skipf("Codex account type %s is not supported for live tests", state.Account.Type)
+	}
+}
+
+type runtimeLiveCodexBlackholeProxy struct {
+	listener net.Listener
+	done     chan struct{}
+
+	mu         sync.Mutex
+	blackholed bool
+	tunnels    map[*runtimeLiveCodexProxyTunnel]struct{}
+
+	firstTunnel     chan struct{}
+	firstTunnelOnce sync.Once
+}
+
+type runtimeLiveCodexProxyTunnel struct {
+	blackhole chan struct{}
+}
+
+func startRuntimeLiveCodexBlackholeProxy(t *testing.T) *runtimeLiveCodexBlackholeProxy {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for live Codex proxy: %v", err)
+	}
+	proxy := &runtimeLiveCodexBlackholeProxy{
+		listener:    listener,
+		done:        make(chan struct{}),
+		tunnels:     map[*runtimeLiveCodexProxyTunnel]struct{}{},
+		firstTunnel: make(chan struct{}),
+	}
+	go proxy.acceptLoop()
+	t.Cleanup(proxy.Close)
+	return proxy
+}
+
+func (proxy *runtimeLiveCodexBlackholeProxy) URL() string {
+	return "http://" + proxy.listener.Addr().String()
+}
+
+func (proxy *runtimeLiveCodexBlackholeProxy) WaitForTunnel(timeout time.Duration) bool {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-proxy.firstTunnel:
+		return true
+	case <-timer.C:
+		return false
+	case <-proxy.done:
+		return false
+	}
+}
+
+func (proxy *runtimeLiveCodexBlackholeProxy) Blackhole() {
+	proxy.mu.Lock()
+	defer proxy.mu.Unlock()
+
+	proxy.blackholed = true
+	for tunnel := range proxy.tunnels {
+		closeTunnelBlackhole(tunnel)
+	}
+}
+
+func (proxy *runtimeLiveCodexBlackholeProxy) Close() {
+	select {
+	case <-proxy.done:
+		return
+	default:
+		close(proxy.done)
+		_ = proxy.listener.Close()
+	}
+}
+
+func (proxy *runtimeLiveCodexBlackholeProxy) acceptLoop() {
+	for {
+		conn, err := proxy.listener.Accept()
+		if err != nil {
+			return
+		}
+		go proxy.handle(conn)
+	}
+}
+
+func (proxy *runtimeLiveCodexBlackholeProxy) handle(client net.Conn) {
+	defer client.Close()
+
+	reader := bufio.NewReader(client)
+	request, err := http.ReadRequest(reader)
+	if err != nil {
+		return
+	}
+	if request.Body != nil {
+		_ = request.Body.Close()
+	}
+	if request.Method != http.MethodConnect {
+		_, _ = io.WriteString(client, "HTTP/1.1 405 Method Not Allowed\r\nConnection: close\r\n\r\n")
+		return
+	}
+
+	upstream, err := net.DialTimeout("tcp", request.Host, 10*time.Second)
+	if err != nil {
+		_, _ = io.WriteString(client, "HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n")
+		return
+	}
+	defer upstream.Close()
+	if _, err := io.WriteString(client, "HTTP/1.1 200 Connection Established\r\n\r\n"); err != nil {
+		return
+	}
+
+	tunnel := proxy.registerTunnel()
+	defer proxy.unregisterTunnel(tunnel)
+
+	errc := make(chan struct{}, 2)
+	go copyRuntimeLiveCodexProxyTunnel(errc, upstream, reader, tunnel.blackhole)
+	go copyRuntimeLiveCodexProxyTunnel(errc, client, upstream, tunnel.blackhole)
+
+	select {
+	case <-errc:
+	case <-tunnel.blackhole:
+		<-proxy.done
+	case <-proxy.done:
+	}
+}
+
+func (proxy *runtimeLiveCodexBlackholeProxy) registerTunnel() *runtimeLiveCodexProxyTunnel {
+	tunnel := &runtimeLiveCodexProxyTunnel{blackhole: make(chan struct{})}
+
+	proxy.mu.Lock()
+	proxy.tunnels[tunnel] = struct{}{}
+	blackholed := proxy.blackholed
+	proxy.mu.Unlock()
+
+	proxy.firstTunnelOnce.Do(func() {
+		close(proxy.firstTunnel)
+	})
+	if blackholed {
+		closeTunnelBlackhole(tunnel)
+	}
+	return tunnel
+}
+
+func (proxy *runtimeLiveCodexBlackholeProxy) unregisterTunnel(tunnel *runtimeLiveCodexProxyTunnel) {
+	proxy.mu.Lock()
+	defer proxy.mu.Unlock()
+	delete(proxy.tunnels, tunnel)
+}
+
+func closeTunnelBlackhole(tunnel *runtimeLiveCodexProxyTunnel) {
+	select {
+	case <-tunnel.blackhole:
+	default:
+		close(tunnel.blackhole)
+	}
+}
+
+func copyRuntimeLiveCodexProxyTunnel(done chan<- struct{}, dst net.Conn, src io.Reader, blackhole <-chan struct{}) {
+	buf := make([]byte, 32*1024)
+	for {
+		select {
+		case <-blackhole:
+			return
+		default:
+		}
+		if conn, ok := src.(net.Conn); ok {
+			_ = conn.SetReadDeadline(time.Now().Add(250 * time.Millisecond))
+		}
+		n, err := src.Read(buf)
+		if n > 0 {
+			select {
+			case <-blackhole:
+				return
+			default:
+			}
+			_ = dst.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if _, writeErr := dst.Write(buf[:n]); writeErr != nil {
+				done <- struct{}{}
+				return
+			}
+		}
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				continue
+			}
+			done <- struct{}{}
+			return
+		}
+	}
+}
+
+func setRuntimeEnv(t *testing.T, values map[string]string) {
+	t.Helper()
+
+	for name, value := range values {
+		previous, ok := os.LookupEnv(name)
+		if err := os.Setenv(name, value); err != nil {
+			t.Fatalf("set %s: %v", name, err)
+		}
+		t.Cleanup(func() {
+			if ok {
+				if err := os.Setenv(name, previous); err != nil {
+					t.Fatalf("restore %s: %v", name, err)
+				}
+				return
+			}
+			if err := os.Unsetenv(name); err != nil {
+				t.Fatalf("restore unset %s: %v", name, err)
+			}
+		})
 	}
 }
 
