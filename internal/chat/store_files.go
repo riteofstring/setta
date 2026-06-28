@@ -125,6 +125,26 @@ func (store *Store) runItemOutputPath(workspaceID string, runID string, runItemI
 	return filepath.Join(store.runItemOutputsDir(workspaceID, runID, runItemID), messageFileName(ordinal, outputID))
 }
 
+func (store *Store) backgroundTerminalsDir(workspaceID string, conversationID string) string {
+	return filepath.Join(store.conversationDir(workspaceID, conversationID), backgroundTerminalsDirName)
+}
+
+func (store *Store) backgroundTerminalPath(workspaceID string, conversationID string, processID string) string {
+	return filepath.Join(store.backgroundTerminalsDir(workspaceID, conversationID), processID+".json")
+}
+
+func (store *Store) backgroundTerminalOutputRootDir(workspaceID string, conversationID string) string {
+	return filepath.Join(store.conversationDir(workspaceID, conversationID), backgroundTerminalOutputDirName)
+}
+
+func (store *Store) backgroundTerminalOutputDir(workspaceID string, conversationID string, processID string) string {
+	return filepath.Join(store.backgroundTerminalOutputRootDir(workspaceID, conversationID), processID)
+}
+
+func (store *Store) backgroundTerminalOutputPath(workspaceID string, conversationID string, processID string, ordinal int, outputID string) string {
+	return filepath.Join(store.backgroundTerminalOutputDir(workspaceID, conversationID, processID), messageFileName(ordinal, outputID))
+}
+
 func (store *Store) transcriptBlocksDir(workspaceID string, runID string) string {
 	return filepath.Join(store.runDataDir(workspaceID, runID), transcriptBlocksDirName)
 }

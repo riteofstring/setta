@@ -345,6 +345,7 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	next.DiffSummary = keepString(next.DiffSummary, existing.DiffSummary)
 	next.Namespace = keepString(next.Namespace, existing.Namespace)
 	next.ProcessID = keepString(next.ProcessID, existing.ProcessID)
+	next.Source = keepCommandSource(next.Source, existing.Source)
 	next.RequestID = keepString(next.RequestID, existing.RequestID)
 	next.ReviewID = keepString(next.ReviewID, existing.ReviewID)
 	next.Details = keepRawMessage(next.Details, existing.Details)
@@ -354,6 +355,18 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 
 func keepString(next string, existing string) string {
 	if next != "" {
+		return next
+	}
+	return existing
+}
+
+// keepCommandSource preserves a previously projected command source when a later
+// upsert omits it. The Codex schema makes commandExecution.source optional, so an
+// update notification can arrive without it; without this, a background terminal
+// startup's unified_exec_startup discriminator would be silently cleared by the
+// next upsert for the same provider item.
+func keepCommandSource(next *RunItemCommandSource, existing *RunItemCommandSource) *RunItemCommandSource {
+	if next != nil {
 		return next
 	}
 	return existing

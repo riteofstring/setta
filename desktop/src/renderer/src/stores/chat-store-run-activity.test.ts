@@ -186,6 +186,7 @@ function runItem(id: string, type: RunItemType, status: RunItemStatus): RunItem 
     runId: "run_api",
     schemaVersion: 1,
     serverName: "",
+    source: null,
     startedAt: "2026-05-29T20:00:00Z",
     status,
     summary: "",

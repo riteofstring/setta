@@ -591,6 +591,7 @@ function runItem(id: string, runId: string, status: RunItem["status"]): RunItem 
     reviewId: "",
     schemaVersion: 1,
     serverName: "",
+    source: null,
     startedAt: "2026-05-29T20:00:01Z",
     status,
     summary: "",

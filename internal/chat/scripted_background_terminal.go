@@ -60,10 +60,13 @@ func scriptedBackgroundTerminalTurn(_ *ScriptedWorkflowHarness, _ context.Contex
 
 // emitBackgroundTerminalStartup emits one unified-exec style command that the
 // assistant leaves running past the turn. It only ever upserts the running
-// state: there is no completed upsert, because the process keeps running. Phase
-// 1 will additionally mark this item with RunItemCommandSource so the backend
-// can recognize it as a background terminal rather than a normal command.
+// state: there is no completed upsert, because the process keeps running. The
+// item carries RunItemCommandSourceUnifiedExecStartup so the backend can
+// recognize it as a background terminal rather than a normal command; the
+// provider process handle is supplied so later phases can route output and
+// terminate requests by process ID.
 func emitBackgroundTerminalStartup(request TurnRequest, sink TurnSink, providerItemID string, command string, outputChunks int) error {
+	source := RunItemCommandSourceUnifiedExecStartup
 	item := RunItem{
 		ProviderItemID: providerItemID,
 		Type:           RunItemTypeCommandExecution,
@@ -71,6 +74,8 @@ func emitBackgroundTerminalStartup(request TurnRequest, sink TurnSink, providerI
 		Command:        command,
 		Cwd:            request.Workspace.RootPath,
 		Summary:        "Background terminal left running after the turn completed.",
+		Source:         &source,
+		ProcessID:      "proc-" + providerItemID,
 	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err

@@ -243,6 +243,7 @@ function runItem(id: string): RunItem {
     runId: "run_a",
     schemaVersion: 1,
     serverName: "",
+    source: null,
     startedAt: "",
     status: "completed",
     summary: "",

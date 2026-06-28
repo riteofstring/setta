@@ -36,6 +36,58 @@ func (service *Service) recoverInterruptedRuns() error {
 	return nil
 }
 
+// recoverBackgroundTerminals marks every persisted running or terminating
+// background terminal as lost on backend startup. Codex command/exec sessions
+// are connection-scoped, so a restart drops the provider process handle and the
+// backend can no longer honestly claim the process is controllable. Exited and
+// already-lost terminals are left untouched.
+func (service *Service) recoverBackgroundTerminals() error {
+	workspaceIDs, err := service.store.WorkspaceIDs()
+	if err != nil {
+		return err
+	}
+	now := timestamp(service.now())
+	for _, workspaceID := range workspaceIDs {
+		conversationIDs, err := service.store.conversationIDs(workspaceID)
+		if err != nil {
+			return err
+		}
+		for _, conversationID := range conversationIDs {
+			if conversationID == UIShowcaseConversationID {
+				continue
+			}
+			if err := service.recoverConversationBackgroundTerminals(workspaceID, conversationID, now); err != nil {
+				if IsCorruptStateError(err) {
+					service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, "")
+					continue
+				}
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (service *Service) recoverConversationBackgroundTerminals(workspaceID string, conversationID string, now string) error {
+	processes, err := service.store.ListBackgroundTerminalProcesses(workspaceID, conversationID)
+	if err != nil {
+		return err
+	}
+	for _, process := range processes {
+		if !backgroundTerminalStatusIsActive(process.Status) {
+			continue
+		}
+		process.Status = BackgroundTerminalLost
+		process.Error = backgroundTerminalLostOnRestartReason
+		process.UpdatedAt = now
+		process.CompletedAt = now
+		if err := service.store.SaveBackgroundTerminalProcess(process); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (service *Service) recoverInterruptedRun(workspaceID string, run Run, now string) error {
 	message, ok, err := service.store.FindMessageByID(workspaceID, run.ConversationID, run.AssistantMessageID)
 	if err != nil {

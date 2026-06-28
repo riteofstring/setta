@@ -307,6 +307,7 @@ function runItem(): RunItem {
     runId: "run_a",
     schemaVersion: 1,
     serverName: "",
+    source: null,
     startedAt: "2026-06-07T00:00:01Z",
     status: "completed",
     summary: "",

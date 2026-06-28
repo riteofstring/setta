@@ -383,6 +383,7 @@ function runItem(id: string, runId: string): RunItem {
     runId,
     schemaVersion: 1,
     serverName: "",
+    source: null,
     startedAt: "2026-05-29T20:00:00Z",
     status: "running",
     summary: "",

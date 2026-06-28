@@ -99,6 +99,10 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		service.recordCorruptStateDiagnostic(err, "", "", "")
 		return nil, err
 	}
+	if err := service.recoverBackgroundTerminals(); err != nil {
+		service.recordCorruptStateDiagnostic(err, "", "", "")
+		return nil, err
+	}
 	return service, nil
 }
 

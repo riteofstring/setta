@@ -18,6 +18,7 @@ type ApprovalStatus string
 type ApprovalKind string
 type RunItemStatus string
 type RunItemType string
+type RunItemCommandSource string
 type DiagnosticSeverity string
 type DiagnosticSource string
 type ChatCommandKind string
@@ -104,6 +105,15 @@ const (
 	RunItemTypeApprovalReview      RunItemType = "approval_review"
 	RunItemTypeHook                RunItemType = "hook"
 	RunItemTypeStructuredInput     RunItemType = "structured_input"
+
+	// RunItemCommandSource preserves the Codex app-server CommandExecutionSource
+	// discriminator so the backend can tell a normal agent command from a
+	// background terminal lifecycle event without inspecting command text. See
+	// docs/plans/background_terminal_lifecycle_plan.md.
+	RunItemCommandSourceAgent                  RunItemCommandSource = "agent"
+	RunItemCommandSourceUserShell              RunItemCommandSource = "user_shell"
+	RunItemCommandSourceUnifiedExecStartup     RunItemCommandSource = "unified_exec_startup"
+	RunItemCommandSourceUnifiedExecInteraction RunItemCommandSource = "unified_exec_interaction"
 
 	DiagnosticSeverityInfo     DiagnosticSeverity = "info"
 	DiagnosticSeverityWarning  DiagnosticSeverity = "warning"
@@ -233,6 +243,12 @@ var (
 		RunItemTypeHook,
 		RunItemTypeStructuredInput,
 	}
+	runItemCommandSourceValues = []RunItemCommandSource{
+		RunItemCommandSourceAgent,
+		RunItemCommandSourceUserShell,
+		RunItemCommandSourceUnifiedExecStartup,
+		RunItemCommandSourceUnifiedExecInteraction,
+	}
 	diagnosticSeverityValues = []DiagnosticSeverity{
 		DiagnosticSeverityInfo,
 		DiagnosticSeverityWarning,
@@ -306,6 +322,8 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "ApprovalKind", Values: stringValues(approvalKindValues)},
 		{Name: "RunItemStatus", Values: stringValues(runItemStatusValues)},
 		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
+		{Name: "RunItemCommandSource", Values: stringValues(runItemCommandSourceValues)},
+		{Name: "BackgroundTerminalStatus", Values: stringValues(backgroundTerminalStatusValues)},
 		{Name: "DiagnosticSeverity", Values: stringValues(diagnosticSeverityValues)},
 		{Name: "DiagnosticSource", Values: stringValues(diagnosticSourceValues)},
 		{Name: "StructuredInputMode", Values: stringValues(structuredInputModeValues)},
@@ -504,39 +522,44 @@ func (diagnostic Diagnostic) MarshalJSON() ([]byte, error) {
 }
 
 type RunItem struct {
-	SchemaVersion  int             `json:"schemaVersion"`
-	ID             string          `json:"id"`
-	WorkspaceID    string          `json:"workspaceId"`
-	ConversationID string          `json:"conversationId"`
-	RunID          string          `json:"runId"`
-	ProviderItemID string          `json:"providerItemId"`
-	Type           RunItemType     `json:"type"`
-	Status         RunItemStatus   `json:"status"`
-	CreatedAt      string          `json:"createdAt"`
-	StartedAt      string          `json:"startedAt"`
-	CompletedAt    string          `json:"completedAt"`
-	Title          string          `json:"title"`
-	Summary        string          `json:"summary"`
-	Command        string          `json:"command"`
-	Cwd            string          `json:"cwd"`
-	ExitCode       int             `json:"exitCode"`
-	DurationMs     int             `json:"durationMs"`
-	FilePaths      []string        `json:"filePaths"`
-	PatchStatus    string          `json:"patchStatus"`
-	ServerName     string          `json:"serverName"`
-	ToolName       string          `json:"toolName"`
-	Progress       string          `json:"progress"`
-	Result         string          `json:"result"`
-	Error          string          `json:"error"`
-	NoticeKind     string          `json:"noticeKind"`
-	NoticeMessage  string          `json:"noticeMessage"`
-	DiffSummary    string          `json:"diffSummary"`
-	Namespace      string          `json:"namespace"`
-	ProcessID      string          `json:"processId"`
-	RequestID      string          `json:"requestId"`
-	ReviewID       string          `json:"reviewId"`
-	Details        json.RawMessage `json:"details"`
-	HiddenText     string          `json:"hiddenText"`
+	SchemaVersion  int           `json:"schemaVersion"`
+	ID             string        `json:"id"`
+	WorkspaceID    string        `json:"workspaceId"`
+	ConversationID string        `json:"conversationId"`
+	RunID          string        `json:"runId"`
+	ProviderItemID string        `json:"providerItemId"`
+	Type           RunItemType   `json:"type"`
+	Status         RunItemStatus `json:"status"`
+	CreatedAt      string        `json:"createdAt"`
+	StartedAt      string        `json:"startedAt"`
+	CompletedAt    string        `json:"completedAt"`
+	Title          string        `json:"title"`
+	Summary        string        `json:"summary"`
+	Command        string        `json:"command"`
+	Cwd            string        `json:"cwd"`
+	ExitCode       int           `json:"exitCode"`
+	DurationMs     int           `json:"durationMs"`
+	FilePaths      []string      `json:"filePaths"`
+	PatchStatus    string        `json:"patchStatus"`
+	ServerName     string        `json:"serverName"`
+	ToolName       string        `json:"toolName"`
+	Progress       string        `json:"progress"`
+	Result         string        `json:"result"`
+	Error          string        `json:"error"`
+	NoticeKind     string        `json:"noticeKind"`
+	NoticeMessage  string        `json:"noticeMessage"`
+	DiffSummary    string        `json:"diffSummary"`
+	Namespace      string        `json:"namespace"`
+	ProcessID      string        `json:"processId"`
+	// Source is the provider command-execution source for command_execution and
+	// terminal_interaction items. It is nil for item types that have no command
+	// source; the renderer decodes the absent value as null rather than coercing
+	// it to a default.
+	Source     *RunItemCommandSource `json:"source"`
+	RequestID  string                `json:"requestId"`
+	ReviewID   string                `json:"reviewId"`
+	Details    json.RawMessage       `json:"details"`
+	HiddenText string                `json:"hiddenText"`
 }
 
 type RunItemOutput struct {

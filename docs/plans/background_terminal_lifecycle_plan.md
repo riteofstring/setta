@@ -581,6 +581,60 @@ background-terminal E2E path.
 - Add store save/load/list/delete/page methods with fail-loud validation.
 - Mark running persisted processes as `lost` on backend startup.
 
+#### Phase 1 Status (complete)
+
+Done:
+
+- `RunItemCommandSource` (`agent`, `user_shell`, `unified_exec_startup`,
+  `unified_exec_interaction`) added in `types.go` and registered as a contract
+  value set. `RunItem` gained `Source *RunItemCommandSource` (nil for items with
+  no command source, so the renderer decodes it as `null` instead of coercing a
+  default). The Codex projection (`codex_protocol.go`
+  `codexRunItemExecutionFieldsFromItem`) now parses `commandExecution.source` and
+  `processId`; an unknown source fails loudly via `mapCodexCommandSource` rather
+  than falling back to `agent`.
+- Review fixes (round 2): `mergeRunItem` now preserves `Source` across upserts
+  (`keepCommandSource`), so an update that omits the optional `source` cannot
+  silently clear a background terminal's discriminator. The
+  `terminalInteraction` notification handler was decoding a non-existent `text`
+  field; it now uses the generated `DecodeTerminalInteractionNotification`
+  (`itemId`/`processId`/`stdin`/`threadId`/`turnId`), carries `ProcessID` and
+  `Source = unified_exec_interaction`, and treats an empty `stdin` as a wait
+  no-op. The wait/interact routing (status line vs slim block) remains Phase 2.
+  Empty/invalid lifecycle identifiers (`itemId`, `processId`) are rejected
+  loudly. Likewise, `codexRunItemCommandSourceFromItem` distinguishes an absent
+  `source` (nil, for item types with no command source) from a present-but-empty
+  or null one (protocol drift, fails loudly) since `CommandExecutionSource` is an
+  enum.
+- The Phase 0 scripted fixture (`emitBackgroundTerminalStartup`) marks its
+  startups with `RunItemCommandSourceUnifiedExecStartup` plus a provider
+  `processId`, so `TestServiceFinalizesBackgroundTerminalWithRun` is now
+  background-terminal-specific (still green: finalization still coerces them to
+  complete; that flips in Phase 4).
+- The Phase 0 bug test flipped: `TestCodexUnifiedExecCommandSourceIsDropped`
+  became `TestCodexUnifiedExecCommandSourcePreserved`, and
+  `TestCodexUnifiedExecUnknownCommandSourceFailsLoud` covers the fail-loud path.
+- Domain model in `background_terminal.go`: `BackgroundTerminalStatus`
+  (`running`, `terminating`, `exited`, `lost`), `BackgroundTerminalProcess`,
+  `BackgroundTerminalOutput`, `BackgroundTerminalOutputPage`, with validation in
+  `validate.go` (terminal status requires `completedAt`; active status forbids
+  it). `BackgroundTerminalStatus` is registered as a value set but is not yet
+  emitted to TypeScript: the generator only emits types reachable from an
+  endpoint or event, which arrive in Phase 3.
+- Store CRUD + paging in `store_background_terminals.go`, keyed under the
+  conversation (`background_terminals/<process-id>.json` and
+  `background_terminal_output/<process-id>/<ordinal>_<id>.json`) where
+  `<process-id>` is the stable Setta `ID`. `BackgroundTerminalOutput.ProcessID`
+  is that stable join key, not the provider handle.
+- Startup recovery (`service_recovery.go` `recoverBackgroundTerminals`, wired in
+  `NewService`) marks every persisted `running`/`terminating` terminal `lost`
+  with `backgroundTerminalLostOnRestartReason`; `exited`/`lost` are untouched.
+
+Deferred to later phases (unchanged from the plan): provider ingestion routing
+(Phase 2), events + HTTP endpoints + IPC and the `BackgroundTerminalStatus` /
+`BackgroundTerminalProcess` TypeScript surface they make reachable (Phase 3),
+renderer store + footer + monitor + transcript marker block (Phase 4).
+
 ### Phase 2: Provider Ingestion
 
 - Refactor Codex notification routing so unified exec lifecycle events can update

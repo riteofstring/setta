@@ -923,6 +923,26 @@ export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind")
   }
 }
 
+export type RunItemCommandSource = "agent" | "user_shell" | "unified_exec_startup" | "unified_exec_interaction";
+
+export const runItemCommandSourceValues = ["agent", "user_shell", "unified_exec_startup", "unified_exec_interaction"] as const satisfies readonly RunItemCommandSource[];
+
+export function decodeRunItemCommandSource(value: unknown, label = "RunItemCommandSource"): RunItemCommandSource {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "agent":
+      return decoded;
+    case "user_shell":
+      return decoded;
+    case "unified_exec_startup":
+      return decoded;
+    case "unified_exec_interaction":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type WorkflowNodeKind = "start" | "end" | "action" | "gateway.and" | "gateway.or" | "gateway.xor" | "loop.guard";
 
 export const workflowNodeKindValues = ["start", "end", "action", "gateway.and", "gateway.or", "gateway.xor", "loop.guard"] as const satisfies readonly WorkflowNodeKind[];
@@ -3222,6 +3242,7 @@ export interface RunItem {
   diffSummary: string;
   namespace: string;
   processId: string;
+  source: RunItemCommandSource | null;
   requestId: string;
   reviewId: string;
   details: unknown;
@@ -7194,7 +7215,7 @@ export function decodeGetRunActivityRequest(value: unknown): GetRunActivityReque
 
 export function decodeRunItem(value: unknown): RunItem {
   const record = assertRecord(value, "RunItem");
-  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "hiddenText"]);
+  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "source", "requestId", "reviewId", "details", "hiddenText"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItem"), "RunItem.schemaVersion"),
     id: decodeString(requireField(record, "id", "RunItem"), "RunItem.id"),
@@ -7225,6 +7246,7 @@ export function decodeRunItem(value: unknown): RunItem {
     diffSummary: decodeString(requireField(record, "diffSummary", "RunItem"), "RunItem.diffSummary"),
     namespace: decodeString(requireField(record, "namespace", "RunItem"), "RunItem.namespace"),
     processId: decodeString(requireField(record, "processId", "RunItem"), "RunItem.processId"),
+    source: decodeNullable(requireField(record, "source", "RunItem"), "RunItem.source", (item) => decodeRunItemCommandSource(item, "RunItem.source")),
     requestId: decodeString(requireField(record, "requestId", "RunItem"), "RunItem.requestId"),
     reviewId: decodeString(requireField(record, "reviewId", "RunItem"), "RunItem.reviewId"),
     details: decodeUnknown(requireField(record, "details", "RunItem"), "RunItem.details"),

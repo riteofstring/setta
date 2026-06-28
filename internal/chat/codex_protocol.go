@@ -158,6 +158,8 @@ type codexRunItemExecutionFields struct {
 	cwd        string
 	durationMs int
 	exitCode   int
+	processID  string
+	source     *RunItemCommandSource
 }
 
 type codexRunItemFileToolFields struct {
@@ -204,6 +206,8 @@ func runItemFromCodexItem(item map[string]any, status RunItemStatus) (RunItem, e
 		Cwd:            executionFields.cwd,
 		ExitCode:       executionFields.exitCode,
 		DurationMs:     executionFields.durationMs,
+		ProcessID:      executionFields.processID,
+		Source:         executionFields.source,
 		FilePaths:      fileToolFields.filePaths,
 		PatchStatus:    fileToolFields.patchStatus,
 		ServerName:     fileToolFields.serverName,
@@ -288,7 +292,59 @@ func codexRunItemExecutionFieldsFromItem(item map[string]any) (codexRunItemExecu
 	if err != nil {
 		return codexRunItemExecutionFields{}, err
 	}
-	return codexRunItemExecutionFields{command: command, cwd: cwd, exitCode: exitCode, durationMs: durationMs}, nil
+	processID, err := optionalString(item, "processId", "codex item")
+	if err != nil {
+		return codexRunItemExecutionFields{}, err
+	}
+	source, err := codexRunItemCommandSourceFromItem(item)
+	if err != nil {
+		return codexRunItemExecutionFields{}, err
+	}
+	return codexRunItemExecutionFields{
+		command:    command,
+		cwd:        cwd,
+		exitCode:   exitCode,
+		durationMs: durationMs,
+		processID:  processID,
+		source:     source,
+	}, nil
+}
+
+// codexRunItemCommandSourceFromItem maps the Codex app-server
+// CommandExecutionSource discriminator. An ABSENT source is nil (item types
+// without a command source). A PRESENT source must be a valid enum value: the
+// schema defines CommandExecutionSource as an enum, so an empty string, null,
+// non-string, or unknown value is provider protocol drift and fails loudly
+// rather than silently dropping the discriminator or falling back to agent.
+func codexRunItemCommandSourceFromItem(item map[string]any) (*RunItemCommandSource, error) {
+	raw, present := item["source"]
+	if !present {
+		return nil, nil
+	}
+	text, ok := raw.(string)
+	if !ok || text == "" {
+		return nil, fmt.Errorf("codex item.source must be a non-empty CommandExecutionSource: %v", raw)
+	}
+	source, err := mapCodexCommandSource(text)
+	if err != nil {
+		return nil, err
+	}
+	return &source, nil
+}
+
+var codexCommandSourceByCodexSource = map[string]RunItemCommandSource{
+	"agent":                  RunItemCommandSourceAgent,
+	"userShell":              RunItemCommandSourceUserShell,
+	"unifiedExecStartup":     RunItemCommandSourceUnifiedExecStartup,
+	"unifiedExecInteraction": RunItemCommandSourceUnifiedExecInteraction,
+}
+
+func mapCodexCommandSource(source string) (RunItemCommandSource, error) {
+	mapped, ok := codexCommandSourceByCodexSource[source]
+	if !ok {
+		return "", fmt.Errorf("unsupported codex command execution source: %s", source)
+	}
+	return mapped, nil
 }
 
 func codexRunItemFileToolFieldsFromItem(item map[string]any) (codexRunItemFileToolFields, error) {

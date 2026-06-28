@@ -22,6 +22,9 @@ const (
 	runItemOutputsDirName    = "outputs"
 	tracesDirName            = "traces"
 	diagnosticsDirName       = "diagnostics"
+
+	backgroundTerminalsDirName      = "background_terminals"
+	backgroundTerminalOutputDirName = "background_terminal_output"
 )
 
 type Store struct {
