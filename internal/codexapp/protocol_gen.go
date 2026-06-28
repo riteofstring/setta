@@ -12,6 +12,7 @@ const (
 	CodexMethodThreadGoalClear      = "thread/goal/clear"
 	CodexMethodThreadGoalGet        = "thread/goal/get"
 	CodexMethodThreadGoalSet        = "thread/goal/set"
+	CodexMethodThreadRead           = "thread/read"
 	CodexMethodThreadResume         = "thread/resume"
 	CodexMethodThreadSettingsUpdate = "thread/settings/update"
 	CodexMethodThreadStart          = "thread/start"
@@ -27,6 +28,7 @@ var CodexMethodValues = []string{
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
 	CodexMethodThreadGoalSet,
+	CodexMethodThreadRead,
 	CodexMethodThreadResume,
 	CodexMethodThreadSettingsUpdate,
 	CodexMethodThreadStart,
@@ -128,6 +130,7 @@ var CodexSupportedMethodValues = []string{
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
 	CodexMethodThreadGoalSet,
+	CodexMethodThreadRead,
 	CodexMethodThreadResume,
 	CodexMethodThreadSettingsUpdate,
 	CodexMethodThreadStart,
@@ -3968,6 +3971,52 @@ func validateThreadNameUpdatedNotification(raw json.RawMessage, name string) err
 func DecodeThreadNameUpdatedNotification(raw json.RawMessage) (ThreadNameUpdatedNotification, error) {
 	var value ThreadNameUpdatedNotification
 	err := decodeCodexObject(raw, "ThreadNameUpdatedNotification", validateThreadNameUpdatedNotification, &value)
+	return value, err
+}
+
+type ThreadReadParams struct {
+	IncludeTurns *bool  `json:"includeTurns,omitempty"`
+	ThreadID     string `json:"threadId"`
+}
+
+func validateThreadReadParams(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "threadId"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeThreadReadParams(raw json.RawMessage) (ThreadReadParams, error) {
+	var value ThreadReadParams
+	err := decodeCodexObject(raw, "ThreadReadParams", validateThreadReadParams, &value)
+	return value, err
+}
+
+type ThreadReadResponse struct {
+	Thread Thread `json:"thread"`
+}
+
+func validateThreadReadResponse(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "thread"}}); err != nil {
+		return err
+	}
+	if err := validateCodexObjectField(fields, "thread", name+".thread", false, validateThread); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeThreadReadResponse(raw json.RawMessage) (ThreadReadResponse, error) {
+	var value ThreadReadResponse
+	err := decodeCodexObject(raw, "ThreadReadResponse", validateThreadReadResponse, &value)
 	return value, err
 }
 

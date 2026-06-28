@@ -14,6 +14,7 @@ const (
 	codexGoalPreSinkMaxNotifications = 1024
 	codexGoalPreSinkMaxBytes         = 4 * 1024 * 1024
 	codexGoalPreSinkAttachDrainIdle  = 20 * time.Millisecond
+	codexGoalFirstTurnTimeout        = 30 * time.Second
 )
 
 type codexGoalOperationState string
@@ -32,16 +33,20 @@ type codexGoalOperation struct {
 	harness *CodexHarness
 	session *codexapp.Session
 
-	threadID      string
-	logicalTurnID string
-	currentTurnID string
-	runID         string
-	state         codexGoalOperationState
+	threadID       string
+	logicalTurnID  string
+	currentTurnID  string
+	runID          string
+	state          codexGoalOperationState
+	sinkLinked     bool
+	activeGoalSeen bool
 
 	mu             sync.Mutex
 	attachOnce     sync.Once
+	firstTurnOnce  sync.Once
 	finishOnce     sync.Once
 	attachCh       chan struct{}
+	firstTurnCh    chan struct{}
 	preSinkDone    chan struct{}
 	preSinkStarted bool
 	finished       chan struct{}
@@ -73,6 +78,7 @@ func (harness *CodexHarness) reserveGoalOperationThread(threadID string) (*codex
 		state:    codexGoalOperationReserved,
 
 		attachCh:    make(chan struct{}),
+		firstTurnCh: make(chan struct{}),
 		preSinkDone: make(chan struct{}),
 		finished:    make(chan struct{}),
 	}
@@ -188,11 +194,12 @@ func (operation *codexGoalOperation) bufferPreSinkEvents() {
 				operation.finish(TurnCompletion{}, fmt.Errorf("codex app-server session closed before goal operation sink attached"))
 				return
 			}
-			if err := operation.bufferPreSinkEvent(event); err != nil {
-				operation.finish(TurnCompletion{}, err)
+			if event.Kind == codexapp.EventLifecycle {
+				operation.handlePreSinkLifecycle(event)
 				return
 			}
-			if event.Kind == codexapp.EventLifecycle {
+			if err := operation.bufferPreSinkEvent(event); err != nil {
+				operation.finishStartupFailure(err)
 				return
 			}
 		}
@@ -209,17 +216,31 @@ func (operation *codexGoalOperation) drainQueuedPreSinkEvents() {
 				operation.finish(TurnCompletion{}, fmt.Errorf("codex app-server session closed before goal operation sink attached"))
 				return
 			}
-			resetTimer(idle, codexGoalPreSinkAttachDrainIdle)
-			if err := operation.bufferPreSinkEvent(event); err != nil {
-				operation.finish(TurnCompletion{}, err)
+			if event.Kind == codexapp.EventLifecycle {
+				operation.handlePreSinkLifecycle(event)
 				return
 			}
-			if event.Kind == codexapp.EventLifecycle {
+			resetTimer(idle, codexGoalPreSinkAttachDrainIdle)
+			if err := operation.bufferPreSinkEvent(event); err != nil {
+				operation.finishStartupFailure(err)
 				return
 			}
 		case <-idle.C:
 			return
 		}
+	}
+}
+
+func (operation *codexGoalOperation) handlePreSinkLifecycle(event codexapp.Event) {
+	operation.mu.Lock()
+	firstTurnSeen := operation.logicalTurnID != ""
+	operation.mu.Unlock()
+	if !firstTurnSeen {
+		operation.finish(TurnCompletion{}, codexLifecycleError("codex app-server exited before goal operation sink attached", event.Err))
+		return
+	}
+	if err := operation.appendPreSinkEvent(event); err != nil {
+		operation.finishStartupFailure(err)
 	}
 }
 
@@ -251,8 +272,6 @@ func (operation *codexGoalOperation) bufferPreSinkEvent(event codexapp.Event) er
 		err := fmt.Errorf("codex goal operation received provider request %s before sink attached", event.Message.Method)
 		_ = event.Message.RespondError(-32601, err.Error())
 		return err
-	case codexapp.EventLifecycle:
-		return operation.appendPreSinkEvent(event)
 	default:
 		return fmt.Errorf("unsupported codex app-server goal operation pre-sink event: %s", event.Kind)
 	}
@@ -269,14 +288,114 @@ func (operation *codexGoalOperation) requirePreSinkThreadScope(message jsonRPCMe
 
 func (operation *codexGoalOperation) appendPreSinkEvent(event codexapp.Event) error {
 	size := len(event.Message.Method) + len(event.Message.Params) + 64
+	firstTurnID := ""
+	if event.Kind == codexapp.EventNotification && event.Message.Method == codexapp.CodexNotificationTurnStarted {
+		params, err := objectValue(event.Message.Params, "codex goal operation turn started params")
+		if err != nil {
+			return err
+		}
+		turnID, err := turnStartedID(params)
+		if err != nil {
+			return err
+		}
+		firstTurnID = turnID
+	}
+
+	var notifyFirstTurn bool
 	operation.mu.Lock()
-	defer operation.mu.Unlock()
 	if len(operation.preSink)+1 > codexGoalPreSinkMaxNotifications || operation.preSinkBytes+size > codexGoalPreSinkMaxBytes {
+		operation.mu.Unlock()
 		return fmt.Errorf("codex goal operation pre-sink buffer overflow for thread %s", operation.threadID)
 	}
 	operation.preSink = append(operation.preSink, event)
 	operation.preSinkBytes += size
+	if firstTurnID != "" && operation.logicalTurnID == "" {
+		operation.logicalTurnID = firstTurnID
+		operation.currentTurnID = firstTurnID
+		notifyFirstTurn = true
+	}
+	operation.mu.Unlock()
+
+	if notifyFirstTurn {
+		operation.firstTurnOnce.Do(func() { close(operation.firstTurnCh) })
+		if operation.session != nil {
+			return operation.session.OwnTurn(operation.threadID, firstTurnID)
+		}
+	}
 	return nil
+}
+
+func (operation *codexGoalOperation) waitForFirstRuntimeTurn(ctx context.Context) error {
+	waitCtx := ctx
+	cancel := func() {}
+	if _, ok := ctx.Deadline(); !ok {
+		waitCtx, cancel = context.WithTimeout(ctx, codexGoalFirstTurnTimeout)
+	}
+	defer cancel()
+
+	select {
+	case <-operation.firstTurnCh:
+		return nil
+	case <-operation.finished:
+		operation.mu.Lock()
+		defer operation.mu.Unlock()
+		return operation.finishedErrorLocked()
+	case <-waitCtx.Done():
+		var err error
+		if waitCtx.Err() == context.DeadlineExceeded {
+			err = fmt.Errorf("timed out waiting for codex goal operation runtime turn/started for thread %s: %w", operation.threadID, waitCtx.Err())
+		} else {
+			err = fmt.Errorf("cancelled while waiting for codex goal operation runtime turn/started for thread %s: %w", operation.threadID, waitCtx.Err())
+		}
+		return operation.finishStartupFailure(err)
+	}
+}
+
+func (operation *codexGoalOperation) finishStartupFailure(err error) error {
+	if cleanupErr := operation.pauseProviderGoalAfterStartupFailureIfActivated(); cleanupErr != nil {
+		err = fmt.Errorf("%w; pause provider goal after startup failure: %v", err, cleanupErr)
+	}
+	operation.finish(TurnCompletion{}, err)
+	return err
+}
+
+func (operation *codexGoalOperation) pauseProviderGoalAfterStartupFailureIfActivated() error {
+	operation.mu.Lock()
+	activated := operation.providerGoalMayBeActiveLocked()
+	operation.mu.Unlock()
+	if !activated {
+		return nil
+	}
+	return operation.pauseProviderGoalAfterStartupFailure()
+}
+
+func (operation *codexGoalOperation) providerGoalMayBeActiveLocked() bool {
+	switch operation.state {
+	case codexGoalOperationRouteActive,
+		codexGoalOperationSinkAttached,
+		codexGoalOperationStreaming,
+		codexGoalOperationFinishing:
+		return true
+	default:
+		return false
+	}
+}
+
+func (operation *codexGoalOperation) pauseProviderGoalAfterStartupFailure() error {
+	operation.mu.Lock()
+	session := operation.session
+	operation.mu.Unlock()
+	if session == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	status := codexapp.ThreadGoalStatusPaused
+	_, err := session.Call(ctx, codexapp.CodexMethodThreadGoalSet, codexapp.ThreadGoalSetParams{
+		Status:   &status,
+		ThreadID: operation.threadID,
+	})
+	return err
 }
 
 func (operation *codexGoalOperation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -407,16 +526,37 @@ func (operation *codexGoalOperation) applyNotification(ctx context.Context, mess
 		operation.finish(TurnCompletion{}, err)
 		return TurnCompletion{}, true, err
 	}
+	if operation.dropGoalClearedBeforeActive(message) {
+		return TurnCompletion{}, false, nil
+	}
 	if handled, err := operation.routeBackgroundTerminalNotification(message); handled {
-		if err != nil {
-			operation.finish(TurnCompletion{}, err)
-		}
-		return TurnCompletion{}, err != nil, err
+		return operation.applyBackgroundTerminalRouteResult(err)
 	}
 	result, err := operation.harness.handleCodexNotification(ctx, operation.session, message, operation.runID, operation.threadID, operation.currentTurn(), sink)
 	if err != nil {
 		operation.finish(TurnCompletion{}, err)
 		return TurnCompletion{}, true, err
+	}
+	return operation.applyNotificationResult(message, result, sink)
+}
+
+func (operation *codexGoalOperation) dropGoalClearedBeforeActive(message jsonRPCMessage) bool {
+	return message.Method == codexapp.CodexNotificationThreadGoalCleared && !operation.hasSeenActiveGoalUpdate()
+}
+
+func (operation *codexGoalOperation) applyBackgroundTerminalRouteResult(err error) (TurnCompletion, bool, error) {
+	if err != nil {
+		operation.finish(TurnCompletion{}, err)
+	}
+	return TurnCompletion{}, err != nil, err
+}
+
+func (operation *codexGoalOperation) applyNotificationResult(message jsonRPCMessage, result codexNotificationResult, sink TurnSink) (TurnCompletion, bool, error) {
+	if message.Method == codexapp.CodexNotificationThreadGoalUpdated {
+		if err := operation.recordActiveGoalUpdate(message); err != nil {
+			operation.finish(TurnCompletion{}, err)
+			return TurnCompletion{}, true, err
+		}
 	}
 	if result.TurnID != "" {
 		if err := operation.bindPhysicalTurn(result.TurnID, sink); err != nil {
@@ -429,6 +569,26 @@ func (operation *codexGoalOperation) applyNotification(ctx context.Context, mess
 		return result.Completion, true, nil
 	}
 	return TurnCompletion{}, false, nil
+}
+
+func (operation *codexGoalOperation) hasSeenActiveGoalUpdate() bool {
+	operation.mu.Lock()
+	defer operation.mu.Unlock()
+	return operation.activeGoalSeen
+}
+
+func (operation *codexGoalOperation) recordActiveGoalUpdate(message jsonRPCMessage) error {
+	params, err := codexapp.DecodeThreadGoalUpdatedNotification(message.Params)
+	if err != nil {
+		return err
+	}
+	if params.Goal.Status != codexapp.ThreadGoalStatusActive {
+		return nil
+	}
+	operation.mu.Lock()
+	operation.activeGoalSeen = true
+	operation.mu.Unlock()
+	return nil
 }
 
 func (operation *codexGoalOperation) routeBackgroundTerminalNotification(message jsonRPCMessage) (bool, error) {
@@ -467,6 +627,8 @@ func (operation *codexGoalOperation) bindPhysicalTurn(turnID string, sink TurnSi
 	if operation.logicalTurnID == "" {
 		operation.logicalTurnID = turnID
 	}
+	shouldLink := !operation.sinkLinked || previousTurnID != turnID
+	operation.sinkLinked = true
 	runID := operation.runID
 	operation.mu.Unlock()
 
@@ -474,7 +636,7 @@ func (operation *codexGoalOperation) bindPhysicalTurn(turnID string, sink TurnSi
 	if err := operation.session.OwnTurn(operation.threadID, turnID); err != nil {
 		return err
 	}
-	if previousTurnID != turnID {
+	if shouldLink {
 		return sink.ThreadLinked(operation.threadID, "", turnID, nil)
 	}
 	return nil

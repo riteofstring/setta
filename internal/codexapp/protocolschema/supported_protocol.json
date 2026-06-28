@@ -6,6 +6,7 @@
     { "method": "thread/goal/clear" },
     { "method": "thread/goal/get" },
     { "method": "thread/goal/set" },
+    { "method": "thread/read" },
     { "method": "thread/resume" },
     {
       "method": "thread/settings/update",

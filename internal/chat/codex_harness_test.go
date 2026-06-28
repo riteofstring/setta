@@ -1295,13 +1295,26 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 			threadID = "thread_fake"
 		}
 		writeFakeThreadResponseForModeAndThread(message["id"], mode, fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode), threadID)
+	case "thread/read":
+		params := fakeParams(message)
+		threadID, _ := params["threadId"].(string)
+		if threadID == "" {
+			panic("thread/read missing threadId")
+		}
+		writeFakeResponse(message["id"], fakeCodexThreadReadResponse(mode, threadID))
 	case "thread/goal/get":
 		return handleFakeGoalGet(mode, message)
 	case "thread/goal/set":
 		return handleFakeGoalSetMethod(mode, state, message)
 	case "thread/goal/clear":
+		if mode == "goal-operation-resume" {
+			panic("goal resume should not clear provider goal")
+		}
 		assertFakeThreadID(message)
 		state.goalCleared = true
+		if fakeGoalOperationMode(mode) {
+			writeFakeThreadGoalCleared()
+		}
 		writeFakeResponse(message["id"], map[string]any{"cleared": true})
 		return fakeCommandDone(mode)
 	case "model/list":

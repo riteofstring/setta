@@ -36,7 +36,7 @@ func writeFakeThreadResponseForModeAndThread(id any, mode string, model string, 
 
 func fakeCodexThreadResponseForModeAndThread(mode string, model string, effort ReasoningEffort, threadID string) map[string]any {
 	thread := fakeCodexThreadWithID(threadID)
-	if fakeGoalOperationMode(mode) {
+	if fakeGoalContinuationMode(mode) {
 		path := "/tmp/codex/thread_fake.json"
 		thread["ephemeral"] = false
 		thread["path"] = path
@@ -69,6 +69,11 @@ func fakeCodexThreadResponseWithThread(model string, effort ReasoningEffort, thr
 		"sandbox":           "workspace-write",
 		"thread":            thread,
 	}
+}
+
+func fakeCodexThreadReadResponse(mode string, threadID string) map[string]any {
+	response := fakeCodexThreadResponseForModeAndThread(mode, fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode), threadID)
+	return map[string]any{"thread": response["thread"]}
 }
 
 func fakeCodexThread() map[string]any {

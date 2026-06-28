@@ -22,7 +22,6 @@ const (
 )
 
 func TestCodexHarnessGoalSetClearsBeforeSetAndWaitsForRuntimeTurn(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 2", "clear-before-set and first runtime turn binding")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-set-preserves-old"))
 	request := testCommandRequest(t, "/goal new objective")
 
@@ -33,22 +32,42 @@ func TestCodexHarnessGoalSetClearsBeforeSetAndWaitsForRuntimeTurn(t *testing.T) 
 	if err != nil {
 		t.Fatalf("begin goal operation: %v", err)
 	}
-	if result.Goal == nil || result.Goal.Objective != "existing provider goal" {
-		t.Fatalf("goal result = %+v, want current provider-preserved old goal", result.Goal)
+	if result.Goal == nil || result.Goal.Objective != "new objective" {
+		t.Fatalf("goal result = %+v, want replacement provider goal", result.Goal)
 	}
 
 	noTurnHarness := NewCodexHarness(testCodexConfig("goal-operation-no-runtime-turn"))
-	ctx, cancel := context.WithTimeout(context.Background(), phase0BlockingFreezeTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), phase0ShortEventTimeout)
 	defer cancel()
-	result, continuation, err = noTurnHarness.BeginGoalContinuation(ctx, request)
+	_, continuation, err = noTurnHarness.BeginGoalContinuation(ctx, request)
+	if continuation != nil {
+		defer continuation.Close()
+	}
+	if err == nil {
+		t.Fatal("begin goal operation without runtime turn/started succeeded")
+	}
+	if !strings.Contains(err.Error(), "timed out waiting for codex goal operation runtime turn/started") {
+		t.Fatalf("begin goal operation error = %v, want runtime turn/started timeout", err)
+	}
+	if noTurnHarness.hasGoalOperation("thread_fake") {
+		t.Fatal("goal operation route owner leaked after first-turn startup timeout")
+	}
+}
+
+func TestCodexHarnessGoalResumeActivatesExistingGoalAndWaitsForRuntimeTurn(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-resume"))
+	result, continuation, err := harness.BeginGoalContinuation(context.Background(), testCommandRequest(t, "/goal resume"))
 	if continuation != nil {
 		defer continuation.Close()
 	}
 	if err != nil {
-		t.Fatalf("begin goal operation without runtime turn/started: %v", err)
+		t.Fatalf("begin goal resume operation: %v", err)
 	}
-	if result.Goal == nil || result.Goal.Objective != "new objective" {
-		t.Fatalf("goal result = %+v, want current immediate set response before runtime turn/started", result.Goal)
+	if result.Goal == nil || result.Goal.Objective != "existing provider goal" || result.Goal.Status != "active" {
+		t.Fatalf("goal result = %+v, want resumed active existing provider goal", result.Goal)
+	}
+	if !harness.hasGoalOperation(result.ThreadRef.ThreadID) {
+		t.Fatal("goal resume operation did not reserve route owner")
 	}
 }
 
@@ -144,7 +163,6 @@ func TestCodexHarnessGoalOperationHandlesNonTerminalActiveUpdateAfterCompletion(
 }
 
 func TestCodexHarnessGoalSetDoesNotPreserveOldProviderGoal(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 2", "replace provider goal with clear-before-set")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-set-preserves-old"))
 	result, continuation, err := harness.BeginGoalContinuation(context.Background(), testCommandRequest(t, "/goal new objective"))
 	if continuation != nil {
@@ -153,29 +171,92 @@ func TestCodexHarnessGoalSetDoesNotPreserveOldProviderGoal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin goal operation: %v", err)
 	}
-	if result.Goal == nil || result.Goal.Objective != "existing provider goal" {
-		t.Fatalf("goal result = %+v, want current provider-preserved old goal", result.Goal)
+	if result.Goal == nil || result.Goal.Objective != "new objective" {
+		t.Fatalf("goal result = %+v, want replacement provider goal", result.Goal)
+	}
+}
+
+func TestCodexHarnessGoalStartupClearNotificationIsDropped(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-set-preserves-old"))
+	result, continuation := beginPhase0GoalOperation(t, harness, "/goal new objective")
+	defer continuation.Close()
+
+	sink := newRecordingSink()
+	if _, err := continuation.Wait(context.Background(), phase0GoalTurnRequest(t, result), sink); err != nil {
+		t.Fatalf("wait goal operation: %v", err)
+	}
+	for _, goal := range sink.goals {
+		if goal == nil {
+			t.Fatalf("startup thread/goal/cleared reached operation sink: %+v", sink.goals)
+		}
+	}
+}
+
+func TestCodexHarnessGoalStartupLifecycleFailureFinishesImmediately(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-exit-before-runtime-turn"))
+	ctx, cancel := context.WithTimeout(context.Background(), phase0BlockingFreezeTimeout)
+	defer cancel()
+
+	started := time.Now()
+	_, continuation, err := harness.BeginGoalContinuation(ctx, testCommandRequest(t, "/goal finish renderer tests"))
+	if continuation != nil {
+		defer continuation.Close()
+	}
+	if err == nil {
+		t.Fatal("begin goal operation with pre-sink provider exit succeeded")
+	}
+	if strings.Contains(err.Error(), "timed out waiting for codex goal operation runtime turn/started") {
+		t.Fatalf("begin goal operation error = %v, want provider lifecycle failure before first-turn timeout", err)
+	}
+	if !strings.Contains(err.Error(), "codex app-server exited before goal operation sink attached") {
+		t.Fatalf("begin goal operation error = %v, want provider lifecycle failure", err)
+	}
+	if elapsed := time.Since(started); elapsed >= time.Second {
+		t.Fatalf("begin goal operation returned after %s, want immediate provider exit failure", elapsed)
+	}
+	if harness.hasGoalOperation("thread_fake") {
+		t.Fatal("goal operation route owner leaked after pre-sink provider exit")
+	}
+}
+
+func TestCodexHarnessGoalStartupSetResponseFailureFinishesOperation(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-set-invalid-response"))
+	_, continuation, err := harness.BeginGoalContinuation(context.Background(), testCommandRequest(t, "/goal finish renderer tests"))
+	if continuation != nil {
+		defer continuation.Close()
+	}
+	if err == nil {
+		t.Fatal("begin goal operation with invalid set response succeeded")
+	}
+	if !strings.Contains(err.Error(), "ThreadGoalSetResponse.goal.createdAt is required") {
+		t.Fatalf("begin goal operation error = %v, want invalid thread/goal/set response", err)
+	}
+	if harness.hasGoalOperation("thread_fake") {
+		t.Fatal("goal operation route owner leaked after invalid set response")
 	}
 }
 
 func TestCodexHarnessGoalOperationRequiresPersistedIdleThread(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 2", "persisted idle thread validation before provider mutation")
-	for _, mode := range []string{
-		"goal-operation-busy-thread",
-		"goal-operation-ephemeral-thread",
-		"goal-operation-missing-path-thread",
-	} {
+	cases := map[string]string{
+		"goal-operation-busy-thread":         "requires idle thread",
+		"goal-operation-ephemeral-thread":    "requires a persisted non-ephemeral thread",
+		"goal-operation-missing-path-thread": "requires a persisted thread path",
+	}
+	for mode, want := range cases {
 		t.Run(mode, func(t *testing.T) {
 			harness := NewCodexHarness(testCodexConfig(mode))
-			result, continuation, err := harness.BeginGoalContinuation(context.Background(), testCommandRequest(t, "/goal finish renderer tests"))
+			_, continuation, err := harness.BeginGoalContinuation(context.Background(), testCommandRequest(t, "/goal finish renderer tests"))
 			if continuation != nil {
 				continuation.Close()
 			}
-			if err != nil {
-				t.Fatalf("begin goal operation with current unvalidated thread shape: %v", err)
+			if err == nil {
+				t.Fatal("begin goal operation with invalid provider thread state succeeded")
 			}
-			if !result.HasThreadRef || result.ThreadRef.ThreadID != "thread_fake" {
-				t.Fatalf("result = %+v, want current linked thread despite invalid shape", result)
+			if !strings.Contains(err.Error(), want) {
+				t.Fatalf("begin goal operation error = %v, want %q", err, want)
+			}
+			if harness.hasGoalOperation("thread_fake") {
+				t.Fatal("goal operation route owner leaked after invalid provider thread state")
 			}
 		})
 	}

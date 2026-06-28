@@ -39,6 +39,7 @@ const methodHandlers = {
   "thread/goal/clear": handleThreadGoalClear,
   "thread/goal/get": handleThreadGoalGet,
   "thread/goal/set": handleThreadGoalSet,
+  "thread/read": handleThreadRead,
   "thread/resume": handleThreadResume,
   "thread/settings/update": respondEmpty,
   "thread/start": handleThreadStart,
@@ -95,6 +96,13 @@ function handleThreadResume(message) {
   respond(message.id, fakeThreadResponse());
 }
 
+function handleThreadRead(message) {
+  if (message.params?.threadId !== threadId) {
+    throw new Error(`unexpected thread/read threadId: ${message.params?.threadId}`);
+  }
+  respond(message.id, { thread: fakeThread() });
+}
+
 function handleTurnStart(message) {
   respond(message.id, { turn: fakeTurn("inProgress") });
   if (isStructuredTurnStart(message.params)) {
@@ -130,13 +138,15 @@ function fakeThreadResponse(options = {}) {
 }
 
 function fakeThread(options = {}) {
+  const ephemeral = options.ephemeral === true;
   return {
     cliVersion: "fake",
     createdAt: 1,
     cwd: "/tmp/setta-fake",
-    ephemeral: options.ephemeral === true,
+    ephemeral,
     id: threadId,
     modelProvider: "fake",
+    path: ephemeral ? undefined : "/tmp/codex/thread_fake.json",
     preview: "",
     sessionId: "session_fake",
     source: "user",
@@ -193,8 +203,8 @@ function handleThreadGoalGet(message) {
 
 function handleThreadGoalClear(message) {
   currentGoal = null;
-  respond(message.id, { cleared: true });
   notify("thread/goal/cleared", { threadId });
+  respond(message.id, { cleared: true });
 }
 
 function handleThreadGoalSet(message) {

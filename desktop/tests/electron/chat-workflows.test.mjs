@@ -452,7 +452,7 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
   );
   await waitForTexts(client, [
     "Projection assistant final.",
-    "printf projection-output",
+    "Projection command",
     "Projection reasoning",
   ]);
   // The meaningfully-titled transient reasoning persists as a thinking-mode reasoning block: the
@@ -466,6 +466,9 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
     rawTypes: ["agent_message", "reasoning"],
     rows: projectionExpectedRows(),
   });
+  const commandRow = requireProjectedRow(projection.rows, "Projection command");
+  await openProjectedActivityRow(client, commandRow.sourceRunItemId);
+  await waitForText(client, "printf projection-output");
   await assertActivityRows(client, projection.rows);
   await expandReasoningSummaryBlock(client, "Projection reasoning");
   await waitForText(client, "Public reasoning summary visible.");
@@ -1382,7 +1385,7 @@ async function runRestartWorkflow(results) {
       "chat activity projection reload workflow",
       "completed",
     );
-    await waitForTexts(first.client, ["Projection assistant final.", "printf projection-output"]);
+    await waitForTexts(first.client, ["Projection assistant final.", "Projection command"]);
     await assertRunActivityProjection(backend, workspaceId, projectionRun.id, {
       rawTypes: ["agent_message", "reasoning"],
       rows: projectionExpectedRows(),
@@ -1399,7 +1402,7 @@ async function runRestartWorkflow(results) {
         "Queued response for queued follow-up one from active run.",
         "Queued response for queued follow-up two from active run.",
         "Queued response for queued follow-up three from active run.",
-        "printf projection-output",
+        "Projection command",
         "Projection reasoning",
       ],
       30_000,
@@ -1432,6 +1435,7 @@ async function runRestartWorkflow(results) {
     ]);
     const commandRow = requireProjectedRow(restoredProjection.rows, "Projection command");
     await openProjectedActivityRow(second.client, commandRow.sourceRunItemId);
+    await waitForText(second.client, "printf projection-output");
     await waitForText(second.client, "Load more");
     await clickButtonByText(second.client, "Load more");
     await waitForRunItemOutputIpc(secondRecording, commandRow.sourceRunItemId, 200);

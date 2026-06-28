@@ -776,6 +776,10 @@ func fakeGoalOperationMode(mode string) bool {
 	return strings.HasPrefix(mode, "goal-operation-")
 }
 
+func fakeGoalContinuationMode(mode string) bool {
+	return fakeGoalOperationMode(mode) || mode == "command-goal-continuation"
+}
+
 func fakeThreadGoal(objective string, status string) map[string]any {
 	return map[string]any{
 		"createdAt":       1,

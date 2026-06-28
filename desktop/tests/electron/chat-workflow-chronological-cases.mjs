@@ -75,8 +75,8 @@ export async function runChronologicalTranscriptWorkflow({
     );
     await waitForTexts(client, [
       ...CHRONOLOGICAL_STEP_TEXTS,
-      "printf chronological-a",
-      "printf chronological-b",
+      "Chronological command A",
+      "Chronological command B",
       "Chronological reasoning headline",
     ]);
   } finally {
@@ -99,6 +99,8 @@ export async function runChronologicalTranscriptWorkflow({
       { title: "Chronological command B", type: "command_execution" },
     ],
   });
+  await openProjectedActivityRows(client, projection.rows);
+  await waitForTexts(client, ["printf chronological-a", "printf chronological-b"]);
   await assertActivityRows(client, projection.rows);
 
   // Capture the three diagnostic layers, then assert the chronological behavior.
@@ -116,6 +118,40 @@ export async function runChronologicalTranscriptWorkflow({
     run,
   });
   assertChronologicalInterleaving(domBlocks.blocks, run.id);
+}
+
+async function openProjectedActivityRows(client, rows) {
+  for (const row of rows) {
+    await openProjectedActivityRow(client, row.sourceRunItemId);
+  }
+}
+
+async function openProjectedActivityRow(client, sourceRunItemId) {
+  const opened = await client.evaluate(`(() => {
+    const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+    const rows = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'));
+    const row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+    if (!row) {
+      return {
+        ok: false,
+        reason: "missing-row",
+        rows: rows.map((candidate) => ({
+          sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
+          text: candidate.innerText,
+        })),
+      };
+    }
+    if (!(row instanceof HTMLDetailsElement)) {
+      return { ok: true, reason: "compact-row" };
+    }
+    if (!row.open) {
+      row.querySelector("summary")?.click();
+    }
+    return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
+  })()`);
+  if (!opened.ok) {
+    throw new Error(`activity row ${sourceRunItemId} was not opened: ${JSON.stringify(opened)}`);
+  }
 }
 
 function assertChronologicalInterleaving(blocks, runId) {
