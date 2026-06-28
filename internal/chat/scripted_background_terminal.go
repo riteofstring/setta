@@ -18,11 +18,11 @@ import (
 //	assistant_text   step two (final response, still running)
 //	turn completed   <- both terminals are still running here
 //
-// The current backend has no background terminal lifecycle, so run finalization
-// coerces these still-running commands to "complete" (the bug frozen by
-// TestServiceFinalizesBackgroundTerminalWithRun). Once the source field lands
-// (Phase 1) and finalization is updated (Phase 4), background terminals must
-// survive turn completion instead of being finalized with the run.
+// Each startup carries RunItemCommandSourceUnifiedExecStartup, so the service
+// routes them into the background terminal registry and slim background_terminal
+// marker blocks instead of per-run command activity rows. The processes are owned
+// by the registry, not the run, so they survive turn completion still running
+// (asserted by TestServiceBackgroundTerminalsSurviveRunCompletion).
 //
 // The commands carry no provider-supplied friendly title, mirroring how Codex
 // sends unified exec items: the activity label is derived from the command by the

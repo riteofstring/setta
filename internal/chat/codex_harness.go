@@ -26,6 +26,27 @@ type CodexHarness struct {
 	active               map[string]*codexActiveTurn
 	approvals            map[string]codexPendingApproval
 	approvalsByRequestID map[string]string
+
+	// Background terminal lifecycle state outlives any single turn. It is guarded
+	// by its own mutex because connection-scoped notification handlers run on the
+	// shared manager dispatch goroutine, concurrently with turn machinery.
+	backgroundMu       sync.Mutex
+	backgroundSink     BackgroundTerminalSink
+	threadContexts     map[string]backgroundTerminalThreadContext
+	turnActiveByThread map[string]bool
+	// backgroundItemIDs is the connection-scoped set of provider command-execution
+	// item IDs that are background terminals (learned from unifiedExecStartup). It
+	// lets the session path recognize an earlier turn's background terminal output
+	// (which carries that turn's id) and route it instead of failing turn scope.
+	backgroundItemIDs map[string]struct{}
+}
+
+// backgroundTerminalThreadContext routes a Codex thread's late unified-exec
+// notifications to the conversation that owns it, set when a turn starts the
+// thread and retained for the provider connection.
+type backgroundTerminalThreadContext struct {
+	workspaceID    string
+	conversationID string
 }
 
 type codexActiveTurn struct {
@@ -83,13 +104,18 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 			InitializeParams: CodexInitializeParams(config),
 		})
 	}
-	return &CodexHarness{
+	harness := &CodexHarness{
 		config:               config,
 		manager:              manager,
 		active:               map[string]*codexActiveTurn{},
 		approvals:            map[string]codexPendingApproval{},
 		approvalsByRequestID: map[string]string{},
+		threadContexts:       map[string]backgroundTerminalThreadContext{},
+		turnActiveByThread:   map[string]bool{},
+		backgroundItemIDs:    map[string]struct{}{},
 	}
+	harness.registerBackgroundTerminalHandlers()
+	return harness
 }
 
 func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -117,6 +143,15 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	if err := session.OwnThread(threadID); err != nil {
 		return TurnCompletion{}, err
 	}
+	// Record the thread's conversation and mark its turn active before the turn
+	// produces any notification, so late unified-exec events are routed to the
+	// right conversation and during-turn events defer to the run-scoped sink. The
+	// connection-scoped turn/completed handler clears the active flag in the normal
+	// path (required for deterministic late routing); this defer is the safety net
+	// for a turn that errors before any turn/completed arrives, so the flag cannot
+	// leak true and suppress this thread's later background-terminal events.
+	harness.beginBackgroundTerminalTurn(threadID, request.Workspace.ID, request.Conversation.ID)
+	defer harness.endBackgroundTerminalTurn(threadID)
 	turnID, err := startCodexTurn(ctx, session, threadID, request)
 	if err != nil {
 		return TurnCompletion{}, err
@@ -158,6 +193,15 @@ func (harness *CodexHarness) waitForTurn(ctx context.Context, session *codexapp.
 
 func (harness *CodexHarness) applyCodexSessionEventForWait(ctx context.Context, session *codexapp.Session, event codexapp.Event, runID string, threadID string, state *codexTurnWaitState, sink TurnSink) (TurnCompletion, bool, error) {
 	if event.Kind == codexapp.EventNotification {
+		// A background terminal from an earlier turn can emit output or completion that
+		// the active session still receives, carrying the earlier turn id. Intercept and
+		// route it to the background terminal registry BEFORE the rebind logic: otherwise,
+		// if it is the first scoped notification of the active turn, its earlier turn id
+		// would rebind the active turn and then fail the real one. The active turn id
+		// (state.activeTurnID) is reliable here, before any rebind for this event.
+		if handled, err := harness.routeCrossTurnBackgroundNotification(event.Message, threadID, state.activeTurnID); handled {
+			return TurnCompletion{}, false, err
+		}
 		if err := harness.applyNotificationRebindForWait(session, event.Message, runID, threadID, state, sink); err != nil {
 			return TurnCompletion{}, false, err
 		}

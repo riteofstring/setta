@@ -69,13 +69,13 @@ func TestBackgroundTerminalFixtureTextWrapsStartups(t *testing.T) {
 	}
 }
 
-// TestServiceFinalizesBackgroundTerminalWithRun characterizes the CURRENT buggy behavior: the
-// provider leaves two background terminals running, but run finalization coerces their activity
-// blocks to complete because the backend has no background terminal lifecycle yet. Once
-// RunItemCommandSource lands (Phase 1) and finalization is updated (Phase 4) so background
-// terminals are not finalized by run outcome, these assertions flip to assert the terminals
-// survive the completed run.
-func TestServiceFinalizesBackgroundTerminalWithRun(t *testing.T) {
+// TestServiceBackgroundTerminalsSurviveRunCompletion is the Phase 2 flip of the Phase 0
+// characterization (formerly TestServiceFinalizesBackgroundTerminalWithRun). The provider leaves
+// two background terminals running; the backend now records them in the process registry and
+// renders them as slim chronological marker blocks rather than per-run command activity rows.
+// Run finalization only coerces still-streaming run-scoped blocks, so the marker blocks and the
+// registry processes survive the completed run instead of being finalized with it.
+func TestServiceBackgroundTerminalsSurviveRunCompletion(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewScriptedWorkflowHarness())
 	workspaceID, conversationID := startTranscriptConversation(t, service)
 	result, err := service.SendUserMessage(workspaceID, conversationID, "background terminal workflow")
@@ -84,29 +84,156 @@ func TestServiceFinalizesBackgroundTerminalWithRun(t *testing.T) {
 	}
 	waitForRunStatus(t, service, workspaceID, conversationID, result.Run.ID, RunStatusCompleted)
 
+	// The terminals are slim background_terminal marker blocks, never per-run activity rows.
 	blocks := loadPersistedBlocks(t, service, workspaceID, result.Run.ID)
-	// The activity label is the command, derived by the Go projection since the fixture
-	// supplies no friendly title.
-	for _, label := range []string{backgroundTerminalAlphaCommand, backgroundTerminalBetaCommand} {
-		block := backgroundTerminalActivityBlock(t, blocks, label)
+	for _, block := range blocks {
+		if block.Kind == TranscriptBlockKindActivityItem {
+			t.Fatalf("background terminal must not create an activity block: %+v", block)
+		}
+	}
+	for _, command := range []string{backgroundTerminalAlphaCommand, backgroundTerminalBetaCommand} {
+		block := backgroundTerminalMarkerBlock(t, blocks, command)
 		if block.Status != TranscriptBlockStatusComplete {
-			t.Fatalf("background terminal block %q status = %q, want %q (finalized with run)",
-				label, block.Status, TranscriptBlockStatusComplete)
+			t.Fatalf("background terminal marker %q status = %q, want %q (lifecycle marker, not finalized)",
+				command, block.Status, TranscriptBlockStatusComplete)
 		}
-		if block.Activity.Status != RunItemStatusCompleted {
-			t.Fatalf("background terminal block %q activity status = %q, want %q (finalized with run)",
-				label, block.Activity.Status, RunItemStatusCompleted)
+		if block.BackgroundTerminal.Label != backgroundTerminalStartLabel {
+			t.Fatalf("background terminal marker %q label = %q, want %q",
+				command, block.BackgroundTerminal.Label, backgroundTerminalStartLabel)
 		}
+	}
+
+	// The process registry is the source of truth and is independent of the run: both terminals
+	// are still running after the run has completed.
+	processes, err := service.store.ListBackgroundTerminalProcesses(workspaceID, conversationID)
+	if err != nil {
+		t.Fatalf("list background terminals: %v", err)
+	}
+	if len(processes) != 2 {
+		t.Fatalf("background terminal processes = %d, want 2: %+v", len(processes), processes)
+	}
+	byCommand := map[string]BackgroundTerminalProcess{}
+	for _, process := range processes {
+		byCommand[process.Command] = process
+	}
+	for _, command := range []string{backgroundTerminalAlphaCommand, backgroundTerminalBetaCommand} {
+		process, ok := byCommand[command]
+		if !ok {
+			t.Fatalf("no background terminal process for %q: %+v", command, processes)
+		}
+		if process.Status != BackgroundTerminalRunning {
+			t.Fatalf("background terminal %q status = %q, want running (survives run completion)", command, process.Status)
+		}
+		if process.CompletedAt != "" {
+			t.Fatalf("background terminal %q completedAt = %q, want empty (still running)", command, process.CompletedAt)
+		}
+	}
+
+	// The alpha terminal's output was routed to the background terminal output store and the
+	// recent-output summary, never to run-item output.
+	alpha := byCommand[backgroundTerminalAlphaCommand]
+	if len(alpha.RecentOutput) != backgroundTerminalAlphaOutputChunks {
+		t.Fatalf("alpha recent output = %d lines, want %d: %+v", len(alpha.RecentOutput), backgroundTerminalAlphaOutputChunks, alpha.RecentOutput)
+	}
+	page, err := service.store.LoadBackgroundTerminalOutputPage(workspaceID, conversationID, alpha.ID, 0, 0)
+	if err != nil {
+		t.Fatalf("load alpha output: %v", err)
+	}
+	if len(page.Output) != backgroundTerminalAlphaOutputChunks {
+		t.Fatalf("alpha output chunks = %d, want %d", len(page.Output), backgroundTerminalAlphaOutputChunks)
 	}
 }
 
-func backgroundTerminalActivityBlock(t *testing.T, blocks []TranscriptBlock, title string) TranscriptBlock {
+// TestServiceBackgroundTerminalLateLifecycle exercises the conversation-scoped sink the Codex
+// connection handlers drive after a turn finishes: late output is appended to the registry's
+// output store and recent-output summary, and a late completion moves a running terminal to
+// exited. Both are idempotent and safely no-op for an unknown process.
+func TestServiceBackgroundTerminalLateLifecycle(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewScriptedWorkflowHarness())
+	workspaceID, conversationID, alpha := startScriptedBackgroundTerminalAlpha(t, service)
+
+	// Late output arrives on the connection after the turn; it is appended to the output store
+	// and the recent-output summary, keyed by the provider item ID.
+	if err := service.appendBackgroundTerminalOutputFromProvider(workspaceID, conversationID, alpha.ProviderItemID, alpha.ProcessID, "stdout", "late dev server line\n"); err != nil {
+		t.Fatalf("append late output: %v", err)
+	}
+	reloaded, err := service.store.LoadBackgroundTerminalProcess(workspaceID, conversationID, alpha.ID)
+	if err != nil {
+		t.Fatalf("reload alpha: %v", err)
+	}
+	if len(reloaded.RecentOutput) != backgroundTerminalAlphaOutputChunks+1 {
+		t.Fatalf("recent output after late line = %d, want %d: %+v", len(reloaded.RecentOutput), backgroundTerminalAlphaOutputChunks+1, reloaded.RecentOutput)
+	}
+	page, err := service.store.LoadBackgroundTerminalOutputPage(workspaceID, conversationID, alpha.ID, 0, 0)
+	if err != nil {
+		t.Fatalf("load output: %v", err)
+	}
+	if len(page.Output) != backgroundTerminalAlphaOutputChunks+1 {
+		t.Fatalf("output chunks after late line = %d, want %d", len(page.Output), backgroundTerminalAlphaOutputChunks+1)
+	}
+
+	// A late completion moves the still-running terminal to exited; a second completion is a
+	// no-op because the terminal is already terminal.
+	if err := service.completeBackgroundTerminalFromProvider(workspaceID, conversationID, alpha.ProviderItemID, "", 0, ""); err != nil {
+		t.Fatalf("complete late: %v", err)
+	}
+	exited, err := service.store.LoadBackgroundTerminalProcess(workspaceID, conversationID, alpha.ID)
+	if err != nil {
+		t.Fatalf("reload exited alpha: %v", err)
+	}
+	if exited.Status != BackgroundTerminalExited {
+		t.Fatalf("alpha status after completion = %q, want exited", exited.Status)
+	}
+	if exited.CompletedAt == "" {
+		t.Fatalf("alpha completedAt is empty after completion")
+	}
+	if err := service.completeBackgroundTerminalFromProvider(workspaceID, conversationID, alpha.ProviderItemID, "", 1, "second"); err != nil {
+		t.Fatalf("idempotent completion: %v", err)
+	}
+	stable, err := service.store.LoadBackgroundTerminalProcess(workspaceID, conversationID, alpha.ID)
+	if err != nil {
+		t.Fatalf("reload stable alpha: %v", err)
+	}
+	if stable.ExitCode != exited.ExitCode || stable.CompletedAt != exited.CompletedAt {
+		t.Fatalf("repeat completion mutated terminal state: %+v vs %+v", stable, exited)
+	}
+
+	// An unknown process is ignored, never fabricated.
+	if err := service.completeBackgroundTerminalFromProvider(workspaceID, conversationID, "missing_provider_item", "", 0, ""); err != nil {
+		t.Fatalf("unknown completion should be a no-op: %v", err)
+	}
+}
+
+// startScriptedBackgroundTerminalAlpha runs the scripted background terminal turn to completion
+// and returns the workspace, conversation, and the still-running alpha terminal process.
+func startScriptedBackgroundTerminalAlpha(t *testing.T, service *Service) (string, string, BackgroundTerminalProcess) {
+	t.Helper()
+	workspaceID, conversationID := startTranscriptConversation(t, service)
+	result, err := service.SendUserMessage(workspaceID, conversationID, "background terminal workflow")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	waitForRunStatus(t, service, workspaceID, conversationID, result.Run.ID, RunStatusCompleted)
+	processes, err := service.store.ListBackgroundTerminalProcesses(workspaceID, conversationID)
+	if err != nil {
+		t.Fatalf("list background terminals: %v", err)
+	}
+	for _, process := range processes {
+		if process.Command == backgroundTerminalAlphaCommand {
+			return workspaceID, conversationID, process
+		}
+	}
+	t.Fatalf("no alpha background terminal: %+v", processes)
+	return "", "", BackgroundTerminalProcess{}
+}
+
+func backgroundTerminalMarkerBlock(t *testing.T, blocks []TranscriptBlock, command string) TranscriptBlock {
 	t.Helper()
 	for _, block := range blocks {
-		if block.Kind == TranscriptBlockKindActivityItem && block.Activity != nil && block.Activity.Title == title {
+		if block.Kind == TranscriptBlockKindBackgroundTerminal && block.BackgroundTerminal != nil && block.BackgroundTerminal.Command == command {
 			return block
 		}
 	}
-	t.Fatalf("no activity block titled %q: %v", title, blockKinds(blocks))
+	t.Fatalf("no background terminal marker for command %q: %v", command, blockKinds(blocks))
 	return TranscriptBlock{}
 }

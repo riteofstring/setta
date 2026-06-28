@@ -645,6 +645,111 @@ renderer store + footer + monitor + transcript marker block (Phase 4).
 - Route process completion into background terminal status updates.
 - Route terminal interactions into wait/interact semantics.
 
+#### Phase 2 Status (complete)
+
+Implemented per the "Full / faithful to bullets" scope decision: Phase 2 creates the
+process registry records AND the transcript marker blocks and routes output to the
+registry, replacing the per-run command activity-row representation. The Phase 0/1
+"flips in Phase 4" forecasts for `TestServiceFinalizesBackgroundTerminalWithRun`
+and the deterministic `background-terminal` E2E step were superseded: they flip in
+Phase 2 because the representation genuinely changes here.
+
+Done:
+
+- `TranscriptBlockKindBackgroundTerminal` + `BackgroundTerminalBlockProjection`
+  (`processId`/`command`/`cwd`/`label`) added to the transcript block contract with
+  validation and a generated TS decoder. The generator's tagged-union spec
+  (`cmd/generate-contracts/contract_registry.go`) was extended with the new branch;
+  without it the generated `assertTaggedUnionBranch` mapping omitted
+  `backgroundTerminal` and the renderer decoder rejected the block ("found 0
+  branches"). `marker.ProcessID` is the stable Setta `BackgroundTerminalProcess.ID`
+  (the registry/join key), not the provider handle.
+- During-turn routing is path-agnostic (scripted + Codex) through the existing
+  TurnSink: `upsertRunItemLocked` branches on `item.Source`
+  (`service_background_terminals.go`). A `unified_exec_startup` upsert creates/updates
+  the `BackgroundTerminalProcess` registry record (running, or exited on an in-turn
+  completion) and a slim chronological `background_terminal` marker block, never a
+  run item or activity block; `appendRunItemOutput` routes output for a registered
+  terminal to the background output store + recent-output summary;
+  `unified_exec_interaction` creates a slim "Interacted with background terminal"
+  marker linked to the process by provider handle. The marker block is created
+  `complete`, so run finalization (which only coerces still-streaming run-scoped
+  blocks) never rewrites it.
+- Late lifecycle (the core architectural change) uses connection-scoped handlers
+  registered on the shared `codexapp.Manager` (the codexaccount precedent), in
+  `codex_harness_background_terminal.go`: `turn/completed`, `item/completed`, and
+  command-exec output-delta. A per-thread turn-active flag is set in `StartTurn` and
+  cleared by the connection-scoped `turn/completed` handler; because the flag
+  transition and the late-event handlers all run on the single manager dispatch
+  goroutine in provider order, a completion emitted right after `turn/completed` is
+  deterministically observed as late (flag already cleared) rather than racing turn
+  teardown. Late output/completion route to a conversation-scoped
+  `BackgroundTerminalSink` the chat service implements and attaches to the harness
+  via `SetBackgroundTerminalSink` (optional interface, Codex-only). Registry updates
+  are idempotent (already-terminal completion is a no-op; unknown process ignored).
+- `TestCodexHarnessDropsLateUnifiedExecCompletion` flipped to
+  `TestCodexHarnessRoutesLateUnifiedExecCompletion` (the late completion now reaches
+  the connection-scoped sink). `TestServiceFinalizesBackgroundTerminalWithRun`
+  became `TestServiceBackgroundTerminalsSurviveRunCompletion` (marker blocks +
+  registry processes survive run completion still running, output in the registry).
+  New `TestServiceBackgroundTerminalLateLifecycle` covers the connection-sink
+  service methods. The deterministic `background-terminal` E2E step asserts the
+  marker blocks render, the run activity projection is empty, and the footer is
+  still absent.
+
+Deferred to later phases (per the plan): the `chat.background_terminal.*` events +
+list/output/kill HTTP endpoints + IPC (Phase 3); the footer, monitor, kill controls,
+and polished marker rendering (Phase 4). The empty-`terminalInteraction` wait is a
+no-op (no permanent transcript noise); the live "Waiting for background terminal"
+status-line text is a Phase 4 renderer concern. Gates: `check_quality --git-changes`
+EXIT 0; full chat Go suite + affected packages green; deterministic
+`background-terminal` E2E step passes (the pre-existing `chat-activity-projection`
+reasoning-summary-expand flake blocks the earlier steps in this sandbox); live
+`live-codex-electron` E2E passes.
+
+Review-round fixes:
+
+- Multi-turn same-thread (High): a background terminal started in an earlier turn
+  can emit output/completion while a LATER turn is active on the same Codex thread;
+  the notification carries the earlier turn's id, which Codex still delivers to the
+  active session, where strict turn-scope matching would fail the active turn.
+  `routeCrossTurnBackgroundNotification` (a session-path intercept in
+  `applyCodexSessionEventForWait`, run BEFORE the turn-rebind step) routes such a
+  cross-turn event to the background terminal registry and skips the run path, so
+  the active turn continues. It must precede rebind: if a cross-turn notification is
+  the FIRST scoped event of the active turn, the rebind window is still open and its
+  earlier turn id would otherwise rebind the active turn and then fail the real one.
+  Cross-turn completions are identified by `source==unifiedExecStartup`; cross-turn
+  output (which carries no source) is identified by a connection-scoped item-ID set
+  populated by a new `item/started` connection handler. Same-turn lifecycle
+  (matching turn id) still flows through the normal run path. Regressions:
+  `TestCodexHarnessRoutesCrossTurnUnifiedExecCompletion` and, for the
+  first-scoped-notification ordering, `TestCodexHarnessInterceptsCrossTurnCompletionBeforeRebind`
+  — both proven non-vacuous (they fail with `codex_notification_scope_drift` / a
+  rebind to the earlier turn id without the fix). Clean under `-race`.
+- Turn-active flag leak (Medium): `StartTurn` now also `defer`s
+  `endBackgroundTerminalTurn`, so a turn that errors before any `turn/completed`
+  cannot leave the thread's flag stuck true and suppress its later background-terminal
+  events. The connection-scoped `turn/completed` clear is KEPT (it is required for
+  deterministic late routing — a defer alone would let the dispatch goroutine race
+  ahead and re-drop the late event); the defer is only the error-path safety net,
+  and it preserves the thread's conversation context (asserted by
+  `TestCodexHarnessBackgroundTurnEndClearsFlagKeepsContext`).
+- Goal-continuation bypass (Medium): `/goal set` and `/goal resume` run a turn
+  through `codexGoalContinuation.Wait`, not `StartTurn`, so they did not register
+  the thread context or mark the turn active — unified-exec terminals started in a
+  goal continuation would lose their late output/completion (no thread context), or
+  duplicate in-turn output against a stale context (active flag false). `Wait` now
+  mirrors `StartTurn`: `beginBackgroundTerminalTurn` + `defer
+  endBackgroundTerminalTurn`. The shared `applyCodexSessionEventForWait` already
+  carries the cross-turn router and rebind, so no other change is needed.
+  Regression: `TestCodexHarnessGoalContinuationEnablesBackgroundTerminalLateRouting`
+  (after the continuation, `backgroundTerminalLateRouting` returns the sink + the
+  continuation's conversation — proven non-vacuous; fails without the Wait-side
+  registration). The fake emits the continuation stream synchronously at goal-set
+  time, so a genuinely late event cannot be timed through the goal path in a unit
+  test; the test asserts the routing precondition the fix establishes.
+
 ### Phase 3: Events And HTTP API
 
 - Add background terminal event contracts.

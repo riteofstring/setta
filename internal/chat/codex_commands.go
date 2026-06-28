@@ -94,6 +94,12 @@ func (continuation *codexGoalContinuation) Wait(ctx context.Context, request Tur
 	continuation.harness.registerActive(request.Run.ID, continuation.session, request)
 	continuation.harness.updateActiveTurn(request.Run.ID, continuation.threadID, "")
 	defer continuation.harness.unregisterActive(request.Run.ID)
+	// Goal continuations run a turn outside StartTurn, so mirror its background
+	// terminal lifecycle setup: register the thread's conversation and mark its turn
+	// active, so unified-exec terminals started here route correctly and their late
+	// output/completion still reach the right conversation after the continuation.
+	continuation.harness.beginBackgroundTerminalTurn(continuation.threadID, request.Workspace.ID, request.Conversation.ID)
+	defer continuation.harness.endBackgroundTerminalTurn(continuation.threadID)
 
 	return continuation.harness.waitForTurn(ctx, continuation.session, request.Run.ID, continuation.threadID, "", sink)
 }

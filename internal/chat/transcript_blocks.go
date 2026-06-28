@@ -16,11 +16,12 @@ type ReasoningBlockMode string
 type RunStatusBlockMode string
 
 const (
-	TranscriptBlockKindUserMessage   TranscriptBlockKind = "user_message"
-	TranscriptBlockKindAssistantText TranscriptBlockKind = "assistant_text"
-	TranscriptBlockKindReasoning     TranscriptBlockKind = "reasoning"
-	TranscriptBlockKindActivityItem  TranscriptBlockKind = "activity_item"
-	TranscriptBlockKindRunStatus     TranscriptBlockKind = "run_status"
+	TranscriptBlockKindUserMessage        TranscriptBlockKind = "user_message"
+	TranscriptBlockKindAssistantText      TranscriptBlockKind = "assistant_text"
+	TranscriptBlockKindReasoning          TranscriptBlockKind = "reasoning"
+	TranscriptBlockKindActivityItem       TranscriptBlockKind = "activity_item"
+	TranscriptBlockKindRunStatus          TranscriptBlockKind = "run_status"
+	TranscriptBlockKindBackgroundTerminal TranscriptBlockKind = "background_terminal"
 
 	TranscriptBlockStatusStreaming TranscriptBlockStatus = "streaming"
 	TranscriptBlockStatusComplete  TranscriptBlockStatus = "complete"
@@ -43,6 +44,7 @@ var (
 		TranscriptBlockKindReasoning,
 		TranscriptBlockKindActivityItem,
 		TranscriptBlockKindRunStatus,
+		TranscriptBlockKindBackgroundTerminal,
 	}
 	transcriptBlockStatusValues = []TranscriptBlockStatus{
 		TranscriptBlockStatusStreaming,
@@ -82,11 +84,12 @@ type TranscriptBlock struct {
 	CreatedAt        string                `json:"createdAt"`
 	UpdatedAt        string                `json:"updatedAt"`
 
-	UserMessage   *TranscriptMessageProjection  `json:"userMessage"`
-	AssistantText *AssistantTextBlockProjection `json:"assistantText"`
-	Reasoning     *ReasoningBlockProjection     `json:"reasoning"`
-	Activity      *ActivityItemBlockProjection  `json:"activity"`
-	RunStatus     *RunStatusBlockProjection     `json:"runStatus"`
+	UserMessage        *TranscriptMessageProjection       `json:"userMessage"`
+	AssistantText      *AssistantTextBlockProjection      `json:"assistantText"`
+	Reasoning          *ReasoningBlockProjection          `json:"reasoning"`
+	Activity           *ActivityItemBlockProjection       `json:"activity"`
+	RunStatus          *RunStatusBlockProjection          `json:"runStatus"`
+	BackgroundTerminal *BackgroundTerminalBlockProjection `json:"backgroundTerminal"`
 }
 
 // TranscriptMessageProjection renders a user-side message block (normal trigger,
@@ -142,6 +145,21 @@ type RunStatusBlockProjection struct {
 	Mode  RunStatusBlockMode `json:"mode"`
 	Label string             `json:"label"`
 	Error string             `json:"error"`
+}
+
+// BackgroundTerminalBlockProjection renders a slim chronological marker that the
+// assistant started or interacted with a background terminal at this position in
+// the run. The block records chronology only; the background terminal's live
+// lifecycle (status, output) is owned by the backend process registry and joined
+// in the renderer by ProcessID. ProcessID is the stable Setta
+// BackgroundTerminalProcess.ID (the registry key and join key), not the provider
+// process handle. Command holds the started command or, for an interaction
+// marker, the stdin preview; Label is the human-readable marker title.
+type BackgroundTerminalBlockProjection struct {
+	ProcessID string `json:"processId"`
+	Command   string `json:"command"`
+	Cwd       string `json:"cwd"`
+	Label     string `json:"label"`
 }
 
 func (projection TranscriptMessageProjection) MarshalJSON() ([]byte, error) {

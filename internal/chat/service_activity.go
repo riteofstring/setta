@@ -154,6 +154,12 @@ func (service *Service) upsertRunItemLocked(item RunItem) error {
 	if err := service.prepareRunItemLocked(&item); err != nil {
 		return err
 	}
+	// Unified-exec commands are background terminals: their lifecycle is owned by
+	// the backend process registry, not by the run, so they are routed away from
+	// the normal run-item/activity-block path entirely.
+	if item.Source != nil && isBackgroundTerminalSource(*item.Source) {
+		return service.ingestBackgroundTerminalRunItemLocked(item)
+	}
 	existing, exists, err := service.store.FindRunItemByProviderID(item.WorkspaceID, item.RunID, item.ProviderItemID)
 	if err != nil {
 		return err
@@ -413,6 +419,20 @@ func (service *Service) appendRunItemOutput(workspaceID string, conversationID s
 	if err := validateRunItemOutputDelta(providerItemID, stream, text); err != nil {
 		return err
 	}
+	// Output for a registered background terminal is owned by the process registry,
+	// not by a run item. This covers the scripted harness and during-turn Codex
+	// output; late output after the turn arrives through the BackgroundTerminalSink.
+	process, isBackground, err := service.findBackgroundTerminalLocked(workspaceID, conversationID, providerItemID, "")
+	if err != nil {
+		return err
+	}
+	if isBackground {
+		return service.appendBackgroundTerminalOutputLocked(process, stream, text)
+	}
+	return service.appendRunItemOutputLocked(workspaceID, conversationID, runID, providerItemID, stream, text)
+}
+
+func (service *Service) appendRunItemOutputLocked(workspaceID string, conversationID string, runID string, providerItemID string, stream string, text string) error {
 	item, err := service.ensureOutputRunItemLocked(workspaceID, conversationID, runID, providerItemID)
 	if err != nil {
 		return err

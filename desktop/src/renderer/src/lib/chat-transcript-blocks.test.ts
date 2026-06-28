@@ -64,6 +64,7 @@ function block(base: { id: string; runId: string; ordinal: number }): Transcript
   return {
     activity: null,
     assistantText: null,
+    backgroundTerminal: null,
     conversationId: "conversation_api",
     createdAt: "2026-05-29T20:00:00Z",
     id: base.id,

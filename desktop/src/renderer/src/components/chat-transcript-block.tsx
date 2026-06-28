@@ -1,5 +1,5 @@
 import type { RunItemOutput, TranscriptBlock, TranscriptBlockStatus } from "@generated/backend";
-import { Ban, Check, CircleAlert } from "lucide-react";
+import { Ban, Check, CircleAlert, SquareTerminal } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "../lib/utils";
@@ -113,6 +113,8 @@ function TranscriptBlockView({
       return <ReasoningBlock block={block} />;
     case "run_status":
       return <RunStatusBlock block={block} />;
+    case "background_terminal":
+      return <BackgroundTerminalBlock block={block} />;
     case "activity_item":
       // Activity blocks render as grouped activity-item rows, never as a plain block.
       return null;
@@ -211,6 +213,35 @@ function RunStatusBlock({ block }: { block: TranscriptBlock }) {
         <span className="min-w-0 truncate text-status-critical">{runStatus.error}</span>
       ) : null}
     </RunStatusRow>
+  );
+}
+
+// background_terminal is a slim chronological marker that the assistant started or
+// interacted with a background terminal at this point in the run. The terminal's
+// live status and output are owned by the backend process registry (surfaced by the
+// footer and monitor in a later phase) and joined by processId; this block only
+// records the chronological marker.
+function BackgroundTerminalBlock({ block }: { block: TranscriptBlock }) {
+  const terminal = block.backgroundTerminal;
+  if (!terminal) {
+    return null;
+  }
+  return (
+    <div {...chatReadableColumnAttributes} className={chatReadableColumnPaddedClass}>
+      <div
+        className="flex h-6 min-w-0 items-center gap-2 text-xs text-muted-foreground"
+        data-block-kind="background_terminal"
+        data-process-id={terminal.processId}
+        data-testid="background-terminal-block"
+        data-transcript-block="true"
+      >
+        <SquareTerminal className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="shrink-0">{terminal.label}</span>
+        {terminal.command !== "" ? (
+          <span className="min-w-0 truncate font-mono text-foreground">{terminal.command}</span>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

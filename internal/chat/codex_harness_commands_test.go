@@ -59,6 +59,50 @@ func TestCodexHarnessBeginsGoalContinuationFromCommandRPC(t *testing.T) {
 	}
 }
 
+// TestCodexHarnessGoalContinuationEnablesBackgroundTerminalLateRouting is the regression for the
+// goal-continuation bypass: a goal continuation runs a turn outside StartTurn, so it must mirror
+// StartTurn's background terminal lifecycle setup (register the thread's conversation, mark its
+// turn active, clear on completion). After the continuation, late unified-exec events for the
+// thread must be routable to the conversation that ran it; without the Wait-side registration the
+// thread has no context and late background-terminal output/completion are silently dropped.
+func TestCodexHarnessGoalContinuationEnablesBackgroundTerminalLateRouting(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-goal-continuation"))
+	background := newRecordingBackgroundTerminalSink()
+	harness.SetBackgroundTerminalSink(background)
+	request := testCommandRequest(t, "/goal finish renderer tests")
+
+	result, continuation, err := harness.BeginGoalContinuation(context.Background(), request)
+	if err != nil {
+		t.Fatalf("begin goal continuation: %v", err)
+	}
+	defer continuation.Close()
+
+	turnRequest := testTurnRequest(t)
+	turnRequest.Conversation = request.Conversation
+	turnRequest.Prompt = "finish renderer tests"
+	turnRequest.ThreadRef = result.ThreadRef
+	turnRequest.Workspace = request.Workspace
+	sink := newRecordingSink()
+	completion, err := continuation.Wait(context.Background(), turnRequest, sink)
+	if err != nil {
+		t.Fatalf("wait goal continuation: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+
+	// The flag is cleared (turn done) and the conversation context is retained, exactly as after
+	// StartTurn, so a later unified-exec event on this thread routes to the right conversation.
+	routedSink, routedContext, ok := harness.backgroundTerminalLateRouting("thread_fake")
+	if !ok {
+		t.Fatal("goal continuation did not enable background-terminal late routing for its thread")
+	}
+	if routedSink == nil {
+		t.Fatal("background-terminal late routing returned a nil sink")
+	}
+	if routedContext.workspaceID != "workspace_api" || routedContext.conversationID != "conversation_api" {
+		t.Fatalf("late routing context = %+v, want workspace_api/conversation_api", routedContext)
+	}
+}
+
 func TestCodexHarnessGoalEditOpensEditor(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-goal-edit"))
 	request := testCommandRequest(t, "/goal edit")

@@ -719,9 +719,9 @@ export function decodeStructuredInputMode(value: unknown, label = "StructuredInp
   }
 }
 
-export type TranscriptBlockKind = "user_message" | "assistant_text" | "reasoning" | "activity_item" | "run_status";
+export type TranscriptBlockKind = "user_message" | "assistant_text" | "reasoning" | "activity_item" | "run_status" | "background_terminal";
 
-export const transcriptBlockKindValues = ["user_message", "assistant_text", "reasoning", "activity_item", "run_status"] as const satisfies readonly TranscriptBlockKind[];
+export const transcriptBlockKindValues = ["user_message", "assistant_text", "reasoning", "activity_item", "run_status", "background_terminal"] as const satisfies readonly TranscriptBlockKind[];
 
 export function decodeTranscriptBlockKind(value: unknown, label = "TranscriptBlockKind"): TranscriptBlockKind {
   const decoded = decodeString(value, label);
@@ -735,6 +735,8 @@ export function decodeTranscriptBlockKind(value: unknown, label = "TranscriptBlo
     case "activity_item":
       return decoded;
     case "run_status":
+      return decoded;
+    case "background_terminal":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2957,6 +2959,13 @@ export interface RunStatusBlockProjection {
   error: string;
 }
 
+export interface BackgroundTerminalBlockProjection {
+  processId: string;
+  command: string;
+  cwd: string;
+  label: string;
+}
+
 export interface TranscriptBlock {
   schemaVersion: number;
   id: string;
@@ -2973,6 +2982,7 @@ export interface TranscriptBlock {
   reasoning: ReasoningBlockProjection | null;
   activity: ActivityItemBlockProjection | null;
   runStatus: RunStatusBlockProjection | null;
+  backgroundTerminal: BackgroundTerminalBlockProjection | null;
 }
 
 export interface ChatGoalState {
@@ -6810,9 +6820,20 @@ export function decodeRunStatusBlockProjection(value: unknown): RunStatusBlockPr
   };
 }
 
+export function decodeBackgroundTerminalBlockProjection(value: unknown): BackgroundTerminalBlockProjection {
+  const record = assertRecord(value, "BackgroundTerminalBlockProjection");
+  assertKnownFields(record, "BackgroundTerminalBlockProjection", ["processId", "command", "cwd", "label"]);
+  return {
+    processId: decodeString(requireField(record, "processId", "BackgroundTerminalBlockProjection"), "BackgroundTerminalBlockProjection.processId"),
+    command: decodeString(requireField(record, "command", "BackgroundTerminalBlockProjection"), "BackgroundTerminalBlockProjection.command"),
+    cwd: decodeString(requireField(record, "cwd", "BackgroundTerminalBlockProjection"), "BackgroundTerminalBlockProjection.cwd"),
+    label: decodeString(requireField(record, "label", "BackgroundTerminalBlockProjection"), "BackgroundTerminalBlockProjection.label"),
+  };
+}
+
 export function decodeTranscriptBlock(value: unknown): TranscriptBlock {
   const record = assertRecord(value, "TranscriptBlock");
-  assertKnownFields(record, "TranscriptBlock", ["schemaVersion", "id", "conversationId", "runId", "kind", "ordinal", "runAnchorOrdinal", "status", "createdAt", "updatedAt", "userMessage", "assistantText", "reasoning", "activity", "runStatus"]);
+  assertKnownFields(record, "TranscriptBlock", ["schemaVersion", "id", "conversationId", "runId", "kind", "ordinal", "runAnchorOrdinal", "status", "createdAt", "updatedAt", "userMessage", "assistantText", "reasoning", "activity", "runStatus", "backgroundTerminal"]);
   const result: TranscriptBlock = {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "TranscriptBlock"), "TranscriptBlock.schemaVersion"),
     id: decodeString(requireField(record, "id", "TranscriptBlock"), "TranscriptBlock.id"),
@@ -6829,6 +6850,7 @@ export function decodeTranscriptBlock(value: unknown): TranscriptBlock {
     reasoning: decodeNullable(requireField(record, "reasoning", "TranscriptBlock"), "TranscriptBlock.reasoning", (item) => decodeReasoningBlockProjection(item)),
     activity: decodeNullable(requireField(record, "activity", "TranscriptBlock"), "TranscriptBlock.activity", (item) => decodeActivityItemBlockProjection(item)),
     runStatus: decodeNullable(requireField(record, "runStatus", "TranscriptBlock"), "TranscriptBlock.runStatus", (item) => decodeRunStatusBlockProjection(item)),
+    backgroundTerminal: decodeNullable(requireField(record, "backgroundTerminal", "TranscriptBlock"), "TranscriptBlock.backgroundTerminal", (item) => decodeBackgroundTerminalBlockProjection(item)),
   };
   assertTaggedUnionBranch("TranscriptBlock", result.kind, {
     "user_message": result.userMessage,
@@ -6836,6 +6858,7 @@ export function decodeTranscriptBlock(value: unknown): TranscriptBlock {
     "reasoning": result.reasoning,
     "activity_item": result.activity,
     "run_status": result.runStatus,
+    "background_terminal": result.backgroundTerminal,
   });
   return result;
 }

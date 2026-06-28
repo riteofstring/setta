@@ -64,6 +64,7 @@ function baseBlock(base: BlockBase, kind: TranscriptBlock["kind"]): TranscriptBl
   return {
     activity: null,
     assistantText: null,
+    backgroundTerminal: null,
     conversationId: base.conversationId ?? conversationId,
     createdAt: base.createdAt ?? "2026-05-29T20:00:00Z",
     id: base.id,

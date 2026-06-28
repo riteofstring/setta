@@ -51,6 +51,7 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 				{Field: "reasoning", KindValue: string(chat.TranscriptBlockKindReasoning)},
 				{Field: "activity", KindValue: string(chat.TranscriptBlockKindActivityItem)},
 				{Field: "runStatus", KindValue: string(chat.TranscriptBlockKindRunStatus)},
+				{Field: "backgroundTerminal", KindValue: string(chat.TranscriptBlockKindBackgroundTerminal)},
 			},
 		},
 	}

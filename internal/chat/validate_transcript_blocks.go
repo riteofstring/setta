@@ -92,6 +92,8 @@ func validateTranscriptBlockBranch(block TranscriptBlock) error {
 		return validateActivityItemBlockProjection(block.ID, *block.Activity)
 	case TranscriptBlockKindRunStatus:
 		return validateRunStatusBlockProjection(block.ID, *block.RunStatus)
+	case TranscriptBlockKindBackgroundTerminal:
+		return validateBackgroundTerminalBlockProjection(block.ID, *block.BackgroundTerminal)
 	default:
 		return fmt.Errorf("transcript block %s has unsupported kind %s", block.ID, block.Kind)
 	}
@@ -113,6 +115,9 @@ func transcriptBlockPopulatedKinds(block TranscriptBlock) []TranscriptBlockKind 
 	}
 	if block.RunStatus != nil {
 		populated = append(populated, TranscriptBlockKindRunStatus)
+	}
+	if block.BackgroundTerminal != nil {
+		populated = append(populated, TranscriptBlockKindBackgroundTerminal)
 	}
 	return populated
 }
@@ -189,6 +194,19 @@ func validateActivityItemBlockProjection(blockID string, activity ActivityItemBl
 func validateRunStatusBlockProjection(blockID string, status RunStatusBlockProjection) error {
 	if !validValue(status.Mode, runStatusBlockModeValues) {
 		return fmt.Errorf("transcript block %s runStatus has unsupported mode %s", blockID, status.Mode)
+	}
+	return nil
+}
+
+func validateBackgroundTerminalBlockProjection(blockID string, terminal BackgroundTerminalBlockProjection) error {
+	if terminal.ProcessID == "" {
+		return fmt.Errorf("transcript block %s backgroundTerminal processId is required", blockID)
+	}
+	if err := validateStorageID("background terminal block processId", terminal.ProcessID); err != nil {
+		return fmt.Errorf("transcript block %s backgroundTerminal %w", blockID, err)
+	}
+	if terminal.Label == "" {
+		return fmt.Errorf("transcript block %s backgroundTerminal label is required", blockID)
 	}
 	return nil
 }

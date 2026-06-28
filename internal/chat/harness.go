@@ -234,6 +234,19 @@ func (err *HarnessRefUnavailableError) Unwrap() error {
 	return err.Err
 }
 
+// BackgroundTerminalSink receives Codex unified-exec lifecycle events that are
+// not scoped to an active run or turn. A background terminal can keep running,
+// emitting output, and finally exit after the assistant turn that started it has
+// completed; those late events arrive on the provider connection when no TurnSink
+// is live. The sink is conversation-scoped and outlives any single turn, so it
+// updates the backend-owned background terminal registry directly. Startup and
+// interaction markers are chronological and stay on the run-scoped TurnSink path;
+// only the run-independent output and completion updates route here.
+type BackgroundTerminalSink interface {
+	BackgroundTerminalOutputDelta(workspaceID string, conversationID string, providerItemID string, providerProcessID string, stream string, text string) error
+	BackgroundTerminalCompleted(workspaceID string, conversationID string, providerItemID string, providerProcessID string, exitCode int, errorMessage string) error
+}
+
 type TurnSink interface {
 	AssistantTextDelta(providerItemID string, text string) error
 	ApprovalRequested(approval ApprovalRequest) error

@@ -103,6 +103,12 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		service.recordCorruptStateDiagnostic(err, "", "", "")
 		return nil, err
 	}
+	// Harnesses that run background terminals on a long-lived provider connection
+	// (Codex) receive the conversation-scoped sink that late unified-exec output
+	// and completion update after the starting turn has finished.
+	if attacher, ok := harness.(backgroundTerminalSinkAttacher); ok {
+		attacher.SetBackgroundTerminalSink(service.backgroundTerminalSink())
+	}
 	return service, nil
 }
 
