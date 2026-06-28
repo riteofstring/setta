@@ -23,7 +23,6 @@ export function WorkspaceOverviewGhostButton({
       aria-label={overviewGhostLabel(target.placement)}
       className="workspace-overview-ghost-pane app-no-drag"
       data-workspace-overview-ghost="true"
-      data-overview-ghost-pane-id={target.paneId}
       data-overview-ghost-placement={target.placement}
       onClick={(event) => {
         event.preventDefault();
@@ -44,7 +43,6 @@ export function WorkspaceOverviewGhostButton({
 export function WorkspaceToolbarLayer({
   debugRef,
   mobileLayout,
-  onNativeOverlayActiveChange,
   overviewActive,
   runLayoutAction,
   runtime,
@@ -52,7 +50,6 @@ export function WorkspaceToolbarLayer({
 }: {
   debugRef: RefObject<HTMLDivElement | null>;
   mobileLayout: boolean;
-  onNativeOverlayActiveChange: (active: boolean) => void;
   overviewActive: boolean;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
@@ -63,7 +60,6 @@ export function WorkspaceToolbarLayer({
   }
   return (
     <WorkspaceToolbar
-      onNativeOverlayActiveChange={onNativeOverlayActiveChange}
       openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
       overviewActive={overviewActive}
       performanceStatsRef={showPerformanceStats ? debugRef : null}

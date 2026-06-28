@@ -73,6 +73,7 @@ func configFromArgs(args []string, stderr io.Writer, getenv func(string) string)
 	flagSet.SetOutput(stderr)
 	flagSet.StringVar(&config.appDataDir, "app-data-dir", config.appDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&config.workspacePath, "workspace-root", "", "workspace path to open, select, and seed")
+	flagSet.StringVar(&config.workspacePath, "workspace-path", "", "alias for --workspace-root")
 	if err := flagSet.Parse(args); err != nil {
 		return config, err
 	}

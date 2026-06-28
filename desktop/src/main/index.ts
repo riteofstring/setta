@@ -1,7 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import type { OpenDialogOptions } from "electron";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import {
   createBackendClient,
@@ -18,6 +19,7 @@ import { startBackendEventStream, type BackendEventStream } from "./backend-even
 import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
+import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
@@ -580,9 +582,9 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatMessagePage",
-    async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
+    async (_event, workspaceId, conversationId, beforeBlockOrdinal, limit) => {
       return requireBackendClient().getMessagePage({
-        beforeOrdinal,
+        beforeBlockOrdinal,
         conversationId,
         limit,
         workspaceId,
@@ -606,6 +608,17 @@ function registerIpc() {
         confirmGoalReplacement,
         conversationId,
         raw,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatOpenCodexModelPicker",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().openChatCodexModelPicker({
+        conversationId,
         workspaceId,
       });
     },
@@ -638,27 +651,27 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatSendMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().sendChatMessage({ conversationId, prompt, workspaceId });
+    async (_event, workspaceId, conversationId, input) => {
+      return requireBackendClient().sendChatMessage({ conversationId, input, workspaceId });
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
     "chatQueueMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().queueChatMessage({ conversationId, prompt, workspaceId });
+    async (_event, workspaceId, conversationId, input) => {
+      return requireBackendClient().queueChatMessage({ conversationId, input, workspaceId });
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
     "chatEditQueuedMessage",
-    async (_event, workspaceId, conversationId, messageId, prompt) => {
+    async (_event, workspaceId, conversationId, messageId, input) => {
       return requireBackendClient().editQueuedChatMessage({
         conversationId,
+        input,
         messageId,
-        prompt,
         workspaceId,
       });
     },
@@ -679,20 +692,67 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatSteerMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().steerChatMessage({ conversationId, prompt, workspaceId });
+    async (_event, workspaceId, conversationId, input) => {
+      return requireBackendClient().steerChatMessage({ conversationId, input, workspaceId });
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
     "chatSendSteeringImmediately",
-    async (_event, workspaceId, conversationId, prompt) => {
+    async (_event, workspaceId, conversationId, input) => {
       return requireBackendClient().sendSteeringImmediately({
         conversationId,
-        prompt,
+        input,
         workspaceId,
       });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatCreateImageAttachmentFromBytes",
+    async (_event, workspaceId, conversationId, fileName, dataBase64) => {
+      return requireBackendClient().createChatImageAttachmentFromBytes({
+        conversationId,
+        dataBase64,
+        fileName,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatSelectImageAttachments",
+    async (_event, workspaceId, conversationId, maxCount) => {
+      if (!Number.isInteger(maxCount) || maxCount <= 0) {
+        throw new Error("No image attachment slots remaining.");
+      }
+      const selection = await dialog.showOpenDialog({
+        filters: [{ extensions: ["png", "jpg", "jpeg", "gif"], name: "Images" }],
+        properties: ["openFile", "multiSelections"],
+      });
+      if (selection.canceled) {
+        return [];
+      }
+      if (selection.filePaths.length > maxCount) {
+        throw new Error(`Select at most ${maxCount} images.`);
+      }
+      const client = requireBackendClient();
+      const attachments = [];
+      for (const path of selection.filePaths) {
+        const data = await readFile(path);
+        attachments.push(
+          await client.createChatImageAttachmentFromBytes({
+            conversationId,
+            dataBase64: data.toString("base64"),
+            fileName: basename(path),
+            workspaceId,
+          }),
+        );
+      }
+      return attachments;
     },
     ipcObserver,
   );
@@ -730,6 +790,55 @@ function registerIpc() {
         limit,
         runId,
         runItemId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatListBackgroundTerminals",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().listBackgroundTerminals({
+        conversationId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatGetBackgroundTerminalOutput",
+    async (_event, ...args) => {
+      const [workspaceId, conversationId, processId, afterOrdinal, limit] = args;
+      return requireBackendClient().getBackgroundTerminalOutput({
+        afterOrdinal,
+        conversationId,
+        limit,
+        processId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatKillBackgroundTerminal",
+    async (_event, workspaceId, conversationId, processId) => {
+      return requireBackendClient().killBackgroundTerminal({
+        conversationId,
+        processId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatKillAllBackgroundTerminals",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().killAllBackgroundTerminals({
+        conversationId,
         workspaceId,
       });
     },
@@ -835,6 +944,7 @@ app.whenReady().then(async () => {
     desktopRoot: desktopRoot(),
     repoRoot: repoRoot(),
   });
+  registerChatAttachmentProtocol(appDataDir);
   await prepareBackend(appDataDir);
   await createWindow();
 });

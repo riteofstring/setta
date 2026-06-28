@@ -114,36 +114,6 @@ export interface OpenPaneRequest {
 }
 
 export type PaneInsertionPlacement = "above" | "below" | "right";
-export type PaneDropPlacement = "after" | "before";
-
-export type PaneDropIntent =
-  | {
-      kind: "row";
-      placement: PaneDropPlacement;
-      targetPaneId: PaneId;
-    }
-  | {
-      kind: "column";
-      planeIndex: number;
-      slotPlacement: PaneDropPlacement;
-      targetColumnId: ColumnId;
-    }
-  | {
-      // Move the source pane into an empty horizontal slot in a plane. The slot is
-      // anchored by a column from another plane, so the new column shares that
-      // slot's width instead of inventing an unrelated width.
-      kind: "plane-slot";
-      planeIndex: number;
-      referenceColumnId: ColumnId;
-      slotIndex: number;
-    }
-  | {
-      // Exchange the source and target panes: each takes the other's grid slot
-      // (and therefore that slot's column width). The rest of the layout is
-      // untouched. Resolved when a drag is dropped onto a pane's center.
-      kind: "swap";
-      targetPaneId: PaneId;
-    };
 
 export type PaneLimitPolicy = Partial<Record<SurfaceKind, number>>;
 
@@ -151,21 +121,6 @@ export interface LayoutFrameInput {
   focusedPaneId: PaneId;
   maximizedPaneId: PaneId | null;
   movementPhase: "idle" | "moving";
-  /**
-   * Screen-pixel pan of the overview surface. Lets the user scroll a workspace
-   * whose scaled overview is larger than the viewport into view. Ignored outside
-   * overview mode. Defaults to 0 (centered / edge-aligned).
-   */
-  overviewPanX?: number;
-  overviewPanY?: number;
-  /**
-   * User zoom factor applied on top of the fit-all overview scale (1 = fit). The
-   * effective overview scale is `clamp(fitScale * overviewZoom, fitScale,
-   * OVERVIEW_MAX_ZOOM_SCALE)`. Distinct from `overviewProgress`, which animates
-   * the normal<->overview mode transition. Ignored outside overview mode.
-   * Defaults to 1.
-   */
-  overviewZoom?: number;
   presentationMode: WorkspacePresentationMode;
   renderAllColumns?: boolean;
   scrollColumn: number;
@@ -180,7 +135,6 @@ export interface PaneRenderItem {
   moving: boolean;
   opacity: number;
   paneId: PaneId;
-  planeIndex?: number;
   presentationMode: WorkspacePresentationMode;
   resizing: boolean;
   runtimeState: PaneRuntimeState;
@@ -302,8 +256,7 @@ export interface LayoutEngine {
   ): PaneId | null;
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void;
   renamePane(paneId: PaneId, title: string): boolean;
-  applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean;
-  previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean;
+  reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean;
   resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
   resizePane(paneId: PaneId, heightPx: number | null): void;
@@ -329,8 +282,6 @@ export interface WorkspaceFrameMetrics {
   p50FrameTime: number;
   p95FrameTime: number;
   p99FrameTime: number;
-  paneDragPreviewClears: number;
-  paneDragPreviewUpdates: number;
   reactCommitsDuringMovement: number;
   reactCommitsDuringResize: number;
   resize: WorkspaceResizeMetrics;

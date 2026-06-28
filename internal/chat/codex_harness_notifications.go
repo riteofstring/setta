@@ -2,7 +2,6 @@ package chat
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -67,7 +66,7 @@ func handleCodexProcessOutputDelta(message jsonRPCMessage, _ string, _ string, s
 }
 
 func codexBase64OutputDeltaFromCommandExec(params codexapp.CommandExecOutputDeltaNotification) (codexBase64OutputDelta, error) {
-	stream, err := codexOutputStreamFromRaw(params.Stream, "codex command exec output delta")
+	stream, err := codexOutputStreamFromRaw(string(params.Stream))
 	if err != nil {
 		return codexBase64OutputDelta{}, err
 	}
@@ -75,18 +74,14 @@ func codexBase64OutputDeltaFromCommandExec(params codexapp.CommandExecOutputDelt
 }
 
 func codexBase64OutputDeltaFromProcess(params codexapp.ProcessOutputDeltaNotification) (codexBase64OutputDelta, error) {
-	stream, err := codexOutputStreamFromRaw(params.Stream, "codex process output delta")
+	stream, err := codexOutputStreamFromRaw(string(params.Stream))
 	if err != nil {
 		return codexBase64OutputDelta{}, err
 	}
 	return codexBase64OutputDelta{deltaBase64: params.DeltaBase64, stream: stream}, nil
 }
 
-func codexOutputStreamFromRaw(raw json.RawMessage, label string) (string, error) {
-	var stream string
-	if err := json.Unmarshal(raw, &stream); err != nil {
-		return "", fmt.Errorf("%s.stream must be a string: %w", label, err)
-	}
+func codexOutputStreamFromRaw(stream string) (string, error) {
 	if _, ok := codexOutputStreams[stream]; !ok {
 		return "", fmt.Errorf("unsupported codex output stream: %s", stream)
 	}
@@ -188,8 +183,6 @@ func handleCodexReasoningTextDelta(message jsonRPCMessage, threadID string, turn
 		ProviderItemID: params.ItemId,
 		Type:           RunItemTypeReasoning,
 		Status:         RunItemStatusRunning,
-		Title:          "Reasoning text",
-		Summary:        "Reasoning text received",
 		HiddenText:     params.Delta,
 	})
 }

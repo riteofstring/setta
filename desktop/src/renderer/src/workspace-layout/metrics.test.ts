@@ -55,26 +55,6 @@ describe("workspace metrics collector", () => {
       snapshotTextureCaptureRequests: 0,
     });
   });
-
-  test("records pane drag preview churn metrics", () => {
-    const metrics = new WorkspaceMetricsCollector();
-
-    metrics.recordPaneDragPreviewUpdate();
-    metrics.recordPaneDragPreviewUpdate();
-    metrics.recordPaneDragPreviewClear();
-
-    expect(metrics.snapshot()).toMatchObject({
-      paneDragPreviewClears: 1,
-      paneDragPreviewUpdates: 2,
-    });
-
-    metrics.reset();
-
-    expect(metrics.snapshot()).toMatchObject({
-      paneDragPreviewClears: 0,
-      paneDragPreviewUpdates: 0,
-    });
-  });
 });
 
 function frameSample(resizePhase: ResizePhase, frameTime: number) {

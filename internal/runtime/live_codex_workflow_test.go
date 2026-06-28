@@ -75,7 +75,7 @@ func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
 	result := postRuntimeJSON[chat.SendMessageResult](t, client, baseURL, "/chat/messages/send", httpapi.SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "hello",
+		Input:          chat.TextChatInput("hello"),
 	}, http.StatusOK)
 	defer cancelRuntimeActiveRunBestEffort(client, baseURL, opened.Workspace.ID, conversation.ID)
 
@@ -89,7 +89,7 @@ func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
 	queued := postRuntimeJSON[chat.QueueMessageResult](t, client, baseURL, "/chat/messages/queue", httpapi.QueueChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "write one short sentence about queueing work",
+		Input:          chat.TextChatInput("write one short sentence about queueing work"),
 	}, http.StatusOK)
 	if queued.UserMessage.Role != chat.RoleUser || queued.UserMessage.Delivery != chat.MessageDeliveryQueued {
 		t.Fatalf("queued message = %+v, want queued user message", queued.UserMessage)
@@ -102,7 +102,7 @@ func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
 	if len(page.Messages) < 3 {
 		t.Fatalf("message count = %d, want at least 3 after queueing", len(page.Messages))
 	}
-	if text := strings.TrimSpace(runtimeMessageText(page.Messages[1])); text == "" {
+	if text := strings.TrimSpace(runtimeMessageText(t, page.Messages[1])); text == "" {
 		t.Fatal("assistant reply was empty")
 	}
 
@@ -110,7 +110,7 @@ func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
 	if len(page.Messages) != 4 {
 		t.Fatalf("message count after queued turn = %d, want 4", len(page.Messages))
 	}
-	if text := strings.TrimSpace(runtimeMessageText(page.Messages[3])); text == "" {
+	if text := strings.TrimSpace(runtimeMessageText(t, page.Messages[3])); text == "" {
 		t.Fatal("queued assistant reply was empty")
 	}
 	assertRuntimeLiveCodexDurableState(t, config.AppDataDir, opened.Workspace.ID, conversation.ID)
@@ -137,7 +137,7 @@ func waitForRuntimeLiveCodexReply(t *testing.T, client *http.Client, baseURL str
 			case chat.MessageStatusError:
 				t.Fatalf("assistant message failed; %s", runtimeRunStateForFailure(appDataDir, workspaceID, runID))
 			case chat.MessageStatusComplete:
-				if strings.TrimSpace(runtimeMessageText(message)) == "" {
+				if strings.TrimSpace(runtimeMessageText(t, message)) == "" {
 					t.Fatalf("assistant completed with an empty reply; %s", runtimeRunStateForFailure(appDataDir, workspaceID, runID))
 				}
 				return page
@@ -213,10 +213,21 @@ func cancelRuntimeActiveRunBestEffort(client *http.Client, baseURL string, works
 	_ = response.Body.Close()
 }
 
-func runtimeMessageText(message chat.ChatMessage) string {
+func runtimeMessageText(t *testing.T, message chat.ChatMessage) string {
+	t.Helper()
+
 	parts := make([]string, 0, len(message.Parts))
 	for _, part := range message.Parts {
-		parts = append(parts, part.Text)
+		switch part.Type {
+		case chat.MessagePartText:
+			if part.Text == nil {
+				t.Fatalf("message %s text part %s has nil text payload", message.ID, part.ID)
+			}
+			parts = append(parts, part.Text.Text)
+		case chat.MessagePartImage:
+		default:
+			t.Fatalf("message %s part %s has unsupported type %q", message.ID, part.ID, part.Type)
+		}
 	}
 	return strings.Join(parts, "")
 }
@@ -251,8 +262,8 @@ func assertRuntimeLiveCodexDurableState(t *testing.T, appDataDir string, workspa
 	if len(page.Messages) != 4 {
 		t.Fatalf("durable message count = %d, want 4", len(page.Messages))
 	}
-	if strings.TrimSpace(runtimeMessageText(page.Messages[1])) == "" ||
-		strings.TrimSpace(runtimeMessageText(page.Messages[3])) == "" {
+	if strings.TrimSpace(runtimeMessageText(t, page.Messages[1])) == "" ||
+		strings.TrimSpace(runtimeMessageText(t, page.Messages[3])) == "" {
 		t.Fatalf("durable assistant messages must be non-empty: %+v", page.Messages)
 	}
 }

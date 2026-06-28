@@ -22,7 +22,7 @@ func TestServiceLoadRunItemOutputPageDoesNotReadBeyondLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserMessage("workspace_api", conversation.ID, "activity")
+	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("activity"))
 	if err != nil {
 		t.Fatalf("send: %v", err)
 	}

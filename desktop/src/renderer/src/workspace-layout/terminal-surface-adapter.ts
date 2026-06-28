@@ -179,7 +179,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     void this.loadProfiles()
       .then(() => this.mountTerminal(content.viewport))
       .then(() => {
-        this.startSessionIfVisible();
+        this.startSessionIfFocused();
       })
       .catch((error: unknown) => {
         this.showStatus(errorMessage(error));
@@ -216,7 +216,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (visible) {
       this.fitAndResize();
       this.drainPendingOutput();
-      this.startSessionIfVisible();
     }
   }
 
@@ -227,6 +226,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       this.terminal?.focus();
       this.fitAndResize();
       this.drainPendingOutput();
+      this.startSessionIfFocused();
     }
   }
 
@@ -253,10 +253,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.drainPendingOutput();
     if (this.focused) {
       this.terminal?.focus();
-    }
-    if (this.visible) {
       this.fitAndResize();
-      this.startSessionIfVisible();
+      this.startSessionIfFocused();
     }
   }
 
@@ -386,8 +384,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       });
   }
 
-  private startSessionIfVisible(): void {
-    if (!this.visible) {
+  private startSessionIfFocused(): void {
+    if (!this.focused) {
+      this.showStatus("Focus terminal to start shell.");
       return;
     }
     this.startSession();
@@ -816,6 +815,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private fitAndResize(): void {
     const fitContext = terminalFitContext({
       fitAddon: this.fitAddon,
+      focused: this.focused,
       frozen: this.frozen,
       host: this.host,
       terminal: this.terminal,

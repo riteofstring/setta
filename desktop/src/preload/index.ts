@@ -172,12 +172,23 @@ const api: SettaAPI = {
       invoke("chatCreateConversation", workspaceId, title),
     deleteConversation: (workspaceId: string, conversationId: string) =>
       invoke("chatDeleteConversation", workspaceId, conversationId),
-    editQueuedMessage: (
+    editQueuedMessage: (workspaceId: string, conversationId: string, messageId: string, input) =>
+      invoke("chatEditQueuedMessage", workspaceId, conversationId, messageId, input),
+    createImageAttachmentFromBytes: (
       workspaceId: string,
       conversationId: string,
-      messageId: string,
-      prompt: string,
-    ) => invoke("chatEditQueuedMessage", workspaceId, conversationId, messageId, prompt),
+      fileName: string,
+      dataBase64: string,
+    ) =>
+      invoke(
+        "chatCreateImageAttachmentFromBytes",
+        workspaceId,
+        conversationId,
+        fileName,
+        dataBase64,
+      ),
+    selectImageAttachments: (workspaceId: string, conversationId: string, maxCount: number) =>
+      invoke("chatSelectImageAttachments", workspaceId, conversationId, maxCount),
     executeCommand: (workspaceId: string, conversationId: string, raw: string, options) =>
       invoke(
         "chatExecuteCommand",
@@ -186,6 +197,8 @@ const api: SettaAPI = {
         raw,
         options?.confirmGoalReplacement ?? false,
       ),
+    openCodexModelPicker: (workspaceId: string, conversationId: string) =>
+      invoke("chatOpenCodexModelPicker", workspaceId, conversationId),
     setCodexModel: (workspaceId: string, conversationId: string, modelId: string) =>
       invoke("chatSetCodexModel", workspaceId, conversationId, modelId),
     setCodexReasoningEffort: (workspaceId: string, conversationId: string, effort) =>
@@ -200,9 +213,9 @@ const api: SettaAPI = {
     messagePage: (
       workspaceId: string,
       conversationId: string,
-      beforeOrdinal: number,
+      beforeBlockOrdinal: number,
       limit: number,
-    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeOrdinal, limit),
+    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeBlockOrdinal, limit),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeChatEvent(payload));
@@ -212,8 +225,8 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.chatEvent, handler);
       };
     },
-    queueMessage: (workspaceId: string, conversationId: string, prompt: string) =>
-      invoke("chatQueueMessage", workspaceId, conversationId, prompt),
+    queueMessage: (workspaceId: string, conversationId: string, input) =>
+      invoke("chatQueueMessage", workspaceId, conversationId, input),
     removeQueuedMessage: (workspaceId: string, conversationId: string, messageId: string) =>
       invoke("chatRemoveQueuedMessage", workspaceId, conversationId, messageId),
     runActivity: (workspaceId: string, runId: string, limit: number) =>
@@ -225,12 +238,33 @@ const api: SettaAPI = {
       afterOrdinal: number,
       limit: number,
     ) => invoke("chatRunItemOutput", workspaceId, runId, runItemId, afterOrdinal, limit),
-    sendMessage: (workspaceId: string, conversationId: string, prompt: string) =>
-      invoke("chatSendMessage", workspaceId, conversationId, prompt),
-    sendSteeringImmediately: (workspaceId: string, conversationId: string, prompt = "") =>
-      invoke("chatSendSteeringImmediately", workspaceId, conversationId, prompt),
-    steerMessage: (workspaceId: string, conversationId: string, prompt: string) =>
-      invoke("chatSteerMessage", workspaceId, conversationId, prompt),
+    listBackgroundTerminals: (workspaceId: string, conversationId: string) =>
+      invoke("chatListBackgroundTerminals", workspaceId, conversationId),
+    getBackgroundTerminalOutput: (
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+      afterOrdinal: number,
+      limit: number,
+    ) =>
+      invoke(
+        "chatGetBackgroundTerminalOutput",
+        workspaceId,
+        conversationId,
+        processId,
+        afterOrdinal,
+        limit,
+      ),
+    killBackgroundTerminal: (workspaceId: string, conversationId: string, processId: string) =>
+      invoke("chatKillBackgroundTerminal", workspaceId, conversationId, processId),
+    killAllBackgroundTerminals: (workspaceId: string, conversationId: string) =>
+      invoke("chatKillAllBackgroundTerminals", workspaceId, conversationId),
+    sendMessage: (workspaceId: string, conversationId: string, input) =>
+      invoke("chatSendMessage", workspaceId, conversationId, input),
+    sendSteeringImmediately: (workspaceId: string, conversationId: string, input) =>
+      invoke("chatSendSteeringImmediately", workspaceId, conversationId, input ?? null),
+    steerMessage: (workspaceId: string, conversationId: string, input) =>
+      invoke("chatSteerMessage", workspaceId, conversationId, input),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
   },
   codexAccount: {

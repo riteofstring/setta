@@ -75,11 +75,10 @@ type AppearanceSettings struct {
 }
 
 type AppearanceColorScheme struct {
-	Tailwind  AppearanceTailwindPalette  `json:"tailwind"`
-	Shadcn    AppearanceShadcnPalette    `json:"shadcn"`
-	Status    AppearanceStatusPalette    `json:"status"`
-	Accent    AppearanceAccentPalette    `json:"accent"`
-	Workspace AppearanceWorkspacePalette `json:"workspace"`
+	Tailwind AppearanceTailwindPalette `json:"tailwind"`
+	Shadcn   AppearanceShadcnPalette   `json:"shadcn"`
+	Status   AppearanceStatusPalette   `json:"status"`
+	Accent   AppearanceAccentPalette   `json:"accent"`
 }
 
 type AppearanceTailwindPalette struct {
@@ -140,18 +139,6 @@ type AppearanceStatusPalette struct {
 	AlertForeground    string `json:"alertForeground"`
 	Critical           string `json:"critical"`
 	CriticalForeground string `json:"criticalForeground"`
-}
-
-type AppearanceWorkspacePalette struct {
-	Surface             string `json:"surface"`
-	DotGrid             string `json:"dotGrid"`
-	PaneSurface         string `json:"paneSurface"`
-	PaneTitleBarSurface string `json:"paneTitleBarSurface"`
-	PaneEdge            string `json:"paneEdge"`
-	PaneSelectedOutline string `json:"paneSelectedOutline"`
-	PaneSelectedGlow    string `json:"paneSelectedGlow"`
-	DragTargetSurface   string `json:"dragTargetSurface"`
-	DragTargetOutline   string `json:"dragTargetOutline"`
 }
 
 type AppearanceFontScheme struct {
@@ -277,7 +264,6 @@ func Validate(settings AppearanceSettings) error {
 }
 
 func Normalize(settings AppearanceSettings) AppearanceSettings {
-	defaults := DefaultSettings()
 	if settings.Developer.OverviewCardMinWidthPx == 0 {
 		settings.Developer.OverviewCardMinWidthPx = defaultOverviewCardMinWidthPx
 	}
@@ -287,8 +273,6 @@ func Normalize(settings AppearanceSettings) AppearanceSettings {
 	if settings.Shortcuts.WorkspaceNavigation == "" {
 		settings.Shortcuts.WorkspaceNavigation = WorkspaceNavigationModAltArrows
 	}
-	settings.Light.Workspace = normalizeWorkspacePalette(settings.Light.Workspace, defaults.Light.Workspace)
-	settings.Dark.Workspace = normalizeWorkspacePalette(settings.Dark.Workspace, defaults.Dark.Workspace)
 	return settings
 }
 
@@ -303,9 +287,6 @@ func validateColorScheme(label string, scheme AppearanceColorScheme) error {
 		return err
 	}
 	if err := validateAccentPalette(label+".accent", scheme.Accent); err != nil {
-		return err
-	}
-	if err := validateWorkspacePalette(label+".workspace", scheme.Workspace); err != nil {
 		return err
 	}
 	return validateColorContrast(label, scheme)
@@ -378,52 +359,6 @@ func validateStatusPalette(label string, palette AppearanceStatusPalette) error 
 		{"criticalForeground", palette.CriticalForeground},
 	}
 	return validateOKLCHFields(label, values)
-}
-
-func validateWorkspacePalette(label string, palette AppearanceWorkspacePalette) error {
-	values := []namedValue{
-		{"surface", palette.Surface},
-		{"dotGrid", palette.DotGrid},
-		{"paneSurface", palette.PaneSurface},
-		{"paneTitleBarSurface", palette.PaneTitleBarSurface},
-		{"paneEdge", palette.PaneEdge},
-		{"paneSelectedOutline", palette.PaneSelectedOutline},
-		{"paneSelectedGlow", palette.PaneSelectedGlow},
-		{"dragTargetSurface", palette.DragTargetSurface},
-		{"dragTargetOutline", palette.DragTargetOutline},
-	}
-	return validateOKLCHFields(label, values)
-}
-
-func normalizeWorkspacePalette(palette AppearanceWorkspacePalette, defaults AppearanceWorkspacePalette) AppearanceWorkspacePalette {
-	if palette.Surface == "" {
-		palette.Surface = defaults.Surface
-	}
-	if palette.DotGrid == "" {
-		palette.DotGrid = defaults.DotGrid
-	}
-	if palette.PaneSurface == "" {
-		palette.PaneSurface = defaults.PaneSurface
-	}
-	if palette.PaneTitleBarSurface == "" {
-		palette.PaneTitleBarSurface = defaults.PaneTitleBarSurface
-	}
-	if palette.PaneEdge == "" {
-		palette.PaneEdge = defaults.PaneEdge
-	}
-	if palette.PaneSelectedOutline == "" {
-		palette.PaneSelectedOutline = defaults.PaneSelectedOutline
-	}
-	if palette.PaneSelectedGlow == "" {
-		palette.PaneSelectedGlow = defaults.PaneSelectedGlow
-	}
-	if palette.DragTargetSurface == "" {
-		palette.DragTargetSurface = defaults.DragTargetSurface
-	}
-	if palette.DragTargetOutline == "" {
-		palette.DragTargetOutline = defaults.DragTargetOutline
-	}
-	return palette
 }
 
 type namedValue struct {
@@ -851,7 +786,7 @@ var tailwindPalettePresets = []palettePreset{
 			s400: oklchColor{l: 0.707, c: 0.165, h: 254.624},
 			s500: oklchColor{l: 0.623, c: 0.214, h: 259.815},
 			s600: oklchColor{l: 0.546, c: 0.245, h: 262.881},
-			s700: oklchColor{l: 0.488, c: 0.17, h: 264.376},
+			s700: oklchColor{l: 0.488, c: 0.243, h: 264.376},
 			s800: oklchColor{l: 0.424, c: 0.199, h: 265.638},
 			s900: oklchColor{l: 0.379, c: 0.146, h: 265.522},
 			s950: oklchColor{l: 0.282, c: 0.091, h: 267.935},
@@ -963,6 +898,81 @@ var tailwindPalettePresets = []palettePreset{
 			s800: oklchColor{l: 0.455, c: 0.188, h: 13.697},
 			s900: oklchColor{l: 0.41, c: 0.159, h: 10.272},
 			s950: oklchColor{l: 0.271, c: 0.105, h: 12.094},
+		},
+	},
+}
+
+var shadcnPalettePresets = []palettePreset{
+	{
+		id:     PresetShadcnMauve,
+		source: "shadcn/ui",
+		color:  "Mauve",
+		scale: tailwindScale{
+			s50:  oklchColor{l: 0.985, c: 0, h: 0},
+			s100: oklchColor{l: 0.96, c: 0.003, h: 325.6},
+			s200: oklchColor{l: 0.922, c: 0.005, h: 325.62},
+			s300: oklchColor{l: 0.865, c: 0.012, h: 325.68},
+			s400: oklchColor{l: 0.711, c: 0.019, h: 323.02},
+			s500: oklchColor{l: 0.542, c: 0.034, h: 322.5},
+			s600: oklchColor{l: 0.435, c: 0.029, h: 321.78},
+			s700: oklchColor{l: 0.364, c: 0.029, h: 323.89},
+			s800: oklchColor{l: 0.263, c: 0.024, h: 320.12},
+			s900: oklchColor{l: 0.212, c: 0.019, h: 322.12},
+			s950: oklchColor{l: 0.145, c: 0.008, h: 326},
+		},
+	},
+	{
+		id:     PresetShadcnOlive,
+		source: "shadcn/ui",
+		color:  "Olive",
+		scale: tailwindScale{
+			s50:  oklchColor{l: 0.988, c: 0.003, h: 106.5},
+			s100: oklchColor{l: 0.966, c: 0.005, h: 106.5},
+			s200: oklchColor{l: 0.93, c: 0.007, h: 106.5},
+			s300: oklchColor{l: 0.88, c: 0.011, h: 106.6},
+			s400: oklchColor{l: 0.737, c: 0.021, h: 106.9},
+			s500: oklchColor{l: 0.58, c: 0.031, h: 107.3},
+			s600: oklchColor{l: 0.466, c: 0.025, h: 107.3},
+			s700: oklchColor{l: 0.394, c: 0.023, h: 107.4},
+			s800: oklchColor{l: 0.286, c: 0.016, h: 107.4},
+			s900: oklchColor{l: 0.228, c: 0.013, h: 107.4},
+			s950: oklchColor{l: 0.153, c: 0.006, h: 107.1},
+		},
+	},
+	{
+		id:     PresetShadcnMist,
+		source: "shadcn/ui",
+		color:  "Mist",
+		scale: tailwindScale{
+			s50:  oklchColor{l: 0.987, c: 0.002, h: 197.1},
+			s100: oklchColor{l: 0.963, c: 0.002, h: 197.1},
+			s200: oklchColor{l: 0.925, c: 0.005, h: 214.3},
+			s300: oklchColor{l: 0.872, c: 0.007, h: 219.6},
+			s400: oklchColor{l: 0.723, c: 0.014, h: 214.4},
+			s500: oklchColor{l: 0.56, c: 0.021, h: 213.5},
+			s600: oklchColor{l: 0.45, c: 0.017, h: 213.2},
+			s700: oklchColor{l: 0.378, c: 0.015, h: 216},
+			s800: oklchColor{l: 0.275, c: 0.011, h: 216.9},
+			s900: oklchColor{l: 0.218, c: 0.008, h: 223.9},
+			s950: oklchColor{l: 0.148, c: 0.004, h: 228.8},
+		},
+	},
+	{
+		id:     PresetShadcnTaupe,
+		source: "shadcn/ui",
+		color:  "Taupe",
+		scale: tailwindScale{
+			s50:  oklchColor{l: 0.986, c: 0.002, h: 67.8},
+			s100: oklchColor{l: 0.96, c: 0.002, h: 17.2},
+			s200: oklchColor{l: 0.922, c: 0.005, h: 34.3},
+			s300: oklchColor{l: 0.868, c: 0.007, h: 39.5},
+			s400: oklchColor{l: 0.714, c: 0.014, h: 41.2},
+			s500: oklchColor{l: 0.547, c: 0.021, h: 43.1},
+			s600: oklchColor{l: 0.438, c: 0.017, h: 39.3},
+			s700: oklchColor{l: 0.367, c: 0.016, h: 35.7},
+			s800: oklchColor{l: 0.268, c: 0.011, h: 36.5},
+			s900: oklchColor{l: 0.214, c: 0.009, h: 43.1},
+			s950: oklchColor{l: 0.147, c: 0.004, h: 49.3},
 		},
 	},
 }

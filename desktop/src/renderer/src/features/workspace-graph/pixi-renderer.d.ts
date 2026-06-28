@@ -204,7 +204,6 @@ interface CreateWorkflowGraphRendererOptions {
 export interface WorkflowGraphRenderer {
   cameraState: () => WorkflowGraphCameraState;
   destroy: () => void;
-  setFocused: (focused: boolean) => void;
   setFrozen: (frozen: boolean) => void;
   setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
   updateActivityMarkers: (
