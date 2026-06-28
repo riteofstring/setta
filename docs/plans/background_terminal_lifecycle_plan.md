@@ -735,20 +735,45 @@ Review-round fixes:
   ahead and re-drop the late event); the defer is only the error-path safety net,
   and it preserves the thread's conversation context (asserted by
   `TestCodexHarnessBackgroundTurnEndClearsFlagKeepsContext`).
-- Goal-continuation bypass (Medium): `/goal set` and `/goal resume` run a turn
-  through `codexGoalContinuation.Wait`, not `StartTurn`, so they did not register
-  the thread context or mark the turn active — unified-exec terminals started in a
-  goal continuation would lose their late output/completion (no thread context), or
-  duplicate in-turn output against a stale context (active flag false). `Wait` now
-  mirrors `StartTurn`: `beginBackgroundTerminalTurn` + `defer
-  endBackgroundTerminalTurn`. The shared `applyCodexSessionEventForWait` already
-  carries the cross-turn router and rebind, so no other change is needed.
-  Regression: `TestCodexHarnessGoalContinuationEnablesBackgroundTerminalLateRouting`
-  (after the continuation, `backgroundTerminalLateRouting` returns the sink + the
-  continuation's conversation — proven non-vacuous; fails without the Wait-side
-  registration). The fake emits the continuation stream synchronously at goal-set
-  time, so a genuinely late event cannot be timed through the goal path in a unit
-  test; the test asserts the routing precondition the fix establishes.
+- Goal-operation detour (complete): the temporary `/goal` continuation bypass was
+  replaced by the logical goal operation lifecycle plan
+  (`docs/plans/codex_goal_operation_lifecycle_plan.md`, commits
+  `71368baef` through `27e941ff5`). The old simplified
+  `codexGoalContinuation` path is gone from executable code; `/goal set` and
+  `/goal resume` now run through `HarnessGoalOperation` / `codexGoalOperation`.
+  Background-terminal routing on goal-owned Codex threads is owned by that
+  operation before normal turn-id rebind. The operation delegates
+  background-terminal output/completion to the registry with original provider ids
+  and without logical turn-id rewrite; ordinary run-stream events are still
+  coalesced into the logical goal run. Connection-scoped late-routing now checks
+  `hasRoutableGoalOperation` and defers to the goal owner instead of independently
+  routing through `turnActiveByThread`. Both paths share
+  `classifyBackgroundTerminalNotification`, so goal-owned and standalone
+  cross-turn routing cannot drift on what counts as background-terminal lifecycle.
+  Regressions landed in the goal-operation detour include
+  `TestCodexHarnessGoalOperationRoutesBackgroundTerminalDuringIdleGap`,
+  `TestCodexHarnessGoalOperationRoutesBackgroundTerminalDuringPhysicalTurnB`,
+  `TestCodexHarnessGoalOperationDelegatesBackgroundTerminalBeforeLogicalRewrite`,
+  `TestCodexHarnessBackgroundTerminalClassificationSharedByGoalAndStandaloneRouters`,
+  and the renamed
+  `TestCodexHarnessGoalOperationEnablesBackgroundTerminalLateRouting`.
+
+#### Resume Point After Goal Operation Detour
+
+Background-terminal implementation resumes at Phase 3. The remaining work is the
+event/API surface and renderer monitor; it should build on the existing registry,
+marker block, output storage, connection-scoped late routing, and goal-operation
+route ownership. Do not reintroduce the old `/goal` start-as-set-plus-normal-wait
+path, do not add compatibility shims, and do not make the renderer depend on raw
+run-item events.
+
+From this point forward, every backend or E2E test added for list/output/kill or
+renderer state should cover the two route owners explicitly where relevant:
+
+- a normal Codex/chat turn, where `turnActiveByThread` owns during-turn vs late
+  routing; and
+- a logical goal operation, where `codexGoalOperation` owns the thread route and
+  background-terminal lifecycle delegates through that operation exactly once.
 
 ### Phase 3: Events And HTTP API
 
@@ -758,6 +783,13 @@ Review-round fixes:
   reporting a process stopped.
 - Wire main/preload/shared IPC from generated contracts.
 - Ensure output deltas do not republish the full terminal list.
+- Emit events from the existing background-terminal registry/output store updates;
+  do not derive UI state from `chat.run_item.created/updated`.
+- List/output endpoints must return typed projections that work for terminals
+  started by normal turns and by logical goal operations.
+- Kill endpoints must address the provider through the retained Codex connection
+  route when available. If no live controllable provider route exists, fail
+  specifically; do not mark the process stopped optimistically.
 
 ### Phase 4: Renderer Store And UI
 
@@ -772,6 +804,9 @@ Review-round fixes:
 - Render transcript `background_terminal` blocks.
 - Keep the renderer ignorant of raw Codex protocol and raw run-item source
   semantics.
+- Extend deterministic E2E coverage for a terminal started during a logical goal
+  operation, with output in both the idle gap between physical goal turns and while
+  a later physical goal turn is active.
 
 ### Phase 5: Verification And Cleanup
 
@@ -781,6 +816,9 @@ Review-round fixes:
 - Verify no compatibility aliases or migration paths were added.
 - Verify old run finalization still applies to normal commands.
 - Verify background terminals survive turn completion and interrupt.
+- Verify background terminals survive logical goal-operation completion,
+  cancellation, and cross-physical-turn output/completion without duplicate
+  registry events.
 - Verify backend restart marks running terminals as `lost`.
 
 ## Verification
@@ -811,10 +849,12 @@ skip explicitly.
 
 ## Open Risks
 
-- The provider connection may currently be turn-scoped. If so, the largest
-  implementation risk is moving unified exec notification handling to a
-  conversation or thread scoped path without weakening normal run lifecycle
-  invariants.
+- The provider connection and goal-operation routing risks that blocked the first
+  version of this plan are now resolved by Phase 2 plus the completed
+  `codex_goal_operation_lifecycle_plan.md` detour. The remaining risk is
+  regression: future phases must not bypass the existing connection-scoped router,
+  the goal-owned route owner, or the shared background-terminal classifier when
+  adding events, endpoints, kill controls, or renderer state.
 - The current transcript block model assumes most visible blocks belong to a
   run. Background terminal markers belong chronologically to a run but their
   lifecycle belongs to the process registry. The implementation must keep that
