@@ -501,7 +501,7 @@ func TestServiceGoalOperationSteersDuringSecondPhysicalTurn(t *testing.T) {
 		t.Fatalf("stored codex turn ref = %q, want logical turn_goal_a before steering", ref.LastTurnID)
 	}
 
-	if _, err := service.SteerActiveRun("workspace_api", conversation.ID, "adjust course"); err != nil {
+	if _, err := service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("adjust course")); err != nil {
 		t.Fatalf("steer active goal run: %v", err)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)

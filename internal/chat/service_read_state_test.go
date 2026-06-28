@@ -63,7 +63,7 @@ func TestServicePersistsReadMarkersAcrossRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserMessage("workspace_api", conversation.ID, "read markers")
+	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("read markers"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestServicePersistsReadMarkersAcrossRestart(t *testing.T) {
 		t.Fatalf("persisted markers = read %d latest %d, want read %d latest %d", persisted.ReadMarker, persisted.LatestReadRelevantMarker, read.ReadMarker, read.LatestReadRelevantMarker)
 	}
 
-	second, err := restarted.SendUserMessage("workspace_api", conversation.ID, "read markers again")
+	second, err := restarted.SendUserInput("workspace_api", conversation.ID, TextChatInput("read markers again"))
 	if err != nil {
 		t.Fatalf("send second message: %v", err)
 	}

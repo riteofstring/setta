@@ -16,17 +16,17 @@ func TestServiceEditsQueuedMessageAndUsesEditedTextOnPromotion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
 	if err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
-	queued, err := service.QueueUserMessage("workspace_api", conversation.ID, "Q1")
+	queued, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("Q1"))
 	if err != nil {
 		t.Fatalf("queue q1: %v", err)
 	}
 
-	edited, err := service.EditQueuedMessage("workspace_api", conversation.ID, queued.UserMessage.ID, "Q1 edited")
+	edited, err := service.EditQueuedInput("workspace_api", conversation.ID, queued.UserMessage.ID, TextChatInput("Q1 edited"))
 	if err != nil {
 		t.Fatalf("edit queued: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestServiceDoesNotPromoteQueuedImageWhenCurrentModelRejectsImages(t *testin
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
 	if err != nil {
 		t.Fatalf("send active: %v", err)
 	}
@@ -115,12 +115,12 @@ func TestServiceRejectsQueuedEditAfterPromotion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
 	if err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
-	queued, err := service.QueueUserMessage("workspace_api", conversation.ID, "Q1")
+	queued, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("Q1"))
 	if err != nil {
 		t.Fatalf("queue q1: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestServiceRejectsQueuedEditAfterPromotion(t *testing.T) {
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, active.Run.ID, RunStatusCompleted)
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, queued.Run.ID, RunStatusRunning)
 
-	_, err = service.EditQueuedMessage("workspace_api", conversation.ID, queued.UserMessage.ID, "too late")
+	_, err = service.EditQueuedInput("workspace_api", conversation.ID, queued.UserMessage.ID, TextChatInput("too late"))
 	if operationErr, ok := IsChatOperationError(err); !ok || operationErr.Code != ChatOperationErrorQueuedMessageConflict {
 		t.Fatalf("edit error = %v, want queued message conflict", err)
 	}
@@ -188,12 +188,12 @@ func TestServiceSendSteeringImmediatelyReplaysPendingSteering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
 	if err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_active")
-	steered, err := service.SteerActiveRun("workspace_api", conversation.ID, "S1")
+	steered, err := service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("S1"))
 	if err != nil {
 		t.Fatalf("steer active: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestServiceSendSteeringImmediatelyRejectsMergedImageCapBeforeCancel(t *test
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
 	if err != nil {
 		t.Fatalf("send active: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestServiceSendSteeringImmediatelyRejectsMergedImageCapBeforeCancel(t *test
 		}
 	}
 
-	_, err = service.SendSteeringImmediately("workspace_api", conversation.ID, "")
+	_, err = service.SendSteeringInputImmediately("workspace_api", conversation.ID, nil)
 	if err == nil || !strings.Contains(err.Error(), "maximum is 10") {
 		t.Fatalf("send immediate error = %v, want merged image cap error", err)
 	}
@@ -304,16 +304,17 @@ func TestServiceSendSteeringImmediatelyPreservesQueuedWorkBehindReplay(t *testin
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "A1"); err != nil {
+	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1")); err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_active")
-	queued, err := service.QueueUserMessage("workspace_api", conversation.ID, "Q1")
+	queued, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("Q1"))
 	if err != nil {
 		t.Fatalf("queue q1: %v", err)
 	}
 
-	result, err := service.SendSteeringImmediately("workspace_api", conversation.ID, "S1")
+	input := TextChatInput("S1")
+	result, err := service.SendSteeringInputImmediately("workspace_api", conversation.ID, &input)
 	if err != nil {
 		t.Fatalf("send steering immediately: %v", err)
 	}
@@ -344,17 +345,17 @@ func TestServiceSendSteeringImmediatelyExcludesCommittedPendingSteering(t *testi
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "A1"); err != nil {
+	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1")); err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
-	steered, err := service.SteerActiveRun("workspace_api", conversation.ID, "S1")
+	steered, err := service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("S1"))
 	if err != nil {
 		t.Fatalf("steer active: %v", err)
 	}
 	waitForMessageStatus(t, service, "workspace_api", conversation.ID, steered.UserMessage.ID, MessageStatusComplete)
 
-	_, err = service.SendSteeringImmediately("workspace_api", conversation.ID, "")
+	_, err = service.SendSteeringInputImmediately("workspace_api", conversation.ID, nil)
 	if operationErr, ok := IsChatOperationError(err); !ok || operationErr.Code != ChatOperationErrorImmediateSteeringConflict {
 		t.Fatalf("immediate error = %v, want immediate steering conflict", err)
 	}

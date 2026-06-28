@@ -322,7 +322,7 @@ func TestServiceExecutesActiveGoalCommandWithoutSteering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	started, err := service.SendUserMessage("workspace_api", conversation.ID, "active")
+	started, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("active"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -367,12 +367,12 @@ func TestServiceRejectsSlashCommandThroughMessageEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "/goal"); err == nil {
+	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("/goal")); err == nil {
 		t.Fatal("send slash command succeeded, want error")
 	} else if commandErr, ok := IsChatCommandError(err); !ok || commandErr.Code != ChatCommandErrorWrongEndpoint {
 		t.Fatalf("send slash error = %#v, want wrong endpoint", err)
 	}
-	if _, err := service.QueueUserMessage("workspace_api", conversation.ID, "/unknown"); err == nil {
+	if _, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("/unknown")); err == nil {
 		t.Fatal("queue unknown slash command succeeded, want error")
 	} else if commandErr, ok := IsChatCommandError(err); !ok || commandErr.Code != ChatCommandErrorUnknownCommand {
 		t.Fatalf("queue slash error = %#v, want unknown command", err)
@@ -394,7 +394,7 @@ func TestServiceListsCommandAvailability(t *testing.T) {
 		t.Fatalf("idle commands = %+v, want /goal only", idle.Commands)
 	}
 
-	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "active"); err != nil {
+	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("active")); err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	active, err := service.ListCommands("workspace_api", conversation.ID)

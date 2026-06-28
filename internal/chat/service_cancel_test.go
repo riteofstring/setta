@@ -100,7 +100,7 @@ func TestServiceCancelCodexGoalOperationBlocksFollowUpDuringDrain(t *testing.T) 
 		t.Fatalf("cancelled run status = %s, want cancelled", cancelled.Status)
 	}
 	waitForServiceCancellationDrain(t, service, "workspace_api", conversation.ID, runs[0].ID)
-	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "after cancel"); err == nil {
+	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("after cancel")); err == nil {
 		t.Fatal("send during codex cancellation drain succeeded, want active-turn rejection")
 	}
 	afterSendRuns, err := service.ListRuns("workspace_api", conversation.ID)
@@ -110,7 +110,7 @@ func TestServiceCancelCodexGoalOperationBlocksFollowUpDuringDrain(t *testing.T) 
 	if len(afterSendRuns) != 1 || afterSendRuns[0].Status != RunStatusCancelled {
 		t.Fatalf("runs after rejected send = %+v, want only cancelled goal run", afterSendRuns)
 	}
-	queued, err := service.QueueUserMessage("workspace_api", conversation.ID, "queued after cancel")
+	queued, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("queued after cancel"))
 	if err != nil {
 		t.Fatalf("queue during codex cancellation drain: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestServiceCancelCodexGoalOperationRepeatCancelPreservesDrain(t *testing.T)
 		t.Fatalf("repeat cancel run = %+v, want same cancelled run %s", cancelled, runID)
 	}
 	waitForServiceCancellationDrain(t, service, "workspace_api", conversation.ID, runID)
-	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "after repeat cancel"); err == nil {
+	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("after repeat cancel")); err == nil {
 		t.Fatal("send after repeat cancel during drain succeeded, want active-turn rejection")
 	}
 

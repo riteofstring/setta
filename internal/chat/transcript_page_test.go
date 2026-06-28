@@ -79,7 +79,7 @@ func collectOlderToNewer(t *testing.T, service *Service, workspaceID string, con
 func TestTranscriptBlockPagePaginatesByBlockOrdinal(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), multiBlockHarness("Done.", 6))
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "go")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("go"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestTranscriptBlockPagePaginatesByBlockOrdinal(t *testing.T) {
 func TestTranscriptBlockPageBoundsGiantRun(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), multiBlockHarness("Done.", 30))
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "go")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("go"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -144,12 +144,12 @@ func TestTranscriptBlockPageOrdersRunsByAnchor(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), multiBlockHarness("Done.", 2))
 	workspaceID, conversationID := startTranscriptConversation(t, service)
 
-	first, err := service.SendUserMessage(workspaceID, conversationID, "first")
+	first, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("first"))
 	if err != nil {
 		t.Fatalf("send first: %v", err)
 	}
 	waitForRunStatus(t, service, workspaceID, conversationID, first.Run.ID, RunStatusCompleted)
-	second, err := service.SendUserMessage(workspaceID, conversationID, "second")
+	second, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("second"))
 	if err != nil {
 		t.Fatalf("send second: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestTranscriptBlockPageOrdersRunsByAnchor(t *testing.T) {
 func TestTranscriptBlockPageFailsLoudlyOnCorruptRun(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), multiBlockHarness("Done.", 2))
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "go")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("go"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestTranscriptBlockPageSurfacesLiveActiveRun(t *testing.T) {
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}

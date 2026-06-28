@@ -9,10 +9,6 @@ import (
 	"setta/internal/workspace"
 )
 
-func (service *Service) QueueUserMessage(workspaceID string, conversationID string, prompt string) (QueueMessageResult, error) {
-	return service.QueueUserInput(workspaceID, conversationID, TextChatInput(strings.TrimSpace(prompt)))
-}
-
 func (service *Service) QueueUserInput(workspaceID string, conversationID string, input ChatInput) (QueueMessageResult, error) {
 	input, err := prepareMessageEndpointInput(input)
 	if err != nil {
@@ -42,10 +38,6 @@ func (service *Service) QueueUserInput(workspaceID string, conversationID string
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	return service.queueMessageResultLocked(workspaceID, conversationID, message.ID, run.ID)
-}
-
-func (service *Service) EditQueuedMessage(workspaceID string, conversationID string, messageID string, prompt string) (QueueEditResult, error) {
-	return service.EditQueuedInput(workspaceID, conversationID, messageID, TextChatInput(strings.TrimSpace(prompt)))
 }
 
 func (service *Service) EditQueuedInput(workspaceID string, conversationID string, messageID string, input ChatInput) (QueueEditResult, error) {
@@ -318,10 +310,6 @@ func (service *Service) queueRemoveResultLocked(workspaceID string, conversation
 	return QueueRemoveResult{Conversation: conversation, Page: page, Queue: queue, RemovedMessageID: messageID, RemovedRunID: runID}, nil
 }
 
-func (service *Service) SteerActiveRun(workspaceID string, conversationID string, prompt string) (SteerMessageResult, error) {
-	return service.SteerActiveRunInput(workspaceID, conversationID, TextChatInput(strings.TrimSpace(prompt)))
-}
-
 func (service *Service) SteerActiveRunInput(workspaceID string, conversationID string, input ChatInput) (SteerMessageResult, error) {
 	input, err := prepareMessageEndpointInput(input)
 	if err != nil {
@@ -370,7 +358,6 @@ func (service *Service) submitSteeringMessage(workspaceID string, conversationID
 		ConversationID:  conversationID,
 		RunID:           run.ID,
 		SemanticContext: semanticDelivery,
-		Text:            messageText(message),
 		Input:           deliveryInput,
 		ThreadID:        threadID,
 		TurnID:          turnID,
@@ -502,7 +489,6 @@ func (service *Service) startImmediateSteeringReplay(workspaceSummary workspace.
 		Workspace:       workspaceSummary,
 		Conversation:    conversation,
 		Run:             run,
-		Prompt:          messageText(userMessage),
 		Input:           deliveryInput,
 		SemanticContext: semanticDelivery,
 		ThreadRef:       latestHarnessRef(conversation, HarnessCodex),
@@ -552,7 +538,10 @@ func (service *Service) pendingSteeringReplayInputLocked(workspaceID string, con
 	if len(pending) == 0 {
 		return nil, ChatInput{}, immediateSteeringConflict("pending steering was already committed before replay")
 	}
-	replayInput := mergedSteeringInput(pending)
+	replayInput, err := mergedSteeringInput(pending)
+	if err != nil {
+		return nil, ChatInput{}, err
+	}
 	if err := validateChatInput(replayInput); err != nil {
 		return nil, ChatInput{}, immediateSteeringConflict(err.Error())
 	}
@@ -612,33 +601,36 @@ func (service *Service) publishImmediateSteeringReplayLocked(workspaceID string,
 	return service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID)
 }
 
-func mergedSteeringInput(messages []ChatMessage) ChatInput {
-	if steeringMessagesContainOnlyText(messages) {
+func mergedSteeringInput(messages []ChatMessage) (ChatInput, error) {
+	converted := make([]ChatInput, 0, len(messages))
+	hasImage := false
+	for _, message := range messages {
+		input, err := inputFromMessage(message)
+		if err != nil {
+			return ChatInput{}, err
+		}
+		if chatInputImageCount(input) > 0 {
+			hasImage = true
+		}
+		converted = append(converted, input)
+	}
+	if !hasImage {
 		parts := make([]string, 0, len(messages))
-		for _, message := range messages {
-			text := strings.TrimSpace(promptFromMessage(message))
+		for _, input := range converted {
+			text := strings.TrimSpace(chatInputText(input))
 			if text != "" {
 				parts = append(parts, text)
 			}
 		}
-		return TextChatInput(strings.Join(parts, "\n"))
+		return TextChatInput(strings.Join(parts, "\n")), nil
 	}
 	inputParts := []ChatInputPart{}
-	for _, message := range messages {
-		for _, part := range inputFromMessage(message).Parts {
+	for _, input := range converted {
+		for _, part := range input.Parts {
 			inputParts = append(inputParts, part)
 		}
 	}
-	return normalizeChatInput(ChatInput{Parts: inputParts})
-}
-
-func steeringMessagesContainOnlyText(messages []ChatMessage) bool {
-	for _, message := range messages {
-		if messageImageCount(message) > 0 {
-			return false
-		}
-	}
-	return true
+	return normalizeChatInput(ChatInput{Parts: inputParts}), nil
 }
 
 func messageIDs(messages []ChatMessage) []string {
@@ -724,7 +716,6 @@ func (service *Service) promoteNextQueuedRunLocked(workspaceSummary workspace.Wo
 		Workspace:    workspaceSummary,
 		Conversation: conversation,
 		Run:          run,
-		Prompt:       messageText(userMessage),
 		Input:        deliveryInput,
 		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}

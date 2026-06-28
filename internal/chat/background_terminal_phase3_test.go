@@ -56,7 +56,7 @@ func runPhase3BackgroundTerminalScenario(t *testing.T, service *Service, subscri
 	t.Helper()
 
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "start background terminals")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("start background terminals"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -244,7 +244,7 @@ func startPhase3BackgroundTerminalAlpha(t *testing.T, service *Service) (string,
 	t.Helper()
 
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "start background terminals")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("start background terminals"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}

@@ -17,7 +17,10 @@ func (service *Service) promoteQueuedIfIdle(workspaceSummary workspace.Workspace
 	if err != nil || !ok {
 		return err
 	}
-	input := inputFromMessage(candidate.UserMessage)
+	input, err := inputFromMessage(candidate.UserMessage)
+	if err != nil {
+		return err
+	}
 	if err := service.ensureImageInputSupported(context.Background(), workspaceSummary, candidate.Conversation, input); err != nil {
 		return err
 	}

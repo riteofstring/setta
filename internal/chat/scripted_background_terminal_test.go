@@ -79,7 +79,7 @@ func TestBackgroundTerminalFixtureTextWrapsStartups(t *testing.T) {
 func TestServiceBackgroundTerminalsSurviveRunCompletion(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewScriptedWorkflowHarness())
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "background terminal workflow")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("background terminal workflow"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestServiceUnifiedExecStartupCompletedInTurnStaysActivity(t *testing.T) {
 	})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "check tokei")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("check tokei"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -276,7 +276,7 @@ func TestServiceUnifiedExecInteractionPromotesUnregisteredStartup(t *testing.T) 
 	})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "interact with background terminal")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("interact with background terminal"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -380,7 +380,7 @@ func TestServiceBackgroundTerminalsSurviveRunInterrupt(t *testing.T) {
 	})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "interrupt background terminal")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("interrupt background terminal"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -427,7 +427,7 @@ func TestServiceBackgroundTerminalsSurviveRunInterrupt(t *testing.T) {
 func startScriptedBackgroundTerminalAlpha(t *testing.T, service *Service) (string, string, BackgroundTerminalProcess) {
 	t.Helper()
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "background terminal workflow")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("background terminal workflow"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}

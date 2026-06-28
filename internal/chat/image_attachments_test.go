@@ -105,8 +105,8 @@ func TestSendUserInputWithImagePersistsPartAndDeliversLocalPath(t *testing.T) {
 		t.Fatalf("image part = %+v, want attachment id and high detail", imagePart)
 	}
 	turn := waitForFakeTurnRequest(t, harness, result.Run.ID)
-	if turn.Prompt != "describe this" {
-		t.Fatalf("turn prompt = %q, want text summary", turn.Prompt)
+	if chatInputText(turn.Input) != "describe this" {
+		t.Fatalf("turn input text = %q, want text summary", chatInputText(turn.Input))
 	}
 	if len(turn.Input.Parts) != 2 || turn.Input.Parts[1].Image == nil || turn.Input.Parts[1].Image.LocalPath == "" {
 		t.Fatalf("delivered input = %+v, want image local path", turn.Input)
@@ -175,7 +175,6 @@ func TestSendUserInputRefreshesStaleImageCapabilitySettings(t *testing.T) {
 func TestCodexUserInputMapsImagePartsToLocalImageItems(t *testing.T) {
 	detail := ImageDetailHigh
 	items, err := codexUserInputForTurn(TurnRequest{
-		Prompt: "fallback text",
 		Input: ChatInput{Parts: []ChatInputPart{
 			{Type: MessagePartText, Text: &ChatTextInput{Text: "look here", Format: TextFormatPlain}},
 			{Type: MessagePartImage, Image: &ChatImageInput{AttachmentID: "attachment_test", Detail: &detail, LocalPath: "/tmp/fixture.png"}},

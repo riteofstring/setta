@@ -145,7 +145,7 @@ func firstBlockOfKind(blocks []TranscriptBlock, kind TranscriptBlockKind) (Trans
 func TestChronologicalTranscriptBlocksCaptureProviderOrder(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewScriptedWorkflowHarness())
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "chronological transcript workflow")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("chronological transcript workflow"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestTranscriptBlocksReloadReconstructsOrder(t *testing.T) {
 	dir := t.TempDir()
 	service := newTestService(t, dir, testResolver(t), NewScriptedWorkflowHarness())
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "chronological transcript workflow")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("chronological transcript workflow"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestTranscriptWorkingIndicatorLiveOnly(t *testing.T) {
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -359,13 +359,13 @@ func TestTranscriptSteeringInterleavesWithOrdinal(t *testing.T) {
 			return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
 		},
 		steer: func(request SteerRequest) error {
-			steered <- request.Text
+			steered <- chatInputText(request.Input)
 			return nil
 		},
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -414,7 +414,7 @@ func TestTranscriptCancellationMarksActiveBlocks(t *testing.T) {
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -462,7 +462,7 @@ func TestTranscriptFailureMarksActiveBlocks(t *testing.T) {
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -511,7 +511,7 @@ func TestTranscriptReasoningThinkingBecomesSummary(t *testing.T) {
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -570,7 +570,7 @@ func TestTranscriptAssistantBlockReconcilesProviderText(t *testing.T) {
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -623,7 +623,7 @@ func TestTranscriptIngestsProtocolActivityTypes(t *testing.T) {
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -688,7 +688,7 @@ func TestTranscriptDuplicateAgentMessageDropsNonTailBlock(t *testing.T) {
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -743,12 +743,13 @@ func TestTranscriptImmediateSteeringReplayRemovesSourceSteeringBlock(t *testing.
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	source, err := service.SendUserMessage(workspaceID, conversationID, "original")
+	source, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("original"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
 	<-sourceReached
-	result, err := service.SendSteeringImmediately(workspaceID, conversationID, "steer text")
+	input := TextChatInput("steer text")
+	result, err := service.SendSteeringInputImmediately(workspaceID, conversationID, &input)
 	if err != nil {
 		t.Fatalf("send steering immediately: %v", err)
 	}
@@ -866,7 +867,7 @@ func TestTranscriptTerminalFinalizeIsIdempotent(t *testing.T) {
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -1275,7 +1276,7 @@ func TestTranscriptDuplicateCompletedAgentMessageDropsBlock(t *testing.T) {
 	}
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}

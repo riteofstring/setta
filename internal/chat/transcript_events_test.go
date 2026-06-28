@@ -120,7 +120,7 @@ func TestTranscriptBlockEventsStreamChronology(t *testing.T) {
 	}
 	defer subscription.Unsubscribe()
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestTranscriptReasoningModeUpdateEvent(t *testing.T) {
 	}
 	defer subscription.Unsubscribe()
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestTranscriptSteeringBlockCreatedEvent(t *testing.T) {
 			return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
 		},
 		steer: func(request SteerRequest) error {
-			steered <- request.Text
+			steered <- chatInputText(request.Input)
 			return nil
 		},
 	}
@@ -313,7 +313,7 @@ func TestTranscriptSteeringBlockCreatedEvent(t *testing.T) {
 	}
 	defer subscription.Unsubscribe()
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestTranscriptFixtureEventsNeverLeakPrivateReasoning(t *testing.T) {
 	}
 	defer subscription.Unsubscribe()
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "chronological transcript workflow")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("chronological transcript workflow"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -423,7 +423,7 @@ func TestTranscriptTerminalReplacedOnCancel(t *testing.T) {
 	}
 	defer subscription.Unsubscribe()
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -487,7 +487,7 @@ func TestTranscriptOutputChunksDoNotRepublishProjection(t *testing.T) {
 	}
 	defer subscription.Unsubscribe()
 	workspaceID, conversationID := startTranscriptConversation(t, service)
-	result, err := service.SendUserMessage(workspaceID, conversationID, "trigger")
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}

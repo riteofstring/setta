@@ -195,7 +195,6 @@ type TurnRequest struct {
 	Workspace       workspace.WorkspaceSummary
 	Conversation    Conversation
 	Run             Run
-	Prompt          string
 	Input           ChatInput
 	SemanticContext *semanticcontext.Delivery
 	ThreadRef       HarnessThreadRef
@@ -213,7 +212,6 @@ type SteerRequest struct {
 	ConversationID  string
 	ThreadID        string
 	TurnID          string
-	Text            string
 	Input           ChatInput
 	SemanticContext *semanticcontext.Delivery
 }

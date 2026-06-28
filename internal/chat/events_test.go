@@ -74,7 +74,7 @@ func TestServicePublishesTurnLifecycleEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserMessage("workspace_api", conversation.ID, "stream")
+	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("stream"))
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestServicePublishesApprovalCancellationAndFailureEvents(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create conversation: %v", err)
 		}
-		if _, err := service.SendUserMessage("workspace_api", conversation.ID, "approval"); err != nil {
+		if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("approval")); err != nil {
 			t.Fatalf("send message: %v", err)
 		}
 		run := waitForPendingApproval(t, service, "workspace_api", conversation.ID)
@@ -147,7 +147,7 @@ func TestServicePublishesApprovalCancellationAndFailureEvents(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create conversation: %v", err)
 		}
-		if _, err := service.SendUserMessage("workspace_api", conversation.ID, "cancel"); err != nil {
+		if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("cancel")); err != nil {
 			t.Fatalf("send message: %v", err)
 		}
 		if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
@@ -177,7 +177,7 @@ func TestServicePublishesApprovalCancellationAndFailureEvents(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create conversation: %v", err)
 		}
-		result, err := service.SendUserMessage("workspace_api", conversation.ID, "fail")
+		result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("fail"))
 		if err != nil {
 			t.Fatalf("send message: %v", err)
 		}

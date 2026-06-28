@@ -385,7 +385,6 @@ func (service *Service) startGoalOperationLocked(workspaceSummary workspace.Work
 		Workspace:    workspaceSummary,
 		Conversation: conversation,
 		Run:          run,
-		Prompt:       messageText(userMessage),
 		Input:        deliveryInput,
 		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}

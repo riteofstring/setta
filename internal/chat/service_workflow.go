@@ -95,7 +95,6 @@ func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request 
 		Workspace:       workspaceSummary,
 		Conversation:    conversation,
 		Run:             run,
-		Prompt:          messageText(userMessage),
 		Input:           deliveryInput,
 		SemanticContext: request.SemanticContext,
 		ThreadRef:       latestHarnessRef(conversation, HarnessCodex),

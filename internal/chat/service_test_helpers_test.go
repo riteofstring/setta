@@ -336,7 +336,7 @@ func steerWhenReady(t *testing.T, service *Service, workspaceID string, conversa
 	deadline := time.Now().Add(2 * time.Second)
 	var lastErr error
 	for time.Now().Before(deadline) {
-		result, err := service.SteerActiveRun(workspaceID, conversationID, prompt)
+		result, err := service.SteerActiveRunInput(workspaceID, conversationID, TextChatInput(prompt))
 		if err == nil {
 			return result
 		}

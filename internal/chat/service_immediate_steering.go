@@ -5,17 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"setta/internal/workspace"
-	"strings"
 )
-
-func (service *Service) SendSteeringImmediately(workspaceID string, conversationID string, prompt string) (ImmediateSteeringResult, error) {
-	var input *ChatInput
-	if prompt != "" {
-		value := TextChatInput(strings.TrimSpace(prompt))
-		input = &value
-	}
-	return service.SendSteeringInputImmediately(workspaceID, conversationID, input)
-}
 
 //lint:ignore U1000 HTTP handlers reach this structured-input method through internal/httpapi.ChatService.
 func (service *Service) SendSteeringInputImmediately(workspaceID string, conversationID string, input *ChatInput) (ImmediateSteeringResult, error) {

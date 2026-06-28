@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -159,10 +158,6 @@ func (service *Service) PublishCodexAccountChanged(reason string) {
 	_, _ = service.events.Publish(NewCodexAccountChangedEvent(reason))
 }
 
-func (service *Service) SendUserMessage(workspaceID string, conversationID string, prompt string) (SendMessageResult, error) {
-	return service.SendUserInput(workspaceID, conversationID, TextChatInput(strings.TrimSpace(prompt)))
-}
-
 func (service *Service) SendUserInput(workspaceID string, conversationID string, input ChatInput) (SendMessageResult, error) {
 	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
 	if err != nil {
@@ -209,7 +204,6 @@ func (service *Service) SendUserInput(workspaceID string, conversationID string,
 		Workspace:    workspaceSummary,
 		Conversation: conversation,
 		Run:          run,
-		Prompt:       messageText(userMessage),
 		Input:        deliveryInput,
 		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}
@@ -450,14 +444,14 @@ func (service *Service) messagePartsFromInput(workspaceID string, conversationID
 	return parts, nil
 }
 
-func inputFromMessage(message ChatMessage) ChatInput {
+func inputFromMessage(message ChatMessage) (ChatInput, error) {
 	parts := make([]ChatInputPart, 0, len(message.Parts))
 	for _, part := range message.Parts {
+		if err := validateMessagePart(message.ID, part); err != nil {
+			return ChatInput{}, err
+		}
 		switch part.Type {
 		case MessagePartText:
-			if part.Text == nil {
-				continue
-			}
 			parts = append(parts, ChatInputPart{
 				Type: MessagePartText,
 				Text: &ChatTextInput{
@@ -466,9 +460,6 @@ func inputFromMessage(message ChatMessage) ChatInput {
 				},
 			})
 		case MessagePartImage:
-			if part.Image == nil {
-				continue
-			}
 			detail := part.Image.Detail
 			if detail != nil {
 				copied := *detail
@@ -484,11 +475,14 @@ func inputFromMessage(message ChatMessage) ChatInput {
 			})
 		}
 	}
-	return ChatInput{Parts: parts}
+	return ChatInput{Parts: parts}, nil
 }
 
 func (service *Service) deliveryInputFromMessage(workspaceID string, conversationID string, message ChatMessage) (ChatInput, error) {
-	input := inputFromMessage(message)
+	input, err := inputFromMessage(message)
+	if err != nil {
+		return ChatInput{}, err
+	}
 	for index := range input.Parts {
 		part := &input.Parts[index]
 		if part.Type != MessagePartImage || part.Image == nil {
