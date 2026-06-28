@@ -124,6 +124,7 @@ export function emptyConversationPatch(): ChatPatch {
     hasMoreOlder: false,
     messages: [],
     olderBeforeBlockOrdinal: 0,
+    pendingGoalSubmission: null,
     queuedRuns: [],
     removingQueuedMessageId: null,
     runItemOutputPagesByRunItemId: {},

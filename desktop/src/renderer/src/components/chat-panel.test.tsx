@@ -752,6 +752,27 @@ describe("chat readable width contract", () => {
     expect(standaloneStatesHtml).toContain("error");
     expect(standaloneStatesHtml).toContain("cancelled");
     expectReadableColumnElement(goalHtml, 'data-testid="chat-goal-status"');
+    expect(goalHtml).toContain("Goal active");
+    const pendingGoalHtml = renderToString(
+      <ConversationBody
+        chat={conversationBodyChat({
+          goal: goalState("existing goal", "active"),
+          pendingGoalSubmission: {
+            conversationId: "conversation_api",
+            objective: "finish pending goal",
+          },
+        })}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+      />,
+    );
+    expectReadableColumnElement(
+      pendingGoalHtml,
+      'data-testid="chat-goal-status"',
+      'data-goal-status="submitting"',
+    );
+    expect(pendingGoalHtml).toContain("Goal submitting");
+    expect(pendingGoalHtml).toContain("finish pending goal");
     expectReadableColumnElement(chatErrorHtml);
     expect(chatErrorHtml).toContain("temporary chat error");
     expectReadableColumnElement(emptyTranscriptHtml, 'data-testid="empty-chat"');
@@ -865,6 +886,7 @@ function conversationBodyChat(
     createConversation: async () => {},
     error: null,
     goal: null,
+    pendingGoalSubmission: null,
     killAllBackgroundTerminals: async () => {},
     killBackgroundTerminal: async () => {},
     loadBackgroundTerminalOutput: async () => {},

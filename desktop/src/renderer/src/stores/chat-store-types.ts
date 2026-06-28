@@ -28,6 +28,15 @@ import type { BackgroundTerminalOutputPageState } from "./chat-store-background-
 type ChatStatus = "idle" | "loading" | "ready" | "error";
 type CommandListStatus = "idle" | "loading" | "loaded" | "failed";
 
+interface PendingGoalSubmission {
+  conversationId: string;
+  objective: string;
+}
+
+export interface ChatCommandClientOptions {
+  pendingGoalObjective?: string;
+}
+
 export interface ChatStore {
   activeRun: RunningRun | null;
   applyConversationList: (workspaceId: string, response: ListConversationsResponse) => void;
@@ -79,6 +88,7 @@ export interface ChatStore {
   messagesById: Record<string, ChatMessage>;
   olderBeforeBlockOrdinal: number;
   operation: ChatOperation;
+  pendingGoalSubmission: PendingGoalSubmission | null;
   queuedRuns: QueuedRun[];
   queueMessage: (prompt: string) => Promise<void>;
   removeQueuedMessage: (messageId: string) => Promise<void>;
@@ -86,6 +96,7 @@ export interface ChatStore {
   executeCommand: (
     raw: string,
     options?: ChatCommandExecutionOptions,
+    clientOptions?: ChatCommandClientOptions,
   ) => Promise<ChatCommandExecuteResult>;
   openCodexModelPicker: () => Promise<ChatCommandExecuteResult>;
   setCodexModel: (modelId: string) => Promise<ChatCommandExecuteResult>;
@@ -152,6 +163,7 @@ export type ChatPatch = Partial<
     | "messagesById"
     | "olderBeforeBlockOrdinal"
     | "operation"
+    | "pendingGoalSubmission"
     | "queuedRuns"
     | "removingQueuedMessageId"
     | "runItemOutputIdsByRunItemId"

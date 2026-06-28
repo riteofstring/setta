@@ -22,6 +22,7 @@ interface SlashCommandExecutionPlan {
   commandText: string;
   commands: ChatCommandDescriptor[];
   options: ChatCommandExecutionOptions;
+  pendingGoalObjective: string | null;
 }
 
 export async function slashCommandExecutionPlan({
@@ -40,7 +41,12 @@ export async function slashCommandExecutionPlan({
   if (options === null) {
     return null;
   }
-  return { commandText, commands: executionCommands, options };
+  return {
+    commandText,
+    commands: executionCommands,
+    options,
+    pendingGoalObjective: pendingGoalObjectiveForExecutionState(executionState),
+  };
 }
 
 export function commandDescriptorsNeedLoad({
@@ -82,4 +88,11 @@ export function goalReplacementExecutionOptions(
     return null;
   }
   return { confirmGoalReplacement: true };
+}
+
+function pendingGoalObjectiveForExecutionState(state: CommandComposerState): string | null {
+  if (state.descriptor?.kind !== "goal") {
+    return null;
+  }
+  return commandFreeTextArgumentValue(state);
 }

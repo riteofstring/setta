@@ -236,6 +236,7 @@ function applyStatefulConversationEvent(
     case "chat.goal.updated":
       return selectedConversationEventResult(state, event, {
         goal: event.payload.goal,
+        pendingGoalSubmission: null,
         status: "ready",
       });
     case "chat.conversation.updated":
@@ -469,6 +470,7 @@ function emptySelectedConversationPatch(): ChatPatch {
     backgroundTerminalOutputPagesByProcessId: {},
     backgroundTerminalOutputsById: {},
     backgroundTerminalsById: {},
+    pendingGoalSubmission: null,
     selectedConversation: null,
     transcriptBlocks: [],
     transcriptBlocksById: {},

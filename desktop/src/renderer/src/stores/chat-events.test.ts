@@ -1,5 +1,7 @@
 import type {
   ChatMessage,
+  ChatEvent,
+  ChatGoalState,
   Conversation,
   MessageDelivery,
   MessageRole,
@@ -254,6 +256,21 @@ describe("chat transcript block reducer", () => {
     expect(blockIds()).toEqual(["a1", "a2"]);
   });
 
+  test("goal updates clear pending goal submission for the selected conversation", () => {
+    const goal = goalState("finish renderer tests", "active");
+    useChatStore.setState({
+      pendingGoalSubmission: {
+        conversationId,
+        objective: "finish renderer tests",
+      },
+    });
+
+    useChatStore.getState().handleEvent(goalUpdatedEvent(1, goal));
+
+    expect(useChatStore.getState().goal).toEqual(goal);
+    expect(useChatStore.getState().pendingGoalSubmission).toBeNull();
+  });
+
   test("ignores raw run item events without disturbing transcript or background terminals", () => {
     seedBlocks([
       activityBlock({ id: "a1", ordinal: 1, runId: "run_a", sourceRunItemId: "run_item_command" }),
@@ -374,6 +391,34 @@ function testConversation(): Conversation {
     updatedAt: "2026-05-29T20:00:00Z",
     workflow: null,
     workspaceId,
+  };
+}
+
+function goalUpdatedEvent(sequence: number, goal: ChatGoalState | null): ChatEvent {
+  return {
+    conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `event_goal_${sequence}`,
+    payload: { goal },
+    runId: "",
+    schemaVersion: 1,
+    sequence,
+    streamId: "stream_api",
+    type: "chat.goal.updated",
+    workspaceId,
+  };
+}
+
+function goalState(objective: string, status: string): ChatGoalState {
+  return {
+    createdAt: 0,
+    objective,
+    status,
+    threadId: "thread_fake",
+    timeUsedSeconds: 0,
+    tokenBudget: null,
+    tokensUsed: 0,
+    updatedAt: 0,
   };
 }
 

@@ -53,6 +53,7 @@ describe("chat store", () => {
       corruption: emptyCorruption(),
       diagnostics: [],
       error: null,
+      goal: null,
       hasMoreOlder: false,
       lastEventSequence: 0,
       lastEventStreamId: "",
@@ -62,6 +63,7 @@ describe("chat store", () => {
       messagesById: {},
       olderBeforeBlockOrdinal: 0,
       operation: null,
+      pendingGoalSubmission: null,
       queuedRuns: [],
       runItemOutputs: [],
       runItemOutputIdsByRunItemId: {},
@@ -674,6 +676,54 @@ describe("chat store", () => {
     expect(useChatStore.getState().transcriptBlocksById[`${activeRun.id}_text`]?.status).toBe(
       "complete",
     );
+  });
+
+  test("execute command exposes pending goal submission until the command settles", async () => {
+    const conversation = testConversation();
+    const commandResponse = deferred<Awaited<ReturnType<SettaAPI["chat"]["executeCommand"]>>>();
+    installSettaAPI({
+      chat: {
+        executeCommand: vi.fn().mockReturnValue(commandResponse.promise),
+      },
+    });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    const commandPromise = useChatStore
+      .getState()
+      .executeCommand("/goal tests", undefined, { pendingGoalObjective: "tests" });
+
+    expect(useChatStore.getState().pendingGoalSubmission).toEqual({
+      conversationId: conversation.id,
+      objective: "tests",
+    });
+
+    commandResponse.resolve(commandExecuteResult(conversation, goalCommandResult()));
+    await commandPromise;
+
+    expect(useChatStore.getState().pendingGoalSubmission).toBeNull();
+  });
+
+  test("execute command clears pending goal submission after failures", async () => {
+    const conversation = testConversation();
+    const executeCommand = vi.fn().mockRejectedValue(new Error("provider command failed"));
+    installSettaAPI({ chat: { executeCommand } });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await expect(
+      useChatStore
+        .getState()
+        .executeCommand("/goal tests", undefined, { pendingGoalObjective: "tests" }),
+    ).rejects.toThrow("provider command failed");
+
+    expect(useChatStore.getState().pendingGoalSubmission).toBeNull();
   });
 
   test("execute command preserves error state for caller handling", async () => {

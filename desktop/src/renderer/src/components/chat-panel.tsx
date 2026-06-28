@@ -14,6 +14,7 @@ import {
 } from "./chat-layout";
 import { ChatTranscript } from "./chat-transcript";
 import { BackgroundTerminalSurface } from "./chat-background-terminal-monitor";
+import { BrailleSpinner } from "./ascii-spinner";
 
 export {
   CommandPalette,
@@ -246,7 +247,7 @@ export function ConversationBody({
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       data-testid="chat-transcript-region"
     >
-      <GoalStatus goal={chat.goal} />
+      <GoalStatus goal={chat.goal} pendingGoalSubmission={chat.pendingGoalSubmission} />
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <ChatTranscript
           activeRun={chat.activeRun}
@@ -274,12 +275,20 @@ export function ConversationBody({
   );
 }
 
-function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
-  if (!goal) {
+function GoalStatus({
+  goal,
+  pendingGoalSubmission,
+}: {
+  goal: ChatView["goal"];
+  pendingGoalSubmission: ChatView["pendingGoalSubmission"];
+}) {
+  const status = pendingGoalSubmission ? "submitting" : goal?.status;
+  const objective = pendingGoalSubmission?.objective ?? goal?.objective;
+  if (!status || !objective) {
     return null;
   }
-  const status = goalStatusLabel(goal.status);
-  const title = `${status}: ${goal.objective}`;
+  const label = goalStatusLabel(status);
+  const title = `${label}: ${objective}`;
   return (
     <div className="workspace-chat-pane-surface shrink-0 border-b border-border" title={title}>
       <div
@@ -288,18 +297,21 @@ function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
           chatReadableColumnPaddedClass,
           "flex h-8 items-center gap-2 text-xs text-muted-foreground",
         )}
-        data-goal-status={goal.status}
+        data-goal-status={status}
         data-testid="chat-goal-status"
       >
-        <GoalStatusIcon status={goal.status} />
-        <span className="shrink-0 font-medium text-foreground">{status}</span>
-        <span className="min-w-0 truncate text-muted-foreground">{goal.objective}</span>
+        <GoalStatusIcon status={status} />
+        <span className="shrink-0 font-medium text-foreground">{label}</span>
+        <span className="min-w-0 truncate text-muted-foreground">{objective}</span>
       </div>
     </div>
   );
 }
 
 function GoalStatusIcon({ status }: { status: string }) {
+  if (status === "submitting") {
+    return <BrailleSpinner label="Goal is submitting" />;
+  }
   if (status === "complete") {
     return <Check className="h-3.5 w-3.5 shrink-0 text-status-success" aria-hidden="true" />;
   }
@@ -313,6 +325,8 @@ function GoalStatusIcon({ status }: { status: string }) {
 
 function goalStatusLabel(status: string) {
   switch (status) {
+    case "submitting":
+      return "Goal submitting";
     case "active":
       return "Goal active";
     case "blocked":
@@ -417,6 +431,7 @@ export function useChatViewState() {
   const messages = useChatStore((state) => state.messages);
   const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
+  const pendingGoalSubmission = useChatStore((state) => state.pendingGoalSubmission);
   const openCodexModelPicker = useChatStore((state) => state.openCodexModelPicker);
   const queuedRuns = useChatStore((state) => state.queuedRuns);
   const queueMessage = useChatStore((state) => state.queueMessage);
@@ -456,6 +471,10 @@ export function useChatViewState() {
       .filter((messageId) => messageId !== "");
     return pendingIds.length === 0 ? emptyPendingSteeringMessageIds : pendingIds;
   }, [activeRunId, transcriptBlocks]);
+  const visiblePendingGoalSubmission =
+    pendingGoalSubmission?.conversationId === selectedConversation?.id
+      ? pendingGoalSubmission
+      : null;
 
   const selectedConversationSummary =
     selectedConversation?.workspaceId === storeWorkspaceId
@@ -505,6 +524,7 @@ export function useChatViewState() {
     messages,
     operation,
     openCodexModelPicker,
+    pendingGoalSubmission: visiblePendingGoalSubmission,
     pendingSteeringMessageIds,
     queuedMessages,
     queueMessage,

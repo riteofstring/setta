@@ -37,9 +37,41 @@ describe("slash command execution planning", () => {
       commandText: "/goal replacement",
       commands,
       options: { confirmGoalReplacement: true },
+      pendingGoalObjective: "replacement",
     });
     expect(loadCommands).toHaveBeenCalledOnce();
     expect(confirm).toHaveBeenCalledWith("Replace the current goal?");
+  });
+
+  test("marks only goal objective commands as pending goal submissions", async () => {
+    const commands = [commandDescriptor()];
+
+    await expect(
+      slashCommandExecutionPlan({
+        commands,
+        confirmReplacement: vi.fn(() => true),
+        currentGoal: null,
+        draft: "/goal finish renderer tests",
+        loadCommands: vi.fn(),
+        selectedIndex: 0,
+        shouldReloadCommands: false,
+      }),
+    ).resolves.toMatchObject({
+      pendingGoalObjective: "finish renderer tests",
+    });
+    await expect(
+      slashCommandExecutionPlan({
+        commands,
+        confirmReplacement: vi.fn(() => true),
+        currentGoal: null,
+        draft: "/goal edit",
+        loadCommands: vi.fn(),
+        selectedIndex: 0,
+        shouldReloadCommands: false,
+      }),
+    ).resolves.toMatchObject({
+      pendingGoalObjective: null,
+    });
   });
 
   test("confirms before replacing a non-terminal goal", () => {

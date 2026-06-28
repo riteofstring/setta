@@ -1,9 +1,4 @@
-import type {
-  ChatCommandExecuteResult,
-  Conversation,
-  ListConversationsResponse,
-  ReasoningEffort,
-} from "@generated/backend";
+import type { Conversation, ListConversationsResponse, ReasoningEffort } from "@generated/backend";
 import type { BackendProcessStatus, ChatCommandExecutionOptions } from "@shared/types";
 import { create } from "zustand";
 
@@ -25,6 +20,7 @@ import {
   loadedCommandListPatch,
   staleCommandListPatch,
 } from "./chat-store-command-cache";
+import { createCommandMutationRunner } from "./chat-store-command-actions";
 import { conversationDetailPatch, normalizeStatePatch } from "./chat-store-detail-cache";
 import {
   blocksFromPage,
@@ -36,7 +32,6 @@ import {
   upsertRunItemOutputs,
 } from "./chat-store-normalization";
 import {
-  commandOperationPatch,
   emptyConversationPatch,
   operationPagePatch,
   pagePatch,
@@ -62,7 +57,7 @@ import {
   isUnexpectedStream,
   persistSelectedConversation,
 } from "./chat-store-helpers";
-import type { ChatPatch, ChatStore } from "./chat-store-types";
+import type { ChatCommandClientOptions, ChatPatch, ChatStore } from "./chat-store-types";
 import { createChatResyncController } from "./chat-store-resync";
 import { deletedConversationSelectionPatch as deletedConversationSelectionPatchForState } from "./chat-store-delete-selection";
 import { resolveConversationSelection } from "./chat-store-selection-resolver";
@@ -139,29 +134,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
   function cancelEventResyncOperation(patch: ChatPatch = {}) {
     set((current) => normalizeStatePatch(current, operations.cancelScopes(["eventResync"], patch)));
-  }
-
-  async function runCommandMutation(
-    request: (workspaceId: string, conversationId: string) => Promise<ChatCommandExecuteResult>,
-  ) {
-    const { activeRun, selectedConversation, workspaceId } = get();
-    if (!workspaceId || !selectedConversation) {
-      throw new Error("No chat is selected");
-    }
-    const operation = beginOperation("commandMutation", { error: null, operation: "commanding" });
-    try {
-      const result = await request(workspaceId, selectedConversation.id);
-      commitCurrentFromState(operation, (current) => ({
-        ...commandOperationPatch(current, result, activeRun),
-        operation: null,
-        selectedConversation: result.conversation,
-        status: "ready",
-      }));
-      return result;
-    } catch (error) {
-      commitCurrent(operation, errorPatch(error));
-      throw error;
-    }
   }
 
   function updateBackendLifecycle(status: BackendProcessStatus) {
@@ -264,6 +236,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
     loadConversationPageSnapshot,
     reloadConversations,
   });
+  const runCommandMutation = createCommandMutationRunner({
+    beginOperation,
+    commitCurrent,
+    commitCurrentFromState,
+    get,
+  });
 
   async function deletedConversationSelectionPatch(
     workspaceId: string,
@@ -285,6 +263,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       {
         error: null,
         operation: "loading",
+        pendingGoalSubmission: null,
         status: "loading",
       },
       conversationBoundOperationScopes,
@@ -424,7 +403,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       const switchingWorkspace = get().workspaceId !== workspaceId;
       const operation = beginOperation(
         "conversation",
-        { error: null, operation: "creating" },
+        { error: null, operation: "creating", pendingGoalSubmission: null },
         conversationBoundOperationScopes,
       );
       try {
@@ -459,7 +438,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
       const operation = beginOperation(
         "conversation",
-        { error: null, operation: "deleting" },
+        { error: null, operation: "deleting", pendingGoalSubmission: null },
         conversationBoundOperationScopes,
       );
       try {
@@ -679,6 +658,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     messagesById: {},
     olderBeforeBlockOrdinal: 0,
     operation: null,
+    pendingGoalSubmission: null,
     queuedRuns: [],
     queueMessage: async (prompt: string) => {
       const { activeRun, selectedConversation, workspaceId } = get();
@@ -735,11 +715,17 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     removingQueuedMessageId: null,
-    executeCommand: async (raw: string, options?: ChatCommandExecutionOptions) => {
-      return runCommandMutation((workspaceId, conversationId) =>
-        options === undefined
-          ? window.setta.chat.executeCommand(workspaceId, conversationId, raw)
-          : window.setta.chat.executeCommand(workspaceId, conversationId, raw, options),
+    executeCommand: async (
+      raw: string,
+      options?: ChatCommandExecutionOptions,
+      clientOptions?: ChatCommandClientOptions,
+    ) => {
+      return runCommandMutation(
+        (workspaceId, conversationId) =>
+          options === undefined
+            ? window.setta.chat.executeCommand(workspaceId, conversationId, raw)
+            : window.setta.chat.executeCommand(workspaceId, conversationId, raw, options),
+        clientOptions,
       );
     },
     openCodexModelPicker: async () => {
