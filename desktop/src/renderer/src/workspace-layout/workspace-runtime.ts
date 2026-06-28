@@ -82,7 +82,7 @@ export function createWorkspaceRuntime({
   return {
     browserPaneCount,
     engine,
-    hostPoolSize: hostPoolSizeForRuntime(mode),
+    hostPoolSize: hostPoolSizeForRuntime(mode, scene),
     layoutRecovery: realScene?.layoutRecovery ?? null,
     metrics,
     mode,
@@ -96,7 +96,7 @@ export function createWorkspaceRuntime({
     reportWriter: reportWriterForRuntime(mode),
     resizeReportWriter: new LocalStorageResizePerformanceReportWriter(1500),
     runtimePolicy: new PaneRuntimePolicy(
-      runtimePolicyBudgetForRuntime(mode),
+      runtimePolicyBudgetForRuntime(mode, scene),
       runtimePolicyOptionsForRuntime(mode),
     ),
     scene,
