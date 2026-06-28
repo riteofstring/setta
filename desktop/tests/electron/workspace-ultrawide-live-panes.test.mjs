@@ -3,12 +3,14 @@
 
 import { basename, join } from "node:path";
 import process from "node:process";
+import { setTimeout as delay } from "node:timers/promises";
 
 import {
   assertBuildExists,
   captureScreenshot,
   clickEnabledButtonByAria,
   createElectronFixture,
+  dispatchMouseClick,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   reloadPage,
@@ -83,9 +85,22 @@ try {
     expectedIntersectingPaneCount: multiRowExpectedIntersectingPaneCount,
     paneCount: multiRowPaneCount,
   });
+  const clickPreservationChecks = [
+    await assertVisiblePaneClickPreservesWorkspaceFocus(
+      context.client,
+      multiRowSnapshot,
+      "terminal",
+    ),
+    await assertVisiblePaneClickPreservesWorkspaceFocus(
+      context.client,
+      multiRowSnapshot,
+      "workflow-graph",
+    ),
+  ];
   await captureScreenshot(context.client, join(artifactDir, "multirow-live-panes.png"));
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
+    clickPreservationChecks,
     multiRowSnapshot,
     multiRowViewport,
     snapshot,
@@ -186,6 +201,36 @@ async function safePaneSnapshot(client) {
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
+}
+
+async function assertVisiblePaneClickPreservesWorkspaceFocus(client, snapshot, surfaceKind) {
+  const target = snapshot.intersectingHosts.find(
+    (host) => host.surfaceKind === surfaceKind && !host.focused,
+  );
+  if (!target) {
+    throw new Error(`no unfocused visible ${surfaceKind} host was available`);
+  }
+  await dispatchMouseClick(client, {
+    x: Math.round((target.rect.left + target.rect.right) / 2),
+    y: Math.round(target.rect.top + target.rect.height / 2),
+  });
+  await delay(100);
+  const afterClick = await client.evaluate(paneSnapshotExpression());
+  if (afterClick.focusedPaneId !== snapshot.focusedPaneId) {
+    throw new Error(
+      `${surfaceKind} click moved workspace focus: ${JSON.stringify({
+        after: afterClick.focusedPaneId,
+        before: snapshot.focusedPaneId,
+        paneId: target.paneId,
+      })}`,
+    );
+  }
+  return {
+    focusedPaneId: snapshot.focusedPaneId,
+    paneId: target.paneId,
+    preserved: true,
+    surfaceKind,
+  };
 }
 
 function workspaceIdExpression() {

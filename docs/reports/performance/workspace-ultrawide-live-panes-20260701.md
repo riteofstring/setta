@@ -26,7 +26,7 @@ node desktop/tests/electron/run-workflows.mjs --skip-build --workflow workspace-
 Artifact:
 
 ```text
-.recordings/workspace-ultrawide-live-panes/20260701T194323645Z/summary.json
+.recordings/workspace-ultrawide-live-panes/20260701T194528782Z/summary.json
 ```
 
 Observed production Electron/main/preload/renderer path:
@@ -42,6 +42,7 @@ Observed production Electron/main/preload/renderer path:
 - Every viewport-intersecting workflow graph pane had mounted workflow graph surface and host DOM while unfocused.
 - Multi-row verification used a `3600x900` viewport with 12 panes across 6 stacked columns.
 - The multi-row pass had 12 viewport-intersecting panes with `{ "live": 12 }`; lower-row unfocused terminal panes had `terminal_*` session ids, and lower-row unfocused workflow graph panes had mounted graph DOM.
+- Clicking a visible unfocused terminal and a visible unfocused workflow graph preserved workspace focus on `multirow_pane_0`.
 
 Result: pass.
 
