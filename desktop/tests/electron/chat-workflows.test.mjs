@@ -80,6 +80,7 @@ import {
   runProtocolGoalBackgroundTerminalWorkflow,
   runProtocolGoalCancellationWorkflow,
   runProtocolGoalForegroundUnifiedExecWorkflow,
+  runProtocolLivenessReconciliationWorkflow,
   runProtocolGoalMultiTurnWorkflow,
 } from "./codex-protocol-workflow.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
@@ -1270,6 +1271,7 @@ async function runCodexProtocolWorkflow(results) {
     await runProtocolGoalForegroundUnifiedExecWorkflow(context.client, backend, workspaceId);
     await runProtocolGoalBackgroundTerminalWorkflow(context.client, backend, workspaceId, fixture);
     await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);
+    await runProtocolLivenessReconciliationWorkflow(context.client, backend, workspaceId);
 
     const exitConversationId = await createChat(context.client, backend, workspaceId);
     await submitComposer(context.client, "app-server exit workflow", "Send message");
@@ -1310,6 +1312,8 @@ async function runCodexProtocolWorkflow(results) {
       "/chat/commands/execute",
       "/chat/runs/cancel",
       "/chat/runs/activity",
+      "/chat/runs/active",
+      "/chat/runs/reconcile",
       "/chat/runs/list",
       "/chat/diagnostics/list",
     ],
@@ -1319,6 +1323,7 @@ async function runCodexProtocolWorkflow(results) {
       "chat:cancel-run",
       "chat:execute-command",
       "chat:open-codex-permission-picker",
+      "chat:reconcile-runs",
       "chat:send-message",
     ],
   });

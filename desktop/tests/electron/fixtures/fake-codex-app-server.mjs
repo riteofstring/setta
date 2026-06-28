@@ -18,6 +18,7 @@ const goalForegroundUnifiedExec = {
   processId: "goal_fg_process",
 };
 let account = null;
+let activeSilentLivenessTurn = null;
 let currentGoal = null;
 let goalCancelTurnId = null;
 let goalPaused = false;
@@ -115,7 +116,7 @@ function handleThreadRead(message) {
   if (message.params?.threadId !== threadId) {
     throw new Error(`unexpected thread/read threadId: ${message.params?.threadId}`);
   }
-  respond(message.id, { thread: fakeThread() });
+  respond(message.id, { thread: fakeThread({ activeTurn: activeSilentLivenessTurn }) });
 }
 
 function handleTurnStart(message) {
@@ -128,6 +129,11 @@ function handleTurnStart(message) {
   const text = turnInputText(message);
   if (text.includes("app-server exit workflow")) {
     setTimeout(() => process.exit(42), 5);
+    return;
+  }
+  if (text.includes("liveness reconciliation workflow")) {
+    activeSilentLivenessTurn = fakeTurn("inProgress");
+    setTimeout(emitSilentLivenessTurn, 5);
     return;
   }
   if (text.includes("protocol notification workflow")) {
@@ -169,6 +175,7 @@ function threadResponseOptionsFromParams(params) {
 
 function fakeThread(options = {}) {
   const ephemeral = options.ephemeral === true;
+  const activeTurn = options.activeTurn ?? null;
   return {
     cliVersion: "fake",
     createdAt: 1,
@@ -180,8 +187,8 @@ function fakeThread(options = {}) {
     preview: "",
     sessionId: "session_fake",
     source: "user",
-    status: { type: "idle" },
-    turns: [],
+    status: activeTurn === null ? { type: "idle" } : { activeFlags: [], type: "active" },
+    turns: activeTurn === null ? [] : [activeTurn],
     updatedAt: 1,
   };
 }
@@ -319,27 +326,46 @@ function respondEmpty(message) {
 }
 
 function handleTurnInterrupt(message) {
-  if (currentGoal?.objective === "phase4 codex cancel") {
-    if (!goalPaused) {
-      respondError(message.id, -32600, "goal pause is required before interrupt");
-      return;
-    }
-    if (message.params?.turnId !== goalCancelTurnId) {
-      respondError(
-        message.id,
-        -32600,
-        `unexpected goal cancellation turn ${message.params?.turnId}`,
-      );
-      return;
-    }
-    respond(message.id, {});
-    notify("turn/completed", {
-      threadId,
-      turn: fakeTurnWithID(goalCancelTurnId, "interrupted"),
-    });
+  if (handleGoalTurnInterrupt(message)) {
+    return;
+  }
+  if (handleSilentLivenessInterrupt(message)) {
     return;
   }
   respond(message.id, {});
+}
+
+function handleGoalTurnInterrupt(message) {
+  if (currentGoal?.objective !== "phase4 codex cancel") {
+    return false;
+  }
+  if (!goalPaused) {
+    respondError(message.id, -32600, "goal pause is required before interrupt");
+    return true;
+  }
+  if (message.params?.turnId !== goalCancelTurnId) {
+    respondError(message.id, -32600, `unexpected goal cancellation turn ${message.params?.turnId}`);
+    return true;
+  }
+  respond(message.id, {});
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurnWithID(goalCancelTurnId, "interrupted"),
+  });
+  return true;
+}
+
+function handleSilentLivenessInterrupt(message) {
+  if (activeSilentLivenessTurn?.id !== message.params?.turnId) {
+    return false;
+  }
+  activeSilentLivenessTurn = null;
+  respond(message.id, {});
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurn("interrupted"),
+  });
+  return true;
 }
 
 function assertThreadStartDeveloperInstructions(params) {
@@ -636,6 +662,15 @@ function emitProtocolCoverageTurn() {
   notify("turn/completed", {
     threadId,
     turn: fakeTurn("completed"),
+  });
+}
+
+function emitSilentLivenessTurn() {
+  notify("item/agentMessage/delta", {
+    delta: "Liveness stream started. ",
+    itemId: "liveness_message_fake",
+    threadId,
+    turnId,
   });
 }
 

@@ -1,8 +1,10 @@
 # Chat Run Liveness And Reconciliation Plan
 
 - **Date:** July 1, 2026
-- **Status:** Draft v6. Phases 0-5 completed; Phase 6 production E2E is
-  next. The reconciliation decisions below are grounded in the
+- **Status:** Draft v7. Phases 0-5 completed; Phase 6 production E2E is
+  in progress. The deterministic stale-liveness production Electron slice is
+  covered; remaining Phase 6 restart/shutdown/live-provider coverage is still
+  outstanding. The reconciliation decisions below are grounded in the
   trigger recording, current code paths, and the live app-server findings in
   Appendix A.
 - **Trigger recording:** `.recordings/20260701T215826Z`
@@ -507,6 +509,13 @@ sidebar conversation indicator.
 - sidebar indicator uses the same projection.
 
 ### Phase 6 - Production E2E
+
+Status: In progress. Added deterministic production Electron coverage for a
+Codex turn that emits a provider delta, then remains silent while
+`thread/read` reports the turn `inProgress`; the renderer reconciles through
+the preload/main/HTTP path and leaves normal Working for the reconciling state.
+Remaining Phase 6 coverage: restart/reload recovery, shutdown-drain persistence,
+and live Codex provider regression checks when ChatGPT auth is available.
 
 Deterministic Electron E2E through production main/preload/renderer/HTTP and
 store paths:

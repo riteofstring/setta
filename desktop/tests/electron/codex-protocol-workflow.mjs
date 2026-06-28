@@ -10,6 +10,7 @@ import {
   clickButtonByAria,
   createChat,
   submitComposer,
+  waitForBackendState,
   waitForCommandResult,
   waitForGoalStatus,
   waitForRunStatus,
@@ -380,6 +381,90 @@ export async function runProtocolGoalCancellationWorkflow(client, backend, works
   await waitForRunStatus(backend, workspaceId, conversationId, runId, "cancelled");
   await waitForGoalStatus(backend, workspaceId, conversationId, "paused");
   await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
+export async function runProtocolLivenessReconciliationWorkflow(client, backend, workspaceId) {
+  const conversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "liveness reconciliation workflow", "Send message");
+  const run = await waitForRunStatusForPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "liveness reconciliation workflow",
+    "running",
+  );
+  await waitForTexts(client, ["Liveness stream started."]);
+  await waitForRendererLiveness(client, run.id, "attached", "working");
+
+  const reconciled = await callRendererChatAPI(client, "reconcileRuns", [
+    {
+      conversationId,
+      reason: "wake_recheck",
+      workspaceId,
+    },
+  ]);
+  assertReconciledRunLiveness(reconciled, run.id);
+  await waitForRendererLiveness(client, run.id, "reconciling", "reconnecting");
+  await waitForTexts(client, ["Reconnecting"]);
+  await assertDegradedRunControls(client, { retry: true, stop: true });
+
+  await clickButtonByAria(client, "Stop run");
+  await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
+async function waitForRunStatusForPrompt(backend, workspaceId, conversationId, prompt, status) {
+  return waitForBackendState(async () => {
+    const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
+    return list.runs.find((run) => run.promptSummary === prompt && run.status === status) ?? null;
+  }, Boolean);
+}
+
+function assertReconciledRunLiveness(response, runId) {
+  const liveness = response?.result?.runs?.find((candidate) => candidate.runId === runId);
+  if (!liveness) {
+    throw new Error(`reconcile response missing run ${runId}: ${JSON.stringify(response)}`);
+  }
+  if (liveness.status !== "reconciling" || liveness.reason !== "wake_recheck") {
+    throw new Error(`reconciled liveness status mismatch: ${JSON.stringify(liveness)}`);
+  }
+  if (!liveness.retryable || !liveness.cancellable) {
+    throw new Error(`reconciled liveness capabilities mismatch: ${JSON.stringify(liveness)}`);
+  }
+}
+
+async function waitForRendererLiveness(client, runId, status, rowMode) {
+  await waitForState(
+    client,
+    `(() => {
+      const runId = ${JSON.stringify(runId)};
+      const pane = document.querySelector('[data-testid="chat-detail-pane"]');
+      const rows = Array.from(document.querySelectorAll('[data-block-kind="run_status"]'));
+      const target = rows.find((row) => row.getAttribute("data-run-id") === runId);
+      return {
+        liveness: pane?.getAttribute("data-run-liveness-status") ?? "",
+        mode: target?.getAttribute("data-run-status-mode") ?? "",
+        text: target?.textContent ?? "",
+      };
+    })()`,
+    (value) => value.liveness === status && value.mode === rowMode,
+  );
+}
+
+async function assertDegradedRunControls(client, expected) {
+  const controls = await client.evaluate(`(() => {
+    const retry = document.querySelector('button[aria-label="Retry run liveness check"]');
+    const stop = document.querySelector('button[aria-label="Stop run"]');
+    return {
+      retry: Boolean(retry && !retry.disabled),
+      stop: Boolean(stop && !stop.disabled),
+    };
+  })()`);
+  if (controls.retry !== expected.retry || controls.stop !== expected.stop) {
+    throw new Error(
+      `degraded run controls = ${JSON.stringify(controls)}, want ${JSON.stringify(expected)}`,
+    );
+  }
 }
 
 async function assertProtocolGoalForegroundUnifiedExecProjections(
