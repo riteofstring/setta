@@ -438,7 +438,12 @@ function message(
     id,
     ordinal,
     parts: [
-      { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
+      {
+        id: `${id}_part`,
+        image: null,
+        text: { format: role === "assistant" ? "markdown" : "plain", text },
+        type: "text",
+      },
     ],
     role,
     runId,

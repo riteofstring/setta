@@ -1,4 +1,11 @@
-import type { ChatMessage, Run, RunItemOutput, TranscriptBlock } from "@generated/backend";
+import type {
+  ChatInput,
+  ChatMessage,
+  MessagePart,
+  Run,
+  RunItemOutput,
+  TranscriptBlock,
+} from "@generated/backend";
 import { ArrowDown, ChevronUp } from "lucide-react";
 import {
   type KeyboardEvent,
@@ -14,6 +21,7 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
+import { chatMessagePartsText } from "../lib/chat-input";
 import { transcriptRenderRows, type TranscriptRenderRow } from "../lib/chat-transcript-render-rows";
 import { Button } from "./ui/button";
 import { ApprovalCard, type SubmitApproval } from "./chat-transcript-approvals";
@@ -31,7 +39,7 @@ import type { TranscriptRowActions } from "./chat-transcript-row-actions";
 export interface ChatTranscriptProps {
   activeRun: Run | null;
   blocks: TranscriptBlock[];
-  editQueuedMessage: (messageId: string, prompt: string) => Promise<void>;
+  editQueuedMessage: (messageId: string, input: ChatInput) => Promise<void>;
   editingQueuedMessageId: string | null;
   focusedSourceRunItemId?: string | null;
   hasMoreOlder: boolean;
@@ -46,7 +54,7 @@ export interface ChatTranscriptProps {
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputsById: Record<string, RunItemOutput>;
   searchOpen?: boolean;
-  sendSteeringImmediately: (prompt?: string) => Promise<void>;
+  sendSteeringImmediately: (input?: ChatInput) => Promise<void>;
   setSearchOpen?: (open: boolean) => void;
   submitApproval: SubmitApproval;
 }
@@ -132,8 +140,8 @@ function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; te
   ];
 }
 
-function messagePartsText(parts: { text: string }[]) {
-  return parts.map((part) => part.text).join("");
+function messagePartsText(parts: MessagePart[]) {
+  return chatMessagePartsText(parts);
 }
 
 export function ChatTranscript({

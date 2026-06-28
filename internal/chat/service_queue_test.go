@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -48,6 +49,59 @@ func TestServiceEditsQueuedMessageAndUsesEditedTextOnPromotion(t *testing.T) {
 	}
 	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
 		t.Fatalf("cancel promoted run cleanup: %v", err)
+	}
+}
+
+func TestServiceDoesNotPromoteQueuedImageWhenCurrentModelRejectsImages(t *testing.T) {
+	settings, err := fakeCodexEffectiveSettings("scripted-fast", ReasoningEffortMedium)
+	if err != nil {
+		t.Fatalf("fake settings: %v", err)
+	}
+	harness := NewFakeHarness([]FakeHarnessEvent{
+		{Type: FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake", CodexEffectiveSettings: settings},
+		{Type: FakeEventWaitForSteer},
+	})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	if err != nil {
+		t.Fatalf("send active: %v", err)
+	}
+	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
+	attachment, err := service.CreateImageAttachmentFromBytes("workspace_api", conversation.ID, "fixture.png", testPNG(t, 1, 1))
+	if err != nil {
+		t.Fatalf("create attachment: %v", err)
+	}
+	queued, err := service.QueueUserInput("workspace_api", conversation.ID, ChatInput{Parts: []ChatInputPart{
+		{Type: MessagePartImage, Image: &ChatImageInput{AttachmentID: attachment.ID}},
+	}})
+	if err != nil {
+		t.Fatalf("queue image input: %v", err)
+	}
+	conversation, err = service.store.LoadConversation("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("load conversation: %v", err)
+	}
+	if conversation.CodexEffectiveSettings == nil {
+		t.Fatalf("conversation effective settings missing after linked active run")
+	}
+	conversation.CodexEffectiveSettings.SupportsImages = false
+	conversation.CodexEffectiveSettings.ModelDisplayName = "Text Only"
+	if err := service.store.SaveConversation(conversation); err != nil {
+		t.Fatalf("save text-only effective settings: %v", err)
+	}
+
+	steerWhenReady(t, service, "workspace_api", conversation.ID, "finish A1")
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, active.Run.ID, RunStatusCompleted)
+	run, err := service.store.LoadRun("workspace_api", queued.Run.ID)
+	if err != nil {
+		t.Fatalf("load queued run: %v", err)
+	}
+	if run.Status != RunStatusQueued {
+		t.Fatalf("queued image run status = %s, want queued", run.Status)
 	}
 }
 
@@ -144,7 +198,7 @@ func TestServiceSendSteeringImmediatelyReplaysPendingSteering(t *testing.T) {
 		t.Fatalf("steer active: %v", err)
 	}
 
-	result, err := service.SendSteeringImmediately("workspace_api", conversation.ID, "")
+	result, err := service.SendSteeringInputImmediately("workspace_api", conversation.ID, nil)
 	if err != nil {
 		t.Fatalf("send steering immediately: %v", err)
 	}
@@ -173,6 +227,60 @@ func TestServiceSendSteeringImmediatelyReplaysPendingSteering(t *testing.T) {
 	}
 	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
 		t.Fatalf("cancel replay cleanup: %v", err)
+	}
+}
+
+func TestServiceSendSteeringImmediatelyRejectsMergedImageCapBeforeCancel(t *testing.T) {
+	harness := NewFakeHarnessByPrompt(map[string][]FakeHarnessEvent{
+		"A1": {
+			{Type: FakeEventThreadLinked, ThreadID: "thread_active", SessionID: "session_fake", TurnID: "turn_active"},
+			{Type: FakeEventWaitForCancel},
+		},
+	})
+	harness.model = "scripted-fast"
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	if err != nil {
+		t.Fatalf("send active: %v", err)
+	}
+	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_active")
+	for index := 0; index < maxImageAttachmentsPerMessage+1; index++ {
+		attachment, err := service.CreateImageAttachmentFromBytes("workspace_api", conversation.ID, "fixture.png", testPNG(t, 1, 1))
+		if err != nil {
+			t.Fatalf("create attachment %d: %v", index, err)
+		}
+		message, err := service.newUserMessage("workspace_api", conversation.ID, active.Run.ID, ChatInput{Parts: []ChatInputPart{{
+			Type:  MessagePartImage,
+			Image: &ChatImageInput{AttachmentID: attachment.ID},
+		}}}, MessageDeliverySteering, MessageStatusPending, timestamp(service.now()))
+		if err != nil {
+			t.Fatalf("create steering image %d: %v", index, err)
+		}
+		if err := service.store.SaveMessage("workspace_api", message); err != nil {
+			t.Fatalf("save steering image %d: %v", index, err)
+		}
+	}
+
+	_, err = service.SendSteeringImmediately("workspace_api", conversation.ID, "")
+	if err == nil || !strings.Contains(err.Error(), "maximum is 10") {
+		t.Fatalf("send immediate error = %v, want merged image cap error", err)
+	}
+	if cancelled := harness.CancelledRequests(); len(cancelled) != 0 {
+		t.Fatalf("cancel requests = %+v, want none before replay validation", cancelled)
+	}
+	run, err := service.store.LoadRun("workspace_api", active.Run.ID)
+	if err != nil {
+		t.Fatalf("load active run: %v", err)
+	}
+	if run.Status != RunStatusRunning {
+		t.Fatalf("active run status = %s, want running", run.Status)
+	}
+	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
+		t.Fatalf("cancel active run cleanup: %v", err)
 	}
 }
 
@@ -263,12 +371,19 @@ func serviceTestQueuedTurn(runID string, messageID string, conversation Conversa
 		Delivery:       MessageDeliveryQueued,
 		ID:             messageID,
 		Ordinal:        ordinal,
-		Parts:          []MessagePart{{Format: TextFormatPlain, ID: messageID + "_part", Text: prompt, Type: MessagePartText}},
-		Role:           RoleUser,
-		RunID:          runID,
-		SchemaVersion:  SchemaVersion,
-		Status:         MessageStatusPending,
-		UpdatedAt:      now,
+		Parts: []MessagePart{{
+			ID:   messageID + "_part",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   prompt,
+				Format: TextFormatPlain,
+			},
+		}},
+		Role:          RoleUser,
+		RunID:         runID,
+		SchemaVersion: SchemaVersion,
+		Status:        MessageStatusPending,
+		UpdatedAt:     now,
 	}
 	run := Run{
 		ConversationID:     conversation.ID,

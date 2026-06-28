@@ -25,6 +25,7 @@ import type {
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
+  ChatInput,
   CodexAccountState,
   Conversation,
   ConversationListItem,
@@ -37,6 +38,7 @@ import type {
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
+  ImageAttachment,
   ListCartographerCursorsRequest,
   ListCartographerPatchesRequest,
   ListCartographerRunsRequest,
@@ -391,8 +393,19 @@ export interface SettaAPI {
       workspaceId: string,
       conversationId: string,
       messageId: string,
-      prompt: string,
+      input: ChatInput,
     ) => Promise<QueueEditResult>;
+    createImageAttachmentFromBytes: (
+      workspaceId: string,
+      conversationId: string,
+      fileName: string,
+      dataBase64: string,
+    ) => Promise<ImageAttachment>;
+    selectImageAttachments: (
+      workspaceId: string,
+      conversationId: string,
+      maxCount: number,
+    ) => Promise<ImageAttachment[]>;
     executeCommand: (
       workspaceId: string,
       conversationId: string,
@@ -433,7 +446,7 @@ export interface SettaAPI {
     queueMessage: (
       workspaceId: string,
       conversationId: string,
-      prompt: string,
+      input: ChatInput,
     ) => Promise<QueueMessageResult>;
     removeQueuedMessage: (
       workspaceId: string,
@@ -471,17 +484,17 @@ export interface SettaAPI {
     sendMessage: (
       workspaceId: string,
       conversationId: string,
-      prompt: string,
+      input: ChatInput,
     ) => Promise<SendMessageResult>;
     sendSteeringImmediately: (
       workspaceId: string,
       conversationId: string,
-      prompt?: string,
+      input?: ChatInput,
     ) => Promise<ImmediateSteeringResult>;
     steerMessage: (
       workspaceId: string,
       conversationId: string,
-      prompt: string,
+      input: ChatInput,
     ) => Promise<SteerMessageResult>;
     onEvent: (listener: (event: ChatEvent) => void) => () => void;
     submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;

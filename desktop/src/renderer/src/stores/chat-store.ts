@@ -1,8 +1,14 @@
-import type { Conversation, ListConversationsResponse, ReasoningEffort } from "@generated/backend";
+import type {
+  ChatInput,
+  Conversation,
+  ListConversationsResponse,
+  ReasoningEffort,
+} from "@generated/backend";
 import type { BackendProcessStatus, ChatCommandExecutionOptions } from "@shared/types";
 import { create } from "zustand";
 
 import { applyChatEvent } from "./chat-events";
+import { createChatAttachmentActions } from "./chat-store-attachment-actions";
 import { createChatBackgroundTerminalActions } from "./chat-store-background-terminal-actions";
 import { backgroundTerminalsReplacedPatch } from "./chat-store-background-terminals";
 import {
@@ -161,6 +167,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     },
     get,
   });
+  const attachmentActions = createChatAttachmentActions(get);
 
   function flushStreamEventBatch(events: BufferedStreamChatEvent[]) {
     let needsResync = false;
@@ -358,9 +365,10 @@ export const useChatStore = create<ChatStore>((set, get) => {
     conversations: [],
     corruption: emptyCorruption,
     diagnostics: [],
+    ...attachmentActions,
     editingQueuedMessageId: null,
     goal: null,
-    editQueuedMessage: async (messageId: string, prompt: string) => {
+    editQueuedMessage: async (messageId: string, input: ChatInput) => {
       const { activeRun, selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
         return;
@@ -375,7 +383,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           workspaceId,
           selectedConversation.id,
           messageId,
-          prompt,
+          input,
         );
         commitCurrentFromState(operation, (current) => ({
           ...operationPagePatch(current, result.page, result.run, activeRun),
@@ -660,7 +668,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     operation: null,
     pendingGoalSubmission: null,
     queuedRuns: [],
-    queueMessage: async (prompt: string) => {
+    queueMessage: async (input: ChatInput) => {
       const { activeRun, selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
         return;
@@ -670,7 +678,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         const result = await window.setta.chat.queueMessage(
           workspaceId,
           selectedConversation.id,
-          prompt,
+          input,
         );
         commitCurrentFromState(operation, (current) => ({
           ...operationPagePatch(current, result.page, result.run, activeRun),
@@ -856,7 +864,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     },
     selectedConversation: null,
     selectedConversationIdsByWorkspaceId: {},
-    sendMessage: async (prompt: string) => {
+    sendMessage: async (input: ChatInput) => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
         return;
@@ -866,7 +874,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         const result = await window.setta.chat.sendMessage(
           workspaceId,
           selectedConversation.id,
-          prompt,
+          input,
         );
         commitCurrentFromState(operation, (current) => ({
           ...operationPagePatch(current, result.page, result.run, null),
@@ -879,7 +887,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         throw error;
       }
     },
-    sendSteeringImmediately: async (prompt?: string) => {
+    sendSteeringImmediately: async (input?: ChatInput) => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
         return;
@@ -892,7 +900,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         const result = await window.setta.chat.sendSteeringImmediately(
           workspaceId,
           selectedConversation.id,
-          prompt ?? "",
+          input,
         );
         commitCurrentFromState(operation, (current) => ({
           ...operationPagePatch(current, result.page, result.activeRun, null),
@@ -910,7 +918,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     runItemOutputIdsByRunItemId: {},
     runItemOutputPagesByRunItemId: {},
     runItemOutputsById: {},
-    steerMessage: async (prompt: string) => {
+    steerMessage: async (input: ChatInput) => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
         return;
@@ -920,7 +928,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         const result = await window.setta.chat.steerMessage(
           workspaceId,
           selectedConversation.id,
-          prompt,
+          input,
         );
         commitCurrentFromState(operation, (current) => ({
           ...operationPagePatch(current, result.page, result.run, null),

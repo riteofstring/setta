@@ -38,10 +38,12 @@ func validTranscriptBlock(kind TranscriptBlockKind, ordinal int, id string) Tran
 			Delivery:  MessageDeliveryNormal,
 			Status:    MessageStatusComplete,
 			Parts: []MessagePart{{
-				ID:     "part_" + id,
-				Type:   MessagePartText,
-				Text:   "hello",
-				Format: TextFormatPlain,
+				ID:   "part_" + id,
+				Type: MessagePartText,
+				Text: &MessageTextPart{
+					Text:   "hello",
+					Format: TextFormatPlain,
+				},
 			}},
 		}
 	case TranscriptBlockKindAssistantText:

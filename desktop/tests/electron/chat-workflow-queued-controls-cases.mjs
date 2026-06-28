@@ -339,5 +339,7 @@ function messagePage(backend, workspaceId, conversationId) {
 }
 
 function messageText(message) {
-  return message.parts.map((part) => part.text).join("");
+  return message.parts
+    .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
+    .join("");
 }

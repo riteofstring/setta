@@ -99,7 +99,12 @@ export function userMessageBlock(
       delivery: base.delivery ?? "normal",
       messageId,
       parts: [
-        { format: "plain", id: `${messageId}_part`, text: base.text ?? "hello", type: "text" },
+        {
+          id: `${messageId}_part`,
+          image: null,
+          text: { format: "plain", text: base.text ?? "hello" },
+          type: "text",
+        },
       ],
       role: base.role ?? "user",
       status: base.messageStatus ?? "complete",

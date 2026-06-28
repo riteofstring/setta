@@ -239,10 +239,12 @@ func seedInterruptedBackgroundTerminalRun(t *testing.T, store *Store) {
 		UpdatedAt:      "2026-05-29T19:00:00Z",
 		Status:         MessageStatusComplete,
 		Parts: []MessagePart{{
-			Format: TextFormatPlain,
-			ID:     "part_recovery_user",
-			Text:   "start dev server",
-			Type:   MessagePartText,
+			ID:   "part_recovery_user",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   "start dev server",
+				Format: TextFormatPlain,
+			},
 		}},
 	}); err != nil {
 		t.Fatalf("save user message: %v", err)
@@ -259,10 +261,12 @@ func seedInterruptedBackgroundTerminalRun(t *testing.T, store *Store) {
 		UpdatedAt:      "2026-05-29T19:00:00Z",
 		Status:         MessageStatusStreaming,
 		Parts: []MessagePart{{
-			Format: TextFormatMarkdown,
-			ID:     "part_recovery_assistant",
-			Text:   "",
-			Type:   MessagePartText,
+			ID:   "part_recovery_assistant",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   "",
+				Format: TextFormatMarkdown,
+			},
 		}},
 	}); err != nil {
 		t.Fatalf("save assistant message: %v", err)

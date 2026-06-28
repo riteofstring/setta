@@ -388,13 +388,14 @@ func (harness *CodexHarness) SteerTurn(ctx context.Context, request SteerRequest
 			return fmt.Errorf("steering turn %s does not match active turn %s", request.TurnID, active.turnID)
 		}
 	}
-	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnSteer, map[string]any{
+	input, err := codexUserInputForSteer(request)
+	if err != nil {
+		return err
+	}
+	_, err = active.session.Call(ctx, codexapp.CodexMethodTurnSteer, map[string]any{
 		"expectedTurnId": active.turnID,
-		"input": []map[string]any{{
-			"text": deliveredSteeringText(request),
-			"type": "text",
-		}},
-		"threadId": active.threadID,
+		"input":          input,
+		"threadId":       active.threadID,
 	})
 	return err
 }
@@ -503,13 +504,14 @@ func overlayCodexEffectiveSettings(base codexCommandThreadSettings, effective co
 }
 
 func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID string, request TurnRequest) (string, error) {
+	input, err := codexUserInputForTurn(request)
+	if err != nil {
+		return "", err
+	}
 	params := map[string]any{
 		"cwd":      request.Workspace.RootPath,
 		"threadId": threadID,
-		"input": []map[string]any{{
-			"text": deliveredTurnPrompt(request),
-			"type": "text",
-		}},
+		"input":    input,
 	}
 	applyInitialCodexSettings(params, request)
 	result, err := session.Call(ctx, codexapp.CodexMethodTurnStart, params)

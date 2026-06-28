@@ -8,12 +8,7 @@ import type {
   ConversationListItem,
   Diagnostic,
   ListConversationsResponse,
-  MessageDelivery,
   MessagePage,
-  MessageRole,
-  MessageStatus,
-  Run,
-  RunStatus,
   TranscriptBlock,
   TranscriptBlockStatus,
   WorkspaceSession,
@@ -21,7 +16,9 @@ import type {
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { chatTextInput } from "../lib/chat-input";
 import { prependOlderMessages, useChatStore } from "./chat-store";
+import { message, replaceMessageText, testRun } from "./chat-store.test.fixtures";
 import {
   assistantTextBlock,
   backgroundTerminalOutput,
@@ -99,7 +96,9 @@ describe("chat store", () => {
       "message_latest",
     ]);
     expect(useChatStore.getState().messageIds).toEqual(["message_user_run_api", "message_latest"]);
-    expect(useChatStore.getState().messagesById.message_latest?.parts[0]?.text).toBe("latest");
+    expect(useChatStore.getState().messagesById.message_latest?.parts[0]?.text?.text).toBe(
+      "latest",
+    );
     expect(listConversations).toHaveBeenCalledWith("workspace_api");
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
   });
@@ -392,7 +391,7 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await useChatStore.getState().sendMessage("hello");
+    await useChatStore.getState().sendMessage(chatTextInput("hello"));
 
     expect(useChatStore.getState().activeRun?.id).toBe(run.id);
     expect(useChatStore.getState().messages).toHaveLength(2);
@@ -409,7 +408,9 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await expect(useChatStore.getState().sendMessage("hello")).rejects.toThrow("send failed");
+    await expect(useChatStore.getState().sendMessage(chatTextInput("hello"))).rejects.toThrow(
+      "send failed",
+    );
     expect(useChatStore.getState().error).toBe("send failed");
   });
 
@@ -430,9 +431,13 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await useChatStore.getState().queueMessage("queued");
+    await useChatStore.getState().queueMessage(chatTextInput("queued"));
 
-    expect(queueMessage).toHaveBeenCalledWith("workspace_api", "conversation_api", "queued");
+    expect(queueMessage).toHaveBeenCalledWith(
+      "workspace_api",
+      "conversation_api",
+      chatTextInput("queued"),
+    );
     expect(useChatStore.getState().messages[0]?.delivery).toBe("queued");
   });
 
@@ -446,7 +451,9 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await expect(useChatStore.getState().queueMessage("queued")).rejects.toThrow("queue failed");
+    await expect(useChatStore.getState().queueMessage(chatTextInput("queued"))).rejects.toThrow(
+      "queue failed",
+    );
     expect(useChatStore.getState().error).toBe("queue failed");
   });
 
@@ -491,7 +498,7 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    const queuePromise = useChatStore.getState().queueMessage("queued");
+    const queuePromise = useChatStore.getState().queueMessage(chatTextInput("queued"));
     useChatStore.setState({
       activeRun: null,
       messages: [completedAssistant],
@@ -529,9 +536,13 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await useChatStore.getState().steerMessage("steer");
+    await useChatStore.getState().steerMessage(chatTextInput("steer"));
 
-    expect(steerMessage).toHaveBeenCalledWith("workspace_api", "conversation_api", "steer");
+    expect(steerMessage).toHaveBeenCalledWith(
+      "workspace_api",
+      "conversation_api",
+      chatTextInput("steer"),
+    );
     expect(useChatStore.getState().messages.some((item) => item.delivery === "steering")).toBe(
       true,
     );
@@ -548,7 +559,9 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await expect(useChatStore.getState().steerMessage("steer")).rejects.toThrow("steer failed");
+    await expect(useChatStore.getState().steerMessage(chatTextInput("steer"))).rejects.toThrow(
+      "steer failed",
+    );
     expect(useChatStore.getState().error).toBe("steer failed");
   });
 
@@ -575,7 +588,7 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    const steerPromise = useChatStore.getState().steerMessage("trigger failure");
+    const steerPromise = useChatStore.getState().steerMessage(chatTextInput("trigger failure"));
     useChatStore.setState({
       activeRun: null,
       messages: [terminalAssistant],
@@ -1051,6 +1064,9 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
+      createImageAttachmentFromBytes: async () => {
+        throw new Error("create image attachment from bytes is not used by chat store tests");
+      },
       deleteConversation: async () => listResponse([]),
       editQueuedMessage: async () => ({
         conversation,
@@ -1080,6 +1096,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           selectedReasoningEffort: "high",
         }),
       setConversationPinned: async () => conversationItem(conversation, 0),
+      selectImageAttachments: async () => [],
       listCommands: async () => ({
         commands: [
           {
@@ -1366,60 +1383,6 @@ function blockState(blocks: TranscriptBlock[]) {
     transcriptBlocks: blocks,
     transcriptBlocksById: Object.fromEntries(blocks.map((block) => [block.id, block])),
   };
-}
-function message(
-  id: string,
-  ordinal: number,
-  role: MessageRole,
-  status: MessageStatus,
-  text: string,
-  delivery: MessageDelivery = "normal",
-  runId = "run_api",
-): ChatMessage {
-  return {
-    conversationId: "conversation_api",
-    createdAt: "2026-05-29T20:00:00Z",
-    delivery,
-    id,
-    ordinal,
-    parts: [
-      { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
-    ],
-    role,
-    runId,
-    schemaVersion: 1,
-    status,
-    updatedAt: "2026-05-29T20:00:00Z",
-  };
-}
-function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
-  const [part, ...rest] = message.parts;
-  if (!part) {
-    throw new Error("test message must include a part");
-  }
-  return {
-    ...message,
-    parts: [{ ...part, text }, ...rest],
-    updatedAt: "2026-05-29T20:00:01Z",
-  };
-}
-function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { status: T } {
-  const run = {
-    assistantMessageId: "message_assistant",
-    completedAt: status === "running" ? "" : "2026-05-29T20:01:00Z",
-    conversationId: "conversation_api",
-    error: "",
-    harness: "codex",
-    id: runId,
-    pendingApproval: null,
-    promptSummary: "hello",
-    schemaVersion: 1,
-    startedAt: "2026-05-29T20:00:00Z",
-    status,
-    triggerMessageId: "message_user",
-    workspaceId: "workspace_api",
-  } satisfies Run;
-  return run as Run & { status: T };
 }
 interface Deferred<T> {
   promise: Promise<T>;

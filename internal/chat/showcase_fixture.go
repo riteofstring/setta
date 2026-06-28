@@ -239,10 +239,12 @@ func uiShowcaseMessage(id string, runID string, role MessageRole, delivery Messa
 		UpdatedAt:      timestamp(createdAt),
 		Status:         status,
 		Parts: []MessagePart{{
-			ID:     id + "_part",
-			Type:   MessagePartText,
-			Text:   text,
-			Format: format,
+			ID:   id + "_part",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   text,
+				Format: format,
+			},
 		}},
 	}
 }

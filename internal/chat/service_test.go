@@ -47,15 +47,15 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	if len(latest.Messages) != 1 || latest.Messages[0].Role != RoleAssistant {
 		t.Fatalf("latest messages = %+v, want assistant only", latest.Messages)
 	}
-	if !strings.Contains(latest.Messages[0].Parts[0].Text, "Explain Phase 3") {
-		t.Fatalf("assistant text = %q, want streamed fake response", latest.Messages[0].Parts[0].Text)
+	if !strings.Contains(latest.Messages[0].Parts[0].Text.Text, "Explain Phase 3") {
+		t.Fatalf("assistant text = %q, want streamed fake response", latest.Messages[0].Parts[0].Text.Text)
 	}
 	blocks, err := restarted.store.LoadTranscriptBlocks("workspace_api", run.ID)
 	if err != nil {
 		t.Fatalf("load persisted transcript blocks: %v", err)
 	}
 	userBlock := firstUserMessageBlock(blocks)
-	if userBlock == nil || userBlock.UserMessage.Parts[0].Text != "Explain Phase 3" {
+	if userBlock == nil || userBlock.UserMessage.Parts[0].Text.Text != "Explain Phase 3" {
 		t.Fatalf("user block = %+v, want trigger text", userBlock)
 	}
 }
@@ -73,6 +73,7 @@ func TestServicePersistsCodexEffectiveSettingsFromLinkedThread(t *testing.T) {
 				ModelDisplayName:           "GPT Test",
 				ReasoningEffort:            &effort,
 				ReasoningEffortDisplayName: "Extra high",
+				SupportsImages:             true,
 			},
 		},
 		{Type: FakeEventAssistantDelta, Text: "done"},
@@ -369,7 +370,7 @@ func TestServiceKeepsUserMessageWhenHarnessFails(t *testing.T) {
 	if len(page.Messages) != 2 {
 		t.Fatalf("message count = %d, want user and assistant placeholder", len(page.Messages))
 	}
-	if page.Messages[0].Role != RoleUser || page.Messages[0].Parts[0].Text != "Will this persist?" {
+	if page.Messages[0].Role != RoleUser || page.Messages[0].Parts[0].Text.Text != "Will this persist?" {
 		t.Fatalf("user message = %+v, want persisted prompt", page.Messages[0])
 	}
 	if page.Messages[1].Status != MessageStatusError {
@@ -394,18 +395,73 @@ func TestServiceLoadsUnpersistedActiveAssistantDeltas(t *testing.T) {
 	}
 
 	page := waitForAssistantText(t, service, "workspace_api", conversation.ID, "firstsecond")
-	if page.Messages[1].Parts[0].Text != "firstsecond" {
-		t.Fatalf("assistant text = %q, want latest in-memory deltas", page.Messages[1].Parts[0].Text)
+	if page.Messages[1].Parts[0].Text.Text != "firstsecond" {
+		t.Fatalf("assistant text = %q, want latest in-memory deltas", page.Messages[1].Parts[0].Text.Text)
 	}
 	storedPage, err := service.store.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
 	if err != nil {
 		t.Fatalf("load stored page: %v", err)
 	}
-	if storedPage.Messages[1].Parts[0].Text == page.Messages[1].Parts[0].Text {
+	if storedPage.Messages[1].Parts[0].Text.Text == page.Messages[1].Parts[0].Text.Text {
 		t.Fatal("stored page already includes all deltas; test did not observe in-memory overlay")
 	}
 	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
 		t.Fatalf("cancel active run %s: %v", result.Run.ID, err)
+	}
+}
+
+func TestCloneMessageDeepCopiesPartPayloads(t *testing.T) {
+	detail := ImageDetailHigh
+	original := ChatMessage{
+		Parts: []MessagePart{
+			{
+				ID:   "part_text",
+				Type: MessagePartText,
+				Text: &MessageTextPart{Text: "streaming", Format: TextFormatMarkdown},
+			},
+			{
+				ID:   "part_image",
+				Type: MessagePartImage,
+				Image: &ImagePart{
+					AttachmentID: "attachment_api",
+					Detail:       &detail,
+				},
+			},
+		},
+	}
+
+	cloned := cloneMessage(original)
+	cloned.Parts[0].Text.Text = "snapshot"
+	*cloned.Parts[1].Image.Detail = ImageDetailAuto
+
+	if original.Parts[0].Text.Text != "streaming" {
+		t.Fatalf("original text = %q, want streaming", original.Parts[0].Text.Text)
+	}
+	if original.Parts[1].Image.Detail == nil || *original.Parts[1].Image.Detail != ImageDetailHigh {
+		t.Fatalf("original detail = %+v, want high", original.Parts[1].Image.Detail)
+	}
+}
+
+func TestServiceTrimsStructuredInputTextBeforePersistAndDelivery(t *testing.T) {
+	harness := NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventAssistantDelta, Text: "done"}})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("  trim me  "))
+	if err != nil {
+		t.Fatalf("send structured input: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+	request := waitForFakeTurnRequest(t, harness, result.Run.ID)
+
+	if got := messageText(result.UserMessage); got != "trim me" {
+		t.Fatalf("stored message text = %q, want trimmed", got)
+	}
+	if got := chatInputText(request.Input); got != "trim me" {
+		t.Fatalf("delivered input text = %q, want trimmed", got)
 	}
 }
 
@@ -512,8 +568,8 @@ func TestServiceSurfacesAndResolvesApprovalRequests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load page: %v", err)
 	}
-	if page.Messages[1].Parts[0].Text != "approved" {
-		t.Fatalf("assistant text = %q, want approved", page.Messages[1].Parts[0].Text)
+	if page.Messages[1].Parts[0].Text.Text != "approved" {
+		t.Fatalf("assistant text = %q, want approved", page.Messages[1].Parts[0].Text.Text)
 	}
 }
 
@@ -1103,10 +1159,12 @@ func TestServiceRecoveryLeavesQueuedRunsQueued(t *testing.T) {
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         MessageStatusPending,
 		Parts: []MessagePart{{
-			Format: TextFormatPlain,
-			ID:     "part_queue",
-			Text:   "queued",
-			Type:   MessagePartText,
+			ID:   "part_queue",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   "queued",
+				Format: TextFormatPlain,
+			},
 		}},
 	}); err != nil {
 		t.Fatalf("save queued message: %v", err)
@@ -1165,10 +1223,12 @@ func TestStoreIgnoresTemporaryJSONFiles(t *testing.T) {
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         MessageStatusComplete,
 		Parts: []MessagePart{{
-			Format: TextFormatPlain,
-			ID:     "part_api",
-			Text:   "hello",
-			Type:   MessagePartText,
+			ID:   "part_api",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   "hello",
+				Format: TextFormatPlain,
+			},
 		}},
 	}); err != nil {
 		t.Fatalf("save message: %v", err)
@@ -1373,10 +1433,9 @@ func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         MessageStatusComplete,
 		Parts: []MessagePart{{
-			Format: TextFormatPlain,
-			ID:     "part_user",
-			Text:   "prompt",
-			Type:   MessagePartText,
+			ID:   "part_user",
+			Type: MessagePartText,
+			Text: &MessageTextPart{Text: "prompt", Format: TextFormatPlain},
 		}},
 	}); err != nil {
 		t.Fatalf("save user message: %v", err)
@@ -1393,10 +1452,9 @@ func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         MessageStatusStreaming,
 		Parts: []MessagePart{{
-			Format: TextFormatMarkdown,
-			ID:     "part_assistant",
-			Text:   "partial",
-			Type:   MessagePartText,
+			ID:   "part_assistant",
+			Type: MessagePartText,
+			Text: &MessageTextPart{Text: "partial", Format: TextFormatMarkdown},
 		}},
 	}); err != nil {
 		t.Fatalf("save message: %v", err)

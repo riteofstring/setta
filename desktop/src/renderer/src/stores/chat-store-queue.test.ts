@@ -12,6 +12,7 @@ import type {
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { chatTextInput } from "../lib/chat-input";
 import { useChatStore } from "./chat-store";
 
 const eventStreamId = "event_stream_test";
@@ -75,15 +76,17 @@ describe("chat store queued message controls", () => {
       workspaceId: "workspace_api",
     });
 
-    await useChatStore.getState().editQueuedMessage(queued.id, "edited queued");
+    await useChatStore.getState().editQueuedMessage(queued.id, chatTextInput("edited queued"));
 
     expect(editQueuedMessage).toHaveBeenCalledWith(
       "workspace_api",
       "conversation_api",
       queued.id,
+      chatTextInput("edited queued"),
+    );
+    expect(useChatStore.getState().messagesById[queued.id]?.parts[0]?.text?.text).toBe(
       "edited queued",
     );
-    expect(useChatStore.getState().messagesById[queued.id]?.parts[0]?.text).toBe("edited queued");
     expect(useChatStore.getState().editingQueuedMessageId).toBeNull();
     expect(useChatStore.getState().operation).toBeNull();
   });
@@ -158,12 +161,12 @@ describe("chat store queued message controls", () => {
       workspaceId: "workspace_api",
     });
 
-    await useChatStore.getState().sendSteeringImmediately("steer now");
+    await useChatStore.getState().sendSteeringImmediately(chatTextInput("steer now"));
 
     expect(sendSteeringImmediately).toHaveBeenCalledWith(
       "workspace_api",
       "conversation_api",
-      "steer now",
+      chatTextInput("steer now"),
     );
     expect(useChatStore.getState().activeRun?.id).toBe(activeRun.id);
     expect(useChatStore.getState().messages.map((item) => item.id)).toEqual([replayed.id]);
@@ -280,7 +283,12 @@ function message(
     id,
     ordinal,
     parts: [
-      { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
+      {
+        id: `${id}_part`,
+        image: null,
+        text: { format: role === "assistant" ? "markdown" : "plain", text },
+        type: "text",
+      },
     ],
     role,
     runId,
@@ -297,7 +305,7 @@ function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
   }
   return {
     ...message,
-    parts: [{ ...part, text }, ...rest],
+    parts: [{ ...part, text: part.text ? { ...part.text, text } : null }, ...rest],
     updatedAt: "2026-05-29T20:00:01Z",
   };
 }

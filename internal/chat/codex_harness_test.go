@@ -492,6 +492,7 @@ func TestCodexHarnessSteersActiveTurn(t *testing.T) {
 		ThreadID: "thread_fake",
 		TurnID:   "turn_fake",
 		Text:     "adjust course",
+		Input:    TextChatInput("adjust course"),
 	}); err != nil {
 		t.Fatalf("steer turn: %v", err)
 	}
@@ -1140,7 +1141,14 @@ func testTurnRequest(t *testing.T) TurnRequest {
 			ConversationID: "conversation_api",
 		},
 		Prompt: "hello",
+		Input:  TextChatInput("hello"),
 	}
+}
+
+func setTestTurnRequestPrompt(request TurnRequest, prompt string) TurnRequest {
+	request.Prompt = prompt
+	request.Input = TextChatInput(prompt)
+	return request
 }
 
 func testCodexConfig(mode string) CodexHarnessConfig {

@@ -39,6 +39,9 @@ func chatCodexEffectiveSettingsEqual(left *ChatCodexEffectiveSettings, right *Ch
 	if left.ReasoningEffortDisplayName != right.ReasoningEffortDisplayName {
 		return false
 	}
+	if left.SupportsImages != right.SupportsImages {
+		return false
+	}
 	return reasoningEffortPointersEqual(left.ReasoningEffort, right.ReasoningEffort)
 }
 

@@ -359,7 +359,7 @@ func waitForAssistantText(t *testing.T, service *Service, workspaceID string, co
 		if err != nil {
 			t.Fatalf("load message page: %v", err)
 		}
-		if len(page.Messages) > 1 && page.Messages[1].Parts[0].Text == text {
+		if len(page.Messages) > 1 && page.Messages[1].Parts[0].Text.Text == text {
 			return page
 		}
 		time.Sleep(10 * time.Millisecond)

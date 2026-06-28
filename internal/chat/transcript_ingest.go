@@ -225,7 +225,7 @@ func userMessageProjection(message ChatMessage) *TranscriptMessageProjection {
 		Role:      message.Role,
 		Delivery:  message.Delivery,
 		Status:    message.Status,
-		Parts:     append([]MessagePart{}, message.Parts...),
+		Parts:     cloneMessageParts(message.Parts),
 	}
 }
 

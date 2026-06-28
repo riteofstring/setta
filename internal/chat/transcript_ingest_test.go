@@ -386,7 +386,7 @@ func TestTranscriptSteeringInterleavesWithOrdinal(t *testing.T) {
 	if steering.UserMessage.Delivery != MessageDeliverySteering {
 		t.Fatalf("interleaved block delivery = %s, want steering", steering.UserMessage.Delivery)
 	}
-	if got := steering.UserMessage.Parts[0].Text; got != "setup.sh" {
+	if got := steering.UserMessage.Parts[0].Text.Text; got != "setup.sh" {
 		t.Fatalf("steering block text = %q, want %q", got, "setup.sh")
 	}
 }
@@ -761,7 +761,7 @@ func TestTranscriptImmediateSteeringReplayRemovesSourceSteeringBlock(t *testing.
 		}
 	}
 	replayTrigger, ok := firstBlockOfKind(loadPersistedBlocks(t, service, workspaceID, replayRunID), TranscriptBlockKindUserMessage)
-	if !ok || replayTrigger.UserMessage.Parts[0].Text != "steer text" {
+	if !ok || replayTrigger.UserMessage.Parts[0].Text.Text != "steer text" {
 		t.Fatalf("replay trigger = %+v, want steer text", replayTrigger.UserMessage)
 	}
 }
@@ -1006,7 +1006,14 @@ func TestServiceStartupSyncsInterruptedSteeringBlock(t *testing.T) {
 		CreatedAt:      stamp,
 		UpdatedAt:      stamp,
 		Status:         MessageStatusPending,
-		Parts:          []MessagePart{{ID: "part_steer", Type: MessagePartText, Text: "steer", Format: TextFormatPlain}},
+		Parts: []MessagePart{{
+			ID:   "part_steer",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   "steer",
+				Format: TextFormatPlain,
+			},
+		}},
 	}
 	if err := store.SaveMessage(workspaceID, steering); err != nil {
 		t.Fatalf("save steering message: %v", err)
@@ -1033,7 +1040,14 @@ func TestServiceStartupSyncsInterruptedSteeringBlock(t *testing.T) {
 		Role:      RoleUser,
 		Delivery:  MessageDeliverySteering,
 		Status:    MessageStatusPending,
-		Parts:     []MessagePart{{ID: "part_steer", Type: MessagePartText, Text: "steer", Format: TextFormatPlain}},
+		Parts: []MessagePart{{
+			ID:   "part_steer",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   "steer",
+				Format: TextFormatPlain,
+			},
+		}},
 	}
 	saveInterruptedBlock(t, store, workspaceID, runID, steerBlock)
 
@@ -1163,10 +1177,12 @@ func saveInterruptedMessage(t *testing.T, store *Store, workspaceID string, conv
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         status,
 		Parts: []MessagePart{{
-			ID:     "part_" + id,
-			Type:   MessagePartText,
-			Text:   "text",
-			Format: TextFormatPlain,
+			ID:   "part_" + id,
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   "text",
+				Format: TextFormatPlain,
+			},
 		}},
 	}); err != nil {
 		t.Fatalf("save message %s: %v", id, err)
@@ -1196,7 +1212,14 @@ func interruptedUserBlock(conversationID string, runID string, stamp string) Tra
 		Role:      RoleUser,
 		Delivery:  MessageDeliveryNormal,
 		Status:    MessageStatusComplete,
-		Parts:     []MessagePart{{ID: "part_user", Type: MessagePartText, Text: "prompt", Format: TextFormatPlain}},
+		Parts: []MessagePart{{
+			ID:   "part_user",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   "prompt",
+				Format: TextFormatPlain,
+			},
+		}},
 	}
 	return block
 }

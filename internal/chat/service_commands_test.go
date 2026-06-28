@@ -22,8 +22,8 @@ func TestServiceExecutesGoalCommandAndStartsPursuit(t *testing.T) {
 	if result.Message == nil || result.Message.Role != RoleCommand {
 		t.Fatalf("command message = %+v, want command role", result.Message)
 	}
-	if result.Message.Parts[0].Text != "Goal set: finish renderer tests" {
-		t.Fatalf("command text = %q, want goal set result", result.Message.Parts[0].Text)
+	if result.Message.Parts[0].Text.Text != "Goal set: finish renderer tests" {
+		t.Fatalf("command text = %q, want goal set result", result.Message.Parts[0].Text.Text)
 	}
 	if result.Page.Goal == nil || result.Page.Goal.Status != "active" || result.Page.Goal.Objective != "finish renderer tests" {
 		t.Fatalf("page goal = %+v, want active renderer goal", result.Page.Goal)
@@ -43,8 +43,8 @@ func TestServiceExecutesGoalCommandAndStartsPursuit(t *testing.T) {
 	if goalBlock == nil {
 		t.Fatalf("blocks = %+v, want goal pursuit trigger block", blocks)
 	}
-	if goalBlock.UserMessage.Parts[0].Text != "finish renderer tests" {
-		t.Fatalf("goal pursuit prompt = %q, want objective", goalBlock.UserMessage.Parts[0].Text)
+	if goalBlock.UserMessage.Parts[0].Text.Text != "finish renderer tests" {
+		t.Fatalf("goal pursuit prompt = %q, want objective", goalBlock.UserMessage.Parts[0].Text.Text)
 	}
 	if goalBlock.UserMessage.Delivery != MessageDeliveryGoal {
 		t.Fatalf("goal trigger delivery = %s, want goal", goalBlock.UserMessage.Delivery)
@@ -207,7 +207,7 @@ func TestServiceStoresModelSettingsWithoutCreatingThread(t *testing.T) {
 		t.Fatalf("set reasoning effort: %v", err)
 	}
 
-	if result.Message == nil || result.Message.Parts[0].Text != "Reasoning set: High" {
+	if result.Message == nil || result.Message.Parts[0].Text.Text != "Reasoning set: High" {
 		t.Fatalf("command message = %+v, want reasoning set result", result.Message)
 	}
 	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.ReasoningEffort == nil || *result.Conversation.CodexSettings.ReasoningEffort != ReasoningEffortHigh {
@@ -238,7 +238,7 @@ func TestServiceStoresTypedCodexModelWithoutParsingSlashCommand(t *testing.T) {
 		t.Fatalf("set codex model: %v", err)
 	}
 
-	if result.Message == nil || result.Message.Parts[0].Text != "Model set: scripted-careful" {
+	if result.Message == nil || result.Message.Parts[0].Text.Text != "Model set: scripted-careful" {
 		t.Fatalf("command message = %+v, want model set result", result.Message)
 	}
 	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.Model != "scripted-careful" {
@@ -332,7 +332,7 @@ func TestServiceExecutesActiveGoalCommandWithoutSteering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute active goal command: %v", err)
 	}
-	if result.Message == nil || result.Message.Parts[0].Text != "Goal paused." {
+	if result.Message == nil || result.Message.Parts[0].Text.Text != "Goal paused." {
 		t.Fatalf("command message = %+v, want goal paused", result.Message)
 	}
 	if steering := harness.SteeringRequests(); len(steering) != 0 {

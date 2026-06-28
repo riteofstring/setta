@@ -11,6 +11,7 @@ type MessageRole string
 type MessageStatus string
 type MessageDelivery string
 type MessagePartType string
+type ImageDetail string
 type TextFormat string
 type HarnessRefStatus string
 type RunStatus string
@@ -31,7 +32,7 @@ type ReasoningEffort string
 type ChatCommandResultAction string
 
 const (
-	SchemaVersion = 1
+	SchemaVersion = 2
 
 	HarnessCodex HarnessKind = "codex"
 
@@ -53,7 +54,12 @@ const (
 	MessageDeliveryQueued   MessageDelivery = "queued"
 	MessageDeliverySteering MessageDelivery = "steering"
 
-	MessagePartText MessagePartType = "text"
+	MessagePartText  MessagePartType = "text"
+	MessagePartImage MessagePartType = "image"
+
+	ImageDetailAuto     ImageDetail = "auto"
+	ImageDetailHigh     ImageDetail = "high"
+	ImageDetailOriginal ImageDetail = "original"
 
 	TextFormatPlain    TextFormat = "plain"
 	TextFormatMarkdown TextFormat = "markdown"
@@ -187,7 +193,8 @@ var (
 		MessageDeliveryQueued,
 		MessageDeliverySteering,
 	}
-	messagePartTypeValues = []MessagePartType{MessagePartText}
+	messagePartTypeValues = []MessagePartType{MessagePartText, MessagePartImage}
+	imageDetailValues     = []ImageDetail{ImageDetailAuto, ImageDetailHigh, ImageDetailOriginal}
 	textFormatValues      = []TextFormat{TextFormatPlain, TextFormatMarkdown}
 	runStatusValues       = []RunStatus{
 		RunStatusQueued,
@@ -315,6 +322,8 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "MessageStatus", Values: stringValues(messageStatusValues)},
 		{Name: "MessageDelivery", Values: stringValues(messageDeliveryValues)},
 		{Name: "MessagePartType", Values: stringValues(messagePartTypeValues)},
+		{Name: "ImageAttachmentMimeType", Values: stringValues(imageAttachmentMimeTypeValues)},
+		{Name: "ImageDetail", Values: stringValues(imageDetailValues)},
 		{Name: "TextFormat", Values: stringValues(textFormatValues)},
 		{Name: "HarnessRefStatus", Values: stringValues(harnessRefStatusValues)},
 		{Name: "RunStatus", Values: stringValues(runStatusValues)},
@@ -375,6 +384,7 @@ type ChatCodexEffectiveSettings struct {
 	ModelDisplayName           string           `json:"modelDisplayName"`
 	ReasoningEffort            *ReasoningEffort `json:"reasoningEffort"`
 	ReasoningEffortDisplayName string           `json:"reasoningEffortDisplayName"`
+	SupportsImages             bool             `json:"supportsImages"`
 }
 
 type ConversationWorkflowMetadata struct {
@@ -397,13 +407,6 @@ type ChatMessage struct {
 	UpdatedAt      string          `json:"updatedAt"`
 	Status         MessageStatus   `json:"status"`
 	Parts          []MessagePart   `json:"parts"`
-}
-
-type MessagePart struct {
-	ID     string          `json:"id"`
-	Type   MessagePartType `json:"type"`
-	Text   string          `json:"text"`
-	Format TextFormat      `json:"format"`
 }
 
 type HarnessThreadRef struct {
@@ -654,6 +657,7 @@ type ChatModelOption struct {
 	Description               string                      `json:"description"`
 	Hidden                    bool                        `json:"hidden"`
 	IsDefault                 bool                        `json:"isDefault"`
+	SupportsImages            bool                        `json:"supportsImages"`
 	DefaultReasoningEffort    ReasoningEffort             `json:"defaultReasoningEffort"`
 	SupportedReasoningEfforts []ChatReasoningEffortOption `json:"supportedReasoningEfforts"`
 }

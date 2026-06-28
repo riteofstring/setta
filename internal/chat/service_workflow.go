@@ -70,7 +70,8 @@ func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request 
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return SendMessageResult{}, err
 	}
-	conversation, userMessage, assistantMessage, run, err := service.persistTurnStartForConversationLocked(conversation, prompt, MessageDeliveryNormal, now)
+	input := TextChatInput(prompt)
+	conversation, userMessage, assistantMessage, run, err := service.persistTurnStartForConversationLocked(conversation, input, MessageDeliveryNormal, now)
 	if err != nil {
 		return SendMessageResult{}, err
 	}
@@ -86,11 +87,16 @@ func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request 
 		workspaceID:      workspaceID,
 		transcript:       ingest,
 	}
+	deliveryInput, err := service.deliveryInputFromMessage(workspaceID, conversation.ID, userMessage)
+	if err != nil {
+		return SendMessageResult{}, err
+	}
 	turnRequest := TurnRequest{
 		Workspace:       workspaceSummary,
 		Conversation:    conversation,
 		Run:             run,
-		Prompt:          prompt,
+		Prompt:          messageText(userMessage),
+		Input:           deliveryInput,
 		SemanticContext: request.SemanticContext,
 		ThreadRef:       latestHarnessRef(conversation, HarnessCodex),
 	}

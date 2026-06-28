@@ -66,10 +66,13 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 }
 
 func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
+	defaultModel := fakeModelOptions()[0]
 	return &ScriptedWorkflowHarness{
 		approvals:                map[string]chan ApprovalResponse{},
+		model:                    defaultModel.Model,
 		phase4ConsolidatorCounts: map[string]int{},
 		phase4ReviewerBarriers:   map[string]map[string]chan struct{}{},
+		reasoning:                defaultModel.DefaultReasoningEffort,
 		steers:                   map[string]chan SteerRequest{},
 	}
 }
@@ -97,12 +100,13 @@ func (harness *ScriptedWorkflowHarness) runScriptedTurn(ctx context.Context, req
 		return TurnCompletion{}, err
 	}
 
+	prompt := strings.TrimSpace(chatInputText(request.Input))
 	for _, fixture := range scriptedWorkflowFixtures {
-		if strings.EqualFold(strings.TrimSpace(request.Prompt), fixture.Prompt) {
+		if strings.EqualFold(prompt, fixture.Prompt) {
 			return fixture.Run(harness, ctx, request, sink)
 		}
 	}
-	return scriptedReply(sink, request.Run.ID, "Scripted response: "+request.Prompt)
+	return scriptedReply(sink, request.Run.ID, "Scripted response: "+prompt)
 }
 
 func (harness *ScriptedWorkflowHarness) RunTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
@@ -298,7 +302,7 @@ func (harness *ScriptedWorkflowHarness) setGoalStatusLocked(status string, threa
 }
 
 func scriptedQueuedReply(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	return scriptedReply(sink, request.Run.ID, "Queued response for "+request.Prompt+".")
+	return scriptedReply(sink, request.Run.ID, "Queued response for "+chatInputText(request.Input)+".")
 }
 
 func scriptedCommandApprovalTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -321,7 +325,7 @@ func (harness *ScriptedWorkflowHarness) workflowTurn(ctx context.Context, reques
 	if err != nil {
 		return TurnCompletion{}, err
 	}
-	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Steered with "+steer.Text+". "); err != nil {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Steered with "+chatInputText(steer.Input)+". "); err != nil {
 		return TurnCompletion{}, err
 	}
 	return scriptedReply(sink, request.Run.ID, "Active workflow complete.")

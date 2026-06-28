@@ -26,6 +26,7 @@ import type {
   CartographerWindowProcessResult,
   ChatCommandExecuteResult,
   ChatCommandListResult,
+  ChatInput,
   CodexAccountState,
   Conversation,
   ConversationListItem,
@@ -38,6 +39,7 @@ import type {
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
+  ImageAttachment,
   ListCartographerCursorsRequest,
   ListCartographerPatchesRequest,
   ListCartographerRunsRequest,
@@ -146,6 +148,7 @@ export const ipcChannels = {
   backendHealth: "backend:health",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
+  chatCreateImageAttachmentFromBytes: "chat:create-image-attachment-from-bytes",
   chatCreateConversation: "chat:create-conversation",
   chatDeleteConversation: "chat:delete-conversation",
   chatEditQueuedMessage: "chat:edit-queued-message",
@@ -168,6 +171,7 @@ export const ipcChannels = {
   chatSetCodexModel: "chat:set-codex-model",
   chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
   chatSetConversationPinned: "chat:set-conversation-pinned",
+  chatSelectImageAttachments: "chat:select-image-attachments",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
   codexAccountCancelLogin: "codex-account:cancel-login",
@@ -342,8 +346,16 @@ interface IpcContract {
     result: ListConversationsResponse;
   };
   chatEditQueuedMessage: {
-    args: [workspaceId: string, conversationId: string, messageId: string, prompt: string];
+    args: [workspaceId: string, conversationId: string, messageId: string, input: ChatInput];
     result: QueueEditResult;
+  };
+  chatCreateImageAttachmentFromBytes: {
+    args: [workspaceId: string, conversationId: string, fileName: string, dataBase64: string];
+    result: ImageAttachment;
+  };
+  chatSelectImageAttachments: {
+    args: [workspaceId: string, conversationId: string, maxCount: number];
+    result: ImageAttachment[];
   };
   chatExecuteCommand: {
     args: [
@@ -387,7 +399,7 @@ interface IpcContract {
     result: MessagePage;
   };
   chatQueueMessage: {
-    args: [workspaceId: string, conversationId: string, prompt: string];
+    args: [workspaceId: string, conversationId: string, input: ChatInput];
     result: QueueMessageResult;
   };
   chatRemoveQueuedMessage: {
@@ -431,15 +443,15 @@ interface IpcContract {
     result: BackgroundTerminalListProjection;
   };
   chatSendMessage: {
-    args: [workspaceId: string, conversationId: string, prompt: string];
+    args: [workspaceId: string, conversationId: string, input: ChatInput];
     result: SendMessageResult;
   };
   chatSendSteeringImmediately: {
-    args: [workspaceId: string, conversationId: string, prompt: string];
+    args: [workspaceId: string, conversationId: string, input: ChatInput | null];
     result: ImmediateSteeringResult;
   };
   chatSteerMessage: {
-    args: [workspaceId: string, conversationId: string, prompt: string];
+    args: [workspaceId: string, conversationId: string, input: ChatInput];
     result: SteerMessageResult;
   };
   chatSubmitApproval: {

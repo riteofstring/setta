@@ -280,11 +280,59 @@ func validateMessagePart(messageID string, part MessagePart) error {
 	if err := validateStorageID("message part id", part.ID); err != nil {
 		return fmt.Errorf("message %s %w", messageID, err)
 	}
-	if part.Type != MessagePartText {
+	switch part.Type {
+	case MessagePartText:
+		if part.Text == nil {
+			return fmt.Errorf("message %s part %s text payload is required", messageID, part.ID)
+		}
+		if part.Image != nil {
+			return fmt.Errorf("message %s part %s image payload must be null for text parts", messageID, part.ID)
+		}
+		return validateMessageTextPart(messageID, part.ID, *part.Text)
+	case MessagePartImage:
+		if part.Image == nil {
+			return fmt.Errorf("message %s part %s image payload is required", messageID, part.ID)
+		}
+		if part.Text != nil {
+			return fmt.Errorf("message %s part %s text payload must be null for image parts", messageID, part.ID)
+		}
+		return validateImagePart(messageID, part.ID, *part.Image)
+	default:
 		return fmt.Errorf("message %s part %s has unsupported type %s", messageID, part.ID, part.Type)
 	}
+}
+
+func validateMessageTextPart(messageID string, partID string, part MessageTextPart) error {
 	if !validValue(part.Format, textFormatValues) {
-		return fmt.Errorf("message %s part %s has unsupported format %s", messageID, part.ID, part.Format)
+		return fmt.Errorf("message %s part %s has unsupported format %s", messageID, partID, part.Format)
+	}
+	return nil
+}
+
+func validateImagePart(messageID string, partID string, part ImagePart) error {
+	if err := validateStorageID("attachment id", part.AttachmentID); err != nil {
+		return fmt.Errorf("message %s part %s %w", messageID, partID, err)
+	}
+	if part.FileName == "" {
+		return fmt.Errorf("message %s part %s fileName is required", messageID, partID)
+	}
+	if !supportedImageMimeType(part.MimeType) {
+		return fmt.Errorf("message %s part %s has unsupported image mimeType %s", messageID, partID, part.MimeType)
+	}
+	if part.ByteSize <= 0 {
+		return fmt.Errorf("message %s part %s byteSize must be positive", messageID, partID)
+	}
+	if part.Width <= 0 || part.Height <= 0 {
+		return fmt.Errorf("message %s part %s dimensions must be positive", messageID, partID)
+	}
+	if part.ThumbnailURL == "" {
+		return fmt.Errorf("message %s part %s thumbnailUrl is required", messageID, partID)
+	}
+	if part.PreviewURL == "" {
+		return fmt.Errorf("message %s part %s previewUrl is required", messageID, partID)
+	}
+	if part.Detail != nil && !validValue(*part.Detail, imageDetailValues) {
+		return fmt.Errorf("message %s part %s has unsupported image detail %s", messageID, partID, *part.Detail)
 	}
 	return nil
 }

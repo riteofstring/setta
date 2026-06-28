@@ -359,7 +359,8 @@ func (service *Service) startGoalOperationLocked(workspaceSummary workspace.Work
 	}
 
 	now := timestamp(service.now())
-	conversation, _, assistantMessage, run, err := service.persistTurnStartWithDeliveryLocked(workspaceSummary.ID, conversationID, prompt, MessageDeliveryGoal, now)
+	input := TextChatInput(prompt)
+	conversation, userMessage, assistantMessage, run, err := service.persistTurnStartWithDeliveryLocked(workspaceSummary.ID, conversationID, input, MessageDeliveryGoal, now)
 	if err != nil {
 		return false, err
 	}
@@ -376,11 +377,16 @@ func (service *Service) startGoalOperationLocked(workspaceSummary workspace.Work
 		workspaceID:      workspaceSummary.ID,
 		transcript:       ingest,
 	}
+	deliveryInput, err := service.deliveryInputFromMessage(workspaceSummary.ID, conversationID, userMessage)
+	if err != nil {
+		return false, err
+	}
 	request := TurnRequest{
 		Workspace:    workspaceSummary,
 		Conversation: conversation,
 		Run:          run,
-		Prompt:       prompt,
+		Prompt:       messageText(userMessage),
+		Input:        deliveryInput,
 		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}
 	go service.runHarnessGoalOperation(ctx, request, operation)
@@ -501,10 +507,12 @@ func (service *Service) newCommandMessage(workspaceID string, conversationID str
 		UpdatedAt:      now,
 		Status:         MessageStatusComplete,
 		Parts: []MessagePart{{
-			ID:     partID,
-			Type:   MessagePartText,
-			Text:   text,
-			Format: TextFormatPlain,
+			ID:   partID,
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   text,
+				Format: TextFormatPlain,
+			},
 		}},
 	}, nil
 }

@@ -32,7 +32,7 @@ func TestChatEndpointsCreateSendListAndPageMessages(t *testing.T) {
 	result := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "hello codex",
+		Input:          chat.TextChatInput("hello codex"),
 	}, http.StatusOK)
 	if result.UserMessage.Role != chat.RoleUser {
 		t.Fatalf("user message role = %q, want user", result.UserMessage.Role)
@@ -42,8 +42,8 @@ func TestChatEndpointsCreateSendListAndPageMessages(t *testing.T) {
 	if len(page.Messages) != 2 {
 		t.Fatalf("message count = %d, want 2", len(page.Messages))
 	}
-	if page.Messages[1].Parts[0].Format != chat.TextFormatMarkdown {
-		t.Fatalf("assistant format = %q, want markdown", page.Messages[1].Parts[0].Format)
+	if page.Messages[1].Parts[0].Text.Format != chat.TextFormatMarkdown {
+		t.Fatalf("assistant format = %q, want markdown", page.Messages[1].Parts[0].Text.Format)
 	}
 
 	list := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
@@ -118,7 +118,7 @@ func TestChatEndpointsListValidConversationsWithMalformedRunState(t *testing.T) 
 	if err := os.MkdirAll(filepath.Dir(runPath), 0o755); err != nil {
 		t.Fatalf("create runs dir: %v", err)
 	}
-	raw := fmt.Sprintf(`{"schemaVersion":1,"id":"run_bad","workspaceId":%q,"conversationId":%q,"triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"running","startedAt":"2026-05-29T20:00:00Z","completedAt":"","promptSummary":"prompt","error":""}`, opened.Workspace.ID, corruptConversation.ID)
+	raw := fmt.Sprintf(`{"schemaVersion":2,"id":"run_bad","workspaceId":%q,"conversationId":%q,"triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"running","startedAt":"2026-05-29T20:00:00Z","completedAt":"","promptSummary":"prompt","error":""}`, opened.Workspace.ID, corruptConversation.ID)
 	if err := os.WriteFile(runPath, []byte(raw), 0o644); err != nil {
 		t.Fatalf("write malformed run: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestChatEndpointsListValidConversationsWithMalformedRunState(t *testing.T) 
 	sendErr := postJSON[ErrorResponse](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: corruptConversation.ID,
-		Prompt:         "hello",
+		Input:          chat.TextChatInput("hello"),
 	}, http.StatusInternalServerError)
 	if sendErr.Error.Code != "corrupt_chat_state" || !strings.Contains(sendErr.Error.Message, "assistantMessageId is required unless queued") {
 		t.Fatalf("send error = %+v, want corrupt state for owning conversation", sendErr.Error)
@@ -174,7 +174,7 @@ func TestChatEndpointsCancelActiveRun(t *testing.T) {
 	result := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "cancel me",
+		Input:          chat.TextChatInput("cancel me"),
 	}, http.StatusOK)
 
 	run := postJSON[chat.Run](t, handler, "/chat/runs/cancel", CancelRunRequest{
@@ -211,14 +211,14 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 	started := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "run activity",
+		Input:          chat.TextChatInput("run activity"),
 	}, http.StatusOK)
 	waitForHarnessTurn(t, handler, opened.Workspace.ID, conversation.ID, "turn_fake")
 
 	queued := postJSON[chat.QueueMessageResult](t, handler, "/chat/messages/queue", QueueChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "queued follow-up",
+		Input:          chat.TextChatInput("queued follow-up"),
 	}, http.StatusOK)
 	if queued.UserMessage.Delivery != chat.MessageDeliveryQueued || queued.Run.Status != chat.RunStatusQueued {
 		t.Fatalf("queued result = %+v, want queued message and run", queued)
@@ -233,7 +233,7 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 	steered := postJSON[chat.SteerMessageResult](t, handler, "/chat/messages/steer", SteerChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "steer now",
+		Input:          chat.TextChatInput("steer now"),
 	}, http.StatusOK)
 	if steered.UserMessage.Delivery != chat.MessageDeliverySteering {
 		t.Fatalf("steering message delivery = %q, want steering", steered.UserMessage.Delivery)
@@ -283,7 +283,7 @@ func TestChatBackgroundTerminalEndpointsListOutputAndFailLoudKill(t *testing.T) 
 	started := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "start dev server",
+		Input:          chat.TextChatInput("start dev server"),
 	}, http.StatusOK)
 	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, started.Run.ID, chat.MessageStatusComplete)
 
@@ -338,28 +338,28 @@ func TestChatEndpointsEditAndRemoveQueuedMessages(t *testing.T) {
 	postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "active",
+		Input:          chat.TextChatInput("active"),
 	}, http.StatusOK)
 
 	queued := postJSON[chat.QueueMessageResult](t, handler, "/chat/messages/queue", QueueChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "queued follow-up",
+		Input:          chat.TextChatInput("queued follow-up"),
 	}, http.StatusOK)
 	edited := postJSON[chat.QueueEditResult](t, handler, "/chat/messages/queue/edit", EditQueuedChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
 		MessageID:      queued.UserMessage.ID,
-		Prompt:         "edited follow-up",
+		Input:          chat.TextChatInput("edited follow-up"),
 	}, http.StatusOK)
-	if edited.UserMessage.Parts[0].Text != "edited follow-up" || edited.Run.ID != queued.Run.ID {
+	if edited.UserMessage.Parts[0].Text.Text != "edited follow-up" || edited.Run.ID != queued.Run.ID {
 		t.Fatalf("edited result = %+v, want edited queued message on original run", edited)
 	}
 
 	removed := postJSON[chat.QueueMessageResult](t, handler, "/chat/messages/queue", QueueChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "remove follow-up",
+		Input:          chat.TextChatInput("remove follow-up"),
 	}, http.StatusOK)
 	removedResult := postJSON[chat.QueueRemoveResult](t, handler, "/chat/messages/queue/remove", RemoveQueuedChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
@@ -373,7 +373,7 @@ func TestChatEndpointsEditAndRemoveQueuedMessages(t *testing.T) {
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
 		MessageID:      removed.UserMessage.ID,
-		Prompt:         "edit removed",
+		Input:          chat.TextChatInput("edit removed"),
 	}, http.StatusConflict)
 	if conflict.Error.Code != "queued_message_conflict" {
 		t.Fatalf("conflict code = %q, want queued_message_conflict", conflict.Error.Code)
@@ -406,7 +406,7 @@ func TestChatEndpointSendsSteeringImmediately(t *testing.T) {
 	started := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "active",
+		Input:          chat.TextChatInput("active"),
 	}, http.StatusOK)
 	waitForHarnessTurn(t, handler, opened.Workspace.ID, conversation.ID, "turn_fake")
 
@@ -421,7 +421,7 @@ func TestChatEndpointSendsSteeringImmediately(t *testing.T) {
 	steered := postJSON[chat.SteerMessageResult](t, handler, "/chat/messages/steer", SteerChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "steer now",
+		Input:          chat.TextChatInput("steer now"),
 	}, http.StatusOK)
 	if steered.UserMessage.Delivery != chat.MessageDeliverySteering || steered.UserMessage.Status != chat.MessageStatusPending {
 		t.Fatalf("steered message = %+v, want pending steering message", steered.UserMessage)
@@ -489,8 +489,8 @@ func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 	if result.Message == nil || result.Message.Role != chat.RoleCommand {
 		t.Fatalf("command result message = %+v, want command role", result.Message)
 	}
-	if result.Message.Parts[0].Text != "Goal set: finish renderer tests" {
-		t.Fatalf("command result text = %q, want goal set result", result.Message.Parts[0].Text)
+	if result.Message.Parts[0].Text.Text != "Goal set: finish renderer tests" {
+		t.Fatalf("command result text = %q, want goal set result", result.Message.Parts[0].Text.Text)
 	}
 	if len(result.Page.Conversation.HarnessRefs) != 1 {
 		t.Fatalf("harness refs = %+v, want command-created ref", result.Page.Conversation.HarnessRefs)
@@ -521,7 +521,7 @@ func TestChatCodexModelSelectionEndpoints(t *testing.T) {
 		ConversationID: conversation.ID,
 		ModelID:        "scripted-fast",
 	}, http.StatusOK)
-	if model.Message == nil || model.Message.Parts[0].Text != "Model set: scripted-fast" {
+	if model.Message == nil || model.Message.Parts[0].Text.Text != "Model set: scripted-fast" {
 		t.Fatalf("model result message = %+v, want model set", model.Message)
 	}
 	if model.Conversation.CodexSettings == nil || model.Conversation.CodexSettings.Model != "scripted-fast" {
@@ -533,7 +533,7 @@ func TestChatCodexModelSelectionEndpoints(t *testing.T) {
 		ConversationID:  conversation.ID,
 		ReasoningEffort: chat.ReasoningEffortHigh,
 	}, http.StatusOK)
-	if effort.Message == nil || effort.Message.Parts[0].Text != "Reasoning set: High" {
+	if effort.Message == nil || effort.Message.Parts[0].Text.Text != "Reasoning set: High" {
 		t.Fatalf("effort result message = %+v, want reasoning set", effort.Message)
 	}
 	if effort.Conversation.CodexSettings == nil || effort.Conversation.CodexSettings.ReasoningEffort == nil || *effort.Conversation.CodexSettings.ReasoningEffort != chat.ReasoningEffortHigh {
@@ -575,7 +575,7 @@ func TestChatEndpointsSubmitApproval(t *testing.T) {
 	postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "needs permission",
+		Input:          chat.TextChatInput("needs permission"),
 	}, http.StatusOK)
 
 	active := waitForActiveApproval(t, handler, opened.Workspace.ID, conversation.ID)
@@ -587,8 +587,8 @@ func TestChatEndpointsSubmitApproval(t *testing.T) {
 	}, http.StatusOK)
 
 	page := waitForAssistantStatus(t, handler, opened.Workspace.ID, conversation.ID, chat.MessageStatusComplete)
-	if page.Messages[1].Parts[0].Text != "done" {
-		t.Fatalf("assistant text = %q, want done", page.Messages[1].Parts[0].Text)
+	if page.Messages[1].Parts[0].Text.Text != "done" {
+		t.Fatalf("assistant text = %q, want done", page.Messages[1].Parts[0].Text.Text)
 	}
 }
 
@@ -619,7 +619,7 @@ func TestChatEventStreamStreamsServerSentEvents(t *testing.T) {
 	postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		Prompt:         "stream events",
+		Input:          chat.TextChatInput("stream events"),
 	}, http.StatusOK)
 
 	event := readServerSentChatEvent(t, bufio.NewReader(response.Body))
@@ -814,7 +814,7 @@ func assertRunStatus(t *testing.T, runs []chat.Run, runID string, status chat.Ru
 func promptForHTTPMessage(messages []chat.ChatMessage, messageID string) string {
 	for _, message := range messages {
 		if message.ID == messageID && len(message.Parts) > 0 {
-			return message.Parts[0].Text
+			return message.Parts[0].Text.Text
 		}
 	}
 	return ""
@@ -823,7 +823,7 @@ func promptForHTTPMessage(messages []chat.ChatMessage, messageID string) string 
 func promptForHTTPRun(messages []chat.ChatMessage, runID string) string {
 	for _, message := range messages {
 		if message.RunID == runID && message.Role == chat.RoleUser && len(message.Parts) > 0 {
-			return message.Parts[0].Text
+			return message.Parts[0].Text.Text
 		}
 	}
 	return ""

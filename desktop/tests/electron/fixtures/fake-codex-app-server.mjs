@@ -195,6 +195,7 @@ function handleModelList(message) {
         displayName: "GPT Test",
         hidden: false,
         id: "gpt-test",
+        inputModalities: ["text", "image"],
         isDefault: true,
         model: "gpt-test",
         supportedReasoningEfforts: [

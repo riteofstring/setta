@@ -19,6 +19,7 @@ import type {
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { chatTextInput } from "../lib/chat-input";
 import { useChatStore } from "./chat-store";
 import {
   activityBlock,
@@ -98,7 +99,7 @@ describe("chat store operation scopes", () => {
       workspaceId: "workspace_api",
     });
 
-    const sendPromise = useChatStore.getState().sendMessage("overlap send");
+    const sendPromise = useChatStore.getState().sendMessage(chatTextInput("overlap send"));
     expect(useChatStore.getState().operation).toBe("sending");
 
     useChatStore.getState().handleEvent(resyncRequiredEvent(1));
@@ -119,7 +120,9 @@ describe("chat store operation scopes", () => {
     await sendPromise;
 
     expect(useChatStore.getState().activeRun?.id).toBe(run.id);
-    expect(useChatStore.getState().messagesById[sentUser.id]?.parts[0]?.text).toBe("overlap send");
+    expect(useChatStore.getState().messagesById[sentUser.id]?.parts[0]?.text?.text).toBe(
+      "overlap send",
+    );
     expect(useChatStore.getState().operation).toBeNull();
   });
 
@@ -632,7 +635,12 @@ function message(
     id,
     ordinal,
     parts: [
-      { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
+      {
+        id: `${id}_part`,
+        image: null,
+        text: { format: role === "assistant" ? "markdown" : "plain", text },
+        type: "text",
+      },
     ],
     role,
     runId,

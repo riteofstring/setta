@@ -67,6 +67,7 @@ var apiEndpoints = []endpoint{
 	post[RemoveQueuedChatMessageRequest, chat.QueueRemoveResult]("RemoveQueuedChatMessage", "/chat/messages/queue/remove", handler.removeQueuedChatMessage),
 	post[SteerChatMessageRequest, chat.SteerMessageResult]("SteerChatMessage", "/chat/messages/steer", handler.steerChatMessage),
 	post[SendSteeringImmediatelyRequest, chat.ImmediateSteeringResult]("SendSteeringImmediately", "/chat/messages/steer/immediate", handler.sendSteeringImmediately),
+	post[CreateChatImageAttachmentFromBytesRequest, chat.ImageAttachment]("CreateChatImageAttachmentFromBytes", "/chat/attachments/images/from-bytes", handler.createChatImageAttachmentFromBytes),
 	post[ListChatCommandsRequest, chat.ChatCommandListResult]("ListChatCommands", "/chat/commands/list", handler.listChatCommands),
 	post[ExecuteChatCommandRequest, chat.ChatCommandExecuteResult]("ExecuteChatCommand", "/chat/commands/execute", handler.executeChatCommand),
 	post[OpenChatCodexModelPickerRequest, chat.ChatCommandExecuteResult]("OpenChatCodexModelPicker", "/chat/codex/model/picker", handler.openChatCodexModelPicker),

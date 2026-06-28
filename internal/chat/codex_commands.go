@@ -288,6 +288,7 @@ type codexCommandThreadSettings struct {
 	ModelDisplayName           string
 	ReasoningEffort            ReasoningEffort
 	ReasoningEffortDisplayName string
+	SupportsImages             bool
 }
 
 func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
@@ -446,6 +447,7 @@ func chatCodexEffectiveSettingsFromCommandSettings(settings codexCommandThreadSe
 		ModelDisplayName:           settings.ModelDisplayName,
 		ReasoningEffort:            reasoningEffortResult(settings.ReasoningEffort),
 		ReasoningEffortDisplayName: settings.ReasoningEffortDisplayName,
+		SupportsImages:             settings.SupportsImages,
 	}
 }
 
@@ -667,6 +669,7 @@ func codexCommandSettingsWithDisplayLabelsFromModels(settings codexCommandThread
 		return codexCommandThreadSettings{}, fmt.Errorf("effective model %s was not present in model/list", settings.Model)
 	}
 	settings.ModelDisplayName = model.DisplayName
+	settings.SupportsImages = model.SupportsImages
 	if settings.ReasoningEffort == "" {
 		settings.ReasoningEffort = model.DefaultReasoningEffort
 	}
@@ -923,8 +926,18 @@ func modelOptionFromCodex(item codexapp.Model, index int) (ChatModelOption, erro
 		ID:                        item.ID,
 		IsDefault:                 item.IsDefault,
 		Model:                     item.Model,
+		SupportsImages:            codexModelSupportsImages(item),
 		SupportedReasoningEfforts: supportedReasoningEfforts,
 	}, nil
+}
+
+func codexModelSupportsImages(item codexapp.Model) bool {
+	for _, modality := range item.InputModalities {
+		if modality == codexapp.InputModalityImage {
+			return true
+		}
+	}
+	return false
 }
 
 func reasoningEffortOptionsFromCodex(items []codexapp.ReasoningEffortOption, defaultEffort ReasoningEffort, label string) ([]ChatReasoningEffortOption, error) {

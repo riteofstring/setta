@@ -76,7 +76,7 @@ describe("chat store navigation caches", () => {
     const selection = useChatStore.getState().selectConversation(cachedConversation.id);
 
     expect(useChatStore.getState().selectedConversation?.id).toBe(cachedConversation.id);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
       "cached detail",
     ]);
     expect(useChatStore.getState().operation).toBe("loading");
@@ -85,7 +85,7 @@ describe("chat store navigation caches", () => {
     await selection;
 
     expect(messagePage).toHaveBeenCalledWith("workspace_api", cachedConversation.id, 0, 40);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
       "fresh detail",
     ]);
     expect(useChatStore.getState().operation).toBeNull();
@@ -126,7 +126,7 @@ describe("chat store navigation caches", () => {
     const selection = useChatStore.getState().selectConversation(nextConversation.id);
 
     expect(useChatStore.getState().selectedConversation?.id).toBe(firstConversation.id);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
       "first detail",
     ]);
     expect(useChatStore.getState().operation).toBe("loading");
@@ -135,7 +135,7 @@ describe("chat store navigation caches", () => {
     await selection;
 
     expect(useChatStore.getState().selectedConversation?.id).toBe(nextConversation.id);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
       "next detail",
     ]);
     expect(useChatStore.getState().operation).toBeNull();
@@ -154,6 +154,7 @@ describe("chat store navigation caches", () => {
         modelDisplayName: "GPT Test",
         reasoningEffort: "xhigh",
         reasoningEffortDisplayName: "Extra high",
+        supportsImages: true,
       },
       id: staleConversation.id,
       title: staleConversation.title,
@@ -177,6 +178,7 @@ describe("chat store navigation caches", () => {
       modelDisplayName: "GPT Test",
       reasoningEffort: "xhigh",
       reasoningEffortDisplayName: "Extra high",
+      supportsImages: true,
     });
     expect(messagePage).toHaveBeenCalledWith("workspace_api", staleConversation.id, 0, 40);
   });
@@ -439,6 +441,9 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
+      createImageAttachmentFromBytes: async () => {
+        throw new Error("create image attachment from bytes is not used by navigation tests");
+      },
       deleteConversation: async () => listResponse([]),
       editQueuedMessage: async () => ({
         conversation,
@@ -549,6 +554,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         result: commandResult("model"),
       }),
       setConversationPinned: async () => conversationItem(conversation, 0),
+      selectImageAttachments: async () => [],
       steerMessage: async () => ({
         conversation,
         page: testPage(conversation, []),
@@ -838,7 +844,12 @@ function message(
     id,
     ordinal,
     parts: [
-      { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
+      {
+        id: `${id}_part`,
+        image: null,
+        text: { format: role === "assistant" ? "markdown" : "plain", text },
+        type: "text",
+      },
     ],
     role,
     runId,

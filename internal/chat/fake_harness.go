@@ -421,6 +421,7 @@ func fakeCodexEffectiveSettings(model string, reasoning ReasoningEffort) (*ChatC
 		ModelDisplayName:           modelOption.DisplayName,
 		ReasoningEffort:            reasoningEffortResult(reasoning),
 		ReasoningEffortDisplayName: effortOption.DisplayName,
+		SupportsImages:             modelOption.SupportsImages,
 	}, nil
 }
 
@@ -474,7 +475,8 @@ func (harness *FakeHarness) StructuredTaskRequests() []HarnessTaskRequest {
 }
 
 func (harness *FakeHarness) script(request TurnRequest) []FakeHarnessEvent {
-	if events, ok := harness.eventsByPrompt[request.Prompt]; ok {
+	prompt := chatInputText(request.Input)
+	if events, ok := harness.eventsByPrompt[prompt]; ok {
 		return append([]FakeHarnessEvent{}, events...)
 	}
 	if len(harness.events) > 0 {
@@ -483,7 +485,7 @@ func (harness *FakeHarness) script(request TurnRequest) []FakeHarnessEvent {
 	return []FakeHarnessEvent{
 		{Type: FakeEventThreadLinked, ThreadID: "fake-thread-" + request.Conversation.ID, SessionID: "fake-session", TurnID: request.Run.ID},
 		{Type: FakeEventAssistantDelta, Text: "Echo: "},
-		{Type: FakeEventAssistantDelta, Text: request.Prompt},
+		{Type: FakeEventAssistantDelta, Text: prompt},
 	}
 }
 
@@ -496,6 +498,7 @@ func fakeModelOptions() []ChatModelOption {
 			ID:                        "scripted-fast-catalog-id",
 			IsDefault:                 true,
 			Model:                     "scripted-fast",
+			SupportsImages:            true,
 			DefaultReasoningEffort:    ReasoningEffortMedium,
 			SupportedReasoningEfforts: fakeReasoningEffortOptions(),
 		},
@@ -506,6 +509,7 @@ func fakeModelOptions() []ChatModelOption {
 			ID:                        "scripted-careful",
 			IsDefault:                 false,
 			Model:                     "scripted-careful",
+			SupportsImages:            true,
 			DefaultReasoningEffort:    ReasoningEffortMedium,
 			SupportedReasoningEfforts: fakeReasoningEffortOptions(),
 		},

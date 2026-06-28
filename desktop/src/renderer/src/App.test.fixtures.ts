@@ -46,7 +46,14 @@ export function queuedChatMessage(
     delivery: "queued",
     id,
     ordinal: 1,
-    parts: [{ format: "plain", id: `${id}_part`, text, type: "text" }],
+    parts: [
+      {
+        id: `${id}_part`,
+        image: null,
+        text: { format: "plain", text },
+        type: "text",
+      },
+    ],
     role: "user",
     runId,
     schemaVersion: 1,

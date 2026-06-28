@@ -77,6 +77,18 @@ func (store *Store) messagesDir(workspaceID string, conversationID string) strin
 	return filepath.Join(store.conversationDir(workspaceID, conversationID), messagesDirName)
 }
 
+func (store *Store) imageAttachmentsDir(workspaceID string, conversationID string) string {
+	return filepath.Join(store.conversationDir(workspaceID, conversationID), attachmentsDirName)
+}
+
+func (store *Store) imageAttachmentDir(workspaceID string, conversationID string, attachmentID string) string {
+	return filepath.Join(store.imageAttachmentsDir(workspaceID, conversationID), attachmentID)
+}
+
+func (store *Store) imageAttachmentMetadataPath(workspaceID string, conversationID string, attachmentID string) string {
+	return filepath.Join(store.imageAttachmentDir(workspaceID, conversationID, attachmentID), attachmentMetadataFileName)
+}
+
 func (store *Store) messagePath(workspaceID string, conversationID string, ordinal int, messageID string) string {
 	return filepath.Join(store.messagesDir(workspaceID, conversationID), messageFileName(ordinal, messageID))
 }

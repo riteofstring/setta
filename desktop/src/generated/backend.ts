@@ -651,14 +651,16 @@ export function decodeMessageStatus(value: unknown, label = "MessageStatus"): Me
   }
 }
 
-export type MessagePartType = "text";
+export type MessagePartType = "text" | "image";
 
-export const messagePartTypeValues = ["text"] as const satisfies readonly MessagePartType[];
+export const messagePartTypeValues = ["text", "image"] as const satisfies readonly MessagePartType[];
 
 export function decodeMessagePartType(value: unknown, label = "MessagePartType"): MessagePartType {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "text":
+      return decoded;
+    case "image":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -675,6 +677,42 @@ export function decodeTextFormat(value: unknown, label = "TextFormat"): TextForm
     case "plain":
       return decoded;
     case "markdown":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ImageAttachmentMimeType = "image/png" | "image/jpeg" | "image/gif";
+
+export const imageAttachmentMimeTypeValues = ["image/png", "image/jpeg", "image/gif"] as const satisfies readonly ImageAttachmentMimeType[];
+
+export function decodeImageAttachmentMimeType(value: unknown, label = "ImageAttachmentMimeType"): ImageAttachmentMimeType {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "image/png":
+      return decoded;
+    case "image/jpeg":
+      return decoded;
+    case "image/gif":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ImageDetail = "auto" | "high" | "original";
+
+export const imageDetailValues = ["auto", "high", "original"] as const satisfies readonly ImageDetail[];
+
+export function decodeImageDetail(value: unknown, label = "ImageDetail"): ImageDetail {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "auto":
+      return decoded;
+    case "high":
+      return decoded;
+    case "original":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2729,6 +2767,7 @@ export interface ChatCodexEffectiveSettings {
   modelDisplayName: string;
   reasoningEffort: ReasoningEffort | null;
   reasoningEffortDisplayName: string;
+  supportsImages: boolean;
 }
 
 export interface HarnessThreadRef {
@@ -2834,11 +2873,28 @@ export interface GetMessagePageRequest {
   limit: number;
 }
 
+export interface MessageTextPart {
+  text: string;
+  format: TextFormat;
+}
+
+export interface ImagePart {
+  attachmentId: string;
+  fileName: string;
+  mimeType: ImageAttachmentMimeType;
+  byteSize: number;
+  width: number;
+  height: number;
+  thumbnailUrl: string;
+  previewUrl: string;
+  detail: ImageDetail | null;
+}
+
 export interface MessagePart {
   id: string;
   type: MessagePartType;
-  text: string;
-  format: TextFormat;
+  text: MessageTextPart | null;
+  image: ImagePart | null;
 }
 
 export interface ChatMessage {
@@ -3026,10 +3082,30 @@ export interface MessagePage {
   olderBeforeBlockOrdinal: number;
 }
 
+export interface ChatTextInput {
+  text: string;
+  format: TextFormat;
+}
+
+export interface ChatImageInput {
+  attachmentId: string;
+  detail: ImageDetail | null;
+}
+
+export interface ChatInputPart {
+  type: MessagePartType;
+  text: ChatTextInput | null;
+  image: ChatImageInput | null;
+}
+
+export interface ChatInput {
+  parts: ChatInputPart[];
+}
+
 export interface SendChatMessageRequest {
   workspaceId: string;
   conversationId: string;
-  prompt: string;
+  input: ChatInput;
 }
 
 export interface SendMessageResult {
@@ -3043,7 +3119,7 @@ export interface SendMessageResult {
 export interface QueueChatMessageRequest {
   workspaceId: string;
   conversationId: string;
-  prompt: string;
+  input: ChatInput;
 }
 
 export interface QueueMessageResult {
@@ -3058,7 +3134,7 @@ export interface EditQueuedChatMessageRequest {
   workspaceId: string;
   conversationId: string;
   messageId: string;
-  prompt: string;
+  input: ChatInput;
 }
 
 export interface QueueEditResult {
@@ -3086,7 +3162,7 @@ export interface QueueRemoveResult {
 export interface SteerChatMessageRequest {
   workspaceId: string;
   conversationId: string;
-  prompt: string;
+  input: ChatInput;
 }
 
 export interface SteerMessageResult {
@@ -3099,7 +3175,7 @@ export interface SteerMessageResult {
 export interface SendSteeringImmediatelyRequest {
   workspaceId: string;
   conversationId: string;
-  prompt: string;
+  input: ChatInput | null;
 }
 
 export interface ImmediateSteeringResult {
@@ -3109,6 +3185,28 @@ export interface ImmediateSteeringResult {
   activeRun: Run;
   queue: QueueState;
   page: MessagePage;
+}
+
+export interface CreateChatImageAttachmentFromBytesRequest {
+  workspaceId: string;
+  conversationId: string;
+  fileName: string;
+  dataBase64: string;
+}
+
+export interface ImageAttachment {
+  schemaVersion: number;
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  fileName: string;
+  mimeType: ImageAttachmentMimeType;
+  byteSize: number;
+  width: number;
+  height: number;
+  createdAt: string;
+  thumbnailUrl: string;
+  previewUrl: string;
 }
 
 export interface ListChatCommandsRequest {
@@ -3170,6 +3268,7 @@ export interface ChatModelOption {
   description: string;
   hidden: boolean;
   isDefault: boolean;
+  supportsImages: boolean;
   defaultReasoningEffort: ReasoningEffort;
   supportedReasoningEfforts: ChatReasoningEffortOption[];
 }
@@ -5688,6 +5787,10 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/messages/steer/immediate",
   },
+  CreateChatImageAttachmentFromBytes: {
+    method: "POST",
+    path: "/chat/attachments/images/from-bytes",
+  },
   ListChatCommands: {
     method: "POST",
     path: "/chat/commands/list",
@@ -6633,12 +6736,13 @@ export function decodeChatCodexSettings(value: unknown): ChatCodexSettings {
 
 export function decodeChatCodexEffectiveSettings(value: unknown): ChatCodexEffectiveSettings {
   const record = assertRecord(value, "ChatCodexEffectiveSettings");
-  assertKnownFields(record, "ChatCodexEffectiveSettings", ["model", "modelDisplayName", "reasoningEffort", "reasoningEffortDisplayName"]);
+  assertKnownFields(record, "ChatCodexEffectiveSettings", ["model", "modelDisplayName", "reasoningEffort", "reasoningEffortDisplayName", "supportsImages"]);
   return {
     model: decodeString(requireField(record, "model", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.model"),
     modelDisplayName: decodeString(requireField(record, "modelDisplayName", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.modelDisplayName"),
     reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexEffectiveSettings.reasoningEffort")),
     reasoningEffortDisplayName: decodeString(requireField(record, "reasoningEffortDisplayName", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffortDisplayName"),
+    supportsImages: decodeBoolean(requireField(record, "supportsImages", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.supportsImages"),
   };
 }
 
@@ -6797,15 +6901,45 @@ export function decodeGetMessagePageRequest(value: unknown): GetMessagePageReque
   };
 }
 
+export function decodeMessageTextPart(value: unknown): MessageTextPart {
+  const record = assertRecord(value, "MessageTextPart");
+  assertKnownFields(record, "MessageTextPart", ["text", "format"]);
+  return {
+    text: decodeString(requireField(record, "text", "MessageTextPart"), "MessageTextPart.text"),
+    format: decodeTextFormat(requireField(record, "format", "MessageTextPart"), "MessageTextPart.format"),
+  };
+}
+
+export function decodeImagePart(value: unknown): ImagePart {
+  const record = assertRecord(value, "ImagePart");
+  assertKnownFields(record, "ImagePart", ["attachmentId", "fileName", "mimeType", "byteSize", "width", "height", "thumbnailUrl", "previewUrl", "detail"]);
+  return {
+    attachmentId: decodeString(requireField(record, "attachmentId", "ImagePart"), "ImagePart.attachmentId"),
+    fileName: decodeString(requireField(record, "fileName", "ImagePart"), "ImagePart.fileName"),
+    mimeType: decodeImageAttachmentMimeType(requireField(record, "mimeType", "ImagePart"), "ImagePart.mimeType"),
+    byteSize: decodeInteger(requireField(record, "byteSize", "ImagePart"), "ImagePart.byteSize"),
+    width: decodeInteger(requireField(record, "width", "ImagePart"), "ImagePart.width"),
+    height: decodeInteger(requireField(record, "height", "ImagePart"), "ImagePart.height"),
+    thumbnailUrl: decodeString(requireField(record, "thumbnailUrl", "ImagePart"), "ImagePart.thumbnailUrl"),
+    previewUrl: decodeString(requireField(record, "previewUrl", "ImagePart"), "ImagePart.previewUrl"),
+    detail: decodeNullable(requireField(record, "detail", "ImagePart"), "ImagePart.detail", (item) => decodeImageDetail(item, "ImagePart.detail")),
+  };
+}
+
 export function decodeMessagePart(value: unknown): MessagePart {
   const record = assertRecord(value, "MessagePart");
-  assertKnownFields(record, "MessagePart", ["id", "type", "text", "format"]);
-  return {
+  assertKnownFields(record, "MessagePart", ["id", "type", "text", "image"]);
+  const result: MessagePart = {
     id: decodeString(requireField(record, "id", "MessagePart"), "MessagePart.id"),
     type: decodeMessagePartType(requireField(record, "type", "MessagePart"), "MessagePart.type"),
-    text: decodeString(requireField(record, "text", "MessagePart"), "MessagePart.text"),
-    format: decodeTextFormat(requireField(record, "format", "MessagePart"), "MessagePart.format"),
+    text: decodeNullable(requireField(record, "text", "MessagePart"), "MessagePart.text", (item) => decodeMessageTextPart(item)),
+    image: decodeNullable(requireField(record, "image", "MessagePart"), "MessagePart.image", (item) => decodeImagePart(item)),
   };
+  assertTaggedUnionBranch("MessagePart", result.type, {
+    "text": result.text,
+    "image": result.image,
+  });
+  return result;
 }
 
 export function decodeChatMessage(value: unknown): ChatMessage {
@@ -7066,13 +7200,54 @@ export function decodeMessagePage(value: unknown): MessagePage {
   };
 }
 
+export function decodeChatTextInput(value: unknown): ChatTextInput {
+  const record = assertRecord(value, "ChatTextInput");
+  assertKnownFields(record, "ChatTextInput", ["text", "format"]);
+  return {
+    text: decodeString(requireField(record, "text", "ChatTextInput"), "ChatTextInput.text"),
+    format: decodeTextFormat(requireField(record, "format", "ChatTextInput"), "ChatTextInput.format"),
+  };
+}
+
+export function decodeChatImageInput(value: unknown): ChatImageInput {
+  const record = assertRecord(value, "ChatImageInput");
+  assertKnownFields(record, "ChatImageInput", ["attachmentId", "detail"]);
+  return {
+    attachmentId: decodeString(requireField(record, "attachmentId", "ChatImageInput"), "ChatImageInput.attachmentId"),
+    detail: decodeNullable(requireField(record, "detail", "ChatImageInput"), "ChatImageInput.detail", (item) => decodeImageDetail(item, "ChatImageInput.detail")),
+  };
+}
+
+export function decodeChatInputPart(value: unknown): ChatInputPart {
+  const record = assertRecord(value, "ChatInputPart");
+  assertKnownFields(record, "ChatInputPart", ["type", "text", "image"]);
+  const result: ChatInputPart = {
+    type: decodeMessagePartType(requireField(record, "type", "ChatInputPart"), "ChatInputPart.type"),
+    text: decodeNullable(requireField(record, "text", "ChatInputPart"), "ChatInputPart.text", (item) => decodeChatTextInput(item)),
+    image: decodeNullable(requireField(record, "image", "ChatInputPart"), "ChatInputPart.image", (item) => decodeChatImageInput(item)),
+  };
+  assertTaggedUnionBranch("ChatInputPart", result.type, {
+    "text": result.text,
+    "image": result.image,
+  });
+  return result;
+}
+
+export function decodeChatInput(value: unknown): ChatInput {
+  const record = assertRecord(value, "ChatInput");
+  assertKnownFields(record, "ChatInput", ["parts"]);
+  return {
+    parts: decodeArray(requireField(record, "parts", "ChatInput"), "ChatInput.parts", (item) => decodeChatInputPart(item)),
+  };
+}
+
 export function decodeSendChatMessageRequest(value: unknown): SendChatMessageRequest {
   const record = assertRecord(value, "SendChatMessageRequest");
-  assertKnownFields(record, "SendChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
+  assertKnownFields(record, "SendChatMessageRequest", ["workspaceId", "conversationId", "input"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SendChatMessageRequest"), "SendChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SendChatMessageRequest"), "SendChatMessageRequest.conversationId"),
-    prompt: decodeString(requireField(record, "prompt", "SendChatMessageRequest"), "SendChatMessageRequest.prompt"),
+    input: decodeChatInput(requireField(record, "input", "SendChatMessageRequest")),
   };
 }
 
@@ -7090,11 +7265,11 @@ export function decodeSendMessageResult(value: unknown): SendMessageResult {
 
 export function decodeQueueChatMessageRequest(value: unknown): QueueChatMessageRequest {
   const record = assertRecord(value, "QueueChatMessageRequest");
-  assertKnownFields(record, "QueueChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
+  assertKnownFields(record, "QueueChatMessageRequest", ["workspaceId", "conversationId", "input"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "QueueChatMessageRequest"), "QueueChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "QueueChatMessageRequest"), "QueueChatMessageRequest.conversationId"),
-    prompt: decodeString(requireField(record, "prompt", "QueueChatMessageRequest"), "QueueChatMessageRequest.prompt"),
+    input: decodeChatInput(requireField(record, "input", "QueueChatMessageRequest")),
   };
 }
 
@@ -7112,12 +7287,12 @@ export function decodeQueueMessageResult(value: unknown): QueueMessageResult {
 
 export function decodeEditQueuedChatMessageRequest(value: unknown): EditQueuedChatMessageRequest {
   const record = assertRecord(value, "EditQueuedChatMessageRequest");
-  assertKnownFields(record, "EditQueuedChatMessageRequest", ["workspaceId", "conversationId", "messageId", "prompt"]);
+  assertKnownFields(record, "EditQueuedChatMessageRequest", ["workspaceId", "conversationId", "messageId", "input"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.conversationId"),
     messageId: decodeString(requireField(record, "messageId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.messageId"),
-    prompt: decodeString(requireField(record, "prompt", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.prompt"),
+    input: decodeChatInput(requireField(record, "input", "EditQueuedChatMessageRequest")),
   };
 }
 
@@ -7157,11 +7332,11 @@ export function decodeQueueRemoveResult(value: unknown): QueueRemoveResult {
 
 export function decodeSteerChatMessageRequest(value: unknown): SteerChatMessageRequest {
   const record = assertRecord(value, "SteerChatMessageRequest");
-  assertKnownFields(record, "SteerChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
+  assertKnownFields(record, "SteerChatMessageRequest", ["workspaceId", "conversationId", "input"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SteerChatMessageRequest"), "SteerChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SteerChatMessageRequest"), "SteerChatMessageRequest.conversationId"),
-    prompt: decodeString(requireField(record, "prompt", "SteerChatMessageRequest"), "SteerChatMessageRequest.prompt"),
+    input: decodeChatInput(requireField(record, "input", "SteerChatMessageRequest")),
   };
 }
 
@@ -7178,11 +7353,11 @@ export function decodeSteerMessageResult(value: unknown): SteerMessageResult {
 
 export function decodeSendSteeringImmediatelyRequest(value: unknown): SendSteeringImmediatelyRequest {
   const record = assertRecord(value, "SendSteeringImmediatelyRequest");
-  assertKnownFields(record, "SendSteeringImmediatelyRequest", ["workspaceId", "conversationId", "prompt"]);
+  assertKnownFields(record, "SendSteeringImmediatelyRequest", ["workspaceId", "conversationId", "input"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.conversationId"),
-    prompt: decodeString(requireField(record, "prompt", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.prompt"),
+    input: decodeNullable(requireField(record, "input", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.input", (item) => decodeChatInput(item)),
   };
 }
 
@@ -7196,6 +7371,36 @@ export function decodeImmediateSteeringResult(value: unknown): ImmediateSteering
     activeRun: decodeRun(requireField(record, "activeRun", "ImmediateSteeringResult")),
     queue: decodeQueueState(requireField(record, "queue", "ImmediateSteeringResult")),
     page: decodeMessagePage(requireField(record, "page", "ImmediateSteeringResult")),
+  };
+}
+
+export function decodeCreateChatImageAttachmentFromBytesRequest(value: unknown): CreateChatImageAttachmentFromBytesRequest {
+  const record = assertRecord(value, "CreateChatImageAttachmentFromBytesRequest");
+  assertKnownFields(record, "CreateChatImageAttachmentFromBytesRequest", ["workspaceId", "conversationId", "fileName", "dataBase64"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.conversationId"),
+    fileName: decodeString(requireField(record, "fileName", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.fileName"),
+    dataBase64: decodeString(requireField(record, "dataBase64", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.dataBase64"),
+  };
+}
+
+export function decodeImageAttachment(value: unknown): ImageAttachment {
+  const record = assertRecord(value, "ImageAttachment");
+  assertKnownFields(record, "ImageAttachment", ["schemaVersion", "id", "workspaceId", "conversationId", "fileName", "mimeType", "byteSize", "width", "height", "createdAt", "thumbnailUrl", "previewUrl"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ImageAttachment"), "ImageAttachment.schemaVersion"),
+    id: decodeString(requireField(record, "id", "ImageAttachment"), "ImageAttachment.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ImageAttachment"), "ImageAttachment.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ImageAttachment"), "ImageAttachment.conversationId"),
+    fileName: decodeString(requireField(record, "fileName", "ImageAttachment"), "ImageAttachment.fileName"),
+    mimeType: decodeImageAttachmentMimeType(requireField(record, "mimeType", "ImageAttachment"), "ImageAttachment.mimeType"),
+    byteSize: decodeInteger(requireField(record, "byteSize", "ImageAttachment"), "ImageAttachment.byteSize"),
+    width: decodeInteger(requireField(record, "width", "ImageAttachment"), "ImageAttachment.width"),
+    height: decodeInteger(requireField(record, "height", "ImageAttachment"), "ImageAttachment.height"),
+    createdAt: decodeString(requireField(record, "createdAt", "ImageAttachment"), "ImageAttachment.createdAt"),
+    thumbnailUrl: decodeString(requireField(record, "thumbnailUrl", "ImageAttachment"), "ImageAttachment.thumbnailUrl"),
+    previewUrl: decodeString(requireField(record, "previewUrl", "ImageAttachment"), "ImageAttachment.previewUrl"),
   };
 }
 
@@ -7285,7 +7490,7 @@ export function decodeChatReasoningEffortOption(value: unknown): ChatReasoningEf
 
 export function decodeChatModelOption(value: unknown): ChatModelOption {
   const record = assertRecord(value, "ChatModelOption");
-  assertKnownFields(record, "ChatModelOption", ["id", "model", "displayName", "description", "hidden", "isDefault", "defaultReasoningEffort", "supportedReasoningEfforts"]);
+  assertKnownFields(record, "ChatModelOption", ["id", "model", "displayName", "description", "hidden", "isDefault", "supportsImages", "defaultReasoningEffort", "supportedReasoningEfforts"]);
   return {
     id: decodeString(requireField(record, "id", "ChatModelOption"), "ChatModelOption.id"),
     model: decodeString(requireField(record, "model", "ChatModelOption"), "ChatModelOption.model"),
@@ -7293,6 +7498,7 @@ export function decodeChatModelOption(value: unknown): ChatModelOption {
     description: decodeString(requireField(record, "description", "ChatModelOption"), "ChatModelOption.description"),
     hidden: decodeBoolean(requireField(record, "hidden", "ChatModelOption"), "ChatModelOption.hidden"),
     isDefault: decodeBoolean(requireField(record, "isDefault", "ChatModelOption"), "ChatModelOption.isDefault"),
+    supportsImages: decodeBoolean(requireField(record, "supportsImages", "ChatModelOption"), "ChatModelOption.supportsImages"),
     defaultReasoningEffort: decodeReasoningEffort(requireField(record, "defaultReasoningEffort", "ChatModelOption"), "ChatModelOption.defaultReasoningEffort"),
     supportedReasoningEfforts: decodeArray(requireField(record, "supportedReasoningEfforts", "ChatModelOption"), "ChatModelOption.supportedReasoningEfforts", (item) => decodeChatReasoningEffortOption(item)),
   };
@@ -10682,6 +10888,7 @@ export interface BackendClient {
   removeQueuedChatMessage: (request: RemoveQueuedChatMessageRequest) => Promise<QueueRemoveResult>;
   steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
   sendSteeringImmediately: (request: SendSteeringImmediatelyRequest) => Promise<ImmediateSteeringResult>;
+  createChatImageAttachmentFromBytes: (request: CreateChatImageAttachmentFromBytesRequest) => Promise<ImageAttachment>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
   executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
   openChatCodexModelPicker: (request: OpenChatCodexModelPickerRequest) => Promise<ChatCommandExecuteResult>;
@@ -10991,6 +11198,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeImmediateSteeringResult,
       endpoint: backendEndpoints.SendSteeringImmediately,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createChatImageAttachmentFromBytes: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeImageAttachment,
+      endpoint: backendEndpoints.CreateChatImageAttachmentFromBytes,
       fetchImpl,
       requestPayload: request,
     }),

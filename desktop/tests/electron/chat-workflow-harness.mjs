@@ -493,7 +493,9 @@ export async function assertAssistantCompleted(backend, workspaceId, conversatio
 }
 
 function messageText(message) {
-  return message.parts.map((part) => part.text).join("");
+  return message.parts
+    .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
+    .join("");
 }
 
 export async function launchContext(fixture, recordingDir, options = {}) {

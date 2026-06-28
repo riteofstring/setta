@@ -50,7 +50,7 @@ func TestCodexHarnessBeginsGoalOperationFromCommandRPC(t *testing.T) {
 
 	turnRequest := testTurnRequest(t)
 	turnRequest.Conversation = request.Conversation
-	turnRequest.Prompt = "finish renderer tests"
+	turnRequest = setTestTurnRequestPrompt(turnRequest, "finish renderer tests")
 	turnRequest.ThreadRef = result.ThreadRef
 	turnRequest.Workspace = request.Workspace
 	sink := newRecordingSink()
@@ -83,7 +83,7 @@ func TestCodexHarnessGoalOperationEnablesBackgroundTerminalLateRouting(t *testin
 
 	turnRequest := testTurnRequest(t)
 	turnRequest.Conversation = request.Conversation
-	turnRequest.Prompt = "finish renderer tests"
+	turnRequest = setTestTurnRequestPrompt(turnRequest, "finish renderer tests")
 	turnRequest.ThreadRef = result.ThreadRef
 	turnRequest.Workspace = request.Workspace
 	sink := newRecordingSink()

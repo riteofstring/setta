@@ -5,6 +5,7 @@ import type {
   ChatCommandListResult,
   ChatEvent,
   ChatGoalState,
+  ChatInput,
   ChatMessage,
   Conversation,
   ConversationListItem,
@@ -12,6 +13,7 @@ import type {
   Diagnostic,
   BackgroundTerminalOutput,
   BackgroundTerminalProcess,
+  ImageAttachment,
   ListConversationsResponse,
   ReasoningEffort,
   RunItemOutput,
@@ -56,7 +58,12 @@ export interface ChatStore {
   corruption: CorruptionSummary;
   diagnostics: Diagnostic[];
   editingQueuedMessageId: string | null;
-  editQueuedMessage: (messageId: string, prompt: string) => Promise<void>;
+  createImageAttachmentFromBytes: (
+    fileName: string,
+    dataBase64: string,
+  ) => Promise<ImageAttachment>;
+  createImageAttachmentsFromPicker: (maxCount: number) => Promise<ImageAttachment[]>;
+  editQueuedMessage: (messageId: string, input: ChatInput) => Promise<void>;
   ensureWorkspaceConversationList: (workspaceId: string) => Promise<void>;
   error: string | null;
   goal: ChatGoalState | null;
@@ -90,7 +97,7 @@ export interface ChatStore {
   operation: ChatOperation;
   pendingGoalSubmission: PendingGoalSubmission | null;
   queuedRuns: QueuedRun[];
-  queueMessage: (prompt: string) => Promise<void>;
+  queueMessage: (input: ChatInput) => Promise<void>;
   removeQueuedMessage: (messageId: string) => Promise<void>;
   removingQueuedMessageId: string | null;
   executeCommand: (
@@ -113,15 +120,15 @@ export interface ChatStore {
   selectedConversation: Conversation | null;
   selectedConversationIdsByWorkspaceId: Record<string, string | undefined>;
   selectConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
-  sendMessage: (prompt: string) => Promise<void>;
-  sendSteeringImmediately: (prompt?: string) => Promise<void>;
+  sendMessage: (input: ChatInput) => Promise<void>;
+  sendSteeringImmediately: (input?: ChatInput) => Promise<void>;
   setConversationPinned: (
     conversationId: string,
     pinned: boolean,
     workspaceId?: string,
   ) => Promise<void>;
   status: ChatStatus;
-  steerMessage: (prompt: string) => Promise<void>;
+  steerMessage: (input: ChatInput) => Promise<void>;
   stopActiveRun: () => Promise<void>;
   submitApproval: (
     approvalId: string,

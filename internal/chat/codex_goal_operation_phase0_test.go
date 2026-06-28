@@ -1237,7 +1237,7 @@ func beginPhase0GoalOperation(t *testing.T, harness *CodexHarness, raw string) (
 func phase0GoalTurnRequest(t *testing.T, result HarnessCommandResult) TurnRequest {
 	t.Helper()
 	request := testTurnRequest(t)
-	request.Prompt = "finish renderer tests"
+	request = setTestTurnRequestPrompt(request, "finish renderer tests")
 	request.ThreadRef = result.ThreadRef
 	return request
 }
@@ -1249,7 +1249,9 @@ func phase0AssistantText(page MessagePage) string {
 			continue
 		}
 		for _, part := range message.Parts {
-			builder.WriteString(part.Text)
+			if part.Type == MessagePartText && part.Text != nil {
+				builder.WriteString(part.Text.Text)
+			}
 		}
 	}
 	return builder.String()

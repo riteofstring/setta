@@ -3,7 +3,12 @@ import { join } from "node:path";
 import process from "node:process";
 
 import { assertNoCriticalDiagnostics } from "./chat-workflow-assertions.mjs";
+import { pasteImageIntoComposer } from "./chat-workflow-image-attachment-cases.mjs";
 import { prepareLiveCodexAuth } from "./chat-live-auth.mjs";
+
+// 128px PNG with red/green/blue/yellow quadrants; lower-right is yellow.
+const liveQuadrantImagePNGBase64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAABaElEQVR4nO3RQQ0CAQDEQEyAA04MNpCGHSTgAAe8EHGPTZNJqqBz+RxHutvrke4yPwhgPxFAuPlBAPuJAMIBAAAg3fwggP1EAOEAAACQbn4QwH4igHAAAABINz8IYD8RQDgAAACkmx8EsJ8IIBwAAADSzQ8C2E8EEA4AAADp5gcB7CcCCAcAAIB084MA9hMBhAMAAEC6+UEA+4kAwgEAACDd/CCA/UQA4QAAAJBufhDAfiKAcAAAAEg3PwhgPxFAOAAAAKSbHzwLcH9+0/3e13QAAABINz8IYD8RQDgAAACkmx8EsJ8IIBwAAADSzQ8C2E8EEA4AAADp5gcB7CcCCAcAAIB084MA9hMBhAMAAEC6+UEA+4kAwgEAACDd/CCA/UQA4QAAAJBufhDAfiKAcAAAAEg3PwhgPxFAOAAAAKSbHwSwnwggHAAAANLNDwLYTwQQDgAAAOnmBwHsJwIIBwAAgHTzgyf7A1y/lRpPEmWaAAAAAElFTkSuQmCC";
 
 export async function runLiveCodexWorkflow(results, deps) {
   const {
@@ -30,6 +35,7 @@ export async function runLiveCodexWorkflow(results, deps) {
     waitForLinkedCodexRef,
     waitForRunStatus,
     waitForRunWithPrompt,
+    waitForState,
     waitForTexts,
   } = deps;
 
@@ -49,6 +55,7 @@ export async function runLiveCodexWorkflow(results, deps) {
     unsetEnv: liveAuth.unsetEnv,
   });
   let failure = null;
+  let imageSmokeRan = false;
 
   try {
     const backend = await backendProbe(recordingDir);
@@ -126,6 +133,20 @@ export async function runLiveCodexWorkflow(results, deps) {
     await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
     await waitForAssistantTextRendered(context.client, liveWorkflowTimeoutMs);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
+    imageSmokeRan = await runLiveImageAttachmentWorkflow({
+      assertAssistantCompleted,
+      assertNoActiveRun,
+      backend,
+      client: context.client,
+      conversationId,
+      liveWorkflowTimeoutMs,
+      submitComposer,
+      waitForRunStatus,
+      waitForRunWithPrompt,
+      waitForState,
+      waitForTexts,
+      workspaceId,
+    });
     await runLiveSemanticCartographerWorkflow({
       client: context.client,
       timeoutMs: liveWorkflowTimeoutMs,
@@ -145,10 +166,17 @@ export async function runLiveCodexWorkflow(results, deps) {
   if (failure) {
     throw failureWithLogs(failure, context.electron.logs);
   }
+  const imageAttachmentEvidence = imageSmokeRan
+    ? {
+        backendPaths: ["/chat/attachments/images/from-bytes"],
+        ipcChannels: ["chat:create-image-attachment-from-bytes"],
+      }
+    : { backendPaths: [], ipcChannels: [] };
   await assertRecordingEvidence(recordingDir, {
     backendPaths: [
       "/workspaces/open",
       "/chat/conversations/create",
+      ...imageAttachmentEvidence.backendPaths,
       "/chat/messages/send",
       "/chat/messages/page",
       "/chat/runs/active",
@@ -172,6 +200,7 @@ export async function runLiveCodexWorkflow(results, deps) {
     ipcChannels: [
       "workspace:open-local-folder",
       "chat:create-conversation",
+      ...imageAttachmentEvidence.ipcChannels,
       "chat:send-message",
       "chat:execute-command",
       "workflow:validate-definition",
@@ -189,6 +218,93 @@ export async function runLiveCodexWorkflow(results, deps) {
   });
   results.push("live-codex-electron");
   process.stdout.write("Electron chat workflow passed: live-codex-electron\n");
+}
+
+async function runLiveImageAttachmentWorkflow({
+  assertAssistantCompleted,
+  assertNoActiveRun,
+  backend,
+  client,
+  conversationId,
+  liveWorkflowTimeoutMs,
+  submitComposer,
+  waitForRunStatus,
+  waitForRunWithPrompt,
+  waitForState,
+  waitForTexts,
+  workspaceId,
+}) {
+  if (!(await liveImageAttachmentSupported({ backend, conversationId, workspaceId }))) {
+    process.stdout.write(
+      "Electron chat workflow skipped: live-codex-image-attachment (selected model does not support images)\n",
+    );
+    return false;
+  }
+
+  const prompt =
+    "Name the attached image lower-right color and include exact phrase setta live image attachment smoke.";
+  await pasteImageIntoComposer(client, waitForState, "live-image.png", liveQuadrantImagePNGBase64);
+  await submitComposer(client, prompt, "Send message");
+  const run = await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, null);
+  await waitForRunStatus(backend, workspaceId, conversationId, run.id, {
+    status: "completed",
+    timeoutMs: liveWorkflowTimeoutMs,
+  });
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+  await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
+  await waitForTexts(client, ["setta live image attachment smoke"]);
+
+  const page = await backend.post("/chat/messages/page", {
+    beforeBlockOrdinal: 0,
+    conversationId,
+    limit: 30,
+    workspaceId,
+  });
+  assertLiveImageUserMessage(page, run.id);
+  assertLiveImageAssistantText(page, run.id);
+
+  return true;
+}
+
+async function liveImageAttachmentSupported({ backend, conversationId, workspaceId }) {
+  const initialPage = await backend.post("/chat/messages/page", {
+    beforeBlockOrdinal: 0,
+    conversationId,
+    limit: 20,
+    workspaceId,
+  });
+  return initialPage.conversation.codexEffectiveSettings?.supportsImages !== false;
+}
+
+function assertLiveImageUserMessage(page, runId) {
+  const userMessage = page.messages.find(
+    (message) =>
+      message.role === "user" &&
+      message.runId === runId &&
+      message.parts.some((part) => part.type === "image"),
+  );
+  if (!userMessage) {
+    throw new Error(`live image user message was not persisted: ${JSON.stringify(page.messages)}`);
+  }
+  const imagePart = userMessage.parts.find((part) => part.type === "image")?.image;
+  if (
+    !imagePart ||
+    imagePart.fileName !== "live-image.png" ||
+    !imagePart.thumbnailUrl.endsWith("/thumbnail") ||
+    !imagePart.previewUrl.endsWith("/preview")
+  ) {
+    throw new Error(`live image part metadata was not persisted: ${JSON.stringify(imagePart)}`);
+  }
+}
+
+function assertLiveImageAssistantText(page, runId) {
+  const assistantText = page.messages
+    .find((message) => message.role === "assistant" && message.runId === runId)
+    ?.parts.map((part) => part.text?.text ?? "")
+    .join(" ");
+  if (!assistantText || !/\byellow\b/i.test(assistantText)) {
+    throw new Error(`live image assistant response did not identify yellow: ${assistantText}`);
+  }
 }
 
 async function assertLiveGoalForegroundCommandsStayActivity({

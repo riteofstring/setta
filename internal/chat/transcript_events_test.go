@@ -334,7 +334,7 @@ func TestTranscriptSteeringBlockCreatedEvent(t *testing.T) {
 	if steering.UserMessage.Delivery != MessageDeliverySteering {
 		t.Fatalf("second user_message delivery = %s, want steering", steering.UserMessage.Delivery)
 	}
-	if len(steering.UserMessage.Parts) == 0 || !strings.Contains(steering.UserMessage.Parts[0].Text, "setup.sh") {
+	if len(steering.UserMessage.Parts) == 0 || !strings.Contains(steering.UserMessage.Parts[0].Text.Text, "setup.sh") {
 		t.Fatalf("steering block text = %+v, want to contain steering prompt", steering.UserMessage.Parts)
 	}
 }

@@ -346,10 +346,12 @@ func eventTestMessage(id string, ordinal int) ChatMessage {
 		ID:             id,
 		Ordinal:        ordinal,
 		Parts: []MessagePart{{
-			Format: TextFormatPlain,
-			ID:     id + "_part",
-			Text:   "hello",
-			Type:   MessagePartText,
+			ID:   id + "_part",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   "hello",
+				Format: TextFormatPlain,
+			},
 		}},
 		Delivery:      MessageDeliveryNormal,
 		Role:          RoleUser,

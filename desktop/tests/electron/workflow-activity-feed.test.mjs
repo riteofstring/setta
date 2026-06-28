@@ -5,6 +5,7 @@ import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { driverCallExpression } from "./cdp-client.mjs";
+import { chatTextInput } from "./chat-input-helpers.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -664,7 +665,7 @@ async function steerWorkflowActivity(client, workspaceId, execution, prompt) {
       `running workflow activity missing chat conversation: ${JSON.stringify(execution)}`,
     );
   }
-  await rendererChat(client, "steerMessage", [workspaceId, conversationId, prompt]);
+  await rendererChat(client, "steerMessage", [workspaceId, conversationId, chatTextInput(prompt)]);
 }
 
 async function submitPendingWorkflowApproval(client, snapshot) {
@@ -1491,6 +1492,7 @@ async function rendererChat(client, method, args) {
     `window.setta.chat[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
   );
 }
+
 async function rendererWorkflow(client, method, args) {
   return client.evaluate(
     `window.setta.workflow[${JSON.stringify(method)}](...${JSON.stringify(args)})`,

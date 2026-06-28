@@ -59,8 +59,10 @@ import {
 } from "./chat-workflow-harness.mjs";
 import { runBackgroundTerminalWorkflow } from "./chat-workflow-background-terminal-cases.mjs";
 import { runChronologicalTranscriptWorkflow } from "./chat-workflow-chronological-cases.mjs";
+import { runCrossWorkspaceSidebarSummaryWorkflow } from "./chat-workflow-cross-workspace-sidebar-cases.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
+import { runImageAttachmentWorkflow } from "./chat-workflow-image-attachment-cases.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
 import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
@@ -148,7 +150,25 @@ async function main() {
     await runDeterministicWorkflowLaunch(results);
     await runTranscriptSearchWorkflowLaunch(results);
     await runSidebarNavigationWorkflow(results);
-    await runCrossWorkspaceSidebarSummaryWorkflow(results);
+    await runCrossWorkspaceSidebarSummaryWorkflow({
+      appendWorkflowState,
+      assertRecordingEvidence,
+      backendProbe,
+      captureScreenshot,
+      clickButtonByText,
+      createChat,
+      createTwoWorkspaceFixture,
+      failureWithLogs,
+      launchContext,
+      recordingRoot,
+      results,
+      runWorkflowStep,
+      stopElectron,
+      waitForBackendState,
+      waitForRunStatus,
+      waitForState,
+      waitForTexts,
+    });
     await runUnreadConversationWorkflow({
       appendWorkflowState,
       assertRecordingEvidence,
@@ -200,6 +220,7 @@ async function main() {
       waitForLinkedCodexRef,
       waitForRunStatus,
       waitForRunWithPrompt,
+      waitForState,
       waitForTexts,
     });
   }
@@ -241,6 +262,20 @@ async function runDeterministicWorkflowLaunch(results) {
     await runWorkflowStep(results, recordingDir, "happy-path", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId);
+    });
+    await runWorkflowStep(results, recordingDir, "image-attachments", context.client, async () => {
+      const conversationId = await createChat(context.client, backend, workspaceId);
+      await runImageAttachmentWorkflow({
+        backend,
+        clickButtonByAria,
+        client: context.client,
+        conversationId,
+        setInputValue,
+        waitForRunWithPrompt,
+        waitForState,
+        waitForTexts,
+        workspaceId,
+      });
     });
     await runWorkflowStep(
       results,
@@ -1154,120 +1189,6 @@ async function runSidebarNavigationWorkflow(results) {
       "chat:message-page",
     ],
   });
-}
-
-async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
-  const fixture = await createTwoWorkspaceFixture("cross-workspace-sidebar-summary");
-  const recordingDir = join(recordingRoot, "cross-workspace-sidebar-summary");
-  const context = await launchContext(fixture, recordingDir);
-  let failure = null;
-
-  try {
-    const backend = await backendProbe(recordingDir);
-    await runWorkflowStep(
-      results,
-      recordingDir,
-      "cross-workspace-sidebar-summary",
-      context.client,
-      async () => {
-        await waitForTexts(context.client, [
-          fixture.firstWorkspace.displayName,
-          fixture.secondWorkspace.displayName,
-        ]);
-
-        await clickButtonByText(context.client, fixture.secondWorkspace.displayName);
-        await waitForBackendState(
-          async () => backend.get("/workspace-session"),
-          (value) => value.selectedWorkspaceId === fixture.secondWorkspace.id,
-        );
-        const conversationId = await createChat(
-          context.client,
-          backend,
-          fixture.secondWorkspace.id,
-        );
-
-        await clickButtonByText(context.client, fixture.firstWorkspace.displayName);
-        await waitForBackendState(
-          async () => backend.get("/workspace-session"),
-          (value) => value.selectedWorkspaceId === fixture.firstWorkspace.id,
-        );
-
-        const backgroundPrompt = "background sidebar unread";
-        const sent = await backend.post("/chat/messages/send", {
-          conversationId,
-          prompt: backgroundPrompt,
-          workspaceId: fixture.secondWorkspace.id,
-        });
-        await waitForRunStatus(
-          backend,
-          fixture.secondWorkspace.id,
-          conversationId,
-          sent.run.id,
-          "completed",
-        );
-        await waitForSidebarConversationRow(context.client, backgroundPrompt, {
-          unread: true,
-        });
-
-        const created = await backend.post("/chat/conversations/create", {
-          title: "Background created chat",
-          workspaceId: fixture.secondWorkspace.id,
-        });
-        await waitForSidebarConversationRow(context.client, created.title, {
-          unread: false,
-        });
-
-        await appendWorkflowState(recordingDir, {
-          backgroundConversationId: conversationId,
-          createdConversationId: created.id,
-          type: "cross_workspace_sidebar_summary",
-        });
-      },
-    );
-  } catch (error) {
-    failure = error;
-    await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
-  } finally {
-    context.client?.close();
-    await stopElectron(context.electron);
-    await rm(fixture.tempRoot, { force: true, recursive: true });
-  }
-
-  if (failure) {
-    throw failureWithLogs(failure, context.electron.logs);
-  }
-  await assertRecordingEvidence(recordingDir, {
-    backendPaths: [
-      "/workspace-session",
-      "/chat/conversations/create",
-      "/chat/conversations/list",
-      "/chat/messages/page",
-      "/chat/messages/send",
-      "/chat/runs/list",
-    ],
-    ipcChannels: [
-      "workspace:session",
-      "workspace:select",
-      "chat:create-conversation",
-      "chat:list-conversations",
-      "chat:message-page",
-    ],
-  });
-}
-
-async function waitForSidebarConversationRow(client, text, { unread }) {
-  await waitForState(client, conversationRowsExpression(), (value) =>
-    value.rows.some((row) => row.text.includes(text) && row.unread === unread),
-  );
-}
-
-function conversationRowsExpression() {
-  return `(() => ({
-    rows: Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]')).map((row) => ({
-      text: row.innerText,
-      unread: Boolean(row.querySelector('[aria-label="Unread assistant response"]')),
-    })),
-  }))()`;
 }
 
 async function runCodexProtocolWorkflow(results) {

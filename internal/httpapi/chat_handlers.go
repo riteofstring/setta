@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/base64"
 	"net/http"
 
 	"setta/internal/chat"
@@ -125,7 +126,7 @@ func (handler handler) sendChatMessage(response http.ResponseWriter, request *ht
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	result, err := service.SendUserMessage(payload.WorkspaceID, payload.ConversationID, payload.Prompt)
+	result, err := service.SendUserInput(payload.WorkspaceID, payload.ConversationID, payload.Input)
 	if err != nil {
 		writeChatError(response, "send_chat_message_failed", err)
 		return
@@ -142,7 +143,7 @@ func (handler handler) queueChatMessage(response http.ResponseWriter, request *h
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	result, err := service.QueueUserMessage(payload.WorkspaceID, payload.ConversationID, payload.Prompt)
+	result, err := service.QueueUserInput(payload.WorkspaceID, payload.ConversationID, payload.Input)
 	if err != nil {
 		writeChatError(response, "queue_chat_message_failed", err)
 		return
@@ -159,7 +160,7 @@ func (handler handler) editQueuedChatMessage(response http.ResponseWriter, reque
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	result, err := service.EditQueuedMessage(payload.WorkspaceID, payload.ConversationID, payload.MessageID, payload.Prompt)
+	result, err := service.EditQueuedInput(payload.WorkspaceID, payload.ConversationID, payload.MessageID, payload.Input)
 	if err != nil {
 		writeChatError(response, "edit_queued_chat_message_failed", err)
 		return
@@ -193,7 +194,7 @@ func (handler handler) steerChatMessage(response http.ResponseWriter, request *h
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	result, err := service.SteerActiveRun(payload.WorkspaceID, payload.ConversationID, payload.Prompt)
+	result, err := service.SteerActiveRunInput(payload.WorkspaceID, payload.ConversationID, payload.Input)
 	if err != nil {
 		writeChatError(response, "steer_chat_message_failed", err)
 		return
@@ -210,12 +211,34 @@ func (handler handler) sendSteeringImmediately(response http.ResponseWriter, req
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	result, err := service.SendSteeringImmediately(payload.WorkspaceID, payload.ConversationID, payload.Prompt)
+	result, err := service.SendSteeringInputImmediately(payload.WorkspaceID, payload.ConversationID, payload.Input)
 	if err != nil {
 		writeChatError(response, "send_steering_immediately_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) createChatImageAttachmentFromBytes(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload CreateChatImageAttachmentFromBytesRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	data, err := base64.StdEncoding.DecodeString(payload.DataBase64)
+	if err != nil {
+		writeChatError(response, "invalid_chat_image_attachment_data", err)
+		return
+	}
+	attachment, err := service.CreateImageAttachmentFromBytes(payload.WorkspaceID, payload.ConversationID, payload.FileName, data)
+	if err != nil {
+		writeChatError(response, "create_chat_image_attachment_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, attachment)
 }
 
 func (handler handler) listChatCommands(response http.ResponseWriter, request *http.Request) {

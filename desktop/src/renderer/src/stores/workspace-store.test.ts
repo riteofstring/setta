@@ -324,6 +324,9 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
+      createImageAttachmentFromBytes: async () => {
+        throw new Error("create image attachment from bytes is not used by workspace store tests");
+      },
       deleteConversation: async () => ({
         conversations: [],
         corruption: emptyCorruption(),
@@ -477,6 +480,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         messageCount: 0,
         readMarker: 0,
       }),
+      selectImageAttachments: async () => [],
       steerMessage: async () => ({
         conversation: emptyConversation(),
         page: emptyMessagePage(),
@@ -671,7 +675,14 @@ function emptyMessage(): ChatMessage {
     delivery: "normal",
     id: "message_test",
     ordinal: 1,
-    parts: [{ format: "plain", id: "part_test", text: "", type: "text" }],
+    parts: [
+      {
+        id: "part_test",
+        image: null,
+        text: { format: "plain", text: "" },
+        type: "text",
+      },
+    ],
     role: "user",
     runId: "",
     schemaVersion: 1,

@@ -1,4 +1,4 @@
-import type { ChatMessage, TranscriptBlock, WorkspaceSummary } from "@generated/backend";
+import type { ChatInput, ChatMessage, TranscriptBlock, WorkspaceSummary } from "@generated/backend";
 import { AlertTriangle, Check, Maximize2, Minimize2 } from "lucide-react";
 import { Square } from "lucide-react";
 import { useEffect, useMemo } from "react";
@@ -213,9 +213,9 @@ function ComposerSlot({
     />
   );
 
-  async function createAndSendFirstMessage(prompt: string) {
+  async function createAndSendFirstMessage(input: ChatInput) {
     await chat.createConversation();
-    await chat.sendMessage(prompt);
+    await chat.sendMessage(input);
   }
 }
 
@@ -411,6 +411,12 @@ export function useChatViewState() {
   const corruption = useChatStore((state) => state.corruption);
   const commandListError = useChatStore((state) => state.commandListError);
   const commandListStatus = useChatStore((state) => state.commandListStatus);
+  const createImageAttachmentFromBytes = useChatStore(
+    (state) => state.createImageAttachmentFromBytes,
+  );
+  const createImageAttachmentsFromPicker = useChatStore(
+    (state) => state.createImageAttachmentsFromPicker,
+  );
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
   const deleteConversation = useChatStore((state) => state.deleteConversation);
@@ -505,6 +511,8 @@ export function useChatViewState() {
     commandListStatus,
     conversations,
     corruption,
+    createImageAttachmentFromBytes,
+    createImageAttachmentsFromPicker,
     createConversation,
     createWorkspaceConversation,
     deleteConversation,

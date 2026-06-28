@@ -293,7 +293,9 @@ async function recordChronologicalDiagnostics(
     backendAssistantMessage: {
       id: assistant?.id ?? "",
       partCount: assistant?.parts?.length ?? 0,
-      text: (assistant?.parts ?? []).map((part) => part.text ?? "").join(""),
+      text: (assistant?.parts ?? [])
+        .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
+        .join(""),
     },
     domBlockOrder: domBlocks.blocks,
     note: "Chronological transcript: provider chronology is preserved as ordered transcript blocks in the backend and DOM. providerStreamSummary is a hand-authored block-level summary; the full raw stream is frozen by the Go TestChronologicalFixture* tests.",

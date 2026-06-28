@@ -43,6 +43,20 @@ func contractUnions() map[reflect.Type]unionSpec {
 // block fails loudly at the decode boundary instead of null-dereferencing later.
 func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 	return map[reflect.Type]taggedUnionSpec{
+		reflect.TypeFor[chat.ChatInputPart](): {
+			Discriminator: "type",
+			Branches: []taggedUnionBranch{
+				{Field: "text", KindValue: string(chat.MessagePartText)},
+				{Field: "image", KindValue: string(chat.MessagePartImage)},
+			},
+		},
+		reflect.TypeFor[chat.MessagePart](): {
+			Discriminator: "type",
+			Branches: []taggedUnionBranch{
+				{Field: "text", KindValue: string(chat.MessagePartText)},
+				{Field: "image", KindValue: string(chat.MessagePartImage)},
+			},
+		},
 		reflect.TypeFor[chat.TranscriptBlock](): {
 			Discriminator: "kind",
 			Branches: []taggedUnionBranch{

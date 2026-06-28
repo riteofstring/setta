@@ -476,6 +476,7 @@ describe("composer controls", () => {
               modelDisplayName: "Scripted Careful",
               reasoningEffort: "high",
               reasoningEffortDisplayName: "High",
+              supportsImages: true,
             },
             codexSettings: {
               model: "scripted-careful",
@@ -848,6 +849,7 @@ function composerChat() {
         modelDisplayName: "Scripted Fast",
         reasoningEffort: "medium",
         reasoningEffortDisplayName: "Medium",
+        supportsImages: true,
       },
       codexSettings: {
         model: "scripted-fast",

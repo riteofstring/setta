@@ -47,8 +47,8 @@ func (service *Service) applyAssistantDeltaLocked(workspaceID string, conversati
 		return active, nil
 	}
 	message := active.assistantMessage
-	hadAssistantText := message.Parts[0].Text != ""
-	message.Parts[0].Text += appendText
+	hadAssistantText := message.Parts[0].Text.Text != ""
+	message.Parts[0].Text.Text += appendText
 	now := service.now()
 	message.UpdatedAt = timestamp(now)
 	partID := message.Parts[0].ID
@@ -309,11 +309,11 @@ func replaceAssistantProviderText(message ChatMessage, text string, replacement 
 	if text == "" || len(message.Parts) == 0 {
 		return message, false
 	}
-	current := message.Parts[0].Text
+	current := message.Parts[0].Text.Text
 	if !strings.HasSuffix(current, text) {
 		return message, false
 	}
-	message.Parts[0].Text = strings.TrimSuffix(current, text) + replacement
+	message.Parts[0].Text.Text = strings.TrimSuffix(current, text) + replacement
 	return message, true
 }
 

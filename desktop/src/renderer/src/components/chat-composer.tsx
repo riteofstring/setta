@@ -1,11 +1,15 @@
 import type {
   ChatCommandDescriptor,
   ChatCommandExecuteResult,
+  ChatInput,
+  ImageAttachment,
   ChatModelOption,
   ChatReasoningEffortOption,
 } from "@generated/backend";
+import { ImagePlus } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
+import { chatInputFromDraft, chatInputHasContent } from "../lib/chat-input";
 import { cn } from "../lib/utils";
 import { commandDescriptorContextKey } from "../stores/chat-store-command-cache";
 import { CommandPalette } from "./chat-command-palette";
@@ -26,13 +30,27 @@ import {
   PermissionModeUnavailableButton,
   VoiceInputUnavailableButton,
 } from "./chat-composer-controls";
+import {
+  AttachmentStrip,
+  clipboardHasImageFile,
+  createImageAttachmentsFromFiles,
+  dragHasImageFile,
+  maxComposerImageAttachments,
+  validateComposerAttachmentFiles,
+} from "./chat-composer-attachments";
+import {
+  commandPaletteKeyAction,
+  ComposerPlaceholder,
+  composerTextareaLabel,
+  isSlashDraft,
+} from "./chat-composer-helpers";
 import type { ChatView } from "./chat-panel";
 import { chatReadableColumnAttributes, chatReadableColumnClass } from "./chat-layout";
-import { SettaLogoMark } from "./setta-logo-mark";
 import { Textarea } from "./ui/textarea";
 
 export { modelPickerOptionSelected, reasoningEffortOptionSelected } from "./chat-composer-controls";
 export { CommandPalette } from "./chat-command-palette";
+export { commandSuggestions } from "./chat-composer-helpers";
 
 const emptyCommandDescriptors: ChatCommandDescriptor[] = [];
 
@@ -47,24 +65,47 @@ function isModelPickerOpen(modelPicker: ChatCommandExecuteResult | null) {
   return modelPicker?.result.action === "model_picker";
 }
 
-function canSendComposerDraft(disabled: boolean, draftText: string) {
-  return !disabled && draftText !== "";
+function canSendComposerDraft({
+  attaching,
+  disabled,
+  draftText,
+  hasAttachments,
+  supportsAttachments,
+}: {
+  attaching: boolean;
+  disabled: boolean;
+  draftText: string;
+  hasAttachments: boolean;
+  supportsAttachments: boolean;
+}) {
+  return !disabled && !attaching && supportsAttachments && (draftText !== "" || hasAttachments);
 }
 
 function canSendImmediateSteeringDraft({
   disabled,
   draftText,
+  attaching,
   hasPendingSteering,
   running,
   slashDraft,
+  supportsAttachments,
 }: {
+  attaching: boolean;
   disabled: boolean;
   draftText: string;
   hasPendingSteering: boolean;
   running: boolean;
   slashDraft: boolean;
+  supportsAttachments: boolean;
 }) {
-  return running && !disabled && !slashDraft && (draftText !== "" || hasPendingSteering);
+  return (
+    running &&
+    !disabled &&
+    !attaching &&
+    !slashDraft &&
+    supportsAttachments &&
+    (draftText !== "" || hasPendingSteering)
+  );
 }
 
 function modelPickerControlDisabled(
@@ -75,13 +116,46 @@ function modelPickerControlDisabled(
   return selectedConversation === null || disabled || running;
 }
 
+function selectedConversationIdForComposer(selectedConversation: ChatView["selectedConversation"]) {
+  return selectedConversation?.id ?? "";
+}
+
+function selectedConversationWorkspaceId(selectedConversation: ChatView["selectedConversation"]) {
+  return selectedConversation?.workspaceId ?? null;
+}
+
+function selectedConversationSupportsImages(
+  selectedConversation: ChatView["selectedConversation"],
+) {
+  return selectedConversation?.codexEffectiveSettings?.supportsImages ?? true;
+}
+
+function composerSlashDraft(draft: string, hasAttachments: boolean) {
+  return !hasAttachments && isSlashDraft(draft);
+}
+
+function immediateSteeringHasContent(hasPendingSteering: boolean, hasAttachments: boolean) {
+  return hasPendingSteering || hasAttachments;
+}
+
+function composerAttachmentsSupported(hasAttachments: boolean, supportsImages: boolean) {
+  return !hasAttachments || supportsImages;
+}
+
+function attachmentButtonTitle(supportsImages: boolean, attaching: boolean) {
+  if (!supportsImages) {
+    return "Selected model does not support images";
+  }
+  return attaching ? "Attaching image" : "Attach image";
+}
+
 interface ComposerProps {
   busy: boolean;
   chat: ChatView;
   disabled?: boolean;
   formClassName?: string;
   frameClassName?: string;
-  onSendPrompt?: (prompt: string) => Promise<void>;
+  onSendPrompt?: (input: ChatInput) => Promise<void>;
   placeholder?: string;
   running: boolean;
 }
@@ -90,6 +164,8 @@ const composerChatPropSelectors = [
   (chat: ChatView) => chat.activeRun?.id,
   (chat: ChatView) => chat.commandListError,
   (chat: ChatView) => chat.commandListStatus,
+  (chat: ChatView) => chat.createImageAttachmentFromBytes,
+  (chat: ChatView) => chat.createImageAttachmentsFromPicker,
   (chat: ChatView) => chat.executeCommand,
   (chat: ChatView) => chat.goal,
   (chat: ChatView) => chat.listCommands,
@@ -121,6 +197,9 @@ function ComposerComponent({
   const [commands, setCommands] = useState<ChatCommandDescriptor[]>(emptyCommandDescriptors);
   const [commandListKey, setCommandListKey] = useState("");
   const [commandListRequestKey, setCommandListRequestKey] = useState("");
+  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [attaching, setAttaching] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
   const [paletteDismissed, setPaletteDismissed] = useState(false);
@@ -128,16 +207,20 @@ function ComposerComponent({
   const restoreComposerFocusRef = useRef(false);
   const submittingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const selected = chat.selectedConversation !== null;
+  const selectedConversation = chat.selectedConversation;
+  const selected = selectedConversation !== null;
+  const selectedConversationId = selectedConversationIdForComposer(selectedConversation);
+  const attachmentContextRef = useRef(selectedConversationId);
   const commandListContextKey = commandDescriptorContextKey({
     active: running,
-    selectedConversation: chat.selectedConversation,
-    workspaceId: chat.selectedConversation?.workspaceId ?? null,
+    selectedConversation,
+    workspaceId: selectedConversationWorkspaceId(selectedConversation),
   });
   const listCommands = chat.listCommands;
   const acceptsPrompt = composerAcceptsPrompt(selected, onSendPrompt);
   const disabled = composerDisabled(disabledOverride, acceptsPrompt, busy);
-  const slashDraft = isSlashDraft(draft);
+  const hasAttachments = attachments.length > 0;
+  const slashDraft = composerSlashDraft(draft, hasAttachments);
   const draftText = draft.trim();
   const commandState = useMemo(() => commandComposerState(draft, commands), [commands, draft]);
   const commandListPending = commandListPendingForDraft({
@@ -155,19 +238,32 @@ function ComposerComponent({
   );
   const hasPendingSteering = chat.pendingSteeringMessageIds.length > 0;
   const modelPickerOpen = isModelPickerOpen(modelPicker);
-  const canSend = canSendComposerDraft(disabled, draftText);
-  const canSendImmediately = canSendImmediateSteeringDraft({
+  const supportsImages = selectedConversationSupportsImages(selectedConversation);
+  const supportsAttachments = composerAttachmentsSupported(hasAttachments, supportsImages);
+  const canSend = canSendComposerDraft({
+    attaching,
     disabled,
     draftText,
-    hasPendingSteering,
+    hasAttachments,
+    supportsAttachments,
+  });
+  const canSendImmediately = canSendImmediateSteeringDraft({
+    attaching,
+    disabled,
+    draftText,
+    hasPendingSteering: immediateSteeringHasContent(hasPendingSteering, hasAttachments),
     running,
     slashDraft,
+    supportsAttachments,
   });
-  const modelPickerDisabled = modelPickerControlDisabled(
-    chat.selectedConversation,
-    disabled,
-    running,
-  );
+  const modelPickerDisabled = modelPickerControlDisabled(selectedConversation, disabled, running);
+
+  useEffect(() => {
+    attachmentContextRef.current = selectedConversationId;
+    setAttachments([]);
+    setAttachmentError(null);
+    setAttaching(false);
+  }, [selectedConversationId]);
 
   useEffect(() => {
     setSelectedSuggestionIndex((current) => {
@@ -259,15 +355,17 @@ function ComposerComponent({
 
   async function sendDraft() {
     const submittedDraft = draft;
+    const submittedAttachments = attachments;
     const prompt = submittedDraft.trim();
-    if (!canSubmitDraft(prompt)) {
+    const input = chatInputFromDraft(prompt, submittedAttachments);
+    if (!canSubmitDraft(input)) {
       return;
     }
     submittingRef.current = true;
     restoreComposerFocusRef.current = true;
     try {
       focusComposerSoon();
-      await submitDraftPrompt(prompt, submittedDraft);
+      await submitDraftPrompt(input, submittedDraft, submittedAttachments);
       focusComposerSoon();
     } catch {
       focusComposerSoon();
@@ -276,19 +374,26 @@ function ComposerComponent({
     }
   }
 
-  function canSubmitDraft(prompt: string) {
+  function canSubmitDraft(input: ChatInput) {
     return (
-      prompt !== "" &&
+      chatInputHasContent(input) &&
       (chat.selectedConversation !== null || onSendPrompt !== undefined) &&
       !disabled &&
+      !attaching &&
+      supportsAttachments &&
       !submittingRef.current
     );
   }
 
-  async function submitDraftPrompt(prompt: string, submittedDraft: string) {
+  async function submitDraftPrompt(
+    input: ChatInput,
+    submittedDraft: string,
+    submittedAttachments: ImageAttachment[],
+  ) {
     if (onSendPrompt) {
-      await onSendPrompt(prompt);
+      await onSendPrompt(input);
       clearDraftIfUnchanged(submittedDraft);
+      clearAttachmentsIfUnchanged(submittedAttachments);
       return;
     }
     if (slashDraft) {
@@ -296,12 +401,14 @@ function ComposerComponent({
       return;
     }
     if (running) {
-      await chat.steerMessage(prompt);
+      await chat.steerMessage(input);
       clearDraftIfUnchanged(submittedDraft);
+      clearAttachmentsIfUnchanged(submittedAttachments);
       return;
     }
-    await chat.sendMessage(prompt);
+    await chat.sendMessage(input);
     clearDraftIfUnchanged(submittedDraft);
+    clearAttachmentsIfUnchanged(submittedAttachments);
   }
 
   async function executeSlashDraft(submittedDraft: string) {
@@ -436,8 +543,17 @@ function ComposerComponent({
 
   async function queueDraft() {
     const submittedDraft = draft;
+    const submittedAttachments = attachments;
     const prompt = submittedDraft.trim();
-    if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
+    const input = chatInputFromDraft(prompt, submittedAttachments);
+    if (
+      !chatInputHasContent(input) ||
+      !chat.selectedConversation ||
+      disabled ||
+      attaching ||
+      !supportsAttachments ||
+      submittingRef.current
+    ) {
       return;
     }
     if (slashDraft) {
@@ -446,8 +562,9 @@ function ComposerComponent({
     submittingRef.current = true;
     try {
       focusComposerSoon();
-      await chat.queueMessage(prompt);
+      await chat.queueMessage(input);
       clearDraftIfUnchanged(submittedDraft);
+      clearAttachmentsIfUnchanged(submittedAttachments);
       focusComposerSoon();
     } catch {
       focusComposerSoon();
@@ -458,14 +575,17 @@ function ComposerComponent({
 
   async function sendImmediateSteering() {
     const submittedDraft = draft;
+    const submittedAttachments = attachments;
     const prompt = submittedDraft.trim();
-    if (!canSubmitImmediateSteering(prompt)) {
+    const input = chatInputFromDraft(prompt, submittedAttachments);
+    if (!canSubmitImmediateSteering(input, prompt)) {
       return;
     }
     submittingRef.current = true;
     try {
-      await chat.sendSteeringImmediately(prompt === "" ? undefined : prompt);
+      await chat.sendSteeringImmediately(chatInputHasContent(input) ? input : undefined);
       clearDraftIfUnchanged(submittedDraft);
+      clearAttachmentsIfUnchanged(submittedAttachments);
     } catch {
       focusComposerSoon();
     } finally {
@@ -473,18 +593,107 @@ function ComposerComponent({
     }
   }
 
-  function canSubmitImmediateSteering(prompt: string) {
+  function canSubmitImmediateSteering(input: ChatInput, prompt: string) {
     return (
       chat.selectedConversation !== null &&
       !submittingRef.current &&
       canSendImmediateSteeringDraft({
+        attaching,
         disabled,
         draftText: prompt,
-        hasPendingSteering,
+        hasPendingSteering: hasPendingSteering || chatInputHasContent(input),
         running,
         slashDraft,
+        supportsAttachments,
       })
     );
+  }
+
+  async function attachFromPicker() {
+    if (!canAttachImages()) {
+      return;
+    }
+    const attachmentContext = attachmentContextRef.current;
+    const remaining = maxComposerImageAttachments - attachments.length;
+    setAttaching(true);
+    setAttachmentError(null);
+    try {
+      const created = await chat.createImageAttachmentsFromPicker(remaining);
+      if (attachmentContextRef.current === attachmentContext) {
+        appendAttachments(created);
+      }
+    } catch (error) {
+      if (attachmentContextRef.current === attachmentContext) {
+        setAttachmentError(error instanceof Error ? error.message : String(error));
+      }
+    } finally {
+      if (attachmentContextRef.current === attachmentContext) {
+        setAttaching(false);
+      }
+    }
+  }
+
+  async function attachFiles(fileList: FileList | File[]) {
+    if (!canAttachImages()) {
+      return;
+    }
+    const attachmentContext = attachmentContextRef.current;
+    const { error, files } = validateComposerAttachmentFiles(fileList, attachments.length);
+    if (error !== null) {
+      setAttachmentError(error);
+      return;
+    }
+    if (files.length === 0) {
+      return;
+    }
+    setAttaching(true);
+    setAttachmentError(null);
+    try {
+      const created = await createImageAttachmentsFromFiles(
+        files,
+        chat.createImageAttachmentFromBytes,
+      );
+      if (attachmentContextRef.current === attachmentContext) {
+        appendAttachments(created.attachments);
+        setAttachmentError(created.error);
+      }
+    } catch (error) {
+      if (attachmentContextRef.current === attachmentContext) {
+        setAttachmentError(error instanceof Error ? error.message : String(error));
+      }
+    } finally {
+      if (attachmentContextRef.current === attachmentContext) {
+        setAttaching(false);
+      }
+    }
+  }
+
+  function canAttachImages() {
+    return (
+      chat.selectedConversation !== null &&
+      !disabled &&
+      supportsImages &&
+      !submittingRef.current &&
+      !attaching &&
+      attachments.length < maxComposerImageAttachments
+    );
+  }
+
+  function appendAttachments(nextAttachments: ImageAttachment[]) {
+    if (nextAttachments.length === 0) {
+      return;
+    }
+    setAttachments((current) => {
+      if (current.length + nextAttachments.length > maxComposerImageAttachments) {
+        setAttachmentError(`A message can include up to ${maxComposerImageAttachments} images.`);
+        return current;
+      }
+      return [...current, ...nextAttachments];
+    });
+  }
+
+  function removeAttachment(attachmentId: string) {
+    setAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
   }
 
   async function openModelPicker() {
@@ -508,6 +717,18 @@ function ComposerComponent({
     <form
       className={cn("workspace-chat-pane-surface px-3 pt-1 pb-1.5", formClassName)}
       data-testid="chat-composer"
+      onDragOver={(event) => {
+        if (dragHasImageFile(event.dataTransfer)) {
+          event.preventDefault();
+        }
+      }}
+      onDrop={(event) => {
+        if (!dragHasImageFile(event.dataTransfer)) {
+          return;
+        }
+        event.preventDefault();
+        void attachFiles(event.dataTransfer.files);
+      }}
       onSubmit={(event) => {
         event.preventDefault();
         void sendDraft();
@@ -565,15 +786,37 @@ function ComposerComponent({
                   stopRun: chat.stopActiveRun,
                 });
               }}
+              onPaste={(event) => {
+                if (!clipboardHasImageFile(event.clipboardData)) {
+                  return;
+                }
+                event.preventDefault();
+                void attachFiles(event.clipboardData.files);
+              }}
               placeholder={placeholder}
               ref={textareaRef}
               rows={2}
               value={draft}
             />
           </div>
+          <AttachmentStrip
+            attachments={attachments}
+            error={attachmentError}
+            onRemove={removeAttachment}
+          />
           <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
             <div className="flex min-w-0 items-center gap-1">
               <PermissionModeUnavailableButton />
+              <button
+                aria-label="Attach image"
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!canAttachImages()}
+                onClick={() => void attachFromPicker()}
+                title={attachmentButtonTitle(supportsImages, attaching)}
+                type="button"
+              >
+                <ImagePlus className="h-3.5 w-3.5" />
+              </button>
             </div>
             <div className="flex min-w-0 items-center gap-1">
               <ModelPickerButton
@@ -616,6 +859,13 @@ function ComposerComponent({
 
   function clearDraftIfUnchanged(submittedDraft: string) {
     replaceDraftIfUnchanged(submittedDraft, "");
+  }
+
+  function clearAttachmentsIfUnchanged(submittedAttachments: ImageAttachment[]) {
+    const submittedIds = submittedAttachments.map((attachment) => attachment.id).join("\n");
+    setAttachments((current) =>
+      current.map((attachment) => attachment.id).join("\n") === submittedIds ? [] : current,
+    );
   }
 
   function replaceDraftIfUnchanged(submittedDraft: string, replacement: string) {
@@ -711,69 +961,4 @@ function commandPaletteShouldOpen(
   modelPicker: ChatCommandExecuteResult | null,
 ) {
   return slashDraft && !paletteDismissed && modelPicker?.result.action !== "model_picker";
-}
-
-type CommandPaletteKeyAction = "complete" | "dismiss" | "next" | "none" | "previous";
-
-function commandPaletteKeyAction(
-  event: KeyboardEvent<HTMLTextAreaElement>,
-  context: {
-    paletteVisible: boolean;
-    slashDraft: boolean;
-    suggestionCount: number;
-  },
-): CommandPaletteKeyAction {
-  if (!context.slashDraft) {
-    return "none";
-  }
-  if (event.key === "Tab" && !event.nativeEvent.isComposing) {
-    return "complete";
-  }
-  if (!context.paletteVisible) {
-    return "none";
-  }
-  if (event.key === "Escape") {
-    return "dismiss";
-  }
-  if (context.suggestionCount === 0) {
-    return "none";
-  }
-  return commandPaletteNavigationKeyAction(event.key);
-}
-
-function commandPaletteNavigationKeyAction(key: string): CommandPaletteKeyAction {
-  if (key === "ArrowDown") {
-    return "next";
-  }
-  if (key === "ArrowUp") {
-    return "previous";
-  }
-  return "none";
-}
-
-function isSlashDraft(draft: string) {
-  return draft.startsWith("/");
-}
-
-export function commandSuggestions(commands: ChatCommandDescriptor[], draft: string) {
-  return commandComposerState(draft, commands).suggestions;
-}
-
-function composerTextareaLabel(selected: boolean) {
-  return selected ? "Ask Setta" : "Start new chat";
-}
-
-function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible: boolean }) {
-  if (!selected || !visible) {
-    return null;
-  }
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute top-0 left-0 flex h-4 items-center gap-1 text-xs leading-4 text-muted-foreground"
-    >
-      <span>Ask</span>
-      <SettaLogoMark className="translate-y-[3px] opacity-60" height={11} />
-    </div>
-  );
 }

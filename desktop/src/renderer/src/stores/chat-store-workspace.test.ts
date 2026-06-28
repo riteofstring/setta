@@ -58,6 +58,7 @@ describe("chat store workspace conversation selection", () => {
         modelDisplayName: "GPT Test",
         reasoningEffort: "xhigh",
         reasoningEffortDisplayName: "Extra high",
+        supportsImages: true,
       },
     };
     const listConversations = vi
@@ -77,6 +78,7 @@ describe("chat store workspace conversation selection", () => {
       modelDisplayName: "GPT Test",
       reasoningEffort: "xhigh",
       reasoningEffortDisplayName: "Extra high",
+      supportsImages: true,
     });
     expect(messagePage).toHaveBeenCalledWith("workspace_api", listedConversation.id, 0, 40);
   });

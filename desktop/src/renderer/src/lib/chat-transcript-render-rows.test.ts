@@ -23,7 +23,14 @@ function chatMessage(
     delivery: "normal",
     id,
     ordinal,
-    parts: [{ format: "plain", id: `${id}_part`, text, type: "text" }],
+    parts: [
+      {
+        id: `${id}_part`,
+        image: null,
+        text: { format: "plain", text },
+        type: "text",
+      },
+    ],
     role,
     runId,
     schemaVersion: 1,

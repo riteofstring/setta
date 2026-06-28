@@ -1,11 +1,13 @@
 import type {
   ChatMessage,
+  ImagePart,
   MessageDelivery,
   MessageRole,
   MessageStatus,
   TranscriptBlock,
   TranscriptBlockStatus,
 } from "@generated/backend";
+import { X } from "lucide-react";
 import { memo, useEffect, useState } from "react";
 
 import { cn } from "../lib/utils";
@@ -13,6 +15,7 @@ import { BrailleSpinner } from "./ascii-spinner";
 import { chatReadableColumnAttributes, chatReadableColumnPaddedClass } from "./chat-layout";
 import { MessageActions, MessageTimestamp } from "./chat-message-actions";
 import { chatMessageText } from "./chat-message-text";
+import { chatInputFromMessageEdit } from "../lib/chat-input";
 import {
   canSaveQueuedEdit,
   isPendingSteeringMessage,
@@ -204,7 +207,7 @@ const MessageRow = memo(function MessageRow({
     if (!canSaveQueuedEdit(message, draft, rowBusy)) {
       return;
     }
-    await rowActions.editQueuedMessage(message.id, draft);
+    await rowActions.editQueuedMessage(message.id, chatInputFromMessageEdit(message, draft.trim()));
     setEditMode(false);
   }
 
@@ -320,7 +323,14 @@ function assistantMessageFromBlock(block: TranscriptBlock): ChatMessage {
     delivery: "normal",
     id: block.id,
     ordinal: block.ordinal,
-    parts: [{ format, id: `${block.id}_part`, text, type: "text" }],
+    parts: [
+      {
+        id: `${block.id}_part`,
+        image: null,
+        text: { format, text },
+        type: "text",
+      },
+    ],
     role: "assistant",
     runId: block.runId,
     schemaVersion: block.schemaVersion,
@@ -384,7 +394,7 @@ function MessageContent({ message }: { message: ChatMessage }) {
   switch (message.role) {
     case "user":
     case "command":
-      return <PlainMessageText text={text} />;
+      return <PlainMessageContent message={message} />;
     case "tool":
       return <ToolMessageContent status={message.status} text={text} />;
     case "assistant":
@@ -396,8 +406,78 @@ function MessageContent({ message }: { message: ChatMessage }) {
   }
 }
 
-function PlainMessageText({ text }: { text: string }) {
-  return <div className="whitespace-pre-wrap">{text}</div>;
+function PlainMessageContent({ message }: { message: ChatMessage }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      {message.parts.map((part) => {
+        if (part.type === "text" && part.text) {
+          return (
+            <div className="whitespace-pre-wrap" key={part.id}>
+              {part.text.text}
+            </div>
+          );
+        }
+        if (part.type === "image" && part.image) {
+          return <MessageImage image={part.image} key={part.id} />;
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+
+function MessageImage({ image }: { image: ImagePart }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const aspectRatio =
+    image.width > 0 && image.height > 0 ? `${image.width} / ${image.height}` : "1 / 1";
+  return (
+    <>
+      <button
+        aria-label={`Preview ${image.fileName}`}
+        className="group/image grid max-h-48 max-w-48 min-w-0 overflow-hidden rounded-sm border border-border bg-background/60 text-left outline-none hover:border-ring focus-visible:border-ring"
+        onClick={() => setPreviewOpen(true)}
+        style={{ aspectRatio }}
+        title={image.fileName}
+        type="button"
+      >
+        <img
+          alt={image.fileName}
+          className="h-full w-full object-cover"
+          decoding="async"
+          loading="lazy"
+          src={image.thumbnailUrl}
+        />
+      </button>
+      {previewOpen ? (
+        <div
+          className="fixed inset-0 z-[90] grid place-items-center bg-background/80 p-4 backdrop-blur-sm"
+          onClick={() => setPreviewOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="relative max-h-full max-w-full"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              aria-label="Close image preview"
+              className="absolute top-2 right-2 z-10 grid h-8 w-8 place-items-center rounded-sm bg-background/80 text-foreground shadow-sm outline-none hover:bg-accent focus-visible:bg-accent"
+              onClick={() => setPreviewOpen(false)}
+              title="Close image preview"
+              type="button"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <img
+              alt={image.fileName}
+              className="max-h-[86vh] max-w-[92vw] rounded-sm object-contain shadow-xl"
+              decoding="async"
+              src={image.previewUrl}
+            />
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 function ToolMessageContent({ status, text }: { status: MessageStatus; text: string }) {

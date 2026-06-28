@@ -196,6 +196,7 @@ type TurnRequest struct {
 	Conversation    Conversation
 	Run             Run
 	Prompt          string
+	Input           ChatInput
 	SemanticContext *semanticcontext.Delivery
 	ThreadRef       HarnessThreadRef
 }
@@ -213,6 +214,7 @@ type SteerRequest struct {
 	ThreadID        string
 	TurnID          string
 	Text            string
+	Input           ChatInput
 	SemanticContext *semanticcontext.Delivery
 }
 

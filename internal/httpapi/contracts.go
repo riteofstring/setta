@@ -116,22 +116,22 @@ type GetMessagePageRequest struct {
 }
 
 type SendChatMessageRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	Prompt         string `json:"prompt"`
+	WorkspaceID    string         `json:"workspaceId"`
+	ConversationID string         `json:"conversationId"`
+	Input          chat.ChatInput `json:"input"`
 }
 
 type QueueChatMessageRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	Prompt         string `json:"prompt"`
+	WorkspaceID    string         `json:"workspaceId"`
+	ConversationID string         `json:"conversationId"`
+	Input          chat.ChatInput `json:"input"`
 }
 
 type EditQueuedChatMessageRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`
-	Prompt         string `json:"prompt"`
+	WorkspaceID    string         `json:"workspaceId"`
+	ConversationID string         `json:"conversationId"`
+	MessageID      string         `json:"messageId"`
+	Input          chat.ChatInput `json:"input"`
 }
 
 type RemoveQueuedChatMessageRequest struct {
@@ -141,15 +141,22 @@ type RemoveQueuedChatMessageRequest struct {
 }
 
 type SteerChatMessageRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	Prompt         string `json:"prompt"`
+	WorkspaceID    string         `json:"workspaceId"`
+	ConversationID string         `json:"conversationId"`
+	Input          chat.ChatInput `json:"input"`
 }
 
 type SendSteeringImmediatelyRequest struct {
+	WorkspaceID    string          `json:"workspaceId"`
+	ConversationID string          `json:"conversationId"`
+	Input          *chat.ChatInput `json:"input,omitempty"`
+}
+
+type CreateChatImageAttachmentFromBytesRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
-	Prompt         string `json:"prompt,omitempty"`
+	FileName       string `json:"fileName"`
+	DataBase64     string `json:"dataBase64"`
 }
 
 type ListChatCommandsRequest struct {
