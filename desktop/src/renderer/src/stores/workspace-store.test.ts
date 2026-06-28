@@ -478,6 +478,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    workspaceActivity: unimplementedWorkspaceActivityAPI(),
     terminal: unimplementedTerminalAPI(),
     semanticGraph: unimplementedSemanticGraphAPI(),
     workflow: unimplementedWorkflowAPI(),
@@ -490,6 +491,18 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       setta: api,
     },
   });
+}
+
+function unimplementedWorkspaceActivityAPI(): SettaAPI["workspaceActivity"] {
+  return {
+    onEvent: () => () => {},
+    snapshot: async () => {
+      throw new Error("workspace activity API is not implemented in this test");
+    },
+    executionSnapshot: async () => {
+      throw new Error("workspace activity API is not implemented in this test");
+    },
+  };
 }
 
 function unimplementedTerminalAPI(): SettaAPI["terminal"] {
@@ -522,6 +535,7 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     executionEvents: unavailable,
     graphProjection: unavailable,
     listDefinitions: unavailable,
+    listExecutions: unavailable,
     onEvent: () => () => {},
     readDefinition: unavailable,
     readExecution: unavailable,

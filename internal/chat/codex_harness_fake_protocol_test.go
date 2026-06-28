@@ -467,6 +467,13 @@ func writeFakeProtocolCoverageNotifications() {
 		"turnId":        "turn_fake",
 		"verifications": []string{"trustedAccessForCyber"},
 	})
+	writeFakeNotification("turn/moderationMetadata", map[string]any{
+		"metadata": map[string]any{
+			"presentation": "inline",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
 	writeFakeNotification("process/outputDelta", map[string]any{
 		"capReached":    false,
 		"deltaBase64":   "cHJvY2VzcyBvdXQK",

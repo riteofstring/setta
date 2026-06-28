@@ -8,6 +8,7 @@ export function noopReactRenderCount() {
 
 export function rendererHandlers(handlers = {}) {
   return {
+    onActivityChipOpen: handlers.onActivityChipOpen ?? null,
     onCameraStateChange: handlers.onCameraStateChange ?? noopCameraStateChange,
     onCanvasContextMenu: handlers.onCanvasContextMenu ?? null,
     onEdgeCreate: handlers.onEdgeCreate,

@@ -8,6 +8,7 @@ import type {
 import { useCallback, useEffect, useState } from "react";
 
 import { useWorkspaceStore } from "../../stores/workspace-store";
+import type { WorkflowGraphUpdateSource } from "./pixi-renderer";
 
 interface SemanticGraphState {
   activitiesByNodeId: Map<string, SemanticActivityInterval[]>;
@@ -16,6 +17,7 @@ interface SemanticGraphState {
   loading: boolean;
   noWorkspace: boolean;
   ready: boolean;
+  updateSource: WorkflowGraphUpdateSource | null;
   workspaceId: string;
 }
 
@@ -78,6 +80,7 @@ export function useSemanticGraphState() {
                 loading: false,
                 noWorkspace: false,
                 ready: true,
+                updateSource: semanticGraphUpdateSourceForRefreshRequest(nextRequest),
                 workspaceId: selectedWorkspaceId,
               }));
             }
@@ -156,6 +159,7 @@ export function useSemanticGraphState() {
               ...current.graph,
               layoutPositions: positions,
             },
+            updateSource: "layout",
           },
     );
   }, []);
@@ -260,6 +264,7 @@ function semanticGraphLoadingState(workspaceId: string): SemanticGraphState {
     loading: true,
     noWorkspace: false,
     ready: false,
+    updateSource: null,
     workspaceId,
   };
 }
@@ -272,8 +277,21 @@ function semanticGraphNoWorkspaceState(workspaceId: string): SemanticGraphState 
     loading: false,
     noWorkspace: workspaceId === "",
     ready: true,
+    updateSource: null,
     workspaceId,
   };
+}
+
+function semanticGraphUpdateSourceForRefreshRequest(
+  request: SemanticGraphRefreshRequest,
+): WorkflowGraphUpdateSource | null {
+  if (request.graph) {
+    return "semantic-graph";
+  }
+  if (request.activity) {
+    return "semantic-activity";
+  }
+  return null;
 }
 
 function errorMessage(error: unknown) {
