@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-PLAN_PATH="docs/plans/workflow_run_navigation_plan.md"
-SENTINEL="WORKFLOW_RUN_NAVIGATION_COMPLETE"
+PLAN_PATH="docs/plans/chat_run_liveness_reconciliation_plan.md"
+SENTINEL="CHAT_RUN_LIVENESS_RECONCILIATION_COMPLETE"
 MODEL="gpt-5.5"
 REASONING_CONFIG='reasoning_effort="xhigh"'
 OUTPUT_DIR=""
@@ -14,15 +14,15 @@ MAX_ITERATIONS="0"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/automation/codex-loop/run-workflow-run-navigation-steps-loop.sh [options]
+Usage: scripts/automation/codex-loop/run-chat-run-liveness-steps-loop.sh [options]
 
 Runs two fresh Codex agents in a loop for:
-  docs/plans/workflow_run_navigation_plan.md
+  docs/plans/chat_run_liveness_reconciliation_plan.md
 
 Agent 1 implements the next coherent step in the plan and commits the work.
 Agent 2 audits the work, fixes or documents any gaps, commits if needed, and
 the loop stops only when Agent 2's final message is exactly:
-  WORKFLOW_RUN_NAVIGATION_COMPLETE
+  CHAT_RUN_LIVENESS_RECONCILIATION_COMPLETE
 
 Codex transcripts are written to per-agent log files. The terminal prints only
 loop status and periodic progress updates.
@@ -186,14 +186,14 @@ if ! command -v codex >/dev/null 2>&1; then
 fi
 
 if [[ -z "${OUTPUT_DIR}" ]]; then
-  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/workflow-run-navigation-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
+  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/chat-run-liveness-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
 else
   mkdir -p "${OUTPUT_DIR}"
 fi
 
 AGENT_ONE_PROMPT="Implement the next coherent step in ${PLAN_PATH}.
 
-First inspect the plan, git history, and current source to determine which step is next. Keep the slice disciplined: finish the smallest plan step that can be verified and committed cleanly. Follow AGENTS.md exactly, including generated contract rules and required Electron/live Codex verification when the touched area requires it. Do not build replay, sidebar run accordions, polling, compatibility shims, or unrelated cleanup.
+First inspect the plan (including phase statuses and Appendix A), git history, and current source to determine which step is next. Keep the slice disciplined: finish the smallest plan step that can be verified and committed cleanly. Follow AGENTS.md exactly, including generated contract rules and required Electron/live Codex verification when the touched area requires it. Do not build a durable event outbox or cross-restart replay, polling or timer-based liveness guessing, text or keyword heuristics, compatibility shims or transitional code, or unrelated cleanup.
 
 When the step is implemented and verified, commit your work. If you are blocked, leave the worktree clean if possible and explain the blocker in your final message."
 

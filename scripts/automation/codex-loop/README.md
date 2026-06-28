@@ -7,7 +7,7 @@ Use `run-codex-plan-loop.sh` for generic plan-driven fresh-session loops and
 `--dangerously-bypass-approvals-and-sandbox` unless
 `--bypass-approvals-and-sandbox` is passed explicitly.
 
-Use `run-workflow-run-navigation-steps-loop.sh` for the dedicated workflow run
-navigation plan loop. It follows the older two-agent step/audit style and runs
-with approvals and sandbox bypassed, because it is intended for long unattended
-repo-local execution.
+Use `run-chat-run-liveness-steps-loop.sh` for the dedicated chat run liveness
+and reconciliation plan loop. It follows the older two-agent step/audit style
+and runs with approvals and sandbox bypassed, because it is intended for long
+unattended repo-local execution.
