@@ -8,8 +8,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"setta/internal/chat"
+	"setta/internal/httpapi"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
@@ -111,6 +115,83 @@ func TestGracefulShutdownStopsServing(t *testing.T) {
 		conn.Close()
 		t.Fatalf("dial after shutdown succeeded")
 	}
+}
+
+func TestShutdownDrainsActiveChatTurnBeforeClosingEvents(t *testing.T) {
+	config := testConfig(t)
+	config.ChatHarness = ChatHarnessScriptedWorkflow
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	shutdown := false
+	defer func() {
+		if !shutdown {
+			shutdownServer(t, server)
+		}
+	}()
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	baseURL := "http://" + server.Addr()
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	conversation := postRuntimeJSON[chat.Conversation](t, client, baseURL, "/chat/conversations/create", httpapi.CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	result := postRuntimeJSON[chat.SendMessageResult](t, client, baseURL, "/chat/messages/send", httpapi.SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Input:          chat.TextChatInput("workflow hold for queue and steering"),
+	}, http.StatusOK)
+	waitForRuntimeAssistantText(t, client, baseURL, opened.Workspace.ID, conversation.ID, result.Run.ID, "Workflow stream started.")
+
+	shutdownServer(t, server)
+	shutdown = true
+
+	store, err := chat.NewStore(config.AppDataDir)
+	if err != nil {
+		t.Fatalf("open chat store: %v", err)
+	}
+	run, err := store.LoadRun(opened.Workspace.ID, result.Run.ID)
+	if err != nil {
+		t.Fatalf("load run after shutdown: %v", err)
+	}
+	if run.Status != chat.RunStatusFailed || run.Error != "run interrupted by backend shutdown" {
+		t.Fatalf("run after shutdown = %+v, want backend shutdown failure", run)
+	}
+	diagnostics, err := store.ListDiagnostics()
+	if err != nil {
+		t.Fatalf("list diagnostics: %v", err)
+	}
+	for _, diagnostic := range diagnostics {
+		switch diagnostic.Code {
+		case "fail_turn_transition_failed", "complete_turn_transition_failed", "cancel_turn_transition_failed", "terminal_turn_publish_failed":
+			t.Fatalf("unexpected terminal transition diagnostic after shutdown: %+v", diagnostic)
+		}
+	}
+}
+
+func waitForRuntimeAssistantText(t *testing.T, client *http.Client, baseURL string, workspaceID string, conversationID string, runID string, want string) {
+	t.Helper()
+
+	deadline := time.Now().Add(3 * time.Second)
+	var lastPage chat.MessagePage
+	for time.Now().Before(deadline) {
+		page := postRuntimeJSON[chat.MessagePage](t, client, baseURL, "/chat/messages/page", httpapi.GetMessagePageRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+			Limit:          40,
+		}, http.StatusOK)
+		lastPage = page
+		for _, message := range page.Messages {
+			if message.RunID == runID && message.Role == chat.RoleAssistant && strings.Contains(runtimeMessageText(t, message), want) {
+				return
+			}
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for assistant text %q; last page = %+v", want, lastPage)
 }
 
 func shutdownServer(t *testing.T, server *Server) {

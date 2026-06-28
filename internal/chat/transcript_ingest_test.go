@@ -865,6 +865,29 @@ func TestServiceClosedEventHubDoesNotAbortTerminalTransition(t *testing.T) {
 	assertClosedEventHubTerminalTransitionSurvivesRestart(t, restarted, workspaceID, conversationID, result.Run.ID)
 }
 
+func TestServiceShutdownActiveTurnsPersistsTerminalStateBeforeClosingEvents(t *testing.T) {
+	appDataDir := t.TempDir()
+	ready := make(chan struct{})
+	release := make(chan struct{})
+	service := newTestService(t, appDataDir, testResolver(t), closedEventHubTransitionHarness(ready, release))
+	workspaceID, conversationID := startTranscriptConversation(t, service)
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	waitForClosedEventHubTransitionReady(t, ready)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := service.ShutdownActiveTurns(ctx); err != nil {
+		t.Fatalf("shutdown active turns: %v", err)
+	}
+	assertShutdownTerminalTransitionPersisted(t, service, workspaceID, conversationID, result.Run.ID)
+
+	restarted := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	assertShutdownTerminalTransitionSurvivesRestart(t, restarted, workspaceID, conversationID, result.Run.ID)
+}
+
 func closedEventHubTransitionHarness(ready chan<- struct{}, release <-chan struct{}) *scriptedTranscriptHarness {
 	return &scriptedTranscriptHarness{
 		start: func(ctx context.Context, _ TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -895,6 +918,37 @@ func waitForClosedEventHubTransitionReady(t *testing.T, ready <-chan struct{}) {
 	case <-ready:
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for scripted provider output")
+	}
+}
+
+func assertShutdownTerminalTransitionPersisted(t *testing.T, service *Service, workspaceID string, conversationID string, runID string) {
+	t.Helper()
+	run := waitForRunStatus(t, service, workspaceID, conversationID, runID, RunStatusFailed)
+	if run.Error != chatServiceShutdownRunError {
+		t.Fatalf("run error = %q, want backend shutdown failure", run.Error)
+	}
+	assertNoDiagnosticCode(t, service, "fail_turn_transition_failed")
+	assertNoDiagnosticCode(t, service, terminalTurnPublishFailedDiagnosticCode)
+	if _, ok, err := service.ActiveRun(workspaceID, conversationID); err != nil || ok {
+		t.Fatalf("active run = ok %v err %v, want none after shutdown", ok, err)
+	}
+	status, ok := firstBlockOfKind(loadPersistedBlocks(t, service, workspaceID, runID), TranscriptBlockKindRunStatus)
+	if !ok || status.RunStatus.Mode != RunStatusBlockModeFailed || status.RunStatus.Error != run.Error {
+		t.Fatalf("terminal run_status = %+v ok %v, want failed with run error %q", status.RunStatus, ok, run.Error)
+	}
+}
+
+func assertShutdownTerminalTransitionSurvivesRestart(t *testing.T, restarted *Service, workspaceID string, conversationID string, runID string) {
+	t.Helper()
+	run, err := restarted.store.LoadRun(workspaceID, runID)
+	if err != nil {
+		t.Fatalf("load restarted run: %v", err)
+	}
+	if run.Status != RunStatusFailed || run.Error != chatServiceShutdownRunError {
+		t.Fatalf("restarted run = %+v, want backend shutdown failure", run)
+	}
+	if _, ok, err := restarted.ActiveRun(workspaceID, conversationID); err != nil || ok {
+		t.Fatalf("restarted active run = ok %v err %v, want none", ok, err)
 	}
 }
 

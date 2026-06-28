@@ -35,6 +35,9 @@ type Service struct {
 
 	mu     sync.Mutex
 	active map[string]activeTurn
+
+	shuttingDown bool
+	turnWG       sync.WaitGroup
 }
 
 type Option func(*Service)
@@ -238,7 +241,9 @@ func (service *Service) SendUserInput(workspaceID string, conversationID string,
 		Input:        deliveryInput,
 		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}
-	go service.runHarnessTurn(ctx, request)
+	if err := service.launchHarnessTurnLocked(ctx, request); err != nil {
+		return SendMessageResult{}, err
+	}
 
 	page, err := service.loadMessagePageLocked(workspaceID, conversationID, 0, defaultPageLimit)
 	if err != nil {

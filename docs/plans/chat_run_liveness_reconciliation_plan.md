@@ -1,9 +1,10 @@
 # Chat Run Liveness And Reconciliation Plan
 
 - **Date:** July 1, 2026
-- **Status:** Draft v3. Phase 0 provider truth spike completed; the
-  reconciliation decisions below are grounded in the trigger recording,
-  current code paths, and the live app-server findings in Appendix A.
+- **Status:** Draft v3. Phases 0-2 completed; Phase 3 backend liveness
+  projection is next. The reconciliation decisions below are grounded in the
+  trigger recording, current code paths, and the live app-server findings in
+  Appendix A.
 - **Trigger recording:** `.recordings/20260701T215826Z`
 - **Scope:** Chat runs driven by Codex app-server through the production
   Electron/main/preload/renderer/HTTP/store paths.
@@ -312,7 +313,10 @@ Concretely:
   cancel and drain in-flight turn goroutines (bounded), let their terminal
   transitions complete against an open hub, then close event streams, HTTP,
   and the provider. `fail_turn_transition_failed: event hub is closed` must
-  become unreachable.
+  become unreachable. Phase 2 implements graceful shutdown as an explicit
+  local terminal failure with error `run interrupted by backend shutdown`;
+  startup recovery keeps using `run interrupted by backend restart` for
+  persisted running runs left by ungraceful exit.
 - Keep the existing ring buffer, cursor replay, `chat.resync_required`, and
   stream-id rotation exactly as they are. Add coverage that overflow/mismatch
   actually forces a renderer snapshot resync if none exists.
@@ -416,6 +420,10 @@ via `cmd/generate-codex-protocol`.
 
 ### Phase 1 - Characterize And Freeze The Failure
 
+Status: Complete. Added deterministic coverage for the closed-event-hub
+terminal mismatch and startup recovery of terminal `run_status` blocks left
+beside a still-running canonical run.
+
 Deterministic coverage reproducing both root causes without real sleep:
 
 - provider turn emits deltas, then never emits terminal turn completion; the
@@ -430,6 +438,11 @@ Deterministic coverage reproducing both root causes without real sleep:
   `run_status` block + running canonical run).
 
 ### Phase 2 - Terminal Transition Ordering And Shutdown Drain
+
+Status: Complete. Terminal transcript/run writes now happen before terminal
+event publishes, publish failures are recorded as diagnostics instead of
+aborting durable transitions, and runtime shutdown drains active chat turns
+while the chat event hub is still open.
 
 The small, surgical fix for root cause 2 (see Event Delivery Contract):
 durable writes before publishes, publish failures demoted to diagnostics,

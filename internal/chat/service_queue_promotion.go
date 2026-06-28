@@ -53,6 +53,9 @@ func (service *Service) nextQueuedPromotionCandidateIfIdle(workspaceID string, c
 }
 
 func (service *Service) queuedPromotionRunsIfIdleLocked(workspaceID string, conversationID string) ([]Run, error) {
+	if service.shuttingDown {
+		return nil, nil
+	}
 	if service.hasActiveTurnLocked(workspaceID, conversationID) {
 		return nil, nil
 	}

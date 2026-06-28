@@ -416,7 +416,9 @@ func (service *Service) startGoalOperationLocked(workspaceSummary workspace.Work
 		Input:        deliveryInput,
 		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}
-	go service.runHarnessGoalOperation(ctx, request, operation)
+	if err := service.launchHarnessGoalOperationLocked(ctx, request, operation); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

@@ -474,16 +474,36 @@ func (service *Service) startImmediateSteeringReplay(workspaceSummary workspace.
 	if err != nil {
 		return service.abortImmediateSteeringReplayStartLocked(workspaceID, conversationID, key, run.ID, cancel, err)
 	}
+	reservation, err := service.reserveHarnessTaskLocked()
+	if err != nil {
+		return service.abortImmediateSteeringReplayStartLocked(workspaceID, conversationID, key, run.ID, cancel, err)
+	}
 	ids := messageIDs(pending)
 	service.mu.Unlock()
 
+	if err := service.compileAndLaunchImmediateSteeringReplayTurn(workspaceSummary, conversation, run, userMessage, deliveryInput, ctx, cancel, reservation); err != nil {
+		return ImmediateSteeringResult{}, err
+	}
+	return ImmediateSteeringResult{
+		ActiveRun:                  run,
+		CancelledRun:               cancelledRun,
+		Conversation:               conversation,
+		Page:                       page,
+		Queue:                      queue,
+		ReplayedSteeringMessageIDs: ids,
+	}, nil
+}
+
+func (service *Service) compileAndLaunchImmediateSteeringReplayTurn(workspaceSummary workspace.WorkspaceSummary, conversation Conversation, run Run, userMessage ChatMessage, deliveryInput ChatInput, ctx context.Context, cancel context.CancelFunc, reservation harnessTaskReservation) error {
 	semanticDelivery, err := service.compileSemanticContextForChatTurn(context.Background(), semanticcontext.TriggerImmediateSteeringReplay, conversation, run, userMessage.ID, messageText(userMessage))
 	if err != nil {
 		cancel()
-		if failErr := service.failTurn(workspaceID, conversationID, run.ID, err.Error()); failErr != nil {
-			return ImmediateSteeringResult{}, failErr
+		if failErr := service.failTurn(workspaceSummary.ID, conversation.ID, run.ID, err.Error()); failErr != nil {
+			reservation.release()
+			return failErr
 		}
-		return ImmediateSteeringResult{}, err
+		reservation.release()
+		return err
 	}
 	request := TurnRequest{
 		Workspace:       workspaceSummary,
@@ -493,15 +513,8 @@ func (service *Service) startImmediateSteeringReplay(workspaceSummary workspace.
 		SemanticContext: semanticDelivery,
 		ThreadRef:       latestHarnessRef(conversation, HarnessCodex),
 	}
-	go service.runHarnessTurn(ctx, request)
-	return ImmediateSteeringResult{
-		ActiveRun:                  run,
-		CancelledRun:               cancelledRun,
-		Conversation:               conversation,
-		Page:                       page,
-		Queue:                      queue,
-		ReplayedSteeringMessageIDs: ids,
-	}, nil
+	service.launchHarnessTurn(reservation, ctx, request)
+	return nil
 }
 
 func (service *Service) abortImmediateSteeringReplayStartLocked(workspaceID string, conversationID string, key string, runID string, cancel context.CancelFunc, startErr error) (ImmediateSteeringResult, error) {
@@ -719,7 +732,9 @@ func (service *Service) promoteNextQueuedRunLocked(workspaceSummary workspace.Wo
 		Input:        deliveryInput,
 		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}
-	go service.runHarnessTurn(ctx, request)
+	if err := service.launchHarnessTurnLocked(ctx, request); err != nil {
+		return err
+	}
 	return nil
 }
 

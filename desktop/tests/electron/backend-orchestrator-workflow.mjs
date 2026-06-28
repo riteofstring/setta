@@ -117,8 +117,8 @@ async function exerciseBackendOrchestratorRecoveryLaunch({ context, recovery, se
   if (work.status !== "failed") {
     throw new Error(`recovered work status = ${work.status}, want failed`);
   }
-  if (work.recoveryMessage === "" || work.error !== "run interrupted by backend restart") {
-    throw new Error(`recovered work = ${JSON.stringify(work)}, want restart failure message`);
+  if (work.recoveryMessage === "" || work.error !== "run interrupted by backend shutdown") {
+    throw new Error(`recovered work = ${JSON.stringify(work)}, want shutdown failure message`);
   }
   const page = await rendererWorkflow(context.client, "executionEvents", [
     recovery.workspaceId,

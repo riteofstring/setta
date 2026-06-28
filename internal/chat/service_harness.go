@@ -4,7 +4,127 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 )
+
+const chatServiceShutdownRunError = "run interrupted by backend shutdown"
+
+type harnessTaskReservation func()
+
+type activeTurnShutdownSnapshot struct {
+	cancel         context.CancelFunc
+	conversationID string
+	runID          string
+	workspaceID    string
+}
+
+func (service *Service) launchHarnessTurnLocked(ctx context.Context, request TurnRequest) error {
+	reservation, err := service.reserveHarnessTaskLocked()
+	if err != nil {
+		return err
+	}
+	service.launchHarnessTurn(reservation, ctx, request)
+	return nil
+}
+
+func (service *Service) launchHarnessGoalOperationLocked(ctx context.Context, request TurnRequest, operation HarnessGoalOperation) error {
+	reservation, err := service.reserveHarnessTaskLocked()
+	if err != nil {
+		return err
+	}
+	service.launchHarnessGoalOperation(reservation, ctx, request, operation)
+	return nil
+}
+
+func (service *Service) reserveHarnessTaskLocked() (harnessTaskReservation, error) {
+	if service.shuttingDown {
+		return nil, errors.New("chat service is shutting down")
+	}
+	service.turnWG.Add(1)
+	return service.turnWG.Done, nil
+}
+
+func (service *Service) launchHarnessTurn(reservation harnessTaskReservation, ctx context.Context, request TurnRequest) {
+	go func() {
+		defer reservation()
+		service.runHarnessTurn(ctx, request)
+	}()
+}
+
+func (service *Service) launchHarnessGoalOperation(reservation harnessTaskReservation, ctx context.Context, request TurnRequest, operation HarnessGoalOperation) {
+	go func() {
+		defer reservation()
+		service.runHarnessGoalOperation(ctx, request, operation)
+	}()
+}
+
+func (reservation harnessTaskReservation) release() {
+	if reservation != nil {
+		reservation()
+	}
+}
+
+func (service *Service) ShutdownActiveTurns(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("shutdown context is required")
+	}
+	turns := service.activeTurnShutdownSnapshot()
+	var shutdownErr error
+	for _, turn := range turns {
+		if err := service.failTurn(turn.workspaceID, turn.conversationID, turn.runID, chatServiceShutdownRunError); err != nil {
+			shutdownErr = firstChatShutdownError(shutdownErr, err)
+		}
+		turn.cancel()
+	}
+	return firstChatShutdownError(shutdownErr, service.waitForHarnessTasks(ctx))
+}
+
+func (service *Service) activeTurnShutdownSnapshot() []activeTurnShutdownSnapshot {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	service.shuttingDown = true
+	turns := make([]activeTurnShutdownSnapshot, 0, len(service.active))
+	for key, active := range service.active {
+		workspaceID, conversationID, ok := splitActiveKey(key)
+		if !ok || active.cancel == nil {
+			continue
+		}
+		turns = append(turns, activeTurnShutdownSnapshot{
+			cancel:         active.cancel,
+			conversationID: conversationID,
+			runID:          active.runID,
+			workspaceID:    workspaceID,
+		})
+	}
+	return turns
+}
+
+func splitActiveKey(key string) (string, string, bool) {
+	workspaceID, conversationID, ok := strings.Cut(key, "\x00")
+	return workspaceID, conversationID, ok
+}
+
+func (service *Service) waitForHarnessTasks(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		service.turnWG.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func firstChatShutdownError(current error, next error) error {
+	if current != nil {
+		return current
+	}
+	return next
+}
 
 func (service *Service) runHarnessTurn(ctx context.Context, request TurnRequest) {
 	sink := turnSink{service: service, workspaceID: request.Workspace.ID, conversationID: request.Conversation.ID, runID: request.Run.ID}

@@ -99,7 +99,9 @@ func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request 
 		SemanticContext: request.SemanticContext,
 		ThreadRef:       latestHarnessRef(conversation, HarnessCodex),
 	}
-	go service.runHarnessTurn(ctx, turnRequest)
+	if err := service.launchHarnessTurnLocked(ctx, turnRequest); err != nil {
+		return SendMessageResult{}, err
+	}
 
 	page, err := service.loadMessagePageLocked(workspaceID, conversation.ID, 0, defaultPageLimit)
 	if err != nil {
