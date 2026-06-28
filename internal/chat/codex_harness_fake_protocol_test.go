@@ -1280,6 +1280,10 @@ func writeFakeErrorResponse(id any, code int, message string) {
 	writeFake(map[string]any{"id": id, "error": map[string]any{"code": code, "message": message}})
 }
 
+func writeFakeErrorResponseData(id any, code int, message string, data map[string]any) {
+	writeFake(map[string]any{"id": id, "error": map[string]any{"code": code, "data": data, "message": message}})
+}
+
 func writeFakeNotification(method string, params any) {
 	writeFake(map[string]any{"method": method, "params": params})
 }

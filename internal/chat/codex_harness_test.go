@@ -1182,6 +1182,7 @@ type fakeCodexState struct {
 	goalCleared          bool
 	goalPaused           bool
 	holdCalls            int
+	interruptCalls       int
 	modelListCalls       int
 	responseOutstanding  string
 	currentThreadID      string
@@ -1314,6 +1315,9 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		state.goalCleared = true
 		if fakeGoalOperationMode(mode) {
 			writeFakeThreadGoalCleared()
+			if mode == "goal-operation-clear-command" {
+				writeFakeCompletedTurnID("turn_goal_command", "completed")
+			}
 		}
 		writeFakeResponse(message["id"], map[string]any{"cleared": true})
 		return fakeCommandDone(mode)
@@ -1332,11 +1336,43 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 }
 
 func handleFakeTurnInterrupt(mode string, state *fakeCodexState, message map[string]any) bool {
-	if mode == "goal-operation-cancel" && !state.goalPaused {
+	if (mode == "goal-operation-cancel" || mode == "goal-operation-cancel-no-completion") && !state.goalPaused {
 		writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
 		return true
 	}
+	if mode == "goal-operation-stale-interrupt-retry" {
+		if !state.goalPaused {
+			writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
+			return true
+		}
+		state.interruptCalls++
+		params := fakeParams(message)
+		switch state.interruptCalls {
+		case 1:
+			if params["turnId"] != "turn_goal_stale" {
+				panic("first stale interrupt used wrong turn id")
+			}
+			writeFakeErrorResponseData(message["id"], -32600, "expected active turn id `turn_goal_stale` but found `turn_goal_active`", map[string]any{"activeTurnId": "turn_goal_active"})
+			return false
+		case 2:
+			if params["turnId"] != "turn_goal_active" {
+				panic("retry interrupt used wrong active turn id")
+			}
+			writeFakeResponse(message["id"], map[string]any{})
+			writeFakeCompletedTurnID("turn_goal_active", "interrupted")
+			return true
+		default:
+			panic("unexpected extra stale interrupt retry")
+		}
+	}
 	writeFakeResponse(message["id"], map[string]any{})
+	if mode == "goal-operation-cancel-no-completion" {
+		return false
+	}
+	if mode == "goal-operation-cancel" {
+		writeFakeCompletedTurnID("turn_goal_cancel", "interrupted")
+		return true
+	}
 	writeFakeCompletedTurn("interrupted")
 	return true
 }

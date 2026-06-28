@@ -229,6 +229,8 @@ func (continuation *scriptedGoalContinuation) Wait(ctx context.Context, request 
 	return completion, nil
 }
 
+func (continuation *scriptedGoalContinuation) Cancel(context.Context) error { return nil }
+
 func (continuation *scriptedGoalContinuation) Close() {}
 
 func (harness *ScriptedWorkflowHarness) completeGoal(threadID string) *ChatGoalState {

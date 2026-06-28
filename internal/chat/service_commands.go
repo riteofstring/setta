@@ -132,6 +132,9 @@ func (service *Service) prepareCommandExecutionLocked(workspaceID string, conver
 	if err != nil {
 		return commandExecutionState{}, err
 	}
+	if err := service.ensureNoCommandCancellationDrainLocked(workspaceID, conversationID); err != nil {
+		return commandExecutionState{}, err
+	}
 	if err := ensureCommandAvailable(command, activeRun); err != nil {
 		return commandExecutionState{}, err
 	}
@@ -147,6 +150,14 @@ func (service *Service) prepareCommandExecutionLocked(workspaceID string, conver
 		err = service.ensureCanStartTurnLocked(workspaceID, conversationID, activeKey(workspaceID, conversationID))
 	}
 	return state, err
+}
+
+func (service *Service) ensureNoCommandCancellationDrainLocked(workspaceID string, conversationID string) error {
+	active, ok := service.active[activeKey(workspaceID, conversationID)]
+	if !ok || active.workspaceID != workspaceID || !active.cancelDrain {
+		return nil
+	}
+	return fmt.Errorf("conversation already has an active turn: %s", conversationID)
 }
 
 func (service *Service) ensureGoalReplacementConfirmedLocked(workspaceID string, conversationID string, command ChatCommand, options ChatCommandExecutionOptions) error {
@@ -360,6 +371,7 @@ func (service *Service) startGoalContinuationLocked(workspaceSummary workspace.W
 	service.active[key] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
+		goalContinuation: continuation,
 		runID:            run.ID,
 		workspaceID:      workspaceSummary.ID,
 		transcript:       ingest,

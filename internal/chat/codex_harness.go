@@ -359,12 +359,15 @@ func (harness *CodexHarness) CancelTurn(ctx context.Context, request CancelReque
 	if active == nil {
 		return fmt.Errorf("%w: codex turn is not active for run %s", ErrTurnNotStarted, request.RunID)
 	}
+	if operation, ok := harness.goalOperationForThread(active.threadID); ok {
+		return operation.Cancel(ctx)
+	}
 	if active.threadID == "" || active.turnID == "" {
 		return ErrTurnNotStarted
 	}
-	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnInterrupt, map[string]any{
-		"threadId": active.threadID,
-		"turnId":   active.turnID,
+	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnInterrupt, codexapp.TurnInterruptParams{
+		ThreadID: active.threadID,
+		TurnID:   active.turnID,
 	})
 	return err
 }

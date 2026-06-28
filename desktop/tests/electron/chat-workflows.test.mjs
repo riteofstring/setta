@@ -68,6 +68,8 @@ import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-wor
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
+  runProtocolGoalCancellationWorkflow,
+  runProtocolGoalMultiTurnWorkflow,
 } from "./codex-protocol-workflow.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
 
@@ -1277,26 +1279,8 @@ async function runCodexProtocolWorkflow(results) {
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 
-    const goalConversationId = await createChat(context.client, backend, workspaceId);
-    await submitComposer(context.client, "/goal phase0 codex multi turn", "Send message");
-    const goalCommandPage = await waitForCommandResult(
-      backend,
-      workspaceId,
-      goalConversationId,
-      "Goal set: phase0 codex multi turn",
-    );
-    const goalRunId = goalRunIDFromCommandPage(goalCommandPage);
-    const goalRun = await waitForRunStatus(
-      backend,
-      workspaceId,
-      goalConversationId,
-      goalRunId,
-      "completed",
-    );
-    await assertAssistantCompleted(backend, workspaceId, goalConversationId, goalRun.id);
-    await waitForGoalStatus(backend, workspaceId, goalConversationId, "complete");
-    await waitForTexts(context.client, ["Goal turn A.", "Goal turn B."]);
-    await assertNoActiveRun(backend, workspaceId, goalConversationId);
+    await runProtocolGoalMultiTurnWorkflow(context.client, backend, workspaceId);
+    await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);
 
     const exitConversationId = await createChat(context.client, backend, workspaceId);
     await submitComposer(context.client, "app-server exit workflow", "Send message");
@@ -1333,6 +1317,7 @@ async function runCodexProtocolWorkflow(results) {
       "/chat/messages/send",
       "/chat/messages/page",
       "/chat/commands/execute",
+      "/chat/runs/cancel",
       "/chat/runs/activity",
       "/chat/runs/list",
       "/chat/diagnostics/list",
@@ -1340,22 +1325,13 @@ async function runCodexProtocolWorkflow(results) {
     ipcChannels: [
       "workspace:open-local-folder",
       "chat:create-conversation",
+      "chat:cancel-run",
       "chat:execute-command",
       "chat:send-message",
     ],
   });
   results.push("codex-protocol-notifications");
   process.stdout.write("Electron chat workflow passed: codex-protocol-notifications\n");
-}
-
-function goalRunIDFromCommandPage(page) {
-  const assistant = page.messages.find(
-    (message) => message.role === "assistant" && message.runId !== "",
-  );
-  if (!assistant) {
-    throw new Error(`goal command page did not include assistant run: ${JSON.stringify(page)}`);
-  }
-  return assistant.runId;
 }
 
 async function runRestartWorkflow(results) {

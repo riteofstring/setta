@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"setta/internal/semanticcontext"
 	"setta/internal/workspace"
@@ -163,8 +164,15 @@ type HarnessGoalContinuationStarter interface {
 }
 
 type HarnessGoalContinuation interface {
+	// Wait must return promptly when ctx is canceled. Cancel requests provider-side
+	// cancellation; the service still owns the context fallback that unblocks Wait.
 	Wait(context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
+	Cancel(context.Context) error
 	Close()
+}
+
+type HarnessGoalContinuationCancelDrainer interface {
+	CancelDrainTimeout() time.Duration
 }
 
 type TurnOutcome string

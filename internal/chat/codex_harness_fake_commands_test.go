@@ -9,6 +9,9 @@ func handleFakeGoalGet(mode string, message map[string]any) bool {
 	case "goal-operation-set-preserves-old", "goal-operation-resume":
 		writeFakeGoalResponse(message["id"], "existing provider goal", "active")
 		return false
+	case "goal-operation-cancel", "goal-operation-cancel-no-completion", "goal-operation-clear-command", "goal-operation-pause-command", "goal-operation-stale-interrupt-retry":
+		writeFakeGoalResponse(message["id"], "finish renderer tests", "active")
+		return false
 	}
 	writeFakeResponse(message["id"], map[string]any{"goal": nil})
 	return fakeCommandDone(mode)
@@ -47,10 +50,13 @@ func handleFakeGoalOperationPauseSet(mode string, state *fakeCodexState, message
 		return false, false
 	}
 	switch mode {
-	case "goal-operation-cancel":
+	case "goal-operation-cancel", "goal-operation-cancel-no-completion", "goal-operation-pause-command", "goal-operation-stale-interrupt-retry":
 		state.goalPaused = true
 		writeFakeGoalResponse(message["id"], "finish renderer tests", "paused")
 		writeFakeThreadGoalUpdated("finish renderer tests", "paused")
+		if mode == "goal-operation-pause-command" {
+			writeFakeCompletedTurnID("turn_goal_command", "completed")
+		}
 		return true, false
 	case "goal-operation-set-invalid-response":
 		state.goalPaused = true
@@ -102,10 +108,20 @@ func handleFakeGoalOperationPostResponseEvents(mode string, objective string) bo
 		return false
 	case "goal-operation-exit-before-runtime-turn":
 		return true
-	case "goal-operation-cancel":
+	case "goal-operation-cancel", "goal-operation-cancel-no-completion":
 		writeFakeThreadGoalUpdated(objective, "active")
 		writeFakeTurnStartedForThread("thread_fake", "turn_goal_cancel")
 		writeFakeAssistantDeltaForTurn("turn_goal_cancel", "item_goal_cancel", "goal cancellation waiting. ")
+		return false
+	case "goal-operation-stale-interrupt-retry":
+		writeFakeThreadGoalUpdated(objective, "active")
+		writeFakeTurnStartedForThread("thread_fake", "turn_goal_stale")
+		writeFakeAssistantDeltaForTurn("turn_goal_stale", "item_goal_stale", "goal stale cancellation waiting. ")
+		return false
+	case "goal-operation-clear-command", "goal-operation-pause-command":
+		writeFakeThreadGoalUpdated(objective, "active")
+		writeFakeTurnStartedForThread("thread_fake", "turn_goal_command")
+		writeFakeAssistantDeltaForTurn("turn_goal_command", "item_goal_command", "goal command waiting. ")
 		return false
 	case "goal-operation-clear-during-turn":
 		writeFakeGoalOperationClearDuringTurn(objective)

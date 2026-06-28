@@ -46,6 +46,8 @@ type activeTurn struct {
 	assistantTextByProviderItem map[string]assistantProviderTextState
 	completedAssistantTexts     []string
 	cancel                      context.CancelFunc
+	cancelDrain                 bool
+	goalContinuation            HarnessGoalContinuation
 	lastPersistedAt             time.Time
 	runID                       string
 	threadID                    string
@@ -277,107 +279,6 @@ func (service *Service) publishTurnStartEventsLocked(workspaceID string, convers
 		return err
 	}
 	return service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID)
-}
-
-func (service *Service) CancelActiveRun(workspaceID string, conversationID string) (Run, error) {
-	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
-		return Run{}, err
-	}
-	service.mu.Lock()
-	key := activeKey(workspaceID, conversationID)
-	active, ok := service.active[key]
-	if !ok || active.workspaceID != workspaceID {
-		runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
-		if err != nil {
-			service.mu.Unlock()
-			return Run{}, err
-		}
-		run, exists, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
-		service.mu.Unlock()
-		if err != nil {
-			return Run{}, err
-		}
-		if !exists {
-			return Run{}, fmt.Errorf("conversation has no active run: %s", conversationID)
-		}
-		return Run{}, fmt.Errorf("active run %s is not attached to this backend process", run.ID)
-	}
-
-	run, err := service.store.LoadRun(workspaceID, active.runID)
-	if err != nil {
-		service.mu.Unlock()
-		return Run{}, err
-	}
-	service.mu.Unlock()
-
-	err = service.harness.CancelTurn(context.Background(), CancelRequest{
-		RunID:          run.ID,
-		WorkspaceID:    workspaceID,
-		ConversationID: conversationID,
-	})
-	if err != nil && !errors.Is(err, ErrTurnNotStarted) {
-		return Run{}, err
-	}
-	active.cancel()
-	return service.markTurnCancelled(workspaceID, conversationID, active.runID)
-}
-
-func (service *Service) markTurnCancelled(workspaceID string, conversationID string, runID string) (Run, error) {
-	return service.markTurnCancelledWithReason(workspaceID, conversationID, runID, "turn cancelled", "cancellation_requested", "Turn cancellation requested")
-}
-
-func (service *Service) markTurnCancelledWithReason(workspaceID string, conversationID string, runID string, runError string, traceType string, traceMessage string) (Run, error) {
-	return service.markTurnCancelledWithOptions(workspaceID, conversationID, runID, runError, traceType, traceMessage, true)
-}
-
-func (service *Service) markTurnCancelledWithOptions(workspaceID string, conversationID string, runID string, runError string, traceType string, traceMessage string, reconcilePendingSteering bool) (Run, error) {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	key := activeKey(workspaceID, conversationID)
-	active, ok := service.active[key]
-	if !ok || active.runID != runID {
-		run, err := service.store.LoadRun(workspaceID, runID)
-		return run, err
-	}
-	run, err := service.store.LoadRun(workspaceID, runID)
-	if err != nil {
-		return Run{}, err
-	}
-	if run.Status != RunStatusRunning {
-		delete(service.active, key)
-		return run, nil
-	}
-	now := timestamp(service.now())
-	message := active.assistantMessage
-	message.Status = MessageStatusCancelled
-	message.UpdatedAt = now
-	run.Status = RunStatusCancelled
-	run.CompletedAt = now
-	run.Error = runError
-	run.PendingApproval = nil
-	// Finalize transcript blocks before the terminal store record (see completeTurn).
-	if err := service.finalizeTranscriptBlocksLocked(workspaceID, active.transcript, TranscriptBlockStatusCancelled, runError); err != nil {
-		return Run{}, err
-	}
-	records, err := service.store.CancelTurn(TerminalTurnRecords{AssistantMessage: message, Run: run})
-	if err != nil {
-		return Run{}, err
-	}
-	message = records.AssistantMessage
-	run = records.Run
-	pendingSteering, err := service.markTerminalPendingSteeringLocked(workspaceID, conversationID, run.ID, MessageStatusCancelled, reconcilePendingSteering)
-	if err != nil {
-		return Run{}, err
-	}
-	if err := service.traceLocked(workspaceID, run.ID, traceType, traceMessage); err != nil {
-		return Run{}, err
-	}
-	delete(service.active, key)
-	if err := service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering); err != nil {
-		return Run{}, err
-	}
-	return run, nil
 }
 
 func (service *Service) ActiveRun(workspaceID string, conversationID string) (Run, bool, error) {
@@ -715,7 +616,7 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 
 func (service *Service) overlayActiveAssistantMessageLocked(workspaceID string, conversationID string, beforeOrdinal int, page MessagePage) MessagePage {
 	active, ok := service.active[activeKey(workspaceID, conversationID)]
-	if !ok {
+	if !ok || active.cancelDrain {
 		return page
 	}
 	message := cloneMessage(active.assistantMessage)

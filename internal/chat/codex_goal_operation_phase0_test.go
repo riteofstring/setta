@@ -304,7 +304,6 @@ func TestCodexHarnessGoalOperationRequiresPersistedIdleThread(t *testing.T) {
 }
 
 func TestCodexHarnessGoalOperationCancelPausesAndInterrupts(t *testing.T) {
-	phase0FreezeCurrentGap(t, "Phase 4", "operation-aware pause-before-interrupt cancellation")
 	harness := NewCodexHarness(testCodexConfig("goal-operation-cancel"))
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	conversation, err := service.CreateConversation("workspace_api", "")
@@ -324,14 +323,65 @@ func TestCodexHarnessGoalOperationCancelPausesAndInterrupts(t *testing.T) {
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusRunning)
 	waitForPhase0ActiveCodexTurn(t, harness, runs[0].ID)
 
-	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err == nil {
+	cancelled, err := service.CancelActiveRun("workspace_api", conversation.ID)
+	if err != nil {
 		cancelPhase0ActiveRunForCleanup(t, service, "workspace_api", conversation.ID)
-		t.Fatal("cancel goal operation succeeded, want current interrupt-before-pause provider error")
-	} else if !strings.Contains(err.Error(), "goal pause is required before interrupt") {
-		cancelPhase0ActiveRunForCleanup(t, service, "workspace_api", conversation.ID)
-		t.Fatalf("cancel goal operation error = %v, want current pause-before-interrupt provider error", err)
+		t.Fatalf("cancel goal operation: %v", err)
 	}
-	cancelPhase0ActiveRunForCleanup(t, service, "workspace_api", conversation.ID)
+	if cancelled.Status != RunStatusCancelled {
+		t.Fatalf("cancelled run status = %s, want cancelled", cancelled.Status)
+	}
+	waitForGoalOperationReleased(t, harness, "thread_fake")
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load cancelled message page: %v", err)
+	}
+	if page.Goal == nil || page.Goal.Status != "paused" {
+		t.Fatalf("page goal = %+v, want provider paused goal after cancellation", page.Goal)
+	}
+}
+
+func TestCodexHarnessGoalOperationCancelRetriesDeterministicStaleTurn(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-stale-interrupt-retry"))
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal finish renderer tests"); err != nil {
+		t.Fatalf("execute goal command: %v", err)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal run", runs)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusRunning)
+	waitForPhase0ActiveCodexTurnID(t, harness, runs[0].ID, "turn_goal_stale")
+
+	cancelled, err := service.CancelActiveRun("workspace_api", conversation.ID)
+	if err != nil {
+		cancelPhase0ActiveRunForCleanup(t, service, "workspace_api", conversation.ID)
+		t.Fatalf("cancel goal operation with stale turn retry: %v", err)
+	}
+	if cancelled.Status != RunStatusCancelled {
+		t.Fatalf("cancelled run status = %s, want cancelled", cancelled.Status)
+	}
+	waitForGoalOperationReleased(t, harness, "thread_fake")
+}
+
+func waitForGoalOperationReleased(t *testing.T, harness *CodexHarness, threadID string) {
+	t.Helper()
+	deadline := time.Now().Add(phase0BlockingFreezeTimeout)
+	for time.Now().Before(deadline) {
+		if !harness.hasGoalOperation(threadID) {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("goal operation route owner leaked for thread %s", threadID)
 }
 
 func waitForPhase0ActiveCodexTurn(t *testing.T, harness *CodexHarness, runID string) {
@@ -493,6 +543,96 @@ func TestServiceGoalOperationProviderClearCompletesAfterCurrentPhysicalTurn(t *t
 	}
 	if page.Goal != nil {
 		t.Fatalf("page goal = %+v, want provider clear persisted", page.Goal)
+	}
+}
+
+func TestServiceGoalOperationPauseCommandCompletesExistingRun(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-pause-command"))
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	defer cancelPhase0ActiveRunForCleanup(t, service, "workspace_api", conversation.ID)
+
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal finish renderer tests"); err != nil {
+		t.Fatalf("execute goal command: %v", err)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal run", runs)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusRunning)
+	waitForPhase0ActiveCodexTurnID(t, harness, runs[0].ID, "turn_goal_command")
+
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal pause"); err != nil {
+		t.Fatalf("execute goal pause command: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
+	finalRuns, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list final runs: %v", err)
+	}
+	if len(finalRuns) != 1 {
+		t.Fatalf("runs after pause = %+v, want existing goal run only", finalRuns)
+	}
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load message page: %v", err)
+	}
+	if page.Goal == nil || page.Goal.Status != "paused" {
+		t.Fatalf("page goal = %+v, want provider paused goal", page.Goal)
+	}
+	if got := phase0AssistantText(page); got != "goal command waiting. " {
+		t.Fatalf("assistant text = %q, want active goal run output preserved", got)
+	}
+}
+
+func TestServiceGoalOperationClearCommandCompletesExistingRun(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-clear-command"))
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	defer cancelPhase0ActiveRunForCleanup(t, service, "workspace_api", conversation.ID)
+
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal finish renderer tests"); err != nil {
+		t.Fatalf("execute goal command: %v", err)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal run", runs)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusRunning)
+	waitForPhase0ActiveCodexTurnID(t, harness, runs[0].ID, "turn_goal_command")
+
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal clear"); err != nil {
+		t.Fatalf("execute goal clear command: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
+	finalRuns, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list final runs: %v", err)
+	}
+	if len(finalRuns) != 1 {
+		t.Fatalf("runs after clear = %+v, want existing goal run only", finalRuns)
+	}
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load message page: %v", err)
+	}
+	if page.Goal != nil {
+		t.Fatalf("page goal = %+v, want provider-cleared goal", page.Goal)
+	}
+	if got := phase0AssistantText(page); got != "goal command waiting. " {
+		t.Fatalf("assistant text = %q, want active goal run output preserved", got)
 	}
 }
 
@@ -937,9 +1077,4 @@ func phase0JSON(t *testing.T, value any) json.RawMessage {
 		t.Fatalf("marshal phase 0 json: %v", err)
 	}
 	return json.RawMessage(data)
-}
-
-func phase0FreezeCurrentGap(t *testing.T, flipPhase string, behavior string) {
-	t.Helper()
-	t.Logf("Phase 0 freezes current behavior; %s flips this assertion: %s", flipPhase, behavior)
 }

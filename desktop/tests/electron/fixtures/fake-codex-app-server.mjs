@@ -7,6 +7,8 @@ const threadId = "thread_fake";
 const turnId = "turn_fake";
 let account = null;
 let currentGoal = null;
+let goalCancelTurnId = null;
+let goalPaused = false;
 let pendingDynamicTool = null;
 const rl = readline.createInterface({ input: process.stdin });
 
@@ -43,7 +45,7 @@ const methodHandlers = {
   "thread/resume": handleThreadResume,
   "thread/settings/update": respondEmpty,
   "thread/start": handleThreadStart,
-  "turn/interrupt": respondEmpty,
+  "turn/interrupt": handleTurnInterrupt,
   "turn/start": handleTurnStart,
 };
 
@@ -203,6 +205,8 @@ function handleThreadGoalGet(message) {
 
 function handleThreadGoalClear(message) {
   currentGoal = null;
+  goalCancelTurnId = null;
+  goalPaused = false;
   notify("thread/goal/cleared", { threadId });
   respond(message.id, { cleared: true });
 }
@@ -213,8 +217,17 @@ function handleThreadGoalSet(message) {
   respond(message.id, {
     goal: currentGoal,
   });
+  if (status === "paused") {
+    goalPaused = true;
+    notify("thread/goal/updated", { goal: currentGoal, threadId });
+    return;
+  }
   if (shouldEmitGoalOperation(objective, status)) {
     setTimeout(() => emitGoalOperationMultiTurn(objective), 5);
+    return;
+  }
+  if (shouldEmitGoalCancellation(objective, status)) {
+    setTimeout(() => emitGoalOperationCancellation(objective), 5);
   }
 }
 
@@ -227,6 +240,10 @@ function threadGoalSetValues(params) {
 
 function shouldEmitGoalOperation(objective, status) {
   return objective === "phase0 codex multi turn" && status === "active";
+}
+
+function shouldEmitGoalCancellation(objective, status) {
+  return objective === "phase4 codex cancel" && status === "active";
 }
 
 function fakeGoal(objective, status) {
@@ -243,6 +260,30 @@ function fakeGoal(objective, status) {
 }
 
 function respondEmpty(message) {
+  respond(message.id, {});
+}
+
+function handleTurnInterrupt(message) {
+  if (currentGoal?.objective === "phase4 codex cancel") {
+    if (!goalPaused) {
+      respondError(message.id, -32600, "goal pause is required before interrupt");
+      return;
+    }
+    if (message.params?.turnId !== goalCancelTurnId) {
+      respondError(
+        message.id,
+        -32600,
+        `unexpected goal cancellation turn ${message.params?.turnId}`,
+      );
+      return;
+    }
+    respond(message.id, {});
+    notify("turn/completed", {
+      threadId,
+      turn: fakeTurnWithID(goalCancelTurnId, "interrupted"),
+    });
+    return;
+  }
   respond(message.id, {});
 }
 
@@ -438,6 +479,10 @@ function respond(id, result) {
   write({ id, result });
 }
 
+function respondError(id, code, message) {
+  write({ error: { code, message }, id });
+}
+
 function turnInputText(message) {
   return (message.params?.input ?? []).map((item) => item?.text ?? "").join("\n");
 }
@@ -585,6 +630,36 @@ function emitGoalOperationMultiTurn(objective) {
   notify("turn/completed", {
     threadId,
     turn: fakeTurnWithID("turn_goal_b", "completed"),
+  });
+}
+
+function emitGoalOperationCancellation(objective) {
+  goalPaused = false;
+  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
+  notify("turn/started", {
+    threadId,
+    turn: fakeTurnWithID("turn_goal_cancel_a", "inProgress"),
+  });
+  notify("item/agentMessage/delta", {
+    delta: "Goal cancel turn A. ",
+    itemId: "goal_cancel_message_a",
+    threadId,
+    turnId: "turn_goal_cancel_a",
+  });
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurnWithID("turn_goal_cancel_a", "completed"),
+  });
+  goalCancelTurnId = "turn_goal_cancel_b";
+  notify("turn/started", {
+    threadId,
+    turn: fakeTurnWithID(goalCancelTurnId, "inProgress"),
+  });
+  notify("item/agentMessage/delta", {
+    delta: "Goal cancel waiting. ",
+    itemId: "goal_cancel_message_b",
+    threadId,
+    turnId: goalCancelTurnId,
   });
 }
 

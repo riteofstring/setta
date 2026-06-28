@@ -293,6 +293,8 @@ func (continuation *fakeGoalContinuation) Wait(ctx context.Context, request Turn
 	return continuation.harness.StartTurn(ctx, request, sink)
 }
 
+func (continuation *fakeGoalContinuation) Cancel(context.Context) error { return nil }
+
 func (continuation *fakeGoalContinuation) Close() {}
 
 func (harness *FakeHarness) executeGoalCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {

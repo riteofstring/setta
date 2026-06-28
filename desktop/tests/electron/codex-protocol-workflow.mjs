@@ -3,6 +3,18 @@ import { chmod, copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  assertAssistantCompleted,
+  assertNoActiveRun,
+  clickButtonByAria,
+  createChat,
+  submitComposer,
+  waitForCommandResult,
+  waitForGoalStatus,
+  waitForRunStatus,
+  waitForTexts,
+} from "./chat-workflow-harness.mjs";
+
 const fakeCodexAppServerFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "fixtures",
@@ -92,6 +104,51 @@ export async function assertProtocolNotificationActivity(
       `protocol diagnostics missing expected warnings: ${JSON.stringify(diagnostics)}`,
     );
   }
+}
+
+export async function runProtocolGoalMultiTurnWorkflow(client, backend, workspaceId) {
+  const conversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "/goal phase0 codex multi turn", "Send message");
+  const commandPage = await waitForCommandResult(
+    backend,
+    workspaceId,
+    conversationId,
+    "Goal set: phase0 codex multi turn",
+  );
+  const runId = goalRunIDFromCommandPage(commandPage);
+  const run = await waitForRunStatus(backend, workspaceId, conversationId, runId, "completed");
+  await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
+  await waitForGoalStatus(backend, workspaceId, conversationId, "complete");
+  await waitForTexts(client, ["Goal turn A.", "Goal turn B."]);
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
+export async function runProtocolGoalCancellationWorkflow(client, backend, workspaceId) {
+  const conversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "/goal phase4 codex cancel", "Send message");
+  const commandPage = await waitForCommandResult(
+    backend,
+    workspaceId,
+    conversationId,
+    "Goal set: phase4 codex cancel",
+  );
+  const runId = goalRunIDFromCommandPage(commandPage);
+  await waitForRunStatus(backend, workspaceId, conversationId, runId, "running");
+  await waitForTexts(client, ["Goal cancel waiting."]);
+  await clickButtonByAria(client, "Stop run");
+  await waitForRunStatus(backend, workspaceId, conversationId, runId, "cancelled");
+  await waitForGoalStatus(backend, workspaceId, conversationId, "paused");
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
+function goalRunIDFromCommandPage(page) {
+  const assistant = page.messages.find(
+    (message) => message.role === "assistant" && message.runId !== "",
+  );
+  if (!assistant) {
+    throw new Error(`goal command page did not include assistant run: ${JSON.stringify(page)}`);
+  }
+  return assistant.runId;
 }
 
 async function assertRunActivityItem(page, type, matches) {
