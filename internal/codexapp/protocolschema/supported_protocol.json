@@ -85,6 +85,7 @@
     "thread/unarchived",
     "turn/completed",
     "turn/diff/updated",
+    "turn/moderationMetadata",
     "turn/plan/updated",
     "turn/started",
     "warning",

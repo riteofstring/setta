@@ -7,6 +7,7 @@ import (
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
+	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
@@ -57,6 +58,25 @@ type SaveWorkspaceUILayoutRequest struct {
 	Layout workspaceui.WorkspaceUILayout `json:"layout"`
 }
 
+type ReadWorkspaceActivitySnapshotRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	Limit       int    `json:"limit"`
+}
+
+type ReadWorkspaceActivitySnapshotResponse struct {
+	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
+}
+
+type ReadWorkflowExecutionActivityRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	ExecutionID string `json:"executionId"`
+	Limit       int    `json:"limit"`
+}
+
+type ReadWorkflowExecutionActivityResponse struct {
+	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
+}
+
 type ListConversationsRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }
@@ -89,10 +109,10 @@ type SetConversationPinnedRequest struct {
 }
 
 type GetMessagePageRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	BeforeOrdinal  int    `json:"beforeOrdinal"`
-	Limit          int    `json:"limit"`
+	WorkspaceID        string `json:"workspaceId"`
+	ConversationID     string `json:"conversationId"`
+	BeforeBlockOrdinal int    `json:"beforeBlockOrdinal"`
+	Limit              int    `json:"limit"`
 }
 
 type SendChatMessageRequest struct {
@@ -148,6 +168,11 @@ type SetChatCodexModelRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 	ModelID        string `json:"modelId"`
+}
+
+type OpenChatCodexModelPickerRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
 }
 
 type SetChatCodexReasoningEffortRequest struct {
@@ -254,6 +279,16 @@ type DeleteWorkflowDefinitionResponse struct {
 type ValidateWorkflowDefinitionRequest struct {
 	WorkspaceID string                     `json:"workspaceId"`
 	Graph       orchestrator.WorkflowGraph `json:"graph"`
+}
+
+type ListWorkflowExecutionsRequest struct {
+	WorkspaceID  string `json:"workspaceId"`
+	DefinitionID string `json:"definitionId"`
+	Limit        int    `json:"limit"`
+}
+
+type ListWorkflowExecutionsResponse struct {
+	Executions []orchestrator.WorkflowExecutionSummary `json:"executions"`
 }
 
 type StartWorkflowExecutionRequest struct {
@@ -691,8 +726,9 @@ type SelectDefaultTerminalProfileRequest struct {
 }
 
 type APIError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code            string                                 `json:"code"`
+	Message         string                                 `json:"message"`
+	ActiveExecution *orchestrator.WorkflowExecutionSummary `json:"activeExecution"`
 }
 
 type ErrorResponse struct {

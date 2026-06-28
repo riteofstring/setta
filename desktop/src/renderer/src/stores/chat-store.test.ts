@@ -12,12 +12,9 @@ import type {
   MessageRole,
   MessageStatus,
   Run,
-  RunItem,
-  RunItemOutput,
-  RunItemStatus,
-  RunItemType,
   RunStatus,
-  TranscriptTurn,
+  TranscriptBlock,
+  TranscriptBlockStatus,
   WorkspaceSession,
 } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
@@ -25,15 +22,15 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { prependOlderMessages, useChatStore } from "./chat-store";
 import {
-  assistantDeltaEvent,
+  assistantTextBlock,
   conversationUpdatedEvent,
   diagnosticCreatedEvent,
   messageCreatedEvent,
   resyncRequiredEvent,
-  runItemCreatedEvent,
-  runItemOutputDeltaEvent,
-  runItemUpdatedEvent,
   runUpdatedEvent,
+  transcriptBlockCreatedEvent,
+  transcriptTextDeltaEvent,
+  userMessageBlock,
 } from "./chat-store-events.test.helpers";
 
 describe("chat store", () => {
@@ -55,21 +52,19 @@ describe("chat store", () => {
       messageIds: [],
       messages: [],
       messagesById: {},
-      olderBeforeOrdinal: 0,
+      olderBeforeBlockOrdinal: 0,
       operation: null,
       queuedRuns: [],
       runItemOutputs: [],
       runItemOutputIdsByRunItemId: {},
       runItemOutputPagesByRunItemId: {},
       runItemOutputsById: {},
-      runItems: [],
-      runItemIdsByRunId: {},
-      runItemsById: {},
       removingQueuedMessageId: null,
       selectedConversation: null,
       selectedConversationIdsByWorkspaceId: {},
       status: "idle",
-      transcript: [],
+      transcriptBlocks: [],
+      transcriptBlocksById: {},
       workspaceId: null,
     });
   });
@@ -257,7 +252,7 @@ describe("chat store", () => {
     useChatStore.setState({
       hasMoreOlder: true,
       messages: [message("message_latest", 2, "assistant", "complete", "latest")],
-      olderBeforeOrdinal: 2,
+      olderBeforeBlockOrdinal: 2,
       selectedConversation: conversation,
       status: "ready",
       workspaceId: "workspace_api",
@@ -285,7 +280,7 @@ describe("chat store", () => {
     useChatStore.setState({
       hasMoreOlder: true,
       messages: [latest],
-      olderBeforeOrdinal: 2,
+      olderBeforeBlockOrdinal: 2,
       selectedConversation: conversation,
       status: "ready",
       workspaceId: "workspace_api",
@@ -426,7 +421,7 @@ describe("chat store", () => {
       messages: [activeAssistant],
       selectedConversation: conversation,
       status: "ready",
-      transcript: [transcriptTurn(activeRun, activeAssistant)],
+      ...blockState(runBlocks(activeRun.id, { assistantText: "partial" })),
       workspaceId: "workspace_api",
     });
 
@@ -434,7 +429,9 @@ describe("chat store", () => {
     useChatStore.setState({
       activeRun: null,
       messages: [completedAssistant],
-      transcript: [transcriptTurn(testRun("completed", activeRun.id), completedAssistant)],
+      ...blockState(
+        runBlocks(activeRun.id, { assistantStatus: "complete", assistantText: "partial" }),
+      ),
     });
     queueResponse.resolve({
       conversation,
@@ -508,7 +505,7 @@ describe("chat store", () => {
       messages: [staleAssistant],
       selectedConversation: conversation,
       status: "ready",
-      transcript: [transcriptTurn(testRun("running"), staleAssistant)],
+      ...blockState(runBlocks("run_api", { assistantText: "partial" })),
       workspaceId: "workspace_api",
     });
 
@@ -516,11 +513,20 @@ describe("chat store", () => {
     useChatStore.setState({
       activeRun: null,
       messages: [terminalAssistant],
-      transcript: [transcriptTurn(testRun("failed"), terminalAssistant)],
+      ...blockState(runBlocks("run_api", { assistantStatus: "failed", assistantText: "partial" })),
     });
     steerResponse.resolve({
       conversation,
-      page: testPage(conversation, [staleAssistant]),
+      // The operation page is stale: it still shows the run streaming.
+      page: testPage(
+        conversation,
+        [staleAssistant],
+        false,
+        null,
+        runBlocks("run_api", {
+          assistantText: "partial",
+        }),
+      ),
       run: testRun("running"),
       userMessage: message("message_steer", 3, "user", "complete", "trigger failure", "steering"),
     });
@@ -530,7 +536,7 @@ describe("chat store", () => {
     expect(
       useChatStore.getState().messages.find((message) => message.id === staleAssistant.id)?.status,
     ).toBe("error");
-    expect(useChatStore.getState().transcript[0]?.run.status).toBe("failed");
+    expect(useChatStore.getState().transcriptBlocksById["run_api_text"]?.status).toBe("failed");
   });
 
   test("execute command response ignores a captured active run that completed before the response", async () => {
@@ -570,7 +576,7 @@ describe("chat store", () => {
       messages: [activeAssistant],
       selectedConversation: conversation,
       status: "ready",
-      transcript: [transcriptTurn(activeRun, activeAssistant)],
+      ...blockState(runBlocks(activeRun.id, { assistantText: "partial" })),
       workspaceId: "workspace_api",
     });
 
@@ -578,7 +584,9 @@ describe("chat store", () => {
     useChatStore.setState({
       activeRun: null,
       messages: [completedAssistant],
-      transcript: [transcriptTurn(testRun("completed", activeRun.id), completedAssistant)],
+      ...blockState(
+        runBlocks(activeRun.id, { assistantStatus: "complete", assistantText: "partial" }),
+      ),
     });
     commandResponse.resolve({
       conversation,
@@ -588,6 +596,7 @@ describe("chat store", () => {
         [activeAssistant, commandMessage],
         false,
         goalState("tests", "active"),
+        runBlocks(activeRun.id, { assistantText: "partial" }),
       ),
       result: goalCommandResult(),
     });
@@ -598,7 +607,9 @@ describe("chat store", () => {
     expect(
       useChatStore.getState().messages.find((message) => message.id === activeAssistant.id)?.status,
     ).toBe("complete");
-    expect(useChatStore.getState().transcript[0]?.run.status).toBe("completed");
+    expect(useChatStore.getState().transcriptBlocksById[`${activeRun.id}_text`]?.status).toBe(
+      "complete",
+    );
   });
 
   test("execute command preserves error state for caller handling", async () => {
@@ -681,7 +692,12 @@ describe("chat store", () => {
   test("applies pushed chat events to the active conversation", () => {
     const conversation = testConversation();
     const user = message("message_user", 1, "user", "complete", "hello");
-    const assistant = message("message_assistant", 2, "assistant", "streaming", "");
+    const assistantBlock = assistantTextBlock({
+      id: "block_assistant",
+      ordinal: 2,
+      runId: "run_api",
+      text: "",
+    });
     const updatedConversation = { ...conversation, title: "Updated chat" };
     useChatStore.setState({
       conversations: [conversationItem(conversation, 0)],
@@ -690,27 +706,41 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
+    // The message surface and the transcript are driven by separate event streams:
+    // user messages flow through message events, assistant output through block and
+    // block-text-delta events.
     useChatStore.getState().handleEvent(messageCreatedEvent(1, user, "run_api"));
-    useChatStore.getState().handleEvent(messageCreatedEvent(2, assistant, "run_api"));
-    const assistantPart = assistant.parts[0];
-    if (!assistantPart) {
-      throw new Error("assistant test message must include a part");
-    }
-    useChatStore
-      .getState()
-      .handleEvent(assistantDeltaEvent(3, assistant.id, assistantPart.id, "done"));
-    useChatStore.getState().handleEvent(runUpdatedEvent(4, testRun("running")));
     useChatStore
       .getState()
       .handleEvent(
-        conversationUpdatedEvent(5, conversationItem(updatedConversation, 2, "run_api")),
+        transcriptBlockCreatedEvent(
+          2,
+          userMessageBlock({ id: "block_user", ordinal: 1, runId: "run_api" }),
+        ),
+      );
+    useChatStore.getState().handleEvent(transcriptBlockCreatedEvent(3, assistantBlock));
+    useChatStore.getState().handleEvent(
+      transcriptTextDeltaEvent(4, {
+        blockId: assistantBlock.id,
+        delta: "done",
+        runId: "run_api",
+      }),
+    );
+    useChatStore.getState().handleEvent(runUpdatedEvent(5, testRun("running")));
+    useChatStore
+      .getState()
+      .handleEvent(
+        conversationUpdatedEvent(6, conversationItem(updatedConversation, 2, "run_api")),
       );
 
-    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual([
-      "message_user",
-      "message_assistant",
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_user"]);
+    expect(useChatStore.getState().transcriptBlocks.map((block) => block.id)).toEqual([
+      "block_user",
+      "block_assistant",
     ]);
-    expect(useChatStore.getState().messages[1]?.parts[0]?.text).toBe("done");
+    expect(useChatStore.getState().transcriptBlocksById.block_assistant?.assistantText?.text).toBe(
+      "done",
+    );
     expect(useChatStore.getState().activeRun?.id).toBe("run_api");
     expect(useChatStore.getState().selectedConversation?.title).toBe("Updated chat");
     expect(useChatStore.getState().conversations[0]?.messageCount).toBe(2);
@@ -735,140 +765,6 @@ describe("chat store", () => {
 
     expect(useChatStore.getState().activeRun?.id).toBe(activeRun.id);
     expect(useChatStore.getState().activeRun?.status).toBe("running");
-  });
-
-  test("applies run activity events incrementally", () => {
-    const conversation = testConversation();
-    const item = runItem("run_item_command", "command_execution", "running");
-    const completed: RunItem = { ...item, status: "completed", exitCode: 0 };
-    const output = runItemOutput("run_item_output_1", item.id, 1, "ok\n");
-    useChatStore.setState({
-      selectedConversation: conversation,
-      status: "ready",
-      workspaceId: "workspace_api",
-    });
-
-    useChatStore.getState().handleEvent(runItemCreatedEvent(1, item));
-    useChatStore.getState().handleEvent(runItemUpdatedEvent(2, completed));
-    useChatStore.getState().handleEvent(runItemOutputDeltaEvent(3, output));
-    useChatStore.getState().handleEvent(runItemOutputDeltaEvent(3, output));
-
-    expect(useChatStore.getState().runItems).toEqual([completed]);
-    expect(useChatStore.getState().runItemOutputs).toEqual([output]);
-    expect(useChatStore.getState().runItemIdsByRunId.run_api).toEqual([completed.id]);
-    expect(useChatStore.getState().runItemOutputIdsByRunItemId[completed.id]).toEqual([output.id]);
-  });
-
-  test("lazy-loads run activity without dropping embedded output", async () => {
-    const item = runItem("run_item_command", "command_execution", "running");
-    const completed: RunItem = { ...item, status: "completed" };
-    const firstOutput = runItemOutput("run_item_output_1", item.id, 1, "first\n");
-    const secondOutput = runItemOutput("run_item_output_2", item.id, 2, "second\n");
-    const runActivity = vi.fn().mockResolvedValue({
-      items: [completed],
-      output: [secondOutput],
-      runId: "run_api",
-    });
-    installSettaAPI({ chat: { runActivity } });
-    useChatStore.setState({
-      runItemOutputs: [firstOutput],
-      runItems: [item],
-      workspaceId: "workspace_api",
-    });
-
-    await useChatStore.getState().loadRunActivity("run_api", 200);
-
-    expect(runActivity).toHaveBeenCalledWith("workspace_api", "run_api", 200);
-    expect(useChatStore.getState().runItems).toEqual([completed]);
-    expect(useChatStore.getState().runItemOutputs).toEqual([firstOutput, secondOutput]);
-  });
-
-  test("lazy-loads run item output for only the expanded row", async () => {
-    const itemA = runItem("run_item_a", "command_execution", "completed");
-    const itemB = runItem("run_item_b", "command_execution", "completed");
-    const outputA = runItemOutput("run_item_output_a1", itemA.id, 1, "a1\n");
-    const outputB = runItemOutput("run_item_output_b1", itemB.id, 1, "b1\n");
-    const runItemOutputPage = vi.fn().mockResolvedValue({
-      hasMore: false,
-      nextOrdinal: 0,
-      output: [outputB],
-      runId: "run_api",
-      runItemId: itemB.id,
-    });
-    installSettaAPI({ chat: { runItemOutput: runItemOutputPage } });
-    useChatStore.setState({
-      runItemOutputs: [outputA],
-      runItems: [itemA, itemB],
-      workspaceId: "workspace_api",
-    });
-
-    await useChatStore.getState().loadRunItemOutput("run_api", itemB.id, 0, 200);
-
-    expect(runItemOutputPage).toHaveBeenCalledWith("workspace_api", "run_api", itemB.id, 0, 200);
-    expect(useChatStore.getState().runItemOutputs).toEqual([outputA, outputB]);
-  });
-
-  test("tracks run item output pagination per item", async () => {
-    const itemA = runItem("run_item_a", "command_execution", "completed");
-    const itemB = runItem("run_item_b", "command_execution", "completed");
-    const outputA1 = runItemOutput("run_item_output_a1", itemA.id, 1, "a1\n");
-    const outputA2 = runItemOutput("run_item_output_a2", itemA.id, 2, "a2\n");
-    const outputB1 = runItemOutput("run_item_output_b1", itemB.id, 1, "b1\n");
-    const runItemOutputPage = vi
-      .fn()
-      .mockResolvedValueOnce({
-        hasMore: true,
-        nextOrdinal: 1,
-        output: [outputA1],
-        runId: "run_api",
-        runItemId: itemA.id,
-      })
-      .mockResolvedValueOnce({
-        hasMore: false,
-        nextOrdinal: 0,
-        output: [outputB1],
-        runId: "run_api",
-        runItemId: itemB.id,
-      })
-      .mockResolvedValueOnce({
-        hasMore: false,
-        nextOrdinal: 0,
-        output: [outputA1, outputA2],
-        runId: "run_api",
-        runItemId: itemA.id,
-      });
-    installSettaAPI({ chat: { runItemOutput: runItemOutputPage } });
-    useChatStore.setState({
-      runItems: [itemA, itemB],
-      workspaceId: "workspace_api",
-    });
-
-    await useChatStore.getState().loadRunItemOutput("run_api", itemA.id, 0, 1);
-    await useChatStore.getState().loadRunItemOutput("run_api", itemB.id, 0, 1);
-    await useChatStore.getState().loadRunItemOutput("run_api", itemA.id, 1, 2);
-
-    expect(runItemOutputPage).toHaveBeenNthCalledWith(
-      3,
-      "workspace_api",
-      "run_api",
-      itemA.id,
-      1,
-      2,
-    );
-    expect(useChatStore.getState().runItemOutputs.map((output) => output.id)).toEqual([
-      outputA1.id,
-      outputA2.id,
-      outputB1.id,
-    ]);
-    expect(useChatStore.getState().runItemOutputPagesByRunItemId[itemA.id]).toMatchObject({
-      hasMore: false,
-      loadedThroughOrdinal: 2,
-      nextOrdinal: 0,
-    });
-    expect(useChatStore.getState().runItemOutputPagesByRunItemId[itemB.id]).toMatchObject({
-      hasMore: false,
-      loadedThroughOrdinal: 1,
-    });
   });
 
   test("ignores pushed message events for unrelated conversations", () => {
@@ -972,7 +868,6 @@ interface SettaAPIOverrides {
 function emptyCorruption() {
   return { byKind: [], bySeverity: [], hasCorruption: false, total: 0 };
 }
-
 function listResponse(
   conversations: ConversationListItem[],
   corruptTotal = 0,
@@ -1050,67 +945,48 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("queued"),
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
-      executeCommand: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "goal",
-          message: "Goal set: test",
-          models: [],
-          raw: "/goal test",
-          reasoningEfforts: [],
-          selectedReasoningEffort: null,
-          selectedModel: "",
-          title: "Goal",
-        },
-      }),
-      setCodexModel: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "model",
-          message: "Model set: gpt-test",
-          models: [],
-          raw: "/model",
-          reasoningEfforts: [],
-          selectedReasoningEffort: null,
+      executeCommand: async () =>
+        commandExecuteResult(
+          conversation,
+          commandResult("goal", "display", "Goal set: test", "/goal test"),
+        ),
+      openCodexModelPicker: async () =>
+        commandExecuteResult(
+          conversation,
+          commandResult("model", "model_picker", "Choose a model.", "model_picker"),
+        ),
+      setCodexModel: async () =>
+        commandExecuteResult(conversation, {
+          ...commandResult("model", "display", "Model set: gpt-test", "model_set"),
           selectedModel: "gpt-test",
-          title: "Model",
-        },
-      }),
-      setCodexReasoningEffort: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "model",
-          message: "Reasoning set: High",
-          models: [],
-          raw: "/model",
-          reasoningEfforts: [],
+        }),
+      setCodexReasoningEffort: async () =>
+        commandExecuteResult(conversation, {
+          ...commandResult("model", "display", "Reasoning set: High", "model_reasoning_effort_set"),
           selectedReasoningEffort: "high",
-          selectedModel: "",
-          title: "Model",
-        },
-      }),
+        }),
       setConversationPinned: async () => conversationItem(conversation, 0),
       listCommands: async () => ({
         commands: [
           {
             available: true,
             description: "Goal",
+            grammar: {
+              arguments: [
+                {
+                  description: "Set objective",
+                  kind: "free_text",
+                  maxRunes: 4000,
+                  name: "objective",
+                  required: false,
+                },
+              ],
+              literalMatch: "exact",
+              summary: "/goal",
+            },
             kind: "goal",
             name: "/goal",
             unavailableReason: "",
-            usage: "/goal",
           },
         ],
       }),
@@ -1125,7 +1001,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("queued"),
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
-      runActivity: async () => ({ items: [], output: [], runId: "run_api" }),
+      runActivity: async () => ({ activity: [], items: [], output: [], runId: "run_api" }),
       runItemOutput: async () => ({
         hasMore: false,
         nextOrdinal: 0,
@@ -1182,6 +1058,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    workspaceActivity: {} as SettaAPI["workspaceActivity"],
     semanticGraph: {} as SettaAPI["semanticGraph"],
     terminal: unimplementedTerminalAPI,
     workflow: {} as SettaAPI["workflow"],
@@ -1208,13 +1085,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     value: { setta: api },
   });
 }
-
 const unimplementedTerminalAPI = new Proxy({} as SettaAPI["terminal"], {
   get: () => {
     throw new Error("terminal API is not implemented in this test");
   },
 });
-
 async function waitFor(done: () => boolean) {
   const startedAt = Date.now();
   while (!done()) {
@@ -1227,6 +1102,7 @@ async function waitFor(done: () => boolean) {
 function testConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     archivedAt: "",
+    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
@@ -1258,31 +1134,57 @@ function conversationItem(
     readMarker: markers.readMarker,
   };
 }
-
 function testPage(
   conversation: Conversation,
   messages: ChatMessage[],
   hasMoreOlder = false,
   goal: ChatGoalState | null = null,
+  blocks: TranscriptBlock[] = [],
 ): MessagePage {
+  const pageMessages = withSyntheticTriggers(messages);
+  const queuedMessages = pageMessages.filter((item) => item.delivery === "queued");
+  const queuedRunIds = [
+    ...new Set(queuedMessages.map((item) => item.runId).filter((runId) => runId !== "")),
+  ];
   return {
+    blocks,
     conversation,
     goal,
     hasMoreOlder,
-    messages,
-    olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
+    messages: pageMessages,
+    olderBeforeBlockOrdinal: 0,
     queue: {
-      messages: messages.filter((item) => item.delivery === "queued"),
-      runs: transcriptFromMessages(messages)
-        .map((turn) => turn.run)
-        .filter((run) => run.status === "queued"),
+      messages: queuedMessages,
+      runs: queuedRunIds.map((runId) => ({
+        ...testRun("queued", runId),
+        triggerMessageId: queuedMessages.find((item) => item.runId === runId)?.id ?? "",
+      })),
     },
-    runItemOutputs: [],
-    runItems: [],
-    transcript: transcriptFromMessages(messages),
   };
 }
 
+// The backend page's message surface includes every conversation message,
+// including each run's user trigger. Tests pass only the salient messages, so this
+// synthesizes a trigger for any run that lacks one, mirroring the real page.
+function withSyntheticTriggers(messages: ChatMessage[]): ChatMessage[] {
+  const byId = new Map(messages.map((item) => [item.id, item]));
+  const runIds = [...new Set(messages.map((item) => item.runId).filter((runId) => runId !== ""))];
+  for (const runId of runIds) {
+    if (!messages.some((item) => item.runId === runId && item.role === "user")) {
+      const trigger = message(
+        `message_user_${runId}`,
+        1,
+        "user",
+        "complete",
+        "user",
+        "normal",
+        runId,
+      );
+      byId.set(trigger.id, trigger);
+    }
+  }
+  return [...byId.values()];
+}
 function goalState(objective: string, status: string): ChatGoalState {
   return {
     createdAt: 0,
@@ -1295,10 +1197,10 @@ function goalState(objective: string, status: string): ChatGoalState {
     updatedAt: 0,
   };
 }
-
 function goalCommandResult(): ChatCommandResult {
   return {
     action: "display",
+    composerDraft: "",
     goal: goalState("tests", "active"),
     kind: "goal",
     message: "Goal set: tests",
@@ -1310,32 +1212,27 @@ function goalCommandResult(): ChatCommandResult {
     title: "Goal",
   };
 }
-
-function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
-  const runIds = [...new Set(messages.map((item) => item.runId).filter((runId) => runId !== ""))];
-  return runIds.map((runId) => {
-    const run = testRun("running", runId);
-    const triggerMessage =
-      messages.find((item) => item.runId === runId && item.role === "user") ??
-      message(`message_user_${runId}`, 1, "user", "complete", "user", "normal", runId);
-    const assistantMessage =
-      messages.find((item) => item.runId === runId && item.role === "assistant") ?? null;
-    return {
-      assistantMessage,
-      run: {
-        ...run,
-        assistantMessageId: assistantMessage?.id ?? "",
-        status: assistantMessage ? run.status : "queued",
-        triggerMessageId: triggerMessage.id,
-      },
-      steeringMessages: messages.filter(
-        (item) => item.runId === runId && item.delivery === "steering",
-      ),
-      triggerMessage,
-    };
-  });
+function runBlocks(
+  runId: string,
+  opts: { assistantText: string; assistantStatus?: TranscriptBlockStatus },
+): TranscriptBlock[] {
+  return [
+    userMessageBlock({ id: `${runId}_trigger`, ordinal: 1, runId, text: "user" }),
+    assistantTextBlock({
+      id: `${runId}_text`,
+      ordinal: 2,
+      runId,
+      status: opts.assistantStatus ?? "streaming",
+      text: opts.assistantText,
+    }),
+  ];
 }
-
+function blockState(blocks: TranscriptBlock[]) {
+  return {
+    transcriptBlocks: blocks,
+    transcriptBlocksById: Object.fromEntries(blocks.map((block) => [block.id, block])),
+  };
+}
 function message(
   id: string,
   ordinal: number,
@@ -1361,7 +1258,6 @@ function message(
     updatedAt: "2026-05-29T20:00:00Z",
   };
 }
-
 function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
   const [part, ...rest] = message.parts;
   if (!part) {
@@ -1373,7 +1269,6 @@ function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
     updatedAt: "2026-05-29T20:00:01Z",
   };
 }
-
 function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { status: T } {
   const run = {
     assistantMessageId: "message_assistant",
@@ -1392,69 +1287,6 @@ function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { sta
   } satisfies Run;
   return run as Run & { status: T };
 }
-
-function transcriptTurn(run: Run, assistantMessage: ChatMessage): TranscriptTurn {
-  const triggerMessage = message("message_user", 1, "user", "complete", "hello", "normal", run.id);
-  return {
-    assistantMessage,
-    run: { ...run, assistantMessageId: assistantMessage.id, triggerMessageId: triggerMessage.id },
-    steeringMessages: [],
-    triggerMessage,
-  };
-}
-function runItem(id: string, type: RunItemType, status: RunItemStatus): RunItem {
-  return {
-    command: "go test ./...",
-    completedAt: "",
-    conversationId: "conversation_api",
-    createdAt: "2026-05-29T20:00:00Z",
-    cwd: "/tmp/workspace",
-    details: null,
-    diffSummary: "",
-    durationMs: 0,
-    error: "",
-    exitCode: 0,
-    filePaths: [],
-    hiddenText: "",
-    id,
-    noticeKind: "",
-    namespace: "",
-    noticeMessage: "",
-    patchStatus: "",
-    processId: "",
-    progress: "",
-    providerItemId: "provider_" + id,
-    requestId: "",
-    result: "",
-    reviewId: "",
-    runId: "run_api",
-    schemaVersion: 1,
-    serverName: "",
-    startedAt: "2026-05-29T20:00:00Z",
-    status,
-    summary: "",
-    title: "",
-    toolName: "",
-    type,
-    workspaceId: "workspace_api",
-  };
-}
-function runItemOutput(
-  id: string,
-  runItemId: string,
-  ordinal: number,
-  text: string,
-): RunItemOutput {
-  return {
-    createdAt: "2026-05-29T20:00:00Z",
-    id,
-    ordinal,
-    runItemId,
-    schemaVersion: 1,
-    stream: "stdout",
-    text,
-  };
-}
 interface Deferred<T> {
   promise: Promise<T>;
   reject: (error: Error) => void;
@@ -1472,11 +1304,38 @@ function deferred<T>(): Deferred<T> {
   }
   return { promise, reject, resolve };
 }
+function commandExecuteResult(conversation: Conversation, result: ChatCommandResult) {
+  return {
+    conversation,
+    message: null,
+    page: testPage(conversation, []),
+    result,
+  };
+}
+function commandResult(
+  kind: ChatCommandResult["kind"],
+  action: ChatCommandResult["action"],
+  messageText: string,
+  raw: string,
+): ChatCommandResult {
+  return {
+    action,
+    composerDraft: "",
+    goal: null,
+    kind,
+    message: messageText,
+    models: [],
+    raw,
+    reasoningEfforts: [],
+    selectedReasoningEffort: null,
+    selectedModel: "",
+    title: kind === "goal" ? "Goal" : "Model",
+  };
+}
 function workspaceSession(): WorkspaceSession {
   const workspace = workspaceSummary();
   return { activeWorkspaces: [workspace], recentWorkspaces: [], selectedWorkspaceId: workspace.id };
 }
-
 function emptyCodexAccountState() {
   return {
     account: null,
@@ -1486,7 +1345,6 @@ function emptyCodexAccountState() {
     status: "unauthenticated" as const,
   };
 }
-
 function workspaceSummary() {
   return {
     displayName: "api",

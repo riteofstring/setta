@@ -641,7 +641,7 @@ async function assertWorkflowConversationMetadata(
 ) {
   const conversationId = runnerRef(nodeExecution, "chat.conversation");
   const page = await backend.post("/chat/messages/page", {
-    beforeOrdinal: 0,
+    beforeBlockOrdinal: 0,
     conversationId,
     limit: 20,
     workspaceId,

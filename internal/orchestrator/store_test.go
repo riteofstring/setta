@@ -120,6 +120,60 @@ func TestStoreRollsBackMaterializedStateWhenEventInsertFails(t *testing.T) {
 	}
 }
 
+func TestStoreListExecutionSummariesForDefinitionScopesByWorkspaceAndDefinition(t *testing.T) {
+	store := newSQLiteWorkflowStoreForTest(t, t.TempDir())
+	targetV1 := storeTestVersion("workspace_a", "workflow_definition_shared", "workflow_version_target_1", 1, actionGraph("target_work"), "2026-06-05T12:00:00Z")
+	targetV2 := storeTestVersion("workspace_a", "workflow_definition_shared", "workflow_version_target_2", 2, actionGraph("target_work"), "2026-06-05T12:10:00Z")
+	otherWorkspace := storeTestVersion("workspace_b", "workflow_definition_shared", "workflow_version_other_workspace", 3, actionGraph("other_workspace_work"), "2026-06-05T12:20:00Z")
+	otherDefinition := storeTestVersion("workspace_a", "workflow_definition_other", "workflow_version_other_definition", 1, actionGraph("other_definition_work"), "2026-06-05T12:30:00Z")
+	for _, version := range []WorkflowDefinitionVersion{targetV1, targetV2, otherWorkspace, otherDefinition} {
+		if err := store.SaveDefinitionVersion(version); err != nil {
+			t.Fatalf("save version %s: %v", version.ID, err)
+		}
+	}
+	first := persistStoreTestExecution(t, store, targetV1, "2026-06-05T12:01:00Z")
+	cancelledTransition, err := CancelExecution(first, TransitionContext{
+		Now:   "2026-06-05T12:02:00Z",
+		NewID: deterministicIDGenerator(),
+	})
+	if err != nil {
+		t.Fatalf("cancel first execution: %v", err)
+	}
+	if _, err := store.PersistTransition(cancelledTransition); err != nil {
+		t.Fatalf("persist cancelled execution: %v", err)
+	}
+	active := persistStoreTestExecution(t, store, targetV2, "2026-06-05T12:11:00Z")
+	otherWorkspaceExecution := persistStoreTestExecution(t, store, otherWorkspace, "2026-06-05T12:21:00Z")
+	otherDefinitionExecution := persistStoreTestExecution(t, store, otherDefinition, "2026-06-05T12:31:00Z")
+
+	summaries, err := store.ListExecutionSummariesForDefinition("workspace_a", "workflow_definition_shared", 0)
+	if err != nil {
+		t.Fatalf("list summaries: %v", err)
+	}
+	if len(summaries) != 2 {
+		t.Fatalf("summaries = %+v, want active and cancelled target executions", summaries)
+	}
+	if summaries[0].ID != active.ID || summaries[0].DefinitionVersionNumber != 2 {
+		t.Fatalf("newest summary = %+v, want active version 2 execution %s", summaries[0], active.ID)
+	}
+	if summaries[1].ID != cancelledTransition.Execution.ID || summaries[1].Status != ExecutionStatusCancelled {
+		t.Fatalf("older summary = %+v, want cancelled execution %s", summaries[1], cancelledTransition.Execution.ID)
+	}
+	for _, summary := range summaries {
+		if summary.ID == otherWorkspaceExecution.ID || summary.ID == otherDefinitionExecution.ID {
+			t.Fatalf("summary query included out-of-scope execution: %+v", summary)
+		}
+	}
+
+	limited, err := store.ListExecutionSummariesForDefinition("workspace_a", "workflow_definition_shared", 1)
+	if err != nil {
+		t.Fatalf("list limited summaries: %v", err)
+	}
+	if len(limited) != 1 || limited[0].ID != active.ID {
+		t.Fatalf("limited summaries = %+v, want only active execution %s", limited, active.ID)
+	}
+}
+
 func newSQLiteWorkflowStoreForTest(t *testing.T, appDataDir string) *Store {
 	t.Helper()
 	store, err := NewStore(appDataDir)
@@ -157,6 +211,35 @@ func storeTestDefinition(graph WorkflowGraph) (WorkflowDefinition, WorkflowDefin
 		UpdatedAt:     testNow,
 	}
 	return definition, version
+}
+
+func storeTestVersion(workspaceID string, definitionID string, versionID string, versionNumber int, graph WorkflowGraph, createdAt string) WorkflowDefinitionVersion {
+	return WorkflowDefinitionVersion{
+		SchemaVersion: SchemaVersion,
+		ID:            versionID,
+		WorkspaceID:   workspaceID,
+		DefinitionID:  definitionID,
+		VersionNumber: versionNumber,
+		Name:          "Store Test",
+		Description:   "store test workflow",
+		Graph:         graph,
+		CreatedAt:     createdAt,
+	}
+}
+
+func persistStoreTestExecution(t *testing.T, store *Store, version WorkflowDefinitionVersion, startedAt string) WorkflowExecution {
+	t.Helper()
+	transition, err := StartExecution(version, TransitionContext{
+		Now:   startedAt,
+		NewID: deterministicIDGenerator(),
+	})
+	if err != nil {
+		t.Fatalf("start execution for version %s: %v", version.ID, err)
+	}
+	if _, err := store.PersistTransition(transition); err != nil {
+		t.Fatalf("persist execution for version %s: %v", version.ID, err)
+	}
+	return transition.Execution
 }
 
 func assertPathMissing(t *testing.T, path string) {

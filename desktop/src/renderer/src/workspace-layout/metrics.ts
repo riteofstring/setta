@@ -26,8 +26,6 @@ export class WorkspaceMetricsCollector {
   private latestTransformWrites = 0;
   private latestVisiblePaneCount = 0;
   private longTasks = 0;
-  private paneDragPreviewClears = 0;
-  private paneDragPreviewUpdates = 0;
   private reactCommitsDuringMovement = 0;
   private reactCommitsDuringResize = 0;
   private resizeMetrics = emptyResizeMetrics();
@@ -179,14 +177,6 @@ export class WorkspaceMetricsCollector {
     }
   }
 
-  recordPaneDragPreviewUpdate(): void {
-    this.paneDragPreviewUpdates += 1;
-  }
-
-  recordPaneDragPreviewClear(): void {
-    this.paneDragPreviewClears += 1;
-  }
-
   reset(): void {
     this.currentFrameMoving = false;
     this.currentFrameResizeActive = false;
@@ -201,8 +191,6 @@ export class WorkspaceMetricsCollector {
     this.latestTransformWrites = 0;
     this.latestVisiblePaneCount = 0;
     this.longTasks = 0;
-    this.paneDragPreviewClears = 0;
-    this.paneDragPreviewUpdates = 0;
     this.reactCommitsDuringMovement = 0;
     this.reactCommitsDuringResize = 0;
     this.snapshotBitmapCaptureRequests = 0;
@@ -232,8 +220,6 @@ export class WorkspaceMetricsCollector {
       p50FrameTime: percentile(this.frameTimes, 0.5),
       p95FrameTime: percentile(this.frameTimes, 0.95),
       p99FrameTime: percentile(this.frameTimes, 0.99),
-      paneDragPreviewClears: this.paneDragPreviewClears,
-      paneDragPreviewUpdates: this.paneDragPreviewUpdates,
       reactCommitsDuringMovement: this.reactCommitsDuringMovement,
       reactCommitsDuringResize: this.reactCommitsDuringResize,
       resize: this.resizeSnapshot(),

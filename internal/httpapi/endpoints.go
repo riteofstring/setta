@@ -10,6 +10,7 @@ import (
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
+	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
@@ -51,6 +52,9 @@ var apiEndpoints = []endpoint{
 	post[RemoveRecentWorkspaceRequest, workspacesession.WorkspaceSession]("RemoveRecentWorkspace", "/workspaces/remove-recent", handler.removeRecentWorkspace),
 	post[ReadWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayoutReadResult]("ReadWorkspaceUILayout", "/workspaces/ui/layout/read", handler.readWorkspaceUILayout),
 	post[SaveWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayout]("SaveWorkspaceUILayout", "/workspaces/ui/layout/save", handler.saveWorkspaceUILayout),
+	post[ReadWorkspaceActivitySnapshotRequest, ReadWorkspaceActivitySnapshotResponse]("ReadWorkspaceActivitySnapshot", "/workspace-activity/snapshot", handler.readWorkspaceActivitySnapshot),
+	post[ReadWorkflowExecutionActivityRequest, ReadWorkflowExecutionActivityResponse]("ReadWorkflowExecutionActivity", "/workspace-activity/execution-snapshot", handler.readWorkflowExecutionActivity),
+	streamEvent[workspaceactivity.WorkspaceActivityEvent]("WorkspaceActivityEventStream", "/workspace-activity/events", handler.workspaceActivityEventStream),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),
@@ -65,6 +69,7 @@ var apiEndpoints = []endpoint{
 	post[SendSteeringImmediatelyRequest, chat.ImmediateSteeringResult]("SendSteeringImmediately", "/chat/messages/steer/immediate", handler.sendSteeringImmediately),
 	post[ListChatCommandsRequest, chat.ChatCommandListResult]("ListChatCommands", "/chat/commands/list", handler.listChatCommands),
 	post[ExecuteChatCommandRequest, chat.ChatCommandExecuteResult]("ExecuteChatCommand", "/chat/commands/execute", handler.executeChatCommand),
+	post[OpenChatCodexModelPickerRequest, chat.ChatCommandExecuteResult]("OpenChatCodexModelPicker", "/chat/codex/model/picker", handler.openChatCodexModelPicker),
 	post[SetChatCodexModelRequest, chat.ChatCommandExecuteResult]("SetChatCodexModel", "/chat/codex/model/set", handler.setChatCodexModel),
 	post[SetChatCodexReasoningEffortRequest, chat.ChatCommandExecuteResult]("SetChatCodexReasoningEffort", "/chat/codex/reasoning-effort/set", handler.setChatCodexReasoningEffort),
 	post[CancelRunRequest, chat.Run]("CancelRun", "/chat/runs/cancel", handler.cancelRun),
@@ -80,6 +85,7 @@ var apiEndpoints = []endpoint{
 	post[UpdateWorkflowDefinitionRequest, orchestrator.WorkflowDefinition]("UpdateWorkflowDefinition", "/workflows/definitions/update", handler.updateWorkflowDefinition),
 	post[DeleteWorkflowDefinitionRequest, DeleteWorkflowDefinitionResponse]("DeleteWorkflowDefinition", "/workflows/definitions/delete", handler.deleteWorkflowDefinition),
 	post[ValidateWorkflowDefinitionRequest, orchestrator.WorkflowValidationResult]("ValidateWorkflowDefinition", "/workflows/definitions/validate", handler.validateWorkflowDefinition),
+	post[ListWorkflowExecutionsRequest, ListWorkflowExecutionsResponse]("ListWorkflowExecutions", "/workflows/executions/list", handler.listWorkflowExecutions),
 	post[StartWorkflowExecutionRequest, orchestrator.WorkflowExecution]("StartWorkflowExecution", "/workflows/executions/start", handler.startWorkflowExecution),
 	post[CancelWorkflowExecutionRequest, orchestrator.WorkflowExecution]("CancelWorkflowExecution", "/workflows/executions/cancel", handler.cancelWorkflowExecution),
 	post[ReadWorkflowExecutionRequest, orchestrator.WorkflowExecution]("ReadWorkflowExecution", "/workflows/executions/read", handler.readWorkflowExecution),

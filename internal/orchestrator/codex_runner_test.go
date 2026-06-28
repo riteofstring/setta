@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -196,6 +197,75 @@ func TestCodexRunnerStartupRecoveryPreservesWorkflowApproval(t *testing.T) {
 	}
 }
 
+func TestCodexRunnerStartupRecoveryReconcilesTerminalHiddenWorkflowChatRun(t *testing.T) {
+	chatEvents, err := chat.NewEventHub(
+		"event_stream_hidden_terminal_workflow",
+		chat.WithEventBufferSize(0),
+		chat.WithEventClock(fixedTestClock(t)),
+	)
+	if err != nil {
+		t.Fatalf("create chat event hub: %v", err)
+	}
+	workflowService, chatService, harness, workflowStore, resolver, idGenerator, workspaceID := newCodexRunnerRecoveryTestServicesWithChatOptions(t, chat.WithEventHub(chatEvents))
+	definition, err := workflowService.CreateDefinition(workspaceID, "Workflow hidden terminal recovery", "", codexActionGraph("workflow hold for queue and steering", true))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, started, "work")
+	conversationID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatConversation)
+	runID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
+
+	workflowService.CloseEvents()
+	steerWorkflowChatWhenReady(t, chatService, workspaceID, conversationID, "finish hidden run")
+	waitForWorkflowChatRunStatus(t, chatService, workspaceID, conversationID, runID, chat.RunStatusCompleted)
+	stillHidden, err := workflowService.ReadExecution(workspaceID, started.ID)
+	if err != nil {
+		t.Fatalf("read hidden execution before restart: %v", err)
+	}
+	if stillHidden.Status != ExecutionStatusRunning {
+		t.Fatalf("hidden execution status before restart = %s, want running", stillHidden.Status)
+	}
+
+	restarted, err := NewService(workflowStore, resolver, WithIDGenerator(idGenerator), WithClock(fixedTestClock(t)), WithCodexChatService(chatService))
+	if err != nil {
+		t.Fatalf("restart workflow service: %v", err)
+	}
+	defer restarted.CloseEvents()
+	recovered, err := restarted.ReadExecution(workspaceID, started.ID)
+	if err != nil {
+		t.Fatalf("read recovered execution: %v", err)
+	}
+	if recovered.Status != ExecutionStatusCompleted {
+		t.Fatalf("recovered execution status = %s, want completed", recovered.Status)
+	}
+	recoveredWork := latestNodeExecutionForTest(t, recovered, "work")
+	if recoveredWork.Status != NodeExecutionStatusSucceeded {
+		t.Fatalf("recovered work status = %s, want succeeded", recoveredWork.Status)
+	}
+	if recoveredWork.RecoveryOutcome == nil || *recoveredWork.RecoveryOutcome != RunnerRecoveryOutcomeRecoveredCompleted {
+		t.Fatalf("recovery outcome = %v, want recovered_completed", recoveredWork.RecoveryOutcome)
+	}
+	restartedRun, err := restarted.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start same workflow after hidden terminal recovery: %v", err)
+	}
+	if restartedRun.Status == ExecutionStatusRunning {
+		if _, err := restarted.CancelExecution(workspaceID, restartedRun.ID); err != nil {
+			t.Fatalf("cancel follow-up workflow run: %v", err)
+		}
+	}
+	assertWorkflowEventsInclude(t, restarted, workspaceID, started.ID, []WorkflowEventType{
+		EventActionRecovered,
+		EventActionCompleted,
+		EventExecutionCompleted,
+	})
+	waitForScriptedHarnessIdle(t, harness)
+}
+
 func TestCodexRunnerRecoverReconcilesTerminalWorkflowOwnedChatRun(t *testing.T) {
 	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
 	definition, err := workflowService.CreateDefinition(workspaceID, "Workflow terminal recovery", "", codexActionGraph("workflow result action", true))
@@ -386,6 +456,11 @@ func newCodexRunnerTestServices(t *testing.T) (*Service, *chat.Service, *chat.Sc
 
 func newCodexRunnerRecoveryTestServices(t *testing.T) (*Service, *chat.Service, *chat.ScriptedWorkflowHarness, *Store, testWorkspaceResolver, IDGenerator, string) {
 	t.Helper()
+	return newCodexRunnerRecoveryTestServicesWithChatOptions(t)
+}
+
+func newCodexRunnerRecoveryTestServicesWithChatOptions(t *testing.T, chatOptions ...chat.Option) (*Service, *chat.Service, *chat.ScriptedWorkflowHarness, *Store, testWorkspaceResolver, IDGenerator, string) {
+	t.Helper()
 	appDataDir := t.TempDir()
 	workspaceID := "workspace_codex_runner"
 	resolver := testWorkspaceResolver{
@@ -403,7 +478,8 @@ func newCodexRunnerRecoveryTestServices(t *testing.T) (*Service, *chat.Service, 
 		t.Fatalf("create chat store: %v", err)
 	}
 	harness := chat.NewScriptedWorkflowHarness()
-	chatService, err := chat.NewService(chatStore, resolver, harness, chat.WithIDGenerator(idGenerator), chat.WithClock(fixedTestClock(t)))
+	options := append([]chat.Option{chat.WithIDGenerator(idGenerator), chat.WithClock(fixedTestClock(t))}, chatOptions...)
+	chatService, err := chat.NewService(chatStore, resolver, harness, options...)
 	if err != nil {
 		t.Fatalf("create chat service: %v", err)
 	}
@@ -422,6 +498,47 @@ func newCodexRunnerRecoveryTestServices(t *testing.T) (*Service, *chat.Service, 
 	}
 	t.Cleanup(workflowService.CloseEvents)
 	return workflowService, chatService, harness, workflowStore, resolver, idGenerator, workspaceID
+}
+
+func steerWorkflowChatWhenReady(t *testing.T, chatService *chat.Service, workspaceID string, conversationID string, prompt string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		if _, err := chatService.SteerActiveRun(workspaceID, conversationID, prompt); err == nil {
+			return
+		} else {
+			lastErr = err
+			if !errors.Is(err, chat.ErrTurnNotStarted) {
+				t.Fatalf("steer hidden workflow chat: %v", err)
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting to steer hidden workflow chat: %v", lastErr)
+}
+
+func waitForWorkflowChatRunStatus(t *testing.T, chatService *chat.Service, workspaceID string, conversationID string, runID string, status chat.RunStatus) chat.Run {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		runs, err := chatService.ListRuns(workspaceID, conversationID)
+		if err != nil {
+			t.Fatalf("list workflow chat runs: %v", err)
+		}
+		for _, run := range runs {
+			if run.ID == runID && run.Status == status {
+				return run
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	runs, err := chatService.ListRuns(workspaceID, conversationID)
+	if err != nil {
+		t.Fatalf("list final workflow chat runs: %v", err)
+	}
+	t.Fatalf("workflow chat runs = %+v, want run %s status %s", runs, runID, status)
+	return chat.Run{}
 }
 
 func codexActionGraph(prompt string, freshConversation bool) WorkflowGraph {

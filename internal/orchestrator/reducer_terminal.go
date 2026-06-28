@@ -1,5 +1,12 @@
 package orchestrator
 
+import (
+	"encoding/json"
+	"fmt"
+
+	"setta/internal/chat"
+)
+
 func completeExecution(execution *WorkflowExecution, events *[]WorkflowEvent, context TransitionContext, reason WorkflowTerminalReason, message string) error {
 	closeActiveWork(execution, context.Now, NodeExecutionStatusCancelled, "")
 	execution.Status = ExecutionStatusCompleted
@@ -30,6 +37,9 @@ func stopExecution(execution *WorkflowExecution, events *[]WorkflowEvent, contex
 }
 
 func cancelExecution(execution *WorkflowExecution, events *[]WorkflowEvent, context TransitionContext, reason WorkflowTerminalReason, message string) error {
+	if err := appendPendingApprovalCancellationEvents(execution, events, context); err != nil {
+		return err
+	}
 	closeActiveWork(execution, context.Now, NodeExecutionStatusCancelled, message)
 	execution.Status = ExecutionStatusCancelled
 	execution.TerminalReason = terminalReasonPtr(reason)
@@ -37,6 +47,34 @@ func cancelExecution(execution *WorkflowExecution, events *[]WorkflowEvent, cont
 	execution.CompletedAt = context.Now
 	execution.UpdatedAt = context.Now
 	return appendEvent(execution, events, context, EventExecutionCancelled, WorkflowEvent{Message: message})
+}
+
+func appendPendingApprovalCancellationEvents(execution *WorkflowExecution, events *[]WorkflowEvent, context TransitionContext) error {
+	for index := range execution.NodeExecutions {
+		nodeExecution := &execution.NodeExecutions[index]
+		if nodeExecution.Status != NodeExecutionStatusWaitingApproval || nodeExecution.Result == nil || nodeExecution.Result.PendingApproval == nil {
+			continue
+		}
+		pending := nodeExecution.Result.PendingApproval
+		payload, err := json.Marshal(RunnerApprovalResolvedPayload{
+			ApprovalID: pending.ApprovalID,
+			Status:     string(chat.ApprovalStatusCancelled),
+			Approved:   false,
+			Response:   "workflow execution cancelled",
+			Answers:    []chat.ApprovalAnswer{},
+			ResolvedAt: context.Now,
+		})
+		if err != nil {
+			return fmt.Errorf("encode runner approval cancellation for node execution %s: %w", nodeExecution.ID, err)
+		}
+		if _, err := applyOneRunnerEvent(execution, index, RunnerEvent{
+			Type:    RunnerEventApprovalResolved,
+			Payload: payload,
+		}, context, events); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func closeActiveWork(execution *WorkflowExecution, now string, nodeStatus WorkflowNodeExecutionStatus, nodeError string) {

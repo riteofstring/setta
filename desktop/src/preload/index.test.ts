@@ -5,6 +5,7 @@ import type {
   ChatEvent,
   TerminalEvent,
   UpdateAppearanceSettingsRequest,
+  WorkspaceActivityEvent,
   WorkflowEvent,
   WorkflowGraph,
 } from "@generated/backend";
@@ -254,6 +255,50 @@ describe("preload workspace API", () => {
     ]);
   });
 
+  test("exposes typed workspace activity methods through IPC", async () => {
+    const { api, invoke, on, removeListener } = await exposePreloadAPI();
+    expect(Object.keys(api.workspaceActivity).sort()).toEqual([
+      "executionSnapshot",
+      "onEvent",
+      "snapshot",
+    ]);
+
+    const snapshot = {
+      activities: [],
+      revision: 7,
+      schemaVersion: 1,
+      sequence: 12,
+      streamId: "workspace_activity_stream_test",
+      workspaceId: "workspace_api",
+    };
+    invoke.mockResolvedValueOnce({ snapshot });
+    await expect(api.workspaceActivity.snapshot("workspace_api", 100)).resolves.toEqual(snapshot);
+
+    const executionSnapshot = { ...snapshot, revision: 8 };
+    invoke.mockResolvedValueOnce({ snapshot: executionSnapshot });
+    await expect(
+      api.workspaceActivity.executionSnapshot("workspace_api", "execution_api", 100),
+    ).resolves.toEqual(executionSnapshot);
+
+    const event = workspaceActivityEvent();
+    const listener = vi.fn();
+    const unsubscribe = api.workspaceActivity.onEvent(listener);
+    const handler = on.mock.calls.find((call) => call[0] === ipcEvents.workspaceActivityEvent)?.[1];
+    if (typeof handler !== "function") {
+      throw new Error("workspace activity event handler was not registered");
+    }
+    handler({}, event);
+    unsubscribe();
+
+    expectInvokeCalls(invoke, [
+      [ipcChannels.workspaceActivitySnapshot, "workspace_api", 100],
+      [ipcChannels.workspaceActivityExecutionSnapshot, "workspace_api", "execution_api", 100],
+    ]);
+    expect(on).toHaveBeenCalledWith(ipcEvents.workspaceActivityEvent, expect.any(Function));
+    expect(listener).toHaveBeenCalledWith(event);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.workspaceActivityEvent, handler);
+  });
+
   test("exposes typed chat methods through IPC", async () => {
     const { api, invoke, on, removeListener } = await exposePreloadAPI();
     expect(Object.keys(api.chat).sort()).toEqual([
@@ -268,6 +313,7 @@ describe("preload workspace API", () => {
       "markConversationRead",
       "messagePage",
       "onEvent",
+      "openCodexModelPicker",
       "queueMessage",
       "removeQueuedMessage",
       "runActivity",
@@ -289,6 +335,7 @@ describe("preload workspace API", () => {
     await api.chat.executeCommand("workspace_api", "conversation_api", "/goal replacement", {
       confirmGoalReplacement: true,
     });
+    await api.chat.openCodexModelPicker("workspace_api", "conversation_api");
     await api.chat.markConversationRead("workspace_api", "conversation_api");
     await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
     await api.chat.queueMessage("workspace_api", "conversation_api", "queued");
@@ -341,6 +388,7 @@ describe("preload workspace API", () => {
         "/goal replacement",
         true,
       ],
+      [ipcChannels.chatOpenCodexModelPicker, "workspace_api", "conversation_api"],
       [ipcChannels.chatMarkConversationRead, "workspace_api", "conversation_api"],
       [ipcChannels.chatMessagePage, "workspace_api", "conversation_api", 10, 40],
       [ipcChannels.chatQueueMessage, "workspace_api", "conversation_api", "queued"],
@@ -1173,6 +1221,7 @@ describe("preload workspace API", () => {
       "executionEvents",
       "graphProjection",
       "listDefinitions",
+      "listExecutions",
       "onEvent",
       "readDefinition",
       "readExecution",
@@ -1194,6 +1243,7 @@ describe("preload workspace API", () => {
     );
     await api.workflow.deleteDefinition("workspace_api", "workflow_definition_api");
     await api.workflow.validateDefinition("workspace_api", graph);
+    await api.workflow.listExecutions("workspace_api", "workflow_definition_api", 20);
     await api.workflow.startExecution("workspace_api", "workflow_definition_api");
     await api.workflow.startExecution(
       "workspace_api",
@@ -1245,6 +1295,7 @@ describe("preload workspace API", () => {
       ],
       [ipcChannels.workflowDeleteDefinition, "workspace_api", "workflow_definition_api"],
       [ipcChannels.workflowValidateDefinition, "workspace_api", graph],
+      [ipcChannels.workflowListExecutions, "workspace_api", "workflow_definition_api", 20],
       [ipcChannels.workflowStartExecution, "workspace_api", "workflow_definition_api", ""],
       [
         ipcChannels.workflowStartExecution,
@@ -1348,6 +1399,29 @@ function terminalEvent(): TerminalEvent {
     sessionId: "terminal_api",
     streamId: "terminal_stream_test",
     type: "terminal.output",
+    workspaceId: "workspace_api",
+  };
+}
+
+function workspaceActivityEvent(): WorkspaceActivityEvent {
+  return {
+    delta: null,
+    emittedAt: "2026-06-21T12:00:00Z",
+    eventId: "workspace_activity_stream_test:12",
+    resync: {
+      currentRevision: 7,
+      currentSequence: 12,
+      currentStreamId: "workspace_activity_stream_test",
+      earliestSequence: 8,
+      reason: "workspace activity replay is no longer available",
+      requestedSequence: 1,
+      requestedStreamId: "workspace_activity_stream_old",
+    },
+    revision: 7,
+    schemaVersion: 1,
+    sequence: 12,
+    streamId: "workspace_activity_stream_test",
+    type: "workspace_activity.resync_required",
     workspaceId: "workspace_api",
   };
 }

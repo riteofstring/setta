@@ -552,6 +552,15 @@ func findLastRunItemType(items []RunItem, itemType RunItemType) (RunItem, bool) 
 	return RunItem{}, false
 }
 
+func findTraceType(traces []recordedTrace, traceType string) (recordedTrace, bool) {
+	for _, trace := range traces {
+		if trace.traceType == traceType {
+			return trace, true
+		}
+	}
+	return recordedTrace{}, false
+}
+
 func requireRunItemType(t *testing.T, items []RunItem, itemType RunItemType) RunItem {
 	t.Helper()
 	item, ok := findRunItemType(items, itemType)
@@ -863,6 +872,13 @@ func TestCodexHarnessHandlesTurnProtocolCoverageNotifications(t *testing.T) {
 	if reasoning.HiddenText != "private reasoning" {
 		t.Fatalf("reasoning hidden text = %q, want preserved private reasoning", reasoning.HiddenText)
 	}
+	trace, ok := findTraceType(sink.traces, "codex_turn_moderation_metadata")
+	if !ok {
+		t.Fatalf("traces = %+v, want moderation metadata trace", sink.traces)
+	}
+	if strings.Contains(trace.message, "presentation") || strings.Contains(trace.message, "inline") {
+		t.Fatalf("moderation trace message = %q, want bounded non-raw evidence", trace.message)
+	}
 	for _, diagnostic := range sink.diagnostics {
 		if diagnostic.severity == DiagnosticSeverityCritical {
 			t.Fatalf("diagnostics = %+v, want no critical diagnostics for known coverage notifications", sink.diagnostics)
@@ -998,37 +1014,6 @@ func TestCodexHarnessFakeAppServer(t *testing.T) {
 	os.Exit(0)
 }
 
-type recordingSink struct {
-	approvalCh  chan ApprovalRequest
-	diagnostics []recordedProviderDiagnostic
-	goals       []*ChatGoalState
-	items       []RunItem
-	linkCh      chan struct{}
-	outputs     []recordedOutput
-	text        string
-	threadID    string
-	turnID      string
-}
-
-type codexTurnResult struct {
-	completion TurnCompletion
-	err        error
-}
-
-type recordedOutput struct {
-	itemID string
-	stream string
-	text   string
-}
-
-type recordedProviderDiagnostic struct {
-	code           string
-	context        map[string]string
-	message        string
-	resyncRequired bool
-	severity       DiagnosticSeverity
-}
-
 type fakeAttestationProvider struct {
 	token string
 }
@@ -1113,61 +1098,6 @@ func waitForNotification(t *testing.T, client *codexapp.Client, method string) {
 	case <-time.After(2 * time.Second):
 		t.Fatalf("timed out waiting for notification %s", method)
 	}
-}
-
-func (sink *recordingSink) AssistantTextDelta(_ string, text string) error {
-	sink.text += text
-	return nil
-}
-
-func (sink *recordingSink) ApprovalRequested(approval ApprovalRequest) error {
-	sink.approvalCh <- approval
-	return nil
-}
-
-func (sink *recordingSink) ApprovalResolved(string, bool, string) error {
-	return nil
-}
-
-func (sink *recordingSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error {
-	sink.diagnostics = append(sink.diagnostics, recordedProviderDiagnostic{
-		code:           code,
-		context:        context,
-		message:        message,
-		resyncRequired: resyncRequired,
-		severity:       severity,
-	})
-	return nil
-}
-
-func (sink *recordingSink) GoalUpdated(goal *ChatGoalState) error {
-	sink.goals = append(sink.goals, goal)
-	return nil
-}
-
-func (sink *recordingSink) RunItemOutputDelta(itemID string, stream string, text string) error {
-	sink.outputs = append(sink.outputs, recordedOutput{itemID: itemID, stream: stream, text: text})
-	return nil
-}
-
-func (sink *recordingSink) RunItemUpsert(item RunItem) error {
-	sink.items = append(sink.items, item)
-	return nil
-}
-
-func (sink *recordingSink) ThreadLinked(threadID string, _ string, turnID string) error {
-	sink.threadID = threadID
-	sink.turnID = turnID
-	sink.linkCh <- struct{}{}
-	return nil
-}
-
-func (sink *recordingSink) UserMessageCommitted(string) error {
-	return nil
-}
-
-func (sink *recordingSink) Trace(string, string) error {
-	return nil
 }
 
 func waitForApproval(t *testing.T, sink *recordingSink) ApprovalRequest {
@@ -1353,7 +1283,7 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 			"layers":  []any{},
 			"origins": map[string]any{},
 		})
-		return mode == "command-model-set-local" || mode == "command-effort-set-local"
+		return false
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)
@@ -1444,6 +1374,16 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 		return true, true
 	case "thread-token-usage-notification":
 		writeFakeThreadTokenUsage()
+		writeFakeStreamTurn()
+		return true, true
+	case "moderation-metadata-notification":
+		writeFakeNotification("turn/moderationMetadata", map[string]any{
+			"metadata": map[string]any{
+				"presentation": "inline",
+			},
+			"threadId": "thread_fake",
+			"turnId":   "turn_fake",
+		})
 		writeFakeStreamTurn()
 		return true, true
 	case "provider-user-message-item":

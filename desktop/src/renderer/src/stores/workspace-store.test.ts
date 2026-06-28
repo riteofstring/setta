@@ -342,6 +342,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: emptyMessagePage(),
         result: {
           action: "display",
+          composerDraft: "",
           goal: null,
           kind: "goal",
           message: "Goal set: test",
@@ -351,6 +352,24 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           selectedReasoningEffort: null,
           selectedModel: "",
           title: "Goal",
+        },
+      }),
+      openCodexModelPicker: async () => ({
+        conversation: emptyConversation(),
+        message: null,
+        page: emptyMessagePage(),
+        result: {
+          action: "model_picker",
+          composerDraft: "",
+          goal: null,
+          kind: "model",
+          message: "Choose a model.",
+          models: [],
+          raw: "model_picker",
+          reasoningEfforts: [],
+          selectedReasoningEffort: null,
+          selectedModel: "",
+          title: "Model",
         },
       }),
       listCommands: async () => ({ commands: [] }),
@@ -377,6 +396,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       runActivity: async () => ({
+        activity: [],
         items: [],
         output: [],
         runId: "run_test",
@@ -408,11 +428,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: emptyMessagePage(),
         result: {
           action: "display",
+          composerDraft: "",
           goal: null,
           kind: "model",
           message: "Model set: gpt-test",
           models: [],
-          raw: "/model",
+          raw: "model_set",
           reasoningEfforts: [],
           selectedReasoningEffort: null,
           selectedModel: "gpt-test",
@@ -425,11 +446,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: emptyMessagePage(),
         result: {
           action: "display",
+          composerDraft: "",
           goal: null,
           kind: "model",
           message: "Reasoning set: High",
           models: [],
-          raw: "/model",
+          raw: "model_reasoning_effort_set",
           reasoningEfforts: [],
           selectedReasoningEffort: "high",
           selectedModel: "",
@@ -478,6 +500,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    workspaceActivity: unimplementedWorkspaceActivityAPI(),
     terminal: unimplementedTerminalAPI(),
     semanticGraph: unimplementedSemanticGraphAPI(),
     workflow: unimplementedWorkflowAPI(),
@@ -490,6 +513,18 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       setta: api,
     },
   });
+}
+
+function unimplementedWorkspaceActivityAPI(): SettaAPI["workspaceActivity"] {
+  return {
+    onEvent: () => () => {},
+    snapshot: async () => {
+      throw new Error("workspace activity API is not implemented in this test");
+    },
+    executionSnapshot: async () => {
+      throw new Error("workspace activity API is not implemented in this test");
+    },
+  };
 }
 
 function unimplementedTerminalAPI(): SettaAPI["terminal"] {
@@ -522,6 +557,7 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     executionEvents: unavailable,
     graphProjection: unavailable,
     listDefinitions: unavailable,
+    listExecutions: unavailable,
     onEvent: () => () => {},
     readDefinition: unavailable,
     readExecution: unavailable,
@@ -594,6 +630,7 @@ function emptyCodexAccountState() {
 function emptyConversation() {
   return {
     archivedAt: "",
+    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
@@ -634,15 +671,13 @@ function emptyMessage(): ChatMessage {
 
 function emptyMessagePage(): MessagePage {
   return {
+    blocks: [],
     conversation: emptyConversation(),
     goal: null,
     hasMoreOlder: false,
     messages: [],
-    olderBeforeOrdinal: 0,
+    olderBeforeBlockOrdinal: 0,
     queue: { messages: [], runs: [] },
-    runItemOutputs: [],
-    runItems: [],
-    transcript: [],
   };
 }
 

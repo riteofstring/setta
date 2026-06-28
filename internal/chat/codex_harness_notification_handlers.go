@@ -11,8 +11,9 @@ import (
 const codexCommandExecutionOutputStream = "output"
 
 type codexNotificationResult struct {
-	Completion TurnCompletion
-	TurnID     string
+	CodexEffectiveSettings *codexCommandThreadSettings
+	Completion             TurnCompletion
+	TurnID                 string
 }
 
 type codexNotificationHandler func(jsonRPCMessage, string, string, TurnSink) (codexNotificationResult, error)
@@ -75,6 +76,7 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	codexapp.CodexNotificationThreadUnarchived:                        handleCodexThreadLifecycle,
 	codexapp.CodexNotificationTurnCompleted:                           handleCodexTurnCompletedNotification,
 	codexapp.CodexNotificationTurnDiffUpdated:                         handleCodexDiffUpdated,
+	codexapp.CodexNotificationTurnModerationMetadata:                  handleCodexTurnModerationMetadata,
 	codexapp.CodexNotificationTurnPlanUpdated:                         handleCodexPlanUpdated,
 	codexapp.CodexNotificationTurnStarted:                             handleCodexTurnStarted,
 	codexapp.CodexNotificationWarning:                                 handleCodexNotice,
@@ -104,6 +106,17 @@ func handleCodexReasoningSummaryPartAdded(message jsonRPCMessage, threadID strin
 
 func handleCodexTurnCompletedNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
 	return handleCodexTurnCompleted(message, threadID, turnID, sink)
+}
+
+func handleCodexTurnModerationMetadata(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+	params, err := codexapp.DecodeTurnModerationMetadataNotification(message.Params)
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
+		return codexNotificationResult{}, err
+	}
+	return codexNotificationResult{}, sink.Trace("codex_turn_moderation_metadata", fmt.Sprintf("%d metadata bytes", len(params.Metadata)))
 }
 
 func handleCodexThreadStarted(message jsonRPCMessage, threadID string, _ string, sink TurnSink) (codexNotificationResult, error) {
