@@ -204,6 +204,72 @@ func TestServiceBackgroundTerminalLateLifecycle(t *testing.T) {
 	}
 }
 
+func TestServiceBackgroundTerminalsSurviveRunInterrupt(t *testing.T) {
+	source := RunItemCommandSourceUnifiedExecStartup
+	const (
+		providerItemID = "bg_interrupt_item"
+		providerProcID = "bg_interrupt_proc"
+		command        = "npm run dev"
+	)
+	harness := NewFakeHarness([]FakeHarnessEvent{
+		{Type: FakeEventThreadLinked, ThreadID: "thread_interrupt", SessionID: "session_interrupt", TurnID: "turn_interrupt"},
+		{Type: FakeEventAssistantDelta, ProviderItemID: "text_interrupt", Text: "Starting the dev server. "},
+		{Type: FakeEventRunItem, ProviderItemID: providerItemID, RunItem: RunItem{
+			ProviderItemID: providerItemID,
+			Type:           RunItemTypeCommandExecution,
+			Status:         RunItemStatusRunning,
+			Command:        command,
+			Cwd:            "/tmp/workspace",
+			ProcessID:      providerProcID,
+			Source:         &source,
+		}},
+		{Type: FakeEventRunItemOutput, ProviderItemID: providerItemID, Stream: "stdout", Text: "dev server booted\n"},
+		{Type: FakeEventWaitForCancel},
+	})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	workspaceID, conversationID := startTranscriptConversation(t, service)
+	result, err := service.SendUserMessage(workspaceID, conversationID, "interrupt background terminal")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	process := waitForBackgroundTerminalProcess(t, service, workspaceID, conversationID, providerItemID, BackgroundTerminalRunning)
+
+	cancelled, err := service.CancelActiveRun(workspaceID, conversationID)
+	if err != nil {
+		t.Fatalf("cancel active run: %v", err)
+	}
+	if cancelled.Status != RunStatusCancelled || cancelled.ID != result.Run.ID {
+		t.Fatalf("cancelled run = %+v, want %s cancelled", cancelled, result.Run.ID)
+	}
+	waitForRunStatus(t, service, workspaceID, conversationID, result.Run.ID, RunStatusCancelled)
+
+	process, err = service.store.LoadBackgroundTerminalProcess(workspaceID, conversationID, process.ID)
+	if err != nil {
+		t.Fatalf("reload background terminal: %v", err)
+	}
+	if process.Status != BackgroundTerminalRunning || process.CompletedAt != "" {
+		t.Fatalf("background terminal after interrupt = %+v, want still-running registry process", process)
+	}
+	page, err := service.store.LoadBackgroundTerminalOutputPage(workspaceID, conversationID, process.ID, 0, 10)
+	if err != nil {
+		t.Fatalf("load background terminal output: %v", err)
+	}
+	if len(page.Output) != 1 || page.Output[0].Text != "dev server booted\n" {
+		t.Fatalf("background terminal output after interrupt = %+v", page)
+	}
+
+	blocks := loadPersistedBlocks(t, service, workspaceID, result.Run.ID)
+	block := backgroundTerminalMarkerBlock(t, blocks, command)
+	if block.Status != TranscriptBlockStatusComplete {
+		t.Fatalf("background terminal marker status = %s, want complete chronology marker", block.Status)
+	}
+	for _, block := range blocks {
+		if block.Kind == TranscriptBlockKindActivityItem {
+			t.Fatalf("background terminal interrupt path created activity block: %+v", block)
+		}
+	}
+}
+
 // startScriptedBackgroundTerminalAlpha runs the scripted background terminal turn to completion
 // and returns the workspace, conversation, and the still-running alpha terminal process.
 func startScriptedBackgroundTerminalAlpha(t *testing.T, service *Service) (string, string, BackgroundTerminalProcess) {

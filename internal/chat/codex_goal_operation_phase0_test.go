@@ -809,6 +809,105 @@ func TestServiceGoalOperationReplaysPreSinkBackgroundTerminalBeforeOutput(t *tes
 	}
 }
 
+func TestServiceGoalOperationBackgroundTerminalSurvivesCancellation(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-background-cancel"))
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal finish renderer tests"); err != nil {
+		t.Fatalf("execute goal command: %v", err)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal run", runs)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusRunning)
+	process := waitForBackgroundTerminalProcess(t, service, "workspace_api", conversation.ID, fakeUnifiedExecAlphaItemID, BackgroundTerminalRunning)
+
+	cancelled, err := service.CancelActiveRun("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("cancel goal operation with background terminal: %v", err)
+	}
+	if cancelled.Status != RunStatusCancelled {
+		t.Fatalf("cancelled run status = %s, want cancelled", cancelled.Status)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCancelled)
+
+	process, err = service.store.LoadBackgroundTerminalProcess("workspace_api", conversation.ID, process.ID)
+	if err != nil {
+		t.Fatalf("reload background terminal: %v", err)
+	}
+	if process.Status != BackgroundTerminalRunning || process.CompletedAt != "" {
+		t.Fatalf("goal background terminal after cancellation = %+v, want still-running process", process)
+	}
+	blocks := loadPersistedBlocks(t, service, "workspace_api", runs[0].ID)
+	marker := backgroundTerminalMarkerBlock(t, blocks, fakeUnifiedExecAlphaCommand)
+	if marker.Status != TranscriptBlockStatusComplete {
+		t.Fatalf("goal background marker status = %s, want complete chronology marker", marker.Status)
+	}
+	for _, block := range blocks {
+		if block.Kind == TranscriptBlockKindActivityItem {
+			t.Fatalf("goal background terminal cancellation path created activity block: %+v", block)
+		}
+	}
+}
+
+func TestServiceGoalOperationBackgroundTerminalCrossPhysicalTurnEmitsNoDuplicateRegistryEvents(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-background-physical-turn-b"))
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	subscription, err := service.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal finish renderer tests"); err != nil {
+		t.Fatalf("execute goal command: %v", err)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal run", runs)
+	}
+	events := collectTranscriptEventsUntilTerminal(t, subscription, runs[0].ID)
+
+	process := waitForBackgroundTerminalProcess(t, service, "workspace_api", conversation.ID, fakeUnifiedExecAlphaItemID, BackgroundTerminalExited)
+	if process.ProcessID != fakeUnifiedExecAlphaProcess {
+		t.Fatalf("goal background terminal provider process = %q, want %q", process.ProcessID, fakeUnifiedExecAlphaProcess)
+	}
+	outputPage, err := service.store.LoadBackgroundTerminalOutputPage("workspace_api", conversation.ID, process.ID, 0, 10)
+	if err != nil {
+		t.Fatalf("load background terminal output: %v", err)
+	}
+	if len(outputPage.Output) != 1 || outputPage.Output[0].Text != "goal terminal output\n" {
+		t.Fatalf("background terminal output page = %+v, want one cross-physical-turn output chunk", outputPage)
+	}
+	if created := eventsOfType(events, EventTypeBackgroundTerminalCreated); len(created) != 1 {
+		t.Fatalf("background terminal created events = %d, want 1: %v", len(created), eventTypes(events))
+	}
+	if outputDeltas := eventsOfType(events, EventTypeBackgroundTerminalOutputDelta); len(outputDeltas) != 1 {
+		t.Fatalf("background terminal output delta events = %d, want 1: %v", len(outputDeltas), eventTypes(events))
+	}
+	if exitedUpdates := countBackgroundTerminalUpdatedStatus(t, events, process.ID, BackgroundTerminalExited); exitedUpdates != 1 {
+		t.Fatalf("exited background terminal updates = %d, want 1: %v", exitedUpdates, eventTypes(events))
+	}
+	if replaced := eventsOfType(events, EventTypeBackgroundTerminalsReplaced); len(replaced) != 0 {
+		t.Fatalf("goal background terminal republished full list: %v", eventTypes(events))
+	}
+}
+
 func TestCodexHarnessBackgroundTerminalClassificationSharedByGoalAndStandaloneRouters(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("stream"))
 	background := newRecordingBackgroundTerminalSink()
@@ -1035,6 +1134,18 @@ func waitForBackgroundTerminalProcess(t *testing.T, service *Service, workspaceI
 	}
 	t.Fatalf("timed out waiting for background terminal process %s status %s", providerItemID, status)
 	return BackgroundTerminalProcess{}
+}
+
+func countBackgroundTerminalUpdatedStatus(t *testing.T, events []Event, processID string, status BackgroundTerminalStatus) int {
+	t.Helper()
+	count := 0
+	for _, event := range eventsOfType(events, EventTypeBackgroundTerminalUpdated) {
+		process := decodeBackgroundTerminalUpdated(t, event)
+		if process.ID == processID && process.Status == status {
+			count++
+		}
+	}
+	return count
 }
 
 func beginPhase0GoalOperation(t *testing.T, harness *CodexHarness, raw string) (HarnessCommandResult, HarnessGoalOperation) {

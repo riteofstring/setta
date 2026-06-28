@@ -23,6 +23,7 @@ import {
   backgroundTerminalUpdatedEvent,
   reasoningBlock,
   runItemCreatedEvent,
+  runItemUpdatedEvent,
   runStatusBlock,
   transcriptBlockCreatedEvent,
   transcriptBlockUpdatedEvent,
@@ -253,18 +254,31 @@ describe("chat transcript block reducer", () => {
     expect(blockIds()).toEqual(["a1", "a2"]);
   });
 
-  test("ignores raw run item events without disturbing the transcript", () => {
+  test("ignores raw run item events without disturbing transcript or background terminals", () => {
     seedBlocks([
       activityBlock({ id: "a1", ordinal: 1, runId: "run_a", sourceRunItemId: "run_item_command" }),
     ]);
+    const terminal = backgroundTerminalProcess("background_terminal_alpha", {
+      command: "npm run dev",
+      status: "running",
+    });
+    useChatStore.getState().handleEvent(backgroundTerminalCreatedEvent(1, terminal));
 
     // Raw run-item created/updated events are no-ops in the renderer (the semantic
-    // graph cartographer consumes them on the backend); the transcript is unchanged.
+    // graph cartographer consumes them on the backend); background terminal UI state
+    // comes only from typed background-terminal events.
     useChatStore
       .getState()
-      .handleEvent(runItemCreatedEvent(1, runItem("run_item_command", "run_a")));
+      .handleEvent(runItemCreatedEvent(2, runItem("run_item_command", "run_a")));
+    useChatStore
+      .getState()
+      .handleEvent(runItemUpdatedEvent(3, runItem("run_item_command", "run_a")));
 
     expect(blockIds()).toEqual(["a1"]);
+    expect(useChatStore.getState().backgroundTerminalIdsByConversationId[conversationId]).toEqual([
+      terminal.id,
+    ]);
+    expect(useChatStore.getState().backgroundTerminalsById[terminal.id]).toEqual(terminal);
   });
 
   test("applies background terminal process and output events to typed registry state", () => {

@@ -219,8 +219,8 @@ function RunStatusBlock({ block }: { block: TranscriptBlock }) {
 // background_terminal is a slim chronological marker that the assistant started or
 // interacted with a background terminal at this point in the run. The terminal's
 // live status and output are owned by the backend process registry (surfaced by the
-// footer and monitor in a later phase) and joined by processId; this block only
-// records the chronological marker.
+// footer and monitor) and joined by processId; this block only records the
+// chronological marker.
 function BackgroundTerminalBlock({ block }: { block: TranscriptBlock }) {
   const terminal = block.backgroundTerminal;
   if (!terminal) {

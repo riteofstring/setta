@@ -9,7 +9,7 @@ func handleFakeGoalGet(mode string, message map[string]any) bool {
 	case "goal-operation-set-preserves-old", "goal-operation-resume":
 		writeFakeGoalResponse(message["id"], "existing provider goal", "active")
 		return false
-	case "goal-operation-cancel", "goal-operation-cancel-no-completion", "goal-operation-clear-command", "goal-operation-pause-command", "goal-operation-stale-interrupt-retry":
+	case "goal-operation-background-cancel", "goal-operation-cancel", "goal-operation-cancel-no-completion", "goal-operation-clear-command", "goal-operation-pause-command", "goal-operation-stale-interrupt-retry":
 		writeFakeGoalResponse(message["id"], "finish renderer tests", "active")
 		return false
 	}
@@ -42,7 +42,7 @@ func handleFakeGoalOperationPauseSet(mode string, state *fakeCodexState, message
 		return false, false
 	}
 	switch mode {
-	case "goal-operation-cancel", "goal-operation-cancel-no-completion", "goal-operation-pause-command", "goal-operation-stale-interrupt-retry":
+	case "goal-operation-background-cancel", "goal-operation-cancel", "goal-operation-cancel-no-completion", "goal-operation-pause-command", "goal-operation-stale-interrupt-retry":
 		state.goalPaused = true
 		writeFakeGoalResponse(message["id"], "finish renderer tests", "paused")
 		writeFakeThreadGoalUpdated("finish renderer tests", "paused")
@@ -100,9 +100,12 @@ func handleFakeGoalOperationPostResponseEvents(mode string, objective string) bo
 		return false
 	case "goal-operation-exit-before-runtime-turn":
 		return true
-	case "goal-operation-cancel", "goal-operation-cancel-no-completion":
+	case "goal-operation-background-cancel", "goal-operation-cancel", "goal-operation-cancel-no-completion":
 		writeFakeThreadGoalUpdated(objective, "active")
 		writeFakeTurnStartedForThread("thread_fake", "turn_goal_cancel")
+		if mode == "goal-operation-background-cancel" {
+			writeFakeUnifiedExecStartupForTurn("turn_goal_cancel", fakeUnifiedExecAlphaItemID, fakeUnifiedExecAlphaProcess, fakeUnifiedExecAlphaCommand)
+		}
 		writeFakeAssistantDeltaForTurn("turn_goal_cancel", "item_goal_cancel", "goal cancellation waiting. ")
 		return false
 	case "goal-operation-stale-interrupt-retry":

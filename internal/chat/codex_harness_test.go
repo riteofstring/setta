@@ -1336,7 +1336,7 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 }
 
 func handleFakeTurnInterrupt(mode string, state *fakeCodexState, message map[string]any) bool {
-	if (mode == "goal-operation-cancel" || mode == "goal-operation-cancel-no-completion") && !state.goalPaused {
+	if (mode == "goal-operation-background-cancel" || mode == "goal-operation-cancel" || mode == "goal-operation-cancel-no-completion") && !state.goalPaused {
 		writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
 		return true
 	}
@@ -1369,7 +1369,7 @@ func handleFakeTurnInterrupt(mode string, state *fakeCodexState, message map[str
 	if mode == "goal-operation-cancel-no-completion" {
 		return false
 	}
-	if mode == "goal-operation-cancel" {
+	if mode == "goal-operation-background-cancel" || mode == "goal-operation-cancel" {
 		writeFakeCompletedTurnID("turn_goal_cancel", "interrupted")
 		return true
 	}

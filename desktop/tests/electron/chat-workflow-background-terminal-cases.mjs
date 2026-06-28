@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-// Phase 4 of docs/plans/background_terminal_lifecycle_plan.md. The provider starts two
+// Phase 5 verification for docs/plans/background_terminal_lifecycle_plan.md. The provider starts two
 // unified-exec style background terminals and leaves them running when the turn completes.
 // The backend routes unified-exec commands into the background terminal process registry,
 // renders slim chronological background_terminal marker blocks, exposes typed list/output/kill
@@ -25,7 +25,7 @@ const BACKGROUND_TERMINAL_MONITOR_PROCESS_SELECTOR =
   '[data-testid="background-terminal-monitor-process"]';
 
 // runBackgroundTerminalWorkflow drives the background terminal provider stream end-to-end and
-// asserts the Phase 3 behavior: the terminals are slim background_terminal marker blocks owned
+// asserts the lifecycle behavior: the terminals are slim background_terminal marker blocks owned
 // by the process registry, not run-item activity rows, and the registry projections are available
 // through both backend HTTP and renderer IPC.
 export async function runBackgroundTerminalWorkflow({
@@ -322,8 +322,8 @@ async function recordBackgroundTerminalDiagnostics(
     })),
     footerPresent: true,
     monitorDiagnostics,
-    note: "Phase 4 background terminal lifecycle: unified-exec commands are routed into the backend process registry, rendered as slim background_terminal marker blocks, exposed through typed HTTP/preload IPC list and output projections, and surfaced through the footer/monitor UI with per-process kill controls.",
-    phase: 4,
+    note: "Phase 5 background terminal lifecycle verification: unified-exec commands are routed into the backend process registry, rendered as slim background_terminal marker blocks, exposed through typed HTTP/preload IPC list and output projections, surfaced through the footer/monitor UI with per-process kill controls, and kept out of run-item activity rows.",
+    phase: 5,
     plan: "docs/plans/background_terminal_lifecycle_plan.md",
     projectionDiagnostics,
     providerStreamSummary: BACKGROUND_TERMINAL_MARKER_SUMMARY,
