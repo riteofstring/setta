@@ -635,7 +635,7 @@ Branch 2 files touched:
 - `desktop/tests/electron/workflow-graph-pan-zoom-*.mjs`
 - `desktop/tests/electron/workflow-graph-phase0-*.mjs`
 - `desktop/tests/electron/workflow-graph-performance-recording.mjs`
-- `scripts/record_desktop_session.sh`
+- `scripts/dev_record_desktop_session.sh`
 - `docs/reports/performance/workspace-graph-*.md`
 
 Current owners:
