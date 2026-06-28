@@ -109,6 +109,7 @@ function installChatAPI({
       setta: {
         chat: {
           activeRun: async () => ({ hasActiveRun: false, run: null }),
+          listBackgroundTerminals: async () => ({ terminals: [] }),
           listConversations,
           messagePage,
         },

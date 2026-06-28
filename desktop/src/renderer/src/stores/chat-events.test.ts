@@ -15,6 +15,12 @@ import { useChatStore } from "./chat-store";
 import {
   activityBlock,
   assistantTextBlock,
+  backgroundTerminalCreatedEvent,
+  backgroundTerminalOutput,
+  backgroundTerminalOutputDeltaEvent,
+  backgroundTerminalProcess,
+  backgroundTerminalsReplacedEvent,
+  backgroundTerminalUpdatedEvent,
   reasoningBlock,
   runItemCreatedEvent,
   runStatusBlock,
@@ -259,6 +265,53 @@ describe("chat transcript block reducer", () => {
       .handleEvent(runItemCreatedEvent(1, runItem("run_item_command", "run_a")));
 
     expect(blockIds()).toEqual(["a1"]);
+  });
+
+  test("applies background terminal process and output events to typed registry state", () => {
+    const alpha = backgroundTerminalProcess("background_terminal_alpha", {
+      command: "npm run dev",
+      startedAt: "2026-05-29T20:00:00Z",
+    });
+    const beta = backgroundTerminalProcess("background_terminal_beta", {
+      command: "vite --host 0.0.0.0",
+      startedAt: "2026-05-29T20:00:01Z",
+    });
+
+    useChatStore.getState().handleEvent(backgroundTerminalCreatedEvent(1, beta));
+    useChatStore.getState().handleEvent(backgroundTerminalCreatedEvent(2, alpha));
+    useChatStore
+      .getState()
+      .handleEvent(
+        backgroundTerminalOutputDeltaEvent(
+          3,
+          backgroundTerminalOutput("background_terminal_output_alpha_1", alpha.id),
+        ),
+      );
+    useChatStore.getState().handleEvent(
+      backgroundTerminalUpdatedEvent(4, {
+        ...alpha,
+        status: "terminating",
+        updatedAt: "2026-05-29T20:00:02Z",
+      }),
+    );
+
+    expect(useChatStore.getState().backgroundTerminalIdsByConversationId[conversationId]).toEqual([
+      beta.id,
+      alpha.id,
+    ]);
+    expect(useChatStore.getState().backgroundTerminalsById[alpha.id]?.status).toBe("terminating");
+    expect(useChatStore.getState().backgroundTerminalOutputIdsByProcessId[alpha.id]).toEqual([
+      "background_terminal_output_alpha_1",
+    ]);
+    expect(
+      useChatStore.getState().backgroundTerminalOutputsById.background_terminal_output_alpha_1
+        ?.text,
+    ).toBe("dev server ready\n");
+
+    useChatStore.getState().handleEvent(backgroundTerminalsReplacedEvent(5, [beta]));
+    expect(useChatStore.getState().backgroundTerminalIdsByConversationId[conversationId]).toEqual([
+      beta.id,
+    ]);
   });
 
   test("ignores transcript block events for unrelated conversations", () => {

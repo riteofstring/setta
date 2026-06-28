@@ -58,6 +58,16 @@ func scriptedBackgroundTerminalTurn(_ *ScriptedWorkflowHarness, _ context.Contex
 	return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
 }
 
+func (harness *ScriptedWorkflowHarness) TerminateBackgroundTerminal(ctx context.Context, request BackgroundTerminalTerminateRequest) (BackgroundTerminalTerminateResult, error) {
+	if err := ctx.Err(); err != nil {
+		return BackgroundTerminalTerminateResult{}, err
+	}
+	if request.ProviderProcessID == "" {
+		return BackgroundTerminalTerminateResult{}, fmt.Errorf("scripted background terminal terminate requires provider process id")
+	}
+	return BackgroundTerminalTerminateResult{Terminated: true}, nil
+}
+
 // emitBackgroundTerminalStartup emits one unified-exec style command that the
 // assistant leaves running past the turn. It only ever upserts the running
 // state: there is no completed upsert, because the process keeps running. The

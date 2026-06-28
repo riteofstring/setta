@@ -661,29 +661,33 @@ function emitGoalOperationBackgroundTerminal(objective) {
     turnId: "turn_goal_a",
   });
   notifyGoalBackgroundTerminalStarted("turn_goal_a");
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_a", "completed"),
-  });
-  notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.idleGapOutput);
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_b", "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal turn B. ",
-    itemId: "goal_message_b",
-    threadId,
-    turnId: "turn_goal_b",
-  });
-  notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.secondTurnOutput);
-  notifyGoalBackgroundTerminalCompleted("turn_goal_a");
-  currentGoal = fakeGoal(objective, "complete");
-  notify("thread/goal/updated", { goal: currentGoal, threadId });
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_b", "completed"),
-  });
+  setTimeout(() => {
+    notify("turn/completed", {
+      threadId,
+      turn: fakeTurnWithID("turn_goal_a", "completed"),
+    });
+    notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.idleGapOutput);
+    notify("turn/started", {
+      threadId,
+      turn: fakeTurnWithID("turn_goal_b", "inProgress"),
+    });
+    notify("item/agentMessage/delta", {
+      delta: "Goal turn B. ",
+      itemId: "goal_message_b",
+      threadId,
+      turnId: "turn_goal_b",
+    });
+    setTimeout(() => {
+      notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.secondTurnOutput);
+      notifyGoalBackgroundTerminalCompleted("turn_goal_a");
+      currentGoal = fakeGoal(objective, "complete");
+      notify("thread/goal/updated", { goal: currentGoal, threadId });
+      notify("turn/completed", {
+        threadId,
+        turn: fakeTurnWithID("turn_goal_b", "completed"),
+      });
+    }, 350);
+  }, 350);
 }
 
 function emitGoalOperationCancellation(objective) {

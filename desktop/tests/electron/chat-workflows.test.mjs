@@ -294,6 +294,7 @@ async function runDeterministicWorkflowLaunch(results) {
           conversationId,
           recordingDir,
           submitComposer,
+          waitForState,
           waitForRunWithPrompt,
           waitForTexts,
           workspaceId,

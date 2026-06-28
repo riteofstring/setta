@@ -13,6 +13,7 @@ import {
   chatReadableColumnPaddedClass,
 } from "./chat-layout";
 import { ChatTranscript } from "./chat-transcript";
+import { BackgroundTerminalSurface } from "./chat-background-terminal-monitor";
 
 export {
   CommandPalette,
@@ -114,6 +115,7 @@ function ChatWorkspace({
           setSearchOpen={setSearchOpen}
           switchingWorkspace={switchingWorkspace}
         />
+        <BackgroundTerminalSurface chat={chat} />
         <ChatError message={selectedConversationChatError(chat)} />
         <ComposerSlot blocked={blocked} busy={composerBusy} chat={chat} running={running} />
       </div>
@@ -378,6 +380,19 @@ function ChatError({ message }: { message: string | null }) {
 
 export function useChatViewState() {
   const activeRun = useChatStore((state) => state.activeRun);
+  const backgroundTerminalIdsByConversationId = useChatStore(
+    (state) => state.backgroundTerminalIdsByConversationId,
+  );
+  const backgroundTerminalOutputIdsByProcessId = useChatStore(
+    (state) => state.backgroundTerminalOutputIdsByProcessId,
+  );
+  const backgroundTerminalOutputPagesByProcessId = useChatStore(
+    (state) => state.backgroundTerminalOutputPagesByProcessId,
+  );
+  const backgroundTerminalOutputsById = useChatStore(
+    (state) => state.backgroundTerminalOutputsById,
+  );
+  const backgroundTerminalsById = useChatStore((state) => state.backgroundTerminalsById);
   const conversations = useChatStore((state) => state.conversations);
   const corruption = useChatStore((state) => state.corruption);
   const commandListError = useChatStore((state) => state.commandListError);
@@ -393,8 +408,11 @@ export function useChatViewState() {
   const goal = useChatStore((state) => state.goal);
   const hasMoreOlder = useChatStore((state) => state.hasMoreOlder);
   const loadOlder = useChatStore((state) => state.loadOlder);
+  const loadBackgroundTerminalOutput = useChatStore((state) => state.loadBackgroundTerminalOutput);
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const listCommands = useChatStore((state) => state.listCommands);
+  const killBackgroundTerminal = useChatStore((state) => state.killBackgroundTerminal);
+  const killAllBackgroundTerminals = useChatStore((state) => state.killAllBackgroundTerminals);
   const markConversationRead = useChatStore((state) => state.markConversationRead);
   const messages = useChatStore((state) => state.messages);
   const messagesById = useChatStore((state) => state.messagesById);
@@ -404,6 +422,7 @@ export function useChatViewState() {
   const queueMessage = useChatStore((state) => state.queueMessage);
   const removeQueuedMessage = useChatStore((state) => state.removeQueuedMessage);
   const removingQueuedMessageId = useChatStore((state) => state.removingQueuedMessageId);
+  const refreshBackgroundTerminals = useChatStore((state) => state.refreshBackgroundTerminals);
   const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
   const runItemOutputPagesByRunItemId = useChatStore(
     (state) => state.runItemOutputPagesByRunItemId,
@@ -458,6 +477,11 @@ export function useChatViewState() {
 
   return {
     activeRun,
+    backgroundTerminalIdsByConversationId,
+    backgroundTerminalOutputIdsByProcessId,
+    backgroundTerminalOutputPagesByProcessId,
+    backgroundTerminalOutputsById,
+    backgroundTerminalsById,
     commandListError,
     commandListStatus,
     conversations,
@@ -472,6 +496,9 @@ export function useChatViewState() {
     executeCommand,
     goal,
     hasMoreOlder,
+    killAllBackgroundTerminals,
+    killBackgroundTerminal,
+    loadBackgroundTerminalOutput,
     loadOlder,
     loadRunItemOutput,
     listCommands,
@@ -481,6 +508,7 @@ export function useChatViewState() {
     pendingSteeringMessageIds,
     queuedMessages,
     queueMessage,
+    refreshBackgroundTerminals,
     removeQueuedMessage,
     removingQueuedMessageId,
     runItemOutputIdsByRunItemId,

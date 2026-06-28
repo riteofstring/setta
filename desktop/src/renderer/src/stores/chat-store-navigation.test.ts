@@ -800,6 +800,11 @@ function messageCreatedEvent(sequence: number, chatMessage: ChatMessage, runId: 
 function conversationDetail(conversation: Conversation, messages: ChatMessage[]) {
   return {
     activeRun: null,
+    backgroundTerminalIdsByConversationId: {},
+    backgroundTerminalOutputIdsByProcessId: {},
+    backgroundTerminalOutputPagesByProcessId: {},
+    backgroundTerminalOutputsById: {},
+    backgroundTerminalsById: {},
     conversation,
     goal: null,
     hasMoreOlder: false,

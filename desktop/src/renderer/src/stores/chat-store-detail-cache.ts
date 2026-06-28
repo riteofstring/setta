@@ -1,4 +1,6 @@
 import type {
+  BackgroundTerminalOutput,
+  BackgroundTerminalProcess,
   ChatGoalState,
   ChatMessage,
   Conversation,
@@ -9,9 +11,15 @@ import type {
 import { normalizeChatPatch, type QueuedRun, type RunningRun } from "./chat-store-normalization";
 import type { ChatPatch, ChatStore } from "./chat-store";
 import type { RunItemOutputPageState } from "./chat-store-normalization";
+import type { BackgroundTerminalOutputPageState } from "./chat-store-background-terminals";
 
 export interface ConversationDetailState {
   activeRun: RunningRun | null;
+  backgroundTerminalIdsByConversationId: Record<string, string[]>;
+  backgroundTerminalOutputIdsByProcessId: Record<string, string[]>;
+  backgroundTerminalOutputPagesByProcessId: Record<string, BackgroundTerminalOutputPageState>;
+  backgroundTerminalOutputsById: Record<string, BackgroundTerminalOutput>;
+  backgroundTerminalsById: Record<string, BackgroundTerminalProcess>;
   conversation: Conversation;
   goal: ChatGoalState | null;
   hasMoreOlder: boolean;
@@ -38,6 +46,11 @@ export function normalizeStatePatch(state: ChatStore, patch: ChatPatch): ChatPat
 export function conversationDetailPatch(detail: ConversationDetailState): ChatPatch {
   return {
     activeRun: detail.activeRun,
+    backgroundTerminalIdsByConversationId: detail.backgroundTerminalIdsByConversationId,
+    backgroundTerminalOutputIdsByProcessId: detail.backgroundTerminalOutputIdsByProcessId,
+    backgroundTerminalOutputPagesByProcessId: detail.backgroundTerminalOutputPagesByProcessId,
+    backgroundTerminalOutputsById: detail.backgroundTerminalOutputsById,
+    backgroundTerminalsById: detail.backgroundTerminalsById,
     goal: detail.goal,
     hasMoreOlder: detail.hasMoreOlder,
     messageIds: detail.messageIds,
@@ -96,6 +109,23 @@ function conversationDetailFromStatePatch(
 ): ConversationDetailState {
   return {
     activeRun: patchedValue(state, patch, "activeRun"),
+    backgroundTerminalIdsByConversationId: patchedValue(
+      state,
+      patch,
+      "backgroundTerminalIdsByConversationId",
+    ),
+    backgroundTerminalOutputIdsByProcessId: patchedValue(
+      state,
+      patch,
+      "backgroundTerminalOutputIdsByProcessId",
+    ),
+    backgroundTerminalOutputPagesByProcessId: patchedValue(
+      state,
+      patch,
+      "backgroundTerminalOutputPagesByProcessId",
+    ),
+    backgroundTerminalOutputsById: patchedValue(state, patch, "backgroundTerminalOutputsById"),
+    backgroundTerminalsById: patchedValue(state, patch, "backgroundTerminalsById"),
     conversation,
     goal: patchedValue(state, patch, "goal"),
     hasMoreOlder: patchedValue(state, patch, "hasMoreOlder"),

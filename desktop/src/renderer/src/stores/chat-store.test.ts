@@ -1,5 +1,6 @@
 import type {
   BackendHealth,
+  BackgroundTerminalOutput,
   ChatCommandResult,
   ChatGoalState,
   ChatMessage,
@@ -23,6 +24,8 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { prependOlderMessages, useChatStore } from "./chat-store";
 import {
   assistantTextBlock,
+  backgroundTerminalOutput,
+  backgroundTerminalProcess,
   conversationUpdatedEvent,
   diagnosticCreatedEvent,
   messageCreatedEvent,
@@ -37,6 +40,11 @@ describe("chat store", () => {
   beforeEach(() => {
     useChatStore.setState({
       activeRun: null,
+      backgroundTerminalIdsByConversationId: {},
+      backgroundTerminalOutputIdsByProcessId: {},
+      backgroundTerminalOutputPagesByProcessId: {},
+      backgroundTerminalOutputsById: {},
+      backgroundTerminalsById: {},
       commandListError: null,
       commandListStatus: "idle",
       conversationDetailsById: {},
@@ -92,6 +100,62 @@ describe("chat store", () => {
     expect(useChatStore.getState().messagesById.message_latest?.parts[0]?.text).toBe("latest");
     expect(listConversations).toHaveBeenCalledWith("workspace_api");
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
+  });
+
+  test("loads and controls background terminals through typed chat store actions", async () => {
+    const conversation = testConversation();
+    const alpha = backgroundTerminalProcess("background_terminal_alpha", {
+      command: "npm run dev",
+      recentOutput: ["dev server ready"],
+    });
+    const beta = backgroundTerminalProcess("background_terminal_beta", {
+      command: "vite --host 0.0.0.0",
+    });
+    const alphaOutput = backgroundTerminalOutput("background_terminal_output_alpha_1", alpha.id);
+    const listBackgroundTerminals = vi
+      .fn<SettaAPI["chat"]["listBackgroundTerminals"]>()
+      .mockResolvedValue({ terminals: [alpha, beta] });
+    const getBackgroundTerminalOutput = vi
+      .fn<SettaAPI["chat"]["getBackgroundTerminalOutput"]>()
+      .mockResolvedValue(backgroundTerminalOutputPage(alpha.id, [alphaOutput]));
+    const killBackgroundTerminal = vi
+      .fn<SettaAPI["chat"]["killBackgroundTerminal"]>()
+      .mockResolvedValue({
+        ...alpha,
+        status: "terminating",
+        updatedAt: "2026-05-29T20:00:02Z",
+      });
+    installSettaAPI({
+      chat: {
+        getBackgroundTerminalOutput,
+        killBackgroundTerminal,
+        listBackgroundTerminals,
+        listConversations: async () => listResponse([conversationItem(conversation, 1)]),
+        messagePage: async () => testPage(conversation, []),
+      },
+    });
+
+    await useChatStore.getState().loadWorkspace("workspace_api");
+    await useChatStore.getState().loadBackgroundTerminalOutput(alpha.id);
+    await useChatStore.getState().killBackgroundTerminal(alpha.id);
+
+    expect(useChatStore.getState().backgroundTerminalIdsByConversationId[conversation.id]).toEqual([
+      beta.id,
+      alpha.id,
+    ]);
+    expect(useChatStore.getState().backgroundTerminalOutputsById[alphaOutput.id]?.text).toBe(
+      alphaOutput.text,
+    );
+    expect(useChatStore.getState().backgroundTerminalsById[alpha.id]?.status).toBe("terminating");
+    expect(listBackgroundTerminals).toHaveBeenCalledWith("workspace_api", conversation.id);
+    expect(getBackgroundTerminalOutput).toHaveBeenCalledWith(
+      "workspace_api",
+      conversation.id,
+      alpha.id,
+      0,
+      200,
+    );
+    expect(killBackgroundTerminal).toHaveBeenCalledWith("workspace_api", conversation.id, alpha.id);
   });
 
   test("loads the last selected workspace conversation instead of the first list item", async () => {
@@ -1171,6 +1235,15 @@ function testPage(
         triggerMessageId: queuedMessages.find((item) => item.runId === runId)?.id ?? "",
       })),
     },
+  };
+}
+
+function backgroundTerminalOutputPage(processId: string, output: BackgroundTerminalOutput[]) {
+  return {
+    hasMore: false,
+    nextOrdinal: output.reduce((current, item) => Math.max(current, item.ordinal), 0),
+    output,
+    processId,
   };
 }
 

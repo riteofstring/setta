@@ -7,8 +7,11 @@ import { activityDetails, queuedChatMessage } from "../App.test.fixtures";
 import {
   activityBlock,
   assistantTextBlock,
+  backgroundTerminalOutput,
+  backgroundTerminalProcess,
   userMessageBlock,
 } from "../stores/chat-store-events.test.helpers";
+import { BackgroundTerminalMonitor } from "./chat-background-terminal-monitor";
 import { Composer } from "./chat-composer";
 import { commandComposerState } from "./chat-command-composer-controller";
 import {
@@ -564,6 +567,63 @@ describe("conversation body states", () => {
   });
 });
 
+describe("background terminal surface", () => {
+  test("renders the compact footer for active background terminals", () => {
+    const terminal = backgroundTerminalProcess("background_terminal_alpha");
+    const html = renderToString(
+      <ChatPanel
+        chat={conversationBodyChat({
+          backgroundTerminalIdsByConversationId: {
+            conversation_api: [terminal.id],
+          },
+          backgroundTerminalsById: {
+            [terminal.id]: terminal,
+          },
+        })}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+        workspace={{ id: "workspace_api" } as Parameters<typeof ChatPanel>[0]["workspace"]}
+      />,
+    );
+
+    expect(html).toContain('data-testid="background-terminals-footer"');
+    expect(html).toContain("1 background terminal running");
+    expect(html).toContain("Open background terminal monitor");
+  });
+
+  test("renders monitor process output and per-process kill controls", () => {
+    const alpha = backgroundTerminalProcess("background_terminal_alpha", {
+      command: "npm run dev",
+    });
+    const beta = backgroundTerminalProcess("background_terminal_beta", {
+      command: "vite --host 0.0.0.0",
+    });
+    const output = backgroundTerminalOutput("background_terminal_output_alpha_1", alpha.id);
+
+    const html = renderToString(
+      <BackgroundTerminalMonitor
+        chat={conversationBodyChat({
+          backgroundTerminalOutputIdsByProcessId: {
+            [alpha.id]: [output.id],
+          },
+          backgroundTerminalOutputsById: {
+            [output.id]: output,
+          },
+        })}
+        onClose={() => {}}
+        terminals={[alpha, beta]}
+      />,
+    );
+
+    expect(html).toContain('data-testid="background-terminal-monitor"');
+    expect(html).toContain("npm run dev");
+    expect(html).toContain("vite --host 0.0.0.0");
+    expect(html).toContain("dev server ready");
+    expect(html).toContain("Kill background terminal npm run dev");
+    expect(html).toContain("Kill all background terminals");
+  });
+});
+
 describe("chat readable width contract", () => {
   test("keeps transcript states, goal chrome, search, and composer on the capped chat column", () => {
     const transcriptHtml = renderToString(
@@ -737,6 +797,7 @@ function composerChat() {
     pendingSteeringMessageIds: [],
     queueMessage: async () => {},
     selectedConversation: {
+      archivedAt: "",
       codexEffectiveSettings: {
         model: "scripted-fast",
         modelDisplayName: "Scripted Fast",
@@ -747,6 +808,15 @@ function composerChat() {
         model: "scripted-fast",
         reasoningEffort: "medium",
       },
+      createdAt: "2026-05-29T20:00:00Z",
+      harnessRefs: [],
+      id: "conversation_api",
+      internal: false,
+      schemaVersion: 1,
+      title: "API chat",
+      updatedAt: "2026-05-29T20:00:00Z",
+      workflow: null,
+      workspaceId: "workspace_api",
       conversation: {
         id: "conversation_api",
       },
@@ -765,9 +835,18 @@ function conversationBodyChat(
   return {
     ...chat,
     ...emptyTranscriptProps(),
+    backgroundTerminalIdsByConversationId: {},
+    backgroundTerminalOutputIdsByProcessId: {},
+    backgroundTerminalOutputPagesByProcessId: {},
+    backgroundTerminalOutputsById: {},
+    backgroundTerminalsById: {},
     createConversation: async () => {},
     error: null,
     goal: null,
+    killAllBackgroundTerminals: async () => {},
+    killBackgroundTerminal: async () => {},
+    loadBackgroundTerminalOutput: async () => {},
+    refreshBackgroundTerminals: async () => {},
     selectedConversation: chat.selectedConversation,
     status: "ready",
     transcriptBlocks: [],

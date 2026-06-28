@@ -12,6 +12,11 @@ import {
   replaceRunTranscriptBlocks,
   upsertTranscriptBlock,
 } from "./chat-store-normalization";
+import {
+  backgroundTerminalOutputDeltaPatch,
+  backgroundTerminalsReplacedPatch,
+  backgroundTerminalUpsertPatch,
+} from "./chat-store-background-terminals";
 import type { ChatPatch, ChatStore } from "./chat-store";
 
 type RunningRun = Run & { status: "running" };
@@ -47,15 +52,17 @@ type RunEvent = AppliedEventOf<
   | "chat.run_item.updated"
   | "chat.run_item_output.delta"
 >;
-type ConversationEvent = Exclude<AppliedChatEvent, TranscriptBlockEvent | MessageEvent | RunEvent>;
-type NoOpConversationEvent = AppliedEventOf<
-  | "chat.assistant_text_delta"
+type BackgroundTerminalEvent = AppliedEventOf<
   | "chat.background_terminal.created"
   | "chat.background_terminal.updated"
   | "chat.background_terminal.output_delta"
   | "chat.background_terminals.replaced"
-  | "codex.account.changed"
 >;
+type ConversationEvent = Exclude<
+  AppliedChatEvent,
+  TranscriptBlockEvent | MessageEvent | RunEvent | BackgroundTerminalEvent
+>;
+type NoOpConversationEvent = AppliedEventOf<"chat.assistant_text_delta" | "codex.account.changed">;
 type StatefulConversationEvent = Exclude<ConversationEvent, NoOpConversationEvent>;
 
 const transcriptBlockEventTypes = new Set<AppliedChatEvent["type"]>([
@@ -77,12 +84,14 @@ const runEventTypes = new Set<AppliedChatEvent["type"]>([
   "chat.run_item.updated",
   "chat.run_item_output.delta",
 ]);
-const noOpConversationEventTypes = new Set<ConversationEvent["type"]>([
-  "chat.assistant_text_delta",
+const backgroundTerminalEventTypes = new Set<AppliedChatEvent["type"]>([
   "chat.background_terminal.created",
   "chat.background_terminal.updated",
   "chat.background_terminal.output_delta",
   "chat.background_terminals.replaced",
+]);
+const noOpConversationEventTypes = new Set<ConversationEvent["type"]>([
+  "chat.assistant_text_delta",
   "codex.account.changed",
 ]);
 
@@ -104,6 +113,9 @@ export function applyChatEvent(state: ChatStore, event: AppliedChatEvent): Event
   if (isRunEvent(event)) {
     return applyRunEvent(state, event);
   }
+  if (isBackgroundTerminalEvent(event)) {
+    return applyBackgroundTerminalEvent(state, event);
+  }
   return applyConversationEvent(state, event);
 }
 
@@ -117,6 +129,10 @@ function isMessageEvent(event: AppliedChatEvent): event is MessageEvent {
 
 function isRunEvent(event: AppliedChatEvent): event is RunEvent {
   return runEventTypes.has(event.type);
+}
+
+function isBackgroundTerminalEvent(event: AppliedChatEvent): event is BackgroundTerminalEvent {
+  return backgroundTerminalEventTypes.has(event.type);
 }
 
 function isNoOpConversationEvent(event: ConversationEvent): event is NoOpConversationEvent {
@@ -170,6 +186,44 @@ function applyConversationEvent(state: ChatStore, event: ConversationEvent): Eve
     return unchangedEventResult();
   }
   return applyStatefulConversationEvent(state, event);
+}
+
+function applyBackgroundTerminalEvent(
+  state: ChatStore,
+  event: BackgroundTerminalEvent,
+): EventApplyResult {
+  if (!isSelectedConversationEvent(state, event)) {
+    return unchangedEventResult();
+  }
+  switch (event.type) {
+    case "chat.background_terminal.created":
+    case "chat.background_terminal.updated":
+      return {
+        patch: {
+          ...backgroundTerminalUpsertPatch(state, event.payload.process),
+          status: "ready",
+        },
+        resync: false,
+      };
+    case "chat.background_terminal.output_delta":
+      return {
+        patch: {
+          ...backgroundTerminalOutputDeltaPatch(state, event.payload.output),
+          status: "ready",
+        },
+        resync: false,
+      };
+    case "chat.background_terminals.replaced":
+      return {
+        patch: {
+          ...backgroundTerminalsReplacedPatch(state, event.conversationId, event.payload.terminals),
+          status: "ready",
+        },
+        resync: false,
+      };
+    default:
+      return assertNever(event);
+  }
 }
 
 function applyStatefulConversationEvent(
@@ -410,6 +464,11 @@ function emptySelectedConversationPatch(): ChatPatch {
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItemOutputsById: {},
+    backgroundTerminalIdsByConversationId: {},
+    backgroundTerminalOutputIdsByProcessId: {},
+    backgroundTerminalOutputPagesByProcessId: {},
+    backgroundTerminalOutputsById: {},
+    backgroundTerminalsById: {},
     selectedConversation: null,
     transcriptBlocks: [],
     transcriptBlocksById: {},

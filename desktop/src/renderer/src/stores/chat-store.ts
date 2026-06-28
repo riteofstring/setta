@@ -8,6 +8,8 @@ import type { BackendProcessStatus, ChatCommandExecutionOptions } from "@shared/
 import { create } from "zustand";
 
 import { applyChatEvent } from "./chat-events";
+import { createChatBackgroundTerminalActions } from "./chat-store-background-terminal-actions";
+import { backgroundTerminalsReplacedPatch } from "./chat-store-background-terminals";
 import {
   conversationListErrorPatch,
   conversationListLoadedPatch,
@@ -174,6 +176,13 @@ export const useChatStore = create<ChatStore>((set, get) => {
     runChatBackgroundAction(name, () => get().resyncActiveConversation());
   }
 
+  const backgroundTerminalActions = createChatBackgroundTerminalActions({
+    applyPatch: (patchForState) => {
+      set((current) => normalizeStatePatch(current, patchForState(current)));
+    },
+    get,
+  });
+
   function flushStreamEventBatch(events: BufferedStreamChatEvent[]) {
     let needsResync = false;
     set((current) => {
@@ -205,15 +214,28 @@ export const useChatStore = create<ChatStore>((set, get) => {
     assertBackendReadCurrent(generation);
     const active = await window.setta.chat.activeRun(workspaceId, conversation.id);
     assertBackendReadCurrent(generation);
+    const backgroundTerminals = await window.setta.chat.listBackgroundTerminals(
+      workspaceId,
+      conversation.id,
+    );
+    assertBackendReadCurrent(generation);
     return {
       activeRun: active.hasActiveRun ? active.run : null,
+      backgroundTerminals,
       page,
     };
   }
 
   async function loadConversationPage(workspaceId: string, conversation: Conversation) {
     const snapshot = await loadConversationPageSnapshot(workspaceId, conversation);
-    return pagePatch(snapshot.page, snapshot.activeRun);
+    return {
+      ...pagePatch(snapshot.page, snapshot.activeRun),
+      ...backgroundTerminalsReplacedPatch(
+        get(),
+        conversation.id,
+        snapshot.backgroundTerminals.terminals,
+      ),
+    };
   }
 
   async function reloadConversations(workspaceId: string, generation = backendReadGeneration()) {
@@ -294,6 +316,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
   return {
     activeRun: null,
+    backgroundTerminalIdsByConversationId: {},
+    backgroundTerminalOutputIdsByProcessId: {},
+    backgroundTerminalOutputPagesByProcessId: {},
+    backgroundTerminalOutputsById: {},
+    backgroundTerminalsById: {},
+    ...backgroundTerminalActions,
     applyConversationList: (workspaceId, response) => {
       set((current) =>
         normalizeStatePatch(

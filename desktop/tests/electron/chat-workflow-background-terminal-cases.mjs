@@ -1,15 +1,13 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-// Phase 3 of docs/plans/background_terminal_lifecycle_plan.md. The provider starts two
+// Phase 4 of docs/plans/background_terminal_lifecycle_plan.md. The provider starts two
 // unified-exec style background terminals and leaves them running when the turn completes.
 // The backend routes unified-exec commands into the background terminal process registry,
 // renders slim chronological background_terminal marker blocks, exposes typed list/output/kill
-// contracts over HTTP and preload IPC, and fails kill loudly when the scripted provider cannot
-// terminate a process. The footer and monitor surfaces that read the registry land in Phase 4,
-// so their absence is still frozen here. The authoritative provider stream (running upserts
-// with no completed upsert, output chunks) is frozen by the Go TestBackgroundTerminalFixture*
-// tests.
+// contracts over HTTP and preload IPC, and renders the footer plus monitor UI from the typed
+// process/output projections. The authoritative provider stream (running upserts with no
+// completed upsert, output chunks) is frozen by the Go TestBackgroundTerminalFixture* tests.
 const BACKGROUND_TERMINAL_MARKER_SUMMARY = [
   { kind: "assistant_text", label: "step one (before the terminals)" },
   { kind: "background_terminal", label: "marker: npm run dev (running, owned by the registry)" },
@@ -20,10 +18,11 @@ const BACKGROUND_TERMINAL_MARKER_SUMMARY = [
   { kind: "assistant_text", label: "step two (final response while terminals run)" },
 ];
 
-// The Phase 4 background-terminal footer test id. It does not exist yet; freezing its absence
-// makes the Phase 4 flip a one-line change from "absent" to "present".
 const BACKGROUND_TERMINAL_FOOTER_SELECTOR = '[data-testid="background-terminals-footer"]';
 const BACKGROUND_TERMINAL_BLOCK_SELECTOR = '[data-testid="background-terminal-block"]';
+const BACKGROUND_TERMINAL_MONITOR_SELECTOR = '[data-testid="background-terminal-monitor"]';
+const BACKGROUND_TERMINAL_MONITOR_PROCESS_SELECTOR =
+  '[data-testid="background-terminal-monitor-process"]';
 
 // runBackgroundTerminalWorkflow drives the background terminal provider stream end-to-end and
 // asserts the Phase 3 behavior: the terminals are slim background_terminal marker blocks owned
@@ -38,6 +37,7 @@ export async function runBackgroundTerminalWorkflow({
   conversationId,
   recordingDir,
   submitComposer,
+  waitForState,
   waitForRunWithPrompt,
   waitForTexts,
   workspaceId,
@@ -78,19 +78,18 @@ export async function runBackgroundTerminalWorkflow({
     workspaceId,
   });
 
-  // No background-terminal footer/monitor exists yet, even though two terminals are still
-  // running. Phase 4 adds the footer; this assertion then flips to require it.
-  const footerAbsent = await client.evaluate(
-    `document.querySelector(${JSON.stringify(BACKGROUND_TERMINAL_FOOTER_SELECTOR)}) === null`,
-  );
-  if (!footerAbsent) {
-    throw new Error("Phase 3 expected no background-terminal footer yet, but one was rendered");
-  }
+  const monitorDiagnostics = await assertBackgroundTerminalMonitor({
+    backend,
+    client,
+    conversationId,
+    waitForState,
+    workspaceId,
+  });
 
   await recordBackgroundTerminalDiagnostics(recordingDir, {
     appendWorkflowState,
-    footerAbsent,
     markers,
+    monitorDiagnostics,
     projectionDiagnostics,
     run,
   });
@@ -164,45 +163,83 @@ async function assertBackgroundTerminalProjections({
   ]);
   assertBackgroundTerminalOutputPage(ipcOutputPage, ipcAlpha.id, "renderer IPC output");
 
-  const killResult = await callRendererChatAPIExpectError(client, "killBackgroundTerminal", [
-    workspaceId,
-    conversationId,
-    ipcAlpha.id,
-  ]);
-  if (!killResult.message.includes("does not support provider termination")) {
-    throw new Error(`renderer IPC kill error was not specific: ${JSON.stringify(killResult)}`);
-  }
-  const killAllResult = await callRendererChatAPIExpectError(client, "killAllBackgroundTerminals", [
-    workspaceId,
-    conversationId,
-  ]);
-  if (!killAllResult.message.includes("does not support provider termination")) {
-    throw new Error(
-      `renderer IPC kill-all error was not specific: ${JSON.stringify(killAllResult)}`,
-    );
-  }
+  return {
+    backendOutputChunks: outputPage.output.length,
+    ipcOutputChunks: ipcOutputPage.output.length,
+    terminalCount: list.terminals.length,
+  };
+}
 
-  const afterFailedKill = await backend.post("/chat/background-terminals/list", {
+async function assertBackgroundTerminalMonitor({
+  backend,
+  client,
+  conversationId,
+  waitForState,
+  workspaceId,
+}) {
+  const footer = await waitForState(
+    client,
+    `(() => {
+      const footer = document.querySelector(${JSON.stringify(BACKGROUND_TERMINAL_FOOTER_SELECTOR)});
+      return {
+        present: Boolean(footer),
+        text: footer?.innerText ?? "",
+      };
+    })()`,
+    (value) => value.present && value.text.includes("2 background terminals running"),
+  );
+  await client.evaluate(
+    `document.querySelector(${JSON.stringify(BACKGROUND_TERMINAL_FOOTER_SELECTOR)})?.click()`,
+  );
+  await waitForState(
+    client,
+    backgroundTerminalMonitorStateExpression(),
+    (value) =>
+      value.monitorOpen &&
+      value.processes.some(
+        (process) =>
+          process.command === "npm run dev" &&
+          process.status === "running" &&
+          process.text.includes("npm run dev output chunk 001") &&
+          process.text.includes("Kill"),
+      ) &&
+      value.processes.some(
+        (process) => process.command === "vite --host 0.0.0.0" && process.status === "running",
+      ),
+  );
+  const killed = await client.evaluate(backgroundTerminalKillClickExpression("npm run dev"));
+  if (!killed) {
+    throw new Error("background terminal monitor did not click the npm run dev kill control");
+  }
+  const monitorAfterKill = await waitForState(
+    client,
+    backgroundTerminalMonitorStateExpression(),
+    (value) =>
+      value.processes.some(
+        (process) => process.command === "npm run dev" && process.status === "terminating",
+      ) &&
+      value.processes.some(
+        (process) => process.command === "vite --host 0.0.0.0" && process.status === "running",
+      ),
+  );
+  const backendAfterKill = await backend.post("/chat/background-terminals/list", {
     conversationId,
     workspaceId,
   });
-  assertBackgroundTerminalList(afterFailedKill, "backend HTTP list after failed kill");
-  for (const process of afterFailedKill.terminals) {
-    if (process.status !== "running") {
-      throw new Error(`failed kill mutated terminal state: ${JSON.stringify(afterFailedKill)}`);
-    }
+  const alpha = terminalByCommand(backendAfterKill.terminals, "npm run dev");
+  const beta = terminalByCommand(backendAfterKill.terminals, "vite --host 0.0.0.0");
+  if (alpha.status !== "terminating" || beta.status !== "running") {
+    throw new Error(
+      `background terminal kill statuses = ${JSON.stringify(backendAfterKill.terminals)}`,
+    );
   }
-
   return {
-    afterFailedKillStatuses: afterFailedKill.terminals.map((process) => ({
+    backendStatusesAfterKill: backendAfterKill.terminals.map((process) => ({
       command: process.command,
       status: process.status,
     })),
-    backendOutputChunks: outputPage.output.length,
-    ipcOutputChunks: ipcOutputPage.output.length,
-    killAllError: killAllResult.message,
-    killError: killResult.message,
-    terminalCount: list.terminals.length,
+    footerText: footer.text,
+    monitorProcessCount: monitorAfterKill.processes.length,
   };
 }
 
@@ -250,38 +287,43 @@ async function callRendererChatAPI(client, method, args) {
   );
 }
 
-async function callRendererChatAPIExpectError(client, method, args) {
-  const result = await client.evaluate(`(async () => {
-    try {
-      const value = await window.setta.chat[${JSON.stringify(method)}](...${JSON.stringify(args)});
-      return { ok: true, value };
-    } catch (error) {
-      return {
-        ok: false,
-        message: error instanceof Error ? error.message : String(error),
-      };
+function backgroundTerminalMonitorStateExpression() {
+  return `(() => ({
+    monitorOpen: Boolean(document.querySelector(${JSON.stringify(BACKGROUND_TERMINAL_MONITOR_SELECTOR)})),
+    processes: Array.from(document.querySelectorAll(${JSON.stringify(BACKGROUND_TERMINAL_MONITOR_PROCESS_SELECTOR)})).map((row) => ({
+      command: row.getAttribute("data-command") ?? "",
+      status: row.getAttribute("data-status") ?? "",
+      text: row.innerText,
+    })),
+  }))()`;
+}
+
+function backgroundTerminalKillClickExpression(command) {
+  return `(() => {
+    const rows = Array.from(document.querySelectorAll(${JSON.stringify(BACKGROUND_TERMINAL_MONITOR_PROCESS_SELECTOR)}));
+    const row = rows.find((candidate) => candidate.getAttribute("data-command") === ${JSON.stringify(command)});
+    const button = row?.querySelector("button[aria-label^='Kill background terminal']");
+    if (!button) {
+      return false;
     }
-  })()`);
-  if (result.ok) {
-    throw new Error(
-      `renderer chat ${method} unexpectedly succeeded: ${JSON.stringify(result.value)}`,
-    );
-  }
-  return result;
+    button.click();
+    return true;
+  })()`;
 }
 
 async function recordBackgroundTerminalDiagnostics(
   recordingDir,
-  { appendWorkflowState, footerAbsent, markers, projectionDiagnostics, run },
+  { appendWorkflowState, markers, monitorDiagnostics, projectionDiagnostics, run },
 ) {
   const diagnostics = {
     backgroundTerminalMarkers: markers.map((marker) => ({
       processId: marker.processId,
       text: marker.text,
     })),
-    footerPresent: !footerAbsent,
-    note: "Phase 3 background terminal lifecycle: unified-exec commands are routed into the backend process registry, rendered as slim background_terminal marker blocks, exposed through typed HTTP/preload IPC list and output projections, and kill requests fail loudly when provider termination is unavailable. The footer/monitor surfaces that read the registry land in Phase 4.",
-    phase: 3,
+    footerPresent: true,
+    monitorDiagnostics,
+    note: "Phase 4 background terminal lifecycle: unified-exec commands are routed into the backend process registry, rendered as slim background_terminal marker blocks, exposed through typed HTTP/preload IPC list and output projections, and surfaced through the footer/monitor UI with per-process kill controls.",
+    phase: 4,
     plan: "docs/plans/background_terminal_lifecycle_plan.md",
     projectionDiagnostics,
     providerStreamSummary: BACKGROUND_TERMINAL_MARKER_SUMMARY,
@@ -292,8 +334,9 @@ async function recordBackgroundTerminalDiagnostics(
     `${JSON.stringify(diagnostics, null, 2)}\n`,
   );
   await appendWorkflowState(recordingDir, {
-    footerPresent: !footerAbsent,
+    footerPresent: true,
     markerCommandKinds: BACKGROUND_TERMINAL_MARKER_SUMMARY.map((event) => event.kind),
+    monitorProcessCount: monitorDiagnostics.monitorProcessCount,
     path: "background-terminal-diagnostics.json",
     type: "background_terminal_diagnostics",
   });

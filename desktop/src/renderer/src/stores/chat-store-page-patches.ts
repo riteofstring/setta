@@ -114,6 +114,11 @@ export function commandOperationPatch(
 export function emptyConversationPatch(): ChatPatch {
   return normalizeChatPatch({
     activeRun: null,
+    backgroundTerminalIdsByConversationId: {},
+    backgroundTerminalOutputIdsByProcessId: {},
+    backgroundTerminalOutputPagesByProcessId: {},
+    backgroundTerminalOutputsById: {},
+    backgroundTerminalsById: {},
     editingQueuedMessageId: null,
     goal: null,
     hasMoreOlder: false,

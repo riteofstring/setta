@@ -420,6 +420,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const chat = {
     activeRun: async () => ({ hasActiveRun: false, run: null }),
+    listBackgroundTerminals: async () => ({ terminals: [] }),
     listConversations: async () => listResponse([]),
     messagePage: async () => testPage(conversation, []),
     onEvent: () => () => {},

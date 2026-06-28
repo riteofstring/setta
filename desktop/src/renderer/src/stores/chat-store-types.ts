@@ -10,6 +10,8 @@ import type {
   ConversationListItem,
   CorruptionSummary,
   Diagnostic,
+  BackgroundTerminalOutput,
+  BackgroundTerminalProcess,
   ListConversationsResponse,
   ReasoningEffort,
   RunItemOutput,
@@ -21,6 +23,7 @@ import type { WorkspaceConversationListState } from "./chat-store-conversation-l
 import type { ConversationDetailState } from "./chat-store-detail-cache";
 import type { QueuedRun, RunItemOutputPageState, RunningRun } from "./chat-store-normalization";
 import type { ChatOperation } from "./chat-store-operations";
+import type { BackgroundTerminalOutputPageState } from "./chat-store-background-terminals";
 
 type ChatStatus = "idle" | "loading" | "ready" | "error";
 type CommandListStatus = "idle" | "loading" | "loaded" | "failed";
@@ -29,6 +32,11 @@ export interface ChatStore {
   activeRun: RunningRun | null;
   applyConversationList: (workspaceId: string, response: ListConversationsResponse) => void;
   applyConversationUpdatedEvent: (workspaceId: string, item: ConversationListItem) => void;
+  backgroundTerminalIdsByConversationId: Record<string, string[]>;
+  backgroundTerminalOutputIdsByProcessId: Record<string, string[]>;
+  backgroundTerminalOutputPagesByProcessId: Record<string, BackgroundTerminalOutputPageState>;
+  backgroundTerminalOutputsById: Record<string, BackgroundTerminalOutput>;
+  backgroundTerminalsById: Record<string, BackgroundTerminalProcess>;
   clearClosedWorkspaceConversationLists: (activeWorkspaceIds: string[]) => void;
   commandListError: string | null;
   commandListStatus: CommandListStatus;
@@ -55,8 +63,16 @@ export interface ChatStore {
     afterOrdinal?: number,
     limit?: number,
   ) => Promise<void>;
+  loadBackgroundTerminalOutput: (
+    processId: string,
+    afterOrdinal?: number,
+    limit?: number,
+  ) => Promise<void>;
   loadWorkspace: (workspaceId: string) => Promise<void>;
+  refreshBackgroundTerminals: () => Promise<void>;
   syncWorkspaceChat: (workspaceId: string) => Promise<void>;
+  killBackgroundTerminal: (processId: string) => Promise<void>;
+  killAllBackgroundTerminals: () => Promise<void>;
   markConversationRead: (conversationId: string) => Promise<void>;
   messageIds: string[];
   messages: ChatMessage[];
@@ -112,6 +128,11 @@ export type ChatPatch = Partial<
   Pick<
     ChatStore,
     | "activeRun"
+    | "backgroundTerminalIdsByConversationId"
+    | "backgroundTerminalOutputIdsByProcessId"
+    | "backgroundTerminalOutputPagesByProcessId"
+    | "backgroundTerminalOutputsById"
+    | "backgroundTerminalsById"
     | "commandListError"
     | "commandListStatus"
     | "commandDescriptorCache"

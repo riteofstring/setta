@@ -1,4 +1,6 @@
 import type {
+  BackgroundTerminalOutput,
+  BackgroundTerminalProcess,
   ChatEvent,
   ChatMessage,
   ConversationListItem,
@@ -413,6 +415,126 @@ export function diagnosticCreatedEvent(sequence: number, streamId = eventStreamI
     streamId,
     type: "diagnostic.created",
     workspaceId: "workspace_api",
+  };
+}
+
+export function backgroundTerminalProcess(
+  id: string,
+  overrides: Partial<BackgroundTerminalProcess> = {},
+): BackgroundTerminalProcess {
+  return {
+    command: "npm run dev",
+    completedAt: "",
+    conversationId,
+    cwd: "/tmp/workspace",
+    error: "",
+    exitCode: 0,
+    id,
+    processId: `provider_${id}`,
+    providerItemId: `provider_item_${id}`,
+    recentOutput: [],
+    schemaVersion: 1,
+    source: "unified_exec_startup",
+    startedAt: "2026-05-29T20:00:00Z",
+    startedRunId: "run_api",
+    status: "running",
+    threadId: "thread_api",
+    updatedAt: "2026-05-29T20:00:00Z",
+    workspaceId,
+    ...overrides,
+  };
+}
+
+export function backgroundTerminalOutput(
+  id: string,
+  processId: string,
+  overrides: Partial<BackgroundTerminalOutput> = {},
+): BackgroundTerminalOutput {
+  return {
+    createdAt: "2026-05-29T20:00:01Z",
+    id,
+    ordinal: 1,
+    processId,
+    schemaVersion: 1,
+    stream: "stdout",
+    text: "dev server ready\n",
+    ...overrides,
+  };
+}
+
+export function backgroundTerminalCreatedEvent(
+  sequence: number,
+  process: BackgroundTerminalProcess,
+  streamId = eventStreamId,
+): ChatEvent {
+  return {
+    conversationId: process.conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: { process },
+    runId: process.startedRunId,
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.background_terminal.created",
+    workspaceId: process.workspaceId,
+  };
+}
+
+export function backgroundTerminalUpdatedEvent(
+  sequence: number,
+  process: BackgroundTerminalProcess,
+  streamId = eventStreamId,
+): ChatEvent {
+  return {
+    conversationId: process.conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: { process },
+    runId: process.startedRunId,
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.background_terminal.updated",
+    workspaceId: process.workspaceId,
+  };
+}
+
+export function backgroundTerminalOutputDeltaEvent(
+  sequence: number,
+  output: BackgroundTerminalOutput,
+  streamId = eventStreamId,
+): ChatEvent {
+  return {
+    conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: { output },
+    runId: "run_api",
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.background_terminal.output_delta",
+    workspaceId,
+  };
+}
+
+export function backgroundTerminalsReplacedEvent(
+  sequence: number,
+  terminals: BackgroundTerminalProcess[],
+  streamId = eventStreamId,
+): ChatEvent {
+  return {
+    conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: { terminals },
+    runId: "",
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.background_terminals.replaced",
+    workspaceId,
   };
 }
 

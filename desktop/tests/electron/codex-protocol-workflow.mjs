@@ -13,6 +13,7 @@ import {
   waitForCommandResult,
   waitForGoalStatus,
   waitForRunStatus,
+  waitForState,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
 
@@ -146,6 +147,7 @@ export async function runProtocolGoalBackgroundTerminalWorkflow(
     "Goal set: phase5 codex background terminal",
   );
   const runId = goalRunIDFromCommandPage(commandPage);
+  await assertProtocolGoalBackgroundTerminalMonitor(client);
   const run = await waitForRunStatus(backend, workspaceId, conversationId, runId, "completed");
   await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
   await waitForGoalStatus(backend, workspaceId, conversationId, "complete");
@@ -159,6 +161,50 @@ export async function runProtocolGoalBackgroundTerminalWorkflow(
     conversationId,
   );
   await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
+async function assertProtocolGoalBackgroundTerminalMonitor(client) {
+  await waitForState(
+    client,
+    `(() => {
+      const footer = document.querySelector('[data-testid="background-terminals-footer"]');
+      return { present: Boolean(footer), text: footer?.innerText ?? "" };
+    })()`,
+    (value) => value.present && value.text.includes("1 background terminal running"),
+  );
+  await client.evaluate(
+    `document.querySelector('[data-testid="background-terminals-footer"]')?.click()`,
+  );
+  await waitForState(
+    client,
+    protocolGoalBackgroundTerminalMonitorExpression(),
+    (value) =>
+      value.monitorOpen &&
+      value.processes.some(
+        (process) =>
+          process.command === goalBackgroundTerminal.command &&
+          process.status === "running" &&
+          process.text.includes(goalBackgroundTerminal.idleGapOutput.trim()),
+      ),
+  );
+  await waitForState(client, protocolGoalBackgroundTerminalMonitorExpression(), (value) =>
+    value.processes.some(
+      (process) =>
+        process.command === goalBackgroundTerminal.command &&
+        process.text.includes(goalBackgroundTerminal.secondTurnOutput.trim()),
+    ),
+  );
+}
+
+function protocolGoalBackgroundTerminalMonitorExpression() {
+  return `(() => ({
+    monitorOpen: Boolean(document.querySelector('[data-testid="background-terminal-monitor"]')),
+    processes: Array.from(document.querySelectorAll('[data-testid="background-terminal-monitor-process"]')).map((row) => ({
+      command: row.getAttribute("data-command") ?? "",
+      status: row.getAttribute("data-status") ?? "",
+      text: row.innerText,
+    })),
+  }))()`;
 }
 
 export async function runProtocolGoalCancellationWorkflow(client, backend, workspaceId) {
