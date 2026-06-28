@@ -5,10 +5,11 @@
   in progress. The deterministic stale-liveness, restart-recovery, and
   shutdown-drain production Electron slices are covered; a dedicated live
   backend liveness reconciliation regression now covers a real active Codex
-  provider turn. Remaining Phase 6 live-provider coverage is the
-  silent-upstream-loss and stale-interrupt Appendix A regression set where
-  feasible. The reconciliation decisions below are grounded in the trigger
-  recording, current code paths, and the live app-server findings in Appendix A.
+  provider turn, and a live stale-interrupt regression pins the provider error
+  shape from Appendix A. Remaining Phase 6 live-provider coverage is the
+  silent-upstream-loss regression where feasible. The reconciliation decisions
+  below are grounded in the trigger recording, current code paths, and the live
+  app-server findings in Appendix A.
 - **Trigger recording:** `.recordings/20260701T215826Z`
 - **Scope:** Chat runs driven by Codex app-server through the production
   Electron/main/preload/renderer/HTTP/store paths.
@@ -519,10 +520,11 @@ the preload/main/HTTP path and leaves normal Working for the reconciling state.
 Also added deterministic production Electron restart-recovery coverage for a
 persisted active run left by an ungraceful backend exit, shutdown-drain
 persistence coverage for a graceful Electron/backend shutdown during an active
-run, and live backend Codex coverage for `/chat/runs/reconcile` against a real
-active provider turn. Remaining Phase 6 coverage: silent-upstream-loss and
-stale-interrupt live Codex provider regression checks when ChatGPT auth is
-available and those scenarios are feasible to automate.
+run, live backend Codex coverage for `/chat/runs/reconcile` against a real
+active provider turn, and a live stale-interrupt regression against a backend
+created active provider turn. Remaining Phase 6 coverage: the
+silent-upstream-loss live Codex provider regression check when ChatGPT auth is
+available and that scenario is feasible to automate.
 
 Audit note, July 2, 2026: ChatGPT auth was available. The existing
 `live-codex-electron` workflow and supplemental live backend Codex workflow
@@ -536,6 +538,13 @@ production `/chat/runs/reconcile` endpoint while the provider reports the turn
 active/`inProgress`, verifies backend liveness remains `reconciling` with
 provider thread/turn refs, and then waits for fresh provider events to complete
 the run.
+
+Audit note, July 2, 2026: ChatGPT auth was available. Added and passed a live
+backend Codex stale-interrupt regression that starts a backend-created real
+command-bearing turn, calls `turn/interrupt` with a fabricated stale turn id
+against the same provider thread, verifies the provider returns RPC `-32600`
+with no typed `error.data.activeTurnId` payload, and then cancels the Setta run
+through the production HTTP path.
 
 Deterministic Electron E2E through production main/preload/renderer/HTTP and
 store paths:
