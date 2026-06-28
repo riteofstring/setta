@@ -263,74 +263,6 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 	}
 }
 
-func TestChatBackgroundTerminalEndpointsListOutputAndFailLoudKill(t *testing.T) {
-	source := chat.RunItemCommandSourceUnifiedExecStartup
-	handler := newChatHandler(t, []chat.FakeHarnessEvent{
-		{Type: chat.FakeEventThreadLinked, ThreadID: "thread_bg", SessionID: "session_bg", TurnID: "turn_bg"},
-		{Type: chat.FakeEventRunItem, ProviderItemID: "bg_item_alpha", RunItem: chat.RunItem{
-			ProviderItemID: "bg_item_alpha",
-			Type:           chat.RunItemTypeCommandExecution,
-			Status:         chat.RunItemStatusRunning,
-			Command:        "npm run dev",
-			Cwd:            "/tmp/workspace",
-			ProcessID:      "provider_proc_alpha",
-			Source:         &source,
-		}},
-		{Type: chat.FakeEventRunItemOutput, ProviderItemID: "bg_item_alpha", Stream: "stdout", Text: "listening\n"},
-	})
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
-	started := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-		Prompt:         "start dev server",
-	}, http.StatusOK)
-	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, started.Run.ID, chat.MessageStatusComplete)
-
-	list := postJSON[chat.BackgroundTerminalListProjection](t, handler, "/chat/background-terminals/list", ListBackgroundTerminalsRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-	}, http.StatusOK)
-	if len(list.Terminals) != 1 {
-		t.Fatalf("background terminals = %+v, want one terminal", list.Terminals)
-	}
-	process := list.Terminals[0]
-	if process.Command != "npm run dev" || process.Status != chat.BackgroundTerminalRunning || process.ThreadID != "thread_bg" {
-		t.Fatalf("background terminal projection = %+v, want running npm terminal with provider route", process)
-	}
-	if len(process.RecentOutput) != 1 || process.RecentOutput[0] != "listening" {
-		t.Fatalf("recent output = %+v, want listening line", process.RecentOutput)
-	}
-
-	output := postJSON[chat.BackgroundTerminalOutputPage](t, handler, "/chat/background-terminals/output", GetBackgroundTerminalOutputRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-		ProcessID:      process.ID,
-		AfterOrdinal:   0,
-		Limit:          20,
-	}, http.StatusOK)
-	if output.ProcessID != process.ID || len(output.Output) != 1 || output.Output[0].Text != "listening\n" {
-		t.Fatalf("background terminal output = %+v, want stored chunk", output)
-	}
-
-	errResponse := postJSON[ErrorResponse](t, handler, "/chat/background-terminals/kill", KillBackgroundTerminalRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-		ProcessID:      process.ID,
-	}, http.StatusBadRequest)
-	if errResponse.Error.Code != "kill_background_terminal_failed" ||
-		!strings.Contains(errResponse.Error.Message, "does not support provider termination") {
-		t.Fatalf("kill error = %+v, want explicit unsupported provider termination", errResponse.Error)
-	}
-	afterKill := postJSON[chat.BackgroundTerminalListProjection](t, handler, "/chat/background-terminals/list", ListBackgroundTerminalsRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-	}, http.StatusOK)
-	if len(afterKill.Terminals) != 1 || afterKill.Terminals[0].Status != chat.BackgroundTerminalRunning {
-		t.Fatalf("terminal after failed kill = %+v, want still running", afterKill.Terminals)
-	}
-}
-
 func TestChatEndpointsEditAndRemoveQueuedMessages(t *testing.T) {
 	handler := newChatHandler(t, []chat.FakeHarnessEvent{{Type: chat.FakeEventWaitForCancel}})
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -466,19 +398,8 @@ func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
 	}, http.StatusOK)
-	if len(list.Commands) != 1 || list.Commands[0].Name != "/goal" {
-		t.Fatalf("commands = %+v, want /goal only", list.Commands)
-	}
-	if list.Commands[0].Grammar.Summary == "" || len(list.Commands[0].Grammar.Arguments) == 0 {
-		t.Fatalf("command descriptors = %+v, want typed grammar", list.Commands)
-	}
-
-	picker := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/model/picker", OpenChatCodexModelPickerRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-	}, http.StatusOK)
-	if picker.Result.Action != chat.ChatCommandResultModelPicker {
-		t.Fatalf("model picker result = %+v, want model picker", picker.Result)
+	if len(list.Commands) != 2 {
+		t.Fatalf("commands = %+v, want goal and model", list.Commands)
 	}
 
 	result := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/commands/execute", ExecuteChatCommandRequest{
@@ -498,6 +419,10 @@ func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 	if result.Page.Goal == nil || result.Page.Goal.Status != "active" || result.Page.Goal.Objective != "finish renderer tests" {
 		t.Fatalf("page goal = %+v, want active command goal", result.Page.Goal)
 	}
+	if len(result.Page.Transcript) != 1 || result.Page.Transcript[0].TriggerMessage.Delivery != chat.MessageDeliveryGoal {
+		t.Fatalf("transcript = %+v, want internal goal trigger", result.Page.Transcript)
+	}
+
 	runs := postJSON[ListRunsResponse](t, handler, "/chat/runs/list", ListRunsRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
@@ -519,13 +444,13 @@ func TestChatCodexModelSelectionEndpoints(t *testing.T) {
 	model := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/model/set", SetChatCodexModelRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
-		ModelID:        "scripted-fast",
+		ModelID:        "gpt-test",
 	}, http.StatusOK)
-	if model.Message == nil || model.Message.Parts[0].Text != "Model set: scripted-fast" {
+	if model.Message == nil || model.Message.Parts[0].Text != "Model set: gpt-test" {
 		t.Fatalf("model result message = %+v, want model set", model.Message)
 	}
-	if model.Conversation.CodexSettings == nil || model.Conversation.CodexSettings.Model != "scripted-fast" {
-		t.Fatalf("model settings = %+v, want scripted-fast", model.Conversation.CodexSettings)
+	if model.Conversation.CodexSettings == nil || model.Conversation.CodexSettings.Model != "gpt-test" {
+		t.Fatalf("model settings = %+v, want gpt-test", model.Conversation.CodexSettings)
 	}
 
 	effort := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/reasoning-effort/set", SetChatCodexReasoningEffortRequest{

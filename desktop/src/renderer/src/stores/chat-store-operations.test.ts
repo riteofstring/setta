@@ -12,19 +12,12 @@ import type {
   Run,
   RunItem,
   RunItemOutput,
-  RunItemStatus,
-  TranscriptBlock,
-  TranscriptBlockStatus,
+  TranscriptTurn,
 } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { useChatStore } from "./chat-store";
-import {
-  activityBlock,
-  assistantTextBlock,
-  userMessageBlock,
-} from "./chat-store-events.test.helpers";
 
 const eventStreamId = "event_stream_test";
 
@@ -39,22 +32,54 @@ describe("chat store operation scopes", () => {
     });
   });
 
-  test("steering message events update the message surface without touching transcript blocks", () => {
-    // The transcript is driven only by block events; message events feed the
-    // queue/message surface, so a steering_sent event must not mutate blocks (the
-    // steering user_message block arrives through its own block event).
+  test("attaches promoted assistant message events to queued transcript turns", () => {
+    const conversation = testConversation();
+    const runId = "run_queued";
+    const queued = message(
+      "message_queued",
+      1,
+      "user",
+      "pending",
+      "queued prompt",
+      runId,
+      "queued",
+    );
+    const assistant = message(
+      "message_queued_assistant",
+      2,
+      "assistant",
+      "complete",
+      "queued response",
+      runId,
+    );
+    useChatStore.setState({
+      messages: [queued],
+      selectedConversation: conversation,
+      status: "ready",
+      transcript: [transcriptTurn(testRun("queued", runId), queued, null)],
+      workspaceId: "workspace_api",
+    });
+
+    useChatStore.getState().handleEvent(messageCreatedEvent(1, assistant, runId));
+
+    expect(useChatStore.getState().messagesById[assistant.id]?.parts[0]?.text).toBe(
+      "queued response",
+    );
+    expect(useChatStore.getState().transcript[0]?.assistantMessage?.id).toBe(assistant.id);
+  });
+
+  test("attaches steering message events to active transcript turns", () => {
     const conversation = testConversation();
     const runId = "run_active";
     const trigger = message("message_user", 1, "user", "complete", "active", runId);
-    const blocks = runBlocks(runId, { assistantText: "partial" });
+    const assistant = message("message_assistant", 2, "assistant", "streaming", "partial", runId);
     const steering = message("message_steering", 3, "user", "complete", "steer", runId, "steering");
     useChatStore.setState({
       activeRun: testRun("running", runId),
-      messages: [trigger],
+      messages: [trigger, assistant],
       selectedConversation: conversation,
       status: "ready",
-      transcriptBlocks: blocks,
-      transcriptBlocksById: blocksById(blocks),
+      transcript: [transcriptTurn(testRun("running", runId), trigger, assistant)],
       workspaceId: "workspace_api",
     });
 
@@ -65,9 +90,9 @@ describe("chat store operation scopes", () => {
     });
 
     expect(useChatStore.getState().messagesById[steering.id]?.delivery).toBe("steering");
-    expect(useChatStore.getState().transcriptBlocks.map((block) => block.id)).toEqual(
-      blocks.map((block) => block.id),
-    );
+    expect(useChatStore.getState().transcript[0]?.steeringMessages.map((item) => item.id)).toEqual([
+      steering.id,
+    ]);
   });
 
   test("resync completion does not cancel an overlapping user send response", async () => {
@@ -176,19 +201,44 @@ describe("chat store operation scopes", () => {
     expect(useChatStore.getState().operation).toBeNull();
   });
 
-  test("resync completion preserves terminal block snapshots that arrive while the page loads", async () => {
+  test("resync completion preserves terminal events that arrive while the page is loading", async () => {
     const conversation = testConversation();
     const runId = "run_dynamic";
-    const staleBlocks = runBlocks(runId, {
-      activity: { blockStatus: "streaming", status: "running" },
-      assistantText: "",
-    });
-    const completedBlocks = runBlocks(runId, {
-      activity: { blockStatus: "complete", status: "completed" },
-      assistantStatus: "complete",
-      assistantText: "Dynamic tool workflow complete.",
-    });
+    const user = message(
+      "message_dynamic_user",
+      1,
+      "user",
+      "complete",
+      "dynamic tool workflow",
+      runId,
+    );
+    const staleAssistant = message(
+      "message_dynamic_assistant",
+      2,
+      "assistant",
+      "streaming",
+      "",
+      runId,
+    );
+    const staleAssistantPart = staleAssistant.parts[0];
+    if (!staleAssistantPart) {
+      throw new Error("test assistant message must include a part");
+    }
+    const completedAssistant: ChatMessage = {
+      ...staleAssistant,
+      parts: [{ ...staleAssistantPart, text: "Dynamic tool workflow complete." }],
+      status: "complete" as const,
+      updatedAt: "2026-05-29T20:00:02Z",
+    };
     const runningRun = testRun("running", runId);
+    const completedRun = testRun("completed", runId);
+    const runningItem = runItem("run_item_dynamic", runId, "running");
+    const completedItem = {
+      ...runningItem,
+      completedAt: "2026-05-29T20:00:02Z",
+      result: "tool ok",
+      status: "completed" as const,
+    };
     const resyncPage = deferred<MessagePage>();
     const messagePage = vi.fn().mockReturnValue(resyncPage.promise);
     installSettaAPI({
@@ -200,49 +250,86 @@ describe("chat store operation scopes", () => {
     });
     useChatStore.setState({
       activeRun: runningRun,
+      messages: [user, staleAssistant],
+      runItemOutputs: [],
+      runItems: [runningItem],
       selectedConversation: conversation,
       status: "ready",
-      transcriptBlocks: staleBlocks,
-      transcriptBlocksById: blocksById(staleBlocks),
+      transcript: [transcriptTurn(runningRun, user, staleAssistant)],
       workspaceId: "workspace_api",
     });
 
     const resyncPromise = useChatStore.getState().resyncActiveConversation();
     await waitFor(() => messagePage.mock.calls.length === 1);
-    // Block events finalize the run while the resync page is in flight.
     useChatStore.setState({
       activeRun: null,
-      transcriptBlocks: completedBlocks,
-      transcriptBlocksById: blocksById(completedBlocks),
+      messages: [user, completedAssistant],
+      runItemOutputs: [runItemOutput("run_item_output_dynamic", runningItem.id, "tool ok\n")],
+      runItems: [completedItem],
+      transcript: [transcriptTurn(completedRun, user, completedAssistant)],
     });
-    // The resync page is stale: it still shows the run streaming.
-    resyncPage.resolve(testPage(conversation, [], staleBlocks));
+    resyncPage.resolve({
+      ...testPage(conversation, [user, staleAssistant]),
+      runItems: [runningItem],
+      transcript: [transcriptTurn(runningRun, user, staleAssistant)],
+    });
     await resyncPromise;
 
     const state = useChatStore.getState();
     expect(state.activeRun).toBeNull();
-    expect(state.transcriptBlocksById[`${runId}_text`]?.assistantText?.text).toBe(
+    expect(state.messagesById[completedAssistant.id]?.parts[0]?.text).toBe(
       "Dynamic tool workflow complete.",
     );
-    expect(state.transcriptBlocksById[`${runId}_text`]?.status).toBe("complete");
-    expect(state.transcriptBlocksById[`${runId}_activity`]?.activity?.status).toBe("completed");
+    expect(state.runItemsById[completedItem.id]?.status).toBe("completed");
+    expect(state.transcript[0]?.run.status).toBe("completed");
   });
 
-  test("resync completion preserves a terminal run promoted by events but missing from a stale page", async () => {
+  test("resync completion preserves terminal queued runs missing from a stale page", async () => {
     const conversation = testConversation();
     const activeRunId = "run_active";
-    const promotedRunId = "run_promoted";
-    const staleActiveBlocks = runBlocks(activeRunId, { assistantText: "active partial" });
-    const completedActiveBlocks = runBlocks(activeRunId, {
-      assistantStatus: "complete",
-      assistantText: "active complete",
-    });
-    const completedPromotedBlocks = runBlocks(promotedRunId, {
-      assistantStatus: "complete",
-      assistantText: "queued complete",
-    });
+    const queuedRunId = "run_promoted";
+    const activeUser = message(
+      "message_active_user",
+      1,
+      "user",
+      "complete",
+      "active workflow",
+      activeRunId,
+    );
+    const staleActiveAssistant = message(
+      "message_active_assistant",
+      2,
+      "assistant",
+      "streaming",
+      "active partial",
+      activeRunId,
+    );
+    const completedActiveAssistant = replaceMessageText(
+      { ...staleActiveAssistant, status: "complete" },
+      "active complete",
+    );
+    const staleQueuedUser = message(
+      "message_queued_user",
+      3,
+      "user",
+      "pending",
+      "queued workflow",
+      queuedRunId,
+      "queued",
+    );
+    const completedQueuedUser = { ...staleQueuedUser, status: "complete" as const };
+    const completedQueuedAssistant = message(
+      "message_queued_assistant",
+      4,
+      "assistant",
+      "complete",
+      "queued complete",
+      queuedRunId,
+    );
     const runningActiveRun = testRun("running", activeRunId);
-    const staleQueuedRun = testRun("queued", promotedRunId);
+    const completedActiveRun = testRun("completed", activeRunId);
+    const staleQueuedRun = testRun("queued", queuedRunId);
+    const completedQueuedRun = testRun("completed", queuedRunId);
     const resyncPage = deferred<MessagePage>();
     const messagePage = vi.fn().mockReturnValue(resyncPage.promise);
     installSettaAPI({
@@ -254,87 +341,99 @@ describe("chat store operation scopes", () => {
     });
     useChatStore.setState({
       activeRun: runningActiveRun,
+      messages: [activeUser, staleActiveAssistant, staleQueuedUser],
       queuedRuns: [staleQueuedRun],
       selectedConversation: conversation,
       status: "ready",
-      transcriptBlocks: staleActiveBlocks,
-      transcriptBlocksById: blocksById(staleActiveBlocks),
+      transcript: [transcriptTurn(runningActiveRun, activeUser, staleActiveAssistant)],
       workspaceId: "workspace_api",
     });
 
     const resyncPromise = useChatStore.getState().resyncActiveConversation();
     await waitFor(() => messagePage.mock.calls.length === 1);
-    // Events finish the active run and run the queued run to completion. The
-    // promoted run's blocks are appended after the active run, newest last.
-    const mergedBlocks = [...completedActiveBlocks, ...completedPromotedBlocks];
     useChatStore.setState({
       activeRun: null,
+      messages: [
+        activeUser,
+        completedActiveAssistant,
+        completedQueuedUser,
+        completedQueuedAssistant,
+      ],
       queuedRuns: [],
-      transcriptBlocks: mergedBlocks,
-      transcriptBlocksById: blocksById(mergedBlocks),
+      transcript: [
+        transcriptTurn(completedActiveRun, activeUser, completedActiveAssistant),
+        transcriptTurn(completedQueuedRun, completedQueuedUser, completedQueuedAssistant),
+      ],
     });
-    // The stale page predates the promotion: it shows only the streaming active run
-    // and still lists the promoted run in the queue.
     resyncPage.resolve({
-      ...testPage(conversation, [], staleActiveBlocks),
-      queue: { messages: [], runs: [staleQueuedRun] },
+      ...testPage(conversation, [activeUser, staleActiveAssistant, staleQueuedUser]),
+      queue: { messages: [staleQueuedUser], runs: [staleQueuedRun] },
+      transcript: [transcriptTurn(runningActiveRun, activeUser, staleActiveAssistant)],
     });
     await resyncPromise;
 
     const state = useChatStore.getState();
     expect(state.activeRun).toBeNull();
-    expect(state.queuedRuns.map((run) => run.id)).not.toContain(promotedRunId);
-    // The promoted run keeps its event-driven position after the active run.
-    expect(runOrder(state.transcriptBlocks)).toEqual([activeRunId, promotedRunId]);
-    expect(state.transcriptBlocksById[`${promotedRunId}_text`]?.assistantText?.text).toBe(
-      "queued complete",
-    );
-    expect(state.transcriptBlocksById[`${activeRunId}_text`]?.assistantText?.text).toBe(
-      "active complete",
-    );
+    expect(state.queuedRuns.map((run) => run.id)).not.toContain(queuedRunId);
+    expect(state.transcript.map((turn) => turn.run.id)).toEqual([activeRunId, queuedRunId]);
+    expect(state.transcript[1]?.run.status).toBe("completed");
+    expect(state.messagesById[completedQueuedAssistant.id]?.parts[0]?.text).toBe("queued complete");
+    expect(state.messagesById[completedQueuedUser.id]?.status).toBe("complete");
   });
 
-  test("resync completion keeps lazily-loaded detail run-item outputs the page no longer carries", async () => {
+  test("resync completion does not downgrade terminal run items from stale pages", async () => {
     const conversation = testConversation();
     const runId = "run_activity";
+    const user = message("message_activity_user", 1, "user", "complete", "activity", runId);
+    const assistant = message(
+      "message_activity_assistant",
+      2,
+      "assistant",
+      "streaming",
+      "partial",
+      runId,
+    );
+    const runningRun = testRun("running", runId);
+    const runningItem = runItem("run_item_activity", runId, "running");
     const completedItem = {
-      ...runItem("run_item_activity", runId, "completed"),
+      ...runningItem,
+      completedAt: "2026-05-29T20:00:02Z",
       result: "done",
+      status: "completed" as const,
     };
-    const completedOutput = runItemOutput("run_item_output_activity", completedItem.id, "done\n");
-    const blocks = runBlocks(runId, {
-      activity: { blockStatus: "complete", status: "completed" },
-      assistantStatus: "complete",
-      assistantText: "done",
-    });
+    const completedOutput = runItemOutput("run_item_output_activity", runningItem.id, "done\n");
     const resyncPage = deferred<MessagePage>();
     const messagePage = vi.fn().mockReturnValue(resyncPage.promise);
     installSettaAPI({
       chat: {
-        activeRun: async () => ({ hasActiveRun: false, run: null }),
+        activeRun: async () => ({ hasActiveRun: true, run: runningRun }),
         listConversations: async () => listResponse([conversationItem(conversation, 2)]),
         messagePage,
       },
     });
     useChatStore.setState({
-      activeRun: null,
+      activeRun: runningRun,
+      messages: [user, assistant],
       runItemOutputs: [completedOutput],
-      runItemOutputsById: { [completedOutput.id]: completedOutput },
+      runItems: [completedItem],
       selectedConversation: conversation,
       status: "ready",
-      transcriptBlocks: blocks,
-      transcriptBlocksById: blocksById(blocks),
+      transcript: [transcriptTurn(runningRun, user, assistant)],
       workspaceId: "workspace_api",
     });
 
     const resyncPromise = useChatStore.getState().resyncActiveConversation();
     await waitFor(() => messagePage.mock.calls.length === 1);
-    // The page carries blocks only; detail run-item outputs are loaded lazily by
-    // source run item ID and must survive a resync.
-    resyncPage.resolve(testPage(conversation, [], blocks));
+    resyncPage.resolve({
+      ...testPage(conversation, [user, assistant]),
+      runItemOutputs: [],
+      runItems: [runningItem],
+      transcript: [transcriptTurn(runningRun, user, assistant)],
+    });
     await resyncPromise;
 
     const state = useChatStore.getState();
+    expect(state.runItemsById[completedItem.id]?.status).toBe("completed");
     expect(state.runItemOutputsById[completedOutput.id]?.text).toBe("done\n");
   });
 
@@ -371,19 +470,29 @@ describe("chat store operation scopes", () => {
     const conversation = testConversation();
     const approvalResponse = deferred<Run>();
     const run = testRun("running", "run_approval");
-    const streamingBlocks = runBlocks(run.id, { assistantText: "" });
-    const completedBlocks = runBlocks(run.id, {
-      assistantStatus: "complete",
-      assistantText: "approved",
-    });
+    const completedRun = testRun("completed", run.id);
+    const assistant = message(
+      "message_approval_assistant",
+      2,
+      "assistant",
+      "streaming",
+      "",
+      run.id,
+    );
     const submitApproval = vi.fn().mockReturnValue(approvalResponse.promise);
     installSettaAPI({ chat: { submitApproval } });
     useChatStore.setState({
       activeRun: run,
+      messages: [assistant],
       selectedConversation: conversation,
       status: "ready",
-      transcriptBlocks: streamingBlocks,
-      transcriptBlocksById: blocksById(streamingBlocks),
+      transcript: [
+        transcriptTurn(
+          run,
+          message("message_approval_user", 1, "user", "complete", "approve", run.id),
+          assistant,
+        ),
+      ],
       workspaceId: "workspace_api",
     });
 
@@ -392,8 +501,13 @@ describe("chat store operation scopes", () => {
       .submitApproval("approval_api", true, "", [], false);
     useChatStore.setState({
       activeRun: null,
-      transcriptBlocks: completedBlocks,
-      transcriptBlocksById: blocksById(completedBlocks),
+      transcript: [
+        transcriptTurn(
+          completedRun,
+          message("message_approval_user", 1, "user", "complete", "approve", run.id),
+          assistant,
+        ),
+      ],
     });
     approvalResponse.resolve(run);
     await approvePromise;
@@ -401,16 +515,6 @@ describe("chat store operation scopes", () => {
     expect(useChatStore.getState().activeRun).toBeNull();
   });
 });
-
-function runOrder(blocks: TranscriptBlock[]): string[] {
-  const order: string[] = [];
-  for (const block of blocks) {
-    if (!order.includes(block.runId)) {
-      order.push(block.runId);
-    }
-  }
-  return order;
-}
 
 interface SettaAPIOverrides {
   chat?: Partial<SettaAPI["chat"]>;
@@ -420,7 +524,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const chat = {
     activeRun: async () => ({ hasActiveRun: false, run: null }),
-    listBackgroundTerminals: async () => ({ terminals: [] }),
     listConversations: async () => listResponse([]),
     messagePage: async () => testPage(conversation, []),
     onEvent: () => () => {},
@@ -442,7 +545,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
 function testConversation(): Conversation {
   return {
     archivedAt: "",
-    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
@@ -488,59 +590,35 @@ function goalState(objective: string, status: string, updatedAt: number): ChatGo
   };
 }
 
-function testPage(
-  conversation: Conversation,
-  messages: ChatMessage[],
-  blocks: TranscriptBlock[] = [],
-): MessagePage {
+function testPage(conversation: Conversation, messages: ChatMessage[]): MessagePage {
   return {
-    blocks,
     conversation,
     goal: null,
     hasMoreOlder: false,
     messages,
-    olderBeforeBlockOrdinal: 0,
+    olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queue: { messages: [], runs: [] },
+    runItemOutputs: [],
+    runItems: [],
+    transcript: [],
   };
 }
 
-// runBlocks builds one run's ordered transcript blocks: trigger user message,
-// assistant text, and an optional activity row, with run-local ordinals.
-function runBlocks(
-  runId: string,
-  opts: {
-    assistantText: string;
-    assistantStatus?: TranscriptBlockStatus;
-    activity?: { status: RunItemStatus; blockStatus: TranscriptBlockStatus };
-  },
-): TranscriptBlock[] {
-  const blocks = [
-    userMessageBlock({ id: `${runId}_trigger`, ordinal: 1, runId, text: "user" }),
-    assistantTextBlock({
-      id: `${runId}_text`,
-      ordinal: 2,
-      runId,
-      status: opts.assistantStatus ?? "streaming",
-      text: opts.assistantText,
-    }),
-  ];
-  if (opts.activity) {
-    blocks.push(
-      activityBlock({
-        activityStatus: opts.activity.status,
-        id: `${runId}_activity`,
-        ordinal: 3,
-        runId,
-        sourceRunItemId: `run_item_${runId}`,
-        status: opts.activity.blockStatus,
-      }),
-    );
-  }
-  return blocks;
-}
-
-function blocksById(blocks: TranscriptBlock[]): Record<string, TranscriptBlock> {
-  return Object.fromEntries(blocks.map((block) => [block.id, block]));
+function transcriptTurn(
+  run: Run,
+  triggerMessage: ChatMessage,
+  assistantMessage: ChatMessage | null,
+): TranscriptTurn {
+  return {
+    assistantMessage,
+    run: {
+      ...run,
+      assistantMessageId: assistantMessage?.id ?? "",
+      triggerMessageId: triggerMessage.id,
+    },
+    steeringMessages: [],
+    triggerMessage,
+  };
 }
 
 function testRun<Status extends Run["status"]>(
@@ -592,7 +670,6 @@ function runItem(id: string, runId: string, status: RunItem["status"]): RunItem 
     reviewId: "",
     schemaVersion: 1,
     serverName: "",
-    source: null,
     startedAt: "2026-05-29T20:00:01Z",
     status,
     summary: "",
@@ -639,6 +716,17 @@ function message(
     schemaVersion: 1,
     status,
     updatedAt: "2026-05-29T20:00:00Z",
+  };
+}
+
+function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
+  const [part, ...rest] = message.parts;
+  if (!part) {
+    throw new Error("test message must include a part");
+  }
+  return {
+    ...message,
+    parts: [{ ...part, text }, ...rest],
   };
 }
 

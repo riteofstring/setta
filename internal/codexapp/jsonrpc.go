@@ -75,15 +75,13 @@ type Message struct {
 }
 
 type Error struct {
-	Code    int             `json:"code"`
-	Data    json.RawMessage `json:"data,omitempty"`
-	Message string          `json:"message"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
 type RPCError struct {
 	Method  string
 	Code    int
-	Data    json.RawMessage
 	Message string
 }
 
@@ -165,7 +163,7 @@ func (client *Client) Call(ctx context.Context, method string, params any) (json
 		}
 		message := response.message
 		if message.Error != nil {
-			return nil, &RPCError{Method: method, Code: message.Error.Code, Data: message.Error.Data, Message: message.Error.Message}
+			return nil, &RPCError{Method: method, Code: message.Error.Code, Message: message.Error.Message}
 		}
 		return message.Result, nil
 	case <-client.lifecycle.Done():

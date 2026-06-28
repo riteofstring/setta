@@ -42,18 +42,13 @@ type Service struct {
 type Option func(*Service)
 
 type activeTurn struct {
-	assistantMessage            ChatMessage
-	assistantTextByProviderItem map[string]assistantProviderTextState
-	completedAssistantTexts     []string
-	cancel                      context.CancelFunc
-	cancelDrain                 bool
-	goalOperation               HarnessGoalOperation
-	lastPersistedAt             time.Time
-	runID                       string
-	threadID                    string
-	turnID                      string
-	workspaceID                 string
-	transcript                  *transcriptIngest
+	assistantMessage ChatMessage
+	cancel           context.CancelFunc
+	lastPersistedAt  time.Time
+	runID            string
+	threadID         string
+	turnID           string
+	workspaceID      string
 }
 
 type SendMessageResult struct {
@@ -100,16 +95,6 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 	if err := service.recoverInterruptedRuns(); err != nil {
 		service.recordCorruptStateDiagnostic(err, "", "", "")
 		return nil, err
-	}
-	if err := service.recoverBackgroundTerminals(); err != nil {
-		service.recordCorruptStateDiagnostic(err, "", "", "")
-		return nil, err
-	}
-	// Harnesses that run background terminals on a long-lived provider connection
-	// (Codex) receive the conversation-scoped sink that late unified-exec output
-	// and completion update after the starting turn has finished.
-	if attacher, ok := harness.(backgroundTerminalSinkAttacher); ok {
-		attacher.SetBackgroundTerminalSink(service.backgroundTerminalSink())
 	}
 	return service, nil
 }
@@ -187,17 +172,12 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 	if err != nil {
 		return SendMessageResult{}, err
 	}
-	ingest, err := service.newTranscriptIngestLocked(workspaceID, run)
-	if err != nil {
-		return SendMessageResult{}, err
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.active[key] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
 		runID:            run.ID,
 		workspaceID:      workspaceID,
-		transcript:       ingest,
 	}
 	request := TurnRequest{
 		Workspace:    workspaceSummary,
@@ -279,6 +259,103 @@ func (service *Service) publishTurnStartEventsLocked(workspaceID string, convers
 		return err
 	}
 	return service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID)
+}
+
+func (service *Service) CancelActiveRun(workspaceID string, conversationID string) (Run, error) {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return Run{}, err
+	}
+	service.mu.Lock()
+	key := activeKey(workspaceID, conversationID)
+	active, ok := service.active[key]
+	if !ok || active.workspaceID != workspaceID {
+		runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
+		if err != nil {
+			service.mu.Unlock()
+			return Run{}, err
+		}
+		run, exists, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
+		service.mu.Unlock()
+		if err != nil {
+			return Run{}, err
+		}
+		if !exists {
+			return Run{}, fmt.Errorf("conversation has no active run: %s", conversationID)
+		}
+		return Run{}, fmt.Errorf("active run %s is not attached to this backend process", run.ID)
+	}
+
+	run, err := service.store.LoadRun(workspaceID, active.runID)
+	if err != nil {
+		service.mu.Unlock()
+		return Run{}, err
+	}
+	service.mu.Unlock()
+
+	err = service.harness.CancelTurn(context.Background(), CancelRequest{
+		RunID:          run.ID,
+		WorkspaceID:    workspaceID,
+		ConversationID: conversationID,
+	})
+	if err != nil && !errors.Is(err, ErrTurnNotStarted) {
+		return Run{}, err
+	}
+	active.cancel()
+	return service.markTurnCancelled(workspaceID, conversationID, active.runID)
+}
+
+func (service *Service) markTurnCancelled(workspaceID string, conversationID string, runID string) (Run, error) {
+	return service.markTurnCancelledWithReason(workspaceID, conversationID, runID, "turn cancelled", "cancellation_requested", "Turn cancellation requested")
+}
+
+func (service *Service) markTurnCancelledWithReason(workspaceID string, conversationID string, runID string, runError string, traceType string, traceMessage string) (Run, error) {
+	return service.markTurnCancelledWithOptions(workspaceID, conversationID, runID, runError, traceType, traceMessage, true)
+}
+
+func (service *Service) markTurnCancelledWithOptions(workspaceID string, conversationID string, runID string, runError string, traceType string, traceMessage string, reconcilePendingSteering bool) (Run, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	key := activeKey(workspaceID, conversationID)
+	active, ok := service.active[key]
+	if !ok || active.runID != runID {
+		run, err := service.store.LoadRun(workspaceID, runID)
+		return run, err
+	}
+	run, err := service.store.LoadRun(workspaceID, runID)
+	if err != nil {
+		return Run{}, err
+	}
+	if run.Status != RunStatusRunning {
+		delete(service.active, key)
+		return run, nil
+	}
+	now := timestamp(service.now())
+	message := active.assistantMessage
+	message.Status = MessageStatusCancelled
+	message.UpdatedAt = now
+	run.Status = RunStatusCancelled
+	run.CompletedAt = now
+	run.Error = runError
+	run.PendingApproval = nil
+	records, err := service.store.CancelTurn(TerminalTurnRecords{AssistantMessage: message, Run: run})
+	if err != nil {
+		return Run{}, err
+	}
+	message = records.AssistantMessage
+	run = records.Run
+	pendingSteering, err := service.markTerminalPendingSteeringLocked(workspaceID, conversationID, run.ID, MessageStatusCancelled, reconcilePendingSteering)
+	if err != nil {
+		return Run{}, err
+	}
+	if err := service.traceLocked(workspaceID, run.ID, traceType, traceMessage); err != nil {
+		return Run{}, err
+	}
+	delete(service.active, key)
+	if err := service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering); err != nil {
+		return Run{}, err
+	}
+	return run, nil
 }
 
 func (service *Service) ActiveRun(workspaceID string, conversationID string) (Run, bool, error) {
@@ -503,15 +580,6 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 		return err
 	}
 	now := timestamp(service.now())
-	if err := service.promoteBackgroundTerminalStartupsForTurnLocked(workspaceID, active); err != nil {
-		return err
-	}
-	// Finalize transcript blocks before the run reaches a terminal store record so a
-	// crash cannot leave a terminal run with perpetually streaming blocks (recovery
-	// only re-finalizes still-running runs).
-	if err := service.finalizeTranscriptBlocksLocked(workspaceID, active.transcript, TranscriptBlockStatusComplete, ""); err != nil {
-		return err
-	}
 	message, run, err := service.saveCompletedTurnLocked(workspaceID, run, active.assistantMessage, now)
 	if err != nil {
 		return err
@@ -596,13 +664,6 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	run.CompletedAt = now
 	run.Error = message
 	run.PendingApproval = nil
-	if err := service.promoteBackgroundTerminalStartupsForTurnLocked(workspaceID, active); err != nil {
-		return err
-	}
-	// Finalize transcript blocks before the terminal store record (see completeTurn).
-	if err := service.finalizeTranscriptBlocksLocked(workspaceID, active.transcript, TranscriptBlockStatusFailed, message); err != nil {
-		return err
-	}
 	records, err := service.store.FailTurn(TerminalTurnRecords{AssistantMessage: assistant, Run: run})
 	if err != nil {
 		return err
@@ -622,7 +683,7 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 
 func (service *Service) overlayActiveAssistantMessageLocked(workspaceID string, conversationID string, beforeOrdinal int, page MessagePage) MessagePage {
 	active, ok := service.active[activeKey(workspaceID, conversationID)]
-	if !ok || active.cancelDrain {
+	if !ok {
 		return page
 	}
 	message := cloneMessage(active.assistantMessage)
@@ -760,7 +821,14 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 	if err != nil {
 		return err
 	}
-	if err := service.traceLocked(workspaceID, run.ID, "approval_resolved", approvalResolutionMessage(approved, response)); err != nil {
+	message := "Approval denied"
+	if approved {
+		message = "Approval approved"
+	}
+	if response != "" {
+		message = "Approval answered"
+	}
+	if err := service.traceLocked(workspaceID, run.ID, "approval_resolved", message); err != nil {
 		return err
 	}
 	if _, err = service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
@@ -772,14 +840,40 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 	return service.publishConversationUpdatedLocked(workspaceID, run.ConversationID, run.ID)
 }
 
-func approvalResolutionMessage(approved bool, response string) string {
-	if response != "" {
-		return "Approval answered"
+func (service *Service) linkThread(workspaceID string, conversationID string, runID string, threadID string, sessionID string, turnID string) error {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
+	if err != nil {
+		return err
 	}
-	if approved {
-		return "Approval approved"
+	now := timestamp(service.now())
+	upsertHarnessRef(&conversation.HarnessRefs, HarnessThreadRef{
+		Harness:        HarnessCodex,
+		ThreadID:       threadID,
+		SessionID:      sessionID,
+		LastTurnID:     turnID,
+		Status:         HarnessRefLinked,
+		CreatedAt:      now,
+		LastResumedAt:  now,
+		UnavailableMsg: "",
+	})
+	conversation.UpdatedAt = now
+	if err := service.store.SaveConversation(conversation); err != nil {
+		return err
 	}
-	return "Approval denied"
+	if err := service.traceLocked(workspaceID, runID, "codex_thread_ref_linked", "Codex thread reference linked"); err != nil {
+		return err
+	}
+	key := activeKey(workspaceID, conversationID)
+	active, ok := service.active[key]
+	if ok && active.runID == runID {
+		active.threadID = threadID
+		active.turnID = turnID
+		service.active[key] = active
+	}
+	return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)
 }
 
 func (service *Service) markHarnessRefUnavailable(workspaceID string, conversationID string, runID string, refErr *HarnessRefUnavailableError) error {

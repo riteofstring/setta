@@ -21,34 +21,6 @@ export async function assertNoCriticalDiagnostics(backend, workspaceId, conversa
   }
 }
 
-export async function assertCollapsedActivityGroupHeader(client, expected) {
-  const rendered = await client.evaluate(`(() => {
-    const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
-    return {
-      headers: Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]')).map((header) => ({
-        expanded: header.getAttribute("data-activity-group-expanded") ?? "",
-        text: header.innerText,
-      })),
-    };
-  })()`);
-  const header = rendered.headers.find(
-    (candidate) =>
-      candidate.expanded === "false" &&
-      candidate.text.includes(expected.count) &&
-      candidate.text.includes(expected.preview),
-  );
-  if (!header) {
-    throw new Error(
-      `collapsed activity group header missing ${JSON.stringify(expected)}: ${JSON.stringify(rendered.headers)}`,
-    );
-  }
-  if (expected.absent && header.text.includes(expected.absent)) {
-    throw new Error(
-      `collapsed activity group header included removed text ${JSON.stringify(expected.absent)}: ${JSON.stringify(header)}`,
-    );
-  }
-}
-
 export async function waitForComposerFocus(waitForState, client) {
   await waitForState(client, driverCallExpression("composerFocus"), (value) => value.focused);
 }
@@ -63,14 +35,6 @@ export async function waitForModelPicker(waitForState, client) {
 
 export async function waitForModelPickerAbsent(waitForState, client) {
   await waitForState(client, driverCallExpression("modelPicker"), (value) => !value.open);
-}
-
-export async function waitForModelPickerSummary(waitForState, client, modelText, effortText) {
-  await waitForState(
-    client,
-    driverCallExpression("modelPickerSummaryButton"),
-    (value) => value.ready && value.text.includes(modelText) && value.text.includes(effortText),
-  );
 }
 
 export async function waitForSelectedModel(waitForState, client, modelText) {

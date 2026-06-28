@@ -109,14 +109,10 @@ func handleCodexThreadSettingsUpdated(message jsonRPCMessage, threadID string, _
 	if err := requireCodexThreadIDMatch(message, threadID, params.ThreadID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	settings, err := codexThreadSettingsFromNotification(params, threadID)
-	if err != nil {
+	if _, err := codexThreadSettingsFromNotification(params, threadID); err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := sink.Trace("codex_thread_settings_updated", params.ThreadID); err != nil {
-		return codexNotificationResult{}, err
-	}
-	return codexNotificationResult{CodexEffectiveSettings: &settings}, nil
+	return codexNotificationResult{}, sink.Trace("codex_thread_settings_updated", params.ThreadID)
 }
 
 func codexThreadSettingsFromNotification(params codexapp.ThreadSettingsUpdatedNotification, threadID string) (codexCommandThreadSettings, error) {

@@ -342,7 +342,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: emptyMessagePage(),
         result: {
           action: "display",
-          composerDraft: "",
           goal: null,
           kind: "goal",
           message: "Goal set: test",
@@ -354,41 +353,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           title: "Goal",
         },
       }),
-      openCodexModelPicker: async () => ({
-        conversation: emptyConversation(),
-        message: null,
-        page: emptyMessagePage(),
-        result: {
-          action: "model_picker",
-          composerDraft: "",
-          goal: null,
-          kind: "model",
-          message: "Choose a model.",
-          models: [],
-          raw: "model_picker",
-          reasoningEfforts: [],
-          selectedReasoningEffort: null,
-          selectedModel: "",
-          title: "Model",
-        },
-      }),
       listCommands: async () => ({ commands: [] }),
       listConversations: async () => ({
         conversations: [],
         corruption: emptyCorruption(),
         diagnostics: [],
       }),
-      listBackgroundTerminals: async () => ({ terminals: [] }),
-      getBackgroundTerminalOutput: async () => ({
-        hasMore: false,
-        nextOrdinal: 0,
-        output: [],
-        processId: "background_terminal_api",
-      }),
-      killBackgroundTerminal: async () => {
-        throw new Error("kill background terminal is not used by workspace store tests");
-      },
-      killAllBackgroundTerminals: async () => ({ terminals: [] }),
       markConversationRead: async () => ({
         activeRunId: "",
         pinnedAt: "",
@@ -407,7 +377,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       runActivity: async () => ({
-        activity: [],
         items: [],
         output: [],
         runId: "run_test",
@@ -439,12 +408,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: emptyMessagePage(),
         result: {
           action: "display",
-          composerDraft: "",
           goal: null,
           kind: "model",
           message: "Model set: gpt-test",
           models: [],
-          raw: "model_set",
+          raw: "/model",
           reasoningEfforts: [],
           selectedReasoningEffort: null,
           selectedModel: "gpt-test",
@@ -457,12 +425,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: emptyMessagePage(),
         result: {
           action: "display",
-          composerDraft: "",
           goal: null,
           kind: "model",
           message: "Reasoning set: High",
           models: [],
-          raw: "model_reasoning_effort_set",
+          raw: "/model",
           reasoningEfforts: [],
           selectedReasoningEffort: "high",
           selectedModel: "",
@@ -641,7 +608,6 @@ function emptyCodexAccountState() {
 function emptyConversation() {
   return {
     archivedAt: "",
-    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
@@ -682,13 +648,15 @@ function emptyMessage(): ChatMessage {
 
 function emptyMessagePage(): MessagePage {
   return {
-    blocks: [],
     conversation: emptyConversation(),
     goal: null,
     hasMoreOlder: false,
     messages: [],
-    olderBeforeBlockOrdinal: 0,
+    olderBeforeOrdinal: 0,
     queue: { messages: [], runs: [] },
+    runItemOutputs: [],
+    runItems: [],
+    transcript: [],
   };
 }
 

@@ -50,118 +50,11 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	if !strings.Contains(latest.Messages[0].Parts[0].Text, "Explain Phase 3") {
 		t.Fatalf("assistant text = %q, want streamed fake response", latest.Messages[0].Parts[0].Text)
 	}
-	blocks, err := restarted.store.LoadTranscriptBlocks("workspace_api", run.ID)
-	if err != nil {
-		t.Fatalf("load persisted transcript blocks: %v", err)
+	if latest.HasMoreOlder {
+		t.Fatal("latest page hasMoreOlder = true, want false because transcript includes the complete turn")
 	}
-	userBlock := firstUserMessageBlock(blocks)
-	if userBlock == nil || userBlock.UserMessage.Parts[0].Text != "Explain Phase 3" {
-		t.Fatalf("user block = %+v, want trigger text", userBlock)
-	}
-}
-
-func TestServicePersistsCodexEffectiveSettingsFromLinkedThread(t *testing.T) {
-	effort := ReasoningEffortXHigh
-	harness := NewFakeHarness([]FakeHarnessEvent{
-		{
-			Type:      FakeEventThreadLinked,
-			ThreadID:  "thread_effective",
-			SessionID: "session_effective",
-			TurnID:    "turn_effective",
-			CodexEffectiveSettings: &ChatCodexEffectiveSettings{
-				Model:                      "gpt-test",
-				ModelDisplayName:           "GPT Test",
-				ReasoningEffort:            &effort,
-				ReasoningEffortDisplayName: "Extra high",
-			},
-		},
-		{Type: FakeEventAssistantDelta, Text: "done"},
-	})
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	result, err := service.SendUserMessage("workspace_api", conversation.ID, "effective settings")
-	if err != nil {
-		t.Fatalf("send message: %v", err)
-	}
-	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
-
-	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
-	if err != nil {
-		t.Fatalf("load page: %v", err)
-	}
-	settings := page.Conversation.CodexEffectiveSettings
-	if settings == nil ||
-		settings.Model != "gpt-test" ||
-		settings.ModelDisplayName != "GPT Test" ||
-		settings.ReasoningEffort == nil ||
-		*settings.ReasoningEffort != ReasoningEffortXHigh ||
-		settings.ReasoningEffortDisplayName != "Extra high" {
-		t.Fatalf("effective settings = %+v, want GPT Test Extra high", settings)
-	}
-}
-
-func TestServiceCreateConversationResolvesCodexEffectiveSettings(t *testing.T) {
-	harness := NewFakeHarness(nil)
-	harness.model = "scripted-careful"
-	harness.reasoning = ReasoningEffortXHigh
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	settings := conversation.CodexEffectiveSettings
-	if settings == nil ||
-		settings.Model != "scripted-careful" ||
-		settings.ModelDisplayName != "Scripted Careful" ||
-		settings.ReasoningEffort == nil ||
-		*settings.ReasoningEffort != ReasoningEffortXHigh ||
-		settings.ReasoningEffortDisplayName != "Extra high" {
-		t.Fatalf("created effective settings = %+v, want Scripted Careful Extra high", settings)
-	}
-
-	stored, err := service.store.LoadConversation("workspace_api", conversation.ID)
-	if err != nil {
-		t.Fatalf("load stored conversation: %v", err)
-	}
-	if !chatCodexEffectiveSettingsEqual(stored.CodexEffectiveSettings, settings) {
-		t.Fatalf("stored effective settings = %+v, want %+v", stored.CodexEffectiveSettings, settings)
-	}
-}
-
-func TestServiceLoadMessagePageResolvesCodexEffectiveSettings(t *testing.T) {
-	harness := NewFakeHarness(nil)
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-
-	harness.model = "scripted-fast"
-	harness.reasoning = ReasoningEffortHigh
-	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
-	if err != nil {
-		t.Fatalf("load message page: %v", err)
-	}
-	settings := page.Conversation.CodexEffectiveSettings
-	if settings == nil ||
-		settings.Model != "scripted-fast" ||
-		settings.ModelDisplayName != "Scripted Fast" ||
-		settings.ReasoningEffort == nil ||
-		*settings.ReasoningEffort != ReasoningEffortHigh ||
-		settings.ReasoningEffortDisplayName != "High" {
-		t.Fatalf("page effective settings = %+v, want Scripted Fast High", settings)
-	}
-
-	stored, err := service.store.LoadConversation("workspace_api", conversation.ID)
-	if err != nil {
-		t.Fatalf("load stored conversation: %v", err)
-	}
-	if stored.CodexEffectiveSettings != nil {
-		t.Fatalf("stored effective settings = %+v, want nil before a linked thread", stored.CodexEffectiveSettings)
+	if got, want := transcriptMessageTexts(latest.Transcript), []string{"Explain Phase 3", latest.Messages[0].Parts[0].Text}; !equalStrings(got, want) {
+		t.Fatalf("latest transcript = %+v, want complete turn %+v", got, want)
 	}
 }
 
@@ -971,8 +864,8 @@ func TestServicePersistsRunActivityAndOutputChunks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load activity: %v", err)
 	}
-	if len(page.Items) != 1 || page.Items[0].Type != RunItemTypeCommandExecution {
-		t.Fatalf("items = %+v, want command item only", page.Items)
+	if len(page.Items) < 2 {
+		t.Fatalf("items = %+v, want command and assistant items", page.Items)
 	}
 	if page.Output[0].Text != "ok\n" || page.Output[0].Ordinal != 1 {
 		t.Fatalf("output = %+v, want first chunk", page.Output)
@@ -1007,6 +900,13 @@ func TestServiceEmbedsCappedRunOutputAndLoadsFullActivityPage(t *testing.T) {
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
 
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load message page: %v", err)
+	}
+	if len(page.RunItemOutputs) != embeddedRunOutputLimit {
+		t.Fatalf("embedded output count = %d, want %d", len(page.RunItemOutputs), embeddedRunOutputLimit)
+	}
 	activity, err := service.LoadRunActivityPage("workspace_api", result.Run.ID, embeddedRunOutputLimit+10)
 	if err != nil {
 		t.Fatalf("load activity page: %v", err)

@@ -5,22 +5,7 @@ import { setTimeout } from "node:timers";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
-const goalBackgroundTerminal = {
-  command: "npm run goal-bg",
-  idleGapOutput: "goal background idle output\n",
-  itemId: "goal_bg_terminal",
-  processId: "goal_bg_process",
-  secondTurnOutput: "goal background turn B output\n",
-};
-const goalForegroundUnifiedExec = {
-  command: "command -v tokei",
-  itemId: "goal_fg_command",
-  processId: "goal_fg_process",
-};
 let account = null;
-let currentGoal = null;
-let goalCancelTurnId = null;
-let goalPaused = false;
 let pendingDynamicTool = null;
 const rl = readline.createInterface({ input: process.stdin });
 
@@ -50,14 +35,13 @@ const methodHandlers = {
   initialize: handleInitialize,
   initialized: () => {},
   "model/list": handleModelList,
-  "thread/goal/clear": handleThreadGoalClear,
+  "thread/goal/clear": respondEmpty,
   "thread/goal/get": handleThreadGoalGet,
   "thread/goal/set": handleThreadGoalSet,
-  "thread/read": handleThreadRead,
   "thread/resume": handleThreadResume,
   "thread/settings/update": respondEmpty,
   "thread/start": handleThreadStart,
-  "turn/interrupt": handleTurnInterrupt,
+  "turn/interrupt": respondEmpty,
   "turn/start": handleTurnStart,
 };
 
@@ -93,11 +77,6 @@ function handleAccountLogout(message) {
 }
 
 function handleThreadStart(message) {
-  if (isStructuredThreadStart(message.params)) {
-    assertStructuredThreadStart(message.params);
-    respond(message.id, fakeThreadResponse({ ephemeral: true }));
-    return;
-  }
   assertThreadStartDeveloperInstructions(message.params);
   assertThreadStartDynamicTools(message.params);
   respond(message.id, fakeThreadResponse());
@@ -110,20 +89,8 @@ function handleThreadResume(message) {
   respond(message.id, fakeThreadResponse());
 }
 
-function handleThreadRead(message) {
-  if (message.params?.threadId !== threadId) {
-    throw new Error(`unexpected thread/read threadId: ${message.params?.threadId}`);
-  }
-  respond(message.id, { thread: fakeThread() });
-}
-
 function handleTurnStart(message) {
   respond(message.id, { turn: fakeTurn("inProgress") });
-  if (isStructuredTurnStart(message.params)) {
-    assertStructuredTurnStart(message.params);
-    setTimeout(emitStructuredTaskTurn, 5);
-    return;
-  }
   const text = turnInputText(message);
   if (text.includes("app-server exit workflow")) {
     setTimeout(() => process.exit(42), 5);
@@ -139,7 +106,7 @@ function handleTurnStart(message) {
   setTimeout(emitProtocolCoverageTurn, 5);
 }
 
-function fakeThreadResponse(options = {}) {
+function fakeThreadResponse() {
   return {
     approvalPolicy: "on-request",
     approvalsReviewer: "user",
@@ -147,20 +114,18 @@ function fakeThreadResponse(options = {}) {
     model: "gpt-test",
     modelProvider: "fake",
     sandbox: "workspace-write",
-    thread: fakeThread(options),
+    thread: fakeThread(),
   };
 }
 
-function fakeThread(options = {}) {
-  const ephemeral = options.ephemeral === true;
+function fakeThread() {
   return {
     cliVersion: "fake",
     createdAt: 1,
     cwd: "/tmp/setta-fake",
-    ephemeral,
+    ephemeral: true,
     id: threadId,
     modelProvider: "fake",
-    path: ephemeral ? undefined : "/tmp/codex/thread_fake.json",
     preview: "",
     sessionId: "session_fake",
     source: "user",
@@ -187,131 +152,29 @@ function handleConfigRead(message) {
 }
 
 function handleModelList(message) {
-  respond(message.id, {
-    data: [
-      {
-        defaultReasoningEffort: "xhigh",
-        description: "Fake protocol model.",
-        displayName: "GPT Test",
-        hidden: false,
-        id: "gpt-test",
-        isDefault: true,
-        model: "gpt-test",
-        supportedReasoningEfforts: [
-          { description: "Fast responses with lighter reasoning.", reasoningEffort: "low" },
-          { description: "Greater reasoning depth for complex problems.", reasoningEffort: "high" },
-          {
-            description: "Extra high reasoning depth for complex problems.",
-            reasoningEffort: "xhigh",
-          },
-        ],
-      },
-    ],
-    nextCursor: null,
-  });
+  respond(message.id, { data: [], nextCursor: null });
 }
 
 function handleThreadGoalGet(message) {
-  respond(message.id, { goal: currentGoal });
-}
-
-function handleThreadGoalClear(message) {
-  currentGoal = null;
-  goalCancelTurnId = null;
-  goalPaused = false;
-  notify("thread/goal/cleared", { threadId });
-  respond(message.id, { cleared: true });
+  respond(message.id, { goal: null });
 }
 
 function handleThreadGoalSet(message) {
-  const { objective, status } = threadGoalSetValues(message.params);
-  currentGoal = fakeGoal(objective, status);
   respond(message.id, {
-    goal: currentGoal,
+    goal: {
+      createdAt: 0,
+      objective: message.params?.objective ?? "",
+      status: message.params?.status ?? "active",
+      threadId,
+      timeUsedSeconds: 0,
+      tokenBudget: null,
+      tokensUsed: 0,
+      updatedAt: 0,
+    },
   });
-  if (status === "paused") {
-    goalPaused = true;
-    notify("thread/goal/updated", { goal: currentGoal, threadId });
-    return;
-  }
-  if (shouldEmitGoalOperation(objective, status)) {
-    setTimeout(() => emitGoalOperationMultiTurn(objective), 5);
-    return;
-  }
-  if (shouldEmitGoalForegroundUnifiedExec(objective, status)) {
-    setTimeout(() => emitGoalOperationForegroundUnifiedExec(objective), 5);
-    return;
-  }
-  if (shouldEmitGoalBackgroundTerminal(objective, status)) {
-    setTimeout(() => emitGoalOperationBackgroundTerminal(objective), 5);
-    return;
-  }
-  if (shouldEmitGoalCancellation(objective, status)) {
-    setTimeout(() => emitGoalOperationCancellation(objective), 5);
-  }
-}
-
-function threadGoalSetValues(params) {
-  return {
-    objective: params?.objective ?? currentGoal?.objective ?? "",
-    status: params?.status ?? currentGoal?.status ?? "active",
-  };
-}
-
-function shouldEmitGoalOperation(objective, status) {
-  return objective === "phase0 codex multi turn" && status === "active";
-}
-
-function shouldEmitGoalBackgroundTerminal(objective, status) {
-  return objective === "phase5 codex background terminal" && status === "active";
-}
-
-function shouldEmitGoalForegroundUnifiedExec(objective, status) {
-  return objective === "phase5 codex foreground command" && status === "active";
-}
-
-function shouldEmitGoalCancellation(objective, status) {
-  return objective === "phase4 codex cancel" && status === "active";
-}
-
-function fakeGoal(objective, status) {
-  return {
-    createdAt: currentGoal?.createdAt ?? 1,
-    objective,
-    status,
-    threadId,
-    timeUsedSeconds: currentGoal?.timeUsedSeconds ?? 0,
-    tokenBudget: null,
-    tokensUsed: currentGoal?.tokensUsed ?? 0,
-    updatedAt: currentGoal?.updatedAt === 2 ? 3 : 2,
-  };
 }
 
 function respondEmpty(message) {
-  respond(message.id, {});
-}
-
-function handleTurnInterrupt(message) {
-  if (currentGoal?.objective === "phase4 codex cancel") {
-    if (!goalPaused) {
-      respondError(message.id, -32600, "goal pause is required before interrupt");
-      return;
-    }
-    if (message.params?.turnId !== goalCancelTurnId) {
-      respondError(
-        message.id,
-        -32600,
-        `unexpected goal cancellation turn ${message.params?.turnId}`,
-      );
-      return;
-    }
-    respond(message.id, {});
-    notify("turn/completed", {
-      threadId,
-      turn: fakeTurnWithID(goalCancelTurnId, "interrupted"),
-    });
-    return;
-  }
   respond(message.id, {});
 }
 
@@ -323,26 +186,6 @@ function assertThreadStartDeveloperInstructions(params) {
     !instructions.includes("Do not invent dynamic tool names")
   ) {
     throw new Error("thread/start developerInstructions missing Setta dynamic tool guidance");
-  }
-}
-
-function isStructuredThreadStart(params) {
-  return params?.ephemeral === true && params?.approvalPolicy === "never";
-}
-
-function assertStructuredThreadStart(params) {
-  if (params?.sandbox !== "read-only") {
-    throw new Error("structured thread/start should use read-only sandbox");
-  }
-  if (params?.dynamicTools !== undefined) {
-    throw new Error("structured thread/start should not include dynamicTools");
-  }
-  const instructions = params?.developerInstructions;
-  if (
-    typeof instructions !== "string" ||
-    !instructions.includes("strict JSON semantic graph patch envelope")
-  ) {
-    throw new Error("structured thread/start missing semantic cartographer prompt");
   }
 }
 
@@ -460,19 +303,6 @@ function assertUnsupportedDynamicToolResponse(message) {
   }
 }
 
-function isStructuredTurnStart(params) {
-  return params?.approvalPolicy === "never" && params?.outputSchema !== undefined;
-}
-
-function assertStructuredTurnStart(params) {
-  if (params?.sandboxPolicy === undefined) {
-    throw new Error("structured turn/start missing sandboxPolicy");
-  }
-  if (params?.threadId !== threadId) {
-    throw new Error("structured turn/start targeted wrong thread");
-  }
-}
-
 function handleAccountLoginStart(message) {
   const type = message.params?.type;
   if (type === "apiKey") {
@@ -505,10 +335,6 @@ function handleAccountLoginStart(message) {
 
 function respond(id, result) {
   write({ id, result });
-}
-
-function respondError(id, code, message) {
-  write({ error: { code, message }, id });
 }
 
 function turnInputText(message) {
@@ -609,216 +435,6 @@ function emitProtocolCoverageTurn() {
     threadId,
     turn: fakeTurn("completed"),
   });
-}
-
-function emitStructuredTaskTurn() {
-  notify("turn/completed", {
-    threadId,
-    turn: {
-      ...fakeTurn("completed"),
-      items: [
-        {
-          id: "structured_message_fake",
-          text: '{"patches":[]}',
-          type: "agentMessage",
-        },
-      ],
-    },
-  });
-}
-
-function emitGoalOperationMultiTurn(objective) {
-  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_a", "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal turn A. ",
-    itemId: "goal_message_a",
-    threadId,
-    turnId: "turn_goal_a",
-  });
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_a", "completed"),
-  });
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_b", "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal turn B. ",
-    itemId: "goal_message_b",
-    threadId,
-    turnId: "turn_goal_b",
-  });
-  currentGoal = fakeGoal(objective, "complete");
-  notify("thread/goal/updated", { goal: currentGoal, threadId });
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_b", "completed"),
-  });
-}
-
-function emitGoalOperationBackgroundTerminal(objective) {
-  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_a", "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal turn A. ",
-    itemId: "goal_message_a",
-    threadId,
-    turnId: "turn_goal_a",
-  });
-  notifyGoalBackgroundTerminalStarted("turn_goal_a");
-  setTimeout(() => {
-    notify("turn/completed", {
-      threadId,
-      turn: fakeTurnWithID("turn_goal_a", "completed"),
-    });
-    notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.idleGapOutput);
-    notify("turn/started", {
-      threadId,
-      turn: fakeTurnWithID("turn_goal_b", "inProgress"),
-    });
-    notify("item/agentMessage/delta", {
-      delta: "Goal turn B. ",
-      itemId: "goal_message_b",
-      threadId,
-      turnId: "turn_goal_b",
-    });
-    setTimeout(() => {
-      notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.secondTurnOutput);
-      notifyGoalBackgroundTerminalCompleted("turn_goal_a");
-      currentGoal = fakeGoal(objective, "complete");
-      notify("thread/goal/updated", { goal: currentGoal, threadId });
-      notify("turn/completed", {
-        threadId,
-        turn: fakeTurnWithID("turn_goal_b", "completed"),
-      });
-    }, 350);
-  }, 350);
-}
-
-function emitGoalOperationForegroundUnifiedExec(objective) {
-  const turnId = "turn_goal_foreground";
-  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID(turnId, "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Checking available tools. ",
-    itemId: "goal_foreground_message",
-    threadId,
-    turnId,
-  });
-  notifyUnifiedExecStarted(turnId, goalForegroundUnifiedExec);
-  notifyUnifiedExecOutput(turnId, goalForegroundUnifiedExec, "/opt/homebrew/bin/tokei\n");
-  notifyUnifiedExecCompleted(turnId, goalForegroundUnifiedExec);
-  currentGoal = fakeGoal(objective, "complete");
-  notify("thread/goal/updated", { goal: currentGoal, threadId });
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID(turnId, "completed"),
-  });
-}
-
-function emitGoalOperationCancellation(objective) {
-  goalPaused = false;
-  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_cancel_a", "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal cancel turn A. ",
-    itemId: "goal_cancel_message_a",
-    threadId,
-    turnId: "turn_goal_cancel_a",
-  });
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_cancel_a", "completed"),
-  });
-  goalCancelTurnId = "turn_goal_cancel_b";
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID(goalCancelTurnId, "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal cancel waiting. ",
-    itemId: "goal_cancel_message_b",
-    threadId,
-    turnId: goalCancelTurnId,
-  });
-}
-
-function notifyGoalBackgroundTerminalStarted(turnID) {
-  notifyUnifiedExecStarted(turnID, goalBackgroundTerminal);
-}
-
-function notifyGoalBackgroundTerminalOutput(turnID, delta) {
-  notifyUnifiedExecOutput(turnID, goalBackgroundTerminal, delta);
-}
-
-function notifyGoalBackgroundTerminalCompleted(turnID) {
-  notifyUnifiedExecCompleted(turnID, goalBackgroundTerminal);
-}
-
-function notifyUnifiedExecStarted(turnID, execution) {
-  notify("item/started", {
-    item: {
-      command: execution.command,
-      cwd: "/tmp/workspace",
-      id: execution.itemId,
-      processId: execution.processId,
-      source: "unifiedExecStartup",
-      status: "inProgress",
-      type: "commandExecution",
-    },
-    startedAtMs: 1,
-    threadId,
-    turnId: turnID,
-  });
-}
-
-function notifyUnifiedExecOutput(turnID, execution, delta) {
-  notify("item/commandExecution/outputDelta", {
-    delta,
-    itemId: execution.itemId,
-    threadId,
-    turnId: turnID,
-  });
-}
-
-function notifyUnifiedExecCompleted(turnID, execution) {
-  notify("item/completed", {
-    completedAtMs: 3,
-    item: {
-      command: execution.command,
-      cwd: "/tmp/workspace",
-      durationMs: 5,
-      exitCode: 0,
-      id: execution.itemId,
-      processId: execution.processId,
-      source: "unifiedExecStartup",
-      status: "completed",
-      type: "commandExecution",
-    },
-    threadId,
-    turnId: turnID,
-  });
-}
-
-function fakeTurnWithID(id, status) {
-  return {
-    ...fakeTurn(status),
-    id,
-  };
 }
 
 function hookPayload(status) {

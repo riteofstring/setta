@@ -44,10 +44,6 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "command approval workflow", Run: scriptedCommandApprovalTurn},
 	{Prompt: "file approval workflow", Run: scriptedFileApprovalTurn},
 	{Prompt: "activity feed workflow", Run: (*ScriptedWorkflowHarness).activityFeedTurn},
-	{Prompt: "chat activity projection workflow", Run: (*ScriptedWorkflowHarness).activityProjectionTurn},
-	{Prompt: "chat activity projection reload workflow", Run: scriptedActivityProjectionReloadTurn},
-	{Prompt: "chronological transcript workflow", Run: scriptedChronologicalTranscriptTurn},
-	{Prompt: "background terminal workflow", Run: scriptedBackgroundTerminalTurn},
 	{Prompt: "permission approval workflow", Run: scriptedPermissionApprovalTurn},
 	{Prompt: "user input approval workflow", Run: (*ScriptedWorkflowHarness).userInputApprovalTurn},
 	{Prompt: "mcp elicitation form accept workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormAcceptTurn},
@@ -83,17 +79,9 @@ func (harness *ScriptedWorkflowHarness) ActiveRunCount() int {
 func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	harness.registerRun(request.Run.ID)
 	defer harness.unregisterRun(request.Run.ID)
-	return harness.runScriptedTurn(ctx, request, sink)
-}
-
-func (harness *ScriptedWorkflowHarness) runScriptedTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	harness.applyInitialCodexSettings(request)
 
-	settings, err := scriptedCodexEffectiveSettings(harness.model, harness.reasoning)
-	if err != nil {
-		return TurnCompletion{}, err
-	}
-	if err := sink.ThreadLinked("scripted-thread-"+request.Conversation.ID, "scripted-session", "scripted-turn-"+request.Run.ID, settings); err != nil {
+	if err := sink.ThreadLinked("scripted-thread-"+request.Conversation.ID, "scripted-session", "scripted-turn-"+request.Run.ID); err != nil {
 		return TurnCompletion{}, err
 	}
 
@@ -127,10 +115,6 @@ func (harness *ScriptedWorkflowHarness) applyInitialCodexSettings(request TurnRe
 	if request.Conversation.CodexSettings.ReasoningEffort != nil {
 		harness.reasoning = *request.Conversation.CodexSettings.ReasoningEffort
 	}
-}
-
-func scriptedCodexEffectiveSettings(model string, reasoning ReasoningEffort) (*ChatCodexEffectiveSettings, error) {
-	return fakeCodexEffectiveSettings(model, reasoning)
 }
 
 func (harness *ScriptedWorkflowHarness) CancelTurn(_ context.Context, request CancelRequest) error {
@@ -168,7 +152,7 @@ func (harness *ScriptedWorkflowHarness) SubmitApproval(_ context.Context, respon
 }
 
 func (harness *ScriptedWorkflowHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {
-	return HarnessCommandListResult{Commands: defaultCommandDescriptors(request.ActiveRun)}, nil
+	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
 }
 
 func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
@@ -207,27 +191,24 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 	}
 }
 
-type scriptedGoalOperation struct {
+type scriptedGoalContinuation struct {
 	harness *ScriptedWorkflowHarness
 }
 
-func (harness *ScriptedWorkflowHarness) BeginGoalOperation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalOperation, error) {
+func (harness *ScriptedWorkflowHarness) BeginGoalContinuation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error) {
 	result, err := harness.ExecuteCommand(ctx, request)
 	if err != nil {
 		return HarnessCommandResult{}, nil, err
 	}
-	return result, &scriptedGoalOperation{harness: harness}, nil
+	return result, &scriptedGoalContinuation{harness: harness}, nil
 }
 
-func (operation *scriptedGoalOperation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	operation.harness.registerRun(request.Run.ID)
-	defer operation.harness.unregisterRun(request.Run.ID)
-
-	completion, err := operation.harness.runScriptedTurn(ctx, request, sink)
+func (continuation *scriptedGoalContinuation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	completion, err := continuation.harness.StartTurn(ctx, request, sink)
 	if err != nil || completion.Outcome != TurnOutcomeCompleted {
 		return completion, err
 	}
-	goal := operation.harness.completeGoal(request.ThreadRef.ThreadID)
+	goal := continuation.harness.completeGoal(request.ThreadRef.ThreadID)
 	if goal != nil {
 		if err := sink.GoalUpdated(goal); err != nil {
 			return TurnCompletion{}, err
@@ -236,9 +217,7 @@ func (operation *scriptedGoalOperation) Wait(ctx context.Context, request TurnRe
 	return completion, nil
 }
 
-func (operation *scriptedGoalOperation) Cancel(context.Context) error { return nil }
-
-func (operation *scriptedGoalOperation) Close() {}
+func (continuation *scriptedGoalContinuation) Close() {}
 
 func (harness *ScriptedWorkflowHarness) completeGoal(threadID string) *ChatGoalState {
 	harness.mu.Lock()
@@ -295,6 +274,46 @@ func (harness *ScriptedWorkflowHarness) setGoalStatusLocked(status string, threa
 	if harness.goal.ThreadID == "" {
 		harness.goal.ThreadID = threadID
 	}
+}
+
+func (harness *ScriptedWorkflowHarness) executeModelCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {
+	if command.Model == nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "model command payload is required", nil)
+	}
+	switch command.Model.Action {
+	case ModelCommandShowPicker:
+		result.Action = ChatCommandResultModelPicker
+		result.Models = fakeModelOptions()
+		result.ReasoningEfforts = fakeReasoningEffortOptions()
+		result.SelectedModel = harness.model
+		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
+	case ModelCommandSet:
+		harness.model = command.Model.ModelID
+		result.SelectedModel = command.Model.ModelID
+		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
+		if !result.HasThreadRef {
+			result.CodexSettings = &ChatCodexSettings{
+				Model:           harness.model,
+				ReasoningEffort: reasoningEffortResult(harness.reasoning),
+			}
+		}
+	case ModelCommandSetEffort:
+		if command.Model.ReasoningEffort == nil {
+			return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "reasoning effort is required", nil)
+		}
+		harness.reasoning = *command.Model.ReasoningEffort
+		result.SelectedModel = harness.model
+		result.SelectedReasoningEffort = reasoningEffortResult(*command.Model.ReasoningEffort)
+		if !result.HasThreadRef {
+			result.CodexSettings = &ChatCodexSettings{
+				Model:           harness.model,
+				ReasoningEffort: reasoningEffortResult(harness.reasoning),
+			}
+		}
+	default:
+		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported model command action: %s", command.Model.Action), nil)
+	}
+	return result, nil
 }
 
 func scriptedQueuedReply(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

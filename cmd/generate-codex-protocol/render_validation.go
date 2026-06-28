@@ -55,11 +55,6 @@ func (generator *generator) renderObjectValidator(buffer *bytes.Buffer, typeName
 	fmt.Fprintf(buffer, "\tif err := requireCodexFields(fields, name, %s); err != nil {\n", generator.requiredFieldLiteral(schema.Required, schema.Properties))
 	buffer.WriteString("\t\treturn err\n")
 	buffer.WriteString("\t}\n")
-	if disallowAdditionalProperties(schema) {
-		fmt.Fprintf(buffer, "\tif err := rejectUnknownCodexFields(fields, name, %s); err != nil {\n", allowedFieldLiteral(schema.Properties))
-		buffer.WriteString("\t\treturn err\n")
-		buffer.WriteString("\t}\n")
-	}
 	for _, propertyName := range sortedPropertyNames(schema.Properties) {
 		validation, ok := generator.schemaValidation(schema.Properties[propertyName])
 		if !ok {
@@ -122,23 +117,6 @@ func (generator *generator) requiredFieldLiteral(values []string, properties map
 		}
 	}
 	return "[]codexRequiredField{" + strings.Join(entries, ", ") + "}"
-}
-
-func disallowAdditionalProperties(schema jsonSchema) bool {
-	value, ok := schema.AdditionalProperties.(bool)
-	return ok && !value
-}
-
-func allowedFieldLiteral(properties map[string]jsonSchema) string {
-	if len(properties) == 0 {
-		return "nil"
-	}
-	names := sortedPropertyNames(properties)
-	quoted := make([]string, 0, len(names))
-	for _, name := range names {
-		quoted = append(quoted, fmt.Sprintf("%q", name))
-	}
-	return "[]string{" + strings.Join(quoted, ", ") + "}"
 }
 
 func requiredFields(fields []string) map[string]bool {

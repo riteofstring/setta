@@ -109,10 +109,10 @@ type SetConversationPinnedRequest struct {
 }
 
 type GetMessagePageRequest struct {
-	WorkspaceID        string `json:"workspaceId"`
-	ConversationID     string `json:"conversationId"`
-	BeforeBlockOrdinal int    `json:"beforeBlockOrdinal"`
-	Limit              int    `json:"limit"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	BeforeOrdinal  int    `json:"beforeOrdinal"`
+	Limit          int    `json:"limit"`
 }
 
 type SendChatMessageRequest struct {
@@ -170,11 +170,6 @@ type SetChatCodexModelRequest struct {
 	ModelID        string `json:"modelId"`
 }
 
-type OpenChatCodexModelPickerRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-}
-
 type SetChatCodexReasoningEffortRequest struct {
 	WorkspaceID     string               `json:"workspaceId"`
 	ConversationID  string               `json:"conversationId"`
@@ -217,30 +212,6 @@ type GetRunItemOutputRequest struct {
 	RunItemID    string `json:"runItemId"`
 	AfterOrdinal int    `json:"afterOrdinal"`
 	Limit        int    `json:"limit"`
-}
-
-type ListBackgroundTerminalsRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-}
-
-type GetBackgroundTerminalOutputRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	ProcessID      string `json:"processId"`
-	AfterOrdinal   int    `json:"afterOrdinal"`
-	Limit          int    `json:"limit"`
-}
-
-type KillBackgroundTerminalRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	ProcessID      string `json:"processId"`
-}
-
-type KillAllBackgroundTerminalsRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
 }
 
 type ListDiagnosticsRequest struct {

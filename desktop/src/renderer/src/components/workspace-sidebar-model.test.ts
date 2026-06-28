@@ -388,7 +388,6 @@ function conversationListItem(
     pinnedAt: markers.pinnedAt ?? "",
     conversation: {
       archivedAt: "",
-      codexEffectiveSettings: null,
       codexSettings: null,
       createdAt: "2026-05-29T20:00:00Z",
       harnessRefs: [],

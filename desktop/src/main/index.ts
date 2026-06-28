@@ -580,9 +580,9 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatMessagePage",
-    async (_event, workspaceId, conversationId, beforeBlockOrdinal, limit) => {
+    async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
       return requireBackendClient().getMessagePage({
-        beforeBlockOrdinal,
+        beforeOrdinal,
         conversationId,
         limit,
         workspaceId,
@@ -606,17 +606,6 @@ function registerIpc() {
         confirmGoalReplacement,
         conversationId,
         raw,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatOpenCodexModelPicker",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().openChatCodexModelPicker({
-        conversationId,
         workspaceId,
       });
     },
@@ -741,55 +730,6 @@ function registerIpc() {
         limit,
         runId,
         runItemId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatListBackgroundTerminals",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().listBackgroundTerminals({
-        conversationId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatGetBackgroundTerminalOutput",
-    async (_event, ...args) => {
-      const [workspaceId, conversationId, processId, afterOrdinal, limit] = args;
-      return requireBackendClient().getBackgroundTerminalOutput({
-        afterOrdinal,
-        conversationId,
-        limit,
-        processId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatKillBackgroundTerminal",
-    async (_event, workspaceId, conversationId, processId) => {
-      return requireBackendClient().killBackgroundTerminal({
-        conversationId,
-        processId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatKillAllBackgroundTerminals",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().killAllBackgroundTerminals({
-        conversationId,
         workspaceId,
       });
     },

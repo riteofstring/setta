@@ -24,11 +24,6 @@ func validateConversation(conversation Conversation) error {
 			return err
 		}
 	}
-	if conversation.CodexEffectiveSettings != nil {
-		if err := validateChatCodexEffectiveSettings(conversation.ID, *conversation.CodexEffectiveSettings); err != nil {
-			return err
-		}
-	}
 	if err := validateConversationWorkflowMetadata(conversation); err != nil {
 		return err
 	}
@@ -138,22 +133,6 @@ func validateConversationPinState(state conversationPinState) error {
 func validateChatCodexSettings(conversationID string, settings ChatCodexSettings) error {
 	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
 		return fmt.Errorf("conversation %s codexSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)
-	}
-	return nil
-}
-
-func validateChatCodexEffectiveSettings(conversationID string, settings ChatCodexEffectiveSettings) error {
-	if settings.Model == "" {
-		return fmt.Errorf("conversation %s codexEffectiveSettings model is required", conversationID)
-	}
-	if settings.ModelDisplayName == "" {
-		return fmt.Errorf("conversation %s codexEffectiveSettings modelDisplayName is required", conversationID)
-	}
-	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
-		return fmt.Errorf("conversation %s codexEffectiveSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)
-	}
-	if settings.ReasoningEffortDisplayName == "" {
-		return fmt.Errorf("conversation %s codexEffectiveSettings reasoningEffortDisplayName is required", conversationID)
 	}
 	return nil
 }
@@ -633,9 +612,6 @@ func validateRunItemTypeAndStatus(item RunItem) error {
 	if !validValue(item.Status, runItemStatusValues) {
 		return fmt.Errorf("run item %s has unsupported status %s", item.ID, item.Status)
 	}
-	if item.Source != nil && !validValue(*item.Source, runItemCommandSourceValues) {
-		return fmt.Errorf("run item %s has unsupported command source %s", item.ID, *item.Source)
-	}
 	return nil
 }
 
@@ -685,119 +661,6 @@ func validateRunItemOutput(output RunItemOutput) error {
 		return err
 	}
 	return nil
-}
-
-func validateBackgroundTerminalProcess(process BackgroundTerminalProcess) error {
-	if process.SchemaVersion != SchemaVersion {
-		return fmt.Errorf("background terminal %s has unsupported schemaVersion %d", process.ID, process.SchemaVersion)
-	}
-	if err := validateBackgroundTerminalIdentity(process); err != nil {
-		return err
-	}
-	if err := validateBackgroundTerminalState(process); err != nil {
-		return err
-	}
-	return validateBackgroundTerminalTimestamps(process)
-}
-
-func validateBackgroundTerminalIdentity(process BackgroundTerminalProcess) error {
-	if process.ID == "" {
-		return fmt.Errorf("background terminal id is required")
-	}
-	if err := validateStorageID("background terminal id", process.ID); err != nil {
-		return err
-	}
-	if process.WorkspaceID == "" {
-		return fmt.Errorf("background terminal %s workspaceId is required", process.ID)
-	}
-	if err := validateWorkspaceID(process.WorkspaceID); err != nil {
-		return fmt.Errorf("background terminal %s %w", process.ID, err)
-	}
-	if process.ConversationID == "" {
-		return fmt.Errorf("background terminal %s conversationId is required", process.ID)
-	}
-	if err := validateConversationID(process.ConversationID); err != nil {
-		return fmt.Errorf("background terminal %s %w", process.ID, err)
-	}
-	if process.ProviderItemID == "" {
-		return fmt.Errorf("background terminal %s providerItemId is required", process.ID)
-	}
-	if process.ProcessID == "" {
-		return fmt.Errorf("background terminal %s processId is required", process.ID)
-	}
-	if err := validateOptionalStorageID("background terminal threadId", process.ThreadID); err != nil {
-		return fmt.Errorf("background terminal %s %w", process.ID, err)
-	}
-	if err := validateOptionalStorageID("background terminal startedRunId", process.StartedRunID); err != nil {
-		return fmt.Errorf("background terminal %s %w", process.ID, err)
-	}
-	return nil
-}
-
-func validateBackgroundTerminalState(process BackgroundTerminalProcess) error {
-	if !validValue(process.Source, runItemCommandSourceValues) {
-		return fmt.Errorf("background terminal %s has unsupported source %s", process.ID, process.Source)
-	}
-	if !validValue(process.Status, backgroundTerminalStatusValues) {
-		return fmt.Errorf("background terminal %s has unsupported status %s", process.ID, process.Status)
-	}
-	if process.Command == "" {
-		return fmt.Errorf("background terminal %s command is required", process.ID)
-	}
-	if process.ExitCode < 0 {
-		return fmt.Errorf("background terminal %s exitCode must be non-negative", process.ID)
-	}
-	return nil
-}
-
-func validateBackgroundTerminalTimestamps(process BackgroundTerminalProcess) error {
-	if err := validateTimestamp(process.StartedAt, "background terminal "+process.ID+" startedAt"); err != nil {
-		return err
-	}
-	if err := validateTimestamp(process.UpdatedAt, "background terminal "+process.ID+" updatedAt"); err != nil {
-		return err
-	}
-	if backgroundTerminalStatusIsTerminal(process.Status) {
-		if process.CompletedAt == "" {
-			return fmt.Errorf("background terminal %s completedAt is required for terminal status %s", process.ID, process.Status)
-		}
-	} else if process.CompletedAt != "" {
-		return fmt.Errorf("background terminal %s completedAt must be empty for active status %s", process.ID, process.Status)
-	}
-	if process.CompletedAt != "" {
-		if err := validateTimestamp(process.CompletedAt, "background terminal "+process.ID+" completedAt"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateBackgroundTerminalOutput(output BackgroundTerminalOutput) error {
-	if output.SchemaVersion != SchemaVersion {
-		return fmt.Errorf("background terminal output %s has unsupported schemaVersion %d", output.ID, output.SchemaVersion)
-	}
-	if output.ID == "" {
-		return fmt.Errorf("background terminal output id is required")
-	}
-	if err := validateStorageID("background terminal output id", output.ID); err != nil {
-		return err
-	}
-	if output.ProcessID == "" {
-		return fmt.Errorf("background terminal output %s processId is required", output.ID)
-	}
-	if err := validateStorageID("background terminal output processId", output.ProcessID); err != nil {
-		return fmt.Errorf("background terminal output %s %w", output.ID, err)
-	}
-	if output.Stream == "" {
-		return fmt.Errorf("background terminal output %s stream is required", output.ID)
-	}
-	if output.Ordinal <= 0 {
-		return fmt.Errorf("background terminal output %s ordinal must be positive", output.ID)
-	}
-	if output.Text == "" {
-		return fmt.Errorf("background terminal output %s text is required", output.ID)
-	}
-	return validateTimestamp(output.CreatedAt, "background terminal output "+output.ID+" createdAt")
 }
 
 func validateTimestamp(value string, label string) error {
