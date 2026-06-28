@@ -219,6 +219,30 @@ type GetRunItemOutputRequest struct {
 	Limit        int    `json:"limit"`
 }
 
+type ListBackgroundTerminalsRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type GetBackgroundTerminalOutputRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	ProcessID      string `json:"processId"`
+	AfterOrdinal   int    `json:"afterOrdinal"`
+	Limit          int    `json:"limit"`
+}
+
+type KillBackgroundTerminalRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	ProcessID      string `json:"processId"`
+}
+
+type KillAllBackgroundTerminalsRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
 type ListDiagnosticsRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`

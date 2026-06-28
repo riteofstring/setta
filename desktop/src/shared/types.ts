@@ -8,6 +8,9 @@ import type {
   AttachSemanticNodeToWorkflowExecutionRequest,
   AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
+  BackgroundTerminalListProjection,
+  BackgroundTerminalOutputPage,
+  BackgroundTerminalProcess,
   BuildCartographerWindowRequest,
   CancelCodexLoginRequest,
   CartographerCursorList,
@@ -445,6 +448,26 @@ export interface SettaAPI {
       afterOrdinal: number,
       limit: number,
     ) => Promise<RunItemOutputPage>;
+    listBackgroundTerminals: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<BackgroundTerminalListProjection>;
+    getBackgroundTerminalOutput: (
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+      afterOrdinal: number,
+      limit: number,
+    ) => Promise<BackgroundTerminalOutputPage>;
+    killBackgroundTerminal: (
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+    ) => Promise<BackgroundTerminalProcess>;
+    killAllBackgroundTerminals: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<BackgroundTerminalListProjection>;
     sendMessage: (
       workspaceId: string,
       conversationId: string,

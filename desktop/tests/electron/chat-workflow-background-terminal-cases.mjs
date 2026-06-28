@@ -1,15 +1,15 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-// Phase 2 of docs/plans/background_terminal_lifecycle_plan.md. The provider starts two
+// Phase 3 of docs/plans/background_terminal_lifecycle_plan.md. The provider starts two
 // unified-exec style background terminals and leaves them running when the turn completes.
-// The backend now routes unified-exec commands into the background terminal process registry
-// and renders them as slim chronological background_terminal marker blocks, not as per-run
-// command activity rows: the terminals are no longer run items, so the run activity projection
-// is empty, and their output is owned by the registry rather than run-item output. The footer
-// and monitor surfaces that read the registry land in Phase 4, so their absence is still frozen
-// here. The authoritative provider stream (running upserts with no completed upsert, output
-// chunks) is frozen by the Go TestBackgroundTerminalFixture* tests.
+// The backend routes unified-exec commands into the background terminal process registry,
+// renders slim chronological background_terminal marker blocks, exposes typed list/output/kill
+// contracts over HTTP and preload IPC, and fails kill loudly when the scripted provider cannot
+// terminate a process. The footer and monitor surfaces that read the registry land in Phase 4,
+// so their absence is still frozen here. The authoritative provider stream (running upserts
+// with no completed upsert, output chunks) is frozen by the Go TestBackgroundTerminalFixture*
+// tests.
 const BACKGROUND_TERMINAL_MARKER_SUMMARY = [
   { kind: "assistant_text", label: "step one (before the terminals)" },
   { kind: "background_terminal", label: "marker: npm run dev (running, owned by the registry)" },
@@ -26,8 +26,9 @@ const BACKGROUND_TERMINAL_FOOTER_SELECTOR = '[data-testid="background-terminals-
 const BACKGROUND_TERMINAL_BLOCK_SELECTOR = '[data-testid="background-terminal-block"]';
 
 // runBackgroundTerminalWorkflow drives the background terminal provider stream end-to-end and
-// asserts the Phase 2 behavior: the terminals are slim background_terminal marker blocks owned
-// by the process registry, not run-item activity rows, and the footer/monitor do not exist yet.
+// asserts the Phase 3 behavior: the terminals are slim background_terminal marker blocks owned
+// by the process registry, not run-item activity rows, and the registry projections are available
+// through both backend HTTP and renderer IPC.
 export async function runBackgroundTerminalWorkflow({
   appendWorkflowState,
   assertActivityRows,
@@ -70,6 +71,12 @@ export async function runBackgroundTerminalWorkflow({
     "npm run dev",
     "vite --host 0.0.0.0",
   ]);
+  const projectionDiagnostics = await assertBackgroundTerminalProjections({
+    backend,
+    client,
+    conversationId,
+    workspaceId,
+  });
 
   // No background-terminal footer/monitor exists yet, even though two terminals are still
   // running. Phase 4 adds the footer; this assertion then flips to require it.
@@ -77,13 +84,14 @@ export async function runBackgroundTerminalWorkflow({
     `document.querySelector(${JSON.stringify(BACKGROUND_TERMINAL_FOOTER_SELECTOR)}) === null`,
   );
   if (!footerAbsent) {
-    throw new Error("Phase 2 expected no background-terminal footer yet, but one was rendered");
+    throw new Error("Phase 3 expected no background-terminal footer yet, but one was rendered");
   }
 
   await recordBackgroundTerminalDiagnostics(recordingDir, {
     appendWorkflowState,
     footerAbsent,
     markers,
+    projectionDiagnostics,
     run,
   });
 }
@@ -116,9 +124,155 @@ async function assertBackgroundTerminalMarkers(client, expectedCommands) {
   return markers;
 }
 
+async function assertBackgroundTerminalProjections({
+  backend,
+  client,
+  conversationId,
+  workspaceId,
+}) {
+  const list = await backend.post("/chat/background-terminals/list", {
+    conversationId,
+    workspaceId,
+  });
+  assertBackgroundTerminalList(list, "backend HTTP list");
+  const alpha = terminalByCommand(list.terminals, "npm run dev");
+  if (alpha.recentOutput.length !== 2 || !alpha.recentOutput[0].includes("output chunk 001")) {
+    throw new Error(`alpha recent output was not projected: ${JSON.stringify(alpha)}`);
+  }
+
+  const outputPage = await backend.post("/chat/background-terminals/output", {
+    afterOrdinal: 0,
+    conversationId,
+    limit: 20,
+    processId: alpha.id,
+    workspaceId,
+  });
+  assertBackgroundTerminalOutputPage(outputPage, alpha.id, "backend HTTP output");
+
+  const ipcList = await callRendererChatAPI(client, "listBackgroundTerminals", [
+    workspaceId,
+    conversationId,
+  ]);
+  assertBackgroundTerminalList(ipcList, "renderer IPC list");
+  const ipcAlpha = terminalByCommand(ipcList.terminals, "npm run dev");
+  const ipcOutputPage = await callRendererChatAPI(client, "getBackgroundTerminalOutput", [
+    workspaceId,
+    conversationId,
+    ipcAlpha.id,
+    0,
+    20,
+  ]);
+  assertBackgroundTerminalOutputPage(ipcOutputPage, ipcAlpha.id, "renderer IPC output");
+
+  const killResult = await callRendererChatAPIExpectError(client, "killBackgroundTerminal", [
+    workspaceId,
+    conversationId,
+    ipcAlpha.id,
+  ]);
+  if (!killResult.message.includes("does not support provider termination")) {
+    throw new Error(`renderer IPC kill error was not specific: ${JSON.stringify(killResult)}`);
+  }
+  const killAllResult = await callRendererChatAPIExpectError(client, "killAllBackgroundTerminals", [
+    workspaceId,
+    conversationId,
+  ]);
+  if (!killAllResult.message.includes("does not support provider termination")) {
+    throw new Error(
+      `renderer IPC kill-all error was not specific: ${JSON.stringify(killAllResult)}`,
+    );
+  }
+
+  const afterFailedKill = await backend.post("/chat/background-terminals/list", {
+    conversationId,
+    workspaceId,
+  });
+  assertBackgroundTerminalList(afterFailedKill, "backend HTTP list after failed kill");
+  for (const process of afterFailedKill.terminals) {
+    if (process.status !== "running") {
+      throw new Error(`failed kill mutated terminal state: ${JSON.stringify(afterFailedKill)}`);
+    }
+  }
+
+  return {
+    afterFailedKillStatuses: afterFailedKill.terminals.map((process) => ({
+      command: process.command,
+      status: process.status,
+    })),
+    backendOutputChunks: outputPage.output.length,
+    ipcOutputChunks: ipcOutputPage.output.length,
+    killAllError: killAllResult.message,
+    killError: killResult.message,
+    terminalCount: list.terminals.length,
+  };
+}
+
+function assertBackgroundTerminalList(list, label) {
+  if (!Array.isArray(list.terminals) || list.terminals.length !== 2) {
+    throw new Error(`${label} terminals = ${JSON.stringify(list)}, want two terminals`);
+  }
+  for (const command of ["npm run dev", "vite --host 0.0.0.0"]) {
+    const terminal = terminalByCommand(list.terminals, command);
+    if (terminal.status !== "running") {
+      throw new Error(`${label} terminal ${command} status = ${terminal.status}, want running`);
+    }
+    if (!terminal.id || !terminal.processId || !terminal.providerItemId) {
+      throw new Error(`${label} terminal missing stable/provider ids: ${JSON.stringify(terminal)}`);
+    }
+  }
+}
+
+function assertBackgroundTerminalOutputPage(page, processId, label) {
+  if (page.processId !== processId || !Array.isArray(page.output) || page.output.length !== 2) {
+    throw new Error(`${label} output page = ${JSON.stringify(page)}, want two alpha chunks`);
+  }
+  for (const [index, output] of page.output.entries()) {
+    const suffix = String(index + 1).padStart(3, "0");
+    if (
+      output.processId !== processId ||
+      !output.text.includes(`npm run dev output chunk ${suffix}`)
+    ) {
+      throw new Error(`${label} output chunk ${index} = ${JSON.stringify(output)}`);
+    }
+  }
+}
+
+function terminalByCommand(terminals, command) {
+  const terminal = terminals.find((candidate) => candidate.command === command);
+  if (!terminal) {
+    throw new Error(`missing background terminal for ${command}: ${JSON.stringify(terminals)}`);
+  }
+  return terminal;
+}
+
+async function callRendererChatAPI(client, method, args) {
+  return client.evaluate(
+    `window.setta.chat[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
+  );
+}
+
+async function callRendererChatAPIExpectError(client, method, args) {
+  const result = await client.evaluate(`(async () => {
+    try {
+      const value = await window.setta.chat[${JSON.stringify(method)}](...${JSON.stringify(args)});
+      return { ok: true, value };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  })()`);
+  if (result.ok) {
+    throw new Error(
+      `renderer chat ${method} unexpectedly succeeded: ${JSON.stringify(result.value)}`,
+    );
+  }
+  return result;
+}
+
 async function recordBackgroundTerminalDiagnostics(
   recordingDir,
-  { appendWorkflowState, footerAbsent, markers, run },
+  { appendWorkflowState, footerAbsent, markers, projectionDiagnostics, run },
 ) {
   const diagnostics = {
     backgroundTerminalMarkers: markers.map((marker) => ({
@@ -126,9 +280,10 @@ async function recordBackgroundTerminalDiagnostics(
       text: marker.text,
     })),
     footerPresent: !footerAbsent,
-    note: "Phase 2 background terminal lifecycle: unified-exec commands are routed into the backend process registry and rendered as slim background_terminal marker blocks, not per-run command activity rows. The run activity projection is empty because they are no longer run items. The footer/monitor surfaces that read the registry land in Phase 4.",
-    phase: 2,
+    note: "Phase 3 background terminal lifecycle: unified-exec commands are routed into the backend process registry, rendered as slim background_terminal marker blocks, exposed through typed HTTP/preload IPC list and output projections, and kill requests fail loudly when provider termination is unavailable. The footer/monitor surfaces that read the registry land in Phase 4.",
+    phase: 3,
     plan: "docs/plans/background_terminal_lifecycle_plan.md",
+    projectionDiagnostics,
     providerStreamSummary: BACKGROUND_TERMINAL_MARKER_SUMMARY,
     runId: run.id,
   };

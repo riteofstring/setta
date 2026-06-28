@@ -73,7 +73,8 @@ func (service *Service) recoverConversationBackgroundTerminals(workspaceID strin
 	if err != nil {
 		return err
 	}
-	for _, process := range processes {
+	changed := false
+	for index, process := range processes {
 		if !backgroundTerminalStatusIsActive(process.Status) {
 			continue
 		}
@@ -82,6 +83,13 @@ func (service *Service) recoverConversationBackgroundTerminals(workspaceID strin
 		process.UpdatedAt = now
 		process.CompletedAt = now
 		if err := service.store.SaveBackgroundTerminalProcess(process); err != nil {
+			return err
+		}
+		processes[index] = process
+		changed = true
+	}
+	if changed {
+		if _, err := service.events.Publish(NewBackgroundTerminalsReplacedEvent(workspaceID, conversationID, processes)); err != nil {
 			return err
 		}
 	}

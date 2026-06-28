@@ -1,6 +1,10 @@
 package chat
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+	"time"
+)
 
 // recoveryClockTimestamp matches the fixed clock newTestService installs, so
 // recovery stamps lost terminals with this value.
@@ -83,5 +87,62 @@ func TestServiceRecoversRunningBackgroundTerminalsAsLost(t *testing.T) {
 	}
 	if lost.CompletedAt != "2026-05-29T19:30:00Z" {
 		t.Fatalf("already-lost terminal completedAt changed: %+v", lost)
+	}
+}
+
+func TestServiceRecoveryPublishesBackgroundTerminalsReplaced(t *testing.T) {
+	dir := t.TempDir()
+	store := mustStore(t, dir)
+	seedRecoveryConversation(t, store)
+	seedBackgroundTerminal(t, store, "bgproc_running", BackgroundTerminalRunning)
+	seedBackgroundTerminal(t, store, "bgproc_terminating", BackgroundTerminalTerminating)
+	seedBackgroundTerminal(t, store, "bgproc_exited", BackgroundTerminalExited)
+
+	events, err := NewEventHub(
+		"event_stream_background_terminal_recovery",
+		WithEventBufferSize(8),
+		WithEventClock(func() time.Time {
+			return mustTime(t, "2026-05-29T20:00:00Z")
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new event hub: %v", err)
+	}
+	service, err := NewService(
+		mustStore(t, dir),
+		testResolver(t),
+		NewScriptedWorkflowHarness(),
+		WithClock(func() time.Time {
+			return mustTime(t, "2026-05-29T20:00:00Z")
+		}),
+		WithEventHub(events),
+	)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	subscription, err := service.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	event := receiveEventsUntil(t, subscription, func(event Event) bool {
+		return event.Type == EventTypeBackgroundTerminalsReplaced
+	})[0]
+	var payload BackgroundTerminalsReplacedPayload
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		t.Fatalf("decode replaced payload: %v", err)
+	}
+	if len(payload.Terminals) != 3 {
+		t.Fatalf("replaced terminals = %+v, want all conversation terminals", payload.Terminals)
+	}
+	statusByID := map[string]BackgroundTerminalStatus{}
+	for _, process := range payload.Terminals {
+		statusByID[process.ID] = process.Status
+	}
+	if statusByID["bgproc_running"] != BackgroundTerminalLost ||
+		statusByID["bgproc_terminating"] != BackgroundTerminalLost ||
+		statusByID["bgproc_exited"] != BackgroundTerminalExited {
+		t.Fatalf("replaced terminal statuses = %+v", statusByID)
 	}
 }

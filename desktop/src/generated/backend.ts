@@ -945,6 +945,26 @@ export function decodeRunItemCommandSource(value: unknown, label = "RunItemComma
   }
 }
 
+export type BackgroundTerminalStatus = "running" | "terminating" | "exited" | "lost";
+
+export const backgroundTerminalStatusValues = ["running", "terminating", "exited", "lost"] as const satisfies readonly BackgroundTerminalStatus[];
+
+export function decodeBackgroundTerminalStatus(value: unknown, label = "BackgroundTerminalStatus"): BackgroundTerminalStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "running":
+      return decoded;
+    case "terminating":
+      return decoded;
+    case "exited":
+      return decoded;
+    case "lost":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type WorkflowNodeKind = "start" | "end" | "action" | "gateway.and" | "gateway.or" | "gateway.xor" | "loop.guard";
 
 export const workflowNodeKindValues = ["start", "end", "action", "gateway.and", "gateway.or", "gateway.xor", "loop.guard"] as const satisfies readonly WorkflowNodeKind[];
@@ -3292,6 +3312,72 @@ export interface RunItemOutputPage {
   nextOrdinal: number;
 }
 
+export interface ListBackgroundTerminalsRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
+export interface BackgroundTerminalProcess {
+  schemaVersion: number;
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  threadId: string;
+  startedRunId: string;
+  providerItemId: string;
+  processId: string;
+  source: RunItemCommandSource;
+  status: BackgroundTerminalStatus;
+  command: string;
+  cwd: string;
+  exitCode: number;
+  error: string;
+  startedAt: string;
+  updatedAt: string;
+  completedAt: string;
+  recentOutput: string[];
+}
+
+export interface BackgroundTerminalListProjection {
+  terminals: BackgroundTerminalProcess[];
+}
+
+export interface GetBackgroundTerminalOutputRequest {
+  workspaceId: string;
+  conversationId: string;
+  processId: string;
+  afterOrdinal: number;
+  limit: number;
+}
+
+export interface BackgroundTerminalOutput {
+  schemaVersion: number;
+  id: string;
+  processId: string;
+  stream: string;
+  ordinal: number;
+  text: string;
+  createdAt: string;
+}
+
+export interface BackgroundTerminalOutputPage {
+  processId: string;
+  output: BackgroundTerminalOutput[];
+  hasMore: boolean;
+  nextOrdinal: number;
+}
+
+export interface KillBackgroundTerminalRequest {
+  workspaceId: string;
+  conversationId: string;
+  processId: string;
+}
+
+export interface KillAllBackgroundTerminalsRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
 export interface ListDiagnosticsRequest {
   workspaceId: string;
   conversationId: string;
@@ -5096,6 +5182,22 @@ export interface TranscriptBlocksReplacedPayload {
   blocks: TranscriptBlock[];
 }
 
+export interface BackgroundTerminalCreatedPayload {
+  process: BackgroundTerminalProcess;
+}
+
+export interface BackgroundTerminalUpdatedPayload {
+  process: BackgroundTerminalProcess;
+}
+
+export interface BackgroundTerminalOutputDeltaPayload {
+  output: BackgroundTerminalOutput;
+}
+
+export interface BackgroundTerminalsReplacedPayload {
+  terminals: BackgroundTerminalProcess[];
+}
+
 export interface QueueUpdatedPayload {
   queue: QueueState;
 }
@@ -5145,6 +5247,10 @@ export type ChatEvent =
   | ChatTranscriptBlockUpdatedEvent
   | ChatTranscriptTextDeltaEvent
   | ChatTranscriptBlocksReplacedEvent
+  | ChatBackgroundTerminalCreatedEvent
+  | ChatBackgroundTerminalUpdatedEvent
+  | ChatBackgroundTerminalOutputDeltaEvent
+  | ChatBackgroundTerminalsReplacedEvent
   | ChatQueueUpdatedEvent
   | ChatGoalUpdatedEvent
   | ChatConversationUpdatedEvent
@@ -5333,6 +5439,58 @@ export interface ChatTranscriptBlocksReplacedEvent {
   conversationId: string;
   runId: string;
   payload: TranscriptBlocksReplacedPayload;
+}
+
+export interface ChatBackgroundTerminalCreatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.background_terminal.created";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: BackgroundTerminalCreatedPayload;
+}
+
+export interface ChatBackgroundTerminalUpdatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.background_terminal.updated";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: BackgroundTerminalUpdatedPayload;
+}
+
+export interface ChatBackgroundTerminalOutputDeltaEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.background_terminal.output_delta";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: BackgroundTerminalOutputDeltaPayload;
+}
+
+export interface ChatBackgroundTerminalsReplacedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.background_terminals.replaced";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: BackgroundTerminalsReplacedPayload;
 }
 
 export interface ChatQueueUpdatedEvent {
@@ -5569,6 +5727,22 @@ export const backendEndpoints = {
   GetRunItemOutputPage: {
     method: "POST",
     path: "/chat/runs/item-output",
+  },
+  ListBackgroundTerminals: {
+    method: "POST",
+    path: "/chat/background-terminals/list",
+  },
+  GetBackgroundTerminalOutput: {
+    method: "POST",
+    path: "/chat/background-terminals/output",
+  },
+  KillBackgroundTerminal: {
+    method: "POST",
+    path: "/chat/background-terminals/kill",
+  },
+  KillAllBackgroundTerminals: {
+    method: "POST",
+    path: "/chat/background-terminals/kill-all",
   },
   ListDiagnostics: {
     method: "POST",
@@ -7323,6 +7497,104 @@ export function decodeRunItemOutputPage(value: unknown): RunItemOutputPage {
     output: decodeArray(requireField(record, "output", "RunItemOutputPage"), "RunItemOutputPage.output", (item) => decodeRunItemOutput(item)),
     hasMore: decodeBoolean(requireField(record, "hasMore", "RunItemOutputPage"), "RunItemOutputPage.hasMore"),
     nextOrdinal: decodeInteger(requireField(record, "nextOrdinal", "RunItemOutputPage"), "RunItemOutputPage.nextOrdinal"),
+  };
+}
+
+export function decodeListBackgroundTerminalsRequest(value: unknown): ListBackgroundTerminalsRequest {
+  const record = assertRecord(value, "ListBackgroundTerminalsRequest");
+  assertKnownFields(record, "ListBackgroundTerminalsRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListBackgroundTerminalsRequest"), "ListBackgroundTerminalsRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ListBackgroundTerminalsRequest"), "ListBackgroundTerminalsRequest.conversationId"),
+  };
+}
+
+export function decodeBackgroundTerminalProcess(value: unknown): BackgroundTerminalProcess {
+  const record = assertRecord(value, "BackgroundTerminalProcess");
+  assertKnownFields(record, "BackgroundTerminalProcess", ["schemaVersion", "id", "workspaceId", "conversationId", "threadId", "startedRunId", "providerItemId", "processId", "source", "status", "command", "cwd", "exitCode", "error", "startedAt", "updatedAt", "completedAt", "recentOutput"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.schemaVersion"),
+    id: decodeString(requireField(record, "id", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.conversationId"),
+    threadId: decodeString(requireField(record, "threadId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.threadId"),
+    startedRunId: decodeString(requireField(record, "startedRunId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.startedRunId"),
+    providerItemId: decodeString(requireField(record, "providerItemId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.providerItemId"),
+    processId: decodeString(requireField(record, "processId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.processId"),
+    source: decodeRunItemCommandSource(requireField(record, "source", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.source"),
+    status: decodeBackgroundTerminalStatus(requireField(record, "status", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.status"),
+    command: decodeString(requireField(record, "command", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.command"),
+    cwd: decodeString(requireField(record, "cwd", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.cwd"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.exitCode"),
+    error: decodeString(requireField(record, "error", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.error"),
+    startedAt: decodeString(requireField(record, "startedAt", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.startedAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.updatedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.completedAt"),
+    recentOutput: decodeArray(requireField(record, "recentOutput", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.recentOutput", (item) => decodeString(item, "BackgroundTerminalProcess.recentOutput item")),
+  };
+}
+
+export function decodeBackgroundTerminalListProjection(value: unknown): BackgroundTerminalListProjection {
+  const record = assertRecord(value, "BackgroundTerminalListProjection");
+  assertKnownFields(record, "BackgroundTerminalListProjection", ["terminals"]);
+  return {
+    terminals: decodeArray(requireField(record, "terminals", "BackgroundTerminalListProjection"), "BackgroundTerminalListProjection.terminals", (item) => decodeBackgroundTerminalProcess(item)),
+  };
+}
+
+export function decodeGetBackgroundTerminalOutputRequest(value: unknown): GetBackgroundTerminalOutputRequest {
+  const record = assertRecord(value, "GetBackgroundTerminalOutputRequest");
+  assertKnownFields(record, "GetBackgroundTerminalOutputRequest", ["workspaceId", "conversationId", "processId", "afterOrdinal", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "GetBackgroundTerminalOutputRequest"), "GetBackgroundTerminalOutputRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "GetBackgroundTerminalOutputRequest"), "GetBackgroundTerminalOutputRequest.conversationId"),
+    processId: decodeString(requireField(record, "processId", "GetBackgroundTerminalOutputRequest"), "GetBackgroundTerminalOutputRequest.processId"),
+    afterOrdinal: decodeInteger(requireField(record, "afterOrdinal", "GetBackgroundTerminalOutputRequest"), "GetBackgroundTerminalOutputRequest.afterOrdinal"),
+    limit: decodeInteger(requireField(record, "limit", "GetBackgroundTerminalOutputRequest"), "GetBackgroundTerminalOutputRequest.limit"),
+  };
+}
+
+export function decodeBackgroundTerminalOutput(value: unknown): BackgroundTerminalOutput {
+  const record = assertRecord(value, "BackgroundTerminalOutput");
+  assertKnownFields(record, "BackgroundTerminalOutput", ["schemaVersion", "id", "processId", "stream", "ordinal", "text", "createdAt"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.schemaVersion"),
+    id: decodeString(requireField(record, "id", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.id"),
+    processId: decodeString(requireField(record, "processId", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.processId"),
+    stream: decodeString(requireField(record, "stream", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.stream"),
+    ordinal: decodeInteger(requireField(record, "ordinal", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.ordinal"),
+    text: decodeString(requireField(record, "text", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.text"),
+    createdAt: decodeString(requireField(record, "createdAt", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.createdAt"),
+  };
+}
+
+export function decodeBackgroundTerminalOutputPage(value: unknown): BackgroundTerminalOutputPage {
+  const record = assertRecord(value, "BackgroundTerminalOutputPage");
+  assertKnownFields(record, "BackgroundTerminalOutputPage", ["processId", "output", "hasMore", "nextOrdinal"]);
+  return {
+    processId: decodeString(requireField(record, "processId", "BackgroundTerminalOutputPage"), "BackgroundTerminalOutputPage.processId"),
+    output: decodeArray(requireField(record, "output", "BackgroundTerminalOutputPage"), "BackgroundTerminalOutputPage.output", (item) => decodeBackgroundTerminalOutput(item)),
+    hasMore: decodeBoolean(requireField(record, "hasMore", "BackgroundTerminalOutputPage"), "BackgroundTerminalOutputPage.hasMore"),
+    nextOrdinal: decodeInteger(requireField(record, "nextOrdinal", "BackgroundTerminalOutputPage"), "BackgroundTerminalOutputPage.nextOrdinal"),
+  };
+}
+
+export function decodeKillBackgroundTerminalRequest(value: unknown): KillBackgroundTerminalRequest {
+  const record = assertRecord(value, "KillBackgroundTerminalRequest");
+  assertKnownFields(record, "KillBackgroundTerminalRequest", ["workspaceId", "conversationId", "processId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "KillBackgroundTerminalRequest"), "KillBackgroundTerminalRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "KillBackgroundTerminalRequest"), "KillBackgroundTerminalRequest.conversationId"),
+    processId: decodeString(requireField(record, "processId", "KillBackgroundTerminalRequest"), "KillBackgroundTerminalRequest.processId"),
+  };
+}
+
+export function decodeKillAllBackgroundTerminalsRequest(value: unknown): KillAllBackgroundTerminalsRequest {
+  const record = assertRecord(value, "KillAllBackgroundTerminalsRequest");
+  assertKnownFields(record, "KillAllBackgroundTerminalsRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "KillAllBackgroundTerminalsRequest"), "KillAllBackgroundTerminalsRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "KillAllBackgroundTerminalsRequest"), "KillAllBackgroundTerminalsRequest.conversationId"),
   };
 }
 
@@ -9938,6 +10210,38 @@ export function decodeTranscriptBlocksReplacedPayload(value: unknown): Transcrip
   };
 }
 
+export function decodeBackgroundTerminalCreatedPayload(value: unknown): BackgroundTerminalCreatedPayload {
+  const record = assertRecord(value, "BackgroundTerminalCreatedPayload");
+  assertKnownFields(record, "BackgroundTerminalCreatedPayload", ["process"]);
+  return {
+    process: decodeBackgroundTerminalProcess(requireField(record, "process", "BackgroundTerminalCreatedPayload")),
+  };
+}
+
+export function decodeBackgroundTerminalUpdatedPayload(value: unknown): BackgroundTerminalUpdatedPayload {
+  const record = assertRecord(value, "BackgroundTerminalUpdatedPayload");
+  assertKnownFields(record, "BackgroundTerminalUpdatedPayload", ["process"]);
+  return {
+    process: decodeBackgroundTerminalProcess(requireField(record, "process", "BackgroundTerminalUpdatedPayload")),
+  };
+}
+
+export function decodeBackgroundTerminalOutputDeltaPayload(value: unknown): BackgroundTerminalOutputDeltaPayload {
+  const record = assertRecord(value, "BackgroundTerminalOutputDeltaPayload");
+  assertKnownFields(record, "BackgroundTerminalOutputDeltaPayload", ["output"]);
+  return {
+    output: decodeBackgroundTerminalOutput(requireField(record, "output", "BackgroundTerminalOutputDeltaPayload")),
+  };
+}
+
+export function decodeBackgroundTerminalsReplacedPayload(value: unknown): BackgroundTerminalsReplacedPayload {
+  const record = assertRecord(value, "BackgroundTerminalsReplacedPayload");
+  assertKnownFields(record, "BackgroundTerminalsReplacedPayload", ["terminals"]);
+  return {
+    terminals: decodeArray(requireField(record, "terminals", "BackgroundTerminalsReplacedPayload"), "BackgroundTerminalsReplacedPayload.terminals", (item) => decodeBackgroundTerminalProcess(item)),
+  };
+}
+
 export function decodeQueueUpdatedPayload(value: unknown): QueueUpdatedPayload {
   const record = assertRecord(value, "QueueUpdatedPayload");
   assertKnownFields(record, "QueueUpdatedPayload", ["queue"]);
@@ -10036,6 +10340,14 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatTranscriptTextDeltaEventFromRecord(record);
     case "chat.transcript_blocks.replaced":
       return decodeChatTranscriptBlocksReplacedEventFromRecord(record);
+    case "chat.background_terminal.created":
+      return decodeChatBackgroundTerminalCreatedEventFromRecord(record);
+    case "chat.background_terminal.updated":
+      return decodeChatBackgroundTerminalUpdatedEventFromRecord(record);
+    case "chat.background_terminal.output_delta":
+      return decodeChatBackgroundTerminalOutputDeltaEventFromRecord(record);
+    case "chat.background_terminals.replaced":
+      return decodeChatBackgroundTerminalsReplacedEventFromRecord(record);
     case "chat.queue.updated":
       return decodeChatQueueUpdatedEventFromRecord(record);
     case "chat.goal.updated":
@@ -10221,6 +10533,54 @@ function decodeChatTranscriptBlocksReplacedEventFromRecord(record: Record<string
   };
 }
 
+export function decodeChatBackgroundTerminalCreatedEvent(value: unknown): ChatBackgroundTerminalCreatedEvent {
+  return decodeChatBackgroundTerminalCreatedEventFromRecord(assertRecord(value, "ChatBackgroundTerminalCreatedEvent"));
+}
+
+function decodeChatBackgroundTerminalCreatedEventFromRecord(record: Record<string, unknown>): ChatBackgroundTerminalCreatedEvent {
+  const base = decodeBackendEventBase(record, "ChatBackgroundTerminalCreatedEvent", "chat.background_terminal.created");
+  return {
+    ...base,
+    payload: decodeBackgroundTerminalCreatedPayload(requireField(record, "payload", "ChatBackgroundTerminalCreatedEvent")),
+  };
+}
+
+export function decodeChatBackgroundTerminalUpdatedEvent(value: unknown): ChatBackgroundTerminalUpdatedEvent {
+  return decodeChatBackgroundTerminalUpdatedEventFromRecord(assertRecord(value, "ChatBackgroundTerminalUpdatedEvent"));
+}
+
+function decodeChatBackgroundTerminalUpdatedEventFromRecord(record: Record<string, unknown>): ChatBackgroundTerminalUpdatedEvent {
+  const base = decodeBackendEventBase(record, "ChatBackgroundTerminalUpdatedEvent", "chat.background_terminal.updated");
+  return {
+    ...base,
+    payload: decodeBackgroundTerminalUpdatedPayload(requireField(record, "payload", "ChatBackgroundTerminalUpdatedEvent")),
+  };
+}
+
+export function decodeChatBackgroundTerminalOutputDeltaEvent(value: unknown): ChatBackgroundTerminalOutputDeltaEvent {
+  return decodeChatBackgroundTerminalOutputDeltaEventFromRecord(assertRecord(value, "ChatBackgroundTerminalOutputDeltaEvent"));
+}
+
+function decodeChatBackgroundTerminalOutputDeltaEventFromRecord(record: Record<string, unknown>): ChatBackgroundTerminalOutputDeltaEvent {
+  const base = decodeBackendEventBase(record, "ChatBackgroundTerminalOutputDeltaEvent", "chat.background_terminal.output_delta");
+  return {
+    ...base,
+    payload: decodeBackgroundTerminalOutputDeltaPayload(requireField(record, "payload", "ChatBackgroundTerminalOutputDeltaEvent")),
+  };
+}
+
+export function decodeChatBackgroundTerminalsReplacedEvent(value: unknown): ChatBackgroundTerminalsReplacedEvent {
+  return decodeChatBackgroundTerminalsReplacedEventFromRecord(assertRecord(value, "ChatBackgroundTerminalsReplacedEvent"));
+}
+
+function decodeChatBackgroundTerminalsReplacedEventFromRecord(record: Record<string, unknown>): ChatBackgroundTerminalsReplacedEvent {
+  const base = decodeBackendEventBase(record, "ChatBackgroundTerminalsReplacedEvent", "chat.background_terminals.replaced");
+  return {
+    ...base,
+    payload: decodeBackgroundTerminalsReplacedPayload(requireField(record, "payload", "ChatBackgroundTerminalsReplacedEvent")),
+  };
+}
+
 export function decodeChatQueueUpdatedEvent(value: unknown): ChatQueueUpdatedEvent {
   return decodeChatQueueUpdatedEventFromRecord(assertRecord(value, "ChatQueueUpdatedEvent"));
 }
@@ -10332,6 +10692,10 @@ export interface BackendClient {
   listRuns: (request: ListRunsRequest) => Promise<ListRunsResponse>;
   getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
   getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
+  listBackgroundTerminals: (request: ListBackgroundTerminalsRequest) => Promise<BackgroundTerminalListProjection>;
+  getBackgroundTerminalOutput: (request: GetBackgroundTerminalOutputRequest) => Promise<BackgroundTerminalOutputPage>;
+  killBackgroundTerminal: (request: KillBackgroundTerminalRequest) => Promise<BackgroundTerminalProcess>;
+  killAllBackgroundTerminals: (request: KillAllBackgroundTerminalsRequest) => Promise<BackgroundTerminalListProjection>;
   listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
   listWorkflowDefinitions: (request: ListWorkflowDefinitionsRequest) => Promise<ListWorkflowDefinitionsResponse>;
@@ -10707,6 +11071,38 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunItemOutputPage,
       endpoint: backendEndpoints.GetRunItemOutputPage,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listBackgroundTerminals: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeBackgroundTerminalListProjection,
+      endpoint: backendEndpoints.ListBackgroundTerminals,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    getBackgroundTerminalOutput: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeBackgroundTerminalOutputPage,
+      endpoint: backendEndpoints.GetBackgroundTerminalOutput,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    killBackgroundTerminal: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeBackgroundTerminalProcess,
+      endpoint: backendEndpoints.KillBackgroundTerminal,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    killAllBackgroundTerminals: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeBackgroundTerminalListProjection,
+      endpoint: backendEndpoints.KillAllBackgroundTerminals,
       fetchImpl,
       requestPayload: request,
     }),

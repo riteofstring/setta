@@ -152,6 +152,12 @@ export async function runProtocolGoalBackgroundTerminalWorkflow(
   await waitForTexts(client, ["Goal turn A.", "Goal turn B.", goalBackgroundTerminal.command]);
   await assertProtocolBackgroundTerminalMarker(client);
   await waitForProtocolGoalBackgroundTerminalStore(fixture, workspaceId, conversationId);
+  await assertProtocolGoalBackgroundTerminalProjections(
+    client,
+    backend,
+    workspaceId,
+    conversationId,
+  );
   await assertNoActiveRun(backend, workspaceId, conversationId);
 }
 
@@ -252,6 +258,83 @@ function protocolGoalBackgroundTerminalStateReady(state) {
     .join("");
   return (
     outputText === goalBackgroundTerminal.idleGapOutput + goalBackgroundTerminal.secondTurnOutput
+  );
+}
+
+async function assertProtocolGoalBackgroundTerminalProjections(
+  client,
+  backend,
+  workspaceId,
+  conversationId,
+) {
+  const list = await backend.post("/chat/background-terminals/list", {
+    conversationId,
+    workspaceId,
+  });
+  const terminal = assertProtocolGoalBackgroundTerminalList(list, "backend HTTP list");
+
+  const outputPage = await backend.post("/chat/background-terminals/output", {
+    afterOrdinal: 0,
+    conversationId,
+    limit: 20,
+    processId: terminal.id,
+    workspaceId,
+  });
+  assertProtocolGoalBackgroundTerminalOutput(outputPage, terminal.id, "backend HTTP output");
+
+  const ipcList = await callRendererChatAPI(client, "listBackgroundTerminals", [
+    workspaceId,
+    conversationId,
+  ]);
+  const ipcTerminal = assertProtocolGoalBackgroundTerminalList(ipcList, "renderer IPC list");
+  const ipcOutputPage = await callRendererChatAPI(client, "getBackgroundTerminalOutput", [
+    workspaceId,
+    conversationId,
+    ipcTerminal.id,
+    0,
+    20,
+  ]);
+  assertProtocolGoalBackgroundTerminalOutput(ipcOutputPage, ipcTerminal.id, "renderer IPC output");
+}
+
+function assertProtocolGoalBackgroundTerminalList(list, label) {
+  if (!Array.isArray(list.terminals) || list.terminals.length !== 1) {
+    throw new Error(`${label} terminals = ${JSON.stringify(list)}, want one goal terminal`);
+  }
+  const terminal = list.terminals[0];
+  if (
+    terminal.command !== goalBackgroundTerminal.command ||
+    terminal.processId !== goalBackgroundTerminal.processId ||
+    terminal.providerItemId !== goalBackgroundTerminal.itemId ||
+    terminal.status !== "exited"
+  ) {
+    throw new Error(`${label} terminal = ${JSON.stringify(terminal)}`);
+  }
+  if (
+    terminal.recentOutput.join("\n") !==
+    "goal background idle output\ngoal background turn B output"
+  ) {
+    throw new Error(`${label} recent output = ${JSON.stringify(terminal.recentOutput)}`);
+  }
+  return terminal;
+}
+
+function assertProtocolGoalBackgroundTerminalOutput(page, processId, label) {
+  if (page.processId !== processId || !Array.isArray(page.output) || page.output.length !== 2) {
+    throw new Error(`${label} output page = ${JSON.stringify(page)}, want two chunks`);
+  }
+  const outputText = page.output.map((output) => output.text).join("");
+  if (
+    outputText !==
+    goalBackgroundTerminal.idleGapOutput + goalBackgroundTerminal.secondTurnOutput
+  ) {
+    throw new Error(`${label} output text = ${JSON.stringify(outputText)}`);
+  }
+}
+
+async function callRendererChatAPI(client, method, args) {
+  return client.evaluate(
+    `window.setta.chat[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
   );
 }
 

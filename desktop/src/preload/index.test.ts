@@ -308,6 +308,10 @@ describe("preload workspace API", () => {
       "deleteConversation",
       "editQueuedMessage",
       "executeCommand",
+      "getBackgroundTerminalOutput",
+      "killAllBackgroundTerminals",
+      "killBackgroundTerminal",
+      "listBackgroundTerminals",
       "listCommands",
       "listConversations",
       "markConversationRead",
@@ -348,6 +352,11 @@ describe("preload workspace API", () => {
     await api.chat.removeQueuedMessage("workspace_api", "conversation_api", "message_queued");
     await api.chat.runActivity("workspace_api", "run_api", 100);
     await api.chat.runItemOutput("workspace_api", "run_api", "item_api", 0, 100);
+    const bgArgs = ["workspace_api", "conversation_api", "background_terminal_api"] as const;
+    await api.chat.listBackgroundTerminals("workspace_api", "conversation_api");
+    await api.chat.getBackgroundTerminalOutput(...bgArgs, 0, 100);
+    await api.chat.killBackgroundTerminal(...bgArgs);
+    await api.chat.killAllBackgroundTerminals("workspace_api", "conversation_api");
     await api.chat.sendMessage("workspace_api", "conversation_api", "hello");
     await api.chat.setCodexModel("workspace_api", "conversation_api", "gpt-test");
     await api.chat.setCodexReasoningEffort("workspace_api", "conversation_api", "high");
@@ -402,6 +411,10 @@ describe("preload workspace API", () => {
       [ipcChannels.chatRemoveQueuedMessage, "workspace_api", "conversation_api", "message_queued"],
       [ipcChannels.chatRunActivity, "workspace_api", "run_api", 100],
       [ipcChannels.chatRunItemOutput, "workspace_api", "run_api", "item_api", 0, 100],
+      [ipcChannels.chatListBackgroundTerminals, "workspace_api", "conversation_api"],
+      [ipcChannels.chatGetBackgroundTerminalOutput, ...bgArgs, 0, 100],
+      [ipcChannels.chatKillBackgroundTerminal, ...bgArgs],
+      [ipcChannels.chatKillAllBackgroundTerminals, "workspace_api", "conversation_api"],
       [ipcChannels.chatSendMessage, "workspace_api", "conversation_api", "hello"],
       [ipcChannels.chatSetCodexModel, "workspace_api", "conversation_api", "gpt-test"],
       [ipcChannels.chatSetCodexReasoningEffort, "workspace_api", "conversation_api", "high"],

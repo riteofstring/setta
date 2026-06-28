@@ -263,6 +263,74 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 	}
 }
 
+func TestChatBackgroundTerminalEndpointsListOutputAndFailLoudKill(t *testing.T) {
+	source := chat.RunItemCommandSourceUnifiedExecStartup
+	handler := newChatHandler(t, []chat.FakeHarnessEvent{
+		{Type: chat.FakeEventThreadLinked, ThreadID: "thread_bg", SessionID: "session_bg", TurnID: "turn_bg"},
+		{Type: chat.FakeEventRunItem, ProviderItemID: "bg_item_alpha", RunItem: chat.RunItem{
+			ProviderItemID: "bg_item_alpha",
+			Type:           chat.RunItemTypeCommandExecution,
+			Status:         chat.RunItemStatusRunning,
+			Command:        "npm run dev",
+			Cwd:            "/tmp/workspace",
+			ProcessID:      "provider_proc_alpha",
+			Source:         &source,
+		}},
+		{Type: chat.FakeEventRunItemOutput, ProviderItemID: "bg_item_alpha", Stream: "stdout", Text: "listening\n"},
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	started := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "start dev server",
+	}, http.StatusOK)
+	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, started.Run.ID, chat.MessageStatusComplete)
+
+	list := postJSON[chat.BackgroundTerminalListProjection](t, handler, "/chat/background-terminals/list", ListBackgroundTerminalsRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	if len(list.Terminals) != 1 {
+		t.Fatalf("background terminals = %+v, want one terminal", list.Terminals)
+	}
+	process := list.Terminals[0]
+	if process.Command != "npm run dev" || process.Status != chat.BackgroundTerminalRunning || process.ThreadID != "thread_bg" {
+		t.Fatalf("background terminal projection = %+v, want running npm terminal with provider route", process)
+	}
+	if len(process.RecentOutput) != 1 || process.RecentOutput[0] != "listening" {
+		t.Fatalf("recent output = %+v, want listening line", process.RecentOutput)
+	}
+
+	output := postJSON[chat.BackgroundTerminalOutputPage](t, handler, "/chat/background-terminals/output", GetBackgroundTerminalOutputRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		ProcessID:      process.ID,
+		AfterOrdinal:   0,
+		Limit:          20,
+	}, http.StatusOK)
+	if output.ProcessID != process.ID || len(output.Output) != 1 || output.Output[0].Text != "listening\n" {
+		t.Fatalf("background terminal output = %+v, want stored chunk", output)
+	}
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/chat/background-terminals/kill", KillBackgroundTerminalRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		ProcessID:      process.ID,
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != "kill_background_terminal_failed" ||
+		!strings.Contains(errResponse.Error.Message, "does not support provider termination") {
+		t.Fatalf("kill error = %+v, want explicit unsupported provider termination", errResponse.Error)
+	}
+	afterKill := postJSON[chat.BackgroundTerminalListProjection](t, handler, "/chat/background-terminals/list", ListBackgroundTerminalsRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	if len(afterKill.Terminals) != 1 || afterKill.Terminals[0].Status != chat.BackgroundTerminalRunning {
+		t.Fatalf("terminal after failed kill = %+v, want still running", afterKill.Terminals)
+	}
+}
+
 func TestChatEndpointsEditAndRemoveQueuedMessages(t *testing.T) {
 	handler := newChatHandler(t, []chat.FakeHarnessEvent{{Type: chat.FakeEventWaitForCancel}})
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)

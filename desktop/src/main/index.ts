@@ -748,6 +748,55 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatListBackgroundTerminals",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().listBackgroundTerminals({
+        conversationId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatGetBackgroundTerminalOutput",
+    async (_event, ...args) => {
+      const [workspaceId, conversationId, processId, afterOrdinal, limit] = args;
+      return requireBackendClient().getBackgroundTerminalOutput({
+        afterOrdinal,
+        conversationId,
+        limit,
+        processId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatKillBackgroundTerminal",
+    async (_event, workspaceId, conversationId, processId) => {
+      return requireBackendClient().killBackgroundTerminal({
+        conversationId,
+        processId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatKillAllBackgroundTerminals",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().killAllBackgroundTerminals({
+        conversationId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatSubmitApproval",
     async (_event, input) => {
       return requireBackendClient().submitApproval(input);

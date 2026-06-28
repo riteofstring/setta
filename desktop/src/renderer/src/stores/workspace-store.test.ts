@@ -378,6 +378,17 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         corruption: emptyCorruption(),
         diagnostics: [],
       }),
+      listBackgroundTerminals: async () => ({ terminals: [] }),
+      getBackgroundTerminalOutput: async () => ({
+        hasMore: false,
+        nextOrdinal: 0,
+        output: [],
+        processId: "background_terminal_api",
+      }),
+      killBackgroundTerminal: async () => {
+        throw new Error("kill background terminal is not used by workspace store tests");
+      },
+      killAllBackgroundTerminals: async () => ({ terminals: [] }),
       markConversationRead: async () => ({
         activeRunId: "",
         pinnedAt: "",

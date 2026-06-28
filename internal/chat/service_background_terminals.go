@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"strings"
 )
@@ -36,6 +37,103 @@ const (
 func isBackgroundTerminalSource(source RunItemCommandSource) bool {
 	return source == RunItemCommandSourceUnifiedExecStartup ||
 		source == RunItemCommandSourceUnifiedExecInteraction
+}
+
+type backgroundTerminalTerminator interface {
+	TerminateBackgroundTerminal(context.Context, BackgroundTerminalTerminateRequest) (BackgroundTerminalTerminateResult, error)
+}
+
+func (service *Service) ListBackgroundTerminals(workspaceID string, conversationID string) (BackgroundTerminalListProjection, error) {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return BackgroundTerminalListProjection{}, err
+	}
+	processes, err := service.store.ListBackgroundTerminalProcesses(workspaceID, conversationID)
+	if err != nil {
+		return BackgroundTerminalListProjection{}, err
+	}
+	return BackgroundTerminalListProjection{Terminals: processes}, nil
+}
+
+func (service *Service) LoadBackgroundTerminalOutputPage(workspaceID string, conversationID string, processID string, afterOrdinal int, limit int) (BackgroundTerminalOutputPage, error) {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return BackgroundTerminalOutputPage{}, err
+	}
+	return service.store.LoadBackgroundTerminalOutputPage(workspaceID, conversationID, processID, afterOrdinal, limit)
+}
+
+func (service *Service) KillBackgroundTerminal(ctx context.Context, workspaceID string, conversationID string, processID string) (BackgroundTerminalProcess, error) {
+	if ctx == nil {
+		return BackgroundTerminalProcess{}, fmt.Errorf("background terminal kill context is required")
+	}
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return BackgroundTerminalProcess{}, err
+	}
+	process, err := service.store.LoadBackgroundTerminalProcess(workspaceID, conversationID, processID)
+	if err != nil {
+		return BackgroundTerminalProcess{}, err
+	}
+	if !backgroundTerminalStatusIsActive(process.Status) {
+		return BackgroundTerminalProcess{}, fmt.Errorf("background terminal %s is not active: %s", process.ID, process.Status)
+	}
+	terminator, ok := service.harness.(backgroundTerminalTerminator)
+	if !ok {
+		return BackgroundTerminalProcess{}, fmt.Errorf("background terminal %s cannot be killed: harness %T does not support provider termination", process.ID, service.harness)
+	}
+	if process.ThreadID == "" {
+		return BackgroundTerminalProcess{}, fmt.Errorf("background terminal %s cannot be killed: provider thread route is missing", process.ID)
+	}
+	result, err := terminator.TerminateBackgroundTerminal(ctx, BackgroundTerminalTerminateRequest{
+		WorkspaceID:       workspaceID,
+		ConversationID:    conversationID,
+		ProcessID:         process.ID,
+		ThreadID:          process.ThreadID,
+		ProviderProcessID: process.ProcessID,
+	})
+	if err != nil {
+		return BackgroundTerminalProcess{}, fmt.Errorf("terminate background terminal %s through provider: %w", process.ID, err)
+	}
+	if !result.Terminated {
+		return BackgroundTerminalProcess{}, fmt.Errorf("terminate background terminal %s through provider: provider reported process was not terminated", process.ID)
+	}
+	return service.markBackgroundTerminalTerminating(workspaceID, conversationID, process.ID)
+}
+
+func (service *Service) KillAllBackgroundTerminals(ctx context.Context, workspaceID string, conversationID string) (BackgroundTerminalListProjection, error) {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return BackgroundTerminalListProjection{}, err
+	}
+	processes, err := service.store.ListBackgroundTerminalProcesses(workspaceID, conversationID)
+	if err != nil {
+		return BackgroundTerminalListProjection{}, err
+	}
+	for _, process := range processes {
+		if !backgroundTerminalStatusIsActive(process.Status) {
+			continue
+		}
+		if _, err := service.KillBackgroundTerminal(ctx, workspaceID, conversationID, process.ID); err != nil {
+			return BackgroundTerminalListProjection{}, err
+		}
+	}
+	return service.ListBackgroundTerminals(workspaceID, conversationID)
+}
+
+func (service *Service) markBackgroundTerminalTerminating(workspaceID string, conversationID string, processID string) (BackgroundTerminalProcess, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	process, err := service.store.LoadBackgroundTerminalProcess(workspaceID, conversationID, processID)
+	if err != nil {
+		return BackgroundTerminalProcess{}, err
+	}
+	if backgroundTerminalStatusIsTerminal(process.Status) {
+		return process, nil
+	}
+	process.Status = BackgroundTerminalTerminating
+	process.UpdatedAt = timestamp(service.now())
+	if err := service.store.SaveBackgroundTerminalProcess(process); err != nil {
+		return BackgroundTerminalProcess{}, err
+	}
+	return process, service.publishBackgroundTerminalUpdatedLocked(process)
 }
 
 func runItemStatusIsTerminal(status RunItemStatus) bool {
@@ -111,7 +209,10 @@ func (service *Service) createBackgroundTerminalFromRunItemLocked(item RunItem) 
 	if err := service.store.SaveBackgroundTerminalProcess(process); err != nil {
 		return err
 	}
-	return service.createBackgroundTerminalStartBlockLocked(item, process)
+	if err := service.createBackgroundTerminalStartBlockLocked(item, process); err != nil {
+		return err
+	}
+	return service.publishBackgroundTerminalCreatedLocked(process)
 }
 
 // applyBackgroundTerminalRunItemStatusLocked applies an in-turn status change to a
@@ -126,7 +227,10 @@ func (service *Service) applyBackgroundTerminalRunItemStatusLocked(process Backg
 	process.ExitCode = item.ExitCode
 	process.CompletedAt = now
 	process.UpdatedAt = now
-	return service.store.SaveBackgroundTerminalProcess(process)
+	if err := service.store.SaveBackgroundTerminalProcess(process); err != nil {
+		return err
+	}
+	return service.publishBackgroundTerminalUpdatedLocked(process)
 }
 
 // ingestBackgroundTerminalInteractionLocked records a slim chronological marker
@@ -240,7 +344,10 @@ func (service *Service) completeBackgroundTerminalFromProvider(workspaceID strin
 	process.Error = errorMessage
 	process.CompletedAt = now
 	process.UpdatedAt = now
-	return service.store.SaveBackgroundTerminalProcess(process)
+	if err := service.store.SaveBackgroundTerminalProcess(process); err != nil {
+		return err
+	}
+	return service.publishBackgroundTerminalUpdatedLocked(process)
 }
 
 func (service *Service) appendBackgroundTerminalOutputLocked(process BackgroundTerminalProcess, stream string, text string) error {
@@ -267,7 +374,28 @@ func (service *Service) appendBackgroundTerminalOutputLocked(process BackgroundT
 	}
 	process.RecentOutput = appendRecentBackgroundTerminalOutput(process.RecentOutput, text)
 	process.UpdatedAt = now
-	return service.store.SaveBackgroundTerminalProcess(process)
+	if err := service.store.SaveBackgroundTerminalProcess(process); err != nil {
+		return err
+	}
+	if err := service.publishBackgroundTerminalOutputDeltaLocked(process, output); err != nil {
+		return err
+	}
+	return service.publishBackgroundTerminalUpdatedLocked(process)
+}
+
+func (service *Service) publishBackgroundTerminalCreatedLocked(process BackgroundTerminalProcess) error {
+	_, err := service.events.Publish(NewBackgroundTerminalCreatedEvent(process))
+	return err
+}
+
+func (service *Service) publishBackgroundTerminalUpdatedLocked(process BackgroundTerminalProcess) error {
+	_, err := service.events.Publish(NewBackgroundTerminalUpdatedEvent(process))
+	return err
+}
+
+func (service *Service) publishBackgroundTerminalOutputDeltaLocked(process BackgroundTerminalProcess, output BackgroundTerminalOutput) error {
+	_, err := service.events.Publish(NewBackgroundTerminalOutputDeltaEvent(process.WorkspaceID, process.ConversationID, process.StartedRunID, output))
+	return err
 }
 
 // findBackgroundTerminalLocked resolves a registered terminal by its provider

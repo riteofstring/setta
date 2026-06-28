@@ -10,6 +10,9 @@ import type {
   AttachSemanticNodeToWorkflowExecutionRequest,
   AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
+  BackgroundTerminalListProjection,
+  BackgroundTerminalOutputPage,
+  BackgroundTerminalProcess,
   BuildCartographerWindowRequest,
   CancelCodexLoginRequest,
   CartographerCursorList,
@@ -149,6 +152,10 @@ export const ipcChannels = {
   chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
   chatListCommands: "chat:list-commands",
+  chatListBackgroundTerminals: "chat:list-background-terminals",
+  chatGetBackgroundTerminalOutput: "chat:get-background-terminal-output",
+  chatKillBackgroundTerminal: "chat:kill-background-terminal",
+  chatKillAllBackgroundTerminals: "chat:kill-all-background-terminals",
   chatMarkConversationRead: "chat:mark-conversation-read",
   chatMessagePage: "chat:message-page",
   chatQueueMessage: "chat:queue-message",
@@ -400,6 +407,28 @@ interface IpcContract {
       limit: number,
     ];
     result: RunItemOutputPage;
+  };
+  chatListBackgroundTerminals: {
+    args: [workspaceId: string, conversationId: string];
+    result: BackgroundTerminalListProjection;
+  };
+  chatGetBackgroundTerminalOutput: {
+    args: [
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+      afterOrdinal: number,
+      limit: number,
+    ];
+    result: BackgroundTerminalOutputPage;
+  };
+  chatKillBackgroundTerminal: {
+    args: [workspaceId: string, conversationId: string, processId: string];
+    result: BackgroundTerminalProcess;
+  };
+  chatKillAllBackgroundTerminals: {
+    args: [workspaceId: string, conversationId: string];
+    result: BackgroundTerminalListProjection;
   };
   chatSendMessage: {
     args: [workspaceId: string, conversationId: string, prompt: string];

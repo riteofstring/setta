@@ -1,5 +1,7 @@
 package chat
 
+import "encoding/json"
+
 // Background terminal domain model for
 // docs/plans/background_terminal_lifecycle_plan.md.
 //
@@ -56,6 +58,14 @@ type BackgroundTerminalProcess struct {
 	RecentOutput   []string                 `json:"recentOutput"`
 }
 
+func (process BackgroundTerminalProcess) MarshalJSON() ([]byte, error) {
+	type processAlias BackgroundTerminalProcess
+	if process.RecentOutput == nil {
+		process.RecentOutput = []string{}
+	}
+	return json.Marshal(processAlias(process))
+}
+
 // BackgroundTerminalOutput is one persisted output chunk for a background
 // terminal. ProcessID is the stable BackgroundTerminalProcess.ID (the join
 // key), not the provider process handle; output is paginated by that stable ID
@@ -77,6 +87,43 @@ type BackgroundTerminalOutputPage struct {
 	Output      []BackgroundTerminalOutput `json:"output"`
 	HasMore     bool                       `json:"hasMore"`
 	NextOrdinal int                        `json:"nextOrdinal"`
+}
+
+func (page BackgroundTerminalOutputPage) MarshalJSON() ([]byte, error) {
+	type pageAlias BackgroundTerminalOutputPage
+	if page.Output == nil {
+		page.Output = []BackgroundTerminalOutput{}
+	}
+	return json.Marshal(pageAlias(page))
+}
+
+// BackgroundTerminalListProjection is the backend-owned monitor list projection
+// used by the renderer footer and monitor surface.
+type BackgroundTerminalListProjection struct {
+	Terminals []BackgroundTerminalProcess `json:"terminals"`
+}
+
+func (projection BackgroundTerminalListProjection) MarshalJSON() ([]byte, error) {
+	type projectionAlias BackgroundTerminalListProjection
+	if projection.Terminals == nil {
+		projection.Terminals = []BackgroundTerminalProcess{}
+	}
+	return json.Marshal(projectionAlias(projection))
+}
+
+// BackgroundTerminalTerminateRequest is the provider-bound control request for
+// one registered background terminal. ProcessID is the stable Setta ID;
+// ProviderProcessID is the Codex process handle.
+type BackgroundTerminalTerminateRequest struct {
+	WorkspaceID       string `json:"workspaceId"`
+	ConversationID    string `json:"conversationId"`
+	ProcessID         string `json:"processId"`
+	ThreadID          string `json:"threadId"`
+	ProviderProcessID string `json:"providerProcessId"`
+}
+
+type BackgroundTerminalTerminateResult struct {
+	Terminated bool `json:"terminated"`
 }
 
 func backgroundTerminalStatusIsActive(status BackgroundTerminalStatus) bool {

@@ -48,6 +48,15 @@ type RunEvent = AppliedEventOf<
   | "chat.run_item_output.delta"
 >;
 type ConversationEvent = Exclude<AppliedChatEvent, TranscriptBlockEvent | MessageEvent | RunEvent>;
+type NoOpConversationEvent = AppliedEventOf<
+  | "chat.assistant_text_delta"
+  | "chat.background_terminal.created"
+  | "chat.background_terminal.updated"
+  | "chat.background_terminal.output_delta"
+  | "chat.background_terminals.replaced"
+  | "codex.account.changed"
+>;
+type StatefulConversationEvent = Exclude<ConversationEvent, NoOpConversationEvent>;
 
 const transcriptBlockEventTypes = new Set<AppliedChatEvent["type"]>([
   "chat.transcript_block.created",
@@ -67,6 +76,14 @@ const runEventTypes = new Set<AppliedChatEvent["type"]>([
   "chat.run_item.created",
   "chat.run_item.updated",
   "chat.run_item_output.delta",
+]);
+const noOpConversationEventTypes = new Set<ConversationEvent["type"]>([
+  "chat.assistant_text_delta",
+  "chat.background_terminal.created",
+  "chat.background_terminal.updated",
+  "chat.background_terminal.output_delta",
+  "chat.background_terminals.replaced",
+  "codex.account.changed",
 ]);
 
 // The chat store owns the conversation transcript through typed transcript block
@@ -100,6 +117,10 @@ function isMessageEvent(event: AppliedChatEvent): event is MessageEvent {
 
 function isRunEvent(event: AppliedChatEvent): event is RunEvent {
   return runEventTypes.has(event.type);
+}
+
+function isNoOpConversationEvent(event: ConversationEvent): event is NoOpConversationEvent {
+  return noOpConversationEventTypes.has(event.type);
 }
 
 function applyTranscriptBlockEvent(
@@ -145,9 +166,17 @@ function applyRunEvent(state: ChatStore, event: RunEvent): EventApplyResult {
 }
 
 function applyConversationEvent(state: ChatStore, event: ConversationEvent): EventApplyResult {
+  if (isNoOpConversationEvent(event)) {
+    return unchangedEventResult();
+  }
+  return applyStatefulConversationEvent(state, event);
+}
+
+function applyStatefulConversationEvent(
+  state: ChatStore,
+  event: StatefulConversationEvent,
+): EventApplyResult {
   switch (event.type) {
-    case "chat.assistant_text_delta":
-      return unchangedEventResult();
     case "chat.queue.updated":
       return applyQueueUpdatedEvent(state, event);
     case "chat.goal.updated":
@@ -162,8 +191,6 @@ function applyConversationEvent(state: ChatStore, event: ConversationEvent): Eve
       };
     case "diagnostic.created":
       return { patch: diagnosticCreatedPatch(state, event), resync: false };
-    case "codex.account.changed":
-      return unchangedEventResult();
     default:
       return assertNever(event);
   }

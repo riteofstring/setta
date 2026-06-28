@@ -991,6 +991,17 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         ],
       }),
       listConversations: async () => listResponse([]),
+      listBackgroundTerminals: async () => ({ terminals: [] }),
+      getBackgroundTerminalOutput: async () => ({
+        hasMore: false,
+        nextOrdinal: 0,
+        output: [],
+        processId: "background_terminal_api",
+      }),
+      killBackgroundTerminal: async () => {
+        throw new Error("kill background terminal is not used by chat store tests");
+      },
+      killAllBackgroundTerminals: async () => ({ terminals: [] }),
       markConversationRead: async () => conversationItem(conversation, 0),
       messagePage: async () => testPage(conversation, []),
       onEvent: () => () => {},

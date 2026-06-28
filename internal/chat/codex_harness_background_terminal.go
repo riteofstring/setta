@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 
 	"setta/internal/codexapp"
@@ -30,6 +31,27 @@ func (harness *CodexHarness) registerBackgroundTerminalHandlers() {
 	harness.manager.RegisterNotificationHandler(codexapp.CodexNotificationTurnCompleted, harness.handleConnectionTurnCompleted)
 	harness.manager.RegisterNotificationHandler(codexapp.CodexNotificationItemCompleted, harness.handleConnectionItemCompleted)
 	harness.manager.RegisterNotificationHandler(codexapp.CodexNotificationItemCommandExecutionOutputDelta, harness.handleConnectionOutputDelta)
+}
+
+func (harness *CodexHarness) TerminateBackgroundTerminal(ctx context.Context, request BackgroundTerminalTerminateRequest) (BackgroundTerminalTerminateResult, error) {
+	if request.ThreadID == "" {
+		return BackgroundTerminalTerminateResult{}, fmt.Errorf("codex background terminal threadId is required")
+	}
+	if request.ProviderProcessID == "" {
+		return BackgroundTerminalTerminateResult{}, fmt.Errorf("codex background terminal provider processId is required")
+	}
+	result, err := harness.manager.Call(ctx, codexapp.CodexMethodThreadBackgroundTerminalsTerminate, codexapp.ThreadBackgroundTerminalsTerminateParams{
+		ProcessId: request.ProviderProcessID,
+		ThreadID:  request.ThreadID,
+	})
+	if err != nil {
+		return BackgroundTerminalTerminateResult{}, err
+	}
+	decoded, err := codexapp.DecodeThreadBackgroundTerminalsTerminateResponse(result)
+	if err != nil {
+		return BackgroundTerminalTerminateResult{}, err
+	}
+	return BackgroundTerminalTerminateResult{Terminated: decoded.Terminated}, nil
 }
 
 // SetBackgroundTerminalSink attaches the conversation-scoped sink that late

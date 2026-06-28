@@ -227,6 +227,27 @@ const api: SettaAPI = {
       afterOrdinal: number,
       limit: number,
     ) => invoke("chatRunItemOutput", workspaceId, runId, runItemId, afterOrdinal, limit),
+    listBackgroundTerminals: (workspaceId: string, conversationId: string) =>
+      invoke("chatListBackgroundTerminals", workspaceId, conversationId),
+    getBackgroundTerminalOutput: (
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+      afterOrdinal: number,
+      limit: number,
+    ) =>
+      invoke(
+        "chatGetBackgroundTerminalOutput",
+        workspaceId,
+        conversationId,
+        processId,
+        afterOrdinal,
+        limit,
+      ),
+    killBackgroundTerminal: (workspaceId: string, conversationId: string, processId: string) =>
+      invoke("chatKillBackgroundTerminal", workspaceId, conversationId, processId),
+    killAllBackgroundTerminals: (workspaceId: string, conversationId: string) =>
+      invoke("chatKillAllBackgroundTerminals", workspaceId, conversationId),
     sendMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSendMessage", workspaceId, conversationId, prompt),
     sendSteeringImmediately: (workspaceId: string, conversationId: string, prompt = "") =>
