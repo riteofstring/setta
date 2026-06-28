@@ -519,6 +519,13 @@ persisted active run left by an ungraceful backend exit. Remaining Phase 6
 coverage: shutdown-drain persistence and live Codex provider regression checks
 when ChatGPT auth is available.
 
+Audit note, July 2, 2026: ChatGPT auth was available. The existing
+`live-codex-electron` workflow was attempted after the deterministic Phase 6
+slices passed, but it failed in the pre-existing live semantic cartographer
+smoke while waiting for cartographer processed state. That run is not evidence
+for or against liveness reconciliation; dedicated live-provider liveness
+regression coverage remains outstanding.
+
 Deterministic Electron E2E through production main/preload/renderer/HTTP and
 store paths:
 
