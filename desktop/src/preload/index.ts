@@ -4,6 +4,7 @@ import {
   decodeChatEvent,
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
+  decodeWorkspaceActivityEvent,
   decodeWorkflowEvent,
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
@@ -75,6 +76,30 @@ const api: SettaAPI = {
       return () => {
         ipcRenderer.removeListener(ipcEvents.backendProcessStatus, handler);
       };
+    },
+  },
+  workspaceActivity: {
+    onEvent: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeWorkspaceActivityEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.workspaceActivityEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.workspaceActivityEvent, handler);
+      };
+    },
+    snapshot: async (workspaceId, limit) => {
+      const response = await invoke("workspaceActivitySnapshot", workspaceId, limit);
+      return response.snapshot;
+    },
+    executionSnapshot: async (workspaceId, executionId, limit) => {
+      const response = await invoke(
+        "workspaceActivityExecutionSnapshot",
+        workspaceId,
+        executionId,
+        limit,
+      );
+      return response.snapshot;
     },
   },
   appearance: {
@@ -161,6 +186,8 @@ const api: SettaAPI = {
         raw,
         options?.confirmGoalReplacement ?? false,
       ),
+    openCodexModelPicker: (workspaceId: string, conversationId: string) =>
+      invoke("chatOpenCodexModelPicker", workspaceId, conversationId),
     setCodexModel: (workspaceId: string, conversationId: string, modelId: string) =>
       invoke("chatSetCodexModel", workspaceId, conversationId, modelId),
     setCodexReasoningEffort: (workspaceId: string, conversationId: string, effort) =>
@@ -175,9 +202,9 @@ const api: SettaAPI = {
     messagePage: (
       workspaceId: string,
       conversationId: string,
-      beforeOrdinal: number,
+      beforeBlockOrdinal: number,
       limit: number,
-    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeOrdinal, limit),
+    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeBlockOrdinal, limit),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeChatEvent(payload));
@@ -280,6 +307,8 @@ const api: SettaAPI = {
     graphProjection: (workspaceId, definitionId = "", versionId = "", executionId = "") =>
       invoke("workflowGraphProjection", workspaceId, definitionId, versionId, executionId),
     listDefinitions: (workspaceId) => invoke("workflowListDefinitions", workspaceId),
+    listExecutions: (workspaceId, definitionId, limit) =>
+      invoke("workflowListExecutions", workspaceId, definitionId, limit),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeWorkflowEvent(payload));

@@ -1,6 +1,8 @@
 import { memo, useMemo } from "react";
 import type { ReactNode } from "react";
 
+import { highlightCode } from "../lib/syntax-highlight";
+
 const plainTextSegmentLength = 512;
 const segmentedPlainTextThreshold = plainTextSegmentLength * 4;
 
@@ -20,16 +22,7 @@ export const MarkdownText = memo(function MarkdownText({ text }: { text: string 
     <div className="min-w-0 max-w-full space-y-2 overflow-hidden text-[13px] leading-5 break-words text-inherit [overflow-wrap:anywhere]">
       {blocks.map((block, index) => {
         if (block.kind === "code") {
-          return (
-            <pre
-              className="w-full min-w-0 max-w-full overflow-hidden whitespace-pre-wrap rounded-sm border border-border bg-background p-2 text-xs leading-5 break-words text-foreground [overflow-wrap:anywhere]"
-              key={index}
-            >
-              <code className="block min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                {block.text}
-              </code>
-            </pre>
-          );
+          return <CodeBlock key={index} language={block.language} text={block.text} />;
         }
         return (
           <p
@@ -41,6 +34,31 @@ export const MarkdownText = memo(function MarkdownText({ text }: { text: string 
         );
       })}
     </div>
+  );
+});
+
+// CodeBlock renders a fenced code block, syntax-highlighted when the fence named a
+// known language. Highlighting is memoized per (text, language) so streaming
+// re-renders don't re-tokenize unchanged blocks. highlight.js escapes the source,
+// so the highlighted HTML is safe to inject; unhighlighted code stays plain text.
+const codeBlockPreClass =
+  "w-full min-w-0 max-w-full overflow-hidden whitespace-pre-wrap rounded-sm border border-border bg-background p-2 text-xs leading-5 break-words [overflow-wrap:anywhere]";
+const codeBlockCodeClass =
+  "hljs block min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]";
+
+const CodeBlock = memo(function CodeBlock({ language, text }: { language?: string; text: string }) {
+  const highlighted = useMemo(() => highlightCode(text, language), [language, text]);
+  if (highlighted === null) {
+    return (
+      <pre className={codeBlockPreClass}>
+        <code className={`${codeBlockCodeClass} text-foreground`}>{text}</code>
+      </pre>
+    );
+  }
+  return (
+    <pre className={codeBlockPreClass}>
+      <code className={codeBlockCodeClass} dangerouslySetInnerHTML={{ __html: highlighted }} />
+    </pre>
   );
 });
 
@@ -72,7 +90,9 @@ function hasMarkdownSyntax(text: string) {
   return text.includes("`") || text.includes("**");
 }
 
-type MarkdownBlock = { kind: "code" | "paragraph"; text: string };
+type MarkdownBlock =
+  | { kind: "code"; language?: string; text: string }
+  | { kind: "paragraph"; text: string };
 
 function parseBlocks(text: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
@@ -80,6 +100,7 @@ function parseBlocks(text: string): MarkdownBlock[] {
   let paragraph: string[] = [];
   let code: string[] = [];
   let inCode = false;
+  let codeLanguage: string | undefined;
 
   function flushParagraph() {
     if (paragraph.length === 0) {
@@ -90,8 +111,9 @@ function parseBlocks(text: string): MarkdownBlock[] {
   }
 
   function flushCode() {
-    blocks.push({ kind: "code", text: code.join("\n") });
+    blocks.push({ kind: "code", language: codeLanguage, text: code.join("\n") });
     code = [];
+    codeLanguage = undefined;
   }
 
   for (const line of lines) {
@@ -102,6 +124,7 @@ function parseBlocks(text: string): MarkdownBlock[] {
       } else {
         flushParagraph();
         inCode = true;
+        codeLanguage = line.trim().slice(3).trim() || undefined;
       }
       continue;
     }

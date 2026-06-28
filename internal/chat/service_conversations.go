@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -61,7 +62,8 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 }
 
 func (service *Service) CreateConversation(workspaceID string, title string) (Conversation, error) {
-	if _, err := service.resolveWorkspaceForRequest(workspaceID); err != nil {
+	workspaceSummary, err := service.resolveWorkspaceForRequest(workspaceID)
+	if err != nil {
 		return Conversation{}, err
 	}
 	now := timestamp(service.now())
@@ -82,6 +84,10 @@ func (service *Service) CreateConversation(workspaceID string, title string) (Co
 		UpdatedAt:     now,
 		ArchivedAt:    "",
 		HarnessRefs:   []HarnessThreadRef{},
+	}
+	conversation, err = service.conversationWithResolvedEffectiveSettings(context.Background(), workspaceSummary, conversation)
+	if err != nil {
+		return Conversation{}, err
 	}
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return Conversation{}, err
@@ -159,29 +165,45 @@ func (service *Service) MarkConversationRead(workspaceID string, conversationID 
 	return item, err
 }
 
-func (service *Service) LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
+func (service *Service) LoadMessagePage(workspaceID string, conversationID string, beforeBlockOrdinal int, limit int) (MessagePage, error) {
 	if limit == 0 {
 		limit = defaultPageLimit
 	}
-	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
+	if err != nil {
 		return MessagePage{}, err
 	}
 	service.mu.Lock()
-	page, err := service.loadMessagePageLocked(workspaceID, conversationID, beforeOrdinal, limit)
+	page, err := service.loadMessagePageLocked(workspaceID, conversationID, beforeBlockOrdinal, limit)
 	service.mu.Unlock()
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, "")
 		return MessagePage{}, err
 	}
-	return page, nil
-}
-
-func (service *Service) loadMessagePageLocked(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
-	page, err := service.store.LoadMessagePage(workspaceID, conversationID, beforeOrdinal, limit)
+	page.Conversation, err = service.conversationWithResolvedEffectiveSettings(context.Background(), workspaceSummary, page.Conversation)
 	if err != nil {
 		return MessagePage{}, err
 	}
-	page = service.overlayActiveAssistantMessageLocked(workspaceID, conversationID, beforeOrdinal, page)
+	return page, nil
+}
+
+// loadMessagePageLocked composes the message page. The transcript is the ordered
+// block stream paged by block ordinal; beforeOrdinal is the conversation-sequential
+// block cursor. Messages remain the latest window for non-transcript surfaces
+// (queue, commands) and are not load-bearing for transcript rendering.
+func (service *Service) loadMessagePageLocked(workspaceID string, conversationID string, beforeBlockOrdinal int, limit int) (MessagePage, error) {
+	page, err := service.store.LoadMessagePage(workspaceID, conversationID, 0, limit)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	page = service.overlayActiveAssistantMessageLocked(workspaceID, conversationID, 0, page)
+	blocks, hasMoreOlder, olderBeforeBlockOrdinal, err := service.loadTranscriptBlockWindowLocked(workspaceID, conversationID, beforeBlockOrdinal, limit)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	page.Blocks = blocks
+	page.HasMoreOlder = hasMoreOlder
+	page.OlderBeforeBlockOrdinal = olderBeforeBlockOrdinal
 	if err := service.attachPageState(workspaceID, conversationID, &page); err != nil {
 		return MessagePage{}, err
 	}

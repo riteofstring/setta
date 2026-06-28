@@ -1,5 +1,9 @@
 import { validateNodeLabelGlyphs } from "./pixi-renderer-label-font";
-import { drawNodeActivityMarker, drawNodeDiagnosticMarker } from "./pixi-renderer-node-geometry";
+import {
+  drawNodeActivityMarker,
+  drawNodeDiagnosticMarker,
+  syncNodeBodyGraphic,
+} from "./pixi-renderer-node-geometry";
 
 export function createWorkflowGraphSceneGraphUpdater({
   acquireLabel,
@@ -9,6 +13,7 @@ export function createWorkflowGraphSceneGraphUpdater({
   nodeBodies,
   nodeContainers,
   nodeDiagnosticMarkers,
+  nodeGeometry,
   nodeLayer,
   nodeOutlines,
   nodeShadows,
@@ -21,17 +26,18 @@ export function createWorkflowGraphSceneGraphUpdater({
   let graphUpdateCount = 0;
   let graphUpdateEdgeAddCount = 0;
   let graphUpdateEdgeRemoveCount = 0;
+  let graphUpdateEdgeRetainCount = 0;
   let graphUpdateEdgeUpdateCount = 0;
   let graphUpdateNodeAddCount = 0;
   let graphUpdateNodeRemoveCount = 0;
   let graphUpdateNodeUpdateCount = 0;
 
   return {
-    replaceGraph: (nextGraph, { countUpdate }) => {
+    replaceGraph: (nextGraph, { countUpdate, edgeUpdate }) => {
       const nextNodes = nextGraph.nodes.map((node) => ({ ...node }));
       const nextEdges = nextGraph.edges.map((edge) => ({ ...edge }));
       if (countUpdate) {
-        recordGraphUpdateCounts(nextNodes, nextEdges);
+        recordGraphUpdateCounts(nextNodes, nextEdges, edgeUpdate);
       }
       applySceneGraphNodes(nextNodes);
       edges.splice(0, edges.length, ...nextEdges);
@@ -44,6 +50,7 @@ export function createWorkflowGraphSceneGraphUpdater({
       graphUpdateCount,
       graphUpdateEdgeAddCount,
       graphUpdateEdgeRemoveCount,
+      graphUpdateEdgeRetainCount,
       graphUpdateEdgeUpdateCount,
       graphUpdateNodeAddCount,
       graphUpdateNodeRemoveCount,
@@ -51,18 +58,17 @@ export function createWorkflowGraphSceneGraphUpdater({
     }),
   };
 
-  function recordGraphUpdateCounts(nextNodes, nextEdges) {
+  function recordGraphUpdateCounts(nextNodes, nextEdges, edgeUpdate) {
     graphUpdateCount += 1;
     const previousNodeIds = new Set(nodes.map((node) => node.id));
     const nextNodeIds = new Set(nextNodes.map((node) => node.id));
-    const previousEdgeIds = new Set(edges.map((edge) => edge.id));
-    const nextEdgeIds = new Set(nextEdges.map((edge) => edge.id));
     graphUpdateNodeAddCount += countOnlyIn(nextNodeIds, previousNodeIds);
     graphUpdateNodeRemoveCount += countOnlyIn(previousNodeIds, nextNodeIds);
     graphUpdateNodeUpdateCount += countInBoth(previousNodeIds, nextNodeIds);
-    graphUpdateEdgeAddCount += countOnlyIn(nextEdgeIds, previousEdgeIds);
-    graphUpdateEdgeRemoveCount += countOnlyIn(previousEdgeIds, nextEdgeIds);
-    graphUpdateEdgeUpdateCount += countInBoth(previousEdgeIds, nextEdgeIds);
+    graphUpdateEdgeAddCount += edgeUpdate.edgeAddCount;
+    graphUpdateEdgeRemoveCount += edgeUpdate.edgeRemoveCount;
+    graphUpdateEdgeRetainCount += edgeUpdate.edgeRetainCount;
+    graphUpdateEdgeUpdateCount += edgeUpdate.edgeUpdateCount;
   }
 
   function applySceneGraphNodes(nextNodes) {
@@ -119,6 +125,11 @@ export function createWorkflowGraphSceneGraphUpdater({
     if (!diagnosticMarker) {
       throw new Error(`node diagnostic marker is missing during graph update: ${node.id}`);
     }
+    const body = nodeBodies.get(node.id);
+    if (!body) {
+      throw new Error(`node body is missing during graph update: ${node.id}`);
+    }
+    syncNodeBodyGraphic(body, node, nodeGeometry);
     drawNodeDiagnosticMarker(diagnosticMarker, node);
     const activityMarker = nodeActivityMarkers.get(node.id);
     if (!activityMarker) {
@@ -171,7 +182,6 @@ function countInBoth(left, right) {
 
 function nodeContainerRequiresRebuild(previous, next) {
   return (
-    previous.color !== next.color ||
     previous.connectable !== next.connectable ||
     previous.height !== next.height ||
     previous.width !== next.width ||

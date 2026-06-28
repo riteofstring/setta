@@ -74,12 +74,17 @@ func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request 
 	if err != nil {
 		return SendMessageResult{}, err
 	}
+	ingest, err := service.newTranscriptIngestLocked(workspaceID, run)
+	if err != nil {
+		return SendMessageResult{}, err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.active[key] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
 		runID:            run.ID,
 		workspaceID:      workspaceID,
+		transcript:       ingest,
 	}
 	turnRequest := TurnRequest{
 		Workspace:       workspaceSummary,
@@ -162,6 +167,28 @@ func (service *Service) findExactWorkflowConversationLocked(workspaceID string, 
 		}
 	}
 	return Conversation{}, false, nil
+}
+
+func (service *Service) ListWorkflowConversations(workspaceID string) ([]Conversation, error) {
+	if _, err := service.resolveWorkspaceForRequest(workspaceID); err != nil {
+		return nil, err
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	conversations, corrupt, err := service.store.scanConversationsAllowingCorrupt(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	if len(corrupt) > 0 {
+		return nil, corruptFindingError(corrupt[0])
+	}
+	result := make([]Conversation, 0, len(conversations))
+	for _, conversation := range conversations {
+		if conversation.Internal && conversation.Workflow != nil {
+			result = append(result, conversation)
+		}
+	}
+	return result, nil
 }
 
 func validateWorkflowAgentTurnRequest(request WorkflowAgentTurnRequest) error {

@@ -4,7 +4,9 @@ import type { ChatStore } from "./chat-store-types";
 
 export type BufferedStreamChatEvent = Extract<
   ChatEvent,
-  { type: "chat.assistant_text_delta" | "chat.run_item_output.delta" }
+  {
+    type: "chat.assistant_text_delta" | "chat.transcript_text.delta" | "chat.run_item_output.delta";
+  }
 >;
 
 const streamFlushIntervalMs = 32;
@@ -87,7 +89,11 @@ export function createChatStreamEventBatcher(
 }
 
 export function isBufferedStreamEvent(event: ChatEvent): event is BufferedStreamChatEvent {
-  return event.type === "chat.assistant_text_delta" || event.type === "chat.run_item_output.delta";
+  return (
+    event.type === "chat.assistant_text_delta" ||
+    event.type === "chat.transcript_text.delta" ||
+    event.type === "chat.run_item_output.delta"
+  );
 }
 
 function shouldBatchChatStreamEvents() {

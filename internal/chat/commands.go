@@ -84,14 +84,11 @@ func ParseChatCommand(raw string) (ChatCommand, error) {
 	if !isValidCommandName(name) {
 		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "slash command name must use lowercase letters and hyphens: "+name, nil)
 	}
-	switch name {
-	case "goal":
-		return parseGoalCommand(raw, args)
-	case "model":
-		return parseModelCommand(raw, args)
-	default:
+	definition, ok := chatCommandDefinitionByName(name)
+	if !ok {
 		return ChatCommand{}, commandError(ChatCommandErrorUnknownCommand, "unknown slash command: /"+name, nil)
 	}
+	return parseChatCommandDefinition(raw, args, definition)
 }
 
 func splitCommandNameAndArgs(rest string) (string, string) {
@@ -117,26 +114,6 @@ func isValidCommandName(name string) bool {
 	return hasLetter
 }
 
-func parseGoalCommand(raw string, args string) (ChatCommand, error) {
-	switch args {
-	case "":
-		return goalChatCommand(raw, args, GoalCommandShow, "", ""), nil
-	case "edit":
-		return goalChatCommand(raw, args, GoalCommandEdit, "", ""), nil
-	case "clear":
-		return goalChatCommand(raw, args, GoalCommandClear, "", ""), nil
-	case "pause":
-		return goalChatCommand(raw, args, GoalCommandPause, "", "paused"), nil
-	case "resume":
-		return goalChatCommand(raw, args, GoalCommandResume, "", "active"), nil
-	default:
-		if len([]rune(args)) > maxGoalObjectiveRunes {
-			return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("/goal objective must be %d characters or fewer", maxGoalObjectiveRunes), nil)
-		}
-		return goalChatCommand(raw, args, GoalCommandSet, args, "active"), nil
-	}
-}
-
 func goalChatCommand(raw string, args string, action GoalCommandAction, objective string, status string) ChatCommand {
 	return ChatCommand{
 		Args: args,
@@ -148,13 +125,6 @@ func goalChatCommand(raw string, args string, action GoalCommandAction, objectiv
 		Kind: ChatCommandGoal,
 		Raw:  raw,
 	}
-}
-
-func parseModelCommand(raw string, args string) (ChatCommand, error) {
-	if args == "" {
-		return modelChatCommand(raw, args, ModelCommandShowPicker, "", nil), nil
-	}
-	return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "/model opens the model picker; use the picker to select a model or reasoning effort", nil)
 }
 
 func modelChatCommand(raw string, args string, action ModelCommandAction, modelID string, effort *ReasoningEffort) ChatCommand {
@@ -170,19 +140,23 @@ func modelChatCommand(raw string, args string, action ModelCommandAction, modelI
 	}
 }
 
+func modelPickerChatCommand() ChatCommand {
+	return modelChatCommand("model_picker", "", ModelCommandShowPicker, "", nil)
+}
+
 func modelSetChatCommand(modelID string) (ChatCommand, error) {
 	modelID = strings.TrimSpace(modelID)
 	if modelID == "" || strings.ContainsAny(modelID, " \t\r\n") {
 		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "model id is required and must not contain whitespace", nil)
 	}
-	return modelChatCommand("/model", "", ModelCommandSet, modelID, nil), nil
+	return modelChatCommand("model_set", "", ModelCommandSet, modelID, nil), nil
 }
 
 func reasoningEffortSetChatCommand(effort ReasoningEffort) (ChatCommand, error) {
 	if !validValue(effort, reasoningEffortValues) {
 		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "unsupported reasoning level: "+string(effort), nil)
 	}
-	return modelChatCommand("/model", "", ModelCommandSetEffort, "", reasoningEffortResult(effort)), nil
+	return modelChatCommand("model_reasoning_effort_set", "", ModelCommandSetEffort, "", reasoningEffortResult(effort)), nil
 }
 
 type HarnessCommandExecutor interface {
@@ -208,6 +182,7 @@ type HarnessCommandListRequest struct {
 type HarnessCommandResult struct {
 	Action                  ChatCommandResultAction
 	CapabilityDiagnostic    string
+	CodexEffectiveSettings  *ChatCodexEffectiveSettings
 	CodexSettings           *ChatCodexSettings
 	Goal                    *ChatGoalState
 	Models                  []ChatModelOption
@@ -219,32 +194,7 @@ type HarnessCommandResult struct {
 }
 
 type HarnessCommandListResult struct {
-	Commands []ChatCommandCapability
-}
-
-func defaultCommandCapabilities(activeRun *Run) []ChatCommandCapability {
-	modelAvailable := activeRun == nil
-	modelReason := ""
-	if activeRun != nil {
-		modelReason = "model commands are unavailable while a run is active"
-	}
-	return []ChatCommandCapability{
-		{
-			Available:   true,
-			Description: "Show, edit, set, pause, resume, or clear the active goal.",
-			Kind:        ChatCommandGoal,
-			Name:        "/goal",
-			Usage:       "/goal [objective|edit|clear|pause|resume]",
-		},
-		{
-			Available:         modelAvailable,
-			Description:       "Open the model picker.",
-			Kind:              ChatCommandModel,
-			Name:              "/model",
-			UnavailableReason: modelReason,
-			Usage:             "/model",
-		},
-	}
+	Commands []ChatCommandDescriptor
 }
 
 func ensureCommandAvailable(command ChatCommand, activeRun *Run) error {

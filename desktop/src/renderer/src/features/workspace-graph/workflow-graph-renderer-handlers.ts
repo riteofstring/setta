@@ -1,4 +1,5 @@
 import type {
+  WorkflowGraphActivityChipTarget,
   WorkflowGraphCameraState,
   WorkflowGraphEdgeConnection,
   WorkflowGraphRendererHandlers,
@@ -16,6 +17,7 @@ interface WorkflowRendererHandlersForSurfaceRequest {
   deleteWorkflowDraftNodes: (nodeIds: string[]) => Promise<void>;
   handleGraphNodeSelectionChange: (nodeIds: string[]) => void;
   openGraphNodeDetails: (nodeId: string | null) => void;
+  openWorkflowActivityChipDetails: (chip: WorkflowGraphActivityChipTarget) => void;
   openWorkflowContextMenu: (menu: WorkflowContextMenuState) => void;
   persistNodePositions: (positions: WorkflowLayoutPosition[]) => Promise<void>;
   reactRenderCount: { current: number };
@@ -30,6 +32,7 @@ export function workflowRendererHandlersForSurface({
   deleteWorkflowDraftNodes,
   handleGraphNodeSelectionChange,
   openGraphNodeDetails,
+  openWorkflowActivityChipDetails,
   openWorkflowContextMenu,
   persistNodePositions,
   reactRenderCount,
@@ -39,6 +42,7 @@ export function workflowRendererHandlersForSurface({
   workflowCameraScopeRef,
 }: WorkflowRendererHandlersForSurfaceRequest): WorkflowGraphRendererHandlers {
   return {
+    onActivityChipOpen: syntheticGraph === null ? openWorkflowActivityChipDetails : null,
     onCameraStateChange: (camera) => {
       workflowCameraRef.current = camera;
       writeWorkflowGraphCameraState(surfaceId, workflowCameraScopeRef.current, camera);
