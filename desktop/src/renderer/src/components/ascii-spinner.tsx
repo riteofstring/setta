@@ -27,7 +27,6 @@ export function BrailleSpinner({
         "inline-block w-[1.1ch] font-mono text-sm leading-none tracking-normal whitespace-pre text-accent-violet [filter:drop-shadow(0_0_5px_currentColor)]",
         className,
       )}
-      data-recording-volatile-text="true"
       role="status"
     >
       {frames[frameIndex]}

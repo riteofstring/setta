@@ -2,7 +2,6 @@ export const recordingRendererEventChannel = "recording:renderer-event";
 
 export type RendererRecordedEvent =
   | RendererClickEvent
-  | RendererChatUISnapshotEvent
   | RendererKeydownEvent
   | RendererSubmitEvent
   | RendererErrorEvent
@@ -70,38 +69,6 @@ interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
     width: number;
   };
   visibleTurnIds: string[];
-}
-
-interface RendererChatUISnapshotEvent extends RendererRecordedEventBase {
-  activeElementKey: string;
-  activeRunStatus: string;
-  appeared: string[];
-  disappeared: string[];
-  elementCount: number;
-  elements: RendererChatUIElement[];
-  selectedConversationId: string;
-  transcript: RendererScrollRect | null;
-  trigger: string;
-  type: "chat_ui_snapshot";
-  updated: string[];
-  viewport: {
-    height: number;
-    width: number;
-  };
-  visibleElementCount: number;
-  workspaceId: string;
-}
-
-interface RendererChatUIElement {
-  key: string;
-  kind: string;
-  rect: RendererRect | null;
-  state: Record<string, string | number | boolean | null>;
-  textHash: string;
-  textLength: number;
-  textPreview: string;
-  textTruncated: boolean;
-  visible: boolean;
 }
 
 interface RendererRect {

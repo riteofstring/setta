@@ -251,7 +251,6 @@ async function runDeterministicWorkflowLaunch(results) {
           backend,
           client: context.client,
           conversationId,
-          openProjectedActivityRow,
           recordingDir,
           submitComposer,
           waitForRunWithPrompt,
@@ -413,7 +412,11 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
     "chat activity projection workflow",
     "completed",
   );
-  await waitForTexts(client, ["Projection assistant final.", "Projection reasoning"]);
+  await waitForTexts(client, [
+    "Projection assistant final.",
+    "printf projection-output",
+    "Projection reasoning",
+  ]);
   // The meaningfully-titled transient reasoning persists as a thinking-mode reasoning block: the
   // chronological model keeps reasoning as a real timeline status block rather than a placeholder
   // that vanishes after the first assistant text.
@@ -1300,14 +1303,11 @@ async function runRestartWorkflow(results) {
       "chat activity projection reload workflow",
       "completed",
     );
-    await waitForTexts(first.client, ["Projection assistant final."]);
-    const projection = await assertRunActivityProjection(backend, workspaceId, projectionRun.id, {
+    await waitForTexts(first.client, ["Projection assistant final.", "printf projection-output"]);
+    await assertRunActivityProjection(backend, workspaceId, projectionRun.id, {
       rawTypes: ["agent_message", "reasoning"],
       rows: projectionExpectedRows(),
     });
-    const projectionCommandRow = requireProjectedRow(projection.rows, "Projection command");
-    await openProjectedActivityRow(first.client, projectionCommandRow.sourceRunItemId);
-    await waitForText(first.client, "printf projection-output");
     await stopLaunchedContext(first);
 
     second = await launchContext(fixture, secondRecording);
@@ -1320,6 +1320,7 @@ async function runRestartWorkflow(results) {
         "Queued response for queued follow-up one from active run.",
         "Queued response for queued follow-up two from active run.",
         "Queued response for queued follow-up three from active run.",
+        "printf projection-output",
         "Projection reasoning",
       ],
       30_000,

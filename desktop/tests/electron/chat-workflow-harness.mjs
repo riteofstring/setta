@@ -768,8 +768,6 @@ export function failureWithLogs(error, logs) {
 export async function assertRecordingEvidence(recordingDir, expected) {
   await assertNoIpcFailures(recordingDir);
   await assertLayoutSnapshotsRecorded(recordingDir);
-  await assertChatUISnapshotsRecorded(recordingDir);
-  await assertChatEventPayloadsRecorded(recordingDir);
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
   for (const channel of expected.ipcChannels) {
     if (!ipc.some((entry) => entry.type === "ipc_finish" && entry.channel === channel)) {
@@ -792,73 +790,6 @@ export async function assertRecordingEvidence(recordingDir, expected) {
     ) {
       throw new Error(`recording missing successful backend path: ${path}`);
     }
-  }
-}
-
-async function assertChatUISnapshotsRecorded(recordingDir) {
-  const rendererEvents = await readJsonLines(join(recordingDir, "renderer-events.jsonl"));
-  const snapshots = rendererEvents.filter((entry) => entry.type === "chat_ui_snapshot");
-  if (snapshots.length === 0) {
-    throw new Error(`recording missing chat UI snapshots: ${recordingDir}`);
-  }
-  if (
-    !snapshots.some(
-      (entry) =>
-        Array.isArray(entry.elements) &&
-        entry.elements.some((element) => element.kind === "chat_detail_pane") &&
-        entry.elements.some((element) => element.kind === "chat_composer"),
-    )
-  ) {
-    throw new Error(`recording chat UI snapshots never captured chat pane and composer`);
-  }
-  const snapshotElements = snapshots.flatMap((entry) =>
-    Array.isArray(entry.elements) ? entry.elements : [],
-  );
-  const leakedAppChromeControl = snapshotElements.find((element) =>
-    appChromeControlLabels.has(element.state?.ariaLabel),
-  );
-  if (leakedAppChromeControl) {
-    throw new Error(
-      `recording chat UI snapshots captured non-chat app chrome control: ${JSON.stringify(
-        leakedAppChromeControl,
-      )}`,
-    );
-  }
-  const volatileSpinnerText = snapshotElements.find((element) =>
-    brailleSpinnerFramePattern.test(element.textPreview ?? ""),
-  );
-  if (volatileSpinnerText) {
-    throw new Error(
-      `recording chat UI snapshots captured volatile spinner frame text: ${JSON.stringify(
-        volatileSpinnerText,
-      )}`,
-    );
-  }
-}
-
-const appChromeControlLabels = new Set([
-  "Add pane above",
-  "Add pane below",
-  "Close terminal search",
-  "Drag pane",
-  "Maximize pane",
-  "Next terminal search result",
-  "Open project folder",
-  "Previous terminal search result",
-  "Split pane down",
-]);
-
-const brailleSpinnerFramePattern =
-  /[\u280b\u2819\u2839\u2838\u283c\u2834\u2826\u2827\u2807\u280f]/u;
-
-async function assertChatEventPayloadsRecorded(recordingDir) {
-  const events = await readJsonLines(join(recordingDir, "events.jsonl"));
-  const forwardedEvents = events.filter((entry) => entry.type === "chat_event_forwarded");
-  if (forwardedEvents.length === 0) {
-    return;
-  }
-  if (!forwardedEvents.some((entry) => entry.payload?.payload !== undefined)) {
-    throw new Error(`recording chat stream events omitted payload details`);
   }
 }
 

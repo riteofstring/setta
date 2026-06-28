@@ -285,9 +285,6 @@ function ActivityRowView({
       data-block-kind={blockKind}
       data-run-id={runId}
       data-run-item-id={activity.sourceRunItemId}
-      data-run-item-status={activity.status}
-      data-run-item-title={activity.title}
-      data-run-item-type={activity.type}
       data-testid="run-activity-row"
       data-transcript-block={blockKind ? "true" : undefined}
       open={expanded}
@@ -353,9 +350,6 @@ function CompactActivityRow({
       data-block-kind={blockKind}
       data-run-id={runId}
       data-run-item-id={activity.sourceRunItemId}
-      data-run-item-status={activity.status}
-      data-run-item-title={activity.title}
-      data-run-item-type={activity.type}
       data-testid="run-activity-row"
       data-transcript-block={blockKind ? "true" : undefined}
       {...focusAttributes}
