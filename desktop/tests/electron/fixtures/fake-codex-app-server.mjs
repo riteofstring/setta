@@ -12,6 +12,11 @@ const goalBackgroundTerminal = {
   processId: "goal_bg_process",
   secondTurnOutput: "goal background turn B output\n",
 };
+const goalForegroundUnifiedExec = {
+  command: "command -v tokei",
+  itemId: "goal_fg_command",
+  processId: "goal_fg_process",
+};
 let account = null;
 let currentGoal = null;
 let goalCancelTurnId = null;
@@ -233,6 +238,10 @@ function handleThreadGoalSet(message) {
     setTimeout(() => emitGoalOperationMultiTurn(objective), 5);
     return;
   }
+  if (shouldEmitGoalForegroundUnifiedExec(objective, status)) {
+    setTimeout(() => emitGoalOperationForegroundUnifiedExec(objective), 5);
+    return;
+  }
   if (shouldEmitGoalBackgroundTerminal(objective, status)) {
     setTimeout(() => emitGoalOperationBackgroundTerminal(objective), 5);
     return;
@@ -255,6 +264,10 @@ function shouldEmitGoalOperation(objective, status) {
 
 function shouldEmitGoalBackgroundTerminal(objective, status) {
   return objective === "phase5 codex background terminal" && status === "active";
+}
+
+function shouldEmitGoalForegroundUnifiedExec(objective, status) {
+  return objective === "phase5 codex foreground command" && status === "active";
 }
 
 function shouldEmitGoalCancellation(objective, status) {
@@ -690,6 +703,30 @@ function emitGoalOperationBackgroundTerminal(objective) {
   }, 350);
 }
 
+function emitGoalOperationForegroundUnifiedExec(objective) {
+  const turnId = "turn_goal_foreground";
+  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
+  notify("turn/started", {
+    threadId,
+    turn: fakeTurnWithID(turnId, "inProgress"),
+  });
+  notify("item/agentMessage/delta", {
+    delta: "Checking available tools. ",
+    itemId: "goal_foreground_message",
+    threadId,
+    turnId,
+  });
+  notifyUnifiedExecStarted(turnId, goalForegroundUnifiedExec);
+  notifyUnifiedExecOutput(turnId, goalForegroundUnifiedExec, "/opt/homebrew/bin/tokei\n");
+  notifyUnifiedExecCompleted(turnId, goalForegroundUnifiedExec);
+  currentGoal = fakeGoal(objective, "complete");
+  notify("thread/goal/updated", { goal: currentGoal, threadId });
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurnWithID(turnId, "completed"),
+  });
+}
+
 function emitGoalOperationCancellation(objective) {
   goalPaused = false;
   notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
@@ -721,12 +758,24 @@ function emitGoalOperationCancellation(objective) {
 }
 
 function notifyGoalBackgroundTerminalStarted(turnID) {
+  notifyUnifiedExecStarted(turnID, goalBackgroundTerminal);
+}
+
+function notifyGoalBackgroundTerminalOutput(turnID, delta) {
+  notifyUnifiedExecOutput(turnID, goalBackgroundTerminal, delta);
+}
+
+function notifyGoalBackgroundTerminalCompleted(turnID) {
+  notifyUnifiedExecCompleted(turnID, goalBackgroundTerminal);
+}
+
+function notifyUnifiedExecStarted(turnID, execution) {
   notify("item/started", {
     item: {
-      command: goalBackgroundTerminal.command,
+      command: execution.command,
       cwd: "/tmp/workspace",
-      id: goalBackgroundTerminal.itemId,
-      processId: goalBackgroundTerminal.processId,
+      id: execution.itemId,
+      processId: execution.processId,
       source: "unifiedExecStartup",
       status: "inProgress",
       type: "commandExecution",
@@ -737,25 +786,25 @@ function notifyGoalBackgroundTerminalStarted(turnID) {
   });
 }
 
-function notifyGoalBackgroundTerminalOutput(turnID, delta) {
+function notifyUnifiedExecOutput(turnID, execution, delta) {
   notify("item/commandExecution/outputDelta", {
     delta,
-    itemId: goalBackgroundTerminal.itemId,
+    itemId: execution.itemId,
     threadId,
     turnId: turnID,
   });
 }
 
-function notifyGoalBackgroundTerminalCompleted(turnID) {
+function notifyUnifiedExecCompleted(turnID, execution) {
   notify("item/completed", {
     completedAtMs: 3,
     item: {
-      command: goalBackgroundTerminal.command,
+      command: execution.command,
       cwd: "/tmp/workspace",
       durationMs: 5,
       exitCode: 0,
-      id: goalBackgroundTerminal.itemId,
-      processId: goalBackgroundTerminal.processId,
+      id: execution.itemId,
+      processId: execution.processId,
       source: "unifiedExecStartup",
       status: "completed",
       type: "commandExecution",

@@ -809,6 +809,56 @@ func TestServiceGoalOperationReplaysPreSinkBackgroundTerminalBeforeOutput(t *tes
 	}
 }
 
+func TestServiceGoalOperationUnifiedExecStartupCompletedInPhysicalTurnStaysActivity(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-foreground-unified-exec"))
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal count repo lines"); err != nil {
+		t.Fatalf("execute goal command: %v", err)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal run", runs)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
+
+	processes, err := service.store.ListBackgroundTerminalProcesses("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list background terminals: %v", err)
+	}
+	if len(processes) != 0 {
+		t.Fatalf("foreground unified exec completed inside physical turn created background terminals: %+v", processes)
+	}
+	blocks := loadPersistedBlocks(t, service, "workspace_api", runs[0].ID)
+	for _, block := range blocks {
+		if block.Kind == TranscriptBlockKindBackgroundTerminal {
+			t.Fatalf("foreground unified exec completed inside physical turn created background marker: %+v", block)
+		}
+	}
+	activities := activityBlocks(blocks)
+	if len(activities) != 1 {
+		t.Fatalf("activity blocks = %d, want one foreground command row: %v", len(activities), blockKinds(blocks))
+	}
+	activity := activities[0].Activity
+	if activity.Status != RunItemStatusCompleted || activity.Details.Command != fakeUnifiedExecForegroundCommand || !activity.HasOutput {
+		t.Fatalf("foreground goal command activity = %+v, want completed command with output", activity)
+	}
+	activityPage, err := service.LoadRunActivityPage("workspace_api", runs[0].ID, 20)
+	if err != nil {
+		t.Fatalf("load run activity page: %v", err)
+	}
+	if len(activityPage.Activity) != 1 || activityPage.Activity[0].Details.Command != fakeUnifiedExecForegroundCommand {
+		t.Fatalf("foreground goal command activity page = %+v, want only completed command activity", activityPage.Activity)
+	}
+}
+
 func TestServiceGoalOperationBackgroundTerminalSurvivesCancellation(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("goal-operation-background-cancel"))
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
@@ -828,7 +878,7 @@ func TestServiceGoalOperationBackgroundTerminalSurvivesCancellation(t *testing.T
 		t.Fatalf("runs = %+v, want one goal run", runs)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusRunning)
-	process := waitForBackgroundTerminalProcess(t, service, "workspace_api", conversation.ID, fakeUnifiedExecAlphaItemID, BackgroundTerminalRunning)
+	waitForRunItemByProvider(t, service, "workspace_api", runs[0].ID, fakeUnifiedExecAlphaItemID)
 
 	cancelled, err := service.CancelActiveRun("workspace_api", conversation.ID)
 	if err != nil {
@@ -839,6 +889,7 @@ func TestServiceGoalOperationBackgroundTerminalSurvivesCancellation(t *testing.T
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCancelled)
 
+	process := waitForBackgroundTerminalProcess(t, service, "workspace_api", conversation.ID, fakeUnifiedExecAlphaItemID, BackgroundTerminalRunning)
 	process, err = service.store.LoadBackgroundTerminalProcess("workspace_api", conversation.ID, process.ID)
 	if err != nil {
 		t.Fatalf("reload background terminal: %v", err)
@@ -906,6 +957,29 @@ func TestServiceGoalOperationBackgroundTerminalCrossPhysicalTurnEmitsNoDuplicate
 	if replaced := eventsOfType(events, EventTypeBackgroundTerminalsReplaced); len(replaced) != 0 {
 		t.Fatalf("goal background terminal republished full list: %v", eventTypes(events))
 	}
+	blocks := loadPersistedBlocks(t, service, "workspace_api", runs[0].ID)
+	if markers := countBackgroundTerminalMarkerBlocks(blocks, fakeUnifiedExecAlphaCommand); markers != 1 {
+		t.Fatalf("goal background terminal marker blocks = %d, want 1: %v", markers, blockKinds(blocks))
+	}
+	activityPage, err := service.LoadRunActivityPage("workspace_api", runs[0].ID, 20)
+	if err != nil {
+		t.Fatalf("load run activity page: %v", err)
+	}
+	if len(activityPage.Items) != 0 || len(activityPage.Output) != 0 || len(activityPage.Activity) != 0 {
+		t.Fatalf("promoted goal background terminal leaked into activity page: items=%+v output=%+v activity=%+v", activityPage.Items, activityPage.Output, activityPage.Activity)
+	}
+}
+
+func countBackgroundTerminalMarkerBlocks(blocks []TranscriptBlock, command string) int {
+	count := 0
+	for _, block := range blocks {
+		if block.Kind == TranscriptBlockKindBackgroundTerminal &&
+			block.BackgroundTerminal != nil &&
+			block.BackgroundTerminal.Command == command {
+			count++
+		}
+	}
+	return count
 }
 
 func TestCodexHarnessBackgroundTerminalClassificationSharedByGoalAndStandaloneRouters(t *testing.T) {

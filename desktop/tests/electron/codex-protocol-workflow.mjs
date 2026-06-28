@@ -29,6 +29,11 @@ const goalBackgroundTerminal = {
   processId: "goal_bg_process",
   secondTurnOutput: "goal background turn B output\n",
 };
+const goalForegroundUnifiedExec = {
+  command: "command -v tokei",
+  itemId: "goal_fg_command",
+  processId: "goal_fg_process",
+};
 
 export async function installFakeCodexAppServer(fixture) {
   const binDir = join(fixture.tempRoot, "fake-bin");
@@ -132,6 +137,30 @@ export async function runProtocolGoalMultiTurnWorkflow(client, backend, workspac
   await assertNoActiveRun(backend, workspaceId, conversationId);
 }
 
+export async function runProtocolGoalForegroundUnifiedExecWorkflow(client, backend, workspaceId) {
+  const conversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "/goal phase5 codex foreground command", "Send message");
+  const commandPage = await waitForCommandResult(
+    backend,
+    workspaceId,
+    conversationId,
+    "Goal set: phase5 codex foreground command",
+  );
+  const runId = goalRunIDFromCommandPage(commandPage);
+  const run = await waitForRunStatus(backend, workspaceId, conversationId, runId, "completed");
+  await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
+  await waitForGoalStatus(backend, workspaceId, conversationId, "complete");
+  await waitForTexts(client, ["Checking available tools.", goalForegroundUnifiedExec.command]);
+  await assertProtocolGoalForegroundUnifiedExecProjections(
+    client,
+    backend,
+    workspaceId,
+    conversationId,
+    run.id,
+  );
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
 export async function runProtocolGoalBackgroundTerminalWorkflow(
   client,
   backend,
@@ -223,6 +252,53 @@ export async function runProtocolGoalCancellationWorkflow(client, backend, works
   await waitForRunStatus(backend, workspaceId, conversationId, runId, "cancelled");
   await waitForGoalStatus(backend, workspaceId, conversationId, "paused");
   await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
+async function assertProtocolGoalForegroundUnifiedExecProjections(
+  client,
+  backend,
+  workspaceId,
+  conversationId,
+  runId,
+) {
+  const activityPage = await backend.post("/chat/runs/activity", {
+    limit: 100,
+    runId,
+    workspaceId,
+  });
+  await assertRunActivityItem(
+    activityPage,
+    "command_execution",
+    (item) =>
+      item.command === goalForegroundUnifiedExec.command &&
+      item.processId === goalForegroundUnifiedExec.processId &&
+      item.status === "completed",
+  );
+
+  const list = await backend.post("/chat/background-terminals/list", {
+    conversationId,
+    workspaceId,
+  });
+  if (Array.isArray(list.terminals) && list.terminals.length !== 0) {
+    throw new Error(
+      `foreground unified exec created backend background terminals: ${JSON.stringify(list)}`,
+    );
+  }
+
+  const surface = await client.evaluate(`(() => ({
+    footer: Boolean(document.querySelector('[data-testid="background-terminals-footer"]')),
+    markers: Array.from(document.querySelectorAll('[data-testid="background-terminal-block"]')).map((el) => el.innerText),
+    text: document.body.innerText,
+  }))()`);
+  if (
+    surface.footer ||
+    surface.markers.length !== 0 ||
+    surface.text.includes("Started background terminal")
+  ) {
+    throw new Error(
+      `foreground unified exec rendered background-terminal UI: ${JSON.stringify(surface)}`,
+    );
+  }
 }
 
 function goalRunIDFromCommandPage(page) {

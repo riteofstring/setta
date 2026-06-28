@@ -121,6 +121,9 @@ func handleFakeGoalOperationPostResponseEvents(mode string, objective string) bo
 	case "goal-operation-clear-during-turn":
 		writeFakeGoalOperationClearDuringTurn(objective)
 		return true
+	case "goal-operation-foreground-unified-exec":
+		writeFakeGoalOperationForegroundUnifiedExec(objective)
+		return true
 	case "goal-operation-session-failure-after-start":
 		writeFakeGoalOperationSessionFailureAfterStart(objective)
 		return true

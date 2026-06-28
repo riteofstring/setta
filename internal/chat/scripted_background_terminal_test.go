@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"testing"
+	"time"
 
 	"setta/internal/workspace"
 )
@@ -86,12 +87,31 @@ func TestServiceBackgroundTerminalsSurviveRunCompletion(t *testing.T) {
 
 	// The terminals are slim background_terminal marker blocks, never per-run activity rows.
 	blocks := loadPersistedBlocks(t, service, workspaceID, result.Run.ID)
+	assertBackgroundTerminalStartMarkers(t, blocks, backgroundTerminalAlphaCommand, backgroundTerminalBetaCommand)
+
+	// The process registry is the source of truth and is independent of the run: both terminals
+	// are still running after the run has completed.
+	processes, err := service.store.ListBackgroundTerminalProcesses(workspaceID, conversationID)
+	if err != nil {
+		t.Fatalf("list background terminals: %v", err)
+	}
+	byCommand := assertRunningBackgroundTerminals(t, processes, backgroundTerminalAlphaCommand, backgroundTerminalBetaCommand)
+
+	// The alpha terminal's output was routed to the background terminal output store and the
+	// recent-output summary, never to run-item output.
+	alpha := byCommand[backgroundTerminalAlphaCommand]
+	assertBackgroundTerminalOutputChunks(t, service, workspaceID, conversationID, alpha)
+	assertRunActivityPageEmpty(t, service, workspaceID, result.Run.ID)
+}
+
+func assertBackgroundTerminalStartMarkers(t *testing.T, blocks []TranscriptBlock, commands ...string) {
+	t.Helper()
 	for _, block := range blocks {
 		if block.Kind == TranscriptBlockKindActivityItem {
 			t.Fatalf("background terminal must not create an activity block: %+v", block)
 		}
 	}
-	for _, command := range []string{backgroundTerminalAlphaCommand, backgroundTerminalBetaCommand} {
+	for _, command := range commands {
 		block := backgroundTerminalMarkerBlock(t, blocks, command)
 		if block.Status != TranscriptBlockStatusComplete {
 			t.Fatalf("background terminal marker %q status = %q, want %q (lifecycle marker, not finalized)",
@@ -102,21 +122,18 @@ func TestServiceBackgroundTerminalsSurviveRunCompletion(t *testing.T) {
 				command, block.BackgroundTerminal.Label, backgroundTerminalStartLabel)
 		}
 	}
+}
 
-	// The process registry is the source of truth and is independent of the run: both terminals
-	// are still running after the run has completed.
-	processes, err := service.store.ListBackgroundTerminalProcesses(workspaceID, conversationID)
-	if err != nil {
-		t.Fatalf("list background terminals: %v", err)
-	}
-	if len(processes) != 2 {
-		t.Fatalf("background terminal processes = %d, want 2: %+v", len(processes), processes)
+func assertRunningBackgroundTerminals(t *testing.T, processes []BackgroundTerminalProcess, commands ...string) map[string]BackgroundTerminalProcess {
+	t.Helper()
+	if len(processes) != len(commands) {
+		t.Fatalf("background terminal processes = %d, want %d: %+v", len(processes), len(commands), processes)
 	}
 	byCommand := map[string]BackgroundTerminalProcess{}
 	for _, process := range processes {
 		byCommand[process.Command] = process
 	}
-	for _, command := range []string{backgroundTerminalAlphaCommand, backgroundTerminalBetaCommand} {
+	for _, command := range commands {
 		process, ok := byCommand[command]
 		if !ok {
 			t.Fatalf("no background terminal process for %q: %+v", command, processes)
@@ -128,19 +145,154 @@ func TestServiceBackgroundTerminalsSurviveRunCompletion(t *testing.T) {
 			t.Fatalf("background terminal %q completedAt = %q, want empty (still running)", command, process.CompletedAt)
 		}
 	}
+	return byCommand
+}
 
-	// The alpha terminal's output was routed to the background terminal output store and the
-	// recent-output summary, never to run-item output.
-	alpha := byCommand[backgroundTerminalAlphaCommand]
-	if len(alpha.RecentOutput) != backgroundTerminalAlphaOutputChunks {
-		t.Fatalf("alpha recent output = %d lines, want %d: %+v", len(alpha.RecentOutput), backgroundTerminalAlphaOutputChunks, alpha.RecentOutput)
+func assertBackgroundTerminalOutputChunks(t *testing.T, service *Service, workspaceID string, conversationID string, process BackgroundTerminalProcess) {
+	t.Helper()
+	if len(process.RecentOutput) != backgroundTerminalAlphaOutputChunks {
+		t.Fatalf("%q recent output = %d lines, want %d: %+v", process.Command, len(process.RecentOutput), backgroundTerminalAlphaOutputChunks, process.RecentOutput)
 	}
-	page, err := service.store.LoadBackgroundTerminalOutputPage(workspaceID, conversationID, alpha.ID, 0, 0)
+	page, err := service.store.LoadBackgroundTerminalOutputPage(workspaceID, conversationID, process.ID, 0, 0)
 	if err != nil {
-		t.Fatalf("load alpha output: %v", err)
+		t.Fatalf("load %q output: %v", process.Command, err)
 	}
 	if len(page.Output) != backgroundTerminalAlphaOutputChunks {
-		t.Fatalf("alpha output chunks = %d, want %d", len(page.Output), backgroundTerminalAlphaOutputChunks)
+		t.Fatalf("%q output chunks = %d, want %d", process.Command, len(page.Output), backgroundTerminalAlphaOutputChunks)
+	}
+}
+
+func assertRunActivityPageEmpty(t *testing.T, service *Service, workspaceID string, runID string) {
+	t.Helper()
+	activityPage, err := service.LoadRunActivityPage(workspaceID, runID, 20)
+	if err != nil {
+		t.Fatalf("load run activity page: %v", err)
+	}
+	if len(activityPage.Activity) != 0 {
+		t.Fatalf("promoted background terminals leaked into run activity projection: %+v", activityPage.Activity)
+	}
+	if len(activityPage.Items) != 0 || len(activityPage.Output) != 0 {
+		t.Fatalf("promoted background terminals leaked into raw activity page: items=%+v output=%+v", activityPage.Items, activityPage.Output)
+	}
+}
+
+func TestServiceUnifiedExecStartupCompletedInTurnStaysActivity(t *testing.T) {
+	source := RunItemCommandSourceUnifiedExecStartup
+	const (
+		providerItemID = "foreground_unified_exec"
+		providerProcID = "foreground_proc"
+		command        = "command -v tokei"
+	)
+	harness := NewFakeHarness([]FakeHarnessEvent{
+		{Type: FakeEventThreadLinked, ThreadID: "thread_foreground", SessionID: "session_foreground", TurnID: "turn_foreground"},
+		{Type: FakeEventAssistantDelta, ProviderItemID: "text_foreground", Text: "Checking available tools. "},
+		{Type: FakeEventRunItem, ProviderItemID: providerItemID, RunItem: RunItem{
+			ProviderItemID: providerItemID,
+			Type:           RunItemTypeCommandExecution,
+			Status:         RunItemStatusRunning,
+			Command:        command,
+			Cwd:            "/tmp/workspace",
+			ProcessID:      providerProcID,
+			Source:         &source,
+		}},
+		{Type: FakeEventRunItemOutput, ProviderItemID: providerItemID, Stream: "stdout", Text: "/opt/homebrew/bin/tokei\n"},
+		{Type: FakeEventRunItem, ProviderItemID: providerItemID, RunItem: RunItem{
+			ProviderItemID: providerItemID,
+			Type:           RunItemTypeCommandExecution,
+			Status:         RunItemStatusCompleted,
+			Command:        command,
+			Cwd:            "/tmp/workspace",
+			ProcessID:      providerProcID,
+			Source:         &source,
+			ExitCode:       0,
+		}},
+		{Type: FakeEventAssistantDelta, ProviderItemID: "text_done", Text: "Done."},
+	})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	workspaceID, conversationID := startTranscriptConversation(t, service)
+	result, err := service.SendUserMessage(workspaceID, conversationID, "check tokei")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	waitForRunStatus(t, service, workspaceID, conversationID, result.Run.ID, RunStatusCompleted)
+
+	processes, err := service.store.ListBackgroundTerminalProcesses(workspaceID, conversationID)
+	if err != nil {
+		t.Fatalf("list background terminals: %v", err)
+	}
+	if len(processes) != 0 {
+		t.Fatalf("completed foreground unified exec created background terminals: %+v", processes)
+	}
+	blocks := loadPersistedBlocks(t, service, workspaceID, result.Run.ID)
+	for _, block := range blocks {
+		if block.Kind == TranscriptBlockKindBackgroundTerminal {
+			t.Fatalf("completed foreground unified exec created background marker: %+v", block)
+		}
+	}
+	activities := activityBlocks(blocks)
+	if len(activities) != 1 {
+		t.Fatalf("activity blocks = %d, want one foreground command row: %v", len(activities), blockKinds(blocks))
+	}
+	activity := activities[0].Activity
+	if activity.Status != RunItemStatusCompleted || activity.Details.Command != command || !activity.HasOutput {
+		t.Fatalf("foreground command activity = %+v, want completed command with output", activity)
+	}
+	activityPage, err := service.LoadRunActivityPage(workspaceID, result.Run.ID, 20)
+	if err != nil {
+		t.Fatalf("load run activity page: %v", err)
+	}
+	if len(activityPage.Activity) != 1 || activityPage.Activity[0].Details.Command != command {
+		t.Fatalf("foreground command activity page = %+v, want one command activity", activityPage.Activity)
+	}
+}
+
+func TestServiceUnifiedExecInteractionPromotesUnregisteredStartup(t *testing.T) {
+	startupSource := RunItemCommandSourceUnifiedExecStartup
+	interactionSource := RunItemCommandSourceUnifiedExecInteraction
+	const (
+		providerItemID = "interactive_unified_exec"
+		providerProcID = "interactive_proc"
+		command        = "npm run dev"
+	)
+	harness := NewFakeHarness([]FakeHarnessEvent{
+		{Type: FakeEventThreadLinked, ThreadID: "thread_interaction", SessionID: "session_interaction", TurnID: "turn_interaction"},
+		{Type: FakeEventRunItem, ProviderItemID: providerItemID, RunItem: RunItem{
+			ProviderItemID: providerItemID,
+			Type:           RunItemTypeCommandExecution,
+			Status:         RunItemStatusRunning,
+			Command:        command,
+			Cwd:            "/tmp/workspace",
+			ProcessID:      providerProcID,
+			Source:         &startupSource,
+		}},
+		{Type: FakeEventRunItem, ProviderItemID: providerItemID + "_terminal", RunItem: RunItem{
+			ProviderItemID: providerItemID + "_terminal",
+			Type:           RunItemTypeTerminalInteraction,
+			Status:         RunItemStatusCompleted,
+			Summary:        "rs\n",
+			ProcessID:      providerProcID,
+			Source:         &interactionSource,
+		}},
+	})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	workspaceID, conversationID := startTranscriptConversation(t, service)
+	result, err := service.SendUserMessage(workspaceID, conversationID, "interact with background terminal")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	waitForRunStatus(t, service, workspaceID, conversationID, result.Run.ID, RunStatusCompleted)
+
+	process := waitForBackgroundTerminalProcess(t, service, workspaceID, conversationID, providerItemID, BackgroundTerminalRunning)
+	if process.ProcessID != providerProcID {
+		t.Fatalf("promoted process id = %q, want %q", process.ProcessID, providerProcID)
+	}
+	blocks := loadPersistedBlocks(t, service, workspaceID, result.Run.ID)
+	if markers := countBackgroundTerminalMarkerBlocks(blocks, command); markers != 1 {
+		t.Fatalf("startup markers = %d, want 1: %v", markers, blockKinds(blocks))
+	}
+	interaction := backgroundTerminalMarkerBlock(t, blocks, "rs\n")
+	if interaction.BackgroundTerminal.ProcessID != process.ID || interaction.BackgroundTerminal.Label != backgroundTerminalInteractionLabel {
+		t.Fatalf("interaction marker = %+v, want linked interaction marker", interaction.BackgroundTerminal)
 	}
 }
 
@@ -232,8 +384,7 @@ func TestServiceBackgroundTerminalsSurviveRunInterrupt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
-	process := waitForBackgroundTerminalProcess(t, service, workspaceID, conversationID, providerItemID, BackgroundTerminalRunning)
-
+	waitForRunItemByProvider(t, service, workspaceID, result.Run.ID, providerItemID)
 	cancelled, err := service.CancelActiveRun(workspaceID, conversationID)
 	if err != nil {
 		t.Fatalf("cancel active run: %v", err)
@@ -243,6 +394,7 @@ func TestServiceBackgroundTerminalsSurviveRunInterrupt(t *testing.T) {
 	}
 	waitForRunStatus(t, service, workspaceID, conversationID, result.Run.ID, RunStatusCancelled)
 
+	process := waitForBackgroundTerminalProcess(t, service, workspaceID, conversationID, providerItemID, BackgroundTerminalRunning)
 	process, err = service.store.LoadBackgroundTerminalProcess(workspaceID, conversationID, process.ID)
 	if err != nil {
 		t.Fatalf("reload background terminal: %v", err)
@@ -302,4 +454,21 @@ func backgroundTerminalMarkerBlock(t *testing.T, blocks []TranscriptBlock, comma
 	}
 	t.Fatalf("no background terminal marker for command %q: %v", command, blockKinds(blocks))
 	return TranscriptBlock{}
+}
+
+func waitForRunItemByProvider(t *testing.T, service *Service, workspaceID string, runID string, providerItemID string) RunItem {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		item, exists, err := service.store.FindRunItemByProviderID(workspaceID, runID, providerItemID)
+		if err != nil {
+			t.Fatalf("find run item %s: %v", providerItemID, err)
+		}
+		if exists {
+			return item
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for run item %s in run %s", providerItemID, runID)
+	return RunItem{}
 }

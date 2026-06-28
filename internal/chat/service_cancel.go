@@ -153,6 +153,9 @@ func (service *Service) cancelRunningTurnLocked(workspaceID string, conversation
 	run.CompletedAt = now
 	run.Error = runError
 	run.PendingApproval = nil
+	if err := service.promoteBackgroundTerminalStartupsForTurnLocked(workspaceID, active); err != nil {
+		return Run{}, err
+	}
 	// Finalize transcript blocks before the terminal store record (see completeTurn).
 	if err := service.finalizeTranscriptBlocksLocked(workspaceID, active.transcript, TranscriptBlockStatusCancelled, runError); err != nil {
 		return Run{}, err

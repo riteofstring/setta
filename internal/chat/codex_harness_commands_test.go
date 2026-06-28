@@ -10,6 +10,12 @@ import (
 	"setta/internal/workspace"
 )
 
+const (
+	fakeUnifiedExecForegroundItemID  = "foreground_unified_exec_fake"
+	fakeUnifiedExecForegroundProcess = "proc_foreground_fake"
+	fakeUnifiedExecForegroundCommand = "command -v tokei"
+)
+
 func TestCodexHarnessExecutesIdleGoalCommandRPC(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-goal-set"))
 	request := testCommandRequest(t, "/goal finish renderer tests")
@@ -725,6 +731,37 @@ func writeFakeGoalBackgroundTerminalOutputAndCompletion(turnID string) {
 			"type":       "commandExecution",
 		},
 	})
+}
+
+func writeFakeGoalOperationForegroundUnifiedExec(objective string) {
+	const turnID = "turn_goal_foreground"
+	writeFakeThreadGoalUpdated(objective, "active")
+	writeFakeGoalPhysicalTurn(turnID, "Checking available tools. ")
+	writeFakeUnifiedExecStartupForTurn(turnID, fakeUnifiedExecForegroundItemID, fakeUnifiedExecForegroundProcess, fakeUnifiedExecForegroundCommand)
+	writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
+		"delta":    "/opt/homebrew/bin/tokei\n",
+		"itemId":   fakeUnifiedExecForegroundItemID,
+		"threadId": "thread_fake",
+		"turnId":   turnID,
+	})
+	writeFakeNotification("item/completed", map[string]any{
+		"completedAtMs": 3,
+		"threadId":      "thread_fake",
+		"turnId":        turnID,
+		"item": map[string]any{
+			"command":    fakeUnifiedExecForegroundCommand,
+			"cwd":        "/tmp/workspace",
+			"durationMs": 5,
+			"exitCode":   0,
+			"id":         fakeUnifiedExecForegroundItemID,
+			"processId":  fakeUnifiedExecForegroundProcess,
+			"source":     "unifiedExecStartup",
+			"status":     "completed",
+			"type":       "commandExecution",
+		},
+	})
+	writeFakeThreadGoalUpdated(objective, "complete")
+	writeFakeCompletedTurnID(turnID, "completed")
 }
 
 func writeFakeGoalCommandApprovalRequestForTurn(turnID string) {

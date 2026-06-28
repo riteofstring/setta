@@ -12,6 +12,8 @@ import { commandDescriptorContextKey } from "../stores/chat-store-command-cache"
 import { commandDescriptorsNeedLoad, slashCommandExecutionPlan } from "./chat-command-execution";
 import {
   commandComposerState,
+  commandListErrorForDraft,
+  commandListPendingForDraft,
   completionForCommandState,
   firstAvailableSuggestionIndex,
   type CommandCompletionEdit,
@@ -120,6 +122,7 @@ function ComposerComponent({
   const [draft, setDraft] = useState("");
   const [commands, setCommands] = useState<ChatCommandDescriptor[]>(emptyCommandDescriptors);
   const [commandListKey, setCommandListKey] = useState("");
+  const [commandListRequestKey, setCommandListRequestKey] = useState("");
   const [focusRequest, setFocusRequest] = useState(0);
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
   const [paletteDismissed, setPaletteDismissed] = useState(false);
@@ -139,6 +142,13 @@ function ComposerComponent({
   const slashDraft = isSlashDraft(draft);
   const draftText = draft.trim();
   const commandState = useMemo(() => commandComposerState(draft, commands), [commands, draft]);
+  const commandListPending = commandListPendingForDraft({
+    commandListContextKey,
+    commandListKey,
+    commandListRequestKey,
+    commandListStatus: chat.commandListStatus,
+    slashDraft,
+  });
   const commandPaletteVisible = commandPaletteShouldOpen(slashDraft, paletteDismissed, modelPicker);
   const commandListError = commandListErrorForDraft(
     slashDraft,
@@ -177,28 +187,37 @@ function ComposerComponent({
     if (commandListContextKey === "") {
       setCommands(emptyCommandDescriptors);
       setCommandListKey("");
+      setCommandListRequestKey("");
       setModelPicker(null);
       return;
     }
     if (!slashDraft) {
       setCommands(emptyCommandDescriptors);
       setCommandListKey("");
+      setCommandListRequestKey("");
       return;
     }
-    if (commandListKey === commandListContextKey) {
+    if (
+      commandListKey === commandListContextKey ||
+      commandListRequestKey === commandListContextKey
+    ) {
       return;
     }
     let cancelled = false;
-    setCommandListKey(commandListContextKey);
+    setCommandListRequestKey(commandListContextKey);
     void listCommands()
       .then((result) => {
         if (!cancelled) {
           setCommands(result?.commands ?? emptyCommandDescriptors);
+          setCommandListKey(commandListContextKey);
+          setCommandListRequestKey("");
         }
       })
       .catch(() => {
         if (!cancelled) {
           setCommands(emptyCommandDescriptors);
+          setCommandListKey(commandListContextKey);
+          setCommandListRequestKey("");
         }
       });
     return () => {
@@ -323,9 +342,11 @@ function ComposerComponent({
     if (commandListContextKey === "") {
       return emptyCommandDescriptors;
     }
-    setCommandListKey(commandListContextKey);
     const result = await listCommands();
-    return result?.commands ?? emptyCommandDescriptors;
+    const loadedCommands = result?.commands ?? emptyCommandDescriptors;
+    setCommands(loadedCommands);
+    setCommandListKey(commandListContextKey);
+    return loadedCommands;
   }
 
   function completeCommand() {
@@ -472,6 +493,7 @@ function ComposerComponent({
             <CommandPalette
               commandListStatus={chat.commandListStatus}
               commandListError={commandListError}
+              commandListPending={commandListPending}
               commandState={commandState}
               draft={draft}
               modelPicker={modelPicker}
@@ -553,6 +575,7 @@ function ComposerComponent({
     setPaletteDismissed(false);
     if (isSlashDraft(nextDraft) && chat.commandListStatus === "failed") {
       setCommandListKey("");
+      setCommandListRequestKey("");
     }
     if (!isSlashDraft(nextDraft)) {
       setModelPicker(null);
@@ -696,17 +719,10 @@ function commandPaletteNavigationKeyAction(key: string): CommandPaletteKeyAction
   return "none";
 }
 
-function commandListErrorForDraft(
-  slashDraft: boolean,
-  commandListStatus: ChatView["commandListStatus"],
-  commandListError: ChatView["commandListError"],
-) {
-  return slashDraft && commandListStatus === "failed" ? commandListError : null;
-}
-
 interface CommandPaletteProps {
   commandListStatus: ChatView["commandListStatus"];
   commandListError?: string | null;
+  commandListPending?: boolean;
   commandState: CommandComposerState;
   draft: string;
   modelPicker: ChatCommandExecuteResult | null;
@@ -839,44 +855,19 @@ function ModelPickerPalette({
 function SlashCommandPalette({
   commandListStatus,
   commandListError,
+  commandListPending,
   commandState,
   onPickSuggestion,
   selectedSuggestionIndex,
 }: CommandPaletteProps) {
   if (commandListError) {
-    return (
-      <div
-        className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-status-critical/80 bg-popover/95 p-2 text-xs text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
-        data-testid="command-palette"
-        role="alert"
-      >
-        <div className="font-medium text-status-critical">Slash commands unavailable</div>
-        <div className="mt-1 break-words text-muted-foreground">{commandListError}</div>
-      </div>
-    );
+    return <SlashCommandErrorPalette commandListError={commandListError} />;
+  }
+  if (slashCommandPaletteLoading(commandListStatus, commandListPending, commandState)) {
+    return <SlashCommandLoadingPalette />;
   }
   if (commandState.invalidReason && commandState.suggestions.length === 0) {
-    return (
-      <div
-        className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-status-critical/80 bg-popover/95 p-2 text-xs text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
-        data-testid="command-palette"
-        role="alert"
-      >
-        <div className="font-medium text-status-critical">Invalid slash command</div>
-        <div className="mt-1 break-words text-muted-foreground">{commandState.invalidReason}</div>
-      </div>
-    );
-  }
-  if (commandListStatus === "loading" && commandState.suggestions.length === 0) {
-    return (
-      <div
-        className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-border bg-popover/95 p-2 text-xs text-muted-foreground shadow-xl shadow-black/45 backdrop-blur"
-        data-testid="command-palette"
-        role="status"
-      >
-        Loading slash commands...
-      </div>
-    );
+    return <SlashCommandInvalidPalette invalidReason={commandState.invalidReason} />;
   }
   if (commandState.suggestions.length === 0 && commandState.showEmptyState) {
     return (
@@ -923,6 +914,54 @@ function SlashCommandPalette({
           </span>
         </button>
       ))}
+    </div>
+  );
+}
+
+function slashCommandPaletteLoading(
+  commandListStatus: ChatView["commandListStatus"],
+  commandListPending: boolean | undefined,
+  commandState: CommandComposerState,
+) {
+  return (
+    (commandListPending || commandListStatus === "loading") && commandState.suggestions.length === 0
+  );
+}
+
+function SlashCommandErrorPalette({ commandListError }: { commandListError: string }) {
+  return (
+    <div
+      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-status-critical/80 bg-popover/95 p-2 text-xs text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
+      data-testid="command-palette"
+      role="alert"
+    >
+      <div className="font-medium text-status-critical">Slash commands unavailable</div>
+      <div className="mt-1 break-words text-muted-foreground">{commandListError}</div>
+    </div>
+  );
+}
+
+function SlashCommandLoadingPalette() {
+  return (
+    <div
+      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-border bg-popover/95 p-2 text-xs text-muted-foreground shadow-xl shadow-black/45 backdrop-blur"
+      data-testid="command-palette"
+      role="status"
+    >
+      Loading slash commands...
+    </div>
+  );
+}
+
+function SlashCommandInvalidPalette({ invalidReason }: { invalidReason: string }) {
+  return (
+    <div
+      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-status-critical/80 bg-popover/95 p-2 text-xs text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
+      data-testid="command-palette"
+      role="alert"
+    >
+      <div className="font-medium text-status-critical">Invalid slash command</div>
+      <div className="mt-1 break-words text-muted-foreground">{invalidReason}</div>
     </div>
   );
 }

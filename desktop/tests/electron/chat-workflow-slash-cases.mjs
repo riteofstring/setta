@@ -11,6 +11,7 @@ export async function runSlashCommandWorkflow({
   backend,
   client,
   conversationId,
+  setInputValue,
   submitComposer,
   waitForCommandResult,
   waitForGoalStatus,
@@ -22,6 +23,9 @@ export async function runSlashCommandWorkflow({
   waitForTexts,
   workspaceId,
 }) {
+  await setInputValue(client, 'textarea[aria-label="Ask Setta"]', "/goal");
+  await waitForSlashCommandPaletteOption(waitForState, client, "/goal");
+
   await submitComposer(client, "/goal finish renderer tests", "Send message");
   await waitForCommandResult(
     backend,
@@ -179,6 +183,24 @@ async function waitForComposerValue(waitForState, client, expectedValue) {
       return { value: textarea?.value ?? "" };
     })()`,
     (value) => value.value === expectedValue,
+  );
+}
+
+async function waitForSlashCommandPaletteOption(waitForState, client, commandName) {
+  await waitForState(
+    client,
+    `(() => {
+      const palette = document.querySelector('[data-testid="command-palette"]');
+      const option = palette?.querySelector('[role="option"]');
+      return {
+        optionText: option?.innerText ?? "",
+        paletteText: palette?.innerText ?? "",
+      };
+    })()`,
+    (value) =>
+      value.optionText.includes(commandName) &&
+      !value.paletteText.includes("Invalid slash command") &&
+      !value.paletteText.includes("Unknown slash command"),
   );
 }
 

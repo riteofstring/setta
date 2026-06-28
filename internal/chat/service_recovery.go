@@ -113,6 +113,9 @@ func (service *Service) recoverInterruptedRun(workspaceID string, run Run, now s
 	run.CompletedAt = now
 	run.Error = "run interrupted by backend restart"
 	run.PendingApproval = nil
+	if err := service.promoteInterruptedBackgroundTerminalStartups(workspaceID, run, now); err != nil {
+		return err
+	}
 	if _, err := service.store.FailTurn(TerminalTurnRecords{AssistantMessage: message, Run: run}); err != nil {
 		return err
 	}

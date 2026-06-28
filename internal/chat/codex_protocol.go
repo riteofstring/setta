@@ -300,6 +300,9 @@ func codexRunItemExecutionFieldsFromItem(item map[string]any) (codexRunItemExecu
 	if err != nil {
 		return codexRunItemExecutionFields{}, err
 	}
+	if source != nil && *source == RunItemCommandSourceUnifiedExecStartup && processID == "" {
+		return codexRunItemExecutionFields{}, fmt.Errorf("codex unifiedExecStartup item processId is required")
+	}
 	return codexRunItemExecutionFields{
 		command:    command,
 		cwd:        cwd,

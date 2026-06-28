@@ -102,16 +102,18 @@ CommandExecutionSource =
 ```
 
 Setta currently drops that field when projecting Codex `commandExecution` items
-into `RunItem`. Without preserving it, the backend cannot distinguish a normal
-agent command from a background terminal startup or interaction without
-heuristics.
+into `RunItem`. Without preserving it, the backend cannot distinguish command
+source classes without heuristics. Preserving it is necessary but not sufficient:
+live Codex also uses `unifiedExecStartup` for short foreground shell commands, so
+the backend must not treat source alone as proof of a persistent background
+terminal.
 
 ## Product Contract
 
 - Normal command executions remain normal chronological transcript activity.
-- Background terminal startup is visible in the transcript at the time the
-  assistant starts it, but the terminal's running lifecycle is not owned by the
-  run.
+- Background terminal startup is visible in the transcript at its original
+  chronological start position once the process proves it outlives the physical
+  turn. Until then, `unifiedExecStartup` commands remain normal command activity.
 - A background terminal can remain running after the assistant has completed,
   failed, or been interrupted.
 - A persistent compact indicator near the composer or transcript tail shows
@@ -264,8 +266,11 @@ terminal at a specific chronological position. It is not a normal
 
 Rules:
 
-- `unified_exec_startup` creates a background terminal process and a transcript
-  `background_terminal` start block.
+- `unified_exec_startup` is recorded as normal command activity first. If it is
+  still running at a run terminal transition, or a late output/completion arrives
+  after a physical turn boundary while the logical run is still active, the
+  backend promotes it to a background terminal process and converts the original
+  activity block in place to a transcript `background_terminal` start block.
 - The start block may show a live status by joining with the background process
   projection in the renderer, but the process registry is the source of truth.
 - Empty `terminalInteraction` events represent waiting/polling. During an active
@@ -410,8 +415,9 @@ outcome.
 ```
 
 If a normal command is still running when a run completes, it may still be
-coerced to the run outcome as today. Only provider-typed background terminal
-sources bypass that path.
+coerced to the run outcome as today. Completed in-turn `unifiedExecStartup`
+commands remain normal run-scoped activity. Only promoted `background_terminal`
+marker blocks bypass run finalization.
 
 ## Lifecycle Scenarios
 
@@ -639,9 +645,11 @@ renderer store + footer + monitor + transcript marker block (Phase 4).
 
 - Refactor Codex notification routing so unified exec lifecycle events can update
   background terminal state outside the active turn sink.
-- On `unifiedExecStartup`, create the process and transcript marker block.
-- Route output chunks into background terminal output storage and recent-output
-  summaries.
+- Preserve `unifiedExecStartup` as a normal command item until it proves it
+  outlives the physical turn; then promote it to a process and transcript marker
+  block while preserving the original chronology.
+- Route output chunks into run-item output before promotion, and into background
+  terminal output storage + recent-output summaries after promotion.
 - Route process completion into background terminal status updates.
 - Route terminal interactions into wait/interact semantics.
 
@@ -664,17 +672,21 @@ Done:
   `backgroundTerminal` and the renderer decoder rejected the block ("found 0
   branches"). `marker.ProcessID` is the stable Setta `BackgroundTerminalProcess.ID`
   (the registry/join key), not the provider handle.
-- During-turn routing is path-agnostic (scripted + Codex) through the existing
-  TurnSink: `upsertRunItemLocked` branches on `item.Source`
-  (`service_background_terminals.go`). A `unified_exec_startup` upsert creates/updates
-  the `BackgroundTerminalProcess` registry record (running, or exited on an in-turn
-  completion) and a slim chronological `background_terminal` marker block, never a
-  run item or activity block; `appendRunItemOutput` routes output for a registered
-  terminal to the background output store + recent-output summary;
-  `unified_exec_interaction` creates a slim "Interacted with background terminal"
-  marker linked to the process by provider handle. The marker block is created
-  `complete`, so run finalization (which only coerces still-streaming run-scoped
-  blocks) never rewrites it.
+- Startup routing is path-agnostic (scripted + Codex) through the existing
+  TurnSink, but `unified_exec_startup` no longer creates the registry record
+  immediately. Live Codex sends that source for ordinary short shell commands too,
+  so startup items first persist as normal run items/activity blocks. Promotion
+  happens only when the item is still `running` at run completion/cancel/failure,
+  or when late output/completion arrives after a physical turn boundary while the
+  logical run is still active. Promotion creates the
+  `BackgroundTerminalProcess`, converts the original activity block in place to a
+  `background_terminal` marker (preserving chronology), and copies buffered
+  run-item output into the background terminal output store + recent-output
+  summary. Completed in-turn `unified_exec_startup` commands remain ordinary
+  completed command activity and create no registry process. `unified_exec_interaction`
+  still creates a slim "Interacted with background terminal" marker linked to the
+  process by provider handle. Marker blocks are `complete`, so run finalization
+  never rewrites them.
 - Late lifecycle (the core architectural change) uses connection-scoped handlers
   registered on the shared `codexapp.Manager` (the codexaccount precedent), in
   `codex_harness_background_terminal.go`: `turn/completed`, `item/completed`, and
@@ -693,9 +705,13 @@ Done:
   became `TestServiceBackgroundTerminalsSurviveRunCompletion` (marker blocks +
   registry processes survive run completion still running, output in the registry).
   New `TestServiceBackgroundTerminalLateLifecycle` covers the connection-sink
-  service methods. The deterministic `background-terminal` E2E step asserts the
-  marker blocks render, the run activity projection is empty, and the footer is
-  still absent.
+  service methods. Post-Phase-4 live characterization added
+  `TestServiceUnifiedExecStartupCompletedInTurnStaysActivity`, freezing the
+  recording-derived bug: a `unifiedExecStartup` command that completes in the same
+  turn stays a completed activity row and creates no background-terminal process
+  or marker. The deterministic `background-terminal` E2E step asserts the marker
+  blocks render, the run activity projection is empty for promoted terminals, and
+  the footer is still absent.
 
 Deferred to later phases (per the plan): the `chat.background_terminal.*` events +
 list/output/kill HTTP endpoints + IPC (Phase 3); the footer, monitor, kill controls,

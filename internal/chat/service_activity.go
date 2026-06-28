@@ -154,11 +154,12 @@ func (service *Service) upsertRunItemLocked(item RunItem) error {
 	if err := service.prepareRunItemLocked(&item); err != nil {
 		return err
 	}
-	// Unified-exec commands are background terminals: their lifecycle is owned by
-	// the backend process registry, not by the run, so they are routed away from
-	// the normal run-item/activity-block path entirely.
-	if item.Source != nil && isBackgroundTerminalSource(*item.Source) {
-		return service.ingestBackgroundTerminalRunItemLocked(item)
+	// unifiedExecStartup is only a provider command start. Live Codex uses it for
+	// short foreground commands too, so startup items stay on the normal run path
+	// until they survive a turn boundary and are promoted to the terminal registry.
+	handled, err := service.ingestProviderOwnedRunItemLocked(item)
+	if err != nil || handled {
+		return err
 	}
 	existing, exists, err := service.store.FindRunItemByProviderID(item.WorkspaceID, item.RunID, item.ProviderItemID)
 	if err != nil {
@@ -179,6 +180,19 @@ func (service *Service) upsertRunItemLocked(item RunItem) error {
 		return err
 	}
 	return service.publishRunItemUpsertLocked(item, exists)
+}
+
+func (service *Service) ingestProviderOwnedRunItemLocked(item RunItem) (bool, error) {
+	if item.Source == nil {
+		return false, nil
+	}
+	if isBackgroundTerminalInteractionSource(*item.Source) {
+		return true, service.ingestBackgroundTerminalRunItemLocked(item)
+	}
+	if isBackgroundTerminalStartupSource(*item.Source) {
+		return service.ingestPromotedBackgroundTerminalStartupUpdateLocked(item)
+	}
+	return false, nil
 }
 
 // ingestRunItemBlockForActiveTurnLocked records a run item's transcript block on
@@ -562,6 +576,13 @@ func (service *Service) LoadRunActivityPage(workspaceID string, runID string, li
 		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
 		return RunActivityPage{}, err
 	}
+	backgroundProviderItems, err := service.backgroundTerminalProviderItemIDsForRunLocked(workspaceID, run.ConversationID, runID)
+	if err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, runID)
+		return RunActivityPage{}, err
+	}
+	items = activityProjectionRunItems(items, backgroundProviderItems)
 	outputs, err := service.runItemOutputPreviews(workspaceID, runID, items, activityOutputPreviewLimit(limit))
 	if err != nil {
 		service.mu.Unlock()
@@ -600,6 +621,20 @@ func runActivityItemProjections(runStatus RunStatus, items []RunItem, outputs []
 		}
 	}
 	return projections
+}
+
+func activityProjectionRunItems(items []RunItem, backgroundProviderItems map[string]struct{}) []RunItem {
+	if len(backgroundProviderItems) == 0 {
+		return items
+	}
+	filtered := make([]RunItem, 0, len(items))
+	for _, item := range items {
+		if _, promoted := backgroundProviderItems[item.ProviderItemID]; promoted {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
 }
 
 func (service *Service) LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (RunItemOutputPage, error) {

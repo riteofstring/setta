@@ -329,6 +329,28 @@ describe("composer command helpers", () => {
     expect(html).toContain("command registry failed");
   });
 
+  test("does not show unknown-command errors while slash command discovery is pending", () => {
+    const html = renderToString(
+      <CommandPalette
+        commandListPending
+        commandListStatus="idle"
+        commandState={commandComposerState("/goal", [])}
+        draft="/goal"
+        modelPicker={null}
+        onDismissModelPicker={vi.fn()}
+        onPickModel={vi.fn()}
+        onPickReasoningEffort={vi.fn()}
+        onPickSuggestion={vi.fn()}
+        paletteVisible
+        selectedSuggestionIndex={0}
+      />,
+    );
+
+    expect(html).toContain("Loading slash commands");
+    expect(html).not.toContain("Invalid slash command");
+    expect(html).not.toContain("Unknown slash command");
+  });
+
   test("keeps model picker visible after the slash draft is submitted", () => {
     const html = renderToString(
       <CommandPalette

@@ -70,6 +70,7 @@ import {
   installFakeCodexAppServer,
   runProtocolGoalBackgroundTerminalWorkflow,
   runProtocolGoalCancellationWorkflow,
+  runProtocolGoalForegroundUnifiedExecWorkflow,
   runProtocolGoalMultiTurnWorkflow,
 } from "./codex-protocol-workflow.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
@@ -351,6 +352,7 @@ async function runDeterministicWorkflowLaunch(results) {
         clickButtonByAria,
         client: context.client,
         conversationId,
+        setInputValue,
         submitComposer,
         waitForCommandResult,
         waitForGoalStatus,
@@ -1282,6 +1284,7 @@ async function runCodexProtocolWorkflow(results) {
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 
     await runProtocolGoalMultiTurnWorkflow(context.client, backend, workspaceId);
+    await runProtocolGoalForegroundUnifiedExecWorkflow(context.client, backend, workspaceId);
     await runProtocolGoalBackgroundTerminalWorkflow(context.client, backend, workspaceId, fixture);
     await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);
 

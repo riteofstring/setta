@@ -5,6 +5,8 @@ import type {
   ChatCommandLiteralArgumentSpec,
 } from "@generated/backend";
 
+import type { ChatStore } from "../stores/chat-store-types";
+
 type CommandComposerPhase = "inactive" | "command_name" | "command_arguments" | "invalid";
 
 type CommandHighlightKind = "plain" | "marker" | "command" | "literal" | "free_text" | "invalid";
@@ -173,6 +175,35 @@ function selectedSuggestion(
 export function firstAvailableSuggestionIndex(suggestions: CommandSuggestionRow[]) {
   const index = suggestions.findIndex((suggestion) => suggestion.available);
   return index === -1 ? 0 : index;
+}
+
+export function commandListErrorForDraft(
+  slashDraft: boolean,
+  commandListStatus: ChatStore["commandListStatus"],
+  commandListError: ChatStore["commandListError"],
+) {
+  return slashDraft && commandListStatus === "failed" ? commandListError : null;
+}
+
+export function commandListPendingForDraft({
+  commandListContextKey,
+  commandListKey,
+  commandListRequestKey,
+  commandListStatus,
+  slashDraft,
+}: {
+  commandListContextKey: string;
+  commandListKey: string;
+  commandListRequestKey: string;
+  commandListStatus: ChatStore["commandListStatus"];
+  slashDraft: boolean;
+}) {
+  return (
+    slashDraft &&
+    commandListContextKey !== "" &&
+    commandListKey !== commandListContextKey &&
+    (commandListRequestKey === commandListContextKey || commandListStatus !== "failed")
+  );
 }
 
 function inactiveCommandState(draft: string): CommandComposerState {

@@ -42,6 +42,7 @@ type codexGoalOperation struct {
 	activeGoalSeen bool
 	goalFinal      bool
 	pendingDone    bool
+	physicalActive bool
 
 	mu                sync.Mutex
 	attachOnce        sync.Once
@@ -653,11 +654,20 @@ func (operation *codexGoalOperation) routeBackgroundTerminalNotification(message
 	if notification.threadID != operation.threadID {
 		return false, fmt.Errorf("codex goal operation background terminal notification targeted thread %s, want %s", notification.threadID, operation.threadID)
 	}
+	if operation.backgroundNotificationBelongsToActivePhysicalTurn(notification) {
+		return false, nil
+	}
 	sink, context, ok := operation.harness.backgroundSinkForThread(operation.threadID)
 	if !ok {
 		return true, nil
 	}
 	return true, routeBackgroundTerminalNotification(sink, context, notification)
+}
+
+func (operation *codexGoalOperation) backgroundNotificationBelongsToActivePhysicalTurn(notification codexBackgroundTerminalNotification) bool {
+	operation.mu.Lock()
+	defer operation.mu.Unlock()
+	return operation.physicalActive && isSameTurn(notification.turnID, operation.currentTurnID)
 }
 
 func (operation *codexGoalOperation) requireGoalNotificationThread(message jsonRPCMessage) error {
@@ -739,6 +749,7 @@ func (operation *codexGoalOperation) recordPhysicalTurnStarted(turnID string) (b
 		operation.logicalTurnID = turnID
 	}
 	operation.currentTurnID = turnID
+	operation.physicalActive = true
 	operation.pendingDone = false
 	operation.pendingCompletion = TurnCompletion{}
 	emitLogicalStart := !operation.sinkLinked
@@ -756,6 +767,7 @@ func (operation *codexGoalOperation) recordPhysicalTurnStarted(turnID string) (b
 func (operation *codexGoalOperation) recordPhysicalTurnCompleted(completion TurnCompletion) (TurnCompletion, bool) {
 	operation.mu.Lock()
 	defer operation.mu.Unlock()
+	operation.physicalActive = false
 	if completion.Outcome == TurnOutcomeFailed || completion.Outcome == TurnOutcomeCancelled {
 		return completion, true
 	}

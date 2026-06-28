@@ -111,6 +111,19 @@ func (ingest *transcriptIngest) terminalRunStatusBlock() *TranscriptBlock {
 	return nil
 }
 
+func (ingest *transcriptIngest) hasBackgroundTerminalBlock(processID string, label string) bool {
+	for _, id := range ingest.order {
+		block := ingest.blocks[id]
+		if block.Kind == TranscriptBlockKindBackgroundTerminal &&
+			block.BackgroundTerminal != nil &&
+			block.BackgroundTerminal.ProcessID == processID &&
+			block.BackgroundTerminal.Label == label {
+			return true
+		}
+	}
+	return false
+}
+
 // snapshot returns a copy of the ordered blocks for read paths.
 func (ingest *transcriptIngest) snapshot() []TranscriptBlock {
 	blocks := make([]TranscriptBlock, 0, len(ingest.order))

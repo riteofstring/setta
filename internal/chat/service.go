@@ -503,6 +503,9 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 		return err
 	}
 	now := timestamp(service.now())
+	if err := service.promoteBackgroundTerminalStartupsForTurnLocked(workspaceID, active); err != nil {
+		return err
+	}
 	// Finalize transcript blocks before the run reaches a terminal store record so a
 	// crash cannot leave a terminal run with perpetually streaming blocks (recovery
 	// only re-finalizes still-running runs).
@@ -593,6 +596,9 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	run.CompletedAt = now
 	run.Error = message
 	run.PendingApproval = nil
+	if err := service.promoteBackgroundTerminalStartupsForTurnLocked(workspaceID, active); err != nil {
+		return err
+	}
 	// Finalize transcript blocks before the terminal store record (see completeTurn).
 	if err := service.finalizeTranscriptBlocksLocked(workspaceID, active.transcript, TranscriptBlockStatusFailed, message); err != nil {
 		return err

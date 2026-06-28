@@ -103,6 +103,56 @@ describe("chat store command listing", () => {
     expect(useChatStore.getState().commandListStatus).toBe("loaded");
     expect(useChatStore.getState().commandListError).toBeNull();
   });
+
+  test("settles stale command descriptor failures without sticking loading", async () => {
+    let rejectRequest: (error: Error) => void = () => {};
+    const listCommands = vi.fn().mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectRequest = reject;
+        }),
+    );
+    installCommandAPI(listCommands);
+
+    const request = useChatStore.getState().listCommands();
+    expect(useChatStore.getState().commandListStatus).toBe("loading");
+
+    useChatStore.setState({
+      selectedConversation: testConversation({ id: "conversation_next" }),
+    });
+    rejectRequest(new Error("command registry failed"));
+
+    await expect(request).rejects.toThrow("command registry failed");
+    expect(useChatStore.getState().commandListStatus).toBe("idle");
+    expect(useChatStore.getState().commandListError).toBeNull();
+  });
+
+  test("does not let stale command descriptor failures override newer requests", async () => {
+    let rejectFirstRequest: (error: Error) => void = () => {};
+    const listCommands = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectFirstRequest = reject;
+          }),
+      )
+      .mockResolvedValueOnce({ commands: [goalDescriptor("Goal while active")] });
+    installCommandAPI(listCommands);
+
+    const firstRequest = useChatStore.getState().listCommands();
+    useChatStore.setState({ activeRun: testRun("running") });
+    const secondRequest = useChatStore.getState().listCommands();
+
+    rejectFirstRequest(new Error("command registry failed"));
+
+    await expect(firstRequest).rejects.toThrow("command registry failed");
+    await expect(secondRequest).resolves.toEqual({
+      commands: [goalDescriptor("Goal while active")],
+    });
+    expect(useChatStore.getState().commandListStatus).toBe("loaded");
+    expect(useChatStore.getState().commandListError).toBeNull();
+  });
 });
 
 function installCommandAPI(listCommands: ReturnType<typeof vi.fn>) {

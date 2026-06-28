@@ -238,6 +238,16 @@ func TestCodexCommandSourceAbsentIsNil(t *testing.T) {
 	}
 }
 
+func TestCodexUnifiedExecStartupMissingProcessIDFailsLoud(t *testing.T) {
+	item := fakeCodexUnifiedExecItem("unifiedExecStartup")
+	delete(item, "processId")
+	if _, err := runItemFromCodexItem(item, RunItemStatusRunning); err == nil {
+		t.Fatal("expected unifiedExecStartup without processId to fail")
+	} else if !strings.Contains(err.Error(), "processId is required") {
+		t.Fatalf("error = %v, want processId drift", err)
+	}
+}
+
 // TestCodexHarnessRoutesLateUnifiedExecCompletion is the Phase 2 flip of bug #3. The turn sink
 // is per-turn/session-scoped, so a unified exec completion that arrives after turn/completed
 // never reaches it. Phase 2 registers connection-scoped handlers on the shared manager that

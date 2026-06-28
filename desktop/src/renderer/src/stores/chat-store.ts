@@ -18,7 +18,13 @@ import {
 } from "./chat-store-conversation-lists";
 import { runChatBackgroundAction, type ChatBackgroundActionName } from "./chat-background-actions";
 import { ChatBackendLifecycleAbort } from "./chat-store-backend-lifecycle";
-import { cacheableCommandDescriptors, commandDescriptorCacheKey } from "./chat-store-command-cache";
+import {
+  cacheableCommandDescriptors,
+  commandDescriptorCacheKey,
+  commandListContextMatches,
+  loadedCommandListPatch,
+  staleCommandListPatch,
+} from "./chat-store-command-cache";
 import { conversationDetailPatch, normalizeStatePatch } from "./chat-store-detail-cache";
 import {
   blocksFromPage,
@@ -77,6 +83,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
   const operations = createChatOperationTracker();
   let backendOnline = true;
   let backendGeneration = 0;
+  let commandListRequestID = 0;
   const streamEventBatcher = createChatStreamEventBatcher(flushStreamEventBatch);
 
   function beginOperation(
@@ -768,6 +775,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     listCommands: async () => {
+      const requestID = ++commandListRequestID;
       const state = get();
       const { selectedConversation, workspaceId } = state;
       if (!workspaceId || !selectedConversation) {
@@ -786,31 +794,23 @@ export const useChatStore = create<ChatStore>((set, get) => {
         const result = await window.setta.chat.listCommands(workspaceId, conversationId);
         const descriptors = cacheableCommandDescriptors(result.commands);
         set((current) => {
-          if (
-            current.workspaceId !== workspaceId ||
-            current.selectedConversation?.id !== conversationId ||
-            commandDescriptorCacheKey(current) !== cacheKey
-          ) {
+          if (requestID !== commandListRequestID) {
             return {};
           }
-          return {
-            commandDescriptorCache: {
-              ...current.commandDescriptorCache,
-              [cacheKey]: descriptors,
-            },
-            commandListError: null,
-            commandListStatus: "loaded",
-          };
+          if (!commandListContextMatches(current, workspaceId, conversationId, cacheKey)) {
+            return staleCommandListPatch();
+          }
+          return loadedCommandListPatch(current, cacheKey, descriptors);
         });
         return { commands: descriptors };
       } catch (error) {
         const message = errorMessage(error);
         set((current) => {
-          if (
-            current.workspaceId !== workspaceId ||
-            current.selectedConversation?.id !== conversationId
-          ) {
+          if (requestID !== commandListRequestID) {
             return {};
+          }
+          if (!commandListContextMatches(current, workspaceId, conversationId, cacheKey)) {
+            return staleCommandListPatch();
           }
           return { commandListError: message, commandListStatus: "failed" };
         });
