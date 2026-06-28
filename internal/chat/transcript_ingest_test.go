@@ -845,6 +845,96 @@ func TestServiceStartupReconcilesTerminalRunStatusOnRecovery(t *testing.T) {
 	}
 }
 
+func TestServiceStartupRecoversTerminalTransitionAbortedByClosedEventHub(t *testing.T) {
+	appDataDir := t.TempDir()
+	ready := make(chan struct{})
+	release := make(chan struct{})
+	service := newTestService(t, appDataDir, testResolver(t), closedEventHubTransitionHarness(ready, release))
+	workspaceID, conversationID := startTranscriptConversation(t, service)
+	result, err := service.SendUserInput(workspaceID, conversationID, TextChatInput("trigger"))
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	waitForClosedEventHubTransitionReady(t, ready)
+
+	service.CloseEvents()
+	close(release)
+	assertClosedEventHubTransitionMismatch(t, service, workspaceID, result.Run.ID)
+
+	restarted := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	assertClosedEventHubTransitionRecovered(t, restarted, workspaceID, conversationID, result.Run.ID)
+}
+
+func closedEventHubTransitionHarness(ready chan<- struct{}, release <-chan struct{}) *scriptedTranscriptHarness {
+	return &scriptedTranscriptHarness{
+		start: func(ctx context.Context, _ TurnRequest, sink TurnSink) (TurnCompletion, error) {
+			if err := linkTranscriptThread(sink); err != nil {
+				return TurnCompletion{}, err
+			}
+			if err := sink.AssistantTextDelta("p", "partial response"); err != nil {
+				return TurnCompletion{}, err
+			}
+			close(ready)
+			return waitForClosedEventHubTransitionRelease(ctx, release)
+		},
+	}
+}
+
+func waitForClosedEventHubTransitionRelease(ctx context.Context, release <-chan struct{}) (TurnCompletion, error) {
+	select {
+	case <-release:
+		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "provider stopped"}, nil
+	case <-ctx.Done():
+		return TurnCompletion{}, ctx.Err()
+	}
+}
+
+func waitForClosedEventHubTransitionReady(t *testing.T, ready <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-ready:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for scripted provider output")
+	}
+}
+
+func assertClosedEventHubTransitionMismatch(t *testing.T, service *Service, workspaceID string, runID string) {
+	t.Helper()
+	diagnostic := waitForDiagnostic(t, service, "fail_turn_transition_failed")
+	if diagnostic.Context["error"] != "event hub is closed" {
+		t.Fatalf("diagnostic error = %q, want closed hub", diagnostic.Context["error"])
+	}
+	liveRun, err := service.store.LoadRun(workspaceID, runID)
+	if err != nil {
+		t.Fatalf("load live run: %v", err)
+	}
+	if liveRun.Status != RunStatusRunning {
+		t.Fatalf("live run status = %s, want running mismatch before restart", liveRun.Status)
+	}
+	liveStatus, ok := firstBlockOfKind(loadPersistedBlocks(t, service, workspaceID, runID), TranscriptBlockKindRunStatus)
+	if !ok || liveStatus.RunStatus.Mode != RunStatusBlockModeFailed {
+		t.Fatalf("live terminal run_status = %+v ok %v, want failed mismatch before restart", liveStatus.RunStatus, ok)
+	}
+}
+
+func assertClosedEventHubTransitionRecovered(t *testing.T, restarted *Service, workspaceID string, conversationID string, runID string) {
+	t.Helper()
+	recoveredRun, err := restarted.store.LoadRun(workspaceID, runID)
+	if err != nil {
+		t.Fatalf("load recovered run: %v", err)
+	}
+	if recoveredRun.Status != RunStatusFailed || recoveredRun.Error != "run interrupted by backend restart" {
+		t.Fatalf("recovered run = %+v, want failed backend restart interruption", recoveredRun)
+	}
+	if _, ok, err := restarted.ActiveRun(workspaceID, conversationID); err != nil || ok {
+		t.Fatalf("restarted active run = ok %v err %v, want none after recovery", ok, err)
+	}
+	recoveredStatus, ok := firstBlockOfKind(loadPersistedBlocks(t, restarted, workspaceID, runID), TranscriptBlockKindRunStatus)
+	if !ok || recoveredStatus.RunStatus.Mode != RunStatusBlockModeFailed || recoveredStatus.RunStatus.Error != recoveredRun.Error {
+		t.Fatalf("recovered run_status = %+v ok %v, want failed with recovered run error %q", recoveredStatus.RunStatus, ok, recoveredRun.Error)
+	}
+}
+
 // TestTranscriptTerminalFinalizeIsIdempotent verifies that finalizing a turn twice
 // (as happens when the terminal store transition fails after finalize and is
 // retried) re-projects the single terminal run_status row in place instead of
