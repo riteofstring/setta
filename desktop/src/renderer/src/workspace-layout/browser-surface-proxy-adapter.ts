@@ -221,7 +221,10 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
     const nativeRect = this.nativePaneRect();
     const clipBounds = this.host ? nativeViewClipBounds(this.host) : null;
     const visibleRect = clipBounds ? intersectRects(nativeRect, clipBounds) : nativeRect;
-    const visible = visibleRect.width > 0 && visibleRect.height > 0;
+    const visible =
+      visibleRect.width > 0 &&
+      visibleRect.height > 0 &&
+      (this.focused || rectsMatchSize(visibleRect, nativeRect));
     return {
       contentRect: nativeRect,
       rect: visible ? visibleRect : { height: 1, width: 1, x: nativeRect.x, y: nativeRect.y },
@@ -293,6 +296,13 @@ function readNativeViewClipLeft(workspace: HTMLElement | null): number {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function rectsMatchSize(left: Rect, right: Rect): boolean {
+  return (
+    Math.round(left.width) === Math.round(right.width) &&
+    Math.round(left.height) === Math.round(right.height)
+  );
 }
 
 function intersectRects(subject: Rect, clip: Rect): Rect {

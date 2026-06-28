@@ -100,7 +100,7 @@ describe("workspace fake surface adapters", () => {
     });
   });
 
-  test("clips browser native bounds to the project sidebar inset", () => {
+  test("hides unfocused browser native bounds clipped by the project sidebar inset", () => {
     const sent: WorkspaceBrowserViewUpdate[] = [];
     const host = createFakeHost();
     mountBrowserStage(host, { height: 500, width: 900, x: 0, y: 40 }, { nativeViewClipLeft: 280 });
@@ -117,9 +117,10 @@ describe("workspace fake surface adapters", () => {
     adapter.setViewport({ height: 180, width: 260, x: 120, y: 36 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 150, width: 100, x: 280, y: 106 },
+      bounds: { height: 1, width: 1, x: 120, y: 106 },
       contentBounds: { height: 150, width: 260, x: 120, y: 106 },
-      visible: true,
+      focused: false,
+      visible: false,
     });
   });
 
