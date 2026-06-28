@@ -186,6 +186,8 @@ const api: SettaAPI = {
         raw,
         options?.confirmGoalReplacement ?? false,
       ),
+    openCodexModelPicker: (workspaceId: string, conversationId: string) =>
+      invoke("chatOpenCodexModelPicker", workspaceId, conversationId),
     setCodexModel: (workspaceId: string, conversationId: string, modelId: string) =>
       invoke("chatSetCodexModel", workspaceId, conversationId, modelId),
     setCodexReasoningEffort: (workspaceId: string, conversationId: string, effort) =>
@@ -200,9 +202,9 @@ const api: SettaAPI = {
     messagePage: (
       workspaceId: string,
       conversationId: string,
-      beforeOrdinal: number,
+      beforeBlockOrdinal: number,
       limit: number,
-    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeOrdinal, limit),
+    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeBlockOrdinal, limit),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeChatEvent(payload));

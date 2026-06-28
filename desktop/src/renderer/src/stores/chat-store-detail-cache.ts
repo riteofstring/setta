@@ -2,9 +2,8 @@ import type {
   ChatGoalState,
   ChatMessage,
   Conversation,
-  RunItem,
   RunItemOutput,
-  TranscriptTurn,
+  TranscriptBlock,
 } from "@generated/backend";
 
 import { normalizeChatPatch, type QueuedRun, type RunningRun } from "./chat-store-normalization";
@@ -19,16 +18,14 @@ export interface ConversationDetailState {
   messageIds: string[];
   messages: ChatMessage[];
   messagesById: Record<string, ChatMessage>;
-  olderBeforeOrdinal: number;
+  olderBeforeBlockOrdinal: number;
   queuedRuns: QueuedRun[];
-  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputs: RunItemOutput[];
   runItemOutputsById: Record<string, RunItemOutput>;
-  runItems: RunItem[];
-  runItemsById: Record<string, RunItem>;
-  transcript: TranscriptTurn[];
+  transcriptBlocks: TranscriptBlock[];
+  transcriptBlocksById: Record<string, TranscriptBlock>;
 }
 
 export function normalizeStatePatch(state: ChatStore, patch: ChatPatch): ChatPatch {
@@ -46,17 +43,15 @@ export function conversationDetailPatch(detail: ConversationDetailState): ChatPa
     messageIds: detail.messageIds,
     messages: detail.messages,
     messagesById: detail.messagesById,
-    olderBeforeOrdinal: detail.olderBeforeOrdinal,
+    olderBeforeBlockOrdinal: detail.olderBeforeBlockOrdinal,
     queuedRuns: detail.queuedRuns,
-    runItemIdsByRunId: detail.runItemIdsByRunId,
     runItemOutputIdsByRunItemId: detail.runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId: detail.runItemOutputPagesByRunItemId,
     runItemOutputs: detail.runItemOutputs,
     runItemOutputsById: detail.runItemOutputsById,
-    runItems: detail.runItems,
-    runItemsById: detail.runItemsById,
     selectedConversation: detail.conversation,
-    transcript: detail.transcript,
+    transcriptBlocks: detail.transcriptBlocks,
+    transcriptBlocksById: detail.transcriptBlocksById,
   };
 }
 
@@ -107,16 +102,14 @@ function conversationDetailFromStatePatch(
     messageIds: patchedValue(state, patch, "messageIds"),
     messages: patchedValue(state, patch, "messages"),
     messagesById: patchedValue(state, patch, "messagesById"),
-    olderBeforeOrdinal: patchedValue(state, patch, "olderBeforeOrdinal"),
+    olderBeforeBlockOrdinal: patchedValue(state, patch, "olderBeforeBlockOrdinal"),
     queuedRuns: patchedValue(state, patch, "queuedRuns"),
-    runItemIdsByRunId: patchedValue(state, patch, "runItemIdsByRunId"),
     runItemOutputIdsByRunItemId: patchedValue(state, patch, "runItemOutputIdsByRunItemId"),
     runItemOutputPagesByRunItemId: patchedValue(state, patch, "runItemOutputPagesByRunItemId"),
     runItemOutputs: patchedValue(state, patch, "runItemOutputs"),
     runItemOutputsById: patchedValue(state, patch, "runItemOutputsById"),
-    runItems: patchedValue(state, patch, "runItems"),
-    runItemsById: patchedValue(state, patch, "runItemsById"),
-    transcript: patchedValue(state, patch, "transcript"),
+    transcriptBlocks: patchedValue(state, patch, "transcriptBlocks"),
+    transcriptBlocksById: patchedValue(state, patch, "transcriptBlocksById"),
   };
 }
 

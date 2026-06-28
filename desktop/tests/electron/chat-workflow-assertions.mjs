@@ -37,6 +37,14 @@ export async function waitForModelPickerAbsent(waitForState, client) {
   await waitForState(client, driverCallExpression("modelPicker"), (value) => !value.open);
 }
 
+export async function waitForModelPickerSummary(waitForState, client, modelText, effortText) {
+  await waitForState(
+    client,
+    driverCallExpression("modelPickerSummaryButton"),
+    (value) => value.ready && value.text.includes(modelText) && value.text.includes(effortText),
+  );
+}
+
 export async function waitForSelectedModel(waitForState, client, modelText) {
   await waitForState(
     client,

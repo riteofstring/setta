@@ -313,6 +313,7 @@ describe("preload workspace API", () => {
       "markConversationRead",
       "messagePage",
       "onEvent",
+      "openCodexModelPicker",
       "queueMessage",
       "removeQueuedMessage",
       "runActivity",
@@ -334,6 +335,7 @@ describe("preload workspace API", () => {
     await api.chat.executeCommand("workspace_api", "conversation_api", "/goal replacement", {
       confirmGoalReplacement: true,
     });
+    await api.chat.openCodexModelPicker("workspace_api", "conversation_api");
     await api.chat.markConversationRead("workspace_api", "conversation_api");
     await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
     await api.chat.queueMessage("workspace_api", "conversation_api", "queued");
@@ -386,6 +388,7 @@ describe("preload workspace API", () => {
         "/goal replacement",
         true,
       ],
+      [ipcChannels.chatOpenCodexModelPicker, "workspace_api", "conversation_api"],
       [ipcChannels.chatMarkConversationRead, "workspace_api", "conversation_api"],
       [ipcChannels.chatMessagePage, "workspace_api", "conversation_api", 10, 40],
       [ipcChannels.chatQueueMessage, "workspace_api", "conversation_api", "queued"],

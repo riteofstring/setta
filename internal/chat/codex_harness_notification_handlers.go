@@ -11,8 +11,9 @@ import (
 const codexCommandExecutionOutputStream = "output"
 
 type codexNotificationResult struct {
-	Completion TurnCompletion
-	TurnID     string
+	CodexEffectiveSettings *codexCommandThreadSettings
+	Completion             TurnCompletion
+	TurnID                 string
 }
 
 type codexNotificationHandler func(jsonRPCMessage, string, string, TurnSink) (codexNotificationResult, error)

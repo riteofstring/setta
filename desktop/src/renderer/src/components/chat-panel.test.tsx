@@ -1,26 +1,22 @@
-import type {
-  ChatMessage,
-  MessageDelivery,
-  MessageRole,
-  MessageStatus,
-  Run,
-  RunItem,
-  TranscriptTurn,
-} from "@generated/backend";
+import type { ChatCommandDescriptor } from "@generated/backend";
 import type { KeyboardEvent } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
-import { Composer } from "./chat-composer";
+import { activityDetails, queuedChatMessage } from "../App.test.fixtures";
 import {
-  CommandSuggestions,
+  activityBlock,
+  assistantTextBlock,
+  userMessageBlock,
+} from "../stores/chat-store-events.test.helpers";
+import { Composer } from "./chat-composer";
+import { commandComposerState } from "./chat-command-composer-controller";
+import {
+  CommandPalette,
   commandSuggestions,
-  commandTextToExecute,
   ComposerButton,
   ChatPanel,
   ConversationBody,
-  goalEditorDraft,
-  goalReplacementExecutionOptions,
   handleComposerKeyDown,
   ModelPickerButton,
   modelPickerOptionSelected,
@@ -186,45 +182,143 @@ describe("composer keyboard behavior", () => {
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(sendImmediateSteering).toHaveBeenCalledOnce();
   });
+
+  test("follows the command key-handling precedence table", () => {
+    const cases = [
+      {
+        expected: "dismissModelPicker",
+        key: "Escape",
+        name: "Escape dismisses the model picker before pending steering",
+        options: {},
+        overrides: {
+          draftEmpty: true,
+          hasPendingSteering: true,
+          modelPickerOpen: true,
+          running: true,
+          slashDraft: true,
+        },
+      },
+      {
+        expected: "sendImmediateSteering",
+        key: "Escape",
+        name: "Escape sends pending steering when the picker is closed",
+        options: {},
+        overrides: {
+          draftEmpty: true,
+          hasPendingSteering: true,
+          modelPickerOpen: false,
+          running: true,
+        },
+      },
+      {
+        expected: "completeCommand",
+        key: "Tab",
+        name: "Tab completes slash commands before queueing",
+        options: {},
+        overrides: { slashDraft: true },
+      },
+      {
+        expected: "queueDraft",
+        key: "Tab",
+        name: "Tab queues normal drafts",
+        options: {},
+        overrides: { slashDraft: false },
+      },
+      {
+        expected: "stopRun",
+        key: "c",
+        name: "Ctrl+C stops active runs",
+        options: { ctrlKey: true },
+        overrides: { running: true },
+      },
+      {
+        expected: "sendDraft",
+        key: "Enter",
+        name: "Enter sends the current draft",
+        options: {},
+        overrides: {},
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const actions = {
+        completeCommand: vi.fn(),
+        dismissModelPicker: vi.fn(),
+        queueDraft: vi.fn(),
+        sendDraft: vi.fn(),
+        sendImmediateSteering: vi.fn(),
+        stopRun: vi.fn(),
+      };
+      const event = keyboardEvent(testCase.key, testCase.options);
+
+      handleComposerKeyDown(event, {
+        completeCommand: actions.completeCommand,
+        draftEmpty: false,
+        dismissModelPicker: actions.dismissModelPicker,
+        hasPendingSteering: false,
+        modelPickerOpen: false,
+        queueDraft: actions.queueDraft,
+        running: false,
+        sendDraft: actions.sendDraft,
+        sendImmediateSteering: actions.sendImmediateSteering,
+        slashDraft: false,
+        stopRun: actions.stopRun,
+        ...testCase.overrides,
+      });
+
+      for (const [name, action] of Object.entries(actions)) {
+        if (name === testCase.expected) {
+          expect(action, testCase.name).toHaveBeenCalledOnce();
+        } else {
+          expect(action, testCase.name).not.toHaveBeenCalled();
+        }
+      }
+      expect(event.preventDefault, testCase.name).toHaveBeenCalledOnce();
+    }
+  });
 });
 
 describe("composer command helpers", () => {
   test("shows command suggestions only for slash-prefixed drafts", () => {
-    const commands = [commandCapability("/goal", true), commandCapability("/model", true)];
+    const commands = [commandCapability(true)];
 
-    expect(commandSuggestions(commands, "/g").map((command) => command.name)).toEqual(["/goal"]);
+    expect(commandSuggestions(commands, "/g").map((command) => command.label)).toEqual(["/goal"]);
     expect(commandSuggestions(commands, "hello")).toEqual([]);
   });
 
-  test("does not render static slash commands when the backend has no suggestions", () => {
+  test("renders an empty command palette when the backend has no matching descriptors", () => {
     const html = renderToString(
-      <CommandSuggestions
+      <CommandPalette
+        commandListStatus="loaded"
+        commandState={commandComposerState("/", [])}
         draft="/"
         modelPicker={null}
         onDismissModelPicker={vi.fn()}
-        onPickCommand={vi.fn()}
         onPickModel={vi.fn()}
         onPickReasoningEffort={vi.fn()}
-        selectedSuggestion={null}
-        suggestions={[]}
+        onPickSuggestion={vi.fn()}
+        paletteVisible
+        selectedSuggestionIndex={0}
       />,
     );
 
-    expect(html).toBe("");
+    expect(html).toContain("No matching slash commands");
   });
 
   test("shows slash command discovery failures while drafting a command", () => {
     const html = renderToString(
-      <CommandSuggestions
+      <CommandPalette
         commandListError="command registry failed"
+        commandListStatus="failed"
+        commandState={commandComposerState("/", [])}
         draft="/"
         modelPicker={null}
         onDismissModelPicker={vi.fn()}
-        onPickCommand={vi.fn()}
         onPickModel={vi.fn()}
         onPickReasoningEffort={vi.fn()}
-        selectedSuggestion={null}
-        suggestions={[]}
+        onPickSuggestion={vi.fn()}
+        paletteVisible
+        selectedSuggestionIndex={0}
       />,
     );
 
@@ -232,62 +326,11 @@ describe("composer command helpers", () => {
     expect(html).toContain("command registry failed");
   });
 
-  test("enters selected command only when the draft is the command token", () => {
-    const goal = commandCapability("/goal", true);
-
-    expect(commandTextToExecute("/g", goal)).toBe("/goal");
-    expect(commandTextToExecute("/g finish", goal)).toBe("/goal finish");
-    expect(commandTextToExecute("/goal finish", goal)).toBe("/goal finish");
-    expect(commandTextToExecute("/unknown", null)).toBe("/unknown");
-  });
-
-  test("confirms before replacing a non-terminal goal", () => {
-    const confirm = vi.fn(() => true);
-
-    expect(
-      goalReplacementExecutionOptions(
-        "/goal replacement",
-        goalState("existing", "active"),
-        confirm,
-      ),
-    ).toEqual({ confirmGoalReplacement: true });
-    expect(confirm).toHaveBeenCalledWith("Replace the current goal?");
-  });
-
-  test("keeps the draft when replacement is cancelled", () => {
-    const confirm = vi.fn(() => false);
-
-    expect(
-      goalReplacementExecutionOptions(
-        "/goal replacement",
-        goalState("existing", "paused"),
-        confirm,
-      ),
-    ).toBeNull();
-  });
-
-  test("does not confirm same-objective or completed goals", () => {
-    const confirm = vi.fn();
-
-    expect(
-      goalReplacementExecutionOptions("/goal existing", goalState("existing", "active"), confirm),
-    ).toEqual({});
-    expect(
-      goalReplacementExecutionOptions("/goal replacement", goalState("done", "complete"), confirm),
-    ).toEqual({});
-    expect(confirm).not.toHaveBeenCalled();
-  });
-
-  test("builds the first-pass goal editor draft", () => {
-    expect(goalEditorDraft(goalState("finish renderer tests", "active"))).toBe(
-      "/goal finish renderer tests",
-    );
-    expect(goalEditorDraft(null)).toBe("/goal ");
-  });
-
   test("keeps model picker visible after the slash draft is submitted", () => {
     const html = renderToString(
-      <CommandSuggestions
+      <CommandPalette
+        commandListStatus="loaded"
+        commandState={commandComposerState("", [])}
         draft=""
         modelPicker={
           {
@@ -296,6 +339,7 @@ describe("composer command helpers", () => {
             page: null,
             result: {
               action: "model_picker",
+              composerDraft: "",
               goal: null,
               kind: "model",
               message: "Choose a model.",
@@ -338,19 +382,19 @@ describe("composer command helpers", () => {
                   isDefault: false,
                 },
               ],
-              raw: "/model",
+              raw: "model_picker",
               selectedReasoningEffort: null,
               selectedModel: "",
               title: "Model",
             },
-          } as unknown as Parameters<typeof CommandSuggestions>[0]["modelPicker"]
+          } as unknown as Parameters<typeof CommandPalette>[0]["modelPicker"]
         }
         onDismissModelPicker={vi.fn()}
-        onPickCommand={vi.fn()}
         onPickModel={vi.fn()}
         onPickReasoningEffort={vi.fn()}
-        selectedSuggestion={null}
-        suggestions={[]}
+        onPickSuggestion={vi.fn()}
+        paletteVisible={false}
+        selectedSuggestionIndex={0}
       />,
     );
 
@@ -402,6 +446,12 @@ describe("composer controls", () => {
         running={false}
         selectedConversation={
           {
+            codexEffectiveSettings: {
+              model: "scripted-careful",
+              modelDisplayName: "Scripted Careful",
+              reasoningEffort: "high",
+              reasoningEffortDisplayName: "High",
+            },
             codexSettings: {
               model: "scripted-careful",
               reasoningEffort: "high",
@@ -412,7 +462,7 @@ describe("composer controls", () => {
     );
 
     expect(html).toContain("Open model and reasoning picker");
-    expect(html).toContain("scripted-careful");
+    expect(html).toContain("Scripted Careful");
     expect(html).toContain("High");
   });
 
@@ -516,83 +566,66 @@ describe("conversation body states", () => {
 
 describe("chat readable width contract", () => {
   test("keeps transcript states, goal chrome, search, and composer on the capped chat column", () => {
-    const userMessage = chatMessage("message_user", 1, "user", "complete", "hello", "normal", "");
-    const assistantMessage = chatMessage(
-      "message_assistant",
-      2,
-      "assistant",
-      "complete",
-      "hi",
-      "normal",
-      "run_api",
-    );
-    const activityItem = runItem("run_item_notice", "run_api", "notice", "completed");
     const transcriptHtml = renderToString(
       <ChatTranscript
         {...emptyTranscriptProps()}
         hasMoreOlder
-        messageIds={[userMessage.id, assistantMessage.id]}
-        messagesById={{
-          [assistantMessage.id]: assistantMessage,
-          [userMessage.id]: userMessage,
-        }}
-        transcript={[
-          transcriptTurn(
-            run("run_api", userMessage.id, assistantMessage.id),
-            userMessage,
-            assistantMessage,
-          ),
+        blocks={[
+          userMessageBlock({ id: "block_user", runId: "run_api", ordinal: 1, text: "hello" }),
+          assistantTextBlock({
+            id: "block_assistant",
+            runId: "run_api",
+            ordinal: 2,
+            status: "complete",
+            text: "hi",
+          }),
+          activityBlock({
+            id: "block_notice",
+            runId: "run_api",
+            ordinal: 3,
+            sourceRunItemId: "run_item_notice",
+            title: "warning",
+            type: "notice",
+            hasDetails: true,
+            details: activityDetails({ noticeKind: "warning", noticeMessage: "warning text" }),
+          }),
         ]}
-        runItemIdsByRunId={{ run_api: [activityItem.id] }}
-        runItemsById={{ [activityItem.id]: activityItem }}
       />,
-    );
-    const queuedMessage = chatMessage(
-      "message_queued",
-      3,
-      "user",
-      "pending",
-      "Queued follow-up preview that is not attached to a live queue.",
-      "queued",
-      "",
-    );
-    const steeringMessage = chatMessage(
-      "message_steering",
-      4,
-      "user",
-      "pending",
-      "Standalone steering message preview.",
-      "steering",
-      "",
-    );
-    const failedMessage = chatMessage(
-      "message_failed",
-      5,
-      "assistant",
-      "error",
-      "The scripted fixture failed this turn on purpose so error styling is visible.",
-      "normal",
-      "",
-    );
-    const cancelledMessage = chatMessage(
-      "message_cancelled",
-      6,
-      "assistant",
-      "cancelled",
-      "The scripted fixture cancelled this turn on purpose so cancelled styling is visible.",
-      "normal",
-      "",
     );
     const standaloneStatesHtml = renderToString(
       <ChatTranscript
         {...emptyTranscriptProps()}
-        messageIds={[queuedMessage.id, steeringMessage.id, failedMessage.id, cancelledMessage.id]}
-        messagesById={{
-          [cancelledMessage.id]: cancelledMessage,
-          [failedMessage.id]: failedMessage,
-          [queuedMessage.id]: queuedMessage,
-          [steeringMessage.id]: steeringMessage,
-        }}
+        blocks={[
+          userMessageBlock({
+            id: "block_steering",
+            runId: "run_api",
+            ordinal: 1,
+            delivery: "steering",
+            messageStatus: "pending",
+            text: "Standalone steering message preview.",
+          }),
+          assistantTextBlock({
+            id: "block_failed",
+            runId: "run_api",
+            ordinal: 2,
+            status: "failed",
+            text: "The scripted fixture failed this turn on purpose so error styling is visible.",
+          }),
+          assistantTextBlock({
+            id: "block_cancelled",
+            runId: "run_api",
+            ordinal: 3,
+            status: "cancelled",
+            text: "The scripted fixture cancelled this turn on purpose so cancelled styling is visible.",
+          }),
+        ]}
+        queuedMessages={[
+          queuedChatMessage(
+            "message_queued",
+            "run_queue",
+            "Queued follow-up preview that is not attached to a live queue.",
+          ),
+        ]}
       />,
     );
     const emptyTranscriptHtml = renderToString(<ChatTranscript {...emptyTranscriptProps()} />);
@@ -616,19 +649,19 @@ describe("chat readable width contract", () => {
       />,
     );
 
-    expectReadableColumnElement(transcriptHtml, 'data-testid="chat-transcript-turn"');
     expectReadableColumnElement(transcriptHtml, 'data-testid="chat-transcript-header"');
     expectReadableColumnElement(
       transcriptHtml,
       'data-chat-message="true"',
-      'data-message-id="message_assistant"',
+      'data-message-id="block_assistant"',
     );
-    expect(transcriptHtml).toContain('data-testid="run-activity-group"');
+    expect(transcriptHtml).toContain('data-testid="run-activity-row"');
+    expect(transcriptHtml).not.toContain('data-testid="run-activity-group"');
     for (const id of [
       "message_queued",
-      "message_steering",
-      "message_failed",
-      "message_cancelled",
+      "block_steering_message",
+      "block_failed",
+      "block_cancelled",
     ]) {
       expectReadableColumnElement(standaloneStatesHtml, `data-message-id="${id}"`);
     }
@@ -698,9 +731,18 @@ function composerChat() {
     },
     goal: null,
     listCommands: async () => ({ commands: [] }),
+    openCodexModelPicker: async () => {
+      throw new Error("unexpected model picker open in SSR test");
+    },
     pendingSteeringMessageIds: [],
     queueMessage: async () => {},
     selectedConversation: {
+      codexEffectiveSettings: {
+        model: "scripted-fast",
+        modelDisplayName: "Scripted Fast",
+        reasoningEffort: "medium",
+        reasoningEffortDisplayName: "Medium",
+      },
       codexSettings: {
         model: "scripted-fast",
         reasoningEffort: "medium",
@@ -728,6 +770,7 @@ function conversationBodyChat(
     goal: null,
     selectedConversation: chat.selectedConversation,
     status: "ready",
+    transcriptBlocks: [],
     workspaceId: "workspace_api",
     ...overrides,
   } as unknown as ConversationBodyProps["chat"];
@@ -736,31 +779,29 @@ function conversationBodyChat(
 function emptyTranscriptProps(): ChatTranscriptProps {
   return {
     activeRun: null,
+    blocks: [],
     editQueuedMessage: async () => {},
     editingQueuedMessageId: null,
     hasMoreOlder: false,
     loadOlder: async () => {},
     loadRunItemOutput: async () => {},
-    messageIds: [],
-    messagesById: {},
+    messages: [],
     operation: null,
+    queuedMessages: [],
     removeQueuedMessage: async () => {},
     removingQueuedMessageId: null,
-    runItemIdsByRunId: {},
     runItemOutputIdsByRunItemId: {},
     runItemOutputPagesByRunItemId: {},
     runItemOutputsById: {},
-    runItemsById: {},
     sendSteeringImmediately: async () => {},
     submitApproval: async () => {},
-    transcript: [],
   };
 }
 
 function openSearchController(): TranscriptSearchController {
   return {
     activeIndex: 0,
-    activeMessageId: null,
+    activeSearchId: null,
     close: () => {},
     inputRef: { current: null },
     matchCount: 0,
@@ -785,113 +826,26 @@ function goalState(objective: string, status: string) {
   };
 }
 
-function chatMessage(
-  id: string,
-  ordinal: number,
-  role: MessageRole,
-  status: MessageStatus,
-  text: string,
-  delivery: MessageDelivery = "normal",
-  runId = "run_api",
-): ChatMessage {
-  return {
-    conversationId: "conversation_api",
-    createdAt: "2026-05-29T20:00:00Z",
-    delivery,
-    id,
-    ordinal,
-    parts: [
-      { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
-    ],
-    role,
-    runId,
-    schemaVersion: 1,
-    status,
-    updatedAt: "2026-05-29T20:00:00Z",
-  };
-}
-
-function transcriptTurn(
-  run: Run,
-  triggerMessage: ChatMessage,
-  assistantMessage: ChatMessage,
-): TranscriptTurn {
-  return {
-    assistantMessage,
-    run,
-    steeringMessages: [],
-    triggerMessage,
-  };
-}
-
-function run(id: string, triggerMessageId: string, assistantMessageId: string): Run {
-  return {
-    assistantMessageId,
-    completedAt: "2026-05-29T20:01:00Z",
-    conversationId: "conversation_api",
-    error: "",
-    harness: "codex",
-    id,
-    pendingApproval: null,
-    promptSummary: "prompt",
-    schemaVersion: 1,
-    startedAt: "2026-05-29T20:00:00Z",
-    status: "completed",
-    triggerMessageId,
-    workspaceId: "workspace_api",
-  };
-}
-
-function runItem(
-  id: string,
-  runId: string,
-  type: RunItem["type"],
-  status: RunItem["status"],
-): RunItem {
-  return {
-    command: "",
-    completedAt: "2026-05-29T20:01:00Z",
-    conversationId: "conversation_api",
-    createdAt: "2026-05-29T20:00:10Z",
-    cwd: "",
-    details: null,
-    diffSummary: "",
-    durationMs: 0,
-    error: "",
-    exitCode: 0,
-    filePaths: [],
-    hiddenText: "",
-    id,
-    namespace: "",
-    noticeKind: "info",
-    noticeMessage: "Fixture notice",
-    patchStatus: "",
-    processId: "",
-    progress: "",
-    providerItemId: "",
-    requestId: "",
-    result: "",
-    reviewId: "",
-    runId,
-    schemaVersion: 1,
-    serverName: "",
-    startedAt: "2026-05-29T20:00:10Z",
-    status,
-    summary: "",
-    title: "",
-    toolName: "",
-    type,
-    workspaceId: "workspace_api",
-  };
-}
-
-function commandCapability(name: "/goal" | "/model", available: boolean) {
+function commandCapability(available: boolean): ChatCommandDescriptor {
   return {
     available,
-    description: name,
-    kind: name === "/goal" ? "goal" : "model",
-    name,
+    description: "/goal",
+    grammar: {
+      arguments: [
+        { description: "Open editor", kind: "literal", token: "edit" },
+        {
+          description: "Set objective",
+          kind: "free_text",
+          maxRunes: 4000,
+          name: "objective",
+          required: false,
+        },
+      ],
+      literalMatch: "exact",
+      summary: "/goal [objective|edit]",
+    },
+    kind: "goal",
+    name: "/goal",
     unavailableReason: available ? "" : "unavailable",
-    usage: name,
-  } as const;
+  };
 }

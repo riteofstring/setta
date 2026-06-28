@@ -3,18 +3,10 @@ import {
   cleanupPaneDragSession,
   visiblePaneHostForPane,
   type PaneDragSession,
-  type PaneHostRect,
 } from "./pane-drag-reorder";
-import type { PaneDropIntent } from "./types";
 
 export interface OverviewDragSession {
   dragging: boolean;
-  // Committed overview-card geometry captured at drag start, so drop resolution
-  // is stable against the same reflow protection as normal mode.
-  hostRects?: readonly PaneHostRect[];
-  lastDropIntent: PaneDropIntent | null;
-  pendingDropFrame: number | null;
-  pendingDropPointer: { clientX: number; clientY: number } | null;
   pointerId: number;
   sourcePaneId: string;
   startClientX: number;
@@ -28,25 +20,12 @@ interface MutableCurrentRef<T> {
 export function cleanupOverviewDragSource(
   ref: MutableCurrentRef<OverviewDragSession | null>,
 ): void {
-  const session = ref.current;
-  const overviewSourcePaneId = session?.sourcePaneId;
-  cancelOverviewDropFrame(session);
+  const overviewSourcePaneId = ref.current?.sourcePaneId;
   ref.current = null;
   if (!overviewSourcePaneId) {
     return;
   }
-  resetOverviewSourceHost(overviewSourcePaneId);
-}
-
-function cancelOverviewDropFrame(session: OverviewDragSession | null): void {
-  if (session?.pendingDropFrame === null || session?.pendingDropFrame === undefined) {
-    return;
-  }
-  window.cancelAnimationFrame?.(session.pendingDropFrame);
-}
-
-function resetOverviewSourceHost(sourcePaneId: string): void {
-  const overviewSourceHost = visiblePaneHostForPane(sourcePaneId);
+  const overviewSourceHost = visiblePaneHostForPane(overviewSourcePaneId);
   overviewSourceHost?.removeAttribute("data-drag-source");
   if (overviewSourceHost) {
     overviewSourceHost.style.translate = "";

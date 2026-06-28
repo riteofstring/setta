@@ -359,6 +359,79 @@ func writeFakeEmptyDeltaTurn() {
 	writeFakeCompletedTurn("completed")
 }
 
+func writeFakeDuplicateAgentDeltaTurn() {
+	writeFakeNotification("turn/started", map[string]any{
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    "hello once",
+		"itemId":   "agent_message_duplicate_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    "hello once",
+		"itemId":   "agent_message_duplicate_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/completed", map[string]any{
+		"completedAtMs": 1,
+		"item": map[string]any{
+			"id":     "agent_message_duplicate_fake",
+			"status": "completed",
+			"text":   "hello once",
+			"type":   "agentMessage",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeCompletedTurn("completed")
+}
+
+func writeFakeAgentDeltaCompletedItemTurn() {
+	writeFakeNotification("turn/started", map[string]any{
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    "hello once",
+		"itemId":   "agent_message_completed_fake_a",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/completed", map[string]any{
+		"completedAtMs": 1,
+		"item": map[string]any{
+			"id":     "agent_message_completed_fake_a",
+			"status": "completed",
+			"text":   "hello once",
+			"type":   "agentMessage",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    "hello once",
+		"itemId":   "agent_message_completed_fake_b",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/completed", map[string]any{
+		"completedAtMs": 2,
+		"item": map[string]any{
+			"id":     "agent_message_completed_fake_b",
+			"status": "completed",
+			"text":   "hello once",
+			"type":   "agentMessage",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeCompletedTurn("completed")
+}
+
 func writeFakeEmptyBase64OutputDeltaTurn() {
 	writeFakeNotification("command/exec/outputDelta", map[string]any{
 		"capReached":  false,
@@ -803,7 +876,10 @@ var fakeCoreTurnStartHandlers = map[string]fakeCoreTurnStartHandler{
 	"failed-turn":                 fakeCoreFailedTurnStart,
 	"unknown-turn-status":         fakeCoreUnknownStatusTurnStart,
 	"steer":                       fakeCorePendingTurnStart,
+	"agent-delta-completed-item":  fakeCoreAgentDeltaCompletedItemTurnStart,
 	"activity":                    fakeCoreActivityTurnStart,
+	"unified-exec-background":     fakeCoreUnifiedExecBackgroundTurnStart,
+	"duplicate-agent-delta":       fakeCoreDuplicateAgentDeltaTurnStart,
 	"empty-deltas":                fakeCoreEmptyDeltaTurnStart,
 	"empty-base64-output-deltas":  fakeCoreEmptyBase64OutputDeltaTurnStart,
 	"unsupported-output-stream":   fakeCoreUnsupportedOutputStreamTurnStart,
@@ -867,6 +943,16 @@ func fakeCorePendingTurnStart(string, *fakeCodexState) bool {
 
 func fakeCoreActivityTurnStart(string, *fakeCodexState) bool {
 	writeFakeActivityTurn()
+	return true
+}
+
+func fakeCoreAgentDeltaCompletedItemTurnStart(string, *fakeCodexState) bool {
+	writeFakeAgentDeltaCompletedItemTurn()
+	return true
+}
+
+func fakeCoreDuplicateAgentDeltaTurnStart(string, *fakeCodexState) bool {
+	writeFakeDuplicateAgentDeltaTurn()
 	return true
 }
 
