@@ -19,6 +19,7 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame-budget.mjs";
 import { configure4kViewport } from "./workspace-overview-performance-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -77,6 +78,10 @@ try {
     initialSnapshot,
     normalRowDrop,
     overviewDrag,
+    frameBudgets: {
+      normalRowDrop: frameBudgetSummary(normalRowDrop.frameSample),
+      overviewDrag: frameBudgetSummary(overviewDrag.frameSample),
+    },
     status: "passed",
     trace: traceResult,
     viewport: "4k",
@@ -191,6 +196,7 @@ async function performBenchmarkOverviewDrag(client) {
     },
     workflowTimeoutMs,
   );
+  await delay(160);
   const duringMetrics = await readFrameMetrics(client);
   const frameSample = await stopBrowserFrameSampler(client);
   assertPaneDragDuringPerformance(duringMetrics, frameSample, "benchmark overview drag");
@@ -246,6 +252,7 @@ async function measureDragGesture(
     },
     workflowTimeoutMs,
   );
+  await delay(160);
   const duringMetrics = await readFrameMetrics(client);
   const frameSample = await stopBrowserFrameSampler(client);
   assertPaneDragDuringPerformance(duringMetrics, frameSample, label);
@@ -471,17 +478,22 @@ async function startBrowserFrameSampler(client) {
       };
       const sum = samples.reduce((total, value) => total + value, 0);
       const averageFrameDeltaMs = samples.length > 0 ? sum / samples.length : 0;
+      const observedFrameBudgetMs = quantile(0.5) <= 10 ? 8.33 : 16.67;
       const gestureLongTasks = longTasks.filter((entry) => entry.startTime >= startedAt);
       return {
         averageFps: averageFrameDeltaMs > 0 ? 1000 / averageFrameDeltaMs : 0,
         averageFrameDeltaMs,
         durationMs: performance.now() - startedAt,
         frameCount: samples.length,
+        framesMs: samples.map((value) => Number(value.toFixed(3))),
         longTaskCount: gestureLongTasks.length,
         longTaskTotalMs: gestureLongTasks.reduce((total, entry) => total + entry.duration, 0),
         maxFrameDeltaMs: sorted.at(-1) ?? 0,
+        observedFrameBudgetMs,
+        p50FrameDeltaMs: quantile(0.5),
         p95FrameDeltaMs: quantile(0.95),
         p99FrameDeltaMs: quantile(0.99),
+        slowFramesOver120HzBudget: samples.filter((value) => value > 8.33).length,
         slowFramesOver16Ms: samples.filter((value) => value > 16.67).length,
         slowFramesOver32Ms: samples.filter((value) => value > 32).length,
         slowFramesOver50Ms: samples.filter((value) => value > 50).length,
@@ -555,6 +567,7 @@ function assertPaneDragDuringPerformance(metrics, frameSample, label) {
       `sampled long tasks occurred during ${label}: ${JSON.stringify({ frameSample, metrics })}`,
     );
   }
+  assertSmoothFrameSample(frameSample, label, { minFrameCount: 10 });
 }
 
 function assertPaneDragFinalMetrics(metrics, label) {

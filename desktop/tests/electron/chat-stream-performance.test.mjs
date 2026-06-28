@@ -26,6 +26,7 @@ import {
   waitForRunStatus,
   waitForRunWithPrompt,
 } from "./chat-workflow-harness.mjs";
+import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame-budget.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const chatPerformanceTimeoutMs = 35_000;
@@ -90,12 +91,14 @@ try {
     timeoutMs: chatPerformanceTimeoutMs,
   });
   const measurement = await waitForMeasurementSettled(context.client);
+  assertSmoothFrameSample(measurement, "chat stream performance", { minFrameCount: 30 });
   const trace = traceSession ? await stopTraceSession() : null;
   await captureScreenshot(context.client, join(artifactDir, "after-stream.png"));
 
   const summary = {
     artifactDir,
     conversationId,
+    frameBudget: frameBudgetSummary(measurement),
     measurement,
     prompt,
     runId: run.id,

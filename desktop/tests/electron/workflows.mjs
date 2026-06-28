@@ -131,8 +131,18 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
+    file: "niri-navigation-performance.test.mjs",
+    name: "niri-navigation-performance",
+    tiers: ["performance"],
+  },
+  {
     file: "chat-stream-performance.test.mjs",
     name: "chat-stream-performance",
+    tiers: ["performance"],
+  },
+  {
+    file: "chat-long-transcript-performance.test.mjs",
+    name: "chat-long-transcript-performance",
     tiers: ["performance"],
   },
   {
