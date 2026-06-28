@@ -86,7 +86,7 @@ func TestServicePersistsGoalCompletionNotification(t *testing.T) {
 		t.Fatalf("list runs: %v", err)
 	}
 	if len(runs) != 1 {
-		t.Fatalf("runs = %+v, want one goal continuation run", runs)
+		t.Fatalf("runs = %+v, want one goal operation run", runs)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
 	page := waitForGoalStatus(t, service, "workspace_api", conversation.ID, "complete")
@@ -133,7 +133,7 @@ func TestServiceRequiresConfirmationBeforeReplacingActiveGoal(t *testing.T) {
 		t.Fatalf("list runs: %v", err)
 	}
 	if len(runs) != 1 {
-		t.Fatalf("runs = %+v, want replacement goal continuation", runs)
+		t.Fatalf("runs = %+v, want replacement goal operation", runs)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
 }
@@ -153,7 +153,7 @@ func TestServiceGoalEditOpensEditorWithoutCommandMessage(t *testing.T) {
 		t.Fatalf("list runs: %v", err)
 	}
 	if len(runs) != 1 {
-		t.Fatalf("runs = %+v, want goal continuation", runs)
+		t.Fatalf("runs = %+v, want goal operation", runs)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
 

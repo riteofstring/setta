@@ -159,11 +159,14 @@ func conversationTaskModel(request TurnRequest) string {
 	return request.Conversation.CodexSettings.Model
 }
 
-type HarnessGoalContinuationStarter interface {
-	BeginGoalContinuation(context.Context, HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error)
+// HarnessGoalOperationStarter starts the logical, thread-scoped operation behind
+// /goal set and /goal resume. The returned operation owns the run until the
+// provider goal is terminal, cleared, cancelled, or fails.
+type HarnessGoalOperationStarter interface {
+	BeginGoalOperation(context.Context, HarnessCommandRequest) (HarnessCommandResult, HarnessGoalOperation, error)
 }
 
-type HarnessGoalContinuation interface {
+type HarnessGoalOperation interface {
 	// Wait must return promptly when ctx is canceled. Cancel requests provider-side
 	// cancellation; the service still owns the context fallback that unblocks Wait.
 	Wait(context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
@@ -171,7 +174,7 @@ type HarnessGoalContinuation interface {
 	Close()
 }
 
-type HarnessGoalContinuationCancelDrainer interface {
+type HarnessGoalOperationCancelDrainer interface {
 	CancelDrainTimeout() time.Duration
 }
 

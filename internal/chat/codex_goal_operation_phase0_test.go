@@ -25,7 +25,7 @@ func TestCodexHarnessGoalSetClearsBeforeSetAndWaitsForRuntimeTurn(t *testing.T) 
 	harness := NewCodexHarness(testCodexConfig("goal-operation-set-preserves-old"))
 	request := testCommandRequest(t, "/goal new objective")
 
-	result, continuation, err := harness.BeginGoalContinuation(context.Background(), request)
+	result, continuation, err := harness.BeginGoalOperation(context.Background(), request)
 	if continuation != nil {
 		defer continuation.Close()
 	}
@@ -39,7 +39,7 @@ func TestCodexHarnessGoalSetClearsBeforeSetAndWaitsForRuntimeTurn(t *testing.T) 
 	noTurnHarness := NewCodexHarness(testCodexConfig("goal-operation-no-runtime-turn"))
 	ctx, cancel := context.WithTimeout(context.Background(), phase0ShortEventTimeout)
 	defer cancel()
-	_, continuation, err = noTurnHarness.BeginGoalContinuation(ctx, request)
+	_, continuation, err = noTurnHarness.BeginGoalOperation(ctx, request)
 	if continuation != nil {
 		defer continuation.Close()
 	}
@@ -56,7 +56,7 @@ func TestCodexHarnessGoalSetClearsBeforeSetAndWaitsForRuntimeTurn(t *testing.T) 
 
 func TestCodexHarnessGoalResumeActivatesExistingGoalAndWaitsForRuntimeTurn(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("goal-operation-resume"))
-	result, continuation, err := harness.BeginGoalContinuation(context.Background(), testCommandRequest(t, "/goal resume"))
+	result, continuation, err := harness.BeginGoalOperation(context.Background(), testCommandRequest(t, "/goal resume"))
 	if continuation != nil {
 		defer continuation.Close()
 	}
@@ -209,7 +209,7 @@ func TestCodexHarnessGoalOperationRewritesSecondTurnRunActivityToLogicalTurn(t *
 
 func TestCodexHarnessGoalSetDoesNotPreserveOldProviderGoal(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("goal-operation-set-preserves-old"))
-	result, continuation, err := harness.BeginGoalContinuation(context.Background(), testCommandRequest(t, "/goal new objective"))
+	result, continuation, err := harness.BeginGoalOperation(context.Background(), testCommandRequest(t, "/goal new objective"))
 	if continuation != nil {
 		defer continuation.Close()
 	}
@@ -242,7 +242,7 @@ func TestCodexHarnessGoalStartupLifecycleFailureFinishesImmediately(t *testing.T
 	ctx, cancel := context.WithTimeout(context.Background(), phase0BlockingFreezeTimeout)
 	defer cancel()
 
-	_, continuation, err := harness.BeginGoalContinuation(ctx, testCommandRequest(t, "/goal finish renderer tests"))
+	_, continuation, err := harness.BeginGoalOperation(ctx, testCommandRequest(t, "/goal finish renderer tests"))
 	if continuation != nil {
 		defer continuation.Close()
 	}
@@ -262,7 +262,7 @@ func TestCodexHarnessGoalStartupLifecycleFailureFinishesImmediately(t *testing.T
 
 func TestCodexHarnessGoalStartupSetResponseFailureFinishesOperation(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("goal-operation-set-invalid-response"))
-	_, continuation, err := harness.BeginGoalContinuation(context.Background(), testCommandRequest(t, "/goal finish renderer tests"))
+	_, continuation, err := harness.BeginGoalOperation(context.Background(), testCommandRequest(t, "/goal finish renderer tests"))
 	if continuation != nil {
 		defer continuation.Close()
 	}
@@ -286,7 +286,7 @@ func TestCodexHarnessGoalOperationRequiresPersistedIdleThread(t *testing.T) {
 	for mode, want := range cases {
 		t.Run(mode, func(t *testing.T) {
 			harness := NewCodexHarness(testCodexConfig(mode))
-			_, continuation, err := harness.BeginGoalContinuation(context.Background(), testCommandRequest(t, "/goal finish renderer tests"))
+			_, continuation, err := harness.BeginGoalOperation(context.Background(), testCommandRequest(t, "/goal finish renderer tests"))
 			if continuation != nil {
 				continuation.Close()
 			}
@@ -643,7 +643,7 @@ func TestCodexHarnessGoalOperationRejectsConcurrentThreadTurn(t *testing.T) {
 
 	request := testCommandRequest(t, "/goal second objective")
 	request.ThreadRef = result.ThreadRef
-	_, second, err := harness.BeginGoalContinuation(context.Background(), request)
+	_, second, err := harness.BeginGoalOperation(context.Background(), request)
 	if second != nil {
 		second.Close()
 	}
@@ -668,7 +668,7 @@ func TestCodexHarnessGoalOperationRejectsLinkedGoalBeforeProviderSession(t *test
 
 	request := testCommandRequest(t, "/goal second objective")
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
-	_, continuation, err := harness.BeginGoalContinuation(context.Background(), request)
+	_, continuation, err := harness.BeginGoalOperation(context.Background(), request)
 	if continuation != nil {
 		continuation.Close()
 	}
@@ -1037,14 +1037,14 @@ func waitForBackgroundTerminalProcess(t *testing.T, service *Service, workspaceI
 	return BackgroundTerminalProcess{}
 }
 
-func beginPhase0GoalOperation(t *testing.T, harness *CodexHarness, raw string) (HarnessCommandResult, HarnessGoalContinuation) {
+func beginPhase0GoalOperation(t *testing.T, harness *CodexHarness, raw string) (HarnessCommandResult, HarnessGoalOperation) {
 	t.Helper()
-	result, continuation, err := harness.BeginGoalContinuation(context.Background(), testCommandRequest(t, raw))
+	result, continuation, err := harness.BeginGoalOperation(context.Background(), testCommandRequest(t, raw))
 	if err != nil {
 		t.Fatalf("begin goal operation: %v", err)
 	}
 	if continuation == nil {
-		t.Fatal("begin goal operation returned nil continuation")
+		t.Fatal("begin goal operation returned nil operation")
 	}
 	return result, continuation
 }

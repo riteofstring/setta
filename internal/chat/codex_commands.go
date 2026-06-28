@@ -23,12 +23,12 @@ func (harness *CodexHarness) ExecuteCommand(ctx context.Context, request Harness
 	return harness.executeIdleCommand(ctx, request)
 }
 
-func (harness *CodexHarness) BeginGoalContinuation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error) {
+func (harness *CodexHarness) BeginGoalOperation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalOperation, error) {
 	if err := ensureCommandAvailable(request.Command, request.ActiveRun); err != nil {
 		return HarnessCommandResult{}, nil, err
 	}
-	if !commandMayStartGoalContinuation(request.Command, request.ActiveRun) {
-		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorMalformedCommand, "command does not start goal continuation", nil)
+	if !commandMayStartGoalOperation(request.Command, request.ActiveRun) {
+		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorMalformedCommand, "command does not start a goal operation", nil)
 	}
 	if err := ctx.Err(); err != nil {
 		return HarnessCommandResult{}, nil, err

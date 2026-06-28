@@ -34,14 +34,6 @@ func handleFakeGoalSetMethod(mode string, state *fakeCodexState, message map[str
 		return handleFakeGoalOperationSetMethod(mode, message, params)
 	}
 	writeFakeGoalResponse(message["id"], "finish renderer tests", "active")
-	if mode == "command-goal-continuation" {
-		writeFakeThreadGoalUpdated("finish renderer tests", "active")
-		writeFakeTurnStartedID("turn_fake")
-		writeFakeAssistantDelta("goal continuation")
-		writeFakeThreadGoalUpdated("finish renderer tests", "complete")
-		writeFakeCompletedTurn("completed")
-		return true
-	}
 	return fakeCommandDone(mode)
 }
 

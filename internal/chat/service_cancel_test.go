@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func TestServiceCancelFakeGoalContinuationUnblocksWait(t *testing.T) {
+func TestServiceCancelFakeGoalOperationUnblocksWait(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventWaitForCancel}})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	conversation, err := service.CreateConversation("workspace_api", "")
@@ -26,7 +26,7 @@ func TestServiceCancelFakeGoalContinuationUnblocksWait(t *testing.T) {
 
 	cancelled, err := service.CancelActiveRun("workspace_api", conversation.ID)
 	if err != nil {
-		t.Fatalf("cancel fake goal continuation: %v", err)
+		t.Fatalf("cancel fake goal operation: %v", err)
 	}
 	if cancelled.Status != RunStatusCancelled {
 		t.Fatalf("cancelled run status = %s, want cancelled", cancelled.Status)
@@ -34,7 +34,7 @@ func TestServiceCancelFakeGoalContinuationUnblocksWait(t *testing.T) {
 	waitForFakeHarnessRunUnregistered(t, harness, runs[0].ID)
 }
 
-func TestServiceCancelCodexGoalContinuationFallbackReleasesRoute(t *testing.T) {
+func TestServiceCancelCodexGoalOperationFallbackReleasesRoute(t *testing.T) {
 	previousTimeout := codexGoalCancelDrainTimeout
 	codexGoalCancelDrainTimeout = 25 * time.Millisecond
 	t.Cleanup(func() { codexGoalCancelDrainTimeout = previousTimeout })
@@ -60,7 +60,7 @@ func TestServiceCancelCodexGoalContinuationFallbackReleasesRoute(t *testing.T) {
 
 	cancelled, err := service.CancelActiveRun("workspace_api", conversation.ID)
 	if err != nil {
-		t.Fatalf("cancel codex goal continuation without provider completion: %v", err)
+		t.Fatalf("cancel codex goal operation without provider completion: %v", err)
 	}
 	if cancelled.Status != RunStatusCancelled {
 		t.Fatalf("cancelled run status = %s, want cancelled", cancelled.Status)
@@ -68,7 +68,7 @@ func TestServiceCancelCodexGoalContinuationFallbackReleasesRoute(t *testing.T) {
 	waitForGoalOperationReleased(t, harness, "thread_fake")
 }
 
-func TestServiceCancelCodexGoalContinuationBlocksFollowUpDuringDrain(t *testing.T) {
+func TestServiceCancelCodexGoalOperationBlocksFollowUpDuringDrain(t *testing.T) {
 	previousTimeout := codexGoalCancelDrainTimeout
 	codexGoalCancelDrainTimeout = 2 * time.Second
 	t.Cleanup(func() { codexGoalCancelDrainTimeout = previousTimeout })
@@ -94,7 +94,7 @@ func TestServiceCancelCodexGoalContinuationBlocksFollowUpDuringDrain(t *testing.
 
 	cancelled, err := service.CancelActiveRun("workspace_api", conversation.ID)
 	if err != nil {
-		t.Fatalf("cancel codex goal continuation without provider completion: %v", err)
+		t.Fatalf("cancel codex goal operation without provider completion: %v", err)
 	}
 	if cancelled.Status != RunStatusCancelled {
 		t.Fatalf("cancelled run status = %s, want cancelled", cancelled.Status)
@@ -134,7 +134,7 @@ func TestServiceCancelCodexGoalContinuationBlocksFollowUpDuringDrain(t *testing.
 	}
 }
 
-func TestServiceCancelCodexGoalContinuationBlocksCommandsDuringDrain(t *testing.T) {
+func TestServiceCancelCodexGoalOperationBlocksCommandsDuringDrain(t *testing.T) {
 	previousTimeout := codexGoalCancelDrainTimeout
 	codexGoalCancelDrainTimeout = 2 * time.Second
 	t.Cleanup(func() { codexGoalCancelDrainTimeout = previousTimeout })
@@ -156,7 +156,7 @@ func TestServiceCancelCodexGoalContinuationBlocksCommandsDuringDrain(t *testing.
 	waitForServiceCancellationDrainReleased(t, service, "workspace_api", conversation.ID, runID)
 }
 
-func TestServiceCancelCodexGoalContinuationRepeatCancelPreservesDrain(t *testing.T) {
+func TestServiceCancelCodexGoalOperationRepeatCancelPreservesDrain(t *testing.T) {
 	previousTimeout := codexGoalCancelDrainTimeout
 	codexGoalCancelDrainTimeout = 2 * time.Second
 	t.Cleanup(func() { codexGoalCancelDrainTimeout = previousTimeout })
@@ -203,7 +203,7 @@ func startCancelledCodexGoalDrain(t *testing.T, service *Service, harness *Codex
 
 	cancelled, err := service.CancelActiveRun("workspace_api", conversation.ID)
 	if err != nil {
-		t.Fatalf("cancel codex goal continuation without provider completion: %v", err)
+		t.Fatalf("cancel codex goal operation without provider completion: %v", err)
 	}
 	if cancelled.Status != RunStatusCancelled {
 		t.Fatalf("cancelled run status = %s, want cancelled", cancelled.Status)

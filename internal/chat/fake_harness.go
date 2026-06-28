@@ -84,6 +84,10 @@ func (harness *FakeHarness) StartTurn(ctx context.Context, request TurnRequest, 
 	harness.turns = append(harness.turns, request)
 	harness.mu.Unlock()
 
+	return harness.runFakeTurnEvents(ctx, request, sink)
+}
+
+func (harness *FakeHarness) runFakeTurnEvents(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	events := harness.script(request)
 	harness.registerRun(request.Run.ID)
 	defer harness.unregisterRun(request.Run.ID)
@@ -277,25 +281,28 @@ func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCom
 	}
 }
 
-type fakeGoalContinuation struct {
+type fakeGoalOperation struct {
 	harness *FakeHarness
 }
 
-func (harness *FakeHarness) BeginGoalContinuation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error) {
+func (harness *FakeHarness) BeginGoalOperation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalOperation, error) {
 	result, err := harness.ExecuteCommand(ctx, request)
 	if err != nil {
 		return HarnessCommandResult{}, nil, err
 	}
-	return result, &fakeGoalContinuation{harness: harness}, nil
+	return result, &fakeGoalOperation{harness: harness}, nil
 }
 
-func (continuation *fakeGoalContinuation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	return continuation.harness.StartTurn(ctx, request, sink)
+func (operation *fakeGoalOperation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	operation.harness.mu.Lock()
+	operation.harness.turns = append(operation.harness.turns, request)
+	operation.harness.mu.Unlock()
+	return operation.harness.runFakeTurnEvents(ctx, request, sink)
 }
 
-func (continuation *fakeGoalContinuation) Cancel(context.Context) error { return nil }
+func (operation *fakeGoalOperation) Cancel(context.Context) error { return nil }
 
-func (continuation *fakeGoalContinuation) Close() {}
+func (operation *fakeGoalOperation) Close() {}
 
 func (harness *FakeHarness) executeGoalCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {
 	if command.Goal == nil {

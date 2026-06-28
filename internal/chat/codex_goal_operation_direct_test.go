@@ -119,8 +119,8 @@ func TestCodexAppServerGoalStartNotificationOrder(t *testing.T) {
 	t.Logf("direct app-server clear/set/start events: %+v", events)
 }
 
-func TestCodexAppServerGoalContinuationNotificationOrder(t *testing.T) {
-	t.Skip("direct app-server cannot deterministically force an automatic active-goal continuation in a bounded characterization run; phase 0 covers non-terminal update before/after completion with deterministic protocol fixtures")
+func TestCodexAppServerGoalOperationNotificationOrder(t *testing.T) {
+	t.Skip("direct app-server cannot deterministically force an automatic additional physical goal turn in a bounded characterization run; phase 0 covers non-terminal update before/after completion with deterministic protocol fixtures")
 }
 
 func TestCodexAppServerGoalTerminalNotificationOrder(t *testing.T) {

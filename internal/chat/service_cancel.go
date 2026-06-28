@@ -59,8 +59,8 @@ func (service *Service) detachedActiveRunErrorLocked(workspaceID string, convers
 
 func (service *Service) cancelHarnessRun(workspaceID string, conversationID string, active activeTurn, run Run) error {
 	var err error
-	if active.goalContinuation != nil {
-		err = active.goalContinuation.Cancel(context.Background())
+	if active.goalOperation != nil {
+		err = active.goalOperation.Cancel(context.Background())
 	} else {
 		err = service.harness.CancelTurn(context.Background(), CancelRequest{
 			RunID:          run.ID,
@@ -75,7 +75,7 @@ func (service *Service) cancelHarnessRun(workspaceID string, conversationID stri
 }
 
 func (service *Service) cancelActiveRunContext(workspaceID string, conversationID string, active activeTurn) {
-	delay := goalContinuationCancelDrainTimeout(active.goalContinuation)
+	delay := goalOperationCancelDrainTimeout(active.goalOperation)
 	if delay <= 0 {
 		active.cancel()
 		return
@@ -97,11 +97,11 @@ func (service *Service) markActiveCancellationDrain(workspaceID string, conversa
 	service.active[key] = active
 }
 
-func goalContinuationCancelDrainTimeout(continuation HarnessGoalContinuation) time.Duration {
-	if continuation == nil {
+func goalOperationCancelDrainTimeout(operation HarnessGoalOperation) time.Duration {
+	if operation == nil {
 		return 0
 	}
-	drainer, ok := continuation.(HarnessGoalContinuationCancelDrainer)
+	drainer, ok := operation.(HarnessGoalOperationCancelDrainer)
 	if !ok {
 		return 0
 	}

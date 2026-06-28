@@ -83,6 +83,10 @@ func (harness *ScriptedWorkflowHarness) ActiveRunCount() int {
 func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	harness.registerRun(request.Run.ID)
 	defer harness.unregisterRun(request.Run.ID)
+	return harness.runScriptedTurn(ctx, request, sink)
+}
+
+func (harness *ScriptedWorkflowHarness) runScriptedTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	harness.applyInitialCodexSettings(request)
 
 	settings, err := scriptedCodexEffectiveSettings(harness.model, harness.reasoning)
@@ -203,24 +207,27 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 	}
 }
 
-type scriptedGoalContinuation struct {
+type scriptedGoalOperation struct {
 	harness *ScriptedWorkflowHarness
 }
 
-func (harness *ScriptedWorkflowHarness) BeginGoalContinuation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error) {
+func (harness *ScriptedWorkflowHarness) BeginGoalOperation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalOperation, error) {
 	result, err := harness.ExecuteCommand(ctx, request)
 	if err != nil {
 		return HarnessCommandResult{}, nil, err
 	}
-	return result, &scriptedGoalContinuation{harness: harness}, nil
+	return result, &scriptedGoalOperation{harness: harness}, nil
 }
 
-func (continuation *scriptedGoalContinuation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	completion, err := continuation.harness.StartTurn(ctx, request, sink)
+func (operation *scriptedGoalOperation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	operation.harness.registerRun(request.Run.ID)
+	defer operation.harness.unregisterRun(request.Run.ID)
+
+	completion, err := operation.harness.runScriptedTurn(ctx, request, sink)
 	if err != nil || completion.Outcome != TurnOutcomeCompleted {
 		return completion, err
 	}
-	goal := continuation.harness.completeGoal(request.ThreadRef.ThreadID)
+	goal := operation.harness.completeGoal(request.ThreadRef.ThreadID)
 	if goal != nil {
 		if err := sink.GoalUpdated(goal); err != nil {
 			return TurnCompletion{}, err
@@ -229,9 +236,9 @@ func (continuation *scriptedGoalContinuation) Wait(ctx context.Context, request 
 	return completion, nil
 }
 
-func (continuation *scriptedGoalContinuation) Cancel(context.Context) error { return nil }
+func (operation *scriptedGoalOperation) Cancel(context.Context) error { return nil }
 
-func (continuation *scriptedGoalContinuation) Close() {}
+func (operation *scriptedGoalOperation) Close() {}
 
 func (harness *ScriptedWorkflowHarness) completeGoal(threadID string) *ChatGoalState {
 	harness.mu.Lock()

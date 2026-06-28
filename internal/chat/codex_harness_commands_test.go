@@ -26,13 +26,13 @@ func TestCodexHarnessExecutesIdleGoalCommandRPC(t *testing.T) {
 	}
 }
 
-func TestCodexHarnessBeginsGoalContinuationFromCommandRPC(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-goal-continuation"))
+func TestCodexHarnessBeginsGoalOperationFromCommandRPC(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-multi-turn"))
 	request := testCommandRequest(t, "/goal finish renderer tests")
 
-	result, continuation, err := harness.BeginGoalContinuation(context.Background(), request)
+	result, continuation, err := harness.BeginGoalOperation(context.Background(), request)
 	if err != nil {
-		t.Fatalf("begin goal continuation: %v", err)
+		t.Fatalf("begin goal operation: %v", err)
 	}
 	defer continuation.Close()
 	if !result.HasThreadRef || result.ThreadRef.ThreadID != "thread_fake" {
@@ -50,32 +50,28 @@ func TestCodexHarnessBeginsGoalContinuationFromCommandRPC(t *testing.T) {
 	sink := newRecordingSink()
 	completion, err := continuation.Wait(context.Background(), turnRequest, sink)
 	if err != nil {
-		t.Fatalf("wait goal continuation: %v", err)
+		t.Fatalf("wait goal operation: %v", err)
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if sink.text != "goal continuation" {
-		t.Fatalf("assistant text = %q, want goal continuation", sink.text)
+	if sink.text != "goal turn A. goal turn B. " {
+		t.Fatalf("assistant text = %q, want output from both physical goal turns", sink.text)
 	}
 	if len(sink.goals) == 0 || sink.goals[len(sink.goals)-1] == nil || sink.goals[len(sink.goals)-1].Status != "complete" {
 		t.Fatalf("goals = %+v, want final complete goal", sink.goals)
 	}
 }
 
-// TestCodexHarnessGoalContinuationEnablesBackgroundTerminalLateRouting is the regression for the
-// goal-continuation bypass: a goal continuation runs a turn outside StartTurn, so it must mirror
-// StartTurn's background terminal lifecycle setup (register the thread's conversation, mark its
-// turn active, clear on completion). After the continuation, late unified-exec events for the
-// thread must be routable to the conversation that ran it; without the Wait-side registration the
-// thread has no context and late background-terminal output/completion are silently dropped.
-func TestCodexHarnessGoalContinuationEnablesBackgroundTerminalLateRouting(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-goal-continuation"))
+// Goal operations run outside StartTurn, but they still preserve the thread's
+// conversation context for background terminals that emit after the operation.
+func TestCodexHarnessGoalOperationEnablesBackgroundTerminalLateRouting(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-multi-turn"))
 	background := newRecordingBackgroundTerminalSink()
 	harness.SetBackgroundTerminalSink(background)
 	request := testCommandRequest(t, "/goal finish renderer tests")
 
-	result, continuation, err := harness.BeginGoalContinuation(context.Background(), request)
+	result, continuation, err := harness.BeginGoalOperation(context.Background(), request)
 	if err != nil {
-		t.Fatalf("begin goal continuation: %v", err)
+		t.Fatalf("begin goal operation: %v", err)
 	}
 	defer continuation.Close()
 
@@ -87,7 +83,7 @@ func TestCodexHarnessGoalContinuationEnablesBackgroundTerminalLateRouting(t *tes
 	sink := newRecordingSink()
 	completion, err := continuation.Wait(context.Background(), turnRequest, sink)
 	if err != nil {
-		t.Fatalf("wait goal continuation: %v", err)
+		t.Fatalf("wait goal operation: %v", err)
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
 
@@ -95,7 +91,7 @@ func TestCodexHarnessGoalContinuationEnablesBackgroundTerminalLateRouting(t *tes
 	// StartTurn, so a later unified-exec event on this thread routes to the right conversation.
 	routedSink, routedContext, ok := harness.backgroundTerminalLateRouting("thread_fake")
 	if !ok {
-		t.Fatal("goal continuation did not enable background-terminal late routing for its thread")
+		t.Fatal("goal operation did not enable background-terminal late routing for its thread")
 	}
 	if routedSink == nil {
 		t.Fatal("background-terminal late routing returned a nil sink")
@@ -474,7 +470,7 @@ func fakeCommandUsesThread(mode string) bool {
 }
 
 func fakeCommandStartsThread(mode string) bool {
-	return mode == "command-goal-set" || mode == "command-goal-continuation" || mode == "command-goal-edit" || mode == "command-goal-pause-no-goal" || fakeGoalOperationMode(mode)
+	return mode == "command-goal-set" || mode == "command-goal-edit" || mode == "command-goal-pause-no-goal" || fakeGoalOperationMode(mode)
 }
 
 func fakeCommandResumesThread(mode string) bool {
@@ -813,10 +809,6 @@ func fakeGoalOperationMode(mode string) bool {
 	// tests cannot force repeatably; do not add provider semantics here unless a
 	// direct app-server characterization test anchors the behavior.
 	return strings.HasPrefix(mode, "goal-operation-")
-}
-
-func fakeGoalContinuationMode(mode string) bool {
-	return fakeGoalOperationMode(mode) || mode == "command-goal-continuation"
 }
 
 func fakeThreadGoal(objective string, status string) map[string]any {

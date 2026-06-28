@@ -47,7 +47,7 @@ type activeTurn struct {
 	completedAssistantTexts     []string
 	cancel                      context.CancelFunc
 	cancelDrain                 bool
-	goalContinuation            HarnessGoalContinuation
+	goalOperation               HarnessGoalOperation
 	lastPersistedAt             time.Time
 	runID                       string
 	threadID                    string
