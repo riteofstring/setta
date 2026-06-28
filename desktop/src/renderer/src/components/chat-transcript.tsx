@@ -33,6 +33,7 @@ export interface ChatTranscriptProps {
   blocks: TranscriptBlock[];
   editQueuedMessage: (messageId: string, prompt: string) => Promise<void>;
   editingQueuedMessageId: string | null;
+  focusedSourceRunItemId?: string | null;
   hasMoreOlder: boolean;
   loadOlder: () => Promise<void>;
   loadRunItemOutput: LoadRunItemOutput;
@@ -62,31 +63,73 @@ function transcriptSearchIndex(rows: TranscriptRenderRow[]) {
   const entries: { id: string; text: string }[] = [];
   const rowIndexById = new Map<string, number>();
   for (const row of rows) {
-    const entry = transcriptSearchEntry(row);
-    if (!entry) {
-      continue;
+    for (const entry of transcriptSearchEntries(row)) {
+      entries.push(entry);
+      rowIndexById.set(entry.id, row.index);
     }
-    entries.push(entry);
-    rowIndexById.set(entry.id, row.index);
   }
   return { entries, rowIndexById };
 }
 
-function transcriptSearchEntry(row: TranscriptRenderRow): { id: string; text: string } | null {
-  if (row.kind === "message" || row.kind === "queued") {
-    return { id: row.message.id, text: chatMessageText(row.message) };
+function transcriptSearchEntries(row: TranscriptRenderRow): { id: string; text: string }[] {
+  switch (row.kind) {
+    case "message":
+    case "queued":
+      return [{ id: row.message.id, text: chatMessageText(row.message) }];
+    case "activity-group":
+      return row.expanded
+        ? []
+        : row.members.flatMap((member) => transcriptActivitySearchEntry(member));
+    case "activity-item":
+      return transcriptActivitySearchEntry(row.block);
+    case "block":
+      return transcriptBlockSearchEntries(row.block);
   }
-  if (row.kind !== "block") {
-    return null;
-  }
-  const block = row.block;
+}
+
+function transcriptBlockSearchEntries(block: TranscriptBlock): { id: string; text: string }[] {
   if (block.kind === "user_message" && block.userMessage) {
-    return { id: block.userMessage.messageId, text: messagePartsText(block.userMessage.parts) };
+    return [{ id: block.userMessage.messageId, text: messagePartsText(block.userMessage.parts) }];
   }
   if (block.kind === "assistant_text" && block.assistantText) {
-    return { id: block.id, text: block.assistantText.text };
+    return [{ id: block.id, text: block.assistantText.text }];
   }
-  return null;
+  return [];
+}
+
+function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; text: string }[] {
+  const activity = block.activity;
+  if (block.kind !== "activity_item" || !activity) {
+    return [];
+  }
+  const details = activity.details;
+  return [
+    {
+      id: block.id,
+      text: [
+        activity.title,
+        details.command,
+        details.cwd,
+        details.filePaths.join("\n"),
+        details.summary,
+        details.progress,
+        details.result,
+        details.error,
+        details.noticeKind,
+        details.noticeMessage,
+        details.diffSummary,
+        details.serverName,
+        details.toolName,
+        details.namespace,
+        details.processId,
+        details.requestId,
+        details.reviewId,
+        details.patchStatus,
+      ]
+        .filter((item) => item !== "")
+        .join("\n"),
+    },
+  ];
 }
 
 function messagePartsText(parts: { text: string }[]) {
@@ -98,6 +141,7 @@ export function ChatTranscript({
   blocks,
   editQueuedMessage,
   editingQueuedMessageId,
+  focusedSourceRunItemId = null,
   hasMoreOlder,
   loadOlder,
   loadRunItemOutput,
@@ -122,24 +166,87 @@ export function ChatTranscript({
   const [expandedActivityBlockIds, setExpandedActivityBlockIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [expandedActivityGroupIds, setExpandedActivityGroupIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [pendingScrollAnchor, setPendingScrollAnchor] = useState<{
     key: string;
     previousFirstKey: string | null;
     previousLength: number;
   } | null>(null);
 
-  const rows = useMemo(
-    () => transcriptRenderRows({ blocks, messages, queuedMessages }),
-    [blocks, messages, queuedMessages],
+  const focusedActivitySourceRunItemIds = useMemo(
+    () => (focusedSourceRunItemId ? new Set([focusedSourceRunItemId]) : undefined),
+    [focusedSourceRunItemId],
   );
-  const { entries, rowIndexById } = useMemo(() => transcriptSearchIndex(rows), [rows]);
+  const baseRows = useMemo(
+    () =>
+      transcriptRenderRows({
+        blocks,
+        expandedActivityGroupIds,
+        forceExpandedActivitySourceRunItemIds: focusedActivitySourceRunItemIds,
+        messages,
+        queuedMessages,
+      }),
+    [blocks, expandedActivityGroupIds, focusedActivitySourceRunItemIds, messages, queuedMessages],
+  );
+  const baseSearchIndex = useMemo(() => transcriptSearchIndex(baseRows), [baseRows]);
   const search = useTranscriptSearch({
-    entries,
+    entries: baseSearchIndex.entries,
     open: searchOpen,
-    rowIndexById,
+    rowIndexById: baseSearchIndex.rowIndexById,
     setOpen: setSearchOpen,
     virtuosoRef,
   });
+  const activityBlockIds = useMemo(
+    () =>
+      new Set(
+        blocks
+          .filter((block) => block.kind === "activity_item" && block.activity)
+          .map((block) => block.id),
+      ),
+    [blocks],
+  );
+  const forceExpandedActivityBlockIds = useMemo(
+    () =>
+      search.activeSearchId && activityBlockIds.has(search.activeSearchId)
+        ? new Set([search.activeSearchId])
+        : undefined,
+    [activityBlockIds, search.activeSearchId],
+  );
+  const rows = useMemo(
+    () =>
+      transcriptRenderRows({
+        blocks,
+        expandedActivityGroupIds,
+        forceExpandedActivityBlockIds,
+        forceExpandedActivitySourceRunItemIds: focusedActivitySourceRunItemIds,
+        messages,
+        queuedMessages,
+      }),
+    [
+      blocks,
+      expandedActivityGroupIds,
+      focusedActivitySourceRunItemIds,
+      forceExpandedActivityBlockIds,
+      messages,
+      queuedMessages,
+    ],
+  );
+  const finalSearchIndex = useMemo(() => transcriptSearchIndex(rows), [rows]);
+
+  useEffect(() => {
+    if (!search.activeSearchId) {
+      return;
+    }
+    const index = finalSearchIndex.rowIndexById.get(search.activeSearchId);
+    if (index === undefined) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      virtuosoRef.current?.scrollToIndex({ align: "center", index });
+    });
+  }, [finalSearchIndex.rowIndexById, search.activeSearchId, virtuosoRef]);
 
   const rowActions = useMemo(
     () =>
@@ -164,35 +271,38 @@ export function ChatTranscript({
   );
 
   const setActivityRowExpanded = useCallback((blockId: string, open: boolean) => {
-    setExpandedActivityBlockIds((current) => withActivityRowsExpanded(current, [blockId], open));
+    setExpandedActivityBlockIds((current) => withIdsExpanded(current, [blockId], open));
   }, []);
-  const setActivityRowsExpanded = useCallback((blockIds: string[], open: boolean) => {
-    setExpandedActivityBlockIds((current) => withActivityRowsExpanded(current, blockIds, open));
+  const setActivityGroupExpanded = useCallback((groupId: string, open: boolean) => {
+    setExpandedActivityGroupIds((current) => withIdsExpanded(current, [groupId], open));
   }, []);
 
   const context = useMemo<TranscriptRowContext>(
     () => ({
       activeSearchId: search.activeSearchId,
       expandedActivityBlockIds,
-      focusedSourceRunItemId: null,
+      expandedActivityGroupIds,
+      focusedSourceRunItemId,
       loadRunItemOutput,
       outputIdsByRunItemId: runItemOutputIdsByRunItemId,
       outputPagesByRunItemId: runItemOutputPagesByRunItemId,
       outputsById: runItemOutputsById,
       rowActions,
+      setActivityGroupExpanded,
       setActivityRowExpanded,
-      setActivityRowsExpanded,
     }),
     [
       expandedActivityBlockIds,
+      expandedActivityGroupIds,
+      focusedSourceRunItemId,
       loadRunItemOutput,
       rowActions,
       runItemOutputIdsByRunItemId,
       runItemOutputPagesByRunItemId,
       runItemOutputsById,
       search.activeSearchId,
+      setActivityGroupExpanded,
       setActivityRowExpanded,
-      setActivityRowsExpanded,
     ],
   );
 
@@ -353,7 +463,7 @@ export function ChatTranscript({
   );
 }
 
-function withActivityRowsExpanded(current: Set<string>, blockIds: string[], open: boolean) {
+function withIdsExpanded(current: Set<string>, blockIds: string[], open: boolean) {
   const next = new Set(current);
   for (const blockId of blockIds) {
     if (open) {

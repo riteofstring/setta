@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 
 import {
+  assertCollapsedActivityGroupHeader,
   assertNoCriticalDiagnostics,
   assertRendererQueueMatchesBackend,
   waitForModelPickerSummary,
@@ -603,17 +604,13 @@ async function assertActivityRows(client, expectedRows) {
         `rendered activity missing source item ${expected.sourceRunItemId}: ${JSON.stringify(rendered.rows)}`,
       );
     }
-    const displayText = projectedActivityRowDisplayText(expected);
+    const displayText = expected.title;
     if (!row.text.includes(displayText)) {
       throw new Error(
         `rendered activity row missing display text ${displayText}: ${JSON.stringify(row)}`,
       );
     }
   }
-}
-
-function projectedActivityRowDisplayText(row) {
-  return row.details?.command || row.title;
 }
 
 async function assertAssistantTextOccurrence(client, text, expectedCount) {
@@ -648,31 +645,58 @@ function requireProjectedRow(rows, title) {
 }
 
 async function openProjectedActivityRow(client, sourceRunItemId) {
-  const opened = await client.evaluate(`(() => {
-    const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
-    const rows = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'));
-    const row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
-    if (!row) {
-      return {
-        ok: false,
-        reason: "missing-row",
-        rows: rows.map((candidate) => ({
-          sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
-          text: candidate.innerText,
-        })),
-      };
+  const startedAt = Date.now();
+  let opened = null;
+  while (Date.now() - startedAt < 2_000) {
+    opened = await client.evaluate(`(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
+      const groupHeaders = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'));
+      const groupHeader = groupHeaders.find((candidate) =>
+        (candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "")
+          .split(/\\s+/)
+          .includes(sourceRunItemId)
+      );
+      let rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+      let row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      if (
+        !row &&
+        groupHeader instanceof HTMLButtonElement &&
+        groupHeader.getAttribute("data-activity-group-expanded") !== "true"
+      ) {
+        groupHeader.click();
+        rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+        row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      }
+      if (!row) {
+        return {
+          ok: false,
+          reason: "missing-row",
+          groups: groupHeaders.map((candidate) => ({
+            expanded: candidate.getAttribute("data-activity-group-expanded") ?? "",
+            sourceRunItemIds: candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "",
+            text: candidate.innerText,
+          })),
+          rows: rows.map((candidate) => ({
+            sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
+            text: candidate.innerText,
+          })),
+        };
+      }
+      if (!(row instanceof HTMLDetailsElement)) {
+        return { ok: true, reason: "compact-row" };
+      }
+      if (!row.open) {
+        row.querySelector("summary")?.click();
+      }
+      return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
+    })()`);
+    if (opened.ok) {
+      return;
     }
-    if (!(row instanceof HTMLDetailsElement)) {
-      return { ok: true, reason: "compact-row" };
-    }
-    if (!row.open) {
-      row.querySelector("summary")?.click();
-    }
-    return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
-  })()`);
-  if (!opened.ok) {
-    throw new Error(`activity row ${sourceRunItemId} was not opened: ${JSON.stringify(opened)}`);
+    await delay(50);
   }
+  throw new Error(`activity row ${sourceRunItemId} was not opened: ${JSON.stringify(opened)}`);
 }
 
 async function waitForRunItemOutputIpc(recordingDir, sourceRunItemId, afterOrdinal) {
@@ -1271,12 +1295,12 @@ async function runCodexProtocolWorkflow(results) {
       "protocol notification workflow",
       "completed",
     );
-    await waitForTexts(context.client, [
-      "coverage complete",
-      "Hook: pre-command",
-      "Auto-approval review",
-      "/tmp/workspace/main.go",
-    ]);
+    await waitForTexts(context.client, ["coverage complete", "workspace_context"]);
+    await assertCollapsedActivityGroupHeader(context.client, {
+      count: "9",
+      hidden: "+8",
+      preview: "workspace_context",
+    });
     await assertTextAbsent(context.client, "Reasoning text");
     await assertTextAbsent(context.client, "private reasoning");
     await waitForModelPickerSummary(waitForState, context.client, "GPT Test", "Extra high");

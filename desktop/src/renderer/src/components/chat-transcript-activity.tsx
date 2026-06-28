@@ -12,8 +12,6 @@ import {
   Ban,
   Check,
   ChevronDown,
-  ChevronsDownUp,
-  ChevronsUpDown,
   CircleAlert,
   FileText,
   Globe,
@@ -274,7 +272,7 @@ function ActivityRowView({
       />
     );
   }
-  const renderDetails = shouldRenderActivityDetails(expanded, focused, activity, outputs);
+  const renderDetails = shouldRenderActivityDetails(expanded, focused);
   const outputText = renderDetails ? outputPreview(outputs) : "";
   return (
     <details
@@ -396,53 +394,91 @@ function useFocusedActivityRow(
   }, [focused, onExpandedChange, rowRef]);
 }
 
-// TranscriptActivityGroupSlot is the slim render-only control slot above a
-// maximal run of adjacent activity rows. It carries only the hover/focus bulk
-// expand/collapse control. It is never a persisted backend block; the slot is
-// reserved before the first row so a later adjacent row only mutates it.
-export function TranscriptActivityGroupSlot({
-  controlsVisible = false,
-  expandableBlockIds,
-  expandedBlockIds,
-  onBulkToggle,
+// TranscriptActivityGroupHeader is the slim render-only row for a maximal run of
+// adjacent activity blocks. It is never a persisted backend block; while
+// collapsed, new member rows update this header instead of adding visible rows.
+export function TranscriptActivityGroupHeader({
+  expanded,
+  members,
+  onExpandedChange,
 }: {
-  controlsVisible?: boolean;
-  expandableBlockIds: string[];
-  expandedBlockIds: Set<string>;
-  onBulkToggle: (blockIds: string[], open: boolean) => void;
+  expanded: boolean;
+  members: TranscriptBlock[];
+  onExpandedChange: (open: boolean) => void;
 }) {
-  const anyCollapsed = expandableBlockIds.some((blockId) => !expandedBlockIds.has(blockId));
-  // The bulk control only earns its keep with two or more expandable rows; a single
-  // row is expanded by its own chevron. The slot height stays reserved either way so
-  // a later adjacent row never inserts a control above an already-visible row.
-  const hasBulkControl = expandableBlockIds.length > 1;
+  const state = activityGroupHeaderState(members);
+  if (!state) {
+    return null;
+  }
+  const hiddenCount = expanded ? 0 : Math.max(0, members.length - 1);
+  const sourceRunItemIds = members
+    .map((member) => member.activity?.sourceRunItemId ?? "")
+    .filter((sourceRunItemId) => sourceRunItemId !== "")
+    .join(" ");
   return (
-    <div
-      aria-hidden={!hasBulkControl}
-      className="group/activity-slot relative h-2 min-w-0"
-      data-testid="activity-group-slot"
+    <button
+      aria-expanded={expanded}
+      aria-label={`${expanded ? "Collapse" : "Expand"} activity group`}
+      className="flex h-6 w-full min-w-0 items-center gap-1.5 rounded-sm text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      data-activity-group-expanded={expanded ? "true" : "false"}
+      data-activity-group-source-run-item-ids={sourceRunItemIds}
+      data-testid="activity-group-header"
+      onClick={() => onExpandedChange(!expanded)}
+      type="button"
     >
-      {hasBulkControl ? (
-        <button
-          aria-label={anyCollapsed ? "Expand all activity rows" : "Collapse all activity rows"}
-          className={cn(
-            "absolute top-1/2 right-0 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover/activity-slot:opacity-100 group-focus-within/activity-slot:opacity-100",
-            controlsVisible && "opacity-100",
-          )}
-          data-testid="activity-group-bulk-toggle"
-          onClick={() => onBulkToggle(expandableBlockIds, anyCollapsed)}
-          title={anyCollapsed ? "Expand all" : "Collapse all"}
-          type="button"
-        >
-          {anyCollapsed ? (
-            <ChevronsUpDown className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronsDownUp className="h-3.5 w-3.5" />
-          )}
-        </button>
+      <ChevronDown
+        className={cn(
+          "h-3.5 w-3.5 shrink-0 transition-transform",
+          expanded ? "rotate-180" : "-rotate-90",
+        )}
+      />
+      <span className="grid h-4 min-w-4 shrink-0 place-items-center rounded-sm bg-muted px-1 font-mono text-[10px] leading-none text-muted-foreground">
+        {members.length}
+      </span>
+      <ActivityRowStatus status={state.status} title={state.label.text} />
+      <ActivityLabel
+        className={cn(
+          "min-w-0 flex-1 truncate font-medium text-muted-foreground",
+          state.label.monospace && "font-mono text-[12px] font-normal text-foreground",
+        )}
+        label={state.label}
+      />
+      {hiddenCount > 0 ? (
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">+{hiddenCount}</span>
       ) : null}
-    </div>
+    </button>
   );
+}
+
+function activityGroupHeaderState(members: TranscriptBlock[]) {
+  const activities = members
+    .map((member) => member.activity)
+    .filter((activity): activity is ActivityItemBlockProjection => activity !== null);
+  const preview =
+    activities.find((activity) => activity.status === "pending" || activity.status === "running") ??
+    activities[0];
+  if (!preview) {
+    return null;
+  }
+  return {
+    label: activityDisplayLabel(preview),
+    status: aggregateActivityStatus(activities),
+  };
+}
+
+function aggregateActivityStatus(activities: ActivityItemBlockProjection[]): RunItemStatus {
+  if (activities.some((activity) => activity.status === "failed")) {
+    return "failed";
+  }
+  if (activities.some((activity) => activity.status === "cancelled")) {
+    return "cancelled";
+  }
+  if (
+    activities.some((activity) => activity.status === "pending" || activity.status === "running")
+  ) {
+    return "running";
+  }
+  return "completed";
 }
 
 // RunItemActivityList renders projected activity rows for non-transcript surfaces
@@ -558,19 +594,8 @@ function hasExpandableActivityRow(activity: ActivityItemBlockProjection) {
   return activity.hasDetails || activity.hasOutput;
 }
 
-function shouldRenderActivityDetails(
-  open: boolean,
-  focused: boolean,
-  activity: ActivityItemBlockProjection,
-  outputs: RunItemOutput[],
-) {
-  if (open || focused) {
-    return true;
-  }
-  if (activity.status !== "pending" && activity.status !== "running") {
-    return true;
-  }
-  return outputs.length === 0;
+function shouldRenderActivityDetails(open: boolean, focused: boolean) {
+  return open || focused;
 }
 
 function shouldLoadActivityOutput(

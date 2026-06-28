@@ -35,8 +35,8 @@ const CHRONOLOGICAL_STEP_TEXTS = [
 // separately.
 const CHRONOLOGICAL_DOM_TEXT_ORDER = [
   "Chronological step one: inspecting the shell scripts.",
-  "printf chronological-a",
-  "printf chronological-b",
+  "Chronological command A",
+  "Chronological command B",
   "Chronological step two: the scripts are pinned-toolchain wrappers.",
   "Chronological reasoning headline",
   "Chronological step three: the parser lives in internal/chat.",
@@ -76,7 +76,6 @@ export async function runChronologicalTranscriptWorkflow({
     await waitForTexts(client, [
       ...CHRONOLOGICAL_STEP_TEXTS,
       "Chronological command A",
-      "Chronological command B",
       "Chronological reasoning headline",
     ]);
   } finally {
@@ -100,7 +99,6 @@ export async function runChronologicalTranscriptWorkflow({
     ],
   });
   await openProjectedActivityRows(client, projection.rows);
-  await waitForTexts(client, ["printf chronological-a", "printf chronological-b"]);
   await assertActivityRows(client, projection.rows);
 
   // Capture the three diagnostic layers, then assert the chronological behavior.
@@ -127,31 +125,58 @@ async function openProjectedActivityRows(client, rows) {
 }
 
 async function openProjectedActivityRow(client, sourceRunItemId) {
-  const opened = await client.evaluate(`(() => {
-    const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
-    const rows = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'));
-    const row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
-    if (!row) {
-      return {
-        ok: false,
-        reason: "missing-row",
-        rows: rows.map((candidate) => ({
-          sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
-          text: candidate.innerText,
-        })),
-      };
+  const startedAt = Date.now();
+  let opened = null;
+  while (Date.now() - startedAt < 2_000) {
+    opened = await client.evaluate(`(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
+      const groupHeaders = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'));
+      const groupHeader = groupHeaders.find((candidate) =>
+        (candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "")
+          .split(/\\s+/)
+          .includes(sourceRunItemId)
+      );
+      let rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+      let row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      if (
+        !row &&
+        groupHeader instanceof HTMLButtonElement &&
+        groupHeader.getAttribute("data-activity-group-expanded") !== "true"
+      ) {
+        groupHeader.click();
+        rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+        row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      }
+      if (!row) {
+        return {
+          ok: false,
+          reason: "missing-row",
+          groups: groupHeaders.map((candidate) => ({
+            expanded: candidate.getAttribute("data-activity-group-expanded") ?? "",
+            sourceRunItemIds: candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "",
+            text: candidate.innerText,
+          })),
+          rows: rows.map((candidate) => ({
+            sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
+            text: candidate.innerText,
+          })),
+        };
+      }
+      if (!(row instanceof HTMLDetailsElement)) {
+        return { ok: true, reason: "compact-row" };
+      }
+      if (!row.open) {
+        row.querySelector("summary")?.click();
+      }
+      return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
+    })()`);
+    if (opened.ok) {
+      return;
     }
-    if (!(row instanceof HTMLDetailsElement)) {
-      return { ok: true, reason: "compact-row" };
-    }
-    if (!row.open) {
-      row.querySelector("summary")?.click();
-    }
-    return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
-  })()`);
-  if (!opened.ok) {
-    throw new Error(`activity row ${sourceRunItemId} was not opened: ${JSON.stringify(opened)}`);
+    await delay(50);
   }
+  throw new Error(`activity row ${sourceRunItemId} was not opened: ${JSON.stringify(opened)}`);
 }
 
 function assertChronologicalInterleaving(blocks, runId) {

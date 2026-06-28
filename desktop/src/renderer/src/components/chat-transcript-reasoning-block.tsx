@@ -4,6 +4,7 @@ import { Brain, ChevronDown, Sparkles } from "lucide-react";
 import { cn } from "../lib/utils";
 import { BrailleSpinner } from "./ascii-spinner";
 import { chatReadableColumnAttributes, chatReadableColumnPaddedClass } from "./chat-layout";
+import { LiveHeadlineText } from "./live-headline-text";
 
 // Reasoning is one stable transcript block kind with two display modes. The
 // derived public headline persists across the thinking-to-summary transition and
@@ -50,7 +51,9 @@ function ReasoningThinkingRow({
         <Brain
           className={cn("h-4 w-4 shrink-0", live ? "text-accent-violet" : "text-muted-foreground")}
         />
-        <span className="min-w-0 truncate">{headline}</span>
+        <LiveHeadlineText active={live} className="min-w-0 truncate">
+          {headline}
+        </LiveHeadlineText>
         {live ? <BrailleSpinner className="text-accent-violet" label="Reasoning" /> : null}
       </div>
     </div>

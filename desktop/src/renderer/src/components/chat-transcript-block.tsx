@@ -11,7 +11,7 @@ import {
   ActivityItemRow,
   activityRowOutputs,
   type LoadRunItemOutput,
-  TranscriptActivityGroupSlot,
+  TranscriptActivityGroupHeader,
 } from "./chat-transcript-activity";
 import {
   AssistantTextBlock,
@@ -20,6 +20,7 @@ import {
   UserMessageBlock,
 } from "./chat-transcript-message-block";
 import { ReasoningBlock } from "./chat-transcript-reasoning-block";
+import { LiveHeadlineText } from "./live-headline-text";
 import type { TranscriptRowActions } from "./chat-transcript-row-actions";
 
 // Shared, render-scoped context every transcript row needs: search highlight,
@@ -30,8 +31,9 @@ export interface TranscriptRowContext {
   activeSearchId: string | null;
   rowActions: TranscriptRowActions;
   expandedActivityBlockIds: Set<string>;
+  expandedActivityGroupIds: Set<string>;
   setActivityRowExpanded: (blockId: string, open: boolean) => void;
-  setActivityRowsExpanded: (blockIds: string[], open: boolean) => void;
+  setActivityGroupExpanded: (groupId: string, open: boolean) => void;
   focusedSourceRunItemId: string | null;
   loadRunItemOutput: LoadRunItemOutput;
   outputIdsByRunItemId: Record<string, string[]>;
@@ -131,13 +133,16 @@ function ActivityItemRowSlot({
   row: Extract<TranscriptRenderRow, { kind: "activity-item" }>;
 }) {
   const sourceRunItemId = row.block.activity?.sourceRunItemId ?? "";
+  const focused =
+    context.activeSearchId === row.block.id ||
+    (sourceRunItemId !== "" && context.focusedSourceRunItemId === sourceRunItemId);
   return (
     <div {...chatReadableColumnAttributes} className={chatReadableColumnPaddedClass}>
       <div className="rounded-md border border-border bg-muted px-2.5 py-1">
         <ActivityItemRow
           block={row.block}
           expanded={context.expandedActivityBlockIds.has(row.block.id)}
-          focused={sourceRunItemId !== "" && context.focusedSourceRunItemId === sourceRunItemId}
+          focused={focused}
           loadRunItemOutput={context.loadRunItemOutput}
           onExpandedChange={(open) => context.setActivityRowExpanded(row.block.id, open)}
           outputPage={context.outputPagesByRunItemId[sourceRunItemId]}
@@ -159,23 +164,12 @@ function ActivityGroupSlotRow({
   context: TranscriptRowContext;
   row: Extract<TranscriptRenderRow, { kind: "activity-group" }>;
 }) {
-  const expandableBlockIds = row.members
-    .filter(
-      (member) => member.activity && (member.activity.hasDetails || member.activity.hasOutput),
-    )
-    .map((member) => member.id);
-  const focusVisible = row.members.some(
-    (member) =>
-      context.focusedSourceRunItemId !== null &&
-      member.activity?.sourceRunItemId === context.focusedSourceRunItemId,
-  );
   return (
     <div {...chatReadableColumnAttributes} className={chatReadableColumnPaddedClass}>
-      <TranscriptActivityGroupSlot
-        controlsVisible={focusVisible}
-        expandableBlockIds={expandableBlockIds}
-        expandedBlockIds={context.expandedActivityBlockIds}
-        onBulkToggle={context.setActivityRowsExpanded}
+      <TranscriptActivityGroupHeader
+        expanded={row.expanded}
+        members={row.members}
+        onExpandedChange={(open) => context.setActivityGroupExpanded(row.group.id, open)}
       />
     </div>
   );
@@ -197,7 +191,9 @@ function RunStatusBlock({ block }: { block: TranscriptBlock }) {
         tone="muted"
         icon={<BrailleSpinner label={runStatus.label} />}
       >
-        <span className="italic">{runStatus.label}</span>
+        <LiveHeadlineText active className="italic">
+          {runStatus.label}
+        </LiveHeadlineText>
       </RunStatusRow>
     );
   }

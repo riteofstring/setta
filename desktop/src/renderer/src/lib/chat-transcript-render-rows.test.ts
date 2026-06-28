@@ -33,7 +33,7 @@ function chatMessage(
 }
 
 describe("transcriptRenderRows", () => {
-  test("collapses adjacent activity blocks under one slim group slot and breaks on other blocks", () => {
+  test("collapses adjacent activity blocks to one slim group header by default", () => {
     const rows = transcriptRenderRows({
       blocks: [
         assistantTextBlock({
@@ -57,19 +57,59 @@ describe("transcriptRenderRows", () => {
       queuedMessages: [],
     });
 
+    expect(rows.map((row) => row.kind)).toEqual(["block", "activity-group", "block"]);
+    const group = rows[1];
+    if (group?.kind !== "activity-group") {
+      throw new Error("expected a derived activity group header row");
+    }
+    expect(group.expanded).toBe(false);
+    expect(group.group.memberBlockIds).toEqual(["cmd_a", "cmd_b"]);
+    expect(group.members.map((member) => member.id)).toEqual(["cmd_a", "cmd_b"]);
+  });
+
+  test("emits activity member rows when the derived group is expanded", () => {
+    const rows = transcriptRenderRows({
+      blocks: [
+        activityBlock({ id: "cmd_a", runId: "run", ordinal: 1, sourceRunItemId: "item_a" }),
+        activityBlock({ id: "cmd_b", runId: "run", ordinal: 2, sourceRunItemId: "item_b" }),
+      ],
+      expandedActivityGroupIds: new Set(["activity_group_cmd_a"]),
+      messages: [],
+      queuedMessages: [],
+    });
+
     expect(rows.map((row) => row.kind)).toEqual([
-      "block",
       "activity-group",
       "activity-item",
       "activity-item",
-      "block",
     ]);
-    const group = rows[1];
-    if (group?.kind !== "activity-group") {
-      throw new Error("expected a derived activity group slot row");
-    }
-    expect(group.group.memberBlockIds).toEqual(["cmd_a", "cmd_b"]);
-    expect(group.members.map((member) => member.id)).toEqual(["cmd_a", "cmd_b"]);
+    const group = rows[0];
+    expect(group?.kind === "activity-group" && group.expanded).toBe(true);
+  });
+
+  test("keeps live member arrival collapsed under the existing header", () => {
+    const firstRows = transcriptRenderRows({
+      blocks: [activityBlock({ id: "cmd_a", runId: "run", ordinal: 1, sourceRunItemId: "item_a" })],
+      messages: [],
+      queuedMessages: [],
+    });
+    const nextRows = transcriptRenderRows({
+      blocks: [
+        activityBlock({ id: "cmd_a", runId: "run", ordinal: 1, sourceRunItemId: "item_a" }),
+        activityBlock({ id: "cmd_b", runId: "run", ordinal: 2, sourceRunItemId: "item_b" }),
+      ],
+      messages: [],
+      queuedMessages: [],
+    });
+
+    expect(firstRows.map((row) => row.kind)).toEqual(["activity-group"]);
+    expect(nextRows.map((row) => row.kind)).toEqual(["activity-group"]);
+    expect(firstRows[0]?.key).toBe(nextRows[0]?.key);
+    const group = nextRows[0];
+    expect(group?.kind === "activity-group" && group.members.map((member) => member.id)).toEqual([
+      "cmd_a",
+      "cmd_b",
+    ]);
   });
 
   test("starts a fresh group after a non-activity block splits adjacent activity rows", () => {
@@ -83,13 +123,44 @@ describe("transcriptRenderRows", () => {
       queuedMessages: [],
     });
 
-    // The reasoning block splits the two commands into separate groups. The slim slot is
-    // reserved above each (even single-row) so a later adjacent row never shifts the layout.
+    // The reasoning block splits the two commands into separate collapsed groups.
+    expect(rows.map((row) => row.kind)).toEqual(["activity-group", "block", "activity-group"]);
+  });
+
+  test("force-opens a group when focus targets a member block", () => {
+    const rows = transcriptRenderRows({
+      blocks: [
+        activityBlock({ id: "cmd_a", runId: "run", ordinal: 1, sourceRunItemId: "item_a" }),
+        activityBlock({ id: "cmd_b", runId: "run", ordinal: 2, sourceRunItemId: "item_b" }),
+      ],
+      forceExpandedActivityBlockIds: new Set(["cmd_b"]),
+      messages: [],
+      queuedMessages: [],
+    });
+
     expect(rows.map((row) => row.kind)).toEqual([
       "activity-group",
       "activity-item",
-      "block",
+      "activity-item",
+    ]);
+    const group = rows[0];
+    expect(group?.kind === "activity-group" && group.expanded).toBe(true);
+  });
+
+  test("force-opens a group when focus targets a member source run item", () => {
+    const rows = transcriptRenderRows({
+      blocks: [
+        activityBlock({ id: "cmd_a", runId: "run", ordinal: 1, sourceRunItemId: "item_a" }),
+        activityBlock({ id: "cmd_b", runId: "run", ordinal: 2, sourceRunItemId: "item_b" }),
+      ],
+      forceExpandedActivitySourceRunItemIds: new Set(["item_b"]),
+      messages: [],
+      queuedMessages: [],
+    });
+
+    expect(rows.map((row) => row.kind)).toEqual([
       "activity-group",
+      "activity-item",
       "activity-item",
     ]);
   });

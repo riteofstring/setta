@@ -9,9 +9,8 @@ import {
 // backend owns run chronology as ordered transcript blocks; this module turns
 // that ordered block list into the renderer's row model without inspecting raw
 // run items. Adjacent activity_item blocks collapse under one slim derived group
-// slot: the slot is a render-only row emitted immediately before the first
-// activity row of each sequence, so a later adjacent activity row only mutates
-// the slot in place.
+// header by default. Member rows are emitted only when the user expands that
+// group or when focus/search targets a hidden member.
 //
 // Two message sources are not transcript blocks and are merged in here: standalone
 // messages that do not belong to a run (command results, system notices) sort by
@@ -31,6 +30,7 @@ export type TranscriptRenderRow =
       kind: "activity-group";
       key: string;
       index: number;
+      expanded: boolean;
       group: TranscriptActivityGroup;
       members: TranscriptBlock[];
     }
@@ -64,6 +64,9 @@ type TranscriptRenderEntry =
 
 export interface TranscriptRenderSource {
   blocks: TranscriptBlock[];
+  expandedActivityGroupIds?: ReadonlySet<string>;
+  forceExpandedActivityBlockIds?: ReadonlySet<string>;
+  forceExpandedActivitySourceRunItemIds?: ReadonlySet<string>;
   messages: ChatMessage[];
   queuedMessages: ChatMessage[];
 }
@@ -78,6 +81,9 @@ export function transcriptRenderRows(source: TranscriptRenderSource): Transcript
   const context: RenderEntryContext = {
     groups: indexActivityGroups(deriveTranscriptActivityGroups(orderedBlocks)),
     blockById: new Map(orderedBlocks.map((block) => [block.id, block])),
+    expandedActivityGroupIds: source.expandedActivityGroupIds ?? emptySet,
+    forceExpandedActivityBlockIds: source.forceExpandedActivityBlockIds ?? emptySet,
+    forceExpandedActivitySourceRunItemIds: source.forceExpandedActivitySourceRunItemIds ?? emptySet,
     timestampIds: timestampRowIds(ordered),
   };
   const entries: TranscriptRenderEntry[] = [];
@@ -100,8 +106,13 @@ interface ActivityGroupIndex {
 interface RenderEntryContext {
   groups: ActivityGroupIndex;
   blockById: Map<string, TranscriptBlock>;
+  expandedActivityGroupIds: ReadonlySet<string>;
+  forceExpandedActivityBlockIds: ReadonlySet<string>;
+  forceExpandedActivitySourceRunItemIds: ReadonlySet<string>;
   timestampIds: Set<string>;
 }
+
+const emptySet: ReadonlySet<string> = new Set();
 
 function indexActivityGroups(groups: TranscriptActivityGroup[]): ActivityGroupIndex {
   const byFirstMemberId = new Map<string, TranscriptActivityGroup>();
@@ -146,19 +157,44 @@ function appendOrderedItemEntries(
   if (!group) {
     return;
   }
-  // The slim group slot is always reserved above the first activity row of a
-  // sequence (even a single row) so a later adjacent row never inserts a slot above
-  // already-visible rows. The visible bulk control is gated to 2+ expandable rows in
-  // the renderer; the reserved slot prevents the layout shift it was meant to avoid.
+  const members = resolveGroupMembers(group, context.blockById);
+  const expanded = activityGroupExpanded(group, members, context);
+  // The slim group header is the only default visible row for an activity sequence.
+  // Later adjacent activity rows mutate the header count/status/preview while the
+  // collapsed virtual row list stays stable.
   if (context.groups.byFirstMemberId.get(block.id) === group) {
     entries.push({
       kind: "activity-group",
       key: `activity-group:${group.id}`,
+      expanded,
       group,
-      members: resolveGroupMembers(group, context.blockById),
+      members,
     });
   }
-  entries.push({ kind: "activity-item", key: `block:${block.id}`, block, group });
+  if (expanded) {
+    entries.push({ kind: "activity-item", key: `block:${block.id}`, block, group });
+  }
+}
+
+function activityGroupExpanded(
+  group: TranscriptActivityGroup,
+  members: TranscriptBlock[],
+  context: RenderEntryContext,
+) {
+  if (context.expandedActivityGroupIds.has(group.id)) {
+    return true;
+  }
+  return members.some((member) => {
+    if (context.forceExpandedActivityBlockIds.has(member.id)) {
+      return true;
+    }
+    const sourceRunItemId = member.activity?.sourceRunItemId;
+    return (
+      sourceRunItemId !== undefined &&
+      sourceRunItemId !== "" &&
+      context.forceExpandedActivitySourceRunItemIds.has(sourceRunItemId)
+    );
+  });
 }
 
 // mergeTranscriptItems interleaves run blocks with standalone (run-less) messages

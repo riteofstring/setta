@@ -191,6 +191,40 @@ a {
   text-decoration: none;
 }
 
+.live-headline-text[data-live-headline="active"] {
+  animation: setta-live-headline-shimmer 2.4s linear infinite;
+  background-image: linear-gradient(
+    90deg,
+    currentColor 0%,
+    currentColor 38%,
+    var(--accent-cyan) 50%,
+    currentColor 62%,
+    currentColor 100%
+  );
+  background-position: 100% 0;
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes setta-live-headline-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-headline-text[data-live-headline="active"] {
+    animation: none;
+    background-image: none;
+    color: inherit;
+  }
+}
+
 h1,
 h2,
 h3 {

@@ -469,15 +469,15 @@ describe("chat renderer states", () => {
     );
 
     expect(html).not.toContain('data-testid="run-activity-group"');
-    expect(html).toContain('data-testid="activity-group-slot"');
-    expect(html).not.toContain("2 commands");
-    expect(rowCount(html, "run-activity-row")).toBe(2);
+    expect(html).toContain('data-testid="activity-group-header"');
+    expect(html).toContain('data-activity-group-expanded="false"');
+    expect(rowCount(html, "run-activity-row")).toBe(0);
     expectTextOrder(html, [
       "Step one before the commands.",
       "find . -name &#x27;*.sh&#x27;",
-      "sed -n 1p setup.sh",
       "Step two after the commands.",
     ]);
+    expect(html).not.toContain("sed -n 1p setup.sh");
   });
 
   test("renders reasoning thinking and summary modes as first-class blocks", () => {
@@ -515,6 +515,7 @@ describe("chat renderer states", () => {
     expect(html).toContain("Mapping parser modules");
     expect(html).toContain("Caching the projection");
     expect(html).toContain("Weighed recompute cost against staleness.");
+    expect(html).toContain('data-live-headline="active"');
     expectTextOrder(html, [
       "Mapping parser modules",
       "Caching the projection",
@@ -540,6 +541,7 @@ describe("chat renderer states", () => {
     );
 
     expect(html).toContain('data-run-status-mode="working"');
+    expect(html).toContain('data-live-headline="active"');
     expect(html).toContain("Working");
   });
 
@@ -634,10 +636,13 @@ describe("chat renderer states", () => {
     expect(html).toContain('aria-label="Edit queued message"');
     expect(html).toContain('aria-label="Confirm queued message removal"');
     expect(html).toContain("Steering");
-    expect(html).toContain("go test ./...");
+    expect(html).toContain('data-testid="activity-group-header"');
+    expect(html).toContain('data-activity-group-expanded="false"');
+    expect(rowCount(html, "run-activity-row")).toBe(0);
     expect(html).toContain("main.go");
-    expect(html).toContain("halfway");
-    expect(html).toContain("warning text");
+    expect(html).not.toContain("go test ./...");
+    expect(html).not.toContain("halfway");
+    expect(html).not.toContain("warning text");
     expect(html).not.toContain('data-testid="run-activity-group"');
     expect(html).not.toContain("overflow-x-auto");
     expect(html).not.toContain("overflow-auto");
@@ -827,6 +832,7 @@ describe("chat renderer states", () => {
   test("renders load more for paged run output", () => {
     const html = renderToString(
       <TestChatTranscript
+        focusedSourceRunItemId="item_command"
         blocks={[
           activityBlock({
             id: "block_command",
@@ -910,6 +916,7 @@ interface TestChatTranscriptOptions {
   blocks?: TranscriptBlock[];
   editQueuedMessage?: ChatTranscriptProps["editQueuedMessage"];
   editingQueuedMessageId?: string | null;
+  focusedSourceRunItemId?: string | null;
   messages?: ChatMessage[];
   operation?: string | null;
   queuedMessages?: ChatMessage[];
@@ -941,6 +948,7 @@ function TestChatTranscript(options: TestChatTranscriptOptions) {
     blocks: [],
     editQueuedMessage: noop,
     editingQueuedMessageId: null,
+    focusedSourceRunItemId: null,
     messages: [],
     operation: null,
     queuedMessages: [],
@@ -958,6 +966,7 @@ function TestChatTranscript(options: TestChatTranscriptOptions) {
       blocks={resolved.blocks}
       editQueuedMessage={resolved.editQueuedMessage}
       editingQueuedMessageId={resolved.editingQueuedMessageId}
+      focusedSourceRunItemId={resolved.focusedSourceRunItemId}
       hasMoreOlder={false}
       loadOlder={noop}
       loadRunItemOutput={noop}

@@ -737,7 +737,9 @@ describe("chat readable width contract", () => {
       'data-chat-message="true"',
       'data-message-id="block_assistant"',
     );
-    expect(transcriptHtml).toContain('data-testid="run-activity-row"');
+    expect(transcriptHtml).toContain('data-testid="activity-group-header"');
+    expect(transcriptHtml).toContain('data-activity-group-expanded="false"');
+    expect(transcriptHtml).not.toContain('data-testid="run-activity-row"');
     expect(transcriptHtml).not.toContain('data-testid="run-activity-group"');
     for (const id of [
       "message_queued",

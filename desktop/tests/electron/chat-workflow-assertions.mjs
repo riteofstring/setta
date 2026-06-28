@@ -21,6 +21,30 @@ export async function assertNoCriticalDiagnostics(backend, workspaceId, conversa
   }
 }
 
+export async function assertCollapsedActivityGroupHeader(client, expected) {
+  const rendered = await client.evaluate(`(() => {
+    const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
+    return {
+      headers: Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]')).map((header) => ({
+        expanded: header.getAttribute("data-activity-group-expanded") ?? "",
+        text: header.innerText,
+      })),
+    };
+  })()`);
+  const header = rendered.headers.find(
+    (candidate) =>
+      candidate.expanded === "false" &&
+      candidate.text.includes(expected.count) &&
+      candidate.text.includes(expected.preview) &&
+      candidate.text.includes(expected.hidden),
+  );
+  if (!header) {
+    throw new Error(
+      `collapsed activity group header missing ${JSON.stringify(expected)}: ${JSON.stringify(rendered.headers)}`,
+    );
+  }
+}
+
 export async function waitForComposerFocus(waitForState, client) {
   await waitForState(client, driverCallExpression("composerFocus"), (value) => value.focused);
 }
