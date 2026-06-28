@@ -26,7 +26,7 @@ node desktop/tests/electron/run-workflows.mjs --skip-build --workflow workspace-
 Artifact:
 
 ```text
-.recordings/workspace-ultrawide-live-panes/20260701T165516779Z/summary.json
+.recordings/workspace-ultrawide-live-panes/20260701T171729317Z/summary.json
 ```
 
 Observed production Electron/main/preload/renderer path:
@@ -38,6 +38,8 @@ Observed production Electron/main/preload/renderer path:
 - Every viewport-intersecting pane had `runtimeState: "live"`.
 - Every viewport-intersecting pane had `pointerEvents: "auto"`.
 - Every viewport-intersecting pane had a non-empty `surfaceId` and `surfaceKind`.
+- Every viewport-intersecting terminal pane had a mounted terminal viewport and non-empty terminal status.
+- Every viewport-intersecting workflow graph pane had mounted workflow graph surface and host DOM.
 
 Result: pass.
 
@@ -50,6 +52,13 @@ pnpm --dir desktop exec vitest run src/renderer/src/workspace-layout/runtime-mod
 pnpm --dir desktop exec tsc --noEmit -p tsconfig.json
 ./scripts/format.sh
 ./check_quality.sh --git-changes
+```
+
+After tightening the persisted layout loader and terminal/workflow ultra-wide assertions:
+
+```sh
+pnpm --dir desktop exec vitest run src/renderer/src/workspace-layout/workspace-ui-layout.test.ts src/renderer/src/workspace-layout/workspace-scene.test.ts
+node desktop/tests/electron/run-workflows.mjs --skip-build --workflow workspace-ultrawide-live-panes
 ```
 
 Broad `./check_quality.sh --git-changes` verification is intentionally deferred until the pre-merge pass.

@@ -126,14 +126,27 @@ async function waitForUltraWideLivePaneSnapshot(client) {
   return waitForState(
     client,
     paneSnapshotExpression(),
-    (snapshot) =>
-      snapshot.workspaceMode === "workspace" &&
-      snapshot.totalPanes === paneCount &&
-      snapshot.intersectingHosts.length === expectedIntersectingPaneCount &&
-      snapshot.intersectingHosts.every((host) => host.runtimeState === "live") &&
-      snapshot.intersectingHosts.every((host) => host.pointerEvents === "auto") &&
-      snapshot.intersectingHosts.every((host) => host.surfaceId !== "") &&
-      snapshot.intersectingHosts.every((host) => host.surfaceKind !== ""),
+    (snapshot) => {
+      const terminalHosts = snapshot.intersectingHosts.filter(
+        (host) => host.surfaceKind === "terminal",
+      );
+      const workflowHosts = snapshot.intersectingHosts.filter(
+        (host) => host.surfaceKind === "workflow-graph",
+      );
+      return (
+        snapshot.workspaceMode === "workspace" &&
+        snapshot.totalPanes === paneCount &&
+        snapshot.intersectingHosts.length === expectedIntersectingPaneCount &&
+        snapshot.intersectingHosts.every((host) => host.runtimeState === "live") &&
+        snapshot.intersectingHosts.every((host) => host.pointerEvents === "auto") &&
+        snapshot.intersectingHosts.every((host) => host.surfaceId !== "") &&
+        snapshot.intersectingHosts.every((host) => host.surfaceKind !== "") &&
+        terminalHosts.length > 0 &&
+        terminalHosts.every((host) => host.hasTerminalViewport && host.terminalStatus !== "") &&
+        workflowHosts.length > 0 &&
+        workflowHosts.every((host) => host.hasWorkflowGraphHost && host.hasWorkflowGraphSurface)
+      );
+    },
     workflowTimeoutMs,
   );
 }
@@ -167,6 +180,11 @@ function paneSnapshotExpression() {
         const style = getComputedStyle(host);
         return {
           focused: host.dataset.focused === "true",
+          hasTerminalViewport: Boolean(host.querySelector('[data-terminal-viewport="true"]')),
+          hasWorkflowGraphHost: Boolean(host.querySelector('[data-testid="workflow-graph"]')),
+          hasWorkflowGraphSurface: Boolean(
+            host.querySelector('[data-testid="workspace-workflow-graph-surface"]')
+          ),
           paneId: host.dataset.paneId ?? "",
           pointerEvents: style.pointerEvents,
           rect: {
@@ -179,6 +197,8 @@ function paneSnapshotExpression() {
           runtimeState: host.dataset.runtimeState ?? "",
           surfaceId: host.dataset.surfaceId ?? "",
           surfaceKind: host.dataset.surfaceKind ?? "",
+          terminalStatus:
+            host.querySelector('[data-terminal-status="true"]')?.textContent?.trim() ?? "",
         };
       });
     const intersectingHosts = hosts.filter(
