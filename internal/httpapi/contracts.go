@@ -216,8 +216,9 @@ type GetActiveRunRequest struct {
 }
 
 type GetActiveRunResponse struct {
-	HasActiveRun bool      `json:"hasActiveRun"`
-	Run          *chat.Run `json:"run"`
+	HasActiveRun bool              `json:"hasActiveRun"`
+	Run          *chat.Run         `json:"run"`
+	Liveness     *chat.RunLiveness `json:"liveness"`
 }
 
 type ListRunsRequest struct {

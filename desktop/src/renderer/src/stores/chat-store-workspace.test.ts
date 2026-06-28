@@ -112,7 +112,7 @@ function installChatAPI({
     value: {
       setta: {
         chat: {
-          activeRun: async () => ({ hasActiveRun: false, run: null }),
+          activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
           listBackgroundTerminals: async () => ({ terminals: [] }),
           listConversations,
           messagePage,
@@ -146,6 +146,7 @@ function conversation(id: string, workspaceId: string): Conversation {
 function conversationItem(conversation: Conversation): ConversationListItem {
   return {
     activeRunId: "",
+    activeRunLiveness: null,
     pinnedAt: "",
     conversation,
     latestReadRelevantMarker: 0,

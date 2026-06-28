@@ -43,10 +43,17 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
 			return ConversationListResult{}, err
 		}
+		activeRunID := ""
+		var activeRunLiveness *RunLiveness
+		if run, ok := activeRunFromRuns(runs, conversation.ID); ok {
+			activeRunID = run.ID
+			activeRunLiveness = service.activeRunLivenessLocked(workspaceID, conversation.ID, run)
+		}
 		items = append(items, ConversationListItem{
 			Conversation:             conversation,
 			MessageCount:             count,
-			ActiveRunID:              activeRunIDFromRuns(runs, conversation.ID),
+			ActiveRunID:              activeRunID,
+			ActiveRunLiveness:        activeRunLiveness,
 			PinnedAt:                 pins[conversation.ID],
 			ReadMarker:               readState.ReadMarker,
 			LatestReadRelevantMarker: readState.LatestReadRelevantMarker,
@@ -258,6 +265,7 @@ func (service *Service) conversationListItemFromConversationLocked(conversation 
 		return ConversationListItem{}, err
 	}
 	activeRunID := ""
+	var activeRunLiveness *RunLiveness
 	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return ConversationListItem{}, err
@@ -266,6 +274,7 @@ func (service *Service) conversationListItemFromConversationLocked(conversation 
 		return ConversationListItem{}, err
 	} else if ok {
 		activeRunID = run.ID
+		activeRunLiveness = service.activeRunLivenessLocked(workspaceID, conversationID, run)
 	}
 	readState, err := service.store.LoadConversationReadState(workspaceID, conversationID)
 	if err != nil {
@@ -277,6 +286,7 @@ func (service *Service) conversationListItemFromConversationLocked(conversation 
 	}
 	return ConversationListItem{
 		ActiveRunID:              activeRunID,
+		ActiveRunLiveness:        activeRunLiveness,
 		Conversation:             conversation,
 		MessageCount:             count,
 		PinnedAt:                 pins[conversationID],

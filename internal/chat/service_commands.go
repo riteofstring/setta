@@ -397,13 +397,14 @@ func (service *Service) startGoalOperationLocked(workspaceSummary workspace.Work
 		return false, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	service.active[key] = activeTurn{
+	service.activateTurnLocked(workspaceSummary.ID, conversationID, activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
 		goalOperation:    operation,
-		runID:            run.ID,
-		workspaceID:      workspaceSummary.ID,
 		transcript:       ingest,
+	}, run)
+	if err := service.publishActiveRunLivenessAndConversationLocked(workspaceSummary.ID, conversationID, run.ID); err != nil {
+		return false, err
 	}
 	deliveryInput, err := service.deliveryInputFromMessage(workspaceSummary.ID, conversationID, userMessage)
 	if err != nil {

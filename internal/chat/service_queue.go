@@ -452,13 +452,11 @@ func (service *Service) startImmediateSteeringReplay(workspaceSummary workspace.
 		return ImmediateSteeringResult{}, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	service.active[key] = activeTurn{
+	service.activateTurnLocked(workspaceID, conversationID, activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
-		runID:            run.ID,
-		workspaceID:      workspaceID,
 		transcript:       ingest,
-	}
+	}, run)
 	if err := service.publishImmediateSteeringReplayLocked(workspaceID, conversationID, userMessage, assistantMessage, run, pending); err != nil {
 		return service.abortImmediateSteeringReplayStartLocked(workspaceID, conversationID, key, run.ID, cancel, err)
 	}
@@ -519,7 +517,7 @@ func (service *Service) compileAndLaunchImmediateSteeringReplayTurn(workspaceSum
 
 func (service *Service) abortImmediateSteeringReplayStartLocked(workspaceID string, conversationID string, key string, runID string, cancel context.CancelFunc, startErr error) (ImmediateSteeringResult, error) {
 	cancel()
-	delete(service.active, key)
+	service.deleteActiveTurnLocked(key)
 	service.mu.Unlock()
 	if failErr := service.failTurn(workspaceID, conversationID, runID, startErr.Error()); failErr != nil {
 		return ImmediateSteeringResult{}, failErr
@@ -606,6 +604,9 @@ func (service *Service) publishImmediateSteeringReplayLocked(workspaceID string,
 	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
 		return err
 	}
+	if err := service.publishActiveRunLivenessLocked(workspaceID, conversationID, run.ID); err != nil {
+		return err
+	}
 	for _, message := range removed {
 		if _, err := service.events.Publish(NewMessageRemovedEvent(workspaceID, conversationID, message.RunID, message.ID)); err != nil {
 			return err
@@ -673,6 +674,9 @@ func (service *Service) publishQueueEventsLocked(workspaceID string, conversatio
 	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
 		return err
 	}
+	if err := service.publishActiveRunLivenessLocked(workspaceID, conversationID, run.ID); err != nil {
+		return err
+	}
 	if err := service.publishQueueUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
 		return err
 	}
@@ -711,13 +715,11 @@ func (service *Service) promoteNextQueuedRunLocked(workspaceSummary workspace.Wo
 		return err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	service.active[activeKey(workspaceSummary.ID, conversationID)] = activeTurn{
+	service.activateTurnLocked(workspaceSummary.ID, conversationID, activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
-		runID:            run.ID,
-		workspaceID:      workspaceSummary.ID,
 		transcript:       ingest,
-	}
+	}, run)
 	if err := service.publishQueuedPromotionLocked(workspaceSummary.ID, conversationID, userMessage, assistantMessage, run); err != nil {
 		return err
 	}

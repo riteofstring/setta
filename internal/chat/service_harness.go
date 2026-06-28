@@ -165,7 +165,7 @@ func (service *Service) releaseGoalOperationCancellationDrain(workspaceID string
 	if !ok || active.runID != runID || !active.cancelDrain {
 		return
 	}
-	delete(service.active, key)
+	service.deleteActiveTurnLocked(key)
 }
 
 func conversationHarnessTaskRequest(request TurnRequest, sink TurnSink) HarnessTaskRequest {

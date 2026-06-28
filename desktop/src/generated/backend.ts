@@ -561,6 +561,46 @@ export function decodeHarnessRefStatus(value: unknown, label = "HarnessRefStatus
   }
 }
 
+export type RunLivenessStatus = "attached" | "reconciling" | "lost" | "terminal";
+
+export const runLivenessStatusValues = ["attached", "reconciling", "lost", "terminal"] as const satisfies readonly RunLivenessStatus[];
+
+export function decodeRunLivenessStatus(value: unknown, label = "RunLivenessStatus"): RunLivenessStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "attached":
+      return decoded;
+    case "reconciling":
+      return decoded;
+    case "lost":
+      return decoded;
+    case "terminal":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RunLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "attachment_missing" | "run_terminal";
+
+export const runLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "attachment_missing", "run_terminal"] as const satisfies readonly RunLivenessReason[];
+
+export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReason"): RunLivenessReason {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "provider_ref_pending":
+      return decoded;
+    case "provider_turn_linked":
+      return decoded;
+    case "attachment_missing":
+      return decoded;
+    case "run_terminal":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type DiagnosticSource = "backend" | "event_stream" | "chat" | "workspace" | "provider";
 
 export const diagnosticSourceValues = ["backend", "event_stream", "chat", "workspace", "provider"] as const satisfies readonly DiagnosticSource[];
@@ -2843,10 +2883,27 @@ export interface Conversation {
   workflow: ConversationWorkflowMetadata | null;
 }
 
+export interface RunLiveness {
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  harness: HarnessKind;
+  status: RunLivenessStatus;
+  reason: RunLivenessReason;
+  retryable: boolean;
+  cancellable: boolean;
+  providerThreadId: string;
+  providerTurnId: string;
+  lastProviderEventAt: string;
+  lastReconciledAt: string;
+  error: string;
+}
+
 export interface ConversationListItem {
   conversation: Conversation;
   messageCount: number;
   activeRunId: string;
+  activeRunLiveness: RunLiveness | null;
   pinnedAt: string;
   readMarker: number;
   latestReadRelevantMarker: number;
@@ -3430,6 +3487,7 @@ export interface GetActiveRunRequest {
 export interface GetActiveRunResponse {
   hasActiveRun: boolean;
   run: Run | null;
+  liveness: RunLiveness | null;
 }
 
 export interface ListRunsRequest {
@@ -5356,6 +5414,10 @@ export interface RunUpdatedPayload {
   run: Run;
 }
 
+export interface RunLivenessUpdatedPayload {
+  liveness: RunLiveness;
+}
+
 export interface RunItemCreatedPayload {
   item: RunItem;
 }
@@ -5445,6 +5507,7 @@ export type ChatEvent =
   | ChatMessageUpdatedEvent
   | ChatMessageRemovedEvent
   | ChatRunUpdatedEvent
+  | ChatRunLivenessUpdatedEvent
   | ChatRunItemCreatedEvent
   | ChatRunItemUpdatedEvent
   | ChatRunItemOutputDeltaEvent
@@ -5553,6 +5616,19 @@ export interface ChatRunUpdatedEvent {
   conversationId: string;
   runId: string;
   payload: RunUpdatedPayload;
+}
+
+export interface ChatRunLivenessUpdatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.run_liveness.updated";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: RunLivenessUpdatedPayload;
 }
 
 export interface ChatRunItemCreatedEvent {
@@ -6939,13 +7015,34 @@ export function decodeConversation(value: unknown): Conversation {
   };
 }
 
+export function decodeRunLiveness(value: unknown): RunLiveness {
+  const record = assertRecord(value, "RunLiveness");
+  assertKnownFields(record, "RunLiveness", ["workspaceId", "conversationId", "runId", "harness", "status", "reason", "retryable", "cancellable", "providerThreadId", "providerTurnId", "lastProviderEventAt", "lastReconciledAt", "error"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "RunLiveness"), "RunLiveness.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "RunLiveness"), "RunLiveness.conversationId"),
+    runId: decodeString(requireField(record, "runId", "RunLiveness"), "RunLiveness.runId"),
+    harness: decodeHarnessKind(requireField(record, "harness", "RunLiveness"), "RunLiveness.harness"),
+    status: decodeRunLivenessStatus(requireField(record, "status", "RunLiveness"), "RunLiveness.status"),
+    reason: decodeRunLivenessReason(requireField(record, "reason", "RunLiveness"), "RunLiveness.reason"),
+    retryable: decodeBoolean(requireField(record, "retryable", "RunLiveness"), "RunLiveness.retryable"),
+    cancellable: decodeBoolean(requireField(record, "cancellable", "RunLiveness"), "RunLiveness.cancellable"),
+    providerThreadId: decodeString(requireField(record, "providerThreadId", "RunLiveness"), "RunLiveness.providerThreadId"),
+    providerTurnId: decodeString(requireField(record, "providerTurnId", "RunLiveness"), "RunLiveness.providerTurnId"),
+    lastProviderEventAt: decodeString(requireField(record, "lastProviderEventAt", "RunLiveness"), "RunLiveness.lastProviderEventAt"),
+    lastReconciledAt: decodeString(requireField(record, "lastReconciledAt", "RunLiveness"), "RunLiveness.lastReconciledAt"),
+    error: decodeString(requireField(record, "error", "RunLiveness"), "RunLiveness.error"),
+  };
+}
+
 export function decodeConversationListItem(value: unknown): ConversationListItem {
   const record = assertRecord(value, "ConversationListItem");
-  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId", "pinnedAt", "readMarker", "latestReadRelevantMarker"]);
+  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId", "activeRunLiveness", "pinnedAt", "readMarker", "latestReadRelevantMarker"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "ConversationListItem")),
     messageCount: decodeInteger(requireField(record, "messageCount", "ConversationListItem"), "ConversationListItem.messageCount"),
     activeRunId: decodeString(requireField(record, "activeRunId", "ConversationListItem"), "ConversationListItem.activeRunId"),
+    activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "ConversationListItem"), "ConversationListItem.activeRunLiveness", (item) => decodeRunLiveness(item)),
     pinnedAt: decodeString(requireField(record, "pinnedAt", "ConversationListItem"), "ConversationListItem.pinnedAt"),
     readMarker: decodeInteger(requireField(record, "readMarker", "ConversationListItem"), "ConversationListItem.readMarker"),
     latestReadRelevantMarker: decodeInteger(requireField(record, "latestReadRelevantMarker", "ConversationListItem"), "ConversationListItem.latestReadRelevantMarker"),
@@ -7828,10 +7925,11 @@ export function decodeGetActiveRunRequest(value: unknown): GetActiveRunRequest {
 
 export function decodeGetActiveRunResponse(value: unknown): GetActiveRunResponse {
   const record = assertRecord(value, "GetActiveRunResponse");
-  assertKnownFields(record, "GetActiveRunResponse", ["hasActiveRun", "run"]);
+  assertKnownFields(record, "GetActiveRunResponse", ["hasActiveRun", "run", "liveness"]);
   return {
     hasActiveRun: decodeBoolean(requireField(record, "hasActiveRun", "GetActiveRunResponse"), "GetActiveRunResponse.hasActiveRun"),
     run: decodeNullable(requireField(record, "run", "GetActiveRunResponse"), "GetActiveRunResponse.run", (item) => decodeRun(item)),
+    liveness: decodeNullable(requireField(record, "liveness", "GetActiveRunResponse"), "GetActiveRunResponse.liveness", (item) => decodeRunLiveness(item)),
   };
 }
 
@@ -10603,6 +10701,14 @@ export function decodeRunUpdatedPayload(value: unknown): RunUpdatedPayload {
   };
 }
 
+export function decodeRunLivenessUpdatedPayload(value: unknown): RunLivenessUpdatedPayload {
+  const record = assertRecord(value, "RunLivenessUpdatedPayload");
+  assertKnownFields(record, "RunLivenessUpdatedPayload", ["liveness"]);
+  return {
+    liveness: decodeRunLiveness(requireField(record, "liveness", "RunLivenessUpdatedPayload")),
+  };
+}
+
 export function decodeRunItemCreatedPayload(value: unknown): RunItemCreatedPayload {
   const record = assertRecord(value, "RunItemCreatedPayload");
   assertKnownFields(record, "RunItemCreatedPayload", ["item"]);
@@ -10778,6 +10884,8 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatMessageRemovedEventFromRecord(record);
     case "chat.run.updated":
       return decodeChatRunUpdatedEventFromRecord(record);
+    case "chat.run_liveness.updated":
+      return decodeChatRunLivenessUpdatedEventFromRecord(record);
     case "chat.run_item.created":
       return decodeChatRunItemCreatedEventFromRecord(record);
     case "chat.run_item.updated":
@@ -10898,6 +11006,18 @@ function decodeChatRunUpdatedEventFromRecord(record: Record<string, unknown>): C
   return {
     ...base,
     payload: decodeRunUpdatedPayload(requireField(record, "payload", "ChatRunUpdatedEvent")),
+  };
+}
+
+export function decodeChatRunLivenessUpdatedEvent(value: unknown): ChatRunLivenessUpdatedEvent {
+  return decodeChatRunLivenessUpdatedEventFromRecord(assertRecord(value, "ChatRunLivenessUpdatedEvent"));
+}
+
+function decodeChatRunLivenessUpdatedEventFromRecord(record: Record<string, unknown>): ChatRunLivenessUpdatedEvent {
+  const base = decodeBackendEventBase(record, "ChatRunLivenessUpdatedEvent", "chat.run_liveness.updated");
+  return {
+    ...base,
+    payload: decodeRunLivenessUpdatedPayload(requireField(record, "payload", "ChatRunLivenessUpdatedEvent")),
   };
 }
 

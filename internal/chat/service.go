@@ -33,8 +33,9 @@ type Service struct {
 	newID             func(prefix string) (string, error)
 	now               func() time.Time
 
-	mu     sync.Mutex
-	active map[string]activeTurn
+	mu       sync.Mutex
+	active   map[string]activeTurn
+	liveness map[string]RunLiveness
 
 	shuttingDown bool
 	turnWG       sync.WaitGroup
@@ -82,6 +83,7 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		now:               time.Now,
 		codexDefaults:     codexDefaults,
 		active:            map[string]activeTurn{},
+		liveness:          map[string]RunLiveness{},
 	}
 	for _, option := range options {
 		option(service)
@@ -227,12 +229,13 @@ func (service *Service) SendUserInput(workspaceID string, conversationID string,
 		return SendMessageResult{}, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	service.active[key] = activeTurn{
+	service.activateTurnLocked(workspaceID, conversationID, activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
-		runID:            run.ID,
-		workspaceID:      workspaceID,
 		transcript:       ingest,
+	}, run)
+	if err := service.publishActiveRunLivenessAndConversationLocked(workspaceID, conversationID, run.ID); err != nil {
+		return SendMessageResult{}, err
 	}
 	request := TurnRequest{
 		Workspace:    workspaceSummary,
@@ -329,6 +332,23 @@ func (service *Service) ActiveRun(workspaceID string, conversationID string) (Ru
 		return Run{}, false, err
 	}
 	return service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
+}
+
+func (service *Service) ActiveRunWithLiveness(workspaceID string, conversationID string) (Run, *RunLiveness, bool, error) {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return Run{}, nil, false, err
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
+	if err != nil {
+		return Run{}, nil, false, err
+	}
+	run, ok, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
+	if err != nil || !ok {
+		return Run{}, nil, ok, err
+	}
+	return run, service.activeRunLivenessLocked(workspaceID, conversationID, run), true, nil
 }
 
 func (service *Service) SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []ApprovalAnswer, cancelled bool) (Run, error) {
@@ -654,12 +674,14 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 		service.mu.Unlock()
 		return err
 	}
-	delete(service.active, activeKey(workspaceID, conversationID))
+	key := activeKey(workspaceID, conversationID)
+	liveness := service.terminalRunLivenessLocked(workspaceID, conversationID, run, active)
+	service.deleteActiveTurnLocked(key)
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
 		service.mu.Unlock()
 		return err
 	}
-	if err := service.publishCompletedTurnLocked(workspaceID, conversationID, message, pendingSteering, run, active.transcript); err != nil {
+	if err := service.publishCompletedTurnLocked(workspaceID, conversationID, message, pendingSteering, run, active.transcript, liveness); err != nil {
 		service.mu.Unlock()
 		return err
 	}
@@ -690,8 +712,8 @@ func (service *Service) saveCompletedTurnLocked(workspaceID string, run Run, mes
 	return message, run, nil
 }
 
-func (service *Service) publishCompletedTurnLocked(workspaceID string, conversationID string, message ChatMessage, pendingSteering []ChatMessage, run Run, transcript *transcriptIngest) error {
-	return service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering, transcript)
+func (service *Service) publishCompletedTurnLocked(workspaceID string, conversationID string, message ChatMessage, pendingSteering []ChatMessage, run Run, transcript *transcriptIngest, liveness RunLiveness) error {
+	return service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering, transcript, liveness)
 }
 
 func (service *Service) failTurn(workspaceID string, conversationID string, runID string, message string) error {
@@ -738,11 +760,12 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	if err != nil {
 		return err
 	}
-	delete(service.active, key)
+	liveness := service.terminalRunLivenessLocked(workspaceID, conversationID, run, active)
+	service.deleteActiveTurnLocked(key)
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
 		return err
 	}
-	return service.publishTerminalTurnLocked(workspaceID, conversationID, assistant, run, pendingSteering, active.transcript)
+	return service.publishTerminalTurnLocked(workspaceID, conversationID, assistant, run, pendingSteering, active.transcript, liveness)
 }
 
 func (service *Service) overlayActiveAssistantMessageLocked(workspaceID string, conversationID string, beforeOrdinal int, page MessagePage) MessagePage {

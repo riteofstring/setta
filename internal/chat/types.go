@@ -331,6 +331,8 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "TextFormat", Values: stringValues(textFormatValues)},
 		{Name: "HarnessRefStatus", Values: stringValues(harnessRefStatusValues)},
 		{Name: "RunStatus", Values: stringValues(runStatusValues)},
+		{Name: "RunLivenessStatus", Values: stringValues(runLivenessStatusValues)},
+		{Name: "RunLivenessReason", Values: stringValues(runLivenessReasonValues)},
 		{Name: "ApprovalStatus", Values: stringValues(approvalStatusValues)},
 		{Name: "ApprovalKind", Values: stringValues(approvalKindValues)},
 		{Name: "RunItemStatus", Values: stringValues(runItemStatusValues)},
@@ -592,6 +594,7 @@ type ConversationListItem struct {
 	Conversation             Conversation `json:"conversation"`
 	MessageCount             int          `json:"messageCount"`
 	ActiveRunID              string       `json:"activeRunId"`
+	ActiveRunLiveness        *RunLiveness `json:"activeRunLiveness"`
 	PinnedAt                 string       `json:"pinnedAt"`
 	ReadMarker               int          `json:"readMarker"`
 	LatestReadRelevantMarker int          `json:"latestReadRelevantMarker"`

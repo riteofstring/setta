@@ -152,7 +152,7 @@ describe("chat store operation scopes", () => {
   test("backend offline status cancels stale resync before active run lookup", async () => {
     const conversation = testConversation();
     const resyncPage = deferred<MessagePage>();
-    const activeRun = vi.fn().mockResolvedValue({ hasActiveRun: false, run: null });
+    const activeRun = vi.fn().mockResolvedValue({ hasActiveRun: false, liveness: null, run: null });
     const messagePage = vi.fn().mockReturnValue(resyncPage.promise);
     installSettaAPI({
       chat: {
@@ -196,7 +196,7 @@ describe("chat store operation scopes", () => {
     const messagePage = vi.fn().mockReturnValue(resyncPage.promise);
     installSettaAPI({
       chat: {
-        activeRun: async () => ({ hasActiveRun: false, run: null }),
+        activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
         listConversations: async () => listResponse([conversationItem(conversation, 2)]),
         messagePage,
       },
@@ -250,7 +250,7 @@ describe("chat store operation scopes", () => {
     const messagePage = vi.fn().mockReturnValue(resyncPage.promise);
     installSettaAPI({
       chat: {
-        activeRun: async () => ({ hasActiveRun: false, run: null }),
+        activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
         listConversations: async () => listResponse([conversationItem(conversation, 4)]),
         messagePage,
       },
@@ -314,7 +314,7 @@ describe("chat store operation scopes", () => {
     const messagePage = vi.fn().mockReturnValue(resyncPage.promise);
     installSettaAPI({
       chat: {
-        activeRun: async () => ({ hasActiveRun: false, run: null }),
+        activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
         listConversations: async () => listResponse([conversationItem(conversation, 2)]),
         messagePage,
       },
@@ -349,7 +349,7 @@ describe("chat store operation scopes", () => {
     const messagePage = vi.fn().mockReturnValue(resyncPage.promise);
     installSettaAPI({
       chat: {
-        activeRun: async () => ({ hasActiveRun: false, run: null }),
+        activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
         listConversations: async () => listResponse([conversationItem(conversation, 0)]),
         messagePage,
       },
@@ -422,7 +422,7 @@ interface SettaAPIOverrides {
 function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const chat = {
-    activeRun: async () => ({ hasActiveRun: false, run: null }),
+    activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
     listBackgroundTerminals: async () => ({ terminals: [] }),
     listConversations: async () => listResponse([]),
     messagePage: async () => testPage(conversation, []),
@@ -462,6 +462,7 @@ function testConversation(): Conversation {
 function conversationItem(conversation: Conversation, messageCount: number): ConversationListItem {
   return {
     activeRunId: "",
+    activeRunLiveness: null,
     pinnedAt: "",
     conversation,
     latestReadRelevantMarker: 0,

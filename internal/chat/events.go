@@ -19,6 +19,7 @@ const (
 	EventTypeMessageUpdated      = "chat.message.updated"
 	EventTypeMessageRemoved      = "chat.message.removed"
 	EventTypeRunUpdated          = "chat.run.updated"
+	EventTypeRunLivenessUpdated  = "chat.run_liveness.updated"
 	EventTypeRunItemCreated      = "chat.run_item.created"
 	EventTypeRunItemUpdated      = "chat.run_item.updated"
 	EventTypeRunItemOutputDelta  = "chat.run_item_output.delta"
@@ -112,6 +113,10 @@ type MessageRemovedPayload struct {
 
 type RunUpdatedPayload struct {
 	Run Run `json:"run"`
+}
+
+type RunLivenessUpdatedPayload struct {
+	Liveness RunLiveness `json:"liveness"`
 }
 
 type RunItemCreatedPayload struct {
@@ -253,6 +258,7 @@ func EventContracts() EventContractSchema {
 			{Name: "ChatMessageUpdatedEvent", Type: EventTypeMessageUpdated, Payload: reflect.TypeFor[MessageUpdatedPayload]()},
 			{Name: "ChatMessageRemovedEvent", Type: EventTypeMessageRemoved, Payload: reflect.TypeFor[MessageRemovedPayload]()},
 			{Name: "ChatRunUpdatedEvent", Type: EventTypeRunUpdated, Payload: reflect.TypeFor[RunUpdatedPayload]()},
+			{Name: "ChatRunLivenessUpdatedEvent", Type: EventTypeRunLivenessUpdated, Payload: reflect.TypeFor[RunLivenessUpdatedPayload]()},
 			{Name: "ChatRunItemCreatedEvent", Type: EventTypeRunItemCreated, Payload: reflect.TypeFor[RunItemCreatedPayload]()},
 			{Name: "ChatRunItemUpdatedEvent", Type: EventTypeRunItemUpdated, Payload: reflect.TypeFor[RunItemUpdatedPayload]()},
 			{Name: "ChatRunItemOutputDeltaEvent", Type: EventTypeRunItemOutputDelta, Payload: reflect.TypeFor[RunItemOutputDeltaPayload]()},
@@ -383,6 +389,16 @@ func NewRunUpdatedEvent(run Run) EventDraft {
 		RunID:          run.ID,
 		Type:           EventTypeRunUpdated,
 		WorkspaceID:    run.WorkspaceID,
+	}
+}
+
+func NewRunLivenessUpdatedEvent(liveness RunLiveness) EventDraft {
+	return EventDraft{
+		ConversationID: liveness.ConversationID,
+		Payload:        RunLivenessUpdatedPayload{Liveness: liveness},
+		RunID:          liveness.RunID,
+		Type:           EventTypeRunLivenessUpdated,
+		WorkspaceID:    liveness.WorkspaceID,
 	}
 }
 

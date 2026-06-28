@@ -62,7 +62,9 @@ type ConversationEvent = Exclude<
   AppliedChatEvent,
   TranscriptBlockEvent | MessageEvent | RunEvent | BackgroundTerminalEvent
 >;
-type NoOpConversationEvent = AppliedEventOf<"chat.assistant_text_delta" | "codex.account.changed">;
+type NoOpConversationEvent = AppliedEventOf<
+  "chat.assistant_text_delta" | "chat.run_liveness.updated" | "codex.account.changed"
+>;
 type StatefulConversationEvent = Exclude<ConversationEvent, NoOpConversationEvent>;
 
 const transcriptBlockEventTypes = new Set<AppliedChatEvent["type"]>([
@@ -92,6 +94,7 @@ const backgroundTerminalEventTypes = new Set<AppliedChatEvent["type"]>([
 ]);
 const noOpConversationEventTypes = new Set<ConversationEvent["type"]>([
   "chat.assistant_text_delta",
+  "chat.run_liveness.updated",
   "codex.account.changed",
 ]);
 

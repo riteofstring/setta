@@ -1,8 +1,8 @@
 # Chat Run Liveness And Reconciliation Plan
 
 - **Date:** July 1, 2026
-- **Status:** Draft v3. Phases 0-2 completed; Phase 3 backend liveness
-  projection is next. The reconciliation decisions below are grounded in the
+- **Status:** Draft v4. Phases 0-3 completed; Phase 4 Codex reconciliation
+  and trigger wiring is next. The reconciliation decisions below are grounded in the
   trigger recording, current code paths, and the live app-server findings in
   Appendix A.
 - **Trigger recording:** `.recordings/20260701T215826Z`
@@ -450,6 +450,11 @@ shutdown drains in-flight turns before closing the hub. Independent of the
 liveness work and shippable first.
 
 ### Phase 3 - Backend Liveness Projection
+
+Status: Complete. Runtime liveness now sits beside active turns, is exposed
+through active-run and conversation-list snapshots, and publishes typed
+liveness events. Phase 4 still owns provider reconciliation and the ranked
+trigger wiring that moves existing runs back into `reconciling`.
 
 - runtime liveness projection beside the active-turn map; attached on turn
   start with linked thread/turn refs;

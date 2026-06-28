@@ -440,7 +440,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       },
     },
     chat: {
-      activeRun: async () => ({ hasActiveRun: false, run: null }),
+      activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
       createImageAttachmentFromBytes: async () => {
@@ -791,6 +791,7 @@ function listResponse(conversations: ConversationListItem[]): ListConversationsR
 function conversationItem(conversation: Conversation, messageCount: number): ConversationListItem {
   return {
     activeRunId: "",
+    activeRunLiveness: null,
     pinnedAt: "",
     conversation,
     latestReadRelevantMarker: 0,

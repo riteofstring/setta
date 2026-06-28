@@ -138,7 +138,7 @@ func (service *Service) markTurnCancelledWithOptionsLocked(workspaceID string, c
 		if active.cancelDrain {
 			return run, nil
 		}
-		delete(service.active, key)
+		service.deleteActiveTurnLocked(key)
 		return run, nil
 	}
 	return service.cancelRunningTurnLocked(workspaceID, conversationID, key, active, run, runError, traceType, traceMessage, reconcilePendingSteering, preserveCancellationDrain)
@@ -173,16 +173,18 @@ func (service *Service) cancelRunningTurnLocked(workspaceID string, conversation
 	if err := service.traceLocked(workspaceID, run.ID, traceType, traceMessage); err != nil {
 		return Run{}, err
 	}
+	liveness := service.terminalRunLivenessLocked(workspaceID, conversationID, run, active)
 	if preserveCancellationDrain && active.cancelDrain {
 		active.assistantMessage = message
 		service.active[key] = active
+		service.liveness[key] = liveness
 	} else {
-		delete(service.active, key)
+		service.deleteActiveTurnLocked(key)
 	}
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
 		return Run{}, err
 	}
-	if err := service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering, active.transcript); err != nil {
+	if err := service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering, active.transcript, liveness); err != nil {
 		return Run{}, err
 	}
 	return run, nil

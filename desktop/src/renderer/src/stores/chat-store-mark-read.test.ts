@@ -60,6 +60,7 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
 function conversationItem(conversation: Conversation): ConversationListItem {
   return {
     activeRunId: "",
+    activeRunLiveness: null,
     conversation,
     latestReadRelevantMarker: 0,
     messageCount: 1,

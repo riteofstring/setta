@@ -322,7 +322,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       },
     },
     chat: {
-      activeRun: async () => ({ hasActiveRun: false, run: null }),
+      activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
       createImageAttachmentFromBytes: async () => {
@@ -410,6 +410,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       killAllBackgroundTerminals: async () => ({ terminals: [] }),
       markConversationRead: async () => ({
         activeRunId: "",
+        activeRunLiveness: null,
         pinnedAt: "",
         conversation: emptyConversation(),
         latestReadRelevantMarker: 0,
@@ -505,6 +506,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       },
       setConversationPinned: async () => ({
         activeRunId: "",
+        activeRunLiveness: null,
         pinnedAt: "",
         conversation: emptyConversation(),
         latestReadRelevantMarker: 0,

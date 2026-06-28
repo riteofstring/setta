@@ -52,7 +52,7 @@ func (service *Service) markTerminalPendingSteeringLocked(workspaceID string, co
 	return service.markPendingSteeringMessagesLocked(workspaceID, conversationID, runID, status)
 }
 
-func (service *Service) publishTerminalTurnLocked(workspaceID string, conversationID string, assistant ChatMessage, run Run, pendingSteering []ChatMessage, transcript *transcriptIngest) error {
+func (service *Service) publishTerminalTurnLocked(workspaceID string, conversationID string, assistant ChatMessage, run Run, pendingSteering []ChatMessage, transcript *transcriptIngest, liveness RunLiveness) error {
 	var failures terminalTurnPublishFailures
 	if transcript != nil {
 		failures.publish(service, NewTranscriptBlocksReplacedEvent(workspaceID, conversationID, run.ID, transcript.snapshot()))
@@ -62,6 +62,7 @@ func (service *Service) publishTerminalTurnLocked(workspaceID string, conversati
 		failures.publish(service, NewMessageUpdatedEvent(workspaceID, conversationID, run.ID, message))
 	}
 	failures.publish(service, NewRunUpdatedEvent(run))
+	failures.publish(service, NewRunLivenessUpdatedEvent(liveness))
 	if err := service.publishTerminalConversationUpdatedLocked(workspaceID, conversationID, run.ID, &failures); err != nil {
 		service.recordTerminalTurnPublishFailuresLocked(workspaceID, conversationID, run.ID, failures)
 		return err

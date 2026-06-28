@@ -418,7 +418,7 @@ func (handler handler) getActiveRun(response http.ResponseWriter, request *http.
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	run, ok, err := service.ActiveRun(payload.WorkspaceID, payload.ConversationID)
+	run, liveness, ok, err := service.ActiveRunWithLiveness(payload.WorkspaceID, payload.ConversationID)
 	if err != nil {
 		writeChatError(response, "get_active_run_failed", err)
 		return
@@ -427,7 +427,7 @@ func (handler handler) getActiveRun(response http.ResponseWriter, request *http.
 	if ok {
 		activeRun = &run
 	}
-	writeJSON(response, http.StatusOK, GetActiveRunResponse{HasActiveRun: ok, Run: activeRun})
+	writeJSON(response, http.StatusOK, GetActiveRunResponse{HasActiveRun: ok, Run: activeRun, Liveness: liveness})
 }
 
 func (handler handler) listRuns(response http.ResponseWriter, request *http.Request) {

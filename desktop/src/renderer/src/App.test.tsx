@@ -1152,6 +1152,7 @@ function conversationListItem(
 ): ConversationListItem {
   return {
     activeRunId: "",
+    activeRunLiveness: null,
     pinnedAt: "",
     conversation: {
       archivedAt: "",
