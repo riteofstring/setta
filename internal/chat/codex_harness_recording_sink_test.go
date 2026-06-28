@@ -6,6 +6,7 @@ type recordingSink struct {
 	goals       []*ChatGoalState
 	items       []RunItem
 	linkCh      chan struct{}
+	linkCount   int
 	outputs     []recordedOutput
 	settings    []ChatCodexEffectiveSettings
 	text        string
@@ -84,6 +85,7 @@ func (sink *recordingSink) RunItemUpsert(item RunItem) error {
 }
 
 func (sink *recordingSink) ThreadLinked(threadID string, _ string, turnID string, settings *ChatCodexEffectiveSettings) error {
+	sink.linkCount++
 	sink.threadID = threadID
 	sink.turnID = turnID
 	if settings != nil {

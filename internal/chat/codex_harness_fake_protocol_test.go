@@ -30,7 +30,37 @@ func writeFakeThreadResponse(id any, model string, effort ReasoningEffort) {
 	writeFakeResponse(id, fakeCodexThreadResponse(model, effort))
 }
 
+func writeFakeThreadResponseForMode(id any, mode string, model string, effort ReasoningEffort) {
+	if !fakeGoalOperationMode(mode) {
+		writeFakeThreadResponse(id, model, effort)
+		return
+	}
+	writeFakeResponse(id, fakeCodexThreadResponseForMode(mode, model, effort))
+}
+
 func fakeCodexThreadResponse(model string, effort ReasoningEffort) map[string]any {
+	return fakeCodexThreadResponseWithThread(model, effort, fakeCodexThread())
+}
+
+func fakeCodexThreadResponseForMode(mode string, model string, effort ReasoningEffort) map[string]any {
+	thread := fakeCodexThread()
+	if fakeGoalOperationMode(mode) {
+		path := "/tmp/codex/thread_fake.json"
+		thread["ephemeral"] = false
+		thread["path"] = path
+	}
+	switch mode {
+	case "goal-operation-busy-thread":
+		thread["status"] = map[string]any{"type": "active", "activeFlags": []string{}}
+	case "goal-operation-ephemeral-thread":
+		thread["ephemeral"] = true
+	case "goal-operation-missing-path-thread":
+		delete(thread, "path")
+	}
+	return fakeCodexThreadResponseWithThread(model, effort, thread)
+}
+
+func fakeCodexThreadResponseWithThread(model string, effort ReasoningEffort, thread map[string]any) map[string]any {
 	return map[string]any{
 		"approvalPolicy":    "on-request",
 		"approvalsReviewer": "user",
@@ -39,7 +69,7 @@ func fakeCodexThreadResponse(model string, effort ReasoningEffort) map[string]an
 		"modelProvider":     "fake",
 		"reasoningEffort":   string(effort),
 		"sandbox":           "workspace-write",
-		"thread":            fakeCodexThread(),
+		"thread":            thread,
 	}
 }
 

@@ -80,6 +80,7 @@ const recordingRoot = chatWorkflowRecordingRoot(options);
 
 function parseArgs(args) {
   const parsed = {
+    codexProtocolOnly: false,
     deterministic: true,
     keepArtifacts: false,
     live: false,
@@ -98,6 +99,11 @@ function parseArgs(args) {
       case "--all":
         parsed.deterministic = true;
         parsed.live = true;
+        break;
+      case "--codex-protocol-only":
+        parsed.codexProtocolOnly = true;
+        parsed.deterministic = false;
+        parsed.live = false;
         break;
       case "--keep-artifacts":
         parsed.keepArtifacts = true;
@@ -128,6 +134,11 @@ async function main() {
   await mkdir(recordingRoot, { recursive: true });
 
   const results = [];
+  if (options.codexProtocolOnly) {
+    await runCodexProtocolWorkflow(results);
+    printWorkflowResults(results);
+    return;
+  }
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
     await runTranscriptSearchWorkflowLaunch(results);
@@ -188,6 +199,10 @@ async function main() {
     });
   }
 
+  printWorkflowResults(results);
+}
+
+function printWorkflowResults(results) {
   process.stdout.write("Electron chat workflow results:\n");
   for (const result of results) {
     process.stdout.write(`  passed: ${result}\n`);
@@ -1259,6 +1274,31 @@ async function runCodexProtocolWorkflow(results) {
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 
+    const goalConversationId = await createChat(context.client, backend, workspaceId);
+    await submitComposer(context.client, "/goal phase0 codex multi turn", "Send message");
+    const goalCommandPage = await waitForCommandResult(
+      backend,
+      workspaceId,
+      goalConversationId,
+      "Goal set: phase0 codex multi turn",
+    );
+    const goalRunId = goalRunIDFromCommandPage(goalCommandPage);
+    const goalRun = await waitForRunStatus(
+      backend,
+      workspaceId,
+      goalConversationId,
+      goalRunId,
+      "completed",
+    );
+    await assertAssistantCompleted(backend, workspaceId, goalConversationId, goalRun.id);
+    // Phase 0 freezes the current premature-completion baseline. Phase 3 flips this to
+    // require Goal turn B plus the provider's terminal complete state in the same run.
+    await waitForGoalStatus(backend, workspaceId, goalConversationId, "active");
+    await waitForTexts(context.client, ["Goal turn A."]);
+    await assertTextAbsent(context.client, "Goal turn B.");
+    await assertTextAbsent(context.client, "Goal complete");
+    await assertNoActiveRun(backend, workspaceId, goalConversationId);
+
     const exitConversationId = await createChat(context.client, backend, workspaceId);
     await submitComposer(context.client, "app-server exit workflow", "Send message");
     const failedRun = await waitForRunWithPrompt(
@@ -1293,14 +1333,30 @@ async function runCodexProtocolWorkflow(results) {
       "/chat/conversations/create",
       "/chat/messages/send",
       "/chat/messages/page",
+      "/chat/commands/execute",
       "/chat/runs/activity",
       "/chat/runs/list",
       "/chat/diagnostics/list",
     ],
-    ipcChannels: ["workspace:open-local-folder", "chat:create-conversation", "chat:send-message"],
+    ipcChannels: [
+      "workspace:open-local-folder",
+      "chat:create-conversation",
+      "chat:execute-command",
+      "chat:send-message",
+    ],
   });
   results.push("codex-protocol-notifications");
   process.stdout.write("Electron chat workflow passed: codex-protocol-notifications\n");
+}
+
+function goalRunIDFromCommandPage(page) {
+  const assistant = page.messages.find(
+    (message) => message.role === "assistant" && message.runId !== "",
+  );
+  if (!assistant) {
+    throw new Error(`goal command page did not include assistant run: ${JSON.stringify(page)}`);
+  }
+  return assistant.runId;
 }
 
 async function runRestartWorkflow(results) {

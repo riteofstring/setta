@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -404,6 +405,9 @@ func testCommandRequestFromCommand(t *testing.T, command ChatCommand) HarnessCom
 }
 
 func fakeCommandDone(mode string) bool {
+	if fakeGoalOperationMode(mode) {
+		return false
+	}
 	switch mode {
 	case "command-goal-set",
 		"command-goal-edit",
@@ -451,7 +455,7 @@ func fakeCommandUsesThread(mode string) bool {
 }
 
 func fakeCommandStartsThread(mode string) bool {
-	return mode == "command-goal-set" || mode == "command-goal-continuation" || mode == "command-goal-edit" || mode == "command-goal-pause-no-goal"
+	return mode == "command-goal-set" || mode == "command-goal-continuation" || mode == "command-goal-edit" || mode == "command-goal-pause-no-goal" || fakeGoalOperationMode(mode)
 }
 
 func fakeCommandResumesThread(mode string) bool {
@@ -473,6 +477,9 @@ func assertFakeGoalSet(mode string, message map[string]any) {
 	params := fakeParams(message)
 	if params["threadId"] != "thread_fake" {
 		panic("goal command targeted wrong thread")
+	}
+	if fakeGoalOperationMode(mode) {
+		return
 	}
 	switch mode {
 	case "command-goal-set":
@@ -546,6 +553,209 @@ func writeFakeThreadGoalUpdated(objective string, status string) {
 		"goal":     fakeThreadGoal(objective, status),
 		"threadId": "thread_fake",
 	})
+}
+
+func writeFakeTurnStartedForThread(threadID string, turnID string) {
+	writeFakeNotification("turn/started", map[string]any{
+		"threadId": threadID,
+		"turnId":   turnID,
+	})
+}
+
+func writeFakeAssistantDeltaForTurn(turnID string, itemID string, delta string) {
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    delta,
+		"itemId":   itemID,
+		"threadId": "thread_fake",
+		"turnId":   turnID,
+	})
+}
+
+func writeFakeCompletedTurnID(turnID string, status string) {
+	writeFakeNotification("turn/completed", map[string]any{
+		"threadId": "thread_fake",
+		"turn": map[string]any{
+			"id":     turnID,
+			"items":  []any{},
+			"status": status,
+		},
+	})
+}
+
+func writeFakeGoalPhysicalTurn(turnID string, text string) {
+	writeFakeTurnStartedForThread("thread_fake", turnID)
+	writeFakeAssistantDeltaForTurn(turnID, "item_"+turnID, text)
+}
+
+func writeFakeGoalOperationMultiTurn(mode string, objective string) {
+	writeFakeThreadGoalUpdated(objective, "active")
+	writeFakeGoalPhysicalTurn("turn_goal_a", "goal turn A. ")
+	if fakeGoalOperationStartsBackgroundTerminal(mode) {
+		writeFakeUnifiedExecStartupForTurn("turn_goal_a", fakeUnifiedExecAlphaItemID, fakeUnifiedExecAlphaProcess, fakeUnifiedExecAlphaCommand)
+	}
+	if fakeGoalOperationActiveBeforeFirstCompletion(mode) {
+		writeFakeThreadGoalUpdated(objective, "active")
+	}
+	writeFakeCompletedTurnID("turn_goal_a", "completed")
+	if mode == "goal-operation-background-idle-gap" {
+		writeFakeGoalBackgroundTerminalOutputAndCompletion("turn_goal_a")
+	}
+	if mode == "goal-operation-idle-gap" {
+		return
+	}
+	if mode == "goal-operation-active-after-completion" {
+		writeFakeThreadGoalUpdated(objective, "active")
+	}
+	writeFakeGoalPhysicalTurn("turn_goal_b", "goal turn B. ")
+	if fakeGoalOperationEmitsBackgroundDuringSecondTurn(mode) {
+		writeFakeGoalBackgroundTerminalOutputAndCompletion("turn_goal_a")
+	}
+	if mode == "goal-operation-terminal-before-completion" || mode == "goal-operation-multi-turn" || mode == "goal-operation-duplicate-finish" {
+		writeFakeThreadGoalUpdated(objective, "complete")
+	}
+	writeFakeCompletedTurnID("turn_goal_b", "completed")
+	if fakeGoalOperationCompletesAfterSecondTurn(mode) {
+		writeFakeThreadGoalUpdated(objective, "complete")
+	}
+}
+
+func fakeGoalOperationStartsBackgroundTerminal(mode string) bool {
+	switch mode {
+	case "goal-operation-background-cross-turn",
+		"goal-operation-background-idle-gap",
+		"goal-operation-background-physical-turn-b",
+		"goal-operation-background-delegate-before-rewrite":
+		return true
+	default:
+		return false
+	}
+}
+
+func fakeGoalOperationActiveBeforeFirstCompletion(mode string) bool {
+	switch mode {
+	case "goal-operation-active-before-completion",
+		"goal-operation-multi-turn",
+		"goal-operation-background-cross-turn",
+		"goal-operation-background-idle-gap",
+		"goal-operation-background-physical-turn-b",
+		"goal-operation-background-delegate-before-rewrite",
+		"goal-operation-duplicate-finish":
+		return true
+	default:
+		return false
+	}
+}
+
+func fakeGoalOperationEmitsBackgroundDuringSecondTurn(mode string) bool {
+	switch mode {
+	case "goal-operation-background-cross-turn",
+		"goal-operation-background-physical-turn-b",
+		"goal-operation-background-delegate-before-rewrite":
+		return true
+	default:
+		return false
+	}
+}
+
+func fakeGoalOperationCompletesAfterSecondTurn(mode string) bool {
+	switch mode {
+	case "goal-operation-terminal-after-completion",
+		"goal-operation-active-after-completion",
+		"goal-operation-active-before-completion",
+		"goal-operation-background-cross-turn",
+		"goal-operation-background-idle-gap",
+		"goal-operation-background-physical-turn-b",
+		"goal-operation-background-delegate-before-rewrite",
+		"goal-operation-duplicate-finish":
+		return true
+	default:
+		return false
+	}
+}
+
+func writeFakeGoalBackgroundTerminalOutputAndCompletion(turnID string) {
+	writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
+		"delta":    "goal terminal output\n",
+		"itemId":   fakeUnifiedExecAlphaItemID,
+		"threadId": "thread_fake",
+		"turnId":   turnID,
+	})
+	writeFakeNotification("item/completed", map[string]any{
+		"completedAtMs": 3,
+		"threadId":      "thread_fake",
+		"turnId":        turnID,
+		"item": map[string]any{
+			"command":    fakeUnifiedExecAlphaCommand,
+			"cwd":        "/tmp/workspace",
+			"durationMs": 5,
+			"exitCode":   0,
+			"id":         fakeUnifiedExecAlphaItemID,
+			"processId":  fakeUnifiedExecAlphaProcess,
+			"source":     "unifiedExecStartup",
+			"status":     "completed",
+			"type":       "commandExecution",
+		},
+	})
+}
+
+func writeFakeGoalOperationClearDuringTurn(objective string) {
+	writeFakeThreadGoalUpdated(objective, "active")
+	writeFakeGoalPhysicalTurn("turn_goal_clear", "goal turn A. ")
+	writeFakeThreadGoalCleared()
+	writeFakeCompletedTurnID("turn_goal_clear", "completed")
+}
+
+func writeFakeGoalOperationSessionFailureAfterStart(objective string) {
+	writeFakeThreadGoalUpdated(objective, "active")
+	writeFakeGoalPhysicalTurn("turn_goal_session_failure", "goal turn A. ")
+}
+
+func writeFakeGoalOperationSingleTurnCompletion(objective string, status string) {
+	writeFakeThreadGoalUpdated(objective, "active")
+	writeFakeGoalPhysicalTurn("turn_goal_"+status, "goal turn A. ")
+	writeFakeCompletedTurnID("turn_goal_"+status, status)
+}
+
+func writeFakeUnifiedExecStartupForTurn(turnID string, itemID string, processID string, command string) {
+	writeFakeNotification("item/started", map[string]any{
+		"startedAtMs": 1,
+		"threadId":    "thread_fake",
+		"turnId":      turnID,
+		"item": map[string]any{
+			"command":   command,
+			"cwd":       "/tmp/workspace",
+			"id":        itemID,
+			"processId": processID,
+			"source":    "unifiedExecStartup",
+			"status":    "inProgress",
+			"type":      "commandExecution",
+		},
+	})
+}
+
+func writeFakeGoalOperationPreSinkBuffer(objective string) {
+	writeFakeThreadGoalUpdated(objective, "active")
+	writeFakeGoalPhysicalTurn("turn_goal_buffer", "pre-sink ")
+	writeFakeAssistantDeltaForTurn("turn_goal_buffer", "item_goal_buffer_live", "live ")
+	writeFakeThreadGoalUpdated(objective, "complete")
+	writeFakeCompletedTurnID("turn_goal_buffer", "completed")
+}
+
+func writeFakeGoalOperationPreSinkOverflow(objective string) {
+	writeFakeThreadGoalUpdated(objective, "active")
+	writeFakeTurnStartedForThread("thread_fake", "turn_goal_overflow")
+	for index := 0; index < 1025; index++ {
+		writeFakeAssistantDeltaForTurn("turn_goal_overflow", fmt.Sprintf("item_goal_overflow_%04d", index), "x")
+	}
+	writeFakeThreadGoalUpdated(objective, "complete")
+	writeFakeCompletedTurnID("turn_goal_overflow", "completed")
+}
+
+func fakeGoalOperationMode(mode string) bool {
+	// Goal-operation modes model edge orders and race shapes the direct app-server
+	// tests cannot force repeatably; do not add provider semantics here unless a
+	// direct app-server characterization test anchors the behavior.
+	return strings.HasPrefix(mode, "goal-operation-")
 }
 
 func fakeThreadGoal(objective string, status string) map[string]any {

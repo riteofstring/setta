@@ -6,6 +6,7 @@ import { setTimeout } from "node:timers";
 const threadId = "thread_fake";
 const turnId = "turn_fake";
 let account = null;
+let currentGoal = null;
 let pendingDynamicTool = null;
 const rl = readline.createInterface({ input: process.stdin });
 
@@ -35,7 +36,7 @@ const methodHandlers = {
   initialize: handleInitialize,
   initialized: () => {},
   "model/list": handleModelList,
-  "thread/goal/clear": respondEmpty,
+  "thread/goal/clear": handleThreadGoalClear,
   "thread/goal/get": handleThreadGoalGet,
   "thread/goal/set": handleThreadGoalSet,
   "thread/resume": handleThreadResume,
@@ -79,7 +80,7 @@ function handleAccountLogout(message) {
 function handleThreadStart(message) {
   if (isStructuredThreadStart(message.params)) {
     assertStructuredThreadStart(message.params);
-    respond(message.id, fakeThreadResponse());
+    respond(message.id, fakeThreadResponse({ ephemeral: true }));
     return;
   }
   assertThreadStartDeveloperInstructions(message.params);
@@ -116,7 +117,7 @@ function handleTurnStart(message) {
   setTimeout(emitProtocolCoverageTurn, 5);
 }
 
-function fakeThreadResponse() {
+function fakeThreadResponse(options = {}) {
   return {
     approvalPolicy: "on-request",
     approvalsReviewer: "user",
@@ -124,16 +125,16 @@ function fakeThreadResponse() {
     model: "gpt-test",
     modelProvider: "fake",
     sandbox: "workspace-write",
-    thread: fakeThread(),
+    thread: fakeThread(options),
   };
 }
 
-function fakeThread() {
+function fakeThread(options = {}) {
   return {
     cliVersion: "fake",
     createdAt: 1,
     cwd: "/tmp/setta-fake",
-    ephemeral: true,
+    ephemeral: options.ephemeral === true,
     id: threadId,
     modelProvider: "fake",
     preview: "",
@@ -187,22 +188,48 @@ function handleModelList(message) {
 }
 
 function handleThreadGoalGet(message) {
-  respond(message.id, { goal: null });
+  respond(message.id, { goal: currentGoal });
+}
+
+function handleThreadGoalClear(message) {
+  currentGoal = null;
+  respond(message.id, { cleared: true });
+  notify("thread/goal/cleared", { threadId });
 }
 
 function handleThreadGoalSet(message) {
+  const { objective, status } = threadGoalSetValues(message.params);
+  currentGoal = fakeGoal(objective, status);
   respond(message.id, {
-    goal: {
-      createdAt: 0,
-      objective: message.params?.objective ?? "",
-      status: message.params?.status ?? "active",
-      threadId,
-      timeUsedSeconds: 0,
-      tokenBudget: null,
-      tokensUsed: 0,
-      updatedAt: 0,
-    },
+    goal: currentGoal,
   });
+  if (shouldEmitGoalOperation(objective, status)) {
+    setTimeout(() => emitGoalOperationMultiTurn(objective), 5);
+  }
+}
+
+function threadGoalSetValues(params) {
+  return {
+    objective: params?.objective ?? currentGoal?.objective ?? "",
+    status: params?.status ?? currentGoal?.status ?? "active",
+  };
+}
+
+function shouldEmitGoalOperation(objective, status) {
+  return objective === "phase0 codex multi turn" && status === "active";
+}
+
+function fakeGoal(objective, status) {
+  return {
+    createdAt: currentGoal?.createdAt ?? 1,
+    objective,
+    status,
+    threadId,
+    timeUsedSeconds: currentGoal?.timeUsedSeconds ?? 0,
+    tokenBudget: null,
+    tokensUsed: currentGoal?.tokensUsed ?? 0,
+    updatedAt: currentGoal?.updatedAt === 2 ? 3 : 2,
+  };
 }
 
 function respondEmpty(message) {
@@ -515,6 +542,47 @@ function emitStructuredTaskTurn() {
       ],
     },
   });
+}
+
+function emitGoalOperationMultiTurn(objective) {
+  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
+  notify("turn/started", {
+    threadId,
+    turn: fakeTurnWithID("turn_goal_a", "inProgress"),
+  });
+  notify("item/agentMessage/delta", {
+    delta: "Goal turn A. ",
+    itemId: "goal_message_a",
+    threadId,
+    turnId: "turn_goal_a",
+  });
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurnWithID("turn_goal_a", "completed"),
+  });
+  notify("turn/started", {
+    threadId,
+    turn: fakeTurnWithID("turn_goal_b", "inProgress"),
+  });
+  notify("item/agentMessage/delta", {
+    delta: "Goal turn B. ",
+    itemId: "goal_message_b",
+    threadId,
+    turnId: "turn_goal_b",
+  });
+  currentGoal = fakeGoal(objective, "complete");
+  notify("thread/goal/updated", { goal: currentGoal, threadId });
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurnWithID("turn_goal_b", "completed"),
+  });
+}
+
+function fakeTurnWithID(id, status) {
+  return {
+    ...fakeTurn(status),
+    id,
+  };
 }
 
 function hookPayload(status) {

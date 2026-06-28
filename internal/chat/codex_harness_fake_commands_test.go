@@ -2,16 +2,75 @@ package chat
 
 func handleFakeGoalGet(mode string, message map[string]any) bool {
 	assertFakeThreadID(message)
-	if mode == "command-goal-edit" {
+	switch mode {
+	case "command-goal-edit":
 		writeFakeGoalResponse(message["id"], "finish renderer tests", "active")
 		return true
+	case "goal-operation-set-preserves-old", "goal-operation-resume":
+		writeFakeGoalResponse(message["id"], "existing provider goal", "active")
+		return false
 	}
 	writeFakeResponse(message["id"], map[string]any{"goal": nil})
 	return fakeCommandDone(mode)
 }
 
-func handleFakeGoalSetMethod(mode string, message map[string]any) bool {
+func handleFakeGoalSetMethod(mode string, state *fakeCodexState, message map[string]any) bool {
 	assertFakeGoalSet(mode, message)
+	params := fakeParams(message)
+	if mode == "goal-operation-cancel" && params["status"] == "paused" {
+		state.goalPaused = true
+		writeFakeGoalResponse(message["id"], "finish renderer tests", "paused")
+		writeFakeThreadGoalUpdated("finish renderer tests", "paused")
+		return false
+	}
+	if mode == "goal-operation-set-preserves-old" && !state.goalCleared {
+		writeFakeGoalResponse(message["id"], "existing provider goal", "active")
+		return false
+	}
+	if fakeGoalOperationMode(mode) {
+		objective := "finish renderer tests"
+		if value, ok := params["objective"].(string); ok && value != "" {
+			objective = value
+		}
+		writeFakeGoalResponse(message["id"], objective, "active")
+		switch mode {
+		case "goal-operation-no-runtime-turn",
+			"goal-operation-busy-thread",
+			"goal-operation-ephemeral-thread",
+			"goal-operation-missing-path-thread",
+			"goal-operation-set-preserves-old":
+			return false
+		case "goal-operation-cancel":
+			writeFakeThreadGoalUpdated(objective, "active")
+			writeFakeTurnStartedForThread("thread_fake", "turn_goal_cancel")
+			writeFakeAssistantDeltaForTurn("turn_goal_cancel", "item_goal_cancel", "goal cancellation waiting. ")
+			return false
+		case "goal-operation-clear-during-turn":
+			writeFakeGoalOperationClearDuringTurn(objective)
+			return true
+		case "goal-operation-session-failure-after-start":
+			writeFakeGoalOperationSessionFailureAfterStart(objective)
+			return true
+		case "goal-operation-interrupted-completion":
+			writeFakeGoalOperationSingleTurnCompletion(objective, "interrupted")
+			return true
+		case "goal-operation-failed-completion":
+			writeFakeGoalOperationSingleTurnCompletion(objective, "failed")
+			return true
+		case "goal-operation-pre-sink-buffer":
+			writeFakeGoalOperationPreSinkBuffer(objective)
+			return true
+		case "goal-operation-pre-sink-overflow":
+			writeFakeGoalOperationPreSinkOverflow(objective)
+			return true
+		case "goal-operation-idle-gap":
+			writeFakeGoalOperationMultiTurn(mode, objective)
+			return false
+		default:
+			writeFakeGoalOperationMultiTurn(mode, objective)
+			return true
+		}
+	}
 	writeFakeGoalResponse(message["id"], "finish renderer tests", "active")
 	if mode == "command-goal-continuation" {
 		writeFakeThreadGoalUpdated("finish renderer tests", "active")

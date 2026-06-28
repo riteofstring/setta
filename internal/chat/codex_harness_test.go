@@ -1179,6 +1179,8 @@ type fakeCodexState struct {
 	approvalOutstanding  bool
 	commandThreadResumed bool
 	commandThreadStarted bool
+	goalCleared          bool
+	goalPaused           bool
 	holdCalls            int
 	modelListCalls       int
 	responseOutstanding  string
@@ -1287,13 +1289,14 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)
-		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
+		writeFakeThreadResponseForMode(message["id"], mode, fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
 	case "thread/goal/get":
 		return handleFakeGoalGet(mode, message)
 	case "thread/goal/set":
-		return handleFakeGoalSetMethod(mode, message)
+		return handleFakeGoalSetMethod(mode, state, message)
 	case "thread/goal/clear":
 		assertFakeThreadID(message)
+		state.goalCleared = true
 		writeFakeResponse(message["id"], map[string]any{"cleared": true})
 		return fakeCommandDone(mode)
 	case "model/list":
@@ -1303,6 +1306,10 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	case "turn/start":
 		return handleFakeTurnStart(mode, state, message)
 	case "turn/interrupt":
+		if mode == "goal-operation-cancel" && !state.goalPaused {
+			writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
+			return true
+		}
 		writeFakeResponse(message["id"], map[string]any{})
 		writeFakeCompletedTurn("interrupted")
 		return true
@@ -1337,6 +1344,10 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	}
 	if handled, done := handleFakeNotificationTurnStartMode(mode); handled {
 		return done
+	}
+	if fakeGoalOperationMode(mode) {
+		writeFakeStreamTurn()
+		return true
 	}
 	return false
 }
