@@ -1,10 +1,11 @@
-import type { ChatCommandExecuteResult, MessagePage, Run } from "@generated/backend";
+import type { ChatCommandExecuteResult, MessagePage, Run, RunLiveness } from "@generated/backend";
 
 import type { ChatPatch, ChatStore } from "./chat-store";
 import {
   activeRunAfterOperation,
   activeRunFromCandidate,
   activeRunFromCandidates,
+  activeRunLivenessFromCandidates,
   blocksFromPage,
   mergeOperationBlocks,
   mergeOperationGoal,
@@ -22,9 +23,15 @@ import {
 // outputs are no longer carried on the page (the transcript renders from blocks);
 // they are detail-surface data loaded lazily by source run item ID, so a fresh
 // page resets them and an operation patch restores the current ones below.
-export function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
+export function pagePatch(
+  page: MessagePage,
+  activeRun: Run | null,
+  activeRunLiveness: RunLiveness | null,
+): ChatPatch {
+  const normalizedActiveRun = activeRunFromCandidate(activeRun);
   return normalizeChatPatch({
-    activeRun: activeRunFromCandidate(activeRun),
+    activeRun: normalizedActiveRun,
+    activeRunLiveness: activeRunLivenessFromCandidates(normalizedActiveRun, activeRunLiveness),
     goal: page.goal,
     hasMoreOlder: page.hasMoreOlder,
     messages: messagesFromPage(page),
@@ -54,7 +61,13 @@ export function operationPagePatch(
     fallbackActiveRun,
     terminalRunIds,
   );
-  return terminalPreservingPagePatch(current, page, activeRun, terminalRunIds);
+  return terminalPreservingPagePatch(
+    current,
+    page,
+    activeRun,
+    activeRunLivenessFromCandidates(activeRun, current.activeRunLiveness),
+    terminalRunIds,
+  );
 }
 
 export function runOperationPatch(
@@ -74,6 +87,10 @@ export function runOperationPatch(
       fallbackActiveRun,
       terminalRunIds,
     ),
+    activeRunLiveness: activeRunLivenessFromCandidates(
+      activeRunAfterOperation(current.activeRun, returnedRun, fallbackActiveRun, terminalRunIds),
+      current.activeRunLiveness,
+    ),
   };
 }
 
@@ -81,15 +98,18 @@ export function resyncPagePatch(
   current: ChatStore,
   page: MessagePage,
   activeRun: Run | null,
+  activeRunLiveness: RunLiveness | null,
 ): ChatPatch {
   const terminalRunIds = terminalRunIdsFromBlocks(
     current.transcriptBlocks,
     current.activeRun?.id ?? null,
   );
+  const normalizedActiveRun = activeRunFromCandidates(terminalRunIds, activeRun);
   return terminalPreservingPagePatch(
     current,
     page,
-    activeRunFromCandidates(terminalRunIds, activeRun),
+    normalizedActiveRun,
+    activeRunLivenessFromCandidates(normalizedActiveRun, activeRunLiveness),
     terminalRunIds,
   );
 }
@@ -107,6 +127,10 @@ export function commandOperationPatch(
     current,
     result.page,
     activeRunFromCandidates(terminalRunIds, current.activeRun, fallbackActiveRun),
+    activeRunLivenessFromCandidates(
+      activeRunFromCandidates(terminalRunIds, current.activeRun, fallbackActiveRun),
+      current.activeRunLiveness,
+    ),
     terminalRunIds,
   );
 }
@@ -114,6 +138,7 @@ export function commandOperationPatch(
 export function emptyConversationPatch(): ChatPatch {
   return normalizeChatPatch({
     activeRun: null,
+    activeRunLiveness: null,
     backgroundTerminalIdsByConversationId: {},
     backgroundTerminalOutputIdsByProcessId: {},
     backgroundTerminalOutputPagesByProcessId: {},
@@ -138,6 +163,7 @@ function terminalPreservingPagePatch(
   current: ChatStore,
   page: MessagePage,
   activeRun: RunningRun | null,
+  activeRunLiveness: RunLiveness | null,
   terminalRunIds: Set<string>,
 ): ChatPatch {
   const patch = pagePatch(
@@ -148,6 +174,7 @@ function terminalPreservingPagePatch(
       blocks: mergeOperationBlocks(current.transcriptBlocks, page.blocks, terminalRunIds),
     },
     activeRun,
+    activeRunLiveness,
   );
   if (patch.messages) {
     patch.messages = mergeOperationMessages(current.messages, patch.messages, terminalRunIds);

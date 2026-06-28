@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   MessagePart,
   Run,
+  RunLiveness,
   RunActivityDetailsProjection,
   RunItemOutput,
   TranscriptBlock,
@@ -39,6 +40,7 @@ import type { TranscriptRowActions } from "./chat-transcript-row-actions";
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
   blocks: TranscriptBlock[];
   editQueuedMessage: (messageId: string, input: ChatInput) => Promise<void>;
   editingQueuedMessageId: string | null;
@@ -169,6 +171,7 @@ function messagePartsText(parts: MessagePart[]) {
 
 export function ChatTranscript({
   activeRun,
+  activeRunLiveness,
   blocks,
   editQueuedMessage,
   editingQueuedMessageId,
@@ -283,6 +286,7 @@ export function ChatTranscript({
     () =>
       ({
         activeRun,
+        activeRunLiveness,
         editQueuedMessage,
         editingQueuedMessageId,
         operation,
@@ -292,6 +296,7 @@ export function ChatTranscript({
       }) satisfies TranscriptRowActions,
     [
       activeRun,
+      activeRunLiveness,
       editQueuedMessage,
       editingQueuedMessageId,
       operation,
@@ -311,6 +316,7 @@ export function ChatTranscript({
   const context = useMemo<TranscriptRowContext>(
     () => ({
       activeSearchId: search.activeSearchId,
+      activeRunLiveness,
       expandedActivityBlockIds,
       expandedActivityGroupIds,
       focusedSourceRunItemId,
@@ -325,6 +331,7 @@ export function ChatTranscript({
     [
       expandedActivityBlockIds,
       expandedActivityGroupIds,
+      activeRunLiveness,
       focusedSourceRunItemId,
       loadRunItemOutput,
       rowActions,

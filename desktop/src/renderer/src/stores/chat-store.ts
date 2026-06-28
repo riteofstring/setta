@@ -44,6 +44,7 @@ import {
   pagePatch,
   runOperationPatch,
 } from "./chat-store-page-patches";
+import { loadConversationPageSnapshot as loadConversationPageSnapshotRequest } from "./chat-store-page-snapshot";
 import {
   conversationBoundOperationScopes,
   createChatOperationTracker,
@@ -66,6 +67,7 @@ import {
 } from "./chat-store-helpers";
 import type { ChatCommandClientOptions, ChatPatch, ChatStore } from "./chat-store-types";
 import { createChatResyncController } from "./chat-store-resync";
+import { createRetryActiveRunLivenessAction } from "./chat-store-liveness-actions";
 import { deletedConversationSelectionPatch as deletedConversationSelectionPatchForState } from "./chat-store-delete-selection";
 import { resolveConversationSelection } from "./chat-store-selection-resolver";
 import {
@@ -196,27 +198,19 @@ export const useChatStore = create<ChatStore>((set, get) => {
     conversation: Conversation,
     generation = backendReadGeneration(),
   ) {
-    assertBackendReadCurrent(generation);
-    const page = await window.setta.chat.messagePage(workspaceId, conversation.id, 0, pageLimit);
-    assertBackendReadCurrent(generation);
-    const active = await window.setta.chat.activeRun(workspaceId, conversation.id);
-    assertBackendReadCurrent(generation);
-    const backgroundTerminals = await window.setta.chat.listBackgroundTerminals(
+    return loadConversationPageSnapshotRequest({
+      assertBackendReadCurrent,
+      conversation,
+      generation,
+      pageLimit,
       workspaceId,
-      conversation.id,
-    );
-    assertBackendReadCurrent(generation);
-    return {
-      activeRun: active.hasActiveRun ? active.run : null,
-      backgroundTerminals,
-      page,
-    };
+    });
   }
 
   async function loadConversationPage(workspaceId: string, conversation: Conversation) {
     const snapshot = await loadConversationPageSnapshot(workspaceId, conversation);
     return {
-      ...pagePatch(snapshot.page, snapshot.activeRun),
+      ...pagePatch(snapshot.page, snapshot.activeRun, snapshot.activeRunLiveness),
       ...backgroundTerminalsReplacedPatch(
         get(),
         conversation.id,
@@ -310,6 +304,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
   return {
     activeRun: null,
+    activeRunLiveness: null,
     backgroundTerminalIdsByConversationId: {},
     backgroundTerminalOutputIdsByProcessId: {},
     backgroundTerminalOutputPagesByProcessId: {},
@@ -709,7 +704,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           messageId,
         );
         commitCurrentFromState(operation, (current) => ({
-          ...pagePatch(result.page, current.activeRun),
+          ...pagePatch(result.page, current.activeRun, current.activeRunLiveness),
           operation: null,
           removingQueuedMessageId: null,
           selectedConversation: result.conversation,
@@ -724,6 +719,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     removingQueuedMessageId: null,
+    retryActiveRunLiveness: createRetryActiveRunLivenessAction({
+      get,
+      runChatStoreBackgroundResync: () => runChatStoreBackgroundResync("event-stream-resync"),
+      set,
+    }),
     executeCommand: async (
       raw: string,
       options?: ChatCommandExecutionOptions,

@@ -4,6 +4,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 import { activityDetails, queuedChatMessage } from "../App.test.fixtures";
+import type { ActiveRunPresentation } from "../lib/chat-run-liveness";
 import {
   activityBlock,
   assistantTextBlock,
@@ -45,6 +46,7 @@ describe("composer keyboard behavior", () => {
 
     try {
       handleComposerKeyDown(event, {
+        canStop: false,
         completeCommand: vi.fn(),
         draftEmpty: false,
         dismissPicker: vi.fn(),
@@ -77,6 +79,7 @@ describe("composer keyboard behavior", () => {
 
     try {
       handleComposerKeyDown(event, {
+        canStop: false,
         completeCommand: vi.fn(),
         draftEmpty: false,
         dismissPicker: vi.fn(),
@@ -104,6 +107,7 @@ describe("composer keyboard behavior", () => {
     const stopRun = vi.fn();
 
     handleComposerKeyDown(event, {
+      canStop: true,
       completeCommand: vi.fn(),
       draftEmpty: false,
       dismissPicker: vi.fn(),
@@ -127,6 +131,7 @@ describe("composer keyboard behavior", () => {
     const queueDraft = vi.fn();
 
     handleComposerKeyDown(event, {
+      canStop: false,
       completeCommand,
       draftEmpty: false,
       dismissPicker: vi.fn(),
@@ -150,6 +155,7 @@ describe("composer keyboard behavior", () => {
     const dismissPicker = vi.fn();
 
     handleComposerKeyDown(event, {
+      canStop: false,
       completeCommand: vi.fn(),
       draftEmpty: true,
       dismissPicker,
@@ -172,6 +178,7 @@ describe("composer keyboard behavior", () => {
     const sendImmediateSteering = vi.fn();
 
     handleComposerKeyDown(event, {
+      canStop: false,
       completeCommand: vi.fn(),
       draftEmpty: true,
       dismissPicker: vi.fn(),
@@ -235,7 +242,7 @@ describe("composer keyboard behavior", () => {
         key: "c",
         name: "Ctrl+C stops active runs",
         options: { ctrlKey: true },
-        overrides: { running: true },
+        overrides: { canStop: true, running: true },
       },
       {
         expected: "sendDraft",
@@ -258,6 +265,7 @@ describe("composer keyboard behavior", () => {
       const event = keyboardEvent(testCase.key, testCase.options);
 
       handleComposerKeyDown(event, {
+        canStop: false,
         completeCommand: actions.completeCommand,
         draftEmpty: false,
         dismissPicker: actions.dismissPicker,
@@ -564,6 +572,7 @@ describe("composer controls", () => {
         chat={composerButtonChat()}
         queueDraft={async () => {}}
         running={false}
+        runPresentation={idleRunPresentation}
         sendImmediateSteering={async () => {}}
       />,
     );
@@ -581,6 +590,7 @@ describe("composer controls", () => {
         chat={composerButtonChat()}
         queueDraft={async () => {}}
         running
+        runPresentation={workingRunPresentation}
         sendImmediateSteering={async () => {}}
       />,
     );
@@ -589,6 +599,26 @@ describe("composer controls", () => {
     expect(html).toContain("Queue follow-up");
     expect(html).toContain("Interrupt and send pending steering");
     expect(html).toContain("Stop run");
+  });
+
+  test("shows retry and stop controls while run liveness is degraded", () => {
+    const html = renderToString(
+      <ComposerButton
+        canSend
+        canSendImmediately
+        chat={composerButtonChat()}
+        queueDraft={async () => {}}
+        running
+        runPresentation={lostRunPresentation}
+        sendImmediateSteering={async () => {}}
+      />,
+    );
+
+    expect(html).toContain("Retry run liveness check");
+    expect(html).toContain("Stop run");
+    expect(html).not.toContain("Send steering message");
+    expect(html).not.toContain("Queue follow-up");
+    expect(html).not.toContain("Interrupt and send pending steering");
   });
 });
 
@@ -778,7 +808,12 @@ describe("chat readable width contract", () => {
     const emptyTranscriptHtml = renderToString(<ChatTranscript {...emptyTranscriptProps()} />);
     const searchHtml = renderToString(<ChatSearchBar search={openSearchController()} />);
     const composerHtml = renderToString(
-      <Composer busy={false} chat={composerChat()} running={false} />,
+      <Composer
+        busy={false}
+        chat={composerChat()}
+        running={false}
+        runPresentation={idleRunPresentation}
+      />,
     );
     const goalHtml = renderToString(
       <ConversationBody
@@ -886,6 +921,7 @@ function keyboardEvent(
 function composerButtonChat() {
   return {
     operation: null,
+    retryActiveRunLiveness: async () => {},
     stopActiveRun: async () => {},
   };
 }
@@ -972,6 +1008,7 @@ function conversationBodyChat(
 function emptyTranscriptProps(): ChatTranscriptProps {
   return {
     activeRun: null,
+    activeRunLiveness: null,
     blocks: [],
     editQueuedMessage: async () => {},
     editingQueuedMessageId: null,
@@ -990,6 +1027,33 @@ function emptyTranscriptProps(): ChatTranscriptProps {
     submitApproval: async () => {},
   };
 }
+
+const idleRunPresentation = {
+  canRetry: false,
+  canSteer: false,
+  canStop: false,
+  kind: "idle",
+  liveness: null,
+  running: false,
+} satisfies ActiveRunPresentation;
+
+const workingRunPresentation = {
+  canRetry: false,
+  canSteer: true,
+  canStop: true,
+  kind: "working",
+  liveness: null,
+  running: true,
+} satisfies ActiveRunPresentation;
+
+const lostRunPresentation = {
+  canRetry: true,
+  canSteer: false,
+  canStop: true,
+  kind: "lost",
+  liveness: null,
+  running: true,
+} satisfies ActiveRunPresentation;
 
 function defaultEffectivePermissionSettings() {
   return {

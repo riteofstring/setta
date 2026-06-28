@@ -1,4 +1,4 @@
-import type { ChatInput, ChatMessage, Run } from "@generated/backend";
+import type { ChatInput, ChatMessage, Run, RunLiveness } from "@generated/backend";
 import { Check, Pencil, Trash2, X, Zap } from "lucide-react";
 
 import {
@@ -14,6 +14,7 @@ import { Textarea } from "./ui/textarea";
 
 export interface TranscriptRowActions {
   activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
   editQueuedMessage: (messageId: string, input: ChatInput) => Promise<void>;
   editingQueuedMessageId: string | null;
   operation: string | null;

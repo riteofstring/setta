@@ -1,8 +1,14 @@
-import type { RunItemOutput, TranscriptBlock, TranscriptBlockStatus } from "@generated/backend";
-import { Ban, Check, CircleAlert, SquareTerminal } from "lucide-react";
+import type {
+  RunLiveness,
+  RunItemOutput,
+  TranscriptBlock,
+  TranscriptBlockStatus,
+} from "@generated/backend";
+import { Ban, Check, CircleAlert, RefreshCw, SquareTerminal, WifiOff } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "../lib/utils";
+import { runLivenessStatusLabel } from "../lib/chat-run-liveness";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 import type { TranscriptRenderRow } from "../lib/chat-transcript-render-rows";
 import { BrailleSpinner } from "./ascii-spinner";
@@ -29,6 +35,7 @@ import type { TranscriptRowActions } from "./chat-transcript-row-actions";
 // output state keyed by source run item ID.
 export interface TranscriptRowContext {
   activeSearchId: string | null;
+  activeRunLiveness: RunLiveness | null;
   rowActions: TranscriptRowActions;
   expandedActivityBlockIds: Set<string>;
   expandedActivityGroupIds: Set<string>;
@@ -114,7 +121,7 @@ function TranscriptBlockView({
     case "reasoning":
       return <ReasoningBlock block={block} />;
     case "run_status":
-      return <RunStatusBlock block={block} />;
+      return <RunStatusBlock block={block} rowActions={rowActions} />;
     case "background_terminal":
       return <BackgroundTerminalBlock block={block} />;
     case "activity_item":
@@ -178,24 +185,19 @@ function ActivityGroupSlotRow({
 // run_status carries a live-only working indicator (never persisted) and the
 // permanent terminal modes. The working tail spins; terminal modes render a slim
 // fixed-height status row that matches block heights so reload keeps the layout.
-function RunStatusBlock({ block }: { block: TranscriptBlock }) {
+function RunStatusBlock({
+  block,
+  rowActions,
+}: {
+  block: TranscriptBlock;
+  rowActions: TranscriptRowActions;
+}) {
   const runStatus = block.runStatus;
   if (!runStatus) {
     return null;
   }
   if (runStatus.mode === "working") {
-    return (
-      <RunStatusRow
-        mode="working"
-        runId={block.runId}
-        tone="muted"
-        icon={<BrailleSpinner label={runStatus.label} />}
-      >
-        <LiveHeadlineText active className="italic">
-          {runStatus.label}
-        </LiveHeadlineText>
-      </RunStatusRow>
-    );
+    return <LiveRunStatusBlock block={block} rowActions={rowActions} />;
   }
   return (
     <RunStatusRow
@@ -207,6 +209,81 @@ function RunStatusBlock({ block }: { block: TranscriptBlock }) {
       <span>{runStatus.label}</span>
       {runStatus.error !== "" ? (
         <span className="min-w-0 truncate text-status-critical">{runStatus.error}</span>
+      ) : null}
+    </RunStatusRow>
+  );
+}
+
+function LiveRunStatusBlock({
+  block,
+  rowActions,
+}: {
+  block: TranscriptBlock;
+  rowActions: TranscriptRowActions;
+}) {
+  const liveStatus = liveRunStatusForBlock(block, rowActions);
+  if (liveStatus === "reconciling") {
+    return (
+      <RunStatusRow
+        mode="reconnecting"
+        runId={block.runId}
+        tone="muted"
+        icon={<RefreshCw className="h-4 w-4 shrink-0 text-muted-foreground" />}
+      >
+        <span>{runLivenessStatusLabel(liveStatus)}</span>
+      </RunStatusRow>
+    );
+  }
+  if (liveStatus === "lost") {
+    return <LostRunStatusRow block={block} liveness={rowActions.activeRunLiveness} />;
+  }
+  return <WorkingRunStatusRow block={block} />;
+}
+
+function liveRunStatusForBlock(block: TranscriptBlock, rowActions: TranscriptRowActions) {
+  const liveness = rowActions.activeRunLiveness;
+  if (block.runId === liveness?.runId) {
+    return liveness.status;
+  }
+  if (block.runId === rowActions.activeRun?.id) {
+    return "reconciling";
+  }
+  return null;
+}
+
+function WorkingRunStatusRow({ block }: { block: TranscriptBlock }) {
+  const label = block.runStatus?.label ?? "Working";
+  return (
+    <RunStatusRow
+      mode="working"
+      runId={block.runId}
+      tone="muted"
+      icon={<BrailleSpinner label={label} />}
+    >
+      <LiveHeadlineText active className="italic">
+        {label}
+      </LiveHeadlineText>
+    </RunStatusRow>
+  );
+}
+
+function LostRunStatusRow({
+  block,
+  liveness,
+}: {
+  block: TranscriptBlock;
+  liveness: TranscriptRowActions["activeRunLiveness"];
+}) {
+  return (
+    <RunStatusRow
+      mode="lost"
+      runId={block.runId}
+      tone="error"
+      icon={<WifiOff className="h-4 w-4 shrink-0 text-status-critical-muted" />}
+    >
+      <span>{runLivenessStatusLabel("lost")}</span>
+      {liveness && liveness.error !== "" ? (
+        <span className="min-w-0 truncate text-status-critical">{liveness.error}</span>
       ) : null}
     </RunStatusRow>
   );

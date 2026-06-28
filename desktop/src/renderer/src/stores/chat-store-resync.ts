@@ -4,6 +4,7 @@ import type {
   ListConversationsResponse,
   MessagePage,
   Run,
+  RunLiveness,
 } from "@generated/backend";
 
 import { isChatBackendLifecycleAbort } from "./chat-store-backend-lifecycle";
@@ -16,6 +17,7 @@ import type { ChatPatch, ChatStore } from "./chat-store-types";
 
 interface ConversationPageSnapshot {
   activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
   backgroundTerminals: BackgroundTerminalListProjection;
   page: MessagePage;
 }
@@ -125,7 +127,12 @@ async function loadAndCommitResync(
   deps.commitCurrentFromState(operation, (current) => ({
     ...(snapshot
       ? {
-          ...resyncPagePatch(current, snapshot.page, snapshot.activeRun),
+          ...resyncPagePatch(
+            current,
+            snapshot.page,
+            snapshot.activeRun,
+            snapshot.activeRunLiveness,
+          ),
           ...backgroundTerminalsReplacedPatch(
             current,
             snapshot.page.conversation.id,

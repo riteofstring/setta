@@ -10,6 +10,7 @@ import { ImagePlus } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { chatInputFromDraft, chatInputHasContent } from "../lib/chat-input";
+import type { ActiveRunPresentation } from "../lib/chat-run-liveness";
 import { cn } from "../lib/utils";
 import { commandDescriptorContextKey } from "../stores/chat-store-command-cache";
 import { CommandPalette } from "./chat-command-palette";
@@ -47,7 +48,14 @@ import {
   composerTextareaLabel,
   isSlashDraft,
 } from "./chat-composer-helpers";
+import {
+  activeRunSubmitMode,
+  canQueueComposerDraft,
+  composerCanSteer,
+  composerSendDisabled,
+} from "./chat-composer-liveness";
 import { useComposerPermissionPicker } from "./chat-composer-permission";
+import { composerChatPropsEqual } from "./chat-composer-props";
 import type { ChatView } from "./chat-panel";
 import { chatReadableColumnAttributes, chatReadableColumnClass } from "./chat-layout";
 import { Textarea } from "./ui/textarea";
@@ -150,32 +158,8 @@ interface ComposerProps {
   onSendPrompt?: (input: ChatInput) => Promise<void>;
   placeholder?: string;
   running: boolean;
+  runPresentation: ActiveRunPresentation;
 }
-
-const composerChatPropSelectors = [
-  (chat: ChatView) => chat.activeRun?.id,
-  (chat: ChatView) => chat.commandListError,
-  (chat: ChatView) => chat.commandListStatus,
-  (chat: ChatView) => chat.createImageAttachmentFromBytes,
-  (chat: ChatView) => chat.createImageAttachmentsFromPicker,
-  (chat: ChatView) => chat.executeCommand,
-  (chat: ChatView) => chat.goal,
-  (chat: ChatView) => chat.listCommands,
-  (chat: ChatView) => chat.openCodexModelPicker,
-  (chat: ChatView) => chat.openCodexPermissionPicker,
-  (chat: ChatView) => chat.operation,
-  (chat: ChatView) => chat.pendingSteeringMessageIds,
-  (chat: ChatView) => chat.queueMessage,
-  (chat: ChatView) => chat.selectedConversation,
-  (chat: ChatView) => chat.sendMessage,
-  (chat: ChatView) => chat.sendSteeringImmediately,
-  (chat: ChatView) => chat.setCodexModel,
-  (chat: ChatView) => chat.setCodexPermissionPreset,
-  (chat: ChatView) => chat.setCodexReasoningEffort,
-  (chat: ChatView) => chat.status,
-  (chat: ChatView) => chat.steerMessage,
-  (chat: ChatView) => chat.stopActiveRun,
-] as const;
 
 function ComposerComponent({
   busy,
@@ -186,6 +170,7 @@ function ComposerComponent({
   onSendPrompt,
   placeholder = "",
   running,
+  runPresentation,
 }: ComposerProps) {
   const [draft, setDraft] = useState("");
   const [commands, setCommands] = useState<ChatCommandDescriptor[]>(emptyCommandDescriptors);
@@ -240,7 +225,7 @@ function ComposerComponent({
   const supportsAttachments = composerAttachmentsSupported(hasAttachments, supportsImages);
   const canSend = canSendComposerDraft({
     attaching,
-    disabled,
+    disabled: composerSendDisabled(disabled, running, runPresentation),
     draftText,
     hasAttachments,
     supportsAttachments,
@@ -250,7 +235,7 @@ function ComposerComponent({
     disabled,
     draftText,
     hasPendingSteering: immediateSteeringHasContent(hasPendingSteering, hasAttachments),
-    running,
+    running: composerCanSteer(running, runPresentation),
     slashDraft,
     supportsAttachments,
   });
@@ -421,7 +406,11 @@ function ComposerComponent({
       await executeSlashDraft(submittedDraft);
       return;
     }
-    if (running) {
+    const activeSubmit = activeRunSubmitMode(running, runPresentation);
+    if (activeSubmit === "blocked") {
+      return;
+    }
+    if (activeSubmit === "steer") {
       await chat.steerMessage(input);
       clearDraftIfUnchanged(submittedDraft);
       clearAttachmentsIfUnchanged(submittedAttachments);
@@ -568,12 +557,16 @@ function ComposerComponent({
     const prompt = submittedDraft.trim();
     const input = chatInputFromDraft(prompt, submittedAttachments);
     if (
-      !chatInputHasContent(input) ||
-      !chat.selectedConversation ||
-      disabled ||
-      attaching ||
-      !supportsAttachments ||
-      submittingRef.current
+      !canQueueComposerDraft({
+        attaching,
+        disabled,
+        input,
+        running,
+        runPresentation,
+        selectedConversation: chat.selectedConversation,
+        submitting: submittingRef.current,
+        supportsAttachments,
+      })
     ) {
       return;
     }
@@ -623,7 +616,7 @@ function ComposerComponent({
         disabled,
         draftText: prompt,
         hasPendingSteering: hasPendingSteering || chatInputHasContent(input),
-        running,
+        running: composerCanSteer(running, runPresentation),
         slashDraft,
         supportsAttachments,
       })
@@ -799,6 +792,7 @@ function ComposerComponent({
                     return;
                   }
                   handleComposerKeyDown(event, {
+                    canStop: runPresentation.canStop,
                     completeCommand,
                     draftEmpty: draftText === "",
                     dismissPicker,
@@ -868,6 +862,7 @@ function ComposerComponent({
                   canSendImmediately={canSendImmediately}
                   queueDraft={queueDraft}
                   running={running}
+                  runPresentation={runPresentation}
                   sendImmediateSteering={sendImmediateSteering}
                 />
               </div>
@@ -992,8 +987,4 @@ function composerPropsEqual(previous: ComposerProps, next: ComposerProps) {
     previous.running === next.running &&
     composerChatPropsEqual(previous.chat, next.chat)
   );
-}
-
-function composerChatPropsEqual(previous: ChatView, next: ChatView) {
-  return composerChatPropSelectors.every((selector) => selector(previous) === selector(next));
 }

@@ -4,6 +4,7 @@ import type {
   ConversationListItem,
   MessagePage,
   Run,
+  RunLiveness,
   RunItemOutput,
   TranscriptBlock,
 } from "@generated/backend";
@@ -35,6 +36,35 @@ type NormalizableChatPatch = {
 export function activeRunFromCandidate(run: Run | null): RunningRun | null {
   if (run?.status === "running") {
     return run as RunningRun;
+  }
+  return null;
+}
+
+export function activeRunLivenessFromCandidate(
+  activeRun: RunningRun | null,
+  liveness: RunLiveness | null,
+): RunLiveness | null {
+  if (
+    !activeRun ||
+    !liveness ||
+    liveness.workspaceId !== activeRun.workspaceId ||
+    liveness.conversationId !== activeRun.conversationId ||
+    liveness.runId !== activeRun.id
+  ) {
+    return null;
+  }
+  return liveness;
+}
+
+export function activeRunLivenessFromCandidates(
+  activeRun: RunningRun | null,
+  ...candidates: Array<RunLiveness | null>
+): RunLiveness | null {
+  for (const candidate of candidates) {
+    const liveness = activeRunLivenessFromCandidate(activeRun, candidate);
+    if (liveness) {
+      return liveness;
+    }
   }
   return null;
 }

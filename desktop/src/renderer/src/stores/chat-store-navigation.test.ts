@@ -851,6 +851,7 @@ function messageCreatedEvent(sequence: number, chatMessage: ChatMessage, runId: 
 function conversationDetail(conversation: Conversation, messages: ChatMessage[]) {
   return {
     activeRun: null,
+    activeRunLiveness: null,
     backgroundTerminalIdsByConversationId: {},
     backgroundTerminalOutputIdsByProcessId: {},
     backgroundTerminalOutputPagesByProcessId: {},

@@ -4,6 +4,7 @@ import type {
   CorruptionSummary,
   Diagnostic,
   Run,
+  RunLiveness,
   RunItemOutput,
   TranscriptBlock,
 } from "@generated/backend";
@@ -130,6 +131,7 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <WorkspaceSidebar
         activeRun={null}
+        activeRunLiveness={null}
         activeWorkspaces={[]}
         busy={false}
         closeWorkspace={async () => {}}
@@ -175,6 +177,7 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <WorkspaceSidebar
         activeRun={null}
+        activeRunLiveness={null}
         activeWorkspaces={[api, web]}
         busy={false}
         closeWorkspace={async () => {}}
@@ -205,6 +208,7 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <WorkspaceSidebar
         activeRun={null}
+        activeRunLiveness={null}
         activeWorkspaces={[]}
         busy={false}
         clearWorkspaceError={() => {}}
@@ -251,6 +255,7 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <WorkspaceSidebar
         activeRun={null}
+        activeRunLiveness={null}
         activeWorkspaces={[api, web]}
         busy={false}
         closeWorkspace={async () => {}}
@@ -306,6 +311,7 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <WorkspaceSidebar
         activeRun={null}
+        activeRunLiveness={null}
         activeWorkspaces={[web]}
         busy={false}
         closeWorkspace={async () => {}}
@@ -336,6 +342,53 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Path: /tmp/run.json");
   });
 
+  test("uses active-run liveness for the sidebar conversation indicator", () => {
+    const web = {
+      displayName: "web",
+      id: "workspace_web",
+      lastOpenedAt: "2026-05-29T20:05:00Z",
+      rootPath: "/tmp/web",
+    };
+    const activeRun = runFixture("run_web", "running");
+    activeRun.workspaceId = "workspace_web";
+    activeRun.conversationId = "conversation_web";
+    const liveness = runLivenessFixture(activeRun, "lost");
+    seedWorkspaceConversationList("workspace_web", [
+      {
+        ...conversationListItem("conversation_web", "Build web UI", "workspace_web"),
+        activeRunId: activeRun.id,
+        activeRunLiveness: liveness,
+      },
+    ]);
+
+    const html = renderToString(
+      <WorkspaceSidebar
+        activeRun={activeRun}
+        activeRunLiveness={liveness}
+        activeWorkspaces={[web]}
+        busy={false}
+        closeWorkspace={async () => {}}
+        createConversation={async () => {}}
+        createWorkspaceConversation={async () => {}}
+        deleteConversation={async () => {}}
+        openLocalFolder={async () => {}}
+        openWorkflowGraphPane={() => {}}
+        openWorkspacePath={async () => {}}
+        openSettingsPane={() => {}}
+        recentWorkspaces={[]}
+        removeRecent={async () => {}}
+        selectConversation={async () => {}}
+        selectWorkspace={async () => {}}
+        selectedConversationId="conversation_web"
+        selectedWorkspaceId="workspace_web"
+        setConversationPinned={async () => {}}
+      />,
+    );
+
+    expect(hasAriaLabel(html, "Chat connection lost")).toBe(true);
+    expect(hasAriaLabel(html, "Chat response running")).toBe(false);
+  });
+
   test("bounds large workspace list row rendering", () => {
     const workspaces = Array.from({ length: 3000 }, (_, index) => ({
       displayName: `Workspace ${index}`,
@@ -350,6 +403,7 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <WorkspaceSidebar
         activeRun={null}
+        activeRunLiveness={null}
         activeWorkspaces={workspaces}
         busy={false}
         closeWorkspace={async () => {}}
@@ -524,9 +578,11 @@ describe("chat renderer states", () => {
   });
 
   test("renders the live-only working run status indicator", () => {
+    const activeRun = runFixture("run_api", "running");
     const html = renderToString(
       <TestChatTranscript
-        activeRun={runFixture("run_api", "running")}
+        activeRun={activeRun}
+        activeRunLiveness={runLivenessFixture(activeRun, "attached")}
         blocks={[
           runStatusBlock({
             id: "block_working",
@@ -543,6 +599,55 @@ describe("chat renderer states", () => {
     expect(html).toContain('data-run-status-mode="working"');
     expect(html).toContain('data-live-headline="active"');
     expect(html).toContain("Working");
+  });
+
+  test("renders reconnecting run status without the normal working indicator", () => {
+    const activeRun = runFixture("run_api", "running");
+    const html = renderToString(
+      <TestChatTranscript
+        activeRun={activeRun}
+        activeRunLiveness={runLivenessFixture(activeRun, "reconciling")}
+        blocks={[
+          runStatusBlock({
+            id: "block_working",
+            runId: "run_api",
+            ordinal: 1,
+            status: "streaming",
+            mode: "working",
+            label: "Working",
+          }),
+        ]}
+      />,
+    );
+
+    expect(html).toContain('data-run-status-mode="reconnecting"');
+    expect(html).toContain("Reconnecting");
+    expect(html).not.toContain('data-live-headline="active"');
+  });
+
+  test("renders lost run status without the normal working indicator", () => {
+    const activeRun = runFixture("run_api", "running");
+    const html = renderToString(
+      <TestChatTranscript
+        activeRun={activeRun}
+        activeRunLiveness={runLivenessFixture(activeRun, "lost", { error: "thread/read failed" })}
+        blocks={[
+          runStatusBlock({
+            id: "block_working",
+            runId: "run_api",
+            ordinal: 1,
+            status: "streaming",
+            mode: "working",
+            label: "Working",
+          }),
+        ]}
+      />,
+    );
+
+    expect(html).toContain('data-run-status-mode="lost"');
+    expect(html).toContain("Connection lost");
+    expect(html).toContain("thread/read failed");
+    expect(html).not.toContain('data-live-headline="active"');
   });
 
   test("renders queued, steering, and slim activity rows", () => {
@@ -913,6 +1018,7 @@ describe("chat renderer states", () => {
 
 interface TestChatTranscriptOptions {
   activeRun?: Run | null;
+  activeRunLiveness?: ChatTranscriptProps["activeRunLiveness"];
   blocks?: TranscriptBlock[];
   editQueuedMessage?: ChatTranscriptProps["editQueuedMessage"];
   editingQueuedMessageId?: string | null;
@@ -945,6 +1051,7 @@ function chatTranscriptOutputMaps(outputs: RunItemOutput[]) {
 function TestChatTranscript(options: TestChatTranscriptOptions) {
   const resolved = {
     activeRun: null,
+    activeRunLiveness: null,
     blocks: [],
     editQueuedMessage: noop,
     editingQueuedMessageId: null,
@@ -963,6 +1070,7 @@ function TestChatTranscript(options: TestChatTranscriptOptions) {
   return (
     <ChatTranscript
       activeRun={resolved.activeRun}
+      activeRunLiveness={resolved.activeRunLiveness}
       blocks={resolved.blocks}
       editQueuedMessage={resolved.editQueuedMessage}
       editingQueuedMessageId={resolved.editingQueuedMessageId}
@@ -999,6 +1107,36 @@ function runFixture(id: string, status: Run["status"]): Run {
     status,
     triggerMessageId: `${id}_trigger`,
     workspaceId: "workspace_api",
+  };
+}
+
+function runLivenessFixture(
+  run: Run,
+  status: RunLiveness["status"],
+  values: Partial<RunLiveness> = {},
+): RunLiveness {
+  return {
+    cancellable: status !== "terminal",
+    conversationId: run.conversationId,
+    error: "",
+    harness: run.harness,
+    lastProviderEventAt: "2026-05-29T20:00:00Z",
+    lastReconciledAt: "",
+    providerThreadId: "thread_api",
+    providerTurnId: "turn_api",
+    reason:
+      status === "attached"
+        ? "provider_turn_linked"
+        : status === "terminal"
+          ? "run_terminal"
+          : status === "lost"
+            ? "provider_unavailable"
+            : "wake_recheck",
+    retryable: status === "reconciling" || status === "lost",
+    runId: run.id,
+    status,
+    workspaceId: run.workspaceId,
+    ...values,
   };
 }
 

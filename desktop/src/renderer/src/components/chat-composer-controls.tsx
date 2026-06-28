@@ -15,17 +15,20 @@ import {
   ChevronDown,
   MessageSquarePlus,
   Mic,
+  RefreshCw,
   Settings,
   Square,
   Zap,
 } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 
+import type { ActiveRunPresentation } from "../lib/chat-run-liveness";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 
 export interface ComposerKeyActions {
   completeCommand: () => void;
+  canStop: boolean;
   draftEmpty: boolean;
   hasPendingSteering: boolean;
   dismissPicker: () => void;
@@ -69,7 +72,7 @@ export function handleComposerKeyDown(
     void actions.queueDraft();
     return;
   }
-  if (isStopShortcut(event, actions.running)) {
+  if (isStopShortcut(event, actions.running && actions.canStop)) {
     event.preventDefault();
     void actions.stopRun();
     return;
@@ -495,71 +498,34 @@ export function ComposerButton({
   chat,
   queueDraft,
   running,
+  runPresentation,
   sendImmediateSteering,
 }: {
   canSend: boolean;
   canSendImmediately: boolean;
   chat: {
     operation: string | null;
+    retryActiveRunLiveness: () => Promise<void>;
     stopActiveRun: () => Promise<void>;
   };
   queueDraft: () => Promise<void>;
   running: boolean;
+  runPresentation: ActiveRunPresentation;
   sendImmediateSteering: () => Promise<void>;
 }) {
+  if (running && runPresentation.kind !== "working") {
+    return <DegradedRunButtons chat={chat} runPresentation={runPresentation} />;
+  }
   if (running) {
     return (
-      <div className="flex items-center gap-1">
-        <Button
-          aria-label="Send steering message"
-          className="h-6 w-6 shrink-0 rounded-sm border-primary bg-primary px-0 text-primary-foreground hover:bg-primary/90 disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
-          disabled={!canSend}
-          title="Send steering message"
-          type="submit"
-          variant="primary"
-        >
-          <ArrowUp className="h-4 w-4" />
-        </Button>
-        <Button
-          aria-label="Queue follow-up"
-          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
-          disabled={
-            !canSend ||
-            chat.operation === "queueing" ||
-            chat.operation === "sendingSteeringImmediately"
-          }
-          onClick={() => void queueDraft()}
-          title="Queue follow-up"
-          type="button"
-          variant="secondary"
-        >
-          <MessageSquarePlus className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          aria-label="Interrupt and send pending steering"
-          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
-          disabled={!canSendImmediately || chat.operation === "sendingSteeringImmediately"}
-          onClick={() => void sendImmediateSteering()}
-          title="Interrupt and send pending steering"
-          type="button"
-          variant="secondary"
-        >
-          <Zap className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          aria-label="Stop run"
-          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
-          disabled={
-            chat.operation === "cancelling" || chat.operation === "sendingSteeringImmediately"
-          }
-          onClick={() => void chat.stopActiveRun()}
-          title="Stop run"
-          type="button"
-          variant="secondary"
-        >
-          <Square className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+      <WorkingRunButtons
+        canSend={canSend}
+        canSendImmediately={canSendImmediately}
+        chat={chat}
+        queueDraft={queueDraft}
+        runPresentation={runPresentation}
+        sendImmediateSteering={sendImmediateSteering}
+      />
     );
   }
   return (
@@ -573,5 +539,123 @@ export function ComposerButton({
     >
       <ArrowUp className="h-4 w-4" />
     </Button>
+  );
+}
+
+function DegradedRunButtons({
+  chat,
+  runPresentation,
+}: {
+  chat: {
+    operation: string | null;
+    retryActiveRunLiveness: () => Promise<void>;
+    stopActiveRun: () => Promise<void>;
+  };
+  runPresentation: ActiveRunPresentation;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {runPresentation.canRetry ? (
+        <Button
+          aria-label="Retry run liveness check"
+          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+          disabled={chat.operation === "refreshing" || chat.operation === "cancelling"}
+          onClick={() => void chat.retryActiveRunLiveness()}
+          title="Retry run liveness check"
+          type="button"
+          variant="secondary"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
+      {runPresentation.canStop ? (
+        <Button
+          aria-label="Stop run"
+          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+          disabled={chat.operation === "cancelling" || chat.operation === "refreshing"}
+          onClick={() => void chat.stopActiveRun()}
+          title="Stop run"
+          type="button"
+          variant="secondary"
+        >
+          <Square className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function WorkingRunButtons({
+  canSend,
+  canSendImmediately,
+  chat,
+  queueDraft,
+  runPresentation,
+  sendImmediateSteering,
+}: {
+  canSend: boolean;
+  canSendImmediately: boolean;
+  chat: {
+    operation: string | null;
+    stopActiveRun: () => Promise<void>;
+  };
+  queueDraft: () => Promise<void>;
+  runPresentation: ActiveRunPresentation;
+  sendImmediateSteering: () => Promise<void>;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        aria-label="Send steering message"
+        className="h-6 w-6 shrink-0 rounded-sm border-primary bg-primary px-0 text-primary-foreground hover:bg-primary/90 disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
+        disabled={!canSend}
+        title="Send steering message"
+        type="submit"
+        variant="primary"
+      >
+        <ArrowUp className="h-4 w-4" />
+      </Button>
+      <Button
+        aria-label="Queue follow-up"
+        className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+        disabled={
+          !canSend ||
+          chat.operation === "queueing" ||
+          chat.operation === "sendingSteeringImmediately"
+        }
+        onClick={() => void queueDraft()}
+        title="Queue follow-up"
+        type="button"
+        variant="secondary"
+      >
+        <MessageSquarePlus className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        aria-label="Interrupt and send pending steering"
+        className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+        disabled={!canSendImmediately || chat.operation === "sendingSteeringImmediately"}
+        onClick={() => void sendImmediateSteering()}
+        title="Interrupt and send pending steering"
+        type="button"
+        variant="secondary"
+      >
+        <Zap className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        aria-label="Stop run"
+        className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+        disabled={
+          !runPresentation.canStop ||
+          chat.operation === "cancelling" ||
+          chat.operation === "sendingSteeringImmediately"
+        }
+        onClick={() => void chat.stopActiveRun()}
+        title="Stop run"
+        type="button"
+        variant="secondary"
+      >
+        <Square className="h-3.5 w-3.5" />
+      </Button>
+    </div>
   );
 }

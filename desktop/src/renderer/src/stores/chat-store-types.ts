@@ -17,6 +17,7 @@ import type {
   ImageAttachment,
   ListConversationsResponse,
   ReasoningEffort,
+  RunLiveness,
   RunItemOutput,
   TranscriptBlock,
 } from "@generated/backend";
@@ -42,6 +43,7 @@ export interface ChatCommandClientOptions {
 
 export interface ChatStore {
   activeRun: RunningRun | null;
+  activeRunLiveness: RunLiveness | null;
   applyConversationList: (workspaceId: string, response: ListConversationsResponse) => void;
   applyConversationUpdatedEvent: (workspaceId: string, item: ConversationListItem) => void;
   backgroundTerminalIdsByConversationId: Record<string, string[]>;
@@ -101,6 +103,7 @@ export interface ChatStore {
   queueMessage: (input: ChatInput) => Promise<void>;
   removeQueuedMessage: (messageId: string) => Promise<void>;
   removingQueuedMessageId: string | null;
+  retryActiveRunLiveness: () => Promise<void>;
   executeCommand: (
     raw: string,
     options?: ChatCommandExecutionOptions,
@@ -152,6 +155,7 @@ export type ChatPatch = Partial<
   Pick<
     ChatStore,
     | "activeRun"
+    | "activeRunLiveness"
     | "backgroundTerminalIdsByConversationId"
     | "backgroundTerminalOutputIdsByProcessId"
     | "backgroundTerminalOutputPagesByProcessId"

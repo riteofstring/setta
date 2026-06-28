@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react";
 
 import { useChatStore } from "../stores/chat-store";
 import type { QueuedRun } from "../stores/chat-store-normalization";
+import { activeRunPresentation } from "../lib/chat-run-liveness";
 import { cn } from "../lib/utils";
 import { Composer } from "./chat-composer";
 import {
@@ -93,12 +94,11 @@ function ChatWorkspace({
   workspaceId: string;
 }) {
   const switchingWorkspace = chat.workspaceId !== workspaceId;
+  const runPresentation = activeRunPresentation(chat.activeRun, chat.activeRunLiveness);
   const blocked = !switchingWorkspace && isChatBlocked(chat);
   const composerBusy = switchingWorkspace || isComposerBusy(chat);
-  const running = !switchingWorkspace && isRunRunning(chat);
-  const selectedConversationId = switchingWorkspace ? "" : selectedChatConversationId(chat);
-  const runStatus = switchingWorkspace ? null : activeRunStatus(chat);
-  const detailWorkspaceId = chatDetailWorkspaceId(switchingWorkspace, workspaceId);
+  const running = !switchingWorkspace && runPresentation.running;
+  const detail = chatWorkspaceDetailAttributes(chat, switchingWorkspace, workspaceId);
 
   return (
     <section
@@ -112,9 +112,10 @@ function ChatWorkspace({
       ) : null}
       <div
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible"
-        data-conversation-id={selectedConversationId}
-        data-run-status={runStatus ?? ""}
-        data-workspace-id={detailWorkspaceId}
+        data-conversation-id={detail.selectedConversationId}
+        data-run-liveness-status={detail.runLivenessStatus}
+        data-run-status={detail.runStatus}
+        data-workspace-id={detail.workspaceId}
         data-testid="chat-detail-pane"
       >
         <ConversationBody
@@ -125,14 +126,37 @@ function ChatWorkspace({
         />
         <BackgroundTerminalSurface chat={chat} />
         <ChatError message={selectedConversationChatError(chat)} />
-        <ComposerSlot blocked={blocked} busy={composerBusy} chat={chat} running={running} />
+        <ComposerSlot
+          blocked={blocked}
+          busy={composerBusy}
+          chat={chat}
+          running={running}
+          runPresentation={runPresentation}
+        />
       </div>
     </section>
   );
 }
 
-function chatDetailWorkspaceId(switchingWorkspace: boolean, workspaceId: string) {
-  return switchingWorkspace ? "" : workspaceId;
+function chatWorkspaceDetailAttributes(
+  chat: ChatView,
+  switchingWorkspace: boolean,
+  workspaceId: string,
+) {
+  if (switchingWorkspace) {
+    return {
+      runLivenessStatus: "",
+      runStatus: "",
+      selectedConversationId: "",
+      workspaceId: "",
+    };
+  }
+  return {
+    runLivenessStatus: chat.activeRunLiveness?.status ?? "",
+    runStatus: activeRunStatus(chat) ?? "",
+    selectedConversationId: selectedChatConversationId(chat),
+    workspaceId,
+  };
 }
 
 function ChatMaximizeButton({
@@ -173,10 +197,6 @@ function isComposerBusy(chat: ChatView) {
   return chat.status === "loading" || composerBlockingOperations.has(chat.operation ?? "");
 }
 
-function isRunRunning(chat: ChatView) {
-  return chat.activeRun?.status === "running";
-}
-
 function isChatBlocked(chat: ChatView) {
   return chat.error !== null && !chat.selectedConversation;
 }
@@ -198,11 +218,13 @@ function ComposerSlot({
   busy,
   chat,
   running,
+  runPresentation,
 }: {
   blocked: boolean;
   busy: boolean;
   chat: ChatView;
   running: boolean;
+  runPresentation: ReturnType<typeof activeRunPresentation>;
 }) {
   if (blocked) {
     return null;
@@ -217,6 +239,7 @@ function ComposerSlot({
       onSendPrompt={emptyWorkspace ? createAndSendFirstMessage : undefined}
       placeholder={emptyWorkspace ? "Ask setta" : ""}
       running={running}
+      runPresentation={runPresentation}
     />
   );
 
@@ -258,6 +281,7 @@ export function ConversationBody({
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <ChatTranscript
           activeRun={chat.activeRun}
+          activeRunLiveness={chat.activeRunLiveness}
           blocks={chat.transcriptBlocks}
           editQueuedMessage={chat.editQueuedMessage}
           editingQueuedMessageId={chat.editingQueuedMessageId}
@@ -401,6 +425,7 @@ function ChatError({ message }: { message: string | null }) {
 
 export function useChatViewState() {
   const activeRun = useChatStore((state) => state.activeRun);
+  const activeRunLiveness = useChatStore((state) => state.activeRunLiveness);
   const backgroundTerminalIdsByConversationId = useChatStore(
     (state) => state.backgroundTerminalIdsByConversationId,
   );
@@ -452,6 +477,7 @@ export function useChatViewState() {
   const removeQueuedMessage = useChatStore((state) => state.removeQueuedMessage);
   const removingQueuedMessageId = useChatStore((state) => state.removingQueuedMessageId);
   const refreshBackgroundTerminals = useChatStore((state) => state.refreshBackgroundTerminals);
+  const retryActiveRunLiveness = useChatStore((state) => state.retryActiveRunLiveness);
   const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
   const runItemOutputPagesByRunItemId = useChatStore(
     (state) => state.runItemOutputPagesByRunItemId,
@@ -511,6 +537,7 @@ export function useChatViewState() {
 
   return {
     activeRun,
+    activeRunLiveness,
     backgroundTerminalIdsByConversationId,
     backgroundTerminalOutputIdsByProcessId,
     backgroundTerminalOutputPagesByProcessId,
@@ -547,6 +574,7 @@ export function useChatViewState() {
     queuedMessages,
     queueMessage,
     refreshBackgroundTerminals,
+    retryActiveRunLiveness,
     removeQueuedMessage,
     removingQueuedMessageId,
     runItemOutputIdsByRunItemId,

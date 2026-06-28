@@ -14,6 +14,7 @@ import type {
   RunItemOutput,
   RunItemStatus,
   RunItemType,
+  RunLiveness,
   RunStatusBlockMode,
   TranscriptBlock,
   TranscriptBlockStatus,
@@ -392,6 +393,52 @@ export function conversationUpdatedEvent(
     streamId,
     type: "chat.conversation.updated",
     workspaceId: item.conversation.workspaceId,
+  };
+}
+
+export function runLiveness(overrides: Partial<RunLiveness> = {}): RunLiveness {
+  const status = overrides.status ?? "attached";
+  return {
+    cancellable: status !== "terminal",
+    conversationId,
+    error: "",
+    harness: "codex",
+    lastProviderEventAt: "2026-05-29T20:00:00Z",
+    lastReconciledAt: "",
+    providerThreadId: "thread_api",
+    providerTurnId: "turn_api",
+    reason:
+      status === "attached"
+        ? "provider_turn_linked"
+        : status === "terminal"
+          ? "run_terminal"
+          : status === "lost"
+            ? "provider_unavailable"
+            : "wake_recheck",
+    retryable: status === "reconciling" || status === "lost",
+    runId: "run_api",
+    status,
+    workspaceId,
+    ...overrides,
+  };
+}
+
+export function runLivenessUpdatedEvent(
+  sequence: number,
+  liveness: RunLiveness = runLiveness(),
+  streamId = eventStreamId,
+): ChatEvent {
+  return {
+    conversationId: liveness.conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: { liveness },
+    runId: liveness.runId,
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.run_liveness.updated",
+    workspaceId: liveness.workspaceId,
   };
 }
 

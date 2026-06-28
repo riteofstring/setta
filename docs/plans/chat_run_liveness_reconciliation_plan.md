@@ -1,8 +1,8 @@
 # Chat Run Liveness And Reconciliation Plan
 
 - **Date:** July 1, 2026
-- **Status:** Draft v5. Phases 0-4 completed; Phase 5 renderer resync and
-  presentation is next. The reconciliation decisions below are grounded in the
+- **Status:** Draft v6. Phases 0-5 completed; Phase 6 production E2E is
+  next. The reconciliation decisions below are grounded in the
   trigger recording, current code paths, and the live app-server findings in
   Appendix A.
 - **Trigger recording:** `.recordings/20260701T215826Z`
@@ -358,11 +358,13 @@ The renderer consumes backend-owned state and displays distinct states:
 - **Interrupted/Failed/Cancelled/Complete:** durable terminal run state.
 
 The renderer treats chat events as cache invalidation, not sole truth. On
-event-stream resync, wake, or liveness change to a non-attached state, it
+event-stream resync, wake, explicit retry, or liveness change to `lost`, it
 reloads the typed snapshot (existing `runChatStoreBackgroundResync` path)
-rather than keeping the previous active-run view indefinitely. The sidebar
-active-run indicator consumes the same liveness summary so it cannot say
-Working while the pane says lost.
+rather than keeping the previous active-run view indefinitely. A
+`reconciling` liveness event is already the typed snapshot state for the run
+and must update presentation without immediately re-entering snapshot-load
+reconciliation. The sidebar active-run indicator consumes the same liveness
+summary so it cannot say Working while the pane says lost.
 
 ## HTTP And Generated Contracts
 
@@ -490,11 +492,18 @@ active-turn adoption retained when the provider supplies `error.data`.
 
 ### Phase 5 - Renderer Resync And Presentation
 
+Status: Complete. The renderer now stores active-run liveness from snapshots
+and typed events, resyncs the selected conversation when liveness is lost,
+derives Working/Reconnecting/Lost transcript and composer presentation from
+backend capability fields, and uses the same liveness projection in the
+sidebar conversation indicator.
+
 - consume the liveness projection and events;
 - distinct Working/Reconnecting/Lost presentation; gate Stop/retry from
   backend capability fields;
-- snapshot reload on liveness-degrade, resync, and wake (existing background
-  resync path);
+- snapshot reload on liveness-lost, resync, and wake (existing background
+  resync path); `reconciling` events update presentation without another
+  immediate snapshot-load reconciliation;
 - sidebar indicator uses the same projection.
 
 ### Phase 6 - Production E2E

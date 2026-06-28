@@ -37,6 +37,7 @@ describe("chat store", () => {
   beforeEach(() => {
     useChatStore.setState({
       activeRun: null,
+      activeRunLiveness: null,
       backgroundTerminalIdsByConversationId: {},
       backgroundTerminalOutputIdsByProcessId: {},
       backgroundTerminalOutputPagesByProcessId: {},

@@ -4,6 +4,7 @@ import type {
   ChatGoalState,
   ChatMessage,
   Conversation,
+  RunLiveness,
   RunItemOutput,
   TranscriptBlock,
 } from "@generated/backend";
@@ -15,6 +16,7 @@ import type { BackgroundTerminalOutputPageState } from "./chat-store-background-
 
 export interface ConversationDetailState {
   activeRun: RunningRun | null;
+  activeRunLiveness: RunLiveness | null;
   backgroundTerminalIdsByConversationId: Record<string, string[]>;
   backgroundTerminalOutputIdsByProcessId: Record<string, string[]>;
   backgroundTerminalOutputPagesByProcessId: Record<string, BackgroundTerminalOutputPageState>;
@@ -46,6 +48,7 @@ export function normalizeStatePatch(state: ChatStore, patch: ChatPatch): ChatPat
 export function conversationDetailPatch(detail: ConversationDetailState): ChatPatch {
   return {
     activeRun: detail.activeRun,
+    activeRunLiveness: detail.activeRunLiveness,
     backgroundTerminalIdsByConversationId: detail.backgroundTerminalIdsByConversationId,
     backgroundTerminalOutputIdsByProcessId: detail.backgroundTerminalOutputIdsByProcessId,
     backgroundTerminalOutputPagesByProcessId: detail.backgroundTerminalOutputPagesByProcessId,
@@ -109,6 +112,7 @@ function conversationDetailFromStatePatch(
 ): ConversationDetailState {
   return {
     activeRun: patchedValue(state, patch, "activeRun"),
+    activeRunLiveness: patchedValue(state, patch, "activeRunLiveness"),
     backgroundTerminalIdsByConversationId: patchedValue(
       state,
       patch,

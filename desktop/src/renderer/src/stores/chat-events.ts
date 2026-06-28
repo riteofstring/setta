@@ -8,10 +8,13 @@ import type {
 } from "@generated/backend";
 
 import {
+  activeRunLivenessFromCandidate,
   appendTranscriptBlockText,
   replaceRunTranscriptBlocks,
   upsertTranscriptBlock,
 } from "./chat-store-normalization";
+import { runLivenessNeedsSnapshotResync } from "../lib/chat-run-liveness";
+import { runLivenessPatch } from "./chat-store-liveness";
 import {
   backgroundTerminalOutputDeltaPatch,
   backgroundTerminalsReplacedPatch,
@@ -62,9 +65,7 @@ type ConversationEvent = Exclude<
   AppliedChatEvent,
   TranscriptBlockEvent | MessageEvent | RunEvent | BackgroundTerminalEvent
 >;
-type NoOpConversationEvent = AppliedEventOf<
-  "chat.assistant_text_delta" | "chat.run_liveness.updated" | "codex.account.changed"
->;
+type NoOpConversationEvent = AppliedEventOf<"chat.assistant_text_delta" | "codex.account.changed">;
 type StatefulConversationEvent = Exclude<ConversationEvent, NoOpConversationEvent>;
 
 const transcriptBlockEventTypes = new Set<AppliedChatEvent["type"]>([
@@ -94,7 +95,6 @@ const backgroundTerminalEventTypes = new Set<AppliedChatEvent["type"]>([
 ]);
 const noOpConversationEventTypes = new Set<ConversationEvent["type"]>([
   "chat.assistant_text_delta",
-  "chat.run_liveness.updated",
   "codex.account.changed",
 ]);
 
@@ -247,11 +247,26 @@ function applyStatefulConversationEvent(
         patch: conversationUpdatedPatch(state, event.workspaceId, event.payload.item),
         resync: false,
       };
+    case "chat.run_liveness.updated":
+      return applyRunLivenessUpdatedEvent(state, event);
     case "diagnostic.created":
       return { patch: diagnosticCreatedPatch(state, event), resync: false };
     default:
       return assertNever(event);
   }
+}
+
+function applyRunLivenessUpdatedEvent(
+  state: ChatStore,
+  event: AppliedEventOf<"chat.run_liveness.updated">,
+): EventApplyResult {
+  const selected =
+    state.workspaceId === event.workspaceId &&
+    state.selectedConversation?.id === event.conversationId;
+  return {
+    patch: runLivenessPatch(state, event.payload.liveness),
+    resync: selected && runLivenessNeedsSnapshotResync(event.payload.liveness),
+  };
 }
 
 function applyMessageUpsertEvent(
@@ -303,11 +318,13 @@ function applyRunUpdatedEvent(
   state: ChatStore,
   event: AppliedEventOf<"chat.run.updated">,
 ): EventApplyResult {
+  const activeRun = activeRunFromRunEvent(state.activeRun, event.payload.run);
   return selectedConversationEventResult(
     state,
     event,
     {
-      activeRun: activeRunFromRunEvent(state.activeRun, event.payload.run),
+      activeRun,
+      activeRunLiveness: activeRunLivenessFromCandidate(activeRun, state.activeRunLiveness),
       status: "ready",
     },
     false,
@@ -428,19 +445,33 @@ function conversationUpdatedPatch(
   if (state.workspaceId !== workspaceId) {
     return patch;
   }
-  const selectedConversationArchived =
-    state.selectedConversation?.id === item.conversation.id && item.conversation.archivedAt !== "";
   Object.assign(patch, {
     conversations: applyConversationListItem(state.conversations, item),
-    selectedConversation:
-      state.selectedConversation?.id === item.conversation.id
-        ? selectedConversationForUpdatedItem(state.selectedConversation, item)
-        : state.selectedConversation,
   });
-  if (selectedConversationArchived) {
+  Object.assign(patch, selectedConversationUpdatePatch(state, item));
+  if (selectedConversationArchived(state, item)) {
     Object.assign(patch, emptySelectedConversationPatch());
   }
   return patch;
+}
+
+function selectedConversationUpdatePatch(state: ChatStore, item: ConversationListItem): ChatPatch {
+  if (state.selectedConversation?.id !== item.conversation.id) {
+    return {
+      activeRunLiveness: state.activeRunLiveness,
+      selectedConversation: state.selectedConversation,
+    };
+  }
+  return {
+    activeRunLiveness: activeRunLivenessFromCandidate(state.activeRun, item.activeRunLiveness),
+    selectedConversation: selectedConversationForUpdatedItem(state.selectedConversation, item),
+  };
+}
+
+function selectedConversationArchived(state: ChatStore, item: ConversationListItem) {
+  return (
+    state.selectedConversation?.id === item.conversation.id && item.conversation.archivedAt !== ""
+  );
 }
 
 function selectedConversationForUpdatedItem(
@@ -458,6 +489,7 @@ function selectedConversationForUpdatedItem(
 function emptySelectedConversationPatch(): ChatPatch {
   return {
     activeRun: null,
+    activeRunLiveness: null,
     hasMoreOlder: false,
     messageIds: [],
     messages: [],
