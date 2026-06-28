@@ -146,6 +146,10 @@ function appendOrderedItemEntries(
   if (!group) {
     return;
   }
+  // The slim group slot is always reserved above the first activity row of a
+  // sequence (even a single row) so a later adjacent row never inserts a slot above
+  // already-visible rows. The visible bulk control is gated to 2+ expandable rows in
+  // the renderer; the reserved slot prevents the layout shift it was meant to avoid.
   if (context.groups.byFirstMemberId.get(block.id) === group) {
     entries.push({
       kind: "activity-group",

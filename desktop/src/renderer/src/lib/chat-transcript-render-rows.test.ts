@@ -83,6 +83,8 @@ describe("transcriptRenderRows", () => {
       queuedMessages: [],
     });
 
+    // The reasoning block splits the two commands into separate groups. The slim slot is
+    // reserved above each (even single-row) so a later adjacent row never shifts the layout.
     expect(rows.map((row) => row.kind)).toEqual([
       "activity-group",
       "activity-item",

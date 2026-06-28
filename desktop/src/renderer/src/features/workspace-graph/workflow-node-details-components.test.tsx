@@ -269,7 +269,7 @@ function runActivityPage(): RunActivityPage {
         hasOutput: true,
         sourceRunItemId: "run_item_command",
         status: "completed",
-        title: "command execution",
+        title: "npm test",
         type: "command_execution",
       },
     ],

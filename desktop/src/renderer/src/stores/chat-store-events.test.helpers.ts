@@ -130,6 +130,13 @@ export function reasoningBlock(
   };
 }
 
+// A command activity previews the command itself — the backend projects the
+// summarized command as the title. "command execution" is only the fallback when
+// there is genuinely no command.
+function defaultActivityTitle(details: RunActivityDetailsProjection | undefined): string {
+  return details?.command || "command execution";
+}
+
 export function activityBlock(
   base: BlockBase & {
     sourceRunItemId?: string;
@@ -149,7 +156,7 @@ export function activityBlock(
       hasOutput: base.hasOutput ?? false,
       sourceRunItemId: base.sourceRunItemId ?? `${base.id}_item`,
       status: base.activityStatus ?? "completed",
-      title: base.title ?? "command execution",
+      title: base.title ?? defaultActivityTitle(base.details),
       type: base.type ?? "command_execution",
     },
   };

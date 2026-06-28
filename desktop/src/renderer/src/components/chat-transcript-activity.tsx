@@ -9,9 +9,12 @@ import type {
 import {
   AlertTriangle,
   Archive,
+  Ban,
+  Check,
   ChevronDown,
   ChevronsDownUp,
   ChevronsUpDown,
+  CircleAlert,
   FileText,
   Globe,
   ListChecks,
@@ -19,8 +22,9 @@ import {
   type LucideIcon,
   Wrench,
 } from "lucide-react";
-import { memo, useEffect, useRef, useState, type RefObject } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
+import { highlightCode } from "../lib/syntax-highlight";
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 import { BrailleSpinner } from "./ascii-spinner";
@@ -145,6 +149,10 @@ interface ActivityDisplayLabel {
   monospace: boolean;
 }
 
+function ActivityLabel({ className, label }: { className: string; label: ActivityDisplayLabel }) {
+  return <span className={className}>{label.text}</span>;
+}
+
 function activityDisplayLabel(activity: ActivityItemBlockProjection): ActivityDisplayLabel {
   return (
     activityLabelResolvers[activity.type](activity) ?? {
@@ -181,10 +189,10 @@ function noActivityDisplayLabel(): null {
   return null;
 }
 
+// The command activity title is the backend's friendly summary (Read/Searched/Ran),
+// derived in the Go projection so the renderer never parses raw shell commands.
 function commandActivityDisplayLabel(activity: ActivityItemBlockProjection) {
-  return activity.details.command === ""
-    ? null
-    : { monospace: true, text: activity.details.command };
+  return { monospace: true, text: activity.title };
 }
 
 function fileActivityDisplayLabel(activity: ActivityItemBlockProjection) {
@@ -294,14 +302,13 @@ function ActivityRowView({
     >
       <summary className="flex h-6 min-w-0 cursor-pointer list-none items-center gap-1.5 text-left text-xs text-muted-foreground marker:hidden">
         <ActivityIcon type={activity.type} />
-        <span
+        <ActivityLabel
           className={cn(
             "min-w-0 flex-1 truncate font-medium text-muted-foreground",
             label.monospace && "font-mono text-[12px] font-normal text-foreground",
           )}
-        >
-          {label.text}
-        </span>
+          label={label}
+        />
         <ActivityRowStatus status={activity.status} title={label.text} />
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-open/item:rotate-180" />
       </summary>
@@ -348,14 +355,13 @@ function CompactActivityRow({
       {...focusAttributes}
     >
       <ActivityIcon type={activity.type} />
-      <span
+      <ActivityLabel
         className={cn(
           "min-w-0 flex-1 truncate font-medium text-muted-foreground",
           label.monospace && "font-mono text-[12px] font-normal text-foreground",
         )}
-      >
-        {label.text}
-      </span>
+        label={label}
+      />
       <ActivityRowStatus status={activity.status} title={label.text} />
     </div>
   );
@@ -406,14 +412,17 @@ export function TranscriptActivityGroupSlot({
   onBulkToggle: (blockIds: string[], open: boolean) => void;
 }) {
   const anyCollapsed = expandableBlockIds.some((blockId) => !expandedBlockIds.has(blockId));
-  const hasExpandable = expandableBlockIds.length > 0;
+  // The bulk control only earns its keep with two or more expandable rows; a single
+  // row is expanded by its own chevron. The slot height stays reserved either way so
+  // a later adjacent row never inserts a control above an already-visible row.
+  const hasBulkControl = expandableBlockIds.length > 1;
   return (
     <div
-      aria-hidden={!hasExpandable}
+      aria-hidden={!hasBulkControl}
       className="group/activity-slot relative h-2 min-w-0"
       data-testid="activity-group-slot"
     >
-      {hasExpandable ? (
+      {hasBulkControl ? (
         <button
           aria-label={anyCollapsed ? "Expand all activity rows" : "Collapse all activity rows"}
           className={cn(
@@ -586,7 +595,29 @@ function ActivityCommand({ command }: { command: string }) {
   if (!command) {
     return null;
   }
-  return <ActivityPreBlock title="Command" value={command} />;
+  return <ActivityCommandBlock command={command} />;
+}
+
+// ActivityCommandBlock renders the run's command as a flush, syntax-highlighted
+// line that lines up with the other detail fields — no inset code box or heavy
+// vertical padding. Highlighting is memoized per command.
+function ActivityCommandBlock({ command }: { command: string }) {
+  const highlighted = useMemo(() => highlightCode(command, "bash"), [command]);
+  return (
+    <section className="min-w-0">
+      <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">Command</h4>
+      <div className="mt-0.5 max-w-full font-mono text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+        {highlighted === null ? (
+          <code className="hljs whitespace-pre-wrap break-all">{command}</code>
+        ) : (
+          <code
+            className="hljs whitespace-pre-wrap break-all"
+            dangerouslySetInnerHTML={{ __html: highlighted }}
+          />
+        )}
+      </div>
+    </section>
+  );
 }
 
 function ActivityFiles({ paths }: { paths: string[] }) {
@@ -749,15 +780,24 @@ function ActivityIcon({ type }: { type: RunItemType }) {
   return <Icon className={activityIconClassByType[type]} />;
 }
 
+// ActivityRowStatus shows the run status as an icon: a spinner while active, a
+// green check on success, a red cross on failure, a slash on cancellation.
 function ActivityRowStatus({ status, title }: { status: RunItemStatus; title: string }) {
-  return (
-    <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-      {status === "running" || status === "pending" ? (
-        <BrailleSpinner className="text-accent-violet" label={`${title} running`} />
-      ) : null}
-      <span>{status}</span>
-    </span>
-  );
+  if (status === "running" || status === "pending") {
+    return <BrailleSpinner className="text-accent-violet" label={`${title} running`} />;
+  }
+  if (status === "completed") {
+    return <Check aria-label="completed" className="h-4 w-4 shrink-0 text-status-success-muted" />;
+  }
+  if (status === "failed") {
+    return (
+      <CircleAlert aria-label="failed" className="h-4 w-4 shrink-0 text-status-critical-muted" />
+    );
+  }
+  if (status === "cancelled") {
+    return <Ban aria-label="cancelled" className="h-4 w-4 shrink-0 text-muted-foreground" />;
+  }
+  return null;
 }
 
 export function activityRowOutputs(

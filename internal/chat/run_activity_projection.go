@@ -189,6 +189,11 @@ func runActivityTitle(item RunItem) string {
 		return item.Title
 	}
 	switch item.Type {
+	case RunItemTypeCommandExecution, RunItemTypeTerminalInteraction:
+		if item.Command != "" {
+			return summarizeCommandLabel(item.Command)
+		}
+		return runActivityDefaultTitle(item.Type)
 	case RunItemTypeMCPToolCall, RunItemTypeDynamicToolCall, RunItemTypeCollabAgentToolCall:
 		if item.ToolName != "" {
 			return item.ToolName

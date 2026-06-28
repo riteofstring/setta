@@ -39,6 +39,8 @@
   --color-status-alert-foreground: var(--status-alert-foreground);
   --color-status-critical: var(--status-critical);
   --color-status-critical-foreground: var(--status-critical-foreground);
+  --color-status-success-muted: var(--status-success-muted);
+  --color-status-critical-muted: var(--status-critical-muted);
   --color-accent-cyan: var(--accent-cyan);
   --color-accent-blue: var(--accent-blue);
   --color-accent-violet: var(--accent-violet);
@@ -102,6 +104,10 @@
   --status-alert-foreground: var(--setta-975);
   --status-critical: oklch(0.637 0.237 25.331);
   --status-critical-foreground: oklch(0.971 0.013 17.38);
+  /* Muted (lower-chroma) status colors for small inline indicators — the bright
+     success/critical hues draw the eye too much at icon scale. */
+  --status-success-muted: oklch(0.74 0.09 152);
+  --status-critical-muted: oklch(0.62 0.14 25.331);
   --accent-cyan: oklch(0.846 0.1292 213.38);
   --accent-blue: oklch(0.76 0.115 250);
   --accent-violet: oklch(0.76 0.125 290);
@@ -390,4 +396,64 @@ select,
 .app-no-drag,
 .app-no-drag * {
   -webkit-app-region: no-drag;
+}
+
+/* highlight.js token theme — mapped to the setta-* palette so syntax-highlighted
+   code blocks and command rows match the rest of the chat surface. */
+.hljs {
+  color: var(--foreground);
+}
+.hljs-comment,
+.hljs-quote {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-doctag,
+.hljs-type {
+  color: var(--accent-violet);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-meta .hljs-string,
+.hljs-addition {
+  color: var(--accent-green);
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--accent-blue);
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-built_in,
+.hljs-name {
+  color: var(--accent-cyan);
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-property,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-params {
+  color: var(--accent-teal);
+}
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+  color: var(--muted-foreground);
+}
+.hljs-deletion {
+  color: var(--status-critical);
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 600;
+}
+.hljs-link {
+  text-decoration: underline;
 }

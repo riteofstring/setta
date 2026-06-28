@@ -131,7 +131,7 @@ function ActivityItemRowSlot({
   const sourceRunItemId = row.block.activity?.sourceRunItemId ?? "";
   return (
     <div {...chatReadableColumnAttributes} className={chatReadableColumnPaddedClass}>
-      <div className="ml-1.5 border-l border-border/70 pl-2.5">
+      <div className="rounded-md border border-border bg-muted px-2.5 py-1">
         <ActivityItemRow
           block={row.block}
           expanded={context.expandedActivityBlockIds.has(row.block.id)}
@@ -248,12 +248,12 @@ function RunStatusRow({
 
 function TerminalRunStatusIcon({ status }: { status: TranscriptBlockStatus }) {
   if (status === "failed") {
-    return <CircleAlert className="h-4 w-4 shrink-0 text-status-critical" />;
+    return <CircleAlert className="h-4 w-4 shrink-0 text-status-critical-muted" />;
   }
   if (status === "cancelled") {
     return <Ban className="h-4 w-4 shrink-0 text-muted-foreground" />;
   }
-  return <Check className="h-4 w-4 shrink-0 text-status-success" />;
+  return <Check className="h-4 w-4 shrink-0 text-status-success-muted" />;
 }
 
 function assertNever(value: never): never {
