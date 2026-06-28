@@ -22,8 +22,8 @@
 - For changes touching chat workflows, Codex harness behavior, provider protocol handling, run lifecycle, queueing, steering, approvals, or streaming, run the live Codex E2E tests when the local Codex CLI is signed in with ChatGPT auth. Live tests must not use `OPENAI_API_KEY`; if ChatGPT auth is unavailable, say the live-provider tests were skipped, and do not treat the skip as proof of provider integration.
 - Tests must use temporary directories, never mutate real git history in this repo or any non-disposable developer worktree, and exercise production paths instead of mocks or test-only paths. Skips must be narrow and justified; missing dependencies or capabilities should usually fail loudly.
 - Do not add tautological tests or generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
-- After a broad gate fails, fix the reported issue and rerun the narrowest relevant check first. Rerun the broad gate only when the change still requires it.
-- Before committing source code, tests, scripts, generated inputs or outputs, build/lint/format configuration, or executable examples, run `./scripts/format.sh` and `./check_quality.sh --git-changes` by default. Use `./check_quality.sh --staged` when validating exactly the staged commit. Use `./check_quality.sh --all` only for broad implementation changes, generated contract changes, dependency/tooling changes, release-like commits, or when explicitly requested. One clean final run of the selected checks is sufficient unless new edits are made afterward.
+- After a broad gate fails, fix the reported issue and rerun the narrowest relevant check first. Rerun `./check_quality.sh --all` after focused verification passes.
+- Before committing source code, tests, scripts, generated inputs or outputs, build/lint/format configuration, or executable examples, run `./scripts/format.sh` and `./check_quality.sh --all`. One clean final run of each is sufficient unless new edits are made afterward.
 - Before committing dependency manifests, lockfiles, package manager configuration, Go module configuration, or supply-chain tooling, run `./scripts/check_supply_chain.sh`. For broad implementation commits or release-like commits, run it in addition to the format and quality gates.
 - For documentation-only, planning-only, research-only, README-only, or AGENTS-only commits that do not change executable examples, scripts, manifests, generated artifacts, or committed code paths, inspect the diff and run only directly relevant checks. If no automated check applies, say the full workflow was skipped because the change was documentation-only.
 
@@ -32,7 +32,6 @@
 - Frontend code must handle very large DOMs efficiently.
 - Treat frontend performance verification as first-class. Prefer automated guardrails; use chrome-devtools profiling when deeper analysis is needed.
 - For performance-relevant refactors, baseline first, re-measure after, and record before/after results as append-only reports under `docs/reports/performance/`.
-- When the user refers to the latest recording or a `./scripts/record_desktop_session.sh` session, inspect `.recordings/latest.json` first and then the referenced artifact directory. These recordings are repo-local event, log, and screenshot artifacts under `.recordings/`, not normal `.mov` or `.mp4` desktop captures.
 - Avoid div soup.
 
 ## Code Shape & Safety

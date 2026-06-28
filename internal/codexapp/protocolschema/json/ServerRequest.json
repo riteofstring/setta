@@ -27,7 +27,7 @@
         "read": {
           "description": "This will be removed in favor of `entries`.",
           "items": {
-            "$ref": "#/definitions/LegacyAppPathString"
+            "$ref": "#/definitions/AbsolutePathBuf"
           },
           "type": [
             "array",
@@ -37,7 +37,7 @@
         "write": {
           "description": "This will be removed in favor of `entries`.",
           "items": {
-            "$ref": "#/definitions/LegacyAppPathString"
+            "$ref": "#/definitions/AbsolutePathBuf"
           },
           "type": [
             "array",
@@ -371,21 +371,13 @@
         "cwd": {
           "anyOf": [
             {
-              "$ref": "#/definitions/LegacyAppPathString"
+              "$ref": "#/definitions/AbsolutePathBuf"
             },
             {
               "type": "null"
             }
           ],
           "description": "The command's working directory."
-        },
-        "environmentId": {
-          "default": null,
-          "description": "Environment in which the command will run.",
-          "type": [
-            "string",
-            "null"
-          ]
         },
         "itemId": {
           "type": "string"
@@ -648,7 +640,7 @@
         {
           "properties": {
             "path": {
-              "$ref": "#/definitions/LegacyAppPathString"
+              "$ref": "#/definitions/AbsolutePathBuf"
             },
             "type": {
               "enum": [
@@ -830,9 +822,6 @@
           "type": "object"
         }
       ]
-    },
-    "LegacyAppPathString": {
-      "type": "string"
     },
     "McpElicitationArrayType": {
       "enum": [
@@ -1393,27 +1382,6 @@
         {
           "properties": {
             "_meta": true,
-            "message": {
-              "type": "string"
-            },
-            "mode": {
-              "enum": [
-                "openai/form"
-              ],
-              "type": "string"
-            },
-            "requestedSchema": true
-          },
-          "required": [
-            "message",
-            "mode",
-            "requestedSchema"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "_meta": true,
             "elicitationId": {
               "type": "string"
             },
@@ -1622,13 +1590,6 @@
         "cwd": {
           "$ref": "#/definitions/AbsolutePathBuf"
         },
-        "environmentId": {
-          "default": null,
-          "type": [
-            "string",
-            "null"
-          ]
-        },
         "itemId": {
           "type": "string"
         },
@@ -1722,15 +1683,6 @@
     "ToolRequestUserInputParams": {
       "description": "EXPERIMENTAL. Params sent with a request_user_input event.",
       "properties": {
-        "autoResolutionMs": {
-          "default": null,
-          "format": "uint64",
-          "minimum": 0.0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "itemId": {
           "type": "string"
         },

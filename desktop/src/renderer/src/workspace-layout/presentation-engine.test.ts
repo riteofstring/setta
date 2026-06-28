@@ -89,6 +89,130 @@ describe("workspace presentation engine", () => {
     expect(host.dataset.surfaceKind).toBe("browser");
   });
 
+  test("keeps active pane drag source geometry owned by pointer movement", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
+    const host = fakePaneHost("workspace_pane_0", "Pane 001");
+    const registry = new RecordingSurfaceRegistry();
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      registry as unknown as SurfaceRegistry,
+    );
+    const initialItem = renderItem("workspace_pane_0", "workspace_surface_0", false);
+    const previewItem = {
+      ...initialItem,
+      height: 140,
+      moving: true,
+      opacity: 0.25,
+      runtimeState: "hidden" as const,
+      visible: false,
+      width: 220,
+      x: 240,
+      y: 60,
+      z: 99,
+    };
+    presentation.mount([host], null);
+
+    expect(presentation.apply([initialItem], { resizePhase: "idle" })).toMatchObject({
+      boxWrites: 2,
+      transformWrites: 1,
+    });
+    expect(host.style.transform).toBe("translate3d(0.00px, 0.00px, 0) scale(1.000)");
+    expect(host.style.width).toBe("160.00px");
+    expect(host.style.height).toBe("120.00px");
+
+    host.dataset.dragSource = "true";
+    host.style.translate = "24px 8px";
+    expect(presentation.apply([previewItem], { resizePhase: "idle" })).toMatchObject({
+      boxWrites: 0,
+      transformWrites: 0,
+    });
+
+    expect(host.style.transform).toBe("translate3d(0.00px, 0.00px, 0) scale(1.000)");
+    expect(host.style.width).toBe("160.00px");
+    expect(host.style.height).toBe("120.00px");
+    expect(host.style.opacity).toBe("1.000");
+    expect(host.style.pointerEvents).toBe("auto");
+    expect(host.style.zIndex).toBe("1");
+    expect(host.dataset.moving).toBe("false");
+    expect(host.dataset.runtimeState).toBe("live");
+    expect(host.dataset.visible).toBe("true");
+    expect(host.style.translate).toBe("24px 8px");
+    expect(registry.syncedPaneIds).toEqual(["workspace_pane_0"]);
+
+    delete host.dataset.dragSource;
+    host.style.translate = "";
+    expect(presentation.apply([previewItem], { resizePhase: "idle" })).toMatchObject({
+      boxWrites: 2,
+      transformWrites: 1,
+    });
+    expect(host.style.transform).toBe("translate3d(240.00px, 60.00px, 0) scale(1.000)");
+    expect(host.style.width).toBe("220.00px");
+    expect(host.style.height).toBe("140.00px");
+    expect(registry.syncedPaneIds).toEqual(["workspace_pane_0", "workspace_pane_0"]);
+  });
+
+  test("keeps active pane drag source visible if a preview frame omits it", () => {
+    const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
+    const host = fakePaneHost("workspace_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("workspace_pane_0", "workspace_surface_0", false)], {
+      resizePhase: "idle",
+    });
+    host.dataset.dragSource = "true";
+    host.style.translate = "18px 12px";
+
+    presentation.apply([], { resizePhase: "idle" });
+
+    expect(host.dataset.paneId).toBe("workspace_pane_0");
+    expect(host.dataset.visible).toBe("true");
+    expect(host.style.opacity).toBe("1.000");
+    expect(host.style.pointerEvents).toBe("auto");
+    expect(host.style.translate).toBe("18px 12px");
+
+    delete host.dataset.dragSource;
+    host.style.translate = "";
+    presentation.apply([], { resizePhase: "idle" });
+
+    expect(host.dataset.visible).toBe("false");
+    expect(host.style.opacity).toBe("0");
+    expect(host.style.pointerEvents).toBe("none");
+  });
+
+  test("does not recycle active pane drag source binding for another pane", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
+    const host = fakePaneHost("workspace_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("workspace_pane_0", "workspace_surface_0", false)], {
+      resizePhase: "idle",
+    });
+    host.dataset.dragSource = "true";
+    host.style.translate = "18px 12px";
+
+    presentation.apply([renderItem("workspace_pane_1", "workspace_surface_1", true)], {
+      resizePhase: "idle",
+    });
+
+    expect(host.dataset.paneId).toBe("workspace_pane_0");
+    expect(textFor(host, "[data-workspace-pane-title]")).toBe("Pane 001");
+    expect(host.dataset.visible).toBe("true");
+    expect(host.style.opacity).toBe("1.000");
+    expect(host.style.pointerEvents).toBe("auto");
+    expect(host.style.translate).toBe("18px 12px");
+  });
+
   test("defers non-empty snapshot proxy content while panes are moving", () => {
     const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");

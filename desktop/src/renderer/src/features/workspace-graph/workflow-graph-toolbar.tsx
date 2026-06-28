@@ -1,6 +1,4 @@
 import type {
-  WorkflowExecutionStatus,
-  WorkflowExecutionSummary,
   WorkflowGraphProjection,
   WorkflowValidationDiagnostic,
   WorkflowValidationResult,
@@ -10,13 +8,10 @@ import {
   Bot,
   CheckCircle2,
   ChevronDown,
-  Clock3,
   Circle,
-  CircleDot,
   Eye,
   GitBranch,
   GitMerge,
-  History,
   type LucideIcon,
   Play,
   Plus,
@@ -30,8 +25,6 @@ import { useState } from "react";
 
 import type { WorkflowDraftNodeType } from "./workflow-graph-draft";
 import { shortIdentifier } from "./workflow-node-details-helpers";
-
-export type WorkflowToolbarOperation = "run" | "validate" | "cancel";
 
 export interface WorkflowDraftNodePosition {
   worldX: number;
@@ -52,53 +45,37 @@ export const workflowNodeMenuItems = [
 }[];
 
 export function WorkflowGraphToolbar({
-  activeRun,
   busy,
-  loading,
   onAddNode,
   onOpenDetails,
   onOpenSettings,
-  onSelectRun,
-  onStop,
   onRun,
   onShowDraft,
-  onViewActiveRun,
   onValidate,
   projection,
   ready,
-  runSummaries,
   selectedNodeLabel,
   validation,
   workspaceId,
 }: {
-  busy: WorkflowToolbarOperation | null;
-  activeRun: WorkflowExecutionSummary | null;
-  loading: boolean;
+  busy: "run" | "validate" | null;
   onAddNode: (nodeType: WorkflowDraftNodeType) => void;
   onOpenDetails: () => void;
   onOpenSettings: () => void;
-  onSelectRun: (summary: WorkflowExecutionSummary) => void;
-  onStop: () => void;
   onRun: () => void;
   onShowDraft: () => void;
-  onViewActiveRun: () => void;
   onValidate: () => void;
   projection: WorkflowGraphProjection | null;
   ready: boolean;
-  runSummaries: WorkflowExecutionSummary[];
   selectedNodeLabel: string;
   validation: WorkflowValidationResult | null;
   workspaceId: string;
 }) {
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [runMenuOpen, setRunMenuOpen] = useState(false);
   const model = workflowToolbarModel({
-    activeRun,
     busy,
-    loading,
     projection,
     ready,
-    runSummaries,
     selectedNodeLabel,
     validation,
     workspaceId,
@@ -122,7 +99,6 @@ export function WorkflowGraphToolbar({
           label="Settings"
           onClick={onOpenSettings}
           testId="workflow-settings-button"
-          widthClass="w-24"
         />
         <WorkflowAddNodeMenu
           disabled={model.disabled || !model.editable}
@@ -136,40 +112,19 @@ export function WorkflowGraphToolbar({
           label={model.validateLabel}
           onClick={onValidate}
           testId="workflow-validate-button"
-          widthClass="w-28"
         />
-        <div className="shrink-0" data-testid="workflow-primary-run-control">
-          <ToolbarButton
-            disabled={model.primaryControl.disabled}
-            icon={model.primaryControl.icon}
-            label={model.primaryControl.label}
-            onClick={workflowPrimaryRunControlHandler(model.primaryControl.kind, {
-              onRun,
-              onStop,
-              onViewActiveRun,
-            })}
-            spin={model.primaryControl.spin}
-            testId={model.primaryControl.testId}
-            widthClass="w-36"
-          />
-        </div>
-        <WorkflowRunSelector
-          disabled={model.disabled || model.runSelectorItems.length === 0}
-          menuOpen={runMenuOpen}
-          onSelectRun={(summary) => {
-            setRunMenuOpen(false);
-            onSelectRun(summary);
-          }}
-          runSummaries={model.runSelectorItems}
-          selectedRunId={model.selectedRunId}
-          setMenuOpen={setRunMenuOpen}
+        <ToolbarButton
+          disabled={model.runDisabled}
+          icon={model.runIcon}
+          label={model.runLabel}
+          onClick={onRun}
+          spin={busy === "run"}
+          testId="workflow-run-button"
         />
         <WorkflowDraftButton
           disabled={model.disabled}
-          label={model.draftLabel}
           onShowDraft={onShowDraft}
-          title={model.draftTitle}
-          viewingDraft={model.viewingDraft}
+          viewingDraft={!model.showDraftButton}
         />
         <ToolbarButton
           disabled={model.detailsDisabled}
@@ -177,108 +132,9 @@ export function WorkflowGraphToolbar({
           label={model.detailsLabel}
           onClick={onOpenDetails}
           testId="workflow-node-details-button"
-          widthClass="w-28"
         />
       </div>
     </div>
-  );
-}
-
-function WorkflowRunSelector({
-  disabled,
-  menuOpen,
-  onSelectRun,
-  runSummaries,
-  selectedRunId,
-  setMenuOpen,
-}: {
-  disabled: boolean;
-  menuOpen: boolean;
-  onSelectRun: (summary: WorkflowExecutionSummary) => void;
-  runSummaries: WorkflowExecutionSummary[];
-  selectedRunId: string;
-  setMenuOpen: (open: boolean | ((open: boolean) => boolean)) => void;
-}) {
-  // The run selector always occupies its slot. It is disabled by the caller when there is no
-  // history, shows the selected run when viewing a run, and shows the run inventory otherwise.
-  const selected = runSummaries.find((summary) => summary.id === selectedRunId) ?? null;
-  const label =
-    selected === null
-      ? `Runs ${runSummaries.length}`
-      : `${workflowRunStatusLabel(selected.status)} ${shortIdentifier(selected.id)}`;
-  return (
-    <div className="relative shrink-0">
-      <button
-        aria-expanded={menuOpen}
-        aria-haspopup="menu"
-        className="inline-flex h-8 w-44 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
-        data-testid="workflow-run-selector-button"
-        disabled={disabled}
-        onClick={() => setMenuOpen((open) => !open)}
-        title="Workflow runs"
-        type="button"
-      >
-        <History className="h-3.5 w-3.5 shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-left">{label}</span>
-        <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-      </button>
-      {menuOpen ? (
-        <div
-          className="absolute top-9 left-0 z-30 w-72 rounded-sm border border-zinc-700/80 bg-zinc-900/95 p-1 shadow-2xl shadow-zinc-950/50"
-          data-testid="workflow-run-selector-menu"
-          role="menu"
-        >
-          {runSummaries.map((summary) => (
-            <WorkflowRunSelectorRow
-              key={summary.id}
-              onSelectRun={onSelectRun}
-              selected={summary.id === selectedRunId}
-              summary={summary}
-            />
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function WorkflowRunSelectorRow({
-  onSelectRun,
-  selected,
-  summary,
-}: {
-  onSelectRun: (summary: WorkflowExecutionSummary) => void;
-  selected: boolean;
-  summary: WorkflowExecutionSummary;
-}) {
-  const StatusIcon = summary.status === "running" ? CircleDot : Clock3;
-  const version =
-    summary.definitionVersionNumber > 0
-      ? `v${summary.definitionVersionNumber}`
-      : shortIdentifier(summary.definitionVersionId);
-  return (
-    <button
-      aria-current={selected ? "true" : undefined}
-      className={[
-        "grid h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs",
-        selected ? "bg-cyan-950/70 text-cyan-100" : "text-zinc-200 hover:bg-zinc-800",
-      ].join(" ")}
-      data-testid={`workflow-run-selector-row-${summary.id}`}
-      onClick={() => onSelectRun(summary)}
-      role="menuitem"
-      type="button"
-    >
-      <StatusIcon className={["h-3.5 w-3.5", workflowRunStatusColor(summary.status)].join(" ")} />
-      <span className="min-w-0">
-        <span className="block truncate font-medium">
-          {workflowRunStatusLabel(summary.status)} · {shortIdentifier(summary.id)}
-        </span>
-        <span className="block truncate font-mono text-[11px] text-zinc-500">
-          {version} · {workflowRunTimestamp(summary)}
-        </span>
-      </span>
-      <span className="font-mono text-[11px] text-zinc-500">#{summary.lastEventOrdinal}</span>
-    </button>
   );
 }
 
@@ -326,22 +182,19 @@ function WorkflowToolbarTitle({
   versionLabel: string;
 }) {
   return (
-    <div className="w-44 shrink-0 px-1">
+    <div className="min-w-0 px-1">
       <div
-        className="truncate text-xs font-semibold text-zinc-100"
+        className="max-w-56 truncate text-xs font-semibold text-zinc-100"
         data-testid="workflow-toolbar-title"
       >
         {title}
       </div>
-      <div
-        className="mt-0.5 truncate text-[11px] text-zinc-500"
-        data-testid="workflow-toolbar-state"
-      >
+      <div className="mt-0.5 text-[11px] text-zinc-500" data-testid="workflow-toolbar-state">
         {stateLabel}
       </div>
       {versionLabel ? (
         <div
-          className="mt-0.5 truncate font-mono text-[11px] text-zinc-500"
+          className="mt-0.5 max-w-64 truncate font-mono text-[11px] text-zinc-500"
           data-testid="workflow-toolbar-version-state"
         >
           {versionLabel}
@@ -349,7 +202,7 @@ function WorkflowToolbarTitle({
       ) : null}
       {mismatchLabel ? (
         <div
-          className="mt-0.5 truncate text-[11px] text-amber-300"
+          className="mt-0.5 max-w-64 truncate text-[11px] text-amber-300"
           data-testid="workflow-toolbar-version-mismatch"
         >
           {mismatchLabel}
@@ -371,19 +224,19 @@ function WorkflowAddNodeMenu({
   setMenuOpen: (open: boolean | ((open: boolean) => boolean)) => void;
 }) {
   return (
-    <div className="relative shrink-0">
+    <div className="relative">
       <button
         aria-expanded={menuOpen}
         aria-haspopup="menu"
-        className="inline-flex h-8 w-24 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
         data-testid="workflow-add-node-button"
         disabled={disabled}
         onClick={() => setMenuOpen((open) => !open)}
         type="button"
       >
-        <Plus className="h-3.5 w-3.5 shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-left">Add</span>
-        <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+        <Plus className="h-3.5 w-3.5" />
+        Add
+        <ChevronDown className="h-3.5 w-3.5" />
       </button>
       {menuOpen ? (
         <WorkflowAddNodeMenuItems
@@ -430,28 +283,23 @@ function WorkflowAddNodeMenuItems({
 
 function WorkflowDraftButton({
   disabled,
-  label,
   onShowDraft,
-  title,
   viewingDraft,
 }: {
   disabled: boolean;
-  label: string;
   onShowDraft: () => void;
-  title: string;
   viewingDraft: boolean;
 }) {
-  // The view-switch slot is always present so the toolbar layout stays stable. On the draft it is
-  // a disabled "Draft" affordance; on a run it becomes the "Edit Draft" switch back to the draft.
+  if (viewingDraft) {
+    return null;
+  }
   return (
     <ToolbarButton
-      disabled={disabled || viewingDraft}
+      disabled={disabled}
       icon={RefreshCcw}
-      label={label}
+      label="Draft"
       onClick={onShowDraft}
       testId="workflow-show-draft-button"
-      title={viewingDraft ? "You are editing the draft." : title}
-      widthClass="w-28"
     />
   );
 }
@@ -463,8 +311,6 @@ function ToolbarButton({
   onClick,
   spin = false,
   testId,
-  title,
-  widthClass,
 }: {
   disabled: boolean;
   icon: LucideIcon;
@@ -472,25 +318,18 @@ function ToolbarButton({
   onClick: () => void;
   spin?: boolean;
   testId: string;
-  title?: string;
-  widthClass: string;
 }) {
-  const accessibleLabel = title ?? label;
   return (
     <button
-      aria-label={accessibleLabel}
-      className={[
-        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50",
-        widthClass,
-      ].join(" ")}
+      className="inline-flex h-8 max-w-36 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
       data-testid={testId}
       disabled={disabled}
       onClick={onClick}
-      title={accessibleLabel}
+      title={label}
       type="button"
     >
       <Icon className={["h-3.5 w-3.5 shrink-0", spin ? "animate-spin" : ""].join(" ")} />
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
@@ -562,173 +401,51 @@ function WorkflowDiagnosticRow({ diagnostic }: { diagnostic: WorkflowValidationD
 }
 
 function workflowToolbarModel({
-  activeRun,
   busy,
-  loading,
   projection,
   ready,
-  runSummaries,
   selectedNodeLabel,
   validation,
   workspaceId,
 }: {
-  activeRun: WorkflowExecutionSummary | null;
-  busy: WorkflowToolbarOperation | null;
-  loading: boolean;
+  busy: "run" | "validate" | null;
   projection: WorkflowGraphProjection | null;
   ready: boolean;
-  runSummaries: WorkflowExecutionSummary[];
   selectedNodeLabel: string;
   validation: WorkflowValidationResult | null;
   workspaceId: string;
 }) {
-  const disabled = workflowToolbarDisabled(ready, workspaceId, busy, loading);
+  const disabled = workflowToolbarDisabled(ready, workspaceId, busy);
   const editable = workflowProjectionIsEditableDraft(projection);
-  const viewingDraft = workflowProjectionViewingDraft(projection);
   return {
     detailsDisabled: workflowDetailsDisabled(disabled, selectedNodeLabel),
     detailsLabel: workflowDetailsLabel(selectedNodeLabel),
     disabled,
-    draftLabel: workflowDraftButtonLabel(projection),
-    draftTitle: workflowDraftButtonTitle(projection),
     editable,
     mismatchLabel: workflowToolbarMismatchLabel(projection),
-    primaryControl: workflowPrimaryRunControl({ activeRun, busy, disabled, editable, projection }),
-    runSelectorItems: workflowRunSelectorItems(runSummaries),
-    selectedRunId: projection?.viewMode === "run" ? projection.executionId : "",
+    runDisabled: workflowRunDisabled(disabled, editable, projection),
+    runIcon: workflowRunIcon(busy),
+    runLabel: workflowRunLabel(busy),
     settingsDisabled: disabled || projection === null,
-    stateLabel: workflowToolbarStateLabel(projection, ready, workspaceId, loading),
+    showDraftButton: workflowToolbarShowsDraftButton(projection),
+    stateLabel: workflowToolbarStateLabel(projection, ready, workspaceId),
     title: workflowToolbarTitle(projection, workspaceId),
     validateLabel: workflowValidateLabel(busy),
-    validationIcon: workflowValidationIcon(validation),
     versionLabel: workflowToolbarVersionLabel(projection),
-    viewingDraft,
+    validationIcon: workflowValidationIcon(validation),
   };
 }
 
-export type WorkflowPrimaryRunControlKind = "run" | "view-active-run" | "stop" | "terminal";
-
-export interface WorkflowPrimaryRunControl {
-  disabled: boolean;
-  icon: LucideIcon;
-  kind: WorkflowPrimaryRunControlKind;
-  label: string;
-  spin: boolean;
-  testId: string;
-}
-
-// The primary run control is a single, always-present toolbar slot. It resolves to exactly one of
-// run / view-active-run / stop / terminal so the slot never appears, disappears, or moves across
-// draft, active run, and historical run views.
-export function workflowPrimaryRunControl({
-  activeRun,
-  busy,
-  disabled,
-  editable,
-  projection,
-}: {
-  activeRun: WorkflowExecutionSummary | null;
-  busy: WorkflowToolbarOperation | null;
-  disabled: boolean;
-  editable: boolean;
-  projection: WorkflowGraphProjection | null;
-}): WorkflowPrimaryRunControl {
-  if (workflowToolbarShowsRunButton(projection, activeRun)) {
-    return {
-      disabled: workflowRunDisabled(disabled, editable, projection, activeRun),
-      icon: workflowRunIcon(busy),
-      kind: "run",
-      label: workflowRunLabel(busy),
-      spin: busy === "run",
-      testId: "workflow-run-button",
-    };
-  }
-  if (projection === null || projection.viewMode === "draft") {
-    // Draft view with an active run: jump to that run rather than starting a second one.
-    return {
-      disabled,
-      icon: CircleDot,
-      kind: "view-active-run",
-      label: "View Active Run",
-      spin: false,
-      testId: "workflow-view-active-run-button",
-    };
-  }
-  if (workflowToolbarShowsStopButton(projection)) {
-    return {
-      disabled,
-      icon: Square,
-      kind: "stop",
-      label: workflowStopLabel(busy),
-      spin: busy === "cancel",
-      testId: "workflow-stop-button",
-    };
-  }
-  // Historical run or version snapshot: a disabled terminal indicator, never a runnable action.
-  const terminal = workflowPrimaryTerminalIndicator(projection);
-  return {
-    disabled: true,
-    icon: terminal.icon,
-    kind: "terminal",
-    label: terminal.label,
-    spin: false,
-    testId: "workflow-run-terminal-indicator",
-  };
-}
-
-function workflowPrimaryTerminalIndicator(projection: WorkflowGraphProjection | null): {
-  icon: LucideIcon;
-  label: string;
-} {
-  if (projection !== null && projection.viewMode === "run" && projection.executionStatus !== null) {
-    return {
-      icon: workflowRunStatusIcons[projection.executionStatus],
-      label: workflowRunStatusLabels[projection.executionStatus],
-    };
-  }
-  return { icon: Play, label: "Run from Draft" };
-}
-
-function workflowPrimaryRunControlHandler(
-  kind: WorkflowPrimaryRunControlKind,
-  handlers: { onRun: () => void; onStop: () => void; onViewActiveRun: () => void },
-): () => void {
-  switch (kind) {
-    case "run":
-      return handlers.onRun;
-    case "view-active-run":
-      return handlers.onViewActiveRun;
-    case "stop":
-      return handlers.onStop;
-    case "terminal":
-      return workflowNoopControl;
-    default:
-      return assertNever(kind);
-  }
-}
-
-function workflowNoopControl() {}
-
-export function workflowToolbarDisabled(
+function workflowToolbarDisabled(
   ready: boolean,
   workspaceId: string,
-  busy: WorkflowToolbarOperation | null,
-  loading: boolean,
+  busy: "run" | "validate" | null,
 ) {
-  // While a newly selected target loads, the previous graph stays on the canvas but its
-  // actions must not fire against a projection that is about to be replaced. `ready` is
-  // content-based and stays true during a warm switch, so loading gates the actions instead.
-  return !ready || workspaceId === "" || busy !== null || loading;
+  return !ready || workspaceId === "" || busy !== null;
 }
 
 function workflowProjectionIsEditableDraft(projection: WorkflowGraphProjection | null) {
   return projection === null || (projection.viewMode === "draft" && projection.editable);
-}
-
-// True when the displayed projection is the blank or draft view. Draft-only overlays such as the
-// validation panel are scoped to this so they never render over a run or version graph.
-export function workflowProjectionViewingDraft(projection: WorkflowGraphProjection | null) {
-  return projection === null || projection.viewMode === "draft";
 }
 
 function workflowDetailsDisabled(disabled: boolean, selectedNodeLabel: string) {
@@ -743,40 +460,20 @@ function workflowRunDisabled(
   disabled: boolean,
   editable: boolean,
   projection: WorkflowGraphProjection | null,
-  activeRun: WorkflowExecutionSummary | null,
 ) {
-  return disabled || !editable || projection === null || activeRun !== null;
+  return disabled || !editable || projection === null;
 }
 
-function workflowRunIcon(busy: WorkflowToolbarOperation | null) {
+function workflowRunIcon(busy: "run" | "validate" | null) {
   return busy === "run" ? RefreshCcw : Play;
 }
 
-function workflowRunLabel(busy: WorkflowToolbarOperation | null) {
+function workflowRunLabel(busy: "run" | "validate" | null) {
   return busy === "run" ? "Starting" : "Run";
 }
 
-function workflowStopLabel(busy: WorkflowToolbarOperation | null) {
-  return busy === "cancel" ? "Stopping" : "Stop";
-}
-
-function workflowValidateLabel(busy: WorkflowToolbarOperation | null) {
+function workflowValidateLabel(busy: "run" | "validate" | null) {
   return busy === "validate" ? "Validating" : "Validate";
-}
-
-export function workflowDraftButtonLabel(projection: WorkflowGraphProjection | null) {
-  return projection !== null && projection.viewMode !== "draft" ? "Edit Draft" : "Draft";
-}
-
-export function workflowDraftButtonTitle(projection: WorkflowGraphProjection | null) {
-  if (
-    projection !== null &&
-    projection.viewMode === "run" &&
-    projection.executionStatus === "running"
-  ) {
-    return "Switch to the editable draft. This does not stop the running workflow.";
-  }
-  return "Switch to the editable draft.";
 }
 
 function workflowToolbarTitle(projection: WorkflowGraphProjection | null, workspaceId: string) {
@@ -797,12 +494,8 @@ export function workflowToolbarStateLabel(
   projection: WorkflowGraphProjection | null,
   ready: boolean,
   workspaceId: string,
-  loading: boolean,
 ) {
-  // A cold load (nothing displayed yet, ready false) and a warm load (previous graph still
-  // visible, ready true) both report "Loading" so the stable toolbar shows a subtle loading
-  // state without ever falling back to the "Blank workflow draft" title.
-  if (!ready || loading) {
+  if (!ready) {
     return "Loading";
   }
   if (workspaceId === "") {
@@ -811,10 +504,6 @@ export function workflowToolbarStateLabel(
   if (projection === null) {
     return "Blank draft";
   }
-  return workflowToolbarViewModeStateLabel(projection);
-}
-
-function workflowToolbarViewModeStateLabel(projection: WorkflowGraphProjection) {
   switch (projection.viewMode) {
     case "draft":
       return projection.editable ? "Draft editable" : "Draft read-only";
@@ -847,20 +536,8 @@ export function workflowToolbarMismatchLabel(projection: WorkflowGraphProjection
   return "Current draft differs from this version";
 }
 
-export function workflowToolbarShowsRunButton(
-  projection: WorkflowGraphProjection | null,
-  activeRun: WorkflowExecutionSummary | null = null,
-) {
-  return activeRun === null && (projection === null || projection.viewMode === "draft");
-}
-
-export function workflowToolbarShowsStopButton(projection: WorkflowGraphProjection | null) {
-  return (
-    projection !== null &&
-    projection.viewMode === "run" &&
-    projection.executionId !== "" &&
-    projection.executionStatus === "running"
-  );
+function workflowToolbarShowsDraftButton(projection: WorkflowGraphProjection | null) {
+  return projection !== null && projection.viewMode !== "draft";
 }
 
 function diagnosticKey(diagnostic: WorkflowValidationDiagnostic) {
@@ -872,65 +549,6 @@ function diagnosticKey(diagnostic: WorkflowValidationDiagnostic) {
     diagnostic.message,
   ].join(":");
 }
-
-export function workflowActiveRunSummary(
-  runSummaries: WorkflowExecutionSummary[],
-): WorkflowExecutionSummary | null {
-  return runSummaries.find((summary) => summary.status === "running") ?? null;
-}
-
-export function workflowRunSelectorItems(
-  runSummaries: WorkflowExecutionSummary[],
-): WorkflowExecutionSummary[] {
-  const active = workflowActiveRunSummary(runSummaries);
-  if (active === null) {
-    return runSummaries;
-  }
-  return [active, ...runSummaries.filter((summary) => summary.id !== active.id)];
-}
-
-function workflowRunStatusLabel(status: WorkflowExecutionStatus) {
-  return workflowRunStatusLabels[status];
-}
-
-function workflowRunStatusColor(status: WorkflowExecutionStatus) {
-  return workflowRunStatusColors[status];
-}
-
-function workflowRunTimestamp(summary: WorkflowExecutionSummary) {
-  const value = summary.completedAt || summary.updatedAt || summary.startedAt;
-  if (value.length < 16) {
-    return value;
-  }
-  return value.slice(0, 16).replace("T", " ");
-}
-
-const workflowRunStatusLabels = {
-  cancelled: "Cancelled",
-  completed: "Completed",
-  failed: "Failed",
-  idle: "Idle",
-  running: "Running",
-  stopped: "Stopped",
-} satisfies Record<WorkflowExecutionStatus, string>;
-
-const workflowRunStatusColors = {
-  cancelled: "text-zinc-400",
-  completed: "text-emerald-400",
-  failed: "text-red-400",
-  idle: "text-zinc-500",
-  running: "text-cyan-400",
-  stopped: "text-amber-400",
-} satisfies Record<WorkflowExecutionStatus, string>;
-
-const workflowRunStatusIcons = {
-  cancelled: Square,
-  completed: CheckCircle2,
-  failed: XCircle,
-  idle: Clock3,
-  running: CircleDot,
-  stopped: Square,
-} satisfies Record<WorkflowExecutionStatus, LucideIcon>;
 
 function assertNever(value: never): never {
   throw new Error(`Unsupported workflow graph view mode: ${String(value)}`);

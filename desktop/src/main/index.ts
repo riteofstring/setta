@@ -27,19 +27,14 @@ import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
 import { registerTerminalIpcHandlers } from "./terminal-ipc";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
-import { startWorkspaceActivityEventForwarding } from "./workspace-activity-event-forwarding-stream";
-import { registerWorkspaceActivityIpcHandlers } from "./workspace-activity-ipc";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
-import { registerWorkflowIpcHandlers } from "./workflow-ipc";
 import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
 let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwarding> | null = null;
 let terminalEventStream: TerminalEventStream | null = null;
-let workspaceActivityEventStream: ReturnType<typeof startWorkspaceActivityEventForwarding> | null =
-  null;
 let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
@@ -95,7 +90,6 @@ async function prepareBackend(appDataDir: string) {
     startChatEventStream();
     startSemanticGraphEventStreamForwarding();
     startTerminalEventStreamForwarding();
-    startWorkspaceActivityEventStreamForwarding();
     startWorkflowEventStreamForwarding();
   } catch (error) {
     backend = null;
@@ -168,18 +162,6 @@ function startTerminalEventStreamForwarding() {
   });
 }
 
-function startWorkspaceActivityEventStreamForwarding() {
-  if (!backend) {
-    return;
-  }
-  void stopWorkspaceActivityEventStreamForwarding();
-  workspaceActivityEventStream = startWorkspaceActivityEventForwarding({
-    baseURL: backend.url,
-    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
-    recorder,
-  });
-}
-
 async function stopChatEventStream() {
   const stream = backendEventStream;
   backendEventStream = null;
@@ -204,18 +186,11 @@ async function stopTerminalEventStreamForwarding() {
   await stream?.stop();
 }
 
-async function stopWorkspaceActivityEventStreamForwarding() {
-  const stream = workspaceActivityEventStream;
-  workspaceActivityEventStream = null;
-  await stream?.stop();
-}
-
 async function stopBackendEventStreams() {
   await Promise.all([
     stopChatEventStream(),
     stopSemanticGraphEventStreamForwarding(),
     stopTerminalEventStreamForwarding(),
-    stopWorkspaceActivityEventStreamForwarding(),
     stopWorkflowEventStreamForwarding(),
   ]);
 }
@@ -532,7 +507,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "chatListConversations",
@@ -580,9 +554,9 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatMessagePage",
-    async (_event, workspaceId, conversationId, beforeBlockOrdinal, limit) => {
+    async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
       return requireBackendClient().getMessagePage({
-        beforeBlockOrdinal,
+        beforeOrdinal,
         conversationId,
         limit,
         workspaceId,
@@ -606,17 +580,6 @@ function registerIpc() {
         confirmGoalReplacement,
         conversationId,
         raw,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatOpenCodexModelPicker",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().openChatCodexModelPicker({
-        conversationId,
         workspaceId,
       });
     },
@@ -754,7 +717,128 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  handleIpc(
+    ipcMain,
+    "workflowListDefinitions",
+    async (_event, workspaceId) => {
+      return requireBackendClient().listWorkflowDefinitions({ workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowCreateDefinition",
+    async (_event, workspaceId, name, description, graph) => {
+      return requireBackendClient().createWorkflowDefinition({
+        description,
+        graph,
+        name,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowReadDefinition",
+    async (_event, workspaceId, definitionId) => {
+      return requireBackendClient().readWorkflowDefinition({ definitionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowUpdateDefinition",
+    async (_event, ...args) => {
+      const [workspaceId, definitionId, name, description, graph] = args;
+      return requireBackendClient().updateWorkflowDefinition({
+        definitionId,
+        description,
+        graph,
+        name,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowDeleteDefinition",
+    async (_event, workspaceId, definitionId) => {
+      return requireBackendClient().deleteWorkflowDefinition({ definitionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowValidateDefinition",
+    async (_event, workspaceId, graph) => {
+      return requireBackendClient().validateWorkflowDefinition({ graph, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowStartExecution",
+    async (_event, workspaceId, definitionId, versionId) => {
+      return requireBackendClient().startWorkflowExecution({
+        definitionId,
+        versionId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowCancelExecution",
+    async (_event, workspaceId, executionId) => {
+      return requireBackendClient().cancelWorkflowExecution({ executionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowReadExecution",
+    async (_event, workspaceId, executionId) => {
+      return requireBackendClient().readWorkflowExecution({ executionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowExecutionEvents",
+    async (_event, workspaceId, executionId, beforeOrdinal, limit) => {
+      return requireBackendClient().getWorkflowExecutionEvents({
+        beforeOrdinal,
+        executionId,
+        limit,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowGraphProjection",
+    async (_event, workspaceId, definitionId, versionId, executionId) => {
+      return requireBackendClient().readWorkflowGraphProjection({
+        definitionId,
+        executionId,
+        versionId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowSubmitApproval",
+    async (_event, request) => {
+      return requireBackendClient().submitWorkflowApproval(request);
+    },
+    ipcObserver,
+  );
   handleIpc(
     ipcMain,
     "codexAccountRead",

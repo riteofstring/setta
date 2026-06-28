@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { PaneInsertionPlacement } from "./types";
+import type { PaneDropIntent, PaneInsertionPlacement, WorkspaceScene } from "./types";
 
 const overviewGhostGapPx = 8;
 
@@ -25,15 +25,16 @@ interface OverviewPaneFrame {
   width: number;
 }
 
+interface OverviewGhostPointer {
+  clientX: number;
+  clientY: number;
+}
+
 export function eventTargetsOverviewGhost(event: PointerEvent): boolean {
   return (
     event.target instanceof Element &&
     event.target.closest("[data-workspace-overview-ghost]") instanceof HTMLButtonElement
   );
-}
-
-export function overviewPaneIdFromPointer(event: PointerEvent): string | null {
-  return event.target instanceof Element ? visiblePaneHostId(event.target) : null;
 }
 
 export function overviewPaneIdAtPoint(event: PointerEvent, excludedPaneId?: string): string | null {
@@ -50,7 +51,7 @@ export function setOverviewGhostTargetIfChanged(
 }
 
 export function overviewGhostTargetFromPointer(
-  event: PointerEvent,
+  event: OverviewGhostPointer,
   stage: HTMLElement,
 ): OverviewGhostTarget | null {
   const stageRect = stage.getBoundingClientRect();
@@ -74,6 +75,40 @@ export function overviewGhostLabel(placement: PaneInsertionPlacement): string {
       return "Add pane to the right";
     default:
       return assertNever(placement);
+  }
+}
+
+export function overviewPaneDropIntentFromGhost(
+  target: OverviewGhostTarget,
+  scene: WorkspaceScene,
+): PaneDropIntent | null {
+  const targetPane = scene.paneById.get(target.paneId);
+  const targetColumn = scene.columns.find((column) => column.columnId === targetPane?.columnId);
+  if (!targetPane || !targetColumn) {
+    return null;
+  }
+  switch (target.placement) {
+    case "above":
+      return {
+        kind: "row",
+        placement: "before",
+        targetPaneId: target.paneId,
+      };
+    case "below":
+      return {
+        kind: "row",
+        placement: "after",
+        targetPaneId: target.paneId,
+      };
+    case "right":
+      return {
+        kind: "column",
+        planeIndex: targetColumn.planeIndex,
+        slotPlacement: "after",
+        targetColumnId: targetColumn.columnId,
+      };
+    default:
+      return assertNever(target.placement);
   }
 }
 
@@ -103,6 +138,9 @@ function overviewPaneFrames(stage: HTMLElement, stageRect: DOMRect): OverviewPan
   return Array.from(
     stage.querySelectorAll<HTMLElement>('[data-testid="workspace-pane-host"][data-visible="true"]'),
   ).flatMap((host) => {
+    if (host.dataset.dragSource === "true") {
+      return [];
+    }
     const paneId = host.dataset.paneId;
     if (!paneId) {
       return [];

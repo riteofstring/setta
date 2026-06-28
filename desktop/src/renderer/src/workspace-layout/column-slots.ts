@@ -96,12 +96,7 @@ export function slotOffsetsForColumns({
   defaultWidth: number;
   widths: readonly number[];
 }): Map<number, number> {
-  const slotWidths = new Map<number, number>();
-  for (const column of columns) {
-    const slotIndex = columnSlotIndex(column);
-    const width = widths[column.index] ?? defaultWidth;
-    slotWidths.set(slotIndex, Math.max(slotWidths.get(slotIndex) ?? 0, width));
-  }
+  const slotWidths = slotWidthsForColumns({ columns, defaultWidth, widths });
   const offsets = new Map<number, number>();
   let nextOffset = 0;
   const occupiedSlotIndexes = [...slotWidths.keys()].sort((left, right) => left - right);
@@ -110,6 +105,24 @@ export function slotOffsetsForColumns({
     nextOffset += (slotWidths.get(slotIndex) ?? defaultWidth) + columnGap;
   }
   return offsets;
+}
+
+export function slotWidthsForColumns({
+  columns,
+  defaultWidth,
+  widths,
+}: {
+  columns: readonly WorkspaceColumn[];
+  defaultWidth: number;
+  widths: readonly number[];
+}): Map<number, number> {
+  const slotWidths = new Map<number, number>();
+  for (const column of columns) {
+    const slotIndex = columnSlotIndex(column);
+    const width = widths[column.index] ?? defaultWidth;
+    slotWidths.set(slotIndex, Math.max(slotWidths.get(slotIndex) ?? 0, width));
+  }
+  return slotWidths;
 }
 
 function clamp(value: number, min: number, max: number): number {

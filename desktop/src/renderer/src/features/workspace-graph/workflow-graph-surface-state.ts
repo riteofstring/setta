@@ -7,7 +7,6 @@ export function workflowSyntheticGraphForSurface(
 }
 
 export function workflowGraphStateForSurface({
-  hasDisplayedProjection,
   semanticGraphError,
   semanticGraphLoading,
   syntheticGraph,
@@ -15,7 +14,6 @@ export function workflowGraphStateForSurface({
   workflowProjectionLoadError,
   workflowProjectionLoading,
 }: {
-  hasDisplayedProjection: boolean;
   semanticGraphError: string;
   semanticGraphLoading: boolean;
   syntheticGraph: SyntheticWorkflowGraphOptions;
@@ -31,11 +29,7 @@ export function workflowGraphStateForSurface({
     };
   }
   return {
-    // Only surface the full loading state when the canvas has nothing to show yet. While a new
-    // target loads behind an existing projection the previous graph keeps rendering, so a
-    // loading overlay there would be the destructive blank frame this slice removes.
-    loadingProjection:
-      (workflowProjectionLoading && !hasDisplayedProjection) || semanticGraphLoading,
+    loadingProjection: workflowProjectionLoading || semanticGraphLoading,
     noWorkspace: workflowProjectionHasNoWorkspace,
     workflowProjectionError: [workflowProjectionLoadError, semanticGraphError]
       .filter(Boolean)

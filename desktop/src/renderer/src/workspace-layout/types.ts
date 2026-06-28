@@ -114,6 +114,27 @@ export interface OpenPaneRequest {
 }
 
 export type PaneInsertionPlacement = "above" | "below" | "right";
+export type PaneDropPlacement = "after" | "before";
+
+export type PaneDropIntent =
+  | {
+      kind: "row";
+      placement: PaneDropPlacement;
+      targetPaneId: PaneId;
+    }
+  | {
+      kind: "column";
+      planeIndex: number;
+      slotPlacement: PaneDropPlacement;
+      targetColumnId: ColumnId;
+    }
+  | {
+      // Exchange the source and target panes: each takes the other's grid slot
+      // (and therefore that slot's column width). The rest of the layout is
+      // untouched. Resolved when a drag is dropped onto a pane's center.
+      kind: "swap";
+      targetPaneId: PaneId;
+    };
 
 export type PaneLimitPolicy = Partial<Record<SurfaceKind, number>>;
 
@@ -256,6 +277,8 @@ export interface LayoutEngine {
   ): PaneId | null;
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void;
   renamePane(paneId: PaneId, title: string): boolean;
+  applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean;
+  previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean;
   reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean;
   resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
@@ -282,6 +305,8 @@ export interface WorkspaceFrameMetrics {
   p50FrameTime: number;
   p95FrameTime: number;
   p99FrameTime: number;
+  paneDragPreviewClears: number;
+  paneDragPreviewUpdates: number;
   reactCommitsDuringMovement: number;
   reactCommitsDuringResize: number;
   resize: WorkspaceResizeMetrics;
