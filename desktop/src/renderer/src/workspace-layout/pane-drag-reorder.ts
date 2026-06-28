@@ -1,3 +1,4 @@
+import { columnSlotIndex } from "./column-slots";
 import type { WorkspaceLayoutStore } from "./layout-store";
 import type { ColumnId, PaneDropIntent, PaneDropPlacement, WorkspaceScene } from "./types";
 
@@ -281,7 +282,7 @@ export function paneDropTargetFromPointer(
   if (directHost) {
     return paneDropTargetOverHost(event, directHost, scene);
   }
-  return paneDropTargetInGap(event, candidates, scene);
+  return paneDropTargetInGap(event, candidates, scene, hostRects);
 }
 
 // Pointer is inside a pane: the inner region swaps with it; the four outer edge
@@ -416,11 +417,13 @@ function paneDropTargetInGap(
   event: PaneDropPointer,
   candidates: readonly PaneHostRect[],
   scene: WorkspaceScene,
+  allHostRects: readonly PaneHostRect[],
 ): PaneDropTarget | null {
   const columns = visibleColumnRects(candidates, scene);
   if (columns.length === 0) {
     return null;
   }
+  const allColumns = visibleColumnRects(allHostRects, scene);
   const columnUnderPointer = columns
     .filter((column) => event.clientX >= column.left && event.clientX <= column.right)
     .toSorted(
@@ -428,6 +431,13 @@ function paneDropTargetInGap(
         verticalDistanceToColumn(left, event.clientY) -
         verticalDistanceToColumn(right, event.clientY),
     )[0];
+  const interRowTarget = columnUnderPointer
+    ? interRowInsertTarget(columnUnderPointer, event.clientY)
+    : null;
+  const planeSlotTarget = planeSlotInsertTargetForGap(event, allColumns);
+  if (interRowTarget ?? planeSlotTarget) {
+    return interRowTarget ?? planeSlotTarget;
+  }
   if (columnUnderPointer) {
     return rowInsertTargetForColumn(columnUnderPointer, event.clientY);
   }
@@ -441,6 +451,7 @@ interface DragColumnRect {
   paneRects: PaneHostRect[];
   planeIndex: number;
   right: number;
+  slotIndex: number;
   top: number;
 }
 
@@ -477,6 +488,7 @@ function visibleColumnRects(
       paneRects: sorted,
       planeIndex: column.planeIndex,
       right: Math.max(...sorted.map((rect) => rect.right)),
+      slotIndex: columnSlotIndex(column),
       top: Math.min(...sorted.map((rect) => rect.top)),
     });
   }
@@ -491,6 +503,18 @@ function verticalDistanceToColumn(column: DragColumnRect, clientY: number): numb
     return clientY - column.bottom;
   }
   return 0;
+}
+
+function interRowInsertTarget(column: DragColumnRect, clientY: number): PaneDropTarget | null {
+  const panes = column.paneRects;
+  for (let index = 0; index < panes.length - 1; index += 1) {
+    const upper = panes[index];
+    const lower = panes[index + 1];
+    if (clientY >= upper.bottom && clientY <= lower.top) {
+      return rowInsertTarget(lower.paneId, "before");
+    }
+  }
+  return null;
 }
 
 // Within a column but in a vertical gap (or above/below the stack): insert a row
@@ -521,6 +545,112 @@ function rowInsertTargetForColumn(column: DragColumnRect, clientY: number): Pane
 // Pointer is in a horizontal gap between columns, or past the first/last column.
 // Insert a column at the nearest column edge; "past the leftmost" therefore reads
 // as "new column before the first" (extend left) and vice versa.
+function planeSlotInsertTargetForGap(
+  event: PaneDropPointer,
+  columns: readonly DragColumnRect[],
+): PaneDropTarget | null {
+  const targetPlane = planeBandContainingY(columns, event.clientY);
+  if (!targetPlane) {
+    return null;
+  }
+  const occupiedSlots = new Set(
+    columns
+      .filter((column) => column.planeIndex === targetPlane.planeIndex)
+      .map((column) => column.slotIndex),
+  );
+  const referenceColumn = columns
+    .filter(
+      (column) =>
+        column.planeIndex !== targetPlane.planeIndex &&
+        !occupiedSlots.has(column.slotIndex) &&
+        event.clientX >= column.left &&
+        event.clientX <= column.right,
+    )
+    .toSorted(
+      (left, right) =>
+        verticalDistanceToColumn(left, event.clientY) -
+          verticalDistanceToColumn(right, event.clientY) ||
+        horizontalDistanceToColumnCenter(left, event.clientX) -
+          horizontalDistanceToColumnCenter(right, event.clientX),
+    )[0];
+  if (!referenceColumn) {
+    return null;
+  }
+  const annotatePane = paneRectNearestY(referenceColumn.paneRects, event.clientY);
+  if (!annotatePane) {
+    return null;
+  }
+  const placement = referenceColumn.planeIndex > targetPlane.planeIndex ? "before" : "after";
+  return {
+    axis: "vertical",
+    intent: {
+      kind: "plane-slot",
+      planeIndex: targetPlane.planeIndex,
+      referenceColumnId: referenceColumn.columnId,
+      slotIndex: referenceColumn.slotIndex,
+    },
+    mode: "insert",
+    paneId: annotatePane.paneId,
+    placement,
+  };
+}
+
+interface DragPlaneBand {
+  bottom: number;
+  planeIndex: number;
+  top: number;
+}
+
+function planeBandContainingY(
+  columns: readonly DragColumnRect[],
+  clientY: number,
+): DragPlaneBand | null {
+  const bands = new Map<number, DragPlaneBand>();
+  for (const column of columns) {
+    const band = bands.get(column.planeIndex);
+    if (band) {
+      band.top = Math.min(band.top, column.top);
+      band.bottom = Math.max(band.bottom, column.bottom);
+    } else {
+      bands.set(column.planeIndex, {
+        bottom: column.bottom,
+        planeIndex: column.planeIndex,
+        top: column.top,
+      });
+    }
+  }
+  return (
+    [...bands.values()]
+      .filter((band) => clientY >= band.top && clientY <= band.bottom)
+      .toSorted((left, right) => left.bottom - left.top - (right.bottom - right.top))[0] ?? null
+  );
+}
+
+function horizontalDistanceToColumnCenter(column: DragColumnRect, clientX: number): number {
+  return Math.abs(clientX - (column.left + column.right) / 2);
+}
+
+function paneRectNearestY(
+  panes: readonly PaneHostRect[],
+  clientY: number,
+): PaneHostRect | undefined {
+  return panes.toSorted((left, right) => {
+    const leftDistance = verticalDistanceToRect(left, clientY);
+    const rightDistance = verticalDistanceToRect(right, clientY);
+    return leftDistance - rightDistance;
+  })[0];
+}
+
+function verticalDistanceToRect(rect: PaneHostRect, clientY: number): number {
+  if (clientY < rect.top) {
+    return rect.top - clientY;
+  }
+  if (clientY > rect.bottom) {
+    return clientY - rect.bottom;
+  }
+  return 0;
+}
+
 function columnInsertTargetForGap(
   event: PaneDropPointer,
   columns: DragColumnRect[],
@@ -581,6 +711,13 @@ function samePaneDropIntent(left: PaneDropIntent | null, right: PaneDropIntent |
       left.targetColumnId === right.targetColumnId &&
       left.planeIndex === right.planeIndex &&
       left.slotPlacement === right.slotPlacement
+    );
+  }
+  if (left.kind === "plane-slot" && right.kind === "plane-slot") {
+    return (
+      left.planeIndex === right.planeIndex &&
+      left.referenceColumnId === right.referenceColumnId &&
+      left.slotIndex === right.slotIndex
     );
   }
   if (left.kind === "swap" && right.kind === "swap") {

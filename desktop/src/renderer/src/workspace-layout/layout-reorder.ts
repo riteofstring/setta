@@ -58,6 +58,9 @@ export function applyPaneDropIntentToColumns(
   if (intent.kind === "swap") {
     return swapPanesInColumns(columns, sourcePaneId, intent.targetPaneId);
   }
+  if (intent.kind === "plane-slot") {
+    return movePaneToPlaneSlot(columns, sourcePaneId, intent, options);
+  }
   return movePaneToColumn(columns, sourcePaneId, intent, options);
 }
 
@@ -252,6 +255,73 @@ function movePaneToColumn(
   };
 }
 
+function movePaneToPlaneSlot(
+  columns: readonly WorkspaceColumn[],
+  sourcePaneId: PaneId,
+  intent: Extract<PaneDropIntent, { kind: "plane-slot" }>,
+  options: PaneDropColumnOptions | undefined,
+): PaneDropColumnResult {
+  if (!options) {
+    return unchangedPaneDrop(columns);
+  }
+  const sourceColumn = columns.find((column) => column.paneIds.includes(sourcePaneId));
+  const targetPlaneIndex = normalizedDropIndex(intent.planeIndex);
+  const targetSlotIndex = normalizedDropIndex(intent.slotIndex);
+  if (!sourceColumn || targetPlaneIndex === null || targetSlotIndex === null) {
+    return unchangedPaneDrop(columns);
+  }
+  if (
+    sourceColumn.planeIndex === targetPlaneIndex &&
+    columnSlotIndex(sourceColumn) === targetSlotIndex
+  ) {
+    return unchangedPaneDrop(columns);
+  }
+
+  const columnsWithoutSourcePane = columns
+    .map((column) =>
+      column.columnId === sourceColumn.columnId
+        ? {
+            ...column,
+            paneIds: column.paneIds.filter((paneId) => paneId !== sourcePaneId),
+          }
+        : column,
+    )
+    .filter((column) => column.paneIds.length > 0);
+  const targetSlotOccupied = columnsWithoutSourcePane.some(
+    (column) =>
+      column.planeIndex === targetPlaneIndex && columnSlotIndex(column) === targetSlotIndex,
+  );
+  if (targetSlotOccupied) {
+    return unchangedPaneDrop(columns);
+  }
+
+  const referenceColumn =
+    columns.find((column) => column.columnId === intent.referenceColumnId) ??
+    columns.find((column) => columnSlotIndex(column) === targetSlotIndex) ??
+    sourceColumn;
+  const widthSpec = copiedColumnWidthSpec(referenceColumn.widthSpec);
+  const idealWidthSpec = copiedColumnWidthSpec(referenceColumn.idealWidthSpec);
+  const insertedColumn: WorkspaceColumn = {
+    columnId: options.newColumnId,
+    idealWidthSpec,
+    index: columnsWithoutSourcePane.length,
+    paneIds: [sourcePaneId],
+    planeIndex: targetPlaneIndex,
+    previousProportionWidth:
+      widthSpec.unit === "proportion"
+        ? (referenceColumn.previousProportionWidth ?? widthSpec.value)
+        : undefined,
+    slotIndex: targetSlotIndex,
+    widthSpec,
+  };
+  return {
+    changed: true,
+    columns: reindexColumns([...columnsWithoutSourcePane, insertedColumn]),
+    destinationColumnId: insertedColumn.columnId,
+    resetPaneSizing: true,
+  };
+}
+
 function columnDropKeepsSinglePaneColumnInPlace(
   columns: readonly WorkspaceColumn[],
   sourceColumn: WorkspaceColumn,
@@ -281,6 +351,13 @@ function columnDropKeepsSinglePaneColumnInPlace(
 
 function copiedColumnWidthSpec(widthSpec: ColumnWidthSpec): ColumnWidthSpec {
   return { ...widthSpec };
+}
+
+function normalizedDropIndex(index: number): number | null {
+  if (!Number.isFinite(index)) {
+    return null;
+  }
+  return Math.max(0, Math.floor(index));
 }
 
 function reindexColumns(columns: readonly WorkspaceColumn[]): WorkspaceColumn[] {

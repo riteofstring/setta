@@ -87,6 +87,56 @@ describe("pane drag drop intent hit-testing", () => {
     });
   });
 
+  test("maps an empty same-plane slot above another plane to that shared slot", () => {
+    const hostRects = [
+      { bottom: 200, left: 300, paneId: "source_pane", right: 500, top: 0, width: 200, zIndex: 1 },
+      { bottom: 420, left: 0, paneId: "lower_pane", right: 260, top: 220, width: 260, zIndex: 1 },
+    ];
+    const panes: WorkspacePane[] = [
+      pane("source_pane", "source_column", 0),
+      pane("lower_pane", "lower_column", 1),
+    ];
+    const scene: WorkspaceScene = {
+      columnGap: 8,
+      columns: [
+        column("source_column", ["source_pane"], 1, 0),
+        column("lower_column", ["lower_pane"], 0, 1),
+      ],
+      defaultColumnWidthSpec: { unit: "px", value: 520 },
+      id: "plane-slot-drag-scene",
+      padding: 10,
+      paneById: new Map(panes.map((candidate) => [candidate.paneId, candidate])),
+      panes,
+      panesPerColumn: 1,
+      renderOverscanColumns: 2,
+      rowGap: 8,
+      targetVisiblePanes: 2,
+      totalPanes: 2,
+      visibleColumnCount: 2,
+    };
+    const store = { toScene: () => scene } as unknown as WorkspaceLayoutStore;
+
+    const target = paneDropTargetFromPointer(
+      pointerEvent({ clientX: 120, clientY: 100 }),
+      "source_pane",
+      store,
+      hostRects,
+    );
+
+    expect(target).toEqual({
+      axis: "vertical",
+      intent: {
+        kind: "plane-slot",
+        planeIndex: 0,
+        referenceColumnId: "lower_column",
+        slotIndex: 0,
+      },
+      mode: "insert",
+      paneId: "lower_pane",
+      placement: "before",
+    });
+  });
+
   test("resolves against the captured host snapshot, not the live (reflowed) rects", () => {
     // The faked live DOM would resolve `target_pane` near (200, 150). Passing an
     // explicit snapshot that only covers `target_pane_2` there proves the snapshot
@@ -125,6 +175,7 @@ describe("pane drag drop intent hit-testing", () => {
         placement: "after",
         targetPaneId: "target_pane",
       },
+      mode: "insert",
       paneId: "target_pane",
       placement: "after",
     } as const;
@@ -138,7 +189,7 @@ describe("pane drag drop intent hit-testing", () => {
     const harness = dragTestHarness();
     const session: PaneDragSession = {
       dragging: false,
-      handle: { hasPointerCapture: () => false } as HTMLElement,
+      handle: { hasPointerCapture: () => false } as unknown as HTMLElement,
       pendingDropFrame: null,
       pendingDropPointer: null,
       pointerId: 1,
@@ -183,7 +234,7 @@ describe("pane drag drop intent hit-testing", () => {
     const harness = dragTestHarness();
     const session: PaneDragSession = {
       dragging: true,
-      handle: { hasPointerCapture: () => false } as HTMLElement,
+      handle: { hasPointerCapture: () => false } as unknown as HTMLElement,
       // An empty snapshot means there is no pane to drop onto, so resolution
       // returns null and the active preview is cleared. (With panes present the
       // new model always resolves to a nearest insert/swap, never to nothing.)
@@ -226,7 +277,7 @@ describe("pane drag drop intent hit-testing", () => {
     const harness = dragTestHarness();
     const session: PaneDragSession = {
       dragging: true,
-      handle: { hasPointerCapture: () => false } as HTMLElement,
+      handle: { hasPointerCapture: () => false } as unknown as HTMLElement,
       pendingDropFrame: null,
       pendingDropPointer: null,
       pointerId: 1,
@@ -301,8 +352,8 @@ function dragTestHarness(): {
   clearPaneDropPreview: ReturnType<typeof vi.fn>;
   frameCallbacks: FrameRequestCallback[];
   metrics: {
-    recordPaneDragPreviewClear: ReturnType<typeof vi.fn>;
-    recordPaneDragPreviewUpdate: ReturnType<typeof vi.fn>;
+    recordPaneDragPreviewClear: () => void;
+    recordPaneDragPreviewUpdate: () => void;
   };
   previewPaneDropIntent: ReturnType<typeof vi.fn>;
   recordPaneDragPreviewClear: ReturnType<typeof vi.fn>;
@@ -342,8 +393,8 @@ function dragTestHarness(): {
   const recordPaneDragPreviewClear = vi.fn();
   const recordPaneDragPreviewUpdate = vi.fn();
   const metrics = {
-    recordPaneDragPreviewClear,
-    recordPaneDragPreviewUpdate,
+    recordPaneDragPreviewClear: () => recordPaneDragPreviewClear(),
+    recordPaneDragPreviewUpdate: () => recordPaneDragPreviewUpdate(),
   };
   vi.stubGlobal("document", {
     querySelectorAll: vi.fn(() => hosts),
@@ -451,7 +502,7 @@ function paneHost(
     },
     getBoundingClientRect: () => rect,
     style: {},
-  } as HTMLElement;
+  } as unknown as HTMLElement;
 }
 
 function pointerEvent({ clientX, clientY }: { clientX: number; clientY: number }): PointerEvent {

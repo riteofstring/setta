@@ -722,6 +722,55 @@ describe("real workspace layout column sizing", () => {
     expect(movedPane?.heightPx).toBeUndefined();
   });
 
+  test("drops a pane into an empty plane slot at the width of the pane below", () => {
+    const engine = new WorkspaceLikeLayoutEngine(createPlaneSlotDropScene());
+
+    expect(
+      engine.applyPaneDropIntent("source_pane", {
+        kind: "plane-slot",
+        planeIndex: 0,
+        referenceColumnId: "lower_column",
+        slotIndex: 0,
+      }),
+    ).toBe(true);
+
+    const scene = engine.toScene();
+    const movedColumn = requireColumnForPane(scene, "source_pane");
+    const lowerColumn = requireColumnForPane(scene, "lower_pane");
+    const movedPane = scene.paneById.get("source_pane");
+    const items = renderFrame(
+      engine,
+      { ...viewport, height: 1200, width: 1200 },
+      0,
+      "source_pane",
+      "normal",
+      0,
+      null,
+      true,
+    );
+    const movedItem = requireRenderItem(items, "source_pane");
+    const lowerItem = requireRenderItem(items, "lower_pane");
+
+    expect(movedColumn).toMatchObject({
+      planeIndex: 0,
+      slotIndex: 0,
+      widthSpec: { unit: "px", value: 430 },
+    });
+    expect(lowerColumn).toMatchObject({
+      columnId: "lower_column",
+      planeIndex: 1,
+      slotIndex: 0,
+      widthSpec: { unit: "px", value: 430 },
+    });
+    expect(movedPane).toMatchObject({
+      columnId: movedColumn.columnId,
+      weight: 1,
+    });
+    expect(movedItem.x).toBe(lowerItem.x);
+    expect(movedItem.width).toBe(430);
+    expect(lowerItem.width).toBe(430);
+  });
+
   test("drops columns at the first and last positions of target planes", () => {
     const beforeEngine = createRealEngine();
     const beforeTargetColumn = requireColumnForPane(beforeEngine.toScene(), "workspace_pane_0");
@@ -1366,7 +1415,11 @@ function paneOrderByX(items: readonly PaneRenderItem[]): string[] {
 function firstPaneIdsInPlane(scene: WorkspaceScene, planeIndex: number): string[] {
   return scene.columns
     .filter((column) => column.planeIndex === planeIndex)
-    .toSorted((left, right) => left.slotIndex - right.slotIndex || left.index - right.index)
+    .toSorted(
+      (left, right) =>
+        (left.slotIndex ?? left.index) - (right.slotIndex ?? right.index) ||
+        left.index - right.index,
+    )
     .map((column) => column.paneIds[0] ?? "");
 }
 
@@ -1420,6 +1473,70 @@ function createSparseGeneratedPaneScene(): WorkspaceScene {
     columns,
     defaultColumnWidthSpec: { unit: "px", value: 520 },
     id: "sparse-generated-pane-scene",
+    paneById: new Map(panes.map((pane) => [pane.paneId, pane])),
+    panes,
+    panesPerColumn: 1,
+    padding: 10,
+    renderOverscanColumns: 2,
+    rowGap: 8,
+    targetVisiblePanes: panes.length,
+    totalPanes: panes.length,
+    visibleColumnCount: 2,
+  };
+}
+
+function createPlaneSlotDropScene(): WorkspaceScene {
+  const panes = [
+    {
+      columnId: "source_column",
+      heat: 0,
+      paneId: "source_pane",
+      sequence: 0,
+      subtitle: "Upper",
+      surfaceId: "source_surface",
+      surfaceKind: "empty-frame",
+      title: "Upper",
+      tone: "slate",
+      weight: 2,
+    },
+    {
+      columnId: "lower_column",
+      heat: 0,
+      paneId: "lower_pane",
+      sequence: 1,
+      subtitle: "Lower",
+      surfaceId: "lower_surface",
+      surfaceKind: "empty-frame",
+      title: "Lower",
+      tone: "slate",
+      weight: 1,
+    },
+  ] satisfies WorkspaceScene["panes"];
+  const columns = [
+    {
+      columnId: "source_column",
+      idealWidthSpec: { unit: "px", value: 520 },
+      index: 0,
+      paneIds: ["source_pane"],
+      planeIndex: 0,
+      slotIndex: 1,
+      widthSpec: { unit: "px", value: 520 },
+    },
+    {
+      columnId: "lower_column",
+      idealWidthSpec: { unit: "px", value: 430 },
+      index: 1,
+      paneIds: ["lower_pane"],
+      planeIndex: 1,
+      slotIndex: 0,
+      widthSpec: { unit: "px", value: 430 },
+    },
+  ] satisfies WorkspaceScene["columns"];
+  return {
+    columnGap: 8,
+    columns,
+    defaultColumnWidthSpec: { unit: "px", value: 520 },
+    id: "plane-slot-drop-scene",
     paneById: new Map(panes.map((pane) => [pane.paneId, pane])),
     panes,
     panesPerColumn: 1,

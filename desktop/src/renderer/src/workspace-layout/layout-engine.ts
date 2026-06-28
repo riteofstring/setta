@@ -294,7 +294,7 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       return false;
     }
     this.columns = result.columns;
-    if (intent.kind === "column") {
+    if (paneDropIntentCreatesColumn(intent)) {
       this.nextColumnSequence += 1;
     }
     if (intent.kind === "swap") {
@@ -842,7 +842,7 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     intent: PaneDropIntent,
     mode: "commit" | "preview" = "commit",
   ) {
-    if (intent.kind !== "column") {
+    if (!paneDropIntentCreatesColumn(intent)) {
       return undefined;
     }
     return {
@@ -1129,8 +1129,19 @@ function samePaneDropIntent(left: PaneDropIntent, right: PaneDropIntent): boolea
       left.slotPlacement === right.slotPlacement
     );
   }
+  if (left.kind === "plane-slot" && right.kind === "plane-slot") {
+    return (
+      left.planeIndex === right.planeIndex &&
+      left.referenceColumnId === right.referenceColumnId &&
+      left.slotIndex === right.slotIndex
+    );
+  }
   if (left.kind === "swap" && right.kind === "swap") {
     return left.targetPaneId === right.targetPaneId;
   }
   return false;
+}
+
+function paneDropIntentCreatesColumn(intent: PaneDropIntent): boolean {
+  return intent.kind === "column" || intent.kind === "plane-slot";
 }

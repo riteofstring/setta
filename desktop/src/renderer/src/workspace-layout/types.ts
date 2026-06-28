@@ -129,6 +129,15 @@ export type PaneDropIntent =
       targetColumnId: ColumnId;
     }
   | {
+      // Move the source pane into an empty horizontal slot in a plane. The slot is
+      // anchored by a column from another plane, so the new column shares that
+      // slot's width instead of inventing an unrelated width.
+      kind: "plane-slot";
+      planeIndex: number;
+      referenceColumnId: ColumnId;
+      slotIndex: number;
+    }
+  | {
       // Exchange the source and target panes: each takes the other's grid slot
       // (and therefore that slot's column width). The rest of the layout is
       // untouched. Resolved when a drag is dropped onto a pane's center.
