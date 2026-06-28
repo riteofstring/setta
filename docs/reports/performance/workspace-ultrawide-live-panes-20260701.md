@@ -26,7 +26,7 @@ node desktop/tests/electron/run-workflows.mjs --skip-build --workflow workspace-
 Artifact:
 
 ```text
-.recordings/workspace-ultrawide-live-panes/20260701T194528782Z/summary.json
+.recordings/workspace-ultrawide-live-panes/20260701T194904592Z/summary.json
 ```
 
 Observed production Electron/main/preload/renderer path:
@@ -40,9 +40,11 @@ Observed production Electron/main/preload/renderer path:
 - Every viewport-intersecting pane had a non-empty `surfaceId` and `surfaceKind`.
 - Every viewport-intersecting terminal pane had a mounted terminal viewport, non-empty terminal status, and a `terminal_*` session id while unfocused.
 - Every viewport-intersecting workflow graph pane had mounted workflow graph surface and host DOM while unfocused.
-- Multi-row verification used a `3600x900` viewport with 12 panes across 6 stacked columns.
-- The multi-row pass had 12 viewport-intersecting panes with `{ "live": 12 }`; lower-row unfocused terminal panes had `terminal_*` session ids, and lower-row unfocused workflow graph panes had mounted graph DOM.
-- Clicking a visible unfocused terminal and a visible unfocused workflow graph preserved workspace focus on `multirow_pane_0`.
+- Multi-row verification first used a constrained `2200x520` viewport with 12 panes across 6 stacked columns.
+- The constrained multi-row pass had 8 viewport-intersecting panes with `{ "live": 12 }`; visible unfocused terminal panes had `terminal_*` session ids, and visible unfocused workflow graph panes had mounted graph DOM.
+- Dispatching the workspace `Alt+Meta+ArrowDown` shortcut moved focus from `multirow_pane_0` to lower-row terminal pane `multirow_pane_1`; the focused lower-row pane was viewport-intersecting and live.
+- Expanding the same multi-row layout to `3600x900` revealed all 12 panes as viewport-intersecting with `{ "live": 12 }`, including newly visible terminal and workflow graph panes.
+- Clicking a visible unfocused terminal and a visible unfocused workflow graph preserved workspace focus on `multirow_pane_1`.
 
 Result: pass.
 
@@ -69,6 +71,12 @@ After making visible panes activate without niri pane focus:
 ```sh
 pnpm --dir desktop exec vitest run src/renderer/src/workspace-layout/terminal-surface-adapter.test.ts src/renderer/src/workspace-layout/react-dom-surface-adapter.test.tsx src/renderer/src/workspace-layout/surface-adapters.test.ts
 pnpm --dir desktop exec electron-vite build
+node desktop/tests/electron/run-workflows.mjs --skip-build --workflow workspace-ultrawide-live-panes
+```
+
+After adding row-navigation and viewport-expansion coverage:
+
+```sh
 node desktop/tests/electron/run-workflows.mjs --skip-build --workflow workspace-ultrawide-live-panes
 ```
 

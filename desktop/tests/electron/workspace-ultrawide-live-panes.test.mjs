@@ -10,6 +10,7 @@ import {
   captureScreenshot,
   clickEnabledButtonByAria,
   createElectronFixture,
+  dispatchKeyEvent,
   dispatchMouseClick,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -25,6 +26,7 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "workspace-ultrawide-live-panes";
 const workflowTimeoutMs = 30_000;
+const cdpAltMetaModifier = 5;
 const paneCount = 24;
 const expectedIntersectingPaneCount = 23;
 const multiRowPaneCount = 12;
@@ -38,6 +40,11 @@ const viewport = {
 const multiRowViewport = {
   ...viewport,
   width: 3600,
+};
+const multiRowConstrainedViewport = {
+  ...viewport,
+  height: 520,
+  width: 2200,
 };
 
 if (options.help) {
@@ -77,13 +84,28 @@ try {
     paneCount,
   });
   await captureScreenshot(context.client, join(artifactDir, "ultrawide-live-panes.png"));
-  await context.client.call("Emulation.setDeviceMetricsOverride", multiRowViewport);
+  await context.client.call("Emulation.setDeviceMetricsOverride", multiRowConstrainedViewport);
   await persistMultiRowLayout(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
+  const constrainedMultiRowSnapshot = await waitForLivePaneSnapshot(context.client, {
+    maxIntersectingPaneCount: multiRowExpectedIntersectingPaneCount - 1,
+    minIntersectingPaneCount: 1,
+    paneCount: multiRowPaneCount,
+    requiredFocusedPaneId: "multirow_pane_0",
+  });
+  await dispatchWorkspaceNavigationShortcut(context.client, "ArrowDown");
+  const rowNavigationSnapshot = await waitForLivePaneSnapshot(context.client, {
+    minIntersectingPaneCount: 1,
+    paneCount: multiRowPaneCount,
+    requiredFocusedPaneId: "multirow_pane_1",
+    requiredIntersectingPaneId: "multirow_pane_1",
+  });
+  await context.client.call("Emulation.setDeviceMetricsOverride", multiRowViewport);
   const multiRowSnapshot = await waitForLivePaneSnapshot(context.client, {
     expectedIntersectingPaneCount: multiRowExpectedIntersectingPaneCount,
     paneCount: multiRowPaneCount,
+    requiredFocusedPaneId: "multirow_pane_1",
   });
   const clickPreservationChecks = [
     await assertVisiblePaneClickPreservesWorkspaceFocus(
@@ -101,8 +123,11 @@ try {
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     clickPreservationChecks,
+    constrainedMultiRowSnapshot,
+    multiRowConstrainedViewport,
     multiRowSnapshot,
     multiRowViewport,
+    rowNavigationSnapshot,
     snapshot,
     status: "passed",
     viewport,
@@ -165,7 +190,17 @@ async function persistLayout(client, layout) {
   }
 }
 
-async function waitForLivePaneSnapshot(client, { expectedIntersectingPaneCount, paneCount }) {
+async function waitForLivePaneSnapshot(
+  client,
+  {
+    expectedIntersectingPaneCount,
+    maxIntersectingPaneCount = Number.POSITIVE_INFINITY,
+    minIntersectingPaneCount = expectedIntersectingPaneCount,
+    paneCount,
+    requiredFocusedPaneId = "",
+    requiredIntersectingPaneId = "",
+  },
+) {
   return waitForState(
     client,
     paneSnapshotExpression(),
@@ -179,7 +214,13 @@ async function waitForLivePaneSnapshot(client, { expectedIntersectingPaneCount, 
       return (
         snapshot.workspaceMode === "workspace" &&
         snapshot.totalPanes === paneCount &&
-        snapshot.intersectingHosts.length === expectedIntersectingPaneCount &&
+        (expectedIntersectingPaneCount === undefined ||
+          snapshot.intersectingHosts.length === expectedIntersectingPaneCount) &&
+        snapshot.intersectingHosts.length >= minIntersectingPaneCount &&
+        snapshot.intersectingHosts.length <= maxIntersectingPaneCount &&
+        (requiredFocusedPaneId === "" || snapshot.focusedPaneId === requiredFocusedPaneId) &&
+        (requiredIntersectingPaneId === "" ||
+          snapshot.intersectingHosts.some((host) => host.paneId === requiredIntersectingPaneId)) &&
         snapshot.intersectingHosts.every((host) => host.runtimeState === "live") &&
         snapshot.intersectingHosts.every((host) => host.pointerEvents === "auto") &&
         snapshot.intersectingHosts.every((host) => host.surfaceId !== "") &&
@@ -193,6 +234,21 @@ async function waitForLivePaneSnapshot(client, { expectedIntersectingPaneCount, 
     },
     workflowTimeoutMs,
   );
+}
+
+async function dispatchWorkspaceNavigationShortcut(client, key) {
+  await dispatchKeyEvent(client, {
+    code: key,
+    key,
+    modifiers: cdpAltMetaModifier,
+    type: "rawKeyDown",
+  });
+  await dispatchKeyEvent(client, {
+    code: key,
+    key,
+    modifiers: cdpAltMetaModifier,
+    type: "keyUp",
+  });
 }
 
 async function safePaneSnapshot(client) {
@@ -262,6 +318,7 @@ function paneSnapshotExpression() {
           paneId: host.dataset.paneId ?? "",
           pointerEvents: style.pointerEvents,
           rect: {
+            bottom: rect.bottom,
             height: rect.height,
             left: rect.left,
             right: rect.right,
@@ -277,7 +334,11 @@ function paneSnapshotExpression() {
         };
       });
     const intersectingHosts = hosts.filter(
-      (host) => host.rect.left < stageRect.right && host.rect.right > stageRect.left,
+      (host) =>
+        host.rect.left < stageRect.right &&
+        host.rect.right > stageRect.left &&
+        host.rect.top < stageRect.bottom &&
+        host.rect.bottom > stageRect.top,
     );
     return {
       focusedPaneId: hosts.find((host) => host.focused)?.paneId ?? "",
@@ -289,6 +350,7 @@ function paneSnapshotExpression() {
       }, {}),
       stageRect: {
         height: stageRect.height,
+        bottom: stageRect.bottom,
         left: stageRect.left,
         right: stageRect.right,
         top: stageRect.top,
