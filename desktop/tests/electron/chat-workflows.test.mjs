@@ -72,6 +72,7 @@ import {
 import { runPermissionModeWorkflow } from "./chat-workflow-permission-cases.mjs";
 import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases.mjs";
 import { runRestartRecoveryWorkflow } from "./chat-workflow-restart-recovery-cases.mjs";
+import { runShutdownDrainWorkflow } from "./chat-workflow-shutdown-drain-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
 import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
@@ -202,6 +203,7 @@ async function main() {
     await runCodexProtocolWorkflow(results);
     await runRestartWorkflow(results);
     await runRestartRecoveryWorkflow(results, { recordingRoot, repoRoot });
+    await runShutdownDrainWorkflow(results, { recordingRoot });
     await runBackendOrchestratorWorkflowLaunch(results, recordingRoot);
   }
   if (options.live) {

@@ -1,9 +1,9 @@
 # Chat Run Liveness And Reconciliation Plan
 
 - **Date:** July 1, 2026
-- **Status:** Draft v7. Phases 0-5 completed; Phase 6 production E2E is
-  in progress. The deterministic stale-liveness and restart-recovery
-  production Electron slices are covered; remaining Phase 6 shutdown-drain and
+- **Status:** Draft v8. Phases 0-5 completed; Phase 6 production E2E is
+  in progress. The deterministic stale-liveness, restart-recovery, and
+  shutdown-drain production Electron slices are covered; remaining Phase 6
   live-provider coverage is still outstanding. The reconciliation decisions
   below are grounded in the trigger recording, current code paths, and the live
   app-server findings in Appendix A.
@@ -101,7 +101,7 @@ Two independent defects, plus one structural gap:
 2. **A hub-publish failure aborts the canonical terminal write.** `failTurn`
    (`internal/chat/service.go:703`) persists terminal transcript blocks, then
    publishes `transcript_blocks.replaced`; if the hub is closed the publish
-   error causes an early return *before* `store.FailTurn` runs
+   error causes an early return _before_ `store.FailTurn` runs
    (`service.go:731-734`). `completeTurn` and `cancelRunningTurnLocked` share
    the ordering. Shutdown makes this deterministic: `Server.Shutdown` closes
    the event hub before in-flight turn goroutines drain
@@ -515,9 +515,10 @@ Codex turn that emits a provider delta, then remains silent while
 `thread/read` reports the turn `inProgress`; the renderer reconciles through
 the preload/main/HTTP path and leaves normal Working for the reconciling state.
 Also added deterministic production Electron restart-recovery coverage for a
-persisted active run left by an ungraceful backend exit. Remaining Phase 6
-coverage: shutdown-drain persistence and live Codex provider regression checks
-when ChatGPT auth is available.
+persisted active run left by an ungraceful backend exit, plus shutdown-drain
+persistence coverage for a graceful Electron/backend shutdown during an active
+run. Remaining Phase 6 coverage: live Codex provider regression checks when
+ChatGPT auth is available.
 
 Audit note, July 2, 2026: ChatGPT auth was available. The existing
 `live-codex-electron` workflow was attempted after the deterministic Phase 6
@@ -536,7 +537,7 @@ store paths:
 - restart/reload with persisted active run state; verify recovery terminalizes
   and the UI converges;
 - shutdown during an active turn; verify no partial terminal persistence
-  survives to the next start;
+  survives to the next start; covered by `shutdown-drain`;
 - queue/steering behavior remains correct where touched.
 
 When local Codex CLI is signed in with ChatGPT auth, run live Codex E2E for
