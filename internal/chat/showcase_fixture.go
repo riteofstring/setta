@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -143,6 +144,12 @@ func uiShowcaseConversation(workspaceID string, seededAt time.Time) Conversation
 			Model:           "gpt-5-codex",
 			ReasoningEffort: &reasoning,
 		},
+		CodexEffectiveSettings: &ChatCodexEffectiveSettings{
+			Model:                      "gpt-5-codex",
+			ModelDisplayName:           "GPT-5 Codex",
+			ReasoningEffort:            &reasoning,
+			ReasoningEffortDisplayName: "Extra high",
+		},
 		HarnessRefs: []HarnessThreadRef{{
 			Harness:       HarnessCodex,
 			ThreadID:      "thread_ui_showcase",
@@ -176,7 +183,7 @@ func uiShowcaseMessages(seededAt time.Time) []ChatMessage {
 		uiShowcaseMessage("message_ui_showcase_user", uiShowcaseCompletedRunID, RoleUser, MessageDeliveryNormal, 3, MessageStatusComplete, "Create a durable UI showcase with reasoning, tool calls, outputs, approvals, notices, and diffs.", TextFormatPlain, seededAt.Add(-5*time.Minute)),
 		uiShowcaseMessage("message_ui_showcase_steering", uiShowcaseCompletedRunID, RoleUser, MessageDeliverySteering, 4, MessageStatusComplete, "Also include steering state and long output previews.", TextFormatPlain, seededAt.Add(-4*time.Minute-30*time.Second)),
 		uiShowcaseMessage("message_ui_showcase_assistant", uiShowcaseCompletedRunID, RoleAssistant, MessageDeliveryNormal, 5, MessageStatusComplete, "UI showcase started.\n\nThe activity stack below covers reasoning, plans, command execution, file changes, MCP tools, dynamic tools, web search, images, terminal sessions, diffs, notices, approval reviews, hooks, and structured input.\n\nUI showcase complete.", TextFormatMarkdown, seededAt.Add(-4*time.Minute)),
-		uiShowcaseMessage("message_ui_showcase_command", "", RoleCommand, MessageDeliveryNormal, 6, MessageStatusComplete, "Model set: gpt-5-codex\nReasoning set: Extra High", TextFormatPlain, seededAt.Add(-3*time.Minute-30*time.Second)),
+		uiShowcaseMessage("message_ui_showcase_command", "", RoleCommand, MessageDeliveryNormal, 6, MessageStatusComplete, uiShowcaseCommandMessageText(), TextFormatPlain, seededAt.Add(-3*time.Minute-30*time.Second)),
 		uiShowcaseMessage("message_ui_showcase_tool", "", RoleTool, MessageDeliveryNormal, 7, MessageStatusComplete, "{\"tool\":\"style_probe\",\"ok\":true,\"rows\":17}", TextFormatPlain, seededAt.Add(-3*time.Minute)),
 		uiShowcaseMessage("message_ui_showcase_waiting", "", RoleAssistant, MessageDeliveryNormal, 8, MessageStatusStreaming, "", TextFormatMarkdown, seededAt.Add(-2*time.Minute-45*time.Second)),
 		uiShowcaseMessage("message_ui_showcase_queued", "", RoleUser, MessageDeliveryQueued, 9, MessageStatusPending, "Queued follow-up preview that is not attached to a live queue.", TextFormatPlain, seededAt.Add(-2*time.Minute-30*time.Second)),
@@ -188,6 +195,35 @@ func uiShowcaseMessages(seededAt time.Time) []ChatMessage {
 		uiShowcaseMessage("message_ui_showcase_cancelled_user", uiShowcaseCancelledRunID, RoleUser, MessageDeliveryNormal, 15, MessageStatusComplete, "Show cancelled assistant state.", TextFormatPlain, seededAt.Add(-70*time.Second)),
 		uiShowcaseMessage("message_ui_showcase_cancelled_assistant", uiShowcaseCancelledRunID, RoleAssistant, MessageDeliveryNormal, 16, MessageStatusCancelled, "The scripted fixture cancelled this turn on purpose so cancelled styling is visible.", TextFormatMarkdown, seededAt.Add(-60*time.Second)),
 	}
+}
+
+func uiShowcaseCommandMessageText() string {
+	lines := []string{
+		"Model set: gpt-5-codex",
+		"Reasoning set: Extra high",
+		"Showcase output matrix:",
+	}
+	for _, label := range []string{
+		"system notice",
+		"developer instruction",
+		"command output",
+		"tool payload",
+		"streaming assistant",
+		"queued user turn",
+		"steering update",
+		"user-input approval",
+		"failed run copy",
+		"cancelled run copy",
+		"long monospace preview",
+		"wrapped plain text",
+		"status badge alignment",
+		"timestamp grouping",
+		"footer approval spacing",
+		"overview pane spacing",
+	} {
+		lines = append(lines, "- "+label)
+	}
+	return strings.Join(lines, "\n")
 }
 
 func uiShowcaseMessage(id string, runID string, role MessageRole, delivery MessageDelivery, ordinal int, status MessageStatus, text string, format TextFormat, createdAt time.Time) ChatMessage {

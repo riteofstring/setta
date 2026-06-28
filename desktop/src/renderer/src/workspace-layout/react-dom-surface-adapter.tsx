@@ -137,7 +137,6 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     this.focused = focused;
-    this.syncWorkflowGraphRuntimeState();
     this.renderCurrentSurface();
     this.syncHostState();
   }
@@ -156,7 +155,7 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     }
     this.frozen = true;
     this.frozenCanvasStats = null;
-    this.syncWorkflowGraphRuntimeState();
+    this.syncWorkflowGraphFrozenState();
     this.host?.setAttribute("data-freeze-reason", reason);
     this.syncHostState();
   }
@@ -166,7 +165,7 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     this.frozen = false;
     this.removeFrozenVisual();
     this.frozenCanvasStats = null;
-    this.syncWorkflowGraphRuntimeState();
+    this.syncWorkflowGraphFrozenState();
     this.host?.setAttribute("data-resume-reason", reason);
     if (wasFrozen) {
       this.suppressLiveScrollbars();
@@ -243,13 +242,11 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     }
   }
 
-  private syncWorkflowGraphRuntimeState(): void {
+  private syncWorkflowGraphFrozenState(): void {
     if (this.kind !== "workflow-graph") {
       return;
     }
-    const handle = workflowGraphRuntimeHandle(this.surfaceId);
-    handle?.setFocused(this.focused);
-    handle?.setFrozen(this.frozen);
+    workflowGraphRuntimeHandle(this.surfaceId)?.setFrozen(this.frozen);
   }
 
   private renderCurrentSurface(): void {
@@ -368,10 +365,9 @@ export function createReactDomSurfaceAdapter(
   if (pane.surfaceKind === "workflow-graph") {
     return new ReactDomSurfaceAdapter(
       pane,
-      ({ focused }) => (
+      () => (
         <WorkflowGraphSurface
           debugEnabled={workflowGraphDebugEnabled()}
-          focused={focused}
           syntheticGraphFallback={options.workflowGraphSyntheticGraphFallback}
           surfaceId={pane.surfaceId}
         />

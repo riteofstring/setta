@@ -11,8 +11,9 @@ import (
 const codexCommandExecutionOutputStream = "output"
 
 type codexNotificationResult struct {
-	Completion TurnCompletion
-	TurnID     string
+	CodexEffectiveSettings *codexCommandThreadSettings
+	Completion             TurnCompletion
+	TurnID                 string
 }
 
 type codexNotificationHandler func(jsonRPCMessage, string, string, TurnSink) (codexNotificationResult, error)
@@ -468,27 +469,39 @@ func handleCodexOutputDelta(message jsonRPCMessage, threadID string, turnID stri
 }
 
 func handleCodexTerminalInteraction(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex terminal interaction params")
+	params, err := codexapp.DecodeTerminalInteractionNotification(message.Params)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	itemID, err := requireString(params, "itemId", "codex terminal interaction")
-	if err != nil {
-		return codexNotificationResult{}, err
+	// itemId and processId are background terminal lifecycle identifiers. The
+	// generated decoder only checks presence/type, so guard against empty values
+	// loudly rather than projecting a "_terminal" item with no process handle.
+	if params.ItemId == "" {
+		return codexNotificationResult{}, fmt.Errorf("codex terminal interaction itemId is required")
 	}
-	text, err := requireString(params, "text", "codex terminal interaction")
-	if err != nil {
-		return codexNotificationResult{}, err
+	if params.ProcessId == "" {
+		return codexNotificationResult{}, fmt.Errorf("codex terminal interaction processId is required")
 	}
+	// An empty stdin interaction is a wait/poll against the background terminal; it
+	// must not create permanent transcript activity. Phase 2 routes these into a
+	// live "waiting for background terminal" status line; Phase 1 only decodes the
+	// notification with its real schema (itemId/processId/stdin) instead of the
+	// non-existent "text" field, and carries the unified exec discriminators.
+	if params.Stdin == "" {
+		return codexNotificationResult{}, nil
+	}
+	source := RunItemCommandSourceUnifiedExecInteraction
 	return codexNotificationResult{}, sink.RunItemUpsert(RunItem{
-		ProviderItemID: itemID + "_terminal",
+		ProviderItemID: params.ItemId + "_terminal",
 		Type:           RunItemTypeTerminalInteraction,
 		Status:         RunItemStatusCompleted,
 		Title:          "Terminal interaction",
-		Summary:        text,
+		Summary:        params.Stdin,
+		ProcessID:      params.ProcessId,
+		Source:         &source,
 	})
 }
 
@@ -600,16 +613,8 @@ func handleCodexNotice(message jsonRPCMessage, threadID string, turnID string, s
 	if err != nil && len(message.Params) > 0 {
 		return codexNotificationResult{}, err
 	}
-	switch policy := codexNotificationScopePolicies[message.Method]; {
-	case len(params) == 0:
-	case policy == codexNotificationScopeTurnState:
-		if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
-			return codexNotificationResult{}, err
-		}
-	case policy == codexNotificationScopeThread:
-		if err := requireCodexThreadMatch(message, params, threadID, sink); err != nil {
-			return codexNotificationResult{}, err
-		}
+	if err := validateCodexNoticeScope(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	text, err := optionalString(params, "message", "codex notice")
 	if err != nil {
@@ -625,6 +630,22 @@ func handleCodexNotice(message jsonRPCMessage, threadID string, turnID string, s
 		NoticeKind:     message.Method,
 		NoticeMessage:  text,
 	})
+}
+
+func validateCodexNoticeScope(message jsonRPCMessage, params map[string]any, threadID string, turnID string, sink TurnSink) error {
+	if len(params) == 0 {
+		return nil
+	}
+	switch codexNotificationScopePolicies[message.Method] {
+	case codexNotificationScopeMaybeThread:
+		return requireCodexOptionalThreadMatch(message, params, threadID, sink)
+	case codexNotificationScopeTurnState:
+		return requireCodexTurnMatch(message, params, threadID, turnID, sink)
+	case codexNotificationScopeThread:
+		return requireCodexThreadMatch(message, params, threadID, sink)
+	default:
+		return nil
+	}
 }
 
 // Codex app-server 0.135.0 turn status values from the app-server protocol

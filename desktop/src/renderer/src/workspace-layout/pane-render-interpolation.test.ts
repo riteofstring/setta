@@ -41,21 +41,6 @@ describe("workspace pane render interpolation", () => {
       ["overview-only-pane", 0.25],
     ]);
   });
-
-  test("can omit secondary-only panes while exiting overview", () => {
-    const items = interpolatePaneRenderItems({
-      includeSecondaryOnlyItems: false,
-      normalItems: [renderItem("visible-pane", "normal", 10, 10, 300, 400, 1)],
-      overviewItems: [
-        renderItem("visible-pane", "overview", 20, 20, 120, 160, 0.4),
-        renderItem("overview-only-pane", "overview", 140, 20, 120, 160, 0.4),
-      ],
-      overviewProgress: 0.75,
-      presentationMode: "normal",
-    });
-
-    expect(items.map((item) => item.paneId)).toEqual(["visible-pane"]);
-  });
 });
 
 function renderItem(

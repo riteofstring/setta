@@ -126,6 +126,7 @@ async function main() {
   try {
     context = await launchCorruptContext(fixture.appDataDir);
     await waitForPartialCorruptChatState(context.client);
+    await openValidConversation(context.client);
     await assertWarningTooltips(context.client);
     await openCorruptConversation(context.client);
     await submitComposer(context.client, "resilient prompt", "Send message");
@@ -192,6 +193,9 @@ async function createCorruptChatFixture(tempRoot) {
     activeWorkspaceIds: [workspaceId],
     recentWorkspaces: [workspaceSummary],
     schemaVersion: 1,
+    selectedConversationIdsByWorkspaceId: {
+      [workspaceId]: validConversationId,
+    },
     selectedWorkspaceId: workspaceId,
   });
   await writeJson(join(workspaceDir, "workspace.json"), {
@@ -204,6 +208,7 @@ async function createCorruptChatFixture(tempRoot) {
   });
   await writeJson(join(workspaceDir, "conversations", validConversationId, "conversation.json"), {
     archivedAt: "",
+    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: now,
     harnessRefs: [],
@@ -282,9 +287,80 @@ async function createCorruptChatFixture(tempRoot) {
     workspaceId,
   });
   await writeJson(
+    join(
+      workspaceDir,
+      "runs",
+      validRunId,
+      "transcript_blocks",
+      "000000000001_transcript_block_valid_user.json",
+    ),
+    {
+      schemaVersion: 1,
+      id: "transcript_block_valid_user",
+      conversationId: validConversationId,
+      runId: validRunId,
+      kind: "user_message",
+      ordinal: 1,
+      runAnchorOrdinal: 1,
+      status: "complete",
+      createdAt: validUpdatedAt,
+      updatedAt: validUpdatedAt,
+      userMessage: {
+        messageId: "message_valid_user",
+        role: "user",
+        delivery: "normal",
+        status: "complete",
+        parts: [
+          {
+            format: "plain",
+            id: "part_valid_user",
+            text: "persisted valid message",
+            type: "text",
+          },
+        ],
+      },
+      assistantText: null,
+      reasoning: null,
+      activity: null,
+      runStatus: null,
+      backgroundTerminal: null,
+    },
+  );
+  await writeJson(
+    join(
+      workspaceDir,
+      "runs",
+      validRunId,
+      "transcript_blocks",
+      "000000000002_transcript_block_valid_assistant.json",
+    ),
+    {
+      schemaVersion: 1,
+      id: "transcript_block_valid_assistant",
+      conversationId: validConversationId,
+      runId: validRunId,
+      kind: "assistant_text",
+      ordinal: 2,
+      runAnchorOrdinal: 1,
+      status: "complete",
+      createdAt: validUpdatedAt,
+      updatedAt: validUpdatedAt,
+      userMessage: null,
+      assistantText: {
+        text: "persisted valid response",
+        format: "markdown",
+      },
+      reasoning: null,
+      activity: null,
+      runStatus: null,
+      backgroundTerminal: null,
+    },
+  );
+  await writeJson(
     join(workspaceDir, "conversations", secondValidConversationId, "conversation.json"),
     {
       archivedAt: "",
+      codexEffectiveSettings: null,
       codexSettings: null,
       createdAt: now,
       harnessRefs: [],
@@ -297,6 +373,7 @@ async function createCorruptChatFixture(tempRoot) {
   );
   await writeJson(join(workspaceDir, "conversations", conversationId, "conversation.json"), {
     archivedAt: "",
+    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: now,
     harnessRefs: [],
@@ -561,12 +638,16 @@ function partialCorruptChatStateExpression() {
         body.includes("Valid historical chat") &&
         body.includes("Second valid chat") &&
         body.includes("Corrupt historical chat") &&
-        body.includes("persisted valid message") &&
         !body.includes("Chat state needs attention") &&
         !body.includes("Chat state is corrupt")
       ),
     };
   })()`;
+}
+
+async function openValidConversation(client) {
+  await clickButtonByText(client, "Valid historical chat");
+  await waitForTexts(client, ["persisted valid message"]);
 }
 
 async function openCorruptConversation(client) {

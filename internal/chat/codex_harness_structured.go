@@ -386,6 +386,10 @@ func (sink *codexStructuredTaskSink) GoalUpdated(*ChatGoalState) error {
 	return errors.New("codex structured cartographer task attempted goal update")
 }
 
+func (sink *codexStructuredTaskSink) CodexEffectiveSettingsUpdated(ChatCodexEffectiveSettings) error {
+	return nil
+}
+
 func (sink *codexStructuredTaskSink) RunItemOutputDelta(string, string, string) error {
 	return errors.New("codex structured cartographer task attempted run item output stream")
 }
@@ -399,7 +403,7 @@ func (sink *codexStructuredTaskSink) RunItemUpsert(item RunItem) error {
 	}
 }
 
-func (sink *codexStructuredTaskSink) ThreadLinked(string, string, string) error {
+func (sink *codexStructuredTaskSink) ThreadLinked(string, string, string, *ChatCodexEffectiveSettings) error {
 	return nil
 }
 

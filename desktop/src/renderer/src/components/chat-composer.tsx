@@ -1,22 +1,29 @@
 import type {
-  ChatCommandCapability,
+  ChatCommandDescriptor,
   ChatCommandExecuteResult,
-  ChatGoalState,
   ChatModelOption,
   ChatReasoningEffortOption,
 } from "@generated/backend";
-import type { ChatCommandExecutionOptions } from "@shared/types";
-import { Check, X } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { cn } from "../lib/utils";
+import { commandDescriptorContextKey } from "../stores/chat-store-command-cache";
+import { CommandPalette } from "./chat-command-palette";
+import { commandDescriptorsNeedLoad, slashCommandExecutionPlan } from "./chat-command-execution";
+import {
+  commandComposerState,
+  commandListErrorForDraft,
+  commandListPendingForDraft,
+  completionForCommandState,
+  firstAvailableSuggestionIndex,
+  type CommandCompletionEdit,
+  type CommandSuggestionRow,
+} from "./chat-command-composer-controller";
 import {
   ComposerButton,
   handleComposerKeyDown,
   ModelPickerButton,
-  modelPickerOptionSelected,
   PermissionModeUnavailableButton,
-  reasoningEffortOptionSelected,
   VoiceInputUnavailableButton,
 } from "./chat-composer-controls";
 import type { ChatView } from "./chat-panel";
@@ -25,8 +32,9 @@ import { SettaLogoMark } from "./setta-logo-mark";
 import { Textarea } from "./ui/textarea";
 
 export { modelPickerOptionSelected, reasoningEffortOptionSelected } from "./chat-composer-controls";
+export { CommandPalette } from "./chat-command-palette";
 
-const emptyCommandCapabilities: ChatCommandCapability[] = [];
+const emptyCommandDescriptors: ChatCommandDescriptor[] = [];
 
 function composerDisabled(disabledOverride: boolean | undefined, selected: boolean, busy: boolean) {
   if (disabledOverride !== undefined) {
@@ -59,16 +67,6 @@ function canSendImmediateSteeringDraft({
   return running && !disabled && !slashDraft && (draftText !== "" || hasPendingSteering);
 }
 
-function completedCommandDraft(
-  selectedSuggestion: ChatCommandCapability | null,
-  draftText: string,
-) {
-  if (!selectedSuggestion || draftText === selectedSuggestion.name) {
-    return "";
-  }
-  return selectedSuggestion.name + " ";
-}
-
 function modelPickerControlDisabled(
   selectedConversation: ChatView["selectedConversation"],
   disabled: boolean,
@@ -95,6 +93,7 @@ const composerChatPropSelectors = [
   (chat: ChatView) => chat.executeCommand,
   (chat: ChatView) => chat.goal,
   (chat: ChatView) => chat.listCommands,
+  (chat: ChatView) => chat.openCodexModelPicker,
   (chat: ChatView) => chat.operation,
   (chat: ChatView) => chat.pendingSteeringMessageIds,
   (chat: ChatView) => chat.queueMessage,
@@ -119,22 +118,36 @@ function ComposerComponent({
   running,
 }: ComposerProps) {
   const [draft, setDraft] = useState("");
-  const [commands, setCommands] = useState<ChatCommandCapability[]>(emptyCommandCapabilities);
+  const [commands, setCommands] = useState<ChatCommandDescriptor[]>(emptyCommandDescriptors);
   const [commandListKey, setCommandListKey] = useState("");
+  const [commandListRequestKey, setCommandListRequestKey] = useState("");
   const [focusRequest, setFocusRequest] = useState(0);
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
+  const [paletteDismissed, setPaletteDismissed] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
   const restoreComposerFocusRef = useRef(false);
   const submittingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selected = chat.selectedConversation !== null;
-  const selectedConversationId = chat.selectedConversation?.id ?? "";
+  const commandListContextKey = commandDescriptorContextKey({
+    active: running,
+    selectedConversation: chat.selectedConversation,
+    workspaceId: chat.selectedConversation?.workspaceId ?? null,
+  });
   const listCommands = chat.listCommands;
-  const acceptsPrompt = selected || onSendPrompt !== undefined;
+  const acceptsPrompt = composerAcceptsPrompt(selected, onSendPrompt);
   const disabled = composerDisabled(disabledOverride, acceptsPrompt, busy);
   const slashDraft = isSlashDraft(draft);
   const draftText = draft.trim();
-  const suggestions = commandSuggestions(commands, draft);
-  const selectedSuggestion = suggestions[0] ?? null;
+  const commandState = useMemo(() => commandComposerState(draft, commands), [commands, draft]);
+  const commandListPending = commandListPendingForDraft({
+    commandListContextKey,
+    commandListKey,
+    commandListRequestKey,
+    commandListStatus: chat.commandListStatus,
+    slashDraft,
+  });
+  const commandPaletteVisible = commandPaletteShouldOpen(slashDraft, paletteDismissed, modelPicker);
   const commandListError = commandListErrorForDraft(
     slashDraft,
     chat.commandListStatus,
@@ -157,38 +170,58 @@ function ComposerComponent({
   );
 
   useEffect(() => {
-    if (selectedConversationId === "") {
-      setCommands(emptyCommandCapabilities);
+    setSelectedSuggestionIndex((current) => {
+      if (commandState.suggestions.length === 0) {
+        return 0;
+      }
+      if (current < commandState.suggestions.length) {
+        return current;
+      }
+      return firstAvailableSuggestionIndex(commandState.suggestions);
+    });
+  }, [commandState.suggestions]);
+
+  useEffect(() => {
+    if (commandListContextKey === "") {
+      setCommands(emptyCommandDescriptors);
       setCommandListKey("");
+      setCommandListRequestKey("");
       setModelPicker(null);
       return;
     }
     if (!slashDraft) {
-      setCommands(emptyCommandCapabilities);
+      setCommands(emptyCommandDescriptors);
       setCommandListKey("");
+      setCommandListRequestKey("");
       return;
     }
-    const key = selectedConversationId + ":" + (running ? "running" : "idle");
-    if (commandListKey === key) {
+    if (
+      commandListKey === commandListContextKey ||
+      commandListRequestKey === commandListContextKey
+    ) {
       return;
     }
     let cancelled = false;
-    setCommandListKey(key);
+    setCommandListRequestKey(commandListContextKey);
     void listCommands()
       .then((result) => {
         if (!cancelled) {
-          setCommands(result?.commands ?? emptyCommandCapabilities);
+          setCommands(result?.commands ?? emptyCommandDescriptors);
+          setCommandListKey(commandListContextKey);
+          setCommandListRequestKey("");
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setCommands(emptyCommandCapabilities);
+          setCommands(emptyCommandDescriptors);
+          setCommandListKey(commandListContextKey);
+          setCommandListRequestKey("");
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [commandListKey, listCommands, running, selectedConversationId, slashDraft]);
+  }, [commandListContextKey, commandListKey, listCommands, slashDraft]);
 
   useEffect(() => {
     if (focusRequest === 0) {
@@ -259,7 +292,7 @@ function ComposerComponent({
       return;
     }
     if (slashDraft) {
-      await executeSlashDraft(prompt, submittedDraft);
+      await executeSlashDraft(submittedDraft);
       return;
     }
     if (running) {
@@ -271,33 +304,134 @@ function ComposerComponent({
     clearDraftIfUnchanged(submittedDraft);
   }
 
-  async function executeSlashDraft(prompt: string, submittedDraft: string) {
-    const commandText = commandTextToExecute(prompt, selectedSuggestion);
-    const options = goalReplacementExecutionOptions(commandText, chat.goal, (message) =>
-      window.confirm(message),
-    );
-    if (options === null) {
+  async function executeSlashDraft(submittedDraft: string) {
+    const execution = await slashCommandExecutionPlan({
+      commands,
+      confirmReplacement: (message) => window.confirm(message),
+      currentGoal: chat.goal,
+      draft: submittedDraft,
+      loadCommands: loadCommandDescriptorsForExecution,
+      selectedIndex: selectedSuggestionIndex,
+      shouldReloadCommands: commandDescriptorsNeedLoad({
+        commandListContextKey,
+        commandListKey,
+        commands,
+      }),
+    });
+    if (!execution) {
       return;
     }
-    const result = await chat.executeCommand(commandText, options);
+    setCommands(execution.commands);
+    const pendingGoalObjective = execution.pendingGoalObjective;
+    if (pendingGoalObjective) {
+      setModelPicker(null);
+      clearDraftIfUnchanged(submittedDraft);
+    }
+    const result = await executeCommandWithDraftRecovery(
+      execution.commandText,
+      execution.options,
+      pendingGoalObjective,
+      submittedDraft,
+    );
     if (result.result.action === "model_picker") {
       setModelPicker(result);
-      clearDraftIfUnchanged(submittedDraft);
+      if (!pendingGoalObjective) {
+        clearDraftIfUnchanged(submittedDraft);
+      }
     } else if (result.result.action === "goal_editor") {
       setModelPicker(null);
-      replaceDraftIfUnchanged(submittedDraft, goalEditorDraft(result.result.goal));
+      replaceDraftIfUnchanged(submittedDraft, result.result.composerDraft);
       requestAnimationFrame(() => textareaRef.current?.focus());
     } else {
       setModelPicker(null);
-      clearDraftIfUnchanged(submittedDraft);
+      if (!pendingGoalObjective) {
+        clearDraftIfUnchanged(submittedDraft);
+      }
     }
   }
 
-  function completeCommand() {
-    const completed = completedCommandDraft(selectedSuggestion, draftText);
-    if (completed) {
-      updateDraft(completed);
+  async function executeCommandWithDraftRecovery(
+    commandText: string,
+    options: Parameters<ChatView["executeCommand"]>[1],
+    pendingGoalObjective: string | null,
+    submittedDraft: string,
+  ) {
+    try {
+      return await chat.executeCommand(
+        commandText,
+        options,
+        pendingGoalObjective ? { pendingGoalObjective } : undefined,
+      );
+    } catch (error) {
+      if (pendingGoalObjective) {
+        replaceDraftIfUnchanged("", submittedDraft);
+      }
+      throw error;
     }
+  }
+
+  async function loadCommandDescriptorsForExecution() {
+    if (commandListContextKey === "") {
+      return emptyCommandDescriptors;
+    }
+    const result = await listCommands();
+    const loadedCommands = result?.commands ?? emptyCommandDescriptors;
+    setCommands(loadedCommands);
+    setCommandListKey(commandListContextKey);
+    return loadedCommands;
+  }
+
+  function completeCommand() {
+    const completion = completionForCommandState(commandState, selectedSuggestionIndex);
+    applyCommandCompletion(completion);
+  }
+
+  function handleCommandPaletteKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    const action = commandPaletteKeyAction(event, {
+      paletteVisible: commandPaletteVisible,
+      slashDraft,
+      suggestionCount: commandState.suggestions.length,
+    });
+    switch (action) {
+      case "dismiss":
+        event.preventDefault();
+        setPaletteDismissed(true);
+        return true;
+      case "next":
+        event.preventDefault();
+        setSelectedSuggestionIndex((index) => (index + 1) % commandState.suggestions.length);
+        return true;
+      case "previous":
+        event.preventDefault();
+        setSelectedSuggestionIndex(
+          (index) =>
+            (index + commandState.suggestions.length - 1) % commandState.suggestions.length,
+        );
+        return true;
+      case "complete":
+        event.preventDefault();
+        completeCommand();
+        return true;
+      case "none":
+        return false;
+    }
+  }
+
+  function applyCommandCompletion(completion: CommandCompletionEdit | null) {
+    if (!completion) {
+      return;
+    }
+    updateDraft(completion.value);
+    requestAnimationFrame(() => {
+      textareaRef.current?.setSelectionRange(completion.selectionStart, completion.selectionEnd);
+    });
+  }
+
+  async function pickCommandSuggestion(suggestion: CommandSuggestionRow) {
+    if (!suggestion.available || !suggestion.completion) {
+      return;
+    }
+    applyCommandCompletion(suggestion.completion);
   }
 
   async function queueDraft() {
@@ -359,7 +493,7 @@ function ComposerComponent({
     }
     submittingRef.current = true;
     try {
-      const result = await chat.executeCommand("/model");
+      const result = await chat.openCodexModelPicker();
       if (result.result.action === "model_picker") {
         setModelPicker(result);
         setDraft("");
@@ -388,11 +522,16 @@ function ComposerComponent({
         >
           <div className="relative min-w-0">
             <ComposerPlaceholder selected={selected} visible={draft === "" && placeholder === ""} />
-            <CommandSuggestions
+            <CommandPalette
+              commandListStatus={chat.commandListStatus}
               commandListError={commandListError}
+              commandListPending={commandListPending}
+              commandState={commandState}
               draft={draft}
               modelPicker={modelPicker}
-              onPickCommand={(command) => updateDraft(command.name + " ")}
+              onPickSuggestion={(suggestion) => {
+                void pickCommandSuggestion(suggestion);
+              }}
               onDismissModelPicker={dismissModelPicker}
               onPickModel={(model) => {
                 void executeModelSelection(model);
@@ -400,15 +539,18 @@ function ComposerComponent({
               onPickReasoningEffort={(effort) => {
                 void executeReasoningEffortSelection(effort);
               }}
-              selectedSuggestion={selectedSuggestion}
-              suggestions={suggestions}
+              paletteVisible={commandPaletteVisible}
+              selectedSuggestionIndex={selectedSuggestionIndex}
             />
             <Textarea
               aria-label={composerTextareaLabel(acceptsPrompt)}
-              className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
+              className="relative z-10 max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={disabled}
               onChange={(event) => updateDraft(event.target.value)}
               onKeyDown={(event) => {
+                if (handleCommandPaletteKeyDown(event)) {
+                  return;
+                }
                 handleComposerKeyDown(event, {
                   completeCommand,
                   draftEmpty: draftText === "",
@@ -462,6 +604,11 @@ function ComposerComponent({
       restoreComposerFocusRef.current = false;
     }
     setDraft(nextDraft);
+    setPaletteDismissed(false);
+    if (isSlashDraft(nextDraft) && chat.commandListStatus === "failed") {
+      setCommandListKey("");
+      setCommandListRequestKey("");
+    }
     if (!isSlashDraft(nextDraft)) {
       setModelPicker(null);
     }
@@ -554,242 +701,62 @@ function composerChatPropsEqual(previous: ChatView, next: ChatView) {
   return composerChatPropSelectors.every((selector) => selector(previous) === selector(next));
 }
 
-function commandListErrorForDraft(
-  slashDraft: boolean,
-  commandListStatus: ChatView["commandListStatus"],
-  commandListError: ChatView["commandListError"],
-) {
-  return slashDraft && commandListStatus === "failed" ? commandListError : null;
+function composerAcceptsPrompt(selected: boolean, onSendPrompt: ComposerProps["onSendPrompt"]) {
+  return selected || onSendPrompt !== undefined;
 }
 
-export function CommandSuggestions({
-  commandListError,
-  draft,
-  modelPicker,
-  onDismissModelPicker,
-  onPickCommand,
-  onPickModel,
-  onPickReasoningEffort,
-  selectedSuggestion,
-  suggestions,
-}: {
-  commandListError?: string | null;
-  draft: string;
-  modelPicker: ChatCommandExecuteResult | null;
-  onDismissModelPicker: () => void;
-  onPickCommand: (command: ChatCommandCapability) => void;
-  onPickModel: (model: ChatModelOption) => void;
-  onPickReasoningEffort: (effort: ChatReasoningEffortOption) => void;
-  selectedSuggestion: ChatCommandCapability | null;
-  suggestions: ChatCommandCapability[];
-}) {
-  if (modelPicker?.result.action === "model_picker") {
-    const selectedModel = modelPicker.result.selectedModel;
-    const selectedReasoningEffort = modelPicker.result.selectedReasoningEffort;
-    return (
-      <div
-        className="absolute bottom-full left-0 z-20 mb-2 max-h-80 w-full overflow-y-auto rounded-sm border border-border bg-popover/95 p-1 text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
-        data-testid="model-picker"
-      >
-        <div className="mb-1 flex justify-end border-b border-border pb-1">
-          <button
-            aria-label="Close model picker"
-            className="grid h-6 w-6 place-items-center rounded-sm text-muted-foreground hover:bg-accent/75 hover:text-foreground"
-            onClick={onDismissModelPicker}
-            title="Close model picker"
-            type="button"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="px-2 pt-1 pb-1 text-[11px] font-medium text-muted-foreground">Model</div>
-        {modelPicker.result.models.map((model) => {
-          const selected = modelPickerOptionSelected(model, selectedModel);
-          return (
-            <button
-              aria-current={selected ? "true" : undefined}
-              className={cn(
-                "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75",
-                selected && "bg-accent/70",
-              )}
-              data-selected={selected ? "true" : undefined}
-              key={model.id}
-              onClick={() => onPickModel(model)}
-              type="button"
-            >
-              <span className="grid h-4 w-4 shrink-0 place-items-center">
-                {selected ? <Check className="h-4 w-4 text-status-success" /> : null}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-foreground">
-                  {model.displayName}
-                </span>
-                <span className="block truncate text-[11px] text-muted-foreground">
-                  {model.model}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-        {modelPicker.result.reasoningEfforts.length > 0 ? (
-          <>
-            <div className="mt-1 border-t border-border px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
-              Reasoning
-            </div>
-            {modelPicker.result.reasoningEfforts.map((effort) => {
-              const selected = reasoningEffortOptionSelected(effort, selectedReasoningEffort);
-              return (
-                <button
-                  aria-current={selected ? "true" : undefined}
-                  className={cn(
-                    "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75",
-                    selected && "bg-accent/70",
-                  )}
-                  data-reasoning-effort={effort.effort}
-                  data-reasoning-selected={selected ? "true" : undefined}
-                  key={effort.effort}
-                  onClick={() => onPickReasoningEffort(effort)}
-                  type="button"
-                >
-                  <span className="grid h-4 w-4 shrink-0 place-items-center">
-                    {selected ? <Check className="h-4 w-4 text-status-success" /> : null}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-foreground">
-                      {effort.displayName}
-                    </span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
-                      {effort.description}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </>
-        ) : null}
-      </div>
-    );
+function commandPaletteShouldOpen(
+  slashDraft: boolean,
+  paletteDismissed: boolean,
+  modelPicker: ChatCommandExecuteResult | null,
+) {
+  return slashDraft && !paletteDismissed && modelPicker?.result.action !== "model_picker";
+}
+
+type CommandPaletteKeyAction = "complete" | "dismiss" | "next" | "none" | "previous";
+
+function commandPaletteKeyAction(
+  event: KeyboardEvent<HTMLTextAreaElement>,
+  context: {
+    paletteVisible: boolean;
+    slashDraft: boolean;
+    suggestionCount: number;
+  },
+): CommandPaletteKeyAction {
+  if (!context.slashDraft) {
+    return "none";
   }
-  if (!isSlashDraft(draft)) {
-    return null;
+  if (event.key === "Tab" && !event.nativeEvent.isComposing) {
+    return "complete";
   }
-  if (commandListError) {
-    return (
-      <div
-        className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-status-critical/80 bg-popover/95 p-2 text-xs text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
-        data-testid="command-suggestions"
-        role="alert"
-      >
-        <div className="font-medium text-status-critical">Slash commands unavailable</div>
-        <div className="mt-1 break-words text-muted-foreground">{commandListError}</div>
-      </div>
-    );
+  if (!context.paletteVisible) {
+    return "none";
   }
-  if (suggestions.length === 0) {
-    return null;
+  if (event.key === "Escape") {
+    return "dismiss";
   }
-  return (
-    <div
-      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-border bg-popover/95 p-1 text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
-      data-testid="command-suggestions"
-    >
-      {suggestions.map((command) => (
-        <button
-          className={cn(
-            "flex w-full min-w-0 items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75 disabled:opacity-50",
-            command === selectedSuggestion && "bg-accent/80",
-          )}
-          disabled={!command.available}
-          key={command.name}
-          onClick={() => onPickCommand(command)}
-          type="button"
-        >
-          <span className="min-w-0">
-            <span className="block font-medium text-foreground">{command.name}</span>
-            <span className="block truncate text-[11px] text-muted-foreground">
-              {command.available ? command.usage : command.unavailableReason}
-            </span>
-          </span>
-        </button>
-      ))}
-    </div>
-  );
+  if (context.suggestionCount === 0) {
+    return "none";
+  }
+  return commandPaletteNavigationKeyAction(event.key);
+}
+
+function commandPaletteNavigationKeyAction(key: string): CommandPaletteKeyAction {
+  if (key === "ArrowDown") {
+    return "next";
+  }
+  if (key === "ArrowUp") {
+    return "previous";
+  }
+  return "none";
 }
 
 function isSlashDraft(draft: string) {
   return draft.startsWith("/");
 }
 
-export function commandSuggestions(commands: ChatCommandCapability[], draft: string) {
-  if (!isSlashDraft(draft)) {
-    return [];
-  }
-  const token = draft.slice(1).split(/\s+/, 1)[0] ?? "";
-  const prefix = "/" + token;
-  return commands.filter((command) => command.name.startsWith(prefix));
-}
-
-export function commandTextToExecute(
-  prompt: string,
-  selectedSuggestion: ChatCommandCapability | null,
-) {
-  if (!selectedSuggestion) {
-    return prompt;
-  }
-  const match = /^\/([^\s]*)(\s.*)?$/.exec(prompt);
-  if (!match) {
-    return prompt;
-  }
-  const token = "/" + match[1];
-  const rest = match[2] ?? "";
-  if (selectedSuggestion.name === token) {
-    return prompt;
-  }
-  if (selectedSuggestion.name.startsWith(token)) {
-    return selectedSuggestion.name + rest;
-  }
-  return prompt;
-}
-
-export function goalReplacementExecutionOptions(
-  raw: string,
-  currentGoal: ChatGoalState | null,
-  confirmReplacement: (message: string) => boolean,
-): ChatCommandExecutionOptions | null {
-  const nextObjective = goalSetObjective(raw);
-  if (!nextObjective || !currentGoal || currentGoal.status === "complete") {
-    return {};
-  }
-  if (currentGoal.objective.trim() === nextObjective.trim()) {
-    return {};
-  }
-  if (!confirmReplacement("Replace the current goal?")) {
-    return null;
-  }
-  return { confirmGoalReplacement: true };
-}
-
-export function goalEditorDraft(goal: ChatGoalState | null) {
-  const objective = goal?.objective.trim() ?? "";
-  return objective === "" ? "/goal " : `/goal ${objective}`;
-}
-
-function goalSetObjective(raw: string) {
-  const match = /^\/goal(?:\s+(.+))?$/.exec(raw.trim());
-  if (!match) {
-    return null;
-  }
-  const args = match[1]?.trim() ?? "";
-  switch (args) {
-    case "":
-    case "edit":
-    case "clear":
-    case "pause":
-    case "resume":
-      return null;
-    default:
-      return args;
-  }
+export function commandSuggestions(commands: ChatCommandDescriptor[], draft: string) {
+  return commandComposerState(draft, commands).suggestions;
 }
 
 function composerTextareaLabel(selected: boolean) {

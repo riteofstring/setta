@@ -108,7 +108,7 @@ func (handler handler) getMessagePage(response http.ResponseWriter, request *htt
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	page, err := service.LoadMessagePage(payload.WorkspaceID, payload.ConversationID, payload.BeforeOrdinal, payload.Limit)
+	page, err := service.LoadMessagePage(payload.WorkspaceID, payload.ConversationID, payload.BeforeBlockOrdinal, payload.Limit)
 	if err != nil {
 		writeChatError(response, "get_message_page_failed", err)
 		return
@@ -254,6 +254,23 @@ func (handler handler) executeChatCommand(response http.ResponseWriter, request 
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) openChatCodexModelPicker(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload OpenChatCodexModelPickerRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.OpenChatCodexModelPicker(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "open_chat_codex_model_picker_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) setChatCodexModel(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
@@ -375,6 +392,74 @@ func (handler handler) getRunItemOutput(response http.ResponseWriter, request *h
 		return
 	}
 	writeJSON(response, http.StatusOK, page)
+}
+
+func (handler handler) listBackgroundTerminals(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ListBackgroundTerminalsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, err := service.ListBackgroundTerminals(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "list_background_terminals_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, projection)
+}
+
+func (handler handler) getBackgroundTerminalOutput(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload GetBackgroundTerminalOutputRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	page, err := service.LoadBackgroundTerminalOutputPage(payload.WorkspaceID, payload.ConversationID, payload.ProcessID, payload.AfterOrdinal, payload.Limit)
+	if err != nil {
+		writeChatError(response, "get_background_terminal_output_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, page)
+}
+
+func (handler handler) killBackgroundTerminal(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload KillBackgroundTerminalRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	process, err := service.KillBackgroundTerminal(request.Context(), payload.WorkspaceID, payload.ConversationID, payload.ProcessID)
+	if err != nil {
+		writeChatError(response, "kill_background_terminal_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, process)
+}
+
+func (handler handler) killAllBackgroundTerminals(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload KillAllBackgroundTerminalsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, err := service.KillAllBackgroundTerminals(request.Context(), payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "kill_all_background_terminals_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, projection)
 }
 
 func (handler handler) listDiagnostics(response http.ResponseWriter, request *http.Request) {

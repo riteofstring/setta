@@ -224,12 +224,8 @@ describe("workspace React DOM surface adapter", () => {
 
   test("forwards workflow graph freeze state to the renderer runtime handle", () => {
     vi.stubGlobal("window", {});
-    const focusedStates: boolean[] = [];
     const frozenStates: boolean[] = [];
     const unregister = registerWorkflowGraphRuntimeHandle("surface", {
-      setFocused(focused) {
-        focusedStates.push(focused);
-      },
       setFrozen(frozen) {
         frozenStates.push(frozen);
       },
@@ -244,13 +240,10 @@ describe("workspace React DOM surface adapter", () => {
 
     try {
       adapter.mount(host);
-      adapter.setFocused(true);
-      adapter.setFocused(false);
       adapter.freeze("snapshot");
       adapter.resume("visible");
 
-      expect(focusedStates).toEqual([true, false, false, false]);
-      expect(frozenStates).toEqual([false, false, true, false]);
+      expect(frozenStates).toEqual([true, false]);
     } finally {
       unregister();
     }

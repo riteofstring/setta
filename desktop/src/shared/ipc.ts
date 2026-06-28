@@ -10,6 +10,9 @@ import type {
   AttachSemanticNodeToWorkflowExecutionRequest,
   AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
+  BackgroundTerminalListProjection,
+  BackgroundTerminalOutputPage,
+  BackgroundTerminalProcess,
   BuildCartographerWindowRequest,
   CancelCodexLoginRequest,
   CartographerCursorList,
@@ -149,6 +152,10 @@ export const ipcChannels = {
   chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
   chatListCommands: "chat:list-commands",
+  chatListBackgroundTerminals: "chat:list-background-terminals",
+  chatGetBackgroundTerminalOutput: "chat:get-background-terminal-output",
+  chatKillBackgroundTerminal: "chat:kill-background-terminal",
+  chatKillAllBackgroundTerminals: "chat:kill-all-background-terminals",
   chatMarkConversationRead: "chat:mark-conversation-read",
   chatMessagePage: "chat:message-page",
   chatQueueMessage: "chat:queue-message",
@@ -157,6 +164,7 @@ export const ipcChannels = {
   chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
   chatSendSteeringImmediately: "chat:send-steering-immediately",
+  chatOpenCodexModelPicker: "chat:open-codex-model-picker",
   chatSetCodexModel: "chat:set-codex-model",
   chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
   chatSetConversationPinned: "chat:set-conversation-pinned",
@@ -346,6 +354,10 @@ interface IpcContract {
     ];
     result: ChatCommandExecuteResult;
   };
+  chatOpenCodexModelPicker: {
+    args: [workspaceId: string, conversationId: string];
+    result: ChatCommandExecuteResult;
+  };
   chatSetCodexModel: {
     args: [workspaceId: string, conversationId: string, modelId: string];
     result: ChatCommandExecuteResult;
@@ -371,7 +383,7 @@ interface IpcContract {
     result: ConversationListItem;
   };
   chatMessagePage: {
-    args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
+    args: [workspaceId: string, conversationId: string, beforeBlockOrdinal: number, limit: number];
     result: MessagePage;
   };
   chatQueueMessage: {
@@ -395,6 +407,28 @@ interface IpcContract {
       limit: number,
     ];
     result: RunItemOutputPage;
+  };
+  chatListBackgroundTerminals: {
+    args: [workspaceId: string, conversationId: string];
+    result: BackgroundTerminalListProjection;
+  };
+  chatGetBackgroundTerminalOutput: {
+    args: [
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+      afterOrdinal: number,
+      limit: number,
+    ];
+    result: BackgroundTerminalOutputPage;
+  };
+  chatKillBackgroundTerminal: {
+    args: [workspaceId: string, conversationId: string, processId: string];
+    result: BackgroundTerminalProcess;
+  };
+  chatKillAllBackgroundTerminals: {
+    args: [workspaceId: string, conversationId: string];
+    result: BackgroundTerminalListProjection;
   };
   chatSendMessage: {
     args: [workspaceId: string, conversationId: string, prompt: string];

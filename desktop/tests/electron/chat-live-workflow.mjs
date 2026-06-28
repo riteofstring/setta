@@ -55,7 +55,7 @@ export async function runLiveCodexWorkflow(results, deps) {
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
     const conversationId = await createChat(context.client, backend, workspaceId);
     const liveGoalPrompt =
-      "Reply with one short sentence containing the exact phrase setta live goal smoke.";
+      "Run the shell command `pwd`, then reply with one short sentence containing the exact phrase setta live goal smoke.";
     await submitComposer(context.client, `/goal ${liveGoalPrompt}`, "Send message");
     await waitForCommandResult(
       backend,
@@ -87,6 +87,15 @@ export async function runLiveCodexWorkflow(results, deps) {
     );
     await waitForTexts(context.client, ["setta live goal smoke"]);
     await waitForTexts(context.client, ["Goal complete"]);
+    await assertLiveGoalForegroundCommandsStayActivity({
+      backend,
+      client: context.client,
+      conversationId,
+      runId: goalRun.id,
+      timeoutMs: liveWorkflowTimeoutMs,
+      waitForBackendState,
+      workspaceId,
+    });
     await assertNoVisibleUserMessage(context.client, liveGoalPrompt);
     await submitComposer(context.client, "/goal clear", "Send message");
     await waitForCommandResult(
@@ -143,7 +152,9 @@ export async function runLiveCodexWorkflow(results, deps) {
       "/chat/messages/send",
       "/chat/messages/page",
       "/chat/runs/active",
+      "/chat/runs/activity",
       "/chat/runs/list",
+      "/chat/background-terminals/list",
       "/chat/diagnostics/list",
       "/chat/commands/execute",
       "/workflows/definitions/validate",
@@ -178,6 +189,53 @@ export async function runLiveCodexWorkflow(results, deps) {
   });
   results.push("live-codex-electron");
   process.stdout.write("Electron chat workflow passed: live-codex-electron\n");
+}
+
+async function assertLiveGoalForegroundCommandsStayActivity({
+  backend,
+  client,
+  conversationId,
+  runId,
+  timeoutMs,
+  waitForBackendState,
+  workspaceId,
+}) {
+  const activityPage = await waitForBackendState(
+    async () => backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId }),
+    (page) =>
+      Array.isArray(page.items) &&
+      page.items.some((item) => item.type === "command_execution" && item.status === "completed"),
+    timeoutMs,
+  );
+  const commands = activityPage.items.filter((item) => item.type === "command_execution");
+  if (commands.length === 0) {
+    throw new Error(`live goal did not expose command activity: ${JSON.stringify(activityPage)}`);
+  }
+
+  const list = await backend.post("/chat/background-terminals/list", {
+    conversationId,
+    workspaceId,
+  });
+  if (Array.isArray(list.terminals) && list.terminals.length !== 0) {
+    throw new Error(
+      `live goal foreground command created background terminals: ${JSON.stringify(list)}`,
+    );
+  }
+
+  const surface = await client.evaluate(`(() => ({
+    footer: Boolean(document.querySelector('[data-testid="background-terminals-footer"]')),
+    markers: Array.from(document.querySelectorAll('[data-testid="background-terminal-block"]')).map((el) => el.innerText),
+    text: document.body.innerText,
+  }))()`);
+  if (
+    surface.footer ||
+    surface.markers.length !== 0 ||
+    surface.text.includes("Started background terminal")
+  ) {
+    throw new Error(
+      `live goal foreground command rendered background-terminal UI: ${JSON.stringify(surface)}`,
+    );
+  }
 }
 
 async function runLiveSemanticCartographerWorkflow({

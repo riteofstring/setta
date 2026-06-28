@@ -8,6 +8,9 @@ import type {
   AttachSemanticNodeToWorkflowExecutionRequest,
   AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
+  BackgroundTerminalListProjection,
+  BackgroundTerminalOutputPage,
+  BackgroundTerminalProcess,
   BuildCartographerWindowRequest,
   CancelCodexLoginRequest,
   CartographerCursorList,
@@ -396,6 +399,10 @@ export interface SettaAPI {
       raw: string,
       options?: ChatCommandExecutionOptions,
     ) => Promise<ChatCommandExecuteResult>;
+    openCodexModelPicker: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ChatCommandExecuteResult>;
     setCodexModel: (
       workspaceId: string,
       conversationId: string,
@@ -420,7 +427,7 @@ export interface SettaAPI {
     messagePage: (
       workspaceId: string,
       conversationId: string,
-      beforeOrdinal: number,
+      beforeBlockOrdinal: number,
       limit: number,
     ) => Promise<MessagePage>;
     queueMessage: (
@@ -441,6 +448,26 @@ export interface SettaAPI {
       afterOrdinal: number,
       limit: number,
     ) => Promise<RunItemOutputPage>;
+    listBackgroundTerminals: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<BackgroundTerminalListProjection>;
+    getBackgroundTerminalOutput: (
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+      afterOrdinal: number,
+      limit: number,
+    ) => Promise<BackgroundTerminalOutputPage>;
+    killBackgroundTerminal: (
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+    ) => Promise<BackgroundTerminalProcess>;
+    killAllBackgroundTerminals: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<BackgroundTerminalListProjection>;
     sendMessage: (
       workspaceId: string,
       conversationId: string,

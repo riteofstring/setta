@@ -1014,43 +1014,6 @@ func TestCodexHarnessFakeAppServer(t *testing.T) {
 	os.Exit(0)
 }
 
-type recordingSink struct {
-	approvalCh  chan ApprovalRequest
-	diagnostics []recordedProviderDiagnostic
-	goals       []*ChatGoalState
-	items       []RunItem
-	linkCh      chan struct{}
-	outputs     []recordedOutput
-	text        string
-	threadID    string
-	traces      []recordedTrace
-	turnID      string
-}
-
-type codexTurnResult struct {
-	completion TurnCompletion
-	err        error
-}
-
-type recordedOutput struct {
-	itemID string
-	stream string
-	text   string
-}
-
-type recordedProviderDiagnostic struct {
-	code           string
-	context        map[string]string
-	message        string
-	resyncRequired bool
-	severity       DiagnosticSeverity
-}
-
-type recordedTrace struct {
-	traceType string
-	message   string
-}
-
 type fakeAttestationProvider struct {
 	token string
 }
@@ -1137,62 +1100,6 @@ func waitForNotification(t *testing.T, client *codexapp.Client, method string) {
 	}
 }
 
-func (sink *recordingSink) AssistantTextDelta(_ string, text string) error {
-	sink.text += text
-	return nil
-}
-
-func (sink *recordingSink) ApprovalRequested(approval ApprovalRequest) error {
-	sink.approvalCh <- approval
-	return nil
-}
-
-func (sink *recordingSink) ApprovalResolved(string, bool, string) error {
-	return nil
-}
-
-func (sink *recordingSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error {
-	sink.diagnostics = append(sink.diagnostics, recordedProviderDiagnostic{
-		code:           code,
-		context:        context,
-		message:        message,
-		resyncRequired: resyncRequired,
-		severity:       severity,
-	})
-	return nil
-}
-
-func (sink *recordingSink) GoalUpdated(goal *ChatGoalState) error {
-	sink.goals = append(sink.goals, goal)
-	return nil
-}
-
-func (sink *recordingSink) RunItemOutputDelta(itemID string, stream string, text string) error {
-	sink.outputs = append(sink.outputs, recordedOutput{itemID: itemID, stream: stream, text: text})
-	return nil
-}
-
-func (sink *recordingSink) RunItemUpsert(item RunItem) error {
-	sink.items = append(sink.items, item)
-	return nil
-}
-
-func (sink *recordingSink) ThreadLinked(threadID string, _ string, turnID string) error {
-	sink.threadID = threadID
-	sink.turnID = turnID
-	sink.linkCh <- struct{}{}
-	return nil
-}
-
-func (sink *recordingSink) UserMessageCommitted(string) error {
-	return nil
-}
-
-func (sink *recordingSink) Trace(traceType string, message string) error {
-	sink.traces = append(sink.traces, recordedTrace{traceType: traceType, message: message})
-	return nil
-}
-
 func waitForApproval(t *testing.T, sink *recordingSink) ApprovalRequest {
 	t.Helper()
 	select {
@@ -1272,9 +1179,13 @@ type fakeCodexState struct {
 	approvalOutstanding  bool
 	commandThreadResumed bool
 	commandThreadStarted bool
+	goalCleared          bool
+	goalPaused           bool
 	holdCalls            int
+	interruptCalls       int
 	modelListCalls       int
 	responseOutstanding  string
+	currentThreadID      string
 }
 
 func handleFakeJSONRPCMode(mode string, state *fakeCodexState, message map[string]any) bool {
@@ -1376,17 +1287,38 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 			"layers":  []any{},
 			"origins": map[string]any{},
 		})
-		return mode == "command-model-set-local" || mode == "command-effort-set-local"
+		return false
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)
-		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
+		threadID := state.currentThreadID
+		if threadID == "" {
+			threadID = "thread_fake"
+		}
+		writeFakeThreadResponseForModeAndThread(message["id"], mode, fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode), threadID)
+	case "thread/read":
+		params := fakeParams(message)
+		threadID, _ := params["threadId"].(string)
+		if threadID == "" {
+			panic("thread/read missing threadId")
+		}
+		writeFakeResponse(message["id"], fakeCodexThreadReadResponse(mode, threadID))
 	case "thread/goal/get":
 		return handleFakeGoalGet(mode, message)
 	case "thread/goal/set":
-		return handleFakeGoalSetMethod(mode, message)
+		return handleFakeGoalSetMethod(mode, state, message)
 	case "thread/goal/clear":
+		if mode == "goal-operation-resume" {
+			panic("goal resume should not clear provider goal")
+		}
 		assertFakeThreadID(message)
+		state.goalCleared = true
+		if fakeGoalOperationMode(mode) {
+			writeFakeThreadGoalCleared()
+			if mode == "goal-operation-clear-command" {
+				writeFakeCompletedTurnID("turn_goal_command", "completed")
+			}
+		}
 		writeFakeResponse(message["id"], map[string]any{"cleared": true})
 		return fakeCommandDone(mode)
 	case "model/list":
@@ -1396,17 +1328,67 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	case "turn/start":
 		return handleFakeTurnStart(mode, state, message)
 	case "turn/interrupt":
-		writeFakeResponse(message["id"], map[string]any{})
-		writeFakeCompletedTurn("interrupted")
-		return true
+		return handleFakeTurnInterrupt(mode, state, message)
 	case "turn/steer":
-		assertFakeSteer(message)
-		writeFakeResponse(message["id"], map[string]any{})
-		writeFakeAssistantDelta("steered")
-		writeFakeCompletedTurn("completed")
-		return true
+		return handleFakeTurnSteer(mode, message)
 	}
 	return false
+}
+
+func handleFakeTurnInterrupt(mode string, state *fakeCodexState, message map[string]any) bool {
+	if (mode == "goal-operation-background-cancel" || mode == "goal-operation-cancel" || mode == "goal-operation-cancel-no-completion") && !state.goalPaused {
+		writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
+		return true
+	}
+	if mode == "goal-operation-stale-interrupt-retry" {
+		if !state.goalPaused {
+			writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
+			return true
+		}
+		state.interruptCalls++
+		params := fakeParams(message)
+		switch state.interruptCalls {
+		case 1:
+			if params["turnId"] != "turn_goal_stale" {
+				panic("first stale interrupt used wrong turn id")
+			}
+			writeFakeErrorResponseData(message["id"], -32600, "expected active turn id `turn_goal_stale` but found `turn_goal_active`", map[string]any{"activeTurnId": "turn_goal_active"})
+			return false
+		case 2:
+			if params["turnId"] != "turn_goal_active" {
+				panic("retry interrupt used wrong active turn id")
+			}
+			writeFakeResponse(message["id"], map[string]any{})
+			writeFakeCompletedTurnID("turn_goal_active", "interrupted")
+			return true
+		default:
+			panic("unexpected extra stale interrupt retry")
+		}
+	}
+	writeFakeResponse(message["id"], map[string]any{})
+	if mode == "goal-operation-cancel-no-completion" {
+		return false
+	}
+	if mode == "goal-operation-background-cancel" || mode == "goal-operation-cancel" {
+		writeFakeCompletedTurnID("turn_goal_cancel", "interrupted")
+		return true
+	}
+	writeFakeCompletedTurn("interrupted")
+	return true
+}
+
+func handleFakeTurnSteer(mode string, message map[string]any) bool {
+	assertFakeSteer(mode, message)
+	writeFakeResponse(message["id"], map[string]any{})
+	if mode == "goal-operation-steer-second-turn" {
+		writeFakeAssistantDeltaForTurn("turn_goal_b", "item_goal_steered", "steered goal. ")
+		writeFakeThreadGoalUpdated("finish renderer tests", "complete")
+		writeFakeCompletedTurnID("turn_goal_b", "completed")
+		return true
+	}
+	writeFakeAssistantDelta("steered")
+	writeFakeCompletedTurn("completed")
+	return true
 }
 
 func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]any) bool {
@@ -1431,6 +1413,14 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	if handled, done := handleFakeNotificationTurnStartMode(mode); handled {
 		return done
 	}
+	if fakeGoalOperationMode(mode) {
+		threadID := state.currentThreadID
+		if threadID == "" {
+			threadID = "thread_fake"
+		}
+		writeFakeStreamTurnForThread(threadID)
+		return true
+	}
 	return false
 }
 
@@ -1451,8 +1441,8 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 		return true, true
 	case "deprecated-file-change-output-delta-notification":
 		writeFakeNotification("item/fileChange/outputDelta", map[string]any{
-			"delta":    "deprecated patch output",
-			"itemId":   "item_file_change_deprecated",
+			"delta":    "legacy patch output",
+			"itemId":   "item_file_change_legacy",
 			"threadId": "thread_fake",
 			"turnId":   "turn_fake",
 		})

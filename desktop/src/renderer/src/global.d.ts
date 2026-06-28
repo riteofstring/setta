@@ -234,7 +234,6 @@ interface WorkflowGraphDebugApi {
 }
 
 interface WorkflowGraphRuntimeHandle {
-  setFocused(focused: boolean): void;
   setFrozen(frozen: boolean): void;
 }
 
@@ -246,7 +245,6 @@ interface WorkflowGraphRuntimeApi {
 declare global {
   interface Window {
     __settaWorkspaceReadFrameMetrics?: () => WorkspaceFrameMetrics;
-    __settaWorkspaceResetFrameMetrics?: () => void;
     __settaWorkspaceActivityDebug?: WorkspaceActivityDebugApi;
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
     __settaWorkflowGraphRuntime?: WorkflowGraphRuntimeApi;

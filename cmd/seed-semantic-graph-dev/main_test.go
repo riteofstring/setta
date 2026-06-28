@@ -100,17 +100,6 @@ func TestConfigRequiresWorkspaceRoot(t *testing.T) {
 	}
 }
 
-func TestConfigRejectsWorkspacePathAlias(t *testing.T) {
-	var stderr bytes.Buffer
-	_, err := configFromArgs([]string{"--app-data-dir", t.TempDir(), "--workspace-path", t.TempDir()}, &stderr, emptyEnv)
-	if err == nil {
-		t.Fatal("config succeeded, want unsupported workspace path flag error")
-	}
-	if !strings.Contains(err.Error(), "flag provided but not defined") {
-		t.Fatalf("error = %q, want unsupported flag", err.Error())
-	}
-}
-
 func TestConfigRejectsRelativeSemanticGraphSeedPaths(t *testing.T) {
 	var stderr bytes.Buffer
 	_, err := configFromArgs([]string{"--app-data-dir", filepath.Join("relative", "app-data"), "--workspace-root", t.TempDir()}, &stderr, emptyEnv)

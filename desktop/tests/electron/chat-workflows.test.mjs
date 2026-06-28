@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
 import {
+  assertCollapsedActivityGroupHeader,
   assertNoCriticalDiagnostics,
   assertRendererQueueMatchesBackend,
+  waitForModelPickerSummary,
 } from "./chat-workflow-assertions.mjs";
 import {
   appendWorkflowState,
@@ -55,6 +57,8 @@ import {
   waitForText,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
+import { runBackgroundTerminalWorkflow } from "./chat-workflow-background-terminal-cases.mjs";
+import { runChronologicalTranscriptWorkflow } from "./chat-workflow-chronological-cases.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
@@ -65,6 +69,10 @@ import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-wor
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
+  runProtocolGoalBackgroundTerminalWorkflow,
+  runProtocolGoalCancellationWorkflow,
+  runProtocolGoalForegroundUnifiedExecWorkflow,
+  runProtocolGoalMultiTurnWorkflow,
 } from "./codex-protocol-workflow.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
 
@@ -77,6 +85,7 @@ const recordingRoot = chatWorkflowRecordingRoot(options);
 
 function parseArgs(args) {
   const parsed = {
+    codexProtocolOnly: false,
     deterministic: true,
     keepArtifacts: false,
     live: false,
@@ -95,6 +104,11 @@ function parseArgs(args) {
       case "--all":
         parsed.deterministic = true;
         parsed.live = true;
+        break;
+      case "--codex-protocol-only":
+        parsed.codexProtocolOnly = true;
+        parsed.deterministic = false;
+        parsed.live = false;
         break;
       case "--keep-artifacts":
         parsed.keepArtifacts = true;
@@ -125,6 +139,11 @@ async function main() {
   await mkdir(recordingRoot, { recursive: true });
 
   const results = [];
+  if (options.codexProtocolOnly) {
+    await runCodexProtocolWorkflow(results);
+    printWorkflowResults(results);
+    return;
+  }
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
     await runTranscriptSearchWorkflowLaunch(results);
@@ -185,6 +204,10 @@ async function main() {
     });
   }
 
+  printWorkflowResults(results);
+}
+
+function printWorkflowResults(results) {
   process.stdout.write("Electron chat workflow results:\n");
   for (const result of results) {
     process.stdout.write(`  passed: ${result}\n`);
@@ -219,6 +242,67 @@ async function runDeterministicWorkflowLaunch(results) {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId);
     });
+    await runWorkflowStep(
+      results,
+      recordingDir,
+      "chat-activity-projection",
+      context.client,
+      async () => {
+        const conversationId = await createChat(context.client, backend, workspaceId);
+        await runChatActivityProjectionWorkflow(
+          context.client,
+          backend,
+          workspaceId,
+          conversationId,
+        );
+      },
+    );
+    await runWorkflowStep(
+      results,
+      recordingDir,
+      "chronological-transcript",
+      context.client,
+      async () => {
+        const conversationId = await createChat(context.client, backend, workspaceId);
+        await runChronologicalTranscriptWorkflow({
+          appendWorkflowState,
+          assertActivityRows,
+          assertRunActivityProjection,
+          assertTextAbsent,
+          backend,
+          client: context.client,
+          conversationId,
+          recordingDir,
+          submitComposer,
+          waitForRunWithPrompt,
+          waitForTexts,
+          workspaceId,
+        });
+      },
+    );
+    await runWorkflowStep(
+      results,
+      recordingDir,
+      "background-terminal",
+      context.client,
+      async () => {
+        const conversationId = await createChat(context.client, backend, workspaceId);
+        await runBackgroundTerminalWorkflow({
+          appendWorkflowState,
+          assertActivityRows,
+          assertRunActivityProjection,
+          backend,
+          client: context.client,
+          conversationId,
+          recordingDir,
+          submitComposer,
+          waitForState,
+          waitForRunWithPrompt,
+          waitForTexts,
+          workspaceId,
+        });
+      },
+    );
     await runWorkflowStep(results, recordingDir, "queued-controls", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runQueuedControlsWorkflow({
@@ -269,6 +353,7 @@ async function runDeterministicWorkflowLaunch(results) {
         clickButtonByAria,
         client: context.client,
         conversationId,
+        setInputValue,
         submitComposer,
         waitForCommandResult,
         waitForGoalStatus,
@@ -313,13 +398,12 @@ async function runDeterministicWorkflowLaunch(results) {
       "/chat/messages/steer",
       "/chat/messages/steer/immediate",
       "/chat/runs/active",
+      "/chat/runs/activity",
       "/chat/runs/list",
       "/chat/runs/cancel",
       "/chat/approvals/submit",
       "/chat/commands/list",
       "/chat/commands/execute",
-      "/chat/codex/model/set",
-      "/chat/codex/reasoning-effort/set",
       "/codex/account",
       "/codex/account/login/start",
       "/codex/account/logout",
@@ -337,13 +421,320 @@ async function runDeterministicWorkflowLaunch(results) {
       "chat:submit-approval",
       "chat:list-commands",
       "chat:execute-command",
-      "chat:set-codex-model",
-      "chat:set-codex-reasoning-effort",
       "codex-account:logout",
       "codex-account:read",
       "codex-account:start-login",
     ],
   });
+}
+
+async function runChatActivityProjectionWorkflow(client, backend, workspaceId, conversationId) {
+  await submitComposer(client, "projection silent greeting workflow", "Send message");
+  const greetingRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "projection silent greeting workflow",
+    "completed",
+  );
+  await waitForTexts(client, [
+    "projection silent greeting workflow",
+    "Scripted response: projection silent greeting workflow",
+  ]);
+  await assertRunActivityProjection(backend, workspaceId, greetingRun.id, {
+    rawTypes: [],
+    rows: [],
+  });
+  await assertActivityRows(client, []);
+
+  await submitComposer(client, "chat activity projection workflow", "Send message");
+  await waitForTexts(client, ["Projection activity starting.", "Streaming reasoning placeholder"]);
+  await submitComposer(client, "finish projection activity", "Send steering message");
+  const run = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "chat activity projection workflow",
+    "completed",
+  );
+  await waitForTexts(client, [
+    "Projection assistant final.",
+    "Projection command",
+    "Projection reasoning",
+  ]);
+  // The meaningfully-titled transient reasoning persists as a thinking-mode reasoning block: the
+  // chronological model keeps reasoning as a real timeline status block rather than a placeholder
+  // that vanishes after the first assistant text.
+  await assertReasoningBlockPresent(client, "Streaming reasoning placeholder");
+  await assertTextAbsent(client, "private projection reasoning");
+  await assertTextAbsent(client, "Projection duplicate provider agent message");
+
+  const projection = await assertRunActivityProjection(backend, workspaceId, run.id, {
+    rawTypes: ["agent_message", "reasoning"],
+    rows: projectionExpectedRows(),
+  });
+  const commandRow = requireProjectedRow(projection.rows, "Projection command");
+  await openProjectedActivityRow(client, commandRow.sourceRunItemId);
+  await waitForText(client, "printf projection-output");
+  await assertActivityRows(client, projection.rows);
+  await expandReasoningSummaryBlock(client, "Projection reasoning");
+  await waitForText(client, "Public reasoning summary visible.");
+  await assertAssistantTextOccurrence(client, "Projection assistant final.", 1);
+}
+
+// expandReasoningSummaryBlock opens the collapsed summary-mode reasoning block
+// whose collapsed headline matches the given text, so the full public summary
+// becomes visible. Reasoning is a first-class transcript block, not an activity
+// row, so it is expanded through its own disclosure rather than an activity row.
+async function assertReasoningBlockPresent(client, headline) {
+  const present = await client.evaluate(`(() => {
+    const headline = ${JSON.stringify(headline)};
+    return Array.from(document.querySelectorAll('[data-block-kind="reasoning"]')).some(
+      (block) => block.textContent?.includes(headline),
+    );
+  })()`);
+  if (!present) {
+    throw new Error(`expected a reasoning block containing ${JSON.stringify(headline)}`);
+  }
+}
+
+async function expandReasoningSummaryBlock(client, headline) {
+  const opened = await client.evaluate(`(() => {
+    const headline = ${JSON.stringify(headline)};
+    const blocks = Array.from(
+      document.querySelectorAll('[data-block-kind="reasoning"][data-reasoning-mode="summary"]'),
+    );
+    const block = blocks.find((candidate) => candidate.textContent?.includes(headline));
+    if (!(block instanceof HTMLDetailsElement)) {
+      return { ok: false, reason: "missing-reasoning-summary" };
+    }
+    if (!block.open) {
+      block.querySelector("summary")?.click();
+    }
+    return { ok: block.open, reason: block.open ? "opened" : "not-opened" };
+  })()`);
+  if (!opened.ok) {
+    throw new Error(
+      `reasoning summary block ${headline} was not opened: ${JSON.stringify(opened)}`,
+    );
+  }
+}
+
+async function assertRunActivityProjection(backend, workspaceId, runId, expected) {
+  const page = await backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId });
+  const rows = page.activity ?? [];
+  assertProjectedActivityRowCount(rows, expected.rows, page);
+  assertProjectedActivityRows(rows, expected.rows);
+  assertNoPrivateActivityProjectionLeaks(rows);
+  assertRawActivityTypes(page.items, expected.rawTypes);
+  return { page, rows };
+}
+
+function assertProjectedActivityRowCount(rows, expectedRows, page) {
+  if (rows.length !== expectedRows.length) {
+    throw new Error(
+      `projected activity row count = ${rows.length}, want ${expectedRows.length}: ${JSON.stringify(page)}`,
+    );
+  }
+}
+
+function assertProjectedActivityRows(rows, expectedRows) {
+  for (const expectedRow of expectedRows) {
+    const row = rows.find((candidate) => projectedActivityRowMatches(candidate, expectedRow));
+    if (!row) {
+      throw new Error(
+        `projected activity row missing ${JSON.stringify(expectedRow)}: ${JSON.stringify(rows)}`,
+      );
+    }
+    if (!row.sourceRunItemId) {
+      throw new Error(`activity row missing source run item id: ${JSON.stringify(row)}`);
+    }
+  }
+}
+
+function projectedActivityRowMatches(row, expectedRow) {
+  if (row.type !== expectedRow.type || row.title !== expectedRow.title) {
+    return false;
+  }
+  return expectedRow.summary === undefined || row.details.summary === expectedRow.summary;
+}
+
+function assertNoPrivateActivityProjectionLeaks(rows) {
+  if (rows.some((row) => row.type === "agent_message")) {
+    throw new Error(`agent message leaked into activity projection: ${JSON.stringify(rows)}`);
+  }
+  if (
+    rows.some(
+      (row) =>
+        row.details.summary.includes("private projection reasoning") ||
+        row.details.progress.includes("private projection reasoning") ||
+        row.title.includes("private projection reasoning"),
+    )
+  ) {
+    throw new Error(`hidden reasoning leaked into activity projection: ${JSON.stringify(rows)}`);
+  }
+}
+
+function assertRawActivityTypes(items, rawTypes) {
+  for (const rawType of rawTypes) {
+    if (!items.some((item) => item.type === rawType)) {
+      throw new Error(`raw activity page missing ${rawType}: ${JSON.stringify(items)}`);
+    }
+  }
+}
+
+async function assertActivityRows(client, expectedRows) {
+  const rendered = await client.evaluate(`(() => ({
+    rows: Array.from(document.querySelectorAll('[data-testid="run-activity-row"]')).map((row) => ({
+      sourceRunItemId: row.getAttribute("data-run-item-id") ?? "",
+      text: row.innerText,
+    })),
+  }))()`);
+  if (rendered.rows.length !== expectedRows.length) {
+    throw new Error(
+      `rendered activity row count = ${rendered.rows.length}, want ${expectedRows.length}: ${JSON.stringify(rendered.rows)}`,
+    );
+  }
+  for (const expected of expectedRows) {
+    const row = rendered.rows.find(
+      (candidate) => candidate.sourceRunItemId === expected.sourceRunItemId,
+    );
+    if (!row) {
+      throw new Error(
+        `rendered activity missing source item ${expected.sourceRunItemId}: ${JSON.stringify(rendered.rows)}`,
+      );
+    }
+    const displayText = expected.title;
+    if (!row.text.includes(displayText)) {
+      throw new Error(
+        `rendered activity row missing display text ${displayText}: ${JSON.stringify(row)}`,
+      );
+    }
+  }
+}
+
+async function assertAssistantTextOccurrence(client, text, expectedCount) {
+  const transcript = await client.driver("chatTranscriptRows");
+  const assistantRows = transcript.rows.filter((row) => row.role === "assistant");
+  const count = assistantRows.reduce((total, row) => total + occurrences(row.text, text), 0);
+  if (count !== expectedCount) {
+    throw new Error(
+      `assistant text ${text} rendered ${count} times, want ${expectedCount}: ${JSON.stringify(assistantRows)}`,
+    );
+  }
+}
+
+function projectionExpectedRows() {
+  // Reasoning is its own transcript block kind, not an activity_item, so the
+  // activity projection only contains true activity rows. The reasoning summary
+  // is asserted separately through the reasoning block.
+  return [
+    {
+      title: "Projection command",
+      type: "command_execution",
+    },
+  ];
+}
+
+function requireProjectedRow(rows, title) {
+  const row = rows.find((candidate) => candidate.title === title);
+  if (!row) {
+    throw new Error(`projected row ${title} missing: ${JSON.stringify(rows)}`);
+  }
+  return row;
+}
+
+async function openProjectedActivityRow(client, sourceRunItemId) {
+  const startedAt = Date.now();
+  let opened = null;
+  while (Date.now() - startedAt < 2_000) {
+    opened = await client.evaluate(`(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
+      const groupHeaders = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'));
+      const groupHeader = groupHeaders.find((candidate) =>
+        (candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "")
+          .split(/\\s+/)
+          .includes(sourceRunItemId)
+      );
+      let rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+      let row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      if (
+        !row &&
+        groupHeader instanceof HTMLButtonElement &&
+        groupHeader.getAttribute("data-activity-group-expanded") !== "true"
+      ) {
+        groupHeader.click();
+        rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+        row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      }
+      if (!row) {
+        return {
+          ok: false,
+          reason: "missing-row",
+          groups: groupHeaders.map((candidate) => ({
+            expanded: candidate.getAttribute("data-activity-group-expanded") ?? "",
+            sourceRunItemIds: candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "",
+            text: candidate.innerText,
+          })),
+          rows: rows.map((candidate) => ({
+            sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
+            text: candidate.innerText,
+          })),
+        };
+      }
+      if (!(row instanceof HTMLDetailsElement)) {
+        return { ok: true, reason: "compact-row" };
+      }
+      if (!row.open) {
+        row.querySelector("summary")?.click();
+      }
+      return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
+    })()`);
+    if (opened.ok) {
+      return;
+    }
+    await delay(50);
+  }
+  throw new Error(`activity row ${sourceRunItemId} was not opened: ${JSON.stringify(opened)}`);
+}
+
+async function waitForRunItemOutputIpc(recordingDir, sourceRunItemId, afterOrdinal) {
+  const startedAt = Date.now();
+  let outputIpc = [];
+  while (Date.now() - startedAt < 5_000) {
+    const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
+    outputIpc = ipc.filter((entry) => entry.channel === "chat:run-item-output");
+    const match = outputIpc.find(
+      (entry) =>
+        entry.type === "ipc_start" &&
+        Array.isArray(entry.args) &&
+        entry.args[2] === sourceRunItemId &&
+        entry.args[3] === afterOrdinal,
+    );
+    if (match) {
+      return;
+    }
+    await delay(100);
+  }
+  throw new Error(
+    `recording missing chat:run-item-output for source run item ${sourceRunItemId} after ordinal ${afterOrdinal}: ${JSON.stringify(outputIpc)}`,
+  );
+}
+
+async function readJsonLines(path) {
+  const content = await readFile(path, "utf8");
+  return content
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line));
+}
+
+function occurrences(text, needle) {
+  if (needle === "") {
+    return 0;
+  }
+  return text.split(needle).length - 1;
 }
 
 async function runHappyPathWorkflow(
@@ -393,8 +784,9 @@ async function runHappyPathWorkflow(
   );
   await assertTranscriptSequence(client, [
     "workflow hold for queue and steering",
-    "Active workflow complete.",
+    "Workflow stream started.",
     "steer active run",
+    "Active workflow complete.",
     "queued follow-up one from active run",
     "Queued response for queued follow-up one from active run.",
     "queued follow-up two from active run",
@@ -894,6 +1286,7 @@ async function runCodexProtocolWorkflow(results) {
     const backend = await backendProbe(recordingDir);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
     const conversationId = await createChat(context.client, backend, workspaceId);
+    await waitForModelPickerSummary(waitForState, context.client, "GPT Test", "Extra high");
     await submitComposer(context.client, "protocol notification workflow", "Send message");
     const run = await waitForRunWithPrompt(
       backend,
@@ -902,15 +1295,22 @@ async function runCodexProtocolWorkflow(results) {
       "protocol notification workflow",
       "completed",
     );
-    await waitForTexts(context.client, [
-      "coverage complete",
-      "Hook: pre-command",
-      "Auto-approval review",
-      "file change",
-      "Reasoning text",
-    ]);
+    await waitForTexts(context.client, ["coverage complete", "workspace_context"]);
+    await assertCollapsedActivityGroupHeader(context.client, {
+      absent: "+8",
+      count: "9",
+      preview: "workspace_context",
+    });
+    await assertTextAbsent(context.client, "Reasoning text");
+    await assertTextAbsent(context.client, "private reasoning");
+    await waitForModelPickerSummary(waitForState, context.client, "GPT Test", "Extra high");
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
+
+    await runProtocolGoalMultiTurnWorkflow(context.client, backend, workspaceId);
+    await runProtocolGoalForegroundUnifiedExecWorkflow(context.client, backend, workspaceId);
+    await runProtocolGoalBackgroundTerminalWorkflow(context.client, backend, workspaceId, fixture);
+    await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);
 
     const exitConversationId = await createChat(context.client, backend, workspaceId);
     await submitComposer(context.client, "app-server exit workflow", "Send message");
@@ -946,11 +1346,19 @@ async function runCodexProtocolWorkflow(results) {
       "/chat/conversations/create",
       "/chat/messages/send",
       "/chat/messages/page",
+      "/chat/commands/execute",
+      "/chat/runs/cancel",
       "/chat/runs/activity",
       "/chat/runs/list",
       "/chat/diagnostics/list",
     ],
-    ipcChannels: ["workspace:open-local-folder", "chat:create-conversation", "chat:send-message"],
+    ipcChannels: [
+      "workspace:open-local-folder",
+      "chat:create-conversation",
+      "chat:cancel-run",
+      "chat:execute-command",
+      "chat:send-message",
+    ],
   });
   results.push("codex-protocol-notifications");
   process.stdout.write("Electron chat workflow passed: codex-protocol-notifications\n");
@@ -971,9 +1379,23 @@ async function runRestartWorkflow(results) {
     await runHappyPathWorkflow(first.client, backend, workspaceId, conversationId, {
       postCompletionActiveRun: false,
     });
+    await submitComposer(first.client, "chat activity projection reload workflow", "Send message");
+    const projectionRun = await waitForRunWithPrompt(
+      backend,
+      workspaceId,
+      conversationId,
+      "chat activity projection reload workflow",
+      "completed",
+    );
+    await waitForTexts(first.client, ["Projection assistant final.", "Projection command"]);
+    await assertRunActivityProjection(backend, workspaceId, projectionRun.id, {
+      rawTypes: ["agent_message", "reasoning"],
+      rows: projectionExpectedRows(),
+    });
     await stopLaunchedContext(first);
 
     second = await launchContext(fixture, secondRecording);
+    const secondBackend = await backendProbe(secondRecording);
     await waitForTexts(
       second.client,
       [
@@ -982,20 +1404,43 @@ async function runRestartWorkflow(results) {
         "Queued response for queued follow-up one from active run.",
         "Queued response for queued follow-up two from active run.",
         "Queued response for queued follow-up three from active run.",
+        "Projection command",
+        "Projection reasoning",
       ],
       30_000,
     );
+    await assertTextAbsent(second.client, "Projection duplicate provider agent message");
+    await assertTextAbsent(second.client, "private projection reasoning");
+    await assertTextAbsent(second.client, "projection output chunk 201");
+    const restoredProjection = await assertRunActivityProjection(
+      secondBackend,
+      workspaceId,
+      projectionRun.id,
+      {
+        rawTypes: ["agent_message", "reasoning"],
+        rows: projectionExpectedRows(),
+      },
+    );
     await assertTranscriptSequence(second.client, [
       "workflow hold for queue and steering",
-      "Active workflow complete.",
+      "Workflow stream started.",
       "steer active run",
+      "Active workflow complete.",
       "queued follow-up one from active run",
       "Queued response for queued follow-up one from active run.",
       "queued follow-up two from active run",
       "Queued response for queued follow-up two from active run.",
       "queued follow-up three from active run",
       "Queued response for queued follow-up three from active run.",
+      "chat activity projection reload workflow",
+      "Projection assistant final.",
     ]);
+    const commandRow = requireProjectedRow(restoredProjection.rows, "Projection command");
+    await openProjectedActivityRow(second.client, commandRow.sourceRunItemId);
+    await waitForText(second.client, "printf projection-output");
+    await waitForText(second.client, "Load more");
+    await clickButtonByText(second.client, "Load more");
+    await waitForRunItemOutputIpc(secondRecording, commandRow.sourceRunItemId, 200);
     await assertChatLayout(second.client);
     await captureScreenshot(second.client, join(secondRecording, "restored.png"));
   } catch (error) {
@@ -1019,6 +1464,7 @@ async function runRestartWorkflow(results) {
       "/chat/messages/queue",
       "/chat/messages/steer",
       "/chat/runs/active",
+      "/chat/runs/activity",
       "/chat/runs/list",
     ],
     ipcChannels: [
@@ -1030,8 +1476,19 @@ async function runRestartWorkflow(results) {
     ],
   });
   await assertRecordingEvidence(secondRecording, {
-    backendPaths: ["/workspace-session", "/chat/conversations/list", "/chat/messages/page"],
-    ipcChannels: ["workspace:session", "chat:list-conversations", "chat:message-page"],
+    backendPaths: [
+      "/workspace-session",
+      "/chat/conversations/list",
+      "/chat/messages/page",
+      "/chat/runs/activity",
+      "/chat/runs/item-output",
+    ],
+    ipcChannels: [
+      "workspace:session",
+      "chat:list-conversations",
+      "chat:message-page",
+      "chat:run-item-output",
+    ],
   });
   results.push("restart");
   process.stdout.write("Electron chat workflow passed: restart\n");

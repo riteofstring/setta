@@ -26,11 +26,39 @@ func startTestJSONRPCClient(config CodexHarnessConfig) (*codexapp.Client, error)
 	})
 }
 
-func writeFakeThreadResponse(id any, model string, effort ReasoningEffort) {
-	writeFakeResponse(id, fakeCodexThreadResponse(model, effort))
+func writeFakeThreadResponseForModeAndThread(id any, mode string, model string, effort ReasoningEffort, threadID string) {
+	if !fakeGoalOperationMode(mode) {
+		writeFakeResponse(id, fakeCodexThreadResponseWithThread(model, effort, fakeCodexThreadWithID(threadID)))
+		return
+	}
+	writeFakeResponse(id, fakeCodexThreadResponseForModeAndThread(mode, model, effort, threadID))
 }
 
-func fakeCodexThreadResponse(model string, effort ReasoningEffort) map[string]any {
+func fakeCodexThreadResponseForModeAndThread(mode string, model string, effort ReasoningEffort, threadID string) map[string]any {
+	thread := fakeCodexThreadWithID(threadID)
+	if fakeGoalOperationMode(mode) {
+		path := "/tmp/codex/thread_fake.json"
+		thread["ephemeral"] = false
+		thread["path"] = path
+	}
+	switch mode {
+	case "goal-operation-busy-thread":
+		thread["status"] = map[string]any{"type": "active", "activeFlags": []string{}}
+	case "goal-operation-ephemeral-thread":
+		thread["ephemeral"] = true
+	case "goal-operation-missing-path-thread":
+		delete(thread, "path")
+	}
+	return fakeCodexThreadResponseWithThread(model, effort, thread)
+}
+
+func fakeCodexThreadWithID(threadID string) map[string]any {
+	thread := fakeCodexThread()
+	thread["id"] = threadID
+	return thread
+}
+
+func fakeCodexThreadResponseWithThread(model string, effort ReasoningEffort, thread map[string]any) map[string]any {
 	return map[string]any{
 		"approvalPolicy":    "on-request",
 		"approvalsReviewer": "user",
@@ -39,8 +67,13 @@ func fakeCodexThreadResponse(model string, effort ReasoningEffort) map[string]an
 		"modelProvider":     "fake",
 		"reasoningEffort":   string(effort),
 		"sandbox":           "workspace-write",
-		"thread":            fakeCodexThread(),
+		"thread":            thread,
 	}
+}
+
+func fakeCodexThreadReadResponse(mode string, threadID string) map[string]any {
+	response := fakeCodexThreadResponseForModeAndThread(mode, fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode), threadID)
+	return map[string]any{"thread": response["thread"]}
 }
 
 func fakeCodexThread() map[string]any {
@@ -93,9 +126,13 @@ func fakeCodexThreadSettings(model string, effort ReasoningEffort) map[string]an
 }
 
 func writeFakeStreamTurn() {
-	writeFakeAssistantDelta("hello ")
-	writeFakeAssistantDelta("from codex")
-	writeFakeCompletedTurn("completed")
+	writeFakeStreamTurnForThread("thread_fake")
+}
+
+func writeFakeStreamTurnForThread(threadID string) {
+	writeFakeAssistantDeltaForThread(threadID, "hello ")
+	writeFakeAssistantDeltaForThread(threadID, "from codex")
+	writeFakeCompletedTurnForThread(threadID, "completed")
 }
 
 func writeFakeTurnStartedID(turnID string) {
@@ -299,7 +336,6 @@ func writeFakeActivityTurn() {
 	writeFakeNotification("warning", map[string]any{
 		"message":  "watch out",
 		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
 	})
 	writeFakeNotification("item/completed", map[string]any{
 		"completedAtMs": 1,
@@ -359,6 +395,79 @@ func writeFakeEmptyDeltaTurn() {
 	writeFakeCompletedTurn("completed")
 }
 
+func writeFakeDuplicateAgentDeltaTurn() {
+	writeFakeNotification("turn/started", map[string]any{
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    "hello once",
+		"itemId":   "agent_message_duplicate_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    "hello once",
+		"itemId":   "agent_message_duplicate_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/completed", map[string]any{
+		"completedAtMs": 1,
+		"item": map[string]any{
+			"id":     "agent_message_duplicate_fake",
+			"status": "completed",
+			"text":   "hello once",
+			"type":   "agentMessage",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeCompletedTurn("completed")
+}
+
+func writeFakeAgentDeltaCompletedItemTurn() {
+	writeFakeNotification("turn/started", map[string]any{
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    "hello once",
+		"itemId":   "agent_message_completed_fake_a",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/completed", map[string]any{
+		"completedAtMs": 1,
+		"item": map[string]any{
+			"id":     "agent_message_completed_fake_a",
+			"status": "completed",
+			"text":   "hello once",
+			"type":   "agentMessage",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    "hello once",
+		"itemId":   "agent_message_completed_fake_b",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/completed", map[string]any{
+		"completedAtMs": 2,
+		"item": map[string]any{
+			"id":     "agent_message_completed_fake_b",
+			"status": "completed",
+			"text":   "hello once",
+			"type":   "agentMessage",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeCompletedTurn("completed")
+}
+
 func writeFakeEmptyBase64OutputDeltaTurn() {
 	writeFakeNotification("command/exec/outputDelta", map[string]any{
 		"capReached":  false,
@@ -397,7 +506,7 @@ func writeFakeProtocolCoverageNotifications() {
 	})
 	writeFakeNotification("deprecationNotice", map[string]any{
 		"details": "Use the replacement protocol surface.",
-		"summary": "Protocol deprecation notice.",
+		"summary": "Legacy protocol notice.",
 	})
 	writeFakeNotification("externalAgentConfig/import/completed", map[string]any{})
 	writeFakeNotification("fs/changed", map[string]any{"changedPaths": []string{"/tmp/workspace/main.go"}, "watchId": "watch_fake"})
@@ -703,17 +812,25 @@ func writeFakeUnsupportedRequest() {
 }
 
 func writeFakeAssistantDelta(delta string) {
+	writeFakeAssistantDeltaForThread("thread_fake", delta)
+}
+
+func writeFakeAssistantDeltaForThread(threadID string, delta string) {
 	writeFakeNotification("item/agentMessage/delta", map[string]any{
 		"delta":    delta,
 		"itemId":   "item_fake",
-		"threadId": "thread_fake",
+		"threadId": threadID,
 		"turnId":   "turn_fake",
 	})
 }
 
 func writeFakeCompletedTurn(status string) {
+	writeFakeCompletedTurnForThread("thread_fake", status)
+}
+
+func writeFakeCompletedTurnForThread(threadID string, status string) {
 	writeFakeNotification("turn/completed", map[string]any{
-		"threadId": "thread_fake",
+		"threadId": threadID,
 		"turn":     fakeCodexTurn(status),
 	})
 }
@@ -731,9 +848,13 @@ func writeFakeStructuredCompletedTurn() {
 	})
 }
 
-func assertFakeSteer(message map[string]any) {
+func assertFakeSteer(mode string, message map[string]any) {
 	params := fakeParams(message)
-	if params["threadId"] != "thread_fake" || params["expectedTurnId"] != "turn_fake" {
+	expectedTurnID := "turn_fake"
+	if mode == "goal-operation-steer-second-turn" {
+		expectedTurnID = "turn_goal_b"
+	}
+	if params["threadId"] != "thread_fake" || params["expectedTurnId"] != expectedTurnID {
 		panic("steer targeted wrong turn")
 	}
 	input, ok := params["input"].([]any)
@@ -793,33 +914,38 @@ func fakeParams(message map[string]any) map[string]any {
 type fakeCoreTurnStartHandler func(string, *fakeCodexState) bool
 
 var fakeCoreTurnStartHandlers = map[string]fakeCoreTurnStartHandler{
-	"stream":                      fakeCoreStreamTurnStart,
-	"structured-task":             fakeCoreStructuredTaskTurnStart,
-	"dynamic-tools-thread-start":  fakeCoreStreamTurnStart,
-	"dynamic-tools-thread-resume": fakeCoreStreamTurnStart,
-	"initial-settings":            fakeCoreStreamTurnStart,
-	"turn-started-id":             fakeCoreProviderTurnStart,
-	"provider-item-turn-id":       fakeCoreProviderItemTurnStart,
-	"failed-turn":                 fakeCoreFailedTurnStart,
-	"unknown-turn-status":         fakeCoreUnknownStatusTurnStart,
-	"steer":                       fakeCorePendingTurnStart,
-	"activity":                    fakeCoreActivityTurnStart,
-	"empty-deltas":                fakeCoreEmptyDeltaTurnStart,
-	"empty-base64-output-deltas":  fakeCoreEmptyBase64OutputDeltaTurnStart,
-	"unsupported-output-stream":   fakeCoreUnsupportedOutputStreamTurnStart,
-	"approval":                    fakeCoreApprovalTurnStart,
-	"permission":                  fakeCoreApprovalTurnStart,
-	"user-input":                  fakeCoreApprovalTurnStart,
-	"mcp-elicitation-form":        fakeCoreMCPElicitationTurnStart,
-	"mcp-elicitation-form-cancel": fakeCoreMCPElicitationTurnStart,
-	"mcp-elicitation-url-decline": fakeCoreMCPElicitationTurnStart,
-	"dynamic-tool-unknown":        fakeCoreImmediateServerRequestTurnStart,
-	"dynamic-tool-registered":     fakeCoreImmediateServerRequestTurnStart,
-	"attestation-unavailable":     fakeCoreImmediateServerRequestTurnStart,
-	"attestation-provider":        fakeCoreImmediateServerRequestTurnStart,
-	"malformed-approval":          fakeCoreMalformedApprovalTurnStart,
-	"malformed-delta":             fakeCoreMalformedDeltaTurnStart,
-	"unsupported-request":         fakeCoreUnsupportedRequestTurnStart,
+	"stream":                        fakeCoreStreamTurnStart,
+	"structured-task":               fakeCoreStructuredTaskTurnStart,
+	"dynamic-tools-thread-start":    fakeCoreStreamTurnStart,
+	"dynamic-tools-thread-resume":   fakeCoreStreamTurnStart,
+	"initial-settings":              fakeCoreStreamTurnStart,
+	"turn-started-id":               fakeCoreProviderTurnStart,
+	"provider-item-turn-id":         fakeCoreProviderItemTurnStart,
+	"failed-turn":                   fakeCoreFailedTurnStart,
+	"unknown-turn-status":           fakeCoreUnknownStatusTurnStart,
+	"steer":                         fakeCorePendingTurnStart,
+	"agent-delta-completed-item":    fakeCoreAgentDeltaCompletedItemTurnStart,
+	"activity":                      fakeCoreActivityTurnStart,
+	"unified-exec-background":       fakeCoreUnifiedExecBackgroundTurnStart,
+	"unified-exec-cross-turn":       fakeCoreUnifiedExecCrossTurnStart,
+	"unified-exec-cross-turn-first": fakeCoreUnifiedExecCrossTurnFirstStart,
+	"duplicate-agent-delta":         fakeCoreDuplicateAgentDeltaTurnStart,
+	"empty-deltas":                  fakeCoreEmptyDeltaTurnStart,
+	"empty-base64-output-deltas":    fakeCoreEmptyBase64OutputDeltaTurnStart,
+	"unsupported-output-stream":     fakeCoreUnsupportedOutputStreamTurnStart,
+	"approval":                      fakeCoreApprovalTurnStart,
+	"permission":                    fakeCoreApprovalTurnStart,
+	"user-input":                    fakeCoreApprovalTurnStart,
+	"mcp-elicitation-form":          fakeCoreMCPElicitationTurnStart,
+	"mcp-elicitation-form-cancel":   fakeCoreMCPElicitationTurnStart,
+	"mcp-elicitation-url-decline":   fakeCoreMCPElicitationTurnStart,
+	"dynamic-tool-unknown":          fakeCoreImmediateServerRequestTurnStart,
+	"dynamic-tool-registered":       fakeCoreImmediateServerRequestTurnStart,
+	"attestation-unavailable":       fakeCoreImmediateServerRequestTurnStart,
+	"attestation-provider":          fakeCoreImmediateServerRequestTurnStart,
+	"malformed-approval":            fakeCoreMalformedApprovalTurnStart,
+	"malformed-delta":               fakeCoreMalformedDeltaTurnStart,
+	"unsupported-request":           fakeCoreUnsupportedRequestTurnStart,
 }
 
 func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool) {
@@ -867,6 +993,16 @@ func fakeCorePendingTurnStart(string, *fakeCodexState) bool {
 
 func fakeCoreActivityTurnStart(string, *fakeCodexState) bool {
 	writeFakeActivityTurn()
+	return true
+}
+
+func fakeCoreAgentDeltaCompletedItemTurnStart(string, *fakeCodexState) bool {
+	writeFakeAgentDeltaCompletedItemTurn()
+	return true
+}
+
+func fakeCoreDuplicateAgentDeltaTurnStart(string, *fakeCodexState) bool {
+	writeFakeDuplicateAgentDeltaTurn()
 	return true
 }
 
@@ -1141,6 +1277,10 @@ func writeFakeResponse(id any, result any) {
 
 func writeFakeErrorResponse(id any, code int, message string) {
 	writeFake(map[string]any{"id": id, "error": map[string]any{"code": code, "message": message}})
+}
+
+func writeFakeErrorResponseData(id any, code int, message string, data map[string]any) {
+	writeFake(map[string]any{"id": id, "error": map[string]any{"code": code, "data": data, "message": message}})
 }
 
 func writeFakeNotification(method string, params any) {
