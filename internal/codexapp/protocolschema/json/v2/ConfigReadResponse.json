@@ -19,16 +19,6 @@
     },
     "AppConfig": {
       "properties": {
-        "approvals_reviewer": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/ApprovalsReviewer"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "default_tools_approval_mode": {
           "anyOf": [
             {
@@ -133,26 +123,6 @@
     },
     "AppsDefaultConfig": {
       "properties": {
-        "approvals_reviewer": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/ApprovalsReviewer"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "default_tools_approval_mode": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/AppToolApproval"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "destructive_enabled": {
           "default": true,
           "type": "boolean"
@@ -687,8 +657,15 @@
       "type": "string"
     },
     "ReasoningEffort": {
-      "description": "A non-empty reasoning effort value advertised by the model.",
-      "minLength": 1,
+      "description": "See https://platform.openai.com/docs/guides/reasoning?api-mode=responses#get-started-with-reasoning",
+      "enum": [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
       "type": "string"
     },
     "ReasoningSummary": {
@@ -809,7 +786,6 @@
       "enum": [
         "disabled",
         "cached",
-        "indexed",
         "live"
       ],
       "type": "string"

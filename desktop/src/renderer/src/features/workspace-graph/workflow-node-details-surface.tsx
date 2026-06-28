@@ -9,10 +9,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
-import {
-  useWorkflowEditorStore,
-  type WorkflowNodeActivityFocus,
-} from "../../stores/workflow-editor-store";
+import { useWorkflowEditorStore } from "../../stores/workflow-editor-store";
 import {
   WorkflowDetailsEmpty,
   WorkflowDetailsError,
@@ -45,7 +42,6 @@ const workflowRunActivityLimit = 40;
 
 export function WorkflowNodeDetailsSurface() {
   const target = useWorkflowEditorStore((state) => state.selectedNodeTarget);
-  const activityFocus = useWorkflowEditorStore((state) => state.selectedNodeActivityFocus);
   const notifyWorkflowDefinitionChanged = useWorkflowEditorStore(
     (state) => state.notifyWorkflowDefinitionChanged,
   );
@@ -113,7 +109,6 @@ export function WorkflowNodeDetailsSurface() {
   return (
     <WorkflowDetailsShell title={workflowDetailsTitle(target, node)}>
       <WorkflowNodeDetailsContent
-        activityFocus={activityFocus}
         definition={definition}
         draft={draft}
         loadError={loadError}
@@ -250,7 +245,6 @@ async function loadWorkflowNodeActivityPage(
 }
 
 function WorkflowNodeDetailsContent({
-  activityFocus,
   definition,
   draft,
   loadError,
@@ -262,7 +256,6 @@ function WorkflowNodeDetailsContent({
   saving,
   target,
 }: {
-  activityFocus: WorkflowNodeActivityFocus | null;
   definition: WorkflowDefinitionRecord | null;
   draft: AgentTaskDraft | null;
   loadError: string;
@@ -281,11 +274,7 @@ function WorkflowNodeDetailsContent({
     return (
       <>
         <WorkflowNodeIdentity target={target} />
-        <WorkflowRunDetailsContent
-          focus={activityFocus}
-          inspection={runInspection}
-          target={target}
-        />
+        <WorkflowRunDetailsContent inspection={runInspection} target={target} />
       </>
     );
   }
@@ -594,12 +583,7 @@ function WorkflowNodeIdentity({ target }: { target: WorkflowNodeDetailsTarget })
   return (
     <div className="border-b border-zinc-800 px-4 py-3 text-xs text-zinc-400">
       <div className="truncate">{target.definitionName}</div>
-      <div
-        className="mt-1 font-mono text-[11px] text-zinc-500"
-        data-testid="workflow-node-details-node-id"
-      >
-        {target.nodeId}
-      </div>
+      <div className="mt-1 font-mono text-[11px] text-zinc-500">{target.nodeId}</div>
       {target.executionId !== "" ? (
         <div className="mt-1 font-mono text-[11px] text-zinc-500">
           run {shortIdentifier(target.executionId)} / {workflowVersionLabel(target)}

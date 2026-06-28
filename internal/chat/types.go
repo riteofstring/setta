@@ -1,10 +1,6 @@
 package chat
 
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-)
+import "encoding/json"
 
 type HarnessKind string
 type MessageRole string
@@ -21,9 +17,6 @@ type RunItemType string
 type DiagnosticSeverity string
 type DiagnosticSource string
 type ChatCommandKind string
-type ChatSlashCommandKind string
-type ChatCommandArgumentKind string
-type ChatCommandLiteralMatchMode string
 type GoalCommandAction string
 type ModelCommandAction string
 type ReasoningEffort string
@@ -118,13 +111,6 @@ const (
 
 	ChatCommandGoal  ChatCommandKind = "goal"
 	ChatCommandModel ChatCommandKind = "model"
-
-	ChatSlashCommandGoal ChatSlashCommandKind = "goal"
-
-	ChatCommandArgumentLiteral  ChatCommandArgumentKind = "literal"
-	ChatCommandArgumentFreeText ChatCommandArgumentKind = "free_text"
-
-	ChatCommandLiteralMatchExact ChatCommandLiteralMatchMode = "exact"
 
 	GoalCommandShow   GoalCommandAction = "show"
 	GoalCommandSet    GoalCommandAction = "set"
@@ -250,16 +236,6 @@ var (
 		ChatCommandGoal,
 		ChatCommandModel,
 	}
-	chatSlashCommandKindValues = []ChatSlashCommandKind{
-		ChatSlashCommandGoal,
-	}
-	chatCommandArgumentKindValues = []ChatCommandArgumentKind{
-		ChatCommandArgumentLiteral,
-		ChatCommandArgumentFreeText,
-	}
-	chatCommandLiteralMatchModeValues = []ChatCommandLiteralMatchMode{
-		ChatCommandLiteralMatchExact,
-	}
 	goalCommandActionValues = []GoalCommandAction{
 		GoalCommandShow,
 		GoalCommandSet,
@@ -310,17 +286,10 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "DiagnosticSource", Values: stringValues(diagnosticSourceValues)},
 		{Name: "StructuredInputMode", Values: stringValues(structuredInputModeValues)},
 		{Name: "ChatCommandKind", Values: stringValues(chatCommandKindValues)},
-		{Name: "ChatSlashCommandKind", Values: stringValues(chatSlashCommandKindValues)},
-		{Name: "ChatCommandArgumentKind", Values: stringValues(chatCommandArgumentKindValues)},
-		{Name: "ChatCommandLiteralMatchMode", Values: stringValues(chatCommandLiteralMatchModeValues)},
 		{Name: "GoalCommandAction", Values: stringValues(goalCommandActionValues)},
 		{Name: "ModelCommandAction", Values: stringValues(modelCommandActionValues)},
 		{Name: "ReasoningEffort", Values: stringValues(reasoningEffortValues)},
 		{Name: "ChatCommandResultAction", Values: stringValues(chatCommandResultActionValues)},
-		{Name: "TranscriptBlockKind", Values: stringValues(transcriptBlockKindValues)},
-		{Name: "TranscriptBlockStatus", Values: stringValues(transcriptBlockStatusValues)},
-		{Name: "ReasoningBlockMode", Values: stringValues(reasoningBlockModeValues)},
-		{Name: "RunStatusBlockMode", Values: stringValues(runStatusBlockModeValues)},
 	}
 }
 
@@ -333,30 +302,22 @@ func stringValues[T ~string](values []T) []string {
 }
 
 type Conversation struct {
-	SchemaVersion          int                           `json:"schemaVersion"`
-	ID                     string                        `json:"id"`
-	WorkspaceID            string                        `json:"workspaceId"`
-	Title                  string                        `json:"title"`
-	Internal               bool                          `json:"internal"`
-	CreatedAt              string                        `json:"createdAt"`
-	UpdatedAt              string                        `json:"updatedAt"`
-	ArchivedAt             string                        `json:"archivedAt"`
-	CodexSettings          *ChatCodexSettings            `json:"codexSettings"`
-	CodexEffectiveSettings *ChatCodexEffectiveSettings   `json:"codexEffectiveSettings"`
-	HarnessRefs            []HarnessThreadRef            `json:"harnessRefs"`
-	Workflow               *ConversationWorkflowMetadata `json:"workflow"`
+	SchemaVersion int                           `json:"schemaVersion"`
+	ID            string                        `json:"id"`
+	WorkspaceID   string                        `json:"workspaceId"`
+	Title         string                        `json:"title"`
+	Internal      bool                          `json:"internal"`
+	CreatedAt     string                        `json:"createdAt"`
+	UpdatedAt     string                        `json:"updatedAt"`
+	ArchivedAt    string                        `json:"archivedAt"`
+	CodexSettings *ChatCodexSettings            `json:"codexSettings"`
+	HarnessRefs   []HarnessThreadRef            `json:"harnessRefs"`
+	Workflow      *ConversationWorkflowMetadata `json:"workflow"`
 }
 
 type ChatCodexSettings struct {
 	Model           string           `json:"model"`
 	ReasoningEffort *ReasoningEffort `json:"reasoningEffort"`
-}
-
-type ChatCodexEffectiveSettings struct {
-	Model                      string           `json:"model"`
-	ModelDisplayName           string           `json:"modelDisplayName"`
-	ReasoningEffort            *ReasoningEffort `json:"reasoningEffort"`
-	ReasoningEffortDisplayName string           `json:"reasoningEffortDisplayName"`
 }
 
 type ConversationWorkflowMetadata struct {
@@ -554,6 +515,13 @@ type QueueState struct {
 	Runs     []Run         `json:"runs"`
 }
 
+type TranscriptTurn struct {
+	Run              Run           `json:"run"`
+	TriggerMessage   ChatMessage   `json:"triggerMessage"`
+	AssistantMessage *ChatMessage  `json:"assistantMessage"`
+	SteeringMessages []ChatMessage `json:"steeringMessages"`
+}
+
 type ConversationListItem struct {
 	Conversation             Conversation `json:"conversation"`
 	MessageCount             int          `json:"messageCount"`
@@ -642,49 +610,17 @@ type ChatReasoningEffortOption struct {
 	IsDefault   bool            `json:"isDefault"`
 }
 
-type ChatCommandDescriptor struct {
-	Kind              ChatSlashCommandKind `json:"kind"`
-	Name              string               `json:"name"`
-	Description       string               `json:"description"`
-	Available         bool                 `json:"available"`
-	UnavailableReason string               `json:"unavailableReason"`
-	Grammar           ChatCommandGrammar   `json:"grammar"`
+type ChatCommandCapability struct {
+	Kind              ChatCommandKind `json:"kind"`
+	Name              string          `json:"name"`
+	Usage             string          `json:"usage"`
+	Description       string          `json:"description"`
+	Available         bool            `json:"available"`
+	UnavailableReason string          `json:"unavailableReason"`
 }
-
-type ChatCommandGrammar struct {
-	Summary      string                      `json:"summary"`
-	LiteralMatch ChatCommandLiteralMatchMode `json:"literalMatch"`
-	Arguments    []ChatCommandArgumentSpec   `json:"arguments"`
-}
-
-type ChatCommandArgumentSpec interface {
-	chatCommandArgumentSpec()
-}
-
-type ChatCommandLiteralArgumentSpec struct {
-	Kind        ChatCommandArgumentKind `json:"kind"`
-	Token       string                  `json:"token"`
-	Description string                  `json:"description"`
-	GoalAction  GoalCommandAction       `json:"-"`
-	GoalStatus  string                  `json:"-"`
-}
-
-func (ChatCommandLiteralArgumentSpec) chatCommandArgumentSpec() {}
-
-type ChatCommandFreeTextArgumentSpec struct {
-	Kind        ChatCommandArgumentKind `json:"kind"`
-	Name        string                  `json:"name"`
-	Description string                  `json:"description"`
-	MaxRunes    int                     `json:"maxRunes"`
-	Required    bool                    `json:"required"`
-	GoalAction  GoalCommandAction       `json:"-"`
-	GoalStatus  string                  `json:"-"`
-}
-
-func (ChatCommandFreeTextArgumentSpec) chatCommandArgumentSpec() {}
 
 type ChatCommandListResult struct {
-	Commands []ChatCommandDescriptor `json:"commands"`
+	Commands []ChatCommandCapability `json:"commands"`
 }
 
 type ChatCommandResult struct {
@@ -693,7 +629,6 @@ type ChatCommandResult struct {
 	Raw                     string                      `json:"raw"`
 	Title                   string                      `json:"title"`
 	Message                 string                      `json:"message"`
-	ComposerDraft           string                      `json:"composerDraft"`
 	Goal                    *ChatGoalState              `json:"goal"`
 	Models                  []ChatModelOption           `json:"models"`
 	SelectedModel           string                      `json:"selectedModel"`
@@ -708,18 +643,22 @@ type ChatCommandExecuteResult struct {
 	Result       ChatCommandResult `json:"result"`
 }
 
-// MessagePage is block-paged: the transcript is the ordered Blocks stream, paged
-// by transcript block ordinal (HasMoreOlder/OlderBeforeBlockOrdinal). Messages are
-// the latest window for non-transcript surfaces (queue, commands) and are not
-// load-bearing for transcript rendering, so they carry no separate cursor.
 type MessagePage struct {
-	Conversation            Conversation      `json:"conversation"`
-	Messages                []ChatMessage     `json:"messages"`
-	Queue                   QueueState        `json:"queue"`
-	Blocks                  []TranscriptBlock `json:"blocks"`
-	Goal                    *ChatGoalState    `json:"goal"`
-	HasMoreOlder            bool              `json:"hasMoreOlder"`
-	OlderBeforeBlockOrdinal int               `json:"olderBeforeBlockOrdinal"`
+	Conversation       Conversation     `json:"conversation"`
+	Messages           []ChatMessage    `json:"messages"`
+	RunItems           []RunItem        `json:"runItems"`
+	RunItemOutputs     []RunItemOutput  `json:"runItemOutputs"`
+	Queue              QueueState       `json:"queue"`
+	Transcript         []TranscriptTurn `json:"transcript"`
+	Goal               *ChatGoalState   `json:"goal"`
+	HasMoreOlder       bool             `json:"hasMoreOlder"`
+	OlderBeforeOrdinal int              `json:"olderBeforeOrdinal"`
+}
+
+type RunActivityPage struct {
+	RunID  string          `json:"runId"`
+	Items  []RunItem       `json:"items"`
+	Output []RunItemOutput `json:"output"`
 }
 
 type RunItemOutputPage struct {
@@ -784,71 +723,9 @@ func (approval ApprovalRequest) MarshalJSON() ([]byte, error) {
 func (result ChatCommandListResult) MarshalJSON() ([]byte, error) {
 	type resultAlias ChatCommandListResult
 	if result.Commands == nil {
-		result.Commands = []ChatCommandDescriptor{}
+		result.Commands = []ChatCommandCapability{}
 	}
 	return json.Marshal(resultAlias(result))
-}
-
-func (grammar ChatCommandGrammar) MarshalJSON() ([]byte, error) {
-	type grammarAlias ChatCommandGrammar
-	if grammar.Arguments == nil {
-		grammar.Arguments = []ChatCommandArgumentSpec{}
-	}
-	return json.Marshal(grammarAlias(grammar))
-}
-
-func (grammar *ChatCommandGrammar) UnmarshalJSON(data []byte) error {
-	var raw struct {
-		Summary      string                      `json:"summary"`
-		LiteralMatch ChatCommandLiteralMatchMode `json:"literalMatch"`
-		Arguments    []json.RawMessage           `json:"arguments"`
-	}
-	if err := decodeJSONStrict(data, &raw); err != nil {
-		return err
-	}
-	arguments := make([]ChatCommandArgumentSpec, 0, len(raw.Arguments))
-	for _, rawArgument := range raw.Arguments {
-		argument, err := unmarshalChatCommandArgumentSpec(rawArgument)
-		if err != nil {
-			return err
-		}
-		arguments = append(arguments, argument)
-	}
-	grammar.Summary = raw.Summary
-	grammar.LiteralMatch = raw.LiteralMatch
-	grammar.Arguments = arguments
-	return nil
-}
-
-func unmarshalChatCommandArgumentSpec(data []byte) (ChatCommandArgumentSpec, error) {
-	var discriminator struct {
-		Kind ChatCommandArgumentKind `json:"kind"`
-	}
-	if err := json.Unmarshal(data, &discriminator); err != nil {
-		return nil, err
-	}
-	switch discriminator.Kind {
-	case ChatCommandArgumentLiteral:
-		var spec ChatCommandLiteralArgumentSpec
-		if err := decodeJSONStrict(data, &spec); err != nil {
-			return nil, err
-		}
-		return spec, nil
-	case ChatCommandArgumentFreeText:
-		var spec ChatCommandFreeTextArgumentSpec
-		if err := decodeJSONStrict(data, &spec); err != nil {
-			return nil, err
-		}
-		return spec, nil
-	default:
-		return nil, fmt.Errorf("unsupported chat command argument kind: %s", discriminator.Kind)
-	}
-}
-
-func decodeJSONStrict(data []byte, target any) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	return decoder.Decode(target)
 }
 
 func (result ChatCommandResult) MarshalJSON() ([]byte, error) {
@@ -905,6 +782,14 @@ func (state QueueState) MarshalJSON() ([]byte, error) {
 	return json.Marshal(stateAlias(state))
 }
 
+func (turn TranscriptTurn) MarshalJSON() ([]byte, error) {
+	type turnAlias TranscriptTurn
+	if turn.SteeringMessages == nil {
+		turn.SteeringMessages = []ChatMessage{}
+	}
+	return json.Marshal(turnAlias(turn))
+}
+
 func (summary CorruptionSummary) MarshalJSON() ([]byte, error) {
 	type summaryAlias CorruptionSummary
 	if summary.ByKind == nil {
@@ -932,8 +817,25 @@ func (page MessagePage) MarshalJSON() ([]byte, error) {
 	if page.Messages == nil {
 		page.Messages = []ChatMessage{}
 	}
-	if page.Blocks == nil {
-		page.Blocks = []TranscriptBlock{}
+	if page.RunItems == nil {
+		page.RunItems = []RunItem{}
+	}
+	if page.RunItemOutputs == nil {
+		page.RunItemOutputs = []RunItemOutput{}
+	}
+	if page.Transcript == nil {
+		page.Transcript = []TranscriptTurn{}
+	}
+	return json.Marshal(pageAlias(page))
+}
+
+func (page RunActivityPage) MarshalJSON() ([]byte, error) {
+	type pageAlias RunActivityPage
+	if page.Items == nil {
+		page.Items = []RunItem{}
+	}
+	if page.Output == nil {
+		page.Output = []RunItemOutput{}
 	}
 	return json.Marshal(pageAlias(page))
 }

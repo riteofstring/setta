@@ -4,11 +4,12 @@ import type {
   ConversationListItem,
   MessagePage,
   Run,
+  RunItem,
   RunItemOutput,
-  TranscriptBlock,
+  TranscriptTurn,
 } from "@generated/backend";
 
-import { orderTranscriptBlocks } from "../lib/chat-transcript-blocks";
+import { compareTranscriptTurns } from "../lib/chat-transcript-ordering";
 
 export type RunningRun = Run & { status: "running" };
 export type QueuedRun = Run & { status: "queued" };
@@ -25,11 +26,13 @@ type NormalizableChatPatch = {
   messages?: ChatMessage[];
   messageIds?: string[];
   messagesById?: Record<string, ChatMessage>;
+  runItemIdsByRunId?: Record<string, string[]>;
   runItemOutputIdsByRunItemId?: Record<string, string[]>;
   runItemOutputs?: RunItemOutput[];
   runItemOutputsById?: Record<string, RunItemOutput>;
-  transcriptBlocks?: TranscriptBlock[];
-  transcriptBlocksById?: Record<string, TranscriptBlock>;
+  runItems?: RunItem[];
+  runItemsById?: Record<string, RunItem>;
+  transcript?: TranscriptTurn[];
 };
 
 export function activeRunFromCandidate(run: Run | null): RunningRun | null {
@@ -60,6 +63,16 @@ export function activeRunFromCandidates(
       continue;
     }
     const activeRun = activeRunFromCandidate(candidate);
+    if (activeRun) {
+      return activeRun;
+    }
+  }
+  return null;
+}
+
+export function activeRunFromPage(page: MessagePage): RunningRun | null {
+  for (const turn of page.transcript) {
+    const activeRun = activeRunFromCandidate(turn.run);
     if (activeRun) {
       return activeRun;
     }
@@ -110,11 +123,17 @@ export function updateRunItemOutputPageState(
 
 export function normalizeChatPatch<T extends object>(patch: T & NormalizableChatPatch): T {
   const next: NormalizableChatPatch = { ...patch };
+  let messagesById: Record<string, ChatMessage> | undefined;
   if (patch.messages !== undefined) {
-    Object.assign(next, normalizeMessages(patch.messages));
+    const normalized = normalizeMessages(patch.messages);
+    messagesById = normalized.messagesById;
+    Object.assign(next, normalized);
   }
-  if (patch.transcriptBlocks !== undefined) {
-    Object.assign(next, normalizeTranscriptBlocks(patch.transcriptBlocks));
+  if (patch.transcript !== undefined) {
+    Object.assign(next, normalizeTranscript(patch.transcript, messagesById));
+  }
+  if (patch.runItems !== undefined) {
+    Object.assign(next, normalizeRunItems(patch.runItems));
   }
   if (patch.runItemOutputs !== undefined) {
     Object.assign(next, normalizeRunItemOutputs(patch.runItemOutputs));
@@ -123,11 +142,17 @@ export function normalizeChatPatch<T extends object>(patch: T & NormalizableChat
 }
 
 export function messagesFromPage(page: MessagePage): ChatMessage[] {
-  return page.messages;
-}
-
-export function blocksFromPage(page: MessagePage): TranscriptBlock[] {
-  return page.blocks;
+  const messagesById = new Map(page.messages.map((message) => [message.id, message]));
+  for (const turn of page.transcript) {
+    messagesById.set(turn.triggerMessage.id, turn.triggerMessage);
+    if (turn.assistantMessage) {
+      messagesById.set(turn.assistantMessage.id, turn.assistantMessage);
+    }
+    for (const message of turn.steeringMessages) {
+      messagesById.set(message.id, message);
+    }
+  }
+  return [...messagesById.values()];
 }
 
 function normalizeMessages(messages: ChatMessage[]) {
@@ -143,17 +168,45 @@ function normalizeMessages(messages: ChatMessage[]) {
   };
 }
 
-// normalizeTranscriptBlocks sorts blocks into conversation order and indexes them
-// by ID so block events upsert in place. Order is owned by the backend stream
-// (see orderTranscriptBlocks); this only makes that order canonical and builds
-// the ID index.
-function normalizeTranscriptBlocks(blocks: TranscriptBlock[]) {
-  const transcriptBlocks = orderTranscriptBlocks(blocks);
-  const transcriptBlocksById: Record<string, TranscriptBlock> = {};
-  for (const block of transcriptBlocks) {
-    transcriptBlocksById[block.id] = block;
+function normalizeTranscript(
+  transcript: TranscriptTurn[],
+  messagesById: Record<string, ChatMessage> | undefined,
+) {
+  return {
+    transcript: transcript.map((turn) => hydrateTranscriptTurn(turn, messagesById)),
+  };
+}
+
+function hydrateTranscriptTurn(
+  turn: TranscriptTurn,
+  messagesById: Record<string, ChatMessage> | undefined,
+): TranscriptTurn {
+  if (!messagesById) {
+    return turn;
   }
-  return { transcriptBlocks, transcriptBlocksById };
+  return {
+    ...turn,
+    assistantMessage: turn.assistantMessage
+      ? (messagesById[turn.assistantMessage.id] ?? turn.assistantMessage)
+      : null,
+    steeringMessages: turn.steeringMessages.map((message) => messagesById[message.id] ?? message),
+    triggerMessage: messagesById[turn.triggerMessage.id] ?? turn.triggerMessage,
+  };
+}
+
+function normalizeRunItems(items: RunItem[]) {
+  const ordered = items.toSorted(compareRunItems);
+  const runItemsById: Record<string, RunItem> = {};
+  const runItemIdsByRunId: Record<string, string[]> = {};
+  for (const item of ordered) {
+    runItemsById[item.id] = item;
+    runItemIdsByRunId[item.runId] = [...(runItemIdsByRunId[item.runId] ?? []), item.id];
+  }
+  return {
+    runItemIdsByRunId,
+    runItems: ordered,
+    runItemsById,
+  };
 }
 
 function normalizeRunItemOutputs(outputs: RunItemOutput[]) {
@@ -182,152 +235,54 @@ export function prependOlderMessages(
   return [...olderMessages.filter((message) => !currentIDs.has(message.id)), ...currentMessages];
 }
 
-// prependOlderBlocks attaches a strictly older block window in front of the
-// loaded blocks. The backend's olderBeforeBlockOrdinal cursor ensures the older
-// page ends just before the current first block, so concatenation preserves
-// conversation order; IDs already present are dropped so an overlapping boundary
-// block is not duplicated.
-export function prependOlderBlocks(
-  olderBlocks: TranscriptBlock[],
-  currentBlocks: TranscriptBlock[],
-): TranscriptBlock[] {
-  const currentIds = new Set(currentBlocks.map((block) => block.id));
-  return [...olderBlocks.filter((block) => !currentIds.has(block.id)), ...currentBlocks];
+export function prependOlderTranscript(
+  olderTranscript: TranscriptTurn[],
+  currentTranscript: TranscriptTurn[],
+): TranscriptTurn[] {
+  const currentRunIds = new Set(currentTranscript.map((turn) => turn.run.id));
+  return [
+    ...olderTranscript.filter((turn) => !currentRunIds.has(turn.run.id)),
+    ...currentTranscript,
+  ];
 }
 
-// upsertTranscriptBlock applies a single block created/updated event by ID: an
-// existing block is replaced in place (its ordinal is stable, so order does not
-// change), and a new block is appended for re-ordering by normalizeTranscriptBlocks.
-export function upsertTranscriptBlock(
-  blocks: TranscriptBlock[],
-  block: TranscriptBlock,
-): TranscriptBlock[] {
-  const index = blocks.findIndex((current) => current.id === block.id);
-  return index === -1 ? [...blocks, block] : blocks.with(index, block);
-}
-
-// replaceRunTranscriptBlocks applies a per-run replaced snapshot: every existing
-// block for the run is swapped for the snapshot at the run's current position, so
-// a dropped block (de-dup, working indicator superseded) or a re-projected run
-// keeps the run anchored where it already sits. A run with no current blocks is
-// appended.
-export function replaceRunTranscriptBlocks(
-  blocks: TranscriptBlock[],
-  runId: string,
-  runBlocks: TranscriptBlock[],
-): TranscriptBlock[] {
-  const result: TranscriptBlock[] = [];
-  let inserted = false;
-  for (const block of blocks) {
-    if (block.runId === runId) {
-      if (!inserted) {
-        result.push(...runBlocks);
-        inserted = true;
-      }
-      continue;
-    }
-    result.push(block);
-  }
-  if (!inserted) {
-    result.push(...runBlocks);
-  }
-  return result;
-}
-
-// appendTranscriptBlockText applies a block-keyed assistant text delta. It
-// reports whether the target assistant_text block was present so the caller can
-// resync when a delta arrives for a block the renderer has not loaded.
-export function appendTranscriptBlockText(
-  blocks: TranscriptBlock[],
-  blockId: string,
-  delta: string,
-  updatedAt: string,
-): { blocks: TranscriptBlock[]; found: boolean } {
-  let found = false;
-  const next = blocks.map((block) => {
-    if (block.id !== blockId || !block.assistantText) {
-      return block;
-    }
-    found = true;
-    return {
-      ...block,
-      assistantText: { ...block.assistantText, text: block.assistantText.text + delta },
-      updatedAt,
-    };
-  });
-  return { blocks: next, found };
-}
-
-export function terminalRunIdsAfterOperation(
-  currentBlocks: TranscriptBlock[],
-  activeRunId: string | null,
-  returnedRun: Run,
-) {
-  const runIds = terminalRunIdsFromBlocks(currentBlocks, activeRunId);
+export function terminalRunIdsAfterOperation(transcript: TranscriptTurn[], returnedRun: Run) {
+  const runIds = terminalRunIdsFromTranscript(transcript);
   if (isTerminalRun(returnedRun)) {
     runIds.add(returnedRun.id);
   }
   return runIds;
 }
 
-// terminalRunIdsFromBlocks returns the runs whose blocks should be preserved from
-// the current state across a page merge. A conversation has at most one active
-// run, so every run that already owns transcript blocks except the active one is
-// terminal (completed, cancelled, or failed); queued runs own no blocks yet.
-export function terminalRunIdsFromBlocks(blocks: TranscriptBlock[], activeRunId: string | null) {
-  const runIds = new Set(blocks.map((block) => block.runId));
-  if (activeRunId) {
-    runIds.delete(activeRunId);
+export function terminalRunIdsFromTranscript(transcript: TranscriptTurn[]) {
+  const runIds = new Set<string>();
+  for (const turn of transcript) {
+    if (isTerminalRun(turn.run)) {
+      runIds.add(turn.run.id);
+    }
   }
   return runIds;
 }
 
-// mergeOperationBlocks reconciles the current blocks with a fresh operation/resync
-// page. The current state is the fully-ordered live transcript (extended in
-// conversation order by block events), so it is the ordering backbone: a run the
-// stale page dropped — whether an older scrolled-out run or a queued run that was
-// promoted and completed by events after the page was computed — keeps its
-// current position. A run the page includes takes the fresh page blocks only while
-// it is still active; terminal runs keep the current (event-fresher) snapshot,
-// mirroring the message merge. Page-only runs the current state has not seen yet
-// are appended in page order.
-export function mergeOperationBlocks(
-  currentBlocks: TranscriptBlock[],
-  pageBlocks: TranscriptBlock[],
+export function mergeOperationTranscript(
+  currentTranscript: TranscriptTurn[],
+  pageTranscript: TranscriptTurn[],
   terminalRunIds: Set<string>,
-): TranscriptBlock[] {
-  const current = groupBlocksByRun(currentBlocks);
-  const page = groupBlocksByRun(pageBlocks);
-  const emitted = new Set<string>();
-  const result: TranscriptBlock[] = [];
-  for (const runId of current.order) {
-    emitted.add(runId);
-    const useCurrent = terminalRunIds.has(runId) || !page.byRun.has(runId);
-    const blocks = useCurrent ? current.byRun.get(runId) : page.byRun.get(runId);
-    result.push(...(blocks ?? []));
-  }
-  for (const runId of page.order) {
-    if (emitted.has(runId)) {
-      continue;
-    }
-    result.push(...(page.byRun.get(runId) ?? []));
-  }
-  return result;
-}
-
-function groupBlocksByRun(blocks: TranscriptBlock[]) {
-  const order: string[] = [];
-  const byRun = new Map<string, TranscriptBlock[]>();
-  for (const block of blocks) {
-    let group = byRun.get(block.runId);
-    if (!group) {
-      group = [];
-      byRun.set(block.runId, group);
-      order.push(block.runId);
-    }
-    group.push(block);
-  }
-  return { byRun, order };
+) {
+  const currentByRunId = new Map(currentTranscript.map((turn) => [turn.run.id, turn]));
+  const pageRunIds = new Set(pageTranscript.map((turn) => turn.run.id));
+  return [
+    ...pageTranscript.map((pageTurn) => {
+      const current = currentByRunId.get(pageTurn.run.id);
+      if (current && terminalRunIds.has(pageTurn.run.id)) {
+        return current;
+      }
+      return pageTurn;
+    }),
+    ...currentTranscript.filter(
+      (turn) => terminalRunIds.has(turn.run.id) && !pageRunIds.has(turn.run.id),
+    ),
+  ].toSorted(compareTranscriptTurns);
 }
 
 export function mergeOperationQueue(
@@ -363,6 +318,63 @@ export function mergeOperationMessages(
     }
     return pageMessage;
   });
+}
+
+export function mergeOperationRunItems(
+  currentRunItems: RunItem[],
+  pageRunItems: RunItem[],
+  terminalRunIds: Set<string>,
+) {
+  const currentPreservedItemsById = new Map(
+    currentRunItems
+      .filter((item) => terminalRunIds.has(item.runId) || isTerminalRunItem(item))
+      .map((item) => [item.id, item]),
+  );
+  const pageItemIds = new Set(pageRunItems.map((item) => item.id));
+  return [
+    ...pageRunItems.map((item) => currentPreservedItemsById.get(item.id) ?? item),
+    ...[...currentPreservedItemsById.values()].filter((item) => !pageItemIds.has(item.id)),
+  ].toSorted(compareRunItems);
+}
+
+export function mergeOperationRunItemOutputs(
+  currentRunItems: RunItem[],
+  currentOutputs: RunItemOutput[],
+  pageOutputs: RunItemOutput[],
+  terminalRunIds: Set<string>,
+) {
+  const terminalRunItemIds = new Set(
+    currentRunItems
+      .filter((item) => terminalRunIds.has(item.runId) || isTerminalRunItem(item))
+      .map((item) => item.id),
+  );
+  const currentTerminalOutputsById = new Map(
+    currentOutputs
+      .filter((output) => terminalRunItemIds.has(output.runItemId))
+      .map((output) => [output.id, output]),
+  );
+  const pageOutputIds = new Set(pageOutputs.map((output) => output.id));
+  return [
+    ...pageOutputs.map((output) => currentTerminalOutputsById.get(output.id) ?? output),
+    ...[...currentTerminalOutputsById.values()].filter((output) => !pageOutputIds.has(output.id)),
+  ].toSorted(compareRunItemOutputs);
+}
+
+export function upsertRunItems(items: RunItem[], nextItems: RunItem[]): RunItem[] {
+  return nextItems.reduce(upsertRunItem, items);
+}
+
+function upsertRunItem(items: RunItem[], item: RunItem): RunItem[] {
+  const index = items.findIndex((current) => current.id === item.id);
+  const next = index === -1 ? [...items, item] : items.with(index, item);
+  return next.toSorted(compareRunItems);
+}
+
+function compareRunItems(left: RunItem, right: RunItem) {
+  if (left.createdAt === right.createdAt) {
+    return left.id.localeCompare(right.id);
+  }
+  return left.createdAt.localeCompare(right.createdAt);
 }
 
 export function upsertRunItemOutputs(
@@ -420,4 +432,8 @@ function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
 
 function isTerminalRun(run: Run) {
   return run.status === "completed" || run.status === "cancelled" || run.status === "failed";
+}
+
+function isTerminalRunItem(item: RunItem) {
+  return item.status === "completed" || item.status === "cancelled" || item.status === "failed";
 }

@@ -448,18 +448,12 @@ func (service *Service) startImmediateSteeringReplay(workspaceSummary workspace.
 		service.mu.Unlock()
 		return ImmediateSteeringResult{}, err
 	}
-	ingest, err := service.newTranscriptIngestLocked(workspaceID, run)
-	if err != nil {
-		service.mu.Unlock()
-		return ImmediateSteeringResult{}, err
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.active[key] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
 		runID:            run.ID,
 		workspaceID:      workspaceID,
-		transcript:       ingest,
 	}
 	if err := service.publishImmediateSteeringReplayLocked(workspaceID, conversationID, userMessage, assistantMessage, run, pending); err != nil {
 		service.mu.Unlock()
@@ -562,9 +556,6 @@ func (service *Service) persistImmediateSteeringReplayLocked(workspaceID string,
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
-	if err := service.removeSteeringTranscriptBlocksLocked(workspaceID, records.PendingSteeringMessages); err != nil {
-		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
-	}
 	if err := service.traceLocked(workspaceID, records.Run.ID, "immediate_steering_replayed", "Pending steering replayed immediately"); err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
@@ -660,17 +651,12 @@ func (service *Service) promoteNextQueuedRunLocked(workspaceSummary workspace.Wo
 	if err != nil {
 		return err
 	}
-	ingest, err := service.newTranscriptIngestLocked(workspaceSummary.ID, run)
-	if err != nil {
-		return err
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.active[activeKey(workspaceSummary.ID, conversationID)] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
 		runID:            run.ID,
 		workspaceID:      workspaceSummary.ID,
-		transcript:       ingest,
 	}
 	if err := service.publishQueuedPromotionLocked(workspaceSummary.ID, conversationID, userMessage, assistantMessage, run); err != nil {
 		return err
@@ -791,13 +777,6 @@ func (service *Service) saveSteeringMessageLocked(workspaceID string, conversati
 	if err := service.store.SaveMessage(workspaceID, message); err != nil {
 		return ChatMessage{}, err
 	}
-	// Assign the steering message a run-local transcript ordinal at the moment it
-	// is sent so it interleaves with the assistant/activity blocks already emitted.
-	if active, ok := service.active[activeKey(workspaceID, conversationID)]; ok && active.runID == run.ID && active.transcript != nil {
-		if err := service.appendUserMessageBlockLocked(workspaceID, active.transcript, message); err != nil {
-			return ChatMessage{}, err
-		}
-	}
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
 	if err != nil {
 		return ChatMessage{}, err
@@ -835,9 +814,6 @@ func (service *Service) finishSteeringMessage(workspaceID string, conversationID
 		message.Status = MessageStatusError
 	}
 	if err := service.store.SaveMessage(workspaceID, message); err != nil {
-		return ChatMessage{}, Run{}, err
-	}
-	if err := service.syncUserMessageBlockLocked(workspaceID, conversationID, run.ID, message); err != nil {
 		return ChatMessage{}, Run{}, err
 	}
 	traceMessage := "Steering message sent"
@@ -884,9 +860,6 @@ func (service *Service) markPendingSteeringCommitted(workspaceID string, convers
 		if err := service.store.SaveMessage(workspaceID, message); err != nil {
 			return err
 		}
-		if err := service.syncUserMessageBlockLocked(workspaceID, conversationID, runID, message); err != nil {
-			return err
-		}
 		if err := service.traceLocked(workspaceID, runID, "steering_message_committed", "Steering message committed by provider"); err != nil {
 			return err
 		}
@@ -906,9 +879,6 @@ func (service *Service) markPendingSteeringMessagesLocked(workspaceID string, co
 		pending[index].Status = status
 		pending[index].UpdatedAt = now
 		if err := service.store.SaveMessage(workspaceID, pending[index]); err != nil {
-			return nil, err
-		}
-		if err := service.syncUserMessageBlockLocked(workspaceID, conversationID, runID, pending[index]); err != nil {
 			return nil, err
 		}
 	}

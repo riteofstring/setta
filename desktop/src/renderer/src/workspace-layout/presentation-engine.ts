@@ -249,12 +249,20 @@ export class PresentationEngine {
       if (!binding || assignedBindingIndexes.has(index)) {
         continue;
       }
+      if (this.hostIsActivePaneDragSource(binding)) {
+        continue;
+      }
       if (binding.contentPaneId === null) {
         return index;
       }
     }
     for (let index = 0; index < this.bindings.length; index += 1) {
-      if (!assignedBindingIndexes.has(index)) {
+      const binding = this.bindings[index];
+      if (
+        binding &&
+        !assignedBindingIndexes.has(index) &&
+        !this.hostIsActivePaneDragSource(binding)
+      ) {
         return index;
       }
     }
@@ -268,6 +276,9 @@ export class PresentationEngine {
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
     if (!item) {
+      if (this.hostIsActivePaneDragSource(binding)) {
+        return emptyPresentationWriteCounts();
+      }
       this.hideBinding(binding);
       return emptyPresentationWriteCounts();
     }
@@ -532,6 +543,9 @@ export class PresentationEngine {
     assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
+    if (this.hostIsActivePaneDragSource(binding, item.paneId)) {
+      return emptyPresentationWriteCounts();
+    }
     if (
       binding.contentPaneId !== item.paneId &&
       !this.hostContentMissing(binding) &&
@@ -584,11 +598,25 @@ export class PresentationEngine {
 
   private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): PresentationWriteCounts {
     const writeCounts = emptyPresentationWriteCounts();
+    if (this.hostIsActivePaneDragSource(binding, item.paneId)) {
+      return writeCounts;
+    }
     writeCounts.transformWrites = this.syncTransform(binding, item);
     writeCounts.boxWrites = this.syncBox(binding, item);
     this.syncLayer(binding, item);
     this.syncState(binding, item);
     return writeCounts;
+  }
+
+  private hostIsActivePaneDragSource(
+    binding: PaneHostBinding,
+    paneId = binding.contentPaneId,
+  ): boolean {
+    return (
+      binding.host.dataset.dragSource === "true" &&
+      paneId !== null &&
+      binding.contentPaneId === paneId
+    );
   }
 
   private syncBox(binding: PaneHostBinding, item: PaneRenderItem): number {

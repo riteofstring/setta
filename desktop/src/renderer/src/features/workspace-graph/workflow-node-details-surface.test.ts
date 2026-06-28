@@ -1,16 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import type {
-  RunActivityPage,
-  RunItem,
-  RunItemOutput,
-  WorkflowEvent,
-  WorkflowExecution,
-  WorkflowNodeExecution,
-} from "@generated/backend";
+import type { WorkflowEvent, WorkflowExecution, WorkflowNodeExecution } from "@generated/backend";
 import {
   latestWorkflowNodeExecution,
-  runActivityOutputStateFromPage,
   workflowConditionText,
   workflowGraphWithUpdatedAgentTask,
   workflowNodeEvents,
@@ -99,36 +91,6 @@ describe("workflow node details surface helpers", () => {
     ).toEqual(["event_node", "event_attempt"]);
   });
 
-  test("adapts a preloaded run activity page into shared run-activity output state", () => {
-    const page: RunActivityPage = {
-      activity: [],
-      items: [runItem("run_item_a"), runItem("run_item_b")],
-      output: [
-        runOutput("output_a2", "run_item_a", 2, "second"),
-        runOutput("output_a1", "run_item_a", 1, "first"),
-      ],
-      runId: "run_a",
-    };
-
-    const state = runActivityOutputStateFromPage(page);
-
-    // Output ids are ordered by ordinal so the concatenated text reads in order.
-    expect(state.outputIdsByRunItemId).toEqual({ run_item_a: ["output_a1", "output_a2"] });
-    expect(state.outputsById.output_a1?.text).toBe("first");
-    // Every item gets a complete page so the shared rows never trigger a lazy output load.
-    expect(state.outputPagesByRunItemId.run_item_a).toEqual({
-      error: null,
-      hasMore: false,
-      loadedThroughOrdinal: 2,
-      loading: false,
-      nextOrdinal: 2,
-    });
-    expect(state.outputPagesByRunItemId.run_item_b).toMatchObject({
-      hasMore: false,
-      loadedThroughOrdinal: 0,
-    });
-  });
-
   test("summarizes workflow edge conditions for details panes", () => {
     expect(workflowConditionText(null)).toBe("always");
     expect(
@@ -212,56 +174,6 @@ function nodeExecution(
     sideEffectPolicy: null,
     startedAt: "",
     status,
-  };
-}
-
-function runItem(id: string): RunItem {
-  return {
-    command: "",
-    completedAt: "",
-    conversationId: "conversation_a",
-    createdAt: "2026-06-07T00:00:00Z",
-    cwd: "",
-    details: null,
-    diffSummary: "",
-    durationMs: 0,
-    error: "",
-    exitCode: 0,
-    filePaths: [],
-    hiddenText: "",
-    id,
-    namespace: "",
-    noticeKind: "",
-    noticeMessage: "",
-    patchStatus: "",
-    processId: "",
-    progress: "",
-    providerItemId: "",
-    requestId: "",
-    result: "",
-    reviewId: "",
-    runId: "run_a",
-    schemaVersion: 1,
-    serverName: "",
-    startedAt: "",
-    status: "completed",
-    summary: "",
-    title: id,
-    toolName: "",
-    type: "command_execution",
-    workspaceId: "workspace_test",
-  };
-}
-
-function runOutput(id: string, runItemId: string, ordinal: number, text: string): RunItemOutput {
-  return {
-    createdAt: "2026-06-07T00:00:00Z",
-    id,
-    ordinal,
-    runItemId,
-    schemaVersion: 1,
-    stream: "stdout",
-    text,
   };
 }
 

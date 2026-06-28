@@ -1,6 +1,5 @@
 import type {
-  RunActivityPage,
-  RunItemOutput,
+  RunItem,
   WorkflowEdge,
   WorkflowEvent,
   WorkflowExecution,
@@ -9,8 +8,6 @@ import type {
   WorkflowNodeExecution,
   WorkflowNodeKind,
 } from "@generated/backend";
-
-import type { RunItemOutputPageState } from "../../stores/chat-store";
 
 export interface AgentTaskDraft {
   freshConversation: boolean;
@@ -173,39 +170,8 @@ export function workflowNodeKindLabel(kind: WorkflowNodeKind | "") {
   }
 }
 
-export interface RunActivityOutputState {
-  outputIdsByRunItemId: Record<string, string[]>;
-  outputPagesByRunItemId: Record<string, RunItemOutputPageState>;
-  outputsById: Record<string, RunItemOutput>;
-}
-
-// Adapts a fully-loaded RunActivityPage into the output-state shape the shared chat run-activity
-// rows consume. The workflow node details pane preloads all output, so every item gets a complete
-// page (hasMore: false) and the lazy loader is never invoked.
-export function runActivityOutputStateFromPage(page: RunActivityPage): RunActivityOutputState {
-  const outputsById: Record<string, RunItemOutput> = {};
-  const outputIdsByRunItemId: Record<string, string[]> = {};
-  const maxOrdinalByRunItemId: Record<string, number> = {};
-  for (const output of [...page.output].sort((left, right) => left.ordinal - right.ordinal)) {
-    outputsById[output.id] = output;
-    (outputIdsByRunItemId[output.runItemId] ??= []).push(output.id);
-    maxOrdinalByRunItemId[output.runItemId] = Math.max(
-      maxOrdinalByRunItemId[output.runItemId] ?? 0,
-      output.ordinal,
-    );
-  }
-  const outputPagesByRunItemId: Record<string, RunItemOutputPageState> = {};
-  for (const item of page.items) {
-    const loadedThroughOrdinal = maxOrdinalByRunItemId[item.id] ?? 0;
-    outputPagesByRunItemId[item.id] = {
-      error: null,
-      hasMore: false,
-      loadedThroughOrdinal,
-      loading: false,
-      nextOrdinal: loadedThroughOrdinal,
-    };
-  }
-  return { outputIdsByRunItemId, outputPagesByRunItemId, outputsById };
+export function runActivityItemTitle(item: RunItem) {
+  return item.title || item.command || item.toolName || item.type;
 }
 
 export function workflowJsonText(value: unknown) {

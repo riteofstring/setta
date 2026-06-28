@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"context"
 	"fmt"
 
 	"setta/internal/codexapp"
@@ -75,7 +74,6 @@ var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
 	codexapp.CodexNotificationThreadUnarchived:                        codexNotificationScopeThread,
 	codexapp.CodexNotificationTurnCompleted:                           codexNotificationScopeTurnState,
 	codexapp.CodexNotificationTurnDiffUpdated:                         codexNotificationScopeTurnState,
-	codexapp.CodexNotificationTurnModerationMetadata:                  codexNotificationScopeTurnState,
 	codexapp.CodexNotificationTurnPlanUpdated:                         codexNotificationScopeTurnState,
 	codexapp.CodexNotificationTurnStarted:                             codexNotificationScopeThread,
 	codexapp.CodexNotificationWarning:                                 codexNotificationScopeTurnState,
@@ -83,22 +81,10 @@ var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
 	codexapp.CodexNotificationWindowsSandboxSetupCompleted:            codexNotificationScopeCapability,
 }
 
-func (harness *CodexHarness) handleCodexNotification(ctx context.Context, session *codexapp.Session, message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+func (harness *CodexHarness) handleCodexNotification(message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
 	result, err := handleCodexNotification(message, threadID, turnID, sink)
 	if err != nil {
 		return codexNotificationResult{}, err
-	}
-	if result.CodexEffectiveSettings != nil {
-		settings, err := harness.codexCommandSettingsWithDisplayLabels(ctx, session, *result.CodexEffectiveSettings)
-		if err != nil {
-			return codexNotificationResult{}, err
-		}
-		effectiveSettings := chatCodexEffectiveSettingsFromCommandSettings(settings)
-		if effectiveSettings != nil {
-			if err := sink.CodexEffectiveSettingsUpdated(*effectiveSettings); err != nil {
-				return codexNotificationResult{}, err
-			}
-		}
 	}
 	if message.Method == codexapp.CodexNotificationServerRequestResolved {
 		return result, harness.applyCodexServerRequestResolved(message, runID, threadID, sink)

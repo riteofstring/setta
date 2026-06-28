@@ -11,7 +11,6 @@ import (
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
-	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
@@ -37,12 +36,6 @@ type WorkspaceUIService interface {
 	SaveLayout(layout workspaceui.WorkspaceUILayout) (workspaceui.WorkspaceUILayout, error)
 }
 
-type WorkspaceActivityService interface {
-	ReadSnapshot(workspaceID string, limit int) (workspaceactivity.WorkspaceActivitySnapshot, error)
-	ReadExecutionSnapshot(workspaceID string, executionID string, limit int) (workspaceactivity.WorkspaceActivitySnapshot, error)
-	SubscribeEvents(cursor workspaceactivity.EventCursor, workspaceID string) (*workspaceactivity.EventSubscription, error)
-}
-
 type ChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
@@ -52,14 +45,13 @@ type ChatService interface {
 	ListConversations(workspaceID string) (chat.ConversationListResult, error)
 	MarkConversationRead(workspaceID string, conversationID string) (chat.ConversationListItem, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
-	LoadMessagePage(workspaceID string, conversationID string, beforeBlockOrdinal int, limit int) (chat.MessagePage, error)
+	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)
 	ExecuteChatCommandWithOptions(workspaceID string, conversationID string, raw string, options chat.ChatCommandExecutionOptions) (chat.ChatCommandExecuteResult, error)
 	EditQueuedMessage(workspaceID string, conversationID string, messageID string, prompt string) (chat.QueueEditResult, error)
 	ListCommands(workspaceID string, conversationID string) (chat.ChatCommandListResult, error)
-	OpenChatCodexModelPicker(workspaceID string, conversationID string) (chat.ChatCommandExecuteResult, error)
 	QueueUserMessage(workspaceID string, conversationID string, prompt string) (chat.QueueMessageResult, error)
 	RemoveQueuedMessage(workspaceID string, conversationID string, messageID string) (chat.QueueRemoveResult, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
@@ -85,10 +77,8 @@ type WorkflowService interface {
 	CreateDefinition(workspaceID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
 	DeleteDefinition(workspaceID string, definitionID string) error
 	ListDefinitions(workspaceID string) ([]orchestrator.WorkflowDefinition, error)
-	ListExecutionSummariesForDefinition(workspaceID string, definitionID string, limit int) ([]orchestrator.WorkflowExecutionSummary, error)
 	ReadDefinition(workspaceID string, definitionID string) (orchestrator.WorkflowDefinition, error)
 	ReadExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
-	ListExecutions(workspaceID string) ([]orchestrator.WorkflowExecution, error)
 	ReadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (orchestrator.WorkflowExecutionEventPage, error)
 	ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (orchestrator.WorkflowGraphProjection, bool, error)
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
@@ -157,43 +147,40 @@ type TerminalService interface {
 }
 
 type HandlerConfig struct {
-	AppearanceService        AppearanceService
-	Metadata                 BackendMetadata
-	ChatService              ChatService
-	CodexAccountService      CodexAccountService
-	SemanticGraphService     SemanticGraphService
-	TerminalService          TerminalService
-	WorkspaceActivityService WorkspaceActivityService
-	WorkspaceUIService       WorkspaceUIService
-	WorkspaceService         WorkspaceService
-	WorkflowService          WorkflowService
+	AppearanceService    AppearanceService
+	Metadata             BackendMetadata
+	ChatService          ChatService
+	CodexAccountService  CodexAccountService
+	SemanticGraphService SemanticGraphService
+	TerminalService      TerminalService
+	WorkspaceUIService   WorkspaceUIService
+	WorkspaceService     WorkspaceService
+	WorkflowService      WorkflowService
 }
 
 type handler struct {
-	appearanceService        AppearanceService
-	metadata                 BackendMetadata
-	chatService              ChatService
-	codexAccountService      CodexAccountService
-	semanticGraphService     SemanticGraphService
-	terminalService          TerminalService
-	workspaceActivityService WorkspaceActivityService
-	workspaceUIService       WorkspaceUIService
-	workspaceService         WorkspaceService
-	workflowService          WorkflowService
+	appearanceService    AppearanceService
+	metadata             BackendMetadata
+	chatService          ChatService
+	codexAccountService  CodexAccountService
+	semanticGraphService SemanticGraphService
+	terminalService      TerminalService
+	workspaceUIService   WorkspaceUIService
+	workspaceService     WorkspaceService
+	workflowService      WorkflowService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
 	apiHandler := handler{
-		appearanceService:        config.AppearanceService,
-		metadata:                 config.Metadata,
-		chatService:              config.ChatService,
-		codexAccountService:      config.CodexAccountService,
-		semanticGraphService:     config.SemanticGraphService,
-		terminalService:          config.TerminalService,
-		workspaceActivityService: config.WorkspaceActivityService,
-		workspaceUIService:       config.WorkspaceUIService,
-		workspaceService:         config.WorkspaceService,
-		workflowService:          config.WorkflowService,
+		appearanceService:    config.AppearanceService,
+		metadata:             config.Metadata,
+		chatService:          config.ChatService,
+		codexAccountService:  config.CodexAccountService,
+		semanticGraphService: config.SemanticGraphService,
+		terminalService:      config.TerminalService,
+		workspaceUIService:   config.WorkspaceUIService,
+		workspaceService:     config.WorkspaceService,
+		workflowService:      config.WorkflowService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)
