@@ -47,6 +47,7 @@ type ChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	ActiveRunWithLiveness(workspaceID string, conversationID string) (chat.Run, *chat.RunLiveness, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
+	ReconcileActiveRuns(context.Context, string, string, chat.RunLivenessReason) (chat.RunLivenessReconciliationResult, error)
 	CreateConversation(workspaceID string, title string) (chat.Conversation, error)
 	DeleteConversation(workspaceID string, conversationID string) (chat.ConversationListResult, error)
 	ListDiagnostics(workspaceID string, conversationID string, runID string) ([]chat.Diagnostic, error)

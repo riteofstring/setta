@@ -16,6 +16,10 @@ func (handler handler) listConversations(response http.ResponseWriter, request *
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
+	if _, err := service.ReconcileActiveRuns(request.Context(), payload.WorkspaceID, "", chat.RunLivenessReasonSnapshotLoad); err != nil {
+		writeChatError(response, "list_conversations_reconcile_failed", err)
+		return
+	}
 	result, err := service.ListConversations(payload.WorkspaceID)
 	if err != nil {
 		writeChatError(response, "list_conversations_failed", err)
@@ -418,6 +422,10 @@ func (handler handler) getActiveRun(response http.ResponseWriter, request *http.
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
+	if _, err := service.ReconcileActiveRuns(request.Context(), payload.WorkspaceID, payload.ConversationID, chat.RunLivenessReasonSnapshotLoad); err != nil {
+		writeChatError(response, "get_active_run_reconcile_failed", err)
+		return
+	}
 	run, liveness, ok, err := service.ActiveRunWithLiveness(payload.WorkspaceID, payload.ConversationID)
 	if err != nil {
 		writeChatError(response, "get_active_run_failed", err)
@@ -428,6 +436,23 @@ func (handler handler) getActiveRun(response http.ResponseWriter, request *http.
 		activeRun = &run
 	}
 	writeJSON(response, http.StatusOK, GetActiveRunResponse{HasActiveRun: ok, Run: activeRun, Liveness: liveness})
+}
+
+func (handler handler) reconcileChatRuns(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ReconcileChatRunsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.ReconcileActiveRuns(request.Context(), payload.WorkspaceID, payload.ConversationID, payload.Reason)
+	if err != nil {
+		writeChatError(response, "reconcile_chat_runs_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, ReconcileChatRunsResponse{Result: result})
 }
 
 func (handler handler) listRuns(response http.ResponseWriter, request *http.Request) {

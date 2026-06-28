@@ -22,7 +22,7 @@ func (service *Service) appendAssistantDelta(workspaceID string, conversationID 
 		return err
 	}
 	service.active[activeKey(workspaceID, conversationID)] = active
-	return nil
+	return service.publishFreshProviderEventLivenessLocked(workspaceID, conversationID, runID)
 }
 
 func (service *Service) runningActiveTurnLocked(workspaceID string, conversationID string, runID string) (Run, activeTurn, bool, error) {
@@ -179,7 +179,10 @@ func (service *Service) upsertRunItemLocked(item RunItem) error {
 	if err := service.ingestRunItemBlockForActiveTurnLocked(item); err != nil {
 		return err
 	}
-	return service.publishRunItemUpsertLocked(item, exists)
+	if err := service.publishRunItemUpsertLocked(item, exists); err != nil {
+		return err
+	}
+	return service.publishFreshProviderEventLivenessLocked(item.WorkspaceID, item.ConversationID, item.RunID)
 }
 
 func (service *Service) ingestProviderOwnedRunItemLocked(item RunItem) (bool, error) {
@@ -468,7 +471,7 @@ func (service *Service) appendRunItemOutputLocked(workspaceID string, conversati
 			}
 		}
 	}
-	return nil
+	return service.publishFreshProviderEventLivenessLocked(workspaceID, conversationID, runID)
 }
 
 func validateRunItemOutputDelta(providerItemID string, stream string, text string) error {

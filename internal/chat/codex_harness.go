@@ -369,7 +369,25 @@ func (harness *CodexHarness) CancelTurn(ctx context.Context, request CancelReque
 		ThreadID: active.threadID,
 		TurnID:   active.turnID,
 	})
-	return err
+	if err != nil {
+		harness.retryInterruptTypedActiveTurn(ctx, active, err)
+	}
+	return nil
+}
+
+func (harness *CodexHarness) retryInterruptTypedActiveTurn(ctx context.Context, active *codexActiveTurn, interruptErr error) {
+	activeTurnID, ok, parseErr := codexActiveTurnIDFromRPCErrorData(interruptErr)
+	if parseErr != nil || !ok || activeTurnID == active.turnID {
+		return
+	}
+	harness.updateActiveTurn(active.request.Run.ID, active.threadID, activeTurnID)
+	if err := active.session.OwnTurn(active.threadID, activeTurnID); err != nil {
+		return
+	}
+	_, _ = active.session.Call(ctx, codexapp.CodexMethodTurnInterrupt, codexapp.TurnInterruptParams{
+		ThreadID: active.threadID,
+		TurnID:   activeTurnID,
+	})
 }
 
 func (harness *CodexHarness) SteerTurn(ctx context.Context, request SteerRequest) error {

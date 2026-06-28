@@ -324,6 +324,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     chat: {
       activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => emptyRun(),
+      reconcileRuns: async () => ({ result: { runs: [] } }),
       createConversation: async () => emptyConversation(),
       createImageAttachmentFromBytes: async () => {
         throw new Error("create image attachment from bytes is not used by workspace store tests");

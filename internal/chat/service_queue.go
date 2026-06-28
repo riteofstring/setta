@@ -944,8 +944,10 @@ func (service *Service) markPendingSteeringCommitted(workspaceID string, convers
 		if err := service.traceLocked(workspaceID, runID, "steering_message_committed", "Steering message committed by provider"); err != nil {
 			return err
 		}
-		_, err = service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, runID, message))
-		return err
+		if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, runID, message)); err != nil {
+			return err
+		}
+		return service.publishFreshProviderEventLivenessLocked(workspaceID, conversationID, runID)
 	}
 	return nil
 }

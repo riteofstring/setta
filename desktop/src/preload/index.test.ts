@@ -326,6 +326,7 @@ describe("preload workspace API", () => {
       "openCodexPermissionPicker",
       "queueMessage",
       "readCodexDefaults",
+      "reconcileRuns",
       "removeQueuedMessage",
       "runActivity",
       "runItemOutput",
@@ -399,6 +400,12 @@ describe("preload workspace API", () => {
     );
     await api.chat.cancelRun("workspace_api", "conversation_api");
     await api.chat.activeRun("workspace_api", "conversation_api");
+    const reconcileRequest = {
+      conversationId: "conversation_api",
+      reason: "user_retry",
+      workspaceId: "workspace_api",
+    } as const;
+    await api.chat.reconcileRuns(reconcileRequest);
     await api.chat.submitApproval({
       approvalId: "approval_api",
       approved: true,
@@ -480,6 +487,7 @@ describe("preload workspace API", () => {
       ],
       [ipcChannels.chatCancelRun, "workspace_api", "conversation_api"],
       [ipcChannels.chatActiveRun, "workspace_api", "conversation_api"],
+      [ipcChannels.chatReconcileRuns, reconcileRequest],
       [
         ipcChannels.chatSubmitApproval,
         {

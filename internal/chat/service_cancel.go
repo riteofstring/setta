@@ -69,7 +69,9 @@ func (service *Service) cancelHarnessRun(workspaceID string, conversationID stri
 		})
 	}
 	if err != nil && !errors.Is(err, ErrTurnNotStarted) {
-		return err
+		_ = service.recordProviderDiagnostic(workspaceID, conversationID, run.ID, "provider_cancel_failed", err.Error(), map[string]string{
+			"bestEffort": "true",
+		}, false, DiagnosticSeverityWarning)
 	}
 	return nil
 }

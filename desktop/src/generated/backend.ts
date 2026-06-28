@@ -581,9 +581,9 @@ export function decodeRunLivenessStatus(value: unknown, label = "RunLivenessStat
   }
 }
 
-export type RunLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "attachment_missing" | "run_terminal";
+export type RunLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "attachment_missing" | "run_terminal" | "wake_recheck" | "snapshot_load" | "stream_resync" | "user_retry" | "provider_restarted" | "provider_unavailable" | "turn_not_found";
 
-export const runLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "attachment_missing", "run_terminal"] as const satisfies readonly RunLivenessReason[];
+export const runLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "attachment_missing", "run_terminal", "wake_recheck", "snapshot_load", "stream_resync", "user_retry", "provider_restarted", "provider_unavailable", "turn_not_found"] as const satisfies readonly RunLivenessReason[];
 
 export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReason"): RunLivenessReason {
   const decoded = decodeString(value, label);
@@ -595,6 +595,20 @@ export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReas
     case "attachment_missing":
       return decoded;
     case "run_terminal":
+      return decoded;
+    case "wake_recheck":
+      return decoded;
+    case "snapshot_load":
+      return decoded;
+    case "stream_resync":
+      return decoded;
+    case "user_retry":
+      return decoded;
+    case "provider_restarted":
+      return decoded;
+    case "provider_unavailable":
+      return decoded;
+    case "turn_not_found":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3490,6 +3504,20 @@ export interface GetActiveRunResponse {
   liveness: RunLiveness | null;
 }
 
+export interface ReconcileChatRunsRequest {
+  workspaceId: string;
+  conversationId: string;
+  reason: RunLivenessReason;
+}
+
+export interface RunLivenessReconciliationResult {
+  runs: RunLiveness[];
+}
+
+export interface ReconcileChatRunsResponse {
+  result: RunLivenessReconciliationResult;
+}
+
 export interface ListRunsRequest {
   workspaceId: string;
   conversationId: string;
@@ -6017,6 +6045,10 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/runs/active",
   },
+  ReconcileChatRuns: {
+    method: "POST",
+    path: "/chat/runs/reconcile",
+  },
   ListRuns: {
     method: "POST",
     path: "/chat/runs/list",
@@ -7930,6 +7962,32 @@ export function decodeGetActiveRunResponse(value: unknown): GetActiveRunResponse
     hasActiveRun: decodeBoolean(requireField(record, "hasActiveRun", "GetActiveRunResponse"), "GetActiveRunResponse.hasActiveRun"),
     run: decodeNullable(requireField(record, "run", "GetActiveRunResponse"), "GetActiveRunResponse.run", (item) => decodeRun(item)),
     liveness: decodeNullable(requireField(record, "liveness", "GetActiveRunResponse"), "GetActiveRunResponse.liveness", (item) => decodeRunLiveness(item)),
+  };
+}
+
+export function decodeReconcileChatRunsRequest(value: unknown): ReconcileChatRunsRequest {
+  const record = assertRecord(value, "ReconcileChatRunsRequest");
+  assertKnownFields(record, "ReconcileChatRunsRequest", ["workspaceId", "conversationId", "reason"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReconcileChatRunsRequest"), "ReconcileChatRunsRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ReconcileChatRunsRequest"), "ReconcileChatRunsRequest.conversationId"),
+    reason: decodeRunLivenessReason(requireField(record, "reason", "ReconcileChatRunsRequest"), "ReconcileChatRunsRequest.reason"),
+  };
+}
+
+export function decodeRunLivenessReconciliationResult(value: unknown): RunLivenessReconciliationResult {
+  const record = assertRecord(value, "RunLivenessReconciliationResult");
+  assertKnownFields(record, "RunLivenessReconciliationResult", ["runs"]);
+  return {
+    runs: decodeArray(requireField(record, "runs", "RunLivenessReconciliationResult"), "RunLivenessReconciliationResult.runs", (item) => decodeRunLiveness(item)),
+  };
+}
+
+export function decodeReconcileChatRunsResponse(value: unknown): ReconcileChatRunsResponse {
+  const record = assertRecord(value, "ReconcileChatRunsResponse");
+  assertKnownFields(record, "ReconcileChatRunsResponse", ["result"]);
+  return {
+    result: decodeRunLivenessReconciliationResult(requireField(record, "result", "ReconcileChatRunsResponse")),
   };
 }
 
@@ -11266,6 +11324,7 @@ export interface BackendClient {
   setChatCodexReasoningEffort: (request: SetChatCodexReasoningEffortRequest) => Promise<ChatCommandExecuteResult>;
   cancelRun: (request: CancelRunRequest) => Promise<Run>;
   getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
+  reconcileChatRuns: (request: ReconcileChatRunsRequest) => Promise<ReconcileChatRunsResponse>;
   listRuns: (request: ListRunsRequest) => Promise<ListRunsResponse>;
   getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
   getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
@@ -11664,6 +11723,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeGetActiveRunResponse,
       endpoint: backendEndpoints.GetActiveRun,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    reconcileChatRuns: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeReconcileChatRunsResponse,
+      endpoint: backendEndpoints.ReconcileChatRuns,
       fetchImpl,
       requestPayload: request,
     }),

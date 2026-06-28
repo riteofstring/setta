@@ -58,6 +58,8 @@ import type {
   QueueMessageResult,
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
+  ReconcileChatRunsRequest,
+  ReconcileChatRunsResponse,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
@@ -387,6 +389,7 @@ export interface SettaAPI {
   chat: {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
+    reconcileRuns: (request: ReconcileChatRunsRequest) => Promise<ReconcileChatRunsResponse>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
     deleteConversation: (
       workspaceId: string,

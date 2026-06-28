@@ -59,6 +59,8 @@ import type {
   QueueMessageResult,
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
+  ReconcileChatRunsRequest,
+  ReconcileChatRunsResponse,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
@@ -151,6 +153,7 @@ export const ipcChannels = {
   backendHealth: "backend:health",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
+  chatReconcileRuns: "chat:reconcile-runs",
   chatCreateImageAttachmentFromBytes: "chat:create-image-attachment-from-bytes",
   chatCreateConversation: "chat:create-conversation",
   chatDeleteConversation: "chat:delete-conversation",
@@ -343,6 +346,10 @@ interface IpcContract {
   chatCancelRun: {
     args: [workspaceId: string, conversationId: string];
     result: Run;
+  };
+  chatReconcileRuns: {
+    args: [request: ReconcileChatRunsRequest];
+    result: ReconcileChatRunsResponse;
   };
   chatCreateConversation: {
     args: [workspaceId: string, title: string];

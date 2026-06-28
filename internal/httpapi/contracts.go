@@ -221,6 +221,16 @@ type GetActiveRunResponse struct {
 	Liveness     *chat.RunLiveness `json:"liveness"`
 }
 
+type ReconcileChatRunsRequest struct {
+	WorkspaceID    string                 `json:"workspaceId"`
+	ConversationID string                 `json:"conversationId"`
+	Reason         chat.RunLivenessReason `json:"reason"`
+}
+
+type ReconcileChatRunsResponse struct {
+	Result chat.RunLivenessReconciliationResult `json:"result"`
+}
+
 type ListRunsRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`

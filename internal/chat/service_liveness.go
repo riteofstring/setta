@@ -64,6 +64,77 @@ func (service *Service) markRunLivenessAttachedLocked(workspaceID string, conver
 	return liveness, true
 }
 
+func (service *Service) markActiveRunLivenessReconcilingLocked(workspaceID string, conversationID string, run Run, active activeTurn, reason RunLivenessReason, reconciledAt string) RunLiveness {
+	liveness := service.activeRunLivenessValueLocked(workspaceID, conversationID, run, active)
+	liveness.Status = RunLivenessReconciling
+	liveness.Reason = reason
+	liveness.Retryable = true
+	liveness.Cancellable = true
+	liveness.LastReconciledAt = reconciledAt
+	liveness.Error = ""
+	service.liveness[activeKey(workspaceID, conversationID)] = liveness
+	return liveness
+}
+
+func (service *Service) markActiveRunLivenessLostLocked(workspaceID string, conversationID string, run Run, active activeTurn, reason RunLivenessReason, reconciledAt string, message string) RunLiveness {
+	liveness := service.activeRunLivenessValueLocked(workspaceID, conversationID, run, active)
+	liveness.Status = RunLivenessLost
+	liveness.Reason = reason
+	liveness.Retryable = true
+	liveness.Cancellable = service.activeRunCancellableLocked(activeKey(workspaceID, conversationID), run.ID)
+	liveness.LastReconciledAt = reconciledAt
+	liveness.Error = message
+	service.liveness[activeKey(workspaceID, conversationID)] = liveness
+	return liveness
+}
+
+func (service *Service) activeRunLivenessValueLocked(workspaceID string, conversationID string, run Run, active activeTurn) RunLiveness {
+	key := activeKey(workspaceID, conversationID)
+	liveness, ok := service.liveness[key]
+	if !ok || liveness.RunID != run.ID {
+		liveness = RunLiveness{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+			RunID:          run.ID,
+			Harness:        run.Harness,
+		}
+	}
+	if liveness.ProviderThreadID == "" {
+		liveness.ProviderThreadID = active.threadID
+	}
+	if liveness.ProviderTurnID == "" {
+		liveness.ProviderTurnID = active.turnID
+	}
+	return liveness
+}
+
+func (service *Service) markFreshProviderEventLocked(workspaceID string, conversationID string, runID string) (RunLiveness, bool) {
+	key := activeKey(workspaceID, conversationID)
+	active, ok := service.active[key]
+	if !ok || active.runID != runID || active.threadID == "" || active.turnID == "" {
+		return RunLiveness{}, false
+	}
+	liveness, ok := service.liveness[key]
+	if !ok || liveness.RunID != runID {
+		return service.markRunLivenessAttachedLocked(workspaceID, conversationID, runID, active.threadID, active.turnID, timestamp(service.now()))
+	}
+	if liveness.Status == RunLivenessAttached {
+		return RunLiveness{}, false
+	}
+	return service.markRunLivenessAttachedLocked(workspaceID, conversationID, runID, active.threadID, active.turnID, timestamp(service.now()))
+}
+
+func (service *Service) publishFreshProviderEventLivenessLocked(workspaceID string, conversationID string, runID string) error {
+	liveness, updated := service.markFreshProviderEventLocked(workspaceID, conversationID, runID)
+	if !updated {
+		return nil
+	}
+	if _, err := service.events.Publish(NewRunLivenessUpdatedEvent(liveness)); err != nil {
+		return err
+	}
+	return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)
+}
+
 func (service *Service) terminalRunLivenessLocked(workspaceID string, conversationID string, run Run, active activeTurn) RunLiveness {
 	liveness, ok := service.liveness[activeKey(workspaceID, conversationID)]
 	if !ok || liveness.RunID != run.ID {

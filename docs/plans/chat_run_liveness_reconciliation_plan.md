@@ -1,8 +1,8 @@
 # Chat Run Liveness And Reconciliation Plan
 
 - **Date:** July 1, 2026
-- **Status:** Draft v4. Phases 0-3 completed; Phase 4 Codex reconciliation
-  and trigger wiring is next. The reconciliation decisions below are grounded in the
+- **Status:** Draft v5. Phases 0-4 completed; Phase 5 renderer resync and
+  presentation is next. The reconciliation decisions below are grounded in the
   trigger recording, current code paths, and the live app-server findings in
   Appendix A.
 - **Trigger recording:** `.recordings/20260701T215826Z`
@@ -467,6 +467,15 @@ trigger wiring that moves existing runs back into `reconciling`.
 This phase pins the state model with service tests before any UI work.
 
 ### Phase 4 - Codex Reconciliation And Triggers
+
+Status: Complete. Codex `thread/read` reconciliation is implemented through the
+chat harness using typed protocol fields only. Provider `inProgress` keeps the
+run at `reconciling` until a fresh turn-scoped event restores `attached`;
+provider-unavailable reads mark `lost`; missing/idle provider turns fail the
+run with an explicit interruption. Snapshot-load, event-stream resync/reconnect,
+Electron `powerMonitor` resume, and user-retry IPC/HTTP triggers are wired.
+Provider interrupt failure is now best-effort for local cancellation, with typed
+active-turn adoption retained when the provider supplies `error.data`.
 
 - implement the reconciliation operation per the contract above, using typed
   protocol fields only (no text/time heuristics);

@@ -442,6 +442,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     chat: {
       activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => testRun("cancelled"),
+      reconcileRuns: async () => ({ result: { runs: [] } }),
       createConversation: async () => conversation,
       createImageAttachmentFromBytes: async () => {
         throw new Error("create image attachment from bytes is not used by navigation tests");

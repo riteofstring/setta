@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, powerMonitor } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -8,6 +8,7 @@ import {
   createBackendClient,
   type BackendClient,
   type ChatEvent,
+  type RunLivenessReason,
   type TerminalEvent,
   type WorkflowEvent,
 } from "@generated/backend";
@@ -126,6 +127,9 @@ function startChatEventStream() {
       lifecycle: (event) => {
         emitBackendEventStreamStatus(event);
         recorder?.recordAppEvent("chat_event_stream_" + event.status, event);
+        if (event.status === "reconnecting" || event.status === "resyncing") {
+          void reconcileChatRunsInBackground("stream_resync");
+        }
       },
     },
     sendEvent: forwardChatEvent,
@@ -738,6 +742,14 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatReconcileRuns",
+    async (_event, request) => {
+      return requireBackendClient().reconcileChatRuns(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatRunActivity",
     async (_event, workspaceId, runId, limit) => {
       return requireBackendClient().getRunActivity({ limit, runId, workspaceId });
@@ -898,10 +910,36 @@ function requestQuit() {
   app.quit();
 }
 
+function registerPowerMonitorHandlers() {
+  powerMonitor.on("resume", () => {
+    void reconcileChatRunsInBackground("wake_recheck");
+  });
+}
+
+async function reconcileChatRunsInBackground(reason: RunLivenessReason) {
+  if (!backend) {
+    return;
+  }
+  try {
+    await requireBackendClient().reconcileChatRuns({
+      conversationId: "",
+      reason,
+      workspaceId: "",
+    });
+    recorder?.recordAppEvent("chat_runs_reconciled", { reason });
+  } catch (error) {
+    recorder?.recordAppEvent("chat_runs_reconcile_failed", {
+      message: error instanceof Error ? error.message : String(error),
+      reason,
+    });
+  }
+}
+
 app.whenReady().then(async () => {
   if (isE2E() && !isVisibleE2E()) {
     app.dock?.hide();
   }
+  registerPowerMonitorHandlers();
   const appDataDir = settaAppDataDir();
   recorder = createSessionRecorder(process.env, {
     appDataDir,

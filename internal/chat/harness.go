@@ -19,6 +19,45 @@ type Harness interface {
 	SubmitApproval(context.Context, ApprovalResponse) error
 }
 
+type HarnessRunLivenessReconciler interface {
+	ReconcileRunLiveness(context.Context, HarnessRunLivenessRequest) (HarnessRunLivenessResult, error)
+}
+
+type HarnessRunLivenessRequest struct {
+	RunID          string
+	WorkspaceID    string
+	ConversationID string
+	ThreadID       string
+	TurnID         string
+}
+
+type HarnessThreadRuntimeStatus string
+
+const (
+	HarnessThreadRuntimeActive      HarnessThreadRuntimeStatus = "active"
+	HarnessThreadRuntimeIdle        HarnessThreadRuntimeStatus = "idle"
+	HarnessThreadRuntimeNotLoaded   HarnessThreadRuntimeStatus = "notLoaded"
+	HarnessThreadRuntimeSystemError HarnessThreadRuntimeStatus = "systemError"
+)
+
+type HarnessTurnRuntimeStatus string
+
+const (
+	HarnessTurnRuntimeCompleted   HarnessTurnRuntimeStatus = "completed"
+	HarnessTurnRuntimeFailed      HarnessTurnRuntimeStatus = "failed"
+	HarnessTurnRuntimeInterrupted HarnessTurnRuntimeStatus = "interrupted"
+	HarnessTurnRuntimeInProgress  HarnessTurnRuntimeStatus = "inProgress"
+)
+
+type HarnessRunLivenessResult struct {
+	ThreadID     string
+	ThreadStatus HarnessThreadRuntimeStatus
+	TurnID       string
+	TurnFound    bool
+	TurnStatus   HarnessTurnRuntimeStatus
+	TurnError    string
+}
+
 type HarnessTaskRunner interface {
 	RunTask(context.Context, HarnessTaskRequest) (HarnessTaskResult, error)
 }

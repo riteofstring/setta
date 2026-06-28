@@ -803,7 +803,10 @@ func (service *Service) requestApproval(workspaceID string, conversationID strin
 	if err != nil {
 		return err
 	}
-	return service.saveApprovalRequestLocked(workspaceID, run, approval)
+	if err := service.saveApprovalRequestLocked(workspaceID, run, approval); err != nil {
+		return err
+	}
+	return service.publishFreshProviderEventLivenessLocked(workspaceID, conversationID, runID)
 }
 
 func (service *Service) runningRunForApprovalLocked(workspaceID string, conversationID string, runID string) (Run, bool, error) {
@@ -889,7 +892,10 @@ func (service *Service) saveApprovalRequestLocked(workspaceID string, run Run, a
 	if err := service.advanceReadRelevantMarkerLocked(workspaceID, run.ConversationID, approval.CreatedAt); err != nil {
 		return err
 	}
-	return service.publishConversationUpdatedLocked(workspaceID, run.ConversationID, run.ID)
+	if err := service.publishConversationUpdatedLocked(workspaceID, run.ConversationID, run.ID); err != nil {
+		return err
+	}
+	return service.publishFreshProviderEventLivenessLocked(workspaceID, run.ConversationID, run.ID)
 }
 
 func (service *Service) resolveApproval(workspaceID string, _ string, runID string, approvalID string, approved bool, response string) error {
