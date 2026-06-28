@@ -516,9 +516,66 @@ The process remains owned by the background terminal registry.
   - late process completion cannot update UI state after run completion
 - Add deterministic E2E expectations for the full user-visible flow.
 
+#### Phase 0 Status (characterization harness complete; 3 fixture items deferred)
+
+Implemented as a characterization harness, matching the team's prior Phase 0
+convention (commit `Add chronological transcript Phase 0 characterization
+harness`). The bug tests freeze current behavior and pass now, so the required
+gates stay green; each is wired to flip in a named later phase rather than
+committed red. This covers the contract/bug-proof core of Phase 0; three
+full-flow fixture items have no consumer yet and are deferred to the phases that
+build their surfaces (see below) — so Phase 0 is not the literal full list.
+
+Done:
+
+- Fixtures: `scriptedBackgroundTerminalTurn` (ScriptedWorkflowHarness, prompt
+  `background terminal workflow`) starts two background terminals and leaves both
+  running at turn completion; fake Codex app-server mode `unified-exec-background`
+  emits two `commandExecution` items with `source: unifiedExecStartup` plus a late
+  `item/completed` after `turn/completed`.
+- `TestCodexUnifiedExecCommandSourceIsDropped` freezes that `commandExecution.source`
+  and `processId` are dropped (a startup projects identically to an agent command).
+  Flips in Phase 1.
+- `TestServiceFinalizesBackgroundTerminalWithRun` freezes that still-running
+  background terminals are coerced to `complete` by run finalization. Flips in
+  Phase 4.
+- `TestCodexHarnessDropsLateUnifiedExecCompletion` freezes that a process
+  completion arriving after `turn/completed` never reaches the turn sink (the sink
+  is per-turn/session-scoped). Flips in Phase 2.
+- Fixture-chronology freeze tests (`TestBackgroundTerminalFixture*`) pin the
+  provider stream; these stay stable across phases.
+- Deterministic Electron step `background-terminal` freezes that the terminals
+  render as ordinary per-run activity rows and that no
+  `background-terminals-footer` exists yet. Flips in Phase 4.
+
+Deferred (still owed, tracked to their consuming phase) — three Phase 0 fixture
+bullets cannot be exercised until the surfaces they drive exist, so adding them
+now would be unconsumed dead fixture code:
+
+- listing terminals through the monitor projection after turn completion — needs
+  `ListBackgroundTerminals` + the `BackgroundTerminalListProjection` (Phase 3),
+  rendered by the monitor (Phase 4).
+- live output while the monitor is open — needs `GetBackgroundTerminalOutput` +
+  `chat.background_terminal.output_delta` (Phase 3) and the monitor (Phase 4).
+- killing one terminal while another keeps running — needs
+  `KillBackgroundTerminal` (Phase 3) and the per-process kill control (Phase 4).
+
+When those phases land, extend the fixtures (the fake Codex app-server emitting a
+two-terminal stream + a kill/terminate round-trip) and add the matching E2E
+assertions. The JS fake Codex app-server is intentionally not extended in Phase 0
+because the deterministic chat E2E drives the ScriptedWorkflowHarness, not the JS
+Codex process; it is extended in the phase that wires a real-Codex
+background-terminal E2E path.
+
 ### Phase 1: Protocol And Domain Model
 
 - Add `RunItemCommandSource` and parse Codex `commandExecution.source`.
+- Also set `Source` on the Phase 0 scripted fixture
+  (`scripted_background_terminal.go` `emitBackgroundTerminalStartup`), not just
+  the Codex projection. Until the scripted path carries the discriminator,
+  `TestServiceFinalizesBackgroundTerminalWithRun` is only "any still-running
+  command is coerced to complete"; it becomes background-terminal-specific (and
+  its Phase 4 flip becomes meaningful) once the fixture marks the items.
 - Add `BackgroundTerminalProcess` and `BackgroundTerminalOutput` contracts.
 - Add generated TypeScript types.
 - Add store save/load/list/delete/page methods with fail-loud validation.

@@ -56,6 +56,7 @@ import {
   waitForText,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
+import { runBackgroundTerminalWorkflow } from "./chat-workflow-background-terminal-cases.mjs";
 import { runChronologicalTranscriptWorkflow } from "./chat-workflow-chronological-cases.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
@@ -248,6 +249,28 @@ async function runDeterministicWorkflowLaunch(results) {
           assertActivityRows,
           assertRunActivityProjection,
           assertTextAbsent,
+          backend,
+          client: context.client,
+          conversationId,
+          recordingDir,
+          submitComposer,
+          waitForRunWithPrompt,
+          waitForTexts,
+          workspaceId,
+        });
+      },
+    );
+    await runWorkflowStep(
+      results,
+      recordingDir,
+      "background-terminal",
+      context.client,
+      async () => {
+        const conversationId = await createChat(context.client, backend, workspaceId);
+        await runBackgroundTerminalWorkflow({
+          appendWorkflowState,
+          assertActivityRows,
+          assertRunActivityProjection,
           backend,
           client: context.client,
           conversationId,

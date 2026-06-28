@@ -47,6 +47,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "chat activity projection workflow", Run: (*ScriptedWorkflowHarness).activityProjectionTurn},
 	{Prompt: "chat activity projection reload workflow", Run: scriptedActivityProjectionReloadTurn},
 	{Prompt: "chronological transcript workflow", Run: scriptedChronologicalTranscriptTurn},
+	{Prompt: "background terminal workflow", Run: scriptedBackgroundTerminalTurn},
 	{Prompt: "permission approval workflow", Run: scriptedPermissionApprovalTurn},
 	{Prompt: "user input approval workflow", Run: (*ScriptedWorkflowHarness).userInputApprovalTurn},
 	{Prompt: "mcp elicitation form accept workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormAcceptTurn},

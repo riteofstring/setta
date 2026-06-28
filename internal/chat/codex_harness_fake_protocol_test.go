@@ -878,6 +878,7 @@ var fakeCoreTurnStartHandlers = map[string]fakeCoreTurnStartHandler{
 	"steer":                       fakeCorePendingTurnStart,
 	"agent-delta-completed-item":  fakeCoreAgentDeltaCompletedItemTurnStart,
 	"activity":                    fakeCoreActivityTurnStart,
+	"unified-exec-background":     fakeCoreUnifiedExecBackgroundTurnStart,
 	"duplicate-agent-delta":       fakeCoreDuplicateAgentDeltaTurnStart,
 	"empty-deltas":                fakeCoreEmptyDeltaTurnStart,
 	"empty-base64-output-deltas":  fakeCoreEmptyBase64OutputDeltaTurnStart,
