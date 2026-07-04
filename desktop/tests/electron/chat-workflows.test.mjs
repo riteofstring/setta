@@ -1280,11 +1280,11 @@ async function runCodexProtocolWorkflow(results) {
       "protocol notification workflow",
       "completed",
     );
-    await waitForTexts(context.client, ["coverage complete", "workspace_context"]);
+    await waitForTexts(context.client, ["coverage complete", "Workspace context"]);
     await assertCollapsedActivityGroupHeader(context.client, {
       absent: "+8",
       count: "12",
-      preview: "workspace_context",
+      preview: "Workspace context",
     });
     await assertTextAbsent(context.client, "Reasoning text");
     await assertTextAbsent(context.client, "private reasoning");

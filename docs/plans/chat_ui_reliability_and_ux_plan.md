@@ -691,8 +691,17 @@ Status after the MCP typed-details cutover:
   details, search, semantic cartographer summaries, and deterministic Electron
   protocol coverage read the typed branch. Diff records with legacy flat
   diff/file fields now fail validation instead of being dual-read.
+- Done: dynamic tool calls now write `RunItem.details.dynamicToolCall` for
+  namespace, tool name, Setta-owned display title/description/category,
+  duration, structured arguments, result content, success, summary, and error.
+  Codex dynamic tool requests, Codex thread-item replay, scripted workflow
+  fixtures, showcase data, transcript details, search, workflow-result
+  extraction, semantic cartographer summaries, deterministic Electron protocol
+  coverage, and live Codex workflows read the typed branch. Dynamic-tool records
+  with legacy flat namespace/tool/result/error/duration/rawDetails fields now
+  fail validation instead of being dual-read.
 - Remaining: complete protocol findings and typed-detail cutovers for
-  dynamic/Setta tools, failed starts, approvals, and stream lifecycle activity.
+  failed starts, approvals, and stream lifecycle activity.
 
 ### Slice 4: Tool And File Activity Rendering
 
@@ -820,8 +829,8 @@ Status after the composer prompt-history step:
   resubmission. Missing or cross-conversation image references produce explicit
   diagnostics.
 - Remaining: no known Slice 7 implementation gap. Remaining plan work is the
-  earlier activity typed-detail/rendering backlog: Setta dynamic tools, failed
-  starts, approvals, and stream lifecycle activity rows.
+  earlier activity typed-detail/rendering backlog: failed starts, approvals, and
+  stream lifecycle activity rows.
 
 ## Verification Plan
 

@@ -354,7 +354,8 @@ func TestCodexHarnessReturnsUnsupportedDynamicToolError(t *testing.T) {
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
 	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
-	if !ok || item.Status != RunItemStatusFailed || !strings.Contains(item.Error, "unsupported dynamic tool") {
+	details, hasDetails := item.DynamicToolCallDetails()
+	if !ok || !hasDetails || item.Status != RunItemStatusFailed || !strings.Contains(details.Error, "unsupported dynamic tool") {
 		t.Fatalf("items = %+v, want failed unsupported dynamic tool item", sink.items)
 	}
 }
@@ -404,7 +405,8 @@ func TestCodexHarnessDispatchesRegisteredDynamicTool(t *testing.T) {
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
 	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
-	if !ok || item.Status != RunItemStatusCompleted || item.Result != "tool ok" {
+	details, hasDetails := item.DynamicToolCallDetails()
+	if !ok || !hasDetails || item.Status != RunItemStatusCompleted || details.ResultSummary != "tool ok" {
 		t.Fatalf("items = %+v, want completed registered dynamic tool item", sink.items)
 	}
 }

@@ -498,30 +498,6 @@ func (harness *ScriptedWorkflowHarness) mcpElicitationURLDeclineTurn(ctx context
 	return scriptedReply(sink, request.Run.ID, "MCP url declined.")
 }
 
-func scriptedDynamicToolTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	item := RunItem{
-		ProviderItemID: "provider_dynamic_tool_" + request.Run.ID,
-		Type:           RunItemTypeDynamicToolCall,
-		Status:         RunItemStatusRunning,
-		Title:          "Dynamic tool call",
-		Namespace:      "setta",
-		ToolName:       "fakeTool",
-		RawDetails:     json.RawMessage(`{"value":"from scripted workflow"}`),
-	}
-	if err := sink.RunItemUpsert(item); err != nil {
-		return TurnCompletion{}, err
-	}
-	if err := sink.RunItemOutputDelta(item.ProviderItemID, "stdout", "tool ok\n"); err != nil {
-		return TurnCompletion{}, err
-	}
-	item.Status = RunItemStatusCompleted
-	item.Result = "tool ok"
-	if err := sink.RunItemUpsert(item); err != nil {
-		return TurnCompletion{}, err
-	}
-	return scriptedReply(sink, request.Run.ID, "Dynamic tool workflow complete.")
-}
-
 func scriptedPerformanceStreamTurn(_ *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	const chunkCount = 240
 	const chunkInterval = 8 * time.Millisecond
@@ -578,9 +554,13 @@ func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, _ context.Context, r
 		Type:           RunItemTypeDynamicToolCall,
 		Status:         RunItemStatusCompleted,
 		Title:          "Workflow result",
-		Namespace:      SettaAgentToolNamespace,
-		ToolName:       SettaWorkflowResultAgentToolName,
-		RawDetails: json.RawMessage(`{
+		Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{
+			Namespace:    SettaAgentToolNamespace,
+			ToolName:     SettaWorkflowResultAgentToolName,
+			DisplayTitle: "Workflow result",
+			Description:  "Report structured workflow routing signals, result payloads, and file references.",
+			Category:     "workflow",
+			Arguments: json.RawMessage(`{
 			"signals": [
 				{"name": "route", "value": "yes"},
 				{"name": "decision", "value": "exit"}
@@ -588,7 +568,8 @@ func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, _ context.Context, r
 			"output": {"summary": "scripted workflow result"},
 			"filePaths": ["reports/workflow-result.md"]
 		}`),
-		Result: "workflow result recorded",
+			ResultSummary: "workflow result recorded",
+		}),
 	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return TurnCompletion{}, err
@@ -646,10 +627,15 @@ func (harness *ScriptedWorkflowHarness) phase4ConsolidatorTurn(_ context.Context
 		Type:           RunItemTypeDynamicToolCall,
 		Status:         RunItemStatusCompleted,
 		Title:          "Phase 4 workflow result",
-		Namespace:      SettaAgentToolNamespace,
-		ToolName:       SettaWorkflowResultAgentToolName,
-		RawDetails:     details,
-		Result:         "phase 4 workflow result recorded",
+		Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{
+			Namespace:     SettaAgentToolNamespace,
+			ToolName:      SettaWorkflowResultAgentToolName,
+			DisplayTitle:  "Phase 4 workflow result",
+			Description:   "Report structured workflow routing signals, result payloads, and file references.",
+			Category:      "workflow",
+			Arguments:     details,
+			ResultSummary: "phase 4 workflow result recorded",
+		}),
 	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return TurnCompletion{}, err

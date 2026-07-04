@@ -6,6 +6,7 @@ type RunItemDetails struct {
 	Kind             RunItemDetailsKind              `json:"kind"`
 	CommandExecution *RunItemCommandExecutionDetails `json:"commandExecution"`
 	MCPToolCall      *RunItemMCPToolCallDetails      `json:"mcpToolCall"`
+	DynamicToolCall  *RunItemDynamicToolCallDetails  `json:"dynamicToolCall"`
 	FileChange       *RunItemFileChangeDetails       `json:"fileChange"`
 	Diff             *RunItemDiffDetails             `json:"diff"`
 }
@@ -32,6 +33,7 @@ type RunActivityDetailsProjection struct {
 	Details          json.RawMessage                 `json:"details"`
 	CommandExecution *RunItemCommandExecutionDetails `json:"commandExecution"`
 	MCPToolCall      *RunItemMCPToolCallDetails      `json:"mcpToolCall"`
+	DynamicToolCall  *RunItemDynamicToolCallDetails  `json:"dynamicToolCall"`
 	FileChange       *RunItemFileChangeDetails       `json:"fileChange"`
 	Diff             *RunItemDiffDetails             `json:"diff"`
 }
@@ -66,6 +68,34 @@ type RunItemMCPToolResult struct {
 	Content           []json.RawMessage `json:"content"`
 	StructuredContent json.RawMessage   `json:"structuredContent"`
 	Meta              json.RawMessage   `json:"_meta"`
+}
+
+type RunItemDynamicToolCallDetails struct {
+	Namespace     string                    `json:"namespace"`
+	ToolName      string                    `json:"toolName"`
+	DisplayTitle  string                    `json:"displayTitle"`
+	Description   string                    `json:"description"`
+	Category      string                    `json:"category"`
+	DurationMs    int                       `json:"durationMs"`
+	Arguments     json.RawMessage           `json:"arguments"`
+	ResultSummary string                    `json:"resultSummary"`
+	Result        *RunItemDynamicToolResult `json:"result"`
+	Error         string                    `json:"error"`
+}
+
+type RunItemDynamicToolResult struct {
+	ContentItems []RunItemDynamicToolContentItem `json:"contentItems"`
+	Success      *bool                           `json:"success"`
+}
+
+type RunItemDynamicToolContentItem struct {
+	Type     string `json:"type"`
+	Text     string `json:"text"`
+	ImageURL string `json:"imageUrl"`
+}
+
+func runItemDynamicToolSuccess(value bool) *bool {
+	return &value
 }
 
 type RunItemFileChangeDetails struct {
@@ -107,6 +137,7 @@ func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDet
 		Kind:             RunItemDetailsKindMCPToolCall,
 		CommandExecution: nil,
 		MCPToolCall:      &details,
+		DynamicToolCall:  nil,
 		FileChange:       nil,
 		Diff:             nil,
 	}
@@ -117,6 +148,18 @@ func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *
 		Kind:             RunItemDetailsKindCommandExecution,
 		CommandExecution: &details,
 		MCPToolCall:      nil,
+		DynamicToolCall:  nil,
+		FileChange:       nil,
+		Diff:             nil,
+	}
+}
+
+func NewRunItemDynamicToolCallDetails(details RunItemDynamicToolCallDetails) *RunItemDetails {
+	return &RunItemDetails{
+		Kind:             RunItemDetailsKindDynamicToolCall,
+		CommandExecution: nil,
+		MCPToolCall:      nil,
+		DynamicToolCall:  &details,
 		FileChange:       nil,
 		Diff:             nil,
 	}
@@ -127,6 +170,7 @@ func NewRunItemFileChangeDetails(details RunItemFileChangeDetails) *RunItemDetai
 		Kind:             RunItemDetailsKindFileChange,
 		CommandExecution: nil,
 		MCPToolCall:      nil,
+		DynamicToolCall:  nil,
 		FileChange:       &details,
 		Diff:             nil,
 	}
@@ -137,6 +181,7 @@ func NewRunItemDiffDetails(details RunItemDiffDetails) *RunItemDetails {
 		Kind:             RunItemDetailsKindDiff,
 		CommandExecution: nil,
 		MCPToolCall:      nil,
+		DynamicToolCall:  nil,
 		FileChange:       nil,
 		Diff:             &details,
 	}
@@ -160,6 +205,16 @@ func (item RunItem) MCPToolCallDetails() (*RunItemMCPToolCallDetails, bool) {
 		return nil, false
 	}
 	return item.Details.MCPToolCall, true
+}
+
+func (item RunItem) DynamicToolCallDetails() (*RunItemDynamicToolCallDetails, bool) {
+	if item.Type != RunItemTypeDynamicToolCall ||
+		item.Details == nil ||
+		item.Details.Kind != RunItemDetailsKindDynamicToolCall ||
+		item.Details.DynamicToolCall == nil {
+		return nil, false
+	}
+	return item.Details.DynamicToolCall, true
 }
 
 func (item RunItem) FileChangeDetails() (*RunItemFileChangeDetails, bool) {
@@ -195,6 +250,14 @@ func (details RunActivityDetailsProjection) MarshalJSON() ([]byte, error) {
 		details.FilePaths = []string{}
 	}
 	return json.Marshal(detailsAlias(details))
+}
+
+func (result RunItemDynamicToolResult) MarshalJSON() ([]byte, error) {
+	type resultAlias RunItemDynamicToolResult
+	if result.ContentItems == nil {
+		result.ContentItems = []RunItemDynamicToolContentItem{}
+	}
+	return json.Marshal(resultAlias(result))
 }
 
 func (details RunItemFileChangeDetails) MarshalJSON() ([]byte, error) {

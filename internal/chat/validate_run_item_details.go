@@ -15,6 +15,9 @@ func validateRunItemCommandExecutionDetails(item RunItem) error {
 	if item.Details.MCPToolCall != nil {
 		return fmt.Errorf("run item %s commandExecution details must not contain the mcpToolCall branch", item.ID)
 	}
+	if item.Details.DynamicToolCall != nil {
+		return fmt.Errorf("run item %s commandExecution details must not contain the dynamicToolCall branch", item.ID)
+	}
 	if item.Details.FileChange != nil {
 		return fmt.Errorf("run item %s commandExecution details must not contain the fileChange branch", item.ID)
 	}
@@ -84,6 +87,9 @@ func validateRunItemMCPToolCallDetailsBranch(item RunItem) error {
 	if item.Details.CommandExecution != nil {
 		return fmt.Errorf("run item %s mcpToolCall details must not contain the commandExecution branch", item.ID)
 	}
+	if item.Details.DynamicToolCall != nil {
+		return fmt.Errorf("run item %s mcpToolCall details must not contain the dynamicToolCall branch", item.ID)
+	}
 	if item.Details.FileChange != nil {
 		return fmt.Errorf("run item %s mcpToolCall details must not contain the fileChange branch", item.ID)
 	}
@@ -91,6 +97,56 @@ func validateRunItemMCPToolCallDetailsBranch(item RunItem) error {
 		return fmt.Errorf("run item %s mcpToolCall details must not contain the diff branch", item.ID)
 	}
 	return validateRunItemMCPToolCallDetails(item, *item.Details.MCPToolCall)
+}
+
+func validateRunItemDynamicToolCallDetailsBranch(item RunItem) error {
+	if rawDetailsInspectable(item.RawDetails) {
+		return fmt.Errorf("run item %s dynamicToolCall rawDetails must be empty after typed details cutover", item.ID)
+	}
+	if item.Details == nil {
+		return fmt.Errorf("run item %s dynamicToolCall details are required", item.ID)
+	}
+	if item.Details.Kind != RunItemDetailsKindDynamicToolCall || item.Details.DynamicToolCall == nil {
+		return fmt.Errorf("run item %s dynamicToolCall details must contain the dynamicToolCall branch", item.ID)
+	}
+	if item.Details.CommandExecution != nil {
+		return fmt.Errorf("run item %s dynamicToolCall details must not contain the commandExecution branch", item.ID)
+	}
+	if item.Details.MCPToolCall != nil {
+		return fmt.Errorf("run item %s dynamicToolCall details must not contain the mcpToolCall branch", item.ID)
+	}
+	if item.Details.FileChange != nil {
+		return fmt.Errorf("run item %s dynamicToolCall details must not contain the fileChange branch", item.ID)
+	}
+	if item.Details.Diff != nil {
+		return fmt.Errorf("run item %s dynamicToolCall details must not contain the diff branch", item.ID)
+	}
+	if err := validateRunItemDynamicToolCallFlatFieldsEmpty(item); err != nil {
+		return err
+	}
+	return validateRunItemDynamicToolCallDetails(item, *item.Details.DynamicToolCall)
+}
+
+func validateRunItemDynamicToolCallFlatFieldsEmpty(item RunItem) error {
+	if item.DurationMs != 0 {
+		return fmt.Errorf("run item %s dynamicToolCall flat durationMs must be zero after typed details cutover", item.ID)
+	}
+	if item.ServerName != "" {
+		return fmt.Errorf("run item %s dynamicToolCall flat serverName must be empty after typed details cutover", item.ID)
+	}
+	if item.ToolName != "" {
+		return fmt.Errorf("run item %s dynamicToolCall flat toolName must be empty after typed details cutover", item.ID)
+	}
+	if item.Result != "" {
+		return fmt.Errorf("run item %s dynamicToolCall flat result must be empty after typed details cutover", item.ID)
+	}
+	if item.Error != "" {
+		return fmt.Errorf("run item %s dynamicToolCall flat error must be empty after typed details cutover", item.ID)
+	}
+	if item.Namespace != "" {
+		return fmt.Errorf("run item %s dynamicToolCall flat namespace must be empty after typed details cutover", item.ID)
+	}
+	return nil
 }
 
 func validateRunItemFileChangeDetailsBranch(item RunItem) error {
@@ -108,6 +164,9 @@ func validateRunItemFileChangeDetailsBranch(item RunItem) error {
 	}
 	if item.Details.MCPToolCall != nil {
 		return fmt.Errorf("run item %s fileChange details must not contain the mcpToolCall branch", item.ID)
+	}
+	if item.Details.DynamicToolCall != nil {
+		return fmt.Errorf("run item %s fileChange details must not contain the dynamicToolCall branch", item.ID)
 	}
 	if item.Details.Diff != nil {
 		return fmt.Errorf("run item %s fileChange details must not contain the diff branch", item.ID)
@@ -147,6 +206,9 @@ func validateRunItemDiffDetailsBranch(item RunItem) error {
 	if item.Details.MCPToolCall != nil {
 		return fmt.Errorf("run item %s diff details must not contain the mcpToolCall branch", item.ID)
 	}
+	if item.Details.DynamicToolCall != nil {
+		return fmt.Errorf("run item %s diff details must not contain the dynamicToolCall branch", item.ID)
+	}
 	if item.Details.FileChange != nil {
 		return fmt.Errorf("run item %s diff details must not contain the fileChange branch", item.ID)
 	}
@@ -162,6 +224,35 @@ func validateRunItemDiffFlatFieldsEmpty(item RunItem) error {
 	}
 	if item.DiffSummary != "" {
 		return fmt.Errorf("run item %s diff flat diffSummary must be empty after typed details cutover", item.ID)
+	}
+	return nil
+}
+
+func validateRunItemDynamicToolCallDetails(item RunItem, details RunItemDynamicToolCallDetails) error {
+	if details.DurationMs < 0 {
+		return fmt.Errorf("run item %s dynamicToolCall durationMs must be non-negative", item.ID)
+	}
+	if details.Namespace != "" && details.ToolName == "" {
+		return fmt.Errorf("run item %s dynamicToolCall toolName is required when namespace is set", item.ID)
+	}
+	if details.Result != nil {
+		for index, content := range details.Result.ContentItems {
+			if content.Type == "" {
+				return fmt.Errorf("run item %s dynamicToolCall result contentItems[%d].type is required", item.ID, index)
+			}
+			switch content.Type {
+			case "inputText":
+				if content.Text == "" {
+					return fmt.Errorf("run item %s dynamicToolCall result contentItems[%d].text is required for inputText", item.ID, index)
+				}
+			case "inputImage":
+				if content.ImageURL == "" {
+					return fmt.Errorf("run item %s dynamicToolCall result contentItems[%d].imageUrl is required for inputImage", item.ID, index)
+				}
+			default:
+				return fmt.Errorf("run item %s dynamicToolCall result contentItems[%d].type is unsupported: %s", item.ID, index, content.Type)
+			}
+		}
 	}
 	return nil
 }

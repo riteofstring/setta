@@ -761,6 +761,8 @@ func validateRunItemDetails(item RunItem) error {
 		return validateRunItemCommandExecutionDetails(item)
 	case RunItemTypeMCPToolCall:
 		return validateRunItemMCPToolCallDetailsBranch(item)
+	case RunItemTypeDynamicToolCall:
+		return validateRunItemDynamicToolCallDetailsBranch(item)
 	case RunItemTypeFileChange:
 		return validateRunItemFileChangeDetailsBranch(item)
 	case RunItemTypeDiff:

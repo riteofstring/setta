@@ -410,10 +410,19 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Type:           RunItemTypeDynamicToolCall,
 			Status:         RunItemStatusCompleted,
 			Title:          "Dynamic tool call",
-			Namespace:      "setta",
-			ToolName:       "styleProbe",
-			Result:         "tool returned structured data",
-			RawDetails:     json.RawMessage(`{"selectors":["[data-testid=chat-transcript-region]"],"ok":true}`),
+			Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{
+				Namespace:     "setta",
+				ToolName:      "styleProbe",
+				DisplayTitle:  "Style probe",
+				Description:   "Inspect chat transcript styling hooks.",
+				Category:      "ui",
+				Arguments:     json.RawMessage(`{"selectors":["[data-testid=chat-transcript-region]"],"ok":true}`),
+				ResultSummary: "tool returned structured data",
+				Result: &RunItemDynamicToolResult{
+					ContentItems: []RunItemDynamicToolContentItem{{Type: "inputText", Text: "tool returned structured data"}},
+					Success:      runItemDynamicToolSuccess(true),
+				},
+			}),
 		},
 		{
 			ProviderItemID: "provider_ui_collab_agent_" + runID,

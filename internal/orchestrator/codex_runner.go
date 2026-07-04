@@ -476,13 +476,15 @@ func workflowActionResultFromChatRunReconcileError(run chat.Run, message string)
 func workflowResultPayloadFromActivity(activity chat.RunActivityPage) ([]WorkflowActionSignal, json.RawMessage, []string, error) {
 	for index := len(activity.Items) - 1; index >= 0; index-- {
 		item := activity.Items[index]
+		details, ok := item.DynamicToolCallDetails()
 		if item.Type != chat.RunItemTypeDynamicToolCall ||
 			item.Status != chat.RunItemStatusCompleted ||
-			item.Namespace != chat.SettaAgentToolNamespace ||
-			item.ToolName != chat.SettaWorkflowResultAgentToolName {
+			!ok ||
+			details.Namespace != chat.SettaAgentToolNamespace ||
+			details.ToolName != chat.SettaWorkflowResultAgentToolName {
 			continue
 		}
-		payload, err := chat.DecodeSettaWorkflowResultPayload(item.RawDetails)
+		payload, err := chat.DecodeSettaWorkflowResultPayload(details.Arguments)
 		if err != nil {
 			return nil, nil, nil, err
 		}

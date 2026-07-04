@@ -34,6 +34,7 @@ function emptyActivityDetails(
     details: null,
     diff: null,
     durationMs: 0,
+    dynamicToolCall: null,
     error: "",
     exitCode: 0,
     fileChange: null,

@@ -299,6 +299,8 @@ func (observed observedCartographerEvent) withRunItem(item chat.RunItem) observe
 	content := []string{item.Summary, item.Result, item.Error}
 	if details, ok := item.MCPToolCallDetails(); ok {
 		content = []string{item.Summary, details.ResultSummary, details.Progress, details.Error}
+	} else if details, ok := item.DynamicToolCallDetails(); ok {
+		content = []string{item.Summary, details.ResultSummary, details.Error}
 	} else if details, ok := item.FileChangeDetails(); ok {
 		content = []string{item.Summary, chatFileChangeDetailSummary(details)}
 	} else if details, ok := item.DiffDetails(); ok {
@@ -368,6 +370,8 @@ func chatRunItemObservationSummary(item chat.RunItem) string {
 	values := []string{item.Title, item.Summary, item.Progress, item.Result, item.Error}
 	if details, ok := item.MCPToolCallDetails(); ok {
 		values = []string{firstNonEmpty(item.Title, details.DisplayTitle), item.Summary, details.Progress, details.ResultSummary, details.Error}
+	} else if details, ok := item.DynamicToolCallDetails(); ok {
+		values = []string{firstNonEmpty(item.Title, details.DisplayTitle), item.Summary, details.ResultSummary, details.Error}
 	} else if details, ok := item.FileChangeDetails(); ok {
 		values = []string{item.Title, item.Summary, chatFileChangeDetailSummary(details)}
 	} else if details, ok := item.DiffDetails(); ok {

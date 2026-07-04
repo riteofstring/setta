@@ -625,7 +625,7 @@ func TestTranscriptIngestsProtocolActivityTypes(t *testing.T) {
 				{ProviderItemID: "approval_review_x", Type: RunItemTypeApprovalReview, Status: RunItemStatusCompleted, Title: "Auto-approval review", Summary: "Auto-review approved for command", ReviewID: "x", RawDetails: json.RawMessage(`{"riskLevel":"low"}`)},
 				{ProviderItemID: "patch1", Type: RunItemTypeFileChange, Status: RunItemStatusRunning, Details: newRunItemFileChangeDetails("updated", []RunItemFileChangePath{{Path: "a.go", Operation: runItemFileChangeOperationPtr(RunItemFileChangeOperationUpdate)}})},
 				{ProviderItemID: "patch1", Type: RunItemTypeFileChange, Status: RunItemStatusCompleted, Details: newRunItemFileChangeDetails("completed", nil)},
-				{ProviderItemID: "tool1", Type: RunItemTypeDynamicToolCall, Status: RunItemStatusCompleted, ToolName: "do_thing"},
+				{ProviderItemID: "tool1", Type: RunItemTypeDynamicToolCall, Status: RunItemStatusCompleted, Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{ToolName: "do_thing"})},
 				{ProviderItemID: "notice1", Type: RunItemTypeNotice, Status: RunItemStatusCompleted, NoticeKind: "deprecationNotice", NoticeMessage: "old api"},
 			}
 			for _, item := range items {

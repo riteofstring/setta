@@ -213,13 +213,6 @@ func mcpToolCallThreadItemRunItem(item codexapp.ThreadItem, _ RunItemStatus) (Ru
 	return mcpToolCallRunItem(*item.McpToolCall)
 }
 
-func dynamicToolCallThreadItemRunItem(item codexapp.ThreadItem, _ RunItemStatus) (RunItem, error) {
-	if item.DynamicToolCall == nil {
-		return RunItem{}, missingCodexThreadItemVariant(item.Type)
-	}
-	return dynamicToolCallRunItem(*item.DynamicToolCall)
-}
-
 func collabAgentToolCallThreadItemRunItem(item codexapp.ThreadItem, _ RunItemStatus) (RunItem, error) {
 	if item.CollabAgentToolCall == nil {
 		return RunItem{}, missingCodexThreadItemVariant(item.Type)
@@ -448,29 +441,6 @@ func mcpToolCallRunItem(item codexapp.McpToolCallThreadItem) (RunItem, error) {
 		Type:           RunItemTypeMCPToolCall,
 		Status:         status,
 		Details:        NewRunItemMCPToolCallDetails(details),
-	}, nil
-}
-
-func dynamicToolCallRunItem(item codexapp.DynamicToolCallThreadItem) (RunItem, error) {
-	id, err := requireCodexStringValue(item.ID, "codex dynamicToolCall item.id")
-	if err != nil {
-		return RunItem{}, err
-	}
-	toolName, err := requireCodexStringValue(item.Tool, "codex dynamicToolCall item.tool")
-	if err != nil {
-		return RunItem{}, err
-	}
-	status, err := mapCodexItemStatusWithDefault(string(item.Status), RunItemStatusRunning)
-	if err != nil {
-		return RunItem{}, err
-	}
-	return RunItem{
-		ProviderItemID: id,
-		Type:           RunItemTypeDynamicToolCall,
-		Status:         status,
-		ToolName:       toolName,
-		Namespace:      stringPtrValue(item.Namespace),
-		DurationMs:     intPtrValue(item.DurationMs),
 	}, nil
 }
 

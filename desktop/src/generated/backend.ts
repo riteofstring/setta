@@ -1097,9 +1097,9 @@ export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind")
   }
 }
 
-export type RunItemDetailsKind = "command_execution" | "mcp_tool_call" | "file_change" | "diff";
+export type RunItemDetailsKind = "command_execution" | "mcp_tool_call" | "dynamic_tool_call" | "file_change" | "diff";
 
-export const runItemDetailsKindValues = ["command_execution", "mcp_tool_call", "file_change", "diff"] as const satisfies readonly RunItemDetailsKind[];
+export const runItemDetailsKindValues = ["command_execution", "mcp_tool_call", "dynamic_tool_call", "file_change", "diff"] as const satisfies readonly RunItemDetailsKind[];
 
 export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetailsKind"): RunItemDetailsKind {
   const decoded = decodeString(value, label);
@@ -1107,6 +1107,8 @@ export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetails
     case "command_execution":
       return decoded;
     case "mcp_tool_call":
+      return decoded;
+    case "dynamic_tool_call":
       return decoded;
     case "file_change":
       return decoded;
@@ -3204,6 +3206,30 @@ export interface RunItemMCPToolCallDetails {
   error: string;
 }
 
+export interface RunItemDynamicToolContentItem {
+  type: string;
+  text: string;
+  imageUrl: string;
+}
+
+export interface RunItemDynamicToolResult {
+  contentItems: RunItemDynamicToolContentItem[];
+  success: boolean | null;
+}
+
+export interface RunItemDynamicToolCallDetails {
+  namespace: string;
+  toolName: string;
+  displayTitle: string;
+  description: string;
+  category: string;
+  durationMs: number;
+  arguments: unknown;
+  resultSummary: string;
+  result: RunItemDynamicToolResult | null;
+  error: string;
+}
+
 export interface RunItemFileChangePath {
   path: string;
   operation: RunItemFileChangeOperation | null;
@@ -3260,6 +3286,7 @@ export interface RunActivityDetailsProjection {
   details: unknown;
   commandExecution: RunItemCommandExecutionDetails | null;
   mcpToolCall: RunItemMCPToolCallDetails | null;
+  dynamicToolCall: RunItemDynamicToolCallDetails | null;
   fileChange: RunItemFileChangeDetails | null;
   diff: RunItemDiffDetails | null;
 }
@@ -3676,6 +3703,7 @@ export interface RunItemDetails {
   kind: RunItemDetailsKind;
   commandExecution: RunItemCommandExecutionDetails | null;
   mcpToolCall: RunItemMCPToolCallDetails | null;
+  dynamicToolCall: RunItemDynamicToolCallDetails | null;
   fileChange: RunItemFileChangeDetails | null;
   diff: RunItemDiffDetails | null;
 }
@@ -7561,6 +7589,42 @@ export function decodeRunItemMCPToolCallDetails(value: unknown): RunItemMCPToolC
   };
 }
 
+export function decodeRunItemDynamicToolContentItem(value: unknown): RunItemDynamicToolContentItem {
+  const record = assertRecord(value, "RunItemDynamicToolContentItem");
+  assertKnownFields(record, "RunItemDynamicToolContentItem", ["type", "text", "imageUrl"]);
+  return {
+    type: decodeString(requireField(record, "type", "RunItemDynamicToolContentItem"), "RunItemDynamicToolContentItem.type"),
+    text: decodeString(requireField(record, "text", "RunItemDynamicToolContentItem"), "RunItemDynamicToolContentItem.text"),
+    imageUrl: decodeString(requireField(record, "imageUrl", "RunItemDynamicToolContentItem"), "RunItemDynamicToolContentItem.imageUrl"),
+  };
+}
+
+export function decodeRunItemDynamicToolResult(value: unknown): RunItemDynamicToolResult {
+  const record = assertRecord(value, "RunItemDynamicToolResult");
+  assertKnownFields(record, "RunItemDynamicToolResult", ["contentItems", "success"]);
+  return {
+    contentItems: decodeArray(requireField(record, "contentItems", "RunItemDynamicToolResult"), "RunItemDynamicToolResult.contentItems", (item) => decodeRunItemDynamicToolContentItem(item)),
+    success: decodeNullable(requireField(record, "success", "RunItemDynamicToolResult"), "RunItemDynamicToolResult.success", (item) => decodeBoolean(item, "RunItemDynamicToolResult.success")),
+  };
+}
+
+export function decodeRunItemDynamicToolCallDetails(value: unknown): RunItemDynamicToolCallDetails {
+  const record = assertRecord(value, "RunItemDynamicToolCallDetails");
+  assertKnownFields(record, "RunItemDynamicToolCallDetails", ["namespace", "toolName", "displayTitle", "description", "category", "durationMs", "arguments", "resultSummary", "result", "error"]);
+  return {
+    namespace: decodeString(requireField(record, "namespace", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.namespace"),
+    toolName: decodeString(requireField(record, "toolName", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.toolName"),
+    displayTitle: decodeString(requireField(record, "displayTitle", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.displayTitle"),
+    description: decodeString(requireField(record, "description", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.description"),
+    category: decodeString(requireField(record, "category", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.category"),
+    durationMs: decodeInteger(requireField(record, "durationMs", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.durationMs"),
+    arguments: decodeUnknown(requireField(record, "arguments", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.arguments"),
+    resultSummary: decodeString(requireField(record, "resultSummary", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.resultSummary"),
+    result: decodeNullable(requireField(record, "result", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.result", (item) => decodeRunItemDynamicToolResult(item)),
+    error: decodeString(requireField(record, "error", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.error"),
+  };
+}
+
 export function decodeRunItemFileChangePath(value: unknown): RunItemFileChangePath {
   const record = assertRecord(value, "RunItemFileChangePath");
   assertKnownFields(record, "RunItemFileChangePath", ["path", "operation", "movePath", "additions", "deletions", "patch", "patchTruncated"]);
@@ -7613,7 +7677,7 @@ export function decodeRunItemDiffDetails(value: unknown): RunItemDiffDetails {
 
 export function decodeRunActivityDetailsProjection(value: unknown): RunActivityDetailsProjection {
   const record = assertRecord(value, "RunActivityDetailsProjection");
-  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "mcpToolCall", "fileChange", "diff"]);
+  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "mcpToolCall", "dynamicToolCall", "fileChange", "diff"]);
   return {
     summary: decodeString(requireField(record, "summary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.summary"),
     command: decodeString(requireField(record, "command", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.command"),
@@ -7636,6 +7700,7 @@ export function decodeRunActivityDetailsProjection(value: unknown): RunActivityD
     details: decodeUnknown(requireField(record, "details", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.details"),
     commandExecution: decodeNullable(requireField(record, "commandExecution", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
     mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
+    dynamicToolCall: decodeNullable(requireField(record, "dynamicToolCall", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.dynamicToolCall", (item) => decodeRunItemDynamicToolCallDetails(item)),
     fileChange: decodeNullable(requireField(record, "fileChange", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.fileChange", (item) => decodeRunItemFileChangeDetails(item)),
     diff: decodeNullable(requireField(record, "diff", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.diff", (item) => decodeRunItemDiffDetails(item)),
   };
@@ -8289,17 +8354,19 @@ export function decodeGetRunActivityRequest(value: unknown): GetRunActivityReque
 
 export function decodeRunItemDetails(value: unknown): RunItemDetails {
   const record = assertRecord(value, "RunItemDetails");
-  assertKnownFields(record, "RunItemDetails", ["kind", "commandExecution", "mcpToolCall", "fileChange", "diff"]);
+  assertKnownFields(record, "RunItemDetails", ["kind", "commandExecution", "mcpToolCall", "dynamicToolCall", "fileChange", "diff"]);
   const result: RunItemDetails = {
     kind: decodeRunItemDetailsKind(requireField(record, "kind", "RunItemDetails"), "RunItemDetails.kind"),
     commandExecution: decodeNullable(requireField(record, "commandExecution", "RunItemDetails"), "RunItemDetails.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
     mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunItemDetails"), "RunItemDetails.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
+    dynamicToolCall: decodeNullable(requireField(record, "dynamicToolCall", "RunItemDetails"), "RunItemDetails.dynamicToolCall", (item) => decodeRunItemDynamicToolCallDetails(item)),
     fileChange: decodeNullable(requireField(record, "fileChange", "RunItemDetails"), "RunItemDetails.fileChange", (item) => decodeRunItemFileChangeDetails(item)),
     diff: decodeNullable(requireField(record, "diff", "RunItemDetails"), "RunItemDetails.diff", (item) => decodeRunItemDiffDetails(item)),
   };
   assertTaggedUnionBranch("RunItemDetails", result.kind, {
     "command_execution": result.commandExecution,
     "mcp_tool_call": result.mcpToolCall,
+    "dynamic_tool_call": result.dynamicToolCall,
     "file_change": result.fileChange,
     "diff": result.diff,
   });

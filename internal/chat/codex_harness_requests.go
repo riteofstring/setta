@@ -150,26 +150,31 @@ func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, mes
 		return err
 	}
 	if !ok {
-		messageText := "unsupported dynamic tool: " + agentToolKey(call.Namespace, call.Tool)
-		item.Status = RunItemStatusFailed
-		item.Error = messageText
-		if err := sink.RunItemUpsert(item); err != nil {
-			return err
-		}
-		return message.RespondError(codexJSONRPCErrorToolUnavailable, messageText)
+		return finishCodexDynamicToolCallError(message, sink, item, codexJSONRPCErrorToolUnavailable, "unsupported dynamic tool: "+agentToolKey(call.Namespace, call.Tool))
 	}
 	result, err := tool.Handler(harness.agentToolRuntimeContext(ctx, runID, threadID, turnID), call)
 	if err != nil {
-		messageText := "dynamic tool failed: " + err.Error()
-		item.Status = RunItemStatusFailed
-		item.Error = messageText
-		if upsertErr := sink.RunItemUpsert(item); upsertErr != nil {
-			return upsertErr
-		}
-		return message.RespondError(codexJSONRPCErrorToolFailed, messageText)
+		return finishCodexDynamicToolCallError(message, sink, item, codexJSONRPCErrorToolFailed, "dynamic tool failed: "+err.Error())
 	}
+	return finishCodexDynamicToolCallSuccess(message, sink, item, result)
+}
+
+func finishCodexDynamicToolCallError(message jsonRPCMessage, sink TurnSink, item RunItem, code int, messageText string) error {
+	item.Status = RunItemStatusFailed
+	if err := setDynamicToolRunItemError(&item, messageText); err != nil {
+		return err
+	}
+	if err := sink.RunItemUpsert(item); err != nil {
+		return err
+	}
+	return message.RespondError(code, messageText)
+}
+
+func finishCodexDynamicToolCallSuccess(message jsonRPCMessage, sink TurnSink, item RunItem, result AgentToolResult) error {
 	item.Status = RunItemStatusCompleted
-	item.Result = codexDynamicToolResultSummary(result)
+	if err := setDynamicToolRunItemResult(&item, result); err != nil {
+		return err
+	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err
 	}
@@ -200,20 +205,54 @@ func (harness *CodexHarness) agentToolRuntimeContext(ctx context.Context, runID 
 }
 
 func codexDynamicToolRunItem(call AgentToolCall, tool AgentTool, registered bool) RunItem {
+	details := RunItemDynamicToolCallDetails{
+		Namespace: call.Namespace,
+		ToolName:  call.Tool,
+		Arguments: call.Arguments,
+	}
 	item := RunItem{
 		ProviderItemID: call.CallID,
 		Type:           RunItemTypeDynamicToolCall,
 		Status:         RunItemStatusRunning,
 		Title:          "Dynamic tool call",
-		Namespace:      call.Namespace,
-		ToolName:       call.Tool,
-		RawDetails:     call.Arguments,
+		Details:        NewRunItemDynamicToolCallDetails(details),
 	}
 	if registered {
+		details.DisplayTitle = tool.AuditMetadata.DisplayName
+		details.Description = tool.AuditMetadata.Description
+		details.Category = tool.AuditMetadata.Category
 		item.Title = tool.AuditMetadata.DisplayName
 		item.Summary = tool.AuditMetadata.Description
+		item.Details = NewRunItemDynamicToolCallDetails(details)
 	}
 	return item
+}
+
+func setDynamicToolRunItemError(item *RunItem, message string) error {
+	details, ok := item.DynamicToolCallDetails()
+	if !ok {
+		return fmt.Errorf("dynamic tool run item %s is missing typed details", item.ProviderItemID)
+	}
+	updated := cloneDynamicToolCallDetails(*details)
+	updated.Error = message
+	item.Details = NewRunItemDynamicToolCallDetails(updated)
+	return nil
+}
+
+func setDynamicToolRunItemResult(item *RunItem, result AgentToolResult) error {
+	details, ok := item.DynamicToolCallDetails()
+	if !ok {
+		return fmt.Errorf("dynamic tool run item %s is missing typed details", item.ProviderItemID)
+	}
+	updated := cloneDynamicToolCallDetails(*details)
+	updated.ResultSummary = codexDynamicToolResultSummary(result)
+	success := result.Success
+	updated.Result = &RunItemDynamicToolResult{
+		ContentItems: dynamicToolResultContentItems(result.ContentItems),
+		Success:      &success,
+	}
+	item.Details = NewRunItemDynamicToolCallDetails(updated)
+	return nil
 }
 
 func codexDynamicToolCall(params map[string]any) (AgentToolCall, error) {
@@ -248,6 +287,21 @@ func codexDynamicToolContentItems(items []AgentToolContentItem) []map[string]any
 		default:
 			content = append(content, map[string]any{"type": "inputText", "text": item.Text})
 		}
+	}
+	return content
+}
+
+func dynamicToolResultContentItems(items []AgentToolContentItem) []RunItemDynamicToolContentItem {
+	if items == nil {
+		return []RunItemDynamicToolContentItem{}
+	}
+	content := make([]RunItemDynamicToolContentItem, 0, len(items))
+	for _, item := range items {
+		content = append(content, RunItemDynamicToolContentItem{
+			Type:     item.Type,
+			Text:     item.Text,
+			ImageURL: item.ImageURL,
+		})
 	}
 	return content
 }

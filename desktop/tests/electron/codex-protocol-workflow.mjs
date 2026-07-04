@@ -81,18 +81,18 @@ export async function assertProtocolNotificationActivity(
     "dynamic_tool_call",
     (item) =>
       item.status === "completed" &&
-      item.namespace === "setta" &&
-      item.toolName === "workspace_context" &&
-      item.result.includes("rootPath"),
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "workspace_context" &&
+      JSON.stringify(item.details.dynamicToolCall.result?.contentItems ?? []).includes("rootPath"),
   );
   await assertRunActivityItem(
     page,
     "dynamic_tool_call",
     (item) =>
       item.status === "failed" &&
-      item.namespace === "setta" &&
-      item.toolName === "missing_tool" &&
-      item.error.includes("unsupported dynamic tool"),
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "missing_tool" &&
+      item.details.dynamicToolCall.error.includes("unsupported dynamic tool"),
   );
   await assertRunActivityItem(page, "mcp_tool_call", (item) => isCompletedMCPToolCallItem(item));
   await assertRunActivityItem(page, "mcp_tool_call", (item) => isFailedMCPToolCallItem(item));

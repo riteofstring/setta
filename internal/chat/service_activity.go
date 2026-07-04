@@ -355,37 +355,51 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	next.CompletedAt = keepString(next.CompletedAt, existing.CompletedAt)
 	next.Title = keepString(next.Title, existing.Title)
 	next.Summary = keepString(next.Summary, existing.Summary)
+	mergeRunItemCommandFields(existing, &next)
+	mergeRunItemFileFields(existing, &next)
+	mergeRunItemDynamicToolFields(existing, &next)
+	mergeRunItemCommonFields(existing, &next)
+	return next
+}
+
+func mergeRunItemCommandFields(existing RunItem, next *RunItem) {
 	if next.Type != RunItemTypeCommandExecution {
 		next.Command = keepString(next.Command, existing.Command)
 		next.Cwd = keepString(next.Cwd, existing.Cwd)
-	}
-	if next.Type != RunItemTypeFileChange && next.Type != RunItemTypeDiff {
-		next.FilePaths = keepStrings(next.FilePaths, existing.FilePaths)
-		next.PatchStatus = keepString(next.PatchStatus, existing.PatchStatus)
-	}
-	next.ServerName = keepString(next.ServerName, existing.ServerName)
-	next.ToolName = keepString(next.ToolName, existing.ToolName)
-	next.Progress = mergeProgress(existing, next)
-	if next.Type != RunItemTypeCommandExecution {
-		next.Result = keepString(next.Result, existing.Result)
-		next.Error = keepString(next.Error, existing.Error)
-	}
-	next.NoticeKind = keepString(next.NoticeKind, existing.NoticeKind)
-	next.NoticeMessage = keepString(next.NoticeMessage, existing.NoticeMessage)
-	if next.Type != RunItemTypeFileChange && next.Type != RunItemTypeDiff {
-		next.DiffSummary = keepString(next.DiffSummary, existing.DiffSummary)
-	}
-	next.Namespace = keepString(next.Namespace, existing.Namespace)
-	if next.Type != RunItemTypeCommandExecution {
 		next.ProcessID = keepString(next.ProcessID, existing.ProcessID)
 		next.Source = keepCommandSource(next.Source, existing.Source)
 	}
+}
+
+func mergeRunItemFileFields(existing RunItem, next *RunItem) {
+	if next.Type != RunItemTypeFileChange && next.Type != RunItemTypeDiff {
+		next.FilePaths = keepStrings(next.FilePaths, existing.FilePaths)
+		next.PatchStatus = keepString(next.PatchStatus, existing.PatchStatus)
+		next.DiffSummary = keepString(next.DiffSummary, existing.DiffSummary)
+	}
+}
+
+func mergeRunItemDynamicToolFields(existing RunItem, next *RunItem) {
+	if next.Type != RunItemTypeDynamicToolCall {
+		next.ServerName = keepString(next.ServerName, existing.ServerName)
+		next.ToolName = keepString(next.ToolName, existing.ToolName)
+		next.Namespace = keepString(next.Namespace, existing.Namespace)
+		next.RawDetails = keepRawMessage(next.RawDetails, existing.RawDetails)
+	}
+	if next.Type != RunItemTypeCommandExecution && next.Type != RunItemTypeDynamicToolCall {
+		next.Result = keepString(next.Result, existing.Result)
+		next.Error = keepString(next.Error, existing.Error)
+	}
+}
+
+func mergeRunItemCommonFields(existing RunItem, next *RunItem) {
+	next.Progress = mergeProgress(existing, *next)
+	next.NoticeKind = keepString(next.NoticeKind, existing.NoticeKind)
+	next.NoticeMessage = keepString(next.NoticeMessage, existing.NoticeMessage)
 	next.RequestID = keepString(next.RequestID, existing.RequestID)
 	next.ReviewID = keepString(next.ReviewID, existing.ReviewID)
 	next.Details = mergeRunItemDetails(existing.Details, next.Details)
-	next.RawDetails = keepRawMessage(next.RawDetails, existing.RawDetails)
-	next.HiddenText = mergeHiddenText(existing, next)
-	return next
+	next.HiddenText = mergeHiddenText(existing, *next)
 }
 
 func mergeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
@@ -400,6 +414,9 @@ func mergeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunIte
 	}
 	if next.Kind == RunItemDetailsKindMCPToolCall {
 		return mergeMCPToolCallRunItemDetails(existing, next)
+	}
+	if next.Kind == RunItemDetailsKindDynamicToolCall {
+		return mergeDynamicToolCallRunItemDetails(existing, next)
 	}
 	if next.Kind == RunItemDetailsKindFileChange {
 		return mergeFileChangeRunItemDetails(existing, next)
@@ -457,6 +474,32 @@ func mergeMCPToolCallRunItemDetails(existing *RunItemDetails, next *RunItemDetai
 	}
 	merged.Error = keepString(merged.Error, previous.Error)
 	return NewRunItemMCPToolCallDetails(merged)
+}
+
+func mergeDynamicToolCallRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
+	if next.DynamicToolCall == nil {
+		return existing
+	}
+	if existing.DynamicToolCall == nil {
+		return next
+	}
+	merged := cloneDynamicToolCallDetails(*next.DynamicToolCall)
+	previous := existing.DynamicToolCall
+	merged.Namespace = keepString(merged.Namespace, previous.Namespace)
+	merged.ToolName = keepString(merged.ToolName, previous.ToolName)
+	merged.DisplayTitle = keepString(merged.DisplayTitle, previous.DisplayTitle)
+	merged.Description = keepString(merged.Description, previous.Description)
+	merged.Category = keepString(merged.Category, previous.Category)
+	if merged.DurationMs == 0 {
+		merged.DurationMs = previous.DurationMs
+	}
+	merged.Arguments = keepRawMessage(merged.Arguments, previous.Arguments)
+	merged.ResultSummary = keepString(merged.ResultSummary, previous.ResultSummary)
+	if merged.Result == nil {
+		merged.Result = previous.Result
+	}
+	merged.Error = keepString(merged.Error, previous.Error)
+	return NewRunItemDynamicToolCallDetails(merged)
 }
 
 func mergeFileChangeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {

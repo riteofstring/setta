@@ -266,7 +266,11 @@ func permissionApprovalRunItem(providerItemID string, cwd string, reason string,
 		Title:          "Permission approval",
 		Summary:        reason,
 		Cwd:            cwd,
-		Result:         permissionSummary,
+		Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{
+			DisplayTitle:  "Permission approval",
+			Description:   reason,
+			ResultSummary: permissionSummary,
+		}),
 	}
 }
 
@@ -299,6 +303,10 @@ func userInputApprovalRunItem(providerItemID string, title string, body string) 
 		Status:         RunItemStatusPending,
 		Title:          title,
 		Summary:        body,
+		Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{
+			DisplayTitle: title,
+			Description:  body,
+		}),
 	}
 }
 
