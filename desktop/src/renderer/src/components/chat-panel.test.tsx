@@ -12,9 +12,11 @@ import {
   backgroundTerminalProcess,
   userMessageBlock,
 } from "../stores/chat-store-events.test.helpers";
+import { testRun } from "../stores/chat-store.test.fixtures";
 import { BackgroundTerminalMonitor } from "./chat-background-terminal-monitor";
 import { Composer } from "./chat-composer";
 import { commandComposerState } from "./chat-command-composer-controller";
+import { currentPlanFromTranscript } from "./chat-current-plan-surface";
 import {
   CommandPalette,
   commandSuggestions,
@@ -685,6 +687,103 @@ describe("conversation body states", () => {
 });
 
 describe("background terminal surface", () => {
+  test("renders the active run current plan before background terminals", () => {
+    const terminal = backgroundTerminalProcess("background_terminal_alpha");
+    const planBlock = activityBlock({
+      id: "block_plan",
+      runId: "run_plan",
+      ordinal: 2,
+      sourceRunItemId: "run_item_plan",
+      type: "plan",
+      activityStatus: "running",
+      hasDetails: true,
+      title: "Plan updated",
+      details: activityDetails({
+        plan: {
+          explanation: "Updating the turn plan.",
+          steps: [
+            { status: "completed", step: "Read the plan" },
+            { status: "inProgress", step: "Render the active surface" },
+            { status: "pending", step: "Add completion dwell" },
+          ],
+        },
+      }),
+    });
+    const html = renderToString(
+      <ChatPanel
+        chat={conversationBodyChat({
+          activeRun: testRun("running", "run_plan"),
+          backgroundTerminalIdsByConversationId: {
+            conversation_api: [terminal.id],
+          },
+          backgroundTerminalsById: {
+            [terminal.id]: terminal,
+          },
+          transcriptBlocks: [planBlock],
+        })}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+        workspace={{ id: "workspace_api" } as Parameters<typeof ChatPanel>[0]["workspace"]}
+      />,
+    );
+
+    expect(html).toContain('data-testid="current-plan-surface"');
+    expect(html).toContain('data-run-id="run_plan"');
+    expect(html).toContain('data-run-item-id="run_item_plan"');
+    expect(html).toContain('data-plan-completed-count="1"');
+    expect(html).toContain('data-current-step="Render the active surface"');
+    expect(html).toContain("Current plan");
+    expect(html).toContain("1/3 done");
+    expect(html).toContain("Render the active surface");
+    expect(html.indexOf('data-testid="current-plan-surface"')).toBeLessThan(
+      html.indexOf('data-testid="background-terminals-footer"'),
+    );
+    expectReadableColumnElement(html, 'data-testid="current-plan-footer"');
+  });
+
+  test("selects only typed plan details from the active run", () => {
+    const stalePlan = activityBlock({
+      id: "block_stale_plan",
+      runId: "run_stale",
+      ordinal: 10,
+      type: "plan",
+      details: activityDetails({
+        plan: {
+          explanation: "",
+          steps: [{ status: "inProgress", step: "Ignore stale plan" }],
+        },
+      }),
+    });
+    const untypedPlan = activityBlock({
+      id: "block_untyped_plan",
+      runId: "run_plan",
+      ordinal: 11,
+      type: "plan",
+      details: activityDetails({ summary: "legacy summary that must not be used" }),
+    });
+    const activePlan = activityBlock({
+      id: "block_active_plan",
+      runId: "run_plan",
+      ordinal: 3,
+      sourceRunItemId: "run_item_active_plan",
+      type: "plan",
+      details: activityDetails({
+        plan: {
+          explanation: "",
+          steps: [{ status: "inProgress", step: "Use typed plan" }],
+        },
+      }),
+    });
+
+    const currentPlan = currentPlanFromTranscript(
+      [stalePlan, untypedPlan, activePlan],
+      testRun("running", "run_plan"),
+    );
+
+    expect(currentPlan?.sourceRunItemId).toBe("run_item_active_plan");
+    expect(currentPlan?.plan.steps).toEqual([{ status: "inProgress", step: "Use typed plan" }]);
+  });
+
   test("renders the compact footer for active background terminals", () => {
     const terminal = backgroundTerminalProcess("background_terminal_alpha");
     const html = renderToString(

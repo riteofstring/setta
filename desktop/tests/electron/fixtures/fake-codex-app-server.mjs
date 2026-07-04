@@ -151,6 +151,11 @@ function handleTurnStart(message) {
     setTimeout(emitNavigationLivenessTurn, 5);
     return;
   }
+  if (text.includes("current plan workflow")) {
+    activeSilentLivenessTurn = fakeTurn("inProgress");
+    setTimeout(emitCurrentPlanInitialTurn, 5);
+    return;
+  }
   if (text.includes("nonretryable stream error workflow")) {
     activeSilentLivenessTurn = fakeTurn("inProgress");
     setTimeout(emitNonRetryableStreamErrorTurn, 5);
@@ -387,6 +392,9 @@ function handleTurnInterrupt(message) {
 }
 
 function handleTurnSteer(message) {
+  if (handleCurrentPlanSteer(message)) {
+    return;
+  }
   if (handleNavigationLivenessSteer(message)) {
     return;
   }
@@ -461,6 +469,32 @@ function handleNavigationLivenessSteer(message) {
   notify("turn/completed", {
     threadId,
     turn: fakeTurn("completed"),
+  });
+  return true;
+}
+
+function handleCurrentPlanSteer(message) {
+  if (activeSilentLivenessTurn?.id !== message.params?.expectedTurnId) {
+    return false;
+  }
+  const text = turnInputText(message);
+  if (!text.includes("update current plan workflow")) {
+    return false;
+  }
+  respond(message.id, {});
+  notifyCurrentPlanUpdate({
+    explanation: "Plan updated while the turn is active.",
+    steps: [
+      { status: "completed", step: "Read the plan" },
+      { status: "completed", step: "Render the active surface" },
+      { status: "inProgress", step: "Verify the active surface update" },
+    ],
+  });
+  notify("item/agentMessage/delta", {
+    delta: "Current plan updated. ",
+    itemId: "current_plan_message_fake",
+    threadId,
+    turnId,
   });
   return true;
 }
@@ -785,6 +819,36 @@ function emitNavigationLivenessTurn() {
   notify("item/agentMessage/delta", {
     delta: "Navigation liveness started. ",
     itemId: "navigation_liveness_message_fake",
+    threadId,
+    turnId,
+  });
+}
+
+function emitCurrentPlanInitialTurn() {
+  notifyCurrentPlanUpdate({
+    explanation: "Planning the current active turn.",
+    steps: [
+      { status: "completed", step: "Read the plan" },
+      { status: "inProgress", step: "Render the active surface" },
+      { status: "pending", step: "Verify the active surface update" },
+    ],
+  });
+  notify("item/agentMessage/delta", {
+    delta: "Current plan started. ",
+    itemId: "current_plan_message_fake",
+    threadId,
+    turnId,
+  });
+}
+
+function notifyCurrentPlanUpdate({ explanation, steps }) {
+  notify("turn/plan/updated", {
+    explanation,
+    plan: steps.map((step) => ({
+      status: step.status,
+      step: step.step,
+    })),
+    summary: "legacy summary that must not be used",
     threadId,
     turnId,
   });

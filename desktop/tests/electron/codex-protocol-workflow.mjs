@@ -19,6 +19,7 @@ import {
   waitForState,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
+import { chatTextInput } from "./chat-input-helpers.mjs";
 
 const fakeCodexAppServerFixture = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -392,7 +393,12 @@ async function openProtocolActivityRow(client, sourceRunItemId) {
   );
 }
 
-export async function runProtocolGoalMultiTurnWorkflow(client, backend, workspaceId) {
+export async function runProtocolCurrentPlanAndGoalMultiTurnWorkflow(client, backend, workspaceId) {
+  await runProtocolCurrentPlanWorkflow(client, backend, workspaceId);
+  await runProtocolGoalMultiTurnWorkflow(client, backend, workspaceId);
+}
+
+async function runProtocolGoalMultiTurnWorkflow(client, backend, workspaceId) {
   const conversationId = await createChat(client, backend, workspaceId);
   await submitComposer(client, "/goal phase0 codex multi turn", "Send message");
   const commandPage = await waitForCommandResult(
@@ -464,6 +470,56 @@ export async function runProtocolGoalBackgroundTerminalWorkflow(
   await assertNoActiveRun(backend, workspaceId, conversationId);
 }
 
+async function runProtocolCurrentPlanWorkflow(client, backend, workspaceId) {
+  const conversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "current plan workflow", "Send message");
+  const run = await waitForRunStatusForPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "current plan workflow",
+    "running",
+  );
+  await waitForTexts(client, ["Current plan started."]);
+  const initial = await waitForCurrentPlanSurface(client, {
+    completedCount: "1",
+    currentStep: "Render the active surface",
+    runId: run.id,
+    stepCount: "3",
+  });
+  await assertCurrentPlanExpanded(client, {
+    explanation: "Planning the current active turn.",
+    statuses: ["completed", "inProgress", "pending"],
+  });
+
+  await callRendererChatAPI(client, "steerMessage", [
+    workspaceId,
+    conversationId,
+    chatTextInput("update current plan workflow"),
+  ]);
+  await waitForTexts(client, ["Current plan updated."]);
+  const updated = await waitForCurrentPlanSurface(client, {
+    completedCount: "2",
+    currentStep: "Verify the active surface update",
+    runId: run.id,
+    stepCount: "3",
+  });
+  if (updated.runItemId !== initial.runItemId) {
+    throw new Error(
+      `current plan surface changed run item id after update: ${JSON.stringify({ initial, updated })}`,
+    );
+  }
+
+  await clickButtonByAria(client, "Stop run");
+  await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+  await waitForState(
+    client,
+    `(() => ({ present: Boolean(document.querySelector('[data-testid="current-plan-surface"]')) }))()`,
+    (value) => !value.present,
+  );
+}
+
 async function assertProtocolGoalBackgroundTerminalMonitor(client) {
   await waitForState(
     client,
@@ -494,6 +550,65 @@ async function assertProtocolGoalBackgroundTerminalMonitor(client) {
         process.command === goalBackgroundTerminal.command &&
         process.text.includes(goalBackgroundTerminal.secondTurnOutput.trim()),
     ),
+  );
+}
+
+async function waitForCurrentPlanSurface(
+  client,
+  { completedCount, currentStep, runId, stepCount },
+) {
+  let lastSurface = null;
+  await waitForState(
+    client,
+    `(() => {
+      const surfaces = Array.from(document.querySelectorAll('[data-testid="current-plan-surface"]'));
+      const surface = surfaces[0];
+      return {
+        completedCount: surface?.getAttribute("data-plan-completed-count") ?? "",
+        count: surfaces.length,
+        currentStep: surface?.getAttribute("data-current-step") ?? "",
+        runId: surface?.getAttribute("data-run-id") ?? "",
+        runItemId: surface?.getAttribute("data-run-item-id") ?? "",
+        stepCount: surface?.getAttribute("data-plan-step-count") ?? "",
+        text: surface?.innerText ?? "",
+      };
+    })()`,
+    (value) => {
+      lastSurface = value;
+      return (
+        value.count === 1 &&
+        value.runId === runId &&
+        value.completedCount === completedCount &&
+        value.stepCount === stepCount &&
+        value.currentStep === currentStep &&
+        value.text.includes("Current plan") &&
+        value.text.includes(`${completedCount}/${stepCount} done`) &&
+        value.text.includes(currentStep)
+      );
+    },
+  );
+  return lastSurface;
+}
+
+async function assertCurrentPlanExpanded(client, { explanation, statuses }) {
+  await client.evaluate(
+    `document.querySelector('[data-testid="current-plan-footer"] button')?.click()`,
+  );
+  await waitForState(
+    client,
+    `(() => {
+      const surface = document.querySelector('[data-testid="current-plan-surface"]');
+      const rows = Array.from(document.querySelectorAll('[data-testid="current-plan-steps"] li'));
+      return {
+        expanded: surface?.getAttribute("data-expanded") ?? "",
+        explanation: document.querySelector('[data-testid="current-plan-expanded"]')?.innerText ?? "",
+        statuses: rows.map((row) => row.getAttribute("data-plan-step-status") ?? ""),
+      };
+    })()`,
+    (value) =>
+      value.expanded === "true" &&
+      value.explanation.includes(explanation) &&
+      JSON.stringify(value.statuses) === JSON.stringify(statuses),
   );
 }
 

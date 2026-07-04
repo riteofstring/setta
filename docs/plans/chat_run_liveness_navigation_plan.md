@@ -709,12 +709,43 @@ Follow-up audit:
 
 Remaining work:
 
-- add the selected-conversation current-plan surface near the composer that
-  updates in place while the run is active;
 - add completion dwell for the current-plan surface and prevent auto-dismiss
   while expanded, hovered, or focused;
-- add deterministic Electron coverage for current-plan surface updates,
-  completion dwell, and coexistence with background terminals.
+- add deterministic Electron coverage for completion dwell and coexistence with
+  background terminals.
+
+### 2026-07-03: Active Current-Plan Surface
+
+Implemented the next focused Phase 8 renderer slice:
+
+- added a selected-conversation current-plan surface above the composer, ordered
+  before background terminals in the existing above-input area;
+- derived the surface from typed active-run transcript activity blocks whose
+  activity type is `plan` and whose details include `RunItemPlanDetails`;
+- showed completed-step progress and the current `inProgress` step in the
+  compact row, with expansion for explanation and typed step statuses;
+- kept the surface active-run scoped, so it disappears when there is no selected
+  active run instead of introducing completion dwell in this slice;
+- extended the fake Codex app-server protocol workflow with typed
+  `turn/plan/updated` notifications that update the same plan item while the run
+  is active, and asserted the Electron renderer surface updates in place.
+
+Verification performed:
+
+- `pnpm vitest run src/renderer/src/components/chat-panel.test.tsx src/renderer/src/components/chat-transcript-activity-details.test.tsx`
+- `pnpm typecheck`
+- `pnpm build`
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
+
+Remaining work:
+
+- add completion dwell for the current-plan surface and prevent auto-dismiss
+  while expanded, hovered, or focused;
+- formalize the shared active-work stack with current-plan/background-terminal
+  coexistence assertions and background-terminal completion dwell.
 
 ## Open Decisions
 

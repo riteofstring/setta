@@ -82,11 +82,11 @@ import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-wor
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
+  runProtocolCurrentPlanAndGoalMultiTurnWorkflow,
   runProtocolGoalBackgroundTerminalWorkflow,
   runProtocolGoalCancellationWorkflow,
   runProtocolGoalForegroundUnifiedExecWorkflow,
   runProtocolLivenessReconciliationWorkflow,
-  runProtocolGoalMultiTurnWorkflow,
   runProtocolProviderRestartLivenessWorkflow,
   runProtocolStreamErrorLivenessWorkflow,
 } from "./codex-protocol-workflow.mjs";
@@ -1314,7 +1314,7 @@ async function runCodexProtocolWorkflow(results) {
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
     await exerciseLinkedCodexPermissionPicker(context.client, backend, workspaceId, conversationId);
 
-    await runProtocolGoalMultiTurnWorkflow(context.client, backend, workspaceId);
+    await runProtocolCurrentPlanAndGoalMultiTurnWorkflow(context.client, backend, workspaceId);
     await runProtocolGoalForegroundUnifiedExecWorkflow(context.client, backend, workspaceId);
     await runProtocolGoalBackgroundTerminalWorkflow(context.client, backend, workspaceId, fixture);
     await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);

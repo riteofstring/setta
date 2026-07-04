@@ -8,6 +8,7 @@ import type { QueuedRun } from "../stores/chat-store-normalization";
 import { activeRunPresentation } from "../lib/chat-run-liveness";
 import { cn } from "../lib/utils";
 import { Composer } from "./chat-composer";
+import { CurrentPlanSurface } from "./chat-current-plan-surface";
 import {
   chatReadableColumnAttributes,
   chatReadableColumnClass,
@@ -124,6 +125,7 @@ function ChatWorkspace({
           setSearchOpen={setSearchOpen}
           switchingWorkspace={switchingWorkspace}
         />
+        {switchingWorkspace ? null : <CurrentPlanSurface chat={chat} />}
         <BackgroundTerminalSurface chat={chat} />
         <ChatError message={selectedConversationChatError(chat)} />
         <ComposerSlot
