@@ -4,7 +4,6 @@ import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 import { TextDecoder } from "node:util";
 
-import { chatTextInput } from "./chat-input-helpers.mjs";
 import {
   appendWorkflowState,
   assertRecordingEvidence,
@@ -117,8 +116,8 @@ async function exerciseBackendOrchestratorRecoveryLaunch({ context, recovery, se
   if (work.status !== "failed") {
     throw new Error(`recovered work status = ${work.status}, want failed`);
   }
-  if (work.recoveryMessage === "" || work.error !== "run interrupted by backend shutdown") {
-    throw new Error(`recovered work = ${JSON.stringify(work)}, want shutdown failure message`);
+  if (work.recoveryMessage === "" || work.error !== "run interrupted by backend restart") {
+    throw new Error(`recovered work = ${JSON.stringify(work)}, want restart failure message`);
   }
   const page = await rendererWorkflow(context.client, "executionEvents", [
     recovery.workspaceId,
@@ -384,7 +383,7 @@ async function runLateGatewayArrivalWorkflow(client, backend, workspaceId) {
   const slow = latestNodeExecution(reachedEnd, "slow");
   await backend.post("/chat/messages/steer", {
     conversationId: runnerRef(slow, "chat.conversation"),
-    input: chatTextInput("finish late branch"),
+    prompt: "finish late branch",
     workspaceId,
   });
 
@@ -416,7 +415,7 @@ async function startWorkflowWithPushedEvent({
   recordingDir,
   workspaceId,
 }) {
-  const stream = await openWorkflowEventStream(backend.baseURL, recordingDir);
+  const stream = await openWorkflowEventStream(backend, recordingDir);
   try {
     const started = await rendererWorkflow(client, "startExecution", [workspaceId, definitionId]);
     const pushed = await stream.next();
@@ -539,8 +538,10 @@ async function waitForWorkflowExecution(client, workspaceId, executionId, isRead
   );
 }
 
-async function openWorkflowEventStream(baseURL, recordingDir) {
-  const response = await globalThis.fetch(baseURL + "/workflows/events");
+async function openWorkflowEventStream(backend, recordingDir) {
+  const response = await globalThis.fetch(backend.baseURL + "/workflows/events", {
+    headers: { Authorization: "Bearer " + backend.deviceToken },
+  });
   await appendWorkflowState(recordingDir, {
     method: "GET",
     ok: response.ok,
@@ -642,7 +643,7 @@ async function assertWorkflowConversationMetadata(
 ) {
   const conversationId = runnerRef(nodeExecution, "chat.conversation");
   const page = await backend.post("/chat/messages/page", {
-    beforeBlockOrdinal: 0,
+    beforeOrdinal: 0,
     conversationId,
     limit: 20,
     workspaceId,
@@ -841,9 +842,7 @@ function signalValue(signals, name) {
 }
 
 function chatMessageText(message) {
-  return message.parts
-    .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
-    .join("");
+  return message.parts.map((part) => part.text).join("");
 }
 
 function phase4WorkflowGraph({ limitPolicy, maxIterations }) {

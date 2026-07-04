@@ -58,6 +58,10 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 	if err != nil {
 		return config, err
 	}
+	allowRemote, err := defaultBool(getenv("SETTA_BACKEND_ALLOW_REMOTE"), "SETTA_BACKEND_ALLOW_REMOTE")
+	if err != nil {
+		return config, err
+	}
 	appDataDir, err := defaultAppDataDir(getenv)
 	if err != nil {
 		return config, err
@@ -66,6 +70,7 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
 	flagSet.StringVar(&config.AppDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	flagSet.BoolVar(&config.AllowRemote, "allow-remote", allowRemote, "allow binding to non-loopback numeric IP addresses")
 	flagSet.StringVar(&config.Host, "host", envOrDefault(getenv, "SETTA_BACKEND_HOST", config.Host), "loopback host to bind")
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")
 	flagSet.StringVar(&config.Version, "version", envOrDefault(getenv, "SETTA_BACKEND_VERSION", config.Version), "backend version metadata")
@@ -114,6 +119,16 @@ func defaultPort(rawPort string) (int, error) {
 		return 0, fmt.Errorf("SETTA_BACKEND_PORT must be an integer: %w", err)
 	}
 	return port, nil
+}
+
+func defaultBool(rawValue string, name string) (bool, error) {
+	if rawValue == "" || rawValue == "0" {
+		return false, nil
+	}
+	if rawValue == "1" {
+		return true, nil
+	}
+	return false, fmt.Errorf("%s must be 0 or 1", name)
 }
 
 func envOrDefault(getenv func(string) string, name string, fallback string) string {

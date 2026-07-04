@@ -96,7 +96,7 @@ func (generator *generator) supportedClientMethodMembers(input []supportedClient
 
 func (generator *generator) supportedClientMethodMember(entry supportedClientMethod, byMethod map[string]protocolMember) (protocolMember, bool, error) {
 	if member, ok := byMethod[entry.Method]; ok {
-		return generator.stableClientMethodMember(entry, member)
+		return stableClientMethodMember(entry, member)
 	}
 	member, err := generator.experimentalClientMethodMember(entry)
 	if err != nil {
@@ -105,22 +105,12 @@ func (generator *generator) supportedClientMethodMember(entry supportedClientMet
 	return member, true, nil
 }
 
-func (generator *generator) stableClientMethodMember(entry supportedClientMethod, member protocolMember) (protocolMember, bool, error) {
+func stableClientMethodMember(entry supportedClientMethod, member protocolMember) (protocolMember, bool, error) {
+	if entry.Experimental {
+		return protocolMember{}, false, fmt.Errorf("client method %s is already in the stable structured protocol snapshot and cannot be registered as experimental", entry.Method)
+	}
 	if entry.ParamsName != "" && entry.ParamsName != member.ParamsName {
 		return protocolMember{}, false, fmt.Errorf("client method %s paramsName = %s, upstream has %s", entry.Method, entry.ParamsName, member.ParamsName)
-	}
-	if entry.Experimental {
-		if entry.Source == "" {
-			return protocolMember{}, false, fmt.Errorf("client method %s experimental schema override has no source", entry.Method)
-		}
-		if member.ParamsName == "" {
-			return protocolMember{}, false, fmt.Errorf("client method %s experimental schema override has no params schema", entry.Method)
-		}
-		if _, err := generator.experimentalSchemaFilePath(member.ParamsName); err != nil {
-			return protocolMember{}, false, fmt.Errorf("client method %s params %s: %w", entry.Method, member.ParamsName, err)
-		}
-		member.Experimental = true
-		member.Source = entry.Source
 	}
 	return member, false, nil
 }

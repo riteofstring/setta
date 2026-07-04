@@ -63,7 +63,7 @@ func TestServicePersistsReadMarkersAcrossRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("read markers"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "read markers")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestServicePersistsReadMarkersAcrossRestart(t *testing.T) {
 		t.Fatalf("persisted markers = read %d latest %d, want read %d latest %d", persisted.ReadMarker, persisted.LatestReadRelevantMarker, read.ReadMarker, read.LatestReadRelevantMarker)
 	}
 
-	second, err := restarted.SendUserInput("workspace_api", conversation.ID, TextChatInput("read markers again"))
+	second, err := restarted.SendUserMessage("workspace_api", conversation.ID, "read markers again")
 	if err != nil {
 		t.Fatalf("send second message: %v", err)
 	}
@@ -154,12 +154,10 @@ func saveInterruptedRunningTurnFixture(t *testing.T, store *Store) interruptedRu
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         MessageStatusComplete,
 		Parts: []MessagePart{{
-			ID:   "part_user",
-			Type: MessagePartText,
-			Text: &MessageTextPart{
-				Text:   "prompt",
-				Format: TextFormatPlain,
-			},
+			Format: TextFormatPlain,
+			ID:     "part_user",
+			Text:   "prompt",
+			Type:   MessagePartText,
 		}},
 	}); err != nil {
 		t.Fatalf("save user message: %v", err)
@@ -176,12 +174,10 @@ func saveInterruptedRunningTurnFixture(t *testing.T, store *Store) interruptedRu
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         MessageStatusStreaming,
 		Parts: []MessagePart{{
-			ID:   "part_assistant",
-			Type: MessagePartText,
-			Text: &MessageTextPart{
-				Text:   "partial",
-				Format: TextFormatMarkdown,
-			},
+			Format: TextFormatMarkdown,
+			ID:     "part_assistant",
+			Text:   "partial",
+			Type:   MessagePartText,
 		}},
 	}); err != nil {
 		t.Fatalf("save assistant message: %v", err)

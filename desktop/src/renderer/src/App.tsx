@@ -25,6 +25,7 @@ import {
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import { runChatBackgroundAction } from "./stores/chat-background-actions";
+import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
 import {
   type WorkspaceOperation,
   type WorkspaceStatus,
@@ -46,6 +47,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const viewport = useViewportSize();
   useAppearanceSettings();
   useBackendLifecycle(setta);
+  const runtimeUnavailable = useRuntimeLifecycle(setta);
   useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
@@ -124,7 +126,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       <main className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
         <ProjectPane
           activeRun={projectChat.activeRun}
-          activeRunLiveness={projectChat.activeRunLiveness}
           createConversation={createConversationAndFocusChat}
           createWorkspaceConversation={createWorkspaceConversationAndFocusChat}
           deleteConversation={deleteConversation}
@@ -138,6 +139,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           setWidth={setProjectPaneWidth}
           viewportWidth={viewport.width}
           width={effectiveProjectPaneWidth}
+          runtimeUnavailable={runtimeUnavailable}
           workspace={workspace}
         />
         <WorkspaceLayoutArea
@@ -197,6 +199,31 @@ function useBackendLifecycle(setta: SettaAPI) {
   }, [setta]);
 }
 
+function useRuntimeLifecycle(setta: SettaAPI) {
+  const loadRuntimes = useRuntimeStore((state) => state.load);
+  const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
+  const setRuntimeSnapshot = useRuntimeStore((state) => state.setSnapshot);
+  const loadWorkspaceSession = useWorkspaceStore((state) => state.loadSession);
+  const activeConnectedRuntimeId =
+    runtimeSnapshot?.connection.status === "connected" ? runtimeSnapshot.activeRuntimeId : null;
+
+  useEffect(() => {
+    void loadRuntimes();
+    return setta.runtimes.onConnectionState((snapshot) => {
+      setRuntimeSnapshot(snapshot);
+    });
+  }, [loadRuntimes, setRuntimeSnapshot, setta]);
+
+  useEffect(() => {
+    if (!activeConnectedRuntimeId) {
+      return;
+    }
+    void loadWorkspaceSession();
+  }, [activeConnectedRuntimeId, loadWorkspaceSession]);
+
+  return runtimeControlsDisabled(runtimeSnapshot);
+}
+
 function useAppearanceSettings() {
   const loadAppearance = useAppearanceStore((state) => state.load);
 
@@ -221,7 +248,6 @@ type ProjectPaneChatState = ReturnType<typeof useProjectPaneChatState>;
 
 function useProjectPaneChatState() {
   const activeRun = useChatStore((state) => state.activeRun);
-  const activeRunLiveness = useChatStore((state) => state.activeRunLiveness);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
   const deleteConversation = useChatStore((state) => state.deleteConversation);
@@ -231,7 +257,6 @@ function useProjectPaneChatState() {
 
   return {
     activeRun,
-    activeRunLiveness,
     createConversation,
     createWorkspaceConversation,
     deleteConversation,
@@ -243,7 +268,6 @@ function useProjectPaneChatState() {
 
 function ProjectPane({
   activeRun,
-  activeRunLiveness,
   createConversation,
   createWorkspaceConversation,
   deleteConversation,
@@ -257,10 +281,10 @@ function ProjectPane({
   setWidth,
   viewportWidth,
   width,
+  runtimeUnavailable,
   workspace,
 }: {
   activeRun: ProjectPaneChatState["activeRun"];
-  activeRunLiveness: ProjectPaneChatState["activeRunLiveness"];
   createConversation: ProjectPaneChatState["createConversation"];
   createWorkspaceConversation: ProjectPaneChatState["createWorkspaceConversation"];
   deleteConversation: ProjectPaneChatState["deleteConversation"];
@@ -274,6 +298,7 @@ function ProjectPane({
   setWidth: (width: number) => void;
   viewportWidth: number;
   width: number;
+  runtimeUnavailable: boolean;
   workspace: WorkspaceViewState;
 }) {
   if (!open) {
@@ -283,9 +308,8 @@ function ProjectPane({
   const sidebar = (
     <WorkspaceSidebar
       activeRun={activeRun}
-      activeRunLiveness={activeRunLiveness}
       activeWorkspaces={workspace.activeWorkspaces}
-      busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
+      busy={runtimeUnavailable || sidebarWorkspaceBusy(workspace.operation, workspace.status)}
       clearWorkspaceError={workspace.clearError}
       closeWorkspace={workspace.closeWorkspace}
       createConversation={createConversation}
