@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/base64"
 	"net/http"
 	"reflect"
 
@@ -21,13 +22,14 @@ type ContractSchema struct {
 }
 
 type ContractEndpoint struct {
-	Name        string
-	Method      string
-	Path        string
-	Request     reflect.Type
-	Response    reflect.Type
-	StreamEvent reflect.Type
-	Streaming   bool
+	Name                  string
+	Method                string
+	Path                  string
+	Request               reflect.Type
+	Response              reflect.Type
+	StreamEvent           reflect.Type
+	Streaming             bool
+	RequestBodyLimitBytes int64
 }
 
 type endpoint struct {
@@ -36,6 +38,11 @@ type endpoint struct {
 }
 
 type routeHandler func(handler, http.ResponseWriter, *http.Request)
+
+const (
+	defaultRequestBodyLimitBytes      int64 = 4 * 1024 * 1024
+	requestBodyLimitJSONEnvelopeBytes int64 = 256 * 1024
+)
 
 var apiEndpoints = []endpoint{
 	get[BackendHealth]("BackendHealth", "/health", handler.health),
@@ -68,7 +75,7 @@ var apiEndpoints = []endpoint{
 	post[RemoveQueuedChatMessageRequest, chat.QueueRemoveResult]("RemoveQueuedChatMessage", "/chat/messages/queue/remove", handler.removeQueuedChatMessage),
 	post[SteerChatMessageRequest, chat.SteerMessageResult]("SteerChatMessage", "/chat/messages/steer", handler.steerChatMessage),
 	post[SendSteeringImmediatelyRequest, chat.ImmediateSteeringResult]("SendSteeringImmediately", "/chat/messages/steer/immediate", handler.sendSteeringImmediately),
-	post[CreateChatImageAttachmentFromBytesRequest, chat.ImageAttachment]("CreateChatImageAttachmentFromBytes", "/chat/attachments/images/from-bytes", handler.createChatImageAttachmentFromBytes),
+	postWithRequestBodyLimit[CreateChatImageAttachmentFromBytesRequest, chat.ImageAttachment]("CreateChatImageAttachmentFromBytes", "/chat/attachments/images/from-bytes", chatImageAttachmentRequestBodyLimitBytes(), handler.createChatImageAttachmentFromBytes),
 	post[ListChatCommandsRequest, chat.ChatCommandListResult]("ListChatCommands", "/chat/commands/list", handler.listChatCommands),
 	post[ExecuteChatCommandRequest, chat.ChatCommandExecuteResult]("ExecuteChatCommand", "/chat/commands/execute", handler.executeChatCommand),
 	get[chat.ChatCodexDefaultsView]("ReadChatCodexDefaults", "/chat/codex/defaults", handler.readChatCodexDefaults),
@@ -179,6 +186,9 @@ func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
 	for _, endpoint := range apiEndpoints {
 		route := endpoint
 		mux.HandleFunc(route.Method+" "+route.Path, func(response http.ResponseWriter, request *http.Request) {
+			if route.RequestBodyLimitBytes > 0 && !enforceRequestBodyLimit(response, request, route.RequestBodyLimitBytes) {
+				return
+			}
 			route.Handler(apiHandler, response, request)
 		})
 	}
@@ -222,14 +232,23 @@ func streamEvent[StreamEvent any](name string, path string, handler routeHandler
 }
 
 func post[Request any, Response any](name string, path string, handler routeHandler) endpoint {
+	return postWithRequestBodyLimit[Request, Response](name, path, defaultRequestBodyLimitBytes, handler)
+}
+
+func postWithRequestBodyLimit[Request any, Response any](name string, path string, requestBodyLimitBytes int64, handler routeHandler) endpoint {
 	return endpoint{
 		ContractEndpoint: ContractEndpoint{
-			Name:     name,
-			Method:   http.MethodPost,
-			Path:     path,
-			Request:  reflect.TypeFor[Request](),
-			Response: reflect.TypeFor[Response](),
+			Name:                  name,
+			Method:                http.MethodPost,
+			Path:                  path,
+			Request:               reflect.TypeFor[Request](),
+			Response:              reflect.TypeFor[Response](),
+			RequestBodyLimitBytes: requestBodyLimitBytes,
 		},
 		Handler: handler,
 	}
+}
+
+func chatImageAttachmentRequestBodyLimitBytes() int64 {
+	return int64(base64.StdEncoding.EncodedLen(chat.MaxImageAttachmentBytes)) + requestBodyLimitJSONEnvelopeBytes
 }

@@ -276,9 +276,9 @@ Verification:
   live verification remains blocked until the developer updates global Codex
   config to `on-request` or `never`.
 
-Remaining notes: Track 8, HTTP request boundary limits, is the next ordered
-remediation track before adding new trajectory, output-loading, approval,
-steering, metadata, or image-path endpoints.
+Remaining notes: Track 8, HTTP request boundary limits, is now complete. Track
+9, chat image attachment file selection limits, is the next ordered remediation
+track before adding image-path attachment endpoint work.
 
 ### 2. HTTP Request Boundary Limits
 
@@ -288,6 +288,42 @@ steering, metadata, or image-path endpoints.
 Every new endpoint added for the shared trajectory plan must participate in the
 Go-owned endpoint registry request-size contract and regenerated TypeScript
 surfaces. Do not add endpoint-specific hardcoded mirrors in TypeScript.
+
+Status: completed 2026-07-03. The HTTP endpoint registry now owns a
+`RequestBodyLimitBytes` contract for every POST endpoint, with a 4 MiB default
+and a chat image bytes limit derived from the Go chat-domain image byte cap plus
+JSON envelope allowance. Endpoint registration enforces the limit with
+`http.MaxBytesReader` before JSON decoding, oversized requests return
+`413 request_body_too_large`, and streamed over-limit bodies are mapped to the
+same error from `decodeRequest`. The generated TypeScript endpoint descriptors
+now include `requestBodyLimitBytes`. The chat image bytes handler checks base64
+decoded upper bounds and exact decoded length before decoding/persistence while
+leaving domain validation in place after decode. The runtime HTTP server now
+sets `ReadHeaderTimeout`, `ReadTimeout`, and `MaxHeaderBytes` without setting a
+write timeout, preserving SSE compatibility.
+
+Verification:
+
+- `./scripts/go.sh test ./cmd/generate-contracts -count=1`
+- `./scripts/go.sh test ./internal/httpapi -count=1`
+- `./scripts/go.sh test ./internal/runtime -run 'Test(Start|InvalidStartupConfiguration|GracefulShutdown|HTTPServerUsesBoundedReadConfiguration)' -count=1`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/chat-workflows.test.mjs --image-attachment-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only` was attempted with ChatGPT auth available, but local Codex
+  `config/read` still returned `approval_policy = "on-failure"`, so Setta
+  rejected conversation creation as expected. This failed live-provider attempt
+  is not provider-integration proof.
+- `./scripts/format.sh`; `./check_quality.sh --git-changes` was attempted and
+  passed file length, formatting, focused Go packages before runtime, desktop
+  typecheck/tests/build/dead-code, but failed runtime live Codex tests for the
+  same local `approval_policy = "on-failure"` blocker above.
+
+Remaining notes: Track 9, chat image attachment file selection limits, is the
+next ordered remediation track. The current Track 8 slice bounds HTTP bytes
+requests and backend base64 decode; it intentionally does not change the
+Electron file-picker path, which still needs Track 9's path-based endpoint or
+generated-limit preflight work.
 
 ### 3. Chat Image Attachment File Selection Limits
 

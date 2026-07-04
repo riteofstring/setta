@@ -66,6 +66,7 @@ import { runChatDefaultsSettingsWorkflow } from "./chat-workflow-defaults-cases.
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runImageAttachmentWorkflow } from "./chat-workflow-image-attachment-cases.mjs";
+import { runImageAttachmentWorkflowLaunch } from "./chat-workflow-image-attachment-launch.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
 import {
   assertCodexProtocolNewChatPermissionContract,
@@ -106,6 +107,7 @@ const singleWorkflowArgs = new Map([
   ["--codex-protocol-only", "codexProtocolOnly"],
   ["--codex-approval-policy-removal-only", "codexApprovalPolicyRemovalOnly"],
   ["--codex-app-server-lifecycle-only", "codexAppServerLifecycleOnly"],
+  ["--image-attachment-only", "imageAttachmentOnly"],
   ["--post-commit-startup-failure-only", "postCommitStartupFailureOnly"],
   ["--workflow-runner-post-start-failure-only", "workflowRunnerPostStartFailureOnly"],
   ["--workflow-version-commit-ordering-only", "workflowVersionCommitOrderingOnly"],
@@ -126,6 +128,10 @@ const singleWorkflowRunners = [
   {
     option: "codexAppServerLifecycleOnly",
     run: (results) => runCodexAppServerLifecycleWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "imageAttachmentOnly",
+    run: (results) => runImageAttachmentWorkflowLaunch(results, { recordingRoot }),
   },
   {
     option: "postCommitStartupFailureOnly",
@@ -151,6 +157,7 @@ function parseArgs(args) {
     codexApprovalPolicyRemovalOnly: false,
     codexProtocolOnly: false,
     deterministic: true,
+    imageAttachmentOnly: false,
     keepArtifacts: false,
     live: false,
     postCommitStartupFailureOnly: false,
@@ -195,6 +202,7 @@ function selectSingleWorkflow(parsed, selected) {
   parsed.codexAppServerLifecycleOnly = selected === "codexAppServerLifecycleOnly";
   parsed.codexApprovalPolicyRemovalOnly = selected === "codexApprovalPolicyRemovalOnly";
   parsed.codexProtocolOnly = selected === "codexProtocolOnly";
+  parsed.imageAttachmentOnly = selected === "imageAttachmentOnly";
   parsed.postCommitStartupFailureOnly = selected === "postCommitStartupFailureOnly";
   parsed.workflowRunnerPostStartFailureOnly = selected === "workflowRunnerPostStartFailureOnly";
   parsed.workflowVersionCommitOrderingOnly = selected === "workflowVersionCommitOrderingOnly";

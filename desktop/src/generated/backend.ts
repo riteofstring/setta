@@ -6182,6 +6182,7 @@ export const backendEndpoints = {
   UpdateAppearanceSettings: {
     method: "POST",
     path: "/appearance/settings",
+    requestBodyLimitBytes: 4194304,
   },
   WorkspaceSession: {
     method: "GET",
@@ -6194,42 +6195,52 @@ export const backendEndpoints = {
   OpenWorkspace: {
     method: "POST",
     path: "/workspaces/open",
+    requestBodyLimitBytes: 4194304,
   },
   SelectWorkspace: {
     method: "POST",
     path: "/workspaces/select",
+    requestBodyLimitBytes: 4194304,
   },
   SetWorkspaceSelectedConversation: {
     method: "POST",
     path: "/workspaces/selected-conversation",
+    requestBodyLimitBytes: 4194304,
   },
   CloseWorkspace: {
     method: "POST",
     path: "/workspaces/close",
+    requestBodyLimitBytes: 4194304,
   },
   ReorderWorkspace: {
     method: "POST",
     path: "/workspaces/reorder",
+    requestBodyLimitBytes: 4194304,
   },
   RemoveRecentWorkspace: {
     method: "POST",
     path: "/workspaces/remove-recent",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/read",
+    requestBodyLimitBytes: 4194304,
   },
   SaveWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/save",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkspaceActivitySnapshot: {
     method: "POST",
     path: "/workspace-activity/snapshot",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowExecutionActivity: {
     method: "POST",
     path: "/workspace-activity/execution-snapshot",
+    requestBodyLimitBytes: 4194304,
   },
   WorkspaceActivityEventStream: {
     method: "GET",
@@ -6238,66 +6249,82 @@ export const backendEndpoints = {
   ListConversations: {
     method: "POST",
     path: "/chat/conversations/list",
+    requestBodyLimitBytes: 4194304,
   },
   CreateConversation: {
     method: "POST",
     path: "/chat/conversations/create",
+    requestBodyLimitBytes: 4194304,
   },
   DeleteConversation: {
     method: "POST",
     path: "/chat/conversations/delete",
+    requestBodyLimitBytes: 4194304,
   },
   MarkConversationRead: {
     method: "POST",
     path: "/chat/conversations/mark-read",
+    requestBodyLimitBytes: 4194304,
   },
   SetConversationPinned: {
     method: "POST",
     path: "/chat/conversations/pin",
+    requestBodyLimitBytes: 4194304,
   },
   GetMessagePage: {
     method: "POST",
     path: "/chat/messages/page",
+    requestBodyLimitBytes: 4194304,
   },
   ListComposerPromptHistory: {
     method: "POST",
     path: "/chat/composer/history",
+    requestBodyLimitBytes: 4194304,
   },
   SendChatMessage: {
     method: "POST",
     path: "/chat/messages/send",
+    requestBodyLimitBytes: 4194304,
   },
   QueueChatMessage: {
     method: "POST",
     path: "/chat/messages/queue",
+    requestBodyLimitBytes: 4194304,
   },
   EditQueuedChatMessage: {
     method: "POST",
     path: "/chat/messages/queue/edit",
+    requestBodyLimitBytes: 4194304,
   },
   RemoveQueuedChatMessage: {
     method: "POST",
     path: "/chat/messages/queue/remove",
+    requestBodyLimitBytes: 4194304,
   },
   SteerChatMessage: {
     method: "POST",
     path: "/chat/messages/steer",
+    requestBodyLimitBytes: 4194304,
   },
   SendSteeringImmediately: {
     method: "POST",
     path: "/chat/messages/steer/immediate",
+    requestBodyLimitBytes: 4194304,
   },
   CreateChatImageAttachmentFromBytes: {
     method: "POST",
     path: "/chat/attachments/images/from-bytes",
+    requestBodyLimitBytes: 28224172,
   },
   ListChatCommands: {
     method: "POST",
     path: "/chat/commands/list",
+    requestBodyLimitBytes: 4194304,
   },
   ExecuteChatCommand: {
     method: "POST",
     path: "/chat/commands/execute",
+    requestBodyLimitBytes: 4194304,
   },
   ReadChatCodexDefaults: {
     method: "GET",
@@ -6306,126 +6333,157 @@ export const backendEndpoints = {
   UpdateChatCodexDefaults: {
     method: "POST",
     path: "/chat/codex/defaults",
+    requestBodyLimitBytes: 4194304,
   },
   OpenChatCodexModelPicker: {
     method: "POST",
     path: "/chat/codex/model/picker",
+    requestBodyLimitBytes: 4194304,
   },
   OpenChatCodexPermissionPicker: {
     method: "POST",
     path: "/chat/codex/permission/picker",
+    requestBodyLimitBytes: 4194304,
   },
   SetChatCodexModel: {
     method: "POST",
     path: "/chat/codex/model/set",
+    requestBodyLimitBytes: 4194304,
   },
   SetChatCodexPermissionPreset: {
     method: "POST",
     path: "/chat/codex/permission/set",
+    requestBodyLimitBytes: 4194304,
   },
   SetChatCodexReasoningEffort: {
     method: "POST",
     path: "/chat/codex/reasoning-effort/set",
+    requestBodyLimitBytes: 4194304,
   },
   CancelRun: {
     method: "POST",
     path: "/chat/runs/cancel",
+    requestBodyLimitBytes: 4194304,
   },
   GetActiveRun: {
     method: "POST",
     path: "/chat/runs/active",
+    requestBodyLimitBytes: 4194304,
   },
   ReconcileChatRuns: {
     method: "POST",
     path: "/chat/runs/reconcile",
+    requestBodyLimitBytes: 4194304,
   },
   ListRuns: {
     method: "POST",
     path: "/chat/runs/list",
+    requestBodyLimitBytes: 4194304,
   },
   GetRunActivity: {
     method: "POST",
     path: "/chat/runs/activity",
+    requestBodyLimitBytes: 4194304,
   },
   GetRunItemOutputPage: {
     method: "POST",
     path: "/chat/runs/item-output",
+    requestBodyLimitBytes: 4194304,
   },
   ListBackgroundTerminals: {
     method: "POST",
     path: "/chat/background-terminals/list",
+    requestBodyLimitBytes: 4194304,
   },
   GetBackgroundTerminalOutput: {
     method: "POST",
     path: "/chat/background-terminals/output",
+    requestBodyLimitBytes: 4194304,
   },
   KillBackgroundTerminal: {
     method: "POST",
     path: "/chat/background-terminals/kill",
+    requestBodyLimitBytes: 4194304,
   },
   KillAllBackgroundTerminals: {
     method: "POST",
     path: "/chat/background-terminals/kill-all",
+    requestBodyLimitBytes: 4194304,
   },
   ListDiagnostics: {
     method: "POST",
     path: "/chat/diagnostics/list",
+    requestBodyLimitBytes: 4194304,
   },
   SubmitApproval: {
     method: "POST",
     path: "/chat/approvals/submit",
+    requestBodyLimitBytes: 4194304,
   },
   ListWorkflowDefinitions: {
     method: "POST",
     path: "/workflows/definitions/list",
+    requestBodyLimitBytes: 4194304,
   },
   CreateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/create",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/read",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/update",
+    requestBodyLimitBytes: 4194304,
   },
   DeleteWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/delete",
+    requestBodyLimitBytes: 4194304,
   },
   ValidateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/validate",
+    requestBodyLimitBytes: 4194304,
   },
   ListWorkflowExecutions: {
     method: "POST",
     path: "/workflows/executions/list",
+    requestBodyLimitBytes: 4194304,
   },
   StartWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/start",
+    requestBodyLimitBytes: 4194304,
   },
   CancelWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/cancel",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/read",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowGraphProjection: {
     method: "POST",
     path: "/workflows/graph/read",
+    requestBodyLimitBytes: 4194304,
   },
   GetWorkflowExecutionEvents: {
     method: "POST",
     path: "/workflows/executions/events",
+    requestBodyLimitBytes: 4194304,
   },
   SubmitWorkflowApproval: {
     method: "POST",
     path: "/workflows/approvals/submit",
+    requestBodyLimitBytes: 4194304,
   },
   WorkflowEventStream: {
     method: "GET",
@@ -6434,162 +6492,202 @@ export const backendEndpoints = {
   ReadSemanticGraph: {
     method: "POST",
     path: "/semantic-graph/read",
+    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticNodeDetail: {
     method: "POST",
     path: "/semantic-graph/nodes/detail",
+    requestBodyLimitBytes: 4194304,
   },
   ListSemanticEvidence: {
     method: "POST",
     path: "/semantic-graph/evidence/list",
+    requestBodyLimitBytes: 4194304,
   },
   ListSemanticActivity: {
     method: "POST",
     path: "/semantic-graph/activity/list",
+    requestBodyLimitBytes: 4194304,
   },
   ListSemanticActivityPage: {
     method: "POST",
     path: "/semantic-graph/activity/page",
+    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticActivitySummary: {
     method: "POST",
     path: "/semantic-graph/activity/summary",
+    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticSteeringState: {
     method: "POST",
     path: "/semantic-graph/steering/read",
+    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticEventHistory: {
     method: "POST",
     path: "/semantic-graph/events/history",
+    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticContextPack: {
     method: "POST",
     path: "/semantic-graph/context-packs/read",
+    requestBodyLimitBytes: 4194304,
   },
   ListSemanticContextPacks: {
     method: "POST",
     path: "/semantic-graph/context-packs/list",
+    requestBodyLimitBytes: 4194304,
   },
   BuildCartographerWindow: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/build",
+    requestBodyLimitBytes: 4194304,
   },
   ProcessCartographerWindow: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/process",
+    requestBodyLimitBytes: 4194304,
   },
   ReadCartographerProcessingState: {
     method: "POST",
     path: "/semantic-graph/cartographer/processing/state",
+    requestBodyLimitBytes: 4194304,
   },
   ReadCartographerRun: {
     method: "POST",
     path: "/semantic-graph/cartographer/runs/read",
+    requestBodyLimitBytes: 4194304,
   },
   ListCartographerRuns: {
     method: "POST",
     path: "/semantic-graph/cartographer/runs/list",
+    requestBodyLimitBytes: 4194304,
   },
   ListCartographerWindows: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/list",
+    requestBodyLimitBytes: 4194304,
   },
   ListCartographerCursors: {
     method: "POST",
     path: "/semantic-graph/cartographer/cursors/list",
+    requestBodyLimitBytes: 4194304,
   },
   ListCartographerPatches: {
     method: "POST",
     path: "/semantic-graph/cartographer/patches/list",
+    requestBodyLimitBytes: 4194304,
   },
   AcceptCartographerPatch: {
     method: "POST",
     path: "/semantic-graph/cartographer/patches/accept",
+    requestBodyLimitBytes: 4194304,
   },
   RejectCartographerPatch: {
     method: "POST",
     path: "/semantic-graph/cartographer/patches/reject",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticLayoutPositions: {
     method: "POST",
     path: "/semantic-graph/layout/update",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToWorkflowExecution: {
     method: "POST",
     path: "/semantic-graph/attachments/workflow-execution",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToWorkflowNode: {
     method: "POST",
     path: "/semantic-graph/attachments/workflow-node",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToChatRun: {
     method: "POST",
     path: "/semantic-graph/attachments/chat-run",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToChatMessage: {
     method: "POST",
     path: "/semantic-graph/attachments/chat-message",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToRunItem: {
     method: "POST",
     path: "/semantic-graph/attachments/run-item",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToFileRange: {
     method: "POST",
     path: "/semantic-graph/attachments/file-range",
+    requestBodyLimitBytes: 4194304,
   },
   EndSemanticActivity: {
     method: "POST",
     path: "/semantic-graph/activity/end",
+    requestBodyLimitBytes: 4194304,
   },
   RenameSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/rename",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/update",
+    requestBodyLimitBytes: 4194304,
   },
   DismissSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/dismiss",
+    requestBodyLimitBytes: 4194304,
   },
   PromoteSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/promote",
+    requestBodyLimitBytes: 4194304,
   },
   SplitSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/split",
+    requestBodyLimitBytes: 4194304,
   },
   MergeSemanticNodes: {
     method: "POST",
     path: "/semantic-graph/nodes/merge",
+    requestBodyLimitBytes: 4194304,
   },
   CreateSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/create",
+    requestBodyLimitBytes: 4194304,
   },
   CreateSemanticEdge: {
     method: "POST",
     path: "/semantic-graph/edges/create",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticEdge: {
     method: "POST",
     path: "/semantic-graph/edges/update",
+    requestBodyLimitBytes: 4194304,
   },
   RemoveSemanticEdge: {
     method: "POST",
     path: "/semantic-graph/edges/remove",
+    requestBodyLimitBytes: 4194304,
   },
   CreateSemanticSteeringDirective: {
     method: "POST",
     path: "/semantic-graph/steering/create",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticSteeringDirective: {
     method: "POST",
     path: "/semantic-graph/steering/update",
+    requestBodyLimitBytes: 4194304,
   },
   SemanticGraphChangeEventStream: {
     method: "GET",
@@ -6598,22 +6696,27 @@ export const backendEndpoints = {
   CreateTerminal: {
     method: "POST",
     path: "/terminals/create",
+    requestBodyLimitBytes: 4194304,
   },
   AttachTerminal: {
     method: "POST",
     path: "/terminals/attach",
+    requestBodyLimitBytes: 4194304,
   },
   TerminalInput: {
     method: "POST",
     path: "/terminals/input",
+    requestBodyLimitBytes: 4194304,
   },
   ResizeTerminal: {
     method: "POST",
     path: "/terminals/resize",
+    requestBodyLimitBytes: 4194304,
   },
   CloseTerminal: {
     method: "POST",
     path: "/terminals/close",
+    requestBodyLimitBytes: 4194304,
   },
   ListTerminalProfiles: {
     method: "GET",
@@ -6622,18 +6725,22 @@ export const backendEndpoints = {
   CreateTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/create",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/update",
+    requestBodyLimitBytes: 4194304,
   },
   DeleteTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/delete",
+    requestBodyLimitBytes: 4194304,
   },
   SelectDefaultTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/default",
+    requestBodyLimitBytes: 4194304,
   },
   TerminalEventStream: {
     method: "GET",
@@ -6646,18 +6753,22 @@ export const backendEndpoints = {
   RefreshCodexAccount: {
     method: "POST",
     path: "/codex/account/refresh",
+    requestBodyLimitBytes: 4194304,
   },
   StartCodexLogin: {
     method: "POST",
     path: "/codex/account/login/start",
+    requestBodyLimitBytes: 4194304,
   },
   CancelCodexLogin: {
     method: "POST",
     path: "/codex/account/login/cancel",
+    requestBodyLimitBytes: 4194304,
   },
   LogoutCodexAccount: {
     method: "POST",
     path: "/codex/account/logout",
+    requestBodyLimitBytes: 4194304,
   },
   EventStream: {
     method: "GET",

@@ -34,6 +34,7 @@ const (
 	attachmentInlineMaxPixels    = 1280
 	attachmentPreviewMaxPixels   = 2560
 	maxImageAttachmentBytes      = 20 * 1024 * 1024
+	MaxImageAttachmentBytes      = maxImageAttachmentBytes
 	maxImageAttachmentDimension  = 12000
 )
 

@@ -270,7 +270,7 @@ as Setta permission state, or get sent back to Codex. Verification:
 `./scripts/go.sh test ./internal/chat`, focused approval-policy Go tests, and
 `node desktop/tests/electron/chat-workflows.test.mjs --codex-approval-policy-removal-only`.
 Live E2E with `OPENAI_API_KEY` unset was attempted but blocked because local
-Codex config still returns `approval_policy = "on-failure"`. Remaining: Track 8.
+Codex config still returns `approval_policy = "on-failure"`. Remaining: Track 9.
 
 ## Track 3: Codex App-Server Process Lifecycle Ownership
 
@@ -550,37 +550,17 @@ Electron/main/preload/renderer/HTTP/store paths. The E2E should attempt an inval
 
 ### Progress
 
-Status: Completed 2026-07-03.
-
-Implemented version commit ordering at the orchestrator/store boundary:
-
-- `StartExecution` now builds the latest-draft `WorkflowDefinitionVersion` in memory, validates the executable graph before any version write, and persists a
-  new draft snapshot only through the execution-start commit path.
-- Added an execution-start store transaction path, which inserts the definition version, execution materialized state, and initial workflow events in one SQLite
-  transaction. If any part of that transaction fails, the version and execution are rolled back together.
-- Explicit historical-version starts load and validate the existing immutable version and commit only the new execution/events; they do not create another
-  definition version.
-- Existing workflow runner post-start failure tests continue to count the new execution-start transaction as the first persistence boundary.
-
-Coverage added:
-
-- blank workflow starts fail validation and leave no version row or execution;
-- invalid nonblank executable graphs fail validation and leave no version row or execution;
-- after a rejected start attempt, the first successful repaired run creates `v1`;
-- duplicate-event persistence failure inside the execution-start transaction rolls back the newly inserted version and execution;
-- explicit historical-version starts reuse the existing version and keep the latest version number unchanged;
-- deterministic Electron workflow coverage creates a blank workflow through production app paths, observes the start failure, repairs the graph, starts it, and
-  verifies the first successful execution summary is version `1`.
-
-Verification performed:
-
-- `./scripts/go.sh test ./internal/orchestrator -run 'Test(Service(StartExecution|StoresNull)|StorePersistExecutionStartRollsBackVersionWhenEventInsertFails|StoreRollsBackMaterializedStateWhenEventInsertFails)'`
-- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(PostStartCommitFailure|StartedRunnerWithoutCleanupIdentity|StartupRecoveryRequiresManualStateWhenRunnerIdentityMissing)'`
-- `./scripts/go.sh test ./internal/orchestrator`
-- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-version-commit-ordering-only`
-- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only` was attempted with ChatGPT auth available, but failed later in the
-  existing live semantic cartographer workflow while waiting for backend state. This failed live-provider attempt is not treated as provider integration proof.
-- `./scripts/format.sh`; `./check_quality.sh --git-changes`
+Status: Completed 2026-07-03. `StartExecution` now validates latest-draft
+versions before any version write and commits new definition versions,
+execution materialized state, and initial workflow events in one transaction;
+explicit historical-version starts remain read-only for definitions. Coverage
+includes validation failures leaving no versions, repaired first run as `v1`,
+transaction rollback, historical-version reuse, and deterministic Electron
+coverage for invalid-run/repair/`v1`. Verification included focused and full
+orchestrator tests, workflow runner regression tests, the
+`--workflow-version-commit-ordering-only` Electron workflow, a live E2E attempt
+that failed in an existing semantic-cartographer wait, `./scripts/format.sh`,
+and `./check_quality.sh --git-changes`.
 
 ## Track 6: Workflow Runner Post-Start Cleanup
 
@@ -591,21 +571,11 @@ identity, missing refs become explicit manual recovery without issuing a ref-les
 preserving refs, and cancel failure records manual recovery with both the post-start and cancel errors. Startup recovery also marks active action nodes without
 committed runner refs as manual recovery required with `workflow action runner identity was not committed` instead of asking runners to infer missing identity.
 
-Coverage added:
-
-- Go tests for runner-ref persistence failure, attempt-start event persistence failure, cancel failure after post-start failure, missing returned refs, restart
-  recovery for missing committed refs, and a subsequent execution after cleaned-up failure.
-- Deterministic Electron workflow coverage through production Electron/main/preload/HTTP/store paths, injecting post-start runner-ref persistence failure after a
-  workflow-owned Codex chat run starts and verifying the run is cancelled and later execution can start.
-- Audit follow-up coverage asserts that a runner returning no cleanup refs enters manual recovery without dispatching runner cancellation.
-
-Verification performed:
-
-- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(PostStartCommitFailure|StartedRunnerWithoutCleanupIdentity|StartupRecoveryRequiresManualStateWhenRunnerIdentityMissing)'`
-- `./scripts/go.sh test ./internal/runtime -run 'Test(Start|InvalidStartupConfiguration|GracefulShutdown|ShutdownDrainsActiveChatTurnBeforeClosingEvents)'`
-- `./scripts/go.sh test ./internal/orchestrator`
-- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-runner-post-start-failure-only`
-- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+Coverage covers runner-ref/event persistence failures, cancel failure, missing
+cleanup refs, restart recovery, later successful execution, and deterministic
+Electron post-start failure recovery. Verification included focused/full
+orchestrator tests, focused runtime startup/shutdown coverage,
+`--workflow-runner-post-start-failure-only`, and live Codex E2E.
 
 Remaining: the future prepare/commit runner API is not needed for the current Codex runner because returned runner refs are sufficient cleanup identity.
 
@@ -766,6 +736,34 @@ Add focused HTTP tests:
 - the server exposes read/header timeout configuration without breaking event streams.
 
 Because this touches generated backend contracts if endpoint metadata is added, regenerate affected TypeScript surfaces from the Go-owned endpoint registry.
+
+### Progress
+
+Status: Completed 2026-07-03. `ContractEndpoint` now owns positive POST
+`RequestBodyLimitBytes`; ordinary JSON endpoints use a 4 MiB default, the chat
+image bytes endpoint derives its larger request limit from the Go chat image
+byte cap, and generated TypeScript endpoint descriptors include
+`requestBodyLimitBytes`. Endpoint registration wraps POST bodies with
+`http.MaxBytesReader` before JSON decoding, over-limit requests return
+`413 request_body_too_large`, chat image base64 payloads are size-checked before
+decode/persistence and validated again by the chat domain, and the runtime
+server now sets read/header bounds without a write timeout for SSE.
+Verification: `./scripts/go.sh test ./cmd/generate-contracts -count=1`;
+`./scripts/go.sh test ./internal/httpapi -count=1`;
+`./scripts/go.sh test ./internal/runtime -run 'Test(Start|InvalidStartupConfiguration|GracefulShutdown|HTTPServerUsesBoundedReadConfiguration)' -count=1`;
+`pnpm -C desktop build`;
+`node desktop/tests/electron/chat-workflows.test.mjs --image-attachment-only`;
+`./scripts/format.sh`; `./check_quality.sh --git-changes` was attempted and
+failed only in runtime live Codex tests for the local `on-failure` config
+blocker;
+`env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`;
+`env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+was attempted with ChatGPT auth available, but local Codex `config/read`
+returned unsupported `approval_policy = "on-failure"`, so Setta rejected
+conversation creation as expected. This failed live-provider attempt is not
+provider-integration proof. Remaining: Track 9. The Electron file-picker path can still read/base64-encode
+oversized selected files before backend rejection; handle that with the
+preferred path-based endpoint or generated-limit picker preflight.
 
 ## Track 9: Chat Image Attachment File Selection Limits
 

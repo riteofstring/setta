@@ -56,6 +56,12 @@ const (
 	e2eWorkflowFailFirstRunnerPostStartPersistEnv = "SETTA_E2E_WORKFLOW_FAIL_FIRST_RUNNER_POST_START_PERSIST"
 )
 
+const (
+	httpMaxHeaderBytes    = 1 * 1024 * 1024
+	httpReadHeaderTimeout = 5 * time.Second
+	httpReadTimeout       = 30 * time.Second
+)
+
 type ReadyEvent struct {
 	Event string `json:"event"`
 	Addr  string `json:"addr"`
@@ -516,6 +522,9 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 			WorkspaceService:         services.workspaceService,
 			WorkflowService:          services.workflowService,
 		}),
+		MaxHeaderBytes:    httpMaxHeaderBytes,
+		ReadHeaderTimeout: httpReadHeaderTimeout,
+		ReadTimeout:       httpReadTimeout,
 	}
 }
 
