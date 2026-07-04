@@ -17,7 +17,7 @@ func TestCodexAccountEndpointsReadAndLogin(t *testing.T) {
 			RequiresOpenAIAuth: true,
 		},
 	}
-	handler := NewHandler(HandlerConfig{
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
 		CodexAccountService: service,
 	})
@@ -41,7 +41,7 @@ func TestCodexAccountEndpointsReadAndLogin(t *testing.T) {
 }
 
 func TestCodexAccountEndpointsRequireService(t *testing.T) {
-	handler := NewHandler(HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
 	response := getJSON[ErrorResponse](t, handler, "/codex/account", http.StatusServiceUnavailable)
 	if response.Error.Code != "codex_account_service_unavailable" {
 		t.Fatalf("error code = %q, want codex_account_service_unavailable", response.Error.Code)

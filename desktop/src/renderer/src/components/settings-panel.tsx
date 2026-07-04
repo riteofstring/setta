@@ -1,6 +1,5 @@
 import type {
   AppearanceColorMode,
-  AppearanceColorScheme,
   AppearanceFontScheme,
   AppearancePreset,
   AppearancePresetID,
@@ -11,12 +10,14 @@ import {
   Check,
   ChevronDown,
   CircleAlert,
+  Gauge,
+  KeyRound,
+  Keyboard,
   Loader2,
-  Moon,
   Palette,
   RotateCcw,
   Save,
-  Sun,
+  Terminal,
   Type,
 } from "lucide-react";
 import {
@@ -30,17 +31,23 @@ import {
 } from "react";
 
 import {
-  isHexColor,
+  isOKLCHColor,
   seedPalettePreview,
   seedPreviewStops,
   settingsFromSeed,
 } from "./appearance-seed-palette";
-import { ChatDefaultsSettings } from "./chat-defaults-settings";
 import { CodexAccountSettings } from "./codex-account-settings";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import { FloatingMenu } from "./floating-menu";
 import { ShortcutSettingsEditor } from "./shortcut-settings";
-import { settingsSubtabs, type SettingsSubtab } from "./settings-subtabs";
+import {
+  AccordionSection,
+  ColorSchemeFields,
+  fieldLabel,
+  ModeSwitch,
+  OKLCHSeedPicker,
+  StatusColorSection,
+} from "./settings-panel-color-fields";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { TerminalProfilesSettings } from "./terminal-profiles-settings";
@@ -52,7 +59,18 @@ import {
   useAppearanceStore,
 } from "../stores/appearance-store";
 
-type AppearanceColorValues = AppearanceColorScheme[AppearanceColorGroup];
+type SettingsSubtab = "theme" | "shortcuts" | "developer" | "codex-account" | "terminal-profiles";
+const settingsSubtabs = [
+  { Icon: Palette, id: "theme", label: "Theme" },
+  { Icon: Keyboard, id: "shortcuts", label: "Shortcuts" },
+  { Icon: Gauge, id: "developer", label: "Developer" },
+  { Icon: KeyRound, id: "codex-account", label: "Codex Account" },
+  { Icon: Terminal, id: "terminal-profiles", label: "Terminal Profiles" },
+] as const satisfies Array<{
+  Icon: typeof Palette;
+  id: SettingsSubtab;
+  label: string;
+}>;
 
 export function SettingsPanel() {
   const [activeSubtab, setActiveSubtab] = useState<SettingsSubtab>("theme");
@@ -64,7 +82,7 @@ export function SettingsPanel() {
 
   return (
     <section
-      className="flex h-full min-h-0 flex-col bg-popover text-foreground"
+      className="flex h-full min-h-0 flex-col bg-transparent text-foreground"
       data-testid="settings-panel"
     >
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
@@ -102,7 +120,6 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
   const status = useAppearanceStore((state) => state.status);
   const dirty = draft !== null && !appearanceSettingsEqual(draft, settings);
   const contentBySubtab = {
-    "chat-defaults": <ChatDefaultsSettings />,
     "codex-account": <CodexAccountSettings />,
     developer: (
       <DeveloperSettingsEditor
@@ -192,7 +209,7 @@ function SettingsSubtabList({
   return (
     <div
       aria-label="Settings sections"
-      className="inline-flex w-fit max-w-full flex-wrap items-center gap-1 rounded-sm bg-muted p-1"
+      className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm bg-muted p-1"
       role="tablist"
     >
       {settingsSubtabs.map(({ Icon, id, label }) => {
@@ -312,6 +329,7 @@ export function AppearanceSettingsEditor({
             mode={settings.mode}
             onChange={onColorChange}
             status={settings[settings.mode].status}
+            tailwind={settings[settings.mode].tailwind}
           />
           <AccordionSection
             count={Object.keys(settings.fonts).length}
@@ -652,8 +670,8 @@ function SeedPaletteSection({
   onApplySettings: (settings: AppearanceSettings) => void;
   settings: AppearanceSettings;
 }) {
-  const [seedColor, setSeedColor] = useState("#4ce2ff");
-  const seedIsValid = isHexColor(seedColor);
+  const [seedColor, setSeedColor] = useState("oklch(0.8460 0.1292 213.38)");
+  const seedIsValid = isOKLCHColor(seedColor);
   const seedSettings = useMemo(
     () => (seedIsValid ? settingsFromSeed(settings, seedColor) : null),
     [seedColor, seedIsValid, settings],
@@ -666,26 +684,20 @@ function SeedPaletteSection({
   return (
     <AccordionSection count={seedPreviewStops.length} title="Custom Seed Palette">
       <div className="grid gap-2">
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="grid gap-2">
           <label className="grid gap-1">
             <span className="text-[11px] font-medium text-muted-foreground">Seed color</span>
-            <span className="flex items-center gap-2">
-              <input
-                aria-label="Custom seed color"
-                className="h-7 w-9 rounded-sm border border-input bg-card p-1"
-                onChange={(event) => setSeedColor(event.target.value)}
-                type="color"
-                value={seedIsValid ? seedColor : "#5b6f95"}
-              />
-              <Input
-                className="w-28 font-mono uppercase"
-                onChange={(event) => setSeedColor(event.target.value)}
-                spellCheck={false}
-                value={seedColor}
-              />
-            </span>
+            <Input
+              aria-label="Custom OKLCH seed color"
+              className="font-mono"
+              onChange={(event) => setSeedColor(event.target.value)}
+              spellCheck={false}
+              value={seedColor}
+            />
           </label>
+          <OKLCHSeedPicker value={seedColor} onChange={setSeedColor} />
           <Button
+            className="w-fit"
             disabled={!seedSettings}
             onClick={() => {
               if (seedSettings) {
@@ -709,43 +721,12 @@ function SeedPaletteSection({
             ))}
           </div>
         ) : (
-          <div className="text-[11px] text-status-warning">Use a #RRGGBB seed color.</div>
+          <div className="text-[11px] text-status-warning">
+            Use an OKLCH seed color like oklch(0.8460 0.1292 213.38).
+          </div>
         )}
       </div>
     </AccordionSection>
-  );
-}
-
-function ModeSwitch({
-  mode,
-  onChange,
-}: {
-  mode: AppearanceColorMode;
-  onChange: (mode: AppearanceColorMode) => void;
-}) {
-  return (
-    <div
-      aria-label="Color scheme"
-      className="grid grid-cols-2 gap-1 rounded-sm border border-border bg-muted p-1"
-      role="group"
-    >
-      {colorModes.map(({ Icon, label, value }) => (
-        <button
-          aria-pressed={mode === value}
-          className={cn(
-            "flex h-7 min-w-16 items-center justify-center gap-1.5 rounded-sm px-2 text-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:bg-accent",
-            mode === value && "bg-card text-card-foreground shadow-sm",
-          )}
-          key={value}
-          onClick={() => onChange(value)}
-          title={`${label} mode`}
-          type="button"
-        >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -777,173 +758,6 @@ function FontFields({
   );
 }
 
-function StatusColorFields({
-  mode,
-  onChange,
-  status,
-}: {
-  mode: AppearanceColorMode;
-  onChange: (
-    mode: AppearanceColorMode,
-    group: AppearanceColorGroup,
-    name: string,
-    value: string,
-  ) => void;
-  status: AppearanceColorScheme["status"];
-}) {
-  return <ColorFieldGrid group="status" mode={mode} onChange={onChange} values={status} />;
-}
-
-function StatusColorSection({
-  mode,
-  onChange,
-  status,
-}: {
-  mode: AppearanceColorMode;
-  onChange: (
-    mode: AppearanceColorMode,
-    group: AppearanceColorGroup,
-    name: string,
-    value: string,
-  ) => void;
-  status: AppearanceColorScheme["status"];
-}) {
-  return (
-    <section className="grid gap-2 rounded-sm border border-border bg-card/30 p-3">
-      <div className="flex min-h-7 items-center justify-between gap-3">
-        <h3 className="text-xs font-semibold text-foreground">Status Colors</h3>
-        <span className="text-[11px] font-medium text-muted-foreground">
-          {Object.keys(status).length} values
-        </span>
-      </div>
-      <StatusColorFields mode={mode} onChange={onChange} status={status} />
-    </section>
-  );
-}
-
-function ColorSchemeFields({
-  mode,
-  onChange,
-  scheme,
-}: {
-  mode: AppearanceColorMode;
-  onChange: (
-    mode: AppearanceColorMode,
-    group: AppearanceColorGroup,
-    name: string,
-    value: string,
-  ) => void;
-  scheme: AppearanceColorScheme;
-}) {
-  const advancedColorCount =
-    Object.keys(scheme.tailwind).length +
-    Object.keys(scheme.shadcn).length +
-    Object.keys(scheme.accent).length;
-
-  return (
-    <AccordionSection count={advancedColorCount} title="Advanced Color Tokens">
-      <section className="grid gap-2">
-        {(["tailwind", "shadcn", "accent"] as const).map((group) => {
-          const values = scheme[group];
-          return (
-            <AccordionSection
-              count={Object.keys(values).length}
-              key={group}
-              title={colorGroupLabels[group]}
-            >
-              <ColorFieldGrid group={group} mode={mode} onChange={onChange} values={values} />
-            </AccordionSection>
-          );
-        })}
-      </section>
-    </AccordionSection>
-  );
-}
-
-function AccordionSection({
-  children,
-  count,
-  icon,
-  title,
-}: {
-  children: ReactNode;
-  count: number;
-  icon?: ReactNode;
-  title: string;
-}) {
-  return (
-    <details className="group rounded-sm border border-border bg-card/30">
-      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-xs font-semibold text-foreground [&::-webkit-details-marker]:hidden">
-        <span className="flex min-w-0 items-center gap-2">
-          {icon}
-          <span className="truncate">{title}</span>
-        </span>
-        <span className="flex shrink-0 items-center gap-2 text-[11px] font-medium text-muted-foreground">
-          {count} values
-          <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
-        </span>
-      </summary>
-      <div className="border-t border-border p-3">{children}</div>
-    </details>
-  );
-}
-
-function ColorFieldGrid({
-  group,
-  mode,
-  onChange,
-  values,
-}: {
-  group: AppearanceColorGroup;
-  mode: AppearanceColorMode;
-  onChange: (
-    mode: AppearanceColorMode,
-    group: AppearanceColorGroup,
-    name: string,
-    value: string,
-  ) => void;
-  values: AppearanceColorValues;
-}) {
-  return (
-    <div className="grid gap-2 md:grid-cols-2">
-      {Object.entries(values).map(([name, value]) => (
-        <label className="grid min-w-0 gap-1" key={name}>
-          <span className="text-[11px] font-medium text-muted-foreground">{fieldLabel(name)}</span>
-          <span className="grid min-w-0 grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="h-5 w-5 rounded-sm border border-border"
-              style={{ backgroundColor: value }}
-            />
-            <Input
-              className="font-mono"
-              onChange={(event) => onChange(mode, group, name, event.target.value)}
-              spellCheck={false}
-              value={value}
-            />
-          </span>
-        </label>
-      ))}
-    </div>
-  );
-}
-
-const colorModes = [
-  { Icon: Moon, label: "Dark", value: "dark" },
-  { Icon: Sun, label: "Light", value: "light" },
-] as const satisfies Array<{
-  Icon: typeof Moon;
-  label: string;
-  value: AppearanceColorMode;
-}>;
-
-const colorGroupLabels = {
-  accent: "Accent Colors",
-  shadcn: "shadcn/ui Tokens",
-  status: "Status Colors",
-  tailwind: "Palette Scale",
-} as const satisfies Record<AppearanceColorGroup, string>;
-
 interface AppearancePresetGroup {
   title: string;
   presets: AppearancePreset[];
@@ -969,11 +783,4 @@ function groupAppearancePresets(presets: AppearancePreset[]): AppearancePresetGr
 
 function presetPreviewValues(tailwind: AppearanceTailwindPalette): string[] {
   return seedPreviewStops.map((name) => tailwind[name]);
-}
-
-function fieldLabel(name: string) {
-  return name
-    .replace(/^setta(\d+)$/, "setta $1")
-    .replace(/[A-Z]/g, (match) => ` ${match.toLowerCase()}`)
-    .replace(/^\w/, (match) => match.toUpperCase());
 }

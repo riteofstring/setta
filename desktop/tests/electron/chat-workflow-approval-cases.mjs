@@ -239,9 +239,9 @@ async function runDynamicToolWorkflow({
     (item) =>
       item.type === "dynamic_tool_call" &&
       item.status === "completed" &&
-      item.details?.dynamicToolCall?.namespace === "setta" &&
-      item.details.dynamicToolCall.toolName === "fakeTool" &&
-      item.details.dynamicToolCall.resultSummary.includes("tool ok"),
+      item.namespace === "setta" &&
+      item.toolName === "fakeTool" &&
+      item.result.includes("tool ok"),
   );
 }
 

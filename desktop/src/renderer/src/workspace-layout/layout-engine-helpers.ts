@@ -17,11 +17,23 @@ export type PaneLocation = {
   rowIndex: number;
 };
 export type ColumnGeometry = { offsets: number[]; scrollOffsets: number[]; widths: number[] };
+export type PlaneGeometry = {
+  heights: Map<number, number>;
+  offsets: Map<number, number>;
+  totalHeight: number;
+};
 
 const columnWidthPresets = [1 / 3, 0.5, 2 / 3, 1] as const;
 const maximumOverviewScale = 0.42;
 const minimumOverviewScale = 0.12;
-const planeGap = 28;
+// Ceiling on the effective overview scale once the user zooms in. User zoom can
+// push the effective scale up to this value, which stays well below normal (1.0)
+// so overview never reads as normal view.
+export const OVERVIEW_MAX_ZOOM_SCALE = 0.5;
+// How far the user can zoom *out* past fit-all, as a fraction of the fit scale:
+// the content shrinks below the viewport with margin around it (infinite-canvas
+// style). Fit-all is `overviewZoom === 1`; this is the minimum factor.
+export const OVERVIEW_MIN_ZOOM = 0.2;
 export const minimumColumnWidth = 96;
 
 export interface OverviewCardSizeConstraints {
@@ -117,6 +129,17 @@ export function overviewScale({
   return clamp(fitScale, scaleBounds.minScale, scaleBounds.maxScale);
 }
 
+// Apply the user's overview zoom factor to a fit-all baseline. Zooming out shrinks
+// the content to `OVERVIEW_MIN_ZOOM` of the fit scale (margin appears around it);
+// the zoom-in ceiling is `OVERVIEW_MAX_ZOOM_SCALE`, but never below the fit scale
+// itself so a configuration whose readable floor already exceeds the cap is left
+// untouched.
+export function applyOverviewZoom(fitScale: number, zoom: number | undefined): number {
+  const normalizedZoom = typeof zoom === "number" && Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  const ceiling = Math.max(fitScale, OVERVIEW_MAX_ZOOM_SCALE);
+  return clamp(fitScale * normalizedZoom, fitScale * OVERVIEW_MIN_ZOOM, ceiling);
+}
+
 function hasOverviewCardSizeConstraint({
   maxWidthPx,
   minWidthPx,
@@ -143,22 +166,53 @@ function isPositiveFiniteNumber(value: number | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-export function planeTopOffsets(
-  planeIndexes: readonly number[],
-  viewportHeight: number,
-): Map<number, number> {
+export function planeGeometryForLayout({
+  availableHeight,
+  columns,
+  fullSizePanes = false,
+  maximizedPaneId = null,
+  padding,
+  paneById,
+  planeGap,
+  planeIndexes: indexes,
+  rowGap,
+  viewportHeight,
+}: {
+  availableHeight: number;
+  columns: readonly WorkspaceColumn[];
+  fullSizePanes?: boolean;
+  maximizedPaneId?: PaneId | null;
+  padding: number;
+  paneById: Map<PaneId, WorkspacePane>;
+  planeGap: number;
+  planeIndexes: readonly number[];
+  rowGap: number;
+  viewportHeight: number;
+}): PlaneGeometry {
+  const heights = new Map<number, number>();
   const offsets = new Map<number, number>();
-  const planeHeight = Math.max(1, viewportHeight);
-  planeIndexes.forEach((planeIndex, order) => {
-    offsets.set(planeIndex, order * (planeHeight + planeGap));
-  });
-  return offsets;
-}
-
-export function totalUnscaledPlaneHeight(planeCount: number, viewportHeight: number): number {
-  const normalizedPlaneCount = Math.max(1, planeCount);
-  const planeHeight = Math.max(1, viewportHeight);
-  return normalizedPlaneCount * planeHeight + Math.max(0, normalizedPlaneCount - 1) * planeGap;
+  let offset = 0;
+  for (const planeIndex of indexes) {
+    const height = planeOuterHeightForLayout({
+      availableHeight,
+      columns: columnsInPlane(columns, planeIndex),
+      fullSizePanes,
+      maximizedPaneId,
+      padding,
+      paneById,
+      rowGap,
+      viewportHeight,
+    });
+    heights.set(planeIndex, height);
+    offsets.set(planeIndex, offset);
+    offset += height + planeGap - padding * 2;
+  }
+  return {
+    heights,
+    offsets,
+    totalHeight:
+      indexes.length === 0 ? Math.max(1, viewportHeight) : offset - planeGap + padding * 2,
+  };
 }
 
 export function scrollOffsetForColumn(scrollColumn: number, offsets: readonly number[]): number {
@@ -230,6 +284,7 @@ export function pushColumnItems({
       moving,
       opacity: 1,
       paneId: pane.paneId,
+      planeIndex: column.planeIndex,
       presentationMode,
       resizing: false,
       runtimeState: "live",
@@ -247,6 +302,73 @@ export function pushColumnItems({
 }
 
 const minimumPaneRenderHeightPx = 42;
+
+function planeOuterHeightForLayout({
+  availableHeight,
+  columns,
+  fullSizePanes,
+  maximizedPaneId,
+  padding,
+  paneById,
+  rowGap,
+  viewportHeight,
+}: {
+  availableHeight: number;
+  columns: readonly WorkspaceColumn[];
+  fullSizePanes: boolean;
+  maximizedPaneId: PaneId | null;
+  padding: number;
+  paneById: Map<PaneId, WorkspacePane>;
+  rowGap: number;
+  viewportHeight: number;
+}): number {
+  if (columns.length === 0) {
+    return Math.max(1, viewportHeight);
+  }
+  const columnHeights = columns.map((column) =>
+    columnContentHeightForLayout({
+      availableHeight,
+      column,
+      fullSizePanes,
+      maximizedPaneId,
+      paneById,
+      rowGap,
+    }),
+  );
+  return Math.max(1, Math.max(...columnHeights) + padding * 2);
+}
+
+function columnContentHeightForLayout({
+  availableHeight,
+  column,
+  fullSizePanes,
+  maximizedPaneId,
+  paneById,
+  rowGap,
+}: {
+  availableHeight: number;
+  column: WorkspaceColumn;
+  fullSizePanes: boolean;
+  maximizedPaneId: PaneId | null;
+  paneById: Map<PaneId, WorkspacePane>;
+  rowGap: number;
+}): number {
+  const panes = column.paneIds
+    .map((paneId) => paneById.get(paneId))
+    .filter((pane): pane is WorkspacePane => pane !== undefined);
+  if (panes.length === 0) {
+    return Math.max(1, availableHeight);
+  }
+  const totalGap = rowGap * Math.max(0, panes.length - 1);
+  const heights = paneHeightsForColumn(
+    panes,
+    availableHeight,
+    totalGap,
+    fullSizePanes,
+    maximizedPaneId,
+  );
+  return heights.reduce((total, height) => total + height, 0) + totalGap;
+}
 
 export function paneHeightsForColumn(
   panes: readonly WorkspacePane[],
@@ -287,6 +409,7 @@ export function paneHeightsForColumn(
 export function renderedColumnIndexesForLayout({
   columns,
   geometry,
+  planeGeometry,
   renderAllColumns,
   scene,
   scrollColumn,
@@ -295,6 +418,7 @@ export function renderedColumnIndexesForLayout({
 }: {
   columns: readonly WorkspaceColumn[];
   geometry: ColumnGeometry;
+  planeGeometry: PlaneGeometry;
   renderAllColumns: boolean;
   scene: Pick<WorkspaceScene, "padding" | "renderOverscanColumns" | "visibleColumnCount">;
   scrollColumn: number;
@@ -307,8 +431,9 @@ export function renderedColumnIndexesForLayout({
   const overscanColumns = Math.max(0, Math.floor(scene.renderOverscanColumns));
   const visiblePlaneIndexes = visiblePlaneIndexesForLayout(
     columns,
-    viewport.height,
+    planeGeometry,
     verticalOffset,
+    viewport.height,
   );
   if (overscanColumns === 0) {
     return renderedColumnIndexesWithoutOverscan({
@@ -348,12 +473,11 @@ export function columnsByIndexes(
 
 function visiblePlaneIndexesForLayout(
   columns: readonly WorkspaceColumn[],
-  viewportHeight: number,
+  planeGeometry: PlaneGeometry,
   verticalOffset: number,
+  viewportHeight: number,
 ): number[] {
   const indexes = planeIndexes(columns);
-  const offsets = planeTopOffsets(indexes, viewportHeight);
-  const planeHeight = Math.max(1, viewportHeight);
   const overscanPlanes = 1;
   const visibleOrders = new Set<number>();
   for (let order = 0; order < indexes.length; order += 1) {
@@ -361,7 +485,8 @@ function visiblePlaneIndexesForLayout(
     if (planeIndex === undefined) {
       continue;
     }
-    const y = (offsets.get(planeIndex) ?? 0) - verticalOffset;
+    const y = (planeGeometry.offsets.get(planeIndex) ?? 0) - verticalOffset;
+    const planeHeight = planeGeometry.heights.get(planeIndex) ?? Math.max(1, viewportHeight);
     if (y + planeHeight < 0 || y > viewportHeight) {
       continue;
     }

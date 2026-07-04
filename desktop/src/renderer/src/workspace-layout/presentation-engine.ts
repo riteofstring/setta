@@ -1,5 +1,10 @@
 import type { WorkspaceMetricsCollector } from "./metrics";
 import type { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
+import { syncDropPreviewOverlay } from "./presentation-drop-preview";
+import {
+  addPresentationWriteCounts,
+  emptyPresentationWriteCounts,
+} from "./presentation-write-counts";
 import { SurfaceRegistry, type SurfaceViewportSyncStats } from "./surface-registry";
 import type { WorkspacePane, PaneRenderItem, PaneRuntimeSummary, ResizePhase } from "./types";
 
@@ -25,6 +30,7 @@ interface PaneHostBinding {
   lastMaximized: boolean | null;
   lastMoving: boolean | null;
   lastOpacity: number;
+  lastPlaneIndex: number | null;
   lastPresentationMode: string | null;
   lastRuntimeState: string | null;
   lastTransform: string;
@@ -60,6 +66,7 @@ const paneChromeActions = [
 export class PresentationEngine {
   private bindings: PaneHostBinding[] = [];
   private debugOverlay: HTMLElement | null = null;
+  private dropPreviewOverlay: HTMLElement | null = null;
   private paneById = new Map<string, WorkspacePane>();
   private resizeHandles = new WeakMap<HTMLElement, Partial<Record<PaneResizeAxis, HTMLElement>>>();
 
@@ -92,6 +99,12 @@ export class PresentationEngine {
       );
     }
 
+    syncDropPreviewOverlay({
+      assignedItems,
+      bindings: this.bindings,
+      isActivePaneDragSource: (binding) => this.hostIsActivePaneDragSource(binding),
+      overlay: this.dropPreviewOverlay,
+    });
     const nativeFlush = this.nativeViewBoundsBatcher?.flush();
     this.metrics.recordCanvasStats(this.surfaceRegistry.canvasStats());
     this.metrics.recordGitGraphStats(this.surfaceRegistry.gitGraphStats());
@@ -109,6 +122,7 @@ export class PresentationEngine {
       lastMaximized: null,
       lastMoving: null,
       lastOpacity: -1,
+      lastPlaneIndex: null,
       lastPresentationMode: null,
       lastRuntimeState: null,
       lastTransform: "",
@@ -124,6 +138,13 @@ export class PresentationEngine {
       this.debugOverlay.textContent = "";
     }
     this.debugOverlay = debugOverlay;
+  }
+
+  setDropPreviewOverlay(dropPreviewOverlay: HTMLElement | null): void {
+    if (this.dropPreviewOverlay && this.dropPreviewOverlay !== dropPreviewOverlay) {
+      this.dropPreviewOverlay.dataset.visible = "false";
+    }
+    this.dropPreviewOverlay = dropPreviewOverlay;
   }
 
   syncPanes(panes: readonly WorkspacePane[]): void {
@@ -154,6 +175,9 @@ export class PresentationEngine {
     if (this.debugOverlay) {
       this.debugOverlay.textContent = "";
     }
+    if (this.dropPreviewOverlay) {
+      this.dropPreviewOverlay.dataset.visible = "false";
+    }
     this.surfaceRegistry.teardown();
     void this.nativeViewBoundsBatcher?.teardown().catch((error: unknown) => {
       console.error(
@@ -163,6 +187,7 @@ export class PresentationEngine {
     });
     this.bindings = [];
     this.debugOverlay = null;
+    this.dropPreviewOverlay = null;
   }
 
   updateDebugOverlay(runtimeSummary: PaneRuntimeSummary): void {
@@ -245,20 +270,28 @@ export class PresentationEngine {
 
   private nextAvailableBindingIndex(assignedBindingIndexes: ReadonlySet<number>): number | null {
     for (let index = 0; index < this.bindings.length; index += 1) {
-      const binding = this.bindings[index];
-      if (!binding || assignedBindingIndexes.has(index)) {
-        continue;
-      }
-      if (binding.contentPaneId === null) {
+      if (this.bindingIsAvailableForAssignment(index, assignedBindingIndexes, "empty")) {
         return index;
       }
     }
     for (let index = 0; index < this.bindings.length; index += 1) {
-      if (!assignedBindingIndexes.has(index)) {
+      if (this.bindingIsAvailableForAssignment(index, assignedBindingIndexes, "any")) {
         return index;
       }
     }
     return null;
+  }
+
+  private bindingIsAvailableForAssignment(
+    index: number,
+    assignedBindingIndexes: ReadonlySet<number>,
+    mode: "any" | "empty",
+  ): boolean {
+    const binding = this.bindings[index];
+    if (!binding || assignedBindingIndexes.has(index) || this.hostIsActivePaneDragSource(binding)) {
+      return false;
+    }
+    return mode === "any" || binding.contentPaneId === null;
   }
 
   private applyBinding(
@@ -268,6 +301,9 @@ export class PresentationEngine {
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
     if (!item) {
+      if (this.hostIsActivePaneDragSource(binding)) {
+        return emptyPresentationWriteCounts();
+      }
       this.hideBinding(binding);
       return emptyPresentationWriteCounts();
     }
@@ -289,12 +325,14 @@ export class PresentationEngine {
     binding.host.dataset.maximized = "false";
     binding.host.dataset.moving = "false";
     binding.host.dataset.paneId = "";
+    binding.host.dataset.planeIndex = "";
     binding.host.style.opacity = "0";
     binding.host.style.pointerEvents = "none";
     binding.lastFocused = false;
     binding.lastMaximized = false;
     binding.lastMoving = false;
     binding.lastOpacity = 0;
+    binding.lastPlaneIndex = null;
     binding.host.dataset.visible = "false";
     binding.lastVisible = false;
   }
@@ -532,6 +570,9 @@ export class PresentationEngine {
     assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
+    if (this.hostIsActivePaneDragSource(binding, item.paneId)) {
+      return emptyPresentationWriteCounts();
+    }
     if (
       binding.contentPaneId !== item.paneId &&
       !this.hostContentMissing(binding) &&
@@ -584,11 +625,25 @@ export class PresentationEngine {
 
   private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): PresentationWriteCounts {
     const writeCounts = emptyPresentationWriteCounts();
+    if (this.hostIsActivePaneDragSource(binding, item.paneId)) {
+      return writeCounts;
+    }
     writeCounts.transformWrites = this.syncTransform(binding, item);
     writeCounts.boxWrites = this.syncBox(binding, item);
     this.syncLayer(binding, item);
     this.syncState(binding, item);
     return writeCounts;
+  }
+
+  private hostIsActivePaneDragSource(
+    binding: PaneHostBinding,
+    paneId = binding.contentPaneId,
+  ): boolean {
+    return (
+      binding.host.dataset.dragSource === "true" &&
+      paneId !== null &&
+      binding.contentPaneId === paneId
+    );
   }
 
   private syncBox(binding: PaneHostBinding, item: PaneRenderItem): number {
@@ -621,6 +676,7 @@ export class PresentationEngine {
     this.syncBooleanState(binding, "focused", "lastFocused", item.focused);
     this.syncBooleanState(binding, "moving", "lastMoving", item.moving);
     this.syncBooleanState(binding, "maximized", "lastMaximized", item.maximized);
+    this.syncPlaneIndex(binding, item);
     const presentationModeChanged = this.syncPresentationMode(binding, item);
     this.syncVisibleState(binding, item, presentationModeChanged);
     this.syncRuntimeState(binding, item);
@@ -637,6 +693,14 @@ export class PresentationEngine {
     }
     binding.host.dataset[datasetKey] = String(value);
     binding[cacheKey] = value;
+  }
+
+  private syncPlaneIndex(binding: PaneHostBinding, item: PaneRenderItem): void {
+    if (item.planeIndex === undefined || binding.lastPlaneIndex === item.planeIndex) {
+      return;
+    }
+    binding.host.dataset.planeIndex = String(item.planeIndex);
+    binding.lastPlaneIndex = item.planeIndex;
   }
 
   private syncPresentationMode(binding: PaneHostBinding, item: PaneRenderItem): boolean {
@@ -931,36 +995,4 @@ function formatPixels(pixels: number | null): string {
     return `${Math.round(pixels / 1000)}Kpx`;
   }
   return `${(pixels / 1000 / 1000).toFixed(1)}Mpx`;
-}
-
-function emptyPresentationWriteCounts(): PresentationWriteCounts {
-  return {
-    boxWrites: 0,
-    browserViewportWrites: 0,
-    canvasViewportWrites: 0,
-    deferredHeavyViewportWrites: 0,
-    gitGraphViewportWrites: 0,
-    heavyViewportWrites: 0,
-    nativeBoundsUpdates: 0,
-    surfaceViewportWrites: 0,
-    terminalViewportWrites: 0,
-    transformWrites: 0,
-  };
-}
-
-function addPresentationWriteCounts(
-  target: PresentationWriteCounts,
-  source: PresentationWriteCounts,
-): PresentationWriteCounts {
-  target.boxWrites += source.boxWrites;
-  target.browserViewportWrites += source.browserViewportWrites;
-  target.canvasViewportWrites += source.canvasViewportWrites;
-  target.deferredHeavyViewportWrites += source.deferredHeavyViewportWrites;
-  target.gitGraphViewportWrites += source.gitGraphViewportWrites;
-  target.heavyViewportWrites += source.heavyViewportWrites;
-  target.nativeBoundsUpdates += source.nativeBoundsUpdates;
-  target.surfaceViewportWrites += source.surfaceViewportWrites;
-  target.terminalViewportWrites += source.terminalViewportWrites;
-  target.transformWrites += source.transformWrites;
-  return target;
 }

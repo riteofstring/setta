@@ -24,11 +24,6 @@ func validateConversation(conversation Conversation) error {
 			return err
 		}
 	}
-	if conversation.CodexEffectiveSettings != nil {
-		if err := validateChatCodexEffectiveSettings(conversation.ID, *conversation.CodexEffectiveSettings); err != nil {
-			return err
-		}
-	}
 	if err := validateConversationWorkflowMetadata(conversation); err != nil {
 		return err
 	}
@@ -138,71 +133,6 @@ func validateConversationPinState(state conversationPinState) error {
 func validateChatCodexSettings(conversationID string, settings ChatCodexSettings) error {
 	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
 		return fmt.Errorf("conversation %s codexSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)
-	}
-	if settings.Permission != nil {
-		if err := validateChatCodexPermissionSettings(conversationID, *settings.Permission); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateChatCodexPermissionSettings(conversationID string, settings ChatCodexPermissionSettings) error {
-	preset, ok := chatPermissionPresetByID(settings.Preset)
-	if !ok {
-		return fmt.Errorf("conversation %s codexSettings permission has unsupported preset %s", conversationID, settings.Preset)
-	}
-	if settings.ApprovalPolicy == "" {
-		return fmt.Errorf("conversation %s codexSettings permission approvalPolicy is required", conversationID)
-	}
-	if settings.Permissions == "" {
-		return fmt.Errorf("conversation %s codexSettings permission permissions is required", conversationID)
-	}
-	if settings.ApprovalPolicy != preset.ApprovalPolicy || settings.Permissions != preset.ActivePermissionProfileID {
-		return fmt.Errorf("conversation %s codexSettings permission preset %s does not match backend preset contract", conversationID, settings.Preset)
-	}
-	return nil
-}
-
-func validateChatCodexEffectiveSettings(conversationID string, settings ChatCodexEffectiveSettings) error {
-	if settings.Model == "" {
-		return fmt.Errorf("conversation %s codexEffectiveSettings model is required", conversationID)
-	}
-	if settings.ModelDisplayName == "" {
-		return fmt.Errorf("conversation %s codexEffectiveSettings modelDisplayName is required", conversationID)
-	}
-	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
-		return fmt.Errorf("conversation %s codexEffectiveSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)
-	}
-	if settings.ReasoningEffortDisplayName == "" {
-		return fmt.Errorf("conversation %s codexEffectiveSettings reasoningEffortDisplayName is required", conversationID)
-	}
-	if settings.Permission != nil {
-		if err := validateChatCodexEffectivePermissionSettings(conversationID, *settings.Permission); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateChatCodexEffectivePermissionSettings(conversationID string, settings ChatCodexEffectivePermissionSettings) error {
-	if settings.DisplayLabel == "" {
-		return fmt.Errorf("conversation %s codexEffectiveSettings permission displayLabel is required", conversationID)
-	}
-	if settings.Preset != nil {
-		preset, ok := chatPermissionPresetByID(*settings.Preset)
-		if !ok {
-			return fmt.Errorf("conversation %s codexEffectiveSettings permission has unsupported preset %s", conversationID, *settings.Preset)
-		}
-		if settings.ActivePermissionProfileID != preset.ActivePermissionProfileID {
-			return fmt.Errorf("conversation %s codexEffectiveSettings permission preset %s does not match activePermissionProfileId", conversationID, *settings.Preset)
-		}
-		if settings.ApprovalPolicy != preset.ApprovalPolicy {
-			return fmt.Errorf("conversation %s codexEffectiveSettings permission preset %s does not match approvalPolicy", conversationID, *settings.Preset)
-		}
-	}
-	if settings.BuiltIn && settings.Preset == nil {
-		return fmt.Errorf("conversation %s codexEffectiveSettings permission builtIn requires preset", conversationID)
 	}
 	return nil
 }
@@ -329,56 +259,11 @@ func validateMessagePart(messageID string, part MessagePart) error {
 	if err := validateStorageID("message part id", part.ID); err != nil {
 		return fmt.Errorf("message %s %w", messageID, err)
 	}
-	switch part.Type {
-	case MessagePartText:
-		if part.Text == nil {
-			return fmt.Errorf("message %s part %s text payload is required", messageID, part.ID)
-		}
-		if part.Image != nil {
-			return fmt.Errorf("message %s part %s image payload must be null for text parts", messageID, part.ID)
-		}
-		return validateMessageTextPart(messageID, part.ID, *part.Text)
-	case MessagePartImage:
-		if part.Image == nil {
-			return fmt.Errorf("message %s part %s image payload is required", messageID, part.ID)
-		}
-		if part.Text != nil {
-			return fmt.Errorf("message %s part %s text payload must be null for image parts", messageID, part.ID)
-		}
-		return validateImagePart(messageID, part.ID, *part.Image)
-	default:
+	if part.Type != MessagePartText {
 		return fmt.Errorf("message %s part %s has unsupported type %s", messageID, part.ID, part.Type)
 	}
-}
-
-func validateMessageTextPart(messageID string, partID string, part MessageTextPart) error {
 	if !validValue(part.Format, textFormatValues) {
-		return fmt.Errorf("message %s part %s has unsupported format %s", messageID, partID, part.Format)
-	}
-	return nil
-}
-
-func validateImagePart(messageID string, partID string, part ImagePart) error {
-	if err := validateStorageID("attachment id", part.AttachmentID); err != nil {
-		return fmt.Errorf("message %s part %s %w", messageID, partID, err)
-	}
-	if part.FileName == "" {
-		return fmt.Errorf("message %s part %s fileName is required", messageID, partID)
-	}
-	if !supportedImageMimeType(part.MimeType) {
-		return fmt.Errorf("message %s part %s has unsupported image mimeType %s", messageID, partID, part.MimeType)
-	}
-	if part.ByteSize <= 0 {
-		return fmt.Errorf("message %s part %s byteSize must be positive", messageID, partID)
-	}
-	if part.Width <= 0 || part.Height <= 0 {
-		return fmt.Errorf("message %s part %s dimensions must be positive", messageID, partID)
-	}
-	if err := validateImagePartVariants(messageID, partID, part); err != nil {
-		return err
-	}
-	if part.Detail != nil && !validValue(*part.Detail, imageDetailValues) {
-		return fmt.Errorf("message %s part %s has unsupported image detail %s", messageID, partID, *part.Detail)
+		return fmt.Errorf("message %s part %s has unsupported format %s", messageID, part.ID, part.Format)
 	}
 	return nil
 }
@@ -680,8 +565,11 @@ func validateRunItem(item RunItem) error {
 	if err := validateRunItemTimestamps(item); err != nil {
 		return err
 	}
-	if err := validateRunItemDetails(item); err != nil {
-		return err
+	if item.ExitCode < 0 {
+		return fmt.Errorf("run item %s exitCode must be non-negative", item.ID)
+	}
+	if item.DurationMs < 0 {
+		return fmt.Errorf("run item %s durationMs must be non-negative", item.ID)
 	}
 	return nil
 }
@@ -724,9 +612,6 @@ func validateRunItemTypeAndStatus(item RunItem) error {
 	if !validValue(item.Status, runItemStatusValues) {
 		return fmt.Errorf("run item %s has unsupported status %s", item.ID, item.Status)
 	}
-	if item.Source != nil && !validValue(*item.Source, runItemCommandSourceValues) {
-		return fmt.Errorf("run item %s has unsupported command source %s", item.ID, *item.Source)
-	}
 	return nil
 }
 
@@ -742,76 +627,6 @@ func validateRunItemTimestamps(item RunItem) error {
 	if item.CompletedAt != "" {
 		if err := validateTimestamp(item.CompletedAt, "run item "+item.ID+" completedAt"); err != nil {
 			return err
-		}
-	}
-	return nil
-}
-
-func validateRunItemDetails(item RunItem) error {
-	if item.Type != RunItemTypeCommandExecution {
-		if item.ExitCode < 0 {
-			return fmt.Errorf("run item %s exitCode must be non-negative", item.ID)
-		}
-		if item.DurationMs < 0 {
-			return fmt.Errorf("run item %s durationMs must be non-negative", item.ID)
-		}
-	}
-	switch item.Type {
-	case RunItemTypeCommandExecution:
-		return validateRunItemCommandExecutionDetails(item)
-	case RunItemTypeMCPToolCall:
-		return validateRunItemMCPToolCallDetailsBranch(item)
-	case RunItemTypeDynamicToolCall:
-		return validateRunItemDynamicToolCallDetailsBranch(item)
-	case RunItemTypeFileChange:
-		return validateRunItemFileChangeDetailsBranch(item)
-	case RunItemTypeDiff:
-		return validateRunItemDiffDetailsBranch(item)
-	default:
-		if item.Details != nil {
-			return fmt.Errorf("run item %s type %s does not support typed details kind %s", item.ID, item.Type, item.Details.Kind)
-		}
-		return nil
-	}
-}
-
-func validateRunItemMCPToolCallDetails(item RunItem, details RunItemMCPToolCallDetails) error {
-	if details.DurationMs < 0 {
-		return fmt.Errorf("run item %s mcpToolCall durationMs must be non-negative", item.ID)
-	}
-	if item.Status != RunItemStatusPending && item.Status != RunItemStatusRunning {
-		if details.ServerName == "" {
-			return fmt.Errorf("run item %s mcpToolCall serverName is required for terminal items", item.ID)
-		}
-		if details.ToolName == "" {
-			return fmt.Errorf("run item %s mcpToolCall toolName is required for terminal items", item.ID)
-		}
-	}
-	return nil
-}
-
-func validateRunItemFileChangeDetails(item RunItem, details RunItemFileChangeDetails) error {
-	if details.Additions < 0 {
-		return fmt.Errorf("run item %s fileChange additions must be non-negative", item.ID)
-	}
-	if details.Deletions < 0 {
-		return fmt.Errorf("run item %s fileChange deletions must be non-negative", item.ID)
-	}
-	for index, path := range details.Paths {
-		if path.Path == "" {
-			return fmt.Errorf("run item %s fileChange paths[%d].path is required", item.ID, index)
-		}
-		if path.Operation != nil && !validValue(*path.Operation, runItemFileChangeOperationValues) {
-			return fmt.Errorf("run item %s fileChange paths[%d] has unsupported operation %s", item.ID, index, *path.Operation)
-		}
-		if path.Additions < 0 {
-			return fmt.Errorf("run item %s fileChange paths[%d].additions must be non-negative", item.ID, index)
-		}
-		if path.Deletions < 0 {
-			return fmt.Errorf("run item %s fileChange paths[%d].deletions must be non-negative", item.ID, index)
-		}
-		if path.PatchTruncated && path.Patch == "" {
-			return fmt.Errorf("run item %s fileChange paths[%d].patch is required when patchTruncated is true", item.ID, index)
 		}
 	}
 	return nil
@@ -846,119 +661,6 @@ func validateRunItemOutput(output RunItemOutput) error {
 		return err
 	}
 	return nil
-}
-
-func validateBackgroundTerminalProcess(process BackgroundTerminalProcess) error {
-	if process.SchemaVersion != SchemaVersion {
-		return fmt.Errorf("background terminal %s has unsupported schemaVersion %d", process.ID, process.SchemaVersion)
-	}
-	if err := validateBackgroundTerminalIdentity(process); err != nil {
-		return err
-	}
-	if err := validateBackgroundTerminalState(process); err != nil {
-		return err
-	}
-	return validateBackgroundTerminalTimestamps(process)
-}
-
-func validateBackgroundTerminalIdentity(process BackgroundTerminalProcess) error {
-	if process.ID == "" {
-		return fmt.Errorf("background terminal id is required")
-	}
-	if err := validateStorageID("background terminal id", process.ID); err != nil {
-		return err
-	}
-	if process.WorkspaceID == "" {
-		return fmt.Errorf("background terminal %s workspaceId is required", process.ID)
-	}
-	if err := validateWorkspaceID(process.WorkspaceID); err != nil {
-		return fmt.Errorf("background terminal %s %w", process.ID, err)
-	}
-	if process.ConversationID == "" {
-		return fmt.Errorf("background terminal %s conversationId is required", process.ID)
-	}
-	if err := validateConversationID(process.ConversationID); err != nil {
-		return fmt.Errorf("background terminal %s %w", process.ID, err)
-	}
-	if process.ProviderItemID == "" {
-		return fmt.Errorf("background terminal %s providerItemId is required", process.ID)
-	}
-	if process.ProcessID == "" {
-		return fmt.Errorf("background terminal %s processId is required", process.ID)
-	}
-	if err := validateOptionalStorageID("background terminal threadId", process.ThreadID); err != nil {
-		return fmt.Errorf("background terminal %s %w", process.ID, err)
-	}
-	if err := validateOptionalStorageID("background terminal startedRunId", process.StartedRunID); err != nil {
-		return fmt.Errorf("background terminal %s %w", process.ID, err)
-	}
-	return nil
-}
-
-func validateBackgroundTerminalState(process BackgroundTerminalProcess) error {
-	if !validValue(process.Source, runItemCommandSourceValues) {
-		return fmt.Errorf("background terminal %s has unsupported source %s", process.ID, process.Source)
-	}
-	if !validValue(process.Status, backgroundTerminalStatusValues) {
-		return fmt.Errorf("background terminal %s has unsupported status %s", process.ID, process.Status)
-	}
-	if process.Command == "" {
-		return fmt.Errorf("background terminal %s command is required", process.ID)
-	}
-	if process.ExitCode < 0 {
-		return fmt.Errorf("background terminal %s exitCode must be non-negative", process.ID)
-	}
-	return nil
-}
-
-func validateBackgroundTerminalTimestamps(process BackgroundTerminalProcess) error {
-	if err := validateTimestamp(process.StartedAt, "background terminal "+process.ID+" startedAt"); err != nil {
-		return err
-	}
-	if err := validateTimestamp(process.UpdatedAt, "background terminal "+process.ID+" updatedAt"); err != nil {
-		return err
-	}
-	if backgroundTerminalStatusIsTerminal(process.Status) {
-		if process.CompletedAt == "" {
-			return fmt.Errorf("background terminal %s completedAt is required for terminal status %s", process.ID, process.Status)
-		}
-	} else if process.CompletedAt != "" {
-		return fmt.Errorf("background terminal %s completedAt must be empty for active status %s", process.ID, process.Status)
-	}
-	if process.CompletedAt != "" {
-		if err := validateTimestamp(process.CompletedAt, "background terminal "+process.ID+" completedAt"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateBackgroundTerminalOutput(output BackgroundTerminalOutput) error {
-	if output.SchemaVersion != SchemaVersion {
-		return fmt.Errorf("background terminal output %s has unsupported schemaVersion %d", output.ID, output.SchemaVersion)
-	}
-	if output.ID == "" {
-		return fmt.Errorf("background terminal output id is required")
-	}
-	if err := validateStorageID("background terminal output id", output.ID); err != nil {
-		return err
-	}
-	if output.ProcessID == "" {
-		return fmt.Errorf("background terminal output %s processId is required", output.ID)
-	}
-	if err := validateStorageID("background terminal output processId", output.ProcessID); err != nil {
-		return fmt.Errorf("background terminal output %s %w", output.ID, err)
-	}
-	if output.Stream == "" {
-		return fmt.Errorf("background terminal output %s stream is required", output.ID)
-	}
-	if output.Ordinal <= 0 {
-		return fmt.Errorf("background terminal output %s ordinal must be positive", output.ID)
-	}
-	if output.Text == "" {
-		return fmt.Errorf("background terminal output %s text is required", output.ID)
-	}
-	return validateTimestamp(output.CreatedAt, "background terminal output "+output.ID+" createdAt")
 }
 
 func validateTimestamp(value string, label string) error {

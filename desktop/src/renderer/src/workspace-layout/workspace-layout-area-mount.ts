@@ -29,6 +29,7 @@ export function requireWorkspaceLayoutElements({
 
 export function installWindowReportHooksForRuntime(runtime: WorkspaceRuntime): void {
   window.__settaWorkspaceReadFrameMetrics = () => runtime.metrics.snapshot();
+  window.__settaWorkspaceResetFrameMetrics = () => runtime.metrics.reset();
   if (runtime.mode === "benchmark") {
     installWindowReportHooks();
   }

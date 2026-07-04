@@ -26,37 +26,13 @@ type CodexHarness struct {
 	active               map[string]*codexActiveTurn
 	approvals            map[string]codexPendingApproval
 	approvalsByRequestID map[string]string
-	goalMu               sync.Mutex
-	goalOperations       map[string]*codexGoalOperation
-
-	// Background terminal lifecycle state outlives any single turn. It is guarded
-	// by its own mutex because connection-scoped notification handlers run on the
-	// shared manager dispatch goroutine, concurrently with turn machinery.
-	backgroundMu       sync.Mutex
-	backgroundSink     BackgroundTerminalSink
-	threadContexts     map[string]backgroundTerminalThreadContext
-	turnActiveByThread map[string]bool
-	// backgroundItemIDs is the connection-scoped set of provider command-execution
-	// item IDs that are background terminals (learned from unifiedExecStartup). It
-	// lets the session path recognize an earlier turn's background terminal output
-	// (which carries that turn's id) and route it instead of failing turn scope.
-	backgroundItemIDs map[string]struct{}
-}
-
-// backgroundTerminalThreadContext routes a Codex thread's late unified-exec
-// notifications to the conversation that owns it, set when a turn starts the
-// thread and retained for the provider connection.
-type backgroundTerminalThreadContext struct {
-	workspaceID    string
-	conversationID string
 }
 
 type codexActiveTurn struct {
-	request       TurnRequest
-	session       *codexapp.Session
-	threadID      string
-	turnID        string
-	logicalTurnID string
+	request  TurnRequest
+	session  *codexapp.Session
+	threadID string
+	turnID   string
 }
 
 type codexPendingApproval struct {
@@ -107,33 +83,21 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 			InitializeParams: CodexInitializeParams(config),
 		})
 	}
-	harness := &CodexHarness{
+	return &CodexHarness{
 		config:               config,
 		manager:              manager,
 		active:               map[string]*codexActiveTurn{},
 		approvals:            map[string]codexPendingApproval{},
 		approvalsByRequestID: map[string]string{},
-		goalOperations:       map[string]*codexGoalOperation{},
-		threadContexts:       map[string]backgroundTerminalThreadContext{},
-		turnActiveByThread:   map[string]bool{},
-		backgroundItemIDs:    map[string]struct{}{},
 	}
-	harness.registerBackgroundTerminalHandlers()
-	return harness
 }
 
 func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	if err := ctx.Err(); err != nil {
 		return TurnCompletion{}, err
 	}
-	if err := harness.rejectLinkedGoalOperationThread(request.ThreadRef); err != nil {
-		return TurnCompletion{}, err
-	}
 	harness.turnMu.Lock()
 	defer harness.turnMu.Unlock()
-	if err := harness.rejectLinkedGoalOperationThread(request.ThreadRef); err != nil {
-		return TurnCompletion{}, err
-	}
 
 	session, err := harness.manager.NewSession(ctx)
 	if err != nil {
@@ -145,43 +109,22 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	harness.registerActive(request.Run.ID, session, request)
 	defer harness.unregisterActive(request.Run.ID)
 
-	thread, err := harness.startOrResumeThread(ctx, session, request)
+	threadID, err := harness.startOrResumeThread(ctx, session, request)
 	if err != nil {
 		return TurnCompletion{}, err
-	}
-	threadID := thread.Ref.ThreadID
-	if harness.hasGoalOperation(threadID) {
-		return TurnCompletion{}, fmt.Errorf("codex goal operation already owns thread %s", threadID)
 	}
 	if err := session.OwnThread(threadID); err != nil {
 		return TurnCompletion{}, err
 	}
-	// Record the thread's conversation and mark its turn active before the turn
-	// produces any notification, so late unified-exec events are routed to the
-	// right conversation and during-turn events defer to the run-scoped sink. The
-	// connection-scoped turn/completed handler clears the active flag in the normal
-	// path (required for deterministic late routing); this defer is the safety net
-	// for a turn that errors before any turn/completed arrives, so the flag cannot
-	// leak true and suppress this thread's later background-terminal events.
-	harness.beginBackgroundTerminalTurn(threadID, request.Workspace.ID, request.Conversation.ID)
-	defer harness.endBackgroundTerminalTurn(threadID)
 	turnID, err := startCodexTurn(ctx, session, threadID, request)
 	if err != nil {
 		return TurnCompletion{}, err
 	}
 	harness.updateActiveTurn(request.Run.ID, threadID, turnID)
-	if err := sink.ThreadLinked(threadID, thread.Ref.SessionID, turnID, chatCodexEffectiveSettingsFromCommandSettings(thread.Settings)); err != nil {
+	if err := sink.ThreadLinked(threadID, "", turnID); err != nil {
 		return TurnCompletion{}, err
 	}
 	return harness.waitForTurn(ctx, session, request.Run.ID, threadID, turnID, sink)
-}
-
-func (harness *CodexHarness) rejectLinkedGoalOperationThread(threadRef HarnessThreadRef) error {
-	threadID := linkedCodexThreadID(threadRef)
-	if threadID == "" || !harness.hasGoalOperation(threadID) {
-		return nil
-	}
-	return fmt.Errorf("codex goal operation already owns thread %s", threadID)
 }
 
 func (harness *CodexHarness) RunTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
@@ -214,20 +157,11 @@ func (harness *CodexHarness) waitForTurn(ctx context.Context, session *codexapp.
 
 func (harness *CodexHarness) applyCodexSessionEventForWait(ctx context.Context, session *codexapp.Session, event codexapp.Event, runID string, threadID string, state *codexTurnWaitState, sink TurnSink) (TurnCompletion, bool, error) {
 	if event.Kind == codexapp.EventNotification {
-		// A background terminal from an earlier turn can emit output or completion that
-		// the active session still receives, carrying the earlier turn id. Intercept and
-		// route it to the background terminal registry BEFORE the rebind logic: otherwise,
-		// if it is the first scoped notification of the active turn, its earlier turn id
-		// would rebind the active turn and then fail the real one. The active turn id
-		// (state.activeTurnID) is reliable here, before any rebind for this event.
-		if handled, err := harness.routeCrossTurnBackgroundNotification(event.Message, threadID, state.activeTurnID); handled {
-			return TurnCompletion{}, false, err
-		}
 		if err := harness.applyNotificationRebindForWait(session, event.Message, runID, threadID, state, sink); err != nil {
 			return TurnCompletion{}, false, err
 		}
 	}
-	result, err := harness.handleCodexSessionEvent(ctx, session, event, runID, threadID, state.activeTurnID, sink)
+	result, err := harness.handleCodexSessionEvent(ctx, event, runID, threadID, state.activeTurnID, sink)
 	if err != nil {
 		return TurnCompletion{}, false, err
 	}
@@ -276,7 +210,7 @@ func (harness *CodexHarness) maybeRebindActiveTurnFromNotification(runID string,
 		return activeTurnID, false, true, nil
 	}
 	harness.updateActiveTurn(runID, threadID, notificationTurnID)
-	if err := sink.ThreadLinked(threadID, "", notificationTurnID, nil); err != nil {
+	if err := sink.ThreadLinked(threadID, "", notificationTurnID); err != nil {
 		return "", false, true, err
 	}
 	return notificationTurnID, true, true, nil
@@ -314,7 +248,7 @@ func notificationTurnIDForRebind(message jsonRPCMessage, expectedThreadID string
 	return turnID, true, err
 }
 
-func (harness *CodexHarness) handleCodexSessionEvent(ctx context.Context, session *codexapp.Session, event codexapp.Event, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {
+func (harness *CodexHarness) handleCodexSessionEvent(ctx context.Context, event codexapp.Event, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {
 	switch event.Kind {
 	case codexapp.EventRequest:
 		if err := harness.handleCodexServerRequestForTurn(ctx, event.Message, runID, threadID, activeTurnID, sink); err != nil {
@@ -322,20 +256,16 @@ func (harness *CodexHarness) handleCodexSessionEvent(ctx context.Context, sessio
 		}
 		return codexTurnWaitResult{activeTurnID: activeTurnID}, nil
 	case codexapp.EventNotification:
-		return harness.handleCodexNotificationForTurn(ctx, session, event.Message, runID, threadID, activeTurnID, sink)
+		return harness.handleCodexNotificationForTurn(event.Message, runID, threadID, activeTurnID, sink)
 	case codexapp.EventLifecycle:
-		return codexTurnWaitResult{}, &HarnessProviderLifecycleError{
-			Err:     event.Err,
-			Message: "codex app-server exited before turn completed",
-			Reason:  RunLivenessReasonProviderRestarted,
-		}
+		return codexTurnWaitResult{}, fmt.Errorf("codex app-server exited before turn completed: %w", event.Err)
 	default:
 		return codexTurnWaitResult{}, fmt.Errorf("unsupported codex app-server session event: %s", event.Kind)
 	}
 }
 
-func (harness *CodexHarness) handleCodexNotificationForTurn(ctx context.Context, session *codexapp.Session, message jsonRPCMessage, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {
-	result, err := harness.handleCodexNotification(ctx, session, message, runID, threadID, activeTurnID, sink)
+func (harness *CodexHarness) handleCodexNotificationForTurn(message jsonRPCMessage, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {
+	result, err := harness.handleCodexNotification(message, runID, threadID, activeTurnID, sink)
 	if err != nil {
 		return codexTurnWaitResult{}, err
 	}
@@ -359,43 +289,26 @@ func (harness *CodexHarness) handleCodexServerRequestForTurn(ctx context.Context
 }
 
 func (harness *CodexHarness) CancelTurn(ctx context.Context, request CancelRequest) error {
-	active := harness.activeTurnSnapshot(request.RunID)
+	harness.mu.Lock()
+	active := harness.active[request.RunID]
+	harness.mu.Unlock()
 	if active == nil {
 		return fmt.Errorf("%w: codex turn is not active for run %s", ErrTurnNotStarted, request.RunID)
-	}
-	if operation, ok := harness.goalOperationForThread(active.threadID); ok {
-		return operation.Cancel(ctx)
 	}
 	if active.threadID == "" || active.turnID == "" {
 		return ErrTurnNotStarted
 	}
-	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnInterrupt, codexapp.TurnInterruptParams{
-		ThreadID: active.threadID,
-		TurnID:   active.turnID,
+	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnInterrupt, map[string]any{
+		"threadId": active.threadID,
+		"turnId":   active.turnID,
 	})
-	if err != nil {
-		harness.retryInterruptTypedActiveTurn(ctx, active, err)
-	}
-	return nil
-}
-
-func (harness *CodexHarness) retryInterruptTypedActiveTurn(ctx context.Context, active *codexActiveTurn, interruptErr error) {
-	activeTurnID, ok, parseErr := codexActiveTurnIDFromRPCErrorData(interruptErr)
-	if parseErr != nil || !ok || activeTurnID == active.turnID {
-		return
-	}
-	harness.updateActiveTurn(active.request.Run.ID, active.threadID, activeTurnID)
-	if err := active.session.OwnTurn(active.threadID, activeTurnID); err != nil {
-		return
-	}
-	_, _ = active.session.Call(ctx, codexapp.CodexMethodTurnInterrupt, codexapp.TurnInterruptParams{
-		ThreadID: active.threadID,
-		TurnID:   activeTurnID,
-	})
+	return err
 }
 
 func (harness *CodexHarness) SteerTurn(ctx context.Context, request SteerRequest) error {
-	active := harness.activeTurnSnapshot(request.RunID)
+	harness.mu.Lock()
+	active := harness.active[request.RunID]
+	harness.mu.Unlock()
 	if active == nil {
 		return fmt.Errorf("%w: codex turn is not active for run %s", ErrTurnNotStarted, request.RunID)
 	}
@@ -406,18 +319,15 @@ func (harness *CodexHarness) SteerTurn(ctx context.Context, request SteerRequest
 		return fmt.Errorf("steering thread %s does not match active thread %s", request.ThreadID, active.threadID)
 	}
 	if request.TurnID != "" && request.TurnID != active.turnID {
-		if active.logicalTurnID == "" || request.TurnID != active.logicalTurnID {
-			return fmt.Errorf("steering turn %s does not match active turn %s", request.TurnID, active.turnID)
-		}
+		return fmt.Errorf("steering turn %s does not match active turn %s", request.TurnID, active.turnID)
 	}
-	input, err := codexUserInputForSteer(request)
-	if err != nil {
-		return err
-	}
-	_, err = active.session.Call(ctx, codexapp.CodexMethodTurnSteer, map[string]any{
+	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnSteer, map[string]any{
 		"expectedTurnId": active.turnID,
-		"input":          input,
-		"threadId":       active.threadID,
+		"input": []map[string]any{{
+			"text": deliveredSteeringText(request),
+			"type": "text",
+		}},
+		"threadId": active.threadID,
 	})
 	return err
 }
@@ -466,86 +376,52 @@ func CodexInitializeParams(config CodexHarnessConfig) map[string]any {
 	}
 }
 
-func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *codexapp.Session, request TurnRequest) (codexCommandThread, error) {
+func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *codexapp.Session, request TurnRequest) (string, error) {
 	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
-		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, codexThreadResumeParams(request.Workspace.RootPath, request.ThreadRef.ThreadID, request.Conversation))
+		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, codexThreadResumeParams(request.Workspace.RootPath, request.ThreadRef.ThreadID))
 		if err != nil {
-			return codexCommandThread{}, &HarnessRefUnavailableError{
+			return "", &HarnessRefUnavailableError{
 				Err:      err,
 				Harness:  HarnessCodex,
 				ThreadID: request.ThreadRef.ThreadID,
 				Message:  fmt.Sprintf("resume codex thread %s: %v", request.ThreadRef.ThreadID, err),
 			}
 		}
-		thread, err := commandThreadFromResumeResponse(result)
+		threadID, err := threadIDFromResumeResponse(result)
 		if err != nil {
-			return codexCommandThread{}, &HarnessRefUnavailableError{
+			return "", &HarnessRefUnavailableError{
 				Err:      err,
 				Harness:  HarnessCodex,
 				ThreadID: request.ThreadRef.ThreadID,
 				Message:  fmt.Sprintf("resume codex thread %s: %v", request.ThreadRef.ThreadID, err),
 			}
 		}
-		if err := validateCodexThreadResumePermissionSettings("resume codex thread response", request.Conversation, thread.Settings); err != nil {
-			return codexCommandThread{}, &HarnessRefUnavailableError{
-				Err:      err,
-				Harness:  HarnessCodex,
-				ThreadID: request.ThreadRef.ThreadID,
-				Message:  fmt.Sprintf("resume codex thread %s: %v", request.ThreadRef.ThreadID, err),
-			}
-		}
-		return harness.codexCommandThreadWithDisplayLabels(ctx, session, thread)
+		return threadID, nil
 	}
 
-	effectiveSettings, err := harness.effectiveCodexCommandSettings(ctx, session, request.Workspace, request.Conversation)
-	if err != nil {
-		return codexCommandThread{}, err
-	}
 	params, err := harness.codexThreadStartParams(request.Workspace.RootPath)
-	if err != nil {
-		return codexCommandThread{}, err
-	}
-	applyCodexThreadStartSettings(params, effectiveSettings)
-	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
-	if err != nil {
-		return codexCommandThread{}, fmt.Errorf("start codex thread: %w", err)
-	}
-	thread, err := commandThreadFromStartResponse(result)
-	if err != nil {
-		return codexCommandThread{}, err
-	}
-	if err := validateCodexThreadStartPermissionSettings("start codex thread response", request.Conversation, thread.Settings); err != nil {
-		return codexCommandThread{}, fmt.Errorf("start codex thread response: %w", err)
-	}
-	thread.Settings = overlayCodexEffectiveSettings(thread.Settings, effectiveSettings)
-	return harness.codexCommandThreadWithDisplayLabels(ctx, session, thread)
-}
-
-func overlayCodexEffectiveSettings(base codexCommandThreadSettings, effective codexCommandThreadSettings) codexCommandThreadSettings {
-	if effective.Model != "" {
-		base.Model = effective.Model
-	}
-	if effective.ModelDisplayName != "" {
-		base.ModelDisplayName = effective.ModelDisplayName
-	}
-	if effective.ReasoningEffort != "" {
-		base.ReasoningEffort = effective.ReasoningEffort
-	}
-	if effective.ReasoningEffortDisplayName != "" {
-		base.ReasoningEffortDisplayName = effective.ReasoningEffortDisplayName
-	}
-	return base
-}
-
-func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID string, request TurnRequest) (string, error) {
-	input, err := codexUserInputForTurn(request)
 	if err != nil {
 		return "", err
 	}
+	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
+	if err != nil {
+		return "", fmt.Errorf("start codex thread: %w", err)
+	}
+	threadID, err := threadIDFromStartResponse(result)
+	if err != nil {
+		return "", err
+	}
+	return threadID, nil
+}
+
+func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID string, request TurnRequest) (string, error) {
 	params := map[string]any{
 		"cwd":      request.Workspace.RootPath,
 		"threadId": threadID,
-		"input":    input,
+		"input": []map[string]any{{
+			"text": deliveredTurnPrompt(request),
+			"type": "text",
+		}},
 	}
 	applyInitialCodexSettings(params, request)
 	result, err := session.Call(ctx, codexapp.CodexMethodTurnStart, params)
@@ -610,22 +486,6 @@ func (harness *CodexHarness) registerActive(runID string, session *codexapp.Sess
 	harness.active[runID] = &codexActiveTurn{request: request, session: session}
 }
 
-func (harness *CodexHarness) activeTurnSnapshot(runID string) *codexActiveTurn {
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-	active := harness.active[runID]
-	if active == nil {
-		return nil
-	}
-	return &codexActiveTurn{
-		request:       active.request,
-		session:       active.session,
-		threadID:      active.threadID,
-		turnID:        active.turnID,
-		logicalTurnID: active.logicalTurnID,
-	}
-}
-
 func (harness *CodexHarness) updateActiveTurn(runID string, threadID string, turnID string) {
 	harness.mu.Lock()
 	defer harness.mu.Unlock()
@@ -635,18 +495,6 @@ func (harness *CodexHarness) updateActiveTurn(runID string, threadID string, tur
 	}
 	active.threadID = threadID
 	active.turnID = turnID
-}
-
-func (harness *CodexHarness) updateActiveGoalTurn(runID string, threadID string, logicalTurnID string, physicalTurnID string) {
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-	active := harness.active[runID]
-	if active == nil {
-		return
-	}
-	active.threadID = threadID
-	active.turnID = physicalTurnID
-	active.logicalTurnID = logicalTurnID
 }
 
 func (harness *CodexHarness) unregisterActive(runID string) {

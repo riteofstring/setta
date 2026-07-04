@@ -35,7 +35,6 @@ export function conversationSelectionRequest(
       ...(switchingWorkspace ? workspaceSwitchLoadingPatch() : {}),
       error: null,
       operation: "loading",
-      pendingGoalSubmission: null,
     },
     workspaceId,
   };
