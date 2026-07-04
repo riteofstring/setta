@@ -27,6 +27,7 @@ import {
 
 const externalBackendReadyTimeoutMs = 20_000;
 const externalBackendStopTimeoutMs = 5_000;
+const restartRecoveryBackgroundTerminalPrompt = "background terminal workflow";
 const restartRecoveryPrompt = "workflow hold for queue and steering";
 const restartRecoveryError = "run interrupted by backend restart";
 
@@ -77,6 +78,18 @@ async function createInterruptedRun(context, fixture, recordingDir) {
   const backend = await backendProbe(recordingDir);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   const conversationId = await createChat(context.client, backend, workspaceId);
+  await submitComposer(context.client, restartRecoveryBackgroundTerminalPrompt, "Send message");
+  await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    restartRecoveryBackgroundTerminalPrompt,
+    "completed",
+  );
+  await waitForBackgroundTerminalFooter(context.client, {
+    phase: "active",
+    text: "2 background terminals running",
+  });
   await submitComposer(context.client, restartRecoveryPrompt, "Send message");
   const activeRun = await waitForRunWithPrompt(
     backend,
@@ -106,6 +119,7 @@ async function assertRecoveredRun(context, recordingDir, interrupted) {
   await assertNoActiveRun(backend, interrupted.workspaceId, interrupted.conversationId);
   await waitForTexts(context.client, [restartRecoveryPrompt, "Workflow stream started."]);
   await waitForRecoveredRestartPresentation(context.client, interrupted.runId);
+  await assertRecoveredBackgroundTerminalAttention(context.client, backend, interrupted);
   await assertChatLayout(context.client);
   await captureScreenshot(context.client, join(recordingDir, "recovered-after-restart.png"));
 }
@@ -196,6 +210,77 @@ function runPresentationExpression(runId) {
       text: target?.textContent ?? "",
     };
   })()`;
+}
+
+async function assertRecoveredBackgroundTerminalAttention(client, backend, interrupted) {
+  const list = await backend.post("/chat/background-terminals/list", {
+    conversationId: interrupted.conversationId,
+    workspaceId: interrupted.workspaceId,
+  });
+  const statuses = (list.terminals ?? []).map((terminal) => terminal.status);
+  if (statuses.length !== 2 || statuses.some((status) => status !== "lost")) {
+    throw new Error(`recovered background terminals = ${JSON.stringify(list.terminals)}`);
+  }
+  await waitForBackgroundTerminalFooter(client, {
+    phase: "attention",
+    text: "2 background terminals need attention",
+  });
+  await delay(2700);
+  await waitForBackgroundTerminalFooter(client, {
+    phase: "attention",
+    text: "2 background terminals need attention",
+  });
+  await client.evaluate(
+    `document.querySelector('[data-testid="background-terminals-footer"]')?.click()`,
+  );
+  await waitForState(
+    client,
+    backgroundTerminalMonitorExpression(),
+    (value) =>
+      value.monitorOpen &&
+      value.processes.length === 2 &&
+      value.processes.every((process) => process.status === "lost"),
+  );
+  await client.evaluate(
+    `document.querySelector('button[aria-label="Close background terminal monitor"]')?.click()`,
+  );
+  await waitForState(
+    client,
+    backgroundTerminalFooterExpression(),
+    (value) => !value.footerPresent && !value.monitorOpen,
+  );
+}
+
+async function waitForBackgroundTerminalFooter(client, { phase, text }) {
+  await waitForState(
+    client,
+    backgroundTerminalFooterExpression(),
+    (value) =>
+      value.footerPresent && value.footerPhase === phase && value.footerText.includes(text),
+  );
+}
+
+function backgroundTerminalFooterExpression() {
+  return `(() => {
+    const footer = document.querySelector('[data-testid="background-terminals-footer"]');
+    return {
+      footerPhase: footer?.getAttribute("data-terminal-surface-state") ?? "",
+      footerPresent: Boolean(footer),
+      footerText: footer?.innerText ?? "",
+      monitorOpen: Boolean(document.querySelector('[data-testid="background-terminal-monitor"]')),
+    };
+  })()`;
+}
+
+function backgroundTerminalMonitorExpression() {
+  return `(() => ({
+    monitorOpen: Boolean(document.querySelector('[data-testid="background-terminal-monitor"]')),
+    processes: Array.from(document.querySelectorAll('[data-testid="background-terminal-monitor-process"]')).map((row) => ({
+      command: row.getAttribute("data-command") ?? "",
+      status: row.getAttribute("data-status") ?? "",
+      text: row.innerText,
+    })),
+  }))()`;
 }
 
 async function startExternalScriptedBackend(fixture, repoRoot) {

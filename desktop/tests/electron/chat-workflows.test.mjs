@@ -83,13 +83,13 @@ import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
   runProtocolCurrentPlanAndGoalMultiTurnWorkflow,
-  runProtocolGoalBackgroundTerminalWorkflow,
   runProtocolGoalCancellationWorkflow,
   runProtocolGoalForegroundUnifiedExecWorkflow,
   runProtocolLivenessReconciliationWorkflow,
   runProtocolProviderRestartLivenessWorkflow,
   runProtocolStreamErrorLivenessWorkflow,
 } from "./codex-protocol-workflow.mjs";
+import { runProtocolGoalBackgroundTerminalWorkflow } from "./codex-protocol-background-terminal-cases.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));

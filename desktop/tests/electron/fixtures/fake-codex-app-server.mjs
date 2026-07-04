@@ -14,6 +14,14 @@ const goalBackgroundTerminal = {
   processId: "goal_bg_process",
   secondTurnOutput: "goal background turn B output\n",
 };
+const goalBackgroundTerminalFailure = {
+  command: "npm run goal-bg-fail",
+  exitCode: 1,
+  idleGapOutput: "goal background failure output\n",
+  itemId: "goal_bg_terminal_failed",
+  processId: "goal_bg_process_failed",
+  secondTurnOutput: "goal background failure final output\n",
+};
 const goalForegroundUnifiedExec = {
   command: "command -v tokei",
   itemId: "goal_fg_command",
@@ -350,7 +358,11 @@ function shouldEmitGoalOperation(objective, status) {
 }
 
 function shouldEmitGoalBackgroundTerminal(objective, status) {
-  return objective === "phase5 codex background terminal" && status === "active";
+  return (
+    (objective === "phase5 codex background terminal" ||
+      objective === "phase5 codex background terminal failure") &&
+    status === "active"
+  );
 }
 
 function shouldEmitGoalForegroundUnifiedExec(objective, status) {
@@ -1038,6 +1050,7 @@ function emitGoalOperationMultiTurn(objective) {
 }
 
 function emitGoalOperationBackgroundTerminal(objective) {
+  const execution = goalBackgroundTerminalExecution(objective);
   notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
   notify("turn/started", {
     threadId,
@@ -1049,13 +1062,13 @@ function emitGoalOperationBackgroundTerminal(objective) {
     threadId,
     turnId: "turn_goal_a",
   });
-  notifyGoalBackgroundTerminalStarted("turn_goal_a");
+  notifyGoalBackgroundTerminalStarted("turn_goal_a", execution);
   setTimeout(() => {
     notify("turn/completed", {
       threadId,
       turn: fakeTurnWithID("turn_goal_a", "completed"),
     });
-    notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.idleGapOutput);
+    notifyGoalBackgroundTerminalOutput("turn_goal_a", execution, execution.idleGapOutput);
     notify("turn/started", {
       threadId,
       turn: fakeTurnWithID("turn_goal_b", "inProgress"),
@@ -1076,8 +1089,8 @@ function emitGoalOperationBackgroundTerminal(objective) {
       turnID: "turn_goal_b",
     });
     setTimeout(() => {
-      notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.secondTurnOutput);
-      notifyGoalBackgroundTerminalCompleted("turn_goal_a");
+      notifyGoalBackgroundTerminalOutput("turn_goal_a", execution, execution.secondTurnOutput);
+      notifyGoalBackgroundTerminalCompleted("turn_goal_a", execution);
       currentGoal = fakeGoal(objective, "complete");
       notify("thread/goal/updated", { goal: currentGoal, threadId });
       notify("turn/completed", {
@@ -1086,6 +1099,12 @@ function emitGoalOperationBackgroundTerminal(objective) {
       });
     }, 2000);
   }, 350);
+}
+
+function goalBackgroundTerminalExecution(objective) {
+  return objective === "phase5 codex background terminal failure"
+    ? goalBackgroundTerminalFailure
+    : goalBackgroundTerminal;
 }
 
 function emitGoalOperationForegroundUnifiedExec(objective) {
@@ -1142,16 +1161,16 @@ function emitGoalOperationCancellation(objective) {
   });
 }
 
-function notifyGoalBackgroundTerminalStarted(turnID) {
-  notifyUnifiedExecStarted(turnID, goalBackgroundTerminal);
+function notifyGoalBackgroundTerminalStarted(turnID, execution) {
+  notifyUnifiedExecStarted(turnID, execution);
 }
 
-function notifyGoalBackgroundTerminalOutput(turnID, delta) {
-  notifyUnifiedExecOutput(turnID, goalBackgroundTerminal, delta);
+function notifyGoalBackgroundTerminalOutput(turnID, execution, delta) {
+  notifyUnifiedExecOutput(turnID, execution, delta);
 }
 
-function notifyGoalBackgroundTerminalCompleted(turnID) {
-  notifyUnifiedExecCompleted(turnID, goalBackgroundTerminal);
+function notifyGoalBackgroundTerminalCompleted(turnID, execution) {
+  notifyUnifiedExecCompleted(turnID, execution);
 }
 
 function notifyUnifiedExecStarted(turnID, execution) {

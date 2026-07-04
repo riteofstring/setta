@@ -882,16 +882,36 @@ Verification performed:
   backend-state timeout after the live chat steps.
 - `./check_quality.sh --git-changes`
 
+Follow-up audit:
+
+- added a dedicated production-path Codex protocol assertion for successful
+  background-terminal completion dwell by closing the monitor before the
+  terminal exits, asserting the compact footer enters `complete`, then asserting
+  it auto-dismisses after the dwell;
+- added a fake Codex goal workflow with a typed non-zero background terminal
+  exit and production-path assertions that the backend projection carries
+  `exitCode: 1`, the compact footer remains in `attention` past the completion
+  dwell window, and inspecting/closing the monitor dismisses it;
+- extended the restart-recovery Electron workflow to leave running background
+  terminals alive before backend shutdown, assert recovery marks them `lost`,
+  assert the compact attention footer persists past the dwell window, and assert
+  monitor inspection dismisses the lost-terminal surface.
+- split the background-terminal Codex protocol workflow assertions into a
+  focused Electron workflow module so the shared protocol workflow file remains
+  under the repository file-length limit.
+
+Follow-up verification:
+
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/test_chat_workflows.sh --skip-build --deterministic-only`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
 Remaining work:
 
-- add a dedicated production-path Electron assertion for successful background
-  terminal completed-row dwell once the fake provider workflow can surface that
-  terminal completion in the compact footer without racing the monitor
-  inspection path;
-- broaden production-path coverage for failed/lost background-terminal
-  attention persistence beyond the focused renderer/store tests;
-- the live Electron semantic-cartographer timeout remains a residual live-gate
-  blocker outside this active-work stack slice.
+- No known Phase 9 terminal-dwell product or deterministic coverage gap remains.
+- The prior live Electron semantic-cartographer timeout was outside this
+  terminal-dwell slice and was not rerun during this follow-up audit.
 
 ## Open Decisions
 
