@@ -28,6 +28,7 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 	findings := append([]CorruptStateFinding{}, corruptConversations...)
 	findings = append(findings, corruptRuns...)
 	items := make([]ConversationListItem, 0, len(conversations))
+	activeRunLivenessByConversation := service.activeRunLivenessForConversationList(workspaceID, runs)
 	for _, conversation := range conversations {
 		if conversation.Internal {
 			continue
@@ -47,7 +48,10 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 		var activeRunLiveness *RunLiveness
 		if run, ok := activeRunFromRuns(runs, conversation.ID); ok {
 			activeRunID = run.ID
-			activeRunLiveness = service.activeRunLivenessLocked(workspaceID, conversation.ID, run)
+			if liveness, ok := activeRunLivenessByConversation[conversation.ID]; ok {
+				snapshot := liveness
+				activeRunLiveness = &snapshot
+			}
 		}
 		items = append(items, ConversationListItem{
 			Conversation:             conversation,

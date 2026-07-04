@@ -179,6 +179,26 @@ func (service *Service) activeRunLivenessLocked(workspaceID string, conversation
 	return &liveness
 }
 
+func (service *Service) activeRunLivenessForConversationList(workspaceID string, runs []Run) map[string]RunLiveness {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	snapshots := map[string]RunLiveness{}
+	for _, run := range runs {
+		if run.WorkspaceID != workspaceID || run.Status != RunStatusRunning {
+			continue
+		}
+		if _, exists := snapshots[run.ConversationID]; exists {
+			continue
+		}
+		liveness := service.activeRunLivenessLocked(workspaceID, run.ConversationID, run)
+		if liveness != nil {
+			snapshots[run.ConversationID] = *liveness
+		}
+	}
+	return snapshots
+}
+
 func (service *Service) activeRunCancellableLocked(key string, runID string) bool {
 	active, ok := service.active[key]
 	return ok && active.runID == runID

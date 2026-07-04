@@ -3,6 +3,8 @@ package chat
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -121,6 +123,67 @@ func TestServiceReconcileDoesNotDowngradeFreshProviderEvent(t *testing.T) {
 	}
 }
 
+func TestServiceListConversationsSnapshotsActiveRunLivenessUnderLock(t *testing.T) {
+	harness := newLivenessReconcileHarness(HarnessRunLivenessResult{
+		ThreadStatus: HarnessThreadRuntimeActive,
+		TurnFound:    true,
+		TurnStatus:   HarnessTurnRuntimeInProgress,
+	}, nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, result := startLinkedReconciliationRun(t, service)
+
+	const iterations = 200
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		<-start
+		for index := 0; index < iterations; index++ {
+			list, err := service.ListConversations("workspace_api")
+			if err != nil {
+				errs <- err
+				return
+			}
+			item, ok := conversationListItemByID(list.Conversations, conversation.ID)
+			if !ok {
+				errs <- fmt.Errorf("conversation %s was missing from list", conversation.ID)
+				return
+			}
+			if item.ActiveRunID != result.Run.ID {
+				errs <- fmt.Errorf("active run id = %q, want %q", item.ActiveRunID, result.Run.ID)
+				return
+			}
+			if item.ActiveRunLiveness == nil || item.ActiveRunLiveness.RunID != result.Run.ID {
+				errs <- fmt.Errorf("active run liveness = %+v, want run %s", item.ActiveRunLiveness, result.Run.ID)
+				return
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		<-start
+		for index := 0; index < iterations; index++ {
+			if _, err := service.ReconcileActiveRuns(context.Background(), "workspace_api", conversation.ID, RunLivenessReasonWakeRecheck); err != nil {
+				errs <- err
+				return
+			}
+		}
+	}()
+
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestServiceReconcileProviderUnavailableMarksLost(t *testing.T) {
 	harness := newLivenessReconcileHarness(HarnessRunLivenessResult{}, errors.New("thread/read unavailable"))
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
@@ -210,4 +273,13 @@ func startLinkedReconciliationRun(t *testing.T, service *Service) (Conversation,
 	})
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_live")
 	return conversation, result
+}
+
+func conversationListItemByID(items []ConversationListItem, conversationID string) (ConversationListItem, bool) {
+	for _, item := range items {
+		if item.Conversation.ID == conversationID {
+			return item, true
+		}
+	}
+	return ConversationListItem{}, false
 }
