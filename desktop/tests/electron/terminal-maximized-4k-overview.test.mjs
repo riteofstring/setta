@@ -24,7 +24,6 @@ import {
   openTerminalFromShortcut,
   terminalScrollbackSearchExpression,
   terminalSnapshotExpression,
-  terminalSnapshotsExpression,
 } from "./terminal-workflow-helpers.mjs";
 import {
   assertNoTransitionCaptureBlocking,
@@ -58,7 +57,6 @@ const artifactDir = options.artifactDir || timestampedRecordingDir("terminal-4k-
 await writeLatestRecordingPointer("terminal-4k-overview", artifactDir);
 const fixture = await createElectronFixture("terminal-4k-overview");
 let context = null;
-let terminalPaneId = "";
 
 try {
   context = await launchElectronCdpContext({
@@ -76,28 +74,24 @@ try {
     overviewPerformanceTimeoutMs,
   );
   await ensureWorkspaceOpen(context.client);
-  const openedTerminal = await openTerminalFromShortcut(
-    context.client,
-    overviewPerformanceTimeoutMs,
-  );
-  terminalPaneId = openedTerminal.paneId;
-  await focusTerminal(context.client, overviewPerformanceTimeoutMs, { paneId: terminalPaneId });
-  const maximized = await context.client.driver("maximizeTerminalPane", { paneId: terminalPaneId });
+  await openTerminalFromShortcut(context.client, overviewPerformanceTimeoutMs);
+  await focusTerminal(context.client, overviewPerformanceTimeoutMs);
+  const maximized = await context.client.driver("maximizeTerminalPane");
   if (!maximized.ok) {
     throw new Error(`terminal maximize failed: ${JSON.stringify(maximized)}`);
   }
   await waitForState(
     context.client,
-    terminalSnapshotExpression({ paneId: terminalPaneId }),
+    terminalSnapshotExpression(),
     (snapshot) => snapshot.exists && snapshot.maximized && snapshot.visible && snapshot.xtermReady,
     overviewPerformanceTimeoutMs,
   );
   await ensureNormalMode(context.client);
-  const normalHost = await readPaneHostState(context.client, { paneId: terminalPaneId });
-  await writeTerminalCommand(context.client, terminalPaneId, terminalOutputCommand);
+  const normalHost = await readPaneHostState(context.client, { surfaceKind: "terminal" });
+  await writeTerminalCommand(context.client, terminalOutputCommand);
   await waitForState(
     context.client,
-    terminalScrollbackSearchExpression("frozen-terminal-020", { paneId: terminalPaneId }),
+    terminalScrollbackSearchExpression("frozen-terminal-020"),
     (snapshot) => snapshot.found,
     overviewPerformanceTimeoutMs,
   );
@@ -153,7 +147,7 @@ try {
   );
   const finalScrollback = await waitForState(
     context.client,
-    terminalScrollbackSearchExpression("frozen-terminal-199", { paneId: terminalPaneId }),
+    terminalScrollbackSearchExpression("frozen-terminal-199"),
     (snapshot) => snapshot.found,
     overviewPerformanceTimeoutMs,
   );
@@ -189,13 +183,7 @@ try {
     await writeJson(join(artifactDir, "failure-summary.json"), {
       error: error instanceof Error ? error.message : String(error),
       metrics: await readFrameMetrics(context.client).catch(() => null),
-      terminal:
-        terminalPaneId !== ""
-          ? await context.client
-              .evaluate(terminalSnapshotExpression({ paneId: terminalPaneId }))
-              .catch(() => null)
-          : null,
-      terminals: await context.client.evaluate(terminalSnapshotsExpression()).catch(() => []),
+      terminal: await context.client.evaluate(terminalSnapshotExpression()).catch(() => null),
     }).catch(() => {});
   }
   await writeJson(join(artifactDir, "summary.json"), {
@@ -208,11 +196,11 @@ try {
   await stopElectronCdpContext(context);
 }
 
-async function writeTerminalCommand(client, paneId, command) {
-  await focusTerminal(client, overviewPerformanceTimeoutMs, { paneId });
+async function writeTerminalCommand(client, command) {
+  await focusTerminal(client, overviewPerformanceTimeoutMs);
   const snapshot = await waitForState(
     client,
-    terminalSnapshotExpression({ paneId }),
+    terminalSnapshotExpression(),
     (state) => state.sessionId.startsWith("terminal_"),
     overviewPerformanceTimeoutMs,
   );

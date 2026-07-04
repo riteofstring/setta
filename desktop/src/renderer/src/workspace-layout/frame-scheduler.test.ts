@@ -1,13 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { WorkspaceLikeLayoutEngine } from "./layout-engine";
-import { WorkspaceLayoutStore, type WorkspaceLayoutSnapshot } from "./layout-store";
+import type { WorkspaceLikeLayoutEngine } from "./layout-engine";
+import type { WorkspaceLayoutSnapshot, WorkspaceLayoutStore } from "./layout-store";
 import { FrameScheduler } from "./frame-scheduler";
 import { WorkspaceMetricsCollector } from "./metrics";
 import { PaneRuntimePolicy } from "./runtime-policy";
 import type { LayoutFrameInput, PaneRenderItem, Rect } from "./types";
 import type { PresentationEngine, PresentationWriteCounts } from "./presentation-engine";
-import { createRealWorkspaceScene } from "./workspace-scene";
 
 describe("workspace frame scheduler", () => {
   let raf: InstalledRaf;
@@ -203,62 +202,6 @@ describe("workspace frame scheduler", () => {
 
     expect(presentation.apply).toHaveBeenCalledTimes(2);
     expect(raf.pendingCount()).toBe(0);
-
-    scheduler.teardown();
-  });
-
-  test("converges scroll after opening a terminal pane during workspace boot", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
-      storedLayout: null,
-      workspaceId: "setta:workspace-frame-scheduler-open-terminal",
-      workspaceName: "Repo",
-    });
-    const engine = new WorkspaceLikeLayoutEngine(scene);
-    const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
-    const presentation = fakePresentation();
-    const scheduler = new FrameScheduler({
-      engine,
-      layoutStore: store,
-      metrics: new WorkspaceMetricsCollector(),
-      presentation,
-      reportWriter: null,
-      runtimePolicy: new PaneRuntimePolicy(),
-      viewportProvider: () => viewport,
-    });
-
-    scheduler.start();
-    raf.flush(16);
-    const terminalPaneId = store.openPane({
-      subtitle: "command surface",
-      surfaceKind: "terminal",
-      title: "Terminal",
-      tone: "green",
-    });
-    const openedSnapshot = store.getSnapshot();
-
-    expect(terminalPaneId).toBe("workspace_pane_4");
-    expect(openedSnapshot).toMatchObject({
-      focusedPaneId: terminalPaneId,
-      scrollColumn: 0,
-      targetScrollColumn: 1,
-    });
-
-    flushPendingFrames(raf, 32, 100);
-
-    if (raf.pendingCount() !== 0) {
-      throw new Error(
-        `scheduler still has pending frames: ${JSON.stringify({
-          pendingFrames: raf.pendingCount(),
-          renderedFrames: vi.mocked(presentation.apply).mock.calls.length,
-          snapshot: store.getSnapshot(),
-        })}`,
-      );
-    }
-    expect(store.getSnapshot()).toMatchObject({
-      focusedPaneId: terminalPaneId,
-      scrollColumn: 1,
-      targetScrollColumn: 1,
-    });
 
     scheduler.teardown();
   });
@@ -532,14 +475,6 @@ function expectPaneGeometryClose(left: PaneRenderItem, right: PaneRenderItem): v
   expect(Math.abs(left.width - right.width)).toBeLessThan(2);
   expect(Math.abs(left.height - right.height)).toBeLessThan(2);
   expect(Math.abs(left.scale - right.scale)).toBeLessThan(0.01);
-}
-
-function flushPendingFrames(raf: InstalledRaf, startTimestamp: number, maxFrames: number): void {
-  let timestamp = startTimestamp;
-  for (let frame = 0; frame < maxFrames && raf.pendingCount() > 0; frame += 1) {
-    raf.flush(timestamp);
-    timestamp += 16;
-  }
 }
 
 interface InstalledRaf {

@@ -10,7 +10,19 @@ import type { BackendProcessStatus } from "@shared/types";
 import "@xterm/xterm/css/xterm.css";
 import "./workspace-terminal.css";
 
-import { bytesFromBase64, errorMessage, exitStatusLabel, statusLabel } from "./terminal-ergonomics";
+import {
+  base64FromBytes,
+  bytesFromBase64,
+  copyTerminalSelectionToClipboard,
+  errorMessage,
+  exitStatusLabel,
+  formatBytes,
+  isTerminalCopyShortcut,
+  isTerminalPasteShortcut,
+  isTerminalSearchShortcut,
+  readTerminalClipboard,
+  statusLabel,
+} from "./terminal-ergonomics";
 import {
   defaultTerminalDisplaySettings,
   terminalTheme,
@@ -23,34 +35,29 @@ import {
   subscribeTerminalProfilesChanged,
   terminalProfileDisplaySettings,
 } from "./terminal-profiles";
-import { runtimeProfileScopeKey } from "./terminal-runtime-scope";
-import { terminalFitContext } from "./terminal-fit-context";
-import {
-  TerminalSurfaceFitScheduler,
-  snapTerminalViewportToWholeRows,
-  terminalViewportHasSize,
-  warnIfTerminalViewportSuspiciouslySmall,
-} from "./terminal-surface-fit-scheduler";
-import {
-  handleTerminalKeyEvent,
-  openTerminalExternalUrl,
-  sendTerminalInput,
-} from "./terminal-surface-input";
+import { terminalFitContext, terminalFitReady } from "./terminal-fit-context";
 import {
   attachOrCreateTerminalSession,
-  TerminalProfileUnavailable,
+  TerminalStartCancelled,
   TerminalStartDeferred,
   terminalAPI,
 } from "./terminal-surface-session";
 import { renderXtermContent, type TerminalPasteElements } from "./terminal-surface-dom";
-import { TerminalOutputBuffer } from "./terminal-surface-output-buffer";
-import { TerminalPasteController } from "./terminal-surface-paste";
-import { TerminalSurfaceSessionResizer } from "./terminal-surface-resize-scheduler";
 import { TerminalSearchController } from "./terminal-surface-search";
 import { mountXtermTerminal, type TerminalDisposable } from "./terminal-surface-xterm";
-import { setHostPaneChromeTitle, terminalPaneTitle } from "./pane-title-metadata";
 import { assertNever, emptyTerminalStats, performanceNow } from "./terminal-surface-utils";
-import { useRuntimeStore } from "../stores/runtime-store";
+import {
+  syncTerminalHostState,
+  terminalSurfaceLimits as limits,
+  type PendingPaste,
+  type PendingTerminalOutput,
+  type TerminalStatusEvent,
+} from "./terminal-surface-state";
+import { requestTerminalPaneClose } from "./terminal-pane-close";
+import {
+  isWorkspaceArrowNavigationShortcut,
+  workspaceShortcutKeyboardEventInit,
+} from "./workspace-shortcuts";
 import type {
   FreezeReason,
   WorkspacePane,
@@ -59,47 +66,32 @@ import type {
   ResumeReason,
   SurfaceAdapter,
   SurfaceId,
+  SurfacePaneCloseRequest,
   ViewportChangeReason,
   TerminalSurfaceStats,
 } from "./types";
 
-const defaultCols = 80;
-const defaultRows = 24;
-const resizeDebounceMs = 80;
-const sessionStartFitWaitMs = 250;
-
-type TerminalStatusEvent = TerminalEvent & {
-  type: Exclude<TerminalEvent["type"], "terminal.output">;
-};
-
-type FitWaiter = (dimensions: { cols: number; rows: number } | null) => void;
-
 export class TerminalSurfaceAdapter implements SurfaceAdapter {
   readonly kind = "terminal" as const;
+
   private destroyed = false;
+  private droppedOutputChunks = 0;
   private exitOverlay: HTMLElement | null = null;
   private exitOverlayMessage: HTMLElement | null = null;
+  private fitReadinessRetryCount = 0;
+  private fitRetryTimer: number | null = null;
   private fitAddon: XtermFitAddon | null = null;
   private focused = false;
   private frozen = false;
   private host: HTMLElement | null = null;
-  private deferOutputUntilSessionReady = false;
+  private lastResize: { cols: number; rows: number } | null = null;
   private lostSession = false;
-  private readonly outputBuffer = new TerminalOutputBuffer();
-  private fitWaiters: FitWaiter[] = [];
-  private profilesLoaded = false;
-  private reattachRequired = false;
-  private resetTerminalBeforeReplayDrain = false;
+  private pendingResize: { cols: number; rows: number } | null = null;
+  private readonly pendingOutput: PendingTerminalOutput[] = [];
+  private pendingPaste: PendingPaste | null = null;
   private pasteOverlay: TerminalPasteElements | null = null;
+  private resizeTimer: number | null = null;
   private restartButton: HTMLButtonElement | null = null;
-  private readonly pasteController = new TerminalPasteController({
-    getSessionId: () => this.sessionId,
-    getTerminal: () => this.terminal,
-    hidePasteOverlay: () => this.hidePasteOverlay(),
-    sendInput: (data) => this.sendInput(data),
-    showPasteOverlay: (message, confirmable) => this.showPasteOverlay(message, confirmable),
-    showStatus: (message) => this.showStatus(message),
-  });
   private readonly searchController = new TerminalSearchController();
   private selectedProfile: TerminalProfile | null = null;
   private selectedProfileId = "";
@@ -107,63 +99,44 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private sessionStatus = "";
   private settings: TerminalDisplaySettings = defaultTerminalDisplaySettings;
   private startPromise: Promise<void> | null = null;
-  private terminalStatusText = "";
+  private status: HTMLElement | null = null;
   private terminal: XtermTerminal | null = null;
   private terminalDisposables: TerminalDisposable[] = [];
   private allowExplicitProfileStart = false;
   private unsubscribeProfileChanges: (() => void) | null = null;
   private unsubscribeBackendStatus: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
-  private unsubscribeRuntimeChanges: (() => void) | null = null;
   private visible = false;
-  private runtimeProfileScopeKey = "";
-  private runtimeProfileVersion = 0;
+
   private stats: TerminalSurfaceStats = emptyTerminalStats();
-  private readonly fitScheduler = new TerminalSurfaceFitScheduler(() => this.fitAndResize());
-  private readonly sessionResizer = new TerminalSurfaceSessionResizer(resizeDebounceMs, {
-    applySessionSummary: (session) => this.applySessionSummary(session),
-    current: () => ({
-      destroyed: this.destroyed,
-      runtimeVersion: this.runtimeProfileVersion,
-      sessionId: this.sessionId,
-      status: this.sessionStatus,
-    }),
-    showStatus: (message) => this.showStatus(message),
-  });
+
   constructor(
     private readonly pane: WorkspacePane,
     private readonly workspaceId: string = "empty",
   ) {}
+
   get surfaceId(): SurfaceId {
     return this.pane.surfaceId;
   }
+
   mount(host: HTMLElement): void {
     this.ensureNotDestroyed();
     this.host = host;
     host.dataset.surfaceId = this.surfaceId;
     host.dataset.surfaceKind = this.kind;
-    setHostPaneChromeTitle(host, terminalPaneTitle(this.pane.terminalConfig?.cwdOverride ?? ""));
     const content = renderXtermContent(host, this.pane);
+    this.status = content.status;
     this.exitOverlay = content.exitOverlay;
     this.exitOverlayMessage = content.exitOverlayMessage;
     this.restartButton = content.restartButton;
     this.searchController.setElements(content.search);
     this.pasteOverlay = content.pasteOverlay;
-    this.fitScheduler.setViewport(content.viewport);
-    content.viewport.addEventListener(
-      "copy",
-      (event) => this.pasteController.handleCopyEvent(event),
-      {
-        capture: true,
-      },
-    );
-    content.viewport.addEventListener(
-      "paste",
-      (event) => this.pasteController.handlePasteEvent(event),
-      {
-        capture: true,
-      },
-    );
+    content.viewport.addEventListener("copy", (event) => this.handleCopyEvent(event), {
+      capture: true,
+    });
+    content.viewport.addEventListener("paste", (event) => this.handlePasteEvent(event), {
+      capture: true,
+    });
     content.search.input.addEventListener("input", () => this.searchController.findNext(true));
     content.search.input.addEventListener("keydown", (event) =>
       this.searchController.handleKeydown(event),
@@ -175,12 +148,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       this.searchController.findPrevious(),
     );
     content.search.closeButton.addEventListener("click", () => this.searchController.close());
-    content.pasteOverlay.confirmButton.addEventListener("click", () =>
-      this.pasteController.confirmPendingPaste(),
-    );
-    content.pasteOverlay.cancelButton.addEventListener("click", () =>
-      this.pasteController.cancelPendingPaste(),
-    );
+    content.pasteOverlay.confirmButton.addEventListener("click", () => this.confirmPendingPaste());
+    content.pasteOverlay.cancelButton.addEventListener("click", () => this.cancelPendingPaste());
     content.restartButton.addEventListener("click", () => this.restartSession());
     content.closeButton.addEventListener("click", () => this.closeExitedSession());
     host.replaceChildren(content.root);
@@ -194,55 +163,43 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.unsubscribeBackendStatus =
       window.setta?.backend.onProcessStatus((status) => this.handleBackendProcessStatus(status)) ??
       null;
-    this.runtimeProfileScopeKey = runtimeProfileScopeKey(useRuntimeStore.getState().snapshot);
-    this.unsubscribeRuntimeChanges = useRuntimeStore.subscribe((state) => {
-      const nextScopeKey = runtimeProfileScopeKey(state.snapshot);
-      if (nextScopeKey !== this.runtimeProfileScopeKey) {
-        this.handleRuntimeProfileScopeChanged(nextScopeKey);
-      }
-    });
     this.unsubscribeProfileChanges = subscribeTerminalProfilesChanged((profiles) => {
       this.applyProfileList(profiles);
-      this.startSessionIfActive();
     });
-    const runtimeVersion = this.runtimeProfileVersion;
-    void this.loadProfiles(runtimeVersion)
+    void this.loadProfiles()
       .then(() => this.mountTerminal(content.viewport))
       .then(() => {
-        this.startSessionIfActive();
+        if (this.destroyed || !this.host) {
+          return;
+        }
+        this.startSessionIfReady();
       })
       .catch((error: unknown) => {
-        if (runtimeVersion === this.runtimeProfileVersion) {
-          this.showStatus(errorMessage(error));
-        }
+        this.showStatus(errorMessage(error));
       });
   }
+
   unmount(): void {
-    this.sessionResizer.clear();
-    this.fitScheduler.clear();
-    this.resolveFitWaiters(null);
+    this.clearResizeTimer();
+    this.clearFitRetryTimer();
     this.unsubscribeEvents?.();
     this.unsubscribeEvents = null;
     this.unsubscribeBackendStatus?.();
     this.unsubscribeBackendStatus = null;
     this.unsubscribeProfileChanges?.();
     this.unsubscribeProfileChanges = null;
-    this.unsubscribeRuntimeChanges?.();
-    this.unsubscribeRuntimeChanges = null;
     this.disposeTerminal();
-    if (this.sessionId) {
-      this.reattachRequired = true;
-    }
     this.host?.replaceChildren();
     this.host = null;
-    this.fitScheduler.setViewport(null);
+    this.status = null;
     this.exitOverlay = null;
     this.exitOverlayMessage = null;
     this.restartButton = null;
     this.searchController.setElements(null);
     this.pasteOverlay = null;
-    this.pasteController.clearPendingPaste();
+    this.pendingPaste = null;
     this.visible = false;
+    this.startPromise = null;
     this.writeStats(0);
   }
 
@@ -250,9 +207,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.visible = visible;
     this.syncHostState();
     if (visible) {
-      this.fitScheduler.queue();
+      this.fitAndResize();
       this.drainPendingOutput();
-      this.startSessionIfActive();
+      this.startSessionIfReady();
     }
   }
 
@@ -261,9 +218,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.syncHostState();
     if (focused) {
       this.terminal?.focus();
-      this.fitScheduler.queue();
+      this.fitAndResize();
       this.drainPendingOutput();
-      this.startSessionIfActive();
+      this.startSessionIfReady();
     }
   }
 
@@ -273,24 +230,28 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       "data-surface-viewport",
       `${Math.round(rect.width)}x${Math.round(rect.height)}`,
     );
-    this.fitScheduler.queue();
+    this.fitAndResize();
   }
+
   freeze(reason: FreezeReason): void {
     this.frozen = true;
     this.host?.setAttribute("data-freeze-reason", reason);
     this.syncHostState();
   }
+
   resume(reason: ResumeReason): void {
     this.frozen = false;
     this.host?.setAttribute("data-resume-reason", reason);
     this.syncHostState();
-    this.fitScheduler.queue();
+    this.fitAndResize();
     this.drainPendingOutput();
     if (this.focused) {
       this.terminal?.focus();
-      this.fitScheduler.queue();
     }
-    this.startSessionIfActive();
+    if (this.visible) {
+      this.fitAndResize();
+      this.startSessionIfReady();
+    }
   }
 
   captureSnapshot(): Promise<PaneSnapshot> {
@@ -300,9 +261,25 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       surfaceId: this.surfaceId,
     });
   }
+
   getTerminalStats(): TerminalSurfaceStats {
     return this.stats;
   }
+
+  requestPaneClose({ confirm }: SurfacePaneCloseRequest) {
+    return requestTerminalPaneClose({
+      api: terminalAPI(),
+      applySessionSummary: (session) => this.applySessionSummary(session),
+      confirm,
+      getSessionId: () => this.sessionId,
+      getSessionStatus: () => this.sessionStatus,
+      owner: this,
+      showExitOverlay: (message) => this.showExitOverlay(message),
+      showStatus: (message) => this.showStatus(message),
+      waitForPendingSessionStart: () => (this.sessionId ? null : this.startPromise),
+    });
+  }
+
   destroy(): void {
     if (this.destroyed) {
       return;
@@ -310,35 +287,25 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.unmount();
     this.destroyed = true;
   }
-  private async loadProfiles(runtimeVersion = this.runtimeProfileVersion): Promise<void> {
-    if (!this.runtimeProfileLoadAvailable()) {
-      this.showStatus("Waiting for runtime connection.");
-      return;
-    }
-    const profile = await this.loadSelectedProfile(runtimeVersion);
-    if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
-      return;
-    }
+
+  private async loadProfiles(): Promise<void> {
+    const profile = await this.loadSelectedProfile();
     if (!profile) {
       this.showStatus("Terminal profiles are unavailable.");
     }
   }
-  private async loadSelectedProfile(
-    runtimeVersion = this.runtimeProfileVersion,
-  ): Promise<TerminalProfile | null> {
+
+  private async loadSelectedProfile(): Promise<TerminalProfile | null> {
     const api = terminalAPI();
     if (!api) {
       return null;
     }
     const profiles = await api.listProfiles();
-    if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
-      return null;
-    }
     this.applyProfileList(profiles);
     return this.selectedProfile;
   }
+
   private applyProfileList(profiles: TerminalProfileList): void {
-    this.profilesLoaded = true;
     const preferredProfileId =
       this.selectedProfileId ||
       this.pane.terminalConfig?.profileId ||
@@ -350,28 +317,15 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       null;
     this.selectedProfileId = this.selectedProfile?.id ?? profiles.defaultProfileId;
     this.applyDisplaySettings(terminalProfileDisplaySettings(this.selectedProfile));
-    this.clearDeferredProfileStartIfAutoStartAllowed();
   }
+
   private showDeferredProfileStart(profile: TerminalProfile): void {
     this.sessionStatus = "waiting";
     this.showStatus(`${profile.name} requires start`);
     this.showExitOverlayWithAction(`Start ${profile.name}?`, "Start");
     this.syncHostState();
   }
-  private clearDeferredProfileStartIfAutoStartAllowed(): void {
-    if (
-      this.sessionStatus !== "waiting" ||
-      this.sessionId ||
-      (this.selectedProfile &&
-        !this.selectedProfile.safeAutoStart &&
-        !this.allowExplicitProfileStart)
-    ) {
-      return;
-    }
-    this.sessionStatus = "";
-    this.hideExitOverlay();
-    this.syncHostState();
-  }
+
   private async mountTerminal(viewport: HTMLElement): Promise<void> {
     this.settings = terminalProfileDisplaySettings(this.selectedProfile);
     const mounted = await mountXtermTerminal({
@@ -400,16 +354,19 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.searchController.setSearchAddon(mounted.searchAddon);
     this.searchController.setTerminal(mounted.terminal);
     this.terminalDisposables = mounted.disposables;
-    this.fitScheduler.queue();
+    this.fitAndResize();
     this.drainPendingOutput();
   }
+
   private startSession(): void {
-    if (this.shouldSkipSessionStart()) {
+    if (this.destroyed || !this.host) {
       return;
     }
-    const blockedMessage = this.sessionStartBlockedMessage();
-    if (blockedMessage) {
-      this.showStatus(blockedMessage);
+    if (this.startPromise) {
+      return;
+    }
+    if (this.workspaceId === "empty") {
+      this.showStatus("Open a workspace to start terminal.");
       return;
     }
     const api = terminalAPI();
@@ -420,101 +377,49 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     const dimensions = this.currentDimensions();
     this.hideExitOverlay();
     this.showStatus(this.sessionId ? "Attaching shell" : "Starting shell");
-    this.deferOutputUntilSessionReady = true;
-    const runtimeVersion = this.runtimeProfileVersion;
-    const startPromise = this.attachOrCreateSession(api, dimensions, runtimeVersion)
-      .then(async (response) => {
-        await this.handleSessionStartResponse(response.session, runtimeVersion);
+    this.startPromise = this.attachOrCreateSession(api, dimensions)
+      .then((response) => {
+        if (this.destroyed) {
+          return;
+        }
+        this.allowExplicitProfileStart = false;
+        this.applySessionSummary(response.session);
+        this.fitAndResize();
       })
       .catch((error: unknown) => {
-        this.handleSessionStartError(error, runtimeVersion);
-      })
-      .finally(() => {
-        if (this.startPromise === startPromise) {
-          this.startPromise = null;
+        if (error instanceof TerminalStartDeferred || error instanceof TerminalStartCancelled) {
+          return;
         }
+        this.allowExplicitProfileStart = false;
+        if (this.sessionId) {
+          this.showLostSession(errorMessage(error));
+          return;
+        }
+        this.showStatus(errorMessage(error));
+        this.showExitOverlay("Terminal failed");
       });
-    this.startPromise = startPromise;
   }
-  private shouldSkipSessionStart(): boolean {
-    return (
-      Boolean(this.startPromise) ||
-      (Boolean(this.sessionId) && !this.reattachRequired) ||
-      (this.sessionStatus === "waiting" && !this.allowExplicitProfileStart)
-    );
-  }
-  private sessionStartBlockedMessage(): string | null {
-    if (this.workspaceId === "empty") {
-      return "Open a workspace to start terminal.";
-    }
-    if (!this.runtimeProfileLoadAvailable()) {
-      return "Waiting for runtime connection.";
-    }
-    return null;
-  }
-  private handleSessionStartResponse(
-    session: TerminalSessionSummary,
-    runtimeVersion: number,
-  ): Promise<void> {
-    if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
-      return Promise.resolve();
-    }
-    this.allowExplicitProfileStart = false;
-    this.applySessionSummary(session);
-    this.resetTerminalBeforeReplayDrain = true;
-    return this.resizeSessionToFittedDimensions(runtimeVersion).finally(() => {
-      if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
-        return;
-      }
-      this.deferOutputUntilSessionReady = false;
-      this.drainPendingOutput();
-      this.fitScheduler.queue();
-    });
-  }
-  private handleSessionStartError(error: unknown, runtimeVersion: number): void {
-    if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
-      return;
-    }
-    this.deferOutputUntilSessionReady = false;
-    if (error instanceof TerminalStartDeferred) {
-      return;
-    }
-    if (error instanceof TerminalProfileUnavailable) {
-      this.showStatus(error.message);
-      return;
-    }
-    this.allowExplicitProfileStart = false;
-    if (this.sessionId) {
-      this.showLostSession(errorMessage(error));
-      return;
-    }
-    const message = errorMessage(error);
-    this.showStatus(message);
-    this.showExitOverlay(message);
-  }
-  private startSessionIfActive(): void {
-    if (!this.visible || this.frozen) {
+
+  private startSessionIfReady(): void {
+    if (!this.visible && !this.focused) {
       return;
     }
     this.startSession();
   }
+
   private async attachOrCreateSession(
     api: NonNullable<ReturnType<typeof terminalAPI>>,
     dimensions: { cols: number; rows: number },
-    runtimeVersion: number,
   ) {
-    if (!this.profilesLoaded) {
-      await this.loadSelectedProfile(runtimeVersion);
+    const profile = this.selectedProfile ?? (await this.loadSelectedProfile());
+    if (this.destroyed || !this.host) {
+      throw new TerminalStartCancelled("terminal surface is no longer current");
     }
-    if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
-      throw new TerminalStartDeferred("terminal runtime changed before start completed");
-    }
-    const profile = this.selectedProfile;
     return attachOrCreateTerminalSession(api, {
       allowExplicitProfileStart: this.allowExplicitProfileStart,
       cwdOverride: this.pane.terminalConfig?.cwdOverride ?? "",
       dimensions,
-      isCurrent: () => !this.destroyed && runtimeVersion === this.runtimeProfileVersion,
+      isCurrent: () => !this.destroyed && Boolean(this.host),
       paneId: this.pane.paneId,
       profile,
       profileId: this.selectedProfileId,
@@ -528,48 +433,16 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       workspaceId: this.workspaceId,
     });
   }
-  private handleRuntimeProfileScopeChanged(nextScopeKey: string): void {
-    this.runtimeProfileScopeKey = nextScopeKey;
-    this.runtimeProfileVersion += 1;
-    this.profilesLoaded = false;
-    this.selectedProfile = null;
-    this.selectedProfileId = this.pane.terminalConfig?.profileId ?? "";
-    this.allowExplicitProfileStart = false;
-    this.deferOutputUntilSessionReady = false;
-    this.startPromise = null;
-    if (!this.sessionId) {
-      this.sessionStatus = "";
-      this.hideExitOverlay();
-      this.syncHostState();
-    }
-    const runtimeVersion = this.runtimeProfileVersion;
-    void this.loadProfiles(runtimeVersion)
-      .then(() => {
-        if (runtimeVersion === this.runtimeProfileVersion) {
-          this.startSessionIfActive();
-        }
-      })
-      .catch((error: unknown) => {
-        if (runtimeVersion === this.runtimeProfileVersion) {
-          this.showStatus(errorMessage(error));
-        }
-      });
-  }
-  private runtimeProfileLoadAvailable(): boolean {
-    const snapshot = useRuntimeStore.getState().snapshot;
-    return !snapshot || snapshot.connection.status === "connected";
-  }
+
   private applySessionSummary(session: TerminalSessionSummary): void {
     this.sessionId = session.id;
     this.selectedProfileId = session.profileId;
     this.sessionStatus = session.status;
-    this.reattachRequired = false;
     this.lostSession = false;
-    this.sessionResizer.setLastResize({
+    this.lastResize = {
       cols: session.cols,
       rows: session.rows,
-    });
-    this.showTerminalCwd(session.cwd);
+    };
     this.showStatus(statusLabel(session.status, session.cwd));
     if (session.status === "exited") {
       this.showExitOverlay(exitStatusLabel(session.exitCode, session.message));
@@ -580,11 +453,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     } else {
       this.hideExitOverlay();
     }
-    if (!this.sessionResizer.currentCanResize()) {
-      this.cancelPendingSessionSizing();
-    }
     this.syncHostState();
   }
+
   private handleTerminalEvent(event: TerminalEvent): void {
     if (!this.eventMatchesPane(event)) {
       return;
@@ -600,103 +471,265 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.handleTerminalStatusEvent(event as TerminalStatusEvent);
     this.syncHostState();
   }
+
   private handleTerminalStatusEvent(event: TerminalStatusEvent): void {
     switch (event.type) {
       case "terminal.started":
-        this.showTerminalCwd(event.payload.cwd);
         this.showStatus(statusLabel(event.payload.status, event.payload.cwd));
         this.hideExitOverlay();
         break;
       case "terminal.exited":
         this.showStatus(exitStatusLabel(event.payload.exitCode, event.payload.message));
         this.showExitOverlay(exitStatusLabel(event.payload.exitCode, event.payload.message));
-        this.cancelPendingSessionSizing();
         break;
       case "terminal.closed":
         this.showStatus("Terminal closed");
         this.showExitOverlay("Terminal closed");
-        this.cancelPendingSessionSizing();
         break;
       case "terminal.error":
         this.showStatus(event.payload.message || "Terminal failed");
         this.showExitOverlay(event.payload.message || "Terminal failed");
-        this.cancelPendingSessionSizing();
         break;
       case "terminal.bufferTruncated":
-        this.outputBuffer.addDroppedChunks(Math.max(1, event.payload.droppedChunks));
-        this.showStatus(event.payload.message || "Terminal replay history truncated");
+        this.droppedOutputChunks += Math.max(1, event.payload.droppedChunks);
+        this.showStatus(event.payload.message || "Terminal output buffer truncated");
         this.writeStats(this.stats.dirtyRows);
         break;
       default:
         assertNever(event.type);
     }
   }
+
   private eventMatchesPane(event: TerminalEvent): boolean {
     if (this.sessionId) {
       return event.sessionId === this.sessionId;
     }
     return event.workspaceId === this.workspaceId && event.paneId === this.pane.paneId;
   }
+
   private writeOutput(dataBase64: string, byteCount: number): void {
     const terminal = this.terminal;
     if (dataBase64 === "") {
       return;
     }
-    if (!terminal || this.frozen || this.deferOutputUntilSessionReady) {
-      this.outputBuffer.enqueue({ byteCount, dataBase64 });
-      this.writeStats(0);
-      this.syncHostState();
+    if (!terminal || this.frozen) {
+      this.enqueuePendingOutput({ byteCount, dataBase64 });
       return;
     }
     this.writeOutputToTerminal(terminal, dataBase64, byteCount);
   }
+
+  private enqueuePendingOutput(output: PendingTerminalOutput): void {
+    this.pendingOutput.push(output);
+    const overflow = this.pendingOutput.length - limits.maxPendingOutputChunks;
+    if (overflow > 0) {
+      this.pendingOutput.splice(0, overflow);
+      this.droppedOutputChunks += overflow;
+    }
+    this.writeStats(0);
+    this.syncHostState();
+  }
+
   private drainPendingOutput(): void {
     const terminal = this.terminal;
-    if (!terminal || this.frozen || this.deferOutputUntilSessionReady) {
+    if (!terminal || this.frozen || this.pendingOutput.length === 0) {
       return;
     }
-    const reset = this.resetTerminalBeforeReplayDrainIfNeeded(terminal);
-    if (!this.outputBuffer.hasPending) {
-      if (reset) {
-        this.writeStats(0);
-        this.syncHostState();
-      }
-      return;
-    }
-    const outputs = this.outputBuffer.drain();
+    const outputs = this.pendingOutput.splice(0);
     let dirtyRows = 0;
     for (const output of outputs) {
       this.writeOutputToTerminal(terminal, output.dataBase64, output.byteCount);
-      dirtyRows = Math.max(dirtyRows, Math.max(1, Math.min(defaultRows, output.byteCount)));
+      dirtyRows = Math.max(dirtyRows, Math.max(1, Math.min(limits.defaultRows, output.byteCount)));
     }
     this.writeStats(dirtyRows);
     this.syncHostState();
   }
+
   private writeOutputToTerminal(
     terminal: XtermTerminal,
     dataBase64: string,
     byteCount: number,
   ): void {
     terminal.write(bytesFromBase64(dataBase64), () => terminal.scrollToBottom());
-    this.writeStats(Math.max(1, Math.min(defaultRows, byteCount)));
+    this.writeStats(Math.max(1, Math.min(limits.defaultRows, byteCount)));
     this.syncHostState();
   }
+
   private handleTerminalKeyEvent(event: KeyboardEvent): boolean {
-    return handleTerminalKeyEvent(event, {
-      pasteController: this.pasteController,
-      searchController: this.searchController,
-    });
+    event.stopPropagation();
+    if (event.type !== "keydown") {
+      return true;
+    }
+    if (isWorkspaceArrowNavigationShortcut(event)) {
+      event.preventDefault();
+      this.dispatchWorkspaceShortcut(event);
+      return false;
+    }
+    if (isTerminalCopyShortcut(event)) {
+      event.preventDefault();
+      void this.copySelectionToClipboard();
+      return false;
+    }
+    if (isTerminalPasteShortcut(event)) {
+      event.preventDefault();
+      void this.pasteFromClipboard();
+      return false;
+    }
+    if (isTerminalSearchShortcut(event)) {
+      event.preventDefault();
+      this.searchController.open();
+      return false;
+    }
+    return true;
   }
+
+  private dispatchWorkspaceShortcut(event: KeyboardEvent): void {
+    window.dispatchEvent(new KeyboardEvent("keydown", workspaceShortcutKeyboardEventInit(event)));
+  }
+
+  private handleCopyEvent(event: ClipboardEvent): void {
+    const terminal = this.terminal;
+    if (!terminal?.hasSelection()) {
+      return;
+    }
+    const selection = terminal.getSelection();
+    event.clipboardData?.setData("text/plain", selection);
+    event.preventDefault();
+    terminal.clearSelection();
+    this.showStatus("Copied selection");
+  }
+
+  private handlePasteEvent(event: ClipboardEvent): void {
+    const text = event.clipboardData?.getData("text/plain") ?? "";
+    if (text.length === 0) {
+      return;
+    }
+    event.preventDefault();
+    this.requestPaste(text);
+  }
+
+  private async copySelectionToClipboard(): Promise<void> {
+    await copyTerminalSelectionToClipboard(this.terminal, (message) => this.showStatus(message));
+  }
+
+  private async pasteFromClipboard(): Promise<void> {
+    await readTerminalClipboard(
+      (text) => this.requestPaste(text),
+      (message) => this.showStatus(message),
+    );
+  }
+
+  private requestPaste(text: string): void {
+    if (text.length === 0) {
+      return;
+    }
+    if (!this.sessionId) {
+      this.showStatus("Terminal session is not ready.");
+      return;
+    }
+    const byteCount = new TextEncoder().encode(text).byteLength;
+    if (byteCount > limits.maxPasteBytes) {
+      this.pendingPaste = null;
+      this.showPasteOverlay(
+        `Paste is ${formatBytes(byteCount)}; limit is ${formatBytes(limits.maxPasteBytes)}.`,
+        false,
+      );
+      this.showStatus("Paste rejected");
+      return;
+    }
+    if (byteCount >= limits.largePasteWarningBytes) {
+      this.pendingPaste = { byteCount, text };
+      this.showPasteOverlay(`Paste ${formatBytes(byteCount)} into terminal?`, true);
+      this.showStatus("Paste waiting for confirmation");
+      return;
+    }
+    this.pasteText(text);
+  }
+
+  private confirmPendingPaste(): void {
+    const pending = this.pendingPaste;
+    if (!pending) {
+      this.hidePasteOverlay();
+      return;
+    }
+    this.pendingPaste = null;
+    this.hidePasteOverlay();
+    this.showStatus(`Pasting ${formatBytes(pending.byteCount)}`);
+    this.pasteText(pending.text);
+  }
+
+  private cancelPendingPaste(): void {
+    this.pendingPaste = null;
+    this.hidePasteOverlay();
+    this.showStatus("Paste cancelled");
+    this.terminal?.focus();
+  }
+
+  private pasteText(text: string): void {
+    const terminal = this.terminal;
+    if (!terminal) {
+      this.sendInput(text);
+      return;
+    }
+    terminal.paste(text);
+    terminal.focus();
+  }
+
   private sendInput(data: string): void {
-    sendTerminalInput(data, this.sessionId, {
-      showStatus: (message) => this.showStatus(message),
-    });
+    if (!this.sessionId) {
+      return;
+    }
+    const bytes = new TextEncoder().encode(data);
+    const api = terminalAPI();
+    if (!api) {
+      this.showStatus("Terminal preload API is unavailable.");
+      return;
+    }
+    if (bytes.length <= limits.inputChunkBytes) {
+      void api
+        .input({
+          dataBase64: base64FromBytes(bytes),
+          sessionId: this.sessionId,
+        })
+        .catch((error: unknown) => {
+          this.showStatus(`Terminal input failed: ${errorMessage(error)}`);
+        });
+      return;
+    }
+    void this.sendChunkedInput(api, this.sessionId, bytes);
   }
+
+  private async sendChunkedInput(
+    api: NonNullable<ReturnType<typeof terminalAPI>>,
+    sessionId: string,
+    bytes: Uint8Array,
+  ): Promise<void> {
+    try {
+      for (let offset = 0; offset < bytes.length; offset += limits.inputChunkBytes) {
+        const chunk = bytes.slice(offset, offset + limits.inputChunkBytes);
+        await api.input({
+          dataBase64: base64FromBytes(chunk),
+          sessionId,
+        });
+      }
+    } catch (error) {
+      this.showStatus(`Terminal input failed: ${errorMessage(error)}`);
+    }
+  }
+
   private openExternalUrl(event: MouseEvent, uri: string): void {
-    openTerminalExternalUrl(event, uri, {
-      showStatus: (message) => this.showStatus(message),
+    event.preventDefault();
+    event.stopPropagation();
+    const api = window.setta?.app;
+    if (!api) {
+      this.showStatus("External URL API is unavailable.");
+      return;
+    }
+    void api.openExternalUrl(uri).catch((error: unknown) => {
+      this.showStatus(`Link blocked: ${errorMessage(error)}`);
     });
   }
+
   private handleBackendProcessStatus(status: BackendProcessStatus): void {
     if ((status.status === "offline" || status.status === "failed") && this.sessionId) {
       this.showLostSession("Terminal session lost");
@@ -707,12 +740,12 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
     this.sessionId = null;
     this.sessionStatus = "";
-    this.reattachRequired = false;
     this.lostSession = false;
     this.startPromise = null;
     this.terminal?.clear();
     this.startSession();
   }
+
   private applyDisplaySettings(settings: TerminalDisplaySettings): void {
     this.settings = settings;
     this.host?.style.setProperty(
@@ -729,17 +762,17 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       scrollback: settings.scrollback,
       theme: terminalTheme(settings.themeId),
     };
-    this.fitScheduler.queue();
+    this.fitAndResize();
   }
+
   private restartSession(): void {
     const previousSessionId = this.sessionId;
     this.allowExplicitProfileStart = true;
     this.sessionId = null;
     this.sessionStatus = "";
-    this.reattachRequired = false;
     this.lostSession = false;
     this.startPromise = null;
-    this.outputBuffer.resetDroppedChunks();
+    this.droppedOutputChunks = 0;
     this.terminal?.clear();
     this.hideExitOverlay();
     const api = terminalAPI();
@@ -751,6 +784,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       this.startSession();
     });
   }
+
   private closeExitedSession(): void {
     const sessionId = this.sessionId;
     const api = terminalAPI();
@@ -767,6 +801,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
         this.showStatus(errorMessage(error));
       });
   }
+
   private showLostSession(message: string): void {
     this.lostSession = true;
     this.sessionStatus = "lost";
@@ -774,96 +809,82 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.showExitOverlay(message);
     this.syncHostState();
   }
+
   private fitAndResize(): void {
-    const dimensions = this.fitTerminal();
-    if (!dimensions) {
-      return;
-    }
-    this.scheduleResize(dimensions.cols, dimensions.rows);
-  }
-  private fitTerminal(): { cols: number; rows: number } | null {
     const fitContext = terminalFitContext({
       fitAddon: this.fitAddon,
       frozen: this.frozen,
+      host: this.host,
       terminal: this.terminal,
-      viewport: this.fitScheduler.viewport,
       visible: this.visible,
     });
     if (!fitContext) {
       this.writeStats(0);
-      return null;
-    }
-    // This viewport must be sized by the pane layout, not by the xterm content,
-    // or fitting feeds the current terminal row count back into itself.
-    if (!terminalViewportHasSize(fitContext.viewport)) {
-      return null;
-    }
-    warnIfTerminalViewportSuspiciouslySmall(fitContext.viewport);
-    fitContext.fitAddon.fit();
-    snapTerminalViewportToWholeRows(fitContext.viewport, fitContext.terminal.rows);
-    this.writeStats(1);
-    this.syncHostState();
-    const dimensions = {
-      cols: fitContext.terminal.cols,
-      rows: fitContext.terminal.rows,
-    };
-    this.resolveFitWaiters(dimensions);
-    return dimensions;
-  }
-  private async resizeSessionToFittedDimensions(runtimeVersion: number): Promise<void> {
-    const dimensions =
-      (await this.fittedDimensionsForSessionStart(runtimeVersion)) ?? this.currentDimensions();
-    if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
       return;
     }
-    await this.sessionResizer.resizeImmediately(dimensions, runtimeVersion);
-  }
-  private async fittedDimensionsForSessionStart(
-    runtimeVersion: number,
-  ): Promise<{ cols: number; rows: number } | null> {
-    const dimensions = this.fitTerminal();
-    if (dimensions) {
-      return dimensions;
+    if (fitContext.host.clientWidth <= 0 || fitContext.host.clientHeight <= 0) {
+      return;
     }
-    if (!this.visible || this.frozen || !this.fitScheduler.viewport || !this.terminal) {
-      return null;
+    if (!terminalFitReady(fitContext.terminal)) {
+      this.scheduleFitRetry();
+      this.writeStats(0);
+      return;
     }
-    this.fitScheduler.queue();
-    return new Promise((resolve) => {
-      let settled = false;
-      const waiter: FitWaiter = (nextDimensions) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        window.clearTimeout(timeout);
-        if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
-          resolve(null);
-          return;
-        }
-        resolve(nextDimensions);
-      };
-      const timeout = window.setTimeout(() => {
-        this.fitWaiters = this.fitWaiters.filter((candidate) => candidate !== waiter);
-        waiter(null);
-      }, sessionStartFitWaitMs);
-      this.fitWaiters.push(waiter);
-    });
+    this.fitReadinessRetryCount = 0;
+    fitContext.fitAddon.fit();
+    this.scheduleResize(fitContext.terminal.cols, fitContext.terminal.rows);
+    this.writeStats(1);
+    this.syncHostState();
   }
+
+  private scheduleFitRetry(): void {
+    if (
+      this.fitRetryTimer !== null ||
+      this.fitReadinessRetryCount >= limits.maxFitReadinessRetries
+    ) {
+      return;
+    }
+    this.fitReadinessRetryCount += 1;
+    this.fitRetryTimer = window.setTimeout(() => {
+      this.fitRetryTimer = null;
+      this.fitAndResize();
+    }, 16);
+  }
+
   private scheduleResize(cols: number, rows: number): void {
-    this.sessionResizer.schedule(cols, rows);
+    if (!this.sessionId) {
+      return;
+    }
+    if (this.lastResize?.cols === cols && this.lastResize.rows === rows) {
+      return;
+    }
+    this.pendingResize = { cols, rows };
+    if (this.resizeTimer !== null) {
+      return;
+    }
+    this.resizeTimer = window.setTimeout(() => {
+      this.resizeTimer = null;
+      const next = this.pendingResize;
+      this.pendingResize = null;
+      if (!next || !this.sessionId) {
+        return;
+      }
+      this.lastResize = next;
+      void terminalAPI()?.resize({
+        cols: next.cols,
+        rows: next.rows,
+        sessionId: this.sessionId,
+      });
+    }, limits.resizeDebounceMs);
   }
-  private cancelPendingSessionSizing(): void {
-    this.fitScheduler.clear();
-    this.sessionResizer.clear();
-    this.resolveFitWaiters(null);
-  }
+
   private currentDimensions(): { cols: number; rows: number } {
     return {
-      cols: this.terminal?.cols ?? defaultCols,
-      rows: this.terminal?.rows ?? defaultRows,
+      cols: this.terminal?.cols ?? limits.defaultCols,
+      rows: this.terminal?.rows ?? limits.defaultRows,
     };
   }
+
   private disposeTerminal(): void {
     for (const disposable of this.terminalDisposables) {
       disposable.dispose();
@@ -875,38 +896,34 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.searchController.setSearchAddon(null);
     this.searchController.setTerminal(null);
   }
-  private resolveFitWaiters(dimensions: { cols: number; rows: number } | null): void {
-    if (this.fitWaiters.length === 0) {
+
+  private clearResizeTimer(): void {
+    if (this.resizeTimer === null) {
       return;
     }
-    const waiters = this.fitWaiters;
-    this.fitWaiters = [];
-    for (const waiter of waiters) {
-      waiter(dimensions);
-    }
+    window.clearTimeout(this.resizeTimer);
+    this.resizeTimer = null;
+    this.pendingResize = null;
   }
-  private resetTerminalBeforeReplayDrainIfNeeded(terminal: XtermTerminal): boolean {
-    if (!this.resetTerminalBeforeReplayDrain) {
-      return false;
+
+  private clearFitRetryTimer(): void {
+    if (this.fitRetryTimer !== null) {
+      window.clearTimeout(this.fitRetryTimer);
+      this.fitRetryTimer = null;
     }
-    this.resetTerminalBeforeReplayDrain = false;
-    terminal.reset();
-    return true;
+    this.fitReadinessRetryCount = 0;
   }
+
   private showStatus(message: string): void {
-    this.terminalStatusText = message;
-    if (this.host) {
-      this.host.dataset.terminalStatusText = message;
+    if (this.status) {
+      this.status.textContent = message;
     }
   }
-  private showTerminalCwd(cwd: string): void {
-    if (this.host) {
-      setHostPaneChromeTitle(this.host, terminalPaneTitle(cwd));
-    }
-  }
+
   private showExitOverlay(message: string): void {
     this.showExitOverlayWithAction(message, "Restart");
   }
+
   private showExitOverlayWithAction(message: string, actionLabel: string): void {
     if (this.exitOverlayMessage) {
       this.exitOverlayMessage.textContent = message;
@@ -916,9 +933,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
     this.exitOverlay?.removeAttribute("hidden");
   }
+
   private hideExitOverlay(): void {
     this.exitOverlay?.setAttribute("hidden", "true");
   }
+
   private showPasteOverlay(message: string, confirmable: boolean): void {
     if (!this.pasteOverlay) {
       return;
@@ -929,41 +948,42 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.pasteOverlay.root.removeAttribute("hidden");
     this.pasteOverlay.cancelButton.focus?.();
   }
+
   private hidePasteOverlay(): void {
     this.pasteOverlay?.root.setAttribute("hidden", "true");
   }
+
   private writeStats(dirtyRows: number): void {
     const bufferLength = this.terminal?.buffer.active.length ?? 0;
     this.stats = {
       dirtyRows,
-      droppedOutputChunks: this.outputBuffer.droppedChunkCount,
+      droppedOutputChunks: this.droppedOutputChunks,
       liveTerminalRendererCount: this.visible && !this.frozen && this.host && this.terminal ? 1 : 0,
-      pendingOutputChunks: this.outputBuffer.pendingChunkCount,
+      pendingOutputChunks: this.pendingOutput.length,
       renderedRows: this.terminal?.rows ?? 0,
       scrollbackRows: bufferLength,
     };
   }
+
   private ensureNotDestroyed(): void {
     if (this.destroyed) {
       throw new Error(`terminal surface ${this.surfaceId} has already been destroyed`);
     }
   }
+
   private syncHostState(): void {
-    if (!this.host) {
-      return;
-    }
-    this.host.dataset.surfaceFocused = String(this.focused);
-    this.host.dataset.surfaceFrozen = String(this.frozen);
-    this.host.dataset.surfaceVisible = String(this.visible);
-    this.host.dataset.terminalDirtyRows = String(this.stats.dirtyRows);
-    this.host.dataset.terminalLost = String(this.lostSession);
-    this.host.dataset.terminalPendingChunks = String(this.stats.pendingOutputChunks);
-    this.host.dataset.terminalProfileId = this.selectedProfileId;
-    this.host.dataset.terminalSessionId = this.sessionId ?? "";
-    this.host.dataset.terminalStatus = this.sessionStatus;
-    this.host.dataset.terminalStatusText = this.terminalStatusText;
-    this.host.dataset.terminalScrollbackRows = String(this.stats.scrollbackRows);
-    this.host.dataset.terminalVirtualRows = String(this.stats.renderedRows);
-    this.host.style.visibility = this.visible ? "visible" : "hidden";
+    syncTerminalHostState(this.host, {
+      dirtyRows: this.stats.dirtyRows,
+      focused: this.focused,
+      frozen: this.frozen,
+      lostSession: this.lostSession,
+      pendingOutputChunks: this.stats.pendingOutputChunks,
+      profileId: this.selectedProfileId,
+      renderedRows: this.stats.renderedRows,
+      scrollbackRows: this.stats.scrollbackRows,
+      sessionId: this.sessionId,
+      sessionStatus: this.sessionStatus,
+      visible: this.visible,
+    });
   }
 }

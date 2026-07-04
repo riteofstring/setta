@@ -140,6 +140,7 @@ export class SyntheticTerminalSurfaceAdapter implements SurfaceAdapter {
   private renderedRowElements: HTMLElement[] = [];
   private renderedRows = 0;
   private rowsRoot: HTMLElement | null = null;
+  private status: HTMLElement | null = null;
   private visible = false;
   private visibleRowCount = 18;
 
@@ -171,6 +172,7 @@ export class SyntheticTerminalSurfaceAdapter implements SurfaceAdapter {
     host.dataset.surfaceKind = this.kind;
     const content = renderTerminalContent(host, this.pane);
     this.rowsRoot = content.rows;
+    this.status = content.status;
     host.replaceChildren(content.root);
     this.syncHostState();
     this.updateLoop();
@@ -182,6 +184,7 @@ export class SyntheticTerminalSurfaceAdapter implements SurfaceAdapter {
     this.host = null;
     this.renderedRowElements = [];
     this.rowsRoot = null;
+    this.status = null;
     this.visible = false;
     this.writeStats(0);
   }
@@ -329,9 +332,11 @@ export class SyntheticTerminalSurfaceAdapter implements SurfaceAdapter {
     this.host.dataset.terminalDirtyRows = String(this.stats.dirtyRows);
     this.host.dataset.terminalPendingChunks = String(this.stats.pendingOutputChunks);
     this.host.dataset.terminalScrollbackRows = String(this.stats.scrollbackRows);
-    this.host.dataset.terminalStatusText = `${this.session.scrollbackRowCount} rows / ${this.session.pendingChunkCount} queued`;
     this.host.dataset.terminalVirtualRows = String(this.renderedRows);
     this.host.style.visibility = this.visible ? "visible" : "hidden";
+    if (this.status) {
+      this.status.textContent = `${this.session.scrollbackRowCount} rows / ${this.session.pendingChunkCount} queued`;
+    }
   }
 
   private updateLoop(): void {
@@ -380,17 +385,22 @@ function performanceNow(): number {
 function renderTerminalContent(
   host: HTMLElement,
   pane: WorkspacePane,
-): { root: HTMLElement; rows: HTMLElement } {
+): { root: HTMLElement; rows: HTMLElement; status: HTMLElement } {
   const document = host.ownerDocument;
   const root = document.createElement("div");
   root.className = "workspace-pane-content workspace-terminal-surface";
+
+  const status = document.createElement("span");
+  status.className = "workspace-terminal-status";
+  status.setAttribute("aria-live", "polite");
+  status.setAttribute("data-terminal-status", "true");
 
   const rows = document.createElement("div");
   rows.className = "workspace-terminal-rows";
   rows.setAttribute("aria-label", `${pane.title} virtualized terminal scrollback`);
 
-  root.append(rows);
-  return { root, rows };
+  root.append(status, rows);
+  return { root, rows, status };
 }
 
 function seededTerminalSession(pane: WorkspacePane): SyntheticTerminalSessionState {

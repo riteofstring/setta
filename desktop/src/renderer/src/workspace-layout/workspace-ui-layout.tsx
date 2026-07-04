@@ -56,12 +56,9 @@ export function useWorkspaceUILayoutLoad(
   mode: WorkspaceSceneMode,
 ): WorkspaceUILayoutLoad {
   const key = `${mode}:${workspaceId}`;
-  const [state, setState] = useState<WorkspaceUILayoutLoad>({
-    error: null,
-    key,
-    layout: null,
-    status: "loaded",
-  });
+  const [state, setState] = useState<WorkspaceUILayoutLoad>(() =>
+    initialWorkspaceUILayoutLoadState(workspaceId, mode),
+  );
   const shouldLoad = shouldLoadWorkspaceUILayout(workspaceId, mode);
 
   useEffect(() => {
@@ -128,6 +125,27 @@ export function useWorkspaceUILayoutLoad(
     };
   }
   return state;
+}
+
+export function initialWorkspaceUILayoutLoadState(
+  workspaceId: string,
+  mode: WorkspaceSceneMode,
+): WorkspaceUILayoutLoad {
+  const key = `${mode}:${workspaceId}`;
+  if (shouldLoadWorkspaceUILayout(workspaceId, mode)) {
+    return {
+      error: null,
+      key,
+      layout: null,
+      status: "loading",
+    };
+  }
+  return {
+    error: null,
+    key,
+    layout: null,
+    status: "loaded",
+  };
 }
 
 export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, workspaceId: string) {

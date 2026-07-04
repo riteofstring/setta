@@ -1,3 +1,5 @@
+import type { WorkflowNodeDetailsPaneConfig } from "@generated/backend";
+
 export type PaneId = string;
 export type ColumnId = string;
 export type SurfaceId = string;
@@ -66,6 +68,7 @@ export interface WorkspacePane {
   title: string;
   tone: "cyan" | "green" | "orange" | "pink" | "slate";
   weight: number;
+  workflowNodeDetailsConfig?: WorkflowNodeDetailsPaneConfig;
 }
 
 export interface TerminalPaneConfig {
@@ -110,6 +113,7 @@ export interface OpenPaneRequest {
   title?: string;
   tone?: WorkspacePane["tone"];
   weight?: number;
+  workflowNodeDetailsConfig?: WorkflowNodeDetailsPaneConfig;
   widthSpec?: ColumnWidthSpec;
 }
 
@@ -262,8 +266,17 @@ export interface SurfaceAdapter {
   getCanvasStats?(): CanvasSurfaceStats;
   getGitGraphStats?(): GitGraphSurfaceStats;
   getTerminalStats?(): TerminalSurfaceStats;
+  requestPaneClose?(request: SurfacePaneCloseRequest): Promise<SurfacePaneCloseResult>;
   syncFrame?(): void;
   destroy(): void;
+}
+
+export interface SurfacePaneCloseRequest {
+  confirm(message: string): boolean;
+}
+
+export interface SurfacePaneCloseResult {
+  removePane: boolean;
 }
 
 export interface PaneRuntimeBudget {
@@ -304,7 +317,6 @@ export interface LayoutEngine {
   renamePane(paneId: PaneId, title: string): boolean;
   applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean;
   previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean;
-  reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean;
   resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
   resizePane(paneId: PaneId, heightPx: number | null): void;

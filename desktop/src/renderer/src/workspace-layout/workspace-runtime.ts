@@ -16,13 +16,14 @@ import {
   paneLimitsForRuntime,
   presentationOptionsForRuntime,
   reportWriterForRuntime,
+  runtimePolicyBudgetForRuntime,
   runtimePolicyOptionsForRuntime,
   sceneForRuntime,
   snapshotStaticFallbackForRuntime,
   workflowGraphSyntheticGraphFallbackForRuntime,
   type WorkspaceSceneMode,
 } from "./runtime-mode-options";
-import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
+import { PaneRuntimePolicy } from "./runtime-policy";
 import { createDefaultSurfaceAdapter, EmptyFrameSurfaceAdapter } from "./surface-adapters";
 import { SurfaceRegistry } from "./surface-registry";
 import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
@@ -46,7 +47,7 @@ export function createWorkspaceRuntime({
   workspaceName: string;
 }) {
   const realScene = createRealSceneForRuntime({ mode, storedLayout, workspaceId, workspaceName });
-  const scene = sceneForRuntime(realScene);
+  const scene = sceneForRuntime(realScene, mode);
   const engine = new WorkspaceLikeLayoutEngine(scene, {
     allowResizedPanesToOverflowViewport,
     overviewCardMaxWidthPx,
@@ -81,7 +82,7 @@ export function createWorkspaceRuntime({
   return {
     browserPaneCount,
     engine,
-    hostPoolSize: hostPoolSizeForRuntime(mode),
+    hostPoolSize: hostPoolSizeForRuntime(mode, scene),
     layoutRecovery: realScene?.layoutRecovery ?? null,
     metrics,
     mode,
@@ -94,8 +95,12 @@ export function createWorkspaceRuntime({
     ),
     reportWriter: reportWriterForRuntime(mode),
     resizeReportWriter: new LocalStorageResizePerformanceReportWriter(1500),
-    runtimePolicy: new PaneRuntimePolicy(DEFAULT_PANE_BUDGET, runtimePolicyOptionsForRuntime(mode)),
+    runtimePolicy: new PaneRuntimePolicy(
+      runtimePolicyBudgetForRuntime(mode, scene),
+      runtimePolicyOptionsForRuntime(mode),
+    ),
     scene,
+    surfaceRegistry,
     store,
   };
 }

@@ -197,15 +197,12 @@ func TestCodexHarnessMapsApprovalRequestAndResponse(t *testing.T) {
 	if approval.ProviderItemID != "item_fake" {
 		t.Fatalf("approval provider item id = %q, want item_fake", approval.ProviderItemID)
 	}
-	commandItem, ok := findRunItemType(sink.items, RunItemTypeCommandExecution)
-	if !ok || commandItem.ProviderItemID != "item_fake" {
+	approvalItem, ok := findRunItemType(sink.items, RunItemTypeApprovalRequest)
+	approvalDetails, detailsOK := approvalItem.ApprovalDetails()
+	if !ok || !detailsOK || approvalItem.ProviderItemID != "item_fake" || approvalDetails.Command != "go test ./..." || approvalDetails.ProviderRequestID != "approval-1" {
 		t.Fatalf("items = %+v, want command approval run item", sink.items)
 	}
-	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
-		ApprovalID: approval.ID,
-		Approved:   true,
-		RunID:      "run_fake",
-	}); err != nil {
+	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{ApprovalID: approval.ID, Approved: true, RunID: "run_fake"}); err != nil {
 		t.Fatalf("submit approval: %v", err)
 	}
 	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
@@ -223,14 +220,12 @@ func TestCodexHarnessMapsPermissionApprovalResponse(t *testing.T) {
 	if approval.Kind != ApprovalKindPermission || !strings.Contains(approval.Permission, "network") {
 		t.Fatalf("approval = %+v, want permission approval with details", approval)
 	}
-	if !containsRunItemType(sink.items, RunItemTypeDynamicToolCall) {
+	approvalItem, ok := findRunItemType(sink.items, RunItemTypeApprovalRequest)
+	approvalDetails, detailsOK := approvalItem.ApprovalDetails()
+	if !ok || !detailsOK || approvalDetails.Permission == "" {
 		t.Fatalf("items = %+v, want permission approval run item", sink.items)
 	}
-	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
-		ApprovalID: approval.ID,
-		Approved:   true,
-		RunID:      "run_fake",
-	}); err != nil {
+	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{ApprovalID: approval.ID, Approved: true, RunID: "run_fake"}); err != nil {
 		t.Fatalf("submit approval: %v", err)
 	}
 	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
@@ -248,7 +243,9 @@ func TestCodexHarnessMapsMultiQuestionUserInput(t *testing.T) {
 	if approval.Kind != ApprovalKindUserInput || len(approval.Questions) != 2 {
 		t.Fatalf("approval = %+v, want two user input questions", approval)
 	}
-	if !containsRunItemType(sink.items, RunItemTypeDynamicToolCall) {
+	approvalItem, ok := findRunItemType(sink.items, RunItemTypeApprovalRequest)
+	approvalDetails, detailsOK := approvalItem.ApprovalDetails()
+	if !ok || !detailsOK || len(approvalDetails.Questions) != 2 {
 		t.Fatalf("items = %+v, want user input approval run item", sink.items)
 	}
 	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
@@ -354,7 +351,8 @@ func TestCodexHarnessReturnsUnsupportedDynamicToolError(t *testing.T) {
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
 	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
-	if !ok || item.Status != RunItemStatusFailed || !strings.Contains(item.Error, "unsupported dynamic tool") {
+	details, hasDetails := item.DynamicToolCallDetails()
+	if !ok || !hasDetails || item.Status != RunItemStatusFailed || !strings.Contains(details.Error, "unsupported dynamic tool") {
 		t.Fatalf("items = %+v, want failed unsupported dynamic tool item", sink.items)
 	}
 }
@@ -404,7 +402,8 @@ func TestCodexHarnessDispatchesRegisteredDynamicTool(t *testing.T) {
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
 	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
-	if !ok || item.Status != RunItemStatusCompleted || item.Result != "tool ok" {
+	details, hasDetails := item.DynamicToolCallDetails()
+	if !ok || !hasDetails || item.Status != RunItemStatusCompleted || details.ResultSummary != "tool ok" {
 		t.Fatalf("items = %+v, want completed registered dynamic tool item", sink.items)
 	}
 }
@@ -491,7 +490,7 @@ func TestCodexHarnessSteersActiveTurn(t *testing.T) {
 		RunID:    "run_fake",
 		ThreadID: "thread_fake",
 		TurnID:   "turn_fake",
-		Text:     "adjust course",
+		Input:    TextChatInput("adjust course"),
 	}); err != nil {
 		t.Fatalf("steer turn: %v", err)
 	}
@@ -515,7 +514,8 @@ func TestCodexHarnessMapsRunActivity(t *testing.T) {
 		t.Fatalf("items = %+v, want command, reasoning, file, mcp, warning activity", sink.items)
 	}
 	commandItem, ok := findRunItemType(sink.items, RunItemTypeCommandExecution)
-	if !ok || commandItem.Command != "go test ./..." {
+	commandDetails, detailsOK := commandItem.CommandExecutionDetails()
+	if !ok || !detailsOK || commandDetails.Command != "go test ./..." {
 		t.Fatalf("items = %+v, want command execution", sink.items)
 	}
 	if len(sink.outputs) != 1 || sink.outputs[0].stream != codexCommandExecutionOutputStream || sink.outputs[0].text != "ok\n" {
@@ -965,18 +965,29 @@ func TestCodexHarnessContinuesAfterRetryableErrorNotification(t *testing.T) {
 	if sink.text != "hello from codex" {
 		t.Fatalf("assistant text = %q, want streamed response", sink.text)
 	}
+	if len(sink.turnErrors) != 1 ||
+		sink.turnErrors[0].Message != "temporary provider error" ||
+		!sink.turnErrors[0].Retryable {
+		t.Fatalf("provider turn errors = %+v, want retryable provider error", sink.turnErrors)
+	}
 }
 
 func TestCodexHarnessFailsTerminalErrorNotification(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("terminal-error-notification"))
 	sink := newRecordingSink()
 
-	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	if err == nil {
-		t.Fatal("start turn succeeded, want terminal error notification")
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
 	}
-	if !strings.Contains(err.Error(), "codex app-server error notification: model unavailable") {
-		t.Fatalf("error = %q, want terminal error notification", err)
+	if completion.Outcome != TurnOutcomeFailed || completion.ErrorMessage != "model unavailable" {
+		t.Fatalf("completion = %+v, want terminal provider failure", completion)
+	}
+	if len(sink.turnErrors) != 1 ||
+		sink.turnErrors[0].Message != "model unavailable" ||
+		sink.turnErrors[0].Retryable ||
+		sink.turnErrors[0].StreamFailure {
+		t.Fatalf("provider turn errors = %+v, want non-retryable provider error", sink.turnErrors)
 	}
 }
 
@@ -1012,43 +1023,6 @@ func TestCodexHarnessFakeAppServer(t *testing.T) {
 	}
 	fakeCodexAppServer(os.Getenv("SETTA_FAKE_CODEX_APP_SERVER"))
 	os.Exit(0)
-}
-
-type recordingSink struct {
-	approvalCh  chan ApprovalRequest
-	diagnostics []recordedProviderDiagnostic
-	goals       []*ChatGoalState
-	items       []RunItem
-	linkCh      chan struct{}
-	outputs     []recordedOutput
-	text        string
-	threadID    string
-	traces      []recordedTrace
-	turnID      string
-}
-
-type codexTurnResult struct {
-	completion TurnCompletion
-	err        error
-}
-
-type recordedOutput struct {
-	itemID string
-	stream string
-	text   string
-}
-
-type recordedProviderDiagnostic struct {
-	code           string
-	context        map[string]string
-	message        string
-	resyncRequired bool
-	severity       DiagnosticSeverity
-}
-
-type recordedTrace struct {
-	traceType string
-	message   string
 }
 
 type fakeAttestationProvider struct {
@@ -1137,62 +1111,6 @@ func waitForNotification(t *testing.T, client *codexapp.Client, method string) {
 	}
 }
 
-func (sink *recordingSink) AssistantTextDelta(_ string, text string) error {
-	sink.text += text
-	return nil
-}
-
-func (sink *recordingSink) ApprovalRequested(approval ApprovalRequest) error {
-	sink.approvalCh <- approval
-	return nil
-}
-
-func (sink *recordingSink) ApprovalResolved(string, bool, string) error {
-	return nil
-}
-
-func (sink *recordingSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error {
-	sink.diagnostics = append(sink.diagnostics, recordedProviderDiagnostic{
-		code:           code,
-		context:        context,
-		message:        message,
-		resyncRequired: resyncRequired,
-		severity:       severity,
-	})
-	return nil
-}
-
-func (sink *recordingSink) GoalUpdated(goal *ChatGoalState) error {
-	sink.goals = append(sink.goals, goal)
-	return nil
-}
-
-func (sink *recordingSink) RunItemOutputDelta(itemID string, stream string, text string) error {
-	sink.outputs = append(sink.outputs, recordedOutput{itemID: itemID, stream: stream, text: text})
-	return nil
-}
-
-func (sink *recordingSink) RunItemUpsert(item RunItem) error {
-	sink.items = append(sink.items, item)
-	return nil
-}
-
-func (sink *recordingSink) ThreadLinked(threadID string, _ string, turnID string) error {
-	sink.threadID = threadID
-	sink.turnID = turnID
-	sink.linkCh <- struct{}{}
-	return nil
-}
-
-func (sink *recordingSink) UserMessageCommitted(string) error {
-	return nil
-}
-
-func (sink *recordingSink) Trace(traceType string, message string) error {
-	sink.traces = append(sink.traces, recordedTrace{traceType: traceType, message: message})
-	return nil
-}
-
 func waitForApproval(t *testing.T, sink *recordingSink) ApprovalRequest {
 	t.Helper()
 	select {
@@ -1232,8 +1150,13 @@ func testTurnRequest(t *testing.T) TurnRequest {
 			WorkspaceID:    "workspace_api",
 			ConversationID: "conversation_api",
 		},
-		Prompt: "hello",
+		Input: TextChatInput("hello"),
 	}
+}
+
+func setTestTurnRequestPrompt(request TurnRequest, prompt string) TurnRequest {
+	request.Input = TextChatInput(prompt)
+	return request
 }
 
 func testCodexConfig(mode string) CodexHarnessConfig {
@@ -1272,9 +1195,13 @@ type fakeCodexState struct {
 	approvalOutstanding  bool
 	commandThreadResumed bool
 	commandThreadStarted bool
+	goalCleared          bool
+	goalPaused           bool
 	holdCalls            int
+	interruptCalls       int
 	modelListCalls       int
 	responseOutstanding  string
+	currentThreadID      string
 }
 
 func handleFakeJSONRPCMode(mode string, state *fakeCodexState, message map[string]any) bool {
@@ -1363,30 +1290,43 @@ func handleFakeServerResponse(mode string, state *fakeCodexState, message map[st
 }
 
 func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[string]any) bool {
+	if handled, done := handleFakeConfigMethod(mode, message); handled {
+		return done
+	}
 	switch message["method"] {
 	case "initialize":
 		writeFakeInitializeResponse(message["id"])
-	case "config/read":
-		assertFakeConfigRead(message)
-		writeFakeResponse(message["id"], map[string]any{
-			"config": map[string]any{
-				"model":                  "gpt-test",
-				"model_reasoning_effort": "xhigh",
-			},
-			"layers":  []any{},
-			"origins": map[string]any{},
-		})
-		return mode == "command-model-set-local" || mode == "command-effort-set-local"
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)
-		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
+		threadID := state.currentThreadID
+		if threadID == "" {
+			threadID = "thread_fake"
+		}
+		writeFakeThreadResponseForModeAndThread(message["id"], mode, fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode), threadID)
+	case "thread/read":
+		params := fakeParams(message)
+		threadID, _ := params["threadId"].(string)
+		if threadID == "" {
+			panic("thread/read missing threadId")
+		}
+		writeFakeResponse(message["id"], fakeCodexThreadReadResponse(mode, threadID))
 	case "thread/goal/get":
 		return handleFakeGoalGet(mode, message)
 	case "thread/goal/set":
-		return handleFakeGoalSetMethod(mode, message)
+		return handleFakeGoalSetMethod(mode, state, message)
 	case "thread/goal/clear":
+		if mode == "goal-operation-resume" {
+			panic("goal resume should not clear provider goal")
+		}
 		assertFakeThreadID(message)
+		state.goalCleared = true
+		if fakeGoalOperationMode(mode) {
+			writeFakeThreadGoalCleared()
+			if mode == "goal-operation-clear-command" {
+				writeFakeCompletedTurnID("turn_goal_command", "completed")
+			}
+		}
 		writeFakeResponse(message["id"], map[string]any{"cleared": true})
 		return fakeCommandDone(mode)
 	case "model/list":
@@ -1396,17 +1336,67 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	case "turn/start":
 		return handleFakeTurnStart(mode, state, message)
 	case "turn/interrupt":
-		writeFakeResponse(message["id"], map[string]any{})
-		writeFakeCompletedTurn("interrupted")
-		return true
+		return handleFakeTurnInterrupt(mode, state, message)
 	case "turn/steer":
-		assertFakeSteer(message)
-		writeFakeResponse(message["id"], map[string]any{})
-		writeFakeAssistantDelta("steered")
-		writeFakeCompletedTurn("completed")
-		return true
+		return handleFakeTurnSteer(mode, message)
 	}
 	return false
+}
+
+func handleFakeTurnInterrupt(mode string, state *fakeCodexState, message map[string]any) bool {
+	if (mode == "goal-operation-background-cancel" || mode == "goal-operation-cancel" || mode == "goal-operation-cancel-no-completion") && !state.goalPaused {
+		writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
+		return true
+	}
+	if mode == "goal-operation-stale-interrupt-retry" {
+		if !state.goalPaused {
+			writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
+			return true
+		}
+		state.interruptCalls++
+		params := fakeParams(message)
+		switch state.interruptCalls {
+		case 1:
+			if params["turnId"] != "turn_goal_stale" {
+				panic("first stale interrupt used wrong turn id")
+			}
+			writeFakeErrorResponseData(message["id"], -32600, "expected active turn id `turn_goal_stale` but found `turn_goal_active`", map[string]any{"activeTurnId": "turn_goal_active"})
+			return false
+		case 2:
+			if params["turnId"] != "turn_goal_active" {
+				panic("retry interrupt used wrong active turn id")
+			}
+			writeFakeResponse(message["id"], map[string]any{})
+			writeFakeCompletedTurnID("turn_goal_active", "interrupted")
+			return true
+		default:
+			panic("unexpected extra stale interrupt retry")
+		}
+	}
+	writeFakeResponse(message["id"], map[string]any{})
+	if mode == "goal-operation-cancel-no-completion" {
+		return false
+	}
+	if mode == "goal-operation-background-cancel" || mode == "goal-operation-cancel" {
+		writeFakeCompletedTurnID("turn_goal_cancel", "interrupted")
+		return true
+	}
+	writeFakeCompletedTurn("interrupted")
+	return true
+}
+
+func handleFakeTurnSteer(mode string, message map[string]any) bool {
+	assertFakeSteer(mode, message)
+	writeFakeResponse(message["id"], map[string]any{})
+	if mode == "goal-operation-steer-second-turn" {
+		writeFakeAssistantDeltaForTurn("turn_goal_b", "item_goal_steered", "steered goal. ")
+		writeFakeThreadGoalUpdated("finish renderer tests", "complete")
+		writeFakeCompletedTurnID("turn_goal_b", "completed")
+		return true
+	}
+	writeFakeAssistantDelta("steered")
+	writeFakeCompletedTurn("completed")
+	return true
 }
 
 func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]any) bool {
@@ -1431,6 +1421,14 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	if handled, done := handleFakeNotificationTurnStartMode(mode); handled {
 		return done
 	}
+	if fakeGoalOperationMode(mode) {
+		threadID := state.currentThreadID
+		if threadID == "" {
+			threadID = "thread_fake"
+		}
+		writeFakeStreamTurnForThread(threadID)
+		return true
+	}
 	return false
 }
 
@@ -1451,8 +1449,8 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 		return true, true
 	case "deprecated-file-change-output-delta-notification":
 		writeFakeNotification("item/fileChange/outputDelta", map[string]any{
-			"delta":    "legacy patch output",
-			"itemId":   "item_file_change_legacy",
+			"delta":    "deprecated patch output",
+			"itemId":   "item_file_change_deprecated",
 			"threadId": "thread_fake",
 			"turnId":   "turn_fake",
 		})

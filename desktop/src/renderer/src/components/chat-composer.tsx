@@ -1,194 +1,294 @@
 import type {
-  ChatCommandCapability,
+  ChatCommandDescriptor,
   ChatCommandExecuteResult,
-  ChatGoalState,
+  ChatImageInput,
+  ChatInput,
+  ImageAttachment,
   ChatModelOption,
   ChatReasoningEffortOption,
 } from "@generated/backend";
 import type { ChatCommandExecutionOptions } from "@shared/types";
-import { Check, X } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
-import { cn } from "../lib/utils";
+import { chatInputFromDraft, chatInputHasContent } from "../lib/chat-input";
+import type { ActiveRunPresentation } from "../lib/chat-run-liveness";
+import { commandDescriptorsNeedLoad, slashCommandExecutionPlan } from "./chat-command-execution";
 import {
-  ComposerButton,
-  handleComposerKeyDown,
-  ModelPickerButton,
-  modelPickerOptionSelected,
-  PermissionModeUnavailableButton,
-  reasoningEffortOptionSelected,
-  VoiceInputUnavailableButton,
-} from "./chat-composer-controls";
-import type { ChatView } from "./chat-panel";
-import { chatReadableColumnAttributes, chatReadableColumnClass } from "./chat-layout";
-import { SettaLogoMark } from "./setta-logo-mark";
-import { Textarea } from "./ui/textarea";
+  commandComposerState,
+  commandListErrorForDraft,
+  commandListPendingForDraft,
+  completionForCommandState,
+  firstAvailableSuggestionIndex,
+  type CommandCompletionEdit,
+  type CommandSuggestionRow,
+} from "./chat-command-composer-controller";
+import { handleComposerKeyDown } from "./chat-composer-controls";
+import {
+  createImageAttachmentsFromFiles,
+  maxComposerImageAttachments,
+} from "./chat-composer-attachments";
+import {
+  commandPaletteShouldOpen,
+  commandPaletteKeyAction,
+  composerAcceptsPrompt,
+  isSlashDraft,
+} from "./chat-composer-helpers";
+import {
+  activeRunSubmitMode,
+  canQueueComposerDraft,
+  composerSendDisabled,
+} from "./chat-composer-liveness";
+import { composerDisabled, isModelPickerOpen } from "./chat-composer-state";
+import {
+  canSendCurrentComposerDraft,
+  canSendImmediateSteeringComposerDraft,
+  composerAttachmentFilePreflight,
+  composerCommandListContextKey,
+  composerDraftSupportsAttachments,
+  composerModelPickerDisabled,
+  composerSessionId,
+  composerSessionSupportsImages,
+  composerSlashDraftEnabled,
+  composerSubmitActionAvailable,
+} from "./chat-composer-derived-state";
+import { ComposerFrame } from "./chat-composer-frame";
+import { useComposerPromptHistory, type ComposerPromptHistoryDraft } from "./chat-composer-history";
+import { useComposerPermissionPicker } from "./chat-composer-permission";
+import {
+  composerActionPropsEqual,
+  composerScalarPropsEqual,
+  composerViewModelPropsEqual,
+  runPresentationPropsEqual,
+} from "./chat-composer-props";
+import {
+  missingComposerStopAction,
+  validateComposerActionContract,
+} from "./chat-composer-runtime-contract";
+import type {
+  AcceptedComposerSubmission,
+  ComposerActions,
+  ComposerViewModel,
+} from "./chat-composer-contract";
 
 export { modelPickerOptionSelected, reasoningEffortOptionSelected } from "./chat-composer-controls";
+export { CommandPalette } from "./chat-command-palette";
+export { commandSuggestions } from "./chat-composer-helpers";
 
-const emptyCommandCapabilities: ChatCommandCapability[] = [];
-
-function composerDisabled(disabledOverride: boolean | undefined, selected: boolean, busy: boolean) {
-  if (disabledOverride !== undefined) {
-    return disabledOverride;
-  }
-  return !selected || busy;
-}
-
-function isModelPickerOpen(modelPicker: ChatCommandExecuteResult | null) {
-  return modelPicker?.result.action === "model_picker";
-}
-
-function canSendComposerDraft(disabled: boolean, draftText: string) {
-  return !disabled && draftText !== "";
-}
-
-function canSendImmediateSteeringDraft({
-  disabled,
-  draftText,
-  hasPendingSteering,
-  running,
-  slashDraft,
-}: {
-  disabled: boolean;
-  draftText: string;
-  hasPendingSteering: boolean;
-  running: boolean;
-  slashDraft: boolean;
-}) {
-  return running && !disabled && !slashDraft && (draftText !== "" || hasPendingSteering);
-}
-
-function completedCommandDraft(
-  selectedSuggestion: ChatCommandCapability | null,
-  draftText: string,
-) {
-  if (!selectedSuggestion || draftText === selectedSuggestion.name) {
-    return "";
-  }
-  return selectedSuggestion.name + " ";
-}
-
-function modelPickerControlDisabled(
-  selectedConversation: ChatView["selectedConversation"],
-  disabled: boolean,
-  running: boolean,
-) {
-  return selectedConversation === null || disabled || running;
-}
+const emptyCommandDescriptors: ChatCommandDescriptor[] = [];
 
 interface ComposerProps {
+  actions: ComposerActions;
   busy: boolean;
-  chat: ChatView;
   disabled?: boolean;
   formClassName?: string;
   frameClassName?: string;
-  onSendPrompt?: (prompt: string) => Promise<void>;
+  onSendPrompt?: (input: ChatInput) => Promise<void>;
   placeholder?: string;
   running: boolean;
+  runPresentation: ActiveRunPresentation;
+  viewModel: ComposerViewModel;
 }
 
-const composerChatPropSelectors = [
-  (chat: ChatView) => chat.activeRun?.id,
-  (chat: ChatView) => chat.commandListError,
-  (chat: ChatView) => chat.commandListStatus,
-  (chat: ChatView) => chat.executeCommand,
-  (chat: ChatView) => chat.goal,
-  (chat: ChatView) => chat.listCommands,
-  (chat: ChatView) => chat.operation,
-  (chat: ChatView) => chat.pendingSteeringMessageIds,
-  (chat: ChatView) => chat.queueMessage,
-  (chat: ChatView) => chat.selectedConversation,
-  (chat: ChatView) => chat.sendMessage,
-  (chat: ChatView) => chat.sendSteeringImmediately,
-  (chat: ChatView) => chat.setCodexModel,
-  (chat: ChatView) => chat.setCodexReasoningEffort,
-  (chat: ChatView) => chat.status,
-  (chat: ChatView) => chat.steerMessage,
-  (chat: ChatView) => chat.stopActiveRun,
-] as const;
-
 function ComposerComponent({
+  actions,
   busy,
-  chat,
   disabled: disabledOverride,
   formClassName,
   frameClassName,
   onSendPrompt,
   placeholder = "",
   running,
+  runPresentation,
+  viewModel,
 }: ComposerProps) {
+  validateComposerActionContract(actions, runPresentation);
   const [draft, setDraft] = useState("");
-  const [commands, setCommands] = useState<ChatCommandCapability[]>(emptyCommandCapabilities);
+  const [commands, setCommands] = useState<ChatCommandDescriptor[]>(emptyCommandDescriptors);
   const [commandListKey, setCommandListKey] = useState("");
+  const [commandListRequestKey, setCommandListRequestKey] = useState("");
+  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
+  const [attachmentImageInputsById, setAttachmentImageInputsById] = useState<
+    Record<string, ChatImageInput | undefined>
+  >({});
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [attaching, setAttaching] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
+  const [paletteDismissed, setPaletteDismissed] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
   const restoreComposerFocusRef = useRef(false);
   const submittingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const selected = chat.selectedConversation !== null;
-  const selectedConversationId = chat.selectedConversation?.id ?? "";
-  const listCommands = chat.listCommands;
-  const acceptsPrompt = selected || onSendPrompt !== undefined;
+  const session = viewModel.session;
+  const sessionId = composerSessionId(session);
+  const selected = session !== null;
+  const attachmentContextRef = useRef(sessionId);
+  const commandActions = actions.commands;
+  const attachmentActions = actions.attachments;
+  const modelActions = actions.modelSettings;
+  const permissionActions = actions.permissionSettings;
+  const promptHistoryActions = actions.promptHistory;
+  const commandListContextKey = composerCommandListContextKey(commandActions, session);
+  const listCommands = commandActions?.listCommands;
+  const acceptsPrompt = composerAcceptsPrompt(selected, onSendPrompt !== undefined);
   const disabled = composerDisabled(disabledOverride, acceptsPrompt, busy);
-  const slashDraft = isSlashDraft(draft);
+  const hasAttachments = attachments.length > 0;
+  const slashDraft = composerSlashDraftEnabled(commandActions, draft, hasAttachments);
   const draftText = draft.trim();
-  const suggestions = commandSuggestions(commands, draft);
-  const selectedSuggestion = suggestions[0] ?? null;
-  const commandListError = commandListErrorForDraft(
-    slashDraft,
-    chat.commandListStatus,
-    chat.commandListError,
-  );
-  const hasPendingSteering = chat.pendingSteeringMessageIds.length > 0;
-  const modelPickerOpen = isModelPickerOpen(modelPicker);
-  const canSend = canSendComposerDraft(disabled, draftText);
-  const canSendImmediately = canSendImmediateSteeringDraft({
-    disabled,
-    draftText,
-    hasPendingSteering,
-    running,
+  const commandState = useMemo(() => commandComposerState(draft, commands), [commands, draft]);
+  const commandListPending = commandListPendingForDraft({
+    commandListContextKey,
+    commandListKey,
+    commandListRequestKey,
+    commandListStatus: viewModel.commandListStatus,
     slashDraft,
   });
-  const modelPickerDisabled = modelPickerControlDisabled(
-    chat.selectedConversation,
-    disabled,
-    running,
+  const commandListError = commandListErrorForDraft(
+    slashDraft,
+    viewModel.commandListStatus,
+    viewModel.commandListError,
   );
+  const hasPendingSteering = viewModel.pendingSteeringMessageIds.length > 0;
+  const modelPickerOpen = isModelPickerOpen(modelPicker);
+  const commandPaletteVisible = commandPaletteShouldOpen(
+    slashDraft,
+    paletteDismissed,
+    modelPickerOpen,
+  );
+  const supportsImages = composerSessionSupportsImages(session);
+  const supportsAttachments = composerDraftSupportsAttachments(
+    attachmentActions,
+    hasAttachments,
+    supportsImages,
+  );
+  const activeSubmitMode = activeRunSubmitMode(running, runPresentation);
+  const submitActionAvailable = composerSubmitActionAvailable({
+    commandActions,
+    mode: activeSubmitMode,
+    onSendPrompt,
+    sendMessage: actions.sendMessage,
+    slashDraft,
+    steerMessage: actions.steerMessage,
+  });
+  const canSend = canSendCurrentComposerDraft({
+    attaching,
+    disabled: composerSendDisabled(disabled, running, runPresentation),
+    draftText,
+    hasAttachments,
+    submitActionAvailable,
+    supportsAttachments,
+  });
+  const canSendImmediately = canSendImmediateSteeringComposerDraft({
+    attaching,
+    disabled,
+    draftText,
+    hasImmediateSteeringContent: hasAttachments,
+    hasPendingSteering,
+    runPresentation,
+    running,
+    sendSteeringImmediately: actions.sendSteeringImmediately,
+    slashDraft,
+    supportsAttachments,
+  });
+  const modelPickerDisabled = composerModelPickerDisabled(modelActions, session, disabled, running);
+  const {
+    cancelPermissionConfirmation,
+    clearPermissionPicker,
+    clearPermissionState,
+    confirmPermissionSelection,
+    executePermissionSelection,
+    openPermissionPicker,
+    permissionConfirmation,
+    permissionPicker,
+    permissionPickerDisabled,
+    permissionPickerOpen,
+  } = useComposerPermissionPicker({
+    clearModelPicker: () => setModelPicker(null),
+    disabled,
+    focusComposer,
+    permissionActions,
+    running,
+    sessionId,
+    setDraft,
+    submittingRef,
+  });
+  const promptHistory = useComposerPromptHistory({
+    applyDraft: applyPromptHistoryDraft,
+    conversationId: sessionId,
+    enabled: promptHistoryActions !== undefined,
+    listHistory: promptHistoryActions?.listComposerPromptHistory ?? null,
+    maxAttachments: maxComposerImageAttachments,
+    setDiagnostic: setAttachmentError,
+    textareaRef,
+  });
 
   useEffect(() => {
-    if (selectedConversationId === "") {
-      setCommands(emptyCommandCapabilities);
+    attachmentContextRef.current = sessionId;
+    setAttachments([]);
+    setAttachmentImageInputsById({});
+    setAttachmentError(null);
+    setAttaching(false);
+    setModelPicker(null);
+    clearPermissionState();
+  }, [sessionId]);
+
+  useEffect(() => {
+    setSelectedSuggestionIndex((current) => {
+      if (commandState.suggestions.length === 0) {
+        return 0;
+      }
+      if (current < commandState.suggestions.length) {
+        return current;
+      }
+      return firstAvailableSuggestionIndex(commandState.suggestions);
+    });
+  }, [commandState.suggestions]);
+
+  useEffect(() => {
+    if (commandListContextKey === "") {
+      setCommands(emptyCommandDescriptors);
       setCommandListKey("");
+      setCommandListRequestKey("");
       setModelPicker(null);
+      clearPermissionPicker();
       return;
     }
     if (!slashDraft) {
-      setCommands(emptyCommandCapabilities);
+      setCommands(emptyCommandDescriptors);
       setCommandListKey("");
+      setCommandListRequestKey("");
       return;
     }
-    const key = selectedConversationId + ":" + (running ? "running" : "idle");
-    if (commandListKey === key) {
+    if (
+      commandListKey === commandListContextKey ||
+      commandListRequestKey === commandListContextKey
+    ) {
       return;
     }
     let cancelled = false;
-    setCommandListKey(key);
+    setCommandListRequestKey(commandListContextKey);
+    if (listCommands === undefined) {
+      return;
+    }
     void listCommands()
       .then((result) => {
         if (!cancelled) {
-          setCommands(result?.commands ?? emptyCommandCapabilities);
+          setCommands(result?.commands ?? emptyCommandDescriptors);
+          setCommandListKey(commandListContextKey);
+          setCommandListRequestKey("");
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setCommands(emptyCommandCapabilities);
+          setCommands(emptyCommandDescriptors);
+          setCommandListKey(commandListContextKey);
+          setCommandListRequestKey("");
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [commandListKey, listCommands, running, selectedConversationId, slashDraft]);
+  }, [commandListContextKey, commandListKey, listCommands, slashDraft]);
 
   useEffect(() => {
     if (focusRequest === 0) {
@@ -202,7 +302,7 @@ function ComposerComponent({
       return;
     }
     focusComposer();
-  }, [chat.activeRun?.id, disabled, running]);
+  }, [viewModel.activeRunId, disabled, running]);
 
   useEffect(() => {
     if (modelPicker?.result.action !== "model_picker") {
@@ -226,15 +326,17 @@ function ComposerComponent({
 
   async function sendDraft() {
     const submittedDraft = draft;
+    const submittedAttachments = attachments;
     const prompt = submittedDraft.trim();
-    if (!canSubmitDraft(prompt)) {
+    const input = chatInputFromDraft(prompt, submittedAttachments, attachmentImageInputsById);
+    if (!canSubmitDraft(input)) {
       return;
     }
     submittingRef.current = true;
     restoreComposerFocusRef.current = true;
     try {
       focusComposerSoon();
-      await submitDraftPrompt(prompt, submittedDraft);
+      await submitDraftPrompt(input, submittedDraft, submittedAttachments);
       focusComposerSoon();
     } catch {
       focusComposerSoon();
@@ -243,67 +345,220 @@ function ComposerComponent({
     }
   }
 
-  function canSubmitDraft(prompt: string) {
+  function canSubmitDraft(input: ChatInput) {
     return (
-      prompt !== "" &&
-      (chat.selectedConversation !== null || onSendPrompt !== undefined) &&
+      chatInputHasContent(input) &&
+      (session !== null || onSendPrompt !== undefined) &&
+      submitActionAvailable &&
       !disabled &&
+      !attaching &&
+      supportsAttachments &&
       !submittingRef.current
     );
   }
 
-  async function submitDraftPrompt(prompt: string, submittedDraft: string) {
+  async function submitDraftPrompt(
+    input: ChatInput,
+    submittedDraft: string,
+    submittedAttachments: ImageAttachment[],
+  ) {
     if (onSendPrompt) {
-      await onSendPrompt(prompt);
+      await onSendPrompt(input);
       clearDraftIfUnchanged(submittedDraft);
+      clearAttachmentsIfUnchanged(submittedAttachments);
       return;
     }
     if (slashDraft) {
-      await executeSlashDraft(prompt, submittedDraft);
+      await executeSlashDraft(submittedDraft);
       return;
     }
-    if (running) {
-      await chat.steerMessage(prompt);
+    if (activeSubmitMode === "blocked") {
+      return;
+    }
+    if (activeSubmitMode === "steer") {
+      if (actions.steerMessage === undefined) {
+        throw new Error("Composer action steerMessage is required for active-run steering.");
+      }
+      const result = await actions.steerMessage(input);
+      if (result) {
+        recordAcceptedSubmission({
+          attachments: submittedAttachments,
+          input,
+          userMessage: result.userMessage,
+        });
+      }
       clearDraftIfUnchanged(submittedDraft);
+      clearAttachmentsIfUnchanged(submittedAttachments);
       return;
     }
-    await chat.sendMessage(prompt);
+    if (actions.sendMessage === undefined) {
+      throw new Error("Composer action sendMessage is required to send a new message.");
+    }
+    const result = await actions.sendMessage(input);
+    if (result) {
+      recordAcceptedSubmission({
+        attachments: submittedAttachments,
+        input,
+        userMessage: result.userMessage,
+      });
+    }
     clearDraftIfUnchanged(submittedDraft);
+    clearAttachmentsIfUnchanged(submittedAttachments);
   }
 
-  async function executeSlashDraft(prompt: string, submittedDraft: string) {
-    const commandText = commandTextToExecute(prompt, selectedSuggestion);
-    const options = goalReplacementExecutionOptions(commandText, chat.goal, (message) =>
-      window.confirm(message),
-    );
-    if (options === null) {
+  async function executeSlashDraft(submittedDraft: string) {
+    const execution = await slashCommandExecutionPlan({
+      commands,
+      confirmReplacement: (message) => window.confirm(message),
+      currentGoal: viewModel.goal,
+      draft: submittedDraft,
+      loadCommands: loadCommandDescriptorsForExecution,
+      selectedIndex: selectedSuggestionIndex,
+      shouldReloadCommands: commandDescriptorsNeedLoad({
+        commandListContextKey,
+        commandListKey,
+        commands,
+      }),
+    });
+    if (!execution) {
       return;
     }
-    const result = await chat.executeCommand(commandText, options);
+    setCommands(execution.commands);
+    const pendingGoalObjective = execution.pendingGoalObjective;
+    if (pendingGoalObjective) {
+      setModelPicker(null);
+      clearDraftIfUnchanged(submittedDraft);
+    }
+    const result = await executeCommandWithDraftRecovery(
+      execution.commandText,
+      execution.options,
+      pendingGoalObjective,
+      submittedDraft,
+    );
     if (result.result.action === "model_picker") {
       setModelPicker(result);
-      clearDraftIfUnchanged(submittedDraft);
+      if (!pendingGoalObjective) {
+        clearDraftIfUnchanged(submittedDraft);
+      }
     } else if (result.result.action === "goal_editor") {
       setModelPicker(null);
-      replaceDraftIfUnchanged(submittedDraft, goalEditorDraft(result.result.goal));
+      replaceDraftIfUnchanged(submittedDraft, result.result.composerDraft);
       requestAnimationFrame(() => textareaRef.current?.focus());
     } else {
       setModelPicker(null);
-      clearDraftIfUnchanged(submittedDraft);
+      if (!pendingGoalObjective) {
+        clearDraftIfUnchanged(submittedDraft);
+      }
     }
   }
 
-  function completeCommand() {
-    const completed = completedCommandDraft(selectedSuggestion, draftText);
-    if (completed) {
-      updateDraft(completed);
+  async function executeCommandWithDraftRecovery(
+    commandText: string,
+    options: ChatCommandExecutionOptions | undefined,
+    pendingGoalObjective: string | null,
+    submittedDraft: string,
+  ) {
+    try {
+      if (commandActions === undefined) {
+        throw new Error("Composer command actions are required to execute slash commands.");
+      }
+      return await commandActions.executeCommand(
+        commandText,
+        options,
+        pendingGoalObjective ? { pendingGoalObjective } : undefined,
+      );
+    } catch (error) {
+      if (pendingGoalObjective) {
+        replaceDraftIfUnchanged("", submittedDraft);
+      }
+      throw error;
     }
+  }
+
+  async function loadCommandDescriptorsForExecution() {
+    if (commandListContextKey === "") {
+      return emptyCommandDescriptors;
+    }
+    if (listCommands === undefined) {
+      throw new Error("Composer command action listCommands is required to load slash commands.");
+    }
+    const result = await listCommands();
+    const loadedCommands = result?.commands ?? emptyCommandDescriptors;
+    setCommands(loadedCommands);
+    setCommandListKey(commandListContextKey);
+    return loadedCommands;
+  }
+
+  function completeCommand() {
+    const completion = completionForCommandState(commandState, selectedSuggestionIndex);
+    applyCommandCompletion(completion);
+  }
+
+  function handleCommandPaletteKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    const action = commandPaletteKeyAction(event, {
+      paletteVisible: commandPaletteVisible,
+      slashDraft,
+      suggestionCount: commandState.suggestions.length,
+    });
+    switch (action) {
+      case "dismiss":
+        event.preventDefault();
+        setPaletteDismissed(true);
+        return true;
+      case "next":
+        event.preventDefault();
+        setSelectedSuggestionIndex((index) => (index + 1) % commandState.suggestions.length);
+        return true;
+      case "previous":
+        event.preventDefault();
+        setSelectedSuggestionIndex(
+          (index) =>
+            (index + commandState.suggestions.length - 1) % commandState.suggestions.length,
+        );
+        return true;
+      case "complete":
+        event.preventDefault();
+        completeCommand();
+        return true;
+      case "none":
+        return false;
+    }
+  }
+
+  function applyCommandCompletion(completion: CommandCompletionEdit | null) {
+    if (!completion) {
+      return;
+    }
+    updateDraft(completion.value);
+    requestAnimationFrame(() => {
+      textareaRef.current?.setSelectionRange(completion.selectionStart, completion.selectionEnd);
+    });
+  }
+
+  async function pickCommandSuggestion(suggestion: CommandSuggestionRow) {
+    if (!suggestion.available || !suggestion.completion) {
+      return;
+    }
+    applyCommandCompletion(suggestion.completion);
   }
 
   async function queueDraft() {
     const submittedDraft = draft;
+    const submittedAttachments = attachments;
     const prompt = submittedDraft.trim();
-    if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
+    const input = chatInputFromDraft(prompt, submittedAttachments, attachmentImageInputsById);
+    if (
+      !canQueueComposerDraft({
+        attaching,
+        disabled,
+        input,
+        running,
+        runPresentation,
+        sessionAvailable: session !== null,
+        submitting: submittingRef.current,
+        supportsAttachments,
+      })
+    ) {
       return;
     }
     if (slashDraft) {
@@ -312,8 +567,19 @@ function ComposerComponent({
     submittingRef.current = true;
     try {
       focusComposerSoon();
-      await chat.queueMessage(prompt);
+      if (actions.queueMessage === undefined) {
+        return;
+      }
+      const result = await actions.queueMessage(input);
+      if (result) {
+        recordAcceptedSubmission({
+          attachments: submittedAttachments,
+          input,
+          userMessage: result.userMessage,
+        });
+      }
       clearDraftIfUnchanged(submittedDraft);
+      clearAttachmentsIfUnchanged(submittedAttachments);
       focusComposerSoon();
     } catch {
       focusComposerSoon();
@@ -324,14 +590,20 @@ function ComposerComponent({
 
   async function sendImmediateSteering() {
     const submittedDraft = draft;
+    const submittedAttachments = attachments;
     const prompt = submittedDraft.trim();
-    if (!canSubmitImmediateSteering(prompt)) {
+    const input = chatInputFromDraft(prompt, submittedAttachments, attachmentImageInputsById);
+    if (!canSubmitImmediateSteering(input, prompt)) {
       return;
     }
     submittingRef.current = true;
     try {
-      await chat.sendSteeringImmediately(prompt === "" ? undefined : prompt);
+      if (actions.sendSteeringImmediately === undefined) {
+        return;
+      }
+      await actions.sendSteeringImmediately(chatInputHasContent(input) ? input : undefined);
       clearDraftIfUnchanged(submittedDraft);
+      clearAttachmentsIfUnchanged(submittedAttachments);
     } catch {
       focusComposerSoon();
     } finally {
@@ -339,28 +611,150 @@ function ComposerComponent({
     }
   }
 
-  function canSubmitImmediateSteering(prompt: string) {
+  function canSubmitImmediateSteering(input: ChatInput, prompt: string) {
     return (
-      chat.selectedConversation !== null &&
+      session !== null &&
       !submittingRef.current &&
-      canSendImmediateSteeringDraft({
+      actions.sendSteeringImmediately !== undefined &&
+      canSendImmediateSteeringComposerDraft({
+        attaching,
         disabled,
         draftText: prompt,
+        hasImmediateSteeringContent: chatInputHasContent(input),
         hasPendingSteering,
+        runPresentation,
         running,
+        sendSteeringImmediately: actions.sendSteeringImmediately,
         slashDraft,
+        supportsAttachments,
       })
     );
   }
 
+  async function attachFromPicker() {
+    if (!canAttachImages()) {
+      return;
+    }
+    const attachmentContext = attachmentContextRef.current;
+    const remaining = maxComposerImageAttachments - attachments.length;
+    setAttaching(true);
+    setAttachmentError(null);
+    try {
+      if (attachmentActions === undefined) {
+        return;
+      }
+      const created = await attachmentActions.createImageAttachmentsFromPicker(remaining);
+      if (attachmentContextRef.current === attachmentContext) {
+        appendAttachments(created);
+      }
+    } catch (error) {
+      if (attachmentContextRef.current === attachmentContext) {
+        setAttachmentError(error instanceof Error ? error.message : String(error));
+      }
+    } finally {
+      if (attachmentContextRef.current === attachmentContext) {
+        setAttaching(false);
+      }
+    }
+  }
+
+  async function attachFiles(fileList: FileList | File[]) {
+    const preflight = composerAttachmentFilePreflight({
+      attachmentActions,
+      canAttach: canAttachImages(),
+      currentAttachmentCount: attachments.length,
+      fileList,
+    });
+    if (preflight.kind === "skip") {
+      return;
+    }
+    if (preflight.kind === "error") {
+      setAttachmentError(preflight.error);
+      return;
+    }
+    const attachmentContext = attachmentContextRef.current;
+    setAttaching(true);
+    setAttachmentError(null);
+    try {
+      const created = await createImageAttachmentsFromFiles(
+        preflight.files,
+        preflight.attachmentActions.createImageAttachmentFromBytes,
+      );
+      if (attachmentContextRef.current === attachmentContext) {
+        appendAttachments(created.attachments);
+        setAttachmentError(created.error);
+      }
+    } catch (error) {
+      if (attachmentContextRef.current === attachmentContext) {
+        setAttachmentError(error instanceof Error ? error.message : String(error));
+      }
+    } finally {
+      if (attachmentContextRef.current === attachmentContext) {
+        setAttaching(false);
+      }
+    }
+  }
+
+  function canAttachImages() {
+    return (
+      session !== null &&
+      attachmentActions !== undefined &&
+      !disabled &&
+      supportsImages &&
+      !submittingRef.current &&
+      !attaching &&
+      attachments.length < maxComposerImageAttachments
+    );
+  }
+
+  function appendAttachments(nextAttachments: ImageAttachment[]) {
+    if (nextAttachments.length === 0) {
+      return;
+    }
+    promptHistory.exitBrowsing();
+    setAttachments((current) => {
+      if (current.length + nextAttachments.length > maxComposerImageAttachments) {
+        setAttachmentError(`A message can include up to ${maxComposerImageAttachments} images.`);
+        return current;
+      }
+      setAttachmentImageInputsById((currentInputs) => ({
+        ...currentInputs,
+        ...Object.fromEntries(
+          nextAttachments.map((attachment) => [
+            attachment.id,
+            { attachmentId: attachment.id, detail: null },
+          ]),
+        ),
+      }));
+      return [...current, ...nextAttachments];
+    });
+  }
+
+  function removeAttachment(attachmentId: string) {
+    promptHistory.exitBrowsing();
+    setAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
+    setAttachmentImageInputsById((current) => {
+      const next = { ...current };
+      delete next[attachmentId];
+      return next;
+    });
+  }
+
   async function openModelPicker() {
-    if (!chat.selectedConversation || disabled || running || submittingRef.current) {
+    if (
+      session === null ||
+      modelActions === undefined ||
+      disabled ||
+      running ||
+      submittingRef.current
+    ) {
       return;
     }
     submittingRef.current = true;
     try {
-      const result = await chat.executeCommand("/model");
+      const result = await modelActions.openCodexModelPicker();
       if (result.result.action === "model_picker") {
+        clearPermissionPicker();
         setModelPicker(result);
         setDraft("");
         requestAnimationFrame(() => textareaRef.current?.focus());
@@ -370,98 +764,115 @@ function ComposerComponent({
     }
   }
 
+  function handleTextareaKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (handleCommandPaletteKeyDown(event)) {
+      return;
+    }
+    if (
+      promptHistory.handleKeyDown(
+        event,
+        {
+          attachments,
+          imageInputsByAttachmentId: attachmentImageInputsById,
+          text: draft,
+        },
+        modelPickerOpen || permissionPickerOpen,
+      )
+    ) {
+      return;
+    }
+    handleComposerKeyDown(event, {
+      canQueue: actions.queueMessage !== undefined,
+      canStop: runPresentation.canStop && actions.stopActiveRun !== undefined,
+      completeCommand,
+      draftEmpty: draftText === "",
+      dismissPicker,
+      hasPendingSteering,
+      pickerOpen: modelPickerOpen || permissionPickerOpen,
+      queueDraft,
+      running,
+      sendDraft,
+      sendImmediateSteering,
+      slashDraft,
+      stopRun: actions.stopActiveRun ?? missingComposerStopAction,
+    });
+  }
+
   return (
-    <form
-      className={cn("workspace-chat-pane-surface px-3 pt-1 pb-1.5", formClassName)}
-      data-testid="chat-composer"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void sendDraft();
-      }}
-    >
-      <div {...chatReadableColumnAttributes} className={cn("relative", chatReadableColumnClass)}>
-        <div
-          className={cn(
-            "min-w-0 rounded-sm border border-border bg-card/90 px-2 py-1.5 shadow-lg shadow-black/15",
-            frameClassName,
-          )}
-        >
-          <div className="relative min-w-0">
-            <ComposerPlaceholder selected={selected} visible={draft === "" && placeholder === ""} />
-            <CommandSuggestions
-              commandListError={commandListError}
-              draft={draft}
-              modelPicker={modelPicker}
-              onPickCommand={(command) => updateDraft(command.name + " ")}
-              onDismissModelPicker={dismissModelPicker}
-              onPickModel={(model) => {
-                void executeModelSelection(model);
-              }}
-              onPickReasoningEffort={(effort) => {
-                void executeReasoningEffortSelection(effort);
-              }}
-              selectedSuggestion={selectedSuggestion}
-              suggestions={suggestions}
-            />
-            <Textarea
-              aria-label={composerTextareaLabel(acceptsPrompt)}
-              className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={disabled}
-              onChange={(event) => updateDraft(event.target.value)}
-              onKeyDown={(event) => {
-                handleComposerKeyDown(event, {
-                  completeCommand,
-                  draftEmpty: draftText === "",
-                  dismissModelPicker,
-                  hasPendingSteering,
-                  modelPickerOpen,
-                  queueDraft,
-                  running,
-                  sendDraft,
-                  sendImmediateSteering,
-                  slashDraft,
-                  stopRun: chat.stopActiveRun,
-                });
-              }}
-              placeholder={placeholder}
-              ref={textareaRef}
-              rows={2}
-              value={draft}
-            />
-          </div>
-          <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
-            <div className="flex min-w-0 items-center gap-1">
-              <PermissionModeUnavailableButton />
-            </div>
-            <div className="flex min-w-0 items-center gap-1">
-              <ModelPickerButton
-                disabled={modelPickerDisabled}
-                modelPicker={modelPicker}
-                onOpen={() => void openModelPicker()}
-                running={running}
-                selectedConversation={chat.selectedConversation}
-              />
-              <VoiceInputUnavailableButton />
-              <ComposerButton
-                canSend={canSend}
-                chat={chat}
-                canSendImmediately={canSendImmediately}
-                queueDraft={queueDraft}
-                running={running}
-                sendImmediateSteering={sendImmediateSteering}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </form>
+    <ComposerFrame
+      acceptsPrompt={acceptsPrompt}
+      attachmentActionsAvailable={attachmentActions !== undefined}
+      attachmentError={attachmentError}
+      attachments={attachments}
+      attaching={attaching}
+      canAttachImages={canAttachImages()}
+      canSend={canSend}
+      canSendImmediately={canSendImmediately}
+      commandActionsAvailable={commandActions !== undefined}
+      commandListError={commandListError}
+      commandListPending={commandListPending}
+      commandListStatus={viewModel.commandListStatus}
+      commandPaletteVisible={commandPaletteVisible}
+      commandState={commandState}
+      disabled={disabled}
+      draft={draft}
+      formClassName={formClassName}
+      frameClassName={frameClassName}
+      handleTextareaKeyDown={handleTextareaKeyDown}
+      modelActionsAvailable={modelActions !== undefined}
+      modelPicker={modelPicker}
+      modelPickerDisabled={modelPickerDisabled}
+      operation={viewModel.operation}
+      permissionActionsAvailable={permissionActions !== undefined}
+      permissionConfirmation={permissionConfirmation}
+      permissionPicker={permissionPicker}
+      permissionPickerDisabled={permissionPickerDisabled}
+      placeholder={placeholder}
+      queueDraft={actions.queueMessage === undefined ? undefined : queueDraft}
+      retryActiveRunLiveness={actions.retryActiveRunLiveness}
+      runPresentation={runPresentation}
+      running={running}
+      selected={selected}
+      session={session}
+      selectedSuggestionIndex={selectedSuggestionIndex}
+      sendDraft={sendDraft}
+      sendImmediateSteering={
+        actions.sendSteeringImmediately === undefined ? undefined : sendImmediateSteering
+      }
+      stopActiveRun={actions.stopActiveRun}
+      supportsImages={supportsImages}
+      textareaRef={textareaRef}
+      updateDraft={updateDraft}
+      onAttachFiles={attachFiles}
+      onAttachFromPicker={attachFromPicker}
+      onCancelPermissionConfirmation={cancelPermissionConfirmation}
+      onConfirmPermissionSelection={confirmPermissionSelection}
+      onDismissModelPicker={dismissModelPicker}
+      onOpenModelPicker={openModelPicker}
+      onOpenPermissionPicker={openPermissionPicker}
+      onPickCommandSuggestion={pickCommandSuggestion}
+      onPickModel={executeModelSelection}
+      onPickPermissionPreset={executePermissionSelection}
+      onPickReasoningEffort={executeReasoningEffortSelection}
+      onRemoveAttachment={removeAttachment}
+    />
   );
 
   function updateDraft(nextDraft: string) {
+    promptHistory.exitBrowsing();
     if (!submittingRef.current) {
       restoreComposerFocusRef.current = false;
     }
     setDraft(nextDraft);
+    setPaletteDismissed(false);
+    if (
+      commandActions !== undefined &&
+      isSlashDraft(nextDraft) &&
+      viewModel.commandListStatus === "failed"
+    ) {
+      setCommandListKey("");
+      setCommandListRequestKey("");
+    }
     if (!isSlashDraft(nextDraft)) {
       setModelPicker(null);
     }
@@ -471,12 +882,46 @@ function ComposerComponent({
     replaceDraftIfUnchanged(submittedDraft, "");
   }
 
+  function clearAttachmentsIfUnchanged(submittedAttachments: ImageAttachment[]) {
+    const submittedIds = submittedAttachments.map((attachment) => attachment.id).join("\n");
+    setAttachments((current) => {
+      if (current.map((attachment) => attachment.id).join("\n") !== submittedIds) {
+        return current;
+      }
+      setAttachmentImageInputsById({});
+      return [];
+    });
+  }
+
+  function recordAcceptedSubmission({
+    attachments: submittedAttachments,
+    input,
+    userMessage,
+  }: AcceptedComposerSubmission) {
+    promptHistory.recordAcceptedSubmission(userMessage, input, submittedAttachments);
+  }
+
   function replaceDraftIfUnchanged(submittedDraft: string, replacement: string) {
     setDraft((current) => (current === submittedDraft ? replacement : current));
   }
 
+  function applyPromptHistoryDraft(historyDraft: ComposerPromptHistoryDraft) {
+    restoreComposerFocusRef.current = false;
+    setDraft(historyDraft.text);
+    setAttachments(historyDraft.attachments);
+    setAttachmentImageInputsById(historyDraft.imageInputsByAttachmentId);
+    setPaletteDismissed(false);
+    setModelPicker(null);
+  }
+
   function dismissModelPicker() {
     setModelPicker(null);
+    textareaRef.current?.focus();
+  }
+
+  function dismissPicker() {
+    setModelPicker(null);
+    clearPermissionState();
     textareaRef.current?.focus();
   }
 
@@ -507,12 +952,12 @@ function ComposerComponent({
   }
 
   async function executeModelSelection(model: ChatModelOption) {
-    if (!chat.selectedConversation || disabled || submittingRef.current) {
+    if (session === null || modelActions === undefined || disabled || submittingRef.current) {
       return;
     }
     submittingRef.current = true;
     try {
-      await chat.setCodexModel(model.model);
+      await modelActions.setCodexModel(model.model);
       setDraft("");
       setModelPicker(null);
     } finally {
@@ -521,12 +966,12 @@ function ComposerComponent({
   }
 
   async function executeReasoningEffortSelection(effort: ChatReasoningEffortOption) {
-    if (!chat.selectedConversation || disabled || submittingRef.current) {
+    if (session === null || modelActions === undefined || disabled || submittingRef.current) {
       return;
     }
     submittingRef.current = true;
     try {
-      await chat.setCodexReasoningEffort(effort.effort);
+      await modelActions.setCodexReasoningEffort(effort.effort);
       setDraft("");
       setModelPicker(null);
     } finally {
@@ -539,274 +984,9 @@ export const Composer = memo(ComposerComponent, composerPropsEqual);
 
 function composerPropsEqual(previous: ComposerProps, next: ComposerProps) {
   return (
-    previous.busy === next.busy &&
-    previous.disabled === next.disabled &&
-    previous.formClassName === next.formClassName &&
-    previous.frameClassName === next.frameClassName &&
-    previous.onSendPrompt === next.onSendPrompt &&
-    previous.placeholder === next.placeholder &&
-    previous.running === next.running &&
-    composerChatPropsEqual(previous.chat, next.chat)
-  );
-}
-
-function composerChatPropsEqual(previous: ChatView, next: ChatView) {
-  return composerChatPropSelectors.every((selector) => selector(previous) === selector(next));
-}
-
-function commandListErrorForDraft(
-  slashDraft: boolean,
-  commandListStatus: ChatView["commandListStatus"],
-  commandListError: ChatView["commandListError"],
-) {
-  return slashDraft && commandListStatus === "failed" ? commandListError : null;
-}
-
-export function CommandSuggestions({
-  commandListError,
-  draft,
-  modelPicker,
-  onDismissModelPicker,
-  onPickCommand,
-  onPickModel,
-  onPickReasoningEffort,
-  selectedSuggestion,
-  suggestions,
-}: {
-  commandListError?: string | null;
-  draft: string;
-  modelPicker: ChatCommandExecuteResult | null;
-  onDismissModelPicker: () => void;
-  onPickCommand: (command: ChatCommandCapability) => void;
-  onPickModel: (model: ChatModelOption) => void;
-  onPickReasoningEffort: (effort: ChatReasoningEffortOption) => void;
-  selectedSuggestion: ChatCommandCapability | null;
-  suggestions: ChatCommandCapability[];
-}) {
-  if (modelPicker?.result.action === "model_picker") {
-    const selectedModel = modelPicker.result.selectedModel;
-    const selectedReasoningEffort = modelPicker.result.selectedReasoningEffort;
-    return (
-      <div
-        className="absolute bottom-full left-0 z-20 mb-2 max-h-80 w-full overflow-y-auto rounded-sm border border-border bg-popover/95 p-1 text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
-        data-testid="model-picker"
-      >
-        <div className="mb-1 flex justify-end border-b border-border pb-1">
-          <button
-            aria-label="Close model picker"
-            className="grid h-6 w-6 place-items-center rounded-sm text-muted-foreground hover:bg-accent/75 hover:text-foreground"
-            onClick={onDismissModelPicker}
-            title="Close model picker"
-            type="button"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="px-2 pt-1 pb-1 text-[11px] font-medium text-muted-foreground">Model</div>
-        {modelPicker.result.models.map((model) => {
-          const selected = modelPickerOptionSelected(model, selectedModel);
-          return (
-            <button
-              aria-current={selected ? "true" : undefined}
-              className={cn(
-                "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75",
-                selected && "bg-accent/70",
-              )}
-              data-selected={selected ? "true" : undefined}
-              key={model.id}
-              onClick={() => onPickModel(model)}
-              type="button"
-            >
-              <span className="grid h-4 w-4 shrink-0 place-items-center">
-                {selected ? <Check className="h-4 w-4 text-status-success" /> : null}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-foreground">
-                  {model.displayName}
-                </span>
-                <span className="block truncate text-[11px] text-muted-foreground">
-                  {model.model}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-        {modelPicker.result.reasoningEfforts.length > 0 ? (
-          <>
-            <div className="mt-1 border-t border-border px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
-              Reasoning
-            </div>
-            {modelPicker.result.reasoningEfforts.map((effort) => {
-              const selected = reasoningEffortOptionSelected(effort, selectedReasoningEffort);
-              return (
-                <button
-                  aria-current={selected ? "true" : undefined}
-                  className={cn(
-                    "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75",
-                    selected && "bg-accent/70",
-                  )}
-                  data-reasoning-effort={effort.effort}
-                  data-reasoning-selected={selected ? "true" : undefined}
-                  key={effort.effort}
-                  onClick={() => onPickReasoningEffort(effort)}
-                  type="button"
-                >
-                  <span className="grid h-4 w-4 shrink-0 place-items-center">
-                    {selected ? <Check className="h-4 w-4 text-status-success" /> : null}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-foreground">
-                      {effort.displayName}
-                    </span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
-                      {effort.description}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </>
-        ) : null}
-      </div>
-    );
-  }
-  if (!isSlashDraft(draft)) {
-    return null;
-  }
-  if (commandListError) {
-    return (
-      <div
-        className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-status-critical/80 bg-popover/95 p-2 text-xs text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
-        data-testid="command-suggestions"
-        role="alert"
-      >
-        <div className="font-medium text-status-critical">Slash commands unavailable</div>
-        <div className="mt-1 break-words text-muted-foreground">{commandListError}</div>
-      </div>
-    );
-  }
-  if (suggestions.length === 0) {
-    return null;
-  }
-  return (
-    <div
-      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-border bg-popover/95 p-1 text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
-      data-testid="command-suggestions"
-    >
-      {suggestions.map((command) => (
-        <button
-          className={cn(
-            "flex w-full min-w-0 items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75 disabled:opacity-50",
-            command === selectedSuggestion && "bg-accent/80",
-          )}
-          disabled={!command.available}
-          key={command.name}
-          onClick={() => onPickCommand(command)}
-          type="button"
-        >
-          <span className="min-w-0">
-            <span className="block font-medium text-foreground">{command.name}</span>
-            <span className="block truncate text-[11px] text-muted-foreground">
-              {command.available ? command.usage : command.unavailableReason}
-            </span>
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function isSlashDraft(draft: string) {
-  return draft.startsWith("/");
-}
-
-export function commandSuggestions(commands: ChatCommandCapability[], draft: string) {
-  if (!isSlashDraft(draft)) {
-    return [];
-  }
-  const token = draft.slice(1).split(/\s+/, 1)[0] ?? "";
-  const prefix = "/" + token;
-  return commands.filter((command) => command.name.startsWith(prefix));
-}
-
-export function commandTextToExecute(
-  prompt: string,
-  selectedSuggestion: ChatCommandCapability | null,
-) {
-  if (!selectedSuggestion) {
-    return prompt;
-  }
-  const match = /^\/([^\s]*)(\s.*)?$/.exec(prompt);
-  if (!match) {
-    return prompt;
-  }
-  const token = "/" + match[1];
-  const rest = match[2] ?? "";
-  if (selectedSuggestion.name === token) {
-    return prompt;
-  }
-  if (selectedSuggestion.name.startsWith(token)) {
-    return selectedSuggestion.name + rest;
-  }
-  return prompt;
-}
-
-export function goalReplacementExecutionOptions(
-  raw: string,
-  currentGoal: ChatGoalState | null,
-  confirmReplacement: (message: string) => boolean,
-): ChatCommandExecutionOptions | null {
-  const nextObjective = goalSetObjective(raw);
-  if (!nextObjective || !currentGoal || currentGoal.status === "complete") {
-    return {};
-  }
-  if (currentGoal.objective.trim() === nextObjective.trim()) {
-    return {};
-  }
-  if (!confirmReplacement("Replace the current goal?")) {
-    return null;
-  }
-  return { confirmGoalReplacement: true };
-}
-
-export function goalEditorDraft(goal: ChatGoalState | null) {
-  const objective = goal?.objective.trim() ?? "";
-  return objective === "" ? "/goal " : `/goal ${objective}`;
-}
-
-function goalSetObjective(raw: string) {
-  const match = /^\/goal(?:\s+(.+))?$/.exec(raw.trim());
-  if (!match) {
-    return null;
-  }
-  const args = match[1]?.trim() ?? "";
-  switch (args) {
-    case "":
-    case "edit":
-    case "clear":
-    case "pause":
-    case "resume":
-      return null;
-    default:
-      return args;
-  }
-}
-
-function composerTextareaLabel(selected: boolean) {
-  return selected ? "Ask Setta" : "Start new chat";
-}
-
-function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible: boolean }) {
-  if (!selected || !visible) {
-    return null;
-  }
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute top-0 left-0 flex h-4 items-center gap-1 text-xs leading-4 text-muted-foreground"
-    >
-      <span>Ask</span>
-      <SettaLogoMark className="translate-y-[3px] opacity-60" height={11} />
-    </div>
+    composerActionPropsEqual(previous.actions, next.actions) &&
+    composerScalarPropsEqual(previous, next) &&
+    runPresentationPropsEqual(previous.runPresentation, next.runPresentation) &&
+    composerViewModelPropsEqual(previous.viewModel, next.viewModel)
   );
 }

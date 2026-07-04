@@ -3,9 +3,6 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
 import "./styles.css";
-import { installWebSettaAPIIfNeeded } from "./web/setta-web-api";
-
-installWebSettaAPIIfNeeded();
 
 const rootElement = document.getElementById("root");
 

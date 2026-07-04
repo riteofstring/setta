@@ -298,6 +298,7 @@ export class FrameScheduler {
     });
     this.items.push(
       ...interpolatePaneRenderItems({
+        includeSecondaryOnlyItems: snapshot.presentationMode === "overview",
         normalItems,
         overviewItems,
         overviewProgress: snapshot.overviewProgress,
@@ -311,7 +312,7 @@ export class FrameScheduler {
     const frameStart = performance.now();
     const viewport = this.viewportProvider();
     const resizePhase = this.resizePhaseTracker.sample(viewport, timestamp);
-    if (this.continuous && resizePhase === "idle") {
+    if (resizePhase === "idle") {
       this.advanceBenchmarkFocus(timestamp);
     }
     const resizePhaseAfterRender = this.renderFrame(deltaMs, viewport, resizePhase);

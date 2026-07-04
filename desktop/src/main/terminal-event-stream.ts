@@ -8,7 +8,6 @@ export interface TerminalEventStream {
 }
 
 interface TerminalEventStreamOptions {
-  authToken: string;
   baseURL: string;
   fetchImpl?: BackendFetch;
   reconnectDelayMs?: number;
@@ -25,7 +24,6 @@ const defaultReconnectDelayMs = 500;
 export function startTerminalEventStream(options: TerminalEventStreamOptions): TerminalEventStream {
   const abort = new AbortController();
   const done = runTerminalEventStreamLoop({
-    authToken: options.authToken,
     baseURL: options.baseURL,
     fetchImpl: options.fetchImpl ?? fetch,
     reconnectDelayMs: options.reconnectDelayMs ?? defaultReconnectDelayMs,
@@ -43,7 +41,6 @@ export function startTerminalEventStream(options: TerminalEventStreamOptions): T
 
 async function runTerminalEventStreamLoop(options: {
   baseURL: string;
-  authToken: string;
   fetchImpl: BackendFetch;
   reconnectDelayMs: number;
   sendEvent: (event: TerminalEvent) => void;
@@ -73,11 +70,10 @@ async function streamTerminalEventsOnce(options: {
   baseURL: string;
   cursor: TerminalEventCursor;
   fetchImpl: BackendFetch;
-  authToken: string;
   sendEvent: (event: TerminalEvent) => void;
   signal: AbortSignal;
 }): Promise<TerminalEventCursor> {
-  const headers: Record<string, string> = { Authorization: `Bearer ${options.authToken}` };
+  const headers: Record<string, string> = {};
   if (options.cursor.streamId !== "") {
     headers["Last-Event-ID"] = encodeTerminalEventCursor(options.cursor);
   }

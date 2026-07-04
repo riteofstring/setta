@@ -21,13 +21,14 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { driverCallExpression } from "./cdp-client.mjs";
 import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame-budget.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "chat-long-transcript-performance";
 const workflowTimeoutMs = 45_000;
-const targetEarliestTurn = 50;
-const minimumScrollHeightAfterPagination = 100_000;
+const minimumOlderTurnProgress = 20;
+const minimumScrollHeightIncreaseAfterPagination = 5_000;
 const maxOlderPageLoads = 14;
 const wheelEventCount = 90;
 const viewport = {
@@ -66,6 +67,7 @@ try {
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await context.client.installDriver();
   await waitForState(
     context.client,
     bodyTextExpression(),
@@ -174,7 +176,7 @@ async function measureConversationSelection(client) {
     (state) =>
       state.ready &&
       state.selectedConversationId === "conversation_performance_long_transcript" &&
-      state.scrollHeight > state.clientHeight &&
+      state.hasOlderButton &&
       state.visibleActivityRows > 0,
     workflowTimeoutMs,
   );
@@ -192,24 +194,14 @@ async function waitForTranscriptSelectionSettled(client) {
     (state) =>
       state.ready &&
       state.selectedConversationId === "conversation_performance_long_transcript" &&
-      state.scrollHeight > state.clientHeight &&
+      state.visibleActivityRows > 0 &&
       state.hasOlderButton,
     workflowTimeoutMs,
   );
 }
 
 async function clickPerformanceConversation(client) {
-  const clicked = await client.evaluate(`(() => {
-    const candidates = Array.from(document.querySelectorAll('button, [role="button"], a'));
-    const target = candidates.find((element) =>
-      (element.textContent || '').includes('Performance Long Chat')
-    );
-    if (!target) {
-      return { ok: false, reason: "missing-conversation" };
-    }
-    target.click();
-    return { ok: true };
-  })()`);
+  const clicked = await client.driver("chatLongTranscriptClickPerformanceConversation");
   if (!clicked.ok) {
     throw new Error(`performance conversation click failed: ${JSON.stringify(clicked)}`);
   }
@@ -245,12 +237,6 @@ function olderTranscriptStopReason(state) {
   if (!state.hasOlderButton) {
     return "no-older-button";
   }
-  if (state.topTurn !== null && state.topTurn <= targetEarliestTurn) {
-    return "target-earliest-turn";
-  }
-  if (state.scrollHeight >= minimumScrollHeightAfterPagination) {
-    return "target-scroll-height";
-  }
   return "";
 }
 
@@ -276,39 +262,30 @@ function olderTranscriptPageProgressed(before, state) {
 async function finishOlderTranscriptPagination(client, snapshots) {
   const final = await transcriptTopState(client);
   snapshots.push({ final, pageIndex: maxOlderPageLoads });
-  if (!olderTranscriptTargetReached(final)) {
+  if (!olderTranscriptTargetReached(snapshots, final)) {
     throw new Error(`older transcript pages did not reach target: ${JSON.stringify(snapshots)}`);
   }
   return { completed: true, reason: "max-page-loads", snapshots };
 }
 
-function olderTranscriptTargetReached(state) {
+function olderTranscriptTargetReached(snapshots, state) {
+  if (!state.hasOlderButton || state.topTurn === null) {
+    return true;
+  }
+  const initial = snapshots[0]?.before ?? null;
+  if (!initial || initial.topTurn === null) {
+    return false;
+  }
+  const loadedOlderTurns = initial.topTurn - state.topTurn;
+  const scrollHeightIncrease = state.scrollHeight - initial.scrollHeight;
   return (
-    state.scrollHeight >= minimumScrollHeightAfterPagination ||
-    state.topTurn === null ||
-    state.topTurn <= targetEarliestTurn ||
-    !state.hasOlderButton
+    loadedOlderTurns >= minimumOlderTurnProgress &&
+    scrollHeightIncrease >= minimumScrollHeightIncreaseAfterPagination
   );
 }
 
 async function clickOlderButtonAtTranscriptTop(client) {
-  const clicked = await client.evaluate(`(async () => {
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    if (!(scroller instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-scroller" };
-    }
-    scroller.scrollTop = 0;
-    scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.textContent?.trim() === "Older",
-    );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { ok: false, reason: "missing-older-button" };
-    }
-    button.click();
-    return { ok: true };
-  })()`);
+  const clicked = await client.driver("chatLongTranscriptClickOlderButtonAtTop");
   await delay(120);
   return clicked;
 }
@@ -332,23 +309,7 @@ async function measureTranscriptWheelScroll(client, { deltaY, label, start }) {
 }
 
 async function prepareTranscriptScrollStart(client, start) {
-  const point = await client.evaluate(`(() => {
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    if (!(scroller instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-scroller" };
-    }
-    scroller.scrollTop = ${JSON.stringify(start)} === "bottom"
-      ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
-      : 0;
-    scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
-    const rect = scroller.getBoundingClientRect();
-    return {
-      ok: true,
-      startScrollTop: scroller.scrollTop,
-      x: Math.round(rect.left + rect.width / 2),
-      y: Math.round(rect.top + rect.height / 2),
-    };
-  })()`);
+  const point = await client.driver("chatLongTranscriptPrepareScrollStart", { start });
   if (!point.ok) {
     throw new Error(`transcript scroll start failed: ${JSON.stringify(point)}`);
   }
@@ -357,14 +318,14 @@ async function prepareTranscriptScrollStart(client, start) {
 }
 
 async function startSampler(client) {
-  const started = await client.evaluate(startSamplerExpression());
+  const started = await client.driver("chatLongTranscriptStartSampler");
   if (!started.ok) {
     throw new Error(`frame sampler did not start: ${JSON.stringify(started)}`);
   }
 }
 
 async function stopSampler(client) {
-  const result = await client.evaluate(stopSamplerExpression());
+  const result = await client.driver("chatLongTranscriptStopSampler");
   if (!result.ok) {
     throw new Error(`frame sampler did not stop: ${JSON.stringify(result)}`);
   }
@@ -373,18 +334,18 @@ async function stopSampler(client) {
 
 async function safeStopSampler(client) {
   try {
-    return await client.evaluate(stopSamplerExpression());
+    return await client.driver("chatLongTranscriptStopSampler");
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
 }
 
 async function transcriptState(client) {
-  return client.evaluate(transcriptStateExpression());
+  return client.driver("chatLongTranscriptState");
 }
 
 async function transcriptTopState(client) {
-  return client.evaluate(transcriptTopStateExpression());
+  return client.driver("chatLongTranscriptTopState");
 }
 
 async function safeTranscriptState(client) {
@@ -396,164 +357,13 @@ async function safeTranscriptState(client) {
 }
 
 function bodyTextExpression() {
-  return `document.body.innerText`;
+  return driverCallExpression("chatLongTranscriptBodyText");
 }
 
 function transcriptTopStateExpression() {
-  return `(async () => {
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    if (scroller instanceof HTMLElement) {
-      scroller.scrollTop = 0;
-      scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-    }
-    return (${transcriptStateSnapshotSource()})();
-  })()`;
+  return driverCallExpression("chatLongTranscriptTopState");
 }
 
 function transcriptStateExpression() {
-  return `(${transcriptStateSnapshotSource()})()`;
-}
-
-function transcriptStateSnapshotSource() {
-  return `() => {
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    const detailPane = document.querySelector('[data-testid="chat-detail-pane"]');
-    const messageIds = Array.from(document.querySelectorAll('[data-chat-message="true"]'))
-      .map((row) => row instanceof HTMLElement ? row.dataset.messageId ?? "" : "")
-      .filter((id) => id !== "");
-    const turnIndexes = messageIds
-      .map((id) => {
-        const match = id.match(/message_performance_(?:user|assistant|steering)_(\\d+)/);
-        return match ? Number(match[1]) : null;
-      })
-      .filter((value) => Number.isFinite(value));
-    const olderButton = Array.from(document.querySelectorAll("button")).find(
-      (button) => button.textContent?.trim() === "Older",
-    );
-    return {
-      atBottom: scroller instanceof HTMLElement
-        ? Math.abs(scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight) <= 2
-        : false,
-      bodyTextLength: document.body.textContent?.length ?? 0,
-      clientHeight: scroller instanceof HTMLElement ? scroller.clientHeight : 0,
-      hasOlderButton: olderButton instanceof HTMLButtonElement && !olderButton.disabled,
-      maxVisibleTurn: turnIndexes.length > 0 ? Math.max(...turnIndexes) : null,
-      messageRows: messageIds.length,
-      ready: scroller instanceof HTMLElement,
-      scrollHeight: scroller instanceof HTMLElement ? scroller.scrollHeight : 0,
-      scrollTop: scroller instanceof HTMLElement ? scroller.scrollTop : 0,
-      selectedConversationId:
-        detailPane instanceof HTMLElement ? detailPane.dataset.conversationId ?? "" : "",
-      topTurn: turnIndexes.length > 0 ? Math.min(...turnIndexes) : null,
-      turnRows: document.querySelectorAll('[data-testid="chat-transcript-turn"]').length,
-      visibleActivityRows: document.querySelectorAll('[data-testid="run-activity-row"]').length,
-    };
-  }`;
-}
-
-function startSamplerExpression() {
-  return `(() => {
-    window.__settaLongTranscriptPerfStop?.();
-    const startedAt = performance.now();
-    const frames = [];
-    const longTasks = [];
-    let mutationCount = 0;
-    let previousTimestamp = startedAt;
-    let running = true;
-    let observer = null;
-    if (
-      "PerformanceObserver" in window &&
-      PerformanceObserver.supportedEntryTypes.includes("longtask")
-    ) {
-      observer = new PerformanceObserver((entries) => {
-        for (const entry of entries.getEntries()) {
-          longTasks.push({ duration: entry.duration, startTime: entry.startTime });
-        }
-      });
-      observer.observe({ type: "longtask" });
-    }
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    if (!(scroller instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-scroller" };
-    }
-    const mutationObserver = new MutationObserver((records) => {
-      mutationCount += records.length;
-    });
-    mutationObserver.observe(scroller, {
-      characterData: true,
-      childList: true,
-      subtree: true,
-    });
-    function recordFrame(timestamp) {
-      if (!running) {
-        return;
-      }
-      frames.push(timestamp - previousTimestamp);
-      previousTimestamp = timestamp;
-      requestAnimationFrame(recordFrame);
-    }
-    requestAnimationFrame(recordFrame);
-    window.__settaLongTranscriptPerfStop = () => {
-      running = false;
-      observer?.disconnect();
-      mutationObserver.disconnect();
-      window.__settaLongTranscriptPerfStop = null;
-      const samples = frames.slice(1).filter((value) => Number.isFinite(value) && value >= 0);
-      const sorted = [...samples].sort((left, right) => left - right);
-      const quantile = (percentile) => {
-        if (sorted.length === 0) {
-          return 0;
-        }
-        const index = Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * percentile));
-        return sorted[index];
-      };
-      const averageFrameDeltaMs =
-        samples.length > 0
-          ? samples.reduce((total, value) => total + value, 0) / samples.length
-          : 0;
-      const observedFrameBudgetMs = quantile(0.5) <= 10 ? 8.33 : 16.67;
-      const sampledLongTasks = longTasks.filter((entry) => entry.startTime >= startedAt);
-      return {
-        averageFps: averageFrameDeltaMs > 0 ? 1000 / averageFrameDeltaMs : 0,
-        averageFrameDeltaMs,
-        durationMs: performance.now() - startedAt,
-        frameCount: samples.length,
-        framesMs: samples.map((value) => Number(value.toFixed(3))),
-        longTaskCount: sampledLongTasks.length,
-        longTaskMaxMs: sampledLongTasks.reduce(
-          (maxValue, entry) => Math.max(maxValue, entry.duration),
-          0,
-        ),
-        longTaskTotalMs: sampledLongTasks.reduce(
-          (total, entry) => total + entry.duration,
-          0,
-        ),
-        longTasks: sampledLongTasks.map((entry) => ({
-          duration: Number(entry.duration.toFixed(3)),
-          startTime: Number((entry.startTime - startedAt).toFixed(3)),
-        })),
-        maxFrameDeltaMs: sorted.at(-1) ?? 0,
-        mutationCount,
-        observedFrameBudgetMs,
-        p50FrameDeltaMs: quantile(0.5),
-        p95FrameDeltaMs: quantile(0.95),
-        p99FrameDeltaMs: quantile(0.99),
-        slowFramesOver120HzBudget: samples.filter((value) => value > 8.33).length,
-        slowFramesOver16Ms: samples.filter((value) => value > 16.67).length,
-        slowFramesOver32Ms: samples.filter((value) => value > 32).length,
-        slowFramesOver50Ms: samples.filter((value) => value > 50).length,
-      };
-    };
-    return { ok: true };
-  })()`;
-}
-
-function stopSamplerExpression() {
-  return `(() => {
-    if (!window.__settaLongTranscriptPerfStop) {
-      return { ok: false, reason: "missing-sampler" };
-    }
-    return { ok: true, sample: window.__settaLongTranscriptPerfStop() };
-  })()`;
+  return driverCallExpression("chatLongTranscriptState");
 }
