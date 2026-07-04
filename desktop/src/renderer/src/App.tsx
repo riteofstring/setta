@@ -2,7 +2,7 @@ import type { WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import { PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   compactProjectPaneWidth,
@@ -25,6 +25,7 @@ import {
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import { runChatBackgroundAction } from "./stores/chat-background-actions";
+import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
 import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
 import {
   type WorkspaceOperation,
@@ -204,6 +205,7 @@ function useRuntimeLifecycle(setta: SettaAPI) {
   const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
   const setRuntimeSnapshot = useRuntimeStore((state) => state.setSnapshot);
   const loadWorkspaceSession = useWorkspaceStore((state) => state.loadSession);
+  const resetRuntimeStateKeyRef = useRef<string | null | undefined>(undefined);
   const activeConnectedRuntimeId =
     runtimeSnapshot?.connection.status === "connected" ? runtimeSnapshot.activeRuntimeId : null;
 
@@ -213,6 +215,18 @@ function useRuntimeLifecycle(setta: SettaAPI) {
       setRuntimeSnapshot(snapshot);
     });
   }, [loadRuntimes, setRuntimeSnapshot, setta]);
+
+  useEffect(() => {
+    if (!runtimeSnapshot) {
+      return;
+    }
+    const activeRuntimeId = runtimeSnapshot.activeRuntimeId;
+    if (resetRuntimeStateKeyRef.current === activeRuntimeId) {
+      return;
+    }
+    resetRuntimeStateKeyRef.current = activeRuntimeId;
+    resetRuntimeDerivedRendererState();
+  }, [runtimeSnapshot]);
 
   useEffect(() => {
     if (!activeConnectedRuntimeId) {
@@ -485,7 +499,6 @@ function useWorkspaceViewState() {
   const clearError = useWorkspaceStore((state) => state.clearError);
   const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
   const error = useWorkspaceStore((state) => state.error);
-  const loadSession = useWorkspaceStore((state) => state.loadSession);
   const openLocalFolder = useWorkspaceStore((state) => state.openLocalFolder);
   const openWorkspacePath = useWorkspaceStore((state) => state.openWorkspacePath);
   const operation = useWorkspaceStore((state) => state.operation);
@@ -494,10 +507,6 @@ function useWorkspaceViewState() {
   const session = useWorkspaceStore((state) => state.session);
   const status = useWorkspaceStore((state) => state.status);
   const selectedWorkspace = useSelectedWorkspace(session);
-
-  useEffect(() => {
-    void loadSession();
-  }, [loadSession]);
 
   return {
     activeWorkspaces: session?.activeWorkspaces ?? [],

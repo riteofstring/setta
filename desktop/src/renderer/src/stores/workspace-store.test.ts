@@ -243,6 +243,31 @@ describe("workspace store", () => {
     expect(useWorkspaceStore.getState().session).toEqual(newerSession);
     expect(useWorkspaceStore.getState().status).toBe("ready");
   });
+
+  test("runtime reset clears session and ignores in-flight session loads", async () => {
+    const pending = deferred<WorkspaceSession>();
+    useWorkspaceStore.setState({
+      error: "local workspace error",
+      operation: "opening",
+      session: workspaceSession("workspace_local"),
+      status: "ready",
+    });
+    installSettaAPI({
+      workspace: {
+        session: vi.fn().mockReturnValue(pending.promise),
+      },
+    });
+
+    const loadPromise = useWorkspaceStore.getState().loadSession();
+    useWorkspaceStore.getState().resetRuntimeState();
+    pending.resolve(workspaceSession("workspace_stale"));
+    await loadPromise;
+
+    expect(useWorkspaceStore.getState().error).toBeNull();
+    expect(useWorkspaceStore.getState().operation).toBeNull();
+    expect(useWorkspaceStore.getState().session).toBeNull();
+    expect(useWorkspaceStore.getState().status).toBe("idle");
+  });
 });
 
 interface SettaAPIOverrides {
