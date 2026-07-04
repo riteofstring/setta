@@ -1,3 +1,24 @@
+.workspace-terminal-surface > .workspace-terminal-status {
+  align-self: start;
+  background: color-mix(in oklch, var(--workspace-terminal-background, #09090b) 82%, white 6%);
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 62%, transparent);
+  box-sizing: border-box;
+  color: color-mix(in oklch, var(--foreground) 86%, var(--primary));
+  display: block;
+  font-family: var(--setta-font-mono);
+  font-size: 10px;
+  line-height: 16px;
+  max-height: min(96px, 34%);
+  min-height: 29px;
+  min-width: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 5px 8px 7px;
+  position: relative;
+  white-space: normal;
+  z-index: 4;
+}
+
 .workspace-xterm-surface {
   align-items: stretch;
   gap: 0;

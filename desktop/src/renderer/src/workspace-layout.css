@@ -718,25 +718,6 @@
   background: var(--workspace-terminal-background, #09090b);
 }
 
-.workspace-terminal-surface > .workspace-terminal-status {
-  align-self: start;
-  background: color-mix(in oklch, var(--workspace-terminal-background, #09090b) 82%, white 6%);
-  border-bottom: 1px solid color-mix(in oklch, var(--border) 62%, transparent);
-  color: color-mix(in oklch, var(--foreground) 86%, var(--primary));
-  display: block;
-  font-family: var(--setta-font-mono);
-  font-size: 10px;
-  line-height: 1.35;
-  max-height: min(96px, 34%);
-  min-width: 0;
-  overflow: auto;
-  overflow-wrap: anywhere;
-  padding: 5px 8px;
-  position: relative;
-  white-space: normal;
-  z-index: 4;
-}
-
 .workspace-git-graph-header {
   align-items: center;
   display: flex;
