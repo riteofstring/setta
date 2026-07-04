@@ -221,8 +221,8 @@ Expected UX after the fix:
 
 The `Too many open files` failure came from Codex trying to start several
 parallel `exec_command` tools while the inherited macOS soft file descriptor
-limit was low. Setta currently launches `codex app-server` without raising or
-validating that limit.
+limit was low. Before the launch guard landed, Setta launched
+`codex app-server` without raising or validating that limit.
 
 The immediate Setta fix is small and independent. Since Go 1.19, the runtime
 raises the process soft `RLIMIT_NOFILE` to the hard limit at startup, but it
