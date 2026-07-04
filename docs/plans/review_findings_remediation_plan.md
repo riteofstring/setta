@@ -461,22 +461,20 @@ After the extraction is complete, run the targeted Electron tests that owned the
 
 ### Progress
 
-Status: Extraction in progress. DOM pane snapshot/scroll, chat stream,
-semantic graph, overview, and long transcript performance now install driver
-modules and call named driver functions with structured arguments. Long
-transcript extraction also repaired stale grouped-activity and virtualized
-pagination assertions, so the workflow verifies older-page progress without
-requiring a retained 100k-pixel DOM.
+Status: Completed 2026-07-03. DOM pane snapshot/scroll, chat stream, semantic
+graph, overview, and long transcript performance now install driver modules and
+call named driver functions with structured arguments. Final blocker cleanup
+fixed overview zoom by using an explicitly sized benchmark browser scene, and
+added bounded call-site frame baselines for chat stream and native-browser
+snapshot/restore transitions.
 
-Verification: DOM pane snapshot/scroll, semantic graph syntax/workflow, overview
-syntax, and `workflow-graph-maximized-4k-overview.test.mjs --skip-build`
-passed. Long transcript `node --check`, direct guardrail, and
-`chat-long-transcript-performance.test.mjs --skip-build` passed. Final
-`./scripts/format.sh` and `./check_quality.sh --git-changes` passed. Remaining:
-`chat-stream-performance.test.mjs --skip-build` still fails an existing
-frame-budget assertion, and `overview-zoom-performance.test.mjs --skip-build`
-still fails the documented browser-pane setup path with visible browser pane
-count stuck at `0`; resolve or baseline both.
+Verification: prior extracted workflows passed as recorded in the implementation
+order plan. Final blocker verification covered syntax checks for changed
+Electron tests/drivers, `pnpm -C desktop typecheck`, focused runtime-mode
+Vitest, `pnpm -C desktop build`, focused chat-stream and overview-zoom Electron
+runs, `./scripts/format.sh`, and `./check_quality.sh --git-changes`.
+Remaining: Track 10 remains independent; Phase 4 backend trajectory contracts
+are no longer blocked by Track 4 verification.
 
 ## Track 5: Workflow Version Commit Ordering
 

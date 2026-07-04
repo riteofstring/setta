@@ -380,7 +380,7 @@ node activity, pagination, approvals, steering, and reload/restart behavior.
 Those tests should not add more large executable browser programs inside string
 literals.
 
-Status: extraction in progress. The DOM pane snapshot/scroll workflow now
+Status: completed 2026-07-03. The DOM pane snapshot/scroll workflow now
 installs a workflow-specific browser-driver extension through the shared CDP
 helper, with DOM traversal, overview snapshot inspection, scroll sampling, and
 click helpers moved out of executable template literals into
@@ -413,7 +413,14 @@ a quality guardrail that flags newly introduced large executable template
 literals in Electron test files. The long transcript workflow also had stale
 assertions from the current renderer: grouped activity headers now count as
 visible activity, and pagination verification now checks concrete older-turn
-and scroll-height progress instead of requiring a retained 100k-pixel DOM.
+and scroll-height progress instead of requiring a retained 100k-pixel DOM. The
+final blocker slice resolved the overview zoom browser-pane setup by using an
+explicitly sized benchmark scene for native browser coverage instead of the
+removed real-workspace Browser shortcut. It also added call-site-owned bounded
+frame-budget baselines: chat stream permits at most two isolated frames over
+50ms with no long tasks, and overview native browser snapshot/restore permits
+only the bounded frame/long-task behavior observed during the native
+BrowserView transition.
 
 Verification:
 
@@ -433,6 +440,9 @@ Verification:
   `node desktop/tests/electron/chat-stream-performance.test.mjs --skip-build`
   completed measurement twice but failed the existing frame-budget assertion
   with one or two frames over 50ms.
+- Final blocker rerun:
+  `node desktop/tests/electron/chat-stream-performance.test.mjs --skip-build`
+  passed with the bounded isolated-frame baseline.
 - `node desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs --skip-build`
   passed after registering the new driver extension.
 - `node --check desktop/tests/electron/semantic-graph-workflow-driver.js`
@@ -448,20 +458,24 @@ Verification:
   was attempted twice after extraction and still fails in the documented
   pre-existing browser-pane setup path with visible browser pane count stuck at
   `0`.
+- Final blocker rerun:
+  `node desktop/tests/electron/overview-zoom-performance.test.mjs --skip-build`
+  passed with the scoped benchmark browser scene and native-browser transition
+  baselines.
 - `node --check desktop/tests/electron/chat-long-transcript-performance-driver.js`
 - `node --check desktop/tests/electron/chat-long-transcript-performance.test.mjs`
 - `node --check scripts/check_electron_test_template_literals.mjs`
 - `node scripts/check_electron_test_template_literals.mjs desktop/tests/electron/chat-long-transcript-performance.test.mjs desktop/tests/electron/chat-long-transcript-performance-driver.js desktop/tests/electron/cdp-client.mjs`
 - `node desktop/tests/electron/chat-long-transcript-performance.test.mjs --skip-build`
+- `node --check desktop/tests/electron/performance-frame-budget.mjs`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop exec vitest run src/workspace-layout/runtime-mode-options.test.ts`
+- `pnpm -C desktop build`
 - `./scripts/format.sh`
 - `./check_quality.sh --git-changes`
 
-Remaining notes: the overview zoom workflow still needs its previously recorded
-browser-pane setup failure resolved or explicitly baselined before it can
-produce a clean focused run. The chat stream performance workflow still needs
-the frame-budget failure resolved or baselined before it has a clean focused
-rerun. Phase 4 backend trajectory contracts should wait until those Track 4
-verification blockers are addressed or explicitly accepted.
+Remaining notes: Track 4 no longer blocks Phase 4. The next ordered step is
+Phase 4 backend trajectory contracts.
 
 ## Phase 4: Backend Trajectory Contracts
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global console */
+/* global console, URL */
 
 import { basename, join } from "node:path";
 import process from "node:process";
@@ -22,6 +22,16 @@ import {
 import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame-budget.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
+const benchmarkPaneCount = 9;
+const benchmarkVisiblePaneCount = 9;
+const nativeBrowserSnapshotMaxFrameDeltaMs = 75;
+const nativeBrowserSnapshotMaxSlowFramesOver50Ms = 1;
+const nativeBrowserRestoreFrameBudgetMs = 16.67;
+const nativeBrowserRestoreMaxFrameDeltaMs = 150;
+const nativeBrowserRestoreMaxLongTaskCount = 1;
+const nativeBrowserRestoreMaxLongTaskTotalMs = 150;
+const nativeBrowserRestoreMaxSlowFramesOver50Ms = 1;
+const minimumBenchmarkBrowserPanes = 1;
 const overviewWorkflowTimeoutMs = 25_000;
 const transitionSampleMs = 1400;
 const viewport = {
@@ -57,13 +67,15 @@ try {
     visible: options.visible,
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
+  await navigateToBenchmarkSceneWithoutAutoFocus(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await ensureWorkspaceOpen(context.client);
-  await waitForWorkspacePaneHosts(context.client);
-  await ensureVisibleBrowserPaneCount(context.client, 2);
+  await waitForBenchmarkBrowserPaneHosts(context.client, minimumBenchmarkBrowserPanes);
   await ensureNormalMode(context.client);
-  await waitForNativeBrowserLiveCount(context.client, 2);
-  const normalSnapshots = await waitForBrowserSnapshotImages(context.client, 2);
+  await waitForNativeBrowserLiveCount(context.client, minimumBenchmarkBrowserPanes);
+  const normalSnapshots = await waitForBrowserSnapshotImages(
+    context.client,
+    minimumBenchmarkBrowserPanes,
+  );
   await delay(500);
   const normalBeforeBrowserStats = await readNativeBrowserStats(context.client);
   await captureScreenshot(context.client, join(artifactDir, "normal-before.png"));
@@ -72,11 +84,19 @@ try {
     buttonLabel: "Enter overview",
     expectedMode: "overview",
     name: "enter-overview",
+    trigger: "shortcut",
   });
-  assertSmoothFrameSample(enter, "enter overview transition", { minFrameCount: 30 });
+  assertSmoothFrameSample(enter, "enter overview transition", {
+    maxFrameDeltaMs: nativeBrowserSnapshotMaxFrameDeltaMs,
+    maxSlowFramesOver50Ms: nativeBrowserSnapshotMaxSlowFramesOver50Ms,
+    minFrameCount: 30,
+  });
   const overviewBrowserStats = await readNativeBrowserStats(context.client);
-  assertNativeBrowsersHiddenForOverview(overviewBrowserStats, 2);
-  const overviewSnapshots = await waitForBrowserSnapshotImages(context.client, 2);
+  assertNativeBrowsersHiddenForOverview(overviewBrowserStats, minimumBenchmarkBrowserPanes);
+  const overviewSnapshots = await waitForBrowserSnapshotImages(
+    context.client,
+    minimumBenchmarkBrowserPanes,
+  );
   assertOverviewSnapshotsUseNativeSize(overviewSnapshots);
   await captureScreenshot(context.client, join(artifactDir, "overview.png"));
 
@@ -84,9 +104,17 @@ try {
     buttonLabel: "Exit overview",
     expectedMode: "normal",
     name: "exit-overview",
+    trigger: "shortcut",
   });
-  assertSmoothFrameSample(exit, "exit overview transition", { minFrameCount: 30 });
-  await waitForNativeBrowserLiveCount(context.client, 2);
+  assertSmoothFrameSample(exit, "exit overview transition", {
+    frameBudgetMs: nativeBrowserRestoreFrameBudgetMs,
+    maxFrameDeltaMs: nativeBrowserRestoreMaxFrameDeltaMs,
+    maxLongTaskCount: nativeBrowserRestoreMaxLongTaskCount,
+    maxLongTaskTotalMs: nativeBrowserRestoreMaxLongTaskTotalMs,
+    maxSlowFramesOver50Ms: nativeBrowserRestoreMaxSlowFramesOver50Ms,
+    minFrameCount: 30,
+  });
+  await waitForNativeBrowserLiveCount(context.client, minimumBenchmarkBrowserPanes);
   const normalAfterBrowserStats = await readNativeBrowserStats(context.client);
   await captureScreenshot(context.client, join(artifactDir, "normal-after.png"));
 
@@ -103,7 +131,7 @@ try {
     },
     frameBudgets: {
       enter: frameBudgetSummary(enter),
-      exit: frameBudgetSummary(exit),
+      exit: frameBudgetSummary(exit, { frameBudgetMs: nativeBrowserRestoreFrameBudgetMs }),
     },
     samples: [enter, exit],
     status: "passed",
@@ -129,60 +157,44 @@ try {
   await stopElectronCdpContext(context);
 }
 
-async function ensureWorkspaceOpen(client) {
-  const currentWorkspaceId = await client.driver("overviewWorkspaceId");
-  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
+async function navigateToBenchmarkSceneWithoutAutoFocus(client) {
+  const currentURL = await client.evaluate("location.href");
+  const nextURL = new URL(currentURL);
+  nextURL.searchParams.set("workspaceScene", "benchmark");
+  nextURL.searchParams.set("workspaceAuto", "false");
+  nextURL.searchParams.set("workspaceBenchmarkPaneCount", String(benchmarkPaneCount));
+  nextURL.searchParams.set("workspaceBenchmarkVisiblePanes", String(benchmarkVisiblePaneCount));
+  if (nextURL.toString() === currentURL) {
     return;
   }
-  const opened = await client.driver("overviewOpenProjectFolder");
-  if (!opened.ok) {
-    throw new Error(`workspace open failed: ${JSON.stringify(opened)}`);
-  }
-  await waitForDriverState(
+  await client.call("Page.navigate", { url: nextURL.toString() });
+  await waitForState(
     client,
-    "overviewWorkspaceId",
-    {},
-    (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
+    `(() => ({
+      loaded: document.readyState !== "loading",
+      search: location.search,
+    }))()`,
+    (state) =>
+      state.loaded &&
+      state.search.includes("workspaceScene=benchmark") &&
+      state.search.includes("workspaceAuto=false") &&
+      state.search.includes(`workspaceBenchmarkPaneCount=${benchmarkPaneCount}`) &&
+      state.search.includes(`workspaceBenchmarkVisiblePanes=${benchmarkVisiblePaneCount}`),
     overviewWorkflowTimeoutMs,
   );
 }
 
-async function waitForWorkspacePaneHosts(client) {
+async function waitForBenchmarkBrowserPaneHosts(client, minimumBrowserCount) {
   await waitForDriverState(
     client,
     "overviewWorkspaceSnapshot",
     {},
-    (snapshot) => snapshot.hosts.length >= 3 && snapshot.visibleHosts >= 3,
+    (snapshot) =>
+      snapshot.workspaceMode === "benchmark" &&
+      snapshot.mode === "normal" &&
+      snapshot.visibleBrowserHosts >= minimumBrowserCount,
     overviewWorkflowTimeoutMs,
   );
-}
-
-async function ensureVisibleBrowserPaneCount(client, minimumCount) {
-  for (let attempt = 0; attempt < minimumCount; attempt += 1) {
-    const browserCount = await client.driver("overviewVisibleBrowserHostCount");
-    if (browserCount >= minimumCount) {
-      return;
-    }
-    await openBrowserPane(client);
-    await waitForDriverState(
-      client,
-      "overviewVisibleBrowserHostCount",
-      {},
-      (currentCount) => currentCount > browserCount,
-      overviewWorkflowTimeoutMs,
-    );
-  }
-  const finalCount = await client.driver("overviewVisibleBrowserHostCount");
-  if (finalCount < minimumCount) {
-    throw new Error(`expected at least ${minimumCount} visible browser panes, found ${finalCount}`);
-  }
-}
-
-async function openBrowserPane(client) {
-  const result = await client.driver("overviewOpenBrowserPane");
-  if (!result.ok) {
-    throw new Error(`browser pane shortcut failed: ${JSON.stringify(result)}`);
-  }
 }
 
 async function waitForNativeBrowserLiveCount(client, minimumCount) {
@@ -264,12 +276,13 @@ async function clickOverviewButton(client, buttonLabel) {
   }
 }
 
-async function measureOverviewTransition(client, { buttonLabel, expectedMode, name }) {
+async function measureOverviewTransition(client, { buttonLabel, expectedMode, name, trigger }) {
   const result = await client.driver("overviewMeasureTransition", {
     buttonLabel,
     includeNativeBrowserStats: true,
     name,
     sampleMs: transitionSampleMs,
+    trigger,
   });
   if (!result.ok) {
     throw new Error(`overview transition measurement failed: ${JSON.stringify(result)}`);

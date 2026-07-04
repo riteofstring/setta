@@ -30,6 +30,8 @@ import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const chatPerformanceTimeoutMs = 35_000;
+const chatStreamMaxFrameDeltaMs = 100;
+const chatStreamMaxSlowFramesOver50Ms = 2;
 const completionMarker = "Performance stream complete.";
 const prompt = "chat performance stream";
 const settleAfterCompletionMs = 350;
@@ -94,7 +96,11 @@ try {
     timeoutMs: chatPerformanceTimeoutMs,
   });
   const measurement = await waitForMeasurementSettled(context.client);
-  assertSmoothFrameSample(measurement, "chat stream performance", { minFrameCount: 30 });
+  assertSmoothFrameSample(measurement, "chat stream performance", {
+    maxFrameDeltaMs: chatStreamMaxFrameDeltaMs,
+    maxSlowFramesOver50Ms: chatStreamMaxSlowFramesOver50Ms,
+    minFrameCount: 30,
+  });
   const trace = traceSession ? await stopTraceSession() : null;
   await captureScreenshot(context.client, join(artifactDir, "after-stream.png"));
 

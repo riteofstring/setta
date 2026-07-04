@@ -16,20 +16,11 @@
       overviewFrameMetrics,
       overviewMeasureTransition,
       overviewNativeBrowserStats,
-      overviewOpenBrowserPane,
-      overviewOpenProjectFolder,
       overviewPaneHostState,
       overviewPerformanceVersion: version,
       overviewPresentationMode,
-      overviewVisibleBrowserHostCount,
-      overviewWorkspaceId,
       overviewWorkspaceSnapshot,
     });
-  }
-
-  function overviewWorkspaceId() {
-    const area = document.querySelector(workspaceLayoutSelector);
-    return area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "";
   }
 
   function overviewPresentationMode() {
@@ -55,7 +46,10 @@
     return {
       hosts,
       mode: area instanceof HTMLElement ? (area.dataset.presentationMode ?? "") : "",
+      visibleBrowserHosts: hosts.filter((host) => host.surfaceKind === "browser" && host.visible)
+        .length,
       visibleHosts: hosts.filter((host) => host.visible).length,
+      workspaceMode: area instanceof HTMLElement ? (area.dataset.workspaceMode ?? "") : "",
       workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
     };
   }
@@ -69,40 +63,6 @@
       return { buttonLabel, ok: false, reason: "disabled-overview-button" };
     }
     button.click();
-    return { ok: true };
-  }
-
-  function overviewOpenProjectFolder() {
-    const button = document.querySelector('button[aria-label="Open project folder"]');
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-open-project-folder-button" };
-    }
-    if (button.disabled) {
-      return { ok: false, reason: "disabled-open-project-folder-button" };
-    }
-    button.click();
-    return { ok: true };
-  }
-
-  function overviewVisibleBrowserHostCount() {
-    return Array.from(document.querySelectorAll(".workspace-pane-host")).filter(
-      (host) =>
-        host instanceof HTMLElement &&
-        host.dataset.surfaceKind === "browser" &&
-        host.dataset.visible === "true",
-    ).length;
-  }
-
-  function overviewOpenBrowserPane() {
-    window.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        altKey: true,
-        bubbles: true,
-        cancelable: true,
-        key: "b",
-        metaKey: true,
-      }),
-    );
     return { ok: true };
   }
 
@@ -151,8 +111,9 @@
     name,
     requireWorkspaceFrameMetrics = false,
     sampleMs = 1400,
+    trigger = "button",
   }) {
-    const target = overviewTransitionTarget(buttonLabel);
+    const target = overviewTransitionTarget({ buttonLabel, trigger });
     if (!target.ok) {
       return target;
     }
@@ -175,7 +136,7 @@
     );
 
     requestAnimationFrame(measurement.recordFrame);
-    target.button.click();
+    triggerOverviewTransition(target);
     await new Promise((resolve) => window.setTimeout(resolve, 80));
     const metricsAfter80Ms = readMetrics();
     await maybeRecordNativeBrowserStats(
@@ -361,16 +322,37 @@
     return child.dataset.surfaceKind ?? child.getAttribute("data-react-surface-kind") ?? "";
   }
 
-  function overviewTransitionTarget(buttonLabel) {
+  function overviewTransitionTarget({ buttonLabel, trigger }) {
     const area = document.querySelector(workspaceLayoutSelector);
-    const button = document.querySelector(`button[aria-label="${cssEscape(buttonLabel)}"]`);
     if (!(area instanceof HTMLElement)) {
       return { ok: false, reason: "missing-workspace-area" };
     }
+    if (trigger === "shortcut") {
+      return { area, ok: true, trigger };
+    }
+    if (trigger !== "button") {
+      return { ok: false, reason: "unsupported-overview-trigger", trigger };
+    }
+    const button = document.querySelector(`button[aria-label="${cssEscape(buttonLabel)}"]`);
     if (!(button instanceof HTMLButtonElement)) {
       return { buttonLabel, ok: false, reason: "missing-overview-button" };
     }
-    return { area, button, ok: true };
+    return { area, button, ok: true, trigger };
+  }
+
+  function triggerOverviewTransition(target) {
+    if (target.trigger === "shortcut") {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "o",
+          metaKey: true,
+        }),
+      );
+      return;
+    }
+    target.button.click();
   }
 
   function workspaceMetricRequirementFailure(requireWorkspaceFrameMetrics, metricsBefore) {
