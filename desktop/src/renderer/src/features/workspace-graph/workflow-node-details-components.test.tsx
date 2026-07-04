@@ -1,8 +1,7 @@
 import type {
-  RunActivityPage,
   RunItem,
   RunItemOutput,
-  WorkflowActivityRef,
+  WorkflowAgentTrajectoryPage,
   WorkflowEvent,
   WorkflowExecution,
   WorkflowNodeExecution,
@@ -14,28 +13,37 @@ import type {
   WorkflowNodeActivityFocus,
   WorkflowNodeDetailsTarget,
 } from "../../stores/workflow-editor-store";
+import { activityBlock, userMessageBlock } from "../../stores/chat-store-events.test.helpers";
+import { testRun } from "../../stores/chat-store.test.fixtures";
+import { workflowNodeTrajectoryStateFromPage } from "./workflow-node-agent-trajectory-adapter";
 import {
   WorkflowRunDetailsContent,
-  type WorkflowNodeActivityPage,
   type WorkflowRunInspectionState,
+  type WorkflowRunTrajectoryActions,
 } from "./workflow-node-details-components";
 
 describe("WorkflowRunDetailsContent activity focus", () => {
   test("renders node activity through the shared chat run-activity rows", () => {
     const html = renderToString(
-      <WorkflowRunDetailsContent focus={null} inspection={inspection()} target={target()} />,
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection()}
+        target={target()}
+      />,
     );
 
-    expect(html).toContain('data-testid="run-activity-row"');
-    expect(html).toContain('data-run-item-id="run_item_command"');
+    expect(html).toContain('data-testid="agent-trajectory-surface"');
+    expect(html).toContain('data-agent-trajectory-scope="workflowNodeExecution"');
+    expect(html).toContain('data-testid="activity-group-header"');
+    expect(html).toContain('data-activity-group-source-run-item-ids="run_item_command"');
     expect(html).toContain("npm test");
-    // The shared run-activity path is reused, not the full chat transcript surface.
-    expect(html).not.toContain("data-chat-message");
   });
 
   test("highlights and deep-links the matching run item from a chat_run_item focus", () => {
     const html = renderToString(
       <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
         focus={focus({ detailKind: "chat_run_item", runItemId: "run_item_command" })}
         inspection={inspection()}
         target={target()}
@@ -49,6 +57,7 @@ describe("WorkflowRunDetailsContent activity focus", () => {
   test("highlights the matching workflow event from a workflow_event focus", () => {
     const html = renderToString(
       <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
         focus={focus({ detailKind: "workflow_event", workflowEventId: "event_running" })}
         inspection={inspection()}
         target={target()}
@@ -62,6 +71,7 @@ describe("WorkflowRunDetailsContent activity focus", () => {
   test("highlights the matching pending approval from an approval focus", () => {
     const html = renderToString(
       <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
         focus={focus({ approvalId: "approval_a", detailKind: "approval" })}
         inspection={inspection()}
         target={target()}
@@ -75,6 +85,7 @@ describe("WorkflowRunDetailsContent activity focus", () => {
   test("does not highlight any row when the focus reference is missing", () => {
     const html = renderToString(
       <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
         focus={focus({ detailKind: "chat_run_item", runItemId: "run_item_missing" })}
         inspection={inspection()}
         target={target()}
@@ -99,11 +110,21 @@ function focus(overrides: Partial<WorkflowNodeActivityFocus>): WorkflowNodeActiv
 
 function inspection(): WorkflowRunInspectionState {
   return {
-    activityPages: [activityPage()],
     events: [workflowEvent("event_running", "running activity")],
     execution: execution(),
     loadError: "",
     loading: false,
+    operation: null,
+    trajectory: workflowNodeTrajectoryStateFromPage(trajectoryPage()),
+    trajectoryError: "",
+  };
+}
+
+function trajectoryActions(): WorkflowRunTrajectoryActions {
+  return {
+    loadOlder: async () => {},
+    loadRunItemOutput: async () => {},
+    submitApproval: async () => {},
   };
 }
 
@@ -214,35 +235,12 @@ function nodeExecution(): WorkflowNodeExecution {
   };
 }
 
-function activityPage(): WorkflowNodeActivityPage {
+function trajectoryPage(): WorkflowAgentTrajectoryPage {
   return {
-    error: "",
-    page: runActivityPage(),
-    ref: activityRef(),
-  };
-}
-
-function activityRef(): WorkflowActivityRef {
-  return {
-    createdAt: "2026-06-07T00:00:00Z",
-    endCursor: "",
-    executionId: "workflow_execution_test",
-    id: "activity_ref_work",
-    kind: "chat.run",
-    metadata: null,
-    nodeExecutionId: "node_execution_work",
-    ref: "run_a",
-    schemaVersion: 1,
-    startCursor: "",
-    updatedAt: "2026-06-07T00:00:00Z",
-    workspaceId: "workspace_test",
-  };
-}
-
-function runActivityPage(): RunActivityPage {
-  return {
+    activeRun: null,
+    activeRunLiveness: null,
     activity: [
-      {
+      activityBlock({
         details: {
           command: "npm test",
           commandExecution: null,
@@ -275,15 +273,97 @@ function runActivityPage(): RunActivityPage {
         },
         hasDetails: true,
         hasOutput: true,
+        id: "block_activity",
+        ordinal: 2,
+        runId: "run_a",
         sourceRunItemId: "run_item_command",
-        status: "completed",
         title: "npm test",
-        type: "command_execution",
+      }).activity!,
+    ],
+    blocks: [
+      userMessageBlock({
+        id: "block_user",
+        ordinal: 1,
+        runId: "run_a",
+        text: "run tests",
+      }),
+      activityBlock({
+        details: {
+          command: "npm test",
+          commandExecution: null,
+          commandStartFailure: null,
+          approval: null,
+          cwd: "",
+          details: null,
+          diff: null,
+          durationMs: 0,
+          dynamicToolCall: null,
+          error: "",
+          exitCode: 0,
+          fileChange: null,
+          filePaths: [],
+          mcpToolCall: null,
+          namespace: "",
+          noticeKind: "",
+          noticeMessage: "",
+          patchStatus: "",
+          plan: null,
+          processId: "",
+          providerStreamLifecycle: null,
+          progress: "",
+          requestId: "",
+          result: "passed",
+          reviewId: "",
+          serverName: "",
+          summary: "",
+          toolName: "",
+        },
+        hasDetails: true,
+        hasOutput: true,
+        id: "block_activity",
+        ordinal: 2,
+        runId: "run_a",
+        sourceRunItemId: "run_item_command",
+        title: "npm test",
+      }),
+    ],
+    capabilities: {
+      canLoadOlderHistory: false,
+      canLoadRunItemOutput: true,
+      canRetryLiveness: false,
+      canSteer: false,
+      canStopRun: false,
+      canSubmitApproval: false,
+    },
+    conversationId: "conversation_api",
+    hasMoreOlder: false,
+    items: [runItem()],
+    olderBeforeBlockOrdinal: 0,
+    outputPages: [
+      {
+        hasMore: true,
+        loadedThroughOrdinal: 1,
+        nextOrdinal: 2,
+        outputIds: ["output_command"],
+        runId: "run_a",
+        runItemId: "run_item_command",
       },
     ],
-    items: [runItem()],
-    output: [runOutput()],
+    outputs: [runOutput()],
+    pendingApproval: null,
+    run: { ...testRun("completed", "run_a"), workspaceId: "workspace_test" },
     runId: "run_a",
+    schemaVersion: 1,
+    scope: {
+      attempt: 1,
+      definitionId: "workflow_definition_test",
+      definitionVersionId: "workflow_version_test",
+      executionId: "workflow_execution_test",
+      iteration: 1,
+      nodeExecutionId: "node_execution_work",
+      nodeId: "work",
+      workspaceId: "workspace_test",
+    },
   };
 }
 

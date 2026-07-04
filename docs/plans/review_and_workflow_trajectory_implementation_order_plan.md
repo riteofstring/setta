@@ -688,6 +688,47 @@ Delete:
   trajectory behavior;
 - tests that assert fake complete pages or no-op loaders.
 
+Status: adapter/preview-removal slice completed 2026-07-03. Workflow node run
+details now load `workflow.readNodeTrajectory` for `agent.codex` node executions
+and render it through the shared `AgentTrajectorySurface` with an explicit
+`workflowNodeExecution` scope. The renderer adapter preserves generated
+per-run-item output page metadata, merges older node-scoped transcript pages,
+loads additional output through the explicit run-item output endpoint, and
+submits pending approvals through the workflow approval endpoint. Metadata,
+result, branch state, token flow, and workflow event sections remain in the
+details pane. The old `RunActivityPage` preview caller,
+`noopLoadRunActivityOutput`, fake complete `hasMore: false` adaptation, and
+obsolete non-transcript `RunItemActivityList` helper were removed.
+
+Verification:
+
+- `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-agent-trajectory-adapter.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-components.test.tsx src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/components/agent-trajectory.test.tsx src/renderer/src/components/chat-transcript-activity.test.tsx`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop deadcode`
+- `pnpm -C desktop build`
+- `node --check desktop/tests/electron/browser-driver.js`
+- `node --check desktop/tests/electron/workflow-activity-feed-chip-clicks.mjs`
+- `node --check desktop/tests/electron/workflow-blank-canvas.test.mjs`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+- `node desktop/tests/electron/workflow-blank-canvas.test.mjs --skip-build`
+- `node desktop/tests/electron/workflow-activity-feed.test.mjs --skip-build`
+  was attempted and reached the updated chip-click coverage, but failed at the
+  final renderer-console gate because an existing workflow event listener leak
+  warning was recorded:
+  `MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 workflow:event listeners added`.
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+  was attempted with ChatGPT auth available, but local Codex `config/read`
+  still returned unsupported `approval_policy = "on-failure"`, so Setta
+  rejected conversation creation before live-provider execution.
+
+Remaining notes: workflow-node immediate steering, stop-run, retry-liveness,
+and composer behavior remain for the next controls slice once node-scoped
+backend actions exist. Queue controls remain hidden until a node-scoped queue
+contract exists end to end. The activity-feed Electron warning is unrelated to
+this adapter slice and remains a blocker for using that broad workflow as a
+clean gate.
+
 ## Phase 7: Terminal Pane Close Transaction
 
 Implement Track 10 independently from the workflow trajectory UI. It can be

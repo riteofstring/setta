@@ -20,7 +20,23 @@ interface ChatConversationAgentTrajectoryScope {
   workspaceId: string;
 }
 
-type AgentTrajectoryScope = ChatConversationAgentTrajectoryScope;
+interface WorkflowNodeExecutionAgentTrajectoryScope {
+  kind: "workflowNodeExecution";
+  attempt: number;
+  conversationId: string;
+  definitionId: string;
+  definitionVersionId: string;
+  executionId: string;
+  iteration: number;
+  nodeExecutionId: string;
+  nodeId: string;
+  runId: string;
+  workspaceId: string;
+}
+
+type AgentTrajectoryScope =
+  | ChatConversationAgentTrajectoryScope
+  | WorkflowNodeExecutionAgentTrajectoryScope;
 
 export interface AgentTrajectoryCapabilities extends ChatTranscriptCapabilities {
   retryLiveness: boolean;
@@ -73,7 +89,7 @@ export function AgentTrajectorySurface({
   return (
     <div
       className="h-full min-h-0 min-w-0"
-      data-agent-trajectory-conversation-id={viewModel.scope.conversationId}
+      data-agent-trajectory-conversation-id={agentTrajectoryScopeConversationId(viewModel.scope)}
       data-agent-trajectory-scope={viewModel.scope.kind}
       data-agent-trajectory-workspace-id={viewModel.scope.workspaceId}
       data-testid="agent-trajectory-surface"
@@ -106,6 +122,16 @@ export function AgentTrajectorySurface({
       />
     </div>
   );
+}
+
+function agentTrajectoryScopeConversationId(scope: AgentTrajectoryScope) {
+  switch (scope.kind) {
+    case "chatConversation":
+    case "workflowNodeExecution":
+      return scope.conversationId;
+    default:
+      return assertNever(scope);
+  }
 }
 
 function agentTrajectoryRunControlCapabilities(
@@ -183,4 +209,8 @@ function requireAgentTrajectoryAction<T>(
     throw new Error(`Agent trajectory action ${actionName} is required by its capability.`);
   }
   return capabilityEnabled ? action : undefined;
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled agent trajectory scope: ${JSON.stringify(value)}`);
 }

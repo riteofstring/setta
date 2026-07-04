@@ -20,7 +20,7 @@ import {
   type LucideIcon,
   Wrench,
 } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { memo, useEffect, useMemo, useRef, type RefObject } from "react";
 
 import { highlightCode } from "../lib/syntax-highlight";
 import { cn } from "../lib/utils";
@@ -572,79 +572,6 @@ function aggregateActivityStatus(activities: ActivityItemBlockProjection[]): Run
     return "running";
   }
   return "completed";
-}
-
-// RunItemActivityList renders projected activity rows for non-transcript surfaces
-// (the workflow node-details feed). Those panes are not virtualized and preload
-// output, so each row owns its expansion locally instead of lifting it.
-export function RunItemActivityList({
-  activity,
-  highlightedRunItemId,
-  loadRunItemOutput,
-  outputIdsByRunItemId,
-  outputPagesByRunItemId,
-  outputsById,
-  runId,
-}: {
-  activity: ActivityItemBlockProjection[];
-  highlightedRunItemId?: string;
-  loadRunItemOutput?: LoadRunItemOutput;
-  outputIdsByRunItemId: Record<string, string[]>;
-  outputPagesByRunItemId: Record<string, RunItemOutputPageState>;
-  outputsById: Record<string, RunItemOutput>;
-  runId: string;
-}) {
-  if (activity.length === 0) {
-    return null;
-  }
-  return (
-    <div className="min-w-0 space-y-1.5 border-l border-border/70 pl-2">
-      {activity.map((item) => (
-        <LocalActivityRow
-          activity={item}
-          focused={
-            highlightedRunItemId !== undefined && item.sourceRunItemId === highlightedRunItemId
-          }
-          key={item.sourceRunItemId}
-          loadRunItemOutput={loadRunItemOutput}
-          outputPage={outputPagesByRunItemId[item.sourceRunItemId]}
-          outputs={activityRowOutputs(outputIdsByRunItemId, outputsById, item.sourceRunItemId)}
-          runId={runId}
-        />
-      ))}
-    </div>
-  );
-}
-
-function LocalActivityRow({
-  activity,
-  focused,
-  loadRunItemOutput,
-  outputPage,
-  outputs,
-  runId,
-}: ActivityRowOutputProps & {
-  activity: ActivityItemBlockProjection;
-  focused: boolean;
-  runId: string;
-}) {
-  // The workflow surface is not virtualized; expansion lives on the row so the
-  // shared controlled view keeps one code path. A focused (deep-linked) row is
-  // opened by ActivityRowView's focus effect, which calls onExpandedChange.
-  const [open, setOpen] = useState(false);
-  return (
-    <ActivityRowView
-      activity={activity}
-      blockKind={undefined}
-      expanded={open}
-      focused={focused}
-      loadRunItemOutput={loadRunItemOutput}
-      onExpandedChange={setOpen}
-      outputPage={outputPage}
-      outputs={outputs}
-      runId={runId}
-    />
-  );
 }
 
 function ActivityDetails({

@@ -30,6 +30,11 @@ const driverExtensionScripts = [
       'globalThis.__settaE2EDriver?.overviewPerformanceVersion === "setta-overview-performance-driver-v1"',
     path: join(driverScriptDir, "overview-performance-driver.js"),
   },
+  {
+    installedExpression:
+      'globalThis.__settaE2EDriver?.workflowNodeDetailsVersion === "setta-workflow-node-details-driver-v1"',
+    path: join(driverScriptDir, "workflow-node-details-driver.js"),
+  },
 ];
 
 export class CDPClient {

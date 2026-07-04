@@ -939,21 +939,10 @@ carries a flat `output` list and drops the `RunItemOutputPage.hasMore` and curso
 per-run-item output state with `hasMore: false` and wires the shared activity list to a no-op output loader. Long command or tool output can therefore be
 truncated in the workflow node details pane without a "Load more" affordance or any indication that the visible output is incomplete.
 
-This plan does not change workflow node activity output loading. When it is picked up, make partial output explicit in the Go-owned run activity contract:
-return per-run-item output pages, including `hasMore`, `loadedThroughOrdinal`, and `nextOrdinal`, instead of only a flat preview list. Regenerate the affected
-TypeScript backend contract from the Go surface, then update workflow node details to preserve that pagination state and call the real run-item output endpoint
-when the user loads more output. Add workflow-level behavior coverage with output longer than the initial preview limit, asserting that the UI shows the initial
-truncation, exposes "Load more", and renders later output after loading. Do not paper over the bug by only raising the preview limit.
+This plan does not change workflow node activity output loading. When it is picked up, make partial output explicit in the Go-owned run activity contract: return per-run-item output pages, including `hasMore`, `loadedThroughOrdinal`, and `nextOrdinal`, instead of only a flat preview list. Regenerate the affected TypeScript backend contract from the Go surface, then update workflow node details to preserve that pagination state and call the real run-item output endpoint when the user loads more output. Add workflow-level behavior coverage with output longer than the initial preview limit, asserting that the UI shows the initial truncation, exposes "Load more", and renders later output after loading. Do not paper over the bug by only raising the preview limit.
 
-Progress 2026-07-03: the shared workflow trajectory backend contract slice now
-returns node-scoped transcript, activity, per-run-item output page metadata,
-flattened output records, liveness, pending approval, older-history cursor, and
-capability flags through the Go-owned `/workflows/nodes/trajectory` endpoint,
-with regenerated TypeScript contracts and production Electron coverage.
-Remaining work is still in
-`workflow_agent_trajectory_shared_ui_plan.md`: replace the current workflow node
-details preview adapter, remove the fake complete output-page adaptation and
-no-op loader, and wire UI load-more behavior through real node-scoped actions.
+Progress 2026-07-03: the shared workflow trajectory backend contract slice now returns node-scoped transcript, activity, per-run-item output page metadata, flattened output records, liveness, pending approval, older-history cursor, and capability flags through the Go-owned `/workflows/nodes/trajectory` endpoint, with regenerated TypeScript contracts and production Electron coverage.
+The renderer follow-up now replaces the workflow node details preview with the shared `AgentTrajectorySurface` through a workflow-node adapter, preserves `hasMore`, `loadedThroughOrdinal`, and `nextOrdinal`, loads additional output through the real run-item output endpoint, and removes the fake complete output-page adaptation plus no-op loader. Focused renderer tests and deterministic Electron workflows cover the replacement. Remaining workflow trajectory work is limited to controls outside this pagination finding: workflow-node composer, immediate steering, stop-run, retry-liveness, and queue behavior once node-scoped backend actions/contracts exist.
 
 ### Workspace browser snapshot retry behavior
 

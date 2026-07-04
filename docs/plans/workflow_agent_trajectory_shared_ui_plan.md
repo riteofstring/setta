@@ -353,6 +353,54 @@ caller and fake complete output-page adaptation after that replacement is wired.
   the shared trajectory section.
 - Delete `noopLoadRunActivityOutput` and fake complete output-page adaptation.
 
+Progress 2026-07-03: completed. Workflow run node details now load the
+Go-owned `workflow.readNodeTrajectory` page for `agent.codex` node executions
+and render it through `AgentTrajectorySurface` with an explicit
+`workflowNodeExecution` scope. The workflow adapter maps generated trajectory
+pages into the shared view model, preserves per-run-item output cursors and
+`hasMore`, merges older node-scoped transcript pages, loads additional output
+through the explicit run-item output endpoint, and submits pending approvals
+through `workflow.submitApproval`. Unsupported workflow-node steering,
+stop-run, retry-liveness, and queue affordances remain disabled and fail loudly
+if the backend starts advertising those capabilities before renderer actions
+exist. Workflow metadata, result, branch state, token flow, and event sections
+remain in the node details pane around the shared trajectory section.
+
+The old workflow details `RunActivityPage` preview caller,
+`noopLoadRunActivityOutput`, fake complete output-page adaptation, and obsolete
+non-transcript `RunItemActivityList` helper were removed. Focused renderer
+tests cover workflow adapter cursor preservation, older-page merge behavior,
+workflow-node scope mapping, details rendering/focus, and the existing details
+helpers. Electron browser-driver assertions now verify node details render a
+workflow-node-scoped trajectory instead of selected-chat scope.
+
+Verification:
+
+- `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-agent-trajectory-adapter.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-components.test.tsx src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/components/agent-trajectory.test.tsx src/renderer/src/components/chat-transcript-activity.test.tsx`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop deadcode`
+- `pnpm -C desktop build`
+- `node --check desktop/tests/electron/browser-driver.js`
+- `node --check desktop/tests/electron/workflow-activity-feed-chip-clicks.mjs`
+- `node --check desktop/tests/electron/workflow-blank-canvas.test.mjs`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+- `node desktop/tests/electron/workflow-blank-canvas.test.mjs --skip-build`
+- `node desktop/tests/electron/workflow-activity-feed.test.mjs --skip-build`
+  was attempted and exercised the updated chip-click path, but failed at the
+  final renderer-console gate because the existing workflow event listener leak
+  warning was recorded:
+  `MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 workflow:event listeners added`.
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+  was attempted with ChatGPT auth available, but local Codex `config/read`
+  still returned unsupported `approval_policy = "on-failure"`, so Setta
+  rejected conversation creation before live-provider execution.
+
+Remaining: Slice 4 still owns workflow-node composer, immediate steering,
+stop-run, and retry-liveness controls once node-scoped backend actions exist.
+Queue affordances remain hidden until a node-scoped queue contract exists end
+to end.
+
 ### Slice 4: Node Composer, Liveness, And Approvals
 
 - Wire workflow-node-scoped approval submission through the workflow approval
@@ -368,6 +416,9 @@ caller and fake complete output-page adaptation after that replacement is wired.
   trajectory behavior.
 - Remove obsolete tests that assert fake complete pages or no-op loaders.
 - Keep generated outputs in sync with Go-owned contracts.
+
+Progress 2026-07-03: completed for the preview-removal cleanup owned by Slice
+3. No generated contracts changed in this renderer-only slice.
 
 ## Verification Plan
 
