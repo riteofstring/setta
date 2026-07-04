@@ -802,8 +802,8 @@ Status after the image attachment variant cutover:
 - Done: deterministic Electron chat workflow coverage verifies the production
   attachment path and inline transcript variant rendering. Live Codex Electron
   and backend chat workflows were run because this touches chat behavior.
-- Remaining: composer prompt-history recall of image attachments should be
-  verified when Slice 7 introduces the typed history controller.
+- Closed by Slice 7: composer prompt-history recall of image attachments now
+  verifies recalled composer chips through the typed variant contract.
 
 ### Slice 6: Transcript Scroll Stickiness
 
@@ -942,13 +942,22 @@ For documentation-only updates to this plan, inspect the diff. No automated
 workflow is required unless executable examples, scripts, generated artifacts,
 contracts, or code paths change.
 
-## Open Questions
+## Resolved Decisions
 
-- Does Codex app-server already expose display labels equivalent to the Codex CLI
-  activity names, or does the upstream protocol need a new display metadata
-  field?
-- What exact display-title precedence should Setta use across provider display
-  metadata, Setta-owned display metadata, and deterministic fallback labels?
-- Before Slice 5 starts: should image `preview` continue to mean original bytes,
-  or should a separate `original` variant be exposed while `preview` becomes a
-  bounded large image?
+- Codex app-server activity labels are consumed only when they arrive as
+  explicit typed protocol data. Setta does not infer CLI-style labels from raw
+  command text, JavaScript source, filenames, MCP arguments, or provider prose.
+- Activity display-title precedence is: explicit provider display title when a
+  typed branch supplies one, Setta-owned display title for Setta-owned tools,
+  then deterministic typed fallback such as `MCP: <server>` or
+  `Dynamic tool: <namespace>.<tool>`.
+- Image `preview` is a bounded large PNG variant. Unmodified upload bytes are
+  exposed only through the explicit `original` variant.
+
+## Remaining Upstream Dependencies
+
+- Codex app-server still needs a structured live command-start failure event or
+  fields for OS startup failures such as `EMFILE`; Setta must not infer this
+  branch from command text or assistant prose.
+- Codex unified exec should become file-descriptor aware and throttle or
+  serialize parallel process startup when descriptor headroom is low.
