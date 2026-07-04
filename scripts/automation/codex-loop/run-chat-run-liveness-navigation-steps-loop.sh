@@ -197,7 +197,7 @@ AGENT_ONE_PROMPT="Implement the next coherent step in ${PLAN_PATH}.
 
 First inspect the plan's product contract, non-goals, existing-system boundaries, implementation slices, verification plan, git history, and current source to determine which step is next. Keep the slice disciplined: finish the smallest coherent plan step that can be verified and committed cleanly. Follow AGENTS.md exactly, including generated contract rules, no-backward-compatibility rules, and required Electron/live Codex verification when the touched area requires it. Do not add polling or timer-based guessing, parse text with keyword heuristics, add silent fallbacks, add compatibility shims, add migrations, add transitional dual paths, or do unrelated cleanup.
 
-When the step is implemented and verified, commit your work."
+When the step is implemented and verified, update ${PLAN_PATH} with the progress made, verification performed, and any remaining work or blockers discovered. Commit the implementation, tests, generated artifacts, and plan update together."
 
 AGENT_TWO_PROMPT="Another agent worked on the next step in ${PLAN_PATH}. Audit the result against the plan, AGENTS.md, and the actual code.
 
