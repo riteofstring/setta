@@ -1359,6 +1359,8 @@ function selectedConversationWithPermission(displayLabel: string) {
 
 function permissionPickerResult() {
   return {
+    activeRun: null,
+    activeRunLiveness: null,
     conversation: selectedConversationWithPermission("Ask for approval"),
     message: null,
     page: {

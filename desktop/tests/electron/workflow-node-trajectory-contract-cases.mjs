@@ -86,8 +86,10 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
     }
     const trajectory = await rendererWorkflow(context.client, "readNodeTrajectory", [
       {
+        afterItemId: "",
         beforeBlockOrdinal: 0,
         executionId: completed.id,
+        itemLimit: 20,
         nodeExecutionId: activityNode.id,
         outputLimit: 2,
         transcriptLimit: 2,
@@ -101,6 +103,12 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       nodeExecution: activityNode,
       workspaceId,
     });
+    await assertTrajectoryActivityItemPagination(
+      context.client,
+      workspaceId,
+      completed.id,
+      activityNode.id,
+    );
     await assertWorkflowNodeDetailsOutputPagination(
       context.client,
       workspaceId,
@@ -1061,6 +1069,66 @@ function assertWorkflowNodeLivenessResult(result, runId, reason) {
   }
 }
 
+async function assertTrajectoryActivityItemPagination(
+  client,
+  workspaceId,
+  executionId,
+  nodeExecutionId,
+) {
+  const firstPage = await rendererWorkflow(client, "readNodeTrajectory", [
+    {
+      afterItemId: "",
+      beforeBlockOrdinal: 0,
+      executionId,
+      itemLimit: 1,
+      nodeExecutionId,
+      outputLimit: 2,
+      transcriptLimit: 2,
+      workspaceId,
+    },
+  ]);
+  if (
+    firstPage.items.length !== 1 ||
+    !firstPage.hasMoreItems ||
+    firstPage.nextItemId === "" ||
+    !firstPage.capabilities.canLoadMoreActivity
+  ) {
+    throw new Error(
+      `first trajectory activity item page mismatch: ${JSON.stringify({
+        hasMoreItems: firstPage.hasMoreItems,
+        itemCount: firstPage.items.length,
+        nextItemId: firstPage.nextItemId,
+        capabilities: firstPage.capabilities,
+      })}`,
+    );
+  }
+
+  const secondPage = await rendererWorkflow(client, "readNodeTrajectory", [
+    {
+      afterItemId: firstPage.nextItemId,
+      beforeBlockOrdinal: 0,
+      executionId,
+      itemLimit: 1,
+      nodeExecutionId,
+      outputLimit: 2,
+      transcriptLimit: 2,
+      workspaceId,
+    },
+  ]);
+  if (
+    secondPage.items.length !== 1 ||
+    secondPage.items[0].id === firstPage.items[0].id ||
+    secondPage.items[0].runId !== firstPage.runId
+  ) {
+    throw new Error(
+      `second trajectory activity item page mismatch: ${JSON.stringify({
+        firstItem: firstPage.items[0],
+        secondItems: secondPage.items,
+      })}`,
+    );
+  }
+}
+
 function assertTrajectoryPage(trajectory, { definition, execution, nodeExecution, workspaceId }) {
   const conversationRef = runnerRef(nodeExecution, "chat.conversation");
   const runRef = runnerRef(nodeExecution, "chat.run");
@@ -1327,6 +1395,7 @@ function assertTrajectoryOutputIDs(trajectory, outputPage) {
 function assertTrajectoryCapabilities(trajectory) {
   if (
     !trajectory.capabilities.canLoadOlderHistory ||
+    trajectory.capabilities.canLoadMoreActivity ||
     !trajectory.capabilities.canLoadRunItemOutput ||
     trajectory.capabilities.canRetryLiveness ||
     trajectory.capabilities.canSteer ||

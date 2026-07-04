@@ -89,6 +89,15 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 	}
 }
 
+func TestInvalidStartupConfigurationFailsForE2EPostCommitStartupFailureEnv(t *testing.T) {
+	t.Setenv(e2eChatFailPostCommitStartupPointEnv, "unsupported")
+
+	_, err := Start(context.Background(), testConfig(t))
+	if err == nil || !strings.Contains(err.Error(), "unsupported "+e2eChatFailPostCommitStartupPointEnv) {
+		t.Fatalf("start error = %v, want unsupported post-commit startup failure point", err)
+	}
+}
+
 func TestStartReportsReadyWithMalformedHistoricalRunState(t *testing.T) {
 	var stdout bytes.Buffer
 	config := testConfig(t)

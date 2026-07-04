@@ -24,7 +24,7 @@ export async function runPostCommitStartupFailureWorkflowLaunch(results, { recor
   const recordingDir = join(recordingRoot, "post-commit-startup-failure");
   const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
-      SETTA_E2E_CHAT_FAIL_FIRST_TRANSCRIPT_BLOCK_ID: "1",
+      SETTA_E2E_CHAT_FAIL_POST_COMMIT_STARTUP_POINT: "launch",
     },
   });
   let failure = null;
@@ -41,7 +41,7 @@ export async function runPostCommitStartupFailureWorkflowLaunch(results, { recor
       "post commit startup failure",
       "failed",
     );
-    if (!failedRun.error.includes("e2e injected transcript block id failure")) {
+    if (!failedRun.error.includes("e2e injected post-commit launch failure")) {
       throw new Error(`startup failure run had unexpected error: ${JSON.stringify(failedRun)}`);
     }
     await assertNoActiveRun(backend, workspaceId, conversationId);
@@ -103,7 +103,7 @@ export async function runPostCommitStartupFailureWorkflowLaunch(results, { recor
       (entry) =>
         entry.channel === "chat:send-message" &&
         typeof entry.error?.message === "string" &&
-        entry.error.message.includes("e2e injected transcript block id failure"),
+        entry.error.message.includes("e2e injected post-commit launch failure"),
     ],
   });
   results.push("post-commit-startup-failure");

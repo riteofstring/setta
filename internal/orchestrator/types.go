@@ -843,6 +843,7 @@ type WorkflowAgentTrajectoryScope struct {
 
 type WorkflowAgentTrajectoryCapabilities struct {
 	CanLoadOlderHistory  bool `json:"canLoadOlderHistory"`
+	CanLoadMoreActivity  bool `json:"canLoadMoreActivity"`
 	CanLoadRunItemOutput bool `json:"canLoadRunItemOutput"`
 	CanRetryLiveness     bool `json:"canRetryLiveness"`
 	CanSteer             bool `json:"canSteer"`
@@ -875,6 +876,8 @@ type WorkflowAgentTrajectoryPage struct {
 	PendingApproval         *WorkflowPendingApproval                        `json:"pendingApproval"`
 	HasMoreOlder            bool                                            `json:"hasMoreOlder"`
 	OlderBeforeBlockOrdinal int                                             `json:"olderBeforeBlockOrdinal"`
+	HasMoreItems            bool                                            `json:"hasMoreItems"`
+	NextItemID              string                                          `json:"nextItemId"`
 	Capabilities            WorkflowAgentTrajectoryCapabilities             `json:"capabilities"`
 }
 

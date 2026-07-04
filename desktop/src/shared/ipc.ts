@@ -458,7 +458,7 @@ interface IpcContract {
     result: QueueRemoveResult;
   };
   chatRunActivity: {
-    args: [workspaceId: string, runId: string, limit: number];
+    args: [workspaceId: string, runId: string, afterItemId: string, limit: number];
     result: RunActivityPage;
   };
   chatRunItemOutput: {

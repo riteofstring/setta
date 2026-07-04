@@ -23,6 +23,180 @@ func TestServiceReadWorkflowNodeTrajectoryPreservesScopedTranscriptAndOutputPage
 	waitForScriptedHarnessIdle(t, harness)
 }
 
+func TestServiceReadWorkflowNodeTrajectoryRejectsOversizedPageLimits(t *testing.T) {
+	workflowService, _, _, workspaceID := newCodexRunnerTestServices(t)
+	tests := []struct {
+		name            string
+		transcriptLimit int
+		itemLimit       int
+		outputLimit     int
+		wantError       string
+	}{
+		{
+			name:            "transcript limit",
+			transcriptLimit: maxWorkflowTrajectoryTranscriptPageSize + 1,
+			outputLimit:     5,
+			wantError:       "transcriptLimit must be at most 200",
+		},
+		{
+			name:            "item limit",
+			transcriptLimit: 20,
+			itemLimit:       maxWorkflowTrajectoryItemPageSize + 1,
+			outputLimit:     5,
+			wantError:       "itemLimit must be at most 500",
+		},
+		{
+			name:            "output limit",
+			transcriptLimit: 20,
+			outputLimit:     maxWorkflowTrajectoryOutputPageSize + 1,
+			wantError:       "outputLimit must be at most 500",
+		},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := workflowService.ReadWorkflowNodeTrajectory(
+				workspaceID,
+				"execution_trajectory_limit",
+				"node_execution_trajectory_limit",
+				0,
+				testCase.transcriptLimit,
+				"",
+				testCase.itemLimit,
+				testCase.outputLimit,
+			)
+			if err == nil || !strings.Contains(err.Error(), testCase.wantError) {
+				t.Fatalf("trajectory error = %v, want %q", err, testCase.wantError)
+			}
+		})
+	}
+}
+
+func TestServiceReadWorkflowNodeTrajectoryPaginatesBeyondMaxPageSizes(t *testing.T) {
+	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
+	execution, work := completedTrajectoryTargetForPrompt(t, workflowService, workspaceID, "Trajectory page limits", "workflow trajectory page limit workflow")
+
+	firstPage := readMaxLimitTrajectoryPage(t, workflowService, workspaceID, execution.ID, work.ID, 0)
+	outputPage := assertFirstMaxLimitTrajectoryPage(t, firstPage)
+	olderPage := readMaxLimitTrajectoryPage(t, workflowService, workspaceID, execution.ID, work.ID, firstPage.OlderBeforeBlockOrdinal)
+	assertOlderMaxLimitTrajectoryPage(t, firstPage, olderPage)
+	assertRemainingMaxLimitTrajectoryOutput(t, chatService, workspaceID, firstPage.RunID, outputPage)
+	waitForScriptedHarnessIdle(t, harness)
+}
+
+func TestServiceReadWorkflowNodeTrajectoryPaginatesActivityItems(t *testing.T) {
+	workflowService, _, harness, workspaceID := newCodexRunnerTestServices(t)
+	execution, work := completedTrajectoryTargetForPrompt(t, workflowService, workspaceID, "Trajectory activity pages", "workflow trajectory activity item page workflow")
+
+	firstPage, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, execution.ID, work.ID, 0, 20, "", 2, 5)
+	if err != nil {
+		t.Fatalf("read first trajectory page: %v", err)
+	}
+	if trajectoryItemTitles(firstPage.Items) != "Trajectory activity item 1,Trajectory activity item 2" ||
+		!firstPage.HasMoreItems ||
+		firstPage.NextItemID == "" ||
+		!firstPage.Capabilities.CanLoadMoreActivity {
+		t.Fatalf("first trajectory activity page titles/hasMore/next/capability = %s/%v/%q/%v", trajectoryItemTitles(firstPage.Items), firstPage.HasMoreItems, firstPage.NextItemID, firstPage.Capabilities.CanLoadMoreActivity)
+	}
+
+	secondPage, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, execution.ID, work.ID, 0, 20, firstPage.NextItemID, 2, 5)
+	if err != nil {
+		t.Fatalf("read second trajectory page: %v", err)
+	}
+	if trajectoryItemTitles(secondPage.Items) != "Trajectory activity item 3,Trajectory activity item 4" ||
+		!secondPage.HasMoreItems ||
+		secondPage.NextItemID == "" {
+		t.Fatalf("second trajectory activity page titles/hasMore/next = %s/%v/%q", trajectoryItemTitles(secondPage.Items), secondPage.HasMoreItems, secondPage.NextItemID)
+	}
+
+	thirdPage, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, execution.ID, work.ID, 0, 20, secondPage.NextItemID, 2, 5)
+	if err != nil {
+		t.Fatalf("read third trajectory page: %v", err)
+	}
+	if trajectoryItemTitles(thirdPage.Items) != "Trajectory activity item 5" ||
+		thirdPage.HasMoreItems ||
+		thirdPage.NextItemID != "" ||
+		thirdPage.Capabilities.CanLoadMoreActivity {
+		t.Fatalf("third trajectory activity page titles/hasMore/next/capability = %s/%v/%q/%v", trajectoryItemTitles(thirdPage.Items), thirdPage.HasMoreItems, thirdPage.NextItemID, thirdPage.Capabilities.CanLoadMoreActivity)
+	}
+	waitForScriptedHarnessIdle(t, harness)
+}
+
+func assertFirstMaxLimitTrajectoryPage(t *testing.T, firstPage WorkflowAgentTrajectoryPage) WorkflowAgentTrajectoryRunItemOutputPageState {
+	t.Helper()
+	if len(firstPage.Blocks) != maxWorkflowTrajectoryTranscriptPageSize || !firstPage.HasMoreOlder || firstPage.OlderBeforeBlockOrdinal <= 0 {
+		t.Fatalf("first trajectory page blocks = %d hasMore %v before %d, want full max page with older cursor", len(firstPage.Blocks), firstPage.HasMoreOlder, firstPage.OlderBeforeBlockOrdinal)
+	}
+	outputPage := firstHasMoreTrajectoryOutputPage(firstPage)
+	if len(outputPage.OutputIDs) != maxWorkflowTrajectoryOutputPageSize ||
+		!outputPage.HasMore ||
+		outputPage.NextOrdinal != maxWorkflowTrajectoryOutputPageSize {
+		t.Fatalf("first output page = %+v, want max output page with next ordinal", outputPage)
+	}
+	if len(firstPage.Outputs) != maxWorkflowTrajectoryOutputPageSize {
+		t.Fatalf("first trajectory page embedded outputs = %d, want aggregate max %d", len(firstPage.Outputs), maxWorkflowTrajectoryOutputPageSize)
+	}
+	secondCommand := trajectoryRunItemByTitle(firstPage, "Trajectory limit command b")
+	if secondCommand.ID == "" {
+		t.Fatalf("trajectory items = %+v, want second limit command", firstPage.Items)
+	}
+	if !trajectoryActivityHasOutput(firstPage, secondCommand.ID) {
+		t.Fatalf("second trajectory command activity did not retain hasOutput after output budget exhaustion")
+	}
+	if secondPage := trajectoryOutputPageByRunItemID(firstPage, secondCommand.ID); secondPage.RunItemID != "" {
+		t.Fatalf("second trajectory command output page = %+v, want no embedded page after aggregate output budget exhaustion", secondPage)
+	}
+	return outputPage
+}
+
+func readMaxLimitTrajectoryPage(t *testing.T, workflowService *Service, workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int) WorkflowAgentTrajectoryPage {
+	t.Helper()
+	page, err := workflowService.ReadWorkflowNodeTrajectory(
+		workspaceID,
+		executionID,
+		nodeExecutionID,
+		beforeBlockOrdinal,
+		maxWorkflowTrajectoryTranscriptPageSize,
+		"",
+		maxWorkflowTrajectoryItemPageSize,
+		maxWorkflowTrajectoryOutputPageSize,
+	)
+	if err != nil {
+		t.Fatalf("read trajectory page: %v", err)
+	}
+	return page
+}
+
+func assertOlderMaxLimitTrajectoryPage(t *testing.T, firstPage WorkflowAgentTrajectoryPage, olderPage WorkflowAgentTrajectoryPage) {
+	t.Helper()
+	if len(olderPage.Blocks) == 0 || olderPage.HasMoreOlder {
+		t.Fatalf("older trajectory page blocks = %d hasMore %v, want final older page", len(olderPage.Blocks), olderPage.HasMoreOlder)
+	}
+	collectedBlocks := append(append([]chat.TranscriptBlock{}, olderPage.Blocks...), firstPage.Blocks...)
+	if !trajectoryBlocksContainAssistantText(collectedBlocks, "Trajectory limit block 000") ||
+		!trajectoryBlocksContainAssistantText(collectedBlocks, "Trajectory limit block 204") {
+		t.Fatalf("collected trajectory blocks did not include both oldest and newest limit blocks")
+	}
+}
+
+func assertRemainingMaxLimitTrajectoryOutput(t *testing.T, chatService *chat.Service, workspaceID string, runID string, outputPage WorkflowAgentTrajectoryRunItemOutputPageState) {
+	t.Helper()
+	remainingOutput, err := chatService.LoadRunItemOutputPage(
+		workspaceID,
+		runID,
+		outputPage.RunItemID,
+		outputPage.NextOrdinal,
+		maxWorkflowTrajectoryOutputPageSize,
+	)
+	if err != nil {
+		t.Fatalf("read remaining run item output: %v", err)
+	}
+	if len(remainingOutput.Output) != 1 ||
+		remainingOutput.HasMore ||
+		!strings.Contains(remainingOutput.Output[0].Text, "trajectory limit output chunk a 501") {
+		t.Fatalf("remaining output page = %+v, want final output chunk after max page", remainingOutput)
+	}
+}
+
 func TestServiceReadWorkflowNodeTrajectorySurfacesPendingApprovalAndActiveLiveness(t *testing.T) {
 	workflowService, _, harness, workspaceID := newCodexRunnerTestServices(t)
 	definition, err := workflowService.CreateDefinition(workspaceID, "Trajectory approval", "", codexActionGraph("command approval workflow", true))
@@ -47,7 +221,7 @@ func TestServiceReadWorkflowNodeTrajectorySurfacesPendingApprovalAndActiveLivene
 	work := latestNodeExecutionForTest(t, waiting, "work")
 	pending := work.Result.PendingApproval
 
-	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, waiting.ID, work.ID, 0, 20, 5)
+	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, waiting.ID, work.ID, 0, 20, "", 0, 5)
 	if err != nil {
 		t.Fatalf("read approval trajectory: %v", err)
 	}
@@ -90,7 +264,7 @@ func TestServiceStopWorkflowNodeRunCancelsWorkflowOwnedRun(t *testing.T) {
 	conversationID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatConversation)
 	runID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
 
-	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, started.ID, work.ID, 0, 20, 5)
+	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, started.ID, work.ID, 0, 20, "", 0, 5)
 	if err != nil {
 		t.Fatalf("read running trajectory: %v", err)
 	}
@@ -114,7 +288,7 @@ func TestServiceStopWorkflowNodeRunCancelsWorkflowOwnedRun(t *testing.T) {
 		t.Fatalf("cancelled run pending approval = %+v, want nil", run.PendingApproval)
 	}
 
-	terminalPage, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, stopped.ID, stoppedWork.ID, 0, 20, 5)
+	terminalPage, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, stopped.ID, stoppedWork.ID, 0, 20, "", 0, 5)
 	if err != nil {
 		t.Fatalf("read stopped trajectory: %v", err)
 	}
@@ -147,7 +321,7 @@ func TestServiceSteerWorkflowNodeRunSteersWorkflowOwnedRun(t *testing.T) {
 	conversationID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatConversation)
 	runID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
 
-	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, started.ID, work.ID, 0, 20, 5)
+	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, started.ID, work.ID, 0, 20, "", 0, 5)
 	if err != nil {
 		t.Fatalf("read running trajectory: %v", err)
 	}
@@ -176,7 +350,7 @@ func TestServiceSteerWorkflowNodeRunSteersWorkflowOwnedRun(t *testing.T) {
 	if run.ID != runID {
 		t.Fatalf("completed chat run = %+v, want %s", run, runID)
 	}
-	terminalPage, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, completed.ID, work.ID, 0, 20, 5)
+	terminalPage, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, completed.ID, work.ID, 0, 20, "", 0, 5)
 	if err != nil {
 		t.Fatalf("read terminal trajectory: %v", err)
 	}
@@ -297,7 +471,7 @@ func markWorkflowNodeRunLiveness(t *testing.T, chatService *chat.Service, worksp
 
 func readWorkflowNodeTrajectoryForTest(t *testing.T, workflowService *Service, workspaceID string, target workflowNodeRetryLivenessTarget) WorkflowAgentTrajectoryPage {
 	t.Helper()
-	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, target.ExecutionID, target.NodeExecutionID, 0, 20, 5)
+	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, target.ExecutionID, target.NodeExecutionID, 0, 20, "", 0, 5)
 	if err != nil {
 		t.Fatalf("read workflow node trajectory: %v", err)
 	}
@@ -349,7 +523,7 @@ func TestServiceReadWorkflowNodeTrajectoryRejectsNonChatBackedNode(t *testing.T)
 		t.Fatalf("start execution: %v", err)
 	}
 	start := latestNodeExecutionForTest(t, execution, "start")
-	_, err = workflowService.ReadWorkflowNodeTrajectory(workspaceID, execution.ID, start.ID, 0, 20, 20)
+	_, err = workflowService.ReadWorkflowNodeTrajectory(workspaceID, execution.ID, start.ID, 0, 20, "", 0, 20)
 	if err == nil || !strings.Contains(err.Error(), "not an agent.codex runner execution") {
 		t.Fatalf("trajectory error = %v, want non-agent rejection", err)
 	}
@@ -372,7 +546,17 @@ func assertTrajectoryScope(t *testing.T, page WorkflowAgentTrajectoryPage, execu
 
 func readCompletedTrajectoryForPrompt(t *testing.T, workflowService *Service, workspaceID string, prompt string) (WorkflowAgentTrajectoryPage, WorkflowExecution, WorkflowNodeExecution) {
 	t.Helper()
-	definition, err := workflowService.CreateDefinition(workspaceID, "Trajectory output", "", codexActionGraph(prompt, true))
+	execution, work := completedTrajectoryTargetForPrompt(t, workflowService, workspaceID, "Trajectory output", prompt)
+	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, execution.ID, work.ID, 0, 2, "", 0, 2)
+	if err != nil {
+		t.Fatalf("read trajectory: %v", err)
+	}
+	return page, execution, work
+}
+
+func completedTrajectoryTargetForPrompt(t *testing.T, workflowService *Service, workspaceID string, name string, prompt string) (WorkflowExecution, WorkflowNodeExecution) {
+	t.Helper()
+	definition, err := workflowService.CreateDefinition(workspaceID, name, "", codexActionGraph(prompt, true))
 	if err != nil {
 		t.Fatalf("create definition: %v", err)
 	}
@@ -392,11 +576,7 @@ func readCompletedTrajectoryForPrompt(t *testing.T, workflowService *Service, wo
 		t.Fatalf("read execution: %v", err)
 	}
 	work := latestNodeExecutionForTest(t, execution, "work")
-	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, execution.ID, work.ID, 0, 2, 2)
-	if err != nil {
-		t.Fatalf("read trajectory: %v", err)
-	}
-	return page, execution, work
+	return execution, work
 }
 
 func waitForWorkflowNodeTrajectory(t *testing.T, workflowService *Service, workspaceID string, executionID string, nodeExecutionID string, matches func(WorkflowAgentTrajectoryPage) bool) WorkflowAgentTrajectoryPage {
@@ -405,7 +585,7 @@ func waitForWorkflowNodeTrajectory(t *testing.T, workflowService *Service, works
 	var page WorkflowAgentTrajectoryPage
 	for time.Now().Before(deadline) {
 		var err error
-		page, err = workflowService.ReadWorkflowNodeTrajectory(workspaceID, executionID, nodeExecutionID, 0, 20, 5)
+		page, err = workflowService.ReadWorkflowNodeTrajectory(workspaceID, executionID, nodeExecutionID, 0, 20, "", 0, 5)
 		if err == nil && matches(page) {
 			return page
 		}
@@ -482,6 +662,44 @@ func assertTerminalTrajectoryCapabilities(t *testing.T, page WorkflowAgentTrajec
 func firstHasMoreTrajectoryOutputPage(page WorkflowAgentTrajectoryPage) WorkflowAgentTrajectoryRunItemOutputPageState {
 	for _, outputPage := range page.OutputPages {
 		if outputPage.HasMore {
+			return outputPage
+		}
+	}
+	return WorkflowAgentTrajectoryRunItemOutputPageState{}
+}
+
+func trajectoryRunItemByTitle(page WorkflowAgentTrajectoryPage, title string) chat.RunItem {
+	for _, item := range page.Items {
+		if item.Title == title {
+			return item
+		}
+	}
+	return chat.RunItem{}
+}
+
+func trajectoryItemTitles(items []chat.RunItem) string {
+	titles := ""
+	for index, item := range items {
+		if index > 0 {
+			titles += ","
+		}
+		titles += item.Title
+	}
+	return titles
+}
+
+func trajectoryActivityHasOutput(page WorkflowAgentTrajectoryPage, runItemID string) bool {
+	for _, activity := range page.Activity {
+		if activity.SourceRunItemID == runItemID {
+			return activity.HasOutput
+		}
+	}
+	return false
+}
+
+func trajectoryOutputPageByRunItemID(page WorkflowAgentTrajectoryPage, runItemID string) WorkflowAgentTrajectoryRunItemOutputPageState {
+	for _, outputPage := range page.OutputPages {
+		if outputPage.RunItemID == runItemID {
 			return outputPage
 		}
 	}

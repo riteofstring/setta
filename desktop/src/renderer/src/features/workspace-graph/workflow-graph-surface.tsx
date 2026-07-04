@@ -265,7 +265,8 @@ export function WorkflowGraphSurface({
   });
   const { syncMarkers: syncWorkspaceActivityMarkers } = useWorkflowGraphActivityMarkerSync({
     graph,
-    readGraphDebugSnapshot: () => window.__settaWorkflowGraphDebug?.getSnapshot(surfaceId) ?? null,
+    readGraphDebugSnapshot: () =>
+      window.__settaWorkflowGraphDebug?.tryGetSnapshot(surfaceId) ?? null,
     rendererRef: workflowRendererRef,
     surfaceId,
     target: workflowGraphTarget,

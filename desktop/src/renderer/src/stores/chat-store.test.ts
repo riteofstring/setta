@@ -18,7 +18,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { chatTextInput } from "../lib/chat-input";
 import { prependOlderMessages, useChatStore } from "./chat-store";
-import { message, replaceMessageText, testRun } from "./chat-store.test.fixtures";
+import { deferred, message, replaceMessageText, testRun } from "./chat-store.test.fixtures";
 import {
   assistantTextBlock,
   backgroundTerminalOutput,
@@ -32,6 +32,8 @@ import {
   transcriptTextDeltaEvent,
   userMessageBlock,
 } from "./chat-store-events.test.helpers";
+
+const emptyCommandRunState = { activeRun: null, activeRunLiveness: null };
 
 describe("chat store", () => {
   beforeEach(() => {
@@ -669,6 +671,7 @@ describe("chat store", () => {
       ),
     });
     commandResponse.resolve({
+      ...emptyCommandRunState,
       conversation,
       message: commandMessage,
       page: testPage(
@@ -1177,7 +1180,14 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("queued"),
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
-      runActivity: async () => ({ activity: [], items: [], output: [], runId: "run_api" }),
+      runActivity: async () => ({
+        activity: [],
+        hasMoreItems: false,
+        items: [],
+        nextItemId: "",
+        output: [],
+        runId: "run_api",
+      }),
       runItemOutput: async () => ({
         hasMore: false,
         nextOrdinal: 0,
@@ -1422,25 +1432,9 @@ function blockState(blocks: TranscriptBlock[]) {
     transcriptBlocksById: Object.fromEntries(blocks.map((block) => [block.id, block])),
   };
 }
-interface Deferred<T> {
-  promise: Promise<T>;
-  reject: (error: Error) => void;
-  resolve: (value: T) => void;
-}
-function deferred<T>(): Deferred<T> {
-  let resolve: Deferred<T>["resolve"] | null = null;
-  let reject: Deferred<T>["reject"] | null = null;
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve;
-    reject = promiseReject;
-  });
-  if (!resolve || !reject) {
-    throw new Error("deferred promise callbacks were not initialized");
-  }
-  return { promise, reject, resolve };
-}
 function commandExecuteResult(conversation: Conversation, result: ChatCommandResult) {
   return {
+    ...emptyCommandRunState,
     conversation,
     message: null,
     page: testPage(conversation, []),

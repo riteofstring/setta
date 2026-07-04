@@ -242,8 +242,8 @@ const api: SettaAPI = {
       invoke("chatQueueMessage", workspaceId, conversationId, input),
     removeQueuedMessage: (workspaceId: string, conversationId: string, messageId: string) =>
       invoke("chatRemoveQueuedMessage", workspaceId, conversationId, messageId),
-    runActivity: (workspaceId: string, runId: string, limit: number) =>
-      invoke("chatRunActivity", workspaceId, runId, limit),
+    runActivity: (workspaceId: string, runId: string, afterItemId: string, limit: number) =>
+      invoke("chatRunActivity", workspaceId, runId, afterItemId, limit),
     runItemOutput: (
       workspaceId: string,
       runId: string,

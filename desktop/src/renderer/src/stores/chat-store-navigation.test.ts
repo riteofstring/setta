@@ -456,6 +456,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
       executeCommand: async () => ({
+        activeRun: null,
+        activeRunLiveness: null,
         conversation,
         message: null,
         page: testPage(conversation, []),
@@ -480,6 +482,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         throw new Error("chat defaults are not used by chat store navigation tests");
       },
       openCodexModelPicker: async () => ({
+        activeRun: null,
+        activeRunLiveness: null,
         conversation,
         message: null,
         page: testPage(conversation, []),
@@ -501,6 +505,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         },
       }),
       openCodexPermissionPicker: async () => ({
+        activeRun: null,
+        activeRunLiveness: null,
         conversation,
         message: null,
         page: testPage(conversation, []),
@@ -542,7 +548,14 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         removedMessageId: "message_queued",
         removedRunId: "run_queued",
       }),
-      runActivity: async () => ({ activity: [], items: [], output: [], runId: "run_api" }),
+      runActivity: async () => ({
+        activity: [],
+        hasMoreItems: false,
+        items: [],
+        nextItemId: "",
+        output: [],
+        runId: "run_api",
+      }),
       runItemOutput: async () => ({
         hasMore: false,
         nextOrdinal: 0,
@@ -566,18 +579,24 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         replayedSteeringMessageIds: [],
       }),
       setCodexModel: async () => ({
+        activeRun: null,
+        activeRunLiveness: null,
         conversation,
         message: null,
         page: testPage(conversation, []),
         result: commandResult("model"),
       }),
       setCodexPermissionPreset: async () => ({
+        activeRun: null,
+        activeRunLiveness: null,
         conversation,
         message: null,
         page: testPage(conversation, []),
         result: commandResult("permission"),
       }),
       setCodexReasoningEffort: async () => ({
+        activeRun: null,
+        activeRunLiveness: null,
         conversation,
         message: null,
         page: testPage(conversation, []),

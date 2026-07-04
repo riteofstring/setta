@@ -100,7 +100,6 @@ import {
 import { runCodexAppServerLifecycleWorkflowLaunch } from "./codex-app-server-lifecycle-cases.mjs";
 import { runProtocolGoalBackgroundTerminalWorkflow } from "./codex-protocol-background-terminal-cases.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
-
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
@@ -110,6 +109,7 @@ const singleWorkflowArgs = new Map([
   ["--codex-app-server-lifecycle-only", "codexAppServerLifecycleOnly"],
   ["--image-attachment-only", "imageAttachmentOnly"],
   ["--post-commit-startup-failure-only", "postCommitStartupFailureOnly"],
+  ["--transcript-scroll-only", "transcriptScrollOnly"],
   ["--workflow-runner-post-start-failure-only", "workflowRunnerPostStartFailureOnly"],
   ["--workflow-version-commit-ordering-only", "workflowVersionCommitOrderingOnly"],
   ["--workflow-definition-file-atomicity-only", "workflowDefinitionFileAtomicityOnly"],
@@ -140,6 +140,10 @@ const singleWorkflowRunners = [
     run: (results) => runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot }),
   },
   {
+    option: "transcriptScrollOnly",
+    run: (results) => runTranscriptScrollWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
     option: "workflowRunnerPostStartFailureOnly",
     run: (results) => runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot }),
   },
@@ -156,7 +160,6 @@ const singleWorkflowRunners = [
     run: (results) => runWorkflowNodeTrajectoryContractWorkflowLaunch(results, { recordingRoot }),
   },
 ];
-
 function parseArgs(args) {
   const parsed = {
     codexAppServerLifecycleOnly: false,
@@ -167,6 +170,7 @@ function parseArgs(args) {
     keepArtifacts: false,
     live: false,
     postCommitStartupFailureOnly: false,
+    transcriptScrollOnly: false,
     visible: process.env.SETTA_E2E_VISIBLE === "1",
     workflowRunnerPostStartFailureOnly: false,
     workflowDefinitionFileAtomicityOnly: false,
@@ -204,13 +208,13 @@ function parseArgs(args) {
   }
   return parsed;
 }
-
 function selectSingleWorkflow(parsed, selected) {
   parsed.codexAppServerLifecycleOnly = selected === "codexAppServerLifecycleOnly";
   parsed.codexApprovalPolicyRemovalOnly = selected === "codexApprovalPolicyRemovalOnly";
   parsed.codexProtocolOnly = selected === "codexProtocolOnly";
   parsed.imageAttachmentOnly = selected === "imageAttachmentOnly";
   parsed.postCommitStartupFailureOnly = selected === "postCommitStartupFailureOnly";
+  parsed.transcriptScrollOnly = selected === "transcriptScrollOnly";
   parsed.workflowRunnerPostStartFailureOnly = selected === "workflowRunnerPostStartFailureOnly";
   parsed.workflowVersionCommitOrderingOnly = selected === "workflowVersionCommitOrderingOnly";
   parsed.workflowDefinitionFileAtomicityOnly = selected === "workflowDefinitionFileAtomicityOnly";
@@ -218,7 +222,6 @@ function selectSingleWorkflow(parsed, selected) {
   parsed.deterministic = false;
   parsed.live = false;
 }
-
 function chatWorkflowRecordingRoot(parsed) {
   const base = join(repoRoot, "test-results", "electron-integration", "chat-workflows");
   if (!parsed.keepArtifacts) {
@@ -226,7 +229,6 @@ function chatWorkflowRecordingRoot(parsed) {
   }
   return join(base, pathTimestamp());
 }
-
 async function main() {
   assertBuildExists();
   if (!options.keepArtifacts && options.deterministic) {
@@ -334,7 +336,6 @@ async function main() {
 
   printWorkflowResults(results);
 }
-
 async function runSelectedSingleWorkflow(results) {
   const selected = singleWorkflowRunners.find(({ option }) => options[option]);
   if (!selected) {
@@ -343,14 +344,12 @@ async function runSelectedSingleWorkflow(results) {
   await selected.run(results);
   return true;
 }
-
 function printWorkflowResults(results) {
   process.stdout.write("Electron chat workflow results:\n");
   for (const result of results) {
     process.stdout.write(`  passed: ${result}\n`);
   }
 }
-
 async function runDeterministicWorkflowLaunch(results) {
   const fixture = await createFixture("deterministic");
   const fakeCodex = await installFakeCodexAppServer(fixture);

@@ -606,12 +606,12 @@ func (service *Service) completeWorkflowActionForTerminalChatRun(run chat.Run) (
 	if err != nil || !ok {
 		return WorkflowExecution{}, ok, err
 	}
-	activity, err := service.codexChatService.LoadRunActivityPage(run.WorkspaceID, run.ID, 1000)
+	items, err := service.codexChatService.LoadRunActivityItems(run.WorkspaceID, run.ID)
 	var result WorkflowActionResult
 	if err != nil {
 		result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("load chat run activity: %v", err))
 	} else {
-		result, err = workflowActionResultFromChatRun(run, activity)
+		result, err = workflowActionResultFromChatRun(run, items)
 		if err != nil {
 			result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("decode workflow result: %v", err))
 		}

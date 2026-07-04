@@ -759,8 +759,8 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatRunActivity",
-    async (_event, workspaceId, runId, limit) => {
-      return requireBackendClient().getRunActivity({ limit, runId, workspaceId });
+    async (_event, workspaceId, runId, afterItemId, limit) => {
+      return requireBackendClient().getRunActivity({ afterItemId, limit, runId, workspaceId });
     },
     ipcObserver,
   );

@@ -232,6 +232,7 @@ interface WorkflowGraphDebugApi {
   getSnapshot: (surfaceId?: string) => WorkflowGraphDebugSnapshot;
   getSnapshots: () => Record<string, WorkflowGraphDebugSnapshot>;
   getSurfaceIds: () => string[];
+  tryGetSnapshot: (surfaceId?: string) => WorkflowGraphDebugSnapshot | null;
 }
 
 interface WorkflowNodeDetailsDebugApi {

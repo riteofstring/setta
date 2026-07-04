@@ -372,7 +372,7 @@ describe("preload workspace API", () => {
       chatTextInput("edited"),
     );
     await api.chat.removeQueuedMessage("workspace_api", "conversation_api", "message_queued");
-    await api.chat.runActivity("workspace_api", "run_api", 100);
+    await api.chat.runActivity("workspace_api", "run_api", "", 100);
     await api.chat.runItemOutput("workspace_api", "run_api", "item_api", 0, 100);
     const bgArgs = ["workspace_api", "conversation_api", "background_terminal_api"] as const;
     await api.chat.listBackgroundTerminals("workspace_api", "conversation_api");
@@ -463,7 +463,7 @@ describe("preload workspace API", () => {
         chatTextInput("edited"),
       ],
       [ipcChannels.chatRemoveQueuedMessage, "workspace_api", "conversation_api", "message_queued"],
-      [ipcChannels.chatRunActivity, "workspace_api", "run_api", 100],
+      [ipcChannels.chatRunActivity, "workspace_api", "run_api", "", 100],
       [ipcChannels.chatRunItemOutput, "workspace_api", "run_api", "item_api", 0, 100],
       [ipcChannels.chatListBackgroundTerminals, "workspace_api", "conversation_api"],
       [ipcChannels.chatGetBackgroundTerminalOutput, ...bgArgs, 0, 100],
@@ -1296,8 +1296,10 @@ describe("preload workspace API", () => {
     const { api, invoke, on, removeListener } = await exposePreloadAPI();
     const graph = workflowGraph();
     const trajectoryRequest = {
+      afterItemId: "",
       beforeBlockOrdinal: 0,
       executionId: "workflow_execution_api",
+      itemLimit: 20,
       nodeExecutionId: "workflow_node_execution_api",
       outputLimit: 20,
       transcriptLimit: 20,

@@ -260,6 +260,7 @@ function trajectoryPage(
     ],
     capabilities: {
       canLoadOlderHistory: true,
+      canLoadMoreActivity: false,
       canLoadRunItemOutput: true,
       canRetryLiveness: false,
       canSteer: false,
@@ -267,8 +268,10 @@ function trajectoryPage(
       canSubmitApproval: false,
     },
     conversationId: "conversation_api",
+    hasMoreItems: false,
     hasMoreOlder: true,
     items: [runItem()],
+    nextItemId: "",
     olderBeforeBlockOrdinal: 1,
     outputPages: [
       {
@@ -319,6 +322,7 @@ function stoppableTrajectoryPage() {
     },
     capabilities: {
       canLoadOlderHistory: true,
+      canLoadMoreActivity: false,
       canLoadRunItemOutput: true,
       canRetryLiveness: false,
       canSteer: false,
@@ -349,6 +353,7 @@ function steerableTrajectoryPage() {
     },
     capabilities: {
       canLoadOlderHistory: true,
+      canLoadMoreActivity: false,
       canLoadRunItemOutput: true,
       canRetryLiveness: false,
       canSteer: true,
@@ -379,6 +384,7 @@ function retryableTrajectoryPage() {
     },
     capabilities: {
       canLoadOlderHistory: true,
+      canLoadMoreActivity: false,
       canLoadRunItemOutput: true,
       canRetryLiveness: true,
       canSteer: false,

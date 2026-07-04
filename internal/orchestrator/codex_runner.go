@@ -24,7 +24,8 @@ type CodexChatService interface {
 	CancelActiveRunByID(workspaceID string, conversationID string, runID string) (chat.Run, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
-	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
+	LoadRunActivityPage(workspaceID string, runID string, afterItemID string, limit int) (chat.RunActivityPage, error)
+	LoadRunActivityItems(workspaceID string, runID string) ([]chat.RunItem, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	LoadRunTranscriptPage(workspaceID string, runID string, beforeBlockOrdinal int, limit int) (chat.RunTranscriptPage, error)
 	ReconcileActiveRunByID(ctx context.Context, workspaceID string, conversationID string, runID string, reason chat.RunLivenessReason) (chat.RunLivenessReconciliationResult, error)
@@ -296,12 +297,12 @@ func (runner *CodexActionRunner) Recover(_ context.Context, request ActionRecove
 }
 
 func (runner *CodexActionRunner) recoverTerminalCodexRun(owner workflowRunOwner, run chat.Run, refs []WorkflowActionRunnerRef, sink RunnerEventSink) (ActionRecoverResult, error) {
-	activity, err := runner.chatService.LoadRunActivityPage(run.WorkspaceID, run.ID, 1000)
+	items, err := runner.chatService.LoadRunActivityItems(run.WorkspaceID, run.ID)
 	var result WorkflowActionResult
 	if err != nil {
 		result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("load chat run activity: %v", err))
 	} else {
-		result, err = workflowActionResultFromChatRun(run, activity)
+		result, err = workflowActionResultFromChatRun(run, items)
 		if err != nil {
 			result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("decode workflow result: %v", err))
 		}
@@ -440,7 +441,7 @@ func latestCodexHarnessRef(conversation chat.Conversation) chat.HarnessThreadRef
 	return chat.HarnessThreadRef{}
 }
 
-func workflowActionResultFromChatRun(run chat.Run, activity chat.RunActivityPage) (WorkflowActionResult, error) {
+func workflowActionResultFromChatRun(run chat.Run, items []chat.RunItem) (WorkflowActionResult, error) {
 	result := WorkflowActionResult{
 		Signals:   []WorkflowActionSignal{},
 		FilePaths: []string{},
@@ -457,7 +458,7 @@ func workflowActionResultFromChatRun(run chat.Run, activity chat.RunActivityPage
 	default:
 		return WorkflowActionResult{}, fmt.Errorf("chat run %s status %s is not terminal", run.ID, run.Status)
 	}
-	signals, output, filePaths, err := workflowResultPayloadFromActivity(activity)
+	signals, output, filePaths, err := workflowResultPayloadFromRunItems(items)
 	if err != nil {
 		return WorkflowActionResult{}, err
 	}
@@ -482,9 +483,9 @@ func workflowActionResultFromChatRunReconcileError(run chat.Run, message string)
 	}
 }
 
-func workflowResultPayloadFromActivity(activity chat.RunActivityPage) ([]WorkflowActionSignal, json.RawMessage, []string, error) {
-	for index := len(activity.Items) - 1; index >= 0; index-- {
-		item := activity.Items[index]
+func workflowResultPayloadFromRunItems(items []chat.RunItem) ([]WorkflowActionSignal, json.RawMessage, []string, error) {
+	for index := len(items) - 1; index >= 0; index-- {
+		item := items[index]
 		details, ok := item.DynamicToolCallDetails()
 		if item.Type != chat.RunItemTypeDynamicToolCall ||
 			item.Status != chat.RunItemStatusCompleted ||

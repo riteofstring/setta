@@ -34,6 +34,8 @@ type Service struct {
 	newID             func(prefix string) (string, error)
 	now               func() time.Time
 
+	postCommitTurnStartInterceptor func(postCommitHarnessTurnStart) postCommitHarnessTurnStart
+
 	mu       sync.Mutex
 	active   map[string]activeTurn
 	liveness map[string]RunLiveness

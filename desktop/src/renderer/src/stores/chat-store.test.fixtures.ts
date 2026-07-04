@@ -68,3 +68,22 @@ export function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run 
   } satisfies Run;
   return run as Run & { status: T };
 }
+
+export interface Deferred<T> {
+  promise: Promise<T>;
+  reject: (error: Error) => void;
+  resolve: (value: T) => void;
+}
+
+export function deferred<T>(): Deferred<T> {
+  let resolve: Deferred<T>["resolve"] | null = null;
+  let reject: Deferred<T>["reject"] | null = null;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  if (!resolve || !reject) {
+    throw new Error("deferred promise callbacks were not initialized");
+  }
+  return { promise, reject, resolve };
+}

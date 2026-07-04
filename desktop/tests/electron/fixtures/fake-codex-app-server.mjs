@@ -22,6 +22,7 @@ const goalBackgroundTerminalFailure = {
   processId: "goal_bg_process_failed",
   secondTurnOutput: "goal background failure final output\n",
 };
+const goalBackgroundTerminalCompletionDwellMs = 5000;
 const goalForegroundUnifiedExec = {
   command: "command -v tokei",
   itemId: "goal_fg_command",
@@ -1164,7 +1165,7 @@ function emitGoalOperationBackgroundTerminal(objective) {
         threadId,
         turn: fakeTurnWithID("turn_goal_b", "completed"),
       });
-    }, 2000);
+    }, goalBackgroundTerminalCompletionDwellMs);
   }, 350);
 }
 

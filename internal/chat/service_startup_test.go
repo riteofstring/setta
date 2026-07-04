@@ -289,15 +289,202 @@ func TestServicePostCommitStartupFailureFailsPromotedQueuedRunAndAllowsNextSend(
 	}
 }
 
-func newPostCommitStartupFailureService(t *testing.T, harness Harness, fail func(prefix string, ordinal int) error) *Service {
+func TestServicePostCommitStartupFailurePointsFailCommittedRuns(t *testing.T) {
+	points := []struct {
+		name  string
+		point PostCommitTurnStartFailurePoint
+	}{
+		{name: "publish", point: PostCommitTurnStartFailurePublish},
+		{name: "delivery input", point: PostCommitTurnStartFailureDeliveryInput},
+		{name: "launch", point: PostCommitTurnStartFailureLaunch},
+	}
+	modes := []struct {
+		name string
+		mode postCommitStartupFailureMode
+	}{
+		{name: "normal", mode: postCommitStartupFailureModeNormal},
+		{name: "workflow", mode: postCommitStartupFailureModeWorkflow},
+		{name: "queued", mode: postCommitStartupFailureModeQueued},
+	}
+	for _, point := range points {
+		for _, mode := range modes {
+			t.Run(point.name+" "+mode.name, func(t *testing.T) {
+				runPostCommitStartupFailurePointCase(t, point.point, mode.mode)
+			})
+		}
+	}
+}
+
+type postCommitStartupFailureMode string
+
+const (
+	postCommitStartupFailureModeNormal   postCommitStartupFailureMode = "normal"
+	postCommitStartupFailureModeWorkflow postCommitStartupFailureMode = "workflow"
+	postCommitStartupFailureModeQueued   postCommitStartupFailureMode = "queued"
+)
+
+type turnRequestRecorder interface {
+	TurnRequests() []TurnRequest
+}
+
+func runPostCommitStartupFailurePointCase(t *testing.T, point PostCommitTurnStartFailurePoint, mode postCommitStartupFailureMode) {
+	t.Helper()
+
+	failAttempt := 1
+	if mode == postCommitStartupFailureModeQueued {
+		failAttempt = 2
+	}
+	injectedErr := fmt.Errorf("injected %s %s startup failure", mode, point)
+	option := mustPostCommitTurnStartFailureOption(t, point, failAttempt, injectedErr)
+	switch mode {
+	case postCommitStartupFailureModeNormal:
+		harness := NewFakeHarness(nil)
+		service := newPostCommitStartupFailureService(t, harness, nil, option)
+		assertNormalPostCommitStartupFailurePoint(t, service, harness, injectedErr.Error())
+	case postCommitStartupFailureModeWorkflow:
+		harness := NewFakeHarness(nil)
+		service := newPostCommitStartupFailureService(t, harness, nil, option)
+		assertWorkflowPostCommitStartupFailurePoint(t, service, harness, injectedErr.Error())
+	case postCommitStartupFailureModeQueued:
+		harness := newBlockingCompletionHarness()
+		service := newPostCommitStartupFailureService(t, harness, nil, option)
+		assertQueuedPostCommitStartupFailurePoint(t, service, harness, injectedErr.Error())
+	default:
+		t.Fatalf("unsupported post-commit startup failure mode: %s", mode)
+	}
+}
+
+func assertNormalPostCommitStartupFailurePoint(t *testing.T, service *Service, recorder turnRequestRecorder, wantError string) {
+	t.Helper()
+
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	_, err = service.SendUserInput("workspace_api", conversation.ID, TextChatInput("post commit normal failure"))
+	if err == nil || !strings.Contains(err.Error(), wantError) {
+		t.Fatalf("send error = %v, want %q", err, wantError)
+	}
+	failed := assertSingleFailedStartupRun(t, service, "workspace_api", conversation.ID, wantError)
+	assertNoActiveRunOrLiveness(t, service, "workspace_api", conversation.ID)
+	assertAssistantMessageStatus(t, service, "workspace_api", conversation.ID, failed.AssistantMessageID, MessageStatusError)
+	assertTurnRequestIDs(t, recorder, nil)
+
+	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("after normal startup failure"))
+	if err != nil {
+		t.Fatalf("send after startup failure: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+	assertTurnRequestIDs(t, recorder, []string{result.Run.ID})
+}
+
+func assertWorkflowPostCommitStartupFailurePoint(t *testing.T, service *Service, recorder turnRequestRecorder, wantError string) {
+	t.Helper()
+
+	_, err := service.SendWorkflowAgentTurn("workspace_api", postCommitStartupFailureWorkflowRequest("node_execution_failed", "workflow post commit failure"))
+	if err == nil || !strings.Contains(err.Error(), wantError) {
+		t.Fatalf("workflow send error = %v, want %q", err, wantError)
+	}
+	conversations, err := service.ListWorkflowConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list workflow conversations: %v", err)
+	}
+	if len(conversations) != 1 {
+		t.Fatalf("workflow conversations = %+v, want one failed conversation", conversations)
+	}
+	conversationID := conversations[0].ID
+	failed := assertSingleFailedStartupRun(t, service, "workspace_api", conversationID, wantError)
+	assertNoActiveRunOrLiveness(t, service, "workspace_api", conversationID)
+	assertAssistantMessageStatus(t, service, "workspace_api", conversationID, failed.AssistantMessageID, MessageStatusError)
+	assertTurnRequestIDs(t, recorder, nil)
+
+	result, err := service.SendWorkflowAgentTurn("workspace_api", postCommitStartupFailureWorkflowRequest("node_execution_retry", "workflow after startup failure"))
+	if err != nil {
+		t.Fatalf("workflow send after startup failure: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", result.Conversation.ID, result.Run.ID, RunStatusCompleted)
+	assertTurnRequestIDs(t, recorder, []string{result.Run.ID})
+}
+
+func assertQueuedPostCommitStartupFailurePoint(t *testing.T, service *Service, harness *blockingCompletionHarness, wantError string) {
+	t.Helper()
+
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("active before queued failure"))
+	if err != nil {
+		t.Fatalf("send active: %v", err)
+	}
+	harness.waitForStarts(t, 1)
+	queued, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("queued promotion startup failure"))
+	if err != nil {
+		t.Fatalf("queue input: %v", err)
+	}
+
+	harness.releaseAll()
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, active.Run.ID, RunStatusCompleted)
+	failed := waitForRunStatus(t, service, "workspace_api", conversation.ID, queued.Run.ID, RunStatusFailed)
+	if !strings.Contains(failed.Error, wantError) {
+		t.Fatalf("queued failure error = %q, want %q", failed.Error, wantError)
+	}
+	if failed.ID != queued.Run.ID || failed.StartedAt == "" || failed.AssistantMessageID == "" {
+		t.Fatalf("queued failure run = %+v, want committed promoted run based on %+v", failed, queued.Run)
+	}
+	assertNoActiveRunOrLiveness(t, service, "workspace_api", conversation.ID)
+	assertAssistantMessageStatus(t, service, "workspace_api", conversation.ID, failed.AssistantMessageID, MessageStatusError)
+	assertTurnRequestIDs(t, harness, []string{active.Run.ID})
+
+	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("after queued startup failure"))
+	if err != nil {
+		t.Fatalf("send after queued startup failure: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+	assertTurnRequestIDs(t, harness, []string{active.Run.ID, result.Run.ID})
+}
+
+func postCommitStartupFailureWorkflowRequest(nodeExecutionID string, prompt string) WorkflowAgentTurnRequest {
+	return WorkflowAgentTurnRequest{
+		DefinitionID:        "definition_startup_failure",
+		DefinitionVersionID: "version_startup_failure",
+		ExecutionID:         "execution_startup_failure",
+		NodeID:              "node_startup_failure",
+		NodeExecutionID:     nodeExecutionID,
+		Prompt:              prompt,
+	}
+}
+
+func mustPostCommitTurnStartFailureOption(t *testing.T, point PostCommitTurnStartFailurePoint, failAttempt int, failure error) Option {
+	t.Helper()
+
+	option, err := WithPostCommitTurnStartFailure(point, failAttempt, failure)
+	if err != nil {
+		t.Fatalf("create post-commit turn start failure option: %v", err)
+	}
+	return option
+}
+
+func assertTurnRequestIDs(t *testing.T, recorder turnRequestRecorder, want []string) {
+	t.Helper()
+
+	requests := recorder.TurnRequests()
+	if len(requests) != len(want) {
+		t.Fatalf("harness requests = %+v, want run ids %v", requests, want)
+	}
+	for index, wantID := range want {
+		if requests[index].Run.ID != wantID {
+			t.Fatalf("harness request %d run id = %s, want %s; requests = %+v", index, requests[index].Run.ID, wantID, requests)
+		}
+	}
+}
+
+func newPostCommitStartupFailureService(t *testing.T, harness Harness, fail func(prefix string, ordinal int) error, options ...Option) *Service {
 	t.Helper()
 
 	idCounter := 0
 	prefixCounts := map[string]int{}
-	service, err := NewService(
-		mustStore(t, t.TempDir()),
-		testResolver(t),
-		harness,
+	serviceOptions := []Option{
 		WithClock(func() time.Time {
 			return mustTime(t, "2026-05-29T20:00:00Z")
 		}),
@@ -311,6 +498,13 @@ func newPostCommitStartupFailureService(t *testing.T, harness Harness, fail func
 			idCounter++
 			return fmt.Sprintf("%s_%04d", prefix, idCounter), nil
 		}),
+	}
+	serviceOptions = append(serviceOptions, options...)
+	service, err := NewService(
+		mustStore(t, t.TempDir()),
+		testResolver(t),
+		harness,
+		serviceOptions...,
 	)
 	if err != nil {
 		t.Fatalf("new service: %v", err)

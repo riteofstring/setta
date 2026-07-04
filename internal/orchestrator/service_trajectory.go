@@ -11,7 +11,11 @@ import (
 
 const (
 	defaultWorkflowTrajectoryTranscriptLimit = 80
+	defaultWorkflowTrajectoryItemLimit       = 80
 	defaultWorkflowTrajectoryOutputLimit     = 200
+	maxWorkflowTrajectoryTranscriptPageSize  = 200
+	maxWorkflowTrajectoryItemPageSize        = 500
+	maxWorkflowTrajectoryOutputPageSize      = 500
 )
 
 type workflowAgentTrajectoryContext struct {
@@ -21,11 +25,11 @@ type workflowAgentTrajectoryContext struct {
 	RunID          string
 }
 
-func (service *Service) ReadWorkflowNodeTrajectory(workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, outputLimit int) (WorkflowAgentTrajectoryPage, error) {
+func (service *Service) ReadWorkflowNodeTrajectory(workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, afterItemID string, itemLimit int, outputLimit int) (WorkflowAgentTrajectoryPage, error) {
 	if service.codexChatService == nil {
 		return WorkflowAgentTrajectoryPage{}, errors.New("workflow agent trajectory requires Codex chat service")
 	}
-	transcriptLimit, outputLimit, err := service.prepareWorkflowNodeTrajectoryRequest(workspaceID, executionID, nodeExecutionID, beforeBlockOrdinal, transcriptLimit, outputLimit)
+	transcriptLimit, itemLimit, outputLimit, err := service.prepareWorkflowNodeTrajectoryRequest(workspaceID, executionID, nodeExecutionID, beforeBlockOrdinal, transcriptLimit, afterItemID, itemLimit, outputLimit)
 	if err != nil {
 		return WorkflowAgentTrajectoryPage{}, err
 	}
@@ -41,7 +45,7 @@ func (service *Service) ReadWorkflowNodeTrajectory(workspaceID string, execution
 	if err != nil {
 		return WorkflowAgentTrajectoryPage{}, err
 	}
-	activity, err := service.codexChatService.LoadRunActivityPage(workspaceID, context.RunID, outputLimit)
+	activity, err := service.codexChatService.LoadRunActivityPage(workspaceID, context.RunID, afterItemID, itemLimit)
 	if err != nil {
 		return WorkflowAgentTrajectoryPage{}, fmt.Errorf("load workflow node run activity: %w", err)
 	}
@@ -186,20 +190,23 @@ func (service *Service) completeStoppedWorkflowNodeRun(workspaceID string, execu
 	return service.ReadExecution(workspaceID, executionID)
 }
 
-func (service *Service) prepareWorkflowNodeTrajectoryRequest(workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, outputLimit int) (int, int, error) {
-	if err := validateWorkflowNodeTrajectoryRequest(executionID, nodeExecutionID, beforeBlockOrdinal, transcriptLimit, outputLimit); err != nil {
-		return 0, 0, err
+func (service *Service) prepareWorkflowNodeTrajectoryRequest(workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, afterItemID string, itemLimit int, outputLimit int) (int, int, int, error) {
+	if err := validateWorkflowNodeTrajectoryRequest(executionID, nodeExecutionID, beforeBlockOrdinal, transcriptLimit, afterItemID, itemLimit, outputLimit); err != nil {
+		return 0, 0, 0, err
 	}
 	if transcriptLimit == 0 {
 		transcriptLimit = defaultWorkflowTrajectoryTranscriptLimit
+	}
+	if itemLimit == 0 {
+		itemLimit = defaultWorkflowTrajectoryItemLimit
 	}
 	if outputLimit == 0 {
 		outputLimit = defaultWorkflowTrajectoryOutputLimit
 	}
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
-	return transcriptLimit, outputLimit, nil
+	return transcriptLimit, itemLimit, outputLimit, nil
 }
 
 func (service *Service) workflowAgentTrajectoryContext(workspaceID string, executionID string, nodeExecutionID string) (workflowAgentTrajectoryContext, error) {
@@ -266,8 +273,11 @@ func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run cha
 		PendingApproval:         pendingApproval,
 		HasMoreOlder:            transcript.HasMoreOlder,
 		OlderBeforeBlockOrdinal: transcript.OlderBeforeBlockOrdinal,
+		HasMoreItems:            activity.HasMoreItems,
+		NextItemID:              activity.NextItemID,
 		Capabilities: WorkflowAgentTrajectoryCapabilities{
 			CanLoadOlderHistory:  transcript.HasMoreOlder,
+			CanLoadMoreActivity:  activity.HasMoreItems,
 			CanLoadRunItemOutput: true,
 			CanRetryLiveness:     canRetryLiveness,
 			CanSteer:             canSteer,
@@ -292,21 +302,41 @@ func workflowAgentTrajectoryCanSteer(activeRun *chat.Run, liveness *chat.RunLive
 		liveness.Status == chat.RunLivenessAttached
 }
 
-func validateWorkflowNodeTrajectoryRequest(executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, outputLimit int) error {
+func validateWorkflowNodeTrajectoryRequest(executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, afterItemID string, itemLimit int, outputLimit int) error {
+	if err := validateWorkflowNodeTrajectoryIDs(executionID, nodeExecutionID, afterItemID); err != nil {
+		return err
+	}
+	if beforeBlockOrdinal < 0 {
+		return fmt.Errorf("workflow node trajectory beforeBlockOrdinal must not be negative: %d", beforeBlockOrdinal)
+	}
+	if err := validateWorkflowTrajectoryLimit("transcriptLimit", transcriptLimit, maxWorkflowTrajectoryTranscriptPageSize); err != nil {
+		return err
+	}
+	if err := validateWorkflowTrajectoryLimit("itemLimit", itemLimit, maxWorkflowTrajectoryItemPageSize); err != nil {
+		return err
+	}
+	return validateWorkflowTrajectoryLimit("outputLimit", outputLimit, maxWorkflowTrajectoryOutputPageSize)
+}
+
+func validateWorkflowNodeTrajectoryIDs(executionID string, nodeExecutionID string, afterItemID string) error {
 	if err := validateStorageID("workflow execution id", executionID); err != nil {
 		return err
 	}
 	if err := validateStorageID("workflow node execution id", nodeExecutionID); err != nil {
 		return err
 	}
-	if beforeBlockOrdinal < 0 {
-		return fmt.Errorf("workflow node trajectory beforeBlockOrdinal must not be negative: %d", beforeBlockOrdinal)
+	if afterItemID == "" {
+		return nil
 	}
-	if transcriptLimit < 0 {
-		return fmt.Errorf("workflow node trajectory transcriptLimit must not be negative: %d", transcriptLimit)
+	return validateStorageID("workflow node trajectory afterItemId", afterItemID)
+}
+
+func validateWorkflowTrajectoryLimit(name string, limit int, max int) error {
+	if limit < 0 {
+		return fmt.Errorf("workflow node trajectory %s must not be negative: %d", name, limit)
 	}
-	if outputLimit < 0 {
-		return fmt.Errorf("workflow node trajectory outputLimit must not be negative: %d", outputLimit)
+	if limit > max {
+		return fmt.Errorf("workflow node trajectory %s must be at most %d: %d", name, max, limit)
 	}
 	return nil
 }
@@ -374,8 +404,12 @@ func (service *Service) workflowAgentTrajectoryRun(workspaceID string, conversat
 func (service *Service) workflowAgentTrajectoryOutputState(workspaceID string, runID string, items []chat.RunItem, outputLimit int) ([]WorkflowAgentTrajectoryRunItemOutputPageState, []chat.RunItemOutput, error) {
 	outputPages := make([]WorkflowAgentTrajectoryRunItemOutputPageState, 0, len(items))
 	outputs := []chat.RunItemOutput{}
+	remaining := outputLimit
 	for _, item := range items {
-		page, err := service.codexChatService.LoadRunItemOutputPage(workspaceID, runID, item.ID, 0, outputLimit)
+		if remaining <= 0 {
+			continue
+		}
+		page, err := service.codexChatService.LoadRunItemOutputPage(workspaceID, runID, item.ID, 0, remaining)
 		if err != nil {
 			return nil, nil, fmt.Errorf("load workflow node run item output %s: %w", item.ID, err)
 		}
@@ -388,6 +422,7 @@ func (service *Service) workflowAgentTrajectoryOutputState(workspaceID string, r
 				loadedThroughOrdinal = output.Ordinal
 			}
 		}
+		remaining -= len(page.Output)
 		outputPages = append(outputPages, WorkflowAgentTrajectoryRunItemOutputPageState{
 			RunID:                runID,
 			RunItemID:            item.ID,

@@ -486,7 +486,12 @@ export interface SettaAPI {
       conversationId: string,
       messageId: string,
     ) => Promise<QueueRemoveResult>;
-    runActivity: (workspaceId: string, runId: string, limit: number) => Promise<RunActivityPage>;
+    runActivity: (
+      workspaceId: string,
+      runId: string,
+      afterItemId: string,
+      limit: number,
+    ) => Promise<RunActivityPage>;
     runItemOutput: (
       workspaceId: string,
       runId: string,

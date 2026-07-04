@@ -218,7 +218,7 @@ func (handler handler) readWorkflowNodeTrajectory(response http.ResponseWriter, 
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	page, err := service.ReadWorkflowNodeTrajectory(payload.WorkspaceID, payload.ExecutionID, payload.NodeExecutionID, payload.BeforeBlockOrdinal, payload.TranscriptLimit, payload.OutputLimit)
+	page, err := service.ReadWorkflowNodeTrajectory(payload.WorkspaceID, payload.ExecutionID, payload.NodeExecutionID, payload.BeforeBlockOrdinal, payload.TranscriptLimit, payload.AfterItemID, payload.ItemLimit, payload.OutputLimit)
 	if err != nil {
 		writeWorkflowError(response, "read_workflow_node_trajectory_failed", err)
 		return

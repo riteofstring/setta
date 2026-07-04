@@ -256,6 +256,7 @@ type ListRunsResponse struct {
 type GetRunActivityRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	RunID       string `json:"runId"`
+	AfterItemID string `json:"afterItemId"`
 	Limit       int    `json:"limit"`
 }
 
@@ -403,6 +404,8 @@ type ReadWorkflowNodeTrajectoryRequest struct {
 	NodeExecutionID    string `json:"nodeExecutionId"`
 	BeforeBlockOrdinal int    `json:"beforeBlockOrdinal"`
 	TranscriptLimit    int    `json:"transcriptLimit"`
+	AfterItemID        string `json:"afterItemId"`
+	ItemLimit          int    `json:"itemLimit"`
 	OutputLimit        int    `json:"outputLimit"`
 }
 

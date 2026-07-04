@@ -327,6 +327,45 @@ func TestWorkflowNodeTrajectoryEndpointReturnsScopedApprovalTrajectory(t *testin
 	}
 }
 
+func TestWorkflowNodeTrajectoryEndpointRejectsOversizedPageLimits(t *testing.T) {
+	handler := newScriptedWorkflowHandler(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	tests := []struct {
+		name            string
+		transcriptLimit int
+		outputLimit     int
+		wantMessage     string
+	}{
+		{
+			name:            "transcript limit",
+			transcriptLimit: 201,
+			outputLimit:     5,
+			wantMessage:     "transcriptLimit must be at most 200",
+		},
+		{
+			name:            "output limit",
+			transcriptLimit: 20,
+			outputLimit:     501,
+			wantMessage:     "outputLimit must be at most 500",
+		},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			errResponse := postJSON[ErrorResponse](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
+				WorkspaceID:     opened.Workspace.ID,
+				ExecutionID:     "execution_trajectory_limit",
+				NodeExecutionID: "node_execution_trajectory_limit",
+				TranscriptLimit: testCase.transcriptLimit,
+				OutputLimit:     testCase.outputLimit,
+			}, http.StatusBadRequest)
+			if errResponse.Error.Code != "read_workflow_node_trajectory_failed" ||
+				!strings.Contains(errResponse.Error.Message, testCase.wantMessage) {
+				t.Fatalf("trajectory error = %+v, want code and message %q", errResponse.Error, testCase.wantMessage)
+			}
+		})
+	}
+}
+
 func TestWorkflowEndpointStopsNodeScopedRun(t *testing.T) {
 	handler := newScriptedWorkflowHandler(t)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)

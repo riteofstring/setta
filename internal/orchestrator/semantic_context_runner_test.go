@@ -112,8 +112,12 @@ func (client *recordingCodexChatClient) LoadMessagePage(string, string, int, int
 	return chat.MessagePage{}, nil
 }
 
-func (client *recordingCodexChatClient) LoadRunActivityPage(string, string, int) (chat.RunActivityPage, error) {
+func (client *recordingCodexChatClient) LoadRunActivityPage(string, string, string, int) (chat.RunActivityPage, error) {
 	return chat.RunActivityPage{}, nil
+}
+
+func (client *recordingCodexChatClient) LoadRunActivityItems(string, string) ([]chat.RunItem, error) {
+	return nil, nil
 }
 
 func (client *recordingCodexChatClient) LoadRunItemOutputPage(string, string, string, int, int) (chat.RunItemOutputPage, error) {

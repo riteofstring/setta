@@ -856,7 +856,7 @@ func TestServiceGoalOperationUnifiedExecStartupCompletedInPhysicalTurnStaysActiv
 	if activity.Status != RunItemStatusCompleted || activity.Details.Command != fakeUnifiedExecForegroundCommand || !activity.HasOutput {
 		t.Fatalf("foreground goal command activity = %+v, want completed command with output", activity)
 	}
-	activityPage, err := service.LoadRunActivityPage("workspace_api", runs[0].ID, 20)
+	activityPage, err := service.LoadRunActivityPage("workspace_api", runs[0].ID, "", 20)
 	if err != nil {
 		t.Fatalf("load run activity page: %v", err)
 	}
@@ -967,7 +967,7 @@ func TestServiceGoalOperationBackgroundTerminalCrossPhysicalTurnEmitsNoDuplicate
 	if markers := countBackgroundTerminalMarkerBlocks(blocks, fakeUnifiedExecAlphaCommand); markers != 1 {
 		t.Fatalf("goal background terminal marker blocks = %d, want 1: %v", markers, blockKinds(blocks))
 	}
-	activityPage, err := service.LoadRunActivityPage("workspace_api", runs[0].ID, 20)
+	activityPage, err := service.LoadRunActivityPage("workspace_api", runs[0].ID, "", 20)
 	if err != nil {
 		t.Fatalf("load run activity page: %v", err)
 	}

@@ -427,10 +427,7 @@ function workflowGraphDebugSnapshot(surfaceId: SurfaceId): WorkflowGraphDebugSna
     return null;
   }
   const api = window.__settaWorkflowGraphDebug;
-  if (!api || !api.getSurfaceIds().includes(surfaceId)) {
-    return null;
-  }
-  return api.getSnapshot(surfaceId);
+  return api?.tryGetSnapshot(surfaceId) ?? null;
 }
 
 function canvasStatsForWorkflowGraphSnapshot(

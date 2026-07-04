@@ -536,7 +536,7 @@ func (handler handler) getRunActivity(response http.ResponseWriter, request *htt
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	page, err := service.LoadRunActivityPage(payload.WorkspaceID, payload.RunID, payload.Limit)
+	page, err := service.LoadRunActivityPage(payload.WorkspaceID, payload.RunID, payload.AfterItemID, payload.Limit)
 	if err != nil {
 		writeChatError(response, "get_run_activity_failed", err)
 		return

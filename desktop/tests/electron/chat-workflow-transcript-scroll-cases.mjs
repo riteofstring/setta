@@ -234,31 +234,32 @@ async function waitForInitialScrollableTranscript(client) {
 }
 
 async function assertNearBottomDetachWhileStreaming(client) {
-  const nearBottomScrolled = await scrollChatTranscript(client, { distanceFromBottom: 12 });
+  const nearBottomScrolled = await scrollChatTranscript(client, { distanceFromBottom: 64 });
   if (!nearBottomScrolled.ok) {
     throw new Error(
       `transcript did not perform near-bottom history scroll: ${JSON.stringify(nearBottomScrolled)}`,
     );
   }
-  const nearBottomDetached = nearBottomScrolled.snapshot;
-  if (
-    nearBottomDetached.debug.mode !== "user_detached" ||
-    !nearBottomDetached.debug.atBottom ||
-    nearBottomDetached.debug.distanceFromBottom <= 0 ||
-    nearBottomDetached.debug.distanceFromBottom > 24
-  ) {
-    throw new Error(
-      `transcript did not detach inside bottom tolerance band: ${JSON.stringify(nearBottomDetached)}`,
-    );
-  }
+  const nearBottomDetached = await waitForTranscriptScrollSnapshot(
+    client,
+    (snapshot) =>
+      snapshot.debug.mode === "user_detached" &&
+      !snapshot.debug.atBottom &&
+      snapshot.debug.distanceFromBottom > 48,
+    "near-bottom detached after manual history scroll",
+  );
   const afterNearBottomGrowth = await waitForTranscriptScrollSnapshot(
     client,
     (snapshot) =>
       snapshot.debug.tailRevision !== nearBottomDetached.debug.tailRevision &&
-      snapshot.debug.mode === "user_detached",
-    "still detached inside bottom tolerance band while streaming grows tail",
+      snapshot.debug.mode === "user_detached" &&
+      !snapshot.debug.atBottom &&
+      snapshot.debug.distanceFromBottom > 48,
+    "still detached near bottom while streaming grows tail",
   );
-  if (afterNearBottomGrowth.debug.scrollTop > nearBottomDetached.debug.scrollTop + 4) {
+  if (
+    afterNearBottomGrowth.debug.distanceFromBottom <= nearBottomDetached.debug.distanceFromBottom
+  ) {
     throw new Error(
       `near-bottom detached transcript unexpectedly followed the tail: before=${JSON.stringify(nearBottomDetached.debug)} after=${JSON.stringify(afterNearBottomGrowth.debug)}`,
     );

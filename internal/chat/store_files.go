@@ -121,6 +121,10 @@ func (store *Store) runItemsDir(workspaceID string, runID string) string {
 	return filepath.Join(store.runsDir(workspaceID), runID, runItemsDirName)
 }
 
+func (store *Store) runItemsIndexPath(workspaceID string, runID string) string {
+	return filepath.Join(store.runDataDir(workspaceID, runID), runItemsIndexFileName)
+}
+
 func (store *Store) runItemDir(workspaceID string, runID string, runItemID string) string {
 	return filepath.Join(store.runItemsDir(workspaceID, runID), runItemID)
 }

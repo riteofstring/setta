@@ -53,6 +53,8 @@ const (
 
 const (
 	e2eChatFailFirstTranscriptBlockIDEnv          = "SETTA_E2E_CHAT_FAIL_FIRST_TRANSCRIPT_BLOCK_ID"
+	e2eChatFailPostCommitStartupPointEnv          = "SETTA_E2E_CHAT_FAIL_POST_COMMIT_STARTUP_POINT"
+	e2eChatFailPostCommitStartupAttemptEnv        = "SETTA_E2E_CHAT_FAIL_POST_COMMIT_STARTUP_ATTEMPT"
 	e2eWorkflowFailFirstRunnerPostStartPersistEnv = "SETTA_E2E_WORKFLOW_FAIL_FIRST_RUNNER_POST_START_PERSIST"
 )
 
@@ -374,18 +376,30 @@ func newChatService(
 	if err != nil {
 		return nil, err
 	}
-	chatService, err := chat.NewService(chatStore, workspaceService, harness, chatServiceOptionsFromEnv()...)
+	options, err := chatServiceOptionsFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, harness, options...)
 	if err != nil {
 		return nil, fmt.Errorf("create chat service: %w", err)
 	}
 	return chatService, nil
 }
 
-func chatServiceOptionsFromEnv() []chat.Option {
-	if os.Getenv(e2eChatFailFirstTranscriptBlockIDEnv) != "1" {
-		return nil
+func chatServiceOptionsFromEnv() ([]chat.Option, error) {
+	var options []chat.Option
+	if os.Getenv(e2eChatFailFirstTranscriptBlockIDEnv) == "1" {
+		options = append(options, chat.WithIDGenerator(e2eFailFirstTranscriptBlockIDGenerator()))
 	}
-	return []chat.Option{chat.WithIDGenerator(e2eFailFirstTranscriptBlockIDGenerator())}
+	startupFailureOption, ok, err := e2eChatPostCommitStartupFailureOptionFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		options = append(options, startupFailureOption)
+	}
+	return options, nil
 }
 
 func e2eFailFirstTranscriptBlockIDGenerator() func(string) (string, error) {
@@ -400,6 +414,47 @@ func e2eFailFirstTranscriptBlockIDGenerator() func(string) (string, error) {
 			return "", errors.New("e2e injected transcript block id failure")
 		}
 		return e2eRandomID(prefix)
+	}
+}
+
+func e2eChatPostCommitStartupFailureOptionFromEnv() (chat.Option, bool, error) {
+	rawPoint := os.Getenv(e2eChatFailPostCommitStartupPointEnv)
+	if rawPoint == "" {
+		return nil, false, nil
+	}
+	point, err := e2eChatPostCommitStartupFailurePoint(rawPoint)
+	if err != nil {
+		return nil, false, err
+	}
+	attempt := 1
+	if rawAttempt := os.Getenv(e2eChatFailPostCommitStartupAttemptEnv); rawAttempt != "" {
+		parsed, err := strconv.Atoi(rawAttempt)
+		if err != nil || parsed <= 0 {
+			return nil, false, fmt.Errorf("invalid %s value %q: must be a positive integer", e2eChatFailPostCommitStartupAttemptEnv, rawAttempt)
+		}
+		attempt = parsed
+	}
+	option, err := chat.WithPostCommitTurnStartFailure(
+		point,
+		attempt,
+		fmt.Errorf("e2e injected post-commit %s failure", rawPoint),
+	)
+	if err != nil {
+		return nil, false, err
+	}
+	return option, true, nil
+}
+
+func e2eChatPostCommitStartupFailurePoint(raw string) (chat.PostCommitTurnStartFailurePoint, error) {
+	switch raw {
+	case string(chat.PostCommitTurnStartFailurePublish):
+		return chat.PostCommitTurnStartFailurePublish, nil
+	case string(chat.PostCommitTurnStartFailureDeliveryInput):
+		return chat.PostCommitTurnStartFailureDeliveryInput, nil
+	case string(chat.PostCommitTurnStartFailureLaunch):
+		return chat.PostCommitTurnStartFailureLaunch, nil
+	default:
+		return "", fmt.Errorf("unsupported %s value %q", e2eChatFailPostCommitStartupPointEnv, raw)
 	}
 }
 

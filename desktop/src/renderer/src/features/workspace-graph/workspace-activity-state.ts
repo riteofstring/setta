@@ -126,7 +126,7 @@ export function useWorkspaceActivityState({
     try {
       stateRef.current = recordWorkspaceActivityBackendReadAttempt(
         stateRef.current,
-        readGraphDebugSnapshotRef.current?.() ?? null,
+        readWorkspaceActivityGraphProbe(readGraphDebugSnapshotRef.current),
       );
       const snapshot = await readActivitySnapshotForTarget(workspaceId, executionId, limit);
       if (
@@ -170,7 +170,7 @@ export function useWorkspaceActivityState({
       if (cancelled) {
         return;
       }
-      if (graphCameraMoving(readGraphDebugSnapshotRef.current?.() ?? null)) {
+      if (graphCameraMoving(readWorkspaceActivityGraphProbe(readGraphDebugSnapshotRef.current))) {
         const interval =
           attempts < terminalReloadFastAttempts
             ? terminalReloadPollIntervalMs
@@ -205,7 +205,7 @@ export function useWorkspaceActivityState({
   useEffect(() => {
     return window.setta.workspaceActivity.onEvent((event) => {
       const previous = stateRef.current;
-      const beforeGraph = readGraphDebugSnapshotRef.current?.() ?? null;
+      const beforeGraph = readWorkspaceActivityGraphProbe(readGraphDebugSnapshotRef.current);
       const selectedExecutionId = runTargetExecutionId(activityTargetRef.current);
       const result = applyWorkspaceActivityEvent(previous, event, limit, selectedExecutionId);
       stateRef.current = result.state;
@@ -213,7 +213,7 @@ export function useWorkspaceActivityState({
       if (deltaApplied) {
         syncMarkers();
       }
-      const afterGraph = readGraphDebugSnapshotRef.current?.() ?? null;
+      const afterGraph = readWorkspaceActivityGraphProbe(readGraphDebugSnapshotRef.current);
       stateRef.current = recordWorkspaceActivityDeltaInstrumentation({
         afterGraph,
         beforeGraph,
@@ -255,6 +255,12 @@ function readActivitySnapshotForTarget(
   return executionId === ""
     ? window.setta.workspaceActivity.snapshot(workspaceId, limit)
     : window.setta.workspaceActivity.executionSnapshot(workspaceId, executionId, limit);
+}
+
+function readWorkspaceActivityGraphProbe(
+  readGraphDebugSnapshot: (() => WorkflowGraphActivityProbeSnapshot | null) | undefined,
+): WorkflowGraphActivityProbeSnapshot | null {
+  return readGraphDebugSnapshot?.() ?? null;
 }
 
 function applyActivitySnapshotForTarget(

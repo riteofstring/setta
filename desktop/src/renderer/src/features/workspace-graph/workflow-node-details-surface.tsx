@@ -50,6 +50,7 @@ type WorkflowNodeDetailsTarget = NonNullable<
 
 const workflowRunEventLimit = 80;
 const workflowNodeTrajectoryTranscriptLimit = 80;
+const workflowNodeTrajectoryItemLimit = 80;
 const workflowNodeTrajectoryOutputLimit = 40;
 
 export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
@@ -252,8 +253,10 @@ function useWorkflowRunInspection(target: WorkflowNodeDetailsTarget | null) {
     setState((previous) => ({ ...previous, operation: "loadingOlder" }));
     try {
       const page = await window.setta.workflow.readNodeTrajectory({
+        afterItemId: "",
         beforeBlockOrdinal: current.page.olderBeforeBlockOrdinal,
         executionId: current.page.scope.executionId,
+        itemLimit: workflowNodeTrajectoryItemLimit,
         nodeExecutionId: current.page.scope.nodeExecutionId,
         outputLimit: workflowNodeTrajectoryOutputLimit,
         transcriptLimit: workflowNodeTrajectoryTranscriptLimit,
@@ -456,8 +459,10 @@ async function loadWorkflowNodeTrajectory(
   }
   try {
     const page = await window.setta.workflow.readNodeTrajectory({
+      afterItemId: "",
       beforeBlockOrdinal: 0,
       executionId: target.executionId,
+      itemLimit: workflowNodeTrajectoryItemLimit,
       nodeExecutionId: nodeExecution.id,
       outputLimit: workflowNodeTrajectoryOutputLimit,
       transcriptLimit: workflowNodeTrajectoryTranscriptLimit,

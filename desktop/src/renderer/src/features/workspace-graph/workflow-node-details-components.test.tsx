@@ -372,6 +372,7 @@ function trajectoryPage(
     ],
     capabilities: {
       canLoadOlderHistory: false,
+      canLoadMoreActivity: false,
       canLoadRunItemOutput: true,
       canRetryLiveness: false,
       canSteer: false,
@@ -379,8 +380,10 @@ function trajectoryPage(
       canSubmitApproval: false,
     },
     conversationId: "conversation_api",
+    hasMoreItems: false,
     hasMoreOlder: false,
     items: [runItem()],
+    nextItemId: "",
     olderBeforeBlockOrdinal: 0,
     outputPages: [
       {
@@ -431,6 +434,7 @@ function stoppablePage(): WorkflowAgentTrajectoryPage {
     },
     capabilities: {
       canLoadOlderHistory: false,
+      canLoadMoreActivity: false,
       canLoadRunItemOutput: true,
       canRetryLiveness: false,
       canSteer: false,
@@ -461,6 +465,7 @@ function steerablePage(): WorkflowAgentTrajectoryPage {
     },
     capabilities: {
       canLoadOlderHistory: false,
+      canLoadMoreActivity: false,
       canLoadRunItemOutput: true,
       canRetryLiveness: false,
       canSteer: true,

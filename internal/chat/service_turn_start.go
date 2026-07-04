@@ -16,6 +16,7 @@ type postCommitHarnessTurnStart struct {
 	SemanticContext  *semanticcontext.Delivery
 	Publish          func() error
 	DeliveryInput    func() (ChatInput, error)
+	Launch           func(context.Context, TurnRequest) error
 }
 
 func (service *Service) ensureCanStartTurnLocked(workspaceID string, conversationID string, key string) error {
@@ -43,6 +44,9 @@ func (service *Service) ensureCanStartTurnLocked(workspaceID string, conversatio
 }
 
 func (service *Service) startPostCommitHarnessTurnLocked(start postCommitHarnessTurnStart) error {
+	if service.postCommitTurnStartInterceptor != nil {
+		start = service.postCommitTurnStartInterceptor(start)
+	}
 	workspaceID := start.Workspace.ID
 	conversationID := start.Conversation.ID
 	runID := start.Run.ID
@@ -79,7 +83,11 @@ func (service *Service) startPostCommitHarnessTurnLocked(start postCommitHarness
 		SemanticContext: start.SemanticContext,
 		ThreadRef:       latestHarnessRef(start.Conversation, HarnessCodex),
 	}
-	if err := service.launchHarnessTurnLocked(ctx, request); err != nil {
+	launch := start.Launch
+	if launch == nil {
+		launch = service.launchHarnessTurnLocked
+	}
+	if err := launch(ctx, request); err != nil {
 		return service.abortPostCommitHarnessTurnStartLocked(workspaceID, conversationID, runID, cancel, err)
 	}
 	return nil
