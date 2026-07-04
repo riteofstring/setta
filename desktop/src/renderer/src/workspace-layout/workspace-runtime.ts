@@ -46,7 +46,7 @@ export function createWorkspaceRuntime({
   workspaceName: string;
 }) {
   const realScene = createRealSceneForRuntime({ mode, storedLayout, workspaceId, workspaceName });
-  const scene = sceneForRuntime(realScene, mode);
+  const scene = sceneForRuntime(realScene);
   const engine = new WorkspaceLikeLayoutEngine(scene, {
     allowResizedPanesToOverflowViewport,
     overviewCardMaxWidthPx,
@@ -96,7 +96,6 @@ export function createWorkspaceRuntime({
     resizeReportWriter: new LocalStorageResizePerformanceReportWriter(1500),
     runtimePolicy: new PaneRuntimePolicy(DEFAULT_PANE_BUDGET, runtimePolicyOptionsForRuntime(mode)),
     scene,
-    surfaceRegistry,
     store,
   };
 }

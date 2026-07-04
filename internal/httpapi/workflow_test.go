@@ -273,211 +273,6 @@ func TestWorkflowEndpointsSubmitWorkflowApproval(t *testing.T) {
 	}
 }
 
-func TestWorkflowNodeTrajectoryEndpointReturnsScopedApprovalTrajectory(t *testing.T) {
-	handler := newScriptedWorkflowHandler(t)
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Name:        "Trajectory approval workflow",
-		Graph:       httpWorkflowApprovalGraph(),
-	}, http.StatusOK)
-	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
-		WorkspaceID:  opened.Workspace.ID,
-		DefinitionID: definition.ID,
-	}, http.StatusOK)
-	waiting := waitForHTTPWorkflowNodeStatus(t, handler, opened.Workspace.ID, started.ID, "work", orchestrator.NodeExecutionStatusWaitingApproval)
-	work := latestHTTPNodeExecution(t, waiting, "work")
-	pending := work.Result.PendingApproval
-
-	page := postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
-		WorkspaceID:     opened.Workspace.ID,
-		ExecutionID:     started.ID,
-		NodeExecutionID: work.ID,
-		TranscriptLimit: 20,
-		OutputLimit:     5,
-	}, http.StatusOK)
-	if page.Scope.WorkspaceID != opened.Workspace.ID ||
-		page.Scope.ExecutionID != started.ID ||
-		page.Scope.NodeExecutionID != work.ID ||
-		page.Scope.Attempt != work.Attempt {
-		t.Fatalf("trajectory scope = %+v, want workspace/execution/node scope", page.Scope)
-	}
-	if page.PendingApproval == nil || page.PendingApproval.ApprovalID != pending.ApprovalID {
-		t.Fatalf("trajectory pending approval = %+v, want %s", page.PendingApproval, pending.ApprovalID)
-	}
-	if page.ActiveRun == nil || page.ActiveRun.ID != page.RunID {
-		t.Fatalf("trajectory active run = %+v, want %s", page.ActiveRun, page.RunID)
-	}
-	if page.ActiveRunLiveness == nil || page.ActiveRunLiveness.RunID != page.RunID {
-		t.Fatalf("trajectory liveness = %+v, want run %s", page.ActiveRunLiveness, page.RunID)
-	}
-	if len(page.Blocks) == 0 {
-		t.Fatal("trajectory blocks were empty")
-	}
-	for _, block := range page.Blocks {
-		if block.RunID != page.RunID {
-			t.Fatalf("trajectory block = %+v, want run %s only", block, page.RunID)
-		}
-	}
-	if page.OutputPages == nil || page.Outputs == nil {
-		t.Fatalf("trajectory output arrays must be non-nil: %+v", page)
-	}
-	if !page.Capabilities.CanSubmitApproval || !page.Capabilities.CanLoadRunItemOutput || !page.Capabilities.CanStopRun {
-		t.Fatalf("trajectory capabilities = %+v, want approval, stop, and output loading", page.Capabilities)
-	}
-}
-
-func TestWorkflowEndpointStopsNodeScopedRun(t *testing.T) {
-	handler := newScriptedWorkflowHandler(t)
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Name:        "Stopped trajectory workflow",
-		Graph:       httpWorkflowHoldGraph(),
-	}, http.StatusOK)
-	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
-		WorkspaceID:  opened.Workspace.ID,
-		DefinitionID: definition.ID,
-	}, http.StatusOK)
-	work := latestHTTPNodeExecution(t, started, "work")
-
-	page := postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
-		WorkspaceID:     opened.Workspace.ID,
-		ExecutionID:     started.ID,
-		NodeExecutionID: work.ID,
-		TranscriptLimit: 20,
-		OutputLimit:     5,
-	}, http.StatusOK)
-	if !page.Capabilities.CanStopRun {
-		t.Fatalf("running trajectory capabilities = %+v, want stop", page.Capabilities)
-	}
-
-	stopped := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/nodes/runs/stop", StopWorkflowNodeRunRequest{
-		WorkspaceID:     opened.Workspace.ID,
-		ExecutionID:     started.ID,
-		NodeExecutionID: work.ID,
-	}, http.StatusOK)
-	if stopped.Status != orchestrator.ExecutionStatusCancelled {
-		t.Fatalf("stopped execution status = %s, want cancelled", stopped.Status)
-	}
-	stoppedWork := latestHTTPNodeExecution(t, stopped, "work")
-	if stoppedWork.Status != orchestrator.NodeExecutionStatusCancelled {
-		t.Fatalf("stopped node status = %s, want cancelled", stoppedWork.Status)
-	}
-
-	terminalPage := postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
-		WorkspaceID:     opened.Workspace.ID,
-		ExecutionID:     stopped.ID,
-		NodeExecutionID: stoppedWork.ID,
-		TranscriptLimit: 20,
-		OutputLimit:     5,
-	}, http.StatusOK)
-	if terminalPage.ActiveRun != nil || terminalPage.Capabilities.CanStopRun {
-		t.Fatalf("terminal trajectory = active %+v capabilities %+v, want no active stop", terminalPage.ActiveRun, terminalPage.Capabilities)
-	}
-}
-
-func TestWorkflowEndpointSteersNodeScopedRun(t *testing.T) {
-	handler := newScriptedWorkflowHandler(t)
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Name:        "Steered trajectory workflow",
-		Graph:       httpWorkflowHoldGraph(),
-	}, http.StatusOK)
-	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
-		WorkspaceID:  opened.Workspace.ID,
-		DefinitionID: definition.ID,
-	}, http.StatusOK)
-	work := latestHTTPNodeExecution(t, started, "work")
-
-	page := waitForHTTPWorkflowNodeTrajectory(t, handler, opened.Workspace.ID, started.ID, work.ID, func(page orchestrator.WorkflowAgentTrajectoryPage) bool {
-		return page.Capabilities.CanSteer
-	})
-	steered := postJSON[chat.SteerMessageResult](t, handler, "/workflows/nodes/runs/steer", SteerWorkflowNodeRunRequest{
-		WorkspaceID:     opened.Workspace.ID,
-		ExecutionID:     started.ID,
-		NodeExecutionID: work.ID,
-		Input:           chat.TextChatInput("finish HTTP node steering"),
-	}, http.StatusOK)
-	if steered.Run.ID != page.RunID || steered.UserMessage.RunID != page.RunID || steered.UserMessage.Delivery != chat.MessageDeliverySteering {
-		t.Fatalf("steering result = %+v, want steering for run %s", steered, page.RunID)
-	}
-	completed := waitForHTTPWorkflowStatus(t, handler, opened.Workspace.ID, started.ID, orchestrator.ExecutionStatusCompleted)
-	completedWork := latestHTTPNodeExecution(t, completed, "work")
-	if completedWork.ID != work.ID || completedWork.Status != orchestrator.NodeExecutionStatusSucceeded {
-		t.Fatalf("completed node = %+v, want succeeded node %s", completedWork, work.ID)
-	}
-	terminalPage := postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
-		WorkspaceID:     opened.Workspace.ID,
-		ExecutionID:     completed.ID,
-		NodeExecutionID: completedWork.ID,
-		TranscriptLimit: 20,
-		OutputLimit:     5,
-	}, http.StatusOK)
-	if terminalPage.ActiveRun != nil || terminalPage.Capabilities.CanSteer {
-		t.Fatalf("terminal trajectory = active %+v capabilities %+v, want no active steering", terminalPage.ActiveRun, terminalPage.Capabilities)
-	}
-	if !httpTrajectoryBlocksContainAssistantText(terminalPage.Blocks, "Steered with finish HTTP node steering.") {
-		t.Fatalf("terminal trajectory blocks = %+v, want steered assistant text", terminalPage.Blocks)
-	}
-}
-
-func TestWorkflowEndpointRetriesNodeRunLiveness(t *testing.T) {
-	handler := newScriptedWorkflowHandler(t)
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Name:        "Retry trajectory workflow",
-		Graph:       httpWorkflowHoldGraph(),
-	}, http.StatusOK)
-	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
-		WorkspaceID:  opened.Workspace.ID,
-		DefinitionID: definition.ID,
-	}, http.StatusOK)
-	work := latestHTTPNodeExecution(t, started, "work")
-
-	page := waitForHTTPWorkflowNodeTrajectory(t, handler, opened.Workspace.ID, started.ID, work.ID, func(page orchestrator.WorkflowAgentTrajectoryPage) bool {
-		return page.ActiveRunLiveness != nil && page.ActiveRunLiveness.Status == chat.RunLivenessAttached
-	})
-	reconciled := postJSON[ReconcileChatRunsResponse](t, handler, "/chat/runs/reconcile", ReconcileChatRunsRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: page.ConversationID,
-		Reason:         chat.RunLivenessReasonStreamResync,
-	}, http.StatusOK)
-	if len(reconciled.Result.Runs) != 1 || reconciled.Result.Runs[0].RunID != page.RunID || reconciled.Result.Runs[0].Reason != chat.RunLivenessReasonStreamResync {
-		t.Fatalf("stream reconcile = %+v, want stream resync for %s", reconciled.Result.Runs, page.RunID)
-	}
-	retryablePage := postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
-		WorkspaceID:     opened.Workspace.ID,
-		ExecutionID:     started.ID,
-		NodeExecutionID: work.ID,
-		TranscriptLimit: 20,
-		OutputLimit:     5,
-	}, http.StatusOK)
-	if !retryablePage.Capabilities.CanRetryLiveness {
-		t.Fatalf("retryable trajectory capabilities = %+v, want retry liveness", retryablePage.Capabilities)
-	}
-
-	retried := postJSON[chat.RunLivenessReconciliationResult](t, handler, "/workflows/nodes/runs/retry-liveness", RetryWorkflowNodeRunLivenessRequest{
-		WorkspaceID:     opened.Workspace.ID,
-		ExecutionID:     started.ID,
-		NodeExecutionID: work.ID,
-	}, http.StatusOK)
-	if len(retried.Runs) != 1 || retried.Runs[0].RunID != page.RunID || retried.Runs[0].Reason != chat.RunLivenessReasonUserRetry {
-		t.Fatalf("retried liveness = %+v, want user retry for %s", retried.Runs, page.RunID)
-	}
-
-	stopped := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/nodes/runs/stop", StopWorkflowNodeRunRequest{
-		WorkspaceID:     opened.Workspace.ID,
-		ExecutionID:     started.ID,
-		NodeExecutionID: work.ID,
-	}, http.StatusOK)
-	if stopped.Status != orchestrator.ExecutionStatusCancelled {
-		t.Fatalf("stopped execution status = %s, want cancelled", stopped.Status)
-	}
-}
-
 func TestWorkflowEventStreamPushesWorkflowEvents(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	server := httptest.NewServer(handler)
@@ -592,18 +387,6 @@ func httpWorkflowApprovalGraph() orchestrator.WorkflowGraph {
 	return graph
 }
 
-func httpWorkflowHoldGraph() orchestrator.WorkflowGraph {
-	graph := httpWorkflowActionGraph()
-	for index := range graph.Nodes {
-		if graph.Nodes[index].ID != "work" {
-			continue
-		}
-		graph.Nodes[index].Action.Codex.Prompt = "workflow hold for queue and steering"
-		graph.Nodes[index].Action.Codex.FreshConversation = true
-	}
-	return graph
-}
-
 func newScriptedWorkflowHandler(t *testing.T) http.Handler {
 	t.Helper()
 	appDataDir := t.TempDir()
@@ -646,7 +429,7 @@ func newScriptedWorkflowHandler(t *testing.T) http.Handler {
 		t.Fatalf("new workflow service: %v", err)
 	}
 	t.Cleanup(workflowService.CloseEvents)
-	return NewHandler(HandlerConfig{
+	return newAuthenticatedTestHandler(t, HandlerConfig{
 		ChatService:      chatService,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: workspaceService,
@@ -687,27 +470,6 @@ func waitForHTTPWorkflow(t *testing.T, handler http.Handler, workspaceID string,
 	return orchestrator.WorkflowExecution{}
 }
 
-func waitForHTTPWorkflowNodeTrajectory(t *testing.T, handler http.Handler, workspaceID string, executionID string, nodeExecutionID string, matches func(orchestrator.WorkflowAgentTrajectoryPage) bool) orchestrator.WorkflowAgentTrajectoryPage {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	var page orchestrator.WorkflowAgentTrajectoryPage
-	for time.Now().Before(deadline) {
-		page = postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
-			WorkspaceID:     workspaceID,
-			ExecutionID:     executionID,
-			NodeExecutionID: nodeExecutionID,
-			TranscriptLimit: 20,
-			OutputLimit:     5,
-		}, http.StatusOK)
-		if matches(page) {
-			return page
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("timed out waiting for workflow node trajectory %s, last state %+v", nodeExecutionID, page)
-	return orchestrator.WorkflowAgentTrajectoryPage{}
-}
-
 func latestHTTPNodeExecution(t *testing.T, execution orchestrator.WorkflowExecution, nodeID string) orchestrator.WorkflowNodeExecution {
 	t.Helper()
 	for index := len(execution.NodeExecutions) - 1; index >= 0; index-- {
@@ -717,15 +479,6 @@ func latestHTTPNodeExecution(t *testing.T, execution orchestrator.WorkflowExecut
 	}
 	t.Fatalf("node execution for %s was not found in %+v", nodeID, execution.NodeExecutions)
 	return orchestrator.WorkflowNodeExecution{}
-}
-
-func httpTrajectoryBlocksContainAssistantText(blocks []chat.TranscriptBlock, text string) bool {
-	for _, block := range blocks {
-		if block.AssistantText != nil && strings.Contains(block.AssistantText.Text, text) {
-			return true
-		}
-	}
-	return false
 }
 
 func projectedHTTPNode(t *testing.T, projection *orchestrator.WorkflowGraphProjection, nodeID string) orchestrator.WorkflowGraphNode {

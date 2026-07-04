@@ -21,7 +21,7 @@ func TestWorkspaceActivitySnapshotEndpoint(t *testing.T) {
 			WorkspaceID:   "workspace_activity",
 		},
 	}
-	handler := NewHandler(HandlerConfig{
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceActivityService: service,
 	})
@@ -56,7 +56,7 @@ func TestWorkflowExecutionActivityEndpoint(t *testing.T) {
 			WorkspaceID:   "workspace_activity",
 		},
 	}
-	handler := NewHandler(HandlerConfig{
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceActivityService: service,
 	})
@@ -103,7 +103,7 @@ func TestWorkspaceActivityEventStreamWritesTypedSSEAndWorkspaceFilter(t *testing
 	events <- event
 	close(events)
 	service := &fakeWorkspaceActivityService{events: events}
-	handler := NewHandler(HandlerConfig{
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceActivityService: service,
 	})
@@ -139,7 +139,7 @@ func TestWorkspaceActivityEventStreamWritesTypedSSEAndWorkspaceFilter(t *testing
 }
 
 func TestWorkspaceActivityEventStreamRejectsInvalidCursor(t *testing.T) {
-	handler := NewHandler(HandlerConfig{
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceActivityService: &fakeWorkspaceActivityService{},
 	})

@@ -19,7 +19,7 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("Explain Phase 3"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "Explain Phase 3")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -47,122 +47,14 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	if len(latest.Messages) != 1 || latest.Messages[0].Role != RoleAssistant {
 		t.Fatalf("latest messages = %+v, want assistant only", latest.Messages)
 	}
-	if !strings.Contains(latest.Messages[0].Parts[0].Text.Text, "Explain Phase 3") {
-		t.Fatalf("assistant text = %q, want streamed fake response", latest.Messages[0].Parts[0].Text.Text)
+	if !strings.Contains(latest.Messages[0].Parts[0].Text, "Explain Phase 3") {
+		t.Fatalf("assistant text = %q, want streamed fake response", latest.Messages[0].Parts[0].Text)
 	}
-	blocks, err := restarted.store.LoadTranscriptBlocks("workspace_api", run.ID)
-	if err != nil {
-		t.Fatalf("load persisted transcript blocks: %v", err)
+	if latest.HasMoreOlder {
+		t.Fatal("latest page hasMoreOlder = true, want false because transcript includes the complete turn")
 	}
-	userBlock := firstUserMessageBlock(blocks)
-	if userBlock == nil || userBlock.UserMessage.Parts[0].Text.Text != "Explain Phase 3" {
-		t.Fatalf("user block = %+v, want trigger text", userBlock)
-	}
-}
-
-func TestServicePersistsCodexEffectiveSettingsFromLinkedThread(t *testing.T) {
-	effort := ReasoningEffortXHigh
-	harness := NewFakeHarness([]FakeHarnessEvent{
-		{
-			Type:      FakeEventThreadLinked,
-			ThreadID:  "thread_effective",
-			SessionID: "session_effective",
-			TurnID:    "turn_effective",
-			CodexEffectiveSettings: &ChatCodexEffectiveSettings{
-				Model:                      "gpt-test",
-				ModelDisplayName:           "GPT Test",
-				ReasoningEffort:            &effort,
-				ReasoningEffortDisplayName: "Extra high",
-				SupportsImages:             true,
-			},
-		},
-		{Type: FakeEventAssistantDelta, Text: "done"},
-	})
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("effective settings"))
-	if err != nil {
-		t.Fatalf("send message: %v", err)
-	}
-	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
-
-	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
-	if err != nil {
-		t.Fatalf("load page: %v", err)
-	}
-	settings := page.Conversation.CodexEffectiveSettings
-	if settings == nil ||
-		settings.Model != "gpt-test" ||
-		settings.ModelDisplayName != "GPT Test" ||
-		settings.ReasoningEffort == nil ||
-		*settings.ReasoningEffort != ReasoningEffortXHigh ||
-		settings.ReasoningEffortDisplayName != "Extra high" {
-		t.Fatalf("effective settings = %+v, want GPT Test Extra high", settings)
-	}
-}
-
-func TestServiceCreateConversationResolvesCodexEffectiveSettings(t *testing.T) {
-	harness := NewFakeHarness(nil)
-	harness.model = "scripted-careful"
-	harness.reasoning = ReasoningEffortXHigh
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	settings := conversation.CodexEffectiveSettings
-	if settings == nil ||
-		settings.Model != "scripted-careful" ||
-		settings.ModelDisplayName != "Scripted Careful" ||
-		settings.ReasoningEffort == nil ||
-		*settings.ReasoningEffort != ReasoningEffortXHigh ||
-		settings.ReasoningEffortDisplayName != "Extra high" {
-		t.Fatalf("created effective settings = %+v, want Scripted Careful Extra high", settings)
-	}
-
-	stored, err := service.store.LoadConversation("workspace_api", conversation.ID)
-	if err != nil {
-		t.Fatalf("load stored conversation: %v", err)
-	}
-	if !chatCodexEffectiveSettingsEqual(stored.CodexEffectiveSettings, settings) {
-		t.Fatalf("stored effective settings = %+v, want %+v", stored.CodexEffectiveSettings, settings)
-	}
-}
-
-func TestServiceLoadMessagePageResolvesCodexEffectiveSettings(t *testing.T) {
-	harness := NewFakeHarness(nil)
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-
-	harness.model = "scripted-fast"
-	harness.reasoning = ReasoningEffortHigh
-	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
-	if err != nil {
-		t.Fatalf("load message page: %v", err)
-	}
-	settings := page.Conversation.CodexEffectiveSettings
-	if settings == nil ||
-		settings.Model != "scripted-fast" ||
-		settings.ModelDisplayName != "Scripted Fast" ||
-		settings.ReasoningEffort == nil ||
-		*settings.ReasoningEffort != ReasoningEffortHigh ||
-		settings.ReasoningEffortDisplayName != "High" {
-		t.Fatalf("page effective settings = %+v, want Scripted Fast High", settings)
-	}
-
-	stored, err := service.store.LoadConversation("workspace_api", conversation.ID)
-	if err != nil {
-		t.Fatalf("load stored conversation: %v", err)
-	}
-	if stored.CodexEffectiveSettings != nil {
-		t.Fatalf("stored effective settings = %+v, want nil before a linked thread", stored.CodexEffectiveSettings)
+	if got, want := transcriptMessageTexts(latest.Transcript), []string{"Explain Phase 3", latest.Messages[0].Parts[0].Text}; !equalStrings(got, want) {
+		t.Fatalf("latest transcript = %+v, want complete turn %+v", got, want)
 	}
 }
 
@@ -173,7 +65,7 @@ func TestServiceRoutesMasterChatThroughSharedHarnessTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("shared task"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "shared task")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -299,7 +191,7 @@ func TestServiceDeletesCompletedConversation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("delete me"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "delete me")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -334,7 +226,7 @@ func TestServiceRejectsDeletingActiveConversation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("still running")); err != nil {
+	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "still running"); err != nil {
 		t.Fatalf("send message: %v", err)
 	}
 
@@ -354,7 +246,7 @@ func TestServiceKeepsUserMessageWhenHarnessFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("Will this persist?"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "Will this persist?")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -370,7 +262,7 @@ func TestServiceKeepsUserMessageWhenHarnessFails(t *testing.T) {
 	if len(page.Messages) != 2 {
 		t.Fatalf("message count = %d, want user and assistant placeholder", len(page.Messages))
 	}
-	if page.Messages[0].Role != RoleUser || page.Messages[0].Parts[0].Text.Text != "Will this persist?" {
+	if page.Messages[0].Role != RoleUser || page.Messages[0].Parts[0].Text != "Will this persist?" {
 		t.Fatalf("user message = %+v, want persisted prompt", page.Messages[0])
 	}
 	if page.Messages[1].Status != MessageStatusError {
@@ -389,79 +281,24 @@ func TestServiceLoadsUnpersistedActiveAssistantDeltas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("stream"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "stream")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
 
 	page := waitForAssistantText(t, service, "workspace_api", conversation.ID, "firstsecond")
-	if page.Messages[1].Parts[0].Text.Text != "firstsecond" {
-		t.Fatalf("assistant text = %q, want latest in-memory deltas", page.Messages[1].Parts[0].Text.Text)
+	if page.Messages[1].Parts[0].Text != "firstsecond" {
+		t.Fatalf("assistant text = %q, want latest in-memory deltas", page.Messages[1].Parts[0].Text)
 	}
 	storedPage, err := service.store.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
 	if err != nil {
 		t.Fatalf("load stored page: %v", err)
 	}
-	if storedPage.Messages[1].Parts[0].Text.Text == page.Messages[1].Parts[0].Text.Text {
+	if storedPage.Messages[1].Parts[0].Text == page.Messages[1].Parts[0].Text {
 		t.Fatal("stored page already includes all deltas; test did not observe in-memory overlay")
 	}
 	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
 		t.Fatalf("cancel active run %s: %v", result.Run.ID, err)
-	}
-}
-
-func TestCloneMessageDeepCopiesPartPayloads(t *testing.T) {
-	detail := ImageDetailHigh
-	original := ChatMessage{
-		Parts: []MessagePart{
-			{
-				ID:   "part_text",
-				Type: MessagePartText,
-				Text: &MessageTextPart{Text: "streaming", Format: TextFormatMarkdown},
-			},
-			{
-				ID:   "part_image",
-				Type: MessagePartImage,
-				Image: &ImagePart{
-					AttachmentID: "attachment_api",
-					Detail:       &detail,
-				},
-			},
-		},
-	}
-
-	cloned := cloneMessage(original)
-	cloned.Parts[0].Text.Text = "snapshot"
-	*cloned.Parts[1].Image.Detail = ImageDetailAuto
-
-	if original.Parts[0].Text.Text != "streaming" {
-		t.Fatalf("original text = %q, want streaming", original.Parts[0].Text.Text)
-	}
-	if original.Parts[1].Image.Detail == nil || *original.Parts[1].Image.Detail != ImageDetailHigh {
-		t.Fatalf("original detail = %+v, want high", original.Parts[1].Image.Detail)
-	}
-}
-
-func TestServiceTrimsStructuredInputTextBeforePersistAndDelivery(t *testing.T) {
-	harness := NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventAssistantDelta, Text: "done"}})
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("  trim me  "))
-	if err != nil {
-		t.Fatalf("send structured input: %v", err)
-	}
-	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
-	request := waitForFakeTurnRequest(t, harness, result.Run.ID)
-
-	if got := messageText(result.UserMessage); got != "trim me" {
-		t.Fatalf("stored message text = %q, want trimmed", got)
-	}
-	if got := chatInputText(request.Input); got != "trim me" {
-		t.Fatalf("delivered input text = %q, want trimmed", got)
 	}
 }
 
@@ -475,7 +312,7 @@ func TestServiceCancelsActiveRunThroughHarness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("stop"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "stop")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -509,7 +346,7 @@ func TestServicePersistsProviderCancelledTurn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("provider stop"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "provider stop")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -547,7 +384,7 @@ func TestServiceSurfacesAndResolvesApprovalRequests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("needs approval"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "needs approval")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -568,8 +405,8 @@ func TestServiceSurfacesAndResolvesApprovalRequests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load page: %v", err)
 	}
-	if page.Messages[1].Parts[0].Text.Text != "approved" {
-		t.Fatalf("assistant text = %q, want approved", page.Messages[1].Parts[0].Text.Text)
+	if page.Messages[1].Parts[0].Text != "approved" {
+		t.Fatalf("assistant text = %q, want approved", page.Messages[1].Parts[0].Text)
 	}
 }
 
@@ -586,7 +423,7 @@ func TestServiceLinksApprovalToProviderRunItem(t *testing.T) {
 			ProviderItemID: "command_fake",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusPending,
-			Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "go test ./..."}),
+			Command:        "go test ./...",
 		}},
 		{Type: FakeEventApproval, Approval: approval, WaitForApproval: true},
 	})
@@ -595,7 +432,7 @@ func TestServiceLinksApprovalToProviderRunItem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("needs approval"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "needs approval")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -624,7 +461,7 @@ func TestServiceSubmitApprovalToleratesTurnCompletionBeforeLocalClear(t *testing
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("approval race"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "approval race")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -653,7 +490,7 @@ func TestServiceKeepsApprovalPendingWhenHarnessRejectsResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("needs approval")); err != nil {
+	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "needs approval"); err != nil {
 		t.Fatalf("send message: %v", err)
 	}
 	run := waitForPendingApproval(t, service, "workspace_api", conversation.ID)
@@ -689,7 +526,7 @@ func TestServiceMarksHarnessRefUnavailableWhenResumeFails(t *testing.T) {
 	if err := service.store.SaveConversation(conversation); err != nil {
 		t.Fatalf("save conversation with ref: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("resume"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "resume")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -717,7 +554,7 @@ func TestServiceSupervisorRecordsDiagnosticWhenCompleteTransitionFails(t *testin
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("break completion"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "break completion")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -758,7 +595,7 @@ func TestServiceSupervisorDoesNotRecordDiagnosticsForSuccessfulTurn(t *testing.T
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("clean"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "clean")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -785,7 +622,7 @@ func TestServiceStartIDFailureLeavesNoMisleadingActiveTurn(t *testing.T) {
 		return prefix + "_after_failure", nil
 	}
 
-	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("will fail")); err == nil {
+	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "will fail"); err == nil {
 		t.Fatal("send message succeeded, want run id failure")
 	}
 	service.mu.Lock()
@@ -806,7 +643,7 @@ func TestServiceCancelsBeforeHarnessTurnIDsAreAvailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("stop immediately"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "stop immediately")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
@@ -838,16 +675,16 @@ func TestServiceQueuesActiveMessagesAndPromotesOneAtATime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	first, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
+	first, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
 	if err != nil {
 		t.Fatalf("send first: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
-	q1, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("Q1"))
+	q1, err := service.QueueUserMessage("workspace_api", conversation.ID, "Q1")
 	if err != nil {
 		t.Fatalf("queue q1: %v", err)
 	}
-	q2, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("Q2"))
+	q2, err := service.QueueUserMessage("workspace_api", conversation.ID, "Q2")
 	if err != nil {
 		t.Fatalf("queue q2: %v", err)
 	}
@@ -884,11 +721,11 @@ func TestServiceCancelDoesNotDrainQueuedRuns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
+	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
 	if err != nil {
 		t.Fatalf("send active: %v", err)
 	}
-	queued, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("Q1"))
+	queued, err := service.QueueUserMessage("workspace_api", conversation.ID, "Q1")
 	if err != nil {
 		t.Fatalf("queue q1: %v", err)
 	}
@@ -919,16 +756,16 @@ func TestServiceFailureDoesNotDrainQueuedRuns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
+	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
 	if err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
-	queued, err := service.QueueUserInput("workspace_api", conversation.ID, TextChatInput("Q1"))
+	queued, err := service.QueueUserMessage("workspace_api", conversation.ID, "Q1")
 	if err != nil {
 		t.Fatalf("queue q1: %v", err)
 	}
-	if _, err := service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("fail active")); err != nil {
+	if _, err := service.SteerActiveRun("workspace_api", conversation.ID, "fail active"); err != nil {
 		t.Fatalf("steer active: %v", err)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, active.Run.ID, RunStatusFailed)
@@ -954,12 +791,12 @@ func TestServiceSteeringPersistsMessageAndCallsHarness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1")); err != nil {
+	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "A1"); err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
 
-	result, err := service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("S1"))
+	result, err := service.SteerActiveRun("workspace_api", conversation.ID, "S1")
 	if err != nil {
 		t.Fatalf("steer active: %v", err)
 	}
@@ -967,7 +804,7 @@ func TestServiceSteeringPersistsMessageAndCallsHarness(t *testing.T) {
 		t.Fatalf("steering message = %+v, want pending steering", result.UserMessage)
 	}
 	requests := harness.SteeringRequests()
-	if len(requests) != 1 || chatInputText(requests[0].Input) != "S1" || requests[0].TurnID != "turn_fake" {
+	if len(requests) != 1 || requests[0].Text != "S1" || requests[0].TurnID != "turn_fake" {
 		t.Fatalf("steering requests = %+v, want S1 for active turn", requests)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
@@ -986,11 +823,11 @@ func TestServiceSteeringRequiresStartedTurn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1")); err != nil {
+	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "A1"); err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 
-	_, err = service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("S1"))
+	_, err = service.SteerActiveRun("workspace_api", conversation.ID, "S1")
 	if !errors.Is(err, ErrTurnNotStarted) {
 		t.Fatalf("steer error = %v, want ErrTurnNotStarted", err)
 	}
@@ -1006,10 +843,8 @@ func TestServicePersistsRunActivityAndOutputChunks(t *testing.T) {
 			ProviderItemID: "command_fake",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
-				Command: "go test ./...",
-				Cwd:     "/tmp/workspace",
-			}),
+			Command:        "go test ./...",
+			Cwd:            "/tmp/workspace",
 		}},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_fake", Stream: "stdout", Text: "ok\n"},
 		{Type: FakeEventAssistantDelta, ProviderItemID: "message_fake", Text: "done"},
@@ -1019,7 +854,7 @@ func TestServicePersistsRunActivityAndOutputChunks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("activity"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "activity")
 	if err != nil {
 		t.Fatalf("send: %v", err)
 	}
@@ -1029,8 +864,8 @@ func TestServicePersistsRunActivityAndOutputChunks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load activity: %v", err)
 	}
-	if len(page.Items) != 1 || page.Items[0].Type != RunItemTypeCommandExecution {
-		t.Fatalf("items = %+v, want command item only", page.Items)
+	if len(page.Items) < 2 {
+		t.Fatalf("items = %+v, want command and assistant items", page.Items)
 	}
 	if page.Output[0].Text != "ok\n" || page.Output[0].Ordinal != 1 {
 		t.Fatalf("output = %+v, want first chunk", page.Output)
@@ -1043,7 +878,7 @@ func TestServiceEmbedsCappedRunOutputAndLoadsFullActivityPage(t *testing.T) {
 			ProviderItemID: "command_fake",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "printf output"}),
+			Command:        "printf output",
 		}},
 	}
 	for index := 0; index < embeddedRunOutputLimit+5; index++ {
@@ -1059,12 +894,19 @@ func TestServiceEmbedsCappedRunOutputAndLoadsFullActivityPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("run with output"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "run with output")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
 
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load message page: %v", err)
+	}
+	if len(page.RunItemOutputs) != embeddedRunOutputLimit {
+		t.Fatalf("embedded output count = %d, want %d", len(page.RunItemOutputs), embeddedRunOutputLimit)
+	}
 	activity, err := service.LoadRunActivityPage("workspace_api", result.Run.ID, embeddedRunOutputLimit+10)
 	if err != nil {
 		t.Fatalf("load activity page: %v", err)
@@ -1080,14 +922,14 @@ func TestServiceLoadsRunItemOutputWithItemScopedCursor(t *testing.T) {
 			ProviderItemID: "command_a",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "echo a"}),
+			Command:        "echo a",
 		}},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_a", Stream: "stdout", Text: "a1\n"},
 		{Type: FakeEventRunItem, ProviderItemID: "command_b", RunItem: RunItem{
 			ProviderItemID: "command_b",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "echo b"}),
+			Command:        "echo b",
 		}},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_b", Stream: "stdout", Text: "b1\n"},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_b", Stream: "stdout", Text: "b2\n"},
@@ -1097,7 +939,7 @@ func TestServiceLoadsRunItemOutputWithItemScopedCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("activity"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "activity")
 	if err != nil {
 		t.Fatalf("send: %v", err)
 	}
@@ -1161,12 +1003,10 @@ func TestServiceRecoveryLeavesQueuedRunsQueued(t *testing.T) {
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         MessageStatusPending,
 		Parts: []MessagePart{{
-			ID:   "part_queue",
-			Type: MessagePartText,
-			Text: &MessageTextPart{
-				Text:   "queued",
-				Format: TextFormatPlain,
-			},
+			Format: TextFormatPlain,
+			ID:     "part_queue",
+			Text:   "queued",
+			Type:   MessagePartText,
 		}},
 	}); err != nil {
 		t.Fatalf("save queued message: %v", err)
@@ -1225,12 +1065,10 @@ func TestStoreIgnoresTemporaryJSONFiles(t *testing.T) {
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         MessageStatusComplete,
 		Parts: []MessagePart{{
-			ID:   "part_api",
-			Type: MessagePartText,
-			Text: &MessageTextPart{
-				Text:   "hello",
-				Format: TextFormatPlain,
-			},
+			Format: TextFormatPlain,
+			ID:     "part_api",
+			Text:   "hello",
+			Type:   MessagePartText,
 		}},
 	}); err != nil {
 		t.Fatalf("save message: %v", err)
@@ -1435,9 +1273,10 @@ func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         MessageStatusComplete,
 		Parts: []MessagePart{{
-			ID:   "part_user",
-			Type: MessagePartText,
-			Text: &MessageTextPart{Text: "prompt", Format: TextFormatPlain},
+			Format: TextFormatPlain,
+			ID:     "part_user",
+			Text:   "prompt",
+			Type:   MessagePartText,
 		}},
 	}); err != nil {
 		t.Fatalf("save user message: %v", err)
@@ -1454,9 +1293,10 @@ func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         MessageStatusStreaming,
 		Parts: []MessagePart{{
-			ID:   "part_assistant",
-			Type: MessagePartText,
-			Text: &MessageTextPart{Text: "partial", Format: TextFormatMarkdown},
+			Format: TextFormatMarkdown,
+			ID:     "part_assistant",
+			Text:   "partial",
+			Type:   MessagePartText,
 		}},
 	}); err != nil {
 		t.Fatalf("save message: %v", err)

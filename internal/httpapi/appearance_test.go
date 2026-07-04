@@ -90,7 +90,7 @@ func TestAppearanceEndpointReadsPresetList(t *testing.T) {
 }
 
 func TestAppearanceEndpointsRequireService(t *testing.T) {
-	handler := NewHandler(HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
 	response := getJSON[ErrorResponse](t, handler, "/appearance/settings", http.StatusServiceUnavailable)
 	if response.Error.Code != "appearance_service_unavailable" {
 		t.Fatalf("error code = %q, want appearance_service_unavailable", response.Error.Code)
@@ -108,7 +108,7 @@ func newAppearanceHandler(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("new appearance service: %v", err)
 	}
-	return NewHandler(HandlerConfig{
+	return newAuthenticatedTestHandler(t, HandlerConfig{
 		AppearanceService: service,
 		Metadata:          BackendMetadata{Name: BackendName, Version: "test"},
 	})

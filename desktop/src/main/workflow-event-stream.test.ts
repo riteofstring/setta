@@ -14,6 +14,7 @@ describe("workflow event stream", () => {
       expect(input.toString()).toBe("http://127.0.0.1:41000/workflows/events");
       expect(init.method).toBe("GET");
       const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer token_test");
       lastEventIds.push(headers["Last-Event-ID"] ?? "");
       if (lastEventIds.length === 1) {
         return new Response(textStream(sseFrame("workflow_events:1", first)), { status: 200 });
@@ -25,6 +26,7 @@ describe("workflow event stream", () => {
     });
 
     const stream = startWorkflowEventStream({
+      authToken: "token_test",
       baseURL: "http://127.0.0.1:41000",
       fetchImpl,
       reconnectDelayMs: 1,

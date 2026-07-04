@@ -386,11 +386,7 @@ export function createReactDomSurfaceAdapter(
     return new ReactDomSurfaceAdapter(pane, () => <SemanticNodeDetailsSurface />, rootFactory);
   }
   if (pane.surfaceKind === "workflow-node-details") {
-    return new ReactDomSurfaceAdapter(
-      pane,
-      () => <WorkflowNodeDetailsSurface pane={pane} />,
-      rootFactory,
-    );
+    return new ReactDomSurfaceAdapter(pane, () => <WorkflowNodeDetailsSurface />, rootFactory);
   }
   if (pane.surfaceKind === "workflow-settings") {
     return new ReactDomSurfaceAdapter(pane, () => <WorkflowSettingsSurface />, rootFactory);

@@ -28,7 +28,6 @@ import type {
   WorkflowGraphRendererHandlers,
 } from "./pixi-renderer";
 import { activityFocusFromChip } from "./workflow-node-activity-focus";
-import { registerWorkflowNodeDetailsDebugSurface } from "./workflow-node-details-debug-registry";
 import { WorkflowApprovalOverlay } from "./workflow-approval-overlay";
 import {
   syncWorkflowGraphCameraScope,
@@ -610,51 +609,21 @@ export function WorkflowGraphSurface({
     [semanticGraphState.graph, semanticGraphState.workspaceId, setSelectedSemanticNodeTarget],
   );
   const openWorkflowNodeDetails = useCallback(
-    (
-      nodeId: string | null,
-      activityFocus: WorkflowNodeActivityFocusInput | null = null,
-      nodeExecutionId = "",
-    ) => {
+    (nodeId: string | null, activityFocus: WorkflowNodeActivityFocusInput | null = null) => {
       if (workflowProjection === null || nodeId === null) {
         return;
       }
-      const projectionTarget = workflowNodeDetailsTarget(workflowProjection, nodeId);
-      const target = {
-        ...projectionTarget,
-        nodeExecutionId:
-          nodeExecutionId === "" ? projectionTarget.nodeExecutionId : nodeExecutionId,
-      };
-      setSelectedNodeTarget(target, activityFocus);
+      setSelectedNodeTarget(workflowNodeDetailsTarget(workflowProjection, nodeId), activityFocus);
       requestWorkspacePaneOpen({
         surfaceKind: "workflow-node-details",
         subtitle: "workflow node details",
         title: "Workflow Node",
         tone: "cyan",
         widthSpec: { unit: "px", value: 380 },
-        workflowNodeDetailsConfig: target,
       });
     },
     [setSelectedNodeTarget, workflowProjection],
   );
-  const openWorkflowNodeDetailsFromDebug = useCallback(
-    (nodeId: string, nodeExecutionId: string) => {
-      if (
-        workflowProjection === null ||
-        !workflowProjection.nodes.some((candidate) => candidate.id === nodeId)
-      ) {
-        return false;
-      }
-      openWorkflowNodeDetails(nodeId, null, nodeExecutionId);
-      return true;
-    },
-    [openWorkflowNodeDetails, workflowProjection],
-  );
-  useEffect(() => {
-    if (!debugEnabled) {
-      return undefined;
-    }
-    return registerWorkflowNodeDetailsDebugSurface(surfaceId, openWorkflowNodeDetailsFromDebug);
-  }, [debugEnabled, openWorkflowNodeDetailsFromDebug, surfaceId]);
   const openWorkflowActivityChipDetails = useCallback(
     (chip: WorkflowGraphActivityChipTarget) => {
       openWorkflowNodeDetails(chip.nodeId, activityFocusFromChip(chip));
