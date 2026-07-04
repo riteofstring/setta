@@ -73,6 +73,8 @@ describe("ChatTranscript activity rows", () => {
 
     expect(html).toContain('data-testid="activity-group-header"');
     expect(html).toContain('data-activity-group-expanded="true"');
+    expect(rowCount(html, "activity-group-expand-all")).toBe(1);
+    expect(html).toContain('aria-label="Expand all activity details"');
     expect(rowCount(html, "activity-group-member-row")).toBe(2);
     expect(rowCount(html, "run-activity-details")).toBe(1);
     expect(html).toContain('data-activity-detail-section="Command"');

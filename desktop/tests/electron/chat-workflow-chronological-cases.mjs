@@ -98,7 +98,7 @@ export async function runChronologicalTranscriptWorkflow({
       { title: "Chronological command B", type: "command_execution" },
     ],
   });
-  await openProjectedActivityRows(client, projection.rows);
+  await expandProjectedActivityGroupDetails(client, projection.rows);
   await assertActivityRows(client, projection.rows);
 
   // Capture the three diagnostic layers, then assert the chronological behavior.
@@ -118,65 +118,83 @@ export async function runChronologicalTranscriptWorkflow({
   assertChronologicalInterleaving(domBlocks.blocks, run.id);
 }
 
-async function openProjectedActivityRows(client, rows) {
-  for (const row of rows) {
-    await openProjectedActivityRow(client, row.sourceRunItemId);
-  }
+async function expandProjectedActivityGroupDetails(client, rows) {
+  const sourceRunItemIds = rows.map((row) => row.sourceRunItemId);
+  await toggleProjectedActivityGroupDetails(client, sourceRunItemIds, true);
+  await toggleProjectedActivityGroupDetails(client, sourceRunItemIds, false);
+  await toggleProjectedActivityGroupDetails(client, sourceRunItemIds, true);
 }
 
-async function openProjectedActivityRow(client, sourceRunItemId) {
+async function toggleProjectedActivityGroupDetails(client, sourceRunItemIds, open) {
   const startedAt = Date.now();
-  let opened = null;
+  let anchorTopBefore = null;
+  let toggled = null;
   while (Date.now() - startedAt < 2_000) {
-    opened = await client.evaluate(`(() => {
-      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+    toggled = await client.evaluate(`(() => {
+      const sourceRunItemIds = ${JSON.stringify(sourceRunItemIds)};
+      const open = ${JSON.stringify(open)};
       const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
       const groupHeaders = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'));
-      const groupHeader = groupHeaders.find((candidate) =>
-        (candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "")
-          .split(/\\s+/)
-          .includes(sourceRunItemId)
-      );
-      let rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
-      let row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
-      if (
-        !row &&
-        groupHeader instanceof HTMLButtonElement &&
-        groupHeader.getAttribute("data-activity-group-expanded") !== "true"
-      ) {
-        groupHeader.click();
-        rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
-        row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
-      }
-      if (!row) {
+      const groupHeader = groupHeaders.find((candidate) => {
+        const ids = new Set((candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "").split(/\\s+/));
+        return sourceRunItemIds.every((sourceRunItemId) => ids.has(sourceRunItemId));
+      });
+      const expandAll = groupHeader?.parentElement?.querySelector('[data-testid="activity-group-expand-all"]');
+      if (!(expandAll instanceof HTMLButtonElement)) {
         return {
           ok: false,
-          reason: "missing-row",
+          reason: "missing-expand-all",
           groups: groupHeaders.map((candidate) => ({
             expanded: candidate.getAttribute("data-activity-group-expanded") ?? "",
             sourceRunItemIds: candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "",
             text: candidate.innerText,
           })),
-          rows: rows.map((candidate) => ({
-            sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
-            text: candidate.innerText,
-          })),
         };
       }
-      if (!(row instanceof HTMLDetailsElement)) {
-        return { ok: true, reason: "compact-row" };
+      const anchorTop = groupHeader.parentElement?.getBoundingClientRect().top ?? 0;
+      const rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+      const details = rows
+        .filter((row) => sourceRunItemIds.includes(row.getAttribute("data-run-item-id") ?? ""))
+        .map((row) => ({
+          open: row instanceof HTMLDetailsElement ? row.open : false,
+          sourceRunItemId: row.getAttribute("data-run-item-id") ?? "",
+          text: row.innerText,
+        }));
+      const groupExpanded = groupHeader?.getAttribute("data-activity-group-expanded") ?? "";
+      const ok = open
+        ? groupExpanded === "true" &&
+          details.length === sourceRunItemIds.length &&
+          details.every((detail) => detail.open) &&
+          details.every((detail) => detail.text.includes("COMMAND"))
+        : groupExpanded === "false" && details.length === 0;
+      const result = {
+        ok,
+        details,
+        expectedOpen: open,
+        groupExpanded,
+        anchorTop,
+        reason: "already-toggled",
+      };
+      if (!result.ok) {
+        result.anchorTopBefore = anchorTop;
+        expandAll.click();
       }
-      if (!row.open) {
-        row.querySelector("summary")?.click();
-      }
-      return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
+      return result;
     })()`);
-    if (opened.ok) {
+    if (anchorTopBefore === null && typeof toggled.anchorTopBefore === "number") {
+      anchorTopBefore = toggled.anchorTopBefore;
+    }
+    if (toggled.ok) {
+      if (anchorTopBefore !== null && Math.abs(toggled.anchorTop - anchorTopBefore) > 3) {
+        throw new Error(
+          `activity group anchor moved during toggle: before=${anchorTopBefore} after=${toggled.anchorTop} details=${JSON.stringify(toggled.details)}`,
+        );
+      }
       return;
     }
     await delay(50);
   }
-  throw new Error(`activity row ${sourceRunItemId} was not opened: ${JSON.stringify(opened)}`);
+  throw new Error(`toggle all activity details failed: ${JSON.stringify(toggled)}`);
 }
 
 function assertChronologicalInterleaving(blocks, runId) {

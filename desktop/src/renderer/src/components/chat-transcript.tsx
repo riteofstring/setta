@@ -541,6 +541,9 @@ export function ChatTranscript({
   const setActivityRowExpanded = useCallback((blockId: string, open: boolean) => {
     setExpandedActivityBlockIds((current) => withIdsExpanded(current, [blockId], open));
   }, []);
+  const setActivityRowsExpanded = useCallback((blockIds: string[], open: boolean) => {
+    setExpandedActivityBlockIds((current) => withIdsExpanded(current, blockIds, open));
+  }, []);
   const setActivityGroupExpanded = useCallback((groupId: string, open: boolean) => {
     setExpandedActivityGroupIds((current) => withIdsExpanded(current, [groupId], open));
   }, []);
@@ -550,6 +553,7 @@ export function ChatTranscript({
       activeSearchId: search.activeSearchId,
       activeRunLiveness,
       activeCurrentPlanTarget: resolvedActiveCurrentPlanTarget,
+      detachTranscriptScroll: scrollFollow.detach,
       expandedActivityBlockIds,
       expandedActivityGroupIds,
       focusedSourceRunItemId,
@@ -561,6 +565,7 @@ export function ChatTranscript({
       rowActions,
       setActivityGroupExpanded,
       setActivityRowExpanded,
+      setActivityRowsExpanded,
     }),
     [
       expandedActivityBlockIds,
@@ -572,11 +577,13 @@ export function ChatTranscript({
       runItemOutputIdsByRunItemId,
       runItemOutputPagesByRunItemId,
       runItemOutputsById,
+      scrollFollow.detach,
       onOpenCurrentPlanSurface,
       resolvedActiveCurrentPlanTarget,
       search.activeSearchId,
       setActivityGroupExpanded,
       setActivityRowExpanded,
+      setActivityRowsExpanded,
     ],
   );
 

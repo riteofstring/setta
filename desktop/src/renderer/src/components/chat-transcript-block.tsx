@@ -5,7 +5,8 @@ import type {
   TranscriptBlockStatus,
 } from "@generated/backend";
 import { Ban, Check, CircleAlert, RefreshCw, SquareTerminal, WifiOff } from "lucide-react";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 
 import {
   activeRunPresentation,
@@ -42,10 +43,12 @@ export interface TranscriptRowContext {
   activeSearchId: string | null;
   activeRunLiveness: RunLiveness | null;
   activeCurrentPlanTarget: CurrentPlanSurfaceTarget | null;
+  detachTranscriptScroll: () => void;
   rowActions: TranscriptRowActions;
   expandedActivityBlockIds: Set<string>;
   expandedActivityGroupIds: Set<string>;
   setActivityRowExpanded: (blockId: string, open: boolean) => void;
+  setActivityRowsExpanded: (blockIds: string[], open: boolean) => void;
   setActivityGroupExpanded: (groupId: string, open: boolean) => void;
   focusedSourceRunItemId: string | null;
   loadRunItemOutput: LoadRunItemOutput;
@@ -183,15 +186,103 @@ function ActivityGroupSlotRow({
   context: TranscriptRowContext;
   row: Extract<TranscriptRenderRow, { kind: "activity-group" }>;
 }) {
+  const groupRowRef = useRef<HTMLDivElement>(null);
+  const expandableMembers = row.members.filter(isExpandableActivityMember);
+  const expandAllOpen =
+    expandableMembers.length > 0 &&
+    expandableMembers.every((member) => context.expandedActivityBlockIds.has(member.id));
+  const setExpandAll = (members: TranscriptBlock[], open: boolean) => {
+    preserveActivityGroupAnchor(groupRowRef.current, context.detachTranscriptScroll, () => {
+      context.setActivityGroupExpanded(row.group.id, open);
+      context.setActivityRowsExpanded(
+        members.map((member) => member.id),
+        open,
+      );
+    });
+    if (!open) {
+      return;
+    }
+    for (const member of members) {
+      const sourceRunItemId = member.activity?.sourceRunItemId ?? "";
+      if (
+        shouldLoadExpandedActivityGroupMemberOutput(
+          member,
+          context.outputPagesByRunItemId[sourceRunItemId],
+        )
+      ) {
+        void context.loadRunItemOutput(member.runId, sourceRunItemId, 0);
+      }
+    }
+  };
+  const setGroupExpanded = (open: boolean) => {
+    preserveActivityGroupAnchor(groupRowRef.current, context.detachTranscriptScroll, () => {
+      context.setActivityGroupExpanded(row.group.id, open);
+      if (!open) {
+        context.setActivityRowsExpanded(
+          expandableMembers.map((member) => member.id),
+          false,
+        );
+      }
+    });
+  };
   return (
-    <div {...chatReadableColumnAttributes} className={chatReadableColumnPaddedClass}>
+    <div
+      {...chatReadableColumnAttributes}
+      className={chatReadableColumnPaddedClass}
+      ref={groupRowRef}
+    >
       <TranscriptActivityGroupHeader
+        expandAllOpen={expandAllOpen}
         expanded={row.expanded}
         members={row.members}
-        onExpandedChange={(open) => context.setActivityGroupExpanded(row.group.id, open)}
+        onExpandAll={setExpandAll}
+        onExpandedChange={setGroupExpanded}
       />
     </div>
   );
+}
+
+function preserveActivityGroupAnchor(
+  anchor: HTMLElement | null,
+  detachTranscriptScroll: () => void,
+  update: () => void,
+) {
+  detachTranscriptScroll();
+  if (anchor === null) {
+    update();
+    return;
+  }
+  const scroller = anchor.closest<HTMLElement>('[data-testid="chat-transcript-scroller"]');
+  const top = anchor.getBoundingClientRect().top;
+  flushSync(update);
+  let remainingFrames = 8;
+  const correctAnchor = () => {
+    if (scroller === null || !scroller.isConnected || !anchor.isConnected) {
+      return;
+    }
+    const delta = anchor.getBoundingClientRect().top - top;
+    if (Math.abs(delta) > 0.5) {
+      scroller.scrollTop += delta;
+    }
+    remainingFrames -= 1;
+    if (remainingFrames > 0) {
+      requestAnimationFrame(correctAnchor);
+    }
+  };
+  correctAnchor();
+}
+
+function isExpandableActivityMember(member: TranscriptBlock) {
+  const activity = member.activity;
+  return activity !== null && (activity.hasDetails || activity.hasOutput);
+}
+
+function shouldLoadExpandedActivityGroupMemberOutput(
+  member: TranscriptBlock,
+  outputPage: RunItemOutputPageState | undefined,
+) {
+  const activity = member.activity;
+  return activity !== null && activity.hasOutput && activity.sourceRunItemId !== "" && !outputPage;
 }
 
 // run_status carries a live-only working indicator (never persisted) and the

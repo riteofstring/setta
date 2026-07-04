@@ -30,6 +30,7 @@ import {
   type CurrentPlanSurfaceAction,
 } from "./chat-current-plan-surface-action";
 import type { CurrentPlanSurfaceTarget } from "./chat-current-plan-surface";
+import { ActivityGroupExpandAllButton } from "./chat-transcript-activity-group-expand-all";
 import { BrailleSpinner } from "./ascii-spinner";
 import {
   ActivityCommandExecutionDetails,
@@ -467,55 +468,67 @@ function useFocusedActivityRow(
   }, [focused, onExpandedChange, rowRef]);
 }
 
-// TranscriptActivityGroupHeader is the slim render-only row for a maximal run of
-// adjacent activity blocks. It is never a persisted backend block; while
-// collapsed, new member rows update this header instead of adding visible rows.
 export function TranscriptActivityGroupHeader({
+  expandAllOpen,
   expanded,
   members,
+  onExpandAll,
   onExpandedChange,
 }: {
+  expandAllOpen: boolean;
   expanded: boolean;
   members: TranscriptBlock[];
+  onExpandAll: (members: TranscriptBlock[], open: boolean) => void;
   onExpandedChange: (open: boolean) => void;
 }) {
   const state = activityGroupHeaderState(members);
   if (!state) {
     return null;
   }
+  const expandableMembers = members.filter(
+    (member) => member.activity !== null && hasExpandableActivityRow(member.activity),
+  );
   const sourceRunItemIds = members
     .map((member) => member.activity?.sourceRunItemId ?? "")
     .filter((sourceRunItemId) => sourceRunItemId !== "")
     .join(" ");
   return (
-    <button
-      aria-expanded={expanded}
-      aria-label={`${expanded ? "Collapse" : "Expand"} activity group`}
-      className="flex h-6 w-full min-w-0 items-center gap-1.5 rounded-sm border border-border/70 bg-muted/55 px-2 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-      data-activity-group-expanded={expanded ? "true" : "false"}
-      data-activity-group-source-run-item-ids={sourceRunItemIds}
-      data-testid="activity-group-header"
-      onClick={() => onExpandedChange(!expanded)}
-      type="button"
-    >
-      <ChevronDown
-        className={cn(
-          "h-3.5 w-3.5 shrink-0 transition-transform",
-          expanded ? "rotate-180" : "-rotate-90",
-        )}
-      />
-      <span className="grid h-4 min-w-4 shrink-0 place-items-center rounded-sm bg-muted px-1 font-mono text-[10px] leading-none text-muted-foreground">
-        {members.length}
-      </span>
-      <ActivityRowStatus status={state.status} title={state.label.text} />
-      <ActivityLabel
-        className={cn(
-          "min-w-0 flex-1 truncate font-medium text-muted-foreground",
-          state.label.monospace && "font-mono text-[12px] font-normal text-foreground",
-        )}
-        label={state.label}
-      />
-    </button>
+    <div className="flex h-6 w-full min-w-0 overflow-hidden rounded-sm border border-border/70 bg-muted/55 text-xs text-muted-foreground">
+      <button
+        aria-expanded={expanded}
+        aria-label={`${expanded ? "Collapse" : "Expand"} activity group`}
+        className="flex h-full min-w-0 flex-1 items-center gap-1.5 px-2 text-left transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        data-activity-group-expanded={expanded ? "true" : "false"}
+        data-activity-group-source-run-item-ids={sourceRunItemIds}
+        data-testid="activity-group-header"
+        onClick={() => onExpandedChange(!expanded)}
+        type="button"
+      >
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 transition-transform",
+            expanded ? "rotate-180" : "-rotate-90",
+          )}
+        />
+        <span className="grid h-4 min-w-4 shrink-0 place-items-center rounded-sm bg-muted px-1 font-mono text-[10px] leading-none text-muted-foreground">
+          {members.length}
+        </span>
+        <ActivityRowStatus status={state.status} title={state.label.text} />
+        <ActivityLabel
+          className={cn(
+            "min-w-0 flex-1 truncate font-medium text-muted-foreground",
+            state.label.monospace && "font-mono text-[12px] font-normal text-foreground",
+          )}
+          label={state.label}
+        />
+      </button>
+      {expandableMembers.length > 1 && (
+        <ActivityGroupExpandAllButton
+          expanded={expandAllOpen}
+          onClick={() => onExpandAll(expandableMembers, !expandAllOpen)}
+        />
+      )}
+    </div>
   );
 }
 
