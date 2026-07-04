@@ -48,8 +48,6 @@ composer recall explicit contracts with stable renderer behavior.
 
 ## Non-Goals
 
-- Do not remove Setta dynamic tools as part of this plan. They can remain while
-  the rendering and protocol contracts are fixed.
 - Do not copy Codex CLI labels by reimplementing CLI-specific formatting in the
   renderer. If CLI labels are the desired product behavior, consume or add a
   structured display field at the Codex protocol boundary.
