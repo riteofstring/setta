@@ -237,17 +237,27 @@ paginated output. Update callers in one cut and regenerate contracts.
 - Keep the component rename/refactor mechanical and covered by existing chat
   tests first.
 
-Progress 2026-07-03: initial selected-chat trajectory boundary completed.
-Added `AgentTrajectoryViewModel`, capability flags, `AgentTrajectoryActions`,
-and `AgentTrajectorySurface` in renderer source. Normal chat now uses a
-selected-conversation adapter to render the existing `ChatTranscript` through
-that explicit surface, preserving transcript rendering, current-plan handling,
-queued-message controls, output loading, immediate steering, and approval
-submission behavior. This slice did not wire workflow node details yet and did
-not remove the old workflow activity preview.
+Progress 2026-07-03: second renderer-boundary slice completed. The initial
+slice added `AgentTrajectoryViewModel`, capability flags,
+`AgentTrajectoryActions`, and `AgentTrajectorySurface` in renderer source.
+Normal chat now uses a selected-conversation adapter to render the existing
+`ChatTranscript` through that explicit surface. This follow-up made the shared
+transcript and trajectory surface enforce explicit capabilities: unsupported
+queue editing/removal, immediate steering, output loading, older-history
+loading, approval submission, stop, and retry actions can be omitted without
+installing no-op callbacks, while enabled capabilities without actions fail
+loudly during render. Run liveness presentation now accepts trajectory-owned
+stop/steer/retry capability flags, and partial output without a loader remains
+visibly partial instead of rendering a fake load control. Normal selected chat
+still supplies the selected-conversation actions and preserves transcript
+rendering, current-plan handling, queued-message controls, output loading,
+immediate steering, and approval submission behavior. This slice did not wire
+workflow node details yet and did not remove the old workflow activity preview.
 
 Verification: focused renderer coverage passed with
-`pnpm -C desktop exec vitest run src/renderer/src/components/chat-panel.test.tsx`;
+`pnpm -C desktop exec vitest run src/renderer/src/components/agent-trajectory.test.tsx src/renderer/src/components/chat-panel.test.tsx`
+and
+`pnpm -C desktop exec vitest run src/renderer/src/App.test.tsx src/renderer/src/components/chat-transcript-activity.test.tsx src/renderer/src/components/agent-trajectory.test.tsx src/renderer/src/components/chat-panel.test.tsx`;
 desktop typecheck and production build passed with `pnpm -C desktop typecheck`
 and `pnpm -C desktop build`; desktop dead-code passed with
 `pnpm -C desktop deadcode`; formatting and changed-file quality passed with
@@ -262,11 +272,12 @@ workflow wait with `rows: []`. Live Codex Electron coverage was attempted with
 `approval_policy = "on-failure"`, so Setta rejected conversation creation before
 live-provider execution.
 
-Remaining: finish the Phase 5 boundary by making composer, liveness, and
-unsupported action semantics explicit enough for workflow-node trajectories to
-avoid selected-conversation queue, steering, approval, stop, or retry
-assumptions. Slice 3 still owns the workflow-node adapter and deletion of the
-fake complete output-page preview path.
+Remaining: finish the Phase 5 boundary by extracting composer
+presentation/action props from the selected-conversation command, model, and
+permission plumbing so workflow-node trajectories can avoid selected-chat queue,
+attachment, command, permission, and prompt-history assumptions. Slice 3 still
+owns the workflow-node adapter and deletion of the fake complete output-page
+preview path.
 
 ### Slice 2: Backend Trajectory Contract
 

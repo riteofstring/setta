@@ -30,6 +30,7 @@ import {
   type CurrentPlanSurfaceAction,
 } from "./chat-current-plan-surface-action";
 import type { CurrentPlanSurfaceTarget } from "./chat-current-plan-surface";
+import { ActivityOutput } from "./chat-transcript-activity-output";
 import { ActivityGroupExpandAllButton } from "./chat-transcript-activity-group-expand-all";
 import { BrailleSpinner } from "./ascii-spinner";
 import {
@@ -107,7 +108,7 @@ const activityIconClassByType = {
 interface ActivityRowOutputProps {
   outputPage: RunItemOutputPageState | undefined;
   outputs: RunItemOutput[];
-  loadRunItemOutput: LoadRunItemOutput;
+  loadRunItemOutput?: LoadRunItemOutput;
 }
 
 interface ActivityItemRowProps extends ActivityRowOutputProps {
@@ -366,7 +367,10 @@ function ActivityRowView({
         if (nextOpen !== expanded) {
           onExpandedChange(nextOpen);
         }
-        if (shouldLoadActivityOutput(nextOpen, activity, outputPage)) {
+        if (
+          loadRunItemOutput &&
+          shouldLoadActivityOutput(nextOpen, activity, outputPage, loadRunItemOutput)
+        ) {
           void loadRunItemOutput(runId, activity.sourceRunItemId, 0);
         }
       }}
@@ -387,8 +391,15 @@ function ActivityRowView({
         <ActivityDetails
           currentPlanSurfaceAction={currentPlanSurfaceAction}
           details={activity.details}
-          loadMoreOutput={() =>
-            void loadRunItemOutput(runId, activity.sourceRunItemId, outputPage?.nextOrdinal ?? 0)
+          loadMoreOutput={
+            loadRunItemOutput
+              ? () =>
+                  void loadRunItemOutput(
+                    runId,
+                    activity.sourceRunItemId,
+                    outputPage?.nextOrdinal ?? 0,
+                  )
+              : undefined
           }
           outputPage={outputPage}
           outputText={outputText}
@@ -577,7 +588,7 @@ export function RunItemActivityList({
 }: {
   activity: ActivityItemBlockProjection[];
   highlightedRunItemId?: string;
-  loadRunItemOutput: LoadRunItemOutput;
+  loadRunItemOutput?: LoadRunItemOutput;
   outputIdsByRunItemId: Record<string, string[]>;
   outputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   outputsById: Record<string, RunItemOutput>;
@@ -645,7 +656,7 @@ function ActivityDetails({
 }: {
   currentPlanSurfaceAction: CurrentPlanSurfaceAction | null;
   details: RunActivityDetailsProjection;
-  loadMoreOutput: () => void;
+  loadMoreOutput?: () => void;
   outputPage: RunItemOutputPageState | undefined;
   outputText: string;
 }) {
@@ -753,8 +764,9 @@ function shouldLoadActivityOutput(
   open: boolean,
   activity: ActivityItemBlockProjection,
   outputPage: RunItemOutputPageState | undefined,
+  loadRunItemOutput: LoadRunItemOutput | undefined,
 ) {
-  if (!open || !activity.hasOutput || outputPage?.loading) {
+  if (!open || !activity.hasOutput || outputPage?.loading || loadRunItemOutput === undefined) {
     return false;
   }
   return outputPage === undefined;
@@ -913,45 +925,6 @@ function providerStreamLifecycleMetadata(details: RunActivityDetailsProjection) 
     ];
   }
   return [];
-}
-
-function ActivityOutput({
-  loadMoreOutput,
-  outputPage,
-  outputText,
-}: {
-  loadMoreOutput: () => void;
-  outputPage: RunItemOutputPageState | undefined;
-  outputText: string;
-}) {
-  if (!hasActivityOutput(outputText, outputPage)) {
-    return null;
-  }
-  return (
-    <div className="w-full max-w-full min-w-0 space-y-2 overflow-hidden">
-      {outputText ? <ActivityPreBlock title="Output" value={outputText} /> : null}
-      {outputPage?.error ? (
-        <div className="font-medium text-status-critical">{outputPage.error}</div>
-      ) : null}
-      {outputPage?.hasMore ? (
-        <button
-          className="self-start rounded-sm border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-          disabled={outputPage.loading}
-          onClick={loadMoreOutput}
-          type="button"
-        >
-          Load more
-        </button>
-      ) : null}
-      {outputPage?.loading ? (
-        <BrailleSpinner className="text-muted-foreground" label="Loading tool output" />
-      ) : null}
-    </div>
-  );
-}
-
-function hasActivityOutput(outputText: string, outputPage: RunItemOutputPageState | undefined) {
-  return Boolean(outputText || outputPage?.hasMore || outputPage?.loading || outputPage?.error);
 }
 
 function ActivityIcon({ type }: { type: RunItemType }) {

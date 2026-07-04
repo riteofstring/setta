@@ -13,7 +13,9 @@ const selectedChatCapabilities = {
   loadOlderHistory: true,
   loadRunItemOutput: true,
   queuedMessageActions: true,
+  retryLiveness: true,
   sendSteering: true,
+  stopRun: true,
   submitApproval: true,
 } satisfies AgentTrajectoryCapabilities;
 
@@ -30,11 +32,13 @@ export interface SelectedConversationAgentTrajectorySource {
   queuedMessages: ChatMessage[];
   removeQueuedMessage: (messageId: string) => Promise<void>;
   removingQueuedMessageId: string | null;
+  retryActiveRunLiveness: () => Promise<void>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputsById: Record<string, RunItemOutput>;
   selectedConversation: Conversation | null;
   sendSteeringImmediately: (input?: ChatInput) => Promise<void>;
+  stopActiveRun: () => Promise<void>;
   submitApproval: SubmitApproval;
   transcriptBlocks: AgentTrajectoryViewModel["blocks"];
 }
@@ -76,7 +80,9 @@ export function selectedConversationAgentTrajectoryActions(
     loadOlder: source.loadOlder,
     loadRunItemOutput: source.loadRunItemOutput,
     removeQueuedMessage: source.removeQueuedMessage,
+    retryLiveness: source.retryActiveRunLiveness,
     sendSteering: source.sendSteeringImmediately,
+    stopRun: source.stopActiveRun,
     submitApproval: source.submitApproval,
   };
 }

@@ -575,18 +575,25 @@ Keep this phase behavior-preserving for normal chat:
 Run the narrow chat renderer and workflow-safe checks first before wiring new
 workflow behavior.
 
-Status: initial selected-chat trajectory boundary slice completed 2026-07-03.
-Added a renderer-owned `AgentTrajectoryViewModel`, capability flags, action
+Status: second renderer-boundary slice completed 2026-07-03. The initial slice
+added a renderer-owned `AgentTrajectoryViewModel`, capability flags, action
 contract, and `AgentTrajectorySurface`, plus a selected-conversation adapter for
-normal chat. `ConversationBody` now renders normal chat through that explicit
-agent trajectory surface while preserving the existing `ChatTranscript`,
-current-plan callback, queued-message actions, output loading, steering, and
-approval behavior. The workflow details preview path was intentionally left
-unchanged for Phase 6.
+normal chat. This follow-up made the shared transcript and trajectory boundary
+enforce those capabilities: queue editing/removal, immediate steering, output
+loading, older-history loading, approval submission, stop, and retry actions are
+now optional only when their capability is disabled, and enabled capabilities
+without actions fail loudly during render. Run liveness presentation can now
+consume trajectory-owned stop/steer/retry capabilities, and partial output with
+no loader is displayed as partial instead of rendering a fake load action. Normal
+selected chat still supplies the selected-conversation actions and behavior is
+preserved. The workflow details preview path was intentionally left unchanged
+for Phase 6.
 
 Verification:
 
 - `pnpm -C desktop exec vitest run src/renderer/src/components/chat-panel.test.tsx`
+- `pnpm -C desktop exec vitest run src/renderer/src/components/agent-trajectory.test.tsx src/renderer/src/components/chat-panel.test.tsx`
+- `pnpm -C desktop exec vitest run src/renderer/src/App.test.tsx src/renderer/src/components/chat-transcript-activity.test.tsx src/renderer/src/components/agent-trajectory.test.tsx src/renderer/src/components/chat-panel.test.tsx`
 - `pnpm -C desktop typecheck`
 - `pnpm -C desktop build`
 - `pnpm -C desktop deadcode`
@@ -608,9 +615,11 @@ Verification:
   provider-integration proof.
 
 Remaining notes: Phase 5 is not fully complete. The next coherent renderer
-slice is to continue extracting explicit composer, liveness, and unsupported
-action semantics so Phase 6 can render workflow-node trajectories without
-selected-conversation queue, steering, approval, or stop/retry assumptions.
+slice is to extract explicit composer presentation/action props from the
+selected-conversation command/model/permission plumbing so Phase 6 can render a
+workflow-node composer without selected-chat queue, attachment, command,
+permission, or prompt-history assumptions. Slice 3 still owns the workflow-node
+adapter and deletion of the fake complete output-page preview path.
 
 ## Phase 6: Workflow Node Adapter And Controls
 
