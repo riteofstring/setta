@@ -8,12 +8,16 @@ import (
 const providerTurnInactiveRunError = "run interrupted because provider turn is no longer active"
 
 type activeRunReconciliationTarget struct {
-	active       activeTurn
-	conversation string
-	reconciledAt string
-	reason       RunLivenessReason
-	run          Run
-	workspace    string
+	active                        activeTurn
+	conversation                  string
+	livenessCheckGeneration       uint64
+	preservedVisibleRunLiveness   bool
+	providerEventGeneration       uint64
+	reconciledAt                  string
+	reason                        RunLivenessReason
+	run                           Run
+	visibleRunLivenessAtReconcile RunLiveness
+	workspace                     string
 }
 
 func (service *Service) ReconcileActiveRuns(ctx context.Context, workspaceID string, conversationID string, reason RunLivenessReason) (RunLivenessReconciliationResult, error) {
@@ -159,9 +163,26 @@ func (service *Service) activeRunReconciliationTargetLocked(workspaceID string, 
 	if !attached || active.runID != run.ID {
 		return activeRunReconciliationTarget{}, *service.activeRunLivenessLocked(workspaceID, conversationID, run), false, nil
 	}
-	if liveness, preserve := service.preservedSnapshotRunLivenessLocked(workspaceID, conversationID, run, reason); preserve {
-		return activeRunReconciliationTarget{}, liveness, false, nil
+	if liveness, reconcile, preserve := service.preservedSnapshotRunLivenessLocked(workspaceID, conversationID, run, active, reason); preserve {
+		if !reconcile {
+			return activeRunReconciliationTarget{}, liveness, false, nil
+		}
+		active = service.beginActiveRunLivenessCheckLocked(key, active)
+		reconciledAt := timestamp(service.now())
+		return activeRunReconciliationTarget{
+			active:                        active,
+			conversation:                  conversationID,
+			livenessCheckGeneration:       active.livenessCheckGeneration,
+			preservedVisibleRunLiveness:   true,
+			providerEventGeneration:       active.providerEventGeneration,
+			reconciledAt:                  reconciledAt,
+			reason:                        reason,
+			run:                           run,
+			visibleRunLivenessAtReconcile: liveness,
+			workspace:                     workspaceID,
+		}, liveness, true, nil
 	}
+	active = service.beginActiveRunLivenessCheckLocked(key, active)
 	reconciledAt := timestamp(service.now())
 	liveness := service.markActiveRunLivenessReconcilingLocked(workspaceID, conversationID, run, active, reason, reconciledAt)
 	if _, err := service.events.Publish(NewRunLivenessUpdatedEvent(liveness)); err != nil {
@@ -171,26 +192,53 @@ func (service *Service) activeRunReconciliationTargetLocked(workspaceID string, 
 		return activeRunReconciliationTarget{}, RunLiveness{}, false, err
 	}
 	return activeRunReconciliationTarget{
-		active:       active,
-		conversation: conversationID,
-		reconciledAt: reconciledAt,
-		reason:       reason,
-		run:          run,
-		workspace:    workspaceID,
+		active:                  active,
+		conversation:            conversationID,
+		livenessCheckGeneration: active.livenessCheckGeneration,
+		providerEventGeneration: active.providerEventGeneration,
+		reconciledAt:            reconciledAt,
+		reason:                  reason,
+		run:                     run,
+		workspace:               workspaceID,
 	}, liveness, true, nil
 }
 
-func (service *Service) preservedSnapshotRunLivenessLocked(workspaceID string, conversationID string, run Run, reason RunLivenessReason) (RunLiveness, bool) {
+func (service *Service) beginActiveRunLivenessCheckLocked(key string, active activeTurn) activeTurn {
+	active.livenessCheckGeneration += 1
+	service.active[key] = active
+	return active
+}
+
+func (service *Service) preservedSnapshotRunLivenessLocked(workspaceID string, conversationID string, run Run, active activeTurn, reason RunLivenessReason) (RunLiveness, bool, bool) {
 	if reason != RunLivenessReasonSnapshotLoad {
-		return RunLiveness{}, false
+		return RunLiveness{}, false, false
 	}
 	key := activeKey(workspaceID, conversationID)
 	liveness, ok := service.liveness[key]
-	if !ok || liveness.RunID != run.ID || liveness.Status != RunLivenessLost {
-		return RunLiveness{}, false
+	if !ok || liveness.RunID != run.ID {
+		return RunLiveness{}, false, false
 	}
 	liveness.Cancellable = service.activeRunCancellableLocked(key, run.ID)
-	return liveness, true
+	switch liveness.Status {
+	case RunLivenessAttached:
+		if active.threadID == "" || active.turnID == "" {
+			return RunLiveness{}, false, false
+		}
+		return liveness, true, true
+	case RunLivenessReconciling:
+		switch liveness.Reason {
+		case RunLivenessReasonProviderRestarted, RunLivenessReasonStreamResync:
+			return liveness, true, true
+		default:
+			return RunLiveness{}, false, false
+		}
+	case RunLivenessLost:
+		return liveness, false, true
+	case RunLivenessTerminal:
+		return liveness, false, true
+	default:
+		return RunLiveness{}, false, false
+	}
 }
 
 func (service *Service) applyRunLivenessReconciliationError(target activeRunReconciliationTarget, err error) (RunLiveness, error) {
@@ -266,7 +314,7 @@ func (service *Service) keepRunLivenessReconcilingAfterProviderActive(target act
 	if !ok || liveness.RunID != target.run.ID {
 		return RunLiveness{}, nil
 	}
-	if liveness.LastReconciledAt != target.reconciledAt {
+	if !service.reconciliationTargetStillCurrentLocked(target, liveness) {
 		return liveness, nil
 	}
 	if liveness.Status == RunLivenessAttached {
@@ -281,7 +329,7 @@ func (service *Service) markRunLivenessLostAfterReconcile(target activeRunReconc
 
 	key := activeKey(target.workspace, target.conversation)
 	if current, ok := service.liveness[key]; ok && current.RunID == target.run.ID {
-		if current.LastReconciledAt != target.reconciledAt || current.Status == RunLivenessAttached {
+		if !service.reconciliationTargetStillCurrentLocked(target, current) {
 			return current, nil
 		}
 	}
@@ -299,11 +347,30 @@ func (service *Service) markRunLivenessLostAfterReconcile(target activeRunReconc
 	return liveness, nil
 }
 
+func (service *Service) reconciliationTargetStillCurrentLocked(target activeRunReconciliationTarget, current RunLiveness) bool {
+	key := activeKey(target.workspace, target.conversation)
+	active, ok := service.active[key]
+	if !ok || active.runID != target.run.ID {
+		return false
+	}
+	if active.livenessCheckGeneration != target.livenessCheckGeneration ||
+		active.providerEventGeneration != target.providerEventGeneration {
+		return false
+	}
+	if target.preservedVisibleRunLiveness {
+		return current == target.visibleRunLivenessAtReconcile
+	}
+	return current.LastReconciledAt == target.reconciledAt && current.Status != RunLivenessAttached
+}
+
 func (service *Service) interruptRunAfterMissingProviderTurn(target activeRunReconciliationTarget) (RunLiveness, error) {
 	return service.terminalizeProviderReconciledRun(target, TurnOutcomeFailed, providerTurnInactiveRunError)
 }
 
 func (service *Service) terminalizeProviderReconciledRun(target activeRunReconciliationTarget, outcome TurnOutcome, message string) (RunLiveness, error) {
+	if liveness, stale := service.staleRunLivenessForReconciliationTarget(target); stale {
+		return liveness, nil
+	}
 	var err error
 	switch outcome {
 	case TurnOutcomeCompleted:
@@ -333,4 +400,19 @@ func (service *Service) terminalizeProviderReconciledRun(target activeRunReconci
 		LastReconciledAt: target.reconciledAt,
 		Error:            message,
 	}, nil
+}
+
+func (service *Service) staleRunLivenessForReconciliationTarget(target activeRunReconciliationTarget) (RunLiveness, bool) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	key := activeKey(target.workspace, target.conversation)
+	current, ok := service.liveness[key]
+	if !ok || current.RunID != target.run.ID {
+		return RunLiveness{}, false
+	}
+	if service.reconciliationTargetStillCurrentLocked(target, current) {
+		return RunLiveness{}, false
+	}
+	return current, true
 }

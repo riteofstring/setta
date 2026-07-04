@@ -52,6 +52,8 @@ type activeTurn struct {
 	cancelDrain                 bool
 	goalOperation               HarnessGoalOperation
 	lastPersistedAt             time.Time
+	livenessCheckGeneration     uint64
+	providerEventGeneration     uint64
 	runID                       string
 	threadID                    string
 	turnID                      string

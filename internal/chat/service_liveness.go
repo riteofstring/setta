@@ -43,6 +43,8 @@ func (service *Service) markRunLivenessAttachedLocked(workspaceID string, conver
 	if !ok || active.runID != runID {
 		return RunLiveness{}, false
 	}
+	active.providerEventGeneration += 1
+	service.active[key] = active
 	liveness, ok := service.liveness[key]
 	if !ok || liveness.RunID != runID {
 		liveness = RunLiveness{
@@ -129,6 +131,8 @@ func (service *Service) markFreshProviderEventLocked(workspaceID string, convers
 		return service.markRunLivenessAttachedLocked(workspaceID, conversationID, runID, active.threadID, active.turnID, timestamp(service.now()))
 	}
 	if liveness.Status == RunLivenessAttached {
+		active.providerEventGeneration += 1
+		service.active[key] = active
 		return RunLiveness{}, false
 	}
 	return service.markRunLivenessAttachedLocked(workspaceID, conversationID, runID, active.threadID, active.turnID, timestamp(service.now()))

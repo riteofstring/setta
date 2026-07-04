@@ -90,6 +90,136 @@ func TestServiceReconcileInProgressStaysReconcilingUntilFreshProviderEvent(t *te
 	}
 }
 
+func TestServiceSnapshotReconcilePreservesAttachedLivenessWithoutPublishingReconnect(t *testing.T) {
+	harness := newLivenessReconcileHarness(HarnessRunLivenessResult{
+		ThreadStatus: HarnessThreadRuntimeActive,
+		TurnFound:    true,
+		TurnStatus:   HarnessTurnRuntimeInProgress,
+	}, nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, result := startLinkedReconciliationRun(t, service)
+	subscription := subscribeFromCurrentEvent(t, service)
+	defer subscription.Unsubscribe()
+
+	snapshot, err := service.ReconcileActiveRuns(context.Background(), "workspace_api", conversation.ID, RunLivenessReasonSnapshotLoad)
+	if err != nil {
+		t.Fatalf("snapshot reconcile: %v", err)
+	}
+	if len(snapshot.Runs) != 1 {
+		t.Fatalf("snapshot liveness count = %d, want 1", len(snapshot.Runs))
+	}
+	if snapshot.Runs[0].Status != RunLivenessAttached ||
+		snapshot.Runs[0].Reason != RunLivenessReasonProviderTurnLinked ||
+		snapshot.Runs[0].RunID != result.Run.ID {
+		t.Fatalf("snapshot liveness = %+v, want attached provider-linked run %s", snapshot.Runs[0], result.Run.ID)
+	}
+	assertNoImmediateEvent(t, subscription)
+
+	_, liveness, ok, err := service.ActiveRunWithLiveness("workspace_api", conversation.ID)
+	if err != nil || !ok {
+		t.Fatalf("active run after snapshot ok=%v err=%v", ok, err)
+	}
+	if liveness.Status != RunLivenessAttached || liveness.Reason != RunLivenessReasonProviderTurnLinked {
+		t.Fatalf("active liveness after snapshot = %+v, want attached", *liveness)
+	}
+}
+
+func TestServiceSnapshotReconcileProviderUnavailableMarksLostFromAttached(t *testing.T) {
+	harness := newLivenessReconcileHarness(HarnessRunLivenessResult{}, errors.New("thread/read unavailable"))
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, result := startLinkedReconciliationRun(t, service)
+
+	snapshot, err := service.ReconcileActiveRuns(context.Background(), "workspace_api", conversation.ID, RunLivenessReasonSnapshotLoad)
+	if err != nil {
+		t.Fatalf("snapshot reconcile: %v", err)
+	}
+	if len(snapshot.Runs) != 1 {
+		t.Fatalf("snapshot liveness count = %d, want 1", len(snapshot.Runs))
+	}
+	liveness := snapshot.Runs[0]
+	if liveness.Status != RunLivenessLost ||
+		liveness.Reason != RunLivenessReasonProviderUnavailable ||
+		liveness.RunID != result.Run.ID ||
+		liveness.Error != "thread/read unavailable" {
+		t.Fatalf("snapshot unavailable liveness = %+v, want lost provider unavailable", liveness)
+	}
+	_, activeLiveness, ok, err := service.ActiveRunWithLiveness("workspace_api", conversation.ID)
+	if err != nil || !ok {
+		t.Fatalf("active run after snapshot loss ok=%v err=%v", ok, err)
+	}
+	if activeLiveness.Status != RunLivenessLost || activeLiveness.Reason != RunLivenessReasonProviderUnavailable {
+		t.Fatalf("active liveness after snapshot loss = %+v, want lost provider unavailable", *activeLiveness)
+	}
+}
+
+func TestServiceSnapshotReconcileDoesNotDowngradeFreshProviderEvent(t *testing.T) {
+	harness := newLivenessReconcileHarness(HarnessRunLivenessResult{}, errors.New("thread/read unavailable"))
+	harness.resume = make(chan struct{})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, result := startLinkedReconciliationRun(t, service)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := service.ReconcileActiveRuns(context.Background(), "workspace_api", conversation.ID, RunLivenessReasonSnapshotLoad)
+		done <- err
+	}()
+	<-harness.called
+	if err := service.appendAssistantDelta("workspace_api", conversation.ID, result.Run.ID, "answer", "fresh"); err != nil {
+		t.Fatalf("append fresh provider delta: %v", err)
+	}
+	close(harness.resume)
+	if err := <-done; err != nil {
+		t.Fatalf("snapshot reconcile: %v", err)
+	}
+
+	_, liveness, ok, err := service.ActiveRunWithLiveness("workspace_api", conversation.ID)
+	if err != nil || !ok {
+		t.Fatalf("active run after stale snapshot ok=%v err=%v", ok, err)
+	}
+	if liveness.Status != RunLivenessAttached || liveness.Reason != RunLivenessReasonProviderTurnLinked {
+		t.Fatalf("liveness after fresh-event snapshot race = %+v, want attached", *liveness)
+	}
+}
+
+func TestServiceSnapshotReconcileDoesNotInterruptAfterFreshProviderEvent(t *testing.T) {
+	harness := newLivenessReconcileHarness(HarnessRunLivenessResult{
+		ThreadStatus: HarnessThreadRuntimeIdle,
+		TurnFound:    false,
+	}, nil)
+	harness.resume = make(chan struct{})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, result := startLinkedReconciliationRun(t, service)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := service.ReconcileActiveRuns(context.Background(), "workspace_api", conversation.ID, RunLivenessReasonSnapshotLoad)
+		done <- err
+	}()
+	<-harness.called
+	if err := service.appendAssistantDelta("workspace_api", conversation.ID, result.Run.ID, "answer", "fresh"); err != nil {
+		t.Fatalf("append fresh provider delta: %v", err)
+	}
+	close(harness.resume)
+	if err := <-done; err != nil {
+		t.Fatalf("snapshot reconcile: %v", err)
+	}
+
+	run, err := service.store.LoadRun("workspace_api", result.Run.ID)
+	if err != nil {
+		t.Fatalf("load run: %v", err)
+	}
+	if run.Status != RunStatusRunning || run.Error != "" {
+		t.Fatalf("run after stale missing-turn snapshot = %+v, want running", run)
+	}
+	_, liveness, ok, err := service.ActiveRunWithLiveness("workspace_api", conversation.ID)
+	if err != nil || !ok {
+		t.Fatalf("active run after stale missing-turn snapshot ok=%v err=%v", ok, err)
+	}
+	if liveness.Status != RunLivenessAttached || liveness.Reason != RunLivenessReasonProviderTurnLinked {
+		t.Fatalf("liveness after stale missing-turn snapshot = %+v, want attached", *liveness)
+	}
+}
+
 func TestServiceSnapshotReconcilePreservesStreamResyncReason(t *testing.T) {
 	harness := newLivenessReconcileHarness(HarnessRunLivenessResult{
 		ThreadStatus: HarnessThreadRuntimeActive,
@@ -294,6 +424,18 @@ func startLinkedReconciliationRun(t *testing.T, service *Service) (Conversation,
 	})
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_live")
 	return conversation, result
+}
+
+func subscribeFromCurrentEvent(t *testing.T, service *Service) *EventSubscription {
+	t.Helper()
+	service.events.mu.Lock()
+	cursor := EventCursor{StreamID: service.events.streamID, Sequence: service.events.nextSequence - 1}
+	service.events.mu.Unlock()
+	subscription, err := service.SubscribeEvents(cursor)
+	if err != nil {
+		t.Fatalf("subscribe events: %v", err)
+	}
+	return subscription
 }
 
 func conversationListItemByID(items []ConversationListItem, conversationID string) (ConversationListItem, bool) {

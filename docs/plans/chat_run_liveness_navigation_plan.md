@@ -462,6 +462,39 @@ For documentation-only updates to this plan, inspect the diff. No automated
 workflow is required unless executable examples, scripts, generated artifacts,
 contracts, or code paths change.
 
+## Progress
+
+### 2026-07-03: Snapshot-Load Liveness Preservation
+
+Implemented the service-layer portion of Phase 1 and Phase 2:
+
+- snapshot-load reconciliation now preserves visible `attached` liveness for a
+  healthy active run instead of publishing `reconciling/snapshot_load`;
+- snapshot-load checks still run against the provider when provider refs are
+  available, and real unavailable/missing/terminal provider results still
+  publish the existing lost or terminal transitions;
+- existing degraded visible states such as `stream_resync`,
+  `provider_restarted`, and `lost` are preserved instead of being overwritten by
+  `snapshot_load`;
+- internal reconciliation and provider-event generations prevent stale
+  snapshot-load results from downgrading or interrupting a run after fresh
+  provider events have arrived.
+
+Verification performed:
+
+- `./scripts/go.sh test ./internal/chat -run 'TestService(Reconcile|Snapshot|ProviderLifecycle|RetryableProvider|NonRetryableStream)'`
+- `./scripts/go.sh test ./internal/chat`
+- `./scripts/test_chat_workflows.sh --deterministic-only`
+- `./scripts/test_chat_workflows.sh --live-only`
+
+Remaining work:
+
+- Phase 3 renderer presentation should still centralize sidebar/transcript/
+  composer liveness classification exhaustively.
+- Phase 4 should add explicit deterministic Electron assertions for the
+  conversation-switching liveness navigation regression and the degraded-health
+  case, even though the existing deterministic chat workflow gate passes.
+
 ## Open Decisions
 
 - Is there any implementation case that truly requires a public non-alarming
