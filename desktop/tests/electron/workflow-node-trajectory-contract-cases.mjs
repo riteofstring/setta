@@ -54,7 +54,11 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "Verifies workflow node-scoped chat trajectory contracts.",
       graph,
     ]);
-    const graphSurfaceId = await openWorkflowGraphForDefinition(context.client, definition.id);
+    const graphSurfaceId = await openWorkflowGraphForDefinition(
+      context.client,
+      workspaceId,
+      definition.id,
+    );
     const startedExecutionId = await startWorkflowRunFromToolbar(
       context.client,
       graphSurfaceId,
@@ -235,8 +239,8 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
   process.stdout.write("Electron chat workflow passed: workflow-node-trajectory-contract\n");
 }
 
-async function openWorkflowGraphForDefinition(client, definitionId) {
-  await reloadRendererWithSelectedWorkspace(client);
+async function openWorkflowGraphForDefinition(client, workspaceId, definitionId) {
+  await reloadRendererWithSelectedWorkspace(client, workspaceId);
   await openWorkflowGraphPane(client);
   const surfaceId = await maximizeWorkflowGraphPane(client);
   await waitForWorkflowGraphSnapshot(
@@ -249,7 +253,9 @@ async function openWorkflowGraphForDefinition(client, definitionId) {
   return surfaceId;
 }
 
-async function reloadRendererWithSelectedWorkspace(client) {
+async function reloadRendererWithSelectedWorkspace(client, workspaceId) {
+  await client.call("Page.enable");
+  const pageLoaded = waitForPageLoadEvent(client, 20_000);
   try {
     await client.call("Page.reload", { ignoreCache: true });
   } catch (error) {
@@ -257,31 +263,14 @@ async function reloadRendererWithSelectedWorkspace(client) {
       throw error;
     }
   }
+  await pageLoaded;
   const startedAt = Date.now();
   let lastError = null;
   let lastState = null;
   while (Date.now() - startedAt < 20_000) {
     try {
-      lastState = await client.evaluate(`(() => {
-      const workspaceLayoutWorkspaceId = () =>
-        document
-          .querySelector('[data-testid="workspace-layout-area"]')
-          ?.getAttribute("data-workspace-id") ?? "";
-      if (!window.setta?.workspace?.session) {
-        return {
-          selectedWorkspaceId: "",
-          workspaceLayoutWorkspaceId: workspaceLayoutWorkspaceId(),
-        };
-      }
-      return window.setta.workspace.session().then((session) => ({
-        selectedWorkspaceId: session.selectedWorkspaceId,
-        workspaceLayoutWorkspaceId: workspaceLayoutWorkspaceId(),
-      }));
-    })()`);
-      if (
-        lastState.selectedWorkspaceId !== "" &&
-        lastState.workspaceLayoutWorkspaceId === lastState.selectedWorkspaceId
-      ) {
+      lastState = await client.driver("rendererWorkspace");
+      if (lastState.workspaceId === workspaceId) {
         return;
       }
     } catch (error) {
@@ -298,6 +287,21 @@ async function reloadRendererWithSelectedWorkspace(client) {
       lastState,
     })}`,
   );
+}
+
+function waitForPageLoadEvent(client, timeoutMs) {
+  return new Promise((resolvePromise, reject) => {
+    let dispose = () => {};
+    const timeout = globalThis.setTimeout(() => {
+      dispose();
+      reject(new Error("renderer reload did not emit Page.loadEventFired"));
+    }, timeoutMs);
+    dispose = client.on("Page.loadEventFired", () => {
+      globalThis.clearTimeout(timeout);
+      dispose();
+      resolvePromise();
+    });
+  });
 }
 
 function isRendererNavigationError(error) {

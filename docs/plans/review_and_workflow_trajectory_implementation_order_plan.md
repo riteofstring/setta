@@ -936,6 +936,16 @@ Verification:
 - `./scripts/format.sh`
 - `./check_quality.sh --git-changes`
 
+Audit follow-up 2026-07-04: the rendered pagination coverage was production-path
+and correctly exercised the real run-item output endpoint, but the reload
+readiness helper briefly reintroduced browser-side logic in the test body and
+could race driver extension installation during `Page.reload`. The helper now
+waits for `Page.loadEventFired` and reads workspace recovery state through the
+shared browser driver; missing load-more diagnostics now return the current
+trajectory state. Focused reruns passed the touched `node --check` files, the
+Electron template-literal guard, and
+`node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
+
 Remaining notes: this slice covers rendered workflow-node output pagination and
 renderer reload before opening the graph. Approval submission from node details,
 steering through the rendered node composer, explicit reload/restart recovery

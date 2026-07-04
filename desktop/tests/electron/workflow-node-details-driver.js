@@ -88,7 +88,12 @@
       (candidate) => candidate.textContent?.trim() === "Load more" && !candidate.disabled,
     );
     if (!(button instanceof HTMLButtonElement)) {
-      return { clicked: false, state: workflowNodeTrajectoryStateForDetails(null) };
+      return {
+        clicked: false,
+        state: workflowNodeTrajectoryStateForDetails(
+          document.querySelector('[data-testid="workflow-node-run-details"]'),
+        ),
+      };
     }
     button.click();
     return {

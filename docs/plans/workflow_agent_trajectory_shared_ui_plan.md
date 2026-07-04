@@ -562,6 +562,13 @@ files, the Electron template guard covered the changed browser-program files,
 passed, and the final repository gates were `./scripts/format.sh` plus
 `./check_quality.sh --git-changes`.
 
+Audit follow-up 2026-07-04: moved the rendered-pagination reload readiness
+check behind the shared browser driver and waited for the CDP page load event
+before reinstalling driver extensions, fixing a reload race found by the focused
+Electron workflow rerun. The rendered pagination path still verifies chunk 041
+arrives only through `chat:run-item-output` / `/chat/runs/item-output`, and the
+remaining deterministic coverage gaps are unchanged.
+
 ## Verification Plan
 
 Start narrow, then broaden.
