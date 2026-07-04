@@ -699,6 +699,14 @@ Verification performed:
 - `./scripts/test_chat_workflows.sh --skip-build --deterministic-only`
 - `./scripts/test_chat_workflows.sh --skip-build --live-only`
 
+Follow-up audit:
+
+- added service-level coverage proving repeated structured plan updates for one
+  provider turn update the same persisted run item and transcript activity block
+  in place, with the latest typed plan details and no summary/progress fallback;
+- verified with
+  `./scripts/go.sh test ./internal/chat -run TestServiceUpsertsStructuredPlanUpdatesInPlace`.
+
 Remaining work:
 
 - add the selected-conversation current-plan surface near the composer that
