@@ -585,9 +585,36 @@ Verification 2026-07-04: `node --check` covered the touched Electron helper
 files, the Electron template guard covered the changed browser-program files,
 and
 `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
-passed. Remaining deterministic coverage gaps are steering through the rendered
-node composer, reload/restart while already viewing node details, and
-historical-attempt paging.
+passed. Remaining deterministic coverage gaps after this approval slice were
+steering through the rendered node composer, reload/restart while already viewing
+node details, and historical-attempt paging.
+
+Progress 2026-07-04: deterministic Electron coverage now exercises rendered
+workflow-node composer steering end to end in
+`--workflow-node-trajectory-contract-only`. The test starts a steerable workflow
+agent node through the real graph toolbar, uses production run-navigation
+controls when the graph remains on the draft, opens canonical node details,
+verifies the scoped workflow-node composer textarea is enabled with the send
+button disabled until text is entered, sends `finish node trajectory steering`
+from that composer, and waits for the same node-scoped trajectory to render both
+the steering prompt and `Steered with finish node trajectory steering.` The
+workflow-node details driver now exposes scoped composer state, text entry,
+send helpers, and production sidebar/run navigation helpers. A small renderer
+projection-state guard preserves an
+explicitly selected run when selected-definition auto-loading catches up for the
+same definition, and the workflow graph surface registers a typed
+surface-scoped node-details debug opener that opens the same node-details target
+path as a graph node open. Verification 2026-07-04: `node --check` covered the
+touched Electron helper files,
+`pnpm vitest run src/features/workspace-graph/workflow-graph-projection-state.test.ts`
+covered the projection-state race guard, `pnpm build` covered renderer
+typechecking and the production bundle, and
+`node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+passed. Live Codex verification was attempted with ChatGPT auth available and
+`OPENAI_API_KEY` unset, but the local Codex config blocked startup because
+`config.approval_policy` is the deprecated unsupported value `"on-failure"`.
+Remaining deterministic coverage gaps are reload/restart while already viewing
+node details and historical-attempt paging.
 
 ## Verification Plan
 
@@ -677,5 +704,6 @@ Before committing source, generated contracts, tests, or scripts:
 Progress 2026-07-04: deterministic Electron coverage now explicitly covers
 rendered workflow-node trajectory pagination through node details and the real
 run-item output endpoint, plus workflow-node approval submission from the shared
-node-scoped trajectory card. Rendered composer steering,
-restart/reload-while-viewing, and historical-attempt paging remain to be added.
+node-scoped trajectory card, plus rendered workflow-node composer steering from
+the same node-scoped trajectory. Restart/reload-while-viewing and
+historical-attempt paging remain to be added.

@@ -1,4 +1,4 @@
-/* global HTMLButtonElement, HTMLDetailsElement, document */
+/* global Event, HTMLButtonElement, HTMLDetailsElement, HTMLElement, HTMLTextAreaElement, InputEvent, document, window */
 
 (() => {
   const version = "setta-workflow-node-details-driver-v3";
@@ -9,14 +9,181 @@
       throw new Error("base Setta E2E driver is not installed");
     }
     Object.assign(driver, {
+      clickWorkflowDefinitionSidebarItem,
       clickWorkflowNodeTrajectoryDecisionApproval,
       clickWorkflowNodeTrajectoryLoadMoreOutput,
+      clickWorkflowNodeTrajectorySteeringSend,
       expandWorkflowNodeTrajectoryActivityGroup,
       expandWorkflowNodeTrajectoryCommandOutput,
+      openWorkflowNodeDetailsFromGraphDebug,
+      setWorkflowNodeTrajectorySteeringText,
+      workflowDefinitionSidebarItemState,
+      workflowGraphRunNavigationState,
       workflowNodeDetailsVersion: version,
+      workflowNodeTrajectoryComposerState,
       workflowNodeTrajectoryState,
       workflowRunDetailsState,
     });
+  }
+
+  function workflowDefinitionSidebarItemState({ name }) {
+    const button = workflowDefinitionSidebarButton(name);
+    return {
+      disabled: button instanceof HTMLButtonElement ? button.disabled : null,
+      exists: button instanceof HTMLButtonElement,
+      selected: button?.getAttribute("aria-current") === "page",
+      text: button?.textContent?.trim() ?? "",
+    };
+  }
+
+  function clickWorkflowDefinitionSidebarItem({ name }) {
+    const button = workflowDefinitionSidebarButton(name);
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return {
+        clicked: false,
+        state: workflowDefinitionSidebarItemState({ name }),
+      };
+    }
+    button.click();
+    return {
+      clicked: true,
+      state: workflowDefinitionSidebarItemState({ name }),
+    };
+  }
+
+  function workflowDefinitionSidebarButton(name) {
+    return (
+      queryAll(document, '[data-testid="workflow-definition-list-item"]').find(
+        (button) => button.getAttribute("title") === name,
+      ) ?? null
+    );
+  }
+
+  function workflowGraphRunNavigationState({ definitionId, executionId, surfaceId }) {
+    const debugState = workflowGraphRunDebugState(surfaceId);
+    if (!debugState.ready) {
+      return debugState;
+    }
+    const workflow = debugState.snapshot.graph?.workflow ?? null;
+    const runSelectorButton = workflowToolbarElementForSurface(
+      surfaceId,
+      '[data-testid="workflow-run-selector-button"]',
+    );
+    const viewActiveRunButton = workflowToolbarElementForSurface(
+      surfaceId,
+      '[data-testid="workflow-view-active-run-button"]',
+    );
+    const selectedRunId = workflowRunSelectorSelectedRunId(runSelectorButton);
+    return {
+      ready: true,
+      roots: workflowGraphRootStates(),
+      runProjectionMatches: workflowRunProjectionMatches(workflow, definitionId, executionId),
+      runSelectorReady:
+        runSelectorButton instanceof HTMLButtonElement && !runSelectorButton.disabled,
+      selectedRunId,
+      selectedRunMatches: selectedRunId === executionId,
+      viewActiveRunReady:
+        viewActiveRunButton instanceof HTMLButtonElement && !viewActiveRunButton.disabled,
+      workflow,
+    };
+  }
+
+  function workflowGraphRunDebugState(surfaceId) {
+    const api = window.__settaWorkflowGraphDebug;
+    if (!api) {
+      return workflowGraphRunNavigationNotReady("missing-debug-api");
+    }
+    const surfaceIds = api.getSurfaceIds();
+    if (surfaceId && !surfaceIds.includes(surfaceId)) {
+      return workflowGraphRunNavigationNotReady("surface-not-registered", surfaceIds);
+    }
+    return { ready: true, snapshot: api.getSnapshot(surfaceId, { includeVisual: false }) };
+  }
+
+  function workflowGraphRunNavigationNotReady(reason, surfaceIds = []) {
+    return {
+      ready: false,
+      reason,
+      roots: workflowGraphRootStates(),
+      runProjectionMatches: false,
+      selectedRunId: "",
+      selectedRunMatches: false,
+      surfaceIds,
+    };
+  }
+
+  function workflowGraphRootStates() {
+    return queryAll(document, '[data-testid="workflow-graph"]').map(workflowGraphRootState);
+  }
+
+  function workflowGraphRootState(root) {
+    const rect = root.getBoundingClientRect();
+    return {
+      canvasCount: root.querySelectorAll("canvas").length,
+      height: rect.height,
+      left: rect.left,
+      surfaceId: root.dataset.surfaceId ?? null,
+      top: rect.top,
+      visible: elementIntersectsViewport(root),
+      width: rect.width,
+    };
+  }
+
+  function elementIntersectsViewport(element) {
+    const rect = element.getBoundingClientRect();
+    return (
+      rect.bottom > 0 &&
+      rect.right > 0 &&
+      rect.left < window.innerWidth &&
+      rect.top < window.innerHeight
+    );
+  }
+
+  function workflowRunProjectionMatches(workflow, definitionId, executionId) {
+    return (
+      workflow?.definitionId === definitionId &&
+      workflow.viewMode === "run" &&
+      workflow.executionId === executionId
+    );
+  }
+
+  function workflowRunSelectorSelectedRunId(runSelectorButton) {
+    if (!(runSelectorButton instanceof HTMLElement)) {
+      return "";
+    }
+    return runSelectorButton.getAttribute("data-selected-run-id") ?? "";
+  }
+
+  function workflowToolbarElementForSurface(surfaceId, selector) {
+    return workflowGraphHostBySurfaceId(surfaceId)?.querySelector(selector) ?? null;
+  }
+
+  function workflowGraphHostBySurfaceId(surfaceId) {
+    return (
+      workflowGraphSurfaceById(surfaceId)?.closest('[data-testid="workspace-pane-host"]') ?? null
+    );
+  }
+
+  function workflowGraphSurfaceById(surfaceId) {
+    return (
+      queryAll(document, '[data-testid="workflow-graph"]').find(
+        (candidate) => candidate.dataset.surfaceId === surfaceId,
+      ) ?? null
+    );
+  }
+
+  function openWorkflowNodeDetailsFromGraphDebug({ nodeId, surfaceId }) {
+    const api = window.__settaWorkflowNodeDetailsDebug;
+    if (!api) {
+      return { ok: false, reason: "missing-debug-api" };
+    }
+    const surfaceIds = api.getSurfaceIds();
+    if (!surfaceIds.includes(surfaceId)) {
+      return { ok: false, reason: "surface-not-registered", surfaceIds };
+    }
+    return api.openNodeDetails(surfaceId, nodeId)
+      ? { ok: true }
+      : { ok: false, reason: "node-not-opened" };
   }
 
   function workflowRunDetailsState() {
@@ -60,6 +227,7 @@
       outputText: outputTextForTrajectory(trajectory),
       text: elementText(trajectory),
       trajectoryPresent: trajectory !== null,
+      trajectorySteeringComposer: workflowNodeTrajectoryComposerStateForTrajectory(trajectory),
     };
   }
 
@@ -136,6 +304,109 @@
         document.querySelector('[data-testid="workflow-node-run-details"]'),
       ),
     };
+  }
+
+  function workflowNodeTrajectoryComposerState() {
+    return workflowNodeTrajectoryComposerStateForTrajectory(workflowNodeTrajectoryElement());
+  }
+
+  function workflowNodeTrajectoryComposerStateForTrajectory(trajectory) {
+    const composer = workflowNodeTrajectoryComposerElement(trajectory);
+    const textarea = workflowNodeTrajectoryComposerTextarea(composer);
+    const sendButton = workflowNodeTrajectoryComposerSendButton(composer);
+    return {
+      composerPresent: composer !== null,
+      sendButtonReady: enabledButton(sendButton),
+      textareaDisabled: textAreaDisabled(textarea),
+      textareaExists: textAreaExists(textarea),
+      textareaValue: textAreaValue(textarea),
+    };
+  }
+
+  function workflowNodeTrajectoryComposerElement(trajectory) {
+    return trajectory?.querySelector('[data-testid="chat-composer"]') ?? null;
+  }
+
+  function workflowNodeTrajectoryComposerTextarea(composer) {
+    return composer?.querySelector('textarea[aria-label="Ask Setta"]') ?? null;
+  }
+
+  function workflowNodeTrajectoryComposerSendButton(composer) {
+    return composer?.querySelector('button[aria-label="Send steering message"]') ?? null;
+  }
+
+  function enabledButton(element) {
+    return element instanceof HTMLButtonElement && !element.disabled;
+  }
+
+  function textAreaDisabled(element) {
+    if (!(element instanceof HTMLTextAreaElement)) {
+      return null;
+    }
+    return element.disabled;
+  }
+
+  function textAreaExists(element) {
+    return element instanceof HTMLTextAreaElement;
+  }
+
+  function textAreaValue(element) {
+    if (!(element instanceof HTMLTextAreaElement)) {
+      return "";
+    }
+    return element.value;
+  }
+
+  function setWorkflowNodeTrajectorySteeringText({ text }) {
+    const trajectory = workflowNodeTrajectoryElement();
+    const composer = trajectory?.querySelector('[data-testid="chat-composer"]') ?? null;
+    const textarea = composer?.querySelector('textarea[aria-label="Ask Setta"]') ?? null;
+    if (!(textarea instanceof HTMLTextAreaElement) || textarea.disabled) {
+      return {
+        updated: false,
+        state: workflowNodeTrajectoryComposerStateForTrajectory(trajectory),
+      };
+    }
+    setTextAreaValue(textarea, text);
+    return {
+      updated: textarea.value === text,
+      state: workflowNodeTrajectoryComposerStateForTrajectory(trajectory),
+    };
+  }
+
+  function clickWorkflowNodeTrajectorySteeringSend() {
+    const trajectory = workflowNodeTrajectoryElement();
+    const composer = trajectory?.querySelector('[data-testid="chat-composer"]') ?? null;
+    const sendButton =
+      composer?.querySelector('button[aria-label="Send steering message"]') ?? null;
+    if (!(sendButton instanceof HTMLButtonElement) || sendButton.disabled) {
+      return {
+        clicked: false,
+        state: workflowNodeTrajectoryComposerStateForTrajectory(trajectory),
+      };
+    }
+    sendButton.click();
+    return {
+      clicked: true,
+      state: workflowNodeTrajectoryComposerStateForTrajectory(trajectory),
+    };
+  }
+
+  function setTextAreaValue(textarea, value) {
+    const previousValue = textarea.value;
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+    descriptor?.set?.call(textarea, value);
+    textarea._valueTracker?.setValue(previousValue);
+    textarea.focus();
+    textarea.select();
+    textarea.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        data: value,
+        inputType: "insertText",
+      }),
+    );
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   function decisionButton(root, label) {

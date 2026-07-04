@@ -947,17 +947,20 @@ Electron template-literal guard, and
 `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
 
 Progress 2026-07-04: added deterministic rendered workflow-node approval
-submission coverage to `--workflow-node-trajectory-contract-only`. The scenario
-starts a command-approval agent node through the graph toolbar, opens canonical
-node details, submits approval from the shared node-scoped trajectory card, and
-waits for the same details trajectory to render the resolved assistant output
-with the approval card removed. The browser driver now exposes scoped approval
-state and decision-click helpers, and node-details opening waits for a visible
-canvas hit target plus typed graph selection before using the toolbar action.
-Verification passed for the touched `node --check` files, the Electron
-template-literal guard, and the focused Electron workflow. Remaining gaps:
-rendered composer steering, reload/restart while already viewing node details,
-and historical-attempt paging.
+submission coverage to `--workflow-node-trajectory-contract-only`: graph-toolbar
+startup, canonical node details, shared-card approval, and resolved assistant
+output with the approval card removed. Verification passed for touched
+`node --check` files, the Electron template-literal guard, and focused Electron.
+
+Progress 2026-07-04: added deterministic rendered workflow-node composer
+steering coverage to `--workflow-node-trajectory-contract-only`: real sidebar,
+graph toolbar startup, production run selection, canonical node details, scoped
+composer enable/send behavior, steering submission, and rendered node-scoped
+output. The slice also preserves explicitly selected runs during
+selected-definition auto-loading and adds a typed node-details debug opener.
+Verification passed for touched `node --check`, projection-state Vitest, `pnpm build`, and focused Electron. Live Codex was blocked by local
+deprecated `config.approval_policy = "on-failure"`. Remaining gaps:
+reload/restart while already viewing node details and historical-attempt paging.
 
 ## Parallel Work Guidance
 

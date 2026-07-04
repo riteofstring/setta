@@ -28,6 +28,7 @@ import type {
   WorkflowGraphRendererHandlers,
 } from "./pixi-renderer";
 import { activityFocusFromChip } from "./workflow-node-activity-focus";
+import { registerWorkflowNodeDetailsDebugSurface } from "./workflow-node-details-debug-registry";
 import { WorkflowApprovalOverlay } from "./workflow-approval-overlay";
 import {
   syncWorkflowGraphCameraScope,
@@ -623,6 +624,23 @@ export function WorkflowGraphSurface({
       });
     },
     [setSelectedNodeTarget, workflowProjection],
+  );
+  const openWorkflowNodeDetailsFromDebug = useCallback(
+    (nodeId: string) => {
+      if (
+        workflowProjection === null ||
+        !workflowProjection.nodes.some((candidate) => candidate.id === nodeId)
+      ) {
+        return false;
+      }
+      openWorkflowNodeDetails(nodeId);
+      return true;
+    },
+    [openWorkflowNodeDetails, workflowProjection],
+  );
+  useEffect(
+    () => registerWorkflowNodeDetailsDebugSurface(surfaceId, openWorkflowNodeDetailsFromDebug),
+    [openWorkflowNodeDetailsFromDebug, surfaceId],
   );
   const openWorkflowActivityChipDetails = useCallback(
     (chip: WorkflowGraphActivityChipTarget) => {

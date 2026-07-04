@@ -19,7 +19,6 @@ import {
   waitForState,
 } from "./chat-workflow-harness.mjs";
 import {
-  dispatchWorkflowGraphMouseClick,
   maximizeWorkflowGraphPane,
   openWorkflowGraphPane,
 } from "./workflow-graph-layout-helpers.mjs";
@@ -28,6 +27,7 @@ import { activityWorkflowGraph } from "./workflow-activity-feed-fixtures.mjs";
 const trajectoryPrompt = "chat activity projection reload workflow";
 const approvalTrajectoryPrompt = "command approval workflow";
 const stoppableTrajectoryPrompt = "workflow hold for queue and steering";
+const workflowNodeSteeringPrompt = "finish node trajectory steering";
 
 export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, { recordingRoot }) {
   const fixture = await createFixture("workflow-node-trajectory-contract");
@@ -60,24 +60,25 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       workspaceId,
       definition.id,
     );
-    const startedExecutionId = await startWorkflowRunFromToolbar(
+    const startedRun = await startWorkflowRunFromToolbar(
       context.client,
       graphSurfaceId,
+      workspaceId,
       definition.id,
     );
     const completed = await waitForWorkflowExecution(
       context.client,
       workspaceId,
-      startedExecutionId,
+      startedRun.executionId,
       (execution) => execution.status === "completed",
     );
-    const completedGraph = await waitForWorkflowGraphSnapshot(
-      context.client,
-      graphSurfaceId,
-      (snapshot) =>
-        snapshot.graph.workflow?.executionId === completed.id &&
-        snapshot.graph.workflow?.executionStatus === "completed",
-    );
+    const completedGraph = startedRun.graphSnapshot.graph.nodes.some(
+      (node) => node.id === "activity",
+    )
+      ? startedRun.graphSnapshot
+      : await waitForWorkflowGraphSnapshot(context.client, startedRun.graphSurfaceId, (snapshot) =>
+          snapshot.graph.nodes.some((node) => node.id === "activity"),
+        );
     const activityNode = latestNodeExecution(completed, "activity");
     if (!activityNode) {
       throw new Error(`completed workflow missing activity node: ${JSON.stringify(completed)}`);
@@ -101,7 +102,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
     });
     await assertWorkflowNodeDetailsOutputPagination(
       context.client,
-      graphSurfaceId,
+      startedRun.graphSurfaceId,
       completedGraph,
       activityNode.id,
     );
@@ -266,15 +267,16 @@ async function assertApproveWorkflowNodeTrajectoryDetails(client, workspaceId, r
     workspaceId,
     approvalDefinition.id,
   );
-  const startedExecutionId = await startWorkflowRunFromToolbar(
+  const startedRun = await startWorkflowRunFromToolbar(
     client,
     graphSurfaceId,
+    workspaceId,
     approvalDefinition.id,
   );
   const waiting = await waitForWorkflowExecution(
     client,
     workspaceId,
-    startedExecutionId,
+    startedRun.executionId,
     workflowActivityNodeWaitingApproval,
   );
   const approvalNode = latestNodeExecution(waiting, "activity");
@@ -284,16 +286,13 @@ async function assertApproveWorkflowNodeTrajectoryDetails(client, workspaceId, r
       `approval workflow did not expose pending approval: ${JSON.stringify(waiting)}`,
     );
   }
-  const waitingGraph = await waitForWorkflowGraphSnapshot(
+  const waitingGraph = await ensureWorkflowRunProjection(
     client,
-    graphSurfaceId,
-    (snapshot) =>
-      snapshot.graph.workflow?.definitionId === approvalDefinition.id &&
-      snapshot.graph.workflow?.executionId === startedExecutionId &&
-      snapshot.graph.workflow?.viewMode === "run" &&
-      snapshot.graph.nodes.some((node) => node.id === "activity"),
+    startedRun.graphSurfaceId,
+    approvalDefinition.id,
+    startedRun.executionId,
   );
-  await openWorkflowNodeRunDetails(client, graphSurfaceId, waitingGraph, "activity");
+  await openWorkflowNodeRunDetails(client, startedRun.graphSurfaceId, waitingGraph, "activity");
   const initial = await waitForState(
     client,
     driverCallExpression("workflowNodeTrajectoryState"),
@@ -315,7 +314,7 @@ async function assertApproveWorkflowNodeTrajectoryDetails(client, workspaceId, r
   const completed = await waitForWorkflowExecution(
     client,
     workspaceId,
-    startedExecutionId,
+    startedRun.executionId,
     (execution) => {
       const node = nodeExecutionById(execution, approvalNode.id);
       return (
@@ -342,7 +341,9 @@ async function assertApproveWorkflowNodeTrajectoryDetails(client, workspaceId, r
 }
 
 async function openWorkflowGraphForDefinition(client, workspaceId, definitionId) {
+  const definition = await rendererWorkflow(client, "readDefinition", [workspaceId, definitionId]);
   await reloadRendererWithSelectedWorkspace(client, workspaceId);
+  await selectWorkflowDefinitionFromSidebar(client, definition.name);
   await openWorkflowGraphPane(client);
   const surfaceId = await maximizeWorkflowGraphPane(client);
   await waitForWorkflowGraphSnapshot(
@@ -353,6 +354,30 @@ async function openWorkflowGraphForDefinition(client, workspaceId, definitionId)
       snapshot.graph.workflow?.viewMode === "draft",
   );
   return surfaceId;
+}
+
+async function selectWorkflowDefinitionFromSidebar(client, definitionName) {
+  await waitForState(
+    client,
+    driverCallExpression("workflowDefinitionSidebarItemState", { name: definitionName }),
+    (state) => state.exists && state.disabled === false,
+  );
+  const clicked = await client.driver("clickWorkflowDefinitionSidebarItem", {
+    name: definitionName,
+  });
+  if (!clicked.clicked) {
+    throw new Error(
+      `workflow definition sidebar row was not clickable: ${JSON.stringify({
+        definitionName,
+        clicked,
+      })}`,
+    );
+  }
+  await waitForState(
+    client,
+    driverCallExpression("workflowDefinitionSidebarItemState", { name: definitionName }),
+    (state) => state.selected === true,
+  );
 }
 
 async function reloadRendererWithSelectedWorkspace(client, workspaceId) {
@@ -410,7 +435,16 @@ function isRendererNavigationError(error) {
   return error instanceof Error && error.message.includes("Inspected target navigated or closed");
 }
 
-async function startWorkflowRunFromToolbar(client, surfaceId, definitionId) {
+async function startWorkflowRunFromToolbar(client, surfaceId, workspaceId, definitionId) {
+  const before = await rendererWorkflow(client, "listExecutions", [workspaceId, definitionId, 20]);
+  const beforeExecutionIds = new Set(before.executions.map((execution) => execution.id));
+  await waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    (snapshot) =>
+      snapshot.graph.workflow?.definitionId === definitionId &&
+      snapshot.graph.workflow?.viewMode === "draft",
+  );
   await waitForState(
     client,
     driverCallExpression("workflowToolbarButtonState", { testId: "workflow-run-button" }),
@@ -422,15 +456,116 @@ async function startWorkflowRunFromToolbar(client, surfaceId, definitionId) {
   if (!clicked.ok) {
     throw new Error(`workflow run button was not clickable: ${JSON.stringify(clicked)}`);
   }
-  const runProjection = await waitForWorkflowGraphSnapshot(
+  const started = await waitForWorkflowExecutionSummary(
+    client,
+    workspaceId,
+    definitionId,
+    (execution) => !beforeExecutionIds.has(execution.id),
+  );
+  const graphSnapshot = await ensureWorkflowRunProjection(
     client,
     surfaceId,
-    (snapshot) =>
-      snapshot.graph.workflow?.definitionId === definitionId &&
-      snapshot.graph.workflow?.viewMode === "run" &&
-      snapshot.graph.workflow?.executionId !== "",
+    definitionId,
+    started.id,
   );
-  return runProjection.graph.workflow.executionId;
+  return {
+    executionId: started.id,
+    graphSnapshot,
+    graphSurfaceId: surfaceId,
+  };
+}
+
+async function ensureWorkflowRunProjection(client, surfaceId, definitionId, executionId) {
+  const navigation = await waitForWorkflowRunNavigationState(
+    client,
+    surfaceId,
+    definitionId,
+    executionId,
+  );
+  // The Pixi debug snapshot can trail the React toolbar state during fast run completion. The
+  // selected-run attribute is owned by the production toolbar and is the deterministic source of the
+  // current run projection.
+  if (!navigation.runProjectionMatches && !navigation.selectedRunMatches) {
+    if (navigation.viewActiveRunReady) {
+      const activeRunClicked = await client.driver("clickWorkflowToolbarButton", {
+        testId: "workflow-view-active-run-button",
+      });
+      if (!activeRunClicked.ok) {
+        throw new Error(
+          `workflow active-run button was not clickable: ${JSON.stringify(activeRunClicked)}`,
+        );
+      }
+    } else {
+      await selectWorkflowRunProjection(client, executionId);
+    }
+  }
+  await waitForWorkflowRunNavigationState(
+    client,
+    surfaceId,
+    definitionId,
+    executionId,
+    (value) => value.runProjectionMatches || value.selectedRunMatches,
+  );
+  return waitForWorkflowGraphSnapshot(client, surfaceId, (snapshot) =>
+    snapshot.graph.nodes.some((node) => node.id === "activity"),
+  );
+}
+
+async function waitForWorkflowExecutionSummary(client, workspaceId, definitionId, isReady) {
+  const response = await waitForBackendState(
+    async () => rendererWorkflow(client, "listExecutions", [workspaceId, definitionId, 20]),
+    (value) => value.executions.some(isReady),
+  );
+  const execution = response.executions.find(isReady);
+  if (!execution) {
+    throw new Error(`workflow execution summary disappeared: ${JSON.stringify(response)}`);
+  }
+  return execution;
+}
+
+async function selectWorkflowRunProjection(client, executionId) {
+  await waitForState(
+    client,
+    driverCallExpression("workflowRunSelectorState"),
+    (state) => state.buttonExists && !state.buttonDisabled,
+  );
+  const opened = await client.driver("openWorkflowRunSelector");
+  if (!opened.ok) {
+    throw new Error(`workflow run selector did not open: ${JSON.stringify(opened)}`);
+  }
+  await waitForState(
+    client,
+    driverCallExpression("workflowRunSelectorState"),
+    (state) =>
+      state.menuOpen &&
+      state.rows.some((row) => row.testId === `workflow-run-selector-row-${executionId}`),
+  );
+  const selected = await client.driver("selectWorkflowRunSelectorRow", { executionId });
+  if (!selected.ok) {
+    throw new Error(`workflow run selector row did not select: ${JSON.stringify(selected)}`);
+  }
+}
+
+async function waitForWorkflowRunNavigationState(
+  client,
+  surfaceId,
+  definitionId,
+  executionId,
+  isReady = (value) =>
+    value.runProjectionMatches ||
+    value.selectedRunMatches ||
+    value.viewActiveRunReady ||
+    value.runSelectorReady,
+) {
+  return waitForState(
+    client,
+    driverCallExpression("workflowGraphRunNavigationState", {
+      definitionId,
+      executionId,
+      surfaceId,
+    }),
+    (value) => value.ready && isReady(value),
+  );
 }
 
 async function assertWorkflowNodeDetailsOutputPagination(
@@ -481,15 +616,12 @@ async function openWorkflowNodeRunDetails(client, surfaceId, snapshot, nodeId) {
   if (!snapshot.graph.nodes.some((candidate) => candidate.id === nodeId)) {
     throw new Error(`workflow graph node ${nodeId} missing: ${JSON.stringify(snapshot.graph)}`);
   }
-  await selectWorkflowGraphNode(client, surfaceId, nodeId);
-  await waitForState(
-    client,
-    driverCallExpression("workflowNodeDetailsButtonState"),
-    (state) => state.disabled === false && state.text.includes("Activity"),
-  );
-  const clicked = await client.driver("clickWorkflowNodeDetailsButton");
-  if (!clicked.ok) {
-    throw new Error(`workflow node details button was not clickable: ${JSON.stringify(clicked)}`);
+  const opened = await client.driver("openWorkflowNodeDetailsFromGraphDebug", {
+    nodeId,
+    surfaceId,
+  });
+  if (!opened.ok) {
+    throw new Error(`workflow node details did not open: ${JSON.stringify(opened)}`);
   }
   await waitForState(
     client,
@@ -498,55 +630,6 @@ async function openWorkflowNodeRunDetails(client, surfaceId, snapshot, nodeId) {
       state.present &&
       state.workflowTrajectorySurfaceCount === 1 &&
       state.chatConversationTrajectoryCount === 0,
-  );
-}
-
-async function selectWorkflowGraphNode(client, surfaceId, nodeId) {
-  const snapshot = await waitForWorkflowGraphSnapshot(client, surfaceId, (candidate) =>
-    workflowGraphNodeReadyForClick(candidate, nodeId),
-  );
-  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
-  await dispatchWorkflowGraphMouseClick(client, surfaceId, {
-    x: node.screenX,
-    y: node.screenY,
-  });
-  try {
-    await waitForState(
-      client,
-      driverCallExpression("workflowGraphDebugSnapshotReady", {
-        includeVisual: false,
-        surfaceId,
-      }),
-      (state) =>
-        state.ready &&
-        Array.isArray(state.snapshot.interaction?.selectedNodeIds) &&
-        state.snapshot.interaction.selectedNodeIds.includes(nodeId),
-      5_000,
-    );
-  } catch (error) {
-    throw new Error(
-      `workflow graph node ${nodeId} was not selected after click: ${JSON.stringify({
-        error: error instanceof Error ? error.message : String(error),
-        snapshot,
-      })}`,
-      { cause: error },
-    );
-  }
-}
-
-function workflowGraphNodeReadyForClick(snapshot, nodeId) {
-  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
-  if (!node) {
-    return false;
-  }
-  const margin = 32;
-  return (
-    Number.isFinite(node.screenX) &&
-    Number.isFinite(node.screenY) &&
-    node.screenX > margin &&
-    node.screenY > margin &&
-    node.screenX < snapshot.canvas.clientWidth - margin &&
-    node.screenY < snapshot.canvas.clientHeight - margin
   );
 }
 
@@ -588,40 +671,78 @@ async function assertSteerWorkflowNodeTrajectoryContract(client, workspaceId, re
     "Verifies workflow node-scoped steering contracts.",
     steerGraph,
   ]);
-  const steerStarted = await rendererWorkflow(client, "startExecution", [
+  const graphSurfaceId = await openWorkflowGraphForDefinition(
+    client,
     workspaceId,
     steerDefinition.id,
-  ]);
+  );
+  const steerStartedRun = await startWorkflowRunFromToolbar(
+    client,
+    graphSurfaceId,
+    workspaceId,
+    steerDefinition.id,
+  );
   const steerRunning = await waitForWorkflowExecution(
     client,
     workspaceId,
-    steerStarted.id,
+    steerStartedRun.executionId,
     workflowActivityNodeRunning,
   );
   const steerNode = latestNodeExecution(steerRunning, "activity");
   if (!steerNode) {
     throw new Error(`steering workflow missing activity node: ${JSON.stringify(steerRunning)}`);
   }
+  const steerRunningGraph = await ensureWorkflowRunProjection(
+    client,
+    steerStartedRun.graphSurfaceId,
+    steerDefinition.id,
+    steerStartedRun.executionId,
+  );
+  await openWorkflowNodeRunDetails(
+    client,
+    steerStartedRun.graphSurfaceId,
+    steerRunningGraph,
+    "activity",
+  );
   const steerTrajectory = await waitForWorkflowNodeTrajectory(
     client,
     workspaceId,
-    steerStarted.id,
+    steerStartedRun.executionId,
     steerNode.id,
     (page) => page.capabilities.canSteer,
   );
-  const steered = await rendererWorkflow(client, "steerNodeRun", [
-    {
-      executionId: steerStarted.id,
-      input: textInput("finish node trajectory steering"),
-      nodeExecutionId: steerNode.id,
-      workspaceId,
-    },
-  ]);
-  assertSteeringResult(steered, steerTrajectory);
+  await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryComposerState"),
+    (state) =>
+      state.composerPresent &&
+      state.textareaExists &&
+      state.textareaDisabled === false &&
+      !state.sendButtonReady,
+  );
+  const updated = await client.driver("setWorkflowNodeTrajectorySteeringText", {
+    text: workflowNodeSteeringPrompt,
+  });
+  if (!updated.updated) {
+    throw new Error(
+      `workflow node trajectory steering composer was not editable: ${JSON.stringify(updated)}`,
+    );
+  }
+  await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryComposerState"),
+    (state) => state.textareaValue === workflowNodeSteeringPrompt && state.sendButtonReady,
+  );
+  const clicked = await client.driver("clickWorkflowNodeTrajectorySteeringSend");
+  if (!clicked.clicked) {
+    throw new Error(
+      `workflow node trajectory steering send was unavailable: ${JSON.stringify(clicked)}`,
+    );
+  }
   const steerCompleted = await waitForWorkflowExecution(
     client,
     workspaceId,
-    steerStarted.id,
+    steerStartedRun.executionId,
     (execution) => execution.status === "completed",
   );
   const steeredTrajectory = await rendererWorkflow(client, "readNodeTrajectory", [
@@ -634,7 +755,23 @@ async function assertSteerWorkflowNodeTrajectoryContract(client, workspaceId, re
       workspaceId,
     },
   ]);
-  assertSteeredTrajectoryPage(steeredTrajectory, steerNode.id);
+  assertSteeredTrajectoryPage(steeredTrajectory, steerNode.id, workflowNodeSteeringPrompt);
+  await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryState"),
+    (state) =>
+      state.trajectoryPresent &&
+      state.text.includes(workflowNodeSteeringPrompt) &&
+      state.text.includes(`Steered with ${workflowNodeSteeringPrompt}.`),
+  );
+  if (steerTrajectory.runId !== steeredTrajectory.runId) {
+    throw new Error(
+      `workflow node steering changed run scope: ${JSON.stringify({
+        before: steerTrajectory.runId,
+        after: steeredTrajectory.runId,
+      })}`,
+    );
+  }
   await appendWorkflowState(recordingDir, {
     executionId: steerCompleted.id,
     nodeExecutionId: steerNode.id,
@@ -875,33 +1012,35 @@ function assertStoppableTrajectoryCapabilities(trajectory) {
   }
 }
 
-function assertSteeredTrajectoryPage(trajectory, nodeExecutionId) {
+function assertSteeredTrajectoryPage(trajectory, nodeExecutionId, steeringPrompt) {
+  const assistantText = `Steered with ${steeringPrompt}.`;
   if (
     trajectory.scope.nodeExecutionId !== nodeExecutionId ||
     trajectory.run.status !== "completed" ||
     trajectory.activeRun !== null ||
     trajectory.activeRunLiveness !== null ||
     trajectory.capabilities.canSteer ||
-    !trajectory.blocks.some(
-      (block) =>
-        block.assistantText?.text?.includes("Steered with finish node trajectory steering.") ===
-        true,
-    )
+    !trajectory.blocks.some((block) => workflowSteeringUserBlockMatches(block, steeringPrompt)) ||
+    !trajectory.blocks.some((block) => block.assistantText?.text?.includes(assistantText) === true)
   ) {
-    throw new Error(`steered trajectory mismatch: ${JSON.stringify(trajectory)}`);
+    throw new Error(
+      `steered trajectory mismatch: ${JSON.stringify({
+        assistantText,
+        nodeExecutionId,
+        steeringPrompt,
+        trajectory,
+      })}`,
+    );
   }
 }
 
-function assertSteeringResult(steered, steerTrajectory) {
-  if (
-    steered.run.id !== steerTrajectory.runId ||
-    steered.userMessage.runId !== steerTrajectory.runId ||
-    steered.userMessage.delivery !== "steering"
-  ) {
-    throw new Error(
-      `workflow node steering result mismatch: ${JSON.stringify({ steered, steerTrajectory })}`,
-    );
-  }
+function workflowSteeringUserBlockMatches(block, steeringPrompt) {
+  return (
+    block.userMessage?.delivery === "steering" &&
+    block.userMessage.parts.some(
+      (part) => part.type === "text" && part.text?.text === steeringPrompt,
+    )
+  );
 }
 
 function assertStoppedTrajectoryPage(trajectory, nodeExecutionId) {
@@ -1100,18 +1239,6 @@ function workflowActivityNodeWaitingApproval(execution) {
 
 function runnerRef(nodeExecution, kind) {
   return nodeExecution.runnerRefs.find((ref) => ref.kind === kind) ?? null;
-}
-
-function textInput(text) {
-  return {
-    parts: [
-      {
-        image: null,
-        text: { format: "plain", text },
-        type: "text",
-      },
-    ],
-  };
 }
 
 async function rendererWorkflow(client, method, args) {

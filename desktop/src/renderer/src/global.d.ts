@@ -234,6 +234,12 @@ interface WorkflowGraphDebugApi {
   getSurfaceIds: () => string[];
 }
 
+interface WorkflowNodeDetailsDebugApi {
+  __surfaces: Map<string, (nodeId: string) => boolean>;
+  getSurfaceIds: () => string[];
+  openNodeDetails: (surfaceId: string, nodeId: string) => boolean;
+}
+
 interface WorkflowGraphRuntimeHandle {
   setFrozen(frozen: boolean): void;
 }
@@ -254,6 +260,7 @@ declare global {
     __settaWorkspaceResetFrameMetrics?: () => void;
     __settaWorkspaceActivityDebug?: WorkspaceActivityDebugApi;
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
+    __settaWorkflowNodeDetailsDebug?: WorkflowNodeDetailsDebugApi;
     __settaWorkflowGraphRuntime?: WorkflowGraphRuntimeApi;
     setta: SettaAPI;
   }
