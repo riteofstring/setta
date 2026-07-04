@@ -14,6 +14,7 @@ describe("terminal event stream", () => {
       expect(input.toString()).toBe("http://127.0.0.1:41000/terminals/events");
       expect(init.method).toBe("GET");
       const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer token_test");
       lastEventIds.push(headers["Last-Event-ID"] ?? "");
       if (lastEventIds.length === 1) {
         return new Response(textStream(sseFrame(first)), { status: 200 });
@@ -22,6 +23,7 @@ describe("terminal event stream", () => {
     });
 
     const stream = startTerminalEventStream({
+      authToken: "token_test",
       baseURL: "http://127.0.0.1:41000",
       fetchImpl,
       reconnectDelayMs: 1,
@@ -44,6 +46,7 @@ describe("terminal event stream", () => {
     const lastEventIds: string[] = [];
     const fetchImpl: BackendFetch = vi.fn(async (_input, init) => {
       const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer token_test");
       lastEventIds.push(headers["Last-Event-ID"] ?? "");
       if (lastEventIds.length === 1) {
         return new Response(textStream(sseFrame(first)), { status: 200 });
@@ -55,6 +58,7 @@ describe("terminal event stream", () => {
     });
 
     const stream = startTerminalEventStream({
+      authToken: "token_test",
       baseURL: "http://127.0.0.1:41000",
       fetchImpl,
       reconnectDelayMs: 1,

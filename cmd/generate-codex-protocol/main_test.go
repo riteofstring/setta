@@ -113,43 +113,6 @@ func TestSupportedProtocolRegistrationAddsStructuredExperimentalClientMethod(t *
 	}
 }
 
-func TestSupportedProtocolRegistrationUsesExperimentalSchemaForStableClientMethod(t *testing.T) {
-	generator := testProtocolGenerator(t)
-	input := supportedProtocolInput{
-		ClientMethods: []supportedClientMethod{
-			{
-				Experimental: true,
-				Method:       "thread/start",
-				ParamsName:   "ThreadStartParams",
-				Source:       "generated experimental fixture",
-			},
-		},
-	}
-
-	if err := generator.applySupportedProtocol(input); err != nil {
-		t.Fatalf("apply supported protocol: %v", err)
-	}
-	if err := generator.collectSchemasFromSupported(input); err != nil {
-		t.Fatalf("collect schemas: %v", err)
-	}
-
-	member, ok := membersByMethod(generator.supportedClientMethods)["thread/start"]
-	if !ok {
-		t.Fatal("thread/start was not registered as supported")
-	}
-	if !member.Experimental {
-		t.Fatalf("thread/start member = %+v, want experimental schema override", member)
-	}
-	params := generator.schemas["ThreadStartParams"]
-	if _, ok := params.Properties["permissions"]; !ok {
-		t.Fatalf("ThreadStartParams properties = %+v, want permissions from experimental schema", params.Properties)
-	}
-	response := generator.schemas["ThreadStartResponse"]
-	if _, ok := response.Properties["activePermissionProfile"]; !ok {
-		t.Fatalf("ThreadStartResponse properties = %+v, want activePermissionProfile from experimental schema", response.Properties)
-	}
-}
-
 func TestSupportedProtocolRegistrationRejectsUnclassifiedCustomClientMethod(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	input := supportedProtocolInput{
@@ -204,7 +167,7 @@ func TestSupportedProtocolRegistrationRejectsMissingSchema(t *testing.T) {
 func TestRenderEmitsOnlySupportedServerRequestConstants(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	generator.serverRequests = []protocolMember{
-		{Method: "applyPatchApproval", ConstName: "ApplyPatchApproval", ParamsName: "UnsupportedRequest", Source: "json"},
+		{Method: "applyPatchApproval", ConstName: "ApplyPatchApproval", ParamsName: "LegacyRequest", Source: "json"},
 		{Method: "item/tool/call", ConstName: "ItemToolCall", ParamsName: "ToolCallRequest", Source: "json"},
 	}
 	generator.supportedServerRequests = []protocolMember{
@@ -220,7 +183,7 @@ func TestRenderEmitsOnlySupportedServerRequestConstants(t *testing.T) {
 		t.Fatalf("output = %s, want supported item/tool/call request constant", text)
 	}
 	if strings.Contains(text, "CodexServerRequestApplyPatchApproval") {
-		t.Fatalf("output = %s, want no unsupported applyPatchApproval server request constant", text)
+		t.Fatalf("output = %s, want no legacy applyPatchApproval server request constant", text)
 	}
 }
 
@@ -421,20 +384,6 @@ func testProtocolGenerator(t *testing.T) *generator {
 		0o644,
 	); err != nil {
 		t.Fatalf("write experimental ThreadSettingsUpdateParams schema: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(experimentalV2Dir, "ThreadStartParams.json"),
-		[]byte(`{"title":"ThreadStartParams","type":"object","properties":{"model":{"type":["string","null"]},"permissions":{"type":["string","null"]}}}`),
-		0o644,
-	); err != nil {
-		t.Fatalf("write experimental ThreadStartParams schema: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(experimentalV2Dir, "ThreadStartResponse.json"),
-		[]byte(`{"title":"ThreadStartResponse","type":"object","properties":{"model":{"type":"string"},"activePermissionProfile":{"type":["object","null"]}},"required":["model"]}`),
-		0o644,
-	); err != nil {
-		t.Fatalf("write experimental ThreadStartResponse schema: %v", err)
 	}
 	return &generator{
 		schemaDir:             schemaDir,

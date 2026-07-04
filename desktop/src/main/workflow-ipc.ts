@@ -129,14 +129,6 @@ export function registerWorkflowIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "workflowReadNodeTrajectory",
-    async (_event, request) => {
-      return requireBackendClient().readWorkflowNodeTrajectory(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "workflowGraphProjection",
     async (_event, workspaceId, definitionId, versionId, executionId) => {
       return requireBackendClient().readWorkflowGraphProjection({
@@ -153,30 +145,6 @@ export function registerWorkflowIpcHandlers({
     "workflowSubmitApproval",
     async (_event, request) => {
       return requireBackendClient().submitWorkflowApproval(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowSteerNodeRun",
-    async (_event, request) => {
-      return requireBackendClient().steerWorkflowNodeRun(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowRetryNodeRunLiveness",
-    async (_event, request) => {
-      return requireBackendClient().retryWorkflowNodeRunLiveness(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workflowStopNodeRun",
-    async (_event, request) => {
-      return requireBackendClient().stopWorkflowNodeRun(request);
     },
     ipcObserver,
   );

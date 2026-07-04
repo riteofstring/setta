@@ -44,7 +44,6 @@ export function WorkspaceOverviewGhostButton({
 export function WorkspaceToolbarLayer({
   debugRef,
   mobileLayout,
-  onNativeOverlayActiveChange,
   overviewActive,
   runLayoutAction,
   runtime,
@@ -52,7 +51,6 @@ export function WorkspaceToolbarLayer({
 }: {
   debugRef: RefObject<HTMLDivElement | null>;
   mobileLayout: boolean;
-  onNativeOverlayActiveChange: (active: boolean) => void;
   overviewActive: boolean;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
@@ -63,7 +61,6 @@ export function WorkspaceToolbarLayer({
   }
   return (
     <WorkspaceToolbar
-      onNativeOverlayActiveChange={onNativeOverlayActiveChange}
       openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
       overviewActive={overviewActive}
       performanceStatsRef={showPerformanceStats ? debugRef : null}

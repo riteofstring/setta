@@ -11,11 +11,6 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "prod-record-chat-workflow.test.mjs",
-    name: "prod-record-chat",
-    tiers: ["required"],
-  },
-  {
     file: "corrupt-chat-workflow.test.mjs",
     name: "corrupt-chat",
     tiers: ["required"],
@@ -28,6 +23,11 @@ export const electronWorkflows = [
   {
     file: "settings-pane-workflow.test.mjs",
     name: "settings-pane",
+    tiers: ["required"],
+  },
+  {
+    file: "runtime-picker-workflow.test.mjs",
+    name: "runtime-picker",
     tiers: ["required"],
   },
   {
@@ -53,11 +53,6 @@ export const electronWorkflows = [
   {
     file: "pane-resize-handles-workflow.test.mjs",
     name: "pane-resize-handles",
-    tiers: ["required"],
-  },
-  {
-    file: "workspace-ultrawide-live-panes.test.mjs",
-    name: "workspace-ultrawide-live-panes",
     tiers: ["required"],
   },
   {

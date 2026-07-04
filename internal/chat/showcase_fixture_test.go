@@ -47,15 +47,7 @@ func TestSeedUIShowcaseConversationCreatesReloadableFixture(t *testing.T) {
 		t.Fatalf("showcase run after service startup = %+v, want running run with pending user-input approval", showcaseRun)
 	}
 	assertUIShowcaseMessages(t, page.Messages)
-	runItems, err := store.LoadRunItems("workspace_api", uiShowcaseCompletedRunID)
-	if err != nil {
-		t.Fatalf("load showcase run items: %v", err)
-	}
-	outputs, err := store.LoadRunItemOutputs("workspace_api", uiShowcaseCompletedRunID)
-	if err != nil {
-		t.Fatalf("load showcase run item outputs: %v", err)
-	}
-	assertUIShowcaseRunItems(t, runItems, outputs)
+	assertUIShowcaseRunItems(t, page.RunItems, page.RunItemOutputs)
 }
 
 func TestSeedUIShowcaseConversationOverwritesExistingFixture(t *testing.T) {
@@ -124,17 +116,7 @@ func assertUIShowcaseRunItems(t *testing.T, items []RunItem, outputs []RunItemOu
 		if !ok {
 			t.Fatalf("run item types = %+v, missing %s", itemsByType, itemType)
 		}
-		if item.ProviderItemID == "" {
-			t.Fatalf("showcase item %s is incomplete: %+v", itemType, item)
-		}
-		if item.Type == RunItemTypeAgentMessage {
-			if item.Title == "" {
-				t.Fatalf("showcase item %s is incomplete: %+v", itemType, item)
-			}
-			continue
-		}
-		projection, displayable := activityItemBlockProjection(item, RunStatusCompleted, false, true)
-		if !displayable || projection.Title == "" {
+		if item.ProviderItemID == "" || item.Title == "" {
 			t.Fatalf("showcase item %s is incomplete: %+v", itemType, item)
 		}
 	}

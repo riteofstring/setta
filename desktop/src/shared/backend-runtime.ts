@@ -64,24 +64,6 @@ export function requireField(
   return record[field];
 }
 
-export function assertTaggedUnionBranch(
-  label: string,
-  kind: string,
-  branchesByKind: Record<string, unknown>,
-): void {
-  const populated = Object.keys(branchesByKind).filter(
-    (branchKind) => branchesByKind[branchKind] != null,
-  );
-  if (populated.length !== 1) {
-    throw new Error(label + " must populate exactly one branch payload, found " + populated.length);
-  }
-  if (populated[0] !== kind) {
-    throw new Error(
-      label + " kind " + kind + " does not match populated " + populated[0] + " branch",
-    );
-  }
-}
-
 export function decodeBoolean(value: unknown, label: string): boolean {
   if (typeof value !== "boolean") {
     throw new Error(label + " must be a boolean");

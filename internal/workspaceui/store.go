@@ -10,7 +10,6 @@ import (
 	"unicode"
 
 	"setta/internal/jsonio"
-	"setta/internal/orchestrator"
 )
 
 const stateFileName = "ui-state.json"
@@ -167,7 +166,7 @@ func validateLayout(layout WorkspaceUILayout, path string) error {
 		return corruptStateErrorf(path, "panes must not be null")
 	}
 
-	panesByID, err := validatePanes(layout.WorkspaceID, layout.Panes, path)
+	panesByID, err := validatePanes(layout.Panes, path)
 	if err != nil {
 		return err
 	}
@@ -177,11 +176,11 @@ func validateLayout(layout WorkspaceUILayout, path string) error {
 	return validateColumns(layout.Columns, panesByID, path)
 }
 
-func validatePanes(layoutWorkspaceID string, panes []WorkspaceUIPane, path string) (map[string]WorkspaceUIPane, error) {
+func validatePanes(panes []WorkspaceUIPane, path string) (map[string]WorkspaceUIPane, error) {
 	panesByID := map[string]WorkspaceUIPane{}
 	surfaceIDs := map[string]bool{}
 	for index, pane := range panes {
-		if err := validatePane(layoutWorkspaceID, pane, index, path); err != nil {
+		if err := validatePane(pane, index, path); err != nil {
 			return nil, err
 		}
 		if _, ok := panesByID[pane.PaneID]; ok {
@@ -196,17 +195,14 @@ func validatePanes(layoutWorkspaceID string, panes []WorkspaceUIPane, path strin
 	return panesByID, nil
 }
 
-func validatePane(layoutWorkspaceID string, pane WorkspaceUIPane, index int, path string) error {
+func validatePane(pane WorkspaceUIPane, index int, path string) error {
 	if err := validatePaneRequiredFields(pane, index, path); err != nil {
 		return err
 	}
 	if err := validatePaneValues(pane, index, path); err != nil {
 		return err
 	}
-	if err := validatePaneTerminalConfig(pane, index, path); err != nil {
-		return err
-	}
-	return validatePaneWorkflowNodeDetailsConfig(layoutWorkspaceID, pane, index, path)
+	return validatePaneTerminalConfig(pane, index, path)
 }
 
 func validatePaneRequiredFields(pane WorkspaceUIPane, index int, path string) error {
@@ -250,106 +246,6 @@ func validatePaneTerminalConfig(pane WorkspaceUIPane, index int, path string) er
 	}
 	if strings.TrimSpace(pane.TerminalConfig.ProfileID) != pane.TerminalConfig.ProfileID {
 		return corruptStateErrorf(path, "panes[%d].terminalConfig.profileId must not have surrounding whitespace", index)
-	}
-	return nil
-}
-
-func validatePaneWorkflowNodeDetailsConfig(layoutWorkspaceID string, pane WorkspaceUIPane, index int, path string) error {
-	config := pane.WorkflowNodeDetailsConfig
-	if pane.SurfaceKind != SurfaceKindWorkflowNodeDetails {
-		if config != nil {
-			return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig is only valid for workflow-node-details panes", index)
-		}
-		return nil
-	}
-	if config == nil {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig is required", index)
-	}
-	if err := validateWorkflowNodeDetailsConfigRequiredFields(layoutWorkspaceID, config, index, path); err != nil {
-		return err
-	}
-	if err := validateWorkflowNodeDetailsConfigValues(config, index, path); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateWorkflowNodeDetailsConfigRequiredFields(layoutWorkspaceID string, config *WorkflowNodeDetailsPaneConfig, index int, path string) error {
-	if err := validateWorkspaceID(config.WorkspaceID); err != nil {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.workspaceId is invalid: %v", index, err)
-	}
-	if config.WorkspaceID != layoutWorkspaceID {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.workspaceId %s does not match layout workspaceId %s", index, config.WorkspaceID, layoutWorkspaceID)
-	}
-	if err := validateWorkflowNodeDetailsConfigIdentityFields(config, index, path); err != nil {
-		return err
-	}
-	return validateWorkflowNodeDetailsConfigProjectionFields(config, index, path)
-}
-
-func validateWorkflowNodeDetailsConfigIdentityFields(config *WorkflowNodeDetailsPaneConfig, index int, path string) error {
-	if config.DefinitionID == "" {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.definitionId is required", index)
-	}
-	if config.DefinitionName == "" {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.definitionName is required", index)
-	}
-	if config.NodeID == "" {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeId is required", index)
-	}
-	if config.NodeLabel == "" {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeLabel is required", index)
-	}
-	return nil
-}
-
-func validateWorkflowNodeDetailsConfigProjectionFields(config *WorkflowNodeDetailsPaneConfig, index int, path string) error {
-	if config.ProjectionIncomingEdges == nil {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.projectionIncomingEdges must not be null", index)
-	}
-	if config.ProjectionOutgoingEdges == nil {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.projectionOutgoingEdges must not be null", index)
-	}
-	return nil
-}
-
-func validateWorkflowNodeDetailsConfigValues(config *WorkflowNodeDetailsPaneConfig, index int, path string) error {
-	if !validWorkflowNodeKind(config.NodeKind) {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeKind is unsupported: %s", index, config.NodeKind)
-	}
-	if !validWorkflowGraphNodeStatus(config.NodeStatus) {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeStatus is unsupported: %s", index, config.NodeStatus)
-	}
-	if !validWorkflowGraphViewMode(config.ViewMode) {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.viewMode is unsupported: %s", index, config.ViewMode)
-	}
-	if err := validateWorkflowNodeDetailsConfigRunFields(config, index, path); err != nil {
-		return err
-	}
-	if config.ViewMode != orchestrator.GraphViewModeDraft && config.DefinitionVersionID == "" {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.definitionVersionId is required outside draft view", index)
-	}
-	if config.DefinitionVersionNumber < 0 {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.definitionVersionNumber must be non-negative", index)
-	}
-	return nil
-}
-
-func validateWorkflowNodeDetailsConfigRunFields(config *WorkflowNodeDetailsPaneConfig, index int, path string) error {
-	if config.ViewMode == orchestrator.GraphViewModeRun {
-		if config.ExecutionID == "" {
-			return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.executionId is required for run view", index)
-		}
-		if config.NodeExecutionID == "" {
-			return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeExecutionId is required for run view", index)
-		}
-		return nil
-	}
-	if config.ExecutionID != "" {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.executionId is only valid for run view", index)
-	}
-	if config.NodeExecutionID != "" {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeExecutionId is only valid for run view", index)
 	}
 	return nil
 }
@@ -523,47 +419,6 @@ func validSurfaceKind(kind SurfaceKind) bool {
 func validPaneTone(tone PaneTone) bool {
 	switch tone {
 	case PaneToneCyan, PaneToneGreen, PaneToneOrange, PaneTonePink, PaneToneSlate:
-		return true
-	default:
-		return false
-	}
-}
-
-func validWorkflowNodeKind(kind orchestrator.WorkflowNodeKind) bool {
-	switch kind {
-	case orchestrator.NodeKindStart,
-		orchestrator.NodeKindEnd,
-		orchestrator.NodeKindAction,
-		orchestrator.NodeKindGatewayAND,
-		orchestrator.NodeKindGatewayOR,
-		orchestrator.NodeKindGatewayXOR,
-		orchestrator.NodeKindLoopGuard:
-		return true
-	default:
-		return false
-	}
-}
-
-func validWorkflowGraphNodeStatus(status orchestrator.WorkflowGraphNodeStatus) bool {
-	switch status {
-	case orchestrator.GraphNodeStatusNotStarted,
-		orchestrator.GraphNodeStatusPending,
-		orchestrator.GraphNodeStatusReady,
-		orchestrator.GraphNodeStatusRunning,
-		orchestrator.GraphNodeStatusSucceeded,
-		orchestrator.GraphNodeStatusFailed,
-		orchestrator.GraphNodeStatusCancelled,
-		orchestrator.GraphNodeStatusWaitingApproval,
-		orchestrator.GraphNodeStatusRecoveryRequired:
-		return true
-	default:
-		return false
-	}
-}
-
-func validWorkflowGraphViewMode(mode orchestrator.WorkflowGraphViewMode) bool {
-	switch mode {
-	case orchestrator.GraphViewModeDraft, orchestrator.GraphViewModeVersion, orchestrator.GraphViewModeRun:
 		return true
 	default:
 		return false

@@ -1,9 +1,5 @@
 import type { SettaAPI } from "@shared/types";
 import type {
-  ChatTranscriptScrollDebugSnapshot,
-  ScrollToIndexLocation,
-} from "./components/chat-transcript-scroll-follow";
-import type {
   WorkspaceActivityDebugApi,
   WorkspaceActivityDebugSnapshot,
 } from "./features/workspace-graph/workspace-activity-debug-registry";
@@ -235,17 +231,9 @@ interface WorkflowGraphDebugApi {
   getSnapshot: (surfaceId?: string) => WorkflowGraphDebugSnapshot;
   getSnapshots: () => Record<string, WorkflowGraphDebugSnapshot>;
   getSurfaceIds: () => string[];
-  tryGetSnapshot: (surfaceId?: string) => WorkflowGraphDebugSnapshot | null;
-}
-
-interface WorkflowNodeDetailsDebugApi {
-  __surfaces: Map<string, (nodeId: string, nodeExecutionId: string) => boolean>;
-  getSurfaceIds: () => string[];
-  openNodeDetails: (surfaceId: string, nodeId: string, nodeExecutionId?: string) => boolean;
 }
 
 interface WorkflowGraphRuntimeHandle {
-  setFocused(focused: boolean): void;
   setFrozen(frozen: boolean): void;
 }
 
@@ -254,21 +242,12 @@ interface WorkflowGraphRuntimeApi {
   getHandle: (surfaceId: string) => WorkflowGraphRuntimeHandle | null;
 }
 
-interface ChatTranscriptScrollDebugApi {
-  detach: () => void;
-  getSnapshot: () => ChatTranscriptScrollDebugSnapshot;
-  jumpToLatest: () => void;
-  scrollToIndexAsProgrammaticAnchor: (location: ScrollToIndexLocation) => void;
-}
-
 declare global {
   interface Window {
-    __settaChatTranscriptScrollDebug?: ChatTranscriptScrollDebugApi;
     __settaWorkspaceReadFrameMetrics?: () => WorkspaceFrameMetrics;
     __settaWorkspaceResetFrameMetrics?: () => void;
     __settaWorkspaceActivityDebug?: WorkspaceActivityDebugApi;
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
-    __settaWorkflowNodeDetailsDebug?: WorkflowNodeDetailsDebugApi;
     __settaWorkflowGraphRuntime?: WorkflowGraphRuntimeApi;
     setta: SettaAPI;
   }

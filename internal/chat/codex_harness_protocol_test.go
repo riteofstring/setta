@@ -48,42 +48,6 @@ func TestCodexHarnessRebindsFirstSameThreadTurnScopedNotification(t *testing.T) 
 	}
 }
 
-func TestCodexHarnessStoresStructuredPlanUpdatedNotification(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("plan-updated"))
-	sink := newRecordingSink()
-
-	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	if err != nil {
-		t.Fatalf("start turn: %v", err)
-	}
-	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-
-	item := requireRunItemType(t, sink.items, RunItemTypePlan)
-	if item.ProviderItemID != "plan_turn_fake" || item.Summary != "" {
-		t.Fatalf("plan item = %+v, want typed plan item without summary fallback", item)
-	}
-	details, ok := item.PlanDetails()
-	if !ok {
-		t.Fatalf("plan item details = %+v, want typed plan details", item.Details)
-	}
-	if details.Explanation != "Updating the turn plan." {
-		t.Fatalf("plan explanation = %q, want provider explanation", details.Explanation)
-	}
-	wantSteps := []RunItemPlanStep{
-		{Status: RunItemPlanStepStatusCompleted, Step: "Read the plan"},
-		{Status: RunItemPlanStepStatusInProgress, Step: "Implement the typed contract"},
-		{Status: RunItemPlanStepStatusPending, Step: "Render the active surface"},
-	}
-	if len(details.Steps) != len(wantSteps) {
-		t.Fatalf("plan steps = %+v, want %+v", details.Steps, wantSteps)
-	}
-	for index, want := range wantSteps {
-		if details.Steps[index] != want {
-			t.Fatalf("plan step %d = %+v, want %+v", index, details.Steps[index], want)
-		}
-	}
-}
-
 func TestCodexRunItemStatusMappingCoversCurrentProtocolValues(t *testing.T) {
 	tests := map[string]RunItemStatus{
 		"completed":   RunItemStatusCompleted,
@@ -114,16 +78,6 @@ func TestCodexRunItemStatusMappingRejectsUnknownValues(t *testing.T) {
 	}
 }
 
-func TestCodexPlanStepStatusMappingRejectsUnknownValues(t *testing.T) {
-	_, err := runItemPlanStepStatusFromCodex("blocked")
-	if err == nil {
-		t.Fatal("map plan step status succeeded, want unsupported status error")
-	}
-	if !strings.Contains(err.Error(), "unsupported codex plan step status: blocked") {
-		t.Fatalf("error = %q, want unsupported status", err)
-	}
-}
-
 func writeFakeProviderTurnID() {
 	writeFakeTurnStartedID("turn_provider")
 	writeFakeNotification("item/agentMessage/delta", map[string]any{
@@ -140,31 +94,6 @@ func writeFakeProviderTurnID() {
 			"status": "completed",
 		},
 	})
-}
-
-func writeFakePlanUpdatedTurn() {
-	writeFakeTurnStartedID("turn_fake")
-	writeFakeNotification("turn/plan/updated", map[string]any{
-		"explanation": "Updating the turn plan.",
-		"plan": []map[string]any{
-			{
-				"status": "completed",
-				"step":   "Read the plan",
-			},
-			{
-				"status": "inProgress",
-				"step":   "Implement the typed contract",
-			},
-			{
-				"status": "pending",
-				"step":   "Render the active surface",
-			},
-		},
-		"summary":  "legacy summary that must not be used",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeCompletedTurn("completed")
 }
 
 func writeFakeProviderItemTurnID() {

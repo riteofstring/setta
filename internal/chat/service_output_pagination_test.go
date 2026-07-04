@@ -11,7 +11,7 @@ func TestServiceLoadRunItemOutputPageDoesNotReadBeyondLimit(t *testing.T) {
 			ProviderItemID: "command_fake",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "printf output"}),
+			Command:        "printf output",
 		}},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_fake", Stream: "stdout", Text: "one\n"},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_fake", Stream: "stdout", Text: "two\n"},
@@ -22,7 +22,7 @@ func TestServiceLoadRunItemOutputPageDoesNotReadBeyondLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("activity"))
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "activity")
 	if err != nil {
 		t.Fatalf("send: %v", err)
 	}

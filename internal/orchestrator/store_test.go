@@ -120,61 +120,6 @@ func TestStoreRollsBackMaterializedStateWhenEventInsertFails(t *testing.T) {
 	}
 }
 
-func TestStorePersistExecutionStartRollsBackVersionWhenEventInsertFails(t *testing.T) {
-	store := newSQLiteWorkflowStoreForTest(t, t.TempDir())
-	definition, firstVersion := storeTestDefinition(startEndGraph())
-	if err := store.SaveDefinitionVersion(firstVersion); err != nil {
-		t.Fatalf("save first definition version: %v", err)
-	}
-	firstTransition, err := StartExecution(firstVersion, testTransitionContext())
-	if err != nil {
-		t.Fatalf("start first execution: %v", err)
-	}
-	if _, err := store.PersistTransition(firstTransition); err != nil {
-		t.Fatalf("persist first execution: %v", err)
-	}
-	page, err := store.LoadExecutionEventPage(definition.WorkspaceID, firstTransition.Execution.ID, 0, 10)
-	if err != nil {
-		t.Fatalf("load first execution event page: %v", err)
-	}
-	if len(page.Events) == 0 {
-		t.Fatal("first execution event page is empty")
-	}
-
-	secondVersion := storeTestVersion(definition.WorkspaceID, definition.ID, "workflow_version_start_rollback", 2, startEndGraph(), "2026-06-05T12:01:00Z")
-	secondTransition, err := StartExecution(secondVersion, TransitionContext{
-		Now:   "2026-06-05T12:01:00Z",
-		NewID: deterministicIDGenerator(),
-	})
-	if err != nil {
-		t.Fatalf("start second execution transition: %v", err)
-	}
-	secondTransition.Events[0].ID = page.Events[0].ID
-
-	if _, err := store.PersistExecutionStart(secondVersion, secondTransition); err == nil {
-		t.Fatal("persist execution start with duplicate event succeeded, want error")
-	}
-	latest, err := store.LatestDefinitionVersionNumber(definition.WorkspaceID, definition.ID)
-	if err != nil {
-		t.Fatalf("read latest version after rollback: %v", err)
-	}
-	if latest != 1 {
-		t.Fatalf("latest version after failed start = %d, want 1", latest)
-	}
-	if _, err := store.LoadDefinitionVersion(definition.WorkspaceID, definition.ID, secondVersion.ID); err == nil {
-		t.Fatal("load rolled-back version succeeded, want missing version")
-	}
-	executions, err := store.ListExecutions(definition.WorkspaceID)
-	if err != nil {
-		t.Fatalf("list executions after failed start: %v", err)
-	}
-	for _, execution := range executions {
-		if execution.ID == secondTransition.Execution.ID {
-			t.Fatalf("failed start left execution behind: %+v", execution)
-		}
-	}
-}
-
 func TestStoreListExecutionSummariesForDefinitionScopesByWorkspaceAndDefinition(t *testing.T) {
 	store := newSQLiteWorkflowStoreForTest(t, t.TempDir())
 	targetV1 := storeTestVersion("workspace_a", "workflow_definition_shared", "workflow_version_target_1", 1, actionGraph("target_work"), "2026-06-05T12:00:00Z")

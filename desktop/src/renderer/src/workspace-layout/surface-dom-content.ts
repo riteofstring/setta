@@ -265,12 +265,6 @@ function renderStaticTerminalSnapshot(host: HTMLElement): HTMLElement {
   const document = host.ownerDocument;
   const content = document.createElement("div");
   content.className = "workspace-pane-content workspace-terminal-surface";
-  const status = document.createElement("span");
-  status.className = "workspace-terminal-status";
-  status.setAttribute("aria-live", "polite");
-  status.setAttribute("data-terminal-status", "true");
-  status.textContent = "snapshot";
-  content.append(status);
   return content;
 }
 

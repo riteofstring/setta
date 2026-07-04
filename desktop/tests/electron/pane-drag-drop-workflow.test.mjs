@@ -105,17 +105,11 @@ async function performNormalRowDrop(client) {
   const afterSplit = await waitForState(
     client,
     paneSnapshotExpression(),
-    (snapshot) => {
-      const focusedHost = snapshot.visibleHosts.find(
-        (host) => host.paneId === snapshot.focusedPaneId,
-      );
-      return (
-        snapshot.mode === "normal" &&
-        snapshot.focusedPaneId !== "" &&
-        snapshot.focusedPaneId !== originalFocusedPaneId &&
-        focusedHost !== undefined
-      );
-    },
+    (snapshot) =>
+      snapshot.mode === "normal" &&
+      snapshot.focusedPaneId !== "" &&
+      snapshot.focusedPaneId !== originalFocusedPaneId &&
+      snapshot.visibleHosts.length >= beforeSplit.visibleHosts.length + 1,
     workflowTimeoutMs,
   );
   const sourcePaneId = afterSplit.focusedPaneId;
@@ -224,7 +218,7 @@ async function performOverviewColumnDrop(client) {
   if (!sourceHost || !targetHost || sourceHost.paneId === targetHost.paneId) {
     throw new Error(`no overview drag target found: ${JSON.stringify(overview)}`);
   }
-  const sourcePoint = await overviewPaneBodyPoint(client, sourceHost.paneId);
+  const sourceHandle = await dragHandleCenter(client, sourceHost.paneId);
   const stageRight = overview.stageRect.left + overview.stageRect.width;
   const to = {
     x: Math.min(targetHost.rect.left + targetHost.rect.width + 2, stageRight - 1),
@@ -232,7 +226,7 @@ async function performOverviewColumnDrop(client) {
   };
   await resetFrameMetrics(client);
 
-  await dispatchMousePress(client, sourcePoint);
+  await dispatchMousePress(client, sourceHandle);
   await dispatchMouseMove(client, to, { buttons: 1 });
   // Overview now uses the shared drop model: dropping past the rightmost card
   // shows the preview-only landing box, not an edge highlight on that card.
@@ -242,11 +236,11 @@ async function performOverviewColumnDrop(client) {
     (snapshot) => {
       const source = snapshot.visibleHosts.find((host) => host.paneId === sourceHost.paneId);
       const target = snapshot.visibleHosts.find((host) => host.paneId === targetHost.paneId);
-      const hostPreview =
+      return (
         snapshot.overviewDragging === "true" &&
-        source?.dragSource === true &&
-        target?.dropPreview === true;
-      return snapshot.mode === "overview" && hostPreview;
+        target?.dropPreview === true &&
+        source?.dragSource === true
+      );
     },
     workflowTimeoutMs,
   );
@@ -405,26 +399,6 @@ async function dragHandleCenter(client, paneId) {
     throw new Error(`drag handle was not found for ${paneId}: ${JSON.stringify(center)}`);
   }
   return { x: center.x, y: center.y };
-}
-
-async function overviewPaneBodyPoint(client, paneId) {
-  const point = await client.evaluate(`(() => {
-    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"][data-visible="true"]'))
-      .find((candidate) => candidate instanceof HTMLElement && candidate.dataset.paneId === ${JSON.stringify(paneId)});
-    if (!(host instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-host" };
-    }
-    const rect = host.getBoundingClientRect();
-    return {
-      ok: true,
-      x: rect.left + rect.width / 2,
-      y: rect.top + Math.min(rect.height - 24, Math.max(40, rect.height * 0.45)),
-    };
-  })()`);
-  if (!point.ok) {
-    throw new Error(`overview pane body was not found for ${paneId}: ${JSON.stringify(point)}`);
-  }
-  return { x: point.x, y: point.y };
 }
 
 async function dispatchMousePress(client, point) {
