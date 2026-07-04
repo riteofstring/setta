@@ -1,3 +1,5 @@
+import type { WorkflowNodeDetailsPaneConfig } from "@generated/backend";
+
 export type PaneId = string;
 export type ColumnId = string;
 export type SurfaceId = string;
@@ -66,6 +68,7 @@ export interface WorkspacePane {
   title: string;
   tone: "cyan" | "green" | "orange" | "pink" | "slate";
   weight: number;
+  workflowNodeDetailsConfig?: WorkflowNodeDetailsPaneConfig;
 }
 
 export interface TerminalPaneConfig {
@@ -110,6 +113,7 @@ export interface OpenPaneRequest {
   title?: string;
   tone?: WorkspacePane["tone"];
   weight?: number;
+  workflowNodeDetailsConfig?: WorkflowNodeDetailsPaneConfig;
   widthSpec?: ColumnWidthSpec;
 }
 

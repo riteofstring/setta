@@ -1,4 +1,4 @@
-import type { WorkspaceUILayout } from "@generated/backend";
+import type { WorkflowNodeDetailsPaneConfig, WorkspaceUILayout } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
@@ -154,6 +154,39 @@ describe("real workspace layout scene", () => {
     });
   });
 
+  test("serializes and restores workflow node details pane targets", () => {
+    const workspaceId = "workspace_api";
+    const initial = createRealWorkspaceScene({
+      storedLayout: null,
+      workspaceId,
+      workspaceName: "Repo",
+    });
+    const engine = new WorkspaceLikeLayoutEngine(initial.scene);
+    const store = new WorkspaceLayoutStore(engine, initial.scene, initial.focusedPaneId);
+    const config = workflowNodeDetailsConfig(workspaceId);
+    const paneId = store.openPane({
+      surfaceKind: "workflow-node-details",
+      title: "Workflow Node",
+      workflowNodeDetailsConfig: config,
+    });
+
+    const persisted = workspaceUILayoutFromScene(
+      workspaceId,
+      store.toScene(),
+      store.focusedPaneId(),
+    );
+    const restored = createRealWorkspaceScene({
+      storedLayout: persisted,
+      workspaceId,
+      workspaceName: "Ignored after restore",
+    });
+
+    expect(
+      persisted.panes.find((pane) => pane.paneId === paneId)?.workflowNodeDetailsConfig,
+    ).toEqual(config);
+    expect(restored.scene.paneById.get(paneId)?.workflowNodeDetailsConfig).toEqual(config);
+  });
+
   test("drops persisted columns that reference missing pane metadata", () => {
     const restored = createRealWorkspaceScene({
       storedLayout: {
@@ -211,5 +244,25 @@ function storedPane(paneId: string, columnId: string, surfaceId: string, title: 
     title,
     tone: "cyan" as const,
     weight: 1,
+    workflowNodeDetailsConfig: null,
+  };
+}
+
+function workflowNodeDetailsConfig(workspaceId: string): WorkflowNodeDetailsPaneConfig {
+  return {
+    definitionId: "workflow_definition_test",
+    definitionName: "Review Workflow",
+    definitionVersionId: "workflow_version_test",
+    definitionVersionNumber: 1,
+    executionId: "workflow_execution_test",
+    nodeId: "activity",
+    nodeKind: "action",
+    nodeLabel: "Activity",
+    nodeStatus: "succeeded",
+    projectionIncomingEdges: [],
+    projectionOutgoingEdges: [],
+    versionMismatch: false,
+    viewMode: "run",
+    workspaceId,
   };
 }

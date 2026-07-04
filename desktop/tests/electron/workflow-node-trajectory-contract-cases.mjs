@@ -102,8 +102,10 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
     });
     await assertWorkflowNodeDetailsOutputPagination(
       context.client,
+      workspaceId,
       startedRun.graphSurfaceId,
       completedGraph,
+      completed.id,
       activityNode.id,
     );
     await appendWorkflowState(recordingDir, {
@@ -211,6 +213,8 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
   await assertRecordingEvidence(recordingDir, {
     backendPaths: [
       "/workspaces/open",
+      "/workspaces/ui/layout/read",
+      "/workspaces/ui/layout/save",
       "/chat/conversations/create",
       "/chat/conversations/list",
       "/workflows/definitions/validate",
@@ -227,6 +231,8 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
     ],
     ipcChannels: [
       "workspace:open-local-folder",
+      "workspace:read-ui-layout",
+      "workspace:save-ui-layout",
       "chat:create-conversation",
       "workflow:validate-definition",
       "workflow:create-definition",
@@ -303,6 +309,16 @@ async function assertApproveWorkflowNodeTrajectoryDetails(client, workspaceId, r
       state.approvalText.includes("Command approval") &&
       state.approvalText.includes("Approve the scripted command."),
   );
+  await reloadWorkflowNodeDetailsWithPersistedTarget(client, {
+    executionId: startedRun.executionId,
+    isReady: (state) =>
+      state.trajectory.approvalCardCount === 1 &&
+      state.trajectory.approvalApproveButtonReady &&
+      state.trajectory.approvalText.includes("Command approval") &&
+      state.trajectory.approvalText.includes("Approve the scripted command."),
+    nodeId: "activity",
+    workspaceId,
+  });
   const submitted = await client.driver("clickWorkflowNodeTrajectoryDecisionApproval", {
     approved: true,
   });
@@ -570,8 +586,10 @@ async function waitForWorkflowRunNavigationState(
 
 async function assertWorkflowNodeDetailsOutputPagination(
   client,
+  workspaceId,
   surfaceId,
   snapshot,
+  executionId,
   nodeExecutionId,
 ) {
   await openWorkflowNodeRunDetails(client, surfaceId, snapshot, "activity");
@@ -609,6 +627,37 @@ async function assertWorkflowNodeDetailsOutputPagination(
   assertWorkflowNodeDetailsEvidence(
     await client.driver("workflowRunDetailsState"),
     nodeExecutionId,
+  );
+  await reloadWorkflowNodeDetailsWithPersistedTarget(client, {
+    executionId,
+    isReady: (state) =>
+      state.trajectory.loadMoreButtonCount === 1 &&
+      state.trajectory.outputText.includes("projection output chunk 001") &&
+      state.trajectory.outputText.includes("projection output chunk 040") &&
+      !state.trajectory.outputText.includes("projection output chunk 041"),
+    nodeId: "activity",
+    prepare: async () => {
+      await client.driver("expandWorkflowNodeTrajectoryActivityGroup");
+      await waitForState(
+        client,
+        driverCallExpression("workflowRunDetailsState"),
+        (state) => state.runActivityRowCount > 0,
+      );
+      await client.driver("expandWorkflowNodeTrajectoryCommandOutput");
+    },
+    workspaceId,
+  });
+  const reloaded = await client.driver("clickWorkflowNodeTrajectoryLoadMoreOutput");
+  if (!reloaded.clicked) {
+    throw new Error("workflow node trajectory load-more was unavailable after renderer reload");
+  }
+  await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryState"),
+    (state) =>
+      state.trajectoryPresent &&
+      state.loadMoreButtonCount === 0 &&
+      state.outputText.includes("projection output chunk 041"),
   );
 }
 
@@ -711,6 +760,16 @@ async function assertSteerWorkflowNodeTrajectoryContract(client, workspaceId, re
     steerNode.id,
     (page) => page.capabilities.canSteer,
   );
+  await reloadWorkflowNodeDetailsWithPersistedTarget(client, {
+    executionId: steerStartedRun.executionId,
+    isReady: (state) =>
+      state.trajectory.trajectorySteeringComposer.composerPresent &&
+      state.trajectory.trajectorySteeringComposer.textareaExists &&
+      state.trajectory.trajectorySteeringComposer.textareaDisabled === false &&
+      !state.trajectory.trajectorySteeringComposer.sendButtonReady,
+    nodeId: "activity",
+    workspaceId,
+  });
   await waitForState(
     client,
     driverCallExpression("workflowNodeTrajectoryComposerState"),
@@ -895,6 +954,50 @@ async function waitForWorkflowNodeTrajectory(
         },
       ]),
     isReady,
+  );
+}
+
+async function reloadWorkflowNodeDetailsWithPersistedTarget(
+  client,
+  { executionId, isReady, nodeId, prepare = async () => {}, workspaceId },
+) {
+  await waitForWorkflowNodeDetailsUILayout(client, workspaceId, executionId, nodeId);
+  await reloadRendererWithSelectedWorkspace(client, workspaceId);
+  await waitForState(
+    client,
+    driverCallExpression("workflowRunDetailsState"),
+    (state) =>
+      state.present &&
+      state.nodeId === nodeId &&
+      state.workflowTrajectorySurfaceCount === 1 &&
+      state.chatConversationTrajectoryCount === 0 &&
+      state.trajectory?.trajectoryPresent,
+  );
+  await prepare();
+  return waitForState(
+    client,
+    driverCallExpression("workflowRunDetailsState"),
+    (state) =>
+      state.present &&
+      state.nodeId === nodeId &&
+      state.workflowTrajectorySurfaceCount === 1 &&
+      state.chatConversationTrajectoryCount === 0 &&
+      state.trajectory?.trajectoryPresent &&
+      isReady(state),
+  );
+}
+
+async function waitForWorkflowNodeDetailsUILayout(client, workspaceId, executionId, nodeId) {
+  return waitForBackendState(
+    async () => rendererWorkspace(client, "readUILayout", [workspaceId]),
+    (result) =>
+      result.layout?.panes.some(
+        (pane) =>
+          pane.surfaceKind === "workflow-node-details" &&
+          pane.workflowNodeDetailsConfig?.workspaceId === workspaceId &&
+          pane.workflowNodeDetailsConfig.executionId === executionId &&
+          pane.workflowNodeDetailsConfig.nodeId === nodeId,
+      ) === true,
   );
 }
 
@@ -1250,5 +1353,11 @@ async function rendererWorkflow(client, method, args) {
 async function rendererChat(client, method, args) {
   return client.evaluate(
     `window.setta.chat[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
+  );
+}
+
+async function rendererWorkspace(client, method, args) {
+  return client.evaluate(
+    `window.setta.workspace[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
   );
 }

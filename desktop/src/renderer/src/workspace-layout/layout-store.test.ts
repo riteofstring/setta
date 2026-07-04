@@ -300,6 +300,27 @@ describe("workspace layout store", () => {
     expect(store.toScene().paneById.get(emptyPaneId)?.surfaceKind).toBe("empty-frame");
   });
 
+  test("allows reconfiguring a pane that already owns a limited surface kind", () => {
+    const store = createStore({ "settings-dom": 1 });
+    const paneId = "workspace_pane_3";
+    const before = store.toScene().paneById.get(paneId);
+
+    expect(() =>
+      store.configurePane(paneId, {
+        surfaceKind: "settings-dom",
+        title: "Settings Reloaded",
+      }),
+    ).not.toThrow();
+
+    const configured = store.toScene().paneById.get(paneId);
+    expect(configured).toMatchObject({
+      paneId,
+      surfaceKind: "settings-dom",
+      title: "Settings Reloaded",
+    });
+    expect(configured?.surfaceId).not.toBe(before?.surfaceId);
+  });
+
   test("uses the current row count inside a stacked column", () => {
     const store = createStore();
     const paneId = store.splitFocusedPane("down");

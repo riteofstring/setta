@@ -623,8 +623,31 @@ Electron workflow keeps its deterministic opener only in debug-mode launches.
 Focused reruns passed projection-state Vitest, desktop typecheck/build, touched
 Electron syntax checks, the Electron template-literal guard, and
 `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
-Remaining deterministic coverage gaps are unchanged: reload/restart while
-already viewing node details and historical-attempt paging.
+
+Progress 2026-07-04: deterministic Electron coverage now exercises renderer
+reload while workflow-node details are already open. Workflow node details
+targets are persisted on the Go-owned `WorkspaceUIPane` contract as
+`WorkflowNodeDetailsPaneConfig`, regenerated into TypeScript, passed through
+workspace layout open/reconfigure requests, and used by the details surface when
+the selected-node store is empty after reload. Reconfiguring an existing limited
+pane now excludes the pane being reconfigured, so the one workflow-node-details
+pane can be reused for a different node while updating its persisted target.
+The focused Electron workflow waits for the details pane target to be durably
+saved, reloads the renderer while viewing details, and verifies recovery for
+output pagination, pending approval state, and steerable/liveness composer
+state before continuing through the node-scoped load-more, approval, and
+steering actions. Verification passed
+`./scripts/go.sh test ./internal/workspaceui -count=1`,
+`./scripts/go.sh test ./cmd/generate-contracts -count=1`,
+`./scripts/go.sh test ./internal/httpapi -run 'TestWorkspaceUILayout' -count=1`,
+focused renderer/layout/preload Vitest coverage, touched Electron syntax
+checks, the Electron template-literal guard, `pnpm -C desktop build`, and
+`node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
+Live Codex auth was available, but live E2E remains blocked by local Codex
+`config/read` returning unsupported `approval_policy = "on-failure"`. Remaining
+deterministic coverage gap: historical-attempt paging. A full Electron app
+relaunch while details are open is not separately exercised by this
+renderer-reload slice.
 
 ## Verification Plan
 
@@ -715,5 +738,8 @@ Progress 2026-07-04: deterministic Electron coverage now explicitly covers
 rendered workflow-node trajectory pagination through node details and the real
 run-item output endpoint, plus workflow-node approval submission from the shared
 node-scoped trajectory card, plus rendered workflow-node composer steering from
-the same node-scoped trajectory. Restart/reload-while-viewing and
-historical-attempt paging remain to be added.
+the same node-scoped trajectory. It now also covers renderer reload while node
+details are already open for output pagination, pending approval state, and
+steerable/liveness composer state, backed by a persisted Go-owned
+workflow-node-details pane target. Historical-attempt paging remains to be
+added; full app relaunch while details are open is not separately exercised.

@@ -614,13 +614,15 @@ export function WorkflowGraphSurface({
       if (workflowProjection === null || nodeId === null) {
         return;
       }
-      setSelectedNodeTarget(workflowNodeDetailsTarget(workflowProjection, nodeId), activityFocus);
+      const target = workflowNodeDetailsTarget(workflowProjection, nodeId);
+      setSelectedNodeTarget(target, activityFocus);
       requestWorkspacePaneOpen({
         surfaceKind: "workflow-node-details",
         subtitle: "workflow node details",
         title: "Workflow Node",
         tone: "cyan",
         widthSpec: { unit: "px", value: 380 },
+        workflowNodeDetailsConfig: target,
       });
     },
     [setSelectedNodeTarget, workflowProjection],

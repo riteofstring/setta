@@ -183,6 +183,168 @@ export function decodePaneTone(value: unknown, label = "PaneTone"): PaneTone {
   }
 }
 
+export type WorkflowNodeKind = "start" | "end" | "action" | "gateway.and" | "gateway.or" | "gateway.xor" | "loop.guard";
+
+export const workflowNodeKindValues = ["start", "end", "action", "gateway.and", "gateway.or", "gateway.xor", "loop.guard"] as const satisfies readonly WorkflowNodeKind[];
+
+export function decodeWorkflowNodeKind(value: unknown, label = "WorkflowNodeKind"): WorkflowNodeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "start":
+      return decoded;
+    case "end":
+      return decoded;
+    case "action":
+      return decoded;
+    case "gateway.and":
+      return decoded;
+    case "gateway.or":
+      return decoded;
+    case "gateway.xor":
+      return decoded;
+    case "loop.guard":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphNodeStatus = "not_started" | "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
+
+export const workflowGraphNodeStatusValues = ["not_started", "pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowGraphNodeStatus[];
+
+export function decodeWorkflowGraphNodeStatus(value: unknown, label = "WorkflowGraphNodeStatus"): WorkflowGraphNodeStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "not_started":
+      return decoded;
+    case "pending":
+      return decoded;
+    case "ready":
+      return decoded;
+    case "running":
+      return decoded;
+    case "succeeded":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "waiting_approval":
+      return decoded;
+    case "recovery_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowEdgeKind = "normal" | "loop_continue" | "loop_exit";
+
+export const workflowEdgeKindValues = ["normal", "loop_continue", "loop_exit"] as const satisfies readonly WorkflowEdgeKind[];
+
+export function decodeWorkflowEdgeKind(value: unknown, label = "WorkflowEdgeKind"): WorkflowEdgeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "normal":
+      return decoded;
+    case "loop_continue":
+      return decoded;
+    case "loop_exit":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowConditionKind = "always" | "action_status" | "default" | "action_signal" | "script_exit_code";
+
+export const workflowConditionKindValues = ["always", "action_status", "default", "action_signal", "script_exit_code"] as const satisfies readonly WorkflowConditionKind[];
+
+export function decodeWorkflowConditionKind(value: unknown, label = "WorkflowConditionKind"): WorkflowConditionKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "always":
+      return decoded;
+    case "action_status":
+      return decoded;
+    case "default":
+      return decoded;
+    case "action_signal":
+      return decoded;
+    case "script_exit_code":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowNodeExecutionStatus = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
+
+export const workflowNodeExecutionStatusValues = ["pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowNodeExecutionStatus[];
+
+export function decodeWorkflowNodeExecutionStatus(value: unknown, label = "WorkflowNodeExecutionStatus"): WorkflowNodeExecutionStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "ready":
+      return decoded;
+    case "running":
+      return decoded;
+    case "succeeded":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "waiting_approval":
+      return decoded;
+    case "recovery_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphEdgeStatus = "inactive" | "active" | "completed" | "cancelled";
+
+export const workflowGraphEdgeStatusValues = ["inactive", "active", "completed", "cancelled"] as const satisfies readonly WorkflowGraphEdgeStatus[];
+
+export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowGraphEdgeStatus"): WorkflowGraphEdgeStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "inactive":
+      return decoded;
+    case "active":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphViewMode = "draft" | "version" | "run";
+
+export const workflowGraphViewModeValues = ["draft", "version", "run"] as const satisfies readonly WorkflowGraphViewMode[];
+
+export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGraphViewMode"): WorkflowGraphViewMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "draft":
+      return decoded;
+    case "version":
+      return decoded;
+    case "run":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type WorkspaceActivityKind = "workflow_status" | "command" | "file_change" | "approval";
 
 export const workspaceActivityKindValues = ["workflow_status", "command", "file_change", "approval"] as const satisfies readonly WorkspaceActivityKind[];
@@ -1171,32 +1333,6 @@ export function decodeBackgroundTerminalStatus(value: unknown, label = "Backgrou
   }
 }
 
-export type WorkflowNodeKind = "start" | "end" | "action" | "gateway.and" | "gateway.or" | "gateway.xor" | "loop.guard";
-
-export const workflowNodeKindValues = ["start", "end", "action", "gateway.and", "gateway.or", "gateway.xor", "loop.guard"] as const satisfies readonly WorkflowNodeKind[];
-
-export function decodeWorkflowNodeKind(value: unknown, label = "WorkflowNodeKind"): WorkflowNodeKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "start":
-      return decoded;
-    case "end":
-      return decoded;
-    case "action":
-      return decoded;
-    case "gateway.and":
-      return decoded;
-    case "gateway.or":
-      return decoded;
-    case "gateway.xor":
-      return decoded;
-    case "loop.guard":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type WorkflowLoopLimitPolicy = "completed" | "failed" | "stopped";
 
 export const workflowLoopLimitPolicyValues = ["completed", "failed", "stopped"] as const satisfies readonly WorkflowLoopLimitPolicy[];
@@ -1209,74 +1345,6 @@ export function decodeWorkflowLoopLimitPolicy(value: unknown, label = "WorkflowL
     case "failed":
       return decoded;
     case "stopped":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowConditionKind = "always" | "action_status" | "default" | "action_signal" | "script_exit_code";
-
-export const workflowConditionKindValues = ["always", "action_status", "default", "action_signal", "script_exit_code"] as const satisfies readonly WorkflowConditionKind[];
-
-export function decodeWorkflowConditionKind(value: unknown, label = "WorkflowConditionKind"): WorkflowConditionKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "always":
-      return decoded;
-    case "action_status":
-      return decoded;
-    case "default":
-      return decoded;
-    case "action_signal":
-      return decoded;
-    case "script_exit_code":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowNodeExecutionStatus = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
-
-export const workflowNodeExecutionStatusValues = ["pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowNodeExecutionStatus[];
-
-export function decodeWorkflowNodeExecutionStatus(value: unknown, label = "WorkflowNodeExecutionStatus"): WorkflowNodeExecutionStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "pending":
-      return decoded;
-    case "ready":
-      return decoded;
-    case "running":
-      return decoded;
-    case "succeeded":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    case "waiting_approval":
-      return decoded;
-    case "recovery_required":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowEdgeKind = "normal" | "loop_continue" | "loop_exit";
-
-export const workflowEdgeKindValues = ["normal", "loop_continue", "loop_exit"] as const satisfies readonly WorkflowEdgeKind[];
-
-export function decodeWorkflowEdgeKind(value: unknown, label = "WorkflowEdgeKind"): WorkflowEdgeKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "normal":
-      return decoded;
-    case "loop_continue":
-      return decoded;
-    case "loop_exit":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1642,74 +1710,6 @@ export const workflowTokenStatusValues = ["active", "completed", "cancelled"] as
 export function decodeWorkflowTokenStatus(value: unknown, label = "WorkflowTokenStatus"): WorkflowTokenStatus {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "active":
-      return decoded;
-    case "completed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowGraphViewMode = "draft" | "version" | "run";
-
-export const workflowGraphViewModeValues = ["draft", "version", "run"] as const satisfies readonly WorkflowGraphViewMode[];
-
-export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGraphViewMode"): WorkflowGraphViewMode {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "draft":
-      return decoded;
-    case "version":
-      return decoded;
-    case "run":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowGraphNodeStatus = "not_started" | "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
-
-export const workflowGraphNodeStatusValues = ["not_started", "pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowGraphNodeStatus[];
-
-export function decodeWorkflowGraphNodeStatus(value: unknown, label = "WorkflowGraphNodeStatus"): WorkflowGraphNodeStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "not_started":
-      return decoded;
-    case "pending":
-      return decoded;
-    case "ready":
-      return decoded;
-    case "running":
-      return decoded;
-    case "succeeded":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    case "waiting_approval":
-      return decoded;
-    case "recovery_required":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowGraphEdgeStatus = "inactive" | "active" | "completed" | "cancelled";
-
-export const workflowGraphEdgeStatusValues = ["inactive", "active", "completed", "cancelled"] as const satisfies readonly WorkflowGraphEdgeStatus[];
-
-export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowGraphEdgeStatus"): WorkflowGraphEdgeStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "inactive":
-      return decoded;
     case "active":
       return decoded;
     case "completed":
@@ -2750,6 +2750,46 @@ export interface TerminalPaneConfig {
   titleOverride: string;
 }
 
+export interface WorkflowCondition {
+  kind: WorkflowConditionKind;
+  nodeId: string;
+  status: WorkflowNodeExecutionStatus | null;
+  signalName: string;
+  signalValue: string;
+  exitCode: number | null;
+  invert: boolean;
+}
+
+export interface WorkflowGraphEdge {
+  id: string;
+  kind: WorkflowEdgeKind;
+  fromNodeId: string;
+  toNodeId: string;
+  condition: WorkflowCondition | null;
+  label: string;
+  status: WorkflowGraphEdgeStatus;
+  activeTokenCount: number;
+  completedTokenCount: number;
+  cancelledTokenCount: number;
+}
+
+export interface WorkflowNodeDetailsPaneConfig {
+  definitionId: string;
+  definitionName: string;
+  definitionVersionId: string;
+  definitionVersionNumber: number;
+  executionId: string;
+  nodeId: string;
+  nodeKind: WorkflowNodeKind;
+  nodeLabel: string;
+  nodeStatus: WorkflowGraphNodeStatus;
+  projectionIncomingEdges: WorkflowGraphEdge[];
+  projectionOutgoingEdges: WorkflowGraphEdge[];
+  versionMismatch: boolean;
+  viewMode: WorkflowGraphViewMode;
+  workspaceId: string;
+}
+
 export interface WorkspaceUIPane {
   columnId: string;
   heat: number;
@@ -2762,6 +2802,7 @@ export interface WorkspaceUIPane {
   title: string;
   tone: PaneTone;
   weight: number;
+  workflowNodeDetailsConfig: WorkflowNodeDetailsPaneConfig | null;
 }
 
 export interface WorkspaceUILayout {
@@ -4007,16 +4048,6 @@ export interface WorkflowGatewayConfig {
   requiredIncoming: string[];
 }
 
-export interface WorkflowCondition {
-  kind: WorkflowConditionKind;
-  nodeId: string;
-  status: WorkflowNodeExecutionStatus | null;
-  signalName: string;
-  signalValue: string;
-  exitCode: number | null;
-  invert: boolean;
-}
-
 export interface WorkflowLoopGuardConfig {
   maxIterations: number | null;
   limitPolicy: WorkflowLoopLimitPolicy;
@@ -4354,19 +4385,6 @@ export interface WorkflowGraphNode {
   pendingApproval: WorkflowPendingApproval | null;
   recoveryOutcome: RunnerRecoveryOutcome | null;
   recoveryMessage: string;
-}
-
-export interface WorkflowGraphEdge {
-  id: string;
-  kind: WorkflowEdgeKind;
-  fromNodeId: string;
-  toNodeId: string;
-  condition: WorkflowCondition | null;
-  label: string;
-  status: WorkflowGraphEdgeStatus;
-  activeTokenCount: number;
-  completedTokenCount: number;
-  cancelledTokenCount: number;
 }
 
 export interface WorkflowGraphProjection {
@@ -7208,9 +7226,61 @@ export function decodeTerminalPaneConfig(value: unknown): TerminalPaneConfig {
   };
 }
 
+export function decodeWorkflowCondition(value: unknown): WorkflowCondition {
+  const record = assertRecord(value, "WorkflowCondition");
+  assertKnownFields(record, "WorkflowCondition", ["kind", "nodeId", "status", "signalName", "signalValue", "exitCode", "invert"]);
+  return {
+    kind: decodeWorkflowConditionKind(requireField(record, "kind", "WorkflowCondition"), "WorkflowCondition.kind"),
+    nodeId: decodeString(requireField(record, "nodeId", "WorkflowCondition"), "WorkflowCondition.nodeId"),
+    status: decodeNullable(requireField(record, "status", "WorkflowCondition"), "WorkflowCondition.status", (item) => decodeWorkflowNodeExecutionStatus(item, "WorkflowCondition.status")),
+    signalName: decodeString(requireField(record, "signalName", "WorkflowCondition"), "WorkflowCondition.signalName"),
+    signalValue: decodeString(requireField(record, "signalValue", "WorkflowCondition"), "WorkflowCondition.signalValue"),
+    exitCode: decodeNullable(requireField(record, "exitCode", "WorkflowCondition"), "WorkflowCondition.exitCode", (item) => decodeInteger(item, "WorkflowCondition.exitCode")),
+    invert: decodeBoolean(requireField(record, "invert", "WorkflowCondition"), "WorkflowCondition.invert"),
+  };
+}
+
+export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
+  const record = assertRecord(value, "WorkflowGraphEdge");
+  assertKnownFields(record, "WorkflowGraphEdge", ["id", "kind", "fromNodeId", "toNodeId", "condition", "label", "status", "activeTokenCount", "completedTokenCount", "cancelledTokenCount"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkflowGraphEdge"), "WorkflowGraphEdge.id"),
+    kind: decodeWorkflowEdgeKind(requireField(record, "kind", "WorkflowGraphEdge"), "WorkflowGraphEdge.kind"),
+    fromNodeId: decodeString(requireField(record, "fromNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.fromNodeId"),
+    toNodeId: decodeString(requireField(record, "toNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.toNodeId"),
+    condition: decodeNullable(requireField(record, "condition", "WorkflowGraphEdge"), "WorkflowGraphEdge.condition", (item) => decodeWorkflowCondition(item)),
+    label: decodeString(requireField(record, "label", "WorkflowGraphEdge"), "WorkflowGraphEdge.label"),
+    status: decodeWorkflowGraphEdgeStatus(requireField(record, "status", "WorkflowGraphEdge"), "WorkflowGraphEdge.status"),
+    activeTokenCount: decodeInteger(requireField(record, "activeTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.activeTokenCount"),
+    completedTokenCount: decodeInteger(requireField(record, "completedTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.completedTokenCount"),
+    cancelledTokenCount: decodeInteger(requireField(record, "cancelledTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.cancelledTokenCount"),
+  };
+}
+
+export function decodeWorkflowNodeDetailsPaneConfig(value: unknown): WorkflowNodeDetailsPaneConfig {
+  const record = assertRecord(value, "WorkflowNodeDetailsPaneConfig");
+  assertKnownFields(record, "WorkflowNodeDetailsPaneConfig", ["definitionId", "definitionName", "definitionVersionId", "definitionVersionNumber", "executionId", "nodeId", "nodeKind", "nodeLabel", "nodeStatus", "projectionIncomingEdges", "projectionOutgoingEdges", "versionMismatch", "viewMode", "workspaceId"]);
+  return {
+    definitionId: decodeString(requireField(record, "definitionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionId"),
+    definitionName: decodeString(requireField(record, "definitionName", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionName"),
+    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionVersionId"),
+    definitionVersionNumber: decodeInteger(requireField(record, "definitionVersionNumber", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionVersionNumber"),
+    executionId: decodeString(requireField(record, "executionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.executionId"),
+    nodeId: decodeString(requireField(record, "nodeId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeId"),
+    nodeKind: decodeWorkflowNodeKind(requireField(record, "nodeKind", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeKind"),
+    nodeLabel: decodeString(requireField(record, "nodeLabel", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeLabel"),
+    nodeStatus: decodeWorkflowGraphNodeStatus(requireField(record, "nodeStatus", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeStatus"),
+    projectionIncomingEdges: decodeArray(requireField(record, "projectionIncomingEdges", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.projectionIncomingEdges", (item) => decodeWorkflowGraphEdge(item)),
+    projectionOutgoingEdges: decodeArray(requireField(record, "projectionOutgoingEdges", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.projectionOutgoingEdges", (item) => decodeWorkflowGraphEdge(item)),
+    versionMismatch: decodeBoolean(requireField(record, "versionMismatch", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.versionMismatch"),
+    viewMode: decodeWorkflowGraphViewMode(requireField(record, "viewMode", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.viewMode"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.workspaceId"),
+  };
+}
+
 export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   const record = assertRecord(value, "WorkspaceUIPane");
-  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight"]);
+  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight", "workflowNodeDetailsConfig"]);
   return {
     columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPane"), "WorkspaceUIPane.columnId"),
     heat: decodeInteger(requireField(record, "heat", "WorkspaceUIPane"), "WorkspaceUIPane.heat"),
@@ -7223,6 +7293,7 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
     title: decodeString(requireField(record, "title", "WorkspaceUIPane"), "WorkspaceUIPane.title"),
     tone: decodePaneTone(requireField(record, "tone", "WorkspaceUIPane"), "WorkspaceUIPane.tone"),
     weight: decodeNumber(requireField(record, "weight", "WorkspaceUIPane"), "WorkspaceUIPane.weight"),
+    workflowNodeDetailsConfig: decodeNullable(requireField(record, "workflowNodeDetailsConfig", "WorkspaceUIPane"), "WorkspaceUIPane.workflowNodeDetailsConfig", (item) => decodeWorkflowNodeDetailsPaneConfig(item)),
   };
 }
 
@@ -9084,20 +9155,6 @@ export function decodeWorkflowGatewayConfig(value: unknown): WorkflowGatewayConf
   };
 }
 
-export function decodeWorkflowCondition(value: unknown): WorkflowCondition {
-  const record = assertRecord(value, "WorkflowCondition");
-  assertKnownFields(record, "WorkflowCondition", ["kind", "nodeId", "status", "signalName", "signalValue", "exitCode", "invert"]);
-  return {
-    kind: decodeWorkflowConditionKind(requireField(record, "kind", "WorkflowCondition"), "WorkflowCondition.kind"),
-    nodeId: decodeString(requireField(record, "nodeId", "WorkflowCondition"), "WorkflowCondition.nodeId"),
-    status: decodeNullable(requireField(record, "status", "WorkflowCondition"), "WorkflowCondition.status", (item) => decodeWorkflowNodeExecutionStatus(item, "WorkflowCondition.status")),
-    signalName: decodeString(requireField(record, "signalName", "WorkflowCondition"), "WorkflowCondition.signalName"),
-    signalValue: decodeString(requireField(record, "signalValue", "WorkflowCondition"), "WorkflowCondition.signalValue"),
-    exitCode: decodeNullable(requireField(record, "exitCode", "WorkflowCondition"), "WorkflowCondition.exitCode", (item) => decodeInteger(item, "WorkflowCondition.exitCode")),
-    invert: decodeBoolean(requireField(record, "invert", "WorkflowCondition"), "WorkflowCondition.invert"),
-  };
-}
-
 export function decodeWorkflowLoopGuardConfig(value: unknown): WorkflowLoopGuardConfig {
   const record = assertRecord(value, "WorkflowLoopGuardConfig");
   assertKnownFields(record, "WorkflowLoopGuardConfig", ["maxIterations", "limitPolicy", "continueCondition", "exitCondition"]);
@@ -9590,23 +9647,6 @@ export function decodeWorkflowGraphNode(value: unknown): WorkflowGraphNode {
     pendingApproval: decodeNullable(requireField(record, "pendingApproval", "WorkflowGraphNode"), "WorkflowGraphNode.pendingApproval", (item) => decodeWorkflowPendingApproval(item)),
     recoveryOutcome: decodeNullable(requireField(record, "recoveryOutcome", "WorkflowGraphNode"), "WorkflowGraphNode.recoveryOutcome", (item) => decodeRunnerRecoveryOutcome(item, "WorkflowGraphNode.recoveryOutcome")),
     recoveryMessage: decodeString(requireField(record, "recoveryMessage", "WorkflowGraphNode"), "WorkflowGraphNode.recoveryMessage"),
-  };
-}
-
-export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
-  const record = assertRecord(value, "WorkflowGraphEdge");
-  assertKnownFields(record, "WorkflowGraphEdge", ["id", "kind", "fromNodeId", "toNodeId", "condition", "label", "status", "activeTokenCount", "completedTokenCount", "cancelledTokenCount"]);
-  return {
-    id: decodeString(requireField(record, "id", "WorkflowGraphEdge"), "WorkflowGraphEdge.id"),
-    kind: decodeWorkflowEdgeKind(requireField(record, "kind", "WorkflowGraphEdge"), "WorkflowGraphEdge.kind"),
-    fromNodeId: decodeString(requireField(record, "fromNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.fromNodeId"),
-    toNodeId: decodeString(requireField(record, "toNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.toNodeId"),
-    condition: decodeNullable(requireField(record, "condition", "WorkflowGraphEdge"), "WorkflowGraphEdge.condition", (item) => decodeWorkflowCondition(item)),
-    label: decodeString(requireField(record, "label", "WorkflowGraphEdge"), "WorkflowGraphEdge.label"),
-    status: decodeWorkflowGraphEdgeStatus(requireField(record, "status", "WorkflowGraphEdge"), "WorkflowGraphEdge.status"),
-    activeTokenCount: decodeInteger(requireField(record, "activeTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.activeTokenCount"),
-    completedTokenCount: decodeInteger(requireField(record, "completedTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.completedTokenCount"),
-    cancelledTokenCount: decodeInteger(requireField(record, "cancelledTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.cancelledTokenCount"),
   };
 }
 

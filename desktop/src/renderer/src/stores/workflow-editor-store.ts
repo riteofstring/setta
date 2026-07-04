@@ -16,9 +16,9 @@ export interface WorkflowNodeDetailsTarget {
   definitionVersionNumber: number;
   executionId: string;
   nodeId: string;
-  nodeKind: WorkflowNodeKind | "";
+  nodeKind: WorkflowNodeKind;
   nodeLabel: string;
-  nodeStatus: WorkflowGraphNodeStatus | "";
+  nodeStatus: WorkflowGraphNodeStatus;
   projectionIncomingEdges: WorkflowGraphEdge[];
   projectionOutgoingEdges: WorkflowGraphEdge[];
   versionMismatch: boolean;

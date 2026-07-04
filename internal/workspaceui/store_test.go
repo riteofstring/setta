@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/orchestrator"
 	"setta/internal/workspace"
 )
 
@@ -109,6 +110,55 @@ func TestStoreAllowsDefaultTerminalProfile(t *testing.T) {
 
 	if _, err := store.SaveLayout(layout); err != nil {
 		t.Fatalf("save layout with default terminal profile: %v", err)
+	}
+}
+
+func TestStorePersistsWorkflowNodeDetailsPaneConfig(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].WorkflowNodeDetailsConfig = testWorkflowNodeDetailsConfig(layout.WorkspaceID)
+
+	if _, err := store.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout with workflow node details config: %v", err)
+	}
+	loaded, err := store.LoadLayout(layout.WorkspaceID)
+	if err != nil {
+		t.Fatalf("load layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Panes[0].WorkflowNodeDetailsConfig == nil {
+		t.Fatalf("loaded workflow node details config = %+v", loaded.Layout)
+	}
+	if loaded.Layout.Panes[0].WorkflowNodeDetailsConfig.NodeID != "activity" {
+		t.Fatalf("loaded node id = %q, want activity", loaded.Layout.Panes[0].WorkflowNodeDetailsConfig.NodeID)
+	}
+}
+
+func TestStoreRejectsWorkflowNodeDetailsPaneWithoutConfig(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want missing workflow node details config error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "workflowNodeDetailsConfig is required") {
+		t.Fatalf("error = %T %v, want required config corrupt state", err, err)
+	}
+}
+
+func TestStoreRejectsWorkflowNodeDetailsConfigOnOtherPane(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].WorkflowNodeDetailsConfig = testWorkflowNodeDetailsConfig(layout.WorkspaceID)
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want misplaced workflow node details config error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "only valid for workflow-node-details") {
+		t.Fatalf("error = %T %v, want misplaced config corrupt state", err, err)
 	}
 }
 
@@ -226,5 +276,24 @@ func testLayout(workspaceID string) WorkspaceUILayout {
 				Weight: 1,
 			},
 		},
+	}
+}
+
+func testWorkflowNodeDetailsConfig(workspaceID string) *WorkflowNodeDetailsPaneConfig {
+	return &WorkflowNodeDetailsPaneConfig{
+		DefinitionID:            "workflow_definition_test",
+		DefinitionName:          "Review Workflow",
+		DefinitionVersionID:     "workflow_version_test",
+		DefinitionVersionNumber: 1,
+		ExecutionID:             "workflow_execution_test",
+		NodeID:                  "activity",
+		NodeKind:                orchestrator.NodeKindAction,
+		NodeLabel:               "Activity",
+		NodeStatus:              orchestrator.GraphNodeStatusSucceeded,
+		ProjectionIncomingEdges: []orchestrator.WorkflowGraphEdge{},
+		ProjectionOutgoingEdges: []orchestrator.WorkflowGraphEdge{},
+		VersionMismatch:         false,
+		ViewMode:                orchestrator.GraphViewModeRun,
+		WorkspaceID:             workspaceID,
 	}
 }

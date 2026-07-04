@@ -915,36 +915,12 @@ source plans:
 One clean final selected gate run is enough unless new edits are made after it.
 
 Progress 2026-07-04: added deterministic rendered node-details pagination
-coverage to the existing `--workflow-node-trajectory-contract-only` Electron
-workflow. The scenario now opens the real workflow graph, starts the long-output
-workflow through the graph toolbar, opens the canonical workflow node details
-pane, expands the shared node-scoped agent trajectory activity, verifies the
-initial output page stops at chunk 040 with a real `Load more` control, clicks
-that control, and verifies chunk 041 renders with no remaining load-more button.
-The coverage runs through production Electron renderer/main/preload/IPC/HTTP
-and store paths and records `/chat/runs/item-output` plus
-`chat:run-item-output` evidence. The workflow node details browser driver was
-extended with scoped trajectory expansion and load-more helpers.
-
-Verification:
-
-- `node --check desktop/tests/electron/workflow-node-details-driver.js`
-- `node --check desktop/tests/electron/workflow-node-trajectory-contract-cases.mjs`
-- `node --check desktop/tests/electron/cdp-client.mjs`
-- `node scripts/check_electron_test_template_literals.mjs desktop/tests/electron/workflow-node-trajectory-contract-cases.mjs desktop/tests/electron/workflow-node-details-driver.js desktop/tests/electron/cdp-client.mjs`
-- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
-- `./scripts/format.sh`
-- `./check_quality.sh --git-changes`
-
-Audit follow-up 2026-07-04: the rendered pagination coverage was production-path
-and correctly exercised the real run-item output endpoint, but the reload
-readiness helper briefly reintroduced browser-side logic in the test body and
-could race driver extension installation during `Page.reload`. The helper now
-waits for `Page.loadEventFired` and reads workspace recovery state through the
-shared browser driver; missing load-more diagnostics now return the current
-trajectory state. Focused reruns passed the touched `node --check` files, the
-Electron template-literal guard, and
-`node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
+coverage to `--workflow-node-trajectory-contract-only`, opening canonical node
+details through the real graph and verifying chunk 041 loads through
+`chat:run-item-output` / `/chat/runs/item-output`. Audit follow-up moved reload
+readiness behind the shared browser driver and fixed a CDP page-load race.
+Focused syntax/template checks, focused Electron, format, and changed-file
+quality gates passed.
 
 Progress 2026-07-04: added deterministic rendered workflow-node approval
 submission coverage to `--workflow-node-trajectory-contract-only`: graph-toolbar
@@ -960,7 +936,27 @@ existing graph `debugEnabled` flag after finding it was registered in normal
 runtime. Focused reruns passed projection-state Vitest, desktop typecheck/build,
 touched Electron syntax checks, the Electron template-literal guard, and focused
 Electron. Live Codex remains blocked by local deprecated
-`config.approval_policy = "on-failure"`. Remaining gaps: reload/restart while viewing node details and historical-attempt paging.
+`config.approval_policy = "on-failure"`.
+
+Progress 2026-07-04: added deterministic renderer-reload coverage while
+workflow-node details are already open. The details pane target is now a
+Go-owned `WorkflowNodeDetailsPaneConfig` on `WorkspaceUIPane`, regenerated into
+TypeScript, saved with workspace layout, and used when the selected-node store
+is empty after reload. Reusing the one workflow-node-details pane now
+reconfigures that pane despite the surface limit, so a different node updates
+the saved target instead of only focusing stale details. The focused Electron
+workflow reloads the renderer while viewing details and verifies recovery for
+output pagination, pending approval state, and steerable/liveness composer
+state before continuing through node-scoped load-more, approval, and steering.
+Verification passed focused workspace UI Go, contract/httpapi/preload checks,
+focused renderer/layout Vitest, touched Electron syntax/template checks,
+`pnpm -C desktop build`, and
+`node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
+Live Codex auth was available, but live E2E remains blocked by local Codex
+`config/read` returning unsupported `approval_policy = "on-failure"`.
+Remaining shared-trajectory gap: historical-attempt paging. Full app relaunch
+while details are open is not separately exercised by this renderer-reload
+slice.
 
 ## Parallel Work Guidance
 
@@ -995,6 +991,8 @@ Do not parallelize:
   raising preview limits or fabricating complete pages.
 - Workflow-owned run refs, liveness, approvals, steering, and output pagination
   use typed backend contracts and node-scoped renderer actions.
+- Workflow node details recover their persisted node-scoped trajectory target
+  across renderer reload while viewing details.
 - Generated TypeScript contracts are regenerated from Go-owned surfaces.
 - Required deterministic Electron and focused checks pass, with live Codex E2E
   run or explicitly skipped according to ChatGPT auth availability.

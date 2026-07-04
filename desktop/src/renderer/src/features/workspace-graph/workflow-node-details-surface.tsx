@@ -8,6 +8,7 @@ import {
   useWorkflowEditorStore,
   type WorkflowNodeActivityFocus,
 } from "../../stores/workflow-editor-store";
+import type { WorkspacePane } from "../../workspace-layout/types";
 import {
   WorkflowDetailsEmpty,
   WorkflowDetailsError,
@@ -46,8 +47,9 @@ const workflowRunEventLimit = 80;
 const workflowNodeTrajectoryTranscriptLimit = 80;
 const workflowNodeTrajectoryOutputLimit = 40;
 
-export function WorkflowNodeDetailsSurface() {
-  const target = useWorkflowEditorStore((state) => state.selectedNodeTarget);
+export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
+  const selectedTarget = useWorkflowEditorStore((state) => state.selectedNodeTarget);
+  const target = selectedTarget ?? pane.workflowNodeDetailsConfig ?? null;
   const activityFocus = useWorkflowEditorStore((state) => state.selectedNodeActivityFocus);
   const notifyWorkflowDefinitionChanged = useWorkflowEditorStore(
     (state) => state.notifyWorkflowDefinitionChanged,
