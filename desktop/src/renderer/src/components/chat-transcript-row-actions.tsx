@@ -1,6 +1,12 @@
-import type { ChatMessage, Run } from "@generated/backend";
+import type { ChatInput, ChatMessage, Run, RunLiveness } from "@generated/backend";
 import { Check, Pencil, Trash2, X, Zap } from "lucide-react";
 
+import {
+  chatInputFromMessageEdit,
+  chatInputHasContent,
+  chatInputsEqual,
+  chatMessagePartsText,
+} from "../lib/chat-input";
 import { cn } from "../lib/utils";
 import { startStoreBackedChatInteractiveAction } from "../stores/chat-interactive-actions";
 import { Button } from "./ui/button";
@@ -8,12 +14,13 @@ import { Textarea } from "./ui/textarea";
 
 export interface TranscriptRowActions {
   activeRun: Run | null;
-  editQueuedMessage: (messageId: string, prompt: string) => Promise<void>;
+  activeRunLiveness: RunLiveness | null;
+  editQueuedMessage: (messageId: string, input: ChatInput) => Promise<void>;
   editingQueuedMessageId: string | null;
   operation: string | null;
   removeQueuedMessage: (messageId: string) => Promise<void>;
   removingQueuedMessageId: string | null;
-  sendSteeringImmediately: (prompt?: string) => Promise<void>;
+  sendSteeringImmediately: (input?: ChatInput) => Promise<void>;
 }
 
 export function MessageRowActions({
@@ -215,9 +222,11 @@ export function isPendingSteeringMessage(message: ChatMessage, activeRun: Run | 
 
 export function canSaveQueuedEdit(message: ChatMessage, draft: string, rowBusy: boolean) {
   const trimmed = draft.trim();
-  return !rowBusy && trimmed !== "" && trimmed !== chatMessageText(message).trim();
+  const input = chatInputFromMessageEdit(message, trimmed);
+  const current = chatInputFromMessageEdit(message, chatMessageText(message).trim());
+  return !rowBusy && chatInputHasContent(input) && !chatInputsEqual(input, current);
 }
 
 function chatMessageText(message: ChatMessage) {
-  return message.parts.map((part) => part.text).join("");
+  return chatMessagePartsText(message.parts);
 }

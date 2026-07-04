@@ -13,7 +13,6 @@ const semanticGraphAuditForwardIntervalMs = 100;
 const semanticGraphAuditChangedAreas: SemanticGraphChangeArea[] = ["cartographer_audit"];
 
 export function startSemanticGraphEventForwarding(options: {
-  authToken: string;
   baseURL: string;
   fetchImpl: BackendFetch;
   recorder: SessionRecorder | null;
@@ -32,7 +31,6 @@ export function startSemanticGraphEventForwarding(options: {
     },
   });
   const stream = startSemanticGraphEventStream({
-    authToken: options.authToken,
     baseURL: options.baseURL,
     fetchImpl: options.fetchImpl,
     sendEvent: forwarder.sendEvent,

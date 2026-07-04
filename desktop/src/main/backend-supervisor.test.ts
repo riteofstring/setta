@@ -5,45 +5,23 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
-import {
-  parseReadyLine,
-  startBackend,
-  startSpawnedBackend,
-  type BackendHandle,
-} from "./backend-supervisor";
+import { parseReadyLine, startSpawnedBackend, type BackendHandle } from "./backend-supervisor";
 
 describe("parseReadyLine", () => {
   test("accepts the machine-readable ready event", () => {
-    expect(
-      parseReadyLine(
-        '{"event":"ready","addr":"127.0.0.1:41000","bootstrapToken":"token_test","protocolVersion":1}',
-      ),
-    ).toEqual({
+    expect(parseReadyLine('{"event":"ready","addr":"127.0.0.1:41000"}')).toEqual({
       addr: "127.0.0.1:41000",
-      bootstrapToken: "token_test",
       event: "ready",
-      protocolVersion: 1,
     });
   });
 
   test("ignores non-readiness logging", () => {
     expect(parseReadyLine("server log line")).toBeNull();
     expect(parseReadyLine('{"event":"log","addr":"127.0.0.1:41000"}')).toBeNull();
-    expect(parseReadyLine('{"event":"ready","addr":"127.0.0.1:41000"}')).toBeNull();
   });
 });
 
 describe("startSpawnedBackend", () => {
-  test("keeps SETTA_BACKEND_URL loopback-only", async () => {
-    await expect(
-      startBackend("/tmp/repo", "/tmp/app-data", {
-        ...process.env,
-        SETTA_BACKEND_TOKEN: "token_test",
-        SETTA_BACKEND_URL: "http://100.64.0.12:7345",
-      }),
-    ).rejects.toThrow("SETTA_BACKEND_URL must point at a loopback host");
-  });
-
   test("captures logs and stops a ready backend process", async () => {
     const handle = await startSpawnedBackend({
       args: [backendSupervisorFixture("ready-with-logs")],
@@ -55,13 +33,8 @@ describe("startSpawnedBackend", () => {
 
     expect(handle.mode).toBe("spawned");
     expect(handle.url).toBe("http://127.0.0.1:41000");
-    expect(handle.bootstrapToken).toBe("ready_with_logs_token");
-    expect(handle.protocolVersion).toBe(1);
     expect(handle.recentLogs()).toContain("stderr log");
     expect(handle.recentLogs()).toContain("stdout log");
-    expect(handle.recentLogs()).toContain(
-      '{"event":"ready","addr":"127.0.0.1:41000","bootstrapToken":"<redacted>","protocolVersion":1}',
-    );
 
     await handle.stop();
   });

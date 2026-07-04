@@ -1,5 +1,7 @@
 import type { ChatMessage } from "@generated/backend";
 
+import { chatMessagePartsText } from "../lib/chat-input";
+
 export function chatMessageText(message: ChatMessage) {
-  return message.parts.map((part) => part.text).join("");
+  return chatMessagePartsText(message.parts);
 }

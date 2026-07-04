@@ -32,18 +32,13 @@ type ContractEndpoint struct {
 
 type endpoint struct {
 	ContractEndpoint
-	Handler         routeHandler
-	Unauthenticated bool
+	Handler routeHandler
 }
 
 type routeHandler func(handler, http.ResponseWriter, *http.Request)
 
 var apiEndpoints = []endpoint{
-	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
-	unauthenticated(get[RuntimeInfoResponse]("RuntimeInfo", "/runtime/info", handler.runtimeInfo)),
-	unauthenticated(post[CompletePairingRequest, CompletePairingResponse]("CompletePairing", "/pairing/complete", handler.completePairing)),
-	post[ListDevicesRequest, ListDevicesResponse]("ListDevices", "/devices/list", handler.listDevices),
-	post[RevokeDeviceRequest, RevokeDeviceResponse]("RevokeDevice", "/devices/revoke", handler.revokeDevice),
+	get[BackendHealth]("BackendHealth", "/health", handler.health),
 	get[appearance.AppearanceSettings]("ReadAppearanceSettings", "/appearance/settings", handler.readAppearanceSettings),
 	get[appearance.AppearancePresetList]("ReadAppearancePresets", "/appearance/presets", handler.readAppearancePresets),
 	post[UpdateAppearanceSettingsRequest, appearance.AppearanceSettings]("UpdateAppearanceSettings", "/appearance/settings", handler.updateAppearanceSettings),
@@ -66,21 +61,33 @@ var apiEndpoints = []endpoint{
 	post[MarkConversationReadRequest, chat.ConversationListItem]("MarkConversationRead", "/chat/conversations/mark-read", handler.markConversationRead),
 	post[SetConversationPinnedRequest, chat.ConversationListItem]("SetConversationPinned", "/chat/conversations/pin", handler.setConversationPinned),
 	post[GetMessagePageRequest, chat.MessagePage]("GetMessagePage", "/chat/messages/page", handler.getMessagePage),
+	post[ListComposerPromptHistoryRequest, chat.ComposerPromptHistoryPage]("ListComposerPromptHistory", "/chat/composer/history", handler.listComposerPromptHistory),
 	post[SendChatMessageRequest, chat.SendMessageResult]("SendChatMessage", "/chat/messages/send", handler.sendChatMessage),
 	post[QueueChatMessageRequest, chat.QueueMessageResult]("QueueChatMessage", "/chat/messages/queue", handler.queueChatMessage),
 	post[EditQueuedChatMessageRequest, chat.QueueEditResult]("EditQueuedChatMessage", "/chat/messages/queue/edit", handler.editQueuedChatMessage),
 	post[RemoveQueuedChatMessageRequest, chat.QueueRemoveResult]("RemoveQueuedChatMessage", "/chat/messages/queue/remove", handler.removeQueuedChatMessage),
 	post[SteerChatMessageRequest, chat.SteerMessageResult]("SteerChatMessage", "/chat/messages/steer", handler.steerChatMessage),
 	post[SendSteeringImmediatelyRequest, chat.ImmediateSteeringResult]("SendSteeringImmediately", "/chat/messages/steer/immediate", handler.sendSteeringImmediately),
+	post[CreateChatImageAttachmentFromBytesRequest, chat.ImageAttachment]("CreateChatImageAttachmentFromBytes", "/chat/attachments/images/from-bytes", handler.createChatImageAttachmentFromBytes),
 	post[ListChatCommandsRequest, chat.ChatCommandListResult]("ListChatCommands", "/chat/commands/list", handler.listChatCommands),
 	post[ExecuteChatCommandRequest, chat.ChatCommandExecuteResult]("ExecuteChatCommand", "/chat/commands/execute", handler.executeChatCommand),
+	get[chat.ChatCodexDefaultsView]("ReadChatCodexDefaults", "/chat/codex/defaults", handler.readChatCodexDefaults),
+	post[UpdateChatCodexDefaultsRequest, chat.ChatCodexDefaultsView]("UpdateChatCodexDefaults", "/chat/codex/defaults", handler.updateChatCodexDefaults),
+	post[OpenChatCodexModelPickerRequest, chat.ChatCommandExecuteResult]("OpenChatCodexModelPicker", "/chat/codex/model/picker", handler.openChatCodexModelPicker),
+	post[OpenChatCodexPermissionPickerRequest, chat.ChatCommandExecuteResult]("OpenChatCodexPermissionPicker", "/chat/codex/permission/picker", handler.openChatCodexPermissionPicker),
 	post[SetChatCodexModelRequest, chat.ChatCommandExecuteResult]("SetChatCodexModel", "/chat/codex/model/set", handler.setChatCodexModel),
+	post[SetChatCodexPermissionPresetRequest, chat.ChatCommandExecuteResult]("SetChatCodexPermissionPreset", "/chat/codex/permission/set", handler.setChatCodexPermissionPreset),
 	post[SetChatCodexReasoningEffortRequest, chat.ChatCommandExecuteResult]("SetChatCodexReasoningEffort", "/chat/codex/reasoning-effort/set", handler.setChatCodexReasoningEffort),
 	post[CancelRunRequest, chat.Run]("CancelRun", "/chat/runs/cancel", handler.cancelRun),
 	post[GetActiveRunRequest, GetActiveRunResponse]("GetActiveRun", "/chat/runs/active", handler.getActiveRun),
+	post[ReconcileChatRunsRequest, ReconcileChatRunsResponse]("ReconcileChatRuns", "/chat/runs/reconcile", handler.reconcileChatRuns),
 	post[ListRunsRequest, ListRunsResponse]("ListRuns", "/chat/runs/list", handler.listRuns),
 	post[GetRunActivityRequest, chat.RunActivityPage]("GetRunActivity", "/chat/runs/activity", handler.getRunActivity),
 	post[GetRunItemOutputRequest, chat.RunItemOutputPage]("GetRunItemOutputPage", "/chat/runs/item-output", handler.getRunItemOutput),
+	post[ListBackgroundTerminalsRequest, chat.BackgroundTerminalListProjection]("ListBackgroundTerminals", "/chat/background-terminals/list", handler.listBackgroundTerminals),
+	post[GetBackgroundTerminalOutputRequest, chat.BackgroundTerminalOutputPage]("GetBackgroundTerminalOutput", "/chat/background-terminals/output", handler.getBackgroundTerminalOutput),
+	post[KillBackgroundTerminalRequest, chat.BackgroundTerminalProcess]("KillBackgroundTerminal", "/chat/background-terminals/kill", handler.killBackgroundTerminal),
+	post[KillAllBackgroundTerminalsRequest, chat.BackgroundTerminalListProjection]("KillAllBackgroundTerminals", "/chat/background-terminals/kill-all", handler.killAllBackgroundTerminals),
 	post[ListDiagnosticsRequest, ListDiagnosticsResponse]("ListDiagnostics", "/chat/diagnostics/list", handler.listDiagnostics),
 	post[SubmitApprovalRequest, chat.Run]("SubmitApproval", "/chat/approvals/submit", handler.submitApproval),
 	post[ListWorkflowDefinitionsRequest, ListWorkflowDefinitionsResponse]("ListWorkflowDefinitions", "/workflows/definitions/list", handler.listWorkflowDefinitions),
@@ -172,14 +179,9 @@ func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
 	for _, endpoint := range apiEndpoints {
 		route := endpoint
 		mux.HandleFunc(route.Method+" "+route.Path, func(response http.ResponseWriter, request *http.Request) {
-			apiHandler.dispatch(route, response, request)
+			route.Handler(apiHandler, response, request)
 		})
 	}
-}
-
-func unauthenticated(route endpoint) endpoint {
-	route.Unauthenticated = true
-	return route
 }
 
 func get[Response any](name string, path string, handler routeHandler) endpoint {

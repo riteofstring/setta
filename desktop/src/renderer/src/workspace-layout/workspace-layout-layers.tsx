@@ -23,7 +23,6 @@ export function WorkspaceOverviewGhostButton({
       aria-label={overviewGhostLabel(target.placement)}
       className="workspace-overview-ghost-pane app-no-drag"
       data-workspace-overview-ghost="true"
-      data-overview-ghost-pane-id={target.paneId}
       data-overview-ghost-placement={target.placement}
       onClick={(event) => {
         event.preventDefault();
