@@ -103,6 +103,7 @@ Sizing note on the picker step: the main process today has exactly one module-le
 - **The agent-spawning environment is a real gap `setta doctor` must cover.** Chat failed twice on the box for environment reasons invisible to the UI: the codex binary was off the serve process's PATH (node under nvm), then its ChatGPT credentials were stale. Capability checks ("agent installed / on PATH / authenticated") belong in doctor and in a clearer chat-error surface.
 - **Self-update through setta works.** The `curl | sh` installer and a runtime restart were executed over setta's own terminal API — evidence the deferred "AI-guided setup session" is viable with existing primitives.
 - Demo box ops note: on the AWS devbox the runtime runs as a systemd user service (`~/.config/systemd/user/setta-serve.service`, linger enabled) so it survives reboots.
+- **Multi-device terminal dims need a policy.** Pane terminals are runtime-side state; two clients (e.g. desktop + phone, or any second device) attaching the same pane at different viewport sizes resize the shared PTY back and forth, and each bounce makes the shell redraw — leaving blank-line artifacts in replay. Options when multi-device becomes real: size-to-smallest-attached (tmux default), per-client virtual views, or last-attach-wins with a full repaint. Deferred with Phase 2 mobile polish.
 
 ## Deferred (in rough order of expected pull — none gate the PoC)
 
