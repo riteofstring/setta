@@ -501,6 +501,12 @@ function scrollChatTranscriptExpression({
       deltaY = -1;
     } else if (deltaY === 0 && options.position === "bottom") {
       deltaY = 1;
+    } else if (
+      deltaY === 0 &&
+      typeof options.distanceFromBottom === "number" &&
+      options.distanceFromBottom > 0
+    ) {
+      deltaY = -1;
     }
     if (deltaY !== 0) {
       scroller.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY }));

@@ -656,6 +656,11 @@ Notes:
   targets in the renderer at action time, covers top no-op wheel followed by
   Jump to latest, and asserts older-page anchor preservation using DOM position
   and visible anchor rows instead of tolerant bottom debug state.
+- A later audit found the near-bottom setup could already be exactly at the
+  requested tolerant distance, producing no DOM scroll delta and no upward wheel
+  intent. The deterministic helper now emits the same upward wheel intent for
+  no-op `distanceFromBottom` history scrolls that it already emitted for top
+  no-op scrolls.
 - Final live Electron Codex retries failed three times in the existing live
   semantic cartographer workflow while the live backend Codex checks passed.
   This failure is outside the Phase 7 scroll-follow path and is not treated as
