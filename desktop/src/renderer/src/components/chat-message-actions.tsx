@@ -1,4 +1,3 @@
-import type { ChatMessage } from "@generated/backend";
 import { Copy, RotateCcw } from "lucide-react";
 
 export function MessageActions({ showRetry, text }: { showRetry: boolean; text: string }) {
@@ -34,8 +33,8 @@ export function MessageActions({ showRetry, text }: { showRetry: boolean; text: 
   );
 }
 
-export function MessageTimestamp({ message }: { message: ChatMessage }) {
-  const label = messageTime(message.createdAt);
+export function MessageTimestamp({ createdAt }: { createdAt: string }) {
+  const label = messageTime(createdAt);
   if (!label) {
     return null;
   }
@@ -43,8 +42,8 @@ export function MessageTimestamp({ message }: { message: ChatMessage }) {
     <time
       className="mt-1 block text-[11px] leading-none font-medium text-foreground/60 opacity-100"
       data-testid="chat-message-timestamp"
-      dateTime={message.createdAt}
-      title={fullMessageTime(message.createdAt)}
+      dateTime={createdAt}
+      title={fullMessageTime(createdAt)}
     >
       {label}
     </time>

@@ -23,6 +23,12 @@ type WorkflowAgentTurnRequest struct {
 	ReasoningEffort     *ReasoningEffort
 }
 
+type workflowAgentTurnSender interface {
+	SendWorkflowAgentTurn(workspaceID string, request WorkflowAgentTurnRequest) (SendMessageResult, error)
+}
+
+var _ workflowAgentTurnSender = (*Service)(nil)
+
 func (service *Service) SendWorkflowAgentTurn(workspaceID string, request WorkflowAgentTurnRequest) (SendMessageResult, error) {
 	prompt, workspaceSummary, err := service.validateWorkflowAgentTurn(workspaceID, request)
 	if err != nil {
@@ -31,6 +37,7 @@ func (service *Service) SendWorkflowAgentTurn(workspaceID string, request Workfl
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
+
 	return service.sendWorkflowAgentTurnLocked(workspaceID, request, prompt, workspaceSummary)
 }
 
@@ -70,27 +77,44 @@ func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request 
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return SendMessageResult{}, err
 	}
-	conversation, userMessage, assistantMessage, run, err := service.persistTurnStartForConversationLocked(conversation, prompt, MessageDeliveryNormal, now)
+	input := TextChatInput(prompt)
+	conversation, userMessage, assistantMessage, run, err := service.persistTurnStartForConversationLocked(conversation, input, MessageDeliveryNormal, now)
+	if err != nil {
+		return SendMessageResult{}, err
+	}
+	ingest, err := service.newTranscriptIngestLocked(workspaceID, run)
 	if err != nil {
 		return SendMessageResult{}, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	service.active[key] = activeTurn{
+	service.activateTurnLocked(workspaceID, conversation.ID, activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
-		runID:            run.ID,
-		workspaceID:      workspaceID,
+		transcript:       ingest,
+	}, run)
+	if err := service.publishActiveRunLivenessAndConversationLocked(workspaceID, conversation.ID, run.ID); err != nil {
+		return SendMessageResult{}, err
+	}
+	deliveryInput, err := service.deliveryInputFromMessage(workspaceID, conversation.ID, userMessage)
+	if err != nil {
+		return SendMessageResult{}, err
 	}
 	turnRequest := TurnRequest{
 		Workspace:       workspaceSummary,
 		Conversation:    conversation,
 		Run:             run,
-		Prompt:          prompt,
+		Input:           deliveryInput,
 		SemanticContext: request.SemanticContext,
 		ThreadRef:       latestHarnessRef(conversation, HarnessCodex),
 	}
-	go service.runHarnessTurn(ctx, turnRequest)
+	if err := service.launchHarnessTurnLocked(ctx, turnRequest); err != nil {
+		return SendMessageResult{}, err
+	}
 
+	return service.workflowAgentTurnResultLocked(workspaceID, conversation, userMessage, assistantMessage, run)
+}
+
+func (service *Service) workflowAgentTurnResultLocked(workspaceID string, conversation Conversation, userMessage ChatMessage, assistantMessage ChatMessage, run Run) (SendMessageResult, error) {
 	page, err := service.loadMessagePageLocked(workspaceID, conversation.ID, 0, defaultPageLimit)
 	if err != nil {
 		return SendMessageResult{}, err

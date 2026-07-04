@@ -1,4 +1,10 @@
-import type { CorruptionSummary, Diagnostic, Run, WorkspaceSummary } from "@generated/backend";
+import type {
+  CorruptionSummary,
+  Diagnostic,
+  Run,
+  RunLiveness,
+  WorkspaceSummary,
+} from "@generated/backend";
 import {
   AlertTriangle,
   Ellipsis,
@@ -69,6 +75,7 @@ export function conversationCorruptionLabels(diagnostics: Diagnostic[]) {
 
 export function SidebarNavigationRow({
   activeRun,
+  activeRunLiveness,
   busy,
   chatCreateBusy,
   conversationSelectionBusy,
@@ -79,6 +86,7 @@ export function SidebarNavigationRow({
   workspaceWorkflowDefinitionLists,
 }: {
   activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
   busy: boolean;
   chatCreateBusy: boolean;
   conversationSelectionBusy: boolean;
@@ -107,6 +115,7 @@ export function SidebarNavigationRow({
       return (
         <ConversationNavigationRow
           activeRun={activeRun}
+          activeRunLiveness={activeRunLiveness}
           conversationSelectionBusy={conversationSelectionBusy}
           corruptionLabelsByConversationId={corruptionLabelsByConversationId}
           item={item}
@@ -165,12 +174,14 @@ function ActiveWorkspaceNavigationRow({
 
 function ConversationNavigationRow({
   activeRun,
+  activeRunLiveness,
   conversationSelectionBusy,
   corruptionLabelsByConversationId,
   item,
   runCommand,
 }: {
   activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
   conversationSelectionBusy: boolean;
   corruptionLabelsByConversationId: Map<string, string>;
   item: Extract<SidebarNavigationItem, { kind: "conversation" }>;
@@ -182,6 +193,7 @@ function ConversationNavigationRow({
     <div className="pl-4">
       <ConversationRow
         activeRun={activeRun}
+        activeRunLiveness={activeRunLiveness}
         busy={conversationSelectionBusy && item.selected}
         corruptionLabel={corruptionLabel}
         deleteConversation={() => runCommand(item.commands.delete)}

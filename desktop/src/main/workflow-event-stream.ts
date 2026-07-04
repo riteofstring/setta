@@ -8,7 +8,6 @@ export interface WorkflowEventStream {
 }
 
 interface WorkflowEventStreamOptions {
-  authToken: string;
   baseURL: string;
   fetchImpl?: BackendFetch;
   reconnectDelayMs?: number;
@@ -25,7 +24,6 @@ const defaultReconnectDelayMs = 500;
 export function startWorkflowEventStream(options: WorkflowEventStreamOptions): WorkflowEventStream {
   const abort = new AbortController();
   const done = runWorkflowEventStreamLoop({
-    authToken: options.authToken,
     baseURL: options.baseURL,
     fetchImpl: options.fetchImpl ?? fetch,
     reconnectDelayMs: options.reconnectDelayMs ?? defaultReconnectDelayMs,
@@ -43,7 +41,6 @@ export function startWorkflowEventStream(options: WorkflowEventStreamOptions): W
 
 async function runWorkflowEventStreamLoop(options: {
   baseURL: string;
-  authToken: string;
   fetchImpl: BackendFetch;
   reconnectDelayMs: number;
   sendEvent: (event: WorkflowEvent) => void;
@@ -70,11 +67,10 @@ async function streamWorkflowEventsOnce(options: {
   baseURL: string;
   cursor: WorkflowEventCursor;
   fetchImpl: BackendFetch;
-  authToken: string;
   sendEvent: (event: WorkflowEvent) => void;
   signal: AbortSignal;
 }): Promise<WorkflowEventCursor> {
-  const headers: Record<string, string> = { Authorization: `Bearer ${options.authToken}` };
+  const headers: Record<string, string> = {};
   if (options.cursor.streamId !== "") {
     headers["Last-Event-ID"] = encodeWorkflowEventCursor(options.cursor);
   }

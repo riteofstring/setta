@@ -1,30 +1,16 @@
 package chat
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	"setta/internal/codexapp"
 )
-
-func threadIDFromStartResponse(raw json.RawMessage) (string, error) {
-	response, err := codexapp.DecodeThreadStartResponse(raw)
-	if err != nil {
-		return "", err
-	}
-	return threadIDFromCodexThread(response.Thread, "codex thread start response")
-}
-
-func threadIDFromResumeResponse(raw json.RawMessage) (string, error) {
-	response, err := codexapp.DecodeThreadResumeResponse(raw)
-	if err != nil {
-		return "", err
-	}
-	return threadIDFromCodexThread(response.Thread, "codex thread resume response")
-}
 
 func threadIDFromCodexThread(thread codexapp.Thread, label string) (string, error) {
 	if thread.ID == "" {
@@ -158,220 +144,421 @@ func optionalStringArray(value map[string]any, name string, label string) ([]str
 	return result, nil
 }
 
-type codexRunItemBase struct {
-	providerItemID string
-	status         RunItemStatus
-	itemType       RunItemType
+const mcpToolResultSummaryRuneLimit = 500
+
+type codexThreadItemRunItemHandler func(codexapp.ThreadItem, RunItemStatus) (RunItem, error)
+
+var codexThreadItemRunItemHandlers = map[codexapp.ThreadItemType]codexThreadItemRunItemHandler{
+	codexapp.ThreadItemTypeAgentMessage:        agentMessageThreadItemRunItem,
+	codexapp.ThreadItemTypePlan:                planThreadItemRunItem,
+	codexapp.ThreadItemTypeReasoning:           reasoningThreadItemRunItem,
+	codexapp.ThreadItemTypeCommandExecution:    commandExecutionThreadItemRunItem,
+	codexapp.ThreadItemTypeFileChange:          fileChangeThreadItemRunItem,
+	codexapp.ThreadItemTypeMcpToolCall:         mcpToolCallThreadItemRunItem,
+	codexapp.ThreadItemTypeDynamicToolCall:     dynamicToolCallThreadItemRunItem,
+	codexapp.ThreadItemTypeCollabAgentToolCall: collabAgentToolCallThreadItemRunItem,
+	codexapp.ThreadItemTypeWebSearch:           webSearchThreadItemRunItem,
+	codexapp.ThreadItemTypeImageView:           imageViewThreadItemRunItem,
+	codexapp.ThreadItemTypeImageGeneration:     imageGenerationThreadItemRunItem,
+	codexapp.ThreadItemTypeContextCompaction:   contextCompactionThreadItemRunItem,
 }
 
-type codexRunItemTextFields struct {
-	title   string
-	summary string
-}
-
-type codexRunItemExecutionFields struct {
-	command    string
-	cwd        string
-	durationMs int
-	exitCode   int
-}
-
-type codexRunItemFileToolFields struct {
-	filePaths   []string
-	patchStatus string
-	progress    string
-	serverName  string
-	toolName    string
-}
-
-type codexRunItemResultFields struct {
-	errorMessage string
-	result       string
-}
-
-func runItemFromCodexItem(item map[string]any, status RunItemStatus) (RunItem, error) {
-	base, err := codexRunItemBaseFromItem(item, status)
-	if err != nil {
-		return RunItem{}, err
+func runItemFromCodexItem(item codexapp.ThreadItem, status RunItemStatus) (RunItem, error) {
+	handler, ok := codexThreadItemRunItemHandlers[item.Type]
+	if !ok {
+		return RunItem{}, fmt.Errorf("unsupported codex ThreadItem type for run item projection: %s", item.Type)
 	}
-	textFields, err := codexRunItemTextFieldsFromItem(item)
-	if err != nil {
-		return RunItem{}, err
+	return handler(item, status)
+}
+
+func agentMessageThreadItemRunItem(item codexapp.ThreadItem, status RunItemStatus) (RunItem, error) {
+	if item.AgentMessage == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
 	}
-	executionFields, err := codexRunItemExecutionFieldsFromItem(item)
-	if err != nil {
-		return RunItem{}, err
+	return agentMessageRunItem(*item.AgentMessage, status)
+}
+
+func planThreadItemRunItem(item codexapp.ThreadItem, status RunItemStatus) (RunItem, error) {
+	if item.Plan == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
 	}
-	fileToolFields, err := codexRunItemFileToolFieldsFromItem(item)
-	if err != nil {
-		return RunItem{}, err
+	return planRunItem(*item.Plan, status)
+}
+
+func reasoningThreadItemRunItem(item codexapp.ThreadItem, status RunItemStatus) (RunItem, error) {
+	if item.Reasoning == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
 	}
-	resultFields, err := codexRunItemResultFieldsFromItem(item)
+	return reasoningRunItem(*item.Reasoning, status)
+}
+
+func commandExecutionThreadItemRunItem(item codexapp.ThreadItem, status RunItemStatus) (RunItem, error) {
+	if item.CommandExecution == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
+	}
+	return commandExecutionRunItem(*item.CommandExecution, item.Raw, status)
+}
+
+func fileChangeThreadItemRunItem(item codexapp.ThreadItem, status RunItemStatus) (RunItem, error) {
+	if item.FileChange == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
+	}
+	return fileChangeRunItem(*item.FileChange, status)
+}
+
+func mcpToolCallThreadItemRunItem(item codexapp.ThreadItem, _ RunItemStatus) (RunItem, error) {
+	if item.McpToolCall == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
+	}
+	return mcpToolCallRunItem(*item.McpToolCall)
+}
+
+func collabAgentToolCallThreadItemRunItem(item codexapp.ThreadItem, _ RunItemStatus) (RunItem, error) {
+	if item.CollabAgentToolCall == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
+	}
+	return collabAgentToolCallRunItem(*item.CollabAgentToolCall)
+}
+
+func webSearchThreadItemRunItem(item codexapp.ThreadItem, status RunItemStatus) (RunItem, error) {
+	if item.WebSearch == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
+	}
+	return webSearchRunItem(*item.WebSearch, status)
+}
+
+func imageViewThreadItemRunItem(item codexapp.ThreadItem, status RunItemStatus) (RunItem, error) {
+	if item.ImageView == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
+	}
+	return imageViewRunItem(*item.ImageView, status)
+}
+
+func imageGenerationThreadItemRunItem(item codexapp.ThreadItem, _ RunItemStatus) (RunItem, error) {
+	if item.ImageGeneration == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
+	}
+	return imageGenerationRunItem(*item.ImageGeneration)
+}
+
+func contextCompactionThreadItemRunItem(item codexapp.ThreadItem, status RunItemStatus) (RunItem, error) {
+	if item.ContextCompaction == nil {
+		return RunItem{}, missingCodexThreadItemVariant(item.Type)
+	}
+	return contextCompactionRunItem(*item.ContextCompaction, status)
+}
+
+func missingCodexThreadItemVariant(itemType codexapp.ThreadItemType) error {
+	return fmt.Errorf("codex ThreadItem %s missing generated variant payload", itemType)
+}
+
+func agentMessageRunItem(item codexapp.AgentMessageThreadItem, status RunItemStatus) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex agentMessage item.id")
 	if err != nil {
 		return RunItem{}, err
 	}
 	return RunItem{
-		ProviderItemID: base.providerItemID,
-		Type:           base.itemType,
-		Status:         base.status,
-		Title:          textFields.title,
-		Summary:        textFields.summary,
-		Command:        executionFields.command,
-		Cwd:            executionFields.cwd,
-		ExitCode:       executionFields.exitCode,
-		DurationMs:     executionFields.durationMs,
-		FilePaths:      fileToolFields.filePaths,
-		PatchStatus:    fileToolFields.patchStatus,
-		ServerName:     fileToolFields.serverName,
-		ToolName:       fileToolFields.toolName,
-		Progress:       fileToolFields.progress,
-		Result:         resultFields.result,
-		Error:          resultFields.errorMessage,
+		ProviderItemID: id,
+		Type:           RunItemTypeAgentMessage,
+		Status:         status,
+		Title:          "Assistant message",
+		Summary:        item.Text,
 	}, nil
 }
 
-func codexRunItemBaseFromItem(item map[string]any, status RunItemStatus) (codexRunItemBase, error) {
-	providerItemID, err := requireString(item, "id", "codex item")
+func planRunItem(item codexapp.PlanThreadItem, status RunItemStatus) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex plan item.id")
 	if err != nil {
-		return codexRunItemBase{}, err
+		return RunItem{}, err
 	}
-	codexType, err := requireString(item, "type", "codex item")
-	if err != nil {
-		return codexRunItemBase{}, err
-	}
-	itemType, err := mapCodexItemType(codexType)
-	if err != nil {
-		return codexRunItemBase{}, err
-	}
-	itemStatus, err := optionalString(item, "status", "codex item")
-	if err != nil {
-		return codexRunItemBase{}, err
-	}
-	if itemStatus != "" {
-		status, err = mapCodexItemStatus(itemStatus)
-		if err != nil {
-			return codexRunItemBase{}, err
-		}
-	}
-	return codexRunItemBase{providerItemID: providerItemID, itemType: itemType, status: status}, nil
+	return RunItem{
+		ProviderItemID: id,
+		Type:           RunItemTypePlan,
+		Status:         status,
+		Title:          "Plan update",
+		Summary:        item.Text,
+	}, nil
 }
 
-func codexRunItemTextFieldsFromItem(item map[string]any) (codexRunItemTextFields, error) {
-	codexType, err := requireString(item, "type", "codex item")
+func reasoningRunItem(item codexapp.ReasoningThreadItem, status RunItemStatus) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex reasoning item.id")
 	if err != nil {
-		return codexRunItemTextFields{}, err
+		return RunItem{}, err
 	}
-	switch codexType {
-	case "agentMessage":
-		text, err := requireStringAllowEmpty(item, "text", "codex item")
+	return RunItem{
+		ProviderItemID: id,
+		Type:           RunItemTypeReasoning,
+		Status:         status,
+		Title:          "Reasoning summary",
+		Summary:        strings.Join(nonEmptyStrings(item.Summary), "\n"),
+	}, nil
+}
+
+func commandExecutionRunItem(item codexapp.CommandExecutionThreadItem, raw json.RawMessage, defaultStatus RunItemStatus) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex commandExecution item.id")
+	if err != nil {
+		return RunItem{}, err
+	}
+	command, err := requireCodexStringValue(item.Command, "codex commandExecution item.command")
+	if err != nil {
+		return RunItem{}, err
+	}
+	cwd, err := requireCodexStringValue(item.CWD, "codex commandExecution item.cwd")
+	if err != nil {
+		return RunItem{}, err
+	}
+	status, err := mapCodexItemStatusWithDefault(string(item.Status), defaultStatus)
+	if err != nil {
+		return RunItem{}, err
+	}
+	if rawFieldIsNull(raw, "source") {
+		return RunItem{}, fmt.Errorf("codex commandExecution item.source must be a non-empty CommandExecutionSource")
+	}
+	source, err := codexRunItemCommandSource(item.Source)
+	if err != nil {
+		return RunItem{}, err
+	}
+	processID := stringPtrValue(item.ProcessId)
+	if source != nil && *source == RunItemCommandSourceUnifiedExecStartup && processID == "" {
+		return RunItem{}, fmt.Errorf("codex unifiedExecStartup item processId is required")
+	}
+	return RunItem{
+		ProviderItemID: id,
+		Type:           RunItemTypeCommandExecution,
+		Status:         status,
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command:    command,
+			Cwd:        cwd,
+			ExitCode:   intPtrValue(item.ExitCode),
+			DurationMs: intPtrValue(item.DurationMs),
+			ProcessID:  processID,
+			Source:     source,
+		}),
+	}, nil
+}
+
+func fileChangeRunItem(item codexapp.FileChangeThreadItem, defaultStatus RunItemStatus) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex fileChange item.id")
+	if err != nil {
+		return RunItem{}, err
+	}
+	status, err := mapCodexItemStatusWithDefault(string(item.Status), defaultStatus)
+	if err != nil {
+		return RunItem{}, err
+	}
+	details, err := fileChangeDetailsFromCodex(string(item.Status), item.Changes)
+	if err != nil {
+		return RunItem{}, err
+	}
+	return RunItem{
+		ProviderItemID: id,
+		Type:           RunItemTypeFileChange,
+		Status:         status,
+		Details:        details,
+	}, nil
+}
+
+func fileChangeDetailsFromCodex(patchStatus string, changes []codexapp.FileUpdateChange) (*RunItemDetails, error) {
+	paths := make([]RunItemFileChangePath, 0, len(changes))
+	for index, change := range changes {
+		path, err := fileChangePathFromCodex(change, index)
 		if err != nil {
-			return codexRunItemTextFields{}, err
+			return nil, err
 		}
-		return codexRunItemTextFields{title: "Assistant message", summary: text}, nil
-	case "plan":
-		text, err := requireStringAllowEmpty(item, "text", "codex item")
-		if err != nil {
-			return codexRunItemTextFields{}, err
-		}
-		return codexRunItemTextFields{title: "Plan update", summary: text}, nil
-	case "reasoning":
-		summary, err := requireJoinedStringArray(item, "summary", "codex item")
-		if err != nil {
-			return codexRunItemTextFields{}, err
-		}
-		return codexRunItemTextFields{title: "Reasoning summary", summary: summary}, nil
-	case "contextCompaction":
-		return codexRunItemTextFields{title: "Context compaction"}, nil
+		paths = append(paths, path)
+	}
+	return newRunItemFileChangeDetails(patchStatus, paths), nil
+}
+
+func fileChangePathFromCodex(change codexapp.FileUpdateChange, index int) (RunItemFileChangePath, error) {
+	path, err := requireCodexStringValue(change.Path, fmt.Sprintf("codex fileChange changes[%d].path", index))
+	if err != nil {
+		return RunItemFileChangePath{}, err
+	}
+	operation, movePath, err := fileChangeOperationFromCodex(change.Kind, index)
+	if err != nil {
+		return RunItemFileChangePath{}, err
+	}
+	return newRunItemFileChangePath(path, operation, movePath, change.Diff), nil
+}
+
+func fileChangeOperationFromCodex(raw json.RawMessage, index int) (*RunItemFileChangeOperation, string, error) {
+	var value struct {
+		Type     string  `json:"type"`
+		MovePath *string `json:"move_path"`
+	}
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, "", fmt.Errorf("decode codex fileChange changes[%d].kind: %w", index, err)
+	}
+	if value.Type == "" {
+		return nil, "", fmt.Errorf("codex fileChange changes[%d].kind.type is required", index)
+	}
+	var operation RunItemFileChangeOperation
+	switch value.Type {
+	case string(RunItemFileChangeOperationAdd):
+		operation = RunItemFileChangeOperationAdd
+	case string(RunItemFileChangeOperationDelete):
+		operation = RunItemFileChangeOperationDelete
+	case string(RunItemFileChangeOperationUpdate):
+		operation = RunItemFileChangeOperationUpdate
 	default:
-		return codexRunItemTextFields{}, nil
+		return nil, "", fmt.Errorf("unsupported codex fileChange changes[%d].kind.type: %s", index, value.Type)
 	}
+	movePath := ""
+	if value.MovePath != nil {
+		movePath = *value.MovePath
+	}
+	return &operation, movePath, nil
 }
 
-func codexRunItemExecutionFieldsFromItem(item map[string]any) (codexRunItemExecutionFields, error) {
-	command, err := optionalString(item, "command", "codex item")
+func mcpToolCallRunItem(item codexapp.McpToolCallThreadItem) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex mcpToolCall item.id")
 	if err != nil {
-		return codexRunItemExecutionFields{}, err
+		return RunItem{}, err
 	}
-	cwd, err := optionalString(item, "cwd", "codex item")
+	serverName, err := requireCodexStringValue(item.Server, "codex mcpToolCall item.server")
 	if err != nil {
-		return codexRunItemExecutionFields{}, err
+		return RunItem{}, err
 	}
-	exitCode, err := optionalInt(item, "exitCode", "codex item")
+	toolName, err := requireCodexStringValue(item.Tool, "codex mcpToolCall item.tool")
 	if err != nil {
-		return codexRunItemExecutionFields{}, err
+		return RunItem{}, err
 	}
-	durationMs, err := optionalInt(item, "durationMs", "codex item")
+	status, err := mapCodexItemStatusWithDefault(string(item.Status), RunItemStatusRunning)
 	if err != nil {
-		return codexRunItemExecutionFields{}, err
+		return RunItem{}, err
 	}
-	return codexRunItemExecutionFields{command: command, cwd: cwd, exitCode: exitCode, durationMs: durationMs}, nil
-}
-
-func codexRunItemFileToolFieldsFromItem(item map[string]any) (codexRunItemFileToolFields, error) {
-	filePaths, err := optionalStringArray(item, "changedPaths", "codex item")
+	result, err := mcpToolResultSummary(item.Result)
 	if err != nil {
-		return codexRunItemFileToolFields{}, err
+		return RunItem{}, err
 	}
-	patchStatus, err := optionalString(item, "patchStatus", "codex item")
+	details, err := mcpToolCallDetails(item, serverName, toolName, result)
 	if err != nil {
-		return codexRunItemFileToolFields{}, err
+		return RunItem{}, err
 	}
-	serverName, err := optionalString(item, "serverName", "codex item")
-	if err != nil {
-		return codexRunItemFileToolFields{}, err
-	}
-	toolName, err := optionalString(item, "toolName", "codex item")
-	if err != nil {
-		return codexRunItemFileToolFields{}, err
-	}
-	progress, err := optionalString(item, "progress", "codex item")
-	if err != nil {
-		return codexRunItemFileToolFields{}, err
-	}
-	return codexRunItemFileToolFields{
-		filePaths:   filePaths,
-		patchStatus: patchStatus,
-		progress:    progress,
-		serverName:  serverName,
-		toolName:    toolName,
+	return RunItem{
+		ProviderItemID: id,
+		Type:           RunItemTypeMCPToolCall,
+		Status:         status,
+		Details:        NewRunItemMCPToolCallDetails(details),
 	}, nil
 }
 
-func codexRunItemResultFieldsFromItem(item map[string]any) (codexRunItemResultFields, error) {
-	result, err := optionalString(item, "result", "codex item")
+func collabAgentToolCallRunItem(item codexapp.CollabAgentToolCallThreadItem) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex collabAgentToolCall item.id")
 	if err != nil {
-		return codexRunItemResultFields{}, err
+		return RunItem{}, err
 	}
-	errorMessage, err := optionalString(item, "error", "codex item")
+	toolName, err := requireCodexStringValue(string(item.Tool), "codex collabAgentToolCall item.tool")
 	if err != nil {
-		return codexRunItemResultFields{}, err
+		return RunItem{}, err
 	}
-	return codexRunItemResultFields{result: result, errorMessage: errorMessage}, nil
+	status, err := mapCodexItemStatusWithDefault(string(item.Status), RunItemStatusRunning)
+	if err != nil {
+		return RunItem{}, err
+	}
+	return RunItem{
+		ProviderItemID: id,
+		Type:           RunItemTypeCollabAgentToolCall,
+		Status:         status,
+		ToolName:       toolName,
+	}, nil
 }
 
-var codexRunItemTypeByCodexType = map[string]RunItemType{
-	"agentMessage":        RunItemTypeAgentMessage,
-	"collabAgentToolCall": RunItemTypeCollabAgentToolCall,
-	"commandExecution":    RunItemTypeCommandExecution,
-	"diff":                RunItemTypeDiff,
-	"dynamicToolCall":     RunItemTypeDynamicToolCall,
-	"fileChange":          RunItemTypeFileChange,
-	"imageGeneration":     RunItemTypeImageGeneration,
-	"imageView":           RunItemTypeImageView,
-	"mcpToolCall":         RunItemTypeMCPToolCall,
-	"plan":                RunItemTypePlan,
-	"contextCompaction":   RunItemTypeContextCompaction,
-	"reasoning":           RunItemTypeReasoning,
-	"terminalInteraction": RunItemTypeTerminalInteraction,
-	"webSearch":           RunItemTypeWebSearch,
+func webSearchRunItem(item codexapp.WebSearchThreadItem, status RunItemStatus) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex webSearch item.id")
+	if err != nil {
+		return RunItem{}, err
+	}
+	query, err := requireCodexStringValue(item.Query, "codex webSearch item.query")
+	if err != nil {
+		return RunItem{}, err
+	}
+	return RunItem{
+		ProviderItemID: id,
+		Type:           RunItemTypeWebSearch,
+		Status:         status,
+		Summary:        query,
+	}, nil
 }
 
-func mapCodexItemType(codexType string) (RunItemType, error) {
-	itemType, ok := codexRunItemTypeByCodexType[codexType]
+func imageViewRunItem(item codexapp.ImageViewThreadItem, status RunItemStatus) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex imageView item.id")
+	if err != nil {
+		return RunItem{}, err
+	}
+	path, err := requireCodexStringValue(string(item.Path), "codex imageView item.path")
+	if err != nil {
+		return RunItem{}, err
+	}
+	return RunItem{
+		ProviderItemID: id,
+		Type:           RunItemTypeImageView,
+		Status:         status,
+		FilePaths:      []string{path},
+	}, nil
+}
+
+func imageGenerationRunItem(item codexapp.ImageGenerationThreadItem) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex imageGeneration item.id")
+	if err != nil {
+		return RunItem{}, err
+	}
+	status, err := mapCodexItemStatusWithDefault(item.Status, RunItemStatusRunning)
+	if err != nil {
+		return RunItem{}, err
+	}
+	return RunItem{
+		ProviderItemID: id,
+		Type:           RunItemTypeImageGeneration,
+		Status:         status,
+		Result:         item.Result,
+	}, nil
+}
+
+func contextCompactionRunItem(item codexapp.ContextCompactionThreadItem, status RunItemStatus) (RunItem, error) {
+	id, err := requireCodexStringValue(item.ID, "codex contextCompaction item.id")
+	if err != nil {
+		return RunItem{}, err
+	}
+	return RunItem{
+		ProviderItemID: id,
+		Type:           RunItemTypeContextCompaction,
+		Status:         status,
+		Title:          "Context compaction",
+	}, nil
+}
+
+// codexRunItemCommandSource maps the Codex app-server CommandExecutionSource
+// discriminator. An absent source is nil. A present source must be a valid enum
+// value; empty or unknown values are provider protocol drift.
+func codexRunItemCommandSource(source *codexapp.CommandExecutionSource) (*RunItemCommandSource, error) {
+	if source == nil {
+		return nil, nil
+	}
+	if *source == "" {
+		return nil, fmt.Errorf("codex commandExecution item.source must be a non-empty CommandExecutionSource")
+	}
+	mapped, err := mapCodexCommandSource(string(*source))
+	if err != nil {
+		return nil, err
+	}
+	return &mapped, nil
+}
+
+var codexCommandSourceByCodexSource = map[string]RunItemCommandSource{
+	"agent":                  RunItemCommandSourceAgent,
+	"userShell":              RunItemCommandSourceUserShell,
+	"unifiedExecStartup":     RunItemCommandSourceUnifiedExecStartup,
+	"unifiedExecInteraction": RunItemCommandSourceUnifiedExecInteraction,
+}
+
+func mapCodexCommandSource(source string) (RunItemCommandSource, error) {
+	mapped, ok := codexCommandSourceByCodexSource[source]
 	if !ok {
-		return "", fmt.Errorf("unsupported codex item type: %s", codexType)
+		return "", fmt.Errorf("unsupported codex command execution source: %s", source)
 	}
-	return itemType, nil
+	return mapped, nil
 }
 
 // Codex app-server 0.135.0 item status values observed from the app-server
@@ -385,26 +572,218 @@ var codexRunItemStatusByCodexStatus = map[string]RunItemStatus{
 	"succeeded":   RunItemStatusCompleted,
 }
 
-func requireJoinedStringArray(value map[string]any, name string, label string) (string, error) {
-	raw, ok := value[name]
-	if !ok || raw == nil {
-		return "", fmt.Errorf("%s.%s is required", label, name)
+func mapCodexItemStatusWithDefault(status string, defaultStatus RunItemStatus) (RunItemStatus, error) {
+	if status == "" {
+		return defaultStatus, nil
 	}
-	values, ok := raw.([]any)
-	if !ok {
-		return "", fmt.Errorf("%s.%s must be an array", label, name)
+	return mapCodexItemStatus(status)
+}
+
+func requireCodexStringValue(value string, label string) (string, error) {
+	if value == "" {
+		return "", fmt.Errorf("%s is required", label)
 	}
+	return value, nil
+}
+
+func stringPtrValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func intPtrValue(value *int) int {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func nonEmptyStrings(values []string) []string {
 	parts := make([]string, 0, len(values))
-	for index, rawValue := range values {
-		part, ok := rawValue.(string)
-		if !ok {
-			return "", fmt.Errorf("%s.%s[%d] must be a string", label, name, index)
+	for _, value := range values {
+		if value != "" {
+			parts = append(parts, value)
 		}
-		if part != "" {
-			parts = append(parts, part)
+	}
+	return parts
+}
+
+func mcpToolCallDetails(item codexapp.McpToolCallThreadItem, serverName string, toolName string, resultSummary string) (RunItemMCPToolCallDetails, error) {
+	appContext, err := rawJSONFromOptionalValue(item.AppContext, "codex mcpToolCall item.appContext")
+	if err != nil {
+		return RunItemMCPToolCallDetails{}, err
+	}
+	result, err := mcpToolResultDetails(item.Result)
+	if err != nil {
+		return RunItemMCPToolCallDetails{}, err
+	}
+	errorMessage := ""
+	if item.Error != nil {
+		errorMessage = item.Error.Message
+	}
+	return RunItemMCPToolCallDetails{
+		ServerName:        serverName,
+		ToolName:          toolName,
+		DisplayTitle:      "MCP: " + serverName,
+		DurationMs:        intPtrValue(item.DurationMs),
+		Arguments:         cloneRawMessage(item.Arguments),
+		AppContext:        appContext,
+		PluginID:          stringPtrValue(item.PluginId),
+		MCPAppResourceURI: stringPtrValue(item.McpAppResourceUri),
+		ResultSummary:     resultSummary,
+		Result:            result,
+		Error:             errorMessage,
+	}, nil
+}
+
+func rawJSONFromOptionalValue(value any, label string) (json.RawMessage, error) {
+	if value == nil {
+		return nil, nil
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s: %w", label, err)
+	}
+	return data, nil
+}
+
+func mcpToolResultDetails(result *codexapp.McpToolCallResult) (*RunItemMCPToolResult, error) {
+	if result == nil {
+		return nil, nil
+	}
+	return &RunItemMCPToolResult{
+		Content:           cloneRawMessages(result.Content),
+		StructuredContent: cloneRawMessage(result.StructuredContent),
+		Meta:              cloneRawMessage(result.Meta),
+	}, nil
+}
+
+func cloneRawMessages(values []json.RawMessage) []json.RawMessage {
+	if values == nil {
+		return nil
+	}
+	cloned := make([]json.RawMessage, 0, len(values))
+	for _, value := range values {
+		cloned = append(cloned, cloneRawMessage(value))
+	}
+	return cloned
+}
+
+type mcpResultContentBlock struct {
+	Type string  `json:"type"`
+	Text *string `json:"text"`
+}
+
+func mcpToolResultSummary(result *codexapp.McpToolCallResult) (string, error) {
+	if result == nil {
+		return "", nil
+	}
+	texts := []string{}
+	nonTextCounts := map[string]int{}
+	for index, raw := range result.Content {
+		block, err := mcpResultContentBlockFromRaw(raw, index)
+		if err != nil {
+			return "", err
 		}
+		if block.Type == "text" {
+			texts = append(texts, *block.Text)
+			continue
+		}
+		nonTextCounts[block.Type]++
+	}
+	parts := []string{}
+	if text := boundedTextSummary(texts, mcpToolResultSummaryRuneLimit); text != "" {
+		parts = append(parts, text)
+	}
+	parts = append(parts, nonTextContentSummaries(nonTextCounts)...)
+	if rawJSONPresent(result.StructuredContent) {
+		parts = append(parts, "structured content present")
 	}
 	return strings.Join(parts, "\n"), nil
+}
+
+func mcpResultContentBlockFromRaw(raw json.RawMessage, index int) (mcpResultContentBlock, error) {
+	var block mcpResultContentBlock
+	if err := json.Unmarshal(raw, &block); err != nil {
+		return mcpResultContentBlock{}, fmt.Errorf("codex mcpToolCall.result.content[%d] must be an object: %w", index, err)
+	}
+	if block.Type == "" {
+		return mcpResultContentBlock{}, fmt.Errorf("codex mcpToolCall.result.content[%d].type is required", index)
+	}
+	if block.Type == "text" && block.Text == nil {
+		return mcpResultContentBlock{}, fmt.Errorf("codex mcpToolCall.result.content[%d].text is required", index)
+	}
+	return block, nil
+}
+
+func boundedTextSummary(texts []string, limit int) string {
+	var builder strings.Builder
+	written := 0
+	for _, text := range texts {
+		if text == "" {
+			continue
+		}
+		if builder.Len() > 0 {
+			if !writeBoundedRune(&builder, '\n', limit, &written) {
+				return builder.String()
+			}
+		}
+		for _, char := range text {
+			if !writeBoundedRune(&builder, char, limit, &written) {
+				return builder.String()
+			}
+		}
+	}
+	return builder.String()
+}
+
+func writeBoundedRune(builder *strings.Builder, char rune, limit int, written *int) bool {
+	if *written >= limit {
+		if !strings.HasSuffix(builder.String(), "...") {
+			builder.WriteString("...")
+		}
+		return false
+	}
+	builder.WriteRune(char)
+	*written = *written + 1
+	return true
+}
+
+func nonTextContentSummaries(counts map[string]int) []string {
+	if len(counts) == 0 {
+		return nil
+	}
+	kinds := make([]string, 0, len(counts))
+	for kind := range counts {
+		kinds = append(kinds, kind)
+	}
+	sort.Strings(kinds)
+	summaries := make([]string, 0, len(kinds))
+	for _, kind := range kinds {
+		count := counts[kind]
+		label := kind + " content block"
+		if count != 1 {
+			label += "s"
+		}
+		summaries = append(summaries, fmt.Sprintf("%d %s", count, label))
+	}
+	return summaries
+}
+
+func rawJSONPresent(raw json.RawMessage) bool {
+	trimmed := bytes.TrimSpace(raw)
+	return len(trimmed) > 0 && !bytes.Equal(trimmed, []byte("null"))
+}
+
+func rawFieldIsNull(raw json.RawMessage, field string) bool {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return false
+	}
+	value, ok := fields[field]
+	return ok && bytes.Equal(bytes.TrimSpace(value), []byte("null"))
 }
 
 func requireStringAllowEmpty(value map[string]any, name string, label string) (string, error) {

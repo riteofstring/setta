@@ -109,10 +109,14 @@ func handleCodexThreadSettingsUpdated(message jsonRPCMessage, threadID string, _
 	if err := requireCodexThreadIDMatch(message, threadID, params.ThreadID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	if _, err := codexThreadSettingsFromNotification(params, threadID); err != nil {
+	settings, err := codexThreadSettingsFromNotification(params, threadID)
+	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	return codexNotificationResult{}, sink.Trace("codex_thread_settings_updated", params.ThreadID)
+	if err := sink.Trace("codex_thread_settings_updated", params.ThreadID); err != nil {
+		return codexNotificationResult{}, err
+	}
+	return codexNotificationResult{CodexEffectiveSettings: &settings}, nil
 }
 
 func codexThreadSettingsFromNotification(params codexapp.ThreadSettingsUpdatedNotification, threadID string) (codexCommandThreadSettings, error) {
@@ -130,7 +134,10 @@ func codexThreadSettingsFromNotification(params codexapp.ThreadSettingsUpdatedNo
 		}
 	}
 	return codexCommandThreadSettings{
-		Model:           params.ThreadSettings.Model,
-		ReasoningEffort: effort,
+		Model:                          params.ThreadSettings.Model,
+		ReasoningEffort:                effort,
+		ApprovalPolicy:                 codexApprovalPolicyString(params.ThreadSettings.ApprovalPolicy),
+		ActivePermissionProfileID:      activePermissionProfileID(params.ThreadSettings.ActivePermissionProfile),
+		ActivePermissionProfileExtends: activePermissionProfileExtends(params.ThreadSettings.ActivePermissionProfile),
 	}, nil
 }

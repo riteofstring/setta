@@ -105,11 +105,14 @@ export async function runQueuedControlsWorkflow({
 
   await submitComposer(client, "immediate replay workflow", "Send steering message");
   await waitForTexts(client, ["immediate replay workflow", "Steering pending"]);
+  // Steering interleaves into the active run's blocks, so the pending steering message lands after
+  // the active run's assistant text and before the queued tail (queued runs sort after the active
+  // run's blocks), rather than after the queued message by conversation ordinal.
   await assertTranscriptSequence(client, [
     "cancel active workflow",
     "Cancel workflow waiting.",
-    "queued follow-up one from active run",
     "immediate replay workflow",
+    "queued follow-up one from active run",
   ]);
   await waitForPendingSteeringPrompt(
     waitForBackendState,
@@ -160,8 +163,8 @@ export async function runQueuedControlsWorkflow({
   await assertTranscriptSequence(client, [
     "cancel active workflow",
     "immediate replay workflow",
-    "Active workflow complete.",
     "finish immediate replay",
+    "Active workflow complete.",
     "queued follow-up one from active run",
     "Queued response for queued follow-up one from active run.",
   ]);
@@ -336,5 +339,7 @@ function messagePage(backend, workspaceId, conversationId) {
 }
 
 function messageText(message) {
-  return message.parts.map((part) => part.text).join("");
+  return message.parts
+    .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
+    .join("");
 }
