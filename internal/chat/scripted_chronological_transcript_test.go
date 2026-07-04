@@ -45,7 +45,8 @@ func (sink *orderedChronoSink) CodexEffectiveSettingsUpdated(ChatCodexEffectiveS
 func (sink *orderedChronoSink) ProviderDiagnostic(string, string, map[string]string, bool, DiagnosticSeverity) error {
 	return nil
 }
-func (sink *orderedChronoSink) GoalUpdated(*ChatGoalState) error { return nil }
+func (sink *orderedChronoSink) ProviderTurnError(ProviderTurnError) error { return nil }
+func (sink *orderedChronoSink) GoalUpdated(*ChatGoalState) error          { return nil }
 func (sink *orderedChronoSink) ThreadLinked(string, string, string, *ChatCodexEffectiveSettings) error {
 	return nil
 }

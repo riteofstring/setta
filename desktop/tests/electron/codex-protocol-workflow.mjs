@@ -435,6 +435,57 @@ export async function runProtocolProviderRestartLivenessWorkflow(client, backend
   await assertNoActiveRun(backend, workspaceId, conversationId);
 }
 
+export async function runProtocolStreamErrorLivenessWorkflow(client, backend, workspaceId) {
+  const retryingConversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "retryable stream error workflow", "Send message");
+  const retryingRun = await waitForRunStatusForPrompt(
+    backend,
+    workspaceId,
+    retryingConversationId,
+    "retryable stream error workflow",
+    "running",
+  );
+  await waitForTexts(client, ["Retryable stream started."]);
+  await waitForRendererLiveness(client, retryingRun.id, "reconciling", "reconnecting");
+  await waitForTexts(client, ["Reconnecting"]);
+  await assertStreamErrorLivenessItem(
+    backend,
+    workspaceId,
+    retryingConversationId,
+    retryingRun.id,
+    {
+      reason: "stream_resync",
+      status: "reconciling",
+    },
+  );
+  await assertDegradedRunControls(client, { retry: true, stop: true });
+  await clickButtonByAria(client, "Stop run");
+  await waitForRunStatus(backend, workspaceId, retryingConversationId, retryingRun.id, "cancelled");
+  await assertNoActiveRun(backend, workspaceId, retryingConversationId);
+
+  const lostConversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "nonretryable stream error workflow", "Send message");
+  const lostRun = await waitForRunStatusForPrompt(
+    backend,
+    workspaceId,
+    lostConversationId,
+    "nonretryable stream error workflow",
+    "running",
+  );
+  await waitForTexts(client, ["Partial before stream loss."]);
+  await waitForRendererLiveness(client, lostRun.id, "lost", "lost");
+  await waitForTexts(client, ["Connection lost", "stream disconnected before completion"]);
+  await assertStreamErrorLivenessItem(backend, workspaceId, lostConversationId, lostRun.id, {
+    error: "stream disconnected before completion",
+    reason: "provider_unavailable",
+    status: "lost",
+  });
+  await assertDegradedRunControls(client, { retry: true, stop: true });
+  await clickButtonByAria(client, "Stop run");
+  await waitForRunStatus(backend, workspaceId, lostConversationId, lostRun.id, "cancelled");
+  await assertNoActiveRun(backend, workspaceId, lostConversationId);
+}
+
 async function waitForRunStatusForPrompt(backend, workspaceId, conversationId, prompt, status) {
   return waitForBackendState(async () => {
     const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
@@ -471,6 +522,42 @@ function assertProviderRestartLivenessItem(item, runId) {
   }
   if (!liveness.retryable || !liveness.cancellable) {
     throw new Error(`provider restart liveness capabilities mismatch: ${JSON.stringify(liveness)}`);
+  }
+}
+
+async function assertStreamErrorLivenessItem(
+  backend,
+  workspaceId,
+  conversationId,
+  runId,
+  expected,
+) {
+  const list = await backend.post("/chat/conversations/list", { workspaceId });
+  const liveness = requireStreamErrorLivenessItem(list, conversationId, runId);
+  assertStreamErrorLiveness(liveness, expected);
+}
+
+function requireStreamErrorLivenessItem(list, conversationId, runId) {
+  const item = list.conversations.find((candidate) => candidate.conversation.id === conversationId);
+  if (!item) {
+    throw new Error(`stream error conversation missing for run ${runId}`);
+  }
+  const liveness = item.activeRunLiveness;
+  if (item.activeRunId !== runId || !liveness) {
+    throw new Error(`stream error active liveness missing: ${JSON.stringify(item)}`);
+  }
+  return liveness;
+}
+
+function assertStreamErrorLiveness(liveness, expected) {
+  if (liveness.status !== expected.status || liveness.reason !== expected.reason) {
+    throw new Error(`stream error liveness status mismatch: ${JSON.stringify(liveness)}`);
+  }
+  if (expected.error !== undefined && liveness.error !== expected.error) {
+    throw new Error(`stream error liveness error mismatch: ${JSON.stringify(liveness)}`);
+  }
+  if (!liveness.retryable || !liveness.cancellable) {
+    throw new Error(`stream error liveness capabilities mismatch: ${JSON.stringify(liveness)}`);
   }
 }
 

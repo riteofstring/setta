@@ -382,6 +382,16 @@ func (sink *codexStructuredTaskSink) ProviderDiagnostic(code string, message str
 	return nil
 }
 
+func (sink *codexStructuredTaskSink) ProviderTurnError(providerError ProviderTurnError) error {
+	sink.diagnostics = append(sink.diagnostics, HarnessTaskDiagnostic{
+		Code:     "codex_turn_error",
+		Message:  providerError.Message,
+		Severity: DiagnosticSeverityCritical,
+		Context:  providerTurnErrorDiagnosticContext(providerError, providerError.Retryable || providerError.StreamFailure),
+	})
+	return nil
+}
+
 func (sink *codexStructuredTaskSink) GoalUpdated(*ChatGoalState) error {
 	return errors.New("codex structured cartographer task attempted goal update")
 }

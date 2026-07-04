@@ -85,6 +85,7 @@ import {
   runProtocolLivenessReconciliationWorkflow,
   runProtocolGoalMultiTurnWorkflow,
   runProtocolProviderRestartLivenessWorkflow,
+  runProtocolStreamErrorLivenessWorkflow,
 } from "./codex-protocol-workflow.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
 
@@ -1278,6 +1279,7 @@ async function runCodexProtocolWorkflow(results) {
     await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);
     await runProtocolLivenessReconciliationWorkflow(context.client, backend, workspaceId);
     await runProtocolProviderRestartLivenessWorkflow(context.client, backend, workspaceId);
+    await runProtocolStreamErrorLivenessWorkflow(context.client, backend, workspaceId);
     await captureScreenshot(context.client, join(recordingDir, "success.png"));
   } catch (error) {
     failure = error;

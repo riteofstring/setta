@@ -965,18 +965,29 @@ func TestCodexHarnessContinuesAfterRetryableErrorNotification(t *testing.T) {
 	if sink.text != "hello from codex" {
 		t.Fatalf("assistant text = %q, want streamed response", sink.text)
 	}
+	if len(sink.turnErrors) != 1 ||
+		sink.turnErrors[0].Message != "temporary provider error" ||
+		!sink.turnErrors[0].Retryable {
+		t.Fatalf("provider turn errors = %+v, want retryable provider error", sink.turnErrors)
+	}
 }
 
 func TestCodexHarnessFailsTerminalErrorNotification(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("terminal-error-notification"))
 	sink := newRecordingSink()
 
-	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	if err == nil {
-		t.Fatal("start turn succeeded, want terminal error notification")
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
 	}
-	if !strings.Contains(err.Error(), "codex app-server error notification: model unavailable") {
-		t.Fatalf("error = %q, want terminal error notification", err)
+	if completion.Outcome != TurnOutcomeFailed || completion.ErrorMessage != "model unavailable" {
+		t.Fatalf("completion = %+v, want terminal provider failure", completion)
+	}
+	if len(sink.turnErrors) != 1 ||
+		sink.turnErrors[0].Message != "model unavailable" ||
+		sink.turnErrors[0].Retryable ||
+		sink.turnErrors[0].StreamFailure {
+		t.Fatalf("provider turn errors = %+v, want non-retryable provider error", sink.turnErrors)
 	}
 }
 

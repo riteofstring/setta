@@ -159,6 +159,9 @@ func (service *Service) activeRunReconciliationTargetLocked(workspaceID string, 
 	if !attached || active.runID != run.ID {
 		return activeRunReconciliationTarget{}, *service.activeRunLivenessLocked(workspaceID, conversationID, run), false, nil
 	}
+	if liveness, preserve := service.preservedSnapshotRunLivenessLocked(workspaceID, conversationID, run, reason); preserve {
+		return activeRunReconciliationTarget{}, liveness, false, nil
+	}
 	reconciledAt := timestamp(service.now())
 	liveness := service.markActiveRunLivenessReconcilingLocked(workspaceID, conversationID, run, active, reason, reconciledAt)
 	if _, err := service.events.Publish(NewRunLivenessUpdatedEvent(liveness)); err != nil {
@@ -175,6 +178,19 @@ func (service *Service) activeRunReconciliationTargetLocked(workspaceID string, 
 		run:          run,
 		workspace:    workspaceID,
 	}, liveness, true, nil
+}
+
+func (service *Service) preservedSnapshotRunLivenessLocked(workspaceID string, conversationID string, run Run, reason RunLivenessReason) (RunLiveness, bool) {
+	if reason != RunLivenessReasonSnapshotLoad {
+		return RunLiveness{}, false
+	}
+	key := activeKey(workspaceID, conversationID)
+	liveness, ok := service.liveness[key]
+	if !ok || liveness.RunID != run.ID || liveness.Status != RunLivenessLost {
+		return RunLiveness{}, false
+	}
+	liveness.Cancellable = service.activeRunCancellableLocked(key, run.ID)
+	return liveness, true
 }
 
 func (service *Service) applyRunLivenessReconciliationError(target activeRunReconciliationTarget, err error) (RunLiveness, error) {

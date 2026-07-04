@@ -12,6 +12,7 @@ type recordingSink struct {
 	text        string
 	threadID    string
 	traces      []recordedTrace
+	turnErrors  []ProviderTurnError
 	turnID      string
 }
 
@@ -61,6 +62,11 @@ func (sink *recordingSink) ProviderDiagnostic(code string, message string, conte
 		resyncRequired: resyncRequired,
 		severity:       severity,
 	})
+	return nil
+}
+
+func (sink *recordingSink) ProviderTurnError(providerError ProviderTurnError) error {
+	sink.turnErrors = append(sink.turnErrors, providerError)
 	return nil
 }
 

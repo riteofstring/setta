@@ -10,6 +10,24 @@ import (
 
 const codexCommandExecutionOutputStream = "output"
 
+var codexErrorInfoKinds = map[string]bool{
+	"activeTurnNotSteerable":         false,
+	"badRequest":                     false,
+	"contextWindowExceeded":          false,
+	"cyberPolicy":                    false,
+	"httpConnectionFailed":           true,
+	"internalServerError":            false,
+	"other":                          false,
+	"responseStreamConnectionFailed": true,
+	"responseStreamDisconnected":     true,
+	"responseTooManyFailedAttempts":  true,
+	"sandboxError":                   false,
+	"serverOverloaded":               false,
+	"threadRollbackFailed":           false,
+	"unauthorized":                   false,
+	"usageLimitExceeded":             false,
+}
+
 type codexNotificationResult struct {
 	CodexEffectiveSettings *codexCommandThreadSettings
 	Completion             TurnCompletion
@@ -188,29 +206,84 @@ func handleCodexRemoteControlStatusChanged(message jsonRPCMessage, _ string, _ s
 }
 
 func handleCodexErrorNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex error notification params")
+	params, err := codexapp.DecodeErrorNotification(message.Params)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	errorObject, err := requireObject(params, "error", "codex error notification")
+	providerError, err := providerTurnErrorFromCodexErrorNotification(params)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	errorMessage, err := requireString(errorObject, "message", "codex error notification error")
-	if err != nil {
+	if err := sink.ProviderTurnError(providerError); err != nil {
 		return codexNotificationResult{}, err
 	}
-	willRetry, err := requireBool(params, "willRetry", "codex error notification")
+	if providerError.Retryable || providerError.StreamFailure {
+		return codexNotificationResult{}, nil
+	}
+	return codexNotificationResult{
+		Completion: TurnCompletion{
+			Outcome:      TurnOutcomeFailed,
+			ErrorMessage: providerError.Message,
+		},
+	}, nil
+}
+
+func providerTurnErrorFromCodexErrorNotification(params codexapp.ErrorNotification) (ProviderTurnError, error) {
+	providerError := ProviderTurnError{
+		Message:       params.Error.Message,
+		Retryable:     params.WillRetry,
+		StreamFailure: false,
+	}
+	if params.Error.AdditionalDetails != nil {
+		providerError.AdditionalDetails = *params.Error.AdditionalDetails
+	}
+	if params.Error.CodexErrorInfo == nil {
+		return providerError, nil
+	}
+	raw := json.RawMessage(*params.Error.CodexErrorInfo)
+	providerError.CodexErrorInfo = append(json.RawMessage(nil), raw...)
+	kind, streamFailure, err := codexErrorInfoKind(raw)
 	if err != nil {
-		return codexNotificationResult{}, err
+		return ProviderTurnError{}, err
 	}
-	if willRetry {
-		return codexNotificationResult{}, sink.Trace("codex_retryable_error_received", errorMessage)
+	providerError.CodexErrorKind = kind
+	providerError.StreamFailure = streamFailure
+	return providerError, nil
+}
+
+func codexErrorInfoKind(raw json.RawMessage) (string, bool, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return "", false, nil
 	}
-	return codexNotificationResult{}, fmt.Errorf("codex app-server error notification: %s", errorMessage)
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return "", false, fmt.Errorf("codex error info must decode: %w", err)
+	}
+	switch info := value.(type) {
+	case nil:
+		return "", false, nil
+	case string:
+		streamFailure, ok := codexErrorInfoKinds[info]
+		if !ok {
+			return "", false, fmt.Errorf("unsupported codex error info kind: %s", info)
+		}
+		return info, streamFailure, nil
+	case map[string]any:
+		if len(info) != 1 {
+			return "", false, fmt.Errorf("codex error info object must contain exactly one branch")
+		}
+		for kind := range info {
+			streamFailure, ok := codexErrorInfoKinds[kind]
+			if !ok {
+				return "", false, fmt.Errorf("unsupported codex error info kind: %s", kind)
+			}
+			return kind, streamFailure, nil
+		}
+	}
+	return "", false, fmt.Errorf("unsupported codex error info shape")
 }
 
 func handleUnsupportedCodexNotification(message jsonRPCMessage, sink TurnSink) (codexNotificationResult, error) {

@@ -259,6 +259,15 @@ type TurnCompletion struct {
 	ErrorMessage string
 }
 
+type ProviderTurnError struct {
+	Message           string
+	AdditionalDetails string
+	CodexErrorInfo    json.RawMessage
+	CodexErrorKind    string
+	Retryable         bool
+	StreamFailure     bool
+}
+
 type TurnRequest struct {
 	Workspace       workspace.WorkspaceSummary
 	Conversation    Conversation
@@ -331,6 +340,7 @@ type TurnSink interface {
 	ApprovalRequested(approval ApprovalRequest) error
 	ApprovalResolved(approvalID string, approved bool, response string) error
 	CodexEffectiveSettingsUpdated(settings ChatCodexEffectiveSettings) error
+	ProviderTurnError(providerError ProviderTurnError) error
 	ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error
 	GoalUpdated(goal *ChatGoalState) error
 	RunItemOutputDelta(providerItemID string, stream string, text string) error

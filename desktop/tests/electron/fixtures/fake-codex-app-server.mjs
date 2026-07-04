@@ -145,6 +145,16 @@ function handleTurnStart(message) {
     setTimeout(emitSilentLivenessTurn, 5);
     return;
   }
+  if (text.includes("nonretryable stream error workflow")) {
+    activeSilentLivenessTurn = fakeTurn("inProgress");
+    setTimeout(emitNonRetryableStreamErrorTurn, 5);
+    return;
+  }
+  if (text.includes("retryable stream error workflow")) {
+    activeSilentLivenessTurn = fakeTurn("inProgress");
+    setTimeout(emitRetryableStreamErrorTurn, 5);
+    return;
+  }
   if (text.includes("protocol notification workflow")) {
     setTimeout(
       () => requestDynamicTool("workspace_context", "tool_context", "workspace_context"),
@@ -722,6 +732,43 @@ function emitSilentLivenessTurn() {
     itemId: "liveness_message_fake",
     threadId,
     turnId,
+  });
+}
+
+function emitRetryableStreamErrorTurn() {
+  notify("item/agentMessage/delta", {
+    delta: "Retryable stream started. ",
+    itemId: "retryable_stream_message_fake",
+    threadId,
+    turnId,
+  });
+  emitStreamErrorNotification("Codex connection retrying", true);
+}
+
+function emitNonRetryableStreamErrorTurn() {
+  notify("item/agentMessage/delta", {
+    delta: "Partial before stream loss. ",
+    itemId: "nonretryable_stream_message_fake",
+    threadId,
+    turnId,
+  });
+  emitStreamErrorNotification("stream disconnected before completion", false);
+}
+
+function emitStreamErrorNotification(message, willRetry) {
+  notify("error", {
+    error: {
+      additionalDetails: "fake response stream disconnect",
+      codexErrorInfo: {
+        responseStreamDisconnected: {
+          httpStatusCode: null,
+        },
+      },
+      message,
+    },
+    threadId,
+    turnId,
+    willRetry,
   });
 }
 

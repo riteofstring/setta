@@ -39,6 +39,10 @@ func (sink turnSink) CodexEffectiveSettingsUpdated(settings ChatCodexEffectiveSe
 	return sink.service.updateCodexEffectiveSettings(sink.workspaceID, sink.conversationID, sink.runID, settings)
 }
 
+func (sink turnSink) ProviderTurnError(providerError ProviderTurnError) error {
+	return sink.service.handleProviderTurnError(sink.workspaceID, sink.conversationID, sink.runID, providerError)
+}
+
 func (sink turnSink) ThreadLinked(threadID string, sessionID string, turnID string, settings *ChatCodexEffectiveSettings) error {
 	return sink.service.linkThread(sink.workspaceID, sink.conversationID, sink.runID, threadID, sessionID, turnID, settings)
 }

@@ -77,10 +77,11 @@ func (service *Service) markActiveRunLivenessReconcilingLocked(workspaceID strin
 }
 
 func reconcilingRunLivenessReason(current RunLiveness, next RunLivenessReason) RunLivenessReason {
-	if current.Status == RunLivenessReconciling &&
-		current.Reason == RunLivenessReasonProviderRestarted &&
-		next == RunLivenessReasonSnapshotLoad {
-		return current.Reason
+	if current.Status == RunLivenessReconciling && next == RunLivenessReasonSnapshotLoad {
+		switch current.Reason {
+		case RunLivenessReasonProviderRestarted, RunLivenessReasonStreamResync:
+			return current.Reason
+		}
 	}
 	return next
 }

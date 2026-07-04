@@ -90,6 +90,27 @@ func TestServiceReconcileInProgressStaysReconcilingUntilFreshProviderEvent(t *te
 	}
 }
 
+func TestServiceSnapshotReconcilePreservesStreamResyncReason(t *testing.T) {
+	harness := newLivenessReconcileHarness(HarnessRunLivenessResult{
+		ThreadStatus: HarnessThreadRuntimeActive,
+		TurnFound:    true,
+		TurnStatus:   HarnessTurnRuntimeInProgress,
+	}, nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, _ := startLinkedReconciliationRun(t, service)
+
+	if _, err := service.ReconcileActiveRuns(context.Background(), "workspace_api", conversation.ID, RunLivenessReasonStreamResync); err != nil {
+		t.Fatalf("stream resync reconcile: %v", err)
+	}
+	snapshot, err := service.ReconcileActiveRuns(context.Background(), "workspace_api", conversation.ID, RunLivenessReasonSnapshotLoad)
+	if err != nil {
+		t.Fatalf("snapshot reconcile: %v", err)
+	}
+	if len(snapshot.Runs) != 1 || snapshot.Runs[0].Reason != RunLivenessReasonStreamResync {
+		t.Fatalf("snapshot reconcile liveness = %+v, want stream resync reason preserved", snapshot.Runs)
+	}
+}
+
 func TestServiceReconcileDoesNotDowngradeFreshProviderEvent(t *testing.T) {
 	harness := newLivenessReconcileHarness(HarnessRunLivenessResult{
 		ThreadStatus: HarnessThreadRuntimeActive,
