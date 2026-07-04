@@ -461,22 +461,22 @@ After the extraction is complete, run the targeted Electron tests that owned the
 
 ### Progress
 
-Status: Extraction in progress. DOM pane snapshot/scroll, chat stream
-performance, semantic graph workflow, and overview performance now install
-driver modules and call named driver functions with structured arguments.
-Verification: DOM pane snapshot/scroll passed; chat performance `node --check`
-and focused scripted harness checks passed, but
-`chat-stream-performance.test.mjs --skip-build` still fails the existing
-frame-budget assertion after measurement. Semantic graph `node --check` and
-workflow `--skip-build` passed. Overview `node --check` passed for the driver,
-helper, zoom test, and `cdp-client.mjs`;
-`workflow-graph-maximized-4k-overview.test.mjs --skip-build` passed; and
-`overview-zoom-performance.test.mjs --skip-build` was attempted twice but still
-fails in its previously recorded browser-pane setup path with visible browser
-pane count stuck at `0`. Final `./scripts/format.sh` and
-`./check_quality.sh --git-changes` passed. Remaining: extract long transcript performance;
-resolve or baseline the chat stream and overview zoom performance blockers; add
-the large-template-literal guardrail.
+Status: Extraction in progress. DOM pane snapshot/scroll, chat stream,
+semantic graph, overview, and long transcript performance now install driver
+modules and call named driver functions with structured arguments. Long
+transcript extraction also repaired stale grouped-activity and virtualized
+pagination assertions, so the workflow verifies older-page progress without
+requiring a retained 100k-pixel DOM.
+
+Verification: DOM pane snapshot/scroll, semantic graph syntax/workflow, overview
+syntax, and `workflow-graph-maximized-4k-overview.test.mjs --skip-build`
+passed. Long transcript `node --check`, direct guardrail, and
+`chat-long-transcript-performance.test.mjs --skip-build` passed. Final
+`./scripts/format.sh` and `./check_quality.sh --git-changes` passed. Remaining:
+`chat-stream-performance.test.mjs --skip-build` still fails an existing
+frame-budget assertion, and `overview-zoom-performance.test.mjs --skip-build`
+still fails the documented browser-pane setup path with visible browser pane
+count stuck at `0`; resolve or baseline both.
 
 ## Track 5: Workflow Version Commit Ordering
 

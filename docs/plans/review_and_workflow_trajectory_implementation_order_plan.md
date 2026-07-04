@@ -405,7 +405,15 @@ into `desktop/tests/electron/overview-performance-driver.js`. Both
 `workspace-overview-performance-helpers.mjs` and
 `overview-zoom-performance.test.mjs` now call named driver methods or tiny
 `driverCallExpression` wait predicates instead of embedding those browser-side
-programs.
+programs. This audit follow-up moved long transcript performance conversation
+selection, older-page loading, transcript snapshots, scroll-start setup, and
+frame sampling into
+`desktop/tests/electron/chat-long-transcript-performance-driver.js`, and added
+a quality guardrail that flags newly introduced large executable template
+literals in Electron test files. The long transcript workflow also had stale
+assertions from the current renderer: grouped activity headers now count as
+visible activity, and pagination verification now checks concrete older-turn
+and scroll-height progress instead of requiring a retained 100k-pixel DOM.
 
 Verification:
 
@@ -440,19 +448,20 @@ Verification:
   was attempted twice after extraction and still fails in the documented
   pre-existing browser-pane setup path with visible browser pane count stuck at
   `0`.
+- `node --check desktop/tests/electron/chat-long-transcript-performance-driver.js`
+- `node --check desktop/tests/electron/chat-long-transcript-performance.test.mjs`
+- `node --check scripts/check_electron_test_template_literals.mjs`
+- `node scripts/check_electron_test_template_literals.mjs desktop/tests/electron/chat-long-transcript-performance.test.mjs desktop/tests/electron/chat-long-transcript-performance-driver.js desktop/tests/electron/cdp-client.mjs`
+- `node desktop/tests/electron/chat-long-transcript-performance.test.mjs --skip-build`
 - `./scripts/format.sh`
 - `./check_quality.sh --git-changes`
 
-Remaining notes: continue Track 4 with the remaining large browser-side
-programs in long transcript performance. The overview zoom workflow still needs
-its previously recorded browser-pane setup failure resolved or explicitly
-baselined before it can produce a clean focused run. The chat stream performance
-workflow still needs the frame-budget failure resolved or baselined before it
-has a clean focused rerun. Add the guardrail for future large executable
-template literals after the extraction pattern covers the remaining listed
-workflow extraction. Phase 4 backend trajectory contracts should wait until this
-test-driver extraction work is complete enough that new trajectory E2E
-scenarios do not add new large inline browser programs.
+Remaining notes: the overview zoom workflow still needs its previously recorded
+browser-pane setup failure resolved or explicitly baselined before it can
+produce a clean focused run. The chat stream performance workflow still needs
+the frame-budget failure resolved or baselined before it has a clean focused
+rerun. Phase 4 backend trajectory contracts should wait until those Track 4
+verification blockers are addressed or explicitly accepted.
 
 ## Phase 4: Backend Trajectory Contracts
 

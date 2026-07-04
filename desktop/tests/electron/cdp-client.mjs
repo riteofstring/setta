@@ -12,6 +12,11 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.chatLongTranscriptPerformanceVersion === "setta-chat-long-transcript-performance-driver-v1"',
+    path: join(driverScriptDir, "chat-long-transcript-performance-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.domPaneSnapshotScrollVersion === "setta-dom-pane-snapshot-scroll-driver-v1"',
     path: join(driverScriptDir, "dom-pane-snapshot-scroll-driver.js"),
   },
