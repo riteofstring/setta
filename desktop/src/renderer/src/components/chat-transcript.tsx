@@ -396,7 +396,7 @@ export function ChatTranscript({
   searchOpen = false,
   sendSteeringImmediately,
   setSearchOpen = () => {},
-  onOpenCurrentPlanSurface = () => {},
+  onOpenCurrentPlanSurface,
   submitApproval,
 }: ChatTranscriptProps) {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);

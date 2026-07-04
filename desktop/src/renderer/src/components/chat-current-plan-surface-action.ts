@@ -21,6 +21,7 @@ export function currentPlanSurfaceActionForActivity({
     activeCurrentPlanTarget === null ||
     activeCurrentPlanTarget === undefined ||
     onOpenCurrentPlanSurface === undefined ||
+    activity.type !== "plan" ||
     activity.details.plan === null ||
     activeCurrentPlanTarget.runId !== runId ||
     activeCurrentPlanTarget.sourceRunItemId !== activity.sourceRunItemId

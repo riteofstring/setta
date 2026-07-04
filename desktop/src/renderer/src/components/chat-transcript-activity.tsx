@@ -127,7 +127,7 @@ export const ActivityItemRow = memo(function ActivityItemRow({
   expanded,
   focused = false,
   loadRunItemOutput,
-  onOpenCurrentPlanSurface = () => {},
+  onOpenCurrentPlanSurface,
   onExpandedChange,
   outputPage,
   outputs,

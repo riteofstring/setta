@@ -6,6 +6,7 @@ import { activityDetails } from "../App.test.fixtures";
 import { activityBlock } from "../stores/chat-store-events.test.helpers";
 import { useAppearanceStore } from "../stores/appearance-store";
 import { useChatStore } from "../stores/chat-store";
+import type { CurrentPlanSurfaceTarget } from "./chat-current-plan-surface";
 import { ChatTranscript } from "./chat-transcript";
 
 const noop = async () => {};
@@ -127,6 +128,7 @@ describe("ChatTranscript activity rows", () => {
           }),
         ]}
         focusedSourceRunItemId="item_active_plan"
+        onOpenCurrentPlanSurface={() => {}}
         runItemOutputs={[]}
       />,
     );
@@ -136,17 +138,47 @@ describe("ChatTranscript activity rows", () => {
     expect(html).toContain("Open the current-plan surface");
     expect(html).toContain('aria-label="Open current plan"');
   });
+
+  test("does not render the current-plan row action without an open handler", () => {
+    const html = renderToString(
+      <TestChatTranscript
+        activeCurrentPlanTarget={{ runId: "run_api", sourceRunItemId: "item_active_plan" }}
+        blocks={[
+          activityBlock({
+            id: "block_active_plan",
+            runId: "run_api",
+            ordinal: 1,
+            sourceRunItemId: "item_active_plan",
+            type: "plan",
+            hasDetails: true,
+            details: activityDetails({
+              plan: {
+                explanation: "Planning the active turn.",
+                steps: [{ status: "inProgress", step: "Open the current-plan surface" }],
+              },
+            }),
+          }),
+        ]}
+        focusedSourceRunItemId="item_active_plan"
+        runItemOutputs={[]}
+      />,
+    );
+
+    expect(rowCount(html, "open-current-plan-surface")).toBe(0);
+  });
 });
 
 function TestChatTranscript({
   activeCurrentPlanTarget = null,
   blocks,
   focusedSourceRunItemId,
+  onOpenCurrentPlanSurface,
   runItemOutputs,
 }: {
   activeCurrentPlanTarget?: { runId: string; sourceRunItemId: string } | null;
   blocks: TranscriptBlock[];
   focusedSourceRunItemId: string;
+  onOpenCurrentPlanSurface?: (target: CurrentPlanSurfaceTarget) => void;
   runItemOutputs: RunItemOutput[];
 }) {
   const outputMaps = chatTranscriptOutputMaps(runItemOutputs);
@@ -171,7 +203,7 @@ function TestChatTranscript({
       runItemOutputPagesByRunItemId={{}}
       runItemOutputsById={outputMaps.runItemOutputsById}
       sendSteeringImmediately={noop}
-      onOpenCurrentPlanSurface={() => {}}
+      onOpenCurrentPlanSurface={onOpenCurrentPlanSurface}
       submitApproval={noop}
     />
   );

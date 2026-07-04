@@ -939,31 +939,41 @@ Verification performed:
 - `./scripts/format.sh`
 - `./check_quality.sh --git-changes`
 
-Verification blocker:
+Follow-up audit:
 
-- `./scripts/test_chat_workflows.sh --skip-build --deterministic-only` was
-  attempted twice after the rebuild. Both runs failed in the existing
-  transcript-scroll tolerance-band detach case before reaching later subcases:
-  `transcript did not detach inside bottom tolerance band`. The focused
-  production Codex protocol workflow covering this slice passed.
+- tightened the renderer row action so it is only offered for typed `plan`
+  activity with a real current-plan surface handler, avoiding a no-op action in
+  standalone transcript renders;
+- reran the deterministic chat workflow through the manifest launcher with kept
+  artifacts. The full `chat` workflow passed, including `transcript-scroll` and
+  `transcript-scroll-reload`; the earlier tolerance-band detach failure was not
+  reproduced in this audit run.
 
-Remaining work:
+### 2026-07-03: Final Audit Completion
 
-- No known current-plan transcript-row product gap remains.
-- The deterministic transcript-scroll gate failure remains outside this slice
-  and should be handled as scroll-follow workflow work, not as a plan-row link
-  change.
+Audited the completed plan against the implementation and verification rules:
 
-## Open Decisions
+- the row-to-surface transcript action is typed and non-no-op;
+- deterministic and live Codex chat gates passed;
+- no known product, contract, deterministic coverage, or live-provider blocker
+  remains.
 
-- Is there any implementation case that truly requires a public non-alarming
-  health state, or can snapshot-load verification remain internal as planned?
-- Should a provider-active reconciliation result immediately restore
-  `attached`, or should `attached` only be restored when the next provider event
-  is observed?
-- Which typed evidence should count as enough to preserve working state:
-  matching active run, active-turn provider refs, current `RunLivenessAttached`,
-  explicit provider reconciliation result, or a combination of those fields?
+Final audit verification covered focused current-plan transcript Vitest tests,
+`pnpm typecheck`, `pnpm build`, Codex protocol workflow, deterministic and live
+Codex chat gates, `./scripts/format.sh`, and
+`./check_quality.sh --git-changes`.
+
+## Resolved Decisions
+
+- Snapshot-load verification remains internal by default. No public
+  non-alarming `checking` health state was added.
+- An explicit provider-active reconciliation result may keep or restore visible
+  `attached` liveness for the active run. The service does not wait for a later
+  provider event when the reconciliation result itself is typed healthy
+  evidence.
+- The implementation uses typed active-run/provider evidence, not elapsed time,
+  transcript text, or renderer-only heuristics, and preserves real degraded
+  states such as stream resync, provider restart, and lost.
 
 ## Success Criteria
 

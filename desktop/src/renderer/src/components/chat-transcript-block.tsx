@@ -52,7 +52,7 @@ export interface TranscriptRowContext {
   outputIdsByRunItemId: Record<string, string[]>;
   outputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   outputsById: Record<string, RunItemOutput>;
-  onOpenCurrentPlanSurface: (target: CurrentPlanSurfaceTarget) => void;
+  onOpenCurrentPlanSurface?: (target: CurrentPlanSurfaceTarget) => void;
 }
 
 // TranscriptRenderRowView renders one virtual transcript row. Activity rows and
