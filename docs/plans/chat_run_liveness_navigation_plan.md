@@ -76,12 +76,17 @@ The current renderer keeps the improved chronological grouping model in
 `desktop/src/renderer/src/components/chat-transcript-activity.tsx`, but the
 opened state is visually weaker:
 
-- the expanded group header reads as a filled rectangular bar rather than a
-  quiet transcript row;
-- opened row details use the left rail, but command details are flattened into
-  unframed text;
-- nested opened rows lose the clear distinction between summary, metadata, and
-  inspectable command/output blocks.
+- the activity group header provides useful contrast between grouped tool calls
+  and regular messages, and should keep that strong separator role rather than
+  reverting to the flatter `setta-3` treatment;
+- the opened activity group still needs cleaner hierarchy beneath the header so
+  the member tool-call list reads as structured transcript activity instead of a
+  bulky nested container;
+- the opened individual tool call uses the left rail, but command details are
+  flattened into unframed text;
+- opened individual tool-call details lose the clear distinction between
+  summary, metadata, cwd, command, arguments, result, error, and inspectable
+  output blocks.
 
 The long-term fix should keep the current streamlined transcript grouping and
 status icons, while borrowing the clearer detail treatment from `setta-3`.
@@ -308,13 +313,15 @@ state model from `setta-3`.
 Revise the presentation so opened activity reads like a slim transcript detail
 view:
 
-- make the activity group header feel like a quiet transcript row, not a filled
-  card;
+- preserve the current high-contrast activity group header so grouped tool calls
+  remain visually distinct from regular chat messages;
+- clean up the opened member list beneath that header with only enough
+  indentation/rail treatment to show hierarchy;
 - preserve the compact row height and current icon/status treatment;
-- restore a consistent bounded code/pre treatment for commands, files, output,
-  arguments, and JSON details;
+- restore coherent opened tool-call details, with consistent bounded code/pre
+  treatment for commands, files, output, arguments, and JSON details;
 - keep metadata chips restrained and avoid nested cards;
-- make row and group expanded states visually distinct without increasing
+- make individual row expanded states structurally clear without increasing
   density or adding decorative containers.
 
 Use the `setta-3` styling as reference material, not as a direct copy. The
