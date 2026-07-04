@@ -1,34 +1,11 @@
 import { Buffer } from "node:buffer";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import process from "node:process";
 import readline from "node:readline";
 import { setTimeout } from "node:timers";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
-const goalBackgroundTerminal = {
-  command: "npm run goal-bg",
-  idleGapOutput: "goal background idle output\n",
-  itemId: "goal_bg_terminal",
-  processId: "goal_bg_process",
-  secondTurnOutput: "goal background turn B output\n",
-};
-const goalForegroundUnifiedExec = {
-  command: "command -v tokei",
-  itemId: "goal_fg_command",
-  processId: "goal_fg_process",
-};
-const statePath =
-  process.env.SETTA_FAKE_CODEX_STATE_PATH ??
-  (process.env.SETTA_APP_DATA_DIR
-    ? join(process.env.SETTA_APP_DATA_DIR, "fake-codex-app-server-state.json")
-    : "");
 let account = null;
-let activeSilentLivenessTurn = null;
-let currentGoal = null;
-let goalCancelTurnId = null;
-let goalPaused = false;
 let pendingDynamicTool = null;
 const rl = readline.createInterface({ input: process.stdin });
 
@@ -55,18 +32,16 @@ const methodHandlers = {
   "account/logout": handleAccountLogout,
   "account/read": handleAccountRead,
   "config/read": handleConfigRead,
-  "configRequirements/read": handleConfigRequirementsRead,
   initialize: handleInitialize,
   initialized: () => {},
   "model/list": handleModelList,
-  "thread/goal/clear": handleThreadGoalClear,
+  "thread/goal/clear": respondEmpty,
   "thread/goal/get": handleThreadGoalGet,
   "thread/goal/set": handleThreadGoalSet,
-  "thread/read": handleThreadRead,
   "thread/resume": handleThreadResume,
   "thread/settings/update": respondEmpty,
   "thread/start": handleThreadStart,
-  "turn/interrupt": handleTurnInterrupt,
+  "turn/interrupt": respondEmpty,
   "turn/start": handleTurnStart,
 };
 
@@ -102,57 +77,23 @@ function handleAccountLogout(message) {
 }
 
 function handleThreadStart(message) {
-  if (isStructuredThreadStart(message.params)) {
-    assertStructuredThreadStart(message.params);
-    respond(message.id, fakeThreadResponse({ ephemeral: true }));
-    return;
-  }
   assertThreadStartDeveloperInstructions(message.params);
   assertThreadStartDynamicTools(message.params);
-  respond(message.id, fakeThreadResponse(threadResponseOptionsFromParams(message.params)));
+  respond(message.id, fakeThreadResponse());
 }
 
 function handleThreadResume(message) {
   if (message.params?.dynamicTools !== undefined) {
     throw new Error("thread/resume should not include dynamicTools");
   }
-  respond(message.id, fakeThreadResponse(threadResponseOptionsFromParams(message.params)));
-}
-
-function handleThreadRead(message) {
-  if (message.params?.threadId !== threadId) {
-    throw new Error(`unexpected thread/read threadId: ${message.params?.threadId}`);
-  }
-  respond(message.id, { thread: fakeThread({ activeTurn: activeTurnForThreadRead() }) });
+  respond(message.id, fakeThreadResponse());
 }
 
 function handleTurnStart(message) {
   respond(message.id, { turn: fakeTurn("inProgress") });
-  if (isStructuredTurnStart(message.params)) {
-    assertStructuredTurnStart(message.params);
-    setTimeout(emitStructuredTaskTurn, 5);
-    return;
-  }
   const text = turnInputText(message);
   if (text.includes("app-server exit workflow")) {
-    emitRestartPartialTurn();
-    writeFakeState({ activeRestartTurn: true });
     setTimeout(() => process.exit(42), 5);
-    return;
-  }
-  if (text.includes("liveness reconciliation workflow")) {
-    activeSilentLivenessTurn = fakeTurn("inProgress");
-    setTimeout(emitSilentLivenessTurn, 5);
-    return;
-  }
-  if (text.includes("nonretryable stream error workflow")) {
-    activeSilentLivenessTurn = fakeTurn("inProgress");
-    setTimeout(emitNonRetryableStreamErrorTurn, 5);
-    return;
-  }
-  if (text.includes("retryable stream error workflow")) {
-    activeSilentLivenessTurn = fakeTurn("inProgress");
-    setTimeout(emitRetryableStreamErrorTurn, 5);
     return;
   }
   if (text.includes("protocol notification workflow")) {
@@ -165,49 +106,31 @@ function handleTurnStart(message) {
   setTimeout(emitProtocolCoverageTurn, 5);
 }
 
-function fakeThreadResponse(options = {}) {
-  const response = {
-    approvalPolicy: options.approvalPolicy ?? "on-request",
+function fakeThreadResponse() {
+  return {
+    approvalPolicy: "on-request",
     approvalsReviewer: "user",
     cwd: "/tmp/setta-fake",
     model: "gpt-test",
     modelProvider: "fake",
     sandbox: "workspace-write",
-    thread: fakeThread(options),
+    thread: fakeThread(),
   };
-  if (options.permissionProfileId) {
-    response.activePermissionProfile = { id: options.permissionProfileId };
-  }
-  return response;
 }
 
-function threadResponseOptionsFromParams(params) {
-  const options = {};
-  if (typeof params?.approvalPolicy === "string") {
-    options.approvalPolicy = params.approvalPolicy;
-  }
-  if (typeof params?.permissions === "string" && params.permissions !== "") {
-    options.permissionProfileId = params.permissions;
-  }
-  return options;
-}
-
-function fakeThread(options = {}) {
-  const ephemeral = options.ephemeral === true;
-  const activeTurn = options.activeTurn ?? null;
+function fakeThread() {
   return {
     cliVersion: "fake",
     createdAt: 1,
     cwd: "/tmp/setta-fake",
-    ephemeral,
+    ephemeral: true,
     id: threadId,
     modelProvider: "fake",
-    path: ephemeral ? undefined : "/tmp/codex/thread_fake.json",
     preview: "",
     sessionId: "session_fake",
     source: "user",
-    status: activeTurn === null ? { type: "idle" } : { activeFlags: [], type: "active" },
-    turns: activeTurn === null ? [] : [activeTurn],
+    status: { type: "idle" },
+    turns: [],
     updatedAt: 1,
   };
 }
@@ -220,213 +143,39 @@ function fakeTurn(status) {
   };
 }
 
-function activeTurnForThreadRead() {
-  if (activeSilentLivenessTurn !== null) {
-    return activeSilentLivenessTurn;
-  }
-  const state = readFakeState();
-  return state.activeRestartTurn === true ? fakeTurn("inProgress") : null;
-}
-
-function readFakeState() {
-  if (statePath === "" || !existsSync(statePath)) {
-    return {};
-  }
-  return JSON.parse(readFileSync(statePath, "utf8"));
-}
-
-function writeFakeState(state) {
-  if (statePath === "") {
-    return;
-  }
-  mkdirSync(dirname(statePath), { recursive: true });
-  writeFileSync(statePath, JSON.stringify(state), "utf8");
-}
-
 function handleConfigRead(message) {
   respond(message.id, {
-    config: {
-      approval_policy: "on-request",
-      model: "gpt-test",
-      model_reasoning_effort: "xhigh",
-    },
+    config: { model: "gpt-test", model_reasoning_effort: "xhigh" },
     layers: [],
     origins: {},
   });
 }
 
-function handleConfigRequirementsRead(message) {
-  respond(message.id, {
-    requirements: null,
-  });
-}
-
 function handleModelList(message) {
-  respond(message.id, {
-    data: [
-      {
-        defaultReasoningEffort: "xhigh",
-        description: "Fake protocol model.",
-        displayName: "GPT Test",
-        hidden: false,
-        id: "gpt-test",
-        inputModalities: ["text", "image"],
-        isDefault: true,
-        model: "gpt-test",
-        supportedReasoningEfforts: [
-          { description: "Fast responses with lighter reasoning.", reasoningEffort: "low" },
-          { description: "Greater reasoning depth for complex problems.", reasoningEffort: "high" },
-          {
-            description: "Extra high reasoning depth for complex problems.",
-            reasoningEffort: "xhigh",
-          },
-        ],
-      },
-    ],
-    nextCursor: null,
-  });
+  respond(message.id, { data: [], nextCursor: null });
 }
 
 function handleThreadGoalGet(message) {
-  respond(message.id, { goal: currentGoal });
-}
-
-function handleThreadGoalClear(message) {
-  currentGoal = null;
-  goalCancelTurnId = null;
-  goalPaused = false;
-  notify("thread/goal/cleared", { threadId });
-  respond(message.id, { cleared: true });
+  respond(message.id, { goal: null });
 }
 
 function handleThreadGoalSet(message) {
-  const { objective, status } = threadGoalSetValues(message.params);
-  currentGoal = fakeGoal(objective, status);
   respond(message.id, {
-    goal: currentGoal,
+    goal: {
+      createdAt: 0,
+      objective: message.params?.objective ?? "",
+      status: message.params?.status ?? "active",
+      threadId,
+      timeUsedSeconds: 0,
+      tokenBudget: null,
+      tokensUsed: 0,
+      updatedAt: 0,
+    },
   });
-  if (status === "paused") {
-    goalPaused = true;
-    notify("thread/goal/updated", { goal: currentGoal, threadId });
-    return;
-  }
-  if (shouldEmitGoalOperation(objective, status)) {
-    setTimeout(() => emitGoalOperationMultiTurn(objective), 5);
-    return;
-  }
-  if (shouldEmitGoalForegroundUnifiedExec(objective, status)) {
-    setTimeout(() => emitGoalOperationForegroundUnifiedExec(objective), 5);
-    return;
-  }
-  if (shouldEmitGoalBackgroundTerminal(objective, status)) {
-    setTimeout(() => emitGoalOperationBackgroundTerminal(objective), 5);
-    return;
-  }
-  if (shouldEmitGoalCancellation(objective, status)) {
-    setTimeout(() => emitGoalOperationCancellation(objective), 5);
-  }
-}
-
-function threadGoalSetValues(params) {
-  return {
-    objective: params?.objective ?? currentGoal?.objective ?? "",
-    status: params?.status ?? currentGoal?.status ?? "active",
-  };
-}
-
-function shouldEmitGoalOperation(objective, status) {
-  return objective === "phase0 codex multi turn" && status === "active";
-}
-
-function shouldEmitGoalBackgroundTerminal(objective, status) {
-  return objective === "phase5 codex background terminal" && status === "active";
-}
-
-function shouldEmitGoalForegroundUnifiedExec(objective, status) {
-  return objective === "phase5 codex foreground command" && status === "active";
-}
-
-function shouldEmitGoalCancellation(objective, status) {
-  return objective === "phase4 codex cancel" && status === "active";
-}
-
-function fakeGoal(objective, status) {
-  return {
-    createdAt: currentGoal?.createdAt ?? 1,
-    objective,
-    status,
-    threadId,
-    timeUsedSeconds: currentGoal?.timeUsedSeconds ?? 0,
-    tokenBudget: null,
-    tokensUsed: currentGoal?.tokensUsed ?? 0,
-    updatedAt: currentGoal?.updatedAt === 2 ? 3 : 2,
-  };
 }
 
 function respondEmpty(message) {
   respond(message.id, {});
-}
-
-function handleTurnInterrupt(message) {
-  if (handleGoalTurnInterrupt(message)) {
-    return;
-  }
-  if (handleSilentLivenessInterrupt(message)) {
-    return;
-  }
-  if (handleRestartLivenessInterrupt(message)) {
-    return;
-  }
-  respond(message.id, {});
-}
-
-function handleGoalTurnInterrupt(message) {
-  if (currentGoal?.objective !== "phase4 codex cancel") {
-    return false;
-  }
-  if (!goalPaused) {
-    respondError(message.id, -32600, "goal pause is required before interrupt");
-    return true;
-  }
-  if (message.params?.turnId !== goalCancelTurnId) {
-    respondError(message.id, -32600, `unexpected goal cancellation turn ${message.params?.turnId}`);
-    return true;
-  }
-  respond(message.id, {});
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID(goalCancelTurnId, "interrupted"),
-  });
-  return true;
-}
-
-function handleSilentLivenessInterrupt(message) {
-  if (activeSilentLivenessTurn?.id !== message.params?.turnId) {
-    return false;
-  }
-  activeSilentLivenessTurn = null;
-  respond(message.id, {});
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurn("interrupted"),
-  });
-  return true;
-}
-
-function handleRestartLivenessInterrupt(message) {
-  if (message.params?.turnId !== turnId) {
-    return false;
-  }
-  if (readFakeState().activeRestartTurn !== true) {
-    return false;
-  }
-  writeFakeState({ activeRestartTurn: false });
-  respond(message.id, {});
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurn("interrupted"),
-  });
-  return true;
 }
 
 function assertThreadStartDeveloperInstructions(params) {
@@ -437,26 +186,6 @@ function assertThreadStartDeveloperInstructions(params) {
     !instructions.includes("Do not invent dynamic tool names")
   ) {
     throw new Error("thread/start developerInstructions missing Setta dynamic tool guidance");
-  }
-}
-
-function isStructuredThreadStart(params) {
-  return params?.ephemeral === true && params?.approvalPolicy === "never";
-}
-
-function assertStructuredThreadStart(params) {
-  if (params?.sandbox !== "read-only") {
-    throw new Error("structured thread/start should use read-only sandbox");
-  }
-  if (params?.dynamicTools !== undefined) {
-    throw new Error("structured thread/start should not include dynamicTools");
-  }
-  const instructions = params?.developerInstructions;
-  if (
-    typeof instructions !== "string" ||
-    !instructions.includes("strict JSON semantic graph patch envelope")
-  ) {
-    throw new Error("structured thread/start missing semantic cartographer prompt");
   }
 }
 
@@ -574,19 +303,6 @@ function assertUnsupportedDynamicToolResponse(message) {
   }
 }
 
-function isStructuredTurnStart(params) {
-  return params?.approvalPolicy === "never" && params?.outputSchema !== undefined;
-}
-
-function assertStructuredTurnStart(params) {
-  if (params?.sandboxPolicy === undefined) {
-    throw new Error("structured turn/start missing sandboxPolicy");
-  }
-  if (params?.threadId !== threadId) {
-    throw new Error("structured turn/start targeted wrong thread");
-  }
-}
-
 function handleAccountLoginStart(message) {
   const type = message.params?.type;
   if (type === "apiKey") {
@@ -619,10 +335,6 @@ function handleAccountLoginStart(message) {
 
 function respond(id, result) {
   write({ id, result });
-}
-
-function respondError(id, code, message) {
-  write({ error: { code, message }, id });
 }
 
 function turnInputText(message) {
@@ -664,14 +376,9 @@ function emitProtocolCoverageTurn() {
     contextCompactionPayload("context_compaction_fake", { completedAtMs: 2 }),
   );
   notify("item/fileChange/patchUpdated", {
-    changes: [
-      {
-        diff: "--- a/main.go\n+++ b/main.go\n@@\n+updated\n",
-        kind: { type: "update" },
-        path: "/tmp/workspace/main.go",
-      },
-    ],
+    changedPaths: ["/tmp/workspace/main.go"],
     itemId: "file_item_fake",
+    status: "updated",
     threadId,
     turnId,
   });
@@ -682,7 +389,6 @@ function emitProtocolCoverageTurn() {
     threadId,
     turnId,
   });
-  emitMcpToolCallCoverage();
   notify("mcpServer/oauthLogin/completed", { error: null, name: "github", success: true });
   notify("model/verification", {
     threadId,
@@ -729,337 +435,6 @@ function emitProtocolCoverageTurn() {
     threadId,
     turn: fakeTurn("completed"),
   });
-}
-
-function emitSilentLivenessTurn() {
-  notify("item/agentMessage/delta", {
-    delta: "Liveness stream started. ",
-    itemId: "liveness_message_fake",
-    threadId,
-    turnId,
-  });
-}
-
-function emitRetryableStreamErrorTurn() {
-  notify("item/agentMessage/delta", {
-    delta: "Retryable stream started. ",
-    itemId: "retryable_stream_message_fake",
-    threadId,
-    turnId,
-  });
-  emitStreamErrorNotification("Codex connection retrying", true);
-}
-
-function emitNonRetryableStreamErrorTurn() {
-  notify("item/agentMessage/delta", {
-    delta: "Partial before stream loss. ",
-    itemId: "nonretryable_stream_message_fake",
-    threadId,
-    turnId,
-  });
-  emitStreamErrorNotification("stream disconnected before completion", false);
-}
-
-function emitStreamErrorNotification(message, willRetry) {
-  notify("error", {
-    error: {
-      additionalDetails: "fake response stream disconnect",
-      codexErrorInfo: {
-        responseStreamDisconnected: {
-          httpStatusCode: null,
-        },
-      },
-      message,
-    },
-    threadId,
-    turnId,
-    willRetry,
-  });
-}
-
-function emitRestartPartialTurn() {
-  notify("item/agentMessage/delta", {
-    delta: "Partial before provider restart. ",
-    itemId: "provider_restart_message_fake",
-    threadId,
-    turnId,
-  });
-}
-
-function emitMcpToolCallCoverage() {
-  notify("item/started", {
-    item: {
-      appContext: { connectorId: "github", resourceUri: "mcp://github/repo" },
-      arguments: { query: "setta" },
-      id: "mcp_structured_fake",
-      mcpAppResourceUri: "mcp://github/legacy",
-      pluginId: "plugin_github",
-      server: "github",
-      status: "inProgress",
-      tool: "search",
-      type: "mcpToolCall",
-    },
-    startedAtMs: 1,
-    threadId,
-    turnId,
-  });
-  notify("item/mcpToolCall/progress", {
-    itemId: "mcp_structured_fake",
-    message: "Fetching repository data",
-    threadId,
-    turnId,
-  });
-  notify("item/completed", {
-    completedAtMs: 2,
-    item: {
-      appContext: { connectorId: "github", resourceUri: "mcp://github/repo" },
-      arguments: { query: "setta" },
-      durationMs: 18,
-      id: "mcp_structured_fake",
-      mcpAppResourceUri: "mcp://github/legacy",
-      pluginId: "plugin_github",
-      result: {
-        _meta: { traceId: "mcp_trace" },
-        content: [
-          { text: "Found repository data", type: "text" },
-          { mimeType: "image/png", type: "image" },
-        ],
-        structuredContent: { repositories: 1 },
-      },
-      server: "github",
-      status: "completed",
-      tool: "search",
-      type: "mcpToolCall",
-    },
-    threadId,
-    turnId,
-  });
-  notify("item/completed", {
-    completedAtMs: 3,
-    item: {
-      arguments: { query: "broken" },
-      error: { message: "MCP tool failed" },
-      id: "mcp_failed_fake",
-      server: "github",
-      status: "failed",
-      tool: "broken_search",
-      type: "mcpToolCall",
-    },
-    threadId,
-    turnId,
-  });
-}
-
-function emitStructuredTaskTurn() {
-  notify("turn/completed", {
-    threadId,
-    turn: {
-      ...fakeTurn("completed"),
-      items: [
-        {
-          id: "structured_message_fake",
-          text: '{"patches":[]}',
-          type: "agentMessage",
-        },
-      ],
-    },
-  });
-}
-
-function emitGoalOperationMultiTurn(objective) {
-  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_a", "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal turn A. ",
-    itemId: "goal_message_a",
-    threadId,
-    turnId: "turn_goal_a",
-  });
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_a", "completed"),
-  });
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_b", "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal turn B. ",
-    itemId: "goal_message_b",
-    threadId,
-    turnId: "turn_goal_b",
-  });
-  currentGoal = fakeGoal(objective, "complete");
-  notify("thread/goal/updated", { goal: currentGoal, threadId });
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_b", "completed"),
-  });
-}
-
-function emitGoalOperationBackgroundTerminal(objective) {
-  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_a", "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal turn A. ",
-    itemId: "goal_message_a",
-    threadId,
-    turnId: "turn_goal_a",
-  });
-  notifyGoalBackgroundTerminalStarted("turn_goal_a");
-  setTimeout(() => {
-    notify("turn/completed", {
-      threadId,
-      turn: fakeTurnWithID("turn_goal_a", "completed"),
-    });
-    notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.idleGapOutput);
-    notify("turn/started", {
-      threadId,
-      turn: fakeTurnWithID("turn_goal_b", "inProgress"),
-    });
-    notify("item/agentMessage/delta", {
-      delta: "Goal turn B. ",
-      itemId: "goal_message_b",
-      threadId,
-      turnId: "turn_goal_b",
-    });
-    setTimeout(() => {
-      notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.secondTurnOutput);
-      notifyGoalBackgroundTerminalCompleted("turn_goal_a");
-      currentGoal = fakeGoal(objective, "complete");
-      notify("thread/goal/updated", { goal: currentGoal, threadId });
-      notify("turn/completed", {
-        threadId,
-        turn: fakeTurnWithID("turn_goal_b", "completed"),
-      });
-    }, 350);
-  }, 350);
-}
-
-function emitGoalOperationForegroundUnifiedExec(objective) {
-  const turnId = "turn_goal_foreground";
-  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID(turnId, "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Checking available tools. ",
-    itemId: "goal_foreground_message",
-    threadId,
-    turnId,
-  });
-  notifyUnifiedExecStarted(turnId, goalForegroundUnifiedExec);
-  notifyUnifiedExecOutput(turnId, goalForegroundUnifiedExec, "/opt/homebrew/bin/tokei\n");
-  notifyUnifiedExecCompleted(turnId, goalForegroundUnifiedExec);
-  currentGoal = fakeGoal(objective, "complete");
-  notify("thread/goal/updated", { goal: currentGoal, threadId });
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID(turnId, "completed"),
-  });
-}
-
-function emitGoalOperationCancellation(objective) {
-  goalPaused = false;
-  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_cancel_a", "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal cancel turn A. ",
-    itemId: "goal_cancel_message_a",
-    threadId,
-    turnId: "turn_goal_cancel_a",
-  });
-  notify("turn/completed", {
-    threadId,
-    turn: fakeTurnWithID("turn_goal_cancel_a", "completed"),
-  });
-  goalCancelTurnId = "turn_goal_cancel_b";
-  notify("turn/started", {
-    threadId,
-    turn: fakeTurnWithID(goalCancelTurnId, "inProgress"),
-  });
-  notify("item/agentMessage/delta", {
-    delta: "Goal cancel waiting. ",
-    itemId: "goal_cancel_message_b",
-    threadId,
-    turnId: goalCancelTurnId,
-  });
-}
-
-function notifyGoalBackgroundTerminalStarted(turnID) {
-  notifyUnifiedExecStarted(turnID, goalBackgroundTerminal);
-}
-
-function notifyGoalBackgroundTerminalOutput(turnID, delta) {
-  notifyUnifiedExecOutput(turnID, goalBackgroundTerminal, delta);
-}
-
-function notifyGoalBackgroundTerminalCompleted(turnID) {
-  notifyUnifiedExecCompleted(turnID, goalBackgroundTerminal);
-}
-
-function notifyUnifiedExecStarted(turnID, execution) {
-  notify("item/started", {
-    item: {
-      command: execution.command,
-      commandActions: [],
-      cwd: "/tmp/workspace",
-      id: execution.itemId,
-      processId: execution.processId,
-      source: "unifiedExecStartup",
-      status: "inProgress",
-      type: "commandExecution",
-    },
-    startedAtMs: 1,
-    threadId,
-    turnId: turnID,
-  });
-}
-
-function notifyUnifiedExecOutput(turnID, execution, delta) {
-  notify("item/commandExecution/outputDelta", {
-    delta,
-    itemId: execution.itemId,
-    threadId,
-    turnId: turnID,
-  });
-}
-
-function notifyUnifiedExecCompleted(turnID, execution) {
-  notify("item/completed", {
-    completedAtMs: 3,
-    item: {
-      command: execution.command,
-      commandActions: [],
-      cwd: "/tmp/workspace",
-      durationMs: 5,
-      exitCode: 0,
-      id: execution.itemId,
-      processId: execution.processId,
-      source: "unifiedExecStartup",
-      status: "completed",
-      type: "commandExecution",
-    },
-    threadId,
-    turnId: turnID,
-  });
-}
-
-function fakeTurnWithID(id, status) {
-  return {
-    ...fakeTurn(status),
-    id,
-  };
 }
 
 function hookPayload(status) {

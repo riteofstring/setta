@@ -17,8 +17,5 @@ func (service *Service) updateGoalStateLocked(workspaceID string, conversationID
 	if _, err := service.events.Publish(NewGoalUpdatedEvent(workspaceID, conversationID, runID, goal)); err != nil {
 		return err
 	}
-	if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, runID); err != nil {
-		return err
-	}
-	return service.publishFreshProviderEventLivenessLocked(workspaceID, conversationID, runID)
+	return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)
 }

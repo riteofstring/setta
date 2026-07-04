@@ -74,8 +74,7 @@ func TestStoreEditAndDeleteQueuedTurnTransitions(t *testing.T) {
 		t.Fatalf("create queued edit turn: %v", err)
 	}
 	edited.Conversation.UpdatedAt = "2026-05-29T20:01:00Z"
-	edited.UserMessage.Parts[0].Text.Text = "updated prompt"
-	conversation, message, run, err := store.EditQueuedTurn(edited.Conversation, edited.UserMessage, edited.Run)
+	conversation, message, run, err := store.EditQueuedTurn(edited.Conversation, edited.UserMessage, edited.Run, "updated prompt")
 	if err != nil {
 		t.Fatalf("edit queued turn: %v", err)
 	}
@@ -126,9 +125,9 @@ func TestStoreReplayPendingSteeringAsTurnTransition(t *testing.T) {
 		t.Fatalf("create active turn: %v", err)
 	}
 	firstSteering := transitionUserMessage("message_steer_one_replay", active.Run.ID, 3, MessageDeliverySteering, MessageStatusPending)
-	firstSteering.Parts[0].Text.Text = "first"
+	firstSteering.Parts[0].Text = "first"
 	secondSteering := transitionUserMessage("message_steer_two_replay", active.Run.ID, 4, MessageDeliverySteering, MessageStatusPending)
-	secondSteering.Parts[0].Text.Text = "second"
+	secondSteering.Parts[0].Text = "second"
 	if err := store.SaveMessage("workspace_api", firstSteering); err != nil {
 		t.Fatalf("save first steering: %v", err)
 	}
@@ -136,7 +135,7 @@ func TestStoreReplayPendingSteeringAsTurnTransition(t *testing.T) {
 		t.Fatalf("save second steering: %v", err)
 	}
 	user := transitionUserMessage("message_user_replayed_replay", "run_replayed_replay", 5, MessageDeliveryNormal, MessageStatusComplete)
-	user.Parts[0].Text.Text = "first\nsecond"
+	user.Parts[0].Text = "first\nsecond"
 	assistant := transitionAssistantMessage("message_assistant_replayed_replay", "run_replayed_replay", 6, MessageStatusStreaming)
 	run := Run{
 		SchemaVersion:      SchemaVersion,
@@ -300,12 +299,10 @@ func transitionUserMessage(id string, runID string, ordinal int, delivery Messag
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         status,
 		Parts: []MessagePart{{
-			ID:   id + "_part",
-			Type: MessagePartText,
-			Text: &MessageTextPart{
-				Text:   "prompt",
-				Format: TextFormatPlain,
-			},
+			Format: TextFormatPlain,
+			ID:     id + "_part",
+			Text:   "prompt",
+			Type:   MessagePartText,
 		}},
 	}
 }
@@ -323,12 +320,10 @@ func transitionAssistantMessage(id string, runID string, ordinal int, status Mes
 		UpdatedAt:      "2026-05-29T20:00:00Z",
 		Status:         status,
 		Parts: []MessagePart{{
-			ID:   id + "_part",
-			Type: MessagePartText,
-			Text: &MessageTextPart{
-				Text:   "",
-				Format: TextFormatMarkdown,
-			},
+			Format: TextFormatMarkdown,
+			ID:     id + "_part",
+			Text:   "",
+			Type:   MessagePartText,
 		}},
 	}
 }

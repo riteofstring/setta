@@ -296,13 +296,7 @@ func (observed observedCartographerEvent) withRunItem(item chat.RunItem) observe
 	observed.runItemStatus = string(item.Status)
 	observed.sourceRefs.RunItemID = item.ID
 	observed.summary = chatRunItemObservationSummary(item)
-	content := []string{item.Summary, item.Result, item.Error, item.DiffSummary}
-	if details, ok := item.MCPToolCallDetails(); ok {
-		content = []string{item.Summary, details.ResultSummary, details.Progress, details.Error}
-	} else if details, ok := item.FileChangeDetails(); ok {
-		content = []string{item.Summary, chatFileChangeDetailSummary(details)}
-	}
-	observed.content = strings.Join(content, "\n")
+	observed.content = strings.Join([]string{item.Summary, item.Result, item.Error, item.DiffSummary}, "\n")
 	observed.closeReason = chatRunItemCloseReason(item)
 	return observed
 }
@@ -363,13 +357,7 @@ func chatRunObservationSummary(run chat.Run) string {
 
 func chatRunItemObservationSummary(item chat.RunItem) string {
 	parts := []string{fmt.Sprintf("run item %s %s %s", item.ID, item.Type, item.Status)}
-	values := []string{item.Title, item.Summary, item.Progress, item.Result, item.Error, item.DiffSummary}
-	if details, ok := item.MCPToolCallDetails(); ok {
-		values = []string{firstNonEmpty(item.Title, details.DisplayTitle), item.Summary, details.Progress, details.ResultSummary, details.Error}
-	} else if details, ok := item.FileChangeDetails(); ok {
-		values = []string{item.Title, item.Summary, chatFileChangeDetailSummary(details)}
-	}
-	for _, value := range values {
+	for _, value := range []string{item.Title, item.Summary, item.Progress, item.Result, item.Error, item.DiffSummary} {
 		if strings.TrimSpace(value) != "" {
 			parts = append(parts, strings.TrimSpace(value))
 		}

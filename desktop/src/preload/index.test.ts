@@ -2,18 +2,14 @@ import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type {
+  ChatEvent,
+  TerminalEvent,
   UpdateAppearanceSettingsRequest,
-  UpdateChatCodexDefaultsRequest,
+  WorkspaceActivityEvent,
+  WorkflowEvent,
+  WorkflowGraph,
 } from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
-import { chatTextInput } from "../renderer/src/lib/chat-input";
-import {
-  chatEvent,
-  terminalEvent,
-  workflowEvent,
-  workflowGraph,
-  workspaceActivityEvent,
-} from "./index.test.fixtures";
 
 async function exposePreloadAPI({
   invoke = vi.fn(),
@@ -309,37 +305,25 @@ describe("preload workspace API", () => {
       "activeRun",
       "cancelRun",
       "createConversation",
-      "createImageAttachmentFromBytes",
       "deleteConversation",
       "editQueuedMessage",
       "executeCommand",
-      "getBackgroundTerminalOutput",
-      "killAllBackgroundTerminals",
-      "killBackgroundTerminal",
-      "listBackgroundTerminals",
       "listCommands",
       "listConversations",
       "markConversationRead",
       "messagePage",
       "onEvent",
-      "openCodexModelPicker",
-      "openCodexPermissionPicker",
       "queueMessage",
-      "readCodexDefaults",
-      "reconcileRuns",
       "removeQueuedMessage",
       "runActivity",
       "runItemOutput",
-      "selectImageAttachments",
       "sendMessage",
       "sendSteeringImmediately",
       "setCodexModel",
-      "setCodexPermissionPreset",
       "setCodexReasoningEffort",
       "setConversationPinned",
       "steerMessage",
       "submitApproval",
-      "updateCodexDefaults",
     ]);
 
     await api.chat.listConversations("workspace_api");
@@ -350,62 +334,26 @@ describe("preload workspace API", () => {
     await api.chat.executeCommand("workspace_api", "conversation_api", "/goal replacement", {
       confirmGoalReplacement: true,
     });
-    await api.chat.readCodexDefaults();
-    await api.chat.openCodexModelPicker("workspace_api", "conversation_api");
-    await api.chat.openCodexPermissionPicker("workspace_api", "conversation_api");
     await api.chat.markConversationRead("workspace_api", "conversation_api");
     await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
-    await api.chat.createImageAttachmentFromBytes(
-      "workspace_api",
-      "conversation_api",
-      "image.png",
-      "aGVsbG8=",
-    );
-    await api.chat.selectImageAttachments("workspace_api", "conversation_api", 3);
-    await api.chat.queueMessage("workspace_api", "conversation_api", chatTextInput("queued"));
+    await api.chat.queueMessage("workspace_api", "conversation_api", "queued");
     await api.chat.editQueuedMessage(
       "workspace_api",
       "conversation_api",
       "message_queued",
-      chatTextInput("edited"),
+      "edited",
     );
     await api.chat.removeQueuedMessage("workspace_api", "conversation_api", "message_queued");
     await api.chat.runActivity("workspace_api", "run_api", 100);
     await api.chat.runItemOutput("workspace_api", "run_api", "item_api", 0, 100);
-    const bgArgs = ["workspace_api", "conversation_api", "background_terminal_api"] as const;
-    await api.chat.listBackgroundTerminals("workspace_api", "conversation_api");
-    await api.chat.getBackgroundTerminalOutput(...bgArgs, 0, 100);
-    await api.chat.killBackgroundTerminal(...bgArgs);
-    await api.chat.killAllBackgroundTerminals("workspace_api", "conversation_api");
-    await api.chat.sendMessage("workspace_api", "conversation_api", chatTextInput("hello"));
+    await api.chat.sendMessage("workspace_api", "conversation_api", "hello");
     await api.chat.setCodexModel("workspace_api", "conversation_api", "gpt-test");
-    await api.chat.setCodexPermissionPreset(
-      "workspace_api",
-      "conversation_api",
-      "full-access",
-      true,
-    );
     await api.chat.setCodexReasoningEffort("workspace_api", "conversation_api", "high");
-    const defaultsRequest = {
-      confirmed: false,
-      settings: { model: "gpt-test", permission: null, reasoningEffort: "high" },
-    } satisfies UpdateChatCodexDefaultsRequest;
-    await api.chat.updateCodexDefaults(defaultsRequest);
     await api.chat.setConversationPinned("workspace_api", "conversation_api", true);
-    await api.chat.steerMessage("workspace_api", "conversation_api", chatTextInput("steer"));
-    await api.chat.sendSteeringImmediately(
-      "workspace_api",
-      "conversation_api",
-      chatTextInput("now"),
-    );
+    await api.chat.steerMessage("workspace_api", "conversation_api", "steer");
+    await api.chat.sendSteeringImmediately("workspace_api", "conversation_api", "now");
     await api.chat.cancelRun("workspace_api", "conversation_api");
     await api.chat.activeRun("workspace_api", "conversation_api");
-    const reconcileRequest = {
-      conversationId: "conversation_api",
-      reason: "user_retry",
-      workspaceId: "workspace_api",
-    } as const;
-    await api.chat.reconcileRuns(reconcileRequest);
     await api.chat.submitApproval({
       approvalId: "approval_api",
       approved: true,
@@ -438,56 +386,27 @@ describe("preload workspace API", () => {
         "/goal replacement",
         true,
       ],
-      [ipcChannels.chatReadCodexDefaults],
-      [ipcChannels.chatOpenCodexModelPicker, "workspace_api", "conversation_api"],
-      [ipcChannels.chatOpenCodexPermissionPicker, "workspace_api", "conversation_api"],
       [ipcChannels.chatMarkConversationRead, "workspace_api", "conversation_api"],
       [ipcChannels.chatMessagePage, "workspace_api", "conversation_api", 10, 40],
-      [
-        ipcChannels.chatCreateImageAttachmentFromBytes,
-        "workspace_api",
-        "conversation_api",
-        "image.png",
-        "aGVsbG8=",
-      ],
-      [ipcChannels.chatSelectImageAttachments, "workspace_api", "conversation_api", 3],
-      [ipcChannels.chatQueueMessage, "workspace_api", "conversation_api", chatTextInput("queued")],
+      [ipcChannels.chatQueueMessage, "workspace_api", "conversation_api", "queued"],
       [
         ipcChannels.chatEditQueuedMessage,
         "workspace_api",
         "conversation_api",
         "message_queued",
-        chatTextInput("edited"),
+        "edited",
       ],
       [ipcChannels.chatRemoveQueuedMessage, "workspace_api", "conversation_api", "message_queued"],
       [ipcChannels.chatRunActivity, "workspace_api", "run_api", 100],
       [ipcChannels.chatRunItemOutput, "workspace_api", "run_api", "item_api", 0, 100],
-      [ipcChannels.chatListBackgroundTerminals, "workspace_api", "conversation_api"],
-      [ipcChannels.chatGetBackgroundTerminalOutput, ...bgArgs, 0, 100],
-      [ipcChannels.chatKillBackgroundTerminal, ...bgArgs],
-      [ipcChannels.chatKillAllBackgroundTerminals, "workspace_api", "conversation_api"],
-      [ipcChannels.chatSendMessage, "workspace_api", "conversation_api", chatTextInput("hello")],
+      [ipcChannels.chatSendMessage, "workspace_api", "conversation_api", "hello"],
       [ipcChannels.chatSetCodexModel, "workspace_api", "conversation_api", "gpt-test"],
-      [
-        ipcChannels.chatSetCodexPermissionPreset,
-        "workspace_api",
-        "conversation_api",
-        "full-access",
-        true,
-      ],
       [ipcChannels.chatSetCodexReasoningEffort, "workspace_api", "conversation_api", "high"],
-      [ipcChannels.chatUpdateCodexDefaults, defaultsRequest],
       [ipcChannels.chatSetConversationPinned, "workspace_api", "conversation_api", true],
-      [ipcChannels.chatSteerMessage, "workspace_api", "conversation_api", chatTextInput("steer")],
-      [
-        ipcChannels.chatSendSteeringImmediately,
-        "workspace_api",
-        "conversation_api",
-        chatTextInput("now"),
-      ],
+      [ipcChannels.chatSteerMessage, "workspace_api", "conversation_api", "steer"],
+      [ipcChannels.chatSendSteeringImmediately, "workspace_api", "conversation_api", "now"],
       [ipcChannels.chatCancelRun, "workspace_api", "conversation_api"],
       [ipcChannels.chatActiveRun, "workspace_api", "conversation_api"],
-      [ipcChannels.chatReconcileRuns, reconcileRequest],
       [
         ipcChannels.chatSubmitApproval,
         {
@@ -1417,4 +1336,142 @@ function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][])
   for (const call of calls) {
     expect(invoke).toHaveBeenCalledWith(...call);
   }
+}
+
+function chatEvent(): ChatEvent {
+  return {
+    conversationId: "conversation_api",
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: "event_stream_test:1",
+    payload: {
+      message: {
+        conversationId: "conversation_api",
+        createdAt: "2026-05-29T20:00:00Z",
+        delivery: "normal",
+        id: "message_user",
+        ordinal: 1,
+        parts: [
+          {
+            format: "plain",
+            id: "part_user",
+            text: "hello",
+            type: "text",
+          },
+        ],
+        role: "user",
+        runId: "",
+        schemaVersion: 1,
+        status: "complete",
+        updatedAt: "2026-05-29T20:00:00Z",
+      },
+    },
+    runId: "run_api",
+    schemaVersion: 1,
+    sequence: 1,
+    streamId: "event_stream_test",
+    type: "chat.message.created",
+    workspaceId: "workspace_api",
+  };
+}
+
+function terminalEvent(): TerminalEvent {
+  return {
+    emittedAt: "2026-06-06T12:00:00Z",
+    eventId: "terminal_stream_test:1",
+    paneId: "pane_terminal",
+    payload: {
+      byteCount: 5,
+      cols: 80,
+      cwd: "/tmp/workspace",
+      dataBase64: "aGVsbG8=",
+      droppedBytes: 0,
+      droppedChunks: 0,
+      exitCode: 0,
+      message: "",
+      rows: 24,
+      status: "running",
+    },
+    schemaVersion: 1,
+    sequence: 1,
+    sessionId: "terminal_api",
+    streamId: "terminal_stream_test",
+    type: "terminal.output",
+    workspaceId: "workspace_api",
+  };
+}
+
+function workspaceActivityEvent(): WorkspaceActivityEvent {
+  return {
+    delta: null,
+    emittedAt: "2026-06-21T12:00:00Z",
+    eventId: "workspace_activity_stream_test:12",
+    resync: {
+      currentRevision: 7,
+      currentSequence: 12,
+      currentStreamId: "workspace_activity_stream_test",
+      earliestSequence: 8,
+      reason: "workspace activity replay is no longer available",
+      requestedSequence: 1,
+      requestedStreamId: "workspace_activity_stream_old",
+    },
+    revision: 7,
+    schemaVersion: 1,
+    sequence: 12,
+    streamId: "workspace_activity_stream_test",
+    type: "workspace_activity.resync_required",
+    workspaceId: "workspace_api",
+  };
+}
+
+function workflowEvent(): WorkflowEvent {
+  return {
+    createdAt: "2026-06-05T12:00:00Z",
+    definitionId: "workflow_definition_api",
+    definitionVersionId: "workflow_version_api",
+    details: {},
+    executionId: "workflow_execution_api",
+    id: "workflow_event_api",
+    message: "workflow started",
+    nodeExecutionId: "",
+    nodeId: "",
+    ordinal: 1,
+    runnerKind: null,
+    schemaVersion: 1,
+    tokenId: "",
+    type: "workflow.execution.started",
+    workspaceId: "workspace_api",
+  };
+}
+
+function workflowGraph(): WorkflowGraph {
+  return {
+    edges: [
+      {
+        condition: null,
+        fromNodeId: "start",
+        id: "start_end",
+        kind: "normal",
+        toNodeId: "end",
+      },
+    ],
+    layout: { nodes: [] },
+    nodes: [
+      {
+        action: null,
+        gateway: null,
+        id: "start",
+        kind: "start",
+        loopGuard: null,
+        title: "Start",
+      },
+      {
+        action: null,
+        gateway: null,
+        id: "end",
+        kind: "end",
+        loopGuard: null,
+        title: "End",
+      },
+    ],
+  };
 }
