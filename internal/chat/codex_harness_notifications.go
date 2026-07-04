@@ -298,7 +298,11 @@ func handleCodexAutoApprovalReviewNotification(message jsonRPCMessage, threadID 
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	details, err := rawJSON(params, "codex auto approval review")
+	reviewDetails, err := rawJSON(review, "codex auto approval review review")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	actionDetails, err := rawJSON(action, "codex auto approval review action")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
@@ -309,8 +313,15 @@ func handleCodexAutoApprovalReviewNotification(message jsonRPCMessage, threadID 
 		Status:         status,
 		Title:          "Auto-approval review",
 		Summary:        summary,
-		ReviewID:       reviewID,
-		RawDetails:     details,
+		Details: NewRunItemApprovalDetails(RunItemApprovalDetails{
+			ReviewID:     reviewID,
+			ReviewStatus: statusText,
+			ActionType:   actionType,
+			Title:        "Auto-approval review",
+			Body:         summary,
+			Review:       reviewDetails,
+			Action:       actionDetails,
+		}),
 	})
 }
 

@@ -9,6 +9,7 @@ type RunItemDetails struct {
 	DynamicToolCall  *RunItemDynamicToolCallDetails  `json:"dynamicToolCall"`
 	FileChange       *RunItemFileChangeDetails       `json:"fileChange"`
 	Diff             *RunItemDiffDetails             `json:"diff"`
+	Approval         *RunItemApprovalDetails         `json:"approval"`
 }
 
 type RunActivityDetailsProjection struct {
@@ -36,6 +37,7 @@ type RunActivityDetailsProjection struct {
 	DynamicToolCall  *RunItemDynamicToolCallDetails  `json:"dynamicToolCall"`
 	FileChange       *RunItemFileChangeDetails       `json:"fileChange"`
 	Diff             *RunItemDiffDetails             `json:"diff"`
+	Approval         *RunItemApprovalDetails         `json:"approval"`
 }
 
 type RunItemCommandExecutionDetails struct {
@@ -98,6 +100,14 @@ func runItemDynamicToolSuccess(value bool) *bool {
 	return &value
 }
 
+func approvalKindPtr(value ApprovalKind) *ApprovalKind {
+	return &value
+}
+
+func approvalStatusPtr(value ApprovalStatus) *ApprovalStatus {
+	return &value
+}
+
 type RunItemFileChangeDetails struct {
 	PatchStatus string                  `json:"patchStatus"`
 	Paths       []RunItemFileChangePath `json:"paths"`
@@ -132,6 +142,28 @@ type RunItemDiffPath struct {
 	Deletions int                         `json:"deletions"`
 }
 
+type RunItemApprovalDetails struct {
+	ApprovalID        string                  `json:"approvalId"`
+	ApprovalKind      *ApprovalKind           `json:"approvalKind"`
+	ApprovalStatus    *ApprovalStatus         `json:"approvalStatus"`
+	ProviderRequestID string                  `json:"providerRequestId"`
+	ReviewID          string                  `json:"reviewId"`
+	ReviewStatus      string                  `json:"reviewStatus"`
+	ActionType        string                  `json:"actionType"`
+	Title             string                  `json:"title"`
+	Body              string                  `json:"body"`
+	Command           string                  `json:"command"`
+	Cwd               string                  `json:"cwd"`
+	FilePath          string                  `json:"filePath"`
+	Permission        string                  `json:"permission"`
+	Question          string                  `json:"question"`
+	Options           []string                `json:"options"`
+	Questions         []ApprovalQuestion      `json:"questions"`
+	StructuredInput   *StructuredInputRequest `json:"structuredInput"`
+	Review            json.RawMessage         `json:"review"`
+	Action            json.RawMessage         `json:"action"`
+}
+
 func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:             RunItemDetailsKindMCPToolCall,
@@ -140,6 +172,7 @@ func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDet
 		DynamicToolCall:  nil,
 		FileChange:       nil,
 		Diff:             nil,
+		Approval:         nil,
 	}
 }
 
@@ -151,6 +184,7 @@ func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *
 		DynamicToolCall:  nil,
 		FileChange:       nil,
 		Diff:             nil,
+		Approval:         nil,
 	}
 }
 
@@ -162,6 +196,7 @@ func NewRunItemDynamicToolCallDetails(details RunItemDynamicToolCallDetails) *Ru
 		DynamicToolCall:  &details,
 		FileChange:       nil,
 		Diff:             nil,
+		Approval:         nil,
 	}
 }
 
@@ -173,6 +208,7 @@ func NewRunItemFileChangeDetails(details RunItemFileChangeDetails) *RunItemDetai
 		DynamicToolCall:  nil,
 		FileChange:       &details,
 		Diff:             nil,
+		Approval:         nil,
 	}
 }
 
@@ -184,6 +220,19 @@ func NewRunItemDiffDetails(details RunItemDiffDetails) *RunItemDetails {
 		DynamicToolCall:  nil,
 		FileChange:       nil,
 		Diff:             &details,
+		Approval:         nil,
+	}
+}
+
+func NewRunItemApprovalDetails(details RunItemApprovalDetails) *RunItemDetails {
+	return &RunItemDetails{
+		Kind:             RunItemDetailsKindApproval,
+		CommandExecution: nil,
+		MCPToolCall:      nil,
+		DynamicToolCall:  nil,
+		FileChange:       nil,
+		Diff:             nil,
+		Approval:         &details,
 	}
 }
 
@@ -237,6 +286,19 @@ func (item RunItem) DiffDetails() (*RunItemDiffDetails, bool) {
 	return item.Details.Diff, true
 }
 
+func (item RunItem) ApprovalDetails() (*RunItemApprovalDetails, bool) {
+	if item.Type != RunItemTypeApprovalRequest &&
+		item.Type != RunItemTypeApprovalReview {
+		return nil, false
+	}
+	if item.Details == nil ||
+		item.Details.Kind != RunItemDetailsKindApproval ||
+		item.Details.Approval == nil {
+		return nil, false
+	}
+	return item.Details.Approval, true
+}
+
 type RunActivityPage struct {
 	RunID    string                        `json:"runId"`
 	Items    []RunItem                     `json:"items"`
@@ -258,6 +320,17 @@ func (result RunItemDynamicToolResult) MarshalJSON() ([]byte, error) {
 		result.ContentItems = []RunItemDynamicToolContentItem{}
 	}
 	return json.Marshal(resultAlias(result))
+}
+
+func (details RunItemApprovalDetails) MarshalJSON() ([]byte, error) {
+	type detailsAlias RunItemApprovalDetails
+	if details.Options == nil {
+		details.Options = []string{}
+	}
+	if details.Questions == nil {
+		details.Questions = []ApprovalQuestion{}
+	}
+	return json.Marshal(detailsAlias(details))
 }
 
 func (details RunItemFileChangeDetails) MarshalJSON() ([]byte, error) {

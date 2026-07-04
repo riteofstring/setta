@@ -6,6 +6,7 @@ const (
 	RunItemDetailsKindDynamicToolCall  RunItemDetailsKind = "dynamic_tool_call"
 	RunItemDetailsKindFileChange       RunItemDetailsKind = "file_change"
 	RunItemDetailsKindDiff             RunItemDetailsKind = "diff"
+	RunItemDetailsKindApproval         RunItemDetailsKind = "approval"
 )
 
 var runItemDetailsKindValues = []RunItemDetailsKind{
@@ -14,4 +15,5 @@ var runItemDetailsKindValues = []RunItemDetailsKind{
 	RunItemDetailsKindDynamicToolCall,
 	RunItemDetailsKindFileChange,
 	RunItemDetailsKindDiff,
+	RunItemDetailsKindApproval,
 }

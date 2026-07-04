@@ -165,3 +165,41 @@ func TestRunActivityProjectionUsesTypedDiffDetails(t *testing.T) {
 		t.Fatalf("typed diff details not projected: %+v", details.Diff)
 	}
 }
+
+func TestRunActivityProjectionUsesTypedApprovalDetails(t *testing.T) {
+	item := RunItem{
+		ID:        "item_approval",
+		Type:      RunItemTypeApprovalRequest,
+		Status:    RunItemStatusPending,
+		RequestID: "legacy-request",
+		ReviewID:  "legacy-review",
+		Details: NewRunItemApprovalDetails(RunItemApprovalDetails{
+			ApprovalID:        "approval_1",
+			ApprovalKind:      approvalKindPtr(ApprovalKindCommand),
+			ApprovalStatus:    approvalStatusPtr(ApprovalStatusPending),
+			ProviderRequestID: "request_1",
+			Title:             "Command approval",
+			Body:              "Approve command.",
+			Command:           "go test ./...",
+			Cwd:               "/workspace",
+		}),
+	}
+
+	projection, ok := activityItemBlockProjection(item, RunStatusRunning, false, false)
+	if !ok {
+		t.Fatal("expected a projection for the approval item")
+	}
+	if projection.Title != "Command approval" {
+		t.Fatalf("title = %q, want typed approval title", projection.Title)
+	}
+	details := projection.Details
+	if details.Approval == nil {
+		t.Fatalf("approval details missing: %+v", details)
+	}
+	if details.Approval.ProviderRequestID != "request_1" || details.Approval.Command != "go test ./..." {
+		t.Fatalf("typed approval details not projected: %+v", details.Approval)
+	}
+	if details.RequestID != "" || details.ReviewID != "" {
+		t.Fatalf("legacy approval request/review fields leaked into projection: %+v", details)
+	}
+}

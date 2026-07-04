@@ -36,18 +36,7 @@ func mcpElicitationApprovalFromCodex(params map[string]any, context codexApprova
 		Questions:       []ApprovalQuestion{},
 		StructuredInput: &input,
 	}
-	return approval, codexApprovalDetails{
-		runItem: RunItem{
-			ProviderItemID: context.providerItemID,
-			Type:           RunItemTypeStructuredInput,
-			Status:         RunItemStatusPending,
-			Title:          title,
-			Summary:        input.Message,
-			ServerName:     input.ServerName,
-			RequestID:      context.requestID,
-			RawDetails:     input.Schema,
-		},
-	}, nil
+	return approval, codexApprovalDetails{runItem: approvalRequestRunItem(approval)}, nil
 }
 
 func structuredInputFromMCP(params map[string]any, requestID string) (StructuredInputRequest, error) {

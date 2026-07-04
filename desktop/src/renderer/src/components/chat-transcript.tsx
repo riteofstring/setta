@@ -39,6 +39,8 @@ import type { LoadRunItemOutput } from "./chat-transcript-activity";
 import type { TranscriptRowActions } from "./chat-transcript-row-actions";
 import { transcriptTailRevision, useTranscriptScrollFollow } from "./chat-transcript-scroll-follow";
 
+type TranscriptActivityApprovalDetails = NonNullable<RunActivityDetailsProjection["approval"]>;
+
 export interface ChatTranscriptProps {
   activeRun: Run | null;
   activeRunLiveness: RunLiveness | null;
@@ -141,6 +143,7 @@ function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; te
         ...transcriptActivityDynamicToolSearchText(details),
         ...transcriptActivityFileChangeSearchText(details),
         ...transcriptActivityDiffSearchText(details),
+        ...transcriptActivityApprovalSearchText(details),
       ]
         .filter((item) => item !== "")
         .join("\n"),
@@ -246,6 +249,68 @@ function transcriptActivityDynamicToolSearchText(details: RunActivityDetailsProj
     tool.error,
     transcriptJSONSearchText(tool.arguments),
     transcriptJSONSearchText(tool.result),
+  ];
+}
+
+function transcriptActivityApprovalSearchText(details: RunActivityDetailsProjection) {
+  const approval = details.approval;
+  if (approval === null) {
+    return [];
+  }
+  return [
+    ...transcriptActivityApprovalPrimarySearchText(approval),
+    ...transcriptActivityApprovalQuestionsSearchText(approval),
+    ...transcriptActivityApprovalStructuredInputSearchText(approval),
+    transcriptJSONSearchText(approval.review),
+    transcriptJSONSearchText(approval.action),
+  ];
+}
+
+function transcriptActivityApprovalPrimarySearchText(approval: TranscriptActivityApprovalDetails) {
+  return [
+    approval.approvalId,
+    approval.approvalKind ?? "",
+    approval.approvalStatus ?? "",
+    approval.providerRequestId,
+    approval.reviewId,
+    approval.reviewStatus,
+    approval.actionType,
+    approval.title,
+    approval.body,
+    approval.command,
+    approval.cwd,
+    approval.filePath,
+    approval.permission,
+    approval.question,
+    approval.options.join("\n"),
+  ];
+}
+
+function transcriptActivityApprovalQuestionsSearchText(
+  approval: TranscriptActivityApprovalDetails,
+) {
+  return approval.questions.flatMap((question) => [
+    question.id,
+    question.header,
+    question.question,
+    question.options.join("\n"),
+  ]);
+}
+
+function transcriptActivityApprovalStructuredInputSearchText(
+  approval: TranscriptActivityApprovalDetails,
+) {
+  const structuredInput = approval.structuredInput;
+  if (structuredInput === null) {
+    return [];
+  }
+  return [
+    structuredInput.serverName,
+    structuredInput.mode,
+    structuredInput.message,
+    structuredInput.url,
+    transcriptJSONSearchText(structuredInput.schema),
+    transcriptJSONSearchText(structuredInput.meta),
   ];
 }
 

@@ -33,6 +33,7 @@ import {
   ActivityFileChangeDetails,
   ActivityJSONDetails,
   ActivityMCPDetails,
+  ActivityApprovalDetails,
   ActivityPreBlock,
   ActivityTextBlock,
 } from "./chat-transcript-activity-details";
@@ -59,6 +60,7 @@ const activityIconByType = {
   image_view: Wrench,
   mcp_tool_call: Wrench,
   notice: AlertTriangle,
+  approval_request: AlertTriangle,
   plan: ListChecks,
   reasoning: ListChecks,
   structured_input: ListChecks,
@@ -80,6 +82,7 @@ const activityIconClassByType = {
   image_view: "h-4 w-4 shrink-0 text-muted-foreground",
   mcp_tool_call: "h-4 w-4 shrink-0 text-muted-foreground",
   notice: "h-4 w-4 shrink-0 text-status-warning",
+  approval_request: "h-4 w-4 shrink-0 text-status-alert",
   plan: "h-4 w-4 shrink-0 text-muted-foreground",
   reasoning: "h-4 w-4 shrink-0 text-muted-foreground",
   structured_input: "h-4 w-4 shrink-0 text-muted-foreground",
@@ -187,6 +190,7 @@ const activityLabelResolvers = {
   image_view: noActivityDisplayLabel,
   mcp_tool_call: toolActivityDisplayLabel,
   notice: noticeActivityDisplayLabel,
+  approval_request: approvalActivityDisplayLabel,
   plan: noActivityDisplayLabel,
   reasoning: noActivityDisplayLabel,
   structured_input: noActivityDisplayLabel,
@@ -246,6 +250,10 @@ function noticeActivityDisplayLabel(activity: ActivityItemBlockProjection) {
     return { monospace: false, text: noticeMessage };
   }
   return noticeKind === "" ? null : { monospace: false, text: noticeKind };
+}
+
+function approvalActivityDisplayLabel(activity: ActivityItemBlockProjection) {
+  return activity.details.approval === null ? null : { monospace: false, text: activity.title };
 }
 
 function filePathsDisplayLabel(paths: string[]) {
@@ -588,7 +596,8 @@ function ActivityDetails({
     details.dynamicToolCall === null &&
     details.commandExecution === null &&
     details.fileChange === null &&
-    details.diff === null;
+    details.diff === null &&
+    details.approval === null;
   return (
     <div className="mt-1.5 w-full max-w-full min-w-0 overflow-hidden border-l border-border/70 pl-2">
       <div className="w-full max-w-full min-w-0 space-y-1.5 overflow-hidden text-xs text-muted-foreground">
@@ -607,6 +616,7 @@ function ActivityDetails({
         <ActivityCommandExecutionDetails details={details} />
         <ActivityFileChangeDetails details={details} />
         <ActivityDiffDetails details={details} />
+        <ActivityApprovalDetails details={details} />
         <ActivityTextBlock title="Notice" value={details.noticeMessage} />
         <ActivityMCPDetails details={details} />
         <ActivityDynamicToolDetails details={details} />
@@ -749,6 +759,16 @@ function activityMetadata(details: RunActivityDetailsProjection) {
       { label: "namespace", value: details.dynamicToolCall.namespace },
       { label: "tool", value: details.dynamicToolCall.toolName },
       { label: "category", value: details.dynamicToolCall.category },
+    );
+  }
+  if (details.approval !== null) {
+    entries.push(
+      { label: "approval", value: details.approval.approvalId },
+      { label: "kind", value: details.approval.approvalKind ?? "" },
+      { label: "status", value: details.approval.approvalStatus ?? "" },
+      { label: "request", value: details.approval.providerRequestId },
+      { label: "review", value: details.approval.reviewId },
+      { label: "action", value: details.approval.actionType },
     );
   }
   return entries.filter((entry) => entry.value !== "");

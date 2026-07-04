@@ -76,6 +76,7 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 				{Field: "dynamicToolCall", KindValue: string(chat.RunItemDetailsKindDynamicToolCall)},
 				{Field: "fileChange", KindValue: string(chat.RunItemDetailsKindFileChange)},
 				{Field: "diff", KindValue: string(chat.RunItemDetailsKindDiff)},
+				{Field: "approval", KindValue: string(chat.RunItemDetailsKindApproval)},
 			},
 		},
 	}

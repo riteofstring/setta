@@ -30,6 +30,7 @@ function emptyActivityDetails(
   return {
     command: "",
     commandExecution: null,
+    approval: null,
     cwd: "",
     details: null,
     diff: null,

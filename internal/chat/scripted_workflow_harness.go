@@ -787,24 +787,8 @@ func scriptedReply(sink TurnSink, runID string, text string) (TurnCompletion, er
 }
 
 func scriptedApprovalActivity(sink TurnSink, runID string, approval ApprovalRequest) error {
-	item := RunItem{
-		ProviderItemID: approval.ProviderItemID,
-		Type:           approvalRunItemType(approval),
-		Status:         RunItemStatusRunning,
-		Title:          approval.Title,
-		Summary:        approval.Body,
-	}
-	if approval.Kind == ApprovalKindFileChange {
-		paths := make([]RunItemFileChangePath, 0, len(approvalFilePaths(approval)))
-		for _, path := range approvalFilePaths(approval) {
-			paths = append(paths, RunItemFileChangePath{Path: path})
-		}
-		item.Details = newRunItemFileChangeDetails("approval_requested", paths)
-	} else {
-		item.Details = NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
-			Command: approval.Command,
-		})
-	}
+	item := approvalRequestRunItem(approval)
+	item.Status = RunItemStatusRunning
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err
 	}
@@ -844,19 +828,7 @@ func scriptedActivityFeedFileChange(sink TurnSink, runID string, rootPath string
 }
 
 func scriptedStructuredApprovalActivity(sink TurnSink, approval ApprovalRequest) error {
-	item := RunItem{
-		ProviderItemID: approval.ProviderItemID,
-		Type:           RunItemTypeStructuredInput,
-		Status:         RunItemStatusPending,
-		Title:          approval.Title,
-		Summary:        approval.Body,
-	}
-	if approval.StructuredInput != nil {
-		item.ServerName = approval.StructuredInput.ServerName
-		item.RequestID = approval.StructuredInput.ProviderRequestID
-		item.RawDetails = approval.StructuredInput.Schema
-	}
-	return sink.RunItemUpsert(item)
+	return sink.RunItemUpsert(approvalRequestRunItem(approval))
 }
 
 func scriptedCommandApproval(runID string) ApprovalRequest {

@@ -622,7 +622,15 @@ func TestTranscriptIngestsProtocolActivityTypes(t *testing.T) {
 			items := []RunItem{
 				{ProviderItemID: "hook1", Type: RunItemTypeHook, Status: RunItemStatusRunning, Title: "Hook: pre-command"},
 				{ProviderItemID: "hook1", Type: RunItemTypeHook, Status: RunItemStatusCompleted, Title: "Hook: pre-command"},
-				{ProviderItemID: "approval_review_x", Type: RunItemTypeApprovalReview, Status: RunItemStatusCompleted, Title: "Auto-approval review", Summary: "Auto-review approved for command", ReviewID: "x", RawDetails: json.RawMessage(`{"riskLevel":"low"}`)},
+				{ProviderItemID: "approval_review_x", Type: RunItemTypeApprovalReview, Status: RunItemStatusCompleted, Title: "Auto-approval review", Summary: "Auto-review approved for command", Details: NewRunItemApprovalDetails(RunItemApprovalDetails{
+					ReviewID:     "x",
+					ReviewStatus: "approved",
+					ActionType:   "command",
+					Title:        "Auto-approval review",
+					Body:         "Auto-review approved for command",
+					Review:       json.RawMessage(`{"status":"approved","riskLevel":"low"}`),
+					Action:       json.RawMessage(`{"type":"command"}`),
+				})},
 				{ProviderItemID: "patch1", Type: RunItemTypeFileChange, Status: RunItemStatusRunning, Details: newRunItemFileChangeDetails("updated", []RunItemFileChangePath{{Path: "a.go", Operation: runItemFileChangeOperationPtr(RunItemFileChangeOperationUpdate)}})},
 				{ProviderItemID: "patch1", Type: RunItemTypeFileChange, Status: RunItemStatusCompleted, Details: newRunItemFileChangeDetails("completed", nil)},
 				{ProviderItemID: "tool1", Type: RunItemTypeDynamicToolCall, Status: RunItemStatusCompleted, Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{ToolName: "do_thing"})},

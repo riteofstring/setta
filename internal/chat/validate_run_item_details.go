@@ -24,6 +24,9 @@ func validateRunItemCommandExecutionDetails(item RunItem) error {
 	if item.Details.Diff != nil {
 		return fmt.Errorf("run item %s commandExecution details must not contain the diff branch", item.ID)
 	}
+	if item.Details.Approval != nil {
+		return fmt.Errorf("run item %s commandExecution details must not contain the approval branch", item.ID)
+	}
 	if err := validateRunItemCommandExecutionFlatFieldsEmpty(item); err != nil {
 		return err
 	}
@@ -96,6 +99,9 @@ func validateRunItemMCPToolCallDetailsBranch(item RunItem) error {
 	if item.Details.Diff != nil {
 		return fmt.Errorf("run item %s mcpToolCall details must not contain the diff branch", item.ID)
 	}
+	if item.Details.Approval != nil {
+		return fmt.Errorf("run item %s mcpToolCall details must not contain the approval branch", item.ID)
+	}
 	return validateRunItemMCPToolCallDetails(item, *item.Details.MCPToolCall)
 }
 
@@ -120,6 +126,9 @@ func validateRunItemDynamicToolCallDetailsBranch(item RunItem) error {
 	}
 	if item.Details.Diff != nil {
 		return fmt.Errorf("run item %s dynamicToolCall details must not contain the diff branch", item.ID)
+	}
+	if item.Details.Approval != nil {
+		return fmt.Errorf("run item %s dynamicToolCall details must not contain the approval branch", item.ID)
 	}
 	if err := validateRunItemDynamicToolCallFlatFieldsEmpty(item); err != nil {
 		return err
@@ -171,6 +180,9 @@ func validateRunItemFileChangeDetailsBranch(item RunItem) error {
 	if item.Details.Diff != nil {
 		return fmt.Errorf("run item %s fileChange details must not contain the diff branch", item.ID)
 	}
+	if item.Details.Approval != nil {
+		return fmt.Errorf("run item %s fileChange details must not contain the approval branch", item.ID)
+	}
 	if err := validateRunItemFileChangeFlatFieldsEmpty(item); err != nil {
 		return err
 	}
@@ -212,6 +224,9 @@ func validateRunItemDiffDetailsBranch(item RunItem) error {
 	if item.Details.FileChange != nil {
 		return fmt.Errorf("run item %s diff details must not contain the fileChange branch", item.ID)
 	}
+	if item.Details.Approval != nil {
+		return fmt.Errorf("run item %s diff details must not contain the approval branch", item.ID)
+	}
 	if err := validateRunItemDiffFlatFieldsEmpty(item); err != nil {
 		return err
 	}
@@ -226,6 +241,167 @@ func validateRunItemDiffFlatFieldsEmpty(item RunItem) error {
 		return fmt.Errorf("run item %s diff flat diffSummary must be empty after typed details cutover", item.ID)
 	}
 	return nil
+}
+
+func validateRunItemApprovalDetailsBranch(item RunItem) error {
+	if rawDetailsInspectable(item.RawDetails) {
+		return fmt.Errorf("run item %s approval rawDetails must be empty after typed details cutover", item.ID)
+	}
+	if item.Details == nil {
+		return fmt.Errorf("run item %s approval details are required", item.ID)
+	}
+	if item.Details.Kind != RunItemDetailsKindApproval || item.Details.Approval == nil {
+		return fmt.Errorf("run item %s approval details must contain the approval branch", item.ID)
+	}
+	if item.Details.CommandExecution != nil {
+		return fmt.Errorf("run item %s approval details must not contain the commandExecution branch", item.ID)
+	}
+	if item.Details.MCPToolCall != nil {
+		return fmt.Errorf("run item %s approval details must not contain the mcpToolCall branch", item.ID)
+	}
+	if item.Details.DynamicToolCall != nil {
+		return fmt.Errorf("run item %s approval details must not contain the dynamicToolCall branch", item.ID)
+	}
+	if item.Details.FileChange != nil {
+		return fmt.Errorf("run item %s approval details must not contain the fileChange branch", item.ID)
+	}
+	if item.Details.Diff != nil {
+		return fmt.Errorf("run item %s approval details must not contain the diff branch", item.ID)
+	}
+	if err := validateRunItemApprovalFlatFieldsEmpty(item); err != nil {
+		return err
+	}
+	return validateRunItemApprovalDetails(item, *item.Details.Approval)
+}
+
+func validateRunItemApprovalFlatFieldsEmpty(item RunItem) error {
+	if err := validateRunItemFlatStringFieldsEmpty(item, "approval", []runItemFlatStringField{
+		{name: "command", value: item.Command},
+		{name: "cwd", value: item.Cwd},
+	}); err != nil {
+		return err
+	}
+	if len(item.FilePaths) != 0 {
+		return fmt.Errorf("run item %s approval flat filePaths must be empty after typed details cutover", item.ID)
+	}
+	if err := validateRunItemFlatStringFieldsEmpty(item, "approval", []runItemFlatStringField{
+		{name: "patchStatus", value: item.PatchStatus},
+		{name: "serverName", value: item.ServerName},
+		{name: "toolName", value: item.ToolName},
+		{name: "result", value: item.Result},
+		{name: "error", value: item.Error},
+		{name: "diffSummary", value: item.DiffSummary},
+		{name: "namespace", value: item.Namespace},
+		{name: "processId", value: item.ProcessID},
+	}); err != nil {
+		return err
+	}
+	if item.Source != nil {
+		return fmt.Errorf("run item %s approval flat source must be empty after typed details cutover", item.ID)
+	}
+	if err := validateRunItemFlatStringFieldsEmpty(item, "approval", []runItemFlatStringField{
+		{name: "requestId", value: item.RequestID},
+		{name: "reviewId", value: item.ReviewID},
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+type runItemFlatStringField struct {
+	name  string
+	value string
+}
+
+func validateRunItemFlatStringFieldsEmpty(item RunItem, detailsKind string, fields []runItemFlatStringField) error {
+	for _, field := range fields {
+		if field.value != "" {
+			return fmt.Errorf("run item %s %s flat %s must be empty after typed details cutover", item.ID, detailsKind, field.name)
+		}
+	}
+	return nil
+}
+
+func validateRunItemApprovalDetails(item RunItem, details RunItemApprovalDetails) error {
+	switch item.Type {
+	case RunItemTypeApprovalRequest:
+		return validateRunItemApprovalRequestDetails(item, details)
+	case RunItemTypeApprovalReview:
+		return validateRunItemApprovalReviewDetails(item, details)
+	default:
+		return fmt.Errorf("run item %s type %s does not support approval details", item.ID, item.Type)
+	}
+}
+
+func validateRunItemApprovalRequestDetails(item RunItem, details RunItemApprovalDetails) error {
+	if details.ApprovalKind == nil {
+		return fmt.Errorf("run item %s approval approvalKind is required for request items", item.ID)
+	}
+	if !validValue(*details.ApprovalKind, approvalKindValues) {
+		return fmt.Errorf("run item %s approval has unsupported approvalKind %s", item.ID, *details.ApprovalKind)
+	}
+	if details.ApprovalStatus == nil {
+		return fmt.Errorf("run item %s approval approvalStatus is required for request items", item.ID)
+	}
+	if !validValue(*details.ApprovalStatus, approvalStatusValues) {
+		return fmt.Errorf("run item %s approval has unsupported approvalStatus %s", item.ID, *details.ApprovalStatus)
+	}
+	if details.Title == "" {
+		return fmt.Errorf("run item %s approval title is required for request items", item.ID)
+	}
+	if details.ReviewID != "" || details.ReviewStatus != "" || details.ActionType != "" ||
+		rawDetailsInspectable(details.Review) || rawDetailsInspectable(details.Action) {
+		return fmt.Errorf("run item %s approval request details must not contain review fields", item.ID)
+	}
+	return nil
+}
+
+func validateRunItemApprovalReviewDetails(item RunItem, details RunItemApprovalDetails) error {
+	if details.ReviewID == "" {
+		return fmt.Errorf("run item %s approval reviewId is required for review items", item.ID)
+	}
+	if details.ReviewStatus == "" {
+		return fmt.Errorf("run item %s approval reviewStatus is required for review items", item.ID)
+	}
+	if details.ActionType == "" {
+		return fmt.Errorf("run item %s approval actionType is required for review items", item.ID)
+	}
+	if approvalReviewRequestFieldPresent(details) {
+		return approvalReviewRequestFieldsError(item)
+	}
+	return nil
+}
+
+func approvalReviewRequestFieldPresent(details RunItemApprovalDetails) bool {
+	for _, present := range []bool{
+		details.ApprovalKind != nil,
+		details.ApprovalStatus != nil,
+		details.StructuredInput != nil,
+		len(details.Options) != 0,
+		len(details.Questions) != 0,
+	} {
+		if present {
+			return true
+		}
+	}
+	for _, field := range []string{
+		details.ApprovalID,
+		details.ProviderRequestID,
+		details.Command,
+		details.Cwd,
+		details.FilePath,
+		details.Permission,
+		details.Question,
+	} {
+		if field != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func approvalReviewRequestFieldsError(item RunItem) error {
+	return fmt.Errorf("run item %s approval review details must not contain request fields", item.ID)
 }
 
 func validateRunItemDynamicToolCallDetails(item RunItem, details RunItemDynamicToolCallDetails) error {

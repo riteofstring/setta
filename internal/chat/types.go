@@ -109,6 +109,7 @@ const (
 	RunItemTypeDiff                RunItemType = "diff"
 	RunItemTypeContextCompaction   RunItemType = "context_compaction"
 	RunItemTypeNotice              RunItemType = "notice"
+	RunItemTypeApprovalRequest     RunItemType = "approval_request"
 	RunItemTypeApprovalReview      RunItemType = "approval_review"
 	RunItemTypeHook                RunItemType = "hook"
 	RunItemTypeStructuredInput     RunItemType = "structured_input"
@@ -248,6 +249,7 @@ var (
 		RunItemTypeDiff,
 		RunItemTypeContextCompaction,
 		RunItemTypeNotice,
+		RunItemTypeApprovalRequest,
 		RunItemTypeApprovalReview,
 		RunItemTypeHook,
 		RunItemTypeStructuredInput,

@@ -161,6 +161,43 @@ export function ActivityDynamicToolDetails({ details }: { details: RunActivityDe
   );
 }
 
+export function ActivityApprovalDetails({ details }: { details: RunActivityDetailsProjection }) {
+  const approval = details.approval;
+  if (approval === null) {
+    return null;
+  }
+  return (
+    <>
+      <ActivityTextBlock title="Approval" value={approval.approvalId} />
+      <ActivityTextBlock title="Request" value={approval.providerRequestId} />
+      <ActivityTextBlock title="Review" value={approval.reviewId} />
+      <ActivityTextBlock title="Body" value={approval.body} />
+      <ActivityTextBlock title="Kind" value={approval.approvalKind ?? ""} />
+      <ActivityTextBlock title="Status" value={approval.approvalStatus ?? approval.reviewStatus} />
+      <ActivityTextBlock title="Command" monospace value={approval.command} />
+      <ActivityTextBlock title="Cwd" monospace value={approval.cwd} />
+      <ActivityTextBlock title="File" monospace value={approval.filePath} />
+      <ActivityTextBlock title="Permission" value={approval.permission} />
+      <ActivityTextBlock title="Question" value={approval.question} />
+      <ActivityPreBlock title="Options" value={approval.options.join("\n")} />
+      <ActivityJSONBlock details={approval.questions} title="Questions" />
+      {approval.structuredInput === null ? null : (
+        <>
+          <ActivityTextBlock title="Server" value={approval.structuredInput.serverName} />
+          <ActivityTextBlock title="Mode" value={approval.structuredInput.mode} />
+          <ActivityTextBlock title="Message" value={approval.structuredInput.message} />
+          <ActivityTextBlock title="URL" monospace value={approval.structuredInput.url} />
+          <ActivityJSONBlock details={approval.structuredInput.schema} title="Schema" />
+          <ActivityJSONBlock details={approval.structuredInput.meta} title="Metadata" />
+        </>
+      )}
+      <ActivityTextBlock title="Action" value={approval.actionType} />
+      <ActivityJSONBlock details={approval.review} title="Review" />
+      <ActivityJSONBlock details={approval.action} title="Action Details" />
+    </>
+  );
+}
+
 function dynamicToolSuccessText(success: boolean | null) {
   if (success === null) {
     return "";

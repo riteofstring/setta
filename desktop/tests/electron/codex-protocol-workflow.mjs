@@ -62,7 +62,11 @@ export async function assertProtocolNotificationActivity(
 ) {
   const page = await backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId });
   await assertRunActivityItem(page, "hook", (item) => item.title === "Hook: pre-command");
-  await assertRunActivityItem(page, "approval_review", (item) => item.reviewId === "review_fake");
+  await assertRunActivityItem(
+    page,
+    "approval_review",
+    (item) => item.details?.approval?.reviewId === "review_fake",
+  );
   await assertRunActivityItem(
     page,
     "context_compaction",

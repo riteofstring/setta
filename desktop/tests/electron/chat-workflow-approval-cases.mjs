@@ -172,7 +172,10 @@ async function acceptStructuredFormApproval({
     backend,
     workspaceId,
     run.id,
-    (item) => item.type === "structured_input" && item.serverName === "deploy",
+    (item) =>
+      item.type === "approval_request" &&
+      item.details?.approval?.approvalKind === "structured_input" &&
+      item.details.approval.structuredInput?.serverName === "deploy",
   );
 }
 

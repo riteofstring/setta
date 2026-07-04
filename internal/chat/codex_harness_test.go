@@ -197,15 +197,12 @@ func TestCodexHarnessMapsApprovalRequestAndResponse(t *testing.T) {
 	if approval.ProviderItemID != "item_fake" {
 		t.Fatalf("approval provider item id = %q, want item_fake", approval.ProviderItemID)
 	}
-	commandItem, ok := findRunItemType(sink.items, RunItemTypeCommandExecution)
-	if !ok || commandItem.ProviderItemID != "item_fake" {
+	approvalItem, ok := findRunItemType(sink.items, RunItemTypeApprovalRequest)
+	approvalDetails, detailsOK := approvalItem.ApprovalDetails()
+	if !ok || !detailsOK || approvalItem.ProviderItemID != "item_fake" || approvalDetails.Command != "go test ./..." || approvalDetails.ProviderRequestID != "approval-1" {
 		t.Fatalf("items = %+v, want command approval run item", sink.items)
 	}
-	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
-		ApprovalID: approval.ID,
-		Approved:   true,
-		RunID:      "run_fake",
-	}); err != nil {
+	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{ApprovalID: approval.ID, Approved: true, RunID: "run_fake"}); err != nil {
 		t.Fatalf("submit approval: %v", err)
 	}
 	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
@@ -223,14 +220,12 @@ func TestCodexHarnessMapsPermissionApprovalResponse(t *testing.T) {
 	if approval.Kind != ApprovalKindPermission || !strings.Contains(approval.Permission, "network") {
 		t.Fatalf("approval = %+v, want permission approval with details", approval)
 	}
-	if !containsRunItemType(sink.items, RunItemTypeDynamicToolCall) {
+	approvalItem, ok := findRunItemType(sink.items, RunItemTypeApprovalRequest)
+	approvalDetails, detailsOK := approvalItem.ApprovalDetails()
+	if !ok || !detailsOK || approvalDetails.Permission == "" {
 		t.Fatalf("items = %+v, want permission approval run item", sink.items)
 	}
-	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
-		ApprovalID: approval.ID,
-		Approved:   true,
-		RunID:      "run_fake",
-	}); err != nil {
+	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{ApprovalID: approval.ID, Approved: true, RunID: "run_fake"}); err != nil {
 		t.Fatalf("submit approval: %v", err)
 	}
 	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
@@ -248,7 +243,9 @@ func TestCodexHarnessMapsMultiQuestionUserInput(t *testing.T) {
 	if approval.Kind != ApprovalKindUserInput || len(approval.Questions) != 2 {
 		t.Fatalf("approval = %+v, want two user input questions", approval)
 	}
-	if !containsRunItemType(sink.items, RunItemTypeDynamicToolCall) {
+	approvalItem, ok := findRunItemType(sink.items, RunItemTypeApprovalRequest)
+	approvalDetails, detailsOK := approvalItem.ApprovalDetails()
+	if !ok || !detailsOK || len(approvalDetails.Questions) != 2 {
 		t.Fatalf("items = %+v, want user input approval run item", sink.items)
 	}
 	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{

@@ -15,6 +15,7 @@ var runActivityDefaultTitles = map[RunItemType]string{
 	RunItemTypeContextCompaction:   "context compaction",
 	RunItemTypePlan:                "Plan update",
 	RunItemTypeReasoning:           "Reasoning summary",
+	RunItemTypeApprovalRequest:     "approval request",
 	RunItemTypeApprovalReview:      "approval review",
 	RunItemTypeHook:                "hook",
 	RunItemTypeStructuredInput:     "structured input",
@@ -59,6 +60,7 @@ func runItemDisplayable(item RunItem, status RunItemStatus, hasDetails bool, has
 		RunItemTypeTerminalInteraction,
 		RunItemTypeDiff,
 		RunItemTypeContextCompaction,
+		RunItemTypeApprovalRequest,
 		RunItemTypeApprovalReview,
 		RunItemTypeHook,
 		RunItemTypeStructuredInput:
@@ -119,6 +121,8 @@ func runActivityTypedTitle(item RunItem) (string, bool) {
 		return runActivityDiffTitle(item), true
 	case RunItemTypeDynamicToolCall, RunItemTypeCollabAgentToolCall:
 		return runActivityToolTitle(item), true
+	case RunItemTypeApprovalRequest, RunItemTypeApprovalReview:
+		return runActivityApprovalTitle(item), true
 	case RunItemTypeNotice:
 		return runActivityNoticeTitle(item), true
 	default:
@@ -184,6 +188,37 @@ func runActivityToolTitle(item RunItem) string {
 	return "tool call"
 }
 
+func runActivityApprovalTitle(item RunItem) string {
+	details, ok := item.ApprovalDetails()
+	if !ok {
+		if item.Type == RunItemTypeApprovalReview {
+			return "approval review"
+		}
+		return "approval request"
+	}
+	if details.Title != "" {
+		return details.Title
+	}
+	if details.ReviewID != "" {
+		return "Auto-approval review"
+	}
+	if details.ApprovalKind != nil {
+		switch *details.ApprovalKind {
+		case ApprovalKindCommand:
+			return "Command approval"
+		case ApprovalKindFileChange:
+			return "File change approval"
+		case ApprovalKindPermission:
+			return "Permission approval"
+		case ApprovalKindStructured:
+			return "MCP input requested"
+		case ApprovalKindUserInput:
+			return "User input approval"
+		}
+	}
+	return "approval request"
+}
+
 func runActivityDynamicToolTitle(details *RunItemDynamicToolCallDetails) string {
 	if details == nil {
 		return "tool call"
@@ -215,6 +250,7 @@ func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 	dynamicToolCall := runItemDynamicToolCallDetailsProjection(item)
 	fileChange := runItemFileChangeDetailsProjection(item)
 	diff := runItemDiffDetailsProjection(item)
+	approval := runItemApprovalDetailsProjection(item)
 	return RunActivityDetailsProjection{
 		Summary:          publicRunActivitySummary(item),
 		Command:          runActivityCommand(item, commandExecution),
@@ -232,14 +268,15 @@ func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 		NoticeMessage:    item.NoticeMessage,
 		Namespace:        item.Namespace,
 		ProcessID:        runActivityProcessID(item, commandExecution),
-		RequestID:        item.RequestID,
-		ReviewID:         item.ReviewID,
+		RequestID:        runActivityRequestID(item),
+		ReviewID:         runActivityReviewID(item),
 		Details:          cloneRawMessage(item.RawDetails),
 		CommandExecution: commandExecution,
 		MCPToolCall:      runItemMCPToolCallDetailsProjection(item),
 		DynamicToolCall:  dynamicToolCall,
 		FileChange:       fileChange,
 		Diff:             diff,
+		Approval:         approval,
 	}
 }
 
@@ -288,6 +325,40 @@ func cloneDynamicToolCallDetails(details RunItemDynamicToolCallDetails) RunItemD
 	return details
 }
 
+func cloneApprovalDetails(details RunItemApprovalDetails) RunItemApprovalDetails {
+	if details.ApprovalKind != nil {
+		kind := *details.ApprovalKind
+		details.ApprovalKind = &kind
+	}
+	if details.ApprovalStatus != nil {
+		status := *details.ApprovalStatus
+		details.ApprovalStatus = &status
+	}
+	details.Options = append([]string{}, details.Options...)
+	details.Questions = cloneApprovalQuestions(details.Questions)
+	if details.StructuredInput != nil {
+		input := *details.StructuredInput
+		input.Schema = cloneRawMessage(input.Schema)
+		input.Meta = cloneRawMessage(input.Meta)
+		details.StructuredInput = &input
+	}
+	details.Review = cloneRawMessage(details.Review)
+	details.Action = cloneRawMessage(details.Action)
+	return details
+}
+
+func cloneApprovalQuestions(questions []ApprovalQuestion) []ApprovalQuestion {
+	if questions == nil {
+		return nil
+	}
+	cloned := make([]ApprovalQuestion, len(questions))
+	for index, question := range questions {
+		cloned[index] = question
+		cloned[index].Options = append([]string{}, question.Options...)
+	}
+	return cloned
+}
+
 func cloneDynamicToolContentItems(items []RunItemDynamicToolContentItem) []RunItemDynamicToolContentItem {
 	if items == nil {
 		return nil
@@ -307,7 +378,8 @@ func runActivityDetailsInspectable(details RunActivityDetailsProjection) bool {
 		details.MCPToolCall != nil ||
 		details.DynamicToolCall != nil ||
 		details.FileChange != nil ||
-		details.Diff != nil
+		details.Diff != nil ||
+		details.Approval != nil
 }
 
 func runActivityStringDetailsInspectable(details RunActivityDetailsProjection) bool {
@@ -391,6 +463,15 @@ func runItemDiffDetailsProjection(item RunItem) *RunItemDiffDetails {
 	return &cloned
 }
 
+func runItemApprovalDetailsProjection(item RunItem) *RunItemApprovalDetails {
+	details, ok := item.ApprovalDetails()
+	if !ok {
+		return nil
+	}
+	cloned := cloneApprovalDetails(*details)
+	return &cloned
+}
+
 func runActivityFilePaths(item RunItem, fileChange *RunItemFileChangeDetails, diff *RunItemDiffDetails) []string {
 	if fileChange != nil {
 		return runItemFileChangePaths(fileChange)
@@ -465,6 +546,20 @@ func runActivityProcessID(item RunItem, commandExecution *RunItemCommandExecutio
 		return ""
 	}
 	return item.ProcessID
+}
+
+func runActivityRequestID(item RunItem) string {
+	if item.Type == RunItemTypeApprovalRequest || item.Type == RunItemTypeApprovalReview {
+		return ""
+	}
+	return item.RequestID
+}
+
+func runActivityReviewID(item RunItem) string {
+	if item.Type == RunItemTypeApprovalRequest || item.Type == RunItemTypeApprovalReview {
+		return ""
+	}
+	return item.ReviewID
 }
 
 func runActivityResult(item RunItem, commandExecution *RunItemCommandExecutionDetails) string {

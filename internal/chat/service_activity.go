@@ -424,6 +424,9 @@ func mergeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunIte
 	if next.Kind == RunItemDetailsKindDiff {
 		return next
 	}
+	if next.Kind == RunItemDetailsKindApproval {
+		return mergeApprovalRunItemDetails(existing, next)
+	}
 	return next
 }
 
@@ -520,6 +523,47 @@ func mergeFileChangeRunItemDetails(existing *RunItemDetails, next *RunItemDetail
 		merged.Deletions = previous.Deletions
 	}
 	return NewRunItemFileChangeDetails(merged)
+}
+
+func mergeApprovalRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
+	if next.Approval == nil {
+		return existing
+	}
+	if existing.Approval == nil {
+		return next
+	}
+	merged := cloneApprovalDetails(*next.Approval)
+	previous := existing.Approval
+	merged.ApprovalID = keepString(merged.ApprovalID, previous.ApprovalID)
+	if merged.ApprovalKind == nil {
+		merged.ApprovalKind = previous.ApprovalKind
+	}
+	if merged.ApprovalStatus == nil {
+		merged.ApprovalStatus = previous.ApprovalStatus
+	}
+	merged.ProviderRequestID = keepString(merged.ProviderRequestID, previous.ProviderRequestID)
+	merged.ReviewID = keepString(merged.ReviewID, previous.ReviewID)
+	merged.ReviewStatus = keepString(merged.ReviewStatus, previous.ReviewStatus)
+	merged.ActionType = keepString(merged.ActionType, previous.ActionType)
+	merged.Title = keepString(merged.Title, previous.Title)
+	merged.Body = keepString(merged.Body, previous.Body)
+	merged.Command = keepString(merged.Command, previous.Command)
+	merged.Cwd = keepString(merged.Cwd, previous.Cwd)
+	merged.FilePath = keepString(merged.FilePath, previous.FilePath)
+	merged.Permission = keepString(merged.Permission, previous.Permission)
+	merged.Question = keepString(merged.Question, previous.Question)
+	if len(merged.Options) == 0 {
+		merged.Options = append([]string{}, previous.Options...)
+	}
+	if len(merged.Questions) == 0 {
+		merged.Questions = cloneApprovalQuestions(previous.Questions)
+	}
+	if merged.StructuredInput == nil {
+		merged.StructuredInput = previous.StructuredInput
+	}
+	merged.Review = keepRawMessage(merged.Review, previous.Review)
+	merged.Action = keepRawMessage(merged.Action, previous.Action)
+	return NewRunItemApprovalDetails(cloneApprovalDetails(merged))
 }
 
 func keepString(next string, existing string) string {

@@ -700,8 +700,17 @@ Status after the MCP typed-details cutover:
   coverage, and live Codex workflows read the typed branch. Dynamic-tool records
   with legacy flat namespace/tool/result/error/duration/rawDetails fields now
   fail validation instead of being dual-read.
-- Remaining: complete protocol findings and typed-detail cutovers for
-  failed starts, approvals, and stream lifecycle activity.
+- Done: approval request and auto-review rows now write
+  `RunItem.details.approval` for approval IDs, kind/status, provider request ID,
+  command/cwd/file/permission/question/structured-input payloads, review status,
+  action type, and provider review/action metadata. Scripted approvals, Codex
+  app-server approval requests, MCP elicitation requests, auto-approval review
+  notifications, showcase data, transcript details, search, deterministic
+  Electron approval/protocol coverage, and live Codex workflows read the typed
+  branch. Approval records with legacy flat request/review/raw details now fail
+  validation instead of being dual-read.
+- Remaining: complete protocol findings and typed-detail cutovers for failed
+  starts and stream lifecycle activity rows.
 
 ### Slice 4: Tool And File Activity Rendering
 
@@ -829,8 +838,8 @@ Status after the composer prompt-history step:
   resubmission. Missing or cross-conversation image references produce explicit
   diagnostics.
 - Remaining: no known Slice 7 implementation gap. Remaining plan work is the
-  earlier activity typed-detail/rendering backlog: failed starts, approvals, and
-  stream lifecycle activity rows.
+  earlier activity typed-detail/rendering backlog: failed starts and stream
+  lifecycle activity rows.
 
 ## Verification Plan
 
