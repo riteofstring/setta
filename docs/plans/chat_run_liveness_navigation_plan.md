@@ -740,6 +740,19 @@ Verification performed:
 - `./check_quality.sh --git-changes`
 - `./scripts/test_chat_workflows.sh --skip-build --live-only`
 
+Follow-up audit:
+
+- audited the active current-plan surface against the Phase 8 slice and found
+  the completed scope matches the plan: the surface is selected-conversation and
+  active-run scoped, uses typed plan details only, updates in place on the same
+  run item, and renders before background terminals;
+- confirmed completion dwell, expanded/hovered/focused auto-dismiss protection,
+  and formalized active-work stack behavior remain intentionally deferred to the
+  next implementation slice;
+- reran focused backend, renderer, typecheck, and production-path Codex
+  protocol verification. Renderer package commands were run from `desktop/`
+  because the repository root has no package manifest.
+
 Remaining work:
 
 - add completion dwell for the current-plan surface and prevent auto-dismiss
