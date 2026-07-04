@@ -17,6 +17,9 @@ func (service *Service) ProcessCartographerWindow(ctx context.Context, workspace
 }
 
 func (service *Service) processCartographerWindow(ctx context.Context, workspaceID string, windowID string, options cartographerWindowProcessingOptions) (CartographerWindowProcessResult, error) {
+	if service.semanticCartographerDisabled() {
+		return CartographerWindowProcessResult{}, errSemanticCartographerDisabled
+	}
 	workspaceSummary, window, run, err := service.beginCartographerWindowProcessing(ctx, workspaceID, windowID)
 	if err != nil {
 		return CartographerWindowProcessResult{}, err

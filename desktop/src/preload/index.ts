@@ -395,8 +395,12 @@ const api: SettaAPI = {
   },
 };
 
-installRendererRecorder(ipcRenderer);
 contextBridge.exposeInMainWorld("setta", api);
+try {
+  installRendererRecorder(ipcRenderer);
+} catch (error) {
+  console.error("Setta renderer recorder failed to install.", error);
+}
 
 function parseWorkflowGraphSyntheticGraph(env: NodeJS.ProcessEnv) {
   const nodeCount = optionalPositiveIntegerEnv(

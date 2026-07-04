@@ -14,6 +14,7 @@ import (
 
 	"setta/internal/chat"
 	"setta/internal/httpapi"
+	"setta/internal/semanticgraph"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
@@ -125,6 +126,34 @@ func TestStartReportsReadyWithMalformedHistoricalRunState(t *testing.T) {
 	}
 	if ready.Event != "ready" {
 		t.Fatalf("ready event = %q, want ready", ready.Event)
+	}
+}
+
+func TestRuntimeDisablesSemanticCartographerGlobally(t *testing.T) {
+	server, err := Start(context.Background(), testConfig(t))
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	defer shutdownServer(t, server)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	baseURL := "http://" + server.Addr()
+	state := postRuntimeJSON[semanticgraph.CartographerProcessingState](t, client, baseURL, "/semantic-graph/cartographer/processing/state", httpapi.ReadCartographerProcessingStateRequest{}, http.StatusOK)
+	if state.Enabled || state.Started || state.QueuedWindowCount != 0 || state.RunningWindowCount != 0 {
+		t.Fatalf("runtime cartographer state = %+v, want globally disabled and idle", state)
+	}
+
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	response := postRuntimeJSON[httpapi.ErrorResponse](t, client, baseURL, "/semantic-graph/cartographer/windows/build", httpapi.BuildCartographerWindowRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		TriggerKind:    semanticgraph.CartographerTriggerManual,
+		TargetEntityID: "node_runtime_disabled",
+		Summary:        "Runtime disabled cartographer request.",
+	}, http.StatusBadRequest)
+	if response.Error.Code != "build_cartographer_window_failed" || response.Error.Message != "semantic cartographer is disabled" {
+		t.Fatalf("runtime disabled build response = %+v, want disabled cartographer error", response)
 	}
 }
 

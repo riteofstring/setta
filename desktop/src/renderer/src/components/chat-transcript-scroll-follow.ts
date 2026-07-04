@@ -27,6 +27,24 @@ export interface ChatTranscriptScrollDebugSnapshot {
   scrollHeight: number;
   scrollTop: number;
   tailRevision: string;
+  trace: ChatTranscriptScrollDebugTraceEntry[];
+}
+
+export interface ChatTranscriptScrollDebugTraceEntry {
+  [key: string]: boolean | number | string | null;
+  at: number;
+  atBottom: boolean;
+  clientHeight: number;
+  distanceFromBottom: number;
+  event: string;
+  lastVisibleIndex: number;
+  mode: TranscriptScrollFollowMode;
+  pendingScrollCount: number;
+  rowCount: number;
+  scrollHeight: number;
+  scrollTop: number;
+  seq: number;
+  tailRevision: string;
 }
 
 type ScrollToIndexLocation = Parameters<VirtuosoHandle["scrollToIndex"]>[0];
@@ -68,6 +86,8 @@ const strictBottomDistancePx = 24;
 const reattachBottomDistancePx = 2;
 const scrollDirectionThresholdPx = 1;
 const scrollbarPointerIntentEdgePx = 24;
+const transcriptScrollDebugTextLength = 160;
+const transcriptScrollDebugTraceLimit = 30;
 const tailRevisionRowCount = 24;
 const virtualBottomDistancePx = 96;
 
@@ -95,6 +115,21 @@ export function useTranscriptScrollFollow({
     scrollHeight: 0,
     scrollTop: 0,
   });
+  const traceRef = useRef<ChatTranscriptScrollDebugTraceEntry[]>([]);
+  const traceSeqRef = useRef(0);
+  const [debugSnapshot, setDebugSnapshot] = useState<ChatTranscriptScrollDebugSnapshot>(() => ({
+    atBottom: rowCount <= 0,
+    clientHeight: 0,
+    distanceFromBottom: 0,
+    lastVisibleIndex: rowCount - 1,
+    mode: "auto_follow",
+    pendingScrollCount: 0,
+    rowCount,
+    scrollHeight: 0,
+    scrollTop: 0,
+    tailRevision: truncateTranscriptScrollDebugText(tailRevision),
+    trace: [],
+  }));
 
   useEffect(() => {
     rowCountRef.current = rowCount;
@@ -118,22 +153,6 @@ export function useTranscriptScrollFollow({
       pendingScrollCountRef.current = 0;
     }
   }, []);
-
-  const setMode = useCallback(
-    (next: TranscriptScrollFollowMode) => {
-      if (next === "auto_follow") {
-        clearDirectionalScrollIntent();
-      } else {
-        cancelAutoScrollToLatest();
-      }
-      if (modeRef.current === next) {
-        return;
-      }
-      modeRef.current = next;
-      setModeState(next);
-    },
-    [cancelAutoScrollToLatest, clearDirectionalScrollIntent],
-  );
 
   const updateMetricsFromElement = useCallback((element: HTMLElement) => {
     const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
@@ -161,37 +180,135 @@ export function useTranscriptScrollFollow({
     });
   }, []);
 
+  const readDebugSnapshot = useCallback(
+    (): ChatTranscriptScrollDebugSnapshot => ({
+      atBottom: atBottom(),
+      clientHeight: metricsRef.current.clientHeight,
+      distanceFromBottom: metricsRef.current.distanceFromBottom,
+      lastVisibleIndex: visibleEndIndexRef.current,
+      mode: modeRef.current,
+      pendingScrollCount: pendingScrollCountRef.current,
+      rowCount: rowCountRef.current,
+      scrollHeight: metricsRef.current.scrollHeight,
+      scrollTop: metricsRef.current.scrollTop,
+      tailRevision: truncateTranscriptScrollDebugText(tailRevisionRef.current),
+      trace: traceRef.current,
+    }),
+    [atBottom],
+  );
+
+  const refreshDebugSnapshot = useCallback(() => {
+    if (transcriptScrollDebugRecordingEnabled()) {
+      setDebugSnapshot(readDebugSnapshot());
+    }
+  }, [readDebugSnapshot]);
+
+  const recordDebugTrace = useCallback(
+    (event: string, extra: Record<string, boolean | number | string | null | undefined> = {}) => {
+      if (!transcriptScrollDebugRecordingEnabled()) {
+        return;
+      }
+      const entry: ChatTranscriptScrollDebugTraceEntry = {
+        at: Math.round(performance.now()),
+        atBottom: atBottom(),
+        clientHeight: metricsRef.current.clientHeight,
+        distanceFromBottom: metricsRef.current.distanceFromBottom,
+        event,
+        lastVisibleIndex: visibleEndIndexRef.current,
+        mode: modeRef.current,
+        pendingScrollCount: pendingScrollCountRef.current,
+        rowCount: rowCountRef.current,
+        scrollHeight: metricsRef.current.scrollHeight,
+        scrollTop: metricsRef.current.scrollTop,
+        seq: traceSeqRef.current + 1,
+        tailRevision: truncateTranscriptScrollDebugText(tailRevisionRef.current),
+      };
+      for (const [key, value] of Object.entries(extra)) {
+        if (value !== undefined) {
+          entry[key] = value;
+        }
+      }
+      traceSeqRef.current = entry.seq;
+      traceRef.current = [...traceRef.current, entry].slice(-transcriptScrollDebugTraceLimit);
+      setDebugSnapshot(readDebugSnapshot());
+    },
+    [atBottom, readDebugSnapshot],
+  );
+
+  useEffect(() => {
+    recordDebugTrace("tail_revision");
+  }, [recordDebugTrace, rowCount, tailRevision]);
+
+  const setMode = useCallback(
+    (next: TranscriptScrollFollowMode, reason: string) => {
+      if (next === "auto_follow") {
+        clearDirectionalScrollIntent();
+      } else {
+        cancelAutoScrollToLatest();
+      }
+      const previous = modeRef.current;
+      if (previous === next) {
+        refreshDebugSnapshot();
+        return;
+      }
+      modeRef.current = next;
+      setModeState(next);
+      recordDebugTrace("mode_change", { nextMode: next, previousMode: previous, reason });
+    },
+    [
+      cancelAutoScrollToLatest,
+      clearDirectionalScrollIntent,
+      recordDebugTrace,
+      refreshDebugSnapshot,
+    ],
+  );
+
   const scrollToLatest = useCallback(() => {
     virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
   }, [virtuosoRef]);
 
   const scheduleAutoScrollToLatest = useCallback(() => {
     if (autoScrollFrameRef.current !== null) {
+      recordDebugTrace("auto_scroll_already_pending");
       return;
     }
     pendingScrollCountRef.current = 1;
+    recordDebugTrace("auto_scroll_scheduled");
     autoScrollFrameRef.current = requestAnimationFrame(() => {
       autoScrollFrameRef.current = null;
       if (modeRef.current !== "auto_follow") {
         pendingScrollCountRef.current = 0;
+        recordDebugTrace("auto_scroll_skipped", { reason: "mode_not_auto_follow" });
         return;
       }
       scrollToLatest();
+      recordDebugTrace("auto_scroll_to_latest");
       requestAnimationFrame(() => {
         pendingScrollCountRef.current = 0;
         updateMetricsFromScroller();
+        recordDebugTrace("auto_scroll_completed");
       });
     });
-  }, [scrollToLatest, updateMetricsFromScroller]);
+  }, [recordDebugTrace, scrollToLatest, updateMetricsFromScroller]);
 
   const applyDecision = useCallback(
-    (decision: TranscriptScrollFollowDecision) => {
-      setMode(decision.mode);
+    (
+      source: string,
+      decision: TranscriptScrollFollowDecision,
+      extra: Record<string, boolean | number | string | null | undefined> = {},
+    ) => {
+      recordDebugTrace(`${source}_decision`, {
+        ...extra,
+        nextMode: decision.mode,
+        previousMode: modeRef.current,
+        shouldScrollToLatest: decision.shouldScrollToLatest,
+      });
+      setMode(decision.mode, `${source}_decision`);
       if (decision.shouldScrollToLatest) {
         scheduleAutoScrollToLatest();
       }
     },
-    [scheduleAutoScrollToLatest, setMode],
+    [recordDebugTrace, scheduleAutoScrollToLatest, setMode],
   );
 
   const finishProgrammaticAnchor = useCallback(() => {
@@ -203,19 +320,22 @@ export function useTranscriptScrollFollow({
         programmaticAnchorFrameRef.current = null;
         updateMetricsFromScroller();
         if (atBottom()) {
-          setMode("auto_follow");
+          recordDebugTrace("programmatic_anchor_finished", { result: "at_bottom" });
+          setMode("auto_follow", "programmatic_anchor_finished");
           scheduleAutoScrollToLatest();
         } else {
-          setMode("user_detached");
+          recordDebugTrace("programmatic_anchor_finished", { result: "not_at_bottom" });
+          setMode("user_detached", "programmatic_anchor_finished");
         }
       });
     });
-  }, [atBottom, scheduleAutoScrollToLatest, setMode, updateMetricsFromScroller]);
+  }, [atBottom, recordDebugTrace, scheduleAutoScrollToLatest, setMode, updateMetricsFromScroller]);
 
   const scrollToIndexAsProgrammaticAnchor = useCallback(
     (location: ScrollToIndexLocation) => {
       clearDirectionalScrollIntent();
-      setMode("programmatic_anchor");
+      recordDebugTrace("programmatic_anchor_start");
+      setMode("programmatic_anchor", "programmatic_anchor_start");
       if (programmaticScrollFrameRef.current !== null) {
         cancelAnimationFrame(programmaticScrollFrameRef.current);
       }
@@ -225,7 +345,13 @@ export function useTranscriptScrollFollow({
         finishProgrammaticAnchor();
       });
     },
-    [clearDirectionalScrollIntent, finishProgrammaticAnchor, setMode, virtuosoRef],
+    [
+      clearDirectionalScrollIntent,
+      finishProgrammaticAnchor,
+      recordDebugTrace,
+      setMode,
+      virtuosoRef,
+    ],
   );
 
   const handleScroll = useCallback(
@@ -241,7 +367,12 @@ export function useTranscriptScrollFollow({
       tailScrollIntentRef.current = false;
       wheelScrollIntentRef.current = false;
       updateMetricsFromElement(target);
+      const scrollDirection = transcriptScrollDirection(
+        metricsRef.current.scrollTop,
+        previousScrollTop,
+      );
       applyDecision(
+        "scroll",
         decideTranscriptScrollFollowAfterScroll({
           metrics: metricsRef.current,
           mode: modeRef.current,
@@ -250,6 +381,13 @@ export function useTranscriptScrollFollow({
           tailScrollIntent,
           wheelScrollIntent,
         }),
+        {
+          pointerScrollIntent,
+          previousScrollTop,
+          scrollDirection,
+          tailScrollIntent,
+          wheelScrollIntent,
+        },
       );
     },
     [applyDecision, updateMetricsFromElement],
@@ -260,29 +398,38 @@ export function useTranscriptScrollFollow({
       if (event.deltaY < 0) {
         tailScrollIntentRef.current = false;
         wheelScrollIntentRef.current = true;
-        setMode("user_detached");
+        recordDebugTrace("wheel", { deltaY: event.deltaY, intent: "history" });
+        setMode("user_detached", "wheel_history");
       } else if (event.deltaY > 0) {
         wheelScrollIntentRef.current = false;
         tailScrollIntentRef.current = true;
+        recordDebugTrace("wheel", { deltaY: event.deltaY, intent: "tail" });
       }
     },
-    [setMode],
+    [recordDebugTrace, setMode],
   );
 
-  const handlePointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    const scroller = scrollerRef.current;
-    if (
-      event.button === 0 &&
-      scroller &&
-      event.clientX >= scroller.getBoundingClientRect().right - scrollbarPointerIntentEdgePx
-    ) {
-      pointerScrollIntentRef.current = true;
-    }
-  }, []);
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const scroller = scrollerRef.current;
+      if (
+        event.button === 0 &&
+        scroller &&
+        event.clientX >= scroller.getBoundingClientRect().right - scrollbarPointerIntentEdgePx
+      ) {
+        pointerScrollIntentRef.current = true;
+        recordDebugTrace("pointer_scrollbar_down", { clientX: event.clientX });
+      }
+    },
+    [recordDebugTrace],
+  );
 
   const handlePointerEnd = useCallback(() => {
+    if (pointerScrollIntentRef.current) {
+      recordDebugTrace("pointer_scrollbar_end");
+    }
     pointerScrollIntentRef.current = false;
-  }, []);
+  }, [recordDebugTrace]);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -291,25 +438,29 @@ export function useTranscriptScrollFollow({
         (event.key === " " && event.shiftKey)
       ) {
         clearDirectionalScrollIntent();
-        setMode("user_detached");
+        recordDebugTrace("key", { intent: "history", key: event.key, shiftKey: event.shiftKey });
+        setMode("user_detached", "key_history");
       } else if (["ArrowDown", "End", "PageDown"].includes(event.key) || event.key === " ") {
         wheelScrollIntentRef.current = false;
         tailScrollIntentRef.current = true;
+        recordDebugTrace("key", { intent: "tail", key: event.key, shiftKey: event.shiftKey });
       }
     },
-    [clearDirectionalScrollIntent, setMode],
+    [clearDirectionalScrollIntent, recordDebugTrace, setMode],
   );
 
   const handleRangeChanged = useCallback(
     (range: ListRange) => {
       visibleEndIndexRef.current = range.endIndex;
       applyDecision(
+        "range",
         decideTranscriptScrollFollowAfterRangeChanged({
           lastVisibleIndex: range.endIndex,
           metrics: metricsRef.current,
           mode: modeRef.current,
           rowCount: rowCountRef.current,
         }),
+        { rangeEndIndex: range.endIndex, rangeStartIndex: range.startIndex },
       );
     },
     [applyDecision],
@@ -319,10 +470,12 @@ export function useTranscriptScrollFollow({
     (isAtBottom: boolean) => {
       updateMetricsFromScroller();
       applyDecision(
+        "at_bottom_state",
         decideTranscriptScrollFollowAfterAtBottomStateChange({
           isAtBottom,
           mode: modeRef.current,
         }),
+        { isAtBottom },
       );
     },
     [applyDecision, updateMetricsFromScroller],
@@ -330,46 +483,43 @@ export function useTranscriptScrollFollow({
 
   const handleTotalListHeightChanged = useCallback(() => {
     updateMetricsFromScroller();
+    recordDebugTrace("total_list_height_changed");
     if (modeRef.current === "auto_follow") {
       scheduleAutoScrollToLatest();
     }
-  }, [scheduleAutoScrollToLatest, updateMetricsFromScroller]);
+  }, [recordDebugTrace, scheduleAutoScrollToLatest, updateMetricsFromScroller]);
 
   const setScrollerRef = useCallback(
     (element: HTMLElement | Window | null) => {
       scrollerRef.current = element instanceof HTMLElement ? element : null;
       updateMetricsFromScroller();
+      recordDebugTrace("scroller_ref", { attached: scrollerRef.current !== null });
     },
-    [updateMetricsFromScroller],
+    [recordDebugTrace, updateMetricsFromScroller],
   );
 
   const detach = useCallback(() => {
     clearDirectionalScrollIntent();
-    setMode("user_detached");
-  }, [clearDirectionalScrollIntent, setMode]);
+    recordDebugTrace("detach");
+    setMode("user_detached", "detach");
+  }, [clearDirectionalScrollIntent, recordDebugTrace, setMode]);
 
   const jumpToLatest = useCallback(() => {
     clearScrollIntent();
-    setMode("auto_follow");
+    recordDebugTrace("jump_to_latest");
+    setMode("auto_follow", "jump_to_latest");
     scrollToLatest();
     scheduleAutoScrollToLatest();
-  }, [clearScrollIntent, scheduleAutoScrollToLatest, scrollToLatest, setMode]);
+  }, [clearScrollIntent, recordDebugTrace, scheduleAutoScrollToLatest, scrollToLatest, setMode]);
 
   const getDebugSnapshot = useCallback((): ChatTranscriptScrollDebugSnapshot => {
     updateMetricsFromScroller();
-    return {
-      atBottom: atBottom(),
-      clientHeight: metricsRef.current.clientHeight,
-      distanceFromBottom: metricsRef.current.distanceFromBottom,
-      lastVisibleIndex: visibleEndIndexRef.current,
-      mode: modeRef.current,
-      pendingScrollCount: pendingScrollCountRef.current,
-      rowCount: rowCountRef.current,
-      scrollHeight: metricsRef.current.scrollHeight,
-      scrollTop: metricsRef.current.scrollTop,
-      tailRevision: tailRevisionRef.current,
-    };
-  }, [atBottom, updateMetricsFromScroller]);
+    const snapshot = readDebugSnapshot();
+    if (transcriptScrollDebugRecordingEnabled()) {
+      setDebugSnapshot(snapshot);
+    }
+    return snapshot;
+  }, [readDebugSnapshot, updateMetricsFromScroller]);
 
   useEffect(() => {
     if (modeRef.current === "auto_follow") {
@@ -404,6 +554,7 @@ export function useTranscriptScrollFollow({
 
   return {
     detach,
+    debugAttributes: transcriptScrollDebugAttributes(debugSnapshot),
     getDebugSnapshot,
     handleAtBottomStateChange,
     handleKeyDown,
@@ -419,6 +570,40 @@ export function useTranscriptScrollFollow({
     scrollToIndexAsProgrammaticAnchor,
     setScrollerRef,
   };
+}
+
+function transcriptScrollDebugAttributes(
+  snapshot: ChatTranscriptScrollDebugSnapshot,
+): Record<string, string> | undefined {
+  if (!transcriptScrollDebugRecordingEnabled()) {
+    return undefined;
+  }
+  return {
+    "data-scroll-follow-at-bottom": String(snapshot.atBottom),
+    "data-scroll-follow-client-height": String(Math.round(snapshot.clientHeight)),
+    "data-scroll-follow-distance-from-bottom": String(Math.round(snapshot.distanceFromBottom)),
+    "data-scroll-follow-last-visible-index": String(snapshot.lastVisibleIndex),
+    "data-scroll-follow-mode": snapshot.mode,
+    "data-scroll-follow-pending-scroll-count": String(snapshot.pendingScrollCount),
+    "data-scroll-follow-row-count": String(snapshot.rowCount),
+    "data-scroll-follow-scroll-height": String(Math.round(snapshot.scrollHeight)),
+    "data-scroll-follow-scroll-top": String(Math.round(snapshot.scrollTop)),
+    "data-scroll-follow-tail-revision": snapshot.tailRevision,
+    "data-scroll-follow-trace": JSON.stringify(snapshot.trace),
+  };
+}
+
+function transcriptScrollDebugRecordingEnabled() {
+  return (
+    typeof document !== "undefined" &&
+    document.documentElement.getAttribute("data-setta-recording") === "true"
+  );
+}
+
+function truncateTranscriptScrollDebugText(value: string) {
+  return value.length > transcriptScrollDebugTextLength
+    ? `${value.slice(0, transcriptScrollDebugTextLength - 3)}...`
+    : value;
 }
 
 export function decideTranscriptScrollFollowAfterScroll({

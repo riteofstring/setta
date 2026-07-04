@@ -24,6 +24,7 @@ type Service struct {
 	workspaceResolver                WorkspaceResolver
 	workflowResolver                 WorkflowSourceResolver
 	chatResolver                     ChatSourceResolver
+	cartographerDisabled             bool
 	cartographerMu                   sync.Mutex
 	automaticCartographerMu          sync.Mutex
 	cartographerConfig               CartographerObservationConfig
@@ -116,6 +117,13 @@ func WithCartographerHarnessTaskRunner(runner chat.HarnessTaskRunner, harnessKin
 
 func WithAutomaticCartographerProcessingDisabled() Option {
 	return func(service *Service) {
+		service.automaticCartographer.enabled = false
+	}
+}
+
+func WithSemanticCartographerDisabled() Option {
+	return func(service *Service) {
+		service.cartographerDisabled = true
 		service.automaticCartographer.enabled = false
 	}
 }

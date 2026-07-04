@@ -715,12 +715,14 @@ export function ChatTranscript({
   return (
     <div
       className="relative h-full min-h-0 min-w-0 overflow-hidden"
+      data-testid="chat-transcript-scroll-follow"
       onKeyDownCapture={handleKeyDown}
       onPointerCancelCapture={handlePointerCancel}
       onPointerDownCapture={handlePointerDown}
       onPointerUpCapture={handlePointerUp}
       onScrollCapture={handleScroll}
       onWheelCapture={handleWheel}
+      {...scrollFollow.debugAttributes}
     >
       <ChatSearchBar search={search} />
       <Virtuoso
