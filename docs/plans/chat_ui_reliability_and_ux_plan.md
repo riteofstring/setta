@@ -798,8 +798,14 @@ Status after the transcript scroll stickiness step:
   main/preload/renderer/HTTP/store path for scroll-away/no-steal behavior,
   Jump-to-latest re-pinning, same-row streaming growth, row-append streaming,
   output deltas, search focus, and older-page anchor preservation after reload.
-- Remaining: no known Slice 6 implementation gap. Slice 7 is ready to start
-  with the typed composer prompt-history contract.
+- Verification finding: during the approval-details audit, the full
+  deterministic chat workflow passed the approval segment but twice timed out in
+  the later transcript-scroll stickiness segment after the snapshot reported
+  `auto_follow` and `atBottom`. Treat this as a Slice 6 follow-up before using
+  the full chat workflow as a green broad gate.
+- Remaining: investigate the repeated transcript-scroll E2E timeout. Slice 7
+  was already completed; typed activity work can continue independently, but the
+  scroll broad-gate failure should not be treated as proof of approval behavior.
 
 ### Slice 7: Composer Prompt History
 
