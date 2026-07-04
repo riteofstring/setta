@@ -24,7 +24,7 @@ const (
 	PairingTokenTTL = 10 * time.Minute
 
 	runtimeAuthDatabaseName = "runtime-auth.sqlite"
-	runtimeAuthStoreVersion = 1
+	runtimeAuthStoreVersion = 2
 	sqliteDriverName        = "sqlite"
 )
 
@@ -42,6 +42,7 @@ type DeviceSession struct {
 	CreatedAt   string      `json:"createdAt"`
 	LastSeenAt  string      `json:"lastSeenAt"`
 	RevokedAt   *string     `json:"revokedAt"`
+	IsBootstrap bool        `json:"-"`
 }
 
 type PairingToken struct {
@@ -167,29 +168,44 @@ func (store *Store) Close() error {
 }
 
 func (store *Store) CreateDeviceSession(ctx context.Context, displayName string) (DeviceSession, string, error) {
-	if strings.TrimSpace(displayName) == "" {
-		return DeviceSession{}, "", errors.New("device display name is required")
-	}
-	id, err := randomPrefixedID("device")
+	session, token, err := newDeviceSession(displayName, store.clock())
 	if err != nil {
 		return DeviceSession{}, "", err
-	}
-	token, err := randomToken()
-	if err != nil {
-		return DeviceSession{}, "", err
-	}
-	now := timestamp(store.clock())
-	session := DeviceSession{
-		ID:          id,
-		Scope:       DeviceScopeFull,
-		DisplayName: displayName,
-		CreatedAt:   now,
-		LastSeenAt:  now,
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	if err := store.insertDeviceSession(ctx, store.db, session, token); err != nil {
 		return DeviceSession{}, "", err
+	}
+	return session, token, nil
+}
+
+func (store *Store) CreateBootstrapDeviceSession(ctx context.Context, displayName string) (DeviceSession, string, error) {
+	session, token, err := newDeviceSession(displayName, store.clock())
+	if err != nil {
+		return DeviceSession{}, "", err
+	}
+	session.IsBootstrap = true
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return DeviceSession{}, "", store.persistenceError("begin bootstrap device session creation", err)
+	}
+	defer rollback(tx)
+	revokedAt := timestamp(store.clock())
+	if _, err := tx.ExecContext(ctx, `
+UPDATE device_sessions
+SET revoked_at = ?
+WHERE is_bootstrap = 1 AND revoked_at IS NULL
+`, revokedAt); err != nil {
+		return DeviceSession{}, "", store.persistenceError("revoke stale bootstrap device sessions", err)
+	}
+	if err := store.insertDeviceSession(ctx, tx, session, token); err != nil {
+		return DeviceSession{}, "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return DeviceSession{}, "", store.persistenceError("commit bootstrap device session creation", err)
 	}
 	return session, token, nil
 }
@@ -328,7 +344,7 @@ func (store *Store) ListDeviceSessions(ctx context.Context) ([]DeviceSession, er
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	rows, err := store.db.QueryContext(ctx, `
-SELECT id, scope, display_name, created_at, last_seen_at, revoked_at
+SELECT id, scope, display_name, created_at, last_seen_at, revoked_at, is_bootstrap
 FROM device_sessions
 ORDER BY created_at ASC, id ASC
 `)
@@ -398,6 +414,9 @@ WHERE id = ?
 }
 
 func newDeviceSession(displayName string, now time.Time) (DeviceSession, string, error) {
+	if strings.TrimSpace(displayName) == "" {
+		return DeviceSession{}, "", errors.New("device display name is required")
+	}
 	id, err := randomPrefixedID("device")
 	if err != nil {
 		return DeviceSession{}, "", err
@@ -465,9 +484,9 @@ func (store *Store) insertDeviceSession(
 	token string,
 ) error {
 	_, err := exec.ExecContext(ctx, `
-INSERT INTO device_sessions (id, token_hash, scope, display_name, created_at, last_seen_at)
-VALUES (?, ?, ?, ?, ?, ?)
-`, session.ID, hashTokenBytes(token), session.Scope, session.DisplayName, session.CreatedAt, session.LastSeenAt)
+INSERT INTO device_sessions (id, token_hash, scope, display_name, created_at, last_seen_at, is_bootstrap)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+`, session.ID, hashTokenBytes(token), session.Scope, session.DisplayName, session.CreatedAt, session.LastSeenAt, sqliteBool(session.IsBootstrap))
 	if err != nil {
 		return store.persistenceError("create device session", err)
 	}
@@ -481,8 +500,9 @@ func (store *Store) queryDeviceSessionByTokenHash(
 	var session DeviceSession
 	var storedHash []byte
 	var revokedAt sql.NullString
+	var isBootstrap int
 	err := store.db.QueryRowContext(ctx, `
-SELECT id, token_hash, scope, display_name, created_at, last_seen_at, revoked_at
+SELECT id, token_hash, scope, display_name, created_at, last_seen_at, revoked_at, is_bootstrap
 FROM device_sessions
 WHERE token_hash = ?
 `, tokenHash).Scan(
@@ -493,6 +513,7 @@ WHERE token_hash = ?
 		&session.CreatedAt,
 		&session.LastSeenAt,
 		&revokedAt,
+		&isBootstrap,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return DeviceSession{}, nil, false, nil
@@ -501,6 +522,7 @@ WHERE token_hash = ?
 		return DeviceSession{}, nil, false, store.persistenceError("resolve device token", err)
 	}
 	session.RevokedAt = nullableStringPointer(revokedAt)
+	session.IsBootstrap = isBootstrap == 1
 	return session, storedHash, true, nil
 }
 
@@ -573,7 +595,7 @@ func (store *Store) queryDeviceSessionByID(
 	deviceID string,
 ) (DeviceSession, bool, error) {
 	row := store.db.QueryRowContext(ctx, `
-SELECT id, scope, display_name, created_at, last_seen_at, revoked_at
+SELECT id, scope, display_name, created_at, last_seen_at, revoked_at, is_bootstrap
 FROM device_sessions
 WHERE id = ?
 `, deviceID)
@@ -594,6 +616,7 @@ type deviceSessionScanner interface {
 func scanDeviceSession(scanner deviceSessionScanner) (DeviceSession, error) {
 	var session DeviceSession
 	var revokedAt sql.NullString
+	var isBootstrap int
 	err := scanner.Scan(
 		&session.ID,
 		&session.Scope,
@@ -601,12 +624,21 @@ func scanDeviceSession(scanner deviceSessionScanner) (DeviceSession, error) {
 		&session.CreatedAt,
 		&session.LastSeenAt,
 		&revokedAt,
+		&isBootstrap,
 	)
 	if err != nil {
 		return DeviceSession{}, err
 	}
 	session.RevokedAt = nullableStringPointer(revokedAt)
+	session.IsBootstrap = isBootstrap == 1
 	return session, nil
+}
+
+func sqliteBool(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
 }
 
 func rollback(tx *sql.Tx) {
@@ -678,7 +710,8 @@ CREATE TABLE IF NOT EXISTS device_sessions (
   display_name TEXT NOT NULL,
   created_at TEXT NOT NULL,
   last_seen_at TEXT NOT NULL,
-  revoked_at TEXT
+  revoked_at TEXT,
+  is_bootstrap INTEGER NOT NULL DEFAULT 0 CHECK(is_bootstrap IN (0, 1))
 );
 
 CREATE INDEX IF NOT EXISTS device_sessions_revoked_idx

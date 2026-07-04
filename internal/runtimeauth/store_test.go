@@ -123,6 +123,58 @@ func TestRevokedDeviceSessionStopsResolving(t *testing.T) {
 	}
 }
 
+func TestBootstrapDeviceSessionRevokesOnlyPreviousBootstrapSessions(t *testing.T) {
+	clock := newTestClock(mustParseTime(t, "2026-07-02T10:00:00Z"))
+	store := newTestStore(t, WithClock(clock.Now))
+
+	firstBootstrap, firstToken, err := store.CreateBootstrapDeviceSession(context.Background(), "Setta Desktop")
+	if err != nil {
+		t.Fatalf("create first bootstrap session: %v", err)
+	}
+	paired, pairedToken, err := store.CreateDeviceSession(context.Background(), "Paired laptop")
+	if err != nil {
+		t.Fatalf("create paired session: %v", err)
+	}
+
+	clock.Set(mustParseTime(t, "2026-07-02T10:01:00Z"))
+	secondBootstrap, secondToken, err := store.CreateBootstrapDeviceSession(context.Background(), "Setta Desktop")
+	if err != nil {
+		t.Fatalf("create second bootstrap session: %v", err)
+	}
+
+	sessions, err := store.ListDeviceSessions(context.Background())
+	if err != nil {
+		t.Fatalf("list sessions: %v", err)
+	}
+	byID := map[string]DeviceSession{}
+	for _, session := range sessions {
+		byID[session.ID] = session
+	}
+	if !byID[firstBootstrap.ID].IsBootstrap || byID[firstBootstrap.ID].RevokedAt == nil {
+		t.Fatalf("first bootstrap session = %+v, want marked and revoked", byID[firstBootstrap.ID])
+	}
+	if byID[paired.ID].IsBootstrap || byID[paired.ID].RevokedAt != nil {
+		t.Fatalf("paired session = %+v, want unmarked and unrevoked", byID[paired.ID])
+	}
+	if !byID[secondBootstrap.ID].IsBootstrap || byID[secondBootstrap.ID].RevokedAt != nil {
+		t.Fatalf("second bootstrap session = %+v, want marked and unrevoked", byID[secondBootstrap.ID])
+	}
+
+	if _, ok, err := store.ResolveDeviceToken(context.Background(), firstToken); err != nil || ok {
+		t.Fatalf("resolve first bootstrap token ok=%v err=%v, want revoked", ok, err)
+	}
+	if _, ok, err := store.ResolveDeviceToken(context.Background(), pairedToken); err != nil || !ok {
+		t.Fatalf("resolve paired token ok=%v err=%v, want valid", ok, err)
+	}
+	resolvedBootstrap, ok, err := store.ResolveDeviceToken(context.Background(), secondToken)
+	if err != nil || !ok {
+		t.Fatalf("resolve second bootstrap token ok=%v err=%v, want valid", ok, err)
+	}
+	if !resolvedBootstrap.IsBootstrap {
+		t.Fatalf("resolved bootstrap session = %+v, want bootstrap marker", resolvedBootstrap)
+	}
+}
+
 func newTestStore(t *testing.T, options ...StoreOption) *Store {
 	t.Helper()
 	store, err := NewStore(t.TempDir(), options...)

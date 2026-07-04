@@ -37,6 +37,7 @@ type Config struct {
 	DisableAutomaticCartographerProcessing bool
 	Host                                   string
 	Port                                   int
+	SkipBootstrapDeviceSession             bool
 	Version                                string
 	Stdout                                 io.Writer
 	Stderr                                 io.Writer
@@ -126,7 +127,7 @@ func (config Config) Validate() error {
 	if config.Host == "" {
 		return errors.New("host is required")
 	}
-	if config.BootstrapDeviceDisplayName == "" {
+	if !config.SkipBootstrapDeviceSession && config.BootstrapDeviceDisplayName == "" {
 		return errors.New("bootstrap device display name is required")
 	}
 	if err := config.validateHostBinding(); err != nil {
@@ -308,9 +309,12 @@ func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
 			_ = authStore.Close()
 		}
 	}()
-	_, bootstrapToken, err := authStore.CreateDeviceSession(context.Background(), config.BootstrapDeviceDisplayName)
-	if err != nil {
-		return runtimeAuthBootstrap{}, fmt.Errorf("create bootstrap device session: %w", err)
+	var bootstrapToken string
+	if !config.SkipBootstrapDeviceSession {
+		_, bootstrapToken, err = authStore.CreateBootstrapDeviceSession(context.Background(), config.BootstrapDeviceDisplayName)
+		if err != nil {
+			return runtimeAuthBootstrap{}, fmt.Errorf("create bootstrap device session: %w", err)
+		}
 	}
 	closeAuthOnFailure = false
 	return runtimeAuthBootstrap{identity: identity, store: authStore, bootstrapToken: bootstrapToken}, nil

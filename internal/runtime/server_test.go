@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"setta/internal/httpapi"
+	"setta/internal/runtimeauth"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
@@ -87,6 +88,40 @@ func TestAllowRemotePermitsNonLoopbackNumericHost(t *testing.T) {
 		t.Fatalf("start backend with allow remote: %v", err)
 	}
 	defer shutdownServer(t, server)
+}
+
+func TestStartCanSkipBootstrapDeviceSession(t *testing.T) {
+	var stdout bytes.Buffer
+	config := testConfig(t)
+	config.Stdout = &stdout
+	config.SkipBootstrapDeviceSession = true
+
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	shutdownServer(t, server)
+
+	var ready ReadyEvent
+	if err := json.NewDecoder(&stdout).Decode(&ready); err != nil {
+		t.Fatalf("decode ready event: %v", err)
+	}
+	if ready.BootstrapToken != "" {
+		t.Fatalf("ready bootstrap token = %q, want empty", ready.BootstrapToken)
+	}
+
+	store, err := runtimeauth.NewStore(config.AppDataDir)
+	if err != nil {
+		t.Fatalf("open runtime auth store: %v", err)
+	}
+	defer store.Close()
+	sessions, err := store.ListDeviceSessions(context.Background())
+	if err != nil {
+		t.Fatalf("list device sessions: %v", err)
+	}
+	if len(sessions) != 0 {
+		t.Fatalf("device sessions = %+v, want none", sessions)
+	}
 }
 
 func TestStartReportsReadyWithMalformedHistoricalRunState(t *testing.T) {
