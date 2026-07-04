@@ -21,11 +21,14 @@
 
   function clickButton({ kind, value }) {
     const button = buttonByKind(kind, value);
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { body: document.body.innerText, clicked: false };
+    if (!(button instanceof HTMLButtonElement)) {
+      return { body: document.body.innerText, clicked: false, reason: "missing-button" };
+    }
+    if (button.disabled) {
+      return { body: document.body.innerText, clicked: false, reason: "disabled-button" };
     }
     button.click();
-    return { body: document.body.innerText, clicked: true };
+    return { body: document.body.innerText, clicked: true, reason: "clicked" };
   }
 
   function buttonReady({ kind, value }) {
@@ -39,11 +42,14 @@
     const button = Array.from(document.querySelectorAll("button")).find((candidate) =>
       candidate.innerText.includes(text),
     );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { body: document.body.innerText, clicked: false };
+    if (!(button instanceof HTMLButtonElement)) {
+      return { body: document.body.innerText, clicked: false, reason: "missing-button" };
+    }
+    if (button.disabled) {
+      return { body: document.body.innerText, clicked: false, reason: "disabled-button" };
     }
     button.click();
-    return { body: document.body.innerText, clicked: true };
+    return { body: document.body.innerText, clicked: true, reason: "clicked" };
   }
 
   function composerReady() {
