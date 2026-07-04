@@ -43,12 +43,7 @@ export async function runImageAttachmentWorkflow({
     throw new Error(`image user message was not persisted: ${JSON.stringify(page.messages)}`);
   }
   const imagePart = userMessage.parts.find((part) => part.type === "image")?.image;
-  if (
-    !imagePart ||
-    imagePart.fileName !== "workflow-image.png" ||
-    !imagePart.thumbnailUrl.endsWith("/thumbnail") ||
-    !imagePart.previewUrl.endsWith("/preview")
-  ) {
+  if (!imagePart || imagePart.fileName !== "workflow-image.png" || !hasImageVariants(imagePart)) {
     throw new Error(`image part metadata was not persisted: ${JSON.stringify(imagePart)}`);
   }
 
@@ -57,13 +52,35 @@ export async function runImageAttachmentWorkflow({
     `Boolean(document.querySelector('button[aria-label="Preview workflow-image.png"]'))`,
     Boolean,
   );
+  await waitForState(
+    client,
+    `Array.from(document.images).some((image) => image.alt === "workflow-image.png" && image.dataset.attachmentVariantKind === "inline" && image.src.endsWith("/inline"))`,
+    Boolean,
+  );
   await clickButtonByAria(client, "Preview workflow-image.png");
   await waitForState(
     client,
-    `Array.from(document.images).some((image) => image.alt === "workflow-image.png" && image.src.endsWith("/preview"))`,
+    `Array.from(document.images).some((image) => image.alt === "workflow-image.png" && image.dataset.attachmentVariantKind === "preview" && image.src.endsWith("/preview"))`,
     Boolean,
   );
   await clickButtonByAria(client, "Close image preview");
+}
+
+function hasImageVariants(imagePart) {
+  const variants = new Map((imagePart.variants ?? []).map((variant) => [variant.kind, variant]));
+  for (const kind of ["thumbnail", "inline", "preview", "original"]) {
+    const variant = variants.get(kind);
+    if (
+      !variant ||
+      !variant.url.endsWith(`/${kind}`) ||
+      variant.byteSize <= 0 ||
+      variant.width <= 0 ||
+      variant.height <= 0
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export async function pasteImageIntoComposer(client, waitForState, fileName, base64) {

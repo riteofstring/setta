@@ -287,14 +287,26 @@ function assertLiveImageUserMessage(page, runId) {
     throw new Error(`live image user message was not persisted: ${JSON.stringify(page.messages)}`);
   }
   const imagePart = userMessage.parts.find((part) => part.type === "image")?.image;
-  if (
-    !imagePart ||
-    imagePart.fileName !== "live-image.png" ||
-    !imagePart.thumbnailUrl.endsWith("/thumbnail") ||
-    !imagePart.previewUrl.endsWith("/preview")
-  ) {
+  if (!imagePart || imagePart.fileName !== "live-image.png" || !hasLiveImageVariants(imagePart)) {
     throw new Error(`live image part metadata was not persisted: ${JSON.stringify(imagePart)}`);
   }
+}
+
+function hasLiveImageVariants(imagePart) {
+  const variants = new Map((imagePart.variants ?? []).map((variant) => [variant.kind, variant]));
+  for (const kind of ["thumbnail", "inline", "preview", "original"]) {
+    const variant = variants.get(kind);
+    if (
+      !variant ||
+      !variant.url.endsWith(`/${kind}`) ||
+      variant.byteSize <= 0 ||
+      variant.width <= 0 ||
+      variant.height <= 0
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function assertLiveImageAssistantText(page, runId) {

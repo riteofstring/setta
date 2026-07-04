@@ -25,6 +25,7 @@ import {
   type TranscriptRowActions,
 } from "./chat-transcript-row-actions";
 import { MarkdownText } from "./markdown-text";
+import { selectImageVariant } from "../lib/chat-image-variants";
 
 const messageRowClassByRole = {
   assistant: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
@@ -428,8 +429,18 @@ function PlainMessageContent({ message }: { message: ChatMessage }) {
 
 function MessageImage({ image }: { image: ImagePart }) {
   const [previewOpen, setPreviewOpen] = useState(false);
+  const inline = selectImageVariant(image, "inline");
+  const preview = selectImageVariant(image, "preview");
+  if (inline.status !== "ready") {
+    return <UnavailableImage message={inline.message} />;
+  }
+  if (preview.status !== "ready") {
+    return <UnavailableImage message={preview.message} />;
+  }
   const aspectRatio =
-    image.width > 0 && image.height > 0 ? `${image.width} / ${image.height}` : "1 / 1";
+    inline.variant.width > 0 && inline.variant.height > 0
+      ? `${inline.variant.width} / ${inline.variant.height}`
+      : "1 / 1";
   return (
     <>
       <button
@@ -443,9 +454,10 @@ function MessageImage({ image }: { image: ImagePart }) {
         <img
           alt={image.fileName}
           className="h-full w-full object-cover"
+          data-attachment-variant-kind="inline"
           decoding="async"
           loading="lazy"
-          src={image.thumbnailUrl}
+          src={inline.variant.url}
         />
       </button>
       {previewOpen ? (
@@ -470,13 +482,26 @@ function MessageImage({ image }: { image: ImagePart }) {
             <img
               alt={image.fileName}
               className="max-h-[86vh] max-w-[92vw] rounded-sm object-contain shadow-xl"
+              data-attachment-variant-kind="preview"
               decoding="async"
-              src={image.previewUrl}
+              src={preview.variant.url}
             />
           </div>
         </div>
       ) : null}
     </>
+  );
+}
+
+function UnavailableImage({ message }: { message: string }) {
+  return (
+    <div
+      className="max-w-48 rounded-sm border border-status-critical/50 bg-background/70 px-2 py-1 text-xs text-status-critical"
+      role="status"
+      title={message}
+    >
+      Image unavailable
+    </div>
   );
 }
 

@@ -717,6 +717,25 @@ Status after the MCP typed-details cutover:
   chips must render from the typed variant contract, not stale thumbnail/preview
   fields.
 
+Status after the image attachment variant cutover:
+
+- Done: image attachments now expose typed `thumbnail`, `inline`, `preview`,
+  and `original` variants. `preview` is a bounded large PNG variant, and
+  unmodified upload bytes are exposed only through the explicit `original`
+  variant.
+- Done: attachment storage writes variant metadata with URL, MIME type,
+  dimensions, byte size, and relative path; legacy flat thumbnail/preview
+  fields were removed from `ImageAttachment` and `ImagePart` without a dual-read
+  compatibility path.
+- Done: the Electron attachment protocol serves explicit variant names, composer
+  chips request `thumbnail`, transcript rows request `inline`, and preview modals
+  request `preview`.
+- Done: deterministic Electron chat workflow coverage verifies the production
+  attachment path and inline transcript variant rendering. Live Codex Electron
+  and backend chat workflows were run because this touches chat behavior.
+- Remaining: composer prompt-history recall of image attachments should be
+  verified when Slice 7 introduces the typed history controller.
+
 ### Slice 6: Transcript Scroll Stickiness
 
 - Extract the current `pinned` logic in `ChatTranscript` into a focused

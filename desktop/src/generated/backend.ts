@@ -773,6 +773,26 @@ export function decodeImageAttachmentMimeType(value: unknown, label = "ImageAtta
   }
 }
 
+export type ImageAttachmentVariantKind = "thumbnail" | "inline" | "preview" | "original";
+
+export const imageAttachmentVariantKindValues = ["thumbnail", "inline", "preview", "original"] as const satisfies readonly ImageAttachmentVariantKind[];
+
+export function decodeImageAttachmentVariantKind(value: unknown, label = "ImageAttachmentVariantKind"): ImageAttachmentVariantKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "thumbnail":
+      return decoded;
+    case "inline":
+      return decoded;
+    case "preview":
+      return decoded;
+    case "original":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type ImageDetail = "auto" | "high" | "original";
 
 export const imageDetailValues = ["auto", "high", "original"] as const satisfies readonly ImageDetail[];
@@ -3024,6 +3044,15 @@ export interface MessageTextPart {
   format: TextFormat;
 }
 
+export interface ImageAttachmentVariant {
+  kind: ImageAttachmentVariantKind;
+  url: string;
+  mimeType: ImageAttachmentMimeType;
+  byteSize: number;
+  width: number;
+  height: number;
+}
+
 export interface ImagePart {
   attachmentId: string;
   fileName: string;
@@ -3031,8 +3060,7 @@ export interface ImagePart {
   byteSize: number;
   width: number;
   height: number;
-  thumbnailUrl: string;
-  previewUrl: string;
+  variants: ImageAttachmentVariant[];
   detail: ImageDetail | null;
 }
 
@@ -3403,8 +3431,7 @@ export interface ImageAttachment {
   width: number;
   height: number;
   createdAt: string;
-  thumbnailUrl: string;
-  previewUrl: string;
+  variants: ImageAttachmentVariant[];
 }
 
 export interface ListChatCommandsRequest {
@@ -7264,9 +7291,22 @@ export function decodeMessageTextPart(value: unknown): MessageTextPart {
   };
 }
 
+export function decodeImageAttachmentVariant(value: unknown): ImageAttachmentVariant {
+  const record = assertRecord(value, "ImageAttachmentVariant");
+  assertKnownFields(record, "ImageAttachmentVariant", ["kind", "url", "mimeType", "byteSize", "width", "height"]);
+  return {
+    kind: decodeImageAttachmentVariantKind(requireField(record, "kind", "ImageAttachmentVariant"), "ImageAttachmentVariant.kind"),
+    url: decodeString(requireField(record, "url", "ImageAttachmentVariant"), "ImageAttachmentVariant.url"),
+    mimeType: decodeImageAttachmentMimeType(requireField(record, "mimeType", "ImageAttachmentVariant"), "ImageAttachmentVariant.mimeType"),
+    byteSize: decodeInteger(requireField(record, "byteSize", "ImageAttachmentVariant"), "ImageAttachmentVariant.byteSize"),
+    width: decodeInteger(requireField(record, "width", "ImageAttachmentVariant"), "ImageAttachmentVariant.width"),
+    height: decodeInteger(requireField(record, "height", "ImageAttachmentVariant"), "ImageAttachmentVariant.height"),
+  };
+}
+
 export function decodeImagePart(value: unknown): ImagePart {
   const record = assertRecord(value, "ImagePart");
-  assertKnownFields(record, "ImagePart", ["attachmentId", "fileName", "mimeType", "byteSize", "width", "height", "thumbnailUrl", "previewUrl", "detail"]);
+  assertKnownFields(record, "ImagePart", ["attachmentId", "fileName", "mimeType", "byteSize", "width", "height", "variants", "detail"]);
   return {
     attachmentId: decodeString(requireField(record, "attachmentId", "ImagePart"), "ImagePart.attachmentId"),
     fileName: decodeString(requireField(record, "fileName", "ImagePart"), "ImagePart.fileName"),
@@ -7274,8 +7314,7 @@ export function decodeImagePart(value: unknown): ImagePart {
     byteSize: decodeInteger(requireField(record, "byteSize", "ImagePart"), "ImagePart.byteSize"),
     width: decodeInteger(requireField(record, "width", "ImagePart"), "ImagePart.width"),
     height: decodeInteger(requireField(record, "height", "ImagePart"), "ImagePart.height"),
-    thumbnailUrl: decodeString(requireField(record, "thumbnailUrl", "ImagePart"), "ImagePart.thumbnailUrl"),
-    previewUrl: decodeString(requireField(record, "previewUrl", "ImagePart"), "ImagePart.previewUrl"),
+    variants: decodeArray(requireField(record, "variants", "ImagePart"), "ImagePart.variants", (item) => decodeImageAttachmentVariant(item)),
     detail: decodeNullable(requireField(record, "detail", "ImagePart"), "ImagePart.detail", (item) => decodeImageDetail(item, "ImagePart.detail")),
   };
 }
@@ -7813,7 +7852,7 @@ export function decodeCreateChatImageAttachmentFromBytesRequest(value: unknown):
 
 export function decodeImageAttachment(value: unknown): ImageAttachment {
   const record = assertRecord(value, "ImageAttachment");
-  assertKnownFields(record, "ImageAttachment", ["schemaVersion", "id", "workspaceId", "conversationId", "fileName", "mimeType", "byteSize", "width", "height", "createdAt", "thumbnailUrl", "previewUrl"]);
+  assertKnownFields(record, "ImageAttachment", ["schemaVersion", "id", "workspaceId", "conversationId", "fileName", "mimeType", "byteSize", "width", "height", "createdAt", "variants"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ImageAttachment"), "ImageAttachment.schemaVersion"),
     id: decodeString(requireField(record, "id", "ImageAttachment"), "ImageAttachment.id"),
@@ -7825,8 +7864,7 @@ export function decodeImageAttachment(value: unknown): ImageAttachment {
     width: decodeInteger(requireField(record, "width", "ImageAttachment"), "ImageAttachment.width"),
     height: decodeInteger(requireField(record, "height", "ImageAttachment"), "ImageAttachment.height"),
     createdAt: decodeString(requireField(record, "createdAt", "ImageAttachment"), "ImageAttachment.createdAt"),
-    thumbnailUrl: decodeString(requireField(record, "thumbnailUrl", "ImageAttachment"), "ImageAttachment.thumbnailUrl"),
-    previewUrl: decodeString(requireField(record, "previewUrl", "ImageAttachment"), "ImageAttachment.previewUrl"),
+    variants: decodeArray(requireField(record, "variants", "ImageAttachment"), "ImageAttachment.variants", (item) => decodeImageAttachmentVariant(item)),
   };
 }
 

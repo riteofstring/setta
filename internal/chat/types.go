@@ -327,6 +327,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "MessageDelivery", Values: stringValues(messageDeliveryValues)},
 		{Name: "MessagePartType", Values: stringValues(messagePartTypeValues)},
 		{Name: "ImageAttachmentMimeType", Values: stringValues(imageAttachmentMimeTypeValues)},
+		{Name: "ImageAttachmentVariantKind", Values: stringValues(imageAttachmentVariantKindValues)},
 		{Name: "ImageDetail", Values: stringValues(imageDetailValues)},
 		{Name: "TextFormat", Values: stringValues(textFormatValues)},
 		{Name: "HarnessRefStatus", Values: stringValues(harnessRefStatusValues)},

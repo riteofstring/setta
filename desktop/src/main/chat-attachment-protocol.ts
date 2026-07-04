@@ -1,3 +1,9 @@
+import {
+  imageAttachmentMimeTypeValues,
+  imageAttachmentVariantKindValues,
+  type ImageAttachmentMimeType,
+  type ImageAttachmentVariantKind,
+} from "@generated/backend";
 import { protocol } from "electron";
 import { readFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
@@ -13,13 +19,19 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 interface ChatAttachmentMetadata {
-  mimeType: string;
-  originalRelativePath: string;
-  thumbnailMimeType: string;
-  thumbnailRelativePath: string;
+  variants: ChatAttachmentVariantRecord[];
 }
 
-type ChatAttachmentVariant = "thumbnail" | "preview";
+interface ChatAttachmentVariantRecord {
+  kind: ImageAttachmentVariantKind;
+  relativePath: string;
+  mimeType: ImageAttachmentMimeType;
+  byteSize: number;
+  width: number;
+  height: number;
+}
+
+type ChatAttachmentVariant = ImageAttachmentVariantKind;
 type ChatAttachmentPathParts = [string, string, string, ChatAttachmentVariant];
 
 export function registerChatAttachmentProtocol(appDataDir: string) {
@@ -44,20 +56,16 @@ async function serveChatAttachment(appDataDir: string, rawUrl: string) {
       resource.attachmentId,
     );
     const metadata = await readChatAttachmentMetadata(join(attachmentDir, "metadata.json"));
-    const relativePath =
-      resource.variant === "thumbnail"
-        ? metadata.thumbnailRelativePath
-        : metadata.originalRelativePath;
-    const filePath = safeChatAttachmentFilePath(attachmentDir, relativePath);
-    const contentType =
-      resource.variant === "thumbnail"
-        ? metadata.thumbnailMimeType || "image/png"
-        : metadata.mimeType;
+    const variant = metadata.variants.find((candidate) => candidate.kind === resource.variant);
+    if (!variant) {
+      throw new Error(`missing chat attachment ${resource.variant} variant`);
+    }
+    const filePath = safeChatAttachmentFilePath(attachmentDir, variant.relativePath);
     const data = await readFile(filePath);
     return new Response(data, {
       headers: {
         "cache-control": "no-store",
-        "content-type": contentType || "application/octet-stream",
+        "content-type": variant.mimeType,
       },
     });
   } catch {
@@ -95,21 +103,50 @@ function isChatAttachmentPath(parts: string[]): parts is ChatAttachmentPathParts
 }
 
 function isChatAttachmentVariant(value: string): value is ChatAttachmentVariant {
-  return value === "thumbnail" || value === "preview";
+  return (imageAttachmentVariantKindValues as readonly string[]).includes(value);
+}
+
+function isChatAttachmentMimeType(value: string): value is ImageAttachmentMimeType {
+  return (imageAttachmentMimeTypeValues as readonly string[]).includes(value);
 }
 
 async function readChatAttachmentMetadata(path: string): Promise<ChatAttachmentMetadata> {
   const raw = await readFile(path, "utf8");
   const parsed = JSON.parse(raw) as Partial<ChatAttachmentMetadata>;
-  if (
-    typeof parsed.mimeType !== "string" ||
-    typeof parsed.originalRelativePath !== "string" ||
-    typeof parsed.thumbnailMimeType !== "string" ||
-    typeof parsed.thumbnailRelativePath !== "string"
-  ) {
+  if (!Array.isArray(parsed.variants) || !parsed.variants.every(isChatAttachmentVariantRecord)) {
     throw new Error("invalid chat attachment metadata");
   }
   return parsed as ChatAttachmentMetadata;
+}
+
+function isChatAttachmentVariantRecord(value: unknown): value is ChatAttachmentVariantRecord {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const record = value as Partial<ChatAttachmentVariantRecord>;
+  return hasChatAttachmentVariantIdentity(record) && hasChatAttachmentVariantMetrics(record);
+}
+
+function hasChatAttachmentVariantIdentity(record: Partial<ChatAttachmentVariantRecord>) {
+  return (
+    typeof record.kind === "string" &&
+    isChatAttachmentVariant(record.kind) &&
+    typeof record.relativePath === "string" &&
+    typeof record.mimeType === "string" &&
+    isChatAttachmentMimeType(record.mimeType)
+  );
+}
+
+function hasChatAttachmentVariantMetrics(record: Partial<ChatAttachmentVariantRecord>) {
+  return (
+    isPositiveNumber(record.byteSize) &&
+    isPositiveNumber(record.width) &&
+    isPositiveNumber(record.height)
+  );
+}
+
+function isPositiveNumber(value: unknown) {
+  return typeof value === "number" && value > 0;
 }
 
 function safeChatAttachmentFilePath(attachmentDir: string, relativePath: string) {

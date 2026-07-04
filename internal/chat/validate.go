@@ -374,11 +374,8 @@ func validateImagePart(messageID string, partID string, part ImagePart) error {
 	if part.Width <= 0 || part.Height <= 0 {
 		return fmt.Errorf("message %s part %s dimensions must be positive", messageID, partID)
 	}
-	if part.ThumbnailURL == "" {
-		return fmt.Errorf("message %s part %s thumbnailUrl is required", messageID, partID)
-	}
-	if part.PreviewURL == "" {
-		return fmt.Errorf("message %s part %s previewUrl is required", messageID, partID)
+	if err := validateImagePartVariants(messageID, partID, part); err != nil {
+		return err
 	}
 	if part.Detail != nil && !validValue(*part.Detail, imageDetailValues) {
 		return fmt.Errorf("message %s part %s has unsupported image detail %s", messageID, partID, *part.Detail)

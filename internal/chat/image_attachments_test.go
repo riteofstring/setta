@@ -31,12 +31,13 @@ func TestCreateImageAttachmentFromBytesStoresMetadataAndResources(t *testing.T) 
 	if attachment.FileName != "fixture.png" || attachment.MimeType != "image/png" || attachment.Width != 3 || attachment.Height != 2 {
 		t.Fatalf("attachment metadata = %+v, want fixture.png image/png 3x2", attachment)
 	}
-	if !strings.HasPrefix(attachment.ThumbnailURL, "setta-attachment://image/") || !strings.HasSuffix(attachment.ThumbnailURL, "/thumbnail") {
-		t.Fatalf("thumbnail URL = %q, want app attachment thumbnail URL", attachment.ThumbnailURL)
+	if len(attachment.Variants) != 4 {
+		t.Fatalf("attachment variants = %+v, want 4 variants", attachment.Variants)
 	}
-	if !strings.HasSuffix(attachment.PreviewURL, "/preview") {
-		t.Fatalf("preview URL = %q, want app attachment preview URL", attachment.PreviewURL)
-	}
+	assertAttachmentVariant(t, attachment, ImageAttachmentVariantThumbnail, "image/png", 3, 2)
+	assertAttachmentVariant(t, attachment, ImageAttachmentVariantInline, "image/png", 3, 2)
+	assertAttachmentVariant(t, attachment, ImageAttachmentVariantPreview, "image/png", 3, 2)
+	assertAttachmentVariant(t, attachment, ImageAttachmentVariantOriginal, "image/png", 3, 2)
 
 	loaded, err := service.store.LoadImageAttachment("workspace_api", conversation.ID, attachment.ID)
 	if err != nil {
@@ -45,8 +46,8 @@ func TestCreateImageAttachmentFromBytesStoresMetadataAndResources(t *testing.T) 
 	if loaded.ID != attachment.ID || loaded.ByteSize != attachment.ByteSize {
 		t.Fatalf("loaded attachment = %+v, want %+v", loaded, attachment)
 	}
-	for _, variant := range []string{"thumbnail", "preview"} {
-		path, mimeType, err := service.store.ImageAttachmentResourcePath("workspace_api", conversation.ID, attachment.ID, variant)
+	for _, variant := range imageAttachmentVariantKindValues {
+		path, mimeType, err := service.store.ImageAttachmentResourcePath("workspace_api", conversation.ID, attachment.ID, string(variant))
 		if err != nil {
 			t.Fatalf("resource path %s: %v", variant, err)
 		}
@@ -57,6 +58,24 @@ func TestCreateImageAttachmentFromBytesStoresMetadataAndResources(t *testing.T) 
 			t.Fatalf("%s resource mime type was empty", variant)
 		}
 	}
+}
+
+func TestCreateImageAttachmentFromBytesBoundsInlineAndPreviewVariants(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
+	conversation, err := service.CreateConversation("workspace_api", "Images")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	attachment, err := service.CreateImageAttachmentFromBytes("workspace_api", conversation.ID, "large.png", testPNG(t, 3000, 1500))
+	if err != nil {
+		t.Fatalf("create image attachment: %v", err)
+	}
+
+	assertAttachmentVariant(t, attachment, ImageAttachmentVariantThumbnail, "image/png", 160, 80)
+	assertAttachmentVariant(t, attachment, ImageAttachmentVariantInline, "image/png", 1280, 640)
+	assertAttachmentVariant(t, attachment, ImageAttachmentVariantPreview, "image/png", 2560, 1280)
+	assertAttachmentVariant(t, attachment, ImageAttachmentVariantOriginal, "image/png", 3000, 1500)
 }
 
 func TestDecodeImageAttachmentRejectsOversizedDimensionsBeforeFullDecode(t *testing.T) {
@@ -192,6 +211,24 @@ func TestCodexUserInputMapsImagePartsToLocalImageItems(t *testing.T) {
 	if items[1]["type"] != "localImage" || items[1]["path"] != "/tmp/fixture.png" || items[1]["detail"] != "high" {
 		t.Fatalf("image item = %+v, want localImage high detail", items[1])
 	}
+}
+
+func assertAttachmentVariant(t *testing.T, attachment ImageAttachment, kind ImageAttachmentVariantKind, mimeType ImageAttachmentMimeType, width int, height int) {
+	t.Helper()
+
+	for _, variant := range attachment.Variants {
+		if variant.Kind != kind {
+			continue
+		}
+		if !strings.HasPrefix(variant.URL, "setta-attachment://image/") || !strings.HasSuffix(variant.URL, "/"+string(kind)) {
+			t.Fatalf("%s variant URL = %q, want app attachment URL", kind, variant.URL)
+		}
+		if variant.MimeType != mimeType || variant.Width != width || variant.Height != height || variant.ByteSize <= 0 {
+			t.Fatalf("%s variant = %+v, want %s %dx%d with byte size", kind, variant, mimeType, width, height)
+		}
+		return
+	}
+	t.Fatalf("missing %s variant in %+v", kind, attachment.Variants)
 }
 
 type imageUnsupportedHarness struct {

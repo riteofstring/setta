@@ -176,6 +176,7 @@ func cloneMessageParts(parts []MessagePart) []MessagePart {
 		}
 		if part.Image != nil {
 			image := *part.Image
+			image.Variants = cloneImageAttachmentVariants(part.Image.Variants)
 			if part.Image.Detail != nil {
 				detail := *part.Image.Detail
 				image.Detail = &detail

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -487,7 +488,11 @@ func (service *Service) messagePartsFromInput(workspaceID string, conversationID
 			}
 			attachment := imageAttachmentDescriptor(record)
 			imagePart := imagePartFromAttachment(attachment, inputPart.Image.Detail)
-			imagePart.LocalPath = service.store.imageAttachmentOriginalPath(record)
+			original, err := imageAttachmentVariantRecordForKind(record, ImageAttachmentVariantOriginal)
+			if err != nil {
+				return nil, err
+			}
+			imagePart.LocalPath = filepath.Join(service.store.imageAttachmentDir(record.WorkspaceID, record.ConversationID, record.ID), original.RelativePath)
 			parts = append(parts, MessagePart{
 				ID:    partID,
 				Type:  MessagePartImage,

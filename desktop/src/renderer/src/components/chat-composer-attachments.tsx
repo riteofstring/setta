@@ -1,6 +1,8 @@
 import { imageAttachmentMimeTypeValues, type ImageAttachment } from "@generated/backend";
 import { X } from "lucide-react";
 
+import { selectImageVariant } from "../lib/chat-image-variants";
+
 export const maxComposerImageAttachments = 10;
 
 const supportedComposerImageTypes = new Set<string>(imageAttachmentMimeTypeValues);
@@ -20,36 +22,57 @@ export function AttachmentStrip({
   return (
     <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
       {attachments.map((attachment) => (
-        <div
-          className="flex h-11 max-w-48 min-w-0 items-center gap-1.5 rounded-sm border border-border bg-background/70 p-1"
-          key={attachment.id}
-          title={attachment.fileName}
-        >
-          <img
-            alt={attachment.fileName}
-            className="h-9 w-9 shrink-0 rounded-[2px] object-cover"
-            decoding="async"
-            src={attachment.thumbnailUrl}
-          />
-          <span className="min-w-0 truncate text-xs text-muted-foreground">
-            {attachment.fileName}
-          </span>
-          <button
-            aria-label={`Remove ${attachment.fileName}`}
-            className="grid h-6 w-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:bg-accent"
-            onClick={() => onRemove(attachment.id)}
-            title="Remove image"
-            type="button"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <AttachmentChip attachment={attachment} key={attachment.id} onRemove={onRemove} />
       ))}
       {error ? (
         <div className="max-w-full truncate text-xs text-status-critical" title={error}>
           {error}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AttachmentChip({
+  attachment,
+  onRemove,
+}: {
+  attachment: ImageAttachment;
+  onRemove: (attachmentId: string) => void;
+}) {
+  const thumbnail = selectImageVariant(attachment, "thumbnail");
+  const title = thumbnail.status === "ready" ? attachment.fileName : thumbnail.message;
+  return (
+    <div
+      className="flex h-11 max-w-48 min-w-0 items-center gap-1.5 rounded-sm border border-border bg-background/70 p-1"
+      title={title}
+    >
+      {thumbnail.status === "ready" ? (
+        <img
+          alt={attachment.fileName}
+          className="h-9 w-9 shrink-0 rounded-[2px] object-cover"
+          data-attachment-variant-kind="thumbnail"
+          decoding="async"
+          src={thumbnail.variant.url}
+        />
+      ) : (
+        <div
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-[2px] border border-status-critical/50 text-[10px] font-medium text-status-critical"
+          role="status"
+        >
+          Image
+        </div>
+      )}
+      <span className="min-w-0 truncate text-xs text-muted-foreground">{attachment.fileName}</span>
+      <button
+        aria-label={`Remove ${attachment.fileName}`}
+        className="grid h-6 w-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:bg-accent"
+        onClick={() => onRemove(attachment.id)}
+        title="Remove image"
+        type="button"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
