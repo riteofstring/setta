@@ -321,6 +321,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         throw new Error("appearance update is not used by workspace store tests");
       },
     },
+    runtimes: {} as SettaAPI["runtimes"],
     chat: {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),

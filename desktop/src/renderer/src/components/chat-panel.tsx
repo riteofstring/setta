@@ -4,6 +4,7 @@ import { Square } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
 import { useChatStore } from "../stores/chat-store";
+import { runtimeControlsDisabled, useRuntimeStore } from "../stores/runtime-store";
 import { cn } from "../lib/utils";
 import { Composer } from "./chat-composer";
 import {
@@ -85,13 +86,9 @@ function ChatWorkspace({
   setSearchOpen: (open: boolean) => void;
   workspaceId: string;
 }) {
-  const switchingWorkspace = chat.workspaceId !== workspaceId;
-  const blocked = !switchingWorkspace && isChatBlocked(chat);
-  const composerBusy = switchingWorkspace || isComposerBusy(chat);
-  const running = !switchingWorkspace && isRunRunning(chat);
-  const selectedConversationId = switchingWorkspace ? "" : selectedChatConversationId(chat);
-  const runStatus = switchingWorkspace ? null : activeRunStatus(chat);
-  const detailWorkspaceId = chatDetailWorkspaceId(switchingWorkspace, workspaceId);
+  const runtimeUnavailable = useRuntimeStore((state) => runtimeControlsDisabled(state.snapshot));
+  const chatState = chatWorkspaceState(chat, workspaceId);
+  const composerBusy = runtimeUnavailable || chatState.switchingWorkspace || isComposerBusy(chat);
 
   return (
     <section
@@ -105,26 +102,48 @@ function ChatWorkspace({
       ) : null}
       <div
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible"
-        data-conversation-id={selectedConversationId}
-        data-run-status={runStatus ?? ""}
-        data-workspace-id={detailWorkspaceId}
+        data-conversation-id={chatState.selectedConversationId}
+        data-run-status={chatState.runStatus ?? ""}
+        data-workspace-id={chatState.detailWorkspaceId}
         data-testid="chat-detail-pane"
       >
         <ConversationBody
           chat={chat}
           searchOpen={searchOpen}
           setSearchOpen={setSearchOpen}
-          switchingWorkspace={switchingWorkspace}
+          switchingWorkspace={chatState.switchingWorkspace}
         />
         <ChatError message={selectedConversationChatError(chat)} />
-        <ComposerSlot blocked={blocked} busy={composerBusy} chat={chat} running={running} />
+        <ComposerSlot
+          blocked={chatState.blocked}
+          busy={composerBusy}
+          chat={chat}
+          running={chatState.running}
+        />
       </div>
     </section>
   );
 }
 
-function chatDetailWorkspaceId(switchingWorkspace: boolean, workspaceId: string) {
-  return switchingWorkspace ? "" : workspaceId;
+function chatWorkspaceState(chat: ChatView, workspaceId: string) {
+  if (chat.workspaceId !== workspaceId) {
+    return {
+      blocked: false,
+      detailWorkspaceId: "",
+      running: false,
+      runStatus: null,
+      selectedConversationId: "",
+      switchingWorkspace: true,
+    };
+  }
+  return {
+    blocked: isChatBlocked(chat),
+    detailWorkspaceId: workspaceId,
+    running: isRunRunning(chat),
+    runStatus: activeRunStatus(chat),
+    selectedConversationId: selectedChatConversationId(chat),
+    switchingWorkspace: false,
+  };
 }
 
 function ChatMaximizeButton({

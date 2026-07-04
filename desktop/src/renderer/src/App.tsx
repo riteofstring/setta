@@ -25,6 +25,7 @@ import {
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import { runChatBackgroundAction } from "./stores/chat-background-actions";
+import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
 import {
   type WorkspaceOperation,
   type WorkspaceStatus,
@@ -46,6 +47,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const viewport = useViewportSize();
   useAppearanceSettings();
   useBackendLifecycle(setta);
+  const runtimeUnavailable = useRuntimeLifecycle(setta);
   useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
@@ -137,6 +139,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           setWidth={setProjectPaneWidth}
           viewportWidth={viewport.width}
           width={effectiveProjectPaneWidth}
+          runtimeUnavailable={runtimeUnavailable}
           workspace={workspace}
         />
         <WorkspaceLayoutArea
@@ -196,6 +199,31 @@ function useBackendLifecycle(setta: SettaAPI) {
   }, [setta]);
 }
 
+function useRuntimeLifecycle(setta: SettaAPI) {
+  const loadRuntimes = useRuntimeStore((state) => state.load);
+  const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
+  const setRuntimeSnapshot = useRuntimeStore((state) => state.setSnapshot);
+  const loadWorkspaceSession = useWorkspaceStore((state) => state.loadSession);
+  const activeConnectedRuntimeId =
+    runtimeSnapshot?.connection.status === "connected" ? runtimeSnapshot.activeRuntimeId : null;
+
+  useEffect(() => {
+    void loadRuntimes();
+    return setta.runtimes.onConnectionState((snapshot) => {
+      setRuntimeSnapshot(snapshot);
+    });
+  }, [loadRuntimes, setRuntimeSnapshot, setta]);
+
+  useEffect(() => {
+    if (!activeConnectedRuntimeId) {
+      return;
+    }
+    void loadWorkspaceSession();
+  }, [activeConnectedRuntimeId, loadWorkspaceSession]);
+
+  return runtimeControlsDisabled(runtimeSnapshot);
+}
+
 function useAppearanceSettings() {
   const loadAppearance = useAppearanceStore((state) => state.load);
 
@@ -253,6 +281,7 @@ function ProjectPane({
   setWidth,
   viewportWidth,
   width,
+  runtimeUnavailable,
   workspace,
 }: {
   activeRun: ProjectPaneChatState["activeRun"];
@@ -269,6 +298,7 @@ function ProjectPane({
   setWidth: (width: number) => void;
   viewportWidth: number;
   width: number;
+  runtimeUnavailable: boolean;
   workspace: WorkspaceViewState;
 }) {
   if (!open) {
@@ -279,7 +309,7 @@ function ProjectPane({
     <WorkspaceSidebar
       activeRun={activeRun}
       activeWorkspaces={workspace.activeWorkspaces}
-      busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
+      busy={runtimeUnavailable || sidebarWorkspaceBusy(workspace.operation, workspace.status)}
       clearWorkspaceError={workspace.clearError}
       closeWorkspace={workspace.closeWorkspace}
       createConversation={createConversation}
