@@ -78,24 +78,70 @@ func TestCodexFailedMCPToolCallProjectsFailedRow(t *testing.T) {
 }
 
 func TestMCPToolCallDetailsRejectsFlatFields(t *testing.T) {
-	item := RunItem{
-		ID:             "run_item_mcp_flat",
-		ProviderItemID: "provider_mcp_flat",
-		Type:           RunItemTypeMCPToolCall,
-		Status:         RunItemStatusCompleted,
-		ServerName:     "legacy_server",
-		Details: NewRunItemMCPToolCallDetails(RunItemMCPToolCallDetails{
-			ServerName: "github",
-			ToolName:   "search",
-		}),
+	tests := []struct {
+		name        string
+		mutate      func(*RunItem)
+		wantMessage string
+	}{
+		{
+			name:        "serverName",
+			mutate:      func(item *RunItem) { item.ServerName = "legacy_server" },
+			wantMessage: "mcpToolCall flat serverName must be empty",
+		},
+		{
+			name:        "toolName",
+			mutate:      func(item *RunItem) { item.ToolName = "legacy_tool" },
+			wantMessage: "mcpToolCall flat toolName must be empty",
+		},
+		{
+			name:        "progress",
+			mutate:      func(item *RunItem) { item.Progress = "legacy progress" },
+			wantMessage: "mcpToolCall flat progress must be empty",
+		},
+		{
+			name:        "durationMs",
+			mutate:      func(item *RunItem) { item.DurationMs = 42 },
+			wantMessage: "mcpToolCall flat durationMs must be zero",
+		},
+		{
+			name:        "result",
+			mutate:      func(item *RunItem) { item.Result = "legacy result" },
+			wantMessage: "mcpToolCall flat result must be empty",
+		},
+		{
+			name:        "error",
+			mutate:      func(item *RunItem) { item.Error = "legacy error" },
+			wantMessage: "mcpToolCall flat error must be empty",
+		},
+		{
+			name:        "rawDetails",
+			mutate:      func(item *RunItem) { item.RawDetails = json.RawMessage(`{"legacy":true}`) },
+			wantMessage: "mcpToolCall rawDetails must be empty",
+		},
 	}
 
-	err := validateRunItemDetails(item)
-	if err == nil {
-		t.Fatal("validation succeeded, want flat serverName rejection")
-	}
-	if !strings.Contains(err.Error(), "mcpToolCall flat serverName must be empty") {
-		t.Fatalf("error = %q, want flat serverName rejection", err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			item := RunItem{
+				ID:             "run_item_mcp_flat_" + test.name,
+				ProviderItemID: "provider_mcp_flat_" + test.name,
+				Type:           RunItemTypeMCPToolCall,
+				Status:         RunItemStatusCompleted,
+				Details: NewRunItemMCPToolCallDetails(RunItemMCPToolCallDetails{
+					ServerName: "github",
+					ToolName:   "search",
+				}),
+			}
+			test.mutate(&item)
+
+			err := validateRunItemDetails(item)
+			if err == nil {
+				t.Fatal("validation succeeded, want flat-field rejection")
+			}
+			if !strings.Contains(err.Error(), test.wantMessage) {
+				t.Fatalf("error = %q, want %q", err, test.wantMessage)
+			}
+		})
 	}
 }
 
