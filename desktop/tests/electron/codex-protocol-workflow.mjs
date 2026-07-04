@@ -423,6 +423,7 @@ export async function runProtocolProviderRestartLivenessWorkflow(client, backend
     "app-server exit workflow",
     "running",
   );
+  await waitForTexts(client, ["Partial before provider restart."]);
   await waitForRendererLiveness(client, run.id, "reconciling", "reconnecting");
   const list = await backend.post("/chat/conversations/list", { workspaceId });
   const item = list.conversations.find((candidate) => candidate.conversation.id === conversationId);

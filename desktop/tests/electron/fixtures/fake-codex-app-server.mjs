@@ -135,6 +135,7 @@ function handleTurnStart(message) {
   }
   const text = turnInputText(message);
   if (text.includes("app-server exit workflow")) {
+    emitRestartPartialTurn();
     writeFakeState({ activeRestartTurn: true });
     setTimeout(() => process.exit(42), 5);
     return;
@@ -719,6 +720,15 @@ function emitSilentLivenessTurn() {
   notify("item/agentMessage/delta", {
     delta: "Liveness stream started. ",
     itemId: "liveness_message_fake",
+    threadId,
+    turnId,
+  });
+}
+
+function emitRestartPartialTurn() {
+  notify("item/agentMessage/delta", {
+    delta: "Partial before provider restart. ",
+    itemId: "provider_restart_message_fake",
     threadId,
     turnId,
   });

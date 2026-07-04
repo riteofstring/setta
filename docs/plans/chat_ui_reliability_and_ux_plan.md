@@ -618,6 +618,19 @@ matches the history-navigation contract.
 - Park automatic same-turn reconnect/resume as an upstream Codex dependency
   until there is an idempotent resume-this-turn protocol.
 
+Status after the provider-restart liveness step:
+
+- Done: app-server session lifecycle errors route through `RunLiveness` with
+  `provider_restarted` when provider reconciliation confirms the turn is still
+  active. The deterministic Electron fake now streams partial assistant output
+  before exit and verifies that the transcript stays mounted while the run shows
+  reconnecting liveness through the production path.
+- Done: `ListConversations` snapshots active-run liveness under the service lock
+  so conversation list projection does not race active/liveness map updates.
+- Remaining: Codex `error` notifications with `willRetry` true or false still
+  need their final product treatment beyond the current trace or terminal
+  failure paths.
+
 ### Slice 3: Protocol Findings And Contract Shape
 
 - Compare Setta's current activity/run-item model against Codex app-server item
