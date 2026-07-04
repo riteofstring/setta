@@ -668,19 +668,18 @@ async function waitForRendererLiveness(client, runId, status, rowMode) {
 }
 
 async function assertDegradedRunControls(client, expected) {
-  const controls = await client.evaluate(`(() => {
-    const retry = document.querySelector('button[aria-label="Retry run liveness check"]');
-    const stop = document.querySelector('button[aria-label="Stop run"]');
-    return {
-      retry: Boolean(retry && !retry.disabled),
-      stop: Boolean(stop && !stop.disabled),
-    };
-  })()`);
-  if (controls.retry !== expected.retry || controls.stop !== expected.stop) {
-    throw new Error(
-      `degraded run controls = ${JSON.stringify(controls)}, want ${JSON.stringify(expected)}`,
-    );
-  }
+  await waitForState(
+    client,
+    `(() => {
+      const retry = document.querySelector('button[aria-label="Retry run liveness check"]');
+      const stop = document.querySelector('button[aria-label="Stop run"]');
+      return {
+        retry: Boolean(retry && !retry.disabled),
+        stop: Boolean(stop && !stop.disabled),
+      };
+    })()`,
+    (controls) => controls.retry === expected.retry && controls.stop === expected.stop,
+  );
 }
 
 async function assertProtocolGoalForegroundUnifiedExecProjections(
