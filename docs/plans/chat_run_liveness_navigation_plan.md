@@ -593,6 +593,15 @@ Verification performed:
 - `./scripts/test_chat_workflows.sh --skip-build --live-only`
 - `./check_quality.sh --git-changes`
 
+Follow-up audit:
+
+- tightened metadata chip keys so duplicated typed/top-level metadata does not
+  produce repeated React keys;
+- reran the focused activity transcript tests and Codex protocol workflow;
+- reran the required production-path deterministic chat workflow gate for this
+  transcript UI change:
+  `./scripts/test_chat_workflows.sh --deterministic-only`.
+
 Remaining work:
 
 - Phase 6 may still need visual QA or additional Electron assertions if later

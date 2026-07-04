@@ -729,9 +729,8 @@ function ActivityCommand({ command }: { command: string }) {
   return <ActivityCommandBlock command={command} />;
 }
 
-// ActivityCommandBlock renders the run's command as a flush, syntax-highlighted
-// line that lines up with the other detail fields — no inset code box or heavy
-// vertical padding. Highlighting is memoized per command.
+// ActivityCommandBlock keeps command details in the same bounded block treatment
+// as output and JSON fields. Highlighting is memoized per command.
 function ActivityCommandBlock({ command }: { command: string }) {
   const highlighted = useMemo(() => highlightCode(command, "bash"), [command]);
   return (
@@ -775,10 +774,10 @@ function ActivityMetadata({ details }: { details: RunActivityDetailsProjection }
     >
       <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">Metadata</h4>
       <div className="mt-1 flex flex-wrap gap-1.5">
-        {entries.map((entry) => (
+        {entries.map((entry, index) => (
           <span
             className="max-w-full min-w-0 truncate rounded-sm border border-border bg-popover px-2 py-0.5 font-mono text-muted-foreground"
-            key={`${entry.label}:${entry.value}`}
+            key={`${entry.label}:${entry.value}:${index}`}
           >
             {entry.label}: {entry.value}
           </span>
