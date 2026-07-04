@@ -274,7 +274,7 @@ func TestManagerAttachPublishesReplayForExistingSession(t *testing.T) {
 	}
 }
 
-func TestManagerEmitsBufferTruncatedWhenOutputBufferOverflows(t *testing.T) {
+func TestManagerStoresReplayTruncationWhenOutputBufferOverflows(t *testing.T) {
 	root := t.TempDir()
 	starter := &recordingPTYStarter{}
 	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
@@ -287,15 +287,78 @@ func TestManagerEmitsBufferTruncatedWhenOutputBufferOverflows(t *testing.T) {
 	defer subscription.Unsubscribe()
 
 	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
-	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	started := readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
 	handle := starter.handleAt(t, 0)
 	handle.emit([]byte("first"))
 	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
 	handle.emit([]byte("second"))
 	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
-	truncated := readTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
+	expectNoTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
+	subscription.Unsubscribe()
+
+	replay, err := manager.SubscribeEvents(EventCursor{
+		StreamID: started.StreamID,
+		Sequence: started.Sequence,
+	})
+	if err != nil {
+		t.Fatalf("subscribe replay terminal events: %v", err)
+	}
+	defer replay.Unsubscribe()
+
+	truncated := readTerminalEvent(t, replay.Events, TerminalEventBufferTruncated, created.ID)
 	if truncated.Payload.DroppedChunks == 0 || truncated.Payload.DroppedBytes == 0 {
 		t.Fatalf("truncated payload = %+v, want dropped chunk and byte counts", truncated.Payload)
+	}
+	if truncated.Payload.Message != "terminal replay history truncated; 1 output chunk unavailable" {
+		t.Fatalf("truncated message = %q, want replay history message", truncated.Payload.Message)
+	}
+}
+
+func TestManagerStoresReplayTruncationWhenOutputHistoryExpires(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	var clockMu sync.Mutex
+	now := time.Date(2026, 6, 6, 12, 0, 0, 0, time.UTC)
+	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		Clock: func() time.Time {
+			clockMu.Lock()
+			defer clockMu.Unlock()
+			return now
+		},
+		ReplayRetention: time.Second,
+	})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	started := readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	handle := starter.handleAt(t, 0)
+	handle.emit([]byte("first"))
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+
+	clockMu.Lock()
+	now = now.Add(2 * time.Second)
+	clockMu.Unlock()
+	handle.emit([]byte("second"))
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	expectNoTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
+	subscription.Unsubscribe()
+
+	replay, err := manager.SubscribeEvents(EventCursor{
+		StreamID: started.StreamID,
+		Sequence: started.Sequence,
+	})
+	if err != nil {
+		t.Fatalf("subscribe replay terminal events: %v", err)
+	}
+	defer replay.Unsubscribe()
+
+	truncated := readTerminalEvent(t, replay.Events, TerminalEventBufferTruncated, created.ID)
+	if truncated.Payload.Message != "terminal replay history truncated; 1 output chunk unavailable" {
+		t.Fatalf("truncated message = %q, want replay history message", truncated.Payload.Message)
 	}
 }
 
@@ -432,7 +495,9 @@ func newTestManagerWithConfig(
 	config.AppDataDir = t.TempDir()
 	config.WorkspaceResolver = fakeWorkspaceResolver(roots)
 	config.PTY = starter
-	config.Clock = testClock(t)
+	if config.Clock == nil {
+		config.Clock = testClock(t)
+	}
 	manager, err := NewManager(config)
 	if err != nil {
 		t.Fatalf("new terminal manager: %v", err)
@@ -472,6 +537,24 @@ func readTerminalEvent(t *testing.T, events <-chan TerminalEvent, eventType Term
 			}
 		case <-deadline:
 			t.Fatalf("timed out waiting for terminal event %s", eventType)
+		}
+	}
+}
+
+func expectNoTerminalEvent(t *testing.T, events <-chan TerminalEvent, eventType TerminalEventType, sessionID string) {
+	t.Helper()
+	deadline := time.After(50 * time.Millisecond)
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				t.Fatalf("terminal event stream closed while checking for absent %s", eventType)
+			}
+			if event.Type == eventType && event.SessionID == sessionID {
+				t.Fatalf("unexpected terminal event %s for %s: %+v", eventType, sessionID, event.Payload)
+			}
+		case <-deadline:
+			return
 		}
 	}
 }
