@@ -99,6 +99,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private pendingResize: { cols: number; rows: number } | null = null;
   private readonly pendingOutput: PendingTerminalOutput[] = [];
   private pendingPaste: PendingPaste | null = null;
+  private reattachRequired = false;
   private pasteOverlay: TerminalPasteElements | null = null;
   private resizeTimer: number | null = null;
   private restartButton: HTMLButtonElement | null = null;
@@ -179,7 +180,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     void this.loadProfiles()
       .then(() => this.mountTerminal(content.viewport))
       .then(() => {
-        this.startSessionIfFocused();
+        this.startSessionIfActive();
       })
       .catch((error: unknown) => {
         this.showStatus(errorMessage(error));
@@ -196,6 +197,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.unsubscribeProfileChanges?.();
     this.unsubscribeProfileChanges = null;
     this.disposeTerminal();
+    if (this.sessionId) {
+      this.reattachRequired = true;
+    }
     this.host?.replaceChildren();
     this.host = null;
     this.status = null;
@@ -206,7 +210,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.pasteOverlay = null;
     this.pendingPaste = null;
     this.visible = false;
-    this.startPromise = null;
     this.writeStats(0);
   }
 
@@ -216,6 +219,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (visible) {
       this.fitAndResize();
       this.drainPendingOutput();
+      this.startSessionIfActive();
     }
   }
 
@@ -226,7 +230,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       this.terminal?.focus();
       this.fitAndResize();
       this.drainPendingOutput();
-      this.startSessionIfFocused();
+      this.startSessionIfActive();
     }
   }
 
@@ -254,8 +258,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (this.focused) {
       this.terminal?.focus();
       this.fitAndResize();
-      this.startSessionIfFocused();
     }
+    this.startSessionIfActive();
   }
 
   captureSnapshot(): Promise<PaneSnapshot> {
@@ -352,6 +356,12 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (this.startPromise) {
       return;
     }
+    if (this.sessionId && !this.reattachRequired) {
+      return;
+    }
+    if (this.sessionStatus === "waiting" && !this.allowExplicitProfileStart) {
+      return;
+    }
     if (this.workspaceId === "empty") {
       this.showStatus("Open a workspace to start terminal.");
       return;
@@ -364,13 +374,19 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     const dimensions = this.currentDimensions();
     this.hideExitOverlay();
     this.showStatus(this.sessionId ? "Attaching shell" : "Starting shell");
-    this.startPromise = this.attachOrCreateSession(api, dimensions)
+    const startPromise = this.attachOrCreateSession(api, dimensions)
       .then((response) => {
+        if (this.destroyed) {
+          return;
+        }
         this.allowExplicitProfileStart = false;
         this.applySessionSummary(response.session);
         this.fitAndResize();
       })
       .catch((error: unknown) => {
+        if (this.destroyed) {
+          return;
+        }
         if (error instanceof TerminalStartDeferred) {
           return;
         }
@@ -382,12 +398,17 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
         const message = errorMessage(error);
         this.showStatus(message);
         this.showExitOverlay(message);
+      })
+      .finally(() => {
+        if (this.startPromise === startPromise) {
+          this.startPromise = null;
+        }
       });
+    this.startPromise = startPromise;
   }
 
-  private startSessionIfFocused(): void {
-    if (!this.focused) {
-      this.showStatus("Focus terminal to start shell.");
+  private startSessionIfActive(): void {
+    if (!this.visible || this.frozen) {
       return;
     }
     this.startSession();
@@ -420,6 +441,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.sessionId = session.id;
     this.selectedProfileId = session.profileId;
     this.sessionStatus = session.status;
+    this.reattachRequired = false;
     this.lostSession = false;
     this.lastResize = {
       cols: session.cols,
@@ -474,7 +496,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
         break;
       case "terminal.bufferTruncated":
         this.droppedOutputChunks += Math.max(1, event.payload.droppedChunks);
-        this.showStatus(event.payload.message || "Terminal output buffer truncated");
+        this.showStatus(event.payload.message || "Terminal replay history truncated");
         this.writeStats(this.stats.dirtyRows);
         break;
       default:
@@ -743,6 +765,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
     this.sessionId = null;
     this.sessionStatus = "";
+    this.reattachRequired = false;
     this.lostSession = false;
     this.startPromise = null;
     this.terminal?.clear();
@@ -773,6 +796,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.allowExplicitProfileStart = true;
     this.sessionId = null;
     this.sessionStatus = "";
+    this.reattachRequired = false;
     this.lostSession = false;
     this.startPromise = null;
     this.droppedOutputChunks = 0;

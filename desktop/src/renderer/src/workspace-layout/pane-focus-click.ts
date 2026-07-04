@@ -36,6 +36,17 @@ export function paneFocusHitContainsPoint(rect: PaneFocusRect, point: PaneFocusP
   );
 }
 
+export function paneFocusHitContainsPointForSurface(
+  surfaceKind: string | undefined,
+  rect: PaneFocusRect,
+  point: PaneFocusPoint,
+): boolean {
+  if (surfaceKind === "terminal") {
+    return pointInsideRect(rect, point);
+  }
+  return paneFocusHitContainsPoint(rect, point);
+}
+
 function paneHostFromClickTarget(target: EventTarget | null): HTMLElement | null {
   if (!(target instanceof Element)) {
     return null;
@@ -64,7 +75,13 @@ function paneFocusTargetFromHost(host: HTMLElement, point: PaneFocusPoint): stri
   if (!paneId) {
     return null;
   }
-  return paneFocusHitContainsPoint(host.getBoundingClientRect(), point) ? paneId : null;
+  return paneFocusHitContainsPointForSurface(
+    host.dataset.surfaceKind,
+    host.getBoundingClientRect(),
+    point,
+  )
+    ? paneId
+    : null;
 }
 
 function pointInsideRect(rect: PaneFocusRect, point: PaneFocusPoint): boolean {
