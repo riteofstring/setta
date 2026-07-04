@@ -412,15 +412,9 @@ func (service *Service) clearSubmittedApproval(workspaceID string, runID string,
 	approval.ResolvedAt = timestamp(service.now())
 	approval.Response = approvalResponseSummary(response, answers)
 	approval.Approved = approved
-	switch {
-	case cancelled:
-		approval.Status = ApprovalStatusCancelled
-	case approval.Kind == ApprovalKindUserInput:
-		approval.Status = ApprovalStatusAnswered
-	case approved:
-		approval.Status = ApprovalStatusApproved
-	default:
-		approval.Status = ApprovalStatusDenied
+	approval.Status = resolvedApprovalStatus(approval, approved, cancelled)
+	if err := service.updateApprovalRunItemResolvedLocked(workspaceID, run, approval); err != nil {
+		return Run{}, err
 	}
 	run.PendingApproval = nil
 	run, err = service.store.SubmitApproval(run)
@@ -913,6 +907,11 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 	}
 	if run.Status != RunStatusRunning || run.PendingApproval == nil || run.PendingApproval.ID != approvalID {
 		return nil
+	}
+	approval := *run.PendingApproval
+	approval.Status = resolvedApprovalStatus(approval, approved, false)
+	if err := service.updateApprovalRunItemResolvedLocked(workspaceID, run, approval); err != nil {
+		return err
 	}
 	run.PendingApproval = nil
 	run, err = service.store.ResolveApproval(run)

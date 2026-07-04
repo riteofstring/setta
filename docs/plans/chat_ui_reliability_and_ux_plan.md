@@ -709,6 +709,11 @@ Status after the MCP typed-details cutover:
   Electron approval/protocol coverage, and live Codex workflows read the typed
   branch. Approval records with legacy flat request/review/raw details now fail
   validation instead of being dual-read.
+- Done: audit follow-up fixed resolved approval statuses in the typed activity
+  branch, so submitted approvals update `approvalStatus` and the activity row
+  status instead of remaining pending. The scripted user-input approval workflow
+  now emits the same typed `approval_request` row as the other approval
+  workflows and deterministic Electron coverage asserts the answered status.
 - Remaining: complete protocol findings and typed-detail cutovers for failed
   starts and stream lifecycle activity rows.
 

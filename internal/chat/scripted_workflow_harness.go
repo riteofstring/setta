@@ -439,6 +439,9 @@ func (harness *ScriptedWorkflowHarness) activityFeedTurn(ctx context.Context, re
 
 func (harness *ScriptedWorkflowHarness) userInputApprovalTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	approval := scriptedUserInputApproval(request.Run.ID)
+	if err := scriptedApprovalRequestActivity(sink, approval); err != nil {
+		return TurnCompletion{}, err
+	}
 	response, err := harness.requestAndWaitForApproval(ctx, request.Run.ID, sink, approval)
 	if err != nil {
 		return TurnCompletion{}, err
@@ -828,6 +831,10 @@ func scriptedActivityFeedFileChange(sink TurnSink, runID string, rootPath string
 }
 
 func scriptedStructuredApprovalActivity(sink TurnSink, approval ApprovalRequest) error {
+	return scriptedApprovalRequestActivity(sink, approval)
+}
+
+func scriptedApprovalRequestActivity(sink TurnSink, approval ApprovalRequest) error {
 	return sink.RunItemUpsert(approvalRequestRunItem(approval))
 }
 
@@ -866,10 +873,11 @@ func scriptedPermissionApproval(runID string) ApprovalRequest {
 
 func scriptedUserInputApproval(runID string) ApprovalRequest {
 	return ApprovalRequest{
-		ID:    "approval_user_input_" + runID,
-		Kind:  ApprovalKindUserInput,
-		Title: "User input approval",
-		Body:  "Answer the scripted question.",
+		ID:             "approval_user_input_" + runID,
+		ProviderItemID: "provider_user_input_" + runID,
+		Kind:           ApprovalKindUserInput,
+		Title:          "User input approval",
+		Body:           "Answer the scripted question.",
 		Questions: []ApprovalQuestion{{
 			ID:       "scripted_answer",
 			Header:   "Answer",

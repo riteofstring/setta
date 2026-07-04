@@ -132,6 +132,16 @@ async function answerUserInputApproval({
   });
   await waitForText(client, "User input approval resolved.");
   await waitForApprovalCardAbsent(client, waitForState);
+  await waitForRunActivityItem(
+    backend,
+    workspaceId,
+    pendingRun.id,
+    (item) =>
+      item.type === "approval_request" &&
+      item.details?.approval?.approvalKind === "user_input" &&
+      item.details.approval.approvalStatus === "answered" &&
+      item.details.approval.questions.some((question) => question.id === "scripted_answer"),
+  );
 }
 
 async function acceptStructuredFormApproval({
