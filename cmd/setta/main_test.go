@@ -21,6 +21,25 @@ import (
 
 const testRuntimeID = "0123456789abcdef0123456789abcdef"
 
+func TestVersionCommandPrintsEmbeddedVersion(t *testing.T) {
+	oldVersion := version
+	version = "v9.8.7-test"
+	t.Cleanup(func() {
+		version = oldVersion
+	})
+
+	var stdout bytes.Buffer
+	deps := testDeps()
+	deps.stdout = &stdout
+
+	if code := runWithDeps([]string{"version"}, deps); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if got := strings.TrimSpace(stdout.String()); got != "v9.8.7-test" {
+		t.Fatalf("version output = %q, want embedded version", got)
+	}
+}
+
 func TestServeOptionsDefaultsAndExplicitPort(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()

@@ -18,6 +18,8 @@ import (
 
 const defaultServePort = 7345
 
+var version = "dev"
+
 type cliDeps struct {
 	commandRunner commandRunner
 	getenv        func(string) string
@@ -60,6 +62,13 @@ func runWithDeps(args []string, deps cliDeps) int {
 		err = runPair(args[1:], deps)
 	case "devices":
 		err = runDevices(args[1:], deps)
+	case "version":
+		if len(args) != 1 {
+			err = usageError{err: fmt.Errorf("setta version does not accept arguments")}
+		} else {
+			fmt.Fprintln(deps.stdout, version)
+			return 0
+		}
 	case "help", "-h", "--help":
 		printUsage(deps.stdout)
 		return 0
@@ -119,6 +128,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta pair [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta version")
 }
 
 func newFlagSet(name string, stderr io.Writer) *flag.FlagSet {

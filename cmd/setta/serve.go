@@ -92,6 +92,7 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 	config.SkipBootstrapDeviceSession = true
 	config.Stderr = deps.stderr
 	config.Stdout = &readyBuffer
+	config.Version = version
 	if options.ChatHarness != "" {
 		config.ChatHarness = options.ChatHarness
 	}
