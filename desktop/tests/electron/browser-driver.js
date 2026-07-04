@@ -1,4 +1,4 @@
-/* global CustomEvent, Element, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, getComputedStyle, window */
+/* global CustomEvent, Element, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, MouseEvent, document, getComputedStyle, window */
 
 (() => {
   const workflowDefinitionChangedEventName = "setta:workflow-definition-changed";
@@ -168,7 +168,13 @@
     const detail = document.querySelector('[data-testid="chat-detail-pane"]');
     return { workspaceId: detail?.getAttribute("data-workspace-id") ?? "" };
   }
-
+  function layoutState() {
+    const read = window.__settaWorkspaceReadLayoutState;
+    if (typeof read === "function") {
+      return { ok: true, snapshot: read() };
+    }
+    return { ok: false, reason: "layout-state-unavailable" };
+  }
   function scrollSidebarNavigationTo({ scrollTop }) {
     const list = document.querySelector('[data-testid="sidebar-navigation-list"]');
     if (!list) {
@@ -1238,13 +1244,13 @@
       ),
     ).filter((host) => host instanceof HTMLElement);
   }
-
   function activeTerminalHost({ paneId = null } = {}) {
     const hosts = terminalHosts();
     if (paneId !== null) {
       return hosts.find((host) => host.dataset.paneId === paneId) ?? null;
     }
     return (
+      hosts.find((host) => host.dataset.paneId === (layoutState().snapshot?.focusedPaneId ?? "")) ??
       hosts.find((host) => host.dataset.focused === "true") ??
       hosts.find((host) => terminalHostIntersectsViewport(host)) ??
       hosts[0] ??
@@ -1321,7 +1327,7 @@
   function terminalSnapshotForHost(host) {
     return {
       exists: true,
-      focused: host.dataset.focused === "true",
+      focused: paneHostFocused(host),
       maximized: host.dataset.maximized === "true",
       paneId: host.dataset.paneId ?? "",
       profileId: host.dataset.terminalProfileId ?? "",
@@ -1333,7 +1339,12 @@
       xtermReady: Boolean(host.querySelector(".xterm-helper-textarea")),
     };
   }
-
+  function paneHostFocused(host) {
+    const focusedPaneId = layoutState().snapshot?.focusedPaneId ?? "";
+    return focusedPaneId === ""
+      ? host.dataset.focused === "true"
+      : host.dataset.paneId === focusedPaneId;
+  }
   function rowsForTerminalHost(host) {
     return Array.from(host.querySelectorAll(".xterm-rows > div"))
       .map((row) => row.textContent ?? "")
@@ -1425,6 +1436,7 @@
     maximizeTerminalPane,
     modelPicker,
     modelPickerButtonReady,
+    layoutState,
     paneChromeEdgeFocusPoint,
     rendererWorkspace,
     scrollSidebarNavigationTo,
@@ -1442,7 +1454,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v10",
+    version: "setta-e2e-driver-v11",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
