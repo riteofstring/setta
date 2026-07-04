@@ -212,7 +212,6 @@ function WorkflowRunSelector({
         aria-expanded={menuOpen}
         aria-haspopup="menu"
         className="inline-flex h-8 w-44 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
-        data-selected-run-id={selected?.id ?? ""}
         data-testid="workflow-run-selector-button"
         disabled={disabled}
         onClick={() => setMenuOpen((open) => !open)}

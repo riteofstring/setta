@@ -22,7 +22,6 @@ describe("appearance settings", () => {
     expect(html).toContain('role="tablist"');
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain("Theme");
-    expect(html).toContain("Chat Defaults");
     expect(html).toContain("Shortcuts");
     expect(html).toContain("Developer");
     expect(html).toContain("Codex Account");

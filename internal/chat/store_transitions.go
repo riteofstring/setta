@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 type RunningTurnRecords struct {
@@ -99,13 +98,14 @@ func (store *Store) PromoteQueuedTurn(records QueuedPromotionRecords) (QueuedPro
 	return records, nil
 }
 
-func (store *Store) EditQueuedTurn(conversation Conversation, message ChatMessage, run Run) (Conversation, ChatMessage, Run, error) {
-	if err := validateQueuedEditRecords(conversation, message, run); err != nil {
+func (store *Store) EditQueuedTurn(conversation Conversation, message ChatMessage, run Run, prompt string) (Conversation, ChatMessage, Run, error) {
+	if err := validateQueuedEditRecords(conversation, message, run, prompt); err != nil {
 		return Conversation{}, ChatMessage{}, Run{}, err
 	}
 	now := conversation.UpdatedAt
 	message.UpdatedAt = now
-	run.PromptSummary = messagePromptSummary(message)
+	message.Parts[0].Text = prompt
+	run.PromptSummary = summarize(prompt, maxPromptSummary)
 	workspaceID := run.WorkspaceID
 	if err := store.SaveMessage(workspaceID, message); err != nil {
 		return Conversation{}, ChatMessage{}, Run{}, err
@@ -274,9 +274,12 @@ func validateQueuedPromotionRecords(records QueuedPromotionRecords) error {
 	return validateTurnRecordLinks(records.Conversation, records.UserMessage, records.AssistantMessage, records.Run)
 }
 
-func validateQueuedEditRecords(conversation Conversation, message ChatMessage, run Run) error {
-	if strings.TrimSpace(messageText(message)) == "" && messageImageCount(message) == 0 {
-		return fmt.Errorf("queued edit input is required")
+func validateQueuedEditRecords(conversation Conversation, message ChatMessage, run Run, prompt string) error {
+	if prompt == "" {
+		return fmt.Errorf("queued edit prompt is required")
+	}
+	if len(message.Parts) != 1 || message.Parts[0].Type != MessagePartText {
+		return fmt.Errorf("queued message %s must contain exactly one text part", message.ID)
 	}
 	if err := validateQueuedTurnRecords(QueuedTurnRecords{
 		Conversation: conversation,
@@ -307,8 +310,8 @@ func validatePendingSteeringReplayRecords(records PendingSteeringReplayRecords) 
 	if records.UserMessage.Delivery != MessageDeliveryNormal {
 		return fmt.Errorf("immediate replay trigger message %s delivery = %s, want normal", records.UserMessage.ID, records.UserMessage.Delivery)
 	}
-	if strings.TrimSpace(messageText(records.UserMessage)) == "" && messageImageCount(records.UserMessage) == 0 {
-		return fmt.Errorf("immediate replay input is required")
+	if promptFromMessage(records.UserMessage) == "" {
+		return fmt.Errorf("immediate replay prompt is required")
 	}
 	if err := validateRunningTurnRecords(RunningTurnRecords{
 		AssistantMessage: records.AssistantMessage,

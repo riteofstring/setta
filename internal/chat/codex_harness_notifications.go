@@ -2,6 +2,7 @@ package chat
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -66,7 +67,7 @@ func handleCodexProcessOutputDelta(message jsonRPCMessage, _ string, _ string, s
 }
 
 func codexBase64OutputDeltaFromCommandExec(params codexapp.CommandExecOutputDeltaNotification) (codexBase64OutputDelta, error) {
-	stream, err := codexOutputStreamFromRaw(string(params.Stream))
+	stream, err := codexOutputStreamFromRaw(params.Stream, "codex command exec output delta")
 	if err != nil {
 		return codexBase64OutputDelta{}, err
 	}
@@ -74,14 +75,18 @@ func codexBase64OutputDeltaFromCommandExec(params codexapp.CommandExecOutputDelt
 }
 
 func codexBase64OutputDeltaFromProcess(params codexapp.ProcessOutputDeltaNotification) (codexBase64OutputDelta, error) {
-	stream, err := codexOutputStreamFromRaw(string(params.Stream))
+	stream, err := codexOutputStreamFromRaw(params.Stream, "codex process output delta")
 	if err != nil {
 		return codexBase64OutputDelta{}, err
 	}
 	return codexBase64OutputDelta{deltaBase64: params.DeltaBase64, stream: stream}, nil
 }
 
-func codexOutputStreamFromRaw(stream string) (string, error) {
+func codexOutputStreamFromRaw(raw json.RawMessage, label string) (string, error) {
+	var stream string
+	if err := json.Unmarshal(raw, &stream); err != nil {
+		return "", fmt.Errorf("%s.stream must be a string: %w", label, err)
+	}
 	if _, ok := codexOutputStreams[stream]; !ok {
 		return "", fmt.Errorf("unsupported codex output stream: %s", stream)
 	}
@@ -98,9 +103,7 @@ func handleCodexBase64OutputDelta(delta codexBase64OutputDelta, providerItemID s
 		Type:           itemType,
 		Status:         RunItemStatusRunning,
 		Title:          title,
-		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
-			ProcessID: processID,
-		}),
+		ProcessID:      processID,
 	}); err != nil {
 		return codexNotificationResult{}, err
 	}
@@ -144,10 +147,8 @@ func processExitRunItem(providerItemID string, event codexProcessExitEvent) RunI
 		Type:           RunItemTypeCommandExecution,
 		Status:         processExitStatus(event.exitCode),
 		Title:          "Process exited",
-		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
-			ProcessID: event.processID,
-			ExitCode:  event.exitCode,
-		}),
+		ProcessID:      event.processID,
+		ExitCode:       event.exitCode,
 	}
 }
 
@@ -187,6 +188,8 @@ func handleCodexReasoningTextDelta(message jsonRPCMessage, threadID string, turn
 		ProviderItemID: params.ItemId,
 		Type:           RunItemTypeReasoning,
 		Status:         RunItemStatusRunning,
+		Title:          "Reasoning text",
+		Summary:        "Reasoning text received",
 		HiddenText:     params.Delta,
 	})
 }
@@ -254,7 +257,7 @@ func codexHookRunItem(run map[string]any) (RunItem, error) {
 		Title:          "Hook: " + eventName,
 		Summary:        hookSummary(statusText, statusMessage),
 		DurationMs:     durationMs,
-		RawDetails:     details,
+		Details:        details,
 	}, nil
 }
 
@@ -298,11 +301,7 @@ func handleCodexAutoApprovalReviewNotification(message jsonRPCMessage, threadID 
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	reviewDetails, err := rawJSON(review, "codex auto approval review review")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	actionDetails, err := rawJSON(action, "codex auto approval review action")
+	details, err := rawJSON(params, "codex auto approval review")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
@@ -313,15 +312,8 @@ func handleCodexAutoApprovalReviewNotification(message jsonRPCMessage, threadID 
 		Status:         status,
 		Title:          "Auto-approval review",
 		Summary:        summary,
-		Details: NewRunItemApprovalDetails(RunItemApprovalDetails{
-			ReviewID:     reviewID,
-			ReviewStatus: statusText,
-			ActionType:   actionType,
-			Title:        "Auto-approval review",
-			Body:         summary,
-			Review:       reviewDetails,
-			Action:       actionDetails,
-		}),
+		ReviewID:       reviewID,
+		Details:        details,
 	})
 }
 

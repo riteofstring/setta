@@ -10,10 +10,14 @@ import {
   Check,
   ChevronDown,
   CircleAlert,
+  Gauge,
+  KeyRound,
+  Keyboard,
   Loader2,
   Palette,
   RotateCcw,
   Save,
+  Terminal,
   Type,
 } from "lucide-react";
 import {
@@ -32,7 +36,6 @@ import {
   seedPreviewStops,
   settingsFromSeed,
 } from "./appearance-seed-palette";
-import { ChatDefaultsSettings } from "./chat-defaults-settings";
 import { CodexAccountSettings } from "./codex-account-settings";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import { FloatingMenu } from "./floating-menu";
@@ -45,7 +48,6 @@ import {
   OKLCHSeedPicker,
   StatusColorSection,
 } from "./settings-panel-color-fields";
-import { settingsSubtabs, type SettingsSubtab } from "./settings-subtabs";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { TerminalProfilesSettings } from "./terminal-profiles-settings";
@@ -56,6 +58,19 @@ import {
   type AppearanceStoreStatus,
   useAppearanceStore,
 } from "../stores/appearance-store";
+
+type SettingsSubtab = "theme" | "shortcuts" | "developer" | "codex-account" | "terminal-profiles";
+const settingsSubtabs = [
+  { Icon: Palette, id: "theme", label: "Theme" },
+  { Icon: Keyboard, id: "shortcuts", label: "Shortcuts" },
+  { Icon: Gauge, id: "developer", label: "Developer" },
+  { Icon: KeyRound, id: "codex-account", label: "Codex Account" },
+  { Icon: Terminal, id: "terminal-profiles", label: "Terminal Profiles" },
+] as const satisfies Array<{
+  Icon: typeof Palette;
+  id: SettingsSubtab;
+  label: string;
+}>;
 
 export function SettingsPanel() {
   const [activeSubtab, setActiveSubtab] = useState<SettingsSubtab>("theme");
@@ -105,7 +120,6 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
   const status = useAppearanceStore((state) => state.status);
   const dirty = draft !== null && !appearanceSettingsEqual(draft, settings);
   const contentBySubtab = {
-    "chat-defaults": <ChatDefaultsSettings />,
     "codex-account": <CodexAccountSettings />,
     developer: (
       <DeveloperSettingsEditor
@@ -195,7 +209,7 @@ function SettingsSubtabList({
   return (
     <div
       aria-label="Settings sections"
-      className="inline-flex w-fit max-w-full flex-wrap items-center gap-1 rounded-sm bg-muted p-1"
+      className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm bg-muted p-1"
       role="tablist"
     >
       {settingsSubtabs.map(({ Icon, id, label }) => {

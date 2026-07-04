@@ -6,31 +6,27 @@ import (
 )
 
 const (
-	CodexMethodConfigRead                         = "config/read"
-	CodexMethodInitialize                         = "initialize"
-	CodexMethodModelList                          = "model/list"
-	CodexMethodThreadBackgroundTerminalsTerminate = "thread/backgroundTerminals/terminate"
-	CodexMethodThreadGoalClear                    = "thread/goal/clear"
-	CodexMethodThreadGoalGet                      = "thread/goal/get"
-	CodexMethodThreadGoalSet                      = "thread/goal/set"
-	CodexMethodThreadRead                         = "thread/read"
-	CodexMethodThreadResume                       = "thread/resume"
-	CodexMethodThreadSettingsUpdate               = "thread/settings/update"
-	CodexMethodThreadStart                        = "thread/start"
-	CodexMethodTurnInterrupt                      = "turn/interrupt"
-	CodexMethodTurnStart                          = "turn/start"
-	CodexMethodTurnSteer                          = "turn/steer"
+	CodexMethodConfigRead           = "config/read"
+	CodexMethodInitialize           = "initialize"
+	CodexMethodModelList            = "model/list"
+	CodexMethodThreadGoalClear      = "thread/goal/clear"
+	CodexMethodThreadGoalGet        = "thread/goal/get"
+	CodexMethodThreadGoalSet        = "thread/goal/set"
+	CodexMethodThreadResume         = "thread/resume"
+	CodexMethodThreadSettingsUpdate = "thread/settings/update"
+	CodexMethodThreadStart          = "thread/start"
+	CodexMethodTurnInterrupt        = "turn/interrupt"
+	CodexMethodTurnStart            = "turn/start"
+	CodexMethodTurnSteer            = "turn/steer"
 )
 
 var CodexMethodValues = []string{
 	CodexMethodConfigRead,
 	CodexMethodInitialize,
 	CodexMethodModelList,
-	CodexMethodThreadBackgroundTerminalsTerminate,
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
 	CodexMethodThreadGoalSet,
-	CodexMethodThreadRead,
 	CodexMethodThreadResume,
 	CodexMethodThreadSettingsUpdate,
 	CodexMethodThreadStart,
@@ -129,11 +125,9 @@ var CodexSupportedMethodValues = []string{
 	CodexMethodConfigRead,
 	CodexMethodInitialize,
 	CodexMethodModelList,
-	CodexMethodThreadBackgroundTerminalsTerminate,
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
 	CodexMethodThreadGoalSet,
-	CodexMethodThreadRead,
 	CodexMethodThreadResume,
 	CodexMethodThreadSettingsUpdate,
 	CodexMethodThreadStart,
@@ -382,8 +376,6 @@ func DecodeAgentMessageDeltaNotification(raw json.RawMessage) (AgentMessageDelta
 	err := decodeCodexObject(raw, "AgentMessageDeltaNotification", validateAgentMessageDeltaNotification, &value)
 	return value, err
 }
-
-type AgentMessageInputContent = json.RawMessage
 
 type AgentPath = string
 
@@ -783,8 +775,6 @@ func DecodeByteRange(raw json.RawMessage) (ByteRange, error) {
 	return value, err
 }
 
-type CapabilityRootLocation = json.RawMessage
-
 type ClientInfo struct {
 	Name    string  `json:"name"`
 	Title   *string `json:"title,omitempty"`
@@ -890,10 +880,10 @@ func DecodeCollaborationMode(raw json.RawMessage) (CollaborationMode, error) {
 type CommandAction = json.RawMessage
 
 type CommandExecOutputDeltaNotification struct {
-	CapReached  bool                    `json:"capReached"`
-	DeltaBase64 string                  `json:"deltaBase64"`
-	ProcessId   string                  `json:"processId"`
-	Stream      CommandExecOutputStream `json:"stream"`
+	CapReached  bool            `json:"capReached"`
+	DeltaBase64 string          `json:"deltaBase64"`
+	ProcessId   string          `json:"processId"`
+	Stream      json.RawMessage `json:"stream"`
 }
 
 func validateCommandExecOutputDeltaNotification(raw json.RawMessage, name string) error {
@@ -912,13 +902,6 @@ func DecodeCommandExecOutputDeltaNotification(raw json.RawMessage) (CommandExecO
 	err := decodeCodexObject(raw, "CommandExecOutputDeltaNotification", validateCommandExecOutputDeltaNotification, &value)
 	return value, err
 }
-
-type CommandExecOutputStream string
-
-const (
-	CommandExecOutputStreamStdout CommandExecOutputStream = "stdout"
-	CommandExecOutputStreamStderr CommandExecOutputStream = "stderr"
-)
 
 type CommandExecutionOutputDeltaNotification struct {
 	Delta    string `json:"delta"`
@@ -1179,8 +1162,6 @@ func DecodeConfigWarningNotification(raw json.RawMessage) (ConfigWarningNotifica
 	return value, err
 }
 
-type ContentItem = json.RawMessage
-
 type CreditsSnapshot struct {
 	Balance    *string `json:"balance,omitempty"`
 	HasCredits bool    `json:"hasCredits"`
@@ -1261,10 +1242,6 @@ const (
 	DynamicToolCallStatusCompleted  DynamicToolCallStatus = "completed"
 	DynamicToolCallStatusFailed     DynamicToolCallStatus = "failed"
 )
-
-type DynamicToolNamespaceTool = json.RawMessage
-
-type DynamicToolSpec = json.RawMessage
 
 type ErrorNotification struct {
 	Error     TurnError `json:"error"`
@@ -1551,10 +1528,6 @@ func DecodeFsChangedNotification(raw json.RawMessage) (FsChangedNotification, er
 	err := decodeCodexObject(raw, "FsChangedNotification", validateFsChangedNotification, &value)
 	return value, err
 }
-
-type FunctionCallOutputBody = json.RawMessage
-
-type FunctionCallOutputContentItem = json.RawMessage
 
 type FuzzyFileSearchMatchType string
 
@@ -1872,7 +1845,7 @@ type HookRunSummary struct {
 	HandlerType   HookHandlerType   `json:"handlerType"`
 	ID            string            `json:"id"`
 	Scope         HookScope         `json:"scope"`
-	Source        *HookSource       `json:"source,omitempty"`
+	Source        json.RawMessage   `json:"source,omitempty"`
 	SourcePath    AbsolutePathBuf   `json:"sourcePath"`
 	StartedAt     int               `json:"startedAt"`
 	Status        HookRunStatus     `json:"status"`
@@ -1904,22 +1877,6 @@ type HookScope string
 const (
 	HookScopeThread HookScope = "thread"
 	HookScopeTurn   HookScope = "turn"
-)
-
-type HookSource string
-
-const (
-	HookSourceSystem                  HookSource = "system"
-	HookSourceUser                    HookSource = "user"
-	HookSourceProject                 HookSource = "project"
-	HookSourceMdm                     HookSource = "mdm"
-	HookSourceSessionFlags            HookSource = "sessionFlags"
-	HookSourcePlugin                  HookSource = "plugin"
-	HookSourceCloudRequirements       HookSource = "cloudRequirements"
-	HookSourceCloudManagedConfig      HookSource = "cloudManagedConfig"
-	HookSourceLegacyManagedConfigFile HookSource = "legacyManagedConfigFile"
-	HookSourceLegacyManagedConfigMdm  HookSource = "legacyManagedConfigMdm"
-	HookSourceUnknown                 HookSource = "unknown"
 )
 
 type HookStartedNotification struct {
@@ -2010,7 +1967,7 @@ func DecodeInitializeParams(raw json.RawMessage) (InitializeParams, error) {
 }
 
 type InitializeResponse struct {
-	CodexHome      AbsolutePathBuf `json:"codexHome"`
+	CodexHome      json.RawMessage `json:"codexHome"`
 	PlatformFamily string          `json:"platformFamily"`
 	PlatformOs     string          `json:"platformOs"`
 	UserAgent      string          `json:"userAgent"`
@@ -2039,27 +1996,6 @@ const (
 	InputModalityText  InputModality = "text"
 	InputModalityImage InputModality = "image"
 )
-
-type InternalChatMessageMetadataPassthrough struct {
-	TurnId *string `json:"turn_id,omitempty"`
-}
-
-func validateInternalChatMessageMetadataPassthrough(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, nil); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeInternalChatMessageMetadataPassthrough(raw json.RawMessage) (InternalChatMessageMetadataPassthrough, error) {
-	var value InternalChatMessageMetadataPassthrough
-	err := decodeCodexObject(raw, "InternalChatMessageMetadataPassthrough", validateInternalChatMessageMetadataPassthrough, &value)
-	return value, err
-}
 
 type ItemCompletedNotification struct {
 	CompletedAtMs int        `json:"completedAtMs"`
@@ -2173,16 +2109,6 @@ func DecodeItemStartedNotification(raw json.RawMessage) (ItemStartedNotification
 
 type LegacyAppPathString = string
 
-type LocalShellAction = json.RawMessage
-
-type LocalShellStatus string
-
-const (
-	LocalShellStatusCompleted  LocalShellStatus = "completed"
-	LocalShellStatusInProgress LocalShellStatus = "in_progress"
-	LocalShellStatusIncomplete LocalShellStatus = "incomplete"
-)
-
 type McpElicitationArrayType string
 
 const (
@@ -2202,9 +2128,6 @@ func validateMcpElicitationBooleanSchema(raw json.RawMessage, name string) error
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
-		return err
-	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "title", "type"}); err != nil {
 		return err
 	}
 	return nil
@@ -2235,9 +2158,6 @@ func validateMcpElicitationConstOption(raw json.RawMessage, name string) error {
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "const"}, {name: "title"}}); err != nil {
 		return err
 	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"const", "title"}); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -2266,9 +2186,6 @@ func validateMcpElicitationLegacyTitledEnumSchema(raw json.RawMessage, name stri
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "enum"}, {name: "type"}}); err != nil {
 		return err
 	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "enum", "enumNames", "title", "type"}); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -2295,9 +2212,6 @@ func validateMcpElicitationNumberSchema(raw json.RawMessage, name string) error 
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
-		return err
-	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "maximum", "minimum", "title", "type"}); err != nil {
 		return err
 	}
 	return nil
@@ -2339,9 +2253,6 @@ func validateMcpElicitationSchema(raw json.RawMessage, name string) error {
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "properties"}, {name: "type"}}); err != nil {
 		return err
 	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"$schema", "properties", "required", "type"}); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -2380,9 +2291,6 @@ func validateMcpElicitationStringSchema(raw json.RawMessage, name string) error 
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
 		return err
 	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "format", "maxLength", "minLength", "title", "type"}); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -2408,9 +2316,6 @@ func validateMcpElicitationTitledEnumItems(raw json.RawMessage, name string) err
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "anyOf"}}); err != nil {
-		return err
-	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"anyOf"}); err != nil {
 		return err
 	}
 	if err := validateCodexObjectArrayField(fields, "anyOf", name+".anyOf", false, false, validateMcpElicitationConstOption); err != nil {
@@ -2443,9 +2348,6 @@ func validateMcpElicitationTitledMultiSelectEnumSchema(raw json.RawMessage, name
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "items"}, {name: "type"}}); err != nil {
 		return err
 	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "items", "maxItems", "minItems", "title", "type"}); err != nil {
-		return err
-	}
 	if err := validateCodexObjectField(fields, "items", name+".items", false, validateMcpElicitationTitledEnumItems); err != nil {
 		return err
 	}
@@ -2474,9 +2376,6 @@ func validateMcpElicitationTitledSingleSelectEnumSchema(raw json.RawMessage, nam
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "oneOf"}, {name: "type"}}); err != nil {
 		return err
 	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "oneOf", "title", "type"}); err != nil {
-		return err
-	}
 	if err := validateCodexObjectArrayField(fields, "oneOf", name+".oneOf", false, false, validateMcpElicitationConstOption); err != nil {
 		return err
 	}
@@ -2500,9 +2399,6 @@ func validateMcpElicitationUntitledEnumItems(raw json.RawMessage, name string) e
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "enum"}, {name: "type"}}); err != nil {
-		return err
-	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"enum", "type"}); err != nil {
 		return err
 	}
 	return nil
@@ -2532,9 +2428,6 @@ func validateMcpElicitationUntitledMultiSelectEnumSchema(raw json.RawMessage, na
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "items"}, {name: "type"}}); err != nil {
 		return err
 	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "items", "maxItems", "minItems", "title", "type"}); err != nil {
-		return err
-	}
 	if err := validateCodexObjectField(fields, "items", name+".items", false, validateMcpElicitationUntitledEnumItems); err != nil {
 		return err
 	}
@@ -2561,9 +2454,6 @@ func validateMcpElicitationUntitledSingleSelectEnumSchema(raw json.RawMessage, n
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "enum"}, {name: "type"}}); err != nil {
-		return err
-	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"default", "description", "enum", "title", "type"}); err != nil {
 		return err
 	}
 	return nil
@@ -3240,10 +3130,10 @@ func DecodeProcessExitedNotification(raw json.RawMessage) (ProcessExitedNotifica
 }
 
 type ProcessOutputDeltaNotification struct {
-	CapReached    bool                `json:"capReached"`
-	DeltaBase64   string              `json:"deltaBase64"`
-	ProcessHandle string              `json:"processHandle"`
-	Stream        ProcessOutputStream `json:"stream"`
+	CapReached    bool            `json:"capReached"`
+	DeltaBase64   string          `json:"deltaBase64"`
+	ProcessHandle string          `json:"processHandle"`
+	Stream        json.RawMessage `json:"stream"`
 }
 
 func validateProcessOutputDeltaNotification(raw json.RawMessage, name string) error {
@@ -3262,13 +3152,6 @@ func DecodeProcessOutputDeltaNotification(raw json.RawMessage) (ProcessOutputDel
 	err := decodeCodexObject(raw, "ProcessOutputDeltaNotification", validateProcessOutputDeltaNotification, &value)
 	return value, err
 }
-
-type ProcessOutputStream string
-
-const (
-	ProcessOutputStreamStdout ProcessOutputStream = "stdout"
-	ProcessOutputStreamStderr ProcessOutputStream = "stderr"
-)
 
 type RateLimitReachedType string
 
@@ -3373,10 +3256,6 @@ func DecodeReasoningEffortOption(raw json.RawMessage) (ReasoningEffortOption, er
 	err := decodeCodexObject(raw, "ReasoningEffortOption", validateReasoningEffortOption, &value)
 	return value, err
 }
-
-type ReasoningItemContent = json.RawMessage
-
-type ReasoningItemReasoningSummary = json.RawMessage
 
 type ReasoningSummary = json.RawMessage
 
@@ -3502,9 +3381,6 @@ func validateRequestPermissionProfile(raw json.RawMessage, name string) error {
 	if err := requireCodexFields(fields, name, nil); err != nil {
 		return err
 	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"fileSystem", "network"}); err != nil {
-		return err
-	}
 	if err := validateCodexObjectField(fields, "fileSystem", name+".fileSystem", true, validateAdditionalFileSystemPermissions); err != nil {
 		return err
 	}
@@ -3519,10 +3395,6 @@ func DecodeRequestPermissionProfile(raw json.RawMessage) (RequestPermissionProfi
 	err := decodeCodexObject(raw, "RequestPermissionProfile", validateRequestPermissionProfile, &value)
 	return value, err
 }
-
-type ResponseItem = json.RawMessage
-
-type ResponsesApiWebSearchAction = json.RawMessage
 
 type SandboxMode string
 
@@ -3555,28 +3427,6 @@ func validateSandboxWorkspaceWrite(raw json.RawMessage, name string) error {
 func DecodeSandboxWorkspaceWrite(raw json.RawMessage) (SandboxWorkspaceWrite, error) {
 	var value SandboxWorkspaceWrite
 	err := decodeCodexObject(raw, "SandboxWorkspaceWrite", validateSandboxWorkspaceWrite, &value)
-	return value, err
-}
-
-type SelectedCapabilityRoot struct {
-	ID       string                 `json:"id"`
-	Location CapabilityRootLocation `json:"location"`
-}
-
-func validateSelectedCapabilityRoot(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "id"}, {name: "location"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeSelectedCapabilityRoot(raw json.RawMessage) (SelectedCapabilityRoot, error) {
-	var value SelectedCapabilityRoot
-	err := decodeCodexObject(raw, "SelectedCapabilityRoot", validateSelectedCapabilityRoot, &value)
 	return value, err
 }
 
@@ -3647,13 +3497,6 @@ func DecodeSkillsChangedNotification(raw json.RawMessage) (SkillsChangedNotifica
 	return value, err
 }
 
-type SortDirection string
-
-const (
-	SortDirectionAsc  SortDirection = "asc"
-	SortDirectionDesc SortDirection = "desc"
-)
-
 type SpendControlLimitSnapshot struct {
 	Limit            string `json:"limit"`
 	RemainingPercent int    `json:"remainingPercent"`
@@ -3714,8 +3557,8 @@ func DecodeTerminalInteractionNotification(raw json.RawMessage) (TerminalInterac
 }
 
 type TextElement struct {
-	ByteRange   ByteRange `json:"byteRange"`
-	Placeholder *string   `json:"placeholder,omitempty"`
+	ByteRange   json.RawMessage `json:"byteRange"`
+	Placeholder *string         `json:"placeholder,omitempty"`
 }
 
 func validateTextElement(raw json.RawMessage, name string) error {
@@ -3724,9 +3567,6 @@ func validateTextElement(raw json.RawMessage, name string) error {
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "byteRange"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "byteRange", name+".byteRange", false, validateByteRange); err != nil {
 		return err
 	}
 	return nil
@@ -3793,7 +3633,7 @@ type Thread struct {
 	AgentRole      *string         `json:"agentRole,omitempty"`
 	CliVersion     string          `json:"cliVersion"`
 	CreatedAt      int             `json:"createdAt"`
-	CWD            AbsolutePathBuf `json:"cwd"`
+	CWD            json.RawMessage `json:"cwd"`
 	Ephemeral      bool            `json:"ephemeral"`
 	ForkedFromId   *string         `json:"forkedFromId,omitempty"`
 	GitInfo        *GitInfo        `json:"gitInfo,omitempty"`
@@ -3805,8 +3645,8 @@ type Thread struct {
 	Preview        string          `json:"preview"`
 	RecencyAt      *int            `json:"recencyAt,omitempty"`
 	SessionId      string          `json:"sessionId"`
-	Source         SessionSource   `json:"source"`
-	Status         ThreadStatus    `json:"status"`
+	Source         json.RawMessage `json:"source"`
+	Status         json.RawMessage `json:"status"`
 	ThreadSource   *ThreadSource   `json:"threadSource,omitempty"`
 	Turns          []Turn          `json:"turns"`
 	UpdatedAt      int             `json:"updatedAt"`
@@ -3860,55 +3700,6 @@ func validateThreadArchivedNotification(raw json.RawMessage, name string) error 
 func DecodeThreadArchivedNotification(raw json.RawMessage) (ThreadArchivedNotification, error) {
 	var value ThreadArchivedNotification
 	err := decodeCodexObject(raw, "ThreadArchivedNotification", validateThreadArchivedNotification, &value)
-	return value, err
-}
-
-type ThreadBackgroundTerminalsTerminateParams struct {
-	ProcessId string `json:"processId"`
-	ThreadID  string `json:"threadId"`
-}
-
-func validateThreadBackgroundTerminalsTerminateParams(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "processId"}, {name: "threadId"}}); err != nil {
-		return err
-	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"processId", "threadId"}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadBackgroundTerminalsTerminateParams(raw json.RawMessage) (ThreadBackgroundTerminalsTerminateParams, error) {
-	var value ThreadBackgroundTerminalsTerminateParams
-	err := decodeCodexObject(raw, "ThreadBackgroundTerminalsTerminateParams", validateThreadBackgroundTerminalsTerminateParams, &value)
-	return value, err
-}
-
-type ThreadBackgroundTerminalsTerminateResponse struct {
-	Terminated bool `json:"terminated"`
-}
-
-func validateThreadBackgroundTerminalsTerminateResponse(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "terminated"}}); err != nil {
-		return err
-	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"terminated"}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadBackgroundTerminalsTerminateResponse(raw json.RawMessage) (ThreadBackgroundTerminalsTerminateResponse, error) {
-	var value ThreadBackgroundTerminalsTerminateResponse
-	err := decodeCodexObject(raw, "ThreadBackgroundTerminalsTerminateResponse", validateThreadBackgroundTerminalsTerminateResponse, &value)
 	return value, err
 }
 
@@ -4156,762 +3947,7 @@ func DecodeThreadGoalUpdatedNotification(raw json.RawMessage) (ThreadGoalUpdated
 
 type ThreadId = string
 
-type ThreadItemType string
-
-const (
-	ThreadItemTypeUserMessage         ThreadItemType = "userMessage"
-	ThreadItemTypeHookPrompt          ThreadItemType = "hookPrompt"
-	ThreadItemTypeAgentMessage        ThreadItemType = "agentMessage"
-	ThreadItemTypePlan                ThreadItemType = "plan"
-	ThreadItemTypeReasoning           ThreadItemType = "reasoning"
-	ThreadItemTypeCommandExecution    ThreadItemType = "commandExecution"
-	ThreadItemTypeFileChange          ThreadItemType = "fileChange"
-	ThreadItemTypeMcpToolCall         ThreadItemType = "mcpToolCall"
-	ThreadItemTypeDynamicToolCall     ThreadItemType = "dynamicToolCall"
-	ThreadItemTypeCollabAgentToolCall ThreadItemType = "collabAgentToolCall"
-	ThreadItemTypeSubAgentActivity    ThreadItemType = "subAgentActivity"
-	ThreadItemTypeWebSearch           ThreadItemType = "webSearch"
-	ThreadItemTypeImageView           ThreadItemType = "imageView"
-	ThreadItemTypeSleep               ThreadItemType = "sleep"
-	ThreadItemTypeImageGeneration     ThreadItemType = "imageGeneration"
-	ThreadItemTypeEnteredReviewMode   ThreadItemType = "enteredReviewMode"
-	ThreadItemTypeExitedReviewMode    ThreadItemType = "exitedReviewMode"
-	ThreadItemTypeContextCompaction   ThreadItemType = "contextCompaction"
-)
-
-type UserMessageThreadItem struct {
-	ClientId *string        `json:"clientId,omitempty"`
-	Content  []UserInput    `json:"content"`
-	ID       string         `json:"id"`
-	Type     ThreadItemType `json:"type"`
-}
-
-func validateUserMessageThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "content"}, {name: "id"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeUserMessageThreadItem(raw json.RawMessage) (UserMessageThreadItem, error) {
-	var value UserMessageThreadItem
-	err := decodeCodexObject(raw, "UserMessageThreadItem", validateUserMessageThreadItem, &value)
-	return value, err
-}
-
-type HookPromptThreadItem struct {
-	Fragments []HookPromptFragment `json:"fragments"`
-	ID        string               `json:"id"`
-	Type      ThreadItemType       `json:"type"`
-}
-
-func validateHookPromptThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "fragments"}, {name: "id"}, {name: "type"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectArrayField(fields, "fragments", name+".fragments", false, false, validateHookPromptFragment); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeHookPromptThreadItem(raw json.RawMessage) (HookPromptThreadItem, error) {
-	var value HookPromptThreadItem
-	err := decodeCodexObject(raw, "HookPromptThreadItem", validateHookPromptThreadItem, &value)
-	return value, err
-}
-
-type AgentMessageThreadItem struct {
-	ID             string          `json:"id"`
-	MemoryCitation *MemoryCitation `json:"memoryCitation,omitempty"`
-	Phase          *MessagePhase   `json:"phase,omitempty"`
-	Text           string          `json:"text"`
-	Type           ThreadItemType  `json:"type"`
-}
-
-func validateAgentMessageThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "id"}, {name: "text"}, {name: "type"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "memoryCitation", name+".memoryCitation", true, validateMemoryCitation); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeAgentMessageThreadItem(raw json.RawMessage) (AgentMessageThreadItem, error) {
-	var value AgentMessageThreadItem
-	err := decodeCodexObject(raw, "AgentMessageThreadItem", validateAgentMessageThreadItem, &value)
-	return value, err
-}
-
-type PlanThreadItem struct {
-	ID   string         `json:"id"`
-	Text string         `json:"text"`
-	Type ThreadItemType `json:"type"`
-}
-
-func validatePlanThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "id"}, {name: "text"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodePlanThreadItem(raw json.RawMessage) (PlanThreadItem, error) {
-	var value PlanThreadItem
-	err := decodeCodexObject(raw, "PlanThreadItem", validatePlanThreadItem, &value)
-	return value, err
-}
-
-type ReasoningThreadItem struct {
-	Content []string       `json:"content,omitempty"`
-	ID      string         `json:"id"`
-	Summary []string       `json:"summary,omitempty"`
-	Type    ThreadItemType `json:"type"`
-}
-
-func validateReasoningThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "id"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeReasoningThreadItem(raw json.RawMessage) (ReasoningThreadItem, error) {
-	var value ReasoningThreadItem
-	err := decodeCodexObject(raw, "ReasoningThreadItem", validateReasoningThreadItem, &value)
-	return value, err
-}
-
-type CommandExecutionThreadItem struct {
-	AggregatedOutput *string                 `json:"aggregatedOutput,omitempty"`
-	Command          string                  `json:"command"`
-	CommandActions   []CommandAction         `json:"commandActions"`
-	CWD              LegacyAppPathString     `json:"cwd"`
-	DurationMs       *int                    `json:"durationMs,omitempty"`
-	ExitCode         *int                    `json:"exitCode,omitempty"`
-	ID               string                  `json:"id"`
-	ProcessId        *string                 `json:"processId,omitempty"`
-	Source           *CommandExecutionSource `json:"source,omitempty"`
-	Status           CommandExecutionStatus  `json:"status"`
-	Type             ThreadItemType          `json:"type"`
-}
-
-func validateCommandExecutionThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "command"}, {name: "commandActions"}, {name: "cwd"}, {name: "id"}, {name: "status"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeCommandExecutionThreadItem(raw json.RawMessage) (CommandExecutionThreadItem, error) {
-	var value CommandExecutionThreadItem
-	err := decodeCodexObject(raw, "CommandExecutionThreadItem", validateCommandExecutionThreadItem, &value)
-	return value, err
-}
-
-type FileChangeThreadItem struct {
-	Changes []FileUpdateChange `json:"changes"`
-	ID      string             `json:"id"`
-	Status  PatchApplyStatus   `json:"status"`
-	Type    ThreadItemType     `json:"type"`
-}
-
-func validateFileChangeThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "changes"}, {name: "id"}, {name: "status"}, {name: "type"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectArrayField(fields, "changes", name+".changes", false, false, validateFileUpdateChange); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeFileChangeThreadItem(raw json.RawMessage) (FileChangeThreadItem, error) {
-	var value FileChangeThreadItem
-	err := decodeCodexObject(raw, "FileChangeThreadItem", validateFileChangeThreadItem, &value)
-	return value, err
-}
-
-type McpToolCallThreadItem struct {
-	AppContext        *McpToolCallAppContext `json:"appContext,omitempty"`
-	Arguments         json.RawMessage        `json:"arguments"`
-	DurationMs        *int                   `json:"durationMs,omitempty"`
-	Error             *McpToolCallError      `json:"error,omitempty"`
-	ID                string                 `json:"id"`
-	McpAppResourceUri *string                `json:"mcpAppResourceUri,omitempty"`
-	PluginId          *string                `json:"pluginId,omitempty"`
-	Result            *McpToolCallResult     `json:"result,omitempty"`
-	Server            string                 `json:"server"`
-	Status            McpToolCallStatus      `json:"status"`
-	Tool              string                 `json:"tool"`
-	Type              ThreadItemType         `json:"type"`
-}
-
-func validateMcpToolCallThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "arguments"}, {name: "id"}, {name: "server"}, {name: "status"}, {name: "tool"}, {name: "type"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "appContext", name+".appContext", true, validateMcpToolCallAppContext); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "error", name+".error", true, validateMcpToolCallError); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "result", name+".result", true, validateMcpToolCallResult); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeMcpToolCallThreadItem(raw json.RawMessage) (McpToolCallThreadItem, error) {
-	var value McpToolCallThreadItem
-	err := decodeCodexObject(raw, "McpToolCallThreadItem", validateMcpToolCallThreadItem, &value)
-	return value, err
-}
-
-type DynamicToolCallThreadItem struct {
-	Arguments    json.RawMessage                     `json:"arguments"`
-	ContentItems *[]DynamicToolCallOutputContentItem `json:"contentItems,omitempty"`
-	DurationMs   *int                                `json:"durationMs,omitempty"`
-	ID           string                              `json:"id"`
-	Namespace    *string                             `json:"namespace,omitempty"`
-	Status       DynamicToolCallStatus               `json:"status"`
-	Success      *bool                               `json:"success,omitempty"`
-	Tool         string                              `json:"tool"`
-	Type         ThreadItemType                      `json:"type"`
-}
-
-func validateDynamicToolCallThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "arguments"}, {name: "id"}, {name: "status"}, {name: "tool"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeDynamicToolCallThreadItem(raw json.RawMessage) (DynamicToolCallThreadItem, error) {
-	var value DynamicToolCallThreadItem
-	err := decodeCodexObject(raw, "DynamicToolCallThreadItem", validateDynamicToolCallThreadItem, &value)
-	return value, err
-}
-
-type CollabAgentToolCallThreadItem struct {
-	AgentsStates      map[string]json.RawMessage `json:"agentsStates"`
-	ID                string                     `json:"id"`
-	Model             *string                    `json:"model,omitempty"`
-	Prompt            *string                    `json:"prompt,omitempty"`
-	ReasoningEffort   *ReasoningEffort           `json:"reasoningEffort,omitempty"`
-	ReceiverThreadIds []string                   `json:"receiverThreadIds"`
-	SenderThreadId    string                     `json:"senderThreadId"`
-	Status            CollabAgentToolCallStatus  `json:"status"`
-	Tool              CollabAgentTool            `json:"tool"`
-	Type              ThreadItemType             `json:"type"`
-}
-
-func validateCollabAgentToolCallThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "agentsStates"}, {name: "id"}, {name: "receiverThreadIds"}, {name: "senderThreadId"}, {name: "status"}, {name: "tool"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeCollabAgentToolCallThreadItem(raw json.RawMessage) (CollabAgentToolCallThreadItem, error) {
-	var value CollabAgentToolCallThreadItem
-	err := decodeCodexObject(raw, "CollabAgentToolCallThreadItem", validateCollabAgentToolCallThreadItem, &value)
-	return value, err
-}
-
-type SubAgentActivityThreadItem struct {
-	AgentPath     string               `json:"agentPath"`
-	AgentThreadId string               `json:"agentThreadId"`
-	ID            string               `json:"id"`
-	Kind          SubAgentActivityKind `json:"kind"`
-	Type          ThreadItemType       `json:"type"`
-}
-
-func validateSubAgentActivityThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "agentPath"}, {name: "agentThreadId"}, {name: "id"}, {name: "kind"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeSubAgentActivityThreadItem(raw json.RawMessage) (SubAgentActivityThreadItem, error) {
-	var value SubAgentActivityThreadItem
-	err := decodeCodexObject(raw, "SubAgentActivityThreadItem", validateSubAgentActivityThreadItem, &value)
-	return value, err
-}
-
-type WebSearchThreadItem struct {
-	Action *WebSearchAction `json:"action,omitempty"`
-	ID     string           `json:"id"`
-	Query  string           `json:"query"`
-	Type   ThreadItemType   `json:"type"`
-}
-
-func validateWebSearchThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "id"}, {name: "query"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeWebSearchThreadItem(raw json.RawMessage) (WebSearchThreadItem, error) {
-	var value WebSearchThreadItem
-	err := decodeCodexObject(raw, "WebSearchThreadItem", validateWebSearchThreadItem, &value)
-	return value, err
-}
-
-type ImageViewThreadItem struct {
-	ID   string          `json:"id"`
-	Path AbsolutePathBuf `json:"path"`
-	Type ThreadItemType  `json:"type"`
-}
-
-func validateImageViewThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "id"}, {name: "path"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeImageViewThreadItem(raw json.RawMessage) (ImageViewThreadItem, error) {
-	var value ImageViewThreadItem
-	err := decodeCodexObject(raw, "ImageViewThreadItem", validateImageViewThreadItem, &value)
-	return value, err
-}
-
-type SleepThreadItem struct {
-	DurationMs int            `json:"durationMs"`
-	ID         string         `json:"id"`
-	Type       ThreadItemType `json:"type"`
-}
-
-func validateSleepThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "durationMs"}, {name: "id"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeSleepThreadItem(raw json.RawMessage) (SleepThreadItem, error) {
-	var value SleepThreadItem
-	err := decodeCodexObject(raw, "SleepThreadItem", validateSleepThreadItem, &value)
-	return value, err
-}
-
-type ImageGenerationThreadItem struct {
-	ID            string           `json:"id"`
-	Result        string           `json:"result"`
-	RevisedPrompt *string          `json:"revisedPrompt,omitempty"`
-	SavedPath     *AbsolutePathBuf `json:"savedPath,omitempty"`
-	Status        string           `json:"status"`
-	Type          ThreadItemType   `json:"type"`
-}
-
-func validateImageGenerationThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "id"}, {name: "result"}, {name: "status"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeImageGenerationThreadItem(raw json.RawMessage) (ImageGenerationThreadItem, error) {
-	var value ImageGenerationThreadItem
-	err := decodeCodexObject(raw, "ImageGenerationThreadItem", validateImageGenerationThreadItem, &value)
-	return value, err
-}
-
-type EnteredReviewModeThreadItem struct {
-	ID     string         `json:"id"`
-	Review string         `json:"review"`
-	Type   ThreadItemType `json:"type"`
-}
-
-func validateEnteredReviewModeThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "id"}, {name: "review"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeEnteredReviewModeThreadItem(raw json.RawMessage) (EnteredReviewModeThreadItem, error) {
-	var value EnteredReviewModeThreadItem
-	err := decodeCodexObject(raw, "EnteredReviewModeThreadItem", validateEnteredReviewModeThreadItem, &value)
-	return value, err
-}
-
-type ExitedReviewModeThreadItem struct {
-	ID     string         `json:"id"`
-	Review string         `json:"review"`
-	Type   ThreadItemType `json:"type"`
-}
-
-func validateExitedReviewModeThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "id"}, {name: "review"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeExitedReviewModeThreadItem(raw json.RawMessage) (ExitedReviewModeThreadItem, error) {
-	var value ExitedReviewModeThreadItem
-	err := decodeCodexObject(raw, "ExitedReviewModeThreadItem", validateExitedReviewModeThreadItem, &value)
-	return value, err
-}
-
-type ContextCompactionThreadItem struct {
-	ID   string         `json:"id"`
-	Type ThreadItemType `json:"type"`
-}
-
-func validateContextCompactionThreadItem(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "id"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeContextCompactionThreadItem(raw json.RawMessage) (ContextCompactionThreadItem, error) {
-	var value ContextCompactionThreadItem
-	err := decodeCodexObject(raw, "ContextCompactionThreadItem", validateContextCompactionThreadItem, &value)
-	return value, err
-}
-
-type ThreadItem struct {
-	Type                ThreadItemType                 `json:"type"`
-	Raw                 json.RawMessage                `json:"-"`
-	UserMessage         *UserMessageThreadItem         `json:"-"`
-	HookPrompt          *HookPromptThreadItem          `json:"-"`
-	AgentMessage        *AgentMessageThreadItem        `json:"-"`
-	Plan                *PlanThreadItem                `json:"-"`
-	Reasoning           *ReasoningThreadItem           `json:"-"`
-	CommandExecution    *CommandExecutionThreadItem    `json:"-"`
-	FileChange          *FileChangeThreadItem          `json:"-"`
-	McpToolCall         *McpToolCallThreadItem         `json:"-"`
-	DynamicToolCall     *DynamicToolCallThreadItem     `json:"-"`
-	CollabAgentToolCall *CollabAgentToolCallThreadItem `json:"-"`
-	SubAgentActivity    *SubAgentActivityThreadItem    `json:"-"`
-	WebSearch           *WebSearchThreadItem           `json:"-"`
-	ImageView           *ImageViewThreadItem           `json:"-"`
-	Sleep               *SleepThreadItem               `json:"-"`
-	ImageGeneration     *ImageGenerationThreadItem     `json:"-"`
-	EnteredReviewMode   *EnteredReviewModeThreadItem   `json:"-"`
-	ExitedReviewMode    *ExitedReviewModeThreadItem    `json:"-"`
-	ContextCompaction   *ContextCompactionThreadItem   `json:"-"`
-}
-
-func (item *ThreadItem) UnmarshalJSON(raw []byte) error {
-	decoded, err := decodeThreadItem(json.RawMessage(raw), "ThreadItem")
-	if err != nil {
-		return err
-	}
-	*item = decoded
-	return nil
-}
-
-func (item ThreadItem) MarshalJSON() ([]byte, error) {
-	if len(item.Raw) > 0 {
-		return append([]byte{}, item.Raw...), nil
-	}
-	switch item.Type {
-	case ThreadItemTypeUserMessage:
-		if item.UserMessage == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.UserMessage)
-	case ThreadItemTypeHookPrompt:
-		if item.HookPrompt == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.HookPrompt)
-	case ThreadItemTypeAgentMessage:
-		if item.AgentMessage == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.AgentMessage)
-	case ThreadItemTypePlan:
-		if item.Plan == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.Plan)
-	case ThreadItemTypeReasoning:
-		if item.Reasoning == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.Reasoning)
-	case ThreadItemTypeCommandExecution:
-		if item.CommandExecution == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.CommandExecution)
-	case ThreadItemTypeFileChange:
-		if item.FileChange == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.FileChange)
-	case ThreadItemTypeMcpToolCall:
-		if item.McpToolCall == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.McpToolCall)
-	case ThreadItemTypeDynamicToolCall:
-		if item.DynamicToolCall == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.DynamicToolCall)
-	case ThreadItemTypeCollabAgentToolCall:
-		if item.CollabAgentToolCall == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.CollabAgentToolCall)
-	case ThreadItemTypeSubAgentActivity:
-		if item.SubAgentActivity == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.SubAgentActivity)
-	case ThreadItemTypeWebSearch:
-		if item.WebSearch == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.WebSearch)
-	case ThreadItemTypeImageView:
-		if item.ImageView == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.ImageView)
-	case ThreadItemTypeSleep:
-		if item.Sleep == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.Sleep)
-	case ThreadItemTypeImageGeneration:
-		if item.ImageGeneration == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.ImageGeneration)
-	case ThreadItemTypeEnteredReviewMode:
-		if item.EnteredReviewMode == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.EnteredReviewMode)
-	case ThreadItemTypeExitedReviewMode:
-		if item.ExitedReviewMode == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.ExitedReviewMode)
-	case ThreadItemTypeContextCompaction:
-		if item.ContextCompaction == nil {
-			return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-		}
-		return json.Marshal(item.ContextCompaction)
-	default:
-		return nil, codexUnsupportedStringValue("ThreadItem.type", string(item.Type))
-	}
-}
-
-func DecodeThreadItem(raw json.RawMessage) (ThreadItem, error) {
-	return decodeThreadItem(raw, "ThreadItem")
-}
-
-func decodeThreadItem(raw json.RawMessage, name string) (ThreadItem, error) {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return ThreadItem{}, err
-	}
-	typeText, err := codexStringField(fields, "type", name)
-	if err != nil {
-		return ThreadItem{}, err
-	}
-	typeValue := ThreadItemType(typeText)
-	item := ThreadItem{Type: typeValue, Raw: append(json.RawMessage{}, raw...)}
-	switch typeValue {
-	case ThreadItemTypeUserMessage:
-		value, err := DecodeUserMessageThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.UserMessage = &value
-	case ThreadItemTypeHookPrompt:
-		value, err := DecodeHookPromptThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.HookPrompt = &value
-	case ThreadItemTypeAgentMessage:
-		value, err := DecodeAgentMessageThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.AgentMessage = &value
-	case ThreadItemTypePlan:
-		value, err := DecodePlanThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.Plan = &value
-	case ThreadItemTypeReasoning:
-		value, err := DecodeReasoningThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.Reasoning = &value
-	case ThreadItemTypeCommandExecution:
-		value, err := DecodeCommandExecutionThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.CommandExecution = &value
-	case ThreadItemTypeFileChange:
-		value, err := DecodeFileChangeThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.FileChange = &value
-	case ThreadItemTypeMcpToolCall:
-		value, err := DecodeMcpToolCallThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.McpToolCall = &value
-	case ThreadItemTypeDynamicToolCall:
-		value, err := DecodeDynamicToolCallThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.DynamicToolCall = &value
-	case ThreadItemTypeCollabAgentToolCall:
-		value, err := DecodeCollabAgentToolCallThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.CollabAgentToolCall = &value
-	case ThreadItemTypeSubAgentActivity:
-		value, err := DecodeSubAgentActivityThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.SubAgentActivity = &value
-	case ThreadItemTypeWebSearch:
-		value, err := DecodeWebSearchThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.WebSearch = &value
-	case ThreadItemTypeImageView:
-		value, err := DecodeImageViewThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.ImageView = &value
-	case ThreadItemTypeSleep:
-		value, err := DecodeSleepThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.Sleep = &value
-	case ThreadItemTypeImageGeneration:
-		value, err := DecodeImageGenerationThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.ImageGeneration = &value
-	case ThreadItemTypeEnteredReviewMode:
-		value, err := DecodeEnteredReviewModeThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.EnteredReviewMode = &value
-	case ThreadItemTypeExitedReviewMode:
-		value, err := DecodeExitedReviewModeThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.ExitedReviewMode = &value
-	case ThreadItemTypeContextCompaction:
-		value, err := DecodeContextCompactionThreadItem(raw)
-		if err != nil {
-			return ThreadItem{}, err
-		}
-		item.ContextCompaction = &value
-	default:
-		return ThreadItem{}, codexUnsupportedStringValue(name+".type", typeText)
-	}
-	return item, nil
-}
+type ThreadItem = json.RawMessage
 
 type ThreadNameUpdatedNotification struct {
 	ThreadID   string  `json:"threadId"`
@@ -4932,52 +3968,6 @@ func validateThreadNameUpdatedNotification(raw json.RawMessage, name string) err
 func DecodeThreadNameUpdatedNotification(raw json.RawMessage) (ThreadNameUpdatedNotification, error) {
 	var value ThreadNameUpdatedNotification
 	err := decodeCodexObject(raw, "ThreadNameUpdatedNotification", validateThreadNameUpdatedNotification, &value)
-	return value, err
-}
-
-type ThreadReadParams struct {
-	IncludeTurns *bool  `json:"includeTurns,omitempty"`
-	ThreadID     string `json:"threadId"`
-}
-
-func validateThreadReadParams(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "threadId"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadReadParams(raw json.RawMessage) (ThreadReadParams, error) {
-	var value ThreadReadParams
-	err := decodeCodexObject(raw, "ThreadReadParams", validateThreadReadParams, &value)
-	return value, err
-}
-
-type ThreadReadResponse struct {
-	Thread Thread `json:"thread"`
-}
-
-func validateThreadReadResponse(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "thread"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "thread", name+".thread", false, validateThread); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadReadResponse(raw json.RawMessage) (ThreadReadResponse, error) {
-	var value ThreadReadResponse
-	err := decodeCodexObject(raw, "ThreadReadResponse", validateThreadReadResponse, &value)
 	return value, err
 }
 
@@ -5188,48 +4178,19 @@ func DecodeThreadRealtimeTranscriptDoneNotification(raw json.RawMessage) (Thread
 	return value, err
 }
 
-type ThreadResumeInitialTurnsPageParams struct {
-	ItemsView     *TurnItemsView `json:"itemsView,omitempty"`
-	Limit         *int           `json:"limit,omitempty"`
-	SortDirection *SortDirection `json:"sortDirection,omitempty"`
-}
-
-func validateThreadResumeInitialTurnsPageParams(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, nil); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadResumeInitialTurnsPageParams(raw json.RawMessage) (ThreadResumeInitialTurnsPageParams, error) {
-	var value ThreadResumeInitialTurnsPageParams
-	err := decodeCodexObject(raw, "ThreadResumeInitialTurnsPageParams", validateThreadResumeInitialTurnsPageParams, &value)
-	return value, err
-}
-
 type ThreadResumeParams struct {
-	ApprovalPolicy        *AskForApproval                     `json:"approvalPolicy,omitempty"`
-	ApprovalsReviewer     *ApprovalsReviewer                  `json:"approvalsReviewer,omitempty"`
-	BaseInstructions      *string                             `json:"baseInstructions,omitempty"`
-	Config                *map[string]json.RawMessage         `json:"config,omitempty"`
-	CWD                   *string                             `json:"cwd,omitempty"`
-	DeveloperInstructions *string                             `json:"developerInstructions,omitempty"`
-	ExcludeTurns          *bool                               `json:"excludeTurns,omitempty"`
-	History               *[]ResponseItem                     `json:"history,omitempty"`
-	InitialTurnsPage      *ThreadResumeInitialTurnsPageParams `json:"initialTurnsPage,omitempty"`
-	Model                 *string                             `json:"model,omitempty"`
-	ModelProvider         *string                             `json:"modelProvider,omitempty"`
-	Path                  *string                             `json:"path,omitempty"`
-	Permissions           *string                             `json:"permissions,omitempty"`
-	Personality           *Personality                        `json:"personality,omitempty"`
-	RuntimeWorkspaceRoots *[]AbsolutePathBuf                  `json:"runtimeWorkspaceRoots,omitempty"`
-	Sandbox               *SandboxMode                        `json:"sandbox,omitempty"`
-	ServiceTier           *string                             `json:"serviceTier,omitempty"`
-	ThreadID              string                              `json:"threadId"`
+	ApprovalPolicy        *AskForApproval             `json:"approvalPolicy,omitempty"`
+	ApprovalsReviewer     *ApprovalsReviewer          `json:"approvalsReviewer,omitempty"`
+	BaseInstructions      *string                     `json:"baseInstructions,omitempty"`
+	Config                *map[string]json.RawMessage `json:"config,omitempty"`
+	CWD                   *string                     `json:"cwd,omitempty"`
+	DeveloperInstructions *string                     `json:"developerInstructions,omitempty"`
+	Model                 *string                     `json:"model,omitempty"`
+	ModelProvider         *string                     `json:"modelProvider,omitempty"`
+	Personality           *Personality                `json:"personality,omitempty"`
+	Sandbox               *SandboxMode                `json:"sandbox,omitempty"`
+	ServiceTier           *string                     `json:"serviceTier,omitempty"`
+	ThreadID              string                      `json:"threadId"`
 }
 
 func validateThreadResumeParams(raw json.RawMessage, name string) error {
@@ -5238,9 +4199,6 @@ func validateThreadResumeParams(raw json.RawMessage, name string) error {
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "threadId"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "initialTurnsPage", name+".initialTurnsPage", true, validateThreadResumeInitialTurnsPageParams); err != nil {
 		return err
 	}
 	return nil
@@ -5253,20 +4211,16 @@ func DecodeThreadResumeParams(raw json.RawMessage) (ThreadResumeParams, error) {
 }
 
 type ThreadResumeResponse struct {
-	ActivePermissionProfile *ActivePermissionProfile `json:"activePermissionProfile,omitempty"`
-	ApprovalPolicy          AskForApproval           `json:"approvalPolicy"`
-	ApprovalsReviewer       ApprovalsReviewer        `json:"approvalsReviewer"`
-	CWD                     AbsolutePathBuf          `json:"cwd"`
-	InitialTurnsPage        *TurnsPage               `json:"initialTurnsPage,omitempty"`
-	InstructionSources      []LegacyAppPathString    `json:"instructionSources,omitempty"`
-	Model                   string                   `json:"model"`
-	ModelProvider           string                   `json:"modelProvider"`
-	MultiAgentMode          *MultiAgentMode          `json:"multiAgentMode,omitempty"`
-	ReasoningEffort         *ReasoningEffort         `json:"reasoningEffort,omitempty"`
-	RuntimeWorkspaceRoots   []AbsolutePathBuf        `json:"runtimeWorkspaceRoots,omitempty"`
-	Sandbox                 SandboxPolicy            `json:"sandbox"`
-	ServiceTier             *string                  `json:"serviceTier,omitempty"`
-	Thread                  Thread                   `json:"thread"`
+	ApprovalPolicy     AskForApproval        `json:"approvalPolicy"`
+	ApprovalsReviewer  json.RawMessage       `json:"approvalsReviewer"`
+	CWD                AbsolutePathBuf       `json:"cwd"`
+	InstructionSources []LegacyAppPathString `json:"instructionSources,omitempty"`
+	Model              string                `json:"model"`
+	ModelProvider      string                `json:"modelProvider"`
+	ReasoningEffort    *ReasoningEffort      `json:"reasoningEffort,omitempty"`
+	Sandbox            json.RawMessage       `json:"sandbox"`
+	ServiceTier        *string               `json:"serviceTier,omitempty"`
+	Thread             Thread                `json:"thread"`
 }
 
 func validateThreadResumeResponse(raw json.RawMessage, name string) error {
@@ -5275,12 +4229,6 @@ func validateThreadResumeResponse(raw json.RawMessage, name string) error {
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "approvalPolicy"}, {name: "approvalsReviewer"}, {name: "cwd"}, {name: "model"}, {name: "modelProvider"}, {name: "sandbox"}, {name: "thread"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "activePermissionProfile", name+".activePermissionProfile", true, validateActivePermissionProfile); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "initialTurnsPage", name+".initialTurnsPage", true, validateTurnsPage); err != nil {
 		return err
 	}
 	if err := validateCodexObjectField(fields, "thread", name+".thread", false, validateThread); err != nil {
@@ -5397,29 +4345,21 @@ func DecodeThreadSettingsUpdatedNotification(raw json.RawMessage) (ThreadSetting
 type ThreadSource = string
 
 type ThreadStartParams struct {
-	ApprovalPolicy          *AskForApproval             `json:"approvalPolicy,omitempty"`
-	ApprovalsReviewer       *ApprovalsReviewer          `json:"approvalsReviewer,omitempty"`
-	BaseInstructions        *string                     `json:"baseInstructions,omitempty"`
-	Config                  *map[string]json.RawMessage `json:"config,omitempty"`
-	CWD                     *string                     `json:"cwd,omitempty"`
-	DeveloperInstructions   *string                     `json:"developerInstructions,omitempty"`
-	DynamicTools            *[]DynamicToolSpec          `json:"dynamicTools,omitempty"`
-	Environments            *[]TurnEnvironmentParams    `json:"environments,omitempty"`
-	Ephemeral               *bool                       `json:"ephemeral,omitempty"`
-	ExperimentalRawEvents   *bool                       `json:"experimentalRawEvents,omitempty"`
-	MockExperimentalField   *string                     `json:"mockExperimentalField,omitempty"`
-	Model                   *string                     `json:"model,omitempty"`
-	ModelProvider           *string                     `json:"modelProvider,omitempty"`
-	MultiAgentMode          *MultiAgentMode             `json:"multiAgentMode,omitempty"`
-	Permissions             *string                     `json:"permissions,omitempty"`
-	Personality             *Personality                `json:"personality,omitempty"`
-	RuntimeWorkspaceRoots   *[]AbsolutePathBuf          `json:"runtimeWorkspaceRoots,omitempty"`
-	Sandbox                 *SandboxMode                `json:"sandbox,omitempty"`
-	SelectedCapabilityRoots *[]SelectedCapabilityRoot   `json:"selectedCapabilityRoots,omitempty"`
-	ServiceName             *string                     `json:"serviceName,omitempty"`
-	ServiceTier             *string                     `json:"serviceTier,omitempty"`
-	SessionStartSource      *ThreadStartSource          `json:"sessionStartSource,omitempty"`
-	ThreadSource            *ThreadSource               `json:"threadSource,omitempty"`
+	ApprovalPolicy        *AskForApproval             `json:"approvalPolicy,omitempty"`
+	ApprovalsReviewer     *ApprovalsReviewer          `json:"approvalsReviewer,omitempty"`
+	BaseInstructions      *string                     `json:"baseInstructions,omitempty"`
+	Config                *map[string]json.RawMessage `json:"config,omitempty"`
+	CWD                   *string                     `json:"cwd,omitempty"`
+	DeveloperInstructions *string                     `json:"developerInstructions,omitempty"`
+	Ephemeral             *bool                       `json:"ephemeral,omitempty"`
+	Model                 *string                     `json:"model,omitempty"`
+	ModelProvider         *string                     `json:"modelProvider,omitempty"`
+	Personality           *Personality                `json:"personality,omitempty"`
+	Sandbox               *SandboxMode                `json:"sandbox,omitempty"`
+	ServiceName           *string                     `json:"serviceName,omitempty"`
+	ServiceTier           *string                     `json:"serviceTier,omitempty"`
+	SessionStartSource    *ThreadStartSource          `json:"sessionStartSource,omitempty"`
+	ThreadSource          *ThreadSource               `json:"threadSource,omitempty"`
 }
 
 func validateThreadStartParams(raw json.RawMessage, name string) error {
@@ -5428,12 +4368,6 @@ func validateThreadStartParams(raw json.RawMessage, name string) error {
 		return err
 	}
 	if err := requireCodexFields(fields, name, nil); err != nil {
-		return err
-	}
-	if err := validateCodexObjectArrayField(fields, "environments", name+".environments", true, false, validateTurnEnvironmentParams); err != nil {
-		return err
-	}
-	if err := validateCodexObjectArrayField(fields, "selectedCapabilityRoots", name+".selectedCapabilityRoots", true, false, validateSelectedCapabilityRoot); err != nil {
 		return err
 	}
 	return nil
@@ -5446,19 +4380,16 @@ func DecodeThreadStartParams(raw json.RawMessage) (ThreadStartParams, error) {
 }
 
 type ThreadStartResponse struct {
-	ActivePermissionProfile *ActivePermissionProfile `json:"activePermissionProfile,omitempty"`
-	ApprovalPolicy          AskForApproval           `json:"approvalPolicy"`
-	ApprovalsReviewer       ApprovalsReviewer        `json:"approvalsReviewer"`
-	CWD                     AbsolutePathBuf          `json:"cwd"`
-	InstructionSources      []LegacyAppPathString    `json:"instructionSources,omitempty"`
-	Model                   string                   `json:"model"`
-	ModelProvider           string                   `json:"modelProvider"`
-	MultiAgentMode          *MultiAgentMode          `json:"multiAgentMode,omitempty"`
-	ReasoningEffort         *ReasoningEffort         `json:"reasoningEffort,omitempty"`
-	RuntimeWorkspaceRoots   []AbsolutePathBuf        `json:"runtimeWorkspaceRoots,omitempty"`
-	Sandbox                 SandboxPolicy            `json:"sandbox"`
-	ServiceTier             *string                  `json:"serviceTier,omitempty"`
-	Thread                  Thread                   `json:"thread"`
+	ApprovalPolicy     AskForApproval        `json:"approvalPolicy"`
+	ApprovalsReviewer  json.RawMessage       `json:"approvalsReviewer"`
+	CWD                AbsolutePathBuf       `json:"cwd"`
+	InstructionSources []LegacyAppPathString `json:"instructionSources,omitempty"`
+	Model              string                `json:"model"`
+	ModelProvider      string                `json:"modelProvider"`
+	ReasoningEffort    *ReasoningEffort      `json:"reasoningEffort,omitempty"`
+	Sandbox            json.RawMessage       `json:"sandbox"`
+	ServiceTier        *string               `json:"serviceTier,omitempty"`
+	Thread             Thread                `json:"thread"`
 }
 
 func validateThreadStartResponse(raw json.RawMessage, name string) error {
@@ -5467,9 +4398,6 @@ func validateThreadStartResponse(raw json.RawMessage, name string) error {
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "approvalPolicy"}, {name: "approvalsReviewer"}, {name: "cwd"}, {name: "model"}, {name: "modelProvider"}, {name: "sandbox"}, {name: "thread"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "activePermissionProfile", name+".activePermissionProfile", true, validateActivePermissionProfile); err != nil {
 		return err
 	}
 	if err := validateCodexObjectField(fields, "thread", name+".thread", false, validateThread); err != nil {
@@ -5744,14 +4672,14 @@ func DecodeToolsV2(raw json.RawMessage) (ToolsV2, error) {
 }
 
 type Turn struct {
-	CompletedAt *int           `json:"completedAt,omitempty"`
-	DurationMs  *int           `json:"durationMs,omitempty"`
-	Error       *TurnError     `json:"error,omitempty"`
-	ID          string         `json:"id"`
-	Items       []ThreadItem   `json:"items"`
-	ItemsView   *TurnItemsView `json:"itemsView,omitempty"`
-	StartedAt   *int           `json:"startedAt,omitempty"`
-	Status      TurnStatus     `json:"status"`
+	CompletedAt *int            `json:"completedAt,omitempty"`
+	DurationMs  *int            `json:"durationMs,omitempty"`
+	Error       *TurnError      `json:"error,omitempty"`
+	ID          string          `json:"id"`
+	Items       []ThreadItem    `json:"items"`
+	ItemsView   json.RawMessage `json:"itemsView,omitempty"`
+	StartedAt   *int            `json:"startedAt,omitempty"`
+	Status      TurnStatus      `json:"status"`
 }
 
 func validateTurn(raw json.RawMessage, name string) error {
@@ -5819,28 +4747,6 @@ func validateTurnDiffUpdatedNotification(raw json.RawMessage, name string) error
 func DecodeTurnDiffUpdatedNotification(raw json.RawMessage) (TurnDiffUpdatedNotification, error) {
 	var value TurnDiffUpdatedNotification
 	err := decodeCodexObject(raw, "TurnDiffUpdatedNotification", validateTurnDiffUpdatedNotification, &value)
-	return value, err
-}
-
-type TurnEnvironmentParams struct {
-	CWD           LegacyAppPathString `json:"cwd"`
-	EnvironmentId string              `json:"environmentId"`
-}
-
-func validateTurnEnvironmentParams(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "cwd"}, {name: "environmentId"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeTurnEnvironmentParams(raw json.RawMessage) (TurnEnvironmentParams, error) {
-	var value TurnEnvironmentParams
-	err := decodeCodexObject(raw, "TurnEnvironmentParams", validateTurnEnvironmentParams, &value)
 	return value, err
 }
 
@@ -6216,9 +5122,6 @@ func validateWebSearchLocation(raw json.RawMessage, name string) error {
 	if err := requireCodexFields(fields, name, nil); err != nil {
 		return err
 	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"city", "country", "region", "timezone"}); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -6249,9 +5152,6 @@ func validateWebSearchToolConfig(raw json.RawMessage, name string) error {
 		return err
 	}
 	if err := requireCodexFields(fields, name, nil); err != nil {
-		return err
-	}
-	if err := rejectUnknownCodexFields(fields, name, []string{"allowed_domains", "context_size", "location"}); err != nil {
 		return err
 	}
 	if err := validateCodexObjectField(fields, "location", name+".location", true, validateWebSearchLocation); err != nil {
