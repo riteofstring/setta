@@ -379,8 +379,9 @@ Because this touches Codex harness behavior and provider protocol handling, add 
 Electron/main/preload/renderer/HTTP/store paths with temporary app data and a scripted fake Codex app-server that emits a malformed protocol message. The E2E
 should verify that the UI surfaces a failed run, the app can start a later chat turn successfully, and no old fake app-server process remains alive.
 
-Run live Codex E2E tests only when the local Codex CLI is signed in with ChatGPT auth. Do not use `OPENAI_API_KEY`; if ChatGPT auth is unavailable, record the
-live-provider skip without treating it as provider-integration proof.
+Run live Codex E2E tests only when the local Codex CLI is signed in with ChatGPT auth. Do not use `OPENAI_API_KEY`; if ChatGPT auth is unavailable, record the live-provider skip without treating it as provider-integration proof.
+
+Progress 2026-07-03: Completed. `internal/codexapp.Client` now separates protocol termination from process completion, uses one client-owned stdin/process-group shutdown path for protocol errors and explicit shutdown, keeps stdout cleanup deadlock-free, and leaves `manager.go` subprocess-agnostic. Verification included focused `internal/codexapp` lifecycle tests, `./scripts/go.sh test ./internal/codexapp`, `./scripts/go.sh test ./internal/chat -run 'TestJSONRPC'`, and `node desktop/tests/electron/chat-workflows.test.mjs --codex-app-server-lifecycle-only`. Live Codex E2E was attempted with ChatGPT auth and no `OPENAI_API_KEY`; one run passed before final formatting, while a later post-format attempt failed in the existing live semantic cartographer workflow and is not provider-integration proof. Remaining: Track 2, Codex `on-failure` approval policy removal.
 
 ## Track 4: Browser Test Driver Code Extraction
 

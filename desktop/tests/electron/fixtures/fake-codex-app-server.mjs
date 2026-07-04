@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import process from "node:process";
 import readline from "node:readline";
-import { setTimeout } from "node:timers";
+import { setImmediate, setTimeout } from "node:timers";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
@@ -143,10 +143,7 @@ function handleTurnStart(message) {
     return;
   }
   const text = turnInputText(message);
-  if (text.includes("app-server exit workflow")) {
-    emitRestartPartialTurn();
-    writeFakeState({ activeRestartTurn: true });
-    setTimeout(() => process.exit(42), 5);
+  if (handleProviderLifecycleTurn(text)) {
     return;
   }
   if (text.includes("liveness reconciliation workflow")) {
@@ -182,6 +179,21 @@ function handleTurnStart(message) {
     return;
   }
   setTimeout(emitProtocolCoverageTurn, 5);
+}
+
+function handleProviderLifecycleTurn(text) {
+  if (text.includes("app-server exit workflow")) {
+    emitRestartPartialTurn();
+    writeFakeState({ activeRestartTurn: true });
+    setTimeout(() => process.exit(42), 5);
+    return true;
+  }
+  if (text.includes("malformed app-server lifecycle workflow")) {
+    writeFakeState({ malformedProtocolPid: process.pid });
+    setTimeout(emitMalformedProtocolAndStayAlive, 5);
+    return true;
+  }
+  return false;
 }
 
 function fakeThreadResponse(options = {}) {
@@ -839,6 +851,24 @@ function emitProtocolCoverageTurn() {
     threadId,
     turn: fakeTurn("completed"),
   });
+}
+
+function emitMalformedProtocolAndStayAlive() {
+  process.stdout.write("{not-json\n");
+  const payload =
+    JSON.stringify({
+      method: "thread/settings/updated",
+      params: { threadId },
+    }) + "\n";
+  writeMalformedProtocolNoise(payload);
+}
+
+function writeMalformedProtocolNoise(payload) {
+  if (!process.stdout.write(payload)) {
+    process.stdout.once("drain", () => writeMalformedProtocolNoise(payload));
+    return;
+  }
+  setImmediate(() => writeMalformedProtocolNoise(payload));
 }
 
 function emitSilentLivenessTurn() {

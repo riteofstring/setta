@@ -94,6 +94,7 @@ import {
   runProtocolProviderRestartLivenessWorkflow,
   runProtocolStreamErrorLivenessWorkflow,
 } from "./codex-protocol-workflow.mjs";
+import { runCodexAppServerLifecycleWorkflowLaunch } from "./codex-app-server-lifecycle-cases.mjs";
 import { runProtocolGoalBackgroundTerminalWorkflow } from "./codex-protocol-background-terminal-cases.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
 
@@ -102,6 +103,7 @@ const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
 const singleWorkflowArgs = new Map([
   ["--codex-protocol-only", "codexProtocolOnly"],
+  ["--codex-app-server-lifecycle-only", "codexAppServerLifecycleOnly"],
   ["--post-commit-startup-failure-only", "postCommitStartupFailureOnly"],
   ["--workflow-runner-post-start-failure-only", "workflowRunnerPostStartFailureOnly"],
   ["--workflow-version-commit-ordering-only", "workflowVersionCommitOrderingOnly"],
@@ -114,6 +116,10 @@ const singleWorkflowRunners = [
   {
     option: "codexProtocolOnly",
     run: (results) => runCodexProtocolWorkflow(results),
+  },
+  {
+    option: "codexAppServerLifecycleOnly",
+    run: (results) => runCodexAppServerLifecycleWorkflowLaunch(results, { recordingRoot }),
   },
   {
     option: "postCommitStartupFailureOnly",
@@ -135,6 +141,7 @@ const singleWorkflowRunners = [
 
 function parseArgs(args) {
   const parsed = {
+    codexAppServerLifecycleOnly: false,
     codexProtocolOnly: false,
     deterministic: true,
     keepArtifacts: false,
@@ -178,6 +185,7 @@ function parseArgs(args) {
 }
 
 function selectSingleWorkflow(parsed, selected) {
+  parsed.codexAppServerLifecycleOnly = selected === "codexAppServerLifecycleOnly";
   parsed.codexProtocolOnly = selected === "codexProtocolOnly";
   parsed.postCommitStartupFailureOnly = selected === "postCommitStartupFailureOnly";
   parsed.workflowRunnerPostStartFailureOnly = selected === "workflowRunnerPostStartFailureOnly";
@@ -213,6 +221,7 @@ async function main() {
     await runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot });
     await runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot });
     await runWorkflowDefinitionFileAtomicityWorkflowLaunch(results, { recordingRoot });
+    await runCodexAppServerLifecycleWorkflowLaunch(results, { recordingRoot });
     await runTranscriptSearchWorkflowLaunch(results, {
       recordingRoot,
       runHappyPathWorkflow,

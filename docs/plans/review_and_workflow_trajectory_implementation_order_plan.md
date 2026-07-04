@@ -175,9 +175,9 @@ Verification:
   existing live semantic cartographer workflow while waiting for backend state. This failed live-provider attempt is not treated as provider integration proof.
 - `./scripts/format.sh`; `./check_quality.sh --git-changes`
 
-Remaining notes: workflow definition file atomicity is now complete; Track 3,
-Codex app-server process lifecycle ownership, is the next Phase 1 remediation
-track before provider lifecycle E2E results are treated as reliable.
+Remaining notes: workflow definition file atomicity and Codex app-server
+process lifecycle ownership are now complete; Phase 2 Track 2, Codex approval
+policy removal, is the next remediation track before shared approval UI reuse.
 
 ### 4. Workflow Definition File Atomicity
 
@@ -205,9 +205,8 @@ Verification:
 - `./scripts/go.sh test ./internal/orchestrator`
 - `node desktop/tests/electron/chat-workflows.test.mjs --workflow-definition-file-atomicity-only`
 
-Remaining notes: Track 3, Codex app-server process lifecycle ownership, is the
-next Phase 1 remediation track before treating provider lifecycle E2E results as
-reliable.
+Remaining notes: Codex app-server process lifecycle ownership is now complete;
+Phase 2 Track 2, Codex approval policy removal, is the next remediation track.
 
 ### 5. Codex App-Server Process Lifecycle Ownership
 
@@ -216,6 +215,30 @@ as reliable provider lifecycle evidence.
 
 This is not a direct UI dependency, but it protects chat and workflow-agent
 tests from stale unreaped provider processes and incorrect client completion.
+
+Status: completed 2026-07-03. `internal/codexapp.Client` now separates
+protocol termination from manager-visible process completion. Pending calls and
+new writes stop on the protocol lifecycle, while `Client.Done()` closes only
+after stdout has ended and the app-server child has been waited. Protocol/read
+failures, explicit shutdown, and shutdown races share the client-owned process
+shutdown path that closes stdin, uses the existing process-group terminate/kill
+sequence, keeps stdout drained or interrupted, and preserves the original
+protocol error for callers. The manager remains subprocess-agnostic.
+
+Verification:
+
+- `./scripts/go.sh test ./internal/codexapp -run 'TestJSONRPC(MalformedJSON|NonIntegerResponseID|UnknownResponseID|OversizedLine|NoisyChildAfterMalformedJSON|ProcessCleanupIsIdempotent|ShutdownKillsProcessGroupChildren)'`
+- `./scripts/go.sh test ./internal/codexapp`
+- `./scripts/go.sh test ./internal/chat -run 'TestJSONRPC'`
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-app-server-lifecycle-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only` was attempted with ChatGPT auth available. One run passed before final
+  formatting, and a later post-format attempt failed in the existing live
+  semantic cartographer workflow while waiting for backend state. The failed
+  live-provider attempt is not treated as provider integration
+  proof.
+
+Remaining notes: Phase 2 Track 2, Codex approval policy removal, is the next
+ordered remediation track before broad approval UI reuse.
 
 ## Phase 2: Runtime Boundary And Endpoint Guardrails
 
