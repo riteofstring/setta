@@ -751,6 +751,21 @@ Status after the MCP typed-details cutover:
   dependency from issue 3.
 - Keep noisy activity collapsed by default while preserving search/focus reveal.
 
+Status after the tool and file activity rendering step:
+
+- Done: MCP and Setta dynamic tool calls render compact product labels from
+  typed detail payloads while preserving raw provider identity, arguments,
+  results, duration, status, and metadata in expanded details and search.
+- Done: file-change and diff rows render path/stat summaries from typed detail
+  payloads, with expandable paths and bounded patch/diff content.
+- Done: Setta-owned command-start failures render explicit failed activity rows
+  when the provider/harness reports the failed start; live Codex startup-failure
+  ingestion remains blocked on the upstream structured event noted in Slice 3.
+- Done: validation coverage now asserts the no-dual-source contract for the
+  cut-over activity families by rejecting legacy flat fields and raw details
+  alongside typed details.
+- Remaining: no known Slice 4 Setta implementation gap.
+
 ### Slice 5: Image Attachment Variants
 
 - Decide before implementation whether `preview` means a bounded large variant
