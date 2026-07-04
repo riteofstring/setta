@@ -941,22 +941,24 @@ Electron. Live Codex remains blocked by local deprecated
 Progress 2026-07-04: added deterministic renderer-reload coverage while
 workflow-node details are already open. The details pane target is now a
 Go-owned `WorkflowNodeDetailsPaneConfig` on `WorkspaceUIPane`, regenerated into
-TypeScript, saved with workspace layout, and used when the selected-node store
-is empty after reload. Reusing the one workflow-node-details pane now
+TypeScript, saved with workspace layout, and used after reload when the
+selected-node store is empty. Reusing the one workflow-node-details pane now
 reconfigures that pane despite the surface limit, so a different node updates
-the saved target instead of only focusing stale details. The focused Electron
-workflow reloads the renderer while viewing details and verifies recovery for
-output pagination, pending approval state, and steerable/liveness composer
-state before continuing through node-scoped load-more, approval, and steering.
-Verification passed focused workspace UI Go, contract/httpapi/preload checks,
-focused renderer/layout Vitest, touched Electron syntax/template checks,
-`pnpm -C desktop build`, and
+the saved target instead of focusing stale details. Focused Electron verifies
+reload recovery for output pagination, pending approval state, and
+steerable/liveness composer state before continuing through node-scoped
+load-more, approval, and steering. Verification passed focused workspace UI Go,
+contract/httpapi/preload checks, focused renderer/layout Vitest, touched
+Electron syntax/template checks, `pnpm -C desktop build`, and
 `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
-Live Codex auth was available, but live E2E remains blocked by local Codex
-`config/read` returning unsupported `approval_policy = "on-failure"`.
-Remaining shared-trajectory gap: historical-attempt paging. Full app relaunch
-while details are open is not separately exercised by this renderer-reload
-slice.
+Live E2E remains blocked by local Codex `approval_policy = "on-failure"`.
+Remaining gap: historical-attempt paging. Full app relaunch while details are
+open is not separately exercised by this renderer-reload slice.
+Audit follow-up 2026-07-04: persisted workflow-node details pane targets now
+must carry the same `workspaceId` as the owning layout. Added focused renderer
+coverage that reconfiguring the existing one-pane details surface replaces the
+saved node target; workspace UI Go, layout-store Vitest, and contract
+generation passed.
 
 ## Parallel Work Guidance
 

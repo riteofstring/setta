@@ -629,9 +629,9 @@ reload while workflow-node details are already open. Workflow node details
 targets are persisted on the Go-owned `WorkspaceUIPane` contract as
 `WorkflowNodeDetailsPaneConfig`, regenerated into TypeScript, passed through
 workspace layout open/reconfigure requests, and used by the details surface when
-the selected-node store is empty after reload. Reconfiguring an existing limited
-pane now excludes the pane being reconfigured, so the one workflow-node-details
-pane can be reused for a different node while updating its persisted target.
+the selected-node store is empty after reload. Reconfiguring the existing
+workflow-node-details pane is allowed even at the one-pane surface limit, so it
+can be reused for a different node while updating its persisted target.
 The focused Electron workflow waits for the details pane target to be durably
 saved, reloads the renderer while viewing details, and verifies recovery for
 output pagination, pending approval state, and steerable/liveness composer
@@ -648,6 +648,16 @@ Live Codex auth was available, but live E2E remains blocked by local Codex
 deterministic coverage gap: historical-attempt paging. A full Electron app
 relaunch while details are open is not separately exercised by this
 renderer-reload slice.
+
+Audit follow-up 2026-07-04: tightened the Go-owned workspace UI state validator
+so a persisted `workflowNodeDetailsConfig.workspaceId` must match the owning
+layout `workspaceId`, and added focused renderer coverage that reconfiguring
+the one workflow-node-details pane replaces the saved node target. Focused
+checks passed for `./scripts/go.sh test ./internal/workspaceui -run
+'TestStore(PersistsWorkflowNodeDetailsPaneConfig|RejectsWorkflowNodeDetails(ConfigWorkspaceMismatch|PaneWithoutConfig|ConfigOnOtherPane))'
+-count=1`, `pnpm -C desktop exec vitest run
+src/renderer/src/workspace-layout/layout-store.test.ts --reporter=dot`, and
+`./scripts/go.sh run ./cmd/generate-contracts` with no generated drift.
 
 ## Verification Plan
 

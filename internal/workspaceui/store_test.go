@@ -134,6 +134,21 @@ func TestStorePersistsWorkflowNodeDetailsPaneConfig(t *testing.T) {
 	}
 }
 
+func TestStoreRejectsWorkflowNodeDetailsConfigWorkspaceMismatch(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].WorkflowNodeDetailsConfig = testWorkflowNodeDetailsConfig("workspace_other")
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want mismatched workflow node details workspace error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "does not match layout workspaceId") {
+		t.Fatalf("error = %T %v, want workspace mismatch corrupt state", err, err)
+	}
+}
+
 func TestStoreRejectsWorkflowNodeDetailsPaneWithoutConfig(t *testing.T) {
 	store := newTestStore(t, t.TempDir())
 	layout := testLayout("workspace_api")

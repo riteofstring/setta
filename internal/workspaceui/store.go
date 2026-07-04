@@ -167,7 +167,7 @@ func validateLayout(layout WorkspaceUILayout, path string) error {
 		return corruptStateErrorf(path, "panes must not be null")
 	}
 
-	panesByID, err := validatePanes(layout.Panes, path)
+	panesByID, err := validatePanes(layout.WorkspaceID, layout.Panes, path)
 	if err != nil {
 		return err
 	}
@@ -177,11 +177,11 @@ func validateLayout(layout WorkspaceUILayout, path string) error {
 	return validateColumns(layout.Columns, panesByID, path)
 }
 
-func validatePanes(panes []WorkspaceUIPane, path string) (map[string]WorkspaceUIPane, error) {
+func validatePanes(layoutWorkspaceID string, panes []WorkspaceUIPane, path string) (map[string]WorkspaceUIPane, error) {
 	panesByID := map[string]WorkspaceUIPane{}
 	surfaceIDs := map[string]bool{}
 	for index, pane := range panes {
-		if err := validatePane(pane, index, path); err != nil {
+		if err := validatePane(layoutWorkspaceID, pane, index, path); err != nil {
 			return nil, err
 		}
 		if _, ok := panesByID[pane.PaneID]; ok {
@@ -196,7 +196,7 @@ func validatePanes(panes []WorkspaceUIPane, path string) (map[string]WorkspaceUI
 	return panesByID, nil
 }
 
-func validatePane(pane WorkspaceUIPane, index int, path string) error {
+func validatePane(layoutWorkspaceID string, pane WorkspaceUIPane, index int, path string) error {
 	if err := validatePaneRequiredFields(pane, index, path); err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func validatePane(pane WorkspaceUIPane, index int, path string) error {
 	if err := validatePaneTerminalConfig(pane, index, path); err != nil {
 		return err
 	}
-	return validatePaneWorkflowNodeDetailsConfig(pane, index, path)
+	return validatePaneWorkflowNodeDetailsConfig(layoutWorkspaceID, pane, index, path)
 }
 
 func validatePaneRequiredFields(pane WorkspaceUIPane, index int, path string) error {
@@ -254,7 +254,7 @@ func validatePaneTerminalConfig(pane WorkspaceUIPane, index int, path string) er
 	return nil
 }
 
-func validatePaneWorkflowNodeDetailsConfig(pane WorkspaceUIPane, index int, path string) error {
+func validatePaneWorkflowNodeDetailsConfig(layoutWorkspaceID string, pane WorkspaceUIPane, index int, path string) error {
 	config := pane.WorkflowNodeDetailsConfig
 	if pane.SurfaceKind != SurfaceKindWorkflowNodeDetails {
 		if config != nil {
@@ -265,7 +265,7 @@ func validatePaneWorkflowNodeDetailsConfig(pane WorkspaceUIPane, index int, path
 	if config == nil {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig is required", index)
 	}
-	if err := validateWorkflowNodeDetailsConfigRequiredFields(config, index, path); err != nil {
+	if err := validateWorkflowNodeDetailsConfigRequiredFields(layoutWorkspaceID, config, index, path); err != nil {
 		return err
 	}
 	if err := validateWorkflowNodeDetailsConfigValues(config, index, path); err != nil {
@@ -274,9 +274,12 @@ func validatePaneWorkflowNodeDetailsConfig(pane WorkspaceUIPane, index int, path
 	return nil
 }
 
-func validateWorkflowNodeDetailsConfigRequiredFields(config *WorkflowNodeDetailsPaneConfig, index int, path string) error {
+func validateWorkflowNodeDetailsConfigRequiredFields(layoutWorkspaceID string, config *WorkflowNodeDetailsPaneConfig, index int, path string) error {
 	if err := validateWorkspaceID(config.WorkspaceID); err != nil {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.workspaceId is invalid: %v", index, err)
+	}
+	if config.WorkspaceID != layoutWorkspaceID {
+		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.workspaceId %s does not match layout workspaceId %s", index, config.WorkspaceID, layoutWorkspaceID)
 	}
 	if config.DefinitionID == "" {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.definitionId is required", index)
