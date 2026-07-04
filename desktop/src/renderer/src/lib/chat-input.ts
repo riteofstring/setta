@@ -1,4 +1,10 @@
-import type { ChatInput, ChatMessage, ImageAttachment, MessagePart } from "@generated/backend";
+import type {
+  ChatImageInput,
+  ChatInput,
+  ChatMessage,
+  ImageAttachment,
+  MessagePart,
+} from "@generated/backend";
 
 export function chatTextInput(text: string): ChatInput {
   return {
@@ -12,7 +18,11 @@ export function chatTextInput(text: string): ChatInput {
   };
 }
 
-export function chatInputFromDraft(text: string, attachments: ImageAttachment[]): ChatInput {
+export function chatInputFromDraft(
+  text: string,
+  attachments: ImageAttachment[],
+  imageInputsByAttachmentId: Record<string, ChatImageInput | undefined> = {},
+): ChatInput {
   const parts: ChatInput["parts"] = [];
   if (text !== "") {
     parts.push({
@@ -22,10 +32,11 @@ export function chatInputFromDraft(text: string, attachments: ImageAttachment[])
     });
   }
   for (const attachment of attachments) {
+    const imageInput = imageInputsByAttachmentId[attachment.id];
     parts.push({
       image: {
         attachmentId: attachment.id,
-        detail: null,
+        detail: imageInput?.detail ?? null,
       },
       text: null,
       type: "image",

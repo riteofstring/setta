@@ -789,6 +789,34 @@ Status after the transcript scroll stickiness step:
   Down-past-newest restoration, multiline caret behavior, popup key ownership,
   accepted edit-and-send from a recalled prompt, and recall after reload.
 
+Status after the composer prompt-history step:
+
+- Done: `ComposerPromptHistoryEntry` and `ComposerPromptHistoryPage` are
+  Go-owned contracts exposed through the HTTP endpoint registry, generated
+  TypeScript backend surface, Electron main/preload IPC, and renderer API.
+- Done: composer history is projected from persisted user-authored
+  `ChatMessage` records in the selected conversation, newest-to-oldest, with
+  bounded pagination and typed `ChatInput` plus current-conversation
+  `ImageAttachment` descriptors. Invalid persisted inputs or missing image
+  attachments fail loudly instead of being silently dropped.
+- Done: `ChatComposer` now owns a focused prompt-history controller. It merges
+  backend history with backend-accepted local send, queue, and steering
+  submissions; ignores failed/speculative drafts; rejects stale async page
+  responses after conversation changes; and exits browsing after manual text or
+  attachment edits.
+- Done: Up/Down key handling runs after slash/picker routing and before default
+  textarea movement. Empty composer recall, Up/Down cycling, down-past-newest
+  draft restoration, multiline caret behavior, popup key ownership, accepted
+  edit-and-send, and reopened-conversation recall are covered through the
+  production Electron/main/preload/renderer/HTTP/store path.
+- Done: recalled image prompts restore composer chips from the typed
+  `thumbnail` variant and preserve exposed `ChatImageInput` detail metadata for
+  resubmission. Missing or cross-conversation image references produce explicit
+  diagnostics.
+- Remaining: no known Slice 7 implementation gap. Remaining plan work is the
+  earlier activity typed-detail/rendering backlog: diff updates, Setta dynamic
+  tools, failed starts, approvals, and stream lifecycle activity rows.
+
 ## Verification Plan
 
 Start narrow with the changed contract owner and renderer components, then

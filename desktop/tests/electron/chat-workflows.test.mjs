@@ -59,7 +59,7 @@ import {
 } from "./chat-workflow-harness.mjs";
 import { runBackgroundTerminalWorkflow } from "./chat-workflow-background-terminal-cases.mjs";
 import { runChronologicalTranscriptWorkflow } from "./chat-workflow-chronological-cases.mjs";
-import { assertComposerPromptHistoryProjection } from "./chat-workflow-composer-history-cases.mjs";
+import { runComposerPromptHistoryWorkflow } from "./chat-workflow-composer-history-cases.mjs";
 import { runCrossWorkspaceSidebarSummaryWorkflow } from "./chat-workflow-cross-workspace-sidebar-cases.mjs";
 import { runChatDefaultsSettingsWorkflow } from "./chat-workflow-defaults-cases.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
@@ -296,6 +296,27 @@ async function runDeterministicWorkflowLaunch(results) {
     await runWorkflowStep(
       results,
       recordingDir,
+      "composer-prompt-history",
+      context.client,
+      async () => {
+        await runComposerPromptHistoryWorkflow({
+          backend,
+          clickButtonByAria,
+          clickButtonContainingText,
+          client: context.client,
+          createChat,
+          setInputValue,
+          submitComposer,
+          waitForRunWithPrompt,
+          waitForState,
+          waitForTexts,
+          workspaceId,
+        });
+      },
+    );
+    await runWorkflowStep(
+      results,
+      recordingDir,
       "chat-activity-projection",
       context.client,
       async () => {
@@ -461,6 +482,7 @@ async function runDeterministicWorkflowLaunch(results) {
       "/chat/messages/queue/remove",
       "/chat/messages/steer",
       "/chat/messages/steer/immediate",
+      "/chat/composer/history",
       "/chat/runs/active",
       "/chat/runs/activity",
       "/chat/runs/list",
@@ -486,6 +508,7 @@ async function runDeterministicWorkflowLaunch(results) {
       "chat:remove-queued-message",
       "chat:steer-message",
       "chat:send-steering-immediately",
+      "chat:list-composer-prompt-history",
       "chat:cancel-run",
       "chat:submit-approval",
       "chat:list-commands",
@@ -872,11 +895,6 @@ async function runHappyPathWorkflow(
   await assertChatLayout(client);
   await assertNoActiveRun(backend, workspaceId, conversationId);
   await assertAssistantCompleted(backend, workspaceId, conversationId, queuedRuns.at(-1).id);
-  await assertComposerPromptHistoryProjection(client, workspaceId, conversationId, [
-    "steer active run",
-    "queued follow-up three from active run",
-    "queued follow-up two from active run",
-  ]);
 
   if (postCompletionActiveRun) {
     await runPostCompletionActiveRunWorkflow({

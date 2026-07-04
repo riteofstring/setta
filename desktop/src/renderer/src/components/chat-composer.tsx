@@ -1,6 +1,7 @@
 import type {
   ChatCommandDescriptor,
   ChatCommandExecuteResult,
+  ChatImageInput,
   ChatInput,
   ImageAttachment,
   ChatModelOption,
@@ -54,6 +55,19 @@ import {
   composerCanSteer,
   composerSendDisabled,
 } from "./chat-composer-liveness";
+import {
+  attachmentButtonTitle,
+  canSendComposerDraft,
+  canSendImmediateSteeringDraft,
+  composerAttachmentsSupported,
+  composerDisabled,
+  composerSlashDraft,
+  immediateSteeringHasContent,
+  isModelPickerOpen,
+  selectedConversationSupportsImages,
+  selectedConversationWorkspaceId,
+} from "./chat-composer-state";
+import { useComposerPromptHistory, type ComposerPromptHistoryDraft } from "./chat-composer-history";
 import { useComposerPermissionPicker } from "./chat-composer-permission";
 import { composerChatPropsEqual } from "./chat-composer-props";
 import type { ChatView } from "./chat-panel";
@@ -65,89 +79,6 @@ export { CommandPalette } from "./chat-command-palette";
 export { commandSuggestions } from "./chat-composer-helpers";
 
 const emptyCommandDescriptors: ChatCommandDescriptor[] = [];
-
-function composerDisabled(disabledOverride: boolean | undefined, selected: boolean, busy: boolean) {
-  if (disabledOverride !== undefined) {
-    return disabledOverride;
-  }
-  return !selected || busy;
-}
-
-function isModelPickerOpen(modelPicker: ChatCommandExecuteResult | null) {
-  return modelPicker?.result.action === "model_picker";
-}
-
-function canSendComposerDraft({
-  attaching,
-  disabled,
-  draftText,
-  hasAttachments,
-  supportsAttachments,
-}: {
-  attaching: boolean;
-  disabled: boolean;
-  draftText: string;
-  hasAttachments: boolean;
-  supportsAttachments: boolean;
-}) {
-  return !disabled && !attaching && supportsAttachments && (draftText !== "" || hasAttachments);
-}
-
-function canSendImmediateSteeringDraft({
-  disabled,
-  draftText,
-  attaching,
-  hasPendingSteering,
-  running,
-  slashDraft,
-  supportsAttachments,
-}: {
-  attaching: boolean;
-  disabled: boolean;
-  draftText: string;
-  hasPendingSteering: boolean;
-  running: boolean;
-  slashDraft: boolean;
-  supportsAttachments: boolean;
-}) {
-  return (
-    running &&
-    !disabled &&
-    !attaching &&
-    !slashDraft &&
-    supportsAttachments &&
-    (draftText !== "" || hasPendingSteering)
-  );
-}
-
-function selectedConversationWorkspaceId(selectedConversation: ChatView["selectedConversation"]) {
-  return selectedConversation?.workspaceId ?? null;
-}
-
-function selectedConversationSupportsImages(
-  selectedConversation: ChatView["selectedConversation"],
-) {
-  return selectedConversation?.codexEffectiveSettings?.supportsImages ?? true;
-}
-
-function composerSlashDraft(draft: string, hasAttachments: boolean) {
-  return !hasAttachments && isSlashDraft(draft);
-}
-
-function immediateSteeringHasContent(hasPendingSteering: boolean, hasAttachments: boolean) {
-  return hasPendingSteering || hasAttachments;
-}
-
-function composerAttachmentsSupported(hasAttachments: boolean, supportsImages: boolean) {
-  return !hasAttachments || supportsImages;
-}
-
-function attachmentButtonTitle(supportsImages: boolean, attaching: boolean) {
-  if (!supportsImages) {
-    return "Selected model does not support images";
-  }
-  return attaching ? "Attaching image" : "Attach image";
-}
 
 interface ComposerProps {
   busy: boolean;
@@ -177,6 +108,9 @@ function ComposerComponent({
   const [commandListKey, setCommandListKey] = useState("");
   const [commandListRequestKey, setCommandListRequestKey] = useState("");
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
+  const [attachmentImageInputsById, setAttachmentImageInputsById] = useState<
+    Record<string, ChatImageInput | undefined>
+  >({});
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [attaching, setAttaching] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
@@ -260,10 +194,19 @@ function ComposerComponent({
     setDraft,
     submittingRef,
   });
+  const promptHistory = useComposerPromptHistory({
+    applyDraft: applyPromptHistoryDraft,
+    conversationId: selectedConversationId,
+    listHistory: chat.listComposerPromptHistory,
+    maxAttachments: maxComposerImageAttachments,
+    setDiagnostic: setAttachmentError,
+    textareaRef,
+  });
 
   useEffect(() => {
     attachmentContextRef.current = selectedConversationId;
     setAttachments([]);
+    setAttachmentImageInputsById({});
     setAttachmentError(null);
     setAttaching(false);
     setModelPicker(null);
@@ -363,7 +306,7 @@ function ComposerComponent({
     const submittedDraft = draft;
     const submittedAttachments = attachments;
     const prompt = submittedDraft.trim();
-    const input = chatInputFromDraft(prompt, submittedAttachments);
+    const input = chatInputFromDraft(prompt, submittedAttachments, attachmentImageInputsById);
     if (!canSubmitDraft(input)) {
       return;
     }
@@ -411,12 +354,18 @@ function ComposerComponent({
       return;
     }
     if (activeSubmit === "steer") {
-      await chat.steerMessage(input);
+      const result = await chat.steerMessage(input);
+      if (result) {
+        promptHistory.recordAcceptedSubmission(result.userMessage, input, submittedAttachments);
+      }
       clearDraftIfUnchanged(submittedDraft);
       clearAttachmentsIfUnchanged(submittedAttachments);
       return;
     }
-    await chat.sendMessage(input);
+    const result = await chat.sendMessage(input);
+    if (result) {
+      promptHistory.recordAcceptedSubmission(result.userMessage, input, submittedAttachments);
+    }
     clearDraftIfUnchanged(submittedDraft);
     clearAttachmentsIfUnchanged(submittedAttachments);
   }
@@ -555,7 +504,7 @@ function ComposerComponent({
     const submittedDraft = draft;
     const submittedAttachments = attachments;
     const prompt = submittedDraft.trim();
-    const input = chatInputFromDraft(prompt, submittedAttachments);
+    const input = chatInputFromDraft(prompt, submittedAttachments, attachmentImageInputsById);
     if (
       !canQueueComposerDraft({
         attaching,
@@ -576,7 +525,10 @@ function ComposerComponent({
     submittingRef.current = true;
     try {
       focusComposerSoon();
-      await chat.queueMessage(input);
+      const result = await chat.queueMessage(input);
+      if (result) {
+        promptHistory.recordAcceptedSubmission(result.userMessage, input, submittedAttachments);
+      }
       clearDraftIfUnchanged(submittedDraft);
       clearAttachmentsIfUnchanged(submittedAttachments);
       focusComposerSoon();
@@ -591,7 +543,7 @@ function ComposerComponent({
     const submittedDraft = draft;
     const submittedAttachments = attachments;
     const prompt = submittedDraft.trim();
-    const input = chatInputFromDraft(prompt, submittedAttachments);
+    const input = chatInputFromDraft(prompt, submittedAttachments, attachmentImageInputsById);
     if (!canSubmitImmediateSteering(input, prompt)) {
       return;
     }
@@ -697,17 +649,33 @@ function ComposerComponent({
     if (nextAttachments.length === 0) {
       return;
     }
+    promptHistory.exitBrowsing();
     setAttachments((current) => {
       if (current.length + nextAttachments.length > maxComposerImageAttachments) {
         setAttachmentError(`A message can include up to ${maxComposerImageAttachments} images.`);
         return current;
       }
+      setAttachmentImageInputsById((currentInputs) => ({
+        ...currentInputs,
+        ...Object.fromEntries(
+          nextAttachments.map((attachment) => [
+            attachment.id,
+            { attachmentId: attachment.id, detail: null },
+          ]),
+        ),
+      }));
       return [...current, ...nextAttachments];
     });
   }
 
   function removeAttachment(attachmentId: string) {
+    promptHistory.exitBrowsing();
     setAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
+    setAttachmentImageInputsById((current) => {
+      const next = { ...current };
+      delete next[attachmentId];
+      return next;
+    });
   }
 
   async function openModelPicker() {
@@ -789,6 +757,19 @@ function ComposerComponent({
                 onChange={(event) => updateDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if (handleCommandPaletteKeyDown(event)) {
+                    return;
+                  }
+                  if (
+                    promptHistory.handleKeyDown(
+                      event,
+                      {
+                        attachments,
+                        imageInputsByAttachmentId: attachmentImageInputsById,
+                        text: draft,
+                      },
+                      modelPickerOpen || permissionPickerOpen,
+                    )
+                  ) {
                     return;
                   }
                   handleComposerKeyDown(event, {
@@ -879,6 +860,7 @@ function ComposerComponent({
   );
 
   function updateDraft(nextDraft: string) {
+    promptHistory.exitBrowsing();
     if (!submittingRef.current) {
       restoreComposerFocusRef.current = false;
     }
@@ -899,13 +881,26 @@ function ComposerComponent({
 
   function clearAttachmentsIfUnchanged(submittedAttachments: ImageAttachment[]) {
     const submittedIds = submittedAttachments.map((attachment) => attachment.id).join("\n");
-    setAttachments((current) =>
-      current.map((attachment) => attachment.id).join("\n") === submittedIds ? [] : current,
-    );
+    setAttachments((current) => {
+      if (current.map((attachment) => attachment.id).join("\n") !== submittedIds) {
+        return current;
+      }
+      setAttachmentImageInputsById({});
+      return [];
+    });
   }
 
   function replaceDraftIfUnchanged(submittedDraft: string, replacement: string) {
     setDraft((current) => (current === submittedDraft ? replacement : current));
+  }
+
+  function applyPromptHistoryDraft(historyDraft: ComposerPromptHistoryDraft) {
+    restoreComposerFocusRef.current = false;
+    setDraft(historyDraft.text);
+    setAttachments(historyDraft.attachments);
+    setAttachmentImageInputsById(historyDraft.imageInputsByAttachmentId);
+    setPaletteDismissed(false);
+    setModelPicker(null);
   }
 
   function dismissModelPicker() {

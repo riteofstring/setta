@@ -12,6 +12,7 @@ const composerChatPropSelectors = [
   (chat: ChatView) => chat.executeCommand,
   (chat: ChatView) => chat.goal,
   (chat: ChatView) => chat.listCommands,
+  (chat: ChatView) => chat.listComposerPromptHistory,
   (chat: ChatView) => chat.openCodexModelPicker,
   (chat: ChatView) => chat.openCodexPermissionPicker,
   (chat: ChatView) => chat.operation,

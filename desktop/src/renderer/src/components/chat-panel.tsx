@@ -463,6 +463,7 @@ export function useChatViewState() {
   const loadBackgroundTerminalOutput = useChatStore((state) => state.loadBackgroundTerminalOutput);
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const listCommands = useChatStore((state) => state.listCommands);
+  const listComposerPromptHistory = useChatStore((state) => state.listComposerPromptHistory);
   const killBackgroundTerminal = useChatStore((state) => state.killBackgroundTerminal);
   const killAllBackgroundTerminals = useChatStore((state) => state.killAllBackgroundTerminals);
   const markConversationRead = useChatStore((state) => state.markConversationRead);
@@ -565,6 +566,7 @@ export function useChatViewState() {
     loadOlder,
     loadRunItemOutput,
     listCommands,
+    listComposerPromptHistory,
     messages,
     operation,
     openCodexModelPicker,

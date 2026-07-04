@@ -13,6 +13,10 @@ import { createChatAttachmentActions } from "./chat-store-attachment-actions";
 import { createChatBackgroundTerminalActions } from "./chat-store-background-terminal-actions";
 import { backgroundTerminalsReplacedPatch } from "./chat-store-background-terminals";
 import {
+  createListComposerPromptHistoryAction,
+  createSetConversationPinnedAction,
+} from "./chat-store-conversation-actions";
+import {
   conversationListErrorPatch,
   conversationListLoadedPatch,
   conversationListLoadingPatch,
@@ -667,7 +671,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     queueMessage: async (input: ChatInput) => {
       const { activeRun, selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
-        return;
+        return null;
       }
       const operation = beginOperation("queueMutation", { error: null, operation: "queueing" });
       try {
@@ -682,6 +686,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           selectedConversation: result.conversation,
           status: "ready",
         }));
+        return result;
       } catch (error) {
         commitCurrent(operation, errorPatch(error));
         throw error;
@@ -760,23 +765,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         window.setta.chat.setCodexReasoningEffort(workspaceId, conversationId, effort),
       );
     },
-    setConversationPinned: async (conversationId, pinned, targetWorkspaceId) => {
-      const workspaceId = targetWorkspaceId ?? get().workspaceId;
-      if (!workspaceId) {
-        return;
-      }
-      try {
-        const item = await window.setta.chat.setConversationPinned(
-          workspaceId,
-          conversationId,
-          pinned,
-        );
-        get().applyConversationUpdatedEvent(workspaceId, item);
-      } catch (error) {
-        set({ error: errorMessage(error), status: "error" });
-        throw error;
-      }
-    },
+    setConversationPinned: createSetConversationPinnedAction({ get, set }),
     listCommands: async () => {
       const requestID = ++commandListRequestID;
       const state = get();
@@ -820,6 +809,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         throw error;
       }
     },
+    listComposerPromptHistory: createListComposerPromptHistoryAction(get),
     resyncActiveConversation: resync.resyncActiveConversation,
     selectConversation: async (conversationId: string, targetWorkspaceId?: string) => {
       const request = conversationSelectionRequest(get(), conversationId, targetWorkspaceId);
@@ -876,7 +866,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     sendMessage: async (input: ChatInput) => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
-        return;
+        return null;
       }
       const operation = beginOperation("messageMutation", { error: null, operation: "sending" });
       try {
@@ -891,6 +881,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           selectedConversation: result.conversation,
           status: "ready",
         }));
+        return result;
       } catch (error) {
         commitCurrent(operation, errorPatch(error));
         throw error;
@@ -930,7 +921,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     steerMessage: async (input: ChatInput) => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
-        return;
+        return null;
       }
       const operation = beginOperation("messageMutation", { error: null, operation: "steering" });
       try {
@@ -945,6 +936,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           selectedConversation: result.conversation,
           status: "ready",
         }));
+        return result;
       } catch (error) {
         commitCurrent(operation, errorPatch(error));
         throw error;

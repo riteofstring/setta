@@ -8,6 +8,7 @@ import type {
   ChatInput,
   ChatMessage,
   ChatPermissionPresetID,
+  ComposerPromptHistoryPage,
   Conversation,
   ConversationListItem,
   CorruptionSummary,
@@ -16,9 +17,12 @@ import type {
   BackgroundTerminalProcess,
   ImageAttachment,
   ListConversationsResponse,
+  QueueMessageResult,
   ReasoningEffort,
   RunLiveness,
   RunItemOutput,
+  SendMessageResult,
+  SteerMessageResult,
   TranscriptBlock,
 } from "@generated/backend";
 import type { BackendProcessStatus, ChatCommandExecutionOptions } from "@shared/types";
@@ -100,7 +104,7 @@ export interface ChatStore {
   operation: ChatOperation;
   pendingGoalSubmission: PendingGoalSubmission | null;
   queuedRuns: QueuedRun[];
-  queueMessage: (input: ChatInput) => Promise<void>;
+  queueMessage: (input: ChatInput) => Promise<QueueMessageResult | null>;
   removeQueuedMessage: (messageId: string) => Promise<void>;
   removingQueuedMessageId: string | null;
   retryActiveRunLiveness: () => Promise<void>;
@@ -118,6 +122,10 @@ export interface ChatStore {
   ) => Promise<ChatCommandExecuteResult>;
   setCodexReasoningEffort: (effort: ReasoningEffort) => Promise<ChatCommandExecuteResult>;
   listCommands: () => Promise<ChatCommandListResult | null>;
+  listComposerPromptHistory: (
+    beforeOrdinal: number,
+    limit: number,
+  ) => Promise<ComposerPromptHistoryPage | null>;
   resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
@@ -129,7 +137,7 @@ export interface ChatStore {
   selectedConversation: Conversation | null;
   selectedConversationIdsByWorkspaceId: Record<string, string | undefined>;
   selectConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
-  sendMessage: (input: ChatInput) => Promise<void>;
+  sendMessage: (input: ChatInput) => Promise<SendMessageResult | null>;
   sendSteeringImmediately: (input?: ChatInput) => Promise<void>;
   setConversationPinned: (
     conversationId: string,
@@ -137,7 +145,7 @@ export interface ChatStore {
     workspaceId?: string,
   ) => Promise<void>;
   status: ChatStatus;
-  steerMessage: (input: ChatInput) => Promise<void>;
+  steerMessage: (input: ChatInput) => Promise<SteerMessageResult | null>;
   stopActiveRun: () => Promise<void>;
   submitApproval: (
     approvalId: string,
