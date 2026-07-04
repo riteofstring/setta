@@ -107,6 +107,9 @@ func StartProcess(config ProcessConfig) (*Client, error) {
 	if config.ShutdownKillPeriod <= 0 {
 		config.ShutdownKillPeriod = DefaultProcessShutdownKillPeriod
 	}
+	if err := prepareCodexAppServerLaunch(config.Command, config.Args); err != nil {
+		return nil, err
+	}
 	cmd := exec.Command(config.Command, config.Args...)
 	configureCommandProcessGroup(cmd)
 	if len(config.Env) > 0 {
