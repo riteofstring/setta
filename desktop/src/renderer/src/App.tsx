@@ -2,7 +2,7 @@ import type { WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import { PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
 import {
   compactProjectPaneWidth,
@@ -25,8 +25,6 @@ import {
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import { runChatBackgroundAction } from "./stores/chat-background-actions";
-import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
-import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
 import {
   type WorkspaceOperation,
   type WorkspaceStatus,
@@ -48,7 +46,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const viewport = useViewportSize();
   useAppearanceSettings();
   useBackendLifecycle(setta);
-  const runtimeUnavailable = useRuntimeLifecycle(setta);
   useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
@@ -127,6 +124,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       <main className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
         <ProjectPane
           activeRun={projectChat.activeRun}
+          activeRunLiveness={projectChat.activeRunLiveness}
           createConversation={createConversationAndFocusChat}
           createWorkspaceConversation={createWorkspaceConversationAndFocusChat}
           deleteConversation={deleteConversation}
@@ -140,7 +138,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           setWidth={setProjectPaneWidth}
           viewportWidth={viewport.width}
           width={effectiveProjectPaneWidth}
-          runtimeUnavailable={runtimeUnavailable}
           workspace={workspace}
         />
         <WorkspaceLayoutArea
@@ -200,44 +197,6 @@ function useBackendLifecycle(setta: SettaAPI) {
   }, [setta]);
 }
 
-function useRuntimeLifecycle(setta: SettaAPI) {
-  const loadRuntimes = useRuntimeStore((state) => state.load);
-  const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
-  const setRuntimeSnapshot = useRuntimeStore((state) => state.setSnapshot);
-  const loadWorkspaceSession = useWorkspaceStore((state) => state.loadSession);
-  const resetRuntimeStateKeyRef = useRef<string | null | undefined>(undefined);
-  const activeConnectedRuntimeId =
-    runtimeSnapshot?.connection.status === "connected" ? runtimeSnapshot.activeRuntimeId : null;
-
-  useEffect(() => {
-    void loadRuntimes();
-    return setta.runtimes.onConnectionState((snapshot) => {
-      setRuntimeSnapshot(snapshot);
-    });
-  }, [loadRuntimes, setRuntimeSnapshot, setta]);
-
-  useEffect(() => {
-    if (!runtimeSnapshot) {
-      return;
-    }
-    const activeRuntimeId = runtimeSnapshot.activeRuntimeId;
-    if (resetRuntimeStateKeyRef.current === activeRuntimeId) {
-      return;
-    }
-    resetRuntimeStateKeyRef.current = activeRuntimeId;
-    resetRuntimeDerivedRendererState();
-  }, [runtimeSnapshot]);
-
-  useEffect(() => {
-    if (!activeConnectedRuntimeId) {
-      return;
-    }
-    void loadWorkspaceSession();
-  }, [activeConnectedRuntimeId, loadWorkspaceSession]);
-
-  return runtimeControlsDisabled(runtimeSnapshot);
-}
-
 function useAppearanceSettings() {
   const loadAppearance = useAppearanceStore((state) => state.load);
 
@@ -262,6 +221,7 @@ type ProjectPaneChatState = ReturnType<typeof useProjectPaneChatState>;
 
 function useProjectPaneChatState() {
   const activeRun = useChatStore((state) => state.activeRun);
+  const activeRunLiveness = useChatStore((state) => state.activeRunLiveness);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
   const deleteConversation = useChatStore((state) => state.deleteConversation);
@@ -271,6 +231,7 @@ function useProjectPaneChatState() {
 
   return {
     activeRun,
+    activeRunLiveness,
     createConversation,
     createWorkspaceConversation,
     deleteConversation,
@@ -282,6 +243,7 @@ function useProjectPaneChatState() {
 
 function ProjectPane({
   activeRun,
+  activeRunLiveness,
   createConversation,
   createWorkspaceConversation,
   deleteConversation,
@@ -295,10 +257,10 @@ function ProjectPane({
   setWidth,
   viewportWidth,
   width,
-  runtimeUnavailable,
   workspace,
 }: {
   activeRun: ProjectPaneChatState["activeRun"];
+  activeRunLiveness: ProjectPaneChatState["activeRunLiveness"];
   createConversation: ProjectPaneChatState["createConversation"];
   createWorkspaceConversation: ProjectPaneChatState["createWorkspaceConversation"];
   deleteConversation: ProjectPaneChatState["deleteConversation"];
@@ -312,7 +274,6 @@ function ProjectPane({
   setWidth: (width: number) => void;
   viewportWidth: number;
   width: number;
-  runtimeUnavailable: boolean;
   workspace: WorkspaceViewState;
 }) {
   if (!open) {
@@ -322,8 +283,9 @@ function ProjectPane({
   const sidebar = (
     <WorkspaceSidebar
       activeRun={activeRun}
+      activeRunLiveness={activeRunLiveness}
       activeWorkspaces={workspace.activeWorkspaces}
-      busy={runtimeUnavailable || sidebarWorkspaceBusy(workspace.operation, workspace.status)}
+      busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
       clearWorkspaceError={workspace.clearError}
       closeWorkspace={workspace.closeWorkspace}
       createConversation={createConversation}
@@ -499,6 +461,7 @@ function useWorkspaceViewState() {
   const clearError = useWorkspaceStore((state) => state.clearError);
   const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
   const error = useWorkspaceStore((state) => state.error);
+  const loadSession = useWorkspaceStore((state) => state.loadSession);
   const openLocalFolder = useWorkspaceStore((state) => state.openLocalFolder);
   const openWorkspacePath = useWorkspaceStore((state) => state.openWorkspacePath);
   const operation = useWorkspaceStore((state) => state.operation);
@@ -507,6 +470,10 @@ function useWorkspaceViewState() {
   const session = useWorkspaceStore((state) => state.session);
   const status = useWorkspaceStore((state) => state.status);
   const selectedWorkspace = useSelectedWorkspace(session);
+
+  useEffect(() => {
+    void loadSession();
+  }, [loadSession]);
 
   return {
     activeWorkspaces: session?.activeWorkspaces ?? [],

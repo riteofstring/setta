@@ -23,13 +23,13 @@ func TestServiceSteerActiveRunCompilesSemanticContextBeforeHarness(t *testing.T)
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
 	if err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
 
-	result, err := service.SteerActiveRun("workspace_api", conversation.ID, "keep going")
+	result, err := service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("keep going"))
 	if err != nil {
 		t.Fatalf("steer active: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestServiceSteerActiveRunCompilesSemanticContextBeforeHarness(t *testing.T)
 	if len(steering) != 1 {
 		t.Fatalf("steering requests = %+v, want one harness request", steering)
 	}
-	if steering[0].Text != "keep going" || steering[0].SemanticContext == nil || steering[0].SemanticContext.PackID != "pack_steer" {
+	if chatInputText(steering[0].Input) != "keep going" || steering[0].SemanticContext == nil || steering[0].SemanticContext.PackID != "pack_steer" {
 		t.Fatalf("steering request = %+v, want authored text with semantic context", steering[0])
 	}
 	if promptFromMessage(result.UserMessage) != "keep going" {
@@ -70,12 +70,12 @@ func TestServiceSteerActiveRunDoesNotCallHarnessWhenSemanticContextFails(t *test
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	if _, err := service.SendUserMessage("workspace_api", conversation.ID, "A1"); err != nil {
+	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1")); err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
 
-	_, err = service.SteerActiveRun("workspace_api", conversation.ID, "blocked steering")
+	_, err = service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("blocked steering"))
 	if !errors.Is(err, compileErr) {
 		t.Fatalf("steer error = %v, want compiler error", err)
 	}
@@ -115,16 +115,16 @@ func TestServiceImmediateSteeringReplayCompilesSemanticContextBeforeHarnessTurn(
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
 	if err != nil {
 		t.Fatalf("send active: %v", err)
 	}
 	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_active")
-	if _, err := service.SteerActiveRun("workspace_api", conversation.ID, "S1"); err != nil {
+	if _, err := service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("S1")); err != nil {
 		t.Fatalf("steer active: %v", err)
 	}
 
-	result, err := service.SendSteeringImmediately("workspace_api", conversation.ID, "")
+	result, err := service.SendSteeringInputImmediately("workspace_api", conversation.ID, nil)
 	if err != nil {
 		t.Fatalf("send steering immediately: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestServiceImmediateSteeringReplayCompilesSemanticContextBeforeHarnessTurn(
 		t.Fatalf("replay compile request = %+v, want replay run and trigger message refs", replayRequest)
 	}
 	replayTurn, ok := findTurnRequest(harness.TurnRequests(), result.ActiveRun.ID)
-	if !ok || replayTurn.SemanticContext == nil || replayTurn.SemanticContext.PackID != "pack_replay" || replayTurn.Prompt != "S1" {
+	if !ok || replayTurn.SemanticContext == nil || replayTurn.SemanticContext.PackID != "pack_replay" || chatInputText(replayTurn.Input) != "S1" {
 		t.Fatalf("replay turn = %+v ok %v, want authored prompt with semantic context", replayTurn, ok)
 	}
 	if result.CancelledRun.ID != active.Run.ID {

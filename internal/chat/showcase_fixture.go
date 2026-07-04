@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -26,24 +27,27 @@ var uiShowcaseRunIDs = []string{
 }
 
 var uiShowcaseOutputByType = map[RunItemType]string{
-	RunItemTypeAgentMessage:        "agent message provider item received\n",
-	RunItemTypePlan:                "plan item persisted\n",
-	RunItemTypeReasoning:           "reasoning summary stored\n",
-	RunItemTypeCommandExecution:    "package chat\n\nfunc Example() {}\n",
-	RunItemTypeFileChange:          "updated internal/chat/showcase.go\n",
-	RunItemTypeMCPToolCall:         "# README\n\nfixture content\n",
-	RunItemTypeDynamicToolCall:     `{"ok":true,"kind":"dynamic_tool"}` + "\n",
-	RunItemTypeCollabAgentToolCall: "subagent notes: no visual blockers\n",
-	RunItemTypeWebSearch:           "Search result 1\nSearch result 2\nSearch result 3\n",
-	RunItemTypeImageView:           "opened screenshots/chat.png\n",
-	RunItemTypeImageGeneration:     "generated image id image_showcase\n",
-	RunItemTypeTerminalInteraction: "VITE ready in 512 ms\n",
-	RunItemTypeDiff:                "--- a/showcase.go\n+++ b/showcase.go\n@@\n+showcase\n",
-	RunItemTypeContextCompaction:   "context compaction completed\n",
-	RunItemTypeNotice:              "notice emitted\n",
-	RunItemTypeApprovalReview:      "review decision: approved\n",
-	RunItemTypeHook:                "hook stderr: style-only warning\n",
-	RunItemTypeStructuredInput:     "structured schema presented\n",
+	RunItemTypeAgentMessage:            "agent message provider item received\n",
+	RunItemTypePlan:                    "plan item persisted\n",
+	RunItemTypeReasoning:               "reasoning summary stored\n",
+	RunItemTypeCommandExecution:        "package chat\n\nfunc Example() {}\n",
+	RunItemTypeCommandStartFailure:     "failed to start command: too many open files\n",
+	RunItemTypeFileChange:              "updated internal/chat/showcase.go\n",
+	RunItemTypeMCPToolCall:             "# README\n\nfixture content\n",
+	RunItemTypeDynamicToolCall:         `{"ok":true,"kind":"dynamic_tool"}` + "\n",
+	RunItemTypeCollabAgentToolCall:     "subagent notes: no visual blockers\n",
+	RunItemTypeWebSearch:               "Search result 1\nSearch result 2\nSearch result 3\n",
+	RunItemTypeImageView:               "opened screenshots/chat.png\n",
+	RunItemTypeImageGeneration:         "generated image id image_showcase\n",
+	RunItemTypeTerminalInteraction:     "VITE ready in 512 ms\n",
+	RunItemTypeDiff:                    "--- a/showcase.go\n+++ b/showcase.go\n@@\n+showcase\n",
+	RunItemTypeProviderStreamLifecycle: "stream lifecycle diagnostic recorded\n",
+	RunItemTypeContextCompaction:       "context compaction completed\n",
+	RunItemTypeNotice:                  "notice emitted\n",
+	RunItemTypeApprovalRequest:         "approval requested for command\n",
+	RunItemTypeApprovalReview:          "review decision: approved\n",
+	RunItemTypeHook:                    "hook stderr: style-only warning\n",
+	RunItemTypeStructuredInput:         "structured schema presented\n",
 }
 
 type UIShowcaseSeedResult struct {
@@ -143,6 +147,12 @@ func uiShowcaseConversation(workspaceID string, seededAt time.Time) Conversation
 			Model:           "gpt-5-codex",
 			ReasoningEffort: &reasoning,
 		},
+		CodexEffectiveSettings: &ChatCodexEffectiveSettings{
+			Model:                      "gpt-5-codex",
+			ModelDisplayName:           "GPT-5 Codex",
+			ReasoningEffort:            &reasoning,
+			ReasoningEffortDisplayName: "Extra high",
+		},
 		HarnessRefs: []HarnessThreadRef{{
 			Harness:       HarnessCodex,
 			ThreadID:      "thread_ui_showcase",
@@ -176,7 +186,7 @@ func uiShowcaseMessages(seededAt time.Time) []ChatMessage {
 		uiShowcaseMessage("message_ui_showcase_user", uiShowcaseCompletedRunID, RoleUser, MessageDeliveryNormal, 3, MessageStatusComplete, "Create a durable UI showcase with reasoning, tool calls, outputs, approvals, notices, and diffs.", TextFormatPlain, seededAt.Add(-5*time.Minute)),
 		uiShowcaseMessage("message_ui_showcase_steering", uiShowcaseCompletedRunID, RoleUser, MessageDeliverySteering, 4, MessageStatusComplete, "Also include steering state and long output previews.", TextFormatPlain, seededAt.Add(-4*time.Minute-30*time.Second)),
 		uiShowcaseMessage("message_ui_showcase_assistant", uiShowcaseCompletedRunID, RoleAssistant, MessageDeliveryNormal, 5, MessageStatusComplete, "UI showcase started.\n\nThe activity stack below covers reasoning, plans, command execution, file changes, MCP tools, dynamic tools, web search, images, terminal sessions, diffs, notices, approval reviews, hooks, and structured input.\n\nUI showcase complete.", TextFormatMarkdown, seededAt.Add(-4*time.Minute)),
-		uiShowcaseMessage("message_ui_showcase_command", "", RoleCommand, MessageDeliveryNormal, 6, MessageStatusComplete, "Model set: gpt-5-codex\nReasoning set: Extra High", TextFormatPlain, seededAt.Add(-3*time.Minute-30*time.Second)),
+		uiShowcaseMessage("message_ui_showcase_command", "", RoleCommand, MessageDeliveryNormal, 6, MessageStatusComplete, uiShowcaseCommandMessageText(), TextFormatPlain, seededAt.Add(-3*time.Minute-30*time.Second)),
 		uiShowcaseMessage("message_ui_showcase_tool", "", RoleTool, MessageDeliveryNormal, 7, MessageStatusComplete, "{\"tool\":\"style_probe\",\"ok\":true,\"rows\":17}", TextFormatPlain, seededAt.Add(-3*time.Minute)),
 		uiShowcaseMessage("message_ui_showcase_waiting", "", RoleAssistant, MessageDeliveryNormal, 8, MessageStatusStreaming, "", TextFormatMarkdown, seededAt.Add(-2*time.Minute-45*time.Second)),
 		uiShowcaseMessage("message_ui_showcase_queued", "", RoleUser, MessageDeliveryQueued, 9, MessageStatusPending, "Queued follow-up preview that is not attached to a live queue.", TextFormatPlain, seededAt.Add(-2*time.Minute-30*time.Second)),
@@ -188,6 +198,35 @@ func uiShowcaseMessages(seededAt time.Time) []ChatMessage {
 		uiShowcaseMessage("message_ui_showcase_cancelled_user", uiShowcaseCancelledRunID, RoleUser, MessageDeliveryNormal, 15, MessageStatusComplete, "Show cancelled assistant state.", TextFormatPlain, seededAt.Add(-70*time.Second)),
 		uiShowcaseMessage("message_ui_showcase_cancelled_assistant", uiShowcaseCancelledRunID, RoleAssistant, MessageDeliveryNormal, 16, MessageStatusCancelled, "The scripted fixture cancelled this turn on purpose so cancelled styling is visible.", TextFormatMarkdown, seededAt.Add(-60*time.Second)),
 	}
+}
+
+func uiShowcaseCommandMessageText() string {
+	lines := []string{
+		"Model set: gpt-5-codex",
+		"Reasoning set: Extra high",
+		"Showcase output matrix:",
+	}
+	for _, label := range []string{
+		"system notice",
+		"developer instruction",
+		"command output",
+		"tool payload",
+		"streaming assistant",
+		"queued user turn",
+		"steering update",
+		"user-input approval",
+		"failed run copy",
+		"cancelled run copy",
+		"long monospace preview",
+		"wrapped plain text",
+		"status badge alignment",
+		"timestamp grouping",
+		"footer approval spacing",
+		"overview pane spacing",
+	} {
+		lines = append(lines, "- "+label)
+	}
+	return strings.Join(lines, "\n")
 }
 
 func uiShowcaseMessage(id string, runID string, role MessageRole, delivery MessageDelivery, ordinal int, status MessageStatus, text string, format TextFormat, createdAt time.Time) ChatMessage {
@@ -203,10 +242,12 @@ func uiShowcaseMessage(id string, runID string, role MessageRole, delivery Messa
 		UpdatedAt:      timestamp(createdAt),
 		Status:         status,
 		Parts: []MessagePart{{
-			ID:     id + "_part",
-			Type:   MessagePartText,
-			Text:   text,
-			Format: format,
+			ID:   id + "_part",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   text,
+				Format: format,
+			},
 		}},
 	}
 }
@@ -336,42 +377,71 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusCompleted,
 			Title:          "Command execution",
-			Command:        "sed -n '1,120p' internal/chat/scripted_workflow_harness.go",
-			Cwd:            "/tmp/setta-workspace",
-			ExitCode:       0,
-			DurationMs:     128,
-			ProcessID:      "proc-showcase",
 			Summary:        "Read a source file through a command.",
+			Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+				Command:    "sed -n '1,120p' internal/chat/scripted_workflow_harness.go",
+				Cwd:        "/tmp/setta-workspace",
+				ExitCode:   0,
+				DurationMs: 128,
+				ProcessID:  "proc-showcase",
+			}),
+		},
+		{
+			ProviderItemID: "provider_ui_command_start_failure_" + runID,
+			Type:           RunItemTypeCommandStartFailure,
+			Status:         RunItemStatusFailed,
+			Summary:        "Command could not start.",
+			Details: NewRunItemCommandStartFailureDetails(RunItemCommandStartFailureDetails{
+				Command:         "rg --files",
+				Cwd:             "/tmp/setta-workspace",
+				FailureClass:    "resource_exhaustion",
+				Message:         "Too many open files (os error 24)",
+				OSError:         "os error 24",
+				ProviderErrorID: "error-showcase",
+				Sandbox:         "workspace-write",
+				ApprovalPolicy:  "on-request",
+			}),
 		},
 		{
 			ProviderItemID: "provider_ui_file_change_" + runID,
 			Type:           RunItemTypeFileChange,
 			Status:         RunItemStatusCompleted,
 			Title:          "File change",
-			FilePaths:      []string{"/tmp/setta-workspace/internal/chat/showcase.go"},
-			PatchStatus:    "updated",
 			Summary:        "Updated a fake file to exercise file path chips.",
+			Details: newRunItemFileChangeDetails("updated", []RunItemFileChangePath{
+				newRunItemFileChangePath("/tmp/setta-workspace/internal/chat/showcase.go", runItemFileChangeOperationPtr(RunItemFileChangeOperationUpdate), "", "+showcase\n"),
+			}),
 		},
 		{
 			ProviderItemID: "provider_ui_mcp_" + runID,
 			Type:           RunItemTypeMCPToolCall,
 			Status:         RunItemStatusRunning,
-			Title:          "MCP tool call",
-			ServerName:     "filesystem",
-			ToolName:       "read_text_file",
-			Progress:       "Reading fixture content",
-			RequestID:      "mcp-request-showcase",
-			Details:        json.RawMessage(`{"path":"/tmp/setta-workspace/README.md"}`),
+			Details: NewRunItemMCPToolCallDetails(RunItemMCPToolCallDetails{
+				ServerName:   "filesystem",
+				ToolName:     "read_text_file",
+				DisplayTitle: "MCP: filesystem",
+				Progress:     "Reading fixture content",
+				Arguments:    json.RawMessage(`{"path":"/tmp/setta-workspace/README.md"}`),
+			}),
 		},
 		{
 			ProviderItemID: "provider_ui_dynamic_tool_" + runID,
 			Type:           RunItemTypeDynamicToolCall,
 			Status:         RunItemStatusCompleted,
 			Title:          "Dynamic tool call",
-			Namespace:      "setta",
-			ToolName:       "styleProbe",
-			Result:         "tool returned structured data",
-			Details:        json.RawMessage(`{"selectors":["[data-testid=chat-transcript-region]"],"ok":true}`),
+			Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{
+				Namespace:     "setta",
+				ToolName:      "styleProbe",
+				DisplayTitle:  "Style probe",
+				Description:   "Inspect chat transcript styling hooks.",
+				Category:      "ui",
+				Arguments:     json.RawMessage(`{"selectors":["[data-testid=chat-transcript-region]"],"ok":true}`),
+				ResultSummary: "tool returned structured data",
+				Result: &RunItemDynamicToolResult{
+					ContentItems: []RunItemDynamicToolContentItem{{Type: "inputText", Text: "tool returned structured data"}},
+					Success:      runItemDynamicToolSuccess(true),
+				},
+			}),
 		},
 		{
 			ProviderItemID: "provider_ui_collab_agent_" + runID,
@@ -381,7 +451,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Namespace:      "multi_agent",
 			ToolName:       "review_ui",
 			Result:         "subagent completed review",
-			Details:        json.RawMessage(`{"agent":"ui-reviewer","findingCount":0}`),
+			RawDetails:     json.RawMessage(`{"agent":"ui-reviewer","findingCount":0}`),
 		},
 		{
 			ProviderItemID: "provider_ui_web_search_" + runID,
@@ -390,7 +460,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Title:          "Web search",
 			ToolName:       "web_search",
 			Result:         "Found three relevant sources",
-			Details:        json.RawMessage(`{"query":"codex chat activity styling","results":3}`),
+			RawDetails:     json.RawMessage(`{"query":"codex chat activity styling","results":3}`),
 		},
 		{
 			ProviderItemID: "provider_ui_image_view_" + runID,
@@ -399,7 +469,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Title:          "Image view",
 			FilePaths:      []string{"/tmp/setta-workspace/screenshots/chat.png"},
 			Summary:        "Viewed a screenshot artifact.",
-			Details:        json.RawMessage(`{"width":1440,"height":900}`),
+			RawDetails:     json.RawMessage(`{"width":1440,"height":900}`),
 		},
 		{
 			ProviderItemID: "provider_ui_image_generation_" + runID,
@@ -408,7 +478,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Title:          "Image generation",
 			Summary:        "Generated a mock visual asset.",
 			Result:         "image asset ready",
-			Details:        json.RawMessage(`{"prompt":"chat UI texture","mimeType":"image/png"}`),
+			RawDetails:     json.RawMessage(`{"prompt":"chat UI texture","mimeType":"image/png"}`),
 		},
 		{
 			ProviderItemID: "provider_ui_terminal_" + runID,
@@ -425,8 +495,34 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Type:           RunItemTypeDiff,
 			Status:         RunItemStatusCompleted,
 			Title:          "Diff",
-			DiffSummary:    "2 files changed, 24 insertions(+), 3 deletions(-)",
-			FilePaths:      []string{"/tmp/setta-workspace/internal/chat/showcase.go", "/tmp/setta-workspace/desktop/src/styles.css"},
+			Details: newRunItemDiffDetails(`--- a/internal/chat/showcase.go
++++ b/internal/chat/showcase.go
+@@
+-old showcase
++new showcase
+--- a/desktop/src/styles.css
++++ b/desktop/src/styles.css
+@@
++body { color: var(--foreground); }
+`),
+		},
+		{
+			ProviderItemID: "provider_ui_provider_stream_lifecycle_" + runID,
+			Type:           RunItemTypeProviderStreamLifecycle,
+			Status:         RunItemStatusFailed,
+			Summary:        "Provider stream lifecycle diagnostic.",
+			Details: NewRunItemProviderStreamLifecycleDetails(RunItemProviderStreamLifecycleDetails{
+				Message:           "stream disconnected before completion",
+				AdditionalDetails: "showcase response stream disconnect",
+				CodexErrorKind:    "responseStreamDisconnected",
+				CodexErrorInfo:    json.RawMessage(`{"responseStreamDisconnected":{"httpStatusCode":null}}`),
+				WillRetry:         false,
+				StreamFailure:     true,
+				LivenessStatus:    RunLivenessLost,
+				LivenessReason:    RunLivenessReasonProviderUnavailable,
+				ProviderThreadID:  "thread-showcase",
+				ProviderTurnID:    "turn-showcase",
+			}),
 		},
 		{
 			ProviderItemID: "provider_ui_context_compaction_" + runID,
@@ -445,14 +541,37 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			NoticeMessage:  "This is a scripted warning notice for styling.",
 		},
 		{
+			ProviderItemID: "provider_ui_approval_request_" + runID,
+			Type:           RunItemTypeApprovalRequest,
+			Status:         RunItemStatusPending,
+			Title:          "Command approval",
+			Summary:        "Approve the showcase command.",
+			Details: NewRunItemApprovalDetails(RunItemApprovalDetails{
+				ApprovalID:        "approval-showcase-command",
+				ApprovalKind:      approvalKindPtr(ApprovalKindCommand),
+				ApprovalStatus:    approvalStatusPtr(ApprovalStatusPending),
+				ProviderRequestID: "approval-request-showcase",
+				Title:             "Command approval",
+				Body:              "Approve the showcase command.",
+				Command:           "printf showcase",
+				Cwd:               "/tmp/setta-workspace",
+			}),
+		},
+		{
 			ProviderItemID: "provider_ui_approval_review_" + runID,
 			Type:           RunItemTypeApprovalReview,
 			Status:         RunItemStatusCompleted,
 			Title:          "Approval review",
-			ReviewID:       "review-showcase",
-			Result:         "approved",
 			Summary:        "Auto-review approved the requested action.",
-			Details:        json.RawMessage(`{"decision":"approved","risk":"low"}`),
+			Details: NewRunItemApprovalDetails(RunItemApprovalDetails{
+				ReviewID:     "review-showcase",
+				ReviewStatus: "approved",
+				ActionType:   "command",
+				Title:        "Approval review",
+				Body:         "Auto-review approved the requested action.",
+				Review:       json.RawMessage(`{"status":"approved","risk":"low"}`),
+				Action:       json.RawMessage(`{"type":"command","command":"printf showcase"}`),
+			}),
 		},
 		{
 			ProviderItemID: "provider_ui_hook_" + runID,
@@ -461,7 +580,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Title:          "Hook",
 			Error:          "pre-command hook returned a style-only warning",
 			Summary:        "Hook output with failed status styling.",
-			Details:        json.RawMessage(`{"hook":"pre-command","durationMs":42}`),
+			RawDetails:     json.RawMessage(`{"hook":"pre-command","durationMs":42}`),
 		},
 		{
 			ProviderItemID: "provider_ui_structured_input_" + runID,
@@ -471,7 +590,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			ServerName:     "deploy",
 			RequestID:      "structured-request-showcase",
 			Summary:        "MCP elicitation form schema.",
-			Details: json.RawMessage(`{
+			RawDetails: json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"environment": {"type": "string", "enum": ["staging", "production"]},

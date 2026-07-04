@@ -573,17 +573,31 @@ async function assertWorkflowRunDetails(client) {
   await client.installDriver();
   await waitForState(
     client,
-    driverCallExpression("workflowRunDetailsText"),
-    (text) =>
-      text.includes("Run status") &&
-      text.includes("succeeded") &&
-      text.includes("route=yes") &&
-      text.includes("decision=exit") &&
-      text.includes("scripted workflow result") &&
-      text.includes("reports/workflow-result.md") &&
-      text.includes("Workflow result") &&
-      text.includes("workflow result recorded"),
+    driverCallExpression("workflowRunDetailsState"),
+    workflowRunDetailsReady,
   );
+}
+
+function workflowRunDetailsReady(state) {
+  const requiredText = [
+    "Run status",
+    "succeeded",
+    "route=yes",
+    "decision=exit",
+    "scripted workflow result",
+    "reports/workflow-result.md",
+    "Agent Trajectory",
+  ];
+  return [
+    state.workflowTrajectorySurfaceCount === 1,
+    state.chatConversationTrajectoryCount === 0,
+    workflowRunDetailsHasActivity(state),
+    requiredText.every((text) => state.text.includes(text)),
+  ].every(Boolean);
+}
+
+function workflowRunDetailsHasActivity(state) {
+  return state.activityGroupHeaderCount >= 1 || state.runActivityRowCount >= 1;
 }
 
 async function waitForWorkflowGraphPaneSettled(client, surfaceId) {

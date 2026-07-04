@@ -40,13 +40,21 @@ func TestSeedPerformanceTranscriptConversationCreatesLongMixedFixture(t *testing
 	if page.Goal == nil || page.Goal.Status != "active" {
 		t.Fatalf("goal = %+v, want active", page.Goal)
 	}
-	if !page.HasMoreOlder || page.OlderBeforeOrdinal <= 0 {
+	if !page.HasMoreOlder || page.OlderBeforeBlockOrdinal <= 0 {
 		t.Fatalf("page cursor = %+v, want older pages", page)
 	}
-	if len(page.Transcript) < 20 {
-		t.Fatalf("transcript length = %d, want loaded turns", len(page.Transcript))
+	if len(page.Blocks) < 20 {
+		t.Fatalf("transcript block length = %d, want loaded turns", len(page.Blocks))
 	}
-	assertUIShowcaseRunItems(t, page.RunItems, page.RunItemOutputs)
+	runItems, err := store.LoadRunItems("workspace_api", performanceRunID(1))
+	if err != nil {
+		t.Fatalf("load performance run items: %v", err)
+	}
+	outputs, err := store.LoadRunItemOutputs("workspace_api", performanceRunID(1))
+	if err != nil {
+		t.Fatalf("load performance run item outputs: %v", err)
+	}
+	assertUIShowcaseRunItems(t, runItems, outputs)
 }
 
 func TestSeedPerformanceTranscriptConversationOverwritesExistingFixture(t *testing.T) {

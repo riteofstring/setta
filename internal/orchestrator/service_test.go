@@ -70,17 +70,7 @@ func TestServiceStoresDefinitionsAsWorkspaceJSONAndSnapshotsOnStart(t *testing.T
 		t.Fatalf("latest version before run = %d, want 0", latestVersionNumber)
 	}
 
-	updated, err := service.UpdateDefinition(workspaceID, definition.ID, "Review Flow Updated", "workspace file", startEndGraph())
-	if err != nil {
-		t.Fatalf("update definition: %v", err)
-	}
-	if _, err := os.Stat(definitionPath); !os.IsNotExist(err) {
-		t.Fatalf("old definition path still exists or stat failed unexpectedly: %v", err)
-	}
-	updatedPath := workflowDefinitionPath(workspaceRoot, updated.Name, updated.ID)
-	if _, err := os.Stat(updatedPath); err != nil {
-		t.Fatalf("updated definition path missing: %v", err)
-	}
+	updated := updateWorkflowDefinitionAndAssertStableFile(t, service, workspaceID, workspaceRoot, definition, "Review Flow Updated", "workspace file")
 	latestVersionNumber, err = store.LatestDefinitionVersionNumber(workspaceID, definition.ID)
 	if err != nil {
 		t.Fatalf("read latest version number after update: %v", err)
@@ -391,6 +381,194 @@ func TestServiceStartupRecoveryRequiresManualStateForUncertainSideEffects(t *tes
 	assertWorkflowEventsInclude(t, restarted, workspaceID, started.ID, []WorkflowEventType{EventActionRecoveryRequired})
 
 	assertManualRecoveryRunBlocksAndCancels(t, restarted, workspaceID, definition.ID, recovered.ID)
+}
+
+func TestServicePostStartCommitFailureCancelsRunnerAndFailsNode(t *testing.T) {
+	cases := []struct {
+		name             string
+		emitAttemptStart bool
+	}{
+		{name: "runner refs persistence"},
+		{name: "runner attempt event persistence", emitAttemptStart: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			runner := newRecordingActionRunner()
+			runner.start = func(request ActionStartRequest, sink RunnerEventSink) (ActionStartResult, error) {
+				refs := testRunnerRefsForRequest(request)
+				if tc.emitAttemptStart {
+					emitTestRunnerAttemptStarted(t, request, sink, refs)
+				}
+				return ActionStartResult{RunnerRefs: refs}, nil
+			}
+			baseStore, resolver, workspaceID := newTestWorkflowStoreAndResolver(t)
+			failingStore := &failingWorkflowStore{
+				Store:           baseStore,
+				failPersistCall: 3,
+				failErr:         errors.New("injected post-start persistence failure"),
+			}
+			service := newTestWorkflowServiceForStore(t, failingStore, resolver, WithRunnerRegistry(DefaultRunnerRegistry().WithRunner(runner)))
+			definition, err := service.CreateDefinition(workspaceID, "Post-start cleanup", "", actionGraph("work"))
+			if err != nil {
+				t.Fatalf("create definition: %v", err)
+			}
+
+			failed, err := service.StartExecution(workspaceID, definition.ID, "")
+			if err == nil {
+				t.Fatal("start execution succeeded, want post-start failure")
+			}
+			if !strings.Contains(err.Error(), "post-start commit failed") || !strings.Contains(err.Error(), "injected post-start persistence failure") {
+				t.Fatalf("start error = %v, want post-start persistence failure", err)
+			}
+			read, err := service.ReadExecution(workspaceID, failed.ID)
+			if err != nil {
+				t.Fatalf("read failed execution: %v", err)
+			}
+			if read.Status != ExecutionStatusFailed {
+				t.Fatalf("execution status = %s, want failed", read.Status)
+			}
+			work := latestNodeExecutionForTest(t, read, "work")
+			if work.Status != NodeExecutionStatusFailed {
+				t.Fatalf("work status = %s, want failed", work.Status)
+			}
+			if !strings.Contains(work.Error, "injected post-start persistence failure") {
+				t.Fatalf("work error = %q, want injected persistence failure", work.Error)
+			}
+			if runnerRefValue(work.RunnerRefs, "test.runner") != work.ID {
+				t.Fatalf("runner refs = %+v, want committed cleanup ref for %s", work.RunnerRefs, work.ID)
+			}
+			cancelled := runner.cancelRequestForNodeExecution(work.ID)
+			if runnerRefValue(cancelled.RunnerRefs, "test.runner") != work.ID {
+				t.Fatalf("cancel refs = %+v, want returned runner refs for %s", cancelled.RunnerRefs, work.ID)
+			}
+
+			restarted, err := service.StartExecution(workspaceID, definition.ID, "")
+			if err != nil {
+				t.Fatalf("start after failed post-start cleanup: %v", err)
+			}
+			if restarted.Status != ExecutionStatusRunning {
+				t.Fatalf("restart status = %s, want running", restarted.Status)
+			}
+		})
+	}
+}
+
+func TestServicePostStartCommitFailureCancelFailureRecordsManualRecovery(t *testing.T) {
+	runner := newRecordingActionRunner()
+	runner.cancel = func(ActionCancelRequest) error {
+		return errors.New("cancel workflow-owned runner failed")
+	}
+	baseStore, resolver, workspaceID := newTestWorkflowStoreAndResolver(t)
+	failingStore := &failingWorkflowStore{
+		Store:           baseStore,
+		failPersistCall: 3,
+		failErr:         errors.New("injected post-start persistence failure"),
+	}
+	service := newTestWorkflowServiceForStore(t, failingStore, resolver, WithRunnerRegistry(DefaultRunnerRegistry().WithRunner(runner)))
+	definition, err := service.CreateDefinition(workspaceID, "Post-start manual recovery", "", actionGraph("work"))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+
+	recovery, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err == nil {
+		t.Fatal("start execution succeeded, want post-start failure")
+	}
+	if !strings.Contains(err.Error(), "manual recovery required") || !strings.Contains(err.Error(), "cancel workflow-owned runner failed") {
+		t.Fatalf("start error = %v, want manual recovery with cancel failure", err)
+	}
+	read, err := service.ReadExecution(workspaceID, recovery.ID)
+	if err != nil {
+		t.Fatalf("read recovery execution: %v", err)
+	}
+	if read.Status != ExecutionStatusRunning {
+		t.Fatalf("execution status = %s, want running manual recovery state", read.Status)
+	}
+	work := latestNodeExecutionForTest(t, read, "work")
+	if work.Status != NodeExecutionStatusRecoveryRequired {
+		t.Fatalf("work status = %s, want recovery_required", work.Status)
+	}
+	if work.RecoveryOutcome == nil || *work.RecoveryOutcome != RunnerRecoveryOutcomeManualRecoveryRequired {
+		t.Fatalf("recovery outcome = %v, want manual_recovery_required", work.RecoveryOutcome)
+	}
+	if !strings.Contains(work.RecoveryMessage, "injected post-start persistence failure") || !strings.Contains(work.RecoveryMessage, "cancel workflow-owned runner failed") {
+		t.Fatalf("recovery message = %q, want post-start and cancel failures", work.RecoveryMessage)
+	}
+	if runnerRefValue(work.RunnerRefs, "test.runner") != work.ID {
+		t.Fatalf("runner refs = %+v, want returned runner refs for manual recovery", work.RunnerRefs)
+	}
+	assertWorkflowEventsInclude(t, service, workspaceID, read.ID, []WorkflowEventType{EventActionRecoveryRequired})
+}
+
+func TestServiceStartedRunnerWithoutCleanupIdentityRecordsManualRecovery(t *testing.T) {
+	runner := newRecordingActionRunner()
+	runner.start = func(ActionStartRequest, RunnerEventSink) (ActionStartResult, error) {
+		return ActionStartResult{RunnerRefs: []WorkflowActionRunnerRef{}}, nil
+	}
+	_, _, service, workspaceID := newTestWorkflowServiceWithRunner(t, runner)
+	definition, err := service.CreateDefinition(workspaceID, "Missing runner refs", "", actionGraph("work"))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+
+	recovery, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err == nil {
+		t.Fatal("start execution succeeded, want missing runner refs failure")
+	}
+	if !strings.Contains(err.Error(), runnerIdentityNotCommittedMessage) {
+		t.Fatalf("start error = %v, want identity-not-committed message", err)
+	}
+	read, err := service.ReadExecution(workspaceID, recovery.ID)
+	if err != nil {
+		t.Fatalf("read recovery execution: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, read, "work")
+	if work.Status != NodeExecutionStatusRecoveryRequired {
+		t.Fatalf("work status = %s, want recovery_required", work.Status)
+	}
+	if work.RecoveryMessage == "" || !strings.Contains(work.RecoveryMessage, runnerIdentityNotCommittedMessage) {
+		t.Fatalf("recovery message = %q, want identity-not-committed message", work.RecoveryMessage)
+	}
+	if len(work.RunnerRefs) != 0 {
+		t.Fatalf("runner refs = %+v, want none", work.RunnerRefs)
+	}
+	if cancelled := runner.cancelRequestForNodeExecution(work.ID); cancelled.NodeExecution.ID != "" {
+		t.Fatalf("cancel request = %+v, want none without runner refs", cancelled)
+	}
+	if len(runner.recoverRequests()) != 0 {
+		t.Fatalf("recover requests = %+v, want none during immediate cleanup", runner.recoverRequests())
+	}
+}
+
+func TestServiceStartupRecoveryRequiresManualStateWhenRunnerIdentityMissing(t *testing.T) {
+	runner := newRecordingActionRunner()
+	store, resolver, service, workspaceID := newTestWorkflowServiceWithRunner(t, runner)
+	definition, err := service.CreateDefinition(workspaceID, "Missing refs on restart", "", actionGraph("work"))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	running := persistRunningActionWithoutRunnerRefsForTest(t, store, workspaceID, definition)
+
+	restarted, err := NewService(store, resolver, WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t)), WithRunnerRegistry(DefaultRunnerRegistry().WithRunner(runner)))
+	if err != nil {
+		t.Fatalf("restart service: %v", err)
+	}
+	defer restarted.CloseEvents()
+	recovered, err := restarted.ReadExecution(workspaceID, running.ID)
+	if err != nil {
+		t.Fatalf("read recovered execution: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, recovered, "work")
+	if work.Status != NodeExecutionStatusRecoveryRequired {
+		t.Fatalf("work status = %s, want recovery_required", work.Status)
+	}
+	if work.RecoveryMessage != runnerIdentityNotCommittedMessage {
+		t.Fatalf("recovery message = %q, want %q", work.RecoveryMessage, runnerIdentityNotCommittedMessage)
+	}
+	if len(runner.recoverRequests()) != 0 {
+		t.Fatalf("recover requests = %+v, want none without runner refs", runner.recoverRequests())
+	}
+	assertWorkflowEventsInclude(t, restarted, workspaceID, running.ID, []WorkflowEventType{EventActionRecoveryRequired})
 }
 
 func assertManualRecoveryRunBlocksAndCancels(t *testing.T, service *Service, workspaceID string, definitionID string, executionID string) {
@@ -759,6 +937,13 @@ func newTestWorkflowServiceWithRunner(t *testing.T, runner ActionRunner) (*Store
 
 func newTestWorkflowServiceWithOptions(t *testing.T, options ...Option) (*Store, testWorkspaceResolver, *Service, string) {
 	t.Helper()
+	store, resolver, workspaceID := newTestWorkflowStoreAndResolver(t)
+	service := newTestWorkflowServiceForStore(t, store, resolver, options...)
+	return store, resolver, service, workspaceID
+}
+
+func newTestWorkflowStoreAndResolver(t *testing.T) (*Store, testWorkspaceResolver, string) {
+	t.Helper()
 	appDataDir := t.TempDir()
 	workspaceID := "workspace_test"
 	resolver := testWorkspaceResolver{
@@ -779,13 +964,18 @@ func newTestWorkflowServiceWithOptions(t *testing.T, options ...Option) (*Store,
 			t.Fatalf("close workflow store: %v", err)
 		}
 	})
+	return store, resolver, workspaceID
+}
+
+func newTestWorkflowServiceForStore(t *testing.T, store WorkflowStore, resolver testWorkspaceResolver, options ...Option) *Service {
+	t.Helper()
 	serviceOptions := append([]Option{WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t))}, options...)
 	service, err := NewService(store, resolver, serviceOptions...)
 	if err != nil {
 		t.Fatalf("create service: %v", err)
 	}
 	t.Cleanup(service.CloseEvents)
-	return store, resolver, service, workspaceID
+	return service
 }
 
 func createRunningFirstVersion(t *testing.T, service *Service, workspaceID string) (WorkflowDefinition, string, WorkflowExecution) {
@@ -905,6 +1095,97 @@ func assertRunningExecutionRecovered(t *testing.T, store *Store, resolver testWo
 	return restarted, recovered
 }
 
+type failingWorkflowStore struct {
+	*Store
+	mu              sync.Mutex
+	persistCalls    int
+	failPersistCall int
+	failErr         error
+}
+
+func (store *failingWorkflowStore) PersistExecutionStart(version WorkflowDefinitionVersion, transition WorkflowTransition) ([]WorkflowEventEnvelope, error) {
+	if store.shouldFailPersistence() {
+		return nil, store.failErr
+	}
+	return store.Store.PersistExecutionStart(version, transition)
+}
+
+func (store *failingWorkflowStore) PersistTransition(transition WorkflowTransition) ([]WorkflowEventEnvelope, error) {
+	if store.shouldFailPersistence() {
+		return nil, store.failErr
+	}
+	return store.Store.PersistTransition(transition)
+}
+
+func (store *failingWorkflowStore) shouldFailPersistence() bool {
+	store.mu.Lock()
+	store.persistCalls++
+	shouldFail := store.persistCalls == store.failPersistCall
+	store.mu.Unlock()
+	return shouldFail
+}
+
+func testRunnerRefsForRequest(request ActionStartRequest) []WorkflowActionRunnerRef {
+	return []WorkflowActionRunnerRef{{Kind: "test.runner", ID: request.NodeExecution.ID}}
+}
+
+func emitTestRunnerAttemptStarted(t *testing.T, request ActionStartRequest, sink RunnerEventSink, refs []WorkflowActionRunnerRef) {
+	t.Helper()
+	payload, err := json.Marshal(RunnerAttemptStartedPayload{
+		RunnerRefs:       refs,
+		Capabilities:     request.Capabilities,
+		InputHash:        request.InputHash,
+		IdempotencyKey:   request.NodeExecution.IdempotencyKey,
+		SideEffectPolicy: request.Policy.SideEffectPolicy,
+		ActivityRefs:     []WorkflowActivityRef{},
+	})
+	if err != nil {
+		t.Fatalf("encode runner attempt started payload: %v", err)
+	}
+	if err := sink.EmitRunnerEvent(RunnerEvent{
+		Type:    RunnerEventAttemptStarted,
+		Payload: payload,
+	}); err != nil {
+		t.Fatalf("emit runner attempt started event: %v", err)
+	}
+}
+
+func persistRunningActionWithoutRunnerRefsForTest(t *testing.T, store *Store, workspaceID string, definition WorkflowDefinition) WorkflowExecution {
+	t.Helper()
+	idGenerator := deterministicIDGenerator()
+	versionID, err := idGenerator("workflow_version")
+	if err != nil {
+		t.Fatalf("create workflow version id: %v", err)
+	}
+	version := workflowDefinitionVersionFromDefinition(definition, versionID, 1, fixedTestClock(t)())
+	if err := store.SaveDefinitionVersion(version); err != nil {
+		t.Fatalf("save workflow version: %v", err)
+	}
+	context := TransitionContext{Now: testNow, NewID: idGenerator}
+	started, err := StartExecution(version, context)
+	if err != nil {
+		t.Fatalf("start execution transition: %v", err)
+	}
+	if _, err := store.PersistTransition(started); err != nil {
+		t.Fatalf("persist execution start: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, started.Execution, "work")
+	node := testActionNode("work")
+	runner := newRecordingActionRunner()
+	metadata, _, err := buildActionStartRequest(workspaceID, started.Execution, node, work, runner, context)
+	if err != nil {
+		t.Fatalf("build action start request: %v", err)
+	}
+	actionStarted, err := StartAction(started.Execution, work.ID, metadata, context)
+	if err != nil {
+		t.Fatalf("start action transition: %v", err)
+	}
+	if _, err := store.PersistTransition(actionStarted); err != nil {
+		t.Fatalf("persist action start: %v", err)
+	}
+	return actionStarted.Execution
+}
+
 type testWorkspaceResolver struct {
 	workspaces map[string]workspace.WorkspaceSummary
 }
@@ -966,6 +1247,7 @@ type recordingActionRunner struct {
 	mu       sync.Mutex
 	cancels  []ActionCancelRequest
 	recovers []ActionRecoverRequest
+	start    func(ActionStartRequest, RunnerEventSink) (ActionStartResult, error)
 	cancel   func(ActionCancelRequest) error
 	recover  func(ActionRecoverRequest) ActionRecoverResult
 }
@@ -986,8 +1268,11 @@ func (runner *recordingActionRunner) ValidateConfig(config WorkflowActionConfig)
 	return CodexActionRunnerDescriptor{}.ValidateConfig(config)
 }
 
-func (runner *recordingActionRunner) Start(_ context.Context, request ActionStartRequest, _ RunnerEventSink) (ActionStartResult, error) {
-	return ActionStartResult{RunnerRefs: []WorkflowActionRunnerRef{{Kind: "test.runner", ID: request.NodeExecution.ID}}}, nil
+func (runner *recordingActionRunner) Start(_ context.Context, request ActionStartRequest, sink RunnerEventSink) (ActionStartResult, error) {
+	if runner.start != nil {
+		return runner.start(request, sink)
+	}
+	return ActionStartResult{RunnerRefs: testRunnerRefsForRequest(request)}, nil
 }
 
 func (runner *recordingActionRunner) Cancel(_ context.Context, request ActionCancelRequest) error {

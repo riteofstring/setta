@@ -49,15 +49,6 @@ func (service *Service) validRunsForWorkspaceList(workspaceID string) ([]Run, []
 	return valid, findings, nil
 }
 
-func activeRunIDFromRuns(runs []Run, conversationID string) string {
-	for _, run := range runs {
-		if run.ConversationID == conversationID && run.Status == RunStatusRunning {
-			return run.ID
-		}
-	}
-	return ""
-}
-
 func activeRunFromRuns(runs []Run, conversationID string) (Run, bool) {
 	for _, run := range runs {
 		if run.ConversationID == conversationID && run.Status == RunStatusRunning {
