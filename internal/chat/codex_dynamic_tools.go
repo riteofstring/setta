@@ -53,25 +53,15 @@ func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string) (map[s
 	return params, nil
 }
 
-func codexThreadResumeParams(workspaceRoot string, threadID string, conversation Conversation) map[string]any {
-	params := map[string]any{
+func codexThreadResumeParams(workspaceRoot string, threadID string) map[string]any {
+	return map[string]any{
+		"approvalPolicy":        "on-request",
 		"approvalsReviewer":     "user",
 		"cwd":                   workspaceRoot,
 		"excludeTurns":          true,
 		"runtimeWorkspaceRoots": []string{workspaceRoot},
 		"threadId":              threadID,
 	}
-	applyCodexThreadResumeSettings(params, conversation)
-	return params
-}
-
-func applyCodexThreadResumeSettings(params map[string]any, conversation Conversation) {
-	permission, ok := codexConversationPermissionSettings(conversation)
-	if !ok {
-		return
-	}
-	params["approvalPolicy"] = permission.ApprovalPolicy
-	params["permissions"] = permission.Permissions
 }
 
 func codexDynamicToolSpecs(registry *AgentToolRegistry) ([]codexDynamicToolSpec, error) {

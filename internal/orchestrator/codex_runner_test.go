@@ -505,7 +505,7 @@ func steerWorkflowChatWhenReady(t *testing.T, chatService *chat.Service, workspa
 	deadline := time.Now().Add(2 * time.Second)
 	var lastErr error
 	for time.Now().Before(deadline) {
-		if _, err := chatService.SteerActiveRunInput(workspaceID, conversationID, chat.TextChatInput(prompt)); err == nil {
+		if _, err := chatService.SteerActiveRun(workspaceID, conversationID, prompt); err == nil {
 			return
 		} else {
 			lastErr = err

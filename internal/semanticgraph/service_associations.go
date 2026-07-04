@@ -642,17 +642,9 @@ func chatMessageSummary(message chat.ChatMessage) string {
 func chatRunItemSummary(item chat.RunItem) string {
 	title := strings.TrimSpace(item.Title)
 	if title == "" {
-		if details, ok := item.MCPToolCallDetails(); ok {
-			title = details.DisplayTitle
-		}
-	}
-	if title == "" {
 		title = string(item.Type)
 	}
 	status := item.Status
-	if details, ok := item.MCPToolCallDetails(); ok && details.Error != "" {
-		return fmt.Sprintf("Run item %s %s failed: %s", item.ID, title, shortText(details.Error, semanticEvidenceTextLimit))
-	}
 	if item.Error != "" {
 		return fmt.Sprintf("Run item %s %s failed: %s", item.ID, title, shortText(item.Error, semanticEvidenceTextLimit))
 	}
@@ -660,20 +652,6 @@ func chatRunItemSummary(item chat.RunItem) string {
 }
 
 func runItemEvidenceText(item chat.RunItem) string {
-	if details, ok := item.MCPToolCallDetails(); ok {
-		for _, value := range []string{item.Summary, details.ResultSummary, details.Progress, details.Error} {
-			if strings.TrimSpace(value) != "" {
-				return value
-			}
-		}
-	}
-	if details, ok := item.FileChangeDetails(); ok {
-		for _, value := range []string{item.Summary, chatFileChangeDetailSummary(details)} {
-			if strings.TrimSpace(value) != "" {
-				return value
-			}
-		}
-	}
 	for _, value := range []string{item.Summary, item.Command, item.Result, item.DiffSummary, item.NoticeMessage, item.Error} {
 		if strings.TrimSpace(value) != "" {
 			return value
@@ -685,8 +663,8 @@ func runItemEvidenceText(item chat.RunItem) string {
 func chatMessageText(message chat.ChatMessage) string {
 	parts := make([]string, 0, len(message.Parts))
 	for _, part := range message.Parts {
-		if part.Type == chat.MessagePartText && part.Text != nil && strings.TrimSpace(part.Text.Text) != "" {
-			parts = append(parts, part.Text.Text)
+		if part.Type == chat.MessagePartText && strings.TrimSpace(part.Text) != "" {
+			parts = append(parts, part.Text)
 		}
 	}
 	return strings.Join(parts, "\n")

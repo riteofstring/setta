@@ -5,86 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"setta/internal/semanticcontext"
 	"setta/internal/workspace"
 )
 
 type Harness interface {
-	ResolveCodexEffectiveSettings(context.Context, workspace.WorkspaceSummary, Conversation) (*ChatCodexEffectiveSettings, error)
 	StartTurn(context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
 	SteerTurn(context.Context, SteerRequest) error
 	CancelTurn(context.Context, CancelRequest) error
 	SubmitApproval(context.Context, ApprovalResponse) error
-}
-
-type HarnessRunLivenessReconciler interface {
-	ReconcileRunLiveness(context.Context, HarnessRunLivenessRequest) (HarnessRunLivenessResult, error)
-}
-
-type HarnessRunLivenessRequest struct {
-	RunID          string
-	WorkspaceID    string
-	ConversationID string
-	ThreadID       string
-	TurnID         string
-}
-
-type HarnessThreadRuntimeStatus string
-
-const (
-	HarnessThreadRuntimeActive      HarnessThreadRuntimeStatus = "active"
-	HarnessThreadRuntimeIdle        HarnessThreadRuntimeStatus = "idle"
-	HarnessThreadRuntimeNotLoaded   HarnessThreadRuntimeStatus = "notLoaded"
-	HarnessThreadRuntimeSystemError HarnessThreadRuntimeStatus = "systemError"
-)
-
-type HarnessTurnRuntimeStatus string
-
-const (
-	HarnessTurnRuntimeCompleted   HarnessTurnRuntimeStatus = "completed"
-	HarnessTurnRuntimeFailed      HarnessTurnRuntimeStatus = "failed"
-	HarnessTurnRuntimeInterrupted HarnessTurnRuntimeStatus = "interrupted"
-	HarnessTurnRuntimeInProgress  HarnessTurnRuntimeStatus = "inProgress"
-)
-
-type HarnessRunLivenessResult struct {
-	ThreadID     string
-	ThreadStatus HarnessThreadRuntimeStatus
-	TurnID       string
-	TurnFound    bool
-	TurnStatus   HarnessTurnRuntimeStatus
-	TurnError    string
-}
-
-type HarnessProviderLifecycleError struct {
-	Reason  RunLivenessReason
-	Message string
-	Err     error
-}
-
-func (err *HarnessProviderLifecycleError) Error() string {
-	if err == nil {
-		return "provider lifecycle error"
-	}
-	if err.Message == "" {
-		if err.Err != nil {
-			return err.Err.Error()
-		}
-		return "provider lifecycle error"
-	}
-	if err.Err == nil {
-		return err.Message
-	}
-	return fmt.Sprintf("%s: %v", err.Message, err.Err)
-}
-
-func (err *HarnessProviderLifecycleError) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.Err
 }
 
 type HarnessTaskRunner interface {
@@ -227,23 +157,13 @@ func conversationTaskModel(request TurnRequest) string {
 	return request.Conversation.CodexSettings.Model
 }
 
-// HarnessGoalOperationStarter starts the logical, thread-scoped operation behind
-// /goal set and /goal resume. The returned operation owns the run until the
-// provider goal is terminal, cleared, cancelled, or fails.
-type HarnessGoalOperationStarter interface {
-	BeginGoalOperation(context.Context, HarnessCommandRequest) (HarnessCommandResult, HarnessGoalOperation, error)
+type HarnessGoalContinuationStarter interface {
+	BeginGoalContinuation(context.Context, HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error)
 }
 
-type HarnessGoalOperation interface {
-	// Wait must return promptly when ctx is canceled. Cancel requests provider-side
-	// cancellation; the service still owns the context fallback that unblocks Wait.
+type HarnessGoalContinuation interface {
 	Wait(context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
-	Cancel(context.Context) error
 	Close()
-}
-
-type HarnessGoalOperationCancelDrainer interface {
-	CancelDrainTimeout() time.Duration
 }
 
 type TurnOutcome string
@@ -259,20 +179,11 @@ type TurnCompletion struct {
 	ErrorMessage string
 }
 
-type ProviderTurnError struct {
-	Message           string
-	AdditionalDetails string
-	CodexErrorInfo    json.RawMessage
-	CodexErrorKind    string
-	Retryable         bool
-	StreamFailure     bool
-}
-
 type TurnRequest struct {
 	Workspace       workspace.WorkspaceSummary
 	Conversation    Conversation
 	Run             Run
-	Input           ChatInput
+	Prompt          string
 	SemanticContext *semanticcontext.Delivery
 	ThreadRef       HarnessThreadRef
 }
@@ -289,7 +200,7 @@ type SteerRequest struct {
 	ConversationID  string
 	ThreadID        string
 	TurnID          string
-	Input           ChatInput
+	Text            string
 	SemanticContext *semanticcontext.Delivery
 }
 
@@ -322,30 +233,15 @@ func (err *HarnessRefUnavailableError) Unwrap() error {
 	return err.Err
 }
 
-// BackgroundTerminalSink receives Codex unified-exec lifecycle events that are
-// not scoped to an active run or turn. A background terminal can keep running,
-// emitting output, and finally exit after the assistant turn that started it has
-// completed; those late events arrive on the provider connection when no TurnSink
-// is live. The sink is conversation-scoped and outlives any single turn, so it
-// updates the backend-owned background terminal registry directly. Startup and
-// interaction markers are chronological and stay on the run-scoped TurnSink path;
-// only the run-independent output and completion updates route here.
-type BackgroundTerminalSink interface {
-	BackgroundTerminalOutputDelta(workspaceID string, conversationID string, providerItemID string, providerProcessID string, stream string, text string) error
-	BackgroundTerminalCompleted(workspaceID string, conversationID string, providerItemID string, providerProcessID string, exitCode int, errorMessage string) error
-}
-
 type TurnSink interface {
 	AssistantTextDelta(providerItemID string, text string) error
 	ApprovalRequested(approval ApprovalRequest) error
 	ApprovalResolved(approvalID string, approved bool, response string) error
-	CodexEffectiveSettingsUpdated(settings ChatCodexEffectiveSettings) error
-	ProviderTurnError(providerError ProviderTurnError) error
 	ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error
 	GoalUpdated(goal *ChatGoalState) error
 	RunItemOutputDelta(providerItemID string, stream string, text string) error
 	RunItemUpsert(item RunItem) error
-	ThreadLinked(threadID string, sessionID string, turnID string, settings *ChatCodexEffectiveSettings) error
+	ThreadLinked(threadID string, sessionID string, turnID string) error
 	UserMessageCommitted(text string) error
 	Trace(eventType string, message string) error
 }
