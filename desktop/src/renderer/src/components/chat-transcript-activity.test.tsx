@@ -91,13 +91,60 @@ describe("ChatTranscript activity rows", () => {
     expect(html).toContain("request_1");
     expect(html).toContain("renderer output");
   });
+
+  test("links the active typed plan row to the current-plan surface", () => {
+    const html = renderToString(
+      <TestChatTranscript
+        activeCurrentPlanTarget={{ runId: "run_api", sourceRunItemId: "item_active_plan" }}
+        blocks={[
+          activityBlock({
+            id: "block_stale_plan",
+            runId: "run_api",
+            ordinal: 1,
+            sourceRunItemId: "item_stale_plan",
+            type: "plan",
+            hasDetails: true,
+            details: activityDetails({
+              plan: {
+                explanation: "",
+                steps: [{ status: "completed", step: "Historical plan" }],
+              },
+            }),
+          }),
+          activityBlock({
+            id: "block_active_plan",
+            runId: "run_api",
+            ordinal: 2,
+            sourceRunItemId: "item_active_plan",
+            type: "plan",
+            hasDetails: true,
+            details: activityDetails({
+              plan: {
+                explanation: "Planning the active turn.",
+                steps: [{ status: "inProgress", step: "Open the current-plan surface" }],
+              },
+            }),
+          }),
+        ]}
+        focusedSourceRunItemId="item_active_plan"
+        runItemOutputs={[]}
+      />,
+    );
+
+    expect(rowCount(html, "activity-group-member-row")).toBe(2);
+    expect(rowCount(html, "open-current-plan-surface")).toBe(1);
+    expect(html).toContain("Open the current-plan surface");
+    expect(html).toContain('aria-label="Open current plan"');
+  });
 });
 
 function TestChatTranscript({
+  activeCurrentPlanTarget = null,
   blocks,
   focusedSourceRunItemId,
   runItemOutputs,
 }: {
+  activeCurrentPlanTarget?: { runId: string; sourceRunItemId: string } | null;
   blocks: TranscriptBlock[];
   focusedSourceRunItemId: string;
   runItemOutputs: RunItemOutput[];
@@ -107,6 +154,7 @@ function TestChatTranscript({
     <ChatTranscript
       activeRun={null}
       activeRunLiveness={null}
+      activeCurrentPlanTarget={activeCurrentPlanTarget}
       blocks={blocks}
       editQueuedMessage={noop}
       editingQueuedMessageId={null}
@@ -123,6 +171,7 @@ function TestChatTranscript({
       runItemOutputPagesByRunItemId={{}}
       runItemOutputsById={outputMaps.runItemOutputsById}
       sendSteeringImmediately={noop}
+      onOpenCurrentPlanSurface={() => {}}
       submitApproval={noop}
     />
   );

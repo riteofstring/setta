@@ -15,6 +15,15 @@ interface CurrentPlanModel {
   sourceRunItemId: string;
 }
 
+export interface CurrentPlanSurfaceTarget {
+  runId: string;
+  sourceRunItemId: string;
+}
+
+export interface CurrentPlanSurfaceOpenRequest extends CurrentPlanSurfaceTarget {
+  requestId: number;
+}
+
 interface CurrentPlanCandidate extends CurrentPlanModel {
   ordinal: number;
 }
@@ -32,12 +41,20 @@ interface CurrentPlanInteractionState {
   hovered: boolean;
 }
 
-export function CurrentPlanSurface({ chat }: { chat: ChatView }) {
+export function CurrentPlanSurface({
+  chat,
+  openRequest = null,
+}: {
+  chat: ChatView;
+  openRequest?: CurrentPlanSurfaceOpenRequest | null;
+}) {
   const selectedConversationId = chat.selectedConversation?.id ?? "";
   const activePlan = useMemo(
     () => currentPlanFromTranscript(chat.transcriptBlocks, chat.activeRun),
     [chat.activeRun, chat.transcriptBlocks],
   );
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const footerButtonRef = useRef<HTMLButtonElement>(null);
   const [surfacePlan, setSurfacePlan] = useState<CurrentPlanSurfaceModel | null>(() =>
     nextCurrentPlanSurfaceModel(null, selectedConversationId, activePlan),
   );
@@ -46,16 +63,18 @@ export function CurrentPlanSurface({ chat }: { chat: ChatView }) {
   const [focused, setFocused] = useState(false);
   const [completionDwellElapsed, setCompletionDwellElapsed] = useState(false);
   const surfaceKey = currentPlanSurfaceKey(surfacePlan);
-  const canDismissCompletedPlan = canDismissCompletedCurrentPlan({
-    expanded,
-    focused,
-    hovered,
-  });
-  const canDismissCompletedPlanRef = useRef(canDismissCompletedPlan);
 
   useEffect(() => {
     setExpanded(false);
   }, [surfaceKey]);
+
+  useCurrentPlanSurfaceOpenRequest({
+    footerButtonRef,
+    openRequest,
+    setExpanded,
+    surfacePlan,
+    surfaceRef,
+  });
 
   useEffect(() => {
     setSurfacePlan((current) => {
@@ -65,43 +84,13 @@ export function CurrentPlanSurface({ chat }: { chat: ChatView }) {
     });
   }, [activePlan, chat.runsById, selectedConversationId]);
 
-  useEffect(() => {
-    setCompletionDwellElapsed(false);
-  }, [
-    surfacePlan?.conversationId,
-    surfacePlan?.phase,
-    surfacePlan?.runId,
-    surfacePlan?.sourceRunItemId,
-  ]);
-
-  useEffect(() => {
-    canDismissCompletedPlanRef.current = canDismissCompletedPlan;
-  }, [canDismissCompletedPlan]);
-
-  useEffect(() => {
-    if (surfacePlan?.phase !== "complete") {
-      return;
-    }
-    const planToDismiss = surfacePlan;
-    const timeout = window.setTimeout(() => {
-      if (!canDismissCompletedPlanRef.current) {
-        setCompletionDwellElapsed(true);
-        return;
-      }
-      setSurfacePlan((current) =>
-        sameCurrentPlanSurface(current, planToDismiss) ? null : current,
-      );
-    }, currentPlanCompletionDwellMs);
-    return () => window.clearTimeout(timeout);
-  }, [surfacePlan]);
-
-  useEffect(() => {
-    if (!completionDwellElapsed || surfacePlan?.phase !== "complete" || !canDismissCompletedPlan) {
-      return;
-    }
-    const planToDismiss = surfacePlan;
-    setSurfacePlan((current) => (sameCurrentPlanSurface(current, planToDismiss) ? null : current));
-  }, [canDismissCompletedPlan, completionDwellElapsed, surfacePlan]);
+  useCurrentPlanCompletionDwell({
+    canDismissCompletedPlan: canDismissCompletedCurrentPlan({ expanded, focused, hovered }),
+    completionDwellElapsed,
+    setCompletionDwellElapsed,
+    setSurfacePlan,
+    surfacePlan,
+  });
 
   if (surfacePlan === null) {
     return null;
@@ -131,6 +120,7 @@ export function CurrentPlanSurface({ chat }: { chat: ChatView }) {
       onFocusCapture={() => setFocused(true)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      ref={surfaceRef}
     >
       {expanded ? <CurrentPlanExpanded plan={surfacePlan.plan} /> : null}
       <div
@@ -143,6 +133,7 @@ export function CurrentPlanSurface({ chat }: { chat: ChatView }) {
           aria-label={toggleLabel}
           className="flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
           onClick={() => setExpanded((open) => !open)}
+          ref={footerButtonRef}
           title={toggleLabel}
           type="button"
         >
@@ -157,6 +148,92 @@ export function CurrentPlanSurface({ chat }: { chat: ChatView }) {
       </div>
     </div>
   );
+}
+
+function useCurrentPlanSurfaceOpenRequest({
+  footerButtonRef,
+  openRequest,
+  setExpanded,
+  surfacePlan,
+  surfaceRef,
+}: {
+  footerButtonRef: { current: HTMLButtonElement | null };
+  openRequest: CurrentPlanSurfaceOpenRequest | null;
+  setExpanded: (expanded: boolean) => void;
+  surfacePlan: CurrentPlanSurfaceModel | null;
+  surfaceRef: { current: HTMLDivElement | null };
+}) {
+  const handledOpenRequestIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      openRequest === null ||
+      handledOpenRequestIdRef.current === openRequest.requestId ||
+      !currentPlanSurfaceMatchesOpenRequest(surfacePlan, openRequest)
+    ) {
+      return;
+    }
+    handledOpenRequestIdRef.current = openRequest.requestId;
+    setExpanded(true);
+    surfaceRef.current?.scrollIntoView({ block: "nearest" });
+    footerButtonRef.current?.focus();
+  }, [footerButtonRef, openRequest, setExpanded, surfacePlan, surfaceRef]);
+}
+
+function useCurrentPlanCompletionDwell({
+  canDismissCompletedPlan,
+  completionDwellElapsed,
+  setCompletionDwellElapsed,
+  setSurfacePlan,
+  surfacePlan,
+}: {
+  canDismissCompletedPlan: boolean;
+  completionDwellElapsed: boolean;
+  setCompletionDwellElapsed: (elapsed: boolean) => void;
+  setSurfacePlan: (
+    update: (current: CurrentPlanSurfaceModel | null) => CurrentPlanSurfaceModel | null,
+  ) => void;
+  surfacePlan: CurrentPlanSurfaceModel | null;
+}) {
+  const canDismissCompletedPlanRef = useRef(canDismissCompletedPlan);
+
+  useEffect(() => {
+    setCompletionDwellElapsed(false);
+  }, [
+    setCompletionDwellElapsed,
+    surfacePlan?.conversationId,
+    surfacePlan?.phase,
+    surfacePlan?.runId,
+    surfacePlan?.sourceRunItemId,
+  ]);
+
+  useEffect(() => {
+    canDismissCompletedPlanRef.current = canDismissCompletedPlan;
+  }, [canDismissCompletedPlan]);
+
+  useEffect(() => {
+    if (surfacePlan?.phase !== "complete") {
+      return;
+    }
+    const planToDismiss = surfacePlan;
+    const timeout = window.setTimeout(() => {
+      if (!canDismissCompletedPlanRef.current) {
+        setCompletionDwellElapsed(true);
+        return;
+      }
+      setSurfacePlan((current) =>
+        sameCurrentPlanSurface(current, planToDismiss) ? null : current,
+      );
+    }, currentPlanCompletionDwellMs);
+    return () => window.clearTimeout(timeout);
+  }, [setCompletionDwellElapsed, setSurfacePlan, surfacePlan]);
+
+  useEffect(() => {
+    if (!completionDwellElapsed || surfacePlan?.phase !== "complete" || !canDismissCompletedPlan) {
+      return;
+    }
+    const planToDismiss = surfacePlan;
+    setSurfacePlan((current) => (sameCurrentPlanSurface(current, planToDismiss) ? null : current));
+  }, [canDismissCompletedPlan, completionDwellElapsed, setSurfacePlan, surfacePlan]);
 }
 
 export function currentPlanFromTranscript(
@@ -425,6 +502,18 @@ function sameCurrentPlanSurface(
     current.runId === expected.runId &&
     current.sourceRunItemId === expected.sourceRunItemId &&
     current.phase === expected.phase
+  );
+}
+
+function currentPlanSurfaceMatchesOpenRequest(
+  surfacePlan: CurrentPlanSurfaceModel | null,
+  openRequest: CurrentPlanSurfaceOpenRequest,
+) {
+  return (
+    surfacePlan !== null &&
+    surfacePlan.phase === "active" &&
+    surfacePlan.runId === openRequest.runId &&
+    surfacePlan.sourceRunItemId === openRequest.sourceRunItemId
   );
 }
 

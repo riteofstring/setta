@@ -449,8 +449,10 @@ async function runProtocolCurrentPlanWorkflow(client, backend, workspaceId) {
     runId: run.id,
     stepCount: "3",
   });
+  await openCurrentPlanSurfaceFromTranscriptRow(client, initial.runItemId);
   await assertCurrentPlanExpanded(client, {
     explanation: "Planning the current active turn.",
+    expand: false,
     statuses: ["completed", "inProgress", "pending"],
   });
 
@@ -584,10 +586,59 @@ function currentPlanSurfaceHeading(phase) {
   return phase === "complete" ? "Plan complete" : "Current plan";
 }
 
-async function assertCurrentPlanExpanded(client, { explanation, statuses }) {
-  await client.evaluate(
-    `document.querySelector('[data-testid="current-plan-footer"] button')?.click()`,
+async function openCurrentPlanSurfaceFromTranscriptRow(client, sourceRunItemId) {
+  await openProtocolActivityRow(client, sourceRunItemId);
+  const clicked = await client.evaluate(`(() => {
+    const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+    const row = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'))
+      .find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+    const button = row?.querySelector('[data-testid="open-current-plan-surface"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      const surface = document.querySelector('[data-testid="current-plan-surface"]');
+      const detail = document.querySelector('[data-testid="chat-detail-pane"]');
+      return {
+        ok: false,
+        reason: "missing-button",
+        runStatus: detail?.getAttribute("data-run-status") ?? "",
+        currentPlanSurfaceRunId: surface?.getAttribute("data-run-id") ?? "",
+        currentPlanSurfaceRunItemId: surface?.getAttribute("data-run-item-id") ?? "",
+        rowRunId: row?.getAttribute("data-run-id") ?? "",
+        rowRunItemId: row?.getAttribute("data-run-item-id") ?? "",
+        rowText: row instanceof HTMLElement ? row.innerText : "",
+      };
+    }
+    button.click();
+    const footerButton = document.querySelector('[data-testid="current-plan-footer"] button');
+    const surface = document.querySelector('[data-testid="current-plan-surface"]');
+    return {
+      expanded: surface?.getAttribute("data-expanded") ?? "",
+      focused: document.activeElement === footerButton,
+      ok: true,
+    };
+  })()`);
+  if (!clicked.ok) {
+    throw new Error(`current plan row action was unavailable: ${JSON.stringify(clicked)}`);
+  }
+  await waitForState(
+    client,
+    `(() => {
+      const surface = document.querySelector('[data-testid="current-plan-surface"]');
+      const footerButton = document.querySelector('[data-testid="current-plan-footer"] button');
+      return {
+        expanded: surface?.getAttribute("data-expanded") ?? "",
+        focused: document.activeElement === footerButton,
+      };
+    })()`,
+    (value) => value.expanded === "true" && value.focused,
   );
+}
+
+async function assertCurrentPlanExpanded(client, { explanation, expand = true, statuses }) {
+  if (expand) {
+    await client.evaluate(
+      `document.querySelector('[data-testid="current-plan-footer"] button')?.click()`,
+    );
+  }
   await waitForState(
     client,
     `(() => {

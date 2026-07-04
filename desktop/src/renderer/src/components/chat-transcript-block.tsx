@@ -32,6 +32,7 @@ import {
 import { ReasoningBlock } from "./chat-transcript-reasoning-block";
 import { LiveHeadlineText } from "./live-headline-text";
 import type { TranscriptRowActions } from "./chat-transcript-row-actions";
+import type { CurrentPlanSurfaceTarget } from "./chat-current-plan-surface";
 
 // Shared, render-scoped context every transcript row needs: search highlight,
 // message-row actions, the lifted activity expand state (so the group slot can
@@ -40,6 +41,7 @@ import type { TranscriptRowActions } from "./chat-transcript-row-actions";
 export interface TranscriptRowContext {
   activeSearchId: string | null;
   activeRunLiveness: RunLiveness | null;
+  activeCurrentPlanTarget: CurrentPlanSurfaceTarget | null;
   rowActions: TranscriptRowActions;
   expandedActivityBlockIds: Set<string>;
   expandedActivityGroupIds: Set<string>;
@@ -50,6 +52,7 @@ export interface TranscriptRowContext {
   outputIdsByRunItemId: Record<string, string[]>;
   outputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   outputsById: Record<string, RunItemOutput>;
+  onOpenCurrentPlanSurface: (target: CurrentPlanSurfaceTarget) => void;
 }
 
 // TranscriptRenderRowView renders one virtual transcript row. Activity rows and
@@ -157,7 +160,9 @@ function ActivityItemRowSlot({
           block={row.block}
           expanded={context.expandedActivityBlockIds.has(row.block.id)}
           focused={focused}
+          activeCurrentPlanTarget={context.activeCurrentPlanTarget}
           loadRunItemOutput={context.loadRunItemOutput}
+          onOpenCurrentPlanSurface={context.onOpenCurrentPlanSurface}
           onExpandedChange={(open) => context.setActivityRowExpanded(row.block.id, open)}
           outputPage={context.outputPagesByRunItemId[sourceRunItemId]}
           outputs={activityRowOutputs(

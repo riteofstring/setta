@@ -1,14 +1,18 @@
 import type { ChatInput, ChatMessage, TranscriptBlock, WorkspaceSummary } from "@generated/backend";
 import { AlertTriangle, Check, Maximize2, Minimize2 } from "lucide-react";
 import { Square } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
 import type { QueuedRun } from "../stores/chat-store-normalization";
 import { activeRunPresentation } from "../lib/chat-run-liveness";
 import { cn } from "../lib/utils";
 import { Composer } from "./chat-composer";
-import { CurrentPlanSurface } from "./chat-current-plan-surface";
+import {
+  CurrentPlanSurface,
+  type CurrentPlanSurfaceOpenRequest,
+  type CurrentPlanSurfaceTarget,
+} from "./chat-current-plan-surface";
 import {
   chatReadableColumnAttributes,
   chatReadableColumnClass,
@@ -100,6 +104,14 @@ function ChatWorkspace({
   const composerBusy = switchingWorkspace || isComposerBusy(chat);
   const running = !switchingWorkspace && runPresentation.running;
   const detail = chatWorkspaceDetailAttributes(chat, switchingWorkspace, workspaceId);
+  const [currentPlanOpenRequest, setCurrentPlanOpenRequest] =
+    useState<CurrentPlanSurfaceOpenRequest | null>(null);
+  const openCurrentPlanSurface = useCallback((target: CurrentPlanSurfaceTarget) => {
+    setCurrentPlanOpenRequest((current) => ({
+      ...target,
+      requestId: (current?.requestId ?? 0) + 1,
+    }));
+  }, []);
 
   return (
     <section
@@ -121,11 +133,16 @@ function ChatWorkspace({
       >
         <ConversationBody
           chat={chat}
+          onOpenCurrentPlanSurface={openCurrentPlanSurface}
           searchOpen={searchOpen}
           setSearchOpen={setSearchOpen}
           switchingWorkspace={switchingWorkspace}
         />
-        <ActiveWorkStack chat={chat} switchingWorkspace={switchingWorkspace} />
+        <ActiveWorkStack
+          chat={chat}
+          openCurrentPlanRequest={currentPlanOpenRequest}
+          switchingWorkspace={switchingWorkspace}
+        />
         <ChatError message={selectedConversationChatError(chat)} />
         <ComposerSlot
           blocked={blocked}
@@ -141,14 +158,18 @@ function ChatWorkspace({
 
 function ActiveWorkStack({
   chat,
+  openCurrentPlanRequest,
   switchingWorkspace,
 }: {
   chat: ChatView;
+  openCurrentPlanRequest: CurrentPlanSurfaceOpenRequest | null;
   switchingWorkspace: boolean;
 }) {
   return (
     <div className="contents" data-testid="chat-active-work-stack">
-      {switchingWorkspace ? null : <CurrentPlanSurface chat={chat} />}
+      {switchingWorkspace ? null : (
+        <CurrentPlanSurface chat={chat} openRequest={openCurrentPlanRequest} />
+      )}
       <BackgroundTerminalSurface chat={chat} />
     </div>
   );
@@ -267,11 +288,13 @@ function ComposerSlot({
 
 export function ConversationBody({
   chat,
+  onOpenCurrentPlanSurface,
   searchOpen,
   setSearchOpen,
   switchingWorkspace = false,
 }: {
   chat: ChatView;
+  onOpenCurrentPlanSurface?: (target: CurrentPlanSurfaceTarget) => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
   switchingWorkspace?: boolean;
@@ -315,6 +338,7 @@ export function ConversationBody({
           searchOpen={searchOpen}
           sendSteeringImmediately={chat.sendSteeringImmediately}
           setSearchOpen={setSearchOpen}
+          onOpenCurrentPlanSurface={onOpenCurrentPlanSurface}
           submitApproval={chat.submitApproval}
         />
       </div>

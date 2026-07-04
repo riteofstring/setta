@@ -20,6 +20,23 @@ describe("ActivityPlanDetails", () => {
     expect(html).toContain("Implement the typed contract");
     expect(html).toContain("Pending");
     expect(html).toContain("Render the active surface");
+    expect(html).not.toContain('data-testid="open-current-plan-surface"');
+  });
+
+  test("renders current-plan surface action for active plan details", () => {
+    const html = renderToString(
+      <ActivityPlanDetails
+        currentPlanSurfaceAction={{
+          onOpenCurrentPlanSurface: () => {},
+          runId: "run_plan",
+          sourceRunItemId: "run_item_plan",
+        }}
+        details={planDetails()}
+      />,
+    );
+
+    expect(html).toContain('data-testid="open-current-plan-surface"');
+    expect(html).toContain('aria-label="Open current plan"');
   });
 });
 

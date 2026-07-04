@@ -25,6 +25,11 @@ import { memo, useEffect, useMemo, useRef, useState, type RefObject } from "reac
 import { highlightCode } from "../lib/syntax-highlight";
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
+import {
+  currentPlanSurfaceActionForActivity,
+  type CurrentPlanSurfaceAction,
+} from "./chat-current-plan-surface-action";
+import type { CurrentPlanSurfaceTarget } from "./chat-current-plan-surface";
 import { BrailleSpinner } from "./ascii-spinner";
 import {
   ActivityCommandExecutionDetails,
@@ -105,9 +110,11 @@ interface ActivityRowOutputProps {
 }
 
 interface ActivityItemRowProps extends ActivityRowOutputProps {
+  activeCurrentPlanTarget?: CurrentPlanSurfaceTarget | null;
   block: TranscriptBlock;
   expanded: boolean;
   focused?: boolean;
+  onOpenCurrentPlanSurface?: (target: CurrentPlanSurfaceTarget) => void;
   onExpandedChange: (open: boolean) => void;
 }
 
@@ -115,10 +122,12 @@ interface ActivityItemRowProps extends ActivityRowOutputProps {
 // by the transcript so the derived group slot can bulk expand/collapse rows that
 // virtualization has not mounted yet, and so a deep link can reveal one row.
 export const ActivityItemRow = memo(function ActivityItemRow({
+  activeCurrentPlanTarget = null,
   block,
   expanded,
   focused = false,
   loadRunItemOutput,
+  onOpenCurrentPlanSurface = () => {},
   onExpandedChange,
   outputPage,
   outputs,
@@ -130,10 +139,12 @@ export const ActivityItemRow = memo(function ActivityItemRow({
   return (
     <ActivityRowView
       activity={activity}
+      activeCurrentPlanTarget={activeCurrentPlanTarget}
       blockKind="activity_item"
       expanded={expanded}
       focused={focused}
       loadRunItemOutput={loadRunItemOutput}
+      onOpenCurrentPlanSurface={onOpenCurrentPlanSurface}
       onExpandedChange={onExpandedChange}
       outputPage={outputPage}
       outputs={outputs}
@@ -147,7 +158,9 @@ function activityItemRowPropsEqual(previous: ActivityItemRowProps, next: Activit
     previous.block === next.block &&
     previous.expanded === next.expanded &&
     previous.focused === next.focused &&
+    previous.activeCurrentPlanTarget === next.activeCurrentPlanTarget &&
     previous.loadRunItemOutput === next.loadRunItemOutput &&
+    previous.onOpenCurrentPlanSurface === next.onOpenCurrentPlanSurface &&
     previous.onExpandedChange === next.onExpandedChange &&
     previous.outputPage === next.outputPage &&
     sameOutputs(previous.outputs, next.outputs)
@@ -289,20 +302,24 @@ function filePathsDisplayLabel(paths: string[]) {
 
 function ActivityRowView({
   activity,
+  activeCurrentPlanTarget,
   blockKind,
   expanded,
   focused,
   loadRunItemOutput,
+  onOpenCurrentPlanSurface,
   onExpandedChange,
   outputPage,
   outputs,
   runId,
 }: ActivityRowOutputProps & {
+  activeCurrentPlanTarget?: CurrentPlanSurfaceTarget | null;
   activity: ActivityItemBlockProjection;
   blockKind: "activity_item" | undefined;
   expanded: boolean;
   focused: boolean;
   onExpandedChange: (open: boolean) => void;
+  onOpenCurrentPlanSurface?: (target: CurrentPlanSurfaceTarget) => void;
   runId: string;
 }) {
   const rowRef = useRef<HTMLDetailsElement>(null);
@@ -323,6 +340,12 @@ function ActivityRowView({
   }
   const renderDetails = shouldRenderActivityDetails(expanded, focused);
   const outputText = renderDetails ? outputPreview(outputs) : "";
+  const currentPlanSurfaceAction = currentPlanSurfaceActionForActivity({
+    activeCurrentPlanTarget,
+    activity,
+    onOpenCurrentPlanSurface,
+    runId,
+  });
   return (
     <details
       className={cn(
@@ -361,6 +384,7 @@ function ActivityRowView({
       </summary>
       {renderDetails ? (
         <ActivityDetails
+          currentPlanSurfaceAction={currentPlanSurfaceAction}
           details={activity.details}
           loadMoreOutput={() =>
             void loadRunItemOutput(runId, activity.sourceRunItemId, outputPage?.nextOrdinal ?? 0)
@@ -600,11 +624,13 @@ function LocalActivityRow({
 }
 
 function ActivityDetails({
+  currentPlanSurfaceAction,
   details,
   loadMoreOutput,
   outputPage,
   outputText,
 }: {
+  currentPlanSurfaceAction: CurrentPlanSurfaceAction | null;
   details: RunActivityDetailsProjection;
   loadMoreOutput: () => void;
   outputPage: RunItemOutputPageState | undefined;
@@ -634,7 +660,10 @@ function ActivityDetails({
         <ActivityCommandStartFailureDetails details={details} />
         <ActivityFileChangeDetails details={details} />
         <ActivityDiffDetails details={details} />
-        <ActivityPlanDetails details={details} />
+        <ActivityPlanDetails
+          currentPlanSurfaceAction={currentPlanSurfaceAction}
+          details={details}
+        />
         <ActivityApprovalDetails details={details} />
         <ActivityProviderStreamLifecycleDetails details={details} />
         <ActivityTextBlock title="Notice" value={details.noticeMessage} />

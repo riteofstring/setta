@@ -913,6 +913,47 @@ Remaining work:
 - The prior live Electron semantic-cartographer timeout was outside this
   terminal-dwell slice and was not rerun during this follow-up audit.
 
+### 2026-07-03: Current-Plan Transcript Row Link
+
+Implemented the remaining focused Phase 8 row-to-surface path:
+
+- added a typed renderer request from an active chronological plan row to the
+  current-plan surface, scoped by run ID and source run item ID;
+- rendered a compact icon action only on the active typed plan row, leaving
+  historical plan rows as passive chronological transcript anchors;
+- made the current-plan surface expand, scroll into view, and focus its footer
+  control when the matching active plan row requests it;
+- kept the target derivation inside the transcript from typed active-run and
+  typed plan details rather than parsing text or adding a renderer-only
+  compatibility path;
+- extended the Codex protocol Electron workflow so the fake provider opens the
+  current-plan surface from the transcript plan row before continuing the
+  in-place update and completion dwell assertions.
+
+Verification performed:
+
+- `pnpm vitest run src/renderer/src/components/chat-transcript-activity-details.test.tsx src/renderer/src/components/chat-transcript-activity.test.tsx src/renderer/src/components/chat-panel.test.tsx`
+- `pnpm build`
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Verification blocker:
+
+- `./scripts/test_chat_workflows.sh --skip-build --deterministic-only` was
+  attempted twice after the rebuild. Both runs failed in the existing
+  transcript-scroll tolerance-band detach case before reaching later subcases:
+  `transcript did not detach inside bottom tolerance band`. The focused
+  production Codex protocol workflow covering this slice passed.
+
+Remaining work:
+
+- No known current-plan transcript-row product gap remains.
+- The deterministic transcript-scroll gate failure remains outside this slice
+  and should be handled as scroll-follow workflow work, not as a plan-row link
+  change.
+
 ## Open Decisions
 
 - Is there any implementation case that truly requires a public non-alarming
@@ -923,8 +964,6 @@ Remaining work:
 - Which typed evidence should count as enough to preserve working state:
   matching active run, active-turn provider refs, current `RunLivenessAttached`,
   explicit provider reconciliation result, or a combination of those fields?
-- Should clicking a chronological plan row open the current-plan surface when
-  the run is active, or only focus the transcript row?
 
 ## Success Criteria
 

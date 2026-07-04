@@ -1,8 +1,16 @@
 import type { RunActivityDetailsProjection } from "@generated/backend";
+import { ListChecks } from "lucide-react";
 
 import { cn } from "../lib/utils";
+import type { CurrentPlanSurfaceAction } from "./chat-current-plan-surface-action";
 
-export function ActivityPlanDetails({ details }: { details: RunActivityDetailsProjection }) {
+export function ActivityPlanDetails({
+  currentPlanSurfaceAction = null,
+  details,
+}: {
+  currentPlanSurfaceAction?: CurrentPlanSurfaceAction | null;
+  details: RunActivityDetailsProjection;
+}) {
   const plan = details.plan;
   if (plan === null) {
     return null;
@@ -16,7 +24,12 @@ export function ActivityPlanDetails({ details }: { details: RunActivityDetailsPr
           data-activity-detail-section="Plan Steps"
           data-activity-detail-kind="plan"
         >
-          <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">Plan Steps</h4>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">
+              Plan Steps
+            </h4>
+            <ActivityCurrentPlanSurfaceButton action={currentPlanSurfaceAction} />
+          </div>
           <ol className="mt-1 space-y-1 border-l border-border pl-3">
             {plan.steps.map((step, index) => (
               <li
@@ -40,8 +53,33 @@ export function ActivityPlanDetails({ details }: { details: RunActivityDetailsPr
             ))}
           </ol>
         </section>
-      ) : null}
+      ) : (
+        <ActivityCurrentPlanSurfaceButton action={currentPlanSurfaceAction} />
+      )}
     </>
+  );
+}
+
+function ActivityCurrentPlanSurfaceButton({ action }: { action: CurrentPlanSurfaceAction | null }) {
+  if (action === null) {
+    return null;
+  }
+  return (
+    <button
+      aria-label="Open current plan"
+      className="inline-grid h-6 w-6 shrink-0 place-items-center rounded-sm border border-border text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:text-foreground"
+      data-testid="open-current-plan-surface"
+      onClick={() =>
+        action.onOpenCurrentPlanSurface({
+          runId: action.runId,
+          sourceRunItemId: action.sourceRunItemId,
+        })
+      }
+      title="Open current plan"
+      type="button"
+    >
+      <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />
+    </button>
   );
 }
 

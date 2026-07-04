@@ -39,12 +39,17 @@ import { ChatSearchBar, useTranscriptSearch } from "./chat-transcript-search";
 import type { LoadRunItemOutput } from "./chat-transcript-activity";
 import type { TranscriptRowActions } from "./chat-transcript-row-actions";
 import { transcriptTailRevision, useTranscriptScrollFollow } from "./chat-transcript-scroll-follow";
+import {
+  currentPlanFromTranscript,
+  type CurrentPlanSurfaceTarget,
+} from "./chat-current-plan-surface";
 
 type TranscriptActivityApprovalDetails = NonNullable<RunActivityDetailsProjection["approval"]>;
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
   activeRunLiveness: RunLiveness | null;
+  activeCurrentPlanTarget?: CurrentPlanSurfaceTarget | null;
   blocks: TranscriptBlock[];
   editQueuedMessage: (messageId: string, input: ChatInput) => Promise<void>;
   editingQueuedMessageId: string | null;
@@ -63,6 +68,7 @@ export interface ChatTranscriptProps {
   searchOpen?: boolean;
   sendSteeringImmediately: (input?: ChatInput) => Promise<void>;
   setSearchOpen?: (open: boolean) => void;
+  onOpenCurrentPlanSurface?: (target: CurrentPlanSurfaceTarget) => void;
   submitApproval: SubmitApproval;
 }
 
@@ -371,6 +377,7 @@ function messagePartsText(parts: MessagePart[]) {
 export function ChatTranscript({
   activeRun,
   activeRunLiveness,
+  activeCurrentPlanTarget = null,
   blocks,
   editQueuedMessage,
   editingQueuedMessageId,
@@ -389,6 +396,7 @@ export function ChatTranscript({
   searchOpen = false,
   sendSteeringImmediately,
   setSearchOpen = () => {},
+  onOpenCurrentPlanSurface = () => {},
   submitApproval,
 }: ChatTranscriptProps) {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
@@ -404,6 +412,10 @@ export function ChatTranscript({
     previousFirstKey: string | null;
     previousLength: number;
   } | null>(null);
+  const resolvedActiveCurrentPlanTarget = useMemo(
+    () => activeCurrentPlanTarget ?? currentPlanSurfaceTargetFromTranscript(blocks, activeRun),
+    [activeCurrentPlanTarget, activeRun, blocks],
+  );
 
   const focusedActivitySourceRunItemIds = useMemo(
     () => (focusedSourceRunItemId ? new Set([focusedSourceRunItemId]) : undefined),
@@ -537,6 +549,7 @@ export function ChatTranscript({
     () => ({
       activeSearchId: search.activeSearchId,
       activeRunLiveness,
+      activeCurrentPlanTarget: resolvedActiveCurrentPlanTarget,
       expandedActivityBlockIds,
       expandedActivityGroupIds,
       focusedSourceRunItemId,
@@ -544,6 +557,7 @@ export function ChatTranscript({
       outputIdsByRunItemId: runItemOutputIdsByRunItemId,
       outputPagesByRunItemId: runItemOutputPagesByRunItemId,
       outputsById: runItemOutputsById,
+      onOpenCurrentPlanSurface,
       rowActions,
       setActivityGroupExpanded,
       setActivityRowExpanded,
@@ -558,6 +572,8 @@ export function ChatTranscript({
       runItemOutputIdsByRunItemId,
       runItemOutputPagesByRunItemId,
       runItemOutputsById,
+      onOpenCurrentPlanSurface,
+      resolvedActiveCurrentPlanTarget,
       search.activeSearchId,
       setActivityGroupExpanded,
       setActivityRowExpanded,
@@ -680,6 +696,20 @@ export function ChatTranscript({
       />
     </div>
   );
+}
+
+function currentPlanSurfaceTargetFromTranscript(
+  blocks: TranscriptBlock[],
+  activeRun: Run | null,
+): CurrentPlanSurfaceTarget | null {
+  const plan = currentPlanFromTranscript(blocks, activeRun);
+  if (plan === null) {
+    return null;
+  }
+  return {
+    runId: plan.runId,
+    sourceRunItemId: plan.sourceRunItemId,
+  };
 }
 
 function withIdsExpanded(current: Set<string>, blockIds: string[], open: boolean) {
