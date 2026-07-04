@@ -58,6 +58,7 @@ func TestRunItemTypedDetailsRejectLegacyFlatFields(t *testing.T) {
 			base: validDiffRunItem,
 			fields: []flatFieldMutation{
 				flatSliceFieldMutation("diff", "filePaths", func(item *RunItem) { item.FilePaths = []string{"legacy.go"} }),
+				flatStringFieldMutation("diff", "patchStatus", func(item *RunItem) { item.PatchStatus = "legacy_status" }),
 				flatStringFieldMutation("diff", "diffSummary", func(item *RunItem) { item.DiffSummary = "legacy summary" }),
 				rawDetailsMutation("diff"),
 			},

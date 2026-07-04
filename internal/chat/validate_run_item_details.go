@@ -263,6 +263,9 @@ func validateRunItemDiffFlatFieldsEmpty(item RunItem) error {
 	if len(item.FilePaths) != 0 {
 		return fmt.Errorf("run item %s diff flat filePaths must be empty after typed details cutover", item.ID)
 	}
+	if item.PatchStatus != "" {
+		return fmt.Errorf("run item %s diff flat patchStatus must be empty after typed details cutover", item.ID)
+	}
 	if item.DiffSummary != "" {
 		return fmt.Errorf("run item %s diff flat diffSummary must be empty after typed details cutover", item.ID)
 	}

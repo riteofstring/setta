@@ -764,6 +764,8 @@ Status after the tool and file activity rendering step:
 - Done: validation coverage now asserts the no-dual-source contract for the
   cut-over activity families by rejecting legacy flat fields and raw details
   alongside typed details.
+- Done: audit follow-up closed a missed diff validation gap, so typed diff
+  rows also reject legacy flat `patchStatus`.
 - Remaining: no known Slice 4 Setta implementation gap.
 
 ### Slice 5: Image Attachment Variants
