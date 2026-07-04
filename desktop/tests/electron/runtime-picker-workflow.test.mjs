@@ -10,6 +10,14 @@ import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
+  focusTerminal,
+  openTerminalFromShortcut,
+  sendTerminalCommand,
+  terminalSnapshotExpression,
+  waitForTerminalReady,
+  waitForTerminalText,
+} from "./terminal-workflow-helpers.mjs";
+import {
   assertBuildExists,
   captureScreenshot,
   clickButtonByAria,
@@ -27,6 +35,8 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
 const workflowTimeoutMs = 45_000;
+const localTerminalOutput = "SETTA_RUNTIME_PICKER_LOCAL_TERMINAL";
+const remoteTerminalOutput = "SETTA_RUNTIME_PICKER_REMOTE_TERMINAL";
 const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = options.keepArtifacts
@@ -68,6 +78,14 @@ try {
     throw new Error(`local runtime missing: ${JSON.stringify(initial)}`);
   }
 
+  await openWorkspaceFromSidebar(context.client);
+  const localWorkspace = await waitForSelectedWorkspaceLayout(context.client);
+  await openTerminalFromShortcut(context.client, workflowTimeoutMs);
+  await focusTerminal(context.client, workflowTimeoutMs);
+  const localTerminal = await waitForTerminalReady(context.client, workflowTimeoutMs);
+  await sendTerminalCommand(context.client, `printf '${localTerminalOutput}:%s\\n' "$PWD"`);
+  await waitForTerminalText(context.client, localTerminalOutput, workflowTimeoutMs);
+
   await addRuntimeThroughPicker(context.client, remoteServe.pairingURL);
   const remoteConnected = await waitForRuntimeStatus(context.client, "connected", {
     isLocal: false,
@@ -76,11 +94,21 @@ try {
   if (!remote) {
     throw new Error(`remote runtime did not become active: ${JSON.stringify(remoteConnected)}`);
   }
+  const probe = await pairProbeDevice(remoteAppDataDir);
+  const remoteEmptySession = await probe.get("/workspace-session");
+  assertRemoteSessionEmpty(remoteEmptySession);
+  await waitForRendererEmptyWorkspace(context.client);
+  await waitForNoTerminalPane(context.client);
 
   await clickButtonByAria(context.client, "Open project folder");
-  const probe = await pairProbeDevice(remoteAppDataDir);
   const canonicalWorkspaceRoot = await realpath(fixture.workspaceRoot);
   const remoteSession = await waitForRemoteWorkspace(probe, canonicalWorkspaceRoot);
+  await waitForSelectedWorkspaceLayout(context.client, remoteSession.selectedWorkspaceId);
+  await openTerminalFromShortcut(context.client, workflowTimeoutMs);
+  await focusTerminal(context.client, workflowTimeoutMs);
+  await waitForTerminalReady(context.client, workflowTimeoutMs);
+  await sendTerminalCommand(context.client, `printf '${remoteTerminalOutput}:%s\\n' "$PWD"`);
+  await waitForTerminalText(context.client, remoteTerminalOutput, workflowTimeoutMs);
   await appendSummary("remote-workspace-opened", {
     remoteRuntimeId: remote.runtimeId,
     selectedWorkspaceId: remoteSession.selectedWorkspaceId,
@@ -93,6 +121,14 @@ try {
 
   await clickButtonByAria(context.client, `Switch to ${local.displayName}`);
   await waitForRuntimeStatus(context.client, "connected", { runtimeId: local.runtimeId });
+  await waitForSelectedWorkspaceLayout(context.client, localWorkspace.selectedWorkspaceId);
+  await focusTerminal(context.client, workflowTimeoutMs);
+  const returnedLocalTerminal = await waitForTerminalReady(context.client, workflowTimeoutMs);
+  if (returnedLocalTerminal.sessionId !== localTerminal.sessionId) {
+    throw new Error(
+      `local terminal session after runtime switch = ${returnedLocalTerminal.sessionId}, want ${localTerminal.sessionId}`,
+    );
+  }
 
   await stopProcess(remoteServe.child);
   await waitForRemoteRuntimeStopped(remote.baseUrl);
@@ -219,6 +255,67 @@ async function triggerRendererBackendRead(client) {
     }
     return true;
   })()`);
+}
+
+async function openWorkspaceFromSidebar(client) {
+  await clickButtonByAria(client, "Open project folder");
+  await waitForSelectedWorkspaceLayout(client);
+}
+
+async function waitForSelectedWorkspaceLayout(client, expectedWorkspaceId = "") {
+  return waitForState(
+    client,
+    `(async () => {
+      const session = await window.setta.workspace.session();
+      const area = document.querySelector('[data-testid="workspace-layout-area"]');
+      const layoutWorkspaceId = area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
+      return {
+        activeWorkspaces: session.activeWorkspaces,
+        layoutWorkspaceId,
+        selectedWorkspaceId: session.selectedWorkspaceId,
+      };
+    })()`,
+    (state) => {
+      const selectedWorkspaceId = expectedWorkspaceId || state.selectedWorkspaceId;
+      return (
+        selectedWorkspaceId !== "" &&
+        state.selectedWorkspaceId === selectedWorkspaceId &&
+        state.layoutWorkspaceId === selectedWorkspaceId
+      );
+    },
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForRendererEmptyWorkspace(client) {
+  return waitForState(
+    client,
+    `(() => {
+      const area = document.querySelector('[data-testid="workspace-layout-area"]');
+      return {
+        emptyVisible: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
+        paneCount: area instanceof HTMLElement ? area.dataset.paneCount ?? "" : "",
+        workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? null : null,
+      };
+    })()`,
+    (state) => state.emptyVisible && state.workspaceId === "" && state.paneCount === "0",
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForNoTerminalPane(client) {
+  return waitForState(
+    client,
+    terminalSnapshotExpression(),
+    (snapshot) => !snapshot.exists,
+    workflowTimeoutMs,
+  );
+}
+
+function assertRemoteSessionEmpty(session) {
+  if (session.selectedWorkspaceId !== "" || session.activeWorkspaces.length !== 0) {
+    throw new Error(`remote runtime should start with no workspaces: ${JSON.stringify(session)}`);
+  }
 }
 
 async function waitForRemoteWorkspace(probe, workspaceRoot) {
