@@ -1032,6 +1032,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       health: async (): Promise<BackendHealth> => ({
         name: "setta-backend",
         ok: true,
+        protocolVersion: 1,
         version: "test",
       }),
       onEventStreamStatus: () => () => {},

@@ -4,6 +4,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/orchestrator"
+	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
@@ -11,6 +12,40 @@ import (
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
+
+type RuntimeInfoResponse struct {
+	RuntimeID       string `json:"runtimeId"`
+	DisplayName     string `json:"displayName"`
+	BackendName     string `json:"backendName"`
+	BackendVersion  string `json:"backendVersion"`
+	ProtocolVersion int    `json:"protocolVersion"`
+}
+
+type CompletePairingRequest struct {
+	PairingToken      string `json:"pairingToken"`
+	ClientDisplayName string `json:"clientDisplayName"`
+}
+
+type CompletePairingResponse struct {
+	DeviceID        string `json:"deviceId"`
+	DeviceToken     string `json:"deviceToken"`
+	RuntimeID       string `json:"runtimeId"`
+	ProtocolVersion int    `json:"protocolVersion"`
+}
+
+type ListDevicesRequest struct{}
+
+type ListDevicesResponse struct {
+	Devices []runtimeauth.DeviceSession `json:"devices"`
+}
+
+type RevokeDeviceRequest struct {
+	DeviceID string `json:"deviceId"`
+}
+
+type RevokeDeviceResponse struct {
+	Device runtimeauth.DeviceSession `json:"device"`
+}
 
 type UpdateAppearanceSettingsRequest struct {
 	Settings appearance.AppearanceSettings `json:"settings"`

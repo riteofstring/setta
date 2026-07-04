@@ -3,11 +3,13 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/orchestrator"
+	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
@@ -155,11 +157,24 @@ type TerminalService interface {
 	WriteInput(context.Context, string, []byte) (int, error)
 }
 
+type RuntimeAuthService interface {
+	CompletePairing(context.Context, string, string) (runtimeauth.DeviceSession, string, bool, error)
+	IsDeviceSessionRevoked(context.Context, string) (bool, error)
+	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
+	ResolveDeviceToken(context.Context, string) (runtimeauth.DeviceSession, bool, error)
+	RevokeDeviceSession(context.Context, string) (runtimeauth.DeviceSession, bool, error)
+	TouchDeviceSession(context.Context, string) (bool, error)
+}
+
 type HandlerConfig struct {
 	AppearanceService        AppearanceService
 	Metadata                 BackendMetadata
 	ChatService              ChatService
 	CodexAccountService      CodexAccountService
+	PairingFailureLimiter    *PairingFailureLimiter
+	RevocationSweepInterval  time.Duration
+	RuntimeAuthService       RuntimeAuthService
+	RuntimeMetadata          RuntimeMetadata
 	SemanticGraphService     SemanticGraphService
 	TerminalService          TerminalService
 	WorkspaceActivityService WorkspaceActivityService
@@ -173,6 +188,10 @@ type handler struct {
 	metadata                 BackendMetadata
 	chatService              ChatService
 	codexAccountService      CodexAccountService
+	pairingFailureLimiter    *PairingFailureLimiter
+	revocationSweepInterval  time.Duration
+	runtimeAuthService       RuntimeAuthService
+	runtimeMetadata          RuntimeMetadata
 	semanticGraphService     SemanticGraphService
 	terminalService          TerminalService
 	workspaceActivityService WorkspaceActivityService
@@ -182,11 +201,23 @@ type handler struct {
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
+	pairingFailureLimiter := config.PairingFailureLimiter
+	if pairingFailureLimiter == nil {
+		pairingFailureLimiter = NewPairingFailureLimiter(10, time.Minute)
+	}
+	revocationSweepInterval := config.RevocationSweepInterval
+	if revocationSweepInterval <= 0 {
+		revocationSweepInterval = 30 * time.Second
+	}
 	apiHandler := handler{
 		appearanceService:        config.AppearanceService,
 		metadata:                 config.Metadata,
 		chatService:              config.ChatService,
 		codexAccountService:      config.CodexAccountService,
+		pairingFailureLimiter:    pairingFailureLimiter,
+		revocationSweepInterval:  revocationSweepInterval,
+		runtimeAuthService:       config.RuntimeAuthService,
+		runtimeMetadata:          config.RuntimeMetadata,
 		semanticGraphService:     config.SemanticGraphService,
 		terminalService:          config.TerminalService,
 		workspaceActivityService: config.WorkspaceActivityService,

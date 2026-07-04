@@ -32,13 +32,18 @@ type ContractEndpoint struct {
 
 type endpoint struct {
 	ContractEndpoint
-	Handler routeHandler
+	Handler         routeHandler
+	Unauthenticated bool
 }
 
 type routeHandler func(handler, http.ResponseWriter, *http.Request)
 
 var apiEndpoints = []endpoint{
-	get[BackendHealth]("BackendHealth", "/health", handler.health),
+	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
+	unauthenticated(get[RuntimeInfoResponse]("RuntimeInfo", "/runtime/info", handler.runtimeInfo)),
+	unauthenticated(post[CompletePairingRequest, CompletePairingResponse]("CompletePairing", "/pairing/complete", handler.completePairing)),
+	post[ListDevicesRequest, ListDevicesResponse]("ListDevices", "/devices/list", handler.listDevices),
+	post[RevokeDeviceRequest, RevokeDeviceResponse]("RevokeDevice", "/devices/revoke", handler.revokeDevice),
 	get[appearance.AppearanceSettings]("ReadAppearanceSettings", "/appearance/settings", handler.readAppearanceSettings),
 	get[appearance.AppearancePresetList]("ReadAppearancePresets", "/appearance/presets", handler.readAppearancePresets),
 	post[UpdateAppearanceSettingsRequest, appearance.AppearanceSettings]("UpdateAppearanceSettings", "/appearance/settings", handler.updateAppearanceSettings),
@@ -167,9 +172,14 @@ func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
 	for _, endpoint := range apiEndpoints {
 		route := endpoint
 		mux.HandleFunc(route.Method+" "+route.Path, func(response http.ResponseWriter, request *http.Request) {
-			route.Handler(apiHandler, response, request)
+			apiHandler.dispatch(route, response, request)
 		})
 	}
+}
+
+func unauthenticated(route endpoint) endpoint {
+	route.Unauthenticated = true
+	return route
 }
 
 func get[Response any](name string, path string, handler routeHandler) endpoint {

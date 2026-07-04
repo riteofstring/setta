@@ -429,7 +429,7 @@ func newScriptedWorkflowHandler(t *testing.T) http.Handler {
 		t.Fatalf("new workflow service: %v", err)
 	}
 	t.Cleanup(workflowService.CloseEvents)
-	return NewHandler(HandlerConfig{
+	return newAuthenticatedTestHandler(t, HandlerConfig{
 		ChatService:      chatService,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: workspaceService,

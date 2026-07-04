@@ -10,6 +10,7 @@ import {
   type TerminalEvent,
   type WorkflowEvent,
 } from "@generated/backend";
+import type { BackendFetch } from "@shared/backend-runtime";
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
@@ -74,6 +75,7 @@ async function prepareBackend(appDataDir: string) {
       url: backend.url,
     });
     recorder?.recordAppEvent("backend_started", {
+      ...(isE2E() ? { bootstrapToken: backend.bootstrapToken } : {}),
       mode: backend.mode,
       url: backend.url,
     });
@@ -112,8 +114,9 @@ function startChatEventStream() {
   }
   void stopChatEventStream();
   backendEventStream = startBackendEventStream({
+    authToken: backend.bootstrapToken,
     baseURL: backend.url,
-    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    fetchImpl: backendFetch(),
     observer: {
       forwarded: (event) => {
         recorder?.recordAppEvent("chat_event_forwarded", {
@@ -138,8 +141,9 @@ function startWorkflowEventStreamForwarding() {
   }
   void stopWorkflowEventStreamForwarding();
   workflowEventStream = startWorkflowEventStream({
+    authToken: backend.bootstrapToken,
     baseURL: backend.url,
-    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    fetchImpl: backendFetch(),
     sendEvent: forwardWorkflowEvent,
   });
 }
@@ -150,8 +154,9 @@ function startSemanticGraphEventStreamForwarding() {
   }
   void stopSemanticGraphEventStreamForwarding();
   semanticGraphEventStream = startSemanticGraphEventForwarding({
+    authToken: backend.bootstrapToken,
     baseURL: backend.url,
-    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    fetchImpl: backendFetch(),
     recorder,
   });
 }
@@ -162,8 +167,9 @@ function startTerminalEventStreamForwarding() {
   }
   void stopTerminalEventStreamForwarding();
   terminalEventStream = startTerminalEventStream({
+    authToken: backend.bootstrapToken,
     baseURL: backend.url,
-    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    fetchImpl: backendFetch(),
     sendEvent: forwardTerminalEvent,
   });
 }
@@ -174,8 +180,9 @@ function startWorkspaceActivityEventStreamForwarding() {
   }
   void stopWorkspaceActivityEventStreamForwarding();
   workspaceActivityEventStream = startWorkspaceActivityEventForwarding({
+    authToken: backend.bootstrapToken,
     baseURL: backend.url,
-    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    fetchImpl: backendFetch(),
     recorder,
   });
 }
@@ -808,8 +815,23 @@ function requireBackendClient(): BackendClient {
   if (!backend) {
     throw new Error(backendStartupError ?? "backend is not running");
   }
+  return createBackendClient(backend.url, backendRequests.wrapFetch(backendFetch()));
+}
+
+function backendFetch(): BackendFetch {
+  if (!backend) {
+    throw new Error(backendStartupError ?? "backend is not running");
+  }
   const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
-  return createBackendClient(backend.url, backendRequests.wrapFetch(fetchImpl));
+  return authenticatedBackendFetch(fetchImpl, backend.bootstrapToken);
+}
+
+function authenticatedBackendFetch(fetchImpl: BackendFetch, token: string): BackendFetch {
+  return (input, init) => {
+    const headers = new Headers(init.headers);
+    headers.set("Authorization", `Bearer ${token}`);
+    return fetchImpl(input, { ...init, headers });
+  };
 }
 
 async function stopBackend() {

@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"setta/internal/httpapi"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
@@ -34,6 +36,12 @@ func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 	if ready.Addr != server.Addr() {
 		t.Fatalf("ready addr = %q, want %q", ready.Addr, server.Addr())
 	}
+	if ready.BootstrapToken == "" {
+		t.Fatal("ready bootstrap token is empty")
+	}
+	if ready.ProtocolVersion != httpapi.ProtocolVersion {
+		t.Fatalf("ready protocol version = %d, want %d", ready.ProtocolVersion, httpapi.ProtocolVersion)
+	}
 
 	response, err := http.Get("http://" + ready.Addr + "/health")
 	if err != nil {
@@ -52,6 +60,7 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 		"relative app data": withAppDataDir(t, "relative-app-data"),
 		"bad chat harness":  withChatHarness(t, "unsupported"),
 		"empty host":        withHost(t, ""),
+		"empty bootstrap":   withBootstrapDisplayName(t, ""),
 		"non numeric host":  withHost(t, "localhost"),
 		"non loopback host": withHost(t, "0.0.0.0"),
 		"negative port":     withPort(t, -1),
@@ -66,6 +75,18 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAllowRemotePermitsNonLoopbackNumericHost(t *testing.T) {
+	config := testConfig(t)
+	config.AllowRemote = true
+	config.Host = "0.0.0.0"
+
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend with allow remote: %v", err)
+	}
+	defer shutdownServer(t, server)
 }
 
 func TestStartReportsReadyWithMalformedHistoricalRunState(t *testing.T) {
@@ -171,5 +192,13 @@ func withVersion(t *testing.T, version string) Config {
 
 	config := testConfig(t)
 	config.Version = version
+	return config
+}
+
+func withBootstrapDisplayName(t *testing.T, displayName string) Config {
+	t.Helper()
+
+	config := testConfig(t)
+	config.BootstrapDeviceDisplayName = displayName
 	return config
 }
