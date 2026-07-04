@@ -38,6 +38,33 @@ func TestRunItemDiffDetailsParseUnifiedDiff(t *testing.T) {
 	}
 }
 
+func TestRunItemDiffDetailsParsesQuotedGitPaths(t *testing.T) {
+	details, ok := RunItem{
+		Type: RunItemTypeDiff,
+		Details: newRunItemDiffDetails(`diff --git "a/docs/old name.md" "b/docs/new name.md"
+similarity index 92%
+rename from docs/old name.md
+rename to docs/new name.md
+`),
+	}.DiffDetails()
+	if !ok {
+		t.Fatal("diff details missing")
+	}
+	if details.Summary != "1 file" {
+		t.Fatalf("summary = %q, want one renamed file", details.Summary)
+	}
+	if len(details.Paths) != 1 {
+		t.Fatalf("paths = %+v, want one path", details.Paths)
+	}
+	path := details.Paths[0]
+	if path.Path != "docs/new name.md" || path.MovePath != "docs/old name.md" {
+		t.Fatalf("path = %+v, want quoted git paths normalized", path)
+	}
+	if path.Operation == nil || *path.Operation != RunItemFileChangeOperationUpdate {
+		t.Fatalf("operation = %v, want update", path.Operation)
+	}
+}
+
 func TestRunItemDiffValidationRejectsFlatFields(t *testing.T) {
 	item := RunItem{
 		ID:          "run_item_diff",

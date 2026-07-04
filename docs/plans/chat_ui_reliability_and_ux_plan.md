@@ -820,8 +820,8 @@ Status after the composer prompt-history step:
   resubmission. Missing or cross-conversation image references produce explicit
   diagnostics.
 - Remaining: no known Slice 7 implementation gap. Remaining plan work is the
-  earlier activity typed-detail/rendering backlog: diff updates, Setta dynamic
-  tools, failed starts, approvals, and stream lifecycle activity rows.
+  earlier activity typed-detail/rendering backlog: Setta dynamic tools, failed
+  starts, approvals, and stream lifecycle activity rows.
 
 ## Verification Plan
 

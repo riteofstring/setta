@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -128,11 +129,47 @@ func parseRunItemDiffGitLine(line string) (string, string, bool) {
 	if !strings.HasPrefix(line, "diff --git ") {
 		return "", "", false
 	}
-	fields := strings.Fields(strings.TrimPrefix(line, "diff --git "))
-	if len(fields) < 2 {
+	remainder := strings.TrimPrefix(line, "diff --git ")
+	oldPath, remainder, ok := parseRunItemDiffPathToken(remainder)
+	if !ok {
 		return "", "", true
 	}
-	return normalizeRunItemDiffPath(fields[0]), normalizeRunItemDiffPath(fields[1]), true
+	newPath, _, ok := parseRunItemDiffPathToken(remainder)
+	if !ok {
+		return "", "", true
+	}
+	return normalizeRunItemDiffPath(oldPath), normalizeRunItemDiffPath(newPath), true
+}
+
+func parseRunItemDiffPathToken(value string) (string, string, bool) {
+	value = strings.TrimLeft(value, " \t")
+	if value == "" {
+		return "", "", false
+	}
+	if value[0] != '"' {
+		index := strings.IndexAny(value, " \t")
+		if index < 0 {
+			return value, "", true
+		}
+		return value[:index], value[index:], true
+	}
+	escaped := false
+	for index := 1; index < len(value); index++ {
+		switch {
+		case escaped:
+			escaped = false
+		case value[index] == '\\':
+			escaped = true
+		case value[index] == '"':
+			token := value[:index+1]
+			unquoted, err := strconv.Unquote(token)
+			if err != nil {
+				return "", "", false
+			}
+			return unquoted, value[index+1:], true
+		}
+	}
+	return "", "", false
 }
 
 func runItemDiffHeaderPair(lines []string, index int) (string, string, bool) {
@@ -154,6 +191,9 @@ func parseRunItemDiffHeaderPath(value string) string {
 
 func normalizeRunItemDiffPath(path string) string {
 	path = strings.TrimSpace(path)
+	if unquoted, err := strconv.Unquote(path); err == nil {
+		path = unquoted
+	}
 	if path == "/dev/null" {
 		return path
 	}
