@@ -662,6 +662,10 @@ Status after the MCP typed-details cutover:
 - Done: the renderer presents MCP activity as `MCP: <server>` while preserving
   the tool name, arguments, result content, structured content, metadata,
   duration, progress, and error in expanded details and search.
+- Done: audit follow-up verified MCP metadata search through the production
+  Electron path. Search now indexes MCP result content and metadata, and focused
+  activity-row expansion is idempotent so search/focus reveal does not trigger a
+  renderer update loop.
 - Done: raw JSON details for activity families that have not been cut over yet
   moved to `RunItem.rawDetails`; MCP items reject raw details during validation.
 - Remaining: complete protocol findings and typed-detail cutovers for command

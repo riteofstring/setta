@@ -150,15 +150,20 @@ function transcriptActivityMCPSearchText(details: RunActivityDetailsProjection) 
     return [];
   }
   return [
+    mcp.displayTitle,
     mcp.serverName,
     mcp.toolName,
     mcp.progress,
+    mcp.durationMs > 0 ? String(mcp.durationMs) : "",
     mcp.resultSummary,
     mcp.error,
+    transcriptJSONSearchText(mcp.appContext),
     mcp.pluginId,
     mcp.mcpAppResourceUri,
     transcriptJSONSearchText(mcp.arguments),
+    transcriptJSONSearchText(mcp.result?.content),
     transcriptJSONSearchText(mcp.result?.structuredContent),
+    transcriptJSONSearchText(mcp.result?._meta),
   ];
 }
 
@@ -508,14 +513,20 @@ export function ChatTranscript({
 
 function withIdsExpanded(current: Set<string>, blockIds: string[], open: boolean) {
   const next = new Set(current);
+  let changed = false;
   for (const blockId of blockIds) {
     if (open) {
+      if (next.has(blockId)) {
+        continue;
+      }
       next.add(blockId);
-    } else {
+      changed = true;
+    } else if (next.has(blockId)) {
       next.delete(blockId);
+      changed = true;
     }
   }
-  return next;
+  return changed ? next : current;
 }
 
 function EmptyChatTranscript({

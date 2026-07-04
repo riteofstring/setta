@@ -9,6 +9,7 @@ import {
   assertNoActiveRun,
   clickButtonByAria,
   createChat,
+  setInputValue,
   submitComposer,
   waitForBackendState,
   waitForCommandResult,
@@ -105,6 +106,7 @@ export async function assertProtocolNotificationActivity(
     );
   }
   await assertProtocolMCPActivityRendered(client, mcpActivity.sourceRunItemId);
+  await assertProtocolMCPActivitySearchable(client, mcpActivity.sourceRunItemId);
   await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "deprecationNotice");
   if ((page.activity ?? []).some((row) => row.type === "reasoning")) {
     throw new Error(`reasoning leaked into projected activity: ${JSON.stringify(page.activity)}`);
@@ -200,6 +202,43 @@ async function assertProtocolMCPActivityRendered(client, sourceRunItemId) {
       };
     })()`,
     (value) => value.ok,
+  );
+}
+
+async function assertProtocolMCPActivitySearchable(client, sourceRunItemId) {
+  await openProtocolChatSearch(client);
+  await setInputValue(client, 'input[placeholder="Search chat"]', "mcp_trace");
+  await waitForState(
+    client,
+    `(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const row = document.querySelector('[data-activity-focused="true"]');
+      return {
+        ok:
+          row?.getAttribute("data-run-item-id") === sourceRunItemId &&
+          row?.innerText.includes("mcp_trace"),
+        sourceRunItemId: row?.getAttribute("data-run-item-id") ?? "",
+        text: row?.innerText ?? "",
+      };
+    })()`,
+    (value) => value.ok,
+  );
+  await clickButtonByAria(client, "Close chat search");
+}
+
+async function openProtocolChatSearch(client) {
+  await client.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      ctrlKey: true,
+      key: "f",
+      metaKey: true,
+    }));
+  })()`);
+  await waitForState(
+    client,
+    `(() => ({ open: Boolean(document.querySelector('input[placeholder="Search chat"]')) }))()`,
+    (value) => value.open,
   );
 }
 
