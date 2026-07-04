@@ -379,8 +379,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
           this.showLostSession(errorMessage(error));
           return;
         }
-        this.showStatus(errorMessage(error));
-        this.showExitOverlay("Terminal failed");
+        const message = errorMessage(error);
+        this.showStatus(message);
+        this.showExitOverlay(message);
       });
   }
 
