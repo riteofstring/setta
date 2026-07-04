@@ -114,6 +114,7 @@ Managed/provisioned runtimes; Setta-held provider credentials; Setta-owned relay
 
 ## Open Questions
 
-1. Default serve port — 7345 is a placeholder; settle before docs ship.
-2. Install script distribution + binary signing (GitHub releases + checksums assumed; minisign?).
-3. Whether `/health` should also be auth-gated or fold into `/runtime/info` (leaning: fold, keep exactly two unauth routes).
+1. ~~Default serve port~~ — settled: 7345 (implemented in `cmd/setta`).
+2. Install script distribution — settled: GitHub releases + `SHA256SUMS` covering archives and extracted binaries (`scripts/release/`). Binary signing (minisign) still open.
+3. ~~Whether `/health` should be auth-gated~~ — settled: `/health` stays unauthenticated alongside `/runtime/info` and `/pairing/complete` (three unauth routes); the supervisor probes health before it holds a token. Revisit only if the unauth surface grows.
+4. PWA device token storage — `localStorage` for the PoC (accepted XSS-exposure tradeoff; the app serves only its own bundled assets). Revisit if third-party content ever renders in the web app.
