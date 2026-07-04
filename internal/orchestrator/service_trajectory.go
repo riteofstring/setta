@@ -95,12 +95,9 @@ func (service *Service) workflowNodeStopContext(workspaceID string, executionID 
 }
 
 func (service *Service) cancelWorkflowNodeActiveRun(workspaceID string, context workflowAgentTrajectoryContext) (chat.Run, error) {
-	cancelledRun, err := service.codexChatService.CancelActiveRun(workspaceID, context.ConversationID)
+	cancelledRun, err := service.codexChatService.CancelActiveRunByID(workspaceID, context.ConversationID, context.RunID)
 	if err != nil {
 		return chat.Run{}, fmt.Errorf("cancel workflow node chat run: %w", err)
-	}
-	if cancelledRun.ID != context.RunID {
-		return chat.Run{}, fmt.Errorf("cancelled workflow node run %s, want %s", cancelledRun.ID, context.RunID)
 	}
 	return cancelledRun, nil
 }

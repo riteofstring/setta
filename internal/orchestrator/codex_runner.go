@@ -21,7 +21,7 @@ const (
 type CodexChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	ActiveRunWithLiveness(workspaceID string, conversationID string) (chat.Run, *chat.RunLiveness, bool, error)
-	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
+	CancelActiveRunByID(workspaceID string, conversationID string, runID string) (chat.Run, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
@@ -217,6 +217,7 @@ func (runner *CodexActionRunner) compileSemanticContext(request ActionStartReque
 
 func (runner *CodexActionRunner) Cancel(_ context.Context, request ActionCancelRequest) error {
 	conversationID := runnerRefValue(request.RunnerRefs, RunnerRefChatConversation)
+	runID := runnerRefValue(request.RunnerRefs, RunnerRefChatRun)
 	if conversationID == "" {
 		return nil
 	}
@@ -225,7 +226,10 @@ func (runner *CodexActionRunner) Cancel(_ context.Context, request ActionCancelR
 	} else if !ok {
 		return nil
 	}
-	if _, err := runner.chatService.CancelActiveRun(request.WorkspaceID, conversationID); err != nil {
+	if runID == "" {
+		return fmt.Errorf("agent.codex cancel requires committed chat run ref for conversation %s", conversationID)
+	}
+	if _, err := runner.chatService.CancelActiveRunByID(request.WorkspaceID, conversationID, runID); err != nil {
 		return err
 	}
 	return nil

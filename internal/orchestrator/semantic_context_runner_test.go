@@ -100,6 +100,10 @@ func (client *recordingCodexChatClient) CancelActiveRun(string, string) (chat.Ru
 	return chat.Run{}, nil
 }
 
+func (client *recordingCodexChatClient) CancelActiveRunByID(string, string, string) (chat.Run, error) {
+	return chat.Run{}, nil
+}
+
 func (client *recordingCodexChatClient) ListRuns(string, string) ([]chat.Run, error) {
 	return nil, nil
 }

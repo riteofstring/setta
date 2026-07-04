@@ -420,6 +420,12 @@ shared trajectory action contract and into a node-scoped composer stop action.
 The composer is shown for a running workflow node, but its text input remains
 disabled until node-scoped steering exists.
 
+Audit follow-up fixed exact-run cancellation for reused workflow conversations.
+Node stop and Codex runner cancellation now pass the committed `chat.run`
+runner ref into a chat service exact-run cancellation boundary. If the
+conversation's active run no longer matches that ref, the request fails before
+any provider cancel request is issued.
+
 Verification:
 
 - `./scripts/go.sh run ./cmd/generate-contracts`
@@ -440,6 +446,17 @@ Verification:
   rejected conversation creation before live-provider execution.
 - `./scripts/format.sh`
 - `./check_quality.sh --git-changes`
+- Audit follow-up reruns passed
+  `./scripts/go.sh test ./internal/chat -run 'TestServiceCancelActiveRunByIDRejectsDifferentActiveRunBeforeProviderCancel|TestServiceCancelFakeGoalOperationUnblocksWait|TestServiceCancelsActiveRunThroughHarness' -count=1` and
+  `./scripts/go.sh test ./internal/orchestrator -run 'TestService(ReadWorkflowNodeTrajectory|StopWorkflowNodeRun)|TestCodex|TestServiceCancel' -count=1`,
+  `./scripts/go.sh test ./internal/httpapi -run 'TestWorkflow(NodeTrajectoryEndpoint|EndpointStopsNodeScopedRun)' -count=1`,
+  and
+  `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
+  `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`
+  passed, while
+  `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+  remained blocked by local Codex `config/read` returning unsupported
+  `approval_policy = "on-failure"` before live-provider execution.
 
 Remaining: workflow-node immediate steering, retry-liveness, and composer
 send/steering behavior remain. Queue affordances remain hidden until a
