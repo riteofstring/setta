@@ -830,7 +830,7 @@ generation, focused/full `internal/httpapi` and `internal/chat` tests, desktop
 typecheck/Vitest/build, format/quality gates, and the deterministic image
 Electron workflow. Live Codex remains blocked by local
 `approval_policy = "on-failure"`; exact commands are in the implementation
-order plan. Remaining: Track 4 next; Track 10 independent.
+order plan. Track 4 is now complete; Track 10 remains independent.
 
 ## Track 10: Terminal Pane Close Transaction
 

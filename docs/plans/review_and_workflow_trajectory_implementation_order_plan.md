@@ -477,6 +477,13 @@ Verification:
 Remaining notes: Track 4 no longer blocks Phase 4. The next ordered step is
 Phase 4 backend trajectory contracts.
 
+Audit 2026-07-03: no code gaps found in the Phase 3 extraction result. Focused
+reruns passed syntax checks for the extracted Electron drivers/tests, the
+Electron test template-literal guardrail on affected files, `pnpm -C desktop
+exec vitest run src/workspace-layout/runtime-mode-options.test.ts`,
+`./scripts/go.sh test ./internal/chat -run 'TestScripted' -count=1`, and
+`pnpm -C desktop typecheck`.
+
 ## Phase 4: Backend Trajectory Contracts
 
 Implement the shared UI plan's backend contract slice after the lifecycle and
