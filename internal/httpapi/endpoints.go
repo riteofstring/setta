@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"reflect"
+	"strings"
 
 	"setta/internal/appearance"
 	"setta/internal/chat"
@@ -44,6 +45,9 @@ var apiEndpoints = []endpoint{
 	unauthenticated(post[CompletePairingRequest, CompletePairingResponse]("CompletePairing", "/pairing/complete", handler.completePairing)),
 	post[ListDevicesRequest, ListDevicesResponse]("ListDevices", "/devices/list", handler.listDevices),
 	post[RevokeDeviceRequest, RevokeDeviceResponse]("RevokeDevice", "/devices/revoke", handler.revokeDevice),
+	post[PushSubscribeRequest, PushSubscribeResponse]("PushSubscribe", "/push/subscribe", handler.pushSubscribe),
+	post[PushUnsubscribeRequest, PushUnsubscribeResponse]("PushUnsubscribe", "/push/unsubscribe", handler.pushUnsubscribe),
+	post[PushTestRequest, PushTestResponse]("PushTest", "/push/test", handler.pushTest),
 	get[appearance.AppearanceSettings]("ReadAppearanceSettings", "/appearance/settings", handler.readAppearanceSettings),
 	get[appearance.AppearancePresetList]("ReadAppearancePresets", "/appearance/presets", handler.readAppearancePresets),
 	post[UpdateAppearanceSettingsRequest, appearance.AppearanceSettings]("UpdateAppearanceSettings", "/appearance/settings", handler.updateAppearanceSettings),
@@ -175,6 +179,25 @@ func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
 			apiHandler.dispatch(route, response, request)
 		})
 	}
+}
+
+func IsAPINamespace(path string) bool {
+	if path == "" || path[0] != '/' {
+		return false
+	}
+	for _, endpoint := range apiEndpoints {
+		root := apiPathRoot(endpoint.Path)
+		if path == root || strings.HasPrefix(path, root+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func apiPathRoot(path string) string {
+	trimmed := strings.TrimPrefix(path, "/")
+	segment, _, _ := strings.Cut(trimmed, "/")
+	return "/" + segment
 }
 
 func unauthenticated(route endpoint) endpoint {

@@ -8,6 +8,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
@@ -166,11 +167,20 @@ type RuntimeAuthService interface {
 	TouchDeviceSession(context.Context, string) (bool, error)
 }
 
+type NotifyService interface {
+	PublicKey() string
+	RemoveDeviceSubscriptions(context.Context, string) error
+	Subscribe(context.Context, string, notify.WebPushSubscription) (notify.Subscription, error)
+	Test(context.Context, string) (notify.TestResult, error)
+	Unsubscribe(context.Context, string, string) (bool, error)
+}
+
 type HandlerConfig struct {
 	AppearanceService        AppearanceService
 	Metadata                 BackendMetadata
 	ChatService              ChatService
 	CodexAccountService      CodexAccountService
+	NotifyService            NotifyService
 	PairingFailureLimiter    *PairingFailureLimiter
 	RevocationSweepInterval  time.Duration
 	RuntimeAuthService       RuntimeAuthService
@@ -188,6 +198,7 @@ type handler struct {
 	metadata                 BackendMetadata
 	chatService              ChatService
 	codexAccountService      CodexAccountService
+	notifyService            NotifyService
 	pairingFailureLimiter    *PairingFailureLimiter
 	revocationSweepInterval  time.Duration
 	runtimeAuthService       RuntimeAuthService
@@ -214,6 +225,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		metadata:                 config.Metadata,
 		chatService:              config.ChatService,
 		codexAccountService:      config.CodexAccountService,
+		notifyService:            config.NotifyService,
 		pairingFailureLimiter:    pairingFailureLimiter,
 		revocationSweepInterval:  revocationSweepInterval,
 		runtimeAuthService:       config.RuntimeAuthService,

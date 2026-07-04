@@ -3,6 +3,7 @@ package httpapi
 import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
+	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
@@ -19,6 +20,7 @@ type RuntimeInfoResponse struct {
 	BackendName     string `json:"backendName"`
 	BackendVersion  string `json:"backendVersion"`
 	ProtocolVersion int    `json:"protocolVersion"`
+	VAPIDPublicKey  string `json:"vapidPublicKey"`
 }
 
 type CompletePairingRequest struct {
@@ -45,6 +47,28 @@ type RevokeDeviceRequest struct {
 
 type RevokeDeviceResponse struct {
 	Device runtimeauth.DeviceSession `json:"device"`
+}
+
+type PushSubscribeRequest struct {
+	Subscription notify.WebPushSubscription `json:"subscription"`
+}
+
+type PushSubscribeResponse struct {
+	VAPIDPublicKey string `json:"vapidPublicKey"`
+}
+
+type PushUnsubscribeRequest struct {
+	Endpoint string `json:"endpoint"`
+}
+
+type PushUnsubscribeResponse struct {
+	Removed bool `json:"removed"`
+}
+
+type PushTestRequest struct{}
+
+type PushTestResponse struct {
+	SentCount int `json:"sentCount"`
 }
 
 type UpdateAppearanceSettingsRequest struct {

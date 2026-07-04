@@ -18,8 +18,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 1;
-export const backendContractSchemaHash = "sha256:d9c690a175d437fe02ccb633f545981b9de3588e64116ddacea1af1298c60651";
+export const backendProtocolVersion = 2;
+export const backendContractSchemaHash = "sha256:132e3631381971b3dc942da7ba4a896f4993eec5219014d457244ab603736400";
 
 export type DeviceScope = "full";
 
@@ -2196,6 +2196,7 @@ export interface RuntimeInfoResponse {
   backendName: string;
   backendVersion: string;
   protocolVersion: number;
+  vapidPublicKey: string;
 }
 
 export interface CompletePairingRequest {
@@ -2232,6 +2233,39 @@ export interface RevokeDeviceRequest {
 
 export interface RevokeDeviceResponse {
   device: DeviceSession;
+}
+
+export interface WebPushKeys {
+  auth: string;
+  p256dh: string;
+}
+
+export interface WebPushSubscription {
+  endpoint: string;
+  keys: WebPushKeys;
+}
+
+export interface PushSubscribeRequest {
+  subscription: WebPushSubscription;
+}
+
+export interface PushSubscribeResponse {
+  vapidPublicKey: string;
+}
+
+export interface PushUnsubscribeRequest {
+  endpoint: string;
+}
+
+export interface PushUnsubscribeResponse {
+  removed: boolean;
+}
+
+export interface PushTestRequest {
+}
+
+export interface PushTestResponse {
+  sentCount: number;
 }
 
 export interface AppearanceTailwindPalette {
@@ -5172,6 +5206,18 @@ export const backendEndpoints = {
     method: "POST",
     path: "/devices/revoke",
   },
+  PushSubscribe: {
+    method: "POST",
+    path: "/push/subscribe",
+  },
+  PushUnsubscribe: {
+    method: "POST",
+    path: "/push/unsubscribe",
+  },
+  PushTest: {
+    method: "POST",
+    path: "/push/test",
+  },
   ReadAppearanceSettings: {
     method: "GET",
     path: "/appearance/settings",
@@ -5631,13 +5677,14 @@ export function decodeBackendHealth(value: unknown): BackendHealth {
 
 export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
   const record = assertRecord(value, "RuntimeInfoResponse");
-  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "backendName", "backendVersion", "protocolVersion"]);
+  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "backendName", "backendVersion", "protocolVersion", "vapidPublicKey"]);
   return {
     runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeInfoResponse"), "RuntimeInfoResponse.runtimeId"),
     displayName: decodeString(requireField(record, "displayName", "RuntimeInfoResponse"), "RuntimeInfoResponse.displayName"),
     backendName: decodeString(requireField(record, "backendName", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendName"),
     backendVersion: decodeString(requireField(record, "backendVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendVersion"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.protocolVersion"),
+    vapidPublicKey: decodeString(requireField(record, "vapidPublicKey", "RuntimeInfoResponse"), "RuntimeInfoResponse.vapidPublicKey"),
   };
 }
 
@@ -5702,6 +5749,71 @@ export function decodeRevokeDeviceResponse(value: unknown): RevokeDeviceResponse
   assertKnownFields(record, "RevokeDeviceResponse", ["device"]);
   return {
     device: decodeDeviceSession(requireField(record, "device", "RevokeDeviceResponse")),
+  };
+}
+
+export function decodeWebPushKeys(value: unknown): WebPushKeys {
+  const record = assertRecord(value, "WebPushKeys");
+  assertKnownFields(record, "WebPushKeys", ["auth", "p256dh"]);
+  return {
+    auth: decodeString(requireField(record, "auth", "WebPushKeys"), "WebPushKeys.auth"),
+    p256dh: decodeString(requireField(record, "p256dh", "WebPushKeys"), "WebPushKeys.p256dh"),
+  };
+}
+
+export function decodeWebPushSubscription(value: unknown): WebPushSubscription {
+  const record = assertRecord(value, "WebPushSubscription");
+  assertKnownFields(record, "WebPushSubscription", ["endpoint", "keys"]);
+  return {
+    endpoint: decodeString(requireField(record, "endpoint", "WebPushSubscription"), "WebPushSubscription.endpoint"),
+    keys: decodeWebPushKeys(requireField(record, "keys", "WebPushSubscription")),
+  };
+}
+
+export function decodePushSubscribeRequest(value: unknown): PushSubscribeRequest {
+  const record = assertRecord(value, "PushSubscribeRequest");
+  assertKnownFields(record, "PushSubscribeRequest", ["subscription"]);
+  return {
+    subscription: decodeWebPushSubscription(requireField(record, "subscription", "PushSubscribeRequest")),
+  };
+}
+
+export function decodePushSubscribeResponse(value: unknown): PushSubscribeResponse {
+  const record = assertRecord(value, "PushSubscribeResponse");
+  assertKnownFields(record, "PushSubscribeResponse", ["vapidPublicKey"]);
+  return {
+    vapidPublicKey: decodeString(requireField(record, "vapidPublicKey", "PushSubscribeResponse"), "PushSubscribeResponse.vapidPublicKey"),
+  };
+}
+
+export function decodePushUnsubscribeRequest(value: unknown): PushUnsubscribeRequest {
+  const record = assertRecord(value, "PushUnsubscribeRequest");
+  assertKnownFields(record, "PushUnsubscribeRequest", ["endpoint"]);
+  return {
+    endpoint: decodeString(requireField(record, "endpoint", "PushUnsubscribeRequest"), "PushUnsubscribeRequest.endpoint"),
+  };
+}
+
+export function decodePushUnsubscribeResponse(value: unknown): PushUnsubscribeResponse {
+  const record = assertRecord(value, "PushUnsubscribeResponse");
+  assertKnownFields(record, "PushUnsubscribeResponse", ["removed"]);
+  return {
+    removed: decodeBoolean(requireField(record, "removed", "PushUnsubscribeResponse"), "PushUnsubscribeResponse.removed"),
+  };
+}
+
+export function decodePushTestRequest(value: unknown): PushTestRequest {
+  const record = assertRecord(value, "PushTestRequest");
+  assertKnownFields(record, "PushTestRequest", []);
+  return {
+  };
+}
+
+export function decodePushTestResponse(value: unknown): PushTestResponse {
+  const record = assertRecord(value, "PushTestResponse");
+  assertKnownFields(record, "PushTestResponse", ["sentCount"]);
+  return {
+    sentCount: decodeInteger(requireField(record, "sentCount", "PushTestResponse"), "PushTestResponse.sentCount"),
   };
 }
 
@@ -9870,6 +9982,9 @@ export interface BackendClient {
   completePairing: (request: CompletePairingRequest) => Promise<CompletePairingResponse>;
   listDevices: (request: ListDevicesRequest) => Promise<ListDevicesResponse>;
   revokeDevice: (request: RevokeDeviceRequest) => Promise<RevokeDeviceResponse>;
+  pushSubscribe: (request: PushSubscribeRequest) => Promise<PushSubscribeResponse>;
+  pushUnsubscribe: (request: PushUnsubscribeRequest) => Promise<PushUnsubscribeResponse>;
+  pushTest: (request: PushTestRequest) => Promise<PushTestResponse>;
   readAppearanceSettings: () => Promise<AppearanceSettings>;
   readAppearancePresets: () => Promise<AppearancePresetList>;
   updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
@@ -10017,6 +10132,30 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRevokeDeviceResponse,
       endpoint: backendEndpoints.RevokeDevice,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    pushSubscribe: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodePushSubscribeResponse,
+      endpoint: backendEndpoints.PushSubscribe,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    pushUnsubscribe: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodePushUnsubscribeResponse,
+      endpoint: backendEndpoints.PushUnsubscribe,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    pushTest: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodePushTestResponse,
+      endpoint: backendEndpoints.PushTest,
       fetchImpl,
       requestPayload: request,
     }),

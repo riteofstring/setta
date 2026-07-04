@@ -1,4 +1,5 @@
 import type { BackendFetch } from "@shared/backend-runtime";
+import { backendProtocolVersion } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -65,7 +66,7 @@ describe("runtime pairing completion", () => {
         jsonResponse({
           deviceId: "device_api",
           deviceToken: "device_token",
-          protocolVersion: 1,
+          protocolVersion: backendProtocolVersion,
           runtimeId: "runtime_actual",
         }),
       ),
@@ -79,7 +80,7 @@ describe("runtime connection verification", () => {
     const fetchImpl: BackendFetch = async (input) => {
       calls.push(input.toString());
       if (input.pathname === "/runtime/info") {
-        return jsonResponse(runtimeInfo("runtime_expected", 1));
+        return jsonResponse(runtimeInfo("runtime_expected", backendProtocolVersion));
       }
       return jsonResponse({ devices: [] });
     };
@@ -104,7 +105,7 @@ describe("runtime connection verification", () => {
         baseUrl: "http://100.64.0.12:7345/",
         deviceToken: "device_token",
         expectedRuntimeId: "runtime_expected",
-        fetchImpl: async () => jsonResponse(runtimeInfo("runtime_actual", 1)),
+        fetchImpl: async () => jsonResponse(runtimeInfo("runtime_actual", backendProtocolVersion)),
       }),
     ).rejects.toMatchObject({ reason: "mismatched" } satisfies Partial<RuntimeConnectionError>);
   });
@@ -123,7 +124,7 @@ describe("runtime connection verification", () => {
   test("marks 401 token verification as revoked", async () => {
     const fetchImpl: BackendFetch = async (input) => {
       if (input.pathname === "/runtime/info") {
-        return jsonResponse(runtimeInfo("runtime_expected", 1));
+        return jsonResponse(runtimeInfo("runtime_expected", backendProtocolVersion));
       }
       return jsonResponse(
         {
@@ -155,6 +156,7 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
     displayName: "Remote",
     protocolVersion,
     runtimeId,
+    vapidPublicKey: "test-vapid-public-key",
   };
 }
 

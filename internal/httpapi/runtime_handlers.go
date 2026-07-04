@@ -16,6 +16,7 @@ func (handler handler) runtimeInfo(response http.ResponseWriter, request *http.R
 		BackendName:     handler.metadata.Name,
 		BackendVersion:  handler.metadata.Version,
 		ProtocolVersion: ProtocolVersion,
+		VAPIDPublicKey:  handler.notifyPublicKey(),
 	})
 }
 
@@ -99,5 +100,18 @@ func (handler handler) revokeDevice(response http.ResponseWriter, request *http.
 		writeError(response, http.StatusNotFound, "device_not_found", "device session was not found")
 		return
 	}
+	if handler.notifyService != nil {
+		if err := handler.notifyService.RemoveDeviceSubscriptions(request.Context(), payload.DeviceID); err != nil {
+			writeError(response, http.StatusInternalServerError, "delete_device_push_subscriptions_failed", err.Error())
+			return
+		}
+	}
 	writeJSON(response, http.StatusOK, RevokeDeviceResponse{Device: device})
+}
+
+func (handler handler) notifyPublicKey() string {
+	if handler.notifyService == nil {
+		return ""
+	}
+	return handler.notifyService.PublicKey()
 }

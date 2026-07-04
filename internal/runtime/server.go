@@ -19,10 +19,12 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
 	"setta/internal/httpapi"
+	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
+	"setta/internal/webapp"
 	"setta/internal/workspace"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
@@ -66,6 +68,7 @@ type Server struct {
 	closeWorkflowStore      func() error
 	closeEvents             func()
 	closeRuntimeAuth        func() error
+	closeNotify             func() error
 	closeWorkflowEvents     func()
 	codexManager            *codexapp.Manager
 	server                  *http.Server
@@ -80,6 +83,7 @@ type runtimeServices struct {
 	chatService              *chat.Service
 	codexAccountService      *codexaccount.Service
 	codexManager             *codexapp.Manager
+	notifyService            *notify.Service
 	semanticGraphService     *semanticgraph.Service
 	semanticGraphStore       *semanticgraph.Store
 	terminalService          *terminal.Manager
@@ -198,6 +202,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeWorkflowStore:      services.workflowStore.Close,
 		closeEvents:             services.chatService.CloseEvents,
 		closeRuntimeAuth:        services.authStore.Close,
+		closeNotify:             services.notifyService.Close,
 		closeWorkflowEvents:     services.workflowService.CloseEvents,
 		codexManager:            services.codexManager,
 		server:                  newHTTPServer(config, services),
@@ -212,7 +217,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		ProtocolVersion: httpapi.ProtocolVersion,
 	}); err != nil {
 		_ = listener.Close()
-		_ = services.authStore.Close()
+		closeRuntimeServicesAfterReadyFailure(config, server)
 		return nil, fmt.Errorf("write ready event: %w", err)
 	}
 
@@ -273,6 +278,20 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
+	notifyService, err := newNotifyService(config, authBootstrap.store, chatService)
+	if err != nil {
+		closeRuntimeServicesBeforeNotifyFailure(
+			config,
+			terminalService,
+			semanticServices.graphService,
+			semanticServices.graphStore,
+			semanticServices.activityService,
+			chatService,
+			workflowService,
+			workflowStore,
+		)
+		return runtimeServices{}, err
+	}
 
 	closeAuthOnFailure = false
 	return runtimeServices{
@@ -282,6 +301,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		chatService:              chatService,
 		codexAccountService:      codexAccountService,
 		codexManager:             codexManager,
+		notifyService:            notifyService,
 		semanticGraphService:     semanticServices.graphService,
 		semanticGraphStore:       semanticServices.graphStore,
 		terminalService:          terminalService,
@@ -407,6 +427,25 @@ func newRuntimeEdgeServices(
 	return terminalService, codexAccountService, nil
 }
 
+func newNotifyService(
+	config Config,
+	authStore *runtimeauth.Store,
+	chatService *chat.Service,
+) (*notify.Service, error) {
+	service, err := notify.NewService(notify.ServiceConfig{
+		AppDataDir:         config.AppDataDir,
+		RuntimeAuthService: authStore,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create notify service: %w", err)
+	}
+	if err := service.StartChatObserver(context.Background(), chatService); err != nil {
+		_ = service.Close()
+		return nil, err
+	}
+	return service, nil
+}
+
 func closeRuntimeServicesBeforeEdgeFailure(
 	config Config,
 	semanticGraphService *semanticgraph.Service,
@@ -420,6 +459,38 @@ func closeRuntimeServicesBeforeEdgeFailure(
 	workspaceActivityService.CloseEvents()
 	_ = semanticGraphStore.Close()
 	_ = workflowStore.Close()
+}
+
+func closeRuntimeServicesBeforeNotifyFailure(
+	config Config,
+	terminalService *terminal.Manager,
+	semanticGraphService *semanticgraph.Service,
+	semanticGraphStore *semanticgraph.Store,
+	workspaceActivityService *workspaceactivity.Service,
+	chatService *chat.Service,
+	workflowService *orchestrator.Service,
+	workflowStore *orchestrator.Store,
+) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+	_ = terminalService.Shutdown(shutdownCtx)
+	_ = semanticGraphService.ShutdownCartographerEventObserver(shutdownCtx)
+	cancel()
+	workspaceActivityService.CloseEvents()
+	chatService.CloseEvents()
+	workflowService.CloseEvents()
+	_ = semanticGraphStore.Close()
+	_ = workflowStore.Close()
+}
+
+func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+	defer cancel()
+	_ = server.closeEventStreams(shutdownCtx)
+	_ = server.shutdownTerminal(shutdownCtx)
+	_ = server.shutdownRuntimeAuth()
+	_ = server.shutdownCodex(shutdownCtx)
+	_ = server.shutdownSemanticStore()
+	_ = server.shutdownWorkflowStore()
 }
 
 func newAppearanceService(appDataDir string) (*appearance.Service, error) {
@@ -559,27 +630,29 @@ func newTerminalService(
 }
 
 func newHTTPServer(config Config, services runtimeServices) *http.Server {
+	apiHandler := httpapi.NewHandler(httpapi.HandlerConfig{
+		Metadata: httpapi.BackendMetadata{
+			Name:    httpapi.BackendName,
+			Version: config.Version,
+		},
+		AppearanceService:   services.appearanceService,
+		ChatService:         services.chatService,
+		CodexAccountService: services.codexAccountService,
+		NotifyService:       services.notifyService,
+		RuntimeAuthService:  services.authStore,
+		RuntimeMetadata: httpapi.RuntimeMetadata{
+			ID:          services.runtimeIdentity.RuntimeID,
+			DisplayName: services.runtimeIdentity.DisplayName,
+		},
+		SemanticGraphService:     services.semanticGraphService,
+		TerminalService:          services.terminalService,
+		WorkspaceActivityService: services.workspaceActivityService,
+		WorkspaceUIService:       services.workspaceUIService,
+		WorkspaceService:         services.workspaceService,
+		WorkflowService:          services.workflowService,
+	})
 	return &http.Server{
-		Handler: httpapi.NewHandler(httpapi.HandlerConfig{
-			Metadata: httpapi.BackendMetadata{
-				Name:    httpapi.BackendName,
-				Version: config.Version,
-			},
-			AppearanceService:   services.appearanceService,
-			ChatService:         services.chatService,
-			CodexAccountService: services.codexAccountService,
-			RuntimeAuthService:  services.authStore,
-			RuntimeMetadata: httpapi.RuntimeMetadata{
-				ID:          services.runtimeIdentity.RuntimeID,
-				DisplayName: services.runtimeIdentity.DisplayName,
-			},
-			SemanticGraphService:     services.semanticGraphService,
-			TerminalService:          services.terminalService,
-			WorkspaceActivityService: services.workspaceActivityService,
-			WorkspaceUIService:       services.workspaceUIService,
-			WorkspaceService:         services.workspaceService,
-			WorkflowService:          services.workflowService,
-		}),
+		Handler: webapp.NewHandler(apiHandler),
 	}
 }
 
@@ -604,6 +677,9 @@ func (server *Server) Shutdown(ctx context.Context) error {
 
 func (server *Server) closeEventStreams(ctx context.Context) error {
 	var shutdownErr error
+	if server.closeNotify != nil {
+		shutdownErr = firstShutdownError(shutdownErr, server.closeNotify())
+	}
 	if server.closeCartographerEvents != nil {
 		shutdownErr = firstShutdownError(shutdownErr, server.closeCartographerEvents(ctx))
 	}

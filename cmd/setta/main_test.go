@@ -206,7 +206,7 @@ func TestServeStateRoundTrip(t *testing.T) {
 		BaseURL:         "http://127.0.0.1:7345",
 		RuntimeID:       testRuntimeID,
 		DisplayName:     "Test Runtime",
-		ProtocolVersion: 1,
+		ProtocolVersion: httpapi.ProtocolVersion,
 		StartedAt:       "2026-07-02T10:00:00Z",
 	}
 	if err := writeServeState(appDataDir, state); err != nil {

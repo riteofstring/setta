@@ -1,3 +1,3 @@
 package httpapi
 
-const ProtocolVersion = 1
+const ProtocolVersion = 2

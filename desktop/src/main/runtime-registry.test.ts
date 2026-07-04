@@ -1,4 +1,5 @@
 import type { BackendFetch } from "@shared/backend-runtime";
+import { backendProtocolVersion } from "@generated/backend";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -67,7 +68,7 @@ describe("RuntimeRegistryController", () => {
       clientDisplayName: () => "Setta Desktop",
       fetchImpl: async (input) => {
         if (input.pathname === "/runtime/info") {
-          return jsonResponse(runtimeInfo("runtime_other", 1));
+          return jsonResponse(runtimeInfo("runtime_other", backendProtocolVersion));
         }
         return jsonResponse({ devices: [] });
       },
@@ -112,7 +113,7 @@ function lifecycleHooks(events: string[]): RuntimeRegistryHooks {
 function runtimeFetch(): BackendFetch {
   return async (input, init) => {
     if (input.pathname === "/runtime/info") {
-      return jsonResponse(runtimeInfo(runtimeIdForHost(input.host), 1));
+      return jsonResponse(runtimeInfo(runtimeIdForHost(input.host), backendProtocolVersion));
     }
     expect(init.headers).toBeInstanceOf(Headers);
     return jsonResponse({ devices: [] });
@@ -148,6 +149,7 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
     displayName: runtimeId === "runtime_local" ? "Local runtime" : "Remote runtime",
     protocolVersion,
     runtimeId,
+    vapidPublicKey: "test-vapid-public-key",
   };
 }
 

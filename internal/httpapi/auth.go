@@ -11,6 +11,11 @@ import (
 
 type authenticatedDeviceSessionKey struct{}
 
+func authenticatedDeviceSession(request *http.Request) (runtimeauth.DeviceSession, bool) {
+	session, ok := request.Context().Value(authenticatedDeviceSessionKey{}).(runtimeauth.DeviceSession)
+	return session, ok
+}
+
 func (handler handler) dispatch(route endpoint, response http.ResponseWriter, request *http.Request) {
 	if route.Unauthenticated {
 		route.Handler(handler, response, request)
