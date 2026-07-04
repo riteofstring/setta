@@ -11,7 +11,7 @@ import (
 	"setta/internal/codexapp"
 )
 
-// Phase 0 characterization harness for docs/plans/background_terminal_lifecycle_plan.md.
+// Characterization harness for background terminal provider streams.
 //
 // These constants describe a single Codex unified-exec background terminal stream shared by
 // the fake app-server mode emitter and the harness characterization test.

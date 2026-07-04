@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// Phase 0 fixture for docs/plans/background_terminal_lifecycle_plan.md.
+// Characterization fixture for background terminal lifecycle.
 //
 // scriptedBackgroundTerminalTurn emits a deterministic provider stream for the
 // background terminal lifecycle: the assistant starts two unified-exec style

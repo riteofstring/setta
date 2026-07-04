@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Background terminal ingestion for docs/plans/background_terminal_lifecycle_plan.md.
+// Background terminal ingestion.
 //
 // Codex labels unified-exec command starts with source=unifiedExecStartup, but
 // that source is not enough to prove the command is a persistent background

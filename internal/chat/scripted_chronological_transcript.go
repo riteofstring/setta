@@ -5,11 +5,11 @@ import (
 	"fmt"
 )
 
-// Phase 0 fixture for docs/plans/chronological_chat_transcript_plan.md.
+// Characterization fixture for chronological transcript ordering.
 //
 // scriptedChronologicalTranscriptTurn emits a deterministic provider stream whose
 // chronology is only observable at the provider boundary. It interleaves assistant
-// text with commands and reasoning exactly as the plan's concrete workflows describe:
+// text with commands and reasoning exactly as the production workflow expects:
 //
 //	assistant_text   step one  (before any command)
 //	command A        running -> stdout chunks -> completed   (output streaming)

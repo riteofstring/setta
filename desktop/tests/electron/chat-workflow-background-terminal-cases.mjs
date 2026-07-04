@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-// Phase 5 verification for docs/plans/background_terminal_lifecycle_plan.md. The provider starts two
+// Background terminal workflow verification. The provider starts two
 // unified-exec style background terminals and leaves them running when the turn completes.
 // The backend routes unified-exec commands into the background terminal process registry,
 // renders slim chronological background_terminal marker blocks, exposes typed list/output/kill
@@ -324,7 +324,7 @@ async function recordBackgroundTerminalDiagnostics(
     monitorDiagnostics,
     note: "Phase 5 background terminal lifecycle verification: unified-exec commands are routed into the backend process registry, rendered as slim background_terminal marker blocks, exposed through typed HTTP/preload IPC list and output projections, surfaced through the footer/monitor UI with per-process kill controls, and kept out of run-item activity rows.",
     phase: 5,
-    plan: "docs/plans/background_terminal_lifecycle_plan.md",
+    feature: "background-terminal-lifecycle",
     projectionDiagnostics,
     providerStreamSummary: BACKGROUND_TERMINAL_MARKER_SUMMARY,
     runId: run.id,

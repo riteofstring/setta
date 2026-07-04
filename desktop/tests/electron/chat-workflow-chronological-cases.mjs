@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-// Phase 5 of docs/plans/chronological_chat_transcript_plan.md. The provider emits assistant text
+// Chronological transcript workflow verification. The provider emits assistant text
 // interleaved with commands and reasoning, and the transcript now renders those typed blocks in
 // provider chronology: assistant text splits around the commands, reasoning is its own block, and
 // there is no outer Activity accordion. This summary mirrors the Go fixture
@@ -300,7 +300,7 @@ async function recordChronologicalDiagnostics(
     domBlockOrder: domBlocks.blocks,
     note: "Chronological transcript: provider chronology is preserved as ordered transcript blocks in the backend and DOM. providerStreamSummary is a hand-authored block-level summary; the full raw stream is frozen by the Go TestChronologicalFixture* tests.",
     phase: 5,
-    plan: "docs/plans/chronological_chat_transcript_plan.md",
+    feature: "chronological-chat-transcript",
     providerStreamSummary: CHRONOLOGICAL_PROVIDER_STREAM_SUMMARY,
     runId: run.id,
   };

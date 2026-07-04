@@ -95,8 +95,8 @@
   }
 
   // chatTranscriptBlockOrder returns the recognized transcript blocks in document order. It is
-  // the cross-phase diagnostic used by docs/plans/chronological_chat_transcript_plan.md to
-  // compare provider chronology, backend order, and DOM order. Today it reads the current DOM
+  // the cross-phase diagnostic used to compare provider chronology, backend order, and DOM order.
+  // Today it reads the current DOM
   // hooks (message role plus the run-activity-group/row test ids), so the order is flattened.
   // Those hooks disappear in the Phase 5 refactor, so it also prefers a stable
   // data-transcript-block + data-block-kind tagging when present; Phase 5 should add that so the

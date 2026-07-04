@@ -7,8 +7,7 @@ import (
 	"setta/internal/codexapp"
 )
 
-// Connection-scoped background terminal routing for
-// docs/plans/background_terminal_lifecycle_plan.md.
+// Connection-scoped background terminal routing.
 //
 // A Codex unified-exec process can keep running, emit output, and finally exit
 // after the assistant turn that started it has completed. The per-turn session is

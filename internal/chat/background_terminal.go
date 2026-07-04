@@ -2,8 +2,7 @@ package chat
 
 import "encoding/json"
 
-// Background terminal domain model for
-// docs/plans/background_terminal_lifecycle_plan.md.
+// Background terminal domain model.
 //
 // A background terminal is a provider process (Codex unified exec) whose
 // lifecycle is independent from the chat run that started it: it can keep

@@ -9,8 +9,7 @@ import (
 	"strings"
 )
 
-// Background terminal persistence for
-// docs/plans/background_terminal_lifecycle_plan.md.
+// Background terminal persistence.
 //
 // Process records and their output live under the conversation, separate from a
 // run's transcript blocks, so run terminal state never finalizes them:

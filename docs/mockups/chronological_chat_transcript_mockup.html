@@ -310,7 +310,7 @@
   .oldrow .grow { flex: 1 1 auto; }
   .oldrow .st { color: var(--faint); font-size: 11px; }
 
-  /* ---- background terminals (docs/plans/background_terminal_lifecycle_plan.md) ---- */
+  /* ---- background terminals ---- */
   .bgwrap { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; align-items: start; }
   @media (max-width: 920px) { .bgwrap { grid-template-columns: 1fr; } }
 
@@ -423,8 +423,7 @@
     quotes — never raw HTML); and adjacent tool calls collapse into one slim <strong>activity-group header</strong>
     by default instead of a wall of panels.</p>
   <p class="hint"><strong>Interactive:</strong> click a group header to expand its member rows; click a row chevron to
-    see its detail/output. Colors are the app's real <code>setta-*</code> theme tokens. Per
-    <code>docs/plans/chat_transcript_ui_polish_plan.md</code>.</p>
+    see its detail/output. Colors are the app's real <code>setta-*</code> theme tokens.</p>
 
   <div class="legend">
     <span class="item"><span class="live-headline" style="font-weight:650">shimmer</span> live reasoning/status headline</span>
@@ -898,9 +897,8 @@ format.sh</pre></div></div>
   </div>
 
   <!-- ===================== PROPOSED: BACKGROUND TERMINALS ===================== -->
-  <h2>Proposed · background terminals</h2>
-  <p class="lede" style="margin-bottom:6px">From <code>docs/plans/background_terminal_lifecycle_plan.md</code> —
-    <strong>not yet implemented</strong>. A Codex <em>unified-exec</em> terminal can keep running after the turn ends, so its
+  <h2>Reference · background terminals</h2>
+  <p class="lede" style="margin-bottom:6px">A Codex <em>unified-exec</em> terminal can keep running after the turn ends, so its
     lifecycle is owned by a process registry, not the run. Two surfaces: a slim chronological <strong>start marker</strong> in
     the transcript, and a persistent compact <strong>footer</strong> that — when clicked — opens a live
     <strong>background terminal monitor</strong> with per-process <strong>Kill</strong> controls.</p>
@@ -986,10 +984,10 @@ format.sh</pre></div></div>
   </div>
 
   <p class="hint" style="margin-top:40px">Mockup only — not wired to live data. Reflects
-    <code>docs/plans/chat_transcript_ui_polish_plan.md</code> (shimmer headlines, real markdown, collapsed activity
-    groups) over the shipped chronological transcript, plus the existing chat styling (command summaries in
+    shimmer headlines, real markdown, collapsed activity groups over the shipped chronological transcript,
+    plus the existing chat styling (command summaries in
     <code>internal/chat/command_summary.go</code>, syntax highlighting via <code>highlight.js</code>, muted status
-    icons). Background terminals follow <code>docs/plans/background_terminal_lifecycle_plan.md</code>.</p>
+    icons), and the implemented background terminal lifecycle.</p>
 </div>
 
 <!-- No script: group and row toggling uses native HTML details/summary behavior. -->

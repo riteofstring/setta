@@ -114,8 +114,7 @@ const (
 
 	// RunItemCommandSource preserves the Codex app-server CommandExecutionSource
 	// discriminator so the backend can tell a normal agent command from a
-	// background terminal lifecycle event without inspecting command text. See
-	// docs/plans/background_terminal_lifecycle_plan.md.
+	// background terminal lifecycle event without inspecting command text.
 	RunItemCommandSourceAgent                  RunItemCommandSource = "agent"
 	RunItemCommandSourceUserShell              RunItemCommandSource = "user_shell"
 	RunItemCommandSourceUnifiedExecStartup     RunItemCommandSource = "unified_exec_startup"
