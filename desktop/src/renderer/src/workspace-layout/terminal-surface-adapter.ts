@@ -72,6 +72,8 @@ type TerminalStatusEvent = TerminalEvent & {
   type: Exclude<TerminalEvent["type"], "terminal.output">;
 };
 
+type FitWaiter = (dimensions: { cols: number; rows: number } | null) => void;
+
 export class TerminalSurfaceAdapter implements SurfaceAdapter {
   readonly kind = "terminal" as const;
   private destroyed = false;
@@ -83,10 +85,12 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private focused = false;
   private frozen = false;
   private host: HTMLElement | null = null;
+  private deferOutputUntilSessionReady = false;
   private lastResize: { cols: number; rows: number } | null = null;
   private lostSession = false;
   private pendingResize: { cols: number; rows: number } | null = null;
   private readonly outputBuffer = new TerminalOutputBuffer();
+  private fitWaiters: FitWaiter[] = [];
   private profilesLoaded = false;
   private reattachRequired = false;
   private pasteOverlay: TerminalPasteElements | null = null;
@@ -407,10 +411,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     const dimensions = this.currentDimensions();
     this.hideExitOverlay();
     this.showStatus(this.sessionId ? "Attaching shell" : "Starting shell");
+    this.deferOutputUntilSessionReady = true;
     const runtimeVersion = this.runtimeProfileVersion;
     const startPromise = this.attachOrCreateSession(api, dimensions, runtimeVersion)
-      .then((response) => {
-        this.handleSessionStartResponse(response.session, runtimeVersion);
+      .then(async (response) => {
+        await this.handleSessionStartResponse(api, response.session, runtimeVersion);
       })
       .catch((error: unknown) => {
         this.handleSessionStartError(error, runtimeVersion);
@@ -439,20 +444,29 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     return null;
   }
   private handleSessionStartResponse(
+    api: NonNullable<ReturnType<typeof terminalAPI>>,
     session: TerminalSessionSummary,
     runtimeVersion: number,
-  ): void {
+  ): Promise<void> {
     if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
-      return;
+      return Promise.resolve();
     }
     this.allowExplicitProfileStart = false;
     this.applySessionSummary(session);
-    this.fitAndResize();
+    return this.resizeSessionToFittedDimensions(api, runtimeVersion).finally(() => {
+      if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
+        return;
+      }
+      this.deferOutputUntilSessionReady = false;
+      this.drainPendingOutput();
+      this.fitAndResize();
+    });
   }
   private handleSessionStartError(error: unknown, runtimeVersion: number): void {
     if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
       return;
     }
+    this.deferOutputUntilSessionReady = false;
     if (error instanceof TerminalStartDeferred) {
       return;
     }
@@ -491,6 +505,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       allowExplicitProfileStart: this.allowExplicitProfileStart,
       cwdOverride: this.pane.terminalConfig?.cwdOverride ?? "",
       dimensions,
+      isCurrent: () => !this.destroyed && runtimeVersion === this.runtimeProfileVersion,
       paneId: this.pane.paneId,
       profile,
       profileId: this.selectedProfileId,
@@ -511,6 +526,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.selectedProfile = null;
     this.selectedProfileId = this.pane.terminalConfig?.profileId ?? "";
     this.allowExplicitProfileStart = false;
+    this.deferOutputUntilSessionReady = false;
     this.startPromise = null;
     if (!this.sessionId) {
       this.sessionStatus = "";
@@ -609,7 +625,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (dataBase64 === "") {
       return;
     }
-    if (!terminal || this.frozen) {
+    if (!terminal || this.frozen || this.deferOutputUntilSessionReady) {
       this.outputBuffer.enqueue({ byteCount, dataBase64 });
       this.writeStats(0);
       this.syncHostState();
@@ -619,7 +635,12 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
   private drainPendingOutput(): void {
     const terminal = this.terminal;
-    if (!terminal || this.frozen || !this.outputBuffer.hasPending) {
+    if (
+      !terminal ||
+      this.frozen ||
+      this.deferOutputUntilSessionReady ||
+      !this.outputBuffer.hasPending
+    ) {
       return;
     }
     const outputs = this.outputBuffer.drain();
@@ -800,9 +821,15 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.syncHostState();
   }
   private fitAndResize(): void {
+    const dimensions = this.fitTerminal();
+    if (!dimensions) {
+      return;
+    }
+    this.scheduleResize(dimensions.cols, dimensions.rows);
+  }
+  private fitTerminal(): { cols: number; rows: number } | null {
     const fitContext = terminalFitContext({
       fitAddon: this.fitAddon,
-      focused: this.focused,
       frozen: this.frozen,
       host: this.host,
       terminal: this.terminal,
@@ -810,24 +837,98 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     });
     if (!fitContext) {
       this.writeStats(0);
-      return;
+      return null;
     }
     if (fitContext.host.clientWidth <= 0 || fitContext.host.clientHeight <= 0) {
-      return;
+      return null;
     }
     if (!terminalFitReady(fitContext.terminal)) {
       this.scheduleFitRetry();
       this.writeStats(0);
-      return;
+      return null;
     }
     this.fitReadinessRetryCount = 0;
     fitContext.fitAddon.fit();
-    this.scheduleResize(fitContext.terminal.cols, fitContext.terminal.rows);
     this.writeStats(1);
     this.syncHostState();
+    const dimensions = {
+      cols: fitContext.terminal.cols,
+      rows: fitContext.terminal.rows,
+    };
+    this.resolveFitWaiters(dimensions);
+    return dimensions;
+  }
+  private async resizeSessionToFittedDimensions(
+    api: NonNullable<ReturnType<typeof terminalAPI>>,
+    runtimeVersion: number,
+  ): Promise<void> {
+    const dimensions =
+      (await this.fittedDimensionsForSessionStart(runtimeVersion)) ?? this.currentDimensions();
+    if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
+      return;
+    }
+    await this.resizeSessionImmediately(api, dimensions, runtimeVersion);
+  }
+  private async fittedDimensionsForSessionStart(
+    runtimeVersion: number,
+  ): Promise<{ cols: number; rows: number } | null> {
+    const dimensions = this.fitTerminal();
+    if (dimensions || this.fitRetryTimer === null) {
+      return dimensions;
+    }
+    return new Promise((resolve) => {
+      this.fitWaiters.push((nextDimensions) => {
+        if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
+          resolve(null);
+          return;
+        }
+        resolve(nextDimensions);
+      });
+    });
+  }
+  private async resizeSessionImmediately(
+    api: NonNullable<ReturnType<typeof terminalAPI>>,
+    dimensions: { cols: number; rows: number },
+    runtimeVersion: number,
+  ): Promise<void> {
+    const sessionId = this.sessionId;
+    if (!sessionId) {
+      return;
+    }
+    if (this.lastResize?.cols === dimensions.cols && this.lastResize.rows === dimensions.rows) {
+      return;
+    }
+    this.clearResizeTimer();
+    try {
+      const response = await api.resize({
+        cols: dimensions.cols,
+        rows: dimensions.rows,
+        sessionId,
+      });
+      if (
+        this.destroyed ||
+        runtimeVersion !== this.runtimeProfileVersion ||
+        this.sessionId !== sessionId
+      ) {
+        return;
+      }
+      this.applySessionSummary(response.session);
+    } catch (error: unknown) {
+      if (
+        !this.destroyed &&
+        runtimeVersion === this.runtimeProfileVersion &&
+        this.sessionId === sessionId
+      ) {
+        this.showStatus(`Terminal resize failed: ${errorMessage(error)}`);
+      }
+    }
   }
   private scheduleFitRetry(): void {
-    if (this.fitRetryTimer !== null || this.fitReadinessRetryCount >= maxFitReadinessRetries) {
+    if (this.fitRetryTimer !== null) {
+      return;
+    }
+    if (this.fitReadinessRetryCount >= maxFitReadinessRetries) {
+      this.resolveFitWaiters(null);
       return;
     }
     this.fitReadinessRetryCount += 1;
@@ -893,6 +994,17 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       this.fitRetryTimer = null;
     }
     this.fitReadinessRetryCount = 0;
+    this.resolveFitWaiters(null);
+  }
+  private resolveFitWaiters(dimensions: { cols: number; rows: number } | null): void {
+    if (this.fitWaiters.length === 0) {
+      return;
+    }
+    const waiters = this.fitWaiters;
+    this.fitWaiters = [];
+    for (const waiter of waiters) {
+      waiter(dimensions);
+    }
   }
   private showStatus(message: string): void {
     if (this.status) {

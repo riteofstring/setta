@@ -14,6 +14,7 @@ import { useRuntimeStore } from "../stores/runtime-store";
 import type { WorkspacePane } from "./types";
 
 const terminalMock = vi.hoisted(() => ({
+  fitDimensions: null as { cols: number; rows: number } | null,
   fitAddons: [] as Array<{
     fit: ReturnType<typeof vi.fn>;
   }>,
@@ -24,7 +25,9 @@ const terminalMock = vi.hoisted(() => ({
     options: Record<string, unknown>;
     pasteCalls: string[];
     selection: string;
+    writeCalls: unknown[];
   }>,
+  operations: [] as string[],
   searchAddons: [] as Array<{
     findNext: ReturnType<typeof vi.fn>;
     findPrevious: ReturnType<typeof vi.fn>;
@@ -45,6 +48,7 @@ vi.mock("@xterm/xterm", () => ({
     pasteCalls: string[] = [];
     rows = 24;
     selection = "";
+    writeCalls: unknown[] = [];
     _core = terminalMock.renderReady ? terminalMock.readyCore() : {};
 
     clear(): void {}
@@ -62,7 +66,16 @@ vi.mock("@xterm/xterm", () => ({
     hasSelection(): boolean {
       return this.selection.length > 0;
     }
-    loadAddon(): void {}
+    loadAddon(addon: unknown): void {
+      if (
+        addon &&
+        typeof addon === "object" &&
+        "__setTerminalForTest" in addon &&
+        typeof addon.__setTerminalForTest === "function"
+      ) {
+        addon.__setTerminalForTest(this);
+      }
+    }
     onData(listener: (data: string) => void): { dispose(): void } {
       this.dataListener = listener;
       return { dispose() {} };
@@ -76,7 +89,9 @@ vi.mock("@xterm/xterm", () => ({
       this.dataListener?.(data);
     }
     scrollToBottom(): void {}
-    write(_data?: unknown, callback?: () => void): void {
+    write(data?: unknown, callback?: () => void): void {
+      this.writeCalls.push(data);
+      terminalMock.operations.push("write");
       this.buffer.active.length += 1;
       callback?.();
     }
@@ -90,7 +105,17 @@ vi.mock("@xterm/xterm", () => ({
 
 vi.mock("@xterm/addon-fit", () => ({
   FitAddon: class MockFitAddon {
-    fit = vi.fn();
+    terminal: { cols: number; rows: number } | null = null;
+    fit = vi.fn(() => {
+      if (this.terminal && terminalMock.fitDimensions) {
+        this.terminal.cols = terminalMock.fitDimensions.cols;
+        this.terminal.rows = terminalMock.fitDimensions.rows;
+      }
+    });
+
+    __setTerminalForTest(terminal: { cols: number; rows: number }): void {
+      this.terminal = terminal;
+    }
 
     constructor() {
       terminalMock.fitAddons.push(this);
@@ -153,8 +178,10 @@ describe("terminal surface adapter", () => {
   beforeEach(() => {
     terminalListeners = [];
     backendStatusListeners = [];
+    terminalMock.fitDimensions = null;
     terminalMock.fitAddons.length = 0;
     terminalMock.instances.length = 0;
+    terminalMock.operations.length = 0;
     terminalMock.renderReady = true;
     terminalMock.searchAddons.length = 0;
     terminalMock.webLinkHandlers.length = 0;
@@ -300,6 +327,57 @@ describe("terminal surface adapter", () => {
 
     expect(api.terminal.create).toHaveBeenCalledTimes(1);
     expect(host.dataset.terminalProfileId).toBe("default");
+  });
+
+  test("reattaches the existing local session after switching back without stale remote create", async () => {
+    useRuntimeStore.setState({
+      snapshot: runtimeSnapshot("local-runtime", "connected"),
+      status: "ready",
+    });
+    const staleRemoteAttach = deferred<TerminalSessionResponse>();
+    const attach = vi.fn(async () => {
+      const activeRuntimeId = useRuntimeStore.getState().snapshot?.activeRuntimeId;
+      if (activeRuntimeId === "remote-runtime") {
+        return staleRemoteAttach.promise;
+      }
+      return terminalResponse("terminal_local_existing", "running");
+    });
+    const create = vi.fn(async () => terminalResponse("terminal_created", "running"));
+    const api = installSettaAPI({ attach, create });
+    const firstAdapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const firstHost = createFakeHost();
+
+    firstAdapter.mount(firstHost);
+    firstAdapter.setVisible(true);
+    await waitFor(() => firstHost.dataset.terminalSessionId === "terminal_local_existing");
+    firstAdapter.destroy();
+
+    useRuntimeStore.setState({
+      snapshot: runtimeSnapshot("remote-runtime", "connected"),
+      status: "ready",
+    });
+    const switchingAdapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const switchingHost = createFakeHost();
+
+    switchingAdapter.mount(switchingHost);
+    switchingAdapter.setVisible(true);
+    await waitFor(() => api.terminal.attach.mock.calls.length === 2);
+
+    useRuntimeStore.setState({
+      snapshot: runtimeSnapshot("local-runtime", "connected"),
+      status: "ready",
+    });
+    await waitFor(
+      () =>
+        api.terminal.attach.mock.calls.length === 3 &&
+        switchingHost.dataset.terminalSessionId === "terminal_local_existing",
+    );
+
+    staleRemoteAttach.reject(new Error("terminal session not found"));
+    await delay(20);
+
+    expect(api.terminal.create).not.toHaveBeenCalled();
+    expect(switchingHost.dataset.terminalSessionId).toBe("terminal_local_existing");
   });
 
   test("keeps visible auto-start discovery in flight across remount before creating", async () => {
@@ -454,6 +532,117 @@ describe("terminal surface adapter", () => {
 
     expect(adapter.getTerminalStats().pendingOutputChunks).toBe(0);
     expect(adapter.getTerminalStats().scrollbackRows).toBeGreaterThan(0);
+  });
+
+  test("resizes an attached mismatched session before writing replay output", async () => {
+    terminalMock.fitDimensions = { cols: 100, rows: 48 };
+    const attach = deferred<TerminalSessionResponse>();
+    const resize = deferred<TerminalSessionResponse>();
+    const api = installSettaAPI({
+      attach: vi.fn(() => attach.promise),
+      resize: vi.fn((request: { cols: number; rows: number; sessionId: string }) => {
+        terminalMock.operations.push("resize");
+        return resize.promise.then(() =>
+          terminalResponse(request.sessionId, "running", {
+            cols: request.cols,
+            rows: request.rows,
+          }),
+        );
+      }),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+    await waitFor(() => terminalMock.instances.length === 1);
+    emitTerminalEvent(
+      terminalEvent("terminal.output", "terminal_existing", {
+        byteCount: 7,
+        dataBase64: Buffer.from("prompt\n").toString("base64"),
+      }),
+    );
+
+    expect(terminalMock.instances[0]?.writeCalls).toEqual([]);
+    expect(adapter.getTerminalStats().pendingOutputChunks).toBe(1);
+
+    attach.resolve(
+      terminalResponse("terminal_existing", "running", {
+        cols: 80,
+        rows: 24,
+      }),
+    );
+    await waitFor(() => api.terminal.resize.mock.calls.length === 1);
+
+    expect(api.terminal.resize).toHaveBeenCalledWith({
+      cols: 100,
+      rows: 48,
+      sessionId: "terminal_existing",
+    });
+    expect(terminalMock.instances[0]?.writeCalls).toEqual([]);
+
+    resize.resolve(terminalResponse("terminal_existing", "running", { cols: 100, rows: 48 }));
+    await waitFor(() => (terminalMock.instances[0]?.writeCalls.length ?? 0) === 1);
+
+    expect(terminalMock.operations).toEqual(["resize", "write"]);
+    expect(adapter.getTerminalStats().pendingOutputChunks).toBe(0);
+  });
+
+  test("waits for delayed xterm fit readiness before writing replay output", async () => {
+    terminalMock.renderReady = false;
+    terminalMock.fitDimensions = { cols: 120, rows: 54 };
+    const attach = deferred<TerminalSessionResponse>();
+    const resize = deferred<TerminalSessionResponse>();
+    const api = installSettaAPI({
+      attach: vi.fn(() => attach.promise),
+      resize: vi.fn((request: { cols: number; rows: number; sessionId: string }) => {
+        terminalMock.operations.push("resize");
+        return resize.promise.then(() =>
+          terminalResponse(request.sessionId, "running", {
+            cols: request.cols,
+            rows: request.rows,
+          }),
+        );
+      }),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+    await waitFor(() => terminalMock.instances.length === 1);
+    emitTerminalEvent(
+      terminalEvent("terminal.output", "terminal_existing", {
+        byteCount: 7,
+        dataBase64: Buffer.from("prompt\n").toString("base64"),
+      }),
+    );
+
+    attach.resolve(terminalResponse("terminal_existing", "running", { cols: 80, rows: 24 }));
+    await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
+
+    expect(api.terminal.resize).not.toHaveBeenCalled();
+    expect(terminalMock.instances[0]?.writeCalls).toEqual([]);
+
+    const terminal = terminalMock.instances[0];
+    if (!terminal) {
+      throw new Error("terminal instance was not created");
+    }
+    terminal._core = terminalMock.readyCore();
+    await waitFor(() => api.terminal.resize.mock.calls.length === 1);
+
+    expect(api.terminal.resize).toHaveBeenCalledWith({
+      cols: 120,
+      rows: 54,
+      sessionId: "terminal_existing",
+    });
+    expect(terminal.writeCalls).toEqual([]);
+
+    resize.resolve(terminalResponse("terminal_existing", "running", { cols: 120, rows: 54 }));
+    await waitFor(() => terminal.writeCalls.length === 1);
+
+    expect(terminalMock.operations).toEqual(["resize", "write"]);
+    expect(adapter.getTerminalStats().pendingOutputChunks).toBe(0);
   });
 
   test("marks lost sessions on backend exit and starts fresh after backend recovery", async () => {
@@ -699,6 +888,7 @@ describe("terminal surface adapter", () => {
     platform?: string;
     profiles?: TerminalProfileList;
     readClipboardText?: ReturnType<typeof vi.fn>;
+    resize?: ReturnType<typeof vi.fn>;
     writeClipboardText?: ReturnType<typeof vi.fn>;
   }) {
     const windowListeners = new Map<string, Set<EventListener>>();
@@ -721,9 +911,14 @@ describe("terminal surface adapter", () => {
           terminalListeners = terminalListeners.filter((candidate) => candidate !== listener);
         };
       }),
-      resize: vi.fn(async (request: { sessionId: string }) =>
-        terminalResponse(request.sessionId, "running"),
-      ),
+      resize:
+        overrides.resize ??
+        vi.fn(async (request: { cols: number; rows: number; sessionId: string }) =>
+          terminalResponse(request.sessionId, "running", {
+            cols: request.cols,
+            rows: request.rows,
+          }),
+        ),
     };
     vi.stubGlobal("window", {
       CustomEvent,
@@ -791,6 +986,7 @@ describe("terminal surface adapter", () => {
 function terminalResponse(
   sessionId: string,
   status: TerminalSessionResponse["session"]["status"],
+  overrides: Partial<TerminalSessionResponse["session"]> = {},
 ): TerminalSessionResponse {
   return {
     session: {
@@ -806,6 +1002,7 @@ function terminalResponse(
       status,
       updatedAt: "2026-06-06T12:00:00Z",
       workspaceId: "workspace_api",
+      ...overrides,
     },
   };
 }
@@ -1018,6 +1215,10 @@ async function waitFor(done: () => boolean): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 class MemoryStorage implements Storage {
