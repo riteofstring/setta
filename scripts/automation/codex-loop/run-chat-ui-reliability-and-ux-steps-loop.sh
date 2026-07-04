@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-PLAN_PATH="docs/plans/chat_run_liveness_reconciliation_plan.md"
-SENTINEL="CHAT_RUN_LIVENESS_RECONCILIATION_COMPLETE"
+PLAN_PATH="docs/plans/chat_ui_reliability_and_ux_plan.md"
+SENTINEL="CHAT_UI_RELIABILITY_AND_UX_COMPLETE"
 MODEL="gpt-5.5"
 REASONING_CONFIG='reasoning_effort="xhigh"'
 OUTPUT_DIR=""
@@ -14,15 +14,15 @@ MAX_ITERATIONS="0"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/automation/codex-loop/run-chat-run-liveness-steps-loop.sh [options]
+Usage: scripts/automation/codex-loop/run-chat-ui-reliability-and-ux-steps-loop.sh [options]
 
 Runs two fresh Codex agents in a loop for:
-  docs/plans/chat_run_liveness_reconciliation_plan.md
+  docs/plans/chat_ui_reliability_and_ux_plan.md
 
 Agent 1 implements the next coherent step in the plan and commits the work.
 Agent 2 audits the work, fixes or documents any gaps, commits if needed, and
 the loop stops only when Agent 2's final message is exactly:
-  CHAT_RUN_LIVENESS_RECONCILIATION_COMPLETE
+  CHAT_UI_RELIABILITY_AND_UX_COMPLETE
 
 Codex transcripts are written to per-agent log files. The terminal prints only
 loop status and periodic progress updates.
@@ -186,20 +186,20 @@ if ! command -v codex >/dev/null 2>&1; then
 fi
 
 if [[ -z "${OUTPUT_DIR}" ]]; then
-  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/chat-run-liveness-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
+  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/chat-ui-reliability-ux-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
 else
   mkdir -p "${OUTPUT_DIR}"
 fi
 
 AGENT_ONE_PROMPT="Implement the next coherent step in ${PLAN_PATH}.
 
-First inspect the plan (including phase statuses and Appendix A), git history, and current source to determine which step is next. Keep the slice disciplined: finish the smallest plan step that can be verified and committed cleanly. Follow AGENTS.md exactly, including generated contract rules and required Electron/live Codex verification when the touched area requires it. Do not build a durable event outbox or cross-restart replay, polling or timer-based liveness guessing, text or keyword heuristics, compatibility shims or transitional code, or unrelated cleanup.
+First inspect the plan's product contract, non-goals, existing-system boundaries, implementation slices, verification plan, git history, and current source to determine which step is next. Keep the slice disciplined: finish the smallest coherent plan step that can be verified and committed cleanly. Follow AGENTS.md exactly, including generated contract rules, no-backward-compatibility rules, and required Electron/live Codex verification when the touched area requires it. Do not remove Setta dynamic tools, add polling or timer-based guessing, parse text with keyword heuristics, add silent fallbacks, add compatibility shims, add migrations, add transitional dual paths, or do unrelated cleanup.
 
-When the step is implemented and verified, commit your work. If you are blocked, leave the worktree clean if possible and explain the blocker in your final message."
+When the step is implemented and verified, commit your work."
 
 AGENT_TWO_PROMPT="Another agent worked on the next step in ${PLAN_PATH}. Audit the result against the plan, AGENTS.md, and the actual code.
 
-If the implementation has blockers, fix them if practical, run the required focused verification, and commit your fixes. If the plan doc needs to be updated to reflect what was learned, update it and commit. If the current step is good and the next step is ready, say so in your final message.
+If the audit finds gaps, fix them if practical, run the required focused verification, and commit your fixes. If the plan doc needs to be updated to reflect what was learned, update it and commit. If the current step is good and the next step is ready, say so in your final message.
 
 If the whole plan is fully implemented and verified, respond with exactly:
 ${SENTINEL}"
