@@ -957,6 +957,24 @@ export function decodeRunItemCommandSource(value: unknown, label = "RunItemComma
   }
 }
 
+export type RunItemFileChangeOperation = "add" | "delete" | "update";
+
+export const runItemFileChangeOperationValues = ["add", "delete", "update"] as const satisfies readonly RunItemFileChangeOperation[];
+
+export function decodeRunItemFileChangeOperation(value: unknown, label = "RunItemFileChangeOperation"): RunItemFileChangeOperation {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "add":
+      return decoded;
+    case "delete":
+      return decoded;
+    case "update":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type RunStatusBlockMode = "working" | "completed" | "cancelled" | "failed";
 
 export const runStatusBlockModeValues = ["working", "completed", "cancelled", "failed"] as const satisfies readonly RunStatusBlockMode[];
@@ -1059,9 +1077,9 @@ export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind")
   }
 }
 
-export type RunItemDetailsKind = "command_execution" | "mcp_tool_call";
+export type RunItemDetailsKind = "command_execution" | "mcp_tool_call" | "file_change";
 
-export const runItemDetailsKindValues = ["command_execution", "mcp_tool_call"] as const satisfies readonly RunItemDetailsKind[];
+export const runItemDetailsKindValues = ["command_execution", "mcp_tool_call", "file_change"] as const satisfies readonly RunItemDetailsKind[];
 
 export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetailsKind"): RunItemDetailsKind {
   const decoded = decodeString(value, label);
@@ -1069,6 +1087,8 @@ export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetails
     case "command_execution":
       return decoded;
     case "mcp_tool_call":
+      return decoded;
+    case "file_change":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3154,6 +3174,23 @@ export interface RunItemMCPToolCallDetails {
   error: string;
 }
 
+export interface RunItemFileChangePath {
+  path: string;
+  operation: RunItemFileChangeOperation | null;
+  movePath: string;
+  additions: number;
+  deletions: number;
+  patch: string;
+  patchTruncated: boolean;
+}
+
+export interface RunItemFileChangeDetails {
+  patchStatus: string;
+  paths: RunItemFileChangePath[];
+  additions: number;
+  deletions: number;
+}
+
 export interface RunActivityDetailsProjection {
   summary: string;
   command: string;
@@ -3177,6 +3214,7 @@ export interface RunActivityDetailsProjection {
   details: unknown;
   commandExecution: RunItemCommandExecutionDetails | null;
   mcpToolCall: RunItemMCPToolCallDetails | null;
+  fileChange: RunItemFileChangeDetails | null;
 }
 
 export interface ActivityItemBlockProjection {
@@ -3569,6 +3607,7 @@ export interface RunItemDetails {
   kind: RunItemDetailsKind;
   commandExecution: RunItemCommandExecutionDetails | null;
   mcpToolCall: RunItemMCPToolCallDetails | null;
+  fileChange: RunItemFileChangeDetails | null;
 }
 
 export interface RunItem {
@@ -7436,9 +7475,34 @@ export function decodeRunItemMCPToolCallDetails(value: unknown): RunItemMCPToolC
   };
 }
 
+export function decodeRunItemFileChangePath(value: unknown): RunItemFileChangePath {
+  const record = assertRecord(value, "RunItemFileChangePath");
+  assertKnownFields(record, "RunItemFileChangePath", ["path", "operation", "movePath", "additions", "deletions", "patch", "patchTruncated"]);
+  return {
+    path: decodeString(requireField(record, "path", "RunItemFileChangePath"), "RunItemFileChangePath.path"),
+    operation: decodeNullable(requireField(record, "operation", "RunItemFileChangePath"), "RunItemFileChangePath.operation", (item) => decodeRunItemFileChangeOperation(item, "RunItemFileChangePath.operation")),
+    movePath: decodeString(requireField(record, "movePath", "RunItemFileChangePath"), "RunItemFileChangePath.movePath"),
+    additions: decodeInteger(requireField(record, "additions", "RunItemFileChangePath"), "RunItemFileChangePath.additions"),
+    deletions: decodeInteger(requireField(record, "deletions", "RunItemFileChangePath"), "RunItemFileChangePath.deletions"),
+    patch: decodeString(requireField(record, "patch", "RunItemFileChangePath"), "RunItemFileChangePath.patch"),
+    patchTruncated: decodeBoolean(requireField(record, "patchTruncated", "RunItemFileChangePath"), "RunItemFileChangePath.patchTruncated"),
+  };
+}
+
+export function decodeRunItemFileChangeDetails(value: unknown): RunItemFileChangeDetails {
+  const record = assertRecord(value, "RunItemFileChangeDetails");
+  assertKnownFields(record, "RunItemFileChangeDetails", ["patchStatus", "paths", "additions", "deletions"]);
+  return {
+    patchStatus: decodeString(requireField(record, "patchStatus", "RunItemFileChangeDetails"), "RunItemFileChangeDetails.patchStatus"),
+    paths: decodeArray(requireField(record, "paths", "RunItemFileChangeDetails"), "RunItemFileChangeDetails.paths", (item) => decodeRunItemFileChangePath(item)),
+    additions: decodeInteger(requireField(record, "additions", "RunItemFileChangeDetails"), "RunItemFileChangeDetails.additions"),
+    deletions: decodeInteger(requireField(record, "deletions", "RunItemFileChangeDetails"), "RunItemFileChangeDetails.deletions"),
+  };
+}
+
 export function decodeRunActivityDetailsProjection(value: unknown): RunActivityDetailsProjection {
   const record = assertRecord(value, "RunActivityDetailsProjection");
-  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "mcpToolCall"]);
+  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "mcpToolCall", "fileChange"]);
   return {
     summary: decodeString(requireField(record, "summary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.summary"),
     command: decodeString(requireField(record, "command", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.command"),
@@ -7462,6 +7526,7 @@ export function decodeRunActivityDetailsProjection(value: unknown): RunActivityD
     details: decodeUnknown(requireField(record, "details", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.details"),
     commandExecution: decodeNullable(requireField(record, "commandExecution", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
     mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
+    fileChange: decodeNullable(requireField(record, "fileChange", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.fileChange", (item) => decodeRunItemFileChangeDetails(item)),
   };
 }
 
@@ -8079,15 +8144,17 @@ export function decodeGetRunActivityRequest(value: unknown): GetRunActivityReque
 
 export function decodeRunItemDetails(value: unknown): RunItemDetails {
   const record = assertRecord(value, "RunItemDetails");
-  assertKnownFields(record, "RunItemDetails", ["kind", "commandExecution", "mcpToolCall"]);
+  assertKnownFields(record, "RunItemDetails", ["kind", "commandExecution", "mcpToolCall", "fileChange"]);
   const result: RunItemDetails = {
     kind: decodeRunItemDetailsKind(requireField(record, "kind", "RunItemDetails"), "RunItemDetails.kind"),
     commandExecution: decodeNullable(requireField(record, "commandExecution", "RunItemDetails"), "RunItemDetails.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
     mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunItemDetails"), "RunItemDetails.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
+    fileChange: decodeNullable(requireField(record, "fileChange", "RunItemDetails"), "RunItemDetails.fileChange", (item) => decodeRunItemFileChangeDetails(item)),
   };
   assertTaggedUnionBranch("RunItemDetails", result.kind, {
     "command_execution": result.commandExecution,
     "mcp_tool_call": result.mcpToolCall,
+    "file_change": result.fileChange,
   });
   return result;
 }

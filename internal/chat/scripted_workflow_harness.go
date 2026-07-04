@@ -804,11 +804,14 @@ func scriptedApprovalActivity(sink TurnSink, runID string, approval ApprovalRequ
 		Type:           approvalRunItemType(approval),
 		Status:         RunItemStatusRunning,
 		Title:          approval.Title,
-		FilePaths:      approvalFilePaths(approval),
 		Summary:        approval.Body,
 	}
 	if approval.Kind == ApprovalKindFileChange {
-		item.PatchStatus = "approval_requested"
+		paths := make([]RunItemFileChangePath, 0, len(approvalFilePaths(approval)))
+		for _, path := range approvalFilePaths(approval) {
+			paths = append(paths, RunItemFileChangePath{Path: path})
+		}
+		item.Details = newRunItemFileChangeDetails("approval_requested", paths)
 	} else {
 		item.Details = NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
 			Command: approval.Command,
@@ -838,14 +841,16 @@ func scriptedActivityFeedCommand(sink TurnSink, runID string, rootPath string) e
 }
 
 func scriptedActivityFeedFileChange(sink TurnSink, runID string, rootPath string) error {
+	operation := RunItemFileChangeOperationUpdate
 	item := RunItem{
 		ProviderItemID: "provider_activity_file_" + runID,
 		Type:           RunItemTypeFileChange,
 		Status:         RunItemStatusCompleted,
 		Title:          "Activity file change",
-		FilePaths:      []string{filepath.Join(rootPath, "scripted-activity-file.txt")},
-		PatchStatus:    "updated",
 		Summary:        "Scripted typed file-change activity.",
+		Details: newRunItemFileChangeDetails("updated", []RunItemFileChangePath{
+			newRunItemFileChangePath(filepath.Join(rootPath, "scripted-activity-file.txt"), &operation, "", "+scripted activity\n"),
+		}),
 	}
 	return sink.RunItemUpsert(item)
 }

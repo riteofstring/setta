@@ -53,3 +53,35 @@ func TestMergeRunItemPreservesSource(t *testing.T) {
 		t.Fatalf("merged source = %v, want overriding unified_exec_interaction", overriddenDetails.Source)
 	}
 }
+
+func TestMergeRunItemPreservesFileChangePaths(t *testing.T) {
+	existing := RunItem{
+		ID:             "run_item_1",
+		ProviderItemID: "provider_1",
+		Type:           RunItemTypeFileChange,
+		Details: newRunItemFileChangeDetails("updated", []RunItemFileChangePath{
+			{Path: "main.go", Operation: runItemFileChangeOperationPtr(RunItemFileChangeOperationUpdate), Additions: 2},
+		}),
+	}
+
+	merged := mergeRunItem(existing, RunItem{
+		ProviderItemID: "provider_1",
+		Type:           RunItemTypeFileChange,
+		Status:         RunItemStatusCompleted,
+		Details:        newRunItemFileChangeDetails("completed", nil),
+	})
+
+	details, ok := merged.FileChangeDetails()
+	if !ok {
+		t.Fatal("merged file change details missing")
+	}
+	if details.PatchStatus != "completed" {
+		t.Fatalf("patch status = %q, want completed", details.PatchStatus)
+	}
+	if len(details.Paths) != 1 || details.Paths[0].Path != "main.go" {
+		t.Fatalf("paths = %+v, want preserved main.go path", details.Paths)
+	}
+	if details.Additions != 2 {
+		t.Fatalf("additions = %d, want preserved 2", details.Additions)
+	}
+}

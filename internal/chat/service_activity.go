@@ -359,8 +359,10 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 		next.Command = keepString(next.Command, existing.Command)
 		next.Cwd = keepString(next.Cwd, existing.Cwd)
 	}
-	next.FilePaths = keepStrings(next.FilePaths, existing.FilePaths)
-	next.PatchStatus = keepString(next.PatchStatus, existing.PatchStatus)
+	if next.Type != RunItemTypeFileChange {
+		next.FilePaths = keepStrings(next.FilePaths, existing.FilePaths)
+		next.PatchStatus = keepString(next.PatchStatus, existing.PatchStatus)
+	}
 	next.ServerName = keepString(next.ServerName, existing.ServerName)
 	next.ToolName = keepString(next.ToolName, existing.ToolName)
 	next.Progress = mergeProgress(existing, next)
@@ -370,7 +372,9 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	}
 	next.NoticeKind = keepString(next.NoticeKind, existing.NoticeKind)
 	next.NoticeMessage = keepString(next.NoticeMessage, existing.NoticeMessage)
-	next.DiffSummary = keepString(next.DiffSummary, existing.DiffSummary)
+	if next.Type != RunItemTypeFileChange {
+		next.DiffSummary = keepString(next.DiffSummary, existing.DiffSummary)
+	}
 	next.Namespace = keepString(next.Namespace, existing.Namespace)
 	if next.Type != RunItemTypeCommandExecution {
 		next.ProcessID = keepString(next.ProcessID, existing.ProcessID)
@@ -394,10 +398,13 @@ func mergeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunIte
 	if next.Kind == RunItemDetailsKindCommandExecution {
 		return mergeCommandExecutionRunItemDetails(existing, next)
 	}
-	if next.Kind != RunItemDetailsKindMCPToolCall {
-		return next
+	if next.Kind == RunItemDetailsKindMCPToolCall {
+		return mergeMCPToolCallRunItemDetails(existing, next)
 	}
-	return mergeMCPToolCallRunItemDetails(existing, next)
+	if next.Kind == RunItemDetailsKindFileChange {
+		return mergeFileChangeRunItemDetails(existing, next)
+	}
+	return next
 }
 
 func mergeCommandExecutionRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
@@ -447,6 +454,26 @@ func mergeMCPToolCallRunItemDetails(existing *RunItemDetails, next *RunItemDetai
 	}
 	merged.Error = keepString(merged.Error, previous.Error)
 	return NewRunItemMCPToolCallDetails(merged)
+}
+
+func mergeFileChangeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
+	if next.FileChange == nil {
+		return existing
+	}
+	if existing.FileChange == nil {
+		return next
+	}
+	merged := cloneRunItemFileChangeDetails(*next.FileChange)
+	previous := existing.FileChange
+	merged.PatchStatus = keepString(merged.PatchStatus, previous.PatchStatus)
+	if len(merged.Paths) == 0 {
+		merged.Paths = cloneRunItemFileChangePaths(previous.Paths)
+	}
+	if len(next.FileChange.Paths) == 0 && merged.Additions == 0 && merged.Deletions == 0 {
+		merged.Additions = previous.Additions
+		merged.Deletions = previous.Deletions
+	}
+	return NewRunItemFileChangeDetails(merged)
 }
 
 func keepString(next string, existing string) string {

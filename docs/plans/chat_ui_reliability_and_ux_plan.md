@@ -676,9 +676,17 @@ Status after the MCP typed-details cutover:
   fail validation instead of being dual-read. Live Codex Electron was exercised
   during this slice; the final reruns reached live chat command activity and
   then failed later in the semantic cartographer segment.
-- Remaining: complete protocol findings and typed-detail cutovers for file
-  changes, diff updates, dynamic/Setta tools, failed starts, approvals, and
-  stream lifecycle activity.
+- Done: file changes now write `RunItem.details.fileChange` for patch status,
+  changed paths, operation type, optional move path, additions/deletions, and a
+  bounded patch snippet. Codex patch-updated notifications decode through the
+  generated `changes` protocol shape instead of the legacy `changedPaths/status`
+  projection. Transcript details, search, workspace activity, semantic
+  cartographer summaries, deterministic Electron protocol coverage, and live
+  Codex Electron coverage read the typed branch. File-change records with legacy
+  flat file fields now fail validation instead of being dual-read.
+- Remaining: complete protocol findings and typed-detail cutovers for diff
+  updates, dynamic/Setta tools, failed starts, approvals, and stream lifecycle
+  activity.
 
 ### Slice 4: Tool And File Activity Rendering
 

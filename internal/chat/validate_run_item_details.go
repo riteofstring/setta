@@ -15,6 +15,9 @@ func validateRunItemCommandExecutionDetails(item RunItem) error {
 	if item.Details.MCPToolCall != nil {
 		return fmt.Errorf("run item %s commandExecution details must not contain the mcpToolCall branch", item.ID)
 	}
+	if item.Details.FileChange != nil {
+		return fmt.Errorf("run item %s commandExecution details must not contain the fileChange branch", item.ID)
+	}
 	if err := validateRunItemCommandExecutionFlatFieldsEmpty(item); err != nil {
 		return err
 	}
@@ -78,5 +81,43 @@ func validateRunItemMCPToolCallDetailsBranch(item RunItem) error {
 	if item.Details.CommandExecution != nil {
 		return fmt.Errorf("run item %s mcpToolCall details must not contain the commandExecution branch", item.ID)
 	}
+	if item.Details.FileChange != nil {
+		return fmt.Errorf("run item %s mcpToolCall details must not contain the fileChange branch", item.ID)
+	}
 	return validateRunItemMCPToolCallDetails(item, *item.Details.MCPToolCall)
+}
+
+func validateRunItemFileChangeDetailsBranch(item RunItem) error {
+	if rawDetailsInspectable(item.RawDetails) {
+		return fmt.Errorf("run item %s fileChange rawDetails must be empty after typed details cutover", item.ID)
+	}
+	if item.Details == nil {
+		return fmt.Errorf("run item %s fileChange details are required", item.ID)
+	}
+	if item.Details.Kind != RunItemDetailsKindFileChange || item.Details.FileChange == nil {
+		return fmt.Errorf("run item %s fileChange details must contain the fileChange branch", item.ID)
+	}
+	if item.Details.CommandExecution != nil {
+		return fmt.Errorf("run item %s fileChange details must not contain the commandExecution branch", item.ID)
+	}
+	if item.Details.MCPToolCall != nil {
+		return fmt.Errorf("run item %s fileChange details must not contain the mcpToolCall branch", item.ID)
+	}
+	if err := validateRunItemFileChangeFlatFieldsEmpty(item); err != nil {
+		return err
+	}
+	return validateRunItemFileChangeDetails(item, *item.Details.FileChange)
+}
+
+func validateRunItemFileChangeFlatFieldsEmpty(item RunItem) error {
+	if len(item.FilePaths) != 0 {
+		return fmt.Errorf("run item %s fileChange flat filePaths must be empty after typed details cutover", item.ID)
+	}
+	if item.PatchStatus != "" {
+		return fmt.Errorf("run item %s fileChange flat patchStatus must be empty after typed details cutover", item.ID)
+	}
+	if item.DiffSummary != "" {
+		return fmt.Errorf("run item %s fileChange flat diffSummary must be empty after typed details cutover", item.ID)
+	}
+	return nil
 }

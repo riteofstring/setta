@@ -388,9 +388,10 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Type:           RunItemTypeFileChange,
 			Status:         RunItemStatusCompleted,
 			Title:          "File change",
-			FilePaths:      []string{"/tmp/setta-workspace/internal/chat/showcase.go"},
-			PatchStatus:    "updated",
 			Summary:        "Updated a fake file to exercise file path chips.",
+			Details: newRunItemFileChangeDetails("updated", []RunItemFileChangePath{
+				newRunItemFileChangePath("/tmp/setta-workspace/internal/chat/showcase.go", runItemFileChangeOperationPtr(RunItemFileChangeOperationUpdate), "", "+showcase\n"),
+			}),
 		},
 		{
 			ProviderItemID: "provider_ui_mcp_" + runID,

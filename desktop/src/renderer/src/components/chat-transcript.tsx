@@ -138,6 +138,7 @@ function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; te
         details.patchStatus,
         ...transcriptActivityCommandExecutionSearchText(details),
         ...transcriptActivityMCPSearchText(details),
+        ...transcriptActivityFileChangeSearchText(details),
       ]
         .filter((item) => item !== "")
         .join("\n"),
@@ -159,6 +160,27 @@ function transcriptActivityCommandExecutionSearchText(details: RunActivityDetail
     command.source ?? "",
     command.result,
     command.error,
+  ];
+}
+
+function transcriptActivityFileChangeSearchText(details: RunActivityDetailsProjection) {
+  const fileChange = details.fileChange;
+  if (fileChange === null) {
+    return [];
+  }
+  return [
+    fileChange.patchStatus,
+    fileChange.additions > 0 ? String(fileChange.additions) : "",
+    fileChange.deletions > 0 ? String(fileChange.deletions) : "",
+    ...fileChange.paths.flatMap((path) => [
+      path.path,
+      path.operation ?? "",
+      path.movePath,
+      path.additions > 0 ? String(path.additions) : "",
+      path.deletions > 0 ? String(path.deletions) : "",
+      path.patch,
+      path.patchTruncated ? "patch truncated" : "",
+    ]),
   ];
 }
 

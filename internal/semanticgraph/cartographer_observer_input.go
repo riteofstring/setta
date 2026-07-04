@@ -216,6 +216,15 @@ func cartographerToolSummary(item chat.RunItem) CartographerToolCallSummary {
 }
 
 func cartographerFileChangeSummary(item chat.RunItem) CartographerFileChangeSummary {
+	if details, ok := item.FileChangeDetails(); ok {
+		return CartographerFileChangeSummary{
+			RunItemID:   item.ID,
+			Status:      string(item.Status),
+			FilePaths:   chatFileChangeDetailPaths(details),
+			PatchStatus: details.PatchStatus,
+			DiffSummary: boundedText(chatFileChangeDetailSummary(details), cartographerEventSummaryLimit).text,
+		}
+	}
 	return CartographerFileChangeSummary{
 		RunItemID:   item.ID,
 		Status:      string(item.Status),

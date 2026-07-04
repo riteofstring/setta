@@ -570,31 +570,22 @@ func handleCodexTerminalInteraction(message jsonRPCMessage, threadID string, tur
 }
 
 func handleCodexPatchUpdated(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex file patch params")
+	params, err := codexapp.DecodeFileChangePatchUpdatedNotification(message.Params)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	itemID, err := requireString(params, "itemId", "codex file patch")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	status, err := optionalString(params, "status", "codex file patch")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	paths, err := optionalStringArray(params, "changedPaths", "codex file patch")
+	details, err := fileChangeDetailsFromCodex("", params.Changes)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.RunItemUpsert(RunItem{
-		ProviderItemID: itemID,
+		ProviderItemID: params.ItemId,
 		Type:           RunItemTypeFileChange,
 		Status:         RunItemStatusRunning,
-		FilePaths:      paths,
-		PatchStatus:    status,
+		Details:        details,
 	})
 }
 

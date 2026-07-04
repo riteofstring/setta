@@ -667,6 +667,13 @@ func runItemEvidenceText(item chat.RunItem) string {
 			}
 		}
 	}
+	if details, ok := item.FileChangeDetails(); ok {
+		for _, value := range []string{item.Summary, chatFileChangeDetailSummary(details)} {
+			if strings.TrimSpace(value) != "" {
+				return value
+			}
+		}
+	}
 	for _, value := range []string{item.Summary, item.Command, item.Result, item.DiffSummary, item.NoticeMessage, item.Error} {
 		if strings.TrimSpace(value) != "" {
 			return value

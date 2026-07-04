@@ -664,9 +664,14 @@ function emitProtocolCoverageTurn() {
     contextCompactionPayload("context_compaction_fake", { completedAtMs: 2 }),
   );
   notify("item/fileChange/patchUpdated", {
-    changedPaths: ["/tmp/workspace/main.go"],
+    changes: [
+      {
+        diff: "--- a/main.go\n+++ b/main.go\n@@\n+updated\n",
+        kind: { type: "update" },
+        path: "/tmp/workspace/main.go",
+      },
+    ],
     itemId: "file_item_fake",
-    status: "updated",
     threadId,
     turnId,
   });

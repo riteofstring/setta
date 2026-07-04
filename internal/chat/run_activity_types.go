@@ -6,6 +6,7 @@ type RunItemDetails struct {
 	Kind             RunItemDetailsKind              `json:"kind"`
 	CommandExecution *RunItemCommandExecutionDetails `json:"commandExecution"`
 	MCPToolCall      *RunItemMCPToolCallDetails      `json:"mcpToolCall"`
+	FileChange       *RunItemFileChangeDetails       `json:"fileChange"`
 }
 
 type RunActivityDetailsProjection struct {
@@ -31,6 +32,7 @@ type RunActivityDetailsProjection struct {
 	Details          json.RawMessage                 `json:"details"`
 	CommandExecution *RunItemCommandExecutionDetails `json:"commandExecution"`
 	MCPToolCall      *RunItemMCPToolCallDetails      `json:"mcpToolCall"`
+	FileChange       *RunItemFileChangeDetails       `json:"fileChange"`
 }
 
 type RunItemCommandExecutionDetails struct {
@@ -65,11 +67,29 @@ type RunItemMCPToolResult struct {
 	Meta              json.RawMessage   `json:"_meta"`
 }
 
+type RunItemFileChangeDetails struct {
+	PatchStatus string                  `json:"patchStatus"`
+	Paths       []RunItemFileChangePath `json:"paths"`
+	Additions   int                     `json:"additions"`
+	Deletions   int                     `json:"deletions"`
+}
+
+type RunItemFileChangePath struct {
+	Path           string                      `json:"path"`
+	Operation      *RunItemFileChangeOperation `json:"operation"`
+	MovePath       string                      `json:"movePath"`
+	Additions      int                         `json:"additions"`
+	Deletions      int                         `json:"deletions"`
+	Patch          string                      `json:"patch"`
+	PatchTruncated bool                        `json:"patchTruncated"`
+}
+
 func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:             RunItemDetailsKindMCPToolCall,
 		CommandExecution: nil,
 		MCPToolCall:      &details,
+		FileChange:       nil,
 	}
 }
 
@@ -78,6 +98,16 @@ func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *
 		Kind:             RunItemDetailsKindCommandExecution,
 		CommandExecution: &details,
 		MCPToolCall:      nil,
+		FileChange:       nil,
+	}
+}
+
+func NewRunItemFileChangeDetails(details RunItemFileChangeDetails) *RunItemDetails {
+	return &RunItemDetails{
+		Kind:             RunItemDetailsKindFileChange,
+		CommandExecution: nil,
+		MCPToolCall:      nil,
+		FileChange:       &details,
 	}
 }
 
@@ -101,6 +131,16 @@ func (item RunItem) MCPToolCallDetails() (*RunItemMCPToolCallDetails, bool) {
 	return item.Details.MCPToolCall, true
 }
 
+func (item RunItem) FileChangeDetails() (*RunItemFileChangeDetails, bool) {
+	if item.Type != RunItemTypeFileChange ||
+		item.Details == nil ||
+		item.Details.Kind != RunItemDetailsKindFileChange ||
+		item.Details.FileChange == nil {
+		return nil, false
+	}
+	return item.Details.FileChange, true
+}
+
 type RunActivityPage struct {
 	RunID    string                        `json:"runId"`
 	Items    []RunItem                     `json:"items"`
@@ -112,6 +152,14 @@ func (details RunActivityDetailsProjection) MarshalJSON() ([]byte, error) {
 	type detailsAlias RunActivityDetailsProjection
 	if details.FilePaths == nil {
 		details.FilePaths = []string{}
+	}
+	return json.Marshal(detailsAlias(details))
+}
+
+func (details RunItemFileChangeDetails) MarshalJSON() ([]byte, error) {
+	type detailsAlias RunItemFileChangeDetails
+	if details.Paths == nil {
+		details.Paths = []RunItemFileChangePath{}
 	}
 	return json.Marshal(detailsAlias(details))
 }

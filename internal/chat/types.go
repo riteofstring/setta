@@ -113,9 +113,6 @@ const (
 	RunItemTypeHook                RunItemType = "hook"
 	RunItemTypeStructuredInput     RunItemType = "structured_input"
 
-	RunItemDetailsKindCommandExecution RunItemDetailsKind = "command_execution"
-	RunItemDetailsKindMCPToolCall      RunItemDetailsKind = "mcp_tool_call"
-
 	// RunItemCommandSource preserves the Codex app-server CommandExecutionSource
 	// discriminator so the backend can tell a normal agent command from a
 	// background terminal lifecycle event without inspecting command text.
@@ -255,10 +252,6 @@ var (
 		RunItemTypeHook,
 		RunItemTypeStructuredInput,
 	}
-	runItemDetailsKindValues = []RunItemDetailsKind{
-		RunItemDetailsKindCommandExecution,
-		RunItemDetailsKindMCPToolCall,
-	}
 	runItemCommandSourceValues = []RunItemCommandSource{
 		RunItemCommandSourceAgent,
 		RunItemCommandSourceUserShell,
@@ -346,6 +339,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
 		{Name: "RunItemDetailsKind", Values: stringValues(runItemDetailsKindValues)},
 		{Name: "RunItemCommandSource", Values: stringValues(runItemCommandSourceValues)},
+		{Name: "RunItemFileChangeOperation", Values: stringValues(runItemFileChangeOperationValues)},
 		{Name: "BackgroundTerminalStatus", Values: stringValues(backgroundTerminalStatusValues)},
 		{Name: "DiagnosticSeverity", Values: stringValues(diagnosticSeverityValues)},
 		{Name: "DiagnosticSource", Values: stringValues(diagnosticSourceValues)},

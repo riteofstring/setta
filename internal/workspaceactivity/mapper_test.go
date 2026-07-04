@@ -17,13 +17,9 @@ func TestActivityRecordFromCommandRunItemUsesTypedFields(t *testing.T) {
 		NodeExecutionID:     "node_execution_build",
 	}
 	record, ok, err := ActivityRecordFromChatRunItem(chat.RunItem{
-		Command:        "  npm test -- --runInBand  ",
 		CompletedAt:    "2026-06-21T12:00:02Z",
 		ConversationID: "conversation",
 		CreatedAt:      "2026-06-21T12:00:00Z",
-		Cwd:            "/tmp/workspace",
-		DurationMs:     1200,
-		ExitCode:       0,
 		ID:             "run_item_command",
 		ProviderItemID: "provider_command",
 		RunID:          "run_command",
@@ -31,6 +27,12 @@ func TestActivityRecordFromCommandRunItemUsesTypedFields(t *testing.T) {
 		Status:         chat.RunItemStatusCompleted,
 		Type:           chat.RunItemTypeCommandExecution,
 		WorkspaceID:    "workspace",
+		Details: chat.NewRunItemCommandExecutionDetails(chat.RunItemCommandExecutionDetails{
+			Command:    "  npm test -- --runInBand  ",
+			Cwd:        "/tmp/workspace",
+			DurationMs: 1200,
+			ExitCode:   0,
+		}),
 	}, ChatRunItemContext{
 		ConversationWorkflow: metadata,
 		Revision:             4,
@@ -61,16 +63,18 @@ func TestActivityRecordFromCommandRunItemUsesTypedFields(t *testing.T) {
 func TestActivityRecordSkipsProvisionalUnifiedExecStartup(t *testing.T) {
 	source := chat.RunItemCommandSourceUnifiedExecStartup
 	running := chat.RunItem{
-		Command:        "command -v tokei",
 		ConversationID: "conversation",
 		CreatedAt:      "2026-06-21T12:00:00Z",
 		ID:             "run_item_startup",
 		ProviderItemID: "provider_startup",
 		RunID:          "run_startup",
-		Source:         &source,
 		Status:         chat.RunItemStatusRunning,
 		Type:           chat.RunItemTypeCommandExecution,
 		WorkspaceID:    "workspace",
+		Details: chat.NewRunItemCommandExecutionDetails(chat.RunItemCommandExecutionDetails{
+			Command: "command -v tokei",
+			Source:  &source,
+		}),
 	}
 	if record, ok, err := ActivityRecordFromChatRunItem(running, ChatRunItemContext{}); err != nil || ok {
 		t.Fatalf("running unified exec startup mapped as record=%+v ok=%v err=%v, want skipped", record, ok, err)
@@ -90,17 +94,23 @@ func TestActivityRecordFromFileChangeBoundsTypedPaths(t *testing.T) {
 	for index := 0; index < maxFilePaths+3; index++ {
 		paths = append(paths, "file.go")
 	}
+	filePaths := make([]chat.RunItemFileChangePath, 0, len(paths))
+	for _, path := range paths {
+		filePaths = append(filePaths, chat.RunItemFileChangePath{Path: path})
+	}
 	record, ok, err := ActivityRecordFromChatRunItem(chat.RunItem{
 		ConversationID: "conversation",
 		CreatedAt:      "2026-06-21T12:00:00Z",
-		FilePaths:      paths,
 		ID:             "run_item_file",
-		PatchStatus:    "applied",
 		ProviderItemID: "provider_file",
 		RunID:          "run_file",
 		Status:         chat.RunItemStatusRunning,
 		Type:           chat.RunItemTypeFileChange,
 		WorkspaceID:    "workspace",
+		Details: chat.NewRunItemFileChangeDetails(chat.RunItemFileChangeDetails{
+			PatchStatus: "applied",
+			Paths:       filePaths,
+		}),
 	}, ChatRunItemContext{})
 	if err != nil {
 		t.Fatalf("map file activity: %v", err)

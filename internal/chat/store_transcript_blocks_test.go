@@ -440,6 +440,9 @@ func saveSourceRunItem(t *testing.T, store *Store, workspaceID string, runID str
 	if itemType == RunItemTypeCommandExecution {
 		item.Details = NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{})
 	}
+	if itemType == RunItemTypeFileChange {
+		item.Details = newRunItemFileChangeDetails("completed", []RunItemFileChangePath{{Path: "file.go"}})
+	}
 	if err := store.SaveRunItem(item); err != nil {
 		t.Fatalf("save source run item %s: %v", itemID, err)
 	}

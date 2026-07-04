@@ -220,8 +220,7 @@ func fileChangeApprovalRunItem(providerItemID string, grantRoot string, reason s
 		Status:         RunItemStatusPending,
 		Title:          "File change approval",
 		Summary:        reason,
-		FilePaths:      []string{grantRoot},
-		PatchStatus:    "approval_requested",
+		Details:        newRunItemFileChangeDetails("approval_requested", []RunItemFileChangePath{{Path: grantRoot}}),
 	}
 }
 

@@ -97,3 +97,35 @@ func TestRunActivityProjectionDoesNotReadLegacyCommandExecutionFields(t *testing
 		t.Fatalf("unexpected typed command details synthesized from legacy fields: %+v", details.CommandExecution)
 	}
 }
+
+func TestRunActivityProjectionUsesTypedFileChangeDetails(t *testing.T) {
+	item := RunItem{
+		ID:          "item_file",
+		Type:        RunItemTypeFileChange,
+		Status:      RunItemStatusCompleted,
+		FilePaths:   []string{"legacy.go"},
+		PatchStatus: "legacy_status",
+		DiffSummary: "legacy diff",
+		Details: newRunItemFileChangeDetails("updated", []RunItemFileChangePath{
+			{Path: "main.go", Operation: runItemFileChangeOperationPtr(RunItemFileChangeOperationUpdate), Additions: 1},
+		}),
+	}
+
+	projection, ok := activityItemBlockProjection(item, RunStatusCompleted, false, false)
+	if !ok {
+		t.Fatal("expected a projection for the file change item")
+	}
+	if projection.Title != "Updated main.go" {
+		t.Fatalf("title = %q, want typed file-change title", projection.Title)
+	}
+	details := projection.Details
+	if details.FileChange == nil {
+		t.Fatalf("fileChange details missing: %+v", details)
+	}
+	if len(details.FilePaths) != 1 || details.FilePaths[0] != "main.go" || details.PatchStatus != "updated" {
+		t.Fatalf("typed file fields not projected: %+v", details)
+	}
+	if details.DiffSummary != "" {
+		t.Fatalf("legacy diff summary leaked into file-change projection: %+v", details)
+	}
+}

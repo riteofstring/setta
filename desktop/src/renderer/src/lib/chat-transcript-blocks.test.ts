@@ -115,6 +115,7 @@ function emptyDetails() {
     durationMs: 0,
     error: "",
     exitCode: 0,
+    fileChange: null,
     filePaths: [],
     mcpToolCall: null,
     namespace: "",

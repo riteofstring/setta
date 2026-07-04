@@ -194,6 +194,9 @@ function commandActivityDisplayLabel(activity: ActivityItemBlockProjection) {
 }
 
 function fileActivityDisplayLabel(activity: ActivityItemBlockProjection) {
+  if (activity.details.fileChange !== null) {
+    return { monospace: false, text: activity.title };
+  }
   if (activity.details.filePaths.length > 0) {
     return { monospace: true, text: filePathsDisplayLabel(activity.details.filePaths) };
   }
@@ -562,7 +565,10 @@ function ActivityDetails({
   outputText: string;
 }) {
   const commandExecution = activityCommandExecutionDisplay(details);
-  const genericResultDetails = details.mcpToolCall === null && details.commandExecution === null;
+  const genericResultDetails =
+    details.mcpToolCall === null &&
+    details.commandExecution === null &&
+    details.fileChange === null;
   return (
     <div className="mt-1.5 w-full max-w-full min-w-0 overflow-hidden border-l border-border/70 pl-2">
       <div className="w-full max-w-full min-w-0 space-y-1.5 overflow-hidden text-xs text-muted-foreground">
@@ -579,12 +585,11 @@ function ActivityDetails({
           </>
         ) : null}
         <ActivityCommandExecutionDetails details={details} />
+        <ActivityFileChangeDetails details={details} />
         <ActivityTextBlock title="Notice" value={details.noticeMessage} />
         <ActivityTextBlock title="Diff" value={details.diffSummary} />
         <ActivityMCPDetails details={details} />
-        {details.mcpToolCall === null && details.commandExecution === null ? (
-          <ActivityJSONDetails details={details.details} />
-        ) : null}
+        {genericResultDetails ? <ActivityJSONDetails details={details.details} /> : null}
         <ActivityExit
           durationMs={commandExecution.durationMs}
           exitCode={commandExecution.exitCode}
@@ -730,6 +735,51 @@ function ActivityCommandExecutionDetails({ details }: { details: RunActivityDeta
     <>
       <ActivityTextBlock title="Result" value={command.result} />
       <ActivityTextBlock title="Error" tone="error" value={command.error} />
+    </>
+  );
+}
+
+function ActivityFileChangeDetails({ details }: { details: RunActivityDetailsProjection }) {
+  const fileChange = details.fileChange;
+  if (fileChange === null) {
+    return null;
+  }
+  const stats =
+    fileChange.additions > 0 || fileChange.deletions > 0
+      ? `+${fileChange.additions} -${fileChange.deletions}`
+      : "";
+  return (
+    <>
+      <ActivityTextBlock title="Patch Status" value={fileChange.patchStatus} />
+      <ActivityTextBlock title="Stats" value={stats} />
+      {fileChange.paths.map((path, index) => (
+        <ActivityFileChangePathDetails index={index} key={`${path.path}:${index}`} path={path} />
+      ))}
+    </>
+  );
+}
+
+function ActivityFileChangePathDetails({
+  index,
+  path,
+}: {
+  index: number;
+  path: NonNullable<RunActivityDetailsProjection["fileChange"]>["paths"][number];
+}) {
+  const title = `File ${index + 1}`;
+  const operation = path.operation === null ? "" : path.operation;
+  const stats =
+    path.additions > 0 || path.deletions > 0 ? `+${path.additions} -${path.deletions}` : "";
+  const summary = [operation, path.movePath === "" ? "" : `from ${path.movePath}`, path.path, stats]
+    .filter((value) => value !== "")
+    .join(" ");
+  return (
+    <>
+      <ActivityTextBlock monospace title={title} value={summary} />
+      <ActivityPreBlock
+        title={path.patchTruncated ? "Patch Snippet" : "Patch"}
+        value={path.patch}
+      />
     </>
   );
 }

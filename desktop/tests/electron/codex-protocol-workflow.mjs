@@ -68,11 +68,7 @@ export async function assertProtocolNotificationActivity(
     "context_compaction",
     (item) => item.title === "Context compaction" && item.status === "completed",
   );
-  await assertRunActivityItem(
-    page,
-    "file_change",
-    (item) => item.patchStatus === "updated" && item.filePaths.includes("/tmp/workspace/main.go"),
-  );
+  await assertRunActivityItem(page, "file_change", (item) => isProtocolFileChangeItem(item));
   await assertRunActivityItem(page, "reasoning", (item) => item.hiddenText === "private reasoning");
   await assertRunActivityItem(
     page,
@@ -107,6 +103,7 @@ export async function assertProtocolNotificationActivity(
   }
   await assertProtocolMCPActivityRendered(client, mcpActivity.sourceRunItemId);
   await assertProtocolMCPActivitySearchable(client, mcpActivity.sourceRunItemId);
+  await assertProtocolFileChangeSearchable(client);
   await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "deprecationNotice");
   if ((page.activity ?? []).some((row) => row.type === "reasoning")) {
     throw new Error(`reasoning leaked into projected activity: ${JSON.stringify(page.activity)}`);
@@ -178,6 +175,20 @@ function commandExecutionDetails(item) {
   return item.details.commandExecution;
 }
 
+function isProtocolFileChangeItem(item) {
+  if (item.details?.kind !== "file_change") {
+    return false;
+  }
+  const details = item.details.fileChange;
+  const firstPath = details?.paths?.[0];
+  return (
+    firstPath?.path === "/tmp/workspace/main.go" &&
+    firstPath.operation === "update" &&
+    firstPath.patch.includes("+updated") &&
+    firstPath.additions === 1
+  );
+}
+
 function mcpToolResultRepositories(details) {
   return details.result?.structuredContent?.repositories;
 }
@@ -225,6 +236,26 @@ async function assertProtocolMCPActivitySearchable(client, sourceRunItemId) {
           row?.getAttribute("data-run-item-id") === sourceRunItemId &&
           row?.innerText.includes("mcp_trace"),
         sourceRunItemId: row?.getAttribute("data-run-item-id") ?? "",
+        text: row?.innerText ?? "",
+      };
+    })()`,
+    (value) => value.ok,
+  );
+  await clickButtonByAria(client, "Close chat search");
+}
+
+async function assertProtocolFileChangeSearchable(client) {
+  await openProtocolChatSearch(client);
+  await setInputValue(client, 'input[placeholder="Search chat"]', "+updated");
+  await waitForState(
+    client,
+    `(() => {
+      const row = document.querySelector('[data-activity-focused="true"]');
+      return {
+        ok:
+          row?.innerText.includes("Updated main.go") &&
+          row?.innerText.includes("main.go") &&
+          row?.innerText.includes("PATCH"),
         text: row?.innerText ?? "",
       };
     })()`,

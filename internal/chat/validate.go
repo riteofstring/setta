@@ -764,6 +764,8 @@ func validateRunItemDetails(item RunItem) error {
 		return validateRunItemCommandExecutionDetails(item)
 	case RunItemTypeMCPToolCall:
 		return validateRunItemMCPToolCallDetailsBranch(item)
+	case RunItemTypeFileChange:
+		return validateRunItemFileChangeDetailsBranch(item)
 	default:
 		if item.Details != nil {
 			return fmt.Errorf("run item %s type %s does not support typed details kind %s", item.ID, item.Type, item.Details.Kind)
@@ -782,6 +784,33 @@ func validateRunItemMCPToolCallDetails(item RunItem, details RunItemMCPToolCallD
 		}
 		if details.ToolName == "" {
 			return fmt.Errorf("run item %s mcpToolCall toolName is required for terminal items", item.ID)
+		}
+	}
+	return nil
+}
+
+func validateRunItemFileChangeDetails(item RunItem, details RunItemFileChangeDetails) error {
+	if details.Additions < 0 {
+		return fmt.Errorf("run item %s fileChange additions must be non-negative", item.ID)
+	}
+	if details.Deletions < 0 {
+		return fmt.Errorf("run item %s fileChange deletions must be non-negative", item.ID)
+	}
+	for index, path := range details.Paths {
+		if path.Path == "" {
+			return fmt.Errorf("run item %s fileChange paths[%d].path is required", item.ID, index)
+		}
+		if path.Operation != nil && !validValue(*path.Operation, runItemFileChangeOperationValues) {
+			return fmt.Errorf("run item %s fileChange paths[%d] has unsupported operation %s", item.ID, index, *path.Operation)
+		}
+		if path.Additions < 0 {
+			return fmt.Errorf("run item %s fileChange paths[%d].additions must be non-negative", item.ID, index)
+		}
+		if path.Deletions < 0 {
+			return fmt.Errorf("run item %s fileChange paths[%d].deletions must be non-negative", item.ID, index)
+		}
+		if path.PatchTruncated && path.Patch == "" {
+			return fmt.Errorf("run item %s fileChange paths[%d].patch is required when patchTruncated is true", item.ID, index)
 		}
 	}
 	return nil

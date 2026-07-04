@@ -353,12 +353,69 @@ func fileChangeRunItem(item codexapp.FileChangeThreadItem, defaultStatus RunItem
 	if err != nil {
 		return RunItem{}, err
 	}
+	details, err := fileChangeDetailsFromCodex(string(item.Status), item.Changes)
+	if err != nil {
+		return RunItem{}, err
+	}
 	return RunItem{
 		ProviderItemID: id,
 		Type:           RunItemTypeFileChange,
 		Status:         status,
-		PatchStatus:    string(item.Status),
+		Details:        details,
 	}, nil
+}
+
+func fileChangeDetailsFromCodex(patchStatus string, changes []codexapp.FileUpdateChange) (*RunItemDetails, error) {
+	paths := make([]RunItemFileChangePath, 0, len(changes))
+	for index, change := range changes {
+		path, err := fileChangePathFromCodex(change, index)
+		if err != nil {
+			return nil, err
+		}
+		paths = append(paths, path)
+	}
+	return newRunItemFileChangeDetails(patchStatus, paths), nil
+}
+
+func fileChangePathFromCodex(change codexapp.FileUpdateChange, index int) (RunItemFileChangePath, error) {
+	path, err := requireCodexStringValue(change.Path, fmt.Sprintf("codex fileChange changes[%d].path", index))
+	if err != nil {
+		return RunItemFileChangePath{}, err
+	}
+	operation, movePath, err := fileChangeOperationFromCodex(change.Kind, index)
+	if err != nil {
+		return RunItemFileChangePath{}, err
+	}
+	return newRunItemFileChangePath(path, operation, movePath, change.Diff), nil
+}
+
+func fileChangeOperationFromCodex(raw json.RawMessage, index int) (*RunItemFileChangeOperation, string, error) {
+	var value struct {
+		Type     string  `json:"type"`
+		MovePath *string `json:"move_path"`
+	}
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, "", fmt.Errorf("decode codex fileChange changes[%d].kind: %w", index, err)
+	}
+	if value.Type == "" {
+		return nil, "", fmt.Errorf("codex fileChange changes[%d].kind.type is required", index)
+	}
+	var operation RunItemFileChangeOperation
+	switch value.Type {
+	case string(RunItemFileChangeOperationAdd):
+		operation = RunItemFileChangeOperationAdd
+	case string(RunItemFileChangeOperationDelete):
+		operation = RunItemFileChangeOperationDelete
+	case string(RunItemFileChangeOperationUpdate):
+		operation = RunItemFileChangeOperationUpdate
+	default:
+		return nil, "", fmt.Errorf("unsupported codex fileChange changes[%d].kind.type: %s", index, value.Type)
+	}
+	movePath := ""
+	if value.MovePath != nil {
+		movePath = *value.MovePath
+	}
+	return &operation, movePath, nil
 }
 
 func mcpToolCallRunItem(item codexapp.McpToolCallThreadItem) (RunItem, error) {

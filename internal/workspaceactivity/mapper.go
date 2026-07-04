@@ -33,17 +33,21 @@ func ActivityRecordFromChatRunItem(item chat.RunItem, context ChatRunItemContext
 		if provisionalUnifiedExecStartup(item) {
 			return WorkspaceActivityRecord{}, false, nil
 		}
-		return commandActivityFromRunItem(item, context), true, nil
+		record, err := commandActivityFromRunItem(item, context)
+		return record, true, err
 	case chat.RunItemTypeFileChange:
-		return fileChangeActivityFromRunItem(item, context), true, nil
+		record, err := fileChangeActivityFromRunItem(item, context)
+		return record, true, err
 	default:
 		return WorkspaceActivityRecord{}, false, nil
 	}
 }
 
 func provisionalUnifiedExecStartup(item chat.RunItem) bool {
-	return item.Source != nil &&
-		*item.Source == chat.RunItemCommandSourceUnifiedExecStartup &&
+	details, ok := item.CommandExecutionDetails()
+	return ok &&
+		details.Source != nil &&
+		*details.Source == chat.RunItemCommandSourceUnifiedExecStartup &&
 		(item.Status == chat.RunItemStatusPending || item.Status == chat.RunItemStatusRunning)
 }
 
@@ -218,31 +222,48 @@ func isTerminalWorkflowActivityStatus(status WorkspaceActivityStatus) bool {
 	}
 }
 
-func commandActivityFromRunItem(item chat.RunItem, context ChatRunItemContext) WorkspaceActivityRecord {
-	exitCode := optionalPositiveOrZero(item.ExitCode, item.Status == chat.RunItemStatusCompleted || item.Status == chat.RunItemStatusFailed)
-	durationMs := optionalPositiveOrZero(item.DurationMs, item.DurationMs > 0)
+func commandActivityFromRunItem(item chat.RunItem, context ChatRunItemContext) (WorkspaceActivityRecord, error) {
+	details, ok := item.CommandExecutionDetails()
+	if !ok {
+		return WorkspaceActivityRecord{}, fmt.Errorf("run item %s commandExecution details are required for workspace activity", item.ID)
+	}
+	exitCode := optionalPositiveOrZero(details.ExitCode, item.Status == chat.RunItemStatusCompleted || item.Status == chat.RunItemStatusFailed)
+	durationMs := optionalPositiveOrZero(details.DurationMs, details.DurationMs > 0)
 	record := baseChatRunItemRecord(item, context, ActivityKindCommand, statusFromRunItem(item.Status))
 	record.Command = &WorkspaceActivityCommand{
-		CommandPreview: truncateText(item.Command, commandPreviewLimit),
-		Cwd:            item.Cwd,
+		CommandPreview: truncateText(details.Command, commandPreviewLimit),
+		Cwd:            details.Cwd,
 		DurationMs:     durationMs,
 		ExitCode:       exitCode,
 		RunItemStatus:  item.Status,
 	}
-	return record
+	return record, nil
 }
 
-func fileChangeActivityFromRunItem(item chat.RunItem, context ChatRunItemContext) WorkspaceActivityRecord {
-	paths, truncated := boundedStrings(item.FilePaths, maxFilePaths)
+func fileChangeActivityFromRunItem(item chat.RunItem, context ChatRunItemContext) (WorkspaceActivityRecord, error) {
+	details, ok := item.FileChangeDetails()
+	if !ok {
+		return WorkspaceActivityRecord{}, fmt.Errorf("run item %s fileChange details are required for workspace activity", item.ID)
+	}
+	filePaths := fileChangeDetailPaths(details)
+	paths, truncated := boundedStrings(filePaths, maxFilePaths)
 	record := baseChatRunItemRecord(item, context, ActivityKindFileChange, statusFromRunItem(item.Status))
 	record.FileChange = &WorkspaceActivityFileChange{
-		PathCount:      len(item.FilePaths),
+		PathCount:      len(filePaths),
 		Paths:          paths,
 		PathsTruncated: truncated,
-		PatchStatus:    item.PatchStatus,
+		PatchStatus:    details.PatchStatus,
 		RunItemStatus:  item.Status,
 	}
-	return record
+	return record, nil
+}
+
+func fileChangeDetailPaths(details *chat.RunItemFileChangeDetails) []string {
+	paths := make([]string, 0, len(details.Paths))
+	for _, path := range details.Paths {
+		paths = append(paths, path.Path)
+	}
+	return paths
 }
 
 func baseChatRunItemRecord(item chat.RunItem, context ChatRunItemContext, kind WorkspaceActivityKind, status WorkspaceActivityStatus) WorkspaceActivityRecord {
