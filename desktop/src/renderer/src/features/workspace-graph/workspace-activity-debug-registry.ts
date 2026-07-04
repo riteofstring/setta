@@ -28,7 +28,6 @@ export interface WorkspaceActivityDebugSnapshot {
 export interface WorkspaceActivityDebugApi {
   __surfaces: Map<string, () => WorkspaceActivityDebugSnapshot>;
   getSnapshot: (surfaceId?: string) => WorkspaceActivityDebugSnapshot;
-  tryGetSnapshot: (surfaceId?: string) => WorkspaceActivityDebugSnapshot | null;
 }
 
 export function registerWorkspaceActivityDebugSurface(
@@ -50,8 +49,6 @@ export function registerWorkspaceActivityDebugSurface(
 function ensureWorkspaceActivityDebugApi(): WorkspaceActivityDebugApi {
   const existing = window.__settaWorkspaceActivityDebug;
   if (existing?.__surfaces instanceof Map) {
-    existing.tryGetSnapshot ??= (surfaceId?: string) =>
-      maybeResolveWorkspaceActivityDebugSurface(existing.__surfaces, surfaceId)?.() ?? null;
     return existing;
   }
   const surfaces = new Map<string, () => WorkspaceActivityDebugSnapshot>();
@@ -59,9 +56,6 @@ function ensureWorkspaceActivityDebugApi(): WorkspaceActivityDebugApi {
     __surfaces: surfaces,
     getSnapshot(surfaceId?: string) {
       return resolveWorkspaceActivityDebugSurface(surfaces, surfaceId)();
-    },
-    tryGetSnapshot(surfaceId?: string) {
-      return maybeResolveWorkspaceActivityDebugSurface(surfaces, surfaceId)?.() ?? null;
     },
   };
   window.__settaWorkspaceActivityDebug = api;
@@ -84,15 +78,4 @@ function resolveWorkspaceActivityDebugSurface(
     throw new Error("No workspace activity debug surfaces are registered");
   }
   return first.value;
-}
-
-function maybeResolveWorkspaceActivityDebugSurface(
-  surfaces: Map<string, () => WorkspaceActivityDebugSnapshot>,
-  surfaceId?: string,
-): (() => WorkspaceActivityDebugSnapshot) | undefined {
-  if (surfaceId) {
-    return surfaces.get(surfaceId);
-  }
-  const first = surfaces.values().next();
-  return first.done ? undefined : first.value;
 }

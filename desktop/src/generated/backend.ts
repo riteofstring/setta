@@ -13,11 +13,27 @@ import {
   decodeNumber,
   decodeString,
   decodeUnknown,
-  assertTaggedUnionBranch,
   requestBackend,
   requireField,
   type BackendFetch,
 } from "@shared/backend-runtime";
+
+export const backendProtocolVersion = 2;
+export const backendContractSchemaHash = "sha256:132e3631381971b3dc942da7ba4a896f4993eec5219014d457244ab603736400";
+
+export type DeviceScope = "full";
+
+export const deviceScopeValues = ["full"] as const satisfies readonly DeviceScope[];
+
+export function decodeDeviceScope(value: unknown, label = "DeviceScope"): DeviceScope {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "full":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
 
 export type AppearanceColorMode = "dark" | "light";
 
@@ -177,168 +193,6 @@ export function decodePaneTone(value: unknown, label = "PaneTone"): PaneTone {
     case "pink":
       return decoded;
     case "slate":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowNodeKind = "start" | "end" | "action" | "gateway.and" | "gateway.or" | "gateway.xor" | "loop.guard";
-
-export const workflowNodeKindValues = ["start", "end", "action", "gateway.and", "gateway.or", "gateway.xor", "loop.guard"] as const satisfies readonly WorkflowNodeKind[];
-
-export function decodeWorkflowNodeKind(value: unknown, label = "WorkflowNodeKind"): WorkflowNodeKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "start":
-      return decoded;
-    case "end":
-      return decoded;
-    case "action":
-      return decoded;
-    case "gateway.and":
-      return decoded;
-    case "gateway.or":
-      return decoded;
-    case "gateway.xor":
-      return decoded;
-    case "loop.guard":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowGraphNodeStatus = "not_started" | "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
-
-export const workflowGraphNodeStatusValues = ["not_started", "pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowGraphNodeStatus[];
-
-export function decodeWorkflowGraphNodeStatus(value: unknown, label = "WorkflowGraphNodeStatus"): WorkflowGraphNodeStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "not_started":
-      return decoded;
-    case "pending":
-      return decoded;
-    case "ready":
-      return decoded;
-    case "running":
-      return decoded;
-    case "succeeded":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    case "waiting_approval":
-      return decoded;
-    case "recovery_required":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowEdgeKind = "normal" | "loop_continue" | "loop_exit";
-
-export const workflowEdgeKindValues = ["normal", "loop_continue", "loop_exit"] as const satisfies readonly WorkflowEdgeKind[];
-
-export function decodeWorkflowEdgeKind(value: unknown, label = "WorkflowEdgeKind"): WorkflowEdgeKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "normal":
-      return decoded;
-    case "loop_continue":
-      return decoded;
-    case "loop_exit":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowConditionKind = "always" | "action_status" | "default" | "action_signal" | "script_exit_code";
-
-export const workflowConditionKindValues = ["always", "action_status", "default", "action_signal", "script_exit_code"] as const satisfies readonly WorkflowConditionKind[];
-
-export function decodeWorkflowConditionKind(value: unknown, label = "WorkflowConditionKind"): WorkflowConditionKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "always":
-      return decoded;
-    case "action_status":
-      return decoded;
-    case "default":
-      return decoded;
-    case "action_signal":
-      return decoded;
-    case "script_exit_code":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowNodeExecutionStatus = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
-
-export const workflowNodeExecutionStatusValues = ["pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowNodeExecutionStatus[];
-
-export function decodeWorkflowNodeExecutionStatus(value: unknown, label = "WorkflowNodeExecutionStatus"): WorkflowNodeExecutionStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "pending":
-      return decoded;
-    case "ready":
-      return decoded;
-    case "running":
-      return decoded;
-    case "succeeded":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    case "waiting_approval":
-      return decoded;
-    case "recovery_required":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowGraphEdgeStatus = "inactive" | "active" | "completed" | "cancelled";
-
-export const workflowGraphEdgeStatusValues = ["inactive", "active", "completed", "cancelled"] as const satisfies readonly WorkflowGraphEdgeStatus[];
-
-export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowGraphEdgeStatus"): WorkflowGraphEdgeStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "inactive":
-      return decoded;
-    case "active":
-      return decoded;
-    case "completed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowGraphViewMode = "draft" | "version" | "run";
-
-export const workflowGraphViewModeValues = ["draft", "version", "run"] as const satisfies readonly WorkflowGraphViewMode[];
-
-export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGraphViewMode"): WorkflowGraphViewMode {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "draft":
-      return decoded;
-    case "version":
-      return decoded;
-    case "run":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -671,24 +525,6 @@ export function decodeReasoningEffort(value: unknown, label = "ReasoningEffort")
   }
 }
 
-export type ChatPermissionPresetID = "read-only" | "default" | "full-access";
-
-export const chatPermissionPresetIDValues = ["read-only", "default", "full-access"] as const satisfies readonly ChatPermissionPresetID[];
-
-export function decodeChatPermissionPresetID(value: unknown, label = "ChatPermissionPresetID"): ChatPermissionPresetID {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "read-only":
-      return decoded;
-    case "default":
-      return decoded;
-    case "full-access":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type HarnessKind = "codex";
 
 export const harnessKindValues = ["codex"] as const satisfies readonly HarnessKind[];
@@ -717,60 +553,6 @@ export function decodeHarnessRefStatus(value: unknown, label = "HarnessRefStatus
     case "stale":
       return decoded;
     case "unsupported":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunLivenessStatus = "attached" | "reconciling" | "lost" | "terminal";
-
-export const runLivenessStatusValues = ["attached", "reconciling", "lost", "terminal"] as const satisfies readonly RunLivenessStatus[];
-
-export function decodeRunLivenessStatus(value: unknown, label = "RunLivenessStatus"): RunLivenessStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "attached":
-      return decoded;
-    case "reconciling":
-      return decoded;
-    case "lost":
-      return decoded;
-    case "terminal":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "attachment_missing" | "run_terminal" | "wake_recheck" | "snapshot_load" | "stream_resync" | "user_retry" | "provider_restarted" | "provider_unavailable" | "turn_not_found";
-
-export const runLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "attachment_missing", "run_terminal", "wake_recheck", "snapshot_load", "stream_resync", "user_retry", "provider_restarted", "provider_unavailable", "turn_not_found"] as const satisfies readonly RunLivenessReason[];
-
-export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReason"): RunLivenessReason {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "provider_ref_pending":
-      return decoded;
-    case "provider_turn_linked":
-      return decoded;
-    case "attachment_missing":
-      return decoded;
-    case "run_terminal":
-      return decoded;
-    case "wake_recheck":
-      return decoded;
-    case "snapshot_load":
-      return decoded;
-    case "stream_resync":
-      return decoded;
-    case "user_retry":
-      return decoded;
-    case "provider_restarted":
-      return decoded;
-    case "provider_unavailable":
-      return decoded;
-    case "turn_not_found":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -885,16 +667,14 @@ export function decodeMessageStatus(value: unknown, label = "MessageStatus"): Me
   }
 }
 
-export type MessagePartType = "text" | "image";
+export type MessagePartType = "text";
 
-export const messagePartTypeValues = ["text", "image"] as const satisfies readonly MessagePartType[];
+export const messagePartTypeValues = ["text"] as const satisfies readonly MessagePartType[];
 
 export function decodeMessagePartType(value: unknown, label = "MessagePartType"): MessagePartType {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "text":
-      return decoded;
-    case "image":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -917,56 +697,48 @@ export function decodeTextFormat(value: unknown, label = "TextFormat"): TextForm
   }
 }
 
-export type ImageAttachmentMimeType = "image/png" | "image/jpeg" | "image/gif";
+export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "context_compaction" | "notice" | "approval_review" | "hook" | "structured_input";
 
-export const imageAttachmentMimeTypeValues = ["image/png", "image/jpeg", "image/gif"] as const satisfies readonly ImageAttachmentMimeType[];
+export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "context_compaction", "notice", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
 
-export function decodeImageAttachmentMimeType(value: unknown, label = "ImageAttachmentMimeType"): ImageAttachmentMimeType {
+export function decodeRunItemType(value: unknown, label = "RunItemType"): RunItemType {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "image/png":
+    case "agent_message":
       return decoded;
-    case "image/jpeg":
+    case "plan":
       return decoded;
-    case "image/gif":
+    case "reasoning":
       return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ImageAttachmentVariantKind = "thumbnail" | "inline" | "preview" | "original";
-
-export const imageAttachmentVariantKindValues = ["thumbnail", "inline", "preview", "original"] as const satisfies readonly ImageAttachmentVariantKind[];
-
-export function decodeImageAttachmentVariantKind(value: unknown, label = "ImageAttachmentVariantKind"): ImageAttachmentVariantKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "thumbnail":
+    case "command_execution":
       return decoded;
-    case "inline":
+    case "file_change":
       return decoded;
-    case "preview":
+    case "mcp_tool_call":
       return decoded;
-    case "original":
+    case "dynamic_tool_call":
       return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ImageDetail = "auto" | "high" | "original";
-
-export const imageDetailValues = ["auto", "high", "original"] as const satisfies readonly ImageDetail[];
-
-export function decodeImageDetail(value: unknown, label = "ImageDetail"): ImageDetail {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "auto":
+    case "collab_agent_tool_call":
       return decoded;
-    case "high":
+    case "web_search":
       return decoded;
-    case "original":
+    case "image_view":
+      return decoded;
+    case "image_generation":
+      return decoded;
+    case "terminal_interaction":
+      return decoded;
+    case "diff":
+      return decoded;
+    case "context_compaction":
+      return decoded;
+    case "notice":
+      return decoded;
+    case "approval_review":
+      return decoded;
+    case "hook":
+      return decoded;
+    case "structured_input":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1011,243 +783,25 @@ export function decodeStructuredInputMode(value: unknown, label = "StructuredInp
   }
 }
 
-export type TranscriptBlockKind = "user_message" | "assistant_text" | "reasoning" | "activity_item" | "run_status" | "background_terminal";
+export type ChatCommandKind = "goal" | "model";
 
-export const transcriptBlockKindValues = ["user_message", "assistant_text", "reasoning", "activity_item", "run_status", "background_terminal"] as const satisfies readonly TranscriptBlockKind[];
+export const chatCommandKindValues = ["goal", "model"] as const satisfies readonly ChatCommandKind[];
 
-export function decodeTranscriptBlockKind(value: unknown, label = "TranscriptBlockKind"): TranscriptBlockKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "user_message":
-      return decoded;
-    case "assistant_text":
-      return decoded;
-    case "reasoning":
-      return decoded;
-    case "activity_item":
-      return decoded;
-    case "run_status":
-      return decoded;
-    case "background_terminal":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type TranscriptBlockStatus = "streaming" | "complete" | "cancelled" | "failed";
-
-export const transcriptBlockStatusValues = ["streaming", "complete", "cancelled", "failed"] as const satisfies readonly TranscriptBlockStatus[];
-
-export function decodeTranscriptBlockStatus(value: unknown, label = "TranscriptBlockStatus"): TranscriptBlockStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "streaming":
-      return decoded;
-    case "complete":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    case "failed":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ReasoningBlockMode = "thinking" | "summary";
-
-export const reasoningBlockModeValues = ["thinking", "summary"] as const satisfies readonly ReasoningBlockMode[];
-
-export function decodeReasoningBlockMode(value: unknown, label = "ReasoningBlockMode"): ReasoningBlockMode {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "thinking":
-      return decoded;
-    case "summary":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "command_start_failure" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "provider_stream_lifecycle" | "context_compaction" | "notice" | "approval_request" | "approval_review" | "hook" | "structured_input";
-
-export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "command_start_failure", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "provider_stream_lifecycle", "context_compaction", "notice", "approval_request", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
-
-export function decodeRunItemType(value: unknown, label = "RunItemType"): RunItemType {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "agent_message":
-      return decoded;
-    case "plan":
-      return decoded;
-    case "reasoning":
-      return decoded;
-    case "command_execution":
-      return decoded;
-    case "command_start_failure":
-      return decoded;
-    case "file_change":
-      return decoded;
-    case "mcp_tool_call":
-      return decoded;
-    case "dynamic_tool_call":
-      return decoded;
-    case "collab_agent_tool_call":
-      return decoded;
-    case "web_search":
-      return decoded;
-    case "image_view":
-      return decoded;
-    case "image_generation":
-      return decoded;
-    case "terminal_interaction":
-      return decoded;
-    case "diff":
-      return decoded;
-    case "provider_stream_lifecycle":
-      return decoded;
-    case "context_compaction":
-      return decoded;
-    case "notice":
-      return decoded;
-    case "approval_request":
-      return decoded;
-    case "approval_review":
-      return decoded;
-    case "hook":
-      return decoded;
-    case "structured_input":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunItemPlanStepStatus = "pending" | "inProgress" | "completed";
-
-export const runItemPlanStepStatusValues = ["pending", "inProgress", "completed"] as const satisfies readonly RunItemPlanStepStatus[];
-
-export function decodeRunItemPlanStepStatus(value: unknown, label = "RunItemPlanStepStatus"): RunItemPlanStepStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "pending":
-      return decoded;
-    case "inProgress":
-      return decoded;
-    case "completed":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunItemCommandSource = "agent" | "user_shell" | "unified_exec_startup" | "unified_exec_interaction";
-
-export const runItemCommandSourceValues = ["agent", "user_shell", "unified_exec_startup", "unified_exec_interaction"] as const satisfies readonly RunItemCommandSource[];
-
-export function decodeRunItemCommandSource(value: unknown, label = "RunItemCommandSource"): RunItemCommandSource {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "agent":
-      return decoded;
-    case "user_shell":
-      return decoded;
-    case "unified_exec_startup":
-      return decoded;
-    case "unified_exec_interaction":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunItemFileChangeOperation = "add" | "delete" | "update";
-
-export const runItemFileChangeOperationValues = ["add", "delete", "update"] as const satisfies readonly RunItemFileChangeOperation[];
-
-export function decodeRunItemFileChangeOperation(value: unknown, label = "RunItemFileChangeOperation"): RunItemFileChangeOperation {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "add":
-      return decoded;
-    case "delete":
-      return decoded;
-    case "update":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunStatusBlockMode = "working" | "completed" | "cancelled" | "failed";
-
-export const runStatusBlockModeValues = ["working", "completed", "cancelled", "failed"] as const satisfies readonly RunStatusBlockMode[];
-
-export function decodeRunStatusBlockMode(value: unknown, label = "RunStatusBlockMode"): RunStatusBlockMode {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "working":
-      return decoded;
-    case "completed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    case "failed":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ChatSlashCommandKind = "goal";
-
-export const chatSlashCommandKindValues = ["goal"] as const satisfies readonly ChatSlashCommandKind[];
-
-export function decodeChatSlashCommandKind(value: unknown, label = "ChatSlashCommandKind"): ChatSlashCommandKind {
+export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "goal":
       return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ChatCommandLiteralMatchMode = "exact";
-
-export const chatCommandLiteralMatchModeValues = ["exact"] as const satisfies readonly ChatCommandLiteralMatchMode[];
-
-export function decodeChatCommandLiteralMatchMode(value: unknown, label = "ChatCommandLiteralMatchMode"): ChatCommandLiteralMatchMode {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "exact":
+    case "model":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
   }
 }
 
-export type ChatCommandArgumentKind = "literal" | "free_text";
+export type ChatCommandResultAction = "display" | "goal_editor" | "model_picker";
 
-export const chatCommandArgumentKindValues = ["literal", "free_text"] as const satisfies readonly ChatCommandArgumentKind[];
-
-export function decodeChatCommandArgumentKind(value: unknown, label = "ChatCommandArgumentKind"): ChatCommandArgumentKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "literal":
-      return decoded;
-    case "free_text":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ChatCommandResultAction = "display" | "goal_editor" | "model_picker" | "permission_picker";
-
-export const chatCommandResultActionValues = ["display", "goal_editor", "model_picker", "permission_picker"] as const satisfies readonly ChatCommandResultAction[];
+export const chatCommandResultActionValues = ["display", "goal_editor", "model_picker"] as const satisfies readonly ChatCommandResultAction[];
 
 export function decodeChatCommandResultAction(value: unknown, label = "ChatCommandResultAction"): ChatCommandResultAction {
   const decoded = decodeString(value, label);
@@ -1258,75 +812,31 @@ export function decodeChatCommandResultAction(value: unknown, label = "ChatComma
       return decoded;
     case "model_picker":
       return decoded;
-    case "permission_picker":
-      return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
   }
 }
 
-export type ChatCommandKind = "goal" | "model" | "permission";
+export type WorkflowNodeKind = "start" | "end" | "action" | "gateway.and" | "gateway.or" | "gateway.xor" | "loop.guard";
 
-export const chatCommandKindValues = ["goal", "model", "permission"] as const satisfies readonly ChatCommandKind[];
+export const workflowNodeKindValues = ["start", "end", "action", "gateway.and", "gateway.or", "gateway.xor", "loop.guard"] as const satisfies readonly WorkflowNodeKind[];
 
-export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
+export function decodeWorkflowNodeKind(value: unknown, label = "WorkflowNodeKind"): WorkflowNodeKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "goal":
+    case "start":
       return decoded;
-    case "model":
+    case "end":
       return decoded;
-    case "permission":
+    case "action":
       return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunItemDetailsKind = "plan" | "command_execution" | "command_start_failure" | "mcp_tool_call" | "dynamic_tool_call" | "file_change" | "diff" | "approval" | "provider_stream_lifecycle";
-
-export const runItemDetailsKindValues = ["plan", "command_execution", "command_start_failure", "mcp_tool_call", "dynamic_tool_call", "file_change", "diff", "approval", "provider_stream_lifecycle"] as const satisfies readonly RunItemDetailsKind[];
-
-export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetailsKind"): RunItemDetailsKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "plan":
+    case "gateway.and":
       return decoded;
-    case "command_execution":
+    case "gateway.or":
       return decoded;
-    case "command_start_failure":
+    case "gateway.xor":
       return decoded;
-    case "mcp_tool_call":
-      return decoded;
-    case "dynamic_tool_call":
-      return decoded;
-    case "file_change":
-      return decoded;
-    case "diff":
-      return decoded;
-    case "approval":
-      return decoded;
-    case "provider_stream_lifecycle":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type BackgroundTerminalStatus = "running" | "terminating" | "exited" | "lost";
-
-export const backgroundTerminalStatusValues = ["running", "terminating", "exited", "lost"] as const satisfies readonly BackgroundTerminalStatus[];
-
-export function decodeBackgroundTerminalStatus(value: unknown, label = "BackgroundTerminalStatus"): BackgroundTerminalStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "running":
-      return decoded;
-    case "terminating":
-      return decoded;
-    case "exited":
-      return decoded;
-    case "lost":
+    case "loop.guard":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1345,6 +855,74 @@ export function decodeWorkflowLoopLimitPolicy(value: unknown, label = "WorkflowL
     case "failed":
       return decoded;
     case "stopped":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowConditionKind = "always" | "action_status" | "default" | "action_signal" | "script_exit_code";
+
+export const workflowConditionKindValues = ["always", "action_status", "default", "action_signal", "script_exit_code"] as const satisfies readonly WorkflowConditionKind[];
+
+export function decodeWorkflowConditionKind(value: unknown, label = "WorkflowConditionKind"): WorkflowConditionKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "always":
+      return decoded;
+    case "action_status":
+      return decoded;
+    case "default":
+      return decoded;
+    case "action_signal":
+      return decoded;
+    case "script_exit_code":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowNodeExecutionStatus = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
+
+export const workflowNodeExecutionStatusValues = ["pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowNodeExecutionStatus[];
+
+export function decodeWorkflowNodeExecutionStatus(value: unknown, label = "WorkflowNodeExecutionStatus"): WorkflowNodeExecutionStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "ready":
+      return decoded;
+    case "running":
+      return decoded;
+    case "succeeded":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "waiting_approval":
+      return decoded;
+    case "recovery_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowEdgeKind = "normal" | "loop_continue" | "loop_exit";
+
+export const workflowEdgeKindValues = ["normal", "loop_continue", "loop_exit"] as const satisfies readonly WorkflowEdgeKind[];
+
+export function decodeWorkflowEdgeKind(value: unknown, label = "WorkflowEdgeKind"): WorkflowEdgeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "normal":
+      return decoded;
+    case "loop_continue":
+      return decoded;
+    case "loop_exit":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1710,6 +1288,74 @@ export const workflowTokenStatusValues = ["active", "completed", "cancelled"] as
 export function decodeWorkflowTokenStatus(value: unknown, label = "WorkflowTokenStatus"): WorkflowTokenStatus {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "active":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphViewMode = "draft" | "version" | "run";
+
+export const workflowGraphViewModeValues = ["draft", "version", "run"] as const satisfies readonly WorkflowGraphViewMode[];
+
+export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGraphViewMode"): WorkflowGraphViewMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "draft":
+      return decoded;
+    case "version":
+      return decoded;
+    case "run":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphNodeStatus = "not_started" | "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
+
+export const workflowGraphNodeStatusValues = ["not_started", "pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowGraphNodeStatus[];
+
+export function decodeWorkflowGraphNodeStatus(value: unknown, label = "WorkflowGraphNodeStatus"): WorkflowGraphNodeStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "not_started":
+      return decoded;
+    case "pending":
+      return decoded;
+    case "ready":
+      return decoded;
+    case "running":
+      return decoded;
+    case "succeeded":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "waiting_approval":
+      return decoded;
+    case "recovery_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphEdgeStatus = "inactive" | "active" | "completed" | "cancelled";
+
+export const workflowGraphEdgeStatusValues = ["inactive", "active", "completed", "cancelled"] as const satisfies readonly WorkflowGraphEdgeStatus[];
+
+export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowGraphEdgeStatus"): WorkflowGraphEdgeStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "inactive":
+      return decoded;
     case "active":
       return decoded;
     case "completed":
@@ -2541,6 +2187,85 @@ export interface BackendHealth {
   ok: boolean;
   name: string;
   version: string;
+  protocolVersion: number;
+}
+
+export interface RuntimeInfoResponse {
+  runtimeId: string;
+  displayName: string;
+  backendName: string;
+  backendVersion: string;
+  protocolVersion: number;
+  vapidPublicKey: string;
+}
+
+export interface CompletePairingRequest {
+  pairingToken: string;
+  clientDisplayName: string;
+}
+
+export interface CompletePairingResponse {
+  deviceId: string;
+  deviceToken: string;
+  runtimeId: string;
+  protocolVersion: number;
+}
+
+export interface ListDevicesRequest {
+}
+
+export interface DeviceSession {
+  deviceId: string;
+  scope: DeviceScope;
+  displayName: string;
+  createdAt: string;
+  lastSeenAt: string;
+  revokedAt: string | null;
+}
+
+export interface ListDevicesResponse {
+  devices: DeviceSession[];
+}
+
+export interface RevokeDeviceRequest {
+  deviceId: string;
+}
+
+export interface RevokeDeviceResponse {
+  device: DeviceSession;
+}
+
+export interface WebPushKeys {
+  auth: string;
+  p256dh: string;
+}
+
+export interface WebPushSubscription {
+  endpoint: string;
+  keys: WebPushKeys;
+}
+
+export interface PushSubscribeRequest {
+  subscription: WebPushSubscription;
+}
+
+export interface PushSubscribeResponse {
+  vapidPublicKey: string;
+}
+
+export interface PushUnsubscribeRequest {
+  endpoint: string;
+}
+
+export interface PushUnsubscribeResponse {
+  removed: boolean;
+}
+
+export interface PushTestRequest {
+}
+
+export interface PushTestResponse {
+  sentCount: number;
 }
 
 export interface AppearanceTailwindPalette {
@@ -2750,47 +2475,6 @@ export interface TerminalPaneConfig {
   titleOverride: string;
 }
 
-export interface WorkflowCondition {
-  kind: WorkflowConditionKind;
-  nodeId: string;
-  status: WorkflowNodeExecutionStatus | null;
-  signalName: string;
-  signalValue: string;
-  exitCode: number | null;
-  invert: boolean;
-}
-
-export interface WorkflowGraphEdge {
-  id: string;
-  kind: WorkflowEdgeKind;
-  fromNodeId: string;
-  toNodeId: string;
-  condition: WorkflowCondition | null;
-  label: string;
-  status: WorkflowGraphEdgeStatus;
-  activeTokenCount: number;
-  completedTokenCount: number;
-  cancelledTokenCount: number;
-}
-
-export interface WorkflowNodeDetailsPaneConfig {
-  definitionId: string;
-  definitionName: string;
-  definitionVersionId: string;
-  definitionVersionNumber: number;
-  executionId: string;
-  nodeId: string;
-  nodeExecutionId: string;
-  nodeKind: WorkflowNodeKind;
-  nodeLabel: string;
-  nodeStatus: WorkflowGraphNodeStatus;
-  projectionIncomingEdges: WorkflowGraphEdge[];
-  projectionOutgoingEdges: WorkflowGraphEdge[];
-  versionMismatch: boolean;
-  viewMode: WorkflowGraphViewMode;
-  workspaceId: string;
-}
-
 export interface WorkspaceUIPane {
   columnId: string;
   heat: number;
@@ -2803,7 +2487,6 @@ export interface WorkspaceUIPane {
   title: string;
   tone: PaneTone;
   weight: number;
-  workflowNodeDetailsConfig: WorkflowNodeDetailsPaneConfig | null;
 }
 
 export interface WorkspaceUILayout {
@@ -2980,34 +2663,9 @@ export interface ListConversationsRequest {
   workspaceId: string;
 }
 
-export interface ChatCodexPermissionSettings {
-  preset: ChatPermissionPresetID;
-  approvalPolicy: string;
-  permissions: string;
-}
-
 export interface ChatCodexSettings {
   model: string;
   reasoningEffort: ReasoningEffort | null;
-  permission: ChatCodexPermissionSettings | null;
-}
-
-export interface ChatCodexEffectivePermissionSettings {
-  approvalPolicy: string;
-  activePermissionProfileId: string;
-  activePermissionProfileExtends: string;
-  displayLabel: string;
-  builtIn: boolean;
-  preset: ChatPermissionPresetID | null;
-}
-
-export interface ChatCodexEffectiveSettings {
-  model: string;
-  modelDisplayName: string;
-  reasoningEffort: ReasoningEffort | null;
-  reasoningEffortDisplayName: string;
-  supportsImages: boolean;
-  permission: ChatCodexEffectivePermissionSettings | null;
 }
 
 export interface HarnessThreadRef {
@@ -3039,32 +2697,14 @@ export interface Conversation {
   updatedAt: string;
   archivedAt: string;
   codexSettings: ChatCodexSettings | null;
-  codexEffectiveSettings: ChatCodexEffectiveSettings | null;
   harnessRefs: HarnessThreadRef[];
   workflow: ConversationWorkflowMetadata | null;
-}
-
-export interface RunLiveness {
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  harness: HarnessKind;
-  status: RunLivenessStatus;
-  reason: RunLivenessReason;
-  retryable: boolean;
-  cancellable: boolean;
-  providerThreadId: string;
-  providerTurnId: string;
-  lastProviderEventAt: string;
-  lastReconciledAt: string;
-  error: string;
 }
 
 export interface ConversationListItem {
   conversation: Conversation;
   messageCount: number;
   activeRunId: string;
-  activeRunLiveness: RunLiveness | null;
   pinnedAt: string;
   readMarker: number;
   latestReadRelevantMarker: number;
@@ -3126,40 +2766,15 @@ export interface SetConversationPinnedRequest {
 export interface GetMessagePageRequest {
   workspaceId: string;
   conversationId: string;
-  beforeBlockOrdinal: number;
+  beforeOrdinal: number;
   limit: number;
-}
-
-export interface MessageTextPart {
-  text: string;
-  format: TextFormat;
-}
-
-export interface ImageAttachmentVariant {
-  kind: ImageAttachmentVariantKind;
-  url: string;
-  mimeType: ImageAttachmentMimeType;
-  byteSize: number;
-  width: number;
-  height: number;
-}
-
-export interface ImagePart {
-  attachmentId: string;
-  fileName: string;
-  mimeType: ImageAttachmentMimeType;
-  byteSize: number;
-  width: number;
-  height: number;
-  variants: ImageAttachmentVariant[];
-  detail: ImageDetail | null;
 }
 
 export interface MessagePart {
   id: string;
   type: MessagePartType;
-  text: MessageTextPart | null;
-  image: ImagePart | null;
+  text: string;
+  format: TextFormat;
 }
 
 export interface ChatMessage {
@@ -3174,6 +2789,52 @@ export interface ChatMessage {
   updatedAt: string;
   status: MessageStatus;
   parts: MessagePart[];
+}
+
+export interface RunItem {
+  schemaVersion: number;
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  providerItemId: string;
+  type: RunItemType;
+  status: RunItemStatus;
+  createdAt: string;
+  startedAt: string;
+  completedAt: string;
+  title: string;
+  summary: string;
+  command: string;
+  cwd: string;
+  exitCode: number;
+  durationMs: number;
+  filePaths: string[];
+  patchStatus: string;
+  serverName: string;
+  toolName: string;
+  progress: string;
+  result: string;
+  error: string;
+  noticeKind: string;
+  noticeMessage: string;
+  diffSummary: string;
+  namespace: string;
+  processId: string;
+  requestId: string;
+  reviewId: string;
+  details: unknown;
+  hiddenText: string;
+}
+
+export interface RunItemOutput {
+  schemaVersion: number;
+  id: string;
+  runItemId: string;
+  stream: string;
+  ordinal: number;
+  text: string;
+  createdAt: string;
 }
 
 export interface ApprovalQuestion {
@@ -3241,244 +2902,11 @@ export interface QueueState {
   runs: Run[];
 }
 
-export interface TranscriptMessageProjection {
-  messageId: string;
-  role: MessageRole;
-  delivery: MessageDelivery;
-  status: MessageStatus;
-  parts: MessagePart[];
-}
-
-export interface AssistantTextBlockProjection {
-  text: string;
-  format: TextFormat;
-}
-
-export interface ReasoningBlockProjection {
-  sourceRunItemId: string;
-  mode: ReasoningBlockMode;
-  headline: string;
-  summary: string;
-}
-
-export interface RunItemPlanStep {
-  status: RunItemPlanStepStatus;
-  step: string;
-}
-
-export interface RunItemPlanDetails {
-  explanation: string;
-  steps: RunItemPlanStep[];
-}
-
-export interface RunItemCommandExecutionDetails {
-  command: string;
-  cwd: string;
-  exitCode: number;
-  durationMs: number;
-  processId: string;
-  source: RunItemCommandSource | null;
-  result: string;
-  error: string;
-}
-
-export interface RunItemCommandStartFailureDetails {
-  command: string;
-  cwd: string;
-  source: RunItemCommandSource | null;
-  failureClass: string;
-  message: string;
-  osError: string;
-  providerErrorId: string;
-  sandbox: string;
-  approvalPolicy: string;
-}
-
-export interface RunItemMCPToolResult {
-  content: unknown[];
-  structuredContent: unknown;
-  _meta: unknown;
-}
-
-export interface RunItemMCPToolCallDetails {
-  serverName: string;
-  toolName: string;
-  displayTitle: string;
-  progress: string;
-  durationMs: number;
-  arguments: unknown;
-  appContext: unknown;
-  pluginId: string;
-  mcpAppResourceUri: string;
-  resultSummary: string;
-  result: RunItemMCPToolResult | null;
-  error: string;
-}
-
-export interface RunItemDynamicToolContentItem {
-  type: string;
-  text: string;
-  imageUrl: string;
-}
-
-export interface RunItemDynamicToolResult {
-  contentItems: RunItemDynamicToolContentItem[];
-  success: boolean | null;
-}
-
-export interface RunItemDynamicToolCallDetails {
-  namespace: string;
-  toolName: string;
-  displayTitle: string;
-  description: string;
-  category: string;
-  durationMs: number;
-  arguments: unknown;
-  resultSummary: string;
-  result: RunItemDynamicToolResult | null;
-  error: string;
-}
-
-export interface RunItemFileChangePath {
-  path: string;
-  operation: RunItemFileChangeOperation | null;
-  movePath: string;
-  additions: number;
-  deletions: number;
-  patch: string;
-  patchTruncated: boolean;
-}
-
-export interface RunItemFileChangeDetails {
-  patchStatus: string;
-  paths: RunItemFileChangePath[];
-  additions: number;
-  deletions: number;
-}
-
-export interface RunItemDiffPath {
-  path: string;
-  operation: RunItemFileChangeOperation | null;
-  movePath: string;
-  additions: number;
-  deletions: number;
-}
-
-export interface RunItemDiffDetails {
-  summary: string;
-  paths: RunItemDiffPath[];
-  additions: number;
-  deletions: number;
-  patch: string;
-  patchTruncated: boolean;
-}
-
-export interface RunItemApprovalDetails {
-  approvalId: string;
-  approvalKind: ApprovalKind | null;
-  approvalStatus: ApprovalStatus | null;
-  providerRequestId: string;
-  reviewId: string;
-  reviewStatus: string;
-  actionType: string;
-  title: string;
-  body: string;
-  command: string;
-  cwd: string;
-  filePath: string;
-  permission: string;
-  question: string;
-  options: string[];
-  questions: ApprovalQuestion[];
-  structuredInput: StructuredInputRequest | null;
-  review: unknown;
-  action: unknown;
-}
-
-export interface RunItemProviderStreamLifecycleDetails {
-  message: string;
-  additionalDetails: string;
-  codexErrorKind: string;
-  codexErrorInfo: unknown;
-  willRetry: boolean;
-  streamFailure: boolean;
-  livenessStatus: RunLivenessStatus;
-  livenessReason: RunLivenessReason;
-  providerThreadId: string;
-  providerTurnId: string;
-}
-
-export interface RunActivityDetailsProjection {
-  summary: string;
-  plan: RunItemPlanDetails | null;
-  command: string;
-  cwd: string;
-  exitCode: number;
-  durationMs: number;
-  filePaths: string[];
-  patchStatus: string;
-  serverName: string;
-  toolName: string;
-  progress: string;
-  result: string;
-  error: string;
-  noticeKind: string;
-  noticeMessage: string;
-  namespace: string;
-  processId: string;
-  requestId: string;
-  reviewId: string;
-  details: unknown;
-  commandExecution: RunItemCommandExecutionDetails | null;
-  commandStartFailure: RunItemCommandStartFailureDetails | null;
-  mcpToolCall: RunItemMCPToolCallDetails | null;
-  dynamicToolCall: RunItemDynamicToolCallDetails | null;
-  fileChange: RunItemFileChangeDetails | null;
-  diff: RunItemDiffDetails | null;
-  approval: RunItemApprovalDetails | null;
-  providerStreamLifecycle: RunItemProviderStreamLifecycleDetails | null;
-}
-
-export interface ActivityItemBlockProjection {
-  sourceRunItemId: string;
-  type: RunItemType;
-  title: string;
-  status: RunItemStatus;
-  details: RunActivityDetailsProjection;
-  hasDetails: boolean;
-  hasOutput: boolean;
-}
-
-export interface RunStatusBlockProjection {
-  mode: RunStatusBlockMode;
-  label: string;
-  error: string;
-}
-
-export interface BackgroundTerminalBlockProjection {
-  processId: string;
-  command: string;
-  cwd: string;
-  label: string;
-}
-
-export interface TranscriptBlock {
-  schemaVersion: number;
-  id: string;
-  conversationId: string;
-  runId: string;
-  kind: TranscriptBlockKind;
-  ordinal: number;
-  runAnchorOrdinal: number;
-  status: TranscriptBlockStatus;
-  createdAt: string;
-  updatedAt: string;
-  userMessage: TranscriptMessageProjection | null;
-  assistantText: AssistantTextBlockProjection | null;
-  reasoning: ReasoningBlockProjection | null;
-  activity: ActivityItemBlockProjection | null;
-  runStatus: RunStatusBlockProjection | null;
-  backgroundTerminal: BackgroundTerminalBlockProjection | null;
+export interface TranscriptTurn {
+  run: Run;
+  triggerMessage: ChatMessage;
+  assistantMessage: ChatMessage | null;
+  steeringMessages: ChatMessage[];
 }
 
 export interface ChatGoalState {
@@ -3495,66 +2923,11 @@ export interface ChatGoalState {
 export interface MessagePage {
   conversation: Conversation;
   messages: ChatMessage[];
+  runItems: RunItem[];
+  runItemOutputs: RunItemOutput[];
   queue: QueueState;
-  blocks: TranscriptBlock[];
+  transcript: TranscriptTurn[];
   goal: ChatGoalState | null;
-  hasMoreOlder: boolean;
-  olderBeforeBlockOrdinal: number;
-}
-
-export interface ListComposerPromptHistoryRequest {
-  workspaceId: string;
-  conversationId: string;
-  beforeOrdinal: number;
-  limit: number;
-}
-
-export interface ChatTextInput {
-  text: string;
-  format: TextFormat;
-}
-
-export interface ChatImageInput {
-  attachmentId: string;
-  detail: ImageDetail | null;
-}
-
-export interface ChatInputPart {
-  type: MessagePartType;
-  text: ChatTextInput | null;
-  image: ChatImageInput | null;
-}
-
-export interface ChatInput {
-  parts: ChatInputPart[];
-}
-
-export interface ImageAttachment {
-  schemaVersion: number;
-  id: string;
-  workspaceId: string;
-  conversationId: string;
-  fileName: string;
-  mimeType: ImageAttachmentMimeType;
-  byteSize: number;
-  width: number;
-  height: number;
-  createdAt: string;
-  variants: ImageAttachmentVariant[];
-}
-
-export interface ComposerPromptHistoryEntry {
-  messageId: string;
-  conversationId: string;
-  ordinal: number;
-  createdAt: string;
-  input: ChatInput;
-  attachments: ImageAttachment[];
-}
-
-export interface ComposerPromptHistoryPage {
-  conversationId: string;
-  entries: ComposerPromptHistoryEntry[];
   hasMoreOlder: boolean;
   olderBeforeOrdinal: number;
 }
@@ -3562,7 +2935,7 @@ export interface ComposerPromptHistoryPage {
 export interface SendChatMessageRequest {
   workspaceId: string;
   conversationId: string;
-  input: ChatInput;
+  prompt: string;
 }
 
 export interface SendMessageResult {
@@ -3576,7 +2949,7 @@ export interface SendMessageResult {
 export interface QueueChatMessageRequest {
   workspaceId: string;
   conversationId: string;
-  input: ChatInput;
+  prompt: string;
 }
 
 export interface QueueMessageResult {
@@ -3591,7 +2964,7 @@ export interface EditQueuedChatMessageRequest {
   workspaceId: string;
   conversationId: string;
   messageId: string;
-  input: ChatInput;
+  prompt: string;
 }
 
 export interface QueueEditResult {
@@ -3619,7 +2992,7 @@ export interface QueueRemoveResult {
 export interface SteerChatMessageRequest {
   workspaceId: string;
   conversationId: string;
-  input: ChatInput;
+  prompt: string;
 }
 
 export interface SteerMessageResult {
@@ -3632,7 +3005,7 @@ export interface SteerMessageResult {
 export interface SendSteeringImmediatelyRequest {
   workspaceId: string;
   conversationId: string;
-  input: ChatInput | null;
+  prompt: string;
 }
 
 export interface ImmediateSteeringResult {
@@ -3644,55 +3017,22 @@ export interface ImmediateSteeringResult {
   page: MessagePage;
 }
 
-export interface CreateChatImageAttachmentFromBytesRequest {
-  workspaceId: string;
-  conversationId: string;
-  fileName: string;
-  dataBase64: string;
-}
-
-export interface CreateChatImageAttachmentFromPathRequest {
-  workspaceId: string;
-  conversationId: string;
-  sourcePath: string;
-}
-
 export interface ListChatCommandsRequest {
   workspaceId: string;
   conversationId: string;
 }
 
-export interface ChatCommandLiteralArgumentSpec {
-  kind: ChatCommandArgumentKind;
-  token: string;
-  description: string;
-}
-
-export interface ChatCommandFreeTextArgumentSpec {
-  kind: ChatCommandArgumentKind;
+export interface ChatCommandCapability {
+  kind: ChatCommandKind;
   name: string;
-  description: string;
-  maxRunes: number;
-  required: boolean;
-}
-
-export interface ChatCommandGrammar {
-  summary: string;
-  literalMatch: ChatCommandLiteralMatchMode;
-  arguments: ChatCommandArgumentSpec[];
-}
-
-export interface ChatCommandDescriptor {
-  kind: ChatSlashCommandKind;
-  name: string;
+  usage: string;
   description: string;
   available: boolean;
   unavailableReason: string;
-  grammar: ChatCommandGrammar;
 }
 
 export interface ChatCommandListResult {
-  commands: ChatCommandDescriptor[];
+  commands: ChatCommandCapability[];
 }
 
 export interface ExecuteChatCommandRequest {
@@ -3716,26 +3056,8 @@ export interface ChatModelOption {
   description: string;
   hidden: boolean;
   isDefault: boolean;
-  supportsImages: boolean;
   defaultReasoningEffort: ReasoningEffort;
   supportedReasoningEfforts: ChatReasoningEffortOption[];
-}
-
-export interface ChatPermissionDangerMeta {
-  requiresConfirmation: boolean;
-  confirmationTitle: string;
-  confirmationBody: string;
-}
-
-export interface ChatPermissionPreset {
-  id: ChatPermissionPresetID;
-  label: string;
-  shortDescription: string;
-  approvalPolicy: string;
-  activePermissionProfileId: string;
-  danger: ChatPermissionDangerMeta | null;
-  disabled: boolean;
-  disabledReason: string;
 }
 
 export interface ChatCommandResult {
@@ -3744,64 +3066,24 @@ export interface ChatCommandResult {
   raw: string;
   title: string;
   message: string;
-  composerDraft: string;
   goal: ChatGoalState | null;
   models: ChatModelOption[];
   selectedModel: string;
   reasoningEfforts: ChatReasoningEffortOption[];
   selectedReasoningEffort: ReasoningEffort | null;
-  permissionPresets: ChatPermissionPreset[];
-  selectedPermissionPreset: ChatPermissionPresetID | null;
-  currentPermission: ChatCodexEffectivePermissionSettings | null;
 }
 
 export interface ChatCommandExecuteResult {
   conversation: Conversation;
   message: ChatMessage | null;
-  activeRun: Run | null;
-  activeRunLiveness: RunLiveness | null;
   page: MessagePage;
   result: ChatCommandResult;
-}
-
-export interface ChatCodexDefaultsView {
-  settings: ChatCodexSettings;
-  effectiveSettings: ChatCodexEffectiveSettings | null;
-  models: ChatModelOption[];
-  reasoningEfforts: ChatReasoningEffortOption[];
-  permissionPresets: ChatPermissionPreset[];
-  currentPermission: ChatCodexEffectivePermissionSettings | null;
-  selectedModel: string;
-  selectedReasoningEffort: ReasoningEffort | null;
-  selectedPermissionPreset: ChatPermissionPresetID | null;
-}
-
-export interface UpdateChatCodexDefaultsRequest {
-  settings: ChatCodexSettings;
-  confirmed: boolean;
-}
-
-export interface OpenChatCodexModelPickerRequest {
-  workspaceId: string;
-  conversationId: string;
-}
-
-export interface OpenChatCodexPermissionPickerRequest {
-  workspaceId: string;
-  conversationId: string;
 }
 
 export interface SetChatCodexModelRequest {
   workspaceId: string;
   conversationId: string;
   modelId: string;
-}
-
-export interface SetChatCodexPermissionPresetRequest {
-  workspaceId: string;
-  conversationId: string;
-  preset: ChatPermissionPresetID;
-  confirmed: boolean;
 }
 
 export interface SetChatCodexReasoningEffortRequest {
@@ -3823,21 +3105,6 @@ export interface GetActiveRunRequest {
 export interface GetActiveRunResponse {
   hasActiveRun: boolean;
   run: Run | null;
-  liveness: RunLiveness | null;
-}
-
-export interface ReconcileChatRunsRequest {
-  workspaceId: string;
-  conversationId: string;
-  reason: RunLivenessReason;
-}
-
-export interface RunLivenessReconciliationResult {
-  runs: RunLiveness[];
-}
-
-export interface ReconcileChatRunsResponse {
-  result: RunLivenessReconciliationResult;
 }
 
 export interface ListRunsRequest {
@@ -3852,78 +3119,13 @@ export interface ListRunsResponse {
 export interface GetRunActivityRequest {
   workspaceId: string;
   runId: string;
-  afterItemId: string;
   limit: number;
-}
-
-export interface RunItemDetails {
-  kind: RunItemDetailsKind;
-  plan: RunItemPlanDetails | null;
-  commandExecution: RunItemCommandExecutionDetails | null;
-  commandStartFailure: RunItemCommandStartFailureDetails | null;
-  mcpToolCall: RunItemMCPToolCallDetails | null;
-  dynamicToolCall: RunItemDynamicToolCallDetails | null;
-  fileChange: RunItemFileChangeDetails | null;
-  diff: RunItemDiffDetails | null;
-  approval: RunItemApprovalDetails | null;
-  providerStreamLifecycle: RunItemProviderStreamLifecycleDetails | null;
-}
-
-export interface RunItem {
-  schemaVersion: number;
-  id: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  providerItemId: string;
-  type: RunItemType;
-  status: RunItemStatus;
-  createdAt: string;
-  startedAt: string;
-  completedAt: string;
-  title: string;
-  summary: string;
-  command: string;
-  cwd: string;
-  exitCode: number;
-  durationMs: number;
-  filePaths: string[];
-  patchStatus: string;
-  serverName: string;
-  toolName: string;
-  progress: string;
-  result: string;
-  error: string;
-  noticeKind: string;
-  noticeMessage: string;
-  diffSummary: string;
-  namespace: string;
-  processId: string;
-  source: RunItemCommandSource | null;
-  requestId: string;
-  reviewId: string;
-  details: RunItemDetails | null;
-  rawDetails: unknown;
-  hiddenText: string;
-}
-
-export interface RunItemOutput {
-  schemaVersion: number;
-  id: string;
-  runItemId: string;
-  stream: string;
-  ordinal: number;
-  text: string;
-  createdAt: string;
 }
 
 export interface RunActivityPage {
   runId: string;
   items: RunItem[];
   output: RunItemOutput[];
-  activity: ActivityItemBlockProjection[];
-  hasMoreItems: boolean;
-  nextItemId: string;
 }
 
 export interface GetRunItemOutputRequest {
@@ -3940,72 +3142,6 @@ export interface RunItemOutputPage {
   output: RunItemOutput[];
   hasMore: boolean;
   nextOrdinal: number;
-}
-
-export interface ListBackgroundTerminalsRequest {
-  workspaceId: string;
-  conversationId: string;
-}
-
-export interface BackgroundTerminalProcess {
-  schemaVersion: number;
-  id: string;
-  workspaceId: string;
-  conversationId: string;
-  threadId: string;
-  startedRunId: string;
-  providerItemId: string;
-  processId: string;
-  source: RunItemCommandSource;
-  status: BackgroundTerminalStatus;
-  command: string;
-  cwd: string;
-  exitCode: number;
-  error: string;
-  startedAt: string;
-  updatedAt: string;
-  completedAt: string;
-  recentOutput: string[];
-}
-
-export interface BackgroundTerminalListProjection {
-  terminals: BackgroundTerminalProcess[];
-}
-
-export interface GetBackgroundTerminalOutputRequest {
-  workspaceId: string;
-  conversationId: string;
-  processId: string;
-  afterOrdinal: number;
-  limit: number;
-}
-
-export interface BackgroundTerminalOutput {
-  schemaVersion: number;
-  id: string;
-  processId: string;
-  stream: string;
-  ordinal: number;
-  text: string;
-  createdAt: string;
-}
-
-export interface BackgroundTerminalOutputPage {
-  processId: string;
-  output: BackgroundTerminalOutput[];
-  hasMore: boolean;
-  nextOrdinal: number;
-}
-
-export interface KillBackgroundTerminalRequest {
-  workspaceId: string;
-  conversationId: string;
-  processId: string;
-}
-
-export interface KillAllBackgroundTerminalsRequest {
-  workspaceId: string;
-  conversationId: string;
 }
 
 export interface ListDiagnosticsRequest {
@@ -4052,6 +3188,16 @@ export interface WorkflowActionConfig {
 
 export interface WorkflowGatewayConfig {
   requiredIncoming: string[];
+}
+
+export interface WorkflowCondition {
+  kind: WorkflowConditionKind;
+  nodeId: string;
+  status: WorkflowNodeExecutionStatus | null;
+  signalName: string;
+  signalValue: string;
+  exitCode: number | null;
+  invert: boolean;
 }
 
 export interface WorkflowLoopGuardConfig {
@@ -4393,6 +3539,19 @@ export interface WorkflowGraphNode {
   recoveryMessage: string;
 }
 
+export interface WorkflowGraphEdge {
+  id: string;
+  kind: WorkflowEdgeKind;
+  fromNodeId: string;
+  toNodeId: string;
+  condition: WorkflowCondition | null;
+  label: string;
+  status: WorkflowGraphEdgeStatus;
+  activeTokenCount: number;
+  completedTokenCount: number;
+  cancelledTokenCount: number;
+}
+
 export interface WorkflowGraphProjection {
   schemaVersion: number;
   workspaceId: string;
@@ -4451,87 +3610,6 @@ export interface WorkflowExecutionEventPage {
   events: WorkflowEvent[];
   hasMoreOlder: boolean;
   olderBeforeOrdinal: number;
-}
-
-export interface ReadWorkflowNodeTrajectoryRequest {
-  workspaceId: string;
-  executionId: string;
-  nodeExecutionId: string;
-  beforeBlockOrdinal: number;
-  transcriptLimit: number;
-  afterItemId: string;
-  itemLimit: number;
-  outputLimit: number;
-}
-
-export interface WorkflowAgentTrajectoryScope {
-  workspaceId: string;
-  definitionId: string;
-  definitionVersionId: string;
-  executionId: string;
-  nodeId: string;
-  nodeExecutionId: string;
-  attempt: number;
-  iteration: number;
-}
-
-export interface WorkflowAgentTrajectoryRunItemOutputPageState {
-  runId: string;
-  runItemId: string;
-  outputIds: string[];
-  hasMore: boolean;
-  loadedThroughOrdinal: number;
-  nextOrdinal: number;
-}
-
-export interface WorkflowAgentTrajectoryCapabilities {
-  canLoadOlderHistory: boolean;
-  canLoadMoreActivity: boolean;
-  canLoadRunItemOutput: boolean;
-  canRetryLiveness: boolean;
-  canSteer: boolean;
-  canStopRun: boolean;
-  canSubmitApproval: boolean;
-}
-
-export interface WorkflowAgentTrajectoryPage {
-  schemaVersion: number;
-  scope: WorkflowAgentTrajectoryScope;
-  conversationId: string;
-  runId: string;
-  run: Run;
-  activeRun: Run | null;
-  activeRunLiveness: RunLiveness | null;
-  blocks: TranscriptBlock[];
-  items: RunItem[];
-  activity: ActivityItemBlockProjection[];
-  outputPages: WorkflowAgentTrajectoryRunItemOutputPageState[];
-  outputs: RunItemOutput[];
-  pendingApproval: WorkflowPendingApproval | null;
-  hasMoreOlder: boolean;
-  olderBeforeBlockOrdinal: number;
-  hasMoreItems: boolean;
-  nextItemId: string;
-  capabilities: WorkflowAgentTrajectoryCapabilities;
-}
-
-export interface RetryWorkflowNodeRunLivenessRequest {
-  workspaceId: string;
-  executionId: string;
-  nodeExecutionId: string;
-}
-
-export interface SteerWorkflowNodeRunRequest {
-  workspaceId: string;
-  executionId: string;
-  nodeExecutionId: string;
-  input: ChatInput;
-}
-
-export interface StopWorkflowNodeRunRequest {
-  workspaceId: string;
-  executionId: string;
-  nodeExecutionId: string;
 }
 
 export interface SubmitWorkflowApprovalRequest {
@@ -5839,10 +4917,6 @@ export interface RunUpdatedPayload {
   run: Run;
 }
 
-export interface RunLivenessUpdatedPayload {
-  liveness: RunLiveness;
-}
-
 export interface RunItemCreatedPayload {
   item: RunItem;
 }
@@ -5853,41 +4927,6 @@ export interface RunItemUpdatedPayload {
 
 export interface RunItemOutputDeltaPayload {
   output: RunItemOutput;
-}
-
-export interface TranscriptBlockCreatedPayload {
-  block: TranscriptBlock;
-}
-
-export interface TranscriptBlockUpdatedPayload {
-  block: TranscriptBlock;
-}
-
-export interface TranscriptTextDeltaPayload {
-  blockId: string;
-  delta: string;
-  updatedAt: string;
-}
-
-export interface TranscriptBlocksReplacedPayload {
-  runId: string;
-  blocks: TranscriptBlock[];
-}
-
-export interface BackgroundTerminalCreatedPayload {
-  process: BackgroundTerminalProcess;
-}
-
-export interface BackgroundTerminalUpdatedPayload {
-  process: BackgroundTerminalProcess;
-}
-
-export interface BackgroundTerminalOutputDeltaPayload {
-  output: BackgroundTerminalOutput;
-}
-
-export interface BackgroundTerminalsReplacedPayload {
-  terminals: BackgroundTerminalProcess[];
 }
 
 export interface QueueUpdatedPayload {
@@ -5919,11 +4958,6 @@ export interface CodexAccountChangedPayload {
   reason: string;
 }
 
-export type ChatCommandArgumentSpec =
-  ChatCommandLiteralArgumentSpec
-  | ChatCommandFreeTextArgumentSpec
-;
-
 export type ChatEvent =
   ChatMessageCreatedEvent
   | ChatMessageQueuedEvent
@@ -5932,18 +4966,9 @@ export type ChatEvent =
   | ChatMessageUpdatedEvent
   | ChatMessageRemovedEvent
   | ChatRunUpdatedEvent
-  | ChatRunLivenessUpdatedEvent
   | ChatRunItemCreatedEvent
   | ChatRunItemUpdatedEvent
   | ChatRunItemOutputDeltaEvent
-  | ChatTranscriptBlockCreatedEvent
-  | ChatTranscriptBlockUpdatedEvent
-  | ChatTranscriptTextDeltaEvent
-  | ChatTranscriptBlocksReplacedEvent
-  | ChatBackgroundTerminalCreatedEvent
-  | ChatBackgroundTerminalUpdatedEvent
-  | ChatBackgroundTerminalOutputDeltaEvent
-  | ChatBackgroundTerminalsReplacedEvent
   | ChatQueueUpdatedEvent
   | ChatGoalUpdatedEvent
   | ChatConversationUpdatedEvent
@@ -6043,19 +5068,6 @@ export interface ChatRunUpdatedEvent {
   payload: RunUpdatedPayload;
 }
 
-export interface ChatRunLivenessUpdatedEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.run_liveness.updated";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: RunLivenessUpdatedPayload;
-}
-
 export interface ChatRunItemCreatedEvent {
   schemaVersion: number;
   streamId: string;
@@ -6093,110 +5105,6 @@ export interface ChatRunItemOutputDeltaEvent {
   conversationId: string;
   runId: string;
   payload: RunItemOutputDeltaPayload;
-}
-
-export interface ChatTranscriptBlockCreatedEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.transcript_block.created";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: TranscriptBlockCreatedPayload;
-}
-
-export interface ChatTranscriptBlockUpdatedEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.transcript_block.updated";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: TranscriptBlockUpdatedPayload;
-}
-
-export interface ChatTranscriptTextDeltaEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.transcript_text.delta";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: TranscriptTextDeltaPayload;
-}
-
-export interface ChatTranscriptBlocksReplacedEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.transcript_blocks.replaced";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: TranscriptBlocksReplacedPayload;
-}
-
-export interface ChatBackgroundTerminalCreatedEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.background_terminal.created";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: BackgroundTerminalCreatedPayload;
-}
-
-export interface ChatBackgroundTerminalUpdatedEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.background_terminal.updated";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: BackgroundTerminalUpdatedPayload;
-}
-
-export interface ChatBackgroundTerminalOutputDeltaEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.background_terminal.output_delta";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: BackgroundTerminalOutputDeltaPayload;
-}
-
-export interface ChatBackgroundTerminalsReplacedEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.background_terminals.replaced";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: BackgroundTerminalsReplacedPayload;
 }
 
 export interface ChatQueueUpdatedEvent {
@@ -6282,6 +5190,34 @@ export const backendEndpoints = {
     method: "GET",
     path: "/health",
   },
+  RuntimeInfo: {
+    method: "GET",
+    path: "/runtime/info",
+  },
+  CompletePairing: {
+    method: "POST",
+    path: "/pairing/complete",
+  },
+  ListDevices: {
+    method: "POST",
+    path: "/devices/list",
+  },
+  RevokeDevice: {
+    method: "POST",
+    path: "/devices/revoke",
+  },
+  PushSubscribe: {
+    method: "POST",
+    path: "/push/subscribe",
+  },
+  PushUnsubscribe: {
+    method: "POST",
+    path: "/push/unsubscribe",
+  },
+  PushTest: {
+    method: "POST",
+    path: "/push/test",
+  },
   ReadAppearanceSettings: {
     method: "GET",
     path: "/appearance/settings",
@@ -6293,7 +5229,6 @@ export const backendEndpoints = {
   UpdateAppearanceSettings: {
     method: "POST",
     path: "/appearance/settings",
-    requestBodyLimitBytes: 4194304,
   },
   WorkspaceSession: {
     method: "GET",
@@ -6306,52 +5241,42 @@ export const backendEndpoints = {
   OpenWorkspace: {
     method: "POST",
     path: "/workspaces/open",
-    requestBodyLimitBytes: 4194304,
   },
   SelectWorkspace: {
     method: "POST",
     path: "/workspaces/select",
-    requestBodyLimitBytes: 4194304,
   },
   SetWorkspaceSelectedConversation: {
     method: "POST",
     path: "/workspaces/selected-conversation",
-    requestBodyLimitBytes: 4194304,
   },
   CloseWorkspace: {
     method: "POST",
     path: "/workspaces/close",
-    requestBodyLimitBytes: 4194304,
   },
   ReorderWorkspace: {
     method: "POST",
     path: "/workspaces/reorder",
-    requestBodyLimitBytes: 4194304,
   },
   RemoveRecentWorkspace: {
     method: "POST",
     path: "/workspaces/remove-recent",
-    requestBodyLimitBytes: 4194304,
   },
   ReadWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/read",
-    requestBodyLimitBytes: 4194304,
   },
   SaveWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/save",
-    requestBodyLimitBytes: 4194304,
   },
   ReadWorkspaceActivitySnapshot: {
     method: "POST",
     path: "/workspace-activity/snapshot",
-    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowExecutionActivity: {
     method: "POST",
     path: "/workspace-activity/execution-snapshot",
-    requestBodyLimitBytes: 4194304,
   },
   WorkspaceActivityEventStream: {
     method: "GET",
@@ -6360,266 +5285,146 @@ export const backendEndpoints = {
   ListConversations: {
     method: "POST",
     path: "/chat/conversations/list",
-    requestBodyLimitBytes: 4194304,
   },
   CreateConversation: {
     method: "POST",
     path: "/chat/conversations/create",
-    requestBodyLimitBytes: 4194304,
   },
   DeleteConversation: {
     method: "POST",
     path: "/chat/conversations/delete",
-    requestBodyLimitBytes: 4194304,
   },
   MarkConversationRead: {
     method: "POST",
     path: "/chat/conversations/mark-read",
-    requestBodyLimitBytes: 4194304,
   },
   SetConversationPinned: {
     method: "POST",
     path: "/chat/conversations/pin",
-    requestBodyLimitBytes: 4194304,
   },
   GetMessagePage: {
     method: "POST",
     path: "/chat/messages/page",
-    requestBodyLimitBytes: 4194304,
-  },
-  ListComposerPromptHistory: {
-    method: "POST",
-    path: "/chat/composer/history",
-    requestBodyLimitBytes: 4194304,
   },
   SendChatMessage: {
     method: "POST",
     path: "/chat/messages/send",
-    requestBodyLimitBytes: 4194304,
   },
   QueueChatMessage: {
     method: "POST",
     path: "/chat/messages/queue",
-    requestBodyLimitBytes: 4194304,
   },
   EditQueuedChatMessage: {
     method: "POST",
     path: "/chat/messages/queue/edit",
-    requestBodyLimitBytes: 4194304,
   },
   RemoveQueuedChatMessage: {
     method: "POST",
     path: "/chat/messages/queue/remove",
-    requestBodyLimitBytes: 4194304,
   },
   SteerChatMessage: {
     method: "POST",
     path: "/chat/messages/steer",
-    requestBodyLimitBytes: 4194304,
   },
   SendSteeringImmediately: {
     method: "POST",
     path: "/chat/messages/steer/immediate",
-    requestBodyLimitBytes: 4194304,
-  },
-  CreateChatImageAttachmentFromBytes: {
-    method: "POST",
-    path: "/chat/attachments/images/from-bytes",
-    requestBodyLimitBytes: 28224172,
-  },
-  CreateChatImageAttachmentFromPath: {
-    method: "POST",
-    path: "/chat/attachments/images/from-path",
-    requestBodyLimitBytes: 4194304,
   },
   ListChatCommands: {
     method: "POST",
     path: "/chat/commands/list",
-    requestBodyLimitBytes: 4194304,
   },
   ExecuteChatCommand: {
     method: "POST",
     path: "/chat/commands/execute",
-    requestBodyLimitBytes: 4194304,
-  },
-  ReadChatCodexDefaults: {
-    method: "GET",
-    path: "/chat/codex/defaults",
-  },
-  UpdateChatCodexDefaults: {
-    method: "POST",
-    path: "/chat/codex/defaults",
-    requestBodyLimitBytes: 4194304,
-  },
-  OpenChatCodexModelPicker: {
-    method: "POST",
-    path: "/chat/codex/model/picker",
-    requestBodyLimitBytes: 4194304,
-  },
-  OpenChatCodexPermissionPicker: {
-    method: "POST",
-    path: "/chat/codex/permission/picker",
-    requestBodyLimitBytes: 4194304,
   },
   SetChatCodexModel: {
     method: "POST",
     path: "/chat/codex/model/set",
-    requestBodyLimitBytes: 4194304,
-  },
-  SetChatCodexPermissionPreset: {
-    method: "POST",
-    path: "/chat/codex/permission/set",
-    requestBodyLimitBytes: 4194304,
   },
   SetChatCodexReasoningEffort: {
     method: "POST",
     path: "/chat/codex/reasoning-effort/set",
-    requestBodyLimitBytes: 4194304,
   },
   CancelRun: {
     method: "POST",
     path: "/chat/runs/cancel",
-    requestBodyLimitBytes: 4194304,
   },
   GetActiveRun: {
     method: "POST",
     path: "/chat/runs/active",
-    requestBodyLimitBytes: 4194304,
-  },
-  ReconcileChatRuns: {
-    method: "POST",
-    path: "/chat/runs/reconcile",
-    requestBodyLimitBytes: 4194304,
   },
   ListRuns: {
     method: "POST",
     path: "/chat/runs/list",
-    requestBodyLimitBytes: 4194304,
   },
   GetRunActivity: {
     method: "POST",
     path: "/chat/runs/activity",
-    requestBodyLimitBytes: 4194304,
   },
   GetRunItemOutputPage: {
     method: "POST",
     path: "/chat/runs/item-output",
-    requestBodyLimitBytes: 4194304,
-  },
-  ListBackgroundTerminals: {
-    method: "POST",
-    path: "/chat/background-terminals/list",
-    requestBodyLimitBytes: 4194304,
-  },
-  GetBackgroundTerminalOutput: {
-    method: "POST",
-    path: "/chat/background-terminals/output",
-    requestBodyLimitBytes: 4194304,
-  },
-  KillBackgroundTerminal: {
-    method: "POST",
-    path: "/chat/background-terminals/kill",
-    requestBodyLimitBytes: 4194304,
-  },
-  KillAllBackgroundTerminals: {
-    method: "POST",
-    path: "/chat/background-terminals/kill-all",
-    requestBodyLimitBytes: 4194304,
   },
   ListDiagnostics: {
     method: "POST",
     path: "/chat/diagnostics/list",
-    requestBodyLimitBytes: 4194304,
   },
   SubmitApproval: {
     method: "POST",
     path: "/chat/approvals/submit",
-    requestBodyLimitBytes: 4194304,
   },
   ListWorkflowDefinitions: {
     method: "POST",
     path: "/workflows/definitions/list",
-    requestBodyLimitBytes: 4194304,
   },
   CreateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/create",
-    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/read",
-    requestBodyLimitBytes: 4194304,
   },
   UpdateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/update",
-    requestBodyLimitBytes: 4194304,
   },
   DeleteWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/delete",
-    requestBodyLimitBytes: 4194304,
   },
   ValidateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/validate",
-    requestBodyLimitBytes: 4194304,
   },
   ListWorkflowExecutions: {
     method: "POST",
     path: "/workflows/executions/list",
-    requestBodyLimitBytes: 4194304,
   },
   StartWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/start",
-    requestBodyLimitBytes: 4194304,
   },
   CancelWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/cancel",
-    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/read",
-    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowGraphProjection: {
     method: "POST",
     path: "/workflows/graph/read",
-    requestBodyLimitBytes: 4194304,
   },
   GetWorkflowExecutionEvents: {
     method: "POST",
     path: "/workflows/executions/events",
-    requestBodyLimitBytes: 4194304,
-  },
-  ReadWorkflowNodeTrajectory: {
-    method: "POST",
-    path: "/workflows/nodes/trajectory",
-    requestBodyLimitBytes: 4194304,
-  },
-  RetryWorkflowNodeRunLiveness: {
-    method: "POST",
-    path: "/workflows/nodes/runs/retry-liveness",
-    requestBodyLimitBytes: 4194304,
-  },
-  SteerWorkflowNodeRun: {
-    method: "POST",
-    path: "/workflows/nodes/runs/steer",
-    requestBodyLimitBytes: 4194304,
-  },
-  StopWorkflowNodeRun: {
-    method: "POST",
-    path: "/workflows/nodes/runs/stop",
-    requestBodyLimitBytes: 4194304,
   },
   SubmitWorkflowApproval: {
     method: "POST",
     path: "/workflows/approvals/submit",
-    requestBodyLimitBytes: 4194304,
   },
   WorkflowEventStream: {
     method: "GET",
@@ -6628,202 +5433,162 @@ export const backendEndpoints = {
   ReadSemanticGraph: {
     method: "POST",
     path: "/semantic-graph/read",
-    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticNodeDetail: {
     method: "POST",
     path: "/semantic-graph/nodes/detail",
-    requestBodyLimitBytes: 4194304,
   },
   ListSemanticEvidence: {
     method: "POST",
     path: "/semantic-graph/evidence/list",
-    requestBodyLimitBytes: 4194304,
   },
   ListSemanticActivity: {
     method: "POST",
     path: "/semantic-graph/activity/list",
-    requestBodyLimitBytes: 4194304,
   },
   ListSemanticActivityPage: {
     method: "POST",
     path: "/semantic-graph/activity/page",
-    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticActivitySummary: {
     method: "POST",
     path: "/semantic-graph/activity/summary",
-    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticSteeringState: {
     method: "POST",
     path: "/semantic-graph/steering/read",
-    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticEventHistory: {
     method: "POST",
     path: "/semantic-graph/events/history",
-    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticContextPack: {
     method: "POST",
     path: "/semantic-graph/context-packs/read",
-    requestBodyLimitBytes: 4194304,
   },
   ListSemanticContextPacks: {
     method: "POST",
     path: "/semantic-graph/context-packs/list",
-    requestBodyLimitBytes: 4194304,
   },
   BuildCartographerWindow: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/build",
-    requestBodyLimitBytes: 4194304,
   },
   ProcessCartographerWindow: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/process",
-    requestBodyLimitBytes: 4194304,
   },
   ReadCartographerProcessingState: {
     method: "POST",
     path: "/semantic-graph/cartographer/processing/state",
-    requestBodyLimitBytes: 4194304,
   },
   ReadCartographerRun: {
     method: "POST",
     path: "/semantic-graph/cartographer/runs/read",
-    requestBodyLimitBytes: 4194304,
   },
   ListCartographerRuns: {
     method: "POST",
     path: "/semantic-graph/cartographer/runs/list",
-    requestBodyLimitBytes: 4194304,
   },
   ListCartographerWindows: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/list",
-    requestBodyLimitBytes: 4194304,
   },
   ListCartographerCursors: {
     method: "POST",
     path: "/semantic-graph/cartographer/cursors/list",
-    requestBodyLimitBytes: 4194304,
   },
   ListCartographerPatches: {
     method: "POST",
     path: "/semantic-graph/cartographer/patches/list",
-    requestBodyLimitBytes: 4194304,
   },
   AcceptCartographerPatch: {
     method: "POST",
     path: "/semantic-graph/cartographer/patches/accept",
-    requestBodyLimitBytes: 4194304,
   },
   RejectCartographerPatch: {
     method: "POST",
     path: "/semantic-graph/cartographer/patches/reject",
-    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticLayoutPositions: {
     method: "POST",
     path: "/semantic-graph/layout/update",
-    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToWorkflowExecution: {
     method: "POST",
     path: "/semantic-graph/attachments/workflow-execution",
-    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToWorkflowNode: {
     method: "POST",
     path: "/semantic-graph/attachments/workflow-node",
-    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToChatRun: {
     method: "POST",
     path: "/semantic-graph/attachments/chat-run",
-    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToChatMessage: {
     method: "POST",
     path: "/semantic-graph/attachments/chat-message",
-    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToRunItem: {
     method: "POST",
     path: "/semantic-graph/attachments/run-item",
-    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToFileRange: {
     method: "POST",
     path: "/semantic-graph/attachments/file-range",
-    requestBodyLimitBytes: 4194304,
   },
   EndSemanticActivity: {
     method: "POST",
     path: "/semantic-graph/activity/end",
-    requestBodyLimitBytes: 4194304,
   },
   RenameSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/rename",
-    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/update",
-    requestBodyLimitBytes: 4194304,
   },
   DismissSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/dismiss",
-    requestBodyLimitBytes: 4194304,
   },
   PromoteSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/promote",
-    requestBodyLimitBytes: 4194304,
   },
   SplitSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/split",
-    requestBodyLimitBytes: 4194304,
   },
   MergeSemanticNodes: {
     method: "POST",
     path: "/semantic-graph/nodes/merge",
-    requestBodyLimitBytes: 4194304,
   },
   CreateSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/create",
-    requestBodyLimitBytes: 4194304,
   },
   CreateSemanticEdge: {
     method: "POST",
     path: "/semantic-graph/edges/create",
-    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticEdge: {
     method: "POST",
     path: "/semantic-graph/edges/update",
-    requestBodyLimitBytes: 4194304,
   },
   RemoveSemanticEdge: {
     method: "POST",
     path: "/semantic-graph/edges/remove",
-    requestBodyLimitBytes: 4194304,
   },
   CreateSemanticSteeringDirective: {
     method: "POST",
     path: "/semantic-graph/steering/create",
-    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticSteeringDirective: {
     method: "POST",
     path: "/semantic-graph/steering/update",
-    requestBodyLimitBytes: 4194304,
   },
   SemanticGraphChangeEventStream: {
     method: "GET",
@@ -6832,27 +5597,22 @@ export const backendEndpoints = {
   CreateTerminal: {
     method: "POST",
     path: "/terminals/create",
-    requestBodyLimitBytes: 4194304,
   },
   AttachTerminal: {
     method: "POST",
     path: "/terminals/attach",
-    requestBodyLimitBytes: 4194304,
   },
   TerminalInput: {
     method: "POST",
     path: "/terminals/input",
-    requestBodyLimitBytes: 4194304,
   },
   ResizeTerminal: {
     method: "POST",
     path: "/terminals/resize",
-    requestBodyLimitBytes: 4194304,
   },
   CloseTerminal: {
     method: "POST",
     path: "/terminals/close",
-    requestBodyLimitBytes: 4194304,
   },
   ListTerminalProfiles: {
     method: "GET",
@@ -6861,22 +5621,18 @@ export const backendEndpoints = {
   CreateTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/create",
-    requestBodyLimitBytes: 4194304,
   },
   UpdateTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/update",
-    requestBodyLimitBytes: 4194304,
   },
   DeleteTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/delete",
-    requestBodyLimitBytes: 4194304,
   },
   SelectDefaultTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/default",
-    requestBodyLimitBytes: 4194304,
   },
   TerminalEventStream: {
     method: "GET",
@@ -6889,22 +5645,18 @@ export const backendEndpoints = {
   RefreshCodexAccount: {
     method: "POST",
     path: "/codex/account/refresh",
-    requestBodyLimitBytes: 4194304,
   },
   StartCodexLogin: {
     method: "POST",
     path: "/codex/account/login/start",
-    requestBodyLimitBytes: 4194304,
   },
   CancelCodexLogin: {
     method: "POST",
     path: "/codex/account/login/cancel",
-    requestBodyLimitBytes: 4194304,
   },
   LogoutCodexAccount: {
     method: "POST",
     path: "/codex/account/logout",
-    requestBodyLimitBytes: 4194304,
   },
   EventStream: {
     method: "GET",
@@ -6914,11 +5666,154 @@ export const backendEndpoints = {
 
 export function decodeBackendHealth(value: unknown): BackendHealth {
   const record = assertRecord(value, "BackendHealth");
-  assertKnownFields(record, "BackendHealth", ["ok", "name", "version"]);
+  assertKnownFields(record, "BackendHealth", ["ok", "name", "version", "protocolVersion"]);
   return {
     ok: decodeBoolean(requireField(record, "ok", "BackendHealth"), "BackendHealth.ok"),
     name: decodeString(requireField(record, "name", "BackendHealth"), "BackendHealth.name"),
     version: decodeString(requireField(record, "version", "BackendHealth"), "BackendHealth.version"),
+    protocolVersion: decodeInteger(requireField(record, "protocolVersion", "BackendHealth"), "BackendHealth.protocolVersion"),
+  };
+}
+
+export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
+  const record = assertRecord(value, "RuntimeInfoResponse");
+  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "backendName", "backendVersion", "protocolVersion", "vapidPublicKey"]);
+  return {
+    runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeInfoResponse"), "RuntimeInfoResponse.runtimeId"),
+    displayName: decodeString(requireField(record, "displayName", "RuntimeInfoResponse"), "RuntimeInfoResponse.displayName"),
+    backendName: decodeString(requireField(record, "backendName", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendName"),
+    backendVersion: decodeString(requireField(record, "backendVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendVersion"),
+    protocolVersion: decodeInteger(requireField(record, "protocolVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.protocolVersion"),
+    vapidPublicKey: decodeString(requireField(record, "vapidPublicKey", "RuntimeInfoResponse"), "RuntimeInfoResponse.vapidPublicKey"),
+  };
+}
+
+export function decodeCompletePairingRequest(value: unknown): CompletePairingRequest {
+  const record = assertRecord(value, "CompletePairingRequest");
+  assertKnownFields(record, "CompletePairingRequest", ["pairingToken", "clientDisplayName"]);
+  return {
+    pairingToken: decodeString(requireField(record, "pairingToken", "CompletePairingRequest"), "CompletePairingRequest.pairingToken"),
+    clientDisplayName: decodeString(requireField(record, "clientDisplayName", "CompletePairingRequest"), "CompletePairingRequest.clientDisplayName"),
+  };
+}
+
+export function decodeCompletePairingResponse(value: unknown): CompletePairingResponse {
+  const record = assertRecord(value, "CompletePairingResponse");
+  assertKnownFields(record, "CompletePairingResponse", ["deviceId", "deviceToken", "runtimeId", "protocolVersion"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "CompletePairingResponse"), "CompletePairingResponse.deviceId"),
+    deviceToken: decodeString(requireField(record, "deviceToken", "CompletePairingResponse"), "CompletePairingResponse.deviceToken"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "CompletePairingResponse"), "CompletePairingResponse.runtimeId"),
+    protocolVersion: decodeInteger(requireField(record, "protocolVersion", "CompletePairingResponse"), "CompletePairingResponse.protocolVersion"),
+  };
+}
+
+export function decodeListDevicesRequest(value: unknown): ListDevicesRequest {
+  const record = assertRecord(value, "ListDevicesRequest");
+  assertKnownFields(record, "ListDevicesRequest", []);
+  return {
+  };
+}
+
+export function decodeDeviceSession(value: unknown): DeviceSession {
+  const record = assertRecord(value, "DeviceSession");
+  assertKnownFields(record, "DeviceSession", ["deviceId", "scope", "displayName", "createdAt", "lastSeenAt", "revokedAt"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "DeviceSession"), "DeviceSession.deviceId"),
+    scope: decodeDeviceScope(requireField(record, "scope", "DeviceSession"), "DeviceSession.scope"),
+    displayName: decodeString(requireField(record, "displayName", "DeviceSession"), "DeviceSession.displayName"),
+    createdAt: decodeString(requireField(record, "createdAt", "DeviceSession"), "DeviceSession.createdAt"),
+    lastSeenAt: decodeString(requireField(record, "lastSeenAt", "DeviceSession"), "DeviceSession.lastSeenAt"),
+    revokedAt: decodeNullable(requireField(record, "revokedAt", "DeviceSession"), "DeviceSession.revokedAt", (item) => decodeString(item, "DeviceSession.revokedAt")),
+  };
+}
+
+export function decodeListDevicesResponse(value: unknown): ListDevicesResponse {
+  const record = assertRecord(value, "ListDevicesResponse");
+  assertKnownFields(record, "ListDevicesResponse", ["devices"]);
+  return {
+    devices: decodeArray(requireField(record, "devices", "ListDevicesResponse"), "ListDevicesResponse.devices", (item) => decodeDeviceSession(item)),
+  };
+}
+
+export function decodeRevokeDeviceRequest(value: unknown): RevokeDeviceRequest {
+  const record = assertRecord(value, "RevokeDeviceRequest");
+  assertKnownFields(record, "RevokeDeviceRequest", ["deviceId"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "RevokeDeviceRequest"), "RevokeDeviceRequest.deviceId"),
+  };
+}
+
+export function decodeRevokeDeviceResponse(value: unknown): RevokeDeviceResponse {
+  const record = assertRecord(value, "RevokeDeviceResponse");
+  assertKnownFields(record, "RevokeDeviceResponse", ["device"]);
+  return {
+    device: decodeDeviceSession(requireField(record, "device", "RevokeDeviceResponse")),
+  };
+}
+
+export function decodeWebPushKeys(value: unknown): WebPushKeys {
+  const record = assertRecord(value, "WebPushKeys");
+  assertKnownFields(record, "WebPushKeys", ["auth", "p256dh"]);
+  return {
+    auth: decodeString(requireField(record, "auth", "WebPushKeys"), "WebPushKeys.auth"),
+    p256dh: decodeString(requireField(record, "p256dh", "WebPushKeys"), "WebPushKeys.p256dh"),
+  };
+}
+
+export function decodeWebPushSubscription(value: unknown): WebPushSubscription {
+  const record = assertRecord(value, "WebPushSubscription");
+  assertKnownFields(record, "WebPushSubscription", ["endpoint", "keys"]);
+  return {
+    endpoint: decodeString(requireField(record, "endpoint", "WebPushSubscription"), "WebPushSubscription.endpoint"),
+    keys: decodeWebPushKeys(requireField(record, "keys", "WebPushSubscription")),
+  };
+}
+
+export function decodePushSubscribeRequest(value: unknown): PushSubscribeRequest {
+  const record = assertRecord(value, "PushSubscribeRequest");
+  assertKnownFields(record, "PushSubscribeRequest", ["subscription"]);
+  return {
+    subscription: decodeWebPushSubscription(requireField(record, "subscription", "PushSubscribeRequest")),
+  };
+}
+
+export function decodePushSubscribeResponse(value: unknown): PushSubscribeResponse {
+  const record = assertRecord(value, "PushSubscribeResponse");
+  assertKnownFields(record, "PushSubscribeResponse", ["vapidPublicKey"]);
+  return {
+    vapidPublicKey: decodeString(requireField(record, "vapidPublicKey", "PushSubscribeResponse"), "PushSubscribeResponse.vapidPublicKey"),
+  };
+}
+
+export function decodePushUnsubscribeRequest(value: unknown): PushUnsubscribeRequest {
+  const record = assertRecord(value, "PushUnsubscribeRequest");
+  assertKnownFields(record, "PushUnsubscribeRequest", ["endpoint"]);
+  return {
+    endpoint: decodeString(requireField(record, "endpoint", "PushUnsubscribeRequest"), "PushUnsubscribeRequest.endpoint"),
+  };
+}
+
+export function decodePushUnsubscribeResponse(value: unknown): PushUnsubscribeResponse {
+  const record = assertRecord(value, "PushUnsubscribeResponse");
+  assertKnownFields(record, "PushUnsubscribeResponse", ["removed"]);
+  return {
+    removed: decodeBoolean(requireField(record, "removed", "PushUnsubscribeResponse"), "PushUnsubscribeResponse.removed"),
+  };
+}
+
+export function decodePushTestRequest(value: unknown): PushTestRequest {
+  const record = assertRecord(value, "PushTestRequest");
+  assertKnownFields(record, "PushTestRequest", []);
+  return {
+  };
+}
+
+export function decodePushTestResponse(value: unknown): PushTestResponse {
+  const record = assertRecord(value, "PushTestResponse");
+  assertKnownFields(record, "PushTestResponse", ["sentCount"]);
+  return {
+    sentCount: decodeInteger(requireField(record, "sentCount", "PushTestResponse"), "PushTestResponse.sentCount"),
   };
 }
 
@@ -7237,62 +6132,9 @@ export function decodeTerminalPaneConfig(value: unknown): TerminalPaneConfig {
   };
 }
 
-export function decodeWorkflowCondition(value: unknown): WorkflowCondition {
-  const record = assertRecord(value, "WorkflowCondition");
-  assertKnownFields(record, "WorkflowCondition", ["kind", "nodeId", "status", "signalName", "signalValue", "exitCode", "invert"]);
-  return {
-    kind: decodeWorkflowConditionKind(requireField(record, "kind", "WorkflowCondition"), "WorkflowCondition.kind"),
-    nodeId: decodeString(requireField(record, "nodeId", "WorkflowCondition"), "WorkflowCondition.nodeId"),
-    status: decodeNullable(requireField(record, "status", "WorkflowCondition"), "WorkflowCondition.status", (item) => decodeWorkflowNodeExecutionStatus(item, "WorkflowCondition.status")),
-    signalName: decodeString(requireField(record, "signalName", "WorkflowCondition"), "WorkflowCondition.signalName"),
-    signalValue: decodeString(requireField(record, "signalValue", "WorkflowCondition"), "WorkflowCondition.signalValue"),
-    exitCode: decodeNullable(requireField(record, "exitCode", "WorkflowCondition"), "WorkflowCondition.exitCode", (item) => decodeInteger(item, "WorkflowCondition.exitCode")),
-    invert: decodeBoolean(requireField(record, "invert", "WorkflowCondition"), "WorkflowCondition.invert"),
-  };
-}
-
-export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
-  const record = assertRecord(value, "WorkflowGraphEdge");
-  assertKnownFields(record, "WorkflowGraphEdge", ["id", "kind", "fromNodeId", "toNodeId", "condition", "label", "status", "activeTokenCount", "completedTokenCount", "cancelledTokenCount"]);
-  return {
-    id: decodeString(requireField(record, "id", "WorkflowGraphEdge"), "WorkflowGraphEdge.id"),
-    kind: decodeWorkflowEdgeKind(requireField(record, "kind", "WorkflowGraphEdge"), "WorkflowGraphEdge.kind"),
-    fromNodeId: decodeString(requireField(record, "fromNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.fromNodeId"),
-    toNodeId: decodeString(requireField(record, "toNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.toNodeId"),
-    condition: decodeNullable(requireField(record, "condition", "WorkflowGraphEdge"), "WorkflowGraphEdge.condition", (item) => decodeWorkflowCondition(item)),
-    label: decodeString(requireField(record, "label", "WorkflowGraphEdge"), "WorkflowGraphEdge.label"),
-    status: decodeWorkflowGraphEdgeStatus(requireField(record, "status", "WorkflowGraphEdge"), "WorkflowGraphEdge.status"),
-    activeTokenCount: decodeInteger(requireField(record, "activeTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.activeTokenCount"),
-    completedTokenCount: decodeInteger(requireField(record, "completedTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.completedTokenCount"),
-    cancelledTokenCount: decodeInteger(requireField(record, "cancelledTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.cancelledTokenCount"),
-  };
-}
-
-export function decodeWorkflowNodeDetailsPaneConfig(value: unknown): WorkflowNodeDetailsPaneConfig {
-  const record = assertRecord(value, "WorkflowNodeDetailsPaneConfig");
-  assertKnownFields(record, "WorkflowNodeDetailsPaneConfig", ["definitionId", "definitionName", "definitionVersionId", "definitionVersionNumber", "executionId", "nodeId", "nodeExecutionId", "nodeKind", "nodeLabel", "nodeStatus", "projectionIncomingEdges", "projectionOutgoingEdges", "versionMismatch", "viewMode", "workspaceId"]);
-  return {
-    definitionId: decodeString(requireField(record, "definitionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionId"),
-    definitionName: decodeString(requireField(record, "definitionName", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionName"),
-    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionVersionId"),
-    definitionVersionNumber: decodeInteger(requireField(record, "definitionVersionNumber", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionVersionNumber"),
-    executionId: decodeString(requireField(record, "executionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.executionId"),
-    nodeId: decodeString(requireField(record, "nodeId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeId"),
-    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeExecutionId"),
-    nodeKind: decodeWorkflowNodeKind(requireField(record, "nodeKind", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeKind"),
-    nodeLabel: decodeString(requireField(record, "nodeLabel", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeLabel"),
-    nodeStatus: decodeWorkflowGraphNodeStatus(requireField(record, "nodeStatus", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeStatus"),
-    projectionIncomingEdges: decodeArray(requireField(record, "projectionIncomingEdges", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.projectionIncomingEdges", (item) => decodeWorkflowGraphEdge(item)),
-    projectionOutgoingEdges: decodeArray(requireField(record, "projectionOutgoingEdges", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.projectionOutgoingEdges", (item) => decodeWorkflowGraphEdge(item)),
-    versionMismatch: decodeBoolean(requireField(record, "versionMismatch", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.versionMismatch"),
-    viewMode: decodeWorkflowGraphViewMode(requireField(record, "viewMode", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.viewMode"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.workspaceId"),
-  };
-}
-
 export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   const record = assertRecord(value, "WorkspaceUIPane");
-  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight", "workflowNodeDetailsConfig"]);
+  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight"]);
   return {
     columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPane"), "WorkspaceUIPane.columnId"),
     heat: decodeInteger(requireField(record, "heat", "WorkspaceUIPane"), "WorkspaceUIPane.heat"),
@@ -7305,7 +6147,6 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
     title: decodeString(requireField(record, "title", "WorkspaceUIPane"), "WorkspaceUIPane.title"),
     tone: decodePaneTone(requireField(record, "tone", "WorkspaceUIPane"), "WorkspaceUIPane.tone"),
     weight: decodeNumber(requireField(record, "weight", "WorkspaceUIPane"), "WorkspaceUIPane.weight"),
-    workflowNodeDetailsConfig: decodeNullable(requireField(record, "workflowNodeDetailsConfig", "WorkspaceUIPane"), "WorkspaceUIPane.workflowNodeDetailsConfig", (item) => decodeWorkflowNodeDetailsPaneConfig(item)),
   };
 }
 
@@ -7563,49 +6404,12 @@ export function decodeListConversationsRequest(value: unknown): ListConversation
   };
 }
 
-export function decodeChatCodexPermissionSettings(value: unknown): ChatCodexPermissionSettings {
-  const record = assertRecord(value, "ChatCodexPermissionSettings");
-  assertKnownFields(record, "ChatCodexPermissionSettings", ["preset", "approvalPolicy", "permissions"]);
-  return {
-    preset: decodeChatPermissionPresetID(requireField(record, "preset", "ChatCodexPermissionSettings"), "ChatCodexPermissionSettings.preset"),
-    approvalPolicy: decodeString(requireField(record, "approvalPolicy", "ChatCodexPermissionSettings"), "ChatCodexPermissionSettings.approvalPolicy"),
-    permissions: decodeString(requireField(record, "permissions", "ChatCodexPermissionSettings"), "ChatCodexPermissionSettings.permissions"),
-  };
-}
-
 export function decodeChatCodexSettings(value: unknown): ChatCodexSettings {
   const record = assertRecord(value, "ChatCodexSettings");
-  assertKnownFields(record, "ChatCodexSettings", ["model", "reasoningEffort", "permission"]);
+  assertKnownFields(record, "ChatCodexSettings", ["model", "reasoningEffort"]);
   return {
     model: decodeString(requireField(record, "model", "ChatCodexSettings"), "ChatCodexSettings.model"),
     reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "ChatCodexSettings"), "ChatCodexSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexSettings.reasoningEffort")),
-    permission: decodeNullable(requireField(record, "permission", "ChatCodexSettings"), "ChatCodexSettings.permission", (item) => decodeChatCodexPermissionSettings(item)),
-  };
-}
-
-export function decodeChatCodexEffectivePermissionSettings(value: unknown): ChatCodexEffectivePermissionSettings {
-  const record = assertRecord(value, "ChatCodexEffectivePermissionSettings");
-  assertKnownFields(record, "ChatCodexEffectivePermissionSettings", ["approvalPolicy", "activePermissionProfileId", "activePermissionProfileExtends", "displayLabel", "builtIn", "preset"]);
-  return {
-    approvalPolicy: decodeString(requireField(record, "approvalPolicy", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.approvalPolicy"),
-    activePermissionProfileId: decodeString(requireField(record, "activePermissionProfileId", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.activePermissionProfileId"),
-    activePermissionProfileExtends: decodeString(requireField(record, "activePermissionProfileExtends", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.activePermissionProfileExtends"),
-    displayLabel: decodeString(requireField(record, "displayLabel", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.displayLabel"),
-    builtIn: decodeBoolean(requireField(record, "builtIn", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.builtIn"),
-    preset: decodeNullable(requireField(record, "preset", "ChatCodexEffectivePermissionSettings"), "ChatCodexEffectivePermissionSettings.preset", (item) => decodeChatPermissionPresetID(item, "ChatCodexEffectivePermissionSettings.preset")),
-  };
-}
-
-export function decodeChatCodexEffectiveSettings(value: unknown): ChatCodexEffectiveSettings {
-  const record = assertRecord(value, "ChatCodexEffectiveSettings");
-  assertKnownFields(record, "ChatCodexEffectiveSettings", ["model", "modelDisplayName", "reasoningEffort", "reasoningEffortDisplayName", "supportsImages", "permission"]);
-  return {
-    model: decodeString(requireField(record, "model", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.model"),
-    modelDisplayName: decodeString(requireField(record, "modelDisplayName", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.modelDisplayName"),
-    reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexEffectiveSettings.reasoningEffort")),
-    reasoningEffortDisplayName: decodeString(requireField(record, "reasoningEffortDisplayName", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.reasoningEffortDisplayName"),
-    supportsImages: decodeBoolean(requireField(record, "supportsImages", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.supportsImages"),
-    permission: decodeNullable(requireField(record, "permission", "ChatCodexEffectiveSettings"), "ChatCodexEffectiveSettings.permission", (item) => decodeChatCodexEffectivePermissionSettings(item)),
   };
 }
 
@@ -7638,7 +6442,7 @@ export function decodeConversationWorkflowMetadata(value: unknown): Conversation
 
 export function decodeConversation(value: unknown): Conversation {
   const record = assertRecord(value, "Conversation");
-  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow"]);
+  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "harnessRefs", "workflow"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Conversation"), "Conversation.schemaVersion"),
     id: decodeString(requireField(record, "id", "Conversation"), "Conversation.id"),
@@ -7649,40 +6453,18 @@ export function decodeConversation(value: unknown): Conversation {
     updatedAt: decodeString(requireField(record, "updatedAt", "Conversation"), "Conversation.updatedAt"),
     archivedAt: decodeString(requireField(record, "archivedAt", "Conversation"), "Conversation.archivedAt"),
     codexSettings: decodeNullable(requireField(record, "codexSettings", "Conversation"), "Conversation.codexSettings", (item) => decodeChatCodexSettings(item)),
-    codexEffectiveSettings: decodeNullable(requireField(record, "codexEffectiveSettings", "Conversation"), "Conversation.codexEffectiveSettings", (item) => decodeChatCodexEffectiveSettings(item)),
     harnessRefs: decodeArray(requireField(record, "harnessRefs", "Conversation"), "Conversation.harnessRefs", (item) => decodeHarnessThreadRef(item)),
     workflow: decodeNullable(requireField(record, "workflow", "Conversation"), "Conversation.workflow", (item) => decodeConversationWorkflowMetadata(item)),
   };
 }
 
-export function decodeRunLiveness(value: unknown): RunLiveness {
-  const record = assertRecord(value, "RunLiveness");
-  assertKnownFields(record, "RunLiveness", ["workspaceId", "conversationId", "runId", "harness", "status", "reason", "retryable", "cancellable", "providerThreadId", "providerTurnId", "lastProviderEventAt", "lastReconciledAt", "error"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "RunLiveness"), "RunLiveness.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "RunLiveness"), "RunLiveness.conversationId"),
-    runId: decodeString(requireField(record, "runId", "RunLiveness"), "RunLiveness.runId"),
-    harness: decodeHarnessKind(requireField(record, "harness", "RunLiveness"), "RunLiveness.harness"),
-    status: decodeRunLivenessStatus(requireField(record, "status", "RunLiveness"), "RunLiveness.status"),
-    reason: decodeRunLivenessReason(requireField(record, "reason", "RunLiveness"), "RunLiveness.reason"),
-    retryable: decodeBoolean(requireField(record, "retryable", "RunLiveness"), "RunLiveness.retryable"),
-    cancellable: decodeBoolean(requireField(record, "cancellable", "RunLiveness"), "RunLiveness.cancellable"),
-    providerThreadId: decodeString(requireField(record, "providerThreadId", "RunLiveness"), "RunLiveness.providerThreadId"),
-    providerTurnId: decodeString(requireField(record, "providerTurnId", "RunLiveness"), "RunLiveness.providerTurnId"),
-    lastProviderEventAt: decodeString(requireField(record, "lastProviderEventAt", "RunLiveness"), "RunLiveness.lastProviderEventAt"),
-    lastReconciledAt: decodeString(requireField(record, "lastReconciledAt", "RunLiveness"), "RunLiveness.lastReconciledAt"),
-    error: decodeString(requireField(record, "error", "RunLiveness"), "RunLiveness.error"),
-  };
-}
-
 export function decodeConversationListItem(value: unknown): ConversationListItem {
   const record = assertRecord(value, "ConversationListItem");
-  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId", "activeRunLiveness", "pinnedAt", "readMarker", "latestReadRelevantMarker"]);
+  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId", "pinnedAt", "readMarker", "latestReadRelevantMarker"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "ConversationListItem")),
     messageCount: decodeInteger(requireField(record, "messageCount", "ConversationListItem"), "ConversationListItem.messageCount"),
     activeRunId: decodeString(requireField(record, "activeRunId", "ConversationListItem"), "ConversationListItem.activeRunId"),
-    activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "ConversationListItem"), "ConversationListItem.activeRunLiveness", (item) => decodeRunLiveness(item)),
     pinnedAt: decodeString(requireField(record, "pinnedAt", "ConversationListItem"), "ConversationListItem.pinnedAt"),
     readMarker: decodeInteger(requireField(record, "readMarker", "ConversationListItem"), "ConversationListItem.readMarker"),
     latestReadRelevantMarker: decodeInteger(requireField(record, "latestReadRelevantMarker", "ConversationListItem"), "ConversationListItem.latestReadRelevantMarker"),
@@ -7776,66 +6558,24 @@ export function decodeSetConversationPinnedRequest(value: unknown): SetConversat
 
 export function decodeGetMessagePageRequest(value: unknown): GetMessagePageRequest {
   const record = assertRecord(value, "GetMessagePageRequest");
-  assertKnownFields(record, "GetMessagePageRequest", ["workspaceId", "conversationId", "beforeBlockOrdinal", "limit"]);
+  assertKnownFields(record, "GetMessagePageRequest", ["workspaceId", "conversationId", "beforeOrdinal", "limit"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "GetMessagePageRequest"), "GetMessagePageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "GetMessagePageRequest"), "GetMessagePageRequest.conversationId"),
-    beforeBlockOrdinal: decodeInteger(requireField(record, "beforeBlockOrdinal", "GetMessagePageRequest"), "GetMessagePageRequest.beforeBlockOrdinal"),
+    beforeOrdinal: decodeInteger(requireField(record, "beforeOrdinal", "GetMessagePageRequest"), "GetMessagePageRequest.beforeOrdinal"),
     limit: decodeInteger(requireField(record, "limit", "GetMessagePageRequest"), "GetMessagePageRequest.limit"),
-  };
-}
-
-export function decodeMessageTextPart(value: unknown): MessageTextPart {
-  const record = assertRecord(value, "MessageTextPart");
-  assertKnownFields(record, "MessageTextPart", ["text", "format"]);
-  return {
-    text: decodeString(requireField(record, "text", "MessageTextPart"), "MessageTextPart.text"),
-    format: decodeTextFormat(requireField(record, "format", "MessageTextPart"), "MessageTextPart.format"),
-  };
-}
-
-export function decodeImageAttachmentVariant(value: unknown): ImageAttachmentVariant {
-  const record = assertRecord(value, "ImageAttachmentVariant");
-  assertKnownFields(record, "ImageAttachmentVariant", ["kind", "url", "mimeType", "byteSize", "width", "height"]);
-  return {
-    kind: decodeImageAttachmentVariantKind(requireField(record, "kind", "ImageAttachmentVariant"), "ImageAttachmentVariant.kind"),
-    url: decodeString(requireField(record, "url", "ImageAttachmentVariant"), "ImageAttachmentVariant.url"),
-    mimeType: decodeImageAttachmentMimeType(requireField(record, "mimeType", "ImageAttachmentVariant"), "ImageAttachmentVariant.mimeType"),
-    byteSize: decodeInteger(requireField(record, "byteSize", "ImageAttachmentVariant"), "ImageAttachmentVariant.byteSize"),
-    width: decodeInteger(requireField(record, "width", "ImageAttachmentVariant"), "ImageAttachmentVariant.width"),
-    height: decodeInteger(requireField(record, "height", "ImageAttachmentVariant"), "ImageAttachmentVariant.height"),
-  };
-}
-
-export function decodeImagePart(value: unknown): ImagePart {
-  const record = assertRecord(value, "ImagePart");
-  assertKnownFields(record, "ImagePart", ["attachmentId", "fileName", "mimeType", "byteSize", "width", "height", "variants", "detail"]);
-  return {
-    attachmentId: decodeString(requireField(record, "attachmentId", "ImagePart"), "ImagePart.attachmentId"),
-    fileName: decodeString(requireField(record, "fileName", "ImagePart"), "ImagePart.fileName"),
-    mimeType: decodeImageAttachmentMimeType(requireField(record, "mimeType", "ImagePart"), "ImagePart.mimeType"),
-    byteSize: decodeInteger(requireField(record, "byteSize", "ImagePart"), "ImagePart.byteSize"),
-    width: decodeInteger(requireField(record, "width", "ImagePart"), "ImagePart.width"),
-    height: decodeInteger(requireField(record, "height", "ImagePart"), "ImagePart.height"),
-    variants: decodeArray(requireField(record, "variants", "ImagePart"), "ImagePart.variants", (item) => decodeImageAttachmentVariant(item)),
-    detail: decodeNullable(requireField(record, "detail", "ImagePart"), "ImagePart.detail", (item) => decodeImageDetail(item, "ImagePart.detail")),
   };
 }
 
 export function decodeMessagePart(value: unknown): MessagePart {
   const record = assertRecord(value, "MessagePart");
-  assertKnownFields(record, "MessagePart", ["id", "type", "text", "image"]);
-  const result: MessagePart = {
+  assertKnownFields(record, "MessagePart", ["id", "type", "text", "format"]);
+  return {
     id: decodeString(requireField(record, "id", "MessagePart"), "MessagePart.id"),
     type: decodeMessagePartType(requireField(record, "type", "MessagePart"), "MessagePart.type"),
-    text: decodeNullable(requireField(record, "text", "MessagePart"), "MessagePart.text", (item) => decodeMessageTextPart(item)),
-    image: decodeNullable(requireField(record, "image", "MessagePart"), "MessagePart.image", (item) => decodeImagePart(item)),
+    text: decodeString(requireField(record, "text", "MessagePart"), "MessagePart.text"),
+    format: decodeTextFormat(requireField(record, "format", "MessagePart"), "MessagePart.format"),
   };
-  assertTaggedUnionBranch("MessagePart", result.type, {
-    "text": result.text,
-    "image": result.image,
-  });
-  return result;
 }
 
 export function decodeChatMessage(value: unknown): ChatMessage {
@@ -7853,6 +6593,60 @@ export function decodeChatMessage(value: unknown): ChatMessage {
     updatedAt: decodeString(requireField(record, "updatedAt", "ChatMessage"), "ChatMessage.updatedAt"),
     status: decodeMessageStatus(requireField(record, "status", "ChatMessage"), "ChatMessage.status"),
     parts: decodeArray(requireField(record, "parts", "ChatMessage"), "ChatMessage.parts", (item) => decodeMessagePart(item)),
+  };
+}
+
+export function decodeRunItem(value: unknown): RunItem {
+  const record = assertRecord(value, "RunItem");
+  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "hiddenText"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItem"), "RunItem.schemaVersion"),
+    id: decodeString(requireField(record, "id", "RunItem"), "RunItem.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "RunItem"), "RunItem.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "RunItem"), "RunItem.conversationId"),
+    runId: decodeString(requireField(record, "runId", "RunItem"), "RunItem.runId"),
+    providerItemId: decodeString(requireField(record, "providerItemId", "RunItem"), "RunItem.providerItemId"),
+    type: decodeRunItemType(requireField(record, "type", "RunItem"), "RunItem.type"),
+    status: decodeRunItemStatus(requireField(record, "status", "RunItem"), "RunItem.status"),
+    createdAt: decodeString(requireField(record, "createdAt", "RunItem"), "RunItem.createdAt"),
+    startedAt: decodeString(requireField(record, "startedAt", "RunItem"), "RunItem.startedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "RunItem"), "RunItem.completedAt"),
+    title: decodeString(requireField(record, "title", "RunItem"), "RunItem.title"),
+    summary: decodeString(requireField(record, "summary", "RunItem"), "RunItem.summary"),
+    command: decodeString(requireField(record, "command", "RunItem"), "RunItem.command"),
+    cwd: decodeString(requireField(record, "cwd", "RunItem"), "RunItem.cwd"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "RunItem"), "RunItem.exitCode"),
+    durationMs: decodeInteger(requireField(record, "durationMs", "RunItem"), "RunItem.durationMs"),
+    filePaths: decodeArray(requireField(record, "filePaths", "RunItem"), "RunItem.filePaths", (item) => decodeString(item, "RunItem.filePaths item")),
+    patchStatus: decodeString(requireField(record, "patchStatus", "RunItem"), "RunItem.patchStatus"),
+    serverName: decodeString(requireField(record, "serverName", "RunItem"), "RunItem.serverName"),
+    toolName: decodeString(requireField(record, "toolName", "RunItem"), "RunItem.toolName"),
+    progress: decodeString(requireField(record, "progress", "RunItem"), "RunItem.progress"),
+    result: decodeString(requireField(record, "result", "RunItem"), "RunItem.result"),
+    error: decodeString(requireField(record, "error", "RunItem"), "RunItem.error"),
+    noticeKind: decodeString(requireField(record, "noticeKind", "RunItem"), "RunItem.noticeKind"),
+    noticeMessage: decodeString(requireField(record, "noticeMessage", "RunItem"), "RunItem.noticeMessage"),
+    diffSummary: decodeString(requireField(record, "diffSummary", "RunItem"), "RunItem.diffSummary"),
+    namespace: decodeString(requireField(record, "namespace", "RunItem"), "RunItem.namespace"),
+    processId: decodeString(requireField(record, "processId", "RunItem"), "RunItem.processId"),
+    requestId: decodeString(requireField(record, "requestId", "RunItem"), "RunItem.requestId"),
+    reviewId: decodeString(requireField(record, "reviewId", "RunItem"), "RunItem.reviewId"),
+    details: decodeUnknown(requireField(record, "details", "RunItem"), "RunItem.details"),
+    hiddenText: decodeString(requireField(record, "hiddenText", "RunItem"), "RunItem.hiddenText"),
+  };
+}
+
+export function decodeRunItemOutput(value: unknown): RunItemOutput {
+  const record = assertRecord(value, "RunItemOutput");
+  assertKnownFields(record, "RunItemOutput", ["schemaVersion", "id", "runItemId", "stream", "ordinal", "text", "createdAt"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItemOutput"), "RunItemOutput.schemaVersion"),
+    id: decodeString(requireField(record, "id", "RunItemOutput"), "RunItemOutput.id"),
+    runItemId: decodeString(requireField(record, "runItemId", "RunItemOutput"), "RunItemOutput.runItemId"),
+    stream: decodeString(requireField(record, "stream", "RunItemOutput"), "RunItemOutput.stream"),
+    ordinal: decodeInteger(requireField(record, "ordinal", "RunItemOutput"), "RunItemOutput.ordinal"),
+    text: decodeString(requireField(record, "text", "RunItemOutput"), "RunItemOutput.text"),
+    createdAt: decodeString(requireField(record, "createdAt", "RunItemOutput"), "RunItemOutput.createdAt"),
   };
 }
 
@@ -7941,345 +6735,15 @@ export function decodeQueueState(value: unknown): QueueState {
   };
 }
 
-export function decodeTranscriptMessageProjection(value: unknown): TranscriptMessageProjection {
-  const record = assertRecord(value, "TranscriptMessageProjection");
-  assertKnownFields(record, "TranscriptMessageProjection", ["messageId", "role", "delivery", "status", "parts"]);
+export function decodeTranscriptTurn(value: unknown): TranscriptTurn {
+  const record = assertRecord(value, "TranscriptTurn");
+  assertKnownFields(record, "TranscriptTurn", ["run", "triggerMessage", "assistantMessage", "steeringMessages"]);
   return {
-    messageId: decodeString(requireField(record, "messageId", "TranscriptMessageProjection"), "TranscriptMessageProjection.messageId"),
-    role: decodeMessageRole(requireField(record, "role", "TranscriptMessageProjection"), "TranscriptMessageProjection.role"),
-    delivery: decodeMessageDelivery(requireField(record, "delivery", "TranscriptMessageProjection"), "TranscriptMessageProjection.delivery"),
-    status: decodeMessageStatus(requireField(record, "status", "TranscriptMessageProjection"), "TranscriptMessageProjection.status"),
-    parts: decodeArray(requireField(record, "parts", "TranscriptMessageProjection"), "TranscriptMessageProjection.parts", (item) => decodeMessagePart(item)),
+    run: decodeRun(requireField(record, "run", "TranscriptTurn")),
+    triggerMessage: decodeChatMessage(requireField(record, "triggerMessage", "TranscriptTurn")),
+    assistantMessage: decodeNullable(requireField(record, "assistantMessage", "TranscriptTurn"), "TranscriptTurn.assistantMessage", (item) => decodeChatMessage(item)),
+    steeringMessages: decodeArray(requireField(record, "steeringMessages", "TranscriptTurn"), "TranscriptTurn.steeringMessages", (item) => decodeChatMessage(item)),
   };
-}
-
-export function decodeAssistantTextBlockProjection(value: unknown): AssistantTextBlockProjection {
-  const record = assertRecord(value, "AssistantTextBlockProjection");
-  assertKnownFields(record, "AssistantTextBlockProjection", ["text", "format"]);
-  return {
-    text: decodeString(requireField(record, "text", "AssistantTextBlockProjection"), "AssistantTextBlockProjection.text"),
-    format: decodeTextFormat(requireField(record, "format", "AssistantTextBlockProjection"), "AssistantTextBlockProjection.format"),
-  };
-}
-
-export function decodeReasoningBlockProjection(value: unknown): ReasoningBlockProjection {
-  const record = assertRecord(value, "ReasoningBlockProjection");
-  assertKnownFields(record, "ReasoningBlockProjection", ["sourceRunItemId", "mode", "headline", "summary"]);
-  return {
-    sourceRunItemId: decodeString(requireField(record, "sourceRunItemId", "ReasoningBlockProjection"), "ReasoningBlockProjection.sourceRunItemId"),
-    mode: decodeReasoningBlockMode(requireField(record, "mode", "ReasoningBlockProjection"), "ReasoningBlockProjection.mode"),
-    headline: decodeString(requireField(record, "headline", "ReasoningBlockProjection"), "ReasoningBlockProjection.headline"),
-    summary: decodeString(requireField(record, "summary", "ReasoningBlockProjection"), "ReasoningBlockProjection.summary"),
-  };
-}
-
-export function decodeRunItemPlanStep(value: unknown): RunItemPlanStep {
-  const record = assertRecord(value, "RunItemPlanStep");
-  assertKnownFields(record, "RunItemPlanStep", ["status", "step"]);
-  return {
-    status: decodeRunItemPlanStepStatus(requireField(record, "status", "RunItemPlanStep"), "RunItemPlanStep.status"),
-    step: decodeString(requireField(record, "step", "RunItemPlanStep"), "RunItemPlanStep.step"),
-  };
-}
-
-export function decodeRunItemPlanDetails(value: unknown): RunItemPlanDetails {
-  const record = assertRecord(value, "RunItemPlanDetails");
-  assertKnownFields(record, "RunItemPlanDetails", ["explanation", "steps"]);
-  return {
-    explanation: decodeString(requireField(record, "explanation", "RunItemPlanDetails"), "RunItemPlanDetails.explanation"),
-    steps: decodeArray(requireField(record, "steps", "RunItemPlanDetails"), "RunItemPlanDetails.steps", (item) => decodeRunItemPlanStep(item)),
-  };
-}
-
-export function decodeRunItemCommandExecutionDetails(value: unknown): RunItemCommandExecutionDetails {
-  const record = assertRecord(value, "RunItemCommandExecutionDetails");
-  assertKnownFields(record, "RunItemCommandExecutionDetails", ["command", "cwd", "exitCode", "durationMs", "processId", "source", "result", "error"]);
-  return {
-    command: decodeString(requireField(record, "command", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.command"),
-    cwd: decodeString(requireField(record, "cwd", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.cwd"),
-    exitCode: decodeInteger(requireField(record, "exitCode", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.exitCode"),
-    durationMs: decodeInteger(requireField(record, "durationMs", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.durationMs"),
-    processId: decodeString(requireField(record, "processId", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.processId"),
-    source: decodeNullable(requireField(record, "source", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.source", (item) => decodeRunItemCommandSource(item, "RunItemCommandExecutionDetails.source")),
-    result: decodeString(requireField(record, "result", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.result"),
-    error: decodeString(requireField(record, "error", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.error"),
-  };
-}
-
-export function decodeRunItemCommandStartFailureDetails(value: unknown): RunItemCommandStartFailureDetails {
-  const record = assertRecord(value, "RunItemCommandStartFailureDetails");
-  assertKnownFields(record, "RunItemCommandStartFailureDetails", ["command", "cwd", "source", "failureClass", "message", "osError", "providerErrorId", "sandbox", "approvalPolicy"]);
-  return {
-    command: decodeString(requireField(record, "command", "RunItemCommandStartFailureDetails"), "RunItemCommandStartFailureDetails.command"),
-    cwd: decodeString(requireField(record, "cwd", "RunItemCommandStartFailureDetails"), "RunItemCommandStartFailureDetails.cwd"),
-    source: decodeNullable(requireField(record, "source", "RunItemCommandStartFailureDetails"), "RunItemCommandStartFailureDetails.source", (item) => decodeRunItemCommandSource(item, "RunItemCommandStartFailureDetails.source")),
-    failureClass: decodeString(requireField(record, "failureClass", "RunItemCommandStartFailureDetails"), "RunItemCommandStartFailureDetails.failureClass"),
-    message: decodeString(requireField(record, "message", "RunItemCommandStartFailureDetails"), "RunItemCommandStartFailureDetails.message"),
-    osError: decodeString(requireField(record, "osError", "RunItemCommandStartFailureDetails"), "RunItemCommandStartFailureDetails.osError"),
-    providerErrorId: decodeString(requireField(record, "providerErrorId", "RunItemCommandStartFailureDetails"), "RunItemCommandStartFailureDetails.providerErrorId"),
-    sandbox: decodeString(requireField(record, "sandbox", "RunItemCommandStartFailureDetails"), "RunItemCommandStartFailureDetails.sandbox"),
-    approvalPolicy: decodeString(requireField(record, "approvalPolicy", "RunItemCommandStartFailureDetails"), "RunItemCommandStartFailureDetails.approvalPolicy"),
-  };
-}
-
-export function decodeRunItemMCPToolResult(value: unknown): RunItemMCPToolResult {
-  const record = assertRecord(value, "RunItemMCPToolResult");
-  assertKnownFields(record, "RunItemMCPToolResult", ["content", "structuredContent", "_meta"]);
-  return {
-    content: decodeArray(requireField(record, "content", "RunItemMCPToolResult"), "RunItemMCPToolResult.content", (item) => decodeUnknown(item, "RunItemMCPToolResult.content item")),
-    structuredContent: decodeUnknown(requireField(record, "structuredContent", "RunItemMCPToolResult"), "RunItemMCPToolResult.structuredContent"),
-    _meta: decodeUnknown(requireField(record, "_meta", "RunItemMCPToolResult"), "RunItemMCPToolResult._meta"),
-  };
-}
-
-export function decodeRunItemMCPToolCallDetails(value: unknown): RunItemMCPToolCallDetails {
-  const record = assertRecord(value, "RunItemMCPToolCallDetails");
-  assertKnownFields(record, "RunItemMCPToolCallDetails", ["serverName", "toolName", "displayTitle", "progress", "durationMs", "arguments", "appContext", "pluginId", "mcpAppResourceUri", "resultSummary", "result", "error"]);
-  return {
-    serverName: decodeString(requireField(record, "serverName", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.serverName"),
-    toolName: decodeString(requireField(record, "toolName", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.toolName"),
-    displayTitle: decodeString(requireField(record, "displayTitle", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.displayTitle"),
-    progress: decodeString(requireField(record, "progress", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.progress"),
-    durationMs: decodeInteger(requireField(record, "durationMs", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.durationMs"),
-    arguments: decodeUnknown(requireField(record, "arguments", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.arguments"),
-    appContext: decodeUnknown(requireField(record, "appContext", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.appContext"),
-    pluginId: decodeString(requireField(record, "pluginId", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.pluginId"),
-    mcpAppResourceUri: decodeString(requireField(record, "mcpAppResourceUri", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.mcpAppResourceUri"),
-    resultSummary: decodeString(requireField(record, "resultSummary", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.resultSummary"),
-    result: decodeNullable(requireField(record, "result", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.result", (item) => decodeRunItemMCPToolResult(item)),
-    error: decodeString(requireField(record, "error", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.error"),
-  };
-}
-
-export function decodeRunItemDynamicToolContentItem(value: unknown): RunItemDynamicToolContentItem {
-  const record = assertRecord(value, "RunItemDynamicToolContentItem");
-  assertKnownFields(record, "RunItemDynamicToolContentItem", ["type", "text", "imageUrl"]);
-  return {
-    type: decodeString(requireField(record, "type", "RunItemDynamicToolContentItem"), "RunItemDynamicToolContentItem.type"),
-    text: decodeString(requireField(record, "text", "RunItemDynamicToolContentItem"), "RunItemDynamicToolContentItem.text"),
-    imageUrl: decodeString(requireField(record, "imageUrl", "RunItemDynamicToolContentItem"), "RunItemDynamicToolContentItem.imageUrl"),
-  };
-}
-
-export function decodeRunItemDynamicToolResult(value: unknown): RunItemDynamicToolResult {
-  const record = assertRecord(value, "RunItemDynamicToolResult");
-  assertKnownFields(record, "RunItemDynamicToolResult", ["contentItems", "success"]);
-  return {
-    contentItems: decodeArray(requireField(record, "contentItems", "RunItemDynamicToolResult"), "RunItemDynamicToolResult.contentItems", (item) => decodeRunItemDynamicToolContentItem(item)),
-    success: decodeNullable(requireField(record, "success", "RunItemDynamicToolResult"), "RunItemDynamicToolResult.success", (item) => decodeBoolean(item, "RunItemDynamicToolResult.success")),
-  };
-}
-
-export function decodeRunItemDynamicToolCallDetails(value: unknown): RunItemDynamicToolCallDetails {
-  const record = assertRecord(value, "RunItemDynamicToolCallDetails");
-  assertKnownFields(record, "RunItemDynamicToolCallDetails", ["namespace", "toolName", "displayTitle", "description", "category", "durationMs", "arguments", "resultSummary", "result", "error"]);
-  return {
-    namespace: decodeString(requireField(record, "namespace", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.namespace"),
-    toolName: decodeString(requireField(record, "toolName", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.toolName"),
-    displayTitle: decodeString(requireField(record, "displayTitle", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.displayTitle"),
-    description: decodeString(requireField(record, "description", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.description"),
-    category: decodeString(requireField(record, "category", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.category"),
-    durationMs: decodeInteger(requireField(record, "durationMs", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.durationMs"),
-    arguments: decodeUnknown(requireField(record, "arguments", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.arguments"),
-    resultSummary: decodeString(requireField(record, "resultSummary", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.resultSummary"),
-    result: decodeNullable(requireField(record, "result", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.result", (item) => decodeRunItemDynamicToolResult(item)),
-    error: decodeString(requireField(record, "error", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.error"),
-  };
-}
-
-export function decodeRunItemFileChangePath(value: unknown): RunItemFileChangePath {
-  const record = assertRecord(value, "RunItemFileChangePath");
-  assertKnownFields(record, "RunItemFileChangePath", ["path", "operation", "movePath", "additions", "deletions", "patch", "patchTruncated"]);
-  return {
-    path: decodeString(requireField(record, "path", "RunItemFileChangePath"), "RunItemFileChangePath.path"),
-    operation: decodeNullable(requireField(record, "operation", "RunItemFileChangePath"), "RunItemFileChangePath.operation", (item) => decodeRunItemFileChangeOperation(item, "RunItemFileChangePath.operation")),
-    movePath: decodeString(requireField(record, "movePath", "RunItemFileChangePath"), "RunItemFileChangePath.movePath"),
-    additions: decodeInteger(requireField(record, "additions", "RunItemFileChangePath"), "RunItemFileChangePath.additions"),
-    deletions: decodeInteger(requireField(record, "deletions", "RunItemFileChangePath"), "RunItemFileChangePath.deletions"),
-    patch: decodeString(requireField(record, "patch", "RunItemFileChangePath"), "RunItemFileChangePath.patch"),
-    patchTruncated: decodeBoolean(requireField(record, "patchTruncated", "RunItemFileChangePath"), "RunItemFileChangePath.patchTruncated"),
-  };
-}
-
-export function decodeRunItemFileChangeDetails(value: unknown): RunItemFileChangeDetails {
-  const record = assertRecord(value, "RunItemFileChangeDetails");
-  assertKnownFields(record, "RunItemFileChangeDetails", ["patchStatus", "paths", "additions", "deletions"]);
-  return {
-    patchStatus: decodeString(requireField(record, "patchStatus", "RunItemFileChangeDetails"), "RunItemFileChangeDetails.patchStatus"),
-    paths: decodeArray(requireField(record, "paths", "RunItemFileChangeDetails"), "RunItemFileChangeDetails.paths", (item) => decodeRunItemFileChangePath(item)),
-    additions: decodeInteger(requireField(record, "additions", "RunItemFileChangeDetails"), "RunItemFileChangeDetails.additions"),
-    deletions: decodeInteger(requireField(record, "deletions", "RunItemFileChangeDetails"), "RunItemFileChangeDetails.deletions"),
-  };
-}
-
-export function decodeRunItemDiffPath(value: unknown): RunItemDiffPath {
-  const record = assertRecord(value, "RunItemDiffPath");
-  assertKnownFields(record, "RunItemDiffPath", ["path", "operation", "movePath", "additions", "deletions"]);
-  return {
-    path: decodeString(requireField(record, "path", "RunItemDiffPath"), "RunItemDiffPath.path"),
-    operation: decodeNullable(requireField(record, "operation", "RunItemDiffPath"), "RunItemDiffPath.operation", (item) => decodeRunItemFileChangeOperation(item, "RunItemDiffPath.operation")),
-    movePath: decodeString(requireField(record, "movePath", "RunItemDiffPath"), "RunItemDiffPath.movePath"),
-    additions: decodeInteger(requireField(record, "additions", "RunItemDiffPath"), "RunItemDiffPath.additions"),
-    deletions: decodeInteger(requireField(record, "deletions", "RunItemDiffPath"), "RunItemDiffPath.deletions"),
-  };
-}
-
-export function decodeRunItemDiffDetails(value: unknown): RunItemDiffDetails {
-  const record = assertRecord(value, "RunItemDiffDetails");
-  assertKnownFields(record, "RunItemDiffDetails", ["summary", "paths", "additions", "deletions", "patch", "patchTruncated"]);
-  return {
-    summary: decodeString(requireField(record, "summary", "RunItemDiffDetails"), "RunItemDiffDetails.summary"),
-    paths: decodeArray(requireField(record, "paths", "RunItemDiffDetails"), "RunItemDiffDetails.paths", (item) => decodeRunItemDiffPath(item)),
-    additions: decodeInteger(requireField(record, "additions", "RunItemDiffDetails"), "RunItemDiffDetails.additions"),
-    deletions: decodeInteger(requireField(record, "deletions", "RunItemDiffDetails"), "RunItemDiffDetails.deletions"),
-    patch: decodeString(requireField(record, "patch", "RunItemDiffDetails"), "RunItemDiffDetails.patch"),
-    patchTruncated: decodeBoolean(requireField(record, "patchTruncated", "RunItemDiffDetails"), "RunItemDiffDetails.patchTruncated"),
-  };
-}
-
-export function decodeRunItemApprovalDetails(value: unknown): RunItemApprovalDetails {
-  const record = assertRecord(value, "RunItemApprovalDetails");
-  assertKnownFields(record, "RunItemApprovalDetails", ["approvalId", "approvalKind", "approvalStatus", "providerRequestId", "reviewId", "reviewStatus", "actionType", "title", "body", "command", "cwd", "filePath", "permission", "question", "options", "questions", "structuredInput", "review", "action"]);
-  return {
-    approvalId: decodeString(requireField(record, "approvalId", "RunItemApprovalDetails"), "RunItemApprovalDetails.approvalId"),
-    approvalKind: decodeNullable(requireField(record, "approvalKind", "RunItemApprovalDetails"), "RunItemApprovalDetails.approvalKind", (item) => decodeApprovalKind(item, "RunItemApprovalDetails.approvalKind")),
-    approvalStatus: decodeNullable(requireField(record, "approvalStatus", "RunItemApprovalDetails"), "RunItemApprovalDetails.approvalStatus", (item) => decodeApprovalStatus(item, "RunItemApprovalDetails.approvalStatus")),
-    providerRequestId: decodeString(requireField(record, "providerRequestId", "RunItemApprovalDetails"), "RunItemApprovalDetails.providerRequestId"),
-    reviewId: decodeString(requireField(record, "reviewId", "RunItemApprovalDetails"), "RunItemApprovalDetails.reviewId"),
-    reviewStatus: decodeString(requireField(record, "reviewStatus", "RunItemApprovalDetails"), "RunItemApprovalDetails.reviewStatus"),
-    actionType: decodeString(requireField(record, "actionType", "RunItemApprovalDetails"), "RunItemApprovalDetails.actionType"),
-    title: decodeString(requireField(record, "title", "RunItemApprovalDetails"), "RunItemApprovalDetails.title"),
-    body: decodeString(requireField(record, "body", "RunItemApprovalDetails"), "RunItemApprovalDetails.body"),
-    command: decodeString(requireField(record, "command", "RunItemApprovalDetails"), "RunItemApprovalDetails.command"),
-    cwd: decodeString(requireField(record, "cwd", "RunItemApprovalDetails"), "RunItemApprovalDetails.cwd"),
-    filePath: decodeString(requireField(record, "filePath", "RunItemApprovalDetails"), "RunItemApprovalDetails.filePath"),
-    permission: decodeString(requireField(record, "permission", "RunItemApprovalDetails"), "RunItemApprovalDetails.permission"),
-    question: decodeString(requireField(record, "question", "RunItemApprovalDetails"), "RunItemApprovalDetails.question"),
-    options: decodeArray(requireField(record, "options", "RunItemApprovalDetails"), "RunItemApprovalDetails.options", (item) => decodeString(item, "RunItemApprovalDetails.options item")),
-    questions: decodeArray(requireField(record, "questions", "RunItemApprovalDetails"), "RunItemApprovalDetails.questions", (item) => decodeApprovalQuestion(item)),
-    structuredInput: decodeNullable(requireField(record, "structuredInput", "RunItemApprovalDetails"), "RunItemApprovalDetails.structuredInput", (item) => decodeStructuredInputRequest(item)),
-    review: decodeUnknown(requireField(record, "review", "RunItemApprovalDetails"), "RunItemApprovalDetails.review"),
-    action: decodeUnknown(requireField(record, "action", "RunItemApprovalDetails"), "RunItemApprovalDetails.action"),
-  };
-}
-
-export function decodeRunItemProviderStreamLifecycleDetails(value: unknown): RunItemProviderStreamLifecycleDetails {
-  const record = assertRecord(value, "RunItemProviderStreamLifecycleDetails");
-  assertKnownFields(record, "RunItemProviderStreamLifecycleDetails", ["message", "additionalDetails", "codexErrorKind", "codexErrorInfo", "willRetry", "streamFailure", "livenessStatus", "livenessReason", "providerThreadId", "providerTurnId"]);
-  return {
-    message: decodeString(requireField(record, "message", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.message"),
-    additionalDetails: decodeString(requireField(record, "additionalDetails", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.additionalDetails"),
-    codexErrorKind: decodeString(requireField(record, "codexErrorKind", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.codexErrorKind"),
-    codexErrorInfo: decodeUnknown(requireField(record, "codexErrorInfo", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.codexErrorInfo"),
-    willRetry: decodeBoolean(requireField(record, "willRetry", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.willRetry"),
-    streamFailure: decodeBoolean(requireField(record, "streamFailure", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.streamFailure"),
-    livenessStatus: decodeRunLivenessStatus(requireField(record, "livenessStatus", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.livenessStatus"),
-    livenessReason: decodeRunLivenessReason(requireField(record, "livenessReason", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.livenessReason"),
-    providerThreadId: decodeString(requireField(record, "providerThreadId", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.providerThreadId"),
-    providerTurnId: decodeString(requireField(record, "providerTurnId", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.providerTurnId"),
-  };
-}
-
-export function decodeRunActivityDetailsProjection(value: unknown): RunActivityDetailsProjection {
-  const record = assertRecord(value, "RunActivityDetailsProjection");
-  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "plan", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "commandStartFailure", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
-  return {
-    summary: decodeString(requireField(record, "summary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.summary"),
-    plan: decodeNullable(requireField(record, "plan", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.plan", (item) => decodeRunItemPlanDetails(item)),
-    command: decodeString(requireField(record, "command", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.command"),
-    cwd: decodeString(requireField(record, "cwd", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.cwd"),
-    exitCode: decodeInteger(requireField(record, "exitCode", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.exitCode"),
-    durationMs: decodeInteger(requireField(record, "durationMs", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.durationMs"),
-    filePaths: decodeArray(requireField(record, "filePaths", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.filePaths", (item) => decodeString(item, "RunActivityDetailsProjection.filePaths item")),
-    patchStatus: decodeString(requireField(record, "patchStatus", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.patchStatus"),
-    serverName: decodeString(requireField(record, "serverName", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.serverName"),
-    toolName: decodeString(requireField(record, "toolName", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.toolName"),
-    progress: decodeString(requireField(record, "progress", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.progress"),
-    result: decodeString(requireField(record, "result", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.result"),
-    error: decodeString(requireField(record, "error", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.error"),
-    noticeKind: decodeString(requireField(record, "noticeKind", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.noticeKind"),
-    noticeMessage: decodeString(requireField(record, "noticeMessage", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.noticeMessage"),
-    namespace: decodeString(requireField(record, "namespace", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.namespace"),
-    processId: decodeString(requireField(record, "processId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.processId"),
-    requestId: decodeString(requireField(record, "requestId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.requestId"),
-    reviewId: decodeString(requireField(record, "reviewId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.reviewId"),
-    details: decodeUnknown(requireField(record, "details", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.details"),
-    commandExecution: decodeNullable(requireField(record, "commandExecution", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
-    commandStartFailure: decodeNullable(requireField(record, "commandStartFailure", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.commandStartFailure", (item) => decodeRunItemCommandStartFailureDetails(item)),
-    mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
-    dynamicToolCall: decodeNullable(requireField(record, "dynamicToolCall", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.dynamicToolCall", (item) => decodeRunItemDynamicToolCallDetails(item)),
-    fileChange: decodeNullable(requireField(record, "fileChange", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.fileChange", (item) => decodeRunItemFileChangeDetails(item)),
-    diff: decodeNullable(requireField(record, "diff", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.diff", (item) => decodeRunItemDiffDetails(item)),
-    approval: decodeNullable(requireField(record, "approval", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.approval", (item) => decodeRunItemApprovalDetails(item)),
-    providerStreamLifecycle: decodeNullable(requireField(record, "providerStreamLifecycle", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.providerStreamLifecycle", (item) => decodeRunItemProviderStreamLifecycleDetails(item)),
-  };
-}
-
-export function decodeActivityItemBlockProjection(value: unknown): ActivityItemBlockProjection {
-  const record = assertRecord(value, "ActivityItemBlockProjection");
-  assertKnownFields(record, "ActivityItemBlockProjection", ["sourceRunItemId", "type", "title", "status", "details", "hasDetails", "hasOutput"]);
-  return {
-    sourceRunItemId: decodeString(requireField(record, "sourceRunItemId", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.sourceRunItemId"),
-    type: decodeRunItemType(requireField(record, "type", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.type"),
-    title: decodeString(requireField(record, "title", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.title"),
-    status: decodeRunItemStatus(requireField(record, "status", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.status"),
-    details: decodeRunActivityDetailsProjection(requireField(record, "details", "ActivityItemBlockProjection")),
-    hasDetails: decodeBoolean(requireField(record, "hasDetails", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.hasDetails"),
-    hasOutput: decodeBoolean(requireField(record, "hasOutput", "ActivityItemBlockProjection"), "ActivityItemBlockProjection.hasOutput"),
-  };
-}
-
-export function decodeRunStatusBlockProjection(value: unknown): RunStatusBlockProjection {
-  const record = assertRecord(value, "RunStatusBlockProjection");
-  assertKnownFields(record, "RunStatusBlockProjection", ["mode", "label", "error"]);
-  return {
-    mode: decodeRunStatusBlockMode(requireField(record, "mode", "RunStatusBlockProjection"), "RunStatusBlockProjection.mode"),
-    label: decodeString(requireField(record, "label", "RunStatusBlockProjection"), "RunStatusBlockProjection.label"),
-    error: decodeString(requireField(record, "error", "RunStatusBlockProjection"), "RunStatusBlockProjection.error"),
-  };
-}
-
-export function decodeBackgroundTerminalBlockProjection(value: unknown): BackgroundTerminalBlockProjection {
-  const record = assertRecord(value, "BackgroundTerminalBlockProjection");
-  assertKnownFields(record, "BackgroundTerminalBlockProjection", ["processId", "command", "cwd", "label"]);
-  return {
-    processId: decodeString(requireField(record, "processId", "BackgroundTerminalBlockProjection"), "BackgroundTerminalBlockProjection.processId"),
-    command: decodeString(requireField(record, "command", "BackgroundTerminalBlockProjection"), "BackgroundTerminalBlockProjection.command"),
-    cwd: decodeString(requireField(record, "cwd", "BackgroundTerminalBlockProjection"), "BackgroundTerminalBlockProjection.cwd"),
-    label: decodeString(requireField(record, "label", "BackgroundTerminalBlockProjection"), "BackgroundTerminalBlockProjection.label"),
-  };
-}
-
-export function decodeTranscriptBlock(value: unknown): TranscriptBlock {
-  const record = assertRecord(value, "TranscriptBlock");
-  assertKnownFields(record, "TranscriptBlock", ["schemaVersion", "id", "conversationId", "runId", "kind", "ordinal", "runAnchorOrdinal", "status", "createdAt", "updatedAt", "userMessage", "assistantText", "reasoning", "activity", "runStatus", "backgroundTerminal"]);
-  const result: TranscriptBlock = {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "TranscriptBlock"), "TranscriptBlock.schemaVersion"),
-    id: decodeString(requireField(record, "id", "TranscriptBlock"), "TranscriptBlock.id"),
-    conversationId: decodeString(requireField(record, "conversationId", "TranscriptBlock"), "TranscriptBlock.conversationId"),
-    runId: decodeString(requireField(record, "runId", "TranscriptBlock"), "TranscriptBlock.runId"),
-    kind: decodeTranscriptBlockKind(requireField(record, "kind", "TranscriptBlock"), "TranscriptBlock.kind"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "TranscriptBlock"), "TranscriptBlock.ordinal"),
-    runAnchorOrdinal: decodeInteger(requireField(record, "runAnchorOrdinal", "TranscriptBlock"), "TranscriptBlock.runAnchorOrdinal"),
-    status: decodeTranscriptBlockStatus(requireField(record, "status", "TranscriptBlock"), "TranscriptBlock.status"),
-    createdAt: decodeString(requireField(record, "createdAt", "TranscriptBlock"), "TranscriptBlock.createdAt"),
-    updatedAt: decodeString(requireField(record, "updatedAt", "TranscriptBlock"), "TranscriptBlock.updatedAt"),
-    userMessage: decodeNullable(requireField(record, "userMessage", "TranscriptBlock"), "TranscriptBlock.userMessage", (item) => decodeTranscriptMessageProjection(item)),
-    assistantText: decodeNullable(requireField(record, "assistantText", "TranscriptBlock"), "TranscriptBlock.assistantText", (item) => decodeAssistantTextBlockProjection(item)),
-    reasoning: decodeNullable(requireField(record, "reasoning", "TranscriptBlock"), "TranscriptBlock.reasoning", (item) => decodeReasoningBlockProjection(item)),
-    activity: decodeNullable(requireField(record, "activity", "TranscriptBlock"), "TranscriptBlock.activity", (item) => decodeActivityItemBlockProjection(item)),
-    runStatus: decodeNullable(requireField(record, "runStatus", "TranscriptBlock"), "TranscriptBlock.runStatus", (item) => decodeRunStatusBlockProjection(item)),
-    backgroundTerminal: decodeNullable(requireField(record, "backgroundTerminal", "TranscriptBlock"), "TranscriptBlock.backgroundTerminal", (item) => decodeBackgroundTerminalBlockProjection(item)),
-  };
-  assertTaggedUnionBranch("TranscriptBlock", result.kind, {
-    "user_message": result.userMessage,
-    "assistant_text": result.assistantText,
-    "reasoning": result.reasoning,
-    "activity_item": result.activity,
-    "run_status": result.runStatus,
-    "background_terminal": result.backgroundTerminal,
-  });
-  return result;
 }
 
 export function decodeChatGoalState(value: unknown): ChatGoalState {
@@ -8299,119 +6763,27 @@ export function decodeChatGoalState(value: unknown): ChatGoalState {
 
 export function decodeMessagePage(value: unknown): MessagePage {
   const record = assertRecord(value, "MessagePage");
-  assertKnownFields(record, "MessagePage", ["conversation", "messages", "queue", "blocks", "goal", "hasMoreOlder", "olderBeforeBlockOrdinal"]);
+  assertKnownFields(record, "MessagePage", ["conversation", "messages", "runItems", "runItemOutputs", "queue", "transcript", "goal", "hasMoreOlder", "olderBeforeOrdinal"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "MessagePage")),
     messages: decodeArray(requireField(record, "messages", "MessagePage"), "MessagePage.messages", (item) => decodeChatMessage(item)),
+    runItems: decodeArray(requireField(record, "runItems", "MessagePage"), "MessagePage.runItems", (item) => decodeRunItem(item)),
+    runItemOutputs: decodeArray(requireField(record, "runItemOutputs", "MessagePage"), "MessagePage.runItemOutputs", (item) => decodeRunItemOutput(item)),
     queue: decodeQueueState(requireField(record, "queue", "MessagePage")),
-    blocks: decodeArray(requireField(record, "blocks", "MessagePage"), "MessagePage.blocks", (item) => decodeTranscriptBlock(item)),
+    transcript: decodeArray(requireField(record, "transcript", "MessagePage"), "MessagePage.transcript", (item) => decodeTranscriptTurn(item)),
     goal: decodeNullable(requireField(record, "goal", "MessagePage"), "MessagePage.goal", (item) => decodeChatGoalState(item)),
     hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "MessagePage"), "MessagePage.hasMoreOlder"),
-    olderBeforeBlockOrdinal: decodeInteger(requireField(record, "olderBeforeBlockOrdinal", "MessagePage"), "MessagePage.olderBeforeBlockOrdinal"),
-  };
-}
-
-export function decodeListComposerPromptHistoryRequest(value: unknown): ListComposerPromptHistoryRequest {
-  const record = assertRecord(value, "ListComposerPromptHistoryRequest");
-  assertKnownFields(record, "ListComposerPromptHistoryRequest", ["workspaceId", "conversationId", "beforeOrdinal", "limit"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ListComposerPromptHistoryRequest"), "ListComposerPromptHistoryRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ListComposerPromptHistoryRequest"), "ListComposerPromptHistoryRequest.conversationId"),
-    beforeOrdinal: decodeInteger(requireField(record, "beforeOrdinal", "ListComposerPromptHistoryRequest"), "ListComposerPromptHistoryRequest.beforeOrdinal"),
-    limit: decodeInteger(requireField(record, "limit", "ListComposerPromptHistoryRequest"), "ListComposerPromptHistoryRequest.limit"),
-  };
-}
-
-export function decodeChatTextInput(value: unknown): ChatTextInput {
-  const record = assertRecord(value, "ChatTextInput");
-  assertKnownFields(record, "ChatTextInput", ["text", "format"]);
-  return {
-    text: decodeString(requireField(record, "text", "ChatTextInput"), "ChatTextInput.text"),
-    format: decodeTextFormat(requireField(record, "format", "ChatTextInput"), "ChatTextInput.format"),
-  };
-}
-
-export function decodeChatImageInput(value: unknown): ChatImageInput {
-  const record = assertRecord(value, "ChatImageInput");
-  assertKnownFields(record, "ChatImageInput", ["attachmentId", "detail"]);
-  return {
-    attachmentId: decodeString(requireField(record, "attachmentId", "ChatImageInput"), "ChatImageInput.attachmentId"),
-    detail: decodeNullable(requireField(record, "detail", "ChatImageInput"), "ChatImageInput.detail", (item) => decodeImageDetail(item, "ChatImageInput.detail")),
-  };
-}
-
-export function decodeChatInputPart(value: unknown): ChatInputPart {
-  const record = assertRecord(value, "ChatInputPart");
-  assertKnownFields(record, "ChatInputPart", ["type", "text", "image"]);
-  const result: ChatInputPart = {
-    type: decodeMessagePartType(requireField(record, "type", "ChatInputPart"), "ChatInputPart.type"),
-    text: decodeNullable(requireField(record, "text", "ChatInputPart"), "ChatInputPart.text", (item) => decodeChatTextInput(item)),
-    image: decodeNullable(requireField(record, "image", "ChatInputPart"), "ChatInputPart.image", (item) => decodeChatImageInput(item)),
-  };
-  assertTaggedUnionBranch("ChatInputPart", result.type, {
-    "text": result.text,
-    "image": result.image,
-  });
-  return result;
-}
-
-export function decodeChatInput(value: unknown): ChatInput {
-  const record = assertRecord(value, "ChatInput");
-  assertKnownFields(record, "ChatInput", ["parts"]);
-  return {
-    parts: decodeArray(requireField(record, "parts", "ChatInput"), "ChatInput.parts", (item) => decodeChatInputPart(item)),
-  };
-}
-
-export function decodeImageAttachment(value: unknown): ImageAttachment {
-  const record = assertRecord(value, "ImageAttachment");
-  assertKnownFields(record, "ImageAttachment", ["schemaVersion", "id", "workspaceId", "conversationId", "fileName", "mimeType", "byteSize", "width", "height", "createdAt", "variants"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ImageAttachment"), "ImageAttachment.schemaVersion"),
-    id: decodeString(requireField(record, "id", "ImageAttachment"), "ImageAttachment.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ImageAttachment"), "ImageAttachment.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ImageAttachment"), "ImageAttachment.conversationId"),
-    fileName: decodeString(requireField(record, "fileName", "ImageAttachment"), "ImageAttachment.fileName"),
-    mimeType: decodeImageAttachmentMimeType(requireField(record, "mimeType", "ImageAttachment"), "ImageAttachment.mimeType"),
-    byteSize: decodeInteger(requireField(record, "byteSize", "ImageAttachment"), "ImageAttachment.byteSize"),
-    width: decodeInteger(requireField(record, "width", "ImageAttachment"), "ImageAttachment.width"),
-    height: decodeInteger(requireField(record, "height", "ImageAttachment"), "ImageAttachment.height"),
-    createdAt: decodeString(requireField(record, "createdAt", "ImageAttachment"), "ImageAttachment.createdAt"),
-    variants: decodeArray(requireField(record, "variants", "ImageAttachment"), "ImageAttachment.variants", (item) => decodeImageAttachmentVariant(item)),
-  };
-}
-
-export function decodeComposerPromptHistoryEntry(value: unknown): ComposerPromptHistoryEntry {
-  const record = assertRecord(value, "ComposerPromptHistoryEntry");
-  assertKnownFields(record, "ComposerPromptHistoryEntry", ["messageId", "conversationId", "ordinal", "createdAt", "input", "attachments"]);
-  return {
-    messageId: decodeString(requireField(record, "messageId", "ComposerPromptHistoryEntry"), "ComposerPromptHistoryEntry.messageId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ComposerPromptHistoryEntry"), "ComposerPromptHistoryEntry.conversationId"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "ComposerPromptHistoryEntry"), "ComposerPromptHistoryEntry.ordinal"),
-    createdAt: decodeString(requireField(record, "createdAt", "ComposerPromptHistoryEntry"), "ComposerPromptHistoryEntry.createdAt"),
-    input: decodeChatInput(requireField(record, "input", "ComposerPromptHistoryEntry")),
-    attachments: decodeArray(requireField(record, "attachments", "ComposerPromptHistoryEntry"), "ComposerPromptHistoryEntry.attachments", (item) => decodeImageAttachment(item)),
-  };
-}
-
-export function decodeComposerPromptHistoryPage(value: unknown): ComposerPromptHistoryPage {
-  const record = assertRecord(value, "ComposerPromptHistoryPage");
-  assertKnownFields(record, "ComposerPromptHistoryPage", ["conversationId", "entries", "hasMoreOlder", "olderBeforeOrdinal"]);
-  return {
-    conversationId: decodeString(requireField(record, "conversationId", "ComposerPromptHistoryPage"), "ComposerPromptHistoryPage.conversationId"),
-    entries: decodeArray(requireField(record, "entries", "ComposerPromptHistoryPage"), "ComposerPromptHistoryPage.entries", (item) => decodeComposerPromptHistoryEntry(item)),
-    hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "ComposerPromptHistoryPage"), "ComposerPromptHistoryPage.hasMoreOlder"),
-    olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "ComposerPromptHistoryPage"), "ComposerPromptHistoryPage.olderBeforeOrdinal"),
+    olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "MessagePage"), "MessagePage.olderBeforeOrdinal"),
   };
 }
 
 export function decodeSendChatMessageRequest(value: unknown): SendChatMessageRequest {
   const record = assertRecord(value, "SendChatMessageRequest");
-  assertKnownFields(record, "SendChatMessageRequest", ["workspaceId", "conversationId", "input"]);
+  assertKnownFields(record, "SendChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SendChatMessageRequest"), "SendChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SendChatMessageRequest"), "SendChatMessageRequest.conversationId"),
-    input: decodeChatInput(requireField(record, "input", "SendChatMessageRequest")),
+    prompt: decodeString(requireField(record, "prompt", "SendChatMessageRequest"), "SendChatMessageRequest.prompt"),
   };
 }
 
@@ -8429,11 +6801,11 @@ export function decodeSendMessageResult(value: unknown): SendMessageResult {
 
 export function decodeQueueChatMessageRequest(value: unknown): QueueChatMessageRequest {
   const record = assertRecord(value, "QueueChatMessageRequest");
-  assertKnownFields(record, "QueueChatMessageRequest", ["workspaceId", "conversationId", "input"]);
+  assertKnownFields(record, "QueueChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "QueueChatMessageRequest"), "QueueChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "QueueChatMessageRequest"), "QueueChatMessageRequest.conversationId"),
-    input: decodeChatInput(requireField(record, "input", "QueueChatMessageRequest")),
+    prompt: decodeString(requireField(record, "prompt", "QueueChatMessageRequest"), "QueueChatMessageRequest.prompt"),
   };
 }
 
@@ -8451,12 +6823,12 @@ export function decodeQueueMessageResult(value: unknown): QueueMessageResult {
 
 export function decodeEditQueuedChatMessageRequest(value: unknown): EditQueuedChatMessageRequest {
   const record = assertRecord(value, "EditQueuedChatMessageRequest");
-  assertKnownFields(record, "EditQueuedChatMessageRequest", ["workspaceId", "conversationId", "messageId", "input"]);
+  assertKnownFields(record, "EditQueuedChatMessageRequest", ["workspaceId", "conversationId", "messageId", "prompt"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.conversationId"),
     messageId: decodeString(requireField(record, "messageId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.messageId"),
-    input: decodeChatInput(requireField(record, "input", "EditQueuedChatMessageRequest")),
+    prompt: decodeString(requireField(record, "prompt", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.prompt"),
   };
 }
 
@@ -8496,11 +6868,11 @@ export function decodeQueueRemoveResult(value: unknown): QueueRemoveResult {
 
 export function decodeSteerChatMessageRequest(value: unknown): SteerChatMessageRequest {
   const record = assertRecord(value, "SteerChatMessageRequest");
-  assertKnownFields(record, "SteerChatMessageRequest", ["workspaceId", "conversationId", "input"]);
+  assertKnownFields(record, "SteerChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SteerChatMessageRequest"), "SteerChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SteerChatMessageRequest"), "SteerChatMessageRequest.conversationId"),
-    input: decodeChatInput(requireField(record, "input", "SteerChatMessageRequest")),
+    prompt: decodeString(requireField(record, "prompt", "SteerChatMessageRequest"), "SteerChatMessageRequest.prompt"),
   };
 }
 
@@ -8517,11 +6889,11 @@ export function decodeSteerMessageResult(value: unknown): SteerMessageResult {
 
 export function decodeSendSteeringImmediatelyRequest(value: unknown): SendSteeringImmediatelyRequest {
   const record = assertRecord(value, "SendSteeringImmediatelyRequest");
-  assertKnownFields(record, "SendSteeringImmediatelyRequest", ["workspaceId", "conversationId", "input"]);
+  assertKnownFields(record, "SendSteeringImmediatelyRequest", ["workspaceId", "conversationId", "prompt"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.conversationId"),
-    input: decodeNullable(requireField(record, "input", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.input", (item) => decodeChatInput(item)),
+    prompt: decodeString(requireField(record, "prompt", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.prompt"),
   };
 }
 
@@ -8538,27 +6910,6 @@ export function decodeImmediateSteeringResult(value: unknown): ImmediateSteering
   };
 }
 
-export function decodeCreateChatImageAttachmentFromBytesRequest(value: unknown): CreateChatImageAttachmentFromBytesRequest {
-  const record = assertRecord(value, "CreateChatImageAttachmentFromBytesRequest");
-  assertKnownFields(record, "CreateChatImageAttachmentFromBytesRequest", ["workspaceId", "conversationId", "fileName", "dataBase64"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.conversationId"),
-    fileName: decodeString(requireField(record, "fileName", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.fileName"),
-    dataBase64: decodeString(requireField(record, "dataBase64", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.dataBase64"),
-  };
-}
-
-export function decodeCreateChatImageAttachmentFromPathRequest(value: unknown): CreateChatImageAttachmentFromPathRequest {
-  const record = assertRecord(value, "CreateChatImageAttachmentFromPathRequest");
-  assertKnownFields(record, "CreateChatImageAttachmentFromPathRequest", ["workspaceId", "conversationId", "sourcePath"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "CreateChatImageAttachmentFromPathRequest"), "CreateChatImageAttachmentFromPathRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "CreateChatImageAttachmentFromPathRequest"), "CreateChatImageAttachmentFromPathRequest.conversationId"),
-    sourcePath: decodeString(requireField(record, "sourcePath", "CreateChatImageAttachmentFromPathRequest"), "CreateChatImageAttachmentFromPathRequest.sourcePath"),
-  };
-}
-
 export function decodeListChatCommandsRequest(value: unknown): ListChatCommandsRequest {
   const record = assertRecord(value, "ListChatCommandsRequest");
   assertKnownFields(record, "ListChatCommandsRequest", ["workspaceId", "conversationId"]);
@@ -8568,48 +6919,16 @@ export function decodeListChatCommandsRequest(value: unknown): ListChatCommandsR
   };
 }
 
-export function decodeChatCommandLiteralArgumentSpec(value: unknown): ChatCommandLiteralArgumentSpec {
-  const record = assertRecord(value, "ChatCommandLiteralArgumentSpec");
-  assertKnownFields(record, "ChatCommandLiteralArgumentSpec", ["kind", "token", "description"]);
+export function decodeChatCommandCapability(value: unknown): ChatCommandCapability {
+  const record = assertRecord(value, "ChatCommandCapability");
+  assertKnownFields(record, "ChatCommandCapability", ["kind", "name", "usage", "description", "available", "unavailableReason"]);
   return {
-    kind: decodeChatCommandArgumentKind(requireField(record, "kind", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.kind"),
-    token: decodeString(requireField(record, "token", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.token"),
-    description: decodeString(requireField(record, "description", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.description"),
-  };
-}
-
-export function decodeChatCommandFreeTextArgumentSpec(value: unknown): ChatCommandFreeTextArgumentSpec {
-  const record = assertRecord(value, "ChatCommandFreeTextArgumentSpec");
-  assertKnownFields(record, "ChatCommandFreeTextArgumentSpec", ["kind", "name", "description", "maxRunes", "required"]);
-  return {
-    kind: decodeChatCommandArgumentKind(requireField(record, "kind", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.kind"),
-    name: decodeString(requireField(record, "name", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.name"),
-    description: decodeString(requireField(record, "description", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.description"),
-    maxRunes: decodeInteger(requireField(record, "maxRunes", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.maxRunes"),
-    required: decodeBoolean(requireField(record, "required", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.required"),
-  };
-}
-
-export function decodeChatCommandGrammar(value: unknown): ChatCommandGrammar {
-  const record = assertRecord(value, "ChatCommandGrammar");
-  assertKnownFields(record, "ChatCommandGrammar", ["summary", "literalMatch", "arguments"]);
-  return {
-    summary: decodeString(requireField(record, "summary", "ChatCommandGrammar"), "ChatCommandGrammar.summary"),
-    literalMatch: decodeChatCommandLiteralMatchMode(requireField(record, "literalMatch", "ChatCommandGrammar"), "ChatCommandGrammar.literalMatch"),
-    arguments: decodeArray(requireField(record, "arguments", "ChatCommandGrammar"), "ChatCommandGrammar.arguments", (item) => decodeChatCommandArgumentSpec(item)),
-  };
-}
-
-export function decodeChatCommandDescriptor(value: unknown): ChatCommandDescriptor {
-  const record = assertRecord(value, "ChatCommandDescriptor");
-  assertKnownFields(record, "ChatCommandDescriptor", ["kind", "name", "description", "available", "unavailableReason", "grammar"]);
-  return {
-    kind: decodeChatSlashCommandKind(requireField(record, "kind", "ChatCommandDescriptor"), "ChatCommandDescriptor.kind"),
-    name: decodeString(requireField(record, "name", "ChatCommandDescriptor"), "ChatCommandDescriptor.name"),
-    description: decodeString(requireField(record, "description", "ChatCommandDescriptor"), "ChatCommandDescriptor.description"),
-    available: decodeBoolean(requireField(record, "available", "ChatCommandDescriptor"), "ChatCommandDescriptor.available"),
-    unavailableReason: decodeString(requireField(record, "unavailableReason", "ChatCommandDescriptor"), "ChatCommandDescriptor.unavailableReason"),
-    grammar: decodeChatCommandGrammar(requireField(record, "grammar", "ChatCommandDescriptor")),
+    kind: decodeChatCommandKind(requireField(record, "kind", "ChatCommandCapability"), "ChatCommandCapability.kind"),
+    name: decodeString(requireField(record, "name", "ChatCommandCapability"), "ChatCommandCapability.name"),
+    usage: decodeString(requireField(record, "usage", "ChatCommandCapability"), "ChatCommandCapability.usage"),
+    description: decodeString(requireField(record, "description", "ChatCommandCapability"), "ChatCommandCapability.description"),
+    available: decodeBoolean(requireField(record, "available", "ChatCommandCapability"), "ChatCommandCapability.available"),
+    unavailableReason: decodeString(requireField(record, "unavailableReason", "ChatCommandCapability"), "ChatCommandCapability.unavailableReason"),
   };
 }
 
@@ -8617,7 +6936,7 @@ export function decodeChatCommandListResult(value: unknown): ChatCommandListResu
   const record = assertRecord(value, "ChatCommandListResult");
   assertKnownFields(record, "ChatCommandListResult", ["commands"]);
   return {
-    commands: decodeArray(requireField(record, "commands", "ChatCommandListResult"), "ChatCommandListResult.commands", (item) => decodeChatCommandDescriptor(item)),
+    commands: decodeArray(requireField(record, "commands", "ChatCommandListResult"), "ChatCommandListResult.commands", (item) => decodeChatCommandCapability(item)),
   };
 }
 
@@ -8645,7 +6964,7 @@ export function decodeChatReasoningEffortOption(value: unknown): ChatReasoningEf
 
 export function decodeChatModelOption(value: unknown): ChatModelOption {
   const record = assertRecord(value, "ChatModelOption");
-  assertKnownFields(record, "ChatModelOption", ["id", "model", "displayName", "description", "hidden", "isDefault", "supportsImages", "defaultReasoningEffort", "supportedReasoningEfforts"]);
+  assertKnownFields(record, "ChatModelOption", ["id", "model", "displayName", "description", "hidden", "isDefault", "defaultReasoningEffort", "supportedReasoningEfforts"]);
   return {
     id: decodeString(requireField(record, "id", "ChatModelOption"), "ChatModelOption.id"),
     model: decodeString(requireField(record, "model", "ChatModelOption"), "ChatModelOption.model"),
@@ -8653,111 +6972,36 @@ export function decodeChatModelOption(value: unknown): ChatModelOption {
     description: decodeString(requireField(record, "description", "ChatModelOption"), "ChatModelOption.description"),
     hidden: decodeBoolean(requireField(record, "hidden", "ChatModelOption"), "ChatModelOption.hidden"),
     isDefault: decodeBoolean(requireField(record, "isDefault", "ChatModelOption"), "ChatModelOption.isDefault"),
-    supportsImages: decodeBoolean(requireField(record, "supportsImages", "ChatModelOption"), "ChatModelOption.supportsImages"),
     defaultReasoningEffort: decodeReasoningEffort(requireField(record, "defaultReasoningEffort", "ChatModelOption"), "ChatModelOption.defaultReasoningEffort"),
     supportedReasoningEfforts: decodeArray(requireField(record, "supportedReasoningEfforts", "ChatModelOption"), "ChatModelOption.supportedReasoningEfforts", (item) => decodeChatReasoningEffortOption(item)),
   };
 }
 
-export function decodeChatPermissionDangerMeta(value: unknown): ChatPermissionDangerMeta {
-  const record = assertRecord(value, "ChatPermissionDangerMeta");
-  assertKnownFields(record, "ChatPermissionDangerMeta", ["requiresConfirmation", "confirmationTitle", "confirmationBody"]);
-  return {
-    requiresConfirmation: decodeBoolean(requireField(record, "requiresConfirmation", "ChatPermissionDangerMeta"), "ChatPermissionDangerMeta.requiresConfirmation"),
-    confirmationTitle: decodeString(requireField(record, "confirmationTitle", "ChatPermissionDangerMeta"), "ChatPermissionDangerMeta.confirmationTitle"),
-    confirmationBody: decodeString(requireField(record, "confirmationBody", "ChatPermissionDangerMeta"), "ChatPermissionDangerMeta.confirmationBody"),
-  };
-}
-
-export function decodeChatPermissionPreset(value: unknown): ChatPermissionPreset {
-  const record = assertRecord(value, "ChatPermissionPreset");
-  assertKnownFields(record, "ChatPermissionPreset", ["id", "label", "shortDescription", "approvalPolicy", "activePermissionProfileId", "danger", "disabled", "disabledReason"]);
-  return {
-    id: decodeChatPermissionPresetID(requireField(record, "id", "ChatPermissionPreset"), "ChatPermissionPreset.id"),
-    label: decodeString(requireField(record, "label", "ChatPermissionPreset"), "ChatPermissionPreset.label"),
-    shortDescription: decodeString(requireField(record, "shortDescription", "ChatPermissionPreset"), "ChatPermissionPreset.shortDescription"),
-    approvalPolicy: decodeString(requireField(record, "approvalPolicy", "ChatPermissionPreset"), "ChatPermissionPreset.approvalPolicy"),
-    activePermissionProfileId: decodeString(requireField(record, "activePermissionProfileId", "ChatPermissionPreset"), "ChatPermissionPreset.activePermissionProfileId"),
-    danger: decodeNullable(requireField(record, "danger", "ChatPermissionPreset"), "ChatPermissionPreset.danger", (item) => decodeChatPermissionDangerMeta(item)),
-    disabled: decodeBoolean(requireField(record, "disabled", "ChatPermissionPreset"), "ChatPermissionPreset.disabled"),
-    disabledReason: decodeString(requireField(record, "disabledReason", "ChatPermissionPreset"), "ChatPermissionPreset.disabledReason"),
-  };
-}
-
 export function decodeChatCommandResult(value: unknown): ChatCommandResult {
   const record = assertRecord(value, "ChatCommandResult");
-  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "composerDraft", "goal", "models", "selectedModel", "reasoningEfforts", "selectedReasoningEffort", "permissionPresets", "selectedPermissionPreset", "currentPermission"]);
+  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "goal", "models", "selectedModel", "reasoningEfforts", "selectedReasoningEffort"]);
   return {
     action: decodeChatCommandResultAction(requireField(record, "action", "ChatCommandResult"), "ChatCommandResult.action"),
     kind: decodeChatCommandKind(requireField(record, "kind", "ChatCommandResult"), "ChatCommandResult.kind"),
     raw: decodeString(requireField(record, "raw", "ChatCommandResult"), "ChatCommandResult.raw"),
     title: decodeString(requireField(record, "title", "ChatCommandResult"), "ChatCommandResult.title"),
     message: decodeString(requireField(record, "message", "ChatCommandResult"), "ChatCommandResult.message"),
-    composerDraft: decodeString(requireField(record, "composerDraft", "ChatCommandResult"), "ChatCommandResult.composerDraft"),
     goal: decodeNullable(requireField(record, "goal", "ChatCommandResult"), "ChatCommandResult.goal", (item) => decodeChatGoalState(item)),
     models: decodeArray(requireField(record, "models", "ChatCommandResult"), "ChatCommandResult.models", (item) => decodeChatModelOption(item)),
     selectedModel: decodeString(requireField(record, "selectedModel", "ChatCommandResult"), "ChatCommandResult.selectedModel"),
     reasoningEfforts: decodeArray(requireField(record, "reasoningEfforts", "ChatCommandResult"), "ChatCommandResult.reasoningEfforts", (item) => decodeChatReasoningEffortOption(item)),
     selectedReasoningEffort: decodeNullable(requireField(record, "selectedReasoningEffort", "ChatCommandResult"), "ChatCommandResult.selectedReasoningEffort", (item) => decodeReasoningEffort(item, "ChatCommandResult.selectedReasoningEffort")),
-    permissionPresets: decodeArray(requireField(record, "permissionPresets", "ChatCommandResult"), "ChatCommandResult.permissionPresets", (item) => decodeChatPermissionPreset(item)),
-    selectedPermissionPreset: decodeNullable(requireField(record, "selectedPermissionPreset", "ChatCommandResult"), "ChatCommandResult.selectedPermissionPreset", (item) => decodeChatPermissionPresetID(item, "ChatCommandResult.selectedPermissionPreset")),
-    currentPermission: decodeNullable(requireField(record, "currentPermission", "ChatCommandResult"), "ChatCommandResult.currentPermission", (item) => decodeChatCodexEffectivePermissionSettings(item)),
   };
 }
 
 export function decodeChatCommandExecuteResult(value: unknown): ChatCommandExecuteResult {
   const record = assertRecord(value, "ChatCommandExecuteResult");
-  assertKnownFields(record, "ChatCommandExecuteResult", ["conversation", "message", "activeRun", "activeRunLiveness", "page", "result"]);
+  assertKnownFields(record, "ChatCommandExecuteResult", ["conversation", "message", "page", "result"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "ChatCommandExecuteResult")),
     message: decodeNullable(requireField(record, "message", "ChatCommandExecuteResult"), "ChatCommandExecuteResult.message", (item) => decodeChatMessage(item)),
-    activeRun: decodeNullable(requireField(record, "activeRun", "ChatCommandExecuteResult"), "ChatCommandExecuteResult.activeRun", (item) => decodeRun(item)),
-    activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "ChatCommandExecuteResult"), "ChatCommandExecuteResult.activeRunLiveness", (item) => decodeRunLiveness(item)),
     page: decodeMessagePage(requireField(record, "page", "ChatCommandExecuteResult")),
     result: decodeChatCommandResult(requireField(record, "result", "ChatCommandExecuteResult")),
-  };
-}
-
-export function decodeChatCodexDefaultsView(value: unknown): ChatCodexDefaultsView {
-  const record = assertRecord(value, "ChatCodexDefaultsView");
-  assertKnownFields(record, "ChatCodexDefaultsView", ["settings", "effectiveSettings", "models", "reasoningEfforts", "permissionPresets", "currentPermission", "selectedModel", "selectedReasoningEffort", "selectedPermissionPreset"]);
-  return {
-    settings: decodeChatCodexSettings(requireField(record, "settings", "ChatCodexDefaultsView")),
-    effectiveSettings: decodeNullable(requireField(record, "effectiveSettings", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.effectiveSettings", (item) => decodeChatCodexEffectiveSettings(item)),
-    models: decodeArray(requireField(record, "models", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.models", (item) => decodeChatModelOption(item)),
-    reasoningEfforts: decodeArray(requireField(record, "reasoningEfforts", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.reasoningEfforts", (item) => decodeChatReasoningEffortOption(item)),
-    permissionPresets: decodeArray(requireField(record, "permissionPresets", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.permissionPresets", (item) => decodeChatPermissionPreset(item)),
-    currentPermission: decodeNullable(requireField(record, "currentPermission", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.currentPermission", (item) => decodeChatCodexEffectivePermissionSettings(item)),
-    selectedModel: decodeString(requireField(record, "selectedModel", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.selectedModel"),
-    selectedReasoningEffort: decodeNullable(requireField(record, "selectedReasoningEffort", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.selectedReasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexDefaultsView.selectedReasoningEffort")),
-    selectedPermissionPreset: decodeNullable(requireField(record, "selectedPermissionPreset", "ChatCodexDefaultsView"), "ChatCodexDefaultsView.selectedPermissionPreset", (item) => decodeChatPermissionPresetID(item, "ChatCodexDefaultsView.selectedPermissionPreset")),
-  };
-}
-
-export function decodeUpdateChatCodexDefaultsRequest(value: unknown): UpdateChatCodexDefaultsRequest {
-  const record = assertRecord(value, "UpdateChatCodexDefaultsRequest");
-  assertKnownFields(record, "UpdateChatCodexDefaultsRequest", ["settings", "confirmed"]);
-  return {
-    settings: decodeChatCodexSettings(requireField(record, "settings", "UpdateChatCodexDefaultsRequest")),
-    confirmed: decodeBoolean(requireField(record, "confirmed", "UpdateChatCodexDefaultsRequest"), "UpdateChatCodexDefaultsRequest.confirmed"),
-  };
-}
-
-export function decodeOpenChatCodexModelPickerRequest(value: unknown): OpenChatCodexModelPickerRequest {
-  const record = assertRecord(value, "OpenChatCodexModelPickerRequest");
-  assertKnownFields(record, "OpenChatCodexModelPickerRequest", ["workspaceId", "conversationId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "OpenChatCodexModelPickerRequest"), "OpenChatCodexModelPickerRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "OpenChatCodexModelPickerRequest"), "OpenChatCodexModelPickerRequest.conversationId"),
-  };
-}
-
-export function decodeOpenChatCodexPermissionPickerRequest(value: unknown): OpenChatCodexPermissionPickerRequest {
-  const record = assertRecord(value, "OpenChatCodexPermissionPickerRequest");
-  assertKnownFields(record, "OpenChatCodexPermissionPickerRequest", ["workspaceId", "conversationId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "OpenChatCodexPermissionPickerRequest"), "OpenChatCodexPermissionPickerRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "OpenChatCodexPermissionPickerRequest"), "OpenChatCodexPermissionPickerRequest.conversationId"),
   };
 }
 
@@ -8768,17 +7012,6 @@ export function decodeSetChatCodexModelRequest(value: unknown): SetChatCodexMode
     workspaceId: decodeString(requireField(record, "workspaceId", "SetChatCodexModelRequest"), "SetChatCodexModelRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SetChatCodexModelRequest"), "SetChatCodexModelRequest.conversationId"),
     modelId: decodeString(requireField(record, "modelId", "SetChatCodexModelRequest"), "SetChatCodexModelRequest.modelId"),
-  };
-}
-
-export function decodeSetChatCodexPermissionPresetRequest(value: unknown): SetChatCodexPermissionPresetRequest {
-  const record = assertRecord(value, "SetChatCodexPermissionPresetRequest");
-  assertKnownFields(record, "SetChatCodexPermissionPresetRequest", ["workspaceId", "conversationId", "preset", "confirmed"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SetChatCodexPermissionPresetRequest"), "SetChatCodexPermissionPresetRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "SetChatCodexPermissionPresetRequest"), "SetChatCodexPermissionPresetRequest.conversationId"),
-    preset: decodeChatPermissionPresetID(requireField(record, "preset", "SetChatCodexPermissionPresetRequest"), "SetChatCodexPermissionPresetRequest.preset"),
-    confirmed: decodeBoolean(requireField(record, "confirmed", "SetChatCodexPermissionPresetRequest"), "SetChatCodexPermissionPresetRequest.confirmed"),
   };
 }
 
@@ -8812,37 +7045,10 @@ export function decodeGetActiveRunRequest(value: unknown): GetActiveRunRequest {
 
 export function decodeGetActiveRunResponse(value: unknown): GetActiveRunResponse {
   const record = assertRecord(value, "GetActiveRunResponse");
-  assertKnownFields(record, "GetActiveRunResponse", ["hasActiveRun", "run", "liveness"]);
+  assertKnownFields(record, "GetActiveRunResponse", ["hasActiveRun", "run"]);
   return {
     hasActiveRun: decodeBoolean(requireField(record, "hasActiveRun", "GetActiveRunResponse"), "GetActiveRunResponse.hasActiveRun"),
     run: decodeNullable(requireField(record, "run", "GetActiveRunResponse"), "GetActiveRunResponse.run", (item) => decodeRun(item)),
-    liveness: decodeNullable(requireField(record, "liveness", "GetActiveRunResponse"), "GetActiveRunResponse.liveness", (item) => decodeRunLiveness(item)),
-  };
-}
-
-export function decodeReconcileChatRunsRequest(value: unknown): ReconcileChatRunsRequest {
-  const record = assertRecord(value, "ReconcileChatRunsRequest");
-  assertKnownFields(record, "ReconcileChatRunsRequest", ["workspaceId", "conversationId", "reason"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReconcileChatRunsRequest"), "ReconcileChatRunsRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ReconcileChatRunsRequest"), "ReconcileChatRunsRequest.conversationId"),
-    reason: decodeRunLivenessReason(requireField(record, "reason", "ReconcileChatRunsRequest"), "ReconcileChatRunsRequest.reason"),
-  };
-}
-
-export function decodeRunLivenessReconciliationResult(value: unknown): RunLivenessReconciliationResult {
-  const record = assertRecord(value, "RunLivenessReconciliationResult");
-  assertKnownFields(record, "RunLivenessReconciliationResult", ["runs"]);
-  return {
-    runs: decodeArray(requireField(record, "runs", "RunLivenessReconciliationResult"), "RunLivenessReconciliationResult.runs", (item) => decodeRunLiveness(item)),
-  };
-}
-
-export function decodeReconcileChatRunsResponse(value: unknown): ReconcileChatRunsResponse {
-  const record = assertRecord(value, "ReconcileChatRunsResponse");
-  assertKnownFields(record, "ReconcileChatRunsResponse", ["result"]);
-  return {
-    result: decodeRunLivenessReconciliationResult(requireField(record, "result", "ReconcileChatRunsResponse")),
   };
 }
 
@@ -8865,110 +7071,21 @@ export function decodeListRunsResponse(value: unknown): ListRunsResponse {
 
 export function decodeGetRunActivityRequest(value: unknown): GetRunActivityRequest {
   const record = assertRecord(value, "GetRunActivityRequest");
-  assertKnownFields(record, "GetRunActivityRequest", ["workspaceId", "runId", "afterItemId", "limit"]);
+  assertKnownFields(record, "GetRunActivityRequest", ["workspaceId", "runId", "limit"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "GetRunActivityRequest"), "GetRunActivityRequest.workspaceId"),
     runId: decodeString(requireField(record, "runId", "GetRunActivityRequest"), "GetRunActivityRequest.runId"),
-    afterItemId: decodeString(requireField(record, "afterItemId", "GetRunActivityRequest"), "GetRunActivityRequest.afterItemId"),
     limit: decodeInteger(requireField(record, "limit", "GetRunActivityRequest"), "GetRunActivityRequest.limit"),
-  };
-}
-
-export function decodeRunItemDetails(value: unknown): RunItemDetails {
-  const record = assertRecord(value, "RunItemDetails");
-  assertKnownFields(record, "RunItemDetails", ["kind", "plan", "commandExecution", "commandStartFailure", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
-  const result: RunItemDetails = {
-    kind: decodeRunItemDetailsKind(requireField(record, "kind", "RunItemDetails"), "RunItemDetails.kind"),
-    plan: decodeNullable(requireField(record, "plan", "RunItemDetails"), "RunItemDetails.plan", (item) => decodeRunItemPlanDetails(item)),
-    commandExecution: decodeNullable(requireField(record, "commandExecution", "RunItemDetails"), "RunItemDetails.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
-    commandStartFailure: decodeNullable(requireField(record, "commandStartFailure", "RunItemDetails"), "RunItemDetails.commandStartFailure", (item) => decodeRunItemCommandStartFailureDetails(item)),
-    mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunItemDetails"), "RunItemDetails.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
-    dynamicToolCall: decodeNullable(requireField(record, "dynamicToolCall", "RunItemDetails"), "RunItemDetails.dynamicToolCall", (item) => decodeRunItemDynamicToolCallDetails(item)),
-    fileChange: decodeNullable(requireField(record, "fileChange", "RunItemDetails"), "RunItemDetails.fileChange", (item) => decodeRunItemFileChangeDetails(item)),
-    diff: decodeNullable(requireField(record, "diff", "RunItemDetails"), "RunItemDetails.diff", (item) => decodeRunItemDiffDetails(item)),
-    approval: decodeNullable(requireField(record, "approval", "RunItemDetails"), "RunItemDetails.approval", (item) => decodeRunItemApprovalDetails(item)),
-    providerStreamLifecycle: decodeNullable(requireField(record, "providerStreamLifecycle", "RunItemDetails"), "RunItemDetails.providerStreamLifecycle", (item) => decodeRunItemProviderStreamLifecycleDetails(item)),
-  };
-  assertTaggedUnionBranch("RunItemDetails", result.kind, {
-    "plan": result.plan,
-    "command_execution": result.commandExecution,
-    "command_start_failure": result.commandStartFailure,
-    "mcp_tool_call": result.mcpToolCall,
-    "dynamic_tool_call": result.dynamicToolCall,
-    "file_change": result.fileChange,
-    "diff": result.diff,
-    "approval": result.approval,
-    "provider_stream_lifecycle": result.providerStreamLifecycle,
-  });
-  return result;
-}
-
-export function decodeRunItem(value: unknown): RunItem {
-  const record = assertRecord(value, "RunItem");
-  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "source", "requestId", "reviewId", "details", "rawDetails", "hiddenText"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItem"), "RunItem.schemaVersion"),
-    id: decodeString(requireField(record, "id", "RunItem"), "RunItem.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "RunItem"), "RunItem.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "RunItem"), "RunItem.conversationId"),
-    runId: decodeString(requireField(record, "runId", "RunItem"), "RunItem.runId"),
-    providerItemId: decodeString(requireField(record, "providerItemId", "RunItem"), "RunItem.providerItemId"),
-    type: decodeRunItemType(requireField(record, "type", "RunItem"), "RunItem.type"),
-    status: decodeRunItemStatus(requireField(record, "status", "RunItem"), "RunItem.status"),
-    createdAt: decodeString(requireField(record, "createdAt", "RunItem"), "RunItem.createdAt"),
-    startedAt: decodeString(requireField(record, "startedAt", "RunItem"), "RunItem.startedAt"),
-    completedAt: decodeString(requireField(record, "completedAt", "RunItem"), "RunItem.completedAt"),
-    title: decodeString(requireField(record, "title", "RunItem"), "RunItem.title"),
-    summary: decodeString(requireField(record, "summary", "RunItem"), "RunItem.summary"),
-    command: decodeString(requireField(record, "command", "RunItem"), "RunItem.command"),
-    cwd: decodeString(requireField(record, "cwd", "RunItem"), "RunItem.cwd"),
-    exitCode: decodeInteger(requireField(record, "exitCode", "RunItem"), "RunItem.exitCode"),
-    durationMs: decodeInteger(requireField(record, "durationMs", "RunItem"), "RunItem.durationMs"),
-    filePaths: decodeArray(requireField(record, "filePaths", "RunItem"), "RunItem.filePaths", (item) => decodeString(item, "RunItem.filePaths item")),
-    patchStatus: decodeString(requireField(record, "patchStatus", "RunItem"), "RunItem.patchStatus"),
-    serverName: decodeString(requireField(record, "serverName", "RunItem"), "RunItem.serverName"),
-    toolName: decodeString(requireField(record, "toolName", "RunItem"), "RunItem.toolName"),
-    progress: decodeString(requireField(record, "progress", "RunItem"), "RunItem.progress"),
-    result: decodeString(requireField(record, "result", "RunItem"), "RunItem.result"),
-    error: decodeString(requireField(record, "error", "RunItem"), "RunItem.error"),
-    noticeKind: decodeString(requireField(record, "noticeKind", "RunItem"), "RunItem.noticeKind"),
-    noticeMessage: decodeString(requireField(record, "noticeMessage", "RunItem"), "RunItem.noticeMessage"),
-    diffSummary: decodeString(requireField(record, "diffSummary", "RunItem"), "RunItem.diffSummary"),
-    namespace: decodeString(requireField(record, "namespace", "RunItem"), "RunItem.namespace"),
-    processId: decodeString(requireField(record, "processId", "RunItem"), "RunItem.processId"),
-    source: decodeNullable(requireField(record, "source", "RunItem"), "RunItem.source", (item) => decodeRunItemCommandSource(item, "RunItem.source")),
-    requestId: decodeString(requireField(record, "requestId", "RunItem"), "RunItem.requestId"),
-    reviewId: decodeString(requireField(record, "reviewId", "RunItem"), "RunItem.reviewId"),
-    details: decodeNullable(requireField(record, "details", "RunItem"), "RunItem.details", (item) => decodeRunItemDetails(item)),
-    rawDetails: decodeUnknown(requireField(record, "rawDetails", "RunItem"), "RunItem.rawDetails"),
-    hiddenText: decodeString(requireField(record, "hiddenText", "RunItem"), "RunItem.hiddenText"),
-  };
-}
-
-export function decodeRunItemOutput(value: unknown): RunItemOutput {
-  const record = assertRecord(value, "RunItemOutput");
-  assertKnownFields(record, "RunItemOutput", ["schemaVersion", "id", "runItemId", "stream", "ordinal", "text", "createdAt"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItemOutput"), "RunItemOutput.schemaVersion"),
-    id: decodeString(requireField(record, "id", "RunItemOutput"), "RunItemOutput.id"),
-    runItemId: decodeString(requireField(record, "runItemId", "RunItemOutput"), "RunItemOutput.runItemId"),
-    stream: decodeString(requireField(record, "stream", "RunItemOutput"), "RunItemOutput.stream"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "RunItemOutput"), "RunItemOutput.ordinal"),
-    text: decodeString(requireField(record, "text", "RunItemOutput"), "RunItemOutput.text"),
-    createdAt: decodeString(requireField(record, "createdAt", "RunItemOutput"), "RunItemOutput.createdAt"),
   };
 }
 
 export function decodeRunActivityPage(value: unknown): RunActivityPage {
   const record = assertRecord(value, "RunActivityPage");
-  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output", "activity", "hasMoreItems", "nextItemId"]);
+  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output"]);
   return {
     runId: decodeString(requireField(record, "runId", "RunActivityPage"), "RunActivityPage.runId"),
     items: decodeArray(requireField(record, "items", "RunActivityPage"), "RunActivityPage.items", (item) => decodeRunItem(item)),
     output: decodeArray(requireField(record, "output", "RunActivityPage"), "RunActivityPage.output", (item) => decodeRunItemOutput(item)),
-    activity: decodeArray(requireField(record, "activity", "RunActivityPage"), "RunActivityPage.activity", (item) => decodeActivityItemBlockProjection(item)),
-    hasMoreItems: decodeBoolean(requireField(record, "hasMoreItems", "RunActivityPage"), "RunActivityPage.hasMoreItems"),
-    nextItemId: decodeString(requireField(record, "nextItemId", "RunActivityPage"), "RunActivityPage.nextItemId"),
   };
 }
 
@@ -8993,104 +7110,6 @@ export function decodeRunItemOutputPage(value: unknown): RunItemOutputPage {
     output: decodeArray(requireField(record, "output", "RunItemOutputPage"), "RunItemOutputPage.output", (item) => decodeRunItemOutput(item)),
     hasMore: decodeBoolean(requireField(record, "hasMore", "RunItemOutputPage"), "RunItemOutputPage.hasMore"),
     nextOrdinal: decodeInteger(requireField(record, "nextOrdinal", "RunItemOutputPage"), "RunItemOutputPage.nextOrdinal"),
-  };
-}
-
-export function decodeListBackgroundTerminalsRequest(value: unknown): ListBackgroundTerminalsRequest {
-  const record = assertRecord(value, "ListBackgroundTerminalsRequest");
-  assertKnownFields(record, "ListBackgroundTerminalsRequest", ["workspaceId", "conversationId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ListBackgroundTerminalsRequest"), "ListBackgroundTerminalsRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ListBackgroundTerminalsRequest"), "ListBackgroundTerminalsRequest.conversationId"),
-  };
-}
-
-export function decodeBackgroundTerminalProcess(value: unknown): BackgroundTerminalProcess {
-  const record = assertRecord(value, "BackgroundTerminalProcess");
-  assertKnownFields(record, "BackgroundTerminalProcess", ["schemaVersion", "id", "workspaceId", "conversationId", "threadId", "startedRunId", "providerItemId", "processId", "source", "status", "command", "cwd", "exitCode", "error", "startedAt", "updatedAt", "completedAt", "recentOutput"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.schemaVersion"),
-    id: decodeString(requireField(record, "id", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.conversationId"),
-    threadId: decodeString(requireField(record, "threadId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.threadId"),
-    startedRunId: decodeString(requireField(record, "startedRunId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.startedRunId"),
-    providerItemId: decodeString(requireField(record, "providerItemId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.providerItemId"),
-    processId: decodeString(requireField(record, "processId", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.processId"),
-    source: decodeRunItemCommandSource(requireField(record, "source", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.source"),
-    status: decodeBackgroundTerminalStatus(requireField(record, "status", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.status"),
-    command: decodeString(requireField(record, "command", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.command"),
-    cwd: decodeString(requireField(record, "cwd", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.cwd"),
-    exitCode: decodeInteger(requireField(record, "exitCode", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.exitCode"),
-    error: decodeString(requireField(record, "error", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.error"),
-    startedAt: decodeString(requireField(record, "startedAt", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.startedAt"),
-    updatedAt: decodeString(requireField(record, "updatedAt", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.updatedAt"),
-    completedAt: decodeString(requireField(record, "completedAt", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.completedAt"),
-    recentOutput: decodeArray(requireField(record, "recentOutput", "BackgroundTerminalProcess"), "BackgroundTerminalProcess.recentOutput", (item) => decodeString(item, "BackgroundTerminalProcess.recentOutput item")),
-  };
-}
-
-export function decodeBackgroundTerminalListProjection(value: unknown): BackgroundTerminalListProjection {
-  const record = assertRecord(value, "BackgroundTerminalListProjection");
-  assertKnownFields(record, "BackgroundTerminalListProjection", ["terminals"]);
-  return {
-    terminals: decodeArray(requireField(record, "terminals", "BackgroundTerminalListProjection"), "BackgroundTerminalListProjection.terminals", (item) => decodeBackgroundTerminalProcess(item)),
-  };
-}
-
-export function decodeGetBackgroundTerminalOutputRequest(value: unknown): GetBackgroundTerminalOutputRequest {
-  const record = assertRecord(value, "GetBackgroundTerminalOutputRequest");
-  assertKnownFields(record, "GetBackgroundTerminalOutputRequest", ["workspaceId", "conversationId", "processId", "afterOrdinal", "limit"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "GetBackgroundTerminalOutputRequest"), "GetBackgroundTerminalOutputRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "GetBackgroundTerminalOutputRequest"), "GetBackgroundTerminalOutputRequest.conversationId"),
-    processId: decodeString(requireField(record, "processId", "GetBackgroundTerminalOutputRequest"), "GetBackgroundTerminalOutputRequest.processId"),
-    afterOrdinal: decodeInteger(requireField(record, "afterOrdinal", "GetBackgroundTerminalOutputRequest"), "GetBackgroundTerminalOutputRequest.afterOrdinal"),
-    limit: decodeInteger(requireField(record, "limit", "GetBackgroundTerminalOutputRequest"), "GetBackgroundTerminalOutputRequest.limit"),
-  };
-}
-
-export function decodeBackgroundTerminalOutput(value: unknown): BackgroundTerminalOutput {
-  const record = assertRecord(value, "BackgroundTerminalOutput");
-  assertKnownFields(record, "BackgroundTerminalOutput", ["schemaVersion", "id", "processId", "stream", "ordinal", "text", "createdAt"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.schemaVersion"),
-    id: decodeString(requireField(record, "id", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.id"),
-    processId: decodeString(requireField(record, "processId", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.processId"),
-    stream: decodeString(requireField(record, "stream", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.stream"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.ordinal"),
-    text: decodeString(requireField(record, "text", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.text"),
-    createdAt: decodeString(requireField(record, "createdAt", "BackgroundTerminalOutput"), "BackgroundTerminalOutput.createdAt"),
-  };
-}
-
-export function decodeBackgroundTerminalOutputPage(value: unknown): BackgroundTerminalOutputPage {
-  const record = assertRecord(value, "BackgroundTerminalOutputPage");
-  assertKnownFields(record, "BackgroundTerminalOutputPage", ["processId", "output", "hasMore", "nextOrdinal"]);
-  return {
-    processId: decodeString(requireField(record, "processId", "BackgroundTerminalOutputPage"), "BackgroundTerminalOutputPage.processId"),
-    output: decodeArray(requireField(record, "output", "BackgroundTerminalOutputPage"), "BackgroundTerminalOutputPage.output", (item) => decodeBackgroundTerminalOutput(item)),
-    hasMore: decodeBoolean(requireField(record, "hasMore", "BackgroundTerminalOutputPage"), "BackgroundTerminalOutputPage.hasMore"),
-    nextOrdinal: decodeInteger(requireField(record, "nextOrdinal", "BackgroundTerminalOutputPage"), "BackgroundTerminalOutputPage.nextOrdinal"),
-  };
-}
-
-export function decodeKillBackgroundTerminalRequest(value: unknown): KillBackgroundTerminalRequest {
-  const record = assertRecord(value, "KillBackgroundTerminalRequest");
-  assertKnownFields(record, "KillBackgroundTerminalRequest", ["workspaceId", "conversationId", "processId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "KillBackgroundTerminalRequest"), "KillBackgroundTerminalRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "KillBackgroundTerminalRequest"), "KillBackgroundTerminalRequest.conversationId"),
-    processId: decodeString(requireField(record, "processId", "KillBackgroundTerminalRequest"), "KillBackgroundTerminalRequest.processId"),
-  };
-}
-
-export function decodeKillAllBackgroundTerminalsRequest(value: unknown): KillAllBackgroundTerminalsRequest {
-  const record = assertRecord(value, "KillAllBackgroundTerminalsRequest");
-  assertKnownFields(record, "KillAllBackgroundTerminalsRequest", ["workspaceId", "conversationId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "KillAllBackgroundTerminalsRequest"), "KillAllBackgroundTerminalsRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "KillAllBackgroundTerminalsRequest"), "KillAllBackgroundTerminalsRequest.conversationId"),
   };
 }
 
@@ -9169,6 +7188,20 @@ export function decodeWorkflowGatewayConfig(value: unknown): WorkflowGatewayConf
   assertKnownFields(record, "WorkflowGatewayConfig", ["requiredIncoming"]);
   return {
     requiredIncoming: decodeArray(requireField(record, "requiredIncoming", "WorkflowGatewayConfig"), "WorkflowGatewayConfig.requiredIncoming", (item) => decodeString(item, "WorkflowGatewayConfig.requiredIncoming item")),
+  };
+}
+
+export function decodeWorkflowCondition(value: unknown): WorkflowCondition {
+  const record = assertRecord(value, "WorkflowCondition");
+  assertKnownFields(record, "WorkflowCondition", ["kind", "nodeId", "status", "signalName", "signalValue", "exitCode", "invert"]);
+  return {
+    kind: decodeWorkflowConditionKind(requireField(record, "kind", "WorkflowCondition"), "WorkflowCondition.kind"),
+    nodeId: decodeString(requireField(record, "nodeId", "WorkflowCondition"), "WorkflowCondition.nodeId"),
+    status: decodeNullable(requireField(record, "status", "WorkflowCondition"), "WorkflowCondition.status", (item) => decodeWorkflowNodeExecutionStatus(item, "WorkflowCondition.status")),
+    signalName: decodeString(requireField(record, "signalName", "WorkflowCondition"), "WorkflowCondition.signalName"),
+    signalValue: decodeString(requireField(record, "signalValue", "WorkflowCondition"), "WorkflowCondition.signalValue"),
+    exitCode: decodeNullable(requireField(record, "exitCode", "WorkflowCondition"), "WorkflowCondition.exitCode", (item) => decodeInteger(item, "WorkflowCondition.exitCode")),
+    invert: decodeBoolean(requireField(record, "invert", "WorkflowCondition"), "WorkflowCondition.invert"),
   };
 }
 
@@ -9667,6 +7700,23 @@ export function decodeWorkflowGraphNode(value: unknown): WorkflowGraphNode {
   };
 }
 
+export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
+  const record = assertRecord(value, "WorkflowGraphEdge");
+  assertKnownFields(record, "WorkflowGraphEdge", ["id", "kind", "fromNodeId", "toNodeId", "condition", "label", "status", "activeTokenCount", "completedTokenCount", "cancelledTokenCount"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkflowGraphEdge"), "WorkflowGraphEdge.id"),
+    kind: decodeWorkflowEdgeKind(requireField(record, "kind", "WorkflowGraphEdge"), "WorkflowGraphEdge.kind"),
+    fromNodeId: decodeString(requireField(record, "fromNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.fromNodeId"),
+    toNodeId: decodeString(requireField(record, "toNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.toNodeId"),
+    condition: decodeNullable(requireField(record, "condition", "WorkflowGraphEdge"), "WorkflowGraphEdge.condition", (item) => decodeWorkflowCondition(item)),
+    label: decodeString(requireField(record, "label", "WorkflowGraphEdge"), "WorkflowGraphEdge.label"),
+    status: decodeWorkflowGraphEdgeStatus(requireField(record, "status", "WorkflowGraphEdge"), "WorkflowGraphEdge.status"),
+    activeTokenCount: decodeInteger(requireField(record, "activeTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.activeTokenCount"),
+    completedTokenCount: decodeInteger(requireField(record, "completedTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.completedTokenCount"),
+    cancelledTokenCount: decodeInteger(requireField(record, "cancelledTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.cancelledTokenCount"),
+  };
+}
+
 export function decodeWorkflowGraphProjection(value: unknown): WorkflowGraphProjection {
   const record = assertRecord(value, "WorkflowGraphProjection");
   assertKnownFields(record, "WorkflowGraphProjection", ["schemaVersion", "workspaceId", "definitionId", "definitionVersionId", "definitionVersionNumber", "definitionVersionCreatedAt", "definitionName", "definitionDescription", "viewMode", "editable", "draftUpdatedAt", "draftMatchesVersion", "versionMismatch", "executionId", "executionStatus", "terminalReason", "lastEventOrdinal", "updatedAt", "layout", "nodes", "edges"]);
@@ -9744,119 +7794,6 @@ export function decodeWorkflowExecutionEventPage(value: unknown): WorkflowExecut
     events: decodeArray(requireField(record, "events", "WorkflowExecutionEventPage"), "WorkflowExecutionEventPage.events", (item) => decodeWorkflowEvent(item)),
     hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "WorkflowExecutionEventPage"), "WorkflowExecutionEventPage.hasMoreOlder"),
     olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "WorkflowExecutionEventPage"), "WorkflowExecutionEventPage.olderBeforeOrdinal"),
-  };
-}
-
-export function decodeReadWorkflowNodeTrajectoryRequest(value: unknown): ReadWorkflowNodeTrajectoryRequest {
-  const record = assertRecord(value, "ReadWorkflowNodeTrajectoryRequest");
-  assertKnownFields(record, "ReadWorkflowNodeTrajectoryRequest", ["workspaceId", "executionId", "nodeExecutionId", "beforeBlockOrdinal", "transcriptLimit", "afterItemId", "itemLimit", "outputLimit"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.workspaceId"),
-    executionId: decodeString(requireField(record, "executionId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.executionId"),
-    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.nodeExecutionId"),
-    beforeBlockOrdinal: decodeInteger(requireField(record, "beforeBlockOrdinal", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.beforeBlockOrdinal"),
-    transcriptLimit: decodeInteger(requireField(record, "transcriptLimit", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.transcriptLimit"),
-    afterItemId: decodeString(requireField(record, "afterItemId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.afterItemId"),
-    itemLimit: decodeInteger(requireField(record, "itemLimit", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.itemLimit"),
-    outputLimit: decodeInteger(requireField(record, "outputLimit", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.outputLimit"),
-  };
-}
-
-export function decodeWorkflowAgentTrajectoryScope(value: unknown): WorkflowAgentTrajectoryScope {
-  const record = assertRecord(value, "WorkflowAgentTrajectoryScope");
-  assertKnownFields(record, "WorkflowAgentTrajectoryScope", ["workspaceId", "definitionId", "definitionVersionId", "executionId", "nodeId", "nodeExecutionId", "attempt", "iteration"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.workspaceId"),
-    definitionId: decodeString(requireField(record, "definitionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.definitionId"),
-    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.definitionVersionId"),
-    executionId: decodeString(requireField(record, "executionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.executionId"),
-    nodeId: decodeString(requireField(record, "nodeId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.nodeId"),
-    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.nodeExecutionId"),
-    attempt: decodeInteger(requireField(record, "attempt", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.attempt"),
-    iteration: decodeInteger(requireField(record, "iteration", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.iteration"),
-  };
-}
-
-export function decodeWorkflowAgentTrajectoryRunItemOutputPageState(value: unknown): WorkflowAgentTrajectoryRunItemOutputPageState {
-  const record = assertRecord(value, "WorkflowAgentTrajectoryRunItemOutputPageState");
-  assertKnownFields(record, "WorkflowAgentTrajectoryRunItemOutputPageState", ["runId", "runItemId", "outputIds", "hasMore", "loadedThroughOrdinal", "nextOrdinal"]);
-  return {
-    runId: decodeString(requireField(record, "runId", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.runId"),
-    runItemId: decodeString(requireField(record, "runItemId", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.runItemId"),
-    outputIds: decodeArray(requireField(record, "outputIds", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.outputIds", (item) => decodeString(item, "WorkflowAgentTrajectoryRunItemOutputPageState.outputIds item")),
-    hasMore: decodeBoolean(requireField(record, "hasMore", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.hasMore"),
-    loadedThroughOrdinal: decodeInteger(requireField(record, "loadedThroughOrdinal", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.loadedThroughOrdinal"),
-    nextOrdinal: decodeInteger(requireField(record, "nextOrdinal", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.nextOrdinal"),
-  };
-}
-
-export function decodeWorkflowAgentTrajectoryCapabilities(value: unknown): WorkflowAgentTrajectoryCapabilities {
-  const record = assertRecord(value, "WorkflowAgentTrajectoryCapabilities");
-  assertKnownFields(record, "WorkflowAgentTrajectoryCapabilities", ["canLoadOlderHistory", "canLoadMoreActivity", "canLoadRunItemOutput", "canRetryLiveness", "canSteer", "canStopRun", "canSubmitApproval"]);
-  return {
-    canLoadOlderHistory: decodeBoolean(requireField(record, "canLoadOlderHistory", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canLoadOlderHistory"),
-    canLoadMoreActivity: decodeBoolean(requireField(record, "canLoadMoreActivity", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canLoadMoreActivity"),
-    canLoadRunItemOutput: decodeBoolean(requireField(record, "canLoadRunItemOutput", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canLoadRunItemOutput"),
-    canRetryLiveness: decodeBoolean(requireField(record, "canRetryLiveness", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canRetryLiveness"),
-    canSteer: decodeBoolean(requireField(record, "canSteer", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canSteer"),
-    canStopRun: decodeBoolean(requireField(record, "canStopRun", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canStopRun"),
-    canSubmitApproval: decodeBoolean(requireField(record, "canSubmitApproval", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canSubmitApproval"),
-  };
-}
-
-export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgentTrajectoryPage {
-  const record = assertRecord(value, "WorkflowAgentTrajectoryPage");
-  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "run", "activeRun", "activeRunLiveness", "blocks", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.schemaVersion"),
-    scope: decodeWorkflowAgentTrajectoryScope(requireField(record, "scope", "WorkflowAgentTrajectoryPage")),
-    conversationId: decodeString(requireField(record, "conversationId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.conversationId"),
-    runId: decodeString(requireField(record, "runId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.runId"),
-    run: decodeRun(requireField(record, "run", "WorkflowAgentTrajectoryPage")),
-    activeRun: decodeNullable(requireField(record, "activeRun", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRun", (item) => decodeRun(item)),
-    activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRunLiveness", (item) => decodeRunLiveness(item)),
-    blocks: decodeArray(requireField(record, "blocks", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.blocks", (item) => decodeTranscriptBlock(item)),
-    items: decodeArray(requireField(record, "items", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.items", (item) => decodeRunItem(item)),
-    activity: decodeArray(requireField(record, "activity", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activity", (item) => decodeActivityItemBlockProjection(item)),
-    outputPages: decodeArray(requireField(record, "outputPages", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.outputPages", (item) => decodeWorkflowAgentTrajectoryRunItemOutputPageState(item)),
-    outputs: decodeArray(requireField(record, "outputs", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.outputs", (item) => decodeRunItemOutput(item)),
-    pendingApproval: decodeNullable(requireField(record, "pendingApproval", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.pendingApproval", (item) => decodeWorkflowPendingApproval(item)),
-    hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.hasMoreOlder"),
-    olderBeforeBlockOrdinal: decodeInteger(requireField(record, "olderBeforeBlockOrdinal", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.olderBeforeBlockOrdinal"),
-    hasMoreItems: decodeBoolean(requireField(record, "hasMoreItems", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.hasMoreItems"),
-    nextItemId: decodeString(requireField(record, "nextItemId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.nextItemId"),
-    capabilities: decodeWorkflowAgentTrajectoryCapabilities(requireField(record, "capabilities", "WorkflowAgentTrajectoryPage")),
-  };
-}
-
-export function decodeRetryWorkflowNodeRunLivenessRequest(value: unknown): RetryWorkflowNodeRunLivenessRequest {
-  const record = assertRecord(value, "RetryWorkflowNodeRunLivenessRequest");
-  assertKnownFields(record, "RetryWorkflowNodeRunLivenessRequest", ["workspaceId", "executionId", "nodeExecutionId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "RetryWorkflowNodeRunLivenessRequest"), "RetryWorkflowNodeRunLivenessRequest.workspaceId"),
-    executionId: decodeString(requireField(record, "executionId", "RetryWorkflowNodeRunLivenessRequest"), "RetryWorkflowNodeRunLivenessRequest.executionId"),
-    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "RetryWorkflowNodeRunLivenessRequest"), "RetryWorkflowNodeRunLivenessRequest.nodeExecutionId"),
-  };
-}
-
-export function decodeSteerWorkflowNodeRunRequest(value: unknown): SteerWorkflowNodeRunRequest {
-  const record = assertRecord(value, "SteerWorkflowNodeRunRequest");
-  assertKnownFields(record, "SteerWorkflowNodeRunRequest", ["workspaceId", "executionId", "nodeExecutionId", "input"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SteerWorkflowNodeRunRequest"), "SteerWorkflowNodeRunRequest.workspaceId"),
-    executionId: decodeString(requireField(record, "executionId", "SteerWorkflowNodeRunRequest"), "SteerWorkflowNodeRunRequest.executionId"),
-    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "SteerWorkflowNodeRunRequest"), "SteerWorkflowNodeRunRequest.nodeExecutionId"),
-    input: decodeChatInput(requireField(record, "input", "SteerWorkflowNodeRunRequest")),
-  };
-}
-
-export function decodeStopWorkflowNodeRunRequest(value: unknown): StopWorkflowNodeRunRequest {
-  const record = assertRecord(value, "StopWorkflowNodeRunRequest");
-  assertKnownFields(record, "StopWorkflowNodeRunRequest", ["workspaceId", "executionId", "nodeExecutionId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "StopWorkflowNodeRunRequest"), "StopWorkflowNodeRunRequest.workspaceId"),
-    executionId: decodeString(requireField(record, "executionId", "StopWorkflowNodeRunRequest"), "StopWorkflowNodeRunRequest.executionId"),
-    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "StopWorkflowNodeRunRequest"), "StopWorkflowNodeRunRequest.nodeExecutionId"),
   };
 }
 
@@ -11729,14 +9666,6 @@ export function decodeRunUpdatedPayload(value: unknown): RunUpdatedPayload {
   };
 }
 
-export function decodeRunLivenessUpdatedPayload(value: unknown): RunLivenessUpdatedPayload {
-  const record = assertRecord(value, "RunLivenessUpdatedPayload");
-  assertKnownFields(record, "RunLivenessUpdatedPayload", ["liveness"]);
-  return {
-    liveness: decodeRunLiveness(requireField(record, "liveness", "RunLivenessUpdatedPayload")),
-  };
-}
-
 export function decodeRunItemCreatedPayload(value: unknown): RunItemCreatedPayload {
   const record = assertRecord(value, "RunItemCreatedPayload");
   assertKnownFields(record, "RunItemCreatedPayload", ["item"]);
@@ -11758,73 +9687,6 @@ export function decodeRunItemOutputDeltaPayload(value: unknown): RunItemOutputDe
   assertKnownFields(record, "RunItemOutputDeltaPayload", ["output"]);
   return {
     output: decodeRunItemOutput(requireField(record, "output", "RunItemOutputDeltaPayload")),
-  };
-}
-
-export function decodeTranscriptBlockCreatedPayload(value: unknown): TranscriptBlockCreatedPayload {
-  const record = assertRecord(value, "TranscriptBlockCreatedPayload");
-  assertKnownFields(record, "TranscriptBlockCreatedPayload", ["block"]);
-  return {
-    block: decodeTranscriptBlock(requireField(record, "block", "TranscriptBlockCreatedPayload")),
-  };
-}
-
-export function decodeTranscriptBlockUpdatedPayload(value: unknown): TranscriptBlockUpdatedPayload {
-  const record = assertRecord(value, "TranscriptBlockUpdatedPayload");
-  assertKnownFields(record, "TranscriptBlockUpdatedPayload", ["block"]);
-  return {
-    block: decodeTranscriptBlock(requireField(record, "block", "TranscriptBlockUpdatedPayload")),
-  };
-}
-
-export function decodeTranscriptTextDeltaPayload(value: unknown): TranscriptTextDeltaPayload {
-  const record = assertRecord(value, "TranscriptTextDeltaPayload");
-  assertKnownFields(record, "TranscriptTextDeltaPayload", ["blockId", "delta", "updatedAt"]);
-  return {
-    blockId: decodeString(requireField(record, "blockId", "TranscriptTextDeltaPayload"), "TranscriptTextDeltaPayload.blockId"),
-    delta: decodeString(requireField(record, "delta", "TranscriptTextDeltaPayload"), "TranscriptTextDeltaPayload.delta"),
-    updatedAt: decodeString(requireField(record, "updatedAt", "TranscriptTextDeltaPayload"), "TranscriptTextDeltaPayload.updatedAt"),
-  };
-}
-
-export function decodeTranscriptBlocksReplacedPayload(value: unknown): TranscriptBlocksReplacedPayload {
-  const record = assertRecord(value, "TranscriptBlocksReplacedPayload");
-  assertKnownFields(record, "TranscriptBlocksReplacedPayload", ["runId", "blocks"]);
-  return {
-    runId: decodeString(requireField(record, "runId", "TranscriptBlocksReplacedPayload"), "TranscriptBlocksReplacedPayload.runId"),
-    blocks: decodeArray(requireField(record, "blocks", "TranscriptBlocksReplacedPayload"), "TranscriptBlocksReplacedPayload.blocks", (item) => decodeTranscriptBlock(item)),
-  };
-}
-
-export function decodeBackgroundTerminalCreatedPayload(value: unknown): BackgroundTerminalCreatedPayload {
-  const record = assertRecord(value, "BackgroundTerminalCreatedPayload");
-  assertKnownFields(record, "BackgroundTerminalCreatedPayload", ["process"]);
-  return {
-    process: decodeBackgroundTerminalProcess(requireField(record, "process", "BackgroundTerminalCreatedPayload")),
-  };
-}
-
-export function decodeBackgroundTerminalUpdatedPayload(value: unknown): BackgroundTerminalUpdatedPayload {
-  const record = assertRecord(value, "BackgroundTerminalUpdatedPayload");
-  assertKnownFields(record, "BackgroundTerminalUpdatedPayload", ["process"]);
-  return {
-    process: decodeBackgroundTerminalProcess(requireField(record, "process", "BackgroundTerminalUpdatedPayload")),
-  };
-}
-
-export function decodeBackgroundTerminalOutputDeltaPayload(value: unknown): BackgroundTerminalOutputDeltaPayload {
-  const record = assertRecord(value, "BackgroundTerminalOutputDeltaPayload");
-  assertKnownFields(record, "BackgroundTerminalOutputDeltaPayload", ["output"]);
-  return {
-    output: decodeBackgroundTerminalOutput(requireField(record, "output", "BackgroundTerminalOutputDeltaPayload")),
-  };
-}
-
-export function decodeBackgroundTerminalsReplacedPayload(value: unknown): BackgroundTerminalsReplacedPayload {
-  const record = assertRecord(value, "BackgroundTerminalsReplacedPayload");
-  assertKnownFields(record, "BackgroundTerminalsReplacedPayload", ["terminals"]);
-  return {
-    terminals: decodeArray(requireField(record, "terminals", "BackgroundTerminalsReplacedPayload"), "BackgroundTerminalsReplacedPayload.terminals", (item) => decodeBackgroundTerminalProcess(item)),
   };
 }
 
@@ -11881,19 +9743,6 @@ export function decodeCodexAccountChangedPayload(value: unknown): CodexAccountCh
   };
 }
 
-export function decodeChatCommandArgumentSpec(value: unknown): ChatCommandArgumentSpec {
-  const record = assertRecord(value, "ChatCommandArgumentSpec");
-  const discriminator = decodeString(requireField(record, "kind", "ChatCommandArgumentSpec"), "ChatCommandArgumentSpec.kind");
-  switch (discriminator) {
-    case "literal":
-      return decodeChatCommandLiteralArgumentSpec(value);
-    case "free_text":
-      return decodeChatCommandFreeTextArgumentSpec(value);
-    default:
-      throw new Error("ChatCommandArgumentSpec.kind" + " is unsupported: " + discriminator);
-  }
-}
-
 export function decodeChatEvent(value: unknown): ChatEvent {
   const record = assertRecord(value, "ChatEvent");
   const type = decodeString(requireField(record, "type", "ChatEvent"), "ChatEvent.type");
@@ -11912,30 +9761,12 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatMessageRemovedEventFromRecord(record);
     case "chat.run.updated":
       return decodeChatRunUpdatedEventFromRecord(record);
-    case "chat.run_liveness.updated":
-      return decodeChatRunLivenessUpdatedEventFromRecord(record);
     case "chat.run_item.created":
       return decodeChatRunItemCreatedEventFromRecord(record);
     case "chat.run_item.updated":
       return decodeChatRunItemUpdatedEventFromRecord(record);
     case "chat.run_item_output.delta":
       return decodeChatRunItemOutputDeltaEventFromRecord(record);
-    case "chat.transcript_block.created":
-      return decodeChatTranscriptBlockCreatedEventFromRecord(record);
-    case "chat.transcript_block.updated":
-      return decodeChatTranscriptBlockUpdatedEventFromRecord(record);
-    case "chat.transcript_text.delta":
-      return decodeChatTranscriptTextDeltaEventFromRecord(record);
-    case "chat.transcript_blocks.replaced":
-      return decodeChatTranscriptBlocksReplacedEventFromRecord(record);
-    case "chat.background_terminal.created":
-      return decodeChatBackgroundTerminalCreatedEventFromRecord(record);
-    case "chat.background_terminal.updated":
-      return decodeChatBackgroundTerminalUpdatedEventFromRecord(record);
-    case "chat.background_terminal.output_delta":
-      return decodeChatBackgroundTerminalOutputDeltaEventFromRecord(record);
-    case "chat.background_terminals.replaced":
-      return decodeChatBackgroundTerminalsReplacedEventFromRecord(record);
     case "chat.queue.updated":
       return decodeChatQueueUpdatedEventFromRecord(record);
     case "chat.goal.updated":
@@ -12037,18 +9868,6 @@ function decodeChatRunUpdatedEventFromRecord(record: Record<string, unknown>): C
   };
 }
 
-export function decodeChatRunLivenessUpdatedEvent(value: unknown): ChatRunLivenessUpdatedEvent {
-  return decodeChatRunLivenessUpdatedEventFromRecord(assertRecord(value, "ChatRunLivenessUpdatedEvent"));
-}
-
-function decodeChatRunLivenessUpdatedEventFromRecord(record: Record<string, unknown>): ChatRunLivenessUpdatedEvent {
-  const base = decodeBackendEventBase(record, "ChatRunLivenessUpdatedEvent", "chat.run_liveness.updated");
-  return {
-    ...base,
-    payload: decodeRunLivenessUpdatedPayload(requireField(record, "payload", "ChatRunLivenessUpdatedEvent")),
-  };
-}
-
 export function decodeChatRunItemCreatedEvent(value: unknown): ChatRunItemCreatedEvent {
   return decodeChatRunItemCreatedEventFromRecord(assertRecord(value, "ChatRunItemCreatedEvent"));
 }
@@ -12082,102 +9901,6 @@ function decodeChatRunItemOutputDeltaEventFromRecord(record: Record<string, unkn
   return {
     ...base,
     payload: decodeRunItemOutputDeltaPayload(requireField(record, "payload", "ChatRunItemOutputDeltaEvent")),
-  };
-}
-
-export function decodeChatTranscriptBlockCreatedEvent(value: unknown): ChatTranscriptBlockCreatedEvent {
-  return decodeChatTranscriptBlockCreatedEventFromRecord(assertRecord(value, "ChatTranscriptBlockCreatedEvent"));
-}
-
-function decodeChatTranscriptBlockCreatedEventFromRecord(record: Record<string, unknown>): ChatTranscriptBlockCreatedEvent {
-  const base = decodeBackendEventBase(record, "ChatTranscriptBlockCreatedEvent", "chat.transcript_block.created");
-  return {
-    ...base,
-    payload: decodeTranscriptBlockCreatedPayload(requireField(record, "payload", "ChatTranscriptBlockCreatedEvent")),
-  };
-}
-
-export function decodeChatTranscriptBlockUpdatedEvent(value: unknown): ChatTranscriptBlockUpdatedEvent {
-  return decodeChatTranscriptBlockUpdatedEventFromRecord(assertRecord(value, "ChatTranscriptBlockUpdatedEvent"));
-}
-
-function decodeChatTranscriptBlockUpdatedEventFromRecord(record: Record<string, unknown>): ChatTranscriptBlockUpdatedEvent {
-  const base = decodeBackendEventBase(record, "ChatTranscriptBlockUpdatedEvent", "chat.transcript_block.updated");
-  return {
-    ...base,
-    payload: decodeTranscriptBlockUpdatedPayload(requireField(record, "payload", "ChatTranscriptBlockUpdatedEvent")),
-  };
-}
-
-export function decodeChatTranscriptTextDeltaEvent(value: unknown): ChatTranscriptTextDeltaEvent {
-  return decodeChatTranscriptTextDeltaEventFromRecord(assertRecord(value, "ChatTranscriptTextDeltaEvent"));
-}
-
-function decodeChatTranscriptTextDeltaEventFromRecord(record: Record<string, unknown>): ChatTranscriptTextDeltaEvent {
-  const base = decodeBackendEventBase(record, "ChatTranscriptTextDeltaEvent", "chat.transcript_text.delta");
-  return {
-    ...base,
-    payload: decodeTranscriptTextDeltaPayload(requireField(record, "payload", "ChatTranscriptTextDeltaEvent")),
-  };
-}
-
-export function decodeChatTranscriptBlocksReplacedEvent(value: unknown): ChatTranscriptBlocksReplacedEvent {
-  return decodeChatTranscriptBlocksReplacedEventFromRecord(assertRecord(value, "ChatTranscriptBlocksReplacedEvent"));
-}
-
-function decodeChatTranscriptBlocksReplacedEventFromRecord(record: Record<string, unknown>): ChatTranscriptBlocksReplacedEvent {
-  const base = decodeBackendEventBase(record, "ChatTranscriptBlocksReplacedEvent", "chat.transcript_blocks.replaced");
-  return {
-    ...base,
-    payload: decodeTranscriptBlocksReplacedPayload(requireField(record, "payload", "ChatTranscriptBlocksReplacedEvent")),
-  };
-}
-
-export function decodeChatBackgroundTerminalCreatedEvent(value: unknown): ChatBackgroundTerminalCreatedEvent {
-  return decodeChatBackgroundTerminalCreatedEventFromRecord(assertRecord(value, "ChatBackgroundTerminalCreatedEvent"));
-}
-
-function decodeChatBackgroundTerminalCreatedEventFromRecord(record: Record<string, unknown>): ChatBackgroundTerminalCreatedEvent {
-  const base = decodeBackendEventBase(record, "ChatBackgroundTerminalCreatedEvent", "chat.background_terminal.created");
-  return {
-    ...base,
-    payload: decodeBackgroundTerminalCreatedPayload(requireField(record, "payload", "ChatBackgroundTerminalCreatedEvent")),
-  };
-}
-
-export function decodeChatBackgroundTerminalUpdatedEvent(value: unknown): ChatBackgroundTerminalUpdatedEvent {
-  return decodeChatBackgroundTerminalUpdatedEventFromRecord(assertRecord(value, "ChatBackgroundTerminalUpdatedEvent"));
-}
-
-function decodeChatBackgroundTerminalUpdatedEventFromRecord(record: Record<string, unknown>): ChatBackgroundTerminalUpdatedEvent {
-  const base = decodeBackendEventBase(record, "ChatBackgroundTerminalUpdatedEvent", "chat.background_terminal.updated");
-  return {
-    ...base,
-    payload: decodeBackgroundTerminalUpdatedPayload(requireField(record, "payload", "ChatBackgroundTerminalUpdatedEvent")),
-  };
-}
-
-export function decodeChatBackgroundTerminalOutputDeltaEvent(value: unknown): ChatBackgroundTerminalOutputDeltaEvent {
-  return decodeChatBackgroundTerminalOutputDeltaEventFromRecord(assertRecord(value, "ChatBackgroundTerminalOutputDeltaEvent"));
-}
-
-function decodeChatBackgroundTerminalOutputDeltaEventFromRecord(record: Record<string, unknown>): ChatBackgroundTerminalOutputDeltaEvent {
-  const base = decodeBackendEventBase(record, "ChatBackgroundTerminalOutputDeltaEvent", "chat.background_terminal.output_delta");
-  return {
-    ...base,
-    payload: decodeBackgroundTerminalOutputDeltaPayload(requireField(record, "payload", "ChatBackgroundTerminalOutputDeltaEvent")),
-  };
-}
-
-export function decodeChatBackgroundTerminalsReplacedEvent(value: unknown): ChatBackgroundTerminalsReplacedEvent {
-  return decodeChatBackgroundTerminalsReplacedEventFromRecord(assertRecord(value, "ChatBackgroundTerminalsReplacedEvent"));
-}
-
-function decodeChatBackgroundTerminalsReplacedEventFromRecord(record: Record<string, unknown>): ChatBackgroundTerminalsReplacedEvent {
-  const base = decodeBackendEventBase(record, "ChatBackgroundTerminalsReplacedEvent", "chat.background_terminals.replaced");
-  return {
-    ...base,
-    payload: decodeBackgroundTerminalsReplacedPayload(requireField(record, "payload", "ChatBackgroundTerminalsReplacedEvent")),
   };
 }
 
@@ -12255,6 +9978,13 @@ function decodeCodexAccountChangedEventFromRecord(record: Record<string, unknown
 
 export interface BackendClient {
   backendHealth: () => Promise<BackendHealth>;
+  runtimeInfo: () => Promise<RuntimeInfoResponse>;
+  completePairing: (request: CompletePairingRequest) => Promise<CompletePairingResponse>;
+  listDevices: (request: ListDevicesRequest) => Promise<ListDevicesResponse>;
+  revokeDevice: (request: RevokeDeviceRequest) => Promise<RevokeDeviceResponse>;
+  pushSubscribe: (request: PushSubscribeRequest) => Promise<PushSubscribeResponse>;
+  pushUnsubscribe: (request: PushUnsubscribeRequest) => Promise<PushUnsubscribeResponse>;
+  pushTest: (request: PushTestRequest) => Promise<PushTestResponse>;
   readAppearanceSettings: () => Promise<AppearanceSettings>;
   readAppearancePresets: () => Promise<AppearancePresetList>;
   updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
@@ -12276,34 +10006,21 @@ export interface BackendClient {
   markConversationRead: (request: MarkConversationReadRequest) => Promise<ConversationListItem>;
   setConversationPinned: (request: SetConversationPinnedRequest) => Promise<ConversationListItem>;
   getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
-  listComposerPromptHistory: (request: ListComposerPromptHistoryRequest) => Promise<ComposerPromptHistoryPage>;
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
   queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
   editQueuedChatMessage: (request: EditQueuedChatMessageRequest) => Promise<QueueEditResult>;
   removeQueuedChatMessage: (request: RemoveQueuedChatMessageRequest) => Promise<QueueRemoveResult>;
   steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
   sendSteeringImmediately: (request: SendSteeringImmediatelyRequest) => Promise<ImmediateSteeringResult>;
-  createChatImageAttachmentFromBytes: (request: CreateChatImageAttachmentFromBytesRequest) => Promise<ImageAttachment>;
-  createChatImageAttachmentFromPath: (request: CreateChatImageAttachmentFromPathRequest) => Promise<ImageAttachment>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
   executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
-  readChatCodexDefaults: () => Promise<ChatCodexDefaultsView>;
-  updateChatCodexDefaults: (request: UpdateChatCodexDefaultsRequest) => Promise<ChatCodexDefaultsView>;
-  openChatCodexModelPicker: (request: OpenChatCodexModelPickerRequest) => Promise<ChatCommandExecuteResult>;
-  openChatCodexPermissionPicker: (request: OpenChatCodexPermissionPickerRequest) => Promise<ChatCommandExecuteResult>;
   setChatCodexModel: (request: SetChatCodexModelRequest) => Promise<ChatCommandExecuteResult>;
-  setChatCodexPermissionPreset: (request: SetChatCodexPermissionPresetRequest) => Promise<ChatCommandExecuteResult>;
   setChatCodexReasoningEffort: (request: SetChatCodexReasoningEffortRequest) => Promise<ChatCommandExecuteResult>;
   cancelRun: (request: CancelRunRequest) => Promise<Run>;
   getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
-  reconcileChatRuns: (request: ReconcileChatRunsRequest) => Promise<ReconcileChatRunsResponse>;
   listRuns: (request: ListRunsRequest) => Promise<ListRunsResponse>;
   getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
   getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
-  listBackgroundTerminals: (request: ListBackgroundTerminalsRequest) => Promise<BackgroundTerminalListProjection>;
-  getBackgroundTerminalOutput: (request: GetBackgroundTerminalOutputRequest) => Promise<BackgroundTerminalOutputPage>;
-  killBackgroundTerminal: (request: KillBackgroundTerminalRequest) => Promise<BackgroundTerminalProcess>;
-  killAllBackgroundTerminals: (request: KillAllBackgroundTerminalsRequest) => Promise<BackgroundTerminalListProjection>;
   listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
   listWorkflowDefinitions: (request: ListWorkflowDefinitionsRequest) => Promise<ListWorkflowDefinitionsResponse>;
@@ -12318,10 +10035,6 @@ export interface BackendClient {
   readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
-  readWorkflowNodeTrajectory: (request: ReadWorkflowNodeTrajectoryRequest) => Promise<WorkflowAgentTrajectoryPage>;
-  retryWorkflowNodeRunLiveness: (request: RetryWorkflowNodeRunLivenessRequest) => Promise<RunLivenessReconciliationResult>;
-  steerWorkflowNodeRun: (request: SteerWorkflowNodeRunRequest) => Promise<SteerMessageResult>;
-  stopWorkflowNodeRun: (request: StopWorkflowNodeRunRequest) => Promise<WorkflowExecution>;
   submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
   readSemanticGraph: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
   readSemanticNodeDetail: (request: ReadSemanticNodeDetailRequest) => Promise<ReadSemanticNodeDetailResponse>;
@@ -12389,6 +10102,62 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       endpoint: backendEndpoints.BackendHealth,
       fetchImpl,
       requestPayload: undefined,
+    }),
+    runtimeInfo: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRuntimeInfoResponse,
+      endpoint: backendEndpoints.RuntimeInfo,
+      fetchImpl,
+      requestPayload: undefined,
+    }),
+    completePairing: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCompletePairingResponse,
+      endpoint: backendEndpoints.CompletePairing,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listDevices: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeListDevicesResponse,
+      endpoint: backendEndpoints.ListDevices,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    revokeDevice: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRevokeDeviceResponse,
+      endpoint: backendEndpoints.RevokeDevice,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    pushSubscribe: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodePushSubscribeResponse,
+      endpoint: backendEndpoints.PushSubscribe,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    pushUnsubscribe: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodePushUnsubscribeResponse,
+      endpoint: backendEndpoints.PushUnsubscribe,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    pushTest: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodePushTestResponse,
+      endpoint: backendEndpoints.PushTest,
+      fetchImpl,
+      requestPayload: request,
     }),
     readAppearanceSettings: () => requestBackend({
       baseURL,
@@ -12558,14 +10327,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
-    listComposerPromptHistory: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeComposerPromptHistoryPage,
-      endpoint: backendEndpoints.ListComposerPromptHistory,
-      fetchImpl,
-      requestPayload: request,
-    }),
     sendChatMessage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -12614,22 +10375,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
-    createChatImageAttachmentFromBytes: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeImageAttachment,
-      endpoint: backendEndpoints.CreateChatImageAttachmentFromBytes,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    createChatImageAttachmentFromPath: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeImageAttachment,
-      endpoint: backendEndpoints.CreateChatImageAttachmentFromPath,
-      fetchImpl,
-      requestPayload: request,
-    }),
     listChatCommands: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -12646,51 +10391,11 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
-    readChatCodexDefaults: () => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeChatCodexDefaultsView,
-      endpoint: backendEndpoints.ReadChatCodexDefaults,
-      fetchImpl,
-      requestPayload: undefined,
-    }),
-    updateChatCodexDefaults: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeChatCodexDefaultsView,
-      endpoint: backendEndpoints.UpdateChatCodexDefaults,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    openChatCodexModelPicker: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeChatCommandExecuteResult,
-      endpoint: backendEndpoints.OpenChatCodexModelPicker,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    openChatCodexPermissionPicker: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeChatCommandExecuteResult,
-      endpoint: backendEndpoints.OpenChatCodexPermissionPicker,
-      fetchImpl,
-      requestPayload: request,
-    }),
     setChatCodexModel: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.SetChatCodexModel,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    setChatCodexPermissionPreset: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeChatCommandExecuteResult,
-      endpoint: backendEndpoints.SetChatCodexPermissionPreset,
       fetchImpl,
       requestPayload: request,
     }),
@@ -12718,14 +10423,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
-    reconcileChatRuns: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeReconcileChatRunsResponse,
-      endpoint: backendEndpoints.ReconcileChatRuns,
-      fetchImpl,
-      requestPayload: request,
-    }),
     listRuns: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -12747,38 +10444,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunItemOutputPage,
       endpoint: backendEndpoints.GetRunItemOutputPage,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    listBackgroundTerminals: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeBackgroundTerminalListProjection,
-      endpoint: backendEndpoints.ListBackgroundTerminals,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    getBackgroundTerminalOutput: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeBackgroundTerminalOutputPage,
-      endpoint: backendEndpoints.GetBackgroundTerminalOutput,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    killBackgroundTerminal: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeBackgroundTerminalProcess,
-      endpoint: backendEndpoints.KillBackgroundTerminal,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    killAllBackgroundTerminals: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeBackgroundTerminalListProjection,
-      endpoint: backendEndpoints.KillAllBackgroundTerminals,
       fetchImpl,
       requestPayload: request,
     }),
@@ -12891,38 +10556,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecutionEventPage,
       endpoint: backendEndpoints.GetWorkflowExecutionEvents,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    readWorkflowNodeTrajectory: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeWorkflowAgentTrajectoryPage,
-      endpoint: backendEndpoints.ReadWorkflowNodeTrajectory,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    retryWorkflowNodeRunLiveness: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeRunLivenessReconciliationResult,
-      endpoint: backendEndpoints.RetryWorkflowNodeRunLiveness,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    steerWorkflowNodeRun: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSteerMessageResult,
-      endpoint: backendEndpoints.SteerWorkflowNodeRun,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    stopWorkflowNodeRun: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeWorkflowExecution,
-      endpoint: backendEndpoints.StopWorkflowNodeRun,
       fetchImpl,
       requestPayload: request,
     }),

@@ -11,17 +11,6 @@ export function terminalConfigForRequest(
   return normalizeTerminalPaneConfig(request.terminalConfig ?? existing?.terminalConfig);
 }
 
-export function workflowNodeDetailsConfigForRequest(
-  request: OpenPaneRequest,
-  existing?: WorkspacePane,
-): WorkspacePane["workflowNodeDetailsConfig"] {
-  const surfaceKind = request.surfaceKind ?? existing?.surfaceKind;
-  if (surfaceKind !== "workflow-node-details") {
-    return undefined;
-  }
-  return request.workflowNodeDetailsConfig ?? existing?.workflowNodeDetailsConfig;
-}
-
 export function normalizeTerminalPaneConfig(
   config: TerminalPaneConfig | undefined,
 ): TerminalPaneConfig {

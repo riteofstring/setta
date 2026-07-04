@@ -261,7 +261,7 @@ func newWorkspaceHandlerWithAppDataDir(t *testing.T, _ []string, times []time.Ti
 	if err != nil {
 		t.Fatalf("new workspace UI service: %v", err)
 	}
-	return NewHandler(HandlerConfig{
+	return newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService:   service,
 		WorkspaceUIService: uiService,

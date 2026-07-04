@@ -90,13 +90,9 @@ func (service *Service) dispatchReadyActions(workspaceID string, executionID str
 				Error:  fmt.Sprintf("start action runner: %v", err),
 			})
 		}
-		if len(start.RunnerRefs) == 0 {
-			err := fmt.Errorf("action runner %s started node execution %s without runner refs", runner.Kind(), request.NodeExecution.ID)
-			return service.cleanupActionRunnerPostStartFailure(workspaceID, executionID, request, start.RunnerRefs, runner, err, true)
-		}
 		execution, cancelDispatch, err := service.attachRunnerRefsAfterStart(workspaceID, executionID, request.NodeExecution.ID, start.RunnerRefs, sink.Events(), runner)
 		if err != nil {
-			return service.cleanupActionRunnerPostStartFailure(workspaceID, executionID, request, start.RunnerRefs, runner, err, false)
+			return WorkflowExecution{}, err
 		}
 		if cancelDispatch != nil {
 			if err := service.cancelActionRunners([]actionCancelDispatch{*cancelDispatch}); err != nil {
@@ -105,74 +101,6 @@ func (service *Service) dispatchReadyActions(workspaceID string, executionID str
 			return execution, nil
 		}
 	}
-}
-
-func (service *Service) cleanupActionRunnerPostStartFailure(workspaceID string, executionID string, request ActionStartRequest, refs []WorkflowActionRunnerRef, runner ActionRunner, postStartErr error, identityMissing bool) (WorkflowExecution, error) {
-	cancelDispatch := actionCancelDispatchForStartedRunner(workspaceID, executionID, request, refs, runner)
-	var cancelErr error
-	if !identityMissing {
-		cancelFailures := service.cancelActionRunnersCollectFailures([]actionCancelDispatch{cancelDispatch})
-		cancelErr = actionCancelFailuresError(cancelFailures)
-	}
-	if identityMissing || cancelErr != nil {
-		message := postStartManualRecoveryMessage(postStartErr, cancelErr, identityMissing)
-		execution, err := service.recordManualRecoveryRequired(workspaceID, executionID, request.NodeExecution.ID, refs, nil, cancelDispatch.request.NodeExecution, message)
-		if err != nil {
-			return WorkflowExecution{}, fmt.Errorf("record manual recovery after action runner post-start failure for node execution %s: %w", request.NodeExecution.ID, errors.Join(postStartErr, cancelErr, err))
-		}
-		return execution, fmt.Errorf("action runner post-start commit failed for node execution %s; manual recovery required: %s: %w", request.NodeExecution.ID, message, errors.Join(postStartErr, cancelErr))
-	}
-
-	message := fmt.Sprintf("action runner post-start commit failed: %v", postStartErr)
-	execution, err := service.failActionAfterRunnerPostStartFailure(workspaceID, executionID, request.NodeExecution.ID, refs, message)
-	if err != nil {
-		return execution, fmt.Errorf("fail action after action runner post-start failure for node execution %s: %w", request.NodeExecution.ID, errors.Join(postStartErr, err))
-	}
-	return execution, fmt.Errorf("action runner post-start commit failed for node execution %s after runner cancellation: %w", request.NodeExecution.ID, postStartErr)
-}
-
-func actionCancelDispatchForStartedRunner(workspaceID string, executionID string, request ActionStartRequest, refs []WorkflowActionRunnerRef, runner ActionRunner) actionCancelDispatch {
-	nodeExecution := request.NodeExecution
-	nodeExecution.RunnerRefs = mergeRunnerRefs(nodeExecution.RunnerRefs, refs)
-	return actionCancelDispatch{
-		runner: runner,
-		request: ActionCancelRequest{
-			WorkspaceID:   workspaceID,
-			ExecutionID:   executionID,
-			NodeExecution: nodeExecution,
-			RunnerRefs:    append([]WorkflowActionRunnerRef{}, nodeExecution.RunnerRefs...),
-		},
-	}
-}
-
-func postStartManualRecoveryMessage(postStartErr error, cancelErr error, identityMissing bool) string {
-	message := "workflow action runner post-start commit failed"
-	if identityMissing {
-		message = runnerIdentityNotCommittedMessage
-	}
-	if postStartErr != nil {
-		message = fmt.Sprintf("%s: %v", message, postStartErr)
-	}
-	if cancelErr != nil {
-		message = fmt.Sprintf("%s; cancel error: %v", message, cancelErr)
-	}
-	return message
-}
-
-func (service *Service) failActionAfterRunnerPostStartFailure(workspaceID string, executionID string, nodeExecutionID string, refs []WorkflowActionRunnerRef, message string) (WorkflowExecution, error) {
-	service.mu.Lock()
-	execution, cancelDispatches, err := service.completeActionLocked(workspaceID, executionID, nodeExecutionID, WorkflowActionResult{
-		Status: ActionCompletionFailed,
-		Error:  message,
-	}, refs, nil)
-	service.mu.Unlock()
-	if err != nil {
-		return WorkflowExecution{}, err
-	}
-	if err := service.cancelActionRunners(cancelDispatches); err != nil {
-		return execution, err
-	}
-	return execution, nil
 }
 
 func (service *Service) beginNextReadyActionStart(workspaceID string, executionID string) (ActionRunner, ActionStartRequest, WorkflowExecution, bool, error) {
@@ -398,10 +326,7 @@ func (service *Service) recordRunnerEvents(workspaceID string, executionID strin
 }
 
 func (service *Service) cancelActionRunners(requests []actionCancelDispatch) error {
-	return actionCancelFailuresError(service.cancelActionRunnersCollectFailures(requests))
-}
-
-func actionCancelFailuresError(failures []actionCancelFailure) error {
+	failures := service.cancelActionRunnersCollectFailures(requests)
 	if len(failures) == 0 {
 		return nil
 	}
@@ -586,32 +511,16 @@ func (service *Service) reconcileChatRunApproval(run chat.Run) {
 }
 
 func (service *Service) reconcileTerminalChatRun(run chat.Run) {
-	_, _, _ = service.completeTerminalWorkflowChatRun(run)
-}
-
-func (service *Service) completeTerminalWorkflowChatRun(run chat.Run) (WorkflowExecution, bool, error) {
-	execution, ok, err := service.completeWorkflowActionForTerminalChatRun(run)
-	if err != nil || !ok {
-		return execution, ok, err
-	}
-	if execution.Status != ExecutionStatusRunning {
-		return execution, true, nil
-	}
-	execution, err = service.dispatchReadyActions(run.WorkspaceID, execution.ID)
-	return execution, true, err
-}
-
-func (service *Service) completeWorkflowActionForTerminalChatRun(run chat.Run) (WorkflowExecution, bool, error) {
 	owner, ok, err := service.workflowRunOwner(run)
 	if err != nil || !ok {
-		return WorkflowExecution{}, ok, err
+		return
 	}
-	items, err := service.codexChatService.LoadRunActivityItems(run.WorkspaceID, run.ID)
+	activity, err := service.codexChatService.LoadRunActivityPage(run.WorkspaceID, run.ID, 1000)
 	var result WorkflowActionResult
 	if err != nil {
 		result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("load chat run activity: %v", err))
 	} else {
-		result, err = workflowActionResultFromChatRun(run, items)
+		result, err = workflowActionResultFromChatRun(run, activity)
 		if err != nil {
 			result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("decode workflow result: %v", err))
 		}
@@ -619,10 +528,19 @@ func (service *Service) completeWorkflowActionForTerminalChatRun(run chat.Run) (
 	refs := workflowRunRefs(run, owner.conversation)
 	runnerEvents, err := runnerEventsFromTerminalChatRun(owner, result)
 	if err != nil {
-		return WorkflowExecution{}, true, err
+		return
 	}
 	execution, err := service.completeChatActionRun(run.WorkspaceID, owner.execution.ID, owner.nodeExecution.ID, result, refs, runnerEvents)
-	return execution, true, err
+	if err != nil || execution.Status != ExecutionStatusRunning {
+		return
+	}
+	_, _ = service.dispatchReadyActions(run.WorkspaceID, execution.ID)
+}
+
+type workflowRunOwner struct {
+	conversation  chat.Conversation
+	execution     WorkflowExecution
+	nodeExecution WorkflowNodeExecution
 }
 
 func (service *Service) workflowRunOwner(run chat.Run) (workflowRunOwner, bool, error) {
@@ -643,12 +561,6 @@ func (service *Service) workflowRunOwner(run chat.Run) (workflowRunOwner, bool, 
 	}
 	owner.conversation = page.Conversation
 	return owner, true, nil
-}
-
-type workflowRunOwner struct {
-	conversation  chat.Conversation
-	execution     WorkflowExecution
-	nodeExecution WorkflowNodeExecution
 }
 
 func (service *Service) workflowRunOwnerFromRunnerRefs(run chat.Run) (workflowRunOwner, bool, error) {

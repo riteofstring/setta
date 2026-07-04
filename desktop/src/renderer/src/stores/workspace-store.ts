@@ -20,6 +20,7 @@ interface WorkspaceStore {
   operation: WorkspaceOperation;
   removeRecent: (id: string) => Promise<void>;
   reorderWorkspaces: (ids: string[]) => Promise<void>;
+  resetRuntimeState: () => void;
   selectWorkspace: (id: string) => Promise<void>;
   session: WorkspaceSession | null;
   status: WorkspaceStatus;
@@ -107,6 +108,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => {
         () => window.setta.workspace.removeRecent(id),
         sessionReadyPatch,
       ),
+    resetRuntimeState: () => {
+      operationSequence += 1;
+      currentOperationId = operationSequence;
+      set({ error: null, operation: null, session: null, status: "idle" });
+    },
     reorderWorkspaces: (ids: string[]) =>
       runWorkspaceOperation(
         "reordering",
