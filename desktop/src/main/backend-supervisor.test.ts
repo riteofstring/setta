@@ -5,7 +5,12 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
-import { parseReadyLine, startSpawnedBackend, type BackendHandle } from "./backend-supervisor";
+import {
+  parseReadyLine,
+  startBackend,
+  startSpawnedBackend,
+  type BackendHandle,
+} from "./backend-supervisor";
 
 describe("parseReadyLine", () => {
   test("accepts the machine-readable ready event", () => {
@@ -29,6 +34,16 @@ describe("parseReadyLine", () => {
 });
 
 describe("startSpawnedBackend", () => {
+  test("keeps SETTA_BACKEND_URL loopback-only", async () => {
+    await expect(
+      startBackend("/tmp/repo", "/tmp/app-data", {
+        ...process.env,
+        SETTA_BACKEND_TOKEN: "token_test",
+        SETTA_BACKEND_URL: "http://100.64.0.12:7345",
+      }),
+    ).rejects.toThrow("SETTA_BACKEND_URL must point at a loopback host");
+  });
+
   test("captures logs and stops a ready backend process", async () => {
     const handle = await startSpawnedBackend({
       args: [backendSupervisorFixture("ready-with-logs")],

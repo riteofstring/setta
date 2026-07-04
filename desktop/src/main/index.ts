@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import type { OpenDialogOptions } from "electron";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
 
 import {
@@ -13,13 +13,22 @@ import {
 import type { BackendFetch } from "@shared/backend-runtime";
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
-import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
+import type {
+  BackendEventStreamStatus,
+  BackendProcessStatus,
+  RuntimeRegistrySnapshot,
+} from "@shared/types";
 import { registerAppIpcHandlers } from "./app-ipc";
+import { authenticatedBackendFetch } from "./backend-auth-fetch";
 import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
+import { attachBackendObservers } from "./backend-main-observers";
 import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
+import { KnownRuntimeStore } from "./known-runtime-store";
+import { registerRuntimeIpcHandlers } from "./runtime-ipc";
+import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { startSemanticGraphEventForwarding } from "./semantic-graph-event-forwarding-stream";
@@ -47,6 +56,7 @@ let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
+let runtimeRegistry: RuntimeRegistryController | null = null;
 const backendRequests = createBackendRequestLifecycle();
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
 const compactWindowMinHeight = 320;
@@ -66,39 +76,23 @@ async function prepareBackend(appDataDir: string) {
   emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
   try {
     backend = await startBackend(repoRoot(), appDataDir, process.env);
-    backendRequests.setStopping(false);
     backendStartupError = null;
-    emitBackendProcessStatus({
-      message: backend.mode === "external" ? "Using external backend" : "Backend online",
-      mode: backend.mode,
-      status: "online",
-      url: backend.url,
+    attachBackendObservers({
+      backend,
+      emitBackendProcessStatus,
+      isE2E,
+      mainWindow: () => mainWindow,
+      recorder: () => recorder,
+      runtimeRegistry: () => runtimeRegistry,
+      stopBackendEventStreams,
     });
-    recorder?.recordAppEvent("backend_started", {
-      ...(isE2E() ? { bootstrapToken: backend.bootstrapToken } : {}),
-      mode: backend.mode,
-      url: backend.url,
+    runtimeRegistry = createRuntimeRegistry();
+    await runtimeRegistry.load();
+    const localRuntime = await runtimeRegistry.registerLocalRuntime({
+      baseUrl: backend.url,
+      deviceToken: backend.bootstrapToken,
     });
-    for (const line of backend.recentLogs()) {
-      recorder?.recordBackendLog(line);
-    }
-    backend.events.on("log", (line) => {
-      recorder?.recordBackendLog(line);
-    });
-    backend.events.on("exit", (exit) => {
-      recorder?.recordBackendExit(exit);
-      void stopBackendEventStreams();
-      if (!exit.expected) {
-        emitBackendProcessStatus({ message: "Backend exited unexpectedly", status: "offline" });
-        mainWindow?.webContents.send(ipcEvents.backendUnexpectedExit, exit);
-        void recorder?.captureScreenshot(mainWindow, "backend-unexpected-exit");
-      }
-    });
-    startChatEventStream();
-    startSemanticGraphEventStreamForwarding();
-    startTerminalEventStreamForwarding();
-    startWorkspaceActivityEventStreamForwarding();
-    startWorkflowEventStreamForwarding();
+    await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
   } catch (error) {
     backend = null;
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
@@ -108,14 +102,61 @@ async function prepareBackend(appDataDir: string) {
   }
 }
 
+function createRuntimeRegistry() {
+  return new RuntimeRegistryController({
+    clientDisplayName,
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    hooks: {
+      activeRuntimeFailed: handleRuntimeFailed,
+      activeRuntimeOffline: handleRuntimeOffline,
+      activeRuntimeOnline: handleRuntimeOnline,
+      beforeRuntimeSwitch,
+    },
+    onSnapshot: broadcastRuntimeSnapshot,
+    store: new KnownRuntimeStore(app.getPath("userData")),
+  });
+}
+
+async function handleRuntimeFailed(state: RuntimeRegistrySnapshot["connection"]) {
+  backendRequests.setStopping(true);
+  await stopBackendEventStreams();
+  emitBackendProcessStatus({ message: state.message, status: "failed" });
+  emitBackendEventStreamStatus({
+    message: "Backend event stream stopped",
+    status: "stopped",
+  });
+}
+
+function handleRuntimeOffline(state: RuntimeRegistrySnapshot["connection"]) {
+  backendRequests.setStopping(true);
+  emitBackendProcessStatus({ message: state.message, status: "offline" });
+}
+
+function handleRuntimeOnline(runtime: ActiveRuntime) {
+  backendRequests.setStopping(false);
+  emitBackendProcessStatus({
+    message: runtime.isLocal ? "Backend online" : `Connected to ${runtime.displayName}`,
+    mode: runtime.isLocal ? (backend?.mode ?? "spawned") : "external",
+    status: "online",
+    url: runtime.baseUrl,
+  });
+  startBackendEventStreams();
+}
+
+async function beforeRuntimeSwitch() {
+  await stopBackendEventStreams();
+  await backendRequests.waitForIdle(backendRequestDrainTimeoutMs);
+}
+
 function startChatEventStream() {
-  if (!backend) {
+  const runtime = activeRuntime();
+  if (!runtime) {
     return;
   }
   void stopChatEventStream();
   backendEventStream = startBackendEventStream({
-    authToken: backend.bootstrapToken,
-    baseURL: backend.url,
+    authToken: runtime.deviceToken,
+    baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
     observer: {
       forwarded: (event) => {
@@ -136,52 +177,56 @@ function startChatEventStream() {
 }
 
 function startWorkflowEventStreamForwarding() {
-  if (!backend) {
+  const runtime = activeRuntime();
+  if (!runtime) {
     return;
   }
   void stopWorkflowEventStreamForwarding();
   workflowEventStream = startWorkflowEventStream({
-    authToken: backend.bootstrapToken,
-    baseURL: backend.url,
+    authToken: runtime.deviceToken,
+    baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
     sendEvent: forwardWorkflowEvent,
   });
 }
 
 function startSemanticGraphEventStreamForwarding() {
-  if (!backend) {
+  const runtime = activeRuntime();
+  if (!runtime) {
     return;
   }
   void stopSemanticGraphEventStreamForwarding();
   semanticGraphEventStream = startSemanticGraphEventForwarding({
-    authToken: backend.bootstrapToken,
-    baseURL: backend.url,
+    authToken: runtime.deviceToken,
+    baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
     recorder,
   });
 }
 
 function startTerminalEventStreamForwarding() {
-  if (!backend) {
+  const runtime = activeRuntime();
+  if (!runtime) {
     return;
   }
   void stopTerminalEventStreamForwarding();
   terminalEventStream = startTerminalEventStream({
-    authToken: backend.bootstrapToken,
-    baseURL: backend.url,
+    authToken: runtime.deviceToken,
+    baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
     sendEvent: forwardTerminalEvent,
   });
 }
 
 function startWorkspaceActivityEventStreamForwarding() {
-  if (!backend) {
+  const runtime = activeRuntime();
+  if (!runtime) {
     return;
   }
   void stopWorkspaceActivityEventStreamForwarding();
   workspaceActivityEventStream = startWorkspaceActivityEventForwarding({
-    authToken: backend.bootstrapToken,
-    baseURL: backend.url,
+    authToken: runtime.deviceToken,
+    baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
     recorder,
   });
@@ -227,6 +272,14 @@ async function stopBackendEventStreams() {
   ]);
 }
 
+function startBackendEventStreams() {
+  startChatEventStream();
+  startSemanticGraphEventStreamForwarding();
+  startTerminalEventStreamForwarding();
+  startWorkspaceActivityEventStreamForwarding();
+  startWorkflowEventStreamForwarding();
+}
+
 function emitBackendProcessStatus(status: BackendProcessStatus) {
   backendStatuses.emitProcessStatus(status);
 }
@@ -237,6 +290,26 @@ function emitBackendEventStreamStatus(status: BackendEventStreamStatus) {
 
 function sendBackendStatuses(window: BrowserWindow) {
   backendStatuses.sendToWindow(window);
+}
+
+function broadcastRuntimeSnapshot(snapshot: RuntimeRegistrySnapshot) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.runtimeConnectionState, snapshot);
+    }
+  }
+}
+
+function sendRuntimeSnapshot(window: BrowserWindow) {
+  const snapshot = runtimeRegistry?.snapshot();
+  if (snapshot) {
+    window.webContents.send(ipcEvents.runtimeConnectionState, snapshot);
+  }
+}
+
+function clientDisplayName() {
+  const name = hostname().trim();
+  return name === "" ? "Setta Desktop" : `Setta Desktop (${name})`;
 }
 
 function forwardChatEvent(event: ChatEvent) {
@@ -268,6 +341,13 @@ function forwardTerminalEvent(event: TerminalEvent) {
 
 function settaAppDataDir() {
   return process.env.SETTA_APP_DATA_DIR ?? join(homedir(), ".setta");
+}
+
+function configureElectronUserDataPath() {
+  if (!isE2E() || !process.env.SETTA_APP_DATA_DIR) {
+    return;
+  }
+  app.setPath("userData", join(process.env.SETTA_APP_DATA_DIR, "electron-user-data"));
 }
 
 function isE2E() {
@@ -366,6 +446,7 @@ async function createWindow() {
     setTimeout(() => {
       if (mainWindow) {
         sendBackendStatuses(mainWindow);
+        sendRuntimeSnapshot(mainWindow);
       }
     }, 0);
   }
@@ -421,6 +502,7 @@ function registerIpc() {
     },
     ipcObserver,
   );
+  registerRuntimeIpcHandlers({ ipcMain, ipcObserver, requireRuntimeRegistry });
   handleIpc(
     ipcMain,
     "appearanceRead",
@@ -812,26 +894,38 @@ function registerIpc() {
 }
 
 function requireBackendClient(): BackendClient {
-  if (!backend) {
-    throw new Error(backendStartupError ?? "backend is not running");
+  const runtime = activeRuntime();
+  if (!runtime) {
+    throw new Error(runtimeUnavailableMessage());
   }
-  return createBackendClient(backend.url, backendRequests.wrapFetch(backendFetch()));
+  return createBackendClient(runtime.baseUrl, backendRequests.wrapFetch(backendFetch()));
 }
 
 function backendFetch(): BackendFetch {
-  if (!backend) {
-    throw new Error(backendStartupError ?? "backend is not running");
+  const runtime = activeRuntime();
+  if (!runtime) {
+    throw new Error(runtimeUnavailableMessage());
   }
   const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
-  return authenticatedBackendFetch(fetchImpl, backend.bootstrapToken);
+  return authenticatedBackendFetch(fetchImpl, runtime.deviceToken, () => {
+    void runtimeRegistry?.markActiveRuntimeRevoked();
+  });
 }
 
-function authenticatedBackendFetch(fetchImpl: BackendFetch, token: string): BackendFetch {
-  return (input, init) => {
-    const headers = new Headers(init.headers);
-    headers.set("Authorization", `Bearer ${token}`);
-    return fetchImpl(input, { ...init, headers });
-  };
+function activeRuntime(): ActiveRuntime | null {
+  return runtimeRegistry?.currentRuntime() ?? null;
+}
+
+function requireRuntimeRegistry(): RuntimeRegistryController {
+  if (!runtimeRegistry) {
+    throw new Error(backendStartupError ?? "runtime registry is not ready");
+  }
+  return runtimeRegistry;
+}
+
+function runtimeUnavailableMessage() {
+  const snapshot = runtimeRegistry?.snapshot();
+  return snapshot?.connection.message ?? backendStartupError ?? "runtime is not connected";
 }
 
 async function stopBackend() {
@@ -893,3 +987,5 @@ app.on("will-quit", () => {
 
 process.once("SIGINT", requestQuit);
 process.once("SIGTERM", requestQuit);
+
+configureElectronUserDataPath();
