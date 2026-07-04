@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"setta/internal/httpapi"
+	"setta/internal/runtime"
 )
 
 const testRuntimeID = "0123456789abcdef0123456789abcdef"
@@ -67,6 +68,49 @@ func TestServeOptionsTailnetResolvesNumericIPv4(t *testing.T) {
 	}
 	if !options.Tailnet {
 		t.Fatal("tailnet = false, want true")
+	}
+}
+
+func TestServeOptionsHonorsGuardedE2EChatHarness(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	deps.getenv = func(name string) string {
+		switch name {
+		case "SETTA_E2E":
+			return "1"
+		case "SETTA_E2E_CHAT_HARNESS":
+			return string(runtime.ChatHarnessScriptedWorkflow)
+		default:
+			return ""
+		}
+	}
+
+	options, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", appDataDir,
+	}, deps)
+	if err != nil {
+		t.Fatalf("serve options: %v", err)
+	}
+	if options.ChatHarness != runtime.ChatHarnessScriptedWorkflow {
+		t.Fatalf("chat harness = %q, want scripted workflow", options.ChatHarness)
+	}
+}
+
+func TestServeOptionsRejectsE2EChatHarnessWithoutE2E(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	deps.getenv = func(name string) string {
+		if name == "SETTA_E2E_CHAT_HARNESS" {
+			return string(runtime.ChatHarnessScriptedWorkflow)
+		}
+		return ""
+	}
+
+	_, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", appDataDir,
+	}, deps)
+	if err == nil || !strings.Contains(err.Error(), "SETTA_E2E_CHAT_HARNESS requires SETTA_E2E=1") {
+		t.Fatalf("error = %v, want SETTA_E2E guard error", err)
 	}
 }
 
