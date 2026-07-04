@@ -3,11 +3,14 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/notify"
 	"setta/internal/orchestrator"
+	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
@@ -45,43 +48,30 @@ type WorkspaceActivityService interface {
 
 type ChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
-	ActiveRunWithLiveness(workspaceID string, conversationID string) (chat.Run, *chat.RunLiveness, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
-	ReconcileActiveRuns(context.Context, string, string, chat.RunLivenessReason) (chat.RunLivenessReconciliationResult, error)
 	CreateConversation(workspaceID string, title string) (chat.Conversation, error)
 	DeleteConversation(workspaceID string, conversationID string) (chat.ConversationListResult, error)
 	ListDiagnostics(workspaceID string, conversationID string, runID string) ([]chat.Diagnostic, error)
 	ListConversations(workspaceID string) (chat.ConversationListResult, error)
 	MarkConversationRead(workspaceID string, conversationID string) (chat.ConversationListItem, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
-	LoadMessagePage(workspaceID string, conversationID string, beforeBlockOrdinal int, limit int) (chat.MessagePage, error)
-	LoadComposerPromptHistory(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.ComposerPromptHistoryPage, error)
+	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
-	ListBackgroundTerminals(workspaceID string, conversationID string) (chat.BackgroundTerminalListProjection, error)
-	LoadBackgroundTerminalOutputPage(workspaceID string, conversationID string, processID string, afterOrdinal int, limit int) (chat.BackgroundTerminalOutputPage, error)
-	KillBackgroundTerminal(context.Context, string, string, string) (chat.BackgroundTerminalProcess, error)
-	KillAllBackgroundTerminals(context.Context, string, string) (chat.BackgroundTerminalListProjection, error)
-	CreateImageAttachmentFromBytes(workspaceID string, conversationID string, fileName string, data []byte) (chat.ImageAttachment, error)
 	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)
 	ExecuteChatCommandWithOptions(workspaceID string, conversationID string, raw string, options chat.ChatCommandExecutionOptions) (chat.ChatCommandExecuteResult, error)
-	EditQueuedInput(workspaceID string, conversationID string, messageID string, input chat.ChatInput) (chat.QueueEditResult, error)
+	EditQueuedMessage(workspaceID string, conversationID string, messageID string, prompt string) (chat.QueueEditResult, error)
 	ListCommands(workspaceID string, conversationID string) (chat.ChatCommandListResult, error)
-	OpenChatCodexModelPicker(workspaceID string, conversationID string) (chat.ChatCommandExecuteResult, error)
-	OpenChatCodexPermissionPicker(workspaceID string, conversationID string) (chat.ChatCommandExecuteResult, error)
-	QueueUserInput(workspaceID string, conversationID string, input chat.ChatInput) (chat.QueueMessageResult, error)
-	ReadChatCodexDefaults(context.Context) (chat.ChatCodexDefaultsView, error)
+	QueueUserMessage(workspaceID string, conversationID string, prompt string) (chat.QueueMessageResult, error)
 	RemoveQueuedMessage(workspaceID string, conversationID string, messageID string) (chat.QueueRemoveResult, error)
-	SendUserInput(workspaceID string, conversationID string, input chat.ChatInput) (chat.SendMessageResult, error)
-	SendSteeringInputImmediately(workspaceID string, conversationID string, input *chat.ChatInput) (chat.ImmediateSteeringResult, error)
+	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
+	SendSteeringImmediately(workspaceID string, conversationID string, prompt string) (chat.ImmediateSteeringResult, error)
 	SetChatCodexModel(workspaceID string, conversationID string, modelID string) (chat.ChatCommandExecuteResult, error)
-	SetChatCodexPermissionPreset(workspaceID string, conversationID string, preset chat.ChatPermissionPresetID, confirmed bool) (chat.ChatCommandExecuteResult, error)
 	SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort chat.ReasoningEffort) (chat.ChatCommandExecuteResult, error)
 	SetConversationPinned(workspaceID string, conversationID string, pinned bool) (chat.ConversationListItem, error)
-	SteerActiveRunInput(workspaceID string, conversationID string, input chat.ChatInput) (chat.SteerMessageResult, error)
+	SteerActiveRun(workspaceID string, conversationID string, prompt string) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)
-	UpdateChatCodexDefaults(context.Context, chat.ChatCodexSettings, bool) (chat.ChatCodexDefaultsView, error)
 }
 
 type CodexAccountService interface {
@@ -168,11 +158,33 @@ type TerminalService interface {
 	WriteInput(context.Context, string, []byte) (int, error)
 }
 
+type RuntimeAuthService interface {
+	CompletePairing(context.Context, string, string) (runtimeauth.DeviceSession, string, bool, error)
+	IsDeviceSessionRevoked(context.Context, string) (bool, error)
+	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
+	ResolveDeviceToken(context.Context, string) (runtimeauth.DeviceSession, bool, error)
+	RevokeDeviceSession(context.Context, string) (runtimeauth.DeviceSession, bool, error)
+	TouchDeviceSession(context.Context, string) (bool, error)
+}
+
+type NotifyService interface {
+	PublicKey() string
+	RemoveDeviceSubscriptions(context.Context, string) error
+	Subscribe(context.Context, string, notify.WebPushSubscription) (notify.Subscription, error)
+	Test(context.Context, string) (notify.TestResult, error)
+	Unsubscribe(context.Context, string, string) (bool, error)
+}
+
 type HandlerConfig struct {
 	AppearanceService        AppearanceService
 	Metadata                 BackendMetadata
 	ChatService              ChatService
 	CodexAccountService      CodexAccountService
+	NotifyService            NotifyService
+	PairingFailureLimiter    *PairingFailureLimiter
+	RevocationSweepInterval  time.Duration
+	RuntimeAuthService       RuntimeAuthService
+	RuntimeMetadata          RuntimeMetadata
 	SemanticGraphService     SemanticGraphService
 	TerminalService          TerminalService
 	WorkspaceActivityService WorkspaceActivityService
@@ -186,6 +198,11 @@ type handler struct {
 	metadata                 BackendMetadata
 	chatService              ChatService
 	codexAccountService      CodexAccountService
+	notifyService            NotifyService
+	pairingFailureLimiter    *PairingFailureLimiter
+	revocationSweepInterval  time.Duration
+	runtimeAuthService       RuntimeAuthService
+	runtimeMetadata          RuntimeMetadata
 	semanticGraphService     SemanticGraphService
 	terminalService          TerminalService
 	workspaceActivityService WorkspaceActivityService
@@ -195,11 +212,24 @@ type handler struct {
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
+	pairingFailureLimiter := config.PairingFailureLimiter
+	if pairingFailureLimiter == nil {
+		pairingFailureLimiter = NewPairingFailureLimiter(10, time.Minute)
+	}
+	revocationSweepInterval := config.RevocationSweepInterval
+	if revocationSweepInterval <= 0 {
+		revocationSweepInterval = 30 * time.Second
+	}
 	apiHandler := handler{
 		appearanceService:        config.AppearanceService,
 		metadata:                 config.Metadata,
 		chatService:              config.ChatService,
 		codexAccountService:      config.CodexAccountService,
+		notifyService:            config.NotifyService,
+		pairingFailureLimiter:    pairingFailureLimiter,
+		revocationSweepInterval:  revocationSweepInterval,
+		runtimeAuthService:       config.RuntimeAuthService,
+		runtimeMetadata:          config.RuntimeMetadata,
 		semanticGraphService:     config.SemanticGraphService,
 		terminalService:          config.TerminalService,
 		workspaceActivityService: config.WorkspaceActivityService,
