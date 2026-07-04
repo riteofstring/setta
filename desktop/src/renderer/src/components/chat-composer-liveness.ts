@@ -1,4 +1,4 @@
-import type { ChatInput, Conversation } from "@generated/backend";
+import type { ChatInput } from "@generated/backend";
 
 import { chatInputHasContent } from "../lib/chat-input";
 import type { ActiveRunPresentation } from "../lib/chat-run-liveness";
@@ -33,7 +33,7 @@ export function canQueueComposerDraft({
   input,
   running,
   runPresentation,
-  selectedConversation,
+  sessionAvailable,
   submitting,
   supportsAttachments,
 }: {
@@ -42,13 +42,13 @@ export function canQueueComposerDraft({
   input: ChatInput;
   running: boolean;
   runPresentation: ActiveRunPresentation;
-  selectedConversation: Conversation | null;
+  sessionAvailable: boolean;
   submitting: boolean;
   supportsAttachments: boolean;
 }) {
   return (
     chatInputHasContent(input) &&
-    selectedConversation !== null &&
+    sessionAvailable &&
     !disabled &&
     !attaching &&
     supportsAttachments &&

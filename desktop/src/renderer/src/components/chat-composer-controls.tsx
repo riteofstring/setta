@@ -1,11 +1,9 @@
 import type {
   ChatCommandExecuteResult,
-  ChatCodexEffectiveSettings,
   ChatModelOption,
   ChatPermissionPreset,
   ChatPermissionPresetID,
   ChatReasoningEffortOption,
-  Conversation,
   ReasoningEffort,
 } from "@generated/backend";
 import {
@@ -133,22 +131,24 @@ export function PermissionPickerButton({
   onOpen,
   onSelect,
   permissionPicker,
+  permissionLabel,
   running,
-  selectedConversation,
+  selected,
 }: {
   disabled: boolean;
   onOpen: () => void;
   onSelect: (preset: ChatPermissionPresetID) => void;
   permissionPicker: ChatCommandExecuteResult | null;
+  permissionLabel: string;
   running: boolean;
-  selectedConversation: Conversation | null;
+  selected: boolean;
 }) {
   const open = permissionPicker?.result.action === "permission_picker";
-  const label = permissionPickerLabel(permissionPicker, selectedConversation);
+  const label = permissionPickerLabel(permissionPicker, permissionLabel);
   const disabledReason = permissionPickerDisabledReason({
     disabled,
     running,
-    selected: selectedConversation !== null,
+    selected,
   });
   return (
     <div className="relative inline-flex min-w-0">
@@ -270,14 +270,12 @@ export function PermissionConfirmationDialog({
 
 function permissionPickerLabel(
   permissionPicker: ChatCommandExecuteResult | null,
-  selectedConversation: Conversation | null,
+  permissionLabel: string,
 ) {
   if (permissionPicker?.result.action === "permission_picker") {
     return permissionPicker.result.currentPermission?.displayLabel ?? "Ask for approval";
   }
-  return (
-    selectedConversation?.codexEffectiveSettings?.permission?.displayLabel ?? "Ask for approval"
-  );
+  return permissionLabel;
 }
 
 function permissionPickerDisabledReason({
@@ -342,22 +340,26 @@ function DisabledIconButton({
 
 export function ModelPickerButton({
   disabled,
+  modelLabel,
   modelPicker,
   onOpen,
+  reasoningLabel,
   running,
-  selectedConversation,
+  selected,
 }: {
   disabled: boolean;
+  modelLabel: string;
   modelPicker: ChatCommandExecuteResult | null;
   onOpen: () => void;
+  reasoningLabel: string;
   running: boolean;
-  selectedConversation: Conversation | null;
+  selected: boolean;
 }) {
-  const summary = modelPickerSummary(modelPicker, selectedConversation);
+  const summary = modelPickerSummary(modelPicker, modelLabel, reasoningLabel);
   const disabledReason = modelPickerDisabledReason({
     disabled,
     running,
-    selected: selectedConversation !== null,
+    selected,
   });
   return (
     <button
@@ -405,12 +407,16 @@ function modelPickerDisabledReason({
 
 function modelPickerSummary(
   modelPicker: ChatCommandExecuteResult | null,
-  selectedConversation: Conversation | null,
+  modelLabel: string,
+  reasoningLabel: string,
 ) {
   if (modelPicker?.result.action === "model_picker") {
     return modelPickerResultSummary(modelPicker);
   }
-  return conversationModelSummary(selectedConversation);
+  return {
+    model: modelLabel,
+    reasoning: reasoningLabel,
+  };
 }
 
 function modelPickerResultSummary(modelPicker: ChatCommandExecuteResult) {
@@ -444,37 +450,6 @@ function selectedReasoningEffortOption(modelPicker: ChatCommandExecuteResult) {
       reasoningEffortOptionSelected(effort, modelPicker.result.selectedReasoningEffort),
     ) ?? null
   );
-}
-
-function conversationModelSummary(selectedConversation: Conversation | null) {
-  const effectiveSettings = conversationEffectiveSettings(selectedConversation);
-  return {
-    model: conversationModelLabel(effectiveSettings),
-    reasoning: conversationReasoningSummary(effectiveSettings),
-  };
-}
-
-function conversationEffectiveSettings(
-  selectedConversation: Conversation | null,
-): ChatCodexEffectiveSettings | null {
-  if (selectedConversation === null) {
-    return null;
-  }
-  return selectedConversation.codexEffectiveSettings;
-}
-
-function conversationModelLabel(effectiveSettings: ChatCodexEffectiveSettings | null) {
-  if (effectiveSettings !== null) {
-    return effectiveSettings.modelDisplayName;
-  }
-  return "Model";
-}
-
-function conversationReasoningSummary(effectiveSettings: ChatCodexEffectiveSettings | null) {
-  if (effectiveSettings === null) {
-    return "Reasoning";
-  }
-  return effectiveSettings.reasoningEffortDisplayName;
 }
 
 export function modelPickerOptionSelected(

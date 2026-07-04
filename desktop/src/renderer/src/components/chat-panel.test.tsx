@@ -1,4 +1,4 @@
-import type { ChatCommandDescriptor } from "@generated/backend";
+import type { ChatCommandDescriptor, Conversation } from "@generated/backend";
 import type { KeyboardEvent } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -519,26 +519,12 @@ describe("composer controls", () => {
     const html = renderToString(
       <ModelPickerButton
         disabled={false}
+        modelLabel="Scripted Careful"
         modelPicker={null}
         onOpen={vi.fn()}
+        reasoningLabel="High"
         running={false}
-        selectedConversation={
-          {
-            codexEffectiveSettings: {
-              model: "scripted-careful",
-              modelDisplayName: "Scripted Careful",
-              permission: defaultEffectivePermissionSettings(),
-              reasoningEffort: "high",
-              reasoningEffortDisplayName: "High",
-              supportsImages: true,
-            },
-            codexSettings: {
-              model: "scripted-careful",
-              permission: null,
-              reasoningEffort: "high",
-            },
-          } as Parameters<typeof ModelPickerButton>[0]["selectedConversation"]
-        }
+        selected
       />,
     );
 
@@ -554,8 +540,9 @@ describe("composer controls", () => {
         onOpen={vi.fn()}
         onSelect={vi.fn()}
         permissionPicker={permissionPickerResult()}
+        permissionLabel="Ask for approval"
         running={false}
-        selectedConversation={selectedConversationWithPermission("Ask for approval")}
+        selected
       />,
     );
 
@@ -592,8 +579,9 @@ describe("composer controls", () => {
         onOpen={vi.fn()}
         onSelect={vi.fn()}
         permissionPicker={null}
+        permissionLabel="Ask for approval"
         running
-        selectedConversation={selectedConversationWithPermission("Ask for approval")}
+        selected
       />,
     );
 
@@ -1366,7 +1354,7 @@ function selectedConversationWithPermission(displayLabel: string) {
     updatedAt: "2026-05-29T20:00:00Z",
     workflow: null,
     workspaceId: "workspace_api",
-  } as Parameters<typeof PermissionPickerButton>[0]["selectedConversation"];
+  } satisfies Conversation;
 }
 
 function permissionPickerResult() {

@@ -285,7 +285,7 @@ function ComposerSlot({
       placeholder={emptyWorkspace ? "Ask setta" : ""}
       running={running}
       runPresentation={runPresentation}
-      viewModel={selectedChatComposerViewModel(chat)}
+      viewModel={selectedChatComposerViewModel(chat, running)}
     />
   );
 

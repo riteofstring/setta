@@ -6,7 +6,6 @@ import type {
   ChatMessage,
   ChatPermissionPresetID,
   ComposerPromptHistoryPage,
-  Conversation,
   ImageAttachment,
   QueueMessageResult,
   ReasoningEffort,
@@ -18,6 +17,16 @@ import type { ChatCommandExecutionOptions } from "@shared/types";
 type ComposerSessionStatus = "idle" | "loading" | "ready" | "error";
 type ComposerCommandListStatus = "idle" | "loading" | "loaded" | "failed";
 
+export interface ComposerSessionViewModel {
+  commandListContextKey: string;
+  id: string;
+  modelLabel: string;
+  permissionLabel: string;
+  reasoningLabel: string;
+  supportsImages: boolean;
+  workspaceId: string | null;
+}
+
 export interface ComposerViewModel {
   activeRunId: string;
   commandListError: string | null;
@@ -25,7 +34,7 @@ export interface ComposerViewModel {
   goal: ChatGoalState | null;
   operation: string | null;
   pendingSteeringMessageIds: string[];
-  selectedConversation: Conversation | null;
+  session: ComposerSessionViewModel | null;
   status: ComposerSessionStatus;
 }
 
@@ -75,7 +84,7 @@ export interface ComposerActions {
   promptHistory?: ComposerPromptHistoryActions;
   queueMessage?: (input: ChatInput) => Promise<QueueMessageResult | null>;
   retryActiveRunLiveness?: () => Promise<void>;
-  sendMessage: (input: ChatInput) => Promise<SendMessageResult | null>;
+  sendMessage?: (input: ChatInput) => Promise<SendMessageResult | null>;
   sendSteeringImmediately?: (input?: ChatInput) => Promise<void>;
   steerMessage?: (input: ChatInput) => Promise<SteerMessageResult | null>;
   stopActiveRun?: () => Promise<void>;

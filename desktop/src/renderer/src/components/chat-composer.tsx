@@ -38,25 +38,25 @@ import {
   canQueueComposerDraft,
   composerSendDisabled,
 } from "./chat-composer-liveness";
+import { composerDisabled, isModelPickerOpen } from "./chat-composer-state";
 import {
-  canSendComposerDraft,
-  composerDisabled,
-  isModelPickerOpen,
-  selectedConversationSupportsImages,
-} from "./chat-composer-state";
-import {
+  canSendCurrentComposerDraft,
   canSendImmediateSteeringComposerDraft,
   composerAttachmentFilePreflight,
   composerCommandListContextKey,
   composerDraftSupportsAttachments,
   composerModelPickerDisabled,
+  composerSessionId,
+  composerSessionSupportsImages,
   composerSlashDraftEnabled,
+  composerSubmitActionAvailable,
 } from "./chat-composer-derived-state";
 import { ComposerFrame } from "./chat-composer-frame";
 import { useComposerPromptHistory, type ComposerPromptHistoryDraft } from "./chat-composer-history";
 import { useComposerPermissionPicker } from "./chat-composer-permission";
 import {
   composerActionPropsEqual,
+  composerScalarPropsEqual,
   composerViewModelPropsEqual,
   runPresentationPropsEqual,
 } from "./chat-composer-props";
@@ -119,20 +119,16 @@ function ComposerComponent({
   const restoreComposerFocusRef = useRef(false);
   const submittingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const selectedConversation = viewModel.selectedConversation;
-  const selected = selectedConversation !== null;
-  const selectedConversationId = selectedConversation?.id ?? "";
-  const attachmentContextRef = useRef(selectedConversationId);
+  const session = viewModel.session;
+  const sessionId = composerSessionId(session);
+  const selected = session !== null;
+  const attachmentContextRef = useRef(sessionId);
   const commandActions = actions.commands;
   const attachmentActions = actions.attachments;
   const modelActions = actions.modelSettings;
   const permissionActions = actions.permissionSettings;
   const promptHistoryActions = actions.promptHistory;
-  const commandListContextKey = composerCommandListContextKey(
-    commandActions,
-    running,
-    selectedConversation,
-  );
+  const commandListContextKey = composerCommandListContextKey(commandActions, session);
   const listCommands = commandActions?.listCommands;
   const acceptsPrompt = composerAcceptsPrompt(selected, onSendPrompt !== undefined);
   const disabled = composerDisabled(disabledOverride, acceptsPrompt, busy);
@@ -159,17 +155,27 @@ function ComposerComponent({
     paletteDismissed,
     modelPickerOpen,
   );
-  const supportsImages = selectedConversationSupportsImages(selectedConversation);
+  const supportsImages = composerSessionSupportsImages(session);
   const supportsAttachments = composerDraftSupportsAttachments(
     attachmentActions,
     hasAttachments,
     supportsImages,
   );
-  const canSend = canSendComposerDraft({
+  const activeSubmitMode = activeRunSubmitMode(running, runPresentation);
+  const submitActionAvailable = composerSubmitActionAvailable({
+    commandActions,
+    mode: activeSubmitMode,
+    onSendPrompt,
+    sendMessage: actions.sendMessage,
+    slashDraft,
+    steerMessage: actions.steerMessage,
+  });
+  const canSend = canSendCurrentComposerDraft({
     attaching,
     disabled: composerSendDisabled(disabled, running, runPresentation),
     draftText,
     hasAttachments,
+    submitActionAvailable,
     supportsAttachments,
   });
   const canSendImmediately = canSendImmediateSteeringComposerDraft({
@@ -184,12 +190,7 @@ function ComposerComponent({
     slashDraft,
     supportsAttachments,
   });
-  const modelPickerDisabled = composerModelPickerDisabled(
-    modelActions,
-    selectedConversation,
-    disabled,
-    running,
-  );
+  const modelPickerDisabled = composerModelPickerDisabled(modelActions, session, disabled, running);
   const {
     cancelPermissionConfirmation,
     clearPermissionPicker,
@@ -207,13 +208,13 @@ function ComposerComponent({
     focusComposer,
     permissionActions,
     running,
-    selectedConversation,
+    sessionId,
     setDraft,
     submittingRef,
   });
   const promptHistory = useComposerPromptHistory({
     applyDraft: applyPromptHistoryDraft,
-    conversationId: selectedConversationId,
+    conversationId: sessionId,
     enabled: promptHistoryActions !== undefined,
     listHistory: promptHistoryActions?.listComposerPromptHistory ?? null,
     maxAttachments: maxComposerImageAttachments,
@@ -222,14 +223,14 @@ function ComposerComponent({
   });
 
   useEffect(() => {
-    attachmentContextRef.current = selectedConversationId;
+    attachmentContextRef.current = sessionId;
     setAttachments([]);
     setAttachmentImageInputsById({});
     setAttachmentError(null);
     setAttaching(false);
     setModelPicker(null);
     clearPermissionState();
-  }, [selectedConversationId]);
+  }, [sessionId]);
 
   useEffect(() => {
     setSelectedSuggestionIndex((current) => {
@@ -347,7 +348,8 @@ function ComposerComponent({
   function canSubmitDraft(input: ChatInput) {
     return (
       chatInputHasContent(input) &&
-      (selectedConversation !== null || onSendPrompt !== undefined) &&
+      (session !== null || onSendPrompt !== undefined) &&
+      submitActionAvailable &&
       !disabled &&
       !attaching &&
       supportsAttachments &&
@@ -370,11 +372,10 @@ function ComposerComponent({
       await executeSlashDraft(submittedDraft);
       return;
     }
-    const activeSubmit = activeRunSubmitMode(running, runPresentation);
-    if (activeSubmit === "blocked") {
+    if (activeSubmitMode === "blocked") {
       return;
     }
-    if (activeSubmit === "steer") {
+    if (activeSubmitMode === "steer") {
       if (actions.steerMessage === undefined) {
         throw new Error("Composer action steerMessage is required for active-run steering.");
       }
@@ -389,6 +390,9 @@ function ComposerComponent({
       clearDraftIfUnchanged(submittedDraft);
       clearAttachmentsIfUnchanged(submittedAttachments);
       return;
+    }
+    if (actions.sendMessage === undefined) {
+      throw new Error("Composer action sendMessage is required to send a new message.");
     }
     const result = await actions.sendMessage(input);
     if (result) {
@@ -550,7 +554,7 @@ function ComposerComponent({
         input,
         running,
         runPresentation,
-        selectedConversation,
+        sessionAvailable: session !== null,
         submitting: submittingRef.current,
         supportsAttachments,
       })
@@ -609,7 +613,7 @@ function ComposerComponent({
 
   function canSubmitImmediateSteering(input: ChatInput, prompt: string) {
     return (
-      selectedConversation !== null &&
+      session !== null &&
       !submittingRef.current &&
       actions.sendSteeringImmediately !== undefined &&
       canSendImmediateSteeringComposerDraft({
@@ -693,7 +697,7 @@ function ComposerComponent({
 
   function canAttachImages() {
     return (
-      selectedConversation !== null &&
+      session !== null &&
       attachmentActions !== undefined &&
       !disabled &&
       supportsImages &&
@@ -738,7 +742,7 @@ function ComposerComponent({
 
   async function openModelPicker() {
     if (
-      !selectedConversation ||
+      session === null ||
       modelActions === undefined ||
       disabled ||
       running ||
@@ -829,7 +833,7 @@ function ComposerComponent({
       runPresentation={runPresentation}
       running={running}
       selected={selected}
-      selectedConversation={selectedConversation}
+      session={session}
       selectedSuggestionIndex={selectedSuggestionIndex}
       sendDraft={sendDraft}
       sendImmediateSteering={sendImmediateSteering}
@@ -946,7 +950,7 @@ function ComposerComponent({
   }
 
   async function executeModelSelection(model: ChatModelOption) {
-    if (!selectedConversation || modelActions === undefined || disabled || submittingRef.current) {
+    if (session === null || modelActions === undefined || disabled || submittingRef.current) {
       return;
     }
     submittingRef.current = true;
@@ -960,7 +964,7 @@ function ComposerComponent({
   }
 
   async function executeReasoningEffortSelection(effort: ChatReasoningEffortOption) {
-    if (!selectedConversation || modelActions === undefined || disabled || submittingRef.current) {
+    if (session === null || modelActions === undefined || disabled || submittingRef.current) {
       return;
     }
     submittingRef.current = true;
@@ -983,18 +987,4 @@ function composerPropsEqual(previous: ComposerProps, next: ComposerProps) {
     runPresentationPropsEqual(previous.runPresentation, next.runPresentation) &&
     composerViewModelPropsEqual(previous.viewModel, next.viewModel)
   );
-}
-
-const composerScalarPropSelectors = [
-  (props: ComposerProps) => props.busy,
-  (props: ComposerProps) => props.disabled,
-  (props: ComposerProps) => props.formClassName,
-  (props: ComposerProps) => props.frameClassName,
-  (props: ComposerProps) => props.onSendPrompt,
-  (props: ComposerProps) => props.placeholder,
-  (props: ComposerProps) => props.running,
-] as const;
-
-function composerScalarPropsEqual(previous: ComposerProps, next: ComposerProps) {
-  return composerScalarPropSelectors.every((selector) => selector(previous) === selector(next));
 }

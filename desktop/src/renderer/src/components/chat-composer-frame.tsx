@@ -1,7 +1,6 @@
 import type {
   ChatCommandExecuteResult,
   ChatPermissionPresetID,
-  Conversation,
   ImageAttachment,
   ChatModelOption,
   ChatReasoningEffortOption,
@@ -29,6 +28,7 @@ import { ComposerPlaceholder, composerTextareaLabel } from "./chat-composer-help
 import { attachmentButtonTitle } from "./chat-composer-state";
 import { chatReadableColumnAttributes, chatReadableColumnClass } from "./chat-layout";
 import { Textarea } from "./ui/textarea";
+import type { ComposerSessionViewModel } from "./chat-composer-contract";
 
 type CommandPaletteProps = Parameters<typeof CommandPalette>[0];
 type PermissionPickerButtonProps = Parameters<typeof PermissionPickerButton>[0];
@@ -67,7 +67,7 @@ export interface ComposerFrameProps {
   runPresentation: ActiveRunPresentation;
   running: boolean;
   selected: boolean;
-  selectedConversation: Conversation | null;
+  session: ComposerSessionViewModel | null;
   selectedSuggestionIndex: number;
   sendDraft: () => Promise<void>;
   sendImmediateSteering: () => Promise<void>;
@@ -199,8 +199,9 @@ function ComposerLeftControls(props: ComposerFrameProps) {
           onOpen={() => void props.onOpenPermissionPicker()}
           onSelect={(preset) => void props.onPickPermissionPreset(preset)}
           permissionPicker={props.permissionPicker}
+          permissionLabel={props.session?.permissionLabel ?? "Ask for approval"}
           running={props.running}
-          selectedConversation={props.selectedConversation}
+          selected={props.selected}
         />
       ) : null}
       {props.attachmentActionsAvailable ? (
@@ -225,10 +226,12 @@ function ComposerRightControls(props: ComposerFrameProps) {
       {props.modelActionsAvailable ? (
         <ModelPickerButton
           disabled={props.modelPickerDisabled}
+          modelLabel={props.session?.modelLabel ?? "Model"}
           modelPicker={props.modelPicker}
           onOpen={() => void props.onOpenModelPicker()}
+          reasoningLabel={props.session?.reasoningLabel ?? "Reasoning"}
           running={props.running}
-          selectedConversation={props.selectedConversation}
+          selected={props.selected}
         />
       ) : null}
       <VoiceInputUnavailableButton />

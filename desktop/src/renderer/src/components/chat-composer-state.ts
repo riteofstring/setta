@@ -1,4 +1,4 @@
-import type { ChatCommandExecuteResult, Conversation } from "@generated/backend";
+import type { ChatCommandExecuteResult } from "@generated/backend";
 
 import { isSlashDraft } from "./chat-composer-helpers";
 
@@ -58,14 +58,6 @@ export function canSendImmediateSteeringDraft({
     supportsAttachments &&
     (draftText !== "" || hasPendingSteering)
   );
-}
-
-export function selectedConversationWorkspaceId(selectedConversation: Conversation | null) {
-  return selectedConversation?.workspaceId ?? null;
-}
-
-export function selectedConversationSupportsImages(selectedConversation: Conversation | null) {
-  return selectedConversation?.codexEffectiveSettings?.supportsImages ?? true;
 }
 
 export function composerSlashDraft(draft: string, hasAttachments: boolean) {

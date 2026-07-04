@@ -1,6 +1,16 @@
 import type { ActiveRunPresentation } from "../lib/chat-run-liveness";
 import type { ComposerActions, ComposerViewModel } from "./chat-composer-contract";
 
+interface ComposerScalarProps {
+  busy: boolean;
+  disabled?: boolean;
+  formClassName?: string;
+  frameClassName?: string;
+  onSendPrompt?: unknown;
+  placeholder?: string;
+  running: boolean;
+}
+
 const composerViewModelPropSelectors = [
   (viewModel: ComposerViewModel) => viewModel.activeRunId,
   (viewModel: ComposerViewModel) => viewModel.commandListError,
@@ -8,7 +18,7 @@ const composerViewModelPropSelectors = [
   (viewModel: ComposerViewModel) => viewModel.goal,
   (viewModel: ComposerViewModel) => viewModel.operation,
   (viewModel: ComposerViewModel) => viewModel.pendingSteeringMessageIds,
-  (viewModel: ComposerViewModel) => viewModel.selectedConversation,
+  (viewModel: ComposerViewModel) => viewModel.session,
   (viewModel: ComposerViewModel) => viewModel.status,
 ] as const;
 
@@ -31,12 +41,26 @@ const composerActionPropSelectors = [
   (actions: ComposerActions) => actions.stopActiveRun,
 ] as const;
 
+const composerScalarPropSelectors = [
+  (props: ComposerScalarProps) => props.busy,
+  (props: ComposerScalarProps) => props.disabled,
+  (props: ComposerScalarProps) => props.formClassName,
+  (props: ComposerScalarProps) => props.frameClassName,
+  (props: ComposerScalarProps) => props.onSendPrompt,
+  (props: ComposerScalarProps) => props.placeholder,
+  (props: ComposerScalarProps) => props.running,
+] as const;
+
 export function composerViewModelPropsEqual(previous: ComposerViewModel, next: ComposerViewModel) {
   return composerViewModelPropSelectors.every((selector) => selector(previous) === selector(next));
 }
 
 export function composerActionPropsEqual(previous: ComposerActions, next: ComposerActions) {
   return composerActionPropSelectors.every((selector) => selector(previous) === selector(next));
+}
+
+export function composerScalarPropsEqual(previous: ComposerScalarProps, next: ComposerScalarProps) {
+  return composerScalarPropSelectors.every((selector) => selector(previous) === selector(next));
 }
 
 export function runPresentationPropsEqual(

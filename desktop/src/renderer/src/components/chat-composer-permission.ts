@@ -2,7 +2,6 @@ import type {
   ChatCommandExecuteResult,
   ChatPermissionPreset,
   ChatPermissionPresetID,
-  Conversation,
 } from "@generated/backend";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 
@@ -14,19 +13,19 @@ interface UseComposerPermissionPickerOptions {
   focusComposer: () => void;
   permissionActions?: ComposerPermissionActions;
   running: boolean;
-  selectedConversation: Conversation | null;
+  sessionId: string;
   setDraft: (draft: string) => void;
   submittingRef: MutableRefObject<boolean>;
 }
 
 interface ScopedPermissionPicker {
-  conversationId: string;
   result: ChatCommandExecuteResult;
+  sessionId: string;
 }
 
 interface ScopedPermissionConfirmation {
-  conversationId: string;
   preset: ChatPermissionPreset;
+  sessionId: string;
 }
 
 export function useComposerPermissionPicker({
@@ -35,7 +34,7 @@ export function useComposerPermissionPicker({
   focusComposer,
   permissionActions,
   running,
-  selectedConversation,
+  sessionId,
   setDraft,
   submittingRef,
 }: UseComposerPermissionPickerOptions) {
@@ -44,28 +43,27 @@ export function useComposerPermissionPicker({
   );
   const [permissionConfirmationState, setPermissionConfirmationState] =
     useState<ScopedPermissionConfirmation | null>(null);
-  const selectedConversationId = selectedPermissionConversationId(selectedConversation);
-  const selectedConversationIdRef = useRef(selectedConversationId);
-  selectedConversationIdRef.current = selectedConversationId;
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
   const permissionPicker = permissionPickerResult(permissionPickerState);
   const permissionConfirmation = permissionConfirmationPreset(permissionConfirmationState);
   const permissionPickerDisabled = composerPermissionPickerDisabled({
     disabled,
     permissionActions,
     running,
-    selectedConversation,
+    sessionId,
   });
   const permissionPickerOpen = composerPermissionPickerOpen(permissionPicker);
 
   useEffect(() => {
-    selectedConversationIdRef.current = selectedConversationId;
+    sessionIdRef.current = sessionId;
     setPermissionPickerState((current) =>
-      permissionScopeActive(current?.conversationId ?? "", selectedConversationId) ? current : null,
+      permissionScopeActive(current?.sessionId ?? "", sessionId) ? current : null,
     );
     setPermissionConfirmationState((current) =>
-      permissionScopeActive(current?.conversationId ?? "", selectedConversationId) ? current : null,
+      permissionScopeActive(current?.sessionId ?? "", sessionId) ? current : null,
     );
-  }, [selectedConversationId]);
+  }, [sessionId]);
 
   useEffect(() => {
     if (!permissionPickerOpen && permissionConfirmation === null) {
@@ -110,8 +108,8 @@ export function useComposerPermissionPicker({
   }
 
   async function openPermissionPicker() {
-    const conversationId = selectedConversationIdRef.current;
-    if (permissionPickerDisabled || submittingRef.current || conversationId === "") {
+    const currentSessionId = sessionIdRef.current;
+    if (permissionPickerDisabled || submittingRef.current || currentSessionId === "") {
       return;
     }
     submittingRef.current = true;
@@ -120,12 +118,12 @@ export function useComposerPermissionPicker({
         return;
       }
       const result = await permissionActions.openCodexPermissionPicker();
-      if (!permissionScopeActive(conversationId, selectedConversationIdRef.current)) {
+      if (!permissionScopeActive(currentSessionId, sessionIdRef.current)) {
         return;
       }
       if (result.result.action === "permission_picker") {
         clearModelPicker();
-        setPermissionPickerState({ conversationId, result });
+        setPermissionPickerState({ result, sessionId: currentSessionId });
         setDraft("");
       }
     } finally {
@@ -141,7 +139,7 @@ export function useComposerPermissionPicker({
     if (pickerState === null) {
       return;
     }
-    if (!permissionScopeActive(pickerState.conversationId, selectedConversationIdRef.current)) {
+    if (!permissionScopeActive(pickerState.sessionId, sessionIdRef.current)) {
       clearPermissionPicker();
       return;
     }
@@ -151,10 +149,10 @@ export function useComposerPermissionPicker({
     }
     if (preset.danger?.requiresConfirmation === true) {
       clearPermissionPicker();
-      setPermissionConfirmationState({ conversationId: pickerState.conversationId, preset });
+      setPermissionConfirmationState({ preset, sessionId: pickerState.sessionId });
       return;
     }
-    await submitPermissionSelection(pickerState.conversationId, preset.id, false);
+    await submitPermissionSelection(pickerState.sessionId, preset.id, false);
   }
 
   async function confirmPermissionSelection() {
@@ -162,20 +160,16 @@ export function useComposerPermissionPicker({
     if (confirmationState === null || submittingRef.current) {
       return;
     }
-    await submitPermissionSelection(
-      confirmationState.conversationId,
-      confirmationState.preset.id,
-      true,
-    );
+    await submitPermissionSelection(confirmationState.sessionId, confirmationState.preset.id, true);
     setPermissionConfirmationState(null);
   }
 
   async function submitPermissionSelection(
-    conversationId: string,
+    scopedSessionId: string,
     presetId: ChatPermissionPresetID,
     confirmed: boolean,
   ) {
-    if (!permissionScopeActive(conversationId, selectedConversationIdRef.current)) {
+    if (!permissionScopeActive(scopedSessionId, sessionIdRef.current)) {
       clearPermissionPicker();
       setPermissionConfirmationState(null);
       return;
@@ -212,10 +206,6 @@ function permissionPresetByID(presets: ChatPermissionPreset[], presetId: ChatPer
   return presets.find((candidate) => candidate.id === presetId) ?? null;
 }
 
-function selectedPermissionConversationId(selectedConversation: Conversation | null) {
-  return selectedConversation?.id ?? "";
-}
-
 function permissionPickerResult(state: ScopedPermissionPicker | null) {
   return state?.result ?? null;
 }
@@ -228,23 +218,20 @@ function composerPermissionPickerDisabled({
   disabled,
   permissionActions,
   running,
-  selectedConversation,
+  sessionId,
 }: {
   disabled: boolean;
   permissionActions?: ComposerPermissionActions;
   running: boolean;
-  selectedConversation: Conversation | null;
+  sessionId: string;
 }) {
-  return permissionActions === undefined || selectedConversation === null || disabled || running;
+  return permissionActions === undefined || sessionId === "" || disabled || running;
 }
 
 function composerPermissionPickerOpen(permissionPicker: ChatCommandExecuteResult | null) {
   return permissionPicker?.result.action === "permission_picker";
 }
 
-export function permissionScopeActive(
-  scopedConversationId: string,
-  selectedConversationId: string,
-) {
-  return scopedConversationId !== "" && scopedConversationId === selectedConversationId;
+export function permissionScopeActive(scopedSessionId: string, currentSessionId: string) {
+  return scopedSessionId !== "" && scopedSessionId === currentSessionId;
 }

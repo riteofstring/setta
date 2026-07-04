@@ -1,29 +1,33 @@
+import type { ChatInput } from "@generated/backend";
+
 import type { ActiveRunPresentation } from "../lib/chat-run-liveness";
-import { commandDescriptorContextKey } from "../stores/chat-store-command-cache";
 import type { ComposerActions, ComposerViewModel } from "./chat-composer-contract";
-import { composerCanSteer } from "./chat-composer-liveness";
+import { composerCanSteer, type ActiveRunSubmitMode } from "./chat-composer-liveness";
 import {
+  canSendComposerDraft,
   canSendImmediateSteeringDraft,
   composerAttachmentsSupported,
   composerSlashDraft,
   immediateSteeringHasContent,
-  selectedConversationWorkspaceId,
 } from "./chat-composer-state";
 import { validateComposerAttachmentFiles } from "./chat-composer-attachments";
 
 export function composerCommandListContextKey(
   commandActions: ComposerActions["commands"],
-  running: boolean,
-  selectedConversation: ComposerViewModel["selectedConversation"],
+  session: ComposerViewModel["session"],
 ) {
   if (commandActions === undefined) {
     return "";
   }
-  return commandDescriptorContextKey({
-    active: running,
-    selectedConversation,
-    workspaceId: selectedConversationWorkspaceId(selectedConversation),
-  });
+  return session?.commandListContextKey ?? "";
+}
+
+export function composerSessionId(session: ComposerViewModel["session"]) {
+  return session?.id ?? "";
+}
+
+export function composerSessionSupportsImages(session: ComposerViewModel["session"]) {
+  return session?.supportsImages ?? true;
 }
 
 export function composerSlashDraftEnabled(
@@ -47,11 +51,11 @@ export function composerDraftSupportsAttachments(
 
 export function composerModelPickerDisabled(
   modelActions: ComposerActions["modelSettings"],
-  selectedConversation: ComposerViewModel["selectedConversation"],
+  session: ComposerViewModel["session"],
   disabled: boolean,
   running: boolean,
 ) {
-  return modelActions === undefined || selectedConversation === null || disabled || running;
+  return modelActions === undefined || session === null || disabled || running;
 }
 
 export function canSendImmediateSteeringComposerDraft({
@@ -89,6 +93,64 @@ export function canSendImmediateSteeringComposerDraft({
     slashDraft,
     supportsAttachments,
   });
+}
+
+export function canSendCurrentComposerDraft({
+  attaching,
+  disabled,
+  draftText,
+  hasAttachments,
+  submitActionAvailable,
+  supportsAttachments,
+}: {
+  attaching: boolean;
+  disabled: boolean;
+  draftText: string;
+  hasAttachments: boolean;
+  submitActionAvailable: boolean;
+  supportsAttachments: boolean;
+}) {
+  if (!submitActionAvailable) {
+    return false;
+  }
+  return canSendComposerDraft({
+    attaching,
+    disabled,
+    draftText,
+    hasAttachments,
+    supportsAttachments,
+  });
+}
+
+export function composerSubmitActionAvailable({
+  commandActions,
+  mode,
+  onSendPrompt,
+  sendMessage,
+  slashDraft,
+  steerMessage,
+}: {
+  commandActions: ComposerActions["commands"];
+  mode: ActiveRunSubmitMode;
+  onSendPrompt: ((input: ChatInput) => Promise<void>) | undefined;
+  sendMessage: ComposerActions["sendMessage"];
+  slashDraft: boolean;
+  steerMessage: ComposerActions["steerMessage"];
+}) {
+  if (onSendPrompt !== undefined) {
+    return true;
+  }
+  if (slashDraft) {
+    return commandActions !== undefined;
+  }
+  switch (mode) {
+    case "blocked":
+      return false;
+    case "send":
+      return sendMessage !== undefined;
+    case "steer":
+      return steerMessage !== undefined;
+  }
 }
 
 type ComposerAttachmentFilePreflight =

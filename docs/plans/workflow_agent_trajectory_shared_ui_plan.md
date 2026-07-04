@@ -258,6 +258,14 @@ output loading, immediate steering, and approval submission behavior. This
 slice did not wire workflow node details yet and did not remove the old workflow
 activity preview.
 
+Audit follow-up fixed residual selected-conversation coupling in the composer
+boundary. `ComposerViewModel` now exposes an explicit composer session with the
+derived command-cache key, model/permission labels, image support, and scope ID;
+the selected-chat composer adapter is the only composer path that reads
+`Conversation` state. Steering-only composer sessions no longer need a fake
+`sendMessage` action, and send/steering controls are enabled only when the
+current run mode has the matching action.
+
 Verification: focused renderer coverage passed with
 `pnpm -C desktop exec vitest run src/renderer/src/components/chat-panel.test.tsx src/renderer/src/components/agent-trajectory.test.tsx`;
 desktop typecheck and production build passed with `pnpm -C desktop typecheck`
@@ -278,6 +286,24 @@ transcript-scroll launch helper passed both `transcript-scroll` and
 `OPENAI_API_KEY` unset, but local Codex `config/read` still returned unsupported
 `approval_policy = "on-failure"`, so Setta rejected conversation creation before
 live-provider execution.
+
+Audit follow-up focused verification passed
+`pnpm -C desktop exec vitest run src/renderer/src/components/chat-composer.test.tsx src/renderer/src/components/chat-panel.test.tsx src/renderer/src/components/agent-trajectory.test.tsx`
+and `pnpm -C desktop typecheck`. `./scripts/format.sh` and
+`./check_quality.sh --git-changes` passed after the follow-up. A deterministic
+Electron rerun with
+`node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only`
+passed through happy path, image attachments, composer prompt history, activity
+projection, command-start failure, chronological transcript, background
+terminal, queued controls, cancel/fail queue, approvals, slash commands,
+permission modes, conversation switch, defaults, lifecycle hardening,
+workflow-node trajectory contract, Codex approval-policy removal, Codex
+app-server lifecycle, transcript search/scroll/reload, sidebar,
+cross-workspace sidebar, and unread-conversation scenarios before failing in the
+existing later Codex-protocol workflow wait with `rows: []`. Live Codex
+Electron coverage was attempted with `OPENAI_API_KEY` unset, but local Codex
+`config/read` still returned unsupported `approval_policy = "on-failure"`, so
+Setta rejected conversation creation before live-provider execution.
 
 Remaining: Slice 3 must add the renderer workflow-node adapter and replace the
 current workflow details activity preview. Slice 5 must remove the old preview
