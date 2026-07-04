@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, test } from "vitest";
 
+import { generateBenchmarkScene } from "./benchmark-scene";
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
-import { minimumColumnWidth } from "./layout-engine-helpers";
+import {
+  minimumColumnWidth,
+  OVERVIEW_MAX_ZOOM_SCALE,
+  OVERVIEW_MIN_ZOOM,
+} from "./layout-engine-helpers";
 import { WorkspaceLayoutStore } from "./layout-store";
 import {
   commitPaneResize,
@@ -220,6 +225,7 @@ describe("workspace layout store", () => {
 
     expect(aboveColumn.planeIndex).toBe(aboveTargetColumn.planeIndex - 1);
     expect(aboveColumn.slotIndex).toBe(aboveTargetColumn.slotIndex);
+    expect(aboveScene.columns.every((column) => column.planeIndex >= 0)).toBe(true);
 
     const belowStore = createStore();
     const belowPaneId = belowStore.openEmptyFrameNear("workspace_pane_1", "below");
@@ -412,6 +418,170 @@ describe("workspace layout store", () => {
     });
   });
 
+  test("pans the overview surface and clamps to content bounds", () => {
+    // A min card width keeps thumbnails readable (the "floor"), so a narrow
+    // viewport overflows and must be pannable.
+    const store = createOverflowingOverviewStore();
+    const narrow: Rect = { height: 360, width: 480, x: 0, y: 0 };
+
+    // No panning outside overview.
+    expect(store.panOverviewBy(200, 200, narrow)).toBe(false);
+
+    store.toggleOverviewMode();
+    expect(store.panOverviewBy(10_000, 10_000, narrow)).toBe(true);
+    expect(store.getSnapshot().overviewPanX).toBeGreaterThan(0);
+
+    // Already at the far edge: panning further is a no-op.
+    expect(store.panOverviewBy(10_000, 10_000, narrow)).toBe(false);
+
+    // Panning back past the origin clamps at zero.
+    expect(store.panOverviewBy(-10_000, -10_000, narrow)).toBe(true);
+    expect(store.getSnapshot()).toMatchObject({ overviewPanX: 0, overviewPanY: 0 });
+  });
+
+  test("resets overview pan when leaving and re-entering overview", () => {
+    const store = createOverflowingOverviewStore();
+    const narrow: Rect = { height: 360, width: 480, x: 0, y: 0 };
+
+    store.toggleOverviewMode();
+    store.panOverviewBy(10_000, 10_000, narrow);
+    expect(store.getSnapshot().overviewPanX).toBeGreaterThan(0);
+
+    store.toggleOverviewMode();
+    expect(store.getSnapshot()).toMatchObject({ overviewPanX: 0, overviewPanY: 0 });
+  });
+
+  test("overview zoom defaults to fit, resets on re-entry, and no-ops outside overview", () => {
+    const { store } = createOverviewZoomFixture();
+    const small: Rect = { height: 320, width: 420, x: 0, y: 0 };
+
+    expect(store.getSnapshot().overviewZoom).toBe(1);
+    expect(store.zoomOverviewBy(2, 200, 160, small)).toBe(false);
+
+    store.toggleOverviewMode();
+    expect(store.zoomOverviewBy(2, 200, 160, small)).toBe(true);
+    expect(store.getSnapshot().overviewZoom).toBeGreaterThan(1);
+
+    store.toggleOverviewMode();
+    store.toggleOverviewMode();
+    expect(store.getSnapshot().overviewZoom).toBe(1);
+  });
+
+  test("clamps overview zoom between the zoom-out floor and the zoom-in cap", () => {
+    const { engine, store } = createOverviewZoomFixture();
+    const small: Rect = { height: 320, width: 420, x: 0, y: 0 };
+
+    store.toggleOverviewMode();
+    const fit = engine.overviewContentBounds(small).scale;
+
+    // Zooming out drops below fit (smaller than fit-all) and saturates at the floor.
+    let outGuard = 0;
+    while (store.zoomOverviewBy(0.5, 200, 160, small) && outGuard < 64) {
+      outGuard += 1;
+    }
+    expect(outGuard).toBeLessThan(64);
+    expect(store.getSnapshot().overviewZoom).toBeCloseTo(OVERVIEW_MIN_ZOOM, 5);
+    expect(
+      engine.overviewContentBounds(small, null, store.getSnapshot().overviewZoom).scale,
+    ).toBeLessThan(fit);
+
+    // Zooming back in saturates at the cap.
+    let inGuard = 0;
+    while (store.zoomOverviewBy(2, 200, 160, small) && inGuard < 64) {
+      inGuard += 1;
+    }
+    expect(inGuard).toBeLessThan(64);
+    const effective = engine.overviewContentBounds(
+      small,
+      null,
+      store.getSnapshot().overviewZoom,
+    ).scale;
+    expect(effective).toBeCloseTo(OVERVIEW_MAX_ZOOM_SCALE, 5);
+  });
+
+  test("zooming in enables overview panning that fit-all did not allow", () => {
+    const { engine, store } = createOverviewZoomFixture();
+    const small: Rect = { height: 320, width: 420, x: 0, y: 0 };
+
+    store.toggleOverviewMode();
+    // Fit-all already fits this viewport, so there is no pan room.
+    expect(store.panOverviewBy(10_000, 10_000, small)).toBe(false);
+
+    // Zooming in overflows the viewport, which opens pan room.
+    for (let index = 0; index < 6; index += 1) {
+      store.zoomOverviewBy(2, 210, 160, small);
+    }
+    expect(
+      engine.overviewContentBounds(small, null, store.getSnapshot().overviewZoom).maxPanX,
+    ).toBeGreaterThan(0);
+    expect(store.panOverviewBy(10_000, 10_000, small)).toBe(true);
+    expect(store.getSnapshot().overviewPanX).toBeGreaterThan(0);
+  });
+
+  test("previews an insert frame on the exact slot and clears it on exit", () => {
+    const { store } = createOverviewZoomFixture();
+    const vp: Rect = { height: 720, width: 1024, x: 0, y: 0 };
+
+    // No preview outside overview.
+    expect(store.previewInsertFrame("workspace_pane_0", "right", vp)).toBe(false);
+
+    store.toggleOverviewMode();
+    expect(store.previewInsertFrame("workspace_pane_0", "right", vp)).toBe(true);
+    const target = store.getSnapshot().overviewInsertPreviewTarget;
+    if (!target) {
+      throw new Error("expected an insert preview target");
+    }
+    expect(target).toMatchObject({ paneId: "workspace_pane_0", placement: "right" });
+    expect(target.width).toBeGreaterThan(0);
+    expect(store.hasInsertFramePreview()).toBe(true);
+    expect(store.insertFramePreview()).toEqual({
+      anchorPaneId: "workspace_pane_0",
+      placement: "right",
+    });
+
+    // Re-previewing the same slot is a no-op.
+    expect(store.previewInsertFrame("workspace_pane_0", "right", vp)).toBe(false);
+
+    expect(store.clearInsertFramePreview()).toBe(true);
+    expect(store.getSnapshot().overviewInsertPreviewTarget).toBeNull();
+    expect(store.hasInsertFramePreview()).toBe(false);
+
+    // Leaving overview drops any active preview.
+    store.previewInsertFrame("workspace_pane_0", "below", vp);
+    store.toggleOverviewMode();
+    expect(store.hasInsertFramePreview()).toBe(false);
+    expect(store.getSnapshot().overviewInsertPreviewTarget).toBeNull();
+  });
+
+  test("zoom keeps the surface point under the cursor fixed", () => {
+    // A benchmark scene overflows comfortably even at fit, so the focal-preserving
+    // pan lands strictly inside the bounds (not clamped) and is testable exactly.
+    const { engine, store } = createBenchmarkOverviewFixture();
+    const vp: Rect = { height: 720, width: 1024, x: 0, y: 0 };
+    const focalX = 700;
+    const focalY = 500;
+
+    store.toggleOverviewMode();
+    const before = engine.overviewContentBounds(vp, null, store.getSnapshot().overviewZoom);
+    // The niri-style benchmark scene overflows horizontally (the scroll axis).
+    expect(before.maxPanX).toBeGreaterThan(0);
+    const start = store.getSnapshot();
+    const surfaceXBefore = (focalX - (before.baseXOffset - start.overviewPanX)) / before.scale;
+
+    expect(store.zoomOverviewBy(1.5, focalX, focalY, vp)).toBe(true);
+
+    const end = store.getSnapshot();
+    const after = engine.overviewContentBounds(vp, null, end.overviewZoom);
+    const surfaceXAfter = (focalX - (after.baseXOffset - end.overviewPanX)) / after.scale;
+
+    // Horizontal pan stayed strictly within bounds, so the focal point is preserved.
+    expect(end.overviewPanX).toBeGreaterThan(0);
+    expect(end.overviewPanX).toBeLessThan(after.maxPanX);
+    expect(surfaceXAfter).toBeCloseTo(surfaceXBefore, 1);
+    // The content fits vertically, so the vertical pan stays pinned at the origin.
+    expect(end.overviewPanY).toBe(0);
+  });
+
   test("animates overview progress toward the selected presentation mode", () => {
     const store = createStore();
 
@@ -486,20 +656,19 @@ describe("workspace layout store", () => {
     expect(store.focusPane("missing")).toBe(false);
   });
 
-  test("reorders columns by dragging a pane before an overview target", () => {
+  test("drops a pane before a target row through the legacy reorder wrapper", () => {
     const store = createStore();
 
     expect(store.reorderPaneBefore("workspace_pane_3", "workspace_pane_1")).toBe(true);
 
-    expect(store.toScene().columns.map((column) => column.paneIds[0])).toEqual([
-      "workspace_pane_0",
+    expect(requireColumnForPane(store.toScene(), "workspace_pane_1").paneIds).toEqual([
       "workspace_pane_3",
       "workspace_pane_1",
-      "workspace_pane_2",
     ]);
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
       focusedPaneId: "workspace_pane_3",
+      focusedRowIndex: 0,
     });
   });
 
@@ -515,6 +684,116 @@ describe("workspace layout store", () => {
       focusedPaneId: lowerPaneId,
       focusedRowIndex: 0,
     });
+  });
+
+  test("commits an after-placement row drop once", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPane("down");
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "after",
+        targetPaneId: lowerPaneId,
+      }),
+    ).toBe(true);
+
+    expect(store.toScene().columns[0]?.paneIds).toEqual([lowerPaneId, "workspace_pane_0"]);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 0,
+      focusedPaneId: "workspace_pane_0",
+      focusedRowIndex: 1,
+      revision: revisionBeforeDrop + 1,
+    });
+  });
+
+  test("skips no-op row drops without bumping revision", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPane("down");
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent(lowerPaneId, {
+        kind: "row",
+        placement: "after",
+        targetPaneId: "workspace_pane_0",
+      }),
+    ).toBe(false);
+
+    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", lowerPaneId]);
+    expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
+  });
+
+  test("skips drop onto self without bumping revision", () => {
+    const store = createStore();
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "after",
+        targetPaneId: "workspace_pane_0",
+      }),
+    ).toBe(false);
+
+    expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
+  });
+
+  test("skips no-op column drops without bumping revision", () => {
+    const store = createStore();
+    const sourceColumn = requireColumnForPane(store.toScene(), "workspace_pane_0");
+    const targetColumn = requireColumnForPane(store.toScene(), "workspace_pane_1");
+    const revisionBeforeDrop = store.getSnapshot().revision;
+
+    expect(
+      store.applyPaneDropIntent("workspace_pane_0", {
+        kind: "column",
+        planeIndex: targetColumn.planeIndex,
+        slotPlacement: "before",
+        targetColumnId: targetColumn.columnId,
+      }),
+    ).toBe(false);
+
+    expect(requireColumnForPane(store.toScene(), "workspace_pane_0").columnId).toBe(
+      sourceColumn.columnId,
+    );
+    expect(store.getSnapshot().revision).toBe(revisionBeforeDrop);
+  });
+
+  test("bounds preview notifications to changed drag intents", () => {
+    const store = createStore();
+    const revisions: number[] = [];
+    store.subscribe((snapshot) => {
+      revisions.push(snapshot.revision);
+    });
+
+    expect(
+      store.previewPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "before",
+        targetPaneId: "workspace_pane_1",
+      }),
+    ).toBe(true);
+    expect(
+      store.previewPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "before",
+        targetPaneId: "workspace_pane_1",
+      }),
+    ).toBe(false);
+    expect(
+      store.previewPaneDropIntent("workspace_pane_0", {
+        kind: "column",
+        planeIndex: 0,
+        slotPlacement: "after",
+        targetColumnId: "workspace_column_1",
+      }),
+    ).toBe(true);
+    expect(store.clearPaneDropPreview()).toBe(true);
+    expect(store.clearPaneDropPreview()).toBe(false);
+
+    expect(revisions).toEqual([1, 2, 3]);
   });
 
   test("focuses an existing surface by kind for sidebar entry points", () => {
@@ -553,6 +832,26 @@ describe("workspace layout store", () => {
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
     ]);
+  });
+
+  test("resizes same-slot columns across vertical planes", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPaneToPlane("down");
+    const lowerColumn = requireColumnForPane(store.toScene(), lowerPaneId);
+
+    expect(store.resizePaneColumn(lowerPaneId, { unit: "px", value: 680 })).toBe(
+      lowerColumn.columnId,
+    );
+
+    const scene = store.toScene();
+    expect(requireColumnForPane(scene, "workspace_pane_0").widthSpec).toEqual({
+      unit: "px",
+      value: 680,
+    });
+    expect(requireColumnForPane(scene, lowerPaneId).widthSpec).toEqual({
+      unit: "px",
+      value: 680,
+    });
   });
 
   test("manual horizontal resize previews movement and commits once", () => {
@@ -717,6 +1016,55 @@ function createStore(paneLimits?: PaneLimitPolicy): WorkspaceLayoutStore {
   return new WorkspaceLayoutStore(new WorkspaceLikeLayoutEngine(scene), scene, focusedPaneId, {
     paneLimits,
   });
+}
+
+function createOverviewZoomFixture(): {
+  engine: WorkspaceLikeLayoutEngine;
+  store: WorkspaceLayoutStore;
+} {
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {},
+  });
+  const { focusedPaneId, scene } = createRealWorkspaceScene({
+    storedLayout: null,
+    workspaceId: "setta:workspace-layout:store-overview-zoom",
+    workspaceName: "Repo",
+  });
+  const engine = new WorkspaceLikeLayoutEngine(scene);
+  const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
+  return { engine, store };
+}
+
+function createBenchmarkOverviewFixture(): {
+  engine: WorkspaceLikeLayoutEngine;
+  store: WorkspaceLayoutStore;
+} {
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {},
+  });
+  const scene = generateBenchmarkScene();
+  const engine = new WorkspaceLikeLayoutEngine(scene);
+  const store = new WorkspaceLayoutStore(engine, scene, scene.panes[0]?.paneId);
+  return { engine, store };
+}
+
+function createOverflowingOverviewStore(): WorkspaceLayoutStore {
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {},
+  });
+  const { focusedPaneId, scene } = createRealWorkspaceScene({
+    storedLayout: null,
+    workspaceId: "setta:workspace-layout:store-overview-pan",
+    workspaceName: "Repo",
+  });
+  return new WorkspaceLayoutStore(
+    new WorkspaceLikeLayoutEngine(scene, { overviewCardMinWidthPx: 360 }),
+    scene,
+    focusedPaneId,
+  );
 }
 
 function columnForPane(scene: WorkspaceScene, paneId: string): WorkspaceColumn | undefined {

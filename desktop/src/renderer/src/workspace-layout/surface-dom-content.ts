@@ -318,9 +318,7 @@ function pinSnapshotRootBounds(source: Element, clone: Element): void {
   if (!dataset || !style) {
     return;
   }
-  const rect = source.getBoundingClientRect();
-  const width = Math.round(rect.width);
-  const height = Math.round(rect.height);
+  const { width, height } = unscaledSnapshotBounds(source);
   if (width > 0) {
     dataset.snapshotWidth = String(width);
     setSnapshotBoxSize(style, "width", width);
@@ -332,6 +330,29 @@ function pinSnapshotRootBounds(source: Element, clone: Element): void {
   if (width > 0 || height > 0) {
     style.setProperty("overflow", "hidden");
   }
+}
+
+export function unscaledSnapshotBounds(source: Element): { height: number; width: number } {
+  // offsetWidth/offsetHeight report the element's layout box and ignore any
+  // ancestor CSS transforms (e.g. the overview `scale()` applied to the pane
+  // host). getBoundingClientRect would return the post-transform visual size,
+  // which in overview is the shrunken thumbnail size — pinning the frozen clone
+  // to that makes the snapshot render at a fraction of its pane box. Capture the
+  // untransformed layout size so the frozen visual fills its host correctly.
+  if (isHtmlMeasurableElement(source)) {
+    return { height: source.offsetHeight, width: source.offsetWidth };
+  }
+  const rect = source.getBoundingClientRect();
+  return { height: Math.round(rect.height), width: Math.round(rect.width) };
+}
+
+function isHtmlMeasurableElement(
+  element: Element,
+): element is Element & { offsetHeight: number; offsetWidth: number } {
+  return (
+    typeof (element as Partial<HTMLElement>).offsetWidth === "number" &&
+    typeof (element as Partial<HTMLElement>).offsetHeight === "number"
+  );
 }
 
 function setSnapshotBoxSize(

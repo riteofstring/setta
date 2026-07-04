@@ -3,9 +3,6 @@ package chat
 import "fmt"
 
 func (service *Service) ensureCanStartTurnLocked(workspaceID string, conversationID string, key string) error {
-	if service.shuttingDown {
-		return fmt.Errorf("chat service is shutting down")
-	}
 	if _, ok := service.active[key]; ok {
 		return fmt.Errorf("conversation already has an active turn: %s", conversationID)
 	}

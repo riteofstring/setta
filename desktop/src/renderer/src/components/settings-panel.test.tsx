@@ -6,6 +6,7 @@ import type {
   AppearanceShadcnPalette,
   AppearanceStatusPalette,
   AppearanceTailwindPalette,
+  AppearanceWorkspacePalette,
 } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -21,10 +22,10 @@ describe("appearance settings", () => {
     expect(html).toContain('role="tablist"');
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain("Theme");
-    expect(html).toContain("Chat Defaults");
     expect(html).toContain("Shortcuts");
     expect(html).toContain("Developer");
     expect(html).toContain("Codex Account");
+    expect(html).toContain("bg-transparent");
     expect(html).toContain('role="tabpanel"');
     expect(html).toContain("Loading theme settings");
     expect(html).not.toContain('data-testid="codex-account-settings"');
@@ -70,6 +71,10 @@ describe("appearance settings", () => {
     expect(variables["--background"]).toBe(settings.dark.shadcn.background);
     expect(variables["--status-warning"]).toBe(settings.dark.status.warning);
     expect(variables["--color-status-warning"]).toBe(settings.dark.status.warning);
+    expect(variables["--workspace-surface"]).toBe(settings.dark.workspace.surface);
+    expect(variables["--color-workspace-pane-selected-outline"]).toBe(
+      settings.dark.workspace.paneSelectedOutline,
+    );
     expect(variables["--font-sans"]).toBe(settings.fonts.sans);
   });
 
@@ -129,14 +134,24 @@ describe("appearance settings", () => {
     expect(normalizedHtml).toContain("3 options");
     expect(normalizedHtml).toContain("Setta Standard");
     expect(html).toContain("Custom Seed Palette");
+    expect(html).toContain("Custom OKLCH seed color");
+    expect(html).toContain("oklch(0.8460 0.1292 213.38)");
     expect(html).toContain("Color scheme");
     expect(html).toContain("Light");
     expect(html).toContain("Dark");
     expect(html).toContain("Fonts");
     expect(html).toContain("Advanced Color Tokens");
+    expect(html).toContain("Niri Workspace");
     expect(html).toContain("Palette Scale");
     expect(html).toContain("shadcn/ui Tokens");
     expect(html).toContain("Status Colors");
+    expect(html).toContain("Setta color");
+    expect(html).toContain("OKLCH picker");
+    expect(html).toContain("Lightness");
+    expect(html).toContain("Chroma");
+    expect(html).toContain("Hue");
+    expect(html).toContain("Pane selected outline");
+    expect(html).toContain("Dot grid");
     expect(html).toContain("Setta 900");
     expect(html).toContain("Card foreground");
     expect(html).toContain("Warning foreground");
@@ -199,6 +214,7 @@ function sampleColorScheme(
     shadcn: sampleShadcnPalette(offset),
     status: sampleStatusPalette(offset + 40),
     tailwind,
+    workspace: sampleWorkspacePalette(offset + 80),
   };
 }
 
@@ -278,6 +294,20 @@ function sampleAccentPalette(offset: number): AppearanceAccentPalette {
     red: color(offset + 4),
     teal: color(offset + 7),
     violet: color(offset + 2),
+  };
+}
+
+function sampleWorkspacePalette(offset: number): AppearanceWorkspacePalette {
+  return {
+    dotGrid: color(offset + 1),
+    dragTargetOutline: color(offset + 8),
+    dragTargetSurface: color(offset + 7),
+    paneEdge: color(offset + 4),
+    paneSelectedGlow: color(offset + 6),
+    paneSelectedOutline: color(offset + 5),
+    paneSurface: color(offset + 2),
+    paneTitleBarSurface: color(offset + 3),
+    surface: color(offset),
   };
 }
 
