@@ -825,9 +825,10 @@ Status after the transcript scroll stickiness step:
   scrollbar-edge pointer intent, or measured upward scroll movement. Focused
   production-path Electron transcript-scroll and full deterministic chat
   workflows passed on the final build.
-- Remaining: no known Slice 6 implementation gap. Remaining plan work is the
-  earlier activity typed-detail/rendering backlog: failed starts and stream
-  lifecycle activity rows.
+- Remaining: no known Slice 6 implementation gap. The later activity audit
+  completed the earlier failed-start and stream-lifecycle row backlog; the only
+  known remaining dependency is upstream Codex support for structured live
+  failed-start events, noted above.
 
 ### Slice 7: Composer Prompt History
 
@@ -870,9 +871,10 @@ Status after the composer prompt-history step:
   `thumbnail` variant and preserve exposed `ChatImageInput` detail metadata for
   resubmission. Missing or cross-conversation image references produce explicit
   diagnostics.
-- Remaining: no known Slice 7 implementation gap. Remaining plan work is the
-  earlier activity typed-detail/rendering backlog: failed starts and stream
-  lifecycle activity rows.
+- Remaining: no known Slice 7 implementation gap. The later activity audit
+  completed the earlier failed-start and stream-lifecycle row backlog; the only
+  known remaining dependency is upstream Codex support for structured live
+  failed-start events, noted above.
 
 ## Verification Plan
 
