@@ -124,6 +124,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       <main className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
         <ProjectPane
           activeRun={projectChat.activeRun}
+          activeRunLiveness={projectChat.activeRunLiveness}
           createConversation={createConversationAndFocusChat}
           createWorkspaceConversation={createWorkspaceConversationAndFocusChat}
           deleteConversation={deleteConversation}
@@ -220,6 +221,7 @@ type ProjectPaneChatState = ReturnType<typeof useProjectPaneChatState>;
 
 function useProjectPaneChatState() {
   const activeRun = useChatStore((state) => state.activeRun);
+  const activeRunLiveness = useChatStore((state) => state.activeRunLiveness);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
   const deleteConversation = useChatStore((state) => state.deleteConversation);
@@ -229,6 +231,7 @@ function useProjectPaneChatState() {
 
   return {
     activeRun,
+    activeRunLiveness,
     createConversation,
     createWorkspaceConversation,
     deleteConversation,
@@ -240,6 +243,7 @@ function useProjectPaneChatState() {
 
 function ProjectPane({
   activeRun,
+  activeRunLiveness,
   createConversation,
   createWorkspaceConversation,
   deleteConversation,
@@ -256,6 +260,7 @@ function ProjectPane({
   workspace,
 }: {
   activeRun: ProjectPaneChatState["activeRun"];
+  activeRunLiveness: ProjectPaneChatState["activeRunLiveness"];
   createConversation: ProjectPaneChatState["createConversation"];
   createWorkspaceConversation: ProjectPaneChatState["createWorkspaceConversation"];
   deleteConversation: ProjectPaneChatState["deleteConversation"];
@@ -278,6 +283,7 @@ function ProjectPane({
   const sidebar = (
     <WorkspaceSidebar
       activeRun={activeRun}
+      activeRunLiveness={activeRunLiveness}
       activeWorkspaces={workspace.activeWorkspaces}
       busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
       clearWorkspaceError={workspace.clearError}

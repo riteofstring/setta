@@ -179,7 +179,7 @@ func mergeRunItemSummary(bundle *CartographerInputBundle, item chat.RunItem) {
 	if isToolLikeRunItem(item.Type) {
 		bundle.ToolCalls = upsertToolSummary(bundle.ToolCalls, cartographerToolSummary(item))
 	}
-	if item.Type == chat.RunItemTypeFileChange || item.DiffSummary != "" || len(item.FilePaths) > 0 {
+	if item.Type == chat.RunItemTypeFileChange || item.Type == chat.RunItemTypeDiff || len(item.FilePaths) > 0 {
 		bundle.FileChanges = upsertFileChangeSummary(bundle.FileChanges, cartographerFileChangeSummary(item))
 	}
 	if item.Type == chat.RunItemTypeCommandExecution {
@@ -188,28 +188,65 @@ func mergeRunItemSummary(bundle *CartographerInputBundle, item chat.RunItem) {
 }
 
 func cartographerToolSummary(item chat.RunItem) CartographerToolCallSummary {
+	title := item.Title
+	toolName := item.ToolName
+	serverName := item.ServerName
+	resultSummary := firstNonEmpty(item.Summary, item.Result, item.Progress)
+	errorMessage := item.Error
+	if details, ok := item.MCPToolCallDetails(); ok {
+		title = firstNonEmpty(title, details.DisplayTitle)
+		toolName = details.ToolName
+		serverName = details.ServerName
+		resultSummary = firstNonEmpty(item.Summary, details.ResultSummary, details.Progress)
+		errorMessage = details.Error
+	}
+	if details, ok := item.DynamicToolCallDetails(); ok {
+		title = firstNonEmpty(title, details.DisplayTitle)
+		toolName = details.ToolName
+		serverName = details.Namespace
+		resultSummary = firstNonEmpty(item.Summary, details.ResultSummary)
+		errorMessage = details.Error
+	}
 	return CartographerToolCallSummary{
 		RunItemID:     item.ID,
 		Type:          string(item.Type),
 		Status:        string(item.Status),
-		Title:         item.Title,
+		Title:         title,
 		Command:       item.Command,
 		Cwd:           item.Cwd,
-		ToolName:      item.ToolName,
-		ServerName:    item.ServerName,
-		ResultSummary: firstNonEmpty(item.Summary, item.Result, item.Progress),
-		Error:         item.Error,
+		ToolName:      toolName,
+		ServerName:    serverName,
+		ResultSummary: resultSummary,
+		Error:         errorMessage,
 		ExitCode:      item.ExitCode,
 	}
 }
 
 func cartographerFileChangeSummary(item chat.RunItem) CartographerFileChangeSummary {
+	if details, ok := item.FileChangeDetails(); ok {
+		return CartographerFileChangeSummary{
+			RunItemID:   item.ID,
+			Status:      string(item.Status),
+			FilePaths:   chatFileChangeDetailPaths(details),
+			PatchStatus: details.PatchStatus,
+			DiffSummary: boundedText(chatFileChangeDetailSummary(details), cartographerEventSummaryLimit).text,
+		}
+	}
+	if details, ok := item.DiffDetails(); ok {
+		return CartographerFileChangeSummary{
+			RunItemID:   item.ID,
+			Status:      string(item.Status),
+			FilePaths:   chatDiffDetailPaths(details),
+			PatchStatus: "",
+			DiffSummary: boundedText(chatDiffDetailSummary(details), cartographerEventSummaryLimit).text,
+		}
+	}
 	return CartographerFileChangeSummary{
 		RunItemID:   item.ID,
 		Status:      string(item.Status),
 		FilePaths:   append([]string{}, item.FilePaths...),
 		PatchStatus: item.PatchStatus,
-		DiffSummary: boundedText(item.DiffSummary, cartographerEventSummaryLimit).text,
+		DiffSummary: "",
 	}
 }
 

@@ -60,6 +60,7 @@ type Server struct {
 	closeWorkflowStore      func() error
 	closeEvents             func()
 	closeWorkflowEvents     func()
+	drainChatTurns          func(context.Context) error
 	codexManager            *codexapp.Manager
 	server                  *http.Server
 	listener                net.Listener
@@ -151,6 +152,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeWorkflowStore:      services.workflowStore.Close,
 		closeEvents:             services.chatService.CloseEvents,
 		closeWorkflowEvents:     services.workflowService.CloseEvents,
+		drainChatTurns:          services.chatService.ShutdownActiveTurns,
 		codexManager:            services.codexManager,
 		server:                  newHTTPServer(config, services),
 		listener:                listener,
@@ -455,13 +457,39 @@ func (server *Server) Shutdown(ctx context.Context) error {
 		return errors.New("shutdown context is required")
 	}
 	var shutdownErr error
+	httpShutdown := server.startHTTPShutdown(ctx)
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownChatTurns(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.closeEventStreams(ctx))
+	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownTerminal(ctx))
-	shutdownErr = firstShutdownError(shutdownErr, server.server.Shutdown(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownCodex(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownSemanticStore())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownWorkflowStore())
 	return shutdownErr
+}
+
+func (server *Server) startHTTPShutdown(ctx context.Context) <-chan error {
+	done := make(chan error, 1)
+	go func() {
+		done <- server.server.Shutdown(ctx)
+	}()
+	return done
+}
+
+func waitHTTPShutdown(ctx context.Context, done <-chan error) error {
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (server *Server) shutdownChatTurns(ctx context.Context) error {
+	if server.drainChatTurns == nil {
+		return nil
+	}
+	return server.drainChatTurns(ctx)
 }
 
 func (server *Server) closeEventStreams(ctx context.Context) error {
