@@ -1113,16 +1113,26 @@ type failingWorkflowStore struct {
 	failErr         error
 }
 
+func (store *failingWorkflowStore) PersistExecutionStart(version WorkflowDefinitionVersion, transition WorkflowTransition) ([]WorkflowEventEnvelope, error) {
+	if store.shouldFailPersistence() {
+		return nil, store.failErr
+	}
+	return store.Store.PersistExecutionStart(version, transition)
+}
+
 func (store *failingWorkflowStore) PersistTransition(transition WorkflowTransition) ([]WorkflowEventEnvelope, error) {
+	if store.shouldFailPersistence() {
+		return nil, store.failErr
+	}
+	return store.Store.PersistTransition(transition)
+}
+
+func (store *failingWorkflowStore) shouldFailPersistence() bool {
 	store.mu.Lock()
 	store.persistCalls++
 	shouldFail := store.persistCalls == store.failPersistCall
-	failErr := store.failErr
 	store.mu.Unlock()
-	if shouldFail {
-		return nil, failErr
-	}
-	return store.Store.PersistTransition(transition)
+	return shouldFail
 }
 
 func testRunnerRefsForRequest(request ActionStartRequest) []WorkflowActionRunnerRef {

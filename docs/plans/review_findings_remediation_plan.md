@@ -547,6 +547,40 @@ Add focused Go coverage:
 Because this touches workflow run lifecycle and production workflow state, add deterministic Electron app workflow coverage through the production
 Electron/main/preload/renderer/HTTP/store paths. The E2E should attempt an invalid run, then repair the draft and verify the first successful run is `v1`.
 
+### Progress
+
+Status: Completed 2026-07-03.
+
+Implemented version commit ordering at the orchestrator/store boundary:
+
+- `StartExecution` now builds the latest-draft `WorkflowDefinitionVersion` in memory, validates the executable graph before any version write, and persists a
+  new draft snapshot only through the execution-start commit path.
+- Added an execution-start store transaction path, which inserts the definition version, execution materialized state, and initial workflow events in one SQLite
+  transaction. If any part of that transaction fails, the version and execution are rolled back together.
+- Explicit historical-version starts load and validate the existing immutable version and commit only the new execution/events; they do not create another
+  definition version.
+- Existing workflow runner post-start failure tests continue to count the new execution-start transaction as the first persistence boundary.
+
+Coverage added:
+
+- blank workflow starts fail validation and leave no version row or execution;
+- invalid nonblank executable graphs fail validation and leave no version row or execution;
+- after a rejected start attempt, the first successful repaired run creates `v1`;
+- duplicate-event persistence failure inside the execution-start transaction rolls back the newly inserted version and execution;
+- explicit historical-version starts reuse the existing version and keep the latest version number unchanged;
+- deterministic Electron workflow coverage creates a blank workflow through production app paths, observes the start failure, repairs the graph, starts it, and
+  verifies the first successful execution summary is version `1`.
+
+Verification performed:
+
+- `./scripts/go.sh test ./internal/orchestrator -run 'Test(Service(StartExecution|StoresNull)|StorePersistExecutionStartRollsBackVersionWhenEventInsertFails|StoreRollsBackMaterializedStateWhenEventInsertFails)'`
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(PostStartCommitFailure|StartedRunnerWithoutCleanupIdentity|StartupRecoveryRequiresManualStateWhenRunnerIdentityMissing)'`
+- `./scripts/go.sh test ./internal/orchestrator`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-version-commit-ordering-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only` was attempted with ChatGPT auth available, but failed later in the
+  existing live semantic cartographer workflow while waiting for backend state. This failed live-provider attempt is not treated as provider integration proof.
+- `./scripts/format.sh`; `./check_quality.sh --git-changes`
+
 ## Track 6: Workflow Runner Post-Start Cleanup
 
 Status: Completed 2026-07-03.

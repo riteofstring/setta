@@ -155,6 +155,29 @@ start executions.
 This keeps workflow version labels stable: invalid run attempts do not consume
 version numbers, and the first successful execution snapshot is still `v1`.
 
+Status: completed 2026-07-03. `StartExecution` now prepares latest-draft
+versions in memory, validates executable graphs before version persistence, and
+commits new versions with the initial execution materialized state and workflow
+events through one store transaction. Explicit historical-version starts remain
+read-only with respect to definition versions. Focused Go tests cover blank and
+invalid draft rejection without version rows, first repaired run as `v1`,
+transaction rollback after an event insert failure, and historical-version
+reuse. Deterministic Electron coverage verifies the invalid-run/repair/`v1`
+workflow through production Electron/main/preload/HTTP/store paths.
+
+Verification:
+
+- `./scripts/go.sh test ./internal/orchestrator -run 'Test(Service(StartExecution|StoresNull)|StorePersistExecutionStartRollsBackVersionWhenEventInsertFails|StoreRollsBackMaterializedStateWhenEventInsertFails)'`
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(PostStartCommitFailure|StartedRunnerWithoutCleanupIdentity|StartupRecoveryRequiresManualStateWhenRunnerIdentityMissing)'`
+- `./scripts/go.sh test ./internal/orchestrator`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-version-commit-ordering-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only` was attempted with ChatGPT auth available, but failed later in the
+  existing live semantic cartographer workflow while waiting for backend state. This failed live-provider attempt is not treated as provider integration proof.
+- `./scripts/format.sh`; `./check_quality.sh --git-changes`
+
+Remaining notes: Track 7, workflow definition file atomicity, is the next Phase
+1 remediation track before reload/restart workflow trajectory E2E coverage.
+
 ### 4. Workflow Definition File Atomicity
 
 Implement Track 7 before relying on reload/restart workflow trajectory E2E

@@ -82,6 +82,7 @@ import { runTranscriptScrollWorkflowLaunch } from "./chat-workflow-transcript-sc
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
 import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
 import { runWorkflowRunnerPostStartFailureWorkflowLaunch } from "./workflow-runner-post-start-cases.mjs";
+import { runWorkflowVersionCommitOrderingWorkflowLaunch } from "./workflow-version-commit-ordering-cases.mjs";
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
@@ -102,6 +103,7 @@ const singleWorkflowArgs = new Map([
   ["--codex-protocol-only", "codexProtocolOnly"],
   ["--post-commit-startup-failure-only", "postCommitStartupFailureOnly"],
   ["--workflow-runner-post-start-failure-only", "workflowRunnerPostStartFailureOnly"],
+  ["--workflow-version-commit-ordering-only", "workflowVersionCommitOrderingOnly"],
 ]);
 const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
@@ -116,6 +118,7 @@ function parseArgs(args) {
     postCommitStartupFailureOnly: false,
     visible: process.env.SETTA_E2E_VISIBLE === "1",
     workflowRunnerPostStartFailureOnly: false,
+    workflowVersionCommitOrderingOnly: false,
   };
   for (const arg of args) {
     const singleWorkflow = singleWorkflowArgs.get(arg);
@@ -153,6 +156,7 @@ function selectSingleWorkflow(parsed, selected) {
   parsed.codexProtocolOnly = selected === "codexProtocolOnly";
   parsed.postCommitStartupFailureOnly = selected === "postCommitStartupFailureOnly";
   parsed.workflowRunnerPostStartFailureOnly = selected === "workflowRunnerPostStartFailureOnly";
+  parsed.workflowVersionCommitOrderingOnly = selected === "workflowVersionCommitOrderingOnly";
   parsed.deterministic = false;
   parsed.live = false;
 }
@@ -188,10 +192,16 @@ async function main() {
     printWorkflowResults(results);
     return;
   }
+  if (options.workflowVersionCommitOrderingOnly) {
+    await runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot });
+    printWorkflowResults(results);
+    return;
+  }
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
     await runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot });
     await runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot });
+    await runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot });
     await runTranscriptSearchWorkflowLaunch(results, {
       recordingRoot,
       runHappyPathWorkflow,
