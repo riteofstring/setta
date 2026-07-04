@@ -67,6 +67,20 @@ export function warnIfTerminalViewportSuspiciouslySmall(viewport: HTMLElement): 
   });
 }
 
+export function snapTerminalViewportToWholeRows(viewport: HTMLElement, rows: number): void {
+  const terminalElement = viewport.querySelector<HTMLElement>(".xterm");
+  const screen = terminalElement?.querySelector<HTMLElement>(".xterm-screen");
+  if (!terminalElement || !screen || rows <= 0) {
+    return;
+  }
+  const screenHeight = screen.getBoundingClientRect().height;
+  const rowHeight = screenHeight / rows;
+  if (!Number.isFinite(rowHeight) || rowHeight <= 0) {
+    return;
+  }
+  terminalElement.style.setProperty("--workspace-xterm-snapped-height", `${rowHeight * rows}px`);
+}
+
 function elementHeight(element: Element | null): number {
   return element?.getBoundingClientRect().height ?? 0;
 }

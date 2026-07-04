@@ -25,8 +25,10 @@ const terminalMock = vi.hoisted(() => ({
     dataListener: ((data: string) => void) | null;
     options: Record<string, unknown>;
     pasteCalls: string[];
+    resetCalls: number;
     rows: number;
     selection: string;
+    text: string;
     writeCalls: unknown[];
   }>,
   operations: [] as string[],
@@ -48,12 +50,17 @@ vi.mock("@xterm/xterm", () => ({
     dataListener: ((data: string) => void) | null = null;
     options: Record<string, unknown> = {};
     pasteCalls: string[] = [];
+    resetCalls = 0;
     rows = 24;
     selection = "";
+    text = "";
     writeCalls: unknown[] = [];
     _core = terminalMock.renderReady ? terminalMock.readyCore() : {};
 
-    clear(): void {}
+    clear(): void {
+      this.text = "";
+      this.buffer.active.length = 0;
+    }
     clearSelection(): void {
       this.selection = "";
     }
@@ -90,9 +97,19 @@ vi.mock("@xterm/xterm", () => ({
       this.pasteCalls.push(data);
       this.dataListener?.(data);
     }
+    reset(): void {
+      this.resetCalls += 1;
+      this.text = "";
+      this.buffer.active.length = 0;
+    }
     scrollToBottom(): void {}
     write(data?: unknown, callback?: () => void): void {
       this.writeCalls.push(data);
+      if (data instanceof Uint8Array) {
+        this.text += Buffer.from(data).toString("utf8");
+      } else if (typeof data === "string") {
+        this.text += data;
+      }
       terminalMock.operations.push("write");
       this.buffer.active.length += 1;
       callback?.();
@@ -562,6 +579,73 @@ describe("terminal surface adapter", () => {
     expect(adapter.getTerminalStats().scrollbackRows).toBeGreaterThan(0);
   });
 
+  test("redrains attach replay idempotently on consecutive attaches", async () => {
+    const firstAttach = deferred<TerminalSessionResponse>();
+    const secondAttach = deferred<TerminalSessionResponse>();
+    const api = installSettaAPI({
+      attach: vi
+        .fn()
+        .mockReturnValueOnce(firstAttach.promise)
+        .mockReturnValueOnce(secondAttach.promise),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+    const replay = "$ ls\nalpha\nbeta\n";
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+    await waitFor(() => api.terminal.attach.mock.calls.length === 1);
+    await waitFor(() => terminalMock.instances.length === 1);
+    emitTerminalOutput("terminal_existing", replay);
+    firstAttach.resolve(terminalResponse("terminal_existing", "running"));
+    const terminal = terminalMock.instances[0];
+    await waitFor(() => terminal?.text === replay);
+
+    expect(terminal?.resetCalls).toBe(1);
+
+    forceReattach(adapter);
+    await waitFor(() => api.terminal.attach.mock.calls.length === 2);
+    emitTerminalOutput("terminal_existing", replay);
+    secondAttach.resolve(terminalResponse("terminal_existing", "running"));
+    await waitFor(() => terminal?.resetCalls === 2 && terminal.text === replay);
+
+    expect(terminal?.text).toBe(replay);
+  });
+
+  test("keeps live output queued during attach redrain exactly once", async () => {
+    const firstAttach = deferred<TerminalSessionResponse>();
+    const secondAttach = deferred<TerminalSessionResponse>();
+    const api = installSettaAPI({
+      attach: vi
+        .fn()
+        .mockReturnValueOnce(firstAttach.promise)
+        .mockReturnValueOnce(secondAttach.promise),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+    const replay = "$ pwd\n/tmp/workspace\n";
+    const liveOutput = "$ echo live\nlive\n";
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+    await waitFor(() => api.terminal.attach.mock.calls.length === 1);
+    await waitFor(() => terminalMock.instances.length === 1);
+    emitTerminalOutput("terminal_existing", replay);
+    firstAttach.resolve(terminalResponse("terminal_existing", "running"));
+    const terminal = terminalMock.instances[0];
+    await waitFor(() => terminal?.text === replay);
+
+    forceReattach(adapter);
+    await waitFor(() => api.terminal.attach.mock.calls.length === 2);
+    emitTerminalOutput("terminal_existing", replay);
+    emitTerminalOutput("terminal_existing", liveOutput);
+    secondAttach.resolve(terminalResponse("terminal_existing", "running"));
+    await waitFor(() => terminal?.text === replay + liveOutput);
+
+    expect(terminal?.text).toBe(replay + liveOutput);
+    expect(terminal?.resetCalls).toBe(2);
+  });
+
   test("resizes an attached mismatched session before writing replay output", async () => {
     terminalMock.fitDimensions = { cols: 100, rows: 48 };
     const attach = deferred<TerminalSessionResponse>();
@@ -1026,12 +1110,30 @@ describe("terminal surface adapter", () => {
     }
   }
 
+  function emitTerminalOutput(sessionId: string, text: string): void {
+    emitTerminalEvent(
+      terminalEvent("terminal.output", sessionId, {
+        byteCount: Buffer.byteLength(text),
+        dataBase64: Buffer.from(text).toString("base64"),
+      }),
+    );
+  }
+
   function emitBackendStatus(status: { status: string; message: string }): void {
     for (const listener of backendStatusListeners) {
       listener(status);
     }
   }
 });
+
+function forceReattach(adapter: TerminalSurfaceAdapter): void {
+  const reattachable = adapter as unknown as {
+    reattachRequired: boolean;
+    startSession(): void;
+  };
+  reattachable.reattachRequired = true;
+  reattachable.startSession();
+}
 
 function terminalResponse(
   sessionId: string,

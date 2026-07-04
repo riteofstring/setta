@@ -27,6 +27,7 @@ import { runtimeProfileScopeKey } from "./terminal-runtime-scope";
 import { terminalFitContext } from "./terminal-fit-context";
 import {
   TerminalSurfaceFitScheduler,
+  snapTerminalViewportToWholeRows,
   terminalViewportHasSize,
   warnIfTerminalViewportSuspiciouslySmall,
 } from "./terminal-surface-fit-scheduler";
@@ -88,6 +89,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private fitWaiters: FitWaiter[] = [];
   private profilesLoaded = false;
   private reattachRequired = false;
+  private resetTerminalBeforeReplayDrain = false;
   private pasteOverlay: TerminalPasteElements | null = null;
   private restartButton: HTMLButtonElement | null = null;
   private readonly pasteController = new TerminalPasteController({
@@ -459,6 +461,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
     this.allowExplicitProfileStart = false;
     this.applySessionSummary(session);
+    this.resetTerminalBeforeReplayDrain = true;
     return this.resizeSessionToFittedDimensions(runtimeVersion).finally(() => {
       if (this.destroyed || runtimeVersion !== this.runtimeProfileVersion) {
         return;
@@ -649,12 +652,15 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
   private drainPendingOutput(): void {
     const terminal = this.terminal;
-    if (
-      !terminal ||
-      this.frozen ||
-      this.deferOutputUntilSessionReady ||
-      !this.outputBuffer.hasPending
-    ) {
+    if (!terminal || this.frozen || this.deferOutputUntilSessionReady) {
+      return;
+    }
+    const reset = this.resetTerminalBeforeReplayDrainIfNeeded(terminal);
+    if (!this.outputBuffer.hasPending) {
+      if (reset) {
+        this.writeStats(0);
+        this.syncHostState();
+      }
       return;
     }
     const outputs = this.outputBuffer.drain();
@@ -794,6 +800,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
     warnIfTerminalViewportSuspiciouslySmall(fitContext.viewport);
     fitContext.fitAddon.fit();
+    snapTerminalViewportToWholeRows(fitContext.viewport, fitContext.terminal.rows);
     this.writeStats(1);
     this.syncHostState();
     const dimensions = {
@@ -877,6 +884,14 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     for (const waiter of waiters) {
       waiter(dimensions);
     }
+  }
+  private resetTerminalBeforeReplayDrainIfNeeded(terminal: XtermTerminal): boolean {
+    if (!this.resetTerminalBeforeReplayDrain) {
+      return false;
+    }
+    this.resetTerminalBeforeReplayDrain = false;
+    terminal.reset();
+    return true;
   }
   private showStatus(message: string): void {
     this.terminalStatusText = message;

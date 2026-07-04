@@ -23,7 +23,7 @@
 }
 
 .workspace-xterm-viewport .xterm {
-  height: 100%;
+  height: var(--workspace-xterm-snapped-height, 100%);
   margin: 0;
   max-width: 100%;
   width: 100%;
