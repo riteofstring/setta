@@ -571,6 +571,35 @@ Remaining work:
 - Next implementation work starts at Phase 6 unless Phase 7 scroll-follow
   detach behavior is prioritized first.
 
+### 2026-07-02: Activity Row Detail Polish
+
+Implemented the first focused Phase 6 slice:
+
+- kept the existing chronological grouping, high-contrast activity group header,
+  virtualization model, and lifted expansion state;
+- changed expanded group member rows from card-like containers to a light left
+  rail so the group header remains the main separator;
+- added stable structured detail sections for opened activity rows, including
+  command, cwd, metadata, files, summary, result, error, output, JSON, and exit
+  content;
+- restored command details to the same bounded `pre` treatment used for files,
+  output, and JSON details while preserving syntax highlighting.
+
+Verification performed:
+
+- `pnpm vitest run src/renderer/src/components/chat-transcript-activity.test.tsx src/renderer/src/components/chat-transcript-activity-details.test.tsx`
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/format.sh`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
+- `./check_quality.sh --git-changes`
+
+Remaining work:
+
+- Phase 6 may still need visual QA or additional Electron assertions if later
+  activity detail variants expose layout issues, but the structured opened-row
+  transcript path is now covered.
+- Next implementation work starts at Phase 7 scroll-follow detach behavior.
+
 ## Open Decisions
 
 - Is there any implementation case that truly requires a public non-alarming

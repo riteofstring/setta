@@ -149,7 +149,10 @@ function ActivityItemRowSlot({
     (sourceRunItemId !== "" && context.focusedSourceRunItemId === sourceRunItemId);
   return (
     <div {...chatReadableColumnAttributes} className={chatReadableColumnPaddedClass}>
-      <div className="rounded-md border border-border bg-muted px-2.5 py-1">
+      <div
+        className="border-l border-border/70 py-0.5 pl-2"
+        data-testid="activity-group-member-row"
+      >
         <ActivityItemRow
           block={row.block}
           expanded={context.expandedActivityBlockIds.has(row.block.id)}

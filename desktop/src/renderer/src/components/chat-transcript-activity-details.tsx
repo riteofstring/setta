@@ -101,7 +101,11 @@ export function ActivityTextBlock({
     return null;
   }
   return (
-    <section className="min-w-0">
+    <section
+      className="min-w-0"
+      data-activity-detail-section={title}
+      data-activity-detail-kind="text"
+    >
       <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">{title}</h4>
       <div
         className={cn(
@@ -121,14 +125,19 @@ export function ActivityPreBlock({ title, value }: { title: string; value: strin
     return null;
   }
   return (
-    <section className="min-w-0">
+    <section
+      className="min-w-0"
+      data-activity-detail-section={title}
+      data-activity-detail-kind="pre"
+    >
       <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">{title}</h4>
-      <pre className="mt-1 max-h-32 w-full max-w-full min-w-0 overflow-x-hidden overflow-y-auto rounded-sm border border-border bg-popover p-2 font-mono text-xs leading-5 break-words whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
-        {value}
-      </pre>
+      <pre className={activityPreBlockClassName}>{value}</pre>
     </section>
   );
 }
+
+export const activityPreBlockClassName =
+  "mt-1 max-h-32 w-full max-w-full min-w-0 overflow-x-hidden overflow-y-auto rounded-sm border border-border bg-popover p-2 font-mono text-xs leading-5 break-words whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]";
 
 export function ActivityJSONDetails({ details }: { details: unknown }) {
   return <ActivityJSONBlock details={details} title="Details" />;

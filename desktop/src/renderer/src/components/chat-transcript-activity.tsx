@@ -38,6 +38,7 @@ import {
   ActivityPreBlock,
   ActivityProviderStreamLifecycleDetails,
   ActivityTextBlock,
+  activityPreBlockClassName,
 } from "./chat-transcript-activity-details";
 import { ActivityDiffDetails } from "./chat-transcript-diff-details";
 
@@ -611,7 +612,10 @@ function ActivityDetails({
   const commandExecution = activityCommandExecutionDisplay(details);
   const genericResultDetails = hasGenericResultDetails(details);
   return (
-    <div className="mt-1.5 w-full max-w-full min-w-0 overflow-hidden border-l border-border/70 pl-2">
+    <div
+      className="mt-1.5 w-full max-w-full min-w-0 overflow-hidden border-l border-border/70 pl-3"
+      data-testid="run-activity-details"
+    >
       <div className="w-full max-w-full min-w-0 space-y-1.5 overflow-hidden text-xs text-muted-foreground">
         <ActivityCwd cwd={commandExecution.cwd} />
         <ActivityCommand command={commandExecution.command} />
@@ -731,9 +735,13 @@ function ActivityCommand({ command }: { command: string }) {
 function ActivityCommandBlock({ command }: { command: string }) {
   const highlighted = useMemo(() => highlightCode(command, "bash"), [command]);
   return (
-    <section className="min-w-0">
+    <section
+      className="min-w-0"
+      data-activity-detail-section="Command"
+      data-activity-detail-kind="pre"
+    >
       <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">Command</h4>
-      <div className="mt-0.5 max-w-full font-mono text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+      <pre className={activityPreBlockClassName}>
         {highlighted === null ? (
           <code className="hljs whitespace-pre-wrap break-all">{command}</code>
         ) : (
@@ -742,7 +750,7 @@ function ActivityCommandBlock({ command }: { command: string }) {
             dangerouslySetInnerHTML={{ __html: highlighted }}
           />
         )}
-      </div>
+      </pre>
     </section>
   );
 }
@@ -760,16 +768,23 @@ function ActivityMetadata({ details }: { details: RunActivityDetailsProjection }
     return null;
   }
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {entries.map((entry) => (
-        <span
-          className="max-w-full min-w-0 truncate rounded-sm border border-border bg-popover px-2 py-0.5 font-mono text-muted-foreground"
-          key={entry.label}
-        >
-          {entry.label}: {entry.value}
-        </span>
-      ))}
-    </div>
+    <section
+      className="min-w-0"
+      data-activity-detail-section="Metadata"
+      data-activity-detail-kind="chips"
+    >
+      <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">Metadata</h4>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {entries.map((entry) => (
+          <span
+            className="max-w-full min-w-0 truncate rounded-sm border border-border bg-popover px-2 py-0.5 font-mono text-muted-foreground"
+            key={`${entry.label}:${entry.value}`}
+          >
+            {entry.label}: {entry.value}
+          </span>
+        ))}
+      </div>
+    </section>
   );
 }
 
