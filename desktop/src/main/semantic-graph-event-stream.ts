@@ -12,7 +12,6 @@ export interface SemanticGraphEventStream {
 }
 
 interface SemanticGraphEventStreamOptions {
-  authToken: string;
   baseURL: string;
   fetchImpl?: BackendFetch;
   reconnectDelayMs?: number;
@@ -31,7 +30,6 @@ export function startSemanticGraphEventStream(
 ): SemanticGraphEventStream {
   const abort = new AbortController();
   const done = runSemanticGraphEventStreamLoop({
-    authToken: options.authToken,
     baseURL: options.baseURL,
     fetchImpl: options.fetchImpl ?? fetch,
     reconnectDelayMs: options.reconnectDelayMs ?? defaultReconnectDelayMs,
@@ -49,7 +47,6 @@ export function startSemanticGraphEventStream(
 
 async function runSemanticGraphEventStreamLoop(options: {
   baseURL: string;
-  authToken: string;
   fetchImpl: BackendFetch;
   reconnectDelayMs: number;
   sendEvent: (event: SemanticGraphChangeEvent) => void;
@@ -79,11 +76,10 @@ async function streamSemanticGraphEventsOnce(options: {
   baseURL: string;
   cursor: SemanticGraphEventCursor;
   fetchImpl: BackendFetch;
-  authToken: string;
   sendEvent: (event: SemanticGraphChangeEvent) => void;
   signal: AbortSignal;
 }): Promise<SemanticGraphEventCursor> {
-  const headers: Record<string, string> = { Authorization: `Bearer ${options.authToken}` };
+  const headers: Record<string, string> = {};
   if (options.cursor.streamId !== "") {
     headers["Last-Event-ID"] = encodeSemanticGraphEventCursor(options.cursor);
   }

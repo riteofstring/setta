@@ -52,7 +52,6 @@ export interface WorkflowSettingsTarget {
 interface WorkflowEditorStore {
   activityFocusRequestSeq: number;
   notifyWorkflowDefinitionChanged: (workspaceId: string, definitionId: string) => void;
-  resetRuntimeState: () => void;
   selectedNodeActivityFocus: WorkflowNodeActivityFocus | null;
   selectedNodeTarget: WorkflowNodeDetailsTarget | null;
   selectedWorkflowSettingsTarget: WorkflowSettingsTarget | null;
@@ -67,14 +66,6 @@ export const useWorkflowEditorStore = create<WorkflowEditorStore>((set) => ({
   activityFocusRequestSeq: 0,
   notifyWorkflowDefinitionChanged: (workspaceId, definitionId) => {
     dispatchWorkflowDefinitionChanged({ definitionId, workspaceId });
-  },
-  resetRuntimeState: () => {
-    set({
-      activityFocusRequestSeq: 0,
-      selectedNodeActivityFocus: null,
-      selectedNodeTarget: null,
-      selectedWorkflowSettingsTarget: null,
-    });
   },
   selectedNodeActivityFocus: null,
   selectedNodeTarget: null,

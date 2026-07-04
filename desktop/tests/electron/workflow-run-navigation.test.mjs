@@ -5,6 +5,7 @@ import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { driverCallExpression } from "./cdp-client.mjs";
+import { chatTextInput } from "./chat-input-helpers.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -851,7 +852,7 @@ async function steerHiddenWorkflowRun(client, workspaceId, execution, prompt) {
   await client.evaluate(`window.setta.chat.steerMessage(
     ${JSON.stringify(workspaceId)},
     ${JSON.stringify(conversationId)},
-    ${JSON.stringify(prompt)}
+    ${JSON.stringify(chatTextInput(prompt))}
   )`);
 }
 

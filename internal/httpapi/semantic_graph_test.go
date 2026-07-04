@@ -786,7 +786,7 @@ func newSemanticGraphHandlerWithOptions(t *testing.T, options ...semanticgraph.O
 	if err != nil {
 		t.Fatalf("new semantic graph service: %v", err)
 	}
-	return newAuthenticatedTestHandler(t, HandlerConfig{
+	return NewHandler(HandlerConfig{
 		Metadata:             BackendMetadata{Name: BackendName, Version: "test"},
 		SemanticGraphService: semanticService,
 		WorkspaceService:     workspaceService,
