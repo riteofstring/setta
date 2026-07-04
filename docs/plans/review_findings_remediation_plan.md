@@ -478,6 +478,30 @@ For each extracted workflow:
 
 After the extraction is complete, run the targeted Electron tests that owned the large string programs and then `./check_quality.sh --git-changes`.
 
+### Progress
+
+Progress 2026-07-03:
+
+- Added a reusable CDP browser-driver extension loader and extracted the DOM pane snapshot/scroll workflow's browser-side DOM traversal, overview snapshot
+  inspection, scroll restoration sampling, and UI click helpers into `desktop/tests/electron/dom-pane-snapshot-scroll-driver.js`.
+- Updated `desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs` so CDP evaluation now uses named installed driver calls and structured arguments
+  instead of multi-kilobyte executable template literals.
+- Kept the base `browser-driver.js` at its existing file-length boundary by installing the workflow-specific extension onto the same `__settaE2EDriver`
+  surface. Browser-side exception reporting in `cdp-client.mjs` now preserves the underlying exception description so extracted driver failures remain
+  diagnosable.
+
+Verification performed:
+
+- `node desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs --skip-build`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Remaining:
+
+- Continue Track 4 with the next large browser-side programs called out above: chat stream performance, semantic graph editing, overview zoom performance
+  helpers, and long transcript performance.
+- Add the deterministic guardrail for future large executable template literals after the extraction pattern covers the remaining listed workflows.
+
 ## Track 5: Workflow Version Commit Ordering
 
 ### Problem

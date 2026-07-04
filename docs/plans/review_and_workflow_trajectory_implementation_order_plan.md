@@ -380,6 +380,29 @@ node activity, pagination, approvals, steering, and reload/restart behavior.
 Those tests should not add more large executable browser programs inside string
 literals.
 
+Status: first extraction slice completed 2026-07-03. The DOM pane
+snapshot/scroll workflow now installs a workflow-specific browser-driver
+extension through the shared CDP helper, with DOM traversal, overview snapshot
+inspection, scroll sampling, and click helpers moved out of executable template
+literals into `desktop/tests/electron/dom-pane-snapshot-scroll-driver.js`.
+`dom-pane-snapshot-scroll-workflow.test.mjs` now polls and acts through named
+driver calls with structured arguments, and browser-side CDP exceptions retain
+their underlying exception descriptions for diagnostics.
+
+Verification:
+
+- `node desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs --skip-build`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Remaining notes: continue Track 4 with the remaining large browser-side
+programs in chat stream performance, semantic graph workflow editing, overview
+zoom performance helpers, and long transcript performance. Add the guardrail for
+future large executable template literals after the extraction pattern covers
+the remaining listed workflows. Phase 4 backend trajectory contracts should
+wait until this test-driver extraction work is complete enough that new
+trajectory E2E scenarios do not add new large inline browser programs.
+
 ## Phase 4: Backend Trajectory Contracts
 
 Implement the shared UI plan's backend contract slice after the lifecycle and

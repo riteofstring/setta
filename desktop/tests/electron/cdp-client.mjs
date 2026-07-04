@@ -2,7 +2,15 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const driverScriptPath = join(dirname(fileURLToPath(import.meta.url)), "browser-driver.js");
+const driverScriptDir = dirname(fileURLToPath(import.meta.url));
+const driverScriptPath = join(driverScriptDir, "browser-driver.js");
+const driverExtensionScripts = [
+  {
+    installedExpression:
+      'globalThis.__settaE2EDriver?.domPaneSnapshotScrollVersion === "setta-dom-pane-snapshot-scroll-driver-v1"',
+    path: join(driverScriptDir, "dom-pane-snapshot-scroll-driver.js"),
+  },
+];
 
 export class CDPClient {
   constructor(socket, timeoutMs) {
@@ -66,7 +74,11 @@ export class CDPClient {
       returnByValue: true,
     });
     if (result.exceptionDetails) {
-      throw new Error(result.exceptionDetails.text);
+      throw new Error(
+        result.exceptionDetails.exception?.description ??
+          result.exceptionDetails.exception?.value ??
+          result.exceptionDetails.text,
+      );
     }
     return result.result.value;
   }
@@ -82,6 +94,16 @@ export class CDPClient {
     );
     if (!installed) {
       await this.evaluate(await readFile(driverScriptPath, "utf8"));
+    }
+    for (const extension of driverExtensionScripts) {
+      await this.installDriverExtension(extension);
+    }
+  }
+
+  async installDriverExtension({ installedExpression, path }) {
+    const installed = await this.evaluate(installedExpression);
+    if (!installed) {
+      await this.evaluate(await readFile(path, "utf8"));
     }
   }
 
