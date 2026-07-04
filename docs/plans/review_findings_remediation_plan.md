@@ -677,7 +677,7 @@ temporary app data. Verify the workflow list and graph projection still load.
 
 ## Deferred Findings
 
-The repo review also identified five issues that are intentionally out of scope
+The repo review also identified seven issues that are intentionally out of scope
 for this remediation plan.
 
 ### Cartographer automatic review bypass
@@ -706,6 +706,47 @@ proving the live provider contract works.
 This plan does not change the cartographer schema, decoder, or tests. When it is
 picked up, make one owner-defined contract authoritative and generate or validate
 all provider, scripted-harness, and application surfaces from that contract.
+
+### Cartographer automatic workflow recording evidence race
+
+The required `semantic-cartographer-auto` Electron workflow can fail its
+recording evidence check even when the app has rendered the expected chat pane
+and composer. The workflow captures `long-running-after-restart.png` before
+calling `assertRecordingEvidence`, and that screenshot can show the chat surface
+while `renderer-events.jsonl` still lacks a layout snapshot with chat regions.
+The recorder writes JSONL through `WriteStream.write()` without a drain or flush
+acknowledgement, so the test can read stale evidence while the app is still
+running.
+
+This plan does not change semantic cartographer E2E recording. When it is picked
+up, make renderer layout snapshot recording an acknowledged operation, or add a
+recorder-side flush/close primitive that tests can await before reading JSONL.
+Do not weaken the evidence requirements, replace them with broad sleeps, or mark
+the workflow as passing based only on screenshots.
+
+### Workflow node activity output pagination loss
+
+Workflow node details can make partial chat run output look complete. The
+details pane requests run activity with a small preview limit, but
+`RunActivityPage` carries a flat `output` list and drops the
+`RunItemOutputPage.hasMore` and cursor metadata returned by the store. The
+renderer then adapts the preview into per-run-item output state with
+`hasMore: false` and wires the shared activity list to a no-op output loader.
+Long command or tool output can therefore be truncated in the workflow node
+details pane without a "Load more" affordance or any indication that the visible
+output is incomplete.
+
+This plan does not change workflow node activity output loading. When it is
+picked up, make partial output explicit in the Go-owned run activity contract:
+return per-run-item output pages, including `hasMore`,
+`loadedThroughOrdinal`, and `nextOrdinal`, instead of only a flat preview list.
+Regenerate the affected TypeScript backend contract from the Go surface, then
+update workflow node details to preserve that pagination state and call the real
+run-item output endpoint when the user loads more output. Add workflow-level
+behavior coverage with output longer than the initial preview limit, asserting
+that the UI shows the initial truncation, exposes "Load more", and renders later
+output after loading. Do not paper over the bug by only raising the preview
+limit.
 
 ### Workspace browser snapshot retry behavior
 
