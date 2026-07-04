@@ -611,7 +611,7 @@ func newChatHandlerWithAppDataDir(t *testing.T, events []chat.FakeHarnessEvent) 
 		t.Fatalf("new workflow service: %v", err)
 	}
 	t.Cleanup(workflowService.CloseEvents)
-	return newAuthenticatedTestHandler(t, HandlerConfig{
+	return NewHandler(HandlerConfig{
 		ChatService:      chatService,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: workspaceService,

@@ -100,6 +100,59 @@ describe("workspace fake surface adapters", () => {
     });
   });
 
+  test("keeps unfocused browser native bounds visible when clipped by the project sidebar inset", () => {
+    const sent: WorkspaceBrowserViewUpdate[] = [];
+    const host = createFakeHost();
+    mountBrowserStage(host, { height: 500, width: 900, x: 0, y: 40 }, { nativeViewClipLeft: 280 });
+    const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
+      queue(update) {
+        sent.push(update);
+      },
+    });
+
+    adapter.mount(host);
+    adapter.resume("visible");
+    adapter.setVisible(true);
+    setFakeRect(host, { height: 180, width: 260, x: 120, y: 76 });
+    adapter.setViewport({ height: 180, width: 260, x: 120, y: 36 }, "frame");
+
+    expect(sent.at(-1)).toMatchObject({
+      bounds: { height: 150, width: 100, x: 280, y: 106 },
+      contentBounds: { height: 150, width: 260, x: 120, y: 106 },
+      focused: false,
+      visible: true,
+    });
+  });
+
+  test("hides focused browser native bounds while workspace renderer overlays are active", () => {
+    const sent: WorkspaceBrowserViewUpdate[] = [];
+    const host = createFakeHost();
+    mountBrowserStage(
+      host,
+      { height: 360, width: 500, x: 0, y: 40 },
+      { nativeViewOverlayActive: true },
+    );
+    const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
+      queue(update) {
+        sent.push(update);
+      },
+    });
+
+    adapter.mount(host);
+    adapter.resume("visible");
+    adapter.setVisible(true);
+    adapter.setFocused(true);
+    setFakeRect(host, { height: 160, width: 200, x: 120, y: 70 });
+    adapter.setViewport({ height: 160, width: 200, x: 120, y: 30 }, "frame");
+
+    expect(sent.at(-1)).toMatchObject({
+      bounds: { height: 1, width: 1, x: 120, y: 100 },
+      contentBounds: { height: 130, width: 200, x: 120, y: 100 },
+      focused: true,
+      visible: false,
+    });
+  });
+
   test("positions browser native bounds from the actual pane host below shell chrome", () => {
     const sent: WorkspaceBrowserViewUpdate[] = [];
     const host = createFakeHost();
@@ -666,11 +719,21 @@ function fakeTextContent(element: Element): string {
 function mountBrowserStage(
   host: HTMLElement,
   rect: { height: number; width: number; x: number; y: number },
+  options: { nativeViewClipLeft?: number; nativeViewOverlayActive?: boolean } = {},
 ): HTMLElement {
+  const workspace = host.ownerDocument.createElement("section");
+  workspace.dataset.testid = "workspace-layout-area";
+  if (options.nativeViewClipLeft !== undefined) {
+    workspace.dataset.nativeViewClipLeft = String(options.nativeViewClipLeft);
+  }
+  if (options.nativeViewOverlayActive !== undefined) {
+    workspace.dataset.nativeViewOverlayActive = String(options.nativeViewOverlayActive);
+  }
   const stage = host.ownerDocument.createElement("div");
   stage.dataset.testid = "workspace-presentation-engine";
   setFakeRect(stage, rect);
   stage.append(host);
+  workspace.append(stage);
   return stage as unknown as HTMLElement;
 }
 

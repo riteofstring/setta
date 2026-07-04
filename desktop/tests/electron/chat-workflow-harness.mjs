@@ -191,21 +191,19 @@ export async function waitForState(client, expression, isReady, timeoutMs = work
 }
 
 export async function backendProbe(recordingDir) {
-  const { baseURL, deviceToken } = await waitForBackendAccess(recordingDir);
+  const baseURL = await waitForBackendURL(recordingDir);
   await writeFile(join(recordingDir, "backend-url.txt"), baseURL + "\n");
   return {
     baseURL,
-    deviceToken,
-    get: (path) => backendRequest(recordingDir, baseURL, deviceToken, "GET", path),
-    post: (path, payload) =>
-      backendRequest(recordingDir, baseURL, deviceToken, "POST", path, payload),
+    get: (path) => backendRequest(recordingDir, baseURL, "GET", path),
+    post: (path, payload) => backendRequest(recordingDir, baseURL, "POST", path, payload),
   };
 }
 
-async function backendRequest(recordingDir, baseURL, deviceToken, method, path, payload) {
+async function backendRequest(recordingDir, baseURL, method, path, payload) {
   const response = await globalThis.fetch(baseURL + path, {
     body: payload === undefined ? undefined : JSON.stringify(payload),
-    headers: backendRequestHeaders(deviceToken, payload),
+    headers: payload === undefined ? undefined : { "Content-Type": "application/json" },
     method,
   });
   const body = await response.text();
@@ -222,54 +220,24 @@ async function backendRequest(recordingDir, baseURL, deviceToken, method, path, 
   return JSON.parse(body);
 }
 
-function backendRequestHeaders(deviceToken, payload) {
-  return {
-    Authorization: "Bearer " + deviceToken,
-    ...(payload === undefined ? {} : { "Content-Type": "application/json" }),
-  };
-}
-
-async function waitForBackendAccess(recordingDir) {
+async function waitForBackendURL(recordingDir) {
   const eventsPath = join(recordingDir, "events.jsonl");
   const startedAt = Date.now();
   let lastError = null;
   while (Date.now() - startedAt < pageLoadTimeoutMs) {
     try {
-      const access = await readBackendAccess(eventsPath);
-      if (access) {
-        return access;
+      const events = await readJsonLines(eventsPath);
+      const started = events.find((entry) => entry.type === "backend_started");
+      const url = started?.payload?.url;
+      if (typeof url === "string" && url !== "") {
+        return url;
       }
     } catch (error) {
       lastError = error;
     }
     await delay(100);
   }
-  throw new Error(`backend access was not recorded: ${lastError?.message ?? "timed out"}`);
-}
-
-async function readBackendAccess(eventsPath) {
-  return backendAccessFromEvents(await readJsonLines(eventsPath));
-}
-
-function backendAccessFromEvents(events) {
-  const started = events.find((entry) => entry.type === "backend_started");
-  if (!started) {
-    return null;
-  }
-  return backendAccessFromPayload(started.payload);
-}
-
-function backendAccessFromPayload(payload) {
-  const url = payload?.url;
-  const token = payload?.bootstrapToken;
-  if (!nonEmptyString(url) || !nonEmptyString(token)) {
-    return null;
-  }
-  return { baseURL: url, deviceToken: token };
-}
-
-function nonEmptyString(value) {
-  return typeof value === "string" && value !== "";
+  throw new Error(`backend URL was not recorded: ${lastError?.message ?? "timed out"}`);
 }
 
 export async function waitForBackendState(readState, isReady, timeoutMs = workflowTimeoutMs) {

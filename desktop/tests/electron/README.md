@@ -17,7 +17,7 @@ node desktop/tests/electron/run-workflows.mjs --workflow workflow-blank-canvas
 node desktop/tests/electron/run-workflows.mjs --tier performance
 ```
 
-Run the deterministic chat workflows through the root compatibility wrapper:
+Run the deterministic chat workflows through the root script wrapper:
 
 ```sh
 ./scripts/test_chat_workflows.sh --deterministic-only

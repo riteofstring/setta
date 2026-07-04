@@ -5,13 +5,11 @@ import type { SettaAPI } from "@shared/types";
 type TerminalAPI = SettaAPI["terminal"];
 
 export class TerminalStartDeferred extends Error {}
-export class TerminalProfileUnavailable extends Error {}
 
 interface AttachOrCreateTerminalSessionOptions {
   allowExplicitProfileStart: boolean;
   cwdOverride: string;
   dimensions: { cols: number; rows: number };
-  isCurrent: () => boolean;
   paneId: string;
   profile: TerminalProfile | null;
   profileId: string;
@@ -27,7 +25,6 @@ export async function attachOrCreateTerminalSession(
     allowExplicitProfileStart,
     cwdOverride,
     dimensions,
-    isCurrent,
     paneId,
     profile,
     profileId,
@@ -43,20 +40,11 @@ export async function attachOrCreateTerminalSession(
     if (sessionId) {
       throw error;
     }
-    if (!isCurrent()) {
-      throw new TerminalStartDeferred("terminal runtime changed before create");
-    }
-    if (!profile) {
-      throw new TerminalProfileUnavailable("Terminal profiles are unavailable.");
-    }
     if (profile && !profile.safeAutoStart && !allowExplicitProfileStart) {
       showDeferredProfileStart(profile);
       throw new TerminalStartDeferred("custom command profile requires explicit start");
     }
     showStartingStatus();
-    if (!isCurrent()) {
-      throw new TerminalStartDeferred("terminal runtime changed before create");
-    }
     return api.create(workspaceId, paneId, {
       cols: dimensions.cols,
       cwd: cwdOverride,

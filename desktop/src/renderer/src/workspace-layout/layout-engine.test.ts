@@ -516,7 +516,13 @@ describe("real workspace layout column sizing", () => {
   test("renders after-placement row drop previews", () => {
     const engine = createRealEngine();
 
-    expect(engine.previewPaneReorder("workspace_pane_0", "workspace_pane_2", "after")).toBe(true);
+    expect(
+      engine.previewPaneDropIntent("workspace_pane_0", {
+        kind: "row",
+        placement: "after",
+        targetPaneId: "workspace_pane_2",
+      }),
+    ).toBe(true);
 
     const previewItems = renderFrame(
       engine,

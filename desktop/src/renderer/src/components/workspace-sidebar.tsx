@@ -6,7 +6,6 @@ import { Virtuoso } from "react-virtuoso";
 
 import { useChatStore } from "../stores/chat-store";
 import { useWorkflowDefinitionStore } from "../stores/workflow-definition-store";
-import { RuntimePicker } from "./runtime-picker";
 import {
   defaultSidebarSections,
   SidebarAccordionSection,
@@ -282,17 +281,6 @@ export function WorkspaceSidebar({
         className="setta-sidebar-content-shell shrink-0 px-1 pb-2"
         data-testid="sidebar-shortcuts-shell"
       >
-        <SidebarAccordionSection
-          height={sections.runtime.height}
-          onHeightChange={(height) => setSectionHeight("runtime", height)}
-          onOpenChange={(open) => setSectionOpen("runtime", open)}
-          open={sections.runtime.open}
-          resized={sections.runtime.resized}
-          testId="runtime-section"
-          title="Runtime"
-        >
-          <RuntimePicker />
-        </SidebarAccordionSection>
         <SidebarAccordionSection
           height={sections.shortcuts.height}
           onHeightChange={(height) => setSectionHeight("shortcuts", height)}

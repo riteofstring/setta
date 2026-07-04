@@ -4,15 +4,24 @@ import type { Terminal as XtermTerminal } from "@xterm/xterm";
 interface TerminalFitState {
   fitAddon: XtermFitAddon | null;
   frozen: boolean;
+  host: HTMLElement | null;
   terminal: XtermTerminal | null;
-  viewport: HTMLElement | null;
   visible: boolean;
+}
+
+interface XtermTerminalWithCore extends XtermTerminal {
+  _core?: {
+    _renderService?: {
+      dimensions?: unknown;
+    };
+    viewport?: unknown;
+  };
 }
 
 export interface TerminalFitContext {
   fitAddon: XtermFitAddon;
+  host: HTMLElement;
   terminal: XtermTerminal;
-  viewport: HTMLElement;
 }
 
 export function terminalFitContext(state: TerminalFitState): TerminalFitContext | null {
@@ -22,12 +31,17 @@ export function terminalFitContext(state: TerminalFitState): TerminalFitContext 
   if (state.frozen) {
     return null;
   }
-  if (!state.viewport || !state.fitAddon || !state.terminal) {
+  if (!state.host || !state.fitAddon || !state.terminal) {
     return null;
   }
   return {
     fitAddon: state.fitAddon,
+    host: state.host,
     terminal: state.terminal,
-    viewport: state.viewport,
   };
+}
+
+export function terminalFitReady(terminal: XtermTerminal): boolean {
+  const core = (terminal as XtermTerminalWithCore)._core;
+  return core?._renderService?.dimensions !== undefined && core.viewport !== undefined;
 }

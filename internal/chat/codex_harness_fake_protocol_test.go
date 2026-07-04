@@ -397,7 +397,7 @@ func writeFakeProtocolCoverageNotifications() {
 	})
 	writeFakeNotification("deprecationNotice", map[string]any{
 		"details": "Use the replacement protocol surface.",
-		"summary": "Legacy protocol notice.",
+		"summary": "Protocol deprecation notice.",
 	})
 	writeFakeNotification("externalAgentConfig/import/completed", map[string]any{})
 	writeFakeNotification("fs/changed", map[string]any{"changedPaths": []string{"/tmp/workspace/main.go"}, "watchId": "watch_fake"})

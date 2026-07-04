@@ -97,10 +97,12 @@ type WorkflowOperation = null | "run" | "validate" | "cancel";
 
 export function WorkflowGraphSurface({
   debugEnabled,
+  focused,
   syntheticGraphFallback,
   surfaceId,
 }: {
   debugEnabled: boolean;
+  focused: boolean;
   syntheticGraphFallback?: SyntheticWorkflowGraphOptions;
   surfaceId: string;
 }) {
@@ -108,6 +110,7 @@ export function WorkflowGraphSurface({
   const workflowMenuRef = useRef<HTMLDivElement>(null);
   const workflowCameraRef = useRef<WorkflowGraphCameraState | null>(null);
   const workflowCameraScopeRef = useRef<WorkflowGraphCameraScope | null>(null);
+  const focusedRef = useRef(focused);
   const workflowRendererRef = useRef<WorkflowGraphRenderer | null>(null);
   const pendingWorkflowGraphRef = useRef<WorkflowGraphRendererGraphUpdate | null>(null);
   const reactRenderCount = useRef(0);
@@ -693,6 +696,7 @@ export function WorkflowGraphSurface({
     ],
   );
   const rendererHandlersRef = useRef<WorkflowGraphRendererHandlers>(rendererHandlers);
+  focusedRef.current = focused;
   rendererHandlersRef.current = rendererHandlers;
 
   useEffect(() => {
@@ -726,6 +730,10 @@ export function WorkflowGraphSurface({
   useEffect(() => {
     workflowRendererRef.current?.setHandlers(rendererHandlers);
   }, [rendererHandlers]);
+
+  useEffect(() => {
+    workflowRendererRef.current?.setFocused(focused);
+  }, [focused]);
 
   useEffect(() => {
     if (!rendererGraphUpdate) {
@@ -796,6 +804,7 @@ export function WorkflowGraphSurface({
         }
         rendererHandle = renderer;
         workflowRendererRef.current = renderer;
+        renderer.setFocused(focusedRef.current);
         unregisterRuntimeHandle = registerWorkflowGraphRuntimeHandle(surfaceId, renderer);
         renderer.setHandlers(rendererHandlersRef.current);
         const pendingGraphUpdate = pendingWorkflowGraphRef.current;

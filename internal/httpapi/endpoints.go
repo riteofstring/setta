@@ -3,7 +3,6 @@ package httpapi
 import (
 	"net/http"
 	"reflect"
-	"strings"
 
 	"setta/internal/appearance"
 	"setta/internal/chat"
@@ -33,21 +32,13 @@ type ContractEndpoint struct {
 
 type endpoint struct {
 	ContractEndpoint
-	Handler         routeHandler
-	Unauthenticated bool
+	Handler routeHandler
 }
 
 type routeHandler func(handler, http.ResponseWriter, *http.Request)
 
 var apiEndpoints = []endpoint{
-	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
-	unauthenticated(get[RuntimeInfoResponse]("RuntimeInfo", "/runtime/info", handler.runtimeInfo)),
-	unauthenticated(post[CompletePairingRequest, CompletePairingResponse]("CompletePairing", "/pairing/complete", handler.completePairing)),
-	post[ListDevicesRequest, ListDevicesResponse]("ListDevices", "/devices/list", handler.listDevices),
-	post[RevokeDeviceRequest, RevokeDeviceResponse]("RevokeDevice", "/devices/revoke", handler.revokeDevice),
-	post[PushSubscribeRequest, PushSubscribeResponse]("PushSubscribe", "/push/subscribe", handler.pushSubscribe),
-	post[PushUnsubscribeRequest, PushUnsubscribeResponse]("PushUnsubscribe", "/push/unsubscribe", handler.pushUnsubscribe),
-	post[PushTestRequest, PushTestResponse]("PushTest", "/push/test", handler.pushTest),
+	get[BackendHealth]("BackendHealth", "/health", handler.health),
 	get[appearance.AppearanceSettings]("ReadAppearanceSettings", "/appearance/settings", handler.readAppearanceSettings),
 	get[appearance.AppearancePresetList]("ReadAppearancePresets", "/appearance/presets", handler.readAppearancePresets),
 	post[UpdateAppearanceSettingsRequest, appearance.AppearanceSettings]("UpdateAppearanceSettings", "/appearance/settings", handler.updateAppearanceSettings),
@@ -176,33 +167,9 @@ func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
 	for _, endpoint := range apiEndpoints {
 		route := endpoint
 		mux.HandleFunc(route.Method+" "+route.Path, func(response http.ResponseWriter, request *http.Request) {
-			apiHandler.dispatch(route, response, request)
+			route.Handler(apiHandler, response, request)
 		})
 	}
-}
-
-func IsAPINamespace(path string) bool {
-	if path == "" || path[0] != '/' {
-		return false
-	}
-	for _, endpoint := range apiEndpoints {
-		root := apiPathRoot(endpoint.Path)
-		if path == root || strings.HasPrefix(path, root+"/") {
-			return true
-		}
-	}
-	return false
-}
-
-func apiPathRoot(path string) string {
-	trimmed := strings.TrimPrefix(path, "/")
-	segment, _, _ := strings.Cut(trimmed, "/")
-	return "/" + segment
-}
-
-func unauthenticated(route endpoint) endpoint {
-	route.Unauthenticated = true
-	return route
 }
 
 func get[Response any](name string, path string, handler routeHandler) endpoint {

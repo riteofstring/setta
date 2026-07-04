@@ -27,7 +27,6 @@ import {
   focusTerminal,
   openTerminalFromShortcut,
   terminalSnapshotExpression,
-  terminalSnapshotsExpression,
 } from "./terminal-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -50,7 +49,6 @@ await writeLatestRecordingPointer("terminal-backend-crash", artifactDir);
 const fixture = await createElectronFixture("terminal-backend-crash");
 let context = null;
 let terminalState;
-let terminalPaneId = "";
 
 try {
   context = await launchElectronCdpContext({
@@ -60,29 +58,18 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await openWorkspaceFromSidebar(context.client);
-  const openedTerminal = await openTerminalFromShortcut(context.client, terminalWorkflowTimeoutMs);
-  terminalPaneId = openedTerminal.paneId;
-  await focusTerminal(context.client, terminalWorkflowTimeoutMs, { paneId: terminalPaneId });
-  terminalState = await waitForTerminalReady(context.client, terminalPaneId);
+  await openTerminalFromShortcut(context.client, terminalWorkflowTimeoutMs);
+  await focusTerminal(context.client, terminalWorkflowTimeoutMs);
+  terminalState = await waitForTerminalReady(context.client);
   const port = await waitForBackendPort(artifactDir);
   await killBackendOnPort(port);
-  terminalState = await waitForTerminalLost(
-    context.client,
-    terminalState.sessionId,
-    terminalPaneId,
-  );
+  terminalState = await waitForTerminalLost(context.client, terminalState.sessionId);
   await captureScreenshot(context.client, join(artifactDir, "terminal-lost.png"));
 } catch (error) {
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
     await writeJson(join(artifactDir, "failure-snapshot.json"), {
-      terminal:
-        terminalPaneId !== ""
-          ? await context.client
-              .evaluate(terminalSnapshotExpression({ paneId: terminalPaneId }))
-              .catch(() => null)
-          : null,
-      terminals: await context.client.evaluate(terminalSnapshotsExpression()).catch(() => []),
+      terminal: await context.client.evaluate(terminalSnapshotExpression()).catch(() => null),
     }).catch(() => {});
   }
   await writeJson(join(artifactDir, "summary.json"), {
@@ -116,26 +103,25 @@ async function openWorkspaceFromSidebar(client) {
   );
 }
 
-async function waitForTerminalReady(client, paneId) {
+async function waitForTerminalReady(client) {
   return waitForState(
     client,
-    terminalSnapshotExpression({ paneId }),
+    terminalSnapshotExpression(),
     (snapshot) =>
       snapshot.exists &&
       snapshot.visible &&
       snapshot.xtermReady &&
       snapshot.sessionId.startsWith("terminal_") &&
       snapshot.statusText !== "" &&
-      snapshot.statusText !== "Starting shell" &&
-      snapshot.titleText === snapshot.statusText,
+      snapshot.statusText !== "Starting shell",
     terminalWorkflowTimeoutMs,
   );
 }
 
-async function waitForTerminalLost(client, sessionId, paneId) {
+async function waitForTerminalLost(client, sessionId) {
   return waitForState(
     client,
-    terminalSnapshotExpression({ paneId }),
+    terminalSnapshotExpression(),
     (snapshot) =>
       snapshot.sessionId === sessionId &&
       snapshot.terminalLost &&
