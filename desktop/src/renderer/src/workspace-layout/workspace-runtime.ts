@@ -96,6 +96,7 @@ export function createWorkspaceRuntime({
     resizeReportWriter: new LocalStorageResizePerformanceReportWriter(1500),
     runtimePolicy: new PaneRuntimePolicy(DEFAULT_PANE_BUDGET, runtimePolicyOptionsForRuntime(mode)),
     scene,
+    surfaceRegistry,
     store,
   };
 }

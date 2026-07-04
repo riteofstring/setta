@@ -739,6 +739,29 @@ The key sequencing constraint is conceptual, not code-level: do not use
 renderer-only state to hide backend lifecycle failure. The terminal pane should
 remain visible and retryable until backend close succeeds.
 
+Status: completed 2026-07-03. Terminal pane close now goes through an explicit
+surface-adapter close contract. The workspace layout only removes a terminal
+pane after the terminal adapter receives a backend `terminal.close` response
+whose session status is `closed`; close confirmation and close-failure
+presentation are driven from terminal adapter session state, while the close
+helper owns the duplicate-close guard. Failed backend close attempts keep the
+pane visible with status/overlay feedback and allow a later close retry.
+Non-terminal panes continue through the existing synchronous layout path.
+
+Verification:
+
+- `pnpm -C desktop exec vitest run src/renderer/src/workspace-layout/terminal-surface-adapter.test.ts src/renderer/src/workspace-layout/presentation-engine.test.ts src/renderer/src/workspace-layout/workspace-interactions.test.ts`
+- `node --check desktop/tests/electron/browser-driver.js && node --check desktop/tests/electron/terminal-pane-close-driver.js && node --check desktop/tests/electron/terminal-workflow-helpers.mjs && node --check desktop/tests/electron/terminal-workflow.test.mjs && node --check desktop/tests/electron/terminal-backend-crash-workflow.test.mjs && node --check desktop/tests/electron/cdp-client.mjs`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/terminal-workflow.test.mjs --skip-build`
+- `node desktop/tests/electron/terminal-backend-crash-workflow.test.mjs --skip-build`
+- `./scripts/format.sh`; `./check_quality.sh --git-changes`
+
+Remaining notes: this slice did not add force-kill escalation and did not touch
+generated contracts. Phase 8 reconciliation remains the only remaining phase in
+this ordering plan.
+
 ## Phase 8: Verification And Final Reconciliation
 
 For each implemented slice:

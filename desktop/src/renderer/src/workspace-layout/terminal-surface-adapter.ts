@@ -45,6 +45,13 @@ import { TerminalSearchController } from "./terminal-surface-search";
 import { mountXtermTerminal, type TerminalDisposable } from "./terminal-surface-xterm";
 import { assertNever, emptyTerminalStats, performanceNow } from "./terminal-surface-utils";
 import {
+  terminalSurfaceLimits as limits,
+  type PendingPaste,
+  type PendingTerminalOutput,
+  type TerminalStatusEvent,
+} from "./terminal-surface-state";
+import { requestTerminalPaneClose } from "./terminal-pane-close";
+import {
   isWorkspaceArrowNavigationShortcut,
   workspaceShortcutKeyboardEventInit,
 } from "./workspace-shortcuts";
@@ -56,30 +63,10 @@ import type {
   ResumeReason,
   SurfaceAdapter,
   SurfaceId,
+  SurfacePaneCloseRequest,
   ViewportChangeReason,
   TerminalSurfaceStats,
 } from "./types";
-
-const maxPendingOutputChunks = 640;
-const defaultCols = 80;
-const defaultRows = 24;
-const inputChunkBytes = 64 * 1024;
-const largePasteWarningBytes = 16 * 1024;
-const maxPasteBytes = 1024 * 1024;
-const maxFitReadinessRetries = 4;
-const resizeDebounceMs = 80;
-interface PendingTerminalOutput {
-  byteCount: number;
-  dataBase64: string;
-}
-interface PendingPaste {
-  byteCount: number;
-  text: string;
-}
-
-type TerminalStatusEvent = TerminalEvent & {
-  type: Exclude<TerminalEvent["type"], "terminal.output">;
-};
 
 export class TerminalSurfaceAdapter implements SurfaceAdapter {
   readonly kind = "terminal" as const;
@@ -268,6 +255,19 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
 
   getTerminalStats(): TerminalSurfaceStats {
     return this.stats;
+  }
+
+  requestPaneClose({ confirm }: SurfacePaneCloseRequest) {
+    return requestTerminalPaneClose({
+      api: terminalAPI(),
+      applySessionSummary: (session) => this.applySessionSummary(session),
+      confirm,
+      owner: this,
+      sessionId: this.sessionId,
+      sessionStatus: this.sessionStatus,
+      showExitOverlay: (message) => this.showExitOverlay(message),
+      showStatus: (message) => this.showStatus(message),
+    });
   }
 
   destroy(): void {
@@ -502,7 +502,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
 
   private enqueuePendingOutput(output: PendingTerminalOutput): void {
     this.pendingOutput.push(output);
-    const overflow = this.pendingOutput.length - maxPendingOutputChunks;
+    const overflow = this.pendingOutput.length - limits.maxPendingOutputChunks;
     if (overflow > 0) {
       this.pendingOutput.splice(0, overflow);
       this.droppedOutputChunks += overflow;
@@ -520,7 +520,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     let dirtyRows = 0;
     for (const output of outputs) {
       this.writeOutputToTerminal(terminal, output.dataBase64, output.byteCount);
-      dirtyRows = Math.max(dirtyRows, Math.max(1, Math.min(defaultRows, output.byteCount)));
+      dirtyRows = Math.max(dirtyRows, Math.max(1, Math.min(limits.defaultRows, output.byteCount)));
     }
     this.writeStats(dirtyRows);
     this.syncHostState();
@@ -532,7 +532,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     byteCount: number,
   ): void {
     terminal.write(bytesFromBase64(dataBase64), () => terminal.scrollToBottom());
-    this.writeStats(Math.max(1, Math.min(defaultRows, byteCount)));
+    this.writeStats(Math.max(1, Math.min(limits.defaultRows, byteCount)));
     this.syncHostState();
   }
 
@@ -630,16 +630,16 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     const byteCount = new TextEncoder().encode(text).byteLength;
-    if (byteCount > maxPasteBytes) {
+    if (byteCount > limits.maxPasteBytes) {
       this.pendingPaste = null;
       this.showPasteOverlay(
-        `Paste is ${formatBytes(byteCount)}; limit is ${formatBytes(maxPasteBytes)}.`,
+        `Paste is ${formatBytes(byteCount)}; limit is ${formatBytes(limits.maxPasteBytes)}.`,
         false,
       );
       this.showStatus("Paste rejected");
       return;
     }
-    if (byteCount >= largePasteWarningBytes) {
+    if (byteCount >= limits.largePasteWarningBytes) {
       this.pendingPaste = { byteCount, text };
       this.showPasteOverlay(`Paste ${formatBytes(byteCount)} into terminal?`, true);
       this.showStatus("Paste waiting for confirmation");
@@ -687,7 +687,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       this.showStatus("Terminal preload API is unavailable.");
       return;
     }
-    if (bytes.length <= inputChunkBytes) {
+    if (bytes.length <= limits.inputChunkBytes) {
       void api
         .input({
           dataBase64: base64FromBytes(bytes),
@@ -707,8 +707,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     bytes: Uint8Array,
   ): Promise<void> {
     try {
-      for (let offset = 0; offset < bytes.length; offset += inputChunkBytes) {
-        const chunk = bytes.slice(offset, offset + inputChunkBytes);
+      for (let offset = 0; offset < bytes.length; offset += limits.inputChunkBytes) {
+        const chunk = bytes.slice(offset, offset + limits.inputChunkBytes);
         await api.input({
           dataBase64: base64FromBytes(chunk),
           sessionId,
@@ -841,7 +841,10 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
 
   private scheduleFitRetry(): void {
-    if (this.fitRetryTimer !== null || this.fitReadinessRetryCount >= maxFitReadinessRetries) {
+    if (
+      this.fitRetryTimer !== null ||
+      this.fitReadinessRetryCount >= limits.maxFitReadinessRetries
+    ) {
       return;
     }
     this.fitReadinessRetryCount += 1;
@@ -875,13 +878,13 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
         rows: next.rows,
         sessionId: this.sessionId,
       });
-    }, resizeDebounceMs);
+    }, limits.resizeDebounceMs);
   }
 
   private currentDimensions(): { cols: number; rows: number } {
     return {
-      cols: this.terminal?.cols ?? defaultCols,
-      rows: this.terminal?.rows ?? defaultRows,
+      cols: this.terminal?.cols ?? limits.defaultCols,
+      rows: this.terminal?.rows ?? limits.defaultRows,
     };
   }
 

@@ -35,6 +35,11 @@ const driverExtensionScripts = [
       'globalThis.__settaE2EDriver?.workflowNodeDetailsVersion === "setta-workflow-node-details-driver-v1"',
     path: join(driverScriptDir, "workflow-node-details-driver.js"),
   },
+  {
+    installedExpression:
+      'globalThis.__settaE2EDriver?.terminalPaneCloseVersion === "setta-terminal-pane-close-driver-v1"',
+    path: join(driverScriptDir, "terminal-pane-close-driver.js"),
+  },
 ];
 
 export class CDPClient {

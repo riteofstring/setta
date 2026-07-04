@@ -262,8 +262,17 @@ export interface SurfaceAdapter {
   getCanvasStats?(): CanvasSurfaceStats;
   getGitGraphStats?(): GitGraphSurfaceStats;
   getTerminalStats?(): TerminalSurfaceStats;
+  requestPaneClose?(request: SurfacePaneCloseRequest): Promise<SurfacePaneCloseResult>;
   syncFrame?(): void;
   destroy(): void;
+}
+
+export interface SurfacePaneCloseRequest {
+  confirm(message: string): boolean;
+}
+
+export interface SurfacePaneCloseResult {
+  removePane: boolean;
 }
 
 export interface PaneRuntimeBudget {

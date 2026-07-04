@@ -887,16 +887,19 @@ into kill without user-visible state and backend confirmation.
 
 ### Test Plan
 
-Add deterministic Electron coverage through the production app path:
+Add deterministic Electron coverage through production app paths for successful close/removal/process exit, rejected close retention/retry, non-closed backend
+responses, and reload/restart reconciliation. Keep backend terminal manager close tests, but direct IPC/backend happy-path close tests are not sufficient for
+this UI lifecycle contract.
 
-- closing a running terminal with a successful backend close removes the pane;
-- forcing `terminal.close` to reject keeps the pane visible and shows a retryable error;
-- after a failed close, retrying with a successful backend response removes the pane;
-- the terminal process is not left running after successful close;
-- reload/restart behavior preserves or reconciles a terminal pane whose close failed before removal.
+### Progress
 
-Keep existing backend terminal manager tests for close success/failure, but do not treat direct IPC/backend happy-path close tests as sufficient for this UI
-lifecycle contract.
+Status: Completed 2026-07-03. Terminal pane close is now an async surface-adapter transaction: workspace close removes a terminal pane only after backend
+`terminal.close` reports `closed`; failed or non-closed backend responses keep the pane visible with retryable status/overlay feedback. Non-terminal pane
+close remains synchronous.
+
+Verification covered focused renderer tests, Electron driver syntax checks, desktop typecheck/build, terminal workflow pane-chrome close/process-exit
+coverage, and backend-crash failed-close retention plus relaunch/retry coverage. Exact commands are recorded in the implementation order plan. No generated
+contracts changed.
 
 ## Deferred Findings
 
