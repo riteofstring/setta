@@ -618,7 +618,7 @@ matches the history-navigation contract.
 - Park automatic same-turn reconnect/resume as an upstream Codex dependency
   until there is an idempotent resume-this-turn protocol.
 
-Status after the provider-restart liveness step:
+Status after the stream-error liveness step:
 
 - Done: app-server session lifecycle errors route through `RunLiveness` with
   `provider_restarted` when provider reconciliation confirms the turn is still
@@ -627,9 +627,15 @@ Status after the provider-restart liveness step:
   reconnecting liveness through the production path.
 - Done: `ListConversations` snapshots active-run liveness under the service lock
   so conversation list projection does not race active/liveness map updates.
-- Remaining: Codex `error` notifications with `willRetry` true or false still
-  need their final product treatment beyond the current trace or terminal
-  failure paths.
+- Done: Codex `error` notifications now decode through the generated app-server
+  protocol type, record provider diagnostics, preserve partial assistant text,
+  and route retryable stream errors through `RunLiveness` as `stream_resync`.
+  Non-retryable stream-loss notifications mark the active run `lost` with
+  `provider_unavailable` so the renderer stays mounted and exposes degraded run
+  controls instead of crashing. Non-stream terminal provider errors still finish
+  the turn through the normal failed-run path.
+- Remaining: no known Slice 2 implementation gap. Slice 3 is ready to start with
+  protocol findings and typed activity contract shape.
 
 ### Slice 3: Protocol Findings And Contract Shape
 
