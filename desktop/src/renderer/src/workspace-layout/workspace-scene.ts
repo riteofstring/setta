@@ -3,7 +3,6 @@ import type {
   PaneTone as PersistedPaneTone,
   SurfaceKind as PersistedSurfaceKind,
   TerminalPaneConfig as PersistedTerminalPaneConfig,
-  WorkflowNodeDetailsPaneConfig,
   WorkspaceUIColumn,
   WorkspaceUILayout,
   WorkspaceUIPane,
@@ -218,16 +217,7 @@ function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
     title: pane.title,
     tone: pane.tone,
     weight: pane.weight,
-    workflowNodeDetailsConfig: workflowNodeDetailsConfigFromPersisted(
-      pane.workflowNodeDetailsConfig,
-    ),
   };
-}
-
-function workflowNodeDetailsConfigFromPersisted(
-  config: WorkflowNodeDetailsPaneConfig | null,
-): WorkflowNodeDetailsPaneConfig | undefined {
-  return config ?? undefined;
 }
 
 function terminalConfigFromPersisted(config: PersistedTerminalPaneConfig): TerminalPaneConfig {
@@ -256,7 +246,6 @@ function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
     title: pane.title,
     tone: persistedPaneTone(pane.tone),
     weight: pane.weight,
-    workflowNodeDetailsConfig: pane.workflowNodeDetailsConfig ?? null,
   };
 }
 

@@ -1,5 +1,4 @@
 export interface WorkflowGraphRuntimeHandle {
-  setFocused(focused: boolean): void;
   setFrozen(frozen: boolean): void;
 }
 

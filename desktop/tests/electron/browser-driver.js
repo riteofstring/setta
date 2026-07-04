@@ -1,12 +1,10 @@
-/* global CustomEvent, Element, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, getComputedStyle, window */
+/* global CustomEvent, Element, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, MouseEvent, document, getComputedStyle, window */
 
 (() => {
   const workflowDefinitionChangedEventName = "setta:workflow-definition-changed";
-
   function bodyText() {
     return { body: document.body.innerText };
   }
-
   function buttonByKind(kind, value) {
     if (kind === "aria-label") {
       return document.querySelector(`button[aria-label="${cssEscape(value)}"]`);
@@ -18,51 +16,40 @@
     }
     throw new Error(`unsupported button lookup kind: ${kind}`);
   }
-
   function clickButton({ kind, value }) {
     const button = buttonByKind(kind, value);
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { body: document.body.innerText, clicked: false };
+    if (!(button instanceof HTMLButtonElement)) {
+      return { body: document.body.innerText, clicked: false, reason: "missing-button" };
+    }
+    if (button.disabled) {
+      return { body: document.body.innerText, clicked: false, reason: "disabled-button" };
     }
     button.click();
-    return { body: document.body.innerText, clicked: true };
+    return { body: document.body.innerText, clicked: true, reason: "clicked" };
   }
-
   function buttonReady({ kind, value }) {
     const button = buttonByKind(kind, value);
     return {
       ready: button instanceof HTMLButtonElement && !button.disabled,
     };
   }
-
   function clickButtonContainingText({ text }) {
     const button = Array.from(document.querySelectorAll("button")).find((candidate) =>
       candidate.innerText.includes(text),
     );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { body: document.body.innerText, clicked: false };
+    if (!(button instanceof HTMLButtonElement)) {
+      return { body: document.body.innerText, clicked: false, reason: "missing-button" };
+    }
+    if (button.disabled) {
+      return { body: document.body.innerText, clicked: false, reason: "disabled-button" };
     }
     button.click();
-    return { body: document.body.innerText, clicked: true };
+    return { body: document.body.innerText, clicked: true, reason: "clicked" };
   }
-
-  function clickButtonContainingTextByRole({ role, text }) {
-    const selector = `button[role="${cssEscape(role)}"]`;
-    const button = Array.from(document.querySelectorAll(selector)).find((candidate) =>
-      candidate.innerText.includes(text),
-    );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { body: document.body.innerText, clicked: false };
-    }
-    button.click();
-    return { body: document.body.innerText, clicked: true };
-  }
-
   function composerReady() {
     const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
     return { ready: Boolean(textarea && !textarea.disabled) };
   }
-
   function composerFocus() {
     const active = document.activeElement;
     const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
@@ -73,7 +60,6 @@
       ...textareaSnapshot(textarea),
     };
   }
-
   function conversationRows() {
     return {
       rows: Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]')).map(
@@ -84,7 +70,6 @@
       ),
     };
   }
-
   function chatTranscriptRows() {
     return {
       rows: Array.from(document.querySelectorAll('[data-chat-message="true"]')).map((row) => ({
@@ -93,76 +78,6 @@
       })),
     };
   }
-
-  // chatTranscriptBlockOrder returns the recognized transcript blocks in document order. It is
-  // the cross-phase diagnostic used to compare provider chronology, backend order, and DOM order.
-  // Today it reads the current DOM
-  // hooks (message role plus the run-activity-group/row test ids), so the order is flattened.
-  // Those hooks disappear in the Phase 5 refactor, so it also prefers a stable
-  // data-transcript-block + data-block-kind tagging when present; Phase 5 should add that so the
-  // characterization flip becomes a one-line expectation change instead of a driver rewrite.
-  function chatTranscriptBlockOrder() {
-    const blockSelector =
-      '[data-transcript-block], [data-chat-message="true"], [data-testid="run-activity-group"], [data-testid="run-activity-row"]';
-    const region =
-      document.querySelector('[data-testid="chat-transcript-region"]') ?? document.body;
-    const nodes = Array.from(region.querySelectorAll(blockSelector));
-    return {
-      blocks: nodes.map((node) => {
-        const kind = transcriptBlockKind(node);
-        return {
-          kind,
-          role: node.getAttribute("data-message-role") ?? "",
-          runId: node.closest("[data-run-id]")?.getAttribute("data-run-id") ?? "",
-          sourceRunItemId: node.getAttribute("data-run-item-id") ?? "",
-          text: transcriptBlockText(node, kind, blockSelector),
-        };
-      }),
-    };
-  }
-
-  function transcriptBlockKind(node) {
-    // Prefer the stable Phase 5 tagging when present; otherwise infer from the current hooks.
-    const blockKind = node.getAttribute("data-block-kind");
-    if (blockKind) {
-      return blockKind;
-    }
-    const testId = node.getAttribute("data-testid");
-    if (testId === "run-activity-group") {
-      return "activity_group";
-    }
-    if (testId === "run-activity-row") {
-      return "activity_row";
-    }
-    const role = node.getAttribute("data-message-role");
-    if (role === "user") {
-      return "user_message";
-    }
-    if (role === "assistant") {
-      return "assistant_text";
-    }
-    return role ? `message:${role}` : "message";
-  }
-
-  function transcriptBlockText(node, kind, blockSelector) {
-    if (kind === "assistant_text" || kind === "user_message") {
-      const role = node.getAttribute("data-message-role");
-      const content = node.querySelector(`[data-testid="chat-${role}-message-content"]`);
-      if (content instanceof HTMLElement) {
-        return collapseTranscriptWhitespace(content.textContent).slice(0, 240);
-      }
-    }
-    const clone = node.cloneNode(true);
-    for (const nested of Array.from(clone.querySelectorAll(blockSelector))) {
-      nested.remove();
-    }
-    return collapseTranscriptWhitespace(clone.textContent).slice(0, 240);
-  }
-
-  function collapseTranscriptWhitespace(text) {
-    return (text ?? "").replace(/\s+/g, " ").trim();
-  }
-
   function visibleUserMessageTexts() {
     return {
       rows: Array.from(document.querySelectorAll('[data-chat-message="true"]'))
@@ -170,7 +85,6 @@
         .map((row) => row.innerText.trim()),
     };
   }
-
   function chatLayoutMetrics() {
     const pane = document.querySelector('[data-testid="chat-detail-pane"]');
     const transcript = document.querySelector('[data-testid="chat-transcript-region"]');
@@ -184,7 +98,6 @@
       transcript: elementVerticalRect(transcript),
     };
   }
-
   function dispatchLayoutSnapshot({ trigger }) {
     window.dispatchEvent(
       new CustomEvent("setta:record-layout-snapshot", {
@@ -193,12 +106,10 @@
     );
     return true;
   }
-
   function elementValue({ selector }) {
     const element = document.querySelector(selector);
     return { value: element?.value ?? null };
   }
-
   function dispatchDocumentEscape() {
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -206,20 +117,10 @@
     document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
     return true;
   }
-
   function modelPicker() {
     const picker = document.querySelector('[data-testid="model-picker"]');
     return { body: document.body.innerText, open: Boolean(picker), ready: Boolean(picker) };
   }
-
-  function modelPickerSummaryButton() {
-    const button = document.querySelector('[aria-label="Open model and reasoning picker"]');
-    return {
-      ready: Boolean(button),
-      text: button instanceof HTMLElement ? button.innerText : "",
-    };
-  }
-
   function modelPickerButtonReady({ text }) {
     const picker = document.querySelector('[data-testid="model-picker"]');
     const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
@@ -227,7 +128,6 @@
       ready: buttons.some((button) => button.innerText.includes(text)),
     };
   }
-
   function clickModelPickerButton({ text }) {
     const picker = document.querySelector('[data-testid="model-picker"]');
     const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
@@ -238,7 +138,6 @@
     button.click();
     return true;
   }
-
   function selectedModelPickerItems({ attribute }) {
     const picker = document.querySelector('[data-testid="model-picker"]');
     const selected = Array.from(picker?.querySelectorAll(`[${attribute}="true"]`) ?? []).map(
@@ -246,12 +145,17 @@
     );
     return { selected };
   }
-
   function rendererWorkspace() {
     const detail = document.querySelector('[data-testid="chat-detail-pane"]');
     return { workspaceId: detail?.getAttribute("data-workspace-id") ?? "" };
   }
-
+  function layoutState() {
+    const read = window.__settaWorkspaceReadLayoutState;
+    if (typeof read === "function") {
+      return { ok: true, snapshot: read() };
+    }
+    return { ok: false, reason: "layout-state-unavailable" };
+  }
   function scrollSidebarNavigationTo({ scrollTop }) {
     const list = document.querySelector('[data-testid="sidebar-navigation-list"]');
     if (!list) {
@@ -261,14 +165,12 @@
     list.dispatchEvent(new Event("scroll", { bubbles: true }));
     return true;
   }
-
   function selectedConversation() {
     const panel = document.querySelector('[data-testid="chat-detail-pane"]');
     return {
       selectedConversationId: panel?.getAttribute("data-conversation-id") ?? "",
     };
   }
-
   function setInputValue({ selector, value }) {
     const element = document.querySelector(selector);
     if (
@@ -297,19 +199,15 @@
     element.dispatchEvent(new Event("change", { bubbles: true }));
     return element.value === value;
   }
-
   function sidebarMetrics() {
-    const sidebar =
-      document.querySelector('[data-testid="sidebar-scrollable-sections"]') ?? document;
     return {
-      activeRows: sidebar.querySelectorAll('[data-testid="active-workspace-item"]').length,
-      conversationRows: sidebar.querySelectorAll('[data-testid="conversation-sidebar-item"]')
+      activeRows: document.querySelectorAll('[data-testid="active-workspace-item"]').length,
+      conversationRows: document.querySelectorAll('[data-testid="conversation-sidebar-item"]')
         .length,
-      recentRows: sidebar.querySelectorAll('[data-testid="recent-workspace-item"]').length,
-      totalElements: sidebar.querySelectorAll("*").length,
+      recentRows: document.querySelectorAll('[data-testid="recent-workspace-item"]').length,
+      totalElements: document.querySelectorAll("*").length,
     };
   }
-
   function visibleAssistantTexts() {
     const rows = Array.from(
       document.querySelectorAll(
@@ -322,13 +220,11 @@
       .filter((text) => text !== "" && text !== "...");
     return { assistantTexts };
   }
-
   function visibleWorkflowGraphCount() {
     return Array.from(document.querySelectorAll('[data-testid="workflow-graph"]')).filter(
       (candidate) => elementIntersectsViewport(candidate),
     ).length;
   }
-
   function terminalSnapshot() {
     const host = activeTerminalHost();
     if (!host) {
@@ -336,9 +232,11 @@
     }
     return terminalSnapshotForHost(host);
   }
-
-  function terminalPaneFocusPoint() {
-    const host = activeTerminalHost();
+  function terminalSnapshots() {
+    return terminalHosts().map((host) => terminalSnapshotForHost(host));
+  }
+  function terminalPaneFocusPoint({ paneId = null } = {}) {
+    const host = activeTerminalHost({ paneId });
     if (!host) {
       return { ok: false, reason: "missing-terminal-host" };
     }
@@ -352,9 +250,27 @@
       y: Math.round(clamp(rect.top + 8, 8, window.innerHeight - 8)),
     };
   }
-
-  function focusTerminalTextarea() {
-    const host = activeTerminalHost();
+  function terminalInputPoint({ paneId = null } = {}) {
+    const host = activeTerminalHost({ paneId });
+    if (!host) {
+      return { ok: false, reason: "missing-terminal-host" };
+    }
+    const viewport = host.querySelector(".workspace-xterm-viewport");
+    if (!(viewport instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-terminal-viewport" };
+    }
+    if (!terminalHostIntersectsViewport(host)) {
+      return { ok: false, reason: "terminal-host-outside-viewport", rect: elementRect(host) };
+    }
+    const rect = viewport.getBoundingClientRect();
+    return {
+      ok: true,
+      x: Math.round(clamp(rect.left + rect.width / 2, 8, window.innerWidth - 8)),
+      y: Math.round(clamp(rect.top + rect.height / 2, 8, window.innerHeight - 8)),
+    };
+  }
+  function focusTerminalTextarea({ paneId = null } = {}) {
+    const host = activeTerminalHost({ paneId });
     const viewport = host?.querySelector(".workspace-xterm-viewport");
     const textarea = host?.querySelector(".xterm-helper-textarea");
     if (!(viewport instanceof HTMLElement) || !(textarea instanceof HTMLTextAreaElement)) {
@@ -364,9 +280,11 @@
     textarea.focus();
     return { ok: document.activeElement === textarea };
   }
-
-  function maximizeTerminalPane() {
-    const host = activeTerminalHost();
+  function maximizeTerminalPane({ paneId = null } = {}) {
+    if (paneId === null || paneId === "") {
+      return { ok: false, reason: "missing-pane-id" };
+    }
+    const host = activeTerminalHost({ paneId });
     const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
     if (!(button instanceof HTMLButtonElement)) {
       return { ok: false, reason: "missing-maximize-button" };
@@ -376,9 +294,35 @@
     }
     return { ok: true };
   }
-
-  async function terminalScrollbackSearch({ expectedText }) {
-    const host = activeTerminalHost();
+  function terminalPaneStageState({ paneId }) {
+    if (!paneId) {
+      return { ok: false, reason: "missing-pane-id" };
+    }
+    const host = activeTerminalHost({ paneId });
+    if (!(host instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-terminal-host" };
+    }
+    const stage =
+      document.querySelector('[data-testid="workspace-layout-area"]') ?? document.documentElement;
+    const rect = host.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const contained =
+      rect.width > 0 &&
+      rect.height > 0 &&
+      rect.left >= stageRect.left &&
+      rect.right <= stageRect.right &&
+      rect.top >= stageRect.top &&
+      rect.bottom <= stageRect.bottom;
+    return {
+      contained,
+      ok: true,
+      rect: elementRect(host),
+      stageRect: elementRect(stage),
+      visible: terminalHostIntersectsViewport(host),
+    };
+  }
+  async function terminalScrollbackSearch({ expectedText, paneId = null }) {
+    const host = activeTerminalHost({ paneId });
     if (!host) {
       return { ...emptyTerminalSnapshot(false), found: false, source: "missing-host" };
     }
@@ -430,7 +374,6 @@
       await nextFrame();
     }
   }
-
   function maximizeWorkflowGraphPane({ surfaceId = null } = {}) {
     const state = maximizeWorkflowGraphPaneState({ surfaceId });
     if (!state.ok) {
@@ -438,7 +381,6 @@
     }
     return state.surfaceId;
   }
-
   function maximizeWorkflowGraphPaneState({ surfaceId = null } = {}) {
     const surface = workflowGraphMaximizeSurface(surfaceId);
     if (!surface) {
@@ -466,7 +408,6 @@
     button.click();
     return { ok: true, reason: "clicked", surfaceId: resolvedSurfaceId };
   }
-
   function workflowGraphMaximizeSurface(surfaceId) {
     const preferredSurface = workflowGraphSurfaceById(surfaceId);
     if (workflowGraphMaximizeButton(preferredSurface)) {
@@ -474,20 +415,17 @@
     }
     return activeWorkflowGraphSurface();
   }
-
   function workflowGraphMaximizeButton(surface) {
     const host = surface?.closest('[data-testid="workspace-pane-host"]');
     const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
     return button instanceof HTMLButtonElement ? button : null;
   }
-
   function newFrameButtonOrWorkflowMenuExists() {
     return (
       Boolean(document.querySelector('button[aria-label="New frame"]')) ||
       Boolean(workflowGraphMenuItem())
     );
   }
-
   function openWorkflowGraphToolbarMenu() {
     if (workflowGraphMenuItem()) {
       return { ok: true, state: "already-open" };
@@ -508,11 +446,9 @@
     button.click();
     return { ok: true, state: "opened" };
   }
-
   function workflowGraphMenuItemExists() {
     return Boolean(workflowGraphMenuItem());
   }
-
   function selectWorkflowGraphMenuItem() {
     const item = workflowGraphMenuItem();
     if (!(item instanceof HTMLButtonElement)) {
@@ -524,7 +460,6 @@
     item.click();
     return { ok: true };
   }
-
   function workflowGraphCanvasRect({ surfaceId }) {
     const state = workflowGraphCanvasRectState({ surfaceId });
     if (!state.rect) {
@@ -532,7 +467,6 @@
     }
     return state.rect;
   }
-
   function workflowGraphCanvasRectState({ surfaceId }) {
     const roots = Array.from(document.querySelectorAll('[data-testid="workflow-graph"]'));
     const root =
@@ -564,11 +498,9 @@
       roots: roots.map(workflowGraphRootState),
     };
   }
-
   function workflowGraphCanvasRectReady(rect) {
     return rect.clientHeight > 0 && rect.clientWidth > 0 && rect.height > 0 && rect.width > 0;
   }
-
   function workflowGraphDebugSnapshot({ includeVisual = true, surfaceId }) {
     const api = window.__settaWorkflowGraphDebug;
     if (!api) {
@@ -576,7 +508,6 @@
     }
     return api.getSnapshot(surfaceId, { includeVisual });
   }
-
   function workflowGraphDebugSnapshotReady({ includeVisual = true, surfaceId }) {
     const api = window.__settaWorkflowGraphDebug;
     if (!api) {
@@ -588,7 +519,6 @@
     }
     return { ready: true, snapshot: api.getSnapshot(surfaceId, { includeVisual }) };
   }
-
   function workflowGraphDebugNotReady(reason, surfaceIds = []) {
     return {
       flags: window.setta?.app.flags ?? null,
@@ -598,13 +528,11 @@
       surfaceIds,
     };
   }
-
   function workflowGraphRootStates() {
     return Array.from(document.querySelectorAll('[data-testid="workflow-graph"]')).map(
       workflowGraphRootState,
     );
   }
-
   function workflowGraphRootState(root) {
     const rect = root.getBoundingClientRect();
     return {
@@ -617,7 +545,6 @@
       width: rect.width,
     };
   }
-
   async function workflowWorkspaceSessionState() {
     const session = await window.setta.workspace.session();
     return {
@@ -626,7 +553,6 @@
       selectedWorkspaceId: session.selectedWorkspaceId,
     };
   }
-
   function selectWorkflowNodeType({ nodeType }) {
     const button = document.querySelector(`[data-testid="workflow-node-create-${nodeType}"]`);
     if (!(button instanceof HTMLButtonElement)) {
@@ -635,7 +561,6 @@
     button.click();
     return { ok: true };
   }
-
   function openWorkflowToolbarAddMenu() {
     const button = workflowToolbarElement('[data-testid="workflow-add-node-button"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -644,7 +569,6 @@
     button.click();
     return { ok: true };
   }
-
   function selectWorkflowToolbarNodeType({ nodeType }) {
     const button = workflowToolbarElement(`[data-testid="workflow-toolbar-add-${nodeType}"]`);
     if (!(button instanceof HTMLButtonElement)) {
@@ -653,12 +577,10 @@
     button.click();
     return { ok: true };
   }
-
   function workflowToolbarState() {
     const state = workflowToolbarElement('[data-testid="workflow-toolbar-state"]');
     return { text: state?.textContent?.trim() ?? "" };
   }
-
   function clickWorkflowToolbarButton({ testId }) {
     const button = workflowToolbarElement(`[data-testid="${testId}"]`);
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -667,7 +589,6 @@
     button.click();
     return { ok: true };
   }
-
   function workflowToolbarButtonState({ testId }) {
     // Scope to the active workflow graph host. Toolbar slots are always present now, so a
     // background pane in another view can also expose the same testId; an unscoped lookup would
@@ -679,7 +600,6 @@
       text: button instanceof HTMLButtonElement ? (button.textContent?.trim() ?? "") : "",
     };
   }
-
   function workflowValidationPanelState() {
     // The draft validation panel is a draft-only overlay inside the active workflow graph host.
     const panel = workflowToolbarElement('[data-testid="workflow-validation-panel"]');
@@ -689,11 +609,9 @@
         panel instanceof HTMLElement ? (panel.textContent?.trim().replace(/\s+/g, " ") ?? "") : "",
     };
   }
-
   function workflowToolbarSlotRects({ testIds = [] }) {
     return readWorkflowToolbarFrame(testIds);
   }
-
   function readWorkflowToolbarFrame(testIds = []) {
     // Read the stable toolbar slots plus the title/state text from the active workflow graph host
     // so frame-by-frame checks can prove each slot holds its x position across modes and the title
@@ -706,7 +624,6 @@
       title: titleElement instanceof HTMLElement ? (titleElement.textContent?.trim() ?? "") : "",
     };
   }
-
   function workflowToolbarSlotRect(testId) {
     const element = workflowToolbarElement(`[data-testid="${testId}"]`);
     if (!(element instanceof HTMLElement)) {
@@ -723,7 +640,6 @@
       width: rect.width,
     };
   }
-
   async function clickWorkflowRunAndReadStartFrame(options = {}) {
     const slotTestIds = options.slotTestIds;
     const runButton = workflowToolbarElement('[data-testid="workflow-run-button"]');
@@ -762,7 +678,6 @@
       validationPanelPresent: panel instanceof HTMLElement,
     };
   }
-
   function openWorkflowRunSelector() {
     const button = workflowToolbarElement('[data-testid="workflow-run-selector-button"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -771,7 +686,6 @@
     button.click();
     return { ok: true };
   }
-
   function selectWorkflowRunSelectorRow({ executionId }) {
     const rows = Array.from(
       document.querySelectorAll('[data-testid^="workflow-run-selector-row-"]'),
@@ -787,7 +701,6 @@
     row.click();
     return { ok: true };
   }
-
   function workflowRunSelectorState() {
     const toolbar = workflowToolbarElement('[data-testid="workflow-graph-toolbar"]');
     const button = workflowToolbarElement('[data-testid="workflow-run-selector-button"]');
@@ -810,16 +723,13 @@
         toolbar.getBoundingClientRect().height > 0,
     };
   }
-
   function workflowToolbarElement(selector) {
     return activeWorkflowGraphHost()?.querySelector(selector) ?? document.querySelector(selector);
   }
-
   function activeWorkflowGraphSurface() {
     const host = activeWorkflowGraphHost();
     return host?.querySelector('[data-testid="workflow-graph"]') ?? null;
   }
-
   function activeWorkflowGraphHost() {
     const hostSelectors = [
       '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-maximized="true"][data-visible="true"][data-surface-visible="true"][data-surface-frozen="false"][data-moving="false"]',
@@ -837,13 +747,11 @@
     }
     return null;
   }
-
   function workflowGraphHostBySurfaceId(surfaceId) {
     return (
       workflowGraphSurfaceById(surfaceId)?.closest('[data-testid="workspace-pane-host"]') ?? null
     );
   }
-
   function workflowGraphSurfaceById(surfaceId) {
     if (!surfaceId) {
       return null;
@@ -854,7 +762,6 @@
       ) ?? null
     );
   }
-
   async function renameWorkflowDefinitionFromCurrentGraph({
     definitionId,
     description,
@@ -870,7 +777,6 @@
       definition.graph,
     );
   }
-
   function restoreMaximizedWorkflowGraphPane() {
     const host = document.querySelector(
       '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-maximized="true"]',
@@ -882,7 +788,42 @@
     button.click();
     return true;
   }
-
+  function focusNonTerminalPane() {
+    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+      .filter((candidate) => candidate instanceof HTMLElement)
+      .find(
+        (candidate) =>
+          candidate.dataset.visible === "true" &&
+          candidate.dataset.surfaceKind !== "terminal" &&
+          elementIntersectsViewport(candidate),
+      );
+    if (!(host instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-visible-non-terminal-pane" };
+    }
+    const rect = host.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return { ok: false, reason: "non-terminal-pane-empty", rect: elementRect(host) };
+    }
+    const x = Math.round(clamp(rect.left + rect.width / 2, 8, window.innerWidth - 8));
+    const y = Math.round(
+      clamp(rect.top + Math.min(15, rect.height / 2), 8, window.innerHeight - 8),
+    );
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      view: window,
+    });
+    host.dispatchEvent(event);
+    return {
+      defaultPrevented: event.defaultPrevented,
+      ok: true,
+      paneId: host.dataset.paneId ?? "",
+      x,
+      y,
+    };
+  }
   function workflowGraphPaneState({ surfaceId = null } = {}) {
     const host = workflowGraphHostBySurfaceId(surfaceId) ?? activeWorkflowGraphHost();
     return {
@@ -891,7 +832,6 @@
       moving: host instanceof HTMLElement ? host.dataset.moving === "true" : true,
     };
   }
-
   function setWorkflowSettingsControlValue({ selector, surfaceSelector, value }) {
     const surface = document.querySelector(surfaceSelector);
     const element = surface?.querySelector(selector);
@@ -908,7 +848,6 @@
     element.dispatchEvent(new Event("change", { bubbles: true }));
     return { ok: true };
   }
-
   function workflowNodeDetailsButtonState() {
     const button = workflowToolbarElement('[data-testid="workflow-node-details-button"]');
     return {
@@ -916,7 +855,6 @@
       text: button?.textContent?.trim() ?? "",
     };
   }
-
   function workflowNodeDetailsButtonRect() {
     const button = workflowToolbarElement('[data-testid="workflow-node-details-button"]');
     if (!(button instanceof HTMLButtonElement)) {
@@ -942,7 +880,6 @@
       y: Math.round(clamp(rect.top + rect.height / 2, 8, window.innerHeight - 8)),
     };
   }
-
   function clickWorkflowNodeDetailsButton() {
     const button = workflowToolbarElement('[data-testid="workflow-node-details-button"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -951,7 +888,6 @@
     button.click();
     return { ok: true };
   }
-
   function workflowNodeDetailsSurfaceState() {
     return {
       exists: Boolean(document.querySelector('[data-testid="workflow-node-details-surface"]')),
@@ -968,7 +904,10 @@
       toolbar: workflowNodeDetailsButtonState(),
     };
   }
-
+  function workflowRunDetailsText() {
+    const details = document.querySelector('[data-testid="workflow-node-run-details"]');
+    return details?.textContent ?? "";
+  }
   function workflowGraphPaneSettled({ surfaceId }) {
     const root = workflowGraphSurfaceById(surfaceId);
     const host = root?.closest('[data-testid="workspace-pane-host"]');
@@ -978,7 +917,6 @@
       visible: paneHostBoolean(host, "visible", false),
     };
   }
-
   function workflowGraphCanvasLayout(root) {
     const canvas = root?.querySelector('[data-testid="workflow-graph-canvas"]');
     if (!(canvas instanceof HTMLCanvasElement)) {
@@ -999,14 +937,12 @@
       width: rect.width,
     };
   }
-
   function paneHostBoolean(host, key, missingValue) {
     if (!(host instanceof HTMLElement)) {
       return missingValue;
     }
     return host.dataset[key] === "true";
   }
-
   function workflowContextMenuPosition() {
     const menu = document.querySelector('[data-testid="workflow-node-create-menu"]');
     if (!(menu instanceof HTMLElement)) {
@@ -1020,7 +956,6 @@
       top: rect.top,
     };
   }
-
   function sidebarWorkflowRows() {
     const list = document.querySelector('[data-testid="sidebar-navigation-list"]');
     if (!(list instanceof HTMLElement)) {
@@ -1034,7 +969,6 @@
     }));
     return { ok: true, rows };
   }
-
   async function nullWorkflowValidation({ workspaceId }) {
     return window.setta.workflow.validateDefinition(workspaceId, {
       edges: [],
@@ -1042,7 +976,6 @@
       nodes: [],
     });
   }
-
   async function createWorkflowProjectionFixture({ workspaceRoot }) {
     const opened = await window.setta.workspace.openPath(workspaceRoot);
     const workspaceId = opened.workspace.id;
@@ -1066,7 +999,6 @@
       workspaceId,
     };
   }
-
   function workflowProjectionFixtureGraph() {
     const layout = {
       nodes: [
@@ -1129,7 +1061,6 @@
       ],
     };
   }
-
   function alwaysCondition() {
     return {
       exitCode: null,
@@ -1141,7 +1072,6 @@
       status: null,
     };
   }
-
   async function updateWorkflowProjectionFixtureNodeTitle({
     definitionId,
     nodeId,
@@ -1171,7 +1101,6 @@
       title,
     };
   }
-
   async function removeWorkflowProjectionFixtureNode({ definitionId, nodeId, workspaceId }) {
     const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
     const graph = {
@@ -1202,7 +1131,6 @@
       nodeId,
     };
   }
-
   async function workflowDefinitions({ workspaceId }) {
     const response = await window.setta.workflow.listDefinitions(workspaceId);
     return response.definitions.map((definition) => ({
@@ -1210,7 +1138,6 @@
       name: definition.name,
     }));
   }
-
   async function configureWorkflowResultAction({ definitionId, workspaceId }) {
     const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
     const graph = {
@@ -1239,31 +1166,34 @@
       graph,
     );
   }
-
   async function readWorkflowExecution({ executionId, workspaceId }) {
     return window.setta.workflow.readExecution(workspaceId, executionId);
   }
-
   function workflowGraphMenuItem() {
     return Array.from(document.querySelectorAll('button[role="menuitem"]')).find(
       (candidate) => candidate instanceof HTMLButtonElement && candidate.title === "Workflow Graph",
     );
   }
-
-  function activeTerminalHost() {
-    const hosts = Array.from(
+  function terminalHosts() {
+    return Array.from(
       document.querySelectorAll(
         '[data-testid="workspace-pane-host"][data-surface-kind="terminal"]',
       ),
     ).filter((host) => host instanceof HTMLElement);
+  }
+  function activeTerminalHost({ paneId = null } = {}) {
+    const hosts = terminalHosts();
+    if (paneId !== null) {
+      return hosts.find((host) => host.dataset.paneId === paneId) ?? null;
+    }
     return (
+      hosts.find((host) => host.dataset.paneId === (layoutState().snapshot?.focusedPaneId ?? "")) ??
       hosts.find((host) => host.dataset.focused === "true") ??
       hosts.find((host) => terminalHostIntersectsViewport(host)) ??
       hosts[0] ??
       null
     );
   }
-
   function elementIntersectsViewport(candidate) {
     const rect = candidate.getBoundingClientRect();
     return (
@@ -1275,11 +1205,9 @@
       rect.top < window.innerHeight
     );
   }
-
   function terminalHostIntersectsViewport(host) {
     return host.dataset.visible === "true" && elementIntersectsViewport(host);
   }
-
   function paneChromeEdgeFocusPoint({ paneId }) {
     const host = document.querySelector(
       `[data-testid="workspace-pane-host"][data-pane-id="${cssEscape(paneId)}"][data-visible="true"]`,
@@ -1289,7 +1217,6 @@
     }
     return paneChromeEdgeFocusPointForHost(host);
   }
-
   function paneChromeEdgeFocusPointForHost(host) {
     const rect = host.getBoundingClientRect();
     const candidates = [];
@@ -1313,47 +1240,59 @@
     }
     return { ok: false, reason: "edge-covered" };
   }
-
   function emptyTerminalSnapshot(exists) {
     return {
       exists,
       focused: false,
       maximized: false,
+      paneId: "",
       profileId: "",
       sessionId: "",
       statusText: "",
       terminalLost: false,
+      titleText: "",
       text: "",
       visible: false,
       xtermReady: false,
     };
   }
-
   function terminalSnapshotForHost(host) {
+    const titleText = terminalTitleTextForHost(host);
     return {
       exists: true,
-      focused: host.dataset.focused === "true",
+      focused: paneHostFocused(host),
       maximized: host.dataset.maximized === "true",
+      paneId: host.dataset.paneId ?? "",
       profileId: host.dataset.terminalProfileId ?? "",
       sessionId: host.dataset.terminalSessionId ?? "",
-      statusText: host.querySelector(".workspace-terminal-status")?.textContent?.trim() ?? "",
+      statusText: terminalStatusTextForHost(host, titleText),
       terminalLost: host.dataset.terminalLost === "true",
+      titleText,
       text: rowsForTerminalHost(host),
       visible: terminalHostIntersectsViewport(host),
       xtermReady: Boolean(host.querySelector(".xterm-helper-textarea")),
     };
   }
-
+  function terminalTitleTextForHost(host) {
+    return host.querySelector(".workspace-pane-title")?.textContent?.trim() ?? "";
+  }
+  function terminalStatusTextForHost(host, titleText) {
+    return host.dataset.terminalStatusText ?? titleText;
+  }
+  function paneHostFocused(host) {
+    const focusedPaneId = layoutState().snapshot?.focusedPaneId ?? "";
+    return focusedPaneId === ""
+      ? host.dataset.focused === "true"
+      : host.dataset.paneId === focusedPaneId;
+  }
   function rowsForTerminalHost(host) {
     return Array.from(host.querySelectorAll(".xterm-rows > div"))
       .map((row) => row.textContent ?? "")
       .join("\n");
   }
-
   function nextFrame() {
     return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
   }
-
   function elementRect(element) {
     const rect = element.getBoundingClientRect();
     return {
@@ -1365,11 +1304,9 @@
       width: rect.width,
     };
   }
-
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
-
   function elementVerticalRect(element) {
     if (!element) {
       return null;
@@ -1381,7 +1318,6 @@
       top: box.top,
     };
   }
-
   function activeElementSnapshot(element) {
     return {
       activeAriaLabel: elementAttribute(element, "aria-label"),
@@ -1389,7 +1325,6 @@
       activeTestId: elementAttribute(element, "data-testid"),
     };
   }
-
   function textareaSnapshot(element) {
     if (!(element instanceof HTMLTextAreaElement)) {
       return {
@@ -1404,27 +1339,22 @@
       textareaValue: element.value,
     };
   }
-
   function elementAttribute(element, attribute) {
     return element?.getAttribute(attribute) ?? "";
   }
-
   function cssEscape(value) {
     if (globalThis.CSS?.escape) {
       return globalThis.CSS.escape(value);
     }
     return String(value).replace(/["\\]/g, "\\$&");
   }
-
   globalThis.__settaE2EDriver = {
     bodyText,
     clickButton,
     clickButtonContainingText,
-    clickButtonContainingTextByRole,
     clickModelPickerButton,
     buttonReady,
     chatLayoutMetrics,
-    chatTranscriptBlockOrder,
     chatTranscriptRows,
     composerFocus,
     composerReady,
@@ -1432,11 +1362,12 @@
     dispatchLayoutSnapshot,
     dispatchDocumentEscape,
     elementValue,
+    focusNonTerminalPane,
     focusTerminalTextarea,
     maximizeTerminalPane,
     modelPicker,
-    modelPickerSummaryButton,
     modelPickerButtonReady,
+    layoutState,
     paneChromeEdgeFocusPoint,
     rendererWorkspace,
     scrollSidebarNavigationTo,
@@ -1445,6 +1376,9 @@
     setInputValue,
     sidebarMetrics,
     terminalPaneFocusPoint,
+    terminalPaneStageState,
+    terminalSnapshots,
+    terminalInputPoint,
     terminalScrollbackSearch,
     terminalSnapshot,
     maximizeWorkflowGraphPane,
@@ -1452,7 +1386,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v9",
+    version: "setta-e2e-driver-v11",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
@@ -1486,6 +1420,7 @@
     workflowNodeDetailsButtonRect,
     workflowNodeDetailsButtonState,
     workflowNodeDetailsSurfaceState,
+    workflowRunDetailsText,
     workflowRunSelectorState,
     workflowToolbarButtonState,
     workflowToolbarSlotRects,

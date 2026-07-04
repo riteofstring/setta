@@ -9,6 +9,7 @@ import {
   overviewWheelZoomFactor,
   wheelDeltaModePixelFactor,
 } from "./overview-wheel-gesture";
+import { visiblePaneHostForPane } from "./pane-drag-reorder";
 import { paneFocusTargetFromClick } from "./pane-focus-click";
 import { eventTargetsTerminalSurface } from "./terminal-surface-utils";
 import {
@@ -22,7 +23,7 @@ import {
   workspaceShortcutModifierMatches,
   workspaceArrowDirection,
 } from "./workspace-shortcuts";
-import type { Rect, SurfacePaneCloseResult } from "./types";
+import type { Rect } from "./types";
 
 type PaneChromeAction = "add-above" | "add-below" | "close" | "maximize" | "split-down";
 
@@ -57,6 +58,29 @@ export function handleWorkspaceClick({
     return;
   }
   if (handleEmptyFrameActionClick({ event, runLayoutAction, runtime, scheduler })) {
+    return;
+  }
+  handlePaneChromeFocusClick({ event, runLayoutAction, runtime, scheduler, viewportProvider });
+}
+
+export function handleWorkspacePaneFocusPointerDown({
+  event,
+  runLayoutAction,
+  runtime,
+  scheduler,
+  viewportProvider,
+}: {
+  event: PointerEvent;
+  runLayoutAction: (action: () => void) => void;
+  runtime: WorkspaceRuntime;
+  scheduler: FrameScheduler;
+  viewportProvider: () => Rect;
+}): void {
+  if (
+    event.button !== 0 ||
+    runtime.mode !== "workspace" ||
+    runtime.store.getSnapshot().presentationMode === "overview"
+  ) {
     return;
   }
   handlePaneChromeFocusClick({ event, runLayoutAction, runtime, scheduler, viewportProvider });
@@ -192,7 +216,7 @@ function runPaneChromeAction({
       });
       return;
     case "close":
-      void closePaneWithConfirmation({ paneId, runLayoutAction, runtime, viewportProvider });
+      closePaneWithConfirmation({ paneId, runLayoutAction, runtime, viewportProvider });
       return;
     case "maximize":
       runLayoutAction(() => {
@@ -221,19 +245,26 @@ function handlePaneChromeFocusClick({
   scheduler,
   viewportProvider,
 }: {
-  event: MouseEvent;
+  event: MouseEvent | PointerEvent;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
 }): boolean {
-  const paneId = paneFocusTargetFromClick(event);
-  if (!paneId || paneId === runtime.store.focusedPaneId()) {
+  const focusTarget = paneFocusTargetFromClick(event);
+  if (!focusTarget) {
+    return false;
+  }
+  if (!focusTarget.reveal && focusTarget.paneId === runtime.store.focusedPaneId()) {
     return false;
   }
   scheduler.pauseBenchmark();
   runLayoutAction(() => {
-    if (runtime.store.focusPane(paneId)) {
+    if (!focusTarget.reveal) {
+      runtime.store.focusPaneWithoutReveal(focusTarget.paneId);
+      return;
+    }
+    if (runtime.store.focusPane(focusTarget.paneId)) {
       runtime.store.ensureFocusedPaneVisible(viewportProvider());
     }
   });
@@ -469,7 +500,7 @@ const handleCloseFocusedPaneCommand: WorkspaceCommandHandler = ({
   }
   event.preventDefault();
   const focusedPaneId = runtime.store.focusedPaneId();
-  void closePaneWithConfirmation({ paneId: focusedPaneId, runLayoutAction, runtime });
+  closePaneWithConfirmation({ paneId: focusedPaneId, runLayoutAction, runtime });
   return true;
 };
 
@@ -477,7 +508,7 @@ function isClosePaneKey(key: string): boolean {
   return key === "Backspace" || key === "Delete";
 }
 
-async function closePaneWithConfirmation({
+function closePaneWithConfirmation({
   paneId,
   runLayoutAction,
   runtime,
@@ -487,23 +518,17 @@ async function closePaneWithConfirmation({
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   viewportProvider?: () => Rect;
-}): Promise<void> {
+}): void {
   const pane = runtime.store.toScene().paneById.get(paneId);
-  if (!pane) {
+  if (
+    pane?.surfaceKind === "terminal" &&
+    terminalPaneCloseRequiresConfirmation(paneId) &&
+    !window.confirm("Close running terminal session?")
+  ) {
     return;
   }
-  let closeResult: SurfacePaneCloseResult;
-  try {
-    const adapter = runtime.surfaceRegistry.adapterFor(pane.surfaceId);
-    closeResult = (await adapter.requestPaneClose?.({
-      confirm: (message) => window.confirm(message),
-    })) ?? { removePane: true };
-  } catch (error) {
-    console.error("workspace pane close failed", error);
-    return;
-  }
-  if (!closeResult.removePane) {
-    return;
+  if (pane?.surfaceKind === "terminal") {
+    terminateTerminalSessionForPane(paneId);
   }
   runLayoutAction(() => {
     if (!runtime.store.focusPane(paneId)) {
@@ -513,6 +538,27 @@ async function closePaneWithConfirmation({
     if (viewportProvider) {
       runtime.store.ensureFocusedPaneVisible(viewportProvider());
     }
+  });
+}
+
+function terminalPaneCloseRequiresConfirmation(paneId: string): boolean {
+  const host = visiblePaneHostForPane(paneId);
+  const sessionId = host?.dataset.terminalSessionId ?? "";
+  if (sessionId === "") {
+    return false;
+  }
+  const status = host?.dataset.terminalStatus ?? "";
+  return status === "" || status === "running" || status === "starting";
+}
+
+function terminateTerminalSessionForPane(paneId: string): void {
+  const host = visiblePaneHostForPane(paneId);
+  const sessionId = host?.dataset.terminalSessionId ?? "";
+  if (sessionId === "") {
+    return;
+  }
+  void window.setta?.terminal.close(sessionId, "terminate").catch((error: unknown) => {
+    console.error("failed to close terminal session", error);
   });
 }
 
@@ -616,6 +662,7 @@ function handleOverviewWheel({
     deltaX: event.deltaX,
     deltaY: event.deltaY,
     metaKey: event.metaKey,
+    wheelDeltaY: wheelDeltaYOf(event),
   });
   let changed: boolean;
   if (intent === "zoom") {
@@ -636,6 +683,11 @@ function handleOverviewWheel({
   if (changed) {
     scheduler.pauseBenchmark();
   }
+}
+
+function wheelDeltaYOf(event: WheelEvent): number | undefined {
+  const value = (event as WheelEvent & { wheelDeltaY?: number }).wheelDeltaY;
+  return typeof value === "number" ? value : undefined;
 }
 
 function wheelTargetWithinRoot(root: HTMLElement, target: EventTarget | null): boolean {

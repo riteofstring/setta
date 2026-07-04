@@ -109,14 +109,10 @@ func handleCodexThreadSettingsUpdated(message jsonRPCMessage, threadID string, _
 	if err := requireCodexThreadIDMatch(message, threadID, params.ThreadID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	settings, err := codexThreadSettingsFromNotification(params, threadID)
-	if err != nil {
+	if _, err := codexThreadSettingsFromNotification(params, threadID); err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := sink.Trace("codex_thread_settings_updated", params.ThreadID); err != nil {
-		return codexNotificationResult{}, err
-	}
-	return codexNotificationResult{CodexEffectiveSettings: &settings}, nil
+	return codexNotificationResult{}, sink.Trace("codex_thread_settings_updated", params.ThreadID)
 }
 
 func codexThreadSettingsFromNotification(params codexapp.ThreadSettingsUpdatedNotification, threadID string) (codexCommandThreadSettings, error) {
@@ -133,15 +129,8 @@ func codexThreadSettingsFromNotification(params codexapp.ThreadSettingsUpdatedNo
 			return codexCommandThreadSettings{}, fmt.Errorf("codex thread settings updated threadSettings.effort has unsupported reasoning effort %s", effort)
 		}
 	}
-	approvalPolicy := codexApprovalPolicyString(params.ThreadSettings.ApprovalPolicy)
-	if err := validateSettaCodexApprovalPolicy(approvalPolicy, "codex thread settings updated threadSettings.approvalPolicy"); err != nil {
-		return codexCommandThreadSettings{}, err
-	}
 	return codexCommandThreadSettings{
-		Model:                          params.ThreadSettings.Model,
-		ReasoningEffort:                effort,
-		ApprovalPolicy:                 approvalPolicy,
-		ActivePermissionProfileID:      activePermissionProfileID(params.ThreadSettings.ActivePermissionProfile),
-		ActivePermissionProfileExtends: activePermissionProfileExtends(params.ThreadSettings.ActivePermissionProfile),
+		Model:           params.ThreadSettings.Model,
+		ReasoningEffort: effort,
 	}, nil
 }

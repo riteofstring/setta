@@ -238,12 +238,11 @@ function aboveGhostCandidateForPane(
   panes: OverviewPaneFrame[],
 ): { distance: number; target: OverviewGhostTarget } | null {
   const band = planeBandForPane(pane, panes);
-  const height = band.bottom - band.top;
   // The hit region is the full row height of empty space above the column, not
   // just the (possibly half-height) anchor pane, so the slot is hoverable across
   // the whole row.
-  const aboveTop = band.top - height - overviewGhostGapPx;
-  if (clientY < aboveTop || clientY > band.top) {
+  const aboveTop = pane.top - (band.bottom - band.top) - overviewGhostGapPx;
+  if (clientY < aboveTop || clientY > pane.top) {
     return null;
   }
   return {
@@ -258,8 +257,8 @@ function belowGhostCandidateForPane(
   panes: OverviewPaneFrame[],
 ): { distance: number; target: OverviewGhostTarget } | null {
   const band = planeBandForPane(pane, panes);
-  const belowBottom = band.bottom + (band.bottom - band.top) + overviewGhostGapPx;
-  if (clientY < band.bottom || clientY > belowBottom) {
+  const belowBottom = pane.bottom + (band.bottom - band.top) + overviewGhostGapPx;
+  if (clientY < pane.bottom || clientY > belowBottom) {
     return null;
   }
   return {
@@ -279,21 +278,22 @@ function ghostTargetForPane(
     left: pane.relativeLeft + (placement === "right" ? pane.width + overviewGhostGapPx : 0),
     paneId: pane.paneId,
     placement,
-    top: ghostTargetTop(placement, band, height),
+    top: ghostTargetTop(pane, placement, band, height),
     width: pane.width,
   };
 }
 
 function ghostTargetTop(
+  pane: OverviewPaneFrame,
   placement: PaneInsertionPlacement,
   band: PaneRowBand,
   height: number,
 ): number {
   if (placement === "above") {
-    return band.top - height - overviewGhostGapPx;
+    return pane.relativeTop - height - overviewGhostGapPx;
   }
   if (placement === "below") {
-    return band.bottom + overviewGhostGapPx;
+    return pane.relativeTop + pane.height + overviewGhostGapPx;
   }
   // The "right" slot is a brand-new full-row column, so align it to the top of
   // the row (plane) band rather than to the anchor pane's own (possibly mid-row)
@@ -303,7 +303,6 @@ function ghostTargetTop(
 
 interface PaneRowBand {
   bottom: number;
-  planeIndex: number;
   top: number;
 }
 
@@ -316,12 +315,20 @@ interface PaneRowBand {
 // back to its own rect.
 function planeBandForPane(pane: OverviewPaneFrame, panes: OverviewPaneFrame[]): PaneRowBand {
   return (
-    rowBandsByPlane(panes).find((band) => band.planeIndex === pane.planeIndex) ?? {
+    rowBandContainingCenter(panes, pane.relativeTop + pane.height / 2) ?? {
       bottom: pane.relativeTop + pane.height,
-      planeIndex: pane.planeIndex,
       top: pane.relativeTop,
     }
   );
+}
+
+function rowBandContainingCenter(panes: OverviewPaneFrame[], centerY: number): PaneRowBand | null {
+  for (const band of rowBandsByPlane(panes)) {
+    if (centerY >= band.top && centerY <= band.bottom) {
+      return band;
+    }
+  }
+  return null;
 }
 
 function rowBandsByPlane(panes: OverviewPaneFrame[]): PaneRowBand[] {
@@ -334,7 +341,7 @@ function rowBandsByPlane(panes: OverviewPaneFrame[]): PaneRowBand[] {
       band.top = Math.min(band.top, top);
       band.bottom = Math.max(band.bottom, bottom);
     } else {
-      bands.set(pane.planeIndex, { bottom, planeIndex: pane.planeIndex, top });
+      bands.set(pane.planeIndex, { bottom, top });
     }
   }
   return [...bands.values()];

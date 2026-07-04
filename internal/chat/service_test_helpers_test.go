@@ -84,31 +84,6 @@ func (harness *approvalCompletesBeforeSubmitReturnsHarness) SubmitApproval(ctx c
 	return errors.New("timed out waiting for approval run completion")
 }
 
-func equalStrings(left []string, right []string) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
-}
-
-func firstUserMessageBlock(blocks []TranscriptBlock) *TranscriptBlock {
-	for index := range blocks {
-		if blocks[index].Kind == TranscriptBlockKindUserMessage && blocks[index].UserMessage != nil {
-			return &blocks[index]
-		}
-	}
-	return nil
-}
-
-func (harness *approvalCompletesBeforeSubmitReturnsHarness) ResolveCodexEffectiveSettings(context.Context, workspace.WorkspaceSummary, Conversation) (*ChatCodexEffectiveSettings, error) {
-	return nil, nil
-}
-
 type unavailableRefHarness struct{}
 
 func (harness unavailableRefHarness) StartTurn(context.Context, TurnRequest, TurnSink) (TurnCompletion, error) {
@@ -129,10 +104,6 @@ func (harness unavailableRefHarness) SteerTurn(context.Context, SteerRequest) er
 
 func (harness unavailableRefHarness) SubmitApproval(context.Context, ApprovalResponse) error {
 	return nil
-}
-
-func (harness unavailableRefHarness) ResolveCodexEffectiveSettings(context.Context, workspace.WorkspaceSummary, Conversation) (*ChatCodexEffectiveSettings, error) {
-	return nil, nil
 }
 
 type preStartCancelHarness struct {
@@ -159,10 +130,6 @@ func (harness *preStartCancelHarness) SteerTurn(context.Context, SteerRequest) e
 
 func (harness *preStartCancelHarness) SubmitApproval(context.Context, ApprovalResponse) error {
 	return nil
-}
-
-func (harness *preStartCancelHarness) ResolveCodexEffectiveSettings(context.Context, workspace.WorkspaceSummary, Conversation) (*ChatCodexEffectiveSettings, error) {
-	return nil, nil
 }
 
 func (harness *preStartCancelHarness) waitForStart(t *testing.T) {
@@ -336,7 +303,7 @@ func steerWhenReady(t *testing.T, service *Service, workspaceID string, conversa
 	deadline := time.Now().Add(2 * time.Second)
 	var lastErr error
 	for time.Now().Before(deadline) {
-		result, err := service.SteerActiveRunInput(workspaceID, conversationID, TextChatInput(prompt))
+		result, err := service.SteerActiveRun(workspaceID, conversationID, prompt)
 		if err == nil {
 			return result
 		}
@@ -359,7 +326,7 @@ func waitForAssistantText(t *testing.T, service *Service, workspaceID string, co
 		if err != nil {
 			t.Fatalf("load message page: %v", err)
 		}
-		if len(page.Messages) > 1 && page.Messages[1].Parts[0].Text.Text == text {
+		if len(page.Messages) > 1 && page.Messages[1].Parts[0].Text == text {
 			return page
 		}
 		time.Sleep(10 * time.Millisecond)

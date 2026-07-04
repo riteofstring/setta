@@ -1,4 +1,4 @@
-import type { Run, RunLiveness, WorkspaceSummary } from "@generated/backend";
+import type { Run, WorkspaceSummary } from "@generated/backend";
 import { AlertTriangle, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -6,6 +6,7 @@ import { Virtuoso } from "react-virtuoso";
 
 import { useChatStore } from "../stores/chat-store";
 import { useWorkflowDefinitionStore } from "../stores/workflow-definition-store";
+import { RuntimePicker } from "./runtime-picker";
 import {
   defaultSidebarSections,
   SidebarAccordionSection,
@@ -72,7 +73,6 @@ function dismissSidebarVisibleError(
 
 interface WorkspaceSidebarProps {
   activeRun: Run | null;
-  activeRunLiveness: RunLiveness | null;
   activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
   clearWorkspaceError?: () => void;
@@ -110,7 +110,6 @@ interface VirtualWorkspaceListProps {
 
 export function WorkspaceSidebar({
   activeRun,
-  activeRunLiveness,
   activeWorkspaces,
   busy,
   clearWorkspaceError = noop,
@@ -284,6 +283,17 @@ export function WorkspaceSidebar({
         data-testid="sidebar-shortcuts-shell"
       >
         <SidebarAccordionSection
+          height={sections.runtime.height}
+          onHeightChange={(height) => setSectionHeight("runtime", height)}
+          onOpenChange={(open) => setSectionOpen("runtime", open)}
+          open={sections.runtime.open}
+          resized={sections.runtime.resized}
+          testId="runtime-section"
+          title="Runtime"
+        >
+          <RuntimePicker />
+        </SidebarAccordionSection>
+        <SidebarAccordionSection
           height={sections.shortcuts.height}
           onHeightChange={(height) => setSectionHeight("shortcuts", height)}
           onOpenChange={(open) => setSectionOpen("shortcuts", open)}
@@ -322,7 +332,6 @@ export function WorkspaceSidebar({
               <>
                 <ProjectNavigationList
                   activeRun={activeRun}
-                  activeRunLiveness={activeRunLiveness}
                   busy={busy}
                   chatCreateBusy={chatCreateBusy}
                   conversationSelectionBusy={conversationSelectionBusy}
@@ -431,7 +440,6 @@ function SidebarOperationError({
 
 function ProjectNavigationList({
   activeRun,
-  activeRunLiveness,
   activeWorkspaces,
   busy,
   chatCreateBusy,
@@ -457,7 +465,6 @@ function ProjectNavigationList({
   workspaceWorkflowDefinitionLists,
 }: {
   activeRun: Run | null;
-  activeRunLiveness: RunLiveness | null;
   activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
   chatCreateBusy: boolean;
@@ -627,7 +634,6 @@ function ProjectNavigationList({
         renderItem={(item) => (
           <SidebarNavigationRow
             activeRun={activeRun}
-            activeRunLiveness={activeRunLiveness}
             busy={busy}
             chatCreateBusy={chatCreateBusy}
             conversationSelectionBusy={conversationSelectionBusy}

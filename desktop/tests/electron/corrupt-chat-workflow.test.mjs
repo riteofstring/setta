@@ -93,26 +93,6 @@ class CDPClient {
     return result.result.value;
   }
 
-  async driver(method, args = {}) {
-    await this.installDriver();
-    return this.evaluate(`globalThis.__settaE2EDriver.${method}(${JSON.stringify(args)})`);
-  }
-
-  async installDriver() {
-    const installed = await this.evaluate(
-      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v9"`,
-    );
-    if (!installed) {
-      await this.evaluate(await readFile(join(scriptDir, "browser-driver.js"), "utf8"));
-    }
-    const chatWorkflowDriverInstalled = await this.evaluate(
-      `globalThis.__settaE2EDriver?.chatWorkflowVersion === "setta-chat-workflow-driver-v1"`,
-    );
-    if (!chatWorkflowDriverInstalled) {
-      await this.evaluate(await readFile(join(scriptDir, "chat-workflow-driver.js"), "utf8"));
-    }
-  }
-
   close() {
     this.socket.close();
   }
@@ -146,7 +126,6 @@ async function main() {
   try {
     context = await launchCorruptContext(fixture.appDataDir);
     await waitForPartialCorruptChatState(context.client);
-    await openValidConversation(context.client);
     await assertWarningTooltips(context.client);
     await openCorruptConversation(context.client);
     await submitComposer(context.client, "resilient prompt", "Send message");
@@ -213,9 +192,6 @@ async function createCorruptChatFixture(tempRoot) {
     activeWorkspaceIds: [workspaceId],
     recentWorkspaces: [workspaceSummary],
     schemaVersion: 1,
-    selectedConversationIdsByWorkspaceId: {
-      [workspaceId]: validConversationId,
-    },
     selectedWorkspaceId: workspaceId,
   });
   await writeJson(join(workspaceDir, "workspace.json"), {
@@ -228,12 +204,11 @@ async function createCorruptChatFixture(tempRoot) {
   });
   await writeJson(join(workspaceDir, "conversations", validConversationId, "conversation.json"), {
     archivedAt: "",
-    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: now,
     harnessRefs: [],
     id: validConversationId,
-    schemaVersion: 2,
+    schemaVersion: 1,
     title: "Valid historical chat",
     updatedAt: validUpdatedAt,
     workspaceId,
@@ -253,16 +228,11 @@ async function createCorruptChatFixture(tempRoot) {
       id: "message_valid_user",
       ordinal: 1,
       parts: [
-        {
-          id: "part_valid_user",
-          image: null,
-          text: { format: "plain", text: "persisted valid message" },
-          type: "text",
-        },
+        { format: "plain", id: "part_valid_user", text: "persisted valid message", type: "text" },
       ],
       role: "user",
       runId: validRunId,
-      schemaVersion: 2,
+      schemaVersion: 1,
       status: "complete",
       updatedAt: validUpdatedAt,
     },
@@ -283,15 +253,15 @@ async function createCorruptChatFixture(tempRoot) {
       ordinal: 2,
       parts: [
         {
+          format: "markdown",
           id: "part_valid_assistant",
-          image: null,
-          text: { format: "markdown", text: "persisted valid response" },
+          text: "persisted valid response",
           type: "text",
         },
       ],
       role: "assistant",
       runId: validRunId,
-      schemaVersion: 2,
+      schemaVersion: 1,
       status: "complete",
       updatedAt: validUpdatedAt,
     },
@@ -305,92 +275,21 @@ async function createCorruptChatFixture(tempRoot) {
     id: validRunId,
     pendingApproval: null,
     promptSummary: "persisted valid message",
-    schemaVersion: 2,
+    schemaVersion: 1,
     startedAt: now,
     status: "completed",
     triggerMessageId: "message_valid_user",
     workspaceId,
   });
   await writeJson(
-    join(
-      workspaceDir,
-      "runs",
-      validRunId,
-      "transcript_blocks",
-      "000000000001_transcript_block_valid_user.json",
-    ),
-    {
-      schemaVersion: 2,
-      id: "transcript_block_valid_user",
-      conversationId: validConversationId,
-      runId: validRunId,
-      kind: "user_message",
-      ordinal: 1,
-      runAnchorOrdinal: 1,
-      status: "complete",
-      createdAt: validUpdatedAt,
-      updatedAt: validUpdatedAt,
-      userMessage: {
-        messageId: "message_valid_user",
-        role: "user",
-        delivery: "normal",
-        status: "complete",
-        parts: [
-          {
-            id: "part_valid_user",
-            image: null,
-            text: { format: "plain", text: "persisted valid message" },
-            type: "text",
-          },
-        ],
-      },
-      assistantText: null,
-      reasoning: null,
-      activity: null,
-      runStatus: null,
-      backgroundTerminal: null,
-    },
-  );
-  await writeJson(
-    join(
-      workspaceDir,
-      "runs",
-      validRunId,
-      "transcript_blocks",
-      "000000000002_transcript_block_valid_assistant.json",
-    ),
-    {
-      schemaVersion: 2,
-      id: "transcript_block_valid_assistant",
-      conversationId: validConversationId,
-      runId: validRunId,
-      kind: "assistant_text",
-      ordinal: 2,
-      runAnchorOrdinal: 1,
-      status: "complete",
-      createdAt: validUpdatedAt,
-      updatedAt: validUpdatedAt,
-      userMessage: null,
-      assistantText: {
-        text: "persisted valid response",
-        format: "markdown",
-      },
-      reasoning: null,
-      activity: null,
-      runStatus: null,
-      backgroundTerminal: null,
-    },
-  );
-  await writeJson(
     join(workspaceDir, "conversations", secondValidConversationId, "conversation.json"),
     {
       archivedAt: "",
-      codexEffectiveSettings: null,
       codexSettings: null,
       createdAt: now,
       harnessRefs: [],
       id: secondValidConversationId,
-      schemaVersion: 2,
+      schemaVersion: 1,
       title: "Second valid chat",
       updatedAt: secondUpdatedAt,
       workspaceId,
@@ -398,12 +297,11 @@ async function createCorruptChatFixture(tempRoot) {
   );
   await writeJson(join(workspaceDir, "conversations", conversationId, "conversation.json"), {
     archivedAt: "",
-    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: now,
     harnessRefs: [],
     id: conversationId,
-    schemaVersion: 2,
+    schemaVersion: 1,
     title: "Corrupt historical chat",
     updatedAt: now,
     workspaceId,
@@ -424,7 +322,7 @@ async function createCorruptChatFixture(tempRoot) {
       title: "Stale approval",
     },
     promptSummary: "historical corrupt turn",
-    schemaVersion: 2,
+    schemaVersion: 1,
     startedAt: now,
     status: "completed",
     triggerMessageId: "message_trigger",
@@ -556,9 +454,11 @@ async function settaPageTarget(debugPort) {
 }
 
 async function waitForPartialCorruptChatState(client) {
-  const state = await waitForDriverState(client, "partialCorruptChatState", {}, (value) => {
-    return value.ready;
-  });
+  const state = await waitForState(
+    client,
+    partialCorruptChatStateExpression(),
+    (value) => value.ready,
+  );
   if (state.newChatDisabled) {
     throw new Error(`New chat is disabled with partial corrupt state: ${state.body}`);
   }
@@ -593,7 +493,7 @@ async function waitForWorkspaceChatSurfaceReady(client, timeoutMs) {
   const startedAt = Date.now();
   let lastValue = null;
   while (Date.now() - startedAt < timeoutMs) {
-    lastValue = await client.driver("workspaceChatSurfaceReady");
+    lastValue = await client.evaluate(workspaceChatSurfaceReadyExpression());
     if (workspaceChatSurfaceReady(lastValue)) {
       return { ready: true, value: lastValue };
     }
@@ -612,9 +512,61 @@ function workspaceChatSurfaceReady(value) {
   );
 }
 
-async function openValidConversation(client) {
-  await clickButtonByText(client, "Valid historical chat");
-  await waitForTexts(client, ["persisted valid message"]);
+function workspaceChatSurfaceReadyExpression() {
+  return `(() => {
+    const workspace = document.querySelector('[data-testid="workspace-layout-area"]');
+    const chatSurface = document.querySelector('[data-testid="workspace-chat-dom-surface"]');
+    const host = chatSurface?.closest('[data-testid="workspace-pane-host"]');
+    return {
+      chatMounted: Boolean(document.querySelector('[data-testid="chat-detail-pane"]')),
+      hostMoving: host?.getAttribute("data-moving") ?? "",
+      hostRuntimeState: host?.getAttribute("data-runtime-state") ?? "",
+      hostVisible: host?.getAttribute("data-visible") ?? "",
+      workspaceMounted: Boolean(workspace),
+    };
+  })()`;
+}
+
+function partialCorruptChatStateExpression() {
+  return `(() => {
+    const button = document.querySelector('button[aria-label="New chat"]');
+    const sidebar = document.querySelector('[data-testid="sidebar-scrollable-sections"]');
+    const detail = document.querySelector('[data-testid="chat-detail-pane"]');
+    const status = document.querySelector('[data-testid="workspace-corruption-status"]');
+    const statusLabel = status?.getAttribute("aria-label") ?? "";
+    const conversations = Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]'));
+    const corruptConversation = conversations.find((conversation) =>
+      conversation.innerText.includes("Corrupt historical chat")
+    );
+    const conversationStatus = corruptConversation?.querySelector(
+      '[data-testid="conversation-corruption-status"]'
+    );
+    const conversationStatusLabel = conversationStatus?.getAttribute("aria-label") ?? "";
+    const body = document.body.innerText;
+    return {
+      body,
+      conversationCount: conversations.length,
+      conversationStatusLabel,
+      newChatDisabled: button ? button.disabled : null,
+      statusLabel,
+      ready: Boolean(
+        button &&
+        status &&
+        sidebar?.contains(status) &&
+        !detail?.contains(status) &&
+        statusLabel.includes("corrupt chat") &&
+        conversationStatus &&
+        conversationStatusLabel.includes("has pendingApproval while status is completed") &&
+        conversations.length >= 3 &&
+        body.includes("Valid historical chat") &&
+        body.includes("Second valid chat") &&
+        body.includes("Corrupt historical chat") &&
+        body.includes("persisted valid message") &&
+        !body.includes("Chat state needs attention") &&
+        !body.includes("Chat state is corrupt")
+      ),
+    };
+  })()`;
 }
 
 async function openCorruptConversation(client) {
@@ -857,19 +809,6 @@ async function waitForState(client, expression, isReady) {
   let lastValue = null;
   while (Date.now() - startedAt < workflowTimeoutMs) {
     lastValue = await client.evaluate(expression);
-    if (isReady(lastValue)) {
-      return lastValue;
-    }
-    await delay(100);
-  }
-  throw new Error(`timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}`);
-}
-
-async function waitForDriverState(client, method, args, isReady) {
-  const startedAt = Date.now();
-  let lastValue = null;
-  while (Date.now() - startedAt < workflowTimeoutMs) {
-    lastValue = await client.driver(method, args);
     if (isReady(lastValue)) {
       return lastValue;
     }

@@ -25,9 +25,9 @@ import {
 } from "./electron-cdp-harness.mjs";
 import {
   focusTerminal,
-  closeTerminalPaneFromChrome,
   openTerminalFromShortcut,
   terminalSnapshotExpression,
+  terminalSnapshotsExpression,
 } from "./terminal-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -46,52 +46,43 @@ if (!options.skipBuild) {
 }
 
 const artifactDir = options.artifactDir || timestampedRecordingDir("terminal-backend-crash");
-const firstRecordingDir = join(artifactDir, "first-launch");
-const secondRecordingDir = join(artifactDir, "second-launch");
 await writeLatestRecordingPointer("terminal-backend-crash", artifactDir);
 const fixture = await createElectronFixture("terminal-backend-crash");
 let context = null;
 let terminalState;
+let terminalPaneId = "";
 
 try {
   context = await launchElectronCdpContext({
-    artifactDir: firstRecordingDir,
+    artifactDir,
     fixture,
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await openWorkspaceFromSidebar(context.client);
-  await openTerminalFromShortcut(context.client, terminalWorkflowTimeoutMs);
-  await focusTerminal(context.client, terminalWorkflowTimeoutMs);
-  terminalState = await waitForTerminalReady(context.client);
-  const port = await waitForBackendPort(firstRecordingDir);
+  const openedTerminal = await openTerminalFromShortcut(context.client, terminalWorkflowTimeoutMs);
+  terminalPaneId = openedTerminal.paneId;
+  await focusTerminal(context.client, terminalWorkflowTimeoutMs, { paneId: terminalPaneId });
+  terminalState = await waitForTerminalReady(context.client, terminalPaneId);
+  const port = await waitForBackendPort(artifactDir);
   await killBackendOnPort(port);
-  terminalState = await waitForTerminalLost(context.client, terminalState.sessionId);
-  await closeTerminalPaneFromChrome(context.client, terminalWorkflowTimeoutMs);
-  terminalState = await waitForTerminalCloseFailure(context.client, terminalState.sessionId);
-  await captureScreenshot(context.client, join(firstRecordingDir, "terminal-close-failed.png"));
-  await stopElectronCdpContext(context);
-  context = null;
-
-  context = await launchElectronCdpContext({
-    artifactDir: secondRecordingDir,
-    fixture,
-    visible: options.visible,
-  });
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await openWorkspaceFromSidebar(context.client);
-  await focusTerminal(context.client, terminalWorkflowTimeoutMs);
-  terminalState = await waitForTerminalReady(context.client);
-  await closeTerminalPaneFromChrome(context.client, terminalWorkflowTimeoutMs);
-  await waitForTerminalPaneRemoved(context.client, terminalState.sessionId);
-  await captureScreenshot(context.client, join(secondRecordingDir, "terminal-closed.png"));
+  terminalState = await waitForTerminalLost(
+    context.client,
+    terminalState.sessionId,
+    terminalPaneId,
+  );
+  await captureScreenshot(context.client, join(artifactDir, "terminal-lost.png"));
 } catch (error) {
   if (context) {
-    await captureScreenshot(context.client, join(context.artifactDir, "failure.png")).catch(
-      () => {},
-    );
-    await writeJson(join(context.artifactDir, "failure-snapshot.json"), {
-      terminal: await context.client.evaluate(terminalSnapshotExpression()).catch(() => null),
+    await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
+    await writeJson(join(artifactDir, "failure-snapshot.json"), {
+      terminal:
+        terminalPaneId !== ""
+          ? await context.client
+              .evaluate(terminalSnapshotExpression({ paneId: terminalPaneId }))
+              .catch(() => null)
+          : null,
+      terminals: await context.client.evaluate(terminalSnapshotsExpression()).catch(() => []),
     }).catch(() => {});
   }
   await writeJson(join(artifactDir, "summary.json"), {
@@ -104,8 +95,7 @@ try {
   await stopElectronCdpContext(context);
 }
 
-await assertTerminalCloseFailureRecordingEvidence(firstRecordingDir);
-await assertTerminalCloseSuccessRecordingEvidence(secondRecordingDir);
+await assertTerminalLostRecordingEvidence(artifactDir);
 await writeJson(join(artifactDir, "summary.json"), {
   artifactDir,
   sessionId: terminalState?.sessionId ?? "",
@@ -126,51 +116,30 @@ async function openWorkspaceFromSidebar(client) {
   );
 }
 
-async function waitForTerminalReady(client) {
+async function waitForTerminalReady(client, paneId) {
   return waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId }),
     (snapshot) =>
       snapshot.exists &&
       snapshot.visible &&
       snapshot.xtermReady &&
       snapshot.sessionId.startsWith("terminal_") &&
       snapshot.statusText !== "" &&
-      snapshot.statusText !== "Starting shell",
+      snapshot.statusText !== "Starting shell" &&
+      snapshot.titleText === snapshot.statusText,
     terminalWorkflowTimeoutMs,
   );
 }
 
-async function waitForTerminalLost(client, sessionId) {
+async function waitForTerminalLost(client, sessionId, paneId) {
   return waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId }),
     (snapshot) =>
       snapshot.sessionId === sessionId &&
       snapshot.terminalLost &&
       snapshot.statusText.includes("Terminal session lost"),
-    terminalWorkflowTimeoutMs,
-  );
-}
-
-async function waitForTerminalCloseFailure(client, sessionId) {
-  return waitForState(
-    client,
-    terminalSnapshotExpression(),
-    (snapshot) =>
-      snapshot.exists &&
-      snapshot.visible &&
-      snapshot.sessionId === sessionId &&
-      snapshot.statusText.includes("Terminal close failed"),
-    terminalWorkflowTimeoutMs,
-  );
-}
-
-async function waitForTerminalPaneRemoved(client, sessionId) {
-  return waitForState(
-    client,
-    `globalThis.__settaE2EDriver.terminalSessionState(${JSON.stringify({ sessionId })})`,
-    (state) => !state.visible,
     terminalWorkflowTimeoutMs,
   );
 }
@@ -208,30 +177,10 @@ async function killBackendOnPort(port) {
   }
 }
 
-async function assertTerminalCloseFailureRecordingEvidence(recordingDir) {
+async function assertTerminalLostRecordingEvidence(recordingDir) {
   const events = await readJsonLinesOptional(join(recordingDir, "events.jsonl"));
   if (!events.some((entry) => entry.type === "backend_exit")) {
     throw new Error("recording missing backend exit event");
-  }
-  const ipc = await readJsonLinesOptional(join(recordingDir, "ipc.jsonl"));
-  if (!ipc.some((entry) => entry.type === "ipc_failure" && entry.channel === "terminal:close")) {
-    throw new Error("recording missing failed terminal close IPC");
-  }
-}
-
-async function assertTerminalCloseSuccessRecordingEvidence(recordingDir) {
-  const ipc = await readJsonLinesOptional(join(recordingDir, "ipc.jsonl"));
-  if (!ipc.some((entry) => entry.type === "ipc_finish" && entry.channel === "terminal:close")) {
-    throw new Error("recording missing successful terminal close IPC");
-  }
-  const events = await readJsonLinesOptional(join(recordingDir, "events.jsonl"));
-  if (
-    !events.some(
-      (entry) =>
-        entry.type === "terminal_event_forwarded" && entry.payload?.type === "terminal.closed",
-    )
-  ) {
-    throw new Error("recording missing forwarded terminal closed event");
   }
 }
 

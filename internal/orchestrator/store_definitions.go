@@ -2,7 +2,6 @@ package orchestrator
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 )
@@ -15,15 +14,11 @@ func (store *Store) SaveDefinitionVersion(version WorkflowDefinitionVersion) err
 	if err != nil {
 		return fmt.Errorf("encode workflow definition version graph: %w", err)
 	}
-	return store.insertDefinitionVersion(context.Background(), store.db, version, graphJSON)
+	return store.insertDefinitionVersion(context.Background(), version, graphJSON)
 }
 
-type workflowDefinitionVersionInserter interface {
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-}
-
-func (store *Store) insertDefinitionVersion(ctx context.Context, execer workflowDefinitionVersionInserter, version WorkflowDefinitionVersion, graphJSON string) error {
-	_, err := execer.ExecContext(ctx, `
+func (store *Store) insertDefinitionVersion(ctx context.Context, version WorkflowDefinitionVersion, graphJSON string) error {
+	_, err := store.db.ExecContext(ctx, `
 INSERT INTO workflow_versions (
   id, schema_version, workspace_id, definition_id, version_number,
   name, description, graph_json, created_at
