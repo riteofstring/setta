@@ -230,6 +230,11 @@ restores the original soft limit for exec'd children unless the program
 explicitly calls `Setrlimit`. That means Setta can look healthy while
 `codex app-server` still inherits a low soft limit such as 256.
 
+Setta's launch guard now requires a soft limit of at least 1024 descriptors
+before starting `codex app-server`. If the host hard limit allows it, Setta
+raises the soft limit to the hard limit so the child process inherits the
+raised value.
+
 The principled fix has two layers:
 
 - Setta should raise or validate `RLIMIT_NOFILE` before launching
@@ -487,8 +492,8 @@ protocol support.
 Setta should measure and explicitly raise the soft FD limit early on Unix/macOS
 before starting Codex app-server. The explicit `Setrlimit` call matters because
 otherwise Go can restore the original soft limit for exec'd children. The
-app-server launch path should fail loudly if the limit remains below a
-documented minimum.
+app-server launch path should fail loudly if the limit remains below the
+documented 1024-descriptor minimum.
 
 Codex upstream should still own runtime throttling because it knows how many
 descriptors each unified exec process consumes. Setta raising the limit improves
@@ -588,9 +593,11 @@ matches the history-navigation contract.
 - Add Unix/macOS FD-limit inspection before launching `codex app-server`.
 - Explicitly raise the soft limit with `Setrlimit` when the hard limit allows
   it, so exec'd children inherit the raised value.
-- Fail loudly with a clear diagnostic if the limit remains too low.
+- Fail loudly with a clear diagnostic if the limit remains below 1024
+  descriptors.
 - Record current limit and app-server launch diagnostics in development logs.
-- Track an upstream Codex fix for FD-aware unified exec throttling.
+- Remaining upstream dependency: Codex unified exec should become FD-aware and
+  throttle parallel tool startup when descriptor headroom is low.
 
 ### Slice 2: Stream Failure Resilience
 
@@ -740,8 +747,6 @@ contracts, or code paths change.
   field?
 - What exact display-title precedence should Setta use across provider display
   metadata, Setta-owned display metadata, and deterministic fallback labels?
-- What minimum FD soft limit should Setta require before launching Codex
-  app-server?
 - Before Slice 5 starts: should image `preview` continue to mean original bytes,
   or should a separate `original` variant be exposed while `preview` becomes a
   bounded large image?
