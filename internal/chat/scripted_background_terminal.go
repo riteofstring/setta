@@ -81,11 +81,13 @@ func emitBackgroundTerminalStartup(request TurnRequest, sink TurnSink, providerI
 		ProviderItemID: providerItemID,
 		Type:           RunItemTypeCommandExecution,
 		Status:         RunItemStatusRunning,
-		Command:        command,
-		Cwd:            request.Workspace.RootPath,
 		Summary:        "Background terminal left running after the turn completed.",
-		Source:         &source,
-		ProcessID:      "proc-" + providerItemID,
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command:   command,
+			Cwd:       request.Workspace.RootPath,
+			Source:    &source,
+			ProcessID: "proc-" + providerItemID,
+		}),
 	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err

@@ -222,20 +222,24 @@ func phase3BackgroundTerminalEvents() []FakeHarnessEvent {
 			ProviderItemID: phase3BackgroundAlphaItemID,
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Command:        "npm run dev",
-			Cwd:            "/tmp/workspace",
-			ProcessID:      phase3BackgroundAlphaProcess,
-			Source:         &source,
+			Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+				Command:   "npm run dev",
+				Cwd:       "/tmp/workspace",
+				ProcessID: phase3BackgroundAlphaProcess,
+				Source:    &source,
+			}),
 		}},
 		{Type: FakeEventRunItemOutput, ProviderItemID: phase3BackgroundAlphaItemID, Stream: "stdout", Text: "alpha booted\n"},
 		{Type: FakeEventRunItem, ProviderItemID: phase3BackgroundBetaItemID, RunItem: RunItem{
 			ProviderItemID: phase3BackgroundBetaItemID,
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Command:        "vite --host 0.0.0.0",
-			Cwd:            "/tmp/workspace",
-			ProcessID:      phase3BackgroundBetaProcess,
-			Source:         &source,
+			Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+				Command:   "vite --host 0.0.0.0",
+				Cwd:       "/tmp/workspace",
+				ProcessID: phase3BackgroundBetaProcess,
+				Source:    &source,
+			}),
 		}},
 	}
 }

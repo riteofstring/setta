@@ -113,7 +113,8 @@ const (
 	RunItemTypeHook                RunItemType = "hook"
 	RunItemTypeStructuredInput     RunItemType = "structured_input"
 
-	RunItemDetailsKindMCPToolCall RunItemDetailsKind = "mcp_tool_call"
+	RunItemDetailsKindCommandExecution RunItemDetailsKind = "command_execution"
+	RunItemDetailsKindMCPToolCall      RunItemDetailsKind = "mcp_tool_call"
 
 	// RunItemCommandSource preserves the Codex app-server CommandExecutionSource
 	// discriminator so the backend can tell a normal agent command from a
@@ -255,6 +256,7 @@ var (
 		RunItemTypeStructuredInput,
 	}
 	runItemDetailsKindValues = []RunItemDetailsKind{
+		RunItemDetailsKindCommandExecution,
 		RunItemDetailsKindMCPToolCall,
 	}
 	runItemCommandSourceValues = []RunItemCommandSource{

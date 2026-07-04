@@ -437,6 +437,9 @@ func saveSourceRunItem(t *testing.T, store *Store, workspaceID string, runID str
 		Status:         RunItemStatusCompleted,
 		CreatedAt:      transcriptBlockTestTime,
 	}
+	if itemType == RunItemTypeCommandExecution {
+		item.Details = NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{})
+	}
 	if err := store.SaveRunItem(item); err != nil {
 		t.Fatalf("save source run item %s: %v", itemID, err)
 	}

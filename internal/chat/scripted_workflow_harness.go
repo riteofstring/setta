@@ -528,8 +528,10 @@ func scriptedPerformanceStreamTurn(_ *ScriptedWorkflowHarness, ctx context.Conte
 		Type:           RunItemTypeCommandExecution,
 		Status:         RunItemStatusRunning,
 		Title:          "Performance stream",
-		Command:        "scripted chat performance stream",
 		Summary:        "Streaming assistant text and command output for renderer frame timing.",
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command: "scripted chat performance stream",
+		}),
 	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return TurnCompletion{}, err
@@ -808,7 +810,9 @@ func scriptedApprovalActivity(sink TurnSink, runID string, approval ApprovalRequ
 	if approval.Kind == ApprovalKindFileChange {
 		item.PatchStatus = "approval_requested"
 	} else {
-		item.Command = approval.Command
+		item.Details = NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command: approval.Command,
+		})
 	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err
@@ -822,11 +826,13 @@ func scriptedActivityFeedCommand(sink TurnSink, runID string, rootPath string) e
 		Type:           RunItemTypeCommandExecution,
 		Status:         RunItemStatusCompleted,
 		Title:          "Activity command",
-		Command:        "printf scripted-activity",
-		Cwd:            rootPath,
-		ExitCode:       0,
-		DurationMs:     42,
 		Summary:        "Scripted typed command activity.",
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command:    "printf scripted-activity",
+			Cwd:        rootPath,
+			ExitCode:   0,
+			DurationMs: 42,
+		}),
 	}
 	return sink.RunItemUpsert(item)
 }
@@ -858,20 +864,6 @@ func scriptedStructuredApprovalActivity(sink TurnSink, approval ApprovalRequest)
 		item.RawDetails = approval.StructuredInput.Schema
 	}
 	return sink.RunItemUpsert(item)
-}
-
-func approvalFilePaths(approval ApprovalRequest) []string {
-	if approval.FilePath == "" {
-		return nil
-	}
-	return []string{approval.FilePath}
-}
-
-func approvalRunItemType(approval ApprovalRequest) RunItemType {
-	if approval.Kind == ApprovalKindFileChange {
-		return RunItemTypeFileChange
-	}
-	return RunItemTypeCommandExecution
 }
 
 func scriptedCommandApproval(runID string) ApprovalRequest {

@@ -586,7 +586,7 @@ func TestServiceLinksApprovalToProviderRunItem(t *testing.T) {
 			ProviderItemID: "command_fake",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusPending,
-			Command:        "go test ./...",
+			Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "go test ./..."}),
 		}},
 		{Type: FakeEventApproval, Approval: approval, WaitForApproval: true},
 	})
@@ -1006,8 +1006,10 @@ func TestServicePersistsRunActivityAndOutputChunks(t *testing.T) {
 			ProviderItemID: "command_fake",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Command:        "go test ./...",
-			Cwd:            "/tmp/workspace",
+			Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+				Command: "go test ./...",
+				Cwd:     "/tmp/workspace",
+			}),
 		}},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_fake", Stream: "stdout", Text: "ok\n"},
 		{Type: FakeEventAssistantDelta, ProviderItemID: "message_fake", Text: "done"},
@@ -1041,7 +1043,7 @@ func TestServiceEmbedsCappedRunOutputAndLoadsFullActivityPage(t *testing.T) {
 			ProviderItemID: "command_fake",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Command:        "printf output",
+			Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "printf output"}),
 		}},
 	}
 	for index := 0; index < embeddedRunOutputLimit+5; index++ {
@@ -1078,14 +1080,14 @@ func TestServiceLoadsRunItemOutputWithItemScopedCursor(t *testing.T) {
 			ProviderItemID: "command_a",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Command:        "echo a",
+			Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "echo a"}),
 		}},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_a", Stream: "stdout", Text: "a1\n"},
 		{Type: FakeEventRunItem, ProviderItemID: "command_b", RunItem: RunItem{
 			ProviderItemID: "command_b",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Command:        "echo b",
+			Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "echo b"}),
 		}},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_b", Stream: "stdout", Text: "b1\n"},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_b", Stream: "stdout", Text: "b2\n"},

@@ -683,12 +683,6 @@ func validateRunItem(item RunItem) error {
 	if err := validateRunItemTimestamps(item); err != nil {
 		return err
 	}
-	if item.ExitCode < 0 {
-		return fmt.Errorf("run item %s exitCode must be non-negative", item.ID)
-	}
-	if item.DurationMs < 0 {
-		return fmt.Errorf("run item %s durationMs must be non-negative", item.ID)
-	}
 	if err := validateRunItemDetails(item); err != nil {
 		return err
 	}
@@ -757,22 +751,25 @@ func validateRunItemTimestamps(item RunItem) error {
 }
 
 func validateRunItemDetails(item RunItem) error {
-	if item.Type != RunItemTypeMCPToolCall {
+	if item.Type != RunItemTypeCommandExecution {
+		if item.ExitCode < 0 {
+			return fmt.Errorf("run item %s exitCode must be non-negative", item.ID)
+		}
+		if item.DurationMs < 0 {
+			return fmt.Errorf("run item %s durationMs must be non-negative", item.ID)
+		}
+	}
+	switch item.Type {
+	case RunItemTypeCommandExecution:
+		return validateRunItemCommandExecutionDetails(item)
+	case RunItemTypeMCPToolCall:
+		return validateRunItemMCPToolCallDetailsBranch(item)
+	default:
 		if item.Details != nil {
 			return fmt.Errorf("run item %s type %s does not support typed details kind %s", item.ID, item.Type, item.Details.Kind)
 		}
 		return nil
 	}
-	if rawDetailsInspectable(item.RawDetails) {
-		return fmt.Errorf("run item %s mcpToolCall rawDetails must be empty after typed details cutover", item.ID)
-	}
-	if item.Details == nil {
-		return fmt.Errorf("run item %s mcpToolCall details are required", item.ID)
-	}
-	if item.Details.Kind != RunItemDetailsKindMCPToolCall || item.Details.MCPToolCall == nil {
-		return fmt.Errorf("run item %s mcpToolCall details must contain the mcpToolCall branch", item.ID)
-	}
-	return validateRunItemMCPToolCallDetails(item, *item.Details.MCPToolCall)
 }
 
 func validateRunItemMCPToolCallDetails(item RunItem, details RunItemMCPToolCallDetails) error {

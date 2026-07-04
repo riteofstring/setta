@@ -186,13 +186,14 @@ func (service *Service) upsertRunItemLocked(item RunItem) error {
 }
 
 func (service *Service) ingestProviderOwnedRunItemLocked(item RunItem) (bool, error) {
-	if item.Source == nil {
+	source := runItemCommandSource(item)
+	if source == nil {
 		return false, nil
 	}
-	if isBackgroundTerminalInteractionSource(*item.Source) {
+	if isBackgroundTerminalInteractionSource(*source) {
 		return true, service.ingestBackgroundTerminalRunItemLocked(item)
 	}
-	if isBackgroundTerminalStartupSource(*item.Source) {
+	if isBackgroundTerminalStartupSource(*source) {
 		return service.ingestPromotedBackgroundTerminalStartupUpdateLocked(item)
 	}
 	return false, nil
@@ -354,21 +355,27 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	next.CompletedAt = keepString(next.CompletedAt, existing.CompletedAt)
 	next.Title = keepString(next.Title, existing.Title)
 	next.Summary = keepString(next.Summary, existing.Summary)
-	next.Command = keepString(next.Command, existing.Command)
-	next.Cwd = keepString(next.Cwd, existing.Cwd)
+	if next.Type != RunItemTypeCommandExecution {
+		next.Command = keepString(next.Command, existing.Command)
+		next.Cwd = keepString(next.Cwd, existing.Cwd)
+	}
 	next.FilePaths = keepStrings(next.FilePaths, existing.FilePaths)
 	next.PatchStatus = keepString(next.PatchStatus, existing.PatchStatus)
 	next.ServerName = keepString(next.ServerName, existing.ServerName)
 	next.ToolName = keepString(next.ToolName, existing.ToolName)
 	next.Progress = mergeProgress(existing, next)
-	next.Result = keepString(next.Result, existing.Result)
-	next.Error = keepString(next.Error, existing.Error)
+	if next.Type != RunItemTypeCommandExecution {
+		next.Result = keepString(next.Result, existing.Result)
+		next.Error = keepString(next.Error, existing.Error)
+	}
 	next.NoticeKind = keepString(next.NoticeKind, existing.NoticeKind)
 	next.NoticeMessage = keepString(next.NoticeMessage, existing.NoticeMessage)
 	next.DiffSummary = keepString(next.DiffSummary, existing.DiffSummary)
 	next.Namespace = keepString(next.Namespace, existing.Namespace)
-	next.ProcessID = keepString(next.ProcessID, existing.ProcessID)
-	next.Source = keepCommandSource(next.Source, existing.Source)
+	if next.Type != RunItemTypeCommandExecution {
+		next.ProcessID = keepString(next.ProcessID, existing.ProcessID)
+		next.Source = keepCommandSource(next.Source, existing.Source)
+	}
 	next.RequestID = keepString(next.RequestID, existing.RequestID)
 	next.ReviewID = keepString(next.ReviewID, existing.ReviewID)
 	next.Details = mergeRunItemDetails(existing.Details, next.Details)
@@ -384,10 +391,34 @@ func mergeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunIte
 	if existing == nil || existing.Kind != next.Kind {
 		return next
 	}
+	if next.Kind == RunItemDetailsKindCommandExecution {
+		return mergeCommandExecutionRunItemDetails(existing, next)
+	}
 	if next.Kind != RunItemDetailsKindMCPToolCall {
 		return next
 	}
 	return mergeMCPToolCallRunItemDetails(existing, next)
+}
+
+func mergeCommandExecutionRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
+	if next.CommandExecution == nil {
+		return existing
+	}
+	if existing.CommandExecution == nil {
+		return next
+	}
+	merged := *next.CommandExecution
+	previous := existing.CommandExecution
+	merged.Command = keepString(merged.Command, previous.Command)
+	merged.Cwd = keepString(merged.Cwd, previous.Cwd)
+	if merged.DurationMs == 0 {
+		merged.DurationMs = previous.DurationMs
+	}
+	merged.ProcessID = keepString(merged.ProcessID, previous.ProcessID)
+	merged.Source = keepCommandSource(merged.Source, previous.Source)
+	merged.Result = keepString(merged.Result, previous.Result)
+	merged.Error = keepString(merged.Error, previous.Error)
+	return NewRunItemCommandExecutionDetails(merged)
 }
 
 func mergeMCPToolCallRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
@@ -545,6 +576,7 @@ func (service *Service) ensureOutputRunItemLocked(workspaceID string, conversati
 		CreatedAt:      timestamp(service.now()),
 		StartedAt:      timestamp(service.now()),
 		Summary:        "Command output",
+		Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{}),
 	}
 	item.ID, err = service.newID("run_item")
 	if err != nil {
@@ -660,7 +692,7 @@ func runActivityItemProjections(runStatus RunStatus, items []RunItem, outputs []
 		if item.Type == RunItemTypeReasoning {
 			continue
 		}
-		projection, ok := activityItemBlockProjection(item, runStatus, hasOutput[item.ID])
+		projection, ok := activityItemBlockProjection(item, runStatus, hasOutput[item.ID], true)
 		if ok {
 			projections = append(projections, projection)
 		}

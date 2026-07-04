@@ -12,24 +12,44 @@ func TestMergeRunItemPreservesSource(t *testing.T) {
 		ID:             "run_item_1",
 		ProviderItemID: "provider_1",
 		Type:           RunItemTypeCommandExecution,
-		Command:        "npm run dev",
-		ProcessID:      "proc_1",
-		Source:         &startup,
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command:   "npm run dev",
+			ProcessID: "proc_1",
+			Source:    &startup,
+		}),
 	}
 
 	// A later upsert that omits source must preserve the existing discriminator.
-	merged := mergeRunItem(existing, RunItem{ProviderItemID: "provider_1", Status: RunItemStatusCompleted})
-	if merged.Source == nil || *merged.Source != RunItemCommandSourceUnifiedExecStartup {
-		t.Fatalf("merged source = %v, want preserved unified_exec_startup", merged.Source)
+	merged := mergeRunItem(existing, RunItem{
+		ProviderItemID: "provider_1",
+		Type:           RunItemTypeCommandExecution,
+		Status:         RunItemStatusCompleted,
+	})
+	mergedDetails, ok := merged.CommandExecutionDetails()
+	if !ok {
+		t.Fatal("merged command details missing")
 	}
-	if merged.ProcessID != "proc_1" {
-		t.Fatalf("merged processId = %q, want preserved proc_1", merged.ProcessID)
+	if mergedDetails.Source == nil || *mergedDetails.Source != RunItemCommandSourceUnifiedExecStartup {
+		t.Fatalf("merged source = %v, want preserved unified_exec_startup", mergedDetails.Source)
+	}
+	if mergedDetails.ProcessID != "proc_1" {
+		t.Fatalf("merged processId = %q, want preserved proc_1", mergedDetails.ProcessID)
 	}
 
 	// A later upsert that sets a source still overrides it.
 	interaction := RunItemCommandSourceUnifiedExecInteraction
-	overridden := mergeRunItem(existing, RunItem{ProviderItemID: "provider_1", Source: &interaction})
-	if overridden.Source == nil || *overridden.Source != RunItemCommandSourceUnifiedExecInteraction {
-		t.Fatalf("merged source = %v, want overriding unified_exec_interaction", overridden.Source)
+	overridden := mergeRunItem(existing, RunItem{
+		ProviderItemID: "provider_1",
+		Type:           RunItemTypeCommandExecution,
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Source: &interaction,
+		}),
+	})
+	overriddenDetails, ok := overridden.CommandExecutionDetails()
+	if !ok {
+		t.Fatal("overridden command details missing")
+	}
+	if overriddenDetails.Source == nil || *overriddenDetails.Source != RunItemCommandSourceUnifiedExecInteraction {
+		t.Fatalf("merged source = %v, want overriding unified_exec_interaction", overriddenDetails.Source)
 	}
 }

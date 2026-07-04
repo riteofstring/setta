@@ -668,9 +668,17 @@ Status after the MCP typed-details cutover:
   renderer update loop.
 - Done: raw JSON details for activity families that have not been cut over yet
   moved to `RunItem.rawDetails`; MCP items reject raw details during validation.
-- Remaining: complete protocol findings and typed-detail cutovers for command
-  execution, file changes, diff updates, dynamic/Setta tools, failed starts,
-  approvals, and stream lifecycle activity.
+- Done: command execution now writes `RunItem.details.commandExecution` for
+  command text, cwd, exit code, duration, provider process ID, command source,
+  result, and error. Backend projection, background-terminal promotion,
+  transcript details, search, and deterministic Electron chat workflows read the
+  typed branch. Command-execution records with legacy flat command fields now
+  fail validation instead of being dual-read. Live Codex Electron was exercised
+  during this slice; the final reruns reached live chat command activity and
+  then failed later in the semantic cartographer segment.
+- Remaining: complete protocol findings and typed-detail cutovers for file
+  changes, diff updates, dynamic/Setta tools, failed starts, approvals, and
+  stream lifecycle activity.
 
 ### Slice 4: Tool And File Activity Rendering
 

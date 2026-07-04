@@ -96,7 +96,13 @@ func textCommandTextHarness() *scriptedTranscriptHarness {
 			if err := sink.AssistantTextDelta("seg1", "Inspecting the scripts."); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "cmd", Type: RunItemTypeCommandExecution, Status: RunItemStatusCompleted, Title: "list", Command: "ls"}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{
+				ProviderItemID: "cmd",
+				Type:           RunItemTypeCommandExecution,
+				Status:         RunItemStatusCompleted,
+				Title:          "list",
+				Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "ls"}),
+			}); err != nil {
 				return TurnCompletion{}, err
 			}
 			if err := sink.AssistantTextDelta("seg2", "They are wrappers."); err != nil {
@@ -291,7 +297,13 @@ func TestTranscriptSteeringBlockCreatedEvent(t *testing.T) {
 			if err := sink.AssistantTextDelta("pre", "Inspecting the scripts."); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "cmd", Type: RunItemTypeCommandExecution, Status: RunItemStatusRunning, Title: "list", Command: "ls"}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{
+				ProviderItemID: "cmd",
+				Type:           RunItemTypeCommandExecution,
+				Status:         RunItemStatusRunning,
+				Title:          "list",
+				Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "ls"}),
+			}); err != nil {
 				return TurnCompletion{}, err
 			}
 			close(commandEmitted)
@@ -410,7 +422,13 @@ func TestTranscriptTerminalReplacedOnCancel(t *testing.T) {
 			if err := sink.AssistantTextDelta("seg", "Working on it."); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "cmd", Type: RunItemTypeCommandExecution, Status: RunItemStatusRunning, Title: "long", Command: "sleep"}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{
+				ProviderItemID: "cmd",
+				Type:           RunItemTypeCommandExecution,
+				Status:         RunItemStatusRunning,
+				Title:          "long",
+				Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "sleep"}),
+			}); err != nil {
 				return TurnCompletion{}, err
 			}
 			close(reached)
@@ -468,7 +486,13 @@ func TestTranscriptOutputChunksDoNotRepublishProjection(t *testing.T) {
 			if err := sink.AssistantTextDelta("seg", "Running the command."); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "cmd", Type: RunItemTypeCommandExecution, Status: RunItemStatusRunning, Title: "build", Command: "make"}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{
+				ProviderItemID: "cmd",
+				Type:           RunItemTypeCommandExecution,
+				Status:         RunItemStatusRunning,
+				Title:          "build",
+				Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "make"}),
+			}); err != nil {
 				return TurnCompletion{}, err
 			}
 			for index := 0; index < chunks; index++ {
@@ -476,7 +500,13 @@ func TestTranscriptOutputChunksDoNotRepublishProjection(t *testing.T) {
 					return TurnCompletion{}, err
 				}
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "cmd", Type: RunItemTypeCommandExecution, Status: RunItemStatusCompleted, Title: "build", Command: "make"}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{
+				ProviderItemID: "cmd",
+				Type:           RunItemTypeCommandExecution,
+				Status:         RunItemStatusCompleted,
+				Title:          "build",
+				Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "make"}),
+			}); err != nil {
 				return TurnCompletion{}, err
 			}
 			return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil

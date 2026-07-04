@@ -3,32 +3,45 @@ package chat
 import "encoding/json"
 
 type RunItemDetails struct {
-	Kind        RunItemDetailsKind         `json:"kind"`
-	MCPToolCall *RunItemMCPToolCallDetails `json:"mcpToolCall"`
+	Kind             RunItemDetailsKind              `json:"kind"`
+	CommandExecution *RunItemCommandExecutionDetails `json:"commandExecution"`
+	MCPToolCall      *RunItemMCPToolCallDetails      `json:"mcpToolCall"`
 }
 
 type RunActivityDetailsProjection struct {
-	Summary       string                     `json:"summary"`
-	Command       string                     `json:"command"`
-	Cwd           string                     `json:"cwd"`
-	ExitCode      int                        `json:"exitCode"`
-	DurationMs    int                        `json:"durationMs"`
-	FilePaths     []string                   `json:"filePaths"`
-	PatchStatus   string                     `json:"patchStatus"`
-	ServerName    string                     `json:"serverName"`
-	ToolName      string                     `json:"toolName"`
-	Progress      string                     `json:"progress"`
-	Result        string                     `json:"result"`
-	Error         string                     `json:"error"`
-	NoticeKind    string                     `json:"noticeKind"`
-	NoticeMessage string                     `json:"noticeMessage"`
-	DiffSummary   string                     `json:"diffSummary"`
-	Namespace     string                     `json:"namespace"`
-	ProcessID     string                     `json:"processId"`
-	RequestID     string                     `json:"requestId"`
-	ReviewID      string                     `json:"reviewId"`
-	Details       json.RawMessage            `json:"details"`
-	MCPToolCall   *RunItemMCPToolCallDetails `json:"mcpToolCall"`
+	Summary          string                          `json:"summary"`
+	Command          string                          `json:"command"`
+	Cwd              string                          `json:"cwd"`
+	ExitCode         int                             `json:"exitCode"`
+	DurationMs       int                             `json:"durationMs"`
+	FilePaths        []string                        `json:"filePaths"`
+	PatchStatus      string                          `json:"patchStatus"`
+	ServerName       string                          `json:"serverName"`
+	ToolName         string                          `json:"toolName"`
+	Progress         string                          `json:"progress"`
+	Result           string                          `json:"result"`
+	Error            string                          `json:"error"`
+	NoticeKind       string                          `json:"noticeKind"`
+	NoticeMessage    string                          `json:"noticeMessage"`
+	DiffSummary      string                          `json:"diffSummary"`
+	Namespace        string                          `json:"namespace"`
+	ProcessID        string                          `json:"processId"`
+	RequestID        string                          `json:"requestId"`
+	ReviewID         string                          `json:"reviewId"`
+	Details          json.RawMessage                 `json:"details"`
+	CommandExecution *RunItemCommandExecutionDetails `json:"commandExecution"`
+	MCPToolCall      *RunItemMCPToolCallDetails      `json:"mcpToolCall"`
+}
+
+type RunItemCommandExecutionDetails struct {
+	Command    string                `json:"command"`
+	Cwd        string                `json:"cwd"`
+	ExitCode   int                   `json:"exitCode"`
+	DurationMs int                   `json:"durationMs"`
+	ProcessID  string                `json:"processId"`
+	Source     *RunItemCommandSource `json:"source"`
+	Result     string                `json:"result"`
+	Error      string                `json:"error"`
 }
 
 type RunItemMCPToolCallDetails struct {
@@ -54,9 +67,28 @@ type RunItemMCPToolResult struct {
 
 func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDetails {
 	return &RunItemDetails{
-		Kind:        RunItemDetailsKindMCPToolCall,
-		MCPToolCall: &details,
+		Kind:             RunItemDetailsKindMCPToolCall,
+		CommandExecution: nil,
+		MCPToolCall:      &details,
 	}
+}
+
+func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *RunItemDetails {
+	return &RunItemDetails{
+		Kind:             RunItemDetailsKindCommandExecution,
+		CommandExecution: &details,
+		MCPToolCall:      nil,
+	}
+}
+
+func (item RunItem) CommandExecutionDetails() (*RunItemCommandExecutionDetails, bool) {
+	if item.Type != RunItemTypeCommandExecution ||
+		item.Details == nil ||
+		item.Details.Kind != RunItemDetailsKindCommandExecution ||
+		item.Details.CommandExecution == nil {
+		return nil, false
+	}
+	return item.Details.CommandExecution, true
 }
 
 func (item RunItem) MCPToolCallDetails() (*RunItemMCPToolCallDetails, bool) {

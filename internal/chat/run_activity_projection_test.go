@@ -9,7 +9,13 @@ import "testing"
 // the projection mirrors the chronological transcript's activity_item set.
 func TestRunActivityItemProjectionsExcludesReasoning(t *testing.T) {
 	items := []RunItem{
-		{ID: "item_cmd", Type: RunItemTypeCommandExecution, Status: RunItemStatusCompleted, Title: "build", Command: "go build"},
+		{
+			ID:      "item_cmd",
+			Type:    RunItemTypeCommandExecution,
+			Status:  RunItemStatusCompleted,
+			Title:   "build",
+			Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "go build"}),
+		},
 		{ID: "item_reason", Type: RunItemTypeReasoning, Status: RunItemStatusCompleted, Title: "thinking about the build"},
 		{ID: "item_agent", Type: RunItemTypeAgentMessage, Status: RunItemStatusCompleted, Summary: "all done"},
 	}
@@ -37,7 +43,13 @@ func TestRunActivityItemProjectionsExcludesReasoning(t *testing.T) {
 // status so a reloaded completed run never shows a perpetually-running row.
 func TestRunActivityItemProjectionsInheritsTerminalRunStatus(t *testing.T) {
 	items := []RunItem{
-		{ID: "item_cmd", Type: RunItemTypeCommandExecution, Status: RunItemStatusRunning, Title: "build", Command: "go build"},
+		{
+			ID:      "item_cmd",
+			Type:    RunItemTypeCommandExecution,
+			Status:  RunItemStatusRunning,
+			Title:   "build",
+			Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "go build"}),
+		},
 	}
 
 	projections := runActivityItemProjections(RunStatusCompleted, items, nil)

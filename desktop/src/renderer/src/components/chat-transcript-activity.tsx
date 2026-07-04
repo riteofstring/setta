@@ -561,26 +561,34 @@ function ActivityDetails({
   outputPage: RunItemOutputPageState | undefined;
   outputText: string;
 }) {
+  const commandExecution = activityCommandExecutionDisplay(details);
+  const genericResultDetails = details.mcpToolCall === null && details.commandExecution === null;
   return (
     <div className="mt-1.5 w-full max-w-full min-w-0 overflow-hidden border-l border-border/70 pl-2">
       <div className="w-full max-w-full min-w-0 space-y-1.5 overflow-hidden text-xs text-muted-foreground">
-        <ActivityCwd cwd={details.cwd} />
-        <ActivityCommand command={details.command} />
+        <ActivityCwd cwd={commandExecution.cwd} />
+        <ActivityCommand command={commandExecution.command} />
         <ActivityFiles paths={details.filePaths} />
         <ActivityMetadata details={details} />
         <ActivityTextBlock title="Summary" value={details.summary} />
-        {details.mcpToolCall === null ? (
+        {genericResultDetails ? (
           <>
             <ActivityTextBlock title="Progress" value={details.progress} />
             <ActivityTextBlock title="Result" value={details.result} />
             <ActivityTextBlock title="Error" tone="error" value={details.error} />
           </>
         ) : null}
+        <ActivityCommandExecutionDetails details={details} />
         <ActivityTextBlock title="Notice" value={details.noticeMessage} />
         <ActivityTextBlock title="Diff" value={details.diffSummary} />
         <ActivityMCPDetails details={details} />
-        {details.mcpToolCall === null ? <ActivityJSONDetails details={details.details} /> : null}
-        <ActivityExit durationMs={details.durationMs} exitCode={details.exitCode} />
+        {details.mcpToolCall === null && details.commandExecution === null ? (
+          <ActivityJSONDetails details={details.details} />
+        ) : null}
+        <ActivityExit
+          durationMs={commandExecution.durationMs}
+          exitCode={commandExecution.exitCode}
+        />
         <ActivityOutput
           loadMoreOutput={loadMoreOutput}
           outputPage={outputPage}
@@ -589,6 +597,23 @@ function ActivityDetails({
       </div>
     </div>
   );
+}
+
+function activityCommandExecutionDisplay(details: RunActivityDetailsProjection) {
+  const command = details.commandExecution;
+  if (command === null) {
+    return {
+      command: details.command,
+      cwd: details.cwd,
+      durationMs: details.durationMs,
+      exitCode: details.exitCode,
+      processId: details.processId,
+      result: details.result,
+      error: details.error,
+      source: null,
+    };
+  }
+  return command;
 }
 
 function hasExpandableActivityRow(activity: ActivityItemBlockProjection) {
@@ -673,11 +698,13 @@ function ActivityMetadata({ details }: { details: RunActivityDetailsProjection }
 }
 
 function activityMetadata(details: RunActivityDetailsProjection) {
+  const commandExecution = activityCommandExecutionDisplay(details);
   const entries = [
     { label: "server", value: details.serverName },
     { label: "tool", value: details.toolName },
     { label: "namespace", value: details.namespace },
-    { label: "process", value: details.processId },
+    { label: "process", value: commandExecution.processId },
+    { label: "source", value: commandExecution.source ?? "" },
     { label: "request", value: details.requestId },
     { label: "review", value: details.reviewId },
     { label: "patch", value: details.patchStatus },
@@ -692,6 +719,19 @@ function activityMetadata(details: RunActivityDetailsProjection) {
     );
   }
   return entries.filter((entry) => entry.value !== "");
+}
+
+function ActivityCommandExecutionDetails({ details }: { details: RunActivityDetailsProjection }) {
+  const command = details.commandExecution;
+  if (command === null) {
+    return null;
+  }
+  return (
+    <>
+      <ActivityTextBlock title="Result" value={command.result} />
+      <ActivityTextBlock title="Error" tone="error" value={command.error} />
+    </>
+  );
 }
 
 function ActivityTextBlock({

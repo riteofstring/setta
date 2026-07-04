@@ -193,18 +193,26 @@ func TestCodexUnifiedExecCommandSourcePreserved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project unified exec startup: %v", err)
 	}
-	if startupItem.Source == nil || *startupItem.Source != RunItemCommandSourceUnifiedExecStartup {
-		t.Fatalf("startup source = %v, want %s", startupItem.Source, RunItemCommandSourceUnifiedExecStartup)
+	startupDetails, ok := startupItem.CommandExecutionDetails()
+	if !ok {
+		t.Fatalf("startup command details missing: %+v", startupItem)
 	}
-	if startupItem.ProcessID != fakeUnifiedExecAlphaProcess {
-		t.Fatalf("startup processId = %q, want %q", startupItem.ProcessID, fakeUnifiedExecAlphaProcess)
+	if startupDetails.Source == nil || *startupDetails.Source != RunItemCommandSourceUnifiedExecStartup {
+		t.Fatalf("startup source = %v, want %s", startupDetails.Source, RunItemCommandSourceUnifiedExecStartup)
+	}
+	if startupDetails.ProcessID != fakeUnifiedExecAlphaProcess {
+		t.Fatalf("startup processId = %q, want %q", startupDetails.ProcessID, fakeUnifiedExecAlphaProcess)
 	}
 	agentItem, err := runItemFromCodexItem(decodeFakeCodexThreadItem(t, fakeCodexUnifiedExecItem("agent")), RunItemStatusRunning)
 	if err != nil {
 		t.Fatalf("project agent command: %v", err)
 	}
-	if agentItem.Source == nil || *agentItem.Source != RunItemCommandSourceAgent {
-		t.Fatalf("agent source = %v, want %s", agentItem.Source, RunItemCommandSourceAgent)
+	agentDetails, ok := agentItem.CommandExecutionDetails()
+	if !ok {
+		t.Fatalf("agent command details missing: %+v", agentItem)
+	}
+	if agentDetails.Source == nil || *agentDetails.Source != RunItemCommandSourceAgent {
+		t.Fatalf("agent source = %v, want %s", agentDetails.Source, RunItemCommandSourceAgent)
 	}
 	if reflect.DeepEqual(startupItem, agentItem) {
 		t.Fatalf("startup and agent items must differ now that source is preserved: %+v", startupItem)
@@ -254,8 +262,12 @@ func TestCodexCommandSourceAbsentIsNil(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project item without source: %v", err)
 	}
-	if projected.Source != nil {
-		t.Fatalf("absent source projected as %v, want nil", projected.Source)
+	details, ok := projected.CommandExecutionDetails()
+	if !ok {
+		t.Fatalf("command details missing: %+v", projected)
+	}
+	if details.Source != nil {
+		t.Fatalf("absent source projected as %v, want nil", details.Source)
 	}
 }
 

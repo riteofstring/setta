@@ -71,6 +71,7 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 		reflect.TypeFor[chat.RunItemDetails](): {
 			Discriminator: "kind",
 			Branches: []taggedUnionBranch{
+				{Field: "commandExecution", KindValue: string(chat.RunItemDetailsKindCommandExecution)},
 				{Field: "mcpToolCall", KindValue: string(chat.RunItemDetailsKindMCPToolCall)},
 			},
 		},

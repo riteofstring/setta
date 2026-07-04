@@ -333,12 +333,14 @@ func commandExecutionRunItem(item codexapp.CommandExecutionThreadItem, raw json.
 		ProviderItemID: id,
 		Type:           RunItemTypeCommandExecution,
 		Status:         status,
-		Command:        command,
-		Cwd:            cwd,
-		ExitCode:       intPtrValue(item.ExitCode),
-		DurationMs:     intPtrValue(item.DurationMs),
-		ProcessID:      processID,
-		Source:         source,
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command:    command,
+			Cwd:        cwd,
+			ExitCode:   intPtrValue(item.ExitCode),
+			DurationMs: intPtrValue(item.DurationMs),
+			ProcessID:  processID,
+			Source:     source,
+		}),
 	}, nil
 }
 

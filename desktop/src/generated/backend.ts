@@ -937,6 +937,26 @@ export function decodeRunItemType(value: unknown, label = "RunItemType"): RunIte
   }
 }
 
+export type RunItemCommandSource = "agent" | "user_shell" | "unified_exec_startup" | "unified_exec_interaction";
+
+export const runItemCommandSourceValues = ["agent", "user_shell", "unified_exec_startup", "unified_exec_interaction"] as const satisfies readonly RunItemCommandSource[];
+
+export function decodeRunItemCommandSource(value: unknown, label = "RunItemCommandSource"): RunItemCommandSource {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "agent":
+      return decoded;
+    case "user_shell":
+      return decoded;
+    case "unified_exec_startup":
+      return decoded;
+    case "unified_exec_interaction":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type RunStatusBlockMode = "working" | "completed" | "cancelled" | "failed";
 
 export const runStatusBlockModeValues = ["working", "completed", "cancelled", "failed"] as const satisfies readonly RunStatusBlockMode[];
@@ -1039,33 +1059,15 @@ export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind")
   }
 }
 
-export type RunItemCommandSource = "agent" | "user_shell" | "unified_exec_startup" | "unified_exec_interaction";
+export type RunItemDetailsKind = "command_execution" | "mcp_tool_call";
 
-export const runItemCommandSourceValues = ["agent", "user_shell", "unified_exec_startup", "unified_exec_interaction"] as const satisfies readonly RunItemCommandSource[];
-
-export function decodeRunItemCommandSource(value: unknown, label = "RunItemCommandSource"): RunItemCommandSource {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "agent":
-      return decoded;
-    case "user_shell":
-      return decoded;
-    case "unified_exec_startup":
-      return decoded;
-    case "unified_exec_interaction":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunItemDetailsKind = "mcp_tool_call";
-
-export const runItemDetailsKindValues = ["mcp_tool_call"] as const satisfies readonly RunItemDetailsKind[];
+export const runItemDetailsKindValues = ["command_execution", "mcp_tool_call"] as const satisfies readonly RunItemDetailsKind[];
 
 export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetailsKind"): RunItemDetailsKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "command_execution":
+      return decoded;
     case "mcp_tool_call":
       return decoded;
     default:
@@ -3120,6 +3122,17 @@ export interface ReasoningBlockProjection {
   summary: string;
 }
 
+export interface RunItemCommandExecutionDetails {
+  command: string;
+  cwd: string;
+  exitCode: number;
+  durationMs: number;
+  processId: string;
+  source: RunItemCommandSource | null;
+  result: string;
+  error: string;
+}
+
 export interface RunItemMCPToolResult {
   content: unknown[];
   structuredContent: unknown;
@@ -3162,6 +3175,7 @@ export interface RunActivityDetailsProjection {
   requestId: string;
   reviewId: string;
   details: unknown;
+  commandExecution: RunItemCommandExecutionDetails | null;
   mcpToolCall: RunItemMCPToolCallDetails | null;
 }
 
@@ -3553,6 +3567,7 @@ export interface GetRunActivityRequest {
 
 export interface RunItemDetails {
   kind: RunItemDetailsKind;
+  commandExecution: RunItemCommandExecutionDetails | null;
   mcpToolCall: RunItemMCPToolCallDetails | null;
 }
 
@@ -7377,6 +7392,21 @@ export function decodeReasoningBlockProjection(value: unknown): ReasoningBlockPr
   };
 }
 
+export function decodeRunItemCommandExecutionDetails(value: unknown): RunItemCommandExecutionDetails {
+  const record = assertRecord(value, "RunItemCommandExecutionDetails");
+  assertKnownFields(record, "RunItemCommandExecutionDetails", ["command", "cwd", "exitCode", "durationMs", "processId", "source", "result", "error"]);
+  return {
+    command: decodeString(requireField(record, "command", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.command"),
+    cwd: decodeString(requireField(record, "cwd", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.cwd"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.exitCode"),
+    durationMs: decodeInteger(requireField(record, "durationMs", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.durationMs"),
+    processId: decodeString(requireField(record, "processId", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.processId"),
+    source: decodeNullable(requireField(record, "source", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.source", (item) => decodeRunItemCommandSource(item, "RunItemCommandExecutionDetails.source")),
+    result: decodeString(requireField(record, "result", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.result"),
+    error: decodeString(requireField(record, "error", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.error"),
+  };
+}
+
 export function decodeRunItemMCPToolResult(value: unknown): RunItemMCPToolResult {
   const record = assertRecord(value, "RunItemMCPToolResult");
   assertKnownFields(record, "RunItemMCPToolResult", ["content", "structuredContent", "_meta"]);
@@ -7408,7 +7438,7 @@ export function decodeRunItemMCPToolCallDetails(value: unknown): RunItemMCPToolC
 
 export function decodeRunActivityDetailsProjection(value: unknown): RunActivityDetailsProjection {
   const record = assertRecord(value, "RunActivityDetailsProjection");
-  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "mcpToolCall"]);
+  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "mcpToolCall"]);
   return {
     summary: decodeString(requireField(record, "summary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.summary"),
     command: decodeString(requireField(record, "command", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.command"),
@@ -7430,6 +7460,7 @@ export function decodeRunActivityDetailsProjection(value: unknown): RunActivityD
     requestId: decodeString(requireField(record, "requestId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.requestId"),
     reviewId: decodeString(requireField(record, "reviewId", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.reviewId"),
     details: decodeUnknown(requireField(record, "details", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.details"),
+    commandExecution: decodeNullable(requireField(record, "commandExecution", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
     mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
   };
 }
@@ -8048,12 +8079,14 @@ export function decodeGetRunActivityRequest(value: unknown): GetRunActivityReque
 
 export function decodeRunItemDetails(value: unknown): RunItemDetails {
   const record = assertRecord(value, "RunItemDetails");
-  assertKnownFields(record, "RunItemDetails", ["kind", "mcpToolCall"]);
+  assertKnownFields(record, "RunItemDetails", ["kind", "commandExecution", "mcpToolCall"]);
   const result: RunItemDetails = {
     kind: decodeRunItemDetailsKind(requireField(record, "kind", "RunItemDetails"), "RunItemDetails.kind"),
+    commandExecution: decodeNullable(requireField(record, "commandExecution", "RunItemDetails"), "RunItemDetails.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
     mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunItemDetails"), "RunItemDetails.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
   };
   assertTaggedUnionBranch("RunItemDetails", result.kind, {
+    "command_execution": result.commandExecution,
     "mcp_tool_call": result.mcpToolCall,
   });
   return result;

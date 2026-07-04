@@ -296,10 +296,12 @@ func seedInterruptedBackgroundTerminalRun(t *testing.T, store *Store) {
 		Type:           RunItemTypeCommandExecution,
 		Status:         RunItemStatusRunning,
 		CreatedAt:      "2026-05-29T19:00:00Z",
-		Command:        "npm run dev",
-		Cwd:            "/tmp/workspace",
-		ProcessID:      "proc_recovery_bg",
-		Source:         &source,
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command:   "npm run dev",
+			Cwd:       "/tmp/workspace",
+			ProcessID: "proc_recovery_bg",
+			Source:    &source,
+		}),
 	}); err != nil {
 		t.Fatalf("save run item: %v", err)
 	}
@@ -335,6 +337,12 @@ func seedInterruptedBackgroundTerminalRun(t *testing.T, store *Store) {
 				Command:   "npm run dev",
 				Cwd:       "/tmp/workspace",
 				ProcessID: "proc_recovery_bg",
+				CommandExecution: &RunItemCommandExecutionDetails{
+					Command:   "npm run dev",
+					Cwd:       "/tmp/workspace",
+					ProcessID: "proc_recovery_bg",
+					Source:    &source,
+				},
 			},
 		},
 	}); err != nil {

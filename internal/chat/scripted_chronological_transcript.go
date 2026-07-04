@@ -73,9 +73,11 @@ func emitChronologicalCommandA(request TurnRequest, sink TurnSink) error {
 		Type:           RunItemTypeCommandExecution,
 		Status:         RunItemStatusRunning,
 		Title:          chronologicalCommandATitle,
-		Command:        "printf chronological-a",
-		Cwd:            request.Workspace.RootPath,
 		Summary:        "First adjacent chronological command.",
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command: "printf chronological-a",
+			Cwd:     request.Workspace.RootPath,
+		}),
 	}
 	if err := sink.RunItemUpsert(command); err != nil {
 		return err
@@ -86,9 +88,13 @@ func emitChronologicalCommandA(request TurnRequest, sink TurnSink) error {
 		}
 	}
 	command.Status = RunItemStatusCompleted
-	command.ExitCode = 0
-	command.DurationMs = 24
-	command.Result = "chronological command A complete"
+	command.Details = NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+		Command:    "printf chronological-a",
+		Cwd:        request.Workspace.RootPath,
+		ExitCode:   0,
+		DurationMs: 24,
+		Result:     "chronological command A complete",
+	})
 	return sink.RunItemUpsert(command)
 }
 
@@ -98,17 +104,23 @@ func emitChronologicalCommandB(request TurnRequest, sink TurnSink) error {
 		Type:           RunItemTypeCommandExecution,
 		Status:         RunItemStatusRunning,
 		Title:          chronologicalCommandBTitle,
-		Command:        "printf chronological-b",
-		Cwd:            request.Workspace.RootPath,
 		Summary:        "Second adjacent chronological command.",
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command: "printf chronological-b",
+			Cwd:     request.Workspace.RootPath,
+		}),
 	}
 	if err := sink.RunItemUpsert(command); err != nil {
 		return err
 	}
 	command.Status = RunItemStatusCompleted
-	command.ExitCode = 0
-	command.DurationMs = 12
-	command.Result = "chronological command B complete"
+	command.Details = NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+		Command:    "printf chronological-b",
+		Cwd:        request.Workspace.RootPath,
+		ExitCode:   0,
+		DurationMs: 12,
+		Result:     "chronological command B complete",
+	})
 	return sink.RunItemUpsert(command)
 }
 

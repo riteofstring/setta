@@ -77,54 +77,119 @@ func runItemDisplayable(item RunItem, status RunItemStatus, hasDetails bool, has
 // It is the single source the chronological transcript ingestion and the
 // run-activity page projection share, so both decide displayability and build
 // the row identically.
-func activityItemBlockProjection(item RunItem, runStatus RunStatus, hasOutput bool) (ActivityItemBlockProjection, bool) {
-	projection := activityItemBlockProjectionFields(item, runStatus, hasOutput)
-	if !runItemDisplayable(item, projection.Status, projection.HasDetails, hasOutput) {
-		return ActivityItemBlockProjection{}, false
-	}
-	return projection, true
-}
-
-// activityItemBlockProjectionFields builds the activity_item payload without the
-// displayability gate. The in-place update path uses it to refresh an existing
-// block's fields, where the block has already been deemed displayable and must
-// not be dropped if a later status makes a fresh item non-displayable.
-func activityItemBlockProjectionFields(item RunItem, runStatus RunStatus, hasOutput bool) ActivityItemBlockProjection {
+func activityItemBlockProjection(item RunItem, runStatus RunStatus, hasOutput bool, requireDisplayable bool) (ActivityItemBlockProjection, bool) {
 	details := runActivityDetailsProjection(item)
-	return ActivityItemBlockProjection{
+	projection := ActivityItemBlockProjection{
 		SourceRunItemID: item.ID,
 		Type:            item.Type,
-		Title:           runActivityTitle(item),
+		Title:           runActivityProjectionTitle(item),
 		Status:          effectiveRunActivityRowStatus(runStatus, item.Status),
 		Details:         details,
 		HasDetails:      runActivityDetailsInspectable(details),
 		HasOutput:       hasOutput,
 	}
+	if requireDisplayable && !runItemDisplayable(item, projection.Status, projection.HasDetails, hasOutput) {
+		return ActivityItemBlockProjection{}, false
+	}
+	return projection, true
+}
+
+func runActivityProjectionTitle(item RunItem) string {
+	if item.Title != "" {
+		return item.Title
+	}
+	if title, ok := runActivityTypedTitle(item); ok {
+		return title
+	}
+	if defaultTitle, ok := runActivityDefaultTitles[item.Type]; ok {
+		return defaultTitle
+	}
+	return string(item.Type)
+}
+
+func runActivityTypedTitle(item RunItem) (string, bool) {
+	switch item.Type {
+	case RunItemTypeCommandExecution, RunItemTypeTerminalInteraction:
+		return runActivityCommandTitle(item), true
+	case RunItemTypeMCPToolCall:
+		return runActivityMCPTitle(item), true
+	case RunItemTypeDynamicToolCall, RunItemTypeCollabAgentToolCall:
+		return runActivityToolTitle(item), true
+	case RunItemTypeNotice:
+		return runActivityNoticeTitle(item), true
+	default:
+		return "", false
+	}
+}
+
+func runActivityCommandTitle(item RunItem) string {
+	command := item.Command
+	if commandDetails, ok := item.CommandExecutionDetails(); ok {
+		command = commandDetails.Command
+	}
+	if command != "" {
+		return summarizeCommandLabel(command)
+	}
+	if defaultTitle, ok := runActivityDefaultTitles[item.Type]; ok {
+		return defaultTitle
+	}
+	return string(item.Type)
+}
+
+func runActivityMCPTitle(item RunItem) string {
+	if mcpDetails, ok := item.MCPToolCallDetails(); ok {
+		if mcpDetails.DisplayTitle != "" {
+			return mcpDetails.DisplayTitle
+		}
+		if mcpDetails.ServerName != "" {
+			return "MCP: " + mcpDetails.ServerName
+		}
+	}
+	return "MCP tool call"
+}
+
+func runActivityToolTitle(item RunItem) string {
+	if item.ToolName != "" && item.ServerName != "" {
+		return item.ServerName + "." + item.ToolName
+	}
+	if item.ToolName != "" {
+		return item.ToolName
+	}
+	return "tool call"
+}
+
+func runActivityNoticeTitle(item RunItem) string {
+	if item.NoticeKind != "" {
+		return item.NoticeKind
+	}
+	return "notice"
 }
 
 func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
+	commandExecution := runItemCommandExecutionDetailsProjection(item)
 	return RunActivityDetailsProjection{
-		Summary:       publicRunActivitySummary(item),
-		Command:       item.Command,
-		Cwd:           item.Cwd,
-		ExitCode:      item.ExitCode,
-		DurationMs:    item.DurationMs,
-		FilePaths:     append([]string{}, item.FilePaths...),
-		PatchStatus:   item.PatchStatus,
-		ServerName:    item.ServerName,
-		ToolName:      item.ToolName,
-		Progress:      item.Progress,
-		Result:        item.Result,
-		Error:         item.Error,
-		NoticeKind:    item.NoticeKind,
-		NoticeMessage: item.NoticeMessage,
-		DiffSummary:   item.DiffSummary,
-		Namespace:     item.Namespace,
-		ProcessID:     item.ProcessID,
-		RequestID:     item.RequestID,
-		ReviewID:      item.ReviewID,
-		Details:       cloneRawMessage(item.RawDetails),
-		MCPToolCall:   runItemMCPToolCallDetailsProjection(item),
+		Summary:          publicRunActivitySummary(item),
+		Command:          runActivityCommand(item, commandExecution),
+		Cwd:              runActivityCwd(item, commandExecution),
+		ExitCode:         runActivityExitCode(item, commandExecution),
+		DurationMs:       runActivityDurationMs(item, commandExecution),
+		FilePaths:        append([]string{}, item.FilePaths...),
+		PatchStatus:      item.PatchStatus,
+		ServerName:       item.ServerName,
+		ToolName:         item.ToolName,
+		Progress:         item.Progress,
+		Result:           runActivityResult(item, commandExecution),
+		Error:            runActivityError(item, commandExecution),
+		NoticeKind:       item.NoticeKind,
+		NoticeMessage:    item.NoticeMessage,
+		DiffSummary:      item.DiffSummary,
+		Namespace:        item.Namespace,
+		ProcessID:        runActivityProcessID(item, commandExecution),
+		RequestID:        item.RequestID,
+		ReviewID:         item.ReviewID,
+		Details:          cloneRawMessage(item.RawDetails),
+		CommandExecution: commandExecution,
+		MCPToolCall:      runItemMCPToolCallDetailsProjection(item),
 	}
 }
 
@@ -155,12 +220,21 @@ func cloneMCPToolCallDetails(details RunItemMCPToolCallDetails) RunItemMCPToolCa
 	return details
 }
 
+func cloneCommandExecutionDetails(details RunItemCommandExecutionDetails) RunItemCommandExecutionDetails {
+	if details.Source != nil {
+		source := *details.Source
+		details.Source = &source
+	}
+	return details
+}
+
 func runActivityDetailsInspectable(details RunActivityDetailsProjection) bool {
 	return runActivityStringDetailsInspectable(details) ||
 		details.ExitCode != 0 ||
 		details.DurationMs != 0 ||
 		len(details.FilePaths) > 0 ||
 		rawDetailsInspectable(details.Details) ||
+		details.CommandExecution != nil ||
 		details.MCPToolCall != nil
 }
 
@@ -210,51 +284,60 @@ func runItemMCPToolCallDetailsProjection(item RunItem) *RunItemMCPToolCallDetail
 	return &cloned
 }
 
-func runActivityTitle(item RunItem) string {
-	if item.Title != "" {
-		return item.Title
+func runItemCommandExecutionDetailsProjection(item RunItem) *RunItemCommandExecutionDetails {
+	details, ok := item.CommandExecutionDetails()
+	if !ok {
+		return nil
 	}
-	switch item.Type {
-	case RunItemTypeCommandExecution, RunItemTypeTerminalInteraction:
-		if item.Command != "" {
-			return summarizeCommandLabel(item.Command)
-		}
-		return runActivityDefaultTitle(item.Type)
-	case RunItemTypeMCPToolCall:
-		return runActivityMCPToolCallTitle(item)
-	case RunItemTypeDynamicToolCall, RunItemTypeCollabAgentToolCall:
-		if item.ToolName != "" && item.ServerName != "" {
-			return item.ServerName + "." + item.ToolName
-		}
-		if item.ToolName != "" {
-			return item.ToolName
-		}
-		return "tool call"
-	case RunItemTypeNotice:
-		if item.NoticeKind != "" {
-			return item.NoticeKind
-		}
-		return "notice"
-	default:
-		return runActivityDefaultTitle(item.Type)
-	}
+	cloned := cloneCommandExecutionDetails(*details)
+	return &cloned
 }
 
-func runActivityMCPToolCallTitle(item RunItem) string {
-	if details, ok := item.MCPToolCallDetails(); ok {
-		if details.DisplayTitle != "" {
-			return details.DisplayTitle
-		}
-		if details.ServerName != "" {
-			return "MCP: " + details.ServerName
-		}
+func runActivityCommand(item RunItem, commandExecution *RunItemCommandExecutionDetails) string {
+	if commandExecution != nil {
+		return commandExecution.Command
 	}
-	return "MCP tool call"
+	return item.Command
 }
 
-func runActivityDefaultTitle(itemType RunItemType) string {
-	if title, ok := runActivityDefaultTitles[itemType]; ok {
-		return title
+func runActivityCwd(item RunItem, commandExecution *RunItemCommandExecutionDetails) string {
+	if commandExecution != nil {
+		return commandExecution.Cwd
 	}
-	return string(itemType)
+	return item.Cwd
+}
+
+func runActivityExitCode(item RunItem, commandExecution *RunItemCommandExecutionDetails) int {
+	if commandExecution != nil {
+		return commandExecution.ExitCode
+	}
+	return item.ExitCode
+}
+
+func runActivityDurationMs(item RunItem, commandExecution *RunItemCommandExecutionDetails) int {
+	if commandExecution != nil {
+		return commandExecution.DurationMs
+	}
+	return item.DurationMs
+}
+
+func runActivityProcessID(item RunItem, commandExecution *RunItemCommandExecutionDetails) string {
+	if commandExecution != nil {
+		return commandExecution.ProcessID
+	}
+	return item.ProcessID
+}
+
+func runActivityResult(item RunItem, commandExecution *RunItemCommandExecutionDetails) string {
+	if commandExecution != nil {
+		return commandExecution.Result
+	}
+	return item.Result
+}
+
+func runActivityError(item RunItem, commandExecution *RunItemCommandExecutionDetails) string {
+	if commandExecution != nil {
+		return commandExecution.Error
+	}
+	return item.Error
 }

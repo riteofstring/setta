@@ -136,11 +136,29 @@ function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; te
         details.requestId,
         details.reviewId,
         details.patchStatus,
+        ...transcriptActivityCommandExecutionSearchText(details),
         ...transcriptActivityMCPSearchText(details),
       ]
         .filter((item) => item !== "")
         .join("\n"),
     },
+  ];
+}
+
+function transcriptActivityCommandExecutionSearchText(details: RunActivityDetailsProjection) {
+  const command = details.commandExecution;
+  if (command === null) {
+    return [];
+  }
+  return [
+    command.command,
+    command.cwd,
+    command.durationMs > 0 ? String(command.durationMs) : "",
+    command.exitCode !== 0 ? String(command.exitCode) : "",
+    command.processId,
+    command.source ?? "",
+    command.result,
+    command.error,
   ];
 }
 

@@ -515,7 +515,8 @@ func TestCodexHarnessMapsRunActivity(t *testing.T) {
 		t.Fatalf("items = %+v, want command, reasoning, file, mcp, warning activity", sink.items)
 	}
 	commandItem, ok := findRunItemType(sink.items, RunItemTypeCommandExecution)
-	if !ok || commandItem.Command != "go test ./..." {
+	commandDetails, detailsOK := commandItem.CommandExecutionDetails()
+	if !ok || !detailsOK || commandDetails.Command != "go test ./..." {
 		t.Fatalf("items = %+v, want command execution", sink.items)
 	}
 	if len(sink.outputs) != 1 || sink.outputs[0].stream != codexCommandExecutionOutputStream || sink.outputs[0].text != "ok\n" {

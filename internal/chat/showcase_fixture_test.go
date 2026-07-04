@@ -124,7 +124,17 @@ func assertUIShowcaseRunItems(t *testing.T, items []RunItem, outputs []RunItemOu
 		if !ok {
 			t.Fatalf("run item types = %+v, missing %s", itemsByType, itemType)
 		}
-		if item.ProviderItemID == "" || runActivityTitle(item) == "" {
+		if item.ProviderItemID == "" {
+			t.Fatalf("showcase item %s is incomplete: %+v", itemType, item)
+		}
+		if item.Type == RunItemTypeAgentMessage {
+			if item.Title == "" {
+				t.Fatalf("showcase item %s is incomplete: %+v", itemType, item)
+			}
+			continue
+		}
+		projection, displayable := activityItemBlockProjection(item, RunStatusCompleted, false, true)
+		if !displayable || projection.Title == "" {
 			t.Fatalf("showcase item %s is incomplete: %+v", itemType, item)
 		}
 	}

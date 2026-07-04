@@ -29,6 +29,7 @@ function emptyActivityDetails(
 ): RunActivityDetailsProjection {
   return {
     command: "",
+    commandExecution: null,
     cwd: "",
     details: null,
     diffSummary: "",

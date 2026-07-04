@@ -45,10 +45,54 @@ func isBackgroundTerminalStartupSource(source RunItemCommandSource) bool {
 }
 
 func isPromotableBackgroundTerminalStartup(item RunItem) bool {
+	source := runItemCommandSource(item)
 	return item.Type == RunItemTypeCommandExecution &&
-		item.Source != nil &&
-		isBackgroundTerminalStartupSource(*item.Source) &&
+		source != nil &&
+		isBackgroundTerminalStartupSource(*source) &&
 		item.Status == RunItemStatusRunning
+}
+
+func runItemCommandDetails(item RunItem) RunItemCommandExecutionDetails {
+	if details, ok := item.CommandExecutionDetails(); ok {
+		return *details
+	}
+	if item.Type == RunItemTypeCommandExecution {
+		return RunItemCommandExecutionDetails{}
+	}
+	return RunItemCommandExecutionDetails{
+		Command:    item.Command,
+		Cwd:        item.Cwd,
+		ExitCode:   item.ExitCode,
+		DurationMs: item.DurationMs,
+		ProcessID:  item.ProcessID,
+		Source:     item.Source,
+		Result:     item.Result,
+		Error:      item.Error,
+	}
+}
+
+func runItemCommandSource(item RunItem) *RunItemCommandSource {
+	return runItemCommandDetails(item).Source
+}
+
+func runItemCommandProviderProcessID(item RunItem) string {
+	return runItemCommandDetails(item).ProcessID
+}
+
+func runItemCommandText(item RunItem) string {
+	return runItemCommandDetails(item).Command
+}
+
+func runItemCommandCwd(item RunItem) string {
+	return runItemCommandDetails(item).Cwd
+}
+
+func runItemCommandExitCode(item RunItem) int {
+	return runItemCommandDetails(item).ExitCode
+}
+
+func runItemCommandError(item RunItem) string {
+	return runItemCommandDetails(item).Error
 }
 
 type backgroundTerminalTerminator interface {
@@ -153,16 +197,20 @@ func (service *Service) markBackgroundTerminalTerminating(workspaceID string, co
 // items are intentionally excluded: they are promoted only after they prove they
 // outlive a turn boundary.
 func (service *Service) ingestBackgroundTerminalRunItemLocked(item RunItem) error {
-	switch *item.Source {
+	source := runItemCommandSource(item)
+	if source == nil {
+		return fmt.Errorf("background terminal run item %s is missing command source", item.ProviderItemID)
+	}
+	switch *source {
 	case RunItemCommandSourceUnifiedExecInteraction:
 		return service.ingestBackgroundTerminalInteractionLocked(item)
 	default:
-		return fmt.Errorf("unsupported background terminal run item source %s", *item.Source)
+		return fmt.Errorf("unsupported background terminal run item source %s", *source)
 	}
 }
 
 func (service *Service) ingestPromotedBackgroundTerminalStartupUpdateLocked(item RunItem) (bool, error) {
-	process, ok, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, item.ProviderItemID, item.ProcessID)
+	process, ok, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, item.ProviderItemID, runItemCommandProviderProcessID(item))
 	if err != nil || !ok {
 		return false, err
 	}
@@ -174,8 +222,8 @@ func (service *Service) ingestPromotedBackgroundTerminalStartupUpdateLocked(item
 	}
 	now := timestamp(service.now())
 	process.Status = BackgroundTerminalExited
-	process.ExitCode = item.ExitCode
-	process.Error = item.Error
+	process.ExitCode = runItemCommandExitCode(item)
+	process.Error = runItemCommandError(item)
 	process.CompletedAt = now
 	process.UpdatedAt = now
 	if err := service.store.SaveBackgroundTerminalProcess(process); err != nil {
@@ -231,7 +279,8 @@ func (service *Service) promoteBackgroundTerminalStartupByProviderLocked(workspa
 }
 
 func (service *Service) promoteBackgroundTerminalStartupByProcessLocked(item RunItem) (BackgroundTerminalProcess, bool, error) {
-	existing, exists, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, "", item.ProcessID)
+	providerProcessID := runItemCommandProviderProcessID(item)
+	existing, exists, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, "", providerProcessID)
 	if err != nil || exists {
 		return existing, exists, err
 	}
@@ -244,7 +293,7 @@ func (service *Service) promoteBackgroundTerminalStartupByProcessLocked(item Run
 		return BackgroundTerminalProcess{}, false, err
 	}
 	for _, candidate := range items {
-		if candidate.ProcessID != item.ProcessID || !isPromotableBackgroundTerminalStartup(candidate) {
+		if runItemCommandProviderProcessID(candidate) != providerProcessID || !isPromotableBackgroundTerminalStartup(candidate) {
 			continue
 		}
 		process, _, err := service.promoteBackgroundTerminalStartupLocked(candidate, active)
@@ -254,14 +303,15 @@ func (service *Service) promoteBackgroundTerminalStartupByProcessLocked(item Run
 }
 
 func (service *Service) promoteBackgroundTerminalStartupLocked(item RunItem, active activeTurn) (BackgroundTerminalProcess, bool, error) {
-	existing, exists, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, item.ProviderItemID, item.ProcessID)
+	providerProcessID := runItemCommandProviderProcessID(item)
+	existing, exists, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, item.ProviderItemID, providerProcessID)
 	if err != nil {
 		return BackgroundTerminalProcess{}, false, err
 	}
 	if exists {
 		return service.promoteExistingBackgroundTerminalStartupLocked(item, active, existing)
 	}
-	if item.ProcessID == "" {
+	if providerProcessID == "" {
 		return BackgroundTerminalProcess{}, false, fmt.Errorf("background terminal startup %s is missing a provider processId", item.ProviderItemID)
 	}
 	process, err := service.newBackgroundTerminalProcessFromStartupLocked(item, active)
@@ -306,6 +356,10 @@ func (service *Service) newBackgroundTerminalProcessFromStartupLocked(item RunIt
 		return BackgroundTerminalProcess{}, fmt.Errorf("create background terminal id: %w", err)
 	}
 	now := timestamp(service.now())
+	source := runItemCommandSource(item)
+	if source == nil {
+		return BackgroundTerminalProcess{}, fmt.Errorf("background terminal startup %s is missing command source", item.ProviderItemID)
+	}
 	return BackgroundTerminalProcess{
 		SchemaVersion:  SchemaVersion,
 		ID:             id,
@@ -314,12 +368,12 @@ func (service *Service) newBackgroundTerminalProcessFromStartupLocked(item RunIt
 		ThreadID:       active.threadID,
 		StartedRunID:   item.RunID,
 		ProviderItemID: item.ProviderItemID,
-		ProcessID:      item.ProcessID,
-		Source:         *item.Source,
+		ProcessID:      runItemCommandProviderProcessID(item),
+		Source:         *source,
 		Status:         BackgroundTerminalRunning,
-		Command:        item.Command,
-		Cwd:            item.Cwd,
-		ExitCode:       item.ExitCode,
+		Command:        runItemCommandText(item),
+		Cwd:            runItemCommandCwd(item),
+		ExitCode:       runItemCommandExitCode(item),
 		StartedAt:      backgroundTerminalStartedAt(item, now),
 		UpdatedAt:      now,
 	}, nil
@@ -342,13 +396,18 @@ func (service *Service) promoteInterruptedBackgroundTerminalStartups(workspaceID
 }
 
 func (service *Service) promoteInterruptedBackgroundTerminalStartup(workspaceID string, run Run, item RunItem, now string) error {
-	process, exists, err := service.findBackgroundTerminalLocked(workspaceID, run.ConversationID, item.ProviderItemID, item.ProcessID)
+	providerProcessID := runItemCommandProviderProcessID(item)
+	process, exists, err := service.findBackgroundTerminalLocked(workspaceID, run.ConversationID, item.ProviderItemID, providerProcessID)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		if item.ProcessID == "" {
+		if providerProcessID == "" {
 			return fmt.Errorf("background terminal startup %s is missing a provider processId", item.ProviderItemID)
+		}
+		source := runItemCommandSource(item)
+		if source == nil {
+			return fmt.Errorf("background terminal startup %s is missing command source", item.ProviderItemID)
 		}
 		id, err := service.newID("background_terminal")
 		if err != nil {
@@ -362,12 +421,12 @@ func (service *Service) promoteInterruptedBackgroundTerminalStartup(workspaceID 
 			ThreadID:       "",
 			StartedRunID:   item.RunID,
 			ProviderItemID: item.ProviderItemID,
-			ProcessID:      item.ProcessID,
-			Source:         *item.Source,
+			ProcessID:      providerProcessID,
+			Source:         *source,
 			Status:         BackgroundTerminalRunning,
-			Command:        item.Command,
-			Cwd:            item.Cwd,
-			ExitCode:       item.ExitCode,
+			Command:        runItemCommandText(item),
+			Cwd:            runItemCommandCwd(item),
+			ExitCode:       runItemCommandExitCode(item),
 			StartedAt:      backgroundTerminalStartedAt(item, now),
 			UpdatedAt:      now,
 		}
@@ -428,8 +487,8 @@ func (service *Service) ensurePersistedBackgroundTerminalStartBlockLocked(worksp
 		block.RunStatus = nil
 		block.BackgroundTerminal = &BackgroundTerminalBlockProjection{
 			ProcessID: process.ID,
-			Command:   item.Command,
-			Cwd:       item.Cwd,
+			Command:   runItemCommandText(item),
+			Cwd:       runItemCommandCwd(item),
 			Label:     backgroundTerminalStartLabel,
 		}
 		return service.saveTranscriptBlockLocked(workspaceID, block)
@@ -459,8 +518,8 @@ func (service *Service) appendPersistedBackgroundTerminalStartBlockLocked(worksp
 		UpdatedAt:        now,
 		BackgroundTerminal: &BackgroundTerminalBlockProjection{
 			ProcessID: process.ID,
-			Command:   item.Command,
-			Cwd:       item.Cwd,
+			Command:   runItemCommandText(item),
+			Cwd:       runItemCommandCwd(item),
 			Label:     backgroundTerminalStartLabel,
 		},
 	})
@@ -496,7 +555,7 @@ func backgroundTerminalStartedAt(item RunItem, fallback string) string {
 // run item carries the provider process handle, so the marker is linked to the
 // registered terminal by that handle.
 func (service *Service) ingestBackgroundTerminalInteractionLocked(item RunItem) error {
-	process, ok, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, "", item.ProcessID)
+	process, ok, err := service.findBackgroundTerminalLocked(item.WorkspaceID, item.ConversationID, "", runItemCommandProviderProcessID(item))
 	if err != nil {
 		return err
 	}
@@ -525,7 +584,7 @@ func (service *Service) ensureBackgroundTerminalStartBlockLocked(workspaceID str
 		if ingest.hasBackgroundTerminalBlock(process.ID, backgroundTerminalStartLabel) {
 			return nil
 		}
-		return service.createBackgroundTerminalBlockLocked(workspaceID, ingest, process.ID, item.Command, item.Cwd, backgroundTerminalStartLabel)
+		return service.createBackgroundTerminalBlockLocked(workspaceID, ingest, process.ID, runItemCommandText(item), runItemCommandCwd(item), backgroundTerminalStartLabel)
 	}
 	block := ingest.blocks[blockID]
 	if block == nil {
@@ -542,8 +601,8 @@ func (service *Service) ensureBackgroundTerminalStartBlockLocked(workspaceID str
 	block.RunStatus = nil
 	block.BackgroundTerminal = &BackgroundTerminalBlockProjection{
 		ProcessID: process.ID,
-		Command:   item.Command,
-		Cwd:       item.Cwd,
+		Command:   runItemCommandText(item),
+		Cwd:       runItemCommandCwd(item),
 		Label:     backgroundTerminalStartLabel,
 	}
 	delete(ingest.activityBlockByProvider, item.ProviderItemID)

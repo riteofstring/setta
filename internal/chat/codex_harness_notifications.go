@@ -98,7 +98,9 @@ func handleCodexBase64OutputDelta(delta codexBase64OutputDelta, providerItemID s
 		Type:           itemType,
 		Status:         RunItemStatusRunning,
 		Title:          title,
-		ProcessID:      processID,
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			ProcessID: processID,
+		}),
 	}); err != nil {
 		return codexNotificationResult{}, err
 	}
@@ -142,8 +144,10 @@ func processExitRunItem(providerItemID string, event codexProcessExitEvent) RunI
 		Type:           RunItemTypeCommandExecution,
 		Status:         processExitStatus(event.exitCode),
 		Title:          "Process exited",
-		ProcessID:      event.processID,
-		ExitCode:       event.exitCode,
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			ProcessID: event.processID,
+			ExitCode:  event.exitCode,
+		}),
 	}
 }
 

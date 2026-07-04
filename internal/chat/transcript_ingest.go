@@ -392,7 +392,7 @@ func (service *Service) ingestRunItemTranscriptBlockLocked(workspaceID string, i
 func (service *Service) ingestActivityBlockLocked(workspaceID string, ingest *transcriptIngest, item RunItem, hasOutput bool) error {
 	existingID, exists := ingest.activityBlockByProvider[item.ProviderItemID]
 	if !exists {
-		projection, ok := activityItemBlockProjection(item, RunStatusRunning, hasOutput)
+		projection, ok := activityItemBlockProjection(item, RunStatusRunning, hasOutput, true)
 		if !ok {
 			return nil
 		}
@@ -404,7 +404,8 @@ func (service *Service) ingestActivityBlockLocked(workspaceID string, ingest *tr
 	}
 	// Preserve a previously-recorded output flag: output may have arrived before
 	// this metadata update, and the in-place refresh must not clear it.
-	*block.Activity = activityItemBlockProjectionFields(item, RunStatusRunning, hasOutput || block.Activity.HasOutput)
+	projection, _ := activityItemBlockProjection(item, RunStatusRunning, hasOutput || block.Activity.HasOutput, false)
+	*block.Activity = projection
 	block.Status = transcriptBlockStatusForItem(item.Status)
 	block.UpdatedAt = timestamp(service.now())
 	if err := service.saveTranscriptBlockLocked(workspaceID, *block); err != nil {

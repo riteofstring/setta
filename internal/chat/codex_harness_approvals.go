@@ -184,8 +184,10 @@ func commandApprovalRunItem(providerItemID string, command string, cwd string, r
 		Status:         RunItemStatusPending,
 		Title:          "Command approval",
 		Summary:        reason,
-		Command:        command,
-		Cwd:            cwd,
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command: command,
+			Cwd:     cwd,
+		}),
 	}
 }
 

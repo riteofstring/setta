@@ -11,7 +11,7 @@ func TestServiceLoadRunItemOutputPageDoesNotReadBeyondLimit(t *testing.T) {
 			ProviderItemID: "command_fake",
 			Type:           RunItemTypeCommandExecution,
 			Status:         RunItemStatusRunning,
-			Command:        "printf output",
+			Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "printf output"}),
 		}},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_fake", Stream: "stdout", Text: "one\n"},
 		{Type: FakeEventRunItemOutput, ProviderItemID: "command_fake", Stream: "stdout", Text: "two\n"},

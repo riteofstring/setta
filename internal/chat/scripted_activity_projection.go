@@ -58,9 +58,11 @@ func emitProjectionCommand(request TurnRequest, sink TurnSink, outputChunks int)
 		Type:           RunItemTypeCommandExecution,
 		Status:         RunItemStatusRunning,
 		Title:          "Projection command",
-		Command:        "printf projection-output",
-		Cwd:            request.Workspace.RootPath,
 		Summary:        "Projection command summary.",
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command: "printf projection-output",
+			Cwd:     request.Workspace.RootPath,
+		}),
 	}
 	if err := sink.RunItemUpsert(command); err != nil {
 		return err
@@ -71,9 +73,13 @@ func emitProjectionCommand(request TurnRequest, sink TurnSink, outputChunks int)
 		}
 	}
 	command.Status = RunItemStatusCompleted
-	command.ExitCode = 0
-	command.DurationMs = 24
-	command.Result = "projection command complete"
+	command.Details = NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+		Command:    "printf projection-output",
+		Cwd:        request.Workspace.RootPath,
+		ExitCode:   0,
+		DurationMs: 24,
+		Result:     "projection command complete",
+	})
 	return sink.RunItemUpsert(command)
 }
 

@@ -44,8 +44,12 @@ func TestCodexMCPToolCallProjectsStructuredDetails(t *testing.T) {
 	if projection.MCPToolCall == nil || projection.MCPToolCall.ToolName != "search" {
 		t.Fatalf("activity projection mcp details = %+v", projection.MCPToolCall)
 	}
-	if title := runActivityTitle(runItem); title != "MCP: github" {
-		t.Fatalf("activity title = %q, want MCP: github", title)
+	activity, ok := activityItemBlockProjection(runItem, RunStatusCompleted, false, true)
+	if !ok {
+		t.Fatal("activity projection was not displayable")
+	}
+	if activity.Title != "MCP: github" {
+		t.Fatalf("activity title = %q, want MCP: github", activity.Title)
 	}
 }
 

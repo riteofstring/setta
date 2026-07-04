@@ -77,7 +77,7 @@ export async function assertProtocolNotificationActivity(
   await assertRunActivityItem(
     page,
     "command_execution",
-    (item) => item.processId === "process_fake",
+    (item) => commandExecutionDetails(item)?.processId === "process_fake",
   );
   await assertRunActivityItem(
     page,
@@ -169,6 +169,13 @@ function expectedMCPToolCallDetails(item, status, serverName, toolName) {
     return null;
   }
   return details;
+}
+
+function commandExecutionDetails(item) {
+  if (item.details?.kind !== "command_execution") {
+    return null;
+  }
+  return item.details.commandExecution;
 }
 
 function mcpToolResultRepositories(details) {
@@ -657,14 +664,14 @@ async function assertProtocolGoalForegroundUnifiedExecProjections(
     runId,
     workspaceId,
   });
-  await assertRunActivityItem(
-    activityPage,
-    "command_execution",
-    (item) =>
-      item.command === goalForegroundUnifiedExec.command &&
-      item.processId === goalForegroundUnifiedExec.processId &&
-      item.status === "completed",
-  );
+  await assertRunActivityItem(activityPage, "command_execution", (item) => {
+    const details = commandExecutionDetails(item);
+    return (
+      details?.command === goalForegroundUnifiedExec.command &&
+      details.processId === goalForegroundUnifiedExec.processId &&
+      item.status === "completed"
+    );
+  });
 
   const list = await backend.post("/chat/background-terminals/list", {
     conversationId,

@@ -108,6 +108,7 @@ function activity(id: string, type: RunItemType, status: RunItemStatus): Transcr
 function emptyDetails() {
   return {
     command: "",
+    commandExecution: null,
     cwd: "",
     details: null,
     diffSummary: "",

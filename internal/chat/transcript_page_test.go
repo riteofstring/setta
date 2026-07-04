@@ -20,7 +20,13 @@ func multiBlockHarness(text string, commandCount int) *scriptedTranscriptHarness
 			}
 			for index := 0; index < commandCount; index++ {
 				id := fmt.Sprintf("cmd_%d", index)
-				item := RunItem{ProviderItemID: id, Type: RunItemTypeCommandExecution, Status: RunItemStatusCompleted, Title: id, Command: "run " + id}
+				item := RunItem{
+					ProviderItemID: id,
+					Type:           RunItemTypeCommandExecution,
+					Status:         RunItemStatusCompleted,
+					Title:          id,
+					Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "run " + id}),
+				}
 				if err := sink.RunItemUpsert(item); err != nil {
 					return TurnCompletion{}, err
 				}

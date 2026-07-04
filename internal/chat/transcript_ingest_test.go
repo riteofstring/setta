@@ -346,7 +346,13 @@ func TestTranscriptSteeringInterleavesWithOrdinal(t *testing.T) {
 			if err := sink.AssistantTextDelta("pre", "Inspecting the scripts."); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "cmd", Type: RunItemTypeCommandExecution, Status: RunItemStatusRunning, Title: "list", Command: "ls"}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{
+				ProviderItemID: "cmd",
+				Type:           RunItemTypeCommandExecution,
+				Status:         RunItemStatusRunning,
+				Title:          "list",
+				Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "ls"}),
+			}); err != nil {
 				return TurnCompletion{}, err
 			}
 			// Signal before blocking so the test only steers once the command block
@@ -404,7 +410,13 @@ func TestTranscriptCancellationMarksActiveBlocks(t *testing.T) {
 			if err := sink.AssistantTextDelta("pre", "Working on it."); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "cmd", Type: RunItemTypeCommandExecution, Status: RunItemStatusRunning, Title: "long", Command: "sleep"}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{
+				ProviderItemID: "cmd",
+				Type:           RunItemTypeCommandExecution,
+				Status:         RunItemStatusRunning,
+				Title:          "long",
+				Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "sleep"}),
+			}); err != nil {
 				return TurnCompletion{}, err
 			}
 			close(reached)
@@ -454,7 +466,13 @@ func TestTranscriptFailureMarksActiveBlocks(t *testing.T) {
 			if err := sink.AssistantTextDelta("pre", "Trying."); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "cmd", Type: RunItemTypeCommandExecution, Status: RunItemStatusRunning, Title: "build", Command: "make"}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{
+				ProviderItemID: "cmd",
+				Type:           RunItemTypeCommandExecution,
+				Status:         RunItemStatusRunning,
+				Title:          "build",
+				Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "make"}),
+			}); err != nil {
 				return TurnCompletion{}, err
 			}
 			return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "provider exploded"}, nil
@@ -669,7 +687,13 @@ func TestTranscriptDuplicateAgentMessageDropsNonTailBlock(t *testing.T) {
 			if err := emit(RunItem{ProviderItemID: "p1", Type: RunItemTypeAgentMessage, Status: RunItemStatusCompleted, Summary: "Final answer."}); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := emit(RunItem{ProviderItemID: "cmd1", Type: RunItemTypeCommandExecution, Status: RunItemStatusCompleted, Title: "a", Command: "a"}); err != nil {
+			if err := emit(RunItem{
+				ProviderItemID: "cmd1",
+				Type:           RunItemTypeCommandExecution,
+				Status:         RunItemStatusCompleted,
+				Title:          "a",
+				Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "a"}),
+			}); err != nil {
 				return TurnCompletion{}, err
 			}
 			// Duplicate final text under a new provider item, then another visible
@@ -677,7 +701,13 @@ func TestTranscriptDuplicateAgentMessageDropsNonTailBlock(t *testing.T) {
 			if err := sink.AssistantTextDelta("p2", "Final answer."); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := emit(RunItem{ProviderItemID: "cmd2", Type: RunItemTypeCommandExecution, Status: RunItemStatusCompleted, Title: "b", Command: "b"}); err != nil {
+			if err := emit(RunItem{
+				ProviderItemID: "cmd2",
+				Type:           RunItemTypeCommandExecution,
+				Status:         RunItemStatusCompleted,
+				Title:          "b",
+				Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Command: "b"}),
+			}); err != nil {
 				return TurnCompletion{}, err
 			}
 			if err := emit(RunItem{ProviderItemID: "p2", Type: RunItemTypeAgentMessage, Status: RunItemStatusCompleted, Summary: "Final answer."}); err != nil {
@@ -1285,6 +1315,7 @@ func TestServiceStartupFailsInterruptedTranscriptBlocks(t *testing.T) {
 		Type:           RunItemTypeCommandExecution,
 		Status:         RunItemStatusRunning,
 		CreatedAt:      stamp,
+		Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{}),
 	}); err != nil {
 		t.Fatalf("save run item: %v", err)
 	}
