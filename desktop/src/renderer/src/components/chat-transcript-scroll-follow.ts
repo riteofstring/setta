@@ -7,7 +7,7 @@ import type {
   StructuredInputRequest,
   TranscriptBlock,
 } from "@generated/backend";
-import type { KeyboardEvent, RefObject, UIEvent, WheelEvent } from "react";
+import type { KeyboardEvent, PointerEvent, RefObject, UIEvent, WheelEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ListRange, VirtuosoHandle } from "react-virtuoso";
 
@@ -45,6 +45,7 @@ interface TranscriptScrollFollowInput {
 }
 
 const strictBottomDistancePx = 24;
+const scrollbarPointerIntentEdgePx = 24;
 const tailRevisionRowCount = 24;
 const virtualBottomDistancePx = 96;
 
@@ -59,10 +60,12 @@ export function useTranscriptScrollFollow({
   const pendingScrollCountRef = useRef(0);
   const programmaticAnchorFrameRef = useRef<number | null>(null);
   const programmaticScrollFrameRef = useRef<number | null>(null);
+  const pointerScrollIntentRef = useRef(false);
   const rowCountRef = useRef(rowCount);
   const scrollerRef = useRef<HTMLElement | null>(null);
   const tailRevisionRef = useRef(tailRevision);
   const visibleEndIndexRef = useRef(rowCount - 1);
+  const wheelScrollIntentRef = useRef(false);
   const metricsRef = useRef<ScrollMetrics>({
     clientHeight: 0,
     distanceFromBottom: 0,
@@ -78,6 +81,11 @@ export function useTranscriptScrollFollow({
   const setMode = useCallback((next: TranscriptScrollFollowMode) => {
     if (modeRef.current === next) {
       return;
+    }
+    if (next !== "auto_follow" && autoScrollFrameRef.current !== null) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+      pendingScrollCountRef.current = 0;
     }
     modeRef.current = next;
     setModeState(next);
@@ -120,6 +128,10 @@ export function useTranscriptScrollFollow({
     pendingScrollCountRef.current = 1;
     autoScrollFrameRef.current = requestAnimationFrame(() => {
       autoScrollFrameRef.current = null;
+      if (modeRef.current !== "auto_follow") {
+        pendingScrollCountRef.current = 0;
+        return;
+      }
       scrollToLatest();
       requestAnimationFrame(() => {
         pendingScrollCountRef.current = 0;
@@ -167,7 +179,11 @@ export function useTranscriptScrollFollow({
       if (!(target instanceof HTMLElement) || target !== scrollerRef.current) {
         return;
       }
+      const previousScrollTop = metricsRef.current.scrollTop;
+      const userScrollIntent = wheelScrollIntentRef.current || pointerScrollIntentRef.current;
+      wheelScrollIntentRef.current = false;
       updateMetricsFromElement(target);
+      const scrolledTowardHistory = metricsRef.current.scrollTop < previousScrollTop - 1;
       if (modeRef.current === "programmatic_anchor") {
         return;
       }
@@ -177,7 +193,11 @@ export function useTranscriptScrollFollow({
         return;
       }
       if (modeRef.current === "auto_follow") {
-        setMode("user_detached");
+        if (userScrollIntent || scrolledTowardHistory) {
+          setMode("user_detached");
+        } else {
+          scheduleAutoScrollToLatest();
+        }
       }
     },
     [atBottom, scheduleAutoScrollToLatest, setMode, updateMetricsFromElement],
@@ -186,11 +206,27 @@ export function useTranscriptScrollFollow({
   const handleWheel = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
       if (event.deltaY < 0) {
+        wheelScrollIntentRef.current = true;
         setMode("user_detached");
       }
     },
     [setMode],
   );
+
+  const handlePointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const scroller = scrollerRef.current;
+    if (
+      event.button === 0 &&
+      scroller &&
+      event.clientX >= scroller.getBoundingClientRect().right - scrollbarPointerIntentEdgePx
+    ) {
+      pointerScrollIntentRef.current = true;
+    }
+  }, []);
+
+  const handlePointerEnd = useCallback(() => {
+    pointerScrollIntentRef.current = false;
+  }, []);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -303,6 +339,9 @@ export function useTranscriptScrollFollow({
     getDebugSnapshot,
     handleAtBottomStateChange,
     handleKeyDown,
+    handlePointerCancel: handlePointerEnd,
+    handlePointerDown,
+    handlePointerUp: handlePointerEnd,
     handleRangeChanged,
     handleScroll,
     handleTotalListHeightChanged,

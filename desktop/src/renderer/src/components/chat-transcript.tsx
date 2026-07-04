@@ -11,6 +11,7 @@ import type {
 import { ArrowDown, ChevronUp } from "lucide-react";
 import {
   type KeyboardEvent,
+  type PointerEvent,
   type UIEvent,
   type WheelEvent,
   useCallback,
@@ -553,6 +554,18 @@ export function ChatTranscript({
     scrollFollow.handleKeyDown(event);
   }
 
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    scrollFollow.handlePointerDown(event);
+  }
+
+  function handlePointerUp() {
+    scrollFollow.handlePointerUp();
+  }
+
+  function handlePointerCancel() {
+    scrollFollow.handlePointerCancel();
+  }
+
   const loadOlderAndPreserveScroll = useCallback(async () => {
     const anchorKey = rows[visibleStartIndexRef.current]?.key ?? rows[0]?.key ?? null;
     const previousFirstKey = rows[0]?.key ?? null;
@@ -593,6 +606,9 @@ export function ChatTranscript({
     <div
       className="relative h-full min-h-0 min-w-0 overflow-hidden"
       onKeyDownCapture={handleKeyDown}
+      onPointerCancelCapture={handlePointerCancel}
+      onPointerDownCapture={handlePointerDown}
+      onPointerUpCapture={handlePointerUp}
       onScrollCapture={handleScroll}
       onWheelCapture={handleWheel}
     >

@@ -798,14 +798,17 @@ Status after the transcript scroll stickiness step:
   main/preload/renderer/HTTP/store path for scroll-away/no-steal behavior,
   Jump-to-latest re-pinning, same-row streaming growth, row-append streaming,
   output deltas, search focus, and older-page anchor preservation after reload.
-- Verification finding: during the approval-details audit, the full
-  deterministic chat workflow passed the approval segment but twice timed out in
-  the later transcript-scroll stickiness segment after the snapshot reported
-  `auto_follow` and `atBottom`. Treat this as a Slice 6 follow-up before using
-  the full chat workflow as a green broad gate.
-- Remaining: investigate the repeated transcript-scroll E2E timeout. Slice 7
-  was already completed; typed activity work can continue independently, but the
-  scroll broad-gate failure should not be treated as proof of approval behavior.
+- Done: follow-up investigation traced the repeated deterministic
+  transcript-scroll timeout to stale auto-follow work and content-growth scroll
+  events racing user-detached intent. The controller now cancels pending
+  auto-scroll work when the user detaches, keeps content-driven scroll events in
+  `auto_follow`, and detaches only from explicit upward wheel input,
+  scrollbar-edge pointer intent, or measured upward scroll movement. Focused
+  production-path Electron transcript-scroll and full deterministic chat
+  workflows passed on the final build.
+- Remaining: no known Slice 6 implementation gap. Remaining plan work is the
+  earlier activity typed-detail/rendering backlog: failed starts and stream
+  lifecycle activity rows.
 
 ### Slice 7: Composer Prompt History
 

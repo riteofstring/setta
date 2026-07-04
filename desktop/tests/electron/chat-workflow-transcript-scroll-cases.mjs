@@ -159,6 +159,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
       snapshot.debug.mode === "auto_follow" &&
       snapshot.debug.atBottom &&
       snapshot.debug.scrollHeight > snapshot.debug.clientHeight + 240,
+    "initial auto-follow scrollable transcript",
   );
   const detachedTop = Math.max(0, Math.floor(scrollable.maxScrollTop * 0.35));
   const scrolled = await scrollChatTranscript(client, { scrollTop: detachedTop });
@@ -171,6 +172,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
       snapshot.debug.mode === "user_detached" &&
       !snapshot.debug.atBottom &&
       snapshot.debug.distanceFromBottom > 96,
+    "detached after manual scroll",
   );
   const afterGrowth = await waitForTranscriptScrollSnapshot(
     client,
@@ -179,6 +181,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
       snapshot.debug.mode === "user_detached" &&
       !snapshot.debug.atBottom &&
       snapshot.debug.distanceFromBottom > 96,
+    "detached while streaming grows tail",
   );
   if (afterGrowth.debug.scrollTop < detached.debug.scrollTop - 2) {
     throw new Error(
@@ -189,6 +192,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
   await waitForTranscriptScrollSnapshot(
     client,
     (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    "auto-follow after jump to latest",
   );
   await waitForBackendState(
     () => messagePage(backend, workspaceId, conversationId),
@@ -200,6 +204,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
       snapshot.debug.mode === "auto_follow" &&
       snapshot.debug.atBottom &&
       snapshot.visibleRows.some((row) => row.text.includes("Scroll stickiness chunk 650")),
+    "auto-follow keeps chunk 650 visible",
   );
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, "completed");
   await waitForBackendState(
@@ -209,6 +214,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
   await waitForTranscriptScrollSnapshot(
     client,
     (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    "auto-follow after final line",
   );
   await openChatSearch(client);
   await setInputValue(
@@ -256,6 +262,7 @@ async function runTranscriptOlderPageWorkflow(client, backend, workspaceId, conv
       snapshot.debug.mode === "user_detached" &&
       !snapshot.debug.atBottom &&
       snapshot.visibleRows.some((row) => row.text.includes("Older page block")),
+    "older-page detached before loading older blocks",
   );
   const anchorText = firstVisibleOlderPageBlock(before);
   await clickButtonByText(client, "Older");
@@ -266,13 +273,20 @@ async function runTranscriptOlderPageWorkflow(client, backend, workspaceId, conv
       snapshot.debug.mode === "user_detached" &&
       !snapshot.debug.atBottom &&
       snapshot.visibleRows.some((row) => row.text.includes(anchorText)),
+    "older-page anchor preserved after loading older blocks",
   );
 }
 
-async function waitForTranscriptScrollSnapshot(client, predicate) {
-  return waitForState(client, transcriptScrollSnapshotExpression(), (snapshot) => {
-    return snapshot.ready && predicate(snapshot);
-  });
+async function waitForTranscriptScrollSnapshot(client, predicate, label) {
+  try {
+    return await waitForState(client, transcriptScrollSnapshotExpression(), (snapshot) => {
+      return snapshot.ready && predicate(snapshot);
+    });
+  } catch (error) {
+    throw new Error(`transcript scroll wait failed: ${label}: ${error.message}`, {
+      cause: error,
+    });
+  }
 }
 
 async function scrollChatTranscript(client, options) {
@@ -386,15 +400,23 @@ function scrollChatTranscriptExpression({ position = null, scrollTop = null }) {
     if (!(scroller instanceof HTMLElement)) {
       return { ok: false, reason: "missing-scroller" };
     }
+    scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
+    const previousScrollTop = scroller.scrollTop;
+    let nextScrollTop;
     if (options.position === "bottom") {
-      scroller.scrollTop = scroller.scrollHeight;
+      nextScrollTop = scroller.scrollHeight;
     } else if (options.position === "top") {
-      scroller.scrollTop = 0;
+      nextScrollTop = 0;
     } else if (typeof options.scrollTop === "number") {
-      scroller.scrollTop = options.scrollTop;
+      nextScrollTop = options.scrollTop;
     } else {
       return { ok: false, reason: "missing-position" };
     }
+    const deltaY = nextScrollTop < previousScrollTop ? -1 : nextScrollTop > previousScrollTop ? 1 : 0;
+    if (deltaY !== 0) {
+      scroller.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY }));
+    }
+    scroller.scrollTop = nextScrollTop;
     scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
     return { ok: true, snapshot: chatTranscriptScrollSnapshot() };
   })()`;
