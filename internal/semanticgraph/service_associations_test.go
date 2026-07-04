@@ -328,14 +328,7 @@ func TestServiceAttachesExplicitPhase3Sources(t *testing.T) {
 				RunID:          "run_attach",
 				Role:           chat.RoleUser,
 				Status:         chat.MessageStatusComplete,
-				Parts: []chat.MessagePart{{
-					ID:   "message_part",
-					Type: chat.MessagePartText,
-					Text: &chat.MessageTextPart{
-						Text:   "Explicit chat message evidence",
-						Format: chat.TextFormatPlain,
-					},
-				}},
+				Parts:          []chat.MessagePart{{ID: "message_part", Type: chat.MessagePartText, Text: "Explicit chat message evidence", Format: chat.TextFormatPlain}},
 			},
 		})
 		appendAttachmentTargetNode(t, store, "node_chat_message")

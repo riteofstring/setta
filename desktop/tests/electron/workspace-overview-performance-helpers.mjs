@@ -145,6 +145,7 @@ export async function measureOverviewTransition(
     };
     const sum = samples.reduce((total, value) => total + value, 0);
     const averageFrameDeltaMs = samples.length > 0 ? sum / samples.length : 0;
+    const observedFrameBudgetMs = quantile(0.5) <= 10 ? 8.33 : 16.67;
     const maxRuntimeStatesDuringTransition = runtimeStateSamples.reduce((maxStates, states) => {
       for (const [state, count] of Object.entries(states)) {
         maxStates[state] = Math.max(maxStates[state] ?? 0, count);
@@ -157,6 +158,7 @@ export async function measureOverviewTransition(
       durationMs: performance.now() - startedAt,
       finalMode: area.dataset.presentationMode ?? "",
       frameCount: samples.length,
+      framesMs: samples.map((value) => Number(value.toFixed(3))),
       initialMode,
       longTaskCount: longTasks.filter((entry) => entry.startTime >= startedAt).length,
       longTaskTotalMs: longTasks
@@ -169,10 +171,13 @@ export async function measureOverviewTransition(
       metricsAfterTransition,
       metricsBefore,
       name: ${JSON.stringify(name)},
+      observedFrameBudgetMs,
       ok: true,
+      p50FrameDeltaMs: quantile(0.5),
       p95FrameDeltaMs: quantile(0.95),
       p99FrameDeltaMs: quantile(0.99),
       runtimeStates: runtimeStatesForPaneHosts(),
+      slowFramesOver120HzBudget: samples.filter((value) => value > 8.33).length,
       slowFramesOver16Ms: samples.filter((value) => value > 16.67).length,
       slowFramesOver32Ms: samples.filter((value) => value > 32).length,
       slowFramesOver50Ms: samples.filter((value) => value > 50).length,

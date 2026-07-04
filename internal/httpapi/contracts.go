@@ -4,6 +4,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/orchestrator"
+	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
@@ -11,6 +12,40 @@ import (
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
+
+type RuntimeInfoResponse struct {
+	RuntimeID       string `json:"runtimeId"`
+	DisplayName     string `json:"displayName"`
+	BackendName     string `json:"backendName"`
+	BackendVersion  string `json:"backendVersion"`
+	ProtocolVersion int    `json:"protocolVersion"`
+}
+
+type CompletePairingRequest struct {
+	PairingToken      string `json:"pairingToken"`
+	ClientDisplayName string `json:"clientDisplayName"`
+}
+
+type CompletePairingResponse struct {
+	DeviceID        string `json:"deviceId"`
+	DeviceToken     string `json:"deviceToken"`
+	RuntimeID       string `json:"runtimeId"`
+	ProtocolVersion int    `json:"protocolVersion"`
+}
+
+type ListDevicesRequest struct{}
+
+type ListDevicesResponse struct {
+	Devices []runtimeauth.DeviceSession `json:"devices"`
+}
+
+type RevokeDeviceRequest struct {
+	DeviceID string `json:"deviceId"`
+}
+
+type RevokeDeviceResponse struct {
+	Device runtimeauth.DeviceSession `json:"device"`
+}
 
 type UpdateAppearanceSettingsRequest struct {
 	Settings appearance.AppearanceSettings `json:"settings"`
@@ -109,13 +144,6 @@ type SetConversationPinnedRequest struct {
 }
 
 type GetMessagePageRequest struct {
-	WorkspaceID        string `json:"workspaceId"`
-	ConversationID     string `json:"conversationId"`
-	BeforeBlockOrdinal int    `json:"beforeBlockOrdinal"`
-	Limit              int    `json:"limit"`
-}
-
-type ListComposerPromptHistoryRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 	BeforeOrdinal  int    `json:"beforeOrdinal"`
@@ -123,22 +151,22 @@ type ListComposerPromptHistoryRequest struct {
 }
 
 type SendChatMessageRequest struct {
-	WorkspaceID    string         `json:"workspaceId"`
-	ConversationID string         `json:"conversationId"`
-	Input          chat.ChatInput `json:"input"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	Prompt         string `json:"prompt"`
 }
 
 type QueueChatMessageRequest struct {
-	WorkspaceID    string         `json:"workspaceId"`
-	ConversationID string         `json:"conversationId"`
-	Input          chat.ChatInput `json:"input"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	Prompt         string `json:"prompt"`
 }
 
 type EditQueuedChatMessageRequest struct {
-	WorkspaceID    string         `json:"workspaceId"`
-	ConversationID string         `json:"conversationId"`
-	MessageID      string         `json:"messageId"`
-	Input          chat.ChatInput `json:"input"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	MessageID      string `json:"messageId"`
+	Prompt         string `json:"prompt"`
 }
 
 type RemoveQueuedChatMessageRequest struct {
@@ -148,22 +176,15 @@ type RemoveQueuedChatMessageRequest struct {
 }
 
 type SteerChatMessageRequest struct {
-	WorkspaceID    string         `json:"workspaceId"`
-	ConversationID string         `json:"conversationId"`
-	Input          chat.ChatInput `json:"input"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	Prompt         string `json:"prompt"`
 }
 
 type SendSteeringImmediatelyRequest struct {
-	WorkspaceID    string          `json:"workspaceId"`
-	ConversationID string          `json:"conversationId"`
-	Input          *chat.ChatInput `json:"input,omitempty"`
-}
-
-type CreateChatImageAttachmentFromBytesRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
-	FileName       string `json:"fileName"`
-	DataBase64     string `json:"dataBase64"`
+	Prompt         string `json:"prompt,omitempty"`
 }
 
 type ListChatCommandsRequest struct {
@@ -184,32 +205,10 @@ type SetChatCodexModelRequest struct {
 	ModelID        string `json:"modelId"`
 }
 
-type OpenChatCodexModelPickerRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-}
-
-type OpenChatCodexPermissionPickerRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-}
-
-type UpdateChatCodexDefaultsRequest struct {
-	Settings  chat.ChatCodexSettings `json:"settings"`
-	Confirmed bool                   `json:"confirmed"`
-}
-
 type SetChatCodexReasoningEffortRequest struct {
 	WorkspaceID     string               `json:"workspaceId"`
 	ConversationID  string               `json:"conversationId"`
 	ReasoningEffort chat.ReasoningEffort `json:"reasoningEffort"`
-}
-
-type SetChatCodexPermissionPresetRequest struct {
-	WorkspaceID    string                      `json:"workspaceId"`
-	ConversationID string                      `json:"conversationId"`
-	Preset         chat.ChatPermissionPresetID `json:"preset"`
-	Confirmed      bool                        `json:"confirmed"`
 }
 
 type CancelRunRequest struct {
@@ -223,19 +222,8 @@ type GetActiveRunRequest struct {
 }
 
 type GetActiveRunResponse struct {
-	HasActiveRun bool              `json:"hasActiveRun"`
-	Run          *chat.Run         `json:"run"`
-	Liveness     *chat.RunLiveness `json:"liveness"`
-}
-
-type ReconcileChatRunsRequest struct {
-	WorkspaceID    string                 `json:"workspaceId"`
-	ConversationID string                 `json:"conversationId"`
-	Reason         chat.RunLivenessReason `json:"reason"`
-}
-
-type ReconcileChatRunsResponse struct {
-	Result chat.RunLivenessReconciliationResult `json:"result"`
+	HasActiveRun bool      `json:"hasActiveRun"`
+	Run          *chat.Run `json:"run"`
 }
 
 type ListRunsRequest struct {
@@ -259,30 +247,6 @@ type GetRunItemOutputRequest struct {
 	RunItemID    string `json:"runItemId"`
 	AfterOrdinal int    `json:"afterOrdinal"`
 	Limit        int    `json:"limit"`
-}
-
-type ListBackgroundTerminalsRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-}
-
-type GetBackgroundTerminalOutputRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	ProcessID      string `json:"processId"`
-	AfterOrdinal   int    `json:"afterOrdinal"`
-	Limit          int    `json:"limit"`
-}
-
-type KillBackgroundTerminalRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	ProcessID      string `json:"processId"`
-}
-
-type KillAllBackgroundTerminalsRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
 }
 
 type ListDiagnosticsRequest struct {
