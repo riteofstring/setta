@@ -2,9 +2,11 @@ package codexapp
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -287,7 +289,68 @@ func TestManagerDoesNotBroadcastRequestWithMultipleOwners(t *testing.T) {
 	expectNoSessionEvent(t, second)
 }
 
-func TestManagerSessionDeliveryDoesNotBlockWhenBufferIsFull(t *testing.T) {
+func TestCodexAppServerEventClassification(t *testing.T) {
+	tests := []struct {
+		name    string
+		message Message
+		want    EventClass
+	}{
+		{
+			name:    "assistant text delta is lossless",
+			message: Message{Method: CodexNotificationItemAgentMessageDelta},
+			want:    EventClassLosslessNotification,
+		},
+		{
+			name:    "reasoning text delta is lossless",
+			message: Message{Method: CodexNotificationItemReasoningTextDelta},
+			want:    EventClassLosslessNotification,
+		},
+		{
+			name:    "plan delta is lossless",
+			message: Message{Method: CodexNotificationItemPlanDelta},
+			want:    EventClassLosslessNotification,
+		},
+		{
+			name:    "item completion is lossless",
+			message: Message{Method: CodexNotificationItemCompleted},
+			want:    EventClassLosslessNotification,
+		},
+		{
+			name:    "turn completion is lossless",
+			message: Message{Method: CodexNotificationTurnCompleted},
+			want:    EventClassLosslessNotification,
+		},
+		{
+			name:    "command exec output is best effort",
+			message: Message{Method: CodexNotificationCommandExecOutputDelta},
+			want:    EventClassBestEffortNotification,
+		},
+		{
+			name:    "command execution output is best effort",
+			message: Message{Method: CodexNotificationItemCommandExecutionOutputDelta},
+			want:    EventClassBestEffortNotification,
+		},
+		{
+			name:    "process output is best effort",
+			message: Message{Method: CodexNotificationProcessOutputDelta},
+			want:    EventClassBestEffortNotification,
+		},
+		{
+			name:    "server request is never best effort",
+			message: Message{ID: 1, Method: CodexServerRequestItemToolCall},
+			want:    EventClassServerRequest,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := classifyMessage(tt.message); got != tt.want {
+				t.Fatalf("classifyMessage(%s) = %s, want %s", tt.message.Method, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestManagerBestEffortOverflowDoesNotCloseSessionAndEmitsLagMarker(t *testing.T) {
 	manager := newTestManager("steady")
 	defer shutdownTestManager(t, manager)
 
@@ -302,10 +365,69 @@ func TestManagerSessionDeliveryDoesNotBlockWhenBufferIsFull(t *testing.T) {
 		session.events <- Event{Kind: EventNotification}
 	}
 
+	manager.dispatchNotification(Message{
+		Method: CodexNotificationItemCommandExecutionOutputDelta,
+		Params: rawTestMessage(t, map[string]any{
+			"delta":    "dropped\n",
+			"itemId":   "item_output",
+			"threadId": "thread_a",
+			"turnId":   "turn_a",
+		}),
+	})
+	if err := session.OwnTurn("thread_a", "turn_a"); err != nil {
+		t.Fatalf("own turn after best-effort overflow: %v", err)
+	}
+
+	for range cap(session.events) {
+		<-session.events
+	}
+	manager.dispatchNotification(Message{
+		Method: CodexNotificationItemCommandExecutionOutputDelta,
+		Params: rawTestMessage(t, map[string]any{
+			"delta":    "delivered\n",
+			"itemId":   "item_output",
+			"threadId": "thread_a",
+			"turnId":   "turn_a",
+		}),
+	})
+
+	event := readSessionEvent(t, session)
+	if event.Kind != EventLag || event.Lag == nil {
+		t.Fatalf("event = %+v, want lag marker", event)
+	}
+	if event.Lag.SkippedCount != 1 ||
+		event.Lag.Method != CodexNotificationItemCommandExecutionOutputDelta ||
+		event.Lag.ProviderItemID != "item_output" ||
+		event.Lag.ThreadID != "thread_a" ||
+		event.Lag.TurnID != "turn_a" {
+		t.Fatalf("lag = %+v, want skipped output metadata", event.Lag)
+	}
+	event = readSessionEvent(t, session)
+	if event.Kind != EventNotification || event.Message.Method != CodexNotificationItemCommandExecutionOutputDelta {
+		t.Fatalf("event = %+v, want delivered best-effort notification after lag", event)
+	}
+}
+
+func TestManagerLosslessDispatchBlocksUntilSessionDrains(t *testing.T) {
+	manager := newTestManager("steady")
+	defer shutdownTestManager(t, manager)
+
+	session, err := manager.NewSession(context.Background())
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	defer session.Close()
+	if err := session.OwnThread("thread_a"); err != nil {
+		t.Fatalf("own thread: %v", err)
+	}
+	for range cap(session.events) {
+		session.events <- Event{Kind: EventNotification}
+	}
+
 	done := make(chan struct{})
 	go func() {
 		manager.dispatchNotification(Message{
-			Method: "thread/settings/updated",
+			Method: CodexNotificationThreadSettingsUpdated,
 			Params: rawTestMessage(t, map[string]any{"threadId": "thread_a"}),
 		})
 		close(done)
@@ -313,12 +435,198 @@ func TestManagerSessionDeliveryDoesNotBlockWhenBufferIsFull(t *testing.T) {
 
 	select {
 	case <-done:
+		t.Fatal("lossless dispatch returned while session buffer was full")
+	case <-time.After(100 * time.Millisecond):
+	}
+	<-session.events
+	select {
+	case <-done:
 	case <-time.After(500 * time.Millisecond):
-		t.Fatal("dispatch blocked on full session buffer")
+		t.Fatal("lossless dispatch did not resume after session drained")
 	}
 }
 
-func TestManagerLifecycleDeliveryClosesFullSession(t *testing.T) {
+func TestManagerLosslessDispatchDeliversPendingLagMarkerAfterFullQueueDrains(t *testing.T) {
+	manager := newTestManager("steady")
+	defer shutdownTestManager(t, manager)
+
+	session, err := manager.NewSession(context.Background())
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	defer session.Close()
+	if err := session.OwnThread("thread_a"); err != nil {
+		t.Fatalf("own thread: %v", err)
+	}
+	for range cap(session.events) {
+		session.events <- Event{Kind: EventNotification}
+	}
+
+	manager.dispatchNotification(Message{
+		Method: CodexNotificationItemCommandExecutionOutputDelta,
+		Params: rawTestMessage(t, map[string]any{
+			"delta":    "dropped\n",
+			"itemId":   "item_output",
+			"threadId": "thread_a",
+			"turnId":   "turn_a",
+		}),
+	})
+
+	done := make(chan struct{})
+	go func() {
+		manager.dispatchNotification(Message{
+			Method: CodexNotificationThreadSettingsUpdated,
+			Params: rawTestMessage(t, map[string]any{"threadId": "thread_a"}),
+		})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("lossless dispatch returned while session buffer and pending lag marker were full")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	_ = readSessionEvent(t, session)
+	_ = readSessionEvent(t, session)
+	for range cap(session.events) - 2 {
+		event := readSessionEvent(t, session)
+		if event.Kind == EventLag {
+			t.Fatalf("lag marker delivered before queued backlog drained: %+v", event)
+		}
+	}
+
+	event := readSessionEvent(t, session)
+	if event.Kind != EventLag || event.Lag == nil {
+		t.Fatalf("event = %+v, want lag marker before lossless notification", event)
+	}
+	if event.Lag.SkippedCount != 1 || event.Lag.ProviderItemID != "item_output" {
+		t.Fatalf("lag = %+v, want skipped output metadata", event.Lag)
+	}
+	event = readSessionEvent(t, session)
+	if event.Kind != EventNotification || event.Message.Method != CodexNotificationThreadSettingsUpdated {
+		t.Fatalf("event = %+v, want lossless notification after lag marker", event)
+	}
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("lossless dispatch did not complete after lag marker and notification delivery")
+	}
+}
+
+func TestManagerLosslessDispatchDrainsAllPendingLagMarkersBeforeCompletion(t *testing.T) {
+	manager := newTestManager("steady")
+	defer shutdownTestManager(t, manager)
+
+	session, err := manager.NewSession(context.Background())
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	defer session.Close()
+	if err := session.OwnTurn("thread_a", "turn_a"); err != nil {
+		t.Fatalf("own turn: %v", err)
+	}
+	for range cap(session.events) {
+		session.events <- Event{Kind: EventNotification}
+	}
+
+	for _, itemID := range []string{"item_output_a", "item_output_b"} {
+		manager.dispatchNotification(Message{
+			Method: CodexNotificationItemCommandExecutionOutputDelta,
+			Params: rawTestMessage(t, map[string]any{
+				"delta":    "dropped\n",
+				"itemId":   itemID,
+				"threadId": "thread_a",
+				"turnId":   "turn_a",
+			}),
+		})
+	}
+
+	done := make(chan struct{})
+	go func() {
+		manager.dispatchNotification(Message{
+			Method: CodexNotificationTurnCompleted,
+			Params: rawTestMessage(t, map[string]any{
+				"threadId": "thread_a",
+				"turnId":   "turn_a",
+			}),
+		})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("lossless completion returned while session buffer and pending lag markers were full")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	for range cap(session.events) {
+		event := readSessionEvent(t, session)
+		if event.Kind == EventLag {
+			t.Fatalf("lag marker delivered before queued backlog drained: %+v", event)
+		}
+	}
+
+	lagItems := map[string]struct{}{}
+	for range 2 {
+		event := readSessionEvent(t, session)
+		if event.Kind != EventLag || event.Lag == nil {
+			t.Fatalf("event = %+v, want lag marker before completion", event)
+		}
+		lagItems[event.Lag.ProviderItemID] = struct{}{}
+	}
+	if _, ok := lagItems["item_output_a"]; !ok {
+		t.Fatalf("lag items = %v, missing first output scope", lagItems)
+	}
+	if _, ok := lagItems["item_output_b"]; !ok {
+		t.Fatalf("lag items = %v, missing second output scope", lagItems)
+	}
+	event := readSessionEvent(t, session)
+	if event.Kind != EventNotification || event.Message.Method != CodexNotificationTurnCompleted {
+		t.Fatalf("event = %+v, want turn completion after all lag markers", event)
+	}
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("lossless completion did not finish after lag markers and completion delivery")
+	}
+}
+
+func TestManagerRequestOverflowReturnsOverloadAndKeepsSessionOpen(t *testing.T) {
+	manager := newTestManager("steady")
+	defer shutdownTestManager(t, manager)
+
+	session, err := manager.NewSession(context.Background())
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	defer session.Close()
+	if err := session.OwnTurn("thread_a", "turn_a"); err != nil {
+		t.Fatalf("own turn: %v", err)
+	}
+	for range cap(session.events) {
+		session.events <- Event{Kind: EventNotification}
+	}
+	var response bytes.Buffer
+	message := Message{
+		ID:     7,
+		Method: CodexServerRequestItemToolCall,
+		Params: rawTestMessage(t, map[string]any{
+			"threadId": "thread_a",
+			"turnId":   "turn_a",
+		}),
+		client: testResponseClient(&response),
+	}
+
+	manager.dispatchRequest(message)
+
+	if err := session.OwnTurn("thread_a", "turn_a_next"); err != nil {
+		t.Fatalf("own next turn after request overflow: %v", err)
+	}
+	assertJSONRPCErrorCode(t, response.Bytes(), jsonRPCErrorServerOverloaded)
+}
+
+func TestManagerLifecycleDeliveryWaitsForFullSessionDrain(t *testing.T) {
 	manager := newTestManager("steady")
 	defer shutdownTestManager(t, manager)
 	session, err := manager.NewSession(context.Background())
@@ -344,7 +652,18 @@ func TestManagerLifecycleDeliveryClosesFullSession(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("lifecycle dispatch blocked on full session buffer")
 	}
-	waitForSessionClosed(t, session)
+	for range cap(session.events) {
+		<-session.events
+	}
+	event := readSessionEvent(t, session)
+	if event.Kind != EventLifecycle || event.Err == nil {
+		t.Fatalf("event = %+v, want lifecycle after backlog drains", event)
+	}
+	session.Close()
+	err = session.OwnThread("thread_after_close")
+	if err == nil || !strings.Contains(err.Error(), "codex app-server exited") {
+		t.Fatalf("own thread after lifecycle close = %v, want original lifecycle cause", err)
+	}
 }
 
 func TestManagerShutdownClosesSession(t *testing.T) {
@@ -439,6 +758,18 @@ func TestJSONRPCCanceledCallDoesNotRetainPendingWithoutResponse(t *testing.T) {
 	if response.Value != "after" {
 		t.Fatalf("echo value = %q, want after", response.Value)
 	}
+}
+
+func TestJSONRPCRequestQueueOverflowReturnsOverload(t *testing.T) {
+	var response bytes.Buffer
+	client := testResponseClient(&response)
+	client.requests = make(chan Message, 1)
+	client.requests <- Message{ID: 1, Method: CodexServerRequestItemToolCall}
+
+	if err := client.routeMessage(Message{ID: 2, Method: CodexServerRequestItemToolCall, client: client}); err != nil {
+		t.Fatalf("route request overflow: %v", err)
+	}
+	assertJSONRPCErrorCode(t, response.Bytes(), jsonRPCErrorServerOverloaded)
 }
 
 func TestJSONRPCMalformedJSONTerminatesAndReapsProcess(t *testing.T) {
@@ -638,6 +969,37 @@ func requireClientPendingCount(t *testing.T, client *Client, want int) {
 	}
 }
 
+func testResponseClient(buffer io.Writer) *Client {
+	return &Client{
+		stdin:    nopWriteCloser{Writer: buffer},
+		protocol: newLifecycle(),
+	}
+}
+
+type nopWriteCloser struct {
+	io.Writer
+}
+
+func (writer nopWriteCloser) Close() error {
+	return nil
+}
+
+func assertJSONRPCErrorCode(t *testing.T, data []byte, want int) {
+	t.Helper()
+	var response struct {
+		Error *Error `json:"error"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(data), &response); err != nil {
+		t.Fatalf("decode json-rpc error response %q: %v", data, err)
+	}
+	if response.Error == nil {
+		t.Fatalf("json-rpc response = %s, want error", data)
+	}
+	if response.Error.Code != want {
+		t.Fatalf("json-rpc error code = %d, want %d", response.Error.Code, want)
+	}
+}
+
 func readSessionEvent(t *testing.T, session *Session) Event {
 	t.Helper()
 	select {
@@ -658,21 +1020,6 @@ func expectNoSessionEvent(t *testing.T, session *Session) {
 	case event, ok := <-session.Events():
 		t.Fatalf("unexpected session event = %+v ok=%t", event, ok)
 	case <-time.After(100 * time.Millisecond):
-	}
-}
-
-func waitForSessionClosed(t *testing.T, session *Session) {
-	t.Helper()
-	deadline := time.After(2 * time.Second)
-	for {
-		select {
-		case _, ok := <-session.Events():
-			if !ok {
-				return
-			}
-		case <-deadline:
-			t.Fatal("timed out waiting for session close")
-		}
 	}
 }
 

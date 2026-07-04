@@ -90,7 +90,7 @@ import { runCodexApprovalPolicyRemovalWorkflowLaunch } from "./chat-workflow-app
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
-  runProtocolCurrentPlanAndGoalMultiTurnWorkflow,
+  runProtocolCurrentPlanGoalAndBackpressureWorkflows,
   runProtocolGoalCancellationWorkflow,
   runProtocolGoalForegroundUnifiedExecWorkflow,
   runProtocolLivenessReconciliationWorkflow,
@@ -1313,7 +1313,7 @@ async function runCodexProtocolWorkflow(results) {
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
     await exerciseLinkedCodexPermissionPicker(context.client, backend, workspaceId, conversationId);
 
-    await runProtocolCurrentPlanAndGoalMultiTurnWorkflow(context.client, backend, workspaceId);
+    await runProtocolCurrentPlanGoalAndBackpressureWorkflows(context.client, backend, workspaceId);
     await runProtocolGoalForegroundUnifiedExecWorkflow(context.client, backend, workspaceId);
     await runProtocolGoalBackgroundTerminalWorkflow(context.client, backend, workspaceId, fixture);
     await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);

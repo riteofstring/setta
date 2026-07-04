@@ -28,6 +28,18 @@ const goalForegroundUnifiedExec = {
   itemId: "goal_fg_command",
   processId: "goal_fg_process",
 };
+const backpressureBurstOutputChunks = 1536;
+const backpressureBurstOutputChunk = "x\n";
+const backpressureBurstCommand = {
+  command: "printf backpressure burst",
+  itemId: "burst_command",
+  processId: "burst_process",
+};
+const goalBackpressureBurstCommand = {
+  command: "npm run goal-burst",
+  itemId: "goal_burst_command",
+  processId: "goal_burst_process",
+};
 const statePath =
   process.env.SETTA_FAKE_CODEX_STATE_PATH ??
   (process.env.SETTA_APP_DATA_DIR
@@ -153,39 +165,50 @@ function handleTurnStart(message) {
   if (handleProviderLifecycleTurn(text)) {
     return;
   }
+  if (handleScriptedTurnStart(text)) {
+    return;
+  }
+  setTimeout(emitProtocolCoverageTurn, 5);
+}
+
+function handleScriptedTurnStart(text) {
   if (text.includes("liveness reconciliation workflow")) {
     activeSilentLivenessTurn = fakeTurn("inProgress");
     setTimeout(emitSilentLivenessTurn, 5);
-    return;
+    return true;
   }
   if (text.includes("liveness navigation workflow")) {
     activeSilentLivenessTurn = fakeTurn("inProgress");
     setTimeout(emitNavigationLivenessTurn, 5);
-    return;
+    return true;
   }
   if (text.includes("current plan workflow")) {
     activeSilentLivenessTurn = fakeTurn("inProgress");
     setTimeout(emitCurrentPlanInitialTurn, 5);
-    return;
+    return true;
   }
   if (text.includes("nonretryable stream error workflow")) {
     activeSilentLivenessTurn = fakeTurn("inProgress");
     setTimeout(emitNonRetryableStreamErrorTurn, 5);
-    return;
+    return true;
   }
   if (text.includes("retryable stream error workflow")) {
     activeSilentLivenessTurn = fakeTurn("inProgress");
     setTimeout(emitRetryableStreamErrorTurn, 5);
-    return;
+    return true;
+  }
+  if (text.includes("backpressure burst workflow")) {
+    setTimeout(emitBackpressureBurstTurn, 5);
+    return true;
   }
   if (text.includes("protocol notification workflow")) {
     setTimeout(
       () => requestDynamicTool("workspace_context", "tool_context", "workspace_context"),
       5,
     );
-    return;
+    return true;
   }
-  setTimeout(emitProtocolCoverageTurn, 5);
+  return false;
 }
 
 function handleProviderLifecycleTurn(text) {
@@ -387,6 +410,10 @@ function handleThreadGoalSet(message) {
     setTimeout(() => emitGoalOperationForegroundUnifiedExec(objective), 5);
     return;
   }
+  if (shouldEmitGoalBackpressureBurst(objective, status)) {
+    setTimeout(() => emitGoalOperationBackpressureBurst(objective), 5);
+    return;
+  }
   if (shouldEmitGoalBackgroundTerminal(objective, status)) {
     setTimeout(() => emitGoalOperationBackgroundTerminal(objective), 5);
     return;
@@ -417,6 +444,10 @@ function shouldEmitGoalBackgroundTerminal(objective, status) {
 
 function shouldEmitGoalForegroundUnifiedExec(objective, status) {
   return objective === "phase5 codex foreground command" && status === "active";
+}
+
+function shouldEmitGoalBackpressureBurst(objective, status) {
+  return objective === "phase6 codex output burst" && status === "active";
 }
 
 function shouldEmitGoalCancellation(objective, status) {
@@ -891,6 +922,28 @@ function emitProtocolCoverageTurn() {
   });
 }
 
+function emitBackpressureBurstTurn() {
+  notify("item/agentMessage/delta", {
+    delta: "Backpressure burst started. ",
+    itemId: "burst_message",
+    threadId,
+    turnId,
+  });
+  notifyUnifiedExecStarted(turnId, backpressureBurstCommand);
+  notifyBurstOutput(turnId, backpressureBurstCommand);
+  notifyUnifiedExecCompleted(turnId, backpressureBurstCommand);
+  notify("item/agentMessage/delta", {
+    delta: "Backpressure burst complete. ",
+    itemId: "burst_message",
+    threadId,
+    turnId,
+  });
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurn("completed"),
+  });
+}
+
 function emitMalformedProtocolAndStayAlive() {
   process.stdout.write("{not-json\n");
   const payload =
@@ -1199,6 +1252,38 @@ function emitGoalOperationForegroundUnifiedExec(objective) {
   });
 }
 
+function emitGoalOperationBackpressureBurst(objective) {
+  const turnId = "turn_goal_burst";
+  notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
+  notify("turn/started", {
+    threadId,
+    turn: fakeTurnWithID(turnId, "inProgress"),
+  });
+  notify("item/agentMessage/delta", {
+    delta: "Goal burst started. ",
+    itemId: "goal_burst_message",
+    threadId,
+    turnId,
+  });
+  setTimeout(() => {
+    notifyUnifiedExecStarted(turnId, goalBackpressureBurstCommand);
+    notifyBurstOutput(turnId, goalBackpressureBurstCommand);
+    notifyUnifiedExecCompleted(turnId, goalBackpressureBurstCommand);
+    notify("item/agentMessage/delta", {
+      delta: "Goal burst complete. ",
+      itemId: "goal_burst_message",
+      threadId,
+      turnId,
+    });
+    currentGoal = fakeGoal(objective, "complete");
+    notify("thread/goal/updated", { goal: currentGoal, threadId });
+    notify("turn/completed", {
+      threadId,
+      turn: fakeTurnWithID(turnId, "completed"),
+    });
+  }, 50);
+}
+
 function emitGoalOperationCancellation(objective) {
   goalPaused = false;
   notify("thread/goal/updated", { goal: fakeGoal(objective, "active"), threadId });
@@ -1266,6 +1351,12 @@ function notifyUnifiedExecOutput(turnID, execution, delta) {
     threadId,
     turnId: turnID,
   });
+}
+
+function notifyBurstOutput(turnID, execution) {
+  for (let index = 0; index < backpressureBurstOutputChunks; index++) {
+    notifyUnifiedExecOutput(turnID, execution, backpressureBurstOutputChunk);
+  }
 }
 
 function notifyUnifiedExecCompleted(turnID, execution) {

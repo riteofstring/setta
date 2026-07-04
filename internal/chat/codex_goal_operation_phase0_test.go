@@ -96,6 +96,31 @@ func TestCodexHarnessGoalOperationCoalescesRuntimeContinuations(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessGoalOperationBurstOutputDoesNotFail(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("goal-operation-burst-output"))
+	result, continuation := beginPhase0GoalOperation(t, harness, "/goal handle output burst")
+	defer continuation.Close()
+
+	sink := newSlowRecordingSink(2 * time.Millisecond)
+	completion, err := continuation.Wait(context.Background(), phase0GoalTurnRequest(t, result), sink)
+	if err != nil {
+		t.Fatalf("wait burst goal operation: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "goal burst complete" {
+		t.Fatalf("assistant text = %q, want goal burst completion text", sink.text)
+	}
+	command := requireLastRunItemByProvider(t, sink.items, "goal_burst_command")
+	details, ok := command.CommandExecutionDetails()
+	if command.Status != RunItemStatusCompleted || !ok || details.ExitCode != 0 {
+		t.Fatalf("goal burst command = %+v details=%+v, want completed exit 0", command, details)
+	}
+	requireSkippedOutputMarker(t, sink.outputs, "goal_burst_command")
+	if _, ok := findTraceType(sink.traces, "codex_app_server_backpressure"); !ok {
+		t.Fatalf("traces = %+v, want backpressure trace", sink.traces)
+	}
+}
+
 func TestCodexHarnessGoalOperationFinishExactlyOnce(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("goal-operation-duplicate-finish"))
 	result, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")

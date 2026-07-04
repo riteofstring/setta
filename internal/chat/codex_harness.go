@@ -323,6 +323,11 @@ func (harness *CodexHarness) handleCodexSessionEvent(ctx context.Context, sessio
 		return codexTurnWaitResult{activeTurnID: activeTurnID}, nil
 	case codexapp.EventNotification:
 		return harness.handleCodexNotificationForTurn(ctx, session, event.Message, runID, threadID, activeTurnID, sink)
+	case codexapp.EventLag:
+		if err := handleCodexBackpressureLag(event.Lag, sink); err != nil {
+			return codexTurnWaitResult{}, err
+		}
+		return codexTurnWaitResult{activeTurnID: activeTurnID}, nil
 	case codexapp.EventLifecycle:
 		return codexTurnWaitResult{}, &HarnessProviderLifecycleError{
 			Err:     event.Err,
@@ -332,6 +337,58 @@ func (harness *CodexHarness) handleCodexSessionEvent(ctx context.Context, sessio
 	default:
 		return codexTurnWaitResult{}, fmt.Errorf("unsupported codex app-server session event: %s", event.Kind)
 	}
+}
+
+func handleCodexBackpressureLag(lag *codexapp.LagEvent, sink TurnSink) error {
+	if lag == nil || lag.SkippedCount <= 0 {
+		return nil
+	}
+	message := fmt.Sprintf("%s skipped %d %s notifications", lag.EventClass, lag.SkippedCount, lag.Method)
+	if err := sink.Trace("codex_app_server_backpressure", message); err != nil {
+		return err
+	}
+	if lag.ProviderItemID == "" {
+		return sink.ProviderDiagnostic(
+			"codex_app_server_backpressure",
+			"Codex app-server output was skipped under backpressure.",
+			codexBackpressureLagDiagnosticContext(lag),
+			false,
+			DiagnosticSeverityInfo,
+		)
+	}
+	stream := lag.Stream
+	if stream == "" || lag.Method == codexapp.CodexNotificationItemCommandExecutionOutputDelta {
+		stream = codexCommandExecutionOutputStream
+	}
+	return sink.RunItemOutputDelta(
+		lag.ProviderItemID,
+		stream,
+		fmt.Sprintf("[output skipped: %d %s notifications omitted due to backpressure]\n", lag.SkippedCount, lag.Method),
+	)
+}
+
+func codexBackpressureLagDiagnosticContext(lag *codexapp.LagEvent) map[string]string {
+	context := map[string]string{
+		"eventClass":        string(lag.EventClass),
+		"method":            lag.Method,
+		"queueDepth":        fmt.Sprintf("%d", lag.QueueDepth),
+		"queueHighWater":    fmt.Sprintf("%d", lag.QueueHighWater),
+		"skippedCount":      fmt.Sprintf("%d", lag.SkippedCount),
+		"firstSkippedAt":    lag.FirstSkippedAt,
+		"lastSkippedAt":     lag.LastSkippedAt,
+		"providerItemId":    lag.ProviderItemID,
+		"providerProcessId": lag.ProviderProcessID,
+		"runId":             lag.RunID,
+		"stream":            lag.Stream,
+		"threadId":          lag.ThreadID,
+		"turnId":            lag.TurnID,
+	}
+	for key, value := range context {
+		if value == "" {
+			delete(context, key)
+		}
+	}
+	return context
 }
 
 func (harness *CodexHarness) handleCodexNotificationForTurn(ctx context.Context, session *codexapp.Session, message jsonRPCMessage, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {

@@ -617,17 +617,11 @@ func (service *Service) copyRunItemOutputToBackgroundTerminalLocked(workspaceID 
 	if err != nil {
 		return err
 	}
+	entries := make([]backgroundTerminalOutputEntry, 0, len(outputs))
 	for _, output := range outputs {
-		if err := service.appendBackgroundTerminalOutputLocked(process, output.Stream, output.Text); err != nil {
-			return err
-		}
-		reloaded, err := service.store.LoadBackgroundTerminalProcess(process.WorkspaceID, process.ConversationID, process.ID)
-		if err != nil {
-			return err
-		}
-		process = reloaded
+		entries = append(entries, backgroundTerminalOutputEntry{stream: output.Stream, text: output.Text})
 	}
-	return nil
+	return service.appendBackgroundTerminalOutputBatchLocked(process, entries)
 }
 
 // createBackgroundTerminalBlockLocked appends a slim background_terminal marker at
@@ -696,6 +690,9 @@ func (service *Service) appendBackgroundTerminalOutputFromProvider(workspaceID s
 // process already in a terminal state is left untouched, and a missing process is
 // ignored rather than recreated.
 func (service *Service) completeBackgroundTerminalFromProvider(workspaceID string, conversationID string, providerItemID string, providerProcessID string, exitCode int, errorMessage string) error {
+	if err := service.flushBackgroundTerminalOutputFromProvider(workspaceID, conversationID, providerItemID, providerProcessID); err != nil {
+		return err
+	}
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
@@ -725,34 +722,47 @@ func (service *Service) completeBackgroundTerminalFromProvider(workspaceID strin
 }
 
 func (service *Service) appendBackgroundTerminalOutputLocked(process BackgroundTerminalProcess, stream string, text string) error {
+	return service.appendBackgroundTerminalOutputBatchLocked(process, []backgroundTerminalOutputEntry{{stream: stream, text: text}})
+}
+
+func (service *Service) appendBackgroundTerminalOutputBatchLocked(process BackgroundTerminalProcess, entries []backgroundTerminalOutputEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
 	ordinal, err := service.store.NextBackgroundTerminalOutputOrdinal(process.WorkspaceID, process.ConversationID, process.ID)
 	if err != nil {
 		return err
 	}
-	outputID, err := service.newID("background_terminal_output")
-	if err != nil {
-		return fmt.Errorf("create background terminal output id: %w", err)
-	}
 	now := timestamp(service.now())
-	output := BackgroundTerminalOutput{
-		SchemaVersion: SchemaVersion,
-		ID:            outputID,
-		ProcessID:     process.ID,
-		Stream:        stream,
-		Ordinal:       ordinal,
-		Text:          text,
-		CreatedAt:     now,
+	outputs := make([]BackgroundTerminalOutput, 0, len(entries))
+	for index, entry := range entries {
+		outputID, err := service.newID("background_terminal_output")
+		if err != nil {
+			return fmt.Errorf("create background terminal output id: %w", err)
+		}
+		output := BackgroundTerminalOutput{
+			SchemaVersion: SchemaVersion,
+			ID:            outputID,
+			ProcessID:     process.ID,
+			Stream:        entry.stream,
+			Ordinal:       ordinal + index,
+			Text:          entry.text,
+			CreatedAt:     now,
+		}
+		if err := service.store.SaveBackgroundTerminalOutput(process.WorkspaceID, process.ConversationID, output); err != nil {
+			return err
+		}
+		process.RecentOutput = appendRecentBackgroundTerminalOutput(process.RecentOutput, entry.text)
+		outputs = append(outputs, output)
 	}
-	if err := service.store.SaveBackgroundTerminalOutput(process.WorkspaceID, process.ConversationID, output); err != nil {
-		return err
-	}
-	process.RecentOutput = appendRecentBackgroundTerminalOutput(process.RecentOutput, text)
 	process.UpdatedAt = now
 	if err := service.store.SaveBackgroundTerminalProcess(process); err != nil {
 		return err
 	}
-	if err := service.publishBackgroundTerminalOutputDeltaLocked(process, output); err != nil {
-		return err
+	for _, output := range outputs {
+		if err := service.publishBackgroundTerminalOutputDeltaLocked(process, output); err != nil {
+			return err
+		}
 	}
 	return service.publishBackgroundTerminalUpdatedLocked(process)
 }
@@ -838,7 +848,7 @@ func (service *Service) backgroundTerminalSink() BackgroundTerminalSink {
 }
 
 func (sink serviceBackgroundTerminalSink) BackgroundTerminalOutputDelta(workspaceID string, conversationID string, providerItemID string, providerProcessID string, stream string, text string) error {
-	return sink.service.appendBackgroundTerminalOutputFromProvider(workspaceID, conversationID, providerItemID, providerProcessID, stream, text)
+	return sink.service.enqueueBackgroundTerminalOutputFromProvider(workspaceID, conversationID, providerItemID, providerProcessID, stream, text)
 }
 
 func (sink serviceBackgroundTerminalSink) BackgroundTerminalCompleted(workspaceID string, conversationID string, providerItemID string, providerProcessID string, exitCode int, errorMessage string) error {

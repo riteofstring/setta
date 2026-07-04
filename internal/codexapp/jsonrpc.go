@@ -359,6 +359,9 @@ func (client *Client) routeMessage(message Message) error {
 			return nil
 		case <-client.protocol.Done():
 			return client.protocolError("codex app-server exited")
+		default:
+			_ = message.RespondError(jsonRPCErrorServerOverloaded, fmt.Sprintf("codex app-server request %s queue is overloaded", message.Method))
+			return nil
 		}
 	}
 	if message.Method != "" {

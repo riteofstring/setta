@@ -40,6 +40,13 @@ type Service struct {
 	active   map[string]activeTurn
 	liveness map[string]RunLiveness
 
+	backgroundOutputMu       sync.Mutex
+	backgroundOutputBatches  map[backgroundTerminalOutputBatchKey][]backgroundTerminalOutputEntry
+	backgroundOutputFlushes  map[backgroundTerminalOutputBatchKey][][]backgroundTerminalOutputEntry
+	backgroundOutputTimers   map[backgroundTerminalOutputBatchKey]*time.Timer
+	backgroundOutputInflight map[backgroundTerminalOutputBatchKey]int
+	backgroundOutputWaiters  map[backgroundTerminalOutputBatchKey][]chan struct{}
+
 	shuttingDown bool
 	turnWG       sync.WaitGroup
 }
@@ -80,15 +87,20 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		return nil, err
 	}
 	service := &Service{
-		store:             store,
-		harness:           harness,
-		taskRunner:        HarnessTaskRunnerFor(harness),
-		workspaceResolver: workspaceResolver,
-		newID:             randomID,
-		now:               time.Now,
-		codexDefaults:     codexDefaults,
-		active:            map[string]activeTurn{},
-		liveness:          map[string]RunLiveness{},
+		store:                    store,
+		harness:                  harness,
+		taskRunner:               HarnessTaskRunnerFor(harness),
+		workspaceResolver:        workspaceResolver,
+		newID:                    randomID,
+		now:                      time.Now,
+		codexDefaults:            codexDefaults,
+		active:                   map[string]activeTurn{},
+		liveness:                 map[string]RunLiveness{},
+		backgroundOutputBatches:  map[backgroundTerminalOutputBatchKey][]backgroundTerminalOutputEntry{},
+		backgroundOutputFlushes:  map[backgroundTerminalOutputBatchKey][][]backgroundTerminalOutputEntry{},
+		backgroundOutputTimers:   map[backgroundTerminalOutputBatchKey]*time.Timer{},
+		backgroundOutputInflight: map[backgroundTerminalOutputBatchKey]int{},
+		backgroundOutputWaiters:  map[backgroundTerminalOutputBatchKey][]chan struct{}{},
 	}
 	for _, option := range options {
 		option(service)
