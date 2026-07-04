@@ -6,7 +6,7 @@ import { Virtuoso } from "react-virtuoso";
 
 import { useChatStore } from "../stores/chat-store";
 import { useWorkflowDefinitionStore } from "../stores/workflow-definition-store";
-import { RuntimePicker } from "./runtime-picker";
+import { RuntimePicker, RuntimePickerAddButton } from "./runtime-picker";
 import {
   defaultSidebarSections,
   SidebarAccordionSection,
@@ -188,6 +188,7 @@ export function WorkspaceSidebar({
     dismissSidebarVisibleError(navigationError, setNavigationError, clearWorkspaceError);
   const [sections, setSections] =
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
+  const [runtimePairingOpen, setRuntimePairingOpen] = useState(false);
 
   useEffect(() => {
     if (selectedWorkspaceId) {
@@ -283,6 +284,9 @@ export function WorkspaceSidebar({
         data-testid="sidebar-shortcuts-shell"
       >
         <SidebarAccordionSection
+          action={
+            <RuntimePickerAddButton adding={runtimePairingOpen} setAdding={setRuntimePairingOpen} />
+          }
           height={sections.runtime.height}
           onHeightChange={(height) => setSectionHeight("runtime", height)}
           onOpenChange={(open) => setSectionOpen("runtime", open)}
@@ -291,7 +295,7 @@ export function WorkspaceSidebar({
           testId="runtime-section"
           title="Runtime"
         >
-          <RuntimePicker />
+          <RuntimePicker adding={runtimePairingOpen} setAdding={setRuntimePairingOpen} />
         </SidebarAccordionSection>
         <SidebarAccordionSection
           height={sections.shortcuts.height}

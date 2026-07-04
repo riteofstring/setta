@@ -14,7 +14,7 @@ import (
 	"setta/internal/jsonio"
 )
 
-const defaultRuntimeDisplayName = "Setta Runtime"
+const legacyGenericRuntimeDisplayName = "Setta Runtime"
 
 type runtimeIdentity struct {
 	RuntimeID   string `json:"runtimeId"`
@@ -38,6 +38,16 @@ func loadRuntimeIdentity(appDataDir string) (runtimeIdentity, error) {
 	if err := validateRuntimeIdentity(identity); err != nil {
 		return runtimeIdentity{}, fmt.Errorf("validate runtime identity %s: %w", identityPath, err)
 	}
+	if genericRuntimeDisplayName(identity.DisplayName) {
+		displayName, err := defaultRuntimeDisplayName()
+		if err != nil {
+			return runtimeIdentity{}, err
+		}
+		identity.DisplayName = displayName
+		if err := writeRuntimeIdentity(identityPath, identity); err != nil {
+			return runtimeIdentity{}, err
+		}
+	}
 	return identity, nil
 }
 
@@ -49,14 +59,30 @@ func createRuntimeIdentity(runtimeDir string, identityPath string) (runtimeIdent
 	if err != nil {
 		return runtimeIdentity{}, err
 	}
+	displayName, err := defaultRuntimeDisplayName()
+	if err != nil {
+		return runtimeIdentity{}, err
+	}
 	identity := runtimeIdentity{
 		RuntimeID:   runtimeID,
-		DisplayName: defaultRuntimeDisplayName,
+		DisplayName: displayName,
 	}
 	if err := writeRuntimeIdentity(identityPath, identity); err != nil {
 		return runtimeIdentity{}, err
 	}
 	return identity, nil
+}
+
+func defaultRuntimeDisplayName() (string, error) {
+	displayName, err := os.Hostname()
+	if err != nil {
+		return "", fmt.Errorf("read hostname for runtime display name: %w", err)
+	}
+	displayName = strings.TrimSpace(displayName)
+	if displayName == "" {
+		return "", errors.New("hostname for runtime display name is empty")
+	}
+	return displayName, nil
 }
 
 func writeRuntimeIdentity(identityPath string, identity runtimeIdentity) error {
@@ -82,6 +108,10 @@ func validateRuntimeIdentity(identity runtimeIdentity) error {
 		return errors.New("displayName is required")
 	}
 	return nil
+}
+
+func genericRuntimeDisplayName(displayName string) bool {
+	return strings.EqualFold(strings.TrimSpace(displayName), legacyGenericRuntimeDisplayName)
 }
 
 func randomRuntimeID() (string, error) {

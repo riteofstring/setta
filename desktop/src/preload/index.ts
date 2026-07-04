@@ -491,9 +491,25 @@ function decodeKnownRuntimeView(value: unknown, label: string): KnownRuntimeView
       `${label}.connectionStatus`,
     ),
     displayName: stringField(record, "displayName", label),
+    infrastructureProvider: decodeRuntimeInfrastructureProvider(
+      requireRuntimeField(record, "infrastructureProvider", label),
+      `${label}.infrastructureProvider`,
+    ),
     isLocal: booleanField(record, "isLocal", label),
     lastConnected: nullableStringField(record, "lastConnected", label),
     runtimeId: stringField(record, "runtimeId", label),
+  };
+}
+
+function decodeRuntimeInfrastructureProvider(
+  value: unknown,
+  label: string,
+): KnownRuntimeView["infrastructureProvider"] {
+  const record = assertStatusRecord(value, label);
+  return {
+    displayName: stringField(record, "displayName", label),
+    iconUrl: stringField(record, "iconUrl", label),
+    id: stringField(record, "id", label),
   };
 }
 

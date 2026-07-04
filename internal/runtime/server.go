@@ -93,12 +93,14 @@ type runtimeServices struct {
 	workflowService          *orchestrator.Service
 	workflowStore            *orchestrator.Store
 	runtimeIdentity          runtimeIdentity
+	infrastructureProvider   httpapi.RuntimeInfrastructureProvider
 }
 
 type runtimeAuthBootstrap struct {
-	identity       runtimeIdentity
-	store          *runtimeauth.Store
-	bootstrapToken string
+	identity               runtimeIdentity
+	infrastructureProvider httpapi.RuntimeInfrastructureProvider
+	store                  *runtimeauth.Store
+	bootstrapToken         string
 }
 
 type runtimeSemanticServices struct {
@@ -311,11 +313,16 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		workflowService:          workflowService,
 		workflowStore:            workflowStore,
 		runtimeIdentity:          authBootstrap.identity,
+		infrastructureProvider:   authBootstrap.infrastructureProvider,
 	}, nil
 }
 
 func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
 	identity, err := loadRuntimeIdentity(config.AppDataDir)
+	if err != nil {
+		return runtimeAuthBootstrap{}, err
+	}
+	infrastructureProvider, err := defaultRuntimeInfrastructureProvider()
 	if err != nil {
 		return runtimeAuthBootstrap{}, err
 	}
@@ -337,7 +344,12 @@ func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
 		}
 	}
 	closeAuthOnFailure = false
-	return runtimeAuthBootstrap{identity: identity, store: authStore, bootstrapToken: bootstrapToken}, nil
+	return runtimeAuthBootstrap{
+		identity:               identity,
+		infrastructureProvider: infrastructureProvider,
+		store:                  authStore,
+		bootstrapToken:         bootstrapToken,
+	}, nil
 }
 
 func newRuntimeSemanticServices(
@@ -641,8 +653,9 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		NotifyService:       services.notifyService,
 		RuntimeAuthService:  services.authStore,
 		RuntimeMetadata: httpapi.RuntimeMetadata{
-			ID:          services.runtimeIdentity.RuntimeID,
-			DisplayName: services.runtimeIdentity.DisplayName,
+			ID:                     services.runtimeIdentity.RuntimeID,
+			DisplayName:            services.runtimeIdentity.DisplayName,
+			InfrastructureProvider: services.infrastructureProvider,
 		},
 		SemanticGraphService:     services.semanticGraphService,
 		TerminalService:          services.terminalService,

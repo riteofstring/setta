@@ -1,4 +1,7 @@
-import type { RuntimeInfoResponse } from "@generated/backend";
+import { reverse } from "node:dns/promises";
+import { isIP } from "node:net";
+
+import type { RuntimeInfoResponse, RuntimeInfrastructureProvider } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import type {
   KnownRuntimeView,
@@ -45,6 +48,7 @@ export interface RuntimeRegistryOptions {
   hooks: RuntimeRegistryHooks;
   now?: () => Date;
   onSnapshot: (snapshot: RuntimeRegistrySnapshot) => void;
+  resolveRuntimeHostName?: (baseUrl: string) => Promise<string | null>;
   store: KnownRuntimeStore;
 }
 
@@ -61,11 +65,74 @@ const initialConnectionState: RuntimeConnectionState = {
   updatedAt: new Date(0).toISOString(),
 };
 
+const unknownRuntimeInfrastructureProvider = {
+  displayName: "Unknown provider",
+  iconUrl: "",
+  id: "unknown",
+} satisfies RuntimeInfrastructureProvider;
+
+const legacyGenericRuntimeDisplayName = "Setta Runtime";
+
+const runtimeInfrastructureProviderByHost = [
+  {
+    provider: {
+      displayName: "AWS",
+      iconUrl: "https://aws.amazon.com/favicon.ico",
+      id: "aws",
+    },
+    suffixes: ["amazonaws.com", "aws.dev"],
+  },
+  {
+    provider: {
+      displayName: "Azure",
+      iconUrl: "https://azure.microsoft.com/favicon.ico",
+      id: "azure",
+    },
+    suffixes: ["azure.com", "cloudapp.net"],
+  },
+  {
+    provider: {
+      displayName: "Google Cloud",
+      iconUrl: "https://cloud.google.com/favicon.ico",
+      id: "google-cloud",
+    },
+    suffixes: ["googleusercontent.com", "googleapis.com"],
+  },
+  {
+    provider: {
+      displayName: "Hetzner",
+      iconUrl: "https://www.hetzner.com/favicon.ico",
+      id: "hetzner",
+    },
+    suffixes: ["hetzner.com", "your-server.de"],
+  },
+  {
+    provider: {
+      displayName: "Paperspace",
+      iconUrl: "https://www.paperspace.com/favicon.ico",
+      id: "paperspace",
+    },
+    suffixes: ["paperspace.com", "paperspace.io"],
+  },
+  {
+    provider: {
+      displayName: "CodeSandbox",
+      iconUrl: "https://codesandbox.io/favicon.ico",
+      id: "codesandbox",
+    },
+    suffixes: ["codesandbox.io", "csb.app"],
+  },
+] as const satisfies readonly {
+  provider: RuntimeInfrastructureProvider;
+  suffixes: readonly string[];
+}[];
+
 export class RuntimeRegistryController {
   private activeRuntime: ActiveRuntime | null = null;
   private connection = initialConnectionState;
   private operationRunning = false;
   private registry: KnownRuntimeRegistry = emptyKnownRuntimeRegistry();
+  private runtimeInfrastructureProviders = new Map<string, RuntimeInfrastructureProvider>();
   private switching = false;
 
   constructor(private readonly options: RuntimeRegistryOptions) {}
@@ -78,6 +145,7 @@ export class RuntimeRegistryController {
 
   async registerLocalRuntime(input: LocalRuntimeInput): Promise<KnownRuntimeRecord> {
     const info = await fetchRuntimeInfo(input.baseUrl, this.options.fetchImpl);
+    this.runtimeInfrastructureProviders.set(info.runtimeId, info.infrastructureProvider);
     const localRuntime: KnownRuntimeRecord = {
       baseUrl: input.baseUrl,
       deviceToken: input.deviceToken,
@@ -119,10 +187,15 @@ export class RuntimeRegistryController {
           `runtime info runtime_id ${info.runtimeId} does not match URL runtime_id ${parsed.runtimeId}`,
         );
       }
+      const presentation = await this.runtimePresentationFromInfo(
+        { baseUrl: parsed.baseUrl, displayName: info.displayName, isLocal: false },
+        info,
+      );
+      this.runtimeInfrastructureProviders.set(info.runtimeId, presentation.infrastructureProvider);
       this.registry = upsertKnownRuntime(this.registry, {
         baseUrl: parsed.baseUrl,
         deviceToken: paired.deviceToken,
-        displayName: info.displayName,
+        displayName: presentation.displayName,
         isLocal: false,
         lastConnected: null,
         runtimeId: parsed.runtimeId,
@@ -144,6 +217,7 @@ export class RuntimeRegistryController {
       }
       const wasActive = this.registry.activeRuntimeId === runtimeId;
       this.registry = removeKnownRuntime(this.registry, runtimeId);
+      this.runtimeInfrastructureProviders.delete(runtimeId);
       await this.persist();
       if (wasActive) {
         const fallback = this.registry.activeRuntimeId;
@@ -235,17 +309,26 @@ export class RuntimeRegistryController {
           expectedRuntimeId: target.runtimeId,
           fetchImpl: this.options.fetchImpl,
         });
-        const connected = this.activeRuntimeFromKnownRuntime(target, info);
+        const presentation = await this.runtimePresentationFromInfo(target, info);
+        this.runtimeInfrastructureProviders.set(
+          info.runtimeId,
+          presentation.infrastructureProvider,
+        );
+        const connected = this.activeRuntimeFromKnownRuntime(
+          target,
+          info,
+          presentation.displayName,
+        );
         this.activeRuntime = connected;
         this.connection = this.connectionState(
           "connected",
           connected.runtimeId,
-          `Connected to ${runtimePresentationName(target)}`,
+          `Connected to ${connected.displayName}`,
           connected.protocolVersion,
         );
         this.registry = upsertKnownRuntime(this.registry, {
           ...target,
-          displayName: info.displayName,
+          displayName: presentation.displayName,
           lastConnected: this.nowISO(),
         });
         this.registry = { ...this.registry, activeRuntimeId: connected.runtimeId };
@@ -285,11 +368,12 @@ export class RuntimeRegistryController {
   private activeRuntimeFromKnownRuntime(
     runtime: KnownRuntimeRecord,
     info: RuntimeInfoResponse,
+    displayName: string,
   ): ActiveRuntime {
     return {
       baseUrl: runtime.baseUrl,
       deviceToken: runtime.deviceToken,
-      displayName: info.displayName,
+      displayName,
       isLocal: runtime.isLocal,
       protocolVersion: info.protocolVersion,
       runtimeId: runtime.runtimeId,
@@ -339,6 +423,10 @@ export class RuntimeRegistryController {
       connectionMessage: activeConnection?.message ?? "Not selected",
       connectionStatus: activeConnection?.status ?? "disconnected",
       displayName: runtimePresentationName(runtime),
+      infrastructureProvider:
+        this.runtimeInfrastructureProviders.get(runtime.runtimeId) ??
+        runtimeInfrastructureProviderFromHost(runtime.baseUrl, null) ??
+        unknownRuntimeInfrastructureProvider,
       isLocal: runtime.isLocal,
       lastConnected: runtime.lastConnected,
       runtimeId: runtime.runtimeId,
@@ -368,12 +456,119 @@ export class RuntimeRegistryController {
   private nowISO(): string {
     return (this.options.now ?? (() => new Date()))().toISOString();
   }
+
+  private async runtimePresentationFromInfo(
+    runtime: Pick<KnownRuntimeRecord, "baseUrl" | "displayName" | "isLocal">,
+    info: RuntimeInfoResponse,
+  ): Promise<{ displayName: string; infrastructureProvider: RuntimeInfrastructureProvider }> {
+    if (runtime.isLocal) {
+      return {
+        displayName: "Local",
+        infrastructureProvider: info.infrastructureProvider,
+      };
+    }
+    const resolvedHostName = await this.resolveRuntimeHostName(runtime.baseUrl);
+    return {
+      displayName: remoteRuntimeDisplayName(runtime.baseUrl, info.displayName, resolvedHostName),
+      infrastructureProvider:
+        knownRuntimeInfrastructureProvider(info.infrastructureProvider) ??
+        runtimeInfrastructureProviderFromHost(runtime.baseUrl, resolvedHostName) ??
+        unknownRuntimeInfrastructureProvider,
+    };
+  }
+
+  private async resolveRuntimeHostName(baseUrl: string): Promise<string | null> {
+    if (this.options.resolveRuntimeHostName) {
+      return this.options.resolveRuntimeHostName(baseUrl);
+    }
+    return resolveRuntimeHostName(baseUrl);
+  }
 }
 
 function runtimePresentationName(
-  runtime: Pick<KnownRuntimeRecord, "displayName" | "isLocal">,
+  runtime: Pick<KnownRuntimeRecord, "baseUrl" | "displayName" | "isLocal">,
 ): string {
-  return runtime.isLocal ? "Local" : runtime.displayName;
+  if (runtime.isLocal) {
+    return "Local";
+  }
+  return remoteRuntimeDisplayName(runtime.baseUrl, runtime.displayName, null);
+}
+
+function remoteRuntimeDisplayName(
+  baseUrl: string,
+  displayName: string,
+  resolvedHostName: string | null,
+): string {
+  const trimmedDisplayName = displayName.trim();
+  if (!genericRuntimeDisplayName(trimmedDisplayName)) {
+    return trimmedDisplayName;
+  }
+  const hostTitle = runtimeHostTitle(resolvedHostName) ?? runtimeURLHostTitle(baseUrl);
+  return hostTitle ?? "Remote runtime";
+}
+
+function genericRuntimeDisplayName(displayName: string): boolean {
+  return (
+    displayName === "" ||
+    displayName.toLowerCase() === legacyGenericRuntimeDisplayName.toLowerCase()
+  );
+}
+
+function runtimeURLHostTitle(baseUrl: string): string | null {
+  const hostName = new URL(baseUrl).hostname;
+  if (isIP(hostName) !== 0) {
+    return null;
+  }
+  return runtimeHostTitle(hostName);
+}
+
+function runtimeHostTitle(hostName: string | null): string | null {
+  if (hostName === null) {
+    return null;
+  }
+  const normalized = hostName.trim().replace(/\.$/, "");
+  if (normalized === "" || isIP(normalized) !== 0) {
+    return null;
+  }
+  const [firstLabel] = normalized.split(".");
+  return firstLabel && firstLabel !== "" ? firstLabel : null;
+}
+
+async function resolveRuntimeHostName(baseUrl: string): Promise<string | null> {
+  const hostName = new URL(baseUrl).hostname;
+  if (isIP(hostName) === 0) {
+    return null;
+  }
+  try {
+    const names = await reverse(hostName);
+    return names[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function knownRuntimeInfrastructureProvider(
+  provider: RuntimeInfrastructureProvider,
+): RuntimeInfrastructureProvider | null {
+  return provider.id === "unknown" ? null : provider;
+}
+
+function runtimeInfrastructureProviderFromHost(
+  baseUrl: string,
+  resolvedHostName: string | null,
+): RuntimeInfrastructureProvider | null {
+  const candidates = [new URL(baseUrl).hostname, resolvedHostName]
+    .filter((candidate): candidate is string => candidate !== null)
+    .map((candidate) => candidate.trim().toLowerCase().replace(/\.$/, ""));
+  for (const candidate of candidates) {
+    const matched = runtimeInfrastructureProviderByHost.find(({ suffixes }) =>
+      suffixes.some((suffix) => candidate === suffix || candidate.endsWith(`.${suffix}`)),
+    );
+    if (matched) {
+      return matched.provider;
+    }
+  }
+  return null;
 }
 
 function numberDetail(value: string | number | null | undefined): number | null {

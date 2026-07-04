@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
+import { backendProtocolVersion } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { authenticatedWebFetch, createWebSettaAPI } from "./setta-web-api";
 
@@ -78,7 +79,7 @@ describe("web SettaAPI unpaired runtime state", () => {
             return jsonResponse({
               deviceId: "device_web",
               deviceToken: "token_web",
-              protocolVersion: 2,
+              protocolVersion: backendProtocolVersion,
               runtimeId: "runtime_web",
             });
           case "/devices/list":
@@ -139,7 +140,12 @@ function runtimeInfo() {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: "Web runtime",
-    protocolVersion: 2,
+    infrastructureProvider: {
+      displayName: "Unknown provider",
+      iconUrl: "",
+      id: "unknown",
+    },
+    protocolVersion: backendProtocolVersion,
     runtimeId: "runtime_web",
     vapidPublicKey: "vapid_public",
   };

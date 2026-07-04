@@ -15,12 +15,19 @@ import (
 )
 
 type RuntimeInfoResponse struct {
-	RuntimeID       string `json:"runtimeId"`
-	DisplayName     string `json:"displayName"`
-	BackendName     string `json:"backendName"`
-	BackendVersion  string `json:"backendVersion"`
-	ProtocolVersion int    `json:"protocolVersion"`
-	VAPIDPublicKey  string `json:"vapidPublicKey"`
+	RuntimeID              string                        `json:"runtimeId"`
+	DisplayName            string                        `json:"displayName"`
+	InfrastructureProvider RuntimeInfrastructureProvider `json:"infrastructureProvider"`
+	BackendName            string                        `json:"backendName"`
+	BackendVersion         string                        `json:"backendVersion"`
+	ProtocolVersion        int                           `json:"protocolVersion"`
+	VAPIDPublicKey         string                        `json:"vapidPublicKey"`
+}
+
+type RuntimeInfrastructureProvider struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"displayName"`
+	IconURL     string `json:"iconUrl"`
 }
 
 type CompletePairingRequest struct {

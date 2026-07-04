@@ -99,6 +99,32 @@ describe("runtime connection verification", () => {
     ]);
   });
 
+  test("accepts protocol 2 runtimes without provider metadata", async () => {
+    const fetchImpl: BackendFetch = async (input) => {
+      if (input.pathname === "/runtime/info") {
+        return jsonResponse(legacyRuntimeInfo("runtime_expected", 2));
+      }
+      return jsonResponse({ devices: [] });
+    };
+
+    await expect(
+      verifyRuntimeConnection({
+        baseUrl: "http://100.64.0.12:7345/",
+        deviceToken: "device_token",
+        expectedRuntimeId: "runtime_expected",
+        fetchImpl,
+      }),
+    ).resolves.toMatchObject({
+      infrastructureProvider: {
+        displayName: "Unknown provider",
+        iconUrl: "",
+        id: "unknown",
+      },
+      protocolVersion: 2,
+      runtimeId: "runtime_expected",
+    });
+  });
+
   test("blocks different runtimes at the stored address", async () => {
     await expect(
       verifyRuntimeConnection({
@@ -150,6 +176,22 @@ describe("runtime connection verification", () => {
 });
 
 function runtimeInfo(runtimeId: string, protocolVersion: number) {
+  return {
+    backendName: "setta-backend",
+    backendVersion: "test",
+    displayName: "Remote",
+    infrastructureProvider: {
+      displayName: "Unknown provider",
+      iconUrl: "",
+      id: "unknown",
+    },
+    protocolVersion,
+    runtimeId,
+    vapidPublicKey: "test-vapid-public-key",
+  };
+}
+
+function legacyRuntimeInfo(runtimeId: string, protocolVersion: number) {
   return {
     backendName: "setta-backend",
     backendVersion: "test",

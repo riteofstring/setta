@@ -18,8 +18,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 2;
-export const backendContractSchemaHash = "sha256:132e3631381971b3dc942da7ba4a896f4993eec5219014d457244ab603736400";
+export const backendProtocolVersion = 3;
+export const backendContractSchemaHash = "sha256:3af2107dee830f1ffeb03e44ca0473fb7f9ab99db4b9caa00504f0179cf8b5b0";
 
 export type DeviceScope = "full";
 
@@ -2190,9 +2190,16 @@ export interface BackendHealth {
   protocolVersion: number;
 }
 
+export interface RuntimeInfrastructureProvider {
+  id: string;
+  displayName: string;
+  iconUrl: string;
+}
+
 export interface RuntimeInfoResponse {
   runtimeId: string;
   displayName: string;
+  infrastructureProvider: RuntimeInfrastructureProvider;
   backendName: string;
   backendVersion: string;
   protocolVersion: number;
@@ -5675,12 +5682,23 @@ export function decodeBackendHealth(value: unknown): BackendHealth {
   };
 }
 
+export function decodeRuntimeInfrastructureProvider(value: unknown): RuntimeInfrastructureProvider {
+  const record = assertRecord(value, "RuntimeInfrastructureProvider");
+  assertKnownFields(record, "RuntimeInfrastructureProvider", ["id", "displayName", "iconUrl"]);
+  return {
+    id: decodeString(requireField(record, "id", "RuntimeInfrastructureProvider"), "RuntimeInfrastructureProvider.id"),
+    displayName: decodeString(requireField(record, "displayName", "RuntimeInfrastructureProvider"), "RuntimeInfrastructureProvider.displayName"),
+    iconUrl: decodeString(requireField(record, "iconUrl", "RuntimeInfrastructureProvider"), "RuntimeInfrastructureProvider.iconUrl"),
+  };
+}
+
 export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
   const record = assertRecord(value, "RuntimeInfoResponse");
-  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "backendName", "backendVersion", "protocolVersion", "vapidPublicKey"]);
+  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion", "vapidPublicKey"]);
   return {
     runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeInfoResponse"), "RuntimeInfoResponse.runtimeId"),
     displayName: decodeString(requireField(record, "displayName", "RuntimeInfoResponse"), "RuntimeInfoResponse.displayName"),
+    infrastructureProvider: decodeRuntimeInfrastructureProvider(requireField(record, "infrastructureProvider", "RuntimeInfoResponse")),
     backendName: decodeString(requireField(record, "backendName", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendName"),
     backendVersion: decodeString(requireField(record, "backendVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendVersion"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.protocolVersion"),

@@ -1212,6 +1212,11 @@ function runtimeSnapshot(
         connectionMessage: "",
         connectionStatus,
         displayName: activeRuntimeId,
+        infrastructureProvider: {
+          displayName: "Unknown provider",
+          iconUrl: "",
+          id: "unknown",
+        },
         isLocal: activeRuntimeId === "local-runtime",
         lastConnected: null,
         runtimeId: activeRuntimeId,

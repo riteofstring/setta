@@ -10,13 +10,18 @@ func (handler handler) runtimeInfo(response http.ResponseWriter, request *http.R
 		writeError(response, http.StatusInternalServerError, "runtime_identity_unavailable", "runtime identity is not available")
 		return
 	}
+	infrastructureProvider := handler.runtimeMetadata.InfrastructureProvider
+	if infrastructureProvider.ID == "" {
+		infrastructureProvider = UnknownRuntimeInfrastructureProvider()
+	}
 	writeJSON(response, http.StatusOK, RuntimeInfoResponse{
-		RuntimeID:       handler.runtimeMetadata.ID,
-		DisplayName:     handler.runtimeMetadata.DisplayName,
-		BackendName:     handler.metadata.Name,
-		BackendVersion:  handler.metadata.Version,
-		ProtocolVersion: ProtocolVersion,
-		VAPIDPublicKey:  handler.notifyPublicKey(),
+		RuntimeID:              handler.runtimeMetadata.ID,
+		DisplayName:            handler.runtimeMetadata.DisplayName,
+		InfrastructureProvider: infrastructureProvider,
+		BackendName:            handler.metadata.Name,
+		BackendVersion:         handler.metadata.Version,
+		ProtocolVersion:        ProtocolVersion,
+		VAPIDPublicKey:         handler.notifyPublicKey(),
 	})
 }
 

@@ -68,6 +68,7 @@ import type {
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  RuntimeInfrastructureProvider,
   ListSemanticActivityPageRequest,
   ListSemanticActivityRequest,
   ListSemanticEvidenceRequest,
@@ -305,6 +306,7 @@ export interface KnownRuntimeView {
   connectionMessage: string;
   connectionStatus: RuntimeConnectionStatus;
   displayName: string;
+  infrastructureProvider: RuntimeInfrastructureProvider;
   isLocal: boolean;
   lastConnected: string | null;
   runtimeId: string;

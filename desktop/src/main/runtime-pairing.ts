@@ -58,8 +58,14 @@ class RuntimeHTTPError extends Error {
 
 const supportedRuntimeProtocol = {
   max: backendProtocolVersion,
-  min: backendProtocolVersion,
+  min: 2,
 } as const;
+
+const unknownRuntimeInfrastructureProvider = {
+  displayName: "Unknown provider",
+  iconUrl: "",
+  id: "unknown",
+} satisfies RuntimeInfoResponse["infrastructureProvider"];
 
 export function parsePairingURL(rawURL: string): ParsedPairingURL {
   let parsed: URL;
@@ -95,7 +101,7 @@ export async function fetchRuntimeInfo(
   fetchImpl: BackendFetch,
 ): Promise<RuntimeInfoResponse> {
   try {
-    return decodeRuntimeInfoResponse(
+    return decodeCompatibleRuntimeInfoResponse(
       await requestRuntimeJSON({
         baseUrl,
         endpoint: backendEndpoints.RuntimeInfo,
@@ -111,6 +117,23 @@ export async function fetchRuntimeInfo(
     }
     throw unreachableConnectionError(baseUrl, error);
   }
+}
+
+function decodeCompatibleRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
+  return decodeRuntimeInfoResponse(runtimeInfoResponseWithProviderFallback(value));
+}
+
+function runtimeInfoResponseWithProviderFallback(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return value;
+  }
+  if ("infrastructureProvider" in value) {
+    return value;
+  }
+  return {
+    ...value,
+    infrastructureProvider: unknownRuntimeInfrastructureProvider,
+  };
 }
 
 export async function completePairing(

@@ -91,6 +91,105 @@ describe("RuntimeRegistryController", () => {
       "failed:mismatched",
     ]);
   });
+
+  test("updates a stored generic remote name from the runtime-reported machine title", async () => {
+    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const remote = runtimeRecord({
+      baseUrl: "http://100.64.0.12:7345/",
+      displayName: "Setta Runtime",
+      runtimeId: "runtime_remote",
+    });
+    await store.write({ activeRuntimeId: remote.runtimeId, runtimes: [remote] });
+    const controller = new RuntimeRegistryController({
+      clientDisplayName: () => "Setta Desktop",
+      fetchImpl: async (input) => {
+        if (input.pathname === "/runtime/info") {
+          return jsonResponse({
+            ...runtimeInfo(remote.runtimeId, backendProtocolVersion),
+            displayName: "build-host-7",
+          });
+        }
+        return jsonResponse({ devices: [] });
+      },
+      hooks: lifecycleHooks([]),
+      onSnapshot: () => {},
+      store,
+    });
+
+    await controller.load();
+    const snapshot = await controller.switchToRuntime(remote.runtimeId);
+
+    expect(snapshot.runtimes).toHaveLength(1);
+    expect(snapshot.runtimes[0]?.displayName).toBe("build-host-7");
+    expect(snapshot.runtimes[0]?.infrastructureProvider.id).toBe("aws");
+    expect(controller.currentRuntime()?.displayName).toBe("build-host-7");
+  });
+
+  test("uses the runtime hostname when an old remote reports the generic runtime name", async () => {
+    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const remote = runtimeRecord({
+      baseUrl: "http://build-host-7.internal:7345/",
+      displayName: "Setta Runtime",
+      runtimeId: "runtime_remote",
+    });
+    await store.write({ activeRuntimeId: remote.runtimeId, runtimes: [remote] });
+    const controller = new RuntimeRegistryController({
+      clientDisplayName: () => "Setta Desktop",
+      fetchImpl: async (input) => {
+        if (input.pathname === "/runtime/info") {
+          return jsonResponse({
+            ...runtimeInfo(remote.runtimeId, 2),
+            displayName: "Setta Runtime",
+            infrastructureProvider: runtimeInfrastructureProvider("unknown"),
+          });
+        }
+        return jsonResponse({ devices: [] });
+      },
+      hooks: lifecycleHooks([]),
+      onSnapshot: () => {},
+      store,
+    });
+
+    await controller.load();
+    const snapshot = await controller.switchToRuntime(remote.runtimeId);
+
+    expect(snapshot.runtimes[0]?.displayName).toBe("build-host-7");
+    expect(controller.currentRuntime()?.displayName).toBe("build-host-7");
+  });
+
+  test("uses reverse DNS and provider hostnames for old IP-only remotes", async () => {
+    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const remote = runtimeRecord({
+      baseUrl: "http://100.64.0.12:7345/",
+      displayName: "Setta Runtime",
+      runtimeId: "runtime_remote",
+    });
+    await store.write({ activeRuntimeId: remote.runtimeId, runtimes: [remote] });
+    const controller = new RuntimeRegistryController({
+      clientDisplayName: () => "Setta Desktop",
+      fetchImpl: async (input) => {
+        if (input.pathname === "/runtime/info") {
+          return jsonResponse({
+            ...runtimeInfo(remote.runtimeId, 2),
+            displayName: "Setta Runtime",
+            infrastructureProvider: runtimeInfrastructureProvider("unknown"),
+          });
+        }
+        return jsonResponse({ devices: [] });
+      },
+      hooks: lifecycleHooks([]),
+      onSnapshot: () => {},
+      resolveRuntimeHostName: async () => "gpu-worker-2.compute.amazonaws.com",
+      store,
+    });
+
+    await controller.load();
+    const snapshot = await controller.switchToRuntime(remote.runtimeId);
+
+    expect(snapshot.runtimes[0]?.displayName).toBe("gpu-worker-2");
+    expect(snapshot.runtimes[0]?.infrastructureProvider.id).toBe("aws");
+    expect(controller.currentRuntime()?.displayName).toBe("gpu-worker-2");
+  });
 });
 
 function lifecycleHooks(events: string[]): RuntimeRegistryHooks {
@@ -147,9 +246,28 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: runtimeId === "runtime_local" ? "Local runtime" : "Remote runtime",
+    infrastructureProvider:
+      runtimeId === "runtime_remote"
+        ? runtimeInfrastructureProvider("aws")
+        : runtimeInfrastructureProvider("unknown"),
     protocolVersion,
     runtimeId,
     vapidPublicKey: "test-vapid-public-key",
+  };
+}
+
+function runtimeInfrastructureProvider(id: "aws" | "unknown") {
+  if (id === "aws") {
+    return {
+      displayName: "AWS",
+      iconUrl: "https://aws.amazon.com/favicon.ico",
+      id,
+    };
+  }
+  return {
+    displayName: "Unknown provider",
+    iconUrl: "",
+    id,
   };
 }
 
