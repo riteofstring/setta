@@ -9,22 +9,15 @@ import { parseReadyLine, startSpawnedBackend, type BackendHandle } from "./backe
 
 describe("parseReadyLine", () => {
   test("accepts the machine-readable ready event", () => {
-    expect(
-      parseReadyLine(
-        '{"event":"ready","addr":"127.0.0.1:41000","bootstrapToken":"token_test","protocolVersion":1}',
-      ),
-    ).toEqual({
+    expect(parseReadyLine('{"event":"ready","addr":"127.0.0.1:41000"}')).toEqual({
       addr: "127.0.0.1:41000",
-      bootstrapToken: "token_test",
       event: "ready",
-      protocolVersion: 1,
     });
   });
 
   test("ignores non-readiness logging", () => {
     expect(parseReadyLine("server log line")).toBeNull();
     expect(parseReadyLine('{"event":"log","addr":"127.0.0.1:41000"}')).toBeNull();
-    expect(parseReadyLine('{"event":"ready","addr":"127.0.0.1:41000"}')).toBeNull();
   });
 });
 
@@ -40,13 +33,8 @@ describe("startSpawnedBackend", () => {
 
     expect(handle.mode).toBe("spawned");
     expect(handle.url).toBe("http://127.0.0.1:41000");
-    expect(handle.bootstrapToken).toBe("ready_with_logs_token");
-    expect(handle.protocolVersion).toBe(1);
     expect(handle.recentLogs()).toContain("stderr log");
     expect(handle.recentLogs()).toContain("stdout log");
-    expect(handle.recentLogs()).toContain(
-      '{"event":"ready","addr":"127.0.0.1:41000","bootstrapToken":"<redacted>","protocolVersion":1}',
-    );
 
     await handle.stop();
   });

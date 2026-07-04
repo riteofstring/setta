@@ -1,5 +1,5 @@
-import type { ConversationListItem, Run } from "@generated/backend";
-import { AlertTriangle, Pin, PinOff, Trash2 } from "lucide-react";
+import type { ConversationListItem, Run, RunLiveness } from "@generated/backend";
+import { AlertTriangle, Pin, PinOff, RefreshCw, Trash2, WifiOff } from "lucide-react";
 import { type FocusEvent, type RefObject, useLayoutEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
@@ -10,6 +10,7 @@ const hoverCardViewportInset = 8;
 
 interface ConversationRowProps {
   activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
   busy: boolean;
   corruptionLabel: string | null;
   deleteConversation: () => Promise<void>;
@@ -22,6 +23,7 @@ interface ConversationRowProps {
 
 export function ConversationRow({
   activeRun,
+  activeRunLiveness,
   busy,
   corruptionLabel,
   deleteConversation,
@@ -31,8 +33,9 @@ export function ConversationRow({
   setConversationPinned,
   unread,
 }: ConversationRowProps) {
-  const running =
+  const runActive =
     item.activeRunId !== "" || activeRunMatchesConversation(activeRun, item.conversation.id);
+  const runIndicator = conversationRunIndicator(item, activeRun, activeRunLiveness);
   const pinned = item.pinnedAt !== "";
   const responseAge = formatConversationAge(item.conversation.updatedAt);
   const hoverCard = useConversationHoverCard({
@@ -64,8 +67,8 @@ export function ConversationRow({
         >
           <ConversationStatusIndicator
             corruptionLabel={corruptionLabel}
+            indicator={runIndicator}
             pinned={pinned}
-            running={running}
             unread={unread && !selected}
           />
           <span className="truncate text-xs" title={item.conversation.title}>
@@ -90,7 +93,7 @@ export function ConversationRow({
             {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
           </SidebarIconButton>
           <SidebarIconButton
-            disabled={busy || running}
+            disabled={busy || runActive}
             label="Delete chat"
             onClick={() => void deleteConversation()}
           >
@@ -214,6 +217,46 @@ function activeRunMatchesConversation(activeRun: Run | null, conversationId: str
   );
 }
 
+type ConversationRunIndicator = "working" | "reconnecting" | "lost" | null;
+
+function conversationRunIndicator(
+  item: ConversationListItem,
+  activeRun: Run | null,
+  activeRunLiveness: RunLiveness | null,
+): ConversationRunIndicator {
+  const liveness = conversationRunLiveness(item, activeRun, activeRunLiveness);
+  return liveness ? runIndicatorForLivenessStatus(liveness.status) : null;
+}
+
+function conversationRunLiveness(
+  item: ConversationListItem,
+  activeRun: Run | null,
+  activeRunLiveness: RunLiveness | null,
+) {
+  if (
+    activeRunMatchesConversation(activeRun, item.conversation.id) &&
+    activeRunLiveness?.runId === activeRun?.id
+  ) {
+    return activeRunLiveness;
+  }
+  return item.activeRunLiveness;
+}
+
+function runIndicatorForLivenessStatus(status: RunLiveness["status"]): ConversationRunIndicator {
+  switch (status) {
+    case "attached":
+      return "working";
+    case "reconciling":
+      return "reconnecting";
+    case "lost":
+      return "lost";
+    case "terminal":
+      return null;
+    default:
+      return assertNever(status);
+  }
+}
+
 function clampedHoverCardTop(rowRect: DOMRect, cardHeight: number) {
   const maxTop = Math.max(
     hoverCardViewportInset,
@@ -224,13 +267,13 @@ function clampedHoverCardTop(rowRect: DOMRect, cardHeight: number) {
 
 function ConversationStatusIndicator({
   corruptionLabel,
+  indicator,
   pinned,
-  running,
   unread,
 }: {
   corruptionLabel: string | null;
+  indicator: ConversationRunIndicator;
   pinned: boolean;
-  running: boolean;
   unread: boolean;
 }) {
   return (
@@ -245,10 +288,22 @@ function ConversationStatusIndicator({
           data-testid="conversation-corruption-status"
           role="status"
         />
-      ) : running ? (
+      ) : indicator === "working" ? (
         <AsciiSpinner
           className="w-[18px] text-[7px] text-accent-violet"
           label="Chat response running"
+        />
+      ) : indicator === "reconnecting" ? (
+        <RefreshCw
+          aria-label="Chat response reconnecting"
+          className="h-3.5 w-3.5 text-muted-foreground"
+          role="status"
+        />
+      ) : indicator === "lost" ? (
+        <WifiOff
+          aria-label="Chat connection lost"
+          className="h-3.5 w-3.5 text-status-critical-muted"
+          role="status"
         />
       ) : unread ? (
         <span
@@ -261,6 +316,10 @@ function ConversationStatusIndicator({
       ) : null}
     </span>
   );
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled conversation run indicator: ${JSON.stringify(value)}`);
 }
 
 function formatConversationAge(updatedAt: string) {

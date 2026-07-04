@@ -89,14 +89,6 @@ func requireTerminalService(response http.ResponseWriter, service TerminalServic
 	return service
 }
 
-func requireRuntimeAuthService(response http.ResponseWriter, service RuntimeAuthService) RuntimeAuthService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "runtime_auth_service_unavailable", "runtime auth service is not available")
-		return nil
-	}
-	return service
-}
-
 func decodeRequest(response http.ResponseWriter, request *http.Request, target any) bool {
 	if err := jsonio.DecodeSingle(request.Body, target); err != nil {
 		if errors.Is(err, jsonio.ErrMultipleValues) {

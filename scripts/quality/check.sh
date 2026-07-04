@@ -215,7 +215,7 @@ is_prettier_path() {
 
 is_length_excluded_path() {
   case "$1" in
-    internal/codexapp/protocolschema/json/*)
+    internal/codexapp/protocolschema/json/*|internal/codexapp/protocolschema/json_experimental/*)
       return 0
       ;;
     LICENSE|desktop/pnpm-lock.yaml|pnpm-lock.yaml|*.lock|go.sum)
@@ -441,8 +441,16 @@ if [[ ${#go_files[@]} -gt 0 || ${#go_test_files[@]} -gt 0 ]]; then
     echo "Go files are present, but go.mod is missing." >&2
     status=1
   else
+    declare -a go_check_files=()
+    if [[ ${#go_files[@]} -gt 0 ]]; then
+      go_check_files+=("${go_files[@]}")
+    fi
+    if [[ ${#go_test_files[@]} -gt 0 ]]; then
+      go_check_files+=("${go_test_files[@]}")
+    fi
+
     gofmt_bin="$("${repo_root}/scripts/go.sh" env GOROOT)/bin/gofmt"
-    gofmt_output="$("${gofmt_bin}" -l "${go_files[@]}" "${go_test_files[@]}")"
+    gofmt_output="$("${gofmt_bin}" -l "${go_check_files[@]}")"
     if [[ -n "${gofmt_output}" ]]; then
       echo "Go files need gofmt:" >&2
       printf '%s\n' "${gofmt_output}" >&2
@@ -450,7 +458,7 @@ if [[ ${#go_files[@]} -gt 0 || ${#go_test_files[@]} -gt 0 ]]; then
     fi
 
     declare -a go_packages=()
-    for file_path in "${go_files[@]}" "${go_test_files[@]}"; do
+    for file_path in "${go_check_files[@]}"; do
       go_packages+=("./$(dirname "${file_path}")")
     done
     declare -a sorted_go_packages=()
