@@ -59,6 +59,7 @@ import {
 } from "./chat-workflow-harness.mjs";
 import { runBackgroundTerminalWorkflow } from "./chat-workflow-background-terminal-cases.mjs";
 import { runChronologicalTranscriptWorkflow } from "./chat-workflow-chronological-cases.mjs";
+import { runCommandStartFailureWorkflow } from "./chat-workflow-command-start-failure-cases.mjs";
 import { runComposerPromptHistoryWorkflow } from "./chat-workflow-composer-history-cases.mjs";
 import { runCrossWorkspaceSidebarSummaryWorkflow } from "./chat-workflow-cross-workspace-sidebar-cases.mjs";
 import { runChatDefaultsSettingsWorkflow } from "./chat-workflow-defaults-cases.mjs";
@@ -332,6 +333,21 @@ async function runDeterministicWorkflowLaunch(results) {
     await runWorkflowStep(
       results,
       recordingDir,
+      "command-start-failure",
+      context.client,
+      async () => {
+        const conversationId = await createChat(context.client, backend, workspaceId);
+        await runCommandStartFailureWorkflow({
+          backend,
+          client: context.client,
+          conversationId,
+          workspaceId,
+        });
+      },
+    );
+    await runWorkflowStep(
+      results,
+      recordingDir,
       "chronological-transcript",
       context.client,
       async () => {
@@ -582,8 +598,7 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
 
 // expandReasoningSummaryBlock opens the collapsed summary-mode reasoning block
 // whose collapsed headline matches the given text, so the full public summary
-// becomes visible. Reasoning is a first-class transcript block, not an activity
-// row, so it is expanded through its own disclosure rather than an activity row.
+// becomes visible through its own disclosure rather than an activity row.
 async function assertReasoningBlockPresent(client, headline) {
   const present = await client.evaluate(`(() => {
     const headline = ${JSON.stringify(headline)};

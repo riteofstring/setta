@@ -246,6 +246,7 @@ function runActivityPage(): RunActivityPage {
         details: {
           command: "npm test",
           commandExecution: null,
+          commandStartFailure: null,
           approval: null,
           cwd: "",
           details: null,

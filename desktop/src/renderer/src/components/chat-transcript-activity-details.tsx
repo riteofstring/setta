@@ -19,6 +19,28 @@ export function ActivityCommandExecutionDetails({
   );
 }
 
+export function ActivityCommandStartFailureDetails({
+  details,
+}: {
+  details: RunActivityDetailsProjection;
+}) {
+  const failure = details.commandStartFailure;
+  if (failure === null) {
+    return null;
+  }
+  return (
+    <>
+      <ActivityTextBlock title="Message" tone="error" value={failure.message} />
+      <ActivityTextBlock title="Failure Class" value={failure.failureClass} />
+      <ActivityTextBlock title="OS Error" value={failure.osError} />
+      <ActivityTextBlock title="Provider Error" value={failure.providerErrorId} />
+      <ActivityTextBlock title="Sandbox" value={failure.sandbox} />
+      <ActivityTextBlock title="Approval Policy" value={failure.approvalPolicy} />
+      <ActivityTextBlock title="Source" value={failure.source ?? ""} />
+    </>
+  );
+}
+
 export function ActivityFileChangeDetails({ details }: { details: RunActivityDetailsProjection }) {
   const fileChange = details.fileChange;
   if (fileChange === null) {

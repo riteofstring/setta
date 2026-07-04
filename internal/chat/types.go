@@ -98,6 +98,7 @@ const (
 	RunItemTypePlan                    RunItemType = "plan"
 	RunItemTypeReasoning               RunItemType = "reasoning"
 	RunItemTypeCommandExecution        RunItemType = "command_execution"
+	RunItemTypeCommandStartFailure     RunItemType = "command_start_failure"
 	RunItemTypeFileChange              RunItemType = "file_change"
 	RunItemTypeMCPToolCall             RunItemType = "mcp_tool_call"
 	RunItemTypeDynamicToolCall         RunItemType = "dynamic_tool_call"
@@ -239,6 +240,7 @@ var (
 		RunItemTypePlan,
 		RunItemTypeReasoning,
 		RunItemTypeCommandExecution,
+		RunItemTypeCommandStartFailure,
 		RunItemTypeFileChange,
 		RunItemTypeMCPToolCall,
 		RunItemTypeDynamicToolCall,

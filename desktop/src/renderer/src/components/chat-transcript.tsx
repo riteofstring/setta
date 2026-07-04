@@ -140,6 +140,7 @@ function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; te
         details.reviewId,
         details.patchStatus,
         ...transcriptActivityCommandExecutionSearchText(details),
+        ...transcriptActivityCommandStartFailureSearchText(details),
         ...transcriptActivityMCPSearchText(details),
         ...transcriptActivityDynamicToolSearchText(details),
         ...transcriptActivityFileChangeSearchText(details),
@@ -167,6 +168,24 @@ function transcriptActivityCommandExecutionSearchText(details: RunActivityDetail
     command.source ?? "",
     command.result,
     command.error,
+  ];
+}
+
+function transcriptActivityCommandStartFailureSearchText(details: RunActivityDetailsProjection) {
+  const failure = details.commandStartFailure;
+  if (failure === null) {
+    return [];
+  }
+  return [
+    failure.command,
+    failure.cwd,
+    failure.source ?? "",
+    failure.failureClass,
+    failure.message,
+    failure.osError,
+    failure.providerErrorId,
+    failure.sandbox,
+    failure.approvalPolicy,
   ];
 }
 

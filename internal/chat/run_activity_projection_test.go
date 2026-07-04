@@ -101,6 +101,70 @@ func TestRunActivityProjectionDoesNotReadLegacyCommandExecutionFields(t *testing
 	}
 }
 
+func TestRunActivityProjectionUsesTypedCommandStartFailureDetails(t *testing.T) {
+	source := RunItemCommandSourceAgent
+	item := RunItem{
+		ID:      "item_command_start_failure",
+		Type:    RunItemTypeCommandStartFailure,
+		Status:  RunItemStatusFailed,
+		Command: "legacy command",
+		Cwd:     "/legacy",
+		Error:   "legacy error",
+		Details: NewRunItemCommandStartFailureDetails(RunItemCommandStartFailureDetails{
+			Command:         "printf scripted-start-failure",
+			Cwd:             "/workspace",
+			Source:          &source,
+			FailureClass:    "resource_exhaustion",
+			Message:         "Too many open files (os error 24)",
+			OSError:         "os error 24",
+			ProviderErrorID: "error_1",
+			Sandbox:         "workspace-write",
+			ApprovalPolicy:  "on-request",
+		}),
+	}
+
+	projection, ok := activityItemBlockProjection(item, RunStatusCompleted, false, false)
+	if !ok {
+		t.Fatal("expected a projection for the command start failure item")
+	}
+	if projection.Title != "Shell command failed to start" || projection.Status != RunItemStatusFailed {
+		t.Fatalf("projection = %+v, want failed command-start title/status", projection)
+	}
+	details := projection.Details
+	if details.CommandStartFailure == nil {
+		t.Fatalf("commandStartFailure details missing: %+v", details)
+	}
+	if details.Command != "" || details.Cwd != "" || details.Error != "" {
+		t.Fatalf("legacy command-start flat fields leaked into projection: %+v", details)
+	}
+	if details.CommandStartFailure.Command != "printf scripted-start-failure" ||
+		details.CommandStartFailure.Message != "Too many open files (os error 24)" ||
+		details.CommandStartFailure.ProviderErrorID != "error_1" {
+		t.Fatalf("typed command-start failure details not projected: %+v", details.CommandStartFailure)
+	}
+}
+
+func TestValidateRunItemCommandStartFailureRejectsLegacyFlatFields(t *testing.T) {
+	item := RunItem{
+		ID:      "item_command_start_failure",
+		Type:    RunItemTypeCommandStartFailure,
+		Status:  RunItemStatusFailed,
+		Command: "legacy command",
+		Details: NewRunItemCommandStartFailureDetails(RunItemCommandStartFailureDetails{
+			Command: "printf scripted-start-failure",
+			Message: "Too many open files (os error 24)",
+		}),
+	}
+
+	err := validateRunItemDetails(item)
+	if err == nil {
+		t.Fatal("validateRunItemDetails succeeded, want legacy flat-field error")
+	}
+	if !strings.Contains(err.Error(), "commandStartFailure flat command must be empty") {
+		t.Fatalf("error = %q, want flat command error", err)
+	}
+}
+
 func TestRunActivityProjectionUsesTypedFileChangeDetails(t *testing.T) {
 	item := RunItem{
 		ID:          "item_file",

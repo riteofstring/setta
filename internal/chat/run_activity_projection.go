@@ -6,6 +6,7 @@ import (
 
 var runActivityDefaultTitles = map[RunItemType]string{
 	RunItemTypeCommandExecution:        "command execution",
+	RunItemTypeCommandStartFailure:     "Shell command failed to start",
 	RunItemTypeWebSearch:               "web search",
 	RunItemTypeImageView:               "image view",
 	RunItemTypeImageGeneration:         "image generation",
@@ -51,6 +52,7 @@ func runItemDisplayable(item RunItem, status RunItemStatus, hasDetails bool, has
 	}
 	switch item.Type {
 	case RunItemTypeCommandExecution,
+		RunItemTypeCommandStartFailure,
 		RunItemTypeFileChange,
 		RunItemTypeMCPToolCall,
 		RunItemTypeDynamicToolCall,
@@ -124,6 +126,8 @@ func runActivityTypedTitle(item RunItem) (string, bool) {
 	switch item.Type {
 	case RunItemTypeCommandExecution, RunItemTypeTerminalInteraction:
 		return runActivityCommandTitle(item), true
+	case RunItemTypeCommandStartFailure:
+		return runActivityCommandStartFailureTitle(item), true
 	case RunItemTypeMCPToolCall:
 		return runActivityMCPTitle(item), true
 	case RunItemTypeFileChange:
@@ -141,6 +145,13 @@ func runActivityTypedTitle(item RunItem) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+func runActivityCommandStartFailureTitle(item RunItem) string {
+	if _, ok := item.CommandStartFailureDetails(); ok {
+		return "Shell command failed to start"
+	}
+	return "Shell command failed to start"
 }
 
 func runActivityFileChangeTitle(item RunItem) string {
@@ -271,6 +282,7 @@ func runActivityProviderStreamLifecycleTitle(item RunItem) string {
 
 func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 	commandExecution := runItemCommandExecutionDetailsProjection(item)
+	commandStartFailure := runItemCommandStartFailureDetailsProjection(item)
 	dynamicToolCall := runItemDynamicToolCallDetailsProjection(item)
 	fileChange := runItemFileChangeDetailsProjection(item)
 	diff := runItemDiffDetailsProjection(item)
@@ -297,6 +309,7 @@ func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 		ReviewID:                runActivityReviewID(item),
 		Details:                 cloneRawMessage(item.RawDetails),
 		CommandExecution:        commandExecution,
+		CommandStartFailure:     commandStartFailure,
 		MCPToolCall:             runItemMCPToolCallDetailsProjection(item),
 		DynamicToolCall:         dynamicToolCall,
 		FileChange:              fileChange,
@@ -334,6 +347,14 @@ func cloneMCPToolCallDetails(details RunItemMCPToolCallDetails) RunItemMCPToolCa
 }
 
 func cloneCommandExecutionDetails(details RunItemCommandExecutionDetails) RunItemCommandExecutionDetails {
+	if details.Source != nil {
+		source := *details.Source
+		details.Source = &source
+	}
+	return details
+}
+
+func cloneCommandStartFailureDetails(details RunItemCommandStartFailureDetails) RunItemCommandStartFailureDetails {
 	if details.Source != nil {
 		source := *details.Source
 		details.Source = &source
@@ -414,6 +435,7 @@ func runActivityScalarDetailsInspectable(details RunActivityDetailsProjection) b
 func runActivityStructuredDetailsInspectable(details RunActivityDetailsProjection) bool {
 	return rawDetailsInspectable(details.Details) ||
 		details.CommandExecution != nil ||
+		details.CommandStartFailure != nil ||
 		details.MCPToolCall != nil ||
 		details.DynamicToolCall != nil ||
 		details.FileChange != nil ||
@@ -473,6 +495,15 @@ func runItemCommandExecutionDetailsProjection(item RunItem) *RunItemCommandExecu
 		return nil
 	}
 	cloned := cloneCommandExecutionDetails(*details)
+	return &cloned
+}
+
+func runItemCommandStartFailureDetailsProjection(item RunItem) *RunItemCommandStartFailureDetails {
+	details, ok := item.CommandStartFailureDetails()
+	if !ok {
+		return nil
+	}
+	cloned := cloneCommandStartFailureDetails(*details)
 	return &cloned
 }
 
@@ -551,7 +582,7 @@ func runActivityCommand(item RunItem, commandExecution *RunItemCommandExecutionD
 	if commandExecution != nil {
 		return commandExecution.Command
 	}
-	if item.Type == RunItemTypeCommandExecution {
+	if runActivitySuppressesFlatCommandFields(item) {
 		return ""
 	}
 	return item.Command
@@ -561,7 +592,7 @@ func runActivityCwd(item RunItem, commandExecution *RunItemCommandExecutionDetai
 	if commandExecution != nil {
 		return commandExecution.Cwd
 	}
-	if item.Type == RunItemTypeCommandExecution {
+	if runActivitySuppressesFlatCommandFields(item) {
 		return ""
 	}
 	return item.Cwd
@@ -571,7 +602,7 @@ func runActivityExitCode(item RunItem, commandExecution *RunItemCommandExecution
 	if commandExecution != nil {
 		return commandExecution.ExitCode
 	}
-	if item.Type == RunItemTypeCommandExecution {
+	if runActivitySuppressesFlatCommandFields(item) {
 		return 0
 	}
 	return item.ExitCode
@@ -581,7 +612,7 @@ func runActivityDurationMs(item RunItem, commandExecution *RunItemCommandExecuti
 	if commandExecution != nil {
 		return commandExecution.DurationMs
 	}
-	if item.Type == RunItemTypeCommandExecution {
+	if runActivitySuppressesFlatCommandFields(item) {
 		return 0
 	}
 	return item.DurationMs
@@ -591,7 +622,7 @@ func runActivityProcessID(item RunItem, commandExecution *RunItemCommandExecutio
 	if commandExecution != nil {
 		return commandExecution.ProcessID
 	}
-	if item.Type == RunItemTypeCommandExecution {
+	if runActivitySuppressesFlatCommandFields(item) {
 		return ""
 	}
 	return item.ProcessID
@@ -615,7 +646,7 @@ func runActivityResult(item RunItem, commandExecution *RunItemCommandExecutionDe
 	if commandExecution != nil {
 		return commandExecution.Result
 	}
-	if item.Type == RunItemTypeCommandExecution {
+	if runActivitySuppressesFlatCommandFields(item) {
 		return ""
 	}
 	return item.Result
@@ -625,8 +656,12 @@ func runActivityError(item RunItem, commandExecution *RunItemCommandExecutionDet
 	if commandExecution != nil {
 		return commandExecution.Error
 	}
-	if item.Type == RunItemTypeCommandExecution {
+	if runActivitySuppressesFlatCommandFields(item) {
 		return ""
 	}
 	return item.Error
+}
+
+func runActivitySuppressesFlatCommandFields(item RunItem) bool {
+	return item.Type == RunItemTypeCommandExecution || item.Type == RunItemTypeCommandStartFailure
 }

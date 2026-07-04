@@ -5,6 +5,7 @@ import "encoding/json"
 type RunItemDetails struct {
 	Kind                    RunItemDetailsKind                     `json:"kind"`
 	CommandExecution        *RunItemCommandExecutionDetails        `json:"commandExecution"`
+	CommandStartFailure     *RunItemCommandStartFailureDetails     `json:"commandStartFailure"`
 	MCPToolCall             *RunItemMCPToolCallDetails             `json:"mcpToolCall"`
 	DynamicToolCall         *RunItemDynamicToolCallDetails         `json:"dynamicToolCall"`
 	FileChange              *RunItemFileChangeDetails              `json:"fileChange"`
@@ -34,6 +35,7 @@ type RunActivityDetailsProjection struct {
 	ReviewID                string                                 `json:"reviewId"`
 	Details                 json.RawMessage                        `json:"details"`
 	CommandExecution        *RunItemCommandExecutionDetails        `json:"commandExecution"`
+	CommandStartFailure     *RunItemCommandStartFailureDetails     `json:"commandStartFailure"`
 	MCPToolCall             *RunItemMCPToolCallDetails             `json:"mcpToolCall"`
 	DynamicToolCall         *RunItemDynamicToolCallDetails         `json:"dynamicToolCall"`
 	FileChange              *RunItemFileChangeDetails              `json:"fileChange"`
@@ -51,6 +53,18 @@ type RunItemCommandExecutionDetails struct {
 	Source     *RunItemCommandSource `json:"source"`
 	Result     string                `json:"result"`
 	Error      string                `json:"error"`
+}
+
+type RunItemCommandStartFailureDetails struct {
+	Command         string                `json:"command"`
+	Cwd             string                `json:"cwd"`
+	Source          *RunItemCommandSource `json:"source"`
+	FailureClass    string                `json:"failureClass"`
+	Message         string                `json:"message"`
+	OSError         string                `json:"osError"`
+	ProviderErrorID string                `json:"providerErrorId"`
+	Sandbox         string                `json:"sandbox"`
+	ApprovalPolicy  string                `json:"approvalPolicy"`
 }
 
 type RunItemMCPToolCallDetails struct {
@@ -183,6 +197,7 @@ func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDet
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindMCPToolCall,
 		CommandExecution:        nil,
+		CommandStartFailure:     nil,
 		MCPToolCall:             &details,
 		DynamicToolCall:         nil,
 		FileChange:              nil,
@@ -196,6 +211,21 @@ func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindCommandExecution,
 		CommandExecution:        &details,
+		CommandStartFailure:     nil,
+		MCPToolCall:             nil,
+		DynamicToolCall:         nil,
+		FileChange:              nil,
+		Diff:                    nil,
+		Approval:                nil,
+		ProviderStreamLifecycle: nil,
+	}
+}
+
+func NewRunItemCommandStartFailureDetails(details RunItemCommandStartFailureDetails) *RunItemDetails {
+	return &RunItemDetails{
+		Kind:                    RunItemDetailsKindCommandStartFailure,
+		CommandExecution:        nil,
+		CommandStartFailure:     &details,
 		MCPToolCall:             nil,
 		DynamicToolCall:         nil,
 		FileChange:              nil,
@@ -209,6 +239,7 @@ func NewRunItemDynamicToolCallDetails(details RunItemDynamicToolCallDetails) *Ru
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindDynamicToolCall,
 		CommandExecution:        nil,
+		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
 		DynamicToolCall:         &details,
 		FileChange:              nil,
@@ -222,6 +253,7 @@ func NewRunItemFileChangeDetails(details RunItemFileChangeDetails) *RunItemDetai
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindFileChange,
 		CommandExecution:        nil,
+		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
 		DynamicToolCall:         nil,
 		FileChange:              &details,
@@ -235,6 +267,7 @@ func NewRunItemDiffDetails(details RunItemDiffDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindDiff,
 		CommandExecution:        nil,
+		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
 		DynamicToolCall:         nil,
 		FileChange:              nil,
@@ -248,6 +281,7 @@ func NewRunItemApprovalDetails(details RunItemApprovalDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindApproval,
 		CommandExecution:        nil,
+		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
 		DynamicToolCall:         nil,
 		FileChange:              nil,
@@ -261,6 +295,7 @@ func NewRunItemProviderStreamLifecycleDetails(details RunItemProviderStreamLifec
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindProviderStreamLifecycle,
 		CommandExecution:        nil,
+		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
 		DynamicToolCall:         nil,
 		FileChange:              nil,
@@ -278,6 +313,16 @@ func (item RunItem) CommandExecutionDetails() (*RunItemCommandExecutionDetails, 
 		return nil, false
 	}
 	return item.Details.CommandExecution, true
+}
+
+func (item RunItem) CommandStartFailureDetails() (*RunItemCommandStartFailureDetails, bool) {
+	if item.Type != RunItemTypeCommandStartFailure ||
+		item.Details == nil ||
+		item.Details.Kind != RunItemDetailsKindCommandStartFailure ||
+		item.Details.CommandStartFailure == nil {
+		return nil, false
+	}
+	return item.Details.CommandStartFailure, true
 }
 
 func (item RunItem) MCPToolCallDetails() (*RunItemMCPToolCallDetails, bool) {

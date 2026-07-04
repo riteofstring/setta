@@ -579,6 +579,7 @@ function runItem(id: string, runId: string, status: RunItem["status"]): RunItem 
     details: {
       approval: null,
       commandExecution: null,
+      commandStartFailure: null,
       diff: null,
       dynamicToolCall: {
         arguments: { value: "from test" },

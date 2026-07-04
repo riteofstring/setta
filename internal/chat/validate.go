@@ -770,6 +770,8 @@ func validateRunItemTypedDetails(item RunItem) error {
 	switch item.Type {
 	case RunItemTypeCommandExecution:
 		return validateRunItemCommandExecutionDetails(item)
+	case RunItemTypeCommandStartFailure:
+		return validateRunItemCommandStartFailureDetails(item)
 	case RunItemTypeMCPToolCall:
 		return validateRunItemMCPToolCallDetailsBranch(item)
 	case RunItemTypeDynamicToolCall:

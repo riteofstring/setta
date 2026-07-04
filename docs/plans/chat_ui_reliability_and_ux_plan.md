@@ -723,8 +723,18 @@ Status after the MCP typed-details cutover:
   active-run liveness controls. Deterministic Electron protocol coverage asserts
   backend projection, transcript rendering, and search through the production
   path.
-- Remaining: complete protocol findings and typed-detail cutover for failed
-  tool starts.
+- Done: Setta-owned failed tool starts now write
+  `RunItem.details.commandStartFailure` for command, cwd, command source,
+  failure class, diagnostic message, OS error, provider error ID, sandbox, and
+  approval policy. The renderer shows a failed `Shell command failed to start`
+  activity row with expandable diagnostics and searchable failure metadata.
+  Scripted-provider deterministic Electron coverage asserts backend projection,
+  transcript rendering, expansion, and search through the production path.
+- Remaining upstream dependency: the current generated Codex app-server command
+  execution schema exposes command status and normal execution metadata, but not
+  a structured failed-start reason, OS error, or provider error ID for startup
+  failures. Live Codex ingestion must wait for an explicit upstream failed-start
+  event or fields; Setta must not infer this branch from command text or prose.
 
 ### Slice 4: Tool And File Activity Rendering
 

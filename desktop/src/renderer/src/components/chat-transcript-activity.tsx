@@ -28,6 +28,7 @@ import type { RunItemOutputPageState } from "../stores/chat-store";
 import { BrailleSpinner } from "./ascii-spinner";
 import {
   ActivityCommandExecutionDetails,
+  ActivityCommandStartFailureDetails,
   ActivityDynamicToolDetails,
   ActivityExit,
   ActivityFileChangeDetails,
@@ -52,6 +53,7 @@ const activityIconByType = {
   approval_review: AlertTriangle,
   collab_agent_tool_call: Wrench,
   command_execution: Terminal,
+  command_start_failure: CircleAlert,
   context_compaction: Archive,
   diff: FileText,
   dynamic_tool_call: Wrench,
@@ -75,6 +77,7 @@ const activityIconClassByType = {
   approval_review: "h-4 w-4 shrink-0 text-status-alert",
   collab_agent_tool_call: "h-4 w-4 shrink-0 text-muted-foreground",
   command_execution: "h-4 w-4 shrink-0 text-muted-foreground",
+  command_start_failure: "h-4 w-4 shrink-0 text-status-critical-muted",
   context_compaction: "h-4 w-4 shrink-0 text-muted-foreground",
   diff: "h-4 w-4 shrink-0 text-muted-foreground",
   dynamic_tool_call: "h-4 w-4 shrink-0 text-muted-foreground",
@@ -184,6 +187,7 @@ const activityLabelResolvers = {
   approval_review: noActivityDisplayLabel,
   collab_agent_tool_call: toolActivityDisplayLabel,
   command_execution: commandActivityDisplayLabel,
+  command_start_failure: commandStartFailureActivityDisplayLabel,
   context_compaction: noActivityDisplayLabel,
   diff: diffActivityDisplayLabel,
   dynamic_tool_call: toolActivityDisplayLabel,
@@ -210,6 +214,10 @@ function noActivityDisplayLabel(): null {
 // derived in the Go projection so the renderer never parses raw shell commands.
 function commandActivityDisplayLabel(activity: ActivityItemBlockProjection) {
   return { monospace: true, text: activity.title };
+}
+
+function commandStartFailureActivityDisplayLabel(activity: ActivityItemBlockProjection) {
+  return { monospace: false, text: activity.title };
 }
 
 function fileActivityDisplayLabel(activity: ActivityItemBlockProjection) {
@@ -601,14 +609,7 @@ function ActivityDetails({
   outputText: string;
 }) {
   const commandExecution = activityCommandExecutionDisplay(details);
-  const genericResultDetails =
-    details.mcpToolCall === null &&
-    details.dynamicToolCall === null &&
-    details.commandExecution === null &&
-    details.fileChange === null &&
-    details.diff === null &&
-    details.approval === null &&
-    details.providerStreamLifecycle === null;
+  const genericResultDetails = hasGenericResultDetails(details);
   return (
     <div className="mt-1.5 w-full max-w-full min-w-0 overflow-hidden border-l border-border/70 pl-2">
       <div className="w-full max-w-full min-w-0 space-y-1.5 overflow-hidden text-xs text-muted-foreground">
@@ -625,6 +626,7 @@ function ActivityDetails({
           </>
         ) : null}
         <ActivityCommandExecutionDetails details={details} />
+        <ActivityCommandStartFailureDetails details={details} />
         <ActivityFileChangeDetails details={details} />
         <ActivityDiffDetails details={details} />
         <ActivityApprovalDetails details={details} />
@@ -647,9 +649,26 @@ function ActivityDetails({
   );
 }
 
+function hasGenericResultDetails(details: RunActivityDetailsProjection) {
+  return [
+    details.mcpToolCall,
+    details.dynamicToolCall,
+    details.commandExecution,
+    details.commandStartFailure,
+    details.fileChange,
+    details.diff,
+    details.approval,
+    details.providerStreamLifecycle,
+  ].every((value) => value === null);
+}
+
 function activityCommandExecutionDisplay(details: RunActivityDetailsProjection) {
-  const command = details.commandExecution;
-  if (command === null) {
+  const commandExecution = details.commandExecution;
+  if (commandExecution !== null) {
+    return commandExecution;
+  }
+  const commandStartFailure = details.commandStartFailure;
+  if (commandStartFailure === null) {
     return {
       command: details.command,
       cwd: details.cwd,
@@ -661,7 +680,16 @@ function activityCommandExecutionDisplay(details: RunActivityDetailsProjection) 
       source: null,
     };
   }
-  return command;
+  return {
+    command: commandStartFailure.command,
+    cwd: commandStartFailure.cwd,
+    durationMs: 0,
+    exitCode: 0,
+    processId: "",
+    result: "",
+    error: commandStartFailure.message,
+    source: commandStartFailure.source,
+  };
 }
 
 function hasExpandableActivityRow(activity: ActivityItemBlockProjection) {
@@ -757,41 +785,75 @@ function activityMetadata(details: RunActivityDetailsProjection) {
     { label: "review", value: details.reviewId },
     { label: "patch", value: details.patchStatus },
     { label: "notice", value: details.noticeKind },
+    ...mcpToolCallMetadata(details),
+    ...dynamicToolCallMetadata(details),
+    ...commandStartFailureMetadata(details),
+    ...approvalMetadata(details),
+    ...providerStreamLifecycleMetadata(details),
   ];
+  return entries.filter((entry) => entry.value !== "");
+}
+
+function mcpToolCallMetadata(details: RunActivityDetailsProjection) {
   if (details.mcpToolCall !== null) {
-    entries.push(
+    return [
       { label: "server", value: details.mcpToolCall.serverName },
       { label: "tool", value: details.mcpToolCall.toolName },
       { label: "plugin", value: details.mcpToolCall.pluginId },
       { label: "resource", value: details.mcpToolCall.mcpAppResourceUri },
-    );
+    ];
   }
+  return [];
+}
+
+function dynamicToolCallMetadata(details: RunActivityDetailsProjection) {
   if (details.dynamicToolCall !== null) {
-    entries.push(
+    return [
       { label: "namespace", value: details.dynamicToolCall.namespace },
       { label: "tool", value: details.dynamicToolCall.toolName },
       { label: "category", value: details.dynamicToolCall.category },
-    );
+    ];
   }
+  return [];
+}
+
+function commandStartFailureMetadata(details: RunActivityDetailsProjection) {
+  if (details.commandStartFailure !== null) {
+    return [
+      { label: "source", value: details.commandStartFailure.source ?? "" },
+      { label: "failure", value: details.commandStartFailure.failureClass },
+      { label: "provider", value: details.commandStartFailure.providerErrorId },
+      { label: "sandbox", value: details.commandStartFailure.sandbox },
+      { label: "approval", value: details.commandStartFailure.approvalPolicy },
+    ];
+  }
+  return [];
+}
+
+function approvalMetadata(details: RunActivityDetailsProjection) {
   if (details.approval !== null) {
-    entries.push(
+    return [
       { label: "approval", value: details.approval.approvalId },
       { label: "kind", value: details.approval.approvalKind ?? "" },
       { label: "status", value: details.approval.approvalStatus ?? "" },
       { label: "request", value: details.approval.providerRequestId },
       { label: "review", value: details.approval.reviewId },
       { label: "action", value: details.approval.actionType },
-    );
+    ];
   }
+  return [];
+}
+
+function providerStreamLifecycleMetadata(details: RunActivityDetailsProjection) {
   if (details.providerStreamLifecycle !== null) {
-    entries.push(
+    return [
       { label: "thread", value: details.providerStreamLifecycle.providerThreadId },
       { label: "turn", value: details.providerStreamLifecycle.providerTurnId },
       { label: "liveness", value: details.providerStreamLifecycle.livenessStatus },
       { label: "reason", value: details.providerStreamLifecycle.livenessReason },
-    );
+    ];
   }
-  return entries.filter((entry) => entry.value !== "");
+  return [];
 }
 
 function ActivityOutput({

@@ -12,6 +12,16 @@ func validateRunItemCommandExecutionDetails(item RunItem) error {
 	return validateRunItemCommandExecutionDetailsPayload(item, *item.Details.CommandExecution)
 }
 
+func validateRunItemCommandStartFailureDetails(item RunItem) error {
+	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindCommandStartFailure, "commandStartFailure"); err != nil {
+		return err
+	}
+	if err := validateRunItemCommandStartFailureFlatFieldsEmpty(item); err != nil {
+		return err
+	}
+	return validateRunItemCommandStartFailureDetailsPayload(item, *item.Details.CommandStartFailure)
+}
+
 func validateRunItemDetailsBranch(item RunItem, kind RunItemDetailsKind, branch string) error {
 	if rawDetailsInspectable(item.RawDetails) {
 		return fmt.Errorf("run item %s %s rawDetails must be empty after typed details cutover", item.ID, branch)
@@ -32,6 +42,8 @@ func runItemDetailsBranchPresent(details *RunItemDetails, kind RunItemDetailsKin
 	switch kind {
 	case RunItemDetailsKindCommandExecution:
 		return details.CommandExecution != nil
+	case RunItemDetailsKindCommandStartFailure:
+		return details.CommandStartFailure != nil
 	case RunItemDetailsKindMCPToolCall:
 		return details.MCPToolCall != nil
 	case RunItemDetailsKindDynamicToolCall:
@@ -55,6 +67,7 @@ func validateRunItemDetailsBranchExclusive(item RunItem, details RunItemDetails,
 		set  bool
 	}{
 		{name: "commandExecution", set: details.CommandExecution != nil},
+		{name: "commandStartFailure", set: details.CommandStartFailure != nil},
 		{name: "mcpToolCall", set: details.MCPToolCall != nil},
 		{name: "dynamicToolCall", set: details.DynamicToolCall != nil},
 		{name: "fileChange", set: details.FileChange != nil},
@@ -113,6 +126,47 @@ func validateRunItemCommandExecutionDetailsPayload(item RunItem, details RunItem
 	}
 	if details.Source != nil && isBackgroundTerminalStartupSource(*details.Source) && details.ProcessID == "" {
 		return fmt.Errorf("run item %s commandExecution unified_exec_startup processId is required", item.ID)
+	}
+	return nil
+}
+
+func validateRunItemCommandStartFailureFlatFieldsEmpty(item RunItem) error {
+	if item.Command != "" {
+		return fmt.Errorf("run item %s commandStartFailure flat command must be empty after typed details cutover", item.ID)
+	}
+	if item.Cwd != "" {
+		return fmt.Errorf("run item %s commandStartFailure flat cwd must be empty after typed details cutover", item.ID)
+	}
+	if item.ExitCode != 0 {
+		return fmt.Errorf("run item %s commandStartFailure flat exitCode must be zero after typed details cutover", item.ID)
+	}
+	if item.DurationMs != 0 {
+		return fmt.Errorf("run item %s commandStartFailure flat durationMs must be zero after typed details cutover", item.ID)
+	}
+	if item.Result != "" {
+		return fmt.Errorf("run item %s commandStartFailure flat result must be empty after typed details cutover", item.ID)
+	}
+	if item.Error != "" {
+		return fmt.Errorf("run item %s commandStartFailure flat error must be empty after typed details cutover", item.ID)
+	}
+	if item.ProcessID != "" {
+		return fmt.Errorf("run item %s commandStartFailure flat processId must be empty after typed details cutover", item.ID)
+	}
+	if item.Source != nil {
+		return fmt.Errorf("run item %s commandStartFailure flat source must be empty after typed details cutover", item.ID)
+	}
+	return nil
+}
+
+func validateRunItemCommandStartFailureDetailsPayload(item RunItem, details RunItemCommandStartFailureDetails) error {
+	if details.Command == "" {
+		return fmt.Errorf("run item %s commandStartFailure command is required", item.ID)
+	}
+	if details.Message == "" {
+		return fmt.Errorf("run item %s commandStartFailure message is required", item.ID)
+	}
+	if details.Source != nil && !validValue(*details.Source, runItemCommandSourceValues) {
+		return fmt.Errorf("run item %s commandStartFailure has unsupported source %s", item.ID, *details.Source)
 	}
 	return nil
 }

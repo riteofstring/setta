@@ -412,6 +412,9 @@ func mergeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunIte
 	if next.Kind == RunItemDetailsKindCommandExecution {
 		return mergeCommandExecutionRunItemDetails(existing, next)
 	}
+	if next.Kind == RunItemDetailsKindCommandStartFailure {
+		return mergeCommandStartFailureRunItemDetails(existing, next)
+	}
 	if next.Kind == RunItemDetailsKindMCPToolCall {
 		return mergeMCPToolCallRunItemDetails(existing, next)
 	}
@@ -449,6 +452,27 @@ func mergeCommandExecutionRunItemDetails(existing *RunItemDetails, next *RunItem
 	merged.Result = keepString(merged.Result, previous.Result)
 	merged.Error = keepString(merged.Error, previous.Error)
 	return NewRunItemCommandExecutionDetails(merged)
+}
+
+func mergeCommandStartFailureRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
+	if next.CommandStartFailure == nil {
+		return existing
+	}
+	if existing.CommandStartFailure == nil {
+		return next
+	}
+	merged := cloneCommandStartFailureDetails(*next.CommandStartFailure)
+	previous := existing.CommandStartFailure
+	merged.Command = keepString(merged.Command, previous.Command)
+	merged.Cwd = keepString(merged.Cwd, previous.Cwd)
+	merged.Source = keepCommandSource(merged.Source, previous.Source)
+	merged.FailureClass = keepString(merged.FailureClass, previous.FailureClass)
+	merged.Message = keepString(merged.Message, previous.Message)
+	merged.OSError = keepString(merged.OSError, previous.OSError)
+	merged.ProviderErrorID = keepString(merged.ProviderErrorID, previous.ProviderErrorID)
+	merged.Sandbox = keepString(merged.Sandbox, previous.Sandbox)
+	merged.ApprovalPolicy = keepString(merged.ApprovalPolicy, previous.ApprovalPolicy)
+	return NewRunItemCommandStartFailureDetails(merged)
 }
 
 func mergeMCPToolCallRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {

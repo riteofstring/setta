@@ -47,6 +47,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "file approval workflow", Run: scriptedFileApprovalTurn},
 	{Prompt: "activity feed workflow", Run: (*ScriptedWorkflowHarness).activityFeedTurn},
 	{Prompt: "chat activity projection workflow", Run: (*ScriptedWorkflowHarness).activityProjectionTurn},
+	{Prompt: "command start failure workflow", Run: scriptedCommandStartFailureTurn},
 	{Prompt: "chat activity projection reload workflow", Run: scriptedActivityProjectionReloadTurn},
 	{Prompt: "chronological transcript workflow", Run: scriptedChronologicalTranscriptTurn},
 	{Prompt: "background terminal workflow", Run: scriptedBackgroundTerminalTurn},
@@ -787,6 +788,30 @@ func scriptedReply(sink TurnSink, runID string, text string) (TurnCompletion, er
 		return TurnCompletion{}, err
 	}
 	return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
+}
+
+func scriptedCommandStartFailureTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	source := RunItemCommandSourceAgent
+	if err := sink.RunItemUpsert(RunItem{
+		ProviderItemID: "provider_command_start_failure_" + request.Run.ID,
+		Type:           RunItemTypeCommandStartFailure,
+		Status:         RunItemStatusFailed,
+		Summary:        "Scripted provider reported a command start failure.",
+		Details: NewRunItemCommandStartFailureDetails(RunItemCommandStartFailureDetails{
+			Command:         "printf scripted-start-failure",
+			Cwd:             request.Workspace.RootPath,
+			Source:          &source,
+			FailureClass:    "resource_exhaustion",
+			Message:         "Too many open files (os error 24)",
+			OSError:         "os error 24",
+			ProviderErrorID: "scripted-emfile-" + request.Run.ID,
+			Sandbox:         "workspace-write",
+			ApprovalPolicy:  "on-request",
+		}),
+	}); err != nil {
+		return TurnCompletion{}, err
+	}
+	return scriptedReply(sink, request.Run.ID, "Command start failure workflow complete.")
 }
 
 func scriptedApprovalActivity(sink TurnSink, runID string, approval ApprovalRequest) error {
