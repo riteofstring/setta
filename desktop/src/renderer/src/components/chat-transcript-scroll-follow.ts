@@ -1,8 +1,10 @@
 import type {
+  ApprovalQuestion,
   ChatMessage,
   MessagePart,
   Run,
   RunItemOutput,
+  StructuredInputRequest,
   TranscriptBlock,
 } from "@generated/backend";
 import type { KeyboardEvent, RefObject, UIEvent, WheelEvent } from "react";
@@ -357,16 +359,66 @@ function activeRunRevisionPart(run: Run | null) {
   if (run === null) {
     return "none";
   }
-  const approval = run.pendingApproval;
   return [
     run.id,
     run.status,
     run.completedAt,
     run.error,
-    approval?.id ?? "",
-    approval?.status ?? "",
-    approval?.title ?? "",
+    approvalRevisionPart(run.pendingApproval),
   ].join(":");
+}
+
+function approvalRevisionPart(approval: Run["pendingApproval"]) {
+  if (approval === null) {
+    return "none";
+  }
+  return (
+    JSON.stringify([
+      approval.id,
+      approval.runItemId,
+      approval.providerItemId,
+      approval.kind,
+      approval.status,
+      approval.title,
+      approval.body,
+      approval.command,
+      approval.filePath,
+      approval.permission,
+      approval.question,
+      approval.options,
+      approval.questions.map(approvalQuestionRevisionPart),
+      structuredInputRevisionPart(approval.structuredInput),
+    ]) ?? ""
+  );
+}
+
+function approvalQuestionRevisionPart(question: ApprovalQuestion) {
+  return [
+    question.id,
+    question.header,
+    question.question,
+    question.options,
+    question.isOther,
+    question.isSecret,
+  ];
+}
+
+function structuredInputRevisionPart(input: StructuredInputRequest | null) {
+  if (input === null) {
+    return null;
+  }
+  return [
+    input.providerRequestId,
+    input.threadId,
+    input.turnId,
+    input.serverName,
+    input.mode,
+    input.message,
+    input.schema,
+    input.url,
+    input.elicitationId,
+    input.meta,
+  ];
 }
 
 function transcriptRenderRowRevisionPart(row: TranscriptRenderRow) {

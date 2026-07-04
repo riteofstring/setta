@@ -752,6 +752,26 @@ Status after the image attachment variant cutover:
   streaming deltas, row-append deltas, output deltas, search, and older-page
   loading.
 
+Status after the transcript scroll stickiness step:
+
+- Done: `ChatTranscript` now delegates transcript tail behavior to a focused
+  scroll-follow controller with explicit `auto_follow`, `user_detached`, and
+  `programmatic_anchor` modes. The controller uses scroll distance plus Virtuoso
+  range visibility for the tolerant-bottom contract and exposes a cheap debug
+  snapshot for E2E assertions.
+- Done: tail revisions now include visible tail rows, assistant text growth,
+  message and queued-message updates, activity updates, run-output deltas,
+  run-output page state, and active-run pending approval footer state.
+- Done: manual scroll movement detaches from the live tail, Jump to latest and
+  reaching the bottom re-enable following, and search plus older-page loading
+  use programmatic-anchor restoration instead of mixing with live-follow intent.
+- Done: deterministic Electron coverage drives the production
+  main/preload/renderer/HTTP/store path for scroll-away/no-steal behavior,
+  Jump-to-latest re-pinning, same-row streaming growth, row-append streaming,
+  output deltas, search focus, and older-page anchor preservation after reload.
+- Remaining: no known Slice 6 implementation gap. Slice 7 is ready to start
+  with the typed composer prompt-history contract.
+
 ### Slice 7: Composer Prompt History
 
 - Define `ComposerPromptHistoryEntry` and request/response contracts in the
