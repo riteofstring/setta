@@ -175,8 +175,9 @@ Verification:
   existing live semantic cartographer workflow while waiting for backend state. This failed live-provider attempt is not treated as provider integration proof.
 - `./scripts/format.sh`; `./check_quality.sh --git-changes`
 
-Remaining notes: Track 7, workflow definition file atomicity, is the next Phase
-1 remediation track before reload/restart workflow trajectory E2E coverage.
+Remaining notes: workflow definition file atomicity is now complete; Track 3,
+Codex app-server process lifecycle ownership, is the next Phase 1 remediation
+track before provider lifecycle E2E results are treated as reliable.
 
 ### 4. Workflow Definition File Atomicity
 
@@ -186,6 +187,27 @@ coverage.
 The shared trajectory plan requires reload/restart behavior for node details.
 Those tests should not be confounded by duplicate definition files from normal
 renames.
+
+Status: completed 2026-07-03. Workflow definition updates now write back to the
+loaded current JSON path instead of deriving a new filename from the edited
+display name. New definitions keep the existing slug-plus-ID initial filename,
+same-path updates retain temp-file-plus-rename atomic replacement, and
+duplicate-ID detection remains loud for corrupt/manual duplicate files.
+Focused Go tests cover stable rename paths, repeated renames, injected commit
+failure, duplicate corruption, and list/read behavior after rename.
+Deterministic Electron coverage verifies create/rename/reload/list/read/graph
+projection through production Electron/preload/backend paths with temporary app
+data.
+
+Verification:
+
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(StoresDefinitionsAsWorkspaceJSONAndSnapshotsOnStart|WorkflowDefinitionRenameKeepsSingleStableFile|WorkflowDefinitionUpdateCommitFailureLeavesOriginalReadable|WorkflowDefinitionDuplicateIDFailsLoudly)'`
+- `./scripts/go.sh test ./internal/orchestrator`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-definition-file-atomicity-only`
+
+Remaining notes: Track 3, Codex app-server process lifecycle ownership, is the
+next Phase 1 remediation track before treating provider lifecycle E2E results as
+reliable.
 
 ### 5. Codex App-Server Process Lifecycle Ownership
 
