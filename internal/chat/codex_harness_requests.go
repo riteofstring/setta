@@ -45,7 +45,7 @@ func mcpElicitationApprovalFromCodex(params map[string]any, context codexApprova
 			Summary:        input.Message,
 			ServerName:     input.ServerName,
 			RequestID:      context.requestID,
-			Details:        input.Schema,
+			RawDetails:     input.Schema,
 		},
 	}, nil
 }
@@ -207,7 +207,7 @@ func codexDynamicToolRunItem(call AgentToolCall, tool AgentTool, registered bool
 		Title:          "Dynamic tool call",
 		Namespace:      call.Namespace,
 		ToolName:       call.Tool,
-		Details:        call.Arguments,
+		RawDetails:     call.Arguments,
 	}
 	if registered {
 		item.Title = tool.AuditMetadata.DisplayName

@@ -482,7 +482,7 @@ func workflowResultPayloadFromActivity(activity chat.RunActivityPage) ([]Workflo
 			item.ToolName != chat.SettaWorkflowResultAgentToolName {
 			continue
 		}
-		payload, err := chat.DecodeSettaWorkflowResultPayload(item.Details)
+		payload, err := chat.DecodeSettaWorkflowResultPayload(item.RawDetails)
 		if err != nil {
 			return nil, nil, nil, err
 		}

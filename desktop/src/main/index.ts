@@ -1,16 +1,17 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, powerMonitor } from "electron";
 import type { OpenDialogOptions } from "electron";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import {
   createBackendClient,
   type BackendClient,
   type ChatEvent,
+  type RunLivenessReason,
   type TerminalEvent,
   type WorkflowEvent,
 } from "@generated/backend";
-import type { BackendFetch } from "@shared/backend-runtime";
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
@@ -19,6 +20,8 @@ import { startBackendEventStream, type BackendEventStream } from "./backend-even
 import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
+import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
+import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
@@ -53,15 +56,12 @@ const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
 const backendRequestDrainTimeoutMs = 1_500;
 const workspaceBrowserViews = createElectronWebContentsViewRegistry();
-
 function desktopRoot() {
   return process.cwd();
 }
-
 function repoRoot() {
   return resolve(desktopRoot(), "..");
 }
-
 async function prepareBackend(appDataDir: string) {
   emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
   try {
@@ -75,7 +75,6 @@ async function prepareBackend(appDataDir: string) {
       url: backend.url,
     });
     recorder?.recordAppEvent("backend_started", {
-      ...(isE2E() ? { bootstrapToken: backend.bootstrapToken } : {}),
       mode: backend.mode,
       url: backend.url,
     });
@@ -114,9 +113,8 @@ function startChatEventStream() {
   }
   void stopChatEventStream();
   backendEventStream = startBackendEventStream({
-    authToken: backend.bootstrapToken,
     baseURL: backend.url,
-    fetchImpl: backendFetch(),
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     observer: {
       forwarded: (event) => {
         recorder?.recordAppEvent("chat_event_forwarded", {
@@ -129,6 +127,9 @@ function startChatEventStream() {
       lifecycle: (event) => {
         emitBackendEventStreamStatus(event);
         recorder?.recordAppEvent("chat_event_stream_" + event.status, event);
+        if (event.status === "reconnecting" || event.status === "resyncing") {
+          void reconcileChatRunsInBackground("stream_resync");
+        }
       },
     },
     sendEvent: forwardChatEvent,
@@ -141,9 +142,8 @@ function startWorkflowEventStreamForwarding() {
   }
   void stopWorkflowEventStreamForwarding();
   workflowEventStream = startWorkflowEventStream({
-    authToken: backend.bootstrapToken,
     baseURL: backend.url,
-    fetchImpl: backendFetch(),
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     sendEvent: forwardWorkflowEvent,
   });
 }
@@ -154,9 +154,8 @@ function startSemanticGraphEventStreamForwarding() {
   }
   void stopSemanticGraphEventStreamForwarding();
   semanticGraphEventStream = startSemanticGraphEventForwarding({
-    authToken: backend.bootstrapToken,
     baseURL: backend.url,
-    fetchImpl: backendFetch(),
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     recorder,
   });
 }
@@ -167,9 +166,8 @@ function startTerminalEventStreamForwarding() {
   }
   void stopTerminalEventStreamForwarding();
   terminalEventStream = startTerminalEventStream({
-    authToken: backend.bootstrapToken,
     baseURL: backend.url,
-    fetchImpl: backendFetch(),
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     sendEvent: forwardTerminalEvent,
   });
 }
@@ -180,9 +178,8 @@ function startWorkspaceActivityEventStreamForwarding() {
   }
   void stopWorkspaceActivityEventStreamForwarding();
   workspaceActivityEventStream = startWorkspaceActivityEventForwarding({
-    authToken: backend.bootstrapToken,
     baseURL: backend.url,
-    fetchImpl: backendFetch(),
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     recorder,
   });
 }
@@ -587,8 +584,21 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatMessagePage",
-    async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
+    async (_event, workspaceId, conversationId, beforeBlockOrdinal, limit) => {
       return requireBackendClient().getMessagePage({
+        beforeBlockOrdinal,
+        conversationId,
+        limit,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatListComposerPromptHistory",
+    async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
+      return requireBackendClient().listComposerPromptHistory({
         beforeOrdinal,
         conversationId,
         limit,
@@ -618,54 +628,31 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  handleIpc(
-    ipcMain,
-    "chatSetCodexModel",
-    async (_event, workspaceId, conversationId, modelId) => {
-      return requireBackendClient().setChatCodexModel({
-        conversationId,
-        modelId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSetCodexReasoningEffort",
-    async (_event, workspaceId, conversationId, reasoningEffort) => {
-      return requireBackendClient().setChatCodexReasoningEffort({
-        conversationId,
-        reasoningEffort,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
+  registerChatCodexIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "chatSendMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().sendChatMessage({ conversationId, prompt, workspaceId });
+    async (_event, workspaceId, conversationId, input) => {
+      return requireBackendClient().sendChatMessage({ conversationId, input, workspaceId });
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
     "chatQueueMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().queueChatMessage({ conversationId, prompt, workspaceId });
+    async (_event, workspaceId, conversationId, input) => {
+      return requireBackendClient().queueChatMessage({ conversationId, input, workspaceId });
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
     "chatEditQueuedMessage",
-    async (_event, workspaceId, conversationId, messageId, prompt) => {
+    async (_event, workspaceId, conversationId, messageId, input) => {
       return requireBackendClient().editQueuedChatMessage({
         conversationId,
+        input,
         messageId,
-        prompt,
         workspaceId,
       });
     },
@@ -686,20 +673,67 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatSteerMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().steerChatMessage({ conversationId, prompt, workspaceId });
+    async (_event, workspaceId, conversationId, input) => {
+      return requireBackendClient().steerChatMessage({ conversationId, input, workspaceId });
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
     "chatSendSteeringImmediately",
-    async (_event, workspaceId, conversationId, prompt) => {
+    async (_event, workspaceId, conversationId, input) => {
       return requireBackendClient().sendSteeringImmediately({
         conversationId,
-        prompt,
+        input,
         workspaceId,
       });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatCreateImageAttachmentFromBytes",
+    async (_event, workspaceId, conversationId, fileName, dataBase64) => {
+      return requireBackendClient().createChatImageAttachmentFromBytes({
+        conversationId,
+        dataBase64,
+        fileName,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatSelectImageAttachments",
+    async (_event, workspaceId, conversationId, maxCount) => {
+      if (!Number.isInteger(maxCount) || maxCount <= 0) {
+        throw new Error("No image attachment slots remaining.");
+      }
+      const selection = await dialog.showOpenDialog({
+        filters: [{ extensions: ["png", "jpg", "jpeg", "gif"], name: "Images" }],
+        properties: ["openFile", "multiSelections"],
+      });
+      if (selection.canceled) {
+        return [];
+      }
+      if (selection.filePaths.length > maxCount) {
+        throw new Error(`Select at most ${maxCount} images.`);
+      }
+      const client = requireBackendClient();
+      const attachments = [];
+      for (const path of selection.filePaths) {
+        const data = await readFile(path);
+        attachments.push(
+          await client.createChatImageAttachmentFromBytes({
+            conversationId,
+            dataBase64: data.toString("base64"),
+            fileName: basename(path),
+            workspaceId,
+          }),
+        );
+      }
+      return attachments;
     },
     ipcObserver,
   );
@@ -721,6 +755,14 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatReconcileRuns",
+    async (_event, request) => {
+      return requireBackendClient().reconcileChatRuns(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatRunActivity",
     async (_event, workspaceId, runId, limit) => {
       return requireBackendClient().getRunActivity({ limit, runId, workspaceId });
@@ -737,6 +779,55 @@ function registerIpc() {
         limit,
         runId,
         runItemId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatListBackgroundTerminals",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().listBackgroundTerminals({
+        conversationId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatGetBackgroundTerminalOutput",
+    async (_event, ...args) => {
+      const [workspaceId, conversationId, processId, afterOrdinal, limit] = args;
+      return requireBackendClient().getBackgroundTerminalOutput({
+        afterOrdinal,
+        conversationId,
+        limit,
+        processId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatKillBackgroundTerminal",
+    async (_event, workspaceId, conversationId, processId) => {
+      return requireBackendClient().killBackgroundTerminal({
+        conversationId,
+        processId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatKillAllBackgroundTerminals",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().killAllBackgroundTerminals({
+        conversationId,
         workspaceId,
       });
     },
@@ -815,23 +906,8 @@ function requireBackendClient(): BackendClient {
   if (!backend) {
     throw new Error(backendStartupError ?? "backend is not running");
   }
-  return createBackendClient(backend.url, backendRequests.wrapFetch(backendFetch()));
-}
-
-function backendFetch(): BackendFetch {
-  if (!backend) {
-    throw new Error(backendStartupError ?? "backend is not running");
-  }
   const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
-  return authenticatedBackendFetch(fetchImpl, backend.bootstrapToken);
-}
-
-function authenticatedBackendFetch(fetchImpl: BackendFetch, token: string): BackendFetch {
-  return (input, init) => {
-    const headers = new Headers(init.headers);
-    headers.set("Authorization", `Bearer ${token}`);
-    return fetchImpl(input, { ...init, headers });
-  };
+  return createBackendClient(backend.url, backendRequests.wrapFetch(fetchImpl));
 }
 
 async function stopBackend() {
@@ -847,16 +923,43 @@ function requestQuit() {
   app.quit();
 }
 
+function registerPowerMonitorHandlers() {
+  powerMonitor.on("resume", () => {
+    void reconcileChatRunsInBackground("wake_recheck");
+  });
+}
+
+async function reconcileChatRunsInBackground(reason: RunLivenessReason) {
+  if (!backend) {
+    return;
+  }
+  try {
+    await requireBackendClient().reconcileChatRuns({
+      conversationId: "",
+      reason,
+      workspaceId: "",
+    });
+    recorder?.recordAppEvent("chat_runs_reconciled", { reason });
+  } catch (error) {
+    recorder?.recordAppEvent("chat_runs_reconcile_failed", {
+      message: error instanceof Error ? error.message : String(error),
+      reason,
+    });
+  }
+}
+
 app.whenReady().then(async () => {
   if (isE2E() && !isVisibleE2E()) {
     app.dock?.hide();
   }
+  registerPowerMonitorHandlers();
   const appDataDir = settaAppDataDir();
   recorder = createSessionRecorder(process.env, {
     appDataDir,
     desktopRoot: desktopRoot(),
     repoRoot: repoRoot(),
   });
+  registerChatAttachmentProtocol(appDataDir);
   await prepareBackend(appDataDir);
   await createWindow();
 });

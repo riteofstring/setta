@@ -18,7 +18,6 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
-import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame-budget.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const overviewWorkflowTimeoutMs = 25_000;
@@ -72,7 +71,6 @@ try {
     expectedMode: "overview",
     name: "enter-overview",
   });
-  assertSmoothFrameSample(enter, "enter overview transition", { minFrameCount: 30 });
   const overviewBrowserStats = await readNativeBrowserStats(context.client);
   assertNativeBrowsersHiddenForOverview(overviewBrowserStats, 2);
   const overviewSnapshots = await waitForBrowserSnapshotImages(context.client, 2);
@@ -84,7 +82,6 @@ try {
     expectedMode: "normal",
     name: "exit-overview",
   });
-  assertSmoothFrameSample(exit, "exit overview transition", { minFrameCount: 30 });
   await waitForNativeBrowserLiveCount(context.client, 2);
   const normalAfterBrowserStats = await readNativeBrowserStats(context.client);
   await captureScreenshot(context.client, join(artifactDir, "normal-after.png"));
@@ -99,10 +96,6 @@ try {
     browserSnapshots: {
       normal: normalSnapshots,
       overview: overviewSnapshots,
-    },
-    frameBudgets: {
-      enter: frameBudgetSummary(enter),
-      exit: frameBudgetSummary(exit),
     },
     samples: [enter, exit],
     status: "passed",

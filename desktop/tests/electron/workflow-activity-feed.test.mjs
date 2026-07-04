@@ -5,6 +5,7 @@ import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { driverCallExpression } from "./cdp-client.mjs";
+import { chatTextInput } from "./chat-input-helpers.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -618,20 +619,26 @@ async function waitForWorkflowChatRunStatus(client, workspaceId, conversationId,
   return waitForState(
     client,
     `window.setta.chat.messagePage(${JSON.stringify(workspaceId)}, ${JSON.stringify(conversationId)}, 0, 40)`,
-    (page) => transcriptRun(page, runId)?.status === status,
+    (page) => messagePageRunStatus(page, runId) === status,
   );
 }
 
 async function waitForWorkflowChatRunPendingApproval(client, workspaceId, conversationId, runId) {
   return waitForState(
     client,
-    `window.setta.chat.messagePage(${JSON.stringify(workspaceId)}, ${JSON.stringify(conversationId)}, 0, 40)`,
-    (page) => transcriptRun(page, runId)?.pendingApproval?.status === "pending",
+    `window.setta.chat.activeRun(${JSON.stringify(workspaceId)}, ${JSON.stringify(conversationId)})`,
+    (response) =>
+      response.hasActiveRun === true &&
+      response.run?.id === runId &&
+      response.run.pendingApproval?.status === "pending",
   );
 }
 
-function transcriptRun(page, runId) {
-  return page.transcript?.find((turn) => turn.run?.id === runId)?.run ?? null;
+function messagePageRunStatus(page, runId) {
+  return (
+    page.blocks?.find((block) => block.runId === runId && block.kind === "run_status")?.status ??
+    null
+  );
 }
 
 async function waitForWorkflowApprovalCard(client) {
@@ -658,7 +665,7 @@ async function steerWorkflowActivity(client, workspaceId, execution, prompt) {
       `running workflow activity missing chat conversation: ${JSON.stringify(execution)}`,
     );
   }
-  await rendererChat(client, "steerMessage", [workspaceId, conversationId, prompt]);
+  await rendererChat(client, "steerMessage", [workspaceId, conversationId, chatTextInput(prompt)]);
 }
 
 async function submitPendingWorkflowApproval(client, snapshot) {
@@ -1451,7 +1458,6 @@ function emptyCanvasPoint(snapshot) {
   }
   return point;
 }
-
 function pointInsideNodeScreenBounds(snapshot, node, point, padding = 0) {
   const halfWidth = (node.width * snapshot.camera.zoom) / 2;
   const halfHeight = (node.height * snapshot.camera.zoom) / 2;
@@ -1462,11 +1468,9 @@ function pointInsideNodeScreenBounds(snapshot, node, point, padding = 0) {
     point.y <= node.screenY + halfHeight + padding
   );
 }
-
 function firstNonEmpty(...values) {
   return values.find((value) => value !== "") ?? "";
 }
-
 function assertRenderCounterUnchanged(before, after, counter, label) {
   if (after.render[counter] !== before.render[counter]) {
     throw new Error(
@@ -1474,18 +1478,15 @@ function assertRenderCounterUnchanged(before, after, counter, label) {
     );
   }
 }
-
 function latestNodeExecution(execution, nodeId) {
   return (
     execution.nodeExecutions.filter((nodeExecution) => nodeExecution.nodeId === nodeId).at(-1) ??
     null
   );
 }
-
 function runnerRef(nodeExecution, kind) {
   return nodeExecution?.runnerRefs.find((ref) => ref.kind === kind)?.id ?? "";
 }
-
 async function rendererChat(client, method, args) {
   return client.evaluate(
     `window.setta.chat[${JSON.stringify(method)}](...${JSON.stringify(args)})`,

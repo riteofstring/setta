@@ -184,8 +184,10 @@ func commandApprovalRunItem(providerItemID string, command string, cwd string, r
 		Status:         RunItemStatusPending,
 		Title:          "Command approval",
 		Summary:        reason,
-		Command:        command,
-		Cwd:            cwd,
+		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+			Command: command,
+			Cwd:     cwd,
+		}),
 	}
 }
 
@@ -218,8 +220,7 @@ func fileChangeApprovalRunItem(providerItemID string, grantRoot string, reason s
 		Status:         RunItemStatusPending,
 		Title:          "File change approval",
 		Summary:        reason,
-		FilePaths:      []string{grantRoot},
-		PatchStatus:    "approval_requested",
+		Details:        newRunItemFileChangeDetails("approval_requested", []RunItemFileChangePath{{Path: grantRoot}}),
 	}
 }
 
