@@ -12,10 +12,6 @@ import type {
   BackendEventStreamStatus,
   BackendProcessStatus,
   DesktopPlatform,
-  KnownRuntimeView,
-  RuntimeConnectionState,
-  RuntimeConnectionStatus,
-  RuntimeRegistrySnapshot,
   WorkspaceBrowserViewKeyEvent,
   WorkspaceBrowserViewSnapshot,
   SettaAPI,
@@ -81,22 +77,6 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.backendProcessStatus, handler);
       };
     },
-  },
-  runtimes: {
-    addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
-    current: () => invoke("runtimeCurrent"),
-    list: () => invoke("runtimeList"),
-    onConnectionState: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeRuntimeRegistrySnapshot(payload));
-      };
-      ipcRenderer.on(ipcEvents.runtimeConnectionState, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.runtimeConnectionState, handler);
-      };
-    },
-    remove: (runtimeId) => invoke("runtimeRemove", runtimeId),
-    switch: (runtimeId) => invoke("runtimeSwitch", runtimeId),
   },
   workspaceActivity: {
     onEvent: (listener) => {
@@ -188,16 +168,28 @@ const api: SettaAPI = {
       invoke("chatActiveRun", workspaceId, conversationId),
     cancelRun: (workspaceId: string, conversationId: string) =>
       invoke("chatCancelRun", workspaceId, conversationId),
+    reconcileRuns: (request) => invoke("chatReconcileRuns", request),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
     deleteConversation: (workspaceId: string, conversationId: string) =>
       invoke("chatDeleteConversation", workspaceId, conversationId),
-    editQueuedMessage: (
+    editQueuedMessage: (workspaceId: string, conversationId: string, messageId: string, input) =>
+      invoke("chatEditQueuedMessage", workspaceId, conversationId, messageId, input),
+    createImageAttachmentFromBytes: (
       workspaceId: string,
       conversationId: string,
-      messageId: string,
-      prompt: string,
-    ) => invoke("chatEditQueuedMessage", workspaceId, conversationId, messageId, prompt),
+      fileName: string,
+      dataBase64: string,
+    ) =>
+      invoke(
+        "chatCreateImageAttachmentFromBytes",
+        workspaceId,
+        conversationId,
+        fileName,
+        dataBase64,
+      ),
+    selectImageAttachments: (workspaceId: string, conversationId: string, maxCount: number) =>
+      invoke("chatSelectImageAttachments", workspaceId, conversationId, maxCount),
     executeCommand: (workspaceId: string, conversationId: string, raw: string, options) =>
       invoke(
         "chatExecuteCommand",
@@ -206,10 +198,18 @@ const api: SettaAPI = {
         raw,
         options?.confirmGoalReplacement ?? false,
       ),
+    readCodexDefaults: () => invoke("chatReadCodexDefaults"),
+    openCodexModelPicker: (workspaceId: string, conversationId: string) =>
+      invoke("chatOpenCodexModelPicker", workspaceId, conversationId),
+    openCodexPermissionPicker: (workspaceId: string, conversationId: string) =>
+      invoke("chatOpenCodexPermissionPicker", workspaceId, conversationId),
     setCodexModel: (workspaceId: string, conversationId: string, modelId: string) =>
       invoke("chatSetCodexModel", workspaceId, conversationId, modelId),
+    setCodexPermissionPreset: (workspaceId: string, conversationId: string, preset, confirmed) =>
+      invoke("chatSetCodexPermissionPreset", workspaceId, conversationId, preset, confirmed),
     setCodexReasoningEffort: (workspaceId: string, conversationId: string, effort) =>
       invoke("chatSetCodexReasoningEffort", workspaceId, conversationId, effort),
+    updateCodexDefaults: (request) => invoke("chatUpdateCodexDefaults", request),
     setConversationPinned: (workspaceId: string, conversationId: string, pinned: boolean) =>
       invoke("chatSetConversationPinned", workspaceId, conversationId, pinned),
     listCommands: (workspaceId: string, conversationId: string) =>
@@ -220,9 +220,15 @@ const api: SettaAPI = {
     messagePage: (
       workspaceId: string,
       conversationId: string,
+      beforeBlockOrdinal: number,
+      limit: number,
+    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeBlockOrdinal, limit),
+    listComposerPromptHistory: (
+      workspaceId: string,
+      conversationId: string,
       beforeOrdinal: number,
       limit: number,
-    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeOrdinal, limit),
+    ) => invoke("chatListComposerPromptHistory", workspaceId, conversationId, beforeOrdinal, limit),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeChatEvent(payload));
@@ -232,12 +238,12 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.chatEvent, handler);
       };
     },
-    queueMessage: (workspaceId: string, conversationId: string, prompt: string) =>
-      invoke("chatQueueMessage", workspaceId, conversationId, prompt),
+    queueMessage: (workspaceId: string, conversationId: string, input) =>
+      invoke("chatQueueMessage", workspaceId, conversationId, input),
     removeQueuedMessage: (workspaceId: string, conversationId: string, messageId: string) =>
       invoke("chatRemoveQueuedMessage", workspaceId, conversationId, messageId),
-    runActivity: (workspaceId: string, runId: string, limit: number) =>
-      invoke("chatRunActivity", workspaceId, runId, limit),
+    runActivity: (workspaceId: string, runId: string, afterItemId: string, limit: number) =>
+      invoke("chatRunActivity", workspaceId, runId, afterItemId, limit),
     runItemOutput: (
       workspaceId: string,
       runId: string,
@@ -245,12 +251,33 @@ const api: SettaAPI = {
       afterOrdinal: number,
       limit: number,
     ) => invoke("chatRunItemOutput", workspaceId, runId, runItemId, afterOrdinal, limit),
-    sendMessage: (workspaceId: string, conversationId: string, prompt: string) =>
-      invoke("chatSendMessage", workspaceId, conversationId, prompt),
-    sendSteeringImmediately: (workspaceId: string, conversationId: string, prompt = "") =>
-      invoke("chatSendSteeringImmediately", workspaceId, conversationId, prompt),
-    steerMessage: (workspaceId: string, conversationId: string, prompt: string) =>
-      invoke("chatSteerMessage", workspaceId, conversationId, prompt),
+    listBackgroundTerminals: (workspaceId: string, conversationId: string) =>
+      invoke("chatListBackgroundTerminals", workspaceId, conversationId),
+    getBackgroundTerminalOutput: (
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+      afterOrdinal: number,
+      limit: number,
+    ) =>
+      invoke(
+        "chatGetBackgroundTerminalOutput",
+        workspaceId,
+        conversationId,
+        processId,
+        afterOrdinal,
+        limit,
+      ),
+    killBackgroundTerminal: (workspaceId: string, conversationId: string, processId: string) =>
+      invoke("chatKillBackgroundTerminal", workspaceId, conversationId, processId),
+    killAllBackgroundTerminals: (workspaceId: string, conversationId: string) =>
+      invoke("chatKillAllBackgroundTerminals", workspaceId, conversationId),
+    sendMessage: (workspaceId: string, conversationId: string, input) =>
+      invoke("chatSendMessage", workspaceId, conversationId, input),
+    sendSteeringImmediately: (workspaceId: string, conversationId: string, input) =>
+      invoke("chatSendSteeringImmediately", workspaceId, conversationId, input ?? null),
+    steerMessage: (workspaceId: string, conversationId: string, input) =>
+      invoke("chatSteerMessage", workspaceId, conversationId, input),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
   },
   codexAccount: {
@@ -340,8 +367,12 @@ const api: SettaAPI = {
       invoke("workflowReadDefinition", workspaceId, definitionId),
     readExecution: (workspaceId, executionId) =>
       invoke("workflowReadExecution", workspaceId, executionId),
+    readNodeTrajectory: (request) => invoke("workflowReadNodeTrajectory", request),
+    retryNodeRunLiveness: (request) => invoke("workflowRetryNodeRunLiveness", request),
     startExecution: (workspaceId, definitionId, versionId = "") =>
       invoke("workflowStartExecution", workspaceId, definitionId, versionId),
+    steerNodeRun: (request) => invoke("workflowSteerNodeRun", request),
+    stopNodeRun: (request) => invoke("workflowStopNodeRun", request),
     submitApproval: (request) => invoke("workflowSubmitApproval", request),
     updateDefinition: (workspaceId, definitionId, name, description, graph) =>
       invoke("workflowUpdateDefinition", workspaceId, definitionId, name, description, graph),
@@ -462,68 +493,6 @@ function decodeBackendEventStreamStatus(value: unknown): BackendEventStreamStatu
   throw new Error("BackendEventStreamStatus.status is unsupported: " + status);
 }
 
-function decodeRuntimeRegistrySnapshot(value: unknown): RuntimeRegistrySnapshot {
-  const record = assertStatusRecord(value, "RuntimeRegistrySnapshot");
-  const rawRuntimes = record.runtimes;
-  if (!Array.isArray(rawRuntimes)) {
-    throw new Error("RuntimeRegistrySnapshot.runtimes must be an array");
-  }
-  return {
-    activeRuntimeId: nullableStringField(record, "activeRuntimeId", "RuntimeRegistrySnapshot"),
-    connection: decodeRuntimeConnectionState(
-      requireRuntimeField(record, "connection", "RuntimeRegistrySnapshot"),
-    ),
-    runtimes: rawRuntimes.map((runtime, index) =>
-      decodeKnownRuntimeView(runtime, `RuntimeRegistrySnapshot.runtimes[${index}]`),
-    ),
-    switching: booleanField(record, "switching", "RuntimeRegistrySnapshot"),
-  };
-}
-
-function decodeKnownRuntimeView(value: unknown, label: string): KnownRuntimeView {
-  const record = assertStatusRecord(value, label);
-  return {
-    active: booleanField(record, "active", label),
-    baseUrl: stringField(record, "baseUrl", label),
-    connectionMessage: stringField(record, "connectionMessage", label),
-    connectionStatus: decodeRuntimeConnectionStatus(
-      stringField(record, "connectionStatus", label),
-      `${label}.connectionStatus`,
-    ),
-    displayName: stringField(record, "displayName", label),
-    isLocal: booleanField(record, "isLocal", label),
-    lastConnected: nullableStringField(record, "lastConnected", label),
-    runtimeId: stringField(record, "runtimeId", label),
-  };
-}
-
-function decodeRuntimeConnectionState(value: unknown): RuntimeConnectionState {
-  const label = "RuntimeConnectionState";
-  const record = assertStatusRecord(value, label);
-  return {
-    message: stringField(record, "message", label),
-    protocolVersion: nullableNumberField(record, "protocolVersion", label),
-    runtimeId: nullableStringField(record, "runtimeId", label),
-    status: decodeRuntimeConnectionStatus(stringField(record, "status", label), `${label}.status`),
-    updatedAt: stringField(record, "updatedAt", label),
-  };
-}
-
-function decodeRuntimeConnectionStatus(value: string, label: string): RuntimeConnectionStatus {
-  switch (value) {
-    case "connected":
-    case "connecting":
-    case "disconnected":
-    case "incompatible":
-    case "mismatched":
-    case "revoked":
-    case "unreachable":
-      return value;
-    default:
-      throw new Error(label + " is unsupported: " + value);
-  }
-}
-
 function decodeWorkspaceBrowserViewKeyEvent(value: unknown): WorkspaceBrowserViewKeyEvent {
   const record = assertStatusRecord(value, "WorkspaceBrowserViewKeyEvent");
   const key = stringField(record, "key", "WorkspaceBrowserViewKeyEvent");
@@ -574,40 +543,10 @@ function stringField(record: Record<string, unknown>, field: string, label: stri
   return value;
 }
 
-function nullableStringField(
-  record: Record<string, unknown>,
-  field: string,
-  label: string,
-): string | null {
-  const value = record[field];
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== "string") {
-    throw new Error(label + "." + field + " must be a string or null");
-  }
-  return value;
-}
-
 function booleanField(record: Record<string, unknown>, field: string, label: string): boolean {
   const value = record[field];
   if (typeof value !== "boolean") {
     throw new Error(label + "." + field + " must be a boolean");
-  }
-  return value;
-}
-
-function nullableNumberField(
-  record: Record<string, unknown>,
-  field: string,
-  label: string,
-): number | null {
-  const value = record[field];
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(label + "." + field + " must be a finite number or null");
   }
   return value;
 }
@@ -618,17 +557,6 @@ function numberField(record: Record<string, unknown>, field: string, label: stri
     throw new Error(label + "." + field + " must be a finite number");
   }
   return value;
-}
-
-function requireRuntimeField(
-  record: Record<string, unknown>,
-  field: string,
-  label: string,
-): unknown {
-  if (!(field in record)) {
-    throw new Error(label + "." + field + " is required");
-  }
-  return record[field];
 }
 
 function integerField(record: Record<string, unknown>, field: string, label: string): number {

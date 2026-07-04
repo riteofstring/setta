@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -27,6 +28,7 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 	findings := append([]CorruptStateFinding{}, corruptConversations...)
 	findings = append(findings, corruptRuns...)
 	items := make([]ConversationListItem, 0, len(conversations))
+	activeRunLivenessByConversation := service.activeRunLivenessForConversationList(workspaceID, runs)
 	for _, conversation := range conversations {
 		if conversation.Internal {
 			continue
@@ -42,10 +44,20 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
 			return ConversationListResult{}, err
 		}
+		activeRunID := ""
+		var activeRunLiveness *RunLiveness
+		if run, ok := activeRunFromRuns(runs, conversation.ID); ok {
+			activeRunID = run.ID
+			if liveness, ok := activeRunLivenessByConversation[conversation.ID]; ok {
+				snapshot := liveness
+				activeRunLiveness = &snapshot
+			}
+		}
 		items = append(items, ConversationListItem{
 			Conversation:             conversation,
 			MessageCount:             count,
-			ActiveRunID:              activeRunIDFromRuns(runs, conversation.ID),
+			ActiveRunID:              activeRunID,
+			ActiveRunLiveness:        activeRunLiveness,
 			PinnedAt:                 pins[conversation.ID],
 			ReadMarker:               readState.ReadMarker,
 			LatestReadRelevantMarker: readState.LatestReadRelevantMarker,
@@ -61,7 +73,8 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 }
 
 func (service *Service) CreateConversation(workspaceID string, title string) (Conversation, error) {
-	if _, err := service.resolveWorkspaceForRequest(workspaceID); err != nil {
+	workspaceSummary, err := service.resolveWorkspaceForRequest(workspaceID)
+	if err != nil {
 		return Conversation{}, err
 	}
 	now := timestamp(service.now())
@@ -82,6 +95,12 @@ func (service *Service) CreateConversation(workspaceID string, title string) (Co
 		UpdatedAt:     now,
 		ArchivedAt:    "",
 		HarnessRefs:   []HarnessThreadRef{},
+	}
+	codexDefaults := service.currentChatCodexDefaultSettings()
+	conversation.CodexSettings = &codexDefaults
+	conversation, err = service.conversationWithResolvedEffectiveSettings(context.Background(), workspaceSummary, conversation)
+	if err != nil {
+		return Conversation{}, err
 	}
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return Conversation{}, err
@@ -159,29 +178,90 @@ func (service *Service) MarkConversationRead(workspaceID string, conversationID 
 	return item, err
 }
 
-func (service *Service) LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
+func (service *Service) LoadMessagePage(workspaceID string, conversationID string, beforeBlockOrdinal int, limit int) (MessagePage, error) {
 	if limit == 0 {
 		limit = defaultPageLimit
 	}
-	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
+	if err != nil {
 		return MessagePage{}, err
 	}
 	service.mu.Lock()
-	page, err := service.loadMessagePageLocked(workspaceID, conversationID, beforeOrdinal, limit)
+	page, err := service.loadMessagePageLocked(workspaceID, conversationID, beforeBlockOrdinal, limit)
 	service.mu.Unlock()
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, "")
 		return MessagePage{}, err
 	}
-	return page, nil
-}
-
-func (service *Service) loadMessagePageLocked(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
-	page, err := service.store.LoadMessagePage(workspaceID, conversationID, beforeOrdinal, limit)
+	page.Conversation, err = service.conversationWithResolvedEffectiveSettings(context.Background(), workspaceSummary, page.Conversation)
 	if err != nil {
 		return MessagePage{}, err
 	}
-	page = service.overlayActiveAssistantMessageLocked(workspaceID, conversationID, beforeOrdinal, page)
+	return page, nil
+}
+
+func (service *Service) LoadRunTranscriptPage(workspaceID string, runID string, beforeBlockOrdinal int, limit int) (RunTranscriptPage, error) {
+	if limit == 0 {
+		limit = defaultPageLimit
+	}
+	if limit < 0 {
+		return RunTranscriptPage{}, fmt.Errorf("run transcript page limit must not be negative: %d", limit)
+	}
+	if _, err := service.validateRunRequest(workspaceID, runID); err != nil {
+		return RunTranscriptPage{}, err
+	}
+	service.mu.Lock()
+	run, err := service.store.LoadRun(workspaceID, runID)
+	if err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
+		return RunTranscriptPage{}, err
+	}
+	activeRunID := service.activeBlockRunIDLocked(workspaceID, run.ConversationID)
+	refs, err := service.runBlockRefsLocked(workspaceID, run.ConversationID, runID, runID == activeRunID)
+	if err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, runID)
+		return RunTranscriptPage{}, err
+	}
+	start, end := transcriptBlockWindow(len(refs), beforeBlockOrdinal, limit)
+	blocks, err := service.materializeTranscriptBlockRefs(workspaceID, refs[start:end])
+	service.mu.Unlock()
+	if err != nil {
+		service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, runID)
+		return RunTranscriptPage{}, err
+	}
+	olderBeforeBlockOrdinal := 0
+	if len(blocks) > 0 {
+		olderBeforeBlockOrdinal = start + 1
+	}
+	return RunTranscriptPage{
+		WorkspaceID:             workspaceID,
+		ConversationID:          run.ConversationID,
+		RunID:                   runID,
+		Blocks:                  blocks,
+		HasMoreOlder:            start > 0,
+		OlderBeforeBlockOrdinal: olderBeforeBlockOrdinal,
+	}, nil
+}
+
+// loadMessagePageLocked composes the message page. The transcript is the ordered
+// block stream paged by block ordinal; beforeOrdinal is the conversation-sequential
+// block cursor. Messages remain the latest window for non-transcript surfaces
+// (queue, commands) and are not load-bearing for transcript rendering.
+func (service *Service) loadMessagePageLocked(workspaceID string, conversationID string, beforeBlockOrdinal int, limit int) (MessagePage, error) {
+	page, err := service.store.LoadMessagePage(workspaceID, conversationID, 0, limit)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	page = service.overlayActiveAssistantMessageLocked(workspaceID, conversationID, 0, page)
+	blocks, hasMoreOlder, olderBeforeBlockOrdinal, err := service.loadTranscriptBlockWindowLocked(workspaceID, conversationID, beforeBlockOrdinal, limit)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	page.Blocks = blocks
+	page.HasMoreOlder = hasMoreOlder
+	page.OlderBeforeBlockOrdinal = olderBeforeBlockOrdinal
 	if err := service.attachPageState(workspaceID, conversationID, &page); err != nil {
 		return MessagePage{}, err
 	}
@@ -195,19 +275,27 @@ func (service *Service) publishConversationUpdated(workspaceID string, conversat
 }
 
 func (service *Service) publishConversationUpdatedLocked(workspaceID string, conversationID string, runID string) error {
-	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
-	if err != nil {
+	draft, ok, err := service.conversationUpdatedEventLocked(workspaceID, conversationID, runID)
+	if err != nil || !ok {
 		return err
 	}
+	_, err = service.events.Publish(draft)
+	return err
+}
+
+func (service *Service) conversationUpdatedEventLocked(workspaceID string, conversationID string, runID string) (EventDraft, bool, error) {
+	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
+	if err != nil {
+		return EventDraft{}, false, err
+	}
 	if conversation.Internal {
-		return nil
+		return EventDraft{}, false, nil
 	}
 	item, err := service.conversationListItemFromConversationLocked(conversation)
 	if err != nil {
-		return err
+		return EventDraft{}, false, err
 	}
-	_, err = service.events.Publish(NewConversationUpdatedEvent(workspaceID, conversationID, runID, item))
-	return err
+	return NewConversationUpdatedEvent(workspaceID, conversationID, runID, item), true, nil
 }
 
 func (service *Service) conversationListItemLocked(workspaceID string, conversationID string) (ConversationListItem, error) {
@@ -226,6 +314,7 @@ func (service *Service) conversationListItemFromConversationLocked(conversation 
 		return ConversationListItem{}, err
 	}
 	activeRunID := ""
+	var activeRunLiveness *RunLiveness
 	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return ConversationListItem{}, err
@@ -234,6 +323,7 @@ func (service *Service) conversationListItemFromConversationLocked(conversation 
 		return ConversationListItem{}, err
 	} else if ok {
 		activeRunID = run.ID
+		activeRunLiveness = service.activeRunLivenessLocked(workspaceID, conversationID, run)
 	}
 	readState, err := service.store.LoadConversationReadState(workspaceID, conversationID)
 	if err != nil {
@@ -245,6 +335,7 @@ func (service *Service) conversationListItemFromConversationLocked(conversation 
 	}
 	return ConversationListItem{
 		ActiveRunID:              activeRunID,
+		ActiveRunLiveness:        activeRunLiveness,
 		Conversation:             conversation,
 		MessageCount:             count,
 		PinnedAt:                 pins[conversationID],

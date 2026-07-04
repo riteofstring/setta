@@ -1,6 +1,8 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
+import { chatTextInput } from "./chat-input-helpers.mjs";
+
 export async function runUnreadConversationWorkflow({
   appendWorkflowState,
   assertRecordingEvidence,
@@ -53,7 +55,7 @@ export async function runUnreadConversationWorkflow({
     const inactivePrompt = "inactive unread marker";
     const sent = await backend.post("/chat/messages/send", {
       conversationId: inactiveConversationId,
-      prompt: inactivePrompt,
+      input: chatTextInput(inactivePrompt),
       workspaceId,
     });
     await waitForRunStatus(backend, workspaceId, inactiveConversationId, sent.run.id, "completed");

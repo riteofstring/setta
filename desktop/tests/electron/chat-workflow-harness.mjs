@@ -126,6 +126,18 @@ export async function clickButtonContainingText(client, text) {
   });
 }
 
+export async function clickButtonContainingTextByRole(client, role, text) {
+  await waitForState(
+    client,
+    buttonContainingTextByRoleClickExpression(role, text),
+    (value) => value.clicked,
+  ).catch((error) => {
+    throw new Error(
+      `button with role ${role} containing text was not clickable: ${text}: ${error.message}`,
+    );
+  });
+}
+
 export async function scrollSidebarNavigationTo(client, scrollTop) {
   const scrolled = await client.driver("scrollSidebarNavigationTo", { scrollTop });
   if (!scrolled) {
@@ -152,6 +164,10 @@ function buttonClickExpression(kind, value) {
 
 function buttonContainingTextClickExpression(text) {
   return driverCallExpression("clickButtonContainingText", { text });
+}
+
+function buttonContainingTextByRoleClickExpression(role, text) {
+  return driverCallExpression("clickButtonContainingTextByRole", { role, text });
 }
 
 export async function waitForText(client, text, timeoutMs = workflowTimeoutMs) {
@@ -191,21 +207,19 @@ export async function waitForState(client, expression, isReady, timeoutMs = work
 }
 
 export async function backendProbe(recordingDir) {
-  const { baseURL, deviceToken } = await waitForBackendAccess(recordingDir);
+  const baseURL = await waitForBackendURL(recordingDir);
   await writeFile(join(recordingDir, "backend-url.txt"), baseURL + "\n");
   return {
     baseURL,
-    deviceToken,
-    get: (path) => backendRequest(recordingDir, baseURL, deviceToken, "GET", path),
-    post: (path, payload) =>
-      backendRequest(recordingDir, baseURL, deviceToken, "POST", path, payload),
+    get: (path) => backendRequest(recordingDir, baseURL, "GET", path),
+    post: (path, payload) => backendRequest(recordingDir, baseURL, "POST", path, payload),
   };
 }
 
-async function backendRequest(recordingDir, baseURL, deviceToken, method, path, payload) {
+async function backendRequest(recordingDir, baseURL, method, path, payload) {
   const response = await globalThis.fetch(baseURL + path, {
     body: payload === undefined ? undefined : JSON.stringify(payload),
-    headers: backendRequestHeaders(deviceToken, payload),
+    headers: payload === undefined ? undefined : { "Content-Type": "application/json" },
     method,
   });
   const body = await response.text();
@@ -222,54 +236,24 @@ async function backendRequest(recordingDir, baseURL, deviceToken, method, path, 
   return JSON.parse(body);
 }
 
-function backendRequestHeaders(deviceToken, payload) {
-  return {
-    Authorization: "Bearer " + deviceToken,
-    ...(payload === undefined ? {} : { "Content-Type": "application/json" }),
-  };
-}
-
-async function waitForBackendAccess(recordingDir) {
+async function waitForBackendURL(recordingDir) {
   const eventsPath = join(recordingDir, "events.jsonl");
   const startedAt = Date.now();
   let lastError = null;
   while (Date.now() - startedAt < pageLoadTimeoutMs) {
     try {
-      const access = await readBackendAccess(eventsPath);
-      if (access) {
-        return access;
+      const events = await readJsonLines(eventsPath);
+      const started = events.find((entry) => entry.type === "backend_started");
+      const url = started?.payload?.url;
+      if (typeof url === "string" && url !== "") {
+        return url;
       }
     } catch (error) {
       lastError = error;
     }
     await delay(100);
   }
-  throw new Error(`backend access was not recorded: ${lastError?.message ?? "timed out"}`);
-}
-
-async function readBackendAccess(eventsPath) {
-  return backendAccessFromEvents(await readJsonLines(eventsPath));
-}
-
-function backendAccessFromEvents(events) {
-  const started = events.find((entry) => entry.type === "backend_started");
-  if (!started) {
-    return null;
-  }
-  return backendAccessFromPayload(started.payload);
-}
-
-function backendAccessFromPayload(payload) {
-  const url = payload?.url;
-  const token = payload?.bootstrapToken;
-  if (!nonEmptyString(url) || !nonEmptyString(token)) {
-    return null;
-  }
-  return { baseURL: url, deviceToken: token };
-}
-
-function nonEmptyString(value) {
-  return typeof value === "string" && value !== "";
+  throw new Error(`backend URL was not recorded: ${lastError?.message ?? "timed out"}`);
 }
 
 export async function waitForBackendState(readState, isReady, timeoutMs = workflowTimeoutMs) {
@@ -525,7 +509,9 @@ export async function assertAssistantCompleted(backend, workspaceId, conversatio
 }
 
 function messageText(message) {
-  return message.parts.map((part) => part.text).join("");
+  return message.parts
+    .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
+    .join("");
 }
 
 export async function launchContext(fixture, recordingDir, options = {}) {
@@ -798,7 +784,7 @@ export function failureWithLogs(error, logs) {
 }
 
 export async function assertRecordingEvidence(recordingDir, expected) {
-  await assertNoIpcFailures(recordingDir);
+  await assertNoIpcFailures(recordingDir, expected.expectedIpcFailures ?? []);
   await assertLayoutSnapshotsRecorded(recordingDir);
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
   for (const channel of expected.ipcChannels) {
@@ -849,10 +835,14 @@ async function waitForLayoutSnapshots(recordingDir) {
   return snapshots;
 }
 
-async function assertNoIpcFailures(recordingDir) {
+async function assertNoIpcFailures(recordingDir, expectedIpcFailures) {
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
   const failures = ipc.filter(
-    (entry) => entry.type === "ipc_failure" && !isExpectedInitialTerminalAttachMiss(entry),
+    (entry) =>
+      entry.type === "ipc_failure" &&
+      !isExpectedInitialTerminalAttachMiss(entry) &&
+      !isExpectedBackgroundTerminalUnsupportedKill(entry) &&
+      !expectedIpcFailures.some((isExpected) => isExpected(entry)),
   );
   if (failures.length > 0) {
     throw new Error(`recording included IPC failures: ${JSON.stringify(failures)}`);
@@ -864,6 +854,15 @@ function isExpectedInitialTerminalAttachMiss(entry) {
     entry.channel === "terminal:attach" &&
     typeof entry.error?.message === "string" &&
     entry.error.message.includes("terminal session not found")
+  );
+}
+
+function isExpectedBackgroundTerminalUnsupportedKill(entry) {
+  return (
+    (entry.channel === "chat:kill-background-terminal" ||
+      entry.channel === "chat:kill-all-background-terminals") &&
+    typeof entry.error?.message === "string" &&
+    entry.error.message.includes("does not support provider termination")
   );
 }
 
