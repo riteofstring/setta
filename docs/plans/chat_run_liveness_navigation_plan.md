@@ -6,6 +6,16 @@ Moving away from an in-progress chat and returning to it must not visually imply
 that the agent disconnected when the run is still attached and events are still
 flowing.
 
+This plan also covers three adjacent chat UI reliability issues that affect the
+same active-work experience:
+
+- expanded activity/tool rows should stay streamlined while giving opened
+  details enough structure to read clearly;
+- scrolling up from the transcript bottom must detach immediately and never
+  fight the user;
+- the agent's current todo list should have a persistent active-run surface,
+  rather than only appearing as another activity row.
+
 The chat UI should communicate two separate facts:
 
 - The run state: idle, working, awaiting approval, queued, cancelling, complete,
@@ -53,6 +63,67 @@ failure. The same state also pollutes the conversation list item, so unselected
 running conversations can show the reconnecting icon instead of the working
 spinner.
 
+## Additional Findings
+
+### Activity Styling
+
+The `setta-3` branch rendered run activity in
+`desktop/src/renderer/src/components/chat-run-activity.tsx`. That version used
+a slim activity summary, a light left rail for opened details, and bounded
+`pre` blocks for commands, files, output, and JSON details.
+
+The current renderer keeps the improved chronological grouping model in
+`desktop/src/renderer/src/components/chat-transcript-activity.tsx`, but the
+opened state is visually weaker:
+
+- the expanded group header reads as a filled rectangular bar rather than a
+  quiet transcript row;
+- opened row details use the left rail, but command details are flattened into
+  unframed text;
+- nested opened rows lose the clear distinction between summary, metadata, and
+  inspectable command/output blocks.
+
+The long-term fix should keep the current streamlined transcript grouping and
+status icons, while borrowing the clearer detail treatment from `setta-3`.
+
+### Scroll Follow
+
+The upward-scroll resistance is diagnosable from
+`desktop/src/renderer/src/components/chat-transcript-scroll-follow.ts`.
+
+The hook can enter `user_detached` on an upward wheel event, then immediately
+return to `auto_follow` because `handleScroll`, `handleRangeChanged`, and
+`handleAtBottomStateChange` treat the tolerant bottom band as enough evidence to
+reattach. While still within that band, the scheduled `scrollToLatest()` call can
+snap the transcript back to the bottom. The user has to keep scrolling until the
+viewport escapes the tolerance zone.
+
+The fix is not more logging by default. If a deterministic reproduction fails,
+temporary scroll instrumentation can be added to capture `mode`, scroll metrics,
+range updates, and scheduled auto-scrolls during a recording, then removed before
+the implementation is considered complete.
+
+### Codex Todo Lists
+
+Codex models todo lists as long-lived turn state, not as ordinary short-lived
+tool calls.
+
+Relevant Codex reference points:
+
+- `/Users/kevin/Documents/AppDevelopment/reference_repos/codex/sdk/typescript/src/items.ts`
+  defines `TodoListItem` as the agent's running todo list.
+- `/Users/kevin/Documents/AppDevelopment/reference_repos/codex/codex-rs/app-server-protocol/src/protocol/v2/turn.rs`
+  defines `TurnPlanUpdatedNotification` with typed `TurnPlanStep` entries.
+- `/Users/kevin/Documents/AppDevelopment/reference_repos/codex/codex-rs/exec/src/event_processor_with_jsonl_output.rs`
+  starts one todo-list item on the first `TurnPlanUpdated`, updates that same
+  item on later plan updates, and completes it when the turn completes.
+
+Setta currently handles `turn/plan/updated` in
+`internal/chat/codex_harness_notification_handlers.go` by summarizing the raw
+plan into a `RunItemTypePlan`. That is technically chronological, but it loses
+the structured step state and leaves the current plan buried in the activity
+stream.
+
 ## Product Contract
 
 - A running conversation with typed evidence of healthy provider attachment or
@@ -70,6 +141,16 @@ spinner.
 - Snapshot-load verification should stay internal by default. Do not add a
   public `checking` state unless implementation proves no existing contract can
   represent the behavior correctly.
+- Expanded activity/tool rows should remain slim transcript rows, but opened
+  details should use consistent readable sections for commands, cwd, metadata,
+  arguments, output, errors, and result content.
+- User scroll intent is authoritative. Any upward wheel, upward keyboard scroll,
+  or scrollbar drag toward history should detach from bottom-following until the
+  user explicitly returns to the bottom or invokes jump-to-latest.
+- The current todo list is active turn state. It should be visible while the
+  agent is working, update in place as steps change, and remain linked to the
+  chronological transcript without being accessible only through a tool-call
+  group.
 
 ## Non-Goals
 
@@ -85,6 +166,11 @@ spinner.
 - Do not create a second untyped lifecycle state machine beside the Go-owned
   chat run contracts.
 - Do not manually edit generated TypeScript outputs.
+- Do not parse todo text or summary strings to infer plan steps. Use the typed
+  Codex plan notification contract.
+- Do not keep old unstructured plan-summary behavior alive through compatibility
+  fallbacks.
+- Do not add persistent scroll logging as part of the final fix.
 
 ## Target Model
 
@@ -202,6 +288,80 @@ when local ChatGPT auth is available. Do not use `OPENAI_API_KEY`. If ChatGPT
 auth is unavailable, record the skip explicitly and do not treat the skip as
 provider-integration proof.
 
+### Phase 6: Activity Row Visual Polish
+
+Keep the current transcript projection, virtualization behavior, controlled
+expansion state, and status icons. Do not reintroduce the old `details`-owned
+state model from `setta-3`.
+
+Revise the presentation so opened activity reads like a slim transcript detail
+view:
+
+- make the activity group header feel like a quiet transcript row, not a filled
+  card;
+- preserve the compact row height and current icon/status treatment;
+- restore a consistent bounded code/pre treatment for commands, files, output,
+  arguments, and JSON details;
+- keep metadata chips restrained and avoid nested cards;
+- make row and group expanded states visually distinct without increasing
+  density or adding decorative containers.
+
+Use the `setta-3` styling as reference material, not as a direct copy. The
+target is the current streamlined UI with clearer opened details.
+
+### Phase 7: Scroll-Follow Detach Fix
+
+Separate two concepts in the scroll-follow controller:
+
+- bottom tolerance while already attached, used to keep streaming content pinned
+  naturally;
+- explicit reattach criteria after user detach, which should be stricter and
+  require a real return to the bottom or jump-to-latest.
+
+Implementation direction:
+
+- cancel any pending auto-scroll as soon as upward wheel, upward key, or
+  scrollbar-history intent is observed;
+- while mode is `user_detached`, ignore tolerant-bottom reattachment from range
+  changes and ordinary scroll events;
+- allow reattach only through jump-to-latest, a strict bottom signal, or a
+  deliberate downward scroll that reaches the actual bottom;
+- prevent `handleRangeChanged` and `handleAtBottomStateChange` from scheduling
+  `scrollToLatest()` while the user is detached inside the tolerance band.
+
+Prefer extracting the scroll-follow decision rules into a small testable helper
+so the detach and reattach behavior can be covered without relying only on DOM
+timing.
+
+### Phase 8: Current Todo List Surface
+
+Treat Codex plan updates as structured active-turn state.
+
+Backend contract work:
+
+- decode `turn/plan/updated` with the generated
+  `DecodeTurnPlanUpdatedNotification` path;
+- store typed plan steps with status values `pending`, `inProgress`, and
+  `completed`;
+- include the explanation if the provider sends one;
+- keep `RunItemTypePlan` as the chronological transcript anchor, but enrich it
+  with structured plan details instead of only a summary string;
+- expose a current active plan projection for the selected conversation/run.
+
+Renderer work:
+
+- add a compact current-plan footer/surface near the composer, in the same
+  active-work area as background terminals;
+- show progress and the current in-progress step in the collapsed affordance;
+- expand to a readable list with completed, in-progress, and pending states;
+- update in place as plan updates arrive, even while other activity rows stream;
+- keep transcript plan rows as chronological anchors, with a path from the row
+  to the current-plan surface when the run is active.
+
+The current-plan surface should be conversation-scoped and disappear when there
+is no active plan for the selected conversation. Completed plans remain available
+through the transcript history rather than a permanent footer.
+
 ## Verification Plan
 
 Start narrow:
@@ -216,6 +376,14 @@ Then run production-path workflow coverage:
 - deterministic Electron chat workflow for conversation switching during an
   active run;
 - deterministic Electron chat workflow for real reconnect/lost signaling.
+- deterministic Electron chat workflow for scrolling up from the bottom while
+  output continues to stream, asserting the transcript stays detached until the
+  user returns to the bottom or jumps to latest;
+- deterministic Electron chat workflow for plan updates, asserting the current
+  todo surface appears, updates steps in place, and clears after run completion;
+- renderer/component coverage for opened activity group and opened activity row
+  markup, with stable assertions for the detail sections and command/output
+  blocks.
 
 Before committing implementation changes, run:
 
@@ -236,6 +404,11 @@ contracts, or code paths change.
 - Which typed evidence should count as enough to preserve working state:
   matching active run, active-turn provider refs, current `RunLivenessAttached`,
   explicit provider reconciliation result, or a combination of those fields?
+- Should the current-plan surface stack above or below the background-terminal
+  surface when both are active? The default should be the order that keeps the
+  composer closest to the most frequently changing active-work control.
+- Should clicking a chronological plan row open the current-plan surface when
+  the run is active, or only focus the transcript row?
 
 ## Success Criteria
 
@@ -245,5 +418,11 @@ contracts, or code paths change.
   real degraded liveness event occurred.
 - Real stream/provider failures still show reconnecting, lost, retry, and stop
   affordances as appropriate.
+- Opened activity groups and opened activity rows are easier to scan, with
+  commands and outputs clearly framed without card-heavy styling.
+- Scrolling upward from the bottom detaches immediately and does not snap back
+  while streaming continues.
+- Active Codex todo lists are visible in a persistent current-plan surface,
+  update in place, and are no longer discoverable only as generic tool activity.
 - The implementation remains contract-driven and typed across Go, generated
   TypeScript, renderer state, transcript UI, and sidebar UI.
