@@ -237,47 +237,51 @@ paginated output. Update callers in one cut and regenerate contracts.
 - Keep the component rename/refactor mechanical and covered by existing chat
   tests first.
 
-Progress 2026-07-03: second renderer-boundary slice completed. The initial
-slice added `AgentTrajectoryViewModel`, capability flags,
-`AgentTrajectoryActions`, and `AgentTrajectorySurface` in renderer source.
-Normal chat now uses a selected-conversation adapter to render the existing
-`ChatTranscript` through that explicit surface. This follow-up made the shared
-transcript and trajectory surface enforce explicit capabilities: unsupported
-queue editing/removal, immediate steering, output loading, older-history
-loading, approval submission, stop, and retry actions can be omitted without
-installing no-op callbacks, while enabled capabilities without actions fail
-loudly during render. Run liveness presentation now accepts trajectory-owned
-stop/steer/retry capability flags, and partial output without a loader remains
-visibly partial instead of rendering a fake load control. Normal selected chat
-still supplies the selected-conversation actions and preserves transcript
-rendering, current-plan handling, queued-message controls, output loading,
-immediate steering, and approval submission behavior. This slice did not wire
-workflow node details yet and did not remove the old workflow activity preview.
+Progress 2026-07-03: component-boundary slice completed. The initial slices
+added `AgentTrajectoryViewModel`, capability flags, `AgentTrajectoryActions`,
+and `AgentTrajectorySurface` in renderer source. Normal chat now uses a
+selected-conversation adapter to render the existing `ChatTranscript` through
+that explicit surface, and the shared transcript/trajectory boundary enforces
+capability-owned actions for queue editing/removal, immediate steering, output
+loading, older-history loading, approval submission, stop, and retry behavior.
+This final boundary slice extracted explicit `ComposerViewModel` and
+`ComposerActions` contracts plus a selected-chat composer adapter. `Composer`
+now receives command, attachment, prompt-history, model, permission, queue,
+steering, stop, retry, and send actions explicitly instead of reading the whole
+selected chat view. Unsupported action groups do not render selected-chat
+controls, queue capture is disabled when no queue action exists, and enabled
+run-control presentation without the matching action fails loudly during render.
+Normal selected chat still supplies the selected-conversation actions and
+preserves transcript rendering, current-plan handling, composer prompt history,
+attachments, slash commands, permission/model controls, queued-message controls,
+output loading, immediate steering, and approval submission behavior. This
+slice did not wire workflow node details yet and did not remove the old workflow
+activity preview.
 
 Verification: focused renderer coverage passed with
-`pnpm -C desktop exec vitest run src/renderer/src/components/agent-trajectory.test.tsx src/renderer/src/components/chat-panel.test.tsx`
-and
-`pnpm -C desktop exec vitest run src/renderer/src/App.test.tsx src/renderer/src/components/chat-transcript-activity.test.tsx src/renderer/src/components/agent-trajectory.test.tsx src/renderer/src/components/chat-panel.test.tsx`;
+`pnpm -C desktop exec vitest run src/renderer/src/components/chat-panel.test.tsx src/renderer/src/components/agent-trajectory.test.tsx`;
 desktop typecheck and production build passed with `pnpm -C desktop typecheck`
-and `pnpm -C desktop build`; desktop dead-code passed with
-`pnpm -C desktop deadcode`; formatting and changed-file quality passed with
-`./scripts/format.sh` and `./check_quality.sh --git-changes`.
-Required deterministic Electron coverage was attempted with
+and `pnpm -C desktop build`; dead-code analysis passed with
+`pnpm -C desktop deadcode`. The final repository gate for changed files was
+`./scripts/format.sh` plus `./check_quality.sh --git-changes`. Required
+deterministic Electron coverage was attempted with
 `node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only`; it
-passed the relevant normal chat transcript, queue, approval, lifecycle,
-workflow-node trajectory contract, search, scroll/reload, sidebar, and unread
-conversation scenarios before failing later in the existing Codex protocol
-workflow wait with `rows: []`. Live Codex Electron coverage was attempted with
+passed codex account, happy path, image attachments, composer prompt history,
+activity projection, command-start failure, chronological transcript, background
+terminal, queued controls, cancel/fail queue, approvals, slash commands,
+permission modes, conversation switch, defaults, lifecycle hardening,
+workflow-node trajectory contract, Codex approval-policy removal, Codex
+app-server lifecycle, and transcript search before failing in transcript-scroll
+with a bottom-tolerance timing assertion. A focused direct rerun of the
+transcript-scroll launch helper passed both `transcript-scroll` and
+`transcript-scroll-reload`. Live Codex Electron coverage was attempted with
 `OPENAI_API_KEY` unset, but local Codex `config/read` still returned unsupported
 `approval_policy = "on-failure"`, so Setta rejected conversation creation before
 live-provider execution.
 
-Remaining: finish the Phase 5 boundary by extracting composer
-presentation/action props from the selected-conversation command, model, and
-permission plumbing so workflow-node trajectories can avoid selected-chat queue,
-attachment, command, permission, and prompt-history assumptions. Slice 3 still
-owns the workflow-node adapter and deletion of the fake complete output-page
-preview path.
+Remaining: Slice 3 must add the renderer workflow-node adapter and replace the
+current workflow details activity preview. Slice 5 must remove the old preview
+caller and fake complete output-page adaptation after that replacement is wired.
 
 ### Slice 2: Backend Trajectory Contract
 

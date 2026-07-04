@@ -1,7 +1,6 @@
-import type { ChatCommandExecuteResult } from "@generated/backend";
+import type { ChatCommandExecuteResult, Conversation } from "@generated/backend";
 
 import { isSlashDraft } from "./chat-composer-helpers";
-import type { ChatView } from "./chat-panel";
 
 export function composerDisabled(
   disabledOverride: boolean | undefined,
@@ -61,15 +60,11 @@ export function canSendImmediateSteeringDraft({
   );
 }
 
-export function selectedConversationWorkspaceId(
-  selectedConversation: ChatView["selectedConversation"],
-) {
+export function selectedConversationWorkspaceId(selectedConversation: Conversation | null) {
   return selectedConversation?.workspaceId ?? null;
 }
 
-export function selectedConversationSupportsImages(
-  selectedConversation: ChatView["selectedConversation"],
-) {
+export function selectedConversationSupportsImages(selectedConversation: Conversation | null) {
   return selectedConversation?.codexEffectiveSettings?.supportsImages ?? true;
 }
 

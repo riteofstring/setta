@@ -23,6 +23,10 @@ import {
   selectedConversationAgentTrajectory,
   selectedConversationAgentTrajectoryActions,
 } from "./chat-agent-trajectory-adapter";
+import {
+  selectedChatComposerActions,
+  selectedChatComposerViewModel,
+} from "./chat-composer-selected-adapter";
 import { BackgroundTerminalSurface } from "./chat-background-terminal-monitor";
 import { BrailleSpinner } from "./ascii-spinner";
 
@@ -274,13 +278,14 @@ function ComposerSlot({
   const disabled = emptyWorkspace ? busy || chat.status !== "ready" : undefined;
   return (
     <Composer
+      actions={selectedChatComposerActions(chat)}
       busy={busy}
-      chat={chat}
       disabled={disabled}
       onSendPrompt={emptyWorkspace ? createAndSendFirstMessage : undefined}
       placeholder={emptyWorkspace ? "Ask setta" : ""}
       running={running}
       runPresentation={runPresentation}
+      viewModel={selectedChatComposerViewModel(chat)}
     />
   );
 

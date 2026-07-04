@@ -575,25 +575,30 @@ Keep this phase behavior-preserving for normal chat:
 Run the narrow chat renderer and workflow-safe checks first before wiring new
 workflow behavior.
 
-Status: second renderer-boundary slice completed 2026-07-03. The initial slice
-added a renderer-owned `AgentTrajectoryViewModel`, capability flags, action
-contract, and `AgentTrajectorySurface`, plus a selected-conversation adapter for
-normal chat. This follow-up made the shared transcript and trajectory boundary
-enforce those capabilities: queue editing/removal, immediate steering, output
-loading, older-history loading, approval submission, stop, and retry actions are
-now optional only when their capability is disabled, and enabled capabilities
-without actions fail loudly during render. Run liveness presentation can now
-consume trajectory-owned stop/steer/retry capabilities, and partial output with
-no loader is displayed as partial instead of rendering a fake load action. Normal
-selected chat still supplies the selected-conversation actions and behavior is
-preserved. The workflow details preview path was intentionally left unchanged
-for Phase 6.
+Status: completed 2026-07-03. The initial slice added a renderer-owned
+`AgentTrajectoryViewModel`, capability flags, action contract, and
+`AgentTrajectorySurface`, plus a selected-conversation adapter for normal chat.
+The second slice made the shared transcript and trajectory boundary enforce
+those capabilities: queue editing/removal, immediate steering, output loading,
+older-history loading, approval submission, stop, and retry actions are now
+optional only when their capability is disabled, and enabled capabilities
+without actions fail loudly during render. This final boundary slice extracted
+explicit `ComposerViewModel` and `ComposerActions` contracts plus a selected-chat
+composer adapter. `Composer` now receives command, attachment, prompt-history,
+model, permission, queue, steering, stop, retry, and send actions explicitly
+instead of reading the whole selected chat view. Unsupported action groups do not
+render selected-chat controls, queue capture is disabled when no queue action
+exists, and enabled run-control presentation without the matching action fails
+loudly during render. Normal selected chat still supplies the
+selected-conversation actions and behavior is preserved. The workflow details
+preview path was intentionally left unchanged for Phase 6.
 
 Verification:
 
 - `pnpm -C desktop exec vitest run src/renderer/src/components/chat-panel.test.tsx`
 - `pnpm -C desktop exec vitest run src/renderer/src/components/agent-trajectory.test.tsx src/renderer/src/components/chat-panel.test.tsx`
 - `pnpm -C desktop exec vitest run src/renderer/src/App.test.tsx src/renderer/src/components/chat-transcript-activity.test.tsx src/renderer/src/components/agent-trajectory.test.tsx src/renderer/src/components/chat-panel.test.tsx`
+- `pnpm -C desktop exec vitest run src/renderer/src/components/chat-panel.test.tsx src/renderer/src/components/agent-trajectory.test.tsx`
 - `pnpm -C desktop typecheck`
 - `pnpm -C desktop build`
 - `pnpm -C desktop deadcode`
@@ -608,18 +613,26 @@ Verification:
   scroll/reload, sidebar, cross-workspace sidebar, and unread-conversation
   scenarios before failing later in the existing Codex protocol workflow wait
   with `rows: []`.
+- `node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only`
+  was rerun for the composer extraction and passed codex account, happy path,
+  image attachments, composer prompt history, activity projection,
+  command-start failure, chronological transcript, background terminal, queued
+  controls, cancel/fail queue, approvals, slash commands, permission modes,
+  conversation switch, defaults, lifecycle hardening, workflow-node trajectory
+  contract, Codex approval-policy removal, Codex app-server lifecycle, and
+  transcript search before failing in transcript-scroll with a bottom-tolerance
+  timing assertion.
+- A focused direct rerun of the transcript-scroll launch helper passed
+  `transcript-scroll` and `transcript-scroll-reload`.
 - `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
   was attempted, but local Codex `config/read` still returned unsupported
   `approval_policy = "on-failure"`, so Setta rejected conversation creation
   before live-provider execution. This failed live-provider attempt is not
   provider-integration proof.
 
-Remaining notes: Phase 5 is not fully complete. The next coherent renderer
-slice is to extract explicit composer presentation/action props from the
-selected-conversation command/model/permission plumbing so Phase 6 can render a
-workflow-node composer without selected-chat queue, attachment, command,
-permission, or prompt-history assumptions. Slice 3 still owns the workflow-node
-adapter and deletion of the fake complete output-page preview path.
+Remaining notes: Phase 6 is the next ordered step. It owns the workflow-node
+adapter, replacement of the old workflow details activity preview, and deletion
+of the fake complete output-page adaptation in one cut.
 
 ## Phase 6: Workflow Node Adapter And Controls
 

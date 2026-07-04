@@ -2,17 +2,19 @@ import type {
   ChatCommandExecuteResult,
   ChatPermissionPreset,
   ChatPermissionPresetID,
+  Conversation,
 } from "@generated/backend";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 
-import type { ChatView } from "./chat-panel";
+import type { ComposerPermissionActions } from "./chat-composer-contract";
 
 interface UseComposerPermissionPickerOptions {
-  chat: ChatView;
   clearModelPicker: () => void;
   disabled: boolean;
   focusComposer: () => void;
+  permissionActions?: ComposerPermissionActions;
   running: boolean;
+  selectedConversation: Conversation | null;
   setDraft: (draft: string) => void;
   submittingRef: MutableRefObject<boolean>;
 }
@@ -28,11 +30,12 @@ interface ScopedPermissionConfirmation {
 }
 
 export function useComposerPermissionPicker({
-  chat,
   clearModelPicker,
   disabled,
   focusComposer,
+  permissionActions,
   running,
+  selectedConversation,
   setDraft,
   submittingRef,
 }: UseComposerPermissionPickerOptions) {
@@ -41,12 +44,17 @@ export function useComposerPermissionPicker({
   );
   const [permissionConfirmationState, setPermissionConfirmationState] =
     useState<ScopedPermissionConfirmation | null>(null);
-  const selectedConversationId = selectedPermissionConversationId(chat);
+  const selectedConversationId = selectedPermissionConversationId(selectedConversation);
   const selectedConversationIdRef = useRef(selectedConversationId);
   selectedConversationIdRef.current = selectedConversationId;
   const permissionPicker = permissionPickerResult(permissionPickerState);
   const permissionConfirmation = permissionConfirmationPreset(permissionConfirmationState);
-  const permissionPickerDisabled = composerPermissionPickerDisabled(chat, disabled, running);
+  const permissionPickerDisabled = composerPermissionPickerDisabled({
+    disabled,
+    permissionActions,
+    running,
+    selectedConversation,
+  });
   const permissionPickerOpen = composerPermissionPickerOpen(permissionPicker);
 
   useEffect(() => {
@@ -108,7 +116,10 @@ export function useComposerPermissionPicker({
     }
     submittingRef.current = true;
     try {
-      const result = await chat.openCodexPermissionPicker();
+      if (permissionActions === undefined) {
+        return;
+      }
+      const result = await permissionActions.openCodexPermissionPicker();
       if (!permissionScopeActive(conversationId, selectedConversationIdRef.current)) {
         return;
       }
@@ -171,7 +182,10 @@ export function useComposerPermissionPicker({
     }
     submittingRef.current = true;
     try {
-      await chat.setCodexPermissionPreset(presetId, confirmed);
+      if (permissionActions === undefined) {
+        return;
+      }
+      await permissionActions.setCodexPermissionPreset(presetId, confirmed);
       setDraft("");
       clearPermissionPicker();
     } finally {
@@ -198,8 +212,8 @@ function permissionPresetByID(presets: ChatPermissionPreset[], presetId: ChatPer
   return presets.find((candidate) => candidate.id === presetId) ?? null;
 }
 
-function selectedPermissionConversationId(chat: ChatView) {
-  return chat.selectedConversation?.id ?? "";
+function selectedPermissionConversationId(selectedConversation: Conversation | null) {
+  return selectedConversation?.id ?? "";
 }
 
 function permissionPickerResult(state: ScopedPermissionPicker | null) {
@@ -210,8 +224,18 @@ function permissionConfirmationPreset(state: ScopedPermissionConfirmation | null
   return state?.preset ?? null;
 }
 
-function composerPermissionPickerDisabled(chat: ChatView, disabled: boolean, running: boolean) {
-  return chat.selectedConversation === null || disabled || running;
+function composerPermissionPickerDisabled({
+  disabled,
+  permissionActions,
+  running,
+  selectedConversation,
+}: {
+  disabled: boolean;
+  permissionActions?: ComposerPermissionActions;
+  running: boolean;
+  selectedConversation: Conversation | null;
+}) {
+  return permissionActions === undefined || selectedConversation === null || disabled || running;
 }
 
 function composerPermissionPickerOpen(permissionPicker: ChatCommandExecuteResult | null) {

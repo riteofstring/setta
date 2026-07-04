@@ -15,6 +15,10 @@ import {
 import { testRun } from "../stores/chat-store.test.fixtures";
 import { BackgroundTerminalMonitor } from "./chat-background-terminal-monitor";
 import { Composer } from "./chat-composer";
+import {
+  selectedChatComposerActions,
+  selectedChatComposerViewModel,
+} from "./chat-composer-selected-adapter";
 import { commandComposerState } from "./chat-command-composer-controller";
 import {
   canDismissCompletedCurrentPlan,
@@ -153,6 +157,32 @@ describe("composer keyboard behavior", () => {
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(completeCommand).toHaveBeenCalledOnce();
+    expect(queueDraft).not.toHaveBeenCalled();
+  });
+
+  test("does not capture Tab for queueing when queue capability is absent", () => {
+    const event = keyboardEvent("Tab");
+    const completeCommand = vi.fn();
+    const queueDraft = vi.fn();
+
+    handleComposerKeyDown(event, {
+      canQueue: false,
+      canStop: false,
+      completeCommand,
+      draftEmpty: false,
+      dismissPicker: vi.fn(),
+      hasPendingSteering: false,
+      pickerOpen: false,
+      queueDraft,
+      running: false,
+      sendImmediateSteering: vi.fn(),
+      sendDraft: vi.fn(),
+      slashDraft: false,
+      stopRun: vi.fn(),
+    });
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(completeCommand).not.toHaveBeenCalled();
     expect(queueDraft).not.toHaveBeenCalled();
   });
 
@@ -575,11 +605,13 @@ describe("composer controls", () => {
       <ComposerButton
         canSend
         canSendImmediately={false}
-        chat={composerButtonChat()}
+        operation={null}
         queueDraft={async () => {}}
+        retryActiveRunLiveness={async () => {}}
         running={false}
         runPresentation={idleRunPresentation}
         sendImmediateSteering={async () => {}}
+        stopActiveRun={async () => {}}
       />,
     );
 
@@ -593,11 +625,13 @@ describe("composer controls", () => {
       <ComposerButton
         canSend
         canSendImmediately
-        chat={composerButtonChat()}
+        operation={null}
         queueDraft={async () => {}}
+        retryActiveRunLiveness={async () => {}}
         running
         runPresentation={workingRunPresentation}
         sendImmediateSteering={async () => {}}
+        stopActiveRun={async () => {}}
       />,
     );
 
@@ -612,11 +646,13 @@ describe("composer controls", () => {
       <ComposerButton
         canSend
         canSendImmediately
-        chat={composerButtonChat()}
+        operation={null}
         queueDraft={async () => {}}
+        retryActiveRunLiveness={async () => {}}
         running
         runPresentation={lostRunPresentation}
         sendImmediateSteering={async () => {}}
+        stopActiveRun={async () => {}}
       />,
     );
 
@@ -1037,10 +1073,11 @@ describe("chat readable width contract", () => {
     const searchHtml = renderToString(<ChatSearchBar search={openSearchController()} />);
     const composerHtml = renderToString(
       <Composer
+        actions={selectedChatComposerActions(composerChat())}
         busy={false}
-        chat={composerChat()}
         running={false}
         runPresentation={idleRunPresentation}
+        viewModel={selectedChatComposerViewModel(composerChat())}
       />,
     );
     const goalHtml = renderToString(
@@ -1202,7 +1239,7 @@ function composerChat() {
     sendSteeringImmediately: async () => {},
     status: "ready",
     steerMessage: async () => {},
-  } as unknown as Parameters<typeof Composer>[0]["chat"];
+  } as unknown as ConversationBodyProps["chat"];
 }
 
 function conversationBodyChat(
