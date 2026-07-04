@@ -20,11 +20,16 @@ const (
 
 type CodexChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
-	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
+	ActiveRunWithLiveness(workspaceID string, conversationID string) (chat.Run, *chat.RunLiveness, bool, error)
+	CancelActiveRunByID(workspaceID string, conversationID string, runID string) (chat.Run, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
+	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
+	LoadRunTranscriptPage(workspaceID string, runID string, beforeBlockOrdinal int, limit int) (chat.RunTranscriptPage, error)
+	ReconcileActiveRunByID(ctx context.Context, workspaceID string, conversationID string, runID string, reason chat.RunLivenessReason) (chat.RunLivenessReconciliationResult, error)
 	SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error)
+	SteerActiveRunInputByID(workspaceID string, conversationID string, runID string, input chat.ChatInput) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)
 }
@@ -214,6 +219,7 @@ func (runner *CodexActionRunner) compileSemanticContext(request ActionStartReque
 
 func (runner *CodexActionRunner) Cancel(_ context.Context, request ActionCancelRequest) error {
 	conversationID := runnerRefValue(request.RunnerRefs, RunnerRefChatConversation)
+	runID := runnerRefValue(request.RunnerRefs, RunnerRefChatRun)
 	if conversationID == "" {
 		return nil
 	}
@@ -222,7 +228,10 @@ func (runner *CodexActionRunner) Cancel(_ context.Context, request ActionCancelR
 	} else if !ok {
 		return nil
 	}
-	if _, err := runner.chatService.CancelActiveRun(request.WorkspaceID, conversationID); err != nil {
+	if runID == "" {
+		return fmt.Errorf("agent.codex cancel requires committed chat run ref for conversation %s", conversationID)
+	}
+	if _, err := runner.chatService.CancelActiveRunByID(request.WorkspaceID, conversationID, runID); err != nil {
 		return err
 	}
 	return nil
@@ -476,13 +485,15 @@ func workflowActionResultFromChatRunReconcileError(run chat.Run, message string)
 func workflowResultPayloadFromActivity(activity chat.RunActivityPage) ([]WorkflowActionSignal, json.RawMessage, []string, error) {
 	for index := len(activity.Items) - 1; index >= 0; index-- {
 		item := activity.Items[index]
+		details, ok := item.DynamicToolCallDetails()
 		if item.Type != chat.RunItemTypeDynamicToolCall ||
 			item.Status != chat.RunItemStatusCompleted ||
-			item.Namespace != chat.SettaAgentToolNamespace ||
-			item.ToolName != chat.SettaWorkflowResultAgentToolName {
+			!ok ||
+			details.Namespace != chat.SettaAgentToolNamespace ||
+			details.ToolName != chat.SettaWorkflowResultAgentToolName {
 			continue
 		}
-		payload, err := chat.DecodeSettaWorkflowResultPayload(item.Details)
+		payload, err := chat.DecodeSettaWorkflowResultPayload(details.Arguments)
 		if err != nil {
 			return nil, nil, nil, err
 		}

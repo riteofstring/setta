@@ -372,6 +372,15 @@ function useWorkflowProjection({
         });
         return;
       }
+      if (
+        workflowAutoDraftLoadShouldPreserveRunTarget(
+          projectionStateRef.current.target,
+          session.selectedWorkspaceId,
+          definitionId,
+        )
+      ) {
+        return;
+      }
       const definitionTarget = {
         definitionId,
         kind: "draft" as const,
@@ -385,6 +394,15 @@ function useWorkflowProjection({
         session.selectedWorkspaceId,
         definitionId,
       );
+      if (
+        workflowAutoDraftLoadShouldPreserveRunTarget(
+          projectionStateRef.current.target,
+          session.selectedWorkspaceId,
+          definitionId,
+        )
+      ) {
+        return;
+      }
       dispatchIfMounted({
         expectedTarget: definitionTarget,
         projection: response.projection,
@@ -528,6 +546,18 @@ export function workflowEventRefreshesProjectionTarget(
   event: WorkflowEvent,
 ) {
   return current.kind === "run" && workflowEventMatchesProjectionTarget(current, event);
+}
+
+export function workflowAutoDraftLoadShouldPreserveRunTarget(
+  current: WorkflowProjectionTarget,
+  workspaceId: string,
+  definitionId: string,
+) {
+  return (
+    current.kind === "run" &&
+    current.workspaceId === workspaceId &&
+    current.definitionId === definitionId
+  );
 }
 
 function workflowGraphTargetOrNull(target: WorkflowProjectionTarget): WorkflowGraphTarget | null {

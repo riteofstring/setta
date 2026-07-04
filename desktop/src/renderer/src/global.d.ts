@@ -1,4 +1,5 @@
 import type { SettaAPI } from "@shared/types";
+import type { ChatTranscriptScrollDebugSnapshot } from "./components/chat-transcript-scroll-follow";
 import type {
   WorkspaceActivityDebugApi,
   WorkspaceActivityDebugSnapshot,
@@ -233,6 +234,12 @@ interface WorkflowGraphDebugApi {
   getSurfaceIds: () => string[];
 }
 
+interface WorkflowNodeDetailsDebugApi {
+  __surfaces: Map<string, (nodeId: string, nodeExecutionId: string) => boolean>;
+  getSurfaceIds: () => string[];
+  openNodeDetails: (surfaceId: string, nodeId: string, nodeExecutionId?: string) => boolean;
+}
+
 interface WorkflowGraphRuntimeHandle {
   setFrozen(frozen: boolean): void;
 }
@@ -242,12 +249,18 @@ interface WorkflowGraphRuntimeApi {
   getHandle: (surfaceId: string) => WorkflowGraphRuntimeHandle | null;
 }
 
+interface ChatTranscriptScrollDebugApi {
+  getSnapshot: () => ChatTranscriptScrollDebugSnapshot;
+}
+
 declare global {
   interface Window {
+    __settaChatTranscriptScrollDebug?: ChatTranscriptScrollDebugApi;
     __settaWorkspaceReadFrameMetrics?: () => WorkspaceFrameMetrics;
     __settaWorkspaceResetFrameMetrics?: () => void;
     __settaWorkspaceActivityDebug?: WorkspaceActivityDebugApi;
     __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
+    __settaWorkflowNodeDetailsDebug?: WorkflowNodeDetailsDebugApi;
     __settaWorkflowGraphRuntime?: WorkflowGraphRuntimeApi;
     setta: SettaAPI;
   }

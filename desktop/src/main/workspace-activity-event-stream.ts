@@ -12,7 +12,6 @@ export interface WorkspaceActivityEventStream {
 }
 
 interface WorkspaceActivityEventStreamOptions {
-  authToken: string;
   baseURL: string;
   fetchImpl?: BackendFetch;
   reconnectDelayMs?: number;
@@ -31,7 +30,6 @@ export function startWorkspaceActivityEventStream(
 ): WorkspaceActivityEventStream {
   const abort = new AbortController();
   const done = runWorkspaceActivityEventStreamLoop({
-    authToken: options.authToken,
     baseURL: options.baseURL,
     fetchImpl: options.fetchImpl ?? fetch,
     reconnectDelayMs: options.reconnectDelayMs ?? defaultReconnectDelayMs,
@@ -49,7 +47,6 @@ export function startWorkspaceActivityEventStream(
 
 async function runWorkspaceActivityEventStreamLoop(options: {
   baseURL: string;
-  authToken: string;
   fetchImpl: BackendFetch;
   reconnectDelayMs: number;
   sendEvent: (event: WorkspaceActivityEvent) => void;
@@ -76,11 +73,10 @@ async function streamWorkspaceActivityEventsOnce(options: {
   baseURL: string;
   cursor: WorkspaceActivityEventCursor;
   fetchImpl: BackendFetch;
-  authToken: string;
   sendEvent: (event: WorkspaceActivityEvent) => void;
   signal: AbortSignal;
 }): Promise<WorkspaceActivityEventCursor> {
-  const headers: Record<string, string> = { Authorization: `Bearer ${options.authToken}` };
+  const headers: Record<string, string> = {};
   if (options.cursor.streamId !== "") {
     headers["Last-Event-ID"] = encodeWorkspaceActivityEventCursor(options.cursor);
   }

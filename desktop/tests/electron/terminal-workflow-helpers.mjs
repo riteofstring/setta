@@ -1,39 +1,15 @@
-import { setTimeout as delay } from "node:timers/promises";
-
 import { dispatchKeyEvent, waitForState } from "./electron-cdp-harness.mjs";
 
 const cdpAltMetaModifier = 5;
-const emptyTerminalSnapshot = {
-  exists: false,
-  focused: false,
-  maximized: false,
-  paneId: "",
-  profileId: "",
-  sessionId: "",
-  statusText: "",
-  terminalLost: false,
-  text: "",
-  visible: false,
-  xtermReady: false,
-};
 
 export function terminalSnapshotExpression() {
-  return `globalThis.__settaE2EDriver?.terminalSnapshot ? globalThis.__settaE2EDriver.terminalSnapshot() : ${JSON.stringify(
-    emptyTerminalSnapshot,
-  )}`;
+  return "globalThis.__settaE2EDriver.terminalSnapshot()";
 }
 
-export function terminalScrollbackSearchExpression(expectedText, { paneId = null } = {}) {
-  return `globalThis.__settaE2EDriver?.terminalScrollbackSearch ? globalThis.__settaE2EDriver.terminalScrollbackSearch(${JSON.stringify(
-    {
-      expectedText,
-      paneId,
-    },
-  )}) : ${JSON.stringify({
-    ...emptyTerminalSnapshot,
-    found: false,
-    source: "driver-unavailable",
-  })}`;
+export function terminalScrollbackSearchExpression(expectedText) {
+  return `globalThis.__settaE2EDriver.terminalScrollbackSearch(${JSON.stringify({
+    expectedText,
+  })})`;
 }
 
 export async function openTerminalFromShortcut(client, timeoutMs) {
@@ -98,59 +74,18 @@ export async function focusTerminal(client, timeoutMs) {
   }
 }
 
-export async function waitForTerminalReady(client, timeoutMs) {
-  return waitForState(
-    client,
-    terminalSnapshotExpression(),
-    (snapshot) =>
-      snapshot.exists &&
-      snapshot.visible &&
-      snapshot.xtermReady &&
-      snapshot.sessionId.startsWith("terminal_") &&
-      snapshot.statusText !== "" &&
-      snapshot.statusText !== "Starting shell",
-    timeoutMs,
-  );
-}
-
-export async function waitForTerminalText(client, expectedText, timeoutMs) {
-  return waitForState(
-    client,
-    terminalSnapshotExpression(),
-    (snapshot) => snapshot.text.includes(expectedText),
-    timeoutMs,
-  );
-}
-
-export async function waitForTerminalTextInScrollback(client, expectedText, timeoutMs) {
-  return waitForState(
-    client,
-    terminalScrollbackSearchExpression(expectedText),
-    (snapshot) => snapshot.found,
-    timeoutMs,
-  );
-}
-
-export async function sendTerminalCommand(client, text) {
-  await client.call("Input.insertText", { text });
-  await pressTerminalEnter(client);
-  await delay(100);
-}
-
-async function pressTerminalEnter(client) {
-  await client.call("Input.dispatchKeyEvent", {
-    code: "Enter",
-    key: "Enter",
-    nativeVirtualKeyCode: 13,
-    text: "\r",
-    type: "keyDown",
-    windowsVirtualKeyCode: 13,
+export async function closeTerminalPaneFromChrome(client, timeoutMs, { accept = true } = {}) {
+  void timeoutMs;
+  await client.installDriver();
+  const removeDialogListener = client.on("Page.javascriptDialogOpening", () => {
+    void client.call("Page.handleJavaScriptDialog", { accept });
   });
-  await client.call("Input.dispatchKeyEvent", {
-    code: "Enter",
-    key: "Enter",
-    nativeVirtualKeyCode: 13,
-    type: "keyUp",
-    windowsVirtualKeyCode: 13,
-  });
+  try {
+    const result = await client.driver("closeTerminalPane");
+    if (!result.ok) {
+      throw new Error(`terminal pane close failed: ${JSON.stringify(result)}`);
+    }
+  } finally {
+    removeDialogListener();
+  }
 }

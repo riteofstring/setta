@@ -17,13 +17,9 @@ func TestActivityRecordFromCommandRunItemUsesTypedFields(t *testing.T) {
 		NodeExecutionID:     "node_execution_build",
 	}
 	record, ok, err := ActivityRecordFromChatRunItem(chat.RunItem{
-		Command:        "  npm test -- --runInBand  ",
 		CompletedAt:    "2026-06-21T12:00:02Z",
 		ConversationID: "conversation",
 		CreatedAt:      "2026-06-21T12:00:00Z",
-		Cwd:            "/tmp/workspace",
-		DurationMs:     1200,
-		ExitCode:       0,
 		ID:             "run_item_command",
 		ProviderItemID: "provider_command",
 		RunID:          "run_command",
@@ -31,6 +27,12 @@ func TestActivityRecordFromCommandRunItemUsesTypedFields(t *testing.T) {
 		Status:         chat.RunItemStatusCompleted,
 		Type:           chat.RunItemTypeCommandExecution,
 		WorkspaceID:    "workspace",
+		Details: chat.NewRunItemCommandExecutionDetails(chat.RunItemCommandExecutionDetails{
+			Command:    "  npm test -- --runInBand  ",
+			Cwd:        "/tmp/workspace",
+			DurationMs: 1200,
+			ExitCode:   0,
+		}),
 	}, ChatRunItemContext{
 		ConversationWorkflow: metadata,
 		Revision:             4,
@@ -58,22 +60,57 @@ func TestActivityRecordFromCommandRunItemUsesTypedFields(t *testing.T) {
 	}
 }
 
+func TestActivityRecordSkipsProvisionalUnifiedExecStartup(t *testing.T) {
+	source := chat.RunItemCommandSourceUnifiedExecStartup
+	running := chat.RunItem{
+		ConversationID: "conversation",
+		CreatedAt:      "2026-06-21T12:00:00Z",
+		ID:             "run_item_startup",
+		ProviderItemID: "provider_startup",
+		RunID:          "run_startup",
+		Status:         chat.RunItemStatusRunning,
+		Type:           chat.RunItemTypeCommandExecution,
+		WorkspaceID:    "workspace",
+		Details: chat.NewRunItemCommandExecutionDetails(chat.RunItemCommandExecutionDetails{
+			Command: "command -v tokei",
+			Source:  &source,
+		}),
+	}
+	if record, ok, err := ActivityRecordFromChatRunItem(running, ChatRunItemContext{}); err != nil || ok {
+		t.Fatalf("running unified exec startup mapped as record=%+v ok=%v err=%v, want skipped", record, ok, err)
+	}
+	running.Status = chat.RunItemStatusCompleted
+	record, ok, err := ActivityRecordFromChatRunItem(running, ChatRunItemContext{})
+	if err != nil {
+		t.Fatalf("map completed unified exec startup: %v", err)
+	}
+	if !ok || record.Kind != ActivityKindCommand || record.Status != ActivityStatusCompleted {
+		t.Fatalf("completed unified exec startup record=%+v ok=%v, want completed command", record, ok)
+	}
+}
+
 func TestActivityRecordFromFileChangeBoundsTypedPaths(t *testing.T) {
 	paths := []string{}
 	for index := 0; index < maxFilePaths+3; index++ {
 		paths = append(paths, "file.go")
 	}
+	filePaths := make([]chat.RunItemFileChangePath, 0, len(paths))
+	for _, path := range paths {
+		filePaths = append(filePaths, chat.RunItemFileChangePath{Path: path})
+	}
 	record, ok, err := ActivityRecordFromChatRunItem(chat.RunItem{
 		ConversationID: "conversation",
 		CreatedAt:      "2026-06-21T12:00:00Z",
-		FilePaths:      paths,
 		ID:             "run_item_file",
-		PatchStatus:    "applied",
 		ProviderItemID: "provider_file",
 		RunID:          "run_file",
 		Status:         chat.RunItemStatusRunning,
 		Type:           chat.RunItemTypeFileChange,
 		WorkspaceID:    "workspace",
+		Details: chat.NewRunItemFileChangeDetails(chat.RunItemFileChangeDetails{
+			PatchStatus: "applied",
+			Paths:       filePaths,
+		}),
 	}, ChatRunItemContext{})
 	if err != nil {
 		t.Fatalf("map file activity: %v", err)
@@ -92,6 +129,90 @@ func TestActivityRecordFromFileChangeBoundsTypedPaths(t *testing.T) {
 	}
 	if record.FileChange.PatchStatus != "applied" {
 		t.Fatalf("patch status = %q", record.FileChange.PatchStatus)
+	}
+}
+
+func TestActivityRecordFromCommandApprovalRequestPreservesCommandMarker(t *testing.T) {
+	approvalKind := chat.ApprovalKindCommand
+	approvalStatus := chat.ApprovalStatusPending
+	record, ok, err := ActivityRecordFromChatRunItem(chat.RunItem{
+		ConversationID: "conversation",
+		CreatedAt:      "2026-06-21T12:00:00Z",
+		ID:             "run_item_command_approval",
+		ProviderItemID: "provider_command_approval",
+		RunID:          "run_approval",
+		Status:         chat.RunItemStatusRunning,
+		Type:           chat.RunItemTypeApprovalRequest,
+		WorkspaceID:    "workspace",
+		Details: chat.NewRunItemApprovalDetails(chat.RunItemApprovalDetails{
+			ApprovalID:     "approval_command",
+			ApprovalKind:   &approvalKind,
+			ApprovalStatus: &approvalStatus,
+			Command:        "  npm run build  ",
+			Cwd:            "/tmp/workspace",
+			Title:          "Command approval",
+		}),
+	}, ChatRunItemContext{Revision: 11})
+	if err != nil {
+		t.Fatalf("map command approval activity: %v", err)
+	}
+	if !ok {
+		t.Fatal("command approval request was not mapped")
+	}
+	if record.Kind != ActivityKindCommand || record.Status != ActivityStatusRunning {
+		t.Fatalf("record kind/status = %s/%s, want command/running", record.Kind, record.Status)
+	}
+	if record.ActivityID != "chat_run_item:run_item_command_approval" {
+		t.Fatalf("activity id = %q", record.ActivityID)
+	}
+	if record.Command == nil || record.Command.CommandPreview != "npm run build" || record.Command.Cwd != "/tmp/workspace" {
+		t.Fatalf("command payload = %+v", record.Command)
+	}
+	if record.Command.ExitCode != nil || record.Command.DurationMs != nil {
+		t.Fatalf("command approval execution metrics = exitCode:%+v duration:%+v, want nil", record.Command.ExitCode, record.Command.DurationMs)
+	}
+	if record.DetailRef.Kind != DetailKindChatRunItem || record.DetailRef.RunItemID != "run_item_command_approval" {
+		t.Fatalf("detail ref = %+v, want approval run item detail ref", record.DetailRef)
+	}
+}
+
+func TestActivityRecordFromFileChangeApprovalRequestPreservesFileMarker(t *testing.T) {
+	approvalKind := chat.ApprovalKindFileChange
+	approvalStatus := chat.ApprovalStatusPending
+	record, ok, err := ActivityRecordFromChatRunItem(chat.RunItem{
+		ConversationID: "conversation",
+		CreatedAt:      "2026-06-21T12:00:00Z",
+		ID:             "run_item_file_approval",
+		ProviderItemID: "provider_file_approval",
+		RunID:          "run_approval",
+		Status:         chat.RunItemStatusPending,
+		Type:           chat.RunItemTypeApprovalRequest,
+		WorkspaceID:    "workspace",
+		Details: chat.NewRunItemApprovalDetails(chat.RunItemApprovalDetails{
+			ApprovalID:     "approval_file",
+			ApprovalKind:   &approvalKind,
+			ApprovalStatus: &approvalStatus,
+			FilePath:       "/tmp/workspace",
+			Title:          "File change approval",
+		}),
+	}, ChatRunItemContext{Revision: 12})
+	if err != nil {
+		t.Fatalf("map file approval activity: %v", err)
+	}
+	if !ok {
+		t.Fatal("file-change approval request was not mapped")
+	}
+	if record.Kind != ActivityKindFileChange || record.Status != ActivityStatusPending {
+		t.Fatalf("record kind/status = %s/%s, want file_change/pending", record.Kind, record.Status)
+	}
+	if record.FileChange == nil {
+		t.Fatal("file-change payload was nil")
+	}
+	if record.FileChange.PathCount != 1 || len(record.FileChange.Paths) != 1 || record.FileChange.Paths[0] != "/tmp/workspace" {
+		t.Fatalf("file-change paths = %+v count=%d", record.FileChange.Paths, record.FileChange.PathCount)
+	}
+	if record.FileChange.PatchStatus != approvalRequestedPatchStatus || record.FileChange.RunItemStatus != chat.RunItemStatusPending {
+		t.Fatalf("file-change status = patch:%q item:%s", record.FileChange.PatchStatus, record.FileChange.RunItemStatus)
 	}
 }
 

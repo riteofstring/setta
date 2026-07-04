@@ -22,6 +22,23 @@ For throwaway local app state:
 SETTA_APP_DATA_DIR="$(mktemp -d)" ./scripts/dev_desktop.sh
 ```
 
+Run the last production build when dogfooding Setta while editing this repo:
+
+```sh
+./scripts/prod_desktop.sh --build
+./scripts/prod_desktop.sh
+```
+
+The production launcher uses the compiled Electron bundle and a compiled
+backend binary under `desktop/out`; it does not rebuild unless `--build` is
+passed. Set `SETTA_APP_DATA_DIR` when you want a separate dogfood profile.
+
+Record a production desktop dogfood session:
+
+```sh
+./scripts/prod_record_desktop_session.sh
+```
+
 To reset the default global app state:
 
 ```sh
@@ -38,7 +55,7 @@ and Setta Electron user data.
 Record a desktop dogfood session:
 
 ```sh
-./scripts/record_desktop_session.sh
+./scripts/dev_record_desktop_session.sh
 ```
 
 Recordings are written under `.recordings/` by default.

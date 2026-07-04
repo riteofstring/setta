@@ -1,5 +1,6 @@
 import type {
   BackendHealth,
+  ChatCommandResult,
   ChatMessage,
   MessagePage,
   OpenWorkspaceResponse,
@@ -243,31 +244,6 @@ describe("workspace store", () => {
     expect(useWorkspaceStore.getState().session).toEqual(newerSession);
     expect(useWorkspaceStore.getState().status).toBe("ready");
   });
-
-  test("runtime reset clears session and ignores in-flight session loads", async () => {
-    const pending = deferred<WorkspaceSession>();
-    useWorkspaceStore.setState({
-      error: "local workspace error",
-      operation: "opening",
-      session: workspaceSession("workspace_local"),
-      status: "ready",
-    });
-    installSettaAPI({
-      workspace: {
-        session: vi.fn().mockReturnValue(pending.promise),
-      },
-    });
-
-    const loadPromise = useWorkspaceStore.getState().loadSession();
-    useWorkspaceStore.getState().resetRuntimeState();
-    pending.resolve(workspaceSession("workspace_stale"));
-    await loadPromise;
-
-    expect(useWorkspaceStore.getState().error).toBeNull();
-    expect(useWorkspaceStore.getState().operation).toBeNull();
-    expect(useWorkspaceStore.getState().session).toBeNull();
-    expect(useWorkspaceStore.getState().status).toBe("idle");
-  });
 });
 
 interface SettaAPIOverrides {
@@ -329,7 +305,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       health: async (): Promise<BackendHealth> => ({
         name: "setta-backend",
         ok: true,
-        protocolVersion: 1,
         version: "test",
       }),
       onEventStreamStatus: () => () => {},
@@ -346,11 +321,14 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         throw new Error("appearance update is not used by workspace store tests");
       },
     },
-    runtimes: {} as SettaAPI["runtimes"],
     chat: {
-      activeRun: async () => ({ hasActiveRun: false, run: null }),
+      activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => emptyRun(),
+      reconcileRuns: async () => ({ result: { runs: [] } }),
       createConversation: async () => emptyConversation(),
+      createImageAttachmentFromBytes: async () => {
+        throw new Error("create image attachment from bytes is not used by workspace store tests");
+      },
       deleteConversation: async () => ({
         conversations: [],
         corruption: emptyCorruption(),
@@ -369,16 +347,50 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: emptyMessagePage(),
         result: {
           action: "display",
+          composerDraft: "",
+          currentPermission: null,
           goal: null,
           kind: "goal",
           message: "Goal set: test",
           models: [],
+          permissionPresets: [],
           raw: "/goal test",
           reasoningEfforts: [],
+          selectedPermissionPreset: null,
           selectedReasoningEffort: null,
           selectedModel: "",
           title: "Goal",
         },
+      }),
+      readCodexDefaults: async () => {
+        throw new Error("chat defaults are not used by workspace store tests");
+      },
+      openCodexModelPicker: async () => ({
+        conversation: emptyConversation(),
+        message: null,
+        page: emptyMessagePage(),
+        result: {
+          action: "model_picker",
+          composerDraft: "",
+          currentPermission: null,
+          goal: null,
+          kind: "model",
+          message: "Choose a model.",
+          models: [],
+          permissionPresets: [],
+          raw: "model_picker",
+          reasoningEfforts: [],
+          selectedPermissionPreset: null,
+          selectedReasoningEffort: null,
+          selectedModel: "",
+          title: "Model",
+        },
+      }),
+      openCodexPermissionPicker: async () => ({
+        conversation: emptyConversation(),
+        message: null,
+        page: emptyMessagePage(),
+        result: emptyCommandResult("permission", "permission_picker"),
       }),
       listCommands: async () => ({ commands: [] }),
       listConversations: async () => ({
@@ -386,8 +398,20 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         corruption: emptyCorruption(),
         diagnostics: [],
       }),
+      listBackgroundTerminals: async () => ({ terminals: [] }),
+      getBackgroundTerminalOutput: async () => ({
+        hasMore: false,
+        nextOrdinal: 0,
+        output: [],
+        processId: "background_terminal_api",
+      }),
+      killBackgroundTerminal: async () => {
+        throw new Error("kill background terminal is not used by workspace store tests");
+      },
+      killAllBackgroundTerminals: async () => ({ terminals: [] }),
       markConversationRead: async () => ({
         activeRunId: "",
+        activeRunLiveness: null,
         pinnedAt: "",
         conversation: emptyConversation(),
         latestReadRelevantMarker: 0,
@@ -395,6 +419,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         readMarker: 0,
       }),
       messagePage: async () => emptyMessagePage(),
+      listComposerPromptHistory: async () => ({
+        conversationId: "",
+        entries: [],
+        hasMoreOlder: false,
+        olderBeforeOrdinal: 0,
+      }),
       onEvent: () => () => {},
       queueMessage: async () => ({
         conversation: emptyConversation(),
@@ -404,6 +434,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       runActivity: async () => ({
+        activity: [],
         items: [],
         output: [],
         runId: "run_test",
@@ -435,16 +466,26 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: emptyMessagePage(),
         result: {
           action: "display",
+          composerDraft: "",
+          currentPermission: null,
           goal: null,
           kind: "model",
           message: "Model set: gpt-test",
           models: [],
-          raw: "/model",
+          permissionPresets: [],
+          raw: "model_set",
           reasoningEfforts: [],
+          selectedPermissionPreset: null,
           selectedReasoningEffort: null,
           selectedModel: "gpt-test",
           title: "Model",
         },
+      }),
+      setCodexPermissionPreset: async () => ({
+        conversation: emptyConversation(),
+        message: null,
+        page: emptyMessagePage(),
+        result: emptyCommandResult("permission", "display"),
       }),
       setCodexReasoningEffort: async () => ({
         conversation: emptyConversation(),
@@ -452,25 +493,34 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: emptyMessagePage(),
         result: {
           action: "display",
+          composerDraft: "",
+          currentPermission: null,
           goal: null,
           kind: "model",
           message: "Reasoning set: High",
           models: [],
-          raw: "/model",
+          permissionPresets: [],
+          raw: "model_reasoning_effort_set",
           reasoningEfforts: [],
+          selectedPermissionPreset: null,
           selectedReasoningEffort: "high",
           selectedModel: "",
           title: "Model",
         },
       }),
+      updateCodexDefaults: async () => {
+        throw new Error("chat defaults are not used by workspace store tests");
+      },
       setConversationPinned: async () => ({
         activeRunId: "",
+        activeRunLiveness: null,
         pinnedAt: "",
         conversation: emptyConversation(),
         latestReadRelevantMarker: 0,
         messageCount: 0,
         readMarker: 0,
       }),
+      selectImageAttachments: async () => [],
       steerMessage: async () => ({
         conversation: emptyConversation(),
         page: emptyMessagePage(),
@@ -566,7 +616,11 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     onEvent: () => () => {},
     readDefinition: unavailable,
     readExecution: unavailable,
+    readNodeTrajectory: unavailable,
+    retryNodeRunLiveness: unavailable,
     startExecution: unavailable,
+    steerNodeRun: unavailable,
+    stopNodeRun: unavailable,
     submitApproval: unavailable,
     updateDefinition: unavailable,
     validateDefinition: unavailable,
@@ -635,6 +689,7 @@ function emptyCodexAccountState() {
 function emptyConversation() {
   return {
     archivedAt: "",
+    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
@@ -657,6 +712,28 @@ function emptyCorruption() {
   };
 }
 
+function emptyCommandResult(
+  kind: ChatCommandResult["kind"],
+  action: ChatCommandResult["action"],
+): ChatCommandResult {
+  return {
+    action,
+    composerDraft: "",
+    currentPermission: null,
+    goal: null,
+    kind,
+    message: "Command result",
+    models: [],
+    permissionPresets: [],
+    raw: "/command",
+    reasoningEfforts: [],
+    selectedModel: "",
+    selectedPermissionPreset: null,
+    selectedReasoningEffort: null,
+    title: "Command",
+  };
+}
+
 function emptyMessage(): ChatMessage {
   return {
     conversationId: "conversation_test",
@@ -664,7 +741,14 @@ function emptyMessage(): ChatMessage {
     delivery: "normal",
     id: "message_test",
     ordinal: 1,
-    parts: [{ format: "plain", id: "part_test", text: "", type: "text" }],
+    parts: [
+      {
+        id: "part_test",
+        image: null,
+        text: { format: "plain", text: "" },
+        type: "text",
+      },
+    ],
     role: "user",
     runId: "",
     schemaVersion: 1,
@@ -675,15 +759,13 @@ function emptyMessage(): ChatMessage {
 
 function emptyMessagePage(): MessagePage {
   return {
+    blocks: [],
     conversation: emptyConversation(),
     goal: null,
     hasMoreOlder: false,
     messages: [],
-    olderBeforeOrdinal: 0,
+    olderBeforeBlockOrdinal: 0,
     queue: { messages: [], runs: [] },
-    runItemOutputs: [],
-    runItems: [],
-    transcript: [],
   };
 }
 

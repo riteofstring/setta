@@ -31,3 +31,10 @@ func validateStoreRunItemIDs(workspaceID string, runID string, runItemID string)
 	}
 	return validateRunItemID(runItemID)
 }
+
+func validateStoreBackgroundTerminalIDs(workspaceID string, conversationID string, processID string) error {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return err
+	}
+	return validateStorageID("background terminal id", processID)
+}

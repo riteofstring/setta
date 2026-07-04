@@ -1,4 +1,4 @@
-/* global CustomEvent, Element, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, MouseEvent, document, getComputedStyle, window */
+/* global CustomEvent, Element, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, getComputedStyle, window */
 
 (() => {
   const workflowDefinitionChangedEventName = "setta:workflow-definition-changed";
@@ -21,14 +21,11 @@
 
   function clickButton({ kind, value }) {
     const button = buttonByKind(kind, value);
-    if (!(button instanceof HTMLButtonElement)) {
-      return { body: document.body.innerText, clicked: false, reason: "missing-button" };
-    }
-    if (button.disabled) {
-      return { body: document.body.innerText, clicked: false, reason: "disabled-button" };
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { body: document.body.innerText, clicked: false };
     }
     button.click();
-    return { body: document.body.innerText, clicked: true, reason: "clicked" };
+    return { body: document.body.innerText, clicked: true };
   }
 
   function buttonReady({ kind, value }) {
@@ -42,14 +39,23 @@
     const button = Array.from(document.querySelectorAll("button")).find((candidate) =>
       candidate.innerText.includes(text),
     );
-    if (!(button instanceof HTMLButtonElement)) {
-      return { body: document.body.innerText, clicked: false, reason: "missing-button" };
-    }
-    if (button.disabled) {
-      return { body: document.body.innerText, clicked: false, reason: "disabled-button" };
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { body: document.body.innerText, clicked: false };
     }
     button.click();
-    return { body: document.body.innerText, clicked: true, reason: "clicked" };
+    return { body: document.body.innerText, clicked: true };
+  }
+
+  function clickButtonContainingTextByRole({ role, text }) {
+    const selector = `button[role="${cssEscape(role)}"]`;
+    const button = Array.from(document.querySelectorAll(selector)).find((candidate) =>
+      candidate.innerText.includes(text),
+    );
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { body: document.body.innerText, clicked: false };
+    }
+    button.click();
+    return { body: document.body.innerText, clicked: true };
   }
 
   function composerReady() {
@@ -86,6 +92,75 @@
         text: row.innerText.trim(),
       })),
     };
+  }
+
+  // chatTranscriptBlockOrder returns the recognized transcript blocks in document order. It is
+  // the cross-phase diagnostic used to compare provider chronology, backend order, and DOM order.
+  // Today it reads the current DOM
+  // hooks (message role plus the run-activity-group/row test ids), so the order is flattened.
+  // Those hooks disappear in the Phase 5 refactor, so it also prefers a stable
+  // data-transcript-block + data-block-kind tagging when present; Phase 5 should add that so the
+  // characterization flip becomes a one-line expectation change instead of a driver rewrite.
+  function chatTranscriptBlockOrder() {
+    const blockSelector =
+      '[data-transcript-block], [data-chat-message="true"], [data-testid="run-activity-group"], [data-testid="run-activity-row"]';
+    const region =
+      document.querySelector('[data-testid="chat-transcript-region"]') ?? document.body;
+    const nodes = Array.from(region.querySelectorAll(blockSelector));
+    return {
+      blocks: nodes.map((node) => {
+        const kind = transcriptBlockKind(node);
+        return {
+          kind,
+          role: node.getAttribute("data-message-role") ?? "",
+          runId: node.closest("[data-run-id]")?.getAttribute("data-run-id") ?? "",
+          sourceRunItemId: node.getAttribute("data-run-item-id") ?? "",
+          text: transcriptBlockText(node, kind, blockSelector),
+        };
+      }),
+    };
+  }
+
+  function transcriptBlockKind(node) {
+    // Prefer the stable Phase 5 tagging when present; otherwise infer from the current hooks.
+    const blockKind = node.getAttribute("data-block-kind");
+    if (blockKind) {
+      return blockKind;
+    }
+    const testId = node.getAttribute("data-testid");
+    if (testId === "run-activity-group") {
+      return "activity_group";
+    }
+    if (testId === "run-activity-row") {
+      return "activity_row";
+    }
+    const role = node.getAttribute("data-message-role");
+    if (role === "user") {
+      return "user_message";
+    }
+    if (role === "assistant") {
+      return "assistant_text";
+    }
+    return role ? `message:${role}` : "message";
+  }
+
+  function transcriptBlockText(node, kind, blockSelector) {
+    if (kind === "assistant_text" || kind === "user_message") {
+      const role = node.getAttribute("data-message-role");
+      const content = node.querySelector(`[data-testid="chat-${role}-message-content"]`);
+      if (content instanceof HTMLElement) {
+        return collapseTranscriptWhitespace(content.textContent).slice(0, 240);
+      }
+    }
+    const clone = node.cloneNode(true);
+    for (const nested of Array.from(clone.querySelectorAll(blockSelector))) {
+      nested.remove();
+    }
+    return collapseTranscriptWhitespace(clone.textContent).slice(0, 240);
+  }
+
+  function collapseTranscriptWhitespace(text) {
+    return (text ?? "").replace(/\s+/g, " ").trim();
   }
 
   function visibleUserMessageTexts() {
@@ -137,6 +212,14 @@
     return { body: document.body.innerText, open: Boolean(picker), ready: Boolean(picker) };
   }
 
+  function modelPickerSummaryButton() {
+    const button = document.querySelector('[aria-label="Open model and reasoning picker"]');
+    return {
+      ready: Boolean(button),
+      text: button instanceof HTMLElement ? button.innerText : "",
+    };
+  }
+
   function modelPickerButtonReady({ text }) {
     const picker = document.querySelector('[data-testid="model-picker"]');
     const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
@@ -168,13 +251,7 @@
     const detail = document.querySelector('[data-testid="chat-detail-pane"]');
     return { workspaceId: detail?.getAttribute("data-workspace-id") ?? "" };
   }
-  function layoutState() {
-    const read = window.__settaWorkspaceReadLayoutState;
-    if (typeof read === "function") {
-      return { ok: true, snapshot: read() };
-    }
-    return { ok: false, reason: "layout-state-unavailable" };
-  }
+
   function scrollSidebarNavigationTo({ scrollTop }) {
     const list = document.querySelector('[data-testid="sidebar-navigation-list"]');
     if (!list) {
@@ -258,12 +335,8 @@
     return terminalSnapshotForHost(host);
   }
 
-  function terminalSnapshots() {
-    return terminalHosts().map((host) => terminalSnapshotForHost(host));
-  }
-
-  function terminalPaneFocusPoint({ paneId = null } = {}) {
-    const host = activeTerminalHost({ paneId });
+  function terminalPaneFocusPoint() {
+    const host = activeTerminalHost();
     if (!host) {
       return { ok: false, reason: "missing-terminal-host" };
     }
@@ -278,28 +351,8 @@
     };
   }
 
-  function terminalInputPoint({ paneId = null } = {}) {
-    const host = activeTerminalHost({ paneId });
-    if (!host) {
-      return { ok: false, reason: "missing-terminal-host" };
-    }
-    const viewport = host.querySelector(".workspace-xterm-viewport");
-    if (!(viewport instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-terminal-viewport" };
-    }
-    if (!terminalHostIntersectsViewport(host)) {
-      return { ok: false, reason: "terminal-host-outside-viewport", rect: elementRect(host) };
-    }
-    const rect = viewport.getBoundingClientRect();
-    return {
-      ok: true,
-      x: Math.round(clamp(rect.left + rect.width / 2, 8, window.innerWidth - 8)),
-      y: Math.round(clamp(rect.top + rect.height / 2, 8, window.innerHeight - 8)),
-    };
-  }
-
-  function focusTerminalTextarea({ paneId = null } = {}) {
-    const host = activeTerminalHost({ paneId });
+  function focusTerminalTextarea() {
+    const host = activeTerminalHost();
     const viewport = host?.querySelector(".workspace-xterm-viewport");
     const textarea = host?.querySelector(".xterm-helper-textarea");
     if (!(viewport instanceof HTMLElement) || !(textarea instanceof HTMLTextAreaElement)) {
@@ -322,8 +375,8 @@
     return { ok: true };
   }
 
-  async function terminalScrollbackSearch({ expectedText, paneId = null }) {
-    const host = activeTerminalHost({ paneId });
+  async function terminalScrollbackSearch({ expectedText }) {
+    const host = activeTerminalHost();
     if (!host) {
       return { ...emptyTerminalSnapshot(false), found: false, source: "missing-host" };
     }
@@ -828,43 +881,6 @@
     return true;
   }
 
-  function focusNonTerminalPane() {
-    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
-      .filter((candidate) => candidate instanceof HTMLElement)
-      .find(
-        (candidate) =>
-          candidate.dataset.visible === "true" &&
-          candidate.dataset.surfaceKind !== "terminal" &&
-          elementIntersectsViewport(candidate),
-      );
-    if (!(host instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-visible-non-terminal-pane" };
-    }
-    const rect = host.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) {
-      return { ok: false, reason: "non-terminal-pane-empty", rect: elementRect(host) };
-    }
-    const x = Math.round(clamp(rect.left + rect.width / 2, 8, window.innerWidth - 8));
-    const y = Math.round(
-      clamp(rect.top + Math.min(15, rect.height / 2), 8, window.innerHeight - 8),
-    );
-    const event = new MouseEvent("click", {
-      bubbles: true,
-      cancelable: true,
-      clientX: x,
-      clientY: y,
-      view: window,
-    });
-    host.dispatchEvent(event);
-    return {
-      defaultPrevented: event.defaultPrevented,
-      ok: true,
-      paneId: host.dataset.paneId ?? "",
-      x,
-      y,
-    };
-  }
-
   function workflowGraphPaneState({ surfaceId = null } = {}) {
     const host = workflowGraphHostBySurfaceId(surfaceId) ?? activeWorkflowGraphHost();
     return {
@@ -949,11 +965,6 @@
       })),
       toolbar: workflowNodeDetailsButtonState(),
     };
-  }
-
-  function workflowRunDetailsText() {
-    const details = document.querySelector('[data-testid="workflow-node-run-details"]');
-    return details?.textContent ?? "";
   }
 
   function workflowGraphPaneSettled({ surfaceId }) {
@@ -1237,20 +1248,13 @@
     );
   }
 
-  function terminalHosts() {
-    return Array.from(
+  function activeTerminalHost() {
+    const hosts = Array.from(
       document.querySelectorAll(
         '[data-testid="workspace-pane-host"][data-surface-kind="terminal"]',
       ),
     ).filter((host) => host instanceof HTMLElement);
-  }
-  function activeTerminalHost({ paneId = null } = {}) {
-    const hosts = terminalHosts();
-    if (paneId !== null) {
-      return hosts.find((host) => host.dataset.paneId === paneId) ?? null;
-    }
     return (
-      hosts.find((host) => host.dataset.paneId === (layoutState().snapshot?.focusedPaneId ?? "")) ??
       hosts.find((host) => host.dataset.focused === "true") ??
       hosts.find((host) => terminalHostIntersectsViewport(host)) ??
       hosts[0] ??
@@ -1313,7 +1317,6 @@
       exists,
       focused: false,
       maximized: false,
-      paneId: "",
       profileId: "",
       sessionId: "",
       statusText: "",
@@ -1327,9 +1330,8 @@
   function terminalSnapshotForHost(host) {
     return {
       exists: true,
-      focused: paneHostFocused(host),
+      focused: host.dataset.focused === "true",
       maximized: host.dataset.maximized === "true",
-      paneId: host.dataset.paneId ?? "",
       profileId: host.dataset.terminalProfileId ?? "",
       sessionId: host.dataset.terminalSessionId ?? "",
       statusText: host.querySelector(".workspace-terminal-status")?.textContent?.trim() ?? "",
@@ -1339,12 +1341,7 @@
       xtermReady: Boolean(host.querySelector(".xterm-helper-textarea")),
     };
   }
-  function paneHostFocused(host) {
-    const focusedPaneId = layoutState().snapshot?.focusedPaneId ?? "";
-    return focusedPaneId === ""
-      ? host.dataset.focused === "true"
-      : host.dataset.paneId === focusedPaneId;
-  }
+
   function rowsForTerminalHost(host) {
     return Array.from(host.querySelectorAll(".xterm-rows > div"))
       .map((row) => row.textContent ?? "")
@@ -1421,9 +1418,11 @@
     bodyText,
     clickButton,
     clickButtonContainingText,
+    clickButtonContainingTextByRole,
     clickModelPickerButton,
     buttonReady,
     chatLayoutMetrics,
+    chatTranscriptBlockOrder,
     chatTranscriptRows,
     composerFocus,
     composerReady,
@@ -1431,12 +1430,11 @@
     dispatchLayoutSnapshot,
     dispatchDocumentEscape,
     elementValue,
-    focusNonTerminalPane,
     focusTerminalTextarea,
     maximizeTerminalPane,
     modelPicker,
+    modelPickerSummaryButton,
     modelPickerButtonReady,
-    layoutState,
     paneChromeEdgeFocusPoint,
     rendererWorkspace,
     scrollSidebarNavigationTo,
@@ -1445,8 +1443,6 @@
     setInputValue,
     sidebarMetrics,
     terminalPaneFocusPoint,
-    terminalSnapshots,
-    terminalInputPoint,
     terminalScrollbackSearch,
     terminalSnapshot,
     maximizeWorkflowGraphPane,
@@ -1454,7 +1450,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v11",
+    version: "setta-e2e-driver-v9",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
@@ -1488,7 +1484,6 @@
     workflowNodeDetailsButtonRect,
     workflowNodeDetailsButtonState,
     workflowNodeDetailsSurfaceState,
-    workflowRunDetailsText,
     workflowRunSelectorState,
     workflowToolbarButtonState,
     workflowToolbarSlotRects,
