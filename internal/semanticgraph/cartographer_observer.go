@@ -115,6 +115,9 @@ func (service *Service) StartCartographerEventObserver(ctx context.Context, chat
 	if ctx == nil {
 		return errors.New("context is required")
 	}
+	if service.semanticCartographerDisabled() {
+		return nil
+	}
 	if err := service.StartAutomaticCartographerProcessing(ctx); err != nil {
 		return err
 	}
@@ -204,6 +207,9 @@ func (service *Service) observeCartographerWorkflowEvents(ctx context.Context, e
 }
 
 func (service *Service) ObserveCartographerChatEvent(ctx context.Context, event chat.Event) ([]CartographerWindow, error) {
+	if service.semanticCartographerDisabled() {
+		return nil, nil
+	}
 	observed, ok, err := service.cartographerObservedChatEvent(event)
 	if err != nil || !ok {
 		return nil, err
@@ -212,6 +218,9 @@ func (service *Service) ObserveCartographerChatEvent(ctx context.Context, event 
 }
 
 func (service *Service) ObserveCartographerWorkflowEvent(ctx context.Context, envelope orchestrator.WorkflowEventEnvelope) ([]CartographerWindow, error) {
+	if service.semanticCartographerDisabled() {
+		return nil, nil
+	}
 	observed, ok, err := cartographerObservedWorkflowEvent(envelope)
 	if err != nil || !ok {
 		return nil, err
@@ -223,6 +232,9 @@ func (service *Service) ObserveCartographerWorkflowEvent(ctx context.Context, en
 }
 
 func (service *Service) BuildManualCartographerWindow(ctx context.Context, request CartographerManualWindowRequest) (CartographerWindow, error) {
+	if service.semanticCartographerDisabled() {
+		return CartographerWindow{}, errSemanticCartographerDisabled
+	}
 	if err := service.validateManualCartographerWindowCall(ctx, request); err != nil {
 		return CartographerWindow{}, err
 	}
@@ -372,6 +384,9 @@ func (service *Service) CloseQuietCartographerWindows(ctx context.Context, cutof
 	if ctx == nil {
 		return nil, errors.New("context is required")
 	}
+	if service.semanticCartographerDisabled() {
+		return []CartographerWindow{}, nil
+	}
 	if cutoff == "" {
 		cutoff = timestamp(service.now())
 	}
@@ -400,6 +415,9 @@ func (service *Service) CloseQuietCartographerWindows(ctx context.Context, cutof
 }
 
 func (service *Service) observeCartographerEvent(ctx context.Context, observed observedCartographerEvent) ([]CartographerWindow, error) {
+	if service.semanticCartographerDisabled() {
+		return nil, nil
+	}
 	if err := service.validateObservedCartographerEventCall(ctx, observed); err != nil {
 		return nil, err
 	}

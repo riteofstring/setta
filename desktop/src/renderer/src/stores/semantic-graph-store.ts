@@ -9,15 +9,11 @@ interface SemanticNodeDetailsTarget {
 }
 
 interface SemanticGraphStore {
-  resetRuntimeState: () => void;
   selectedNodeTarget: SemanticNodeDetailsTarget | null;
   setSelectedNodeTarget: (target: SemanticNodeDetailsTarget | null) => void;
 }
 
 export const useSemanticGraphStore = create<SemanticGraphStore>((set) => ({
-  resetRuntimeState: () => {
-    set({ selectedNodeTarget: null });
-  },
   selectedNodeTarget: null,
   setSelectedNodeTarget: (target) => {
     set({ selectedNodeTarget: target });

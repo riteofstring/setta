@@ -830,6 +830,57 @@ type WorkflowExecutionEventPage struct {
 	OlderBeforeOrdinal int             `json:"olderBeforeOrdinal"`
 }
 
+type WorkflowAgentTrajectoryScope struct {
+	WorkspaceID         string `json:"workspaceId"`
+	DefinitionID        string `json:"definitionId"`
+	DefinitionVersionID string `json:"definitionVersionId"`
+	ExecutionID         string `json:"executionId"`
+	NodeID              string `json:"nodeId"`
+	NodeExecutionID     string `json:"nodeExecutionId"`
+	Attempt             int    `json:"attempt"`
+	Iteration           int    `json:"iteration"`
+}
+
+type WorkflowAgentTrajectoryCapabilities struct {
+	CanLoadOlderHistory  bool `json:"canLoadOlderHistory"`
+	CanLoadMoreActivity  bool `json:"canLoadMoreActivity"`
+	CanLoadRunItemOutput bool `json:"canLoadRunItemOutput"`
+	CanRetryLiveness     bool `json:"canRetryLiveness"`
+	CanSteer             bool `json:"canSteer"`
+	CanStopRun           bool `json:"canStopRun"`
+	CanSubmitApproval    bool `json:"canSubmitApproval"`
+}
+
+type WorkflowAgentTrajectoryRunItemOutputPageState struct {
+	RunID                string   `json:"runId"`
+	RunItemID            string   `json:"runItemId"`
+	OutputIDs            []string `json:"outputIds"`
+	HasMore              bool     `json:"hasMore"`
+	LoadedThroughOrdinal int      `json:"loadedThroughOrdinal"`
+	NextOrdinal          int      `json:"nextOrdinal"`
+}
+
+type WorkflowAgentTrajectoryPage struct {
+	SchemaVersion           int                                             `json:"schemaVersion"`
+	Scope                   WorkflowAgentTrajectoryScope                    `json:"scope"`
+	ConversationID          string                                          `json:"conversationId"`
+	RunID                   string                                          `json:"runId"`
+	Run                     chat.Run                                        `json:"run"`
+	ActiveRun               *chat.Run                                       `json:"activeRun"`
+	ActiveRunLiveness       *chat.RunLiveness                               `json:"activeRunLiveness"`
+	Blocks                  []chat.TranscriptBlock                          `json:"blocks"`
+	Items                   []chat.RunItem                                  `json:"items"`
+	Activity                []chat.ActivityItemBlockProjection              `json:"activity"`
+	OutputPages             []WorkflowAgentTrajectoryRunItemOutputPageState `json:"outputPages"`
+	Outputs                 []chat.RunItemOutput                            `json:"outputs"`
+	PendingApproval         *WorkflowPendingApproval                        `json:"pendingApproval"`
+	HasMoreOlder            bool                                            `json:"hasMoreOlder"`
+	OlderBeforeBlockOrdinal int                                             `json:"olderBeforeBlockOrdinal"`
+	HasMoreItems            bool                                            `json:"hasMoreItems"`
+	NextItemID              string                                          `json:"nextItemId"`
+	Capabilities            WorkflowAgentTrajectoryCapabilities             `json:"capabilities"`
+}
+
 type WorkflowGraphProjection struct {
 	SchemaVersion              int                      `json:"schemaVersion"`
 	WorkspaceID                string                   `json:"workspaceId"`

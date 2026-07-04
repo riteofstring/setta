@@ -566,14 +566,16 @@ describe("workspace presentation engine", () => {
     expect(paneChromeSnapshot(host)).toEqual({
       buttonLabel: "Restore pane size",
       buttonPaneId: "workspace_pane_0",
-      chromeOrder: ["workspace-pane-title-slot", "workspace-pane-action-strip app-no-drag"],
+      chromeOrder: [
+        "workspace-pane-drag-handle app-no-drag",
+        "workspace-pane-action-strip app-no-drag",
+      ],
       controlsVisible: "true",
+      dragLabel: "Drag pane",
+      dragPaneId: "workspace_pane_0",
       hostMaximized: "true",
       titleEditorPresent: false,
-      titleIcon: "document",
-      titleText: "Pane 001",
       topBarClassName: "workspace-pane-top-bar app-drag",
-      topBarDragHandle: "true",
       visibleActions: ["maximize", "close"],
       topBarPaneId: "workspace_pane_0",
     });
@@ -728,8 +730,7 @@ describe("workspace presentation engine", () => {
 
 function paneChromeSnapshot(host: HTMLElement) {
   const topBar = requiredChromeElement(host, ".workspace-pane-top-bar");
-  const title = requiredChromeElement(host, ".workspace-pane-title");
-  const titleIcon = requiredChromeElement(host, ".workspace-pane-title-icon");
+  const dragHandle = requiredChromeElement(host, ".workspace-pane-drag-handle");
   const button = requiredChromeElement(host, ".workspace-pane-maximize-button");
   const actionSnapshot = paneActionSnapshot(host);
   return {
@@ -737,12 +738,11 @@ function paneChromeSnapshot(host: HTMLElement) {
     buttonPaneId: button.dataset.paneId,
     chromeOrder: Array.from(topBar.children).map((child) => child.className),
     controlsVisible: actionSnapshot.controlsVisible,
+    dragLabel: dragHandle.getAttribute("aria-label"),
+    dragPaneId: dragHandle.dataset.paneId,
     hostMaximized: host.dataset.maximized,
     titleEditorPresent: host.querySelector(".workspace-pane-title-editor") !== null,
-    titleIcon: titleIcon.dataset.workspacePaneIcon,
-    titleText: title.textContent,
     topBarClassName: topBar.className,
-    topBarDragHandle: topBar.dataset.workspacePaneDragHandle,
     visibleActions: actionSnapshot.visibleActions,
     topBarPaneId: topBar.dataset.paneId,
   };

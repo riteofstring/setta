@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"setta/internal/chat"
 	"setta/internal/httpapi"
-	"setta/internal/runtimeauth"
+	"setta/internal/semanticgraph"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
@@ -37,12 +39,6 @@ func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 	if ready.Addr != server.Addr() {
 		t.Fatalf("ready addr = %q, want %q", ready.Addr, server.Addr())
 	}
-	if ready.BootstrapToken == "" {
-		t.Fatal("ready bootstrap token is empty")
-	}
-	if ready.ProtocolVersion != httpapi.ProtocolVersion {
-		t.Fatalf("ready protocol version = %d, want %d", ready.ProtocolVersion, httpapi.ProtocolVersion)
-	}
 
 	response, err := http.Get("http://" + ready.Addr + "/health")
 	if err != nil {
@@ -55,13 +51,29 @@ func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 	}
 }
 
+func TestHTTPServerUsesBoundedReadConfiguration(t *testing.T) {
+	server := newHTTPServer(DefaultConfig(), runtimeServices{})
+
+	if server.ReadHeaderTimeout != httpReadHeaderTimeout {
+		t.Fatalf("ReadHeaderTimeout = %s, want %s", server.ReadHeaderTimeout, httpReadHeaderTimeout)
+	}
+	if server.ReadTimeout != httpReadTimeout {
+		t.Fatalf("ReadTimeout = %s, want %s", server.ReadTimeout, httpReadTimeout)
+	}
+	if server.MaxHeaderBytes != httpMaxHeaderBytes {
+		t.Fatalf("MaxHeaderBytes = %d, want %d", server.MaxHeaderBytes, httpMaxHeaderBytes)
+	}
+	if server.WriteTimeout != 0 {
+		t.Fatalf("WriteTimeout = %s, want zero for event streams", server.WriteTimeout)
+	}
+}
+
 func TestInvalidStartupConfigurationFails(t *testing.T) {
 	tests := map[string]Config{
 		"empty app data":    withAppDataDir(t, ""),
 		"relative app data": withAppDataDir(t, "relative-app-data"),
 		"bad chat harness":  withChatHarness(t, "unsupported"),
 		"empty host":        withHost(t, ""),
-		"empty bootstrap":   withBootstrapDisplayName(t, ""),
 		"non numeric host":  withHost(t, "localhost"),
 		"non loopback host": withHost(t, "0.0.0.0"),
 		"negative port":     withPort(t, -1),
@@ -78,49 +90,12 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 	}
 }
 
-func TestAllowRemotePermitsNonLoopbackNumericHost(t *testing.T) {
-	config := testConfig(t)
-	config.AllowRemote = true
-	config.Host = "0.0.0.0"
+func TestInvalidStartupConfigurationFailsForE2EPostCommitStartupFailureEnv(t *testing.T) {
+	t.Setenv(e2eChatFailPostCommitStartupPointEnv, "unsupported")
 
-	server, err := Start(context.Background(), config)
-	if err != nil {
-		t.Fatalf("start backend with allow remote: %v", err)
-	}
-	defer shutdownServer(t, server)
-}
-
-func TestStartCanSkipBootstrapDeviceSession(t *testing.T) {
-	var stdout bytes.Buffer
-	config := testConfig(t)
-	config.Stdout = &stdout
-	config.SkipBootstrapDeviceSession = true
-
-	server, err := Start(context.Background(), config)
-	if err != nil {
-		t.Fatalf("start backend: %v", err)
-	}
-	shutdownServer(t, server)
-
-	var ready ReadyEvent
-	if err := json.NewDecoder(&stdout).Decode(&ready); err != nil {
-		t.Fatalf("decode ready event: %v", err)
-	}
-	if ready.BootstrapToken != "" {
-		t.Fatalf("ready bootstrap token = %q, want empty", ready.BootstrapToken)
-	}
-
-	store, err := runtimeauth.NewStore(config.AppDataDir)
-	if err != nil {
-		t.Fatalf("open runtime auth store: %v", err)
-	}
-	defer store.Close()
-	sessions, err := store.ListDeviceSessions(context.Background())
-	if err != nil {
-		t.Fatalf("list device sessions: %v", err)
-	}
-	if len(sessions) != 0 {
-		t.Fatalf("device sessions = %+v, want none", sessions)
+	_, err := Start(context.Background(), testConfig(t))
+	if err == nil || !strings.Contains(err.Error(), "unsupported "+e2eChatFailPostCommitStartupPointEnv) {
+		t.Fatalf("start error = %v, want unsupported post-commit startup failure point", err)
 	}
 }
 
@@ -154,6 +129,34 @@ func TestStartReportsReadyWithMalformedHistoricalRunState(t *testing.T) {
 	}
 }
 
+func TestRuntimeDisablesSemanticCartographerGlobally(t *testing.T) {
+	server, err := Start(context.Background(), testConfig(t))
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	defer shutdownServer(t, server)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	baseURL := "http://" + server.Addr()
+	state := postRuntimeJSON[semanticgraph.CartographerProcessingState](t, client, baseURL, "/semantic-graph/cartographer/processing/state", httpapi.ReadCartographerProcessingStateRequest{}, http.StatusOK)
+	if state.Enabled || state.Started || state.QueuedWindowCount != 0 || state.RunningWindowCount != 0 {
+		t.Fatalf("runtime cartographer state = %+v, want globally disabled and idle", state)
+	}
+
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	response := postRuntimeJSON[httpapi.ErrorResponse](t, client, baseURL, "/semantic-graph/cartographer/windows/build", httpapi.BuildCartographerWindowRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		TriggerKind:    semanticgraph.CartographerTriggerManual,
+		TargetEntityID: "node_runtime_disabled",
+		Summary:        "Runtime disabled cartographer request.",
+	}, http.StatusBadRequest)
+	if response.Error.Code != "build_cartographer_window_failed" || response.Error.Message != "semantic cartographer is disabled" {
+		t.Fatalf("runtime disabled build response = %+v, want disabled cartographer error", response)
+	}
+}
+
 func TestGracefulShutdownStopsServing(t *testing.T) {
 	server, err := Start(context.Background(), testConfig(t))
 	if err != nil {
@@ -167,6 +170,83 @@ func TestGracefulShutdownStopsServing(t *testing.T) {
 		conn.Close()
 		t.Fatalf("dial after shutdown succeeded")
 	}
+}
+
+func TestShutdownDrainsActiveChatTurnBeforeClosingEvents(t *testing.T) {
+	config := testConfig(t)
+	config.ChatHarness = ChatHarnessScriptedWorkflow
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	shutdown := false
+	defer func() {
+		if !shutdown {
+			shutdownServer(t, server)
+		}
+	}()
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	baseURL := "http://" + server.Addr()
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	conversation := postRuntimeJSON[chat.Conversation](t, client, baseURL, "/chat/conversations/create", httpapi.CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	result := postRuntimeJSON[chat.SendMessageResult](t, client, baseURL, "/chat/messages/send", httpapi.SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Input:          chat.TextChatInput("workflow hold for queue and steering"),
+	}, http.StatusOK)
+	waitForRuntimeAssistantText(t, client, baseURL, opened.Workspace.ID, conversation.ID, result.Run.ID, "Workflow stream started.")
+
+	shutdownServer(t, server)
+	shutdown = true
+
+	store, err := chat.NewStore(config.AppDataDir)
+	if err != nil {
+		t.Fatalf("open chat store: %v", err)
+	}
+	run, err := store.LoadRun(opened.Workspace.ID, result.Run.ID)
+	if err != nil {
+		t.Fatalf("load run after shutdown: %v", err)
+	}
+	if run.Status != chat.RunStatusFailed || run.Error != "run interrupted by backend shutdown" {
+		t.Fatalf("run after shutdown = %+v, want backend shutdown failure", run)
+	}
+	diagnostics, err := store.ListDiagnostics()
+	if err != nil {
+		t.Fatalf("list diagnostics: %v", err)
+	}
+	for _, diagnostic := range diagnostics {
+		switch diagnostic.Code {
+		case "fail_turn_transition_failed", "complete_turn_transition_failed", "cancel_turn_transition_failed", "terminal_turn_publish_failed":
+			t.Fatalf("unexpected terminal transition diagnostic after shutdown: %+v", diagnostic)
+		}
+	}
+}
+
+func waitForRuntimeAssistantText(t *testing.T, client *http.Client, baseURL string, workspaceID string, conversationID string, runID string, want string) {
+	t.Helper()
+
+	deadline := time.Now().Add(3 * time.Second)
+	var lastPage chat.MessagePage
+	for time.Now().Before(deadline) {
+		page := postRuntimeJSON[chat.MessagePage](t, client, baseURL, "/chat/messages/page", httpapi.GetMessagePageRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+			Limit:          40,
+		}, http.StatusOK)
+		lastPage = page
+		for _, message := range page.Messages {
+			if message.RunID == runID && message.Role == chat.RoleAssistant && strings.Contains(runtimeMessageText(t, message), want) {
+				return
+			}
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for assistant text %q; last page = %+v", want, lastPage)
 }
 
 func shutdownServer(t *testing.T, server *Server) {
@@ -227,13 +307,5 @@ func withVersion(t *testing.T, version string) Config {
 
 	config := testConfig(t)
 	config.Version = version
-	return config
-}
-
-func withBootstrapDisplayName(t *testing.T, displayName string) Config {
-	t.Helper()
-
-	config := testConfig(t)
-	config.BootstrapDeviceDisplayName = displayName
 	return config
 }

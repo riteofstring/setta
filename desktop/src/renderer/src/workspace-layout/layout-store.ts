@@ -59,7 +59,6 @@ export class WorkspaceLayoutStore {
   private snapshot: WorkspaceLayoutSnapshot | null = null;
   private scrollColumn = 0;
   private scrollRow = 0;
-  private focusRevealSuppressed = false;
   private overviewPanX = 0;
   private overviewPanY = 0;
   private overviewProgress = 0;
@@ -232,7 +231,6 @@ export class WorkspaceLayoutStore {
     if (isHorizontalFocusDirection(direction)) {
       return false;
     }
-    this.focusRevealSuppressed = false;
     if (direction === "up") {
       this.focusedRowIndex = Math.max(0, this.focusedRowIndex - 1);
       this.targetScrollRow = this.targetScrollForFocusedRow();
@@ -308,13 +306,21 @@ export class WorkspaceLayoutStore {
 
   configurePane(paneId: PaneId, request: OpenPaneRequest): PaneId {
     const limitState = this.paneLimitState(request);
-    if (!limitState.allowed) {
+    if (!limitState.allowed && !this.configureKeepsPaneSurfaceKind(paneId, request)) {
       throw new Error(`workspace pane limit reached for ${limitState.surfaceKind}`);
     }
     const configuredPaneId = this.engine.configurePane(paneId, request);
     this.setFocusedPane(configuredPaneId);
     this.notify();
     return configuredPaneId;
+  }
+
+  private configureKeepsPaneSurfaceKind(paneId: PaneId, request: OpenPaneRequest): boolean {
+    const currentSurfaceKind = this.toScene().paneById.get(paneId)?.surfaceKind;
+    if (!currentSurfaceKind) {
+      return false;
+    }
+    return (request.surfaceKind ?? currentSurfaceKind) === currentSurfaceKind;
   }
 
   configureFocusedPane(request: OpenPaneRequest): PaneId {
@@ -378,10 +384,6 @@ export class WorkspaceLayoutStore {
   }
 
   ensureFocusedPaneVisible(viewport: Rect): void {
-    if (this.focusRevealSuppressed) {
-      this.lastViewport = viewport;
-      return;
-    }
     this.ensureFocusedColumnVisible(viewport);
     this.ensureFocusedRowVisible(viewport);
   }
@@ -426,20 +428,6 @@ export class WorkspaceLayoutStore {
       return false;
     }
     this.setFocusedPane(paneId);
-    this.notify();
-    return true;
-  }
-
-  focusPaneWithoutReveal(paneId: PaneId): boolean {
-    if (!this.engine.paneLocation(paneId)) {
-      return false;
-    }
-    const previousTargetScrollColumn = this.targetScrollColumn;
-    const previousTargetScrollRow = this.targetScrollRow;
-    this.setFocusedPane(paneId);
-    this.targetScrollColumn = previousTargetScrollColumn;
-    this.targetScrollRow = previousTargetScrollRow;
-    this.focusRevealSuppressed = true;
     this.notify();
     return true;
   }
@@ -786,7 +774,6 @@ export class WorkspaceLayoutStore {
     }
     this.focusedColumnIndex = location.columnIndex;
     this.focusedRowIndex = location.rowIndex;
-    this.focusRevealSuppressed = false;
     if (this.presentationMode === "overview") {
       return;
     }

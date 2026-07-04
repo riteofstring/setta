@@ -6,8 +6,6 @@ import {
   emptyPresentationWriteCounts,
 } from "./presentation-write-counts";
 import { SurfaceRegistry, type SurfaceViewportSyncStats } from "./surface-registry";
-import { paneChromeTitleModel, paneTitleOverrideFromHost } from "./pane-title-metadata";
-import { createPaneTitleSlot, syncPaneTitleSlot } from "./pane-title-icons";
 import type { WorkspacePane, PaneRenderItem, PaneRuntimeSummary, ResizePhase } from "./types";
 
 export interface PresentationApplyOptions {
@@ -344,16 +342,14 @@ export class PresentationEngine {
     item: PaneRenderItem,
     assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
   ): void {
-    const pane = this.paneById.get(item.paneId);
-    if (!pane) {
+    if (!this.paneById.has(item.paneId)) {
       throw new Error(`missing pane controls metadata for ${item.paneId}`);
     }
     const topBar = this.ensurePaneTopBar(binding.host);
     topBar.dataset.paneId = item.paneId;
-    topBar.dataset.workspacePaneDragHandle = "true";
 
-    const title = this.ensurePaneTitle(topBar);
-    syncPaneTitleSlot(title, paneChromeTitleModel(pane, paneTitleOverrideFromHost(binding.host)));
+    const dragHandle = this.ensureDragHandle(topBar);
+    dragHandle.dataset.paneId = item.paneId;
 
     const actionStrip = this.ensurePaneActionStrip(topBar);
     actionStrip.dataset.paneId = item.paneId;
@@ -395,14 +391,19 @@ export class PresentationEngine {
     return topBar;
   }
 
-  private ensurePaneTitle(topBar: HTMLElement): HTMLElement {
-    const existing = this.paneTitleForTopBar(topBar);
+  private ensureDragHandle(topBar: HTMLElement): HTMLButtonElement {
+    const existing = this.dragHandleForTopBar(topBar);
     if (existing) {
       return existing;
     }
-    const title = createPaneTitleSlot(topBar.ownerDocument);
-    topBar.prepend(title);
-    return title;
+    const button = topBar.ownerDocument.createElement("button");
+    button.className = "workspace-pane-drag-handle app-no-drag";
+    button.dataset.workspacePaneDragHandle = "true";
+    button.type = "button";
+    button.setAttribute("aria-label", "Drag pane");
+    button.title = "Drag pane";
+    topBar.prepend(button);
+    return button;
   }
 
   private ensurePaneActionStrip(topBar: HTMLElement): HTMLElement {
@@ -511,11 +512,11 @@ export class PresentationEngine {
     return existing ? (existing as HTMLElement) : null;
   }
 
-  private paneTitleForTopBar(topBar: HTMLElement): HTMLElement | null {
+  private dragHandleForTopBar(topBar: HTMLElement): HTMLButtonElement | null {
     const existing = Array.from(topBar.children).find((child) =>
-      child.classList.contains("workspace-pane-title-slot"),
+      child.classList.contains("workspace-pane-drag-handle"),
     );
-    return existing ? (existing as HTMLElement) : null;
+    return existing ? (existing as HTMLButtonElement) : null;
   }
 
   private resizeHandleForHost(host: HTMLElement, axis: PaneResizeAxis): HTMLElement | null {

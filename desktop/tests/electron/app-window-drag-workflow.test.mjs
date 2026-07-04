@@ -519,7 +519,7 @@ async function sampleDragRegions(client) {
       .querySelector('[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-top-bar')
       ?.getBoundingClientRect();
     const paneHandle = document
-      .querySelector('[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-drag-handle="true"]')
+      .querySelector('[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-drag-handle')
       ?.getBoundingClientRect();
     return [
       sample("workspace-control", toolbar ? toolbar.left + 14 : 118, toolbar ? toolbar.top + 14 : 18),
