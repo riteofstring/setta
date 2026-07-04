@@ -61,6 +61,7 @@ var apiEndpoints = []endpoint{
 	post[MarkConversationReadRequest, chat.ConversationListItem]("MarkConversationRead", "/chat/conversations/mark-read", handler.markConversationRead),
 	post[SetConversationPinnedRequest, chat.ConversationListItem]("SetConversationPinned", "/chat/conversations/pin", handler.setConversationPinned),
 	post[GetMessagePageRequest, chat.MessagePage]("GetMessagePage", "/chat/messages/page", handler.getMessagePage),
+	post[ListComposerPromptHistoryRequest, chat.ComposerPromptHistoryPage]("ListComposerPromptHistory", "/chat/composer/history", handler.listComposerPromptHistory),
 	post[SendChatMessageRequest, chat.SendMessageResult]("SendChatMessage", "/chat/messages/send", handler.sendChatMessage),
 	post[QueueChatMessageRequest, chat.QueueMessageResult]("QueueChatMessage", "/chat/messages/queue", handler.queueChatMessage),
 	post[EditQueuedChatMessageRequest, chat.QueueEditResult]("EditQueuedChatMessage", "/chat/messages/queue/edit", handler.editQueuedChatMessage),

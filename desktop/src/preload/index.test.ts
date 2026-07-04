@@ -318,6 +318,7 @@ describe("preload workspace API", () => {
       "killBackgroundTerminal",
       "listBackgroundTerminals",
       "listCommands",
+      "listComposerPromptHistory",
       "listConversations",
       "markConversationRead",
       "messagePage",
@@ -355,6 +356,7 @@ describe("preload workspace API", () => {
     await api.chat.openCodexPermissionPicker("workspace_api", "conversation_api");
     await api.chat.markConversationRead("workspace_api", "conversation_api");
     await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
+    await api.chat.listComposerPromptHistory("workspace_api", "conversation_api", 12, 20);
     await api.chat.createImageAttachmentFromBytes(
       "workspace_api",
       "conversation_api",
@@ -443,6 +445,7 @@ describe("preload workspace API", () => {
       [ipcChannels.chatOpenCodexPermissionPicker, "workspace_api", "conversation_api"],
       [ipcChannels.chatMarkConversationRead, "workspace_api", "conversation_api"],
       [ipcChannels.chatMessagePage, "workspace_api", "conversation_api", 10, 40],
+      [ipcChannels.chatListComposerPromptHistory, "workspace_api", "conversation_api", 12, 20],
       [
         ipcChannels.chatCreateImageAttachmentFromBytes,
         "workspace_api",

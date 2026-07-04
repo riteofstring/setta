@@ -419,6 +419,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         readMarker: 0,
       }),
       messagePage: async () => emptyMessagePage(),
+      listComposerPromptHistory: async () => ({
+        conversationId: "",
+        entries: [],
+        hasMoreOlder: false,
+        olderBeforeOrdinal: 0,
+      }),
       onEvent: () => () => {},
       queueMessage: async () => ({
         conversation: emptyConversation(),

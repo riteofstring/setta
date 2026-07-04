@@ -55,6 +55,7 @@ type ChatService interface {
 	MarkConversationRead(workspaceID string, conversationID string) (chat.ConversationListItem, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeBlockOrdinal int, limit int) (chat.MessagePage, error)
+	LoadComposerPromptHistory(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.ComposerPromptHistoryPage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	ListBackgroundTerminals(workspaceID string, conversationID string) (chat.BackgroundTerminalListProjection, error)

@@ -1163,6 +1163,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       killAllBackgroundTerminals: async () => ({ terminals: [] }),
       markConversationRead: async () => conversationItem(conversation, 0),
       messagePage: async () => testPage(conversation, []),
+      listComposerPromptHistory: async () => ({
+        conversationId: conversation.id,
+        entries: [],
+        hasMoreOlder: false,
+        olderBeforeOrdinal: 0,
+      }),
       onEvent: () => () => {},
       queueMessage: async () => ({
         conversation,

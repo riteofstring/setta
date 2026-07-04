@@ -151,6 +151,23 @@ func (handler handler) getMessagePage(response http.ResponseWriter, request *htt
 	writeJSON(response, http.StatusOK, page)
 }
 
+func (handler handler) listComposerPromptHistory(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ListComposerPromptHistoryRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	page, err := service.LoadComposerPromptHistory(payload.WorkspaceID, payload.ConversationID, payload.BeforeOrdinal, payload.Limit)
+	if err != nil {
+		writeChatError(response, "list_composer_prompt_history_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, page)
+}
+
 func (handler handler) sendChatMessage(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {

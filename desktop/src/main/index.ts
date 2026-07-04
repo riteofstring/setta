@@ -596,6 +596,19 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatListComposerPromptHistory",
+    async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
+      return requireBackendClient().listComposerPromptHistory({
+        beforeOrdinal,
+        conversationId,
+        limit,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatListCommands",
     async (_event, workspaceId, conversationId) => {
       return requireBackendClient().listChatCommands({ conversationId, workspaceId });

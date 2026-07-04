@@ -59,6 +59,7 @@ import {
 } from "./chat-workflow-harness.mjs";
 import { runBackgroundTerminalWorkflow } from "./chat-workflow-background-terminal-cases.mjs";
 import { runChronologicalTranscriptWorkflow } from "./chat-workflow-chronological-cases.mjs";
+import { assertComposerPromptHistoryProjection } from "./chat-workflow-composer-history-cases.mjs";
 import { runCrossWorkspaceSidebarSummaryWorkflow } from "./chat-workflow-cross-workspace-sidebar-cases.mjs";
 import { runChatDefaultsSettingsWorkflow } from "./chat-workflow-defaults-cases.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
@@ -871,6 +872,11 @@ async function runHappyPathWorkflow(
   await assertChatLayout(client);
   await assertNoActiveRun(backend, workspaceId, conversationId);
   await assertAssistantCompleted(backend, workspaceId, conversationId, queuedRuns.at(-1).id);
+  await assertComposerPromptHistoryProjection(client, workspaceId, conversationId, [
+    "steer active run",
+    "queued follow-up three from active run",
+    "queued follow-up two from active run",
+  ]);
 
   if (postCompletionActiveRun) {
     await runPostCompletionActiveRunWorkflow({

@@ -54,6 +54,42 @@ func TestChatEndpointsCreateSendListAndPageMessages(t *testing.T) {
 	}
 }
 
+func TestChatEndpointListsComposerPromptHistory(t *testing.T) {
+	handler := newChatHandler(t, []chat.FakeHarnessEvent{{Type: chat.FakeEventAssistantDelta, Text: "done"}})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "",
+	}, http.StatusOK)
+	postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Input:          chat.TextChatInput("first prompt"),
+	}, http.StatusOK)
+	waitForAssistantStatus(t, handler, opened.Workspace.ID, conversation.ID, chat.MessageStatusComplete)
+	second := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Input:          chat.TextChatInput("second prompt"),
+	}, http.StatusOK)
+	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, second.Run.ID, chat.MessageStatusComplete)
+
+	history := postJSON[chat.ComposerPromptHistoryPage](t, handler, "/chat/composer/history", ListComposerPromptHistoryRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Limit:          1,
+	}, http.StatusOK)
+	if len(history.Entries) != 1 || history.Entries[0].MessageID != second.UserMessage.ID {
+		t.Fatalf("history entries = %+v, want newest second prompt", history.Entries)
+	}
+	if history.Entries[0].Input.Parts[0].Text.Text != "second prompt" {
+		t.Fatalf("history input = %+v, want typed second prompt", history.Entries[0].Input)
+	}
+	if !history.HasMoreOlder || history.OlderBeforeOrdinal != second.UserMessage.Ordinal {
+		t.Fatalf("history cursor = %+v, want older cursor at second prompt", history)
+	}
+}
+
 func TestChatEndpointsPinAndDeleteConversation(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -201,7 +237,7 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 			ProviderItemID: "command_fake",
 			Type:           chat.RunItemTypeCommandExecution,
 			Status:         chat.RunItemStatusRunning,
-			Command:        "go test ./...",
+			Details:        chat.NewRunItemCommandExecutionDetails(chat.RunItemCommandExecutionDetails{Command: "go test ./..."}),
 		}},
 		{Type: chat.FakeEventRunItemOutput, ProviderItemID: "command_fake", Stream: "stdout", Text: "ok\n"},
 		{Type: chat.FakeEventWaitForSteer},
@@ -245,7 +281,11 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 		RunID:       started.Run.ID,
 		Limit:       20,
 	}, http.StatusOK)
-	if len(activity.Items) == 0 || activity.Items[0].Command != "go test ./..." {
+	if len(activity.Items) == 0 {
+		t.Fatalf("activity items = %+v, want command activity", activity.Items)
+	}
+	commandDetails, ok := activity.Items[0].CommandExecutionDetails()
+	if !ok || commandDetails.Command != "go test ./..." {
 		t.Fatalf("activity items = %+v, want command activity", activity.Items)
 	}
 	if len(activity.Output) != 1 || activity.Output[0].Text != "ok\n" {
@@ -271,10 +311,12 @@ func TestChatBackgroundTerminalEndpointsListOutputAndFailLoudKill(t *testing.T) 
 			ProviderItemID: "bg_item_alpha",
 			Type:           chat.RunItemTypeCommandExecution,
 			Status:         chat.RunItemStatusRunning,
-			Command:        "npm run dev",
-			Cwd:            "/tmp/workspace",
-			ProcessID:      "provider_proc_alpha",
-			Source:         &source,
+			Details: chat.NewRunItemCommandExecutionDetails(chat.RunItemCommandExecutionDetails{
+				Command:   "npm run dev",
+				Cwd:       "/tmp/workspace",
+				ProcessID: "provider_proc_alpha",
+				Source:    &source,
+			}),
 		}},
 		{Type: chat.FakeEventRunItemOutput, ProviderItemID: "bg_item_alpha", Stream: "stdout", Text: "listening\n"},
 	})

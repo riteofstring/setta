@@ -30,6 +30,7 @@ import type {
   ChatInput,
   ChatPermissionPresetID,
   CodexAccountState,
+  ComposerPromptHistoryPage,
   Conversation,
   ConversationListItem,
   CreateSemanticEdgeRequest,
@@ -168,6 +169,7 @@ export const ipcChannels = {
   chatKillAllBackgroundTerminals: "chat:kill-all-background-terminals",
   chatMarkConversationRead: "chat:mark-conversation-read",
   chatMessagePage: "chat:message-page",
+  chatListComposerPromptHistory: "chat:list-composer-prompt-history",
   chatQueueMessage: "chat:queue-message",
   chatRemoveQueuedMessage: "chat:remove-queued-message",
   chatRunActivity: "chat:run-activity",
@@ -432,6 +434,10 @@ interface IpcContract {
   chatMessagePage: {
     args: [workspaceId: string, conversationId: string, beforeBlockOrdinal: number, limit: number];
     result: MessagePage;
+  };
+  chatListComposerPromptHistory: {
+    args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
+    result: ComposerPromptHistoryPage;
   };
   chatQueueMessage: {
     args: [workspaceId: string, conversationId: string, input: ChatInput];

@@ -3308,6 +3308,13 @@ export interface MessagePage {
   olderBeforeBlockOrdinal: number;
 }
 
+export interface ListComposerPromptHistoryRequest {
+  workspaceId: string;
+  conversationId: string;
+  beforeOrdinal: number;
+  limit: number;
+}
+
 export interface ChatTextInput {
   text: string;
   format: TextFormat;
@@ -3326,6 +3333,36 @@ export interface ChatInputPart {
 
 export interface ChatInput {
   parts: ChatInputPart[];
+}
+
+export interface ImageAttachment {
+  schemaVersion: number;
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  fileName: string;
+  mimeType: ImageAttachmentMimeType;
+  byteSize: number;
+  width: number;
+  height: number;
+  createdAt: string;
+  variants: ImageAttachmentVariant[];
+}
+
+export interface ComposerPromptHistoryEntry {
+  messageId: string;
+  conversationId: string;
+  ordinal: number;
+  createdAt: string;
+  input: ChatInput;
+  attachments: ImageAttachment[];
+}
+
+export interface ComposerPromptHistoryPage {
+  conversationId: string;
+  entries: ComposerPromptHistoryEntry[];
+  hasMoreOlder: boolean;
+  olderBeforeOrdinal: number;
 }
 
 export interface SendChatMessageRequest {
@@ -3418,20 +3455,6 @@ export interface CreateChatImageAttachmentFromBytesRequest {
   conversationId: string;
   fileName: string;
   dataBase64: string;
-}
-
-export interface ImageAttachment {
-  schemaVersion: number;
-  id: string;
-  workspaceId: string;
-  conversationId: string;
-  fileName: string;
-  mimeType: ImageAttachmentMimeType;
-  byteSize: number;
-  width: number;
-  height: number;
-  createdAt: string;
-  variants: ImageAttachmentVariant[];
 }
 
 export interface ListChatCommandsRequest {
@@ -6078,6 +6101,10 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/messages/page",
   },
+  ListComposerPromptHistory: {
+    method: "POST",
+    path: "/chat/composer/history",
+  },
   SendChatMessage: {
     method: "POST",
     path: "/chat/messages/send",
@@ -7665,6 +7692,17 @@ export function decodeMessagePage(value: unknown): MessagePage {
   };
 }
 
+export function decodeListComposerPromptHistoryRequest(value: unknown): ListComposerPromptHistoryRequest {
+  const record = assertRecord(value, "ListComposerPromptHistoryRequest");
+  assertKnownFields(record, "ListComposerPromptHistoryRequest", ["workspaceId", "conversationId", "beforeOrdinal", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListComposerPromptHistoryRequest"), "ListComposerPromptHistoryRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ListComposerPromptHistoryRequest"), "ListComposerPromptHistoryRequest.conversationId"),
+    beforeOrdinal: decodeInteger(requireField(record, "beforeOrdinal", "ListComposerPromptHistoryRequest"), "ListComposerPromptHistoryRequest.beforeOrdinal"),
+    limit: decodeInteger(requireField(record, "limit", "ListComposerPromptHistoryRequest"), "ListComposerPromptHistoryRequest.limit"),
+  };
+}
+
 export function decodeChatTextInput(value: unknown): ChatTextInput {
   const record = assertRecord(value, "ChatTextInput");
   assertKnownFields(record, "ChatTextInput", ["text", "format"]);
@@ -7703,6 +7741,48 @@ export function decodeChatInput(value: unknown): ChatInput {
   assertKnownFields(record, "ChatInput", ["parts"]);
   return {
     parts: decodeArray(requireField(record, "parts", "ChatInput"), "ChatInput.parts", (item) => decodeChatInputPart(item)),
+  };
+}
+
+export function decodeImageAttachment(value: unknown): ImageAttachment {
+  const record = assertRecord(value, "ImageAttachment");
+  assertKnownFields(record, "ImageAttachment", ["schemaVersion", "id", "workspaceId", "conversationId", "fileName", "mimeType", "byteSize", "width", "height", "createdAt", "variants"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ImageAttachment"), "ImageAttachment.schemaVersion"),
+    id: decodeString(requireField(record, "id", "ImageAttachment"), "ImageAttachment.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ImageAttachment"), "ImageAttachment.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ImageAttachment"), "ImageAttachment.conversationId"),
+    fileName: decodeString(requireField(record, "fileName", "ImageAttachment"), "ImageAttachment.fileName"),
+    mimeType: decodeImageAttachmentMimeType(requireField(record, "mimeType", "ImageAttachment"), "ImageAttachment.mimeType"),
+    byteSize: decodeInteger(requireField(record, "byteSize", "ImageAttachment"), "ImageAttachment.byteSize"),
+    width: decodeInteger(requireField(record, "width", "ImageAttachment"), "ImageAttachment.width"),
+    height: decodeInteger(requireField(record, "height", "ImageAttachment"), "ImageAttachment.height"),
+    createdAt: decodeString(requireField(record, "createdAt", "ImageAttachment"), "ImageAttachment.createdAt"),
+    variants: decodeArray(requireField(record, "variants", "ImageAttachment"), "ImageAttachment.variants", (item) => decodeImageAttachmentVariant(item)),
+  };
+}
+
+export function decodeComposerPromptHistoryEntry(value: unknown): ComposerPromptHistoryEntry {
+  const record = assertRecord(value, "ComposerPromptHistoryEntry");
+  assertKnownFields(record, "ComposerPromptHistoryEntry", ["messageId", "conversationId", "ordinal", "createdAt", "input", "attachments"]);
+  return {
+    messageId: decodeString(requireField(record, "messageId", "ComposerPromptHistoryEntry"), "ComposerPromptHistoryEntry.messageId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ComposerPromptHistoryEntry"), "ComposerPromptHistoryEntry.conversationId"),
+    ordinal: decodeInteger(requireField(record, "ordinal", "ComposerPromptHistoryEntry"), "ComposerPromptHistoryEntry.ordinal"),
+    createdAt: decodeString(requireField(record, "createdAt", "ComposerPromptHistoryEntry"), "ComposerPromptHistoryEntry.createdAt"),
+    input: decodeChatInput(requireField(record, "input", "ComposerPromptHistoryEntry")),
+    attachments: decodeArray(requireField(record, "attachments", "ComposerPromptHistoryEntry"), "ComposerPromptHistoryEntry.attachments", (item) => decodeImageAttachment(item)),
+  };
+}
+
+export function decodeComposerPromptHistoryPage(value: unknown): ComposerPromptHistoryPage {
+  const record = assertRecord(value, "ComposerPromptHistoryPage");
+  assertKnownFields(record, "ComposerPromptHistoryPage", ["conversationId", "entries", "hasMoreOlder", "olderBeforeOrdinal"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "ComposerPromptHistoryPage"), "ComposerPromptHistoryPage.conversationId"),
+    entries: decodeArray(requireField(record, "entries", "ComposerPromptHistoryPage"), "ComposerPromptHistoryPage.entries", (item) => decodeComposerPromptHistoryEntry(item)),
+    hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "ComposerPromptHistoryPage"), "ComposerPromptHistoryPage.hasMoreOlder"),
+    olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "ComposerPromptHistoryPage"), "ComposerPromptHistoryPage.olderBeforeOrdinal"),
   };
 }
 
@@ -7847,24 +7927,6 @@ export function decodeCreateChatImageAttachmentFromBytesRequest(value: unknown):
     conversationId: decodeString(requireField(record, "conversationId", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.conversationId"),
     fileName: decodeString(requireField(record, "fileName", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.fileName"),
     dataBase64: decodeString(requireField(record, "dataBase64", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.dataBase64"),
-  };
-}
-
-export function decodeImageAttachment(value: unknown): ImageAttachment {
-  const record = assertRecord(value, "ImageAttachment");
-  assertKnownFields(record, "ImageAttachment", ["schemaVersion", "id", "workspaceId", "conversationId", "fileName", "mimeType", "byteSize", "width", "height", "createdAt", "variants"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ImageAttachment"), "ImageAttachment.schemaVersion"),
-    id: decodeString(requireField(record, "id", "ImageAttachment"), "ImageAttachment.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ImageAttachment"), "ImageAttachment.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ImageAttachment"), "ImageAttachment.conversationId"),
-    fileName: decodeString(requireField(record, "fileName", "ImageAttachment"), "ImageAttachment.fileName"),
-    mimeType: decodeImageAttachmentMimeType(requireField(record, "mimeType", "ImageAttachment"), "ImageAttachment.mimeType"),
-    byteSize: decodeInteger(requireField(record, "byteSize", "ImageAttachment"), "ImageAttachment.byteSize"),
-    width: decodeInteger(requireField(record, "width", "ImageAttachment"), "ImageAttachment.width"),
-    height: decodeInteger(requireField(record, "height", "ImageAttachment"), "ImageAttachment.height"),
-    createdAt: decodeString(requireField(record, "createdAt", "ImageAttachment"), "ImageAttachment.createdAt"),
-    variants: decodeArray(requireField(record, "variants", "ImageAttachment"), "ImageAttachment.variants", (item) => decodeImageAttachmentVariant(item)),
   };
 }
 
@@ -11486,6 +11548,7 @@ export interface BackendClient {
   markConversationRead: (request: MarkConversationReadRequest) => Promise<ConversationListItem>;
   setConversationPinned: (request: SetConversationPinnedRequest) => Promise<ConversationListItem>;
   getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
+  listComposerPromptHistory: (request: ListComposerPromptHistoryRequest) => Promise<ComposerPromptHistoryPage>;
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
   queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
   editQueuedChatMessage: (request: EditQueuedChatMessageRequest) => Promise<QueueEditResult>;
@@ -11759,6 +11822,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeMessagePage,
       endpoint: backendEndpoints.GetMessagePage,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listComposerPromptHistory: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeComposerPromptHistoryPage,
+      endpoint: backendEndpoints.ListComposerPromptHistory,
       fetchImpl,
       requestPayload: request,
     }),

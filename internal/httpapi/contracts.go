@@ -115,6 +115,13 @@ type GetMessagePageRequest struct {
 	Limit              int    `json:"limit"`
 }
 
+type ListComposerPromptHistoryRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	BeforeOrdinal  int    `json:"beforeOrdinal"`
+	Limit          int    `json:"limit"`
+}
+
 type SendChatMessageRequest struct {
 	WorkspaceID    string         `json:"workspaceId"`
 	ConversationID string         `json:"conversationId"`

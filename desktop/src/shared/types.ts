@@ -29,6 +29,7 @@ import type {
   ChatInput,
   ChatPermissionPresetID,
   CodexAccountState,
+  ComposerPromptHistoryPage,
   Conversation,
   ConversationListItem,
   CreateSemanticEdgeRequest,
@@ -463,6 +464,12 @@ export interface SettaAPI {
       beforeBlockOrdinal: number,
       limit: number,
     ) => Promise<MessagePage>;
+    listComposerPromptHistory: (
+      workspaceId: string,
+      conversationId: string,
+      beforeOrdinal: number,
+      limit: number,
+    ) => Promise<ComposerPromptHistoryPage>;
     queueMessage: (
       workspaceId: string,
       conversationId: string,

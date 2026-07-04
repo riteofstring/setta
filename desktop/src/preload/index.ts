@@ -223,6 +223,12 @@ const api: SettaAPI = {
       beforeBlockOrdinal: number,
       limit: number,
     ) => invoke("chatMessagePage", workspaceId, conversationId, beforeBlockOrdinal, limit),
+    listComposerPromptHistory: (
+      workspaceId: string,
+      conversationId: string,
+      beforeOrdinal: number,
+      limit: number,
+    ) => invoke("chatListComposerPromptHistory", workspaceId, conversationId, beforeOrdinal, limit),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeChatEvent(payload));
