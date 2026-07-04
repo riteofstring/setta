@@ -652,6 +652,22 @@ Status after the stream-error liveness step:
   `cmd/generate-contracts/contract_registry.go`.
 - Regenerate affected TypeScript surfaces from Go-owned contracts.
 
+Status after the MCP typed-details cutover:
+
+- Done: `RunItem.details` is now a Go-owned tagged union registered with the
+  contract generator, with `mcp_tool_call` as the first branch. MCP server/tool
+  identity, display title, progress, duration, result summary, structured
+  result, metadata, and error now live in that branch instead of the flat MCP
+  fields.
+- Done: the renderer presents MCP activity as `MCP: <server>` while preserving
+  the tool name, arguments, result content, structured content, metadata,
+  duration, progress, and error in expanded details and search.
+- Done: raw JSON details for activity families that have not been cut over yet
+  moved to `RunItem.rawDetails`; MCP items reject raw details during validation.
+- Remaining: complete protocol findings and typed-detail cutovers for command
+  execution, file changes, diff updates, dynamic/Setta tools, failed starts,
+  approvals, and stream lifecycle activity.
+
 ### Slice 4: Tool And File Activity Rendering
 
 - Project MCP and Setta dynamic tool calls into typed detail payloads.

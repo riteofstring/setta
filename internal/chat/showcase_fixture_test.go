@@ -124,7 +124,7 @@ func assertUIShowcaseRunItems(t *testing.T, items []RunItem, outputs []RunItemOu
 		if !ok {
 			t.Fatalf("run item types = %+v, missing %s", itemsByType, itemType)
 		}
-		if item.ProviderItemID == "" || item.Title == "" {
+		if item.ProviderItemID == "" || runActivityTitle(item) == "" {
 			t.Fatalf("showcase item %s is incomplete: %+v", itemType, item)
 		}
 	}

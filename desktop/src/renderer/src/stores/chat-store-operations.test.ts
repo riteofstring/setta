@@ -577,6 +577,7 @@ function runItem(id: string, runId: string, status: RunItem["status"]): RunItem 
     createdAt: "2026-05-29T20:00:01Z",
     cwd: "",
     details: null,
+    rawDetails: null,
     diffSummary: "",
     durationMs: 0,
     error: "",

@@ -132,39 +132,49 @@ export async function assertProtocolNotificationActivity(
 }
 
 function isCompletedMCPToolCallItem(item) {
-  return (
-    item.status === "completed" &&
-    item.serverName === "github" &&
-    item.toolName === "search" &&
-    item.result.includes("Found repository data") &&
-    mcpToolResultRepositories(item) === 1 &&
-    mcpToolResultTraceID(item) === "mcp_trace"
-  );
+  const details = expectedMCPToolCallDetails(item, "completed", "github", "search");
+  if (details === null) {
+    return false;
+  }
+  if (!details.resultSummary.includes("Found repository data")) {
+    return false;
+  }
+  if (mcpToolResultRepositories(details) !== 1) {
+    return false;
+  }
+  return mcpToolResultTraceID(details) === "mcp_trace";
 }
 
 function isFailedMCPToolCallItem(item) {
-  return (
-    item.status === "failed" &&
-    item.serverName === "github" &&
-    item.toolName === "broken_search" &&
-    item.error === "MCP tool failed"
-  );
+  const details = expectedMCPToolCallDetails(item, "failed", "github", "broken_search");
+  return details !== null && details.error === "MCP tool failed";
 }
 
 function isProjectedMCPActivityRow(row) {
   return (
     row.type === "mcp_tool_call" &&
-    row.title === "github.search" &&
+    row.title === "MCP: github" &&
     row.details?.mcpToolCall?.result?.structuredContent?.repositories === 1
   );
 }
 
-function mcpToolResultRepositories(item) {
-  return item.details?.result?.structuredContent?.repositories;
+function expectedMCPToolCallDetails(item, status, serverName, toolName) {
+  if (item.status !== status || item.details?.kind !== "mcp_tool_call") {
+    return null;
+  }
+  const details = item.details.mcpToolCall;
+  if (details.serverName !== serverName || details.toolName !== toolName) {
+    return null;
+  }
+  return details;
 }
 
-function mcpToolResultTraceID(item) {
-  return item.details?.result?._meta?.traceId;
+function mcpToolResultRepositories(details) {
+  return details.result?.structuredContent?.repositories;
+}
+
+function mcpToolResultTraceID(details) {
+  return details.result?._meta?.traceId;
 }
 
 async function assertProtocolMCPActivityRendered(client, sourceRunItemId) {
@@ -178,7 +188,8 @@ async function assertProtocolMCPActivityRendered(client, sourceRunItemId) {
       const text = row?.innerText ?? "";
       return {
         ok:
-          text.includes("github.search") &&
+          text.includes("MCP: github") &&
+          text.includes("tool: search") &&
           text.includes("ARGUMENTS") &&
           text.includes("CONTENT") &&
           text.includes("STRUCTURED CONTENT") &&

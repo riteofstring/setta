@@ -19,6 +19,7 @@ type ApprovalStatus string
 type ApprovalKind string
 type RunItemStatus string
 type RunItemType string
+type RunItemDetailsKind string
 type RunItemCommandSource string
 type DiagnosticSeverity string
 type DiagnosticSource string
@@ -111,6 +112,8 @@ const (
 	RunItemTypeApprovalReview      RunItemType = "approval_review"
 	RunItemTypeHook                RunItemType = "hook"
 	RunItemTypeStructuredInput     RunItemType = "structured_input"
+
+	RunItemDetailsKindMCPToolCall RunItemDetailsKind = "mcp_tool_call"
 
 	// RunItemCommandSource preserves the Codex app-server CommandExecutionSource
 	// discriminator so the backend can tell a normal agent command from a
@@ -251,6 +254,9 @@ var (
 		RunItemTypeHook,
 		RunItemTypeStructuredInput,
 	}
+	runItemDetailsKindValues = []RunItemDetailsKind{
+		RunItemDetailsKindMCPToolCall,
+	}
 	runItemCommandSourceValues = []RunItemCommandSource{
 		RunItemCommandSourceAgent,
 		RunItemCommandSourceUserShell,
@@ -336,6 +342,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "ApprovalKind", Values: stringValues(approvalKindValues)},
 		{Name: "RunItemStatus", Values: stringValues(runItemStatusValues)},
 		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
+		{Name: "RunItemDetailsKind", Values: stringValues(runItemDetailsKindValues)},
 		{Name: "RunItemCommandSource", Values: stringValues(runItemCommandSourceValues)},
 		{Name: "BackgroundTerminalStatus", Values: stringValues(backgroundTerminalStatusValues)},
 		{Name: "DiagnosticSeverity", Values: stringValues(diagnosticSeverityValues)},
@@ -570,7 +577,8 @@ type RunItem struct {
 	Source     *RunItemCommandSource `json:"source"`
 	RequestID  string                `json:"requestId"`
 	ReviewID   string                `json:"reviewId"`
-	Details    json.RawMessage       `json:"details"`
+	Details    *RunItemDetails       `json:"details"`
+	RawDetails json.RawMessage       `json:"rawDetails"`
 	HiddenText string                `json:"hiddenText"`
 }
 

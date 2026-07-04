@@ -150,6 +150,11 @@ function transcriptActivityMCPSearchText(details: RunActivityDetailsProjection) 
     return [];
   }
   return [
+    mcp.serverName,
+    mcp.toolName,
+    mcp.progress,
+    mcp.resultSummary,
+    mcp.error,
     mcp.pluginId,
     mcp.mcpAppResourceUri,
     transcriptJSONSearchText(mcp.arguments),

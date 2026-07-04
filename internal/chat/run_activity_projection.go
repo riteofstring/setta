@@ -2,7 +2,6 @@ package chat
 
 import (
 	"bytes"
-	"encoding/json"
 )
 
 var runActivityDefaultTitles = map[RunItemType]string{
@@ -124,7 +123,7 @@ func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 		ProcessID:     item.ProcessID,
 		RequestID:     item.RequestID,
 		ReviewID:      item.ReviewID,
-		Details:       cloneRawMessage(item.Details),
+		Details:       cloneRawMessage(item.RawDetails),
 		MCPToolCall:   runItemMCPToolCallDetailsProjection(item),
 	}
 }
@@ -141,6 +140,19 @@ func cloneRawMessage(raw []byte) []byte {
 		return nil
 	}
 	return append([]byte{}, raw...)
+}
+
+func cloneMCPToolCallDetails(details RunItemMCPToolCallDetails) RunItemMCPToolCallDetails {
+	details.Arguments = cloneRawMessage(details.Arguments)
+	details.AppContext = cloneRawMessage(details.AppContext)
+	if details.Result != nil {
+		result := *details.Result
+		result.Content = cloneRawMessages(result.Content)
+		result.StructuredContent = cloneRawMessage(result.StructuredContent)
+		result.Meta = cloneRawMessage(result.Meta)
+		details.Result = &result
+	}
+	return details
 }
 
 func runActivityDetailsInspectable(details RunActivityDetailsProjection) bool {
@@ -190,14 +202,12 @@ func rawDetailsInspectable(raw []byte) bool {
 }
 
 func runItemMCPToolCallDetailsProjection(item RunItem) *RunItemMCPToolCallDetails {
-	if item.Type != RunItemTypeMCPToolCall || !rawDetailsInspectable(item.Details) {
+	details, ok := item.MCPToolCallDetails()
+	if !ok {
 		return nil
 	}
-	var details RunItemMCPToolCallDetails
-	if err := json.Unmarshal(item.Details, &details); err != nil {
-		return nil
-	}
-	return &details
+	cloned := cloneMCPToolCallDetails(*details)
+	return &cloned
 }
 
 func runActivityTitle(item RunItem) string {
@@ -210,7 +220,9 @@ func runActivityTitle(item RunItem) string {
 			return summarizeCommandLabel(item.Command)
 		}
 		return runActivityDefaultTitle(item.Type)
-	case RunItemTypeMCPToolCall, RunItemTypeDynamicToolCall, RunItemTypeCollabAgentToolCall:
+	case RunItemTypeMCPToolCall:
+		return runActivityMCPToolCallTitle(item)
+	case RunItemTypeDynamicToolCall, RunItemTypeCollabAgentToolCall:
 		if item.ToolName != "" && item.ServerName != "" {
 			return item.ServerName + "." + item.ToolName
 		}
@@ -226,6 +238,18 @@ func runActivityTitle(item RunItem) string {
 	default:
 		return runActivityDefaultTitle(item.Type)
 	}
+}
+
+func runActivityMCPToolCallTitle(item RunItem) string {
+	if details, ok := item.MCPToolCallDetails(); ok {
+		if details.DisplayTitle != "" {
+			return details.DisplayTitle
+		}
+		if details.ServerName != "" {
+			return "MCP: " + details.ServerName
+		}
+	}
+	return "MCP tool call"
 }
 
 func runActivityDefaultTitle(itemType RunItemType) string {

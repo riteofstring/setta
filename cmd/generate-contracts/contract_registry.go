@@ -68,6 +68,12 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 				{Field: "backgroundTerminal", KindValue: string(chat.TranscriptBlockKindBackgroundTerminal)},
 			},
 		},
+		reflect.TypeFor[chat.RunItemDetails](): {
+			Discriminator: "kind",
+			Branches: []taggedUnionBranch{
+				{Field: "mcpToolCall", KindValue: string(chat.RunItemDetailsKindMCPToolCall)},
+			},
+		},
 	}
 }
 

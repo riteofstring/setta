@@ -569,9 +569,13 @@ function ActivityDetails({
         <ActivityFiles paths={details.filePaths} />
         <ActivityMetadata details={details} />
         <ActivityTextBlock title="Summary" value={details.summary} />
-        <ActivityTextBlock title="Progress" value={details.progress} />
-        <ActivityTextBlock title="Result" value={details.result} />
-        <ActivityTextBlock title="Error" tone="error" value={details.error} />
+        {details.mcpToolCall === null ? (
+          <>
+            <ActivityTextBlock title="Progress" value={details.progress} />
+            <ActivityTextBlock title="Result" value={details.result} />
+            <ActivityTextBlock title="Error" tone="error" value={details.error} />
+          </>
+        ) : null}
         <ActivityTextBlock title="Notice" value={details.noticeMessage} />
         <ActivityTextBlock title="Diff" value={details.diffSummary} />
         <ActivityMCPDetails details={details} />
@@ -681,6 +685,8 @@ function activityMetadata(details: RunActivityDetailsProjection) {
   ];
   if (details.mcpToolCall !== null) {
     entries.push(
+      { label: "server", value: details.mcpToolCall.serverName },
+      { label: "tool", value: details.mcpToolCall.toolName },
       { label: "plugin", value: details.mcpToolCall.pluginId },
       { label: "resource", value: details.mcpToolCall.mcpAppResourceUri },
     );
@@ -743,6 +749,10 @@ function ActivityMCPDetails({ details }: { details: RunActivityDetailsProjection
   }
   return (
     <>
+      <ActivityTextBlock title="Progress" value={mcp.progress} />
+      <ActivityTextBlock title="Result" value={mcp.resultSummary} />
+      <ActivityTextBlock title="Error" tone="error" value={mcp.error} />
+      <ActivityTextBlock title="Duration" value={mcp.durationMs > 0 ? `${mcp.durationMs}ms` : ""} />
       <ActivityJSONBlock details={mcp.arguments} title="Arguments" />
       <ActivityJSONBlock details={mcp.appContext} title="App Context" />
       {mcp.result === null ? null : (

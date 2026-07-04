@@ -642,9 +642,17 @@ func chatMessageSummary(message chat.ChatMessage) string {
 func chatRunItemSummary(item chat.RunItem) string {
 	title := strings.TrimSpace(item.Title)
 	if title == "" {
+		if details, ok := item.MCPToolCallDetails(); ok {
+			title = details.DisplayTitle
+		}
+	}
+	if title == "" {
 		title = string(item.Type)
 	}
 	status := item.Status
+	if details, ok := item.MCPToolCallDetails(); ok && details.Error != "" {
+		return fmt.Sprintf("Run item %s %s failed: %s", item.ID, title, shortText(details.Error, semanticEvidenceTextLimit))
+	}
 	if item.Error != "" {
 		return fmt.Sprintf("Run item %s %s failed: %s", item.ID, title, shortText(item.Error, semanticEvidenceTextLimit))
 	}
@@ -652,6 +660,13 @@ func chatRunItemSummary(item chat.RunItem) string {
 }
 
 func runItemEvidenceText(item chat.RunItem) string {
+	if details, ok := item.MCPToolCallDetails(); ok {
+		for _, value := range []string{item.Summary, details.ResultSummary, details.Progress, details.Error} {
+			if strings.TrimSpace(value) != "" {
+				return value
+			}
+		}
+	}
 	for _, value := range []string{item.Summary, item.Command, item.Result, item.DiffSummary, item.NoticeMessage, item.Error} {
 		if strings.TrimSpace(value) != "" {
 			return value

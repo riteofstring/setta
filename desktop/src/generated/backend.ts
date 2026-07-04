@@ -1059,6 +1059,20 @@ export function decodeRunItemCommandSource(value: unknown, label = "RunItemComma
   }
 }
 
+export type RunItemDetailsKind = "mcp_tool_call";
+
+export const runItemDetailsKindValues = ["mcp_tool_call"] as const satisfies readonly RunItemDetailsKind[];
+
+export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetailsKind"): RunItemDetailsKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "mcp_tool_call":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type BackgroundTerminalStatus = "running" | "terminating" | "exited" | "lost";
 
 export const backgroundTerminalStatusValues = ["running", "terminating", "exited", "lost"] as const satisfies readonly BackgroundTerminalStatus[];
@@ -3115,10 +3129,14 @@ export interface RunItemMCPToolResult {
 export interface RunItemMCPToolCallDetails {
   serverName: string;
   toolName: string;
+  displayTitle: string;
+  progress: string;
+  durationMs: number;
   arguments: unknown;
   appContext: unknown;
   pluginId: string;
   mcpAppResourceUri: string;
+  resultSummary: string;
   result: RunItemMCPToolResult | null;
   error: string;
 }
@@ -3533,6 +3551,11 @@ export interface GetRunActivityRequest {
   limit: number;
 }
 
+export interface RunItemDetails {
+  kind: RunItemDetailsKind;
+  mcpToolCall: RunItemMCPToolCallDetails | null;
+}
+
 export interface RunItem {
   schemaVersion: number;
   id: string;
@@ -3566,7 +3589,8 @@ export interface RunItem {
   source: RunItemCommandSource | null;
   requestId: string;
   reviewId: string;
-  details: unknown;
+  details: RunItemDetails | null;
+  rawDetails: unknown;
   hiddenText: string;
 }
 
@@ -7365,14 +7389,18 @@ export function decodeRunItemMCPToolResult(value: unknown): RunItemMCPToolResult
 
 export function decodeRunItemMCPToolCallDetails(value: unknown): RunItemMCPToolCallDetails {
   const record = assertRecord(value, "RunItemMCPToolCallDetails");
-  assertKnownFields(record, "RunItemMCPToolCallDetails", ["serverName", "toolName", "arguments", "appContext", "pluginId", "mcpAppResourceUri", "result", "error"]);
+  assertKnownFields(record, "RunItemMCPToolCallDetails", ["serverName", "toolName", "displayTitle", "progress", "durationMs", "arguments", "appContext", "pluginId", "mcpAppResourceUri", "resultSummary", "result", "error"]);
   return {
     serverName: decodeString(requireField(record, "serverName", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.serverName"),
     toolName: decodeString(requireField(record, "toolName", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.toolName"),
+    displayTitle: decodeString(requireField(record, "displayTitle", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.displayTitle"),
+    progress: decodeString(requireField(record, "progress", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.progress"),
+    durationMs: decodeInteger(requireField(record, "durationMs", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.durationMs"),
     arguments: decodeUnknown(requireField(record, "arguments", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.arguments"),
     appContext: decodeUnknown(requireField(record, "appContext", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.appContext"),
     pluginId: decodeString(requireField(record, "pluginId", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.pluginId"),
     mcpAppResourceUri: decodeString(requireField(record, "mcpAppResourceUri", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.mcpAppResourceUri"),
+    resultSummary: decodeString(requireField(record, "resultSummary", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.resultSummary"),
     result: decodeNullable(requireField(record, "result", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.result", (item) => decodeRunItemMCPToolResult(item)),
     error: decodeString(requireField(record, "error", "RunItemMCPToolCallDetails"), "RunItemMCPToolCallDetails.error"),
   };
@@ -8018,9 +8046,22 @@ export function decodeGetRunActivityRequest(value: unknown): GetRunActivityReque
   };
 }
 
+export function decodeRunItemDetails(value: unknown): RunItemDetails {
+  const record = assertRecord(value, "RunItemDetails");
+  assertKnownFields(record, "RunItemDetails", ["kind", "mcpToolCall"]);
+  const result: RunItemDetails = {
+    kind: decodeRunItemDetailsKind(requireField(record, "kind", "RunItemDetails"), "RunItemDetails.kind"),
+    mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunItemDetails"), "RunItemDetails.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
+  };
+  assertTaggedUnionBranch("RunItemDetails", result.kind, {
+    "mcp_tool_call": result.mcpToolCall,
+  });
+  return result;
+}
+
 export function decodeRunItem(value: unknown): RunItem {
   const record = assertRecord(value, "RunItem");
-  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "source", "requestId", "reviewId", "details", "hiddenText"]);
+  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "source", "requestId", "reviewId", "details", "rawDetails", "hiddenText"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItem"), "RunItem.schemaVersion"),
     id: decodeString(requireField(record, "id", "RunItem"), "RunItem.id"),
@@ -8054,7 +8095,8 @@ export function decodeRunItem(value: unknown): RunItem {
     source: decodeNullable(requireField(record, "source", "RunItem"), "RunItem.source", (item) => decodeRunItemCommandSource(item, "RunItem.source")),
     requestId: decodeString(requireField(record, "requestId", "RunItem"), "RunItem.requestId"),
     reviewId: decodeString(requireField(record, "reviewId", "RunItem"), "RunItem.reviewId"),
-    details: decodeUnknown(requireField(record, "details", "RunItem"), "RunItem.details"),
+    details: decodeNullable(requireField(record, "details", "RunItem"), "RunItem.details", (item) => decodeRunItemDetails(item)),
+    rawDetails: decodeUnknown(requireField(record, "rawDetails", "RunItem"), "RunItem.rawDetails"),
     hiddenText: decodeString(requireField(record, "hiddenText", "RunItem"), "RunItem.hiddenText"),
   };
 }

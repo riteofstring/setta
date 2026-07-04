@@ -188,17 +188,29 @@ func mergeRunItemSummary(bundle *CartographerInputBundle, item chat.RunItem) {
 }
 
 func cartographerToolSummary(item chat.RunItem) CartographerToolCallSummary {
+	title := item.Title
+	toolName := item.ToolName
+	serverName := item.ServerName
+	resultSummary := firstNonEmpty(item.Summary, item.Result, item.Progress)
+	errorMessage := item.Error
+	if details, ok := item.MCPToolCallDetails(); ok {
+		title = firstNonEmpty(title, details.DisplayTitle)
+		toolName = details.ToolName
+		serverName = details.ServerName
+		resultSummary = firstNonEmpty(item.Summary, details.ResultSummary, details.Progress)
+		errorMessage = details.Error
+	}
 	return CartographerToolCallSummary{
 		RunItemID:     item.ID,
 		Type:          string(item.Type),
 		Status:        string(item.Status),
-		Title:         item.Title,
+		Title:         title,
 		Command:       item.Command,
 		Cwd:           item.Cwd,
-		ToolName:      item.ToolName,
-		ServerName:    item.ServerName,
-		ResultSummary: firstNonEmpty(item.Summary, item.Result, item.Progress),
-		Error:         item.Error,
+		ToolName:      toolName,
+		ServerName:    serverName,
+		ResultSummary: resultSummary,
+		Error:         errorMessage,
 		ExitCode:      item.ExitCode,
 	}
 }

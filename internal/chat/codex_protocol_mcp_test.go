@@ -34,40 +34,18 @@ func TestCodexMCPToolCallProjectsStructuredDetails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project mcp item: %v", err)
 	}
-	if runItem.Type != RunItemTypeMCPToolCall || runItem.Status != RunItemStatusCompleted {
-		t.Fatalf("run item type/status = %s/%s, want mcp completed", runItem.Type, runItem.Status)
-	}
-	if runItem.ServerName != "github" || runItem.ToolName != "search" {
-		t.Fatalf("server/tool = %s/%s, want github/search", runItem.ServerName, runItem.ToolName)
-	}
-	if runItem.DurationMs != 42 {
-		t.Fatalf("durationMs = %d, want 42", runItem.DurationMs)
-	}
-	if runItem.Result != "first line\n1 image content block\nstructured content present" {
-		t.Fatalf("result summary = %q", runItem.Result)
-	}
-
-	var details RunItemMCPToolCallDetails
-	if err := json.Unmarshal(runItem.Details, &details); err != nil {
-		t.Fatalf("decode details: %v", err)
-	}
-	if details.PluginID != "plugin_github" || details.MCPAppResourceURI != "mcp://legacy-resource" {
-		t.Fatalf("details plugin/resource = %+v", details)
-	}
-	var arguments map[string]string
-	if err := json.Unmarshal(details.Arguments, &arguments); err != nil {
-		t.Fatalf("decode arguments: %v", err)
-	}
-	if arguments["query"] != "repo" {
-		t.Fatalf("arguments = %s, want query repo", details.Arguments)
-	}
-	if details.Result == nil || len(details.Result.Content) != 2 {
-		t.Fatalf("result details = %+v, want two content blocks", details.Result)
-	}
+	requireCompletedMCPRunItem(t, runItem)
+	details := requireMCPToolCallDetails(t, runItem)
+	requireMCPToolCallMetadata(t, details)
+	requireMCPToolCallArguments(t, details)
+	requireMCPToolCallResult(t, details)
 
 	projection := runActivityDetailsProjection(runItem)
 	if projection.MCPToolCall == nil || projection.MCPToolCall.ToolName != "search" {
 		t.Fatalf("activity projection mcp details = %+v", projection.MCPToolCall)
+	}
+	if title := runActivityTitle(runItem); title != "MCP: github" {
+		t.Fatalf("activity title = %q, want MCP: github", title)
 	}
 }
 
@@ -86,7 +64,11 @@ func TestCodexFailedMCPToolCallProjectsFailedRow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project failed mcp item: %v", err)
 	}
-	if runItem.Status != RunItemStatusFailed || runItem.Error != "tool failed" {
+	details, ok := runItem.MCPToolCallDetails()
+	if !ok || details.Error != "tool failed" {
+		t.Fatalf("failed mcp details = %+v ok %v, want error message", details, ok)
+	}
+	if runItem.Status != RunItemStatusFailed || runItem.Error != "" {
 		t.Fatalf("failed item = %+v, want failed row with error message", runItem)
 	}
 }
@@ -118,4 +100,60 @@ func decodeCodexThreadItemForTest(t *testing.T, raw string) codexapp.ThreadItem 
 		t.Fatalf("decode codex thread item: %v", err)
 	}
 	return item
+}
+
+func requireCompletedMCPRunItem(t *testing.T, runItem RunItem) {
+	t.Helper()
+	if runItem.Type != RunItemTypeMCPToolCall || runItem.Status != RunItemStatusCompleted {
+		t.Fatalf("run item type/status = %s/%s, want mcp completed", runItem.Type, runItem.Status)
+	}
+	if runItem.ServerName != "" || runItem.ToolName != "" || runItem.DurationMs != 0 || runItem.Result != "" {
+		t.Fatalf("flat mcp fields were populated: %+v", runItem)
+	}
+}
+
+func requireMCPToolCallDetails(t *testing.T, runItem RunItem) *RunItemMCPToolCallDetails {
+	t.Helper()
+	details, ok := runItem.MCPToolCallDetails()
+	if !ok {
+		t.Fatalf("mcp details missing from run item: %+v", runItem.Details)
+	}
+	return details
+}
+
+func requireMCPToolCallMetadata(t *testing.T, details *RunItemMCPToolCallDetails) {
+	t.Helper()
+	if details.ServerName != "github" || details.ToolName != "search" {
+		t.Fatalf("details server/tool = %s/%s, want github/search", details.ServerName, details.ToolName)
+	}
+	if details.DisplayTitle != "MCP: github" {
+		t.Fatalf("details display title = %q, want MCP: github", details.DisplayTitle)
+	}
+	if details.DurationMs != 42 {
+		t.Fatalf("details durationMs = %d, want 42", details.DurationMs)
+	}
+	if details.ResultSummary != "first line\n1 image content block\nstructured content present" {
+		t.Fatalf("result summary = %q", details.ResultSummary)
+	}
+	if details.PluginID != "plugin_github" || details.MCPAppResourceURI != "mcp://legacy-resource" {
+		t.Fatalf("details plugin/resource = %+v", *details)
+	}
+}
+
+func requireMCPToolCallArguments(t *testing.T, details *RunItemMCPToolCallDetails) {
+	t.Helper()
+	var arguments map[string]string
+	if err := json.Unmarshal(details.Arguments, &arguments); err != nil {
+		t.Fatalf("decode arguments: %v", err)
+	}
+	if arguments["query"] != "repo" {
+		t.Fatalf("arguments = %s, want query repo", details.Arguments)
+	}
+}
+
+func requireMCPToolCallResult(t *testing.T, details *RunItemMCPToolCallDetails) {
+	t.Helper()
+	if details.Result == nil || len(details.Result.Content) != 2 {
+		t.Fatalf("result details = %+v, want two content blocks", details.Result)
+	}
 }

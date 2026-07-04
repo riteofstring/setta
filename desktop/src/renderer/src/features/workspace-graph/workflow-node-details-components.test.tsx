@@ -288,6 +288,7 @@ function runItem(): RunItem {
     createdAt: "2026-06-07T00:00:00Z",
     cwd: "",
     details: null,
+    rawDetails: null,
     diffSummary: "",
     durationMs: 0,
     error: "",

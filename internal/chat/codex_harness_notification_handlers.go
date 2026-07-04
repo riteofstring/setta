@@ -610,7 +610,7 @@ func handleCodexMCPProgress(message jsonRPCMessage, threadID string, turnID stri
 		ProviderItemID: params.ItemId,
 		Type:           RunItemTypeMCPToolCall,
 		Status:         RunItemStatusRunning,
-		Progress:       params.Message,
+		Details:        NewRunItemMCPToolCallDetails(RunItemMCPToolCallDetails{Progress: params.Message}),
 	})
 }
 

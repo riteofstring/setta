@@ -250,7 +250,7 @@ func codexHookRunItem(run map[string]any) (RunItem, error) {
 		Title:          "Hook: " + eventName,
 		Summary:        hookSummary(statusText, statusMessage),
 		DurationMs:     durationMs,
-		Details:        details,
+		RawDetails:     details,
 	}, nil
 }
 
@@ -306,7 +306,7 @@ func handleCodexAutoApprovalReviewNotification(message jsonRPCMessage, threadID 
 		Title:          "Auto-approval review",
 		Summary:        summary,
 		ReviewID:       reviewID,
-		Details:        details,
+		RawDetails:     details,
 	})
 }
 

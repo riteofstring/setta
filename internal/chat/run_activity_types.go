@@ -2,6 +2,11 @@ package chat
 
 import "encoding/json"
 
+type RunItemDetails struct {
+	Kind        RunItemDetailsKind         `json:"kind"`
+	MCPToolCall *RunItemMCPToolCallDetails `json:"mcpToolCall"`
+}
+
 type RunActivityDetailsProjection struct {
 	Summary       string                     `json:"summary"`
 	Command       string                     `json:"command"`
@@ -29,10 +34,14 @@ type RunActivityDetailsProjection struct {
 type RunItemMCPToolCallDetails struct {
 	ServerName        string                `json:"serverName"`
 	ToolName          string                `json:"toolName"`
+	DisplayTitle      string                `json:"displayTitle"`
+	Progress          string                `json:"progress"`
+	DurationMs        int                   `json:"durationMs"`
 	Arguments         json.RawMessage       `json:"arguments"`
 	AppContext        json.RawMessage       `json:"appContext"`
 	PluginID          string                `json:"pluginId"`
 	MCPAppResourceURI string                `json:"mcpAppResourceUri"`
+	ResultSummary     string                `json:"resultSummary"`
 	Result            *RunItemMCPToolResult `json:"result"`
 	Error             string                `json:"error"`
 }
@@ -41,6 +50,23 @@ type RunItemMCPToolResult struct {
 	Content           []json.RawMessage `json:"content"`
 	StructuredContent json.RawMessage   `json:"structuredContent"`
 	Meta              json.RawMessage   `json:"_meta"`
+}
+
+func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDetails {
+	return &RunItemDetails{
+		Kind:        RunItemDetailsKindMCPToolCall,
+		MCPToolCall: &details,
+	}
+}
+
+func (item RunItem) MCPToolCallDetails() (*RunItemMCPToolCallDetails, bool) {
+	if item.Type != RunItemTypeMCPToolCall ||
+		item.Details == nil ||
+		item.Details.Kind != RunItemDetailsKindMCPToolCall ||
+		item.Details.MCPToolCall == nil {
+		return nil, false
+	}
+	return item.Details.MCPToolCall, true
 }
 
 type RunActivityPage struct {

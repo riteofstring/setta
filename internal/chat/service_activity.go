@@ -371,9 +371,51 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	next.Source = keepCommandSource(next.Source, existing.Source)
 	next.RequestID = keepString(next.RequestID, existing.RequestID)
 	next.ReviewID = keepString(next.ReviewID, existing.ReviewID)
-	next.Details = keepRawMessage(next.Details, existing.Details)
+	next.Details = mergeRunItemDetails(existing.Details, next.Details)
+	next.RawDetails = keepRawMessage(next.RawDetails, existing.RawDetails)
 	next.HiddenText = mergeHiddenText(existing, next)
 	return next
+}
+
+func mergeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
+	if next == nil {
+		return existing
+	}
+	if existing == nil || existing.Kind != next.Kind {
+		return next
+	}
+	if next.Kind != RunItemDetailsKindMCPToolCall {
+		return next
+	}
+	return mergeMCPToolCallRunItemDetails(existing, next)
+}
+
+func mergeMCPToolCallRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
+	if next.MCPToolCall == nil {
+		return existing
+	}
+	if existing.MCPToolCall == nil {
+		return next
+	}
+	merged := *next.MCPToolCall
+	previous := existing.MCPToolCall
+	merged.ServerName = keepString(merged.ServerName, previous.ServerName)
+	merged.ToolName = keepString(merged.ToolName, previous.ToolName)
+	merged.DisplayTitle = keepString(merged.DisplayTitle, previous.DisplayTitle)
+	merged.Progress = keepString(merged.Progress, previous.Progress)
+	if merged.DurationMs == 0 {
+		merged.DurationMs = previous.DurationMs
+	}
+	merged.Arguments = keepRawMessage(merged.Arguments, previous.Arguments)
+	merged.AppContext = keepRawMessage(merged.AppContext, previous.AppContext)
+	merged.PluginID = keepString(merged.PluginID, previous.PluginID)
+	merged.MCPAppResourceURI = keepString(merged.MCPAppResourceURI, previous.MCPAppResourceURI)
+	merged.ResultSummary = keepString(merged.ResultSummary, previous.ResultSummary)
+	if merged.Result == nil {
+		merged.Result = previous.Result
+	}
+	merged.Error = keepString(merged.Error, previous.Error)
+	return NewRunItemMCPToolCallDetails(merged)
 }
 
 func keepString(next string, existing string) string {

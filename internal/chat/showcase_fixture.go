@@ -394,12 +394,13 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			ProviderItemID: "provider_ui_mcp_" + runID,
 			Type:           RunItemTypeMCPToolCall,
 			Status:         RunItemStatusRunning,
-			Title:          "MCP tool call",
-			ServerName:     "filesystem",
-			ToolName:       "read_text_file",
-			Progress:       "Reading fixture content",
-			RequestID:      "mcp-request-showcase",
-			Details:        json.RawMessage(`{"path":"/tmp/setta-workspace/README.md"}`),
+			Details: NewRunItemMCPToolCallDetails(RunItemMCPToolCallDetails{
+				ServerName:   "filesystem",
+				ToolName:     "read_text_file",
+				DisplayTitle: "MCP: filesystem",
+				Progress:     "Reading fixture content",
+				Arguments:    json.RawMessage(`{"path":"/tmp/setta-workspace/README.md"}`),
+			}),
 		},
 		{
 			ProviderItemID: "provider_ui_dynamic_tool_" + runID,
@@ -409,7 +410,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Namespace:      "setta",
 			ToolName:       "styleProbe",
 			Result:         "tool returned structured data",
-			Details:        json.RawMessage(`{"selectors":["[data-testid=chat-transcript-region]"],"ok":true}`),
+			RawDetails:     json.RawMessage(`{"selectors":["[data-testid=chat-transcript-region]"],"ok":true}`),
 		},
 		{
 			ProviderItemID: "provider_ui_collab_agent_" + runID,
@@ -419,7 +420,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Namespace:      "multi_agent",
 			ToolName:       "review_ui",
 			Result:         "subagent completed review",
-			Details:        json.RawMessage(`{"agent":"ui-reviewer","findingCount":0}`),
+			RawDetails:     json.RawMessage(`{"agent":"ui-reviewer","findingCount":0}`),
 		},
 		{
 			ProviderItemID: "provider_ui_web_search_" + runID,
@@ -428,7 +429,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Title:          "Web search",
 			ToolName:       "web_search",
 			Result:         "Found three relevant sources",
-			Details:        json.RawMessage(`{"query":"codex chat activity styling","results":3}`),
+			RawDetails:     json.RawMessage(`{"query":"codex chat activity styling","results":3}`),
 		},
 		{
 			ProviderItemID: "provider_ui_image_view_" + runID,
@@ -437,7 +438,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Title:          "Image view",
 			FilePaths:      []string{"/tmp/setta-workspace/screenshots/chat.png"},
 			Summary:        "Viewed a screenshot artifact.",
-			Details:        json.RawMessage(`{"width":1440,"height":900}`),
+			RawDetails:     json.RawMessage(`{"width":1440,"height":900}`),
 		},
 		{
 			ProviderItemID: "provider_ui_image_generation_" + runID,
@@ -446,7 +447,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Title:          "Image generation",
 			Summary:        "Generated a mock visual asset.",
 			Result:         "image asset ready",
-			Details:        json.RawMessage(`{"prompt":"chat UI texture","mimeType":"image/png"}`),
+			RawDetails:     json.RawMessage(`{"prompt":"chat UI texture","mimeType":"image/png"}`),
 		},
 		{
 			ProviderItemID: "provider_ui_terminal_" + runID,
@@ -490,7 +491,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			ReviewID:       "review-showcase",
 			Result:         "approved",
 			Summary:        "Auto-review approved the requested action.",
-			Details:        json.RawMessage(`{"decision":"approved","risk":"low"}`),
+			RawDetails:     json.RawMessage(`{"decision":"approved","risk":"low"}`),
 		},
 		{
 			ProviderItemID: "provider_ui_hook_" + runID,
@@ -499,7 +500,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Title:          "Hook",
 			Error:          "pre-command hook returned a style-only warning",
 			Summary:        "Hook output with failed status styling.",
-			Details:        json.RawMessage(`{"hook":"pre-command","durationMs":42}`),
+			RawDetails:     json.RawMessage(`{"hook":"pre-command","durationMs":42}`),
 		},
 		{
 			ProviderItemID: "provider_ui_structured_input_" + runID,
@@ -509,7 +510,7 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			ServerName:     "deploy",
 			RequestID:      "structured-request-showcase",
 			Summary:        "MCP elicitation form schema.",
-			Details: json.RawMessage(`{
+			RawDetails: json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"environment": {"type": "string", "enum": ["staging", "production"]},

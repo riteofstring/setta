@@ -1,8 +1,6 @@
 package chat
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -760,14 +758,34 @@ func validateRunItemTimestamps(item RunItem) error {
 
 func validateRunItemDetails(item RunItem) error {
 	if item.Type != RunItemTypeMCPToolCall {
+		if item.Details != nil {
+			return fmt.Errorf("run item %s type %s does not support typed details kind %s", item.ID, item.Type, item.Details.Kind)
+		}
 		return nil
 	}
-	if len(bytes.TrimSpace(item.Details)) == 0 {
-		return nil
+	if rawDetailsInspectable(item.RawDetails) {
+		return fmt.Errorf("run item %s mcpToolCall rawDetails must be empty after typed details cutover", item.ID)
 	}
-	var details RunItemMCPToolCallDetails
-	if err := json.Unmarshal(item.Details, &details); err != nil {
-		return fmt.Errorf("run item %s mcpToolCall details must match RunItemMCPToolCallDetails: %w", item.ID, err)
+	if item.Details == nil {
+		return fmt.Errorf("run item %s mcpToolCall details are required", item.ID)
+	}
+	if item.Details.Kind != RunItemDetailsKindMCPToolCall || item.Details.MCPToolCall == nil {
+		return fmt.Errorf("run item %s mcpToolCall details must contain the mcpToolCall branch", item.ID)
+	}
+	return validateRunItemMCPToolCallDetails(item, *item.Details.MCPToolCall)
+}
+
+func validateRunItemMCPToolCallDetails(item RunItem, details RunItemMCPToolCallDetails) error {
+	if details.DurationMs < 0 {
+		return fmt.Errorf("run item %s mcpToolCall durationMs must be non-negative", item.ID)
+	}
+	if item.Status != RunItemStatusPending && item.Status != RunItemStatusRunning {
+		if details.ServerName == "" {
+			return fmt.Errorf("run item %s mcpToolCall serverName is required for terminal items", item.ID)
+		}
+		if details.ToolName == "" {
+			return fmt.Errorf("run item %s mcpToolCall toolName is required for terminal items", item.ID)
+		}
 	}
 	return nil
 }

@@ -376,32 +376,19 @@ func mcpToolCallRunItem(item codexapp.McpToolCallThreadItem) (RunItem, error) {
 	if err != nil {
 		return RunItem{}, err
 	}
-	details, err := mcpToolCallDetails(item, serverName, toolName)
-	if err != nil {
-		return RunItem{}, err
-	}
-	detailsJSON, err := json.Marshal(details)
-	if err != nil {
-		return RunItem{}, fmt.Errorf("marshal mcpToolCall details: %w", err)
-	}
 	result, err := mcpToolResultSummary(item.Result)
 	if err != nil {
 		return RunItem{}, err
 	}
-	errorMessage := ""
-	if item.Error != nil {
-		errorMessage = item.Error.Message
+	details, err := mcpToolCallDetails(item, serverName, toolName, result)
+	if err != nil {
+		return RunItem{}, err
 	}
 	return RunItem{
 		ProviderItemID: id,
 		Type:           RunItemTypeMCPToolCall,
 		Status:         status,
-		ServerName:     serverName,
-		ToolName:       toolName,
-		DurationMs:     intPtrValue(item.DurationMs),
-		Result:         result,
-		Error:          errorMessage,
-		Details:        detailsJSON,
+		Details:        NewRunItemMCPToolCallDetails(details),
 	}, nil
 }
 
@@ -594,7 +581,7 @@ func nonEmptyStrings(values []string) []string {
 	return parts
 }
 
-func mcpToolCallDetails(item codexapp.McpToolCallThreadItem, serverName string, toolName string) (RunItemMCPToolCallDetails, error) {
+func mcpToolCallDetails(item codexapp.McpToolCallThreadItem, serverName string, toolName string, resultSummary string) (RunItemMCPToolCallDetails, error) {
 	appContext, err := rawJSONFromOptionalValue(item.AppContext, "codex mcpToolCall item.appContext")
 	if err != nil {
 		return RunItemMCPToolCallDetails{}, err
@@ -610,10 +597,13 @@ func mcpToolCallDetails(item codexapp.McpToolCallThreadItem, serverName string, 
 	return RunItemMCPToolCallDetails{
 		ServerName:        serverName,
 		ToolName:          toolName,
+		DisplayTitle:      "MCP: " + serverName,
+		DurationMs:        intPtrValue(item.DurationMs),
 		Arguments:         cloneRawMessage(item.Arguments),
 		AppContext:        appContext,
 		PluginID:          stringPtrValue(item.PluginId),
 		MCPAppResourceURI: stringPtrValue(item.McpAppResourceUri),
+		ResultSummary:     resultSummary,
 		Result:            result,
 		Error:             errorMessage,
 	}, nil

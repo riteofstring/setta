@@ -504,7 +504,7 @@ func scriptedDynamicToolTurn(_ *ScriptedWorkflowHarness, _ context.Context, requ
 		Title:          "Dynamic tool call",
 		Namespace:      "setta",
 		ToolName:       "fakeTool",
-		Details:        json.RawMessage(`{"value":"from scripted workflow"}`),
+		RawDetails:     json.RawMessage(`{"value":"from scripted workflow"}`),
 	}
 	if err := sink.RunItemUpsert(item); err != nil {
 		return TurnCompletion{}, err
@@ -576,7 +576,7 @@ func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, _ context.Context, r
 		Title:          "Workflow result",
 		Namespace:      SettaAgentToolNamespace,
 		ToolName:       SettaWorkflowResultAgentToolName,
-		Details: json.RawMessage(`{
+		RawDetails: json.RawMessage(`{
 			"signals": [
 				{"name": "route", "value": "yes"},
 				{"name": "decision", "value": "exit"}
@@ -644,7 +644,7 @@ func (harness *ScriptedWorkflowHarness) phase4ConsolidatorTurn(_ context.Context
 		Title:          "Phase 4 workflow result",
 		Namespace:      SettaAgentToolNamespace,
 		ToolName:       SettaWorkflowResultAgentToolName,
-		Details:        details,
+		RawDetails:     details,
 		Result:         "phase 4 workflow result recorded",
 	}
 	if err := sink.RunItemUpsert(item); err != nil {
@@ -855,7 +855,7 @@ func scriptedStructuredApprovalActivity(sink TurnSink, approval ApprovalRequest)
 	if approval.StructuredInput != nil {
 		item.ServerName = approval.StructuredInput.ServerName
 		item.RequestID = approval.StructuredInput.ProviderRequestID
-		item.Details = approval.StructuredInput.Schema
+		item.RawDetails = approval.StructuredInput.Schema
 	}
 	return sink.RunItemUpsert(item)
 }

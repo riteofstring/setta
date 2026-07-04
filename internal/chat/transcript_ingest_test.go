@@ -604,7 +604,7 @@ func TestTranscriptIngestsProtocolActivityTypes(t *testing.T) {
 			items := []RunItem{
 				{ProviderItemID: "hook1", Type: RunItemTypeHook, Status: RunItemStatusRunning, Title: "Hook: pre-command"},
 				{ProviderItemID: "hook1", Type: RunItemTypeHook, Status: RunItemStatusCompleted, Title: "Hook: pre-command"},
-				{ProviderItemID: "approval_review_x", Type: RunItemTypeApprovalReview, Status: RunItemStatusCompleted, Title: "Auto-approval review", Summary: "Auto-review approved for command", ReviewID: "x", Details: json.RawMessage(`{"riskLevel":"low"}`)},
+				{ProviderItemID: "approval_review_x", Type: RunItemTypeApprovalReview, Status: RunItemStatusCompleted, Title: "Auto-approval review", Summary: "Auto-review approved for command", ReviewID: "x", RawDetails: json.RawMessage(`{"riskLevel":"low"}`)},
 				{ProviderItemID: "patch1", Type: RunItemTypeFileChange, Status: RunItemStatusRunning, FilePaths: []string{"a.go"}, PatchStatus: "updated"},
 				{ProviderItemID: "patch1", Type: RunItemTypeFileChange, Status: RunItemStatusCompleted, FilePaths: []string{"a.go"}, PatchStatus: "completed"},
 				{ProviderItemID: "tool1", Type: RunItemTypeDynamicToolCall, Status: RunItemStatusCompleted, ToolName: "do_thing"},
