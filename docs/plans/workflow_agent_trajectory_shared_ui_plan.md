@@ -676,6 +676,17 @@ build, Electron syntax checks, and
 Live Codex verification still remains blocked by local Codex
 `config/read` returning unsupported `approval_policy = "on-failure"`.
 
+Audit follow-up 2026-07-04: fixed two exact-target boundary gaps. Workspace UI
+validation now treats execution and node-execution IDs as run-view-only fields,
+so draft node-details targets remain persistable while stale run identity
+outside run view is rejected. Renderer details lookup now verifies an explicit
+`nodeExecutionId` belongs to the requested node before using it, rather than
+displaying another node execution under the selected node. Focused reruns
+passed workspace UI Go tests, workspace layout HTTP coverage, generator checks
+with no generated drift, workflow-node details helper Vitest, workspace layout
+Vitest, desktop typecheck/build, and the focused workflow-node trajectory
+Electron workflow.
+
 ## Verification Plan
 
 Start narrow, then broaden.

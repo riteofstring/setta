@@ -294,14 +294,8 @@ func validateWorkflowNodeDetailsConfigIdentityFields(config *WorkflowNodeDetails
 	if config.DefinitionName == "" {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.definitionName is required", index)
 	}
-	if config.ExecutionID == "" {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.executionId is required", index)
-	}
 	if config.NodeID == "" {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeId is required", index)
-	}
-	if config.ExecutionID != "" && config.NodeExecutionID == "" {
-		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeExecutionId is required for run view", index)
 	}
 	if config.NodeLabel == "" {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeLabel is required", index)
@@ -329,11 +323,33 @@ func validateWorkflowNodeDetailsConfigValues(config *WorkflowNodeDetailsPaneConf
 	if !validWorkflowGraphViewMode(config.ViewMode) {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.viewMode is unsupported: %s", index, config.ViewMode)
 	}
+	if err := validateWorkflowNodeDetailsConfigRunFields(config, index, path); err != nil {
+		return err
+	}
 	if config.ViewMode != orchestrator.GraphViewModeDraft && config.DefinitionVersionID == "" {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.definitionVersionId is required outside draft view", index)
 	}
 	if config.DefinitionVersionNumber < 0 {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.definitionVersionNumber must be non-negative", index)
+	}
+	return nil
+}
+
+func validateWorkflowNodeDetailsConfigRunFields(config *WorkflowNodeDetailsPaneConfig, index int, path string) error {
+	if config.ViewMode == orchestrator.GraphViewModeRun {
+		if config.ExecutionID == "" {
+			return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.executionId is required for run view", index)
+		}
+		if config.NodeExecutionID == "" {
+			return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeExecutionId is required for run view", index)
+		}
+		return nil
+	}
+	if config.ExecutionID != "" {
+		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.executionId is only valid for run view", index)
+	}
+	if config.NodeExecutionID != "" {
+		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeExecutionId is only valid for run view", index)
 	}
 	return nil
 }

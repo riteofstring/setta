@@ -95,6 +95,12 @@ describe("workflow node details surface helpers", () => {
     expect(
       workflowNodeExecutionForDetailsTarget(execution, { nodeExecutionId: "", nodeId: "work" })?.id,
     ).toBe("node_execution_second");
+    expect(
+      workflowNodeExecutionForDetailsTarget(execution, {
+        nodeExecutionId: "node_execution_first",
+        nodeId: "other",
+      }),
+    ).toBeNull();
   });
 
   test("filters node run events by node and node execution id", () => {

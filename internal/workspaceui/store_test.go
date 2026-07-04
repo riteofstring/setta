@@ -137,6 +137,28 @@ func TestStorePersistsWorkflowNodeDetailsPaneConfig(t *testing.T) {
 	}
 }
 
+func TestStorePersistsDraftWorkflowNodeDetailsPaneConfig(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].WorkflowNodeDetailsConfig = testDraftWorkflowNodeDetailsConfig(layout.WorkspaceID)
+
+	if _, err := store.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout with draft workflow node details config: %v", err)
+	}
+	loaded, err := store.LoadLayout(layout.WorkspaceID)
+	if err != nil {
+		t.Fatalf("load layout: %v", err)
+	}
+	config := loaded.Layout.Panes[0].WorkflowNodeDetailsConfig
+	if config == nil {
+		t.Fatalf("loaded workflow node details config = nil")
+	}
+	if config.ExecutionID != "" || config.NodeExecutionID != "" || config.ViewMode != orchestrator.GraphViewModeDraft {
+		t.Fatalf("loaded draft config = %+v, want draft with empty run identity", config)
+	}
+}
+
 func TestStoreRejectsWorkflowNodeDetailsConfigWorkspaceMismatch(t *testing.T) {
 	store := newTestStore(t, t.TempDir())
 	layout := testLayout("workspace_api")
@@ -179,6 +201,22 @@ func TestStoreRejectsWorkflowNodeDetailsRunConfigWithoutNodeExecution(t *testing
 	}
 	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "nodeExecutionId is required for run view") {
 		t.Fatalf("error = %T %v, want required node execution corrupt state", err, err)
+	}
+}
+
+func TestStoreRejectsWorkflowNodeDetailsDraftConfigWithRunIdentity(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].WorkflowNodeDetailsConfig = testDraftWorkflowNodeDetailsConfig(layout.WorkspaceID)
+	layout.Panes[0].WorkflowNodeDetailsConfig.ExecutionID = "workflow_execution_stale"
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want stale draft run identity error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "executionId is only valid for run view") {
+		t.Fatalf("error = %T %v, want draft run identity corrupt state", err, err)
 	}
 }
 
@@ -329,6 +367,26 @@ func testWorkflowNodeDetailsConfig(workspaceID string) *WorkflowNodeDetailsPaneC
 		ProjectionOutgoingEdges: []orchestrator.WorkflowGraphEdge{},
 		VersionMismatch:         false,
 		ViewMode:                orchestrator.GraphViewModeRun,
+		WorkspaceID:             workspaceID,
+	}
+}
+
+func testDraftWorkflowNodeDetailsConfig(workspaceID string) *WorkflowNodeDetailsPaneConfig {
+	return &WorkflowNodeDetailsPaneConfig{
+		DefinitionID:            "workflow_definition_test",
+		DefinitionName:          "Review Workflow",
+		DefinitionVersionID:     "",
+		DefinitionVersionNumber: 0,
+		ExecutionID:             "",
+		NodeID:                  "activity",
+		NodeExecutionID:         "",
+		NodeKind:                orchestrator.NodeKindAction,
+		NodeLabel:               "Activity",
+		NodeStatus:              orchestrator.GraphNodeStatusNotStarted,
+		ProjectionIncomingEdges: []orchestrator.WorkflowGraphEdge{},
+		ProjectionOutgoingEdges: []orchestrator.WorkflowGraphEdge{},
+		VersionMismatch:         false,
+		ViewMode:                orchestrator.GraphViewModeDraft,
 		WorkspaceID:             workspaceID,
 	}
 }

@@ -92,9 +92,9 @@ export function workflowNodeExecutionForDetailsTarget(
   target: { nodeExecutionId: string; nodeId: string },
 ): WorkflowNodeExecution | null {
   if (target.nodeExecutionId !== "") {
-    return (
-      execution.nodeExecutions.find((candidate) => candidate.id === target.nodeExecutionId) ?? null
-    );
+    const matched =
+      execution.nodeExecutions.find((candidate) => candidate.id === target.nodeExecutionId) ?? null;
+    return matched?.nodeId === target.nodeId ? matched : null;
   }
   return latestWorkflowNodeExecution(execution, target.nodeId);
 }

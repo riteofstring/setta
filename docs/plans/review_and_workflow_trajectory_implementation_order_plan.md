@@ -952,13 +952,12 @@ Historical-attempt paging is now covered separately; full app relaunch while
 details are open is not separately exercised.
 
 Progress 2026-07-04: added deterministic historical-attempt trajectory paging
-and exact node-execution targeting. `WorkflowNodeDetailsPaneConfig` now
-persists `nodeExecutionId`; missing run-view IDs fail validation; the renderer
-uses exact node execution before latest. Focused Electron pages looped first
-and second node trajectories by chat run and opens rendered first-attempt
-details. Verification passed focused workspace UI/generator, renderer/preload,
-desktop build, syntax checks, and focused Electron. Live Codex remains blocked
-by local deprecated `approval_policy = "on-failure"`.
+and exact node-execution targeting. Audit follow-up fixed draft/run persisted
+target validation and rejected crossed-node explicit execution lookups.
+Focused reruns passed workspace UI, workspace layout, HTTP, generator,
+workflow-node details, desktop typecheck/build, and
+`node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
+Live Codex remains blocked by local deprecated `approval_policy = "on-failure"`.
 
 ## Parallel Work Guidance
 
