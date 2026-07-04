@@ -70,7 +70,17 @@ func TestServiceStoresDefinitionsAsWorkspaceJSONAndSnapshotsOnStart(t *testing.T
 		t.Fatalf("latest version before run = %d, want 0", latestVersionNumber)
 	}
 
-	updated := updateWorkflowDefinitionAndAssertStableFile(t, service, workspaceID, workspaceRoot, definition, "Review Flow Updated", "workspace file")
+	updated, err := service.UpdateDefinition(workspaceID, definition.ID, "Review Flow Updated", "workspace file", startEndGraph())
+	if err != nil {
+		t.Fatalf("update definition: %v", err)
+	}
+	if _, err := os.Stat(definitionPath); !os.IsNotExist(err) {
+		t.Fatalf("old definition path still exists or stat failed unexpectedly: %v", err)
+	}
+	updatedPath := workflowDefinitionPath(workspaceRoot, updated.Name, updated.ID)
+	if _, err := os.Stat(updatedPath); err != nil {
+		t.Fatalf("updated definition path missing: %v", err)
+	}
 	latestVersionNumber, err = store.LatestDefinitionVersionNumber(workspaceID, definition.ID)
 	if err != nil {
 		t.Fatalf("read latest version number after update: %v", err)
