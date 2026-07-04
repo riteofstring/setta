@@ -237,6 +237,37 @@ paginated output. Update callers in one cut and regenerate contracts.
 - Keep the component rename/refactor mechanical and covered by existing chat
   tests first.
 
+Progress 2026-07-03: initial selected-chat trajectory boundary completed.
+Added `AgentTrajectoryViewModel`, capability flags, `AgentTrajectoryActions`,
+and `AgentTrajectorySurface` in renderer source. Normal chat now uses a
+selected-conversation adapter to render the existing `ChatTranscript` through
+that explicit surface, preserving transcript rendering, current-plan handling,
+queued-message controls, output loading, immediate steering, and approval
+submission behavior. This slice did not wire workflow node details yet and did
+not remove the old workflow activity preview.
+
+Verification: focused renderer coverage passed with
+`pnpm -C desktop exec vitest run src/renderer/src/components/chat-panel.test.tsx`;
+desktop typecheck and production build passed with `pnpm -C desktop typecheck`
+and `pnpm -C desktop build`; desktop dead-code passed with
+`pnpm -C desktop deadcode`; formatting and changed-file quality passed with
+`./scripts/format.sh` and `./check_quality.sh --git-changes`.
+Required deterministic Electron coverage was attempted with
+`node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only`; it
+passed the relevant normal chat transcript, queue, approval, lifecycle,
+workflow-node trajectory contract, search, scroll/reload, sidebar, and unread
+conversation scenarios before failing later in the existing Codex protocol
+workflow wait with `rows: []`. Live Codex Electron coverage was attempted with
+`OPENAI_API_KEY` unset, but local Codex `config/read` still returned unsupported
+`approval_policy = "on-failure"`, so Setta rejected conversation creation before
+live-provider execution.
+
+Remaining: finish the Phase 5 boundary by making composer, liveness, and
+unsupported action semantics explicit enough for workflow-node trajectories to
+avoid selected-conversation queue, steering, approval, stop, or retry
+assumptions. Slice 3 still owns the workflow-node adapter and deletion of the
+fake complete output-page preview path.
+
 ### Slice 2: Backend Trajectory Contract
 
 - Add Go-owned workflow agent trajectory page types and endpoint registry

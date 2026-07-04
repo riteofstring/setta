@@ -575,6 +575,43 @@ Keep this phase behavior-preserving for normal chat:
 Run the narrow chat renderer and workflow-safe checks first before wiring new
 workflow behavior.
 
+Status: initial selected-chat trajectory boundary slice completed 2026-07-03.
+Added a renderer-owned `AgentTrajectoryViewModel`, capability flags, action
+contract, and `AgentTrajectorySurface`, plus a selected-conversation adapter for
+normal chat. `ConversationBody` now renders normal chat through that explicit
+agent trajectory surface while preserving the existing `ChatTranscript`,
+current-plan callback, queued-message actions, output loading, steering, and
+approval behavior. The workflow details preview path was intentionally left
+unchanged for Phase 6.
+
+Verification:
+
+- `pnpm -C desktop exec vitest run src/renderer/src/components/chat-panel.test.tsx`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `pnpm -C desktop deadcode`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+- `node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only`
+  passed the normal chat happy path, image attachments, prompt history,
+  activity projection, command-start failure, chronological transcript,
+  background terminal, queued controls, cancel/fail queue, approvals, slash
+  commands, permission modes, conversation switch, defaults, lifecycle
+  hardening, workflow-node trajectory contract, transcript search, transcript
+  scroll/reload, sidebar, cross-workspace sidebar, and unread-conversation
+  scenarios before failing later in the existing Codex protocol workflow wait
+  with `rows: []`.
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+  was attempted, but local Codex `config/read` still returned unsupported
+  `approval_policy = "on-failure"`, so Setta rejected conversation creation
+  before live-provider execution. This failed live-provider attempt is not
+  provider-integration proof.
+
+Remaining notes: Phase 5 is not fully complete. The next coherent renderer
+slice is to continue extracting explicit composer, liveness, and unsupported
+action semantics so Phase 6 can render workflow-node trajectories without
+selected-conversation queue, steering, approval, or stop/retry assumptions.
+
 ## Phase 6: Workflow Node Adapter And Controls
 
 Replace workflow node details' old activity preview with the shared trajectory

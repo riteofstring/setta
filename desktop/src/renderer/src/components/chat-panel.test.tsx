@@ -688,6 +688,26 @@ describe("conversation body states", () => {
     expect(html).toContain("Loading workspace chats.");
     expect(html).not.toContain("What should we build in setta?");
   });
+
+  test("renders selected chat through an explicit agent trajectory scope", () => {
+    const html = renderToString(
+      <ConversationBody
+        chat={conversationBodyChat({
+          transcriptBlocks: [
+            userMessageBlock({ id: "block_user", runId: "run_api", ordinal: 1, text: "hello" }),
+          ],
+        })}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+      />,
+    );
+
+    expect(html).toContain('data-testid="agent-trajectory-surface"');
+    expect(html).toContain('data-agent-trajectory-scope="chatConversation"');
+    expect(html).toContain('data-agent-trajectory-workspace-id="workspace_api"');
+    expect(html).toContain('data-agent-trajectory-conversation-id="conversation_api"');
+    expect(html).toContain("hello");
+  });
 });
 
 describe("background terminal surface", () => {

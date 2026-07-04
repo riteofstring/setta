@@ -18,7 +18,11 @@ import {
   chatReadableColumnClass,
   chatReadableColumnPaddedClass,
 } from "./chat-layout";
-import { ChatTranscript } from "./chat-transcript";
+import { AgentTrajectorySurface } from "./agent-trajectory";
+import {
+  selectedConversationAgentTrajectory,
+  selectedConversationAgentTrajectoryActions,
+} from "./chat-agent-trajectory-adapter";
 import { BackgroundTerminalSurface } from "./chat-background-terminal-monitor";
 import { BrailleSpinner } from "./ascii-spinner";
 
@@ -311,6 +315,11 @@ export function ConversationBody({
   if (!chat.selectedConversation) {
     return <EmptyConversation label="Start a conversation for this workspace." />;
   }
+  const trajectory = selectedConversationAgentTrajectory(chat);
+  const trajectoryActions = {
+    ...selectedConversationAgentTrajectoryActions(chat),
+    onOpenCurrentPlanSurface,
+  };
   return (
     <div
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
@@ -318,28 +327,11 @@ export function ConversationBody({
     >
       <GoalStatus goal={chat.goal} pendingGoalSubmission={chat.pendingGoalSubmission} />
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-        <ChatTranscript
-          activeRun={chat.activeRun}
-          activeRunLiveness={chat.activeRunLiveness}
-          blocks={chat.transcriptBlocks}
-          editQueuedMessage={chat.editQueuedMessage}
-          editingQueuedMessageId={chat.editingQueuedMessageId}
-          hasMoreOlder={chat.hasMoreOlder}
-          loadOlder={chat.loadOlder}
-          loadRunItemOutput={chat.loadRunItemOutput}
-          messages={chat.messages}
-          operation={chat.operation}
-          queuedMessages={chat.queuedMessages}
-          removeQueuedMessage={chat.removeQueuedMessage}
-          removingQueuedMessageId={chat.removingQueuedMessageId}
-          runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
-          runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
-          runItemOutputsById={chat.runItemOutputsById}
+        <AgentTrajectorySurface
+          actions={trajectoryActions}
+          viewModel={trajectory}
           searchOpen={searchOpen}
-          sendSteeringImmediately={chat.sendSteeringImmediately}
           setSearchOpen={setSearchOpen}
-          onOpenCurrentPlanSurface={onOpenCurrentPlanSurface}
-          submitApproval={chat.submitApproval}
         />
       </div>
     </div>
