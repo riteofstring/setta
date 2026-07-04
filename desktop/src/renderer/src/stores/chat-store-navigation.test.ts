@@ -76,7 +76,7 @@ describe("chat store navigation caches", () => {
     const selection = useChatStore.getState().selectConversation(cachedConversation.id);
 
     expect(useChatStore.getState().selectedConversation?.id).toBe(cachedConversation.id);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
       "cached detail",
     ]);
     expect(useChatStore.getState().operation).toBe("loading");
@@ -85,7 +85,7 @@ describe("chat store navigation caches", () => {
     await selection;
 
     expect(messagePage).toHaveBeenCalledWith("workspace_api", cachedConversation.id, 0, 40);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
       "fresh detail",
     ]);
     expect(useChatStore.getState().operation).toBeNull();
@@ -126,7 +126,7 @@ describe("chat store navigation caches", () => {
     const selection = useChatStore.getState().selectConversation(nextConversation.id);
 
     expect(useChatStore.getState().selectedConversation?.id).toBe(firstConversation.id);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
       "first detail",
     ]);
     expect(useChatStore.getState().operation).toBe("loading");
@@ -135,54 +135,10 @@ describe("chat store navigation caches", () => {
     await selection;
 
     expect(useChatStore.getState().selectedConversation?.id).toBe(nextConversation.id);
-    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text?.text)).toEqual([
+    expect(useChatStore.getState().messages.map((item) => item.parts[0]?.text)).toEqual([
       "next detail",
     ]);
     expect(useChatStore.getState().operation).toBeNull();
-  });
-
-  test("selecting a conversation keeps metadata from the message page response", async () => {
-    const firstConversation = testConversation({ id: "conversation_first", title: "First" });
-    const staleConversation = testConversation({
-      codexEffectiveSettings: null,
-      id: "conversation_next",
-      title: "Next",
-    });
-    const pageConversation = testConversation({
-      codexEffectiveSettings: {
-        model: "gpt-test",
-        modelDisplayName: "GPT Test",
-        permission: defaultEffectivePermissionSettings(),
-        reasoningEffort: "xhigh",
-        reasoningEffortDisplayName: "Extra high",
-        supportsImages: true,
-      },
-      id: staleConversation.id,
-      title: staleConversation.title,
-    });
-    const messagePage = vi.fn().mockResolvedValue(testPage(pageConversation, []));
-    installSettaAPI({ chat: { messagePage } });
-    useChatStore.setState({
-      conversations: [
-        conversationItem(firstConversation, 1),
-        conversationItem(staleConversation, 0),
-      ],
-      selectedConversation: firstConversation,
-      status: "ready",
-      workspaceId: "workspace_api",
-    });
-
-    await useChatStore.getState().selectConversation(staleConversation.id);
-
-    expect(useChatStore.getState().selectedConversation?.codexEffectiveSettings).toEqual({
-      model: "gpt-test",
-      modelDisplayName: "GPT Test",
-      permission: defaultEffectivePermissionSettings(),
-      reasoningEffort: "xhigh",
-      reasoningEffortDisplayName: "Extra high",
-      supportsImages: true,
-    });
-    expect(messagePage).toHaveBeenCalledWith("workspace_api", staleConversation.id, 0, 40);
   });
 });
 
@@ -423,6 +379,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       health: async (): Promise<BackendHealth> => ({
         name: "setta-backend",
         ok: true,
+        protocolVersion: 1,
         version: "test",
       }),
       onEventStreamStatus: () => () => {},
@@ -439,14 +396,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         throw new Error("appearance update is not used by chat store navigation tests");
       },
     },
+    runtimes: {} as SettaAPI["runtimes"],
     chat: {
-      activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
+      activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
-      reconcileRuns: async () => ({ result: { runs: [] } }),
       createConversation: async () => conversation,
-      createImageAttachmentFromBytes: async () => {
-        throw new Error("create image attachment from bytes is not used by navigation tests");
-      },
       deleteConversation: async () => listResponse([]),
       editQueuedMessage: async () => ({
         conversation,
@@ -461,72 +415,21 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: testPage(conversation, []),
         result: {
           action: "display",
-          composerDraft: "",
-          currentPermission: null,
           goal: null,
           kind: "goal",
           message: "Goal set: test",
           models: [],
-          permissionPresets: [],
           raw: "/goal test",
           reasoningEfforts: [],
           selectedModel: "",
-          selectedPermissionPreset: null,
           selectedReasoningEffort: null,
           title: "Goal",
         },
       }),
-      readCodexDefaults: async () => {
-        throw new Error("chat defaults are not used by chat store navigation tests");
-      },
-      openCodexModelPicker: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: {
-          action: "model_picker",
-          composerDraft: "",
-          currentPermission: null,
-          goal: null,
-          kind: "model",
-          message: "Choose a model.",
-          models: [],
-          permissionPresets: [],
-          raw: "model_picker",
-          reasoningEfforts: [],
-          selectedModel: "",
-          selectedPermissionPreset: null,
-          selectedReasoningEffort: null,
-          title: "Model",
-        },
-      }),
-      openCodexPermissionPicker: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: commandResult("permission", "permission_picker"),
-      }),
       listCommands: async () => ({ commands: [] }),
       listConversations: async () => listResponse([]),
-      listBackgroundTerminals: async () => ({ terminals: [] }),
-      getBackgroundTerminalOutput: async () => ({
-        hasMore: false,
-        nextOrdinal: 0,
-        output: [],
-        processId: "background_terminal_api",
-      }),
-      killBackgroundTerminal: async () => {
-        throw new Error("kill background terminal is not used by chat store navigation tests");
-      },
-      killAllBackgroundTerminals: async () => ({ terminals: [] }),
       markConversationRead: async () => conversationItem(conversation, 0),
       messagePage: async () => testPage(conversation, []),
-      listComposerPromptHistory: async () => ({
-        conversationId: conversation.id,
-        entries: [],
-        hasMoreOlder: false,
-        olderBeforeOrdinal: 0,
-      }),
       onEvent: () => () => {},
       queueMessage: async () => ({
         conversation,
@@ -542,7 +445,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         removedMessageId: "message_queued",
         removedRunId: "run_queued",
       }),
-      runActivity: async () => ({ activity: [], items: [], output: [], runId: "run_api" }),
+      runActivity: async () => ({ items: [], output: [], runId: "run_api" }),
       runItemOutput: async () => ({
         hasMore: false,
         nextOrdinal: 0,
@@ -571,23 +474,13 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: testPage(conversation, []),
         result: commandResult("model"),
       }),
-      setCodexPermissionPreset: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: commandResult("permission"),
-      }),
       setCodexReasoningEffort: async () => ({
         conversation,
         message: null,
         page: testPage(conversation, []),
         result: commandResult("model"),
       }),
-      updateCodexDefaults: async () => {
-        throw new Error("chat defaults are not used by chat store navigation tests");
-      },
       setConversationPinned: async () => conversationItem(conversation, 0),
-      selectImageAttachments: async () => [],
       steerMessage: async () => ({
         conversation,
         page: testPage(conversation, []),
@@ -688,7 +581,6 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     onEvent: () => () => {},
     readDefinition: unavailable,
     readExecution: unavailable,
-    readNodeTrajectory: unavailable,
     startExecution: unavailable,
     submitApproval: unavailable,
     updateDefinition: unavailable,
@@ -745,36 +637,18 @@ function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
   };
 }
 
-function commandResult(
-  kind: "goal" | "model" | "permission",
-  action: "display" | "permission_picker" = "display",
-) {
+function commandResult(kind: "goal" | "model") {
   return {
-    action,
-    composerDraft: "",
-    currentPermission: null,
+    action: "display" as const,
     goal: null,
     kind,
     message: "Command result",
     models: [],
-    permissionPresets: [],
     raw: "/command",
     reasoningEfforts: [],
     selectedModel: "",
-    selectedPermissionPreset: null,
     selectedReasoningEffort: null,
     title: "Command",
-  };
-}
-
-function defaultEffectivePermissionSettings() {
-  return {
-    activePermissionProfileExtends: "",
-    activePermissionProfileId: ":workspace",
-    approvalPolicy: "on-request",
-    builtIn: true,
-    displayLabel: "Ask for approval",
-    preset: "default" as const,
   };
 }
 
@@ -799,7 +673,6 @@ function listResponse(conversations: ConversationListItem[]): ListConversationsR
 function conversationItem(conversation: Conversation, messageCount: number): ConversationListItem {
   return {
     activeRunId: "",
-    activeRunLiveness: null,
     pinnedAt: "",
     conversation,
     latestReadRelevantMarker: 0,
@@ -811,7 +684,6 @@ function conversationItem(conversation: Conversation, messageCount: number): Con
 function testConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     archivedAt: "",
-    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
@@ -828,13 +700,15 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
 
 function testPage(conversation: Conversation, messages: ChatMessage[]): MessagePage {
   return {
-    blocks: [],
     conversation,
     goal: null,
     hasMoreOlder: false,
     messages,
-    olderBeforeBlockOrdinal: 0,
+    olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queue: { messages: [], runs: [] },
+    runItemOutputs: [],
+    runItems: [],
+    transcript: [],
   };
 }
 
@@ -858,27 +732,22 @@ function messageCreatedEvent(sequence: number, chatMessage: ChatMessage, runId: 
 function conversationDetail(conversation: Conversation, messages: ChatMessage[]) {
   return {
     activeRun: null,
-    activeRunLiveness: null,
-    backgroundTerminalIdsByConversationId: {},
-    backgroundTerminalOutputIdsByProcessId: {},
-    backgroundTerminalOutputPagesByProcessId: {},
-    backgroundTerminalOutputsById: {},
-    backgroundTerminalsById: {},
     conversation,
     goal: null,
     hasMoreOlder: false,
     messageIds: messages.map((item) => item.id),
     messages,
     messagesById: Object.fromEntries(messages.map((item) => [item.id, item])),
-    olderBeforeBlockOrdinal: 0,
+    olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queuedRuns: [],
+    runItemIdsByRunId: {},
     runItemOutputIdsByRunItemId: {},
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItemOutputsById: {},
-    runsById: {},
-    transcriptBlocks: [],
-    transcriptBlocksById: {},
+    runItems: [],
+    runItemsById: {},
+    transcript: [],
   };
 }
 
@@ -898,12 +767,7 @@ function message(
     id,
     ordinal,
     parts: [
-      {
-        id: `${id}_part`,
-        image: null,
-        text: { format: role === "assistant" ? "markdown" : "plain", text },
-        type: "text",
-      },
+      { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
     ],
     role,
     runId,

@@ -22,11 +22,6 @@ const (
 	runItemOutputsDirName    = "outputs"
 	tracesDirName            = "traces"
 	diagnosticsDirName       = "diagnostics"
-
-	backgroundTerminalsDirName      = "background_terminals"
-	backgroundTerminalOutputDirName = "background_terminal_output"
-	settingsDirName                 = "settings"
-	chatCodexDefaultsFileName       = "chat-codex-defaults.json"
 )
 
 type Store struct {
@@ -466,10 +461,16 @@ func (store *Store) LoadMessagePage(workspaceID string, conversationID string, b
 		return MessagePage{}, err
 	}
 
+	olderBeforeOrdinal := 0
+	hasMoreOlder := start > 0
+	if len(messages) > 0 {
+		olderBeforeOrdinal = messages[0].Ordinal
+	}
 	return MessagePage{
-		Conversation: conversation,
-		Messages:     messages,
-		HasMoreOlder: start > 0,
+		Conversation:       conversation,
+		Messages:           messages,
+		HasMoreOlder:       hasMoreOlder,
+		OlderBeforeOrdinal: olderBeforeOrdinal,
 	}, nil
 }
 

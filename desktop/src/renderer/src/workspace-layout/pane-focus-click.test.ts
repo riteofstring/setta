@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { paneFocusHitContainsPoint } from "./pane-focus-click";
+import { paneFocusHitContainsPoint, paneFocusHitContainsPointForSurface } from "./pane-focus-click";
 
 const rect = {
   bottom: 260,
@@ -21,5 +21,10 @@ describe("workspace pane focus click zones", () => {
     expect(paneFocusHitContainsPoint(rect, { x: 220, y: 160 })).toBe(false);
     expect(paneFocusHitContainsPoint(rect, { x: 220, y: 36 })).toBe(false);
     expect(paneFocusHitContainsPoint(rect, { x: 96, y: 52 })).toBe(false);
+  });
+
+  test("accepts any interior point for terminal panes", () => {
+    expect(paneFocusHitContainsPointForSurface("terminal", rect, { x: 220, y: 160 })).toBe(true);
+    expect(paneFocusHitContainsPointForSurface("terminal", rect, { x: 220, y: 36 })).toBe(false);
   });
 });

@@ -5,6 +5,7 @@ import type { AppearanceShortcutsSettings } from "@generated/backend";
 import type { FrameScheduler } from "./frame-scheduler";
 import {
   handleForwardedBrowserViewKey,
+  handleWorkspaceClick,
   handleWorkspaceKeyDown,
   handleWorkspaceWheel,
 } from "./workspace-interactions";
@@ -86,7 +87,7 @@ describe("workspace keyboard interactions", () => {
 
   test("accepts Mod+Alt+Arrow rerouted from terminal surfaces", () => {
     const context = workspaceKeyContext();
-    const terminalTarget = new FakeElement(true);
+    const terminalTarget = new FakeElement({ terminal: true });
     const event = keyboardEvent({
       altKey: true,
       key: "ArrowDown",
@@ -102,7 +103,7 @@ describe("workspace keyboard interactions", () => {
 
   test("ignores bare arrows from terminal surfaces", () => {
     const context = workspaceKeyContext();
-    const terminalTarget = new FakeElement(true);
+    const terminalTarget = new FakeElement({ terminal: true });
     const event = keyboardEvent({ key: "ArrowDown", target: terminalTarget });
 
     handleWorkspaceKeyDown({ ...context, event });
@@ -247,6 +248,28 @@ describe("workspace overview wheel panning", () => {
   });
 });
 
+describe("workspace pane click focus", () => {
+  beforeEach(() => {
+    vi.stubGlobal("Element", FakeElement);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test("focuses terminal panes from interior clicks without swallowing the click", () => {
+    const context = workspaceClickContext();
+    const event = mouseEvent({ clientX: 240, clientY: 160, target: context.terminalTarget });
+
+    handleWorkspaceClick({ ...context, event });
+
+    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("terminal-pane");
+    expect(context.runtime.store.ensureFocusedPaneVisible).toHaveBeenCalledWith(context.viewport);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(event.stopPropagation).not.toHaveBeenCalled();
+  });
+});
+
 function overviewWheelContext() {
   const viewport: Rect = { height: 720, width: 480, x: 0, y: 0 };
   const insideTarget = {};
@@ -272,6 +295,38 @@ function overviewWheelContext() {
     scheduler,
     stage,
     state: createWorkspaceTrackpadNavigationState(),
+    viewport,
+    viewportProvider: () => viewport,
+  };
+}
+
+function workspaceClickContext() {
+  const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
+  const terminalHost = new FakeElement({
+    rect: { bottom: 260, left: 100, right: 420, top: 40 },
+    surfaceKind: "terminal",
+    terminal: true,
+  });
+  terminalHost.dataset.paneId = "terminal-pane";
+  const terminalTarget = new FakeElement({
+    closestHost: terminalHost,
+    terminal: true,
+  });
+  const store = {
+    canOpenPane: vi.fn(() => false),
+    ensureFocusedPaneVisible: vi.fn(),
+    focusedPaneId: vi.fn(() => "chat-pane"),
+    focusPane: vi.fn(() => true),
+    getSnapshot: () => ({ presentationMode: "normal" }),
+  };
+  const runtime = { mode: "workspace", store } as unknown as WorkspaceRuntime;
+  const scheduler = { pauseBenchmark: vi.fn() } as unknown as FrameScheduler;
+  return {
+    event: mouseEvent({ clientX: 240, clientY: 160, target: terminalTarget }),
+    runLayoutAction: (action: () => void) => action(),
+    runtime,
+    scheduler,
+    terminalTarget,
     viewport,
     viewportProvider: () => viewport,
   };
@@ -313,6 +368,30 @@ function wheelEvent({
   } as unknown as WheelEvent;
 }
 
+function mouseEvent({
+  clientX,
+  clientY,
+  target,
+}: {
+  clientX: number;
+  clientY: number;
+  target: FakeElement;
+}): MouseEvent & {
+  preventDefault: ReturnType<typeof vi.fn>;
+  stopPropagation: ReturnType<typeof vi.fn>;
+} {
+  return {
+    clientX,
+    clientY,
+    preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
+    target,
+  } as unknown as MouseEvent & {
+    preventDefault: ReturnType<typeof vi.fn>;
+    stopPropagation: ReturnType<typeof vi.fn>;
+  };
+}
+
 function workspaceKeyContext({
   shortcuts = { workspaceNavigation: "mod_alt_arrows" },
 }: {
@@ -345,7 +424,7 @@ function keyboardEvent({
   key,
   metaKey = false,
   shiftKey = false,
-  target = new FakeElement(false),
+  target = new FakeElement({ terminal: false }),
 }: {
   altKey?: boolean;
   ctrlKey?: boolean;
@@ -371,13 +450,39 @@ function keyboardEvent({
 }
 
 class FakeElement {
+  readonly dataset: Record<string, string> = {};
   readonly classList = {
     contains: (className: string) => this.terminal && className === "workspace-terminal-surface",
   };
 
-  constructor(private readonly terminal: boolean) {}
+  constructor(
+    private readonly options: {
+      closestHost?: FakeElement;
+      rect?: { bottom: number; left: number; right: number; top: number };
+      surfaceKind?: string;
+      terminal: boolean;
+    },
+  ) {
+    if (options.surfaceKind) {
+      this.dataset.surfaceKind = options.surfaceKind;
+    }
+  }
 
   closest(selector: string): FakeElement | null {
+    if (
+      this.options.closestHost &&
+      selector === '[data-testid="workspace-pane-host"][data-visible="true"]'
+    ) {
+      return this.options.closestHost;
+    }
     return this.terminal && selector === ".workspace-terminal-surface" ? this : null;
+  }
+
+  getBoundingClientRect(): { bottom: number; left: number; right: number; top: number } {
+    return this.options.rect ?? { bottom: 0, left: 0, right: 0, top: 0 };
+  }
+
+  private get terminal(): boolean {
+    return this.options.terminal;
   }
 }

@@ -209,23 +209,6 @@ func (handler handler) getWorkflowExecutionEvents(response http.ResponseWriter, 
 	writeJSON(response, http.StatusOK, page)
 }
 
-func (handler handler) readWorkflowNodeTrajectory(response http.ResponseWriter, request *http.Request) {
-	service := requireWorkflowService(response, handler.workflowService)
-	if service == nil {
-		return
-	}
-	var payload ReadWorkflowNodeTrajectoryRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	page, err := service.ReadWorkflowNodeTrajectory(payload.WorkspaceID, payload.ExecutionID, payload.NodeExecutionID, payload.BeforeBlockOrdinal, payload.TranscriptLimit, payload.OutputLimit)
-	if err != nil {
-		writeWorkflowError(response, "read_workflow_node_trajectory_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, page)
-}
-
 func (handler handler) submitWorkflowApproval(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {

@@ -90,6 +90,7 @@ import {
   workspaceRuntimeIdentity,
   workspaceSceneMode,
 } from "./workspace-layout-area-runtime";
+import { WorkspaceNoWorkspaceState } from "./workspace-empty-state";
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import {
   WorkspaceLayoutLoading,
@@ -120,10 +121,14 @@ export function WorkspaceLayoutArea({
   projectPaneOpen: boolean;
   projectPaneWidth: number;
 }) {
-  const workspace = useSelectedWorkspaceSummary();
+  const workspaceTarget = useWorkspaceLayoutTarget();
+  const workspace = workspaceTarget.workspace;
   const mode = workspaceSceneMode();
   const { workspaceId, workspaceName } = workspaceRuntimeIdentity(workspace);
   const layoutLoad = useWorkspaceUILayoutLoad(workspaceId, mode);
+  if (!workspace && mode === "workspace") {
+    return <WorkspaceNoWorkspaceState platform={platform} status={workspaceTarget.status} />;
+  }
   if (layoutLoad.status === "loading") {
     return <WorkspaceLayoutLoading mode={mode} platform={platform} workspaceId={workspaceId} />;
   }
@@ -945,9 +950,10 @@ function useWorkspaceLayoutSnapshot(store: WorkspaceLayoutStore) {
   );
 }
 
-function useSelectedWorkspaceSummary() {
+function useWorkspaceLayoutTarget() {
   const session = useWorkspaceStore((state) => state.session);
-  return useMemo(() => {
+  const status = useWorkspaceStore((state) => state.status);
+  const workspace = useMemo(() => {
     if (!session) {
       return null;
     }
@@ -956,6 +962,7 @@ function useSelectedWorkspaceSummary() {
       null
     );
   }, [session]);
+  return { status, workspace };
 }
 
 function sameOverviewGhostTarget(

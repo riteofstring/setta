@@ -22,92 +22,112 @@ interface WorkflowDefinitionStore {
   ) => Promise<WorkflowDefinition>;
   ensureWorkspaceWorkflowDefinitions: (workspaceId: string) => Promise<void>;
   refreshWorkspaceWorkflowDefinitions: (workspaceId: string) => Promise<void>;
+  resetRuntimeState: () => void;
   selectWorkflowDefinition: (workspaceId: string, definitionId: string) => void;
   selectedDefinitionIdsByWorkspaceId: Record<string, string | undefined>;
   workflowDefinitionsByWorkspaceId: Record<string, WorkflowDefinitionListState | undefined>;
 }
 
-export const useWorkflowDefinitionStore = create<WorkflowDefinitionStore>((set, get) => ({
-  clearClosedWorkspaceWorkflowDefinitions: (activeWorkspaceIds) => {
-    const active = new Set(activeWorkspaceIds);
-    set((state) => ({
-      selectedDefinitionIdsByWorkspaceId: retainActiveKeys(
-        state.selectedDefinitionIdsByWorkspaceId,
-        active,
-      ),
-      workflowDefinitionsByWorkspaceId: retainActiveKeys(
-        state.workflowDefinitionsByWorkspaceId,
-        active,
-      ),
-    }));
-  },
-  createWorkflowDefinition: async (workspaceId, name = "Untitled workflow", graph) => {
-    const definition = await window.setta.workflow.createDefinition(
-      workspaceId,
-      name,
-      "",
-      graph ?? emptyWorkflowGraph(),
-    );
-    set((state) => ({
-      selectedDefinitionIdsByWorkspaceId: {
-        ...state.selectedDefinitionIdsByWorkspaceId,
-        [workspaceId]: definition.id,
-      },
-      workflowDefinitionsByWorkspaceId: {
-        ...state.workflowDefinitionsByWorkspaceId,
-        [workspaceId]: upsertDefinitionList(
-          state.workflowDefinitionsByWorkspaceId[workspaceId],
-          definition,
+export const useWorkflowDefinitionStore = create<WorkflowDefinitionStore>((set, get) => {
+  let generation = 0;
+
+  return {
+    clearClosedWorkspaceWorkflowDefinitions: (activeWorkspaceIds) => {
+      const active = new Set(activeWorkspaceIds);
+      set((state) => ({
+        selectedDefinitionIdsByWorkspaceId: retainActiveKeys(
+          state.selectedDefinitionIdsByWorkspaceId,
+          active,
         ),
-      },
-    }));
-    return definition;
-  },
-  ensureWorkspaceWorkflowDefinitions: async (workspaceId) => {
-    const list = get().workflowDefinitionsByWorkspaceId[workspaceId];
-    if (list?.loading || (list && list.error === null)) {
-      return;
-    }
-    await get().refreshWorkspaceWorkflowDefinitions(workspaceId);
-  },
-  refreshWorkspaceWorkflowDefinitions: async (workspaceId) => {
-    set((state) => ({
-      workflowDefinitionsByWorkspaceId: {
-        ...state.workflowDefinitionsByWorkspaceId,
-        [workspaceId]: {
-          definitions: state.workflowDefinitionsByWorkspaceId[workspaceId]?.definitions ?? [],
-          error: null,
-          loading: true,
+        workflowDefinitionsByWorkspaceId: retainActiveKeys(
+          state.workflowDefinitionsByWorkspaceId,
+          active,
+        ),
+      }));
+    },
+    createWorkflowDefinition: async (workspaceId, name = "Untitled workflow", graph) => {
+      const requestGeneration = generation;
+      const definition = await window.setta.workflow.createDefinition(
+        workspaceId,
+        name,
+        "",
+        graph ?? emptyWorkflowGraph(),
+      );
+      if (requestGeneration !== generation) {
+        return definition;
+      }
+      set((state) => ({
+        selectedDefinitionIdsByWorkspaceId: {
+          ...state.selectedDefinitionIdsByWorkspaceId,
+          [workspaceId]: definition.id,
         },
-      },
-    }));
-    try {
-      const response = await window.setta.workflow.listDefinitions(workspaceId);
-      set((state) => workflowListLoadedPatch(state, workspaceId, response));
-    } catch (error: unknown) {
+        workflowDefinitionsByWorkspaceId: {
+          ...state.workflowDefinitionsByWorkspaceId,
+          [workspaceId]: upsertDefinitionList(
+            state.workflowDefinitionsByWorkspaceId[workspaceId],
+            definition,
+          ),
+        },
+      }));
+      return definition;
+    },
+    ensureWorkspaceWorkflowDefinitions: async (workspaceId) => {
+      const list = get().workflowDefinitionsByWorkspaceId[workspaceId];
+      if (list?.loading || (list && list.error === null)) {
+        return;
+      }
+      await get().refreshWorkspaceWorkflowDefinitions(workspaceId);
+    },
+    refreshWorkspaceWorkflowDefinitions: async (workspaceId) => {
+      const requestGeneration = generation;
       set((state) => ({
         workflowDefinitionsByWorkspaceId: {
           ...state.workflowDefinitionsByWorkspaceId,
           [workspaceId]: {
             definitions: state.workflowDefinitionsByWorkspaceId[workspaceId]?.definitions ?? [],
-            error: errorMessage(error),
-            loading: false,
+            error: null,
+            loading: true,
           },
         },
       }));
-    }
-  },
-  selectWorkflowDefinition: (workspaceId, definitionId) => {
-    set((state) => ({
-      selectedDefinitionIdsByWorkspaceId: {
-        ...state.selectedDefinitionIdsByWorkspaceId,
-        [workspaceId]: definitionId,
-      },
-    }));
-  },
-  selectedDefinitionIdsByWorkspaceId: {},
-  workflowDefinitionsByWorkspaceId: {},
-}));
+      try {
+        const response = await window.setta.workflow.listDefinitions(workspaceId);
+        if (requestGeneration !== generation) {
+          return;
+        }
+        set((state) => workflowListLoadedPatch(state, workspaceId, response));
+      } catch (error: unknown) {
+        if (requestGeneration !== generation) {
+          return;
+        }
+        set((state) => ({
+          workflowDefinitionsByWorkspaceId: {
+            ...state.workflowDefinitionsByWorkspaceId,
+            [workspaceId]: {
+              definitions: state.workflowDefinitionsByWorkspaceId[workspaceId]?.definitions ?? [],
+              error: errorMessage(error),
+              loading: false,
+            },
+          },
+        }));
+      }
+    },
+    resetRuntimeState: () => {
+      generation += 1;
+      set({ selectedDefinitionIdsByWorkspaceId: {}, workflowDefinitionsByWorkspaceId: {} });
+    },
+    selectWorkflowDefinition: (workspaceId, definitionId) => {
+      set((state) => ({
+        selectedDefinitionIdsByWorkspaceId: {
+          ...state.selectedDefinitionIdsByWorkspaceId,
+          [workspaceId]: definitionId,
+        },
+      }));
+    },
+    selectedDefinitionIdsByWorkspaceId: {},
+    workflowDefinitionsByWorkspaceId: {},
+  };
+});
 
 function workflowListLoadedPatch(
   state: WorkflowDefinitionStore,

@@ -1,6 +1,5 @@
 import type {
   BackendHealth,
-  BackgroundTerminalOutput,
   ChatCommandResult,
   ChatGoalState,
   ChatMessage,
@@ -8,41 +7,39 @@ import type {
   ConversationListItem,
   Diagnostic,
   ListConversationsResponse,
+  MessageDelivery,
   MessagePage,
-  TranscriptBlock,
-  TranscriptBlockStatus,
+  MessageRole,
+  MessageStatus,
+  Run,
+  RunItem,
+  RunItemOutput,
+  RunItemStatus,
+  RunItemType,
+  RunStatus,
+  TranscriptTurn,
   WorkspaceSession,
 } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { chatTextInput } from "../lib/chat-input";
 import { prependOlderMessages, useChatStore } from "./chat-store";
-import { message, replaceMessageText, testRun } from "./chat-store.test.fixtures";
 import {
-  assistantTextBlock,
-  backgroundTerminalOutput,
-  backgroundTerminalProcess,
+  assistantDeltaEvent,
   conversationUpdatedEvent,
   diagnosticCreatedEvent,
   messageCreatedEvent,
   resyncRequiredEvent,
+  runItemCreatedEvent,
+  runItemOutputDeltaEvent,
+  runItemUpdatedEvent,
   runUpdatedEvent,
-  transcriptBlockCreatedEvent,
-  transcriptTextDeltaEvent,
-  userMessageBlock,
 } from "./chat-store-events.test.helpers";
 
 describe("chat store", () => {
   beforeEach(() => {
     useChatStore.setState({
       activeRun: null,
-      activeRunLiveness: null,
-      backgroundTerminalIdsByConversationId: {},
-      backgroundTerminalOutputIdsByProcessId: {},
-      backgroundTerminalOutputPagesByProcessId: {},
-      backgroundTerminalOutputsById: {},
-      backgroundTerminalsById: {},
       commandListError: null,
       commandListStatus: "idle",
       conversationDetailsById: {},
@@ -51,7 +48,6 @@ describe("chat store", () => {
       corruption: emptyCorruption(),
       diagnostics: [],
       error: null,
-      goal: null,
       hasMoreOlder: false,
       lastEventSequence: 0,
       lastEventStreamId: "",
@@ -59,20 +55,21 @@ describe("chat store", () => {
       messageIds: [],
       messages: [],
       messagesById: {},
-      olderBeforeBlockOrdinal: 0,
+      olderBeforeOrdinal: 0,
       operation: null,
-      pendingGoalSubmission: null,
       queuedRuns: [],
       runItemOutputs: [],
       runItemOutputIdsByRunItemId: {},
       runItemOutputPagesByRunItemId: {},
       runItemOutputsById: {},
+      runItems: [],
+      runItemIdsByRunId: {},
+      runItemsById: {},
       removingQueuedMessageId: null,
       selectedConversation: null,
       selectedConversationIdsByWorkspaceId: {},
       status: "idle",
-      transcriptBlocks: [],
-      transcriptBlocksById: {},
+      transcript: [],
       workspaceId: null,
     });
   });
@@ -97,67 +94,9 @@ describe("chat store", () => {
       "message_latest",
     ]);
     expect(useChatStore.getState().messageIds).toEqual(["message_user_run_api", "message_latest"]);
-    expect(useChatStore.getState().messagesById.message_latest?.parts[0]?.text?.text).toBe(
-      "latest",
-    );
+    expect(useChatStore.getState().messagesById.message_latest?.parts[0]?.text).toBe("latest");
     expect(listConversations).toHaveBeenCalledWith("workspace_api");
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
-  });
-
-  test("loads and controls background terminals through typed chat store actions", async () => {
-    const conversation = testConversation();
-    const alpha = backgroundTerminalProcess("background_terminal_alpha", {
-      command: "npm run dev",
-      recentOutput: ["dev server ready"],
-    });
-    const beta = backgroundTerminalProcess("background_terminal_beta", {
-      command: "vite --host 0.0.0.0",
-    });
-    const alphaOutput = backgroundTerminalOutput("background_terminal_output_alpha_1", alpha.id);
-    const listBackgroundTerminals = vi
-      .fn<SettaAPI["chat"]["listBackgroundTerminals"]>()
-      .mockResolvedValue({ terminals: [alpha, beta] });
-    const getBackgroundTerminalOutput = vi
-      .fn<SettaAPI["chat"]["getBackgroundTerminalOutput"]>()
-      .mockResolvedValue(backgroundTerminalOutputPage(alpha.id, [alphaOutput]));
-    const killBackgroundTerminal = vi
-      .fn<SettaAPI["chat"]["killBackgroundTerminal"]>()
-      .mockResolvedValue({
-        ...alpha,
-        status: "terminating",
-        updatedAt: "2026-05-29T20:00:02Z",
-      });
-    installSettaAPI({
-      chat: {
-        getBackgroundTerminalOutput,
-        killBackgroundTerminal,
-        listBackgroundTerminals,
-        listConversations: async () => listResponse([conversationItem(conversation, 1)]),
-        messagePage: async () => testPage(conversation, []),
-      },
-    });
-
-    await useChatStore.getState().loadWorkspace("workspace_api");
-    await useChatStore.getState().loadBackgroundTerminalOutput(alpha.id);
-    await useChatStore.getState().killBackgroundTerminal(alpha.id);
-
-    expect(useChatStore.getState().backgroundTerminalIdsByConversationId[conversation.id]).toEqual([
-      beta.id,
-      alpha.id,
-    ]);
-    expect(useChatStore.getState().backgroundTerminalOutputsById[alphaOutput.id]?.text).toBe(
-      alphaOutput.text,
-    );
-    expect(useChatStore.getState().backgroundTerminalsById[alpha.id]?.status).toBe("terminating");
-    expect(listBackgroundTerminals).toHaveBeenCalledWith("workspace_api", conversation.id);
-    expect(getBackgroundTerminalOutput).toHaveBeenCalledWith(
-      "workspace_api",
-      conversation.id,
-      alpha.id,
-      0,
-      200,
-    );
-    expect(killBackgroundTerminal).toHaveBeenCalledWith("workspace_api", conversation.id, alpha.id);
   });
 
   test("loads the last selected workspace conversation instead of the first list item", async () => {
@@ -318,7 +257,7 @@ describe("chat store", () => {
     useChatStore.setState({
       hasMoreOlder: true,
       messages: [message("message_latest", 2, "assistant", "complete", "latest")],
-      olderBeforeBlockOrdinal: 2,
+      olderBeforeOrdinal: 2,
       selectedConversation: conversation,
       status: "ready",
       workspaceId: "workspace_api",
@@ -346,7 +285,7 @@ describe("chat store", () => {
     useChatStore.setState({
       hasMoreOlder: true,
       messages: [latest],
-      olderBeforeBlockOrdinal: 2,
+      olderBeforeOrdinal: 2,
       selectedConversation: conversation,
       status: "ready",
       workspaceId: "workspace_api",
@@ -392,7 +331,7 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await useChatStore.getState().sendMessage(chatTextInput("hello"));
+    await useChatStore.getState().sendMessage("hello");
 
     expect(useChatStore.getState().activeRun?.id).toBe(run.id);
     expect(useChatStore.getState().messages).toHaveLength(2);
@@ -409,9 +348,7 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await expect(useChatStore.getState().sendMessage(chatTextInput("hello"))).rejects.toThrow(
-      "send failed",
-    );
+    await expect(useChatStore.getState().sendMessage("hello")).rejects.toThrow("send failed");
     expect(useChatStore.getState().error).toBe("send failed");
   });
 
@@ -432,13 +369,9 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await useChatStore.getState().queueMessage(chatTextInput("queued"));
+    await useChatStore.getState().queueMessage("queued");
 
-    expect(queueMessage).toHaveBeenCalledWith(
-      "workspace_api",
-      "conversation_api",
-      chatTextInput("queued"),
-    );
+    expect(queueMessage).toHaveBeenCalledWith("workspace_api", "conversation_api", "queued");
     expect(useChatStore.getState().messages[0]?.delivery).toBe("queued");
   });
 
@@ -452,9 +385,7 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await expect(useChatStore.getState().queueMessage(chatTextInput("queued"))).rejects.toThrow(
-      "queue failed",
-    );
+    await expect(useChatStore.getState().queueMessage("queued")).rejects.toThrow("queue failed");
     expect(useChatStore.getState().error).toBe("queue failed");
   });
 
@@ -495,17 +426,15 @@ describe("chat store", () => {
       messages: [activeAssistant],
       selectedConversation: conversation,
       status: "ready",
-      ...blockState(runBlocks(activeRun.id, { assistantText: "partial" })),
+      transcript: [transcriptTurn(activeRun, activeAssistant)],
       workspaceId: "workspace_api",
     });
 
-    const queuePromise = useChatStore.getState().queueMessage(chatTextInput("queued"));
+    const queuePromise = useChatStore.getState().queueMessage("queued");
     useChatStore.setState({
       activeRun: null,
       messages: [completedAssistant],
-      ...blockState(
-        runBlocks(activeRun.id, { assistantStatus: "complete", assistantText: "partial" }),
-      ),
+      transcript: [transcriptTurn(testRun("completed", activeRun.id), completedAssistant)],
     });
     queueResponse.resolve({
       conversation,
@@ -537,13 +466,9 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await useChatStore.getState().steerMessage(chatTextInput("steer"));
+    await useChatStore.getState().steerMessage("steer");
 
-    expect(steerMessage).toHaveBeenCalledWith(
-      "workspace_api",
-      "conversation_api",
-      chatTextInput("steer"),
-    );
+    expect(steerMessage).toHaveBeenCalledWith("workspace_api", "conversation_api", "steer");
     expect(useChatStore.getState().messages.some((item) => item.delivery === "steering")).toBe(
       true,
     );
@@ -560,9 +485,7 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await expect(useChatStore.getState().steerMessage(chatTextInput("steer"))).rejects.toThrow(
-      "steer failed",
-    );
+    await expect(useChatStore.getState().steerMessage("steer")).rejects.toThrow("steer failed");
     expect(useChatStore.getState().error).toBe("steer failed");
   });
 
@@ -585,28 +508,19 @@ describe("chat store", () => {
       messages: [staleAssistant],
       selectedConversation: conversation,
       status: "ready",
-      ...blockState(runBlocks("run_api", { assistantText: "partial" })),
+      transcript: [transcriptTurn(testRun("running"), staleAssistant)],
       workspaceId: "workspace_api",
     });
 
-    const steerPromise = useChatStore.getState().steerMessage(chatTextInput("trigger failure"));
+    const steerPromise = useChatStore.getState().steerMessage("trigger failure");
     useChatStore.setState({
       activeRun: null,
       messages: [terminalAssistant],
-      ...blockState(runBlocks("run_api", { assistantStatus: "failed", assistantText: "partial" })),
+      transcript: [transcriptTurn(testRun("failed"), terminalAssistant)],
     });
     steerResponse.resolve({
       conversation,
-      // The operation page is stale: it still shows the run streaming.
-      page: testPage(
-        conversation,
-        [staleAssistant],
-        false,
-        null,
-        runBlocks("run_api", {
-          assistantText: "partial",
-        }),
-      ),
+      page: testPage(conversation, [staleAssistant]),
       run: testRun("running"),
       userMessage: message("message_steer", 3, "user", "complete", "trigger failure", "steering"),
     });
@@ -616,7 +530,7 @@ describe("chat store", () => {
     expect(
       useChatStore.getState().messages.find((message) => message.id === staleAssistant.id)?.status,
     ).toBe("error");
-    expect(useChatStore.getState().transcriptBlocksById["run_api_text"]?.status).toBe("failed");
+    expect(useChatStore.getState().transcript[0]?.run.status).toBe("failed");
   });
 
   test("execute command response ignores a captured active run that completed before the response", async () => {
@@ -656,7 +570,7 @@ describe("chat store", () => {
       messages: [activeAssistant],
       selectedConversation: conversation,
       status: "ready",
-      ...blockState(runBlocks(activeRun.id, { assistantText: "partial" })),
+      transcript: [transcriptTurn(activeRun, activeAssistant)],
       workspaceId: "workspace_api",
     });
 
@@ -664,9 +578,7 @@ describe("chat store", () => {
     useChatStore.setState({
       activeRun: null,
       messages: [completedAssistant],
-      ...blockState(
-        runBlocks(activeRun.id, { assistantStatus: "complete", assistantText: "partial" }),
-      ),
+      transcript: [transcriptTurn(testRun("completed", activeRun.id), completedAssistant)],
     });
     commandResponse.resolve({
       conversation,
@@ -676,7 +588,6 @@ describe("chat store", () => {
         [activeAssistant, commandMessage],
         false,
         goalState("tests", "active"),
-        runBlocks(activeRun.id, { assistantText: "partial" }),
       ),
       result: goalCommandResult(),
     });
@@ -687,57 +598,7 @@ describe("chat store", () => {
     expect(
       useChatStore.getState().messages.find((message) => message.id === activeAssistant.id)?.status,
     ).toBe("complete");
-    expect(useChatStore.getState().transcriptBlocksById[`${activeRun.id}_text`]?.status).toBe(
-      "complete",
-    );
-  });
-
-  test("execute command exposes pending goal submission until the command settles", async () => {
-    const conversation = testConversation();
-    const commandResponse = deferred<Awaited<ReturnType<SettaAPI["chat"]["executeCommand"]>>>();
-    installSettaAPI({
-      chat: {
-        executeCommand: vi.fn().mockReturnValue(commandResponse.promise),
-      },
-    });
-    useChatStore.setState({
-      selectedConversation: conversation,
-      status: "ready",
-      workspaceId: "workspace_api",
-    });
-
-    const commandPromise = useChatStore
-      .getState()
-      .executeCommand("/goal tests", undefined, { pendingGoalObjective: "tests" });
-
-    expect(useChatStore.getState().pendingGoalSubmission).toEqual({
-      conversationId: conversation.id,
-      objective: "tests",
-    });
-
-    commandResponse.resolve(commandExecuteResult(conversation, goalCommandResult()));
-    await commandPromise;
-
-    expect(useChatStore.getState().pendingGoalSubmission).toBeNull();
-  });
-
-  test("execute command clears pending goal submission after failures", async () => {
-    const conversation = testConversation();
-    const executeCommand = vi.fn().mockRejectedValue(new Error("provider command failed"));
-    installSettaAPI({ chat: { executeCommand } });
-    useChatStore.setState({
-      selectedConversation: conversation,
-      status: "ready",
-      workspaceId: "workspace_api",
-    });
-
-    await expect(
-      useChatStore
-        .getState()
-        .executeCommand("/goal tests", undefined, { pendingGoalObjective: "tests" }),
-    ).rejects.toThrow("provider command failed");
-
-    expect(useChatStore.getState().pendingGoalSubmission).toBeNull();
+    expect(useChatStore.getState().transcript[0]?.run.status).toBe("completed");
   });
 
   test("execute command preserves error state for caller handling", async () => {
@@ -820,12 +681,7 @@ describe("chat store", () => {
   test("applies pushed chat events to the active conversation", () => {
     const conversation = testConversation();
     const user = message("message_user", 1, "user", "complete", "hello");
-    const assistantBlock = assistantTextBlock({
-      id: "block_assistant",
-      ordinal: 2,
-      runId: "run_api",
-      text: "",
-    });
+    const assistant = message("message_assistant", 2, "assistant", "streaming", "");
     const updatedConversation = { ...conversation, title: "Updated chat" };
     useChatStore.setState({
       conversations: [conversationItem(conversation, 0)],
@@ -834,41 +690,27 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    // The message surface and the transcript are driven by separate event streams:
-    // user messages flow through message events, assistant output through block and
-    // block-text-delta events.
     useChatStore.getState().handleEvent(messageCreatedEvent(1, user, "run_api"));
+    useChatStore.getState().handleEvent(messageCreatedEvent(2, assistant, "run_api"));
+    const assistantPart = assistant.parts[0];
+    if (!assistantPart) {
+      throw new Error("assistant test message must include a part");
+    }
+    useChatStore
+      .getState()
+      .handleEvent(assistantDeltaEvent(3, assistant.id, assistantPart.id, "done"));
+    useChatStore.getState().handleEvent(runUpdatedEvent(4, testRun("running")));
     useChatStore
       .getState()
       .handleEvent(
-        transcriptBlockCreatedEvent(
-          2,
-          userMessageBlock({ id: "block_user", ordinal: 1, runId: "run_api" }),
-        ),
-      );
-    useChatStore.getState().handleEvent(transcriptBlockCreatedEvent(3, assistantBlock));
-    useChatStore.getState().handleEvent(
-      transcriptTextDeltaEvent(4, {
-        blockId: assistantBlock.id,
-        delta: "done",
-        runId: "run_api",
-      }),
-    );
-    useChatStore.getState().handleEvent(runUpdatedEvent(5, testRun("running")));
-    useChatStore
-      .getState()
-      .handleEvent(
-        conversationUpdatedEvent(6, conversationItem(updatedConversation, 2, "run_api")),
+        conversationUpdatedEvent(5, conversationItem(updatedConversation, 2, "run_api")),
       );
 
-    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_user"]);
-    expect(useChatStore.getState().transcriptBlocks.map((block) => block.id)).toEqual([
-      "block_user",
-      "block_assistant",
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual([
+      "message_user",
+      "message_assistant",
     ]);
-    expect(useChatStore.getState().transcriptBlocksById.block_assistant?.assistantText?.text).toBe(
-      "done",
-    );
+    expect(useChatStore.getState().messages[1]?.parts[0]?.text).toBe("done");
     expect(useChatStore.getState().activeRun?.id).toBe("run_api");
     expect(useChatStore.getState().selectedConversation?.title).toBe("Updated chat");
     expect(useChatStore.getState().conversations[0]?.messageCount).toBe(2);
@@ -893,6 +735,140 @@ describe("chat store", () => {
 
     expect(useChatStore.getState().activeRun?.id).toBe(activeRun.id);
     expect(useChatStore.getState().activeRun?.status).toBe("running");
+  });
+
+  test("applies run activity events incrementally", () => {
+    const conversation = testConversation();
+    const item = runItem("run_item_command", "command_execution", "running");
+    const completed: RunItem = { ...item, status: "completed", exitCode: 0 };
+    const output = runItemOutput("run_item_output_1", item.id, 1, "ok\n");
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    useChatStore.getState().handleEvent(runItemCreatedEvent(1, item));
+    useChatStore.getState().handleEvent(runItemUpdatedEvent(2, completed));
+    useChatStore.getState().handleEvent(runItemOutputDeltaEvent(3, output));
+    useChatStore.getState().handleEvent(runItemOutputDeltaEvent(3, output));
+
+    expect(useChatStore.getState().runItems).toEqual([completed]);
+    expect(useChatStore.getState().runItemOutputs).toEqual([output]);
+    expect(useChatStore.getState().runItemIdsByRunId.run_api).toEqual([completed.id]);
+    expect(useChatStore.getState().runItemOutputIdsByRunItemId[completed.id]).toEqual([output.id]);
+  });
+
+  test("lazy-loads run activity without dropping embedded output", async () => {
+    const item = runItem("run_item_command", "command_execution", "running");
+    const completed: RunItem = { ...item, status: "completed" };
+    const firstOutput = runItemOutput("run_item_output_1", item.id, 1, "first\n");
+    const secondOutput = runItemOutput("run_item_output_2", item.id, 2, "second\n");
+    const runActivity = vi.fn().mockResolvedValue({
+      items: [completed],
+      output: [secondOutput],
+      runId: "run_api",
+    });
+    installSettaAPI({ chat: { runActivity } });
+    useChatStore.setState({
+      runItemOutputs: [firstOutput],
+      runItems: [item],
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().loadRunActivity("run_api", 200);
+
+    expect(runActivity).toHaveBeenCalledWith("workspace_api", "run_api", 200);
+    expect(useChatStore.getState().runItems).toEqual([completed]);
+    expect(useChatStore.getState().runItemOutputs).toEqual([firstOutput, secondOutput]);
+  });
+
+  test("lazy-loads run item output for only the expanded row", async () => {
+    const itemA = runItem("run_item_a", "command_execution", "completed");
+    const itemB = runItem("run_item_b", "command_execution", "completed");
+    const outputA = runItemOutput("run_item_output_a1", itemA.id, 1, "a1\n");
+    const outputB = runItemOutput("run_item_output_b1", itemB.id, 1, "b1\n");
+    const runItemOutputPage = vi.fn().mockResolvedValue({
+      hasMore: false,
+      nextOrdinal: 0,
+      output: [outputB],
+      runId: "run_api",
+      runItemId: itemB.id,
+    });
+    installSettaAPI({ chat: { runItemOutput: runItemOutputPage } });
+    useChatStore.setState({
+      runItemOutputs: [outputA],
+      runItems: [itemA, itemB],
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().loadRunItemOutput("run_api", itemB.id, 0, 200);
+
+    expect(runItemOutputPage).toHaveBeenCalledWith("workspace_api", "run_api", itemB.id, 0, 200);
+    expect(useChatStore.getState().runItemOutputs).toEqual([outputA, outputB]);
+  });
+
+  test("tracks run item output pagination per item", async () => {
+    const itemA = runItem("run_item_a", "command_execution", "completed");
+    const itemB = runItem("run_item_b", "command_execution", "completed");
+    const outputA1 = runItemOutput("run_item_output_a1", itemA.id, 1, "a1\n");
+    const outputA2 = runItemOutput("run_item_output_a2", itemA.id, 2, "a2\n");
+    const outputB1 = runItemOutput("run_item_output_b1", itemB.id, 1, "b1\n");
+    const runItemOutputPage = vi
+      .fn()
+      .mockResolvedValueOnce({
+        hasMore: true,
+        nextOrdinal: 1,
+        output: [outputA1],
+        runId: "run_api",
+        runItemId: itemA.id,
+      })
+      .mockResolvedValueOnce({
+        hasMore: false,
+        nextOrdinal: 0,
+        output: [outputB1],
+        runId: "run_api",
+        runItemId: itemB.id,
+      })
+      .mockResolvedValueOnce({
+        hasMore: false,
+        nextOrdinal: 0,
+        output: [outputA1, outputA2],
+        runId: "run_api",
+        runItemId: itemA.id,
+      });
+    installSettaAPI({ chat: { runItemOutput: runItemOutputPage } });
+    useChatStore.setState({
+      runItems: [itemA, itemB],
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().loadRunItemOutput("run_api", itemA.id, 0, 1);
+    await useChatStore.getState().loadRunItemOutput("run_api", itemB.id, 0, 1);
+    await useChatStore.getState().loadRunItemOutput("run_api", itemA.id, 1, 2);
+
+    expect(runItemOutputPage).toHaveBeenNthCalledWith(
+      3,
+      "workspace_api",
+      "run_api",
+      itemA.id,
+      1,
+      2,
+    );
+    expect(useChatStore.getState().runItemOutputs.map((output) => output.id)).toEqual([
+      outputA1.id,
+      outputA2.id,
+      outputB1.id,
+    ]);
+    expect(useChatStore.getState().runItemOutputPagesByRunItemId[itemA.id]).toMatchObject({
+      hasMore: false,
+      loadedThroughOrdinal: 2,
+      nextOrdinal: 0,
+    });
+    expect(useChatStore.getState().runItemOutputPagesByRunItemId[itemB.id]).toMatchObject({
+      hasMore: false,
+      loadedThroughOrdinal: 1,
+    });
   });
 
   test("ignores pushed message events for unrelated conversations", () => {
@@ -996,6 +972,7 @@ interface SettaAPIOverrides {
 function emptyCorruption() {
   return { byKind: [], bySeverity: [], hasCorruption: false, total: 0 };
 }
+
 function listResponse(
   conversations: ConversationListItem[],
   corruptTotal = 0,
@@ -1055,20 +1032,18 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       health: async (): Promise<BackendHealth> => ({
         name: "setta-backend",
         ok: true,
+        protocolVersion: 1,
         version: "test",
       }),
       onEventStreamStatus: () => () => {},
       onProcessStatus: () => () => {},
     },
     appearance: {} as SettaAPI["appearance"],
+    runtimes: {} as SettaAPI["runtimes"],
     chat: {
-      activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
+      activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
-      reconcileRuns: async () => ({ result: { runs: [] } }),
       createConversation: async () => conversation,
-      createImageAttachmentFromBytes: async () => {
-        throw new Error("create image attachment from bytes is not used by chat store tests");
-      },
       deleteConversation: async () => listResponse([]),
       editQueuedMessage: async () => ({
         conversation,
@@ -1077,98 +1052,73 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("queued"),
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
-      executeCommand: async () =>
-        commandExecuteResult(
-          conversation,
-          commandResult("goal", "display", "Goal set: test", "/goal test"),
-        ),
-      readCodexDefaults: async () => {
-        throw new Error("chat defaults are not used by chat store tests");
-      },
-      openCodexModelPicker: async () =>
-        commandExecuteResult(
-          conversation,
-          commandResult("model", "model_picker", "Choose a model.", "model_picker"),
-        ),
-      openCodexPermissionPicker: async () =>
-        commandExecuteResult(
-          conversation,
-          commandResult(
-            "permission",
-            "permission_picker",
-            "Choose a permission mode.",
-            "permission",
-          ),
-        ),
-      setCodexModel: async () =>
-        commandExecuteResult(conversation, {
-          ...commandResult("model", "display", "Model set: gpt-test", "model_set"),
+      executeCommand: async () => ({
+        conversation,
+        message: null,
+        page: testPage(conversation, []),
+        result: {
+          action: "display",
+          goal: null,
+          kind: "goal",
+          message: "Goal set: test",
+          models: [],
+          raw: "/goal test",
+          reasoningEfforts: [],
+          selectedReasoningEffort: null,
+          selectedModel: "",
+          title: "Goal",
+        },
+      }),
+      setCodexModel: async () => ({
+        conversation,
+        message: null,
+        page: testPage(conversation, []),
+        result: {
+          action: "display",
+          goal: null,
+          kind: "model",
+          message: "Model set: gpt-test",
+          models: [],
+          raw: "/model",
+          reasoningEfforts: [],
+          selectedReasoningEffort: null,
           selectedModel: "gpt-test",
-        }),
-      setCodexPermissionPreset: async () =>
-        commandExecuteResult(
-          conversation,
-          commandResult(
-            "permission",
-            "display",
-            "Permission set: Ask for approval",
-            "permission_set",
-          ),
-        ),
-      setCodexReasoningEffort: async () =>
-        commandExecuteResult(conversation, {
-          ...commandResult("model", "display", "Reasoning set: High", "model_reasoning_effort_set"),
+          title: "Model",
+        },
+      }),
+      setCodexReasoningEffort: async () => ({
+        conversation,
+        message: null,
+        page: testPage(conversation, []),
+        result: {
+          action: "display",
+          goal: null,
+          kind: "model",
+          message: "Reasoning set: High",
+          models: [],
+          raw: "/model",
+          reasoningEfforts: [],
           selectedReasoningEffort: "high",
-        }),
-      updateCodexDefaults: async () => {
-        throw new Error("chat defaults are not used by chat store tests");
-      },
+          selectedModel: "",
+          title: "Model",
+        },
+      }),
       setConversationPinned: async () => conversationItem(conversation, 0),
-      selectImageAttachments: async () => [],
       listCommands: async () => ({
         commands: [
           {
             available: true,
             description: "Goal",
-            grammar: {
-              arguments: [
-                {
-                  description: "Set objective",
-                  kind: "free_text",
-                  maxRunes: 4000,
-                  name: "objective",
-                  required: false,
-                },
-              ],
-              literalMatch: "exact",
-              summary: "/goal",
-            },
             kind: "goal",
             name: "/goal",
             unavailableReason: "",
+            usage: "/goal",
           },
         ],
       }),
       listConversations: async () => listResponse([]),
-      listBackgroundTerminals: async () => ({ terminals: [] }),
-      getBackgroundTerminalOutput: async () => ({
-        hasMore: false,
-        nextOrdinal: 0,
-        output: [],
-        processId: "background_terminal_api",
-      }),
-      killBackgroundTerminal: async () => {
-        throw new Error("kill background terminal is not used by chat store tests");
-      },
-      killAllBackgroundTerminals: async () => ({ terminals: [] }),
       markConversationRead: async () => conversationItem(conversation, 0),
       messagePage: async () => testPage(conversation, []),
-      listComposerPromptHistory: async () => ({
-        conversationId: conversation.id,
-        entries: [],
-        hasMoreOlder: false,
-        olderBeforeOrdinal: 0,
-      }),
       onEvent: () => () => {},
       queueMessage: async () => ({
         conversation,
@@ -1177,7 +1127,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("queued"),
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
-      runActivity: async () => ({ activity: [], items: [], output: [], runId: "run_api" }),
+      runActivity: async () => ({ items: [], output: [], runId: "run_api" }),
       runItemOutput: async () => ({
         hasMore: false,
         nextOrdinal: 0,
@@ -1261,11 +1211,13 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     value: { setta: api },
   });
 }
+
 const unimplementedTerminalAPI = new Proxy({} as SettaAPI["terminal"], {
   get: () => {
     throw new Error("terminal API is not implemented in this test");
   },
 });
+
 async function waitFor(done: () => boolean) {
   const startedAt = Date.now();
   while (!done()) {
@@ -1278,7 +1230,6 @@ async function waitFor(done: () => boolean) {
 function testConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     archivedAt: "",
-    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
@@ -1303,7 +1254,6 @@ function conversationItem(
 ): ConversationListItem {
   return {
     activeRunId,
-    activeRunLiveness: null,
     pinnedAt: "",
     conversation,
     latestReadRelevantMarker: markers.latestReadRelevantMarker,
@@ -1311,66 +1261,31 @@ function conversationItem(
     readMarker: markers.readMarker,
   };
 }
+
 function testPage(
   conversation: Conversation,
   messages: ChatMessage[],
   hasMoreOlder = false,
   goal: ChatGoalState | null = null,
-  blocks: TranscriptBlock[] = [],
 ): MessagePage {
-  const pageMessages = withSyntheticTriggers(messages);
-  const queuedMessages = pageMessages.filter((item) => item.delivery === "queued");
-  const queuedRunIds = [
-    ...new Set(queuedMessages.map((item) => item.runId).filter((runId) => runId !== "")),
-  ];
   return {
-    blocks,
     conversation,
     goal,
     hasMoreOlder,
-    messages: pageMessages,
-    olderBeforeBlockOrdinal: 0,
+    messages,
+    olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
     queue: {
-      messages: queuedMessages,
-      runs: queuedRunIds.map((runId) => ({
-        ...testRun("queued", runId),
-        triggerMessageId: queuedMessages.find((item) => item.runId === runId)?.id ?? "",
-      })),
+      messages: messages.filter((item) => item.delivery === "queued"),
+      runs: transcriptFromMessages(messages)
+        .map((turn) => turn.run)
+        .filter((run) => run.status === "queued"),
     },
+    runItemOutputs: [],
+    runItems: [],
+    transcript: transcriptFromMessages(messages),
   };
 }
 
-function backgroundTerminalOutputPage(processId: string, output: BackgroundTerminalOutput[]) {
-  return {
-    hasMore: false,
-    nextOrdinal: output.reduce((current, item) => Math.max(current, item.ordinal), 0),
-    output,
-    processId,
-  };
-}
-
-// The backend page's message surface includes every conversation message,
-// including each run's user trigger. Tests pass only the salient messages, so this
-// synthesizes a trigger for any run that lacks one, mirroring the real page.
-function withSyntheticTriggers(messages: ChatMessage[]): ChatMessage[] {
-  const byId = new Map(messages.map((item) => [item.id, item]));
-  const runIds = [...new Set(messages.map((item) => item.runId).filter((runId) => runId !== ""))];
-  for (const runId of runIds) {
-    if (!messages.some((item) => item.runId === runId && item.role === "user")) {
-      const trigger = message(
-        `message_user_${runId}`,
-        1,
-        "user",
-        "complete",
-        "user",
-        "normal",
-        runId,
-      );
-      byId.set(trigger.id, trigger);
-    }
-  }
-  return [...byId.values()];
-}
 function goalState(objective: string, status: string): ChatGoalState {
   return {
     createdAt: 0,
@@ -1383,43 +1298,164 @@ function goalState(objective: string, status: string): ChatGoalState {
     updatedAt: 0,
   };
 }
+
 function goalCommandResult(): ChatCommandResult {
   return {
     action: "display",
-    composerDraft: "",
-    currentPermission: null,
     goal: goalState("tests", "active"),
     kind: "goal",
     message: "Goal set: tests",
     models: [],
-    permissionPresets: [],
     raw: "/goal tests",
     reasoningEfforts: [],
     selectedModel: "",
-    selectedPermissionPreset: null,
     selectedReasoningEffort: null,
     title: "Goal",
   };
 }
-function runBlocks(
-  runId: string,
-  opts: { assistantText: string; assistantStatus?: TranscriptBlockStatus },
-): TranscriptBlock[] {
-  return [
-    userMessageBlock({ id: `${runId}_trigger`, ordinal: 1, runId, text: "user" }),
-    assistantTextBlock({
-      id: `${runId}_text`,
-      ordinal: 2,
-      runId,
-      status: opts.assistantStatus ?? "streaming",
-      text: opts.assistantText,
-    }),
-  ];
+
+function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
+  const runIds = [...new Set(messages.map((item) => item.runId).filter((runId) => runId !== ""))];
+  return runIds.map((runId) => {
+    const run = testRun("running", runId);
+    const triggerMessage =
+      messages.find((item) => item.runId === runId && item.role === "user") ??
+      message(`message_user_${runId}`, 1, "user", "complete", "user", "normal", runId);
+    const assistantMessage =
+      messages.find((item) => item.runId === runId && item.role === "assistant") ?? null;
+    return {
+      assistantMessage,
+      run: {
+        ...run,
+        assistantMessageId: assistantMessage?.id ?? "",
+        status: assistantMessage ? run.status : "queued",
+        triggerMessageId: triggerMessage.id,
+      },
+      steeringMessages: messages.filter(
+        (item) => item.runId === runId && item.delivery === "steering",
+      ),
+      triggerMessage,
+    };
+  });
 }
-function blockState(blocks: TranscriptBlock[]) {
+
+function message(
+  id: string,
+  ordinal: number,
+  role: MessageRole,
+  status: MessageStatus,
+  text: string,
+  delivery: MessageDelivery = "normal",
+  runId = "run_api",
+): ChatMessage {
   return {
-    transcriptBlocks: blocks,
-    transcriptBlocksById: Object.fromEntries(blocks.map((block) => [block.id, block])),
+    conversationId: "conversation_api",
+    createdAt: "2026-05-29T20:00:00Z",
+    delivery,
+    id,
+    ordinal,
+    parts: [
+      { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
+    ],
+    role,
+    runId,
+    schemaVersion: 1,
+    status,
+    updatedAt: "2026-05-29T20:00:00Z",
+  };
+}
+
+function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
+  const [part, ...rest] = message.parts;
+  if (!part) {
+    throw new Error("test message must include a part");
+  }
+  return {
+    ...message,
+    parts: [{ ...part, text }, ...rest],
+    updatedAt: "2026-05-29T20:00:01Z",
+  };
+}
+
+function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { status: T } {
+  const run = {
+    assistantMessageId: "message_assistant",
+    completedAt: status === "running" ? "" : "2026-05-29T20:01:00Z",
+    conversationId: "conversation_api",
+    error: "",
+    harness: "codex",
+    id: runId,
+    pendingApproval: null,
+    promptSummary: "hello",
+    schemaVersion: 1,
+    startedAt: "2026-05-29T20:00:00Z",
+    status,
+    triggerMessageId: "message_user",
+    workspaceId: "workspace_api",
+  } satisfies Run;
+  return run as Run & { status: T };
+}
+
+function transcriptTurn(run: Run, assistantMessage: ChatMessage): TranscriptTurn {
+  const triggerMessage = message("message_user", 1, "user", "complete", "hello", "normal", run.id);
+  return {
+    assistantMessage,
+    run: { ...run, assistantMessageId: assistantMessage.id, triggerMessageId: triggerMessage.id },
+    steeringMessages: [],
+    triggerMessage,
+  };
+}
+function runItem(id: string, type: RunItemType, status: RunItemStatus): RunItem {
+  return {
+    command: "go test ./...",
+    completedAt: "",
+    conversationId: "conversation_api",
+    createdAt: "2026-05-29T20:00:00Z",
+    cwd: "/tmp/workspace",
+    details: null,
+    diffSummary: "",
+    durationMs: 0,
+    error: "",
+    exitCode: 0,
+    filePaths: [],
+    hiddenText: "",
+    id,
+    noticeKind: "",
+    namespace: "",
+    noticeMessage: "",
+    patchStatus: "",
+    processId: "",
+    progress: "",
+    providerItemId: "provider_" + id,
+    requestId: "",
+    result: "",
+    reviewId: "",
+    runId: "run_api",
+    schemaVersion: 1,
+    serverName: "",
+    startedAt: "2026-05-29T20:00:00Z",
+    status,
+    summary: "",
+    title: "",
+    toolName: "",
+    type,
+    workspaceId: "workspace_api",
+  };
+}
+function runItemOutput(
+  id: string,
+  runItemId: string,
+  ordinal: number,
+  text: string,
+): RunItemOutput {
+  return {
+    createdAt: "2026-05-29T20:00:00Z",
+    id,
+    ordinal,
+    runItemId,
+    schemaVersion: 1,
+    stream: "stdout",
+    text,
   };
 }
 interface Deferred<T> {
@@ -1439,41 +1475,11 @@ function deferred<T>(): Deferred<T> {
   }
   return { promise, reject, resolve };
 }
-function commandExecuteResult(conversation: Conversation, result: ChatCommandResult) {
-  return {
-    conversation,
-    message: null,
-    page: testPage(conversation, []),
-    result,
-  };
-}
-function commandResult(
-  kind: ChatCommandResult["kind"],
-  action: ChatCommandResult["action"],
-  messageText: string,
-  raw: string,
-): ChatCommandResult {
-  return {
-    action,
-    composerDraft: "",
-    currentPermission: null,
-    goal: null,
-    kind,
-    message: messageText,
-    models: [],
-    permissionPresets: [],
-    raw,
-    reasoningEfforts: [],
-    selectedPermissionPreset: null,
-    selectedReasoningEffort: null,
-    selectedModel: "",
-    title: kind === "goal" ? "Goal" : kind === "permission" ? "Permission" : "Model",
-  };
-}
 function workspaceSession(): WorkspaceSession {
   const workspace = workspaceSummary();
   return { activeWorkspaces: [workspace], recentWorkspaces: [], selectedWorkspaceId: workspace.id };
 }
+
 function emptyCodexAccountState() {
   return {
     account: null,
@@ -1483,6 +1489,7 @@ function emptyCodexAccountState() {
     status: "unauthenticated" as const,
   };
 }
+
 function workspaceSummary() {
   return {
     displayName: "api",

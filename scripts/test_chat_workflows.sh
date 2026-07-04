@@ -108,7 +108,7 @@ if [[ "${run_live}" -eq 1 ]]; then
     fi
 
     echo "Live Codex backend chat workflow..."
-    if "${repo_root}/scripts/go.sh" test ./internal/runtime -run 'TestBackend(AppWorkflowWithLiveCodex|LiveCodexRunLivenessReconcileDuringActiveTurn|LiveCodexSilentUpstreamLossReconciliation|LiveCodexStaleTurnInterruptRegression)' -count=1; then
+    if "${repo_root}/scripts/go.sh" test ./internal/runtime -run TestBackendAppWorkflowWithLiveCodex -count=1; then
       passed_workflows+=("live-codex-backend")
     else
       status=1

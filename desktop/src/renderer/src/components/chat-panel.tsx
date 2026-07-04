@@ -1,45 +1,29 @@
-import type { ChatInput, ChatMessage, TranscriptBlock, WorkspaceSummary } from "@generated/backend";
+import type { WorkspaceSummary } from "@generated/backend";
 import { AlertTriangle, Check, Maximize2, Minimize2 } from "lucide-react";
 import { Square } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 
 import { useChatStore } from "../stores/chat-store";
-import type { QueuedRun } from "../stores/chat-store-normalization";
-import { activeRunPresentation } from "../lib/chat-run-liveness";
+import { runtimeControlsDisabled, useRuntimeStore } from "../stores/runtime-store";
 import { cn } from "../lib/utils";
 import { Composer } from "./chat-composer";
-import {
-  CurrentPlanSurface,
-  type CurrentPlanSurfaceOpenRequest,
-  type CurrentPlanSurfaceTarget,
-} from "./chat-current-plan-surface";
 import {
   chatReadableColumnAttributes,
   chatReadableColumnClass,
   chatReadableColumnPaddedClass,
 } from "./chat-layout";
-import { AgentTrajectorySurface } from "./agent-trajectory";
-import {
-  selectedConversationAgentTrajectory,
-  selectedConversationAgentTrajectoryActions,
-} from "./chat-agent-trajectory-adapter";
-import { BackgroundTerminalSurface } from "./chat-background-terminal-monitor";
-import { BrailleSpinner } from "./ascii-spinner";
+import { ChatTranscript } from "./chat-transcript";
 
 export {
-  CommandPalette,
+  CommandSuggestions,
   commandSuggestions,
+  commandTextToExecute,
+  goalEditorDraft,
+  goalReplacementExecutionOptions,
   modelPickerOptionSelected,
   reasoningEffortOptionSelected,
 } from "./chat-composer";
-export {
-  ComposerButton,
-  handleComposerKeyDown,
-  ModelPickerButton,
-  PermissionConfirmationDialog,
-  PermissionPickerButton,
-  permissionPresetSelected,
-} from "./chat-composer-controls";
+export { ComposerButton, handleComposerKeyDown, ModelPickerButton } from "./chat-composer-controls";
 
 export function ChatPanel({
   chat,
@@ -102,20 +86,9 @@ function ChatWorkspace({
   setSearchOpen: (open: boolean) => void;
   workspaceId: string;
 }) {
-  const switchingWorkspace = chat.workspaceId !== workspaceId;
-  const runPresentation = activeRunPresentation(chat.activeRun, chat.activeRunLiveness);
-  const blocked = !switchingWorkspace && isChatBlocked(chat);
-  const composerBusy = switchingWorkspace || isComposerBusy(chat);
-  const running = !switchingWorkspace && runPresentation.running;
-  const detail = chatWorkspaceDetailAttributes(chat, switchingWorkspace, workspaceId);
-  const [currentPlanOpenRequest, setCurrentPlanOpenRequest] =
-    useState<CurrentPlanSurfaceOpenRequest | null>(null);
-  const openCurrentPlanSurface = useCallback((target: CurrentPlanSurfaceTarget) => {
-    setCurrentPlanOpenRequest((current) => ({
-      ...target,
-      requestId: (current?.requestId ?? 0) + 1,
-    }));
-  }, []);
+  const runtimeUnavailable = useRuntimeStore((state) => runtimeControlsDisabled(state.snapshot));
+  const chatState = chatWorkspaceState(chat, workspaceId);
+  const composerBusy = runtimeUnavailable || chatState.switchingWorkspace || isComposerBusy(chat);
 
   return (
     <section
@@ -129,74 +102,47 @@ function ChatWorkspace({
       ) : null}
       <div
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible"
-        data-conversation-id={detail.selectedConversationId}
-        data-run-liveness-status={detail.runLivenessStatus}
-        data-run-status={detail.runStatus}
-        data-workspace-id={detail.workspaceId}
+        data-conversation-id={chatState.selectedConversationId}
+        data-run-status={chatState.runStatus ?? ""}
+        data-workspace-id={chatState.detailWorkspaceId}
         data-testid="chat-detail-pane"
       >
         <ConversationBody
           chat={chat}
-          onOpenCurrentPlanSurface={openCurrentPlanSurface}
           searchOpen={searchOpen}
           setSearchOpen={setSearchOpen}
-          switchingWorkspace={switchingWorkspace}
-        />
-        <ActiveWorkStack
-          chat={chat}
-          openCurrentPlanRequest={currentPlanOpenRequest}
-          switchingWorkspace={switchingWorkspace}
+          switchingWorkspace={chatState.switchingWorkspace}
         />
         <ChatError message={selectedConversationChatError(chat)} />
         <ComposerSlot
-          blocked={blocked}
+          blocked={chatState.blocked}
           busy={composerBusy}
           chat={chat}
-          running={running}
-          runPresentation={runPresentation}
+          running={chatState.running}
         />
       </div>
     </section>
   );
 }
 
-function ActiveWorkStack({
-  chat,
-  openCurrentPlanRequest,
-  switchingWorkspace,
-}: {
-  chat: ChatView;
-  openCurrentPlanRequest: CurrentPlanSurfaceOpenRequest | null;
-  switchingWorkspace: boolean;
-}) {
-  return (
-    <div className="contents" data-testid="chat-active-work-stack">
-      {switchingWorkspace ? null : (
-        <CurrentPlanSurface chat={chat} openRequest={openCurrentPlanRequest} />
-      )}
-      <BackgroundTerminalSurface chat={chat} />
-    </div>
-  );
-}
-
-function chatWorkspaceDetailAttributes(
-  chat: ChatView,
-  switchingWorkspace: boolean,
-  workspaceId: string,
-) {
-  if (switchingWorkspace) {
+function chatWorkspaceState(chat: ChatView, workspaceId: string) {
+  if (chat.workspaceId !== workspaceId) {
     return {
-      runLivenessStatus: "",
-      runStatus: "",
+      blocked: false,
+      detailWorkspaceId: "",
+      running: false,
+      runStatus: null,
       selectedConversationId: "",
-      workspaceId: "",
+      switchingWorkspace: true,
     };
   }
   return {
-    runLivenessStatus: chat.activeRunLiveness?.status ?? "",
-    runStatus: activeRunStatus(chat) ?? "",
+    blocked: isChatBlocked(chat),
+    detailWorkspaceId: workspaceId,
+    running: isRunRunning(chat),
+    runStatus: activeRunStatus(chat),
     selectedConversationId: selectedChatConversationId(chat),
-    workspaceId,
+    switchingWorkspace: false,
   };
 }
 
@@ -238,6 +184,10 @@ function isComposerBusy(chat: ChatView) {
   return chat.status === "loading" || composerBlockingOperations.has(chat.operation ?? "");
 }
 
+function isRunRunning(chat: ChatView) {
+  return chat.activeRun?.status === "running";
+}
+
 function isChatBlocked(chat: ChatView) {
   return chat.error !== null && !chat.selectedConversation;
 }
@@ -259,13 +209,11 @@ function ComposerSlot({
   busy,
   chat,
   running,
-  runPresentation,
 }: {
   blocked: boolean;
   busy: boolean;
   chat: ChatView;
   running: boolean;
-  runPresentation: ReturnType<typeof activeRunPresentation>;
 }) {
   if (blocked) {
     return null;
@@ -280,25 +228,22 @@ function ComposerSlot({
       onSendPrompt={emptyWorkspace ? createAndSendFirstMessage : undefined}
       placeholder={emptyWorkspace ? "Ask setta" : ""}
       running={running}
-      runPresentation={runPresentation}
     />
   );
 
-  async function createAndSendFirstMessage(input: ChatInput) {
+  async function createAndSendFirstMessage(prompt: string) {
     await chat.createConversation();
-    await chat.sendMessage(input);
+    await chat.sendMessage(prompt);
   }
 }
 
 export function ConversationBody({
   chat,
-  onOpenCurrentPlanSurface,
   searchOpen,
   setSearchOpen,
   switchingWorkspace = false,
 }: {
   chat: ChatView;
-  onOpenCurrentPlanSurface?: (target: CurrentPlanSurfaceTarget) => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
   switchingWorkspace?: boolean;
@@ -315,43 +260,47 @@ export function ConversationBody({
   if (!chat.selectedConversation) {
     return <EmptyConversation label="Start a conversation for this workspace." />;
   }
-  const trajectory = selectedConversationAgentTrajectory(chat);
-  const trajectoryActions = {
-    ...selectedConversationAgentTrajectoryActions(chat),
-    onOpenCurrentPlanSurface,
-  };
   return (
     <div
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       data-testid="chat-transcript-region"
     >
-      <GoalStatus goal={chat.goal} pendingGoalSubmission={chat.pendingGoalSubmission} />
+      <GoalStatus goal={chat.goal} />
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-        <AgentTrajectorySurface
-          actions={trajectoryActions}
-          viewModel={trajectory}
+        <ChatTranscript
+          activeRun={chat.activeRun}
+          editQueuedMessage={chat.editQueuedMessage}
+          editingQueuedMessageId={chat.editingQueuedMessageId}
+          hasMoreOlder={chat.hasMoreOlder}
+          loadOlder={chat.loadOlder}
+          loadRunItemOutput={chat.loadRunItemOutput}
+          messageIds={chat.messageIds}
+          messagesById={chat.messagesById}
+          operation={chat.operation}
+          removeQueuedMessage={chat.removeQueuedMessage}
+          removingQueuedMessageId={chat.removingQueuedMessageId}
+          runItemIdsByRunId={chat.runItemIdsByRunId}
+          runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
+          runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
+          runItemOutputsById={chat.runItemOutputsById}
+          runItemsById={chat.runItemsById}
           searchOpen={searchOpen}
+          sendSteeringImmediately={chat.sendSteeringImmediately}
           setSearchOpen={setSearchOpen}
+          submitApproval={chat.submitApproval}
+          transcript={chat.transcript}
         />
       </div>
     </div>
   );
 }
 
-function GoalStatus({
-  goal,
-  pendingGoalSubmission,
-}: {
-  goal: ChatView["goal"];
-  pendingGoalSubmission: ChatView["pendingGoalSubmission"];
-}) {
-  const status = pendingGoalSubmission ? "submitting" : goal?.status;
-  const objective = pendingGoalSubmission?.objective ?? goal?.objective;
-  if (!status || !objective) {
+function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
+  if (!goal) {
     return null;
   }
-  const label = goalStatusLabel(status);
-  const title = `${label}: ${objective}`;
+  const status = goalStatusLabel(goal.status);
+  const title = `${status}: ${goal.objective}`;
   return (
     <div className="workspace-chat-pane-surface shrink-0 border-b border-border" title={title}>
       <div
@@ -360,21 +309,18 @@ function GoalStatus({
           chatReadableColumnPaddedClass,
           "flex h-8 items-center gap-2 text-xs text-muted-foreground",
         )}
-        data-goal-status={status}
+        data-goal-status={goal.status}
         data-testid="chat-goal-status"
       >
-        <GoalStatusIcon status={status} />
-        <span className="shrink-0 font-medium text-foreground">{label}</span>
-        <span className="min-w-0 truncate text-muted-foreground">{objective}</span>
+        <GoalStatusIcon status={goal.status} />
+        <span className="shrink-0 font-medium text-foreground">{status}</span>
+        <span className="min-w-0 truncate text-muted-foreground">{goal.objective}</span>
       </div>
     </div>
   );
 }
 
 function GoalStatusIcon({ status }: { status: string }) {
-  if (status === "submitting") {
-    return <BrailleSpinner label="Goal is submitting" />;
-  }
   if (status === "complete") {
     return <Check className="h-3.5 w-3.5 shrink-0 text-status-success" aria-hidden="true" />;
   }
@@ -388,8 +334,6 @@ function GoalStatusIcon({ status }: { status: string }) {
 
 function goalStatusLabel(status: string) {
   switch (status) {
-    case "submitting":
-      return "Goal submitting";
     case "active":
       return "Goal active";
     case "blocked":
@@ -457,30 +401,10 @@ function ChatError({ message }: { message: string | null }) {
 
 export function useChatViewState() {
   const activeRun = useChatStore((state) => state.activeRun);
-  const activeRunLiveness = useChatStore((state) => state.activeRunLiveness);
-  const backgroundTerminalIdsByConversationId = useChatStore(
-    (state) => state.backgroundTerminalIdsByConversationId,
-  );
-  const backgroundTerminalOutputIdsByProcessId = useChatStore(
-    (state) => state.backgroundTerminalOutputIdsByProcessId,
-  );
-  const backgroundTerminalOutputPagesByProcessId = useChatStore(
-    (state) => state.backgroundTerminalOutputPagesByProcessId,
-  );
-  const backgroundTerminalOutputsById = useChatStore(
-    (state) => state.backgroundTerminalOutputsById,
-  );
-  const backgroundTerminalsById = useChatStore((state) => state.backgroundTerminalsById);
   const conversations = useChatStore((state) => state.conversations);
   const corruption = useChatStore((state) => state.corruption);
   const commandListError = useChatStore((state) => state.commandListError);
   const commandListStatus = useChatStore((state) => state.commandListStatus);
-  const createImageAttachmentFromBytes = useChatStore(
-    (state) => state.createImageAttachmentFromBytes,
-  );
-  const createImageAttachmentsFromPicker = useChatStore(
-    (state) => state.createImageAttachmentsFromPicker,
-  );
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
   const deleteConversation = useChatStore((state) => state.deleteConversation);
@@ -492,37 +416,27 @@ export function useChatViewState() {
   const goal = useChatStore((state) => state.goal);
   const hasMoreOlder = useChatStore((state) => state.hasMoreOlder);
   const loadOlder = useChatStore((state) => state.loadOlder);
-  const loadBackgroundTerminalOutput = useChatStore((state) => state.loadBackgroundTerminalOutput);
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const listCommands = useChatStore((state) => state.listCommands);
-  const listComposerPromptHistory = useChatStore((state) => state.listComposerPromptHistory);
-  const killBackgroundTerminal = useChatStore((state) => state.killBackgroundTerminal);
-  const killAllBackgroundTerminals = useChatStore((state) => state.killAllBackgroundTerminals);
   const markConversationRead = useChatStore((state) => state.markConversationRead);
-  const messages = useChatStore((state) => state.messages);
+  const messageIds = useChatStore((state) => state.messageIds);
   const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
-  const pendingGoalSubmission = useChatStore((state) => state.pendingGoalSubmission);
-  const openCodexModelPicker = useChatStore((state) => state.openCodexModelPicker);
-  const openCodexPermissionPicker = useChatStore((state) => state.openCodexPermissionPicker);
-  const queuedRuns = useChatStore((state) => state.queuedRuns);
   const queueMessage = useChatStore((state) => state.queueMessage);
   const removeQueuedMessage = useChatStore((state) => state.removeQueuedMessage);
   const removingQueuedMessageId = useChatStore((state) => state.removingQueuedMessageId);
-  const refreshBackgroundTerminals = useChatStore((state) => state.refreshBackgroundTerminals);
-  const retryActiveRunLiveness = useChatStore((state) => state.retryActiveRunLiveness);
+  const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
   const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
   const runItemOutputPagesByRunItemId = useChatStore(
     (state) => state.runItemOutputPagesByRunItemId,
   );
   const runItemOutputsById = useChatStore((state) => state.runItemOutputsById);
-  const runsById = useChatStore((state) => state.runsById);
+  const runItemsById = useChatStore((state) => state.runItemsById);
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const sendSteeringImmediately = useChatStore((state) => state.sendSteeringImmediately);
   const setCodexModel = useChatStore((state) => state.setCodexModel);
-  const setCodexPermissionPreset = useChatStore((state) => state.setCodexPermissionPreset);
   const setCodexReasoningEffort = useChatStore((state) => state.setCodexReasoningEffort);
   const setConversationPinned = useChatStore((state) => state.setConversationPinned);
   const status = useChatStore((state) => state.status);
@@ -530,26 +444,21 @@ export function useChatViewState() {
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
-  const transcriptBlocks = useChatStore((state) => state.transcriptBlocks);
+  const transcript = useChatStore((state) => state.transcript);
   const activeRunId = activeRun?.id ?? "";
-  const queuedMessages = useMemo(
-    () => queuedMessagesFromRuns(queuedRuns, messagesById),
-    [messagesById, queuedRuns],
-  );
   const pendingSteeringMessageIds = useMemo(() => {
     if (activeRunId === "") {
       return emptyPendingSteeringMessageIds;
     }
-    const pendingIds = transcriptBlocks
-      .filter((block) => isPendingSteeringBlock(block, activeRunId))
-      .map((block) => block.userMessage?.messageId ?? "")
-      .filter((messageId) => messageId !== "");
+    const turn = transcript.find((candidate) => candidate.run.id === activeRunId);
+    if (!turn) {
+      return emptyPendingSteeringMessageIds;
+    }
+    const pendingIds = turn.steeringMessages
+      .filter((message) => message.status === "pending")
+      .map((message) => message.id);
     return pendingIds.length === 0 ? emptyPendingSteeringMessageIds : pendingIds;
-  }, [activeRunId, transcriptBlocks]);
-  const visiblePendingGoalSubmission =
-    pendingGoalSubmission?.conversationId === selectedConversation?.id
-      ? pendingGoalSubmission
-      : null;
+  }, [activeRunId, transcript]);
 
   const selectedConversationSummary =
     selectedConversation?.workspaceId === storeWorkspaceId
@@ -571,18 +480,10 @@ export function useChatViewState() {
 
   return {
     activeRun,
-    activeRunLiveness,
-    backgroundTerminalIdsByConversationId,
-    backgroundTerminalOutputIdsByProcessId,
-    backgroundTerminalOutputPagesByProcessId,
-    backgroundTerminalOutputsById,
-    backgroundTerminalsById,
     commandListError,
     commandListStatus,
     conversations,
     corruption,
-    createImageAttachmentFromBytes,
-    createImageAttachmentsFromPicker,
     createConversation,
     createWorkspaceConversation,
     deleteConversation,
@@ -593,60 +494,33 @@ export function useChatViewState() {
     executeCommand,
     goal,
     hasMoreOlder,
-    killAllBackgroundTerminals,
-    killBackgroundTerminal,
-    loadBackgroundTerminalOutput,
     loadOlder,
     loadRunItemOutput,
     listCommands,
-    listComposerPromptHistory,
-    messages,
+    messageIds,
+    messagesById,
     operation,
-    openCodexModelPicker,
-    openCodexPermissionPicker,
-    pendingGoalSubmission: visiblePendingGoalSubmission,
     pendingSteeringMessageIds,
-    queuedMessages,
     queueMessage,
-    refreshBackgroundTerminals,
-    retryActiveRunLiveness,
     removeQueuedMessage,
     removingQueuedMessageId,
+    runItemIdsByRunId,
     runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,
     runItemOutputsById,
-    runsById,
+    runItemsById,
     selectConversation,
     selectedConversation,
     sendMessage,
     sendSteeringImmediately,
     setCodexModel,
-    setCodexPermissionPreset,
     setCodexReasoningEffort,
     setConversationPinned,
     status,
     steerMessage,
     stopActiveRun,
     submitApproval,
-    transcriptBlocks,
+    transcript,
     workspaceId: storeWorkspaceId,
   };
-}
-
-function queuedMessagesFromRuns(
-  queuedRuns: QueuedRun[],
-  messagesById: Record<string, ChatMessage>,
-): ChatMessage[] {
-  return queuedRuns
-    .map((run) => messagesById[run.triggerMessageId])
-    .filter((message): message is ChatMessage => message !== undefined);
-}
-
-function isPendingSteeringBlock(block: TranscriptBlock, activeRunId: string) {
-  return (
-    block.kind === "user_message" &&
-    block.runId === activeRunId &&
-    block.userMessage?.delivery === "steering" &&
-    block.userMessage.status === "pending"
-  );
 }

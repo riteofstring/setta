@@ -90,13 +90,7 @@ func approvalRequestFromCodex(message jsonRPCMessage, runID string, threadID str
 		return ApprovalRequest{}, codexApprovalDetails{}, err
 	}
 	details.requestID = requestID
-	approvalDetails, ok := details.runItem.ApprovalDetails()
-	if !ok {
-		return ApprovalRequest{}, codexApprovalDetails{}, fmt.Errorf("codex approval request %s produced run item without approval details", requestID)
-	}
-	updated := cloneApprovalDetails(*approvalDetails)
-	updated.ProviderRequestID = requestID
-	details.runItem.Details = NewRunItemApprovalDetails(updated)
+	details.runItem.RequestID = requestID
 	return approval, details, nil
 }
 
@@ -180,7 +174,19 @@ func commandApprovalFromCodex(params map[string]any, context codexApprovalContex
 		FilePath:       cwd,
 		Options:        []string{},
 	}
-	return approval, codexApprovalDetails{runItem: approvalRequestRunItem(approval)}, nil
+	return approval, codexApprovalDetails{runItem: commandApprovalRunItem(context.providerItemID, command, cwd, reason)}, nil
+}
+
+func commandApprovalRunItem(providerItemID string, command string, cwd string, reason string) RunItem {
+	return RunItem{
+		ProviderItemID: providerItemID,
+		Type:           RunItemTypeCommandExecution,
+		Status:         RunItemStatusPending,
+		Title:          "Command approval",
+		Summary:        reason,
+		Command:        command,
+		Cwd:            cwd,
+	}
 }
 
 func fileChangeApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
@@ -202,7 +208,19 @@ func fileChangeApprovalFromCodex(params map[string]any, context codexApprovalCon
 		FilePath:       grantRoot,
 		Options:        []string{},
 	}
-	return approval, codexApprovalDetails{runItem: approvalRequestRunItem(approval)}, nil
+	return approval, codexApprovalDetails{runItem: fileChangeApprovalRunItem(context.providerItemID, grantRoot, reason)}, nil
+}
+
+func fileChangeApprovalRunItem(providerItemID string, grantRoot string, reason string) RunItem {
+	return RunItem{
+		ProviderItemID: providerItemID,
+		Type:           RunItemTypeFileChange,
+		Status:         RunItemStatusPending,
+		Title:          "File change approval",
+		Summary:        reason,
+		FilePaths:      []string{grantRoot},
+		PatchStatus:    "approval_requested",
+	}
 }
 
 func permissionApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
@@ -235,8 +253,20 @@ func permissionApprovalFromCodex(params map[string]any, context codexApprovalCon
 	}
 	return approval, codexApprovalDetails{
 		permissionProfile: permissions,
-		runItem:           approvalRequestRunItem(approval),
+		runItem:           permissionApprovalRunItem(context.providerItemID, cwd, reason, permissionSummary),
 	}, nil
+}
+
+func permissionApprovalRunItem(providerItemID string, cwd string, reason string, permissionSummary string) RunItem {
+	return RunItem{
+		ProviderItemID: providerItemID,
+		Type:           RunItemTypeDynamicToolCall,
+		Status:         RunItemStatusPending,
+		Title:          "Permission approval",
+		Summary:        reason,
+		Cwd:            cwd,
+		Result:         permissionSummary,
+	}
 }
 
 func userInputApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
@@ -257,8 +287,18 @@ func userInputApprovalFromCodex(params map[string]any, context codexApprovalCont
 	}
 	return approval, codexApprovalDetails{
 		questions: questions,
-		runItem:   approvalRequestRunItem(approval),
+		runItem:   userInputApprovalRunItem(context.providerItemID, title, body),
 	}, nil
+}
+
+func userInputApprovalRunItem(providerItemID string, title string, body string) RunItem {
+	return RunItem{
+		ProviderItemID: providerItemID,
+		Type:           RunItemTypeDynamicToolCall,
+		Status:         RunItemStatusPending,
+		Title:          title,
+		Summary:        body,
+	}
 }
 
 func codexApprovalResult(pending codexPendingApproval, response ApprovalResponse) (codexApprovalReply, error) {

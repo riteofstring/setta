@@ -7,6 +7,8 @@ import { setTimeout as delay } from "node:timers/promises";
 export interface BackendReadyEvent {
   event: "ready";
   addr: string;
+  bootstrapToken: string;
+  protocolVersion: number;
 }
 
 export interface BackendLaunchOptions {
@@ -33,8 +35,10 @@ type BackendStdoutEvents = EventEmitter<{
 }>;
 
 export interface BackendHandle {
+  bootstrapToken: string;
   events: BackendEvents;
   mode: "external" | "spawned";
+  protocolVersion: number;
   recentLogs: () => string[];
   stop: () => Promise<void>;
   url: string;
@@ -61,11 +65,16 @@ function resolveBackendLaunchOptions(
   };
 }
 
-function externalBackendHandle(rawURL: string): BackendHandle {
+function externalBackendHandle(rawURL: string, bootstrapToken: string | undefined): BackendHandle {
   const url = validateExternalURL(rawURL);
+  if (!bootstrapToken) {
+    throw new Error("SETTA_BACKEND_URL requires SETTA_BACKEND_TOKEN");
+  }
   return {
+    bootstrapToken,
     events: new EventEmitter(),
     mode: "external",
+    protocolVersion: 0,
     recentLogs: () => [],
     stop: async () => {},
     url,
@@ -94,8 +103,10 @@ export async function startSpawnedBackend(options: BackendLaunchOptions): Promis
   }
 
   return {
+    bootstrapToken: ready.bootstrapToken,
     events,
     mode: "spawned",
+    protocolVersion: ready.protocolVersion,
     recentLogs: () => [...logs],
     stop: () => stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise),
     url: `http://${ready.addr}`,
@@ -108,7 +119,7 @@ export async function startBackend(
   env: NodeJS.ProcessEnv,
 ): Promise<BackendHandle> {
   if (env.SETTA_BACKEND_URL) {
-    return externalBackendHandle(env.SETTA_BACKEND_URL);
+    return externalBackendHandle(env.SETTA_BACKEND_URL, env.SETTA_BACKEND_TOKEN);
   }
   return startSpawnedBackend(resolveBackendLaunchOptions(repoRoot, appDataDir, env));
 }
@@ -123,10 +134,33 @@ export function parseReadyLine(line: string): BackendReadyEvent | null {
   if (!isRecord(value)) {
     return null;
   }
-  if (value.event !== "ready" || typeof value.addr !== "string" || value.addr === "") {
+  return parseReadyRecord(value);
+}
+
+function parseReadyRecord(value: Record<string, unknown>): BackendReadyEvent | null {
+  if (value.event !== "ready") {
     return null;
   }
-  return { event: "ready", addr: value.addr };
+  const addr = readNonEmptyString(value.addr);
+  const bootstrapToken = readNonEmptyString(value.bootstrapToken);
+  const protocolVersion = readPositiveInteger(value.protocolVersion);
+  if (addr === null || bootstrapToken === null || protocolVersion === null) {
+    return null;
+  }
+  return {
+    addr,
+    bootstrapToken,
+    event: "ready",
+    protocolVersion,
+  };
+}
+
+function readNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+function readPositiveInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
 }
 
 function monitorBackendProcess(
@@ -253,10 +287,24 @@ function collectLines(
 ) {
   const lines = createInterface({ input: stream });
   lines.on("line", (line) => {
-    appendLog(logs, line);
-    events.emit("log", line);
+    const logLine = sanitizeBackendLogLine(line);
+    appendLog(logs, logLine);
+    events.emit("log", logLine);
     onLine?.(line);
   });
+}
+
+function sanitizeBackendLogLine(line: string): string {
+  let value: unknown;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return line;
+  }
+  if (!isRecord(value) || typeof value.bootstrapToken !== "string") {
+    return line;
+  }
+  return JSON.stringify({ ...value, bootstrapToken: "<redacted>" });
 }
 
 function appendLog(logs: string[], line: string) {

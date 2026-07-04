@@ -126,13 +126,11 @@ func commandRunItem(id string, conversationID string, runID string) chat.RunItem
 		ID:             id,
 		ConversationID: conversationID,
 		RunID:          runID,
+		Command:        "npm test",
 		CreatedAt:      "2026-06-21T12:00:03Z",
 		Status:         chat.RunItemStatusCompleted,
 		Type:           chat.RunItemTypeCommandExecution,
 		WorkspaceID:    "workspace",
-		Details: chat.NewRunItemCommandExecutionDetails(chat.RunItemCommandExecutionDetails{
-			Command: "npm test",
-		}),
 	}
 }
 

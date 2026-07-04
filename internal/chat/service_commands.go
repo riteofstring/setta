@@ -36,7 +36,7 @@ func (service *Service) ListCommands(workspaceID string, conversationID string) 
 		return ChatCommandListResult{}, err
 	}
 	if result.Commands == nil {
-		result.Commands = []ChatCommandDescriptor{}
+		result.Commands = []ChatCommandCapability{}
 	}
 	return ChatCommandListResult{Commands: result.Commands}, nil
 }
@@ -65,24 +65,8 @@ func (service *Service) SetChatCodexModel(workspaceID string, conversationID str
 	return service.executeChatCommand(workspaceID, conversationID, command, ChatCommandExecutionOptions{})
 }
 
-func (service *Service) OpenChatCodexModelPicker(workspaceID string, conversationID string) (ChatCommandExecuteResult, error) {
-	return service.executeChatCommand(workspaceID, conversationID, modelPickerChatCommand(), ChatCommandExecutionOptions{})
-}
-
 func (service *Service) SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort ReasoningEffort) (ChatCommandExecuteResult, error) {
 	command, err := reasoningEffortSetChatCommand(effort)
-	if err != nil {
-		return ChatCommandExecuteResult{}, err
-	}
-	return service.executeChatCommand(workspaceID, conversationID, command, ChatCommandExecutionOptions{})
-}
-
-func (service *Service) OpenChatCodexPermissionPicker(workspaceID string, conversationID string) (ChatCommandExecuteResult, error) {
-	return service.executeChatCommand(workspaceID, conversationID, permissionPickerChatCommand(), ChatCommandExecutionOptions{})
-}
-
-func (service *Service) SetChatCodexPermissionPreset(workspaceID string, conversationID string, preset ChatPermissionPresetID, confirmed bool) (ChatCommandExecuteResult, error) {
-	command, err := permissionPresetSetChatCommand(preset, confirmed)
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
@@ -107,7 +91,7 @@ func (service *Service) executeChatCommand(workspaceID string, conversationID st
 	}
 
 	request := commandRequest(workspaceSummary, state.conversation, state.activeRun, command)
-	harnessResult, operation, err := service.executeCommandRequest(context.Background(), executor, request, state.startGoalOperation)
+	harnessResult, continuation, err := service.executeCommandRequest(context.Background(), executor, request, state.startGoalContinuation)
 	if shouldRetryCommandWithMissingHarnessRef(command, err) {
 		var refErr *HarnessRefUnavailableError
 		errors.As(err, &refErr)
@@ -122,7 +106,7 @@ func (service *Service) executeChatCommand(workspaceID string, conversationID st
 			return ChatCommandExecuteResult{}, err
 		}
 		request = commandRequest(workspaceSummary, state.conversation, state.activeRun, command)
-		harnessResult, operation, err = service.executeCommandRequest(context.Background(), executor, request, state.startGoalOperation)
+		harnessResult, continuation, err = service.executeCommandRequest(context.Background(), executor, request, state.startGoalContinuation)
 	}
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
@@ -130,21 +114,18 @@ func (service *Service) executeChatCommand(workspaceID string, conversationID st
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	return service.persistCommandResultLocked(workspaceSummary, workspaceID, conversationID, command, harnessResult, operation, state.startGoalOperation)
+	return service.persistCommandResultLocked(workspaceSummary, workspaceID, conversationID, command, harnessResult, continuation, state.startGoalContinuation)
 }
 
 type commandExecutionState struct {
-	conversation       Conversation
-	activeRun          *Run
-	startGoalOperation bool
+	conversation          Conversation
+	activeRun             *Run
+	startGoalContinuation bool
 }
 
 func (service *Service) prepareCommandExecutionLocked(workspaceID string, conversationID string, command ChatCommand, options ChatCommandExecutionOptions) (commandExecutionState, error) {
 	conversation, activeRun, err := service.commandConversationStateLocked(workspaceID, conversationID)
 	if err != nil {
-		return commandExecutionState{}, err
-	}
-	if err := service.ensureNoCommandCancellationDrainLocked(workspaceID, conversationID); err != nil {
 		return commandExecutionState{}, err
 	}
 	if err := ensureCommandAvailable(command, activeRun); err != nil {
@@ -153,36 +134,15 @@ func (service *Service) prepareCommandExecutionLocked(workspaceID string, conver
 	if err := service.ensureGoalReplacementConfirmedLocked(workspaceID, conversationID, command, options); err != nil {
 		return commandExecutionState{}, err
 	}
-	if err := ensurePermissionChangeConfirmed(command); err != nil {
-		return commandExecutionState{}, err
-	}
 	state := commandExecutionState{
-		activeRun:          activeRun,
-		conversation:       conversation,
-		startGoalOperation: commandMayStartGoalOperation(command, activeRun),
+		activeRun:             activeRun,
+		conversation:          conversation,
+		startGoalContinuation: commandMayStartGoalContinuation(command, activeRun),
 	}
-	if state.startGoalOperation {
+	if state.startGoalContinuation {
 		err = service.ensureCanStartTurnLocked(workspaceID, conversationID, activeKey(workspaceID, conversationID))
 	}
 	return state, err
-}
-
-func ensurePermissionChangeConfirmed(command ChatCommand) error {
-	if command.Kind != ChatCommandPermission || command.Permission == nil || command.Permission.Action != PermissionCommandSet {
-		return nil
-	}
-	if command.Permission.Preset != ChatPermissionPresetFullAccess || command.Permission.Confirmed {
-		return nil
-	}
-	return commandError(ChatCommandErrorPermissionConfirm, "Full Access requires confirmation.", nil)
-}
-
-func (service *Service) ensureNoCommandCancellationDrainLocked(workspaceID string, conversationID string) error {
-	active, ok := service.active[activeKey(workspaceID, conversationID)]
-	if !ok || active.workspaceID != workspaceID || !active.cancelDrain {
-		return nil
-	}
-	return fmt.Errorf("conversation already has an active turn: %s", conversationID)
 }
 
 func (service *Service) ensureGoalReplacementConfirmedLocked(workspaceID string, conversationID string, command ChatCommand, options ChatCommandExecutionOptions) error {
@@ -210,16 +170,16 @@ func goalStatusIsTerminal(status string) bool {
 	return status == "complete"
 }
 
-func (service *Service) executeCommandRequest(ctx context.Context, executor HarnessCommandExecutor, request HarnessCommandRequest, startGoalOperation bool) (HarnessCommandResult, HarnessGoalOperation, error) {
-	if !startGoalOperation {
+func (service *Service) executeCommandRequest(ctx context.Context, executor HarnessCommandExecutor, request HarnessCommandRequest, startGoalContinuation bool) (HarnessCommandResult, HarnessGoalContinuation, error) {
+	if !startGoalContinuation {
 		result, err := executor.ExecuteCommand(ctx, request)
 		return result, nil, err
 	}
-	starter, ok := service.harness.(HarnessGoalOperationStarter)
+	starter, ok := service.harness.(HarnessGoalContinuationStarter)
 	if !ok {
-		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorUnsupportedHarness, "selected harness does not support goal operations", nil)
+		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorUnsupportedHarness, "selected harness does not support goal continuation", nil)
 	}
-	return starter.BeginGoalOperation(ctx, request)
+	return starter.BeginGoalContinuation(ctx, request)
 }
 
 func commandRequest(workspaceSummary workspace.WorkspaceSummary, conversation Conversation, activeRun *Run, command ChatCommand) HarnessCommandRequest {
@@ -233,10 +193,7 @@ func commandRequest(workspaceSummary workspace.WorkspaceSummary, conversation Co
 }
 
 func shouldRetryCommandWithMissingHarnessRef(command ChatCommand, err error) bool {
-	if err == nil {
-		return false
-	}
-	if command.Kind != ChatCommandModel && command.Kind != ChatCommandPermission {
+	if err == nil || command.Kind != ChatCommandModel {
 		return false
 	}
 	var refErr *HarnessRefUnavailableError
@@ -276,13 +233,13 @@ func (service *Service) persistCommandResultLocked(
 	conversationID string,
 	command ChatCommand,
 	harnessResult HarnessCommandResult,
-	operation HarnessGoalOperation,
-	startGoalOperation bool,
+	continuation HarnessGoalContinuation,
+	startGoalContinuation bool,
 ) (executeResult ChatCommandExecuteResult, err error) {
-	operationStarted := false
+	continuationStarted := false
 	defer func() {
-		if err != nil && operation != nil && !operationStarted {
-			operation.Close()
+		if err != nil && continuation != nil && !continuationStarted {
+			continuation.Close()
 		}
 	}()
 
@@ -299,7 +256,7 @@ func (service *Service) persistCommandResultLocked(
 	if err := service.persistCommandGoalStateLocked(workspaceID, conversationID, "", command, result); err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
-	if err := service.maybeStartGoalOperationLocked(workspaceSummary, conversationID, command, result, operation, startGoalOperation, &operationStarted); err != nil {
+	if err := service.maybeStartGoalContinuationLocked(workspaceSummary, conversationID, command, result, continuation, startGoalContinuation, &continuationStarted); err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
 
@@ -325,27 +282,27 @@ func (service *Service) persistCommandMetadataLocked(workspaceID string, convers
 	if err != nil {
 		return Conversation{}, "", err
 	}
-	conversation, err = service.persistCommandCodexMetadataLocked(workspaceID, conversationID, conversation, harnessResult, now)
+	conversation, err = service.persistCommandCodexSettingsLocked(workspaceID, conversationID, conversation, harnessResult, now)
 	if err != nil {
 		return Conversation{}, "", err
 	}
 	return conversation, now, nil
 }
 
-func (service *Service) maybeStartGoalOperationLocked(
+func (service *Service) maybeStartGoalContinuationLocked(
 	workspaceSummary workspace.WorkspaceSummary,
 	conversationID string,
 	command ChatCommand,
 	result ChatCommandResult,
-	operation HarnessGoalOperation,
-	startGoalOperation bool,
-	operationStarted *bool,
+	continuation HarnessGoalContinuation,
+	startGoalContinuation bool,
+	continuationStarted *bool,
 ) error {
-	if !startGoalOperation {
+	if !startGoalContinuation {
 		return nil
 	}
-	started, err := service.startGoalOperationLocked(workspaceSummary, conversationID, command, result, operation)
-	*operationStarted = started
+	started, err := service.startGoalContinuationLocked(workspaceSummary, conversationID, command, result, continuation)
+	*continuationStarted = started
 	return err
 }
 
@@ -363,23 +320,23 @@ func (service *Service) persistCommandGoalStateLocked(workspaceID string, conver
 	}
 }
 
-func commandMayStartGoalOperation(command ChatCommand, activeRun *Run) bool {
+func commandMayStartGoalContinuation(command ChatCommand, activeRun *Run) bool {
 	if activeRun != nil || command.Kind != ChatCommandGoal || command.Goal == nil {
 		return false
 	}
 	return command.Goal.Action == GoalCommandSet || command.Goal.Action == GoalCommandResume
 }
 
-func (service *Service) startGoalOperationLocked(workspaceSummary workspace.WorkspaceSummary, conversationID string, command ChatCommand, result ChatCommandResult, operation HarnessGoalOperation) (bool, error) {
-	prompt, ok := goalOperationPrompt(command, result.Goal)
+func (service *Service) startGoalContinuationLocked(workspaceSummary workspace.WorkspaceSummary, conversationID string, command ChatCommand, result ChatCommandResult, continuation HarnessGoalContinuation) (bool, error) {
+	prompt, ok := goalContinuationPrompt(command, result.Goal)
 	if !ok {
-		if operation != nil {
-			operation.Close()
+		if continuation != nil {
+			continuation.Close()
 		}
 		return false, nil
 	}
-	if operation == nil {
-		return false, commandError(ChatCommandErrorUnsupportedHarness, "goal operation was not started by the harness", nil)
+	if continuation == nil {
+		return false, commandError(ChatCommandErrorUnsupportedHarness, "goal continuation was not started by the harness", nil)
 	}
 	key := activeKey(workspaceSummary.ID, conversationID)
 	if err := service.ensureCanStartTurnLocked(workspaceSummary.ID, conversationID, key); err != nil {
@@ -387,43 +344,29 @@ func (service *Service) startGoalOperationLocked(workspaceSummary workspace.Work
 	}
 
 	now := timestamp(service.now())
-	input := TextChatInput(prompt)
-	conversation, userMessage, assistantMessage, run, err := service.persistTurnStartWithDeliveryLocked(workspaceSummary.ID, conversationID, input, MessageDeliveryGoal, now)
-	if err != nil {
-		return false, err
-	}
-	ingest, err := service.newTranscriptIngestLocked(workspaceSummary.ID, run)
+	conversation, _, assistantMessage, run, err := service.persistTurnStartWithDeliveryLocked(workspaceSummary.ID, conversationID, prompt, MessageDeliveryGoal, now)
 	if err != nil {
 		return false, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	service.activateTurnLocked(workspaceSummary.ID, conversationID, activeTurn{
+	service.active[key] = activeTurn{
 		assistantMessage: assistantMessage,
 		cancel:           cancel,
-		goalOperation:    operation,
-		transcript:       ingest,
-	}, run)
-	if err := service.publishActiveRunLivenessAndConversationLocked(workspaceSummary.ID, conversationID, run.ID); err != nil {
-		return false, err
-	}
-	deliveryInput, err := service.deliveryInputFromMessage(workspaceSummary.ID, conversationID, userMessage)
-	if err != nil {
-		return false, err
+		runID:            run.ID,
+		workspaceID:      workspaceSummary.ID,
 	}
 	request := TurnRequest{
 		Workspace:    workspaceSummary,
 		Conversation: conversation,
 		Run:          run,
-		Input:        deliveryInput,
+		Prompt:       prompt,
 		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}
-	if err := service.launchHarnessGoalOperationLocked(ctx, request, operation); err != nil {
-		return false, err
-	}
+	go service.runHarnessGoalContinuation(ctx, request, continuation)
 	return true, nil
 }
 
-func goalOperationPrompt(command ChatCommand, goal *ChatGoalState) (string, bool) {
+func goalContinuationPrompt(command ChatCommand, goal *ChatGoalState) (string, bool) {
 	if command.Goal == nil || goal == nil || goal.Status != "active" {
 		return "", false
 	}
@@ -453,19 +396,11 @@ func (service *Service) persistCommandThreadRefLocked(workspaceID string, conver
 	return conversation, nil
 }
 
-func (service *Service) persistCommandCodexMetadataLocked(workspaceID string, conversationID string, conversation Conversation, harnessResult HarnessCommandResult, now string) (Conversation, error) {
-	changed := false
-	if harnessResult.CodexSettings != nil {
-		conversation.CodexSettings = harnessResult.CodexSettings
-		changed = true
-	}
-	if harnessResult.CodexEffectiveSettings != nil {
-		conversation.CodexEffectiveSettings = harnessResult.CodexEffectiveSettings
-		changed = true
-	}
-	if !changed {
+func (service *Service) persistCommandCodexSettingsLocked(workspaceID string, conversationID string, conversation Conversation, harnessResult HarnessCommandResult, now string) (Conversation, error) {
+	if harnessResult.CodexSettings == nil {
 		return conversation, nil
 	}
+	conversation.CodexSettings = harnessResult.CodexSettings
 	conversation.UpdatedAt = now
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return Conversation{}, err
@@ -537,12 +472,10 @@ func (service *Service) newCommandMessage(workspaceID string, conversationID str
 		UpdatedAt:      now,
 		Status:         MessageStatusComplete,
 		Parts: []MessagePart{{
-			ID:   partID,
-			Type: MessagePartText,
-			Text: &MessageTextPart{
-				Text:   text,
-				Format: TextFormatPlain,
-			},
+			ID:     partID,
+			Type:   MessagePartText,
+			Text:   text,
+			Format: TextFormatPlain,
 		}},
 	}, nil
 }
@@ -553,42 +486,20 @@ func commandResult(command ChatCommand, harnessResult HarnessCommandResult) Chat
 		action = ChatCommandResultDisplay
 	}
 	result := ChatCommandResult{
-		Action:                   action,
-		ComposerDraft:            commandComposerDraft(command, harnessResult),
-		CurrentPermission:        harnessResult.CurrentPermission,
-		Goal:                     harnessResult.Goal,
-		Kind:                     command.Kind,
-		Models:                   nonNilModels(harnessResult.Models),
-		PermissionPresets:        nonNilPermissionPresets(harnessResult.PermissionPresets),
-		Raw:                      command.Raw,
-		ReasoningEfforts:         nonNilReasoningEfforts(harnessResult.ReasoningEfforts),
-		SelectedModel:            harnessResult.SelectedModel,
-		SelectedPermissionPreset: harnessResult.SelectedPermissionPreset,
-		SelectedReasoningEffort:  harnessResult.SelectedReasoningEffort,
+		Action:                  action,
+		Goal:                    harnessResult.Goal,
+		Kind:                    command.Kind,
+		Models:                  nonNilModels(harnessResult.Models),
+		Raw:                     command.Raw,
+		ReasoningEfforts:        nonNilReasoningEfforts(harnessResult.ReasoningEfforts),
+		SelectedModel:           harnessResult.SelectedModel,
+		SelectedReasoningEffort: harnessResult.SelectedReasoningEffort,
 	}
 	result.Title, result.Message = commandResultText(command, result)
 	if harnessResult.CapabilityDiagnostic != "" {
 		result.Message = strings.TrimSpace(result.Message + " " + harnessResult.CapabilityDiagnostic)
 	}
 	return result
-}
-
-func commandComposerDraft(command ChatCommand, harnessResult HarnessCommandResult) string {
-	if harnessResult.Action != ChatCommandResultGoalEditor || command.Kind != ChatCommandGoal || command.Goal == nil {
-		return ""
-	}
-	name, ok := chatCommandNameBySlashKind(ChatSlashCommandGoal)
-	if !ok {
-		return ""
-	}
-	objective := ""
-	if harnessResult.Goal != nil {
-		objective = strings.TrimSpace(harnessResult.Goal.Objective)
-	}
-	if objective == "" {
-		return name + " "
-	}
-	return name + " " + objective
 }
 
 func nonNilModels(models []ChatModelOption) []ChatModelOption {
@@ -605,21 +516,12 @@ func nonNilReasoningEfforts(efforts []ChatReasoningEffortOption) []ChatReasoning
 	return efforts
 }
 
-func nonNilPermissionPresets(presets []ChatPermissionPreset) []ChatPermissionPreset {
-	if presets == nil {
-		return []ChatPermissionPreset{}
-	}
-	return presets
-}
-
 func commandResultText(command ChatCommand, result ChatCommandResult) (string, string) {
 	switch command.Kind {
 	case ChatCommandGoal:
 		return goalCommandResultText(command, result.Goal)
 	case ChatCommandModel:
 		return modelCommandResultText(command, result)
-	case ChatCommandPermission:
-		return permissionCommandResultText(command, result)
 	default:
 		return "Command", "Command completed."
 	}
@@ -650,26 +552,6 @@ func goalCommandResultText(command ChatCommand, goal *ChatGoalState) (string, st
 		return "Goal", "Goal resumed."
 	default:
 		return "Goal", "Goal command completed."
-	}
-}
-
-func permissionCommandResultText(command ChatCommand, result ChatCommandResult) (string, string) {
-	if command.Permission == nil {
-		return "Permissions", "Permission command completed."
-	}
-	switch command.Permission.Action {
-	case PermissionCommandShowPicker:
-		return "Permissions", "Choose a permission mode."
-	case PermissionCommandSet:
-		label := string(command.Permission.Preset)
-		if result.CurrentPermission != nil && result.CurrentPermission.DisplayLabel != "" {
-			label = result.CurrentPermission.DisplayLabel
-		} else if preset, ok := chatPermissionPresetByID(command.Permission.Preset); ok {
-			label = preset.Label
-		}
-		return "Permissions", "Permission mode set: " + label
-	default:
-		return "Permissions", "Permission command completed."
 	}
 }
 
