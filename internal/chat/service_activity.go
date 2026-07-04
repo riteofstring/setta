@@ -409,28 +409,21 @@ func mergeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunIte
 	if existing == nil || existing.Kind != next.Kind {
 		return next
 	}
-	if next.Kind == RunItemDetailsKindCommandExecution {
-		return mergeCommandExecutionRunItemDetails(existing, next)
-	}
-	if next.Kind == RunItemDetailsKindCommandStartFailure {
-		return mergeCommandStartFailureRunItemDetails(existing, next)
-	}
-	if next.Kind == RunItemDetailsKindMCPToolCall {
-		return mergeMCPToolCallRunItemDetails(existing, next)
-	}
-	if next.Kind == RunItemDetailsKindDynamicToolCall {
-		return mergeDynamicToolCallRunItemDetails(existing, next)
-	}
-	if next.Kind == RunItemDetailsKindFileChange {
-		return mergeFileChangeRunItemDetails(existing, next)
-	}
-	if next.Kind == RunItemDetailsKindDiff {
-		return next
-	}
-	if next.Kind == RunItemDetailsKindApproval {
-		return mergeApprovalRunItemDetails(existing, next)
+	if merger, ok := runItemDetailsMergers[next.Kind]; ok {
+		return merger(existing, next)
 	}
 	return next
+}
+
+type runItemDetailsMerger func(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails
+
+var runItemDetailsMergers = map[RunItemDetailsKind]runItemDetailsMerger{
+	RunItemDetailsKindCommandExecution:    mergeCommandExecutionRunItemDetails,
+	RunItemDetailsKindCommandStartFailure: mergeCommandStartFailureRunItemDetails,
+	RunItemDetailsKindMCPToolCall:         mergeMCPToolCallRunItemDetails,
+	RunItemDetailsKindDynamicToolCall:     mergeDynamicToolCallRunItemDetails,
+	RunItemDetailsKindFileChange:          mergeFileChangeRunItemDetails,
+	RunItemDetailsKindApproval:            mergeApprovalRunItemDetails,
 }
 
 func mergeCommandExecutionRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {

@@ -346,6 +346,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
 		{Name: "RunItemDetailsKind", Values: stringValues(runItemDetailsKindValues)},
 		{Name: "RunItemCommandSource", Values: stringValues(runItemCommandSourceValues)},
+		{Name: "RunItemPlanStepStatus", Values: stringValues(runItemPlanStepStatusValues)},
 		{Name: "RunItemFileChangeOperation", Values: stringValues(runItemFileChangeOperationValues)},
 		{Name: "BackgroundTerminalStatus", Values: stringValues(backgroundTerminalStatusValues)},
 		{Name: "DiagnosticSeverity", Values: stringValues(diagnosticSeverityValues)},

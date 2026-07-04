@@ -1,6 +1,7 @@
 package chat
 
 const (
+	RunItemDetailsKindPlan                    RunItemDetailsKind = "plan"
 	RunItemDetailsKindCommandExecution        RunItemDetailsKind = "command_execution"
 	RunItemDetailsKindCommandStartFailure     RunItemDetailsKind = "command_start_failure"
 	RunItemDetailsKindMCPToolCall             RunItemDetailsKind = "mcp_tool_call"
@@ -12,6 +13,7 @@ const (
 )
 
 var runItemDetailsKindValues = []RunItemDetailsKind{
+	RunItemDetailsKindPlan,
 	RunItemDetailsKindCommandExecution,
 	RunItemDetailsKindCommandStartFailure,
 	RunItemDetailsKindMCPToolCall,

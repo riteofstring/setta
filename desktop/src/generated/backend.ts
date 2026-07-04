@@ -963,6 +963,24 @@ export function decodeRunItemType(value: unknown, label = "RunItemType"): RunIte
   }
 }
 
+export type RunItemPlanStepStatus = "pending" | "inProgress" | "completed";
+
+export const runItemPlanStepStatusValues = ["pending", "inProgress", "completed"] as const satisfies readonly RunItemPlanStepStatus[];
+
+export function decodeRunItemPlanStepStatus(value: unknown, label = "RunItemPlanStepStatus"): RunItemPlanStepStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "inProgress":
+      return decoded;
+    case "completed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type RunItemCommandSource = "agent" | "user_shell" | "unified_exec_startup" | "unified_exec_interaction";
 
 export const runItemCommandSourceValues = ["agent", "user_shell", "unified_exec_startup", "unified_exec_interaction"] as const satisfies readonly RunItemCommandSource[];
@@ -1103,13 +1121,15 @@ export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind")
   }
 }
 
-export type RunItemDetailsKind = "command_execution" | "command_start_failure" | "mcp_tool_call" | "dynamic_tool_call" | "file_change" | "diff" | "approval" | "provider_stream_lifecycle";
+export type RunItemDetailsKind = "plan" | "command_execution" | "command_start_failure" | "mcp_tool_call" | "dynamic_tool_call" | "file_change" | "diff" | "approval" | "provider_stream_lifecycle";
 
-export const runItemDetailsKindValues = ["command_execution", "command_start_failure", "mcp_tool_call", "dynamic_tool_call", "file_change", "diff", "approval", "provider_stream_lifecycle"] as const satisfies readonly RunItemDetailsKind[];
+export const runItemDetailsKindValues = ["plan", "command_execution", "command_start_failure", "mcp_tool_call", "dynamic_tool_call", "file_change", "diff", "approval", "provider_stream_lifecycle"] as const satisfies readonly RunItemDetailsKind[];
 
 export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetailsKind"): RunItemDetailsKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "plan":
+      return decoded;
     case "command_execution":
       return decoded;
     case "command_start_failure":
@@ -3186,6 +3206,16 @@ export interface ReasoningBlockProjection {
   summary: string;
 }
 
+export interface RunItemPlanStep {
+  status: RunItemPlanStepStatus;
+  step: string;
+}
+
+export interface RunItemPlanDetails {
+  explanation: string;
+  steps: RunItemPlanStep[];
+}
+
 export interface RunItemCommandExecutionDetails {
   command: string;
   cwd: string;
@@ -3325,6 +3355,7 @@ export interface RunItemProviderStreamLifecycleDetails {
 
 export interface RunActivityDetailsProjection {
   summary: string;
+  plan: RunItemPlanDetails | null;
   command: string;
   cwd: string;
   exitCode: number;
@@ -3763,6 +3794,7 @@ export interface GetRunActivityRequest {
 
 export interface RunItemDetails {
   kind: RunItemDetailsKind;
+  plan: RunItemPlanDetails | null;
   commandExecution: RunItemCommandExecutionDetails | null;
   commandStartFailure: RunItemCommandStartFailureDetails | null;
   mcpToolCall: RunItemMCPToolCallDetails | null;
@@ -7610,6 +7642,24 @@ export function decodeReasoningBlockProjection(value: unknown): ReasoningBlockPr
   };
 }
 
+export function decodeRunItemPlanStep(value: unknown): RunItemPlanStep {
+  const record = assertRecord(value, "RunItemPlanStep");
+  assertKnownFields(record, "RunItemPlanStep", ["status", "step"]);
+  return {
+    status: decodeRunItemPlanStepStatus(requireField(record, "status", "RunItemPlanStep"), "RunItemPlanStep.status"),
+    step: decodeString(requireField(record, "step", "RunItemPlanStep"), "RunItemPlanStep.step"),
+  };
+}
+
+export function decodeRunItemPlanDetails(value: unknown): RunItemPlanDetails {
+  const record = assertRecord(value, "RunItemPlanDetails");
+  assertKnownFields(record, "RunItemPlanDetails", ["explanation", "steps"]);
+  return {
+    explanation: decodeString(requireField(record, "explanation", "RunItemPlanDetails"), "RunItemPlanDetails.explanation"),
+    steps: decodeArray(requireField(record, "steps", "RunItemPlanDetails"), "RunItemPlanDetails.steps", (item) => decodeRunItemPlanStep(item)),
+  };
+}
+
 export function decodeRunItemCommandExecutionDetails(value: unknown): RunItemCommandExecutionDetails {
   const record = assertRecord(value, "RunItemCommandExecutionDetails");
   assertKnownFields(record, "RunItemCommandExecutionDetails", ["command", "cwd", "exitCode", "durationMs", "processId", "source", "result", "error"]);
@@ -7801,9 +7851,10 @@ export function decodeRunItemProviderStreamLifecycleDetails(value: unknown): Run
 
 export function decodeRunActivityDetailsProjection(value: unknown): RunActivityDetailsProjection {
   const record = assertRecord(value, "RunActivityDetailsProjection");
-  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "commandStartFailure", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
+  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "plan", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "commandStartFailure", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
   return {
     summary: decodeString(requireField(record, "summary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.summary"),
+    plan: decodeNullable(requireField(record, "plan", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.plan", (item) => decodeRunItemPlanDetails(item)),
     command: decodeString(requireField(record, "command", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.command"),
     cwd: decodeString(requireField(record, "cwd", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.cwd"),
     exitCode: decodeInteger(requireField(record, "exitCode", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.exitCode"),
@@ -8481,9 +8532,10 @@ export function decodeGetRunActivityRequest(value: unknown): GetRunActivityReque
 
 export function decodeRunItemDetails(value: unknown): RunItemDetails {
   const record = assertRecord(value, "RunItemDetails");
-  assertKnownFields(record, "RunItemDetails", ["kind", "commandExecution", "commandStartFailure", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
+  assertKnownFields(record, "RunItemDetails", ["kind", "plan", "commandExecution", "commandStartFailure", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
   const result: RunItemDetails = {
     kind: decodeRunItemDetailsKind(requireField(record, "kind", "RunItemDetails"), "RunItemDetails.kind"),
+    plan: decodeNullable(requireField(record, "plan", "RunItemDetails"), "RunItemDetails.plan", (item) => decodeRunItemPlanDetails(item)),
     commandExecution: decodeNullable(requireField(record, "commandExecution", "RunItemDetails"), "RunItemDetails.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
     commandStartFailure: decodeNullable(requireField(record, "commandStartFailure", "RunItemDetails"), "RunItemDetails.commandStartFailure", (item) => decodeRunItemCommandStartFailureDetails(item)),
     mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunItemDetails"), "RunItemDetails.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),

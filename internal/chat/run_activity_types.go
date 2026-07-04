@@ -4,6 +4,7 @@ import "encoding/json"
 
 type RunItemDetails struct {
 	Kind                    RunItemDetailsKind                     `json:"kind"`
+	Plan                    *RunItemPlanDetails                    `json:"plan"`
 	CommandExecution        *RunItemCommandExecutionDetails        `json:"commandExecution"`
 	CommandStartFailure     *RunItemCommandStartFailureDetails     `json:"commandStartFailure"`
 	MCPToolCall             *RunItemMCPToolCallDetails             `json:"mcpToolCall"`
@@ -16,6 +17,7 @@ type RunItemDetails struct {
 
 type RunActivityDetailsProjection struct {
 	Summary                 string                                 `json:"summary"`
+	Plan                    *RunItemPlanDetails                    `json:"plan"`
 	Command                 string                                 `json:"command"`
 	Cwd                     string                                 `json:"cwd"`
 	ExitCode                int                                    `json:"exitCode"`
@@ -42,6 +44,16 @@ type RunActivityDetailsProjection struct {
 	Diff                    *RunItemDiffDetails                    `json:"diff"`
 	Approval                *RunItemApprovalDetails                `json:"approval"`
 	ProviderStreamLifecycle *RunItemProviderStreamLifecycleDetails `json:"providerStreamLifecycle"`
+}
+
+type RunItemPlanDetails struct {
+	Explanation string            `json:"explanation"`
+	Steps       []RunItemPlanStep `json:"steps"`
+}
+
+type RunItemPlanStep struct {
+	Status RunItemPlanStepStatus `json:"status"`
+	Step   string                `json:"step"`
 }
 
 type RunItemCommandExecutionDetails struct {
@@ -196,6 +208,7 @@ type RunItemProviderStreamLifecycleDetails struct {
 func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindMCPToolCall,
+		Plan:                    nil,
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             &details,
@@ -207,9 +220,25 @@ func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDet
 	}
 }
 
+func NewRunItemPlanDetails(details RunItemPlanDetails) *RunItemDetails {
+	return &RunItemDetails{
+		Kind:                    RunItemDetailsKindPlan,
+		Plan:                    &details,
+		CommandExecution:        nil,
+		CommandStartFailure:     nil,
+		MCPToolCall:             nil,
+		DynamicToolCall:         nil,
+		FileChange:              nil,
+		Diff:                    nil,
+		Approval:                nil,
+		ProviderStreamLifecycle: nil,
+	}
+}
+
 func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindCommandExecution,
+		Plan:                    nil,
 		CommandExecution:        &details,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
@@ -224,6 +253,7 @@ func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *
 func NewRunItemCommandStartFailureDetails(details RunItemCommandStartFailureDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindCommandStartFailure,
+		Plan:                    nil,
 		CommandExecution:        nil,
 		CommandStartFailure:     &details,
 		MCPToolCall:             nil,
@@ -238,6 +268,7 @@ func NewRunItemCommandStartFailureDetails(details RunItemCommandStartFailureDeta
 func NewRunItemDynamicToolCallDetails(details RunItemDynamicToolCallDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindDynamicToolCall,
+		Plan:                    nil,
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
@@ -252,6 +283,7 @@ func NewRunItemDynamicToolCallDetails(details RunItemDynamicToolCallDetails) *Ru
 func NewRunItemFileChangeDetails(details RunItemFileChangeDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindFileChange,
+		Plan:                    nil,
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
@@ -266,6 +298,7 @@ func NewRunItemFileChangeDetails(details RunItemFileChangeDetails) *RunItemDetai
 func NewRunItemDiffDetails(details RunItemDiffDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindDiff,
+		Plan:                    nil,
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
@@ -280,6 +313,7 @@ func NewRunItemDiffDetails(details RunItemDiffDetails) *RunItemDetails {
 func NewRunItemApprovalDetails(details RunItemApprovalDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindApproval,
+		Plan:                    nil,
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
@@ -294,6 +328,7 @@ func NewRunItemApprovalDetails(details RunItemApprovalDetails) *RunItemDetails {
 func NewRunItemProviderStreamLifecycleDetails(details RunItemProviderStreamLifecycleDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindProviderStreamLifecycle,
+		Plan:                    nil,
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
@@ -303,6 +338,16 @@ func NewRunItemProviderStreamLifecycleDetails(details RunItemProviderStreamLifec
 		Approval:                nil,
 		ProviderStreamLifecycle: &details,
 	}
+}
+
+func (item RunItem) PlanDetails() (*RunItemPlanDetails, bool) {
+	if item.Type != RunItemTypePlan ||
+		item.Details == nil ||
+		item.Details.Kind != RunItemDetailsKindPlan ||
+		item.Details.Plan == nil {
+		return nil, false
+	}
+	return item.Details.Plan, true
 }
 
 func (item RunItem) CommandExecutionDetails() (*RunItemCommandExecutionDetails, bool) {
@@ -399,6 +444,14 @@ func (details RunActivityDetailsProjection) MarshalJSON() ([]byte, error) {
 	type detailsAlias RunActivityDetailsProjection
 	if details.FilePaths == nil {
 		details.FilePaths = []string{}
+	}
+	return json.Marshal(detailsAlias(details))
+}
+
+func (details RunItemPlanDetails) MarshalJSON() ([]byte, error) {
+	type detailsAlias RunItemPlanDetails
+	if details.Steps == nil {
+		details.Steps = []RunItemPlanStep{}
 	}
 	return json.Marshal(detailsAlias(details))
 }

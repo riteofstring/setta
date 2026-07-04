@@ -666,10 +666,47 @@ Notes:
 
 Remaining work:
 
-- Resolve or explicitly waive the unrelated live Electron semantic cartographer
-  failure before treating final live-provider verification as clean.
+- The earlier unrelated live Electron semantic cartographer failure was not
+  reproduced by the later 2026-07-03 live-provider gate recorded below.
 - Next implementation work starts at Phase 8 current todo list surface.
 - Phase 9 active-work stack and dwell behavior remains open after Phase 8.
+
+### 2026-07-03: Structured Plan Update Contract
+
+Implemented the first focused Phase 8 slice:
+
+- decoded `turn/plan/updated` through the generated
+  `DecodeTurnPlanUpdatedNotification` path instead of generic maps;
+- added backend-owned generated contract types for plan step status, plan steps,
+  and plan details on run items and activity projections;
+- mapped Codex plan step statuses explicitly and failed on unsupported provider
+  status values rather than falling back to summary text;
+- persisted typed plan details on the existing chronological
+  `RunItemTypePlan` transcript anchor, including provider explanation when
+  present;
+- rendered typed plan details in the opened transcript activity row so the
+  chronological anchor exposes explanation and step state without parsing text.
+
+Verification performed:
+
+- `./scripts/go.sh test ./internal/chat -run 'TestCodex(HarnessStoresStructuredPlanUpdatedNotification|PlanStepStatusMappingRejectsUnknownValues|HarnessGoalOperationRewritesSecondTurnRunActivityToLogicalTurn)'`
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `pnpm vitest run src/renderer/src/components/chat-transcript-activity-details.test.tsx src/renderer/src/components/chat-transcript-activity.test.tsx src/renderer/src/stores/chat-store-events.test.ts src/renderer/src/stores/chat-store-operations.test.ts src/renderer/src/stores/chat-store-run-activity.test.ts`
+- `./scripts/go.sh test ./internal/chat`
+- `./scripts/test_chat_workflows.sh --deterministic-only` initially failed in
+  the existing transcript-scroll near-bottom detach workflow; a direct narrow
+  rerun of transcript-scroll and transcript-scroll-reload passed.
+- `./scripts/test_chat_workflows.sh --skip-build --deterministic-only`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
+
+Remaining work:
+
+- add the selected-conversation current-plan surface near the composer that
+  updates in place while the run is active;
+- add completion dwell for the current-plan surface and prevent auto-dismiss
+  while expanded, hovered, or focused;
+- add deterministic Electron coverage for current-plan surface updates,
+  completion dwell, and coexistence with background terminals.
 
 ## Open Decisions
 

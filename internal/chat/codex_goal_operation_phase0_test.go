@@ -202,8 +202,14 @@ func TestCodexHarnessGoalOperationRewritesSecondTurnRunActivityToLogicalTurn(t *
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
 	item := requireRunItemType(t, sink.items, RunItemTypePlan)
-	if item.ProviderItemID != "plan_turn_goal_a" || item.Summary != "plan from physical turn B" {
+	if item.ProviderItemID != "plan_turn_goal_a" || item.Summary != "" {
 		t.Fatalf("plan item = %+v, want logical turn id with second-turn activity", item)
+	}
+	details, ok := item.PlanDetails()
+	if !ok || len(details.Steps) != 1 ||
+		details.Steps[0].Status != RunItemPlanStepStatusInProgress ||
+		details.Steps[0].Step != "Verify physical turn B activity" {
+		t.Fatalf("plan details = %+v, want typed second-turn activity", item.Details)
 	}
 }
 

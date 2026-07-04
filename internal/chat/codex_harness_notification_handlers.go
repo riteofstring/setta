@@ -624,30 +624,57 @@ func handleCodexDiffUpdated(message jsonRPCMessage, threadID string, turnID stri
 }
 
 func handleCodexPlanUpdated(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex plan update params")
+	params, err := codexapp.DecodeTurnPlanUpdatedNotification(message.Params)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	summary, err := optionalString(params, "summary", "codex plan update")
+	details, err := codexPlanDetails(params)
 	if err != nil {
 		return codexNotificationResult{}, err
-	}
-	if summary == "" {
-		summary, err = jsonSummaryAny(params["plan"])
-		if err != nil {
-			return codexNotificationResult{}, err
-		}
 	}
 	return codexNotificationResult{}, sink.RunItemUpsert(RunItem{
 		ProviderItemID: "plan_" + turnID,
 		Type:           RunItemTypePlan,
 		Status:         RunItemStatusRunning,
 		Title:          "Plan updated",
-		Summary:        summary,
+		Details:        NewRunItemPlanDetails(details),
 	})
+}
+
+func codexPlanDetails(params codexapp.TurnPlanUpdatedNotification) (RunItemPlanDetails, error) {
+	details := RunItemPlanDetails{
+		Steps: make([]RunItemPlanStep, 0, len(params.Plan)),
+	}
+	if params.Explanation != nil {
+		details.Explanation = *params.Explanation
+	}
+	for index, step := range params.Plan {
+		status, err := runItemPlanStepStatusFromCodex(step.Status)
+		if err != nil {
+			return RunItemPlanDetails{}, fmt.Errorf("codex plan step %d: %w", index, err)
+		}
+		details.Steps = append(details.Steps, RunItemPlanStep{
+			Status: status,
+			Step:   step.Step,
+		})
+	}
+	return details, nil
+}
+
+func runItemPlanStepStatusFromCodex(status codexapp.TurnPlanStepStatus) (RunItemPlanStepStatus, error) {
+	switch status {
+	case codexapp.TurnPlanStepStatusPending:
+		return RunItemPlanStepStatusPending, nil
+	case codexapp.TurnPlanStepStatusInProgress:
+		return RunItemPlanStepStatusInProgress, nil
+	case codexapp.TurnPlanStepStatusCompleted:
+		return RunItemPlanStepStatusCompleted, nil
+	default:
+		return "", fmt.Errorf("unsupported codex plan step status: %s", status)
+	}
 }
 
 func handleCodexNotice(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {

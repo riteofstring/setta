@@ -281,6 +281,7 @@ func runActivityProviderStreamLifecycleTitle(item RunItem) string {
 }
 
 func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
+	plan := runItemPlanDetailsProjection(item)
 	commandExecution := runItemCommandExecutionDetailsProjection(item)
 	commandStartFailure := runItemCommandStartFailureDetailsProjection(item)
 	dynamicToolCall := runItemDynamicToolCallDetailsProjection(item)
@@ -290,6 +291,7 @@ func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 	providerStreamLifecycle := runItemProviderStreamLifecycleDetailsProjection(item)
 	return RunActivityDetailsProjection{
 		Summary:                 publicRunActivitySummary(item),
+		Plan:                    plan,
 		Command:                 runActivityCommand(item, commandExecution),
 		Cwd:                     runActivityCwd(item, commandExecution),
 		ExitCode:                runActivityExitCode(item, commandExecution),
@@ -331,6 +333,20 @@ func cloneRawMessage(raw []byte) []byte {
 		return nil
 	}
 	return append([]byte{}, raw...)
+}
+
+func clonePlanDetails(details RunItemPlanDetails) RunItemPlanDetails {
+	details.Steps = clonePlanSteps(details.Steps)
+	return details
+}
+
+func clonePlanSteps(steps []RunItemPlanStep) []RunItemPlanStep {
+	if steps == nil {
+		return nil
+	}
+	cloned := make([]RunItemPlanStep, len(steps))
+	copy(cloned, steps)
+	return cloned
 }
 
 func cloneMCPToolCallDetails(details RunItemMCPToolCallDetails) RunItemMCPToolCallDetails {
@@ -434,6 +450,7 @@ func runActivityScalarDetailsInspectable(details RunActivityDetailsProjection) b
 
 func runActivityStructuredDetailsInspectable(details RunActivityDetailsProjection) bool {
 	return rawDetailsInspectable(details.Details) ||
+		details.Plan != nil ||
 		details.CommandExecution != nil ||
 		details.CommandStartFailure != nil ||
 		details.MCPToolCall != nil ||
@@ -478,6 +495,15 @@ func rawDetailsInspectable(raw []byte) bool {
 	return !bytes.Equal(trimmed, []byte("null")) &&
 		!bytes.Equal(trimmed, []byte("{}")) &&
 		!bytes.Equal(trimmed, []byte("[]"))
+}
+
+func runItemPlanDetailsProjection(item RunItem) *RunItemPlanDetails {
+	details, ok := item.PlanDetails()
+	if !ok {
+		return nil
+	}
+	cloned := clonePlanDetails(*details)
+	return &cloned
 }
 
 func runItemMCPToolCallDetailsProjection(item RunItem) *RunItemMCPToolCallDetails {

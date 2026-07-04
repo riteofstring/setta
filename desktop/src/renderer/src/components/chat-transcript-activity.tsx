@@ -35,6 +35,7 @@ import {
   ActivityJSONDetails,
   ActivityMCPDetails,
   ActivityApprovalDetails,
+  ActivityPlanDetails,
   ActivityPreBlock,
   ActivityProviderStreamLifecycleDetails,
   ActivityTextBlock,
@@ -633,6 +634,7 @@ function ActivityDetails({
         <ActivityCommandStartFailureDetails details={details} />
         <ActivityFileChangeDetails details={details} />
         <ActivityDiffDetails details={details} />
+        <ActivityPlanDetails details={details} />
         <ActivityApprovalDetails details={details} />
         <ActivityProviderStreamLifecycleDetails details={details} />
         <ActivityTextBlock title="Notice" value={details.noticeMessage} />
@@ -661,6 +663,7 @@ function hasGenericResultDetails(details: RunActivityDetailsProjection) {
     details.commandStartFailure,
     details.fileChange,
     details.diff,
+    details.plan,
     details.approval,
     details.providerStreamLifecycle,
   ].every((value) => value === null);

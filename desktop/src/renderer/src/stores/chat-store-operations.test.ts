@@ -596,6 +596,7 @@ function runItem(id: string, runId: string, status: RunItem["status"]): RunItem 
       fileChange: null,
       kind: "dynamic_tool_call",
       mcpToolCall: null,
+      plan: null,
       providerStreamLifecycle: null,
     },
     rawDetails: null,

@@ -46,6 +46,7 @@ function emptyActivityDetails(
     noticeKind: "",
     noticeMessage: "",
     patchStatus: "",
+    plan: null,
     processId: "",
     providerStreamLifecycle: null,
     progress: "",

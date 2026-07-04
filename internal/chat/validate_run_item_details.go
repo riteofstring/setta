@@ -40,6 +40,8 @@ func validateRunItemDetailsBranch(item RunItem, kind RunItemDetailsKind, branch 
 
 func runItemDetailsBranchPresent(details *RunItemDetails, kind RunItemDetailsKind) bool {
 	switch kind {
+	case RunItemDetailsKindPlan:
+		return details.Plan != nil
 	case RunItemDetailsKindCommandExecution:
 		return details.CommandExecution != nil
 	case RunItemDetailsKindCommandStartFailure:
@@ -66,6 +68,7 @@ func validateRunItemDetailsBranchExclusive(item RunItem, details RunItemDetails,
 		name string
 		set  bool
 	}{
+		{name: "plan", set: details.Plan != nil},
 		{name: "commandExecution", set: details.CommandExecution != nil},
 		{name: "commandStartFailure", set: details.CommandStartFailure != nil},
 		{name: "mcpToolCall", set: details.MCPToolCall != nil},
@@ -84,6 +87,24 @@ func validateRunItemDetailsBranchExclusive(item RunItem, details RunItemDetails,
 		}
 	}
 	return nil
+}
+
+func validateRunItemPlanDetailsBranch(item RunItem) error {
+	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindPlan, "plan"); err != nil {
+		return err
+	}
+	if err := validateRunItemPlanFlatFieldsEmpty(item); err != nil {
+		return err
+	}
+	return validateRunItemPlanDetails(item, *item.Details.Plan)
+}
+
+func validateRunItemPlanFlatFieldsEmpty(item RunItem) error {
+	return validateRunItemFlatStringFieldsEmpty(item, "plan", []runItemFlatStringField{
+		{name: "progress", value: item.Progress},
+		{name: "result", value: item.Result},
+		{name: "error", value: item.Error},
+	})
 }
 
 func validateRunItemCommandExecutionFlatFieldsEmpty(item RunItem) error {
@@ -452,6 +473,18 @@ func approvalReviewRequestFieldPresent(details RunItemApprovalDetails) bool {
 
 func approvalReviewRequestFieldsError(item RunItem) error {
 	return fmt.Errorf("run item %s approval review details must not contain request fields", item.ID)
+}
+
+func validateRunItemPlanDetails(item RunItem, details RunItemPlanDetails) error {
+	for index, step := range details.Steps {
+		if step.Step == "" {
+			return fmt.Errorf("run item %s plan step %d text is required", item.ID, index)
+		}
+		if !validValue(step.Status, runItemPlanStepStatusValues) {
+			return fmt.Errorf("run item %s plan step %d has unsupported status %s", item.ID, index, step.Status)
+		}
+	}
+	return nil
 }
 
 func validateRunItemDynamicToolCallDetails(item RunItem, details RunItemDynamicToolCallDetails) error {

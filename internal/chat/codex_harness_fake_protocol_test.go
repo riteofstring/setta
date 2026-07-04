@@ -982,6 +982,7 @@ var fakeCoreTurnStartHandlers = map[string]fakeCoreTurnStartHandler{
 	"resume-permission-settings":    fakeCoreStreamTurnStart,
 	"turn-started-id":               fakeCoreProviderTurnStart,
 	"provider-item-turn-id":         fakeCoreProviderItemTurnStart,
+	"plan-updated":                  fakeCorePlanUpdatedTurnStart,
 	"failed-turn":                   fakeCoreFailedTurnStart,
 	"unknown-turn-status":           fakeCoreUnknownStatusTurnStart,
 	"steer":                         fakeCorePendingTurnStart,
@@ -1035,6 +1036,11 @@ func fakeCoreProviderTurnStart(string, *fakeCodexState) bool {
 
 func fakeCoreProviderItemTurnStart(string, *fakeCodexState) bool {
 	writeFakeProviderItemTurnID()
+	return true
+}
+
+func fakeCorePlanUpdatedTurnStart(string, *fakeCodexState) bool {
+	writeFakePlanUpdatedTurn()
 	return true
 }
 

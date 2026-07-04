@@ -5,8 +5,23 @@ import { describe, expect, test } from "vitest";
 import {
   ActivityApprovalDetails,
   ActivityDynamicToolDetails,
+  ActivityPlanDetails,
   ActivityProviderStreamLifecycleDetails,
 } from "./chat-transcript-activity-details";
+
+describe("ActivityPlanDetails", () => {
+  test("renders typed plan steps", () => {
+    const html = renderToString(<ActivityPlanDetails details={planDetails()} />);
+
+    expect(html).toContain("Updating the turn plan.");
+    expect(html).toContain("Done");
+    expect(html).toContain("Read the plan");
+    expect(html).toContain("Active");
+    expect(html).toContain("Implement the typed contract");
+    expect(html).toContain("Pending");
+    expect(html).toContain("Render the active surface");
+  });
+});
 
 describe("ActivityDynamicToolDetails", () => {
   test("renders typed dynamic tool success", () => {
@@ -40,6 +55,19 @@ describe("ActivityProviderStreamLifecycleDetails", () => {
     expect(html).toContain("thread_provider");
   });
 });
+
+function planDetails(): RunActivityDetailsProjection {
+  return baseDetails({
+    plan: {
+      explanation: "Updating the turn plan.",
+      steps: [
+        { status: "completed", step: "Read the plan" },
+        { status: "inProgress", step: "Implement the typed contract" },
+        { status: "pending", step: "Render the active surface" },
+      ],
+    },
+  });
+}
 
 function dynamicToolDetails(success: boolean | null): RunActivityDetailsProjection {
   return baseDetails({
@@ -126,6 +154,7 @@ function baseDetails(
     noticeKind: "",
     noticeMessage: "",
     patchStatus: "",
+    plan: null,
     processId: "",
     providerStreamLifecycle: null,
     progress: "",

@@ -814,17 +814,6 @@ func jsonSummary(value map[string]any) (string, error) {
 	return string(data), nil
 }
 
-func jsonSummaryAny(value any) (string, error) {
-	if value == nil {
-		return "", nil
-	}
-	data, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("summarize codex JSON value: %w", err)
-	}
-	return string(data), nil
-}
-
 func questionOptions(question map[string]any, label string) ([]string, error) {
 	raw, ok := question["options"]
 	if !ok || raw == nil {

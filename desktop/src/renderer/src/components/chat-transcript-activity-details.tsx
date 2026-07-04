@@ -2,6 +2,66 @@ import type { RunActivityDetailsProjection } from "@generated/backend";
 
 import { cn } from "../lib/utils";
 
+export function ActivityPlanDetails({ details }: { details: RunActivityDetailsProjection }) {
+  const plan = details.plan;
+  if (plan === null) {
+    return null;
+  }
+  return (
+    <>
+      <ActivityTextBlock title="Explanation" value={plan.explanation} />
+      {plan.steps.length > 0 ? (
+        <section
+          className="min-w-0"
+          data-activity-detail-section="Plan Steps"
+          data-activity-detail-kind="plan"
+        >
+          <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">Plan Steps</h4>
+          <ol className="mt-1 space-y-1 border-l border-border pl-3">
+            {plan.steps.map((step, index) => (
+              <li
+                className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)] gap-2 text-xs leading-5"
+                key={`${step.status}:${step.step}:${index}`}
+              >
+                <span
+                  className={cn(
+                    "font-medium",
+                    step.status === "completed" && "text-status-success",
+                    step.status === "inProgress" && "text-foreground",
+                    step.status === "pending" && "text-muted-foreground",
+                  )}
+                >
+                  {planStepStatusLabel(step.status)}
+                </span>
+                <span className="min-w-0 break-words text-muted-foreground [overflow-wrap:anywhere]">
+                  {step.step}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function planStepStatusLabel(
+  status: NonNullable<RunActivityDetailsProjection["plan"]>["steps"][number]["status"],
+) {
+  switch (status) {
+    case "completed":
+      return "Done";
+    case "inProgress":
+      return "Active";
+    case "pending":
+      return "Pending";
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
+}
+
 export function ActivityCommandExecutionDetails({
   details,
 }: {

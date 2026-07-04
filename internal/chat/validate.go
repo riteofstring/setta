@@ -768,6 +768,8 @@ func validateRunItemLegacyMetrics(item RunItem) error {
 
 func validateRunItemTypedDetails(item RunItem) error {
 	switch item.Type {
+	case RunItemTypePlan:
+		return validateOptionalRunItemPlanDetails(item)
 	case RunItemTypeCommandExecution:
 		return validateRunItemCommandExecutionDetails(item)
 	case RunItemTypeCommandStartFailure:
@@ -790,6 +792,13 @@ func validateRunItemTypedDetails(item RunItem) error {
 		}
 		return nil
 	}
+}
+
+func validateOptionalRunItemPlanDetails(item RunItem) error {
+	if item.Details == nil {
+		return nil
+	}
+	return validateRunItemPlanDetailsBranch(item)
 }
 
 func validateRunItemMCPToolCallDetails(item RunItem, details RunItemMCPToolCallDetails) error {
