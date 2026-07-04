@@ -850,6 +850,49 @@ Remaining work:
 - the live Electron semantic cartographer timeout remains a residual live-gate
   blocker outside this active-work stack slice.
 
+### 2026-07-03: Background-Terminal Dwell Surface Model
+
+Implemented the next focused Phase 9 terminal dwell slice:
+
+- added an explicit renderer surface model for background terminals with
+  `active`, `complete`, and `attention` phases;
+- successful exited terminals now transition to a compact completed presentation
+  with a 2500ms minimum dwell, and completed auto-dismiss is blocked while the
+  monitor is open, hovered, or focused;
+- failed exits and lost terminals now render an attention footer and remain
+  visible until dismissed or inspected through the monitor close path;
+- background-terminal list refreshes preserve already-known active terminals
+  until a typed terminal status update moves them to an end state, preventing a
+  stale empty refresh from erasing live active-work UI;
+- the goal background-terminal fake fixture now leaves the terminal running long
+  enough for the production Codex protocol workflow to observe the monitor state
+  deterministically before completion.
+
+Verification performed:
+
+- `pnpm vitest run src/renderer/src/components/chat-background-terminal-monitor.test.tsx src/renderer/src/components/chat-panel.test.tsx src/renderer/src/stores/chat-events.test.ts`
+- `pnpm typecheck`
+- `pnpm lint`
+- `pnpm build`
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/format.sh`
+- `./scripts/test_chat_workflows.sh --skip-build --deterministic-only`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`: live backend
+  passed; final live Electron rerun reached the existing semantic-cartographer
+  backend-state timeout after the live chat steps.
+- `./check_quality.sh --git-changes`
+
+Remaining work:
+
+- add a dedicated production-path Electron assertion for successful background
+  terminal completed-row dwell once the fake provider workflow can surface that
+  terminal completion in the compact footer without racing the monitor
+  inspection path;
+- broaden production-path coverage for failed/lost background-terminal
+  attention persistence beyond the focused renderer/store tests;
+- the live Electron semantic-cartographer timeout remains a residual live-gate
+  blocker outside this active-work stack slice.
+
 ## Open Decisions
 
 - Is there any implementation case that truly requires a public non-alarming

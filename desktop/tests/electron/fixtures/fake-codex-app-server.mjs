@@ -1084,7 +1084,7 @@ function emitGoalOperationBackgroundTerminal(objective) {
         threadId,
         turn: fakeTurnWithID("turn_goal_b", "completed"),
       });
-    }, 800);
+    }, 2000);
   }, 350);
 }
 
@@ -1189,7 +1189,7 @@ function notifyUnifiedExecCompleted(turnID, execution) {
       commandActions: [],
       cwd: "/tmp/workspace",
       durationMs: 5,
-      exitCode: 0,
+      exitCode: execution.exitCode ?? 0,
       id: execution.itemId,
       processId: execution.processId,
       source: "unifiedExecStartup",

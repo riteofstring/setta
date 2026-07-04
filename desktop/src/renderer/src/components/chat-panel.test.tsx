@@ -889,6 +889,33 @@ describe("background terminal surface", () => {
     expect(html).toContain("Open background terminal monitor");
   });
 
+  test("renders the compact footer for attention background terminals", () => {
+    const terminal = backgroundTerminalProcess("background_terminal_lost", {
+      error: "provider connection lost",
+      status: "lost",
+    });
+    const html = renderToString(
+      <ChatPanel
+        chat={conversationBodyChat({
+          backgroundTerminalIdsByConversationId: {
+            conversation_api: [terminal.id],
+          },
+          backgroundTerminalsById: {
+            [terminal.id]: terminal,
+          },
+        })}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+        workspace={{ id: "workspace_api" } as Parameters<typeof ChatPanel>[0]["workspace"]}
+      />,
+    );
+
+    expect(html).toContain('data-testid="background-terminals-footer"');
+    expect(html).toContain('data-terminal-surface-state="attention"');
+    expect(html).toContain("1 background terminal needs attention");
+    expect(html).toContain("Dismiss background terminal status");
+  });
+
   test("renders monitor process output and per-process kill controls", () => {
     const alpha = backgroundTerminalProcess("background_terminal_alpha", {
       command: "npm run dev",

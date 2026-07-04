@@ -355,6 +355,20 @@ describe("chat transcript block reducer", () => {
     useChatStore.getState().handleEvent(backgroundTerminalsReplacedEvent(5, [beta]));
     expect(useChatStore.getState().backgroundTerminalIdsByConversationId[conversationId]).toEqual([
       beta.id,
+      alpha.id,
+    ]);
+
+    useChatStore.getState().handleEvent(
+      backgroundTerminalUpdatedEvent(6, {
+        ...alpha,
+        completedAt: "2026-05-29T20:00:03Z",
+        status: "exited",
+        updatedAt: "2026-05-29T20:00:03Z",
+      }),
+    );
+    useChatStore.getState().handleEvent(backgroundTerminalsReplacedEvent(7, [beta]));
+    expect(useChatStore.getState().backgroundTerminalIdsByConversationId[conversationId]).toEqual([
+      beta.id,
     ]);
   });
 

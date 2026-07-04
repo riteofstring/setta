@@ -19,13 +19,16 @@ export function backgroundTerminalsReplacedPatch(
   for (const terminal of terminals) {
     backgroundTerminalsById[terminal.id] = terminal;
   }
+  const ids = replacementBackgroundTerminalIds(
+    state,
+    conversationId,
+    terminals,
+    backgroundTerminalsById,
+  );
   return {
     backgroundTerminalIdsByConversationId: {
       ...state.backgroundTerminalIdsByConversationId,
-      [conversationId]: sortedBackgroundTerminalIds(
-        terminals.map((terminal) => terminal.id),
-        backgroundTerminalsById,
-      ),
+      [conversationId]: sortedBackgroundTerminalIds(ids, backgroundTerminalsById),
     },
     backgroundTerminalsById,
   };
@@ -182,6 +185,22 @@ function compareBackgroundTerminals(
   return left.startedAt.localeCompare(right.startedAt);
 }
 
+function replacementBackgroundTerminalIds(
+  state: ChatStore,
+  conversationId: string,
+  terminals: BackgroundTerminalProcess[],
+  processes: Record<string, BackgroundTerminalProcess | undefined>,
+) {
+  const ids = new Set(terminals.map((terminal) => terminal.id));
+  for (const id of state.backgroundTerminalIdsByConversationId[conversationId] ?? []) {
+    const process = processes[id];
+    if (process !== undefined && backgroundTerminalStatusIsActive(process.status)) {
+      ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
 function backgroundTerminalStatusRank(terminal: BackgroundTerminalProcess) {
   switch (terminal.status) {
     case "running":
@@ -194,6 +213,19 @@ function backgroundTerminalStatusRank(terminal: BackgroundTerminalProcess) {
       return 3;
     default:
       return assertNever(terminal.status);
+  }
+}
+
+function backgroundTerminalStatusIsActive(status: BackgroundTerminalProcess["status"]) {
+  switch (status) {
+    case "running":
+    case "terminating":
+      return true;
+    case "exited":
+    case "lost":
+      return false;
+    default:
+      return assertNever(status);
   }
 }
 
