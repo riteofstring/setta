@@ -8546,6 +8546,7 @@ export function decodeRunItemDetails(value: unknown): RunItemDetails {
     providerStreamLifecycle: decodeNullable(requireField(record, "providerStreamLifecycle", "RunItemDetails"), "RunItemDetails.providerStreamLifecycle", (item) => decodeRunItemProviderStreamLifecycleDetails(item)),
   };
   assertTaggedUnionBranch("RunItemDetails", result.kind, {
+    "plan": result.plan,
     "command_execution": result.commandExecution,
     "command_start_failure": result.commandStartFailure,
     "mcp_tool_call": result.mcpToolCall,

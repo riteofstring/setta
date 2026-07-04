@@ -875,6 +875,7 @@ function conversationDetail(conversation: Conversation, messages: ChatMessage[])
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItemOutputsById: {},
+    runsById: {},
     transcriptBlocks: [],
     transcriptBlocksById: {},
   };

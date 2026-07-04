@@ -33,6 +33,33 @@ type NormalizableChatPatch = {
   transcriptBlocksById?: Record<string, TranscriptBlock>;
 };
 
+export function runsByIdFromRuns(runs: Iterable<Run | null | undefined>): Record<string, Run> {
+  const runsById: Record<string, Run> = {};
+  for (const run of runs) {
+    if (run) {
+      runsById[run.id] = run;
+    }
+  }
+  return runsById;
+}
+
+export function upsertRunsById(
+  current: Record<string, Run>,
+  runs: Iterable<Run | null | undefined>,
+) {
+  let next = current;
+  for (const run of runs) {
+    if (!run || next[run.id] === run) {
+      continue;
+    }
+    if (next === current) {
+      next = { ...current };
+    }
+    next[run.id] = run;
+  }
+  return next;
+}
+
 export function activeRunFromCandidate(run: Run | null): RunningRun | null {
   if (run?.status === "running") {
     return run as RunningRun;

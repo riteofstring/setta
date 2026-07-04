@@ -14,9 +14,11 @@ import {
   messagesFromPage,
   normalizeChatPatch,
   queuedRunsFromPage,
+  runsByIdFromRuns,
   terminalRunIdsAfterOperation,
   terminalRunIdsFromBlocks,
   type RunningRun,
+  upsertRunsById,
 } from "./chat-store-normalization";
 
 // A page is a fresh conversation transcript snapshot. Raw run items and run item
@@ -39,6 +41,7 @@ export function pagePatch(
     queuedRuns: queuedRunsFromPage(page),
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
+    runsById: runsByIdFromRuns([activeRun, ...page.queue.runs]),
     selectedConversation: page.conversation,
     transcriptBlocks: blocksFromPage(page),
   });
@@ -61,13 +64,14 @@ export function operationPagePatch(
     fallbackActiveRun,
     terminalRunIds,
   );
-  return terminalPreservingPagePatch(
+  return terminalPreservingPagePatch({
     current,
     page,
     activeRun,
-    activeRunLivenessFromCandidates(activeRun, current.activeRunLiveness),
+    activeRunLiveness: activeRunLivenessFromCandidates(activeRun, current.activeRunLiveness),
     terminalRunIds,
-  );
+    observedRuns: [returnedRun, activeRun, ...page.queue.runs],
+  });
 }
 
 export function runOperationPatch(
@@ -91,6 +95,7 @@ export function runOperationPatch(
       activeRunAfterOperation(current.activeRun, returnedRun, fallbackActiveRun, terminalRunIds),
       current.activeRunLiveness,
     ),
+    runsById: upsertRunsById(current.runsById, [returnedRun]),
   };
 }
 
@@ -105,13 +110,14 @@ export function resyncPagePatch(
     current.activeRun?.id ?? null,
   );
   const normalizedActiveRun = activeRunFromCandidates(terminalRunIds, activeRun);
-  return terminalPreservingPagePatch(
+  return terminalPreservingPagePatch({
     current,
     page,
-    normalizedActiveRun,
-    activeRunLivenessFromCandidates(normalizedActiveRun, activeRunLiveness),
+    activeRun: normalizedActiveRun,
+    activeRunLiveness: activeRunLivenessFromCandidates(normalizedActiveRun, activeRunLiveness),
     terminalRunIds,
-  );
+    observedRuns: [activeRun, ...page.queue.runs],
+  });
 }
 
 export function commandOperationPatch(
@@ -123,16 +129,15 @@ export function commandOperationPatch(
     current.transcriptBlocks,
     current.activeRun?.id ?? null,
   );
-  return terminalPreservingPagePatch(
+  const activeRun = activeRunFromCandidates(terminalRunIds, current.activeRun, fallbackActiveRun);
+  return terminalPreservingPagePatch({
     current,
-    result.page,
-    activeRunFromCandidates(terminalRunIds, current.activeRun, fallbackActiveRun),
-    activeRunLivenessFromCandidates(
-      activeRunFromCandidates(terminalRunIds, current.activeRun, fallbackActiveRun),
-      current.activeRunLiveness,
-    ),
+    page: result.page,
+    activeRun,
+    activeRunLiveness: activeRunLivenessFromCandidates(activeRun, current.activeRunLiveness),
     terminalRunIds,
-  );
+    observedRuns: [current.activeRun, fallbackActiveRun, ...result.page.queue.runs],
+  });
 }
 
 export function emptyConversationPatch(): ChatPatch {
@@ -154,18 +159,29 @@ export function emptyConversationPatch(): ChatPatch {
     removingQueuedMessageId: null,
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
+    runsById: {},
     selectedConversation: null,
     transcriptBlocks: [],
   });
 }
 
-function terminalPreservingPagePatch(
-  current: ChatStore,
-  page: MessagePage,
-  activeRun: RunningRun | null,
-  activeRunLiveness: RunLiveness | null,
-  terminalRunIds: Set<string>,
-): ChatPatch {
+interface TerminalPreservingPagePatchOptions {
+  activeRun: RunningRun | null;
+  activeRunLiveness: RunLiveness | null;
+  current: ChatStore;
+  observedRuns: Iterable<Run | null | undefined>;
+  page: MessagePage;
+  terminalRunIds: Set<string>;
+}
+
+function terminalPreservingPagePatch({
+  activeRun,
+  activeRunLiveness,
+  current,
+  observedRuns,
+  page,
+  terminalRunIds,
+}: TerminalPreservingPagePatchOptions): ChatPatch {
   const patch = pagePatch(
     {
       ...page,
@@ -187,5 +203,6 @@ function terminalPreservingPagePatch(
     runItemOutputPagesByRunItemId: current.runItemOutputPagesByRunItemId,
     runItemOutputs: current.runItemOutputs,
     runItemOutputsById: current.runItemOutputsById,
+    runsById: upsertRunsById(current.runsById, observedRuns),
   };
 }

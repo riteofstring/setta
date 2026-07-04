@@ -4,6 +4,7 @@ import type {
   ChatGoalState,
   ChatMessage,
   Conversation,
+  Run,
   RunLiveness,
   RunItemOutput,
   TranscriptBlock,
@@ -34,6 +35,7 @@ export interface ConversationDetailState {
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputs: RunItemOutput[];
   runItemOutputsById: Record<string, RunItemOutput>;
+  runsById: Record<string, Run>;
   transcriptBlocks: TranscriptBlock[];
   transcriptBlocksById: Record<string, TranscriptBlock>;
 }
@@ -65,6 +67,7 @@ export function conversationDetailPatch(detail: ConversationDetailState): ChatPa
     runItemOutputPagesByRunItemId: detail.runItemOutputPagesByRunItemId,
     runItemOutputs: detail.runItemOutputs,
     runItemOutputsById: detail.runItemOutputsById,
+    runsById: detail.runsById,
     selectedConversation: detail.conversation,
     transcriptBlocks: detail.transcriptBlocks,
     transcriptBlocksById: detail.transcriptBlocksById,
@@ -142,6 +145,7 @@ function conversationDetailFromStatePatch(
     runItemOutputPagesByRunItemId: patchedValue(state, patch, "runItemOutputPagesByRunItemId"),
     runItemOutputs: patchedValue(state, patch, "runItemOutputs"),
     runItemOutputsById: patchedValue(state, patch, "runItemOutputsById"),
+    runsById: patchedValue(state, patch, "runsById"),
     transcriptBlocks: patchedValue(state, patch, "transcriptBlocks"),
     transcriptBlocksById: patchedValue(state, patch, "transcriptBlocksById"),
   };

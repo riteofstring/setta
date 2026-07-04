@@ -26,6 +26,11 @@ type ContractTestResponse struct {
 	Score  *float64           `json:"score"`
 }
 
+type ContractTaggedUnionResponse struct {
+	Blocks []chat.TranscriptBlock `json:"blocks"`
+	Item   chat.RunItem           `json:"item"`
+}
+
 type ContractTestError struct {
 	Message string `json:"message"`
 }
@@ -235,7 +240,7 @@ func TestRenderTaggedUnionStructValidatesBranchInvariant(t *testing.T) {
 			Method:   "POST",
 			Path:     "/contract-block-page",
 			Request:  reflect.TypeFor[ContractTestRequest](),
-			Response: reflect.TypeFor[chat.MessagePage](),
+			Response: reflect.TypeFor[ContractTaggedUnionResponse](),
 		}},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
 	}, chat.EventContractSchema{})
@@ -255,6 +260,9 @@ func TestRenderTaggedUnionStructValidatesBranchInvariant(t *testing.T) {
 		"assertTaggedUnionBranch(\"TranscriptBlock\", result.kind, {",
 		"\"assistant_text\": result.assistantText,",
 		"\"run_status\": result.runStatus,",
+		"export function decodeRunItemDetails(value: unknown): RunItemDetails {",
+		"assertTaggedUnionBranch(\"RunItemDetails\", result.kind, {",
+		"\"plan\": result.plan,",
 		"return result;",
 	} {
 		if !strings.Contains(output, want) {

@@ -24,6 +24,7 @@ import {
   backgroundTerminalsReplacedEvent,
   backgroundTerminalUpdatedEvent,
   reasoningBlock,
+  runUpdatedEvent,
   runItemCreatedEvent,
   runItemUpdatedEvent,
   runStatusBlock,
@@ -132,6 +133,18 @@ describe("chat transcript block reducer", () => {
 
     expect(result.resync).toBe(true);
     expect(useChatStore.getState().transcriptBlocksById["b1"]?.assistantText?.text).toBe("Hello");
+  });
+
+  test("terminal run update clears active run and preserves typed run status", () => {
+    useChatStore.setState({
+      activeRun: testRun("running", "run_complete"),
+      runsById: { run_complete: testRun("running", "run_complete") },
+    });
+
+    useChatStore.getState().handleEvent(runUpdatedEvent(1, testRun("completed", "run_complete")));
+
+    expect(useChatStore.getState().activeRun).toBeNull();
+    expect(useChatStore.getState().runsById.run_complete?.status).toBe("completed");
   });
 
   test("blocks replaced swaps a run's blocks in place and drops the working indicator", () => {

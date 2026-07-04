@@ -16,7 +16,11 @@ import { testRun } from "../stores/chat-store.test.fixtures";
 import { BackgroundTerminalMonitor } from "./chat-background-terminal-monitor";
 import { Composer } from "./chat-composer";
 import { commandComposerState } from "./chat-command-composer-controller";
-import { currentPlanFromTranscript } from "./chat-current-plan-surface";
+import {
+  canDismissCompletedCurrentPlan,
+  currentPlanFromTranscript,
+  nextCurrentPlanSurfaceModel,
+} from "./chat-current-plan-surface";
 import {
   CommandPalette,
   commandSuggestions,
@@ -730,6 +734,7 @@ describe("background terminal surface", () => {
     expect(html).toContain('data-testid="current-plan-surface"');
     expect(html).toContain('data-run-id="run_plan"');
     expect(html).toContain('data-run-item-id="run_item_plan"');
+    expect(html).toContain('data-plan-state="active"');
     expect(html).toContain('data-plan-completed-count="1"');
     expect(html).toContain('data-current-step="Render the active surface"');
     expect(html).toContain("Current plan");
@@ -782,6 +787,82 @@ describe("background terminal surface", () => {
 
     expect(currentPlan?.sourceRunItemId).toBe("run_item_active_plan");
     expect(currentPlan?.plan.steps).toEqual([{ status: "inProgress", step: "Use typed plan" }]);
+  });
+
+  test("retains the last active typed plan as a completed dwell surface", () => {
+    const activePlanBlock = activityBlock({
+      id: "block_active_plan",
+      runId: "run_plan",
+      ordinal: 3,
+      sourceRunItemId: "run_item_active_plan",
+      type: "plan",
+      details: activityDetails({
+        plan: {
+          explanation: "",
+          steps: [{ status: "completed", step: "Use typed plan" }],
+        },
+      }),
+    });
+    const activePlan = currentPlanFromTranscript([activePlanBlock], testRun("running", "run_plan"));
+    if (activePlan === null) {
+      throw new Error("expected active typed plan");
+    }
+
+    const activeSurface = nextCurrentPlanSurfaceModel(null, "conversation_api", activePlan);
+    expect(activeSurface?.phase).toBe("active");
+
+    const completedSurface = nextCurrentPlanSurfaceModel(
+      activeSurface,
+      "conversation_api",
+      null,
+      "completed",
+    );
+    expect(completedSurface?.phase).toBe("complete");
+    expect(completedSurface?.sourceRunItemId).toBe("run_item_active_plan");
+    expect(completedSurface?.plan.steps).toEqual(activePlan.plan.steps);
+
+    expect(nextCurrentPlanSurfaceModel(completedSurface, "conversation_other", null)).toBeNull();
+  });
+
+  test("does not keep a completed plan surface for cancelled runs", () => {
+    const activePlanBlock = activityBlock({
+      id: "block_active_plan",
+      runId: "run_plan",
+      ordinal: 3,
+      sourceRunItemId: "run_item_active_plan",
+      type: "plan",
+      details: activityDetails({
+        plan: {
+          explanation: "",
+          steps: [{ status: "inProgress", step: "Use typed plan" }],
+        },
+      }),
+    });
+    const activePlan = currentPlanFromTranscript([activePlanBlock], testRun("running", "run_plan"));
+    if (activePlan === null) {
+      throw new Error("expected active typed plan");
+    }
+
+    const activeSurface = nextCurrentPlanSurfaceModel(null, "conversation_api", activePlan);
+
+    expect(
+      nextCurrentPlanSurfaceModel(activeSurface, "conversation_api", null, "cancelled"),
+    ).toBeNull();
+  });
+
+  test("blocks completed current-plan dismissal while the user is interacting with it", () => {
+    expect(
+      canDismissCompletedCurrentPlan({ expanded: false, focused: false, hovered: false }),
+    ).toBe(true);
+    expect(canDismissCompletedCurrentPlan({ expanded: true, focused: false, hovered: false })).toBe(
+      false,
+    );
+    expect(canDismissCompletedCurrentPlan({ expanded: false, focused: true, hovered: false })).toBe(
+      false,
+    );
+    expect(canDismissCompletedCurrentPlan({ expanded: false, focused: false, hovered: true })).toBe(
+      false,
+    );
   });
 
   test("renders the compact footer for active background terminals", () => {

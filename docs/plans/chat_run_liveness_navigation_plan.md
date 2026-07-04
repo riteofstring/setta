@@ -760,6 +760,54 @@ Remaining work:
 - formalize the shared active-work stack with current-plan/background-terminal
   coexistence assertions and background-terminal completion dwell.
 
+### 2026-07-03: Current-Plan Completion Dwell
+
+Implemented the next focused Phase 8 completion slice:
+
+- retained the selected conversation's last active typed current plan after the
+  owning run leaves `activeRun`, using typed `Run.status` from renderer store
+  state rather than transcript text, elapsed time, or terminal-row heuristics;
+- added a selected-detail `runsById` cache populated from typed page,
+  operation, queue, and `chat.run.updated` payloads so terminal `completed`,
+  `cancelled`, and `failed` run states remain available after `activeRun` is
+  cleared;
+- transitioned completed plans to a `Plan complete` surface with a 1500ms
+  minimum dwell, and cleared cancelled or failed runs without showing a
+  completed presentation;
+- prevented auto-dismiss while the completed surface is expanded, hovered, or
+  keyboard focus remains inside it, then dismissed once the dwell has elapsed
+  and interaction protection is gone;
+- extended the Codex protocol Electron workflow so a typed plan update
+  completes all steps, the run completes, the completed surface remains while
+  expanded past the dwell, and then clears after collapse;
+- fixed the generated contract registry for the existing `RunItemDetails.plan`
+  tagged-union branch after the production Electron workflow exposed that the
+  generated decoder did not include the `plan` payload in its branch invariant.
+
+Verification performed:
+
+- `./scripts/go.sh test ./cmd/generate-contracts`
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `pnpm vitest run src/renderer/src/components/chat-panel.test.tsx src/renderer/src/stores/chat-events.test.ts`
+- `pnpm typecheck`
+- `pnpm build`
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/test_chat_workflows.sh --deterministic-only`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`: live Codex
+  backend passed; live Electron reached the live semantic cartographer subcase
+  after the earlier live chat steps, then failed waiting for
+  `liveCartographerApplied` because the workflow execution completed but no
+  applied cartographer run/patch state was observed before timeout.
+
+Remaining work:
+
+- formalize the shared active-work stack with current-plan/background-terminal
+  coexistence assertions;
+- implement Phase 9 background-terminal completion dwell, including failed/lost
+  persistence and expanded/hovered/focused auto-dismiss protection;
+- the live Electron semantic cartographer timeout remains a residual live-gate
+  blocker outside this current-plan completion slice.
+
 ## Open Decisions
 
 - Is there any implementation case that truly requires a public non-alarming

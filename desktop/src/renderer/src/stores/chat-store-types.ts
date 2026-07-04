@@ -19,6 +19,7 @@ import type {
   ListConversationsResponse,
   QueueMessageResult,
   ReasoningEffort,
+  Run,
   RunLiveness,
   RunItemOutput,
   SendMessageResult,
@@ -134,6 +135,7 @@ export interface ChatStore {
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputs: RunItemOutput[];
   runItemOutputsById: Record<string, RunItemOutput>;
+  runsById: Record<string, Run>;
   selectedConversation: Conversation | null;
   selectedConversationIdsByWorkspaceId: Record<string, string | undefined>;
   selectConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
@@ -195,6 +197,7 @@ export type ChatPatch = Partial<
     | "runItemOutputPagesByRunItemId"
     | "runItemOutputs"
     | "runItemOutputsById"
+    | "runsById"
     | "selectedConversation"
     | "selectedConversationIdsByWorkspaceId"
     | "status"

@@ -510,9 +510,35 @@ async function runProtocolCurrentPlanWorkflow(client, backend, workspaceId) {
     );
   }
 
-  await clickButtonByAria(client, "Stop run");
-  await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");
+  await callRendererChatAPI(client, "steerMessage", [
+    workspaceId,
+    conversationId,
+    chatTextInput("complete current plan workflow"),
+  ]);
+  await waitForTexts(client, ["Current plan complete."]);
+  await waitForRunStatus(backend, workspaceId, conversationId, run.id, "completed");
   await assertNoActiveRun(backend, workspaceId, conversationId);
+  await waitForCurrentPlanSurface(client, {
+    completedCount: "3",
+    currentStep: "",
+    phase: "complete",
+    runId: run.id,
+    stepCount: "3",
+    stepText: "Verify the active surface update",
+  });
+  await delay(1700);
+  await waitForCurrentPlanSurface(client, {
+    completedCount: "3",
+    currentStep: "",
+    expanded: "true",
+    phase: "complete",
+    runId: run.id,
+    stepCount: "3",
+    stepText: "Verify the active surface update",
+  });
+  await client.evaluate(
+    `document.querySelector('[data-testid="current-plan-footer"] button')?.click()`,
+  );
   await waitForState(
     client,
     `(() => ({ present: Boolean(document.querySelector('[data-testid="current-plan-surface"]')) }))()`,
@@ -555,7 +581,7 @@ async function assertProtocolGoalBackgroundTerminalMonitor(client) {
 
 async function waitForCurrentPlanSurface(
   client,
-  { completedCount, currentStep, runId, stepCount },
+  { completedCount, currentStep, expanded = "", phase = "active", runId, stepCount, stepText },
 ) {
   let lastSurface = null;
   await waitForState(
@@ -567,6 +593,8 @@ async function waitForCurrentPlanSurface(
         completedCount: surface?.getAttribute("data-plan-completed-count") ?? "",
         count: surfaces.length,
         currentStep: surface?.getAttribute("data-current-step") ?? "",
+        expanded: surface?.getAttribute("data-expanded") ?? "",
+        phase: surface?.getAttribute("data-plan-state") ?? "",
         runId: surface?.getAttribute("data-run-id") ?? "",
         runItemId: surface?.getAttribute("data-run-item-id") ?? "",
         stepCount: surface?.getAttribute("data-plan-step-count") ?? "",
@@ -575,19 +603,56 @@ async function waitForCurrentPlanSurface(
     })()`,
     (value) => {
       lastSurface = value;
-      return (
-        value.count === 1 &&
-        value.runId === runId &&
-        value.completedCount === completedCount &&
-        value.stepCount === stepCount &&
-        value.currentStep === currentStep &&
-        value.text.includes("Current plan") &&
-        value.text.includes(`${completedCount}/${stepCount} done`) &&
-        value.text.includes(currentStep)
-      );
+      return currentPlanSurfaceMatches(value, {
+        completedCount,
+        currentStep,
+        expanded,
+        phase,
+        runId,
+        stepCount,
+        stepText,
+      });
     },
   );
   return lastSurface;
+}
+
+function currentPlanSurfaceMatches(value, expected) {
+  return (
+    currentPlanSurfaceIdentityMatches(value, expected) &&
+    currentPlanSurfaceStateMatches(value, expected) &&
+    currentPlanSurfaceTextMatches(value, expected)
+  );
+}
+
+function currentPlanSurfaceIdentityMatches(value, expected) {
+  return value.count === 1 && value.runId === expected.runId;
+}
+
+function currentPlanSurfaceStateMatches(value, expected) {
+  return (
+    value.completedCount === expected.completedCount &&
+    currentPlanSurfaceExpansionMatches(value, expected.expanded) &&
+    value.phase === expected.phase &&
+    value.stepCount === expected.stepCount &&
+    value.currentStep === expected.currentStep
+  );
+}
+
+function currentPlanSurfaceExpansionMatches(value, expanded) {
+  return expanded === "" || value.expanded === expanded;
+}
+
+function currentPlanSurfaceTextMatches(value, expected) {
+  return (
+    value.text.includes(currentPlanSurfaceHeading(expected.phase)) &&
+    value.text.includes(`${expected.completedCount}/${expected.stepCount} done`) &&
+    value.text.includes(expected.stepText ?? expected.currentStep)
+  );
+}
+
+function currentPlanSurfaceHeading(phase) {
+  return phase === "complete" ? "Plan complete" : "Current plan";
 }
 
 async function assertCurrentPlanExpanded(client, { explanation, statuses }) {

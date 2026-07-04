@@ -486,6 +486,7 @@ export function useChatViewState() {
     (state) => state.runItemOutputPagesByRunItemId,
   );
   const runItemOutputsById = useChatStore((state) => state.runItemOutputsById);
+  const runsById = useChatStore((state) => state.runsById);
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
@@ -584,6 +585,7 @@ export function useChatViewState() {
     runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,
     runItemOutputsById,
+    runsById,
     selectConversation,
     selectedConversation,
     sendMessage,

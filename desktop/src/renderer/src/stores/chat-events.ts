@@ -11,6 +11,7 @@ import {
   activeRunLivenessFromCandidate,
   appendTranscriptBlockText,
   replaceRunTranscriptBlocks,
+  upsertRunsById,
   upsertTranscriptBlock,
 } from "./chat-store-normalization";
 import { runLivenessNeedsSnapshotResync } from "../lib/chat-run-liveness";
@@ -325,6 +326,7 @@ function applyRunUpdatedEvent(
     {
       activeRun,
       activeRunLiveness: activeRunLivenessFromCandidate(activeRun, state.activeRunLiveness),
+      runsById: upsertRunsById(state.runsById, [event.payload.run]),
       status: "ready",
     },
     false,
@@ -395,6 +397,7 @@ function applyQueueUpdatedEvent(
     {
       messages: mergeQueueMessages(state.messages, event.payload.queue.messages),
       queuedRuns: queuedRunsFromQueue(event.payload.queue.runs),
+      runsById: upsertRunsById(state.runsById, event.payload.queue.runs),
       status: "ready",
     },
     false,
@@ -496,6 +499,7 @@ function emptySelectedConversationPatch(): ChatPatch {
     messagesById: {},
     olderBeforeBlockOrdinal: 0,
     queuedRuns: [],
+    runsById: {},
     runItemOutputIdsByRunItemId: {},
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],

@@ -918,6 +918,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     runItemOutputIdsByRunItemId: {},
     runItemOutputPagesByRunItemId: {},
     runItemOutputsById: {},
+    runsById: {},
     steerMessage: async (input: ChatInput) => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {

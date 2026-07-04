@@ -478,6 +478,29 @@ function handleCurrentPlanSteer(message) {
     return false;
   }
   const text = turnInputText(message);
+  if (text.includes("complete current plan workflow")) {
+    activeSilentLivenessTurn = null;
+    respond(message.id, {});
+    notifyCurrentPlanUpdate({
+      explanation: "Plan completed for the current turn.",
+      steps: [
+        { status: "completed", step: "Read the plan" },
+        { status: "completed", step: "Render the active surface" },
+        { status: "completed", step: "Verify the active surface update" },
+      ],
+    });
+    notify("item/agentMessage/delta", {
+      delta: "Current plan complete. ",
+      itemId: "current_plan_message_fake",
+      threadId,
+      turnId,
+    });
+    notify("turn/completed", {
+      threadId,
+      turn: fakeTurn("completed"),
+    });
+    return true;
+  }
   if (!text.includes("update current plan workflow")) {
     return false;
   }

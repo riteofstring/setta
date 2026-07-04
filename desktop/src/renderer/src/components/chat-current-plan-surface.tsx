@@ -1,12 +1,15 @@
-import type { RunItemPlanDetails, RunItemPlanStep, TranscriptBlock } from "@generated/backend";
+import type { Run, RunItemPlanDetails, RunItemPlanStep, TranscriptBlock } from "@generated/backend";
 import { Check, ChevronDown, ChevronRight, Circle, ListChecks, LoaderCircle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
 import type { ChatView } from "./chat-panel";
 import { chatReadableColumnAttributes, chatReadableColumnPaddedClass } from "./chat-layout";
 
+const currentPlanCompletionDwellMs = 1500;
+
 interface CurrentPlanModel {
+  conversationId: string;
   plan: RunItemPlanDetails;
   runId: string;
   sourceRunItemId: string;
@@ -16,36 +19,120 @@ interface CurrentPlanCandidate extends CurrentPlanModel {
   ordinal: number;
 }
 
+type CurrentPlanSurfacePhase = "active" | "complete";
+type CurrentPlanTerminalMode = "completed" | "cancelled" | "failed";
+
+interface CurrentPlanSurfaceModel extends CurrentPlanModel {
+  phase: CurrentPlanSurfacePhase;
+}
+
+interface CurrentPlanInteractionState {
+  expanded: boolean;
+  focused: boolean;
+  hovered: boolean;
+}
+
 export function CurrentPlanSurface({ chat }: { chat: ChatView }) {
-  const currentPlan = useMemo(
+  const selectedConversationId = chat.selectedConversation?.id ?? "";
+  const activePlan = useMemo(
     () => currentPlanFromTranscript(chat.transcriptBlocks, chat.activeRun),
     [chat.activeRun, chat.transcriptBlocks],
   );
+  const [surfacePlan, setSurfacePlan] = useState<CurrentPlanSurfaceModel | null>(() =>
+    nextCurrentPlanSurfaceModel(null, selectedConversationId, activePlan),
+  );
   const [expanded, setExpanded] = useState(false);
-  const surfaceKey = currentPlanSurfaceKey(currentPlan);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [completionDwellElapsed, setCompletionDwellElapsed] = useState(false);
+  const surfaceKey = currentPlanSurfaceKey(surfacePlan);
+  const canDismissCompletedPlan = canDismissCompletedCurrentPlan({
+    expanded,
+    focused,
+    hovered,
+  });
+  const canDismissCompletedPlanRef = useRef(canDismissCompletedPlan);
 
   useEffect(() => {
     setExpanded(false);
   }, [surfaceKey]);
 
-  if (currentPlan === null) {
+  useEffect(() => {
+    setSurfacePlan((current) => {
+      const terminalMode =
+        current === null ? null : terminalRunStatusModeFromRun(chat.runsById[current.runId]);
+      return nextCurrentPlanSurfaceModel(current, selectedConversationId, activePlan, terminalMode);
+    });
+  }, [activePlan, chat.runsById, selectedConversationId]);
+
+  useEffect(() => {
+    setCompletionDwellElapsed(false);
+  }, [
+    surfacePlan?.conversationId,
+    surfacePlan?.phase,
+    surfacePlan?.runId,
+    surfacePlan?.sourceRunItemId,
+  ]);
+
+  useEffect(() => {
+    canDismissCompletedPlanRef.current = canDismissCompletedPlan;
+  }, [canDismissCompletedPlan]);
+
+  useEffect(() => {
+    if (surfacePlan?.phase !== "complete") {
+      return;
+    }
+    const planToDismiss = surfacePlan;
+    const timeout = window.setTimeout(() => {
+      if (!canDismissCompletedPlanRef.current) {
+        setCompletionDwellElapsed(true);
+        return;
+      }
+      setSurfacePlan((current) =>
+        sameCurrentPlanSurface(current, planToDismiss) ? null : current,
+      );
+    }, currentPlanCompletionDwellMs);
+    return () => window.clearTimeout(timeout);
+  }, [surfacePlan]);
+
+  useEffect(() => {
+    if (!completionDwellElapsed || surfacePlan?.phase !== "complete" || !canDismissCompletedPlan) {
+      return;
+    }
+    const planToDismiss = surfacePlan;
+    setSurfacePlan((current) => (sameCurrentPlanSurface(current, planToDismiss) ? null : current));
+  }, [canDismissCompletedPlan, completionDwellElapsed, surfacePlan]);
+
+  if (surfacePlan === null) {
     return null;
   }
 
-  const summary = currentPlanSummary(currentPlan.plan);
-  const toggleLabel = currentPlanToggleLabel(expanded);
+  const summary = currentPlanSummary(surfacePlan.plan);
+  const toggleLabel = currentPlanToggleLabel(expanded, surfacePlan.phase);
   return (
     <div
       className="workspace-chat-pane-surface shrink-0 border-t border-border"
       data-current-step={summary.currentStepLabel}
       data-expanded={String(expanded)}
       data-plan-completed-count={summary.completedCount}
-      data-plan-step-count={currentPlan.plan.steps.length}
-      data-run-id={currentPlan.runId}
-      data-run-item-id={currentPlan.sourceRunItemId}
+      data-plan-state={surfacePlan.phase}
+      data-plan-step-count={surfacePlan.plan.steps.length}
+      data-run-id={surfacePlan.runId}
+      data-run-item-id={surfacePlan.sourceRunItemId}
       data-testid="current-plan-surface"
+      onBlurCapture={(event) => {
+        if (
+          event.relatedTarget === null ||
+          !event.currentTarget.contains(event.relatedTarget as Node)
+        ) {
+          setFocused(false);
+        }
+      }}
+      onFocusCapture={() => setFocused(true)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      {expanded ? <CurrentPlanExpanded plan={currentPlan.plan} /> : null}
+      {expanded ? <CurrentPlanExpanded plan={surfacePlan.plan} /> : null}
       <div
         {...chatReadableColumnAttributes}
         className={chatReadableColumnPaddedClass}
@@ -60,8 +147,10 @@ export function CurrentPlanSurface({ chat }: { chat: ChatView }) {
           type="button"
         >
           <CurrentPlanDisclosureIcon expanded={expanded} />
-          <ListChecks className="h-4 w-4 shrink-0 text-status-success" aria-hidden="true" />
-          <span className="shrink-0 font-medium text-foreground">Current plan</span>
+          <CurrentPlanStateIcon phase={surfacePlan.phase} />
+          <span className="shrink-0 font-medium text-foreground">
+            {currentPlanSurfaceLabel(surfacePlan.phase)}
+          </span>
           <span className="shrink-0 text-muted-foreground">{summary.progressLabel}</span>
           <span className="min-w-0 truncate text-muted-foreground">{summary.stepLabel}</span>
         </button>
@@ -82,6 +171,7 @@ export function currentPlanFromTranscript(
     return null;
   }
   return {
+    conversationId: latest.conversationId,
     plan: latest.plan,
     runId: latest.runId,
     sourceRunItemId: latest.sourceRunItemId,
@@ -122,6 +212,7 @@ function currentPlanCandidate(
     return null;
   }
   return {
+    conversationId: activeRun.conversationId,
     ordinal: block.ordinal,
     plan,
     runId: activeRun.id,
@@ -189,6 +280,17 @@ function CurrentPlanDisclosureIcon({ expanded }: { expanded: boolean }) {
   return <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />;
 }
 
+function CurrentPlanStateIcon({ phase }: { phase: CurrentPlanSurfacePhase }) {
+  switch (phase) {
+    case "active":
+      return <ListChecks className="h-4 w-4 shrink-0 text-status-success" aria-hidden="true" />;
+    case "complete":
+      return <Check className="h-4 w-4 shrink-0 text-status-success" aria-hidden="true" />;
+    default:
+      return assertNever(phase);
+  }
+}
+
 function PlanStepIcon({ status }: { status: RunItemPlanStep["status"] }) {
   switch (status) {
     case "completed":
@@ -242,8 +344,88 @@ function currentPlanSurfaceKey(plan: CurrentPlanModel | null) {
   return `${plan.runId}:${plan.sourceRunItemId}`;
 }
 
-function currentPlanToggleLabel(expanded: boolean) {
-  return expanded ? "Collapse current plan" : "Expand current plan";
+function currentPlanToggleLabel(expanded: boolean, phase: CurrentPlanSurfacePhase) {
+  const name = phase === "complete" ? "completed plan" : "current plan";
+  return expanded ? `Collapse ${name}` : `Expand ${name}`;
+}
+
+function currentPlanSurfaceLabel(phase: CurrentPlanSurfacePhase) {
+  switch (phase) {
+    case "active":
+      return "Current plan";
+    case "complete":
+      return "Plan complete";
+    default:
+      return assertNever(phase);
+  }
+}
+
+export function nextCurrentPlanSurfaceModel(
+  current: CurrentPlanSurfaceModel | null,
+  selectedConversationId: string,
+  activePlan: CurrentPlanModel | null,
+  terminalMode: CurrentPlanTerminalMode | null = null,
+): CurrentPlanSurfaceModel | null {
+  if (activePlan !== null) {
+    return { ...activePlan, phase: "active" };
+  }
+  if (current === null || current.conversationId !== selectedConversationId) {
+    return null;
+  }
+  if (current.phase === "complete") {
+    return current;
+  }
+  return currentPlanSurfaceModelForTerminal(current, terminalMode);
+}
+
+function currentPlanSurfaceModelForTerminal(
+  current: CurrentPlanSurfaceModel,
+  terminalMode: CurrentPlanTerminalMode | null,
+): CurrentPlanSurfaceModel | null {
+  switch (terminalMode) {
+    case "completed":
+      return { ...current, phase: "complete" };
+    case "cancelled":
+    case "failed":
+    case null:
+      return null;
+    default:
+      return assertNever(terminalMode);
+  }
+}
+
+export function canDismissCompletedCurrentPlan(interaction: CurrentPlanInteractionState) {
+  return !interaction.expanded && !interaction.focused && !interaction.hovered;
+}
+
+function terminalRunStatusModeFromRun(run: Run | undefined): CurrentPlanTerminalMode | null {
+  if (!run) {
+    return null;
+  }
+  switch (run.status) {
+    case "completed":
+    case "cancelled":
+    case "failed":
+      return run.status;
+    case "queued":
+    case "running":
+      return null;
+    default:
+      return assertNever(run.status);
+  }
+}
+
+function sameCurrentPlanSurface(
+  current: CurrentPlanSurfaceModel | null,
+  expected: CurrentPlanSurfaceModel,
+) {
+  return (
+    current !== null &&
+    current.conversationId === expected.conversationId &&
+    current.runId === expected.runId &&
+    current.sourceRunItemId === expected.sourceRunItemId &&
+    current.phase === expected.phase
+  );
 }
 
 function planStepStatusLabel(status: RunItemPlanStep["status"]) {
