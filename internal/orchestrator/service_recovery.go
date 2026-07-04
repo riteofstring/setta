@@ -11,7 +11,6 @@ type actionRecoveryTask struct {
 	nodeExecutionID string
 	runner          ActionRunner
 	request         ActionRecoverRequest
-	manualMessage   string
 }
 
 type workflowDispatchTarget struct {
@@ -19,16 +18,13 @@ type workflowDispatchTarget struct {
 	executionID string
 }
 
-const runnerIdentityNotCommittedMessage = "workflow action runner identity was not committed"
-
 func (service *Service) recoverNonTerminalExecutions() error {
 	tasks, manualTasks, dispatchTargets, err := service.startupRecoveryPlan()
 	if err != nil {
 		return err
 	}
 	for _, task := range manualTasks {
-		message := nonEmpty(task.manualMessage, "workflow action has no registered recovery runner")
-		if _, err := service.recordManualRecoveryRequired(task.workspaceID, task.executionID, task.nodeExecutionID, task.request.RunnerRefs, nil, task.request.NodeExecution, message); err != nil {
+		if _, err := service.recordManualRecoveryRequired(task.workspaceID, task.executionID, task.nodeExecutionID, task.request.RunnerRefs, nil, task.request.NodeExecution, "workflow action has no registered recovery runner"); err != nil {
 			return err
 		}
 	}
@@ -93,11 +89,6 @@ func (service *Service) startupRecoveryPlanForExecution(workspaceID string, exec
 			plan.dispatchTargets = append(plan.dispatchTargets, workflowDispatchTarget{workspaceID: workspaceID, executionID: execution.ID})
 		case NodeExecutionStatusRunning, NodeExecutionStatusWaitingApproval:
 			task := service.actionRecoveryTask(workspaceID, execution, nodeExecution)
-			if len(nodeExecution.RunnerRefs) == 0 {
-				task.manualMessage = runnerIdentityNotCommittedMessage
-				plan.manualTasks = append(plan.manualTasks, task)
-				continue
-			}
 			runner, ok := service.runnerRegistry.Runner(*nodeExecution.ActionKind)
 			if !ok {
 				plan.manualTasks = append(plan.manualTasks, task)

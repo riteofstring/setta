@@ -3,7 +3,6 @@ package semanticgraph
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -178,147 +177,10 @@ func TestManualCartographerWindowBuildsCurrentProgressWithoutSemanticMutation(t 
 	assertNoSemanticEvents(t, store, ctx)
 }
 
-func TestSemanticCartographerDisabledSkipsEventObserverStartup(t *testing.T) {
-	service, _ := newDisabledCartographerObserverTestService(t)
-	ctx := context.Background()
-	chatSource := &recordingCartographerChatSource{}
-	workflowSource := &recordingCartographerWorkflowSource{}
-	if err := service.StartCartographerEventObserver(ctx, chatSource, workflowSource); err != nil {
-		t.Fatalf("start disabled cartographer observer: %v", err)
-	}
-	if chatSource.subscribeCount != 0 || workflowSource.subscribeCount != 0 {
-		t.Fatalf("disabled observer subscriptions chat=%d workflow=%d, want none", chatSource.subscribeCount, workflowSource.subscribeCount)
-	}
-	state, err := service.ReadCartographerProcessingState(ctx)
-	if err != nil {
-		t.Fatalf("read disabled cartographer state: %v", err)
-	}
-	if state.Enabled || state.Started {
-		t.Fatalf("disabled cartographer state = %+v, want disabled and stopped", state)
-	}
-}
-
-func TestSemanticCartographerDisabledNoopsObservation(t *testing.T) {
-	service, store := newDisabledCartographerObserverTestService(t)
-	ctx := context.Background()
-	windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 1, chat.EventTypeRunItemUpdated, chat.RunItemUpdatedPayload{
-		Item: cartographerRunItem("run_item_disabled", chat.RunItemTypeCommandExecution, chat.RunItemStatusCompleted),
-	}))
-	if err != nil || len(windows) != 0 {
-		t.Fatalf("disabled chat observation windows=%+v err=%v, want no-op", windows, err)
-	}
-	windows, err = service.ObserveCartographerWorkflowEvent(ctx, orchestrator.WorkflowEventEnvelope{})
-	if err != nil || len(windows) != 0 {
-		t.Fatalf("disabled workflow observation windows=%+v err=%v, want no-op", windows, err)
-	}
-	closed, err := service.CloseQuietCartographerWindows(ctx, testTimestamp(99))
-	if err != nil || len(closed) != 0 {
-		t.Fatalf("disabled quiet close windows=%+v err=%v, want no-op", closed, err)
-	}
-	if _, err := service.BuildManualCartographerWindow(ctx, CartographerManualWindowRequest{
-		WorkspaceID:    testWorkspaceID,
-		TargetEntityID: "node_disabled_manual",
-		Summary:        "Disabled manual cartographer request.",
-	}); !errors.Is(err, errSemanticCartographerDisabled) {
-		t.Fatalf("disabled manual build error = %v, want semantic cartographer disabled", err)
-	}
-	if _, err := service.ApplyCartographerPatchEnvelope(ctx, CartographerPatchEnvelopeApplicationInput{}); !errors.Is(err, errSemanticCartographerDisabled) {
-		t.Fatalf("disabled patch application error = %v, want semantic cartographer disabled", err)
-	}
-	if _, err := service.AcceptCartographerPatch(ctx, testWorkspaceID, "cartographer_patch_disabled"); !errors.Is(err, errSemanticCartographerDisabled) {
-		t.Fatalf("disabled patch accept error = %v, want semantic cartographer disabled", err)
-	}
-	if _, err := service.RejectCartographerPatch(ctx, testWorkspaceID, "cartographer_patch_disabled"); !errors.Is(err, errSemanticCartographerDisabled) {
-		t.Fatalf("disabled patch reject error = %v, want semantic cartographer disabled", err)
-	}
-	_, ok, err := store.ReadCartographerCursor(ctx, CartographerCursorKey{
-		WorkspaceID:        testWorkspaceID,
-		ChatConversationID: "chat_conversation_cartographer",
-		ChatRunID:          "chat_run_cartographer",
-	})
-	if err != nil || ok {
-		t.Fatalf("disabled observer cursor ok=%v err=%v, want no cursor", ok, err)
-	}
-}
-
-func TestSemanticCartographerDisabledRejectsManualAndPatchWork(t *testing.T) {
-	service, _ := newDisabledCartographerObserverTestService(t)
-	ctx := context.Background()
-	if _, err := service.BuildManualCartographerWindow(ctx, CartographerManualWindowRequest{
-		WorkspaceID:    testWorkspaceID,
-		TargetEntityID: "node_disabled_manual",
-		Summary:        "Disabled manual cartographer request.",
-	}); !errors.Is(err, errSemanticCartographerDisabled) {
-		t.Fatalf("disabled manual build error = %v, want semantic cartographer disabled", err)
-	}
-	if _, err := service.ApplyCartographerPatchEnvelope(ctx, CartographerPatchEnvelopeApplicationInput{}); !errors.Is(err, errSemanticCartographerDisabled) {
-		t.Fatalf("disabled patch application error = %v, want semantic cartographer disabled", err)
-	}
-	if _, err := service.AcceptCartographerPatch(ctx, testWorkspaceID, "cartographer_patch_disabled"); !errors.Is(err, errSemanticCartographerDisabled) {
-		t.Fatalf("disabled patch accept error = %v, want semantic cartographer disabled", err)
-	}
-	if _, err := service.RejectCartographerPatch(ctx, testWorkspaceID, "cartographer_patch_disabled"); !errors.Is(err, errSemanticCartographerDisabled) {
-		t.Fatalf("disabled patch reject error = %v, want semantic cartographer disabled", err)
-	}
-}
-
-func TestSemanticCartographerDisabledRejectsProcessingBeforeHarness(t *testing.T) {
-	store := newTestStore(t)
-	resolver := associationWorkspaceResolver{root: t.TempDir()}
-	builder := newCartographerObserverServiceForStore(t, store, resolver, CartographerObservationConfig{})
-	window, err := builder.BuildManualCartographerWindow(context.Background(), CartographerManualWindowRequest{
-		WorkspaceID:    testWorkspaceID,
-		TargetEntityID: "node_disabled_process",
-		Summary:        "Closed window for disabled processing.",
-	})
-	if err != nil {
-		t.Fatalf("build process fixture window: %v", err)
-	}
-
-	runner := &recordingDisabledCartographerRunner{}
-	disabled, err := NewService(
-		store,
-		resolver,
-		WithIDGenerator(countingIDGenerator()),
-		WithClock(fixedCartographerObserverClock()),
-		WithCartographerHarnessTaskRunner(runner, chat.HarnessCodex),
-		WithSemanticCartographerDisabled(),
-	)
-	if err != nil {
-		t.Fatalf("new disabled process service: %v", err)
-	}
-	if _, err := disabled.ProcessCartographerWindow(context.Background(), testWorkspaceID, window.ID); !errors.Is(err, errSemanticCartographerDisabled) {
-		t.Fatalf("disabled process error = %v, want semantic cartographer disabled", err)
-	}
-	if runner.calls != 0 {
-		t.Fatalf("disabled process harness calls = %d, want none", runner.calls)
-	}
-	run, ok, err := disabled.ReadCartographerRun(context.Background(), testWorkspaceID, window.RunID)
-	if err != nil || !ok || run.Status != CartographerRunPending {
-		t.Fatalf("disabled process run = %+v ok=%v err=%v, want pending unchanged run", run, ok, err)
-	}
-}
-
 func newCartographerObserverTestService(t *testing.T, config CartographerObservationConfig) (*Service, *Store) {
 	t.Helper()
 	store := newTestStore(t)
 	service := newCartographerObserverServiceForStore(t, store, associationWorkspaceResolver{root: t.TempDir()}, config)
-	return service, store
-}
-
-func newDisabledCartographerObserverTestService(t *testing.T) (*Service, *Store) {
-	t.Helper()
-	store := newTestStore(t)
-	service, err := NewService(
-		store,
-		associationWorkspaceResolver{root: t.TempDir()},
-		WithIDGenerator(countingIDGenerator()),
-		WithClock(fixedCartographerObserverClock()),
-		WithSemanticCartographerDisabled(),
-	)
-	if err != nil {
-		t.Fatalf("new disabled cartographer service: %v", err)
-	}
 	return service, store
 }
 
@@ -446,35 +308,4 @@ func fixedCartographerObserverClock() func() time.Time {
 		panic(err)
 	}
 	return func() time.Time { return now }
-}
-
-type recordingCartographerChatSource struct {
-	subscribeCount int
-}
-
-func (source *recordingCartographerChatSource) SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error) {
-	source.subscribeCount++
-	hub, err := chat.NewEventHub("disabled_cartographer_chat_events")
-	if err != nil {
-		return nil, err
-	}
-	return hub.Subscribe(cursor)
-}
-
-type recordingCartographerWorkflowSource struct {
-	subscribeCount int
-}
-
-func (source *recordingCartographerWorkflowSource) SubscribeEvents(orchestrator.WorkflowEventCursor) (*orchestrator.EventSubscription, error) {
-	source.subscribeCount++
-	return orchestrator.NewEventHub().Subscribe(nil), nil
-}
-
-type recordingDisabledCartographerRunner struct {
-	calls int
-}
-
-func (runner *recordingDisabledCartographerRunner) RunTask(context.Context, chat.HarnessTaskRequest) (chat.HarnessTaskResult, error) {
-	runner.calls++
-	return chat.HarnessTaskResult{}, errors.New("disabled cartographer test runner should not be called")
 }

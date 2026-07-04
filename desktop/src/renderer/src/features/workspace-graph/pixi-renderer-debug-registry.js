@@ -16,10 +16,6 @@ export function registerWorkflowGraphDebugSurface(surfaceId, getSnapshot) {
 function ensureWorkflowGraphDebugApi() {
   const existing = window.__settaWorkflowGraphDebug;
   if (existing?.__renderers instanceof Map) {
-    existing.tryGetSnapshot ??= (surfaceId, options) => {
-      const getSnapshot = maybeResolveWorkflowGraphDebugSurface(existing.__renderers, surfaceId);
-      return getSnapshot ? withWorkspaceActivityDebug(getSnapshot(options)) : null;
-    };
     return existing;
   }
 
@@ -30,10 +26,6 @@ function ensureWorkflowGraphDebugApi() {
       return withWorkspaceActivityDebug(
         resolveWorkflowGraphDebugSurface(renderers, surfaceId)(options),
       );
-    },
-    tryGetSnapshot(surfaceId, options) {
-      const getSnapshot = maybeResolveWorkflowGraphDebugSurface(renderers, surfaceId);
-      return getSnapshot ? withWorkspaceActivityDebug(getSnapshot(options)) : null;
     },
     getSnapshots() {
       return Object.fromEntries(
@@ -66,14 +58,6 @@ function resolveWorkflowGraphDebugSurface(renderers, surfaceId) {
   return first.value;
 }
 
-function maybeResolveWorkflowGraphDebugSurface(renderers, surfaceId) {
-  if (surfaceId) {
-    return renderers.get(surfaceId);
-  }
-  const first = renderers.values().next();
-  return first.done ? undefined : first.value;
-}
-
 function withWorkspaceActivityDebug(snapshot) {
   return {
     ...snapshot,
@@ -82,10 +66,14 @@ function withWorkspaceActivityDebug(snapshot) {
 }
 
 function workspaceActivityDebugSnapshot(surfaceId) {
-  return (
-    window.__settaWorkspaceActivityDebug?.tryGetSnapshot(surfaceId) ??
-    emptyWorkspaceActivityDebugSnapshot()
-  );
+  try {
+    return (
+      window.__settaWorkspaceActivityDebug?.getSnapshot(surfaceId) ??
+      emptyWorkspaceActivityDebugSnapshot()
+    );
+  } catch {
+    return emptyWorkspaceActivityDebugSnapshot();
+  }
 }
 
 function emptyWorkspaceActivityDebugSnapshot() {

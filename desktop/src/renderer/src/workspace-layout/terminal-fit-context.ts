@@ -3,7 +3,6 @@ import type { Terminal as XtermTerminal } from "@xterm/xterm";
 
 interface TerminalFitState {
   fitAddon: XtermFitAddon | null;
-  focused: boolean;
   frozen: boolean;
   host: HTMLElement | null;
   terminal: XtermTerminal | null;
@@ -27,9 +26,6 @@ export interface TerminalFitContext {
 
 export function terminalFitContext(state: TerminalFitState): TerminalFitContext | null {
   if (!state.visible) {
-    return null;
-  }
-  if (!state.focused) {
     return null;
   }
   if (state.frozen) {

@@ -14,33 +14,10 @@ const interestingKeys = new Set([
   "Tab",
 ]);
 
-interface TranscriptScrollDebugApi {
-  getSnapshot: () => TranscriptScrollDebugSnapshot;
-}
-
-interface TranscriptScrollDebugSnapshot {
-  atBottom: boolean;
-  clientHeight: number;
-  distanceFromBottom: number;
-  lastVisibleIndex: number;
-  mode: string;
-  pendingScrollCount: number;
-  rowCount: number;
-  scrollHeight: number;
-  scrollTop: number;
-  tailRevision: string;
-  trace: TranscriptScrollDebugTraceEntry[];
-}
-
-interface TranscriptScrollDebugTraceEntry {
-  [key: string]: boolean | number | string | null;
-}
-
 export function installRendererRecorder(ipcRenderer: Pick<IpcRenderer, "send">) {
   if (!isRecordingEnabled()) {
     return;
   }
-  markDocumentRecordingEnabled();
   const layoutRecorder = createLayoutRecorder(ipcRenderer);
 
   window.addEventListener(
@@ -121,14 +98,6 @@ export function installRendererRecorder(ipcRenderer: Pick<IpcRenderer, "send">) 
   layoutRecorder.observe();
 }
 
-function markDocumentRecordingEnabled() {
-  if (document.documentElement) {
-    document.documentElement.setAttribute("data-setta-recording", "true");
-    return;
-  }
-  window.setTimeout(markDocumentRecordingEnabled, 0);
-}
-
 function isRecordingEnabled(): boolean {
   const env = typeof process === "undefined" ? undefined : process.env;
   return env?.SETTA_RECORDING === "1" || env?.SETTA_RECORDING_DIR !== undefined;
@@ -186,19 +155,15 @@ function layoutSnapshot(trigger: string): RendererRecordedEvent {
   const pane = document.querySelector('[data-testid="chat-detail-pane"]');
   const transcript = document.querySelector('[data-testid="chat-transcript-region"]');
   const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-  const scrollFollowDebug = document.querySelector('[data-testid="chat-transcript-scroll-follow"]');
   const composer = document.querySelector('[data-testid="chat-composer"]');
-  const jumpToLatestButton = document.querySelector('[aria-label="Jump to latest"]');
   return {
     activeRunStatus: pane?.getAttribute("data-run-status") ?? "",
     at: timestamp(),
     chatDetailPane: elementRect(pane),
     composer: elementRect(composer),
-    jumpToLatestButton: visibleElementRect(jumpToLatestButton),
     queueSize: document.querySelectorAll('[data-testid="chat-queued-turn-row"]').length,
     selectedConversationId: pane?.getAttribute("data-conversation-id") ?? "",
     transcript: scrollRect(transcript, scroller),
-    transcriptScrollDebug: transcriptScrollDebugSnapshot(scrollFollowDebug),
     trigger,
     type: "layout_snapshot",
     url: window.location.href,
@@ -232,134 +197,11 @@ function scrollRect(region: Element | null, scroller: Element | null) {
   if (!rect || !region) {
     return null;
   }
-  const scrollElement = scroller ?? region;
-  const clientHeight = scrollElement.clientHeight;
-  const scrollHeight = scrollElement.scrollHeight;
-  const scrollTop = scrollElement.scrollTop;
-  const maxScrollTop = Math.max(0, scrollHeight - clientHeight);
   return {
     ...rect,
-    clientHeight,
-    distanceFromBottom: round(Math.max(0, maxScrollTop - scrollTop)),
-    scrollHeight,
-    scrollTop: round(scrollTop),
+    clientHeight: scroller?.clientHeight ?? region.clientHeight,
+    scrollHeight: scroller?.scrollHeight ?? region.scrollHeight,
   };
-}
-
-function visibleElementRect(element: Element | null) {
-  const rect = elementRect(element);
-  if (!rect || !element) {
-    return null;
-  }
-  const style = window.getComputedStyle(element);
-  return {
-    ...rect,
-    visible:
-      rect.height > 0 &&
-      rect.width > 0 &&
-      style.display !== "none" &&
-      style.visibility !== "hidden" &&
-      style.opacity !== "0",
-  };
-}
-
-function transcriptScrollDebugSnapshot(debugElement: Element | null) {
-  const debug = (
-    window as Window & {
-      __settaChatTranscriptScrollDebug?: TranscriptScrollDebugApi;
-    }
-  ).__settaChatTranscriptScrollDebug;
-  if (debug) {
-    try {
-      return recordedTranscriptScrollDebugSnapshot(debug.getSnapshot(), "window");
-    } catch (error) {
-      return {
-        error: truncate(error instanceof Error ? error.message : String(error)),
-        source: "window",
-      };
-    }
-  }
-  return transcriptScrollDebugSnapshotFromElement(debugElement);
-}
-
-function recordedTranscriptScrollDebugSnapshot(
-  snapshot: TranscriptScrollDebugSnapshot,
-  source: string,
-) {
-  return {
-    ...snapshot,
-    source,
-    tailRevision: truncate(snapshot.tailRevision),
-    trace: sanitizeScrollDebugTrace(snapshot.trace),
-  };
-}
-
-function transcriptScrollDebugSnapshotFromElement(element: Element | null) {
-  if (!element) {
-    return null;
-  }
-  const mode = element.getAttribute("data-scroll-follow-mode");
-  if (!mode) {
-    return null;
-  }
-  return {
-    atBottom: booleanAttribute(element, "data-scroll-follow-at-bottom"),
-    clientHeight: numberAttribute(element, "data-scroll-follow-client-height"),
-    distanceFromBottom: numberAttribute(element, "data-scroll-follow-distance-from-bottom"),
-    lastVisibleIndex: numberAttribute(element, "data-scroll-follow-last-visible-index"),
-    mode: truncate(mode),
-    pendingScrollCount: numberAttribute(element, "data-scroll-follow-pending-scroll-count"),
-    rowCount: numberAttribute(element, "data-scroll-follow-row-count"),
-    scrollHeight: numberAttribute(element, "data-scroll-follow-scroll-height"),
-    scrollTop: numberAttribute(element, "data-scroll-follow-scroll-top"),
-    source: "dom",
-    tailRevision: truncate(element.getAttribute("data-scroll-follow-tail-revision") ?? ""),
-    trace: parseScrollDebugTrace(element.getAttribute("data-scroll-follow-trace")),
-  };
-}
-
-function booleanAttribute(element: Element, name: string) {
-  return element.getAttribute(name) === "true";
-}
-
-function numberAttribute(element: Element, name: string) {
-  const value = Number(element.getAttribute(name) ?? 0);
-  return Number.isFinite(value) ? value : 0;
-}
-
-function parseScrollDebugTrace(value: string | null) {
-  if (!value) {
-    return [];
-  }
-  try {
-    return sanitizeScrollDebugTrace(JSON.parse(value));
-  } catch {
-    return [{ error: "invalid_trace_json" }];
-  }
-}
-
-function sanitizeScrollDebugTrace(value: unknown): TranscriptScrollDebugTraceEntry[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.slice(-30).flatMap((entry) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      return [];
-    }
-    const sanitized: TranscriptScrollDebugTraceEntry = {};
-    for (const [key, entryValue] of Object.entries(entry)) {
-      if (
-        typeof entryValue === "boolean" ||
-        typeof entryValue === "number" ||
-        entryValue === null
-      ) {
-        sanitized[key] = entryValue;
-      } else if (typeof entryValue === "string") {
-        sanitized[key] = truncate(entryValue);
-      }
-    }
-    return [sanitized];
-  });
 }
 
 function summarizeTarget(target: EventTarget | null) {

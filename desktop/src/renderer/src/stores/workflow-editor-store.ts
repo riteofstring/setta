@@ -16,10 +16,9 @@ export interface WorkflowNodeDetailsTarget {
   definitionVersionNumber: number;
   executionId: string;
   nodeId: string;
-  nodeExecutionId: string;
-  nodeKind: WorkflowNodeKind;
+  nodeKind: WorkflowNodeKind | "";
   nodeLabel: string;
-  nodeStatus: WorkflowGraphNodeStatus;
+  nodeStatus: WorkflowGraphNodeStatus | "";
   projectionIncomingEdges: WorkflowGraphEdge[];
   projectionOutgoingEdges: WorkflowGraphEdge[];
   versionMismatch: boolean;
@@ -53,6 +52,7 @@ export interface WorkflowSettingsTarget {
 interface WorkflowEditorStore {
   activityFocusRequestSeq: number;
   notifyWorkflowDefinitionChanged: (workspaceId: string, definitionId: string) => void;
+  resetRuntimeState: () => void;
   selectedNodeActivityFocus: WorkflowNodeActivityFocus | null;
   selectedNodeTarget: WorkflowNodeDetailsTarget | null;
   selectedWorkflowSettingsTarget: WorkflowSettingsTarget | null;
@@ -67,6 +67,14 @@ export const useWorkflowEditorStore = create<WorkflowEditorStore>((set) => ({
   activityFocusRequestSeq: 0,
   notifyWorkflowDefinitionChanged: (workspaceId, definitionId) => {
     dispatchWorkflowDefinitionChanged({ definitionId, workspaceId });
+  },
+  resetRuntimeState: () => {
+    set({
+      activityFocusRequestSeq: 0,
+      selectedNodeActivityFocus: null,
+      selectedNodeTarget: null,
+      selectedWorkflowSettingsTarget: null,
+    });
   },
   selectedNodeActivityFocus: null,
   selectedNodeTarget: null,
