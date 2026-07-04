@@ -6,6 +6,11 @@ import { TextDecoder } from "node:util";
 
 import { chatTextInput } from "./chat-input-helpers.mjs";
 import {
+  killExternalBackend,
+  startExternalScriptedBackend,
+  stopExternalBackend,
+} from "./chat-workflow-external-backend.mjs";
+import {
   appendWorkflowState,
   assertRecordingEvidence,
   backendProbe,
@@ -22,49 +27,111 @@ import {
 } from "./chat-workflow-harness.mjs";
 
 const reviewerNodeIds = ["review_a", "review_b", "review_c"];
+const backendOrchestratorRecoveryError = "run interrupted by backend restart";
 const workflowSemanticContextNodeId = "semantic_e2e_workflow_context";
 const workflowSemanticContextTitle = "Workflow E2E semantic context constraint";
 
-export async function runBackendOrchestratorWorkflowLaunch(results, recordingRoot) {
+export async function runBackendOrchestratorWorkflowLaunch(results, { recordingRoot, repoRoot }) {
   const fixture = await createFixture("backend-orchestrator");
   const firstRecording = join(recordingRoot, "backend-orchestrator", "first-launch");
   const secondRecording = join(recordingRoot, "backend-orchestrator", "second-launch");
-  let first = null;
-  let second = null;
+  const state = {
+    first: null,
+    firstBackend: null,
+    second: null,
+    secondBackend: null,
+  };
 
   try {
-    first = await launchContext(fixture, firstRecording);
-    const recovery = await exerciseBackendOrchestratorFirstLaunch({
-      context: first,
-      fixture,
+    await runBackendOrchestratorLaunchSequence({
       firstRecording,
+      fixture,
+      repoRoot,
       results,
-    });
-    await stopLaunchedContext(first);
-    first = null;
-
-    second = await launchContext(fixture, secondRecording);
-    await exerciseBackendOrchestratorRecoveryLaunch({
-      context: second,
-      recovery,
       secondRecording,
+      state,
     });
   } catch (error) {
-    await captureScreenshot(
-      first?.client ?? second?.client,
-      join(recordingRoot, "backend-orchestrator", "failure.png"),
-    ).catch(() => {});
-    const logs = [...(first?.electron.logs ?? []), ...(second?.electron.logs ?? [])];
-    throw failureWithLogs(error, logs);
+    await captureBackendOrchestratorFailure(recordingRoot, state);
+    throw failureWithLogs(error, backendOrchestratorLaunchLogs(state));
   } finally {
-    await stopLaunchedContext(first);
-    await stopLaunchedContext(second);
+    await cleanupBackendOrchestratorLaunch(state);
     await rm(fixture.tempRoot, { force: true, recursive: true });
   }
 
   await assertBackendOrchestratorRecordingEvidence(firstRecording, secondRecording);
   results.push("backend-orchestrator");
   process.stdout.write("Electron chat workflow passed: backend-orchestrator\n");
+}
+
+async function runBackendOrchestratorLaunchSequence({
+  firstRecording,
+  fixture,
+  repoRoot,
+  results,
+  secondRecording,
+  state,
+}) {
+  state.firstBackend = await startExternalScriptedBackend(fixture, repoRoot);
+  state.first = await launchExternalBackendContext(fixture, firstRecording, state.firstBackend.url);
+  const recovery = await exerciseBackendOrchestratorFirstLaunch({
+    context: state.first,
+    fixture,
+    firstRecording,
+    results,
+  });
+  await killExternalBackend(state.firstBackend);
+  await stopLaunchedContext(state.first);
+  state.first = null;
+
+  state.secondBackend = await startExternalScriptedBackend(fixture, repoRoot);
+  state.second = await launchExternalBackendContext(
+    fixture,
+    secondRecording,
+    state.secondBackend.url,
+  );
+  await exerciseBackendOrchestratorRecoveryLaunch({
+    context: state.second,
+    recovery,
+    secondRecording,
+  });
+}
+
+async function captureBackendOrchestratorFailure(recordingRoot, state) {
+  await captureScreenshot(
+    state.first?.client ?? state.second?.client,
+    join(recordingRoot, "backend-orchestrator", "failure.png"),
+  ).catch(() => {});
+}
+
+async function cleanupBackendOrchestratorLaunch(state) {
+  await stopLaunchedContext(state.first);
+  await stopLaunchedContext(state.second);
+  await stopExternalBackend(state.firstBackend, { force: true });
+  await stopExternalBackend(state.secondBackend);
+}
+
+function backendOrchestratorLaunchLogs(state) {
+  return [
+    ...electronLogsForContext(state.first),
+    ...electronLogsForContext(state.second),
+    ...backendLogsForHandle(state.firstBackend),
+    ...backendLogsForHandle(state.secondBackend),
+  ];
+}
+
+function electronLogsForContext(context) {
+  return context?.electron.logs ?? [];
+}
+
+function backendLogsForHandle(handle) {
+  return handle?.logs ?? [];
+}
+
+async function launchExternalBackendContext(fixture, recordingDir, backendURL) {
+  return launchContext(fixture, recordingDir, {
+    extraEnv: { SETTA_BACKEND_URL: backendURL },
+  });
 }
 
 async function exerciseBackendOrchestratorFirstLaunch({
@@ -117,8 +184,8 @@ async function exerciseBackendOrchestratorRecoveryLaunch({ context, recovery, se
   if (work.status !== "failed") {
     throw new Error(`recovered work status = ${work.status}, want failed`);
   }
-  if (work.recoveryMessage === "" || work.error !== "run interrupted by backend shutdown") {
-    throw new Error(`recovered work = ${JSON.stringify(work)}, want shutdown failure message`);
+  if (work.recoveryMessage === "" || work.error !== backendOrchestratorRecoveryError) {
+    throw new Error(`recovered work = ${JSON.stringify(work)}, want backend restart recovery`);
   }
   const page = await rendererWorkflow(context.client, "executionEvents", [
     recovery.workspaceId,

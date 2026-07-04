@@ -93,6 +93,26 @@ class CDPClient {
     return result.result.value;
   }
 
+  async driver(method, args = {}) {
+    await this.installDriver();
+    return this.evaluate(`globalThis.__settaE2EDriver.${method}(${JSON.stringify(args)})`);
+  }
+
+  async installDriver() {
+    const installed = await this.evaluate(
+      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v9"`,
+    );
+    if (!installed) {
+      await this.evaluate(await readFile(join(scriptDir, "browser-driver.js"), "utf8"));
+    }
+    const chatWorkflowDriverInstalled = await this.evaluate(
+      `globalThis.__settaE2EDriver?.chatWorkflowVersion === "setta-chat-workflow-driver-v1"`,
+    );
+    if (!chatWorkflowDriverInstalled) {
+      await this.evaluate(await readFile(join(scriptDir, "chat-workflow-driver.js"), "utf8"));
+    }
+  }
+
   close() {
     this.socket.close();
   }
@@ -536,11 +556,9 @@ async function settaPageTarget(debugPort) {
 }
 
 async function waitForPartialCorruptChatState(client) {
-  const state = await waitForState(
-    client,
-    partialCorruptChatStateExpression(),
-    (value) => value.ready,
-  );
+  const state = await waitForDriverState(client, "partialCorruptChatState", {}, (value) => {
+    return value.ready;
+  });
   if (state.newChatDisabled) {
     throw new Error(`New chat is disabled with partial corrupt state: ${state.body}`);
   }
@@ -575,7 +593,7 @@ async function waitForWorkspaceChatSurfaceReady(client, timeoutMs) {
   const startedAt = Date.now();
   let lastValue = null;
   while (Date.now() - startedAt < timeoutMs) {
-    lastValue = await client.evaluate(workspaceChatSurfaceReadyExpression());
+    lastValue = await client.driver("workspaceChatSurfaceReady");
     if (workspaceChatSurfaceReady(lastValue)) {
       return { ready: true, value: lastValue };
     }
@@ -592,62 +610,6 @@ function workspaceChatSurfaceReady(value) {
       value.hostMoving === "false" &&
       value.hostVisible === "true")
   );
-}
-
-function workspaceChatSurfaceReadyExpression() {
-  return `(() => {
-    const workspace = document.querySelector('[data-testid="workspace-layout-area"]');
-    const chatSurface = document.querySelector('[data-testid="workspace-chat-dom-surface"]');
-    const host = chatSurface?.closest('[data-testid="workspace-pane-host"]');
-    return {
-      chatMounted: Boolean(document.querySelector('[data-testid="chat-detail-pane"]')),
-      hostMoving: host?.getAttribute("data-moving") ?? "",
-      hostRuntimeState: host?.getAttribute("data-runtime-state") ?? "",
-      hostVisible: host?.getAttribute("data-visible") ?? "",
-      workspaceMounted: Boolean(workspace),
-    };
-  })()`;
-}
-
-function partialCorruptChatStateExpression() {
-  return `(() => {
-    const button = document.querySelector('button[aria-label="New chat"]');
-    const sidebar = document.querySelector('[data-testid="sidebar-scrollable-sections"]');
-    const detail = document.querySelector('[data-testid="chat-detail-pane"]');
-    const status = document.querySelector('[data-testid="workspace-corruption-status"]');
-    const statusLabel = status?.getAttribute("aria-label") ?? "";
-    const conversations = Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]'));
-    const corruptConversation = conversations.find((conversation) =>
-      conversation.innerText.includes("Corrupt historical chat")
-    );
-    const conversationStatus = corruptConversation?.querySelector(
-      '[data-testid="conversation-corruption-status"]'
-    );
-    const conversationStatusLabel = conversationStatus?.getAttribute("aria-label") ?? "";
-    const body = document.body.innerText;
-    return {
-      body,
-      conversationCount: conversations.length,
-      conversationStatusLabel,
-      newChatDisabled: button ? button.disabled : null,
-      statusLabel,
-      ready: Boolean(
-        button &&
-        status &&
-        sidebar?.contains(status) &&
-        !detail?.contains(status) &&
-        statusLabel.includes("corrupt chat") &&
-        conversationStatus &&
-        conversationStatusLabel.includes("has pendingApproval while status is completed") &&
-        conversations.length >= 3 &&
-        body.includes("Valid historical chat") &&
-        body.includes("Second valid chat") &&
-        body.includes("Corrupt historical chat") &&
-        !body.includes("Chat state needs attention") &&
-        !body.includes("Chat state is corrupt")
-      ),
-    };
-  })()`;
 }
 
 async function openValidConversation(client) {
@@ -895,6 +857,19 @@ async function waitForState(client, expression, isReady) {
   let lastValue = null;
   while (Date.now() - startedAt < workflowTimeoutMs) {
     lastValue = await client.evaluate(expression);
+    if (isReady(lastValue)) {
+      return lastValue;
+    }
+    await delay(100);
+  }
+  throw new Error(`timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}`);
+}
+
+async function waitForDriverState(client, method, args, isReady) {
+  const startedAt = Date.now();
+  let lastValue = null;
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    lastValue = await client.driver(method, args);
     if (isReady(lastValue)) {
       return lastValue;
     }

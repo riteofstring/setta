@@ -206,6 +206,16 @@ export async function waitForState(client, expression, isReady, timeoutMs = work
   throw new Error(`timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}`);
 }
 
+export async function waitForDriverState(
+  client,
+  method,
+  args,
+  isReady,
+  timeoutMs = workflowTimeoutMs,
+) {
+  return waitForState(client, driverCallExpression(method, args), isReady, timeoutMs);
+}
+
 export async function backendProbe(recordingDir) {
   const baseURL = await waitForBackendURL(recordingDir);
   await writeFile(join(recordingDir, "backend-url.txt"), baseURL + "\n");

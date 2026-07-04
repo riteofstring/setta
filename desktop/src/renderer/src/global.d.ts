@@ -1,5 +1,8 @@
 import type { SettaAPI } from "@shared/types";
-import type { ChatTranscriptScrollDebugSnapshot } from "./components/chat-transcript-scroll-follow";
+import type {
+  ChatTranscriptScrollDebugSnapshot,
+  ScrollToIndexLocation,
+} from "./components/chat-transcript-scroll-follow";
 import type {
   WorkspaceActivityDebugApi,
   WorkspaceActivityDebugSnapshot,
@@ -242,6 +245,7 @@ interface WorkflowNodeDetailsDebugApi {
 }
 
 interface WorkflowGraphRuntimeHandle {
+  setFocused(focused: boolean): void;
   setFrozen(frozen: boolean): void;
 }
 
@@ -251,7 +255,10 @@ interface WorkflowGraphRuntimeApi {
 }
 
 interface ChatTranscriptScrollDebugApi {
+  detach: () => void;
   getSnapshot: () => ChatTranscriptScrollDebugSnapshot;
+  jumpToLatest: () => void;
+  scrollToIndexAsProgrammaticAnchor: (location: ScrollToIndexLocation) => void;
 }
 
 declare global {

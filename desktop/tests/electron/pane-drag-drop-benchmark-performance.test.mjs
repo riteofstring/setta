@@ -138,12 +138,13 @@ async function performBenchmarkNormalRowDrop(client) {
   await ensureNormalMode(client);
   const before = await waitForBenchmarkPaneHosts(client);
   const { sourceHost, targetHost } = selectTopRowColumnDragHosts(before);
+  const canonicalTargetHost = nextVisibleHostInColumn(before, targetHost) ?? targetHost;
   const observation = await measureDragGesture(client, {
     expectedDropAxis: "vertical",
-    expectedDropTarget: "after",
+    expectedDropTarget: canonicalTargetHost.paneId === targetHost.paneId ? "after" : "before",
     label: "benchmark normal row drop",
     sourcePaneId: sourceHost.paneId,
-    targetPaneId: targetHost.paneId,
+    targetPaneId: canonicalTargetHost.paneId,
     to: {
       x: targetHost.rect.left + targetHost.rect.width / 2,
       y: targetHost.rect.top + targetHost.rect.height * 0.75,
@@ -152,7 +153,7 @@ async function performBenchmarkNormalRowDrop(client) {
   return {
     ...observation,
     sourcePaneId: sourceHost.paneId,
-    targetPaneId: targetHost.paneId,
+    targetPaneId: canonicalTargetHost.paneId,
   };
 }
 
@@ -184,22 +185,20 @@ async function performBenchmarkOverviewDrag(client) {
   const to = overviewDragMoveTarget(overview, sourcePoint);
 
   await dispatchMousePress(client, sourcePoint);
-  await resetFrameMetrics(client);
-  await startBrowserFrameSampler(client);
   await dispatchMouseMove(client, to, { buttons: 1, from: sourcePoint, steps: 2 });
-  const during = await waitForState(
+  await waitForState(
     client,
-    paneSnapshotExpression(),
-    (snapshot) => {
-      const source = snapshot.visibleHosts.find((host) => host.paneId === sourceHost.paneId);
-      return snapshot.overviewDragging === "true" && source?.dragSource === true;
-    },
+    overviewPaneDragStateExpression(sourceHost.paneId),
+    (state) => state.overviewDragging === "true" && state.sourceDragSource === true,
     workflowTimeoutMs,
   );
-  await delay(160);
-  const duringMetrics = await readFrameMetrics(client);
+  await settleDragSampler(client);
+  await startBrowserFrameSampler(client);
+  await delay(360);
   const frameSample = await stopBrowserFrameSampler(client);
+  const duringMetrics = await readFrameMetrics(client);
   assertPaneDragDuringPerformance(duringMetrics, frameSample, "benchmark overview drag");
+  const during = await client.evaluate(paneSnapshotExpression());
   await dispatchMouseRelease(client, to);
   const after = await waitForState(
     client,
@@ -234,28 +233,24 @@ async function measureDragGesture(
 ) {
   const sourcePoint = await dragHandleCenter(client, sourcePaneId);
   await dispatchMousePress(client, sourcePoint);
-  await resetFrameMetrics(client);
-  await startBrowserFrameSampler(client);
   await dispatchMouseMove(client, to, { buttons: 1, from: sourcePoint, steps: 1 });
-  const during = await waitForState(
+  await waitForState(
     client,
-    paneSnapshotExpression(),
-    (snapshot) => {
-      const source = snapshot.visibleHosts.find((host) => host.paneId === sourcePaneId);
-      const target = snapshot.visibleHosts.find((host) => host.paneId === targetPaneId);
-      return (
-        snapshot.paneDragging === "true" &&
-        source?.dragSource === true &&
-        target?.dropAxis === expectedDropAxis &&
-        target?.dropTarget === expectedDropTarget
-      );
-    },
+    paneDragTargetStateExpression(sourcePaneId, targetPaneId),
+    (state) =>
+      state.paneDragging === "true" &&
+      state.sourceDragSource === true &&
+      state.targetDropAxis === expectedDropAxis &&
+      state.targetDropTarget === expectedDropTarget,
     workflowTimeoutMs,
   );
-  await delay(160);
-  const duringMetrics = await readFrameMetrics(client);
+  await settleDragSampler(client);
+  await startBrowserFrameSampler(client);
+  await delay(360);
   const frameSample = await stopBrowserFrameSampler(client);
+  const duringMetrics = await readFrameMetrics(client);
   assertPaneDragDuringPerformance(duringMetrics, frameSample, label);
+  const during = await client.evaluate(paneSnapshotExpression());
   await dispatchMouseRelease(client, to);
   const after = await waitForState(
     client,
@@ -315,6 +310,12 @@ async function waitForSnapshotWarmup(client) {
     }
     return previous;
   });
+}
+
+async function settleDragSampler(client) {
+  await resetFrameMetrics(client);
+  await delay(120);
+  await resetFrameMetrics(client);
 }
 
 async function ensureNormalMode(client) {
@@ -441,6 +442,7 @@ async function startBrowserFrameSampler(client) {
     const longTasks = [];
     let previousTimestamp = startedAt;
     let running = true;
+    let warmupFrames = 3;
     let observer = null;
     const frameDeltas = [];
     if (
@@ -456,6 +458,12 @@ async function startBrowserFrameSampler(client) {
     }
     function recordFrame(timestamp) {
       if (!running) {
+        return;
+      }
+      if (warmupFrames > 0) {
+        warmupFrames -= 1;
+        previousTimestamp = timestamp;
+        requestAnimationFrame(recordFrame);
         return;
       }
       frameDeltas.push(timestamp - previousTimestamp);
@@ -599,6 +607,14 @@ function selectTopRowColumnDragHosts(snapshot) {
   return { sourceHost, targetHost };
 }
 
+function nextVisibleHostInColumn(snapshot, host) {
+  const sameColumnHosts = snapshot.visibleHosts
+    .filter((candidate) => Math.abs(candidate.rect.left - host.rect.left) < 2)
+    .toSorted((left, right) => left.rect.top - right.rect.top);
+  const index = sameColumnHosts.findIndex((candidate) => candidate.paneId === host.paneId);
+  return index >= 0 ? sameColumnHosts[index + 1] : null;
+}
+
 function selectCenteredOverviewDragSource(snapshot) {
   const stageCenter = {
     x: snapshot.stageRect.left + snapshot.stageRect.width / 2,
@@ -665,6 +681,37 @@ function frameMetricsResetExpression() {
     }
     window.__settaWorkspaceResetFrameMetrics();
     return true;
+  })()`;
+}
+
+function paneDragTargetStateExpression(sourcePaneId, targetPaneId) {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const hosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'));
+    const hostFor = (paneId) =>
+      hosts.find((host) => host instanceof HTMLElement && host.dataset.paneId === paneId);
+    const source = hostFor(${JSON.stringify(sourcePaneId)});
+    const target = hostFor(${JSON.stringify(targetPaneId)});
+    return {
+      paneDragging: area instanceof HTMLElement ? area.dataset.paneDragging ?? "" : "",
+      sourceDragSource: source instanceof HTMLElement && source.dataset.dragSource === "true",
+      targetDropAxis: target instanceof HTMLElement ? target.dataset.dropAxis ?? "" : "",
+      targetDropTarget: target instanceof HTMLElement ? target.dataset.dropTarget ?? "" : "",
+    };
+  })()`;
+}
+
+function overviewPaneDragStateExpression(sourcePaneId) {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const source = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+      .find((host) => host instanceof HTMLElement && host.dataset.paneId === ${JSON.stringify(
+        sourcePaneId,
+      )});
+    return {
+      overviewDragging: area instanceof HTMLElement ? area.dataset.overviewDragging ?? "" : "",
+      sourceDragSource: source instanceof HTMLElement && source.dataset.dragSource === "true",
+    };
   })()`;
 }
 

@@ -42,6 +42,7 @@ export interface ReactSurfaceRootFactory {
 export interface ReactDomSurfaceState {
   activated: boolean;
   focused: boolean;
+  interactive: boolean;
 }
 
 export interface ReactDomSurfaceAdapterOptions {
@@ -125,7 +126,17 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   }
 
   setVisible(visible: boolean): void {
+    const wasInteractive = this.workflowGraphInteractive();
     this.visible = visible;
+    const activatedChanged = visible && !this.activated;
+    if (visible) {
+      this.activated = true;
+    }
+    const interactiveChanged = wasInteractive !== this.workflowGraphInteractive();
+    if (activatedChanged || interactiveChanged) {
+      this.renderCurrentSurface();
+    }
+    this.syncWorkflowGraphRuntimeState();
     this.syncHostState();
   }
 
@@ -137,6 +148,7 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     this.focused = focused;
+    this.syncWorkflowGraphRuntimeState();
     this.renderCurrentSurface();
     this.syncHostState();
   }
@@ -150,22 +162,30 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   }
 
   freeze(reason: FreezeReason): void {
+    const wasInteractive = this.workflowGraphInteractive();
     if (!this.frozen) {
       this.installFrozenVisual();
     }
     this.frozen = true;
     this.frozenCanvasStats = null;
-    this.syncWorkflowGraphFrozenState();
+    this.syncWorkflowGraphRuntimeState();
+    if (wasInteractive !== this.workflowGraphInteractive()) {
+      this.renderCurrentSurface();
+    }
     this.host?.setAttribute("data-freeze-reason", reason);
     this.syncHostState();
   }
 
   resume(reason: ResumeReason): void {
+    const wasInteractive = this.workflowGraphInteractive();
     const wasFrozen = this.frozen;
     this.frozen = false;
     this.removeFrozenVisual();
     this.frozenCanvasStats = null;
-    this.syncWorkflowGraphFrozenState();
+    this.syncWorkflowGraphRuntimeState();
+    if (wasInteractive !== this.workflowGraphInteractive()) {
+      this.renderCurrentSurface();
+    }
     this.host?.setAttribute("data-resume-reason", reason);
     if (wasFrozen) {
       this.suppressLiveScrollbars();
@@ -242,11 +262,17 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     }
   }
 
-  private syncWorkflowGraphFrozenState(): void {
+  private syncWorkflowGraphRuntimeState(): void {
     if (this.kind !== "workflow-graph") {
       return;
     }
-    workflowGraphRuntimeHandle(this.surfaceId)?.setFrozen(this.frozen);
+    const handle = workflowGraphRuntimeHandle(this.surfaceId);
+    handle?.setFocused(this.workflowGraphInteractive());
+    handle?.setFrozen(this.frozen);
+  }
+
+  private workflowGraphInteractive(): boolean {
+    return this.kind === "workflow-graph" && this.visible && !this.frozen;
   }
 
   private renderCurrentSurface(): void {
@@ -254,6 +280,7 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
       this.renderSurface({
         activated: this.activated,
         focused: this.focused,
+        interactive: this.workflowGraphInteractive(),
       }),
     );
   }
@@ -365,9 +392,10 @@ export function createReactDomSurfaceAdapter(
   if (pane.surfaceKind === "workflow-graph") {
     return new ReactDomSurfaceAdapter(
       pane,
-      () => (
+      ({ interactive }) => (
         <WorkflowGraphSurface
           debugEnabled={workflowGraphDebugEnabled()}
+          focused={interactive}
           syntheticGraphFallback={options.workflowGraphSyntheticGraphFallback}
           surfaceId={pane.surfaceId}
         />
