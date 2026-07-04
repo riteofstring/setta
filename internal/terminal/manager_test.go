@@ -278,7 +278,7 @@ func TestManagerStoresReplayTruncationWhenOutputBufferOverflows(t *testing.T) {
 	root := t.TempDir()
 	starter := &recordingPTYStarter{}
 	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
-		OutputBufferBytesPerSession: len("second"),
+		OutputBufferBytesPerSession: 8,
 	})
 	subscription, err := manager.SubscribeEvents(EventCursor{})
 	if err != nil {
@@ -286,13 +286,13 @@ func TestManagerStoresReplayTruncationWhenOutputBufferOverflows(t *testing.T) {
 	}
 	defer subscription.Unsubscribe()
 
-	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 1, 1)
 	started := readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
 	handle := starter.handleAt(t, 0)
-	handle.emit([]byte("first"))
-	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
-	handle.emit([]byte("second"))
-	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	for index := 0; index < 10; index += 1 {
+		handle.emit([]byte{byte('a' + index)})
+		_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	}
 	expectNoTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
 	subscription.Unsubscribe()
 
@@ -314,7 +314,7 @@ func TestManagerStoresReplayTruncationWhenOutputBufferOverflows(t *testing.T) {
 	}
 }
 
-func TestManagerStoresReplayTruncationWhenOutputHistoryExpires(t *testing.T) {
+func TestManagerRetainsAgedReplayTailForRunningSession(t *testing.T) {
 	root := t.TempDir()
 	starter := &recordingPTYStarter{}
 	var clockMu sync.Mutex
@@ -334,16 +334,59 @@ func TestManagerStoresReplayTruncationWhenOutputHistoryExpires(t *testing.T) {
 	defer subscription.Unsubscribe()
 
 	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
-	started := readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
 	handle := starter.handleAt(t, 0)
-	handle.emit([]byte("first"))
-	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	handle.emit([]byte("idle prompt$ "))
+	original := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
 
 	clockMu.Lock()
 	now = now.Add(2 * time.Second)
 	clockMu.Unlock()
-	handle.emit([]byte("second"))
-	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	attached, err := manager.Attach(context.Background(), "workspace_terminal", "pane_shell")
+	if err != nil {
+		t.Fatalf("attach terminal session: %v", err)
+	}
+	if attached.ID != created.ID {
+		t.Fatalf("attached id = %s, want %s", attached.ID, created.ID)
+	}
+
+	replayed := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	if replayed.Payload.DataBase64 != original.Payload.DataBase64 {
+		t.Fatalf("aged replay payload = %+v, want original output payload %+v", replayed.Payload, original.Payload)
+	}
+	expectNoTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
+}
+
+func TestManagerStoresReplayTruncationWhenOutputHistoryExpires(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	var clockMu sync.Mutex
+	now := time.Date(2026, 6, 6, 12, 0, 0, 0, time.UTC)
+	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		Clock: func() time.Time {
+			clockMu.Lock()
+			defer clockMu.Unlock()
+			return now
+		},
+		ReplayRetention: time.Second,
+	})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 1, 1)
+	started := readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	handle := starter.handleAt(t, 0)
+	for index := 0; index < 10; index += 1 {
+		handle.emit([]byte{byte('a' + index)})
+		_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	}
+
+	clockMu.Lock()
+	now = now.Add(2 * time.Second)
+	clockMu.Unlock()
 	expectNoTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
 	subscription.Unsubscribe()
 
@@ -357,7 +400,10 @@ func TestManagerStoresReplayTruncationWhenOutputHistoryExpires(t *testing.T) {
 	defer replay.Unsubscribe()
 
 	truncated := readTerminalEvent(t, replay.Events, TerminalEventBufferTruncated, created.ID)
-	if truncated.Payload.Message != "terminal replay history truncated; 1 output chunk unavailable" {
+	if truncated.Payload.DroppedChunks != 2 || truncated.Payload.DroppedBytes != 2 {
+		t.Fatalf("truncated payload = %+v, want two dropped one-byte chunks", truncated.Payload)
+	}
+	if truncated.Payload.Message != "terminal replay history truncated; 2 output chunks unavailable" {
 		t.Fatalf("truncated message = %q, want replay history message", truncated.Payload.Message)
 	}
 }
