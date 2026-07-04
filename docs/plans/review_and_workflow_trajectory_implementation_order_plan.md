@@ -380,28 +380,45 @@ node activity, pagination, approvals, steering, and reload/restart behavior.
 Those tests should not add more large executable browser programs inside string
 literals.
 
-Status: first extraction slice completed 2026-07-03. The DOM pane
-snapshot/scroll workflow now installs a workflow-specific browser-driver
-extension through the shared CDP helper, with DOM traversal, overview snapshot
-inspection, scroll sampling, and click helpers moved out of executable template
-literals into `desktop/tests/electron/dom-pane-snapshot-scroll-driver.js`.
+Status: extraction in progress. The DOM pane snapshot/scroll workflow now
+installs a workflow-specific browser-driver extension through the shared CDP
+helper, with DOM traversal, overview snapshot inspection, scroll sampling, and
+click helpers moved out of executable template literals into
+`desktop/tests/electron/dom-pane-snapshot-scroll-driver.js`.
 `dom-pane-snapshot-scroll-workflow.test.mjs` now polls and acts through named
 driver calls with structured arguments, and browser-side CDP exceptions retain
-their underlying exception descriptions for diagnostics.
+their underlying exception descriptions for diagnostics. A second slice moved
+the chat stream performance measurement loop, mutation observation,
+long-task/frame aggregation, and snapshot construction into
+`desktop/tests/electron/chat-stream-performance-driver.js`, leaving
+`chat-stream-performance.test.mjs` to call named driver methods with structured
+arguments.
 
 Verification:
 
 - `node desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs --skip-build`
+- `node --check desktop/tests/electron/chat-stream-performance-driver.js`
+- `node --check desktop/tests/electron/chat-stream-performance.test.mjs`
+- `node --check desktop/tests/electron/cdp-client.mjs`
+- `node desktop/tests/electron/chat-stream-performance.test.mjs --skip-build`
+  was attempted and verified the extracted chat performance driver installed
+  and started, but the run then failed in the existing scripted fake Codex path
+  with `commandExecution flat result must be empty after typed details cutover`
+  before measurement settlement.
+- `node desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs --skip-build`
+  passed after registering the new driver extension.
 - `./scripts/format.sh`
 - `./check_quality.sh --git-changes`
 
 Remaining notes: continue Track 4 with the remaining large browser-side
-programs in chat stream performance, semantic graph workflow editing, overview
-zoom performance helpers, and long transcript performance. Add the guardrail for
-future large executable template literals after the extraction pattern covers
-the remaining listed workflows. Phase 4 backend trajectory contracts should
-wait until this test-driver extraction work is complete enough that new
-trajectory E2E scenarios do not add new large inline browser programs.
+programs in semantic graph workflow editing, overview zoom performance helpers,
+and long transcript performance. The chat stream performance workflow still
+needs a clean focused rerun after the existing fake Codex typed-details fixture
+is repaired. Add the guardrail for future large executable template literals
+after the extraction pattern covers the remaining listed workflows. Phase 4
+backend trajectory contracts should wait until this test-driver extraction work
+is complete enough that new trajectory E2E scenarios do not add new large
+inline browser programs.
 
 ## Phase 4: Backend Trajectory Contracts
 

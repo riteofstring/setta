@@ -7,6 +7,11 @@ const driverScriptPath = join(driverScriptDir, "browser-driver.js");
 const driverExtensionScripts = [
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.chatStreamPerformanceVersion === "setta-chat-stream-performance-driver-v1"',
+    path: join(driverScriptDir, "chat-stream-performance-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.domPaneSnapshotScrollVersion === "setta-dom-pane-snapshot-scroll-driver-v1"',
     path: join(driverScriptDir, "dom-pane-snapshot-scroll-driver.js"),
   },
