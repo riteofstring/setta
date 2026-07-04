@@ -2,6 +2,11 @@ import type { ConversationListItem, Run, RunLiveness } from "@generated/backend"
 import { AlertTriangle, Pin, PinOff, RefreshCw, Trash2, WifiOff } from "lucide-react";
 import { type FocusEvent, type RefObject, useLayoutEffect, useRef, useState } from "react";
 
+import {
+  activeRunPresentation,
+  runLivenessPresentationKind,
+  type RunLivenessPresentationKind,
+} from "../lib/chat-run-liveness";
 import { cn } from "../lib/utils";
 import { AsciiSpinner } from "./ascii-spinner";
 import { SidebarIconButton } from "./sidebar-header-actions";
@@ -224,36 +229,52 @@ function conversationRunIndicator(
   activeRun: Run | null,
   activeRunLiveness: RunLiveness | null,
 ): ConversationRunIndicator {
-  const liveness = conversationRunLiveness(item, activeRun, activeRunLiveness);
-  return liveness ? runIndicatorForLivenessStatus(liveness.status) : null;
-}
-
-function conversationRunLiveness(
-  item: ConversationListItem,
-  activeRun: Run | null,
-  activeRunLiveness: RunLiveness | null,
-) {
   if (
-    activeRunMatchesConversation(activeRun, item.conversation.id) &&
-    activeRunLiveness?.runId === activeRun?.id
+    activeRun?.status === "running" &&
+    activeRunMatchesConversation(activeRun, item.conversation.id)
   ) {
-    return activeRunLiveness;
+    const liveness =
+      activeRunLiveness?.runId === activeRun.id ? activeRunLiveness : item.activeRunLiveness;
+    const presentation = activeRunPresentation(activeRun, liveness);
+    return runIndicatorForActiveRunPresentation(presentation.kind);
   }
-  return item.activeRunLiveness;
+  return item.activeRunLiveness
+    ? runIndicatorForLivenessPresentation(runLivenessPresentationKind(item.activeRunLiveness))
+    : null;
 }
 
-function runIndicatorForLivenessStatus(status: RunLiveness["status"]): ConversationRunIndicator {
-  switch (status) {
-    case "attached":
+function runIndicatorForActiveRunPresentation(
+  kind: ReturnType<typeof activeRunPresentation>["kind"],
+): ConversationRunIndicator {
+  switch (kind) {
+    case "blocked":
+    case "working":
       return "working";
-    case "reconciling":
+    case "reconnecting":
+      return "reconnecting";
+    case "lost":
+      return "lost";
+    case "idle":
+      return null;
+    default:
+      return assertNever(kind);
+  }
+}
+
+function runIndicatorForLivenessPresentation(
+  kind: RunLivenessPresentationKind,
+): ConversationRunIndicator {
+  switch (kind) {
+    case "working":
+      return "working";
+    case "reconnecting":
       return "reconnecting";
     case "lost":
       return "lost";
     case "terminal":
       return null;
     default:
-      return assertNever(status);
+      return assertNever(kind);
   }
 }
 

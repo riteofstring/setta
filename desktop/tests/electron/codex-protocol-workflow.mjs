@@ -546,9 +546,9 @@ export async function runProtocolLivenessReconciliationWorkflow(client, backend,
     },
   ]);
   assertReconciledRunLiveness(reconciled, run.id);
-  await waitForRendererLiveness(client, run.id, "reconciling", "reconnecting");
-  await waitForTexts(client, ["Reconnecting"]);
-  await assertDegradedRunControls(client, { retry: true, stop: true });
+  await waitForRendererLiveness(client, run.id, "reconciling", "working");
+  await waitForTexts(client, ["Working"]);
+  await assertRunLivenessControls(client, { retry: false, stop: true });
 
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");
@@ -571,7 +571,7 @@ export async function runProtocolProviderRestartLivenessWorkflow(client, backend
   const item = list.conversations.find((candidate) => candidate.conversation.id === conversationId);
   assertProviderRestartLivenessItem(item, run.id);
   await waitForTexts(client, ["Reconnecting"]);
-  await assertDegradedRunControls(client, { retry: true, stop: true });
+  await assertRunLivenessControls(client, { retry: true, stop: true });
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");
   await assertNoActiveRun(backend, workspaceId, conversationId);
@@ -619,7 +619,7 @@ export async function runProtocolStreamErrorLivenessWorkflow(client, backend, wo
     "Codex connection retrying",
     "stream_resync",
   );
-  await assertDegradedRunControls(client, { retry: true, stop: true });
+  await assertRunLivenessControls(client, { retry: true, stop: true });
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, retryingConversationId, retryingRun.id, "cancelled");
   await assertNoActiveRun(backend, workspaceId, retryingConversationId);
@@ -661,7 +661,7 @@ export async function runProtocolStreamErrorLivenessWorkflow(client, backend, wo
     "provider_unavailable",
   );
   await assertProviderStreamLifecycleActivitySearchable(client, lostActivity.sourceRunItemId);
-  await assertDegradedRunControls(client, { retry: true, stop: true });
+  await assertRunLivenessControls(client, { retry: true, stop: true });
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, lostConversationId, lostRun.id, "cancelled");
   await assertNoActiveRun(backend, workspaceId, lostConversationId);
@@ -904,7 +904,7 @@ async function waitForRendererLiveness(client, runId, status, rowMode) {
   );
 }
 
-async function assertDegradedRunControls(client, expected) {
+async function assertRunLivenessControls(client, expected) {
   await waitForState(
     client,
     `(() => {

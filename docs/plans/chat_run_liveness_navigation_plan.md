@@ -489,11 +489,56 @@ Verification performed:
 
 Remaining work:
 
-- Phase 3 renderer presentation should still centralize sidebar/transcript/
-  composer liveness classification exhaustively.
 - Phase 4 should add explicit deterministic Electron assertions for the
   conversation-switching liveness navigation regression and the degraded-health
   case, even though the existing deterministic chat workflow gate passes.
+
+### 2026-07-03: Renderer Liveness Presentation Classification
+
+Implemented Phase 3 for renderer presentation:
+
+- centralized run-liveness UI classification in
+  `desktop/src/renderer/src/lib/chat-run-liveness.ts`, using generated
+  `RunLivenessReason` values in an exhaustive `satisfies` mapping;
+- made snapshot-load, wake-recheck, provider-ref-pending, and provider-turn-
+  linked reconciliation present as visible working state instead of
+  reconnecting;
+- kept real recovery states such as `stream_resync`, `provider_restarted`, and
+  `user_retry` presenting as reconnecting, and unavailable/missing/turn-not-
+  found states presenting as lost;
+- routed transcript live run rows and sidebar conversation indicators through
+  the shared presentation classifier so they match composer behavior;
+- updated deterministic Codex protocol workflow assertions so `wake_recheck`
+  remains a non-alarming working presentation while provider restart and stream
+  error cases still require reconnecting/lost presentation and retry/stop
+  controls.
+
+Verification performed:
+
+- `pnpm vitest run src/renderer/src/lib/chat-run-liveness.test.ts`
+- `pnpm vitest run src/renderer/src/App.test.tsx`
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Verification blocker discovered:
+
+- `./scripts/test_chat_workflows.sh --deterministic-only` still fails in the
+  known Phase 7 transcript scroll-follow case: `detached while streaming grows
+  tail` times out with the scroll controller back in `auto_follow` at the
+  bottom. The liveness-relevant conversation-switch subcase passed before that
+  failure, but the full deterministic chat gate is not clean until Phase 7 is
+  implemented.
+
+Remaining work:
+
+- Phase 4 should add explicit deterministic Electron assertions for the
+  conversation-switching liveness navigation regression and degraded-health
+  case as dedicated coverage rather than relying only on the broader protocol
+  workflow.
+- Phase 7 remains required to make the full deterministic chat workflow gate
+  clean.
 
 ## Open Decisions
 

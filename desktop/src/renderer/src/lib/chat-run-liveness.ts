@@ -1,6 +1,7 @@
-import type { Run, RunLiveness, RunLivenessStatus } from "@generated/backend";
+import type { Run, RunLiveness, RunLivenessReason } from "@generated/backend";
 
 type ActiveRunPresentationKind = "idle" | "working" | "blocked" | "reconnecting" | "lost";
+export type RunLivenessPresentationKind = "working" | "reconnecting" | "lost" | "terminal";
 
 export interface ActiveRunPresentation {
   canRetry: boolean;
@@ -26,8 +27,9 @@ export function activeRunPresentation(
       running: true,
     };
   }
-  switch (matched.status) {
-    case "attached":
+  const connectionKind = runLivenessPresentationKind(matched);
+  switch (connectionKind) {
+    case "working":
       if (activeRun.pendingApproval !== null) {
         return {
           canRetry: false,
@@ -40,13 +42,13 @@ export function activeRunPresentation(
       }
       return {
         canRetry: false,
-        canSteer: true,
+        canSteer: matched.status === "attached",
         canStop: matched.cancellable,
         kind: "working",
         liveness: matched,
         running: true,
       };
-    case "reconciling":
+    case "reconnecting":
       return {
         canRetry: matched.retryable,
         canSteer: false,
@@ -67,7 +69,7 @@ export function activeRunPresentation(
     case "terminal":
       return idlePresentation;
     default:
-      return assertNever(matched.status);
+      return assertNever(connectionKind);
   }
 }
 
@@ -91,18 +93,33 @@ export function runLivenessNeedsSnapshotResync(liveness: RunLiveness): boolean {
   return liveness.status === "lost";
 }
 
-export function runLivenessStatusLabel(status: RunLivenessStatus): string {
-  switch (status) {
+export function runLivenessPresentationKind(liveness: RunLiveness): RunLivenessPresentationKind {
+  switch (liveness.status) {
     case "attached":
-      return "Working";
+      return "working";
     case "reconciling":
+      return reconcilingReasonPresentationKinds[liveness.reason];
+    case "lost":
+      return "lost";
+    case "terminal":
+      return "terminal";
+    default:
+      return assertNever(liveness.status);
+  }
+}
+
+export function runLivenessPresentationLabel(kind: RunLivenessPresentationKind): string {
+  switch (kind) {
+    case "working":
+      return "Working";
+    case "reconnecting":
       return "Reconnecting";
     case "lost":
       return "Connection lost";
     case "terminal":
       return "Finished";
     default:
-      return assertNever(status);
+      return assertNever(kind);
   }
 }
 
@@ -114,6 +131,20 @@ const idlePresentation = {
   liveness: null,
   running: false,
 } satisfies ActiveRunPresentation;
+
+const reconcilingReasonPresentationKinds = {
+  attachment_missing: "lost",
+  provider_ref_pending: "working",
+  provider_restarted: "reconnecting",
+  provider_turn_linked: "working",
+  provider_unavailable: "lost",
+  run_terminal: "terminal",
+  snapshot_load: "working",
+  stream_resync: "reconnecting",
+  turn_not_found: "lost",
+  user_retry: "reconnecting",
+  wake_recheck: "working",
+} satisfies Record<RunLivenessReason, RunLivenessPresentationKind>;
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled run liveness status: ${JSON.stringify(value)}`);

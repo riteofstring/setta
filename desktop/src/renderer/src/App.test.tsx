@@ -389,6 +389,56 @@ describe("workspace renderer states", () => {
     expect(hasAriaLabel(html, "Chat response running")).toBe(false);
   });
 
+  test("presents sidebar snapshot-load liveness as a running response", () => {
+    const web = {
+      displayName: "web",
+      id: "workspace_web",
+      lastOpenedAt: "2026-05-29T20:05:00Z",
+      rootPath: "/tmp/web",
+    };
+    const activeRun = runFixture("run_web", "running");
+    activeRun.workspaceId = "workspace_web";
+    activeRun.conversationId = "conversation_web";
+    const liveness = runLivenessFixture(activeRun, "reconciling", {
+      reason: "snapshot_load",
+      retryable: true,
+    });
+    seedWorkspaceConversationList("workspace_web", [
+      {
+        ...conversationListItem("conversation_web", "Build web UI", "workspace_web"),
+        activeRunId: activeRun.id,
+        activeRunLiveness: liveness,
+      },
+    ]);
+
+    const html = renderToString(
+      <WorkspaceSidebar
+        activeRun={activeRun}
+        activeRunLiveness={liveness}
+        activeWorkspaces={[web]}
+        busy={false}
+        closeWorkspace={async () => {}}
+        createConversation={async () => {}}
+        createWorkspaceConversation={async () => {}}
+        deleteConversation={async () => {}}
+        openLocalFolder={async () => {}}
+        openWorkflowGraphPane={() => {}}
+        openWorkspacePath={async () => {}}
+        openSettingsPane={() => {}}
+        recentWorkspaces={[]}
+        removeRecent={async () => {}}
+        selectConversation={async () => {}}
+        selectWorkspace={async () => {}}
+        selectedConversationId="conversation_web"
+        selectedWorkspaceId="workspace_web"
+        setConversationPinned={async () => {}}
+      />,
+    );
+
+    expect(hasAriaLabel(html, "Chat response running")).toBe(true);
+    expect(hasAriaLabel(html, "Chat response reconnecting")).toBe(false);
+  });
+
   test("bounds large workspace list row rendering", () => {
     const workspaces = Array.from({ length: 3000 }, (_, index) => ({
       displayName: `Workspace ${index}`,
@@ -601,12 +651,42 @@ describe("chat renderer states", () => {
     expect(html).toContain("Working");
   });
 
-  test("renders reconnecting run status without the normal working indicator", () => {
+  test("renders snapshot-load verification as the normal working indicator", () => {
     const activeRun = runFixture("run_api", "running");
     const html = renderToString(
       <TestChatTranscript
         activeRun={activeRun}
-        activeRunLiveness={runLivenessFixture(activeRun, "reconciling")}
+        activeRunLiveness={runLivenessFixture(activeRun, "reconciling", {
+          reason: "snapshot_load",
+          retryable: true,
+        })}
+        blocks={[
+          runStatusBlock({
+            id: "block_working",
+            runId: "run_api",
+            ordinal: 1,
+            status: "streaming",
+            mode: "working",
+            label: "Working",
+          }),
+        ]}
+      />,
+    );
+
+    expect(html).toContain('data-run-status-mode="working"');
+    expect(html).toContain('data-live-headline="active"');
+    expect(html).toContain("Working");
+    expect(html).not.toContain("Reconnecting");
+  });
+
+  test("renders stream resync as reconnecting without the normal working indicator", () => {
+    const activeRun = runFixture("run_api", "running");
+    const html = renderToString(
+      <TestChatTranscript
+        activeRun={activeRun}
+        activeRunLiveness={runLivenessFixture(activeRun, "reconciling", {
+          reason: "stream_resync",
+        })}
         blocks={[
           runStatusBlock({
             id: "block_working",

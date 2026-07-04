@@ -7,8 +7,12 @@ import type {
 import { Ban, Check, CircleAlert, RefreshCw, SquareTerminal, WifiOff } from "lucide-react";
 import type { ReactNode } from "react";
 
+import {
+  activeRunPresentation,
+  runLivenessPresentationLabel,
+  type RunLivenessPresentationKind,
+} from "../lib/chat-run-liveness";
 import { cn } from "../lib/utils";
-import { runLivenessStatusLabel } from "../lib/chat-run-liveness";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 import type { TranscriptRenderRow } from "../lib/chat-transcript-render-rows";
 import { BrailleSpinner } from "./ascii-spinner";
@@ -234,7 +238,10 @@ function LiveRunStatusBlock({
       </RunStatusRow>
     );
   }
-  if (liveStatus === "reconciling") {
+  if (liveStatus === "working") {
+    return <WorkingRunStatusRow block={block} />;
+  }
+  if (liveStatus === "reconnecting") {
     return (
       <RunStatusRow
         mode="reconnecting"
@@ -242,32 +249,40 @@ function LiveRunStatusBlock({
         tone="muted"
         icon={<RefreshCw className="h-4 w-4 shrink-0 text-muted-foreground" />}
       >
-        <span>{runLivenessStatusLabel(liveStatus)}</span>
+        <span>{runLivenessPresentationLabel(liveStatus)}</span>
       </RunStatusRow>
     );
   }
   if (liveStatus === "lost") {
     return <LostRunStatusRow block={block} liveness={rowActions.activeRunLiveness} />;
   }
-  return <WorkingRunStatusRow block={block} />;
+  return null;
 }
 
-function liveRunStatusForBlock(block: TranscriptBlock, rowActions: TranscriptRowActions) {
-  const liveness = rowActions.activeRunLiveness;
-  if (block.runId === liveness?.runId) {
-    if (liveness.status === "attached" && approvalBlocksWorkingStatus(block, rowActions)) {
-      return "approval";
-    }
-    return liveness.status;
-  }
+type LiveRunStatusPresentation = RunLivenessPresentationKind | "approval" | null;
+
+function liveRunStatusForBlock(
+  block: TranscriptBlock,
+  rowActions: TranscriptRowActions,
+): LiveRunStatusPresentation {
   if (block.runId !== rowActions.activeRun?.id) {
     return null;
   }
-  return approvalBlocksWorkingStatus(block, rowActions) ? "approval" : "reconciling";
-}
-
-function approvalBlocksWorkingStatus(block: TranscriptBlock, rowActions: TranscriptRowActions) {
-  return rowActions.activeRun?.id === block.runId && rowActions.activeRun.pendingApproval !== null;
+  const presentation = activeRunPresentation(rowActions.activeRun, rowActions.activeRunLiveness);
+  switch (presentation.kind) {
+    case "blocked":
+      return "approval";
+    case "working":
+      return "working";
+    case "reconnecting":
+      return "reconnecting";
+    case "lost":
+      return "lost";
+    case "idle":
+      return null;
+    default:
+      return assertNever(presentation.kind);
+  }
 }
 
 function WorkingRunStatusRow({ block }: { block: TranscriptBlock }) {
@@ -300,7 +315,7 @@ function LostRunStatusRow({
       tone="error"
       icon={<WifiOff className="h-4 w-4 shrink-0 text-status-critical-muted" />}
     >
-      <span>{runLivenessStatusLabel("lost")}</span>
+      <span>{runLivenessPresentationLabel("lost")}</span>
       {liveness && liveness.error !== "" ? (
         <span className="min-w-0 truncate text-status-critical">{liveness.error}</span>
       ) : null}
