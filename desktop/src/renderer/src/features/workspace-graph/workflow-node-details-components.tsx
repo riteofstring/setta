@@ -10,7 +10,7 @@ import type {
 } from "@generated/backend";
 import { useEffect, useRef, type ReactNode } from "react";
 
-import { RunActivityRows } from "../../components/chat-run-activity";
+import { RunItemActivityList } from "../../components/chat-transcript-activity";
 import { cn } from "../../lib/utils";
 import type {
   WorkflowNodeActivityFocus,
@@ -321,8 +321,9 @@ function WorkflowActivityRefDetails({
   );
 }
 
-// Renders node-scoped agent/tool activity through the shared chat run-activity rows so the workflow
-// node details reuse the canonical rendering path instead of a bespoke lower-fidelity renderer.
+// Renders node-scoped agent/tool activity through the shared activity rows so the workflow node
+// details reuse the canonical rendering path. The activity items are projected by the backend from
+// the run's items, so this surface never infers displayability from raw run-item protocol.
 function WorkflowRunActivityPageDetails({
   highlightedRunItemId,
   page,
@@ -330,18 +331,19 @@ function WorkflowRunActivityPageDetails({
   highlightedRunItemId: string | undefined;
   page: RunActivityPage;
 }) {
-  if (page.items.length === 0) {
+  if (page.activity.length === 0) {
     return <div className="text-xs text-zinc-500">No activity items recorded.</div>;
   }
   const outputState = runActivityOutputStateFromPage(page);
   return (
-    <RunActivityRows
+    <RunItemActivityList
+      activity={page.activity}
       highlightedRunItemId={highlightedRunItemId}
-      items={page.items}
       loadRunItemOutput={noopLoadRunActivityOutput}
       outputIdsByRunItemId={outputState.outputIdsByRunItemId}
       outputPagesByRunItemId={outputState.outputPagesByRunItemId}
       outputsById={outputState.outputsById}
+      runId={page.runId}
     />
   );
 }

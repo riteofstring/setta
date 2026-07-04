@@ -26,6 +26,11 @@ type ContractTestResponse struct {
 	Score  *float64           `json:"score"`
 }
 
+type ContractTaggedUnionResponse struct {
+	Blocks []chat.TranscriptBlock `json:"blocks"`
+	Item   chat.RunItem           `json:"item"`
+}
+
 type ContractTestError struct {
 	Message string `json:"message"`
 }
@@ -188,6 +193,80 @@ func TestRenderProducesGeneratedClientSmoke(t *testing.T) {
 	} {
 		if strings.Contains(output, runtimeBlock) {
 			t.Fatalf("generated output contains stable runtime block %q:\n%s", runtimeBlock, output)
+		}
+	}
+}
+
+func TestContractSpecsRenderRegisteredUnion(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractCommands",
+			Method:   "POST",
+			Path:     "/contract-commands",
+			Request:  reflect.TypeFor[ContractTestRequest](),
+			Response: reflect.TypeFor[chat.ChatCommandListResult](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	}, chat.EventContractSchema{})
+	if err != nil {
+		t.Fatalf("collect contract specs: %v", err)
+	}
+	if len(specs.Unions) != 1 || specs.Unions[0].Name != "ChatCommandArgumentSpec" {
+		t.Fatalf("unions = %+v, want ChatCommandArgumentSpec", specs.Unions)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	output := buffer.String()
+	for _, want := range []string{
+		"export type ChatCommandArgumentSpec =",
+		"ChatCommandLiteralArgumentSpec",
+		"export function decodeChatCommandArgumentSpec(value: unknown): ChatCommandArgumentSpec",
+		"case \"literal\":",
+		"case \"free_text\":",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestRenderTaggedUnionStructValidatesBranchInvariant(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractBlockPage",
+			Method:   "POST",
+			Path:     "/contract-block-page",
+			Request:  reflect.TypeFor[ContractTestRequest](),
+			Response: reflect.TypeFor[ContractTaggedUnionResponse](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	}, chat.EventContractSchema{})
+	if err != nil {
+		t.Fatalf("collect contract specs: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	output := buffer.String()
+	for _, want := range []string{
+		"  assertTaggedUnionBranch,\n",
+		"export function decodeTranscriptBlock(value: unknown): TranscriptBlock {",
+		"const result: TranscriptBlock = {",
+		"assertTaggedUnionBranch(\"TranscriptBlock\", result.kind, {",
+		"\"assistant_text\": result.assistantText,",
+		"\"run_status\": result.runStatus,",
+		"export function decodeRunItemDetails(value: unknown): RunItemDetails {",
+		"assertTaggedUnionBranch(\"RunItemDetails\", result.kind, {",
+		"\"plan\": result.plan,",
+		"return result;",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated output missing %q:\n%s", want, output)
 		}
 	}
 }

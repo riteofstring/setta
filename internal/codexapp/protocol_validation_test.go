@@ -49,3 +49,25 @@ func TestThreadSettingsUpdateParamsCanMarshalExplicitNullServiceTier(t *testing.
 		t.Fatalf("encoded = %s, want omitted serviceTier", omitted)
 	}
 }
+
+func TestDecodeThreadBackgroundTerminalsTerminateResponse(t *testing.T) {
+	decoded, err := DecodeThreadBackgroundTerminalsTerminateResponse(json.RawMessage(`{"terminated":true}`))
+	if err != nil {
+		t.Fatalf("decode terminate response: %v", err)
+	}
+	if !decoded.Terminated {
+		t.Fatalf("terminated = false, want true")
+	}
+
+	for name, raw := range map[string]string{
+		"missing terminated": `{"ok":true}`,
+		"unknown field":      `{"terminated":true,"status":"ok"}`,
+		"wrong type":         `{"terminated":"yes"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := DecodeThreadBackgroundTerminalsTerminateResponse(json.RawMessage(raw)); err == nil {
+				t.Fatalf("decode succeeded for invalid response %s", raw)
+			}
+		})
+	}
+}

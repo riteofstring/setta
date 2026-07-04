@@ -382,8 +382,22 @@ func (sink *codexStructuredTaskSink) ProviderDiagnostic(code string, message str
 	return nil
 }
 
+func (sink *codexStructuredTaskSink) ProviderTurnError(providerError ProviderTurnError) error {
+	sink.diagnostics = append(sink.diagnostics, HarnessTaskDiagnostic{
+		Code:     "codex_turn_error",
+		Message:  providerError.Message,
+		Severity: DiagnosticSeverityCritical,
+		Context:  providerTurnErrorDiagnosticContext(providerError, providerError.Retryable || providerError.StreamFailure),
+	})
+	return nil
+}
+
 func (sink *codexStructuredTaskSink) GoalUpdated(*ChatGoalState) error {
 	return errors.New("codex structured cartographer task attempted goal update")
+}
+
+func (sink *codexStructuredTaskSink) CodexEffectiveSettingsUpdated(ChatCodexEffectiveSettings) error {
+	return nil
 }
 
 func (sink *codexStructuredTaskSink) RunItemOutputDelta(string, string, string) error {
@@ -399,7 +413,7 @@ func (sink *codexStructuredTaskSink) RunItemUpsert(item RunItem) error {
 	}
 }
 
-func (sink *codexStructuredTaskSink) ThreadLinked(string, string, string) error {
+func (sink *codexStructuredTaskSink) ThreadLinked(string, string, string, *ChatCodexEffectiveSettings) error {
 	return nil
 }
 

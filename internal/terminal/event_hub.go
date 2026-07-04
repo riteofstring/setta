@@ -40,15 +40,7 @@ type eventHubConfig struct {
 
 type terminalSessionEventBuffer struct {
 	events      []retainedTerminalEvent
-	cols        int
-	cwd         string
-	exitCode    int
 	outputBytes int
-	paneID      string
-	rows        int
-	sessionID   string
-	status      SessionStatus
-	workspaceID string
 }
 
 type retainedTerminalEvent struct {
@@ -138,9 +130,7 @@ func (hub *eventHub) publishReplayForSession(sessionID string) {
 	if buffer == nil {
 		return
 	}
-	now := hub.clock().UTC()
-	droppedBytes, droppedChunks := hub.trimExpiredLocked(buffer, now)
-	hub.storeReplayTruncationLocked(buffer, droppedBytes, droppedChunks, now)
+	hub.trimExpiredLocked(buffer, hub.clock().UTC())
 	for _, retained := range buffer.events {
 		if retained.event.Type != TerminalEventOutput && retained.event.Type != TerminalEventBufferTruncated {
 			continue
@@ -157,8 +147,10 @@ func (hub *eventHub) recordEventLocked(
 ) []TerminalEvent {
 	now := hub.clock().UTC()
 	event := hub.eventForSessionLocked(terminalSession, eventType, payload, now)
-	hub.storeEventLocked(terminalSession, event, now)
-	return []TerminalEvent{event}
+	events := []TerminalEvent{event}
+	truncated := hub.storeEventLocked(terminalSession, event, now)
+	events = append(events, truncated...)
+	return events
 }
 
 func (hub *eventHub) eventForSessionLocked(
@@ -194,35 +186,12 @@ func (hub *eventHub) cloneEventLocked(event TerminalEvent, now time.Time) Termin
 	return event
 }
 
-func (hub *eventHub) eventForBufferLocked(
-	buffer *terminalSessionEventBuffer,
-	eventType TerminalEventType,
-	payload TerminalEventPayload,
-	now time.Time,
-) TerminalEvent {
-	hub.sequence += 1
-	sequence := hub.sequence
-	eventID := fmt.Sprintf("%s:%d", hub.streamID, sequence)
-	return TerminalEvent{
-		SchemaVersion: SchemaVersion,
-		StreamID:      hub.streamID,
-		Sequence:      sequence,
-		EventID:       eventID,
-		Type:          eventType,
-		EmittedAt:     now.Format(time.RFC3339Nano),
-		WorkspaceID:   buffer.workspaceID,
-		PaneID:        buffer.paneID,
-		SessionID:     buffer.sessionID,
-		Payload:       payload,
-	}
-}
-
 func (hub *eventHub) storeEventLocked(
 	terminalSession *session,
 	event TerminalEvent,
 	now time.Time,
-) {
-	buffer := hub.bufferForSessionLocked(terminalSession)
+) []TerminalEvent {
+	buffer := hub.bufferForSessionLocked(event.SessionID)
 	droppedBytes, droppedChunks := hub.trimExpiredLocked(buffer, now)
 	buffer.events = append(buffer.events, retainedTerminalEvent{emittedAt: now, event: event})
 	if event.Type == TerminalEventOutput {
@@ -231,58 +200,42 @@ func (hub *eventHub) storeEventLocked(
 	overflowBytes, overflowChunks := hub.trimOverflowLocked(buffer)
 	droppedBytes += overflowBytes
 	droppedChunks += overflowChunks
-	hub.storeReplayTruncationLocked(buffer, droppedBytes, droppedChunks, now)
-}
-
-func (hub *eventHub) storeReplayTruncationLocked(
-	buffer *terminalSessionEventBuffer,
-	droppedBytes int,
-	droppedChunks int,
-	now time.Time,
-) {
 	if droppedChunks == 0 {
-		return
+		return nil
 	}
-	truncated := hub.eventForBufferLocked(
-		buffer,
+	message := fmt.Sprintf("terminal output buffer truncated; dropped %d chunks", droppedChunks)
+	truncated := hub.eventForSessionLocked(
+		terminalSession,
 		TerminalEventBufferTruncated,
 		TerminalEventPayload{
 			ByteCount:     droppedBytes,
 			DroppedBytes:  droppedBytes,
 			DroppedChunks: droppedChunks,
-			Status:        buffer.status,
-			CWD:           buffer.cwd,
-			Cols:          buffer.cols,
-			Rows:          buffer.rows,
-			ExitCode:      buffer.exitCode,
-			Message:       terminalReplayHistoryTruncatedMessage(droppedChunks),
+			Status:        terminalSession.status,
+			CWD:           terminalSession.cwd,
+			Cols:          terminalSession.cols,
+			Rows:          terminalSession.rows,
+			ExitCode:      terminalSession.exitCode,
+			Message:       message,
 		},
 		now,
 	)
 	buffer.events = append(buffer.events, retainedTerminalEvent{emittedAt: now, event: truncated})
+	return []TerminalEvent{truncated}
 }
 
-func (hub *eventHub) bufferForSessionLocked(terminalSession *session) *terminalSessionEventBuffer {
-	buffer := hub.sessionBuffers[terminalSession.id]
+func (hub *eventHub) bufferForSessionLocked(sessionID string) *terminalSessionEventBuffer {
+	buffer := hub.sessionBuffers[sessionID]
 	if buffer == nil {
 		buffer = &terminalSessionEventBuffer{}
-		hub.sessionBuffers[terminalSession.id] = buffer
+		hub.sessionBuffers[sessionID] = buffer
 	}
-	buffer.cols = terminalSession.cols
-	buffer.cwd = terminalSession.cwd
-	buffer.exitCode = terminalSession.exitCode
-	buffer.paneID = terminalSession.paneID
-	buffer.rows = terminalSession.rows
-	buffer.sessionID = terminalSession.id
-	buffer.status = terminalSession.status
-	buffer.workspaceID = terminalSession.workspaceID
 	return buffer
 }
 
 func (hub *eventHub) trimExpiredAllLocked(now time.Time) {
 	for sessionID, buffer := range hub.sessionBuffers {
-		droppedBytes, droppedChunks := hub.trimExpiredLocked(buffer, now)
-		hub.storeReplayTruncationLocked(buffer, droppedBytes, droppedChunks, now)
+		hub.trimExpiredLocked(buffer, now)
 		if len(buffer.events) == 0 {
 			delete(hub.sessionBuffers, sessionID)
 		}
@@ -355,18 +308,6 @@ func (hub *eventHub) replayEventsLocked(afterSequence int) []TerminalEvent {
 		return replay[left].Sequence < replay[right].Sequence
 	})
 	return replay
-}
-
-func terminalReplayHistoryTruncatedMessage(droppedChunks int) string {
-	chunkLabel := "chunks"
-	if droppedChunks == 1 {
-		chunkLabel = "chunk"
-	}
-	return fmt.Sprintf(
-		"terminal replay history truncated; %d output %s unavailable",
-		droppedChunks,
-		chunkLabel,
-	)
 }
 
 func (hub *eventHub) sendLocked(event TerminalEvent) {

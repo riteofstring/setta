@@ -169,7 +169,7 @@ describe("terminal surface adapter", () => {
     vi.unstubAllGlobals();
   });
 
-  test("attaches existing sessions when visible and reattaches after remount", async () => {
+  test("attaches existing sessions and reattaches after remount", async () => {
     const api = installSettaAPI({
       attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
       create: vi.fn(async () => terminalResponse("terminal_created", "running")),
@@ -182,20 +182,18 @@ describe("terminal surface adapter", () => {
 
     expect(api.terminal.attach).not.toHaveBeenCalled();
 
-    adapter.setVisible(true);
+    adapter.setFocused(true);
     await waitFor(() => firstHost.dataset.terminalSessionId === "terminal_existing");
 
     expect(api.terminal.attach).toHaveBeenCalledTimes(1);
     expect(api.terminal.create).not.toHaveBeenCalled();
     expect(firstHost.dataset.terminalSessionId).toBe("terminal_existing");
     expect(firstHost.dataset.terminalStatus).toBe("running");
-    expect(firstHost.dataset.surfaceFocused).toBe("false");
     expect(firstHost.style.getPropertyValue("--workspace-terminal-background")).toBe("#09090b");
 
     adapter.unmount();
     const secondHost = createFakeHost();
     adapter.mount(secondHost);
-    adapter.setVisible(true);
     await waitFor(
       () =>
         secondHost.dataset.terminalSessionId === "terminal_existing" &&
@@ -205,107 +203,6 @@ describe("terminal surface adapter", () => {
     expect(api.terminal.attach).toHaveBeenCalledTimes(2);
     expect(secondHost.dataset.terminalSessionId).toBe("terminal_existing");
     expect(secondHost.style.getPropertyValue("--workspace-terminal-background")).toBe("#09090b");
-  });
-
-  test("creates a safe visible terminal without waiting for focus", async () => {
-    const api = installSettaAPI({
-      attach: vi.fn(async () => {
-        throw new Error("terminal session not found");
-      }),
-      create: vi.fn(async () => terminalResponse("terminal_created", "running")),
-    });
-    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
-    const host = createFakeHost();
-
-    adapter.mount(host);
-    await waitFor(() => terminalMock.instances.length === 1);
-
-    expect(api.terminal.attach).not.toHaveBeenCalled();
-    expect(api.terminal.create).not.toHaveBeenCalled();
-
-    adapter.setVisible(true);
-    await waitFor(() => host.dataset.terminalSessionId === "terminal_created");
-
-    expect(api.terminal.attach).toHaveBeenCalledTimes(1);
-    expect(api.terminal.create).toHaveBeenCalledTimes(1);
-    expect(host.dataset.surfaceFocused).toBe("false");
-  });
-
-  test("keeps visible auto-start discovery in flight across remount before creating", async () => {
-    const attachDiscovery = deferred<TerminalSessionResponse>();
-    const api = installSettaAPI({
-      attach: vi
-        .fn()
-        .mockReturnValueOnce(attachDiscovery.promise)
-        .mockRejectedValueOnce(new Error("terminal session not found")),
-      create: vi.fn(async () => terminalResponse("terminal_created", "running")),
-    });
-    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
-    const firstHost = createFakeHost();
-
-    adapter.mount(firstHost);
-    adapter.setVisible(true);
-    await waitFor(() => api.terminal.attach.mock.calls.length === 1);
-
-    adapter.unmount();
-    const secondHost = createFakeHost();
-    adapter.mount(secondHost);
-    adapter.setVisible(true);
-    await waitFor(() => terminalMock.instances.length === 2);
-
-    expect(api.terminal.attach).toHaveBeenCalledTimes(1);
-    expect(api.terminal.create).not.toHaveBeenCalled();
-
-    attachDiscovery.resolve(terminalResponse("terminal_existing", "running"));
-    await waitFor(() => secondHost.dataset.terminalSessionId === "terminal_existing");
-
-    expect(api.terminal.attach).toHaveBeenCalledTimes(1);
-    expect(api.terminal.create).not.toHaveBeenCalled();
-  });
-
-  test("does not start a visible terminal while runtime policy keeps it frozen", async () => {
-    const api = installSettaAPI({
-      attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
-    });
-    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
-    const host = createFakeHost();
-
-    adapter.mount(host);
-    adapter.freeze("runtime-policy");
-    adapter.setVisible(true);
-    await waitFor(() => terminalMock.instances.length === 1);
-
-    expect(api.terminal.attach).not.toHaveBeenCalled();
-    expect(host.dataset.terminalSessionId).toBe("");
-
-    adapter.resume("visible");
-    await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
-
-    expect(api.terminal.attach).toHaveBeenCalledTimes(1);
-  });
-
-  test("keeps unsafe visible profiles behind explicit start", async () => {
-    const profiles = terminalProfileList({
-      defaultProfileId: "custom",
-      safeAutoStart: false,
-    });
-    const api = installSettaAPI({
-      attach: vi.fn(async () => {
-        throw new Error("terminal session not found");
-      }),
-      create: vi.fn(async () => terminalResponse("terminal_created", "running")),
-      profiles,
-    });
-    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
-    const host = createFakeHost();
-
-    adapter.mount(host);
-    adapter.setVisible(true);
-    await waitFor(() => host.dataset.terminalStatus === "waiting");
-
-    expect(api.terminal.attach).toHaveBeenCalledTimes(1);
-    expect(api.terminal.create).not.toHaveBeenCalled();
-    expect(host.dataset.terminalStatus).toBe("waiting");
   });
 
   test("waits for xterm render dimensions before fitting", async () => {
@@ -341,14 +238,13 @@ describe("terminal surface adapter", () => {
     const host = createFakeHost();
 
     adapter.mount(host);
-    adapter.setVisible(true);
     adapter.setFocused(true);
     await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
     emitTerminalEvent(
       terminalEvent("terminal.bufferTruncated", "terminal_existing", {
         droppedBytes: 128,
         droppedChunks: 3,
-        message: "terminal replay history truncated; 3 output chunks unavailable",
+        message: "terminal output buffer truncated; dropped 3 chunks",
       }),
     );
 
@@ -364,7 +260,6 @@ describe("terminal surface adapter", () => {
     const host = createFakeHost();
 
     adapter.mount(host);
-    adapter.setVisible(true);
     adapter.setFocused(true);
     emitTerminalEvent(
       terminalEvent("terminal.output", "terminal_existing", {
@@ -396,7 +291,6 @@ describe("terminal surface adapter", () => {
     const host = createFakeHost();
 
     adapter.mount(host);
-    adapter.setVisible(true);
     adapter.setFocused(true);
     await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
     emitBackendStatus({ message: "Backend exited unexpectedly", status: "offline" });
@@ -536,7 +430,6 @@ describe("terminal surface adapter", () => {
     const host = createFakeHost();
 
     adapter.mount(host);
-    adapter.setVisible(true);
     adapter.setFocused(true);
     await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
     const terminal = terminalMock.instances[0];
@@ -625,7 +518,6 @@ describe("terminal surface adapter", () => {
     create?: ReturnType<typeof vi.fn>;
     openExternalUrl?: ReturnType<typeof vi.fn>;
     platform?: string;
-    profiles?: TerminalProfileList;
     readClipboardText?: ReturnType<typeof vi.fn>;
     writeClipboardText?: ReturnType<typeof vi.fn>;
   }) {
@@ -641,7 +533,7 @@ describe("terminal surface adapter", () => {
       create:
         overrides.create ?? vi.fn(async () => terminalResponse("terminal_created", "running")),
       input: vi.fn(async () => ({ acceptedBytes: 0 })),
-      listProfiles: vi.fn(async () => overrides.profiles ?? terminalProfileList()),
+      listProfiles: vi.fn(async () => terminalProfileList()),
       onEvent: vi.fn((listener: (event: TerminalEvent) => void) => {
         terminalListeners.push(listener);
         return () => {
@@ -737,19 +629,13 @@ function terminalResponse(
   };
 }
 
-function terminalProfileList({
-  defaultProfileId = "default",
-  safeAutoStart = true,
-}: {
-  defaultProfileId?: string;
-  safeAutoStart?: boolean;
-} = {}): TerminalProfileList {
+function terminalProfileList(): TerminalProfileList {
   return {
-    defaultProfileId,
+    defaultProfileId: "default",
     detectedShells: [],
     profiles: [
       {
-        args: defaultProfileId === "custom" ? ["serve"] : [],
+        args: [],
         createdAt: "2026-06-06T12:00:00Z",
         cwd: "",
         cwdMode: "project",
@@ -757,12 +643,12 @@ function terminalProfileList({
         fontFamily:
           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
         fontSize: 13,
-        id: defaultProfileId,
-        launchMode: defaultProfileId === "custom" ? "custom-command" : "shell",
-        name: defaultProfileId === "custom" ? "Custom" : "Default",
-        safeAutoStart,
+        id: "default",
+        launchMode: "shell",
+        name: "Default",
+        safeAutoStart: true,
         scrollback: 1200,
-        shellPath: defaultProfileId === "custom" ? "/usr/bin/env" : "",
+        shellPath: "",
         themeId: "setta-dark",
         updatedAt: "2026-06-06T12:00:00Z",
       },
@@ -865,20 +751,6 @@ function fakeEvent(type: string): Event {
     defaultPrevented: false,
     type,
   } as Event;
-}
-
-function deferred<T>(): {
-  promise: Promise<T>;
-  reject: (error: unknown) => void;
-  resolve: (value: T) => void;
-} {
-  let reject: (error: unknown) => void = () => {};
-  let resolve: (value: T) => void = () => {};
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve;
-    reject = promiseReject;
-  });
-  return { promise, reject, resolve };
 }
 
 class FakeKeyboardEvent {

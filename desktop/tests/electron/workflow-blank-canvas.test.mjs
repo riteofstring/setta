@@ -581,8 +581,8 @@ async function assertWorkflowRunDetails(client) {
       text.includes("decision=exit") &&
       text.includes("scripted workflow result") &&
       text.includes("reports/workflow-result.md") &&
-      text.includes("Workflow result") &&
-      text.includes("workflow result recorded"),
+      text.includes("Activity") &&
+      text.includes("chat.run"),
   );
 }
 
