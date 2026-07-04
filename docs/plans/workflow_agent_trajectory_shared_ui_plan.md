@@ -569,6 +569,26 @@ Electron workflow rerun. The rendered pagination path still verifies chunk 041
 arrives only through `chat:run-item-output` / `/chat/runs/item-output`, and the
 remaining deterministic coverage gaps are unchanged.
 
+Progress 2026-07-04: deterministic Electron coverage now exercises rendered
+workflow-node approval submission end to end in
+`--workflow-node-trajectory-contract-only`. The test starts a
+`command approval workflow` agent node through the real graph toolbar, waits for
+the workflow-owned pending approval, opens canonical node details, verifies the
+shared workflow-node trajectory approval card exposes an enabled decision
+control, clicks Approve from that node-scoped card, and waits for the same
+details trajectory to remove the approval card and render `Command approval
+resolved.` The workflow-node-details browser driver now exposes scoped approval
+state and decision-click helpers, and the graph-node details helper waits for
+visible canvas coordinates plus typed graph selection before using the toolbar
+details button.
+Verification 2026-07-04: `node --check` covered the touched Electron helper
+files, the Electron template guard covered the changed browser-program files,
+and
+`node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+passed. Remaining deterministic coverage gaps are steering through the rendered
+node composer, reload/restart while already viewing node details, and
+historical-attempt paging.
+
 ## Verification Plan
 
 Start narrow, then broaden.
@@ -656,5 +676,6 @@ Before committing source, generated contracts, tests, or scripts:
 
 Progress 2026-07-04: deterministic Electron coverage now explicitly covers
 rendered workflow-node trajectory pagination through node details and the real
-run-item output endpoint. Approval, rendered composer steering,
+run-item output endpoint, plus workflow-node approval submission from the shared
+node-scoped trajectory card. Rendered composer steering,
 restart/reload-while-viewing, and historical-attempt paging remain to be added.

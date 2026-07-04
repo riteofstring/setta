@@ -946,11 +946,18 @@ trajectory state. Focused reruns passed the touched `node --check` files, the
 Electron template-literal guard, and
 `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
 
-Remaining notes: this slice covers rendered workflow-node output pagination and
-renderer reload before opening the graph. Approval submission from node details,
-steering through the rendered node composer, explicit reload/restart recovery
-while already viewing node details, and historical-attempt paging remain the
-remaining deterministic workflow-node trajectory coverage gaps.
+Progress 2026-07-04: added deterministic rendered workflow-node approval
+submission coverage to `--workflow-node-trajectory-contract-only`. The scenario
+starts a command-approval agent node through the graph toolbar, opens canonical
+node details, submits approval from the shared node-scoped trajectory card, and
+waits for the same details trajectory to render the resolved assistant output
+with the approval card removed. The browser driver now exposes scoped approval
+state and decision-click helpers, and node-details opening waits for a visible
+canvas hit target plus typed graph selection before using the toolbar action.
+Verification passed for the touched `node --check` files, the Electron
+template-literal guard, and the focused Electron workflow. Remaining gaps:
+rendered composer steering, reload/restart while already viewing node details,
+and historical-attempt paging.
 
 ## Parallel Work Guidance
 

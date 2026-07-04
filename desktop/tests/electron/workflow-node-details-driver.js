@@ -1,7 +1,7 @@
 /* global HTMLButtonElement, HTMLDetailsElement, document */
 
 (() => {
-  const version = "setta-workflow-node-details-driver-v2";
+  const version = "setta-workflow-node-details-driver-v3";
 
   function installWorkflowNodeDetailsDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -9,6 +9,7 @@
       throw new Error("base Setta E2E driver is not installed");
     }
     Object.assign(driver, {
+      clickWorkflowNodeTrajectoryDecisionApproval,
       clickWorkflowNodeTrajectoryLoadMoreOutput,
       expandWorkflowNodeTrajectoryActivityGroup,
       expandWorkflowNodeTrajectoryCommandOutput,
@@ -45,17 +46,28 @@
 
   function workflowNodeTrajectoryStateForDetails(details) {
     const trajectory = details?.querySelector('[data-testid="workflow-node-agent-trajectory"]');
+    const approvalCards = queryAll(trajectory, '[data-testid="approval-card"]');
     const outputButtons = queryAll(trajectory, "button").filter(
       (button) => button.textContent?.trim() === "Load more",
     );
     return {
-      approvalCardCount: countSelector(trajectory, '[data-testid="approval-card"]'),
+      approvalApproveButtonReady: approvalDecisionButtonReady(approvalCards, "Approve"),
+      approvalCardCount: approvalCards.length,
+      approvalDenyButtonReady: approvalDecisionButtonReady(approvalCards, "Deny"),
+      approvalText: approvalCards.map((card) => elementText(card)).join("\n"),
       disabledLoadMoreButtonCount: outputButtons.filter((button) => button.disabled).length,
       loadMoreButtonCount: outputButtons.length,
       outputText: outputTextForTrajectory(trajectory),
       text: elementText(trajectory),
       trajectoryPresent: trajectory !== null,
     };
+  }
+
+  function approvalDecisionButtonReady(approvalCards, label) {
+    return approvalCards.some((card) => {
+      const button = decisionButton(card, label);
+      return button instanceof HTMLButtonElement && !button.disabled;
+    });
   }
 
   function expandWorkflowNodeTrajectoryActivityGroup() {
@@ -102,6 +114,32 @@
         document.querySelector('[data-testid="workflow-node-run-details"]'),
       ),
     };
+  }
+
+  function clickWorkflowNodeTrajectoryDecisionApproval({ approved = true } = {}) {
+    const trajectory = workflowNodeTrajectoryElement();
+    const approvalCard = queryAll(trajectory, '[data-testid="approval-card"]')[0] ?? null;
+    const label = approved ? "Approve" : "Deny";
+    const button = decisionButton(approvalCard, label);
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return {
+        clicked: false,
+        state: workflowNodeTrajectoryStateForDetails(
+          document.querySelector('[data-testid="workflow-node-run-details"]'),
+        ),
+      };
+    }
+    button.click();
+    return {
+      clicked: true,
+      state: workflowNodeTrajectoryStateForDetails(
+        document.querySelector('[data-testid="workflow-node-run-details"]'),
+      ),
+    };
+  }
+
+  function decisionButton(root, label) {
+    return queryAll(root, "button").find((button) => button.textContent?.trim() === label) ?? null;
   }
 
   function outputTextForTrajectory(trajectory) {

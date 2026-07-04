@@ -26,6 +26,7 @@ import {
 import { activityWorkflowGraph } from "./workflow-activity-feed-fixtures.mjs";
 
 const trajectoryPrompt = "chat activity projection reload workflow";
+const approvalTrajectoryPrompt = "command approval workflow";
 const stoppableTrajectoryPrompt = "workflow hold for queue and steering";
 
 export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, { recordingRoot }) {
@@ -110,6 +111,8 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       runId: trajectory.runId,
       type: "workflow_node_trajectory_contract_verified",
     });
+
+    await assertApproveWorkflowNodeTrajectoryDetails(context.client, workspaceId, recordingDir);
 
     const stopGraph = activityWorkflowGraph(stoppableTrajectoryPrompt);
     const stopValidation = await rendererWorkflow(context.client, "validateDefinition", [
@@ -216,6 +219,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "/workflows/nodes/trajectory",
       "/chat/runs/item-output",
       "/chat/runs/reconcile",
+      "/workflows/approvals/submit",
       "/workflows/nodes/runs/retry-liveness",
       "/workflows/nodes/runs/steer",
       "/workflows/nodes/runs/stop",
@@ -230,6 +234,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "workflow:read-node-trajectory",
       "chat:run-item-output",
       "chat:reconcile-runs",
+      "workflow:submit-approval",
       "workflow:retry-node-run-liveness",
       "workflow:steer-node-run",
       "workflow:stop-node-run",
@@ -237,6 +242,103 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
   });
   results.push("workflow-node-trajectory-contract");
   process.stdout.write("Electron chat workflow passed: workflow-node-trajectory-contract\n");
+}
+
+async function assertApproveWorkflowNodeTrajectoryDetails(client, workspaceId, recordingDir) {
+  const approvalGraph = activityWorkflowGraph(approvalTrajectoryPrompt);
+  const approvalValidation = await rendererWorkflow(client, "validateDefinition", [
+    workspaceId,
+    approvalGraph,
+  ]);
+  if (!approvalValidation.valid) {
+    throw new Error(
+      `approval trajectory workflow graph invalid: ${JSON.stringify(approvalValidation)}`,
+    );
+  }
+  const approvalDefinition = await rendererWorkflow(client, "createDefinition", [
+    workspaceId,
+    "Node trajectory approval details",
+    "Verifies workflow node-scoped approval submission from rendered node details.",
+    approvalGraph,
+  ]);
+  const graphSurfaceId = await openWorkflowGraphForDefinition(
+    client,
+    workspaceId,
+    approvalDefinition.id,
+  );
+  const startedExecutionId = await startWorkflowRunFromToolbar(
+    client,
+    graphSurfaceId,
+    approvalDefinition.id,
+  );
+  const waiting = await waitForWorkflowExecution(
+    client,
+    workspaceId,
+    startedExecutionId,
+    workflowActivityNodeWaitingApproval,
+  );
+  const approvalNode = latestNodeExecution(waiting, "activity");
+  const pendingApproval = approvalNode?.result?.pendingApproval ?? null;
+  if (!approvalNode || pendingApproval === null) {
+    throw new Error(
+      `approval workflow did not expose pending approval: ${JSON.stringify(waiting)}`,
+    );
+  }
+  const waitingGraph = await waitForWorkflowGraphSnapshot(
+    client,
+    graphSurfaceId,
+    (snapshot) =>
+      snapshot.graph.workflow?.definitionId === approvalDefinition.id &&
+      snapshot.graph.workflow?.executionId === startedExecutionId &&
+      snapshot.graph.workflow?.viewMode === "run" &&
+      snapshot.graph.nodes.some((node) => node.id === "activity"),
+  );
+  await openWorkflowNodeRunDetails(client, graphSurfaceId, waitingGraph, "activity");
+  const initial = await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryState"),
+    (state) =>
+      state.trajectoryPresent &&
+      state.approvalCardCount === 1 &&
+      state.approvalApproveButtonReady &&
+      state.approvalText.includes("Command approval") &&
+      state.approvalText.includes("Approve the scripted command."),
+  );
+  const submitted = await client.driver("clickWorkflowNodeTrajectoryDecisionApproval", {
+    approved: true,
+  });
+  if (!submitted.clicked) {
+    throw new Error(
+      `workflow node trajectory approval was unavailable: ${JSON.stringify(initial)}`,
+    );
+  }
+  const completed = await waitForWorkflowExecution(
+    client,
+    workspaceId,
+    startedExecutionId,
+    (execution) => {
+      const node = nodeExecutionById(execution, approvalNode.id);
+      return (
+        execution.status === "completed" &&
+        node?.status === "succeeded" &&
+        node.result?.pendingApproval === null
+      );
+    },
+  );
+  await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryState"),
+    (state) =>
+      state.trajectoryPresent &&
+      state.approvalCardCount === 0 &&
+      state.text.includes("Command approval resolved."),
+  );
+  await appendWorkflowState(recordingDir, {
+    approvalId: pendingApproval.approvalId,
+    executionId: completed.id,
+    nodeExecutionId: approvalNode.id,
+    type: "workflow_node_trajectory_approval_details_verified",
+  });
 }
 
 async function openWorkflowGraphForDefinition(client, workspaceId, definitionId) {
@@ -376,14 +478,10 @@ async function assertWorkflowNodeDetailsOutputPagination(
 }
 
 async function openWorkflowNodeRunDetails(client, surfaceId, snapshot, nodeId) {
-  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
-  if (!node) {
+  if (!snapshot.graph.nodes.some((candidate) => candidate.id === nodeId)) {
     throw new Error(`workflow graph node ${nodeId} missing: ${JSON.stringify(snapshot.graph)}`);
   }
-  await dispatchWorkflowGraphMouseClick(client, surfaceId, {
-    x: node.screenX,
-    y: node.screenY,
-  });
+  await selectWorkflowGraphNode(client, surfaceId, nodeId);
   await waitForState(
     client,
     driverCallExpression("workflowNodeDetailsButtonState"),
@@ -400,6 +498,55 @@ async function openWorkflowNodeRunDetails(client, surfaceId, snapshot, nodeId) {
       state.present &&
       state.workflowTrajectorySurfaceCount === 1 &&
       state.chatConversationTrajectoryCount === 0,
+  );
+}
+
+async function selectWorkflowGraphNode(client, surfaceId, nodeId) {
+  const snapshot = await waitForWorkflowGraphSnapshot(client, surfaceId, (candidate) =>
+    workflowGraphNodeReadyForClick(candidate, nodeId),
+  );
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  await dispatchWorkflowGraphMouseClick(client, surfaceId, {
+    x: node.screenX,
+    y: node.screenY,
+  });
+  try {
+    await waitForState(
+      client,
+      driverCallExpression("workflowGraphDebugSnapshotReady", {
+        includeVisual: false,
+        surfaceId,
+      }),
+      (state) =>
+        state.ready &&
+        Array.isArray(state.snapshot.interaction?.selectedNodeIds) &&
+        state.snapshot.interaction.selectedNodeIds.includes(nodeId),
+      5_000,
+    );
+  } catch (error) {
+    throw new Error(
+      `workflow graph node ${nodeId} was not selected after click: ${JSON.stringify({
+        error: error instanceof Error ? error.message : String(error),
+        snapshot,
+      })}`,
+      { cause: error },
+    );
+  }
+}
+
+function workflowGraphNodeReadyForClick(snapshot, nodeId) {
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    return false;
+  }
+  const margin = 32;
+  return (
+    Number.isFinite(node.screenX) &&
+    Number.isFinite(node.screenY) &&
+    node.screenX > margin &&
+    node.screenY > margin &&
+    node.screenX < snapshot.canvas.clientWidth - margin &&
+    node.screenY < snapshot.canvas.clientHeight - margin
   );
 }
 
@@ -935,6 +1082,17 @@ function workflowActivityNodeRunning(execution) {
   return (
     execution.status === "running" &&
     nodeExecution?.status === "running" &&
+    runnerRef(nodeExecution, "chat.conversation") !== null &&
+    runnerRef(nodeExecution, "chat.run") !== null
+  );
+}
+
+function workflowActivityNodeWaitingApproval(execution) {
+  const nodeExecution = latestNodeExecution(execution, "activity");
+  return (
+    execution.status === "running" &&
+    nodeExecution?.status === "waiting_approval" &&
+    nodeExecution.result?.pendingApproval != null &&
     runnerRef(nodeExecution, "chat.conversation") !== null &&
     runnerRef(nodeExecution, "chat.run") !== null
   );
