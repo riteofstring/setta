@@ -20,10 +20,13 @@ const (
 
 type CodexChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
+	ActiveRunWithLiveness(workspaceID string, conversationID string) (chat.Run, *chat.RunLiveness, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
+	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
+	LoadRunTranscriptPage(workspaceID string, runID string, beforeBlockOrdinal int, limit int) (chat.RunTranscriptPage, error)
 	SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)
@@ -476,13 +479,15 @@ func workflowActionResultFromChatRunReconcileError(run chat.Run, message string)
 func workflowResultPayloadFromActivity(activity chat.RunActivityPage) ([]WorkflowActionSignal, json.RawMessage, []string, error) {
 	for index := len(activity.Items) - 1; index >= 0; index-- {
 		item := activity.Items[index]
+		details, ok := item.DynamicToolCallDetails()
 		if item.Type != chat.RunItemTypeDynamicToolCall ||
 			item.Status != chat.RunItemStatusCompleted ||
-			item.Namespace != chat.SettaAgentToolNamespace ||
-			item.ToolName != chat.SettaWorkflowResultAgentToolName {
+			!ok ||
+			details.Namespace != chat.SettaAgentToolNamespace ||
+			details.ToolName != chat.SettaWorkflowResultAgentToolName {
 			continue
 		}
-		payload, err := chat.DecodeSettaWorkflowResultPayload(item.Details)
+		payload, err := chat.DecodeSettaWorkflowResultPayload(details.Arguments)
 		if err != nil {
 			return nil, nil, nil, err
 		}

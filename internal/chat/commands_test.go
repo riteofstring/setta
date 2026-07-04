@@ -17,7 +17,9 @@ func TestParseChatCommandGoalCommands(t *testing.T) {
 		{raw: "/goal   ", action: GoalCommandShow},
 		{raw: "/goal edit", action: GoalCommandEdit, args: "edit"},
 		{raw: "/goal finish renderer tests", action: GoalCommandSet, objective: "finish renderer tests", status: "active", args: "finish renderer tests"},
+		{raw: "/goal e", action: GoalCommandSet, objective: "e", status: "active", args: "e"},
 		{raw: "/goal clear", action: GoalCommandClear, args: "clear"},
+		{raw: "/goal clear the cache", action: GoalCommandSet, objective: "clear the cache", status: "active", args: "clear the cache"},
 		{raw: "/goal pause", action: GoalCommandPause, status: "paused", args: "pause"},
 		{raw: "/goal resume", action: GoalCommandResume, status: "active", args: "resume"},
 	}
@@ -35,14 +37,53 @@ func TestParseChatCommandGoalCommands(t *testing.T) {
 	}
 }
 
-func TestParseChatCommandModelCommands(t *testing.T) {
-	picker, err := ParseChatCommand("/model")
-	if err != nil {
-		t.Fatalf("parse /model: %v", err)
+func TestDefaultCommandDescriptorsExposeTypedGrammar(t *testing.T) {
+	descriptors := defaultCommandDescriptors(nil)
+	if err := validateChatCommandDescriptors(descriptors); err != nil {
+		t.Fatalf("validate descriptors: %v", err)
 	}
-	if picker.Kind != ChatCommandModel || picker.Model == nil || picker.Model.Action != ModelCommandShowPicker {
-		t.Fatalf("picker command = %+v, want model picker", picker)
+	if len(descriptors) != 1 {
+		t.Fatalf("descriptors = %+v, want /goal only", descriptors)
 	}
+	goal := commandDescriptorByKind(t, descriptors, ChatSlashCommandGoal)
+	if goal.Name != "/goal" || goal.Grammar.Summary == "" {
+		t.Fatalf("goal descriptor = %+v, want named grammar", goal)
+	}
+	if goal.Grammar.LiteralMatch != ChatCommandLiteralMatchExact {
+		t.Fatalf("goal descriptor = %+v, want exact-literal grammar", goal)
+	}
+	if _, err := ParseChatCommand(goal.Name); err != nil {
+		t.Fatalf("parse descriptor command %s: %v", goal.Name, err)
+	}
+	literals := map[string]bool{}
+	freeText := false
+	for _, argument := range goal.Grammar.Arguments {
+		switch spec := argument.(type) {
+		case ChatCommandLiteralArgumentSpec:
+			literals[spec.Token] = true
+		case ChatCommandFreeTextArgumentSpec:
+			freeText = spec.Name == "objective" && spec.MaxRunes == maxGoalObjectiveRunes
+		}
+	}
+	for _, token := range []string{"edit", "clear", "pause", "resume"} {
+		if !literals[token] {
+			t.Fatalf("goal literals = %+v, want %s", literals, token)
+		}
+	}
+	if !freeText {
+		t.Fatalf("goal arguments = %+v, want objective free text", goal.Grammar.Arguments)
+	}
+}
+
+func commandDescriptorByKind(t *testing.T, descriptors []ChatCommandDescriptor, kind ChatSlashCommandKind) ChatCommandDescriptor {
+	t.Helper()
+	for _, descriptor := range descriptors {
+		if descriptor.Kind == kind {
+			return descriptor
+		}
+	}
+	t.Fatalf("command descriptor %s not found in %+v", kind, descriptors)
+	return ChatCommandDescriptor{}
 }
 
 func TestModelSelectionCommandsAreTypedActions(t *testing.T) {
@@ -74,8 +115,6 @@ func TestParseChatCommandRejectsMalformedAndUnknownInput(t *testing.T) {
 		{raw: "/Goal", code: ChatCommandErrorMalformedCommand, text: "lowercase"},
 		{raw: "/goal!", code: ChatCommandErrorMalformedCommand, text: "lowercase"},
 		{raw: "/unknown", code: ChatCommandErrorUnknownCommand, text: "unknown slash command"},
-		{raw: "/model gpt-5.5", code: ChatCommandErrorMalformedCommand, text: "opens the model picker"},
-		{raw: "/model effort high", code: ChatCommandErrorMalformedCommand, text: "opens the model picker"},
 		{raw: "/goal " + strings.Repeat("a", maxGoalObjectiveRunes+1), code: ChatCommandErrorMalformedCommand, text: "4000 characters or fewer"},
 	}
 	for _, test := range tests {

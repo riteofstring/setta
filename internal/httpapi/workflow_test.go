@@ -273,6 +273,60 @@ func TestWorkflowEndpointsSubmitWorkflowApproval(t *testing.T) {
 	}
 }
 
+func TestWorkflowNodeTrajectoryEndpointReturnsScopedApprovalTrajectory(t *testing.T) {
+	handler := newScriptedWorkflowHandler(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Trajectory approval workflow",
+		Graph:       httpWorkflowApprovalGraph(),
+	}, http.StatusOK)
+	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	waiting := waitForHTTPWorkflowNodeStatus(t, handler, opened.Workspace.ID, started.ID, "work", orchestrator.NodeExecutionStatusWaitingApproval)
+	work := latestHTTPNodeExecution(t, waiting, "work")
+	pending := work.Result.PendingApproval
+
+	page := postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     started.ID,
+		NodeExecutionID: work.ID,
+		TranscriptLimit: 20,
+		OutputLimit:     5,
+	}, http.StatusOK)
+	if page.Scope.WorkspaceID != opened.Workspace.ID ||
+		page.Scope.ExecutionID != started.ID ||
+		page.Scope.NodeExecutionID != work.ID ||
+		page.Scope.Attempt != work.Attempt {
+		t.Fatalf("trajectory scope = %+v, want workspace/execution/node scope", page.Scope)
+	}
+	if page.PendingApproval == nil || page.PendingApproval.ApprovalID != pending.ApprovalID {
+		t.Fatalf("trajectory pending approval = %+v, want %s", page.PendingApproval, pending.ApprovalID)
+	}
+	if page.ActiveRun == nil || page.ActiveRun.ID != page.RunID {
+		t.Fatalf("trajectory active run = %+v, want %s", page.ActiveRun, page.RunID)
+	}
+	if page.ActiveRunLiveness == nil || page.ActiveRunLiveness.RunID != page.RunID {
+		t.Fatalf("trajectory liveness = %+v, want run %s", page.ActiveRunLiveness, page.RunID)
+	}
+	if len(page.Blocks) == 0 {
+		t.Fatal("trajectory blocks were empty")
+	}
+	for _, block := range page.Blocks {
+		if block.RunID != page.RunID {
+			t.Fatalf("trajectory block = %+v, want run %s only", block, page.RunID)
+		}
+	}
+	if page.OutputPages == nil || page.Outputs == nil {
+		t.Fatalf("trajectory output arrays must be non-nil: %+v", page)
+	}
+	if !page.Capabilities.CanSubmitApproval || !page.Capabilities.CanLoadRunItemOutput {
+		t.Fatalf("trajectory capabilities = %+v, want approval and output loading", page.Capabilities)
+	}
+}
+
 func TestWorkflowEventStreamPushesWorkflowEvents(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	server := httptest.NewServer(handler)
@@ -429,7 +483,7 @@ func newScriptedWorkflowHandler(t *testing.T) http.Handler {
 		t.Fatalf("new workflow service: %v", err)
 	}
 	t.Cleanup(workflowService.CloseEvents)
-	return newAuthenticatedTestHandler(t, HandlerConfig{
+	return NewHandler(HandlerConfig{
 		ChatService:      chatService,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: workspaceService,

@@ -46,7 +46,7 @@ export function createWorkspaceRuntime({
   workspaceName: string;
 }) {
   const realScene = createRealSceneForRuntime({ mode, storedLayout, workspaceId, workspaceName });
-  const scene = sceneForRuntime(realScene);
+  const scene = sceneForRuntime(realScene, mode);
   const engine = new WorkspaceLikeLayoutEngine(scene, {
     allowResizedPanesToOverflowViewport,
     overviewCardMaxWidthPx,

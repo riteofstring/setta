@@ -129,6 +129,14 @@ export function registerWorkflowIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "workflowReadNodeTrajectory",
+    async (_event, request) => {
+      return requireBackendClient().readWorkflowNodeTrajectory(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "workflowGraphProjection",
     async (_event, workspaceId, definitionId, versionId, executionId) => {
       return requireBackendClient().readWorkflowGraphProjection({
