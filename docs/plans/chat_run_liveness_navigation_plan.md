@@ -522,14 +522,17 @@ Verification performed:
 - `./scripts/format.sh`
 - `./check_quality.sh --git-changes`
 
-Verification blocker discovered:
+Follow-up audit verification:
 
-- `./scripts/test_chat_workflows.sh --deterministic-only` still fails in the
-  known Phase 7 transcript scroll-follow case: `detached while streaming grows
-  tail` times out with the scroll controller back in `auto_follow` at the
-  bottom. The liveness-relevant conversation-switch subcase passed before that
-  failure, but the full deterministic chat gate is not clean until Phase 7 is
-  implemented.
+- `./scripts/go.sh test ./internal/chat -run 'TestService(Reconcile|Snapshot|ProviderLifecycle|RetryableProvider|NonRetryableStream)'`
+- `pnpm vitest run src/renderer/src/lib/chat-run-liveness.test.ts`
+- `pnpm vitest run src/renderer/src/App.test.tsx`
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/test_chat_workflows.sh --deterministic-only` passed on the
+  follow-up audit run, including `conversation-switch`, `transcript-scroll`, and
+  `transcript-scroll-reload`. The earlier Phase 7 timeout was not reproduced in
+  that run.
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
 
 Remaining work:
 
@@ -537,8 +540,9 @@ Remaining work:
   conversation-switching liveness navigation regression and degraded-health
   case as dedicated coverage rather than relying only on the broader protocol
   workflow.
-- Phase 7 remains required to make the full deterministic chat workflow gate
-  clean.
+- Phase 7 remains required as product work from the recorded scroll-follow
+  symptom, but it is not currently blocking the deterministic chat workflow
+  gate.
 
 ## Open Decisions
 
