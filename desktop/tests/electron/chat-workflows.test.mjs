@@ -104,6 +104,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
 const singleWorkflowArgs = new Map([
+  ["--backend-orchestrator-only", "backendOrchestratorOnly"],
   ["--codex-protocol-only", "codexProtocolOnly"],
   ["--codex-approval-policy-removal-only", "codexApprovalPolicyRemovalOnly"],
   ["--codex-app-server-lifecycle-only", "codexAppServerLifecycleOnly"],
@@ -119,6 +120,10 @@ const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = chatWorkflowRecordingRoot(options);
 const singleWorkflowRunners = [
+  {
+    option: "backendOrchestratorOnly",
+    run: (results) => runBackendOrchestratorWorkflowLaunch(results, { recordingRoot, repoRoot }),
+  },
   {
     option: "codexProtocolOnly",
     run: (results) => runCodexProtocolWorkflow(results),
@@ -162,6 +167,7 @@ const singleWorkflowRunners = [
 ];
 function parseArgs(args) {
   const parsed = {
+    backendOrchestratorOnly: false,
     codexAppServerLifecycleOnly: false,
     codexApprovalPolicyRemovalOnly: false,
     codexProtocolOnly: false,
@@ -209,6 +215,7 @@ function parseArgs(args) {
   return parsed;
 }
 function selectSingleWorkflow(parsed, selected) {
+  parsed.backendOrchestratorOnly = selected === "backendOrchestratorOnly";
   parsed.codexAppServerLifecycleOnly = selected === "codexAppServerLifecycleOnly";
   parsed.codexApprovalPolicyRemovalOnly = selected === "codexApprovalPolicyRemovalOnly";
   parsed.codexProtocolOnly = selected === "codexProtocolOnly";
@@ -302,7 +309,7 @@ async function main() {
     await runRestartWorkflow(results);
     await runRestartRecoveryWorkflow(results, { recordingRoot, repoRoot });
     await runShutdownDrainWorkflow(results, { recordingRoot });
-    await runBackendOrchestratorWorkflowLaunch(results, recordingRoot);
+    await runBackendOrchestratorWorkflowLaunch(results, { recordingRoot, repoRoot });
   }
   if (options.live) {
     await runLiveCodexWorkflow(results, {
@@ -859,49 +866,7 @@ async function openProjectedActivityRow(client, sourceRunItemId) {
   const startedAt = Date.now();
   let opened = null;
   while (Date.now() - startedAt < 2_000) {
-    opened = await client.evaluate(`(() => {
-      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
-      const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
-      const groupHeaders = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'));
-      const groupHeader = groupHeaders.find((candidate) =>
-        (candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "")
-          .split(/\\s+/)
-          .includes(sourceRunItemId)
-      );
-      let rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
-      let row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
-      if (
-        !row &&
-        groupHeader instanceof HTMLButtonElement &&
-        groupHeader.getAttribute("data-activity-group-expanded") !== "true"
-      ) {
-        groupHeader.click();
-        rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
-        row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
-      }
-      if (!row) {
-        return {
-          ok: false,
-          reason: "missing-row",
-          groups: groupHeaders.map((candidate) => ({
-            expanded: candidate.getAttribute("data-activity-group-expanded") ?? "",
-            sourceRunItemIds: candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "",
-            text: candidate.innerText,
-          })),
-          rows: rows.map((candidate) => ({
-            sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
-            text: candidate.innerText,
-          })),
-        };
-      }
-      if (!(row instanceof HTMLDetailsElement)) {
-        return { ok: true, reason: "compact-row" };
-      }
-      if (!row.open) {
-        row.querySelector("summary")?.click();
-      }
-      return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
-    })()`);
+    opened = await client.driver("openProjectedActivityRow", { sourceRunItemId });
     if (opened.ok) {
       return;
     }

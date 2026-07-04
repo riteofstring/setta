@@ -9,6 +9,7 @@ import {
   createChat,
   submitComposer,
   waitForCommandResult,
+  waitForDriverState,
   waitForGoalStatus,
   waitForRunStatus,
   waitForState,
@@ -65,23 +66,8 @@ export async function runProtocolGoalBackgroundTerminalWorkflow(
 }
 
 async function assertProtocolGoalActiveWorkStack(client, runId) {
-  await waitForState(
-    client,
-    `(() => {
-      const stack = document.querySelector('[data-testid="chat-active-work-stack"]');
-      const rows = stack
-        ? Array.from(stack.querySelectorAll('[data-testid="current-plan-surface"], [data-testid="background-terminals-footer"]')).map((row) => ({
-            completedCount: row.getAttribute("data-plan-completed-count") ?? "",
-            currentStep: row.getAttribute("data-current-step") ?? "",
-            runId: row.getAttribute("data-run-id") ?? "",
-            stepCount: row.getAttribute("data-plan-step-count") ?? "",
-            testId: row.getAttribute("data-testid") ?? "",
-            text: row.innerText,
-          }))
-        : [];
-      return { present: Boolean(stack), rows };
-    })()`,
-    (value) => activeWorkStackMatches(value, runId),
+  await waitForDriverState(client, "protocolGoalActiveWorkStack", {}, (value) =>
+    activeWorkStackMatches(value, runId),
   );
 }
 

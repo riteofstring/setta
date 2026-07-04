@@ -16,8 +16,8 @@ import {
   stopLaunchedContext,
   submitComposer,
   waitForBackendState,
+  waitForDriverState,
   waitForRunWithPrompt,
-  waitForState,
   waitForText,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
@@ -164,9 +164,10 @@ function assistantMessage(page, runId) {
 }
 
 async function waitForActiveRunPresentation(client, runId) {
-  await waitForState(
+  await waitForDriverState(
     client,
-    runPresentationExpression(runId),
+    "runPresentation",
+    { runId },
     (value) =>
       value.mode === "working" &&
       value.detailRunStatus === "running" &&
@@ -176,9 +177,10 @@ async function waitForActiveRunPresentation(client, runId) {
 }
 
 async function waitForShutdownDrainPresentation(client, runId) {
-  await waitForState(
+  await waitForDriverState(
     client,
-    runPresentationExpression(runId),
+    "runPresentation",
+    { runId },
     (value) =>
       value.mode === "failed" &&
       value.text.includes(shutdownDrainError) &&
@@ -188,24 +190,6 @@ async function waitForShutdownDrainPresentation(client, runId) {
       !value.stopEnabled,
     30_000,
   );
-}
-
-function runPresentationExpression(runId) {
-  return `(() => {
-    const runId = ${JSON.stringify(runId)};
-    const pane = document.querySelector('[data-testid="chat-detail-pane"]');
-    const rows = Array.from(document.querySelectorAll('[data-block-kind="run_status"]'));
-    const target = rows.find((row) => row.getAttribute("data-run-id") === runId);
-    const stop = document.querySelector('button[aria-label="Stop run"]');
-    return {
-      detailLivenessStatus: pane?.getAttribute("data-run-liveness-status") ?? "",
-      detailRunStatus: pane?.getAttribute("data-run-status") ?? "",
-      liveHeadline: Boolean(target?.querySelector('[data-live-headline="active"]')),
-      mode: target?.getAttribute("data-run-status-mode") ?? "",
-      stopEnabled: stop instanceof HTMLButtonElement && !stop.disabled,
-      text: target?.textContent ?? "",
-    };
-  })()`;
 }
 
 async function captureShutdownDrainFailure(first, second, recordingRoot) {

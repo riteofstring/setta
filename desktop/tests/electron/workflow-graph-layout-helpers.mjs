@@ -2,7 +2,6 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import {
   dispatchMouseClick as dispatchCdpMouseClick,
-  dispatchMouseDrag as dispatchCdpMouseDrag,
   dispatchWheel as dispatchCdpWheel,
   waitForState,
 } from "./electron-cdp-harness.mjs";
@@ -83,12 +82,66 @@ export async function dispatchWorkflowGraphMouseDrag(
   surfaceId,
   { from, modifiers = 0, steps = 12, to },
 ) {
-  await dispatchCdpMouseDrag(client, {
-    from: await pagePointForCanvasPoint(client, surfaceId, from),
-    modifiers,
-    steps,
-    to: await pagePointForCanvasPoint(client, surfaceId, to),
-  });
+  const pageFrom = await pagePointForCanvasPoint(client, surfaceId, from);
+  const pageTo = await pagePointForCanvasPoint(client, surfaceId, to);
+  const shiftHeld = (modifiers & 8) !== 0;
+  if (shiftHeld) {
+    await client.call("Input.dispatchKeyEvent", {
+      code: "ShiftLeft",
+      key: "Shift",
+      modifiers,
+      type: "keyDown",
+      windowsVirtualKeyCode: 16,
+    });
+  }
+  try {
+    await client.call("Input.dispatchMouseEvent", {
+      button: "none",
+      type: "mouseMoved",
+      x: pageFrom.x,
+      y: pageFrom.y,
+    });
+    await client.call("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 1,
+      clickCount: 1,
+      modifiers,
+      type: "mousePressed",
+      x: pageFrom.x,
+      y: pageFrom.y,
+    });
+    await delay(16);
+    for (let step = 1; step <= steps; step += 1) {
+      const progress = step / steps;
+      await client.call("Input.dispatchMouseEvent", {
+        button: "left",
+        buttons: 1,
+        modifiers,
+        type: "mouseMoved",
+        x: pageFrom.x + (pageTo.x - pageFrom.x) * progress,
+        y: pageFrom.y + (pageTo.y - pageFrom.y) * progress,
+      });
+      await delay(16);
+    }
+    await client.call("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 0,
+      clickCount: 1,
+      modifiers,
+      type: "mouseReleased",
+      x: pageTo.x,
+      y: pageTo.y,
+    });
+  } finally {
+    if (shiftHeld) {
+      await client.call("Input.dispatchKeyEvent", {
+        code: "ShiftLeft",
+        key: "Shift",
+        type: "keyUp",
+        windowsVirtualKeyCode: 16,
+      });
+    }
+  }
 }
 
 export async function dispatchWorkflowGraphWheel(

@@ -229,6 +229,7 @@ function WorkspaceLayoutRuntimeArea({
   const [overviewGhostTarget, setOverviewGhostTargetState] = useState<OverviewGhostTarget | null>(
     null,
   );
+  const [nativeViewOverlayActive, setNativeViewOverlayActive] = useState(false);
   const setOverviewGhostTarget = useCallback((target: OverviewGhostTarget | null) => {
     if (sameOverviewGhostTarget(overviewGhostTargetRef.current, target)) {
       return;
@@ -274,6 +275,9 @@ function WorkspaceLayoutRuntimeArea({
     }
     schedulerRef.current?.requestFrame();
   }, [projectPaneWidth, runtime, stageViewport]);
+  useEffect(() => {
+    schedulerRef.current?.requestFrame();
+  }, [nativeViewOverlayActive]);
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
       clearOverviewInsertPreview();
@@ -862,6 +866,8 @@ function WorkspaceLayoutRuntimeArea({
       data-compact-layout={mobileLayout}
       data-desktop-platform={platform}
       data-maximized-pane-id={layoutSnapshot.maximizedPaneId ?? ""}
+      data-native-view-clip-left={projectPaneWidth}
+      data-native-view-overlay-active={nativeViewOverlayActive}
       data-pane-count={currentScene.totalPanes}
       data-presentation-mode={layoutSnapshot.presentationMode}
       data-workspace-mode={runtime.mode}
@@ -906,6 +912,7 @@ function WorkspaceLayoutRuntimeArea({
       <WorkspaceToolbarLayer
         debugRef={debugRef}
         mobileLayout={mobileLayout}
+        onNativeOverlayActiveChange={setNativeViewOverlayActive}
         overviewActive={layoutSnapshot.presentationMode === "overview"}
         runLayoutAction={runLayoutAction}
         runtime={runtime}

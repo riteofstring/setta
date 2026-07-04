@@ -18,6 +18,7 @@ import {
   stopLaunchedContext,
   submitComposer,
   waitForBackendState,
+  waitForDriverState,
   waitForRunStatus,
   waitForRunWithPrompt,
   waitForState,
@@ -238,7 +239,7 @@ async function waitForInitialScrollableTranscript(client) {
 }
 
 async function assertNearBottomDetachWhileStreaming(client) {
-  const nearBottomScrolled = await scrollChatTranscript(client, { distanceFromBottom: 64 });
+  const nearBottomScrolled = await scrollChatTranscript(client, { distanceFromBottom: 128 });
   if (!nearBottomScrolled.ok) {
     throw new Error(
       `transcript did not perform near-bottom history scroll: ${JSON.stringify(nearBottomScrolled)}`,
@@ -249,7 +250,7 @@ async function assertNearBottomDetachWhileStreaming(client) {
     (snapshot) =>
       snapshot.debug.mode === "user_detached" &&
       !snapshot.debug.atBottom &&
-      snapshot.debug.distanceFromBottom > 48,
+      snapshot.debug.distanceFromBottom > 96,
     "near-bottom detached after manual history scroll",
   );
   const afterNearBottomGrowth = await waitForTranscriptScrollSnapshot(
@@ -258,7 +259,7 @@ async function assertNearBottomDetachWhileStreaming(client) {
       snapshot.debug.tailRevision !== nearBottomDetached.debug.tailRevision &&
       snapshot.debug.mode === "user_detached" &&
       !snapshot.debug.atBottom &&
-      snapshot.debug.distanceFromBottom > 48,
+      snapshot.debug.distanceFromBottom > 96,
     "still detached near bottom while streaming grows tail",
   );
   if (
@@ -357,9 +358,12 @@ async function runTranscriptOlderPageWorkflow(client, backend, workspaceId, conv
 
 async function waitForTranscriptScrollSnapshot(client, predicate, label) {
   try {
-    return await waitForState(client, transcriptScrollSnapshotExpression(), (snapshot) => {
-      return snapshot.ready && predicate(snapshot);
-    });
+    return await waitForDriverState(
+      client,
+      "chatTranscriptScrollSnapshot",
+      {},
+      (snapshot) => snapshot.ready && predicate(snapshot),
+    );
   } catch (error) {
     throw new Error(`transcript scroll wait failed: ${label}: ${error.message}`, {
       cause: error,
@@ -376,19 +380,8 @@ async function wheelChatTranscript(client, deltaY) {
 }
 
 async function openChatSearch(client) {
-  await client.evaluate(`(() => {
-    window.dispatchEvent(new KeyboardEvent("keydown", {
-      bubbles: true,
-      ctrlKey: true,
-      key: "f",
-      metaKey: true,
-    }));
-  })()`);
-  await waitForState(
-    client,
-    `(() => ({ open: Boolean(document.querySelector('input[placeholder="Search chat"]')) }))()`,
-    (value) => value.open,
-  );
+  await client.driver("openChatSearch");
+  await waitForDriverState(client, "chatSearchState", {}, (value) => value.open);
 }
 
 async function waitForActiveSearchMessage(client, expectedText) {
@@ -465,8 +458,4 @@ async function assertTranscriptScrollRecordingEvidence(firstRecording, secondRec
     backendPaths: ["/chat/messages/page"],
     ipcChannels: ["chat:message-page"],
   });
-}
-
-function transcriptScrollSnapshotExpression() {
-  return "globalThis.__settaE2EDriver.chatTranscriptScrollSnapshot()";
 }

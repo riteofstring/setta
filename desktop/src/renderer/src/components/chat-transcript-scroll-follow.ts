@@ -41,7 +41,7 @@ export interface ChatTranscriptScrollDebugTraceEntry {
   tailRevision: string;
 }
 
-type ScrollToIndexLocation = Parameters<VirtuosoHandle["scrollToIndex"]>[0];
+export type ScrollToIndexLocation = Parameters<VirtuosoHandle["scrollToIndex"]>[0];
 
 export interface TranscriptScrollMetrics {
   clientHeight: number;
@@ -619,14 +619,19 @@ export function useTranscriptScrollFollow({
   ]);
 
   useEffect(() => {
-    const api = { getSnapshot: getDebugSnapshot };
+    const api = {
+      detach,
+      getSnapshot: getDebugSnapshot,
+      jumpToLatest,
+      scrollToIndexAsProgrammaticScroll,
+    };
     window.__settaChatTranscriptScrollDebug = api;
     return () => {
       if (window.__settaChatTranscriptScrollDebug === api) {
         delete window.__settaChatTranscriptScrollDebug;
       }
     };
-  }, [getDebugSnapshot]);
+  }, [detach, getDebugSnapshot, jumpToLatest, scrollToIndexAsProgrammaticScroll]);
 
   useEffect(
     () => () => {
