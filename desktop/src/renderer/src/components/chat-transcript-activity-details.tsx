@@ -152,10 +152,20 @@ export function ActivityDynamicToolDetails({ details }: { details: RunActivityDe
       />
       <ActivityJSONBlock details={tool.arguments} title="Arguments" />
       {tool.result === null ? null : (
-        <ActivityJSONBlock details={tool.result.contentItems} title="Content" />
+        <>
+          <ActivityTextBlock title="Success" value={dynamicToolSuccessText(tool.result.success)} />
+          <ActivityJSONBlock details={tool.result.contentItems} title="Content" />
+        </>
       )}
     </>
   );
+}
+
+function dynamicToolSuccessText(success: boolean | null) {
+  if (success === null) {
+    return "";
+  }
+  return String(success);
 }
 
 function ActivityJSONBlock({ details, title }: { details: unknown; title: string }) {

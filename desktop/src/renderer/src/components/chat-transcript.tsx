@@ -245,7 +245,7 @@ function transcriptActivityDynamicToolSearchText(details: RunActivityDetailsProj
     tool.resultSummary,
     tool.error,
     transcriptJSONSearchText(tool.arguments),
-    transcriptJSONSearchText(tool.result?.contentItems),
+    transcriptJSONSearchText(tool.result),
   ];
 }
 
