@@ -1,3 +1,5 @@
+import { setTimeout as delay } from "node:timers/promises";
+
 import { dispatchKeyEvent, waitForState } from "./electron-cdp-harness.mjs";
 
 const cdpAltMetaModifier = 5;
@@ -74,10 +76,24 @@ export async function focusTerminal(client, timeoutMs) {
   }
 }
 
-export async function closeTerminalPaneFromChrome(client, timeoutMs, { accept = true } = {}) {
-  void timeoutMs;
+export async function closeTerminalPaneFromChrome(
+  client,
+  timeoutMs,
+  { accept = true, expectDialog = null } = {},
+) {
   await client.installDriver();
-  const removeDialogListener = client.on("Page.javascriptDialogOpening", () => {
+  const dialogs = [];
+  let resolveFirstDialog;
+  const firstDialog = new Promise((resolve) => {
+    resolveFirstDialog = resolve;
+  });
+  const startedAt = Date.now();
+  const removeDialogListener = client.on("Page.javascriptDialogOpening", (event) => {
+    dialogs.push({
+      message: event.message ?? "",
+      type: event.type ?? "",
+    });
+    resolveFirstDialog();
     void client.call("Page.handleJavaScriptDialog", { accept });
   });
   try {
@@ -85,7 +101,31 @@ export async function closeTerminalPaneFromChrome(client, timeoutMs, { accept = 
     if (!result.ok) {
       throw new Error(`terminal pane close failed: ${JSON.stringify(result)}`);
     }
+    if (expectDialog === true) {
+      await waitForExpectedTerminalCloseDialog(firstDialog, timeoutMs);
+    }
+    if (expectDialog === false) {
+      await delay(500);
+      if (dialogs.length > 0) {
+        throw new Error(`terminal close opened unexpected dialog: ${JSON.stringify(dialogs)}`);
+      }
+    }
+    return {
+      dialogCount: dialogs.length,
+      dialogs,
+      durationMs: Date.now() - startedAt,
+    };
   } finally {
     removeDialogListener();
+  }
+}
+
+async function waitForExpectedTerminalCloseDialog(firstDialog, timeoutMs) {
+  const opened = await Promise.race([
+    firstDialog.then(() => true),
+    delay(timeoutMs).then(() => false),
+  ]);
+  if (!opened) {
+    throw new Error("terminal close did not open the expected confirmation dialog");
   }
 }

@@ -776,7 +776,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     const api = terminalAPI();
     const closePrevious =
       previousSessionId && api
-        ? api.close(previousSessionId, "terminate").catch(() => undefined)
+        ? api.close({ confirmed: true, sessionId: previousSessionId }).catch(() => undefined)
         : Promise.resolve();
     void closePrevious.then(() => {
       this.startSession();
@@ -791,9 +791,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     void api
-      .close(sessionId, "terminate")
+      .close({ confirmed: true, sessionId })
       .then((response) => {
-        this.applySessionSummary(response.session);
+        if (response.session !== null) {
+          this.applySessionSummary(response.session);
+        }
       })
       .catch((error: unknown) => {
         this.showStatus(errorMessage(error));

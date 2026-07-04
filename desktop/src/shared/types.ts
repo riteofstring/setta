@@ -36,6 +36,8 @@ import type {
   CreateSemanticNodeRequest,
   CreateSemanticSteeringDirectiveRequest,
   CreateTerminalProfileRequest,
+  CloseTerminalRequest,
+  CloseTerminalResponse,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
   EndSemanticActivityRequest,
@@ -355,7 +357,7 @@ export interface SettaAPI {
   };
   terminal: {
     attach: (workspaceId: string, paneId: string) => Promise<TerminalSessionResponse>;
-    close: (sessionId: string, mode: "terminate" | "kill") => Promise<TerminalSessionResponse>;
+    close: (request: CloseTerminalRequest) => Promise<CloseTerminalResponse>;
     createProfile: (request: CreateTerminalProfileRequest) => Promise<TerminalProfileList>;
     create: (
       workspaceId: string,

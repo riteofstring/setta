@@ -57,6 +57,7 @@ interface RendererUnhandledRejectionEvent extends RendererRecordedEventBase {
 
 interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
   activeRunStatus: string;
+  backgroundTerminalSurface: RendererBackgroundTerminalSurfaceSnapshot;
   chatDetailPane: RendererRect | null;
   composer: RendererRect | null;
   jumpToLatestButton: RendererVisibleRect | null;
@@ -71,6 +72,14 @@ interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
     width: number;
   };
   visibleTurnIds: string[];
+}
+
+interface RendererBackgroundTerminalSurfaceSnapshot {
+  footerPhase: string;
+  footerVisible: boolean;
+  monitorOpen: boolean;
+  visibleTerminalIds: string[];
+  visibleTerminalStatuses: string[];
 }
 
 interface RendererRect {
@@ -99,12 +108,15 @@ interface RendererTranscriptScrollDebugTraceEntry {
 
 type RendererTranscriptScrollDebugSnapshot =
   | {
+      awayFromBottom: boolean;
       atBottom: boolean;
       clientHeight: number;
       distanceFromBottom: number;
+      hasScrollableOverflow: boolean;
       lastVisibleIndex: number;
       mode: string;
       pendingScrollCount: number;
+      programmaticScrollCount: number;
       rowCount: number;
       scrollHeight: number;
       source: string;

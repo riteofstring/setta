@@ -2333,16 +2333,58 @@ export function decodeSessionStatus(value: unknown, label = "SessionStatus"): Se
   }
 }
 
-export type CloseMode = "terminate" | "kill";
+export type TerminalCloseResultKind = "closed" | "confirmation_required";
 
-export const closeModeValues = ["terminate", "kill"] as const satisfies readonly CloseMode[];
+export const terminalCloseResultKindValues = ["closed", "confirmation_required"] as const satisfies readonly TerminalCloseResultKind[];
 
-export function decodeCloseMode(value: unknown, label = "CloseMode"): CloseMode {
+export function decodeTerminalCloseResultKind(value: unknown, label = "TerminalCloseResultKind"): TerminalCloseResultKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "terminate":
+    case "closed":
       return decoded;
-    case "kill":
+    case "confirmation_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TerminalCloseSafety = "safe" | "destructive" | "unknown";
+
+export const terminalCloseSafetyValues = ["safe", "destructive", "unknown"] as const satisfies readonly TerminalCloseSafety[];
+
+export function decodeTerminalCloseSafety(value: unknown, label = "TerminalCloseSafety"): TerminalCloseSafety {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "safe":
+      return decoded;
+    case "destructive":
+      return decoded;
+    case "unknown":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TerminalCloseAssessmentReason = "no_session" | "already_closed" | "idle_shell" | "foreground_process" | "background_jobs" | "inspection_failed";
+
+export const terminalCloseAssessmentReasonValues = ["no_session", "already_closed", "idle_shell", "foreground_process", "background_jobs", "inspection_failed"] as const satisfies readonly TerminalCloseAssessmentReason[];
+
+export function decodeTerminalCloseAssessmentReason(value: unknown, label = "TerminalCloseAssessmentReason"): TerminalCloseAssessmentReason {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "no_session":
+      return decoded;
+    case "already_closed":
+      return decoded;
+    case "idle_shell":
+      return decoded;
+    case "foreground_process":
+      return decoded;
+    case "background_jobs":
+      return decoded;
+    case "inspection_failed":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -5659,7 +5701,20 @@ export interface ResizeTerminalRequest {
 
 export interface CloseTerminalRequest {
   sessionId: string;
-  mode: CloseMode;
+  confirmed: boolean;
+}
+
+export interface TerminalCloseAssessment {
+  safety: TerminalCloseSafety;
+  reason: TerminalCloseAssessmentReason;
+  requiresConfirmation: boolean;
+  summary: string;
+}
+
+export interface CloseTerminalResponse {
+  kind: TerminalCloseResultKind;
+  session: TerminalSessionSummary | null;
+  assessment: TerminalCloseAssessment;
 }
 
 export interface TerminalProfile {
@@ -11437,10 +11492,31 @@ export function decodeResizeTerminalRequest(value: unknown): ResizeTerminalReque
 
 export function decodeCloseTerminalRequest(value: unknown): CloseTerminalRequest {
   const record = assertRecord(value, "CloseTerminalRequest");
-  assertKnownFields(record, "CloseTerminalRequest", ["sessionId", "mode"]);
+  assertKnownFields(record, "CloseTerminalRequest", ["sessionId", "confirmed"]);
   return {
     sessionId: decodeString(requireField(record, "sessionId", "CloseTerminalRequest"), "CloseTerminalRequest.sessionId"),
-    mode: decodeCloseMode(requireField(record, "mode", "CloseTerminalRequest"), "CloseTerminalRequest.mode"),
+    confirmed: decodeBoolean(requireField(record, "confirmed", "CloseTerminalRequest"), "CloseTerminalRequest.confirmed"),
+  };
+}
+
+export function decodeTerminalCloseAssessment(value: unknown): TerminalCloseAssessment {
+  const record = assertRecord(value, "TerminalCloseAssessment");
+  assertKnownFields(record, "TerminalCloseAssessment", ["safety", "reason", "requiresConfirmation", "summary"]);
+  return {
+    safety: decodeTerminalCloseSafety(requireField(record, "safety", "TerminalCloseAssessment"), "TerminalCloseAssessment.safety"),
+    reason: decodeTerminalCloseAssessmentReason(requireField(record, "reason", "TerminalCloseAssessment"), "TerminalCloseAssessment.reason"),
+    requiresConfirmation: decodeBoolean(requireField(record, "requiresConfirmation", "TerminalCloseAssessment"), "TerminalCloseAssessment.requiresConfirmation"),
+    summary: decodeString(requireField(record, "summary", "TerminalCloseAssessment"), "TerminalCloseAssessment.summary"),
+  };
+}
+
+export function decodeCloseTerminalResponse(value: unknown): CloseTerminalResponse {
+  const record = assertRecord(value, "CloseTerminalResponse");
+  assertKnownFields(record, "CloseTerminalResponse", ["kind", "session", "assessment"]);
+  return {
+    kind: decodeTerminalCloseResultKind(requireField(record, "kind", "CloseTerminalResponse"), "CloseTerminalResponse.kind"),
+    session: decodeNullable(requireField(record, "session", "CloseTerminalResponse"), "CloseTerminalResponse.session", (item) => decodeTerminalSessionSummary(item)),
+    assessment: decodeTerminalCloseAssessment(requireField(record, "assessment", "CloseTerminalResponse")),
   };
 }
 
@@ -12367,7 +12443,7 @@ export interface BackendClient {
   attachTerminal: (request: AttachTerminalRequest) => Promise<TerminalSessionResponse>;
   terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
   resizeTerminal: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
-  closeTerminal: (request: CloseTerminalRequest) => Promise<TerminalSessionResponse>;
+  closeTerminal: (request: CloseTerminalRequest) => Promise<CloseTerminalResponse>;
   listTerminalProfiles: () => Promise<TerminalProfileList>;
   createTerminalProfile: (request: CreateTerminalProfileRequest) => Promise<TerminalProfileList>;
   updateTerminalProfile: (request: UpdateTerminalProfileRequest) => Promise<TerminalProfileList>;
@@ -13289,7 +13365,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
     closeTerminal: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeTerminalSessionResponse,
+      decodeResponse: decodeCloseTerminalResponse,
       endpoint: backendEndpoints.CloseTerminal,
       fetchImpl,
       requestPayload: request,

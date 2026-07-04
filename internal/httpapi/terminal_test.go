@@ -57,12 +57,57 @@ func TestTerminalEndpointsCreateInputResizeAndClose(t *testing.T) {
 		t.Fatalf("resized session dims = %dx%d, want 100x30", resized.Session.Cols, resized.Session.Rows)
 	}
 
-	closed := postJSON[TerminalSessionResponse](t, handler, "/terminals/close", CloseTerminalRequest{
+	closed := postJSON[CloseTerminalResponse](t, handler, "/terminals/close", CloseTerminalRequest{
 		SessionID: created.Session.ID,
-		Mode:      terminal.CloseModeTerminate,
+		Confirmed: false,
 	}, http.StatusOK)
-	if closed.Session.Status != terminal.SessionStatusClosed || closed.Session.Message != string(terminal.CloseModeTerminate) {
-		t.Fatalf("closed session = %+v, want closed terminate", closed.Session)
+	if closed.Kind != terminal.TerminalCloseResultClosed ||
+		closed.Session == nil ||
+		closed.Session.Status != terminal.SessionStatusClosed ||
+		closed.Assessment.Safety != terminal.TerminalCloseSafetySafe {
+		t.Fatalf("closed session = %+v, want safe closed result", closed)
+	}
+}
+
+func TestTerminalCloseEndpointRequiresBackendConfirmationForDestructiveClose(t *testing.T) {
+	handler, starter := newTerminalHandler(t, nil)
+	created := postJSON[TerminalSessionResponse](t, handler, "/terminals/create", CreateTerminalRequest{
+		WorkspaceID: "workspace_terminal",
+		PaneID:      "pane_shell",
+		Cols:        80,
+		Rows:        24,
+	}, http.StatusOK)
+	handle := starter.handleAt(t, 0)
+	handle.closeAssessment = terminal.TerminalCloseAssessment{
+		Safety:  terminal.TerminalCloseSafetyDestructive,
+		Reason:  terminal.TerminalCloseAssessmentForegroundProcess,
+		Summary: "Closing this terminal may terminate a foreground process.",
+	}
+
+	unconfirmed := postJSON[CloseTerminalResponse](t, handler, "/terminals/close", CloseTerminalRequest{
+		SessionID: created.Session.ID,
+		Confirmed: false,
+	}, http.StatusOK)
+	if unconfirmed.Kind != terminal.TerminalCloseResultConfirmationRequired ||
+		unconfirmed.Session == nil ||
+		!unconfirmed.Assessment.RequiresConfirmation {
+		t.Fatalf("unconfirmed close = %+v, want confirmation required", unconfirmed)
+	}
+	if handle.wasTerminated() {
+		t.Fatal("unconfirmed destructive close terminated the process")
+	}
+
+	confirmed := postJSON[CloseTerminalResponse](t, handler, "/terminals/close", CloseTerminalRequest{
+		SessionID: created.Session.ID,
+		Confirmed: true,
+	}, http.StatusOK)
+	if confirmed.Kind != terminal.TerminalCloseResultClosed ||
+		confirmed.Session == nil ||
+		confirmed.Session.Status != terminal.SessionStatusClosed {
+		t.Fatalf("confirmed close = %+v, want closed", confirmed)
+	}
+	if !handle.wasTerminated() {
+		t.Fatal("confirmed destructive close did not terminate the process")
 	}
 }
 
@@ -383,13 +428,21 @@ type httpRecordingPTYHandle struct {
 	output     chan []byte
 	profile    terminal.Profile
 
-	mu     sync.Mutex
-	writes bytes.Buffer
+	mu              sync.Mutex
+	closeAssessment terminal.TerminalCloseAssessment
+	terminated      bool
+	writes          bytes.Buffer
 }
 
 func newHTTPRecordingPTYHandle(profile terminal.Profile) *httpRecordingPTYHandle {
 	return &httpRecordingPTYHandle{
-		closed:  make(chan struct{}),
+		closed: make(chan struct{}),
+		closeAssessment: terminal.TerminalCloseAssessment{
+			Safety:               terminal.TerminalCloseSafetySafe,
+			Reason:               terminal.TerminalCloseAssessmentIdleShell,
+			RequiresConfirmation: false,
+			Summary:              "Terminal shell is idle.",
+		},
 		output:  make(chan []byte, 16),
 		profile: profile,
 	}
@@ -415,6 +468,9 @@ func (handle *httpRecordingPTYHandle) Resize(_ int, _ int) error {
 }
 
 func (handle *httpRecordingPTYHandle) Terminate() error {
+	handle.mu.Lock()
+	handle.terminated = true
+	handle.mu.Unlock()
 	handle.close()
 	return nil
 }
@@ -434,6 +490,12 @@ func (handle *httpRecordingPTYHandle) Wait() error {
 	return nil
 }
 
+func (handle *httpRecordingPTYHandle) CloseSafetyAssessment() terminal.TerminalCloseAssessment {
+	handle.mu.Lock()
+	defer handle.mu.Unlock()
+	return handle.closeAssessment
+}
+
 func (handle *httpRecordingPTYHandle) emit(data []byte) {
 	handle.output <- data
 }
@@ -442,6 +504,12 @@ func (handle *httpRecordingPTYHandle) writtenString() string {
 	handle.mu.Lock()
 	defer handle.mu.Unlock()
 	return handle.writes.String()
+}
+
+func (handle *httpRecordingPTYHandle) wasTerminated() bool {
+	handle.mu.Lock()
+	defer handle.mu.Unlock()
+	return handle.terminated
 }
 
 func (handle *httpRecordingPTYHandle) close() {

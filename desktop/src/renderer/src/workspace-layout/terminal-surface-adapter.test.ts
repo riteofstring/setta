@@ -1,4 +1,5 @@
 import type {
+  CloseTerminalResponse,
   TerminalEvent,
   TerminalProfileList,
   TerminalSessionResponse,
@@ -306,9 +307,13 @@ describe("terminal surface adapter", () => {
     expect(host.dataset.terminalSessionId).toBe("terminal_restarted");
   });
 
-  test("keeps a running terminal pane when close confirmation is declined", async () => {
+  test("keeps a running terminal pane when backend confirmation is declined", async () => {
+    const close = vi.fn(async (request: { sessionId: string }) =>
+      terminalConfirmationRequiredResponse(request.sessionId),
+    );
     const api = installSettaAPI({
       attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
+      close,
     });
     const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
     const host = createFakeHost();
@@ -321,13 +326,20 @@ describe("terminal surface adapter", () => {
     const result = await adapter.requestPaneClose({ confirm });
 
     expect(result.removePane).toBe(false);
-    expect(confirm).toHaveBeenCalledWith("Close running terminal session?");
-    expect(api.terminal.close).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledWith(
+      "Closing this terminal may terminate a foreground process.",
+    );
+    expect(api.terminal.close).toHaveBeenCalledWith({
+      confirmed: false,
+      sessionId: "terminal_existing",
+    });
     expect(host.dataset.terminalStatus).toBe("running");
   });
 
   test("removes terminal pane only after backend close returns closed", async () => {
-    const close = vi.fn(async (sessionId: string) => terminalResponse(sessionId, "closed"));
+    const close = vi.fn(async (request: { sessionId: string }) =>
+      terminalCloseResponse(request.sessionId, "closed"),
+    );
     const api = installSettaAPI({
       attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
       close,
@@ -339,18 +351,59 @@ describe("terminal surface adapter", () => {
     adapter.setFocused(true);
     await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
 
-    const result = await adapter.requestPaneClose({ confirm: () => true });
+    const confirm = vi.fn(() => true);
+    const result = await adapter.requestPaneClose({ confirm });
 
     expect(result.removePane).toBe(true);
-    expect(api.terminal.close).toHaveBeenCalledWith("terminal_existing", "terminate");
+    expect(confirm).not.toHaveBeenCalled();
+    expect(api.terminal.close).toHaveBeenCalledWith({
+      confirmed: false,
+      sessionId: "terminal_existing",
+    });
     expect(host.dataset.terminalStatus).toBe("closed");
     expect(host.querySelector('[data-terminal-status="true"]')?.textContent).toBe("closed");
+  });
+
+  test("confirms destructive close with backend message and retries confirmed", async () => {
+    const close = vi
+      .fn()
+      .mockResolvedValueOnce(terminalConfirmationRequiredResponse("terminal_existing"))
+      .mockResolvedValueOnce(terminalCloseResponse("terminal_existing", "closed"));
+    const api = installSettaAPI({
+      attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
+      close,
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    adapter.setFocused(true);
+    await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
+
+    const confirm = vi.fn(() => true);
+    const result = await adapter.requestPaneClose({ confirm });
+
+    expect(result.removePane).toBe(true);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledWith(
+      "Closing this terminal may terminate a foreground process.",
+    );
+    expect(api.terminal.close).toHaveBeenNthCalledWith(1, {
+      confirmed: false,
+      sessionId: "terminal_existing",
+    });
+    expect(api.terminal.close).toHaveBeenNthCalledWith(2, {
+      confirmed: true,
+      sessionId: "terminal_existing",
+    });
   });
 
   test("waits for pending terminal start before closing the created session", async () => {
     const createStarted = deferred<void>();
     const createDeferred = deferred<TerminalSessionResponse>();
-    const close = vi.fn(async (sessionId: string) => terminalResponse(sessionId, "closed"));
+    const close = vi.fn(async (request: { sessionId: string }) =>
+      terminalCloseResponse(request.sessionId, "closed"),
+    );
     const api = installSettaAPI({
       attach: vi.fn(async () => {
         throw new Error("terminal session not found");
@@ -378,12 +431,15 @@ describe("terminal surface adapter", () => {
 
     expect(closeSettled).toBe(false);
     expect(api.terminal.close).not.toHaveBeenCalled();
-    expect(confirm).toHaveBeenCalledWith("Close running terminal session?");
+    expect(confirm).not.toHaveBeenCalled();
 
     createDeferred.resolve(terminalResponse("terminal_created", "running"));
 
     await expect(closeResult).resolves.toEqual({ removePane: true });
-    expect(api.terminal.close).toHaveBeenCalledWith("terminal_created", "terminate");
+    expect(api.terminal.close).toHaveBeenCalledWith({
+      confirmed: false,
+      sessionId: "terminal_created",
+    });
     expect(host.dataset.terminalStatus).toBe("closed");
   });
 
@@ -415,7 +471,7 @@ describe("terminal surface adapter", () => {
     const close = vi
       .fn()
       .mockRejectedValueOnce(new Error("backend unavailable"))
-      .mockResolvedValueOnce(terminalResponse("terminal_existing", "closed"));
+      .mockResolvedValueOnce(terminalCloseResponse("terminal_existing", "closed"));
     const api = installSettaAPI({
       attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
       close,
@@ -444,7 +500,9 @@ describe("terminal surface adapter", () => {
   });
 
   test("keeps terminal pane when backend close returns an open session", async () => {
-    const close = vi.fn(async (sessionId: string) => terminalResponse(sessionId, "running"));
+    const close = vi.fn(async (request: { sessionId: string }) =>
+      terminalCloseResponse(request.sessionId, "running"),
+    );
     installSettaAPI({
       attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
       close,
@@ -692,7 +750,9 @@ describe("terminal surface adapter", () => {
         overrides.attach ?? vi.fn(async () => terminalResponse("terminal_existing", "running")),
       close:
         overrides.close ??
-        vi.fn(async (sessionId: string) => terminalResponse(sessionId, "closed")),
+        vi.fn(async (request: { sessionId: string }) =>
+          terminalCloseResponse(request.sessionId, "closed"),
+        ),
       create:
         overrides.create ?? vi.fn(async () => terminalResponse("terminal_created", "running")),
       input: vi.fn(async () => ({ acceptedBytes: 0 })),
@@ -789,6 +849,35 @@ function terminalResponse(
       updatedAt: "2026-06-06T12:00:00Z",
       workspaceId: "workspace_api",
     },
+  };
+}
+
+function terminalCloseResponse(
+  sessionId: string,
+  status: TerminalSessionResponse["session"]["status"],
+): CloseTerminalResponse {
+  return {
+    assessment: {
+      reason: status === "closed" ? "idle_shell" : "inspection_failed",
+      requiresConfirmation: false,
+      safety: status === "closed" ? "safe" : "unknown",
+      summary: status === "closed" ? "Terminal shell is idle." : "Terminal is still open.",
+    },
+    kind: "closed",
+    session: terminalResponse(sessionId, status).session,
+  };
+}
+
+function terminalConfirmationRequiredResponse(sessionId: string): CloseTerminalResponse {
+  return {
+    assessment: {
+      reason: "foreground_process",
+      requiresConfirmation: true,
+      safety: "destructive",
+      summary: "Closing this terminal may terminate a foreground process.",
+    },
+    kind: "confirmation_required",
+    session: terminalResponse(sessionId, "running").session,
   };
 }
 

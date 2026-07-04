@@ -807,8 +807,14 @@ type ResizeTerminalRequest struct {
 }
 
 type CloseTerminalRequest struct {
-	SessionID string             `json:"sessionId"`
-	Mode      terminal.CloseMode `json:"mode"`
+	SessionID string `json:"sessionId"`
+	Confirmed bool   `json:"confirmed"`
+}
+
+type CloseTerminalResponse struct {
+	Kind       terminal.TerminalCloseResultKind `json:"kind"`
+	Session    *TerminalSessionSummary          `json:"session"`
+	Assessment terminal.TerminalCloseAssessment `json:"assessment"`
 }
 
 type CreateTerminalProfileRequest struct {

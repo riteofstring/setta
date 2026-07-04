@@ -20,7 +20,6 @@ const BACKGROUND_TERMINAL_MARKER_SUMMARY = [
 
 const BACKGROUND_TERMINAL_FOOTER_SELECTOR = '[data-testid="background-terminals-footer"]';
 const BACKGROUND_TERMINAL_BLOCK_SELECTOR = '[data-testid="background-terminal-block"]';
-const BACKGROUND_TERMINAL_MONITOR_SELECTOR = '[data-testid="background-terminal-monitor"]';
 const BACKGROUND_TERMINAL_MONITOR_PROCESS_SELECTOR =
   '[data-testid="background-terminal-monitor-process"]';
 
@@ -196,6 +195,7 @@ async function assertBackgroundTerminalMonitor({
     backgroundTerminalMonitorStateExpression(),
     (value) =>
       value.monitorOpen &&
+      !value.dismissButtonPresent &&
       value.processes.some(
         (process) =>
           process.command === "npm run dev" &&
@@ -206,6 +206,26 @@ async function assertBackgroundTerminalMonitor({
       value.processes.some(
         (process) => process.command === "vite --host 0.0.0.0" && process.status === "running",
       ),
+  );
+  await client.evaluate(
+    `document.querySelector(${JSON.stringify(BACKGROUND_TERMINAL_FOOTER_SELECTOR)})?.click()`,
+  );
+  await waitForState(
+    client,
+    backgroundTerminalMonitorStateExpression(),
+    (value) =>
+      !value.monitorOpen &&
+      value.footerPresent &&
+      value.footerPhase === "active" &&
+      value.footerText.includes("2 background terminals running"),
+  );
+  await client.evaluate(
+    `document.querySelector(${JSON.stringify(BACKGROUND_TERMINAL_FOOTER_SELECTOR)})?.click()`,
+  );
+  await waitForState(
+    client,
+    backgroundTerminalMonitorStateExpression(),
+    (value) => value.monitorOpen && !value.dismissButtonPresent,
   );
   const killed = await client.evaluate(backgroundTerminalKillClickExpression("npm run dev"));
   if (!killed) {
@@ -288,14 +308,7 @@ async function callRendererChatAPI(client, method, args) {
 }
 
 function backgroundTerminalMonitorStateExpression() {
-  return `(() => ({
-    monitorOpen: Boolean(document.querySelector(${JSON.stringify(BACKGROUND_TERMINAL_MONITOR_SELECTOR)})),
-    processes: Array.from(document.querySelectorAll(${JSON.stringify(BACKGROUND_TERMINAL_MONITOR_PROCESS_SELECTOR)})).map((row) => ({
-      command: row.getAttribute("data-command") ?? "",
-      status: row.getAttribute("data-status") ?? "",
-      text: row.innerText,
-    })),
-  }))()`;
+  return "globalThis.__settaE2EDriver.backgroundTerminalMonitorState()";
 }
 
 function backgroundTerminalKillClickExpression(command) {

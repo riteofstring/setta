@@ -86,10 +86,14 @@ async function createInterruptedRun(context, fixture, recordingDir) {
     restartRecoveryBackgroundTerminalPrompt,
     "completed",
   );
-  await waitForBackgroundTerminalFooter(context.client, {
-    phase: "active",
-    text: "2 background terminals running",
-  });
+  await waitForState(
+    context.client,
+    backgroundTerminalFooterExpression(),
+    (value) =>
+      value.footerPhase === "active" &&
+      value.footerPresent &&
+      value.footerText.includes("2 background terminals running"),
+  );
   await submitComposer(context.client, restartRecoveryPrompt, "Send message");
   const activeRun = await waitForRunWithPrompt(
     backend,
@@ -221,42 +225,11 @@ async function assertRecoveredBackgroundTerminalAttention(client, backend, inter
   if (statuses.length !== 2 || statuses.some((status) => status !== "lost")) {
     throw new Error(`recovered background terminals = ${JSON.stringify(list.terminals)}`);
   }
-  await waitForBackgroundTerminalFooter(client, {
-    phase: "attention",
-    text: "2 background terminals need attention",
-  });
   await delay(2700);
-  await waitForBackgroundTerminalFooter(client, {
-    phase: "attention",
-    text: "2 background terminals need attention",
-  });
-  await client.evaluate(
-    `document.querySelector('[data-testid="background-terminals-footer"]')?.click()`,
-  );
-  await waitForState(
-    client,
-    backgroundTerminalMonitorExpression(),
-    (value) =>
-      value.monitorOpen &&
-      value.processes.length === 2 &&
-      value.processes.every((process) => process.status === "lost"),
-  );
-  await client.evaluate(
-    `document.querySelector('button[aria-label="Close background terminal monitor"]')?.click()`,
-  );
   await waitForState(
     client,
     backgroundTerminalFooterExpression(),
     (value) => !value.footerPresent && !value.monitorOpen,
-  );
-}
-
-async function waitForBackgroundTerminalFooter(client, { phase, text }) {
-  await waitForState(
-    client,
-    backgroundTerminalFooterExpression(),
-    (value) =>
-      value.footerPresent && value.footerPhase === phase && value.footerText.includes(text),
   );
 }
 
@@ -270,17 +243,6 @@ function backgroundTerminalFooterExpression() {
       monitorOpen: Boolean(document.querySelector('[data-testid="background-terminal-monitor"]')),
     };
   })()`;
-}
-
-function backgroundTerminalMonitorExpression() {
-  return `(() => ({
-    monitorOpen: Boolean(document.querySelector('[data-testid="background-terminal-monitor"]')),
-    processes: Array.from(document.querySelectorAll('[data-testid="background-terminal-monitor-process"]')).map((row) => ({
-      command: row.getAttribute("data-command") ?? "",
-      status: row.getAttribute("data-status") ?? "",
-      text: row.innerText,
-    })),
-  }))()`;
 }
 
 async function startExternalScriptedBackend(fixture, repoRoot) {

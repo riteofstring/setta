@@ -933,7 +933,7 @@ describe("background terminal surface", () => {
     expect(html).toContain("Open background terminal monitor");
   });
 
-  test("renders the compact footer for attention background terminals", () => {
+  test("does not render a footer for historical lost background terminals", () => {
     const terminal = backgroundTerminalProcess("background_terminal_lost", {
       error: "provider connection lost",
       status: "lost",
@@ -954,10 +954,9 @@ describe("background terminal surface", () => {
       />,
     );
 
-    expect(html).toContain('data-testid="background-terminals-footer"');
-    expect(html).toContain('data-terminal-surface-state="attention"');
-    expect(html).toContain("1 background terminal needs attention");
-    expect(html).toContain("Dismiss background terminal status");
+    expect(html).not.toContain('data-testid="background-terminals-footer"');
+    expect(html).not.toContain("background terminal needs attention");
+    expect(html).not.toContain("Dismiss background terminal status");
   });
 
   test("renders monitor process output and per-process kill controls", () => {
@@ -1263,6 +1262,7 @@ function emptyTranscriptProps(): ChatTranscriptProps {
     activeRun: null,
     activeRunLiveness: null,
     blocks: [],
+    conversationKey: "conversation_api",
     editQueuedMessage: async () => {},
     editingQueuedMessageId: null,
     hasMoreOlder: false,

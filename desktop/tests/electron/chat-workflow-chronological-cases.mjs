@@ -128,71 +128,33 @@ async function expandProjectedActivityGroupDetails(client, rows) {
 async function toggleProjectedActivityGroupDetails(client, sourceRunItemIds, open) {
   const startedAt = Date.now();
   let anchorTopBefore = null;
+  let anchorMismatch = null;
   let toggled = null;
   while (Date.now() - startedAt < 2_000) {
-    toggled = await client.evaluate(`(() => {
-      const sourceRunItemIds = ${JSON.stringify(sourceRunItemIds)};
-      const open = ${JSON.stringify(open)};
-      const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
-      const groupHeaders = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'));
-      const groupHeader = groupHeaders.find((candidate) => {
-        const ids = new Set((candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "").split(/\\s+/));
-        return sourceRunItemIds.every((sourceRunItemId) => ids.has(sourceRunItemId));
-      });
-      const expandAll = groupHeader?.parentElement?.querySelector('[data-testid="activity-group-expand-all"]');
-      if (!(expandAll instanceof HTMLButtonElement)) {
-        return {
-          ok: false,
-          reason: "missing-expand-all",
-          groups: groupHeaders.map((candidate) => ({
-            expanded: candidate.getAttribute("data-activity-group-expanded") ?? "",
-            sourceRunItemIds: candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "",
-            text: candidate.innerText,
-          })),
-        };
-      }
-      const anchorTop = groupHeader.parentElement?.getBoundingClientRect().top ?? 0;
-      const rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
-      const details = rows
-        .filter((row) => sourceRunItemIds.includes(row.getAttribute("data-run-item-id") ?? ""))
-        .map((row) => ({
-          open: row instanceof HTMLDetailsElement ? row.open : false,
-          sourceRunItemId: row.getAttribute("data-run-item-id") ?? "",
-          text: row.innerText,
-        }));
-      const groupExpanded = groupHeader?.getAttribute("data-activity-group-expanded") ?? "";
-      const ok = open
-        ? groupExpanded === "true" &&
-          details.length === sourceRunItemIds.length &&
-          details.every((detail) => detail.open) &&
-          details.every((detail) => detail.text.includes("COMMAND"))
-        : groupExpanded === "false" && details.length === 0;
-      const result = {
-        ok,
-        details,
-        expectedOpen: open,
-        groupExpanded,
-        anchorTop,
-        reason: "already-toggled",
-      };
-      if (!result.ok) {
-        result.anchorTopBefore = anchorTop;
-        expandAll.click();
-      }
-      return result;
-    })()`);
+    toggled = await client.driver("toggleProjectedActivityGroupDetails", {
+      open,
+      shouldPrimeAnchor: anchorTopBefore === null,
+      sourceRunItemIds,
+    });
     if (anchorTopBefore === null && typeof toggled.anchorTopBefore === "number") {
       anchorTopBefore = toggled.anchorTopBefore;
     }
     if (toggled.ok) {
       if (anchorTopBefore !== null && Math.abs(toggled.anchorTop - anchorTopBefore) > 3) {
-        throw new Error(
-          `activity group anchor moved during toggle: before=${anchorTopBefore} after=${toggled.anchorTop} details=${JSON.stringify(toggled.details)}`,
-        );
+        anchorMismatch = {
+          after: toggled.anchorTop,
+          before: anchorTopBefore,
+          details: toggled.details,
+        };
+        await delay(50);
+        continue;
       }
       return;
     }
     await delay(50);
+  }
+  if (anchorMismatch !== null) {
+    throw new Error(`activity group anchor moved during toggle: ${JSON.stringify(anchorMismatch)}`);
   }
   throw new Error(`toggle all activity details failed: ${JSON.stringify(toggled)}`);
 }

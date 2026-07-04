@@ -187,7 +187,8 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
   await clickButtonByAria(client, "Jump to latest");
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    (snapshot) =>
+      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
     "auto-follow after jump to latest",
   );
   await waitForBackendState(
@@ -199,6 +200,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
     (snapshot) =>
       snapshot.debug.mode === "auto_follow" &&
       snapshot.debug.atBottom &&
+      !snapshot.jumpVisible &&
       snapshot.visibleRows.some((row) => row.text.includes("Scroll stickiness chunk 650")),
     "auto-follow keeps chunk 650 visible",
   );
@@ -209,7 +211,8 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
   );
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    (snapshot) =>
+      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
     "auto-follow after final line",
   );
   await openChatSearch(client);
@@ -228,6 +231,7 @@ async function waitForInitialScrollableTranscript(client) {
     (snapshot) =>
       snapshot.debug.mode === "auto_follow" &&
       snapshot.debug.atBottom &&
+      !snapshot.jumpVisible &&
       snapshot.debug.scrollHeight > snapshot.debug.clientHeight + 240,
     "initial auto-follow scrollable transcript",
   );
@@ -267,7 +271,8 @@ async function assertNearBottomDetachWhileStreaming(client) {
   await clickButtonByAria(client, "Jump to latest");
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    (snapshot) =>
+      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
     "auto-follow after near-bottom jump to latest",
   );
 }
@@ -294,7 +299,8 @@ async function assertTopNoOpWheelJumpToLatest(client) {
   await clickButtonByAria(client, "Jump to latest");
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    (snapshot) =>
+      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
     "auto-follow after top no-op wheel jump to latest",
   );
 }
@@ -362,11 +368,11 @@ async function waitForTranscriptScrollSnapshot(client, predicate, label) {
 }
 
 async function scrollChatTranscript(client, options) {
-  return client.evaluate(scrollChatTranscriptExpression(options));
+  return client.driver("scrollChatTranscript", options);
 }
 
 async function wheelChatTranscript(client, deltaY) {
-  return client.evaluate(wheelChatTranscriptExpression(deltaY));
+  return client.driver("wheelChatTranscript", { deltaY });
 }
 
 async function openChatSearch(client) {
@@ -462,123 +468,5 @@ async function assertTranscriptScrollRecordingEvidence(firstRecording, secondRec
 }
 
 function transcriptScrollSnapshotExpression() {
-  return `(() => {
-    ${transcriptScrollSnapshotFunctionSource()}
-    return chatTranscriptScrollSnapshot();
-  })()`;
-}
-
-function scrollChatTranscriptExpression({
-  distanceFromBottom = null,
-  position = null,
-  scrollTop = null,
-}) {
-  return `(() => {
-    ${transcriptScrollSnapshotFunctionSource()}
-    const options = ${JSON.stringify({ distanceFromBottom, position, scrollTop })};
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    if (!(scroller instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-scroller" };
-    }
-    scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
-    const previousScrollTop = scroller.scrollTop;
-    let nextScrollTop;
-    if (options.position === "bottom") {
-      nextScrollTop = scroller.scrollHeight;
-    } else if (options.position === "top") {
-      nextScrollTop = 0;
-    } else if (typeof options.distanceFromBottom === "number") {
-      nextScrollTop = Math.max(
-        0,
-        scroller.scrollHeight - scroller.clientHeight - options.distanceFromBottom,
-      );
-    } else if (typeof options.scrollTop === "number") {
-      nextScrollTop = options.scrollTop;
-    } else {
-      return { ok: false, reason: "missing-position" };
-    }
-    let deltaY = nextScrollTop < previousScrollTop ? -1 : nextScrollTop > previousScrollTop ? 1 : 0;
-    if (deltaY === 0 && options.position === "top") {
-      deltaY = -1;
-    } else if (deltaY === 0 && options.position === "bottom") {
-      deltaY = 1;
-    } else if (
-      deltaY === 0 &&
-      typeof options.distanceFromBottom === "number" &&
-      options.distanceFromBottom > 0
-    ) {
-      deltaY = -1;
-    }
-    if (deltaY !== 0) {
-      scroller.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY }));
-    }
-    scroller.scrollTop = nextScrollTop;
-    scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
-    return { ok: true, snapshot: chatTranscriptScrollSnapshot() };
-  })()`;
-}
-
-function wheelChatTranscriptExpression(deltaY) {
-  return `(() => {
-    ${transcriptScrollSnapshotFunctionSource()}
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    if (!(scroller instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-scroller" };
-    }
-    scroller.dispatchEvent(new WheelEvent("wheel", {
-      bubbles: true,
-      deltaY: ${JSON.stringify(deltaY)},
-    }));
-    return { ok: true, snapshot: chatTranscriptScrollSnapshot() };
-  })()`;
-}
-
-function transcriptScrollSnapshotFunctionSource() {
-  return `
-    function chatTranscriptScrollSnapshot() {
-      const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-      const debug = window.__settaChatTranscriptScrollDebug?.getSnapshot() ?? null;
-      if (!(scroller instanceof HTMLElement) || debug === null) {
-        return {
-          debug,
-          ready: false,
-          reason: scroller instanceof HTMLElement ? "missing-debug-api" : "missing-scroller",
-          visibleRows: [],
-        };
-      }
-      return {
-        debug,
-        maxScrollTop: Math.max(0, scroller.scrollHeight - scroller.clientHeight),
-        ready: true,
-        reason: "",
-        scrollTop: scroller.scrollTop,
-        visibleRows: visibleTranscriptRows(scroller),
-      };
-    }
-
-    function visibleTranscriptRows(scroller) {
-      const scrollerRect = scroller.getBoundingClientRect();
-      const selector = '[data-transcript-block="true"], [data-chat-message="true"], [data-testid="run-activity-group"], [data-testid="run-activity-row"]';
-      return Array.from(scroller.querySelectorAll(selector))
-        .map((node) => {
-          const rect = node.getBoundingClientRect();
-          return {
-            blockKind: node.getAttribute("data-block-kind") ?? "",
-            bottom: Math.round(rect.bottom - scrollerRect.top),
-            messageId: node.getAttribute("data-message-id") ?? "",
-            role: node.getAttribute("data-message-role") ?? "",
-            runId: node.closest("[data-run-id]")?.getAttribute("data-run-id") ?? "",
-            searchActive: node.getAttribute("data-search-active") ?? "",
-            sourceRunItemId: node.getAttribute("data-run-item-id") ?? "",
-            text: collapseTranscriptWhitespace(node.textContent).slice(0, 220),
-            top: Math.round(rect.top - scrollerRect.top),
-          };
-        })
-        .filter((row) => row.bottom > 0 && row.top < scroller.clientHeight);
-    }
-
-    function collapseTranscriptWhitespace(text) {
-      return (text ?? "").replace(/\\s+/g, " ").trim();
-    }
-  `;
+  return "globalThis.__settaE2EDriver.chatTranscriptScrollSnapshot()";
 }

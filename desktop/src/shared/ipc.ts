@@ -37,6 +37,8 @@ import type {
   CreateSemanticNodeRequest,
   CreateSemanticSteeringDirectiveRequest,
   CreateTerminalProfileRequest,
+  CloseTerminalRequest,
+  CloseTerminalResponse,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
   EndSemanticActivityRequest,
@@ -710,8 +712,8 @@ interface IpcContract {
     result: TerminalSessionResponse;
   };
   terminalClose: {
-    args: [sessionId: string, mode: "terminate" | "kill"];
-    result: TerminalSessionResponse;
+    args: [request: CloseTerminalRequest];
+    result: CloseTerminalResponse;
   };
   terminalCreate: {
     args: [

@@ -1176,6 +1176,7 @@ function TestChatTranscript(options: TestChatTranscriptOptions) {
       activeRun={resolved.activeRun}
       activeRunLiveness={resolved.activeRunLiveness}
       blocks={resolved.blocks}
+      conversationKey="conversation_test"
       editQueuedMessage={resolved.editQueuedMessage}
       editingQueuedMessageId={resolved.editingQueuedMessageId}
       focusedSourceRunItemId={resolved.focusedSourceRunItemId}

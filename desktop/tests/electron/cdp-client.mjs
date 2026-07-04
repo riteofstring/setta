@@ -17,6 +17,11 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.chatWorkflowVersion === "setta-chat-workflow-driver-v1"',
+    path: join(driverScriptDir, "chat-workflow-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.domPaneSnapshotScrollVersion === "setta-dom-pane-snapshot-scroll-driver-v1"',
     path: join(driverScriptDir, "dom-pane-snapshot-scroll-driver.js"),
   },

@@ -57,6 +57,7 @@ const artifactDir = options.artifactDir || timestampedRecordingDir("terminal-wor
 await writeLatestRecordingPointer("terminal-workflow", artifactDir);
 const fixture = await createElectronFixture("terminal-workflow");
 let context = null;
+let idleCloseDurationMs;
 let longRunningPid;
 let terminalState;
 
@@ -92,10 +93,20 @@ try {
     );
   }
   terminalState = await waitForTerminalTextInScrollback(context.client, terminalOutputPrefix);
+  idleCloseDurationMs = await assertIdleTerminalCloseDoesNotPrompt(
+    context.client,
+    terminalState.sessionId,
+  );
+  await openTerminalFromShortcut(context.client, terminalWorkflowTimeoutMs);
+  await focusTerminal(context.client, terminalWorkflowTimeoutMs);
+  terminalState = await waitForTerminalReady(context.client);
+  await maximizeTerminalPane(context.client);
   await focusTerminal(context.client, terminalWorkflowTimeoutMs);
   await sendTerminalCommand(context.client, terminalLongRunningCommand);
   longRunningPid = await waitForLongRunningPid(fixture.workspaceRoot);
-  await closeTerminalPaneFromChrome(context.client, terminalWorkflowTimeoutMs);
+  await closeTerminalPaneFromChrome(context.client, terminalWorkflowTimeoutMs, {
+    expectDialog: true,
+  });
   await waitForTerminalPaneRemoved(context.client, terminalState.sessionId);
   await waitForProcessExit(longRunningPid);
   await captureScreenshot(context.client, join(artifactDir, "terminal-closed.png"));
@@ -119,6 +130,7 @@ try {
 await assertTerminalRecordingEvidence(artifactDir);
 await writeJson(join(artifactDir, "summary.json"), {
   artifactDir,
+  idleCloseDurationMs: idleCloseDurationMs ?? 0,
   sessionId: terminalState?.sessionId ?? "",
   status: "passed",
   workspaceName: basename(fixture.workspaceRoot),
@@ -251,6 +263,22 @@ async function dispatchTerminalKey(
   await delay(50);
 }
 
+async function assertIdleTerminalCloseDoesNotPrompt(client, sessionId) {
+  const startedAt = Date.now();
+  const closeResult = await closeTerminalPaneFromChrome(client, terminalWorkflowTimeoutMs, {
+    expectDialog: false,
+  });
+  await waitForTerminalPaneRemoved(client, sessionId);
+  const durationMs = Date.now() - startedAt;
+  if (closeResult.dialogCount !== 0) {
+    throw new Error(`idle terminal close opened a dialog: ${JSON.stringify(closeResult.dialogs)}`);
+  }
+  if (durationMs > 5_000) {
+    throw new Error(`idle terminal close took ${durationMs}ms, want no user-visible delay`);
+  }
+  return durationMs;
+}
+
 async function waitForLongRunningPid(workspaceRoot) {
   const pidPath = join(workspaceRoot, terminalLongRunningPidFile);
   const startedAt = Date.now();
@@ -347,6 +375,8 @@ async function assertTerminalRecordingEvidence(recordingDir) {
   }
   assertTerminalInputByte(ipc, 0x7f, "Backspace");
   assertTerminalInputByte(ipc, 0x03, "Ctrl-C");
+  assertTerminalCloseRequest(ipc, false, "idle close");
+  assertTerminalCloseRequest(ipc, true, "destructive close confirmation");
 
   const backend = await readJsonLinesOptional(join(recordingDir, "backend-http.jsonl"));
   for (const path of [
@@ -369,6 +399,19 @@ async function assertTerminalRecordingEvidence(recordingDir) {
   }
   if (!events.some((entry) => terminalEventMatches(entry, "terminal.closed"))) {
     throw new Error("recording missing forwarded terminal closed event");
+  }
+}
+
+function assertTerminalCloseRequest(ipc, confirmed, label) {
+  const found = ipc.some((entry) => {
+    if (entry.type !== "ipc_start" || entry.channel !== "terminal:close") {
+      return false;
+    }
+    const request = entry.args?.[0];
+    return request && request.confirmed === confirmed && typeof request.sessionId === "string";
+  });
+  if (!found) {
+    throw new Error(`recording missing ${label} terminal close request`);
   }
 }
 

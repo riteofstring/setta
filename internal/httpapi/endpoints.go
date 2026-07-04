@@ -161,7 +161,7 @@ var apiEndpoints = []endpoint{
 	post[AttachTerminalRequest, TerminalSessionResponse]("AttachTerminal", "/terminals/attach", handler.attachTerminal),
 	post[TerminalInputRequest, TerminalInputResponse]("TerminalInput", "/terminals/input", handler.terminalInput),
 	post[ResizeTerminalRequest, TerminalSessionResponse]("ResizeTerminal", "/terminals/resize", handler.resizeTerminal),
-	post[CloseTerminalRequest, TerminalSessionResponse]("CloseTerminal", "/terminals/close", handler.closeTerminal),
+	post[CloseTerminalRequest, CloseTerminalResponse]("CloseTerminal", "/terminals/close", handler.closeTerminal),
 	get[terminal.TerminalProfileList]("ListTerminalProfiles", "/terminals/profiles", handler.listTerminalProfiles),
 	post[CreateTerminalProfileRequest, terminal.TerminalProfileList]("CreateTerminalProfile", "/terminals/profiles/create", handler.createTerminalProfile),
 	post[UpdateTerminalProfileRequest, terminal.TerminalProfileList]("UpdateTerminalProfile", "/terminals/profiles/update", handler.updateTerminalProfile),

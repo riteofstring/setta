@@ -19,12 +19,15 @@ interface TranscriptScrollDebugApi {
 }
 
 interface TranscriptScrollDebugSnapshot {
+  awayFromBottom: boolean;
   atBottom: boolean;
   clientHeight: number;
   distanceFromBottom: number;
+  hasScrollableOverflow: boolean;
   lastVisibleIndex: number;
   mode: string;
   pendingScrollCount: number;
+  programmaticScrollCount: number;
   rowCount: number;
   scrollHeight: number;
   scrollTop: number;
@@ -192,6 +195,7 @@ function layoutSnapshot(trigger: string): RendererRecordedEvent {
   return {
     activeRunStatus: pane?.getAttribute("data-run-status") ?? "",
     at: timestamp(),
+    backgroundTerminalSurface: backgroundTerminalSurfaceSnapshot(),
     chatDetailPane: elementRect(pane),
     composer: elementRect(composer),
     jumpToLatestButton: visibleElementRect(jumpToLatestButton),
@@ -209,6 +213,27 @@ function layoutSnapshot(trigger: string): RendererRecordedEvent {
     visibleTurnIds: Array.from(document.querySelectorAll('[data-testid="chat-transcript-turn"]'))
       .map((turn) => turn.getAttribute("data-run-id") ?? "")
       .filter((id) => id !== ""),
+  };
+}
+
+function backgroundTerminalSurfaceSnapshot() {
+  const footer = document.querySelector('[data-testid="background-terminals-footer"]');
+  const monitor = document.querySelector('[data-testid="background-terminal-monitor"]');
+  const rows = Array.from(
+    document.querySelectorAll('[data-testid="background-terminal-monitor-process"]'),
+  );
+  const footerIds = footer?.getAttribute("data-terminal-ids") ?? "";
+  return {
+    footerPhase: footer?.getAttribute("data-terminal-surface-state") ?? "",
+    footerVisible: visibleElementRect(footer)?.visible ?? false,
+    monitorOpen: Boolean(monitor),
+    visibleTerminalIds:
+      rows.length > 0
+        ? rows.map((row) => row.getAttribute("data-process-id") ?? "").filter((id) => id !== "")
+        : footerIds.split("\n").filter((id) => id !== ""),
+    visibleTerminalStatuses: rows
+      .map((row) => row.getAttribute("data-status") ?? "")
+      .filter((status) => status !== ""),
   };
 }
 
@@ -303,12 +328,18 @@ function transcriptScrollDebugSnapshotFromElement(element: Element | null) {
     return null;
   }
   return {
+    awayFromBottom: booleanAttribute(element, "data-scroll-follow-away-from-bottom"),
     atBottom: booleanAttribute(element, "data-scroll-follow-at-bottom"),
     clientHeight: numberAttribute(element, "data-scroll-follow-client-height"),
     distanceFromBottom: numberAttribute(element, "data-scroll-follow-distance-from-bottom"),
+    hasScrollableOverflow: booleanAttribute(element, "data-scroll-follow-has-scrollable-overflow"),
     lastVisibleIndex: numberAttribute(element, "data-scroll-follow-last-visible-index"),
     mode: truncate(mode),
     pendingScrollCount: numberAttribute(element, "data-scroll-follow-pending-scroll-count"),
+    programmaticScrollCount: numberAttribute(
+      element,
+      "data-scroll-follow-programmatic-scroll-count",
+    ),
     rowCount: numberAttribute(element, "data-scroll-follow-row-count"),
     scrollHeight: numberAttribute(element, "data-scroll-follow-scroll-height"),
     scrollTop: numberAttribute(element, "data-scroll-follow-scroll-top"),

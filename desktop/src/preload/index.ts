@@ -135,7 +135,7 @@ const api: SettaAPI = {
   },
   terminal: {
     attach: (workspaceId: string, paneId: string) => invoke("terminalAttach", workspaceId, paneId),
-    close: (sessionId: string, mode) => invoke("terminalClose", sessionId, mode),
+    close: (request) => invoke("terminalClose", request),
     createProfile: (request) => invoke("terminalCreateProfile", request),
     create: (workspaceId, paneId, options) =>
       invoke(

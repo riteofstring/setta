@@ -163,7 +163,7 @@ type SemanticGraphService interface {
 
 type TerminalService interface {
 	Attach(context.Context, string, string) (terminal.SessionSummary, error)
-	Close(context.Context, string, terminal.CloseMode) (terminal.SessionSummary, error)
+	Close(context.Context, string, bool) (terminal.TerminalCloseResult, error)
 	Create(context.Context, string, string, string, string, int, int) (terminal.SessionSummary, error)
 	CreateProfile(terminal.TerminalProfileInput) (terminal.TerminalProfileList, error)
 	DeleteProfile(string) (terminal.TerminalProfileList, error)

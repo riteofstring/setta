@@ -1,4 +1,4 @@
-import type { TerminalSessionSummary } from "@generated/backend";
+import type { CloseTerminalResponse, TerminalSessionSummary } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 
 import { errorMessage } from "./terminal-ergonomics";
@@ -32,7 +32,7 @@ export async function requestTerminalPaneClose(
   if (immediateResult) {
     return immediateResult;
   }
-  if (!beginTerminalPaneClose(options, state.sessionStatus)) {
+  if (!beginTerminalPaneClose(options)) {
     return { removePane: false };
   }
   const api = terminalCloseAPI(options);
@@ -80,18 +80,12 @@ function terminalPaneImmediateCloseResult(
   return null;
 }
 
-function beginTerminalPaneClose(
-  { confirm, owner, showStatus }: TerminalPaneCloseOptions,
-  sessionStatus: string,
-): boolean {
+function beginTerminalPaneClose({ owner, showStatus }: TerminalPaneCloseOptions): boolean {
   if (terminalPaneCloseInFlight.has(owner)) {
     showStatus("Closing terminal session");
     return false;
   }
-  if (!terminalPaneCloseRequiresConfirmation(sessionStatus)) {
-    return true;
-  }
-  return confirm("Close running terminal session?");
+  return true;
 }
 
 function terminalCloseAPI({
@@ -127,20 +121,58 @@ async function terminalPaneCloseSessionId(
 
 async function closeTerminalSession(
   api: SettaAPI["terminal"],
-  { applySessionSummary, showExitOverlay, showStatus }: TerminalPaneCloseOptions,
+  options: TerminalPaneCloseOptions,
   sessionId: string,
 ): Promise<SurfacePaneCloseResult> {
-  const response = await api.close(sessionId, "terminate");
-  applySessionSummary(response.session);
-  if (response.session.status === "closed") {
-    return { removePane: true };
-  }
-  showTerminalCloseFailure(
-    `Terminal close returned ${response.session.status}.`,
-    showStatus,
+  const response = await api.close({ confirmed: false, sessionId });
+  return handleCloseResponse(api, options, sessionId, response);
+}
+
+async function handleCloseResponse(
+  api: SettaAPI["terminal"],
+  {
+    applySessionSummary,
+    confirm,
     showExitOverlay,
-  );
-  return { removePane: false };
+    showStatus,
+  }: Pick<
+    TerminalPaneCloseOptions,
+    "applySessionSummary" | "confirm" | "showExitOverlay" | "showStatus"
+  >,
+  sessionId: string,
+  response: CloseTerminalResponse,
+): Promise<SurfacePaneCloseResult> {
+  if (response.session !== null) {
+    applySessionSummary(response.session);
+  }
+  switch (response.kind) {
+    case "closed":
+      if (response.session === null || response.session.status === "closed") {
+        return { removePane: true };
+      }
+      showTerminalCloseFailure(
+        `Terminal close returned ${response.session.status}.`,
+        showStatus,
+        showExitOverlay,
+      );
+      return { removePane: false };
+    case "confirmation_required":
+      if (!confirm(response.assessment.summary)) {
+        return { removePane: false };
+      }
+      return handleCloseResponse(
+        api,
+        { applySessionSummary, confirm, showExitOverlay, showStatus },
+        sessionId,
+        await api.close({ confirmed: true, sessionId }),
+      );
+    default:
+      return assertNever(response.kind);
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled terminal close result: ${JSON.stringify(value)}`);
 }
 
 function showTerminalCloseFailure(
@@ -150,8 +182,4 @@ function showTerminalCloseFailure(
 ): void {
   showStatus(message);
   showExitOverlay(message);
-}
-
-function terminalPaneCloseRequiresConfirmation(status: string): boolean {
-  return status === "" || status === "running" || status === "starting";
 }
