@@ -945,6 +945,16 @@ TypeScript backend contract from the Go surface, then update workflow node detai
 when the user loads more output. Add workflow-level behavior coverage with output longer than the initial preview limit, asserting that the UI shows the initial
 truncation, exposes "Load more", and renders later output after loading. Do not paper over the bug by only raising the preview limit.
 
+Progress 2026-07-03: the shared workflow trajectory backend contract slice now
+returns node-scoped transcript, activity, per-run-item output page metadata,
+flattened output records, liveness, pending approval, older-history cursor, and
+capability flags through the Go-owned `/workflows/nodes/trajectory` endpoint,
+with regenerated TypeScript contracts and production Electron coverage.
+Remaining work is still in
+`workflow_agent_trajectory_shared_ui_plan.md`: replace the current workflow node
+details preview adapter, remove the fake complete output-page adaptation and
+no-op loader, and wire UI load-more behavior through real node-scoped actions.
+
 ### Workspace browser snapshot retry behavior
 
 `desktop/src/main/workspace-browser-views.ts` treats a failed browser-pane snapshot capture as fresh for the current snapshot key. A transient capture failure

@@ -543,6 +543,17 @@ activity preview remains only for the current workflow details UI until the
 Phase 6 adapter replacement removes that caller and its fake complete
 output-page adaptation in one cut.
 
+Audit 2026-07-03: no Phase 4 code gaps found. Focused reruns passed the
+run-scoped chat transcript test, workflow trajectory service tests, HTTP
+trajectory endpoint test, contract generator test, generated-contract rerun with
+no diff, desktop typecheck/build, preload Vitest coverage, and deterministic
+Electron `--workflow-node-trajectory-contract-only`. Live Codex E2E was
+attempted with `OPENAI_API_KEY` unset and remains blocked by local Codex
+`config/read` returning unsupported `approval_policy = "on-failure"` before
+live workflow execution starts. The remediation plan's deferred pagination note
+was updated to record the completed backend contract slice and the remaining
+renderer replacement work.
+
 ## Phase 5: Shared Renderer Boundary
 
 Refactor normal chat to use a parameterized agent trajectory surface before
