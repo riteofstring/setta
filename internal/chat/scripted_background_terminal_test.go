@@ -164,7 +164,7 @@ func assertBackgroundTerminalOutputChunks(t *testing.T, service *Service, worksp
 
 func assertRunActivityPageEmpty(t *testing.T, service *Service, workspaceID string, runID string) {
 	t.Helper()
-	activityPage, err := service.LoadRunActivityPage(workspaceID, runID, "", 20)
+	activityPage, err := service.LoadRunActivityPage(workspaceID, runID, 20)
 	if err != nil {
 		t.Fatalf("load run activity page: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestServiceUnifiedExecStartupCompletedInTurnStaysActivity(t *testing.T) {
 	if activity.Status != RunItemStatusCompleted || activity.Details.Command != command || !activity.HasOutput {
 		t.Fatalf("foreground command activity = %+v, want completed command with output", activity)
 	}
-	activityPage, err := service.LoadRunActivityPage(workspaceID, result.Run.ID, "", 20)
+	activityPage, err := service.LoadRunActivityPage(workspaceID, result.Run.ID, 20)
 	if err != nil {
 		t.Fatalf("load run activity page: %v", err)
 	}

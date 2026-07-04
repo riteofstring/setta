@@ -869,6 +869,68 @@ func (store *Store) NextQueuedRun(workspaceID string, conversationID string) (Ru
 	return Run{}, ChatMessage{}, false, fmt.Errorf("queued run %s trigger message %s was not found", run.ID, run.TriggerMessageID)
 }
 
+func (store *Store) SaveRunItem(item RunItem) error {
+	if err := validateRunItem(item); err != nil {
+		return err
+	}
+	return writeJSONFile(store.runItemPath(item.WorkspaceID, item.RunID, item.ID), item)
+}
+
+func (store *Store) LoadRunItems(workspaceID string, runID string) ([]RunItem, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return nil, err
+	}
+	dir := store.runItemsDir(workspaceID, runID)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []RunItem{}, nil
+		}
+		return nil, &PersistenceError{Operation: "list run items", Path: dir, Err: err}
+	}
+	items := make([]RunItem, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		var item RunItem
+		path := store.runItemPath(workspaceID, runID, entry.Name())
+		if err := readJSONFile(path, &item); err != nil {
+			return nil, err
+		}
+		if err := validateRunItem(item); err != nil {
+			return nil, corruptStateError(path, err)
+		}
+		if item.WorkspaceID != workspaceID || item.RunID != runID {
+			return nil, corruptStateErrorf(path, "run item %s belongs to workspace %s run %s, not workspace %s run %s", item.ID, item.WorkspaceID, item.RunID, workspaceID, runID)
+		}
+		items = append(items, item)
+	}
+	sort.SliceStable(items, func(left int, right int) bool {
+		if items[left].CreatedAt == items[right].CreatedAt {
+			return items[left].ID < items[right].ID
+		}
+		return items[left].CreatedAt < items[right].CreatedAt
+	})
+	return items, nil
+}
+
+func (store *Store) FindRunItemByProviderID(workspaceID string, runID string, providerItemID string) (RunItem, bool, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return RunItem{}, false, err
+	}
+	items, err := store.LoadRunItems(workspaceID, runID)
+	if err != nil {
+		return RunItem{}, false, err
+	}
+	for _, item := range items {
+		if item.ProviderItemID == providerItemID {
+			return item, true, nil
+		}
+	}
+	return RunItem{}, false, nil
+}
+
 func (store *Store) SaveTraceEvent(workspaceID string, trace TraceEvent) error {
 	if err := validateStoreWorkspaceID(workspaceID); err != nil {
 		return err

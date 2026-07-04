@@ -1,11 +1,8 @@
 package chat
 
-import "fmt"
-
 const (
 	codexApprovalPolicyOnRequest = "on-request"
 	codexApprovalPolicyNever     = "never"
-	codexApprovalPolicyOnFailure = "on-failure"
 
 	codexPermissionProfileReadOnly         = ":read-only"
 	codexPermissionProfileWorkspace        = ":workspace"
@@ -39,30 +36,6 @@ var chatPermissionPresets = []ChatPermissionPreset{
 			ConfirmationBody:     "Full Access disables approvals and sandboxing for this chat. Codex can access the broader filesystem and network without asking.",
 		},
 	},
-}
-
-type unsupportedCodexApprovalPolicyError struct {
-	Policy string
-	Source string
-}
-
-func (err unsupportedCodexApprovalPolicyError) Error() string {
-	if err.Policy == codexApprovalPolicyOnFailure {
-		return fmt.Sprintf("%s has deprecated unsupported approval policy %q; supported approval policies are %q and %q", err.Source, err.Policy, codexApprovalPolicyOnRequest, codexApprovalPolicyNever)
-	}
-	return fmt.Sprintf("%s has unsupported approval policy %q; supported approval policies are %q and %q", err.Source, err.Policy, codexApprovalPolicyOnRequest, codexApprovalPolicyNever)
-}
-
-func validateSettaCodexApprovalPolicy(policy string, source string) error {
-	if policy == "" {
-		return nil
-	}
-	switch policy {
-	case codexApprovalPolicyOnRequest, codexApprovalPolicyNever:
-		return nil
-	default:
-		return unsupportedCodexApprovalPolicyError{Policy: policy, Source: source}
-	}
 }
 
 func BuiltinChatPermissionPresets() []ChatPermissionPreset {
@@ -116,9 +89,6 @@ func chatPermissionPresetByEffectiveFields(approvalPolicy string, id string, ext
 
 func chatCodexEffectivePermissionSettings(approvalPolicy string, activeProfileID string, activeProfileExtends string) *ChatCodexEffectivePermissionSettings {
 	approvalPolicy, activeProfileID, activeProfileExtends = effectiveCodexPermissionFields(approvalPolicy, activeProfileID, activeProfileExtends)
-	if err := validateSettaCodexApprovalPolicy(approvalPolicy, "codex effective permission settings approvalPolicy"); err != nil {
-		return nil
-	}
 	displayLabel := "Custom"
 	builtIn := false
 	var presetID *ChatPermissionPresetID

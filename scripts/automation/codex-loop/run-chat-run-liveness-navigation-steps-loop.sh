@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-PLAN_PATH="docs/plans/review_and_workflow_trajectory_implementation_order_plan.md"
-SENTINEL="META_PLAN_IMPLEMENTATION_COMPLETE"
+PLAN_PATH="docs/plans/chat_run_liveness_navigation_plan.md"
+SENTINEL="CHAT_UI_RELIABILITY_AND_UX_COMPLETE"
 MODEL="gpt-5.5"
 REASONING_CONFIG='reasoning_effort="xhigh"'
 OUTPUT_DIR=""
@@ -14,22 +14,17 @@ MAX_ITERATIONS="0"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/automation/codex-loop/run-review-workflow-meta-plan-loop.sh [options]
+Usage: scripts/automation/codex-loop/run-chat-run-liveness-navigation-steps-loop.sh [options]
 
 Runs two fresh Codex agents in a loop for:
-  docs/plans/review_and_workflow_trajectory_implementation_order_plan.md
+  docs/plans/chat_run_liveness_navigation_plan.md
 
 Agent 1 implements the next coherent step in the plan and commits the work.
 Agent 2 audits the work, fixes or documents any gaps, commits if needed, and
 the loop stops only when Agent 2's final message is exactly:
-  META_PLAN_IMPLEMENTATION_COMPLETE
+  CHAT_UI_RELIABILITY_AND_UX_COMPLETE
 Agent 2 may also use that sentinel when the plan is implemented as much as
 possible and the remaining work is blocked.
-
-This dedicated automation helper intentionally runs Codex in the current
-repository checkout with approvals and sandbox bypassed. That behavior is
-acceptable here because the loop is for unattended repo-local plan execution
-where agents are expected to edit and commit directly in the working tree.
 
 Codex transcripts are written to per-agent log files. The terminal prints only
 loop status and periodic progress updates.
@@ -83,8 +78,6 @@ run_agent() {
 
   log_info "Starting ${agent_name}. Transcript: ${transcript_file}. Last message: ${last_message_file}"
 
-  # This dedicated plan loop is intentionally allowed to mutate and commit in
-  # the current checkout without approval prompts or filesystem sandboxing.
   codex exec \
     --color never \
     --cd "${ROOT_DIR}" \
@@ -195,20 +188,20 @@ if ! command -v codex >/dev/null 2>&1; then
 fi
 
 if [[ -z "${OUTPUT_DIR}" ]]; then
-  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/meta-plan-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
+  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/chat-ui-reliability-ux-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
 else
   mkdir -p "${OUTPUT_DIR}"
 fi
 
 AGENT_ONE_PROMPT="Implement the next coherent step in ${PLAN_PATH}.
 
-First inspect the plan, any source plans it references, AGENTS.md, git history, and the current source to determine which step is next. Respect dependency order and ownership boundaries from the plan. Keep the slice disciplined: finish the smallest coherent step that can be verified and committed cleanly. Follow AGENTS.md exactly, including generated contract rules, no-backward-compatibility rules, and required Electron/live Codex verification when the touched area requires it. Do not add polling or timer-based guessing, parse text with keyword heuristics, add silent fallbacks, add compatibility shims, add migrations, add transitional dual paths, or do unrelated cleanup.
+First inspect the plan's product contract, non-goals, existing-system boundaries, implementation slices, verification plan, git history, and current source to determine which step is next. Keep the slice disciplined: finish the smallest coherent plan step that can be verified and committed cleanly. Follow AGENTS.md exactly, including generated contract rules, no-backward-compatibility rules, and required Electron/live Codex verification when the touched area requires it. Do not add polling or timer-based guessing, parse text with keyword heuristics, add silent fallbacks, add compatibility shims, add migrations, add transitional dual paths, or do unrelated cleanup.
 
-When the step is implemented and verified, update ${PLAN_PATH} and any directly affected source plan docs with the progress made, verification performed, and any remaining work or blockers discovered. Commit the implementation, tests, generated artifacts, and plan updates together."
+When the step is implemented and verified, update ${PLAN_PATH} with the progress made, verification performed, and any remaining work or blockers discovered. Commit the implementation, tests, generated artifacts, and plan update together."
 
 AGENT_TWO_PROMPT="Another agent worked on the next step in ${PLAN_PATH}. Audit the result against the plan, AGENTS.md, and the actual code.
 
-If the audit finds gaps, fix them if practical, run the required focused verification, and commit your fixes. If plan docs need to be updated to reflect what was learned, update and commit them. If the current step is good and the next step is ready, say so in your final message.
+If the audit finds gaps, fix them if practical, run the required focused verification, and commit your fixes. If the plan doc needs to be updated to reflect what was learned, update it and commit. If the current step is good and the next step is ready, say so in your final message.
 
 If the whole plan is fully implemented and verified, or if the plan is implemented as much as possible and a genuine blocker prevents full completion after you update and commit the plan with the blocker and remaining work, respond with exactly:
 ${SENTINEL}"

@@ -306,21 +306,13 @@ export class WorkspaceLayoutStore {
 
   configurePane(paneId: PaneId, request: OpenPaneRequest): PaneId {
     const limitState = this.paneLimitState(request);
-    if (!limitState.allowed && !this.configureKeepsPaneSurfaceKind(paneId, request)) {
+    if (!limitState.allowed) {
       throw new Error(`workspace pane limit reached for ${limitState.surfaceKind}`);
     }
     const configuredPaneId = this.engine.configurePane(paneId, request);
     this.setFocusedPane(configuredPaneId);
     this.notify();
     return configuredPaneId;
-  }
-
-  private configureKeepsPaneSurfaceKind(paneId: PaneId, request: OpenPaneRequest): boolean {
-    const currentSurfaceKind = this.toScene().paneById.get(paneId)?.surfaceKind;
-    if (!currentSurfaceKind) {
-      return false;
-    }
-    return (request.surfaceKind ?? currentSurfaceKind) === currentSurfaceKind;
   }
 
   configureFocusedPane(request: OpenPaneRequest): PaneId {

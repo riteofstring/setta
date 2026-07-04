@@ -402,7 +402,7 @@ type providerStreamLifecycleActivityAssertion struct {
 func assertProviderStreamLifecycleActivity(t *testing.T, service *Service, conversationID string, runID string, want providerStreamLifecycleActivityAssertion) {
 	t.Helper()
 
-	page, err := service.LoadRunActivityPage("workspace_api", runID, "", 20)
+	page, err := service.LoadRunActivityPage("workspace_api", runID, 20)
 	if err != nil {
 		t.Fatalf("load run activity: %v", err)
 	}

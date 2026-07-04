@@ -30,7 +30,6 @@ import {
   normalizedPaneWeight,
   normalizeTerminalPaneConfig,
   terminalConfigForRequest,
-  workflowNodeDetailsConfigForRequest,
 } from "./layout-engine-normalization";
 import {
   paneInHorizontalVisualDirection,
@@ -141,7 +140,6 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
       title: request.title ?? `Pane ${String(sequence + 1).padStart(3, "0")}`,
       tone: request.tone ?? "slate",
       weight: request.weight ?? 1,
-      workflowNodeDetailsConfig: workflowNodeDetailsConfigForRequest(request),
     };
     this.paneById.set(pane.paneId, pane);
     targetColumn.paneIds.push(pane.paneId);
@@ -188,7 +186,6 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
       title: request.title ?? pane.title,
       tone: request.tone ?? pane.tone,
       weight: request.weight ?? pane.weight,
-      workflowNodeDetailsConfig: workflowNodeDetailsConfigForRequest(request, pane),
     });
     return paneId;
   }

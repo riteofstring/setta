@@ -34,7 +34,6 @@ const (
 	attachmentInlineMaxPixels    = 1280
 	attachmentPreviewMaxPixels   = 2560
 	maxImageAttachmentBytes      = 20 * 1024 * 1024
-	MaxImageAttachmentBytes      = maxImageAttachmentBytes
 	maxImageAttachmentDimension  = 12000
 )
 
@@ -102,7 +101,7 @@ func (store *Store) CreateImageAttachmentFromPath(workspaceID string, conversati
 	cleanPath := filepath.Clean(sourcePath)
 	info, err := os.Stat(cleanPath)
 	if err != nil {
-		return ImageAttachment{}, fmt.Errorf("stat image attachment source %s: %w", cleanPath, err)
+		return ImageAttachment{}, &PersistenceError{Operation: "stat image attachment source", Path: cleanPath, Err: err}
 	}
 	if info.IsDir() {
 		return ImageAttachment{}, fmt.Errorf("image attachment source is a directory: %s", cleanPath)
@@ -112,12 +111,12 @@ func (store *Store) CreateImageAttachmentFromPath(workspaceID string, conversati
 	}
 	file, err := os.Open(cleanPath)
 	if err != nil {
-		return ImageAttachment{}, fmt.Errorf("open image attachment source %s: %w", cleanPath, err)
+		return ImageAttachment{}, &PersistenceError{Operation: "open image attachment source", Path: cleanPath, Err: err}
 	}
 	defer file.Close()
 	data, err := readAllLimited(file, maxImageAttachmentBytes)
 	if err != nil {
-		return ImageAttachment{}, fmt.Errorf("read image attachment source %s: %w", cleanPath, err)
+		return ImageAttachment{}, &PersistenceError{Operation: "read image attachment source", Path: cleanPath, Err: err}
 	}
 	return store.CreateImageAttachmentFromBytes(workspaceID, conversationID, attachmentID, filepath.Base(cleanPath), data, createdAt)
 }

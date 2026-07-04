@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"strings"
 	"testing"
 	"time"
 )
@@ -33,43 +32,6 @@ func TestServiceCancelFakeGoalOperationUnblocksWait(t *testing.T) {
 		t.Fatalf("cancelled run status = %s, want cancelled", cancelled.Status)
 	}
 	waitForFakeHarnessRunUnregistered(t, harness, runs[0].ID)
-}
-
-func TestServiceCancelActiveRunByIDRejectsDifferentActiveRunBeforeProviderCancel(t *testing.T) {
-	harness := NewFakeHarness([]FakeHarnessEvent{
-		{Type: FakeEventAssistantDelta, Text: "partial"},
-		{Type: FakeEventWaitForCancel},
-	})
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("stop exact run"))
-	if err != nil {
-		t.Fatalf("send message: %v", err)
-	}
-	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusRunning)
-
-	_, err = service.CancelActiveRunByID("workspace_api", conversation.ID, "run_other")
-	if err == nil || !strings.Contains(err.Error(), "does not match requested run run_other") {
-		t.Fatalf("cancel wrong run error = %v, want exact-run mismatch", err)
-	}
-	if cancelled := harness.CancelledRequests(); len(cancelled) != 0 {
-		t.Fatalf("provider cancel requests = %+v, want none for wrong run id", cancelled)
-	}
-	run := waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusRunning)
-	if run.ID != result.Run.ID {
-		t.Fatalf("active run = %+v, want original run %s", run, result.Run.ID)
-	}
-
-	cancelled, err := service.CancelActiveRunByID("workspace_api", conversation.ID, result.Run.ID)
-	if err != nil {
-		t.Fatalf("cancel exact run: %v", err)
-	}
-	if cancelled.ID != result.Run.ID || cancelled.Status != RunStatusCancelled {
-		t.Fatalf("cancelled run = %+v, want %s cancelled", cancelled, result.Run.ID)
-	}
 }
 
 func TestServiceCancelCodexGoalOperationFallbackReleasesRoute(t *testing.T) {

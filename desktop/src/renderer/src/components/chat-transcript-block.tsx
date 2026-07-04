@@ -51,7 +51,7 @@ export interface TranscriptRowContext {
   setActivityRowsExpanded: (blockIds: string[], open: boolean) => void;
   setActivityGroupExpanded: (groupId: string, open: boolean) => void;
   focusedSourceRunItemId: string | null;
-  loadRunItemOutput?: LoadRunItemOutput;
+  loadRunItemOutput: LoadRunItemOutput;
   outputIdsByRunItemId: Record<string, string[]>;
   outputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   outputsById: Record<string, RunItemOutput>;
@@ -210,9 +210,7 @@ function ActivityGroupSlotRow({
           context.outputPagesByRunItemId[sourceRunItemId],
         )
       ) {
-        if (context.loadRunItemOutput) {
-          void context.loadRunItemOutput(member.runId, sourceRunItemId, 0);
-        }
+        void context.loadRunItemOutput(member.runId, sourceRunItemId, 0);
       }
     }
   };

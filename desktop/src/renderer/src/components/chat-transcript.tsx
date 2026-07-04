@@ -46,48 +46,31 @@ import {
 
 type TranscriptActivityApprovalDetails = NonNullable<RunActivityDetailsProjection["approval"]>;
 
-export interface ChatTranscriptCapabilities {
-  loadOlderHistory: boolean;
-  loadRunItemOutput: boolean;
-  queuedMessageActions: boolean;
-  sendSteering: boolean;
-  submitApproval: boolean;
-}
-
 export interface ChatTranscriptProps {
   activeRun: Run | null;
   activeRunLiveness: RunLiveness | null;
   activeCurrentPlanTarget?: CurrentPlanSurfaceTarget | null;
   blocks: TranscriptBlock[];
-  capabilities?: ChatTranscriptCapabilities;
-  editQueuedMessage?: (messageId: string, input: ChatInput) => Promise<void>;
+  editQueuedMessage: (messageId: string, input: ChatInput) => Promise<void>;
   editingQueuedMessageId: string | null;
   focusedSourceRunItemId?: string | null;
   hasMoreOlder: boolean;
-  loadOlder?: () => Promise<void>;
-  loadRunItemOutput?: LoadRunItemOutput;
+  loadOlder: () => Promise<void>;
+  loadRunItemOutput: LoadRunItemOutput;
   messages: ChatMessage[];
   operation: string | null;
   queuedMessages: ChatMessage[];
-  removeQueuedMessage?: (messageId: string) => Promise<void>;
+  removeQueuedMessage: (messageId: string) => Promise<void>;
   removingQueuedMessageId: string | null;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputsById: Record<string, RunItemOutput>;
   searchOpen?: boolean;
-  sendSteeringImmediately?: (input?: ChatInput) => Promise<void>;
+  sendSteeringImmediately: (input?: ChatInput) => Promise<void>;
   setSearchOpen?: (open: boolean) => void;
   onOpenCurrentPlanSurface?: (target: CurrentPlanSurfaceTarget) => void;
-  submitApproval?: SubmitApproval;
+  submitApproval: SubmitApproval;
 }
-
-const defaultChatTranscriptCapabilities = {
-  loadOlderHistory: true,
-  loadRunItemOutput: true,
-  queuedMessageActions: true,
-  sendSteering: true,
-  submitApproval: true,
-} satisfies ChatTranscriptCapabilities;
 
 export function transcriptVirtualItemKey(
   rows: ReadonlyArray<Pick<TranscriptRenderRow, "key">>,
@@ -396,7 +379,6 @@ export function ChatTranscript({
   activeRunLiveness,
   activeCurrentPlanTarget = null,
   blocks,
-  capabilities = defaultChatTranscriptCapabilities,
   editQueuedMessage,
   editingQueuedMessageId,
   focusedSourceRunItemId = null,
@@ -537,11 +519,9 @@ export function ChatTranscript({
       ({
         activeRun,
         activeRunLiveness,
-        canSendSteering: capabilities.sendSteering,
         editQueuedMessage,
         editingQueuedMessageId,
         operation,
-        queuedMessageActions: capabilities.queuedMessageActions,
         removeQueuedMessage,
         removingQueuedMessageId,
         sendSteeringImmediately,
@@ -549,8 +529,6 @@ export function ChatTranscript({
     [
       activeRun,
       activeRunLiveness,
-      capabilities.queuedMessageActions,
-      capabilities.sendSteering,
       editQueuedMessage,
       editingQueuedMessageId,
       operation,
@@ -579,7 +557,7 @@ export function ChatTranscript({
       expandedActivityBlockIds,
       expandedActivityGroupIds,
       focusedSourceRunItemId,
-      loadRunItemOutput: capabilities.loadRunItemOutput ? loadRunItemOutput : undefined,
+      loadRunItemOutput,
       outputIdsByRunItemId: runItemOutputIdsByRunItemId,
       outputPagesByRunItemId: runItemOutputPagesByRunItemId,
       outputsById: runItemOutputsById,
@@ -593,7 +571,6 @@ export function ChatTranscript({
       expandedActivityBlockIds,
       expandedActivityGroupIds,
       activeRunLiveness,
-      capabilities.loadRunItemOutput,
       focusedSourceRunItemId,
       loadRunItemOutput,
       rowActions,
@@ -654,9 +631,6 @@ export function ChatTranscript({
   }
 
   const loadOlderAndPreserveScroll = useCallback(async () => {
-    if (!loadOlder) {
-      return;
-    }
     const anchorKey = rows[visibleStartIndexRef.current]?.key ?? rows[0]?.key ?? null;
     const previousFirstKey = rows[0]?.key ?? null;
     const previousLength = rows.length;
@@ -669,27 +643,12 @@ export function ChatTranscript({
 
   const virtuosoComponents = useMemo(
     () => ({
-      Footer: () => (
-        <TranscriptFooter
-          activeRun={activeRun}
-          submitApproval={capabilities.submitApproval ? submitApproval : undefined}
-        />
-      ),
+      Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
       Header: () => (
-        <TranscriptHeader
-          hasMoreOlder={hasMoreOlder}
-          loadOlder={capabilities.loadOlderHistory ? loadOlderAndPreserveScroll : undefined}
-        />
+        <TranscriptHeader hasMoreOlder={hasMoreOlder} loadOlder={loadOlderAndPreserveScroll} />
       ),
     }),
-    [
-      activeRun,
-      capabilities.loadOlderHistory,
-      capabilities.submitApproval,
-      hasMoreOlder,
-      loadOlderAndPreserveScroll,
-      submitApproval,
-    ],
+    [activeRun, hasMoreOlder, loadOlderAndPreserveScroll, submitApproval],
   );
 
   const renderTranscriptItem = useCallback(
@@ -704,12 +663,7 @@ export function ChatTranscript({
   );
 
   if (rows.length === 0) {
-    return (
-      <EmptyChatTranscript
-        activeRun={activeRun}
-        submitApproval={capabilities.submitApproval ? submitApproval : undefined}
-      />
-    );
+    return <EmptyChatTranscript activeRun={activeRun} submitApproval={submitApproval} />;
   }
 
   return (
@@ -788,7 +742,7 @@ function EmptyChatTranscript({
   submitApproval,
 }: {
   activeRun: Run | null;
-  submitApproval?: SubmitApproval;
+  submitApproval: SubmitApproval;
 }) {
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
@@ -809,22 +763,11 @@ function EmptyChatTranscript({
   );
 }
 
-type TranscriptHeaderProps = { hasMoreOlder: boolean; loadOlder?: () => Promise<void> };
+type TranscriptHeaderProps = { hasMoreOlder: boolean; loadOlder: () => Promise<void> };
 
 function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
   if (!hasMoreOlder) {
     return null;
-  }
-  if (!loadOlder) {
-    return (
-      <div
-        {...chatReadableColumnAttributes}
-        className={cn(chatReadableColumnPaddedClass, "mb-2 flex justify-center")}
-        data-testid="chat-transcript-header"
-      >
-        <span className="text-xs text-muted-foreground">Older history available</span>
-      </div>
-    );
   }
   return (
     <div
@@ -844,7 +787,7 @@ function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
   );
 }
 
-type TranscriptFooterProps = { activeRun: Run | null; submitApproval?: SubmitApproval };
+type TranscriptFooterProps = { activeRun: Run | null; submitApproval: SubmitApproval };
 
 function TranscriptFooter({ activeRun, submitApproval }: TranscriptFooterProps) {
   if (!activeRun?.pendingApproval) {
@@ -862,7 +805,7 @@ function PendingApproval({
   submitApproval,
 }: {
   activeRun: Run | null;
-  submitApproval?: SubmitApproval;
+  submitApproval: SubmitApproval;
 }) {
   if (!activeRun?.pendingApproval) {
     return null;

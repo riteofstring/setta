@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"encoding/base64"
-	"fmt"
 	"net/http"
 
 	"setta/internal/chat"
@@ -280,8 +279,9 @@ func (handler handler) createChatImageAttachmentFromBytes(response http.Response
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	data, ok := decodeChatImageAttachmentBytes(response, payload.DataBase64)
-	if !ok {
+	data, err := base64.StdEncoding.DecodeString(payload.DataBase64)
+	if err != nil {
+		writeChatError(response, "invalid_chat_image_attachment_data", err)
 		return
 	}
 	attachment, err := service.CreateImageAttachmentFromBytes(payload.WorkspaceID, payload.ConversationID, payload.FileName, data)
@@ -290,44 +290,6 @@ func (handler handler) createChatImageAttachmentFromBytes(response http.Response
 		return
 	}
 	writeJSON(response, http.StatusOK, attachment)
-}
-
-func (handler handler) createChatImageAttachmentFromPath(response http.ResponseWriter, request *http.Request) {
-	service := requireChatService(response, handler.chatService)
-	if service == nil {
-		return
-	}
-	var payload CreateChatImageAttachmentFromPathRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	attachment, err := service.CreateImageAttachmentFromPath(payload.WorkspaceID, payload.ConversationID, payload.SourcePath)
-	if err != nil {
-		writeChatError(response, "create_chat_image_attachment_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, attachment)
-}
-
-func decodeChatImageAttachmentBytes(response http.ResponseWriter, dataBase64 string) ([]byte, bool) {
-	if base64.StdEncoding.DecodedLen(len(dataBase64)) > chat.MaxImageAttachmentBytes {
-		writeChatImageAttachmentTooLarge(response)
-		return nil, false
-	}
-	data, err := base64.StdEncoding.DecodeString(dataBase64)
-	if err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_chat_image_attachment_data", "dataBase64 must be valid base64")
-		return nil, false
-	}
-	if len(data) > chat.MaxImageAttachmentBytes {
-		writeChatImageAttachmentTooLarge(response)
-		return nil, false
-	}
-	return data, true
-}
-
-func writeChatImageAttachmentTooLarge(response http.ResponseWriter) {
-	writeError(response, http.StatusBadRequest, "chat_image_attachment_too_large", fmt.Sprintf("image attachment exceeds %d bytes", chat.MaxImageAttachmentBytes))
 }
 
 func (handler handler) listChatCommands(response http.ResponseWriter, request *http.Request) {
@@ -536,7 +498,7 @@ func (handler handler) getRunActivity(response http.ResponseWriter, request *htt
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	page, err := service.LoadRunActivityPage(payload.WorkspaceID, payload.RunID, payload.AfterItemID, payload.Limit)
+	page, err := service.LoadRunActivityPage(payload.WorkspaceID, payload.RunID, payload.Limit)
 	if err != nil {
 		writeChatError(response, "get_run_activity_failed", err)
 		return

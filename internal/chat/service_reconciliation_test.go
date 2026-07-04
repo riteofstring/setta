@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"testing"
 )
@@ -355,34 +354,6 @@ func TestServiceReconcileProviderUnavailableMarksLost(t *testing.T) {
 		!liveness.Cancellable ||
 		liveness.Error != "thread/read unavailable" {
 		t.Fatalf("lost liveness = %+v", liveness)
-	}
-}
-
-func TestServiceReconcileActiveRunByIDRejectsDifferentActiveRunBeforeProviderReconcile(t *testing.T) {
-	harness := newLivenessReconcileHarness(HarnessRunLivenessResult{
-		ThreadStatus: HarnessThreadRuntimeActive,
-		TurnFound:    true,
-		TurnStatus:   HarnessTurnRuntimeInProgress,
-	}, nil)
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, result := startLinkedReconciliationRun(t, service)
-
-	_, err := service.ReconcileActiveRunByID(context.Background(), "workspace_api", conversation.ID, "run_other", RunLivenessReasonUserRetry)
-	if err == nil || !strings.Contains(err.Error(), "does not match requested run run_other") {
-		t.Fatalf("reconcile wrong run error = %v, want exact-run mismatch", err)
-	}
-	select {
-	case <-harness.called:
-		t.Fatal("provider liveness reconciliation was called for wrong run id")
-	default:
-	}
-
-	reconciled, err := service.ReconcileActiveRunByID(context.Background(), "workspace_api", conversation.ID, result.Run.ID, RunLivenessReasonUserRetry)
-	if err != nil {
-		t.Fatalf("reconcile exact run: %v", err)
-	}
-	if len(reconciled.Runs) != 1 || reconciled.Runs[0].RunID != result.Run.ID || reconciled.Runs[0].Reason != RunLivenessReasonUserRetry {
-		t.Fatalf("reconciled liveness = %+v, want user retry for %s", reconciled.Runs, result.Run.ID)
 	}
 }
 

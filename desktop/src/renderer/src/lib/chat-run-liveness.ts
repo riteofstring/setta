@@ -12,16 +12,9 @@ export interface ActiveRunPresentation {
   running: boolean;
 }
 
-export interface ActiveRunControlCapabilities {
-  retryLiveness: boolean;
-  sendSteering: boolean;
-  stopRun: boolean;
-}
-
 export function activeRunPresentation(
   activeRun: Run | null,
   liveness: RunLiveness | null,
-  capabilities: ActiveRunControlCapabilities = defaultActiveRunControlCapabilities,
 ): ActiveRunPresentation {
   if (activeRun?.status !== "running") {
     return idlePresentation;
@@ -34,80 +27,50 @@ export function activeRunPresentation(
       running: true,
     };
   }
-  return activeRunLivenessPresentation(activeRun, matched, capabilities);
-}
-
-function activeRunLivenessPresentation(
-  activeRun: Run,
-  liveness: RunLiveness,
-  capabilities: ActiveRunControlCapabilities,
-): ActiveRunPresentation {
-  const connectionKind = runLivenessPresentationKind(liveness);
+  const connectionKind = runLivenessPresentationKind(matched);
   switch (connectionKind) {
     case "working":
-      return workingRunPresentation(activeRun, liveness, capabilities);
+      if (activeRun.pendingApproval !== null) {
+        return {
+          canRetry: false,
+          canSteer: false,
+          canStop: matched.cancellable,
+          kind: "blocked",
+          liveness: matched,
+          running: true,
+        };
+      }
+      return {
+        canRetry: false,
+        canSteer: matched.status === "attached",
+        canStop: matched.cancellable,
+        kind: "working",
+        liveness: matched,
+        running: true,
+      };
     case "reconnecting":
-      return reconnectingRunPresentation(liveness, capabilities);
+      return {
+        canRetry: matched.retryable,
+        canSteer: false,
+        canStop: matched.cancellable,
+        kind: "reconnecting",
+        liveness: matched,
+        running: true,
+      };
     case "lost":
-      return lostRunPresentation(liveness, capabilities);
+      return {
+        canRetry: matched.retryable,
+        canSteer: false,
+        canStop: matched.cancellable,
+        kind: "lost",
+        liveness: matched,
+        running: true,
+      };
     case "terminal":
       return idlePresentation;
     default:
       return assertNever(connectionKind);
   }
-}
-
-function workingRunPresentation(
-  activeRun: Run,
-  liveness: RunLiveness,
-  capabilities: ActiveRunControlCapabilities,
-): ActiveRunPresentation {
-  if (activeRun.pendingApproval !== null) {
-    return {
-      canRetry: false,
-      canSteer: false,
-      canStop: capabilities.stopRun && liveness.cancellable,
-      kind: "blocked",
-      liveness,
-      running: true,
-    };
-  }
-  return {
-    canRetry: false,
-    canSteer: capabilities.sendSteering && liveness.status === "attached",
-    canStop: capabilities.stopRun && liveness.cancellable,
-    kind: "working",
-    liveness,
-    running: true,
-  };
-}
-
-function reconnectingRunPresentation(
-  liveness: RunLiveness,
-  capabilities: ActiveRunControlCapabilities,
-): ActiveRunPresentation {
-  return {
-    canRetry: capabilities.retryLiveness && liveness.retryable,
-    canSteer: false,
-    canStop: capabilities.stopRun && liveness.cancellable,
-    kind: "reconnecting",
-    liveness,
-    running: true,
-  };
-}
-
-function lostRunPresentation(
-  liveness: RunLiveness,
-  capabilities: ActiveRunControlCapabilities,
-): ActiveRunPresentation {
-  return {
-    canRetry: capabilities.retryLiveness && liveness.retryable,
-    canSteer: false,
-    canStop: capabilities.stopRun && liveness.cancellable,
-    kind: "lost",
-    liveness,
-    running: true,
-  };
 }
 
 function matchingRunLiveness(
@@ -168,12 +131,6 @@ const idlePresentation = {
   liveness: null,
   running: false,
 } satisfies ActiveRunPresentation;
-
-const defaultActiveRunControlCapabilities = {
-  retryLiveness: true,
-  sendSteering: true,
-  stopRun: true,
-} satisfies ActiveRunControlCapabilities;
 
 const reconcilingReasonPresentationKinds = {
   attachment_missing: "lost",

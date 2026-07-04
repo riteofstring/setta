@@ -133,14 +133,10 @@ func codexThreadSettingsFromNotification(params codexapp.ThreadSettingsUpdatedNo
 			return codexCommandThreadSettings{}, fmt.Errorf("codex thread settings updated threadSettings.effort has unsupported reasoning effort %s", effort)
 		}
 	}
-	approvalPolicy := codexApprovalPolicyString(params.ThreadSettings.ApprovalPolicy)
-	if err := validateSettaCodexApprovalPolicy(approvalPolicy, "codex thread settings updated threadSettings.approvalPolicy"); err != nil {
-		return codexCommandThreadSettings{}, err
-	}
 	return codexCommandThreadSettings{
 		Model:                          params.ThreadSettings.Model,
 		ReasoningEffort:                effort,
-		ApprovalPolicy:                 approvalPolicy,
+		ApprovalPolicy:                 codexApprovalPolicyString(params.ThreadSettings.ApprovalPolicy),
 		ActivePermissionProfileID:      activePermissionProfileID(params.ThreadSettings.ActivePermissionProfile),
 		ActivePermissionProfileExtends: activePermissionProfileExtends(params.ThreadSettings.ActivePermissionProfile),
 	}, nil

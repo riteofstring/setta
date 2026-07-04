@@ -62,40 +62,6 @@ func TestServiceExecutesGoalCommandAndStartsPursuit(t *testing.T) {
 	}
 }
 
-func TestServiceGoalCommandReturnsActiveRunSnapshot(t *testing.T) {
-	harness := NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventWaitForCancel}})
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-
-	result, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal finish renderer tests")
-	if err != nil {
-		t.Fatalf("execute goal command: %v", err)
-	}
-
-	if result.ActiveRun == nil || result.ActiveRun.Status != RunStatusRunning {
-		t.Fatalf("active run = %+v, want running goal run", result.ActiveRun)
-	}
-	if result.ActiveRun.ConversationID != conversation.ID {
-		t.Fatalf("active run = %+v, want conversation %s", result.ActiveRun, conversation.ID)
-	}
-	trigger, ok, err := service.store.FindMessageByID("workspace_api", conversation.ID, result.ActiveRun.TriggerMessageID)
-	if err != nil {
-		t.Fatalf("load active run trigger message: %v", err)
-	}
-	if !ok || trigger.Delivery != MessageDeliveryGoal {
-		t.Fatalf("active run trigger = %+v exists %v, want goal delivery", trigger, ok)
-	}
-	if result.ActiveRunLiveness == nil || result.ActiveRunLiveness.RunID != result.ActiveRun.ID || !result.ActiveRunLiveness.Cancellable {
-		t.Fatalf("active run liveness = %+v, want cancellable liveness for %s", result.ActiveRunLiveness, result.ActiveRun.ID)
-	}
-	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
-		t.Fatalf("cancel active run: %v", err)
-	}
-}
-
 func TestServicePersistsGoalCompletionNotification(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{{
 		Type: FakeEventGoalUpdated,

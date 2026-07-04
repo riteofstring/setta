@@ -12,24 +12,6 @@ func (service *Service) CancelActiveRun(workspaceID string, conversationID strin
 	if err != nil {
 		return Run{}, err
 	}
-	return service.cancelActiveRun(workspaceID, conversationID, active, run)
-}
-
-func (service *Service) CancelActiveRunByID(workspaceID string, conversationID string, runID string) (Run, error) {
-	if err := validateStorageID("run id", runID); err != nil {
-		return Run{}, err
-	}
-	active, run, err := service.activeRunForCancellation(workspaceID, conversationID)
-	if err != nil {
-		return Run{}, err
-	}
-	if run.ID != runID {
-		return Run{}, fmt.Errorf("active run %s does not match requested run %s", run.ID, runID)
-	}
-	return service.cancelActiveRun(workspaceID, conversationID, active, run)
-}
-
-func (service *Service) cancelActiveRun(workspaceID string, conversationID string, active activeTurn, run Run) (Run, error) {
 	if active.cancelDrain && run.Status != RunStatusRunning {
 		return run, nil
 	}

@@ -91,11 +91,6 @@ func requireTerminalService(response http.ResponseWriter, service TerminalServic
 
 func decodeRequest(response http.ResponseWriter, request *http.Request, target any) bool {
 	if err := jsonio.DecodeSingle(request.Body, target); err != nil {
-		var maxBytesError *http.MaxBytesError
-		if errors.As(err, &maxBytesError) {
-			writeRequestBodyTooLarge(response, maxBytesError.Limit)
-			return false
-		}
 		if errors.Is(err, jsonio.ErrMultipleValues) {
 			writeError(response, http.StatusBadRequest, "invalid_json", "request body must contain exactly one JSON value")
 			return false
@@ -104,22 +99,6 @@ func decodeRequest(response http.ResponseWriter, request *http.Request, target a
 		return false
 	}
 	return true
-}
-
-func enforceRequestBodyLimit(response http.ResponseWriter, request *http.Request, limitBytes int64) bool {
-	if limitBytes <= 0 || request.Method != http.MethodPost {
-		return true
-	}
-	if request.ContentLength > limitBytes {
-		writeRequestBodyTooLarge(response, limitBytes)
-		return false
-	}
-	request.Body = http.MaxBytesReader(response, request.Body, limitBytes)
-	return true
-}
-
-func writeRequestBodyTooLarge(response http.ResponseWriter, limitBytes int64) {
-	writeError(response, http.StatusRequestEntityTooLarge, "request_body_too_large", fmt.Sprintf("request body exceeds %d bytes", limitBytes))
 }
 
 func writeWorkspaceError(response http.ResponseWriter, code string, err error) {

@@ -1,6 +1,7 @@
 import type { ChatCommandExecuteResult } from "@generated/backend";
 
 import { isSlashDraft } from "./chat-composer-helpers";
+import type { ChatView } from "./chat-panel";
 
 export function composerDisabled(
   disabledOverride: boolean | undefined,
@@ -58,6 +59,18 @@ export function canSendImmediateSteeringDraft({
     supportsAttachments &&
     (draftText !== "" || hasPendingSteering)
   );
+}
+
+export function selectedConversationWorkspaceId(
+  selectedConversation: ChatView["selectedConversation"],
+) {
+  return selectedConversation?.workspaceId ?? null;
+}
+
+export function selectedConversationSupportsImages(
+  selectedConversation: ChatView["selectedConversation"],
+) {
+  return selectedConversation?.codexEffectiveSettings?.supportsImages ?? true;
 }
 
 export function composerSlashDraft(draft: string, hasAttachments: boolean) {

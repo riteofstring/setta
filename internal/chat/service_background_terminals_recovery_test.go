@@ -215,7 +215,7 @@ func assertRecoveredBackgroundTerminalSourceItem(t *testing.T, service *Service)
 
 func assertRecoveredBackgroundTerminalActivityPage(t *testing.T, service *Service) {
 	t.Helper()
-	activityPage, err := service.LoadRunActivityPage("workspace_api", "run_interrupted_bg", "", 20)
+	activityPage, err := service.LoadRunActivityPage("workspace_api", "run_interrupted_bg", 20)
 	if err != nil {
 		t.Fatalf("load recovered activity page: %v", err)
 	}

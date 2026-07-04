@@ -201,15 +201,6 @@ is_ts_path() {
   return 1
 }
 
-is_node_tool_path() {
-  case "$1" in
-    scripts/check_electron_test_template_literals.mjs)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
 is_prettier_path() {
   case "$1" in
     *.css|*.html|*.js|*.jsx|*.json|*.jsonc|*.md|*.mjs|*.cjs|*.mts|*.cts|*.ts|*.tsx|*.yaml|*.yml)
@@ -361,9 +352,7 @@ declare -a ts_files=()
 declare -a ts_test_files=()
 declare -a python_files=()
 declare -a shell_files=()
-declare -a node_tool_files=()
 declare -a all_supported_files=()
-declare -a electron_test_template_files=()
 declare -a length_files=()
 declare -a format_projects=()
 
@@ -379,12 +368,6 @@ while IFS= read -r raw_path; do
     length_files+=("${file_path}")
     all_supported_files+=("${file_path}")
   fi
-
-  case "${file_path}" in
-    desktop/tests/electron/*.js|desktop/tests/electron/*.mjs)
-      electron_test_template_files+=("${file_path}")
-      ;;
-  esac
 
   if is_prettier_path "${file_path}" && format_project="$(find_ts_project "${file_path}")"; then
     if ! has_format_project "${format_project}"; then
@@ -407,9 +390,6 @@ while IFS= read -r raw_path; do
     *)
       if is_shell_path "${file_path}"; then
         shell_files+=("${file_path}")
-        all_supported_files+=("${file_path}")
-      elif is_node_tool_path "${file_path}"; then
-        node_tool_files+=("${file_path}")
         all_supported_files+=("${file_path}")
       elif is_ts_path "${file_path}"; then
         if is_test_path "${file_path}"; then
@@ -435,12 +415,6 @@ if [[ ${#length_files[@]} -gt 0 ]]; then
   check_file_lengths "${length_files[@]}" || status=1
 fi
 
-if [[ ${#electron_test_template_files[@]} -gt 0 ]]; then
-  echo "Electron test browser-program template checks (${#electron_test_template_files[@]} files)..."
-  node "${repo_root}/scripts/check_electron_test_template_literals.mjs" \
-    "${electron_test_template_files[@]}" || status=1
-fi
-
 if [[ ${#shell_files[@]} -gt 0 ]]; then
   echo "Shell syntax checks (${#shell_files[@]} files)..."
   for file_path in "${shell_files[@]}"; do
@@ -460,13 +434,6 @@ from pathlib import Path
 for path in sys.argv[1:]:
     ast.parse(Path(path).read_text(encoding="utf-8"), filename=path)
 PY
-fi
-
-if [[ ${#node_tool_files[@]} -gt 0 ]]; then
-  echo "Node tooling syntax checks (${#node_tool_files[@]} files)..."
-  for file_path in "${node_tool_files[@]}"; do
-    node --check "${file_path}" || status=1
-  done
 fi
 
 if [[ ${#go_files[@]} -gt 0 || ${#go_test_files[@]} -gt 0 ]]; then

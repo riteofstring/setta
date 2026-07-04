@@ -200,51 +200,6 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 	return page, nil
 }
 
-func (service *Service) LoadRunTranscriptPage(workspaceID string, runID string, beforeBlockOrdinal int, limit int) (RunTranscriptPage, error) {
-	if limit == 0 {
-		limit = defaultPageLimit
-	}
-	if limit < 0 {
-		return RunTranscriptPage{}, fmt.Errorf("run transcript page limit must not be negative: %d", limit)
-	}
-	if _, err := service.validateRunRequest(workspaceID, runID); err != nil {
-		return RunTranscriptPage{}, err
-	}
-	service.mu.Lock()
-	run, err := service.store.LoadRun(workspaceID, runID)
-	if err != nil {
-		service.mu.Unlock()
-		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
-		return RunTranscriptPage{}, err
-	}
-	activeRunID := service.activeBlockRunIDLocked(workspaceID, run.ConversationID)
-	refs, err := service.runBlockRefsLocked(workspaceID, run.ConversationID, runID, runID == activeRunID)
-	if err != nil {
-		service.mu.Unlock()
-		service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, runID)
-		return RunTranscriptPage{}, err
-	}
-	start, end := transcriptBlockWindow(len(refs), beforeBlockOrdinal, limit)
-	blocks, err := service.materializeTranscriptBlockRefs(workspaceID, refs[start:end])
-	service.mu.Unlock()
-	if err != nil {
-		service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, runID)
-		return RunTranscriptPage{}, err
-	}
-	olderBeforeBlockOrdinal := 0
-	if len(blocks) > 0 {
-		olderBeforeBlockOrdinal = start + 1
-	}
-	return RunTranscriptPage{
-		WorkspaceID:             workspaceID,
-		ConversationID:          run.ConversationID,
-		RunID:                   runID,
-		Blocks:                  blocks,
-		HasMoreOlder:            start > 0,
-		OlderBeforeBlockOrdinal: olderBeforeBlockOrdinal,
-	}, nil
-}
-
 // loadMessagePageLocked composes the message page. The transcript is the ordered
 // block stream paged by block ordinal; beforeOrdinal is the conversation-sequential
 // block cursor. Messages remain the latest window for non-transcript surfaces

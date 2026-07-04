@@ -21,7 +21,9 @@ This report covers the first repair pass for workspace pane drag-and-drop:
 
 ## Baseline
 
-Baseline was taken from the pre-repair code state before the repair commits:
+Baseline was taken from the pre-repair implementation described in
+`docs/plans/workspace_drag_and_drop_repair_plan.md` and the code state before the
+repair commits:
 
 | Area | Before repair |
 | --- | --- |

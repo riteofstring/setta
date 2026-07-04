@@ -302,7 +302,36 @@ type codexCommandThread struct {
 
 func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, conversation Conversation, threadRef HarnessThreadRef) (codexCommandThread, error) {
 	if threadRef.ThreadID != "" && threadRef.Status == HarnessRefLinked {
-		return harness.resumeLinkedCommandThread(ctx, session, workspaceSummary, conversation, threadRef.ThreadID)
+		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, codexThreadResumeParams(workspaceSummary.RootPath, threadRef.ThreadID, conversation))
+		if err != nil {
+			refErr := &HarnessRefUnavailableError{
+				Err:      err,
+				Harness:  HarnessCodex,
+				ThreadID: threadRef.ThreadID,
+				Message:  fmt.Sprintf("resume codex thread %s: %v", threadRef.ThreadID, err),
+			}
+			return codexCommandThread{}, commandError(ChatCommandErrorCodexThread, refErr.Error(), refErr)
+		}
+		thread, err := commandThreadFromResumeResponse(result)
+		if err != nil {
+			refErr := &HarnessRefUnavailableError{
+				Err:      err,
+				Harness:  HarnessCodex,
+				ThreadID: threadRef.ThreadID,
+				Message:  fmt.Sprintf("resume codex thread %s: %v", threadRef.ThreadID, err),
+			}
+			return codexCommandThread{}, commandError(ChatCommandErrorCodexProviderDrift, refErr.Error(), refErr)
+		}
+		if err := validateCodexThreadResumePermissionSettings("resume codex thread response", conversation, thread.Settings); err != nil {
+			refErr := &HarnessRefUnavailableError{
+				Err:      err,
+				Harness:  HarnessCodex,
+				ThreadID: threadRef.ThreadID,
+				Message:  fmt.Sprintf("resume codex thread %s: %v", threadRef.ThreadID, err),
+			}
+			return codexCommandThread{}, commandError(ChatCommandErrorCodexProviderDrift, refErr.Error(), refErr)
+		}
+		return thread, nil
 	}
 
 	effectiveSettings, err := harness.effectiveCodexCommandSettings(ctx, session, workspaceSummary, conversation)
@@ -313,9 +342,7 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, ses
 	if err != nil {
 		return codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, "build codex thread start params: "+err.Error(), err)
 	}
-	if err := applyCodexThreadStartSettings(params, effectiveSettings); err != nil {
-		return codexCommandThread{}, commandError(ChatCommandErrorCodexProviderDrift, "start codex thread request: "+err.Error(), err)
-	}
+	applyCodexThreadStartSettings(params, effectiveSettings)
 	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
 	if err != nil {
 		return codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, "start codex thread: "+err.Error(), err)
@@ -328,29 +355,6 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, ses
 		return codexCommandThread{}, commandError(ChatCommandErrorCodexProviderDrift, "start codex thread response: "+err.Error(), err)
 	}
 	thread.Settings = overlayCodexEffectiveSettings(thread.Settings, effectiveSettings)
-	return thread, nil
-}
-
-func (harness *CodexHarness) resumeLinkedCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, conversation Conversation, threadID string) (codexCommandThread, error) {
-	params, err := codexThreadResumeParams(workspaceSummary.RootPath, threadID, conversation)
-	if err != nil {
-		refErr := codexThreadResumeUnavailableError(threadID, err)
-		return codexCommandThread{}, commandError(ChatCommandErrorCodexProviderDrift, refErr.Error(), refErr)
-	}
-	result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, params)
-	if err != nil {
-		refErr := codexThreadResumeUnavailableError(threadID, err)
-		return codexCommandThread{}, commandError(ChatCommandErrorCodexThread, refErr.Error(), refErr)
-	}
-	thread, err := commandThreadFromResumeResponse(result)
-	if err != nil {
-		refErr := codexThreadResumeUnavailableError(threadID, err)
-		return codexCommandThread{}, commandError(ChatCommandErrorCodexProviderDrift, refErr.Error(), refErr)
-	}
-	if err := validateCodexThreadResumePermissionSettings("resume codex thread response", conversation, thread.Settings); err != nil {
-		refErr := codexThreadResumeUnavailableError(threadID, err)
-		return codexCommandThread{}, commandError(ChatCommandErrorCodexProviderDrift, refErr.Error(), refErr)
-	}
 	return thread, nil
 }
 
@@ -754,10 +758,6 @@ func commandThreadFromCodexResponse(thread codexapp.Thread, model string, respon
 			return codexCommandThread{}, fmt.Errorf("%s.reasoningEffort has unsupported reasoning effort %s", label, effort)
 		}
 	}
-	appliedApprovalPolicy := codexApprovalPolicyString(approvalPolicy)
-	if err := validateSettaCodexApprovalPolicy(appliedApprovalPolicy, label+".approvalPolicy"); err != nil {
-		return codexCommandThread{}, err
-	}
 	return codexCommandThread{
 		Ref: HarnessThreadRef{
 			Harness:   HarnessCodex,
@@ -768,7 +768,7 @@ func commandThreadFromCodexResponse(thread codexapp.Thread, model string, respon
 		Settings: codexCommandThreadSettings{
 			Model:                          model,
 			ReasoningEffort:                effort,
-			ApprovalPolicy:                 appliedApprovalPolicy,
+			ApprovalPolicy:                 codexApprovalPolicyString(approvalPolicy),
 			ActivePermissionProfileID:      activePermissionProfileID(activePermissionProfile),
 			ActivePermissionProfileExtends: activePermissionProfileExtends(activePermissionProfile),
 		},

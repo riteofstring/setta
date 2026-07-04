@@ -7,7 +7,7 @@ import (
 
 // TestRunActivityItemProjectionsExcludesReasoning covers the non-transcript
 // activity projection (RunActivityPage.Activity): it surfaces displayable
-// activity items, receives hasOutput from the output preview state, and excludes
+// activity items, derives hasOutput from the loaded output previews, and excludes
 // reasoning (its own block kind) and agent messages (owned by assistant text) so
 // the projection mirrors the chronological transcript's activity_item set.
 func TestRunActivityItemProjectionsExcludesReasoning(t *testing.T) {
@@ -22,8 +22,9 @@ func TestRunActivityItemProjectionsExcludesReasoning(t *testing.T) {
 		{ID: "item_reason", Type: RunItemTypeReasoning, Status: RunItemStatusCompleted, Title: "thinking about the build"},
 		{ID: "item_agent", Type: RunItemTypeAgentMessage, Status: RunItemStatusCompleted, Summary: "all done"},
 	}
+	outputs := []RunItemOutput{{ID: "out_1", RunItemID: "item_cmd", Ordinal: 1, Text: "ok"}}
 
-	projections := runActivityItemProjections(RunStatusCompleted, items, map[string]bool{"item_cmd": true})
+	projections := runActivityItemProjections(RunStatusCompleted, items, outputs)
 
 	if len(projections) != 1 {
 		t.Fatalf("expected only the command projection, got %d: %+v", len(projections), projections)
@@ -33,7 +34,7 @@ func TestRunActivityItemProjectionsExcludesReasoning(t *testing.T) {
 		t.Fatalf("expected the command activity row, got %+v", row)
 	}
 	if !row.HasOutput {
-		t.Fatalf("expected hasOutput from the output preview state, got %+v", row)
+		t.Fatalf("expected hasOutput derived from the loaded output, got %+v", row)
 	}
 	if row.Status != RunItemStatusCompleted {
 		t.Fatalf("expected the completed status, got %q", row.Status)

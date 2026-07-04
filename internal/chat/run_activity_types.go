@@ -434,12 +434,10 @@ func (item RunItem) ProviderStreamLifecycleDetails() (*RunItemProviderStreamLife
 }
 
 type RunActivityPage struct {
-	RunID        string                        `json:"runId"`
-	Items        []RunItem                     `json:"items"`
-	Output       []RunItemOutput               `json:"output"`
-	Activity     []ActivityItemBlockProjection `json:"activity"`
-	HasMoreItems bool                          `json:"hasMoreItems"`
-	NextItemID   string                        `json:"nextItemId"`
+	RunID    string                        `json:"runId"`
+	Items    []RunItem                     `json:"items"`
+	Output   []RunItemOutput               `json:"output"`
+	Activity []ActivityItemBlockProjection `json:"activity"`
 }
 
 func (details RunActivityDetailsProjection) MarshalJSON() ([]byte, error) {

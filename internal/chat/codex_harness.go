@@ -468,7 +468,33 @@ func CodexInitializeParams(config CodexHarnessConfig) map[string]any {
 
 func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *codexapp.Session, request TurnRequest) (codexCommandThread, error) {
 	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
-		return harness.resumeLinkedThread(ctx, session, request)
+		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, codexThreadResumeParams(request.Workspace.RootPath, request.ThreadRef.ThreadID, request.Conversation))
+		if err != nil {
+			return codexCommandThread{}, &HarnessRefUnavailableError{
+				Err:      err,
+				Harness:  HarnessCodex,
+				ThreadID: request.ThreadRef.ThreadID,
+				Message:  fmt.Sprintf("resume codex thread %s: %v", request.ThreadRef.ThreadID, err),
+			}
+		}
+		thread, err := commandThreadFromResumeResponse(result)
+		if err != nil {
+			return codexCommandThread{}, &HarnessRefUnavailableError{
+				Err:      err,
+				Harness:  HarnessCodex,
+				ThreadID: request.ThreadRef.ThreadID,
+				Message:  fmt.Sprintf("resume codex thread %s: %v", request.ThreadRef.ThreadID, err),
+			}
+		}
+		if err := validateCodexThreadResumePermissionSettings("resume codex thread response", request.Conversation, thread.Settings); err != nil {
+			return codexCommandThread{}, &HarnessRefUnavailableError{
+				Err:      err,
+				Harness:  HarnessCodex,
+				ThreadID: request.ThreadRef.ThreadID,
+				Message:  fmt.Sprintf("resume codex thread %s: %v", request.ThreadRef.ThreadID, err),
+			}
+		}
+		return harness.codexCommandThreadWithDisplayLabels(ctx, session, thread)
 	}
 
 	effectiveSettings, err := harness.effectiveCodexCommandSettings(ctx, session, request.Workspace, request.Conversation)
@@ -479,9 +505,7 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 	if err != nil {
 		return codexCommandThread{}, err
 	}
-	if err := applyCodexThreadStartSettings(params, effectiveSettings); err != nil {
-		return codexCommandThread{}, err
-	}
+	applyCodexThreadStartSettings(params, effectiveSettings)
 	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
 	if err != nil {
 		return codexCommandThread{}, fmt.Errorf("start codex thread: %w", err)
@@ -495,35 +519,6 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 	}
 	thread.Settings = overlayCodexEffectiveSettings(thread.Settings, effectiveSettings)
 	return harness.codexCommandThreadWithDisplayLabels(ctx, session, thread)
-}
-
-func (harness *CodexHarness) resumeLinkedThread(ctx context.Context, session *codexapp.Session, request TurnRequest) (codexCommandThread, error) {
-	threadID := request.ThreadRef.ThreadID
-	params, err := codexThreadResumeParams(request.Workspace.RootPath, threadID, request.Conversation)
-	if err != nil {
-		return codexCommandThread{}, codexThreadResumeUnavailableError(threadID, err)
-	}
-	result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, params)
-	if err != nil {
-		return codexCommandThread{}, codexThreadResumeUnavailableError(threadID, err)
-	}
-	thread, err := commandThreadFromResumeResponse(result)
-	if err != nil {
-		return codexCommandThread{}, codexThreadResumeUnavailableError(threadID, err)
-	}
-	if err := validateCodexThreadResumePermissionSettings("resume codex thread response", request.Conversation, thread.Settings); err != nil {
-		return codexCommandThread{}, codexThreadResumeUnavailableError(threadID, err)
-	}
-	return harness.codexCommandThreadWithDisplayLabels(ctx, session, thread)
-}
-
-func codexThreadResumeUnavailableError(threadID string, err error) *HarnessRefUnavailableError {
-	return &HarnessRefUnavailableError{
-		Err:      err,
-		Harness:  HarnessCodex,
-		ThreadID: threadID,
-		Message:  fmt.Sprintf("resume codex thread %s: %v", threadID, err),
-	}
 }
 
 func overlayCodexEffectiveSettings(base codexCommandThreadSettings, effective codexCommandThreadSettings) codexCommandThreadSettings {

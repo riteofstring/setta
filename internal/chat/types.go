@@ -33,8 +33,9 @@ type ReasoningEffort string
 type ChatCommandResultAction string
 
 const (
-	SchemaVersion             = 2
-	HarnessCodex  HarnessKind = "codex"
+	SchemaVersion = 2
+
+	HarnessCodex HarnessKind = "codex"
 
 	RoleUser      MessageRole = "user"
 	RoleAssistant MessageRole = "assistant"
@@ -735,6 +736,7 @@ func (ChatCommandFreeTextArgumentSpec) chatCommandArgumentSpec() {}
 type ChatCommandListResult struct {
 	Commands []ChatCommandDescriptor `json:"commands"`
 }
+
 type ChatCommandResult struct {
 	Action                   ChatCommandResultAction               `json:"action"`
 	Kind                     ChatCommandKind                       `json:"kind"`
@@ -753,12 +755,10 @@ type ChatCommandResult struct {
 }
 
 type ChatCommandExecuteResult struct {
-	Conversation      Conversation      `json:"conversation"`
-	Message           *ChatMessage      `json:"message"`
-	ActiveRun         *Run              `json:"activeRun"`
-	ActiveRunLiveness *RunLiveness      `json:"activeRunLiveness"`
-	Page              MessagePage       `json:"page"`
-	Result            ChatCommandResult `json:"result"`
+	Conversation Conversation      `json:"conversation"`
+	Message      *ChatMessage      `json:"message"`
+	Page         MessagePage       `json:"page"`
+	Result       ChatCommandResult `json:"result"`
 }
 
 // MessagePage is block-paged: the transcript is the ordered Blocks stream, paged

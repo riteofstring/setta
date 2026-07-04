@@ -967,6 +967,11 @@
     };
   }
 
+  function workflowRunDetailsText() {
+    const details = document.querySelector('[data-testid="workflow-node-run-details"]');
+    return details?.textContent ?? "";
+  }
+
   function workflowGraphPaneSettled({ surfaceId }) {
     const root = workflowGraphSurfaceById(surfaceId);
     const host = root?.closest('[data-testid="workspace-pane-host"]');
@@ -1484,6 +1489,7 @@
     workflowNodeDetailsButtonRect,
     workflowNodeDetailsButtonState,
     workflowNodeDetailsSurfaceState,
+    workflowRunDetailsText,
     workflowRunSelectorState,
     workflowToolbarButtonState,
     workflowToolbarSlotRects,

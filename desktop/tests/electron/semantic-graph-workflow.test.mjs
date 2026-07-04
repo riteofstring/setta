@@ -292,16 +292,211 @@ function spawnForOutput(command, args, { cwd }) {
 }
 
 async function attachSemanticNodeToChatRun(client, workspaceId) {
-  return client.driver("semanticGraphAttachNodeToChatRun", {
-    chatInput: chatTextInput(
-      "Attach this deterministic chat run to the seeded semantic graph node.",
-    ),
-    workspaceId,
-  });
+  return client.evaluate(`(async () => {
+    const graphBefore = await window.setta.semanticGraph.read({
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const conversation = await window.setta.chat.createConversation(
+      ${JSON.stringify(workspaceId)},
+      "Semantic graph attachment"
+    );
+    const sent = await window.setta.chat.sendMessage(
+      ${JSON.stringify(workspaceId)},
+      conversation.id,
+      ${JSON.stringify(chatTextInput("Attach this deterministic chat run to the seeded semantic graph node."))}
+    );
+    const attached = await window.setta.semanticGraph.attachChatRun({
+      activityKind: "exploring",
+      actorId: "semantic_e2e_user",
+      actorKind: "user",
+      chatRunId: sent.run.id,
+      nodeId: ${JSON.stringify(seedConstraintNodeId)},
+      summary: "Explicit semantic attachment from deterministic Electron workflow",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const ended = await window.setta.semanticGraph.endActivity({
+      activityIntervalId: attached.activity.id,
+      actorId: "semantic_e2e_user",
+      actorKind: "user",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const detail = await window.setta.semanticGraph.readNodeDetail({
+      nodeId: ${JSON.stringify(seedConstraintNodeId)},
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const page = await window.setta.semanticGraph.listActivityPage({
+      actorId: "",
+      actorKind: null,
+      chatConversationId: "",
+      chatMessageId: "",
+      chatRunId: sent.run.id,
+      limit: 10,
+      offset: 0,
+      sourceId: "",
+      sourceKind: "chat_run",
+      targetEntityId: ${JSON.stringify(seedConstraintNodeId)},
+      workflowExecutionId: "",
+      workflowNodeId: "",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const summary = await window.setta.semanticGraph.readActivitySummary({
+      recentLimit: 5,
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const graphAfter = await window.setta.semanticGraph.read({
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    return {
+      attached,
+      assistantMessageId: sent.assistantMessage.id,
+      conversationId: conversation.id,
+      detail,
+      ended,
+      graphNodeIdsAfter: graphAfter.nodes.map((node) => node.id).sort(),
+      graphNodeIdsBefore: graphBefore.nodes.map((node) => node.id).sort(),
+      page,
+      runId: sent.run.id,
+      summary,
+      userMessageId: sent.userMessage.id
+    };
+  })()`);
 }
 
 async function exerciseSemanticEditing(client, workspaceId) {
-  return client.driver("semanticGraphExerciseEditing", { workspaceId });
+  return client.evaluate(`(async () => {
+    const actor = { actorId: "semantic_e2e_user", actorKind: "user" };
+    await window.setta.semanticGraph.createNode({
+      ...actor,
+      kind: "finding",
+      label: "E2E editable node",
+      nodeId: "semantic_e2e_edit",
+      summary: "Created through semantic graph mutation endpoint.",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.renameNode({
+      ...actor,
+      label: "E2E renamed semantic node",
+      nodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.updateNode({
+      ...actor,
+      kind: "constraint",
+      nodeId: "semantic_e2e_edit",
+      summary: "Updated through semantic graph mutation endpoint.",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.promoteNode({
+      ...actor,
+      nodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.createNode({
+      ...actor,
+      kind: "constraint",
+      label: "E2E connected constraint",
+      nodeId: "semantic_e2e_constraint",
+      summary: "Constraint connected by a user-authored edge.",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.createEdge({
+      ...actor,
+      edgeId: "semantic_e2e_constrains",
+      fromNodeId: "semantic_e2e_constraint",
+      kind: "constrains",
+      label: "constrains",
+      summary: "Constraint connected through semantic graph mutation endpoint.",
+      toNodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.updateEdge({
+      ...actor,
+      edgeId: "semantic_e2e_constrains",
+      kind: null,
+      label: "constrains",
+      summary: "Updated edge summary through semantic graph mutation endpoint.",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.createEdge({
+      ...actor,
+      edgeId: "semantic_e2e_related",
+      fromNodeId: "semantic_e2e_edit",
+      kind: "related_to",
+      label: "related",
+      summary: "Temporary removable edge.",
+      toNodeId: ${JSON.stringify(seedConstraintNodeId)},
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.removeEdge({
+      ...actor,
+      edgeId: "semantic_e2e_related",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const steering = await window.setta.semanticGraph.createSteeringDirective({
+      ...actor,
+      chatConversationId: "",
+      chatMessageId: "",
+      chatRunId: "",
+      instruction: "Focus on this edited semantic node during the session.",
+      kind: "focus",
+      runItemId: "",
+      scope: "session",
+      targetEntityId: "semantic_e2e_edit",
+      workflowDefinitionId: "",
+      workflowExecutionId: "",
+      workflowNodeExecutionId: "",
+      workflowNodeId: "",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const directiveId = steering.nodeDetail.steeringDirectives[0].id;
+    await window.setta.semanticGraph.updateSteeringDirective({
+      ...actor,
+      directiveId,
+      instruction: null,
+      status: "completed",
+      supersedesDirectiveId: "",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const split = await window.setta.semanticGraph.splitNode({
+      ...actor,
+      nodes: [
+        { kind: "constraint", label: "E2E split child A", nodeId: "semantic_e2e_child_a", summary: "" },
+        { kind: "constraint", label: "E2E split child B", nodeId: "semantic_e2e_child_b", summary: "" }
+      ],
+      reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
+      sourceNodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const merged = await window.setta.semanticGraph.mergeNodes({
+      ...actor,
+      reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
+      sourceNodeIds: ["semantic_e2e_child_a", "semantic_e2e_child_b"],
+      targetNode: { kind: "decision", label: "E2E merged decision", nodeId: "semantic_e2e_merged", summary: "" },
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const editDetail = await window.setta.semanticGraph.readNodeDetail({
+      nodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const mergedDetail = await window.setta.semanticGraph.readNodeDetail({
+      nodeId: "semantic_e2e_merged",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const editHistory = await window.setta.semanticGraph.readEventHistory({
+      beforeLogicalClock: 0,
+      limit: 80,
+      targetEntityId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    return {
+      directiveId,
+      editDetail,
+      editHistory,
+      merged,
+      mergedDetail,
+      split
+    };
+  })()`);
 }
 
 async function selectedWorkspaceId(client) {
@@ -330,10 +525,60 @@ async function getWorkflowGraphSnapshot(client) {
 }
 
 async function buildCartographerAuditBurst(client, workspaceId) {
-  return client.driver("semanticGraphBuildCartographerAuditBurst", {
-    burstSize: cartographerAuditBurstSize,
-    workspaceId,
-  });
+  const burstSize = cartographerAuditBurstSize;
+  return client.evaluate(`(async () => {
+    const burstSize = ${burstSize};
+    const workspaceId = ${JSON.stringify(workspaceId)};
+    const sourceRefs = {
+      chatConversationId: "",
+      chatMessageId: "",
+      chatRunId: "",
+      runItemId: "",
+      workflowDefinitionId: "",
+      workflowExecutionId: ${JSON.stringify(seedWorkflowExecutionId)},
+      workflowNodeExecutionId: "",
+      workflowNodeId: ""
+    };
+    const events = [];
+    const unsubscribe = window.setta.semanticGraph.onEvent((event) => {
+      if (
+        event.workspaceId === workspaceId &&
+        event.changedAreas.length === 1 &&
+        event.changedAreas[0] === "cartographer_audit"
+      ) {
+        events.push(event);
+      }
+    });
+    const built = [];
+    try {
+      for (let index = 0; index < burstSize; index += 1) {
+        built.push(await window.setta.semanticGraph.buildCartographerWindow({
+          runStatus: "completed",
+          sourceRefs,
+          summary: \`Workflow graph audit-only burst \${index + 1}\`,
+          targetEntityId: ${JSON.stringify(seedConstraintNodeId)},
+          terminalReason: "manual",
+          triggerKind: "manual",
+          workspaceId
+        }));
+      }
+      const deadline = Date.now() + 5000;
+      while (events.length < 1 && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      return {
+        auditEventCount: events.length,
+        builtCount: built.length,
+        deliveredRunIds: [...new Set(events.flatMap((event) => event.cartographerRunIds))],
+        deliveredWindowIds: [...new Set(events.flatMap((event) => event.cartographerWindowIds))],
+        changedAreas: events.map((event) => event.changedAreas),
+        runIds: built.map((item) => item.run.id),
+        windowIds: built.map((item) => item.window.id)
+      };
+    } finally {
+      unsubscribe();
+    }
+  })()`);
 }
 
 async function dispatchWorkflowGraphMouseDoubleClick(client, surfaceId, point) {
@@ -372,7 +617,7 @@ async function clickAtPagePoint(client, point, clickCount) {
 async function assertSemanticNodeDetails(client) {
   const details = await waitForState(
     client,
-    driverCallExpression("semanticGraphNodeDetailsText"),
+    `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
     (value) => textIncludesAll(value.text, semanticNodeDetailsRequiredText),
   );
   if (!details.text.includes("docs/plans/setta_semantic_work_graph_implementation_plan.md")) {
@@ -381,7 +626,22 @@ async function assertSemanticNodeDetails(client) {
 }
 
 async function assertSeedContextPackReadApis(client, workspaceId) {
-  const result = await client.driver("semanticGraphReadSeedContextPack", { workspaceId });
+  const result = await client.evaluate(`(async () => {
+    const list = await window.setta.semanticGraph.listContextPacks({
+      chatRunId: "",
+      limit: 10,
+      offset: 0,
+      targetEntityId: ${JSON.stringify(seedConstraintNodeId)},
+      workflowExecutionId: "",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const pack = list.packs.find((candidate) => candidate.id === "semantic_seed_context_phase2");
+    const read = pack ? await window.setta.semanticGraph.readContextPack({
+      packId: pack.id,
+      workspaceId: ${JSON.stringify(workspaceId)}
+    }) : null;
+    return { list, read };
+  })()`);
   const pack = result.read?.pack ?? null;
   if (!isSeedContextPack(pack)) {
     throw new Error(`semantic context pack read/list mismatch: ${JSON.stringify(result)}`);
@@ -405,7 +665,53 @@ function isSeedContextPack(pack) {
 async function assertSeedCartographerReadApis(client, workspaceId, expectedStatus) {
   const result = await waitForState(
     client,
-    driverCallExpression("semanticGraphReadSeedCartographerState", { workspaceId }),
+    `(async () => {
+      const patches = await window.setta.semanticGraph.listCartographerPatches({
+        limit: 10,
+        runId: "",
+        semanticTargetId: ${JSON.stringify(seedConstraintNodeId)},
+        status: "",
+        workspaceId: ${JSON.stringify(workspaceId)}
+      });
+      const patch = patches.patches.find((candidate) => candidate.id === ${JSON.stringify(seedCartographerPatchId)}) ?? null;
+      const run = patch ? await window.setta.semanticGraph.readCartographerRun({
+        runId: patch.runId,
+        workspaceId: ${JSON.stringify(workspaceId)}
+      }) : null;
+      const runs = await window.setta.semanticGraph.listCartographerRuns({
+        chatRunId: "",
+        limit: 10,
+        targetEntityId: "",
+        workflowExecutionId: ${JSON.stringify(seedWorkflowExecutionId)},
+        workspaceId: ${JSON.stringify(workspaceId)}
+      });
+      const windows = await window.setta.semanticGraph.listCartographerWindows({
+        chatRunId: "",
+        limit: 10,
+        runId: "",
+        sourceId: "",
+        sourceKind: "",
+        workflowExecutionId: ${JSON.stringify(seedWorkflowExecutionId)},
+        workspaceId: ${JSON.stringify(workspaceId)}
+      });
+      const cursors = await window.setta.semanticGraph.listCartographerCursors({
+        chatRunId: "",
+        limit: 10,
+        workflowExecutionId: ${JSON.stringify(seedWorkflowExecutionId)},
+        workspaceId: ${JSON.stringify(workspaceId)}
+      });
+      const detail = await window.setta.semanticGraph.readNodeDetail({
+        nodeId: ${JSON.stringify(seedConstraintNodeId)},
+        workspaceId: ${JSON.stringify(workspaceId)}
+      });
+      const history = await window.setta.semanticGraph.readEventHistory({
+        beforeLogicalClock: 0,
+        limit: 100,
+        targetEntityId: ${JSON.stringify(seedConstraintNodeId)},
+        workspaceId: ${JSON.stringify(workspaceId)}
+      });
+      return { cursors, detail, history, patch, patches, run, runs, windows };
+    })()`,
     (value) => value.patch?.status === expectedStatus,
   );
   const patch = requireSeedCartographerPatch(result);
@@ -480,7 +786,7 @@ async function assertSeedCartographerReviewState(client, result, expectedStatus)
 async function assertSeedCartographerPendingUi(client) {
   await waitForState(
     client,
-    driverCallExpression("semanticGraphNodeDetailsText"),
+    `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
     (value) =>
       value.text.includes("pending_review") &&
       value.text.includes("Accept") &&
@@ -522,10 +828,15 @@ function assertSeedCartographerAppliedReadback(result) {
 }
 
 async function assertBuildCartographerWindowApiWithSourceRefs(client, workspaceId, sourceRefs) {
-  const result = await client.driver("semanticGraphBuildCartographerWindow", {
-    sourceRefs,
-    workspaceId,
-  });
+  const result = await client.evaluate(`window.setta.semanticGraph.buildCartographerWindow({
+    runStatus: "completed",
+    sourceRefs: ${JSON.stringify(sourceRefs)},
+    summary: "E2E cartographer build current progress",
+    targetEntityId: ${JSON.stringify(seedConstraintNodeId)},
+    terminalReason: "manual",
+    triggerKind: "manual",
+    workspaceId: ${JSON.stringify(workspaceId)}
+  })`);
   if (
     result.run.status !== "pending" ||
     result.window.status !== "closed" ||
@@ -549,10 +860,10 @@ async function assertProcessCartographerWindowApi(client, workspaceId) {
     workflowNodeExecutionId: "",
     workflowNodeId: "",
   });
-  const processed = await client.driver("semanticGraphProcessCartographerWindow", {
-    windowId: built.window.id,
-    workspaceId,
-  });
+  const processed = await client.evaluate(`window.setta.semanticGraph.processCartographerWindow({
+    windowId: ${JSON.stringify(built.window.id)},
+    workspaceId: ${JSON.stringify(workspaceId)}
+  })`);
   assertProcessedCartographerResult(processed, built);
   return {
     evidenceAnchorId: setup.evidenceAnchorId,
@@ -564,10 +875,33 @@ async function assertProcessCartographerWindowApi(client, workspaceId) {
 }
 
 async function attachChatRunEvidenceForProcessedCartographerWindow(client, workspaceId) {
-  return client.driver("semanticGraphAttachChatRunEvidenceForProcessedCartographerWindow", {
-    chatInput: chatTextInput("Create deterministic evidence for semantic cartographer processing."),
-    workspaceId,
-  });
+  return client.evaluate(`(async () => {
+    const conversation = await window.setta.chat.createConversation(
+      ${JSON.stringify(workspaceId)},
+      "Semantic cartographer process evidence"
+    );
+    const sent = await window.setta.chat.sendMessage(
+      ${JSON.stringify(workspaceId)},
+      conversation.id,
+      ${JSON.stringify(chatTextInput("Create deterministic evidence for semantic cartographer processing."))}
+    );
+    const attached = await window.setta.semanticGraph.attachChatRun({
+      activityKind: "validating",
+      actorId: "semantic_e2e_user",
+      actorKind: "user",
+      chatRunId: sent.run.id,
+      nodeId: ${JSON.stringify(seedConstraintNodeId)},
+      summary: "Chat run evidence for deterministic structured cartographer processing",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.endActivity({
+      activityIntervalId: attached.activity.id,
+      actorId: "semantic_e2e_user",
+      actorKind: "user",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    return { chatRunId: sent.run.id, evidenceAnchorId: attached.evidence.id };
+  })()`);
 }
 
 function assertProcessedCartographerResult(processed, built) {
@@ -610,10 +944,34 @@ function assertProcessedCartographerPatchResult(processed) {
 async function assertProcessedCartographerReadback(client, workspaceId, processedCartographer) {
   const result = await waitForState(
     client,
-    driverCallExpression("semanticGraphProcessedCartographerReadback", {
-      processedCartographer,
-      workspaceId,
-    }),
+    `(async () => {
+      const run = await window.setta.semanticGraph.readCartographerRun({
+        runId: ${JSON.stringify(processedCartographer.runId)},
+        workspaceId: ${JSON.stringify(workspaceId)}
+      });
+      const patches = await window.setta.semanticGraph.listCartographerPatches({
+        limit: 10,
+        runId: ${JSON.stringify(processedCartographer.runId)},
+        semanticTargetId: "",
+        status: "",
+        workspaceId: ${JSON.stringify(workspaceId)}
+      });
+      const windows = await window.setta.semanticGraph.listCartographerWindows({
+        chatRunId: "",
+        limit: 10,
+        runId: ${JSON.stringify(processedCartographer.runId)},
+        sourceId: "",
+        sourceKind: "",
+        workflowExecutionId: "",
+        workspaceId: ${JSON.stringify(workspaceId)}
+      });
+      const detail = await window.setta.semanticGraph.readNodeDetail({
+        nodeId: ${JSON.stringify(processedCartographer.nodeId)},
+        workspaceId: ${JSON.stringify(workspaceId)}
+      });
+      const graph = await window.setta.semanticGraph.read({ workspaceId: ${JSON.stringify(workspaceId)} });
+      return { detail, graph, patches, run, windows };
+    })()`,
     (value) => processedCartographerReadbackReady(value, processedCartographer),
   );
   try {
@@ -675,7 +1033,45 @@ function assertProcessedCartographerNodeReadback(result, processedCartographer) 
 async function acceptSeedCartographerPatchFromDetails(client) {
   const clickResult = await waitForState(
     client,
-    driverCallExpression("semanticGraphClickCartographerPatchAccept"),
+    `(() => {
+      const button = document.querySelector('[data-testid="cartographer-patch-accept"]');
+      const surface = document.querySelector('[data-testid="semantic-node-details-surface"]');
+      if (!(button instanceof HTMLButtonElement)) {
+        return {
+          clicked: false,
+          disabled: true,
+          hasButton: false,
+          loading: surface?.innerText.includes("Loading semantic node details") ?? true,
+          reason: "missing-cartographer-accept-button",
+        };
+      }
+      if (button.disabled) {
+        return {
+          clicked: false,
+          disabled: true,
+          hasButton: true,
+          loading: surface?.innerText.includes("Loading semantic node details") ?? true,
+          reason: "disabled-cartographer-accept-button",
+        };
+      }
+      if (surface?.innerText.includes("Loading semantic node details")) {
+        return {
+          clicked: false,
+          disabled: false,
+          hasButton: true,
+          loading: true,
+          reason: "loading-semantic-node-details",
+        };
+      }
+      button.click();
+      return {
+        clicked: true,
+        disabled: false,
+        hasButton: true,
+        loading: false,
+        reason: "",
+      };
+    })()`,
     (value) => value.clicked,
   );
   if (!clickResult.clicked) {
@@ -683,7 +1079,7 @@ async function acceptSeedCartographerPatchFromDetails(client) {
   }
   await waitForState(
     client,
-    driverCallExpression("semanticGraphNodeDetailsText"),
+    `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
     (value) => value.text.includes("applied") && !value.text.includes("pending_review"),
   );
 }
@@ -695,7 +1091,7 @@ function textIncludesAll(text, expected) {
 async function assertSemanticAttachmentDetails(client, attachment) {
   const details = await waitForState(
     client,
-    driverCallExpression("semanticGraphNodeDetailsText"),
+    `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
     (value) =>
       value.text.includes("chat_run") &&
       value.text.includes(attachment.runId) &&
@@ -708,13 +1104,18 @@ async function assertSemanticAttachmentDetails(client, attachment) {
 }
 
 async function semanticEventHistory(client, workspaceId) {
-  return client.driver("semanticGraphReadEventHistory", { workspaceId });
+  return client.evaluate(`window.setta.semanticGraph.readEventHistory({
+    beforeLogicalClock: 0,
+    limit: 100,
+    targetEntityId: ${JSON.stringify(seedConstraintNodeId)},
+    workspaceId: ${JSON.stringify(workspaceId)}
+  })`);
 }
 
 async function waitForSemanticLayoutPosition(client, workspaceId, expected) {
   return waitForState(
     client,
-    driverCallExpression("semanticGraphReadGraph", { workspaceId }),
+    `window.setta.semanticGraph.read({ workspaceId: ${JSON.stringify(workspaceId)} })`,
     (graph) => {
       const position = graph.layoutPositions.find(
         (candidate) => candidate.entityId === seedConstraintNodeId,
@@ -940,7 +1341,20 @@ function assertSemanticEditHistory(events) {
 }
 
 async function assertSemanticEditingReadback(client, workspaceId, editing) {
-  const readback = await client.driver("semanticGraphEditingReadback", { workspaceId });
+  const readback = await client.evaluate(`(async () => {
+    const editDetail = await window.setta.semanticGraph.readNodeDetail({
+      nodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const mergedDetail = await window.setta.semanticGraph.readNodeDetail({
+      nodeId: "semantic_e2e_merged",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const graph = await window.setta.semanticGraph.read({
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    return { editDetail, graph, mergedDetail };
+  })()`);
   if (readback.editDetail.detail?.steeringDirectives?.[0]?.id !== editing.directiveId) {
     throw new Error(
       `semantic steering directive did not persist: ${JSON.stringify(readback.editDetail)}`,

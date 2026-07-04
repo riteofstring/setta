@@ -372,7 +372,7 @@ describe("preload workspace API", () => {
       chatTextInput("edited"),
     );
     await api.chat.removeQueuedMessage("workspace_api", "conversation_api", "message_queued");
-    await api.chat.runActivity("workspace_api", "run_api", "", 100);
+    await api.chat.runActivity("workspace_api", "run_api", 100);
     await api.chat.runItemOutput("workspace_api", "run_api", "item_api", 0, 100);
     const bgArgs = ["workspace_api", "conversation_api", "background_terminal_api"] as const;
     await api.chat.listBackgroundTerminals("workspace_api", "conversation_api");
@@ -463,7 +463,7 @@ describe("preload workspace API", () => {
         chatTextInput("edited"),
       ],
       [ipcChannels.chatRemoveQueuedMessage, "workspace_api", "conversation_api", "message_queued"],
-      [ipcChannels.chatRunActivity, "workspace_api", "run_api", "", 100],
+      [ipcChannels.chatRunActivity, "workspace_api", "run_api", 100],
       [ipcChannels.chatRunItemOutput, "workspace_api", "run_api", "item_api", 0, 100],
       [ipcChannels.chatListBackgroundTerminals, "workspace_api", "conversation_api"],
       [ipcChannels.chatGetBackgroundTerminalOutput, ...bgArgs, 0, 100],
@@ -1295,16 +1295,6 @@ describe("preload workspace API", () => {
   test("exposes typed workflow methods through IPC", async () => {
     const { api, invoke, on, removeListener } = await exposePreloadAPI();
     const graph = workflowGraph();
-    const trajectoryRequest = {
-      afterItemId: "",
-      beforeBlockOrdinal: 0,
-      executionId: "workflow_execution_api",
-      itemLimit: 20,
-      nodeExecutionId: "workflow_node_execution_api",
-      outputLimit: 20,
-      transcriptLimit: 20,
-      workspaceId: "workspace_api",
-    };
     expect(Object.keys(api.workflow).sort()).toEqual([
       "cancelExecution",
       "createDefinition",
@@ -1316,11 +1306,7 @@ describe("preload workspace API", () => {
       "onEvent",
       "readDefinition",
       "readExecution",
-      "readNodeTrajectory",
-      "retryNodeRunLiveness",
       "startExecution",
-      "steerNodeRun",
-      "stopNodeRun",
       "submitApproval",
       "updateDefinition",
       "validateDefinition",
@@ -1347,12 +1333,6 @@ describe("preload workspace API", () => {
     );
     await api.workflow.cancelExecution("workspace_api", "workflow_execution_api");
     await api.workflow.readExecution("workspace_api", "workflow_execution_api");
-    await api.workflow.readNodeTrajectory(trajectoryRequest);
-    await api.workflow.retryNodeRunLiveness({
-      executionId: "workflow_execution_api",
-      nodeExecutionId: "workflow_node_execution_api",
-      workspaceId: "workspace_api",
-    });
     await api.workflow.executionEvents("workspace_api", "workflow_execution_api", 10, 20);
     await api.workflow.graphProjection("workspace_api");
     await api.workflow.graphProjection(
@@ -1361,17 +1341,6 @@ describe("preload workspace API", () => {
       "workflow_version_api",
       "workflow_execution_api",
     );
-    await api.workflow.steerNodeRun({
-      executionId: "workflow_execution_api",
-      input: { parts: [{ image: null, text: { format: "plain", text: "steer" }, type: "text" }] },
-      nodeExecutionId: "workflow_node_execution_api",
-      workspaceId: "workspace_api",
-    });
-    await api.workflow.stopNodeRun({
-      executionId: "workflow_execution_api",
-      nodeExecutionId: "workflow_node_execution_api",
-      workspaceId: "workspace_api",
-    });
     await api.workflow.submitApproval({
       answers: [],
       approvalId: "approval_api",
@@ -1417,15 +1386,6 @@ describe("preload workspace API", () => {
       ],
       [ipcChannels.workflowCancelExecution, "workspace_api", "workflow_execution_api"],
       [ipcChannels.workflowReadExecution, "workspace_api", "workflow_execution_api"],
-      [ipcChannels.workflowReadNodeTrajectory, trajectoryRequest],
-      [
-        ipcChannels.workflowRetryNodeRunLiveness,
-        {
-          executionId: "workflow_execution_api",
-          nodeExecutionId: "workflow_node_execution_api",
-          workspaceId: "workspace_api",
-        },
-      ],
       [ipcChannels.workflowExecutionEvents, "workspace_api", "workflow_execution_api", 10, 20],
       [ipcChannels.workflowGraphProjection, "workspace_api", "", "", ""],
       [
@@ -1434,25 +1394,6 @@ describe("preload workspace API", () => {
         "workflow_definition_api",
         "workflow_version_api",
         "workflow_execution_api",
-      ],
-      [
-        ipcChannels.workflowSteerNodeRun,
-        {
-          executionId: "workflow_execution_api",
-          input: {
-            parts: [{ image: null, text: { format: "plain", text: "steer" }, type: "text" }],
-          },
-          nodeExecutionId: "workflow_node_execution_api",
-          workspaceId: "workspace_api",
-        },
-      ],
-      [
-        ipcChannels.workflowStopNodeRun,
-        {
-          executionId: "workflow_execution_api",
-          nodeExecutionId: "workflow_node_execution_api",
-          workspaceId: "workspace_api",
-        },
       ],
       [
         ipcChannels.workflowSubmitApproval,

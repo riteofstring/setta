@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import process from "node:process";
 import readline from "node:readline";
-import { setImmediate, setTimeout } from "node:timers";
+import { setTimeout } from "node:timers";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
@@ -22,7 +22,6 @@ const goalBackgroundTerminalFailure = {
   processId: "goal_bg_process_failed",
   secondTurnOutput: "goal background failure final output\n",
 };
-const goalBackgroundTerminalCompletionDwellMs = 5000;
 const goalForegroundUnifiedExec = {
   command: "command -v tokei",
   itemId: "goal_fg_command",
@@ -33,8 +32,6 @@ const statePath =
   (process.env.SETTA_APP_DATA_DIR
     ? join(process.env.SETTA_APP_DATA_DIR, "fake-codex-app-server-state.json")
     : "");
-const unsupportedApprovalPolicySource =
-  process.env.SETTA_FAKE_CODEX_UNSUPPORTED_APPROVAL_POLICY_SOURCE ?? "";
 let account = null;
 let activeSilentLivenessTurn = null;
 let currentGoal = null;
@@ -121,18 +118,14 @@ function handleThreadStart(message) {
   }
   assertThreadStartDeveloperInstructions(message.params);
   assertThreadStartDynamicTools(message.params);
-  const options = threadResponseOptionsFromParams(message.params);
-  applyUnsupportedApprovalPolicyForSource(options, "thread-start");
-  respond(message.id, fakeThreadResponse(options));
+  respond(message.id, fakeThreadResponse(threadResponseOptionsFromParams(message.params)));
 }
 
 function handleThreadResume(message) {
   if (message.params?.dynamicTools !== undefined) {
     throw new Error("thread/resume should not include dynamicTools");
   }
-  const options = threadResponseOptionsFromParams(message.params);
-  applyUnsupportedApprovalPolicyForSource(options, "thread-resume");
-  respond(message.id, fakeThreadResponse(options));
+  respond(message.id, fakeThreadResponse(threadResponseOptionsFromParams(message.params)));
 }
 
 function handleThreadRead(message) {
@@ -150,7 +143,10 @@ function handleTurnStart(message) {
     return;
   }
   const text = turnInputText(message);
-  if (handleProviderLifecycleTurn(text)) {
+  if (text.includes("app-server exit workflow")) {
+    emitRestartPartialTurn();
+    writeFakeState({ activeRestartTurn: true });
+    setTimeout(() => process.exit(42), 5);
     return;
   }
   if (text.includes("liveness reconciliation workflow")) {
@@ -186,21 +182,6 @@ function handleTurnStart(message) {
     return;
   }
   setTimeout(emitProtocolCoverageTurn, 5);
-}
-
-function handleProviderLifecycleTurn(text) {
-  if (text.includes("app-server exit workflow")) {
-    emitRestartPartialTurn();
-    writeFakeState({ activeRestartTurn: true });
-    setTimeout(() => process.exit(42), 5);
-    return true;
-  }
-  if (text.includes("malformed app-server lifecycle workflow")) {
-    writeFakeState({ malformedProtocolPid: process.pid });
-    setTimeout(emitMalformedProtocolAndStayAlive, 5);
-    return true;
-  }
-  return false;
 }
 
 function fakeThreadResponse(options = {}) {
@@ -281,41 +262,10 @@ function writeFakeState(state) {
   writeFileSync(statePath, JSON.stringify(state), "utf8");
 }
 
-function applyUnsupportedApprovalPolicyForSource(options, source) {
-  const policy = unsupportedApprovalPolicyForSource(source, options.approvalPolicy ?? "on-request");
-  if (policy !== "on-request") {
-    options.approvalPolicy = policy;
-  }
-}
-
-function unsupportedApprovalPolicyForSource(source, fallback) {
-  if (unsupportedApprovalPolicySource === source) {
-    return "on-failure";
-  }
-  if (
-    unsupportedApprovalPolicySource === `${source}-once` &&
-    markUnsupportedApprovalPolicyUsed(source)
-  ) {
-    return "on-failure";
-  }
-  return fallback;
-}
-
-function markUnsupportedApprovalPolicyUsed(source) {
-  const key = `unsupportedApprovalPolicy:${source}`;
-  const state = readFakeState();
-  if (state[key] === true) {
-    return false;
-  }
-  state[key] = true;
-  writeFakeState(state);
-  return true;
-}
-
 function handleConfigRead(message) {
   respond(message.id, {
     config: {
-      approval_policy: unsupportedApprovalPolicyForSource("config-read", "on-request"),
+      approval_policy: "on-request",
       model: "gpt-test",
       model_reasoning_effort: "xhigh",
     },
@@ -891,24 +841,6 @@ function emitProtocolCoverageTurn() {
   });
 }
 
-function emitMalformedProtocolAndStayAlive() {
-  process.stdout.write("{not-json\n");
-  const payload =
-    JSON.stringify({
-      method: "thread/settings/updated",
-      params: { threadId },
-    }) + "\n";
-  writeMalformedProtocolNoise(payload);
-}
-
-function writeMalformedProtocolNoise(payload) {
-  if (!process.stdout.write(payload)) {
-    process.stdout.once("drain", () => writeMalformedProtocolNoise(payload));
-    return;
-  }
-  setImmediate(() => writeMalformedProtocolNoise(payload));
-}
-
 function emitSilentLivenessTurn() {
   notify("item/agentMessage/delta", {
     delta: "Liveness stream started. ",
@@ -1165,7 +1097,7 @@ function emitGoalOperationBackgroundTerminal(objective) {
         threadId,
         turn: fakeTurnWithID("turn_goal_b", "completed"),
       });
-    }, goalBackgroundTerminalCompletionDwellMs);
+    }, 2000);
   }, 350);
 }
 

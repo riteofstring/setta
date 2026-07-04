@@ -21,20 +21,6 @@ type activeRunReconciliationTarget struct {
 }
 
 func (service *Service) ReconcileActiveRuns(ctx context.Context, workspaceID string, conversationID string, reason RunLivenessReason) (RunLivenessReconciliationResult, error) {
-	return service.reconcileActiveRuns(ctx, workspaceID, conversationID, "", reason)
-}
-
-func (service *Service) ReconcileActiveRunByID(ctx context.Context, workspaceID string, conversationID string, runID string, reason RunLivenessReason) (RunLivenessReconciliationResult, error) {
-	if err := validateStorageID("conversation id", conversationID); err != nil {
-		return RunLivenessReconciliationResult{}, err
-	}
-	if err := validateStorageID("run id", runID); err != nil {
-		return RunLivenessReconciliationResult{}, err
-	}
-	return service.reconcileActiveRuns(ctx, workspaceID, conversationID, runID, reason)
-}
-
-func (service *Service) reconcileActiveRuns(ctx context.Context, workspaceID string, conversationID string, expectedRunID string, reason RunLivenessReason) (RunLivenessReconciliationResult, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -45,7 +31,7 @@ func (service *Service) reconcileActiveRuns(ctx context.Context, workspaceID str
 	if !ok {
 		return RunLivenessReconciliationResult{}, nil
 	}
-	targets, snapshots, err := service.activeRunReconciliationTargets(workspaceID, conversationID, expectedRunID, reason)
+	targets, snapshots, err := service.activeRunReconciliationTargets(workspaceID, conversationID, reason)
 	if err != nil {
 		return RunLivenessReconciliationResult{}, err
 	}
@@ -122,12 +108,12 @@ func validRunLivenessReconcileReason(reason RunLivenessReason) bool {
 	}
 }
 
-func (service *Service) activeRunReconciliationTargets(workspaceID string, conversationID string, expectedRunID string, reason RunLivenessReason) ([]activeRunReconciliationTarget, []RunLiveness, error) {
+func (service *Service) activeRunReconciliationTargets(workspaceID string, conversationID string, reason RunLivenessReason) ([]activeRunReconciliationTarget, []RunLiveness, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
 	if conversationID != "" {
-		target, liveness, ok, err := service.activeRunReconciliationTargetLocked(workspaceID, conversationID, expectedRunID, reason)
+		target, liveness, ok, err := service.activeRunReconciliationTargetLocked(workspaceID, conversationID, reason)
 		if err != nil || !ok {
 			return nil, livenessSlice(liveness), err
 		}
@@ -140,7 +126,7 @@ func (service *Service) activeRunReconciliationTargets(workspaceID string, conve
 		if !ok || (workspaceID != "" && targetWorkspaceID != workspaceID) {
 			continue
 		}
-		target, projected, ok, err := service.activeRunReconciliationTargetLocked(targetWorkspaceID, targetConversationID, expectedRunID, reason)
+		target, projected, ok, err := service.activeRunReconciliationTargetLocked(targetWorkspaceID, targetConversationID, reason)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -163,13 +149,14 @@ func livenessSlice(liveness RunLiveness) []RunLiveness {
 	return []RunLiveness{liveness}
 }
 
-func (service *Service) activeRunReconciliationTargetLocked(workspaceID string, conversationID string, expectedRunID string, reason RunLivenessReason) (activeRunReconciliationTarget, RunLiveness, bool, error) {
-	run, hasActiveRun, err := service.reconciliationActiveRunLocked(workspaceID, conversationID, expectedRunID)
+func (service *Service) activeRunReconciliationTargetLocked(workspaceID string, conversationID string, reason RunLivenessReason) (activeRunReconciliationTarget, RunLiveness, bool, error) {
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return activeRunReconciliationTarget{}, RunLiveness{}, false, err
 	}
-	if !hasActiveRun {
-		return activeRunReconciliationTarget{}, RunLiveness{}, false, nil
+	run, hasActiveRun, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
+	if err != nil || !hasActiveRun {
+		return activeRunReconciliationTarget{}, RunLiveness{}, false, err
 	}
 	key := activeKey(workspaceID, conversationID)
 	active, attached := service.active[key]
@@ -214,27 +201,6 @@ func (service *Service) activeRunReconciliationTargetLocked(workspaceID string, 
 		run:                     run,
 		workspace:               workspaceID,
 	}, liveness, true, nil
-}
-
-func (service *Service) reconciliationActiveRunLocked(workspaceID string, conversationID string, expectedRunID string) (Run, bool, error) {
-	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
-	if err != nil {
-		return Run{}, false, err
-	}
-	run, hasActiveRun, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
-	if err != nil {
-		return Run{}, false, err
-	}
-	if !hasActiveRun {
-		if expectedRunID != "" {
-			return Run{}, false, fmt.Errorf("conversation has no active run: %s", conversationID)
-		}
-		return Run{}, false, nil
-	}
-	if expectedRunID != "" && run.ID != expectedRunID {
-		return Run{}, false, fmt.Errorf("active run %s does not match requested run %s", run.ID, expectedRunID)
-	}
-	return run, true, nil
 }
 
 func (service *Service) beginActiveRunLivenessCheckLocked(key string, active activeTurn) activeTurn {

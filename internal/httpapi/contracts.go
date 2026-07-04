@@ -166,12 +166,6 @@ type CreateChatImageAttachmentFromBytesRequest struct {
 	DataBase64     string `json:"dataBase64"`
 }
 
-type CreateChatImageAttachmentFromPathRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	SourcePath     string `json:"sourcePath"`
-}
-
 type ListChatCommandsRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
@@ -256,7 +250,6 @@ type ListRunsResponse struct {
 type GetRunActivityRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	RunID       string `json:"runId"`
-	AfterItemID string `json:"afterItemId"`
 	Limit       int    `json:"limit"`
 }
 
@@ -396,36 +389,6 @@ type GetWorkflowExecutionEventsRequest struct {
 	ExecutionID   string `json:"executionId"`
 	BeforeOrdinal int    `json:"beforeOrdinal"`
 	Limit         int    `json:"limit"`
-}
-
-type ReadWorkflowNodeTrajectoryRequest struct {
-	WorkspaceID        string `json:"workspaceId"`
-	ExecutionID        string `json:"executionId"`
-	NodeExecutionID    string `json:"nodeExecutionId"`
-	BeforeBlockOrdinal int    `json:"beforeBlockOrdinal"`
-	TranscriptLimit    int    `json:"transcriptLimit"`
-	AfterItemID        string `json:"afterItemId"`
-	ItemLimit          int    `json:"itemLimit"`
-	OutputLimit        int    `json:"outputLimit"`
-}
-
-type StopWorkflowNodeRunRequest struct {
-	WorkspaceID     string `json:"workspaceId"`
-	ExecutionID     string `json:"executionId"`
-	NodeExecutionID string `json:"nodeExecutionId"`
-}
-
-type RetryWorkflowNodeRunLivenessRequest struct {
-	WorkspaceID     string `json:"workspaceId"`
-	ExecutionID     string `json:"executionId"`
-	NodeExecutionID string `json:"nodeExecutionId"`
-}
-
-type SteerWorkflowNodeRunRequest struct {
-	WorkspaceID     string         `json:"workspaceId"`
-	ExecutionID     string         `json:"executionId"`
-	NodeExecutionID string         `json:"nodeExecutionId"`
-	Input           chat.ChatInput `json:"input"`
 }
 
 type SubmitWorkflowApprovalRequest struct {

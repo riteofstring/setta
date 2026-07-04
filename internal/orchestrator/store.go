@@ -30,13 +30,10 @@ type WorkflowStore interface {
 	ListExecutionSummariesForDefinition(workspaceID string, definitionID string, limit int) ([]WorkflowExecutionSummary, error)
 	ListExecutions(workspaceID string) ([]WorkflowExecution, error)
 	WorkspaceIDs() ([]string, error)
-	PersistExecutionStart(WorkflowDefinitionVersion, WorkflowTransition) ([]WorkflowEventEnvelope, error)
 	PersistTransition(WorkflowTransition) ([]WorkflowEventEnvelope, error)
 	LoadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (WorkflowExecutionEventPage, error)
 	LoadWorkflowEventStreamAfter(cursor WorkflowEventCursor) ([]WorkflowEventEnvelope, error)
 }
-
-var _ WorkflowStore = (*Store)(nil)
 
 type Store struct {
 	appDataDir string

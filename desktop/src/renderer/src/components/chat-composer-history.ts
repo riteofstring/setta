@@ -22,10 +22,7 @@ export interface ComposerPromptHistoryDraft {
 interface ComposerPromptHistoryControllerOptions {
   applyDraft: (draft: ComposerPromptHistoryDraft) => void;
   conversationId: string;
-  enabled: boolean;
-  listHistory:
-    | ((beforeOrdinal: number, limit: number) => Promise<ComposerPromptHistoryPage | null>)
-    | null;
+  listHistory: (beforeOrdinal: number, limit: number) => Promise<ComposerPromptHistoryPage | null>;
   maxAttachments: number;
   setDiagnostic: (message: string | null) => void;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -57,7 +54,6 @@ interface HistoryEntryDraftResult {
 export function useComposerPromptHistory({
   applyDraft,
   conversationId,
-  enabled,
   listHistory,
   maxAttachments,
   setDiagnostic,
@@ -76,9 +72,6 @@ export function useComposerPromptHistory({
 
   const recordAcceptedSubmission = useCallback(
     (message: ChatMessage, input: ChatInput, attachments: ImageAttachment[]) => {
-      if (!enabled) {
-        return;
-      }
       if (conversationId === "" || message.conversationId !== conversationId) {
         return;
       }
@@ -100,7 +93,7 @@ export function useComposerPromptHistory({
         ...state.localEntries.filter((candidate) => candidate.messageId !== entry.messageId),
       ];
     },
-    [conversationId, enabled],
+    [conversationId],
   );
 
   const handleKeyDown = useCallback(
@@ -109,9 +102,6 @@ export function useComposerPromptHistory({
       currentDraft: ComposerPromptHistoryDraft,
       navigationBlocked: boolean,
     ) => {
-      if (!enabled || listHistory === null) {
-        return false;
-      }
       if (navigationBlocked || event.nativeEvent.isComposing || !isPromptHistoryKey(event.key)) {
         return false;
       }
@@ -130,7 +120,7 @@ export function useComposerPromptHistory({
       void navigatePromptHistory(direction, currentDraft);
       return true;
     },
-    [applyDraft, conversationId, enabled, listHistory, maxAttachments, setDiagnostic, textareaRef],
+    [applyDraft, conversationId, listHistory, maxAttachments, setDiagnostic, textareaRef],
   );
 
   async function navigatePromptHistory(
@@ -163,12 +153,12 @@ export function useComposerPromptHistory({
   }
 
   async function ensurePromptHistoryIndex(index: number) {
-    if (listHistory === null) {
-      return false;
-    }
     while (combinedPromptHistoryEntries(stateRef.current).length <= index) {
       const state = stateRef.current;
-      if (!canRequestOlderPromptHistory(state, conversationId)) {
+      if (!state.hasMoreOlder) {
+        return false;
+      }
+      if (conversationId === "") {
         return false;
       }
       const requestId = state.pendingRequestId + 1;
@@ -255,10 +245,6 @@ export function promptHistoryNavigationAllowed(
     return caretOnLastLine(textarea);
   }
   return caretOnFirstLine(textarea);
-}
-
-function canRequestOlderPromptHistory(state: ComposerPromptHistoryState, conversationId: string) {
-  return state.hasMoreOlder && conversationId !== "";
 }
 
 export function draftFromPromptHistoryEntry(

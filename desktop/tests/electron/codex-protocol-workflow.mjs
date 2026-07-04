@@ -1,5 +1,5 @@
 import process from "node:process";
-import { chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -16,7 +16,6 @@ import {
   waitForCommandResult,
   waitForGoalStatus,
   waitForRunStatus,
-  waitForRunWithPrompt,
   waitForState,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
@@ -766,36 +765,6 @@ export async function runProtocolProviderRestartLivenessWorkflow(client, backend
   await assertNoActiveRun(backend, workspaceId, conversationId);
 }
 
-export async function runProtocolMalformedAppServerLifecycleWorkflow(
-  client,
-  backend,
-  workspaceId,
-  fixture,
-) {
-  const prompt = "malformed app-server lifecycle workflow";
-  const conversationId = await createChat(client, backend, workspaceId);
-  await submitComposer(client, prompt, "Send message");
-  const run = await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, null);
-  const failedRun = await waitForRunStatus(backend, workspaceId, conversationId, run.id, {
-    status: "failed",
-    timeoutMs: 30_000,
-  });
-  if (String(failedRun.error ?? "") === "") {
-    throw new Error(`malformed protocol run did not record an error: ${JSON.stringify(failedRun)}`);
-  }
-  await waitForTexts(client, [prompt, failedRun.error], 30_000);
-  await assertNoActiveRun(backend, workspaceId, conversationId);
-
-  const malformedPid = await waitForMalformedProtocolPID(fixture);
-  await waitForProcessGone(malformedPid);
-
-  const recoveryPrompt = "recovered app-server lifecycle workflow";
-  await submitComposer(client, recoveryPrompt, "Send message");
-  await waitForRunWithPrompt(backend, workspaceId, conversationId, recoveryPrompt, "completed");
-  await waitForTexts(client, ["coverage complete"], 30_000);
-  await assertNoActiveRun(backend, workspaceId, conversationId);
-}
-
 export async function runProtocolStreamErrorLivenessWorkflow(client, backend, workspaceId) {
   const retryingConversationId = await createChat(client, backend, workspaceId);
   await submitComposer(client, "retryable stream error workflow", "Send message");
@@ -894,47 +863,6 @@ export async function runProtocolStreamErrorLivenessWorkflow(client, backend, wo
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, lostConversationId, lostRun.id, "cancelled");
   await assertNoActiveRun(backend, workspaceId, lostConversationId);
-}
-
-async function waitForMalformedProtocolPID(fixture) {
-  const statePath = join(fixture.appDataDir, "fake-codex-app-server-state.json");
-  const startedAt = Date.now();
-  let lastError = null;
-  while (Date.now() - startedAt < 5_000) {
-    try {
-      const state = JSON.parse(await readFile(statePath, "utf8"));
-      if (Number.isInteger(state.malformedProtocolPid) && state.malformedProtocolPid > 0) {
-        return state.malformedProtocolPid;
-      }
-    } catch (error) {
-      lastError = error;
-    }
-    await delay(50);
-  }
-  throw new Error(`fake app-server malformed protocol PID was not recorded: ${lastError?.message}`);
-}
-
-async function waitForProcessGone(pid) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < 5_000) {
-    if (!processExists(pid)) {
-      return;
-    }
-    await delay(50);
-  }
-  throw new Error(`fake app-server process ${pid} remained alive after malformed protocol failure`);
-}
-
-function processExists(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    if (error?.code === "ESRCH") {
-      return false;
-    }
-    throw error;
-  }
 }
 
 async function waitForRunStatusForPrompt(backend, workspaceId, conversationId, prompt, status) {

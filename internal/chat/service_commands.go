@@ -307,30 +307,12 @@ func (service *Service) persistCommandResultLocked(
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
-	activeRun, activeRunLiveness, err := service.commandActiveRunSnapshotLocked(workspaceID, conversationID)
-	if err != nil {
-		return ChatCommandExecuteResult{}, err
-	}
 	return ChatCommandExecuteResult{
-		Conversation:      page.Conversation,
-		Message:           message,
-		ActiveRun:         activeRun,
-		ActiveRunLiveness: activeRunLiveness,
-		Page:              page,
-		Result:            result,
+		Conversation: page.Conversation,
+		Message:      message,
+		Page:         page,
+		Result:       result,
 	}, nil
-}
-
-func (service *Service) commandActiveRunSnapshotLocked(workspaceID string, conversationID string) (*Run, *RunLiveness, error) {
-	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
-	if err != nil {
-		return nil, nil, err
-	}
-	run, ok, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
-	if err != nil || !ok {
-		return nil, nil, err
-	}
-	return &run, service.activeRunLivenessLocked(workspaceID, conversationID, run), nil
 }
 
 func (service *Service) persistCommandMetadataLocked(workspaceID string, conversationID string, harnessResult HarnessCommandResult) (Conversation, string, error) {

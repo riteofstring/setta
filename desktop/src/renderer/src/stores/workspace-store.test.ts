@@ -342,8 +342,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       executeCommand: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
         conversation: emptyConversation(),
         message: null,
         page: emptyMessagePage(),
@@ -368,8 +366,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         throw new Error("chat defaults are not used by workspace store tests");
       },
       openCodexModelPicker: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
         conversation: emptyConversation(),
         message: null,
         page: emptyMessagePage(),
@@ -391,8 +387,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         },
       }),
       openCodexPermissionPicker: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
         conversation: emptyConversation(),
         message: null,
         page: emptyMessagePage(),
@@ -441,9 +435,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       }),
       runActivity: async () => ({
         activity: [],
-        hasMoreItems: false,
         items: [],
-        nextItemId: "",
         output: [],
         runId: "run_test",
       }),
@@ -469,8 +461,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       setCodexModel: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
         conversation: emptyConversation(),
         message: null,
         page: emptyMessagePage(),
@@ -492,16 +482,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         },
       }),
       setCodexPermissionPreset: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
         conversation: emptyConversation(),
         message: null,
         page: emptyMessagePage(),
         result: emptyCommandResult("permission", "display"),
       }),
       setCodexReasoningEffort: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
         conversation: emptyConversation(),
         message: null,
         page: emptyMessagePage(),
@@ -630,11 +616,7 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     onEvent: () => () => {},
     readDefinition: unavailable,
     readExecution: unavailable,
-    readNodeTrajectory: unavailable,
-    retryNodeRunLiveness: unavailable,
     startExecution: unavailable,
-    steerNodeRun: unavailable,
-    stopNodeRun: unavailable,
     submitApproval: unavailable,
     updateDefinition: unavailable,
     validateDefinition: unavailable,

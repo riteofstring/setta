@@ -1025,7 +1025,7 @@ func TestServicePersistsRunActivityAndOutputChunks(t *testing.T) {
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
 
-	page, err := service.LoadRunActivityPage("workspace_api", result.Run.ID, "", 20)
+	page, err := service.LoadRunActivityPage("workspace_api", result.Run.ID, 20)
 	if err != nil {
 		t.Fatalf("load activity: %v", err)
 	}
@@ -1065,7 +1065,7 @@ func TestServiceEmbedsCappedRunOutputAndLoadsFullActivityPage(t *testing.T) {
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
 
-	activity, err := service.LoadRunActivityPage("workspace_api", result.Run.ID, "", embeddedRunOutputLimit+10)
+	activity, err := service.LoadRunActivityPage("workspace_api", result.Run.ID, embeddedRunOutputLimit+10)
 	if err != nil {
 		t.Fatalf("load activity page: %v", err)
 	}

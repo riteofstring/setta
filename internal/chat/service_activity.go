@@ -7,11 +7,7 @@ import (
 	"time"
 )
 
-const (
-	embeddedRunOutputLimit      = 200
-	defaultRunActivityPageLimit = 200
-	maxRunActivityPageItemLimit = 500
-)
+const embeddedRunOutputLimit = 200
 
 func (service *Service) appendAssistantDelta(workspaceID string, conversationID string, runID string, providerItemID string, delta string) error {
 	service.mu.Lock()
@@ -770,6 +766,49 @@ func (service *Service) attachPageState(workspaceID string, conversationID strin
 	return nil
 }
 
+func (service *Service) LoadRunActivityPage(workspaceID string, runID string, limit int) (RunActivityPage, error) {
+	if _, err := service.validateRunRequest(workspaceID, runID); err != nil {
+		return RunActivityPage{}, err
+	}
+	if limit < 0 {
+		return RunActivityPage{}, fmt.Errorf("run activity page limit must not be negative: %d", limit)
+	}
+	service.mu.Lock()
+
+	run, err := service.store.LoadRun(workspaceID, runID)
+	if err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
+		return RunActivityPage{}, err
+	}
+	items, err := service.store.LoadRunItems(workspaceID, runID)
+	if err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
+		return RunActivityPage{}, err
+	}
+	backgroundProviderItems, err := service.backgroundTerminalProviderItemIDsForRunLocked(workspaceID, run.ConversationID, runID)
+	if err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, runID)
+		return RunActivityPage{}, err
+	}
+	items = activityProjectionRunItems(items, backgroundProviderItems)
+	outputs, err := service.runItemOutputPreviews(workspaceID, runID, items, activityOutputPreviewLimit(limit))
+	if err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
+		return RunActivityPage{}, err
+	}
+	service.mu.Unlock()
+	return RunActivityPage{
+		RunID:    runID,
+		Items:    items,
+		Output:   outputs,
+		Activity: runActivityItemProjections(run.Status, items, outputs),
+	}, nil
+}
+
 // runActivityItemProjections projects a run's items into displayable activity_item
 // rows for non-transcript activity surfaces (the workflow node-details feed). It
 // reuses the shared projection so displayability and row fields match the
@@ -777,7 +816,11 @@ func (service *Service) attachPageState(workspaceID string, conversationID strin
 // the reasoning block kind, not activity, so they are excluded here just as the
 // ingestion routes them away from the activity path. hasOutput is derived from
 // the loaded output previews.
-func runActivityItemProjections(runStatus RunStatus, items []RunItem, hasOutput map[string]bool) []ActivityItemBlockProjection {
+func runActivityItemProjections(runStatus RunStatus, items []RunItem, outputs []RunItemOutput) []ActivityItemBlockProjection {
+	hasOutput := make(map[string]bool, len(outputs))
+	for _, output := range outputs {
+		hasOutput[output.RunItemID] = true
+	}
 	projections := make([]ActivityItemBlockProjection, 0, len(items))
 	for _, item := range items {
 		if item.Type == RunItemTypeReasoning {
@@ -819,47 +862,21 @@ func (service *Service) LoadRunItemOutputPage(workspaceID string, runID string, 
 	return page, nil
 }
 
-type runItemOutputPreviewState struct {
-	hasOutput map[string]bool
-	outputs   []RunItemOutput
-}
-
-func (service *Service) runItemOutputPreviews(workspaceID string, runID string, items []RunItem, limit int) (runItemOutputPreviewState, error) {
-	state := runItemOutputPreviewState{
-		hasOutput: make(map[string]bool, len(items)),
-		outputs:   []RunItemOutput{},
-	}
-	remaining := limit
+func (service *Service) runItemOutputPreviews(workspaceID string, runID string, items []RunItem, limit int) ([]RunItemOutput, error) {
+	outputs := []RunItemOutput{}
 	for _, item := range items {
-		itemLimit := 1
-		if remaining > 0 {
-			itemLimit = remaining
-		}
-		page, err := service.store.LoadRunItemOutputPage(workspaceID, runID, item.ID, 0, itemLimit)
+		page, err := service.store.LoadRunItemOutputPage(workspaceID, runID, item.ID, 0, limit)
 		if err != nil {
-			return runItemOutputPreviewState{}, err
+			return nil, err
 		}
-		if len(page.Output) > 0 {
-			state.hasOutput[item.ID] = true
-		}
-		if remaining <= 0 {
-			continue
-		}
-		state.outputs = append(state.outputs, page.Output...)
-		remaining -= len(page.Output)
+		outputs = append(outputs, page.Output...)
 	}
-	return state, nil
+	return outputs, nil
 }
 
-func runActivityPageLimit(limit int) (int, error) {
-	if limit < 0 {
-		return 0, fmt.Errorf("run activity page limit must not be negative: %d", limit)
+func activityOutputPreviewLimit(limit int) int {
+	if limit <= 0 {
+		return embeddedRunOutputLimit
 	}
-	if limit == 0 {
-		return defaultRunActivityPageLimit, nil
-	}
-	if limit > maxRunActivityPageItemLimit {
-		return 0, fmt.Errorf("run activity page limit must be at most %d: %d", maxRunActivityPageItemLimit, limit)
-	}
-	return limit, nil
+	return limit
 }

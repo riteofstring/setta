@@ -25,15 +25,14 @@ type contractSpec struct {
 }
 
 type endpointSpec struct {
-	Method                string
-	Name                  string
-	OperationName         string
-	Path                  string
-	Request               reflect.Type
-	Response              reflect.Type
-	StreamEvent           reflect.Type
-	Streaming             bool
-	RequestBodyLimitBytes int64
+	Method        string
+	Name          string
+	OperationName string
+	Path          string
+	Request       reflect.Type
+	Response      reflect.Type
+	StreamEvent   reflect.Type
+	Streaming     bool
 }
 
 type interfaceSpec struct {
@@ -192,15 +191,14 @@ func validateEndpoint(index int, endpoint httpapi.ContractEndpoint, names map[st
 	}
 	routes[routeKey] = true
 	return endpointSpec{
-		Method:                endpoint.Method,
-		Name:                  endpoint.Name,
-		OperationName:         lowerCamel(endpoint.Name),
-		Path:                  endpoint.Path,
-		Request:               endpoint.Request,
-		Response:              endpoint.Response,
-		StreamEvent:           endpoint.StreamEvent,
-		Streaming:             endpoint.Streaming,
-		RequestBodyLimitBytes: endpoint.RequestBodyLimitBytes,
+		Method:        endpoint.Method,
+		Name:          endpoint.Name,
+		OperationName: lowerCamel(endpoint.Name),
+		Path:          endpoint.Path,
+		Request:       endpoint.Request,
+		Response:      endpoint.Response,
+		StreamEvent:   endpoint.StreamEvent,
+		Streaming:     endpoint.Streaming,
 	}, nil
 }
 
@@ -238,14 +236,8 @@ func validateRouteRequestContract(endpoint httpapi.ContractEndpoint) error {
 	if endpoint.Method == http.MethodGet && endpoint.Request != nil {
 		return fmt.Errorf("%s GET endpoint must not declare a request body", endpoint.Name)
 	}
-	if endpoint.Method == http.MethodGet && endpoint.RequestBodyLimitBytes != 0 {
-		return fmt.Errorf("%s GET endpoint must not declare a request body limit", endpoint.Name)
-	}
 	if endpoint.Method == http.MethodPost && endpoint.Request == nil {
 		return fmt.Errorf("%s POST endpoint must declare a request body", endpoint.Name)
-	}
-	if endpoint.Method == http.MethodPost && endpoint.RequestBodyLimitBytes <= 0 {
-		return fmt.Errorf("%s POST endpoint must declare a positive request body limit", endpoint.Name)
 	}
 	return nil
 }
@@ -594,6 +586,17 @@ func renderEventUnion(buffer *bytes.Buffer, events []eventSpec) {
 		fmt.Fprintf(buffer, "  payload: %s;\n", typeName(event.Payload))
 		buffer.WriteString("}\n\n")
 	}
+}
+
+func renderEndpointDescriptors(buffer *bytes.Buffer, endpoints []endpointSpec) {
+	buffer.WriteString("export const backendEndpoints = {\n")
+	for _, endpoint := range endpoints {
+		fmt.Fprintf(buffer, "  %s: {\n", endpoint.Name)
+		fmt.Fprintf(buffer, "    method: %q,\n", endpoint.Method)
+		fmt.Fprintf(buffer, "    path: %q,\n", endpoint.Path)
+		buffer.WriteString("  },\n")
+	}
+	buffer.WriteString("} as const;\n\n")
 }
 
 func renderDecoders(buffer *bytes.Buffer, specs []interfaceSpec) error {

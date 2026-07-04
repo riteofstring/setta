@@ -25,9 +25,7 @@ func (harness *CodexHarness) effectiveCodexCommandSettings(ctx context.Context, 
 	if err != nil {
 		return codexCommandThreadSettings{}, err
 	}
-	if err := overlayCodexConversationSettings(&settings, conversation.CodexSettings); err != nil {
-		return codexCommandThreadSettings{}, err
-	}
+	overlayCodexConversationSettings(&settings, conversation.CodexSettings)
 	return settings, nil
 }
 
@@ -85,9 +83,9 @@ func codexCommandSettingsFromConfigResponse(raw json.RawMessage) (codexCommandTh
 	return codexCommandThreadSettings{Model: model, ReasoningEffort: effort, ApprovalPolicy: approvalPolicy}, nil
 }
 
-func overlayCodexConversationSettings(settings *codexCommandThreadSettings, pending *ChatCodexSettings) error {
+func overlayCodexConversationSettings(settings *codexCommandThreadSettings, pending *ChatCodexSettings) {
 	if pending == nil {
-		return nil
+		return
 	}
 	if pending.Model != "" {
 		settings.Model = pending.Model
@@ -96,42 +94,28 @@ func overlayCodexConversationSettings(settings *codexCommandThreadSettings, pend
 		settings.ReasoningEffort = *pending.ReasoningEffort
 	}
 	if pending.Permission != nil {
-		if err := validateSettaCodexApprovalPolicy(pending.Permission.ApprovalPolicy, "conversation settings approvalPolicy"); err != nil {
-			return err
-		}
 		settings.ApprovalPolicy = pending.Permission.ApprovalPolicy
 		settings.ActivePermissionProfileID = pending.Permission.Permissions
 		settings.ActivePermissionProfileExtends = ""
 	}
-	return nil
 }
 
-func applyCodexThreadStartSettings(params map[string]any, settings codexCommandThreadSettings) error {
+func applyCodexThreadStartSettings(params map[string]any, settings codexCommandThreadSettings) {
 	if settings.ApprovalPolicy != "" {
-		if err := validateSettaCodexApprovalPolicy(settings.ApprovalPolicy, "thread/start request approvalPolicy"); err != nil {
-			return err
-		}
 		params["approvalPolicy"] = settings.ApprovalPolicy
 	}
 	if settings.ActivePermissionProfileID != "" {
 		params["permissions"] = settings.ActivePermissionProfileID
 	}
-	return nil
 }
 
 func validateCodexThreadStartPermissionSettings(context string, conversation Conversation, applied codexCommandThreadSettings) error {
-	requested, ok, err := codexConversationExplicitPermissionSettings(conversation)
-	if err != nil {
-		return err
-	}
+	requested, ok := codexConversationExplicitPermissionSettings(conversation)
 	return validateCodexThreadPermissionSettings(context, requested, ok, applied)
 }
 
 func validateCodexThreadResumePermissionSettings(context string, conversation Conversation, applied codexCommandThreadSettings) error {
-	requested, ok, err := codexConversationPermissionSettings(conversation)
-	if err != nil {
-		return err
-	}
+	requested, ok := codexConversationPermissionSettings(conversation)
 	return validateCodexThreadPermissionSettings(context, requested, ok, applied)
 }
 
@@ -159,36 +143,29 @@ func validateCodexThreadPermissionSettings(context string, requested ChatCodexPe
 	return nil
 }
 
-func codexConversationPermissionSettings(conversation Conversation) (ChatCodexPermissionSettings, bool, error) {
-	if permission, ok, err := codexConversationExplicitPermissionSettings(conversation); ok || err != nil {
-		return permission, ok, err
+func codexConversationPermissionSettings(conversation Conversation) (ChatCodexPermissionSettings, bool) {
+	if permission, ok := codexConversationExplicitPermissionSettings(conversation); ok {
+		return permission, true
 	}
 	if conversation.CodexEffectiveSettings == nil || conversation.CodexEffectiveSettings.Permission == nil {
-		return ChatCodexPermissionSettings{}, false, nil
+		return ChatCodexPermissionSettings{}, false
 	}
 	permission := conversation.CodexEffectiveSettings.Permission
-	if err := validateSettaCodexApprovalPolicy(permission.ApprovalPolicy, "conversation effective settings approvalPolicy"); err != nil {
-		return ChatCodexPermissionSettings{}, false, err
-	}
 	if !permission.BuiltIn || permission.Preset == nil || permission.ActivePermissionProfileExtends != "" {
-		return ChatCodexPermissionSettings{}, false, nil
+		return ChatCodexPermissionSettings{}, false
 	}
 	return ChatCodexPermissionSettings{
 		Preset:         *permission.Preset,
 		ApprovalPolicy: permission.ApprovalPolicy,
 		Permissions:    permission.ActivePermissionProfileID,
-	}, true, nil
+	}, true
 }
 
-func codexConversationExplicitPermissionSettings(conversation Conversation) (ChatCodexPermissionSettings, bool, error) {
+func codexConversationExplicitPermissionSettings(conversation Conversation) (ChatCodexPermissionSettings, bool) {
 	if conversation.CodexSettings == nil || conversation.CodexSettings.Permission == nil {
-		return ChatCodexPermissionSettings{}, false, nil
+		return ChatCodexPermissionSettings{}, false
 	}
-	permission := *conversation.CodexSettings.Permission
-	if err := validateSettaCodexApprovalPolicy(permission.ApprovalPolicy, "conversation settings approvalPolicy"); err != nil {
-		return ChatCodexPermissionSettings{}, false, err
-	}
-	return permission, true, nil
+	return *conversation.CodexSettings.Permission, true
 }
 
 func chatCodexSettingsFromCommandSettings(settings codexCommandThreadSettings) *ChatCodexSettings {

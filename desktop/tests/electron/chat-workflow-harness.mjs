@@ -784,7 +784,7 @@ export function failureWithLogs(error, logs) {
 }
 
 export async function assertRecordingEvidence(recordingDir, expected) {
-  await assertNoIpcFailures(recordingDir, expected.expectedIpcFailures ?? []);
+  await assertNoIpcFailures(recordingDir);
   await assertLayoutSnapshotsRecorded(recordingDir);
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
   for (const channel of expected.ipcChannels) {
@@ -835,14 +835,13 @@ async function waitForLayoutSnapshots(recordingDir) {
   return snapshots;
 }
 
-async function assertNoIpcFailures(recordingDir, expectedIpcFailures) {
+async function assertNoIpcFailures(recordingDir) {
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
   const failures = ipc.filter(
     (entry) =>
       entry.type === "ipc_failure" &&
       !isExpectedInitialTerminalAttachMiss(entry) &&
-      !isExpectedBackgroundTerminalUnsupportedKill(entry) &&
-      !expectedIpcFailures.some((isExpected) => isExpected(entry)),
+      !isExpectedBackgroundTerminalUnsupportedKill(entry),
   );
   if (failures.length > 0) {
     throw new Error(`recording included IPC failures: ${JSON.stringify(failures)}`);
