@@ -106,11 +106,14 @@ type WorkflowService interface {
 	ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (orchestrator.WorkflowGraphProjection, bool, error)
 	ReadWorkflowNodeTrajectory(workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, outputLimit int) (orchestrator.WorkflowAgentTrajectoryPage, error)
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
+	StopWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string) (orchestrator.WorkflowExecution, error)
 	SubscribeEvents(cursor orchestrator.WorkflowEventCursor) (*orchestrator.EventSubscription, error)
 	SubmitApproval(workspaceID string, executionID string, nodeExecutionID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (orchestrator.WorkflowExecution, error)
 	UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
 	ValidateDefinition(workspaceID string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowValidationResult, error)
 }
+
+var _ WorkflowService = (*orchestrator.Service)(nil)
 
 type SemanticGraphService interface {
 	ReadGraph(context.Context, string) (semanticgraph.SemanticGraph, error)

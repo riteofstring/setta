@@ -55,6 +55,67 @@ func (service *Service) ReadWorkflowNodeTrajectory(workspaceID string, execution
 	return workflowAgentTrajectoryPage(context, run, transcript, activity, outputPages, outputs, activeRun, activeRunLiveness), nil
 }
 
+func (service *Service) StopWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string) (WorkflowExecution, error) {
+	context, err := service.workflowNodeStopContext(workspaceID, executionID, nodeExecutionID)
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	cancelledRun, err := service.cancelWorkflowNodeActiveRun(workspaceID, context)
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	return service.completeStoppedWorkflowNodeRun(workspaceID, executionID, cancelledRun)
+}
+
+func (service *Service) workflowNodeStopContext(workspaceID string, executionID string, nodeExecutionID string) (workflowAgentTrajectoryContext, error) {
+	if service.codexChatService == nil {
+		return workflowAgentTrajectoryContext{}, errors.New("workflow node stop requires Codex chat service")
+	}
+	if err := validateStopWorkflowNodeRunRequest(executionID, nodeExecutionID); err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	context, err := service.workflowAgentTrajectoryContext(workspaceID, executionID, nodeExecutionID)
+	if err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	activeRun, liveness, err := service.workflowAgentTrajectoryActiveRun(workspaceID, context.ConversationID, context.RunID)
+	if err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	if activeRun == nil {
+		return workflowAgentTrajectoryContext{}, fmt.Errorf("workflow node execution %s run %s is not active", nodeExecutionID, context.RunID)
+	}
+	if liveness == nil || !liveness.Cancellable {
+		return workflowAgentTrajectoryContext{}, fmt.Errorf("workflow node execution %s run %s is not cancellable", nodeExecutionID, context.RunID)
+	}
+	return context, nil
+}
+
+func (service *Service) cancelWorkflowNodeActiveRun(workspaceID string, context workflowAgentTrajectoryContext) (chat.Run, error) {
+	cancelledRun, err := service.codexChatService.CancelActiveRun(workspaceID, context.ConversationID)
+	if err != nil {
+		return chat.Run{}, fmt.Errorf("cancel workflow node chat run: %w", err)
+	}
+	if cancelledRun.ID != context.RunID {
+		return chat.Run{}, fmt.Errorf("cancelled workflow node run %s, want %s", cancelledRun.ID, context.RunID)
+	}
+	return cancelledRun, nil
+}
+
+func (service *Service) completeStoppedWorkflowNodeRun(workspaceID string, executionID string, cancelledRun chat.Run) (WorkflowExecution, error) {
+	execution, ok, err := service.completeTerminalWorkflowChatRun(cancelledRun)
+	if err != nil {
+		return WorkflowExecution{}, fmt.Errorf("complete stopped workflow node run: %w", err)
+	}
+	if ok {
+		return execution, nil
+	}
+	return service.ReadExecution(workspaceID, executionID)
+}
+
 func (service *Service) prepareWorkflowNodeTrajectoryRequest(workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, outputLimit int) (int, int, error) {
 	if err := validateWorkflowNodeTrajectoryRequest(executionID, nodeExecutionID, beforeBlockOrdinal, transcriptLimit, outputLimit); err != nil {
 		return 0, 0, err
@@ -107,6 +168,7 @@ func (service *Service) workflowAgentTrajectoryTranscript(workspaceID string, co
 
 func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run chat.Run, transcript chat.RunTranscriptPage, activity chat.RunActivityPage, outputPages []WorkflowAgentTrajectoryRunItemOutputPageState, outputs []chat.RunItemOutput, activeRun *chat.Run, activeRunLiveness *chat.RunLiveness) WorkflowAgentTrajectoryPage {
 	pendingApproval := workflowAgentTrajectoryPendingApproval(context.NodeExecution)
+	canStopRun := activeRun != nil && activeRunLiveness != nil && activeRunLiveness.Cancellable
 	return WorkflowAgentTrajectoryPage{
 		SchemaVersion: SchemaVersion,
 		Scope: WorkflowAgentTrajectoryScope{
@@ -135,6 +197,7 @@ func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run cha
 		Capabilities: WorkflowAgentTrajectoryCapabilities{
 			CanLoadOlderHistory:  transcript.HasMoreOlder,
 			CanLoadRunItemOutput: true,
+			CanStopRun:           canStopRun,
 			CanSubmitApproval:    pendingApproval != nil,
 		},
 	}
@@ -155,6 +218,16 @@ func validateWorkflowNodeTrajectoryRequest(executionID string, nodeExecutionID s
 	}
 	if outputLimit < 0 {
 		return fmt.Errorf("workflow node trajectory outputLimit must not be negative: %d", outputLimit)
+	}
+	return nil
+}
+
+func validateStopWorkflowNodeRunRequest(executionID string, nodeExecutionID string) error {
+	if err := validateStorageID("workflow execution id", executionID); err != nil {
+		return err
+	}
+	if err := validateStorageID("workflow node execution id", nodeExecutionID); err != nil {
+		return err
 	}
 	return nil
 }

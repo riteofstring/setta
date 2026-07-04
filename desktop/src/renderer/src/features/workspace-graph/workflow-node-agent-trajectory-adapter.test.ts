@@ -9,6 +9,9 @@ import { describe, expect, test } from "vitest";
 import { activityBlock, userMessageBlock } from "../../stores/chat-store-events.test.helpers";
 import { testRun } from "../../stores/chat-store.test.fixtures";
 import {
+  workflowNodeComposerActions,
+  workflowNodeComposerViewModel,
+  workflowNodeTrajectoryActions,
   workflowNodeTrajectoryStateFromPage,
   workflowNodeTrajectoryViewModel,
   workflowNodeTrajectoryWithLoadedOutput,
@@ -67,6 +70,36 @@ describe("workflow node agent trajectory adapter", () => {
       stopRun: false,
     });
     expect(viewModel.focusedSourceRunItemId).toBe("run_item_command");
+  });
+
+  test("maps node-scoped stop capability to trajectory and composer actions", () => {
+    const state = workflowNodeTrajectoryStateFromPage(stoppableTrajectoryPage());
+    const stopRun = async () => {};
+    const viewModel = workflowNodeTrajectoryViewModel({
+      focusedSourceRunItemId: null,
+      operation: "cancelling",
+      state,
+    });
+
+    expect(viewModel.capabilities.stopRun).toBe(true);
+    expect(
+      workflowNodeTrajectoryActions({
+        loadOlder: async () => {},
+        loadRunItemOutput: async () => {},
+        state,
+        stopRun,
+        submitApproval: async () => {},
+      }).stopRun,
+    ).toBe(stopRun);
+    expect(workflowNodeComposerViewModel({ operation: "cancelling", state })).toMatchObject({
+      activeRunId: "run_a",
+      operation: "cancelling",
+      session: {
+        id: "workflow-node:node_execution_work",
+        workspaceId: "workspace_test",
+      },
+    });
+    expect(workflowNodeComposerActions({ state, stopRun }).stopActiveRun).toBe(stopRun);
   });
 
   test("prepends older workflow-node blocks without replacing loaded output state", () => {
@@ -192,6 +225,36 @@ function trajectoryPage(
     },
     ...overrides,
   };
+}
+
+function stoppableTrajectoryPage() {
+  return trajectoryPage({
+    activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+    activeRunLiveness: {
+      cancellable: true,
+      conversationId: "conversation_api",
+      error: "",
+      harness: "codex",
+      lastProviderEventAt: "2026-06-07T00:00:01Z",
+      lastReconciledAt: "",
+      providerThreadId: "thread_api",
+      providerTurnId: "turn_api",
+      reason: "provider_turn_linked",
+      retryable: false,
+      runId: "run_a",
+      status: "attached",
+      workspaceId: "workspace_test",
+    },
+    capabilities: {
+      canLoadOlderHistory: true,
+      canLoadRunItemOutput: true,
+      canRetryLiveness: false,
+      canSteer: false,
+      canStopRun: true,
+      canSubmitApproval: false,
+    },
+    run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+  });
 }
 
 function runItem(): RunItem {

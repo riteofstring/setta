@@ -396,8 +396,8 @@ Verification:
   still returned unsupported `approval_policy = "on-failure"`, so Setta
   rejected conversation creation before live-provider execution.
 
-Remaining: Slice 4 still owns workflow-node composer, immediate steering,
-stop-run, and retry-liveness controls once node-scoped backend actions exist.
+Remaining: Slice 4 still owns workflow-node immediate steering, retry-liveness,
+and composer send/steering controls once node-scoped backend actions exist.
 Queue affordances remain hidden until a node-scoped queue contract exists end
 to end.
 
@@ -409,6 +409,41 @@ to end.
 - Add node-scoped immediate steering where the backend can attach the message to
   the active workflow-owned run.
 - Do not render queue affordances until node-scoped queueing exists end to end.
+
+Progress 2026-07-03: stop-run controls completed. Added the Go-owned
+`StopWorkflowNodeRun` request and `/workflows/nodes/runs/stop` endpoint, then
+regenerated TypeScript and exposed the generated client through Electron
+main/preload/shared IPC as `workflow.stopNodeRun`. Workflow node trajectory
+capabilities now advertise `canStopRun` only when the selected workflow-owned
+active run is cancellable. The renderer adapter maps that capability into the
+shared trajectory action contract and into a node-scoped composer stop action.
+The composer is shown for a running workflow node, but its text input remains
+disabled until node-scoped steering exists.
+
+Verification:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(ReadWorkflowNodeTrajectory|StopWorkflowNodeRun)' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'TestWorkflow(NodeTrajectoryEndpoint|EndpointStopsNodeScopedRun)' -count=1`
+- `./scripts/go.sh test ./cmd/generate-contracts -count=1`
+- `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-agent-trajectory-adapter.test.ts --reporter=dot`
+- `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-details-components.test.tsx --reporter=dot`
+- `pnpm -C desktop exec vitest run src/preload/index.test.ts --reporter=dot`
+- `pnpm -C desktop exec vitest run src/renderer/src/stores/chat-store-navigation.test.ts src/renderer/src/stores/workspace-store.test.ts --reporter=dot`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+  was attempted with ChatGPT auth available, but local Codex `config/read`
+  still returned unsupported `approval_policy = "on-failure"`, so Setta
+  rejected conversation creation before live-provider execution.
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Remaining: workflow-node immediate steering, retry-liveness, and composer
+send/steering behavior remain. Queue affordances remain hidden until a
+node-scoped queue contract exists end to end.
 
 ### Slice 5: Cleanup
 

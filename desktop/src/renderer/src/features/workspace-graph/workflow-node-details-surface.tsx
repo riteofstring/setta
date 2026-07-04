@@ -343,10 +343,33 @@ function useWorkflowRunInspection(target: WorkflowNodeDetailsTarget | null) {
     [reloadCurrentInspection, state.trajectory],
   );
 
+  const stopRun = useCallback<WorkflowRunTrajectoryActions["stopRun"]>(async () => {
+    const current = state.trajectory;
+    if (current === null) {
+      return;
+    }
+    setState((previous) => ({ ...previous, operation: "cancelling" }));
+    try {
+      await window.setta.workflow.stopNodeRun({
+        executionId: current.page.scope.executionId,
+        nodeExecutionId: current.page.scope.nodeExecutionId,
+        workspaceId: current.page.scope.workspaceId,
+      });
+      await reloadCurrentInspection();
+    } catch (error: unknown) {
+      setState((previous) => ({
+        ...previous,
+        loadError: errorMessage(error),
+        operation: null,
+      }));
+    }
+  }, [reloadCurrentInspection, state.trajectory]);
+
   return {
     actions: {
       loadOlder,
       loadRunItemOutput,
+      stopRun,
       submitApproval,
     },
     state,

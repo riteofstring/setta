@@ -105,6 +105,7 @@ import type {
   SteerMessageResult,
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
+  StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
   TerminalInputRequest,
@@ -665,6 +666,7 @@ export interface SettaAPI {
       definitionId: string,
       versionId?: string,
     ) => Promise<WorkflowExecution>;
+    stopNodeRun: (request: StopWorkflowNodeRunRequest) => Promise<WorkflowExecution>;
     submitApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
     updateDefinition: (
       workspaceId: string,

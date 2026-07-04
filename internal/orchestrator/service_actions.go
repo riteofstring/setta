@@ -586,9 +586,25 @@ func (service *Service) reconcileChatRunApproval(run chat.Run) {
 }
 
 func (service *Service) reconcileTerminalChatRun(run chat.Run) {
+	_, _, _ = service.completeTerminalWorkflowChatRun(run)
+}
+
+func (service *Service) completeTerminalWorkflowChatRun(run chat.Run) (WorkflowExecution, bool, error) {
+	execution, ok, err := service.completeWorkflowActionForTerminalChatRun(run)
+	if err != nil || !ok {
+		return execution, ok, err
+	}
+	if execution.Status != ExecutionStatusRunning {
+		return execution, true, nil
+	}
+	execution, err = service.dispatchReadyActions(run.WorkspaceID, execution.ID)
+	return execution, true, err
+}
+
+func (service *Service) completeWorkflowActionForTerminalChatRun(run chat.Run) (WorkflowExecution, bool, error) {
 	owner, ok, err := service.workflowRunOwner(run)
 	if err != nil || !ok {
-		return
+		return WorkflowExecution{}, ok, err
 	}
 	activity, err := service.codexChatService.LoadRunActivityPage(run.WorkspaceID, run.ID, 1000)
 	var result WorkflowActionResult
@@ -603,19 +619,10 @@ func (service *Service) reconcileTerminalChatRun(run chat.Run) {
 	refs := workflowRunRefs(run, owner.conversation)
 	runnerEvents, err := runnerEventsFromTerminalChatRun(owner, result)
 	if err != nil {
-		return
+		return WorkflowExecution{}, true, err
 	}
 	execution, err := service.completeChatActionRun(run.WorkspaceID, owner.execution.ID, owner.nodeExecution.ID, result, refs, runnerEvents)
-	if err != nil || execution.Status != ExecutionStatusRunning {
-		return
-	}
-	_, _ = service.dispatchReadyActions(run.WorkspaceID, execution.ID)
-}
-
-type workflowRunOwner struct {
-	conversation  chat.Conversation
-	execution     WorkflowExecution
-	nodeExecution WorkflowNodeExecution
+	return execution, true, err
 }
 
 func (service *Service) workflowRunOwner(run chat.Run) (workflowRunOwner, bool, error) {
@@ -636,6 +643,12 @@ func (service *Service) workflowRunOwner(run chat.Run) (workflowRunOwner, bool, 
 	}
 	owner.conversation = page.Conversation
 	return owner, true, nil
+}
+
+type workflowRunOwner struct {
+	conversation  chat.Conversation
+	execution     WorkflowExecution
+	nodeExecution WorkflowNodeExecution
 }
 
 func (service *Service) workflowRunOwnerFromRunnerRefs(run chat.Run) (workflowRunOwner, bool, error) {

@@ -406,6 +406,12 @@ type ReadWorkflowNodeTrajectoryRequest struct {
 	OutputLimit        int    `json:"outputLimit"`
 }
 
+type StopWorkflowNodeRunRequest struct {
+	WorkspaceID     string `json:"workspaceId"`
+	ExecutionID     string `json:"executionId"`
+	NodeExecutionID string `json:"nodeExecutionId"`
+}
+
 type SubmitWorkflowApprovalRequest struct {
 	WorkspaceID     string                `json:"workspaceId"`
 	ExecutionID     string                `json:"executionId"`

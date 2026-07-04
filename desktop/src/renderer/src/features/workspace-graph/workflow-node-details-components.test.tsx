@@ -40,6 +40,23 @@ describe("WorkflowRunDetailsContent activity focus", () => {
     expect(html).toContain("npm test");
   });
 
+  test("renders a node-scoped stop control for a stoppable active run", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection({
+          trajectory: workflowNodeTrajectoryStateFromPage(stoppablePage()),
+        })}
+        target={target()}
+      />,
+    );
+
+    expect(html).toContain('data-agent-trajectory-scope="workflowNodeExecution"');
+    expect(html).toContain('aria-label="Stop run"');
+    expect(html).toContain("Steering is not available for this workflow node.");
+  });
+
   test("highlights and deep-links the matching run item from a chat_run_item focus", () => {
     const html = renderToString(
       <WorkflowRunDetailsContent
@@ -108,7 +125,9 @@ function focus(overrides: Partial<WorkflowNodeActivityFocus>): WorkflowNodeActiv
   };
 }
 
-function inspection(): WorkflowRunInspectionState {
+function inspection(
+  overrides: Partial<WorkflowRunInspectionState> = {},
+): WorkflowRunInspectionState {
   return {
     events: [workflowEvent("event_running", "running activity")],
     execution: execution(),
@@ -117,6 +136,7 @@ function inspection(): WorkflowRunInspectionState {
     operation: null,
     trajectory: workflowNodeTrajectoryStateFromPage(trajectoryPage()),
     trajectoryError: "",
+    ...overrides,
   };
 }
 
@@ -124,6 +144,7 @@ function trajectoryActions(): WorkflowRunTrajectoryActions {
   return {
     loadOlder: async () => {},
     loadRunItemOutput: async () => {},
+    stopRun: async () => {},
     submitApproval: async () => {},
   };
 }
@@ -235,7 +256,9 @@ function nodeExecution(): WorkflowNodeExecution {
   };
 }
 
-function trajectoryPage(): WorkflowAgentTrajectoryPage {
+function trajectoryPage(
+  overrides: Partial<WorkflowAgentTrajectoryPage> = {},
+): WorkflowAgentTrajectoryPage {
   return {
     activeRun: null,
     activeRunLiveness: null,
@@ -364,7 +387,38 @@ function trajectoryPage(): WorkflowAgentTrajectoryPage {
       nodeId: "work",
       workspaceId: "workspace_test",
     },
+    ...overrides,
   };
+}
+
+function stoppablePage(): WorkflowAgentTrajectoryPage {
+  return trajectoryPage({
+    activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+    activeRunLiveness: {
+      cancellable: true,
+      conversationId: "conversation_api",
+      error: "",
+      harness: "codex",
+      lastProviderEventAt: "2026-06-07T00:00:01Z",
+      lastReconciledAt: "",
+      providerThreadId: "thread_api",
+      providerTurnId: "turn_api",
+      reason: "provider_turn_linked",
+      retryable: false,
+      runId: "run_a",
+      status: "attached",
+      workspaceId: "workspace_test",
+    },
+    capabilities: {
+      canLoadOlderHistory: false,
+      canLoadRunItemOutput: true,
+      canRetryLiveness: false,
+      canSteer: false,
+      canStopRun: true,
+      canSubmitApproval: false,
+    },
+    run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+  });
 }
 
 function runItem(): RunItem {

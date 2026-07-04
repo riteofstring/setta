@@ -11,6 +11,7 @@ import type {
   AgentTrajectoryCapabilities,
   AgentTrajectoryViewModel,
 } from "../../components/agent-trajectory";
+import type { ComposerActions, ComposerViewModel } from "../../components/chat-composer-contract";
 import type { LoadRunItemOutput } from "../../components/chat-transcript-activity";
 import type { SubmitApproval } from "../../components/chat-transcript-approvals";
 import type { RunItemOutputPageState } from "../../stores/chat-store";
@@ -84,17 +85,51 @@ export function workflowNodeTrajectoryActions({
   loadOlder,
   loadRunItemOutput,
   state,
+  stopRun,
   submitApproval,
 }: {
   loadOlder: () => Promise<void>;
   loadRunItemOutput: LoadRunItemOutput;
   state: WorkflowNodeTrajectoryState;
+  stopRun: () => Promise<void>;
   submitApproval: SubmitApproval;
 }): AgentTrajectoryActions {
   return {
     loadOlder: state.page.capabilities.canLoadOlderHistory ? loadOlder : undefined,
     loadRunItemOutput: state.page.capabilities.canLoadRunItemOutput ? loadRunItemOutput : undefined,
+    stopRun: state.page.capabilities.canStopRun ? stopRun : undefined,
     submitApproval: state.page.capabilities.canSubmitApproval ? submitApproval : undefined,
+  };
+}
+
+export function workflowNodeComposerViewModel({
+  operation,
+  state,
+}: {
+  operation: string | null;
+  state: WorkflowNodeTrajectoryState;
+}): ComposerViewModel {
+  return {
+    activeRunId: state.page.activeRun?.id ?? "",
+    commandListError: null,
+    commandListStatus: "idle",
+    goal: null,
+    operation,
+    pendingSteeringMessageIds: [],
+    session: workflowNodeComposerSession(state),
+    status: "ready",
+  };
+}
+
+export function workflowNodeComposerActions({
+  state,
+  stopRun,
+}: {
+  state: WorkflowNodeTrajectoryState;
+  stopRun: () => Promise<void>;
+}): ComposerActions {
+  return {
+    stopActiveRun: state.page.capabilities.canStopRun ? stopRun : undefined,
   };
 }
 
@@ -189,7 +224,7 @@ function workflowNodeTrajectoryCapabilities(
     queuedMessageActions: false,
     retryLiveness: false,
     sendSteering: false,
-    stopRun: false,
+    stopRun: capabilities.canStopRun,
     submitApproval: capabilities.canSubmitApproval,
   };
 }
@@ -202,9 +237,6 @@ function assertSupportedWorkflowNodeTrajectoryCapabilities(
   }
   if (capabilities.canSteer) {
     throw new Error("Workflow node trajectory steering requires a node-scoped action.");
-  }
-  if (capabilities.canStopRun) {
-    throw new Error("Workflow node trajectory stop requires a node-scoped action.");
   }
 }
 
@@ -259,4 +291,21 @@ function workflowNodeTrajectoryOutputIndex(outputs: RunItemOutput[]) {
     ];
   }
   return { outputIdsByRunItemId, outputsById };
+}
+
+function workflowNodeComposerSession(
+  state: WorkflowNodeTrajectoryState,
+): ComposerViewModel["session"] {
+  if (state.page.activeRun?.status !== "running") {
+    return null;
+  }
+  return {
+    commandListContextKey: "",
+    id: `workflow-node:${state.page.scope.nodeExecutionId}`,
+    modelLabel: "Workflow node",
+    permissionLabel: "Workflow node",
+    reasoningLabel: "Workflow node",
+    supportsImages: false,
+    workspaceId: state.page.scope.workspaceId,
+  };
 }

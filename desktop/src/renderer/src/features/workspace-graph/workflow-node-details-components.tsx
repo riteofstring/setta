@@ -8,7 +8,11 @@ import type {
 } from "@generated/backend";
 import { useEffect, useRef, type ReactNode } from "react";
 
-import { AgentTrajectorySurface } from "../../components/agent-trajectory";
+import {
+  AgentTrajectorySurface,
+  activeRunPresentationForAgentTrajectory,
+} from "../../components/agent-trajectory";
+import { Composer } from "../../components/chat-composer";
 import type { LoadRunItemOutput } from "../../components/chat-transcript-activity";
 import type { SubmitApproval } from "../../components/chat-transcript-approvals";
 import { cn } from "../../lib/utils";
@@ -23,6 +27,8 @@ import {
 } from "./workflow-node-activity-focus";
 import {
   workflowNodeTrajectoryActions,
+  workflowNodeComposerActions,
+  workflowNodeComposerViewModel,
   workflowNodeTrajectoryViewModel,
   type WorkflowNodeTrajectoryState,
 } from "./workflow-node-agent-trajectory-adapter";
@@ -47,6 +53,7 @@ export interface WorkflowRunInspectionState {
 export interface WorkflowRunTrajectoryActions {
   loadOlder: () => Promise<void>;
   loadRunItemOutput: LoadRunItemOutput;
+  stopRun: () => Promise<void>;
   submitApproval: SubmitApproval;
 }
 
@@ -298,6 +305,7 @@ function WorkflowAgentTrajectorySection({
     loadOlder: actions.loadOlder,
     loadRunItemOutput: actions.loadRunItemOutput,
     state: inspection.trajectory,
+    stopRun: actions.stopRun,
     submitApproval: actions.submitApproval,
   });
   const viewModel = workflowNodeTrajectoryViewModel({
@@ -305,13 +313,39 @@ function WorkflowAgentTrajectorySection({
     operation: inspection.operation,
     state: inspection.trajectory,
   });
+  const runPresentation = activeRunPresentationForAgentTrajectory(viewModel);
+  const composerViewModel = workflowNodeComposerViewModel({
+    operation: inspection.operation,
+    state: inspection.trajectory,
+  });
+  const composerActions = workflowNodeComposerActions({
+    state: inspection.trajectory,
+    stopRun: actions.stopRun,
+  });
+  const showComposer = composerViewModel.session !== null;
   return (
     <WorkflowDetailsSection title="Agent Trajectory">
       <div
-        className="h-[32rem] min-h-80 overflow-hidden rounded-sm border border-zinc-800 bg-zinc-950/60"
+        className="flex h-[36rem] min-h-80 flex-col overflow-hidden rounded-sm border border-zinc-800 bg-zinc-950/60"
         data-testid="workflow-node-agent-trajectory"
       >
-        <AgentTrajectorySurface actions={trajectoryActions} viewModel={viewModel} />
+        <div className="min-h-0 flex-1">
+          <AgentTrajectorySurface actions={trajectoryActions} viewModel={viewModel} />
+        </div>
+        {showComposer ? (
+          <Composer
+            actions={composerActions}
+            busy={inspection.operation !== null}
+            disabled={!runPresentation.canSteer}
+            frameClassName="border-zinc-800 bg-zinc-950/80 shadow-none"
+            placeholder={
+              runPresentation.canSteer ? "" : "Steering is not available for this workflow node."
+            }
+            running={runPresentation.running}
+            runPresentation={runPresentation}
+            viewModel={composerViewModel}
+          />
+        ) : null}
       </div>
     </WorkflowDetailsSection>
   );

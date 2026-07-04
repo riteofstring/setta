@@ -370,6 +370,7 @@ const api: SettaAPI = {
     readNodeTrajectory: (request) => invoke("workflowReadNodeTrajectory", request),
     startExecution: (workspaceId, definitionId, versionId = "") =>
       invoke("workflowStartExecution", workspaceId, definitionId, versionId),
+    stopNodeRun: (request) => invoke("workflowStopNodeRun", request),
     submitApproval: (request) => invoke("workflowSubmitApproval", request),
     updateDefinition: (workspaceId, definitionId, name, description, graph) =>
       invoke("workflowUpdateDefinition", workspaceId, definitionId, name, description, graph),

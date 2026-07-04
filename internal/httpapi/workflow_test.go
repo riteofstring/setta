@@ -322,8 +322,58 @@ func TestWorkflowNodeTrajectoryEndpointReturnsScopedApprovalTrajectory(t *testin
 	if page.OutputPages == nil || page.Outputs == nil {
 		t.Fatalf("trajectory output arrays must be non-nil: %+v", page)
 	}
-	if !page.Capabilities.CanSubmitApproval || !page.Capabilities.CanLoadRunItemOutput {
-		t.Fatalf("trajectory capabilities = %+v, want approval and output loading", page.Capabilities)
+	if !page.Capabilities.CanSubmitApproval || !page.Capabilities.CanLoadRunItemOutput || !page.Capabilities.CanStopRun {
+		t.Fatalf("trajectory capabilities = %+v, want approval, stop, and output loading", page.Capabilities)
+	}
+}
+
+func TestWorkflowEndpointStopsNodeScopedRun(t *testing.T) {
+	handler := newScriptedWorkflowHandler(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Stopped trajectory workflow",
+		Graph:       httpWorkflowHoldGraph(),
+	}, http.StatusOK)
+	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	work := latestHTTPNodeExecution(t, started, "work")
+
+	page := postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     started.ID,
+		NodeExecutionID: work.ID,
+		TranscriptLimit: 20,
+		OutputLimit:     5,
+	}, http.StatusOK)
+	if !page.Capabilities.CanStopRun {
+		t.Fatalf("running trajectory capabilities = %+v, want stop", page.Capabilities)
+	}
+
+	stopped := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/nodes/runs/stop", StopWorkflowNodeRunRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     started.ID,
+		NodeExecutionID: work.ID,
+	}, http.StatusOK)
+	if stopped.Status != orchestrator.ExecutionStatusCancelled {
+		t.Fatalf("stopped execution status = %s, want cancelled", stopped.Status)
+	}
+	stoppedWork := latestHTTPNodeExecution(t, stopped, "work")
+	if stoppedWork.Status != orchestrator.NodeExecutionStatusCancelled {
+		t.Fatalf("stopped node status = %s, want cancelled", stoppedWork.Status)
+	}
+
+	terminalPage := postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     stopped.ID,
+		NodeExecutionID: stoppedWork.ID,
+		TranscriptLimit: 20,
+		OutputLimit:     5,
+	}, http.StatusOK)
+	if terminalPage.ActiveRun != nil || terminalPage.Capabilities.CanStopRun {
+		t.Fatalf("terminal trajectory = active %+v capabilities %+v, want no active stop", terminalPage.ActiveRun, terminalPage.Capabilities)
 	}
 }
 
@@ -437,6 +487,18 @@ func httpWorkflowApprovalGraph() orchestrator.WorkflowGraph {
 			continue
 		}
 		graph.Nodes[index].Action.Codex.Prompt = "command approval workflow"
+	}
+	return graph
+}
+
+func httpWorkflowHoldGraph() orchestrator.WorkflowGraph {
+	graph := httpWorkflowActionGraph()
+	for index := range graph.Nodes {
+		if graph.Nodes[index].ID != "work" {
+			continue
+		}
+		graph.Nodes[index].Action.Codex.Prompt = "workflow hold for queue and steering"
+		graph.Nodes[index].Action.Codex.FreshConversation = true
 	}
 	return graph
 }

@@ -62,7 +62,7 @@ func TestServiceReadWorkflowNodeTrajectorySurfacesPendingApprovalAndActiveLivene
 	if !page.Capabilities.CanSubmitApproval ||
 		!page.Capabilities.CanLoadRunItemOutput ||
 		page.Capabilities.CanSteer ||
-		page.Capabilities.CanStopRun ||
+		!page.Capabilities.CanStopRun ||
 		page.Capabilities.CanRetryLiveness {
 		t.Fatalf("approval trajectory capabilities = %+v", page.Capabilities)
 	}
@@ -71,6 +71,57 @@ func TestServiceReadWorkflowNodeTrajectorySurfacesPendingApprovalAndActiveLivene
 		t.Fatalf("submit workflow approval: %v", err)
 	}
 	waitForWorkflowEvent(t, subscription, started.ID, EventExecutionCompleted)
+	waitForScriptedHarnessIdle(t, harness)
+}
+
+func TestServiceStopWorkflowNodeRunCancelsWorkflowOwnedRun(t *testing.T) {
+	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
+	definition, err := workflowService.CreateDefinition(workspaceID, "Trajectory stop", "", codexActionGraph("workflow hold for queue and steering", true))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, started, "work")
+	conversationID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatConversation)
+	runID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
+
+	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, started.ID, work.ID, 0, 20, 5)
+	if err != nil {
+		t.Fatalf("read running trajectory: %v", err)
+	}
+	if !page.Capabilities.CanStopRun {
+		t.Fatalf("running trajectory capabilities = %+v, want stoppable run", page.Capabilities)
+	}
+
+	stopped, err := workflowService.StopWorkflowNodeRun(workspaceID, started.ID, work.ID)
+	if err != nil {
+		t.Fatalf("stop workflow node run: %v", err)
+	}
+	if stopped.Status != ExecutionStatusCancelled || stopped.TerminalReason == nil || *stopped.TerminalReason != TerminalReasonActionCancelled {
+		t.Fatalf("stopped execution = %+v, want action-cancelled execution", stopped)
+	}
+	stoppedWork := latestNodeExecutionForTest(t, stopped, "work")
+	if stoppedWork.Status != NodeExecutionStatusCancelled || stoppedWork.Result == nil || stoppedWork.Result.Status != ActionCompletionCancelled {
+		t.Fatalf("stopped node = %+v, want cancelled action result", stoppedWork)
+	}
+	run := waitForWorkflowChatRunStatus(t, chatService, workspaceID, conversationID, runID, chat.RunStatusCancelled)
+	if run.PendingApproval != nil {
+		t.Fatalf("cancelled run pending approval = %+v, want nil", run.PendingApproval)
+	}
+
+	terminalPage, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, stopped.ID, stoppedWork.ID, 0, 20, 5)
+	if err != nil {
+		t.Fatalf("read stopped trajectory: %v", err)
+	}
+	if terminalPage.ActiveRun != nil || terminalPage.ActiveRunLiveness != nil || terminalPage.Capabilities.CanStopRun {
+		t.Fatalf("stopped trajectory active state = run %+v liveness %+v capabilities %+v", terminalPage.ActiveRun, terminalPage.ActiveRunLiveness, terminalPage.Capabilities)
+	}
+	if _, err = workflowService.StopWorkflowNodeRun(workspaceID, started.ID, work.ID); err == nil || !strings.Contains(err.Error(), "not active") {
+		t.Fatalf("second stop error = %v, want inactive run rejection", err)
+	}
 	waitForScriptedHarnessIdle(t, harness)
 }
 

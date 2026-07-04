@@ -18,6 +18,7 @@ import {
 import { activityWorkflowGraph } from "./workflow-activity-feed-fixtures.mjs";
 
 const trajectoryPrompt = "chat activity projection reload workflow";
+const stoppableTrajectoryPrompt = "workflow hold for queue and steering";
 
 export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, { recordingRoot }) {
   const fixture = await createFixture("workflow-node-trajectory-contract");
@@ -80,6 +81,85 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       runId: trajectory.runId,
       type: "workflow_node_trajectory_contract_verified",
     });
+
+    const stopGraph = activityWorkflowGraph(stoppableTrajectoryPrompt);
+    const stopValidation = await rendererWorkflow(context.client, "validateDefinition", [
+      workspaceId,
+      stopGraph,
+    ]);
+    if (!stopValidation.valid) {
+      throw new Error(
+        `stoppable trajectory workflow graph invalid: ${JSON.stringify(stopValidation)}`,
+      );
+    }
+    const stopDefinition = await rendererWorkflow(context.client, "createDefinition", [
+      workspaceId,
+      "Node trajectory stop contract",
+      "Verifies workflow node-scoped stop contracts.",
+      stopGraph,
+    ]);
+    const stopStarted = await rendererWorkflow(context.client, "startExecution", [
+      workspaceId,
+      stopDefinition.id,
+    ]);
+    const running = await waitForWorkflowExecution(
+      context.client,
+      workspaceId,
+      stopStarted.id,
+      workflowActivityNodeRunning,
+    );
+    const runningNode = latestNodeExecution(running, "activity");
+    if (!runningNode) {
+      throw new Error(`running workflow missing activity node: ${JSON.stringify(running)}`);
+    }
+    const activeTrajectory = await waitForWorkflowNodeTrajectory(
+      context.client,
+      workspaceId,
+      running.id,
+      runningNode.id,
+      (page) => page.capabilities.canStopRun,
+    );
+    assertStoppableTrajectoryPage(activeTrajectory, {
+      definition: stopDefinition,
+      execution: running,
+      nodeExecution: runningNode,
+      workspaceId,
+    });
+
+    const stopped = await rendererWorkflow(context.client, "stopNodeRun", [
+      {
+        executionId: running.id,
+        nodeExecutionId: runningNode.id,
+        workspaceId,
+      },
+    ]);
+    assertStoppedWorkflowExecution(stopped, runningNode.id);
+    const terminal = await waitForWorkflowExecution(
+      context.client,
+      workspaceId,
+      running.id,
+      (execution) => {
+        const node = nodeExecutionById(execution, runningNode.id);
+        return execution.status === "cancelled" && node?.status === "cancelled";
+      },
+    );
+    const terminalTrajectory = await rendererWorkflow(context.client, "readNodeTrajectory", [
+      {
+        beforeBlockOrdinal: 0,
+        executionId: terminal.id,
+        nodeExecutionId: runningNode.id,
+        outputLimit: 5,
+        transcriptLimit: 20,
+        workspaceId,
+      },
+    ]);
+    assertStoppedTrajectoryPage(terminalTrajectory, runningNode.id);
+    await appendWorkflowState(recordingDir, {
+      executionId: terminal.id,
+      nodeExecutionId: runningNode.id,
+      runId: terminalTrajectory.runId,
+      type: "workflow_node_trajectory_stop_contract_verified",
+    });
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
@@ -102,6 +182,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "/workflows/executions/start",
       "/workflows/executions/read",
       "/workflows/nodes/trajectory",
+      "/workflows/nodes/runs/stop",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
@@ -111,6 +192,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "workflow:start-execution",
       "workflow:read-execution",
       "workflow:read-node-trajectory",
+      "workflow:stop-node-run",
     ],
   });
   results.push("workflow-node-trajectory-contract");
@@ -120,6 +202,29 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
 async function waitForWorkflowExecution(client, workspaceId, executionId, isReady) {
   return waitForBackendState(
     async () => rendererWorkflow(client, "readExecution", [workspaceId, executionId]),
+    isReady,
+  );
+}
+
+async function waitForWorkflowNodeTrajectory(
+  client,
+  workspaceId,
+  executionId,
+  nodeExecutionId,
+  isReady,
+) {
+  return waitForBackendState(
+    async () =>
+      rendererWorkflow(client, "readNodeTrajectory", [
+        {
+          beforeBlockOrdinal: 0,
+          executionId,
+          nodeExecutionId,
+          outputLimit: 5,
+          transcriptLimit: 20,
+          workspaceId,
+        },
+      ]),
     isReady,
   );
 }
@@ -139,6 +244,121 @@ function assertTrajectoryPage(trajectory, { definition, execution, nodeExecution
   const outputPage = assertTrajectoryOutputPage(trajectory, runRef);
   assertTrajectoryOutputIDs(trajectory, outputPage);
   assertTrajectoryCapabilities(trajectory);
+}
+
+function assertStoppableTrajectoryPage(
+  trajectory,
+  { definition, execution, nodeExecution, workspaceId },
+) {
+  const conversationRef = runnerRef(nodeExecution, "chat.conversation");
+  const runRef = runnerRef(nodeExecution, "chat.run");
+  assertTrajectoryRunnerRefs(conversationRef, runRef, nodeExecution);
+  assertTrajectoryScope(trajectory, {
+    definition,
+    execution,
+    nodeExecution,
+    workspaceId,
+  });
+  assertStoppableTrajectoryRunState(trajectory, conversationRef, runRef);
+  assertStoppableTrajectoryCapabilities(trajectory);
+}
+
+function assertStoppableTrajectoryRunState(trajectory, conversationRef, runRef) {
+  const state = {
+    activeRunId: trajectory.activeRun?.id ?? "",
+    cancellable: trajectory.activeRunLiveness?.cancellable === true,
+    conversationId: trajectory.conversationId,
+    livenessRunId: trajectory.activeRunLiveness?.runId ?? "",
+    runId: trajectory.runId,
+    runStatus: trajectory.run.status,
+    trajectoryRunId: trajectory.run.id,
+  };
+  const expected = {
+    conversationId: conversationRef.id,
+    runId: runRef.id,
+  };
+  if (!stoppableTrajectoryRunStateMatches(state, expected)) {
+    throw new Error(
+      `stoppable trajectory mismatch: ${JSON.stringify({ expected, state, trajectory })}`,
+    );
+  }
+}
+
+function stoppableTrajectoryRunStateMatches(state, expected) {
+  return (
+    state.conversationId === expected.conversationId &&
+    state.runId === expected.runId &&
+    state.trajectoryRunId === expected.runId &&
+    state.runStatus === "running" &&
+    state.activeRunId === expected.runId &&
+    state.livenessRunId === expected.runId &&
+    state.cancellable
+  );
+}
+
+function assertStoppableTrajectoryCapabilities(trajectory) {
+  const capabilities = trajectory.capabilities;
+  if (
+    !capabilities.canStopRun ||
+    capabilities.canRetryLiveness ||
+    capabilities.canSteer ||
+    capabilities.canSubmitApproval
+  ) {
+    throw new Error(
+      `stoppable trajectory capabilities mismatch: ${JSON.stringify(trajectory.capabilities)}`,
+    );
+  }
+}
+
+function assertStoppedTrajectoryPage(trajectory, nodeExecutionId) {
+  assertStoppedTrajectoryRunState(trajectory, nodeExecutionId);
+  assertStoppedTrajectoryActiveState(trajectory);
+  assertStoppedTrajectoryCapabilities(trajectory);
+}
+
+function assertStoppedTrajectoryRunState(trajectory, nodeExecutionId) {
+  if (
+    trajectory.scope.nodeExecutionId !== nodeExecutionId ||
+    trajectory.run.status !== "cancelled"
+  ) {
+    throw new Error(`stopped trajectory scope/run mismatch: ${JSON.stringify(trajectory)}`);
+  }
+}
+
+function assertStoppedTrajectoryActiveState(trajectory) {
+  if (
+    trajectory.activeRun !== null ||
+    trajectory.activeRunLiveness !== null ||
+    trajectory.pendingApproval !== null
+  ) {
+    throw new Error(`stopped trajectory exposed active state: ${JSON.stringify(trajectory)}`);
+  }
+}
+
+function assertStoppedTrajectoryCapabilities(trajectory) {
+  const capabilities = trajectory.capabilities;
+  if (
+    capabilities.canRetryLiveness ||
+    capabilities.canSteer ||
+    capabilities.canStopRun ||
+    capabilities.canSubmitApproval
+  ) {
+    throw new Error(
+      `stopped trajectory capabilities mismatch: ${JSON.stringify(trajectory.capabilities)}`,
+    );
+  }
+}
+
+function assertStoppedWorkflowExecution(execution, nodeExecutionId) {
+  const nodeExecution = nodeExecutionById(execution, nodeExecutionId);
+  if (
+    execution.status !== "cancelled" ||
+    execution.terminalReason !== "action_cancelled" ||
+    nodeExecution?.status !== "cancelled" ||
+    nodeExecution.result?.status !== "cancelled"
+  ) {
+    throw new Error(`stopped workflow execution mismatch: ${JSON.stringify(execution)}`);
+  }
 }
 
 function assertTrajectoryRunnerRefs(conversationRef, runRef, nodeExecution) {
@@ -257,6 +477,20 @@ function assertTrajectoryCapabilities(trajectory) {
 function latestNodeExecution(execution, nodeId) {
   const matches = execution.nodeExecutions.filter((node) => node.nodeId === nodeId);
   return matches[matches.length - 1] ?? null;
+}
+
+function nodeExecutionById(execution, nodeExecutionId) {
+  return execution.nodeExecutions.find((node) => node.id === nodeExecutionId) ?? null;
+}
+
+function workflowActivityNodeRunning(execution) {
+  const nodeExecution = latestNodeExecution(execution, "activity");
+  return (
+    execution.status === "running" &&
+    nodeExecution?.status === "running" &&
+    runnerRef(nodeExecution, "chat.conversation") !== null &&
+    runnerRef(nodeExecution, "chat.run") !== null
+  );
 }
 
 function runnerRef(nodeExecution, kind) {

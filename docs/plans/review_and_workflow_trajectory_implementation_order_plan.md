@@ -722,8 +722,38 @@ Verification:
   still returned unsupported `approval_policy = "on-failure"`, so Setta
   rejected conversation creation before live-provider execution.
 
-Remaining notes: workflow-node immediate steering, stop-run, retry-liveness,
-and composer behavior remain for the next controls slice once node-scoped
+Progress 2026-07-03: workflow-node stop-run controls slice completed. The
+backend now owns a `StopWorkflowNodeRun` endpoint that validates workspace,
+execution, node execution, and workflow-owned run identity before cancelling the
+active chat run and completing the workflow action as action-cancelled. TypeScript
+contracts were regenerated, Electron main/preload/shared IPC exposes
+`workflow.stopNodeRun`, and workflow node details now maps `canStopRun` into the
+shared trajectory and composer stop action without enabling selected-chat
+steering or queue behavior.
+
+Verification:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(ReadWorkflowNodeTrajectory|StopWorkflowNodeRun)' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'TestWorkflow(NodeTrajectoryEndpoint|EndpointStopsNodeScopedRun)' -count=1`
+- `./scripts/go.sh test ./cmd/generate-contracts -count=1`
+- `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-agent-trajectory-adapter.test.ts --reporter=dot`
+- `pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-node-details-components.test.tsx --reporter=dot`
+- `pnpm -C desktop exec vitest run src/preload/index.test.ts --reporter=dot`
+- `pnpm -C desktop exec vitest run src/renderer/src/stores/chat-store-navigation.test.ts src/renderer/src/stores/workspace-store.test.ts --reporter=dot`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+  was attempted with ChatGPT auth available, but local Codex `config/read`
+  still returned unsupported `approval_policy = "on-failure"`, so Setta
+  rejected conversation creation before live-provider execution.
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Remaining notes: workflow-node immediate steering, retry-liveness, and composer
+send/steering behavior remain for the next controls slice once node-scoped
 backend actions exist. Queue controls remain hidden until a node-scoped queue
 contract exists end to end. The activity-feed Electron warning is unrelated to
 this adapter slice and remains a blocker for using that broad workflow as a
