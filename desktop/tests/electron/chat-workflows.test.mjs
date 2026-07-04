@@ -74,6 +74,7 @@ import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases
 import { runRestartRecoveryWorkflow } from "./chat-workflow-restart-recovery-cases.mjs";
 import { runShutdownDrainWorkflow } from "./chat-workflow-shutdown-drain-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
+import { runTranscriptScrollWorkflowLaunch } from "./chat-workflow-transcript-scroll-cases.mjs";
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
 import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
 import {
@@ -160,6 +161,7 @@ async function main() {
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
     await runTranscriptSearchWorkflowLaunch(results);
+    await runTranscriptScrollWorkflowLaunch(results, { recordingRoot });
     await runSidebarNavigationWorkflow(results);
     await runCrossWorkspaceSidebarSummaryWorkflow({
       appendWorkflowState,

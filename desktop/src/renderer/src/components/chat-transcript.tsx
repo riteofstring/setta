@@ -37,6 +37,7 @@ import { TranscriptRenderRowView, type TranscriptRowContext } from "./chat-trans
 import { ChatSearchBar, useTranscriptSearch } from "./chat-transcript-search";
 import type { LoadRunItemOutput } from "./chat-transcript-activity";
 import type { TranscriptRowActions } from "./chat-transcript-row-actions";
+import { transcriptTailRevision, useTranscriptScrollFollow } from "./chat-transcript-scroll-follow";
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
@@ -243,10 +244,7 @@ export function ChatTranscript({
   submitApproval,
 }: ChatTranscriptProps) {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
-  const pinnedScrollFrameRef = useRef<number | null>(null);
-  const scrollTopRef = useRef(0);
   const visibleStartIndexRef = useRef(0);
-  const [pinned, setPinned] = useState(true);
   const [expandedActivityBlockIds, setExpandedActivityBlockIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -318,6 +316,28 @@ export function ChatTranscript({
     ],
   );
   const finalSearchIndex = useMemo(() => transcriptSearchIndex(rows), [rows]);
+  const tailRevision = useMemo(
+    () =>
+      transcriptTailRevision({
+        activeRun,
+        rows,
+        runItemOutputIdsByRunItemId,
+        runItemOutputPagesByRunItemId,
+        runItemOutputsById,
+      }),
+    [
+      activeRun,
+      rows,
+      runItemOutputIdsByRunItemId,
+      runItemOutputPagesByRunItemId,
+      runItemOutputsById,
+    ],
+  );
+  const scrollFollow = useTranscriptScrollFollow({
+    rowCount: rows.length,
+    tailRevision,
+    virtuosoRef,
+  });
 
   useEffect(() => {
     if (!search.activeSearchId) {
@@ -327,10 +347,12 @@ export function ChatTranscript({
     if (index === undefined) {
       return;
     }
-    requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({ align: "center", index });
-    });
-  }, [finalSearchIndex.rowIndexById, search.activeSearchId, virtuosoRef]);
+    scrollFollow.scrollToIndexAsProgrammaticAnchor({ align: "center", index });
+  }, [
+    finalSearchIndex.rowIndexById,
+    scrollFollow.scrollToIndexAsProgrammaticAnchor,
+    search.activeSearchId,
+  ]);
 
   const rowActions = useMemo(
     () =>
@@ -394,44 +416,6 @@ export function ChatTranscript({
     ],
   );
 
-  const scrollToLatest = useCallback(() => {
-    virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
-  }, []);
-
-  const schedulePinnedScrollToLatest = useCallback(() => {
-    if (pinnedScrollFrameRef.current !== null) {
-      return;
-    }
-    pinnedScrollFrameRef.current = requestAnimationFrame(() => {
-      pinnedScrollFrameRef.current = null;
-      scrollToLatest();
-    });
-  }, [scrollToLatest]);
-
-  useEffect(
-    () => () => {
-      if (pinnedScrollFrameRef.current !== null) {
-        cancelAnimationFrame(pinnedScrollFrameRef.current);
-      }
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (!pinned) {
-      return;
-    }
-    schedulePinnedScrollToLatest();
-  }, [
-    activeRun?.id,
-    pinned,
-    schedulePinnedScrollToLatest,
-    rows.length,
-    runItemOutputIdsByRunItemId,
-    runItemOutputPagesByRunItemId,
-    runItemOutputsById,
-  ]);
-
   useEffect(() => {
     if (!pendingScrollAnchor) {
       return;
@@ -448,49 +432,31 @@ export function ChatTranscript({
     if (index === -1) {
       return;
     }
-    requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({ align: "start", index });
-    });
-  }, [pendingScrollAnchor, rows, virtuosoRef]);
-
-  function updatePinnedFromScroll(scrollTop: number, scrollHeight: number, clientHeight: number) {
-    const distanceFromBottom = scrollHeight - clientHeight - scrollTop;
-    if (distanceFromBottom <= 8) {
-      setPinned(true);
-    }
-    scrollTopRef.current = scrollTop;
-  }
+    scrollFollow.scrollToIndexAsProgrammaticAnchor({ align: "start", index });
+  }, [pendingScrollAnchor, rows, scrollFollow.scrollToIndexAsProgrammaticAnchor]);
 
   function handleScroll(event: UIEvent<HTMLDivElement>) {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-    updatePinnedFromScroll(target.scrollTop, target.scrollHeight, target.clientHeight);
+    scrollFollow.handleScroll(event);
   }
 
   function handleWheel(event: WheelEvent<HTMLDivElement>) {
-    if (event.deltaY < 0) {
-      setPinned(false);
-    }
+    scrollFollow.handleWheel(event);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (["ArrowUp", "Home", "PageUp"].includes(event.key)) {
-      setPinned(false);
-    }
+    scrollFollow.handleKeyDown(event);
   }
 
   const loadOlderAndPreserveScroll = useCallback(async () => {
     const anchorKey = rows[visibleStartIndexRef.current]?.key ?? rows[0]?.key ?? null;
     const previousFirstKey = rows[0]?.key ?? null;
     const previousLength = rows.length;
-    setPinned(false);
+    scrollFollow.detach();
     await loadOlder();
     if (anchorKey) {
       setPendingScrollAnchor({ key: anchorKey, previousFirstKey, previousLength });
     }
-  }, [loadOlder, rows]);
+  }, [loadOlder, rows, scrollFollow.detach]);
 
   const virtuosoComponents = useMemo(
     () => ({
@@ -526,11 +492,7 @@ export function ChatTranscript({
     >
       <ChatSearchBar search={search} />
       <Virtuoso
-        atBottomStateChange={(atBottom) => {
-          if (atBottom) {
-            setPinned(true);
-          }
-        }}
+        atBottomStateChange={scrollFollow.handleAtBottomStateChange}
         className="workspace-chat-pane-surface h-full min-h-0 min-w-0 overflow-x-hidden pt-4 pb-2"
         components={virtuosoComponents}
         data={rows}
@@ -543,10 +505,16 @@ export function ChatTranscript({
         overscan={200}
         rangeChanged={(range) => {
           visibleStartIndexRef.current = range.startIndex;
+          scrollFollow.handleRangeChanged(range);
         }}
         ref={virtuosoRef}
+        scrollerRef={scrollFollow.setScrollerRef}
+        totalListHeightChanged={scrollFollow.handleTotalListHeightChanged}
       />
-      <JumpToLatestButton pinned={pinned} setPinned={setPinned} virtuosoRef={virtuosoRef} />
+      <JumpToLatestButton
+        onJumpToLatest={scrollFollow.jumpToLatest}
+        visible={scrollFollow.mode !== "auto_follow"}
+      />
     </div>
   );
 }
@@ -652,15 +620,13 @@ function PendingApproval({
 }
 
 function JumpToLatestButton({
-  pinned,
-  setPinned,
-  virtuosoRef,
+  onJumpToLatest,
+  visible,
 }: {
-  pinned: boolean;
-  setPinned: (pinned: boolean) => void;
-  virtuosoRef: { current: VirtuosoHandle | null };
+  onJumpToLatest: () => void;
+  visible: boolean;
 }) {
-  if (pinned) {
+  if (!visible) {
     return null;
   }
   return (
@@ -672,10 +638,7 @@ function JumpToLatestButton({
         <Button
           aria-label="Jump to latest"
           className="pointer-events-auto h-7 w-7 rounded-sm border-border bg-muted/95 px-0 text-foreground shadow-lg shadow-black/30 hover:bg-accent hover:text-foreground"
-          onClick={() => {
-            virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
-            setPinned(true);
-          }}
+          onClick={onJumpToLatest}
           variant="secondary"
         >
           <ArrowDown className="h-4 w-4" />
