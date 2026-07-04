@@ -235,11 +235,11 @@ function overviewSnapshotPreservesScroll(snapshot, expectedScrollTop) {
 function overviewSnapshotReady(snapshot, expectedScrollTop) {
   return (
     chatOverviewSnapshotReady(snapshot) &&
-    snapshot.scrollerFound &&
-    !snapshot.frozenVisualFound &&
-    !snapshot.frozenScrollerFound &&
-    snapshot.liveContentHidden !== "true" &&
-    snapshot.centerHitLiveContent &&
+    snapshot.frozenVisualFound &&
+    snapshot.frozenScrollerFound &&
+    snapshot.frozenScrollerScrollbarWidth === "none" &&
+    snapshot.liveContentHidden === "true" &&
+    !snapshot.centerHitLiveContent &&
     overviewSnapshotPreservesScroll(snapshot, expectedScrollTop) &&
     overviewSnapshotSourceSizeReady(snapshot) &&
     settingsOverviewSnapshotReady(snapshot)
@@ -259,18 +259,16 @@ function chatOverviewSnapshotReady(snapshot) {
   return (
     snapshot.chatHostFound &&
     snapshot.hostSurfaceKind === "chat-dom" &&
-    snapshot.hostRuntimeState === "live" &&
-    snapshot.hostSurfaceFrozen === "false"
+    snapshot.hostRuntimeState === "live-throttled" &&
+    snapshot.hostSurfaceFrozen === "true"
   );
 }
 
 function settingsOverviewSnapshotReady(snapshot) {
   return (
     snapshot.settingsHostFound &&
-    snapshot.settingsHostSurfaceKind === "settings-dom" &&
-    snapshot.settingsHostRuntimeState === "live" &&
-    snapshot.settingsHostSurfaceFrozen === "false" &&
-    !snapshot.settingsSnapshotFound
+    snapshot.settingsHostRuntimeState === "live-throttled" &&
+    snapshot.settingsHostSurfaceFrozen === "true"
   );
 }
 

@@ -317,6 +317,7 @@ export interface LayoutEngine {
   renamePane(paneId: PaneId, title: string): boolean;
   applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean;
   previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean;
+  reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean;
   resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
   resizePane(paneId: PaneId, heightPx: number | null): void;

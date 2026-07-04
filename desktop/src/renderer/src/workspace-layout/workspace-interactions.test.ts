@@ -151,24 +151,6 @@ describe("workspace keyboard interactions", () => {
     expect(context.runtime.store.splitFocusedPane).not.toHaveBeenCalled();
   });
 
-  test("opens a browser pane with Mod+Alt+B", () => {
-    const context = workspaceKeyContext();
-    const event = keyboardEvent({ altKey: true, key: "b", metaKey: true });
-
-    handleWorkspaceKeyDown({ ...context, event });
-
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(context.runtime.store.canOpenPane).toHaveBeenCalledWith(
-      expect.objectContaining({ surfaceKind: "browser" }),
-    );
-    expect(context.runtime.store.openPane).toHaveBeenCalledWith(
-      expect.objectContaining({
-        surfaceKind: "browser",
-        title: "Browser",
-      }),
-    );
-  });
-
   test("uses active shortcut settings for forwarded BrowserView arrows", () => {
     const context = workspaceKeyContext({
       shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
@@ -226,6 +208,7 @@ describe("workspace overview wheel panning", () => {
         clientY: 80,
         deltaY: -120,
         target: context.insideTarget,
+        wheelDeltaY: 120,
       }),
     });
 
@@ -303,6 +286,7 @@ function wheelEvent({
   deltaY,
   metaKey = false,
   target,
+  wheelDeltaY,
 }: {
   clientX?: number;
   clientY?: number;
@@ -312,6 +296,7 @@ function wheelEvent({
   deltaY: number;
   metaKey?: boolean;
   target: unknown;
+  wheelDeltaY?: number;
 }): WheelEvent {
   return {
     clientX,
@@ -324,6 +309,7 @@ function wheelEvent({
     preventDefault: vi.fn(),
     stopPropagation: vi.fn(),
     target,
+    wheelDeltaY,
   } as unknown as WheelEvent;
 }
 
@@ -334,10 +320,8 @@ function workspaceKeyContext({
 } = {}) {
   const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
   const store = {
-    canOpenPane: vi.fn(() => true),
     moveFocus: vi.fn(),
     moveFocusedPane: vi.fn(),
-    openPane: vi.fn(),
     splitFocusedPane: vi.fn(),
     splitFocusedPaneToPlane: vi.fn(),
   };

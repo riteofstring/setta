@@ -198,7 +198,25 @@ async function pressComposerArrow(client, waitForState, key) {
 }
 
 async function setComposerValueWithCaret(client, waitForState, value, caret) {
-  const changed = await client.driver("setComposerValueWithCaret", { caret, value });
+  const changed = await client.evaluate(`(() => {
+    const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
+    if (!textarea || textarea.disabled) {
+      return false;
+    }
+    const previousValue = textarea.value;
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+    descriptor?.set?.call(textarea, ${JSON.stringify(value)});
+    textarea._valueTracker?.setValue(previousValue);
+    textarea.focus();
+    textarea.setSelectionRange(${caret}, ${caret});
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      data: ${JSON.stringify(value)},
+      inputType: "insertText",
+    }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+    return textarea.value === ${JSON.stringify(value)};
+  })()`);
   if (!changed) {
     throw new Error("composer value could not be changed");
   }

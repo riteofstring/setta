@@ -122,9 +122,6 @@ export async function runWorkflowRunnerPostStartFailureWorkflowLaunch(results, {
         entry.channel === "workflow:start-execution" &&
         typeof entry.error?.message === "string" &&
         entry.error.message.includes("e2e injected workflow runner post-start persistence failure"),
-      (entry) =>
-        entry.channel === "chat:list-conversations" &&
-        entry.error?.message === "backend is stopping",
     ],
     ipcChannels: [
       "workspace:open-local-folder",

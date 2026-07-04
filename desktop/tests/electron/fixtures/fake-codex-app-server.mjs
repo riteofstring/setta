@@ -834,7 +834,7 @@ function emitProtocolCoverageTurn() {
   });
   notify("deprecationNotice", {
     details: "Use the replacement protocol surface.",
-    summary: "Protocol deprecation notice.",
+    summary: "Legacy protocol notice.",
   });
   notify("externalAgentConfig/import/completed", {});
   notify("fs/changed", { changedPaths: ["/tmp/workspace/main.go"], watchId: "watch_fake" });

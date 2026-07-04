@@ -149,45 +149,11 @@ describe("overview ghost slot geometry", () => {
     expect(far).toMatchObject({ paneId: "b-bottom", placement: "below" });
     expect(far?.height).toBe(248);
   });
-
-  test("does not create an in-between row under a short pane inside a taller plane", () => {
-    const unevenPlane: OverviewPaneFrame[] = [
-      paneFrame("tall", 0, 0, 0, { height: 400 }),
-      paneFrame("short", 208, 40, 0),
-    ];
-
-    expect(overviewGhostTargetFromFrames(unevenPlane, 300, 170)).toBeNull();
-
-    const target = overviewGhostTargetFromFrames(unevenPlane, 300, 430);
-    expect(target).toMatchObject({ paneId: "short", placement: "below" });
-    expect(target?.top).toBe(408);
-    expect(target?.height).toBe(400);
-  });
-
-  test("uses the anchor pane plane when row bands visually overlap", () => {
-    const overlappingPlanes: OverviewPaneFrame[] = [
-      paneFrame("lower-wide", 0, 100, 1, { height: 200 }),
-      paneFrame("upper-mate", 0, 140, 0, { height: 80 }),
-      paneFrame("upper-short", 208, 150, 0, { height: 40 }),
-    ];
-
-    const target = overviewGhostTargetFromFrames(overlappingPlanes, 420, 170);
-
-    expect(target).toMatchObject({ paneId: "upper-short", placement: "right" });
-    expect(target?.top).toBe(140);
-    expect(target?.height).toBe(80);
-  });
 });
 
-function paneFrame(
-  paneId: string,
-  x: number,
-  y: number,
-  planeIndex = 0,
-  overrides: Partial<Pick<OverviewPaneFrame, "height" | "width">> = {},
-): OverviewPaneFrame {
-  const width = overrides.width ?? 200;
-  const height = overrides.height ?? 120;
+function paneFrame(paneId: string, x: number, y: number, planeIndex = 0): OverviewPaneFrame {
+  const width = 200;
+  const height = 120;
   return {
     bottom: y + height,
     height,

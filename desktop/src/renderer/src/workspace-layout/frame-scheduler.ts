@@ -298,7 +298,6 @@ export class FrameScheduler {
     });
     this.items.push(
       ...interpolatePaneRenderItems({
-        includeSecondaryOnlyItems: snapshot.presentationMode === "overview",
         normalItems,
         overviewItems,
         overviewProgress: snapshot.overviewProgress,

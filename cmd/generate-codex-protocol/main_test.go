@@ -204,7 +204,7 @@ func TestSupportedProtocolRegistrationRejectsMissingSchema(t *testing.T) {
 func TestRenderEmitsOnlySupportedServerRequestConstants(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	generator.serverRequests = []protocolMember{
-		{Method: "applyPatchApproval", ConstName: "ApplyPatchApproval", ParamsName: "UnsupportedRequest", Source: "json"},
+		{Method: "applyPatchApproval", ConstName: "ApplyPatchApproval", ParamsName: "LegacyRequest", Source: "json"},
 		{Method: "item/tool/call", ConstName: "ItemToolCall", ParamsName: "ToolCallRequest", Source: "json"},
 	}
 	generator.supportedServerRequests = []protocolMember{
@@ -220,7 +220,7 @@ func TestRenderEmitsOnlySupportedServerRequestConstants(t *testing.T) {
 		t.Fatalf("output = %s, want supported item/tool/call request constant", text)
 	}
 	if strings.Contains(text, "CodexServerRequestApplyPatchApproval") {
-		t.Fatalf("output = %s, want no unsupported applyPatchApproval server request constant", text)
+		t.Fatalf("output = %s, want no legacy applyPatchApproval server request constant", text)
 	}
 }
 

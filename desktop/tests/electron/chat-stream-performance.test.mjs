@@ -15,7 +15,6 @@ import {
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
-  waitForState,
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
@@ -35,7 +34,6 @@ const chatStreamMaxFrameDeltaMs = 100;
 const chatStreamMaxSlowFramesOver50Ms = 2;
 const completionMarker = "Performance stream complete.";
 const prompt = "chat performance stream";
-const streamWarmupMarker = "stream chunk 010";
 const settleAfterCompletionMs = 350;
 const viewport = {
   deviceScaleFactor: 1,
@@ -79,15 +77,11 @@ try {
   const conversationId = await createChat(context.client, backend, workspaceId);
   await waitForSelector(context.client, '[data-testid="chat-detail-pane"]');
   await waitForSelector(context.client, '[data-testid="chat-transcript-scroller"]');
-  await waitForOptionalWorkflowGraphSettled(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before-stream.png"));
   if (options.trace) {
     traceSession = await startChromiumTrace(context.client, join(artifactDir, "trace.json"));
   }
 
-  await submitComposer(context.client, prompt, "Send message");
-  const run = await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, null);
-  await waitForChatStreamWarmup(context.client);
   const started = await context.client.driver("chatStreamPerformanceStart", {
     completionMarker,
     settleAfterCompletionMs,
@@ -95,6 +89,8 @@ try {
   if (!started.ok) {
     throw new Error(`chat performance measurement did not start: ${JSON.stringify(started)}`);
   }
+  await submitComposer(context.client, prompt, "Send message");
+  const run = await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, null);
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, {
     status: "completed",
     timeoutMs: chatPerformanceTimeoutMs,
@@ -190,60 +186,4 @@ async function safeMeasurementSnapshot(client) {
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
-}
-
-async function waitForOptionalWorkflowGraphSettled(client) {
-  await waitForState(client, workflowGraphSettledExpression(), (value) => value.ready, 5_000).catch(
-    () => {},
-  );
-}
-
-async function waitForChatStreamWarmup(client) {
-  await waitForState(
-    client,
-    `(() => ({
-      ready: document.body.textContent?.includes(${JSON.stringify(streamWarmupMarker)}) === true,
-    }))()`,
-    (value) => value.ready,
-    chatPerformanceTimeoutMs,
-  );
-}
-
-function workflowGraphSettledExpression() {
-  return `(() => {
-    const api = window.__settaWorkflowGraphDebug;
-    if (!api?.getSurfaceIds || !api?.getSnapshot) {
-      return { ready: true, skipped: "missing-debug-api" };
-    }
-    const surfaceIds = api.getSurfaceIds();
-    const surfaceId = surfaceIds.includes("workspace_surface_2")
-      ? "workspace_surface_2"
-      : surfaceIds[0] ?? null;
-    if (surfaceId === null) {
-      return { ready: true, skipped: "missing-debug-surface" };
-    }
-    let snapshot = null;
-    try {
-      snapshot = api.getSnapshot(surfaceId, { includeVisual: false });
-    } catch (error) {
-      return {
-        ready: false,
-        reason: error instanceof Error ? error.message : String(error),
-        surfaceId,
-      };
-    }
-    const frameCount = snapshot?.render?.frameCount ?? 0;
-    const now = performance.now();
-    const previous = window.__settaChatStreamGraphSettle;
-    if (
-      !previous ||
-      previous.surfaceId !== surfaceId ||
-      previous.frameCount !== frameCount
-    ) {
-      window.__settaChatStreamGraphSettle = { frameCount, stableSince: now, surfaceId };
-      return { frameCount, ready: false, stableMs: 0, surfaceId };
-    }
-    const stableMs = now - previous.stableSince;
-    return { frameCount, ready: stableMs >= 120, stableMs, surfaceId };
-  })()`;
 }

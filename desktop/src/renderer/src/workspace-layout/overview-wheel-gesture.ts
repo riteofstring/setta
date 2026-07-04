@@ -13,7 +13,8 @@
 //                            DOM_DELTA_LINE / DOM_DELTA_PAGE; trackpads always send
 //                            pixel deltas.
 //   - coarse vertical notch -> zoom. A classic mouse wheel in pixel mode lands on
-//                            coarse whole-pixel steps with no horizontal component.
+//                            whole 120-unit notches (`wheelDeltaY`) with no
+//                            horizontal component.
 //   - everything else     -> pan. Smooth / fractional / horizontally-tilted
 //                            scrolling is a trackpad swipe.
 //
@@ -29,9 +30,13 @@ export interface OverviewWheelSample {
   deltaX: number;
   deltaY: number;
   metaKey: boolean;
+  // Legacy Chromium field; a real mouse wheel reports a non-zero multiple of 120.
+  wheelDeltaY?: number;
 }
 
-// Coarse-step threshold (pixels) for mouse wheels that report DOM_DELTA_PIXEL.
+// One mouse-wheel notch in `wheelDeltaY` units (Chromium).
+const wheelNotchUnit = 120;
+// Fallback coarse-step threshold (pixels) when `wheelDeltaY` is unavailable.
 const mouseWheelMinPixelStep = 40;
 // Maps a deltaMode to an approximate pixel magnitude so line/page wheels and
 // pixel trackpads share one sensitivity scale (used by the pan path).
@@ -61,6 +66,12 @@ function looksLikeMouseWheelNotch(sample: OverviewWheelSample): boolean {
   if (sample.deltaX !== 0) {
     return false;
   }
+  const { wheelDeltaY } = sample;
+  if (typeof wheelDeltaY === "number" && wheelDeltaY !== 0) {
+    return Math.abs(wheelDeltaY) % wheelNotchUnit === 0;
+  }
+  // No legacy field (non-Chromium / synthetic): treat a coarse whole-pixel
+  // vertical step as a notch.
   return Number.isInteger(sample.deltaY) && Math.abs(sample.deltaY) >= mouseWheelMinPixelStep;
 }
 

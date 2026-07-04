@@ -14,7 +14,6 @@ import {
   submitComposer,
   waitForBackendState,
   waitForCommandResult,
-  waitForDriverState,
   waitForGoalStatus,
   waitForRunStatus,
   waitForRunWithPrompt,
@@ -327,15 +326,68 @@ async function assertProtocolDiffSearchable(client) {
 }
 
 async function openProtocolChatSearch(client) {
-  await client.driver("openChatSearch");
-  await waitForDriverState(client, "chatSearchState", {}, (value) => value.open);
+  await client.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      ctrlKey: true,
+      key: "f",
+      metaKey: true,
+    }));
+  })()`);
+  await waitForState(
+    client,
+    `(() => ({ open: Boolean(document.querySelector('input[placeholder="Search chat"]')) }))()`,
+    (value) => value.open,
+  );
 }
 
 async function openProtocolActivityRow(client, sourceRunItemId) {
   const startedAt = Date.now();
   let opened = null;
   while (Date.now() - startedAt < 2_000) {
-    opened = await client.driver("openProjectedActivityRow", { sourceRunItemId });
+    opened = await client.evaluate(`(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
+      const groupHeaders = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'));
+      const groupHeader = groupHeaders.find((candidate) =>
+        (candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "")
+          .split(/\\s+/)
+          .includes(sourceRunItemId)
+      );
+      let rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+      let row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      if (
+        !row &&
+        groupHeader instanceof HTMLButtonElement &&
+        groupHeader.getAttribute("data-activity-group-expanded") !== "true"
+      ) {
+        groupHeader.click();
+        rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+        row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      }
+      if (!row) {
+        return {
+          ok: false,
+          reason: "missing-row",
+          groups: groupHeaders.map((candidate) => ({
+            expanded: candidate.getAttribute("data-activity-group-expanded") ?? "",
+            sourceRunItemIds: candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "",
+            text: candidate.innerText,
+          })),
+          rows: rows.map((candidate) => ({
+            sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
+            text: candidate.innerText,
+          })),
+        };
+      }
+      if (!(row instanceof HTMLDetailsElement)) {
+        return { ok: true, reason: "compact-row" };
+      }
+      if (!row.open) {
+        row.querySelector("summary")?.click();
+      }
+      return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
+    })()`);
     if (opened.ok) {
       return;
     }
@@ -527,18 +579,36 @@ async function waitForCurrentPlanSurface(
   { completedCount, currentStep, expanded = "", phase = "active", runId, stepCount, stepText },
 ) {
   let lastSurface = null;
-  await waitForDriverState(client, "currentPlanSurface", {}, (value) => {
-    lastSurface = value;
-    return currentPlanSurfaceMatches(value, {
-      completedCount,
-      currentStep,
-      expanded,
-      phase,
-      runId,
-      stepCount,
-      stepText,
-    });
-  });
+  await waitForState(
+    client,
+    `(() => {
+      const surfaces = Array.from(document.querySelectorAll('[data-testid="current-plan-surface"]'));
+      const surface = surfaces[0];
+      return {
+        completedCount: surface?.getAttribute("data-plan-completed-count") ?? "",
+        count: surfaces.length,
+        currentStep: surface?.getAttribute("data-current-step") ?? "",
+        expanded: surface?.getAttribute("data-expanded") ?? "",
+        phase: surface?.getAttribute("data-plan-state") ?? "",
+        runId: surface?.getAttribute("data-run-id") ?? "",
+        runItemId: surface?.getAttribute("data-run-item-id") ?? "",
+        stepCount: surface?.getAttribute("data-plan-step-count") ?? "",
+        text: surface?.innerText ?? "",
+      };
+    })()`,
+    (value) => {
+      lastSurface = value;
+      return currentPlanSurfaceMatches(value, {
+        completedCount,
+        currentStep,
+        expanded,
+        phase,
+        runId,
+        stepCount,
+        stepText,
+      });
+    },
+  );
   return lastSurface;
 }
 
@@ -582,9 +652,34 @@ function currentPlanSurfaceHeading(phase) {
 
 async function openCurrentPlanSurfaceFromTranscriptRow(client, sourceRunItemId) {
   await openProtocolActivityRow(client, sourceRunItemId);
-  const clicked = await client.driver("clickCurrentPlanSurfaceFromTranscriptRow", {
-    sourceRunItemId,
-  });
+  const clicked = await client.evaluate(`(() => {
+    const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+    const row = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'))
+      .find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+    const button = row?.querySelector('[data-testid="open-current-plan-surface"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      const surface = document.querySelector('[data-testid="current-plan-surface"]');
+      const detail = document.querySelector('[data-testid="chat-detail-pane"]');
+      return {
+        ok: false,
+        reason: "missing-button",
+        runStatus: detail?.getAttribute("data-run-status") ?? "",
+        currentPlanSurfaceRunId: surface?.getAttribute("data-run-id") ?? "",
+        currentPlanSurfaceRunItemId: surface?.getAttribute("data-run-item-id") ?? "",
+        rowRunId: row?.getAttribute("data-run-id") ?? "",
+        rowRunItemId: row?.getAttribute("data-run-item-id") ?? "",
+        rowText: row instanceof HTMLElement ? row.innerText : "",
+      };
+    }
+    button.click();
+    const footerButton = document.querySelector('[data-testid="current-plan-footer"] button');
+    const surface = document.querySelector('[data-testid="current-plan-surface"]');
+    return {
+      expanded: surface?.getAttribute("data-expanded") ?? "",
+      focused: document.activeElement === footerButton,
+      ok: true,
+    };
+  })()`);
   if (!clicked.ok) {
     throw new Error(`current plan row action was unavailable: ${JSON.stringify(clicked)}`);
   }
@@ -1032,10 +1127,72 @@ async function assertProviderStreamLifecycleActivityRendered(
   title,
   livenessReason,
 ) {
-  await waitForDriverState(
+  await waitForState(
     client,
-    "providerStreamLifecycleActivityRendered",
-    { livenessReason, sourceRunItemId, title },
+    `(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
+      const isVisible = (element) => {
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      };
+      const groupHeader = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'))
+        .find((candidate) =>
+          isVisible(candidate) &&
+          (candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "")
+            .split(/\\s+/)
+            .includes(sourceRunItemId)
+        );
+      if (
+        groupHeader instanceof HTMLButtonElement &&
+        groupHeader.getAttribute("data-activity-group-expanded") !== "true"
+      ) {
+        groupHeader.click();
+        return {
+          ok: false,
+          reason: "expanding-group",
+          groupText: groupHeader.innerText,
+        };
+      }
+      const row = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'))
+        .find(
+          (candidate) =>
+            isVisible(candidate) &&
+            candidate.getAttribute("data-run-item-id") === sourceRunItemId,
+        );
+      if (!(row instanceof HTMLDetailsElement)) {
+        return {
+          ok: false,
+          reason: row ? "compact-row" : "missing-row",
+          groupExpanded: groupHeader?.getAttribute("data-activity-group-expanded") ?? "",
+          groupText: groupHeader?.innerText ?? "",
+          rowText: row?.innerText ?? "",
+        };
+      }
+      if (!row.open) {
+        row.querySelector("summary")?.click();
+        return {
+          ok: false,
+          reason: "opening-row",
+          groupExpanded: groupHeader?.getAttribute("data-activity-group-expanded") ?? "",
+          text: row.innerText,
+        };
+      }
+      const text = row?.innerText ?? "";
+      return {
+        ok:
+          text.includes(${JSON.stringify(title)}) &&
+          text.includes("responseStreamDisconnected") &&
+          text.includes("fake response stream disconnect") &&
+          text.includes(${JSON.stringify(livenessReason)}) &&
+          text.includes("thread_fake") &&
+          text.includes("turn_fake"),
+        reason: "waiting-for-details",
+        groupExpanded: groupHeader?.getAttribute("data-activity-group-expanded") ?? "",
+        text,
+      };
+    })()`,
     (value) => value.ok,
   );
 }

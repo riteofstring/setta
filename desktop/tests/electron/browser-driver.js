@@ -299,14 +299,12 @@
   }
 
   function sidebarMetrics() {
-    const sidebar =
-      document.querySelector('[data-testid="sidebar-scrollable-sections"]') ?? document;
     return {
-      activeRows: sidebar.querySelectorAll('[data-testid="active-workspace-item"]').length,
-      conversationRows: sidebar.querySelectorAll('[data-testid="conversation-sidebar-item"]')
+      activeRows: document.querySelectorAll('[data-testid="active-workspace-item"]').length,
+      conversationRows: document.querySelectorAll('[data-testid="conversation-sidebar-item"]')
         .length,
-      recentRows: sidebar.querySelectorAll('[data-testid="recent-workspace-item"]').length,
-      totalElements: sidebar.querySelectorAll("*").length,
+      recentRows: document.querySelectorAll('[data-testid="recent-workspace-item"]').length,
+      totalElements: document.querySelectorAll("*").length,
     };
   }
 

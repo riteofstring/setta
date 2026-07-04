@@ -616,6 +616,7 @@ function handleOverviewWheel({
     deltaX: event.deltaX,
     deltaY: event.deltaY,
     metaKey: event.metaKey,
+    wheelDeltaY: wheelDeltaYOf(event),
   });
   let changed: boolean;
   if (intent === "zoom") {
@@ -636,6 +637,11 @@ function handleOverviewWheel({
   if (changed) {
     scheduler.pauseBenchmark();
   }
+}
+
+function wheelDeltaYOf(event: WheelEvent): number | undefined {
+  const value = (event as WheelEvent & { wheelDeltaY?: number }).wheelDeltaY;
+  return typeof value === "number" ? value : undefined;
 }
 
 function wheelTargetWithinRoot(root: HTMLElement, target: EventTarget | null): boolean {

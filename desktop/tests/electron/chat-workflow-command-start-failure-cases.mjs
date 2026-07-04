@@ -4,8 +4,8 @@ import {
   clickButtonByAria,
   setInputValue,
   submitComposer,
-  waitForDriverState,
   waitForRunWithPrompt,
+  waitForState,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
 
@@ -39,21 +39,40 @@ export async function runCommandStartFailureWorkflow({
   }
   assertCommandStartFailureRow(row);
   await openProjectedActivityRow(client, row.sourceRunItemId);
-  await waitForDriverState(
+  await waitForState(
     client,
-    "commandStartFailureActivityDetails",
-    { sourceRunItemId: row.sourceRunItemId },
+    `(() => {
+      const sourceRunItemId = ${JSON.stringify(row.sourceRunItemId)};
+      const row = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'))
+        .find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      const text = row?.innerText ?? "";
+      return {
+        ok:
+          text.includes("Shell command failed to start") &&
+          text.includes("printf scripted-start-failure") &&
+          text.includes("Too many open files (os error 24)") &&
+          text.includes("resource_exhaustion") &&
+          text.includes("scripted-emfile-"),
+        text,
+      };
+    })()`,
     (value) => value.ok,
   );
   await openChatSearch(client);
   await setInputValue(client, 'input[placeholder="Search chat"]', "scripted-emfile");
-  await waitForDriverState(
+  await waitForState(
     client,
-    "focusedActivityRowContains",
-    {
-      sourceRunItemId: row.sourceRunItemId,
-      texts: ["Too many open files (os error 24)"],
-    },
+    `(() => {
+      const sourceRunItemId = ${JSON.stringify(row.sourceRunItemId)};
+      const row = document.querySelector('[data-activity-focused="true"]');
+      return {
+        ok:
+          row?.getAttribute("data-run-item-id") === sourceRunItemId &&
+          row?.innerText.includes("Too many open files (os error 24)"),
+        sourceRunItemId: row?.getAttribute("data-run-item-id") ?? "",
+        text: row?.innerText ?? "",
+      };
+    })()`,
     (value) => value.ok,
   );
   await clickButtonByAria(client, "Close chat search");
@@ -95,7 +114,49 @@ async function openProjectedActivityRow(client, sourceRunItemId) {
   const startedAt = Date.now();
   let opened = null;
   while (Date.now() - startedAt < 2_000) {
-    opened = await client.driver("openProjectedActivityRow", { sourceRunItemId });
+    opened = await client.evaluate(`(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
+      const groupHeaders = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'));
+      const groupHeader = groupHeaders.find((candidate) =>
+        (candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "")
+          .split(/\\s+/)
+          .includes(sourceRunItemId)
+      );
+      let rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+      let row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      if (
+        !row &&
+        groupHeader instanceof HTMLButtonElement &&
+        groupHeader.getAttribute("data-activity-group-expanded") !== "true"
+      ) {
+        groupHeader.click();
+        rows = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'));
+        row = rows.find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      }
+      if (!row) {
+        return {
+          ok: false,
+          reason: "missing-row",
+          groups: groupHeaders.map((candidate) => ({
+            expanded: candidate.getAttribute("data-activity-group-expanded") ?? "",
+            sourceRunItemIds: candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "",
+            text: candidate.innerText,
+          })),
+          rows: rows.map((candidate) => ({
+            sourceRunItemId: candidate.getAttribute("data-run-item-id") ?? "",
+            text: candidate.innerText,
+          })),
+        };
+      }
+      if (!(row instanceof HTMLDetailsElement)) {
+        return { ok: true, reason: "compact-row" };
+      }
+      if (!row.open) {
+        row.querySelector("summary")?.click();
+      }
+      return { ok: row.open, reason: row.open ? "opened" : "not-opened", text: row.innerText };
+    })()`);
     if (opened.ok) {
       return;
     }
@@ -105,6 +166,17 @@ async function openProjectedActivityRow(client, sourceRunItemId) {
 }
 
 async function openChatSearch(client) {
-  await client.driver("openChatSearch");
-  await waitForDriverState(client, "chatSearchState", {}, (value) => value.open);
+  await client.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      ctrlKey: true,
+      key: "f",
+      metaKey: true,
+    }));
+  })()`);
+  await waitForState(
+    client,
+    `(() => ({ open: Boolean(document.querySelector('input[placeholder="Search chat"]')) }))()`,
+    (value) => value.open,
+  );
 }

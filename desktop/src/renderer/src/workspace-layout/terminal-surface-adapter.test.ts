@@ -170,7 +170,7 @@ describe("terminal surface adapter", () => {
     vi.unstubAllGlobals();
   });
 
-  test("attaches existing sessions for visible panes and reattaches after remount", async () => {
+  test("attaches existing sessions and reattaches after remount", async () => {
     const api = installSettaAPI({
       attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
       create: vi.fn(async () => terminalResponse("terminal_created", "running")),
@@ -183,12 +183,11 @@ describe("terminal surface adapter", () => {
 
     expect(api.terminal.attach).not.toHaveBeenCalled();
 
-    adapter.setVisible(true);
+    adapter.setFocused(true);
     await waitFor(() => firstHost.dataset.terminalSessionId === "terminal_existing");
 
     expect(api.terminal.attach).toHaveBeenCalledTimes(1);
     expect(api.terminal.create).not.toHaveBeenCalled();
-    expect(firstHost.dataset.surfaceFocused).toBe("false");
     expect(firstHost.dataset.terminalSessionId).toBe("terminal_existing");
     expect(firstHost.dataset.terminalStatus).toBe("running");
     expect(firstHost.style.getPropertyValue("--workspace-terminal-background")).toBe("#09090b");
@@ -196,7 +195,6 @@ describe("terminal surface adapter", () => {
     adapter.unmount();
     const secondHost = createFakeHost();
     adapter.mount(secondHost);
-    adapter.setVisible(true);
     await waitFor(
       () =>
         secondHost.dataset.terminalSessionId === "terminal_existing" &&
@@ -218,6 +216,7 @@ describe("terminal surface adapter", () => {
 
     adapter.mount(host);
     adapter.setVisible(true);
+    adapter.setFocused(true);
     await waitFor(() => terminalMock.fitAddons.length === 1 && terminalMock.instances.length === 1);
 
     expect(terminalMock.fitAddons[0]?.fit).not.toHaveBeenCalled();
@@ -240,7 +239,7 @@ describe("terminal surface adapter", () => {
     const host = createFakeHost();
 
     adapter.mount(host);
-    adapter.setVisible(true);
+    adapter.setFocused(true);
     await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
     emitTerminalEvent(
       terminalEvent("terminal.bufferTruncated", "terminal_existing", {
@@ -262,7 +261,7 @@ describe("terminal surface adapter", () => {
     const host = createFakeHost();
 
     adapter.mount(host);
-    adapter.setVisible(true);
+    adapter.setFocused(true);
     emitTerminalEvent(
       terminalEvent("terminal.output", "terminal_existing", {
         byteCount: 5,
@@ -293,7 +292,7 @@ describe("terminal surface adapter", () => {
     const host = createFakeHost();
 
     adapter.mount(host);
-    adapter.setVisible(true);
+    adapter.setFocused(true);
     await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
     emitBackendStatus({ message: "Backend exited unexpectedly", status: "offline" });
 
@@ -648,7 +647,7 @@ describe("terminal surface adapter", () => {
     const host = createFakeHost();
 
     adapter.mount(host);
-    adapter.setVisible(true);
+    adapter.setFocused(true);
     await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
     const terminal = terminalMock.instances[0];
     if (!terminal) {

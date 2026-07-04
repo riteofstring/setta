@@ -23,6 +23,29 @@ export interface PaneDropColumnOptions {
   newColumnId: ColumnId;
 }
 
+export type PaneReorderPlacement = PaneDropPlacement;
+
+function reorderPaneColumnForPlacement(
+  columns: readonly WorkspaceColumn[],
+  sourcePaneId: PaneId,
+  targetPaneId: PaneId,
+  placement: PaneReorderPlacement,
+): PaneDropColumnResult {
+  return applyPaneDropIntentToColumns(columns, sourcePaneId, {
+    kind: "row",
+    placement,
+    targetPaneId,
+  });
+}
+
+export function reorderPaneColumnBefore(
+  columns: readonly WorkspaceColumn[],
+  sourcePaneId: PaneId,
+  targetPaneId: PaneId,
+): PaneDropColumnResult {
+  return reorderPaneColumnForPlacement(columns, sourcePaneId, targetPaneId, "before");
+}
+
 export function applyPaneDropIntentToColumns(
   columns: readonly WorkspaceColumn[],
   sourcePaneId: PaneId,
