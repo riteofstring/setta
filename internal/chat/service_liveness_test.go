@@ -274,7 +274,7 @@ func TestServiceNonRetryableStreamTurnErrorMarksActiveRunLost(t *testing.T) {
 	assertProviderTurnErrorPartialAssistantText(t, service, conversation.ID)
 	assertProviderStreamLifecycleActivity(t, service, conversation.ID, result.Run.ID, providerStreamLifecycleActivityAssertion{
 		title:          "Codex stream failed",
-		itemStatus:     RunItemStatusRunning,
+		itemStatus:     RunItemStatusFailed,
 		message:        "stream disconnected before completion",
 		willRetry:      false,
 		livenessStatus: RunLivenessLost,

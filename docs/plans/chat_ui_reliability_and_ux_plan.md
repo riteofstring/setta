@@ -714,8 +714,17 @@ Status after the MCP typed-details cutover:
   status instead of remaining pending. The scripted user-input approval workflow
   now emits the same typed `approval_request` row as the other approval
   workflows and deterministic Electron coverage asserts the answered status.
-- Remaining: complete protocol findings and typed-detail cutovers for failed
-  starts and stream lifecycle activity rows.
+- Done: provider stream lifecycle activity rows now write
+  `RunItem.details.providerStreamLifecycle` for Codex stream error message,
+  additional details, Codex error info, retryability, stream-failure marker,
+  liveness status/reason, and provider thread/turn IDs. Retryable stream errors
+  render as `Codex connection retrying`; non-retryable stream loss renders as a
+  failed `Codex stream failed` row while preserving partial assistant text and
+  active-run liveness controls. Deterministic Electron protocol coverage asserts
+  backend projection, transcript rendering, and search through the production
+  path.
+- Remaining: complete protocol findings and typed-detail cutover for failed
+  tool starts.
 
 ### Slice 4: Tool And File Activity Rendering
 

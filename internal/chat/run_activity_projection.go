@@ -87,7 +87,7 @@ func activityItemBlockProjection(item RunItem, runStatus RunStatus, hasOutput bo
 		SourceRunItemID: item.ID,
 		Type:            item.Type,
 		Title:           runActivityProjectionTitle(item),
-		Status:          effectiveRunActivityRowStatus(runStatus, item.Status),
+		Status:          runActivityProjectionStatus(item, runStatus),
 		Details:         details,
 		HasDetails:      runActivityDetailsInspectable(details),
 		HasOutput:       hasOutput,
@@ -96,6 +96,15 @@ func activityItemBlockProjection(item RunItem, runStatus RunStatus, hasOutput bo
 		return ActivityItemBlockProjection{}, false
 	}
 	return projection, true
+}
+
+func runActivityProjectionStatus(item RunItem, runStatus RunStatus) RunItemStatus {
+	if details, ok := item.ProviderStreamLifecycleDetails(); ok && !details.WillRetry {
+		// The run stays active/lost so liveness controls remain available, but the
+		// diagnostic row itself should read as a failed stream event.
+		return RunItemStatusFailed
+	}
+	return effectiveRunActivityRowStatus(runStatus, item.Status)
 }
 
 func runActivityProjectionTitle(item RunItem) string {

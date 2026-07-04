@@ -649,7 +649,7 @@ export async function runProtocolStreamErrorLivenessWorkflow(client, backend, wo
       livenessReason: "provider_unavailable",
       livenessStatus: "lost",
       message: "stream disconnected before completion",
-      status: "running",
+      status: "failed",
       title: "Codex stream failed",
       willRetry: false,
     },
