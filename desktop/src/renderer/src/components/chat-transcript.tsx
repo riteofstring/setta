@@ -129,7 +129,6 @@ function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; te
         details.error,
         details.noticeKind,
         details.noticeMessage,
-        details.diffSummary,
         details.serverName,
         details.toolName,
         details.namespace,
@@ -140,6 +139,7 @@ function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; te
         ...transcriptActivityCommandExecutionSearchText(details),
         ...transcriptActivityMCPSearchText(details),
         ...transcriptActivityFileChangeSearchText(details),
+        ...transcriptActivityDiffSearchText(details),
       ]
         .filter((item) => item !== "")
         .join("\n"),
@@ -181,6 +181,27 @@ function transcriptActivityFileChangeSearchText(details: RunActivityDetailsProje
       path.deletions > 0 ? String(path.deletions) : "",
       path.patch,
       path.patchTruncated ? "patch truncated" : "",
+    ]),
+  ];
+}
+
+function transcriptActivityDiffSearchText(details: RunActivityDetailsProjection) {
+  const diff = details.diff;
+  if (diff === null) {
+    return [];
+  }
+  return [
+    diff.summary,
+    diff.additions > 0 ? String(diff.additions) : "",
+    diff.deletions > 0 ? String(diff.deletions) : "",
+    diff.patch,
+    diff.patchTruncated ? "patch truncated" : "",
+    ...diff.paths.flatMap((path) => [
+      path.path,
+      path.operation ?? "",
+      path.movePath,
+      path.additions > 0 ? String(path.additions) : "",
+      path.deletions > 0 ? String(path.deletions) : "",
     ]),
   ];
 }

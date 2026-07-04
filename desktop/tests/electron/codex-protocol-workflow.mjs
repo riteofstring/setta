@@ -69,6 +69,7 @@ export async function assertProtocolNotificationActivity(
     (item) => item.title === "Context compaction" && item.status === "completed",
   );
   await assertRunActivityItem(page, "file_change", (item) => isProtocolFileChangeItem(item));
+  await assertRunActivityItem(page, "diff", (item) => isProtocolDiffItem(item));
   await assertRunActivityItem(page, "reasoning", (item) => item.hiddenText === "private reasoning");
   await assertRunActivityItem(
     page,
@@ -104,6 +105,7 @@ export async function assertProtocolNotificationActivity(
   await assertProtocolMCPActivityRendered(client, mcpActivity.sourceRunItemId);
   await assertProtocolMCPActivitySearchable(client, mcpActivity.sourceRunItemId);
   await assertProtocolFileChangeSearchable(client);
+  await assertProtocolDiffSearchable(client);
   await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "deprecationNotice");
   if ((page.activity ?? []).some((row) => row.type === "reasoning")) {
     throw new Error(`reasoning leaked into projected activity: ${JSON.stringify(page.activity)}`);
@@ -189,6 +191,34 @@ function isProtocolFileChangeItem(item) {
   );
 }
 
+function isProtocolDiffItem(item) {
+  const details = protocolDiffDetails(item);
+  if (details === null) {
+    return false;
+  }
+  return (
+    details.summary === "1 file, +1 -1" &&
+    isProtocolDiffPath(details.paths?.[0]) &&
+    details.patch.includes("+updated")
+  );
+}
+
+function protocolDiffDetails(item) {
+  if (item.details?.kind !== "diff") {
+    return null;
+  }
+  return item.details.diff ?? null;
+}
+
+function isProtocolDiffPath(path) {
+  return (
+    path?.path === "main.go" &&
+    path.operation === "update" &&
+    path.additions === 1 &&
+    path.deletions === 1
+  );
+}
+
 function mcpToolResultRepositories(details) {
   return details.result?.structuredContent?.repositories;
 }
@@ -254,6 +284,26 @@ async function assertProtocolFileChangeSearchable(client) {
       return {
         ok:
           row?.innerText.includes("Updated main.go") &&
+          row?.innerText.includes("main.go") &&
+          row?.innerText.includes("PATCH"),
+        text: row?.innerText ?? "",
+      };
+    })()`,
+    (value) => value.ok,
+  );
+  await clickButtonByAria(client, "Close chat search");
+}
+
+async function assertProtocolDiffSearchable(client) {
+  await openProtocolChatSearch(client);
+  await setInputValue(client, 'input[placeholder="Search chat"]', "-old");
+  await waitForState(
+    client,
+    `(() => {
+      const row = document.querySelector('[data-activity-focused="true"]');
+      return {
+        ok:
+          row?.innerText.includes("Diff updated: 1 file, +1 -1") &&
           row?.innerText.includes("main.go") &&
           row?.innerText.includes("PATCH"),
         text: row?.innerText ?? "",

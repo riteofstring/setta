@@ -179,7 +179,7 @@ func mergeRunItemSummary(bundle *CartographerInputBundle, item chat.RunItem) {
 	if isToolLikeRunItem(item.Type) {
 		bundle.ToolCalls = upsertToolSummary(bundle.ToolCalls, cartographerToolSummary(item))
 	}
-	if item.Type == chat.RunItemTypeFileChange || item.DiffSummary != "" || len(item.FilePaths) > 0 {
+	if item.Type == chat.RunItemTypeFileChange || item.Type == chat.RunItemTypeDiff || len(item.FilePaths) > 0 {
 		bundle.FileChanges = upsertFileChangeSummary(bundle.FileChanges, cartographerFileChangeSummary(item))
 	}
 	if item.Type == chat.RunItemTypeCommandExecution {
@@ -225,12 +225,21 @@ func cartographerFileChangeSummary(item chat.RunItem) CartographerFileChangeSumm
 			DiffSummary: boundedText(chatFileChangeDetailSummary(details), cartographerEventSummaryLimit).text,
 		}
 	}
+	if details, ok := item.DiffDetails(); ok {
+		return CartographerFileChangeSummary{
+			RunItemID:   item.ID,
+			Status:      string(item.Status),
+			FilePaths:   chatDiffDetailPaths(details),
+			PatchStatus: "",
+			DiffSummary: boundedText(chatDiffDetailSummary(details), cartographerEventSummaryLimit).text,
+		}
+	}
 	return CartographerFileChangeSummary{
 		RunItemID:   item.ID,
 		Status:      string(item.Status),
 		FilePaths:   append([]string{}, item.FilePaths...),
 		PatchStatus: item.PatchStatus,
-		DiffSummary: boundedText(item.DiffSummary, cartographerEventSummaryLimit).text,
+		DiffSummary: "",
 	}
 }
 

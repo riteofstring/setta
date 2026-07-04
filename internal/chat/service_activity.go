@@ -359,7 +359,7 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 		next.Command = keepString(next.Command, existing.Command)
 		next.Cwd = keepString(next.Cwd, existing.Cwd)
 	}
-	if next.Type != RunItemTypeFileChange {
+	if next.Type != RunItemTypeFileChange && next.Type != RunItemTypeDiff {
 		next.FilePaths = keepStrings(next.FilePaths, existing.FilePaths)
 		next.PatchStatus = keepString(next.PatchStatus, existing.PatchStatus)
 	}
@@ -372,7 +372,7 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	}
 	next.NoticeKind = keepString(next.NoticeKind, existing.NoticeKind)
 	next.NoticeMessage = keepString(next.NoticeMessage, existing.NoticeMessage)
-	if next.Type != RunItemTypeFileChange {
+	if next.Type != RunItemTypeFileChange && next.Type != RunItemTypeDiff {
 		next.DiffSummary = keepString(next.DiffSummary, existing.DiffSummary)
 	}
 	next.Namespace = keepString(next.Namespace, existing.Namespace)
@@ -403,6 +403,9 @@ func mergeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunIte
 	}
 	if next.Kind == RunItemDetailsKindFileChange {
 		return mergeFileChangeRunItemDetails(existing, next)
+	}
+	if next.Kind == RunItemDetailsKindDiff {
+		return next
 	}
 	return next
 }

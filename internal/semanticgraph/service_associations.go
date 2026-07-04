@@ -660,21 +660,27 @@ func chatRunItemSummary(item chat.RunItem) string {
 }
 
 func runItemEvidenceText(item chat.RunItem) string {
+	if value := typedRunItemEvidenceText(item); value != "" {
+		return value
+	}
+	return firstTrimmedString(item.Summary, item.Command, item.Result, item.NoticeMessage, item.Error)
+}
+
+func typedRunItemEvidenceText(item chat.RunItem) string {
 	if details, ok := item.MCPToolCallDetails(); ok {
-		for _, value := range []string{item.Summary, details.ResultSummary, details.Progress, details.Error} {
-			if strings.TrimSpace(value) != "" {
-				return value
-			}
-		}
+		return firstTrimmedString(item.Summary, details.ResultSummary, details.Progress, details.Error)
 	}
 	if details, ok := item.FileChangeDetails(); ok {
-		for _, value := range []string{item.Summary, chatFileChangeDetailSummary(details)} {
-			if strings.TrimSpace(value) != "" {
-				return value
-			}
-		}
+		return firstTrimmedString(item.Summary, chatFileChangeDetailSummary(details))
 	}
-	for _, value := range []string{item.Summary, item.Command, item.Result, item.DiffSummary, item.NoticeMessage, item.Error} {
+	if details, ok := item.DiffDetails(); ok {
+		return firstTrimmedString(item.Summary, chatDiffDetailSummary(details))
+	}
+	return ""
+}
+
+func firstTrimmedString(values ...string) string {
+	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
 			return value
 		}

@@ -11,7 +11,7 @@ var runActivityDefaultTitles = map[RunItemType]string{
 	RunItemTypeImageGeneration:     "image generation",
 	RunItemTypeFileChange:          "file change",
 	RunItemTypeTerminalInteraction: "terminal interaction",
-	RunItemTypeDiff:                "diff",
+	RunItemTypeDiff:                "Diff updated",
 	RunItemTypeContextCompaction:   "context compaction",
 	RunItemTypePlan:                "Plan update",
 	RunItemTypeReasoning:           "Reasoning summary",
@@ -115,6 +115,8 @@ func runActivityTypedTitle(item RunItem) (string, bool) {
 		return runActivityMCPTitle(item), true
 	case RunItemTypeFileChange:
 		return runActivityFileChangeTitle(item), true
+	case RunItemTypeDiff:
+		return runActivityDiffTitle(item), true
 	case RunItemTypeDynamicToolCall, RunItemTypeCollabAgentToolCall:
 		return runActivityToolTitle(item), true
 	case RunItemTypeNotice:
@@ -129,6 +131,13 @@ func runActivityFileChangeTitle(item RunItem) string {
 		return runItemFileChangeTitle(details)
 	}
 	return "file change"
+}
+
+func runActivityDiffTitle(item RunItem) string {
+	if details, ok := item.DiffDetails(); ok {
+		return runItemDiffTitle(details)
+	}
+	return "Diff updated"
 }
 
 func runActivityCommandTitle(item RunItem) string {
@@ -179,13 +188,14 @@ func runActivityNoticeTitle(item RunItem) string {
 func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 	commandExecution := runItemCommandExecutionDetailsProjection(item)
 	fileChange := runItemFileChangeDetailsProjection(item)
+	diff := runItemDiffDetailsProjection(item)
 	return RunActivityDetailsProjection{
 		Summary:          publicRunActivitySummary(item),
 		Command:          runActivityCommand(item, commandExecution),
 		Cwd:              runActivityCwd(item, commandExecution),
 		ExitCode:         runActivityExitCode(item, commandExecution),
 		DurationMs:       runActivityDurationMs(item, commandExecution),
-		FilePaths:        runActivityFilePaths(item, fileChange),
+		FilePaths:        runActivityFilePaths(item, fileChange, diff),
 		PatchStatus:      runActivityPatchStatus(item, fileChange),
 		ServerName:       item.ServerName,
 		ToolName:         item.ToolName,
@@ -194,7 +204,6 @@ func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 		Error:            runActivityError(item, commandExecution),
 		NoticeKind:       item.NoticeKind,
 		NoticeMessage:    item.NoticeMessage,
-		DiffSummary:      runActivityDiffSummary(item),
 		Namespace:        item.Namespace,
 		ProcessID:        runActivityProcessID(item, commandExecution),
 		RequestID:        item.RequestID,
@@ -203,6 +212,7 @@ func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 		CommandExecution: commandExecution,
 		MCPToolCall:      runItemMCPToolCallDetailsProjection(item),
 		FileChange:       fileChange,
+		Diff:             diff,
 	}
 }
 
@@ -249,7 +259,8 @@ func runActivityDetailsInspectable(details RunActivityDetailsProjection) bool {
 		rawDetailsInspectable(details.Details) ||
 		details.CommandExecution != nil ||
 		details.MCPToolCall != nil ||
-		details.FileChange != nil
+		details.FileChange != nil ||
+		details.Diff != nil
 }
 
 func runActivityStringDetailsInspectable(details RunActivityDetailsProjection) bool {
@@ -265,7 +276,6 @@ func runActivityStringDetailsInspectable(details RunActivityDetailsProjection) b
 		details.Error,
 		details.NoticeKind,
 		details.NoticeMessage,
-		details.DiffSummary,
 		details.Namespace,
 		details.ProcessID,
 		details.RequestID,
@@ -316,11 +326,26 @@ func runItemFileChangeDetailsProjection(item RunItem) *RunItemFileChangeDetails 
 	return &cloned
 }
 
-func runActivityFilePaths(item RunItem, fileChange *RunItemFileChangeDetails) []string {
+func runItemDiffDetailsProjection(item RunItem) *RunItemDiffDetails {
+	details, ok := item.DiffDetails()
+	if !ok {
+		return nil
+	}
+	cloned := cloneRunItemDiffDetails(*details)
+	return &cloned
+}
+
+func runActivityFilePaths(item RunItem, fileChange *RunItemFileChangeDetails, diff *RunItemDiffDetails) []string {
 	if fileChange != nil {
 		return runItemFileChangePaths(fileChange)
 	}
+	if diff != nil {
+		return runItemDiffPaths(diff)
+	}
 	if item.Type == RunItemTypeFileChange {
+		return []string{}
+	}
+	if item.Type == RunItemTypeDiff {
 		return []string{}
 	}
 	return append([]string{}, item.FilePaths...)
@@ -334,13 +359,6 @@ func runActivityPatchStatus(item RunItem, fileChange *RunItemFileChangeDetails) 
 		return ""
 	}
 	return item.PatchStatus
-}
-
-func runActivityDiffSummary(item RunItem) string {
-	if item.Type == RunItemTypeFileChange {
-		return ""
-	}
-	return item.DiffSummary
 }
 
 func runActivityCommand(item RunItem, commandExecution *RunItemCommandExecutionDetails) string {

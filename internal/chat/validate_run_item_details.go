@@ -18,6 +18,9 @@ func validateRunItemCommandExecutionDetails(item RunItem) error {
 	if item.Details.FileChange != nil {
 		return fmt.Errorf("run item %s commandExecution details must not contain the fileChange branch", item.ID)
 	}
+	if item.Details.Diff != nil {
+		return fmt.Errorf("run item %s commandExecution details must not contain the diff branch", item.ID)
+	}
 	if err := validateRunItemCommandExecutionFlatFieldsEmpty(item); err != nil {
 		return err
 	}
@@ -84,6 +87,9 @@ func validateRunItemMCPToolCallDetailsBranch(item RunItem) error {
 	if item.Details.FileChange != nil {
 		return fmt.Errorf("run item %s mcpToolCall details must not contain the fileChange branch", item.ID)
 	}
+	if item.Details.Diff != nil {
+		return fmt.Errorf("run item %s mcpToolCall details must not contain the diff branch", item.ID)
+	}
 	return validateRunItemMCPToolCallDetails(item, *item.Details.MCPToolCall)
 }
 
@@ -103,6 +109,9 @@ func validateRunItemFileChangeDetailsBranch(item RunItem) error {
 	if item.Details.MCPToolCall != nil {
 		return fmt.Errorf("run item %s fileChange details must not contain the mcpToolCall branch", item.ID)
 	}
+	if item.Details.Diff != nil {
+		return fmt.Errorf("run item %s fileChange details must not contain the diff branch", item.ID)
+	}
 	if err := validateRunItemFileChangeFlatFieldsEmpty(item); err != nil {
 		return err
 	}
@@ -118,6 +127,68 @@ func validateRunItemFileChangeFlatFieldsEmpty(item RunItem) error {
 	}
 	if item.DiffSummary != "" {
 		return fmt.Errorf("run item %s fileChange flat diffSummary must be empty after typed details cutover", item.ID)
+	}
+	return nil
+}
+
+func validateRunItemDiffDetailsBranch(item RunItem) error {
+	if rawDetailsInspectable(item.RawDetails) {
+		return fmt.Errorf("run item %s diff rawDetails must be empty after typed details cutover", item.ID)
+	}
+	if item.Details == nil {
+		return fmt.Errorf("run item %s diff details are required", item.ID)
+	}
+	if item.Details.Kind != RunItemDetailsKindDiff || item.Details.Diff == nil {
+		return fmt.Errorf("run item %s diff details must contain the diff branch", item.ID)
+	}
+	if item.Details.CommandExecution != nil {
+		return fmt.Errorf("run item %s diff details must not contain the commandExecution branch", item.ID)
+	}
+	if item.Details.MCPToolCall != nil {
+		return fmt.Errorf("run item %s diff details must not contain the mcpToolCall branch", item.ID)
+	}
+	if item.Details.FileChange != nil {
+		return fmt.Errorf("run item %s diff details must not contain the fileChange branch", item.ID)
+	}
+	if err := validateRunItemDiffFlatFieldsEmpty(item); err != nil {
+		return err
+	}
+	return validateRunItemDiffDetails(item, *item.Details.Diff)
+}
+
+func validateRunItemDiffFlatFieldsEmpty(item RunItem) error {
+	if len(item.FilePaths) != 0 {
+		return fmt.Errorf("run item %s diff flat filePaths must be empty after typed details cutover", item.ID)
+	}
+	if item.DiffSummary != "" {
+		return fmt.Errorf("run item %s diff flat diffSummary must be empty after typed details cutover", item.ID)
+	}
+	return nil
+}
+
+func validateRunItemDiffDetails(item RunItem, details RunItemDiffDetails) error {
+	if details.Additions < 0 {
+		return fmt.Errorf("run item %s diff additions must be non-negative", item.ID)
+	}
+	if details.Deletions < 0 {
+		return fmt.Errorf("run item %s diff deletions must be non-negative", item.ID)
+	}
+	for index, path := range details.Paths {
+		if path.Path == "" {
+			return fmt.Errorf("run item %s diff paths[%d].path is required", item.ID, index)
+		}
+		if path.Operation != nil && !validValue(*path.Operation, runItemFileChangeOperationValues) {
+			return fmt.Errorf("run item %s diff paths[%d] has unsupported operation %s", item.ID, index, *path.Operation)
+		}
+		if path.Additions < 0 {
+			return fmt.Errorf("run item %s diff paths[%d].additions must be non-negative", item.ID, index)
+		}
+		if path.Deletions < 0 {
+			return fmt.Errorf("run item %s diff paths[%d].deletions must be non-negative", item.ID, index)
+		}
+	}
+	if details.PatchTruncated && details.Patch == "" {
+		return fmt.Errorf("run item %s diff patch is required when patchTruncated is true", item.ID)
 	}
 	return nil
 }

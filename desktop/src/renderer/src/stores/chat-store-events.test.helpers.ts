@@ -32,7 +32,7 @@ function emptyActivityDetails(
     commandExecution: null,
     cwd: "",
     details: null,
-    diffSummary: "",
+    diff: null,
     durationMs: 0,
     error: "",
     exitCode: 0,

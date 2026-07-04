@@ -763,6 +763,8 @@ func validateRunItemDetails(item RunItem) error {
 		return validateRunItemMCPToolCallDetailsBranch(item)
 	case RunItemTypeFileChange:
 		return validateRunItemFileChangeDetailsBranch(item)
+	case RunItemTypeDiff:
+		return validateRunItemDiffDetailsBranch(item)
 	default:
 		if item.Details != nil {
 			return fmt.Errorf("run item %s type %s does not support typed details kind %s", item.ID, item.Type, item.Details.Kind)

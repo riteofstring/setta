@@ -7,6 +7,7 @@ type RunItemDetails struct {
 	CommandExecution *RunItemCommandExecutionDetails `json:"commandExecution"`
 	MCPToolCall      *RunItemMCPToolCallDetails      `json:"mcpToolCall"`
 	FileChange       *RunItemFileChangeDetails       `json:"fileChange"`
+	Diff             *RunItemDiffDetails             `json:"diff"`
 }
 
 type RunActivityDetailsProjection struct {
@@ -24,7 +25,6 @@ type RunActivityDetailsProjection struct {
 	Error            string                          `json:"error"`
 	NoticeKind       string                          `json:"noticeKind"`
 	NoticeMessage    string                          `json:"noticeMessage"`
-	DiffSummary      string                          `json:"diffSummary"`
 	Namespace        string                          `json:"namespace"`
 	ProcessID        string                          `json:"processId"`
 	RequestID        string                          `json:"requestId"`
@@ -33,6 +33,7 @@ type RunActivityDetailsProjection struct {
 	CommandExecution *RunItemCommandExecutionDetails `json:"commandExecution"`
 	MCPToolCall      *RunItemMCPToolCallDetails      `json:"mcpToolCall"`
 	FileChange       *RunItemFileChangeDetails       `json:"fileChange"`
+	Diff             *RunItemDiffDetails             `json:"diff"`
 }
 
 type RunItemCommandExecutionDetails struct {
@@ -84,12 +85,30 @@ type RunItemFileChangePath struct {
 	PatchTruncated bool                        `json:"patchTruncated"`
 }
 
+type RunItemDiffDetails struct {
+	Summary        string            `json:"summary"`
+	Paths          []RunItemDiffPath `json:"paths"`
+	Additions      int               `json:"additions"`
+	Deletions      int               `json:"deletions"`
+	Patch          string            `json:"patch"`
+	PatchTruncated bool              `json:"patchTruncated"`
+}
+
+type RunItemDiffPath struct {
+	Path      string                      `json:"path"`
+	Operation *RunItemFileChangeOperation `json:"operation"`
+	MovePath  string                      `json:"movePath"`
+	Additions int                         `json:"additions"`
+	Deletions int                         `json:"deletions"`
+}
+
 func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDetails {
 	return &RunItemDetails{
 		Kind:             RunItemDetailsKindMCPToolCall,
 		CommandExecution: nil,
 		MCPToolCall:      &details,
 		FileChange:       nil,
+		Diff:             nil,
 	}
 }
 
@@ -99,6 +118,7 @@ func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *
 		CommandExecution: &details,
 		MCPToolCall:      nil,
 		FileChange:       nil,
+		Diff:             nil,
 	}
 }
 
@@ -108,6 +128,17 @@ func NewRunItemFileChangeDetails(details RunItemFileChangeDetails) *RunItemDetai
 		CommandExecution: nil,
 		MCPToolCall:      nil,
 		FileChange:       &details,
+		Diff:             nil,
+	}
+}
+
+func NewRunItemDiffDetails(details RunItemDiffDetails) *RunItemDetails {
+	return &RunItemDetails{
+		Kind:             RunItemDetailsKindDiff,
+		CommandExecution: nil,
+		MCPToolCall:      nil,
+		FileChange:       nil,
+		Diff:             &details,
 	}
 }
 
@@ -141,6 +172,16 @@ func (item RunItem) FileChangeDetails() (*RunItemFileChangeDetails, bool) {
 	return item.Details.FileChange, true
 }
 
+func (item RunItem) DiffDetails() (*RunItemDiffDetails, bool) {
+	if item.Type != RunItemTypeDiff ||
+		item.Details == nil ||
+		item.Details.Kind != RunItemDetailsKindDiff ||
+		item.Details.Diff == nil {
+		return nil, false
+	}
+	return item.Details.Diff, true
+}
+
 type RunActivityPage struct {
 	RunID    string                        `json:"runId"`
 	Items    []RunItem                     `json:"items"`
@@ -160,6 +201,14 @@ func (details RunItemFileChangeDetails) MarshalJSON() ([]byte, error) {
 	type detailsAlias RunItemFileChangeDetails
 	if details.Paths == nil {
 		details.Paths = []RunItemFileChangePath{}
+	}
+	return json.Marshal(detailsAlias(details))
+}
+
+func (details RunItemDiffDetails) MarshalJSON() ([]byte, error) {
+	type detailsAlias RunItemDiffDetails
+	if details.Paths == nil {
+		details.Paths = []RunItemDiffPath{}
 	}
 	return json.Marshal(detailsAlias(details))
 }

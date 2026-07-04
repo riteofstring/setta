@@ -26,6 +26,7 @@ import { highlightCode } from "../lib/syntax-highlight";
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 import { BrailleSpinner } from "./ascii-spinner";
+import { ActivityDiffDetails } from "./chat-transcript-diff-details";
 
 export type LoadRunItemOutput = (
   runId: string,
@@ -168,7 +169,7 @@ const activityLabelResolvers = {
   collab_agent_tool_call: toolActivityDisplayLabel,
   command_execution: commandActivityDisplayLabel,
   context_compaction: noActivityDisplayLabel,
-  diff: fileActivityDisplayLabel,
+  diff: diffActivityDisplayLabel,
   dynamic_tool_call: toolActivityDisplayLabel,
   file_change: fileActivityDisplayLabel,
   hook: noActivityDisplayLabel,
@@ -200,8 +201,12 @@ function fileActivityDisplayLabel(activity: ActivityItemBlockProjection) {
   if (activity.details.filePaths.length > 0) {
     return { monospace: true, text: filePathsDisplayLabel(activity.details.filePaths) };
   }
-  if (activity.details.diffSummary !== "") {
-    return { monospace: false, text: activity.details.diffSummary };
+  return null;
+}
+
+function diffActivityDisplayLabel(activity: ActivityItemBlockProjection) {
+  if (activity.details.diff !== null) {
+    return { monospace: false, text: activity.title };
   }
   return null;
 }
@@ -568,7 +573,8 @@ function ActivityDetails({
   const genericResultDetails =
     details.mcpToolCall === null &&
     details.commandExecution === null &&
-    details.fileChange === null;
+    details.fileChange === null &&
+    details.diff === null;
   return (
     <div className="mt-1.5 w-full max-w-full min-w-0 overflow-hidden border-l border-border/70 pl-2">
       <div className="w-full max-w-full min-w-0 space-y-1.5 overflow-hidden text-xs text-muted-foreground">
@@ -586,8 +592,8 @@ function ActivityDetails({
         ) : null}
         <ActivityCommandExecutionDetails details={details} />
         <ActivityFileChangeDetails details={details} />
+        <ActivityDiffDetails details={details} />
         <ActivityTextBlock title="Notice" value={details.noticeMessage} />
-        <ActivityTextBlock title="Diff" value={details.diffSummary} />
         <ActivityMCPDetails details={details} />
         {genericResultDetails ? <ActivityJSONDetails details={details.details} /> : null}
         <ActivityExit

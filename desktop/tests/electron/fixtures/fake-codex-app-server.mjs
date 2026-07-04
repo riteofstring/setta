@@ -675,6 +675,11 @@ function emitProtocolCoverageTurn() {
     threadId,
     turnId,
   });
+  notify("turn/diff/updated", {
+    diff: "--- a/main.go\n+++ b/main.go\n@@\n-old\n+updated\n",
+    threadId,
+    turnId,
+  });
   notify("item/reasoning/textDelta", {
     contentIndex: 0,
     delta: "private reasoning",

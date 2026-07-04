@@ -1,6 +1,9 @@
 package chat
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestRunActivityItemProjectionsExcludesReasoning covers the non-transcript
 // activity projection (RunActivityPage.Activity): it surfaces displayable
@@ -125,7 +128,40 @@ func TestRunActivityProjectionUsesTypedFileChangeDetails(t *testing.T) {
 	if len(details.FilePaths) != 1 || details.FilePaths[0] != "main.go" || details.PatchStatus != "updated" {
 		t.Fatalf("typed file fields not projected: %+v", details)
 	}
-	if details.DiffSummary != "" {
-		t.Fatalf("legacy diff summary leaked into file-change projection: %+v", details)
+	if details.Diff != nil {
+		t.Fatalf("unexpected diff details projected from file-change item: %+v", details.Diff)
+	}
+}
+
+func TestRunActivityProjectionUsesTypedDiffDetails(t *testing.T) {
+	item := RunItem{
+		ID:          "item_diff",
+		Type:        RunItemTypeDiff,
+		Status:      RunItemStatusCompleted,
+		FilePaths:   []string{"legacy.go"},
+		DiffSummary: "legacy diff",
+		Details: newRunItemDiffDetails(`--- a/main.go
++++ b/main.go
+@@
++updated
+`),
+	}
+
+	projection, ok := activityItemBlockProjection(item, RunStatusCompleted, false, false)
+	if !ok {
+		t.Fatal("expected a projection for the diff item")
+	}
+	if projection.Title != "Diff updated: 1 file, +1 -0" {
+		t.Fatalf("title = %q, want typed diff title", projection.Title)
+	}
+	details := projection.Details
+	if details.Diff == nil {
+		t.Fatalf("diff details missing: %+v", details)
+	}
+	if len(details.FilePaths) != 1 || details.FilePaths[0] != "main.go" {
+		t.Fatalf("typed diff paths not projected: %+v", details)
+	}
+	if details.Diff.Summary != "1 file, +1 -0" || !strings.Contains(details.Diff.Patch, "+updated") {
+		t.Fatalf("typed diff details not projected: %+v", details.Diff)
 	}
 }

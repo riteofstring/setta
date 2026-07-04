@@ -74,6 +74,7 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 				{Field: "commandExecution", KindValue: string(chat.RunItemDetailsKindCommandExecution)},
 				{Field: "mcpToolCall", KindValue: string(chat.RunItemDetailsKindMCPToolCall)},
 				{Field: "fileChange", KindValue: string(chat.RunItemDetailsKindFileChange)},
+				{Field: "diff", KindValue: string(chat.RunItemDetailsKindDiff)},
 			},
 		},
 	}

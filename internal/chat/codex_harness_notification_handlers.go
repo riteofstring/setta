@@ -606,25 +606,18 @@ func handleCodexMCPProgress(message jsonRPCMessage, threadID string, turnID stri
 }
 
 func handleCodexDiffUpdated(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex diff params")
+	params, err := codexapp.DecodeTurnDiffUpdatedNotification(message.Params)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
 		return codexNotificationResult{}, err
-	}
-	summary, err := optionalString(params, "summary", "codex diff")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	if summary == "" {
-		summary = "Diff updated"
 	}
 	return codexNotificationResult{}, sink.RunItemUpsert(RunItem{
 		ProviderItemID: "diff_" + turnID,
 		Type:           RunItemTypeDiff,
 		Status:         RunItemStatusCompleted,
-		DiffSummary:    summary,
+		Details:        newRunItemDiffDetails(params.Diff),
 	})
 }
 

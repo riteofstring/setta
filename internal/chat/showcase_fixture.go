@@ -467,8 +467,16 @@ func uiShowcaseRunItems(runID string) []RunItem {
 			Type:           RunItemTypeDiff,
 			Status:         RunItemStatusCompleted,
 			Title:          "Diff",
-			DiffSummary:    "2 files changed, 24 insertions(+), 3 deletions(-)",
-			FilePaths:      []string{"/tmp/setta-workspace/internal/chat/showcase.go", "/tmp/setta-workspace/desktop/src/styles.css"},
+			Details: newRunItemDiffDetails(`--- a/internal/chat/showcase.go
++++ b/internal/chat/showcase.go
+@@
+-old showcase
++new showcase
+--- a/desktop/src/styles.css
++++ b/desktop/src/styles.css
+@@
++body { color: var(--foreground); }
+`),
 		},
 		{
 			ProviderItemID: "provider_ui_context_compaction_" + runID,

@@ -684,9 +684,15 @@ Status after the MCP typed-details cutover:
   cartographer summaries, deterministic Electron protocol coverage, and live
   Codex Electron coverage read the typed branch. File-change records with legacy
   flat file fields now fail validation instead of being dual-read.
-- Remaining: complete protocol findings and typed-detail cutovers for diff
-  updates, dynamic/Setta tools, failed starts, approvals, and stream lifecycle
-  activity.
+- Done: diff updates now write `RunItem.details.diff` for the turn-level
+  unified diff, changed paths, operation type, additions/deletions, summary, and
+  bounded patch snippet. Codex `turn/diff/updated` notifications decode through
+  the generated protocol shape instead of a hand-read summary field. Transcript
+  details, search, semantic cartographer summaries, and deterministic Electron
+  protocol coverage read the typed branch. Diff records with legacy flat
+  diff/file fields now fail validation instead of being dual-read.
+- Remaining: complete protocol findings and typed-detail cutovers for
+  dynamic/Setta tools, failed starts, approvals, and stream lifecycle activity.
 
 ### Slice 4: Tool And File Activity Rendering
 
