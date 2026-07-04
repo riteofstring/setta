@@ -92,6 +92,10 @@ func (client *recordingCodexChatClient) ActiveRun(string, string) (chat.Run, boo
 	return chat.Run{}, false, nil
 }
 
+func (client *recordingCodexChatClient) ActiveRunWithLiveness(string, string) (chat.Run, *chat.RunLiveness, bool, error) {
+	return chat.Run{}, nil, false, nil
+}
+
 func (client *recordingCodexChatClient) CancelActiveRun(string, string) (chat.Run, error) {
 	return chat.Run{}, nil
 }
@@ -106,6 +110,14 @@ func (client *recordingCodexChatClient) LoadMessagePage(string, string, int, int
 
 func (client *recordingCodexChatClient) LoadRunActivityPage(string, string, int) (chat.RunActivityPage, error) {
 	return chat.RunActivityPage{}, nil
+}
+
+func (client *recordingCodexChatClient) LoadRunItemOutputPage(string, string, string, int, int) (chat.RunItemOutputPage, error) {
+	return chat.RunItemOutputPage{}, nil
+}
+
+func (client *recordingCodexChatClient) LoadRunTranscriptPage(string, string, int, int) (chat.RunTranscriptPage, error) {
+	return chat.RunTranscriptPage{}, nil
 }
 
 func (client *recordingCodexChatClient) SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error) {

@@ -67,6 +67,7 @@ import type {
   ReadSemanticActivitySummaryRequest,
   ReadSemanticContextPackRequest,
   ReadWorkflowGraphProjectionResponse,
+  ReadWorkflowNodeTrajectoryRequest,
   ReadSemanticEventHistoryRequest,
   ReadSemanticGraphRequest,
   ReadSemanticNodeDetailRequest,
@@ -118,6 +119,7 @@ import type {
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  WorkflowAgentTrajectoryPage,
   WorkflowDefinition,
   WorkflowExecution,
   WorkflowExecutionEventPage,
@@ -254,6 +256,7 @@ export const ipcChannels = {
   workflowListExecutions: "workflow:list-executions",
   workflowReadDefinition: "workflow:read-definition",
   workflowReadExecution: "workflow:read-execution",
+  workflowReadNodeTrajectory: "workflow:read-node-trajectory",
   workflowStartExecution: "workflow:start-execution",
   workflowSubmitApproval: "workflow:submit-approval",
   workflowUpdateDefinition: "workflow:update-definition",
@@ -777,6 +780,10 @@ interface IpcContract {
   workflowReadExecution: {
     args: [workspaceId: string, executionId: string];
     result: WorkflowExecution;
+  };
+  workflowReadNodeTrajectory: {
+    args: [request: ReadWorkflowNodeTrajectoryRequest];
+    result: WorkflowAgentTrajectoryPage;
   };
   workflowStartExecution: {
     args: [workspaceId: string, definitionId: string, versionId: string];

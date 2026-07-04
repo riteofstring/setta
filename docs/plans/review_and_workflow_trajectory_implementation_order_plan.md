@@ -509,6 +509,40 @@ This phase is the concrete implementation of the workflow node activity output
 pagination finding that is deferred in the remediation plan and picked up by the
 shared UI plan.
 
+Status: completed 2026-07-03. Added Go-owned workflow-node trajectory contracts
+and the `/workflows/nodes/trajectory` endpoint. The service resolves the
+requested workspace, workflow execution, node execution, and durable chat runner
+refs; returns run-scoped transcript blocks, run activity projections, per-item
+output page metadata with `hasMore`, `loadedThroughOrdinal`, and `nextOrdinal`,
+pending workflow approvals, active-run/liveness state when the selected run is
+active, older-history cursor state, and explicit capability flags. Chat now has
+a run-scoped transcript page loader so historical workflow node pages do not
+pull unrelated turns from a reused workflow conversation. TypeScript contracts
+were regenerated from the endpoint registry and wired through Electron
+main/preload/shared IPC as `workflow.readNodeTrajectory`.
+
+Verification:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./internal/chat -run 'TestServiceLoadRunTranscriptPageScopesReusedWorkflowConversation' -count=1`
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestServiceReadWorkflowNodeTrajectory' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'TestWorkflowNodeTrajectoryEndpointReturnsScopedApprovalTrajectory' -count=1`
+- `./scripts/go.sh test ./cmd/generate-contracts -count=1`
+- `pnpm -C desktop test -- --run src/preload/index.test.ts`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only` was attempted, but local Codex `config/read` still returned
+  unsupported `approval_policy = "on-failure"`, so Setta rejected conversation
+  creation before live-provider workflow execution. This failed live-provider
+  attempt is not provider-integration proof.
+- `./scripts/format.sh`; `./check_quality.sh --git-changes`
+
+Remaining notes: Phase 5 shared renderer boundary is next. The old workflow
+activity preview remains only for the current workflow details UI until the
+Phase 6 adapter replacement removes that caller and its fake complete
+output-page adaptation in one cut.
+
 ## Phase 5: Shared Renderer Boundary
 
 Refactor normal chat to use a parameterized agent trajectory surface before

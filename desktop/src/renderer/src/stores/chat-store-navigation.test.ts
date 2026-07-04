@@ -688,6 +688,7 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     onEvent: () => () => {},
     readDefinition: unavailable,
     readExecution: unavailable,
+    readNodeTrajectory: unavailable,
     startExecution: unavailable,
     submitApproval: unavailable,
     updateDefinition: unavailable,

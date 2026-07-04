@@ -4429,6 +4429,63 @@ export interface WorkflowExecutionEventPage {
   olderBeforeOrdinal: number;
 }
 
+export interface ReadWorkflowNodeTrajectoryRequest {
+  workspaceId: string;
+  executionId: string;
+  nodeExecutionId: string;
+  beforeBlockOrdinal: number;
+  transcriptLimit: number;
+  outputLimit: number;
+}
+
+export interface WorkflowAgentTrajectoryScope {
+  workspaceId: string;
+  definitionId: string;
+  definitionVersionId: string;
+  executionId: string;
+  nodeId: string;
+  nodeExecutionId: string;
+  attempt: number;
+  iteration: number;
+}
+
+export interface WorkflowAgentTrajectoryRunItemOutputPageState {
+  runId: string;
+  runItemId: string;
+  outputIds: string[];
+  hasMore: boolean;
+  loadedThroughOrdinal: number;
+  nextOrdinal: number;
+}
+
+export interface WorkflowAgentTrajectoryCapabilities {
+  canLoadOlderHistory: boolean;
+  canLoadRunItemOutput: boolean;
+  canRetryLiveness: boolean;
+  canSteer: boolean;
+  canStopRun: boolean;
+  canSubmitApproval: boolean;
+}
+
+export interface WorkflowAgentTrajectoryPage {
+  schemaVersion: number;
+  scope: WorkflowAgentTrajectoryScope;
+  conversationId: string;
+  runId: string;
+  run: Run;
+  activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
+  blocks: TranscriptBlock[];
+  items: RunItem[];
+  activity: ActivityItemBlockProjection[];
+  outputPages: WorkflowAgentTrajectoryRunItemOutputPageState[];
+  outputs: RunItemOutput[];
+  pendingApproval: WorkflowPendingApproval | null;
+  hasMoreOlder: boolean;
+  olderBeforeBlockOrdinal: number;
+  capabilities: WorkflowAgentTrajectoryCapabilities;
+}
+
 export interface SubmitWorkflowApprovalRequest {
   workspaceId: string;
   executionId: string;
@@ -6489,6 +6546,11 @@ export const backendEndpoints = {
   GetWorkflowExecutionEvents: {
     method: "POST",
     path: "/workflows/executions/events",
+    requestBodyLimitBytes: 4194304,
+  },
+  ReadWorkflowNodeTrajectory: {
+    method: "POST",
+    path: "/workflows/nodes/trajectory",
     requestBodyLimitBytes: 4194304,
   },
   SubmitWorkflowApproval: {
@@ -9594,6 +9656,83 @@ export function decodeWorkflowExecutionEventPage(value: unknown): WorkflowExecut
   };
 }
 
+export function decodeReadWorkflowNodeTrajectoryRequest(value: unknown): ReadWorkflowNodeTrajectoryRequest {
+  const record = assertRecord(value, "ReadWorkflowNodeTrajectoryRequest");
+  assertKnownFields(record, "ReadWorkflowNodeTrajectoryRequest", ["workspaceId", "executionId", "nodeExecutionId", "beforeBlockOrdinal", "transcriptLimit", "outputLimit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.workspaceId"),
+    executionId: decodeString(requireField(record, "executionId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.executionId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.nodeExecutionId"),
+    beforeBlockOrdinal: decodeInteger(requireField(record, "beforeBlockOrdinal", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.beforeBlockOrdinal"),
+    transcriptLimit: decodeInteger(requireField(record, "transcriptLimit", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.transcriptLimit"),
+    outputLimit: decodeInteger(requireField(record, "outputLimit", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.outputLimit"),
+  };
+}
+
+export function decodeWorkflowAgentTrajectoryScope(value: unknown): WorkflowAgentTrajectoryScope {
+  const record = assertRecord(value, "WorkflowAgentTrajectoryScope");
+  assertKnownFields(record, "WorkflowAgentTrajectoryScope", ["workspaceId", "definitionId", "definitionVersionId", "executionId", "nodeId", "nodeExecutionId", "attempt", "iteration"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.definitionId"),
+    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.definitionVersionId"),
+    executionId: decodeString(requireField(record, "executionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.executionId"),
+    nodeId: decodeString(requireField(record, "nodeId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.nodeId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.nodeExecutionId"),
+    attempt: decodeInteger(requireField(record, "attempt", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.attempt"),
+    iteration: decodeInteger(requireField(record, "iteration", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.iteration"),
+  };
+}
+
+export function decodeWorkflowAgentTrajectoryRunItemOutputPageState(value: unknown): WorkflowAgentTrajectoryRunItemOutputPageState {
+  const record = assertRecord(value, "WorkflowAgentTrajectoryRunItemOutputPageState");
+  assertKnownFields(record, "WorkflowAgentTrajectoryRunItemOutputPageState", ["runId", "runItemId", "outputIds", "hasMore", "loadedThroughOrdinal", "nextOrdinal"]);
+  return {
+    runId: decodeString(requireField(record, "runId", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.runId"),
+    runItemId: decodeString(requireField(record, "runItemId", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.runItemId"),
+    outputIds: decodeArray(requireField(record, "outputIds", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.outputIds", (item) => decodeString(item, "WorkflowAgentTrajectoryRunItemOutputPageState.outputIds item")),
+    hasMore: decodeBoolean(requireField(record, "hasMore", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.hasMore"),
+    loadedThroughOrdinal: decodeInteger(requireField(record, "loadedThroughOrdinal", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.loadedThroughOrdinal"),
+    nextOrdinal: decodeInteger(requireField(record, "nextOrdinal", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.nextOrdinal"),
+  };
+}
+
+export function decodeWorkflowAgentTrajectoryCapabilities(value: unknown): WorkflowAgentTrajectoryCapabilities {
+  const record = assertRecord(value, "WorkflowAgentTrajectoryCapabilities");
+  assertKnownFields(record, "WorkflowAgentTrajectoryCapabilities", ["canLoadOlderHistory", "canLoadRunItemOutput", "canRetryLiveness", "canSteer", "canStopRun", "canSubmitApproval"]);
+  return {
+    canLoadOlderHistory: decodeBoolean(requireField(record, "canLoadOlderHistory", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canLoadOlderHistory"),
+    canLoadRunItemOutput: decodeBoolean(requireField(record, "canLoadRunItemOutput", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canLoadRunItemOutput"),
+    canRetryLiveness: decodeBoolean(requireField(record, "canRetryLiveness", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canRetryLiveness"),
+    canSteer: decodeBoolean(requireField(record, "canSteer", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canSteer"),
+    canStopRun: decodeBoolean(requireField(record, "canStopRun", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canStopRun"),
+    canSubmitApproval: decodeBoolean(requireField(record, "canSubmitApproval", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canSubmitApproval"),
+  };
+}
+
+export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgentTrajectoryPage {
+  const record = assertRecord(value, "WorkflowAgentTrajectoryPage");
+  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "run", "activeRun", "activeRunLiveness", "blocks", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "capabilities"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.schemaVersion"),
+    scope: decodeWorkflowAgentTrajectoryScope(requireField(record, "scope", "WorkflowAgentTrajectoryPage")),
+    conversationId: decodeString(requireField(record, "conversationId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.conversationId"),
+    runId: decodeString(requireField(record, "runId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.runId"),
+    run: decodeRun(requireField(record, "run", "WorkflowAgentTrajectoryPage")),
+    activeRun: decodeNullable(requireField(record, "activeRun", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRun", (item) => decodeRun(item)),
+    activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRunLiveness", (item) => decodeRunLiveness(item)),
+    blocks: decodeArray(requireField(record, "blocks", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.blocks", (item) => decodeTranscriptBlock(item)),
+    items: decodeArray(requireField(record, "items", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.items", (item) => decodeRunItem(item)),
+    activity: decodeArray(requireField(record, "activity", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activity", (item) => decodeActivityItemBlockProjection(item)),
+    outputPages: decodeArray(requireField(record, "outputPages", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.outputPages", (item) => decodeWorkflowAgentTrajectoryRunItemOutputPageState(item)),
+    outputs: decodeArray(requireField(record, "outputs", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.outputs", (item) => decodeRunItemOutput(item)),
+    pendingApproval: decodeNullable(requireField(record, "pendingApproval", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.pendingApproval", (item) => decodeWorkflowPendingApproval(item)),
+    hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.hasMoreOlder"),
+    olderBeforeBlockOrdinal: decodeInteger(requireField(record, "olderBeforeBlockOrdinal", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.olderBeforeBlockOrdinal"),
+    capabilities: decodeWorkflowAgentTrajectoryCapabilities(requireField(record, "capabilities", "WorkflowAgentTrajectoryPage")),
+  };
+}
+
 export function decodeSubmitWorkflowApprovalRequest(value: unknown): SubmitWorkflowApprovalRequest {
   const record = assertRecord(value, "SubmitWorkflowApprovalRequest");
   assertKnownFields(record, "SubmitWorkflowApprovalRequest", ["workspaceId", "executionId", "nodeExecutionId", "approvalId", "approved", "response", "answers", "cancelled"]);
@@ -12052,6 +12191,7 @@ export interface BackendClient {
   readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
+  readWorkflowNodeTrajectory: (request: ReadWorkflowNodeTrajectoryRequest) => Promise<WorkflowAgentTrajectoryPage>;
   submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
   readSemanticGraph: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
   readSemanticNodeDetail: (request: ReadSemanticNodeDetailRequest) => Promise<ReadSemanticNodeDetailResponse>;
@@ -12621,6 +12761,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecutionEventPage,
       endpoint: backendEndpoints.GetWorkflowExecutionEvents,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readWorkflowNodeTrajectory: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowAgentTrajectoryPage,
+      endpoint: backendEndpoints.ReadWorkflowNodeTrajectory,
       fetchImpl,
       requestPayload: request,
     }),

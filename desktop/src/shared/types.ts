@@ -71,6 +71,7 @@ import type {
   ReadSemanticNodeDetailResponse,
   ReadSemanticSteeringStateRequest,
   ReadWorkflowGraphProjectionResponse,
+  ReadWorkflowNodeTrajectoryRequest,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
@@ -117,6 +118,7 @@ import type {
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  WorkflowAgentTrajectoryPage,
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowExecution,
@@ -655,6 +657,9 @@ export interface SettaAPI {
     onEvent: (listener: (event: WorkflowEvent) => void) => () => void;
     readDefinition: (workspaceId: string, definitionId: string) => Promise<WorkflowDefinition>;
     readExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
+    readNodeTrajectory: (
+      request: ReadWorkflowNodeTrajectoryRequest,
+    ) => Promise<WorkflowAgentTrajectoryPage>;
     startExecution: (
       workspaceId: string,
       definitionId: string,

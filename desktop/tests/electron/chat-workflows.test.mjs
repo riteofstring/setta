@@ -85,6 +85,7 @@ import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-wor
 import { runWorkflowRunnerPostStartFailureWorkflowLaunch } from "./workflow-runner-post-start-cases.mjs";
 import { runWorkflowVersionCommitOrderingWorkflowLaunch } from "./workflow-version-commit-ordering-cases.mjs";
 import { runWorkflowDefinitionFileAtomicityWorkflowLaunch } from "./workflow-definition-file-atomicity-cases.mjs";
+import { runWorkflowNodeTrajectoryContractWorkflowLaunch } from "./workflow-node-trajectory-contract-cases.mjs";
 import { runCodexApprovalPolicyRemovalWorkflowLaunch } from "./chat-workflow-approval-policy-cases.mjs";
 import {
   assertProtocolNotificationActivity,
@@ -112,6 +113,7 @@ const singleWorkflowArgs = new Map([
   ["--workflow-runner-post-start-failure-only", "workflowRunnerPostStartFailureOnly"],
   ["--workflow-version-commit-ordering-only", "workflowVersionCommitOrderingOnly"],
   ["--workflow-definition-file-atomicity-only", "workflowDefinitionFileAtomicityOnly"],
+  ["--workflow-node-trajectory-contract-only", "workflowNodeTrajectoryContractOnly"],
 ]);
 const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
@@ -149,6 +151,10 @@ const singleWorkflowRunners = [
     option: "workflowDefinitionFileAtomicityOnly",
     run: (results) => runWorkflowDefinitionFileAtomicityWorkflowLaunch(results, { recordingRoot }),
   },
+  {
+    option: "workflowNodeTrajectoryContractOnly",
+    run: (results) => runWorkflowNodeTrajectoryContractWorkflowLaunch(results, { recordingRoot }),
+  },
 ];
 
 function parseArgs(args) {
@@ -164,6 +170,7 @@ function parseArgs(args) {
     visible: process.env.SETTA_E2E_VISIBLE === "1",
     workflowRunnerPostStartFailureOnly: false,
     workflowDefinitionFileAtomicityOnly: false,
+    workflowNodeTrajectoryContractOnly: false,
     workflowVersionCommitOrderingOnly: false,
   };
   for (const arg of args) {
@@ -207,6 +214,7 @@ function selectSingleWorkflow(parsed, selected) {
   parsed.workflowRunnerPostStartFailureOnly = selected === "workflowRunnerPostStartFailureOnly";
   parsed.workflowVersionCommitOrderingOnly = selected === "workflowVersionCommitOrderingOnly";
   parsed.workflowDefinitionFileAtomicityOnly = selected === "workflowDefinitionFileAtomicityOnly";
+  parsed.workflowNodeTrajectoryContractOnly = selected === "workflowNodeTrajectoryContractOnly";
   parsed.deterministic = false;
   parsed.live = false;
 }
@@ -237,6 +245,7 @@ async function main() {
     await runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot });
     await runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot });
     await runWorkflowDefinitionFileAtomicityWorkflowLaunch(results, { recordingRoot });
+    await runWorkflowNodeTrajectoryContractWorkflowLaunch(results, { recordingRoot });
     await runCodexApprovalPolicyRemovalWorkflowLaunch(results, { recordingRoot });
     await runCodexAppServerLifecycleWorkflowLaunch(results, { recordingRoot });
     await runTranscriptSearchWorkflowLaunch(results, {

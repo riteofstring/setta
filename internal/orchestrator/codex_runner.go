@@ -20,10 +20,13 @@ const (
 
 type CodexChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
+	ActiveRunWithLiveness(workspaceID string, conversationID string) (chat.Run, *chat.RunLiveness, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
+	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
+	LoadRunTranscriptPage(workspaceID string, runID string, beforeBlockOrdinal int, limit int) (chat.RunTranscriptPage, error)
 	SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)

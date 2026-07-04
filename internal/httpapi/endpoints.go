@@ -110,6 +110,7 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkflowExecutionRequest, orchestrator.WorkflowExecution]("ReadWorkflowExecution", "/workflows/executions/read", handler.readWorkflowExecution),
 	post[ReadWorkflowGraphProjectionRequest, ReadWorkflowGraphProjectionResponse]("ReadWorkflowGraphProjection", "/workflows/graph/read", handler.readWorkflowGraphProjection),
 	post[GetWorkflowExecutionEventsRequest, orchestrator.WorkflowExecutionEventPage]("GetWorkflowExecutionEvents", "/workflows/executions/events", handler.getWorkflowExecutionEvents),
+	post[ReadWorkflowNodeTrajectoryRequest, orchestrator.WorkflowAgentTrajectoryPage]("ReadWorkflowNodeTrajectory", "/workflows/nodes/trajectory", handler.readWorkflowNodeTrajectory),
 	post[SubmitWorkflowApprovalRequest, orchestrator.WorkflowExecution]("SubmitWorkflowApproval", "/workflows/approvals/submit", handler.submitWorkflowApproval),
 	stream("WorkflowEventStream", "/workflows/events", handler.workflowEventStream),
 	post[ReadSemanticGraphRequest, semanticgraph.SemanticGraph]("ReadSemanticGraph", "/semantic-graph/read", handler.readSemanticGraph),

@@ -247,6 +247,32 @@ paginated output. Update callers in one cut and regenerate contracts.
 - Include run liveness and pending approval state where applicable.
 - Regenerate TypeScript contracts.
 
+Progress 2026-07-03: completed. Added the Go-owned
+`WorkflowAgentTrajectoryPage` contract and `/workflows/nodes/trajectory`
+endpoint, regenerated `desktop/src/generated/backend.ts`, and exposed the
+generated request/response through Electron IPC/preload as
+`workflow.readNodeTrajectory`. The backend page is scoped by workspace,
+execution, node execution, attempt, iteration, conversation, and run. It returns
+run-scoped transcript blocks, run activity projections, initial per-run-item
+output page state with durable pagination cursors, flattened outputs keyed by
+page output IDs, active run/liveness for the selected active workflow-owned run,
+pending workflow approval, older-history cursor state, and capability flags.
+
+Verification covered focused chat/orchestrator/httpapi Go tests for run-scoped
+history, output pagination, pending approval, and endpoint decoding; generator
+tests; desktop typecheck/build; preload IPC coverage; and a deterministic
+Electron production-path workflow
+(`--workflow-node-trajectory-contract-only`) that reads the node trajectory
+through renderer preload, main IPC, generated HTTP client, backend service, and
+store. Live Codex E2E was attempted with `OPENAI_API_KEY` unset but remains
+blocked by local Codex `config/read` returning unsupported
+`approval_policy = "on-failure"`. Final formatting and changed-file quality
+gates passed with `./scripts/format.sh` and `./check_quality.sh --git-changes`.
+
+Remaining: Slice 3 must add the renderer workflow-node adapter and replace the
+current workflow details activity preview. Slice 5 must remove the old preview
+caller and fake complete output-page adaptation after that replacement is wired.
+
 ### Slice 3: Workflow Adapter
 
 - Add a workflow-node trajectory adapter in the renderer.

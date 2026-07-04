@@ -1295,6 +1295,14 @@ describe("preload workspace API", () => {
   test("exposes typed workflow methods through IPC", async () => {
     const { api, invoke, on, removeListener } = await exposePreloadAPI();
     const graph = workflowGraph();
+    const trajectoryRequest = {
+      beforeBlockOrdinal: 0,
+      executionId: "workflow_execution_api",
+      nodeExecutionId: "workflow_node_execution_api",
+      outputLimit: 20,
+      transcriptLimit: 20,
+      workspaceId: "workspace_api",
+    };
     expect(Object.keys(api.workflow).sort()).toEqual([
       "cancelExecution",
       "createDefinition",
@@ -1306,6 +1314,7 @@ describe("preload workspace API", () => {
       "onEvent",
       "readDefinition",
       "readExecution",
+      "readNodeTrajectory",
       "startExecution",
       "submitApproval",
       "updateDefinition",
@@ -1333,6 +1342,7 @@ describe("preload workspace API", () => {
     );
     await api.workflow.cancelExecution("workspace_api", "workflow_execution_api");
     await api.workflow.readExecution("workspace_api", "workflow_execution_api");
+    await api.workflow.readNodeTrajectory(trajectoryRequest);
     await api.workflow.executionEvents("workspace_api", "workflow_execution_api", 10, 20);
     await api.workflow.graphProjection("workspace_api");
     await api.workflow.graphProjection(
@@ -1386,6 +1396,7 @@ describe("preload workspace API", () => {
       ],
       [ipcChannels.workflowCancelExecution, "workspace_api", "workflow_execution_api"],
       [ipcChannels.workflowReadExecution, "workspace_api", "workflow_execution_api"],
+      [ipcChannels.workflowReadNodeTrajectory, trajectoryRequest],
       [ipcChannels.workflowExecutionEvents, "workspace_api", "workflow_execution_api", 10, 20],
       [ipcChannels.workflowGraphProjection, "workspace_api", "", "", ""],
       [
