@@ -7,7 +7,7 @@ Use `run-codex-plan-loop.sh` for generic plan-driven fresh-session loops and
 `--dangerously-bypass-approvals-and-sandbox` unless
 `--bypass-approvals-and-sandbox` is passed explicitly.
 
-Use `run-chat-ui-reliability-and-ux-steps-loop.sh` for the dedicated chat UI
-reliability and UX plan loop. It follows the older two-agent step/audit style
+Use `run-chat-run-liveness-navigation-steps-loop.sh` for the dedicated chat run
+liveness navigation plan loop. It follows the older two-agent step/audit style
 and runs with approvals and sandbox bypassed, because it is intended for long
 unattended repo-local execution.

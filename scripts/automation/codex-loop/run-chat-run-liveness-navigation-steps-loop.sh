@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-PLAN_PATH="docs/plans/chat_ui_reliability_and_ux_plan.md"
+PLAN_PATH="docs/plans/chat_run_liveness_navigation_plan.md"
 SENTINEL="CHAT_UI_RELIABILITY_AND_UX_COMPLETE"
 MODEL="gpt-5.5"
 REASONING_CONFIG='reasoning_effort="xhigh"'
@@ -14,15 +14,17 @@ MAX_ITERATIONS="0"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/automation/codex-loop/run-chat-ui-reliability-and-ux-steps-loop.sh [options]
+Usage: scripts/automation/codex-loop/run-chat-run-liveness-navigation-steps-loop.sh [options]
 
 Runs two fresh Codex agents in a loop for:
-  docs/plans/chat_ui_reliability_and_ux_plan.md
+  docs/plans/chat_run_liveness_navigation_plan.md
 
 Agent 1 implements the next coherent step in the plan and commits the work.
 Agent 2 audits the work, fixes or documents any gaps, commits if needed, and
 the loop stops only when Agent 2's final message is exactly:
   CHAT_UI_RELIABILITY_AND_UX_COMPLETE
+Agent 2 may also use that sentinel when the plan is implemented as much as
+possible and the remaining work is blocked.
 
 Codex transcripts are written to per-agent log files. The terminal prints only
 loop status and periodic progress updates.
@@ -201,7 +203,7 @@ AGENT_TWO_PROMPT="Another agent worked on the next step in ${PLAN_PATH}. Audit t
 
 If the audit finds gaps, fix them if practical, run the required focused verification, and commit your fixes. If the plan doc needs to be updated to reflect what was learned, update it and commit. If the current step is good and the next step is ready, say so in your final message.
 
-If the whole plan is fully implemented and verified, respond with exactly:
+If the whole plan is fully implemented and verified, or if the plan is implemented as much as possible and a genuine blocker prevents full completion after you update and commit the plan with the blocker and remaining work, respond with exactly:
 ${SENTINEL}"
 
 log_info "Output directory: ${OUTPUT_DIR}"
