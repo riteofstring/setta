@@ -238,6 +238,9 @@ function paneDragTargetFromPointer(event: PointerEvent): {
   if (!(event.target instanceof Element)) {
     return null;
   }
+  if (event.target.closest("[data-workspace-pane-action]")) {
+    return null;
+  }
   const handle = event.target.closest<HTMLElement>('[data-workspace-pane-drag-handle="true"]');
   const paneId =
     handle?.dataset.paneId ??

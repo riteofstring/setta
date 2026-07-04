@@ -308,7 +308,8 @@ async function waitForTerminalProfile(client, paneId, profileId, expectedCwd) {
       snapshot.xtermReady &&
       snapshot.sessionId.startsWith("terminal_") &&
       snapshot.profileId === profileId &&
-      snapshot.statusText === expectedCwd,
+      snapshot.statusText === expectedCwd &&
+      snapshot.titleText === expectedCwd,
     terminalProfileWorkflowTimeoutMs,
   );
 }

@@ -13,6 +13,7 @@ const emptyTerminalSnapshot = {
   statusText: "",
   terminalLost: false,
   text: "",
+  titleText: "",
   visible: false,
   xtermReady: false,
 };
@@ -135,7 +136,8 @@ export async function waitForTerminalReady(client, timeoutMs, { paneId = null } 
       snapshot.xtermReady &&
       snapshot.sessionId.startsWith("terminal_") &&
       snapshot.statusText !== "" &&
-      snapshot.statusText !== "Starting shell",
+      snapshot.statusText !== "Starting shell" &&
+      snapshot.titleText === snapshot.statusText,
     timeoutMs,
   );
 }
@@ -194,21 +196,37 @@ function newTerminalSnapshot(snapshots, beforePaneIds) {
   if (!Array.isArray(snapshots)) {
     return null;
   }
+  return snapshots.find((snapshot) => isNewReadyTerminalSnapshot(snapshot, beforePaneIds)) ?? null;
+}
+
+function isNewReadyTerminalSnapshot(snapshot, beforePaneIds) {
   return (
-    snapshots.find(
-      (snapshot) =>
-        snapshot &&
-        typeof snapshot.paneId === "string" &&
-        snapshot.paneId !== "" &&
-        !beforePaneIds.has(snapshot.paneId) &&
-        snapshot.focused &&
-        snapshot.visible &&
-        snapshot.xtermReady &&
-        typeof snapshot.sessionId === "string" &&
-        snapshot.sessionId.startsWith("terminal_") &&
-        snapshot.statusText !== "" &&
-        snapshot.statusText !== "Starting shell",
-    ) ?? null
+    hasTerminalPaneId(snapshot) &&
+    !beforePaneIds.has(snapshot.paneId) &&
+    snapshot.focused &&
+    snapshot.visible &&
+    terminalSnapshotReady(snapshot)
+  );
+}
+
+function hasTerminalPaneId(snapshot) {
+  return Boolean(snapshot && typeof snapshot.paneId === "string" && snapshot.paneId !== "");
+}
+
+function terminalSnapshotReady(snapshot) {
+  return (
+    snapshot.xtermReady &&
+    typeof snapshot.sessionId === "string" &&
+    snapshot.sessionId.startsWith("terminal_") &&
+    terminalSnapshotTitleReady(snapshot)
+  );
+}
+
+function terminalSnapshotTitleReady(snapshot) {
+  return (
+    snapshot.statusText !== "" &&
+    snapshot.statusText !== "Starting shell" &&
+    snapshot.titleText === snapshot.statusText
   );
 }
 

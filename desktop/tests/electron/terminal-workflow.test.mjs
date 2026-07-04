@@ -154,7 +154,8 @@ async function waitForTerminalReady(client, paneId) {
       snapshot.xtermReady &&
       snapshot.sessionId.startsWith("terminal_") &&
       snapshot.statusText !== "" &&
-      snapshot.statusText !== "Starting shell",
+      snapshot.statusText !== "Starting shell" &&
+      snapshot.titleText === snapshot.statusText,
     terminalWorkflowTimeoutMs,
   );
 }
@@ -295,7 +296,8 @@ async function waitForTerminalPaneReady(client, paneId) {
         snapshot.xtermReady &&
         snapshot.sessionId.startsWith("terminal_") &&
         snapshot.statusText !== "" &&
-        snapshot.statusText !== "Starting shell",
+        snapshot.statusText !== "Starting shell" &&
+        snapshot.titleText === snapshot.statusText,
       );
     },
     terminalWorkflowTimeoutMs,
@@ -493,19 +495,29 @@ function terminalSessionMapFromSnapshots(snapshots, { requireVisible = true } = 
     return sessions;
   }
   for (const snapshot of snapshots) {
-    if (
-      !snapshot ||
-      snapshot.paneId === "" ||
-      (requireVisible && !snapshot.visible) ||
-      !snapshot.xtermReady ||
-      typeof snapshot.sessionId !== "string" ||
-      !snapshot.sessionId.startsWith("terminal_")
-    ) {
-      continue;
+    const entry = terminalSessionMapEntry(snapshot, requireVisible);
+    if (entry) {
+      sessions.set(entry.paneId, entry.sessionId);
     }
-    sessions.set(snapshot.paneId, snapshot.sessionId);
   }
   return sessions;
+}
+
+function terminalSessionMapEntry(snapshot, requireVisible) {
+  if (!terminalSnapshotHasSession(snapshot) || (requireVisible && !snapshot.visible)) {
+    return null;
+  }
+  return { paneId: snapshot.paneId, sessionId: snapshot.sessionId };
+}
+
+function terminalSnapshotHasSession(snapshot) {
+  return (
+    snapshot &&
+    snapshot.paneId !== "" &&
+    snapshot.xtermReady &&
+    typeof snapshot.sessionId === "string" &&
+    snapshot.sessionId.startsWith("terminal_")
+  );
 }
 
 function terminalSessionsMatch(snapshots, expectedSessions) {

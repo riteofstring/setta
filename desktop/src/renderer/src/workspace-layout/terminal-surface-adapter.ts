@@ -47,6 +47,7 @@ import { TerminalPasteController } from "./terminal-surface-paste";
 import { TerminalSurfaceSessionResizer } from "./terminal-surface-resize-scheduler";
 import { TerminalSearchController } from "./terminal-surface-search";
 import { mountXtermTerminal, type TerminalDisposable } from "./terminal-surface-xterm";
+import { setHostPaneChromeTitle, terminalPaneTitle } from "./pane-title-metadata";
 import { assertNever, emptyTerminalStats, performanceNow } from "./terminal-surface-utils";
 import { useRuntimeStore } from "../stores/runtime-store";
 import type {
@@ -104,7 +105,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private sessionStatus = "";
   private settings: TerminalDisplaySettings = defaultTerminalDisplaySettings;
   private startPromise: Promise<void> | null = null;
-  private status: HTMLElement | null = null;
+  private terminalStatusText = "";
   private terminal: XtermTerminal | null = null;
   private terminalDisposables: TerminalDisposable[] = [];
   private allowExplicitProfileStart = false;
@@ -139,8 +140,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.host = host;
     host.dataset.surfaceId = this.surfaceId;
     host.dataset.surfaceKind = this.kind;
+    setHostPaneChromeTitle(host, terminalPaneTitle(this.pane.terminalConfig?.cwdOverride ?? ""));
     const content = renderXtermContent(host, this.pane);
-    this.status = content.status;
     this.exitOverlay = content.exitOverlay;
     this.exitOverlayMessage = content.exitOverlayMessage;
     this.restartButton = content.restartButton;
@@ -233,7 +234,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.host?.replaceChildren();
     this.host = null;
     this.fitScheduler.setViewport(null);
-    this.status = null;
     this.exitOverlay = null;
     this.exitOverlayMessage = null;
     this.restartButton = null;
@@ -566,6 +566,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       cols: session.cols,
       rows: session.rows,
     });
+    this.showTerminalCwd(session.cwd);
     this.showStatus(statusLabel(session.status, session.cwd));
     if (session.status === "exited") {
       this.showExitOverlay(exitStatusLabel(session.exitCode, session.message));
@@ -599,6 +600,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private handleTerminalStatusEvent(event: TerminalStatusEvent): void {
     switch (event.type) {
       case "terminal.started":
+        this.showTerminalCwd(event.payload.cwd);
         this.showStatus(statusLabel(event.payload.status, event.payload.cwd));
         this.hideExitOverlay();
         break;
@@ -877,8 +879,14 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
   }
   private showStatus(message: string): void {
-    if (this.status) {
-      this.status.textContent = message;
+    this.terminalStatusText = message;
+    if (this.host) {
+      this.host.dataset.terminalStatusText = message;
+    }
+  }
+  private showTerminalCwd(cwd: string): void {
+    if (this.host) {
+      setHostPaneChromeTitle(this.host, terminalPaneTitle(cwd));
     }
   }
   private showExitOverlay(message: string): void {
@@ -938,6 +946,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.host.dataset.terminalProfileId = this.selectedProfileId;
     this.host.dataset.terminalSessionId = this.sessionId ?? "";
     this.host.dataset.terminalStatus = this.sessionStatus;
+    this.host.dataset.terminalStatusText = this.terminalStatusText;
     this.host.dataset.terminalScrollbackRows = String(this.stats.scrollbackRows);
     this.host.dataset.terminalVirtualRows = String(this.stats.renderedRows);
     this.host.style.visibility = this.visible ? "visible" : "hidden";

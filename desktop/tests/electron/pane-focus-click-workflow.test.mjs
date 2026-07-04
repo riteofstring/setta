@@ -159,7 +159,8 @@ async function waitForTerminalReady(client) {
           snapshot.xtermReady &&
           snapshot.sessionId.startsWith("terminal_") &&
           snapshot.statusText !== "" &&
-          snapshot.statusText !== "Starting shell",
+          snapshot.statusText !== "Starting shell" &&
+          snapshot.titleText === snapshot.statusText,
       ),
     (snapshots) => ({
       terminals: Array.isArray(snapshots) ? snapshots.map(summarizeTerminalSnapshot) : snapshots,

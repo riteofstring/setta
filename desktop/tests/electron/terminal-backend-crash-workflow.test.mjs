@@ -126,7 +126,8 @@ async function waitForTerminalReady(client, paneId) {
       snapshot.xtermReady &&
       snapshot.sessionId.startsWith("terminal_") &&
       snapshot.statusText !== "" &&
-      snapshot.statusText !== "Starting shell",
+      snapshot.statusText !== "Starting shell" &&
+      snapshot.titleText === snapshot.statusText,
     terminalWorkflowTimeoutMs,
   );
 }

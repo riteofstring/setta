@@ -482,6 +482,34 @@ describe("terminal surface adapter", () => {
     });
   });
 
+  test("updates pane chrome title from attached and pushed terminal cwd", async () => {
+    installSettaAPI({
+      attach: vi.fn(async () =>
+        terminalResponse("terminal_existing", "running", { cwd: "/home/ubuntu/dev" }),
+      ),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+    await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
+
+    expect(host.dataset.workspacePaneChromeTitle).toBe("/home/ubuntu/dev");
+    expect(host.dataset.workspacePaneChromeTruncation).toBe("start");
+    expect(host.dataset.terminalStatusText).toBe("/home/ubuntu/dev");
+
+    emitTerminalEvent(
+      terminalEvent("terminal.started", "terminal_existing", {
+        cwd: "/srv/current",
+        status: "running",
+      }),
+    );
+
+    expect(host.dataset.workspacePaneChromeTitle).toBe("/srv/current");
+    expect(host.dataset.terminalStatusText).toBe("/srv/current");
+  });
+
   test("records backend truncation events as terminal stats", async () => {
     installSettaAPI({
       attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
