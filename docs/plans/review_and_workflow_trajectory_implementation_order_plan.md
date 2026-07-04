@@ -319,11 +319,9 @@ Verification:
   typecheck/tests/build/dead-code, but failed runtime live Codex tests for the
   same local `approval_policy = "on-failure"` blocker above.
 
-Remaining notes: Track 9, chat image attachment file selection limits, is the
-next ordered remediation track. The current Track 8 slice bounds HTTP bytes
-requests and backend base64 decode; it intentionally does not change the
-Electron file-picker path, which still needs Track 9's path-based endpoint or
-generated-limit preflight work.
+Remaining notes: Track 9, chat image attachment file selection limits, is now
+complete. The bytes endpoint remains for renderer-owned `File` objects from
+paste/drop and stays bounded by Track 8's request-size and base64 checks.
 
 ### 3. Chat Image Attachment File Selection Limits
 
@@ -333,6 +331,43 @@ metadata work if adding a path-based attachment endpoint.
 This track is mostly independent from the workflow trajectory UI. Keep it
 separate unless a shared generated metadata surface for limits makes combining
 the work cleaner.
+
+Status: completed 2026-07-03. Added the Go-owned
+`CreateChatImageAttachmentFromPath` HTTP endpoint and regenerated the TypeScript
+backend client. The endpoint uses the existing chat-domain path creation path,
+which cleans the selected path, rejects remote sources, stats before reading,
+enforces the domain byte cap before opening/reading, decodes and validates image
+metadata, and persists the same attachment records as the bytes endpoint. Source
+stat/open/read failures now return specific source validation errors instead of
+being classified as chat persistence corruption. Electron main's OS picker path
+now passes selected local paths to the path endpoint instead of reading files
+into memory and base64-encoding them. Renderer paste/drop still uses the bytes
+endpoint because browser `File` objects do not provide trusted local paths, and
+that path remains bounded by Track 8.
+
+Verification:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./cmd/generate-contracts -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'TestChatImage(PathEndpoint|BytesEndpoint)|TestEndpointRejectsOversized' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -count=1`
+- `./scripts/go.sh test ./internal/chat -run 'TestCreateImageAttachmentFromBytesStoresMetadataAndResources|TestDecodeImageAttachmentRejectsOversizedDimensionsBeforeFullDecode' -count=1`
+- `./scripts/go.sh test ./internal/chat -count=1`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop test -- --run src/preload/index.test.ts src/shared/ipc.test.ts`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/chat-workflows.test.mjs --image-attachment-only`
+- Final post-extraction rerun: `node desktop/tests/electron/chat-workflows.test.mjs --image-attachment-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only` was attempted with ChatGPT auth available, but local Codex
+  `config/read` still returned unsupported `approval_policy = "on-failure"`, so
+  Setta rejected conversation creation as expected. This failed live-provider
+  attempt is not provider-integration proof.
+- `./scripts/format.sh`; `./check_quality.sh --git-changes`
+
+Remaining notes: Phase 3 Track 4, browser test-driver code extraction, is the
+next ordered step before adding substantial shared trajectory Electron
+coverage.
 
 ## Phase 3: Test Infrastructure Guardrails
 

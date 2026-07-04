@@ -3609,6 +3609,12 @@ export interface CreateChatImageAttachmentFromBytesRequest {
   dataBase64: string;
 }
 
+export interface CreateChatImageAttachmentFromPathRequest {
+  workspaceId: string;
+  conversationId: string;
+  sourcePath: string;
+}
+
 export interface ListChatCommandsRequest {
   workspaceId: string;
   conversationId: string;
@@ -6316,6 +6322,11 @@ export const backendEndpoints = {
     path: "/chat/attachments/images/from-bytes",
     requestBodyLimitBytes: 28224172,
   },
+  CreateChatImageAttachmentFromPath: {
+    method: "POST",
+    path: "/chat/attachments/images/from-path",
+    requestBodyLimitBytes: 4194304,
+  },
   ListChatCommands: {
     method: "POST",
     path: "/chat/commands/list",
@@ -8356,6 +8367,16 @@ export function decodeCreateChatImageAttachmentFromBytesRequest(value: unknown):
     conversationId: decodeString(requireField(record, "conversationId", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.conversationId"),
     fileName: decodeString(requireField(record, "fileName", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.fileName"),
     dataBase64: decodeString(requireField(record, "dataBase64", "CreateChatImageAttachmentFromBytesRequest"), "CreateChatImageAttachmentFromBytesRequest.dataBase64"),
+  };
+}
+
+export function decodeCreateChatImageAttachmentFromPathRequest(value: unknown): CreateChatImageAttachmentFromPathRequest {
+  const record = assertRecord(value, "CreateChatImageAttachmentFromPathRequest");
+  assertKnownFields(record, "CreateChatImageAttachmentFromPathRequest", ["workspaceId", "conversationId", "sourcePath"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateChatImageAttachmentFromPathRequest"), "CreateChatImageAttachmentFromPathRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "CreateChatImageAttachmentFromPathRequest"), "CreateChatImageAttachmentFromPathRequest.conversationId"),
+    sourcePath: decodeString(requireField(record, "sourcePath", "CreateChatImageAttachmentFromPathRequest"), "CreateChatImageAttachmentFromPathRequest.sourcePath"),
   };
 }
 
@@ -11997,6 +12018,7 @@ export interface BackendClient {
   steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
   sendSteeringImmediately: (request: SendSteeringImmediatelyRequest) => Promise<ImmediateSteeringResult>;
   createChatImageAttachmentFromBytes: (request: CreateChatImageAttachmentFromBytesRequest) => Promise<ImageAttachment>;
+  createChatImageAttachmentFromPath: (request: CreateChatImageAttachmentFromPathRequest) => Promise<ImageAttachment>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
   executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
   readChatCodexDefaults: () => Promise<ChatCodexDefaultsView>;
@@ -12327,6 +12349,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeImageAttachment,
       endpoint: backendEndpoints.CreateChatImageAttachmentFromBytes,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createChatImageAttachmentFromPath: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeImageAttachment,
+      endpoint: backendEndpoints.CreateChatImageAttachmentFromPath,
       fetchImpl,
       requestPayload: request,
     }),

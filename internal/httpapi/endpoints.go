@@ -76,6 +76,7 @@ var apiEndpoints = []endpoint{
 	post[SteerChatMessageRequest, chat.SteerMessageResult]("SteerChatMessage", "/chat/messages/steer", handler.steerChatMessage),
 	post[SendSteeringImmediatelyRequest, chat.ImmediateSteeringResult]("SendSteeringImmediately", "/chat/messages/steer/immediate", handler.sendSteeringImmediately),
 	postWithRequestBodyLimit[CreateChatImageAttachmentFromBytesRequest, chat.ImageAttachment]("CreateChatImageAttachmentFromBytes", "/chat/attachments/images/from-bytes", chatImageAttachmentRequestBodyLimitBytes(), handler.createChatImageAttachmentFromBytes),
+	post[CreateChatImageAttachmentFromPathRequest, chat.ImageAttachment]("CreateChatImageAttachmentFromPath", "/chat/attachments/images/from-path", handler.createChatImageAttachmentFromPath),
 	post[ListChatCommandsRequest, chat.ChatCommandListResult]("ListChatCommands", "/chat/commands/list", handler.listChatCommands),
 	post[ExecuteChatCommandRequest, chat.ChatCommandExecuteResult]("ExecuteChatCommand", "/chat/commands/execute", handler.executeChatCommand),
 	get[chat.ChatCodexDefaultsView]("ReadChatCodexDefaults", "/chat/codex/defaults", handler.readChatCodexDefaults),

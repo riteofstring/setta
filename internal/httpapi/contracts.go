@@ -166,6 +166,12 @@ type CreateChatImageAttachmentFromBytesRequest struct {
 	DataBase64     string `json:"dataBase64"`
 }
 
+type CreateChatImageAttachmentFromPathRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	SourcePath     string `json:"sourcePath"`
+}
+
 type ListChatCommandsRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`

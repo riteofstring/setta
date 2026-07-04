@@ -761,9 +761,9 @@ blocker;
 was attempted with ChatGPT auth available, but local Codex `config/read`
 returned unsupported `approval_policy = "on-failure"`, so Setta rejected
 conversation creation as expected. This failed live-provider attempt is not
-provider-integration proof. Remaining: Track 9. The Electron file-picker path can still read/base64-encode
-oversized selected files before backend rejection; handle that with the
-preferred path-based endpoint or generated-limit picker preflight.
+provider-integration proof. Track 9 is now complete; the Electron file-picker
+path uses the path-based endpoint instead of reading/base64-encoding selected
+files in main.
 
 ## Track 9: Chat Image Attachment File Selection Limits
 
@@ -797,21 +797,9 @@ Add a `CreateChatImageAttachmentFromPath`-style endpoint that accepts `workspace
 
 The Electron picker should pass selected paths to that endpoint instead of reading file bytes.
 
-#### 2. If the IPC surface stays byte-based, stat before read
-
-If product constraints require keeping the current bytes IPC path, Electron main must call `stat` first, reject files over the generated image max byte limit,
-and only then call `readFile`.
-
-This is the fallback shape, not the preferred design, because it still duplicates validation in Electron main and sends large base64 payloads through IPC/HTTP.
-If this fallback is used, the TypeScript side must consume the generated or metadata-exposed Go limit. It must not introduce a separate size owner, and it must
-not become the default design when the path-based endpoint is practical.
-
-#### 3. Expose attachment limits from the owned domain
-
-Publish image attachment limits through a small backend metadata endpoint or a generated contract surface. The renderer/main code can use that value for
-messages and preflight validation, while Go remains the source of truth.
-
-Do not manually mirror `20 MB` in TypeScript.
+#### 2. Fallback not used
+The byte-based picker preflight fallback and a separate limit metadata endpoint
+were not added because the preferred path endpoint was practical.
 
 ### Test Plan
 
@@ -831,6 +819,20 @@ Add Go HTTP/service tests for the new path endpoint if introduced:
 
 Because this touches chat behavior and generated backend contracts if a new endpoint is added, regenerate affected TypeScript surfaces and run the required
 deterministic app workflow coverage through Electron/main/preload/renderer/HTTP paths.
+
+### Progress
+
+Status: Completed 2026-07-03. Added the Go-owned path attachment endpoint,
+regenerated TypeScript, and routed Electron main's picker through it so selected
+local files are not read/base64-encoded before backend validation. The endpoint
+stats before read, rejects oversized/missing/directory sources specifically, and
+persists valid images like the bytes path; paste/drop still uses the bounded
+bytes endpoint for browser `File` objects. Verification covered contract
+generation, focused/full `internal/httpapi` and `internal/chat` tests, desktop
+typecheck/Vitest/build, format/quality gates, and the deterministic image
+Electron workflow. Live Codex remains blocked by local
+`approval_policy = "on-failure"`; exact commands are in the implementation
+order plan. Remaining: Track 4 next; Track 10 independent.
 
 ## Track 10: Terminal Pane Close Transaction
 

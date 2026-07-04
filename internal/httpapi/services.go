@@ -63,6 +63,7 @@ type ChatService interface {
 	KillBackgroundTerminal(context.Context, string, string, string) (chat.BackgroundTerminalProcess, error)
 	KillAllBackgroundTerminals(context.Context, string, string) (chat.BackgroundTerminalListProjection, error)
 	CreateImageAttachmentFromBytes(workspaceID string, conversationID string, fileName string, data []byte) (chat.ImageAttachment, error)
+	CreateImageAttachmentFromPath(workspaceID string, conversationID string, sourcePath string) (chat.ImageAttachment, error)
 	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)
 	ExecuteChatCommandWithOptions(workspaceID string, conversationID string, raw string, options chat.ChatCommandExecutionOptions) (chat.ChatCommandExecuteResult, error)
 	EditQueuedInput(workspaceID string, conversationID string, messageID string, input chat.ChatInput) (chat.QueueEditResult, error)

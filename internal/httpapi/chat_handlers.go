@@ -292,6 +292,23 @@ func (handler handler) createChatImageAttachmentFromBytes(response http.Response
 	writeJSON(response, http.StatusOK, attachment)
 }
 
+func (handler handler) createChatImageAttachmentFromPath(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload CreateChatImageAttachmentFromPathRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	attachment, err := service.CreateImageAttachmentFromPath(payload.WorkspaceID, payload.ConversationID, payload.SourcePath)
+	if err != nil {
+		writeChatError(response, "create_chat_image_attachment_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, attachment)
+}
+
 func decodeChatImageAttachmentBytes(response http.ResponseWriter, dataBase64 string) ([]byte, bool) {
 	if base64.StdEncoding.DecodedLen(len(dataBase64)) > chat.MaxImageAttachmentBytes {
 		writeChatImageAttachmentTooLarge(response)
