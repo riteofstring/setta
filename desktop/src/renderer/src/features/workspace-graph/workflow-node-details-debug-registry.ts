@@ -1,6 +1,6 @@
 export function registerWorkflowNodeDetailsDebugSurface(
   surfaceId: string,
-  openNodeDetails: (nodeId: string) => boolean,
+  openNodeDetails: (nodeId: string, nodeExecutionId: string) => boolean,
 ) {
   if (typeof window === "undefined") {
     return () => {};
@@ -24,14 +24,14 @@ function ensureWorkflowNodeDetailsDebugApi(): NonNullable<
   if (existing?.__surfaces instanceof Map) {
     return existing;
   }
-  const surfaces = new Map<string, (nodeId: string) => boolean>();
+  const surfaces = new Map<string, (nodeId: string, nodeExecutionId: string) => boolean>();
   const api: NonNullable<Window["__settaWorkflowNodeDetailsDebug"]> = {
     __surfaces: surfaces,
     getSurfaceIds() {
       return [...surfaces.keys()];
     },
-    openNodeDetails(surfaceId: string, nodeId: string) {
-      return surfaces.get(surfaceId)?.(nodeId) ?? false;
+    openNodeDetails(surfaceId: string, nodeId: string, nodeExecutionId = "") {
+      return surfaces.get(surfaceId)?.(nodeId, nodeExecutionId) ?? false;
     },
   };
   window.__settaWorkflowNodeDetailsDebug = api;

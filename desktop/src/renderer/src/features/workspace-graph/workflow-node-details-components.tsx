@@ -31,9 +31,9 @@ import {
   type WorkflowNodeTrajectoryState,
 } from "./workflow-node-agent-trajectory-adapter";
 import {
-  latestWorkflowNodeExecution,
   shortIdentifier,
   workflowJsonText,
+  workflowNodeExecutionForDetailsTarget,
   workflowNodeEvents,
   workflowNodeKindLabel,
 } from "./workflow-node-details-helpers";
@@ -75,7 +75,7 @@ export function WorkflowRunDetailsContent({
   if (inspection.loading || inspection.execution === null) {
     return <WorkflowDetailsEmpty message="Loading run details" />;
   }
-  const nodeExecution = latestWorkflowNodeExecution(inspection.execution, target.nodeId);
+  const nodeExecution = workflowNodeExecutionForDetailsTarget(inspection.execution, target);
   const nodeEvents = workflowNodeEvents(inspection.events, target.nodeId, nodeExecution?.id ?? "");
   return (
     <div
@@ -331,6 +331,8 @@ function WorkflowAgentTrajectorySection({
     <WorkflowDetailsSection title="Agent Trajectory">
       <div
         className="flex h-[36rem] min-h-80 flex-col overflow-hidden rounded-sm border border-zinc-800 bg-zinc-950/60"
+        data-workflow-node-execution-id={inspection.trajectory.page.scope.nodeExecutionId}
+        data-workflow-node-run-id={inspection.trajectory.page.runId}
         data-testid="workflow-node-agent-trajectory"
       >
         <div className="min-h-0 flex-1">

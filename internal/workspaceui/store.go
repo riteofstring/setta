@@ -281,6 +281,13 @@ func validateWorkflowNodeDetailsConfigRequiredFields(layoutWorkspaceID string, c
 	if config.WorkspaceID != layoutWorkspaceID {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.workspaceId %s does not match layout workspaceId %s", index, config.WorkspaceID, layoutWorkspaceID)
 	}
+	if err := validateWorkflowNodeDetailsConfigIdentityFields(config, index, path); err != nil {
+		return err
+	}
+	return validateWorkflowNodeDetailsConfigProjectionFields(config, index, path)
+}
+
+func validateWorkflowNodeDetailsConfigIdentityFields(config *WorkflowNodeDetailsPaneConfig, index int, path string) error {
 	if config.DefinitionID == "" {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.definitionId is required", index)
 	}
@@ -293,9 +300,16 @@ func validateWorkflowNodeDetailsConfigRequiredFields(layoutWorkspaceID string, c
 	if config.NodeID == "" {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeId is required", index)
 	}
+	if config.ExecutionID != "" && config.NodeExecutionID == "" {
+		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeExecutionId is required for run view", index)
+	}
 	if config.NodeLabel == "" {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.nodeLabel is required", index)
 	}
+	return nil
+}
+
+func validateWorkflowNodeDetailsConfigProjectionFields(config *WorkflowNodeDetailsPaneConfig, index int, path string) error {
 	if config.ProjectionIncomingEdges == nil {
 		return corruptStateErrorf(path, "panes[%d].workflowNodeDetailsConfig.projectionIncomingEdges must not be null", index)
 	}

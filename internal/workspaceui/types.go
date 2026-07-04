@@ -52,6 +52,7 @@ type WorkflowNodeDetailsPaneConfig struct {
 	DefinitionVersionNumber int                                  `json:"definitionVersionNumber"`
 	ExecutionID             string                               `json:"executionId"`
 	NodeID                  string                               `json:"nodeId"`
+	NodeExecutionID         string                               `json:"nodeExecutionId"`
 	NodeKind                orchestrator.WorkflowNodeKind        `json:"nodeKind"`
 	NodeLabel               string                               `json:"nodeLabel"`
 	NodeStatus              orchestrator.WorkflowGraphNodeStatus `json:"nodeStatus"`

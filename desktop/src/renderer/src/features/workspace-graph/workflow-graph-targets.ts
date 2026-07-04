@@ -30,6 +30,7 @@ export function workflowNodeDetailsTarget(
     definitionVersionNumber: projection.definitionVersionNumber,
     executionId: projection.executionId,
     nodeId,
+    nodeExecutionId: node.latestNodeExecutionId,
     nodeKind: node.kind,
     nodeLabel: node.label,
     nodeStatus: node.status,

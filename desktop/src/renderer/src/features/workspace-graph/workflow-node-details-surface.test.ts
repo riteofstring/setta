@@ -5,6 +5,7 @@ import {
   latestWorkflowNodeExecution,
   workflowConditionText,
   workflowGraphWithUpdatedAgentTask,
+  workflowNodeExecutionForDetailsTarget,
   workflowNodeEvents,
 } from "./workflow-node-details-helpers";
 
@@ -77,6 +78,23 @@ describe("workflow node details surface helpers", () => {
       "node_execution_next_iteration",
     );
     expect(latestWorkflowNodeExecution(execution, "missing")).toBeNull();
+  });
+
+  test("selects an explicit node execution for details when provided", () => {
+    const execution = testExecution([
+      nodeExecution("node_execution_first", "work", 1, 1, "succeeded"),
+      nodeExecution("node_execution_second", "work", 2, 2, "succeeded"),
+    ]);
+
+    expect(
+      workflowNodeExecutionForDetailsTarget(execution, {
+        nodeExecutionId: "node_execution_first",
+        nodeId: "work",
+      })?.id,
+    ).toBe("node_execution_first");
+    expect(
+      workflowNodeExecutionForDetailsTarget(execution, { nodeExecutionId: "", nodeId: "work" })?.id,
+    ).toBe("node_execution_second");
   });
 
   test("filters node run events by node and node execution id", () => {

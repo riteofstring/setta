@@ -176,6 +176,7 @@ function target(): WorkflowNodeDetailsTarget {
     definitionVersionNumber: 1,
     executionId: "workflow_execution_test",
     nodeId: "work",
+    nodeExecutionId: "node_execution_work",
     nodeKind: "action",
     nodeLabel: "Work",
     nodeStatus: "waiting_approval",

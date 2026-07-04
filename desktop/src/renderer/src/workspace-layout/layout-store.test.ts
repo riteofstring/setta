@@ -1080,6 +1080,7 @@ function workflowNodeDetailsConfig(
     definitionVersionNumber: 1,
     executionId: "workflow_execution_test",
     nodeId,
+    nodeExecutionId: `workflow_node_execution_${nodeId}`,
     nodeKind: "action",
     nodeLabel: nodeId,
     nodeStatus: "succeeded",

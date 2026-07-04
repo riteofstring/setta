@@ -172,7 +172,7 @@
     );
   }
 
-  function openWorkflowNodeDetailsFromGraphDebug({ nodeId, surfaceId }) {
+  function openWorkflowNodeDetailsFromGraphDebug({ nodeExecutionId = "", nodeId, surfaceId }) {
     const api = window.__settaWorkflowNodeDetailsDebug;
     if (!api) {
       return { ok: false, reason: "missing-debug-api" };
@@ -181,7 +181,7 @@
     if (!surfaceIds.includes(surfaceId)) {
       return { ok: false, reason: "surface-not-registered", surfaceIds };
     }
-    return api.openNodeDetails(surfaceId, nodeId)
+    return api.openNodeDetails(surfaceId, nodeId, nodeExecutionId)
       ? { ok: true }
       : { ok: false, reason: "node-not-opened" };
   }
@@ -224,7 +224,9 @@
       approvalText: approvalCards.map((card) => elementText(card)).join("\n"),
       disabledLoadMoreButtonCount: outputButtons.filter((button) => button.disabled).length,
       loadMoreButtonCount: outputButtons.length,
+      nodeExecutionId: trajectory?.getAttribute("data-workflow-node-execution-id") ?? "",
       outputText: outputTextForTrajectory(trajectory),
+      runId: trajectory?.getAttribute("data-workflow-node-run-id") ?? "",
       text: elementText(trajectory),
       trajectoryPresent: trajectory !== null,
       trajectorySteeringComposer: workflowNodeTrajectoryComposerStateForTrajectory(trajectory),

@@ -2780,6 +2780,7 @@ export interface WorkflowNodeDetailsPaneConfig {
   definitionVersionNumber: number;
   executionId: string;
   nodeId: string;
+  nodeExecutionId: string;
   nodeKind: WorkflowNodeKind;
   nodeLabel: string;
   nodeStatus: WorkflowGraphNodeStatus;
@@ -7259,7 +7260,7 @@ export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
 
 export function decodeWorkflowNodeDetailsPaneConfig(value: unknown): WorkflowNodeDetailsPaneConfig {
   const record = assertRecord(value, "WorkflowNodeDetailsPaneConfig");
-  assertKnownFields(record, "WorkflowNodeDetailsPaneConfig", ["definitionId", "definitionName", "definitionVersionId", "definitionVersionNumber", "executionId", "nodeId", "nodeKind", "nodeLabel", "nodeStatus", "projectionIncomingEdges", "projectionOutgoingEdges", "versionMismatch", "viewMode", "workspaceId"]);
+  assertKnownFields(record, "WorkflowNodeDetailsPaneConfig", ["definitionId", "definitionName", "definitionVersionId", "definitionVersionNumber", "executionId", "nodeId", "nodeExecutionId", "nodeKind", "nodeLabel", "nodeStatus", "projectionIncomingEdges", "projectionOutgoingEdges", "versionMismatch", "viewMode", "workspaceId"]);
   return {
     definitionId: decodeString(requireField(record, "definitionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionId"),
     definitionName: decodeString(requireField(record, "definitionName", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionName"),
@@ -7267,6 +7268,7 @@ export function decodeWorkflowNodeDetailsPaneConfig(value: unknown): WorkflowNod
     definitionVersionNumber: decodeInteger(requireField(record, "definitionVersionNumber", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionVersionNumber"),
     executionId: decodeString(requireField(record, "executionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.executionId"),
     nodeId: decodeString(requireField(record, "nodeId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeExecutionId"),
     nodeKind: decodeWorkflowNodeKind(requireField(record, "nodeKind", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeKind"),
     nodeLabel: decodeString(requireField(record, "nodeLabel", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeLabel"),
     nodeStatus: decodeWorkflowGraphNodeStatus(requireField(record, "nodeStatus", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeStatus"),

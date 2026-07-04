@@ -1,4 +1,9 @@
-import type { WorkflowEdge, WorkflowGraph, WorkflowNode } from "@generated/backend";
+import type {
+  WorkflowEdge,
+  WorkflowGraph,
+  WorkflowNode,
+  WorkflowNodeExecution,
+} from "@generated/backend";
 import { RefreshCcw, Save } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -27,12 +32,12 @@ import {
 } from "./workflow-node-agent-trajectory-adapter";
 import {
   agentTaskDraftFromNode,
-  latestWorkflowNodeExecution,
   requiredIncomingSummary,
   shortIdentifier,
   workflowConditionText,
   workflowGraphWithUpdatedAgentTask,
   workflowIncomingEdges,
+  workflowNodeExecutionForDetailsTarget,
   workflowNodeKindLabel,
   workflowOutgoingEdges,
   type AgentTaskDraft,
@@ -181,7 +186,7 @@ function useWorkflowRunInspection(target: WorkflowNodeDetailsTarget | null) {
         workflowRunEventLimit,
       ),
     ]);
-    const nodeExecution = latestWorkflowNodeExecution(execution, target.nodeId);
+    const nodeExecution = workflowNodeExecutionForDetailsTarget(execution, target);
     const { trajectory, trajectoryError } = await loadWorkflowNodeTrajectory(target, nodeExecution);
     return {
       events: eventPage.events,
@@ -444,7 +449,7 @@ function emptyWorkflowRunInspection(loading: boolean): WorkflowRunInspectionStat
 
 async function loadWorkflowNodeTrajectory(
   target: WorkflowNodeDetailsTarget,
-  nodeExecution: ReturnType<typeof latestWorkflowNodeExecution>,
+  nodeExecution: WorkflowNodeExecution | null,
 ) {
   if (!workflowNodeExecutionHasAgentTrajectory(nodeExecution)) {
     return { trajectory: null, trajectoryError: "" };
@@ -465,8 +470,8 @@ async function loadWorkflowNodeTrajectory(
 }
 
 function workflowNodeExecutionHasAgentTrajectory(
-  nodeExecution: ReturnType<typeof latestWorkflowNodeExecution>,
-): nodeExecution is NonNullable<ReturnType<typeof latestWorkflowNodeExecution>> {
+  nodeExecution: WorkflowNodeExecution | null,
+): nodeExecution is WorkflowNodeExecution {
   return (
     nodeExecution !== null &&
     (nodeExecution.runnerKind === "agent.codex" || nodeExecution.actionKind === "agent.codex")

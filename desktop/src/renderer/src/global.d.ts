@@ -235,9 +235,9 @@ interface WorkflowGraphDebugApi {
 }
 
 interface WorkflowNodeDetailsDebugApi {
-  __surfaces: Map<string, (nodeId: string) => boolean>;
+  __surfaces: Map<string, (nodeId: string, nodeExecutionId: string) => boolean>;
   getSurfaceIds: () => string[];
-  openNodeDetails: (surfaceId: string, nodeId: string) => boolean;
+  openNodeDetails: (surfaceId: string, nodeId: string, nodeExecutionId?: string) => boolean;
 }
 
 interface WorkflowGraphRuntimeHandle {

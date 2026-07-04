@@ -132,6 +132,9 @@ func TestStorePersistsWorkflowNodeDetailsPaneConfig(t *testing.T) {
 	if loaded.Layout.Panes[0].WorkflowNodeDetailsConfig.NodeID != "activity" {
 		t.Fatalf("loaded node id = %q, want activity", loaded.Layout.Panes[0].WorkflowNodeDetailsConfig.NodeID)
 	}
+	if loaded.Layout.Panes[0].WorkflowNodeDetailsConfig.NodeExecutionID != "workflow_node_execution_test" {
+		t.Fatalf("loaded node execution id = %q, want workflow_node_execution_test", loaded.Layout.Panes[0].WorkflowNodeDetailsConfig.NodeExecutionID)
+	}
 }
 
 func TestStoreRejectsWorkflowNodeDetailsConfigWorkspaceMismatch(t *testing.T) {
@@ -160,6 +163,22 @@ func TestStoreRejectsWorkflowNodeDetailsPaneWithoutConfig(t *testing.T) {
 	}
 	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "workflowNodeDetailsConfig is required") {
 		t.Fatalf("error = %T %v, want required config corrupt state", err, err)
+	}
+}
+
+func TestStoreRejectsWorkflowNodeDetailsRunConfigWithoutNodeExecution(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].WorkflowNodeDetailsConfig = testWorkflowNodeDetailsConfig(layout.WorkspaceID)
+	layout.Panes[0].WorkflowNodeDetailsConfig.NodeExecutionID = ""
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want missing workflow node execution config error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "nodeExecutionId is required for run view") {
+		t.Fatalf("error = %T %v, want required node execution corrupt state", err, err)
 	}
 }
 
@@ -302,6 +321,7 @@ func testWorkflowNodeDetailsConfig(workspaceID string) *WorkflowNodeDetailsPaneC
 		DefinitionVersionNumber: 1,
 		ExecutionID:             "workflow_execution_test",
 		NodeID:                  "activity",
+		NodeExecutionID:         "workflow_node_execution_test",
 		NodeKind:                orchestrator.NodeKindAction,
 		NodeLabel:               "Activity",
 		NodeStatus:              orchestrator.GraphNodeStatusSucceeded,

@@ -87,6 +87,18 @@ function workflowNodeExecutionIsLater(
   return candidate.scheduledAt > latest.scheduledAt;
 }
 
+export function workflowNodeExecutionForDetailsTarget(
+  execution: WorkflowExecution,
+  target: { nodeExecutionId: string; nodeId: string },
+): WorkflowNodeExecution | null {
+  if (target.nodeExecutionId !== "") {
+    return (
+      execution.nodeExecutions.find((candidate) => candidate.id === target.nodeExecutionId) ?? null
+    );
+  }
+  return latestWorkflowNodeExecution(execution, target.nodeId);
+}
+
 export function workflowNodeEvents(
   events: WorkflowEvent[],
   nodeId: string,

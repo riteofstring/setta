@@ -23,6 +23,7 @@ import {
   openWorkflowGraphPane,
 } from "./workflow-graph-layout-helpers.mjs";
 import { activityWorkflowGraph } from "./workflow-activity-feed-fixtures.mjs";
+import { assertHistoricalAttemptWorkflowNodeTrajectoryContract } from "./workflow-node-trajectory-historical-attempts.mjs";
 
 const trajectoryPrompt = "chat activity projection reload workflow";
 const approvalTrajectoryPrompt = "command approval workflow";
@@ -198,6 +199,17 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
 
     await assertSteerWorkflowNodeTrajectoryContract(context.client, workspaceId, recordingDir);
     await assertRetryWorkflowNodeTrajectoryContract(context.client, workspaceId, recordingDir);
+    await assertHistoricalAttemptWorkflowNodeTrajectoryContract({
+      client: context.client,
+      ensureWorkflowRunProjection,
+      openWorkflowGraphForDefinition,
+      openWorkflowNodeRunDetails,
+      recordingDir,
+      startWorkflowRunFromToolbar,
+      waitForWorkflowExecution,
+      waitForWorkflowNodeDetailsUILayout,
+      workspaceId,
+    });
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
@@ -661,11 +673,18 @@ async function assertWorkflowNodeDetailsOutputPagination(
   );
 }
 
-async function openWorkflowNodeRunDetails(client, surfaceId, snapshot, nodeId) {
+async function openWorkflowNodeRunDetails(
+  client,
+  surfaceId,
+  snapshot,
+  nodeId,
+  nodeExecutionId = "",
+) {
   if (!snapshot.graph.nodes.some((candidate) => candidate.id === nodeId)) {
     throw new Error(`workflow graph node ${nodeId} missing: ${JSON.stringify(snapshot.graph)}`);
   }
   const opened = await client.driver("openWorkflowNodeDetailsFromGraphDebug", {
+    nodeExecutionId,
     nodeId,
     surfaceId,
   });
@@ -987,7 +1006,13 @@ async function reloadWorkflowNodeDetailsWithPersistedTarget(
   );
 }
 
-async function waitForWorkflowNodeDetailsUILayout(client, workspaceId, executionId, nodeId) {
+async function waitForWorkflowNodeDetailsUILayout(
+  client,
+  workspaceId,
+  executionId,
+  nodeId,
+  nodeExecutionId = "",
+) {
   return waitForBackendState(
     async () => rendererWorkspace(client, "readUILayout", [workspaceId]),
     (result) =>
@@ -996,7 +1021,9 @@ async function waitForWorkflowNodeDetailsUILayout(client, workspaceId, execution
           pane.surfaceKind === "workflow-node-details" &&
           pane.workflowNodeDetailsConfig?.workspaceId === workspaceId &&
           pane.workflowNodeDetailsConfig.executionId === executionId &&
-          pane.workflowNodeDetailsConfig.nodeId === nodeId,
+          pane.workflowNodeDetailsConfig.nodeId === nodeId &&
+          (nodeExecutionId === "" ||
+            pane.workflowNodeDetailsConfig.nodeExecutionId === nodeExecutionId),
       ) === true,
   );
 }

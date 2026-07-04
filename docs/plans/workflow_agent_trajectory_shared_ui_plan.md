@@ -659,6 +659,23 @@ checks passed for `./scripts/go.sh test ./internal/workspaceui -run
 src/renderer/src/workspace-layout/layout-store.test.ts --reporter=dot`, and
 `./scripts/go.sh run ./cmd/generate-contracts` with no generated drift.
 
+Progress 2026-07-04: deterministic Electron coverage now verifies
+historical-attempt trajectory paging and exact node-execution targeting. The
+Go-owned persisted workflow-node-details pane config now carries
+`nodeExecutionId`, regenerated into TypeScript, and the renderer details target
+uses that exact node execution before falling back to the latest node execution.
+The focused Electron workflow creates a looped agent node with two historical
+node executions, reads the first and second `workflow.readNodeTrajectory` pages
+separately with a small transcript limit, loads the older page for the first
+attempt, verifies every page remains scoped to the requested `chat.run`, and
+opens rendered node details for the first node execution with persisted target
+evidence. Verification passed focused workspace UI Go tests, contract generator
+tests, focused renderer/layout/preload Vitest coverage, desktop typecheck and
+build, Electron syntax checks, and
+`node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
+Live Codex verification still remains blocked by local Codex
+`config/read` returning unsupported `approval_policy = "on-failure"`.
+
 ## Verification Plan
 
 Start narrow, then broaden.
@@ -751,5 +768,6 @@ node-scoped trajectory card, plus rendered workflow-node composer steering from
 the same node-scoped trajectory. It now also covers renderer reload while node
 details are already open for output pagination, pending approval state, and
 steerable/liveness composer state, backed by a persisted Go-owned
-workflow-node-details pane target. Historical-attempt paging remains to be
-added; full app relaunch while details are open is not separately exercised.
+workflow-node-details pane target. Historical-attempt paging is now covered with
+exact node-execution targets and run-scoped older-page assertions; full app
+relaunch while details are open is not separately exercised.

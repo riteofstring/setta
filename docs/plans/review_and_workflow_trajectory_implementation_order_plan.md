@@ -939,26 +939,26 @@ Electron. Live Codex remains blocked by local deprecated
 `config.approval_policy = "on-failure"`.
 
 Progress 2026-07-04: added deterministic renderer-reload coverage while
-workflow-node details are already open. The details pane target is now a
-Go-owned `WorkflowNodeDetailsPaneConfig` on `WorkspaceUIPane`, regenerated into
-TypeScript, saved with workspace layout, and used after reload when the
-selected-node store is empty. Reusing the one workflow-node-details pane now
-reconfigures that pane despite the surface limit, so a different node updates
-the saved target instead of focusing stale details. Focused Electron verifies
-reload recovery for output pagination, pending approval state, and
-steerable/liveness composer state before continuing through node-scoped
-load-more, approval, and steering. Verification passed focused workspace UI Go,
-contract/httpapi/preload checks, focused renderer/layout Vitest, touched
-Electron syntax/template checks, `pnpm -C desktop build`, and
+workflow-node details are already open. `WorkflowNodeDetailsPaneConfig` is
+Go-owned, regenerated, saved with workspace layout, workspace-validated, and
+used after reload when selected-node state is empty; one-pane reconfiguration
+replaces stale details targets. Focused Electron verifies reload recovery for
+pagination, approval, liveness/composer state, then continues through node
+actions. Verification passed focused workspace UI/httpapi/preload/renderer
+checks, syntax/template checks, desktop build, and
 `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
 Live E2E remains blocked by local Codex `approval_policy = "on-failure"`.
-Remaining gap: historical-attempt paging. Full app relaunch while details are
-open is not separately exercised by this renderer-reload slice.
-Audit follow-up 2026-07-04: persisted workflow-node details pane targets now
-must carry the same `workspaceId` as the owning layout. Added focused renderer
-coverage that reconfiguring the existing one-pane details surface replaces the
-saved node target; workspace UI Go, layout-store Vitest, and contract
-generation passed.
+Historical-attempt paging is now covered separately; full app relaunch while
+details are open is not separately exercised.
+
+Progress 2026-07-04: added deterministic historical-attempt trajectory paging
+and exact node-execution targeting. `WorkflowNodeDetailsPaneConfig` now
+persists `nodeExecutionId`; missing run-view IDs fail validation; the renderer
+uses exact node execution before latest. Focused Electron pages looped first
+and second node trajectories by chat run and opens rendered first-attempt
+details. Verification passed focused workspace UI/generator, renderer/preload,
+desktop build, syntax checks, and focused Electron. Live Codex remains blocked
+by local deprecated `approval_policy = "on-failure"`.
 
 ## Parallel Work Guidance
 

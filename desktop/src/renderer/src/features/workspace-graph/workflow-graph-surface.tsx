@@ -610,11 +610,20 @@ export function WorkflowGraphSurface({
     [semanticGraphState.graph, semanticGraphState.workspaceId, setSelectedSemanticNodeTarget],
   );
   const openWorkflowNodeDetails = useCallback(
-    (nodeId: string | null, activityFocus: WorkflowNodeActivityFocusInput | null = null) => {
+    (
+      nodeId: string | null,
+      activityFocus: WorkflowNodeActivityFocusInput | null = null,
+      nodeExecutionId = "",
+    ) => {
       if (workflowProjection === null || nodeId === null) {
         return;
       }
-      const target = workflowNodeDetailsTarget(workflowProjection, nodeId);
+      const projectionTarget = workflowNodeDetailsTarget(workflowProjection, nodeId);
+      const target = {
+        ...projectionTarget,
+        nodeExecutionId:
+          nodeExecutionId === "" ? projectionTarget.nodeExecutionId : nodeExecutionId,
+      };
       setSelectedNodeTarget(target, activityFocus);
       requestWorkspacePaneOpen({
         surfaceKind: "workflow-node-details",
@@ -628,14 +637,14 @@ export function WorkflowGraphSurface({
     [setSelectedNodeTarget, workflowProjection],
   );
   const openWorkflowNodeDetailsFromDebug = useCallback(
-    (nodeId: string) => {
+    (nodeId: string, nodeExecutionId: string) => {
       if (
         workflowProjection === null ||
         !workflowProjection.nodes.some((candidate) => candidate.id === nodeId)
       ) {
         return false;
       }
-      openWorkflowNodeDetails(nodeId);
+      openWorkflowNodeDetails(nodeId, null, nodeExecutionId);
       return true;
     },
     [openWorkflowNodeDetails, workflowProjection],

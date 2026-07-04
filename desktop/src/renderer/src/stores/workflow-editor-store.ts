@@ -16,6 +16,7 @@ export interface WorkflowNodeDetailsTarget {
   definitionVersionNumber: number;
   executionId: string;
   nodeId: string;
+  nodeExecutionId: string;
   nodeKind: WorkflowNodeKind;
   nodeLabel: string;
   nodeStatus: WorkflowGraphNodeStatus;

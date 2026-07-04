@@ -256,6 +256,7 @@ function workflowNodeDetailsConfig(workspaceId: string): WorkflowNodeDetailsPane
     definitionVersionNumber: 1,
     executionId: "workflow_execution_test",
     nodeId: "activity",
+    nodeExecutionId: "workflow_node_execution_test",
     nodeKind: "action",
     nodeLabel: "Activity",
     nodeStatus: "succeeded",
