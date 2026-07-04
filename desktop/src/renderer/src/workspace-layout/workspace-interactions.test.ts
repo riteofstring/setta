@@ -7,6 +7,7 @@ import {
   handleForwardedBrowserViewKey,
   handleWorkspaceClick,
   handleWorkspaceKeyDown,
+  handleWorkspacePaneFocusPointerDown,
   handleWorkspaceWheel,
 } from "./workspace-interactions";
 import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
@@ -257,9 +258,50 @@ describe("workspace pane click focus", () => {
     vi.unstubAllGlobals();
   });
 
-  test("focuses terminal panes from interior clicks without swallowing the click", () => {
+  test("focuses terminal interior clicks without scrolling the layout", () => {
     const context = workspaceClickContext();
     const event = mouseEvent({ clientX: 240, clientY: 160, target: context.terminalTarget });
+
+    handleWorkspaceClick({ ...context, event });
+
+    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("terminal-pane");
+    expect(context.runtime.store.focusPane).not.toHaveBeenCalled();
+    expect(context.runtime.store.ensureFocusedPaneVisible).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(event.stopPropagation).not.toHaveBeenCalled();
+  });
+
+  test("focuses terminal content from pointerdown capture when click propagation is stopped", () => {
+    const context = workspaceClickContext();
+    const event = pointerEvent({ clientX: 240, clientY: 160, target: context.terminalTarget });
+
+    handleWorkspacePaneFocusPointerDown({ ...context, event });
+
+    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("terminal-pane");
+    expect(context.runtime.store.focusPane).not.toHaveBeenCalled();
+    expect(context.runtime.store.ensureFocusedPaneVisible).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(event.stopPropagation).not.toHaveBeenCalled();
+  });
+
+  test("focuses non-terminal pane body clicks without scrolling the layout", () => {
+    const context = workspaceClickContext({
+      paneId: "workflow-pane",
+      surfaceKind: "workflow-graph",
+      terminal: false,
+    });
+    const event = mouseEvent({ clientX: 240, clientY: 160, target: context.paneTarget });
+
+    handleWorkspaceClick({ ...context, event });
+
+    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("workflow-pane");
+    expect(context.runtime.store.focusPane).not.toHaveBeenCalled();
+    expect(context.runtime.store.ensureFocusedPaneVisible).not.toHaveBeenCalled();
+  });
+
+  test("fully focuses panes from top bar clicks", () => {
+    const context = workspaceClickContext();
+    const event = mouseEvent({ clientX: 240, clientY: 52, target: context.terminalTarget });
 
     handleWorkspaceClick({ ...context, event });
 
@@ -267,6 +309,29 @@ describe("workspace pane click focus", () => {
     expect(context.runtime.store.ensureFocusedPaneVisible).toHaveBeenCalledWith(context.viewport);
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(event.stopPropagation).not.toHaveBeenCalled();
+  });
+
+  test("fully focuses panes from top bar pointerdown capture", () => {
+    const context = workspaceClickContext();
+    const event = pointerEvent({ clientX: 240, clientY: 52, target: context.terminalTarget });
+
+    handleWorkspacePaneFocusPointerDown({ ...context, event });
+
+    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("terminal-pane");
+    expect(context.runtime.store.ensureFocusedPaneVisible).toHaveBeenCalledWith(context.viewport);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(event.stopPropagation).not.toHaveBeenCalled();
+  });
+
+  test("reveals top bar clicks on panes already focused by content", () => {
+    const context = workspaceClickContext({ focusedPaneId: "terminal-pane" });
+    const event = pointerEvent({ clientX: 240, clientY: 52, target: context.terminalTarget });
+
+    handleWorkspacePaneFocusPointerDown({ ...context, event });
+
+    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("terminal-pane");
+    expect(context.runtime.store.focusPaneWithoutReveal).not.toHaveBeenCalled();
+    expect(context.runtime.store.ensureFocusedPaneVisible).toHaveBeenCalledWith(context.viewport);
   });
 });
 
@@ -300,33 +365,45 @@ function overviewWheelContext() {
   };
 }
 
-function workspaceClickContext() {
+function workspaceClickContext({
+  focusedPaneId = "chat-pane",
+  paneId = "terminal-pane",
+  surfaceKind = "terminal",
+  terminal = true,
+}: {
+  focusedPaneId?: string;
+  paneId?: string;
+  surfaceKind?: string;
+  terminal?: boolean;
+} = {}) {
   const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
-  const terminalHost = new FakeElement({
+  const paneHost = new FakeElement({
     rect: { bottom: 260, left: 100, right: 420, top: 40 },
-    surfaceKind: "terminal",
-    terminal: true,
+    surfaceKind,
+    terminal,
   });
-  terminalHost.dataset.paneId = "terminal-pane";
-  const terminalTarget = new FakeElement({
-    closestHost: terminalHost,
-    terminal: true,
+  paneHost.dataset.paneId = paneId;
+  const paneTarget = new FakeElement({
+    closestHost: paneHost,
+    terminal,
   });
   const store = {
     canOpenPane: vi.fn(() => false),
     ensureFocusedPaneVisible: vi.fn(),
-    focusedPaneId: vi.fn(() => "chat-pane"),
+    focusedPaneId: vi.fn(() => focusedPaneId),
     focusPane: vi.fn(() => true),
+    focusPaneWithoutReveal: vi.fn(() => true),
     getSnapshot: () => ({ presentationMode: "normal" }),
   };
   const runtime = { mode: "workspace", store } as unknown as WorkspaceRuntime;
   const scheduler = { pauseBenchmark: vi.fn() } as unknown as FrameScheduler;
   return {
-    event: mouseEvent({ clientX: 240, clientY: 160, target: terminalTarget }),
+    event: mouseEvent({ clientX: 240, clientY: 160, target: paneTarget }),
     runLayoutAction: (action: () => void) => action(),
     runtime,
     scheduler,
-    terminalTarget,
+    paneTarget,
+    terminalTarget: paneTarget,
     viewport,
     viewportProvider: () => viewport,
   };
@@ -387,6 +464,29 @@ function mouseEvent({
     stopPropagation: vi.fn(),
     target,
   } as unknown as MouseEvent & {
+    preventDefault: ReturnType<typeof vi.fn>;
+    stopPropagation: ReturnType<typeof vi.fn>;
+  };
+}
+
+function pointerEvent({
+  button = 0,
+  clientX,
+  clientY,
+  target,
+}: {
+  button?: number;
+  clientX: number;
+  clientY: number;
+  target: FakeElement;
+}): PointerEvent & {
+  preventDefault: ReturnType<typeof vi.fn>;
+  stopPropagation: ReturnType<typeof vi.fn>;
+} {
+  return {
+    ...mouseEvent({ clientX, clientY, target }),
+    button,
+  } as unknown as PointerEvent & {
     preventDefault: ReturnType<typeof vi.fn>;
     stopPropagation: ReturnType<typeof vi.fn>;
   };

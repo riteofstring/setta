@@ -61,6 +61,7 @@ import {
   handleForwardedBrowserViewKey,
   handleWorkspaceClick,
   handleWorkspaceKeyDown,
+  handleWorkspacePaneFocusPointerDown,
   handleWorkspaceWheel,
 } from "./workspace-interactions";
 import {
@@ -100,12 +101,10 @@ import {
   workspaceLayoutRecoveryMessage,
 } from "./workspace-ui-layout";
 import type { OpenPaneRequest, PaneDropIntent, Rect, SurfaceKind } from "./types";
-
 export interface WorkspaceSurfaceFocusRequest {
   requestId: number;
   surfaceKind: SurfaceKind;
 }
-
 const overviewDragThresholdPx = 6;
 
 export function WorkspaceLayoutArea({
@@ -291,7 +290,6 @@ function WorkspaceLayoutRuntimeArea({
     },
     [clearOverviewInsertPreview, runLayoutAction, runtime, stageViewport],
   );
-
   useEffect(() => {
     if (!focusSurfaceRequest || runtime.mode !== "workspace") {
       return;
@@ -302,7 +300,6 @@ function WorkspaceLayoutRuntimeArea({
       runtime.store.snapScrollToTarget();
     });
   }, [focusSurfaceRequest, runLayoutAction, runtime, stageViewport]);
-
   useEffect(() => {
     if (runtime.mode !== "workspace") {
       return;
@@ -332,7 +329,6 @@ function WorkspaceLayoutRuntimeArea({
       window.removeEventListener(workspaceOpenPaneRequestEvent, handleOpenPaneRequest);
     };
   }, [runLayoutAction, runtime, stageViewport]);
-
   useEffect(() => {
     const { hosts, root, stage } = requireWorkspaceLayoutElements({
       hostPoolSize: runtime.hostPoolSize,
@@ -590,6 +586,13 @@ function WorkspaceLayoutRuntimeArea({
       if (runtime.mode !== "workspace" && runtime.mode !== "benchmark") {
         return;
       }
+      handleWorkspacePaneFocusPointerDown({
+        event,
+        runLayoutAction,
+        runtime,
+        scheduler,
+        viewportProvider: stageViewport,
+      });
       if (runtime.store.getSnapshot().presentationMode === "overview") {
         if (beginOverviewPan(event)) {
           return;
@@ -835,7 +838,6 @@ function WorkspaceLayoutRuntimeArea({
     shortcuts,
     stageViewport,
   ]);
-
   useEffect(() => {
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
     schedulerRef.current?.requestFrame();
@@ -848,14 +850,12 @@ function WorkspaceLayoutRuntimeArea({
       onToggleProjectPane();
     }
   };
-
   const layoutRecoveryMessage = workspaceLayoutRecoveryMessage({
     dismissed: layoutRecoveryDismissed,
     layoutLoadError,
     layoutPersistenceError,
     runtime,
   });
-
   return (
     <section
       aria-label={workspaceLayoutAreaLabel(runtime.mode)}

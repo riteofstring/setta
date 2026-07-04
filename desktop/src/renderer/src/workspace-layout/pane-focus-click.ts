@@ -1,4 +1,3 @@
-const paneFocusEdgeWidthPx = 12;
 const paneFocusTopHeightPx = 30;
 const visiblePaneHostSelector = '[data-testid="workspace-pane-host"][data-visible="true"]';
 
@@ -14,37 +13,33 @@ interface PaneFocusRect {
   top: number;
 }
 
-export function paneFocusTargetFromClick(event: MouseEvent): string | null {
+export interface PaneFocusTarget {
+  paneId: string;
+  reveal: boolean;
+}
+
+export function paneFocusTargetFromClick(event: MouseEvent): PaneFocusTarget | null {
   const point = {
     x: event.clientX,
     y: event.clientY,
   };
+  const hostAtPoint = paneHostFromPoint(eventDocument(event), point);
+  if (hostAtPoint) {
+    return paneFocusTargetFromHost(hostAtPoint, point);
+  }
   const host = paneHostFromClickTarget(event.target);
   if (host) {
     return paneFocusTargetFromHost(host, point);
   }
-  return paneFocusTargetFromDocument(event.target, point);
+  return paneFocusTargetFromDocument(eventDocument(event), point);
 }
 
 export function paneFocusHitContainsPoint(rect: PaneFocusRect, point: PaneFocusPoint): boolean {
-  return (
-    pointInsideRect(rect, point) &&
-    (pointInLeftEdge(rect, point.x) ||
-      pointInRightEdge(rect, point.x) ||
-      pointInTopStrip(rect, point.y) ||
-      pointInBottomEdge(rect, point.y))
-  );
+  return pointInsideRect(rect, point);
 }
 
-export function paneFocusHitContainsPointForSurface(
-  surfaceKind: string | undefined,
-  rect: PaneFocusRect,
-  point: PaneFocusPoint,
-): boolean {
-  if (surfaceKind === "terminal") {
-    return pointInsideRect(rect, point);
-  }
-  return paneFocusHitContainsPoint(rect, point);
+export function paneFocusHitRevealsPane(rect: PaneFocusRect, point: PaneFocusPoint): boolean {
+  return paneFocusHitContainsPoint(rect, point) && pointInTopStrip(rect, point.y);
 }
 
 function paneHostFromClickTarget(target: EventTarget | null): HTMLElement | null {
@@ -54,34 +49,55 @@ function paneHostFromClickTarget(target: EventTarget | null): HTMLElement | null
   return target.closest<HTMLElement>(visiblePaneHostSelector);
 }
 
-function paneFocusTargetFromDocument(
-  target: EventTarget | null,
+function paneHostFromPoint(
+  ownerDocument: Document | null,
   point: PaneFocusPoint,
-): string | null {
-  if (!(target instanceof Element)) {
-    return null;
-  }
-  for (const host of target.ownerDocument.querySelectorAll<HTMLElement>(visiblePaneHostSelector)) {
-    const paneId = paneFocusTargetFromHost(host, point);
-    if (paneId) {
-      return paneId;
+): HTMLElement | null {
+  const stack = ownerDocument?.elementsFromPoint?.(point.x, point.y) ?? [];
+  for (const element of stack) {
+    const host = element.closest<HTMLElement>(visiblePaneHostSelector);
+    if (host && paneFocusHitContainsPoint(host.getBoundingClientRect(), point)) {
+      return host;
     }
   }
   return null;
 }
 
-function paneFocusTargetFromHost(host: HTMLElement, point: PaneFocusPoint): string | null {
-  const paneId = host.dataset.paneId;
-  if (!paneId) {
+function paneFocusTargetFromDocument(
+  ownerDocument: Document | null,
+  point: PaneFocusPoint,
+): PaneFocusTarget | null {
+  if (!ownerDocument) {
     return null;
   }
-  return paneFocusHitContainsPointForSurface(
-    host.dataset.surfaceKind,
-    host.getBoundingClientRect(),
-    point,
-  )
-    ? paneId
-    : null;
+  for (const host of ownerDocument.querySelectorAll<HTMLElement>(visiblePaneHostSelector)) {
+    const focusTarget = paneFocusTargetFromHost(host, point);
+    if (focusTarget) {
+      return focusTarget;
+    }
+  }
+  return null;
+}
+
+function eventDocument(event: MouseEvent): Document | null {
+  if (event.target instanceof Element) {
+    return event.target.ownerDocument;
+  }
+  if (event.currentTarget instanceof Element) {
+    return event.currentTarget.ownerDocument;
+  }
+  return typeof document === "undefined" ? null : document;
+}
+
+function paneFocusTargetFromHost(host: HTMLElement, point: PaneFocusPoint): PaneFocusTarget | null {
+  const paneId = host.dataset.paneId;
+  if (!paneId || !paneFocusHitContainsPoint(host.getBoundingClientRect(), point)) {
+    return null;
+  }
+  return {
+    paneId,
+    reveal: paneFocusHitRevealsPane(host.getBoundingClientRect(), point),
+  };
 }
 
 function pointInsideRect(rect: PaneFocusRect, point: PaneFocusPoint): boolean {
@@ -90,18 +106,6 @@ function pointInsideRect(rect: PaneFocusRect, point: PaneFocusPoint): boolean {
   );
 }
 
-function pointInLeftEdge(rect: PaneFocusRect, x: number): boolean {
-  return x <= rect.left + paneFocusEdgeWidthPx;
-}
-
-function pointInRightEdge(rect: PaneFocusRect, x: number): boolean {
-  return x >= rect.right - paneFocusEdgeWidthPx;
-}
-
 function pointInTopStrip(rect: PaneFocusRect, y: number): boolean {
   return y <= rect.top + paneFocusTopHeightPx;
-}
-
-function pointInBottomEdge(rect: PaneFocusRect, y: number): boolean {
-  return y >= rect.bottom - paneFocusEdgeWidthPx;
 }
