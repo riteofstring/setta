@@ -1,4 +1,4 @@
-.workspace-xterm-surface {
+.workspace-pane-content.workspace-xterm-surface {
   align-items: stretch;
   gap: 0;
   grid-template-rows: auto minmax(0, 1fr);
